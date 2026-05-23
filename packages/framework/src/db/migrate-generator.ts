@@ -17,18 +17,14 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 
-import type {
-  ColumnMeta,
-  EntityTableMeta,
-  IndexMeta,
-} from "./entity-table-meta";
+import type { ColumnMeta, EntityTableMeta, IndexMeta } from "./entity-table-meta";
 import { renderTableDdl } from "./render-ddl";
 
 const SNAPSHOT_VERSION = 1 as const;
 
 export type Snapshot = {
   readonly version: typeof SNAPSHOT_VERSION;
-  readonly generatedAt: string;       // ISO-8601
+  readonly generatedAt: string; // ISO-8601
   readonly tables: readonly EntityTableMeta[];
 };
 
@@ -235,9 +231,7 @@ function renderColumnChange(tableName: string, change: ColumnChange): readonly s
     out.push(
       `-- WARN: column-type-change ${change.typeChanged.from} → ${change.typeChanged.to}. Review USING-clause if needed.`,
     );
-    out.push(
-      `ALTER TABLE ${tbl} ALTER COLUMN ${col} TYPE ${change.typeChanged.to};`,
-    );
+    out.push(`ALTER TABLE ${tbl} ALTER COLUMN ${col} TYPE ${change.typeChanged.to};`);
   }
   return out;
 }

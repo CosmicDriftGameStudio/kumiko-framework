@@ -24,6 +24,7 @@
 //      via DB-unique-index + generateUniqueName-isAvailable-check
 //      zusammen).
 
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   setupTestStack,
   type TestStack,
@@ -41,7 +42,6 @@ import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/schema/user";
 import { AuthErrors, AuthHandlers } from "../constants";
 import { createAuthEmailPasswordFeature } from "../feature";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const APP_ACTIVATION_URL = "https://app.example.com/signup/complete";
 const capturedActivationEmails: Array<{
@@ -194,7 +194,9 @@ describe("POST /api/auth/signup-confirm", () => {
     expect(tenantRows).toHaveLength(1);
     expect(tenantRows[0]?.["key"]).toBe(body.tenantKey);
 
-    const memberships = await selectMany(stack.db, tenantMembershipsTable, { userId: body.user?.id ?? "" });
+    const memberships = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: body.user?.id ?? "",
+    });
     expect(memberships).toHaveLength(1);
     const rolesRaw = memberships[0]?.["roles"];
     if (typeof rolesRaw === "string") {

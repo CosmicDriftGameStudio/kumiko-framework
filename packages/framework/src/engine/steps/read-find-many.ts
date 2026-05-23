@@ -8,7 +8,7 @@
 // over the result, where unbounded arrays would be the bug. Set
 // `limit` explicitly when the row-count could grow without bound.
 
-import { type WhereObject, selectMany } from "../../bun-db/query";
+import { selectMany, type WhereObject } from "../../bun-db/query";
 import { defineStep } from "../define-step";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
 import { resolveOptional } from "./_resolver-utils";

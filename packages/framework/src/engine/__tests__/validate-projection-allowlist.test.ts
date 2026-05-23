@@ -4,9 +4,9 @@
 // gate (Followup #15).
 
 import { randomUUID } from "node:crypto";
-import { table as pgTable, text, uuid } from "../../db/dialect";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { table as pgTable, text, uuid } from "../../db/dialect";
 import { defineFeature } from "../define-feature";
 import { defineWriteHandler } from "../define-handler";
 import { defineStep } from "../define-step";

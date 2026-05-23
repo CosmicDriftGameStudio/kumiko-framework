@@ -5,9 +5,9 @@ import type {
   SessionMetadata,
   SessionRevoker,
 } from "@cosmicdrift/kumiko-framework/api";
+import { fetchOne, insertOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
-import { fetchOne, insertOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
 import { DEFAULT_SESSION_EXPIRY_MS } from "./constants";
@@ -64,11 +64,20 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
       // original timestamp. Double-revoke races land here via logout +
       // switch-tenant on the same sid. (Password-change uses a different
       // callback — sessionMassRevoker — and isn't in scope for this guard.)
-      await updateMany(db, userSessionTable, { revokedAt: Temporal.Now.instant() }, { id: sid, revokedAt: null });
+      await updateMany(
+        db,
+        userSessionTable,
+        { revokedAt: Temporal.Now.instant() },
+        { id: sid, revokedAt: null },
+      );
     },
 
     async sessionChecker(sid: string, expectedUserId: string): Promise<AuthSessionStatus> {
-      const row = await fetchOne<{ userId: string; revokedAt: unknown; expiresAt: { epochMilliseconds: number } }>(db, userSessionTable, { id: sid });
+      const row = await fetchOne<{
+        userId: string;
+        revokedAt: unknown;
+        expiresAt: { epochMilliseconds: number };
+      }>(db, userSessionTable, { id: sid });
       if (!row) return "missing";
       // Cross-user check: if the sid belongs to someone else, treat it
       // identically to "missing" so a compromised sid paired with a valid
@@ -87,7 +96,12 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
     async sessionMassRevoker(userId: string): Promise<number> {
       // Count is accurate because we only touch live rows — a previously
       // revoked row stays in its state and isn't double-counted.
-      const result = await updateMany(db, userSessionTable, { revokedAt: Temporal.Now.instant() }, { userId, revokedAt: null });
+      const result = await updateMany(
+        db,
+        userSessionTable,
+        { revokedAt: Temporal.Now.instant() },
+        { userId, revokedAt: null },
+      );
       return result.length;
     },
   };

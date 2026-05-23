@@ -33,9 +33,9 @@
 // fields onto tenant-owned entities (e.g. `property`) where DSGVO forget
 // doesn't apply per-user.
 
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
 import { EXT_USER_DATA, type FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { parseSerializedField } from "./lib/parse-serialized-field";
 
 const DRIZZLE_NAME_SYMBOL = Symbol.for("drizzle:Name");

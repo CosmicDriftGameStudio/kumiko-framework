@@ -8,6 +8,7 @@
 // Gegen-Beweis: User OHNE globale Rollen verhält sich wie vorher
 // (nur tenant-membership-roles in der Session).
 
+import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
@@ -30,7 +31,6 @@ import { userEntity, userTable } from "../../user/schema/user";
 import { AuthErrors, AuthHandlers } from "../constants";
 import { createAuthEmailPasswordFeature } from "../feature";
 import { hashPassword } from "../password-hashing";
-import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 const systemAdmin = TestUsers.systemAdmin;
@@ -130,11 +130,7 @@ describe("multi-roles: login mergt globale + membership-roles", () => {
     // Pin write-path: roles MUSS in DB landen, sonst ist der session-merge
     // nur Zufall (z.B. wenn login-handler hardcoded SystemAdmin reinpacken
     // würde). Direct DB-read schließt das aus.
-    const { eq } = await import("drizzle-orm");
-    const dbRow = await stack.db
-      .select({ roles: userTable["roles"] })
-      .from(userTable)
-      .where(eq(userTable["id"], userId));
+    const dbRow = await selectMany(stack.db, userTable, { id: userId });
     expect(dbRow[0]?.roles).toBe(JSON.stringify(["SystemAdmin"]));
 
     const { user } = await login("syadmin@example.com", "pw-long-enough");

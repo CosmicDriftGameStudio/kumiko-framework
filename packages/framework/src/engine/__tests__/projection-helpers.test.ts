@@ -36,7 +36,7 @@ function makeFakeEvent(overrides: Partial<StoredEvent> = {}): StoredEvent {
 // bun-db path: setFields calls updateMany(tx, table, set, where) which lands
 // on asRawClient(tx).unsafe(sqlText, params). Capture the SQL + params.
 function makeFakeTx() {
-  const unsafe = vi.fn(async () => [] as unknown[]);
+  const unsafe = vi.fn(async (_sqlText: string, _params: unknown[]) => [] as unknown[]);
   const fakeTx = { unsafe, begin: vi.fn() } as never;
   return { fakeTx, unsafe };
 }

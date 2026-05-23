@@ -74,7 +74,7 @@ function pgTypeToSqlType(pgType: PgType): string {
   }
 }
 
-function toSnakeCase(name: string): string {
+function _toSnakeCase(name: string): string {
   return name.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`).replace(/^_/, "");
 }
 
@@ -99,7 +99,9 @@ export type ColumnBuilder<TValue = unknown> = {
   readonly finalise: () => ColumnFinal;
   notNull(): ColumnBuilder<TValue>;
   primaryKey(): ColumnBuilder<TValue>;
-  default(value: TValue | SqlExpression | readonly unknown[] | number | string | boolean | null): ColumnBuilder<TValue>;
+  default(
+    value: TValue | SqlExpression | readonly unknown[] | number | string | boolean | null,
+  ): ColumnBuilder<TValue>;
   defaultRandom(): ColumnBuilder<TValue>;
   defaultNow(): ColumnBuilder<TValue>;
   generatedAlwaysAsIdentity(): ColumnBuilder<TValue>;
@@ -122,7 +124,12 @@ function buildColumn(sqlName: string, pgType: PgType): ColumnBuilder<unknown> {
     if (typeof value === "number") return String(value);
     if (typeof value === "boolean") return value ? "true" : "false";
     if (typeof value === "bigint") return value.toString();
-    if (value && typeof value === "object" && "kind" in value && (value as { kind: string }).kind === "sql-expr") {
+    if (
+      value &&
+      typeof value === "object" &&
+      "kind" in value &&
+      (value as { kind: string }).kind === "sql-expr"
+    ) {
       return (value as SqlExpression).text;
     }
     if (typeof value === "function") return null; // function-defaults stay JS-side

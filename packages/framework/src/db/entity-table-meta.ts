@@ -43,7 +43,7 @@ export type PgType =
   | "timestamptz(3)";
 
 export type ColumnMeta = {
-  readonly name: string;          // snake_case PG column name
+  readonly name: string; // snake_case PG column name
   readonly pgType: PgType;
   readonly notNull: boolean;
   // Raw SQL-default-expression (e.g. `now()`, `gen_random_uuid()`,
@@ -54,7 +54,7 @@ export type ColumnMeta = {
 
 export type IndexMeta = {
   readonly name: string;
-  readonly columns: readonly string[];   // snake_case PG column names
+  readonly columns: readonly string[]; // snake_case PG column names
   readonly unique?: boolean;
   // Raw SQL-where-expression for partial indexes. Caller is responsible
   // for safety — emitted verbatim.
@@ -92,7 +92,13 @@ export type EntityTableMeta = {
 function fullBaseColumns(idType: "uuid" | "serial", softDelete: boolean): readonly ColumnMeta[] {
   const idCol: ColumnMeta =
     idType === "uuid"
-      ? { name: "id", pgType: "uuid", notNull: true, defaultSql: "gen_random_uuid()", primaryKey: true }
+      ? {
+          name: "id",
+          pgType: "uuid",
+          notNull: true,
+          defaultSql: "gen_random_uuid()",
+          primaryKey: true,
+        }
       : { name: "id", pgType: "serial", notNull: true, primaryKey: true };
 
   const cols: ColumnMeta[] = [
@@ -283,7 +289,7 @@ export function buildEntityTableMeta(
   for (const [name, field] of Object.entries(entity.fields)) {
     const fieldCols = fieldToColumnMeta(name, field, entity);
     for (const c of fieldCols) colByName.set(c.name, c);
-    if (fieldCols.length === 1) fieldNameToSnake.set(name, fieldCols[0]!.name);
+    if (fieldCols.length === 1 && fieldCols[0]) fieldNameToSnake.set(name, fieldCols[0].name);
   }
 
   // Preserve base-col order, then any new user-col-names in fields-order.
@@ -303,9 +309,7 @@ export function buildEntityTableMeta(
     }
   }
 
-  const indexes: IndexMeta[] = [
-    { name: `${tableName}_tenant_id_idx`, columns: ["tenant_id"] },
-  ];
+  const indexes: IndexMeta[] = [{ name: `${tableName}_tenant_id_idx`, columns: ["tenant_id"] }];
 
   // FK-Indexes: file/image-Felder + belongsTo-Relations
   const fkSnakeNames = new Set<string>();

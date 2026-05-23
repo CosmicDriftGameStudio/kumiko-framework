@@ -1,8 +1,8 @@
+import { fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createSystemUser, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { USER_STATUS, userTable } from "../../user";
-import { fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // POST /api/user/restrict (S2.U6) — DSGVO Art. 18 Account-Freeze.
 // Flippt status=Active → Restricted und revoked alle live sessions
@@ -54,7 +54,12 @@ export const restrictAccountWrite = defineWriteHandler({
       );
     }
 
-    await updateMany(ctx.db.raw, userTable, { status: USER_STATUS.Restricted }, { id: event.user.id });
+    await updateMany(
+      ctx.db.raw,
+      userTable,
+      { status: USER_STATUS.Restricted },
+      { id: event.user.id },
+    );
 
     // Cross-Feature: alle live sessions revoken — sonst koennte der User
     // mit existierendem JWT bis zur Token-Expiry weiter schreiben.

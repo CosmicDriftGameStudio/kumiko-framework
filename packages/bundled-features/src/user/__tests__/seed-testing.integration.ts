@@ -6,6 +6,7 @@
 //   4. `passwordHash`-Field ist optional (User ohne Passwort, z.B. SSO-
 //      Federation, soll auch funktionieren)
 
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
@@ -21,7 +22,6 @@ import { configValuesTable } from "../../config/table";
 import { createUserFeature } from "../feature";
 import { userEntity, userTable } from "../schema/user";
 import { seedUser } from "../seeding";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 

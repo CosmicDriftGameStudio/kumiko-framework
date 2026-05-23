@@ -14,6 +14,7 @@
 //   * Forget strategy=delete: no-op — the host entity's own user-data-
 //     rights hook handles the row delete, jsonb travels with the row.
 
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
@@ -32,7 +33,6 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
@@ -44,7 +44,6 @@ import { fieldDefinitionEntity } from "../entity";
 import { createCustomFieldsFeature } from "../feature";
 import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity";
 import { wireCustomFieldsUserDataRightsFor } from "../wire-user-data-rights";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const propertyEntity = createEntity({
   table: "read_t15c_properties",
@@ -60,10 +59,13 @@ const propertyTable = buildDrizzleTable("property", propertyEntity);
 // adds its strip-sensitive-jsonb layer on top). Both hooks fire in the
 // same cleanup-run.
 const hostExportHook: UserDataExportHook = async (ctx) => {
-  const rows = await asRawClient(ctx.db).unsafe(`
+  const rows = await asRawClient(ctx.db).unsafe(
+    `
     SELECT id, name FROM read_t15c_properties
     WHERE inserted_by_id = $1 AND tenant_id = $2
-  `, [ctx.userId, ctx.tenantId]);
+  `,
+    [ctx.userId, ctx.tenantId],
+  );
   const list = rows as ReadonlyArray<Record<string, unknown>>;
   if (list.length === 0) return null;
   return {
@@ -74,16 +76,22 @@ const hostExportHook: UserDataExportHook = async (ctx) => {
 
 const hostDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
   if (strategy === "delete") {
-    await asRawClient(ctx.db).unsafe(`
+    await asRawClient(ctx.db).unsafe(
+      `
       DELETE FROM read_t15c_properties
       WHERE inserted_by_id = $1 AND tenant_id = $2
-    `, [ctx.userId, ctx.tenantId]);
+    `,
+      [ctx.userId, ctx.tenantId],
+    );
   } else {
     // anonymize: clear owner, keep row + non-sensitive customFields
-    await asRawClient(ctx.db).unsafe(`
+    await asRawClient(ctx.db).unsafe(
+      `
       UPDATE read_t15c_properties SET inserted_by_id = NULL
       WHERE inserted_by_id = $1 AND tenant_id = $2
-    `, [ctx.userId, ctx.tenantId]);
+    `,
+      [ctx.userId, ctx.tenantId],
+    );
   }
 };
 
@@ -176,7 +184,10 @@ async function setField(entityId: string, fieldKey: string, value: unknown) {
 }
 
 async function readRow(id: string): Promise<Record<string, unknown> | undefined> {
-  const rows = await asRawClient(stack.db).unsafe(`SELECT id, custom_fields FROM read_t15c_properties WHERE id = $1`, [id]);
+  const rows = await asRawClient(stack.db).unsafe(
+    `SELECT id, custom_fields FROM read_t15c_properties WHERE id = $1`,
+    [id],
+  );
   const list = rows as ReadonlyArray<Record<string, unknown>>;
   return list[0];
 }

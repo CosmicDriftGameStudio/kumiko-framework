@@ -12,6 +12,7 @@
 // ops tooling. Replay (re-apply the migration after a code fix) is a
 // separate CLI step — not implemented here, tracked as follow-up.
 
+import type { DbConnection, DbRunner } from "../db/connection";
 import {
   bigint,
   index,
@@ -22,7 +23,6 @@ import {
   timestamp,
   uuid,
 } from "../db/dialect";
-import type { DbConnection, DbRunner } from "../db/connection";
 import { tableExists } from "../db/schema-inspection";
 import { unsafePushTables } from "../stack";
 import type { StoredEvent } from "./event-store";

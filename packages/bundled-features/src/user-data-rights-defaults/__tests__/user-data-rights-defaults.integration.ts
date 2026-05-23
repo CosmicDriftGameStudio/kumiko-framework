@@ -10,12 +10,12 @@
 //   - "cross data matrix checks" (Cross-Tenant-Isolation: Tenant A's
 //     fileRef-Forget beruehrt Tenant B's Files nicht)
 
+import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
@@ -31,7 +31,6 @@ import {
 import { createUserDataRightsFeature } from "../../user-data-rights";
 import { createUserDataRightsDefaultsFeature } from "../feature";
 import { fileRefDeleteHook, fileRefExportHook, userDeleteHook, userExportHook } from "../index";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 
@@ -91,21 +90,18 @@ async function seedUser(id: string, overrides: Record<string, unknown> = {}): Pr
   // Schema hat tenant_id-Spalte automatisch (Framework-Default).
   // Pragmatisch: SYSTEM_TENANT_ID fuer User-Rows in Tests.
   const SYSTEM_TENANT = "00000000-0000-4000-8000-000000000001";
-  await stack.db
-    .insert(userTable)
-    .values({
-      id,
-      tenantId: SYSTEM_TENANT,
-      email: `user-${id}@example.com`,
-      passwordHash: "hashed-password",
-      displayName: `User ${id}`,
-      locale: "de",
-      emailVerified: true,
-      roles: '["Member"]',
-      status: USER_STATUS.Active,
-      ...overrides,
-    })
-    .onConflictDoNothing();
+  await insertOne(stack.db, userTable, {
+    id,
+    tenantId: SYSTEM_TENANT,
+    email: `user-${id}@example.com`,
+    passwordHash: "hashed-password",
+    displayName: `User ${id}`,
+    locale: "de",
+    emailVerified: true,
+    roles: '["Member"]',
+    status: USER_STATUS.Active,
+    ...overrides,
+  });
 }
 
 async function seedFileRef(
@@ -114,18 +110,24 @@ async function seedFileRef(
   insertedById: string | null,
   fileName: string,
 ): Promise<void> {
-  await asRawClient(stack.db).unsafe(`
+  await asRawClient(stack.db).unsafe(
+    `
     INSERT INTO file_refs (id, tenant_id, storage_key, file_name, mime_type, size, inserted_by_id)
     VALUES ($1, $2, $3, $4, 'application/pdf', 1024, $5)
     ON CONFLICT (id) DO NOTHING
-  `, [id, tenantId, `storage/${id}`, fileName, insertedById]);
+  `,
+    [id, tenantId, `storage/${id}`, fileName, insertedById],
+  );
 }
 
 async function fetchUser(id: string) {
-  const result = await asRawClient(stack.db).unsafe(`
+  const result = await asRawClient(stack.db).unsafe(
+    `
     SELECT id, email, display_name, password_hash, status, deleted_at
     FROM read_users WHERE id = $1
-  `, [id]);
+  `,
+    [id],
+  );
   // biome-ignore lint/suspicious/noExplicitAny: drizzle execute returns any-typed array
   const rows = ((result as any).rows ?? result) as Array<{
     id: string;
@@ -141,10 +143,18 @@ async function fetchUser(id: string) {
 async function fetchFileRefs(tenantId: string, insertedById?: string | null) {
   const result =
     insertedById === undefined
-      ? await asRawClient(stack.db).unsafe(`SELECT * FROM file_refs WHERE tenant_id = $1`, [tenantId])
+      ? await asRawClient(stack.db).unsafe(`SELECT * FROM file_refs WHERE tenant_id = $1`, [
+          tenantId,
+        ])
       : insertedById === null
-        ? await asRawClient(stack.db).unsafe(`SELECT * FROM file_refs WHERE tenant_id = $1 AND inserted_by_id IS NULL`, [tenantId])
-        : await asRawClient(stack.db).unsafe(`SELECT * FROM file_refs WHERE tenant_id = $1 AND inserted_by_id = $2`, [tenantId, insertedById]);
+        ? await asRawClient(stack.db).unsafe(
+            `SELECT * FROM file_refs WHERE tenant_id = $1 AND inserted_by_id IS NULL`,
+            [tenantId],
+          )
+        : await asRawClient(stack.db).unsafe(
+            `SELECT * FROM file_refs WHERE tenant_id = $1 AND inserted_by_id = $2`,
+            [tenantId, insertedById],
+          );
   // biome-ignore lint/suspicious/noExplicitAny: drizzle execute typing
   return (result as any).rows ?? result;
 }

@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -26,7 +27,6 @@ import { userSessionEntity, userSessionTable } from "../schema/user-session";
 import { createSessionCallbacks, type SessionCallbacks } from "../session-callbacks";
 import { sessionCallbacksFromLateBound } from "../testing";
 import { makeSessionHelpers } from "./test-helpers";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // When a user changes their password, every live session for that user must
 // stop working — the industry-standard "signs you out everywhere" rule.

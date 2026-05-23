@@ -10,6 +10,7 @@
 //
 // Pattern matched seedTextBlock aus text-content.
 
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type {
   ComplianceProfileKey,
   ComplianceProfileOverride,
@@ -17,7 +18,7 @@ import type {
 import {
   createEventStoreExecutor,
   createTenantDb,
-  type DbConnection
+  type DbConnection,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
@@ -25,7 +26,6 @@ import {
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
 } from "./schema/profile-selection";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const executor = createEventStoreExecutor(
   tenantComplianceProfileTable,
@@ -51,11 +51,9 @@ export async function seedComplianceProfile(
   const tdb = createTenantDb(db, opts.tenantId, "system");
   const overrideJson = opts.override !== undefined ? JSON.stringify(opts.override) : null;
 
-  const existing = (await fetchOne(
-    db,
-    tenantComplianceProfileTable,
-    { tenantId: opts.tenantId },
-  )) as { id: string; version: number } | null; // @cast-boundary db-runner
+  const existing = (await fetchOne(db, tenantComplianceProfileTable, {
+    tenantId: opts.tenantId,
+  })) as { id: string; version: number } | null; // @cast-boundary db-runner
 
   if (existing) {
     const result = await executor.update(

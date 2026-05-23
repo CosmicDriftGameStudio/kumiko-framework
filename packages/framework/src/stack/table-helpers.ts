@@ -1,10 +1,10 @@
 import { asRawClient } from "../bun-db/query";
 import type { DbConnection } from "../db/connection";
+import type { EntityTableMeta } from "../db/entity-table-meta";
 import { renderTableDdl } from "../db/render-ddl";
 import { tableExists } from "../db/schema-inspection";
 import { buildDrizzleTable, toTableName } from "../db/table-builder";
 import type { TestStack } from "./test-stack";
-import type { EntityTableMeta } from "../db/entity-table-meta";
 
 const DRIZZLE_NAME_SYMBOL = Symbol.for("drizzle:Name");
 function tableNameOf(table: unknown): string {

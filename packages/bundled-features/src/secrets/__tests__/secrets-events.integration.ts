@@ -6,6 +6,7 @@
 // audit query.
 
 import { randomBytes } from "node:crypto";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createEnvMasterKeyProvider,
@@ -25,7 +26,6 @@ import {
   TENANT_SECRET_READ_EVENT,
 } from "../secrets-context";
 import { tenantSecretsTable } from "../table";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const admin = createTestUser({
   id: "00000000-0000-4000-8000-000000000010",

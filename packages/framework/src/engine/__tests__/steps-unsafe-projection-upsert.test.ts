@@ -14,7 +14,7 @@ const testTable = pgTable("test_projection", {
 // New bun-db path: step uses asRawClient(ctx.db.raw).unsafe(sqlText, params).
 // Capture the raw SQL string + params per call instead of the old
 // insert/values/onConflictDoUpdate chain.
-const unsafeMock = vi.fn(async () => []);
+const unsafeMock = vi.fn(async (_sqlText: string, _params: unknown[]) => []);
 const beginMock = vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn({}));
 const rawDb = { unsafe: unsafeMock, begin: beginMock };
 const ctxDb = { raw: rawDb };

@@ -7,7 +7,7 @@ import { loadAggregate, loadAggregateAsOf } from "../event-store/event-store";
 import { upcastStoredEvents } from "../event-store/upcaster";
 import { emitProjectionRebuild } from "../observability/standard-metrics";
 import type { Meter } from "../observability/types/metric";
-import { eventConsumerStateTable, SHARED_INSTANCE_SENTINEL } from "./event-consumer-state";
+import { SHARED_INSTANCE_SENTINEL } from "./event-consumer-state";
 import type { MultiStreamApplyContext } from "./multi-stream-apply-context";
 import type { RebuildResult } from "./projection-rebuild";
 

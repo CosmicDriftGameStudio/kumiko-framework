@@ -10,13 +10,10 @@
 // through to update. Worst case: one extra roundtrip for the loser of
 // the race. Happy path: same number of queries as the pre-ES upsert.
 
-import {
-  createEventStoreExecutor,
-  type TenantDb,
-} from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createEventStoreExecutor, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
 import { notificationPreferenceEntity, notificationPreferencesTable } from "./tables";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const executor = createEventStoreExecutor(
   notificationPreferencesTable,
@@ -37,11 +34,12 @@ async function lookup(
   notificationType: string,
   channel: string,
 ): Promise<PreferenceLookupRow | undefined> {
-  return fetchOne<PreferenceLookupRow>(
-    db,
-    notificationPreferencesTable,
-    { tenantId, userId, notificationType, channel },
-  );
+  return fetchOne<PreferenceLookupRow>(db, notificationPreferencesTable, {
+    tenantId,
+    userId,
+    notificationType,
+    channel,
+  });
 }
 
 export type UpsertPreferenceInput = {

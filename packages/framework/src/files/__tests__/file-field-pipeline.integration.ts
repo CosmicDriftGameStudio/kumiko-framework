@@ -15,8 +15,8 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { asRawClient } from "../../bun-db/query";
 import {
   createEntity,
   createFileField,
@@ -37,7 +37,6 @@ import {
   unsafeCreateEntityTable,
 } from "../../stack";
 import { createLocalProvider } from "../local-provider";
-import { asRawClient } from "../../bun-db/query";
 
 // Covers ALL four file-field variants: singular (file/image) stores a UUID in
 // the entity column; plural (files/images) has no entity column — the array

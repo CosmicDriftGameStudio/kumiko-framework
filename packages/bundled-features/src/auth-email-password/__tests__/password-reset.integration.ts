@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -25,7 +26,6 @@ import { AuthErrors, AuthHandlers } from "../constants";
 import { createAuthEmailPasswordFeature } from "../feature";
 import { hashPassword, verifyPassword } from "../password-hashing";
 import { signResetToken } from "../reset-token";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // Signed tokens are forwarded out-of-band (email). In the test we grab them
 // from the sendResetEmail callback instead.

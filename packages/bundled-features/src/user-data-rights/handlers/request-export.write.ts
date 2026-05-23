@@ -22,6 +22,7 @@
 // 1. Klick — Worker liest sein Compliance-Profile aus DIESEM Tenant
 // fuer Job-TTL/Stale/Cleanup.
 
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import type { WriteFailure } from "@cosmicdrift/kumiko-framework/errors";
@@ -33,7 +34,6 @@ import {
   exportJobEntity,
   exportJobsTable,
 } from "../schema/export-job";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const crud = createEventStoreExecutor(exportJobsTable, exportJobEntity, {
   entityName: "export-job",

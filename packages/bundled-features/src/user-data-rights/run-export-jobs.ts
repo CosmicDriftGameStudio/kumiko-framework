@@ -44,12 +44,10 @@
 // (`expiresAt + exportStorageCleanupGraceHours < now`) — abgelaufene ZIPs
 // auf S3 sollen nicht ewig liegen.
 
+import { asRawClient, fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { addDurationSpec } from "@cosmicdrift/kumiko-framework/compliance";
 import type { DbConnection, DbRunner } from "@cosmicdrift/kumiko-framework/db";
-import {
-  createEventStoreExecutor,
-  createTenantDb
-} from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -58,7 +56,6 @@ import {
   type ZipEntry,
 } from "@cosmicdrift/kumiko-framework/files";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { asRawClient, fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { resolveProfileForTenant } from "../compliance-profiles";
 import { userTable } from "../user";
 import { runUserExport, type UserExportBundle } from "./run-user-export";
@@ -305,9 +302,14 @@ interface JobRow {
 }
 
 async function fetchPendingJobs(db: DbRunner): Promise<readonly JobRow[]> {
-  return selectMany<JobRow>(db, exportJobsTable, { status: EXPORT_JOB_STATUS.Pending }, {
-    orderBy: { col: "requestedAt", direction: "asc" },
-  });
+  return selectMany<JobRow>(
+    db,
+    exportJobsTable,
+    { status: EXPORT_JOB_STATUS.Pending },
+    {
+      orderBy: { col: "requestedAt", direction: "asc" },
+    },
+  );
 }
 
 type ProcessOutcome =

@@ -8,9 +8,9 @@
 //      with only a 1→2 migration fails immediately, so a missing upcaster
 //      can never silently hand half-migrated data to consumers.
 
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
+import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
 import { integer as pgInteger, table as pgTable, text as pgText } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
@@ -27,7 +27,6 @@ import {
 } from "../../stack";
 import { append, createEventsTable } from "../index";
 import { upcastStoredEvent } from "../upcaster";
-import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
 
 // --- Fixture entity + projection table ---
 
@@ -79,18 +78,10 @@ const orderFeature = defineFeature("upcastshop", (r) => {
     apply: {
       [orderPriced.name]: async (event, tx) => {
         const p = event.payload as { totalCents: number; currency: string };
-        await tx
-          .insert(orderSummaryTable)
-          .values({
-            orderId: event.aggregateId,
-            tenantId: event.tenantId,
-            totalCents: p.totalCents,
-            currency: p.currency,
-          })
-          .onConflictDoUpdate({
-            target: orderSummaryTable.orderId,
-            set: { totalCents: p.totalCents, currency: p.currency },
-          });
+        await asRawClient(tx).unsafe(
+          `INSERT INTO "read_upcast_order_summary" (order_id, tenant_id, total_cents, currency) VALUES ($1, $2, $3, $4) ON CONFLICT (order_id) DO UPDATE SET total_cents = $3, currency = $4`,
+          [event.aggregateId, event.tenantId, p.totalCents, p.currency],
+        );
       },
     },
   });
@@ -122,7 +113,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(testDb.db).unsafe(`TRUNCATE kumiko_events, read_upcast_orders, read_upcast_order_summary, kumiko_projections RESTART IDENTITY CASCADE`);
+  await asRawClient(testDb.db).unsafe(
+    `TRUNCATE kumiko_events, read_upcast_orders, read_upcast_order_summary, kumiko_projections RESTART IDENTITY CASCADE`,
+  );
 });
 
 // --- Tests ---
@@ -321,11 +314,11 @@ describe("upcaster: async (Marten AsyncOnlyEventUpcaster — DB-Lookups)", () =>
 
       r.eventMigration("placed", 1, 2, async (payload, ctx) => {
         const p = payload as { customerId: string };
-        const [row] = await ctx.db
-          .select()
-          .from(customerSegments)
-          .where(sql`${customerSegments.customerId} = ${p.customerId}`);
-        return { customerId: p.customerId, segment: row?.segment ?? "UNKNOWN" };
+        const [row] = await selectMany(ctx.db, customerSegments, { customerId: p.customerId });
+        return {
+          customerId: p.customerId,
+          segment: (row as { segment?: string } | undefined)?.segment ?? "UNKNOWN",
+        };
       });
 
       r.projection({

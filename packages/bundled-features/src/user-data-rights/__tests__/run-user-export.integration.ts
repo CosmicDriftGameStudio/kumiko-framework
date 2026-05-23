@@ -14,13 +14,13 @@
 //   - Orphan-User (0 Memberships): user-Profil-Hook laeuft trotzdem
 //     ueber Pseudo-Tenant.
 
+import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
@@ -29,7 +29,6 @@ import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../use
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults";
 import { createUserDataRightsFeature } from "../feature";
 import { runUserExport } from "../run-user-export";
-import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 
@@ -122,11 +121,14 @@ async function seedUser(
 }
 
 async function seedMembership(userId: string, tenantId: string): Promise<void> {
-  await asRawClient(stack.db).unsafe(`
+  await asRawClient(stack.db).unsafe(
+    `
     INSERT INTO read_tenant_memberships (tenant_id, user_id, roles)
     VALUES ($1, $2, '["Member"]')
     ON CONFLICT (user_id, tenant_id) DO NOTHING
-  `, [tenantId, userId]);
+  `,
+    [tenantId, userId],
+  );
 }
 
 async function seedFileRef(
@@ -135,11 +137,14 @@ async function seedFileRef(
   insertedById: string | null,
   fileName: string,
 ): Promise<void> {
-  await asRawClient(stack.db).unsafe(`
+  await asRawClient(stack.db).unsafe(
+    `
     INSERT INTO file_refs (id, tenant_id, storage_key, file_name, mime_type, size, inserted_by_id)
     VALUES ($1, $2, $3, $4, 'application/pdf', 1024, $5)
     ON CONFLICT (id) DO NOTHING
-  `, [id, tenantId, `storage/${id}`, fileName, insertedById]);
+  `,
+    [id, tenantId, `storage/${id}`, fileName, insertedById],
+  );
 }
 
 describe("runUserExport :: alle Daten enthalten + Cross-Tenant", () => {

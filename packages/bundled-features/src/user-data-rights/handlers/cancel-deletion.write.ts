@@ -1,8 +1,8 @@
+import { fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { USER_STATUS, userTable } from "../../user";
-import { fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // POST /api/user/cancel-deletion (S2.U5).
 //
@@ -61,10 +61,15 @@ export const cancelDeletionWrite = defineWriteHandler({
       );
     }
 
-    await updateMany(ctx.db.raw, userTable, {
+    await updateMany(
+      ctx.db.raw,
+      userTable,
+      {
         status: USER_STATUS.Active,
         gracePeriodEnd: null,
-      }, { id: event.user.id });
+      },
+      { id: event.user.id },
+    );
 
     // gracePeriodEnd=null im Response symmetrisch zu request-deletion's
     // ISO-Timestamp — Frontend kann beide Endpoints uniform behandeln.

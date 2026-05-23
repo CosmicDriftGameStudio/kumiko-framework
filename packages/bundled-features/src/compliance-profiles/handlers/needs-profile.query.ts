@@ -1,6 +1,6 @@
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
-import type { ComplianceProfileKey } from "@cosmicdrift/kumiko-framework/compliance";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import type { ComplianceProfileKey } from "@cosmicdrift/kumiko-framework/compliance";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { tenantComplianceProfileTable } from "../schema/profile-selection";
@@ -22,11 +22,9 @@ export const needsProfileQuery = defineQueryHandler({
   schema: z.object({}),
   access: { roles: [ROLES.TenantAdmin] },
   handler: async (query, ctx): Promise<NeedsProfileResponse> => {
-    const row = (await fetchOne(
-      ctx.db,
-      tenantComplianceProfileTable,
-      { tenantId: query.user.tenantId },
-    )) as { profileKey: ComplianceProfileKey } | null; // @cast-boundary db-runner
+    const row = (await fetchOne(ctx.db, tenantComplianceProfileTable, {
+      tenantId: query.user.tenantId,
+    })) as { profileKey: ComplianceProfileKey } | null; // @cast-boundary db-runner
 
     if (!row) {
       return {

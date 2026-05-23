@@ -8,6 +8,7 @@
 // cross-user-isolation, cross-tenant-same-user.
 
 import { randomBytes } from "node:crypto";
+import { asRawClient, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -24,7 +25,6 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import {
   createComplianceProfilesFeature,
@@ -43,7 +43,6 @@ import { createUserDataRightsFeature } from "../feature";
 import { runExportJobs } from "../run-export-jobs";
 import { exportDownloadTokenEntity, exportDownloadTokensTable } from "../schema/download-token";
 import { exportJobEntity, exportJobsTable } from "../schema/export-job";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 let providerPerTenant: Map<string, ReturnType<typeof createInMemoryFileProvider>>;
@@ -243,10 +242,7 @@ describe("download-by-token :: happy path", () => {
     expect(result.expiresAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
 
     // Audit-Update: useCount=1, lastUsedAt set, IP+UA persistiert
-    const tokenRows = (await stack.db
-      .select()
-      .from(exportDownloadTokensTable)
-      .where(sql`job_id = ${jobId}`)) as Array<{
+    const tokenRows = (await selectMany(stack.db, exportDownloadTokensTable, { jobId })) as Array<{
       useCount: number;
       lastUsedAt: { toString(): string } | null;
       lastUsedFromIp: string | null;
@@ -272,10 +268,9 @@ describe("download-by-token :: happy path", () => {
       aliceUser,
     );
 
-    const [row] = (await stack.db
-      .select()
-      .from(exportDownloadTokensTable)
-      .where(sql`job_id = ${jobId}`)) as Array<{ useCount: number }>;
+    const [row] = (await selectMany(stack.db, exportDownloadTokensTable, { jobId })) as Array<{
+      useCount: number;
+    }>;
     expect(row?.useCount).toBe(2);
   });
 });
@@ -299,10 +294,7 @@ describe("download-by-token :: error paths", () => {
     const longAgo = getTemporal().Instant.fromEpochMilliseconds(
       Date.now() - 365 * 24 * 60 * 60 * 1000,
     );
-    await stack.db
-      .update(exportDownloadTokensTable)
-      .set({ expiresAt: longAgo })
-      .where(sql`job_id = ${jobId}`);
+    await updateMany(stack.db, exportDownloadTokensTable, { expiresAt: longAgo }, { jobId });
 
     const res = await stack.http.query(
       "user-data-rights:query:download-by-token",
@@ -316,7 +308,7 @@ describe("download-by-token :: error paths", () => {
 
   test("failed Job → 404 download.unavailable", async () => {
     const { jobId, plainToken } = await seedDoneJobWithToken();
-    await stack.db.update(exportJobsTable).set({ status: "failed" }).where(sql`id = ${jobId}`);
+    await updateMany(stack.db, exportJobsTable, { status: "failed" }, { id: jobId });
 
     const res = await stack.http.query(
       "user-data-rights:query:download-by-token",
@@ -330,10 +322,7 @@ describe("download-by-token :: error paths", () => {
 
   test("storage cleared → 404 download.expired", async () => {
     const { jobId, plainToken } = await seedDoneJobWithToken();
-    await stack.db
-      .update(exportJobsTable)
-      .set({ downloadStorageKey: null })
-      .where(sql`id = ${jobId}`);
+    await updateMany(stack.db, exportJobsTable, { downloadStorageKey: null }, { id: jobId });
 
     const res = await stack.http.query(
       "user-data-rights:query:download-by-token",
@@ -369,10 +358,9 @@ describe("download-by-token :: error paths", () => {
     expect(body.error.i18nKey).toBe("userDataRights.errors.download.signedUrlNotSupported");
 
     // Sanity: Job-Row ist immer noch done — Operator-Bug aendert nicht den Job-State
-    const [row] = (await stack.db
-      .select()
-      .from(exportJobsTable)
-      .where(sql`id = ${jobId}`)) as Array<{ status: string }>;
+    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
+      status: string;
+    }>;
     expect(row?.status).toBe("done");
   });
 });
@@ -393,10 +381,7 @@ describe("download-by-job :: happy path", () => {
     expect(result.url).toMatch(/^memory:\/\//);
 
     // UI-Klick zaehlt auch als Use → audit-row updated
-    const [row] = (await stack.db
-      .select()
-      .from(exportDownloadTokensTable)
-      .where(sql`job_id = ${jobId}`)) as Array<{
+    const [row] = (await selectMany(stack.db, exportDownloadTokensTable, { jobId })) as Array<{
       useCount: number;
       lastUsedFromIp: string | null;
     }>;
@@ -408,7 +393,7 @@ describe("download-by-job :: happy path", () => {
     // Symmetrisch zum token-Test: gleicher Code-Pfad muss auch im job-
     // handler 404 + unavailable raus, nicht 500.
     const { jobId } = await seedDoneJobWithToken();
-    await stack.db.update(exportJobsTable).set({ status: "failed" }).where(sql`id = ${jobId}`);
+    await updateMany(stack.db, exportJobsTable, { status: "failed" }, { id: jobId });
 
     const res = await stack.http.query(
       "user-data-rights:query:download-by-job",
@@ -422,10 +407,7 @@ describe("download-by-job :: happy path", () => {
 
   test("storage cleared (downloadStorageKey null) → 404 download.expired (job-Pfad)", async () => {
     const { jobId } = await seedDoneJobWithToken();
-    await stack.db
-      .update(exportJobsTable)
-      .set({ downloadStorageKey: null })
-      .where(sql`id = ${jobId}`);
+    await updateMany(stack.db, exportJobsTable, { downloadStorageKey: null }, { id: jobId });
 
     const res = await stack.http.query(
       "user-data-rights:query:download-by-job",
@@ -489,10 +471,7 @@ describe("r.httpRoute :: /user-export/by-token (Magic-Link e2e)", () => {
       }),
     );
 
-    const [row] = (await stack.db
-      .select()
-      .from(exportDownloadTokensTable)
-      .where(sql`job_id = ${jobId}`)) as Array<{
+    const [row] = (await selectMany(stack.db, exportDownloadTokensTable, { jobId })) as Array<{
       useCount: number;
       lastUsedFromIp: string | null;
       lastUsedUserAgent: string | null;
@@ -550,11 +529,14 @@ describe("download-by-job :: cross-user + cross-tenant", () => {
       roles: ["Member"],
     });
     // Membership in Tenant B persisten damit auth-stack User akzeptiert
-    await asRawClient(stack.db).unsafe(`
+    await asRawClient(stack.db).unsafe(
+      `
       INSERT INTO read_tenant_memberships (tenant_id, user_id)
       VALUES ($1, $2)
       ON CONFLICT (user_id, tenant_id) DO NOTHING
-    `, [tenantB, String(aliceUser.id)]);
+    `,
+      [tenantB, String(aliceUser.id)],
+    );
 
     const result = await stack.http.queryOk<{ url: string }>(
       "user-data-rights:query:download-by-job",

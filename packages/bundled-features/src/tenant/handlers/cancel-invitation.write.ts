@@ -10,6 +10,7 @@
 // invitation = no-op + 200. Cancellen einer non-existent invitation
 // = invitation_not_found.
 
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
@@ -24,7 +25,6 @@ import {
   tenantInvitationEntity,
   tenantInvitationsTable,
 } from "../invitation-table";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const CancelInvitationSchema = z.object({
   invitationId: z.string(),
@@ -39,11 +39,9 @@ export const cancelInvitationWrite = defineWriteHandler({
   schema: CancelInvitationSchema,
   access: { roles: ["Admin"] },
   handler: async (event, ctx) => {
-    const invitation = await fetchOne(
-      ctx.db.raw,
-      tenantInvitationsTable,
-      { id: event.payload.invitationId },
-    );
+    const invitation = await fetchOne(ctx.db.raw, tenantInvitationsTable, {
+      id: event.payload.invitationId,
+    });
     if (!invitation || invitation["tenantId"] !== event.user.tenantId) {
       return writeFailure(
         new NotFoundError("tenantInvitation", event.payload.invitationId, {

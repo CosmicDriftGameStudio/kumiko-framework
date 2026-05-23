@@ -3,10 +3,10 @@ import {
   instant,
   table as pgTable,
   serial,
+  sql,
   text,
   uuid,
 } from "@cosmicdrift/kumiko-framework/db";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 
 export const inAppMessagesTable = pgTable("in_app_messages", {
   id: serial("id").primaryKey(),

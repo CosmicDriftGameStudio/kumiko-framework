@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { asRawClient, deleteMany, insertOne, selectMany, updateMany } from "../../bun-db/query";
 import { createBooleanField, createEntity, createTextField } from "../../engine";
 import {
   createTestDb,
@@ -11,7 +12,6 @@ import {
 import { table as pgTable, serial, text, timestamp } from "../dialect";
 import { buildDrizzleTable } from "../table-builder";
 import { createTenantDb } from "../tenant-db";
-import { deleteMany, insertOne, selectMany, updateMany } from "../../bun-db/query";
 
 // --- Entity table (has tenantId via buildBaseColumns) ---
 
@@ -105,10 +105,10 @@ describe("scoped mode (default)", () => {
 
       await insertOne(tdb, table, { name: "ColSelect" });
 
-      const rows = await tdb
-        .select({ id: table["id"], name: table["name"] })
-        .from(table)
-        .where(eq(table["name"], "ColSelect"));
+      const rows = await asRawClient(tdb).unsafe<Record<string, unknown>>(
+        `SELECT id, name FROM "tenant_db_items" WHERE name = $1 LIMIT 10`,
+        ["ColSelect"],
+      );
 
       expect(rows.length).toBeGreaterThanOrEqual(1);
       const row = rows[0]!;
@@ -134,7 +134,7 @@ describe("scoped mode (default)", () => {
       const tdb1 = createTenantDb(testDb.db, tenant1.tenantId);
       const tdb2 = createTenantDb(testDb.db, tenant2.tenantId);
 
-      const [row] = await tdb1.insertOne(table, { name: "T1 Update" });
+      const row = await tdb1.insertOne(table, { name: "T1 Update" });
       const id = row!["id"] as string;
 
       const result = await tdb2.updateMany(table, { name: "Hacked" }, { id: id });
@@ -149,7 +149,7 @@ describe("scoped mode (default)", () => {
     test("update without returning", async () => {
       const tdb = createTenantDb(testDb.db, tenant1.tenantId);
 
-      const [row] = await insertOne(tdb, table, { name: "NoReturn" });
+      const row = await insertOne(tdb, table, { name: "NoReturn" });
       const id = row!["id"] as string;
 
       await updateMany(tdb, table, { name: "NoReturnUpdated" }, { id: id });
@@ -164,7 +164,7 @@ describe("scoped mode (default)", () => {
       const tdb1 = createTenantDb(testDb.db, tenant1.tenantId);
       const tdb2 = createTenantDb(testDb.db, tenant2.tenantId);
 
-      const [row] = await tdb1.insertOne(table, { name: "T1 Delete" });
+      const row = await tdb1.insertOne(table, { name: "T1 Delete" });
       const id = row!["id"] as string;
 
       await tdb2.deleteMany(table, { id: id });
@@ -179,7 +179,7 @@ describe("scoped mode (default)", () => {
       const tdb1 = createTenantDb(testDb.db, tenant1.tenantId);
       const tdb2 = createTenantDb(testDb.db, tenant2.tenantId);
 
-      const [created] = await tdb1.insertOne(table, { name: "Secret" });
+      const created = await tdb1.insertOne(table, { name: "Secret" });
       const id = created!["id"] as string;
 
       const seen = await tdb2.selectMany(table, { id: id });
@@ -264,11 +264,11 @@ describe("system mode (r.systemScope())", () => {
     const scoped1 = createTenantDb(testDb.db, tenant1.tenantId);
     const scoped2 = createTenantDb(testDb.db, tenant2.tenantId);
 
-    await scoped1.insert(table).values({ name: "System-T1" }).returning();
-    await scoped2.insert(table).values({ name: "System-T2" }).returning();
+    await scoped1.insertOne(table, { name: "System-T1" });
+    await scoped2.insertOne(table, { name: "System-T2" });
 
     const systemDb = createTenantDb(testDb.db, tenant1.tenantId, "system");
-    const rows = await systemDb.select().from(table);
+    const rows = await systemDb.selectMany(table);
 
     const tenantIds = new Set(rows.map((r) => r!["tenantId"]));
     // Must see rows from at least 2 different tenants
@@ -279,14 +279,14 @@ describe("system mode (r.systemScope())", () => {
     const systemDb = createTenantDb(testDb.db, tenant1.tenantId, "system");
 
     // Without explicit tenantId — uses the default (tenant1)
-    const [defaultRow] = await systemDb.insert(table).values({ name: "SystemDefault" }).returning();
+    const defaultRow = await systemDb.insertOne(table, { name: "SystemDefault" });
     expect(defaultRow!["tenantId"]).toBe(testTenantId(1));
 
     // With explicit tenantId — handler's value wins
-    const [overrideRow] = await systemDb
-      .insert(table)
-      .values({ name: "SystemOverride", tenantId: testTenantId(99) })
-      .returning();
+    const overrideRow = await systemDb.insertOne(table, {
+      name: "SystemOverride",
+      tenantId: testTenantId(99),
+    });
     expect(overrideRow!["tenantId"]).toBe(testTenantId(99));
   });
 
@@ -298,55 +298,47 @@ describe("system mode (r.systemScope())", () => {
 
     // In scoped mode, tenantId: 77 would be overridden to 1
     const scopedDb = createTenantDb(testDb.db, tenant1.tenantId);
-    const [scopedRow] = await scopedDb
-      .insert(table)
-      .values({ name: "ScopedForce", tenantId: testTenantId(77) })
-      .returning();
+    const scopedRow = await scopedDb.insertOne(table, {
+      name: "ScopedForce",
+      tenantId: testTenantId(77),
+    });
     expect(scopedRow!["tenantId"]).toBe(testTenantId(1)); // forced
 
     // In unscoped mode, explicit tenantId wins
-    const [unscopedRow] = await systemDb
-      .insert(table)
-      .values({ name: "SystemExplicit", tenantId: testTenantId(77) })
-      .returning();
+    const unscopedRow = await systemDb.insertOne(table, {
+      name: "SystemExplicit",
+      tenantId: testTenantId(77),
+    });
     expect(unscopedRow!["tenantId"]).toBe(testTenantId(77)); // handler wins
   });
 
   test("update affects rows from any tenant", async () => {
     const scoped2 = createTenantDb(testDb.db, tenant2.tenantId);
-    const [row] = await scoped2.insert(table).values({ name: "T2-System-Upd" }).returning();
+    const row = await scoped2.insertOne(table, { name: "T2-System-Upd" });
     const id = row!["id"] as string;
 
     // Scoped tenant 1 cannot update tenant 2's row
     const scoped1 = createTenantDb(testDb.db, tenant1.tenantId);
-    const scopedResult = await scoped1
-      .update(table)
-      .set({ name: "ScopedFail" })
-      .where(eq(table["id"], id))
-      .returning();
+    const scopedResult = await scoped1.updateMany(table, { name: "ScopedFail" }, { id: id });
     expect(scopedResult).toHaveLength(0);
 
     // Unscoped CAN update tenant 2's row
     const systemDb = createTenantDb(testDb.db, tenant1.tenantId, "system");
-    const [updated] = await systemDb
-      .update(table)
-      .set({ name: "SystemWin" })
-      .where(eq(table["id"], id))
-      .returning();
-    expect(updated!["name"]).toBe("SystemWin");
+    const updated = await systemDb.updateMany(table, { name: "SystemWin" }, { id: id });
+    expect(updated[0]!["name"]).toBe("SystemWin");
   });
 
   test("delete affects rows from any tenant", async () => {
     const scoped2 = createTenantDb(testDb.db, tenant2.tenantId);
-    const [row] = await scoped2.insert(table).values({ name: "T2-System-Del" }).returning();
+    const row = await scoped2.insertOne(table, { name: "T2-System-Del" });
     const id = row!["id"] as string;
 
     // Unscoped can delete tenant 2's row from tenant 1 context
     const systemDb = createTenantDb(testDb.db, tenant1.tenantId, "system");
-    await systemDb.delete(table).where(eq(table["id"], id));
+    await systemDb.deleteMany(table, { id: id });
 
     // Verify it's gone
-    const remaining = await scoped2.select().from(table).where(eq(table["id"], id));
+    const remaining = await scoped2.selectMany(table, { id: id });
     expect(remaining).toHaveLength(0);
   });
 });
@@ -369,7 +361,7 @@ describe("tables without tenantId column", () => {
   test("insert does not inject tenantId", async () => {
     const tdb = createTenantDb(testDb.db, tenant1.tenantId);
 
-    const [row] = await insertOne(tdb, systemTable, { label: "NoTenantInjection" });
+    const row = await insertOne(tdb, systemTable, { label: "NoTenantInjection" });
     const data = row!;
     expect(data["label"]).toBe("NoTenantInjection");
     // No tenantId column at all — should not be in the result
@@ -388,7 +380,7 @@ describe("tables without tenantId column", () => {
   test("update works without tenant filter", async () => {
     const tdb = createTenantDb(testDb.db, tenant1.tenantId);
 
-    const [row] = await insertOne(tdb, systemTable, { label: "BeforeUpd" });
+    const row = await insertOne(tdb, systemTable, { label: "BeforeUpd" });
     const id = row!["id"] as number;
 
     await updateMany(tdb, systemTable, { label: "AfterUpd" }, { id: id });
@@ -400,7 +392,7 @@ describe("tables without tenantId column", () => {
   test("delete works without tenant filter", async () => {
     const tdb = createTenantDb(testDb.db, tenant1.tenantId);
 
-    const [row] = await insertOne(tdb, systemTable, { label: "ToDelete" });
+    const row = await insertOne(tdb, systemTable, { label: "ToDelete" });
     const id = row!["id"] as number;
 
     await deleteMany(tdb, systemTable, { id: id });
@@ -435,7 +427,7 @@ describe("mass-update guard", () => {
     await insertOne(tdb, table, { name: "MassUpdateVictim1" });
     await insertOne(tdb, table, { name: "MassUpdateVictim2" });
 
-    await expect(tdb.update(table).set({ name: "Wiped" }).returning()).rejects.toThrow(
+    await expect((tdb as any).updateMany(table, { name: "Wiped" })).rejects.toThrow(
       /without \.where\(\) would mass-update/,
     );
 
@@ -449,7 +441,9 @@ describe("mass-update guard", () => {
     const tdb = createTenantDb(testDb.db, tenant1.tenantId);
     await insertOne(tdb, table, { name: "AwaitGuardVictim" });
 
-    const promise = tdb.update(table).set({ name: "WipedByAwait" }) as unknown as Promise<void>;
+    const promise = (tdb as any).updateMany(table, {
+      name: "WipedByAwait",
+    }) as unknown as Promise<void>;
     await expect(promise).rejects.toThrow(/awaited without \.where\(\) would mass-update/);
 
     const untouched = await selectMany(tdb, table);
@@ -459,7 +453,7 @@ describe("mass-update guard", () => {
 
   test(".set().where(...).returning() still works (guard only triggers on missing where)", async () => {
     const tdb = createTenantDb(testDb.db, tenant1.tenantId);
-    const [row] = await insertOne(tdb, table, { name: "HappyPath" });
+    const row = await insertOne(tdb, table, { name: "HappyPath" });
     const id = row!["id"] as string;
 
     const updated = await updateMany(tdb, table, { name: "HappyPathUpdated" }, { id: id });
@@ -541,7 +535,7 @@ describe("pre-flight signal cancellation", () => {
       controller.signal,
     );
 
-    const [first] = await insertOne(tdb, table, { name: "preflight-first" });
+    const first = await insertOne(tdb, table, { name: "preflight-first" });
     expect(first).toBeDefined();
 
     controller.abort();

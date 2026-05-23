@@ -1,5 +1,6 @@
 // S2.U7 — my-audit-log + invalid-attempt-audit + list-download-attempts.
 
+import { asRawClient, insertMany, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -8,7 +9,6 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import {
   createComplianceProfilesFeature,
@@ -19,7 +19,6 @@ import { USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserFeature } from "../../user/feature";
 import { createUserDataRightsFeature } from "../feature";
 import { downloadAttemptEntity, downloadAttemptsTable } from "../schema/download-attempt";
-import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const MY_AUDIT = "user-data-rights:query:my-audit-log";
 const LIST_ATTEMPTS = "user-data-rights:query:list-download-attempts";
@@ -79,12 +78,24 @@ async function seedEvent(
   payload: object,
 ): Promise<void> {
   _eventVersion += 1;
-  await asRawClient(stack.db).unsafe(`
+  await asRawClient(stack.db).unsafe(
+    `
     INSERT INTO kumiko_events
     (tenant_id, aggregate_type, aggregate_id, version, type, payload, metadata, created_at, created_by)
     VALUES ($1, $2, $3,
             $4, $5, $6, $7, now(), $8)
-  `, [tenantId, "test-aggregate", "00000000-0000-4000-8000-00000000aaaa", _eventVersion, type, JSON.stringify(payload), "{}", createdBy]);
+  `,
+    [
+      tenantId,
+      "test-aggregate",
+      "00000000-0000-4000-8000-00000000aaaa",
+      _eventVersion,
+      type,
+      JSON.stringify(payload),
+      "{}",
+      createdBy,
+    ],
+  );
 }
 
 describe("my-audit-log", () => {
@@ -162,7 +173,7 @@ describe("list-download-attempts (DPO operator-query)", () => {
     // Direct-INSERT in attempts (simuliert was die download-handler schreiben).
     const T = await import("@cosmicdrift/kumiko-framework/time");
     const now = T.getTemporal().Now.instant();
-    await insertOne(stack.db, downloadAttemptsTable, [
+    await insertMany(stack.db, downloadAttemptsTable, [
       {
         id: "11111111-1111-4111-8111-111111111111",
         tenantId: tenantA,

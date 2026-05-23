@@ -15,13 +15,13 @@
 // Unit-Test pinned (policy-to-strategy.test.ts), nicht hier. Hier nur
 // der end-to-end-Default-Pfad (delete).
 
+import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
@@ -37,7 +37,6 @@ import {
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults";
 import { createUserDataRightsFeature } from "../feature";
 import { runForgetCleanup } from "../run-forget-cleanup";
-import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 
@@ -147,11 +146,14 @@ async function seedUser(
 }
 
 async function seedMembership(userId: string, tenantId: string): Promise<void> {
-  await asRawClient(stack.db).unsafe(`
+  await asRawClient(stack.db).unsafe(
+    `
     INSERT INTO read_tenant_memberships (tenant_id, user_id, roles)
     VALUES ($1, $2, '["Member"]')
     ON CONFLICT (user_id, tenant_id) DO NOTHING
-  `, [tenantId, userId]);
+  `,
+    [tenantId, userId],
+  );
 }
 
 async function seedFileRef(
@@ -160,11 +162,14 @@ async function seedFileRef(
   insertedById: string | null,
   fileName: string,
 ): Promise<void> {
-  await asRawClient(stack.db).unsafe(`
+  await asRawClient(stack.db).unsafe(
+    `
     INSERT INTO file_refs (id, tenant_id, storage_key, file_name, mime_type, size, inserted_by_id)
     VALUES ($1, $2, $3, $4, 'application/pdf', 1024, $5)
     ON CONFLICT (id) DO NOTHING
-  `, [id, tenantId, `storage/${id}`, fileName, insertedById]);
+  `,
+    [id, tenantId, `storage/${id}`, fileName, insertedById],
+  );
 }
 
 async function fetchUser(id: string): Promise<{
@@ -174,10 +179,13 @@ async function fetchUser(id: string): Promise<{
   status: string;
   deleted_at: string | null;
 } | null> {
-  const result = await asRawClient(stack.db).unsafe(`
+  const result = await asRawClient(stack.db).unsafe(
+    `
     SELECT email, display_name, password_hash, status, deleted_at
     FROM read_users WHERE id = $1
-  `, [id]);
+  `,
+    [id],
+  );
   // biome-ignore lint/suspicious/noExplicitAny: drizzle execute typing
   const rows = ((result as any).rows ?? result) as Array<{
     email: string;
@@ -190,18 +198,24 @@ async function fetchUser(id: string): Promise<{
 }
 
 async function fetchFileRefsForUser(tenantId: string, userId: string): Promise<unknown[]> {
-  const result = await asRawClient(stack.db).unsafe(`
+  const result = await asRawClient(stack.db).unsafe(
+    `
     SELECT id, file_name, inserted_by_id
     FROM file_refs WHERE tenant_id = $1 AND inserted_by_id = $2
-  `, [tenantId, userId]);
+  `,
+    [tenantId, userId],
+  );
   // biome-ignore lint/suspicious/noExplicitAny: drizzle execute typing
   return ((result as any).rows ?? result) as unknown[];
 }
 
 async function fetchAllFileRefs(tenantId: string): Promise<unknown[]> {
-  const result = await asRawClient(stack.db).unsafe(`
+  const result = await asRawClient(stack.db).unsafe(
+    `
     SELECT id, file_name, inserted_by_id FROM file_refs WHERE tenant_id = $1
-  `, [tenantId]);
+  `,
+    [tenantId],
+  );
   // biome-ignore lint/suspicious/noExplicitAny: drizzle execute typing
   return ((result as any).rows ?? result) as unknown[];
 }
@@ -353,9 +367,12 @@ describe("runForgetCleanup :: PII-Audit nach Cleanup", () => {
     });
 
     // Cross-Tabellen-PII-Check: koennen wir noch IRGENDWO Original-Werte finden?
-    const userRows = await asRawClient(stack.db).unsafe(`
+    const userRows = await asRawClient(stack.db).unsafe(
+      `
       SELECT id FROM read_users WHERE email = $1 OR display_name = $2
-    `, [ORIGINAL_EMAIL, ORIGINAL_NAME]);
+    `,
+      [ORIGINAL_EMAIL, ORIGINAL_NAME],
+    );
     // biome-ignore lint/suspicious/noExplicitAny: drizzle execute typing
     const userMatches = (userRows as any).rows ?? userRows;
     expect(userMatches).toHaveLength(0);

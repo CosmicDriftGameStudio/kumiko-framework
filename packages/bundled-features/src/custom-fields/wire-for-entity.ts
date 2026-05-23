@@ -1,9 +1,9 @@
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createJsonbField,
   type FeatureRegistrar,
   type JsonbFieldDef,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { CUSTOM_FIELDS_EXTENSION } from "./constants";
 
 const DRIZZLE_NAME_SYMBOL = Symbol.for("drizzle:Name");
@@ -14,6 +14,7 @@ function getTableName(table: unknown): string {
   }
   throw new Error("wire-for-entity: table missing drizzle:Name symbol");
 }
+
 import type { CustomFieldClearedPayload, CustomFieldSetPayload } from "./events";
 import { customFieldsFeature } from "./feature";
 
@@ -130,10 +131,9 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
         if (payload.entityName !== entityName) return;
 
         const tbl = `"${getTableName(entityTable)}"`;
-        await asRawClient(tx).unsafe(
-          `UPDATE ${tbl} SET custom_fields = custom_fields - $1`,
-          [payload.fieldKey],
-        );
+        await asRawClient(tx).unsafe(`UPDATE ${tbl} SET custom_fields = custom_fields - $1`, [
+          payload.fieldKey,
+        ]);
       },
     },
   });

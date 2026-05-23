@@ -32,7 +32,12 @@
 // gefailten Hooks bleibt im DeletionRequested-Status (next Lauf
 // retried automatisch).
 
-import { asRawClient, fetchOne, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  asRawClient,
+  fetchOne,
+  selectMany,
+  updateMany,
+} from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import {
   EXT_USER_DATA,
@@ -212,11 +217,9 @@ async function processUser(args: {
     userPreTx?.email && userPreTx.email.length > 0 ? userPreTx.email : null;
 
   // Memberships fuer diesen User holen — alle Tenants in denen er Mitglied ist.
-  const memberships = await selectMany<{ tenantId: TenantId }>(
-    db,
-    tenantMembershipsTable,
-    { userId },
-  );
+  const memberships = await selectMany<{ tenantId: TenantId }>(db, tenantMembershipsTable, {
+    userId,
+  });
   // tenant-Liste fuer Atom 5b Email — Memberships VOR Tx, weil hooks
   // memberships in der Tx loeschen. Orphan-User (0 memberships) liefert
   // [] in Email-args; App-Author-Template kann das case-handlen.
@@ -247,7 +250,8 @@ async function processUser(args: {
   let currentTenantId: TenantId | null = null;
   let currentEntityName: string | null = null;
   try {
-    await (db as { begin: (fn: (tx: DbRunner) => Promise<void>) => Promise<void> }).begin(async (tx) => {
+    await (db as { begin: (fn: (tx: DbRunner) => Promise<void>) => Promise<void> }).begin(
+      async (tx) => {
         for (const tenantId of tenantList) {
           currentTenantId = tenantId;
           for (const entry of hookEntries) {
@@ -271,7 +275,8 @@ async function processUser(args: {
         // Run retried.
         await updateMany(tx, userTable, { status: USER_STATUS.Deleted }, { id: userId });
         txSucceeded = true;
-      });
+      },
+    );
   } catch (e) {
     // currentTenantId/currentEntityName tracken den Failing-Hook —
     // Operator sieht "Hook fileRef in Tenant A failed for user X" statt

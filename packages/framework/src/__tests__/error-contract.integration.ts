@@ -5,6 +5,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
+import { asRawClient } from "../bun-db/query";
 import { createEventStoreExecutor } from "../db/event-store-executor";
 import { buildDrizzleTable } from "../db/table-builder";
 import {
@@ -28,7 +29,6 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "../stack";
-import { asRawClient } from "../bun-db/query";
 
 // --- Entity + handlers that deliberately raise each Kumiko error class ---
 

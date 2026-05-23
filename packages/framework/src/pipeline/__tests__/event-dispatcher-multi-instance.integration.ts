@@ -19,6 +19,7 @@
 // here first.
 
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
+import { insertMany } from "../../bun-db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { defineFeature } from "../../engine";
@@ -38,7 +39,6 @@ import {
 } from "../../stack";
 import { sharedWidgetEntity, sharedWidgetTable } from "../../testing";
 import { generateId } from "../../utils";
-import { insertOne } from "../../bun-db/query";
 
 // --- Fixture ---
 
@@ -92,7 +92,7 @@ async function bulkSeedWidgetCreated(count: number, namePrefix: string): Promise
     metadata: { userId: admin.id },
     createdBy: admin.id,
   }));
-  await insertOne(stack.db, eventsTable, rows);
+  await insertMany(stack.db, eventsTable, rows);
 }
 
 function buildDispatcherWith(consumers: readonly EventConsumer[]): EventDispatcher {

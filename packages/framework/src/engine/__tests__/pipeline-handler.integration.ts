@@ -45,6 +45,7 @@
 import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
+import { asRawClient, selectMany } from "../../bun-db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { eventsTable } from "../../event-store";
@@ -59,7 +60,6 @@ import { defineFeature } from "../define-feature";
 import { defineWriteHandler } from "../define-handler";
 import { createEntity, createTextField } from "../factories";
 import { pipeline } from "../pipeline";
-import { asRawClient, selectMany } from "../../bun-db/query";
 
 const echoSchema = z.object({ greeting: z.string() });
 
@@ -340,7 +340,7 @@ const lookupHandler = defineWriteHandler({
     ({ event, r }) => [
       r.step.read.findOne("widget", {
         table: widgetTable,
-        where: () => eq(widgetTable.id, event.payload.id),
+        where: () => ({ id: event.payload.id }),
       }),
       r.step.return(({ steps }) => {
         const row = steps["widget"] as { label?: string } | null;
@@ -390,7 +390,7 @@ const purgeLogHandler = defineWriteHandler({
   perform: pipeline<z.infer<typeof purgeLogSchema>, { ok: true }>(({ event, r }) => [
     r.step.unsafeProjectionDelete({
       table: pipelineDemoLogTable,
-      where: () => eq(pipelineDemoLogTable.correlationId, event.payload.correlationId),
+      where: () => ({ correlationId: event.payload.correlationId }),
     }),
     r.step.return({ isSuccess: true as const, data: { ok: true } }),
   ]),
@@ -495,7 +495,7 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
     // across runs — order-independent assertions are the only kind that
     // stay green when test-files grow (Memory `feedback_jsdom_lies_*`
     // analog: order-dependent tests are flaky-in-waiting).
-    await asRawClient(stack.db).unsafe(`DELETE FROM "${pipelineDemoLogTable.tableName}"`);
+    await asRawClient(stack.db).unsafe(`DELETE FROM "${(pipelineDemoLogTable as any).tableName}"`);
     await asRawClient(stack.db).unsafe(`DELETE FROM "${widgetTable.tableName}"`);
   });
 
@@ -743,7 +743,9 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
 
   test("unsafeProjectionDelete is a silent no-op when the where-clause matches no rows", async () => {
     // Precondition: nothing with this correlation-id exists.
-    const before = await selectMany(stack.db, pipelineDemoLogTable, { correlationId: "no-match-id" });
+    const before = await selectMany(stack.db, pipelineDemoLogTable, {
+      correlationId: "no-match-id",
+    });
     expect(before).toHaveLength(0);
 
     // Purge anyway — drizzle's DELETE-WHERE with no match commits silently.
@@ -785,7 +787,9 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
       admin,
     );
     expect(res.status).toBe(200);
-    const rows = await selectMany(stack.db, pipelineDemoLogTable, { correlationId: "branch-truthy" });
+    const rows = await selectMany(stack.db, pipelineDemoLogTable, {
+      correlationId: "branch-truthy",
+    });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.message).toBe("real");
   });
@@ -797,7 +801,9 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
       admin,
     );
     expect(res.status).toBe(200);
-    const rows = await selectMany(stack.db, pipelineDemoLogTable, { correlationId: "branch-falsy" });
+    const rows = await selectMany(stack.db, pipelineDemoLogTable, {
+      correlationId: "branch-falsy",
+    });
     expect(rows).toHaveLength(0);
   });
 

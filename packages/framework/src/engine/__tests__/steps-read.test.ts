@@ -14,7 +14,9 @@ const testTable = pgTable("test_read", {
 // bun-db path: read-find-many/one call selectMany(ctx.db.raw, table, where, opts)
 // which goes through asRawClient(ctx.db.raw).unsafe(sqlText, params).
 // Mock the .unsafe() return value to feed back rows.
-const unsafeMock = vi.fn(async (): Promise<Record<string, unknown>[]> => []);
+const unsafeMock = vi.fn(
+  async (_sqlText: string, _params: unknown[]): Promise<Record<string, unknown>[]> => [],
+);
 const rawDb = { unsafe: unsafeMock, begin: vi.fn() };
 const ctxDb = { raw: rawDb };
 

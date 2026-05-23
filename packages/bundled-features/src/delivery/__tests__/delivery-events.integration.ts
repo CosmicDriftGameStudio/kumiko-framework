@@ -6,6 +6,7 @@
 // aggregateType) fails loudly instead of breaking downstream consumers
 // (MSPs, audit-feature, event-replays) who subscribe by name.
 
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -29,7 +30,6 @@ import { deliveryAttemptSchema } from "../events";
 import { createDeliveryFeature } from "../feature";
 import { deliveryAttemptsTable, notificationPreferencesTable } from "../tables";
 import type { DeliveryService } from "../types";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 let db: DbConnection;

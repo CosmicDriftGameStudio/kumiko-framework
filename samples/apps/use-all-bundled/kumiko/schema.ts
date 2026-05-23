@@ -8,10 +8,7 @@
 import { deliveryAttemptsTableMeta } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { jobRunLogsTableMeta } from "@cosmicdrift/kumiko-bundled-features/jobs";
 import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features";
-import {
-  buildEntityTableMeta,
-  type EntityTableMeta,
-} from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTableMeta, type EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import { APP_FEATURES } from "../src/run-config";
 
 function collectMetas(): readonly EntityTableMeta[] {
@@ -21,9 +18,7 @@ function collectMetas(): readonly EntityTableMeta[] {
   // Standard EntityDefinition-Tabellen (managed, audit-trail).
   for (const feature of composed) {
     for (const [name, ent] of Object.entries(feature.entities ?? {})) {
-      metas.push(
-        buildEntityTableMeta(name, ent, { relations: feature.relations?.[name] }),
-      );
+      metas.push(buildEntityTableMeta(name, ent, { relations: feature.relations?.[name] }));
     }
   }
 

@@ -34,11 +34,11 @@ export const bySlugQuery = defineQueryHandler({
       });
     }
     const tenantId = override ?? query.user.tenantId;
-    const row = await fetchOne<TextBlockRow>(
-      ctx.db,
-      textBlocksTable,
-      { tenantId, slug: query.payload.slug, lang: query.payload.lang },
-    );
+    const row = await fetchOne<TextBlockRow>(ctx.db, textBlocksTable, {
+      tenantId,
+      slug: query.payload.slug,
+      lang: query.payload.lang,
+    });
 
     if (!row) return null;
     return {

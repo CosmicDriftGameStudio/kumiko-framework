@@ -21,7 +21,9 @@ import { buildInsertSchema } from "../../engine/schema-builder";
 import { buildDrizzleTable } from "../table-builder";
 
 function colByName(table: unknown, dbName: string) {
-  const cols = (table as { columns?: ReadonlyArray<{ name: string; notNull?: boolean; pgType?: string }> }).columns;
+  const cols = (
+    table as { columns?: ReadonlyArray<{ name: string; notNull?: boolean; pgType?: string }> }
+  ).columns;
   if (!cols) throw new Error("Table has no columns metadata");
   for (const c of cols) {
     if (c.name === dbName) {

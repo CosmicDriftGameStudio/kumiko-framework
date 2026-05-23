@@ -1,4 +1,4 @@
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildDrizzleTable, sql } from "@cosmicdrift/kumiko-framework/db";
 import {
   createBigIntField,
   createEntity,
@@ -7,7 +7,6 @@ import {
   createTextField,
   createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 
 // Export-Job-Lifecycle (S2.U3+U4 Atom 1).
 //

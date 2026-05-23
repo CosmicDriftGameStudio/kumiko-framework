@@ -6,9 +6,9 @@ import {
   instant,
   integer,
   jsonb,
+  table as pgTable,
   primaryKey,
   sql,
-  table as pgTable,
   text,
   uuid,
 } from "../db/dialect";

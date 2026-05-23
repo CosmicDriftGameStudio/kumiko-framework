@@ -10,8 +10,8 @@
 //   - status lifecycle (idle → rebuilding → idle on success, → failed on throw)
 //   - never-rebuilt projection has sensible default state
 
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
 import {
   integer as drizzleInteger,
   table as drizzlePgTable,
@@ -43,7 +43,6 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "../../stack";
-import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
 
 // --- Test fixtures ---
 
@@ -64,14 +63,10 @@ const itemsPerGroupTable = drizzlePgTable("read_rebuild_items_per_group", {
 });
 
 async function bump(tx: unknown, groupId: string, tenantId: string, delta: number): Promise<void> {
-  // biome-ignore lint/suspicious/noExplicitAny: tx is DbRunner
-  await (tx as any)
-    .insert(itemsPerGroupTable)
-    .values({ groupId, tenantId, itemCount: delta })
-    .onConflictDoUpdate({
-      target: itemsPerGroupTable.groupId,
-      set: { itemCount: sql`${itemsPerGroupTable.itemCount} + ${delta}` },
-    });
+  await asRawClient(tx).unsafe(
+    `INSERT INTO "read_rebuild_items_per_group" (group_id, tenant_id, item_count) VALUES ($1::uuid, $2::uuid, $3) ON CONFLICT (group_id) DO UPDATE SET item_count = read_rebuild_items_per_group.item_count + $3`,
+    [groupId, tenantId, delta],
+  );
 }
 
 type ItemCreated = { groupId: string };
@@ -122,7 +117,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(testDb.db).unsafe(`TRUNCATE kumiko_events, read_rebuild_items, read_rebuild_items_per_group, kumiko_projections RESTART IDENTITY CASCADE`);
+  await asRawClient(testDb.db).unsafe(
+    `TRUNCATE kumiko_events, read_rebuild_items, read_rebuild_items_per_group, kumiko_projections RESTART IDENTITY CASCADE`,
+  );
 });
 
 // --- Live-apply helper: use the dispatcher pipeline so projections fire.
@@ -170,7 +167,11 @@ describe("rebuildProjection — happy path", () => {
     await appendCreatedEvent(group, "b");
 
     // Seed the projection table with a stale/wrong value.
-    await insertOne(testDb.db, itemsPerGroupTable, { groupId: group, tenantId: admin.tenantId, itemCount: 999 });
+    await insertOne(testDb.db, itemsPerGroupTable, {
+      groupId: group,
+      tenantId: admin.tenantId,
+      itemCount: 999,
+    });
 
     const result = await rebuildProjection(qualifiedProjectionName, {
       db: testDb.db,

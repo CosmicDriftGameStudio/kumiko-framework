@@ -4,6 +4,7 @@
 
 import { pgTable, text } from "drizzle-orm/pg-core";
 import { describe, expect, test } from "vitest";
+import type { SchemaTable } from "../../db/dialect";
 import { defineFeature } from "../define-feature";
 import { createRegistry } from "../registry";
 import type { ProjectionDefinition } from "../types";
@@ -109,7 +110,7 @@ describe("createRegistry — rawTable aggregation", () => {
     // the registry keeps both entries so callers can resolve either name.
     const sharedT = pgTable("rt_shared_dedupe", {
       id: text("id").primaryKey(),
-    });
+    }) as unknown as SchemaTable;
     const feat = defineFeature("dedupe", (r) => {
       r.rawTable("primary", sharedT, { reason: "main writer" });
       r.rawTable("alias", sharedT, { reason: "alias for read consumers" });
@@ -128,7 +129,7 @@ describe("createRegistry — rawTable aggregation", () => {
     // throws so the failure points at the misconfiguration site.
     const sharedT = pgTable("rt_collision_phys", {
       id: text("id").primaryKey(),
-    });
+    }) as unknown as SchemaTable;
     const projection: ProjectionDefinition = {
       name: "shared-summary",
       source: "shared",

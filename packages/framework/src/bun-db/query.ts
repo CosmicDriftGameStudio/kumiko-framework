@@ -68,22 +68,18 @@ export function asRawClient(db: unknown): RawClient {
   }
   // Drizzle DbConnection: $client = postgres-js Sql.
   const $client = dbAny["$client"];
-  if (
-    $client &&
-    typeof ($client as Record<string, unknown>)["unsafe"] === "function"
-  ) {
+  if ($client && typeof ($client as Record<string, unknown>)["unsafe"] === "function") {
     return $client as unknown as RawClient;
   }
   // Drizzle pg-transaction: session.client = postgres-js Sql.
   const session = dbAny["session"] as Record<string, unknown> | undefined;
   const sessionClient = session?.["client"];
-  if (
-    sessionClient &&
-    typeof (sessionClient as Record<string, unknown>)["unsafe"] === "function"
-  ) {
+  if (sessionClient && typeof (sessionClient as Record<string, unknown>)["unsafe"] === "function") {
     return sessionClient as unknown as RawClient;
   }
-  throw new Error("bun-db: db argument has no .unsafe() — pass Bun.SQL, drizzle DbConnection, or drizzle tx.");
+  throw new Error(
+    "bun-db: db argument has no .unsafe() — pass Bun.SQL, drizzle DbConnection, or drizzle tx.",
+  );
 }
 
 export type AnyDb = BunDbRunner | unknown;
@@ -385,11 +381,7 @@ export async function updateMany<TRow = any>(
   return (await asRawClient(db).unsafe(sqlText, values)) as readonly TRow[];
 }
 
-export async function deleteMany(
-  db: AnyDb,
-  table: TableLike,
-  where: WhereObject,
-): Promise<void> {
+export async function deleteMany(db: AnyDb, table: TableLike, where: WhereObject): Promise<void> {
   const info = extractTableInfo(table);
   const w = buildWhereClause(info, where, 1);
   let sqlText = `DELETE FROM ${quoteIdent(info.name)}`;
@@ -397,9 +389,6 @@ export async function deleteMany(
   await asRawClient(db).unsafe(sqlText, w.values);
 }
 
-export async function transaction<T>(
-  db: AnyDb,
-  fn: (tx: BunDbRunner) => Promise<T>,
-): Promise<T> {
+export async function transaction<T>(db: AnyDb, fn: (tx: BunDbRunner) => Promise<T>): Promise<T> {
   return (await asRawClient(db).begin(async (tx) => fn(tx as BunDbRunner))) as T;
 }

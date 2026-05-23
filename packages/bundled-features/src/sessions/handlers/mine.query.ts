@@ -17,9 +17,14 @@ export const mineQuery = defineQueryHandler({
       expiresAt: unknown;
       ip: string | null;
       userAgent: string | null;
-    }>(ctx.db, userSessionTable, { userId: query.user.id, revokedAt: null }, {
-      orderBy: { col: "createdAt", direction: "desc" },
-    });
+    }>(
+      ctx.db,
+      userSessionTable,
+      { userId: query.user.id, revokedAt: null },
+      {
+        orderBy: { col: "createdAt", direction: "desc" },
+      },
+    );
     const currentSid = query.user.sid;
     return rows.map((r) => ({
       id: r.id,

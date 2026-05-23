@@ -1,3 +1,4 @@
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createTestUser,
   setupTestStack,
@@ -10,7 +11,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest"
 import { UserErrors, UserHandlers, UserQueries } from "../constants";
 import { createUserFeature } from "../feature";
 import { userEntity, userTable } from "../schema/user";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 

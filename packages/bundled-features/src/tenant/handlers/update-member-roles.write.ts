@@ -1,9 +1,9 @@
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor, type DbRow } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, withResponseData } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-table";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const executor = createEventStoreExecutor(tenantMembershipsTable, tenantMembershipEntity, {
   entityName: "tenant-membership",
@@ -23,11 +23,10 @@ export const updateMemberRolesWrite = defineWriteHandler({
   access: { roles: ["system", "SystemAdmin"] },
   handler: async (event, ctx) => {
     const db = ctx.db;
-    const existing = await fetchOne(
-      db,
-      tenantMembershipsTable,
-      { userId: event.payload.userId, tenantId: event.payload.tenantId },
-    );
+    const existing = await fetchOne(db, tenantMembershipsTable, {
+      userId: event.payload.userId,
+      tenantId: event.payload.tenantId,
+    });
     if (!existing) {
       return writeFailure(
         new NotFoundError("membership", undefined, {

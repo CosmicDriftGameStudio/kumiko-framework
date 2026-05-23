@@ -12,10 +12,11 @@
 //           read logged") now sits on the events-table instead of a
 //           dedicated audit-table.
 
+import { asRawClient, fetchOne, transaction } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEventStoreExecutor,
   createTenantDb,
-  type DbConnection
+  type DbConnection,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, type WriteErrorInfo } from "@cosmicdrift/kumiko-framework/errors";
@@ -29,7 +30,6 @@ import {
   type MasterKeyProvider,
   type SecretsContext,
 } from "@cosmicdrift/kumiko-framework/secrets";
-import { asRawClient, transaction } from "@cosmicdrift/kumiko-framework/bun-db";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
 import {
@@ -38,7 +38,6 @@ import {
   tenantSecretEntity,
   tenantSecretsTable,
 } from "./table";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // Re-export the framework interface so consumers of bundled-features/secrets
 // don't need to reach into @cosmicdrift/kumiko-framework/secrets separately.
@@ -118,11 +117,7 @@ export function createSecretsContext(opts: SecretsContextOptions): SecretsContex
   };
 
   async function lookup(tenantId: string, key: string): Promise<SecretLookupRow | undefined> {
-    return fetchOne<SecretLookupRow>(
-      db,
-      tenantSecretsTable,
-      { tenantId, key },
-    );
+    return fetchOne<SecretLookupRow>(db, tenantSecretsTable, { tenantId, key });
   }
 
   return {

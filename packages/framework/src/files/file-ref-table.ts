@@ -1,5 +1,5 @@
 // sql now comes from native dialect
-import { sql, instant, integer, table as pgTable, text, uuid  } from "../db/dialect";
+import { instant, integer, table as pgTable, sql, text, uuid } from "../db/dialect";
 
 // `id` is a UUID (not serial): it doubles as the aggregate-id for the
 // `fileRef` event stream — every upload appends exactly one

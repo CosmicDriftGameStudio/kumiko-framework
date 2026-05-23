@@ -1,3 +1,4 @@
+import { insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   setupTestStack,
@@ -16,7 +17,6 @@ import {
 } from "../constants";
 import { createTemplateResolverFeature } from "../feature";
 import { templateResourceEntity, templateResourcesTable } from "../table";
-import { insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 let db: DbConnection;

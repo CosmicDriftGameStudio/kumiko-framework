@@ -18,6 +18,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { requestContext } from "../../api/request-context";
+import { selectMany } from "../../bun-db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
@@ -29,7 +30,6 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "../../stack";
-import { selectMany } from "../../bun-db/query";
 
 // --- Feature ---
 
@@ -86,7 +86,7 @@ const causationFeature = defineFeature("causation", (r) => {
       [placed.name]: async (event) => {
         const ctx = requestContext.get();
         applyObservations.push({
-          forEventId: String(event.id),
+          forEventId: String(event["id"]),
           correlationId: ctx?.correlationId,
           causationId: ctx?.causationId,
         });
@@ -119,11 +119,9 @@ afterEach(async () => {
 
 // --- Helpers ---
 
-type EventRow = typeof eventsTable.$inferSelect;
-
-async function eventsByType(type: string): Promise<EventRow[]> {
+async function eventsByType(type: string) {
   const rows = await selectMany(stack.db, eventsTable);
-  return rows.filter((r) => r.type === type);
+  return rows.filter((r: Record<string, unknown>) => r["type"] === type);
 }
 
 // --- Tests ---
@@ -134,7 +132,7 @@ describe("Runde 2 — correlationId on root HTTP request", () => {
 
     const [placedEvent] = await eventsByType("causation:event:placed");
     expect(placedEvent).toBeDefined();
-    const meta = placedEvent?.metadata as {
+    const meta = placedEvent?.["metadata"] as {
       requestId?: string;
       correlationId?: string;
       causationId?: string;
@@ -160,10 +158,10 @@ describe("Runde 2 — correlationId on root HTTP request", () => {
     const crudEvent = (await eventsByType("causation-order.created"))[0];
     const placedEvent = (await eventsByType("causation:event:placed"))[0];
 
-    expect((crudEvent?.metadata as { correlationId?: string })?.correlationId).toBe(
+    expect((crudEvent?.["metadata"] as { correlationId?: string })?.correlationId).toBe(
       "test-chain-abc123",
     );
-    expect((placedEvent?.metadata as { correlationId?: string })?.correlationId).toBe(
+    expect((placedEvent?.["metadata"] as { correlationId?: string })?.correlationId).toBe(
       "test-chain-abc123",
     );
   });
@@ -193,7 +191,7 @@ describe("Runde 2 — event-dispatcher propagates correlation + causation to MSP
     // should have seen as causationId.
     const [placedEvent] = await eventsByType("causation:event:placed");
     expect(placedEvent).toBeDefined();
-    const placedId = String(placedEvent?.id);
+    const placedId = String(placedEvent?.["id"]);
 
     // Observation recorded inside the MSP apply.
     expect(applyObservations).toHaveLength(1);

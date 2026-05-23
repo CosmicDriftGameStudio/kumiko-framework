@@ -6,8 +6,8 @@
 //   - die throw-Policy bleibt unverändert (Regression-Guard)
 //   - listDeadLetters filtert per eventType
 
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
+import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
 import { createTestDb, type TestDb } from "../../stack";
 import type { StoredEvent } from "../event-store";
 import { createEventsTable, eventsTable } from "../events-schema";
@@ -17,7 +17,6 @@ import {
   listDeadLetters,
   upcasterDeadLetterTable,
 } from "../upcaster-dead-letter";
-import { asRawClient, insertOne } from "../../bun-db/query";
 
 let testDb: TestDb;
 
@@ -196,10 +195,7 @@ describe("upcaster error-policy: quarantine", () => {
       errorPolicy: "quarantine",
     });
 
-    const rows = await testDb.db
-      .select({ c: sql<number>`count(*)::int` })
-      .from(upcasterDeadLetterTable)
-      .where(eq(upcasterDeadLetterTable.eventId, "30"));
-    expect(rows[0]?.c).toBe(2);
+    const rows = await selectMany(testDb.db, upcasterDeadLetterTable, { eventId: "30" });
+    expect(rows).toHaveLength(2);
   });
 });

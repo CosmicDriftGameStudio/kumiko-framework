@@ -6,6 +6,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
+import { asRawClient, selectMany } from "../bun-db/query";
 import { createEventStoreExecutor } from "../db/event-store-executor";
 import { buildDrizzleTable } from "../db/table-builder";
 import {
@@ -16,7 +17,6 @@ import {
   type TenantId,
 } from "../engine";
 import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../stack";
-import { asRawClient, selectMany } from "../bun-db/query";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 const OTHER_TENANT_ID = "00000000-0000-4000-8000-000000000002" as TenantId;

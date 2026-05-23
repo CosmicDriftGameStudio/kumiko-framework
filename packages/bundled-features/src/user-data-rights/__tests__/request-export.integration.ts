@@ -17,6 +17,12 @@
 //   - Status-Polling: User sieht eigene Jobs, Cross-User-Isolation,
 //     hasJob=false wenn nichts da
 
+import {
+  asRawClient,
+  insertOne,
+  selectMany,
+  updateMany,
+} from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -26,14 +32,12 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createUserFeature } from "../../user";
 import { createUserDataRightsFeature } from "../feature";
 import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "../schema/export-job";
-import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const REQUEST_EXPORT = "user-data-rights:write:request-export";
 const EXPORT_STATUS = "user-data-rights:query:export-status";
@@ -129,10 +133,12 @@ describe("request-export :: App-side-Idempotency (primaerer Pfad)", () => {
   test("Klick nach done-Job ist NEUER Job (Audit-Historie wird nicht blockiert)", async () => {
     const first = await stack.http.writeOk<RequestExportResponse>(REQUEST_EXPORT, {}, aliceUser);
     // Worker-Simulation: status auf done flippen (direct-update OK in Test)
-    await stack.db
-      .update(exportJobsTable)
-      .set({ status: EXPORT_JOB_STATUS.Done })
-      .where(sql`id = ${first.jobId}`);
+    await updateMany(
+      stack.db,
+      exportJobsTable,
+      { status: EXPORT_JOB_STATUS.Done },
+      { id: first.jobId },
+    );
 
     const second = await stack.http.writeOk<RequestExportResponse>(REQUEST_EXPORT, {}, aliceUser);
     expect(second.isExisting).toBe(false);

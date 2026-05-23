@@ -1,9 +1,9 @@
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { castTenantRows } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { type TextBlockRow, textBlocksTable } from "../table";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // Public-Read aller Text-Blocks für einen Tenant. Use-Case: Visual-Tree-
 // Provider lädt die Slug-Liste zur Sidebar-Render. Anonymous: explizit

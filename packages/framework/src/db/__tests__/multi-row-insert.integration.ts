@@ -8,10 +8,10 @@
 // cause.
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { insertOne, selectMany } from "../../bun-db/query";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField } from "../../engine";
 import { setupTestStack, type TestStack, unsafeCreateEntityTable } from "../../stack";
-import { insertOne, selectMany } from "../../bun-db/query";
 
 const linkEntity = createEntity({
   table: "mri_links",
@@ -64,10 +64,16 @@ describe("instant() customType is forgiving with ISO strings", () => {
 
 describe("multi-row INSERT", () => {
   test("two rows with no id supplied → both rows persist (PG gen_random_uuid per row)", async () => {
-    await insertOne(stack.db, linkTable, [
-      { leftId: "L1", rightId: "R1", tenantId: "00000000-0000-4000-8000-000000000001" },
-      { leftId: "L2", rightId: "R2", tenantId: "00000000-0000-4000-8000-000000000001" },
-    ]);
+    await insertOne(stack.db, linkTable, {
+      leftId: "L1",
+      rightId: "R1",
+      tenantId: "00000000-0000-4000-8000-000000000001",
+    });
+    await insertOne(stack.db, linkTable, {
+      leftId: "L2",
+      rightId: "R2",
+      tenantId: "00000000-0000-4000-8000-000000000001",
+    });
     const rows = await selectMany(stack.db, linkTable);
     expect(rows).toHaveLength(2);
     // Each row got its own id from the PG default.

@@ -41,11 +41,9 @@ export const revokeWrite = defineWriteHandler({
 
     // Zero rows touched — disambiguate between "not yours" and "already
     // revoked" via a point-read. Only hits on the error path.
-    const row = await fetchOne<{ userId: string; revokedAt: unknown }>(
-      ctx.db,
-      userSessionTable,
-      { id: event.payload.id },
-    );
+    const row = await fetchOne<{ userId: string; revokedAt: unknown }>(ctx.db, userSessionTable, {
+      id: event.payload.id,
+    });
 
     if (row && row.userId === event.user.id && row.revokedAt !== null) {
       return writeFailure(

@@ -27,11 +27,10 @@ export const policyForQuery = defineQueryHandler({
     const entityName = query.payload.entityName;
 
     // Layer 3: Tenant-Override aus DB laden (UNIQUE(tenantId, entityName))
-    const overrideRow = (await fetchOne(
-      ctx.db,
-      tenantRetentionOverrideTable,
-      { tenantId: query.user.tenantId, entityName },
-    )) as { config: string | null } | null; // @cast-boundary db-runner
+    const overrideRow = (await fetchOne(ctx.db, tenantRetentionOverrideTable, {
+      tenantId: query.user.tenantId,
+      entityName,
+    })) as { config: string | null } | null; // @cast-boundary db-runner
 
     const tenantOverride = parseRetentionOverrideOrNull(
       overrideRow?.config ?? null,

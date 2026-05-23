@@ -14,11 +14,9 @@ export const archiveWrite = defineWriteHandler({
   schema: z.object({ id: z.string().min(1) }),
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   handler: async (event, ctx) => {
-    const existing = await fetchOne<TemplateResourceRow>(
-      ctx.db,
-      templateResourcesTable,
-      { id: event.payload.id },
-    );
+    const existing = await fetchOne<TemplateResourceRow>(ctx.db, templateResourcesTable, {
+      id: event.payload.id,
+    });
     // ctx.db ist via createTenantDb tenant-scoped — existing ist null wenn
     // das Template einem fremden Tenant gehört (SystemAdmin-Cross-Tenant
     // braucht tenantIdOverride im Schema, M2-Erweiterung).

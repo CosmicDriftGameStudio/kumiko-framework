@@ -10,12 +10,17 @@
 // reale Postgres + Drizzle-customType-Codec-Path braucht.
 
 import {
+  asRawClient,
+  insertOne,
+  selectMany,
+  updateMany,
+} from "@cosmicdrift/kumiko-framework/bun-db";
+import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
@@ -27,7 +32,6 @@ import {
   exportJobEntity,
   exportJobsTable,
 } from "../schema/export-job";
-import { asRawClient, insertOne, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 
@@ -172,7 +176,12 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
     // Alice pending insert
     const aliceJobId = await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Pending);
     // Worker pickt auf — Status flip
-    await updateMany(stack.db, exportJobsTable, { status: EXPORT_JOB_STATUS.Running }, { id: aliceJobId });
+    await updateMany(
+      stack.db,
+      exportJobsTable,
+      { status: EXPORT_JOB_STATUS.Running },
+      { id: aliceJobId },
+    );
 
     // Zweiter pending-Insert fuer Alice → faellt weiter, weil bestehender
     // Job in running auch im Index-Filter ist.
@@ -182,7 +191,12 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
     );
 
     // Aber wenn der running-Job fertig wird (done), darf User wieder pending starten
-    await updateMany(stack.db, exportJobsTable, { status: EXPORT_JOB_STATUS.Done }, { id: aliceJobId });
+    await updateMany(
+      stack.db,
+      exportJobsTable,
+      { status: EXPORT_JOB_STATUS.Done },
+      { id: aliceJobId },
+    );
 
     await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Pending);
     const rows = await selectMany(stack.db, exportJobsTable);
@@ -197,10 +211,9 @@ describe("ExportJob :: bigInt bytesWritten DB-Roundtrip", () => {
       bytesWritten: TWO_GB_PLUS,
     });
 
-    const [row] = await stack.db
-      .select({ bytesWritten: exportJobsTable["bytesWritten"] })
-      .from(exportJobsTable)
-      .where(eq(exportJobsTable["id"], id));
+    const [row] = (await selectMany(stack.db, exportJobsTable, { id })) as Array<{
+      bytesWritten: number;
+    }>;
 
     expect(row?.bytesWritten).toBe(TWO_GB_PLUS);
   });
@@ -211,10 +224,9 @@ describe("ExportJob :: bigInt bytesWritten DB-Roundtrip", () => {
       bytesWritten: ONE_PB_PLUS,
     });
 
-    const [row] = await stack.db
-      .select({ bytesWritten: exportJobsTable["bytesWritten"] })
-      .from(exportJobsTable)
-      .where(eq(exportJobsTable["id"], id));
+    const [row] = (await selectMany(stack.db, exportJobsTable, { id })) as Array<{
+      bytesWritten: number;
+    }>;
 
     expect(row?.bytesWritten).toBe(ONE_PB_PLUS);
   });

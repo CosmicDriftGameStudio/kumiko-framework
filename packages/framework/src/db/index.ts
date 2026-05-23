@@ -35,6 +35,16 @@ export {
 export type { EncryptionProvider } from "./encryption";
 export { createEncryptionProvider } from "./encryption";
 export type {
+  BuildEntityTableMetaOptions,
+  ColumnMeta,
+  CompositePrimaryKeyMeta,
+  EntityTableMeta,
+  IndexMeta,
+  PgType,
+  UnmanagedTableInput,
+} from "./entity-table-meta";
+export { buildEntityTableMeta, defineUnmanagedTable } from "./entity-table-meta";
+export type {
   EntityLifecycleVerb,
   EventStoreExecutor,
   EventStoreExecutorOptions,
@@ -49,18 +59,6 @@ export {
   isUniqueViolation,
   type PgErrorInfo,
 } from "./pg-error";
-export { seedReferenceData } from "./reference-data";
-export type {
-  BuildEntityTableMetaOptions,
-  ColumnMeta,
-  CompositePrimaryKeyMeta,
-  EntityTableMeta,
-  IndexMeta,
-  PgType,
-  UnmanagedTableInput,
-} from "./entity-table-meta";
-export { buildEntityTableMeta, defineUnmanagedTable } from "./entity-table-meta";
-export { renderTableDdl, renderTablesDdl } from "./render-ddl";
 export type { SelectOptions, WhereObject, WhereValue } from "./query-api";
 export {
   asRawClient,
@@ -72,6 +70,8 @@ export {
   transaction,
   updateMany,
 } from "./query-api";
+export { seedReferenceData } from "./reference-data";
+export { renderTableDdl, renderTablesDdl } from "./render-ddl";
 export { tableExists } from "./schema-inspection";
 export {
   buildBaseColumns,

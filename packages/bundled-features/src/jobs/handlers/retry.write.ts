@@ -28,11 +28,7 @@ export const retryWrite = defineWriteHandler({
     // @cast-boundary engine-payload — JobRunner attached by app-boot via ctx-extension
     const jobRunner = ctx["jobRunner"] as JobRunner;
 
-    const run = await fetchOne<JobRunRow>(
-      db,
-      jobRunsTable,
-      { id: event.payload.runId },
-    );
+    const run = await fetchOne<JobRunRow>(db, jobRunsTable, { id: event.payload.runId });
 
     if (!run) {
       return writeFailure(

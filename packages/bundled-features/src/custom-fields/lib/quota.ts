@@ -11,8 +11,8 @@
 // semantics. A future iteration can swap to `cap-counter` if pricing
 // wants e.g. monthly-roll definition allowances.
 
-import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 
 export async function countTenantFieldDefinitions(db: TenantDb, tenantId: string): Promise<number> {
   const rowsResult = await asRawClient(db.raw).unsafe(

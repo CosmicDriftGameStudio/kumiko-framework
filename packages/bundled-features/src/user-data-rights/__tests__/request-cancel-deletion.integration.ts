@@ -9,6 +9,7 @@
 // User-Explicit-Anforderung "exporte + fristen" — der Frist-Set-Pfad ist
 // hier; der Frist-Ablauf-Cleanup folgt mit S2.U5b.
 
+import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -19,7 +20,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import {
   createComplianceProfilesFeature,
@@ -29,7 +29,6 @@ import { createDataRetentionFeature } from "../../data-retention";
 import { USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserFeature } from "../../user/feature";
 import { createUserDataRightsFeature } from "../feature";
-import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const REQUEST_DELETION = "user-data-rights:write:request-deletion";
 const CANCEL_DELETION = "user-data-rights:write:cancel-deletion";
@@ -110,14 +109,10 @@ async function fetchAlice(): Promise<{
   status: string;
   gracePeriodEnd: Instant | null;
 } | null> {
-  const rows = (await stack.db
-    .select({
-      status: userTable["status"],
-      gracePeriodEnd: userTable["gracePeriodEnd"],
-    })
-    .from(userTable)
-    .where(eq(userTable["id"], aliceUser.id))
-    .limit(1)) as Array<{ status: string; gracePeriodEnd: Instant | null }>;
+  const rows = (await selectMany(stack.db, userTable, { id: aliceUser.id })) as Array<{
+    status: string;
+    gracePeriodEnd: Instant | null;
+  }>;
   return rows[0] ?? null;
 }
 

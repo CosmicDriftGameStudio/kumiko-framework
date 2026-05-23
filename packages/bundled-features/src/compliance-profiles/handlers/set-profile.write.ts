@@ -1,4 +1,5 @@
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   complianceProfileOverrideSchema,
   SELECTABLE_PROFILE_KEYS,
@@ -16,7 +17,6 @@ import {
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
 } from "../schema/profile-selection";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const crud = createEventStoreExecutor(tenantComplianceProfileTable, tenantComplianceProfileEntity, {
   entityName: "tenant-compliance-profile",
@@ -100,11 +100,9 @@ export const setProfileWrite = defineWriteHandler({
     }
 
     // Upsert: existierenden Eintrag suchen
-    const existing = (await fetchOne(
-      ctx.db,
-      tenantComplianceProfileTable,
-      { tenantId: tenantId },
-    )) as { id: string; version: number } | null; // @cast-boundary db-runner
+    const existing = (await fetchOne(ctx.db, tenantComplianceProfileTable, {
+      tenantId: tenantId,
+    })) as { id: string; version: number } | null; // @cast-boundary db-runner
 
     if (existing) {
       const result = await crud.update(

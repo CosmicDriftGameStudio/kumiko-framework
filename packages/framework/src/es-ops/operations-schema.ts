@@ -12,7 +12,7 @@
 
 // sql now comes from native dialect
 import { type DbConnection, tableExists } from "../db";
-import { sql, index, integer, table as pgTable, text, timestamp  } from "../db/dialect";
+import { index, integer, table as pgTable, sql, text, timestamp } from "../db/dialect";
 import { unsafePushTables } from "../stack";
 
 export type EsOperationType = "seed-migration";

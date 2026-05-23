@@ -1,5 +1,5 @@
+import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineWriteHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-
 import {
   UnprocessableError,
   VersionConflictError,
@@ -14,7 +14,6 @@ import {
 } from "../constants";
 import { globalFeatureStateTable } from "../global-feature-state-table";
 import type { GlobalFeatureToggleRuntime } from "../toggle-runtime";
-import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // Factory: binds a runtime accessor to the handler at registration time.
 // The runtime holds the in-memory snapshot that the dispatcher's gate
@@ -73,7 +72,12 @@ export function createSetWriteHandler(getRuntime: () => GlobalFeatureToggleRunti
         updatedAt: Temporal.Instant;
         updatedBy: string;
       };
-      const [existing] = await selectMany<StateRow>(ctx.db, globalFeatureStateTable, { featureName }, { limit: 1 });
+      const [existing] = await selectMany<StateRow>(
+        ctx.db,
+        globalFeatureStateTable,
+        { featureName },
+        { limit: 1 },
+      );
 
       const previousEnabled = existing?.enabled ?? null;
 

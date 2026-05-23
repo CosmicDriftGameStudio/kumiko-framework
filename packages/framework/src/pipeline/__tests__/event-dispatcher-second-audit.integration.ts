@@ -14,8 +14,8 @@
 //      moment delivery latency regresses from TCP-round-trip to
 //      pollIntervalMs.
 
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
+import { asRawClient, insertOne, selectMany, updateMany } from "../../bun-db/query";
 import { defineFeature } from "../../engine";
 import { eventsTable } from "../../event-store";
 import {
@@ -35,7 +35,6 @@ import {
 } from "../../stack";
 import { sharedWidgetEntity } from "../../testing";
 import { generateId } from "../../utils";
-import { asRawClient, insertOne, selectMany, updateMany } from "../../bun-db/query";
 
 // --- Fixture ---
 
@@ -139,11 +138,18 @@ describe("Second audit — consumer pre-registration on start()", () => {
 
     // Advance the cursor explicitly so we can prove the second start
     // doesn't clobber it back to 0.
-    await updateMany(stack.db, eventConsumerStateTable, { lastProcessedEventId: 42n }, { name: "audit:projection:default-scope" });
+    await updateMany(
+      stack.db,
+      eventConsumerStateTable,
+      { lastProcessedEventId: 42n },
+      { name: "audit:projection:default-scope" },
+    );
 
     await stack.eventDispatcher?.start();
     try {
-      const [row] = await selectMany(stack.db, eventConsumerStateTable, { name: "audit:projection:default-scope" });
+      const [row] = await selectMany(stack.db, eventConsumerStateTable, {
+        name: "audit:projection:default-scope",
+      });
       expect(row?.lastProcessedEventId).toBe(42n);
     } finally {
       await stack.eventDispatcher?.stop();
@@ -250,7 +256,9 @@ describe("Second audit — LISTEN gauge", () => {
         // `LISTEN "kumiko_events_new"` and is now idle. pg_terminate_backend
         // on it closes the TCP; postgres.js's onclose handler re-subscribes
         // and fires onlisten again.
-        await asRawClient(recStack.db).unsafe(`SELECT pg_terminate_backend(pid) FROM pg_stat_activity
+        await asRawClient(
+          recStack.db,
+        ).unsafe(`SELECT pg_terminate_backend(pid) FROM pg_stat_activity
               WHERE datname = current_database()
                 AND query ILIKE 'listen%'
                 AND state = 'idle'

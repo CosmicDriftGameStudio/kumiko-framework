@@ -4,6 +4,7 @@
 // with every row's identical error.
 
 import { randomBytes } from "node:crypto";
+import { deleteMany, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { AppContext } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createEnvMasterKeyProvider,
@@ -16,13 +17,11 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createSecretsFeature } from "../feature";
 import { rotateJob } from "../handlers/rotate.job";
 import { createSecretsContext } from "../secrets-context";
 import { tenantSecretsTable } from "../table";
-import { deleteMany, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const admin = createTestUser({
   id: "00000000-0000-4000-8000-000000000010",
@@ -129,11 +128,8 @@ function jobCtx(provider: MasterKeyProvider): Parameters<typeof rotateJob>[1] {
 }
 
 async function countV1Rows(): Promise<number> {
-  const rows = await stack.db
-    .select({ kekVersion: tenantSecretsTable.kekVersion })
-    .from(tenantSecretsTable)
-    .where(sql`${tenantSecretsTable.tenantId} = ${admin.tenantId}`);
-  return rows.filter((r) => r.kekVersion === 1).length;
+  const rows = await selectMany(stack.db, tenantSecretsTable, { tenantId: admin.tenantId });
+  return rows.filter((r: Record<string, unknown>) => r["kekVersion"] === 1).length;
 }
 
 describe("rotate-job circuit-breaker", () => {

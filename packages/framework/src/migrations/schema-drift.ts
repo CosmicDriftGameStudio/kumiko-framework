@@ -125,7 +125,9 @@ export async function loadAppliedMigrations(db: DbConnection): Promise<AppliedMi
     ? false
     : await tableExists(db, "public.__drizzle_migrations");
   if (!drizzleSchemaExists && !publicSchemaExists) return [];
-  const tableRef = drizzleSchemaExists ? `drizzle.__drizzle_migrations` : `public.__drizzle_migrations`;
+  const tableRef = drizzleSchemaExists
+    ? `drizzle.__drizzle_migrations`
+    : `public.__drizzle_migrations`;
   const rows = (await asRawClient(db).unsafe(
     `SELECT hash, created_at FROM ${tableRef} ORDER BY id`,
   )) as ReadonlyArray<{ hash: string; created_at: bigint | number | null }>;

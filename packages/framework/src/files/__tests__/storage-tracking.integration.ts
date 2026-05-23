@@ -8,8 +8,8 @@
 //   3. The table column types survive round-trip (bigint → number via
 //      Drizzle's mode:"number", so arithmetic in assertions Just Works).
 
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { asRawClient, selectMany } from "../../bun-db/query";
 import type { SessionUser } from "../../engine";
 import { createTestUser, setupTestStack, type TestStack, TestUsers } from "../../stack";
 import {
@@ -18,7 +18,6 @@ import {
   type InMemoryFileProvider,
   tenantStorageUsageTable,
 } from "..";
-import { asRawClient, selectMany } from "../../bun-db/query";
 
 let stack: TestStack;
 let provider: InMemoryFileProvider;
@@ -55,7 +54,9 @@ beforeEach(async () => {
   // each test starts from zero. kumiko_event_consumers registration is
   // re-asserted below; truncating it forces ensureRegistered to seed the
   // cursor at event.id = 0.
-  await asRawClient(stack.db).unsafe(`TRUNCATE kumiko_events, kumiko_event_consumers, file_refs, read_tenant_storage_usage RESTART IDENTITY CASCADE`);
+  await asRawClient(stack.db).unsafe(
+    `TRUNCATE kumiko_events, kumiko_event_consumers, file_refs, read_tenant_storage_usage RESTART IDENTITY CASCADE`,
+  );
   await stack.eventDispatcher?.ensureRegistered();
 });
 
@@ -72,14 +73,10 @@ async function upload(user: SessionUser, name: string, content: Uint8Array): Pro
 }
 
 async function usageFor(tenantId: string): Promise<{ totalBytes: number; fileCount: number }> {
-  const [row] = await stack.db
-    .select({
-      totalBytes: tenantStorageUsageTable.totalBytes,
-      fileCount: tenantStorageUsageTable.fileCount,
-    })
-    .from(tenantStorageUsageTable)
-    .where(eq(tenantStorageUsageTable.tenantId, tenantId));
-  return row ?? { totalBytes: 0, fileCount: 0 };
+  const [row] = await selectMany(stack.db, tenantStorageUsageTable, { tenantId });
+  return row
+    ? { totalBytes: Number(row["totalBytes"]) ?? 0, fileCount: Number(row["fileCount"]) ?? 0 }
+    : { totalBytes: 0, fileCount: 0 };
 }
 
 describe("tenant-storage-usage MSP", () => {
@@ -124,11 +121,10 @@ describe("tenant-storage-usage MSP", () => {
     await upload(admin, "a.png", SMALL);
     await stack.eventDispatcher?.runOnce();
 
-    const [first] = await stack.db
-      .select({ at: tenantStorageUsageTable.lastUpdatedAt })
-      .from(tenantStorageUsageTable)
-      .where(eq(tenantStorageUsageTable.tenantId, admin.tenantId));
-    expect(first?.at).toBeInstanceOf(Temporal.Instant);
+    const [first] = await selectMany(stack.db, tenantStorageUsageTable, {
+      tenantId: admin.tenantId,
+    });
+    expect(first?.["lastUpdatedAt"]).toBeInstanceOf(Temporal.Instant);
 
     // Postgres NOW() resolution is microseconds; a second upload a beat
     // later must produce a strictly later timestamp (or at least not an
@@ -138,12 +134,13 @@ describe("tenant-storage-usage MSP", () => {
     await upload(admin, "b.png", LARGE);
     await stack.eventDispatcher?.runOnce();
 
-    const [second] = await stack.db
-      .select({ at: tenantStorageUsageTable.lastUpdatedAt })
-      .from(tenantStorageUsageTable)
-      .where(eq(tenantStorageUsageTable.tenantId, admin.tenantId));
-    expect(second?.at).toBeInstanceOf(Temporal.Instant);
-    if (!first?.at || !second?.at) throw new Error("missing rows");
-    expect(Temporal.Instant.compare(second.at, first.at)).toBeGreaterThanOrEqual(0);
+    const [second] = await selectMany(stack.db, tenantStorageUsageTable, {
+      tenantId: admin.tenantId,
+    });
+    expect(second?.["lastUpdatedAt"]).toBeInstanceOf(Temporal.Instant);
+    if (!first?.["lastUpdatedAt"] || !second?.["lastUpdatedAt"]) throw new Error("missing rows");
+    expect(
+      Temporal.Instant.compare(second["lastUpdatedAt"], first["lastUpdatedAt"]),
+    ).toBeGreaterThanOrEqual(0);
   });
 });

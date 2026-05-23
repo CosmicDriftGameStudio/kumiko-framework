@@ -1,9 +1,9 @@
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { type TextBlockRow, textBlockEntity, textBlocksTable } from "../table";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const slugSchema = z
   .string()
@@ -86,11 +86,11 @@ export const setWrite = defineWriteHandler({
     const executorUser =
       override !== undefined ? { ...event.user, tenantId: override as TenantId } : event.user; // @cast-boundary engine-bridge
 
-    const existing = await fetchOne<TextBlockRow>(
-      db,
-      textBlocksTable,
-      { tenantId, slug: event.payload.slug, lang: event.payload.lang },
-    );
+    const existing = await fetchOne<TextBlockRow>(db, textBlocksTable, {
+      tenantId,
+      slug: event.payload.slug,
+      lang: event.payload.lang,
+    });
 
     // V.1.4 folder: optional + null erlaubt (root-node). Optional-Chain
     // mapped undefined → null damit drizzle nullable-column konsistent

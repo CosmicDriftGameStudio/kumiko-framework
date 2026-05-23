@@ -15,8 +15,8 @@
 // zerbrechen — der bestehende seed-Test wäre der einzige Catcher, und
 // der lief vor dem Refactor durch Zufall grün.
 
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { asRawClient, selectMany } from "../../bun-db/query";
 import { createEntity, createTextField } from "../../engine/factories";
 import type { TenantId } from "../../engine/types";
 import type { StoredEvent } from "../../event-store";
@@ -24,7 +24,6 @@ import { createEventsTable } from "../../event-store";
 import { createTestDb, type TestDb } from "../../stack";
 import { applyEntityEvent } from "../apply-entity-event";
 import { buildDrizzleTable } from "../table-builder";
-import { asRawClient, selectMany } from "../../bun-db/query";
 
 const entity = createEntity({
   table: "read_apply_tenant_check",

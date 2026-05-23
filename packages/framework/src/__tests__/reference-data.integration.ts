@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { selectMany } from "../bun-db/query";
 import { integer, table as pgTable, serial, text } from "../db/dialect";
 import { seedReferenceData } from "../db/reference-data";
 import type { ReferenceDataDef } from "../engine/types";
 import { createTestDb, type TestDb, unsafePushTables } from "../stack";
-import { selectMany } from "../bun-db/query";
 
 // --- Tables ---
 
@@ -36,12 +36,12 @@ afterAll(async () => {
 // Helper: read all rows from a table
 async function readCountries() {
   const rows = await selectMany(testDb.db, countryTable);
-  return rows.sort((a, b) => a.code.localeCompare(b.code));
+  return rows.toSorted((a, b) => a.code.localeCompare(b.code));
 }
 
 async function readStatuses() {
   const rows = await selectMany(testDb.db, statusTable);
-  return rows.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  return rows.toSorted((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 }
 
 describe("seedReferenceData", () => {
@@ -133,7 +133,10 @@ describe("seedReferenceData", () => {
 
     const rows = await readCountries();
     expect(rows).toHaveLength(4);
-    expect(rows.find((r) => r.code === "CH")).toMatchObject({ name: "Schweiz", region: "Europe" });
+    expect(rows.find((r: Record<string, unknown>) => r["code"] === "CH")).toMatchObject({
+      name: "Schweiz",
+      region: "Europe",
+    });
   });
 
   test("custom upsertKey — matches on specified field instead of first", async () => {
@@ -168,9 +171,15 @@ describe("seedReferenceData", () => {
     expect(updateResult).toEqual({ inserted: 0, updated: 1 });
 
     const rows = await readStatuses();
-    expect(rows.find((r) => r.slug === "draft")).toMatchObject({ label: "Entwurf" });
-    expect(rows.find((r) => r.slug === "active")).toMatchObject({ label: "Active" });
-    expect(rows.find((r) => r.slug === "archived")).toMatchObject({ label: "Archived" });
+    expect(rows.find((r: Record<string, unknown>) => r["slug"] === "draft")).toMatchObject({
+      label: "Entwurf",
+    });
+    expect(rows.find((r: Record<string, unknown>) => r["slug"] === "active")).toMatchObject({
+      label: "Active",
+    });
+    expect(rows.find((r: Record<string, unknown>) => r["slug"] === "archived")).toMatchObject({
+      label: "Archived",
+    });
   });
 
   test("skips unknown entity names gracefully", async () => {

@@ -11,6 +11,7 @@
 //     fehlgeschlagen mit klaren error codes
 
 import { randomBytes } from "node:crypto";
+import { asRawClient, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -23,7 +24,6 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createLateBoundHolder } from "@cosmicdrift/kumiko-framework/testing";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { AuthErrors, AuthHandlers } from "../../auth-email-password/constants";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
@@ -47,7 +47,6 @@ import { seedTenantMembership } from "../../tenant/seeding";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
 import { UserHandlers } from "../../user/constants";
 import { createUserDataRightsFeature } from "../feature";
-import { asRawClient, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const RESTRICT = "user-data-rights:write:restrict-account";
 const LIFT = "user-data-rights:write:lift-restriction";
@@ -142,10 +141,7 @@ describe("S2.U6 :: restrict-account state-transitions", () => {
     expect(loginRes.status).toBe(200);
 
     // Session-Row vorhanden + live (revokedAt=null).
-    const sessionsBefore = (await stack.db
-      .select({ id: userSessionTable["id"], revokedAt: userSessionTable["revokedAt"] })
-      .from(userSessionTable)
-      .where(eq(userSessionTable["userId"], userId))) as Array<{
+    const sessionsBefore = (await selectMany(stack.db, userSessionTable, { userId })) as Array<{
       id: string;
       revokedAt: unknown;
     }>;
@@ -167,17 +163,15 @@ describe("S2.U6 :: restrict-account state-transitions", () => {
     expect(result.userId).toBe(userId);
 
     // DB-State: status=Restricted.
-    const userRow = (await stack.db
-      .select({ status: userTable["status"] })
-      .from(userTable)
-      .where(eq(userTable["id"], userId))) as Array<{ status: string }>;
+    const userRow = (await selectMany(stack.db, userTable, { id: userId })) as Array<{
+      status: string;
+    }>;
     expect(userRow[0]?.status).toBe(USER_STATUS.Restricted);
 
     // Alle Sessions revoked (revokedAt != null).
-    const sessionsAfter = (await stack.db
-      .select({ revokedAt: userSessionTable["revokedAt"] })
-      .from(userSessionTable)
-      .where(eq(userSessionTable["userId"], userId))) as Array<{ revokedAt: unknown }>;
+    const sessionsAfter = (await selectMany(stack.db, userSessionTable, { userId })) as Array<{
+      revokedAt: unknown;
+    }>;
     expect(sessionsAfter.every((s) => s.revokedAt !== null)).toBe(true);
   });
 
@@ -205,10 +199,9 @@ describe("S2.U6 :: lift-restriction state-transitions", () => {
     const result = await stack.http.writeOk<{ status: string }>(LIFT, {}, aliceUser);
     expect(result.status).toBe(USER_STATUS.Active);
 
-    const userRow = (await stack.db
-      .select({ status: userTable["status"] })
-      .from(userTable)
-      .where(eq(userTable["id"], userId))) as Array<{ status: string }>;
+    const userRow = (await selectMany(stack.db, userTable, { id: userId })) as Array<{
+      status: string;
+    }>;
     expect(userRow[0]?.status).toBe(USER_STATUS.Active);
   });
 
@@ -280,10 +273,9 @@ describe("S2.U6 :: Cross-Feature sessions.revokeAllForUser direct", () => {
     expect(a.status).toBe(200);
     expect(b.status).toBe(200);
 
-    const liveBefore = (await stack.db
-      .select({ id: userSessionTable["id"] })
-      .from(userSessionTable)
-      .where(eq(userSessionTable["userId"], userId))) as Array<{ id: string }>;
+    const liveBefore = (await selectMany(stack.db, userSessionTable, { userId })) as Array<{
+      id: string;
+    }>;
     expect(liveBefore.length).toBe(2);
 
     // System-Caller.
@@ -301,10 +293,9 @@ describe("S2.U6 :: Cross-Feature sessions.revokeAllForUser direct", () => {
     expect(result.userId).toBe(userId);
 
     // Alle revoked.
-    const revoked = (await stack.db
-      .select({ revokedAt: userSessionTable["revokedAt"] })
-      .from(userSessionTable)
-      .where(eq(userSessionTable["userId"], userId))) as Array<{ revokedAt: unknown }>;
+    const revoked = (await selectMany(stack.db, userSessionTable, { userId })) as Array<{
+      revokedAt: unknown;
+    }>;
     expect(revoked.every((s) => s.revokedAt !== null)).toBe(true);
   });
 });

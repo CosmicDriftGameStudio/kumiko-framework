@@ -40,6 +40,7 @@
 //
 // **Boot-Dependencies:** config + tenant.
 
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   buildDrizzleTable,
   createEventStoreExecutor,
@@ -59,7 +60,6 @@ import {
   type TenantId,
   type TierResolverPlugin,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { tierAssignmentAggregateId } from "./aggregate-id";
 import type { TierMap } from "./compose-app";
 import { TIER_ENGINE_FEATURE } from "./constants";

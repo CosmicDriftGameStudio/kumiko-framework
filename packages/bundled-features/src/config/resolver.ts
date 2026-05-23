@@ -1,8 +1,5 @@
-import {
-  type DbConnection,
-  type EncryptionProvider,
-  type TenantDb,
-} from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import type { DbConnection, EncryptionProvider, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type {
   ConfigCascade,
   ConfigCascadeLevel,
@@ -14,7 +11,6 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { assertUnreachable, parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
-import { asRawClient, fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configValuesTable } from "./table";
 
 type ConfigRow = {

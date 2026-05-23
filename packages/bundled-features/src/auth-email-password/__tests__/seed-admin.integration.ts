@@ -10,6 +10,7 @@
 //   4. Rollen pro Tenant landen korrekt (unterschiedliche Rollen-Listen
 //      pro Membership).
 
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -29,7 +30,6 @@ import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/schema/user";
 import { verifyPassword } from "../password-hashing";
 import { seedAdmin } from "../testing";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 
@@ -98,10 +98,16 @@ describe("seedAdmin", () => {
     expect(invalid).toBe(false);
 
     // Memberships pro Tenant mit unterschiedlichen Rollen
-    const devMembership = await selectMany(stack.db, tenantMembershipsTable, { userId: userId, tenantId: TENANT_DEV });
+    const devMembership = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: userId,
+      tenantId: TENANT_DEV,
+    });
     expect(devMembership[0]?.["roles"]).toBe(JSON.stringify(["Admin"]));
 
-    const betaMembership = await selectMany(stack.db, tenantMembershipsTable, { userId: userId, tenantId: TENANT_BETA });
+    const betaMembership = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: userId,
+      tenantId: TENANT_BETA,
+    });
     expect(betaMembership[0]?.["roles"]).toBe(JSON.stringify(["User"]));
   });
 

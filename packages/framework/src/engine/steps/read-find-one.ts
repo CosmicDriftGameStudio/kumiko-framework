@@ -20,7 +20,7 @@
 // fine for "find by uuid", a footgun for "find by tenantId". No
 // runtime check; reviewer responsibility.
 
-import { type WhereObject, selectMany } from "../../bun-db/query";
+import { selectMany, type WhereObject } from "../../bun-db/query";
 import { defineStep } from "../define-step";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
 import { resolveRequired } from "./_resolver-utils";

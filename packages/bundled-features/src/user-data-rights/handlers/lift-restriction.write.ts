@@ -1,8 +1,8 @@
+import { fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { USER_STATUS, userTable } from "../../user";
-import { fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // POST /api/user/lift-restriction (S2.U6) — DSGVO Art. 18 Reverse.
 //
@@ -29,7 +29,9 @@ export const liftRestrictionWrite = defineWriteHandler({
   schema: z.object({}),
   access: { openToAll: true },
   handler: async (event, ctx) => {
-    const userRow = await fetchOne<{ status: string }>(ctx.db.raw, userTable, { id: event.user.id });
+    const userRow = await fetchOne<{ status: string }>(ctx.db.raw, userTable, {
+      id: event.user.id,
+    });
 
     if (!userRow) {
       return writeFailure(

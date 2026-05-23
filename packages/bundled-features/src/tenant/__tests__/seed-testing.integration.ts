@@ -11,6 +11,7 @@
 //   4. The `by`-user shows up as insertedById on the projection — so
 //      audit-queries that join events→users actually find the actor.
 
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -29,7 +30,6 @@ import { createTenantFeature } from "../feature";
 import { tenantMembershipsTable } from "../membership-table";
 import { tenantEntity, tenantTable } from "../schema/tenant";
 import { seedTenant, seedTenantMembership } from "../seeding";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 
@@ -118,7 +118,10 @@ describe("seedTenantMembership", () => {
       roles: ["Admin", "Billing"],
     });
 
-    const rows = await selectMany(stack.db, tenantMembershipsTable, { userId: ALICE_ID, tenantId: TENANT_A });
+    const rows = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: ALICE_ID,
+      tenantId: TENANT_A,
+    });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["userId"]).toBe(ALICE_ID);
     expect(rows[0]?.["tenantId"]).toBe(TENANT_A);

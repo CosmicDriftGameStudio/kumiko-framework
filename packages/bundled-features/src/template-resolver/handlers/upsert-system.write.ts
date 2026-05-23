@@ -26,11 +26,12 @@ export const upsertSystemWrite = defineWriteHandler({
     // Pattern symmetrisch zu text-content setWrite Override-Branch.
     const executorUser = { ...event.user, tenantId };
 
-    const existing = await fetchOne<TemplateResourceRow>(
-      db,
-      templateResourcesTable,
-      { tenantId, slug: event.payload.slug, kind: event.payload.kind, locale: event.payload.locale },
-    );
+    const existing = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
+      tenantId,
+      slug: event.payload.slug,
+      kind: event.payload.kind,
+      locale: event.payload.locale,
+    });
 
     const fields = {
       slug: event.payload.slug,

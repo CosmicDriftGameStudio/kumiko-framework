@@ -8,6 +8,7 @@
 // projection side (list + detail queries). This file covers the event
 // side — complementary coverage, minimal overlap.
 
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createRegistry, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -27,7 +28,6 @@ import {
   JOB_RUN_STARTED_EVENT,
 } from "../job-run-logger";
 import { jobRunLogsTable, jobRunsTable } from "../job-run-table";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let testDb: TestDb;
 let testRedis: TestRedis;

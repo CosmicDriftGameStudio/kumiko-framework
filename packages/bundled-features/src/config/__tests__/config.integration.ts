@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEncryptionProvider,
   type DbConnection,
@@ -29,7 +30,6 @@ import { ConfigHandlers, ConfigQueries } from "../constants";
 import { createConfigAccessor, createConfigAccessorFactory, createConfigFeature } from "../feature";
 import { type ConfigResolver, createConfigResolver, validateAppOverrides } from "../resolver";
 import { configValueEntity, configValuesTable } from "../table";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // --- Setup ---
 
@@ -756,11 +756,7 @@ describe("encrypted config", () => {
     expect(value).toBe("sk-super-secret-key-12345");
 
     // Verify raw DB value is NOT plaintext
-    const { eq } = await import("drizzle-orm");
-    const [raw] = await db
-      .select({ value: configValuesTable.value })
-      .from(configValuesTable)
-      .where(eq(configValuesTable.key, "integration:config:api-secret"));
+    const [raw] = await selectMany(db, configValuesTable, { key: "integration:config:api-secret" });
     const rawValue = raw?.value as string;
     expect(rawValue).not.toBe("sk-super-secret-key-12345");
     expect(rawValue).not.toContain("sk-super-secret");

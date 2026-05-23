@@ -17,10 +17,11 @@
 //      e. Invitation → accepted, Token gelöscht
 //   5. Response: SessionUser + tenantId für Auto-Login
 
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEventStoreExecutor,
   createTenantDb,
-  type DbConnection
+  type DbConnection,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
@@ -53,7 +54,6 @@ import {
 } from "../invite-token-store";
 // kumiko-lint-ignore cross-feature-import provisioning needs cross-feature seeding helpers
 import { seedUserWithPassword } from "../seeding";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const InviteSignupCompleteSchema = z.object({
   token: z.string().min(1),
@@ -113,11 +113,9 @@ export function createInviteSignupCompleteHandler() {
 
       let committed = false;
       try {
-        const invitation = await fetchOne<InvitationRow>(
-          ctx.db.raw,
-          tenantInvitationsTable,
-          { id: invitationId },
-        );
+        const invitation = await fetchOne<InvitationRow>(ctx.db.raw, tenantInvitationsTable, {
+          id: invitationId,
+        });
         if (!invitation || invitation.status !== INVITATION_STATUS.pending)
           return invalidInviteToken();
 

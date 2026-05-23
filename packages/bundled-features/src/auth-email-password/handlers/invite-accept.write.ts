@@ -15,10 +15,8 @@
 // Session"-Flow. Branch 2 (anon + existing email) und Branch 3 (anon +
 // new email) kommen als separate Handler.
 
-import {
-  createEventStoreExecutor,
-  createTenantDb
-} from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   defineWriteHandler,
@@ -47,7 +45,6 @@ import {
   getInvitationIdForToken,
   unburnInviteToken,
 } from "../invite-token-store";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const InviteAcceptSchema = z.object({
   token: z.string().min(1),
@@ -106,11 +103,9 @@ export function createInviteAcceptHandler() {
 
       let committed = false;
       try {
-        const invitation = await fetchOne<InvitationRow>(
-          ctx.db.raw,
-          tenantInvitationsTable,
-          { id: invitationId },
-        );
+        const invitation = await fetchOne<InvitationRow>(ctx.db.raw, tenantInvitationsTable, {
+          id: invitationId,
+        });
         if (!invitation || invitation.status !== INVITATION_STATUS.pending)
           return invalidInviteToken();
 

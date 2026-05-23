@@ -31,13 +31,13 @@
 // Fixture-seeding prioritises "make the state exist" over "detect duplicate
 // seeding", which is usually a test-author bug we don't need to surface.
 
+import { asRawClient, fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEventStoreExecutor,
   createTenantDb,
-  type DbRunner
+  type DbRunner,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { asRawClient, fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table";
 import { tenantEntity, tenantTable } from "./schema/tenant";

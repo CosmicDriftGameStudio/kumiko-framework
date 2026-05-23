@@ -19,6 +19,7 @@
 //   3. Idempotency: tenant-update fired keinen weiteren row
 
 import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createTestUser,
@@ -33,7 +34,6 @@ import { userTable } from "../../user";
 import type { TierMap } from "../compose-app";
 import { tierAssignmentEntity } from "../entity";
 import { createTierEngineFeature } from "../feature";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const TEST_TIER_MAP: TierMap<{ readonly maxItems: number }> = {
   free: { features: [], caps: { maxItems: 1 } },
@@ -90,7 +90,10 @@ describe("auto-default-tier postSave hook on tenant-create", () => {
     ))!;
     const tenantId = created["id"] as string;
 
-    const existing = (await selectMany(stack.db, tenantTable, { id: tenantId })) as Array<{ id: string; version: number }>;
+    const existing = (await selectMany(stack.db, tenantTable, { id: tenantId })) as Array<{
+      id: string;
+      version: number;
+    }>;
     const currentVersion = existing[0]!.version;
 
     await stack.http.writeOk(

@@ -1,3 +1,4 @@
+import { insertMany, insertOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   defineApply,
   defineFeature,
@@ -19,7 +20,6 @@ import {
   JOB_RUN_STARTED_EVENT,
 } from "./job-run-logger";
 import { jobRunLogsTable, jobRunsTable } from "./job-run-table";
-import { insertMany, insertOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 export function createJobsFeature(): FeatureDefinition {
   return defineFeature("jobs", (r) => {
@@ -63,19 +63,27 @@ export function createJobsFeature(): FeatureDefinition {
         [JOB_RUN_COMPLETED_EVENT]: defineApply<z.infer<typeof runCompletedSchema>>(
           async (event, tx) => {
             const p = event.payload;
-            await updateMany(tx, jobRunsTable, {
+            await updateMany(
+              tx,
+              jobRunsTable,
+              {
                 status: "completed",
                 duration: p.duration,
                 finishedAt: Temporal.Instant.from(p.finishedAt),
                 version: event.version,
                 modifiedAt: event.createdAt,
                 modifiedById: event.metadata?.userId ?? "system",
-              }, { id: event.aggregateId });
+              },
+              { id: event.aggregateId },
+            );
           },
         ),
         [JOB_RUN_FAILED_EVENT]: defineApply<z.infer<typeof runFailedSchema>>(async (event, tx) => {
           const p = event.payload;
-          await updateMany(tx, jobRunsTable, {
+          await updateMany(
+            tx,
+            jobRunsTable,
+            {
               status: "failed",
               error: p.error,
               duration: p.duration,
@@ -83,7 +91,9 @@ export function createJobsFeature(): FeatureDefinition {
               version: event.version,
               modifiedAt: event.createdAt,
               modifiedById: event.metadata?.userId ?? "system",
-            }, { id: event.aggregateId });
+            },
+            { id: event.aggregateId },
+          );
         }),
       },
     });
@@ -103,24 +113,32 @@ export function createJobsFeature(): FeatureDefinition {
             // to insert; the completed-event alone already updated the run's
             // status via the sibling job-runs projection.
             if (p.logs.length === 0) return;
-            await insertMany(tx, jobRunLogsTable, p.logs.map((log) => ({
-              runId: event.aggregateId,
-              level: log.level,
-              message: log.message,
-              timestamp: Temporal.Instant.from(log.timestamp),
-            })));
+            await insertMany(
+              tx,
+              jobRunLogsTable,
+              p.logs.map((log) => ({
+                runId: event.aggregateId,
+                level: log.level,
+                message: log.message,
+                timestamp: Temporal.Instant.from(log.timestamp),
+              })),
+            );
           },
         ),
         [JOB_RUN_FAILED_EVENT]: defineApply<z.infer<typeof runFailedSchema>>(async (event, tx) => {
           const p = event.payload;
           // skip: empty log batch — the worker ran silent (mirror of completed)
           if (p.logs.length === 0) return;
-          await insertMany(tx, jobRunLogsTable, p.logs.map((log) => ({
-            runId: event.aggregateId,
-            level: log.level,
-            message: log.message,
-            timestamp: Temporal.Instant.from(log.timestamp),
-          })));
+          await insertMany(
+            tx,
+            jobRunLogsTable,
+            p.logs.map((log) => ({
+              runId: event.aggregateId,
+              level: log.level,
+              message: log.message,
+              timestamp: Temporal.Instant.from(log.timestamp),
+            })),
+          );
         }),
       },
     });

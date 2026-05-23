@@ -10,6 +10,7 @@
 // directly) picks them up automatically. This suite is the evidence that
 // the promise holds end-to-end.
 
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
@@ -26,7 +27,6 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { AuditQueries } from "../../audit/constants";
@@ -34,7 +34,6 @@ import { createAuditFeature } from "../../audit/feature";
 import { fieldDefinitionEntity } from "../entity";
 import { createCustomFieldsFeature } from "../feature";
 import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const propertyEntity = createEntity({
   table: "read_t15a_properties",

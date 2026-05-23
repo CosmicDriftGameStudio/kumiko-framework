@@ -25,7 +25,7 @@ import {
 function makeMockDb(rows: unknown[]) {
   return {
     unsafe: async () => rows,
-    begin: async <T,>(fn: (tx: unknown) => Promise<T>) =>
+    begin: async <T>(fn: (tx: unknown) => Promise<T>) =>
       fn({ unsafe: async () => rows, begin: async () => undefined }),
     select: () => ({
       from: () => ({

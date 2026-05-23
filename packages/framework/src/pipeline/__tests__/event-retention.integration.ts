@@ -10,8 +10,8 @@
 //   4. olderThanDays / olderThan convenience: both resolve to the same
 //      cutoff semantics (createdAt < cutoff).
 
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
+import { asRawClient, insertOne, selectMany, updateMany } from "../../bun-db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { defineFeature } from "../../engine";
@@ -31,7 +31,6 @@ import {
 } from "../../stack";
 import { sharedWidgetEntity, sharedWidgetTable } from "../../testing";
 import { generateId } from "../../utils";
-import { asRawClient, insertOne, selectMany, updateMany } from "../../bun-db/query";
 
 // --- Fixture ---
 
@@ -79,16 +78,16 @@ async function seedOldAggregateEvent(
   aggregateType = "widget",
 ): Promise<bigint> {
   const [row] = await insertOne(stack.db, eventsTable, {
-      aggregateId: generateId(),
-      aggregateType,
-      tenantId: admin.tenantId,
-      version: 1,
-      type,
-      payload: {},
-      metadata: { userId: admin.id },
-      createdAt,
-      createdBy: admin.id,
-    });
+    aggregateId: generateId(),
+    aggregateType,
+    tenantId: admin.tenantId,
+    version: 1,
+    type,
+    payload: {},
+    metadata: { userId: admin.id },
+    createdAt,
+    createdBy: admin.id,
+  });
   if (!row) throw new Error("seed failed");
   return row.id;
 }
@@ -180,10 +179,17 @@ describe("E.2 — consumer-lag guard", () => {
     // Only let the first one through.
     await stack.eventDispatcher?.runOnce();
     // Force cursor to 1 so the guard sees "consumer at 1, max candidate 3".
-    await updateMany(stack.db, eventConsumerStateTable, { lastProcessedEventId: 1n, status: "idle" }, { name: observerQn });
+    await updateMany(
+      stack.db,
+      eventConsumerStateTable,
+      { lastProcessedEventId: 1n, status: "idle" },
+      { name: observerQn },
+    );
 
     // Age all three events past the cutoff.
-    await asRawClient(stack.db).unsafe(`UPDATE kumiko_events SET created_at = now() - interval '30 days'`);
+    await asRawClient(stack.db).unsafe(
+      `UPDATE kumiko_events SET created_at = now() - interval '30 days'`,
+    );
 
     await expect(
       pruneEvents(stack.db, {
@@ -199,7 +205,9 @@ describe("E.2 — consumer-lag guard", () => {
     await disableConsumer(stack.db, observerQn);
 
     // Cursor is at 1 but consumer is disabled — should be skipped.
-    await asRawClient(stack.db).unsafe(`UPDATE kumiko_events SET created_at = now() - interval '30 days'`);
+    await asRawClient(stack.db).unsafe(
+      `UPDATE kumiko_events SET created_at = now() - interval '30 days'`,
+    );
 
     const result = await pruneEvents(stack.db, {
       olderThanDays: 7,

@@ -40,12 +40,14 @@ function rawClient(db: DbRunner): {
   if (sessionClient && typeof (sessionClient as Record<string, unknown>)["unsafe"] === "function") {
     return sessionClient as never;
   }
-  throw new Error("migrate-runner: db argument has no .unsafe() (need Bun.SQL or drizzle DbConnection)");
+  throw new Error(
+    "migrate-runner: db argument has no .unsafe() (need Bun.SQL or drizzle DbConnection)",
+  );
 }
 
 export type Migration = {
-  readonly id: string;          // filename ohne .sql
-  readonly checksum: string;    // sha256-hex vom File-Content
+  readonly id: string; // filename ohne .sql
+  readonly checksum: string; // sha256-hex vom File-Content
   readonly statements: readonly string[];
 };
 
@@ -132,7 +134,11 @@ async function fetchAppliedMigrations(db: DbConnection): Promise<readonly Applie
 }
 
 export class MigrationChecksumMismatchError extends Error {
-  constructor(public readonly migrationId: string, public readonly expected: string, public readonly actual: string) {
+  constructor(
+    public readonly migrationId: string,
+    public readonly expected: string,
+    public readonly actual: string,
+  ) {
     super(
       `Migration "${migrationId}" was edited after being applied. ` +
         `DB has checksum ${expected.slice(0, 12)}…, file has ${actual.slice(0, 12)}…. ` +
@@ -194,10 +200,7 @@ export async function runMigrations(
 
 // Convenience: load + run in einem Call. Wird vom `kumiko migrate apply`
 // CLI-Command + von Test-Setup-Helfern verwendet.
-export async function runMigrationsFromDir(
-  db: DbConnection,
-  dir: string,
-): Promise<ApplyResult> {
+export async function runMigrationsFromDir(db: DbConnection, dir: string): Promise<ApplyResult> {
   const migrations = loadMigrationsFromDir(dir);
   return runMigrations(db, migrations);
 }

@@ -1,7 +1,7 @@
+import { insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { tenantChannel } from "@cosmicdrift/kumiko-framework/engine";
 import type { DeliveryChannel } from "../delivery";
 import { inAppMessagesTable } from "./tables";
-import { insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 export const inAppChannel: DeliveryChannel = {
   name: "inApp",

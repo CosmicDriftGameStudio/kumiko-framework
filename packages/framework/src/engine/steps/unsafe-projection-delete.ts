@@ -16,7 +16,7 @@
 // must commit in the same TX as the aggregate-mutation that triggered
 // it (stronger consistency than an async projection). Reviewer judges.
 
-import { type WhereObject, deleteMany } from "../../bun-db/query";
+import { deleteMany, type WhereObject } from "../../bun-db/query";
 import { defineStep } from "../define-step";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
 import { resolveRequired } from "./_resolver-utils";

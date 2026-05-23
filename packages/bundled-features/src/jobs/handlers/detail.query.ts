@@ -18,9 +18,14 @@ export const detailQuery = defineQueryHandler({
 
     if (!row) return null;
 
-    const logs = await selectMany(db, jobRunLogsTable, { runId: query.payload.runId }, {
-      orderBy: { col: "id", direction: "asc" },
-    });
+    const logs = await selectMany(
+      db,
+      jobRunLogsTable,
+      { runId: query.payload.runId },
+      {
+        orderBy: { col: "id", direction: "asc" },
+      },
+    );
 
     return { ...row, logs };
   },

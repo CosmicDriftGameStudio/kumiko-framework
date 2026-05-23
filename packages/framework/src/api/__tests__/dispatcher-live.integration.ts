@@ -2,12 +2,12 @@ import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { generateToken } from "../../api/tokens";
+import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { generateId } from "../../utils";
-import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
 
 // End-to-end: UI code would call `dispatcher.write("feat:write:item:create", ...)`.
 // This test wires dispatcher-live against the real Kumiko HTTP stack via

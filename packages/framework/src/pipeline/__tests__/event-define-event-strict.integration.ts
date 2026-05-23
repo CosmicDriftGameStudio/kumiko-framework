@@ -12,6 +12,7 @@
 //      pass `def.name` to ctx.appendEvent without building the qn manually.
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
+import { selectMany } from "../../bun-db/query";
 import { defineFeature } from "../../engine";
 import { eventsTable } from "../../event-store";
 import {
@@ -23,7 +24,6 @@ import {
 } from "../../stack";
 import { sharedWidgetEntity } from "../../testing";
 import { generateId } from "../../utils";
-import { selectMany } from "../../bun-db/query";
 
 // Capture of the qualified event name defineEvent returns so tests can
 // assert against a moving target (kebab/qualifier transformations).

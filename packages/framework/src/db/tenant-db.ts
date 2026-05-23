@@ -161,9 +161,7 @@ export function createTenantDb(
       options?: SelectOptions,
     ): Promise<readonly T[]> {
       const filter = readWhere(table, where);
-      return withDbSpan("select", table, async () =>
-        bunSelectMany<T>(db, table, filter, options),
-      );
+      return withDbSpan("select", table, async () => bunSelectMany<T>(db, table, filter, options));
     },
 
     fetchOne<T = Record<string, unknown>>(

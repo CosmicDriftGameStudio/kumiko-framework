@@ -1,5 +1,5 @@
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { asRawClient } from "../../bun-db/query";
 import { createTestDb, type TestDb } from "../../stack";
 import { generateId as uuid } from "../../utils";
 import {
@@ -13,7 +13,6 @@ import {
   streamAllEventsByType,
   VersionConflictError,
 } from "../index";
-import { asRawClient } from "../../bun-db/query";
 
 let testDb: TestDb;
 

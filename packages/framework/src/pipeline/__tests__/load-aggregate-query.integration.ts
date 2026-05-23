@@ -8,6 +8,7 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
+import { insertOne } from "../../bun-db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
@@ -19,7 +20,6 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "../../stack";
-import { insertOne } from "../../bun-db/query";
 
 // --- Fixture entity ---
 

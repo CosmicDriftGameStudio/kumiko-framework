@@ -5,8 +5,8 @@
 // holds at least one of the listed roles. When `fieldAccess.write` is
 // absent or empty the handler-level RBAC is the only gate.
 
-import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { parseSerializedField } from "./parse-serialized-field";
 
 export type FieldAccessCheckResult =

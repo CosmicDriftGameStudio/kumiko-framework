@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { asRawClient, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -25,7 +26,6 @@ import { createAuthEmailPasswordFeature } from "../feature";
 import { hashPassword } from "../password-hashing";
 import { signResetToken } from "../reset-token";
 import { signVerificationToken } from "../verification-token";
-import { asRawClient, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const capturedEmails: Array<{ email: string; verificationUrl: string; expiresAt: string }> = [];
 

@@ -17,11 +17,9 @@ export const resolveUserIdsQuery = defineQueryHandler({
     const { tenantId, userId } = query.payload;
 
     if (tenantId !== undefined) {
-      const rows = await selectMany<{ userId: number }>(
-        ctx.db,
-        tenantMembershipsTable,
-        { tenantId },
-      );
+      const rows = await selectMany<{ userId: number }>(ctx.db, tenantMembershipsTable, {
+        tenantId,
+      });
       return rows.map((r) => r.userId);
     }
 

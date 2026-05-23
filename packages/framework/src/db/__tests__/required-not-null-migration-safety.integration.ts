@@ -16,10 +16,9 @@
 // solchen Migration eine Sanity-Query auf NULL-Counts in den betroffenen
 // Spalten laufen, oder DB drop'pen wenn der State Demo-State ist.
 
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
-import { createTestDb, type TestDb } from "../../stack";
 import { asRawClient } from "../../bun-db/query";
+import { createTestDb, type TestDb } from "../../stack";
 
 let testDb: TestDb;
 
@@ -48,7 +47,9 @@ describe("ALTER TABLE SET NOT NULL — Daten-Sicherheits-Verhalten", () => {
 
     let caught: unknown;
     try {
-      await asRawClient(testDb.db).unsafe(`ALTER TABLE migration_safety_test ALTER COLUMN key SET NOT NULL`);
+      await asRawClient(testDb.db).unsafe(
+        `ALTER TABLE migration_safety_test ALTER COLUMN key SET NOT NULL`,
+      );
     } catch (err) {
       caught = err;
     }
@@ -73,7 +74,9 @@ describe("ALTER TABLE SET NOT NULL — Daten-Sicherheits-Verhalten", () => {
     await asRawClient(testDb.db).unsafe(`INSERT INTO migration_safety_test (key) VALUES ('bar')`);
 
     // Sollte ohne Throw durchlaufen.
-    await asRawClient(testDb.db).unsafe(`ALTER TABLE migration_safety_test ALTER COLUMN key SET NOT NULL`);
+    await asRawClient(testDb.db).unsafe(
+      `ALTER TABLE migration_safety_test ALTER COLUMN key SET NOT NULL`,
+    );
 
     // Verifizieren: zukünftige NULL-Inserts werden jetzt blockiert.
     let caught: unknown;
@@ -95,10 +98,14 @@ describe("ALTER TABLE SET NOT NULL — Daten-Sicherheits-Verhalten", () => {
         key text
       )
     `);
-    await asRawClient(testDb.db).unsafe(`ALTER TABLE migration_safety_test ALTER COLUMN key SET NOT NULL`);
+    await asRawClient(testDb.db).unsafe(
+      `ALTER TABLE migration_safety_test ALTER COLUMN key SET NOT NULL`,
+    );
 
     // Beweis: information_schema zeigt die Spalte jetzt als NOT NULL.
-    const rows = await asRawClient(testDb.db).unsafe(`SELECT is_nullable FROM information_schema.columns WHERE table_name = 'migration_safety_test' AND column_name = 'key'`);
+    const rows = await asRawClient(testDb.db).unsafe<{ is_nullable: string }>(
+      `SELECT is_nullable FROM information_schema.columns WHERE table_name = 'migration_safety_test' AND column_name = 'key'`,
+    );
     expect(rows[0]?.is_nullable).toBe("NO");
   });
 });

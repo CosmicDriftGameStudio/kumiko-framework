@@ -16,6 +16,12 @@ import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import {
+  asRawClient,
+  insertOne,
+  selectMany,
+  updateMany,
+} from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createInMemoryFileProvider,
@@ -29,7 +35,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import {
   createComplianceProfilesFeature,
@@ -42,7 +47,6 @@ import { runExportJobs } from "../run-export-jobs";
 import { exportDownloadTokenEntity, exportDownloadTokensTable } from "../schema/download-token";
 import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "../schema/export-job";
 import { hashDownloadToken } from "../token-helpers";
-import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 let providerPerTenant: Map<string, ReturnType<typeof createInMemoryFileProvider>>;
@@ -100,20 +104,17 @@ beforeEach(async () => {
 
   // Atom 5: aliceUser-Row mit email seeden — Worker-Notification-Callback
   // schaut email via lookupUserEmail an.
-  await stack.db
-    .insert(userTable)
-    .values({
-      id: String(aliceUser.id),
-      tenantId: tenantA,
-      email: "alice@example.com",
-      passwordHash: "hashed",
-      displayName: "Alice",
-      locale: "de",
-      emailVerified: true,
-      roles: '["Member"]',
-      status: USER_STATUS.Active,
-    })
-    .onConflictDoNothing();
+  await insertOne(stack.db, userTable, {
+    id: String(aliceUser.id),
+    tenantId: tenantA,
+    email: "alice@example.com",
+    passwordHash: "hashed",
+    displayName: "Alice",
+    locale: "de",
+    emailVerified: true,
+    roles: '["Member"]',
+    status: USER_STATUS.Active,
+  });
 });
 
 const NOW = () => getTemporal().Now.instant();
@@ -155,10 +156,7 @@ describe("runExportJobs :: happy path", () => {
     expect(result.errors).toEqual([]);
 
     // Job-Row ist done
-    const [row] = (await stack.db
-      .select()
-      .from(exportJobsTable)
-      .where(sql`id = ${jobId}`)) as Array<{
+    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
       status: string;
       downloadStorageKey: string | null;
       expiresAt: { toString(): string } | null;
@@ -216,10 +214,12 @@ describe("runExportJobs :: stale-detection", () => {
     const jobId = await seedPendingJob();
     const T = getTemporal();
     const twoHoursAgo = T.Instant.fromEpochMilliseconds(Date.now() - 2 * 60 * 60 * 1000);
-    await stack.db
-      .update(exportJobsTable)
-      .set({ status: EXPORT_JOB_STATUS.Running, startedAt: twoHoursAgo })
-      .where(sql`id = ${jobId}`);
+    await updateMany(
+      stack.db,
+      exportJobsTable,
+      { status: EXPORT_JOB_STATUS.Running, startedAt: twoHoursAgo },
+      { id: jobId },
+    );
 
     const result = await runExportJobs({
       db: stack.db,
@@ -230,10 +230,7 @@ describe("runExportJobs :: stale-detection", () => {
 
     expect(result.staleFailedJobIds).toContain(jobId);
 
-    const [row] = (await stack.db
-      .select()
-      .from(exportJobsTable)
-      .where(sql`id = ${jobId}`)) as Array<{
+    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
       status: string;
       errorMessage: string | null;
     }>;
@@ -245,10 +242,12 @@ describe("runExportJobs :: stale-detection", () => {
     const jobId = await seedPendingJob();
     const T = getTemporal();
     const justNow = T.Instant.fromEpochMilliseconds(Date.now() - 60 * 1000); // 1min ago
-    await stack.db
-      .update(exportJobsTable)
-      .set({ status: EXPORT_JOB_STATUS.Running, startedAt: justNow })
-      .where(sql`id = ${jobId}`);
+    await updateMany(
+      stack.db,
+      exportJobsTable,
+      { status: EXPORT_JOB_STATUS.Running, startedAt: justNow },
+      { id: jobId },
+    );
 
     const result = await runExportJobs({
       db: stack.db,
@@ -258,10 +257,9 @@ describe("runExportJobs :: stale-detection", () => {
     });
 
     expect(result.staleFailedJobIds).not.toContain(jobId);
-    const [row] = (await stack.db
-      .select()
-      .from(exportJobsTable)
-      .where(sql`id = ${jobId}`)) as Array<{ status: string }>;
+    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
+      status: string;
+    }>;
     expect(row?.status).toBe(EXPORT_JOB_STATUS.Running);
   });
 
@@ -279,14 +277,16 @@ describe("runExportJobs :: stale-detection", () => {
     // gesetzt + ZIP geschrieben. Worker dann gecrashed (kein done-flip).
     const provider = await buildProvider(tenantA);
     await provider.write(storageKey, new Uint8Array([1, 2, 3]));
-    await stack.db
-      .update(exportJobsTable)
-      .set({
+    await updateMany(
+      stack.db,
+      exportJobsTable,
+      {
         status: EXPORT_JOB_STATUS.Running,
         startedAt: twoHoursAgo,
         downloadStorageKey: storageKey,
-      })
-      .where(sql`id = ${jobId}`);
+      },
+      { id: jobId },
+    );
 
     const result = await runExportJobs({
       db: stack.db,
@@ -299,10 +299,10 @@ describe("runExportJobs :: stale-detection", () => {
     expect(result.cleanedJobIds).toContain(jobId);
     expect(await provider.exists(storageKey)).toBe(false);
 
-    const [row] = (await stack.db
-      .select()
-      .from(exportJobsTable)
-      .where(sql`id = ${jobId}`)) as Array<{ status: string; downloadStorageKey: string | null }>;
+    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
+      status: string;
+      downloadStorageKey: string | null;
+    }>;
     expect(row?.status).toBe(EXPORT_JOB_STATUS.Failed);
     expect(row?.downloadStorageKey).toBeNull();
   });
@@ -319,16 +319,18 @@ describe("runExportJobs :: storage-cleanup", () => {
     const provider = await buildProvider(tenantA);
     await provider.write(storageKey, new Uint8Array([1, 2, 3]));
 
-    await stack.db
-      .update(exportJobsTable)
-      .set({
+    await updateMany(
+      stack.db,
+      exportJobsTable,
+      {
         status: EXPORT_JOB_STATUS.Done,
         startedAt: longAgo,
         completedAt: longAgo,
         downloadStorageKey: storageKey,
         expiresAt: longAgo,
-      })
-      .where(sql`id = ${jobId}`);
+      },
+      { id: jobId },
+    );
 
     const result = await runExportJobs({
       db: stack.db,
@@ -340,10 +342,7 @@ describe("runExportJobs :: storage-cleanup", () => {
     expect(result.cleanedJobIds).toContain(jobId);
     expect(await provider.exists(storageKey)).toBe(false);
 
-    const [row] = (await stack.db
-      .select()
-      .from(exportJobsTable)
-      .where(sql`id = ${jobId}`)) as Array<{
+    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
       status: string;
       downloadStorageKey: string | null;
     }>;
@@ -359,16 +358,18 @@ describe("runExportJobs :: storage-cleanup", () => {
     const provider = await buildProvider(tenantA);
     await provider.write(storageKey, new Uint8Array([4, 5, 6]));
 
-    await stack.db
-      .update(exportJobsTable)
-      .set({
+    await updateMany(
+      stack.db,
+      exportJobsTable,
+      {
         status: EXPORT_JOB_STATUS.Done,
         startedAt: oneHourAgo,
         completedAt: oneHourAgo,
         downloadStorageKey: storageKey,
         expiresAt: oneHourAgo,
-      })
-      .where(sql`id = ${jobId}`);
+      },
+      { id: jobId },
+    );
 
     const result = await runExportJobs({
       db: stack.db,
@@ -437,10 +438,10 @@ describe("runExportJobs :: concurrency", () => {
     expect([...resultA.failedJobIds, ...resultB.failedJobIds]).toEqual([]);
 
     // DB hat genau eine done-Row
-    const rows = (await stack.db
-      .select()
-      .from(exportJobsTable)
-      .where(sql`id = ${jobId}`)) as Array<{ status: string; downloadStorageKey: string | null }>;
+    const rows = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
+      status: string;
+      downloadStorageKey: string | null;
+    }>;
     expect(rows).toHaveLength(1);
     expect(rows[0]?.status).toBe(EXPORT_JOB_STATUS.Done);
     expect(rows[0]?.downloadStorageKey).toBe(`${tenantA}/exports/${jobId}.zip`);
@@ -461,10 +462,12 @@ describe("runExportJobs :: stale-detection profile-driven cutoff", () => {
     const jobId = await seedPendingJob();
     const T = getTemporal();
     const fortyFiveMinAgo = T.Instant.fromEpochMilliseconds(Date.now() - 45 * 60 * 1000);
-    await stack.db
-      .update(exportJobsTable)
-      .set({ status: EXPORT_JOB_STATUS.Running, startedAt: fortyFiveMinAgo })
-      .where(sql`id = ${jobId}`);
+    await updateMany(
+      stack.db,
+      exportJobsTable,
+      { status: EXPORT_JOB_STATUS.Running, startedAt: fortyFiveMinAgo },
+      { id: jobId },
+    );
 
     const result = await runExportJobs({
       db: stack.db,
@@ -474,10 +477,9 @@ describe("runExportJobs :: stale-detection profile-driven cutoff", () => {
     });
 
     expect(result.staleFailedJobIds).toContain(jobId);
-    const [row] = (await stack.db
-      .select()
-      .from(exportJobsTable)
-      .where(sql`id = ${jobId}`)) as Array<{ status: string }>;
+    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
+      status: string;
+    }>;
     expect(row?.status).toBe(EXPORT_JOB_STATUS.Failed);
   });
 });
@@ -501,10 +503,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     expect(plainToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
 
     // Hash in DB matched plain via hashDownloadToken roundtrip
-    const tokenRows = (await stack.db
-      .select()
-      .from(exportDownloadTokensTable)
-      .where(sql`job_id = ${jobId}`)) as Array<{
+    const tokenRows = (await selectMany(stack.db, exportDownloadTokensTable, { jobId })) as Array<{
       jobId: string;
       tokenHash: string;
       issuedAt: { toString(): string };
@@ -520,10 +519,9 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     expect(tokenRows[0]?.useCount).toBe(0);
 
     // expiresAt im Token = job.expiresAt (denormalized)
-    const [jobRow] = (await stack.db
-      .select()
-      .from(exportJobsTable)
-      .where(sql`id = ${jobId}`)) as Array<{ expiresAt: { toString(): string } | null }>;
+    const [jobRow] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
+      expiresAt: { toString(): string } | null;
+    }>;
     expect(tokenRows[0]?.expiresAt.toString()).toBe(jobRow?.expiresAt?.toString());
   });
 
@@ -540,7 +538,9 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
       now: NOW(),
     });
 
-    const events = (await asRawClient(stack.db).unsafe(`SELECT type FROM kumiko_events WHERE type LIKE 'export-download-token.%'`)) as unknown as Array<{ type: string }>;
+    const events = (await asRawClient(stack.db).unsafe(
+      `SELECT type FROM kumiko_events WHERE type LIKE 'export-download-token.%'`,
+    )) as unknown as Array<{ type: string }>;
     // Mindestens 1 created-Event fuer den Token
     expect(events.some((e) => e.type === "export-download-token.created")).toBe(true);
   });
@@ -564,10 +564,9 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     expect(second.completedJobIds).toEqual([]);
     expect(second.tokenByJobId.size).toBe(0);
 
-    const tokenRows = (await stack.db
-      .select()
-      .from(exportDownloadTokensTable)
-      .where(sql`job_id = ${jobId}`)) as Array<unknown>;
+    const tokenRows = (await selectMany(stack.db, exportDownloadTokensTable, {
+      jobId,
+    })) as Array<unknown>;
     expect(tokenRows).toHaveLength(1);
   });
 
@@ -604,7 +603,8 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     // direct-INSERT (Test-Exemption). Worker's tokenCrud.create wird
     // dann mit constraintName "read_export_download_tokens_one_per_job"
     // failen.
-    await asRawClient(stack.db).unsafe(`
+    await asRawClient(stack.db).unsafe(
+      `
       INSERT INTO read_export_download_tokens
         (id, tenant_id, job_id, token_hash, issued_at, expires_at, version, inserted_at, modified_at)
       VALUES (
@@ -618,7 +618,9 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
         now(),
         now()
       )
-    `, [tenantA, jobId, "existing-hash"]);
+    `,
+      [tenantA, jobId, "existing-hash"],
+    );
 
     const result = await runExportJobs({
       db: stack.db,
@@ -631,10 +633,10 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     expect(result.completedJobIds).not.toContain(jobId);
     expect(result.failedJobIds).toContain(jobId);
 
-    const [row] = (await stack.db
-      .select()
-      .from(exportJobsTable)
-      .where(sql`id = ${jobId}`)) as Array<{ status: string; errorMessage: string | null }>;
+    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
+      status: string;
+      errorMessage: string | null;
+    }>;
     expect(row?.status).toBe(EXPORT_JOB_STATUS.Failed);
     expect(row?.errorMessage).toMatch(/Token-Creation failed/);
   });
@@ -651,14 +653,16 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     // (simuliert orphan-state nach Worker-crash).
     const provider = await buildProvider(tenantA);
     await provider.write(storageKey, new Uint8Array([99, 99, 99]));
-    await stack.db
-      .update(exportJobsTable)
-      .set({
+    await updateMany(
+      stack.db,
+      exportJobsTable,
+      {
         status: EXPORT_JOB_STATUS.Failed,
         downloadStorageKey: storageKey,
         errorMessage: "synthetic crash mid-run",
-      })
-      .where(sql`id = ${jobId}`);
+      },
+      { id: jobId },
+    );
 
     const result = await runExportJobs({
       db: stack.db,
@@ -670,10 +674,9 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     expect(result.cleanedJobIds).toContain(jobId);
     expect(await provider.exists(storageKey)).toBe(false);
 
-    const [row] = (await stack.db
-      .select()
-      .from(exportJobsTable)
-      .where(sql`id = ${jobId}`)) as Array<{ downloadStorageKey: string | null }>;
+    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
+      downloadStorageKey: string | null;
+    }>;
     expect(row?.downloadStorageKey).toBeNull();
   });
 });
@@ -774,11 +777,14 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
   });
 
   async function seedMembership(tenantId: string, userId: string | number) {
-    await asRawClient(localStack.db).unsafe(`
+    await asRawClient(localStack.db).unsafe(
+      `
       INSERT INTO read_tenant_memberships (tenant_id, user_id)
       VALUES ($1, $2)
       ON CONFLICT (user_id, tenant_id) DO NOTHING
-    `, [tenantId, String(userId)]);
+    `,
+      [tenantId, String(userId)],
+    );
   }
 
   async function seedPendingJobLocal(user: typeof aliceUser): Promise<string> {
@@ -878,10 +884,10 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
     expect(result.failedJobIds).toContain(jobId);
     expect(result.errors[0]?.message).toMatch(/in-memory file not found/);
 
-    const [row] = (await localStack.db
-      .select()
-      .from(exportJobsTable)
-      .where(sql`id = ${jobId}`)) as Array<{ status: string; errorMessage: string | null }>;
+    const [row] = (await selectMany(localStack.db, exportJobsTable, { id: jobId })) as Array<{
+      status: string;
+      errorMessage: string | null;
+    }>;
     expect(row?.status).toBe(EXPORT_JOB_STATUS.Failed);
     expect(row?.errorMessage).toMatch(/in-memory file not found/);
   });
@@ -1055,10 +1061,9 @@ describe("runExportJobs :: Atom 5 notification-callbacks", () => {
     expect(callbackInvoked).toBe(false);
     // Job ist trotzdem done (Notification ist best-effort, Audit-Trail
     // existiert via Token-DB-row)
-    const [row] = (await stack.db
-      .select()
-      .from(exportJobsTable)
-      .where(sql`id = ${jobId}`)) as Array<{ status: string }>;
+    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
+      status: string;
+    }>;
     expect(row?.status).toBe("done");
   });
 
@@ -1113,11 +1118,12 @@ describe("runExportJobs :: Atom 5 notification-callbacks", () => {
 
     // Beide DB-Rows tatsaechlich done (Job A's Status wurde VOR dem
     // Email-Versand committed — der Throw aenderte daran nichts).
-    const rows = (await stack.db
-      .select()
-      .from(exportJobsTable)
-      .where(sql`id IN (${jobAId}, ${jobBId})`)) as Array<{ id: string; status: string }>;
-    expect(rows).toHaveLength(2);
-    expect(rows.every((r) => r.status === "done")).toBe(true);
+    const rows = (await selectMany(stack.db, exportJobsTable, {})) as Array<{
+      id: string;
+      status: string;
+    }>;
+    const filteredRows = rows.filter((r) => r.id === jobAId || r.id === jobBId);
+    expect(filteredRows).toHaveLength(2);
+    expect(filteredRows.every((r) => r.status === "done")).toBe(true);
   });
 });

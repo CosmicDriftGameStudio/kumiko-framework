@@ -105,7 +105,7 @@ describe("files :: DDL-Konsistenz (M3, S1.7)", () => {
   // Symbol-Properties-Junk. Sauberer als Object.keys(table) das auch
   // interne Drizzle-Symbols mitnimmt.
   function pgColumnNames(): Set<string> {
-    return new Set(Object.keys(getTableColumns(fileRefsTable)));
+    return new Set(Object.keys(getTableColumns(fileRefsTable as any)));
   }
 
   test("Feature-Entity-Felder matchen die Framework-pgTable column-set", () => {

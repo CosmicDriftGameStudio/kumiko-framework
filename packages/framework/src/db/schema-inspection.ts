@@ -18,13 +18,21 @@ export async function tableExists(
   fullyQualifiedName: string,
 ): Promise<boolean> {
   const dbAny = db as unknown as {
-    $client?: { unsafe: (s: string, p?: readonly unknown[]) => Promise<readonly { exists: boolean }[]> };
-    session?: { client?: { unsafe: (s: string, p?: readonly unknown[]) => Promise<readonly { exists: boolean }[]> } };
+    $client?: {
+      unsafe: (s: string, p?: readonly unknown[]) => Promise<readonly { exists: boolean }[]>;
+    };
+    session?: {
+      client?: {
+        unsafe: (s: string, p?: readonly unknown[]) => Promise<readonly { exists: boolean }[]>;
+      };
+    };
     unsafe?: (s: string, p?: readonly unknown[]) => Promise<readonly { exists: boolean }[]>;
   };
   const client = dbAny.$client ?? dbAny.session?.client ?? dbAny;
   const rows = await (
-    client as { unsafe: (s: string, p?: readonly unknown[]) => Promise<readonly { exists: boolean }[]> }
+    client as {
+      unsafe: (s: string, p?: readonly unknown[]) => Promise<readonly { exists: boolean }[]>;
+    }
   ).unsafe(`SELECT to_regclass($1) IS NOT NULL AS exists`, [fullyQualifiedName]);
   return rows[0]?.exists ?? false;
 }

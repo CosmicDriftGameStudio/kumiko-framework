@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
@@ -24,7 +25,6 @@ import { userEntity, userTable } from "../../user/schema/user";
 import { AuthErrors, AuthHandlers } from "../constants";
 import { createAuthEmailPasswordFeature } from "../feature";
 import { hashPassword } from "../password-hashing";
-import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // Sample-style extension feature that shows the real-world shape of a claims
 // hook: look something up in a tenant-scoped table and stuff it into the JWT.

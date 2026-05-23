@@ -1,5 +1,5 @@
-import { asRawClient, selectMany } from "../bun-db/query";
 import { requestContext } from "../api/request-context";
+import { asRawClient, selectMany } from "../bun-db/query";
 import type { DbConnection, DbTx, PgClient } from "../db/connection";
 import type { AppContext } from "../engine/types";
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers";
@@ -716,9 +716,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
 //                     lastError=null, status="idle". For events that will
 //                     never succeed (broken payload, removed feature code).
 
-function normalizeConsumerState(
-  row: ConsumerStateRowShape,
-): ConsumerRecoveryState {
+function normalizeConsumerState(row: ConsumerStateRowShape): ConsumerRecoveryState {
   return {
     name: row.name,
     instanceId: row.instanceId,
@@ -751,7 +749,10 @@ async function requireConsumerRow(
   name: string,
   instanceId: string,
 ): Promise<ConsumerStateRowShape> {
-  const [row] = await selectMany<ConsumerStateRow>(db, eventConsumerStateTable, { name, instanceId });
+  const [row] = await selectMany<ConsumerStateRow>(db, eventConsumerStateTable, {
+    name,
+    instanceId,
+  });
   if (!row) {
     throw new Error(
       `Consumer "${name}" (instance_id="${instanceId}") has no state row — it hasn't run yet, the name is misspelled, or the instance is misspelled. ` +
@@ -851,7 +852,10 @@ export async function skipPoisonEvent(
     )) as ReadonlyArray<{ id: bigint }>;
     const poison = poisonRows[0];
     if (!poison) {
-      const [unchanged] = await selectMany<ConsumerStateRow>(tx, eventConsumerStateTable, { name, instanceId });
+      const [unchanged] = await selectMany<ConsumerStateRow>(tx, eventConsumerStateTable, {
+        name,
+        instanceId,
+      });
       if (!unchanged)
         throw new Error(`Consumer "${name}" (instance_id="${instanceId}") vanished — retry.`);
       return { ...normalizeConsumerState(unchanged), skippedEventId: null };
@@ -890,7 +894,10 @@ export async function getConsumerState(
   readonly lastError: string | null;
   readonly updatedAt: Temporal.Instant;
 } | null> {
-  const [row] = await selectMany<ConsumerStateRow>(db, eventConsumerStateTable, { name, instanceId });
+  const [row] = await selectMany<ConsumerStateRow>(db, eventConsumerStateTable, {
+    name,
+    instanceId,
+  });
   if (!row) return null;
   return {
     name: row.name,

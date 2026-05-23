@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
+import { insertOne } from "../../bun-db/query";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createRegistry, defineFeature } from "../../engine";
 import type { AppContext, SaveContext } from "../../engine/types";
@@ -13,7 +14,6 @@ import {
   unsafeCreateEntityTable,
 } from "../../stack";
 import { createRecordingProvider, type RecordingProvider, waitFor } from "../../testing";
-import { insertOne } from "../../bun-db/query";
 
 // End-to-end observability integration: wires a full Kumiko stack with a
 // RecordingProvider so we can assert on the span tree and metric events.

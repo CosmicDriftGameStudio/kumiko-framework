@@ -4,15 +4,14 @@
 // items-create.integration im Showcase abgedeckt — nicht ausreichend
 // für Framework-Code der von jeder App genutzt wird.
 
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { asRawClient } from "../../bun-db/query";
 import { createEntity, createNumberField, createTextField } from "../../engine";
 import { createEventsTable } from "../../event-store";
 import { createTestDb, type TestDb, TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { createEventStoreExecutor } from "../event-store-executor";
 import { buildDrizzleTable } from "../table-builder";
 import { createTenantDb, type TenantDb } from "../tenant-db";
-import { asRawClient } from "../../bun-db/query";
 
 const entity = createEntity({
   table: "read_pager_items",
@@ -39,7 +38,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(testDb.db).unsafe(`TRUNCATE kumiko_events, read_pager_items RESTART IDENTITY CASCADE`);
+  await asRawClient(testDb.db).unsafe(
+    `TRUNCATE kumiko_events, read_pager_items RESTART IDENTITY CASCADE`,
+  );
 });
 
 describe("event-store-executor.list — offset + totalCount (Tier 2.6d)", () => {

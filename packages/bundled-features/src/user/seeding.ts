@@ -9,15 +9,15 @@
 // (audit, search-index) sehen den Seed. Der Executor-Pfad emittiert
 // das Event UND schreibt die Projection-Zeile in einer TX.
 
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEventStoreExecutor,
   createTenantDb,
-  type DbConnection
+  type DbConnection,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { userEntity, userTable } from "./schema/user";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const userExecutor = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
 

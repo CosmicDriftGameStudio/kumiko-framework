@@ -7,6 +7,7 @@
 // Der Code-Comment in handlers/request-deletion.write.ts behauptet beide
 // Properties — dieser Test verifiziert sie end-to-end.
 
+import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -15,7 +16,6 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import {
   createComplianceProfilesFeature,
@@ -26,7 +26,6 @@ import { USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserFeature } from "../../user/feature";
 import { createUserDataRightsFeature } from "../feature";
 import type { SendDeletionRequestedEmailFn } from "../handlers/request-deletion.write";
-import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const REQUEST_DELETION = "user-data-rights:write:request-deletion";
 
@@ -138,11 +137,9 @@ describe("request-deletion :: sendDeletionRequestedEmail callback", () => {
     // DB-State ist tatsaechlich geflipt — der zentrale "best-effort"-
     // Beweis. Wenn das Write die Email-Failure-Exception bubbelt, waere
     // der Status hier noch Active.
-    const rows = (await stack.db
-      .select({ status: userTable["status"] })
-      .from(userTable)
-      .where(eq(userTable["id"], aliceUser.id))
-      .limit(1)) as Array<{ status: string }>;
+    const rows = (await selectMany(stack.db, userTable, { id: aliceUser.id })) as Array<{
+      status: string;
+    }>;
     expect(rows[0]?.status).toBe(USER_STATUS.DeletionRequested);
   });
 

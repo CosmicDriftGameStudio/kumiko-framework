@@ -5,6 +5,7 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
+import { insertOne } from "../../bun-db/query";
 import {
   integer as pgInteger,
   table as pgTable,
@@ -21,7 +22,6 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "../../stack";
-import { insertOne } from "../../bun-db/query";
 
 const widgetEntity = createEntity({
   table: "read_qp_widgets",

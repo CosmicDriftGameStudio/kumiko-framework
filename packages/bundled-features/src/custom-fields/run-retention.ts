@@ -15,9 +15,9 @@
 // — for value-level granularity, future work needs a value-timestamp
 // jsonb shape, which would be a breaking schema change.
 
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { parseSerializedField } from "./lib/parse-serialized-field";
 
 const DRIZZLE_NAME_SYMBOL = Symbol.for("drizzle:Name");

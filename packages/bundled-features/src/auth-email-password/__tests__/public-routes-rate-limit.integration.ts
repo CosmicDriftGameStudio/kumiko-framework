@@ -5,6 +5,7 @@
 // or tightens loginRateLimit but forgets these would sail through.
 
 import { randomBytes } from "node:crypto";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import {
   setupTestStack,
@@ -23,7 +24,6 @@ import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/schema/user";
 import { AuthHandlers } from "../constants";
 import { createAuthEmailPasswordFeature } from "../feature";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 const encryptionKey = randomBytes(32).toString("base64");

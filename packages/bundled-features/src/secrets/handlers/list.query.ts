@@ -17,9 +17,14 @@ export const listQuery = defineQueryHandler({
       metadata: { redactedPreview?: string; hint?: string };
       lastRotatedAt: unknown;
       insertedAt: unknown;
-    }>(ctx.db.raw, tenantSecretsTable, { tenantId: event.user.tenantId }, {
-      orderBy: { col: "key", direction: "asc" },
-    });
+    }>(
+      ctx.db.raw,
+      tenantSecretsTable,
+      { tenantId: event.user.tenantId },
+      {
+        orderBy: { col: "key", direction: "asc" },
+      },
+    );
     return rows.map((r) => ({
       key: r.key,
       redactedPreview: r.metadata.redactedPreview ?? null,

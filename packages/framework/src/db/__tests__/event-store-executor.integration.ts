@@ -1,5 +1,5 @@
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { asRawClient } from "../../bun-db/query";
 import { createBooleanField, createEntity, createTextField } from "../../engine";
 import { createEventsTable } from "../../event-store";
 import {
@@ -12,7 +12,6 @@ import {
 import { createEventStoreExecutor } from "../event-store-executor";
 import { buildDrizzleTable } from "../table-builder";
 import { createTenantDb, type TenantDb } from "../tenant-db";
-import { asRawClient } from "../../bun-db/query";
 
 const entity = createEntity({
   table: "read_es_exec_users",
@@ -41,7 +40,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(testDb.db).unsafe(`TRUNCATE kumiko_events, read_es_exec_users RESTART IDENTITY CASCADE`);
+  await asRawClient(testDb.db).unsafe(
+    `TRUNCATE kumiko_events, read_es_exec_users RESTART IDENTITY CASCADE`,
+  );
 });
 
 describe("event-store-executor", () => {
@@ -130,17 +131,21 @@ describe("event-store-executor — sensitive fields", () => {
   });
 
   beforeEach(async () => {
-    await asRawClient(testDb.db).unsafe(`TRUNCATE kumiko_events, read_es_exec_sensitive RESTART IDENTITY CASCADE`);
+    await asRawClient(testDb.db).unsafe(
+      `TRUNCATE kumiko_events, read_es_exec_sensitive RESTART IDENTITY CASCADE`,
+    );
   });
 
   async function lastEvent<TPayload = Record<string, unknown>>(): Promise<{
     type: string;
     payload: TPayload;
   }> {
-    const rows = await asRawClient(testDb.db).unsafe(`SELECT type, payload FROM kumiko_events ORDER BY id DESC LIMIT 1`);
+    const rows = await asRawClient(testDb.db).unsafe(
+      `SELECT type, payload FROM kumiko_events ORDER BY id DESC LIMIT 1`,
+    );
     const row = rows[0];
     if (!row) throw new Error("no events in store");
-    return row;
+    return row as { type: string; payload: TPayload };
   }
 
   test("create event payload excludes sensitive fields but entity row keeps them", async () => {

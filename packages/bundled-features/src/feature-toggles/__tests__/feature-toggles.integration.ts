@@ -1,3 +1,4 @@
+import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   buildDrizzleTable,
   createEventStoreExecutor,
@@ -24,7 +25,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createLateBoundHolder } from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { Temporal } from "temporal-polyfill";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
@@ -32,7 +32,6 @@ import { FEATURE_TOGGLE_SET_EVENT_NAME } from "../constants";
 import { createFeatureTogglesFeature } from "../feature";
 import { globalFeatureStateTable } from "../global-feature-state-table";
 import { GlobalFeatureToggleRuntime } from "../toggle-runtime";
-import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // Widget — the "tenant" under test. toggleable(default=true), owns a
 // simple entity and a create-handler that writes via the event-store
@@ -129,13 +128,10 @@ function widgetTrackerFeature(): FeatureDefinition {
       table: widgetTrackerTable,
       apply: {
         [entityEventName("widget", "created")]: async (event, tx) => {
-          await tx
-            .insert(widgetTrackerTable)
-            .values({ tenantId: event.tenantId, count: 1 })
-            .onConflictDoUpdate({
-              target: widgetTrackerTable.tenantId,
-              set: { count: sql`${widgetTrackerTable.count} + 1` },
-            });
+          await asRawClient(tx).unsafe(
+            `INSERT INTO "widget_tracker" (tenant_id, count) VALUES ($1::uuid, 1) ON CONFLICT (tenant_id) DO UPDATE SET count = widget_tracker.count + 1`,
+            [event.tenantId],
+          );
         },
       },
     });
@@ -192,7 +188,9 @@ beforeEach(async () => {
   // from event-id 0. Tests that drain via eventDispatcher.runOnce() need
   // this or they drain a shared backlog and see false-positive counters.
   await asRawClient(stack.db).unsafe(`DELETE FROM kumiko_events`);
-  await asRawClient(stack.db).unsafe(`UPDATE kumiko_event_consumers SET last_processed_event_id = 0`);
+  await asRawClient(stack.db).unsafe(
+    `UPDATE kumiko_event_consumers SET last_processed_event_id = 0`,
+  );
   await runtime.refresh();
 });
 
@@ -232,12 +230,17 @@ async function trackerCount(): Promise<number> {
 // explicit shape — typed access everywhere else.
 type ConsumerCursorRow = { last_processed_event_id: number | string };
 async function trackerCursor(): Promise<number> {
-  const rows = (await asRawClient(stack.db).unsafe(`SELECT last_processed_event_id FROM kumiko_event_consumers WHERE name LIKE '%tracker%' LIMIT 1`)) as unknown as readonly ConsumerCursorRow[];
+  const rows = (await asRawClient(stack.db).unsafe(
+    `SELECT last_processed_event_id FROM kumiko_event_consumers WHERE name LIKE '%tracker%' LIMIT 1`,
+  )) as unknown as readonly ConsumerCursorRow[];
   return Number(rows[0]?.last_processed_event_id ?? 0);
 }
 
 async function setTrackerCursor(value: number): Promise<void> {
-  await asRawClient(stack.db).unsafe(`UPDATE kumiko_event_consumers SET last_processed_event_id = $1 WHERE name LIKE '%tracker%'`, [value]);
+  await asRawClient(stack.db).unsafe(
+    `UPDATE kumiko_event_consumers SET last_processed_event_id = $1 WHERE name LIKE '%tracker%'`,
+    [value],
+  );
 }
 
 describe("feature-toggles runtime cache", () => {
@@ -514,7 +517,9 @@ describe("feature-toggles queries + audit automation", () => {
       admin,
     );
 
-    const events = (await asRawClient(stack.db).unsafe(`SELECT type, payload FROM kumiko_events WHERE type = 'feature-toggles:event:toggle-set'`)) as unknown as readonly {
+    const events = (await asRawClient(stack.db).unsafe(
+      `SELECT type, payload FROM kumiko_events WHERE type = 'feature-toggles:event:toggle-set'`,
+    )) as unknown as readonly {
       type: string;
       payload: Record<string, unknown>;
     }[];

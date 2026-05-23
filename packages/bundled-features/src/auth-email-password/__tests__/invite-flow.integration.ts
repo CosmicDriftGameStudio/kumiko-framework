@@ -14,6 +14,7 @@
 //   4. Branch-spezifischer Accept-Endpoint
 //   5. DB-State + Membership + Cookies/JWT verifizieren
 
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createSystemUser,
   type SessionUser,
@@ -41,7 +42,6 @@ import { AuthErrors, AuthHandlers } from "../constants";
 import { createAuthEmailPasswordFeature } from "../feature";
 import { hashPassword } from "../password-hashing";
 import { seedUser } from "../seeding";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const APP_ACCEPT_URL = "https://app.example.com/invite/accept";
 const ALICE_EMAIL = "alice@example.com";

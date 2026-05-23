@@ -1,10 +1,10 @@
+import { fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { addDurationSpec, type DurationSpec } from "@cosmicdrift/kumiko-framework/compliance";
 import { createSystemUser, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
 import { USER_STATUS, userTable } from "../../user";
-import { fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // Atom 5b — Email-Notification beim deletion-requested-flip. Pattern:
 // password-reset-Callback aus auth-routes.ts. Best-effort — Throw beim
@@ -36,7 +36,9 @@ export function createRequestDeletionHandler(opts: RequestDeletionOptions = {}) 
     handler: async (event, ctx) => {
       // ctx.db.raw (kein TenantDb-Wrapper) weil User-Entity tenant-agnostisch
       // ist — siehe Plan-Doc Cross-Tenant-Section.
-      const userRow = await fetchOne<{ status: string; email: string }>(ctx.db.raw, userTable, { id: event.user.id });
+      const userRow = await fetchOne<{ status: string; email: string }>(ctx.db.raw, userTable, {
+        id: event.user.id,
+      });
 
       if (!userRow) {
         return writeFailure(
@@ -74,10 +76,15 @@ export function createRequestDeletionHandler(opts: RequestDeletionOptions = {}) 
       const T = getTemporal();
       const gracePeriodEnd = addDurationSpec(T.Now.instant(), gracePeriod);
 
-      await updateMany(ctx.db.raw, userTable, {
+      await updateMany(
+        ctx.db.raw,
+        userTable,
+        {
           status: USER_STATUS.DeletionRequested,
           gracePeriodEnd,
-        }, { id: event.user.id });
+        },
+        { id: event.user.id },
+      );
 
       // Best-effort Email-Notification. Send-Failure darf das Write nicht
       // killen — siehe Type-Doc oben. console.warn ist die Operator-

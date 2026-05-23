@@ -7,11 +7,10 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { asRawClient } from "../../bun-db/query";
 import { createTestDb, type TestDb } from "../../stack";
 import { detectDrift } from "../schema-drift";
-import { asRawClient } from "../../bun-db/query";
 
 let testDb: TestDb;
 let migrationsDir: string;
@@ -98,7 +97,10 @@ async function dropDrizzleMigrationsTable(): Promise<void> {
 }
 
 async function insertAppliedMigration(hash: string): Promise<void> {
-  await asRawClient(testDb.db).unsafe(`INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ($1, $2)`, [hash, Date.now()]);
+  await asRawClient(testDb.db).unsafe(
+    `INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ($1, $2)`,
+    [hash, Date.now()],
+  );
 }
 
 describe("detectDrift", () => {
@@ -178,7 +180,9 @@ describe("detectDrift", () => {
         },
       ]);
       // DB hat email NULLABLE — drift.
-      await asRawClient(testDb.db).unsafe(`CREATE TABLE drift_test_users (id uuid PRIMARY KEY, email text)`);
+      await asRawClient(testDb.db).unsafe(
+        `CREATE TABLE drift_test_users (id uuid PRIMARY KEY, email text)`,
+      );
       await ensureDrizzleMigrationsTable();
       await insertAppliedMigration("hash-0000");
 
@@ -225,7 +229,9 @@ describe("detectDrift", () => {
         },
       ]);
       // DB hat zusätzliche Spalte (z.B. manueller ALTER TABLE in Prod).
-      await asRawClient(testDb.db).unsafe(`CREATE TABLE drift_test_users (id uuid PRIMARY KEY, secret_legacy text)`);
+      await asRawClient(testDb.db).unsafe(
+        `CREATE TABLE drift_test_users (id uuid PRIMARY KEY, secret_legacy text)`,
+      );
       await ensureDrizzleMigrationsTable();
       await insertAppliedMigration("hash-0000");
 
@@ -248,7 +254,9 @@ describe("detectDrift", () => {
         },
       ]);
       // DB hat age als TEXT statt INTEGER.
-      await asRawClient(testDb.db).unsafe(`CREATE TABLE drift_test_users (id uuid PRIMARY KEY, age text)`);
+      await asRawClient(testDb.db).unsafe(
+        `CREATE TABLE drift_test_users (id uuid PRIMARY KEY, age text)`,
+      );
       await ensureDrizzleMigrationsTable();
       await insertAppliedMigration("hash-0000");
 
@@ -305,7 +313,10 @@ describe("detectDrift", () => {
       )
     `);
     try {
-      await asRawClient(testDb.db).unsafe(`INSERT INTO public.__drizzle_migrations (hash, created_at) VALUES ('hash-0000', $1)`, [Date.now()]);
+      await asRawClient(testDb.db).unsafe(
+        `INSERT INTO public.__drizzle_migrations (hash, created_at) VALUES ('hash-0000', $1)`,
+        [Date.now()],
+      );
       const report = await detectDrift(testDb.db, migrationsDir);
       expect(report.ok).toBe(true);
     } finally {

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
+import { updateMany } from "../bun-db/query";
 import { createEventStoreExecutor } from "../db/event-store-executor";
 import { buildDrizzleTable } from "../db/table-builder";
 import {
@@ -11,7 +12,6 @@ import {
 } from "../engine";
 import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../stack";
 import { expectErrorIncludes } from "../testing";
-import { updateMany } from "../bun-db/query";
 
 // Two entities, both with a field named `status`, but different transitions.
 // Before the fix, the dispatcher cached the transition map by `fieldName`
@@ -268,8 +268,12 @@ describe("auto transition guard: per-entity transition map (cache key includes e
     // Raw-DB-mark-deleted — we need a soft-deleted row whose status is a
     // terminal state. If the guard fired, any status write would throw
     // "Invalid transition: closed → <x>". We want it silently skipped.
-    const { eq } = await import("drizzle-orm");
-    await updateMany(stack.db, ticketTable, { status: "closed", isDeleted: true }, { id: ticket["id"] });
+    await updateMany(
+      stack.db,
+      ticketTable,
+      { status: "closed", isDeleted: true },
+      { id: ticket["id"] },
+    );
 
     // Attempting to move a deleted ticket to "open" would normally violate
     // "closed → []" (no allowed targets). With the softDelete skip, the

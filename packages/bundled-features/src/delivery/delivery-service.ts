@@ -1,4 +1,5 @@
 import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection, DbRow } from "@cosmicdrift/kumiko-framework/db";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { NotifyPriority, Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
@@ -6,7 +7,6 @@ import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import { append } from "@cosmicdrift/kumiko-framework/event-store";
 import { runProjectionsForEvent } from "@cosmicdrift/kumiko-framework/pipeline";
 import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing/handler-context";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import type { Redis } from "ioredis";
 import { DELIVERY_ATTEMPT_EVENT } from "./constants";

@@ -2,6 +2,7 @@
 // log IS the audit trail; this suite proves the query handler exposes the
 // right slices of it (tenant-isolated, filtered, paginated, content-intact).
 
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEntity,
   createTextField,
@@ -18,11 +19,9 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { AuditQueries } from "../constants";
 import { createAuditFeature } from "../feature";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const widgetEntity = createEntity({
   table: "audit_widgets",

@@ -1,9 +1,9 @@
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { type Registry, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { append, getStreamVersion } from "@cosmicdrift/kumiko-framework/event-store";
 import type { JobLogEntry, JobMeta, JobRunnerOptions } from "@cosmicdrift/kumiko-framework/jobs";
 import { runProjectionsForEvent } from "@cosmicdrift/kumiko-framework/pipeline";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { runCompletedSchema, runFailedSchema, runStartedSchema } from "./events";
 import { jobRunsTable } from "./job-run-table";

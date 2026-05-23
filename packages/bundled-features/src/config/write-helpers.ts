@@ -2,7 +2,8 @@
 // Extracted from set.write.ts so reset.write.ts + values.query.ts don't
 // have to cross-import from another handler file.
 
-import { type DbConnection, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import type { DbConnection, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   type ConfigKeyDefinition,
   type ConfigScope,
@@ -25,7 +26,6 @@ import {
 import { assertUnreachable } from "@cosmicdrift/kumiko-framework/utils";
 import { ConfigErrors } from "./constants";
 import { configValuesTable } from "./table";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 export type ConfigRowLookup = {
   readonly id: string;

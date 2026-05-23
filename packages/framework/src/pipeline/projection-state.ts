@@ -1,6 +1,6 @@
 // sql now comes from native dialect
 import type { DbConnection } from "../db/connection";
-import { sql, bigint, index, instant, table as pgTable, text  } from "../db/dialect";
+import { bigint, index, instant, table as pgTable, sql, text } from "../db/dialect";
 import { tableExists } from "../db/schema-inspection";
 import { unsafePushTables } from "../stack";
 

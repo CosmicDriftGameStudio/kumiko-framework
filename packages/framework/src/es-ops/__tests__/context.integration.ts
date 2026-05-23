@@ -13,13 +13,12 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
+import { asRawClient, selectMany } from "../../bun-db/query";
 import { createTestDb, type TestDb } from "../../stack";
 import { createSeedMigrationContext } from "../context";
 import { createEsOperationsTable, esOperationsTable } from "../operations-schema";
 import { runPendingSeedMigrations } from "../runner";
-import { asRawClient, selectMany } from "../../bun-db/query";
 
 let testDb: TestDb;
 
@@ -71,17 +70,23 @@ async function insertMembershipWithEvent(args: {
   readonly streamTenantId: string;
   readonly roles: string;
 }): Promise<void> {
-  await asRawClient(testDb.db).unsafe(`
+  await asRawClient(testDb.db).unsafe(
+    `
     INSERT INTO read_tenant_memberships (id, user_id, tenant_id, roles)
     VALUES ($1::uuid, $2, $3::uuid, $4)
-  `, [args.id, args.userId, args.payloadTenantId, args.roles]);
-  await asRawClient(testDb.db).unsafe(`
+  `,
+    [args.id, args.userId, args.payloadTenantId, args.roles],
+  );
+  await asRawClient(testDb.db).unsafe(
+    `
     INSERT INTO kumiko_events
       (aggregate_id, aggregate_type, tenant_id, version, type, payload, metadata, created_by)
     VALUES
       ($1::uuid, 'tenant-membership', $2::uuid, 1,
        'tenant-membership.created', '{}'::jsonb, '{"userId":"system"}'::jsonb, 'system')
-  `, [args.id, args.streamTenantId]);
+  `,
+    [args.id, args.streamTenantId],
+  );
 }
 
 function makeMockDispatcher() {
@@ -106,10 +111,13 @@ describe("SeedMigrationContext.findUserByEmail (integration)", () => {
   test("liest existing user-row korrekt + maps tenant_id → tenantId", async () => {
     const userId = "01900000-0000-7000-8000-000000000001";
     const tenantId = "00000000-0000-4000-8000-000000000099";
-    await asRawClient(testDb.db).unsafe(`
+    await asRawClient(testDb.db).unsafe(
+      `
       INSERT INTO read_users (id, email, tenant_id)
       VALUES ($1::uuid, 'admin@example.com', $2::uuid)
-    `, [userId, tenantId]);
+    `,
+      [userId, tenantId],
+    );
 
     const ctx = createSeedMigrationContext({
       dispatcher: makeMockDispatcher() as never,
@@ -232,11 +240,14 @@ describe("SeedMigrationContext.findMembershipsOfUser (integration)", () => {
     // statt einer mit fehlendem stream-tenant zu arbeiten und schwer
     // diagnostizierbare version_conflict-Errors zu produzieren.
     const userId = "01900000-0000-7000-8000-000000000003";
-    await asRawClient(testDb.db).unsafe(`
+    await asRawClient(testDb.db).unsafe(
+      `
       INSERT INTO read_tenant_memberships (id, user_id, tenant_id, roles) VALUES
         ('00000000-0000-4000-8000-0000000000d1'::uuid, $1,
          '00000000-0000-4000-8000-000000000005'::uuid, '["Admin"]')
-    `, [userId]);
+    `,
+      [userId],
+    );
     const ctx = createSeedMigrationContext({
       dispatcher: makeMockDispatcher() as never,
       dbRunner: testDb.db,
@@ -350,7 +361,9 @@ describe("SeedMigrationContext.db (escape-hatch, integration)", () => {
       dispatcher: makeMockDispatcher() as never,
       dbRunner: testDb.db,
     });
-    const rows = (await asRawClient(ctx.db).unsafe(`SELECT name FROM read_tenants WHERE tenant_key = 'lucky'`)) as unknown as readonly { name: string }[];
+    const rows = (await asRawClient(ctx.db).unsafe(
+      `SELECT name FROM read_tenants WHERE tenant_key = 'lucky'`,
+    )) as unknown as readonly { name: string }[];
     expect(rows[0]?.name).toBe("Lucky");
   });
 });

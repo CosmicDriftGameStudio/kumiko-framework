@@ -13,11 +13,9 @@ export const findByIdQuery = defineQueryHandler({
   schema: z.object({ id: z.string().min(1) }),
   access: { roles: ["TenantAdmin", "SystemAdmin", "User"] },
   handler: async (query, ctx) => {
-    const row = await fetchOne<TemplateResourceRow>(
-      ctx.db,
-      templateResourcesTable,
-      { id: query.payload.id },
-    );
+    const row = await fetchOne<TemplateResourceRow>(ctx.db, templateResourcesTable, {
+      id: query.payload.id,
+    });
     if (!row) return null;
     const isSystemAdmin = query.user.roles.includes("SystemAdmin");
     const isOwnTenant = row.tenantId === query.user.tenantId;

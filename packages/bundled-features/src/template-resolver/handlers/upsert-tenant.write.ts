@@ -51,11 +51,12 @@ export const upsertTenantWrite = defineWriteHandler({
     const tenantId = (override ?? event.user.tenantId) as TenantId;
     const executorUser = override !== undefined ? { ...event.user, tenantId } : event.user;
 
-    const existing = await fetchOne<TemplateResourceRow>(
-      db,
-      templateResourcesTable,
-      { tenantId, slug: event.payload.slug, kind: event.payload.kind, locale: event.payload.locale },
-    );
+    const existing = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
+      tenantId,
+      slug: event.payload.slug,
+      kind: event.payload.kind,
+      locale: event.payload.locale,
+    });
 
     const fields = {
       slug: event.payload.slug,

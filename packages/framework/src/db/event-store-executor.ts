@@ -1,11 +1,10 @@
-import { asRawClient, selectMany } from "../bun-db/query";
-import type { WhereObject } from "../bun-db/query";
 import { requestContext } from "../api/request-context";
-import { SYSTEM_TENANT_ID } from "../engine/types/identifiers";
-import { toSnakeCase } from "./table-builder";
+import type { WhereObject } from "../bun-db/query";
+import { asRawClient, selectMany } from "../bun-db/query";
 import { checkWriteFieldOwnership } from "../engine/field-access";
 import {
   buildOwnershipClause,
+  shiftParams,
   userCanCreateFieldRow,
   userCanWriteFieldRow,
 } from "../engine/ownership";
@@ -18,6 +17,7 @@ import type {
   SessionUser,
   WriteResult,
 } from "../engine/types";
+import { SYSTEM_TENANT_ID } from "../engine/types/identifiers";
 import {
   VersionConflictError as FrameworkVersionConflict,
   InternalError,
@@ -43,7 +43,7 @@ import { decodeCursor, encodeCursor } from "./cursor";
 import type { TableColumns } from "./dialect";
 import type { CursorResult } from "./index";
 import { constraintOf, isUniqueViolation } from "./pg-error";
-import { shiftParams } from "../engine/ownership";
+import { toSnakeCase } from "./table-builder";
 import type { TenantDb } from "./tenant-db";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
@@ -307,7 +307,9 @@ export function createEventStoreExecutor(
     }
     // ownership has raw SQL — splice it into a raw query alongside the
     // idFilter + tenant-filter that TenantDb would have added.
-    const tableName = String((table as unknown as Record<symbol, unknown>)[Symbol.for("drizzle:Name")]);
+    const tableName = String(
+      (table as unknown as Record<symbol, unknown>)[Symbol.for("drizzle:Name")],
+    );
     const colSql = (field: string): string =>
       `"${(table[field] as { name?: string } | undefined)?.name ?? toSnakeCase(field)}"`;
     const whereParts: string[] = [];
@@ -890,8 +892,7 @@ export function createEventStoreExecutor(
       const useOffset = !payload.cursor && offset > 0;
       const offsetClause = useOffset ? ` OFFSET ${offset}` : "";
 
-      const whereClauseSqlText =
-        whereSql.length > 0 ? ` WHERE ${whereSql.join(" AND ")}` : "";
+      const whereClauseSqlText = whereSql.length > 0 ? ` WHERE ${whereSql.join(" AND ")}` : "";
       const listSql = `SELECT * FROM "${tableName}"${whereClauseSqlText}${orderByClause} LIMIT ${limit}${offsetClause}`;
 
       const rawRows = (await asRawClient(db.raw).unsafe(listSql, params)) as Record<

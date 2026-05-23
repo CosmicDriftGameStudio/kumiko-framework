@@ -1,3 +1,4 @@
+import { insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import type { z } from "zod";
 import { DELIVERY_ATTEMPT_EVENT } from "./constants";
@@ -6,7 +7,6 @@ import { logQuery } from "./handlers/log.query";
 import { preferencesQuery } from "./handlers/preferences.query";
 import { setPreferenceWrite } from "./handlers/set-preference.write";
 import { deliveryAttemptsTable, notificationPreferenceEntity } from "./tables";
-import { insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 export function createDeliveryFeature(): FeatureDefinition {
   return defineFeature("delivery", (r) => {

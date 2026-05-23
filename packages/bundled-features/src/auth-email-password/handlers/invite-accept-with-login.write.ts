@@ -17,10 +17,8 @@
 // User entsteht — beide existieren bereits. Magic ist die kombinierte
 // Login+Accept-Operation in einem Roundtrip.
 
-import {
-  createEventStoreExecutor,
-  createTenantDb
-} from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   defineWriteHandler,
@@ -51,7 +49,6 @@ import {
   unburnInviteToken,
 } from "../invite-token-store";
 import { verifyPassword } from "../password-hashing";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const InviteAcceptWithLoginSchema = z.object({
   token: z.string().min(1),
@@ -113,11 +110,9 @@ export function createInviteAcceptWithLoginHandler() {
 
       let committed = false;
       try {
-        const invitation = await fetchOne<InvitationRow>(
-          ctx.db.raw,
-          tenantInvitationsTable,
-          { id: invitationId },
-        );
+        const invitation = await fetchOne<InvitationRow>(ctx.db.raw, tenantInvitationsTable, {
+          id: invitationId,
+        });
         if (!invitation || invitation.status !== INVITATION_STATUS.pending)
           return invalidInviteToken();
 

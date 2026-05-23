@@ -1,5 +1,5 @@
-import { asRawClient, selectMany } from "../bun-db/query";
 import { requestContext } from "../api/request-context";
+import { asRawClient, selectMany } from "../bun-db/query";
 import type { DbConnection, DbRow, DbTx } from "../db/connection";
 import { buildDrizzleTable } from "../db/table-builder";
 import { createTenantDb } from "../db/tenant-db";
@@ -512,9 +512,7 @@ export function createDispatcher(
         // tenantId on the JS side.
         const tenantCol = (projTable as Record<string, unknown>)["tenantId"];
         const where =
-          tenantCol && !queryOptions?.unsafeAllTenants
-            ? { tenantId: user.tenantId }
-            : undefined;
+          tenantCol && !queryOptions?.unsafeAllTenants ? { tenantId: user.tenantId } : undefined;
         const rows = await selectMany<Record<string, unknown>>(dbSource, projTable, where);
         return rows as readonly T[]; // @cast-boundary engine-payload
       },

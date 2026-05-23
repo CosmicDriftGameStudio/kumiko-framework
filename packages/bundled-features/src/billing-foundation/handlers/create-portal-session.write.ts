@@ -9,13 +9,13 @@
 // kann nicht zum Portal eines OTHER Providers, weil der ihn nicht
 // kennt.
 
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { subscriptionAggregateId } from "../aggregate-id";
 import { SUBSCRIPTION_PROVIDER_EXTENSION } from "../constants";
 import { subscriptionsProjectionTable as subTable } from "../projection";
 import type { SubscriptionProviderPlugin } from "../types";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const createPortalSessionSchema = z.object({
   /** Wo der Endkunde nach Portal-Session landed. */

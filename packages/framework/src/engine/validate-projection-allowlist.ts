@@ -62,7 +62,11 @@ const DRIZZLE_NAME_SYMBOL = Symbol.for("drizzle:Name");
 function resolveTableNameFromStep(table: unknown): string {
   if (typeof table === "object" && table !== null) {
     // EntityTableMeta discriminator
-    if ("source" in table && "tableName" in table && typeof (table as Record<string, unknown>)["tableName"] === "string") {
+    if (
+      "source" in table &&
+      "tableName" in table &&
+      typeof (table as Record<string, unknown>)["tableName"] === "string"
+    ) {
       return (table as Record<string, unknown>)["tableName"] as string;
     }
     // drizzle pgTable

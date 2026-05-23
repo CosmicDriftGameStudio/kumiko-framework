@@ -3,15 +3,15 @@
 // aber ohne Access-Check. Idempotent: zweiter Call mit gleichem
 // (tenantId, slug, lang) updated den existing Block.
 
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEventStoreExecutor,
   createTenantDb,
-  type DbConnection
+  type DbConnection,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { type TextBlockRow, textBlockEntity, textBlocksTable } from "./table";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const executor = createEventStoreExecutor(textBlocksTable, textBlockEntity, {
   entityName: "text-block",
@@ -46,11 +46,11 @@ export async function seedTextBlock(
   // checks (tenant-scope-validation) greifen.
   const tdb = createTenantDb(db, opts.tenantId, "system");
 
-  const existing = await fetchOne<TextBlockRow>(
-    db,
-    textBlocksTable,
-    { tenantId: opts.tenantId, slug: opts.slug, lang: opts.lang },
-  );
+  const existing = await fetchOne<TextBlockRow>(db, textBlocksTable, {
+    tenantId: opts.tenantId,
+    slug: opts.slug,
+    lang: opts.lang,
+  });
 
   const folder = opts.folder ?? null;
 

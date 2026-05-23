@@ -1,7 +1,7 @@
 // sql now comes from native dialect
 import { asRawClient, deleteMany, fetchOne } from "../bun-db/query";
 import type { DbConnection, DbRunner } from "../db/connection";
-import { sql, instant, table as pgTable, text, uniqueIndex, uuid  } from "../db/dialect";
+import { instant, table as pgTable, sql, text, uniqueIndex, uuid } from "../db/dialect";
 import { tableExists } from "../db/schema-inspection";
 import type { TenantId } from "../engine/types";
 import { unsafePushTables } from "../stack";

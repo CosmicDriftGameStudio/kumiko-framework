@@ -9,6 +9,7 @@
 // The reference timestamp is the host row's `modified_at`, not a per-key
 // timestamp — see run-retention.ts header for the rationale.
 
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
@@ -25,14 +26,12 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { fieldDefinitionEntity } from "../entity";
 import { createCustomFieldsFeature } from "../feature";
 import { runCustomFieldsRetention } from "../run-retention";
 import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const propertyEntity = createEntity({
   table: "read_t15d_properties",
@@ -117,11 +116,17 @@ async function setField(entityId: string, fieldKey: string, value: unknown) {
 // older than the retention cutoff. Faster than waiting `keepFor` real
 // time and the cleanest way to drive the cron under test.
 async function backdateRow(id: string, isoOlderThan: string) {
-  await asRawClient(stack.db).unsafe(`UPDATE read_t15d_properties SET modified_at = $1::timestamptz WHERE id = $2`, [isoOlderThan, id]);
+  await asRawClient(stack.db).unsafe(
+    `UPDATE read_t15d_properties SET modified_at = $1::timestamptz WHERE id = $2`,
+    [isoOlderThan, id],
+  );
 }
 
 async function readRow(id: string): Promise<Record<string, unknown> | undefined> {
-  const rows = await asRawClient(stack.db).unsafe(`SELECT id, custom_fields FROM read_t15d_properties WHERE id = $1`, [id]);
+  const rows = await asRawClient(stack.db).unsafe(
+    `SELECT id, custom_fields FROM read_t15d_properties WHERE id = $1`,
+    [id],
+  );
   return (rows as ReadonlyArray<Record<string, unknown>>)[0];
 }
 

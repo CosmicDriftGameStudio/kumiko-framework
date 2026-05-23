@@ -79,9 +79,14 @@ export const userDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
     // wenn der User sich neu authentifiziert — pragmatisch akzeptabel
     // weil "anonymize" auf user-entity ein seltener Edge-Case ist
     // (typisch hard-delete fuer User).
-    await updateMany(ctx.db, userTable, {
+    await updateMany(
+      ctx.db,
+      userTable,
+      {
         email: `${USER_ANONYMIZED_EMAIL_PREFIX}-${ctx.userId}@${USER_ANONYMIZED_EMAIL_DOMAIN}`,
         displayName: USER_ANONYMIZED_DISPLAY_NAME,
-      }, { id: ctx.userId });
+      },
+      { id: ctx.userId },
+    );
   }
 };

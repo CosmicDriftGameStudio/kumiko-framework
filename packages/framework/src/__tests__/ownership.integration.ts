@@ -5,6 +5,7 @@
 // `describe` block maps to a cell of the core-auth.md Policy-Matrix.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { asRawClient } from "../bun-db/query";
 import {
   createEntity,
   createTextField,
@@ -23,7 +24,6 @@ import {
   unsafeCreateEntityTable,
 } from "../stack";
 import { expectErrorIncludes } from "../testing";
-import { asRawClient } from "../bun-db/query";
 
 // ── Shared test entity ─────────────────────────────────────────────────────
 //

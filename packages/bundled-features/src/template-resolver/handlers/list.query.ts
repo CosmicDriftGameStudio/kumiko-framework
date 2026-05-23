@@ -1,5 +1,5 @@
-import { defineQueryHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { defineQueryHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { RENDER_KINDS, TEMPLATE_STATUSES } from "../constants";
 import { type TemplateResourceRow, templateResourcesTable } from "../table";
@@ -44,7 +44,9 @@ export const listQuery = defineQueryHandler({
 
     // @cast-boundary db-row — selectMany returnt unknown[]; Row-Shape ist
     // durch templateResourcesTable + buildBaseColumns garantiert.
-    const rows = (await selectMany(ctx.db, templateResourcesTable, where, { limit: 500 })) as TemplateResourceRow[];
+    const rows = (await selectMany(ctx.db, templateResourcesTable, where, {
+      limit: 500,
+    })) as TemplateResourceRow[];
 
     return rows.map((row) => ({
       id: String(row.id),

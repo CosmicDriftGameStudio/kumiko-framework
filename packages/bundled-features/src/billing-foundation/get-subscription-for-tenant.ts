@@ -1,10 +1,10 @@
 // Resolver-helper: liest die current subscription-row für einen Tenant
 // aus der read_subscriptions-projection.
 
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { subscriptionAggregateId } from "./aggregate-id";
 import { subscriptionsProjectionTable } from "./projection";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 export type SubscriptionView = {
   readonly tier: string;

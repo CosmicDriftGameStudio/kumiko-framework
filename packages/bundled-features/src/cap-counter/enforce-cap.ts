@@ -1,3 +1,4 @@
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEntityExecutor, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { rollingCapAggregateId } from "./aggregate-id";
@@ -7,7 +8,6 @@ import {
   ROLLING_INCREMENTED_EVENT_QN,
 } from "./constants";
 import { capCounterEntity } from "./entity";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // Temporal globally provided by the framework's polyfill init
 // (ensureTemporalPolyfill() in time/polyfill.ts, called from
@@ -109,7 +109,12 @@ export async function enforceCap(
   const softThreshold = options.limit * tolerance.soft;
   const hardThreshold = options.limit * tolerance.hard;
 
-  const rows = await selectMany(ctx.db, table, { capName: options.capName, periodStart: options.periodStartIso }, { limit: 1 });
+  const rows = await selectMany(
+    ctx.db,
+    table,
+    { capName: options.capName, periodStart: options.periodStartIso },
+    { limit: 1 },
+  );
 
   const row = rows[0];
   const value = row ? (row["value"] as number) : 0; // @cast-boundary db-row

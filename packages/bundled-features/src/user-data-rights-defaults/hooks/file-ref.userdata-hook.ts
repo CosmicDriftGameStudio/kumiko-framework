@@ -1,6 +1,6 @@
+import { deleteMany, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
-import { selectMany, deleteMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // userData-Hook fuer fileRef-entity (S2.H2).
 //
@@ -30,7 +30,10 @@ import { selectMany, deleteMany, updateMany } from "@cosmicdrift/kumiko-framewor
 // Cleanup als TODO und faellen das in S2.U5 nochmal an.
 
 export const fileRefExportHook: UserDataExportHook = async (ctx) => {
-  const rawRows = await selectMany(ctx.db, fileRefsTable, { tenantId: ctx.tenantId, insertedById: ctx.userId });
+  const rawRows = await selectMany(ctx.db, fileRefsTable, {
+    tenantId: ctx.tenantId,
+    insertedById: ctx.userId,
+  });
 
   // @cast-boundary db-row: drizzle liefert insertedAt als Instant
   // (framework-customType). Fuer JSON-Export brauchen wir String —
@@ -81,6 +84,11 @@ export const fileRefDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
     // Use-case: shared chat-Attachment in einem Multi-User-Channel —
     // Author-Identifikation raus, Datei bleibt fuer andere User
     // sichtbar.
-    await updateMany(ctx.db, fileRefsTable, { insertedById: null }, { tenantId: ctx.tenantId, insertedById: ctx.userId });
+    await updateMany(
+      ctx.db,
+      fileRefsTable,
+      { insertedById: null },
+      { tenantId: ctx.tenantId, insertedById: ctx.userId },
+    );
   }
 };

@@ -6,9 +6,9 @@
 // event-dispatcher — at-least-once delivery, strictly ordered by events.id
 // per MSP consumer, dead-letters on repeated handler failures.
 
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
+import { asRawClient, selectMany } from "../../bun-db/query";
 import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
@@ -21,7 +21,6 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "../../stack";
-import { selectMany } from "../../bun-db/query";
 
 // --- Two aggregate types that feed one MSP ---
 
@@ -69,41 +68,17 @@ const mspFeature = defineFeature("msptest", (r) => {
     apply: {
       [shipmentBilled.name]: async (event, tx) => {
         const p = event.payload as { customer: string; cents: number };
-        await tx
-          .insert(customerBalanceTable)
-          .values({
-            customer: p.customer,
-            tenantId: event.tenantId,
-            shipments: 1,
-            refunds: 0,
-            netCents: p.cents,
-          })
-          .onConflictDoUpdate({
-            target: customerBalanceTable.customer,
-            set: {
-              shipments: sql`${customerBalanceTable.shipments} + 1`,
-              netCents: sql`${customerBalanceTable.netCents} + ${p.cents}`,
-            },
-          });
+        await asRawClient(tx).unsafe(
+          `INSERT INTO "read_msp_customer_balance" (customer, tenant_id, shipments, refunds, net_cents) VALUES ($1::uuid, $2::uuid, 1, 0, $3) ON CONFLICT (customer) DO UPDATE SET shipments = read_msp_customer_balance.shipments + 1, net_cents = read_msp_customer_balance.net_cents + $3`,
+          [p.customer, event.tenantId, p.cents],
+        );
       },
       [refundIssued.name]: async (event, tx) => {
         const p = event.payload as { customer: string; cents: number };
-        await tx
-          .insert(customerBalanceTable)
-          .values({
-            customer: p.customer,
-            tenantId: event.tenantId,
-            shipments: 0,
-            refunds: 1,
-            netCents: -p.cents,
-          })
-          .onConflictDoUpdate({
-            target: customerBalanceTable.customer,
-            set: {
-              refunds: sql`${customerBalanceTable.refunds} + 1`,
-              netCents: sql`${customerBalanceTable.netCents} - ${p.cents}`,
-            },
-          });
+        await asRawClient(tx).unsafe(
+          `INSERT INTO "read_msp_customer_balance" (customer, tenant_id, shipments, refunds, net_cents) VALUES ($1::uuid, $2::uuid, 0, 1, -$3) ON CONFLICT (customer) DO UPDATE SET refunds = read_msp_customer_balance.refunds + 1, net_cents = read_msp_customer_balance.net_cents - $3`,
+          [p.customer, event.tenantId, p.cents],
+        );
       },
     },
   });

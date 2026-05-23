@@ -1,4 +1,10 @@
 import { randomBytes } from "node:crypto";
+import {
+  asRawClient,
+  deleteMany,
+  selectMany,
+  updateMany,
+} from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -27,7 +33,6 @@ import { userSessionEntity, userSessionTable } from "../schema/user-session";
 import { createSessionCallbacks, type SessionCallbacks } from "../session-callbacks";
 import { sessionCallbacksFromLateBound } from "../testing";
 import { makeSessionHelpers } from "./test-helpers";
-import { asRawClient, deleteMany, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // End-to-end test of the sessions feature. Full loop: login persists a
 // session → JWT carries jti → middleware checks it on every subsequent
@@ -386,7 +391,12 @@ describe("sessions feature — login → check → revoke → rejected", () => {
 
     // Back-date expiresAt so the row is still present + not revoked, just
     // past its window. Simulates what a long-lived JWT would hit.
-    await updateMany(stack.db, userSessionTable, { expiresAt: Temporal.Instant.from("2020-01-01T00:00:00Z") }, { id: sid });
+    await updateMany(
+      stack.db,
+      userSessionTable,
+      { expiresAt: Temporal.Instant.from("2020-01-01T00:00:00Z") },
+      { id: sid },
+    );
 
     const res = await h.authedPost("/api/query", token, {
       type: "user:query:user:me",
@@ -419,7 +429,12 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     // so she gets a fresh JWT with the new role in its claims. This is the
     // actual production path — roles are tenant-membership data, not JWT
     // metadata we can fiddle with directly.
-    await updateMany(stack.db, tenantMembershipsTable, { roles: JSON.stringify(["Admin"]) }, { userId: aliceId, tenantId: TENANT });
+    await updateMany(
+      stack.db,
+      tenantMembershipsTable,
+      { roles: JSON.stringify(["Admin"]) },
+      { userId: aliceId, tenantId: TENANT },
+    );
     const aliceAsAdmin = await h.login("alice2@example.com", "pw-long-enough");
 
     const asAdmin = await h.authedPost("/api/query", aliceAsAdmin.token, {

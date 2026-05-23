@@ -111,7 +111,12 @@ async function fetchTemplate(
   kind: RenderKind,
   locale: string,
 ): Promise<TemplateResourceRow | null> {
-  const rows = await selectMany(db, templateResourcesTable, { tenantId, slug, kind, locale }, { limit: 1 });
+  const rows = await selectMany(
+    db,
+    templateResourcesTable,
+    { tenantId, slug, kind, locale },
+    { limit: 1 },
+  );
   // @cast-boundary db-row — db.select returnt unbenanntes unknown[],
   // Row-Shape ist via templateResourcesTable + buildBaseColumns garantiert.
   return (rows[0] as TemplateResourceRow | undefined) ?? null;

@@ -20,6 +20,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createRegistry, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createEsOperationsTable,
@@ -36,7 +37,6 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createConfigFeature } from "../config/feature";
 import { createConfigResolver } from "../config/resolver";
@@ -45,7 +45,6 @@ import { TenantHandlers } from "../tenant/constants";
 import { createTenantFeature } from "../tenant/feature";
 import { tenantMembershipsTable } from "../tenant/membership-table";
 import { tenantEntity } from "../tenant/schema/tenant";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let testDb: TestDb;
 let dispatcher: Dispatcher;
@@ -150,13 +149,18 @@ describe("es-ops Phase 1.5 — E2E gegen real-Stack", () => {
       expect(markers[0]?.id).toBe("2026-05-21-add-tenant-admin");
 
       // Verify (b) event in store mit tenant-membership.updated
-      const events = (await asRawClient(testDb.db).unsafe(`SELECT type, tenant_id::text AS tenant_id FROM kumiko_events ORDER BY id`)) as unknown as readonly { type: string; tenant_id: string }[];
+      const events = (await asRawClient(testDb.db).unsafe(
+        `SELECT type, tenant_id::text AS tenant_id FROM kumiko_events ORDER BY id`,
+      )) as unknown as readonly { type: string; tenant_id: string }[];
       const updateEvents = events.filter((e) => e.type === "tenant-membership.updated");
       expect(updateEvents).toHaveLength(1);
       expect(updateEvents[0]?.tenant_id).toBe(demoTenantId);
 
       // Verify (c) read-model aktualisiert
-      const memberships = (await asRawClient(testDb.db).unsafe(`SELECT roles FROM read_tenant_memberships WHERE user_id = $1`, [adminUserId])) as unknown as readonly { roles: string }[];
+      const memberships = (await asRawClient(testDb.db).unsafe(
+        `SELECT roles FROM read_tenant_memberships WHERE user_id = $1`,
+        [adminUserId],
+      )) as unknown as readonly { roles: string }[];
       expect(JSON.parse(memberships[0]?.roles ?? "[]")).toEqual(["Admin", "TenantAdmin"]);
     } finally {
       rmSync(dir, { recursive: true, force: true });

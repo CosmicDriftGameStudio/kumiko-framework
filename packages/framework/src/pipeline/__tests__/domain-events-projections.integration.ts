@@ -11,6 +11,7 @@
 // the aggregate stream), any of the assertions below go red.
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
+import { insertOne, selectMany, updateMany } from "../../bun-db/query";
 import {
   integer as pgInteger,
   table as pgTable,
@@ -28,7 +29,6 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "../../stack";
-import { insertOne, selectMany, updateMany } from "../../bun-db/query";
 
 // --- Entity ---
 
@@ -81,7 +81,12 @@ const shippingFeature = defineFeature("shipping", (r) => {
       // create-apply just inserted.
       [shipmentBilled.name]: async (event, tx) => {
         const payload = event.payload as { cost: number };
-        await updateMany(tx, billingTable, { totalCost: payload.cost, billedMarker: "billed" }, { shipmentId: event.aggregateId });
+        await updateMany(
+          tx,
+          billingTable,
+          { totalCost: payload.cost, billedMarker: "billed" },
+          { shipmentId: event.aggregateId },
+        );
       },
     },
   });

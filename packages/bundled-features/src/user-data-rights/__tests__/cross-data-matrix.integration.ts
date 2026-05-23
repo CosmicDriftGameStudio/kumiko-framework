@@ -12,6 +12,7 @@
 //   - Other-User-Isolation: Bobs notes/files bleiben unangetastet bei
 //     Alices Forget; Bobs Daten landen NICHT in Alices Export-Bundle.
 
+import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   defineFeature,
   EXT_USER_DATA,
@@ -24,7 +25,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import {
   createComplianceProfilesFeature,
@@ -37,7 +37,6 @@ import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defa
 import { createUserDataRightsFeature } from "../feature";
 import { runForgetCleanup } from "../run-forget-cleanup";
 import { runUserExport } from "../run-user-export";
-import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 
@@ -60,11 +59,14 @@ const PAST = (): Instant => getTemporal().Instant.fromEpochMilliseconds(Date.now
 // Stellvertretend fuer App-spezifische Entities (Chat-Message, Blog-Post
 // etc.), die ueber EXT_USER_DATA sauber in die Pipeline integrieren.
 const exportNotes: UserDataExportHook = async (ctx) => {
-  const result = await asRawClient(ctx.db).unsafe(`
+  const result = await asRawClient(ctx.db).unsafe(
+    `
     SELECT id, title, body
     FROM test_notes
     WHERE tenant_id = $1 AND author_id = $2
-  `, [ctx.tenantId, ctx.userId]);
+  `,
+    [ctx.tenantId, ctx.userId],
+  );
   // biome-ignore lint/suspicious/noExplicitAny: drizzle execute typing
   const rows = ((result as any).rows ?? result) as Array<{
     id: string;
@@ -79,10 +81,13 @@ const exportNotes: UserDataExportHook = async (ctx) => {
 };
 
 const deleteNotes: UserDataDeleteHook = async (ctx, _strategy) => {
-  await asRawClient(ctx.db).unsafe(`
+  await asRawClient(ctx.db).unsafe(
+    `
     DELETE FROM test_notes
     WHERE tenant_id = $1 AND author_id = $2
-  `, [ctx.tenantId, ctx.userId]);
+  `,
+    [ctx.tenantId, ctx.userId],
+  );
 };
 
 const testNotesFeature = defineFeature("test-notes", (r) => {
@@ -186,11 +191,14 @@ async function seedUser(
 }
 
 async function seedMembership(userId: string, tenantId: string): Promise<void> {
-  await asRawClient(stack.db).unsafe(`
+  await asRawClient(stack.db).unsafe(
+    `
     INSERT INTO read_tenant_memberships (tenant_id, user_id, roles)
     VALUES ($1, $2, '["Member"]')
     ON CONFLICT (user_id, tenant_id) DO NOTHING
-  `, [tenantId, userId]);
+  `,
+    [tenantId, userId],
+  );
 }
 
 async function seedFileRef(
@@ -199,10 +207,13 @@ async function seedFileRef(
   userId: string,
   name: string,
 ): Promise<void> {
-  await asRawClient(stack.db).unsafe(`
+  await asRawClient(stack.db).unsafe(
+    `
     INSERT INTO file_refs (id, tenant_id, storage_key, file_name, mime_type, size, inserted_by_id)
     VALUES ($1, $2, $3, $4, 'application/pdf', 1024, $5)
-  `, [id, tenantId, `storage/${id}`, name, userId]);
+  `,
+    [id, tenantId, `storage/${id}`, name, userId],
+  );
 }
 
 async function seedNote(
@@ -211,16 +222,22 @@ async function seedNote(
   userId: string,
   title: string,
 ): Promise<void> {
-  await asRawClient(stack.db).unsafe(`
+  await asRawClient(stack.db).unsafe(
+    `
     INSERT INTO test_notes (id, tenant_id, author_id, title, body)
     VALUES ($1, $2, $3, $4, $5)
-  `, [id, tenantId, userId, title, `body for ${title}`]);
+  `,
+    [id, tenantId, userId, title, `body for ${title}`],
+  );
 }
 
 async function fetchNotes(tenantId: string, userId: string): Promise<unknown[]> {
-  const result = await asRawClient(stack.db).unsafe(`
+  const result = await asRawClient(stack.db).unsafe(
+    `
     SELECT id, title FROM test_notes WHERE tenant_id = $1 AND author_id = $2
-  `, [tenantId, userId]);
+  `,
+    [tenantId, userId],
+  );
   // biome-ignore lint/suspicious/noExplicitAny: drizzle execute typing
   return ((result as any).rows ?? result) as unknown[];
 }
@@ -320,24 +337,33 @@ describe("Cross-Data-Matrix :: Forget cleant 3 Provider-Features cross-tenant", 
     expect(await fetchNotes(TENANT_B, ALICE_ID)).toHaveLength(0);
 
     // Alices fileRef in Tenant A weg
-    const aliceFiles = await asRawClient(stack.db).unsafe(`
+    const aliceFiles = await asRawClient(stack.db).unsafe(
+      `
       SELECT id FROM file_refs WHERE tenant_id = $1 AND inserted_by_id = $2
-    `, [TENANT_A, ALICE_ID]);
+    `,
+      [TENANT_A, ALICE_ID],
+    );
     // biome-ignore lint/suspicious/noExplicitAny: drizzle execute typing
     expect((((aliceFiles as any).rows ?? aliceFiles) as unknown[]).length).toBe(0);
 
     // Bobs notes + files unangetastet
     expect(await fetchNotes(TENANT_A, BOB_ID)).toHaveLength(1);
-    const bobFiles = await asRawClient(stack.db).unsafe(`
+    const bobFiles = await asRawClient(stack.db).unsafe(
+      `
       SELECT id FROM file_refs WHERE tenant_id = $1 AND inserted_by_id = $2
-    `, [TENANT_A, BOB_ID]);
+    `,
+      [TENANT_A, BOB_ID],
+    );
     // biome-ignore lint/suspicious/noExplicitAny: drizzle execute typing
     expect((((bobFiles as any).rows ?? bobFiles) as unknown[]).length).toBe(1);
 
     // Alice-User-Row anonymisiert (DSGVO-Kern: PII raus, Sentinel-Email).
-    const aliceRow = await asRawClient(stack.db).unsafe(`
+    const aliceRow = await asRawClient(stack.db).unsafe(
+      `
       SELECT email, status FROM read_users WHERE id = $1
-    `, [ALICE_ID]);
+    `,
+      [ALICE_ID],
+    );
     // biome-ignore lint/suspicious/noExplicitAny: drizzle execute typing
     const aliceRows = ((aliceRow as any).rows ?? aliceRow) as Array<{
       email: string;

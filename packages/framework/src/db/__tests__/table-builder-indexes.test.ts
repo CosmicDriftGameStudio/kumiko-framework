@@ -18,7 +18,7 @@ import { buildDrizzleTable } from "../table-builder";
 
 // Native dialect equivalent of drizzle's getTableConfig: reads the
 // EntityTableMeta-shape exposed on every SchemaTable.
-function getTableConfig(table: ReturnType<typeof buildDrizzleTable>): {
+function getTableConfig(table: any): {
   indexes: Array<{ config: { name: string; unique: boolean; columns: Array<{ name: string }> } }>;
 } {
   const meta = table as unknown as {

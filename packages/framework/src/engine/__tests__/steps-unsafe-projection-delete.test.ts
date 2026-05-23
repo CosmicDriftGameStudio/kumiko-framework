@@ -12,7 +12,7 @@ const testTable = pgTable("test_projection", {
 
 // bun-db path: step calls deleteMany(ctx.db.raw, table, where) which lands on
 // asRawClient(ctx.db.raw).unsafe(sqlText, params).
-const unsafeMock = vi.fn(async (): Promise<unknown[]> => []);
+const unsafeMock = vi.fn(async (_sqlText: string, _params: unknown[]): Promise<unknown[]> => []);
 const rawDb = { unsafe: unsafeMock, begin: vi.fn() };
 const ctxDb = { raw: rawDb };
 

@@ -3,12 +3,11 @@
 // INSERT/SELECT against the real DB roundtrip. Plan reference:
 // kumiko-platform/docs/plans/architecture/table-ddl-guard.md (Stufe 3).
 
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { asRawClient, insertOne, selectMany } from "../bun-db/query";
 import { defineFeature } from "../engine";
 import { setupTestStack, type TestStack, unsafePushTables } from "../stack";
-import { asRawClient, insertOne, selectMany } from "../bun-db/query";
 
 // External-system payload cache — the textbook r.rawTable() use case:
 // write-only by an integration handler, read-only by a query, never
@@ -78,7 +77,9 @@ describe("r.rawTable — DB roundtrip via setupTestStack", () => {
     // a write to it shouldn't append anything to kumiko_events. If a
     // future regression accidentally routed raw-table writes through
     // the executor, a row would show up here.
-    const before = await asRawClient(stack.db).unsafe(`SELECT COUNT(*)::text AS count FROM kumiko_events`);
+    const before = await asRawClient(stack.db).unsafe<{ count: string }>(
+      `SELECT COUNT(*)::text AS count FROM kumiko_events`,
+    );
     const beforeCount = Number(before[0]?.count ?? 0);
 
     await insertOne(stack.db, stripeWebhookCache, {
@@ -86,7 +87,9 @@ describe("r.rawTable — DB roundtrip via setupTestStack", () => {
       payload: "{}",
     });
 
-    const after = await asRawClient(stack.db).unsafe(`SELECT COUNT(*)::text AS count FROM kumiko_events`);
+    const after = await asRawClient(stack.db).unsafe<{ count: string }>(
+      `SELECT COUNT(*)::text AS count FROM kumiko_events`,
+    );
     const afterCount = Number(after[0]?.count ?? 0);
 
     expect(afterCount).toBe(beforeCount);

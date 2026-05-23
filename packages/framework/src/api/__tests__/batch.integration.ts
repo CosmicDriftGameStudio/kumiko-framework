@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
+import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import {
@@ -13,7 +14,6 @@ import {
 } from "../../engine";
 import { UnprocessableError, writeFailure } from "../../errors";
 import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
 
 // Entity: a simple "item" with name + counter
 const itemEntity = createEntity({
@@ -217,7 +217,11 @@ describe("POST /api/batch", () => {
 
   test("mid-batch failure: all writes roll back, afterCommit hooks do NOT fire", async () => {
     // Seed with one existing item so we can verify the batch didn't persist anything
-    await insertOne(stack.db, itemTable, { name: "seed", counter: 0, tenantId: "00000000-0000-4000-8000-000000000001" });
+    await insertOne(stack.db, itemTable, {
+      name: "seed",
+      counter: 0,
+      tenantId: "00000000-0000-4000-8000-000000000001",
+    });
     const seedCount = (await selectMany(stack.db, itemTable)).length;
 
     const res = await stack.http.batch(

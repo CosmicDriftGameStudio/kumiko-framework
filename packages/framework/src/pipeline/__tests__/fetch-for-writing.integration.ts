@@ -7,16 +7,15 @@
 //      the stream version internally — a sequence of appendOne calls writes
 //      consecutive versions without re-reading the DB.
 
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
+import { asRawClient } from "../../bun-db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { UnprocessableError, writeFailure } from "../../errors";
 import { loadAggregate } from "../../event-store";
 import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { asRawClient } from "../../bun-db/query";
 
 // --- Feature ---
 
@@ -145,7 +144,9 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await asRawClient(stack.db).unsafe(`TRUNCATE kumiko_events, read_f4w_carts, kumiko_event_consumers RESTART IDENTITY CASCADE`);
+  await asRawClient(stack.db).unsafe(
+    `TRUNCATE kumiko_events, read_f4w_carts, kumiko_event_consumers RESTART IDENTITY CASCADE`,
+  );
   await stack.eventDispatcher?.ensureRegistered();
 });
 
