@@ -3,6 +3,13 @@
 // DB/Redis (KUMIKO_DRY_RUN_ENV=boot path). This is the CI-gate that
 // catches Sprint-9.8-style framework-bugs (Object.entries(undefined),
 // self-extension, missing-requires, …) before they reach a real app.
+//
+// Scope: this file tests THIS SAMPLE's boot wiring. Framework-level
+// composeFeatures behaviour (auth-mode bundled-prepend, ordering) is
+// covered by framework's own tests — mixing scopes here would let
+// a framework-refactor fail the sample's CI for the wrong reason.
+// Coverage of "every bundled-export is mounted" lives in M5's
+// scripts/check-coverage.ts, not in a brittle hardcoded count-assert.
 
 import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features";
 import { createRegistry, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
@@ -13,19 +20,7 @@ const composedFeatures = composeFeatures([...APP_FEATURES], {
   includeBundled: true,
 });
 
-describe("use-all-bundled boot composition", () => {
-  test("composeFeatures prepends bundled (config/user/tenant/auth-email-pw)", () => {
-    const featureNames = composedFeatures.map((f) => f.name);
-    expect(featureNames).toContain("config");
-    expect(featureNames).toContain("user");
-    expect(featureNames).toContain("tenant");
-    expect(featureNames).toContain("auth-email-password");
-    // bundled before app: config comes first
-    const configIdx = featureNames.indexOf("config");
-    const auditIdx = featureNames.indexOf("audit");
-    expect(configIdx).toBeLessThan(auditIdx);
-  });
-
+describe("use-all-bundled boot", () => {
   test("validateBoot — every r.requires resolves", () => {
     expect(() => validateBoot(composedFeatures)).not.toThrow();
   });
@@ -35,9 +30,5 @@ describe("use-all-bundled boot composition", () => {
     for (const f of composedFeatures) {
       expect(registry.getFeature(f.name)).toBeDefined();
     }
-  });
-
-  test("expected feature-count: 30 (26 explicit in APP_FEATURES + 4 auto-mounted)", () => {
-    expect(composedFeatures.length).toBe(30);
   });
 });
