@@ -8,15 +8,15 @@
 // Beide Pfade nutzen `resolveComplianceProfile` aus framework/compliance,
 // also kein Drift zwischen Query-API und Worker-Pfad.
 
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   type ComplianceProfileKey,
   type ComplianceProfileOverride,
   type EffectiveComplianceProfile,
   resolveComplianceProfile,
 } from "@cosmicdrift/kumiko-framework/compliance";
-import { type DbRunner, fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { eq } from "drizzle-orm";
 import { tenantComplianceProfileTable } from "./schema/profile-selection";
 
 export interface ResolveProfileForTenantArgs {
@@ -27,11 +27,9 @@ export interface ResolveProfileForTenantArgs {
 export async function resolveProfileForTenant(
   args: ResolveProfileForTenantArgs,
 ): Promise<EffectiveComplianceProfile> {
-  const row = (await fetchOne(
-    args.db,
-    tenantComplianceProfileTable,
-    eq(tenantComplianceProfileTable["tenantId"], args.tenantId),
-  )) as { profileKey: string; override: string | null } | null; // @cast-boundary db-runner
+  const row = (await fetchOne(args.db, tenantComplianceProfileTable, {
+    tenantId: args.tenantId,
+  })) as { profileKey: string; override: string | null } | null; // @cast-boundary db-runner
 
   if (!row) {
     return resolveComplianceProfile({});

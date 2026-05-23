@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, lte, max, sql } from "drizzle-orm";
+import { asRawClient, insertOne, selectMany } from "../bun-db/query";
 import type { DbRunner } from "../db";
 import { isUniqueViolation } from "../db/pg-error";
 import type { TenantId } from "../engine/types";
@@ -60,7 +60,19 @@ export type StoredEvent<TPayload = Record<string, unknown>> = {
   readonly createdBy: string;
 };
 
-type SelectedEvent = typeof eventsTable.$inferSelect;
+type SelectedEvent = {
+  readonly id: bigint;
+  readonly aggregateId: string;
+  readonly aggregateType: string;
+  readonly tenantId: TenantId;
+  readonly version: number;
+  readonly type: string;
+  readonly eventVersion: number;
+  readonly payload: Record<string, unknown>;
+  readonly metadata: EventMetadata;
+  readonly createdAt: Temporal.Instant;
+  readonly createdBy: string;
+};
 
 // Append one event atomically. Two guarantees combined:
 //
@@ -99,7 +111,7 @@ export async function append(db: DbRunner, event: EventToAppend): Promise<Stored
     // NOTIFY fires on commit (PG buffers NOTIFY per TX), so subscribers never
     // see a wake-up for an event that later rolled back. Harmless no-op when
     // no LISTENer is attached.
-    await db.execute(sql`SELECT pg_notify(${EVENTS_PUBSUB_CHANNEL}, '')`);
+    await asRawClient(db).unsafe(`SELECT pg_notify($1, '')`, [EVENTS_PUBSUB_CHANNEL]);
 
     return buildStoredEvent(event, newVersion, eventVersion, row);
   } catch (e) {
@@ -122,22 +134,19 @@ async function insertFirstEvent(
   newVersion: number,
   eventVersion: number,
 ): Promise<InsertReturn> {
-  const [row] = await db
-    .insert(eventsTable)
-    .values({
-      aggregateId: event.aggregateId,
-      aggregateType: event.aggregateType,
-      tenantId: event.tenantId,
-      version: newVersion,
-      type: event.type,
-      eventVersion,
-      payload: event.payload,
-      metadata: event.metadata,
-      createdBy: event.metadata.userId,
-    })
-    .returning({ id: eventsTable.id, createdAt: eventsTable.createdAt });
+  const row = await insertOne<{ id: bigint; createdAt: Temporal.Instant }>(db, eventsTable, {
+    aggregateId: event.aggregateId,
+    aggregateType: event.aggregateType,
+    tenantId: event.tenantId,
+    version: newVersion,
+    type: event.type,
+    eventVersion,
+    payload: event.payload,
+    metadata: event.metadata,
+    createdBy: event.metadata.userId,
+  });
   if (!row) throw new Error("insertFirstEvent: INSERT RETURNING produced no row");
-  return row;
+  return { id: row.id, createdAt: row.createdAt };
 }
 
 // Subsequent event — predecessor must exist AND belong to the same tenant.
@@ -152,29 +161,38 @@ async function insertSubsequentEvent(
 ): Promise<InsertReturn> {
   const payloadJson = JSON.stringify(event.payload);
   const metadataJson = JSON.stringify(event.metadata);
-  const rows = await db.execute<{ id: string; created_at: Date | string }>(sql`
-    INSERT INTO ${eventsTable} (
-      aggregate_id, aggregate_type, tenant_id, version,
-      type, event_version, payload, metadata, created_by
-    )
-    SELECT ${event.aggregateId}::uuid, ${event.aggregateType}, ${event.tenantId}::uuid, ${newVersion},
-           ${event.type}, ${eventVersion}, ${payloadJson}::jsonb,
-           ${metadataJson}::jsonb, ${event.metadata.userId}
-    WHERE EXISTS (
-      SELECT 1 FROM ${eventsTable}
-      WHERE aggregate_id = ${event.aggregateId}::uuid
-        AND version = ${event.expectedVersion}
-        AND tenant_id = ${event.tenantId}::uuid
-    )
-    RETURNING id, created_at;
-  `);
+  const rows = (await asRawClient(db).unsafe(
+    `INSERT INTO "kumiko_events" (
+       aggregate_id, aggregate_type, tenant_id, version,
+       type, event_version, payload, metadata, created_by
+     )
+     SELECT $1::uuid, $2, $3::uuid, $4,
+            $5, $6, $7::jsonb,
+            $8::jsonb, $9
+     WHERE EXISTS (
+       SELECT 1 FROM "kumiko_events"
+       WHERE aggregate_id = $1::uuid
+         AND version = $10
+         AND tenant_id = $3::uuid
+     )
+     RETURNING id, created_at`,
+    [
+      event.aggregateId,
+      event.aggregateType,
+      event.tenantId,
+      newVersion,
+      event.type,
+      eventVersion,
+      payloadJson,
+      metadataJson,
+      event.metadata.userId,
+      event.expectedVersion,
+    ],
+  )) as ReadonlyArray<{ id: string | bigint; created_at: Date | string }>;
   const row = rows[0];
   if (!row) throw new VersionConflictError(event.aggregateId, event.expectedVersion);
   return {
-    id: BigInt(row.id),
-    // Raw SQL bypasses Drizzle's customType — postgres-js returns Date or
-    // string depending on driver-config. Normalize through Temporal.Instant
-    // so the InsertReturn shape matches the typed-builder path.
+    id: typeof row.id === "bigint" ? row.id : BigInt(row.id),
     createdAt:
       row.created_at instanceof Date
         ? Temporal.Instant.fromEpochMilliseconds(row.created_at.getTime())
@@ -221,11 +239,12 @@ export async function loadAggregate(
     const archived = await isStreamArchived(db, tenantId, aggregateId);
     if (archived) return [];
   }
-  const rows = await db
-    .select()
-    .from(eventsTable)
-    .where(and(eq(eventsTable.aggregateId, aggregateId), eq(eventsTable.tenantId, tenantId)))
-    .orderBy(asc(eventsTable.version));
+  const rows = await selectMany<SelectedEvent>(
+    db,
+    eventsTable,
+    { aggregateId, tenantId },
+    { orderBy: { col: "version", direction: "asc" } },
+  );
   return rows.map(toStoredEvent);
 }
 
@@ -243,17 +262,12 @@ export async function loadAggregateAsOf(
     const archived = await isStreamArchived(db, tenantId, aggregateId);
     if (archived) return [];
   }
-  const rows = await db
-    .select()
-    .from(eventsTable)
-    .where(
-      and(
-        eq(eventsTable.aggregateId, aggregateId),
-        eq(eventsTable.tenantId, tenantId),
-        lte(eventsTable.createdAt, asOf),
-      ),
-    )
-    .orderBy(asc(eventsTable.version));
+  const rows = await selectMany<SelectedEvent>(
+    db,
+    eventsTable,
+    { aggregateId, tenantId, createdAt: { lte: asOf } },
+    { orderBy: { col: "version", direction: "asc" } },
+  );
   return rows.map(toStoredEvent);
 }
 
@@ -268,11 +282,11 @@ export async function getStreamVersion(
   aggregateId: string,
   tenantId: TenantId,
 ): Promise<number> {
-  const [row] = await db
-    .select({ v: max(eventsTable.version) })
-    .from(eventsTable)
-    .where(and(eq(eventsTable.aggregateId, aggregateId), eq(eventsTable.tenantId, tenantId)));
-  return row?.v ?? 0;
+  const rows = (await asRawClient(db).unsafe(
+    `SELECT MAX("version") AS v FROM "kumiko_events" WHERE "aggregate_id" = $1 AND "tenant_id" = $2`,
+    [aggregateId, tenantId],
+  )) as ReadonlyArray<{ v: number | null }>;
+  return rows[0]?.v ?? 0;
 }
 
 // Global high-water-mark = MAX(events.id). Marten/Wolverine standard for
@@ -280,8 +294,13 @@ export async function getStreamVersion(
 // the bigserial PK index — sub-millisecond cost. Returns 0n on an empty log
 // (boot, fresh tenant, post-archive).
 export async function getEventsHighWaterMark(db: DbRunner): Promise<bigint> {
-  const [row] = await db.select({ max: max(eventsTable.id) }).from(eventsTable);
-  return row?.max ?? 0n;
+  const rows = (await asRawClient(db).unsafe(
+    `SELECT COALESCE(MAX("id"), 0)::bigint AS max FROM "kumiko_events"`,
+  )) as ReadonlyArray<{ max: bigint | string | number | null }>;
+  const raw = rows[0]?.max;
+  if (typeof raw === "bigint") return raw;
+  if (raw === null || raw === undefined) return 0n;
+  return BigInt(raw);
 }
 
 // Load events strictly newer than a given version. Used by snapshot-aware
@@ -293,17 +312,12 @@ export async function loadEventsAfterVersion(
   tenantId: TenantId,
   afterVersion: number,
 ): Promise<readonly StoredEvent[]> {
-  const rows = await db
-    .select()
-    .from(eventsTable)
-    .where(
-      and(
-        eq(eventsTable.aggregateId, aggregateId),
-        eq(eventsTable.tenantId, tenantId),
-        gt(eventsTable.version, afterVersion),
-      ),
-    )
-    .orderBy(asc(eventsTable.version));
+  const rows = await selectMany<SelectedEvent>(
+    db,
+    eventsTable,
+    { aggregateId, tenantId, version: { gt: afterVersion } },
+    { orderBy: { col: "version", direction: "asc" } },
+  );
   return rows.map(toStoredEvent);
 }
 
@@ -319,11 +333,12 @@ export async function loadAllEventsByType(
   db: DbRunner,
   aggregateType: string,
 ): Promise<readonly StoredEvent[]> {
-  const rows = await db
-    .select()
-    .from(eventsTable)
-    .where(eq(eventsTable.aggregateType, aggregateType))
-    .orderBy(asc(eventsTable.createdAt), asc(eventsTable.id));
+  const rows = await selectMany<SelectedEvent>(
+    db,
+    eventsTable,
+    { aggregateType },
+    { orderBy: [{ col: "createdAt", direction: "asc" }, { col: "id", direction: "asc" }] },
+  );
   return rows.map(toStoredEvent);
 }
 
@@ -359,12 +374,12 @@ export async function* streamAllEventsByType(
   let cursorId = 0n;
   while (true) {
     signal?.throwIfAborted();
-    const rows = await db
-      .select()
-      .from(eventsTable)
-      .where(and(eq(eventsTable.aggregateType, aggregateType), gt(eventsTable.id, cursorId)))
-      .orderBy(asc(eventsTable.id))
-      .limit(batchSize);
+    const rows = await selectMany<SelectedEvent>(
+      db,
+      eventsTable,
+      { aggregateType, id: { gt: cursorId } },
+      { orderBy: { col: "id", direction: "asc" }, limit: batchSize },
+    );
 
     if (rows.length === 0) {
       // skip: end of stream — generator exit is the natural termination.

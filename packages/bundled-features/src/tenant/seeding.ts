@@ -31,16 +31,14 @@
 // Fixture-seeding prioritises "make the state exist" over "detect duplicate
 // seeding", which is usually a test-author bug we don't need to surface.
 
+import { asRawClient, fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEventStoreExecutor,
   createTenantDb,
-  type DbConnection,
-  fetchOne,
+  type DbRunner,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
-import { eq, max as maxFn } from "drizzle-orm";
 import { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table";
 import { tenantEntity, tenantTable } from "./schema/tenant";
 
@@ -83,7 +81,7 @@ export type SeedTenantOptions = {
  * `TenantHandlers.create`, minus the SystemAdmin-access-check and minus
  * ConflictError-on-duplicate.
  */
-export async function seedTenant(db: DbConnection, options: SeedTenantOptions): Promise<TenantId> {
+export async function seedTenant(db: DbRunner, options: SeedTenantOptions): Promise<TenantId> {
   const by = options.by ?? TestUsers.systemAdmin;
   // executor.create erwartet eine TenantDb (mit .insert()-API), nicht
   // die rohe DbConnection. Auch wenn das Tenant-Aggregat selbst NICHT
@@ -92,17 +90,17 @@ export async function seedTenant(db: DbConnection, options: SeedTenantOptions): 
   // seedTenantMembership nötig.
   const tdb = createTenantDb(db, by.tenantId, "system");
 
-  const existing = await fetchOne(db, tenantTable, eq(tenantTable["id"], options.id));
+  const existing = await fetchOne(db, tenantTable, { id: options.id });
   if (existing) return options.id;
 
   // Idempotenz: Aggregate kann im Event-Store existieren ohne Projection-Row
   // (Projection-Drift nach rebuild, manuellem DELETE, oder async-lag). Wenn
   // Stream-Version > 0 → kein create() — wäre version_conflict. Caller
   // bekommt die ID, Projection wird beim nächsten Dispatcher-Cycle aufgebaut.
-  const [streamRow] = await db
-    .select({ v: maxFn(eventsTable.version) })
-    .from(eventsTable)
-    .where(eq(eventsTable.aggregateId, options.id));
+  const [streamRow] = await asRawClient(db).unsafe<{ v: number | null }>(
+    `SELECT MAX(version) AS v FROM kumiko_events WHERE aggregate_id = $1`,
+    [options.id],
+  );
   if ((streamRow?.v ?? 0) > 0) return options.id;
 
   const result = await tenantExecutor.create(
@@ -126,7 +124,7 @@ export async function seedTenant(db: DbConnection, options: SeedTenantOptions): 
  * ConflictError on duplicates (duplicate calls no-op).
  */
 export async function seedTenantMembership(
-  db: DbConnection,
+  db: DbRunner,
   options: SeedTenantMembershipOptions,
 ): Promise<void> {
   const by = options.by ?? TestUsers.systemAdmin;
@@ -138,12 +136,10 @@ export async function seedTenantMembership(
   // only certain tables get truncated. A plain executor.create would trip
   // the (user_id, tenant_id) unique index; the fixture call-site would then
   // have to juggle try/catch. Lookup-first keeps call-sites clean.
-  const existing = await fetchOne(
-    db,
-    tenantMembershipsTable,
-    eq(tenantMembershipsTable.userId, options.userId),
-    eq(tenantMembershipsTable.tenantId, options.tenantId),
-  );
+  const existing = await fetchOne(db, tenantMembershipsTable, {
+    userId: options.userId,
+    tenantId: options.tenantId,
+  });
   // skip: idempotent no-op — duplicate seed is expected across beforeEach-
   // resets that don't truncate this table. Cheaper than try/catch on the
   // unique-index, and documented in the function JSDoc above.

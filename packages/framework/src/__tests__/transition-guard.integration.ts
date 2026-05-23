@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
+import { updateMany } from "../bun-db/query";
 import { createEventStoreExecutor } from "../db/event-store-executor";
-import { buildDrizzleTable } from "../db/table-builder";
+import { buildEntityTable } from "../db/table-builder";
 import {
   createBooleanField,
   createEntity,
@@ -67,9 +68,9 @@ const ticketEntity = createEntity({
   },
 });
 
-const invoiceTable = buildDrizzleTable("invoice", invoiceEntity);
-const orderTable = buildDrizzleTable("order", orderEntity);
-const ticketTable = buildDrizzleTable("ticket", ticketEntity);
+const invoiceTable = buildEntityTable("invoice", invoiceEntity);
+const orderTable = buildEntityTable("order", orderEntity);
+const ticketTable = buildEntityTable("ticket", ticketEntity);
 
 const feature = defineFeature("txguard", (r) => {
   r.entity("invoice", invoiceEntity);
@@ -267,11 +268,12 @@ describe("auto transition guard: per-entity transition map (cache key includes e
     // Raw-DB-mark-deleted — we need a soft-deleted row whose status is a
     // terminal state. If the guard fired, any status write would throw
     // "Invalid transition: closed → <x>". We want it silently skipped.
-    const { eq } = await import("drizzle-orm");
-    await stack.db
-      .update(ticketTable)
-      .set({ status: "closed", isDeleted: true })
-      .where(eq(ticketTable["id"], ticket["id"]));
+    await updateMany(
+      stack.db,
+      ticketTable,
+      { status: "closed", isDeleted: true },
+      { id: ticket["id"] },
+    );
 
     // Attempting to move a deleted ticket to "open" would normally violate
     // "closed → []" (no allowed targets). With the softDelete skip, the

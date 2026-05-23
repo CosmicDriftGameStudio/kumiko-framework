@@ -1,3 +1,4 @@
+import { insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   setupTestStack,
@@ -55,7 +56,7 @@ async function seedTemplate(args: {
   linkedResources?: Record<string, string>;
   parentTemplateId?: string;
 }) {
-  await db.insert(templateResourcesTable).values({
+  await insertOne(db, templateResourcesTable, {
     tenantId: args.tenantId,
     slug: args.slug,
     kind: args.kind,

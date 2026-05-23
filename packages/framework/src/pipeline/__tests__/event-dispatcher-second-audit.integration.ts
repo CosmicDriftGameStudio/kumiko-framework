@@ -14,8 +14,8 @@
 //      moment delivery latency regresses from TCP-round-trip to
 //      pollIntervalMs.
 
-import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
+import { asRawClient, insertOne, selectMany, updateMany } from "../../bun-db/query";
 import { defineFeature } from "../../engine";
 import { eventsTable } from "../../event-store";
 import {
@@ -70,7 +70,7 @@ afterEach(async () => {
 });
 
 async function seedOldWidgetEvent(createdAt: Temporal.Instant): Promise<void> {
-  await stack.db.insert(eventsTable).values({
+  await insertOne(stack.db, eventsTable, {
     aggregateId: generateId(),
     aggregateType: "widget",
     tenantId: admin.tenantId,
@@ -94,7 +94,7 @@ describe("Second audit — consumer pre-registration on start()", () => {
     // every consumer at cursor=0, refuses to prune past them.
     await stack.eventDispatcher?.start();
     try {
-      const rows = await stack.db.select().from(eventConsumerStateTable);
+      const rows = await selectMany(stack.db, eventConsumerStateTable);
       const names = new Set(rows.map((r) => r.name));
 
       // The test-stack wires only feature MSP consumers (systemHooks: []),
@@ -138,17 +138,18 @@ describe("Second audit — consumer pre-registration on start()", () => {
 
     // Advance the cursor explicitly so we can prove the second start
     // doesn't clobber it back to 0.
-    await stack.db
-      .update(eventConsumerStateTable)
-      .set({ lastProcessedEventId: 42n })
-      .where(eq(eventConsumerStateTable.name, "audit:projection:default-scope"));
+    await updateMany(
+      stack.db,
+      eventConsumerStateTable,
+      { lastProcessedEventId: 42n },
+      { name: "audit:projection:default-scope" },
+    );
 
     await stack.eventDispatcher?.start();
     try {
-      const [row] = await stack.db
-        .select()
-        .from(eventConsumerStateTable)
-        .where(eq(eventConsumerStateTable.name, "audit:projection:default-scope"));
+      const [row] = await selectMany(stack.db, eventConsumerStateTable, {
+        name: "audit:projection:default-scope",
+      });
       expect(row?.lastProcessedEventId).toBe(42n);
     } finally {
       await stack.eventDispatcher?.stop();
@@ -255,13 +256,13 @@ describe("Second audit — LISTEN gauge", () => {
         // `LISTEN "kumiko_events_new"` and is now idle. pg_terminate_backend
         // on it closes the TCP; postgres.js's onclose handler re-subscribes
         // and fires onlisten again.
-        await recStack.db.execute(
-          sql`SELECT pg_terminate_backend(pid) FROM pg_stat_activity
+        await asRawClient(
+          recStack.db,
+        ).unsafe(`SELECT pg_terminate_backend(pid) FROM pg_stat_activity
               WHERE datname = current_database()
                 AND query ILIKE 'listen%'
                 AND state = 'idle'
-                AND pid <> pg_backend_pid()`,
-        );
+                AND pid <> pg_backend_pid()`);
 
         // Wait for the SECOND gauge.set(1) — the reconnect. Generous timeout
         // because postgres.js's reconnect loop includes backoff.

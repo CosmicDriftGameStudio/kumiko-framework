@@ -17,11 +17,11 @@
 //      e. Invitation → accepted, Token gelöscht
 //   5. Response: SessionUser + tenantId für Auto-Login
 
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEventStoreExecutor,
   createTenantDb,
   type DbConnection,
-  fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
@@ -34,7 +34,6 @@ import {
   UnprocessableError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 // kumiko-lint-ignore cross-feature-import invite-flow
 import {
@@ -104,30 +103,34 @@ export function createInviteSignupCompleteHandler() {
       const burn = await burnInviteToken(ctx.redis, event.payload.token);
       if (burn === "already-used") return invalidInviteToken();
 
+      type InvitationRow = {
+        readonly status: string;
+        readonly tenantId: TenantId;
+        readonly email: string;
+        readonly role: string;
+        readonly version: number;
+      };
+
       let committed = false;
       try {
-        const invitation = await fetchOne(
-          ctx.db.raw,
-          tenantInvitationsTable,
-          eq(tenantInvitationsTable.id, invitationId),
-        );
-        if (!invitation || invitation["status"] !== INVITATION_STATUS.pending)
+        const invitation = await fetchOne<InvitationRow>(ctx.db.raw, tenantInvitationsTable, {
+          id: invitationId,
+        });
+        if (!invitation || invitation.status !== INVITATION_STATUS.pending)
           return invalidInviteToken();
 
-        const invitationTenantId = invitation["tenantId"] as TenantId; // @cast-boundary db-row
-        const invitationEmail = invitation["email"] as string; // @cast-boundary db-row
-        const invitationRole = invitation["role"] as string; // @cast-boundary db-row
-        const invitationVersion = invitation["version"] as number; // @cast-boundary db-row
+        const invitationTenantId = invitation.tenantId;
+        const invitationEmail = invitation.email;
+        const invitationRole = invitation.role;
+        const invitationVersion = invitation.version;
 
         // User-Not-Exists-Check: wenn die Email schon registriert ist,
         // muss der User Branch 2 (acceptWithLogin) nutzen. Hier ist
         // explizit "neue Email" — sonst hätten wir zwei Wege ein
         // Password zu setzen für denselben User.
-        const existingUser = await fetchOne(
-          ctx.db.raw,
-          userTable,
-          eq(userTable.email, invitationEmail),
-        );
+        const existingUser = await fetchOne(ctx.db.raw, userTable, {
+          email: invitationEmail,
+        });
         if (existingUser) return invalidInviteToken();
 
         // User anlegen via seedUserWithPassword (gleiches Pattern wie

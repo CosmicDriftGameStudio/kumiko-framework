@@ -16,7 +16,7 @@
 //   - HTTP-Endpoints fuer create/list
 //   - Compliance-Profile-Wiring + Cron-Scheduling
 
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -37,7 +37,7 @@ export const noteEntity = createEntity({
   },
 });
 
-export const notesTable = buildDrizzleTable("note", noteEntity);
+export const notesTable = buildEntityTable("note", noteEntity);
 
 export const notesFeature = defineFeature("notes", (r) => {
   r.requires("user-data-rights");

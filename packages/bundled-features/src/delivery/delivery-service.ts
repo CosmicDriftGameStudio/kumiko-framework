@@ -1,4 +1,5 @@
 import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection, DbRow } from "@cosmicdrift/kumiko-framework/db";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { NotifyPriority, Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
@@ -7,11 +8,9 @@ import { append } from "@cosmicdrift/kumiko-framework/event-store";
 import { runProjectionsForEvent } from "@cosmicdrift/kumiko-framework/pipeline";
 import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing/handler-context";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { and, eq, or } from "drizzle-orm";
 import type { Redis } from "ioredis";
 import { DELIVERY_ATTEMPT_EVENT } from "./constants";
 import { deliveryAttemptSchema } from "./events";
-import { notificationPreferencesTable } from "./tables";
 import type {
   ChannelContext,
   ChannelMessage,
@@ -232,35 +231,18 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       readonly channel: string;
       readonly enabled: boolean;
     };
-    // Drizzle's dynamic-table select() loses column types; assert once at
-    // the boundary so the rest of this function works against a typed shape.
-    const prefs = (await db
-      .select({
-        notificationType: notificationPreferencesTable.notificationType,
-        channel: notificationPreferencesTable.channel,
-        enabled: notificationPreferencesTable.enabled,
-      })
-      .from(notificationPreferencesTable)
-      .where(
-        and(
-          eq(notificationPreferencesTable.tenantId, tenantId),
-          eq(notificationPreferencesTable.userId, userId),
-          or(
-            and(
-              eq(notificationPreferencesTable.notificationType, notificationType),
-              eq(notificationPreferencesTable.channel, channelName),
-            ),
-            and(
-              eq(notificationPreferencesTable.notificationType, "*"),
-              eq(notificationPreferencesTable.channel, channelName),
-            ),
-            and(
-              eq(notificationPreferencesTable.notificationType, notificationType),
-              eq(notificationPreferencesTable.channel, "*"),
-            ),
-          ),
-        ),
-      )) as readonly PrefRow[]; // @cast-boundary db-row
+    const prefs = await asRawClient(db).unsafe<PrefRow>(
+      `SELECT notification_type AS "notificationType", channel, enabled
+       FROM read_notification_preferences
+       WHERE tenant_id = $1
+         AND user_id = $2
+         AND (
+           (notification_type = $3 AND channel = $4)
+           OR (notification_type = '*' AND channel = $4)
+           OR (notification_type = $3 AND channel = '*')
+         )`,
+      [tenantId, userId, notificationType, channelName],
+    );
 
     if (prefs.length === 0) return true;
 

@@ -1,4 +1,4 @@
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
 
 // Membership is event-sourced. Each (userId, tenantId) pair is its own
@@ -13,7 +13,7 @@ import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/eng
 // database level independent of the handler lookup.
 //
 // Single-Source-of-Truth: `tenantMembershipEntity`. Die DB-Tabelle wird
-// aus der EntityDefinition über buildDrizzleTable abgeleitet, der
+// aus der EntityDefinition über buildEntityTable abgeleitet, der
 // unique-Index ist via entity.indexes deklariert.
 export const tenantMembershipEntity = createEntity({
   table: "read_tenant_memberships",
@@ -29,7 +29,4 @@ export const tenantMembershipEntity = createEntity({
   ],
 });
 
-export const tenantMembershipsTable = buildDrizzleTable(
-  "tenant-membership",
-  tenantMembershipEntity,
-);
+export const tenantMembershipsTable = buildEntityTable("tenant-membership", tenantMembershipEntity);

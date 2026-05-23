@@ -9,15 +9,14 @@
 // (audit, search-index) sehen den Seed. Der Executor-Pfad emittiert
 // das Event UND schreibt die Projection-Zeile in einer TX.
 
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEventStoreExecutor,
   createTenantDb,
   type DbConnection,
-  fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
-import { eq } from "drizzle-orm";
 import { userEntity, userTable } from "./schema/user";
 
 const userExecutor = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
@@ -56,7 +55,7 @@ export async function seedUser(db: DbConnection, options: SeedUserOptions): Prom
   // Interface braucht den Wrap.
   const tdb = createTenantDb(db, by.tenantId, "system");
 
-  const existing = await fetchOne(db, userTable, eq(userTable["email"], options.email));
+  const existing = await fetchOne(db, userTable, { email: options.email });
   if (existing) return existing["id"] as string; // @cast-boundary db-row
 
   const result = await userExecutor.create(

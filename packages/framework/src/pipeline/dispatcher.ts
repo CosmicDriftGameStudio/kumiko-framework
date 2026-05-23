@@ -1,7 +1,7 @@
-import { type AnyColumn, eq } from "drizzle-orm";
 import { requestContext } from "../api/request-context";
+import { asRawClient, selectMany } from "../bun-db/query";
 import type { DbConnection, DbRow, DbTx } from "../db/connection";
-import { buildDrizzleTable } from "../db/table-builder";
+import { buildEntityTable } from "../db/table-builder";
 import { createTenantDb } from "../db/tenant-db";
 import { hasAccess } from "../engine/access";
 import { checkWriteFieldRoles, filterReadFields } from "../engine/field-access";
@@ -173,15 +173,22 @@ export function createDispatcher(
 ): Dispatcher {
   const { idempotency, lifecycle, jobRunner, effectiveFeatures } = options;
 
+  // Narrowing-helper: AppContext.db ist DbConnection|TenantDb|undefined. Die
+  // dispatch-Pfade brauchen DbConnection (oder DbTx aus Caller-Scope) für
+  // appendEvent/projection-writes; TenantDb-Branch wird hier ausgeschlossen.
+  function resolveDbSource(tx: DbTx | undefined): DbConnection | DbTx | undefined {
+    return tx ?? (context.db as DbConnection | undefined); // @cast-boundary db-operator
+  }
+
   // Pre-build tables and transition maps for auto-guard (avoid per-request allocation)
-  const tableCache = new Map<string, ReturnType<typeof buildDrizzleTable>>();
+  const tableCache = new Map<string, ReturnType<typeof buildEntityTable>>();
   const transitionCache = new Map<string, ReturnType<typeof defineTransitions>>();
 
-  function getTable(entityName: string): ReturnType<typeof buildDrizzleTable> | undefined {
+  function getTable(entityName: string): ReturnType<typeof buildEntityTable> | undefined {
     if (tableCache.has(entityName)) return tableCache.get(entityName);
     const entity = registry.getEntity(entityName);
     if (!entity) return undefined;
-    const table = buildDrizzleTable(entityName, entity, {
+    const table = buildEntityTable(entityName, entity, {
       relations: registry.getRelations(entityName),
     });
     tableCache.set(entityName, table);
@@ -215,8 +222,7 @@ export function createDispatcher(
     tx: DbTx | undefined,
     callerFeature: string | undefined,
   ): Promise<void> {
-    const dbSource: DbConnection | DbTx | undefined =
-      tx ?? (context.db as DbConnection | undefined); // @cast-boundary db-operator
+    const dbSource = resolveDbSource(tx);
     if (!dbSource) {
       throw new InternalError({
         message: `ctx.appendEvent("${args.type}") requires a database connection — none is configured.`,
@@ -245,8 +251,7 @@ export function createDispatcher(
     // The outer dispatcher receives a DbConnection from the server/stack;
     // AppContext's `db` union also allows TenantDb (for downstream hook calls),
     // but at this point we're the root of the pipeline — cast is safe.
-    const dbSource: DbConnection | DbTx | undefined =
-      tx ?? (context.db as DbConnection | undefined); // @cast-boundary db-operator
+    const dbSource = resolveDbSource(tx);
     const reqCtx = requestContext.get();
     const db = dbSource
       ? createTenantDb(
@@ -313,8 +318,7 @@ export function createDispatcher(
         await appendDomainEvent(args, user, tx, registry.getHandlerFeature(type));
       },
       fetchForWriting: async (args: FetchForWritingArgs): Promise<AggregateStreamHandle> => {
-        const dbSource: DbConnection | DbTx | undefined =
-          tx ?? (context.db as DbConnection | undefined); // @cast-boundary db-operator
+        const dbSource = resolveDbSource(tx);
         if (!dbSource) {
           throw new InternalError({
             message: `ctx.fetchForWriting("${args.aggregateId}") requires a database connection — none is configured.`,
@@ -377,8 +381,7 @@ export function createDispatcher(
         aggregateId: string,
         loadOptions?: { readonly asOf?: Temporal.Instant },
       ): Promise<readonly StoredEvent[]> => {
-        const dbSource: DbConnection | DbTx | undefined =
-          tx ?? (context.db as DbConnection | undefined); // @cast-boundary db-operator
+        const dbSource = resolveDbSource(tx);
         if (!dbSource) {
           throw new InternalError({
             message: `ctx.loadAggregate("${aggregateId}") requires a database connection — none is configured.`,
@@ -396,8 +399,7 @@ export function createDispatcher(
         aggregateId: string,
         archiveArgs: { readonly aggregateType: string; readonly reason?: string },
       ): Promise<void> => {
-        const dbSource: DbConnection | DbTx | undefined =
-          tx ?? (context.db as DbConnection | undefined); // @cast-boundary db-operator
+        const dbSource = resolveDbSource(tx);
         if (!dbSource) {
           throw new InternalError({
             message: `ctx.archiveStream("${aggregateId}") requires a database connection — none is configured.`,
@@ -412,8 +414,7 @@ export function createDispatcher(
         });
       },
       restoreStream: async (aggregateId: string): Promise<void> => {
-        const dbSource: DbConnection | DbTx | undefined =
-          tx ?? (context.db as DbConnection | undefined); // @cast-boundary db-operator
+        const dbSource = resolveDbSource(tx);
         if (!dbSource) {
           throw new InternalError({
             message: `ctx.restoreStream("${aggregateId}") requires a database connection — none is configured.`,
@@ -422,8 +423,7 @@ export function createDispatcher(
         await restoreStreamHelper(dbSource, user.tenantId, aggregateId);
       },
       isStreamArchived: async (aggregateId: string): Promise<boolean> => {
-        const dbSource: DbConnection | DbTx | undefined =
-          tx ?? (context.db as DbConnection | undefined); // @cast-boundary db-operator
+        const dbSource = resolveDbSource(tx);
         if (!dbSource) {
           throw new InternalError({
             message: `ctx.isStreamArchived("${aggregateId}") requires a database connection — none is configured.`,
@@ -437,8 +437,7 @@ export function createDispatcher(
         readonly version: number;
         readonly state: Record<string, unknown>;
       }): Promise<void> => {
-        const dbSource: DbConnection | DbTx | undefined =
-          tx ?? (context.db as DbConnection | undefined); // @cast-boundary db-operator
+        const dbSource = resolveDbSource(tx);
         if (!dbSource) {
           throw new InternalError({
             message: `ctx.snapshotAggregate("${snapshotArgs.aggregateId}") requires a database connection — none is configured.`,
@@ -457,8 +456,7 @@ export function createDispatcher(
         reducer: SnapshotReducer<TState>,
         initial: TState,
       ): Promise<LoadAggregateWithSnapshotResult<TState>> => {
-        const dbSource: DbConnection | DbTx | undefined =
-          tx ?? (context.db as DbConnection | undefined); // @cast-boundary db-operator
+        const dbSource = resolveDbSource(tx);
         if (!dbSource) {
           throw new InternalError({
             message: `ctx.loadAggregateWithSnapshot("${aggregateId}") requires a database connection — none is configured.`,
@@ -502,8 +500,7 @@ export function createDispatcher(
               `table-less MSP (side-effect-only). Known queryable projections: ${all.join(", ") || "(none)"}`,
           });
         }
-        const dbSource: DbConnection | DbTx | undefined =
-          tx ?? (context.db as DbConnection | undefined); // @cast-boundary db-operator
+        const dbSource = resolveDbSource(tx);
         if (!dbSource) {
           throw new InternalError({
             message: `ctx.queryProjection("${qualifiedName}") requires a database connection — none is configured.`,
@@ -513,17 +510,10 @@ export function createDispatcher(
         // filter keeps cross-tenant leaks out unless the handler explicitly
         // opts in. Works with any drizzle-table whose tenant column is named
         // tenantId on the JS side.
-        // @cast-boundary dynamic-key — drizzle's PgTable columns are schema-dependent
-        const tenantCol = (projTable as Record<string, AnyColumn | undefined>)["tenantId"]; // @cast-boundary dynamic-key
-        let rows: readonly Record<string, unknown>[];
-        if (tenantCol && !queryOptions?.unsafeAllTenants) {
-          rows = (await dbSource
-            .select()
-            .from(projTable)
-            .where(eq(tenantCol, user.tenantId))) as readonly Record<string, unknown>[]; // @cast-boundary db-row
-        } else {
-          rows = (await dbSource.select().from(projTable)) as readonly Record<string, unknown>[]; // @cast-boundary db-row
-        }
+        const tenantCol = (projTable as Record<string, unknown>)["tenantId"];
+        const where =
+          tenantCol && !queryOptions?.unsafeAllTenants ? { tenantId: user.tenantId } : undefined;
+        const rows = await selectMany<Record<string, unknown>>(dbSource, projTable, where);
         return rows as readonly T[]; // @cast-boundary engine-payload
       },
       // Thin pass-through: one resolve impl lives on the dispatcher, the
@@ -1123,9 +1113,12 @@ export function createDispatcher(
           // can false-pass; optimistic locking would catch it later, but with
           // a less specific error. Falls back to a plain SELECT if no tx is
           // active (tests without a DB connection).
-          const selectQuery = handlerContext.db.select().from(table);
-          const filtered = selectQuery.where(eq(table["id"], id));
-          const rows = tx ? await filtered.for("update") : await filtered;
+          const rows = tx
+            ? ((await asRawClient(handlerContext.db).unsafe(
+                `SELECT * FROM "${(table as { [key: symbol]: unknown })[Symbol.for("kumiko:schema:Name")]}" WHERE "id" = $1 FOR UPDATE`,
+                [id],
+              )) as readonly unknown[])
+            : await selectMany(handlerContext.db, table, { id });
           const row = rows[0];
 
           if (!row) continue;
@@ -1278,7 +1271,9 @@ export function createDispatcher(
       }
     };
 
-    const db = context.db as DbConnection | undefined; // @cast-boundary db-operator
+    // batch() opens its own outer transaction — needs the top-level
+    // connection's `.begin()` (TransactionSql exposes only `.savepoint()`).
+    const db = resolveDbSource(undefined) as DbConnection | undefined;
     if (!db) {
       // Without a DB connection there is no transaction to open. Fall back to
       // sequential execution — useful for unit tests that don't touch the DB.
@@ -1306,7 +1301,7 @@ export function createDispatcher(
     }
 
     try {
-      await db.transaction(async (tx) => {
+      await db.begin(async (tx) => {
         for (let i = 0; i < commands.length; i++) {
           const cmd = commands[i];
           if (!cmd) continue;
@@ -1368,7 +1363,7 @@ export function createDispatcher(
   // scoped as "tenant" and no tx is threaded through. Hooks that need
   // cross-tenant lookups opt in explicitly via queryAs(systemUser, ...).
   function buildAuthClaimsContext(user: SessionUser): AuthClaimsContext {
-    const dbSource: DbConnection | undefined = context.db as DbConnection | undefined; // @cast-boundary db-operator
+    const dbSource = resolveDbSource(undefined);
     if (!dbSource) {
       throw new InternalError({
         message:

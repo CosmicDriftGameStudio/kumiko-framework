@@ -25,7 +25,7 @@ import {
 //      in Sprint 5 — Tenant-Lifecycle löscht alle FileRefs.
 //   3. Boot-Validation für PII-Annotations greift (fileName, originalName).
 //
-// Kein buildDrizzleTable hier — die Mapping-Tabelle existiert schon im
+// Kein buildEntityTable hier — die Mapping-Tabelle existiert schon im
 // Framework. Drizzle-Reads in den Sprint-2+-Hooks gehen direkt über
 // `fileRefsTable` aus `@cosmicdrift/kumiko-framework/files`.
 //

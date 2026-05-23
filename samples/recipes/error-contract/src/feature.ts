@@ -9,7 +9,7 @@
 // tx rollback. The handler author never has to touch HTTP codes or assemble
 // JSON error bodies.
 
-import { buildDrizzleTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createNumberField,
@@ -70,7 +70,7 @@ export const orderEntity = createEntity({
   },
 });
 
-const orderTable = buildDrizzleTable("order", orderEntity);
+const orderTable = buildEntityTable("order", orderEntity);
 
 export const ordersLiteFeature = defineFeature("orders-lite", (r) => {
   r.entity("order", orderEntity);

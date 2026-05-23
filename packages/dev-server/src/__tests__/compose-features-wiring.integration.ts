@@ -34,6 +34,7 @@ import {
 import { tenantEntity, tenantMembershipsTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { seedTenantMembership } from "@cosmicdrift/kumiko-bundled-features/tenant/testing";
 import { UserHandlers, userEntity, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
+import { deleteMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
@@ -151,8 +152,8 @@ describe("composeFeatures wiring — passwordReset", () => {
   });
 
   beforeEach(async () => {
-    await suite.stack.db.delete(userTable);
-    await suite.stack.db.delete(tenantMembershipsTable);
+    await deleteMany(suite.stack.db, userTable, {});
+    await deleteMany(suite.stack.db, tenantMembershipsTable, {});
     suite.resetEmails.length = 0;
     suite.verifyEmails.length = 0;
   });
@@ -225,8 +226,8 @@ describe("composeFeatures wiring — emailVerification", () => {
   });
 
   beforeEach(async () => {
-    await suite.stack.db.delete(userTable);
-    await suite.stack.db.delete(tenantMembershipsTable);
+    await deleteMany(suite.stack.db, userTable, {});
+    await deleteMany(suite.stack.db, tenantMembershipsTable, {});
     suite.resetEmails.length = 0;
     suite.verifyEmails.length = 0;
   });
@@ -271,8 +272,8 @@ describe("composeFeatures wiring — asymmetric activation", () => {
   });
 
   beforeEach(async () => {
-    await suite.stack.db.delete(userTable);
-    await suite.stack.db.delete(tenantMembershipsTable);
+    await deleteMany(suite.stack.db, userTable, {});
+    await deleteMany(suite.stack.db, tenantMembershipsTable, {});
     suite.resetEmails.length = 0;
     suite.verifyEmails.length = 0;
   });
@@ -325,8 +326,8 @@ describe("composeFeatures wiring — fail-closed ohne authOptions", () => {
   });
 
   afterEach(async () => {
-    await suite.stack.db.delete(userTable);
-    await suite.stack.db.delete(tenantMembershipsTable);
+    await deleteMany(suite.stack.db, userTable, {});
+    await deleteMany(suite.stack.db, tenantMembershipsTable, {});
     suite.resetEmails.length = 0;
   });
 

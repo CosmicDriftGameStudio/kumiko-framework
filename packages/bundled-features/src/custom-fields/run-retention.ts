@@ -15,11 +15,19 @@
 // — for value-level granularity, future work needs a value-timestamp
 // jsonb shape, which would be a breaking schema change.
 
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { getTableName, sql } from "drizzle-orm";
-import type { PgTable } from "drizzle-orm/pg-core";
 import { parseSerializedField } from "./lib/parse-serialized-field";
+
+const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
+function getTableName(table: unknown): string {
+  if (typeof table === "object" && table !== null) {
+    const sym = (table as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL];
+    if (typeof sym === "string") return sym;
+  }
+  throw new Error("custom-fields/run-retention: table missing kumiko:schema:Name symbol");
+}
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 
@@ -48,7 +56,7 @@ export interface RunCustomFieldsRetentionOptions {
   readonly db: DbRunner;
   readonly tenantId: string;
   readonly entityName: string;
-  readonly entityTable: PgTable;
+  readonly entityTable: unknown;
   /** Current time, injected for time-travel-tests. */
   readonly now: Instant;
 }
@@ -75,12 +83,11 @@ export async function runCustomFieldsRetention(
     return { rowsScanned: 0, rowsUpdated: 0, removalsByFieldKey: {} };
   }
 
-  const tableName = sql.identifier(getTableName(opts.entityTable));
-  const rowsResult = await opts.db.execute(sql`
-    SELECT id, modified_at, custom_fields
-    FROM ${tableName}
-    WHERE tenant_id = ${opts.tenantId} AND custom_fields IS NOT NULL
-  `);
+  const tableName = `"${getTableName(opts.entityTable)}"`;
+  const rowsResult = await asRawClient(opts.db).unsafe(
+    `SELECT id, modified_at, custom_fields FROM ${tableName} WHERE tenant_id = $1 AND custom_fields IS NOT NULL`,
+    [opts.tenantId],
+  );
 
   const removalsByFieldKey: Record<string, number> = {};
   let rowsUpdated = 0;
@@ -125,11 +132,10 @@ export async function runCustomFieldsRetention(
       removalsByFieldKey[key] = (removalsByFieldKey[key] ?? 0) + 1;
     }
 
-    await opts.db.execute(sql`
-      UPDATE ${tableName}
-      SET custom_fields = ${JSON.stringify(mutated)}::jsonb
-      WHERE id = ${row.id}
-    `);
+    await asRawClient(opts.db).unsafe(
+      `UPDATE ${tableName} SET custom_fields = $1::jsonb WHERE id = $2`,
+      [JSON.stringify(mutated), row.id],
+    );
     rowsUpdated++;
   }
 
@@ -171,11 +177,10 @@ async function loadRetentionPolicies(
   tenantId: string,
   entityName: string,
 ): Promise<Map<string, RetentionPolicy>> {
-  const rowsResult = await db.execute(sql`
-    SELECT field_key, serialized_field
-    FROM read_custom_field_definitions
-    WHERE entity_name = ${entityName} AND tenant_id = ${tenantId}
-  `);
+  const rowsResult = await asRawClient(db).unsafe(
+    "SELECT field_key, serialized_field FROM read_custom_field_definitions WHERE entity_name = $1 AND tenant_id = $2",
+    [entityName, tenantId],
+  );
   const rows: ReadonlyArray<unknown> = Array.isArray(rowsResult) ? rowsResult : [];
   const out = new Map<string, RetentionPolicy>();
   for (const raw of rows) {

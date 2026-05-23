@@ -1,5 +1,5 @@
-import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { asRawClient } from "../../bun-db/query";
 import type { EntityDefinition } from "../../engine/types";
 import {
   createTestDb,
@@ -34,8 +34,8 @@ describe("unsafeEnsureEntityTable", () => {
   test("legt die Tabelle beim ersten Aufruf an (returnt true)", async () => {
     const created = await unsafeEnsureEntityTable(db.db, tenantEntity, "probe");
     expect(created).toBe(true);
-    const rows = await db.db.execute<{ exists: boolean }>(
-      sql`SELECT to_regclass('public.ensure_entity_table_probe') IS NOT NULL AS exists`,
+    const rows = await asRawClient(db.db).unsafe<{ exists: boolean }>(
+      `SELECT to_regclass('public.ensure_entity_table_probe') IS NOT NULL AS exists`,
     );
     expect(rows[0]?.exists).toBe(true);
   });

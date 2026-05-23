@@ -6,8 +6,8 @@
 //   - die throw-Policy bleibt unverändert (Regression-Guard)
 //   - listDeadLetters filtert per eventType
 
-import { eq, sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
+import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
 import { createTestDb, type TestDb } from "../../stack";
 import type { StoredEvent } from "../event-store";
 import { createEventsTable, eventsTable } from "../events-schema";
@@ -88,8 +88,8 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await testDb.db.delete(upcasterDeadLetterTable);
-  await testDb.db.delete(eventsTable);
+  await asRawClient(testDb.db).unsafe(`DELETE FROM "${upcasterDeadLetterTable.tableName}"`);
+  await asRawClient(testDb.db).unsafe(`DELETE FROM "${eventsTable.tableName}"`);
 });
 
 describe("upcaster error-policy: throw (default)", () => {
@@ -165,7 +165,7 @@ describe("upcaster error-policy: quarantine", () => {
     );
 
     // Drop one directly to add noise of a different type.
-    await testDb.db.insert(upcasterDeadLetterTable).values({
+    await insertOne(testDb.db, upcasterDeadLetterTable, {
       eventId: "99",
       tenantId: TENANT_ID,
       aggregateId: "other",
@@ -195,10 +195,7 @@ describe("upcaster error-policy: quarantine", () => {
       errorPolicy: "quarantine",
     });
 
-    const rows = await testDb.db
-      .select({ c: sql<number>`count(*)::int` })
-      .from(upcasterDeadLetterTable)
-      .where(eq(upcasterDeadLetterTable.eventId, "30"));
-    expect(rows[0]?.c).toBe(2);
+    const rows = await selectMany(testDb.db, upcasterDeadLetterTable, { eventId: "30" });
+    expect(rows).toHaveLength(2);
   });
 });

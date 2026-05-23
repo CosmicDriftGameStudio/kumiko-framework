@@ -1,5 +1,5 @@
-import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { asRawClient } from "../../bun-db/query";
 import {
   createEntity,
   createSystemConfig,
@@ -12,7 +12,7 @@ import type { ConfigSeedDef, Registry } from "../../engine/types";
 import { createTestDb, type TestDb, unsafeCreateEntityTable } from "../../stack";
 import { seedConfigValues } from "../config-seed";
 import { createEncryptionProvider } from "../encryption";
-import { buildDrizzleTable } from "../table-builder";
+import { buildEntityTable } from "../table-builder";
 
 // --- Test Entity ---
 // Mirrors the config-value entity from bundled-features with a unique
@@ -32,7 +32,7 @@ const configEntity = createEntity({
     },
   ],
 });
-const configTable = buildDrizzleTable("cfgSeedTest", configEntity);
+const configTable = buildEntityTable("cfgSeedTest", configEntity);
 
 // --- Registry Stub ---
 const KEY_DEFS = {
@@ -56,15 +56,15 @@ const encryption = createEncryptionProvider(
 let testDb: TestDb;
 
 async function countRows(): Promise<number> {
-  const [r] = await testDb.db.execute<{ count: number }>(
-    sql`SELECT COUNT(*)::int AS count FROM read_cfg_seed_test`,
+  const [r] = await asRawClient(testDb.db).unsafe<{ count: number }>(
+    `SELECT COUNT(*)::int AS count FROM read_cfg_seed_test`,
   );
   return r?.count ?? 0;
 }
 
 async function countEvents(): Promise<number> {
-  const [r] = await testDb.db.execute<{ count: number }>(
-    sql`SELECT COUNT(*)::int AS count FROM kumiko_events`,
+  const [r] = await asRawClient(testDb.db).unsafe<{ count: number }>(
+    `SELECT COUNT(*)::int AS count FROM kumiko_events`,
   );
   return r?.count ?? 0;
 }
@@ -80,7 +80,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await testDb.db.execute(sql`TRUNCATE kumiko_events, read_cfg_seed_test RESTART IDENTITY CASCADE`);
+  await asRawClient(testDb.db).unsafe(
+    `TRUNCATE kumiko_events, read_cfg_seed_test RESTART IDENTITY CASCADE`,
+  );
 });
 
 // --- Tests ---
@@ -150,8 +152,8 @@ describe("seedConfigValues", () => {
     expect(result).toEqual({ created: 0, skipped: 1 });
 
     // Old value persists
-    const [row] = await testDb.db.execute<{ value: string }>(
-      sql`SELECT value FROM read_cfg_seed_test WHERE key = 'test:config:max-upload' LIMIT 1`,
+    const [row] = await asRawClient(testDb.db).unsafe<{ value: string }>(
+      `SELECT value FROM read_cfg_seed_test WHERE key = 'test:config:max-upload' LIMIT 1`,
     );
     expect(row).toBeDefined();
     expect(JSON.parse(row!.value)).toBe(10);
@@ -168,28 +170,28 @@ describe("seedConfigValues", () => {
 
     await seedConfigValues(seeds, configTable, configEntity, mockRegistry, testDb.db);
 
-    const rows = await testDb.db.execute<{
+    const rows = await asRawClient(testDb.db).unsafe<{
       key: string;
-      tenantId: string;
+      tenantId: string | null;
       userId: string | null;
     }>(
-      sql`SELECT key, tenant_id AS "tenantId", user_id AS "userId" FROM read_cfg_seed_test ORDER BY key`,
+      `SELECT key, tenant_id AS "tenantId", user_id AS "userId" FROM read_cfg_seed_test ORDER BY key`,
     );
 
-    const sys = rows.find((r) => r.key === "test:config:service-url");
-    const tnt = rows.find((r) => r.key === "test:config:max-upload");
-    const usr = rows.find((r) => r.key === "test:config:theme");
+    const sys = rows.find((r: Record<string, unknown>) => r["key"] === "test:config:service-url");
+    const tnt = rows.find((r: Record<string, unknown>) => r["key"] === "test:config:max-upload");
+    const usr = rows.find((r: Record<string, unknown>) => r["key"] === "test:config:theme");
 
-    expect(sys!.tenantId).toBe(SYSTEM_TENANT_ID);
-    expect(sys!.userId).toBeNull();
+    expect(sys!["tenantId"]).toBe(SYSTEM_TENANT_ID);
+    expect(sys!["userId"]).toBeNull();
 
-    expect(tnt!.tenantId).toBe(SYSTEM_TENANT_ID);
-    expect(tnt!.userId).toBeNull();
+    expect(tnt!["tenantId"]).toBe(SYSTEM_TENANT_ID);
+    expect(tnt!["userId"]).toBeNull();
 
     // user-scope seed must live under the user's actual tenantId so the
     // resolver cascade can match it — never under SYSTEM_TENANT_ID.
-    expect(usr!.tenantId).toBe(TENANT_A);
-    expect(usr!.userId).toBe("u-1");
+    expect(usr!["tenantId"]).toBe(TENANT_A);
+    expect(usr!["userId"]).toBe("u-1");
   });
 
   test("user-scope seed without tenantId throws (would be unreachable)", async () => {
@@ -227,8 +229,8 @@ describe("seedConfigValues", () => {
     );
     expect(result).toEqual({ created: 1, skipped: 0 });
 
-    const [row] = await testDb.db.execute<{ value: string }>(
-      sql`SELECT value FROM read_cfg_seed_test WHERE key = 'test:config:stripe-key' LIMIT 1`,
+    const [row] = await asRawClient(testDb.db).unsafe<{ value: string }>(
+      `SELECT value FROM read_cfg_seed_test WHERE key = 'test:config:stripe-key' LIMIT 1`,
     );
     expect(row).toBeDefined();
     // value column holds ciphertext, never the plain token. The

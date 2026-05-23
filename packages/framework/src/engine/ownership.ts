@@ -12,13 +12,21 @@
 //   { from: "claim:<featureQn>",
 //     column?: "..." }                   → row[column ?? claim.shortName] === user.claims[claim.qn]
 //                                         (string[] claim → inArray)
-//   { where: (user, table) => SQL }      → escape hatch, arbitrary Drizzle predicate
+//   { where: (user, ctx) => SqlFragment } → escape hatch, raw parameterised SQL
 //
 // Construction: use the `from(ref, column?)` helper. It returns a FromRule
 // ready to drop into an access map.
 
-import { eq, inArray, or, type SQL, sql } from "drizzle-orm";
+import { toSnakeCase } from "../db/table-builder";
 import type { SessionUser } from "./types";
+
+// Parameterised SQL fragment — produced by buildOwnershipClause + by the
+// WhereRule escape-hatch. Caller weaves `sqlText` into a larger statement,
+// renumbering placeholders if needed (FragmentBuilder below).
+export type SqlFragment = {
+  readonly sqlText: string;
+  readonly params: readonly unknown[];
+};
 
 // Reference spec supported by `from()`:
 //   "user:id"                  → user.id
@@ -49,9 +57,18 @@ export type FromRule = {
   readonly column: string;
 };
 
+// Context passed to a WhereRule escape-hatch. The author returns a SqlFragment
+// whose placeholders start at `paramStart` ($N, $N+1, ...); the framework
+// concatenates the fragment into the larger query.
+export type WhereRuleContext<TTable = unknown> = {
+  readonly table: TTable;
+  readonly tableName: string;
+  readonly paramStart: number;
+};
+
 export type WhereRule<TTable = unknown> = {
   readonly kind: "where";
-  readonly where: (user: SessionUser, table: TTable) => SQL;
+  readonly where: (user: SessionUser, ctx: WhereRuleContext<TTable>) => SqlFragment;
 };
 
 // "all" collapses to a primitive so map authors can write `Admin: "all"`
@@ -244,51 +261,94 @@ export function userCanCreateFieldRow(
 //   "empty" → user has a role mapped but no rule accepts any row (missing
 //             claim, empty array, role not in map). Skip the DB call entirely
 //             — returning [] is equivalent and avoids a pointless roundtrip.
-//   "sql"   → apply `.sql` as an AND to the query's where clause.
+//   "sql"   → apply the parameterised fragment as an AND on the query.
+//             Caller is responsible for renumbering placeholders when
+//             concatenating with other fragments (see `shiftParams` below).
 //
 // "empty" vs. "pass" is the critical distinction for a safe default:
-// undefined/pass = allow, empty = deny-by-construction. Mixing them up was
-// the exact leak direction advisor flagged; the disjoint type prevents it.
+// undefined/pass = allow, empty = deny-by-construction.
 export type OwnershipClause =
   | { readonly kind: "pass" }
   | { readonly kind: "empty" }
-  | { readonly kind: "sql"; readonly sql: SQL };
+  | { readonly kind: "sql"; readonly sqlText: string; readonly params: readonly unknown[] };
 
 const PASS_CLAUSE: OwnershipClause = { kind: "pass" };
 const EMPTY_CLAUSE: OwnershipClause = { kind: "empty" };
 
-// Build an ownership clause for entity-level READ access. The caller
-// translates the result to its query layer (see above).
+const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
+const KUMIKO_COLUMNS_SYMBOL = Symbol.for("kumiko:schema:Columns");
+
+function tableNameOf(table: unknown): string {
+  if (table !== null && typeof table === "object") {
+    const sym = (table as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL];
+    if (typeof sym === "string") return sym;
+  }
+  return "<unknown>";
+}
+
+// Resolve a JS-field name on the table to its underlying SQL column name.
+// Drizzle tables carry the mapping under Symbol.for("kumiko:schema:Columns");
+// we read it without importing drizzle-orm at runtime.
+function columnSqlName(table: unknown, field: string): string | null {
+  if (table === null || typeof table !== "object") return null;
+  const cols = (table as Record<symbol, unknown>)[KUMIKO_COLUMNS_SYMBOL];
+  if (cols && typeof cols === "object") {
+    const col = (cols as Record<string, unknown>)[field];
+    if (col && typeof col === "object") {
+      const nameVal = (col as Record<string, unknown>)["name"];
+      if (typeof nameVal === "string") return nameVal;
+    }
+  }
+  // Field may already be the SQL column name on plain objects (tests, etc.).
+  if ((table as Record<string, unknown>)[field] !== undefined) {
+    return toSnakeCase(field);
+  }
+  return null;
+}
+
+function quoteIdent(name: string): string {
+  return `"${name.replace(/"/g, '""')}"`;
+}
+
+// Shift `$N` placeholder numbers in an embedded fragment so they line up
+// with the outer query's param array.
+export function shiftParams(fragment: SqlFragment, shift: number): SqlFragment {
+  if (shift === 0) return fragment;
+  const sqlText = fragment.sqlText.replace(/\$(\d+)/g, (_, num) => `$${Number(num) + shift}`);
+  return { sqlText, params: fragment.params };
+}
+
+// Build an ownership clause for entity-level READ access. Caller weaves
+// the result into a raw-SQL WHERE (see event-store-executor list/getById).
 //
-// `table` is the Drizzle table with column objects. Unknown column on a
-// from-rule is a boot-time misconfiguration; at request time we treat it
-// as empty (safe default) rather than passing silently.
+// `table` is the (drizzle or compatible) table object; we extract column
+// SQL names via the kumiko:schema:Columns symbol. Unknown column on a from-rule
+// is a boot-time misconfiguration; at request time we treat it as empty
+// (safe default) rather than passing silently.
 export function buildOwnershipClause(
   user: SessionUser,
   accessMap: OwnershipMap | undefined,
-  // biome-ignore lint/suspicious/noExplicitAny: Drizzle tables carry schema-dependent column shapes
-  table: any,
+  table: unknown,
+  paramStart = 1,
 ): OwnershipClause {
   if (!accessMap || Object.keys(accessMap).length === 0) return PASS_CLAUSE;
 
-  const clauses: SQL[] = [];
+  const clauses: SqlFragment[] = [];
   let anyRoleMatched = false;
   let everyRuleCollapsedToEmpty = true;
+  let nextParamIdx = paramStart;
 
   for (const role of user.roles) {
     const rule = accessMap[role];
     if (!rule) continue;
     anyRoleMatched = true;
-    // "all" = no filter at all for this role; short-circuit.
     if (rule === "all") return PASS_CLAUSE;
-    const resolved = ruleToClause(rule, user, table);
+    const resolved = ruleToFragment(rule, user, table, nextParamIdx);
     if (resolved.kind === "sql") {
-      clauses.push(resolved.sql);
+      clauses.push({ sqlText: resolved.sqlText, params: resolved.params });
+      nextParamIdx += resolved.params.length;
       everyRuleCollapsedToEmpty = false;
     }
-    // "empty" contribution from one role doesn't short-circuit: another
-    // role might still contribute an OR-branch. But if ALL branches are
-    // empty, the result is empty.
   }
 
   if (!anyRoleMatched) return EMPTY_CLAUSE;
@@ -296,42 +356,54 @@ export function buildOwnershipClause(
   if (clauses.length === 1) {
     const only = clauses[0];
     if (!only) return EMPTY_CLAUSE;
-    return { kind: "sql", sql: only };
+    return { kind: "sql", sqlText: `(${only.sqlText})`, params: only.params };
   }
-  // @cast-boundary db-operator — drizzle or() widened signature
-  // biome-ignore lint/suspicious/noExplicitAny: same reason as above
-  const combined = or(...(clauses as any)) as SQL;
-  return { kind: "sql", sql: combined };
+  const sqlText = clauses.map((c) => `(${c.sqlText})`).join(" OR ");
+  const params: unknown[] = [];
+  for (const c of clauses) for (const p of c.params) params.push(p);
+  return { kind: "sql", sqlText: `(${sqlText})`, params };
 }
 
-type RuleClauseResult = { readonly kind: "empty" } | { readonly kind: "sql"; readonly sql: SQL };
+type RuleFragmentResult =
+  | { readonly kind: "empty" }
+  | { readonly kind: "sql"; readonly sqlText: string; readonly params: readonly unknown[] };
 
-function ruleToClause(
+function ruleToFragment(
   rule: OwnershipRule,
   user: SessionUser,
-  // biome-ignore lint/suspicious/noExplicitAny: Drizzle tables carry schema-dependent column shapes
-  table: any,
-): RuleClauseResult {
+  table: unknown,
+  paramStart: number,
+): RuleFragmentResult {
   if (rule === "all") {
-    // Caller handles "all" by short-circuit before reaching here; defensive
-    // fallback.
-    return { kind: "sql", sql: sql`true` };
+    return { kind: "sql", sqlText: "TRUE", params: [] };
   }
   if (rule.kind === "where") {
-    return { kind: "sql", sql: rule.where(user, table) };
+    const frag = rule.where(user, {
+      table,
+      tableName: tableNameOf(table),
+      paramStart,
+    });
+    return { kind: "sql", sqlText: frag.sqlText, params: frag.params };
   }
   // FromRule
-  const column = table[rule.column];
-  // Unknown column — boot validator should have caught this, but at request
-  // time we treat as empty (fail-closed).
-  if (!column) return { kind: "empty" };
+  const colName = columnSqlName(table, rule.column);
+  if (!colName) return { kind: "empty" };
 
   const value = resolveUserValue(rule, user);
   if (value === undefined || value === null) return { kind: "empty" };
 
   if (Array.isArray(value)) {
     if (value.length === 0) return { kind: "empty" };
-    return { kind: "sql", sql: inArray(column, value) };
+    const placeholders = value.map((_, i) => `$${paramStart + i}`).join(", ");
+    return {
+      kind: "sql",
+      sqlText: `${quoteIdent(colName)} IN (${placeholders})`,
+      params: value,
+    };
   }
-  return { kind: "sql", sql: eq(column, value) };
+  return {
+    kind: "sql",
+    sqlText: `${quoteIdent(colName)} = $${paramStart}`,
+    params: [value],
+  };
 }

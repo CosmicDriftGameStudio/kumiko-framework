@@ -1,54 +1,34 @@
-import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { readPositiveIntEnv } from "../utils/env-parse";
 
-export type DbConnection = ReturnType<typeof drizzle>;
+// DbConnection is the postgres-js Sql client. Native: it has `.unsafe()` +
+// `.begin()` that bun-db's asRawClient expects.
+export type DbConnection = ReturnType<typeof postgres>;
 
-// Drizzle's transaction callback receives a tx handle with the same query API
-// as the top-level DbConnection. Extracted via Parameters so we stay in sync
-// with whatever Drizzle defines without hard-coding the internal type name.
-export type DbTx = Parameters<Parameters<DbConnection["transaction"]>[0]>[0];
+// Inside `.begin(async tx => {...})`, postgres-js hands the callback a
+// TransactionSql — extends ISql so it has `.unsafe()` and `.begin()`
+// (savepoint-aware) but lacks the pool-lifecycle methods (`.end()`, CLOSE,
+// END constants). For framework call-sites we use TransactionSql directly.
+// biome-ignore lint/suspicious/noExplicitAny: postgres-js namespace lookup
+export type DbTx = postgres.TransactionSql<any>;
 
-// Code paths that operate on either a connection or an active transaction
-// (e.g. TenantDb, dispatcher pipeline) accept both.
+// Either a top-level connection or an active transaction. Framework code
+// (TenantDb, dispatcher pipeline, event-store helpers) accepts both.
 export type DbRunner = DbConnection | DbTx;
 
-// Dynamic Drizzle tables (buildDrizzleTable with `any` column schema) lose
-// their per-column types at the Drizzle boundary. Query results come back as
-// arbitrary records. `DbRow` marks those typing-loss sites so readers see the
-// limitation without re-spelling `Record<string, unknown>` at every callsite.
-// Use `DbRow` for rows read via dynamic tables; a concrete entity-row type
-// is preferred whenever the table is statically typed.
+// Read-side rows are dynamic by definition — the framework doesn't know
+// the per-entity column shape at compile time. `DbRow` marks the typing-
+// loss sites so call sites either cast to a concrete row type or live
+// with the erased shape explicitly.
 export type DbRow = Record<string, unknown>;
 
-// The raw postgres.js client. Exposed alongside the Drizzle wrapper so the
-// event-dispatcher (or other components that need LISTEN / pg-specific
-// features Drizzle doesn't surface) can subscribe without re-opening a
-// connection from the URL.
+// Re-exported alias kept for callers that previously imported PgClient
+// from this module; it's the same postgres-js Sql instance.
 export type PgClient = ReturnType<typeof postgres>;
 
-// Connection-pool options — thin wrapper around the postgres.js fields the
-// framework explicitly supports. Omitted keys fall back to postgres.js
-// defaults (max=10, idle_timeout=PGIDLE_TIMEOUT env, connect_timeout=
-// PGCONNECT_TIMEOUT env). See `docs/plans/architecture/scaling.md` for
-// sizing guidance per deployment shape.
 export type DbConnectionOptions = {
-  // Max concurrent connections in the pool. postgres.js defaults to 10 —
-  // fine for a single app process against a small DB. Multi-worker or
-  // high-concurrency API deploys should scale this with `num_workers *
-  // per-request-concurrency` and stay below the DB's own max_connections
-  // (typical managed postgres: 100–400).
   readonly maxConnections?: number;
-  // Seconds before an idle connection is closed. Null/undefined → keep
-  // connections warm forever (postgres.js default when the env var is
-  // unset). Managed pgBouncer tiers usually want this explicitly set to
-  // something like 30–60 so a single burst doesn't hold connections
-  // indefinitely.
   readonly idleTimeoutSeconds?: number;
-  // Seconds to wait while establishing a new connection. Fails the query
-  // with a timeout error rather than hanging indefinitely when the DB is
-  // unreachable — critical for `/health/ready` to actually flip to 503
-  // within its 2s probe budget.
   readonly connectTimeoutSeconds?: number;
 };
 
@@ -60,8 +40,6 @@ export function createDbConnection(
   client: PgClient;
   close: () => Promise<void>;
 } {
-  // Only forward fields the caller set — empty object otherwise preserves
-  // postgres.js's env-var-driven defaults (PGIDLE_TIMEOUT / PGCONNECT_TIMEOUT).
   const pgOptions: Parameters<typeof postgres>[1] = {};
   if (options.maxConnections !== undefined) pgOptions.max = options.maxConnections;
   if (options.idleTimeoutSeconds !== undefined) pgOptions.idle_timeout = options.idleTimeoutSeconds;
@@ -70,10 +48,9 @@ export function createDbConnection(
   }
 
   const client = postgres(url, pgOptions);
-  const db = drizzle(client);
 
   return {
-    db,
+    db: client,
     client,
     close: async () => {
       await client.end();
@@ -81,11 +58,6 @@ export function createDbConnection(
   };
 }
 
-// Parse the supported env vars into a DbConnectionOptions object. Useful
-// for a main.ts that wants to read DATABASE_POOL_MAX / DATABASE_POOL_
-// IDLE_TIMEOUT / DATABASE_POOL_CONNECT_TIMEOUT without re-implementing
-// the number-coercion + validation. Unrecognised / non-numeric values
-// throw — misconfig surfaces at boot, not mid-request.
 export function dbConnectionOptionsFromEnv(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): DbConnectionOptions {

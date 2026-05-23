@@ -10,6 +10,7 @@
 //   4. Rollen pro Tenant landen korrekt (unterschiedliche Rollen-Listen
 //      pro Membership).
 
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -18,7 +19,6 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createConfigFeature } from "../../config/feature";
 import { createConfigResolver } from "../../config/resolver";
@@ -53,10 +53,10 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(tenantMembershipsTable);
-  await stack.db.delete(tenantTable);
-  await stack.db.delete(userTable);
-  await stack.db.delete(eventsTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${eventsTable.tableName}"`);
 });
 
 describe("seedAdmin", () => {
@@ -82,14 +82,11 @@ describe("seedAdmin", () => {
     });
 
     // Tenants angelegt
-    const tenants = await stack.db.select().from(tenantTable);
+    const tenants = await selectMany(stack.db, tenantTable);
     expect(tenants.map((t) => t["id"]).sort()).toEqual([TENANT_DEV, TENANT_BETA].sort());
 
     // User angelegt mit Hash (NICHT plain-Password)
-    const [user] = await stack.db
-      .select()
-      .from(userTable)
-      .where(eq(userTable["email"], "admin@example.com"));
+    const [user] = await selectMany(stack.db, userTable, { email: "admin@example.com" });
     expect(user?.["id"]).toBe(userId);
     expect(user?.["passwordHash"]).not.toBe("secret-pw");
     expect(user?.["passwordHash"]).toMatch(/^\$argon2/);
@@ -101,26 +98,16 @@ describe("seedAdmin", () => {
     expect(invalid).toBe(false);
 
     // Memberships pro Tenant mit unterschiedlichen Rollen
-    const devMembership = await stack.db
-      .select()
-      .from(tenantMembershipsTable)
-      .where(
-        and(
-          eq(tenantMembershipsTable.userId, userId),
-          eq(tenantMembershipsTable.tenantId, TENANT_DEV),
-        ),
-      );
+    const devMembership = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: userId,
+      tenantId: TENANT_DEV,
+    });
     expect(devMembership[0]?.["roles"]).toBe(JSON.stringify(["Admin"]));
 
-    const betaMembership = await stack.db
-      .select()
-      .from(tenantMembershipsTable)
-      .where(
-        and(
-          eq(tenantMembershipsTable.userId, userId),
-          eq(tenantMembershipsTable.tenantId, TENANT_BETA),
-        ),
-      );
+    const betaMembership = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: userId,
+      tenantId: TENANT_BETA,
+    });
     expect(betaMembership[0]?.["roles"]).toBe(JSON.stringify(["User"]));
   });
 
@@ -148,7 +135,7 @@ describe("seedAdmin", () => {
     expect(userId2).toBe(userId1);
 
     // Genau ein User-Row, original-Hash (passt zu pw1, nicht pw2).
-    const users = await stack.db.select().from(userTable);
+    const users = await selectMany(stack.db, userTable);
     expect(users).toHaveLength(1);
     const valid = await verifyPassword(users[0]?.["passwordHash"] as string, "pw1");
     expect(valid).toBe(true);
@@ -156,11 +143,11 @@ describe("seedAdmin", () => {
     expect(invalid).toBe(false);
 
     // Genau ein Membership-Row.
-    const memberships = await stack.db.select().from(tenantMembershipsTable);
+    const memberships = await selectMany(stack.db, tenantMembershipsTable);
     expect(memberships).toHaveLength(1);
 
     // Genau ein .created-Event pro Aggregat-Typ.
-    const events = await stack.db.select().from(eventsTable);
+    const events = await selectMany(stack.db, eventsTable);
     const createdByType = events
       .filter((e) => e.type.endsWith(".created"))
       .reduce<Record<string, number>>((acc, e) => {

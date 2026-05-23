@@ -11,8 +11,8 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
+import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
 import { createTestDb, type TestDb } from "../../stack";
 import { createSeedMigrationContext } from "../context";
 import { createEsOperationsTable, esOperationsTable } from "../operations-schema";
@@ -30,7 +30,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await testDb.db.execute(sql`TRUNCATE kumiko_es_operations RESTART IDENTITY`);
+  await asRawClient(testDb.db).unsafe(`TRUNCATE kumiko_es_operations RESTART IDENTITY`);
 });
 
 function makeTempSeedsDir(files: readonly { name: string; content: string }[]): string {
@@ -82,7 +82,7 @@ describe("runPendingSeedMigrations (integration)", () => {
       expect(r1.appliedIds).toEqual(["2026-05-20-noop"]);
 
       // Marker landed
-      const markers1 = await testDb.db.select().from(esOperationsTable);
+      const markers1 = await selectMany(testDb.db, esOperationsTable);
       expect(markers1).toHaveLength(1);
       expect(markers1[0]?.id).toBe("2026-05-20-noop");
       expect(markers1[0]?.operationType).toBe("seed-migration");
@@ -98,7 +98,7 @@ describe("runPendingSeedMigrations (integration)", () => {
         logger: () => {},
       });
       expect(r2.appliedIds).toEqual([]);
-      const markers2 = await testDb.db.select().from(esOperationsTable);
+      const markers2 = await selectMany(testDb.db, esOperationsTable);
       expect(markers2).toHaveLength(1);
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -130,7 +130,7 @@ describe("runPendingSeedMigrations (integration)", () => {
         }),
       ).rejects.toThrow(/boom/);
 
-      const markers = await testDb.db.select().from(esOperationsTable);
+      const markers = await selectMany(testDb.db, esOperationsTable);
       expect(markers).toHaveLength(0);
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -214,7 +214,7 @@ describe("runPendingSeedMigrations (integration)", () => {
       ).rejects.toThrow(/version_conflict/);
 
       // Kein Marker — bei nächstem Boot würde der Seed retried
-      const markers = await testDb.db.select().from(esOperationsTable);
+      const markers = await selectMany(testDb.db, esOperationsTable);
       expect(markers).toHaveLength(0);
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -264,7 +264,7 @@ describe("runPendingSeedMigrations (integration)", () => {
       expect(dispatcher.write).toHaveBeenCalledTimes(1);
       // Marker NICHT gesetzt — retry beim nächsten Boot wird die Migration
       // nochmal ausführen. Wenn der Write nicht idempotent ist → Duplikat.
-      const markers = await testDb.db.select().from(esOperationsTable);
+      const markers = await selectMany(testDb.db, esOperationsTable);
       expect(markers).toHaveLength(0);
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -293,7 +293,7 @@ describe("runPendingSeedMigrations (integration)", () => {
     ]);
     try {
       // Pre-seed marker als wäre ein parallel-Pod schon durch
-      await testDb.db.insert(esOperationsTable).values({
+      await insertOne(testDb.db, esOperationsTable, {
         id: "2026-05-20-race",
         operationType: "seed-migration",
         durationMs: 42,
@@ -318,7 +318,7 @@ describe("runPendingSeedMigrations (integration)", () => {
       });
 
       expect(dispatcher.write).not.toHaveBeenCalled();
-      const markers = await testDb.db.select().from(esOperationsTable);
+      const markers = await selectMany(testDb.db, esOperationsTable);
       expect(markers).toHaveLength(1); // nur der pre-seeded
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -354,7 +354,7 @@ describe("runPendingSeedMigrations (integration)", () => {
       ).rejects.toThrow(/stop here/);
 
       // Nur first hat marker — fails warf, never wurde nie attempted
-      const markers = await testDb.db.select().from(esOperationsTable);
+      const markers = await selectMany(testDb.db, esOperationsTable);
       expect(markers.map((m) => m.id)).toEqual(["2026-05-19-first"]);
     } finally {
       rmSync(dir, { recursive: true, force: true });

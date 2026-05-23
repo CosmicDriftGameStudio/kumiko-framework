@@ -19,6 +19,7 @@
 // here first.
 
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
+import { insertMany } from "../../bun-db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { defineFeature } from "../../engine";
@@ -91,7 +92,7 @@ async function bulkSeedWidgetCreated(count: number, namePrefix: string): Promise
     metadata: { userId: admin.id },
     createdBy: admin.id,
   }));
-  await stack.db.insert(eventsTable).values(rows);
+  await insertMany(stack.db, eventsTable, rows);
 }
 
 function buildDispatcherWith(consumers: readonly EventConsumer[]): EventDispatcher {

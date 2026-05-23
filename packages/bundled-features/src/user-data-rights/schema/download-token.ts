@@ -1,4 +1,4 @@
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createBigIntField,
   createEntity,
@@ -105,7 +105,7 @@ export const exportDownloadTokenEntity = createEntity({
   ],
 });
 
-export const exportDownloadTokensTable = buildDrizzleTable(
+export const exportDownloadTokensTable = buildEntityTable(
   "exportDownloadToken",
   exportDownloadTokenEntity,
 );

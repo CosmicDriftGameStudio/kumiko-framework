@@ -1,5 +1,5 @@
-import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
 import {
   createBooleanField,
   createDateField,
@@ -10,7 +10,7 @@ import {
 } from "../../engine";
 import type { FeatureDefinition } from "../../engine/types";
 import { createTestDb, type TestDb, unsafePushTables } from "../../stack";
-import { buildDrizzleTable } from "../table-builder";
+import { buildEntityTable } from "../table-builder";
 
 /**
  * Integration tests for the schema migration workflow.
@@ -18,7 +18,7 @@ import { buildDrizzleTable } from "../table-builder";
  *
  * Each test simulates:
  *   1. Developer defines/changes entities
- *   2. buildDrizzleTable creates Drizzle table objects
+ *   2. buildEntityTable creates Drizzle table objects
  *   3. Schema is applied to a real database via unsafePushTables (drizzle-kit push)
  *   4. We verify the DB state matches expectations
  */
@@ -38,7 +38,7 @@ async function applySchema(features: readonly FeatureDefinition[]): Promise<void
   const tables: Record<string, unknown> = {};
   for (const feature of features) {
     for (const [entityName, entity] of Object.entries(feature.entities)) {
-      tables[entityName] = buildDrizzleTable(entityName, entity);
+      tables[entityName] = buildEntityTable(entityName, entity);
     }
   }
   await unsafePushTables(testDb.db, tables);
@@ -48,12 +48,13 @@ async function applySchema(features: readonly FeatureDefinition[]): Promise<void
 async function getTableColumns(
   tableName: string,
 ): Promise<Map<string, { dataType: string; isNullable: boolean }>> {
-  const rows = await testDb.db.execute<{
+  const rows = await asRawClient(testDb.db).unsafe<{
     column_name: string;
     data_type: string;
     is_nullable: string;
   }>(
-    sql`SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = ${tableName} ORDER BY ordinal_position`,
+    `SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = $1 ORDER BY ordinal_position`,
+    [tableName],
   );
 
   const result = new Map<string, { dataType: string; isNullable: boolean }>();
@@ -121,10 +122,8 @@ describe("schema migration workflows", () => {
     });
     await applySchema([feature]);
 
-    const indexRows = await testDb.db.execute<{ indexname: string; indexdef: string }>(
-      sql.raw(
-        `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'wf1b_articles' AND indexname = 'wf1b_articles_tenant_id_idx'`,
-      ),
+    const indexRows = await asRawClient(testDb.db).unsafe<{ indexname: string; indexdef: string }>(
+      `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'wf1b_articles' AND indexname = 'wf1b_articles_tenant_id_idx'`,
     );
     expect(indexRows.length).toBe(1);
     expect(indexRows[0]?.indexdef).toContain("tenant_id");
@@ -136,7 +135,7 @@ describe("schema migration workflows", () => {
       table: "wf2_users",
       fields: { email: createTextField() },
     });
-    await unsafePushTables(testDb.db, { user: buildDrizzleTable("user", initialEntity) });
+    await unsafePushTables(testDb.db, { user: buildEntityTable("user", initialEntity) });
 
     // Developer adds a new field
     const updatedEntity = createEntity({
@@ -150,8 +149,8 @@ describe("schema migration workflows", () => {
     // Push updated schema — drizzle-kit generates ALTER TABLE ADD COLUMN
     await unsafePushTables(
       testDb.db,
-      { user: buildDrizzleTable("user", updatedEntity) },
-      { user: buildDrizzleTable("user", initialEntity) },
+      { user: buildEntityTable("user", updatedEntity) },
+      { user: buildEntityTable("user", initialEntity) },
     );
 
     const columns = await getTableColumns("wf2_users");
@@ -166,24 +165,25 @@ describe("schema migration workflows", () => {
       table: "wf3_projects",
       fields: { name: createTextField() },
     });
-    const initialTable = buildDrizzleTable("project", initialEntity);
+    const initialTable = buildEntityTable("project", initialEntity);
     await unsafePushTables(testDb.db, { project: initialTable });
 
     // Insert a row first (to prove ADD COLUMN with default doesn't break existing rows)
-    await testDb.db
-      .insert(initialTable)
-      .values({ tenantId: "00000000-0000-4000-8000-000000000001", name: "Test Project" });
+    await insertOne(testDb.db, initialTable, {
+      tenantId: "00000000-0000-4000-8000-000000000001",
+      name: "Test Project",
+    });
 
     // Developer adds boolean field with default
     const updatedEntity = createEntity({
       table: "wf3_projects",
       fields: { name: createTextField(), isArchived: createBooleanField({ default: false }) },
     });
-    const updatedTable = buildDrizzleTable("project", updatedEntity);
+    const updatedTable = buildEntityTable("project", updatedEntity);
     await unsafePushTables(testDb.db, { project: updatedTable }, { project: initialTable });
 
     // Existing row should have the default value
-    const rows = await testDb.db.select().from(updatedTable);
+    const rows = await selectMany(testDb.db, updatedTable);
 
     expect(rows[0]).toMatchObject({ name: "Test Project", isArchived: false });
   });
@@ -199,12 +199,13 @@ describe("schema migration workflows", () => {
       table: "wf3b_users",
       fields: { email: createTextField({ required: true }) },
     });
-    const initialTable = buildDrizzleTable("user", initialEntity);
+    const initialTable = buildEntityTable("user", initialEntity);
     await unsafePushTables(testDb.db, { user: initialTable });
 
-    await testDb.db
-      .insert(initialTable)
-      .values({ tenantId: "00000000-0000-4000-8000-000000000001", email: "x@y.z" });
+    await insertOne(testDb.db, initialTable, {
+      tenantId: "00000000-0000-4000-8000-000000000001",
+      email: "x@y.z",
+    });
 
     const updatedEntity = createEntity({
       table: "wf3b_users",
@@ -213,10 +214,10 @@ describe("schema migration workflows", () => {
         roles: createTextField({ required: true, default: "[]" }),
       },
     });
-    const updatedTable = buildDrizzleTable("user", updatedEntity);
+    const updatedTable = buildEntityTable("user", updatedEntity);
     await unsafePushTables(testDb.db, { user: updatedTable }, { user: initialTable });
 
-    const rows = await testDb.db.select().from(updatedTable);
+    const rows = await selectMany(testDb.db, updatedTable);
     expect(rows[0]).toMatchObject({ email: "x@y.z", roles: "[]" });
   });
 

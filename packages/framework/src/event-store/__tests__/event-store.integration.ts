@@ -1,5 +1,5 @@
-import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { asRawClient } from "../../bun-db/query";
 import { createTestDb, type TestDb } from "../../stack";
 import { generateId as uuid } from "../../utils";
 import {
@@ -30,7 +30,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await testDb.db.execute(sql`TRUNCATE kumiko_events RESTART IDENTITY`);
+  await asRawClient(testDb.db).unsafe(`TRUNCATE kumiko_events RESTART IDENTITY`);
 });
 
 describe("event-store: append + load", () => {

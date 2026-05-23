@@ -5,7 +5,7 @@ import {
   createTextField,
   defineTransitions,
 } from "@app/define";
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 
 export const INVOICE_STATES = ["draft", "sent", "paid", "cancelled"] as const;
 
@@ -32,4 +32,4 @@ export const invoiceEntity = createEntity({
   },
 });
 
-export const invoiceTable = buildDrizzleTable("invoice", invoiceEntity);
+export const invoiceTable = buildEntityTable("invoice", invoiceEntity);

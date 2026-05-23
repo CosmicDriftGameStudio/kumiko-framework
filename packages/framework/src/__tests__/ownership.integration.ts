@@ -5,6 +5,7 @@
 // `describe` block maps to a cell of the core-auth.md Policy-Matrix.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { asRawClient } from "../bun-db/query";
 import {
   createEntity,
   createTextField,
@@ -134,7 +135,7 @@ let engRow: { id: string; version: number };
 let opsRow: { id: string; version: number };
 
 beforeEach(async () => {
-  await stack.db.execute("DELETE FROM h2_contracts");
+  await asRawClient(stack.db).unsafe("DELETE FROM h2_contracts");
   const eng = await stack.http.writeOk<{ id: string; data: { version: number } }>(
     "h2contracts:write:contract:create",
     {

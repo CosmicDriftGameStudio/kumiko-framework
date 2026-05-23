@@ -1,4 +1,4 @@
-import { asc, eq, getTableName, inArray, sql } from "drizzle-orm";
+import { asRawClient, selectMany } from "../bun-db/query";
 import type { DbConnection } from "../db/connection";
 import type { Registry, TenantId } from "../engine/types";
 import {
@@ -86,53 +86,54 @@ export async function rebuildProjection(
   let lastProcessedEventId = 0n;
 
   try {
-    await db.transaction(async (tx) => {
+    await db.begin(async (tx) => {
+      const rawTx = asRawClient(tx);
       // Lock the state row. Use upsert so a never-rebuilt projection also
       // gets a row. FOR UPDATE would need the row to exist — upsert-first
       // keeps it idempotent.
-      await tx
-        .insert(projectionStateTable)
-        .values({ name: projectionName, status: "rebuilding" })
-        .onConflictDoUpdate({
-          target: projectionStateTable.name,
-          set: {
-            status: "rebuilding",
-            lastError: null,
-            updatedAt: sql`now()`,
-          },
-        });
+      await rawTx.unsafe(
+        `INSERT INTO "kumiko_projections" ("name", "status") VALUES ($1, 'rebuilding')
+         ON CONFLICT ("name") DO UPDATE SET
+           "status" = 'rebuilding',
+           "last_error" = NULL,
+           "updated_at" = now()`,
+        [projectionName],
+      );
 
-      // Wipe the projection table. drizzle-orm's public API doesn't expose
-      // TRUNCATE, so we issue raw SQL — but `getTableName()` is the public
-      // accessor for the table's registered name, avoiding Symbol.for()
-      // internal lookups. The identifier is still quoted defensively.
+      // Wipe the projection table.
       const tableName = getTableName(projection.table);
-      await tx.execute(sql.raw(`TRUNCATE TABLE ${quoteIdent(tableName)}`));
+      await rawTx.unsafe(`TRUNCATE TABLE ${quoteIdent(tableName)}`);
 
       // Stream events in chronological order for every source. The event
-      // type filter (inArray(type, validTypes)) prunes events the projection
-      // doesn't care about early — important when a single source has more
-      // event types than the projection subscribes to.
+      // type filter prunes events the projection doesn't care about early.
       const subscribed = Object.keys(projection.apply);
       if (subscribed.length === 0) {
         // nothing to replay, just mark idle — projection exists but doesn't
         // subscribe to any event types on its sources yet.
       } else {
-        const events = (await tx
-          .select()
-          .from(eventsTable)
-          .where(
-            sql`${inArray(eventsTable.aggregateType, sources)} AND ${inArray(
-              eventsTable.type,
-              subscribed,
-            )}`,
-          )
-          .orderBy(asc(eventsTable.id))) as ReadonlyArray<typeof eventsTable.$inferSelect>; // @cast-boundary db-row
+        type EventRow = {
+          id: bigint;
+          aggregateId: string;
+          aggregateType: string;
+          tenantId: string;
+          version: number;
+          type: string;
+          eventVersion: number;
+          payload: Record<string, unknown>;
+          metadata: import("../event-store/event-store").EventMetadata;
+          createdAt: Temporal.Instant;
+          createdBy: string;
+        };
+        const events = await selectMany<EventRow>(
+          tx,
+          eventsTable,
+          { aggregateType: [...sources], type: [...subscribed] },
+          { orderBy: { col: "id", direction: "asc" } },
+        );
 
         // Upcasters run at read time: older stored payloads get walked
         // through the registered r.eventMigration chain until their shape
-        // matches the current event version. An apply() written against the
-        // v3 shape stays oblivious to v1 payloads still on disk.
+        // matches the current event version.
         const upcasters = registry.getEventUpcasters();
         for (const row of events) {
           deps.signal?.throwIfAborted();
@@ -164,29 +165,29 @@ export async function rebuildProjection(
       }
 
       // Finalize state row.
-      await tx
-        .update(projectionStateTable)
-        .set({
-          lastProcessedEventId,
-          status: "idle",
-          lastRebuildAt: sql`now()`,
-          lastError: null,
-          updatedAt: sql`now()`,
-        })
-        .where(eq(projectionStateTable.name, projectionName));
+      await rawTx.unsafe(
+        `UPDATE "kumiko_projections" SET
+           "last_processed_event_id" = $1,
+           "status" = 'idle',
+           "last_rebuild_at" = now(),
+           "last_error" = NULL,
+           "updated_at" = now()
+         WHERE "name" = $2`,
+        [lastProcessedEventId, projectionName],
+      );
     });
   } catch (e) {
     // Outer catch: TX has been rolled back by Postgres already. Record the
-    // failure in a SEPARATE write so ops can see what happened — the
-    // rolled-back status change is gone, so we write failed+error now.
+    // failure in a SEPARATE write so ops can see what happened.
     const message = e instanceof Error ? e.message : String(e);
-    await db
-      .insert(projectionStateTable)
-      .values({ name: projectionName, status: "failed", lastError: message })
-      .onConflictDoUpdate({
-        target: projectionStateTable.name,
-        set: { status: "failed", lastError: message, updatedAt: sql`now()` },
-      });
+    await asRawClient(db).unsafe(
+      `INSERT INTO "kumiko_projections" ("name", "status", "last_error") VALUES ($1, 'failed', $2)
+       ON CONFLICT ("name") DO UPDATE SET
+         "status" = 'failed',
+         "last_error" = $2,
+         "updated_at" = now()`,
+      [projectionName, message],
+    );
     // Failure metric: duration until throw, 0 events "delivered" (the replayed
     // rows were rolled back — counting them would overstate live delivery).
     // success=false label distinguishes these in Prom dashboards.
@@ -219,11 +220,22 @@ export async function rebuildProjection(
   return result;
 }
 
-// Identifier quoting for raw TRUNCATE. Drizzle doesn't expose a safe helper
-// for table-name interpolation in raw SQL; double-quote + escape double-quote
+// Identifier quoting for raw TRUNCATE. Double-quote + escape double-quote
 // matches Postgres identifier rules.
 function quoteIdent(name: string): string {
   return `"${name.replace(/"/g, '""')}"`;
+}
+
+const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
+function getTableName(table: unknown): string {
+  if (typeof table !== "object" || table === null) {
+    throw new Error("projection-rebuild: projection.table is not a pgTable object");
+  }
+  const name = (table as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL];
+  if (typeof name !== "string") {
+    throw new Error("projection-rebuild: projection.table missing drizzle name symbol");
+  }
+  return name;
 }
 
 // Read-only status for one projection. Returns null if the projection was
@@ -239,10 +251,15 @@ export async function getProjectionState(
   readonly lastError: string | null;
   readonly updatedAt: Temporal.Instant;
 } | null> {
-  const [row] = await db
-    .select()
-    .from(projectionStateTable)
-    .where(eq(projectionStateTable.name, projectionName));
+  type Row = {
+    readonly name: string;
+    readonly status: string;
+    readonly lastProcessedEventId: bigint;
+    readonly lastRebuildAt: Temporal.Instant | null;
+    readonly lastError: string | null;
+    readonly updatedAt: Temporal.Instant;
+  };
+  const [row] = await selectMany<Row>(db, projectionStateTable, { name: projectionName });
   if (!row) return null;
   return {
     name: row.name,
@@ -277,8 +294,16 @@ export async function listProjectionsWithState(
     readonly lastError: string | null;
   }>
 > {
+  type StateRow = {
+    name: string;
+    status: string;
+    lastProcessedEventId: bigint;
+    lastRebuildAt: Temporal.Instant | null;
+    lastError: string | null;
+    updatedAt: Temporal.Instant;
+  };
   const projections = registry.getAllProjections();
-  const stateRows = await db.select().from(projectionStateTable);
+  const stateRows = await selectMany<StateRow>(db, projectionStateTable);
   const stateByName = new Map(stateRows.map((r) => [r.name, r]));
 
   return [...projections.values()]

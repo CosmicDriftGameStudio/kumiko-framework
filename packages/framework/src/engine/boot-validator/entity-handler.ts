@@ -177,7 +177,7 @@ export function validateLocatedTimestamps(feature: FeatureDefinition): void {
 // in der multi-Variante). Catched at boot, lange bevor drizzle-kit beim
 // generate-Run zickt.
 //
-// `tenantId` als einzige Spalte ist redundant — buildDrizzleTable legt
+// `tenantId` als einzige Spalte ist redundant — buildEntityTable legt
 // den Index sowieso automatisch an. Wir lassen die Composite-Form erlaubt
 // (`["tenantId", "key"]` ist sinnvoll), nur die rein-tenantId-Single-
 // column-Form blockieren wir.
@@ -225,13 +225,13 @@ export function validateEntityIndexes(feature: FeatureDefinition): void {
         }
       }
       // UNIQUE-constraint auf tenantId ist semantisch (1:1 tenant→entity)
-      // und NICHT redundant — buildDrizzleTable's auto-Index ist nur ein
+      // und NICHT redundant — buildEntityTable's auto-Index ist nur ein
       // Performance-Hint, kein constraint. Nur die rein-tenantId-Single-
       // column-non-unique-Form blockieren.
       if (def.columns.length === 1 && def.columns[0] === "tenantId" && !def.unique) {
         throw new Error(
           `${where}: single-column index on "tenantId" is redundant — ` +
-            `buildDrizzleTable always creates one automatically. Remove this entry.`,
+            `buildEntityTable always creates one automatically. Remove this entry.`,
         );
       }
     }

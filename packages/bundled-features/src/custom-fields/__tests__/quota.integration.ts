@@ -5,7 +5,8 @@
 // rejects with `unprocessable` + reason `cap_exceeded` when the
 // tenant already has >= N definitions.
 
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createEntityExecutor,
@@ -20,7 +21,6 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { fieldDefinitionEntity } from "../entity";
@@ -34,7 +34,7 @@ const propertyEntity = createEntity({
     customFields: customFieldsField(),
   },
 });
-const propertyTable = buildDrizzleTable("property", propertyEntity);
+const propertyTable = buildEntityTable("property", propertyEntity);
 
 const propertyFeature = defineFeature("property-t15e", (r) => {
   r.entity("property", propertyEntity);
@@ -74,8 +74,8 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await resetEventStore(stack);
-  await stack.db.execute(sql`DELETE FROM read_t15e_properties`);
-  await stack.db.execute(sql`DELETE FROM read_custom_field_definitions`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM read_t15e_properties`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM read_custom_field_definitions`);
 });
 
 async function defineField(fieldKey: string) {

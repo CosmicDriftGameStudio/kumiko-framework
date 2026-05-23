@@ -8,8 +8,9 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
+import { insertOne } from "../../bun-db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
+import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { append, loadAggregate as loadAggregateRaw } from "../../event-store";
 import {
@@ -29,7 +30,7 @@ const invoiceEntity = createEntity({
     status: createTextField({ required: true }),
   },
 });
-const invoiceTable = buildDrizzleTable("asof-invoice", invoiceEntity);
+const invoiceTable = buildEntityTable("asof-invoice", invoiceEntity);
 
 // --- Feature ---
 
@@ -214,8 +215,8 @@ describe("ctx.loadAggregate via queryHandler — Marten AggregateStreamAsync equ
     // against v2 (integer cents) — without upcasting it would blow up or
     // produce garbage.
     const invoiceId = "00000000-0000-4000-8000-000000000042";
-    await stack.db.transaction(async (tx) => {
-      await tx.insert(invoiceTable).values({
+    await stack.db.begin(async (tx) => {
+      await insertOne(tx, invoiceTable, {
         id: invoiceId,
         tenantId: admin.tenantId,
         customer: "LegacyCo",

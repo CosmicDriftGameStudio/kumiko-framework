@@ -24,9 +24,15 @@ import {
   defineProjectionQueryHandler,
   typedPayload,
 } from "@app/define";
-import { buildDrizzleTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import {
+  buildEntityTable,
+  createEventStoreExecutor,
+  integer,
+  table,
+  text,
+  uuid,
+} from "@cosmicdrift/kumiko-framework/db";
 import { eq, sql } from "drizzle-orm";
-import { integer, pgTable, text, uuid } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
 // --- Reducer: shared by live + snapshot-aware query handlers ---
@@ -81,11 +87,11 @@ export const invoiceEntity = createEntity({
   },
 });
 
-const invoiceTable = buildDrizzleTable("showcase-invoice", invoiceEntity);
+const invoiceTable = buildEntityTable("showcase-invoice", invoiceEntity);
 
 // --- Projection 1: per-invoice detail (single-stream, inline) ---
 
-export const invoiceDetailTable = pgTable("read_showcase_invoice_detail", {
+export const invoiceDetailTable = table("read_showcase_invoice_detail", {
   invoiceId: uuid("invoice_id").primaryKey(),
   tenantId: uuid("tenant_id").notNull(),
   customer: text("customer").notNull(),
@@ -95,7 +101,7 @@ export const invoiceDetailTable = pgTable("read_showcase_invoice_detail", {
 
 // --- Projection 2: per-customer revenue (multi-stream, async) ---
 
-export const customerRevenueTable = pgTable("read_showcase_customer_revenue", {
+export const customerRevenueTable = table("read_showcase_customer_revenue", {
   customer: text("customer").primaryKey(),
   tenantId: uuid("tenant_id").notNull(),
   paidInvoices: integer("paid_invoices").notNull().default(0),
@@ -106,7 +112,7 @@ export const customerRevenueTable = pgTable("read_showcase_customer_revenue", {
 // The async upcaster (invoice-acknowledged v1 → v2) reads from this table
 // to enrich legacy events with a human-readable name. In production this
 // would be a domain-owned read model; here it's a flat lookup table.
-export const approverDirectoryTable = pgTable("read_showcase_approver_directory", {
+export const approverDirectoryTable = table("read_showcase_approver_directory", {
   approverId: text("approver_id").primaryKey(),
   displayName: text("display_name").notNull(),
 });

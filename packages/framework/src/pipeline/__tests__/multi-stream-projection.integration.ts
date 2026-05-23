@@ -6,12 +6,12 @@
 // event-dispatcher — at-least-once delivery, strictly ordered by events.id
 // per MSP consumer, dead-letters on repeated handler failures.
 
-import { eq, sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
+import { asRawClient, selectMany } from "../../bun-db/query";
 import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
+import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import {
   createTestUser,
@@ -28,13 +28,13 @@ const shipmentEntity = createEntity({
   table: "read_msp_shipments",
   fields: { customer: createTextField({ required: true }) },
 });
-const shipmentTable = buildDrizzleTable("msp-shipment", shipmentEntity);
+const shipmentTable = buildEntityTable("msp-shipment", shipmentEntity);
 
 const refundEntity = createEntity({
   table: "read_msp_refunds",
   fields: { customer: createTextField({ required: true }) },
 });
-const refundTable = buildDrizzleTable("msp-refund", refundEntity);
+const refundTable = buildEntityTable("msp-refund", refundEntity);
 
 // Cross-cutting MSP: one row per customer, sums shipments − refunds. Key
 // differences from a single-stream projection:
@@ -68,41 +68,17 @@ const mspFeature = defineFeature("msptest", (r) => {
     apply: {
       [shipmentBilled.name]: async (event, tx) => {
         const p = event.payload as { customer: string; cents: number };
-        await tx
-          .insert(customerBalanceTable)
-          .values({
-            customer: p.customer,
-            tenantId: event.tenantId,
-            shipments: 1,
-            refunds: 0,
-            netCents: p.cents,
-          })
-          .onConflictDoUpdate({
-            target: customerBalanceTable.customer,
-            set: {
-              shipments: sql`${customerBalanceTable.shipments} + 1`,
-              netCents: sql`${customerBalanceTable.netCents} + ${p.cents}`,
-            },
-          });
+        await asRawClient(tx).unsafe(
+          `INSERT INTO "read_msp_customer_balance" (customer, tenant_id, shipments, refunds, net_cents) VALUES ($1::uuid, $2::uuid, 1, 0, $3) ON CONFLICT (customer) DO UPDATE SET shipments = read_msp_customer_balance.shipments + 1, net_cents = read_msp_customer_balance.net_cents + $3`,
+          [p.customer, event.tenantId, p.cents],
+        );
       },
       [refundIssued.name]: async (event, tx) => {
         const p = event.payload as { customer: string; cents: number };
-        await tx
-          .insert(customerBalanceTable)
-          .values({
-            customer: p.customer,
-            tenantId: event.tenantId,
-            shipments: 0,
-            refunds: 1,
-            netCents: -p.cents,
-          })
-          .onConflictDoUpdate({
-            target: customerBalanceTable.customer,
-            set: {
-              refunds: sql`${customerBalanceTable.refunds} + 1`,
-              netCents: sql`${customerBalanceTable.netCents} - ${p.cents}`,
-            },
-          });
+        await asRawClient(tx).unsafe(
+          `INSERT INTO "read_msp_customer_balance" (customer, tenant_id, shipments, refunds, net_cents) VALUES ($1::uuid, $2::uuid, 0, 1, -$3) ON CONFLICT (customer) DO UPDATE SET refunds = read_msp_customer_balance.refunds + 1, net_cents = read_msp_customer_balance.net_cents - $3`,
+          [p.customer, event.tenantId, p.cents],
+        );
       },
     },
   });
@@ -207,10 +183,7 @@ describe("r.multiStreamProjection — Marten MultiStreamProjection equivalent", 
     // Drain the dispatcher — MSPs run async.
     await stack.eventDispatcher?.runOnce();
 
-    const rows = await stack.db
-      .select()
-      .from(customerBalanceTable)
-      .orderBy(customerBalanceTable.customer);
+    const rows = await selectMany(stack.db, customerBalanceTable);
     const byCustomer = new Map(rows.map((r) => [r.customer, r]));
 
     expect(byCustomer.get(customerA)).toMatchObject({
@@ -239,10 +212,7 @@ describe("r.multiStreamProjection — Marten MultiStreamProjection equivalent", 
     expect(pass2?.byConsumer[mspName]?.processed ?? 0).toBe(0);
 
     // Row state is stable across the no-op pass.
-    const [row] = await stack.db
-      .select()
-      .from(customerBalanceTable)
-      .where(eq(customerBalanceTable.customer, cust));
+    const [row] = await selectMany(stack.db, customerBalanceTable, { customer: cust });
     expect(row?.shipments).toBe(1);
     expect(row?.netCents).toBe(42);
   });
@@ -273,10 +243,7 @@ describe("r.multiStreamProjection — Marten MultiStreamProjection equivalent", 
     );
     await stack.eventDispatcher?.runOnce();
 
-    const rows = await stack.db
-      .select()
-      .from(customerBalanceTable)
-      .orderBy(customerBalanceTable.customer);
+    const rows = await selectMany(stack.db, customerBalanceTable);
     const alpha = rows.find((r) => r.customer === customerAlpha);
     const beta = rows.find((r) => r.customer === customerBeta);
 
@@ -298,10 +265,7 @@ describe("r.multiStreamProjection — Marten MultiStreamProjection equivalent", 
 
     // Only the shipment-billed event was folded in; the auto "created"
     // event was silently skipped.
-    const [row] = await stack.db
-      .select()
-      .from(customerBalanceTable)
-      .where(eq(customerBalanceTable.customer, cust));
+    const [row] = await selectMany(stack.db, customerBalanceTable, { customer: cust });
     expect(row?.shipments).toBe(1);
   });
 });

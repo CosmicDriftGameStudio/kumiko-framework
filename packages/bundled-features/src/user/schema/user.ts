@@ -1,4 +1,4 @@
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createBooleanField,
@@ -144,4 +144,4 @@ export const userEntity = createEntity({
   },
 });
 
-export const userTable = buildDrizzleTable("user", userEntity);
+export const userTable = buildEntityTable("user", userEntity);

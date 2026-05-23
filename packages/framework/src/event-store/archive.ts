@@ -1,6 +1,7 @@
-import { and, eq, sql } from "drizzle-orm";
+// sql now comes from native dialect
+import { asRawClient, deleteMany, fetchOne } from "../bun-db/query";
 import type { DbConnection, DbRunner } from "../db/connection";
-import { instant, table as pgTable, text, uniqueIndex, uuid } from "../db/dialect";
+import { instant, table as pgTable, sql, text, uniqueIndex, uuid } from "../db/dialect";
 import { tableExists } from "../db/schema-inspection";
 import type { TenantId } from "../engine/types";
 import { unsafePushTables } from "../stack";
@@ -46,24 +47,17 @@ export type ArchiveStreamArgs = {
 // aggregate) updates archivedAt/archivedBy to the latest call instead of
 // failing. That matches Marten's "archive is a state, not an event" model.
 export async function archiveStream(db: DbRunner, args: ArchiveStreamArgs): Promise<void> {
-  await db
-    .insert(archivedStreamsTable)
-    .values({
-      tenantId: args.tenantId,
-      aggregateId: args.aggregateId,
-      aggregateType: args.aggregateType,
-      archivedBy: args.archivedBy,
-      reason: args.reason ?? null,
-    })
-    .onConflictDoUpdate({
-      target: [archivedStreamsTable.tenantId, archivedStreamsTable.aggregateId],
-      set: {
-        archivedAt: sql`now()`,
-        archivedBy: args.archivedBy,
-        aggregateType: args.aggregateType,
-        reason: args.reason ?? null,
-      },
-    });
+  await asRawClient(db).unsafe(
+    `INSERT INTO "kumiko_archived_streams"
+       ("tenant_id", "aggregate_id", "aggregate_type", "archived_by", "reason")
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT ("tenant_id", "aggregate_id") DO UPDATE SET
+       "archived_at" = now(),
+       "archived_by" = $4,
+       "aggregate_type" = $3,
+       "reason" = $5`,
+    [args.tenantId, args.aggregateId, args.aggregateType, args.archivedBy, args.reason ?? null],
+  );
 }
 
 // Cheap existence probe — issued in the hot read path, so keep the query to
@@ -73,17 +67,8 @@ export async function isStreamArchived(
   tenantId: TenantId,
   aggregateId: string,
 ): Promise<boolean> {
-  const rows = await db
-    .select({ one: sql`1` })
-    .from(archivedStreamsTable)
-    .where(
-      and(
-        eq(archivedStreamsTable.tenantId, tenantId),
-        eq(archivedStreamsTable.aggregateId, aggregateId),
-      ),
-    )
-    .limit(1);
-  return rows.length > 0;
+  const row = await fetchOne(db, archivedStreamsTable, { tenantId, aggregateId });
+  return row !== undefined;
 }
 
 // Undo an archive — restores the stream to writable state. Ops tool. The
@@ -95,12 +80,5 @@ export async function restoreStream(
   tenantId: TenantId,
   aggregateId: string,
 ): Promise<void> {
-  await db
-    .delete(archivedStreamsTable)
-    .where(
-      and(
-        eq(archivedStreamsTable.tenantId, tenantId),
-        eq(archivedStreamsTable.aggregateId, aggregateId),
-      ),
-    );
+  await deleteMany(db, archivedStreamsTable, { tenantId, aggregateId });
 }

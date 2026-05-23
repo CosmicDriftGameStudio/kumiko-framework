@@ -10,8 +10,8 @@
 //   4. olderThanDays / olderThan convenience: both resolve to the same
 //      cutoff semantics (createdAt < cutoff).
 
-import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
+import { asRawClient, insertOne, selectMany, updateMany } from "../../bun-db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { defineFeature } from "../../engine";
@@ -77,20 +77,17 @@ async function seedOldAggregateEvent(
   type: string,
   aggregateType = "widget",
 ): Promise<bigint> {
-  const [row] = await stack.db
-    .insert(eventsTable)
-    .values({
-      aggregateId: generateId(),
-      aggregateType,
-      tenantId: admin.tenantId,
-      version: 1,
-      type,
-      payload: {},
-      metadata: { userId: admin.id },
-      createdAt,
-      createdBy: admin.id,
-    })
-    .returning({ id: eventsTable.id });
+  const row = await insertOne<{ id: bigint }>(stack.db, eventsTable, {
+    aggregateId: generateId(),
+    aggregateType,
+    tenantId: admin.tenantId,
+    version: 1,
+    type,
+    payload: {},
+    metadata: { userId: admin.id },
+    createdAt,
+    createdBy: admin.id,
+  });
   if (!row) throw new Error("seed failed");
   return row.id;
 }
@@ -121,7 +118,7 @@ describe("E.2 — explicit-aggregateTypes pruning", () => {
     expect(result.deletedCount).toBe(1);
     expect(result.aggregateTypes).toEqual(["obsolete"]);
 
-    const remaining = await stack.db.select().from(eventsTable);
+    const remaining = await selectMany(stack.db, eventsTable);
     const ids = remaining.map((r) => r.id);
     expect(ids).toContain(widgetId);
     expect(ids).not.toContain(obsoleteId);
@@ -146,7 +143,7 @@ describe("E.2 — explicit-aggregateTypes pruning", () => {
     });
     expect(result.deletedCount).toBe(1);
 
-    const remaining = await stack.db.select().from(eventsTable);
+    const remaining = await selectMany(stack.db, eventsTable);
     const ids = remaining.map((r) => r.id).sort();
     expect(ids).toEqual([freshId]);
     expect(ids.includes(staleId)).toBe(false);
@@ -165,7 +162,7 @@ describe("E.2 — explicit-aggregateTypes pruning", () => {
     expect(result.deletedCount).toBe(1);
     expect(result.dryRun).toBe(true);
 
-    const remaining = await stack.db.select().from(eventsTable);
+    const remaining = await selectMany(stack.db, eventsTable);
     expect(remaining).toHaveLength(1);
   });
 });
@@ -182,13 +179,17 @@ describe("E.2 — consumer-lag guard", () => {
     // Only let the first one through.
     await stack.eventDispatcher?.runOnce();
     // Force cursor to 1 so the guard sees "consumer at 1, max candidate 3".
-    await stack.db
-      .update(eventConsumerStateTable)
-      .set({ lastProcessedEventId: 1n, status: "idle" })
-      .where(eq(eventConsumerStateTable.name, observerQn));
+    await updateMany(
+      stack.db,
+      eventConsumerStateTable,
+      { lastProcessedEventId: 1n, status: "idle" },
+      { name: observerQn },
+    );
 
     // Age all three events past the cutoff.
-    await stack.db.execute(sql`UPDATE kumiko_events SET created_at = now() - interval '30 days'`);
+    await asRawClient(stack.db).unsafe(
+      `UPDATE kumiko_events SET created_at = now() - interval '30 days'`,
+    );
 
     await expect(
       pruneEvents(stack.db, {
@@ -204,7 +205,9 @@ describe("E.2 — consumer-lag guard", () => {
     await disableConsumer(stack.db, observerQn);
 
     // Cursor is at 1 but consumer is disabled — should be skipped.
-    await stack.db.execute(sql`UPDATE kumiko_events SET created_at = now() - interval '30 days'`);
+    await asRawClient(stack.db).unsafe(
+      `UPDATE kumiko_events SET created_at = now() - interval '30 days'`,
+    );
 
     const result = await pruneEvents(stack.db, {
       olderThanDays: 7,

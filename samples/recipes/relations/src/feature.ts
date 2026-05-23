@@ -1,7 +1,7 @@
 // Relations Sample
 // Shows: hasMany relation, onDelete: cascade vs restrict, parent-child entities.
 
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -36,9 +36,9 @@ export const taskEntity = createEntity({
 });
 
 // Tables exported so the integration test can wire the cascade-delete hook.
-export const teamTable = buildDrizzleTable("team", teamEntity);
-export const memberTable = buildDrizzleTable("member", memberEntity);
-export const taskTable = buildDrizzleTable("task", taskEntity);
+export const teamTable = buildEntityTable("team", teamEntity);
+export const memberTable = buildEntityTable("member", memberEntity);
+export const taskTable = buildEntityTable("task", taskEntity);
 
 const adminWrite = { access: { roles: ["Admin"] } } as const;
 const openRead = { access: { openToAll: true } } as const;

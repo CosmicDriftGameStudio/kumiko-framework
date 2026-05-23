@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { buildServer } from "../api/server";
 import { createEventStoreExecutor } from "../db/event-store-executor";
-import { buildDrizzleTable } from "../db/table-builder";
+import { buildEntityTable } from "../db/table-builder";
 import {
   createEntity,
   createNumberField,
@@ -33,7 +33,7 @@ const employeeEntity = createEntity({
   },
 });
 
-const employeeTable = buildDrizzleTable("employee", employeeEntity);
+const employeeTable = buildEntityTable("employee", employeeEntity);
 
 // --- Test infra ---
 

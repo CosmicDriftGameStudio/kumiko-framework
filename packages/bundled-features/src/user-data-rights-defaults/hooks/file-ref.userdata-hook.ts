@@ -1,6 +1,6 @@
+import { deleteMany, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
-import { and, eq } from "drizzle-orm";
 
 // userData-Hook fuer fileRef-entity (S2.H2).
 //
@@ -30,15 +30,10 @@ import { and, eq } from "drizzle-orm";
 // Cleanup als TODO und faellen das in S2.U5 nochmal an.
 
 export const fileRefExportHook: UserDataExportHook = async (ctx) => {
-  const rawRows = await ctx.db
-    .select()
-    .from(fileRefsTable)
-    .where(
-      and(
-        eq(fileRefsTable["tenantId"], ctx.tenantId),
-        eq(fileRefsTable["insertedById"], ctx.userId),
-      ),
-    );
+  const rawRows = await selectMany(ctx.db, fileRefsTable, {
+    tenantId: ctx.tenantId,
+    insertedById: ctx.userId,
+  });
 
   // @cast-boundary db-row: drizzle liefert insertedAt als Instant
   // (framework-customType). Fuer JSON-Export brauchen wir String —
@@ -83,27 +78,17 @@ export const fileRefDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
     // Hard-delete der FileRef-Rows fuer diesen User in diesem Tenant.
     // Storage-Binary-Cleanup folgt in S2.U5 wenn der Forget-Job-Ctx
     // den Storage-Provider exposed.
-    await ctx.db
-      .delete(fileRefsTable)
-      .where(
-        and(
-          eq(fileRefsTable["tenantId"], ctx.tenantId),
-          eq(fileRefsTable["insertedById"], ctx.userId),
-        ),
-      );
+    await deleteMany(ctx.db, fileRefsTable, { tenantId: ctx.tenantId, insertedById: ctx.userId });
   } else {
     // anonymize: insertedById=null, FileRef + binary bleiben.
     // Use-case: shared chat-Attachment in einem Multi-User-Channel —
     // Author-Identifikation raus, Datei bleibt fuer andere User
     // sichtbar.
-    await ctx.db
-      .update(fileRefsTable)
-      .set({ insertedById: null })
-      .where(
-        and(
-          eq(fileRefsTable["tenantId"], ctx.tenantId),
-          eq(fileRefsTable["insertedById"], ctx.userId),
-        ),
-      );
+    await updateMany(
+      ctx.db,
+      fileRefsTable,
+      { insertedById: null },
+      { tenantId: ctx.tenantId, insertedById: ctx.userId },
+    );
   }
 };

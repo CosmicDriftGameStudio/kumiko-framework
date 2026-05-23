@@ -1,4 +1,4 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import {
   NotFoundError,
@@ -7,7 +7,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/errors";
 import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { JobErrors } from "../constants";
 import { jobRunsTable } from "../job-run-table";
@@ -29,11 +28,7 @@ export const retryWrite = defineWriteHandler({
     // @cast-boundary engine-payload — JobRunner attached by app-boot via ctx-extension
     const jobRunner = ctx["jobRunner"] as JobRunner;
 
-    const run = await fetchOne<JobRunRow>(
-      db,
-      jobRunsTable,
-      eq(jobRunsTable.id, event.payload.runId),
-    );
+    const run = await fetchOne<JobRunRow>(db, jobRunsTable, { id: event.payload.runId });
 
     if (!run) {
       return writeFailure(

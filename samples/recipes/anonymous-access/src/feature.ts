@@ -22,7 +22,7 @@
 // expose every existing openToAll handler. The `product:authenticated-only`
 // query below proves this.
 
-import { buildDrizzleTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createEntity,
@@ -48,8 +48,8 @@ export const guestOrderEntity = createEntity({
   },
 });
 
-export const productTable = buildDrizzleTable("product", productEntity);
-export const guestOrderTable = buildDrizzleTable("guest-order", guestOrderEntity);
+export const productTable = buildEntityTable("product", productEntity);
+export const guestOrderTable = buildEntityTable("guest-order", guestOrderEntity);
 
 export const anonymousAccessFeature = defineFeature("shop", (r) => {
   r.entity("product", productEntity);

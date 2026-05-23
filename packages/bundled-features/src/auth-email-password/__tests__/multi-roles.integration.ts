@@ -8,6 +8,7 @@
 // Gegen-Beweis: User OHNE globale Rollen verhält sich wie vorher
 // (nur tenant-membership-roles in der Session).
 
+import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
@@ -71,8 +72,8 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(userTable);
-  await stack.db.delete(tenantMembershipsTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
 });
 
 async function seedUser(
@@ -101,7 +102,7 @@ async function addMembership(
   tenantId: TenantId,
   roles: readonly string[],
 ): Promise<void> {
-  await stack.db.insert(tenantMembershipsTable).values({
+  await insertOne(stack.db, tenantMembershipsTable, {
     userId,
     tenantId,
     roles: JSON.stringify(roles),
@@ -129,11 +130,7 @@ describe("multi-roles: login mergt globale + membership-roles", () => {
     // Pin write-path: roles MUSS in DB landen, sonst ist der session-merge
     // nur Zufall (z.B. wenn login-handler hardcoded SystemAdmin reinpacken
     // würde). Direct DB-read schließt das aus.
-    const { eq } = await import("drizzle-orm");
-    const dbRow = await stack.db
-      .select({ roles: userTable["roles"] })
-      .from(userTable)
-      .where(eq(userTable["id"], userId));
+    const dbRow = await selectMany(stack.db, userTable, { id: userId });
     expect(dbRow[0]?.roles).toBe(JSON.stringify(["SystemAdmin"]));
 
     const { user } = await login("syadmin@example.com", "pw-long-enough");

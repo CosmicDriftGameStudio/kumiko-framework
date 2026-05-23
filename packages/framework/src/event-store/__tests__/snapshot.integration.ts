@@ -9,8 +9,8 @@
 //      in < 50ms (typical asOf/reducer rehydrate budget). Same gate the
 //      spike proved on raw SQL, now enforced on the framework path.
 
-import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { asRawClient } from "../../bun-db/query";
 import type { TenantId } from "../../engine/types";
 import { createTestDb, type TestDb } from "../../stack";
 import { generateId as uuid } from "../../utils";
@@ -58,8 +58,8 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await testDb.db.execute(
-    sql`TRUNCATE kumiko_events, kumiko_snapshots, kumiko_archived_streams RESTART IDENTITY`,
+  await asRawClient(testDb.db).unsafe(
+    `TRUNCATE kumiko_events, kumiko_snapshots, kumiko_archived_streams RESTART IDENTITY`,
   );
 });
 

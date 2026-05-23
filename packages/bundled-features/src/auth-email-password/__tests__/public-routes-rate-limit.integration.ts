@@ -5,6 +5,7 @@
 // or tightens loginRateLimit but forgets these would sail through.
 
 import { randomBytes } from "node:crypto";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import {
   setupTestStack,
@@ -77,8 +78,8 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(userTable);
-  await stack.db.delete(tenantMembershipsTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
 });
 
 // Unique IP per test so buckets don't cross-contaminate. L2 default bucket

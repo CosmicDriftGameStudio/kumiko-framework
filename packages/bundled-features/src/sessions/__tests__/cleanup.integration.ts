@@ -4,6 +4,8 @@
 // exercised by the framework's job tests. Here we pin the semantics: old
 // expired/revoked rows go, live rows stay, batching + signal work.
 
+import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import type { AppContext } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
@@ -11,7 +13,6 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createSessionsFeature } from "../feature";
 import { cleanupJob } from "../handlers/cleanup.job";
@@ -46,7 +47,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(userSessionTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userSessionTable.tableName}"`);
 });
 
 type JobCtx = Pick<AppContext, "db" | "registry" | "log">;
@@ -74,7 +75,7 @@ async function seedSession(opts: {
   const past = sql`now() - ${sql.raw(`interval '${opts.ageDays} days'`)}`;
   const future = sql`now() + ${sql.raw(`interval '30 days'`)}`;
 
-  await stack.db.insert(userSessionTable).values({
+  await insertOne(stack.db, userSessionTable, {
     id: opts.id,
     tenantId: TENANT,
     userId: opts.userId,
@@ -88,7 +89,7 @@ async function seedSession(opts: {
 }
 
 async function countSessions(): Promise<number> {
-  const rows = await stack.db.select().from(userSessionTable);
+  const rows = await selectMany(stack.db, userSessionTable);
   return rows.length;
 }
 
@@ -111,7 +112,7 @@ describe("sessions cleanup job — purge expired/revoked rows", () => {
     await cleanupJob({}, jobCtx());
 
     expect(await countSessions()).toBe(1);
-    const [remaining] = await stack.db.select().from(userSessionTable);
+    const [remaining] = await selectMany(stack.db, userSessionTable);
     expect(remaining?.["revokedAt"]).toBeNull();
   });
 

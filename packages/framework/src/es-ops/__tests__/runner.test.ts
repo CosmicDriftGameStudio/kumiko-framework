@@ -14,31 +14,41 @@ function makeTempSeedsDir(files: readonly { name: string; content: string }[]): 
   return dir;
 }
 
-// Minimal DB-Stub — Runner ruft transaction() + select() + insert() +
-// execute() auf. execute() liefert ein leeres array für den
-// re-check-inside-lock (= "nicht applied, weiter mit Run").
+// Minimal DB-Stub — Runner uses bun-db helpers (selectMany, insertOne) +
+// asRawClient(tx).unsafe(...) for the advisory lock + re-check + insert.
+// Returns parsed rows based on the SQL text shape:
+//   SELECT * FROM "kumiko_es_operations" ...  → applied-set rows
+//   SELECT pg_advisory_xact_lock(...)         → ignored
+//   SELECT 1 FROM "kumiko_es_operations" ...  → empty (= not applied)
+//   INSERT INTO "kumiko_es_operations" ...    → record + add to applied
 function makeStubDb(initialApplied: readonly string[] = []) {
   const inserts: Array<Record<string, unknown>> = [];
   const applied = new Set(initialApplied);
+  const unsafe = async (
+    sqlText: string,
+    params?: readonly unknown[],
+  ): Promise<readonly unknown[]> => {
+    if (/SELECT \* FROM "kumiko_es_operations"/.test(sqlText)) {
+      return Array.from(applied).map((id) => ({
+        id,
+        operationType: "seed-migration",
+      }));
+    }
+    if (/INSERT INTO "kumiko_es_operations"/.test(sqlText)) {
+      const id = String(params?.[0]);
+      inserts.push({ id });
+      applied.add(id);
+      return [{ id }];
+    }
+    // pg_advisory_xact_lock + re-check both yield empty → "not applied, run".
+    return [];
+  };
   const db = {
+    unsafe,
+    begin: async (cb: (tx: unknown) => Promise<unknown>) => cb(db),
     transaction: async (cb: (tx: unknown) => Promise<void>) => {
       await cb(db);
     },
-    select: () => ({
-      from: () => ({
-        where: async () => Array.from(applied).map((id) => ({ id })),
-      }),
-    }),
-    insert: () => ({
-      values: async (row: Record<string, unknown>) => {
-        inserts.push(row);
-        if (typeof row["id"] === "string") applied.add(row["id"]);
-      },
-    }),
-    // execute: für pg_advisory_xact_lock + re-check. Leere Liste = "nicht
-    // applied im Inner-Lock-Scope, weiter mit Run". applied-set check via
-    // select() oben wird sowieso schon angewendet.
-    execute: async (_q: unknown) => [],
   };
   return { db, inserts, applied };
 }

@@ -16,7 +16,7 @@ export function validateOwnershipRules(
   for (const [entityName, entity] of Object.entries(feature.entities)) {
     const columnNames = new Set<string>(Object.keys(entity.fields));
     // Framework-managed columns that rules are allowed to reference too.
-    // These are the base columns buildDrizzleTable adds unconditionally.
+    // These are the base columns buildEntityTable adds unconditionally.
     const frameworkColumns = ["id", "tenantId", "version", "insertedAt", "modifiedAt"];
     for (const col of frameworkColumns) columnNames.add(col);
 

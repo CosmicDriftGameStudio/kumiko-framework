@@ -1,6 +1,5 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
-import { eq, sql } from "drizzle-orm";
 import {
   USER_ANONYMIZED_DISPLAY_NAME,
   USER_ANONYMIZED_EMAIL_DOMAIN,
@@ -32,7 +31,7 @@ import {
 //                Frist auf einer FK-target-Entity)
 
 export const userExportHook: UserDataExportHook = async (ctx) => {
-  const row = (await fetchOne(ctx.db, userTable, eq(userTable["id"], ctx.userId))) as {
+  const row = (await fetchOne(ctx.db, userTable, { id: ctx.userId })) as {
     id: string;
     email: string;
     displayName: string;
@@ -64,28 +63,30 @@ export const userDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
   // Tenants Member sein), kein tenantId-Filter noetig.
 
   if (strategy === "delete") {
-    await ctx.db
-      .update(userTable)
-      .set({
-        email: `${USER_DELETED_EMAIL_PREFIX}-${ctx.userId}@${USER_ANONYMIZED_EMAIL_DOMAIN}`,
-        displayName: USER_DELETED_DISPLAY_NAME,
-        passwordHash: null,
-        status: USER_STATUS.Deleted,
-        deletedAt: sql`now()`,
-      })
-      .where(eq(userTable["id"], ctx.userId));
+    await asRawClient(ctx.db).unsafe(
+      'UPDATE "read_users" SET email = $1, display_name = $2, password_hash = $3, status = $4, deleted_at = now() WHERE id = $5',
+      [
+        `${USER_DELETED_EMAIL_PREFIX}-${ctx.userId}@${USER_ANONYMIZED_EMAIL_DOMAIN}`,
+        USER_DELETED_DISPLAY_NAME,
+        null,
+        USER_STATUS.Deleted,
+        ctx.userId,
+      ],
+    );
   } else {
     // anonymize: PII raus, aber Row bleibt active (damit FK-References
     // weiter aufloesbar sind). Account ist effektiv weiter nutzbar
     // wenn der User sich neu authentifiziert — pragmatisch akzeptabel
     // weil "anonymize" auf user-entity ein seltener Edge-Case ist
     // (typisch hard-delete fuer User).
-    await ctx.db
-      .update(userTable)
-      .set({
+    await updateMany(
+      ctx.db,
+      userTable,
+      {
         email: `${USER_ANONYMIZED_EMAIL_PREFIX}-${ctx.userId}@${USER_ANONYMIZED_EMAIL_DOMAIN}`,
         displayName: USER_ANONYMIZED_DISPLAY_NAME,
-      })
-      .where(eq(userTable["id"], ctx.userId));
+      },
+      { id: ctx.userId },
+    );
   }
 };

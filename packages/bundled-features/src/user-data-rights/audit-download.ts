@@ -15,7 +15,7 @@
 // **ES via tokenCrud.update:** kein direct-UPDATE. Memory
 // `feedback_no_fake_dispatcher` + `feedback_event_store_tenant_consistency`.
 
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
@@ -29,7 +29,7 @@ const attemptCrud = createEventStoreExecutor(downloadAttemptsTable, downloadAtte
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 
 export interface RecordDownloadUseArgs {
-  readonly db: DbConnection;
+  readonly db: DbRunner;
   readonly tokenId: string;
   readonly tokenVersion: number;
   readonly tokenUseCount: number;
@@ -85,7 +85,7 @@ export async function recordDownloadUse(args: RecordDownloadUseArgs): Promise<vo
 export type DownloadAttemptResult = "notFound" | "expired" | "failed" | "signedUrlNotSupported";
 
 export interface RecordInvalidAttemptArgs {
-  readonly db: DbConnection;
+  readonly db: DbRunner;
   readonly tenantId: TenantId;
   readonly now: Instant;
   readonly result: DownloadAttemptResult;

@@ -7,11 +7,11 @@
 //      the stream version internally — a sequence of appendOne calls writes
 //      consecutive versions without re-reading the DB.
 
-import { sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
+import { asRawClient } from "../../bun-db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
+import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { UnprocessableError, writeFailure } from "../../errors";
 import { loadAggregate } from "../../event-store";
@@ -26,7 +26,7 @@ const cartEntity = createEntity({
   },
 });
 
-const cartTable = buildDrizzleTable("f4wCart", cartEntity);
+const cartTable = buildEntityTable("f4wCart", cartEntity);
 
 const cartFeature = defineFeature("f4w", (r) => {
   r.entity("f4wCart", cartEntity);
@@ -144,8 +144,8 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await stack.db.execute(
-    sql`TRUNCATE kumiko_events, read_f4w_carts, kumiko_event_consumers RESTART IDENTITY CASCADE`,
+  await asRawClient(stack.db).unsafe(
+    `TRUNCATE kumiko_events, read_f4w_carts, kumiko_event_consumers RESTART IDENTITY CASCADE`,
   );
   await stack.eventDispatcher?.ensureRegistered();
 });

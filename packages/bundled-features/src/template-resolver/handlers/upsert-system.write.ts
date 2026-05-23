@@ -1,10 +1,9 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   defineWriteHandler,
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { eq } from "drizzle-orm";
 import type { TemplateResourceRow } from "../table";
 import { templateResourcesTable } from "../table";
 import { executor, upsertPayloadSchema } from "./shared";
@@ -27,14 +26,12 @@ export const upsertSystemWrite = defineWriteHandler({
     // Pattern symmetrisch zu text-content setWrite Override-Branch.
     const executorUser = { ...event.user, tenantId };
 
-    const existing = await fetchOne<TemplateResourceRow>(
-      db,
-      templateResourcesTable,
-      eq(templateResourcesTable["tenantId"], tenantId),
-      eq(templateResourcesTable["slug"], event.payload.slug),
-      eq(templateResourcesTable["kind"], event.payload.kind),
-      eq(templateResourcesTable["locale"], event.payload.locale),
-    );
+    const existing = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
+      tenantId,
+      slug: event.payload.slug,
+      kind: event.payload.kind,
+      locale: event.payload.locale,
+    });
 
     const fields = {
       slug: event.payload.slug,

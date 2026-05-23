@@ -12,7 +12,7 @@
 //
 // Bundle-Entity-Tables (configValuesTable, tenantTable, userTable,
 // userSessionTable, tenantMembershipsTable etc.) sind bewusst NICHT hier:
-// sie kommen über schema.generated.ts via buildDrizzleTable aus den
+// sie kommen über schema.generated.ts via buildEntityTable aus den
 // r.entity()-Definitionen, das ist seit der entity.indexes-API die
 // Single-Source-of-Truth. Doppelte Re-Exports würden zwei pgTable-
 // Instances mit identischem Index-Namen erzeugen — drizzle-kit warnt.

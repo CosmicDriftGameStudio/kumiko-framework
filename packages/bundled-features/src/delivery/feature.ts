@@ -1,3 +1,4 @@
+import { insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import type { z } from "zod";
 import { DELIVERY_ATTEMPT_EVENT } from "./constants";
@@ -34,7 +35,7 @@ export function createDeliveryFeature(): FeatureDefinition {
           const p = event.payload as z.infer<typeof deliveryAttemptSchema>; // @cast-boundary engine-payload
           // PK = aggregateId — replaying the same event twice conflicts on
           // the PK rather than silently duplicating the log row.
-          await tx.insert(deliveryAttemptsTable).values({
+          await insertOne(tx, deliveryAttemptsTable, {
             id: event.aggregateId,
             tenantId: event.tenantId,
             notificationType: p.notificationType,

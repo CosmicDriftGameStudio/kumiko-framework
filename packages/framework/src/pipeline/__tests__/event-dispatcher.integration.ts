@@ -13,13 +13,9 @@
 // production would take once ops wires CreateApp. No createEventDispatcher
 // calls in the test — only the registry round-trip.
 
-import { sql } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
-import {
-  integer as drizzleInteger,
-  table as drizzlePgTable,
-  uuid as drizzleUuid,
-} from "../../db/dialect";
+import { selectMany } from "../../bun-db/query";
+import { integer, table as pgTable, uuid } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { defineFeature, type FeatureDefinition } from "../../engine";
@@ -40,10 +36,10 @@ import { sharedWidgetEntity, sharedWidgetTable } from "../../testing";
 // A tiny state table a subscriber mutates so we can observe "the handler was
 // called with this event" without relying on in-memory arrays — the state row
 // survives even if the test framework resets process state.
-const subscriberLogTable = drizzlePgTable("read_dispatcher_subscriber_log", {
-  id: drizzleUuid("id").primaryKey().defaultRandom(),
-  eventId: drizzleInteger("event_id").notNull(),
-  eventType: drizzleUuid("event_type"), // unused, kept to avoid another drizzle type import
+const subscriberLogTable = pgTable("read_dispatcher_subscriber_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  eventId: integer("event_id").notNull(),
+  eventType: uuid("event_type"), // unused, kept to avoid another drizzle type import
 });
 
 // Per-test capture. The subscriber handlers push here; beforeEach resets.
@@ -195,10 +191,7 @@ describe("event-dispatcher — isolation between consumers", () => {
     // the per-consumer transaction boundary holds.
     // Pre-registered state rows exist from boot (strict Sprint-E mode) — at
     // this point they're at cursor=0 / status=idle for both observers.
-    const state = await stack.db
-      .select()
-      .from(eventConsumerStateTable)
-      .where(sql`${eventConsumerStateTable.name} = ${qnA}`);
+    const state = await selectMany(stack.db, eventConsumerStateTable, { name: qnA });
     expect(state).toHaveLength(1);
     expect(state[0]?.lastProcessedEventId).toBe(0n);
 

@@ -9,10 +9,9 @@
 // Without all three pieces wired together (registry opens defineEvent names,
 // projections-runner fires on appendEvent, dispatcher routes appendEvent to
 // the aggregate stream), any of the assertions below go red.
-
-import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
+import { insertOne, selectMany, updateMany } from "../../bun-db/query";
 import {
   integer as pgInteger,
   table as pgTable,
@@ -20,7 +19,7 @@ import {
   uuid as pgUuid,
 } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
+import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { loadAggregate } from "../../event-store";
 import {
@@ -41,7 +40,7 @@ const shipmentEntity = createEntity({
   },
 });
 
-const shipmentTable = buildDrizzleTable("domain-shipment", shipmentEntity);
+const shipmentTable = buildEntityTable("domain-shipment", shipmentEntity);
 
 // --- Read-model table (fed by the projection below) ---
 
@@ -69,7 +68,7 @@ const shippingFeature = defineFeature("shipping", (r) => {
       // Auto CRUD event — fires on shipment create.
       "domain-shipment.created": async (event, tx) => {
         const payload = event.payload as { cargo?: string };
-        await tx.insert(billingTable).values({
+        await insertOne(tx, billingTable, {
           shipmentId: event.aggregateId,
           tenantId: event.tenantId,
           cargo: payload.cargo ?? "",
@@ -82,10 +81,12 @@ const shippingFeature = defineFeature("shipping", (r) => {
       // create-apply just inserted.
       [shipmentBilled.name]: async (event, tx) => {
         const payload = event.payload as { cost: number };
-        await tx
-          .update(billingTable)
-          .set({ totalCost: payload.cost, billedMarker: "billed" })
-          .where(eq(billingTable.shipmentId, event.aggregateId));
+        await updateMany(
+          tx,
+          billingTable,
+          { totalCost: payload.cost, billedMarker: "billed" },
+          { shipmentId: event.aggregateId },
+        );
       },
     },
   });
@@ -196,7 +197,7 @@ describe("Marten gold-standard: domain events → inline projections", () => {
       admin,
     );
 
-    const rows = await stack.db.select().from(billingTable);
+    const rows = await selectMany(stack.db, billingTable);
     expect(rows).toHaveLength(1);
     expect(rows[0]?.shipmentId).toBe(data.id);
     expect(rows[0]?.billedMarker).toBe("pending");
@@ -212,10 +213,7 @@ describe("Marten gold-standard: domain events → inline projections", () => {
 
     await stack.http.writeOk("shipping:write:shipment:bill", { id: created.id, cost: 1500 }, admin);
 
-    const [row] = await stack.db
-      .select()
-      .from(billingTable)
-      .where(eq(billingTable.shipmentId, created.id));
+    const [row] = await selectMany(stack.db, billingTable, { shipmentId: created.id });
     expect(row).toBeDefined();
     expect(row?.billedMarker).toBe("billed");
     expect(row?.totalCost).toBe(1500);

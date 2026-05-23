@@ -1,5 +1,5 @@
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table";
 
@@ -17,15 +17,10 @@ export const invitationsQuery = defineQueryHandler({
   schema: z.object({}),
   access: { roles: ["Admin", "SystemAdmin"] },
   handler: async (query, ctx) => {
-    const rows = await ctx.db
-      ?.select()
-      .from(tenantInvitationsTable)
-      .where(
-        and(
-          eq(tenantInvitationsTable.tenantId, query.user.tenantId),
-          eq(tenantInvitationsTable.status, INVITATION_STATUS.pending),
-        ),
-      );
+    const rows = await selectMany(ctx.db, tenantInvitationsTable, {
+      tenantId: query.user.tenantId,
+      status: INVITATION_STATUS.pending,
+    });
     return rows ?? [];
   },
 });

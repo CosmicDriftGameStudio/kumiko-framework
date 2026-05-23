@@ -1,3 +1,4 @@
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   computeEffectiveFeatures,
@@ -25,12 +26,8 @@ export class GlobalFeatureToggleRuntime {
   ) {}
 
   async initialize(): Promise<void> {
-    const rows = await this.db
-      .select({
-        featureName: globalFeatureStateTable.featureName,
-        enabled: globalFeatureStateTable.enabled,
-      })
-      .from(globalFeatureStateTable);
+    type Row = { featureName: string; enabled: boolean };
+    const rows = await selectMany<Row>(this.db, globalFeatureStateTable);
     this.snapshot = new Map(rows.map((r) => [r.featureName, r.enabled]));
   }
 

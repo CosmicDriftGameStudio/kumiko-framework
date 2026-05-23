@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { Hono } from "hono";
 import { z } from "zod";
 import { getUser } from "../api/auth-middleware";
@@ -172,8 +172,9 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     // Atomic: insert FileRef + append files:event:uploaded in one tx. Either
     // both land or neither — no dangling FileRef without event, no event
     // referencing a row that doesn't exist.
-    await db.transaction(async (tx) => {
-      await tx.insert(fileRefsTable).values({
+    await db.begin(async (tx) => {
+      const { insertOne } = await import("../bun-db/query");
+      await insertOne(tx, fileRefsTable, {
         id: fileRefId,
         tenantId: user.tenantId,
         storageKey,
@@ -271,7 +272,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     // Upload. Umgekehrt liesse ein storage-success + db-fail eine Row mit
     // permanent-broken Reference zurück — aus Sicht der API "Datei
     // existiert" aber jeder Read 404t aus dem Provider.
-    await db.delete(fileRefsTable).where(eq(fileRefsTable.id, id));
+    await deleteMany(db, fileRefsTable, { id: id });
     await storageProvider.delete(fileRef.storageKey);
     return c.json({ ok: true });
   });
@@ -342,10 +343,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   });
 
   async function loadFileForTenant(id: string, tenantId: TenantId): Promise<FileRef | null> {
-    const [row] = await db
-      .select()
-      .from(fileRefsTable)
-      .where(and(eq(fileRefsTable.id, id), eq(fileRefsTable.tenantId, tenantId)));
+    const [row] = await selectMany(db, fileRefsTable, { id, tenantId });
     return (row as FileRef | undefined) ?? null; // @cast-boundary db-row
   }
 

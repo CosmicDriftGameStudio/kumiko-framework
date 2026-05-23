@@ -5,8 +5,9 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
+import { asRawClient } from "../bun-db/query";
 import { createEventStoreExecutor } from "../db/event-store-executor";
-import { buildDrizzleTable } from "../db/table-builder";
+import { buildEntityTable } from "../db/table-builder";
 import {
   createEntity,
   createNumberField,
@@ -38,7 +39,7 @@ const itemEntity = createEntity({
     stock: createNumberField({ default: 0 }),
   },
 });
-const itemTable = buildDrizzleTable("item", itemEntity);
+const itemTable = buildEntityTable("item", itemEntity);
 
 const errorFeature = defineFeature("errctr", (r) => {
   r.entity("item", itemEntity);
@@ -192,7 +193,7 @@ beforeAll(async () => {
 afterAll(async () => stack.cleanup());
 beforeEach(async () => {
   stack.events.reset();
-  await stack.db.delete(itemTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${itemTable.tableName}"`);
 });
 
 // --- Helpers ---

@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
@@ -101,8 +102,8 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(userTable);
-  await stack.db.delete(tenantMembershipsTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
   segmentsByUserAndTenant.clear();
   plansByTenant.clear();
 });
@@ -118,7 +119,7 @@ async function seedUser(email: string, password: string): Promise<string> {
 }
 
 async function addMembership(userId: string, tenantId: TenantId, roles: string[]): Promise<void> {
-  await stack.db.insert(tenantMembershipsTable).values({
+  await insertOne(stack.db, tenantMembershipsTable, {
     userId,
     tenantId,
     roles: JSON.stringify(roles),

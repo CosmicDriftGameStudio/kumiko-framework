@@ -10,15 +10,11 @@
 //   - status lifecycle (idle → rebuilding → idle on success, → failed on throw)
 //   - never-rebuilt projection has sensible default state
 
-import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
-import {
-  integer as drizzleInteger,
-  table as drizzlePgTable,
-  uuid as drizzleUuid,
-} from "../../db/dialect";
+import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
+import { integer, table as pgTable, uuid } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
+import { buildEntityTable } from "../../db/table-builder";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import {
   createEntity,
@@ -54,23 +50,19 @@ const itemEntity = createEntity({
   },
   softDelete: true,
 });
-const itemTable = buildDrizzleTable("rebuild-item", itemEntity);
+const itemTable = buildEntityTable("rebuild-item", itemEntity);
 
-const itemsPerGroupTable = drizzlePgTable("read_rebuild_items_per_group", {
-  groupId: drizzleUuid("group_id").primaryKey(),
-  tenantId: drizzleUuid("tenant_id").notNull(),
-  itemCount: drizzleInteger("item_count").notNull().default(0),
+const itemsPerGroupTable = pgTable("read_rebuild_items_per_group", {
+  groupId: uuid("group_id").primaryKey(),
+  tenantId: uuid("tenant_id").notNull(),
+  itemCount: integer("item_count").notNull().default(0),
 });
 
 async function bump(tx: unknown, groupId: string, tenantId: string, delta: number): Promise<void> {
-  // biome-ignore lint/suspicious/noExplicitAny: tx is DbRunner
-  await (tx as any)
-    .insert(itemsPerGroupTable)
-    .values({ groupId, tenantId, itemCount: delta })
-    .onConflictDoUpdate({
-      target: itemsPerGroupTable.groupId,
-      set: { itemCount: sql`${itemsPerGroupTable.itemCount} + ${delta}` },
-    });
+  await asRawClient(tx).unsafe(
+    `INSERT INTO "read_rebuild_items_per_group" (group_id, tenant_id, item_count) VALUES ($1::uuid, $2::uuid, $3) ON CONFLICT (group_id) DO UPDATE SET item_count = read_rebuild_items_per_group.item_count + $3`,
+    [groupId, tenantId, delta],
+  );
 }
 
 type ItemCreated = { groupId: string };
@@ -121,8 +113,8 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await testDb.db.execute(
-    sql`TRUNCATE kumiko_events, read_rebuild_items, read_rebuild_items_per_group, kumiko_projections RESTART IDENTITY CASCADE`,
+  await asRawClient(testDb.db).unsafe(
+    `TRUNCATE kumiko_events, read_rebuild_items, read_rebuild_items_per_group, kumiko_projections RESTART IDENTITY CASCADE`,
   );
 });
 
@@ -138,10 +130,7 @@ async function appendCreatedEvent(groupId: string, name: string): Promise<void> 
 }
 
 async function getCount(groupId: string): Promise<number | undefined> {
-  const [row] = await testDb.db
-    .select()
-    .from(itemsPerGroupTable)
-    .where(eq(itemsPerGroupTable.groupId, groupId));
+  const [row] = await selectMany(testDb.db, itemsPerGroupTable, { groupId: groupId });
   return row?.itemCount;
 }
 
@@ -174,9 +163,11 @@ describe("rebuildProjection — happy path", () => {
     await appendCreatedEvent(group, "b");
 
     // Seed the projection table with a stale/wrong value.
-    await testDb.db
-      .insert(itemsPerGroupTable)
-      .values({ groupId: group, tenantId: admin.tenantId, itemCount: 999 });
+    await insertOne(testDb.db, itemsPerGroupTable, {
+      groupId: group,
+      tenantId: admin.tenantId,
+      itemCount: 999,
+    });
 
     const result = await rebuildProjection(qualifiedProjectionName, {
       db: testDb.db,

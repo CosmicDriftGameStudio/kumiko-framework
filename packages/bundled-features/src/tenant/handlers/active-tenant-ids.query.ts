@@ -1,6 +1,5 @@
-import type { DbRow } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/engine";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { tenantTable } from "../schema/tenant";
 
@@ -9,11 +8,7 @@ export const activeTenantIdsQuery = defineQueryHandler({
   schema: z.object({}),
   access: { roles: [SYSTEM_ROLE, "SystemAdmin"] },
   handler: async (_query, ctx) => {
-    const rows = await ctx.db
-      ?.select({ id: tenantTable["id"] })
-      .from(tenantTable)
-      .where(eq(tenantTable["isEnabled"], true));
-
-    return rows.map((row) => (row as DbRow)["id"] as number); // @cast-boundary db-row
+    const rows = await selectMany<{ id: number }>(ctx.db, tenantTable, { isEnabled: true });
+    return rows.map((r) => r.id);
   },
 });

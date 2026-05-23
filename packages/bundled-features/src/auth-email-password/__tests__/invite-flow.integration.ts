@@ -14,6 +14,7 @@
 //   4. Branch-spezifischer Accept-Endpoint
 //   5. DB-State + Membership + Cookies/JWT verifizieren
 
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createSystemUser,
   type SessionUser,
@@ -26,7 +27,6 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
@@ -114,10 +114,10 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(userTable);
-  await stack.db.delete(tenantMembershipsTable);
-  await stack.db.delete(tenantInvitationsTable);
-  await stack.db.delete(tenantTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantInvitationsTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantTable.tableName}"`);
   capturedInviteEmails.length = 0;
   const allKeys = await stack.redis.redis.keys("invite:*");
   if (allKeys.length > 0) await stack.redis.redis.del(...allKeys);
@@ -209,10 +209,7 @@ describe("invite-create", () => {
     expect(result.token).toBeTruthy();
     expect(result.token.length).toBeGreaterThanOrEqual(16);
 
-    const rows = await stack.db
-      .select()
-      .from(tenantInvitationsTable)
-      .where(eq(tenantInvitationsTable.email, BOB_EMAIL));
+    const rows = await selectMany(stack.db, tenantInvitationsTable, { email: BOB_EMAIL });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["status"]).toBe("pending");
     expect(rows[0]?.["role"]).toBe("Admin");
@@ -226,10 +223,7 @@ describe("invite-create", () => {
     expect(secondToken).toBe(firstToken);
 
     // Eine Row, role updated
-    const rows = await stack.db
-      .select()
-      .from(tenantInvitationsTable)
-      .where(eq(tenantInvitationsTable.email, BOB_EMAIL));
+    const rows = await selectMany(stack.db, tenantInvitationsTable, { email: BOB_EMAIL });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["role"]).toBe("Editor");
   });
@@ -250,19 +244,13 @@ describe("invite-accept (Branch 1: logged-in)", () => {
     expect(result.alreadyMember).toBe(false);
 
     // Bob hat jetzt 2 Memberships
-    const memberships = await stack.db
-      .select()
-      .from(tenantMembershipsTable)
-      .where(eq(tenantMembershipsTable.userId, bobId));
+    const memberships = await selectMany(stack.db, tenantMembershipsTable, { userId: bobId });
     expect(memberships).toHaveLength(2);
     const tenantIds = memberships.map((m) => m["tenantId"]).sort();
     expect(tenantIds).toEqual([TENANT_A_ID, TENANT_B_ID].sort());
 
     // Invitation status = accepted
-    const inv = await stack.db
-      .select()
-      .from(tenantInvitationsTable)
-      .where(eq(tenantInvitationsTable.email, BOB_EMAIL));
+    const inv = await selectMany(stack.db, tenantInvitationsTable, { email: BOB_EMAIL });
     expect(inv[0]?.["status"]).toBe("accepted");
   });
 
@@ -319,10 +307,7 @@ describe("invite-accept-with-login (Branch 2: anon + existing email)", () => {
     expect(setCookies).toContain("kumiko_auth=");
 
     // Membership added
-    const memberships = await stack.db
-      .select()
-      .from(tenantMembershipsTable)
-      .where(eq(tenantMembershipsTable.userId, bobId));
+    const memberships = await selectMany(stack.db, tenantMembershipsTable, { userId: bobId });
     expect(memberships).toHaveLength(2);
   });
 
@@ -359,10 +344,7 @@ describe("invite-signup-complete (Branch 3: anon + new email)", () => {
     expect(body.role).toBe("Admin");
 
     // Carol entstanden in users
-    const carolRows = await stack.db
-      .select()
-      .from(userTable)
-      .where(eq(userTable.email, CAROL_EMAIL));
+    const carolRows = await selectMany(stack.db, userTable, { email: CAROL_EMAIL });
     expect(carolRows).toHaveLength(1);
     expect(carolRows[0]?.["emailVerified"]).toBe(true);
     expect(carolRows[0]?.["id"]).toBe(body.user.id);
@@ -387,10 +369,7 @@ describe("invite-signup-complete (Branch 3: anon + new email)", () => {
     expect(body.error?.details?.reason).toBe(AuthErrors.invalidInviteToken);
 
     // Bob hat keine zweite Membership erworben
-    const memberships = await stack.db
-      .select()
-      .from(tenantMembershipsTable)
-      .where(eq(tenantMembershipsTable.userId, bobId));
+    const memberships = await selectMany(stack.db, tenantMembershipsTable, { userId: bobId });
     expect(memberships).toHaveLength(1);
     void GUEST;
   });
@@ -411,18 +390,12 @@ describe("cancel-invitation", () => {
     const token = await inviteEmail(BOB_EMAIL, "Admin");
 
     // Find invitationId
-    const rows = await stack.db
-      .select()
-      .from(tenantInvitationsTable)
-      .where(eq(tenantInvitationsTable.email, BOB_EMAIL));
+    const rows = await selectMany(stack.db, tenantInvitationsTable, { email: BOB_EMAIL });
     const invitationId = rows[0]?.["id"] as string;
 
     await stack.http.writeOk("tenant:write:cancel-invitation", { invitationId }, aliceSession());
 
-    const updated = await stack.db
-      .select()
-      .from(tenantInvitationsTable)
-      .where(eq(tenantInvitationsTable.id, invitationId));
+    const updated = await selectMany(stack.db, tenantInvitationsTable, { id: invitationId });
     expect(updated[0]?.["status"]).toBe("cancelled");
 
     // Accept mit dem gecancelten Token → invalid
@@ -437,7 +410,7 @@ describe("invitations-query (pending list)", () => {
     await inviteEmail(CAROL_EMAIL, "Editor");
 
     // Cancel das erste
-    const allRows = await stack.db.select().from(tenantInvitationsTable);
+    const allRows = await selectMany(stack.db, tenantInvitationsTable);
     const bobInv = allRows.find((r) => r["email"] === BOB_EMAIL);
     if (!bobInv) throw new Error("bob invitation missing");
     await stack.http.writeOk(

@@ -1,4 +1,5 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+// sql now comes from native dialect
+import { asRawClient, selectMany } from "../bun-db/query";
 import type { DbConnection, DbRunner } from "../db/connection";
 import {
   index,
@@ -7,6 +8,7 @@ import {
   jsonb,
   table as pgTable,
   primaryKey,
+  sql,
   text,
   uuid,
 } from "../db/dialect";
@@ -98,23 +100,16 @@ export type SaveSnapshotArgs = {
 // bespoke error handling — useful when a feature's snapshot policy runs
 // during a concurrent retake.
 export async function saveSnapshot(db: DbRunner, args: SaveSnapshotArgs): Promise<void> {
-  await db
-    .insert(snapshotsTable)
-    .values({
-      aggregateId: args.aggregateId,
-      tenantId: args.tenantId,
-      aggregateType: args.aggregateType,
-      version: args.version,
-      state: args.state,
-    })
-    .onConflictDoUpdate({
-      target: [snapshotsTable.aggregateId, snapshotsTable.version],
-      set: {
-        state: args.state,
-        aggregateType: args.aggregateType,
-        createdAt: sql`now()`,
-      },
-    });
+  await asRawClient(db).unsafe(
+    `INSERT INTO "kumiko_snapshots"
+       ("aggregate_id", "tenant_id", "aggregate_type", "version", "state")
+     VALUES ($1, $2, $3, $4, $5::jsonb)
+     ON CONFLICT ("aggregate_id", "version") DO UPDATE SET
+       "state" = $5::jsonb,
+       "aggregate_type" = $3,
+       "created_at" = now()`,
+    [args.aggregateId, args.tenantId, args.aggregateType, args.version, JSON.stringify(args.state)],
+  );
 }
 
 // Latest snapshot lookup. Tenant filter is belt-and-suspenders — the
@@ -123,12 +118,20 @@ export async function saveSnapshot(db: DbRunner, args: SaveSnapshotArgs): Promis
 export async function loadLatestSnapshot<
   TState extends Record<string, unknown> = Record<string, unknown>,
 >(db: DbRunner, aggregateId: string, tenantId: TenantId): Promise<Snapshot<TState> | null> {
-  const rows = await db
-    .select()
-    .from(snapshotsTable)
-    .where(and(eq(snapshotsTable.aggregateId, aggregateId), eq(snapshotsTable.tenantId, tenantId)))
-    .orderBy(desc(snapshotsTable.version))
-    .limit(1);
+  type SnapRow = {
+    aggregateId: string;
+    tenantId: TenantId;
+    aggregateType: string;
+    version: number;
+    state: unknown;
+    createdAt: Temporal.Instant;
+  };
+  const rows = await selectMany<SnapRow>(
+    db,
+    snapshotsTable,
+    { aggregateId, tenantId },
+    { orderBy: { col: "version", direction: "desc" }, limit: 1 },
+  );
   const row = rows[0];
   if (!row) return null;
   return {

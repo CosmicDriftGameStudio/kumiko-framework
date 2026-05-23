@@ -1,5 +1,5 @@
-// Type-Tests für DrizzleTable<E>: pinned das vertragliche Verhalten der
-// Generic-Inferenz-Pipeline createEntity → buildDrizzleTable. Wenn ein
+// Type-Tests für EntityTable<E>: pinned das vertragliche Verhalten der
+// Generic-Inferenz-Pipeline createEntity → buildEntityTable. Wenn ein
 // Branch in `fieldToColumns` driftet aber `ColumnsForField` im Type-
 // System nicht mitkommt (oder umgekehrt), schlagen diese Tests fehl
 // BEVOR ein Consumer in den Wald läuft.
@@ -22,9 +22,9 @@ import {
   createTimestampField,
   createTzField,
 } from "../../engine";
-import { buildDrizzleTable } from "../table-builder";
+import { buildEntityTable } from "../table-builder";
 
-describe("DrizzleTable<E> — Property-Names existieren", () => {
+describe("EntityTable<E> — Property-Names existieren", () => {
   const sampleEntity = createEntity({
     table: "x",
     fields: {
@@ -33,7 +33,7 @@ describe("DrizzleTable<E> — Property-Names existieren", () => {
       priority: createSelectField({ options: ["low", "high"] as const }),
     },
   });
-  const t = buildDrizzleTable("sample", sampleEntity);
+  const t = buildEntityTable("sample", sampleEntity);
 
   test("base-columns sind getypt", () => {
     expectTypeOf(t.id).not.toBeNever();
@@ -61,7 +61,7 @@ describe("DrizzleTable<E> — Property-Names existieren", () => {
   });
 });
 
-describe("DrizzleTable<E> — Money produces two columns", () => {
+describe("EntityTable<E> — Money produces two columns", () => {
   const ent = createEntity({
     table: "invoice",
     fields: {
@@ -69,7 +69,7 @@ describe("DrizzleTable<E> — Money produces two columns", () => {
       shipping: createMoneyField(),
     },
   });
-  const t = buildDrizzleTable("invoice", ent);
+  const t = buildEntityTable("invoice", ent);
 
   test("money-amount column existiert", () => {
     expectTypeOf(t.amount).not.toBeNever();
@@ -82,14 +82,14 @@ describe("DrizzleTable<E> — Money produces two columns", () => {
   });
 });
 
-describe("DrizzleTable<E> — locatedTimestamp produces Utc + Tz", () => {
+describe("EntityTable<E> — locatedTimestamp produces Utc + Tz", () => {
   const ent = createEntity({
     table: "delivery",
     fields: {
       pickup: createLocatedTimestampField({ required: true }),
     },
   });
-  const t = buildDrizzleTable("delivery", ent);
+  const t = buildEntityTable("delivery", ent);
 
   test("Utc und Tz Spalten existieren", () => {
     expectTypeOf(t.pickupUtc).not.toBeNever();
@@ -104,7 +104,7 @@ describe("DrizzleTable<E> — locatedTimestamp produces Utc + Tz", () => {
   });
 });
 
-describe("DrizzleTable<E> — files/images produzieren keine columns", () => {
+describe("EntityTable<E> — files/images produzieren keine columns", () => {
   // files/images werden über fileRefsTable resolved, nicht in der entity-table.
   // Ein Type-Test der das pinnt würde createFilesField verlangen — wir lassen
   // das hier weg, weil das Authoring-Pattern "createXField" ohne file-helper
@@ -115,7 +115,7 @@ describe("DrizzleTable<E> — files/images produzieren keine columns", () => {
   });
 });
 
-describe("DrizzleTable<E> — verschiedene Feld-Typen existieren", () => {
+describe("EntityTable<E> — verschiedene Feld-Typen existieren", () => {
   const ent = createEntity({
     table: "many",
     fields: {
@@ -127,7 +127,7 @@ describe("DrizzleTable<E> — verschiedene Feld-Typen existieren", () => {
       tags: createMultiSelectField({ options: ["a", "b"] as const }),
     },
   });
-  const t = buildDrizzleTable("many", ent);
+  const t = buildEntityTable("many", ent);
 
   test("alle Felder als columns sichtbar", () => {
     expectTypeOf(t.txt).not.toBeNever();
@@ -139,7 +139,7 @@ describe("DrizzleTable<E> — verschiedene Feld-Typen existieren", () => {
   });
 });
 
-describe("DrizzleTable<E> — idType wirkt", () => {
+describe("EntityTable<E> — idType wirkt", () => {
   const uuidEnt = createEntity({
     table: "uuid_ent",
     fields: { name: createTextField() },
@@ -150,8 +150,8 @@ describe("DrizzleTable<E> — idType wirkt", () => {
     fields: { name: createTextField() },
     idType: "serial",
   });
-  const tu = buildDrizzleTable("uuid_ent", uuidEnt);
-  const ts = buildDrizzleTable("serial_ent", serialEnt);
+  const tu = buildEntityTable("uuid_ent", uuidEnt);
+  const ts = buildEntityTable("serial_ent", serialEnt);
 
   test("uuid-Entity exposed id existiert", () => {
     expectTypeOf(tu.id).not.toBeNever();

@@ -13,13 +13,13 @@
 // also nicht. Erst die projection-INSERT verletzt den Index. Ohne F8:
 // 500. Mit F8: writeFailure(UniqueViolationError) → 409.
 
-import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { asRawClient, selectMany } from "../../bun-db/query";
 import { createEntity, createTextField } from "../../engine";
 import { createEventsTable } from "../../event-store";
 import { createTestDb, type TestDb, TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { createEventStoreExecutor } from "../event-store-executor";
-import { buildDrizzleTable } from "../table-builder";
+import { buildEntityTable } from "../table-builder";
 import { createTenantDb, type TenantDb } from "../tenant-db";
 
 const userEntity = createEntity({
@@ -39,7 +39,7 @@ const userEntity = createEntity({
     { columns: ["tenantId", "email"], unique: true, name: "read_unique_users_tenant_email_uniq" },
   ],
 });
-const table = buildDrizzleTable("unique-user", userEntity);
+const table = buildEntityTable("unique-user", userEntity);
 const exec = createEventStoreExecutor(table, userEntity, { entityName: "unique-user" });
 
 let testDb: TestDb;
@@ -58,7 +58,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await testDb.db.execute(sql`TRUNCATE kumiko_events, read_unique_users RESTART IDENTITY CASCADE`);
+  await asRawClient(testDb.db).unsafe(
+    `TRUNCATE kumiko_events, read_unique_users RESTART IDENTITY CASCADE`,
+  );
 });
 
 // =============================================================================
@@ -98,7 +100,7 @@ describe("F8 — entity-level unique-violation auf create", () => {
       tdb,
     );
     expect(second.isSuccess).toBe(false);
-    const rows = await testDb.db.select().from(table);
+    const rows = await selectMany(testDb.db, table);
     expect(rows).toHaveLength(1);
     expect((rows[0] as { displayName: string }).displayName).toBe("Bob 1");
   });

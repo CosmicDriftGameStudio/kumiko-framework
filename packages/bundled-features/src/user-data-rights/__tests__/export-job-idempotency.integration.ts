@@ -10,12 +10,17 @@
 // reale Postgres + Drizzle-customType-Codec-Path braucht.
 
 import {
+  asRawClient,
+  insertOne,
+  selectMany,
+  updateMany,
+} from "@cosmicdrift/kumiko-framework/bun-db";
+import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
@@ -52,7 +57,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(exportJobsTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${exportJobsTable.tableName}"`);
 });
 
 const NOW = () => getTemporal().Now.instant();
@@ -101,7 +106,7 @@ async function insertJob(
   if (overrides.bytesWritten !== undefined) {
     values["bytesWritten"] = overrides.bytesWritten;
   }
-  await stack.db.insert(exportJobsTable).values(values);
+  await insertOne(stack.db, exportJobsTable, values);
   return id;
 }
 
@@ -114,7 +119,7 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
       IDEMPOTENCY_CONSTRAINT,
     );
 
-    const rows = await stack.db.select().from(exportJobsTable);
+    const rows = await selectMany(stack.db, exportJobsTable);
     expect(rows).toHaveLength(1);
   });
 
@@ -128,7 +133,7 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
       IDEMPOTENCY_CONSTRAINT,
     );
 
-    const rows = await stack.db.select().from(exportJobsTable);
+    const rows = await selectMany(stack.db, exportJobsTable);
     expect(rows).toHaveLength(1);
   });
 
@@ -136,7 +141,7 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
     await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Pending);
     await insertJob(BOB_ID, EXPORT_JOB_STATUS.Pending);
 
-    const rows = await stack.db.select().from(exportJobsTable);
+    const rows = await selectMany(stack.db, exportJobsTable);
     expect(rows).toHaveLength(2);
   });
 
@@ -147,7 +152,7 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
     // erfolgreichem Download
     await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Pending);
 
-    const rows = await stack.db.select().from(exportJobsTable);
+    const rows = await selectMany(stack.db, exportJobsTable);
     expect(rows).toHaveLength(2);
   });
 
@@ -155,7 +160,7 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
     await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Failed);
     await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Pending);
 
-    const rows = await stack.db.select().from(exportJobsTable);
+    const rows = await selectMany(stack.db, exportJobsTable);
     expect(rows).toHaveLength(2);
   });
 
@@ -163,7 +168,7 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
     await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Done);
     await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Done);
 
-    const rows = await stack.db.select().from(exportJobsTable);
+    const rows = await selectMany(stack.db, exportJobsTable);
     expect(rows).toHaveLength(2);
   });
 
@@ -171,10 +176,12 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
     // Alice pending insert
     const aliceJobId = await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Pending);
     // Worker pickt auf — Status flip
-    await stack.db
-      .update(exportJobsTable)
-      .set({ status: EXPORT_JOB_STATUS.Running })
-      .where(eq(exportJobsTable.id, aliceJobId));
+    await updateMany(
+      stack.db,
+      exportJobsTable,
+      { status: EXPORT_JOB_STATUS.Running },
+      { id: aliceJobId },
+    );
 
     // Zweiter pending-Insert fuer Alice → faellt weiter, weil bestehender
     // Job in running auch im Index-Filter ist.
@@ -184,13 +191,15 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
     );
 
     // Aber wenn der running-Job fertig wird (done), darf User wieder pending starten
-    await stack.db
-      .update(exportJobsTable)
-      .set({ status: EXPORT_JOB_STATUS.Done })
-      .where(eq(exportJobsTable.id, aliceJobId));
+    await updateMany(
+      stack.db,
+      exportJobsTable,
+      { status: EXPORT_JOB_STATUS.Done },
+      { id: aliceJobId },
+    );
 
     await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Pending);
-    const rows = await stack.db.select().from(exportJobsTable);
+    const rows = await selectMany(stack.db, exportJobsTable);
     expect(rows).toHaveLength(2);
   });
 });
@@ -202,10 +211,9 @@ describe("ExportJob :: bigInt bytesWritten DB-Roundtrip", () => {
       bytesWritten: TWO_GB_PLUS,
     });
 
-    const [row] = await stack.db
-      .select({ bytesWritten: exportJobsTable["bytesWritten"] })
-      .from(exportJobsTable)
-      .where(eq(exportJobsTable["id"], id));
+    const [row] = (await selectMany(stack.db, exportJobsTable, { id })) as Array<{
+      bytesWritten: number;
+    }>;
 
     expect(row?.bytesWritten).toBe(TWO_GB_PLUS);
   });
@@ -216,10 +224,9 @@ describe("ExportJob :: bigInt bytesWritten DB-Roundtrip", () => {
       bytesWritten: ONE_PB_PLUS,
     });
 
-    const [row] = await stack.db
-      .select({ bytesWritten: exportJobsTable["bytesWritten"] })
-      .from(exportJobsTable)
-      .where(eq(exportJobsTable["id"], id));
+    const [row] = (await selectMany(stack.db, exportJobsTable, { id })) as Array<{
+      bytesWritten: number;
+    }>;
 
     expect(row?.bytesWritten).toBe(ONE_PB_PLUS);
   });
@@ -232,7 +239,7 @@ describe("ExportJob :: bigInt bytesWritten DB-Roundtrip", () => {
     // Driver-Mapping — wenn jemand `case "bigInt"` zu `integer` zurueck-
     // refactored, faellt dieser Test um obwohl die JS-Werte sich
     // numerisch verhalten.
-    const result = await stack.db.execute(sql`
+    const result = await asRawClient(stack.db).unsafe(`
       SELECT data_type FROM information_schema.columns
       WHERE table_name = 'read_export_jobs' AND column_name = 'bytes_written'
     `);

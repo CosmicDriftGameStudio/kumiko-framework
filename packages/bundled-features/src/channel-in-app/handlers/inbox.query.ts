@@ -1,5 +1,5 @@
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { inAppMessagesTable } from "../tables";
 
@@ -11,18 +11,12 @@ export const inboxQuery = defineQueryHandler({
   }),
   access: { openToAll: true },
   handler: async (query, ctx) => {
-    const conditions = [eq(inAppMessagesTable.userId, query.user.id)];
-    if (query.payload.unreadOnly) {
-      conditions.push(eq(inAppMessagesTable.isRead, false));
-    }
-
-    const rows = await ctx.db
-      .select()
-      .from(inAppMessagesTable)
-      .where(and(...conditions))
-      .orderBy(desc(inAppMessagesTable.createdAt))
-      .limit(query.payload.limit);
-
+    const where: Record<string, unknown> = { userId: query.user.id };
+    if (query.payload.unreadOnly) where["isRead"] = false;
+    const rows = await selectMany(ctx.db, inAppMessagesTable, where, {
+      limit: query.payload.limit,
+      orderBy: { col: "createdAt", direction: "desc" },
+    });
     return { rows };
   },
 });

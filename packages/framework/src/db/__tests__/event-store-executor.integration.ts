@@ -1,5 +1,5 @@
-import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { asRawClient } from "../../bun-db/query";
 import { createBooleanField, createEntity, createTextField } from "../../engine";
 import { createEventsTable } from "../../event-store";
 import {
@@ -10,7 +10,7 @@ import {
   unsafeCreateEntityTable,
 } from "../../stack";
 import { createEventStoreExecutor } from "../event-store-executor";
-import { buildDrizzleTable } from "../table-builder";
+import { buildEntityTable } from "../table-builder";
 import { createTenantDb, type TenantDb } from "../tenant-db";
 
 const entity = createEntity({
@@ -22,7 +22,7 @@ const entity = createEntity({
   },
   softDelete: true,
 });
-const table = buildDrizzleTable("esExecUser", entity);
+const table = buildEntityTable("esExecUser", entity);
 
 let testDb: TestDb;
 let tdb: TenantDb;
@@ -40,7 +40,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await testDb.db.execute(sql`TRUNCATE kumiko_events, read_es_exec_users RESTART IDENTITY CASCADE`);
+  await asRawClient(testDb.db).unsafe(
+    `TRUNCATE kumiko_events, read_es_exec_users RESTART IDENTITY CASCADE`,
+  );
 });
 
 describe("event-store-executor", () => {
@@ -117,7 +119,7 @@ const sensitiveEntity = createEntity({
   },
   softDelete: true,
 });
-const sensitiveTable = buildDrizzleTable("esExecSensitive", sensitiveEntity);
+const sensitiveTable = buildEntityTable("esExecSensitive", sensitiveEntity);
 
 describe("event-store-executor — sensitive fields", () => {
   const crud = createEventStoreExecutor(sensitiveTable, sensitiveEntity, {
@@ -129,8 +131,8 @@ describe("event-store-executor — sensitive fields", () => {
   });
 
   beforeEach(async () => {
-    await testDb.db.execute(
-      sql`TRUNCATE kumiko_events, read_es_exec_sensitive RESTART IDENTITY CASCADE`,
+    await asRawClient(testDb.db).unsafe(
+      `TRUNCATE kumiko_events, read_es_exec_sensitive RESTART IDENTITY CASCADE`,
     );
   });
 
@@ -138,12 +140,12 @@ describe("event-store-executor — sensitive fields", () => {
     type: string;
     payload: TPayload;
   }> {
-    const rows = await testDb.db.execute<{ type: string; payload: TPayload }>(
-      sql`SELECT type, payload FROM kumiko_events ORDER BY id DESC LIMIT 1`,
+    const rows = await asRawClient(testDb.db).unsafe(
+      `SELECT type, payload FROM kumiko_events ORDER BY id DESC LIMIT 1`,
     );
     const row = rows[0];
     if (!row) throw new Error("no events in store");
-    return row;
+    return row as { type: string; payload: TPayload };
   }
 
   test("create event payload excludes sensitive fields but entity row keeps them", async () => {

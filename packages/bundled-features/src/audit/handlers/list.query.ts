@@ -11,37 +11,23 @@
 // append time (see event-store-executor → stripSensitive), so this query
 // can't surface PII that the entity definition marked as sensitive.
 
+import { selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { and, desc, eq, gte, lt, lte } from "drizzle-orm";
 import { z } from "zod";
 
-// Per-page cap. 100 keeps a single page payload bounded while being enough
-// for a humans-browse UI — clients that need exports iterate by `before`.
 const MAX_LIMIT = 100;
 
 export const listQuery = defineQueryHandler({
   name: "list",
   schema: z
     .object({
-      // Cursor-style pagination: pass the `id` from the last row of the
-      // previous page as `before`. bigserial ids are monotonic, so `< before`
-      // reliably returns "the next older page". Beats OFFSET on large tables.
-      // The regex pins the input to digits-only — otherwise an invalid value
-      // would surface as a raw PG `invalid_text_representation` instead of a
-      // clean 400 at the schema gate.
       before: z.string().regex(/^\d+$/, "cursor must be a positive integer").optional(),
       limit: z.number().int().min(1).max(MAX_LIMIT).default(50),
-      // Filters — all optional. Combined via AND.
       aggregateType: z.string().optional(),
       aggregateId: z.uuid().optional(),
       eventType: z.string().optional(),
-      // createdBy is stored as text on the events table (it accepts both UUIDs
-      // and system actor strings like "SYSTEM"), so the filter is a plain
-      // equality check on the raw value.
       userId: z.string().optional(),
-      // Inclusive bounds. Clients pass ISO-8601; we parse to Temporal.Instant
-      // and compare via the `instant()` column type.
       from: z.iso.datetime().optional(),
       to: z.iso.datetime().optional(),
     })
@@ -52,47 +38,49 @@ export const listQuery = defineQueryHandler({
   access: { roles: ["Admin", "SystemAdmin"] },
   handler: async (query, ctx) => {
     const p = query.payload;
-    const tenantId = query.user.tenantId;
+    const where: WhereObject = { tenantId: query.user.tenantId };
+    if (p.aggregateType) where["aggregateType"] = p.aggregateType;
+    if (p.aggregateId) where["aggregateId"] = p.aggregateId;
+    if (p.eventType) where["type"] = p.eventType;
+    if (p.userId) where["createdBy"] = p.userId;
+    if (p.from || p.to) {
+      const range: { gte?: unknown; lte?: unknown } = {};
+      if (p.from) range.gte = Temporal.Instant.from(p.from);
+      if (p.to) range.lte = Temporal.Instant.from(p.to);
+      where["createdAt"] = range;
+    }
+    if (p.before) where["id"] = { lt: BigInt(p.before) };
 
-    const conditions = [eq(eventsTable.tenantId, tenantId)];
-    if (p.aggregateType) conditions.push(eq(eventsTable.aggregateType, p.aggregateType));
-    if (p.aggregateId) conditions.push(eq(eventsTable.aggregateId, p.aggregateId));
-    if (p.eventType) conditions.push(eq(eventsTable.type, p.eventType));
-    if (p.userId) conditions.push(eq(eventsTable.createdBy, p.userId));
-    if (p.from) conditions.push(gte(eventsTable.createdAt, Temporal.Instant.from(p.from)));
-    if (p.to) conditions.push(lte(eventsTable.createdAt, Temporal.Instant.from(p.to)));
-    // `before` = last seen id from the previous page. bigserial so `<` walks
-    // backwards in chronological order. Schema-regex guarantees the string
-    // is digits-only, so BigInt(...) can't throw.
-    if (p.before) conditions.push(lt(eventsTable.id, BigInt(p.before)));
+    const rows = await selectMany<{
+      id: bigint;
+      aggregateId: string;
+      aggregateType: string;
+      version: number;
+      type: string;
+      payload: Record<string, unknown>;
+      metadata: Record<string, unknown>;
+      createdAt: unknown;
+      createdBy: string;
+    }>(ctx.db, eventsTable, where, {
+      orderBy: { col: "id", direction: "desc" },
+      limit: p.limit,
+    });
 
-    const rows = await ctx.db
-      .select({
-        id: eventsTable.id,
-        aggregateId: eventsTable.aggregateId,
-        aggregateType: eventsTable.aggregateType,
-        version: eventsTable.version,
-        type: eventsTable.type,
-        payload: eventsTable.payload,
-        metadata: eventsTable.metadata,
-        createdAt: eventsTable.createdAt,
-        createdBy: eventsTable.createdBy,
-      })
-      .from(eventsTable)
-      .where(and(...conditions))
-      .orderBy(desc(eventsTable.id))
-      .limit(p.limit);
-
-    // bigint ids need serialisation — JSON can't carry a plain BigInt, and
-    // clients pass the cursor back as a string via `before`. Stringified once
-    // here so the response shape matches what the caller will re-submit.
-    const serialised = rows.map((r) => ({ ...r, id: String(r["id"]) }));
+    const serialised = rows.map((r) => ({
+      id: String(r.id),
+      aggregateId: r.aggregateId,
+      aggregateType: r.aggregateType,
+      version: r.version,
+      type: r.type,
+      payload: r.payload,
+      metadata: r.metadata,
+      createdAt: r.createdAt,
+      createdBy: r.createdBy,
+    }));
     const last = serialised[serialised.length - 1];
     return {
       rows: serialised,
-      // Cursor for the NEXT page. Null when this page is partial (we hit
-      // the start of the log) so clients know to stop.
-      nextBefore: serialised.length === p.limit && last ? last["id"] : null,
+      nextBefore: serialised.length === p.limit && last ? last.id : null,
     };
   },
 });

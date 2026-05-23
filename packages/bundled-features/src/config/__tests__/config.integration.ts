@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEncryptionProvider,
   type DbConnection,
@@ -23,7 +24,6 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
-import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { ConfigHandlers, ConfigQueries } from "../constants";
@@ -756,11 +756,7 @@ describe("encrypted config", () => {
     expect(value).toBe("sk-super-secret-key-12345");
 
     // Verify raw DB value is NOT plaintext
-    const { eq } = await import("drizzle-orm");
-    const [raw] = await db
-      .select({ value: configValuesTable.value })
-      .from(configValuesTable)
-      .where(eq(configValuesTable.key, "integration:config:api-secret"));
+    const [raw] = await selectMany(db, configValuesTable, { key: "integration:config:api-secret" });
     const rawValue = raw?.value as string;
     expect(rawValue).not.toBe("sk-super-secret-key-12345");
     expect(rawValue).not.toContain("sk-super-secret");
@@ -814,10 +810,7 @@ describe("configValue lifecycle events", () => {
       { key: "orders:config:max-order-count", value: 250 },
       tenantAdmin,
     );
-    const events = await db
-      .select()
-      .from(eventsTable)
-      .where(eq(eventsTable.aggregateType, "config-value"));
+    const events = await selectMany(db, eventsTable, { aggregateType: "config-value" });
     // The first set in the suite created the row; subsequent sets update it.
     // Look at the most recent update carrying our value to verify the
     // serialized JSON lands in the event payload (key stays on the row,
@@ -848,10 +841,7 @@ describe("configValue lifecycle events", () => {
       { key: "invoicing:config:mail-signature" },
       tenantAdmin,
     );
-    const events = await db
-      .select()
-      .from(eventsTable)
-      .where(eq(eventsTable.aggregateType, "config-value"));
+    const events = await selectMany(db, eventsTable, { aggregateType: "config-value" });
     const deletes = events.filter(
       (e) =>
         e.type === "config-value.deleted" &&
@@ -871,10 +861,7 @@ describe("configValue lifecycle events", () => {
       { key: "integration:config:lifecycle-probe", value: "alpha" },
       tenantAdmin,
     );
-    const events = await db
-      .select()
-      .from(eventsTable)
-      .where(eq(eventsTable.aggregateType, "config-value"));
+    const events = await selectMany(db, eventsTable, { aggregateType: "config-value" });
     const created = events.filter(
       (e) =>
         e.type === "config-value.created" &&
@@ -898,10 +885,7 @@ describe("configValue lifecycle events", () => {
       { key: "integration:config:lifecycle-probe", value: "beta" },
       tenantAdmin,
     );
-    const events = await db
-      .select()
-      .from(eventsTable)
-      .where(eq(eventsTable.aggregateType, "config-value"));
+    const events = await selectMany(db, eventsTable, { aggregateType: "config-value" });
     const updates = events.filter(
       (e) =>
         e.type === "config-value.updated" &&
@@ -925,10 +909,7 @@ describe("configValue lifecycle events", () => {
       { key: "integration:config:api-secret", value: "rotated-secret-987" },
       systemAdmin,
     );
-    const events = await db
-      .select()
-      .from(eventsTable)
-      .where(eq(eventsTable.aggregateType, "config-value"));
+    const events = await selectMany(db, eventsTable, { aggregateType: "config-value" });
     const created = events.filter(
       (e) =>
         e.type === "config-value.created" &&

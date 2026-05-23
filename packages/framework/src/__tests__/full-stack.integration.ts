@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
+import { selectMany, updateMany } from "../bun-db/query";
 import { createEventStoreExecutor } from "../db/event-store-executor";
 import { defineFeature, type EntityId, type HandlerContext, type SaveContext } from "../engine";
 import { UnprocessableError, writeFailure } from "../errors";
@@ -714,11 +715,7 @@ describe("full stack: entity cache", () => {
     await stack.http.queryOk("users:query:user:detail", { id }, adminUser);
 
     // Raw DB update — bypasses cache invalidation
-    const { eq } = await import("drizzle-orm");
-    await stack.db
-      .update(userTable)
-      .set({ firstName: "RawDbChange" })
-      .where(eq(userTable["id"], id));
+    await updateMany(stack.db, userTable, { firstName: "RawDbChange" }, { id: id });
 
     // Detail still returns cached (old) value
     const stale = await stack.http.queryOk<Record<string, unknown>>(
@@ -789,16 +786,10 @@ describe("full stack: ctx.appendEvent via event-dispatcher", () => {
   // events table is shared across tests so we pick out just the ones this
   // test appended.
   async function domainEventsForEmail(email: string) {
-    const rows = await stack.db
-      .select()
-      .from(eventsTable)
-      .where(
-        // eq + and via a lazy dynamic import keeps the top-level imports lean.
-        (await import("drizzle-orm")).and(
-          (await import("drizzle-orm")).eq(eventsTable.aggregateType, "user"),
-          (await import("drizzle-orm")).eq(eventsTable.type, USER_CREATED_EVENT),
-        ),
-      );
+    const rows = await selectMany(stack.db, eventsTable, {
+      aggregateType: "user",
+      type: USER_CREATED_EVENT,
+    });
     return rows.filter((r) => (r.payload as { email?: string }).email === email);
   }
 

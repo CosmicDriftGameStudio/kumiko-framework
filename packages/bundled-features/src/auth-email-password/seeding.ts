@@ -78,7 +78,7 @@ export async function seedUserWithPassword(
  *  innerhalb dieses Sprints, weil alle existing tests berührt würden.
  *
  *  Atomicity: läuft inside einer Drizzle-Tx wenn der Caller das angibt
- *  (db.transaction(tx => provisionSignupAccount(tx, ...)) — die seed-
+ *  (db.begin(tx => provisionSignupAccount(tx, ...)) — die seed-
  *  helpers nehmen DbConnection|DbTx strukturell. Bei pure DbConnection
  *  sind die 3 writes nicht atomic; bei Failure zwischen Schritten kann
  *  ein orphan-Tenant zurückbleiben (Tenant ohne User → unused row;

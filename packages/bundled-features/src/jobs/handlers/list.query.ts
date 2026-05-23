@@ -1,7 +1,7 @@
+import { selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { and, desc, eq, type SQL } from "drizzle-orm";
 import { z } from "zod";
-import { type JobRunStatus, jobRunsTable } from "../job-run-table";
+import { jobRunsTable } from "../job-run-table";
 
 export const listQuery = defineQueryHandler({
   name: "list",
@@ -12,25 +12,13 @@ export const listQuery = defineQueryHandler({
   }),
   access: { roles: ["SystemAdmin"] },
   handler: async (query, ctx) => {
-    const db = ctx.db;
-    const conditions: SQL[] = [];
-
-    if (query.payload.jobName) {
-      conditions.push(eq(jobRunsTable.jobName, query.payload.jobName));
-    }
-    if (query.payload.status) {
-      conditions.push(eq(jobRunsTable.status, query.payload.status as JobRunStatus)); // @cast-boundary engine-payload
-    }
-
-    const limit = query.payload.limit ?? 50;
-
-    const rows = await db
-      .select()
-      .from(jobRunsTable)
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(desc(jobRunsTable.id))
-      .limit(limit);
-
+    const where: WhereObject = {};
+    if (query.payload.jobName) where["jobName"] = query.payload.jobName;
+    if (query.payload.status) where["status"] = query.payload.status;
+    const rows = await selectMany(ctx.db, jobRunsTable, where, {
+      orderBy: { col: "id", direction: "desc" },
+      limit: query.payload.limit ?? 50,
+    });
     return { rows };
   },
 });

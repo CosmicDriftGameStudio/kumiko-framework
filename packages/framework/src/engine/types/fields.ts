@@ -5,7 +5,6 @@
 // accepted at the type layer during migration: features that pass an
 // array are auto-normalized to { [role]: "all" } at registry build.
 // Long-term: string[] disappears.
-import type { SQL } from "drizzle-orm";
 import type { OwnershipMap } from "../ownership";
 
 export type FieldAccess = {
@@ -475,7 +474,7 @@ export function isFileField(field: FieldDefinition | undefined): field is AnyFil
 export type TransitionMap = Readonly<Record<string, readonly string[]>>;
 
 /** Composite-Index auf einer Entity. Spalten werden via field-Name
- *  referenziert (camelCase). buildDrizzleTable mapped sie auf snake_case-
+ *  referenziert (camelCase). buildEntityTable mapped sie auf snake_case-
  *  Spaltennamen und benennt den Index nach Convention:
  *
  *    <table>_<col1>_<col2>_idx          (non-unique)
@@ -484,7 +483,7 @@ export type TransitionMap = Readonly<Record<string, readonly string[]>>;
  *  Eine `name`-Override ist erlaubt — Convention-Bruch in Bestandscode
  *  vermeidet Migration-Churn beim Refactor.
  *
- *  Single-column indices über `tenantId` sind redundant (buildDrizzleTable
+ *  Single-column indices über `tenantId` sind redundant (buildEntityTable
  *  legt die immer automatisch an); die Boot-Validation warnt. */
 export type EntityIndexDef = {
   readonly columns: readonly [string, ...string[]];
@@ -503,7 +502,7 @@ export type EntityIndexDef = {
    * man z.B. fuer scharfe BTREE-Indexes nur auf einer Status-Teilmenge
    * statt voller Tabelle).
    */
-  readonly where?: SQL;
+  readonly where?: unknown;
 };
 
 export type FieldsMap = Readonly<Record<string, FieldDefinition>>;
@@ -517,7 +516,7 @@ export type EntityDefinition<F extends FieldsMap = FieldsMap> = {
   /** Allowed state transitions per field. Boot validates against select options. */
   readonly transitions?: Readonly<Record<string, TransitionMap>>;
   /** Composite-Indices über mehrere Felder. Single-column FK-Indices und
-   *  der tenant_id-Index werden weiterhin automatisch von buildDrizzleTable
+   *  der tenant_id-Index werden weiterhin automatisch von buildEntityTable
    *  angelegt — diese Liste ist nur für Custom-Indices die der Author
    *  explizit deklariert (z.B. `{ unique: true, columns: ["key", "tenantId", "userId"] }`). */
   readonly indexes?: readonly EntityIndexDef[];

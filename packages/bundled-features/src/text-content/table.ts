@@ -1,4 +1,4 @@
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
 
 // TextBlock — generischer Container für statische Texte (legal pages,
@@ -29,7 +29,7 @@ export const textBlockEntity = createEntity({
   ],
 });
 
-export const textBlocksTable = buildDrizzleTable("text-block", textBlockEntity);
+export const textBlocksTable = buildEntityTable("text-block", textBlockEntity);
 
 // Concrete Row-Type — single-source dafür dass die unknown-Werte die
 // Drizzle aus `Record<string, unknown>` liefert genau einmal benannt

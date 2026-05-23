@@ -236,7 +236,7 @@ const features = composeFeatures([...APP_FEATURES], {
 });
 
 const importLines: string[] = [
-  'import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";',
+  'import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";',
 ];
 const constLines: string[] = [];
 const seenFeature = new Set<string>();
@@ -301,7 +301,7 @@ for (const feature of features) {
   for (const entityName of Object.keys(feature.entities)) {
     const exportName = `${toIdent(entityName)}Table`;
     lines.push(
-      `export const ${exportName} = buildDrizzleTable("${entityName}", ${varName}.entities["${entityName}"]!);`,
+      `export const ${exportName} = buildEntityTable("${entityName}", ${varName}.entities["${entityName}"]!);`,
     );
     entityCount++;
   }

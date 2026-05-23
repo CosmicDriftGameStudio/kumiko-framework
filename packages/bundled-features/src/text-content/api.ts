@@ -8,11 +8,10 @@
 // bleiben Features durch Refactorings entkoppelt — wer textBlocksTable
 // umzieht oder die Query-Signatur ändert, muss nur die Factory anpassen.
 
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { eq } from "drizzle-orm";
 import { type TextBlockRow, textBlocksTable } from "./table";
 
 export type TextBlock = {
@@ -40,13 +39,7 @@ export type TextContentApi = {
 export function createTextContentApi(db: DbConnection): TextContentApi {
   return {
     getBlock: async ({ tenantId, slug, lang }) => {
-      const row = await fetchOne<TextBlockRow>(
-        db,
-        textBlocksTable,
-        eq(textBlocksTable["tenantId"], tenantId),
-        eq(textBlocksTable["slug"], slug),
-        eq(textBlocksTable["lang"], lang),
-      );
+      const row = await fetchOne<TextBlockRow>(db, textBlocksTable, { tenantId, slug, lang });
       if (!row) return null;
       return {
         slug: row.slug,

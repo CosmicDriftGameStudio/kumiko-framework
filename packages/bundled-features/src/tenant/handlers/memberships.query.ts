@@ -1,6 +1,6 @@
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/engine";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { tenantMembershipsTable } from "../membership-table";
 
@@ -11,10 +11,7 @@ export const membershipsQuery = defineQueryHandler({
   // directly by tenant admins managing memberships in the admin UI.
   access: { roles: [SYSTEM_ROLE, "SystemAdmin"] },
   handler: async (query, ctx) => {
-    const rows = await ctx.db
-      ?.select()
-      .from(tenantMembershipsTable)
-      .where(eq(tenantMembershipsTable.userId, query.payload.userId));
+    const rows = await selectMany(ctx.db, tenantMembershipsTable, { userId: query.payload.userId });
 
     return rows.map((row) => ({
       ...row,

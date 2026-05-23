@@ -1,4 +1,3 @@
-import type { PgTable } from "drizzle-orm/pg-core";
 import type { ZodType, z } from "zod";
 import { toTableName } from "../db/table-builder";
 import { LifecycleHookTypes } from "./constants";
@@ -759,7 +758,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       httpRoutes[key] = definition;
     },
 
-    rawTable(rawTableName: string, table: PgTable, options: RawTableOptions): void {
+    rawTable(rawTableName: string, table: unknown, options: RawTableOptions): void {
       // Same kebab guard as r.projection / r.screen / r.nav so authoring-time
       // mistakes surface at the feature file, not deep in registry boot.
       if (!isKebabSegment(rawTableName)) {

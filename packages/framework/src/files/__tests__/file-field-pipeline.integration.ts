@@ -15,8 +15,8 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { asRawClient } from "../../bun-db/query";
 import {
   createEntity,
   createFileField,
@@ -83,7 +83,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.execute(sql`TRUNCATE pipeline_documents`);
+  await asRawClient(stack.db).unsafe(`TRUNCATE pipeline_documents`);
 });
 
 async function uploadFile(fileName: string, body: Uint8Array, mimeType: string): Promise<string> {

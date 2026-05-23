@@ -13,13 +13,9 @@
 // jitter does not. If this ever flakes in CI, drop to 3000 — the goal is
 // "catastrophic regression detector", not "perf SLO".
 
-import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
-import {
-  integer as drizzleInteger,
-  table as drizzlePgTable,
-  uuid as drizzleUuid,
-} from "../../db/dialect";
+import { asRawClient } from "../../bun-db/query";
+import { integer, table as pgTable, uuid as pgUuid } from "../../db/dialect";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
 import type { ProjectionDefinition } from "../../engine/types";
 import { createEventsTable } from "../../event-store";
@@ -31,9 +27,9 @@ import { generateId as uuid } from "../../utils";
 // task.updated is a no-op. Enough to exercise the apply path —
 // rebuild cost is dominated by event iteration + apply dispatch,
 // not the projection state shape.
-const taskCountTable = drizzlePgTable("read_perf_rebuild_task_count", {
-  tenantId: drizzleUuid("tenant_id").primaryKey(),
-  count: drizzleInteger("count").notNull().default(0),
+const taskCountTable = pgTable("read_perf_rebuild_task_count", {
+  tenantId: pgUuid("tenant_id").primaryKey(),
+  count: integer("count").notNull().default(0),
 });
 
 const taskCountProjection: ProjectionDefinition = {
@@ -42,13 +38,10 @@ const taskCountProjection: ProjectionDefinition = {
   table: taskCountTable,
   apply: {
     "task.created": async (event, tx) => {
-      await tx
-        .insert(taskCountTable)
-        .values({ tenantId: event.tenantId, count: 1 })
-        .onConflictDoUpdate({
-          target: taskCountTable.tenantId,
-          set: { count: sql`${taskCountTable.count} + 1` },
-        });
+      await asRawClient(tx).unsafe(
+        `INSERT INTO "read_perf_rebuild_task_count" (tenant_id, count) VALUES ($1, 1) ON CONFLICT (tenant_id) DO UPDATE SET count = read_perf_rebuild_task_count.count + 1`,
+        [event.tenantId],
+      );
     },
     "task.updated": async (_event, _tx) => {
       // No-op apply — measuring event-iteration overhead, not per-event
@@ -85,8 +78,8 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await testDb.db.execute(
-    sql`TRUNCATE kumiko_events, read_perf_rebuild_task_count, kumiko_projections RESTART IDENTITY CASCADE`,
+  await asRawClient(testDb.db).unsafe(
+    `TRUNCATE kumiko_events, read_perf_rebuild_task_count, kumiko_projections RESTART IDENTITY CASCADE`,
   );
 });
 
@@ -96,25 +89,31 @@ beforeEach(async () => {
 async function seedEvents(count: number, depth: number): Promise<void> {
   const userId = uuid();
   // v1 creates
-  await testDb.db.execute(sql`
+  await asRawClient(testDb.db).unsafe(
+    `
     INSERT INTO kumiko_events (aggregate_id, aggregate_type, tenant_id, version, type, payload, metadata, created_by)
-    SELECT gen_random_uuid(), 'task', ${admin.tenantId}::uuid, 1, 'task.created',
+    SELECT gen_random_uuid(), 'task', $1::uuid, 1, 'task.created',
            jsonb_build_object('title', 'Task ' || gs.n),
-           jsonb_build_object('userId', ${userId}::text),
-           ${userId}::text
-      FROM generate_series(1, ${count}) AS gs(n);
-  `);
+           jsonb_build_object('userId', $2::text),
+           $3::text
+      FROM generate_series(1, $4) AS gs(n);
+  `,
+    [admin.tenantId, userId, userId, count],
+  );
   // v2..depth updates
   for (let v = 2; v <= depth; v++) {
-    await testDb.db.execute(sql`
+    await asRawClient(testDb.db).unsafe(
+      `
       INSERT INTO kumiko_events (aggregate_id, aggregate_type, tenant_id, version, type, payload, metadata, created_by)
-      SELECT e.aggregate_id, 'task', ${admin.tenantId}::uuid, ${v}, 'task.updated',
-             jsonb_build_object('title', 'Task v' || ${v}),
-             jsonb_build_object('userId', ${userId}::text),
-             ${userId}::text
+      SELECT e.aggregate_id, 'task', $1::uuid, $2, 'task.updated',
+             jsonb_build_object('title', 'Task v' || $3),
+             jsonb_build_object('userId', $4::text),
+             $5::text
         FROM kumiko_events e
-       WHERE e.aggregate_type = 'task' AND e.version = ${v - 1};
-    `);
+       WHERE e.aggregate_type = 'task' AND e.version = $6;
+    `,
+      [admin.tenantId, v, v, userId, userId, v - 1],
+    );
   }
 }
 

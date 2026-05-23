@@ -3,6 +3,7 @@ import {
   instant,
   integer,
   jsonb,
+  sql,
   table,
   text,
   uniqueIndex,
@@ -12,7 +13,6 @@ import {
   createNumberField,
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { sql } from "drizzle-orm";
 
 // Envelope stored as a single jsonb blob. All ops are upsert-by-(tenantId, key)
 // so there's no value in decomposing the envelope into separate columns —

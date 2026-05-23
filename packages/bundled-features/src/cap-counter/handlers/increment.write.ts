@@ -1,5 +1,5 @@
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEntityExecutor, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { eq } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { capCounterAggregateId } from "../aggregate-id";
@@ -55,7 +55,7 @@ export const incrementCapHandler: WriteHandlerDef = {
 
     // Read existing aggregate's projection-row to decide create vs update.
     // ctx.db is auto-tenant-scoped — id-lookup is unique per tenant.
-    const existing = await ctx.db.select().from(table).where(eq(table["id"], aggregateId)).limit(1);
+    const existing = await selectMany(ctx.db, table, { id: aggregateId }, { limit: 1 });
 
     if (existing.length === 0) {
       return executor.create(

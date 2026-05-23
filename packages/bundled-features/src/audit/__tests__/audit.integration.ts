@@ -2,6 +2,7 @@
 // log IS the audit trail; this suite proves the query handler exposes the
 // right slices of it (tenant-isolated, filtered, paginated, content-intact).
 
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEntity,
   createTextField,
@@ -18,7 +19,6 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { AuditQueries } from "../constants";
 import { createAuditFeature } from "../feature";
@@ -71,7 +71,7 @@ beforeEach(async () => {
   // Fresh event log per test — the audit query reads the events table
   // directly, so stale events from previous tests would leak into results.
   await resetEventStore(stack);
-  await stack.db.execute(sql`TRUNCATE audit_widgets`);
+  await asRawClient(stack.db).unsafe(`TRUNCATE audit_widgets`);
 });
 
 async function createWidget(user: SessionUser, name: string, color?: string): Promise<string> {

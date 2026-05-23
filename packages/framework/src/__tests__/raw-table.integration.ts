@@ -3,9 +3,9 @@
 // INSERT/SELECT against the real DB roundtrip. Plan reference:
 // kumiko-platform/docs/plans/architecture/table-ddl-guard.md (Stufe 3).
 
-import { eq, sql } from "drizzle-orm";
-import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { asRawClient, insertOne, selectMany } from "../bun-db/query";
+import { table, text, timestamp } from "../db/dialect";
 import { defineFeature } from "../engine";
 import { setupTestStack, type TestStack, unsafePushTables } from "../stack";
 
@@ -13,7 +13,7 @@ import { setupTestStack, type TestStack, unsafePushTables } from "../stack";
 // write-only by an integration handler, read-only by a query, never
 // event-sourced (the data isn't a domain fact, it's a side-effect
 // snapshot).
-const stripeWebhookCache = pgTable("rt_int_stripe_webhook_cache", {
+const stripeWebhookCache = table("rt_int_stripe_webhook_cache", {
   eventId: text("event_id").primaryKey(),
   payload: text("payload").notNull(),
   receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
@@ -22,7 +22,7 @@ const stripeWebhookCache = pgTable("rt_int_stripe_webhook_cache", {
 // A second physical table reachable through two distinct r.rawTable
 // registrations — pins the seenTables-by-reference dedupe at push time.
 // Two logical names, one CREATE.
-const sharedSyncCache = pgTable("rt_int_shared_sync_cache", {
+const sharedSyncCache = table("rt_int_shared_sync_cache", {
   syncId: text("sync_id").primaryKey(),
   payload: text("payload").notNull(),
 });
@@ -54,12 +54,9 @@ describe("r.rawTable — DB roundtrip via setupTestStack", () => {
     const eventId = "evt_test_123";
     const payload = JSON.stringify({ type: "invoice.paid", amount: 4200 });
 
-    await stack.db.insert(stripeWebhookCache).values({ eventId, payload });
+    await insertOne(stack.db, stripeWebhookCache, { eventId, payload });
 
-    const rows = await stack.db
-      .select()
-      .from(stripeWebhookCache)
-      .where(eq(stripeWebhookCache.eventId, eventId));
+    const rows = await selectMany(stack.db, stripeWebhookCache, { eventId: eventId });
 
     expect(rows).toHaveLength(1);
     expect(rows[0]?.payload).toBe(payload);
@@ -80,18 +77,18 @@ describe("r.rawTable — DB roundtrip via setupTestStack", () => {
     // a write to it shouldn't append anything to kumiko_events. If a
     // future regression accidentally routed raw-table writes through
     // the executor, a row would show up here.
-    const before = await stack.db.execute<{ count: string }>(
-      sql`SELECT COUNT(*)::text AS count FROM kumiko_events`,
+    const before = await asRawClient(stack.db).unsafe<{ count: string }>(
+      `SELECT COUNT(*)::text AS count FROM kumiko_events`,
     );
     const beforeCount = Number(before[0]?.count ?? 0);
 
-    await stack.db.insert(stripeWebhookCache).values({
+    await insertOne(stack.db, stripeWebhookCache, {
       eventId: "evt_no_event_emitted",
       payload: "{}",
     });
 
-    const after = await stack.db.execute<{ count: string }>(
-      sql`SELECT COUNT(*)::text AS count FROM kumiko_events`,
+    const after = await asRawClient(stack.db).unsafe<{ count: string }>(
+      `SELECT COUNT(*)::text AS count FROM kumiko_events`,
     );
     const afterCount = Number(after[0]?.count ?? 0);
 
@@ -103,11 +100,8 @@ describe("r.rawTable — DB roundtrip via setupTestStack", () => {
     // setupTestStack dedupe (seenTables-by-table-reference) had silently
     // broken, beforeAll's setupTestStack would have raised a 42P07 on
     // the second push and never reached this test.
-    await stack.db.insert(sharedSyncCache).values({ syncId: "sync_1", payload: "{}" });
-    const rows = await stack.db
-      .select()
-      .from(sharedSyncCache)
-      .where(eq(sharedSyncCache.syncId, "sync_1"));
+    await insertOne(stack.db, sharedSyncCache, { syncId: "sync_1", payload: "{}" });
+    const rows = await selectMany(stack.db, sharedSyncCache, { syncId: "sync_1" });
     expect(rows).toHaveLength(1);
     // Both registrations are visible in the registry — same physical
     // target, different logical handles.

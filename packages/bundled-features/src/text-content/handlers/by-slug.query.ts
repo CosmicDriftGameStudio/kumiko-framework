@@ -1,7 +1,6 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { type TextBlockRow, textBlocksTable } from "../table";
 
@@ -35,13 +34,11 @@ export const bySlugQuery = defineQueryHandler({
       });
     }
     const tenantId = override ?? query.user.tenantId;
-    const row = await fetchOne<TextBlockRow>(
-      ctx.db,
-      textBlocksTable,
-      eq(textBlocksTable["tenantId"], tenantId),
-      eq(textBlocksTable["slug"], query.payload.slug),
-      eq(textBlocksTable["lang"], query.payload.lang),
-    );
+    const row = await fetchOne<TextBlockRow>(ctx.db, textBlocksTable, {
+      tenantId,
+      slug: query.payload.slug,
+      lang: query.payload.lang,
+    });
 
     if (!row) return null;
     return {

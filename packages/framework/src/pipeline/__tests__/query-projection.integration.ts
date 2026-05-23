@@ -5,6 +5,7 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
+import { insertOne } from "../../bun-db/query";
 import {
   integer as pgInteger,
   table as pgTable,
@@ -12,7 +13,7 @@ import {
   uuid as pgUuid,
 } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
+import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import {
   resetEventStore,
@@ -26,7 +27,7 @@ const widgetEntity = createEntity({
   table: "read_qp_widgets",
   fields: { name: createTextField({ required: true }) },
 });
-const widgetTable = buildDrizzleTable("qp-widget", widgetEntity);
+const widgetTable = buildEntityTable("qp-widget", widgetEntity);
 
 // Tenant-scoped projection — auto-filter by tenant_id.
 const tenantScopedTable = pgTable("read_qp_widget_count_tenant", {
@@ -52,7 +53,7 @@ const qpFeature = defineFeature("qp", (r) => {
     apply: {
       "qp-widget.created": async (event, tx) => {
         const p = event.payload as { name?: string };
-        await tx.insert(tenantScopedTable).values({
+        await insertOne(tx, tenantScopedTable, {
           widgetId: event.aggregateId,
           tenantId: event.tenantId,
           label: p.name ?? "?",
@@ -68,7 +69,7 @@ const qpFeature = defineFeature("qp", (r) => {
     apply: {
       "qp-widget.created": async (event, tx) => {
         const p = event.payload as { name?: string };
-        await tx.insert(systemScopedTable).values({
+        await insertOne(tx, systemScopedTable, {
           widgetId: event.aggregateId,
           label: p.name ?? "?",
         });

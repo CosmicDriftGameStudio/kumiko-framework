@@ -43,12 +43,12 @@
 // Unit-side tests in pipeline-vertical-slice.test.ts cover the same
 // surface against an empty ctx mock; this file is the real-stack gate.
 
-import { eq } from "drizzle-orm";
-import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
+import { asRawClient, selectMany } from "../../bun-db/query";
+import { table, text, timestamp, uuid } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
+import { buildEntityTable } from "../../db/table-builder";
 import { eventsTable } from "../../event-store";
 import {
   setupTestStack,
@@ -129,7 +129,7 @@ const compoundHandler = defineWriteHandler({
 
 // Read-side projection-table for the unsafeProjectionUpsert handler.
 // Plain pgTable (not r.entity) — it's a read-side log, not an aggregate.
-const pipelineDemoLogTable = pgTable("pipeline_demo_log", {
+const pipelineDemoLogTable = table("pipeline_demo_log", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id").notNull(),
   correlationId: text("correlation_id").notNull().unique(),
@@ -172,7 +172,7 @@ const widgetEntity = createEntity({
   table: "pipeline_widget",
   fields: { label: createTextField({ required: true }) },
 });
-const widgetTable = buildDrizzleTable("widget", widgetEntity);
+const widgetTable = buildEntityTable("widget", widgetEntity);
 const widgetExecutor = createEventStoreExecutor(widgetTable, widgetEntity, {
   entityName: "widget",
 });
@@ -341,7 +341,7 @@ const lookupHandler = defineWriteHandler({
     ({ event, r }) => [
       r.step.read.findOne("widget", {
         table: widgetTable,
-        where: () => eq(widgetTable.id, event.payload.id),
+        where: () => ({ id: event.payload.id }),
       }),
       r.step.return(({ steps }) => {
         const row = steps["widget"] as { label?: string } | null;
@@ -391,7 +391,7 @@ const purgeLogHandler = defineWriteHandler({
   perform: pipeline<z.infer<typeof purgeLogSchema>, { ok: true }>(({ event, r }) => [
     r.step.unsafeProjectionDelete({
       table: pipelineDemoLogTable,
-      where: () => eq(pipelineDemoLogTable.correlationId, event.payload.correlationId),
+      where: () => ({ correlationId: event.payload.correlationId }),
     }),
     r.step.return({ isSuccess: true as const, data: { ok: true } }),
   ]),
@@ -496,8 +496,8 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
     // across runs — order-independent assertions are the only kind that
     // stay green when test-files grow (Memory `feedback_jsdom_lies_*`
     // analog: order-dependent tests are flaky-in-waiting).
-    await stack.db.delete(pipelineDemoLogTable);
-    await stack.db.delete(widgetTable);
+    await asRawClient(stack.db).unsafe(`DELETE FROM "${(pipelineDemoLogTable as any).tableName}"`);
+    await asRawClient(stack.db).unsafe(`DELETE FROM "${widgetTable.tableName}"`);
   });
 
   test("HTTP write call goes through dispatcher → pipeline-runner → r.step.return", async () => {
@@ -571,7 +571,7 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
     );
     expect(res.status).toBe(200);
 
-    const rows = await stack.db.select().from(pipelineDemoLogTable);
+    const rows = await selectMany(stack.db, pipelineDemoLogTable);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
       correlationId: "corr-1",
@@ -592,10 +592,7 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
       admin,
     );
 
-    const rows = await stack.db
-      .select()
-      .from(pipelineDemoLogTable)
-      .where(eq(pipelineDemoLogTable.correlationId, "corr-2"));
+    const rows = await selectMany(stack.db, pipelineDemoLogTable, { correlationId: "corr-2" });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.message).toBe("v2 — overwritten");
   });
@@ -614,7 +611,7 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
 
     // Verify the projection-row landed too — the executor's inline
     // projection writes into the widget table in the same TX.
-    const rows = await stack.db.select().from(widgetTable);
+    const rows = await selectMany(stack.db, widgetTable);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ label: "first widget", id: body.data.id });
   });
@@ -640,7 +637,7 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
     expect(updatedBody.data.id).toBe(widgetId);
 
     // Projection-row reflects the new label.
-    const rows = await stack.db.select().from(widgetTable).where(eq(widgetTable.id, widgetId));
+    const rows = await selectMany(stack.db, widgetTable, { id: widgetId });
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ id: widgetId, label: "after" });
   });
@@ -658,10 +655,7 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
     // The aggregate stream should carry both the auto-generated CRUD
     // event (widget.created) AND the appended annotated event. Direct
     // event-store query is the simplest assertion.
-    const events = await stack.db
-      .select()
-      .from(eventsTable)
-      .where(eq(eventsTable.aggregateId, widgetId));
+    const events = await selectMany(stack.db, eventsTable, { aggregateId: widgetId });
     const types = events.map((e) => e["type"]);
     expect(types).toContain("demo-pipeline:event:annotated");
     expect(types.length).toBeGreaterThanOrEqual(2); // created + annotated
@@ -679,7 +673,7 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
     // Capture row-count before — beforeEach doesn't truncate widget,
     // earlier tests in this run leave rows. We assert "broken did not
     // add a new row" by comparing before/after.
-    const before = await stack.db.select().from(widgetTable);
+    const before = await selectMany(stack.db, widgetTable);
 
     const res = await stack.http.write("demo-pipeline:write:widget:create-broken", {}, admin);
     expect(res.status).not.toBe(200);
@@ -688,7 +682,7 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
     expect(body.isSuccess).toBe(false);
     expect(body.error.code).toBeDefined();
 
-    const after = await stack.db.select().from(widgetTable);
+    const after = await selectMany(stack.db, widgetTable);
     expect(after).toHaveLength(before.length);
   });
 
@@ -728,7 +722,7 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
   });
 
   test("read.findMany returns the row array (count matches table state)", async () => {
-    const before = await stack.db.select().from(widgetTable);
+    const before = await selectMany(stack.db, widgetTable);
     const res = await stack.http.write("demo-pipeline:write:widget:list", {}, admin);
     expect(res.status).toBe(200);
     const body = (await res.json()) as { isSuccess: true; data: { count: number } };
@@ -739,7 +733,7 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
     // Seed enough widgets so a limit-1 result is verifiably truncated.
     await stack.http.write("demo-pipeline:write:widget:create", { label: "limit-test-1" }, admin);
     await stack.http.write("demo-pipeline:write:widget:create", { label: "limit-test-2" }, admin);
-    const total = await stack.db.select().from(widgetTable);
+    const total = await selectMany(stack.db, widgetTable);
     expect(total.length).toBeGreaterThanOrEqual(2);
 
     const res = await stack.http.write("demo-pipeline:write:widget:list-one", {}, admin);
@@ -750,10 +744,9 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
 
   test("unsafeProjectionDelete is a silent no-op when the where-clause matches no rows", async () => {
     // Precondition: nothing with this correlation-id exists.
-    const before = await stack.db
-      .select()
-      .from(pipelineDemoLogTable)
-      .where(eq(pipelineDemoLogTable.correlationId, "no-match-id"));
+    const before = await selectMany(stack.db, pipelineDemoLogTable, {
+      correlationId: "no-match-id",
+    });
     expect(before).toHaveLength(0);
 
     // Purge anyway — drizzle's DELETE-WHERE with no match commits silently.
@@ -774,10 +767,7 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
       { correlationId: "to-purge", message: "delete-me" },
       admin,
     );
-    const seeded = await stack.db
-      .select()
-      .from(pipelineDemoLogTable)
-      .where(eq(pipelineDemoLogTable.correlationId, "to-purge"));
+    const seeded = await selectMany(stack.db, pipelineDemoLogTable, { correlationId: "to-purge" });
     expect(seeded).toHaveLength(1);
 
     const res = await stack.http.write(
@@ -787,10 +777,7 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
     );
     expect(res.status).toBe(200);
 
-    const after = await stack.db
-      .select()
-      .from(pipelineDemoLogTable)
-      .where(eq(pipelineDemoLogTable.correlationId, "to-purge"));
+    const after = await selectMany(stack.db, pipelineDemoLogTable, { correlationId: "to-purge" });
     expect(after).toHaveLength(0);
   });
 
@@ -801,10 +788,9 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
       admin,
     );
     expect(res.status).toBe(200);
-    const rows = await stack.db
-      .select()
-      .from(pipelineDemoLogTable)
-      .where(eq(pipelineDemoLogTable.correlationId, "branch-truthy"));
+    const rows = await selectMany(stack.db, pipelineDemoLogTable, {
+      correlationId: "branch-truthy",
+    });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.message).toBe("real");
   });
@@ -816,10 +802,9 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
       admin,
     );
     expect(res.status).toBe(200);
-    const rows = await stack.db
-      .select()
-      .from(pipelineDemoLogTable)
-      .where(eq(pipelineDemoLogTable.correlationId, "branch-falsy"));
+    const rows = await selectMany(stack.db, pipelineDemoLogTable, {
+      correlationId: "branch-falsy",
+    });
     expect(rows).toHaveLength(0);
   });
 
@@ -834,7 +819,7 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
     const body = (await res.json()) as { isSuccess: true; data: { count: number } };
     expect(body.data.count).toBe(3);
 
-    const rows = await stack.db.select().from(pipelineDemoLogTable);
+    const rows = await selectMany(stack.db, pipelineDemoLogTable);
     const correlationIds = rows.map((r) => r["correlationId"]).sort();
     expect(correlationIds).toEqual(ids.slice().sort());
   });
@@ -858,8 +843,8 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
     // projection-row insert that aggregate.create performed must
     // disappear with the rollback. Otherwise pipeline-form handlers
     // silently leak partial state on mid-pipeline failures.
-    const beforeWidgets = await stack.db.select().from(widgetTable);
-    const beforeEvents = await stack.db.select().from(eventsTable);
+    const beforeWidgets = await selectMany(stack.db, widgetTable);
+    const beforeEvents = await selectMany(stack.db, eventsTable);
 
     const res = await stack.http.write(
       "demo-pipeline:write:widget:create-then-throw",
@@ -868,8 +853,8 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
     );
     expect(res.status).toBe(500);
 
-    const afterWidgets = await stack.db.select().from(widgetTable);
-    const afterEvents = await stack.db.select().from(eventsTable);
+    const afterWidgets = await selectMany(stack.db, widgetTable);
+    const afterEvents = await selectMany(stack.db, eventsTable);
     expect(afterWidgets.length).toBe(beforeWidgets.length);
     expect(afterEvents.length).toBe(beforeEvents.length);
   });
@@ -879,7 +864,7 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
     // its own scope save/restore + sub-step-list runner. A regression
     // there would let iteration-1's aggregate.create commit while
     // iteration-2's throw aborts the rest, leaving partial state.
-    const beforeWidgets = await stack.db.select().from(widgetTable);
+    const beforeWidgets = await selectMany(stack.db, widgetTable);
 
     const res = await stack.http.write(
       "demo-pipeline:write:widget:foreach-then-throw",
@@ -888,7 +873,7 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
     );
     expect(res.status).toBe(500);
 
-    const afterWidgets = await stack.db.select().from(widgetTable);
+    const afterWidgets = await selectMany(stack.db, widgetTable);
     expect(afterWidgets.length).toBe(beforeWidgets.length);
   });
 });

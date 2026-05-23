@@ -1,8 +1,8 @@
-import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
+import { asRawClient, selectMany } from "../../bun-db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildDrizzleTable } from "../../db/table-builder";
+import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
 
@@ -14,7 +14,7 @@ const projectEntity = createEntity({
   table: "nested_projects",
   fields: { name: createTextField({ required: true }) },
 });
-const projectTable = buildDrizzleTable("project", projectEntity);
+const projectTable = buildEntityTable("project", projectEntity);
 
 const taskEntity = createEntity({
   table: "nested_tasks",
@@ -23,7 +23,7 @@ const taskEntity = createEntity({
     title: createTextField({ required: true }),
   },
 });
-const taskTable = buildDrizzleTable("task", taskEntity);
+const taskTable = buildEntityTable("task", taskEntity);
 
 const nestedFeature = defineFeature("nested", (r) => {
   r.entity("project", projectEntity);
@@ -78,8 +78,8 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(taskTable);
-  await stack.db.delete(projectTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${taskTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${projectTable.tableName}"`);
 });
 
 describe("POST /api/write — nested-write (Welle M1)", () => {
@@ -111,11 +111,8 @@ describe("POST /api/write — nested-write (Welle M1)", () => {
     expect(parent.tasks[1].title).toBe("t2");
 
     // DB reflects both writes.
-    const dbProjects = await stack.db.select().from(projectTable);
-    const dbTasks = await stack.db
-      .select()
-      .from(taskTable)
-      .where(eq(taskTable["projectId"], parent.id));
+    const dbProjects = await selectMany(stack.db, projectTable);
+    const dbTasks = await selectMany(stack.db, taskTable, { projectId: parent.id });
     expect(dbProjects).toHaveLength(1);
     expect(dbTasks).toHaveLength(2);
   });
@@ -137,8 +134,8 @@ describe("POST /api/write — nested-write (Welle M1)", () => {
     expect(body.isSuccess).toBe(false);
 
     // DB empty — prior sub-task and parent both rolled back.
-    const dbProjects = await stack.db.select().from(projectTable);
-    const dbTasks = await stack.db.select().from(taskTable);
+    const dbProjects = await selectMany(stack.db, projectTable);
+    const dbTasks = await selectMany(stack.db, taskTable);
     expect(dbProjects).toHaveLength(0);
     expect(dbTasks).toHaveLength(0);
   });
@@ -182,7 +179,7 @@ describe("POST /api/write — nested-write (Welle M1)", () => {
 
     // Parent did not persist — the pre-flight check runs before the parent
     // write, so the TX never opened on a malformed nested key.
-    const dbProjects = await stack.db.select().from(projectTable);
+    const dbProjects = await selectMany(stack.db, projectTable);
     expect(dbProjects).toHaveLength(0);
   });
 
@@ -207,7 +204,7 @@ describe("POST /api/write — nested-write (Welle M1)", () => {
     expect(body.error.details.fields[0].path).toMatch(/tasks\.0\.projectId/);
 
     // DB empty.
-    const dbProjects = await stack.db.select().from(projectTable);
+    const dbProjects = await selectMany(stack.db, projectTable);
     expect(dbProjects).toHaveLength(0);
   });
 });

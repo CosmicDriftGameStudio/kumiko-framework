@@ -1,6 +1,6 @@
+import { fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { USER_STATUS, userTable } from "../../user";
 
@@ -23,18 +23,13 @@ export const cancelDeletionWrite = defineWriteHandler({
     // ctx.db.raw (kein TenantDb-Wrapper) weil User-Entity tenant-agnostisch
     // ist — siehe request-deletion.write.ts fuer die Begruendung. Cancel
     // muss aus jedem Tenant-Mode den User finden + zuruecksetzen koennen.
-    //
-    // Combined query: status + grace_period_end-vs-now in einem Pass.
-    const checkRows = await ctx.db.raw
-      .select({
-        status: userTable["status"],
-        inGrace: sql<boolean>`(${userTable["gracePeriodEnd"]} > now())`,
-      })
-      .from(userTable)
-      .where(eq(userTable["id"], event.user.id))
-      .limit(1);
+    const row = await fetchOne<{ status: string; grace_period_end: Date | null }>(
+      ctx.db.raw,
+      userTable,
+      { id: event.user.id },
+    );
 
-    if (checkRows.length === 0) {
+    if (!row) {
       return writeFailure(
         new UnprocessableError("user_not_found", {
           details: { reason: "user_not_found", userId: event.user.id },
@@ -42,19 +37,23 @@ export const cancelDeletionWrite = defineWriteHandler({
       );
     }
 
-    const row = checkRows[0];
-    if (!row || row.status !== USER_STATUS.DeletionRequested) {
+    if (row["status"] !== USER_STATUS.DeletionRequested) {
       return writeFailure(
         new UnprocessableError("no_pending_deletion", {
           details: {
             reason: "no_pending_deletion",
-            currentStatus: row?.status,
+            currentStatus: row["status"],
           },
         }),
       );
     }
 
-    if (!row.inGrace) {
+    // inGrace computed JS-side: compare grace_period_end (Date from Bun.SQL)
+    // against current server clock.
+    const gracePeriodEnd = row["grace_period_end"];
+    const inGrace = gracePeriodEnd != null && gracePeriodEnd.getTime() > Date.now();
+
+    if (!inGrace) {
       return writeFailure(
         new UnprocessableError("grace_period_expired", {
           details: { reason: "grace_period_expired" },
@@ -62,13 +61,15 @@ export const cancelDeletionWrite = defineWriteHandler({
       );
     }
 
-    await ctx.db.raw
-      .update(userTable)
-      .set({
+    await updateMany(
+      ctx.db.raw,
+      userTable,
+      {
         status: USER_STATUS.Active,
         gracePeriodEnd: null,
-      })
-      .where(eq(userTable["id"], event.user.id));
+      },
+      { id: event.user.id },
+    );
 
     // gracePeriodEnd=null im Response symmetrisch zu request-deletion's
     // ISO-Timestamp — Frontend kann beide Endpoints uniform behandeln.
@@ -77,7 +78,7 @@ export const cancelDeletionWrite = defineWriteHandler({
       data: {
         userId: event.user.id,
         status: USER_STATUS.Active,
-        gracePeriodEnd: null as string | null, // @cast-boundary generic-record
+        gracePeriodEnd: null as string | null,
       },
     };
   },

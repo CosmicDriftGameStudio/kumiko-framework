@@ -17,12 +17,8 @@
 // User entsteht — beide existieren bereits. Magic ist die kombinierte
 // Login+Accept-Operation in einem Roundtrip.
 
-import {
-  createEventStoreExecutor,
-  createTenantDb,
-  type DbConnection,
-  fetchOne,
-} from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   defineWriteHandler,
@@ -34,7 +30,6 @@ import {
   UnprocessableError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 // kumiko-lint-ignore cross-feature-import invite-flow
 import {
@@ -104,20 +99,27 @@ export function createInviteAcceptWithLoginHandler() {
       const burn = await burnInviteToken(ctx.redis, event.payload.token);
       if (burn === "already-used") return invalidInviteToken();
 
+      type InvitationRow = {
+        readonly status: string;
+        readonly tenantId: TenantId;
+        readonly email: string;
+        readonly role: string;
+        readonly version: number;
+      };
+      type UserAuthRow = { readonly id: string; readonly passwordHash: string | null };
+
       let committed = false;
       try {
-        const invitation = await fetchOne(
-          ctx.db.raw,
-          tenantInvitationsTable,
-          eq(tenantInvitationsTable.id, invitationId),
-        );
-        if (!invitation || invitation["status"] !== INVITATION_STATUS.pending)
+        const invitation = await fetchOne<InvitationRow>(ctx.db.raw, tenantInvitationsTable, {
+          id: invitationId,
+        });
+        if (!invitation || invitation.status !== INVITATION_STATUS.pending)
           return invalidInviteToken();
 
-        const invitationTenantId = invitation["tenantId"] as TenantId; // @cast-boundary db-row
-        const invitationEmail = invitation["email"] as string; // @cast-boundary db-row
-        const invitationRole = invitation["role"] as string; // @cast-boundary db-row
-        const invitationVersion = invitation["version"] as number; // @cast-boundary db-row
+        const invitationTenantId = invitation.tenantId;
+        const invitationEmail = invitation.email;
+        const invitationRole = invitation.role;
+        const invitationVersion = invitation.version;
 
         // Email-Match vom User-Input (nicht aus session — User ist anon)
         if (event.payload.email.toLowerCase() !== invitationEmail) {
@@ -131,15 +133,14 @@ export function createInviteAcceptWithLoginHandler() {
         // Password-Check gegen userTable. Anti-enumeration: bei
         // user-not-found ODER wrong-password collapsed beides auf
         // invalidInviteToken (gleicher anti-enum-Trade-off wie reset).
-        const userRow = await fetchOne(ctx.db.raw, userTable, eq(userTable.email, invitationEmail));
-        if (!userRow?.["passwordHash"]) return invalidInviteToken();
-        const passwordValid = await verifyPassword(
-          userRow["passwordHash"] as string, // @cast-boundary db-row
-          event.payload.password,
-        );
+        const userRow = await fetchOne<UserAuthRow>(ctx.db.raw, userTable, {
+          email: invitationEmail,
+        });
+        if (!userRow?.passwordHash) return invalidInviteToken();
+        const passwordValid = await verifyPassword(userRow.passwordHash, event.payload.password);
         if (!passwordValid) return invalidInviteToken();
 
-        const userId = userRow["id"] as string; // @cast-boundary db-row
+        const userId = userRow.id;
 
         // Already-Member-Check (idempotent)
         const memberships = (await ctx.queryAs(
@@ -149,8 +150,7 @@ export function createInviteAcceptWithLoginHandler() {
         )) as Array<{ tenantId: string }>; // @cast-boundary db-row
         const alreadyMember = memberships.some((m) => m.tenantId === invitationTenantId);
 
-        // @cast-boundary db-runner — TenantDb.raw is DbRunner
-        const dbConn = ctx.db.raw as DbConnection;
+        const dbConn = ctx.db.raw;
 
         if (!alreadyMember) {
           await seedTenantMembership(dbConn, {

@@ -10,12 +10,12 @@
 //   - "cross data matrix checks" (Cross-Tenant-Isolation: Tenant A's
 //     fileRef-Forget beruehrt Tenant B's Files nicht)
 
+import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
@@ -52,9 +52,9 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, userEntity);
 
   // file_refs ist framework-pgTable (nicht entity-getrieben, S1.5 hat
-  // die Schema-Sicht ohne buildDrizzleTable-Auto-Generation). Manuelle
+  // die Schema-Sicht ohne buildEntityTable-Auto-Generation). Manuelle
   // CREATE matched die Spalten aus framework/src/files/file-ref-table.ts
-  await stack.db.execute(sql`
+  await asRawClient(stack.db).unsafe(`
     CREATE TABLE IF NOT EXISTS file_refs (
       id UUID PRIMARY KEY,
       tenant_id UUID NOT NULL,
@@ -90,21 +90,18 @@ async function seedUser(id: string, overrides: Record<string, unknown> = {}): Pr
   // Schema hat tenant_id-Spalte automatisch (Framework-Default).
   // Pragmatisch: SYSTEM_TENANT_ID fuer User-Rows in Tests.
   const SYSTEM_TENANT = "00000000-0000-4000-8000-000000000001";
-  await stack.db
-    .insert(userTable)
-    .values({
-      id,
-      tenantId: SYSTEM_TENANT,
-      email: `user-${id}@example.com`,
-      passwordHash: "hashed-password",
-      displayName: `User ${id}`,
-      locale: "de",
-      emailVerified: true,
-      roles: '["Member"]',
-      status: USER_STATUS.Active,
-      ...overrides,
-    })
-    .onConflictDoNothing();
+  await insertOne(stack.db, userTable, {
+    id,
+    tenantId: SYSTEM_TENANT,
+    email: `user-${id}@example.com`,
+    passwordHash: "hashed-password",
+    displayName: `User ${id}`,
+    locale: "de",
+    emailVerified: true,
+    roles: '["Member"]',
+    status: USER_STATUS.Active,
+    ...overrides,
+  });
 }
 
 async function seedFileRef(
@@ -113,18 +110,24 @@ async function seedFileRef(
   insertedById: string | null,
   fileName: string,
 ): Promise<void> {
-  await stack.db.execute(sql`
+  await asRawClient(stack.db).unsafe(
+    `
     INSERT INTO file_refs (id, tenant_id, storage_key, file_name, mime_type, size, inserted_by_id)
-    VALUES (${id}, ${tenantId}, ${`storage/${id}`}, ${fileName}, 'application/pdf', 1024, ${insertedById})
+    VALUES ($1, $2, $3, $4, 'application/pdf', 1024, $5)
     ON CONFLICT (id) DO NOTHING
-  `);
+  `,
+    [id, tenantId, `storage/${id}`, fileName, insertedById],
+  );
 }
 
 async function fetchUser(id: string) {
-  const result = await stack.db.execute(sql`
+  const result = await asRawClient(stack.db).unsafe(
+    `
     SELECT id, email, display_name, password_hash, status, deleted_at
-    FROM read_users WHERE id = ${id}
-  `);
+    FROM read_users WHERE id = $1
+  `,
+    [id],
+  );
   // biome-ignore lint/suspicious/noExplicitAny: drizzle execute returns any-typed array
   const rows = ((result as any).rows ?? result) as Array<{
     id: string;
@@ -140,13 +143,17 @@ async function fetchUser(id: string) {
 async function fetchFileRefs(tenantId: string, insertedById?: string | null) {
   const result =
     insertedById === undefined
-      ? await stack.db.execute(sql`SELECT * FROM file_refs WHERE tenant_id = ${tenantId}`)
+      ? await asRawClient(stack.db).unsafe(`SELECT * FROM file_refs WHERE tenant_id = $1`, [
+          tenantId,
+        ])
       : insertedById === null
-        ? await stack.db.execute(
-            sql`SELECT * FROM file_refs WHERE tenant_id = ${tenantId} AND inserted_by_id IS NULL`,
+        ? await asRawClient(stack.db).unsafe(
+            `SELECT * FROM file_refs WHERE tenant_id = $1 AND inserted_by_id IS NULL`,
+            [tenantId],
           )
-        : await stack.db.execute(
-            sql`SELECT * FROM file_refs WHERE tenant_id = ${tenantId} AND inserted_by_id = ${insertedById}`,
+        : await asRawClient(stack.db).unsafe(
+            `SELECT * FROM file_refs WHERE tenant_id = $1 AND inserted_by_id = $2`,
+            [tenantId, insertedById],
           );
   // biome-ignore lint/suspicious/noExplicitAny: drizzle execute typing
   return (result as any).rows ?? result;

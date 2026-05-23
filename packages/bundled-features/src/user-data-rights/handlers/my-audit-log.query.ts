@@ -1,6 +1,6 @@
+import { selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { and, desc, eq, gte, lt, lte } from "drizzle-orm";
 import { z } from "zod";
 
 // DSGVO Art. 15 Selbstauskunft — User reads HIS OWN audit-log.
@@ -28,32 +28,42 @@ export const myAuditLogQuery = defineQueryHandler({
   handler: async (query, ctx) => {
     const p = query.payload;
 
-    const conditions = [eq(eventsTable.createdBy, query.user.id)];
-    if (p.aggregateType) conditions.push(eq(eventsTable.aggregateType, p.aggregateType));
-    if (p.eventType) conditions.push(eq(eventsTable.type, p.eventType));
-    if (p.from) conditions.push(gte(eventsTable.createdAt, Temporal.Instant.from(p.from)));
-    if (p.to) conditions.push(lte(eventsTable.createdAt, Temporal.Instant.from(p.to)));
-    if (p.before) conditions.push(lt(eventsTable.id, BigInt(p.before)));
-
     // ctx.db.raw weil events-table tenantId-Spalte hat und TenantDb
     // sonst auto-filtert auf currentTenant. Account-weite Sicht ist
     // hier explizit gewollt; Sicherung erfolgt via createdBy-Filter.
-    const rows = await ctx.db.raw
-      .select({
-        id: eventsTable.id,
-        aggregateId: eventsTable.aggregateId,
-        aggregateType: eventsTable.aggregateType,
-        version: eventsTable.version,
-        type: eventsTable.type,
-        payload: eventsTable.payload,
-        createdAt: eventsTable.createdAt,
-      })
-      .from(eventsTable)
-      .where(and(...conditions))
-      .orderBy(desc(eventsTable.id))
-      .limit(p.limit);
+    const where: WhereObject = { createdBy: query.user.id };
+    if (p.aggregateType) where["aggregateType"] = p.aggregateType;
+    if (p.eventType) where["type"] = p.eventType;
+    if (p.from || p.to) {
+      const range: { gte?: unknown; lte?: unknown } = {};
+      if (p.from) range.gte = Temporal.Instant.from(p.from);
+      if (p.to) range.lte = Temporal.Instant.from(p.to);
+      where["createdAt"] = range;
+    }
+    if (p.before) where["id"] = { lt: BigInt(p.before) };
 
-    const serialised = rows.map((r) => ({ ...r, id: String(r["id"]) }));
+    const rows = await selectMany<{
+      id: bigint;
+      aggregate_id: string;
+      aggregate_type: string;
+      version: number;
+      type: string;
+      payload: Record<string, unknown>;
+      created_at: unknown;
+    }>(ctx.db.raw, eventsTable, where, {
+      orderBy: { col: "id", direction: "desc" },
+      limit: p.limit,
+    });
+
+    const serialised = rows.map((r) => ({
+      id: String(r["id"]),
+      aggregateId: r["aggregate_id"],
+      aggregateType: r["aggregate_type"],
+      version: r["version"],
+      type: r["type"],
+      payload: r["payload"],
+      createdAt: r["created_at"],
+    }));
     const last = serialised[serialised.length - 1];
     return {
       rows: serialised,

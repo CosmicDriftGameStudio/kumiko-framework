@@ -8,6 +8,10 @@ export default defineConfig({
         __dirname,
         "packages/framework/src/engine",
       ),
+      "@cosmicdrift/kumiko-framework/bun-db": path.resolve(
+        __dirname,
+        "packages/framework/src/bun-db",
+      ),
       "@cosmicdrift/kumiko-framework/db": path.resolve(
         __dirname,
         "packages/framework/src/db",
