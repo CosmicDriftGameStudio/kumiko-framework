@@ -32,7 +32,7 @@ import {
 //                Frist auf einer FK-target-Entity)
 
 export const userExportHook: UserDataExportHook = async (ctx) => {
-  const row = (await fetchOne(ctx.db, userTable, eq(userTable["id"], ctx.userId))) as {
+  const row = (await fetchOne(ctx.db, userTable, { id: ctx.userId })) as {
     id: string;
     email: string;
     displayName: string;

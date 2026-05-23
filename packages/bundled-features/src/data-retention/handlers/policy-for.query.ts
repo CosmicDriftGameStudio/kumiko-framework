@@ -1,6 +1,5 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { parseRetentionOverrideOrNull } from "../_internal/parse-override";
 import { type EffectiveRetentionPolicy, resolveRetentionPolicy } from "../resolver";
@@ -31,8 +30,7 @@ export const policyForQuery = defineQueryHandler({
     const overrideRow = (await fetchOne(
       ctx.db,
       tenantRetentionOverrideTable,
-      eq(tenantRetentionOverrideTable["tenantId"], query.user.tenantId),
-      eq(tenantRetentionOverrideTable["entityName"], entityName),
+      { tenantId: query.user.tenantId, entityName },
     )) as { config: string | null } | null; // @cast-boundary db-runner
 
     const tenantOverride = parseRetentionOverrideOrNull(

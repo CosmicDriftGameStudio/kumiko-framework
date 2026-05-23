@@ -8,7 +8,6 @@
 
 import { type DbRunner, fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { eq } from "drizzle-orm";
 import { parseRetentionOverrideOrNull } from "./_internal/parse-override";
 import { type EffectiveRetentionPolicy, resolveRetentionPolicy } from "./resolver";
 import { tenantRetentionOverrideTable } from "./schema/tenant-retention-override";
@@ -26,8 +25,7 @@ export async function resolveRetentionPolicyForTenant(
   const overrideRow = (await fetchOne(
     args.db,
     tenantRetentionOverrideTable,
-    eq(tenantRetentionOverrideTable["tenantId"], args.tenantId),
-    eq(tenantRetentionOverrideTable["entityName"], args.entityName),
+    { tenantId: args.tenantId, entityName: args.entityName },
   )) as { config: string | null } | null; // @cast-boundary db-runner
 
   const tenantOverride = parseRetentionOverrideOrNull(

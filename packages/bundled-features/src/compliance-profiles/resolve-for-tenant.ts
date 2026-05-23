@@ -16,7 +16,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/compliance";
 import { type DbRunner, fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { eq } from "drizzle-orm";
 import { tenantComplianceProfileTable } from "./schema/profile-selection";
 
 export interface ResolveProfileForTenantArgs {
@@ -30,7 +29,7 @@ export async function resolveProfileForTenant(
   const row = (await fetchOne(
     args.db,
     tenantComplianceProfileTable,
-    eq(tenantComplianceProfileTable["tenantId"], args.tenantId),
+    { tenantId: args.tenantId },
   )) as { profileKey: string; override: string | null } | null; // @cast-boundary db-runner
 
   if (!row) {

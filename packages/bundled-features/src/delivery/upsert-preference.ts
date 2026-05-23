@@ -16,7 +16,6 @@ import {
   type TenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
-import { eq } from "drizzle-orm";
 import { notificationPreferenceEntity, notificationPreferencesTable } from "./tables";
 
 const executor = createEventStoreExecutor(
@@ -41,10 +40,7 @@ async function lookup(
   return fetchOne<PreferenceLookupRow>(
     db,
     notificationPreferencesTable,
-    eq(notificationPreferencesTable.tenantId, tenantId),
-    eq(notificationPreferencesTable.userId, userId),
-    eq(notificationPreferencesTable.notificationType, notificationType),
-    eq(notificationPreferencesTable.channel, channel),
+    { tenantId, userId, notificationType, channel },
   );
 }
 

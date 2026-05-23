@@ -11,7 +11,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
-import { eq } from "drizzle-orm";
 import { type TextBlockRow, textBlockEntity, textBlocksTable } from "./table";
 
 const executor = createEventStoreExecutor(textBlocksTable, textBlockEntity, {
@@ -50,9 +49,7 @@ export async function seedTextBlock(
   const existing = await fetchOne<TextBlockRow>(
     db,
     textBlocksTable,
-    eq(textBlocksTable["tenantId"], opts.tenantId),
-    eq(textBlocksTable["slug"], opts.slug),
-    eq(textBlocksTable["lang"], opts.lang),
+    { tenantId: opts.tenantId, slug: opts.slug, lang: opts.lang },
   );
 
   const folder = opts.folder ?? null;

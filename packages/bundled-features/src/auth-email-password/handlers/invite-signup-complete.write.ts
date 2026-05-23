@@ -117,7 +117,7 @@ export function createInviteSignupCompleteHandler() {
         const invitation = await fetchOne<InvitationRow>(
           ctx.db.raw,
           tenantInvitationsTable,
-          eq(tenantInvitationsTable.id, invitationId),
+          { id: invitationId },
         );
         if (!invitation || invitation.status !== INVITATION_STATUS.pending)
           return invalidInviteToken();

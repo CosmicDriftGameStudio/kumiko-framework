@@ -1,7 +1,6 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import type { TemplateResourceRow } from "../table";
 import { templateResourcesTable } from "../table";
@@ -18,7 +17,7 @@ export const archiveWrite = defineWriteHandler({
     const existing = await fetchOne<TemplateResourceRow>(
       ctx.db,
       templateResourcesTable,
-      eq(templateResourcesTable["id"], event.payload.id),
+      { id: event.payload.id },
     );
     // ctx.db ist via createTenantDb tenant-scoped — existing ist null wenn
     // das Template einem fremden Tenant gehört (SystemAdmin-Cross-Tenant

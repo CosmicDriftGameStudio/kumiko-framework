@@ -12,7 +12,6 @@ import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { eq } from "drizzle-orm";
 import { type TextBlockRow, textBlocksTable } from "./table";
 
 export type TextBlock = {
@@ -43,9 +42,7 @@ export function createTextContentApi(db: DbConnection): TextContentApi {
       const row = await fetchOne<TextBlockRow>(
         db,
         textBlocksTable,
-        eq(textBlocksTable["tenantId"], tenantId),
-        eq(textBlocksTable["slug"], slug),
-        eq(textBlocksTable["lang"], lang),
+        { tenantId, slug, lang },
       );
       if (!row) return null;
       return {

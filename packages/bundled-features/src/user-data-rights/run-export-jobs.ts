@@ -796,7 +796,7 @@ function countingStream(source: AsyncIterable<Uint8Array>): {
 // aus jedem Worker-Tenant-Context.
 async function lookupUserEmail(db: DbConnection, userId: string): Promise<string | null> {
   // @cast-boundary db-row.
-  const row = (await fetchOne(db, userTable, eq(userTable["id"], userId))) as {
+  const row = (await fetchOne(db, userTable, { id: userId })) as {
     email: string | null;
   } | null;
   return row?.email ?? null;

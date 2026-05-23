@@ -6,7 +6,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/compliance";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { tenantComplianceProfileTable } from "../schema/profile-selection";
 
@@ -25,7 +24,7 @@ export const forTenantQuery = defineQueryHandler({
     const row = (await fetchOne(
       ctx.db,
       tenantComplianceProfileTable,
-      eq(tenantComplianceProfileTable["tenantId"], query.user.tenantId),
+      { tenantId: query.user.tenantId },
     )) as { profileKey: string; override: string | null } | null; // @cast-boundary db-runner
 
     if (!row) {

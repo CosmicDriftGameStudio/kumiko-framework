@@ -1,6 +1,5 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { tenantTable } from "../schema/tenant";
 
@@ -11,7 +10,7 @@ export const meQuery = defineQueryHandler({
   schema: z.object({}),
   access: { openToAll: true },
   handler: async (query, ctx) => {
-    const row = await fetchOne(ctx.db, tenantTable, eq(tenantTable["id"], query.user.tenantId));
+    const row = await fetchOne(ctx.db, tenantTable, { id: query.user.tenantId });
     return row ?? null;
   },
 });

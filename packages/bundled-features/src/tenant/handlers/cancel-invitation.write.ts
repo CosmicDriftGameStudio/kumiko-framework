@@ -13,7 +13,6 @@
 import { createEventStoreExecutor, fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 // kumiko-lint-ignore cross-feature-import cancel needs invite-token-store für Redis-cleanup
 import {
@@ -42,7 +41,7 @@ export const cancelInvitationWrite = defineWriteHandler({
     const invitation = await fetchOne(
       ctx.db.raw,
       tenantInvitationsTable,
-      eq(tenantInvitationsTable.id, event.payload.invitationId),
+      { id: event.payload.invitationId },
     );
     if (!invitation || invitation["tenantId"] !== event.user.tenantId) {
       return writeFailure(

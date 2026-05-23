@@ -4,7 +4,6 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { eq } from "drizzle-orm";
 import type { TemplateResourceRow } from "../table";
 import { templateResourcesTable } from "../table";
 import { executor, upsertPayloadSchema } from "./shared";
@@ -30,10 +29,7 @@ export const upsertSystemWrite = defineWriteHandler({
     const existing = await fetchOne<TemplateResourceRow>(
       db,
       templateResourcesTable,
-      eq(templateResourcesTable["tenantId"], tenantId),
-      eq(templateResourcesTable["slug"], event.payload.slug),
-      eq(templateResourcesTable["kind"], event.payload.kind),
-      eq(templateResourcesTable["locale"], event.payload.locale),
+      { tenantId, slug: event.payload.slug, kind: event.payload.kind, locale: event.payload.locale },
     );
 
     const fields = {

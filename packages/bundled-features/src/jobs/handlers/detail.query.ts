@@ -15,7 +15,7 @@ export const detailQuery = defineQueryHandler({
   handler: async (query, ctx) => {
     const db = ctx.db;
 
-    const row = await fetchOne(db, jobRunsTable, eq(jobRunsTable.id, query.payload.runId));
+    const row = await fetchOne(db, jobRunsTable, { id: query.payload.runId });
 
     if (!row) return null;
 

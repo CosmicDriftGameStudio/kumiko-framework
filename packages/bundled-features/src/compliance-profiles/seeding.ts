@@ -22,7 +22,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
-import { eq } from "drizzle-orm";
 import {
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
@@ -55,7 +54,7 @@ export async function seedComplianceProfile(
   const existing = (await fetchOne(
     db,
     tenantComplianceProfileTable,
-    eq(tenantComplianceProfileTable["tenantId"], opts.tenantId),
+    { tenantId: opts.tenantId },
   )) as { id: string; version: number } | null; // @cast-boundary db-runner
 
   if (existing) {

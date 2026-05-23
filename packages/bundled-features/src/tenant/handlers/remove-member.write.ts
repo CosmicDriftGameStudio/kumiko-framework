@@ -1,7 +1,6 @@
 import { createEventStoreExecutor, type DbRow, fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, withResponseData } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-table";
 
@@ -18,8 +17,7 @@ export const removeMemberWrite = defineWriteHandler({
     const existing = await fetchOne(
       db,
       tenantMembershipsTable,
-      eq(tenantMembershipsTable.userId, event.payload.userId),
-      eq(tenantMembershipsTable.tenantId, event.payload.tenantId),
+      { userId: event.payload.userId, tenantId: event.payload.tenantId },
     );
     if (!existing) {
       return writeFailure(

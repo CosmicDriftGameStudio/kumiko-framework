@@ -27,7 +27,6 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { createFileProviderForTenant } from "../../file-foundation";
 import { recordDownloadUse, recordInvalidAttempt } from "../audit-download";
@@ -75,11 +74,7 @@ export const downloadByJobQuery = defineQueryHandler({
     // Step 1-2: job-lookup + cross-user-isolation
     // ctx.db.raw weil tenant-agnostisch — Alice in Tenant B sucht den
     // aus Tenant A erstellten Job.
-    const jobRow = await fetchOne<JobRow>(
-      ctx.db.raw,
-      exportJobsTable,
-      eq(exportJobsTable["id"], jobId),
-    );
+    const jobRow = await fetchOne<JobRow>(ctx.db.raw, exportJobsTable, { id: jobId });
 
     if (!jobRow || jobRow.userId !== userId) {
       await recordInvalidAttempt({
@@ -172,11 +167,9 @@ export const downloadByJobQuery = defineQueryHandler({
     // den plain-Token, aber wir wollen den useCount inkrementieren
     // damit die Audit-Felder konsistent sind (UI-clicks zaehlen auch
     // als Use). Lookup via jobId — UNIQUE-Index garantiert max 1 Row.
-    const tokenRow = await fetchOne<TokenRow>(
-      ctx.db.raw,
-      exportDownloadTokensTable,
-      eq(exportDownloadTokensTable["jobId"], jobId),
-    );
+    const tokenRow = await fetchOne<TokenRow>(ctx.db.raw, exportDownloadTokensTable, {
+      jobId,
+    });
 
     if (tokenRow) {
       await recordDownloadUse({

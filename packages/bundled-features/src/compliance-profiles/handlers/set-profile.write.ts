@@ -11,7 +11,6 @@ import {
   validationErrorFromZod,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import {
   tenantComplianceProfileEntity,
@@ -103,7 +102,7 @@ export const setProfileWrite = defineWriteHandler({
     const existing = (await fetchOne(
       ctx.db,
       tenantComplianceProfileTable,
-      eq(tenantComplianceProfileTable["tenantId"], tenantId),
+      { tenantId: tenantId },
     )) as { id: string; version: number } | null; // @cast-boundary db-runner
 
     if (existing) {

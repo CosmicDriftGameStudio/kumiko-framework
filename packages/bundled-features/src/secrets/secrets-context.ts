@@ -121,8 +121,7 @@ export function createSecretsContext(opts: SecretsContextOptions): SecretsContex
     return fetchOne<SecretLookupRow>(
       db,
       tenantSecretsTable,
-      eq(tenantSecretsTable.tenantId, tenantId),
-      eq(tenantSecretsTable.key, key),
+      { tenantId, key },
     );
   }
 

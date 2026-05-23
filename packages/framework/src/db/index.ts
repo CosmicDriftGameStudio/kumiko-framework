@@ -55,6 +55,23 @@ export type {
 export { buildEntityTableMeta, defineUnmanagedTable } from "./entity-table-meta";
 export { renderTableDdl, renderTablesDdl } from "./render-ddl";
 export { fetchOne } from "./row-helpers";
+export type { SelectOptions, WhereObject, WhereValue } from "./query-api";
+export {
+  and,
+  asc,
+  deleteMany,
+  desc,
+  eq,
+  gte,
+  inArray,
+  insertOne,
+  isNull,
+  lt,
+  lte,
+  ne,
+  selectMany,
+  updateMany,
+} from "./query-api";
 export { tableExists } from "./schema-inspection";
 export {
   buildBaseColumns,

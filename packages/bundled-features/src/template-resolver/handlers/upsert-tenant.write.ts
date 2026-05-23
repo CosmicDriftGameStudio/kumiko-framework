@@ -5,7 +5,6 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import type { TemplateResourceRow } from "../table";
 import { templateResourcesTable } from "../table";
@@ -55,10 +54,7 @@ export const upsertTenantWrite = defineWriteHandler({
     const existing = await fetchOne<TemplateResourceRow>(
       db,
       templateResourcesTable,
-      eq(templateResourcesTable["tenantId"], tenantId),
-      eq(templateResourcesTable["slug"], event.payload.slug),
-      eq(templateResourcesTable["kind"], event.payload.kind),
-      eq(templateResourcesTable["locale"], event.payload.locale),
+      { tenantId, slug: event.payload.slug, kind: event.payload.kind, locale: event.payload.locale },
     );
 
     const fields = {

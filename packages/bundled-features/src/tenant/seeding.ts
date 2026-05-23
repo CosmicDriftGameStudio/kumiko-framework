@@ -92,7 +92,7 @@ export async function seedTenant(db: DbRunner, options: SeedTenantOptions): Prom
   // seedTenantMembership nötig.
   const tdb = createTenantDb(db, by.tenantId, "system");
 
-  const existing = await fetchOne(db, tenantTable, eq(tenantTable["id"], options.id));
+  const existing = await fetchOne(db, tenantTable, { id: options.id });
   if (existing) return options.id;
 
   // Idempotenz: Aggregate kann im Event-Store existieren ohne Projection-Row
