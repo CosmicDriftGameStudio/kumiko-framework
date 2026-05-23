@@ -4,7 +4,7 @@ import { createPushChannel, type PushChannelOptions } from "./push-channel";
 export function createChannelPushFeature(options: PushChannelOptions): FeatureDefinition {
   const channel = createPushChannel(options);
 
-  return defineFeature("channelPush", (r) => {
+  return defineFeature("channel-push", (r) => {
     r.requires("delivery");
 
     r.useExtension("deliveryChannel", "push", {

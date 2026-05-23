@@ -45,7 +45,8 @@
   },
   "bin": {
     "kumiko-build": "./bin/kumiko-build.ts",
-    "kumiko-dev": "./bin/kumiko-dev.ts"
+    "kumiko-dev": "./bin/kumiko-dev.ts",
+    "kumiko-schema-check": "./bin/kumiko-schema-check.ts"
   },
   "dependencies": {
     "@cosmicdrift/kumiko-bundled-features": "workspace:*",

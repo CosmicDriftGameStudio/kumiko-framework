@@ -6,7 +6,7 @@ import { unreadCountQuery } from "./handlers/unread-count.query";
 import { inAppChannel } from "./in-app-channel";
 
 export function createChannelInAppFeature(): FeatureDefinition {
-  return defineFeature("channelInApp", (r) => {
+  return defineFeature("channel-in-app", (r) => {
     r.requires("delivery");
 
     // Register as delivery channel via extension system

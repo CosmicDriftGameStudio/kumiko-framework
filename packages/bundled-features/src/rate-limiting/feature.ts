@@ -10,7 +10,7 @@ import { rateLimitStatus } from "./handlers/status.query";
 // only use L3 (handler-opt-in) and don't need ops introspection can
 // skip this feature entirely — the resolver still runs.
 export function createRateLimitingFeature() {
-  return defineFeature("rateLimiting", (r) => {
+  return defineFeature("rate-limiting", (r) => {
     r.queryHandler(rateLimitStatus);
   });
 }

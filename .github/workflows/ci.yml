@@ -128,6 +128,12 @@ jobs:
         # oder ein stale registry-entry.
         run: bun samples/apps/use-all-bundled/scripts/check-coverage.ts
 
+      - name: Schema check (Empfehlung 3)
+        # kumiko-schema-check diff't mounted features (runtime) gegen
+        # FEATURE_IMPORT_REGISTRY (statisch). Studio's 9.8-Drama:
+        # registry 18 features hinter APP_FEATURES → migrations fehlten.
+        run: bun packages/dev-server/bin/kumiko-schema-check.ts --run-config samples/apps/use-all-bundled/src/run-config.ts --generate samples/apps/use-all-bundled/drizzle/generate.ts
+
       - name: Boot smoke (no DB)
         # Stub-secrets: validators check Format (base64 32-byte, min-length),
         # nicht echte Crypto-Strength. boot-mode exitiert vor jedem

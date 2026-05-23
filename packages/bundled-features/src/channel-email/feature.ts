@@ -4,7 +4,7 @@ import { createEmailChannel, type EmailChannelOptions } from "./email-channel";
 export function createChannelEmailFeature(options: EmailChannelOptions): FeatureDefinition {
   const channel = createEmailChannel(options);
 
-  return defineFeature("channelEmail", (r) => {
+  return defineFeature("channel-email", (r) => {
     r.requires("delivery");
 
     r.useExtension("deliveryChannel", "email", {
