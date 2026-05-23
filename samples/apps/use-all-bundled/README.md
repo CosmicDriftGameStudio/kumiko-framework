@@ -48,17 +48,13 @@ Migrates schema, spawns the server, curls `/health` until 200.
 
 ## Coverage status
 
-29/39 bundled-feature exports mounted, 10 held-back (siehe `scripts/check-coverage.ts` → `EXPECTED_HELD_BACK`). Die 10:
+36/39 bundled-feature exports mounted, 3 held-back. M0.1 reduced this from 10. Held-back nach M0.1:
 
-- `auth-email-password` — auto-mounted via `composeFeatures(authOptions)` (no need to list in `APP_FEATURES`)
-- `channel-email`, `channel-push` — need provider-options
-- `mail-transport-smtp` — needs `SMTP_HOST`/`USER`/`PASS`
-- `file-provider-s3`, `files-provider-s3` — need S3 creds
-- `subscription-stripe`, `subscription-mollie` — need provider keys
-- `feature-toggles` — needs `FeatureTogglesOptions` shape
-- `foundation-shared` — pure utilities, no `defineFeature`
+- `auth-email-password` — auto-mounted via `composeFeatures(authOptions)` (no need to list)
+- `files-provider-s3` — utility helpers (`createS3Provider`), kein `defineFeature`
+- `foundation-shared` — pure utilities (`requireDefined`, `requireNonEmpty`), kein `defineFeature`
 
-M0.1 will reduce this list by mounting each with minimal-stub options.
+The 3 remaining are utilities or auto-mounted — they cannot be added to `APP_FEATURES` by design.
 
 ## Maintenance
 

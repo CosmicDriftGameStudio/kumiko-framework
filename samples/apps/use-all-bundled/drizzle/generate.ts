@@ -182,6 +182,45 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "@cosmicdrift/kumiko-bundled-features/custom-fields",
     exportName: "customFieldsFeature",
   },
+  // M0.1 hold-back features. Keine eigenen entities/projection-tables —
+  // generate.ts skipt sie silent in der entity-loop. Hier nur für
+  // check-coverage.ts gelistet (Maintenance-Lint M5 erwartet jeden
+  // mounted feature-export im Registry).
+  "channel-email": {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-bundled-features/channel-email",
+    factory: "createChannelEmailFeature",
+  },
+  "channel-push": {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-bundled-features/channel-push",
+    factory: "createChannelPushFeature",
+  },
+  "mail-transport-smtp": {
+    kind: "named",
+    path: "@cosmicdrift/kumiko-bundled-features/mail-transport-smtp",
+    exportName: "mailTransportSmtpFeature",
+  },
+  "file-provider-s3": {
+    kind: "named",
+    path: "@cosmicdrift/kumiko-bundled-features/file-provider-s3",
+    exportName: "fileProviderS3Feature",
+  },
+  "subscription-stripe": {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-bundled-features/subscription-stripe",
+    factory: "createSubscriptionStripeFeature",
+  },
+  "subscription-mollie": {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-bundled-features/subscription-mollie",
+    factory: "createSubscriptionMollieFeature",
+  },
+  "feature-toggles": {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-bundled-features/feature-toggles",
+    factory: "createFeatureTogglesFeature",
+  },
 };
 
 const features = composeFeatures([...APP_FEATURES], {

@@ -25,21 +25,17 @@ const ROOT = resolve(import.meta.dir, "..");
 const FRAMEWORK_ROOT = resolve(ROOT, "..", "..", "..");
 
 // Held-back exports: existieren in bundled-features, sind aber nicht
-// als runtime-feature in use-all-bundled mountbar. Zwei Kategorien:
-// - utilities: kein r.defineFeature (foundation-shared exports helpers).
-// - options-required: feature, aber mount braucht non-trivial config
-//   (subscription-stripe braucht API-Keys etc.). M0.1 reduziert diese.
+// als runtime-feature in use-all-bundled mountbar.
+//
+// Nach M0.1 nur noch utilities + auto-mounted:
+// - utilities: kein r.defineFeature (foundation-shared, files-provider-s3
+//   sind pure helpers).
+// - auto-mounted: kommt via composeFeatures(includeBundled:true) automatisch
+//   (auth-email-password) — wäre doppelt-mount wenn explizit gelistet.
 const EXPECTED_HELD_BACK = new Set([
   "auth-email-password", // auto-mounted via composeFeatures(authOptions)
-  "channel-email", // EmailChannelOptions required
-  "channel-push", // PushChannelOptions required
-  "feature-toggles", // FeatureTogglesOptions required
-  "file-provider-s3", // S3 creds required
-  "files-provider-s3", // S3 creds required
+  "files-provider-s3", // utility (createS3Provider helpers), kein defineFeature
   "foundation-shared", // utilities (requireDefined/requireNonEmpty), kein feature
-  "mail-transport-smtp", // SMTP_HOST/USER/PASS required
-  "subscription-mollie", // Provider keys required
-  "subscription-stripe", // Provider keys required
 ]);
 
 // Sub-paths in bundled-features's package.json exports (./tenant/seeding,

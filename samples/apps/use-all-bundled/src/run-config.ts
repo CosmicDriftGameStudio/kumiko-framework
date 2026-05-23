@@ -8,62 +8,137 @@
 // das Pattern, das runProdApp's `auth: {…}`-Option auto-mountet. Sie
 // hier zu listen würde sie doppelt instanziieren und der drizzle-
 // Schema-Generator produziert dann duplicate-table-exports.
+//
+// M0.1 mountet auch die hold-back features mit minimal-stub options
+// (subscription-stripe, channel-email, …). Diese stubs sind nur für
+// boot-validation — kein realer transport/provider-call passiert.
 
 import { createAuditFeature } from "@cosmicdrift/kumiko-bundled-features/audit";
 import { billingFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import { capCounterFeature } from "@cosmicdrift/kumiko-bundled-features/cap-counter";
+import {
+  createChannelEmailFeature,
+  type EmailTransport,
+  type NotificationRenderer,
+} from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import { createChannelInAppFeature } from "@cosmicdrift/kumiko-bundled-features/channel-in-app";
+import {
+  createChannelPushFeature,
+  type PushTransport,
+} from "@cosmicdrift/kumiko-bundled-features/channel-push";
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { customFieldsFeature } from "@cosmicdrift/kumiko-bundled-features/custom-fields";
 import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
 import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
+import {
+  createFeatureTogglesFeature,
+  type GlobalFeatureToggleRuntime,
+} from "@cosmicdrift/kumiko-bundled-features/feature-toggles";
 import { fileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
 import { fileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-inmemory";
+import { fileProviderS3Feature } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3";
 import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
 import { createJobsFeature } from "@cosmicdrift/kumiko-bundled-features/jobs";
 import { createLegalPagesFeature } from "@cosmicdrift/kumiko-bundled-features/legal-pages";
 import { mailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
 import { mailTransportInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory";
+import { mailTransportSmtpFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-smtp";
 import { createRateLimitingFeature } from "@cosmicdrift/kumiko-bundled-features/rate-limiting";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import { createRendererSimpleFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-simple";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createStepDispatcherFeature } from "@cosmicdrift/kumiko-bundled-features/step-dispatcher";
+import { createSubscriptionMollieFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-mollie";
+import { createSubscriptionStripeFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-stripe";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { createTextContentFeature } from "@cosmicdrift/kumiko-bundled-features/text-content";
 import { tierEngineFeature } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
 
+// Smoke-only stubs. Boot-mode skipt jede operative Methode — diese werden
+// nie aufgerufen, nur typecheck'd.
+const stubEmailTransport: EmailTransport = {
+  send: async () => ({ messageId: "smoke" }),
+};
+const stubPushTransport: PushTransport = {
+  send: async () => {
+    /* smoke-only */
+  },
+};
+const stubRenderer: NotificationRenderer = {
+  render: async () => "<smoke/>",
+};
+
+// feature-toggles braucht einen getRuntime-accessor. Boot-mode validiert
+// nur, dass die accessor-Signatur stimmt; runtime-build passiert
+// post-boot in der real app.
+const stubFeatureTogglesRuntime: GlobalFeatureToggleRuntime = {
+  isEnabled: () => true,
+  setEnabled: async () => {
+    /* smoke-only */
+  },
+  refresh: async () => {
+    /* smoke-only */
+  },
+};
+
 export const APP_FEATURES = [
   // foundations not in the auto-mounted bundled-set
   createSecretsFeature(),
   createSessionsFeature(),
 
-  // delivery + channels (foundation before transports)
+  // delivery + channels
   createDeliveryFeature(),
   createChannelInAppFeature(),
-  // channel-email + channel-push require provider-options; mount in M0.1.
+  createChannelEmailFeature({
+    transport: stubEmailTransport,
+    renderer: stubRenderer,
+    resolveEmail: async () => "smoke@use-all-bundled.local",
+  }),
+  createChannelPushFeature({
+    transport: stubPushTransport,
+    resolveToken: async () => "smoke-push-token",
+  }),
 
   // mail (foundation before transport)
   mailFoundationFeature,
   mailTransportInMemoryFeature,
-  // mail-transport-smtp requires SMTP_HOST/USER/PASS; mount in M0.1.
+  mailTransportSmtpFeature,
 
   // files (foundation before provider)
   fileFoundationFeature,
   fileProviderInMemoryFeature,
+  fileProviderS3Feature,
   createFilesFeature(),
-  // file-provider-s3 + files-provider-s3 require S3 creds; mount in M0.1.
 
-  // billing
+  // billing + providers
   billingFoundationFeature,
-  // subscription-stripe + subscription-mollie need provider keys; M0.1.
+  createSubscriptionStripeFeature({
+    apiKey: "sk_test_smoke",
+    webhookSecret: "whsec_smoke",
+    priceToTier: { price_smoke: "free" },
+  }),
+  createSubscriptionMollieFeature({
+    apiKey: "test_smoke_key",
+    webhookUrl: "https://smoke.example/webhook",
+    priceToTier: { price_smoke: "free" },
+    priceToConfig: {
+      price_smoke: {
+        amount: { currency: "EUR", value: "0.00" },
+        interval: "1 month",
+        description: "Smoke",
+      },
+    },
+  }),
 
   // tiering + caps
   tierEngineFeature,
   capCounterFeature,
+
+  // feature-toggles (smoke-only runtime stub)
+  createFeatureTogglesFeature({ getRuntime: () => stubFeatureTogglesRuntime }),
 
   // jobs
   createJobsFeature(),
