@@ -1,5 +1,105 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.13.0
+
+### Minor Changes
+
+- 7bd5c88: `KUMIKO_DRY_RUN_ENV=boot` mode for runProdApp — runs env-validation +
+  composeFeatures + validateBoot + createRegistry without DB/Redis
+  connect, exits with status 0 on success. Used by the
+  `samples/apps/use-all-bundled` smoke-app (Sprint 9.8 Phase C / Empfehlung
+  1 / canonical bug-catcher) and downstream by enterprise's
+  `use-all-features` mirror. Render-modes (human|json|pulumi|k8s|1)
+  behavior unchanged.
+- 575752f: `scaffoldAppFeature` + `kumiko add feature <name>` — DX-2 aus DX-Roadmap.
+  Scaffolded ein neues Feature in `src/features/<name>/` einer bereits via
+  `kumiko new app` scaffolded App + **auto-mountet** es in `src/run-config.ts`
+  via ts-morph (import + `APP_FEATURES`-array-entry, idempotent).
+
+  User-Promise "defineFeature → nichts woanders eintragen" erfüllt für die
+  run-config-Seite. FEATURE_IMPORT_REGISTRY in drizzle/generate.ts ist
+  DX-4's Refactor — bei DX-1+DX-2-App noch nicht vorhanden.
+
+  Usage (in einer DX-1-gescaffoldeten App):
+
+  ```sh
+  bunx kumiko add feature product-catalog
+  # → src/features/product-catalog/{feature.ts,index.ts}
+  # → src/run-config.ts auto-edited: import + APP_FEATURES-entry
+  ```
+
+- 3d5e9ef: `kumiko-schema-check` CLI — Empfehlung 3 aus Sprint-9.8-Retro
+  (`luminous-watching-moler.md`). Diff't APP_FEATURES (runtime, aus
+  `src/run-config.ts`) gegen FEATURE_IMPORT_REGISTRY (statisch, aus
+  `drizzle/generate.ts`). Fängt Studio's 9.8-Drama: registry 18 features
+  hinter APP_FEATURES → migrations fehlten für mounted features.
+
+  Usage (im app-workspace):
+
+  ```sh
+  bunx kumiko-schema-check
+  # or with custom paths:
+  bunx kumiko-schema-check --run-config src/run-config.ts --generate drizzle/generate.ts
+  ```
+
+  Plus: 5 bundled-features hatten camelCase feature-names statt kebab-case
+  (Memory `feedback_kebab_aggregates`) — aufgedeckt durch den schema-check
+  gegen use-all-bundled. Fix: `channelEmail` → `channel-email`,
+  `channelInApp` → `channel-in-app`, `channelPush` → `channel-push`,
+  `rateLimiting` → `rate-limiting`, `rendererSimple` → `renderer-simple`.
+
+  Plus `CHANNEL_IN_APP_FEATURE` und `RATE_LIMITING_FEATURE` Konstanten
+  angepasst (waren intern auf camelCase, jetzt kebab-case).
+
+- 46b84d0: `scaffoldApp` + `kumiko new app <name>` — DX-1.0 aus DX-Roadmap. Generiert
+  ein lauffähiges App-Skelett (package.json, tsconfig, run-config mit
+  secrets+sessions, bin/main.ts mit auth-admin-stub + deterministische
+  tenant-UUID, .env.example, README) in `<cwd>/<name>/`.
+
+  Boot-Pfad: `KUMIKO_DRY_RUN_ENV=boot bun bin/main.ts` läuft ohne DB/Redis.
+
+  Held-back für spätere DX-Phasen: drizzle-setup (DX-1.1, blocked-by DX-4
+  auto-registry), Dockerfile (existing `kumiko init-deploy`), first feature
+  scaffold (existing `kumiko create` bzw. DX-2 `kumiko add feature`).
+
+  Usage:
+
+  ```sh
+  bunx kumiko new app my-shop
+  cd my-shop && yarn install
+  cp .env.example .env  # JWT_SECRET + KUMIKO_SECRETS_MASTER_KEY_V1 setzen
+  bun run boot          # → boot validation OK
+  ```
+
+### Patch Changes
+
+- 2bd60c1: `buildServerBundle` BUILD_ONLY_EXTERNALS erweitert um drizzle-kit's
+  dialect-resolver dynamic-imports: `@planetscale/database`, `@libsql/client`,
+  `better-sqlite3`, `@neondatabase/serverless`, `@vercel/postgres`, `mysql2`.
+
+  Aufgedeckt durch C1 Empfehlung 4 (bundle-smoke). Bisher schlug
+  `bun build` an dynamic-imports im drizzle-kit auch wenn der App nur
+  postgres nutzt. Externalisieren = build durchläuft + tree-shake wirft
+  die ungenutzten driver-modules eh raus.
+
+- 8bfb284: Dockerfile.template setzt `YARN_ENABLE_SCRIPTS=false` im Build-Stage. Fixt msgpackr-extract native-build-Failures (ARM, CI) und generell jeden transitiven Native-Dep — der Build-Stage bundlet nur JS via `bun build`, Runtime-Native-Deps werden separat im Runtime-Stage via `bun install --production` installiert. Apps die bisher per-package-Workarounds via `dependenciesMeta.<pkg>.built=false` in der App-package.json brauchten (studio, enterprise) können diese Entries nach Upgrade auf diese dev-server-Version entfernen.
+- cc0ddc0: `Dockerfile.template` emits an inline `start.sh` for createBunServer command-override target.
+
+  `infra/pulumi/bun-server.ts`'s `createBunServer` overrides the container command with `exec ./start.sh` after injecting DATABASE_URL from the init-container. Apps deployed via createBunServer crashed with `./start.sh: not found` until each one added a per-app `start.sh` in repo root (= studio's PR #22).
+
+  Now the Dockerfile-template emits the file inline (`RUN printf … > ./start.sh && chmod +x`). Apps no longer need to ship one — the runtime stage generates it. Apps that don't go through createBunServer's command-override still boot via the bottom CMD; start.sh is dead-code in that case.
+
+- Updated dependencies [7f56b2f]
+- Updated dependencies [68b8118]
+- Updated dependencies [9121928]
+- Updated dependencies [72518fa]
+- Updated dependencies [0a00e7b]
+- Updated dependencies [aca1443]
+- Updated dependencies [c6cb96c]
+- Updated dependencies [3d5e9ef]
+  - @cosmicdrift/kumiko-framework@0.13.0
+  - @cosmicdrift/kumiko-bundled-features@0.13.0
+
 ## 0.12.2
 
 ### Patch Changes
