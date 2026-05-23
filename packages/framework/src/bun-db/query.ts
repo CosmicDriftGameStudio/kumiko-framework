@@ -18,6 +18,17 @@
 
 import type { EntityTableMeta } from "../db/entity-table-meta";
 import { toSnakeCase } from "../db/table-builder";
+import { camelCase as envCamelCase } from "../env";
+
+// Idempotent snake_case → camelCase. `env.camelCase` always lowercases first
+// (designed for SHOUT_CASE input) — for already-camelCase keys (mock rows
+// in tests, projection-aliased columns) it would silently produce "tenantid"
+// instead of leaving "tenantId" alone. Guard with an underscore check so
+// the conversion only fires when the key is actually snake-shaped.
+function snakeToCamel(key: string): string {
+  if (!key.includes("_")) return key;
+  return envCamelCase(key);
+}
 import type { BunDbRunner } from "./connection";
 
 // Drizzle-pgTable-Inspection via raw Symbol-access (kein drizzle-orm import).
@@ -62,23 +73,32 @@ type RawClient = {
 
 export function asRawClient(db: unknown): RawClient {
   const dbAny = db as Record<string, unknown>;
-  // Bun.SQL: .unsafe() + .begin() direkt auf dem Instance.
-  if (typeof dbAny["unsafe"] === "function" && typeof dbAny["begin"] === "function") {
+  // Direct: Bun.SQL / postgres-js Sql / postgres-js TransactionSql. All three
+  // expose `.unsafe`; only Sql/Bun.SQL have `.begin` — TransactionSql uses
+  // `.savepoint` for nested-tx. We only require `.unsafe` here; callers that
+  // need `.begin` (e.g. `transaction()`) verify it themselves.
+  if (typeof dbAny["unsafe"] === "function") {
     return dbAny as unknown as RawClient;
   }
-  // Drizzle DbConnection: $client = postgres-js Sql.
+  // TenantDb-shape: framework wrapper exposing the underlying runner as `.raw`.
+  // Callers that pass `ctx.db` instead of `ctx.db.raw` land here — unwrap once.
+  const raw = dbAny["raw"];
+  if (raw && typeof (raw as Record<string, unknown>)["unsafe"] === "function") {
+    return raw as unknown as RawClient;
+  }
+  // Drizzle DbConnection (legacy compat): $client = postgres-js Sql.
   const $client = dbAny["$client"];
   if ($client && typeof ($client as Record<string, unknown>)["unsafe"] === "function") {
     return $client as unknown as RawClient;
   }
-  // Drizzle pg-transaction: session.client = postgres-js Sql.
+  // Drizzle pg-transaction (legacy compat): session.client = postgres-js Sql.
   const session = dbAny["session"] as Record<string, unknown> | undefined;
   const sessionClient = session?.["client"];
   if (sessionClient && typeof (sessionClient as Record<string, unknown>)["unsafe"] === "function") {
     return sessionClient as unknown as RawClient;
   }
   throw new Error(
-    "bun-db: db argument has no .unsafe() — pass Bun.SQL, drizzle DbConnection, or drizzle tx.",
+    "bun-db: db argument has no .unsafe() — pass Bun.SQL, postgres-js Sql, TenantDb, or a transaction handle.",
   );
 }
 
@@ -107,12 +127,16 @@ function isWhereOperator(v: unknown): v is WhereOperator {
   const opKeys = ["gt", "gte", "lt", "lte", "ne", "in", "like"];
   return keys.every((k) => opKeys.includes(k));
 }
+export type OrderByClause = {
+  readonly col: string;
+  readonly direction?: "asc" | "desc";
+};
+
 export type SelectOptions = {
   readonly limit?: number;
-  readonly orderBy?: {
-    readonly col: string;
-    readonly direction?: "asc" | "desc";
-  };
+  // Single column or array for multi-column tie-breaks (e.g.
+  // [{col: "createdAt"}, {col: "id"}] for chronological-with-stable-id).
+  readonly orderBy?: OrderByClause | readonly OrderByClause[];
 };
 
 // Akzeptiert EITHER. Beide haben einen tableName und field→column-mapping.
@@ -125,7 +149,12 @@ type TableInfo = {
   readonly columnOf: (field: string) => string;
   // pgType per column-name, for jsonb-cast detection
   readonly pgTypeOf: (column: string) => string | undefined;
+  // Inverse of columnOf — snake_case DB column → JS field-name (camelCase).
+  // Used at the result boundary to rename row keys back to the API shape
+  // that callers consume (`row.aggregateId` instead of `row.aggregate_id`).
+  readonly fieldOf: (column: string) => string;
 };
+
 
 function extractTableInfo(table: TableLike): TableInfo {
   // EntityTableMeta discriminator: hat source-property "managed" | "unmanaged"
@@ -137,21 +166,23 @@ function extractTableInfo(table: TableLike): TableInfo {
   ) {
     const meta = table as EntityTableMeta;
     const colByField = new Map<string, string>();
+    const fieldByCol = new Map<string, string>();
     const typeByCol = new Map<string, string>();
     for (const c of meta.columns) {
       typeByCol.set(c.name, c.pgType);
-      // EntityTableMeta column names are already snake_case. App-code may
-      // pass camelCase keys (z.B. `tenantId`) — convert via toSnakeCase.
+      // EntityTableMeta column names are snake_case. Map snake → snake AND
+      // derive a camelCase JS field-name so result rows can be renamed back
+      // to the API shape (`aggregate_id` → `aggregateId`).
       colByField.set(c.name, c.name);
+      const camel = snakeToCamel(c.name);
+      if (camel !== c.name) colByField.set(camel, c.name);
+      fieldByCol.set(c.name, camel === c.name ? c.name : camel);
     }
     return {
       name: meta.tableName,
-      columnOf: (field) => {
-        if (colByField.has(field)) return field;
-        const snake = toSnakeCase(field);
-        return colByField.has(snake) ? snake : snake;
-      },
+      columnOf: (field) => colByField.get(field) ?? toSnakeCase(field),
       pgTypeOf: (col) => typeByCol.get(col),
+      fieldOf: (col) => fieldByCol.get(col) ?? snakeToCamel(col),
     };
   }
   // drizzle pgTable: tableName via Symbol.for("kumiko:schema:Name"), columns via
@@ -165,15 +196,18 @@ function extractTableInfo(table: TableLike): TableInfo {
   }
   const cols = extractDrizzleColumns(table);
   const colByField = new Map<string, string>();
+  const fieldByCol = new Map<string, string>();
   const typeByCol = new Map<string, string>();
   for (const [field, { name: colName, sqlType }] of cols) {
     colByField.set(field, colName);
+    fieldByCol.set(colName, field);
     if (sqlType) typeByCol.set(colName, sqlType);
   }
   return {
     name,
     columnOf: (field) => colByField.get(field) ?? toSnakeCase(field),
     pgTypeOf: (col) => typeByCol.get(col),
+    fieldOf: (col) => fieldByCol.get(col) ?? snakeToCamel(col),
   };
 }
 
@@ -214,19 +248,37 @@ function instantFromDriver(value: unknown): Temporal.Instant | null {
   return null;
 }
 
+// Walk the driver-row, applying three boundary-conversions per known column:
+//   - rename key snake_case → camelCase JS field-name (drizzle did this
+//     invisibly via its column-mapper; native dialect rebuild lost it)
+//   - parse jsonb string → object (postgres-js returns jsonb as text by
+//     default, not parsed JSON)
+//   - coerce timestamptz Date/string → Temporal.Instant
+//
+// Unknown columns (computed/aliased) pass through unchanged.
 function coerceRow<T extends Record<string, unknown>>(row: T, info: TableInfo): T {
-  let out: Record<string, unknown> | undefined;
+  const out: Record<string, unknown> = {};
+  let changed = false;
   for (const key of Object.keys(row)) {
     const pgType = info.pgTypeOf(key);
+    const value = row[key];
+    let coerced: unknown = value;
     if (pgType === "timestamptz" || pgType === "timestamptz(3)") {
-      const coerced = instantFromDriver(row[key]);
-      if (coerced !== null && coerced !== row[key]) {
-        if (!out) out = { ...row };
-        out[key] = coerced;
+      const t = instantFromDriver(value);
+      if (t !== null) coerced = t;
+    } else if (pgType === "jsonb" && typeof value === "string") {
+      try {
+        coerced = JSON.parse(value);
+      } catch {
+        // leave as string on parse error — caller decides
       }
     }
+    const fieldName = info.fieldOf(key);
+    if (fieldName !== key) changed = true;
+    if (coerced !== value) changed = true;
+    out[fieldName] = coerced;
   }
-  return (out ?? row) as T;
+  return (changed ? out : row) as T;
 }
 
 function coerceRows<T extends Record<string, unknown>>(
@@ -332,9 +384,13 @@ export async function selectMany<TRow = any>(
     values = w.values;
   }
   if (options?.orderBy) {
-    const col = info.columnOf(options.orderBy.col);
-    const dir = options.orderBy.direction === "desc" ? "DESC" : "ASC";
-    sqlText += ` ORDER BY ${quoteIdent(col)} ${dir}`;
+    const clauses = Array.isArray(options.orderBy) ? options.orderBy : [options.orderBy];
+    const parts = clauses.map((c) => {
+      const col = info.columnOf(c.col);
+      const dir = c.direction === "desc" ? "DESC" : "ASC";
+      return `${quoteIdent(col)} ${dir}`;
+    });
+    if (parts.length > 0) sqlText += ` ORDER BY ${parts.join(", ")}`;
   }
   if (options?.limit !== undefined) {
     sqlText += ` LIMIT ${options.limit}`;

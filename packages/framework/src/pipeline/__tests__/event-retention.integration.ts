@@ -77,7 +77,7 @@ async function seedOldAggregateEvent(
   type: string,
   aggregateType = "widget",
 ): Promise<bigint> {
-  const [row] = await insertOne(stack.db, eventsTable, {
+  const row = await insertOne<{ id: bigint }>(stack.db, eventsTable, {
     aggregateId: generateId(),
     aggregateType,
     tenantId: admin.tenantId,

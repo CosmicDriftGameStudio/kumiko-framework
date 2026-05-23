@@ -333,10 +333,12 @@ export async function loadAllEventsByType(
   db: DbRunner,
   aggregateType: string,
 ): Promise<readonly StoredEvent[]> {
-  const rows = (await asRawClient(db).unsafe(
-    `SELECT * FROM "kumiko_events" WHERE "aggregate_type" = $1 ORDER BY "created_at" ASC, "id" ASC`,
-    [aggregateType],
-  )) as ReadonlyArray<SelectedEvent>;
+  const rows = await selectMany<SelectedEvent>(
+    db,
+    eventsTable,
+    { aggregateType },
+    { orderBy: [{ col: "createdAt", direction: "asc" }, { col: "id", direction: "asc" }] },
+  );
   return rows.map(toStoredEvent);
 }
 
