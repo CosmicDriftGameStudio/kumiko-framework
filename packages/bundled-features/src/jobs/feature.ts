@@ -19,11 +19,14 @@ import {
   JOB_RUN_FAILED_EVENT,
   JOB_RUN_STARTED_EVENT,
 } from "./job-run-logger";
-import { jobRunLogsTable, jobRunsTable } from "./job-run-table";
+import { jobRunLogsTable, jobRunLogsTableMeta, jobRunsTable } from "./job-run-table";
 
 export function createJobsFeature(): FeatureDefinition {
   return defineFeature("jobs", (r) => {
     r.systemScope();
+    r.unmanagedTable(jobRunLogsTableMeta, {
+      reason: "append-only run-log via BullMQ-callback path — no aggregate lifecycle.",
+    });
     // Events-only aggregate: "jobRun" has no r.entity registration, because
     // the entire lifecycle is driven by BullMQ-callback → r.defineEvent
     // (no executor, no CRUD). The boot-validator accepts the two

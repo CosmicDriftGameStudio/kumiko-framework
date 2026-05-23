@@ -6,12 +6,20 @@ import { deliveryAttemptSchema } from "./events";
 import { logQuery } from "./handlers/log.query";
 import { preferencesQuery } from "./handlers/preferences.query";
 import { setPreferenceWrite } from "./handlers/set-preference.write";
-import { deliveryAttemptsTable, notificationPreferenceEntity } from "./tables";
+import {
+  deliveryAttemptsTable,
+  deliveryAttemptsTableMeta,
+  notificationPreferenceEntity,
+} from "./tables";
 
 export function createDeliveryFeature(): FeatureDefinition {
   return defineFeature("delivery", (r) => {
     r.systemScope();
     r.entity("notification-preference", notificationPreferenceEntity);
+    r.unmanagedTable(deliveryAttemptsTableMeta, {
+      reason:
+        "read-side log projection of DELIVERY_ATTEMPT events — flat shape, no aggregate lifecycle.",
+    });
 
     // Events-only projection source: "deliveryAttempt" is the aggregate-
     // type on the events-table, but there's no r.entity for it — each

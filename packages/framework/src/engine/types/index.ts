@@ -70,6 +70,8 @@ export type {
   SecretKeyDefinition,
   SecretKeyHandle,
   SecretOptions,
+  UnmanagedTableDef,
+  UnmanagedTableEntry,
 } from "./feature";
 export type {
   AnyFileFieldDef,

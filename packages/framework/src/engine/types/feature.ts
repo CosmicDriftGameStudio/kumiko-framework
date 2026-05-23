@@ -1,10 +1,10 @@
 import type { ZodType, z } from "zod";
+import type { EntityTableMeta } from "../../db/entity-table-meta";
 
 // PgTable historically came from drizzle-orm/pg-core; the native dialect
 // no longer carries drizzle internal class types. Every caller really
 // needs "an opaque table-object with Symbol-based introspection".
 type PgTable = unknown;
-
 import type { QueryHandlerDefinition, WriteHandlerDefinition } from "../define-handler";
 import type {
   ConfigKeyDefinition,
@@ -148,6 +148,23 @@ export type RawTableDef = RawTableEntry & {
   readonly featureName: string;
 };
 
+// --- Unmanaged tables (declared by features via r.unmanagedTable()) ---
+
+/** Per-feature unmanaged-table registration. `meta` is the
+ *  `EntityTableMeta` (framework-native shape used by `migrate-runner`).
+ *  The `reason` justifies the bypass at the registration site — same
+ *  contract as `r.rawTable`. */
+export type UnmanagedTableEntry = {
+  readonly name: string;
+  readonly meta: EntityTableMeta;
+  readonly reason: string;
+};
+
+/** Registry-aggregated unmanaged-table — adds the owning feature name. */
+export type UnmanagedTableDef = UnmanagedTableEntry & {
+  readonly featureName: string;
+};
+
 // --- Feature Definition (output of defineFeature) ---
 
 export type FeatureDefinition = {
@@ -274,6 +291,12 @@ export type FeatureDefinition = {
   // system. Keyed by feature-local short name. The registry attaches
   // featureName on aggregation, lifting RawTableEntry → RawTableDef.
   readonly rawTables: Readonly<Record<string, RawTableEntry>>;
+  // Unmanaged tables declared via r.unmanagedTable() — `EntityTableMeta`
+  // shape (post-drizzle), keyed by feature-local table-name. Cousin of
+  // rawTables: same bypass-justification contract, different storage
+  // shape. `kumiko schema generate` aggregates these alongside
+  // r.entity()-derived metas to build the full schema.
+  readonly unmanagedTables: Readonly<Record<string, UnmanagedTableEntry>>;
   // Optional Zod-schema for env-vars this feature reads at runtime.
   // Declared via `r.envSchema(z.object({...}))`. `composeEnvSchema` reads
   // this to build one app-wide schema for boot-validation + dry-run
@@ -581,6 +604,22 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // a non-empty string is the contract. If you can't write a reason,
   // declare data via `r.entity()` instead.
   rawTable(name: string, table: PgTable, options: RawTableOptions): void;
+
+  // Declare an "unmanaged" framework-native table (post-drizzle).
+  // EntityTableMeta carries the same column-shape that r.entity() builds,
+  // minus the audit-trail + base-columns scaffolding — used for read-side
+  // projections of event-streams (delivery-attempts, job-run-logs) where
+  // r.entity()'s aggregate-lifecycle assumptions don't fit.
+  //
+  // The `meta` argument is the result of `defineUnmanagedTable(...)` from
+  // `@cosmicdrift/kumiko-framework/db`. Reason-justification + audit-trail
+  // contract identical to `r.rawTable`.
+  //
+  // Why this exists separate from `r.rawTable`: rawTable carries a Drizzle
+  // `PgTable` (legacy), unmanagedTable carries the new `EntityTableMeta`
+  // shape that `migrate-runner` consumes. After the full drizzle-cut they
+  // will likely merge; for now they coexist.
+  unmanagedTable(meta: EntityTableMeta, options: RawTableOptions): void;
 
   // Register the tree-actions schema for this feature — a map of
   // action-name → action-definition (with optional typed args). At-most-

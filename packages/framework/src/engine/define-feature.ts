@@ -1,4 +1,5 @@
 import type { ZodType, z } from "zod";
+import type { EntityTableMeta } from "../db/entity-table-meta";
 import { toTableName } from "../db/table-builder";
 import { LifecycleHookTypes } from "./constants";
 import type { QueryHandlerDefinition, WriteHandlerDefinition } from "./define-handler";
@@ -61,6 +62,7 @@ import type {
   TreeActionDef,
   TreeActionsHandle,
   TreeChildrenSubscribe,
+  UnmanagedTableEntry,
   ValidationHookFn,
   WriteHandlerDef,
   WriteHandlerFn,
@@ -136,6 +138,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
   const projections: Record<string, ProjectionDefinition> = {};
   const multiStreamProjections: Record<string, MultiStreamProjectionDefinition> = {};
   const rawTables: Record<string, RawTableEntry> = {};
+  const unmanagedTables: Record<string, UnmanagedTableEntry> = {};
   const authClaimsHooks: AuthClaimsFn[] = [];
   const claimKeys: Record<string, ClaimKeyDefinition> = {};
   const screens: Record<string, ScreenDefinition> = {};
@@ -791,6 +794,38 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       };
     },
 
+    unmanagedTable(meta: EntityTableMeta, options: RawTableOptions): void {
+      // Name comes from the meta itself — apps already give the table a
+      // name when calling defineUnmanagedTable, no need to repeat it.
+      const tableName = meta.tableName;
+      if (!isKebabSegment(tableName.replace(/_/g, "-"))) {
+        // EntityTableMeta uses snake_case for tableName (matches Postgres
+        // convention); we just guard against truly broken input.
+        throw new Error(
+          `[Feature ${name}] Unmanaged-table name "${tableName}" must be a ` +
+            `valid identifier (lowercase letters, digits, underscores; start with a letter).`,
+        );
+      }
+      if (unmanagedTables[tableName]) {
+        throw new Error(
+          `[Feature ${name}] r.unmanagedTable("${tableName}") already registered. ` +
+            `Unmanaged-table names must be unique per feature.`,
+        );
+      }
+      if (typeof options.reason !== "string" || options.reason.trim().length === 0) {
+        throw new Error(
+          `[Feature ${name}] r.unmanagedTable("${tableName}"): options.reason must be a ` +
+            `non-empty string. The reason justifies the audit-trail bypass — ` +
+            `if you can't write one, declare data via r.entity() instead.`,
+        );
+      }
+      unmanagedTables[tableName] = {
+        name: tableName,
+        meta,
+        reason: options.reason,
+      };
+    },
+
     claimKey<T extends ClaimKeyType>(
       shortName: string,
       options: { readonly type: T },
@@ -905,6 +940,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     workspaces,
     httpRoutes,
     rawTables,
+    unmanagedTables,
     ...(treeActions !== undefined && { treeActions }),
     ...(treeProvider !== undefined && { treeProvider }),
     ...(envSchema !== undefined && { envSchema }),
