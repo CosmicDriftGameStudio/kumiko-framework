@@ -4,8 +4,11 @@
 // script + ../README.md.
 
 import { frameworkCoreEnvSchema, runProdApp } from "@cosmicdrift/kumiko-dev-server";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import { APP_FEATURES } from "../src/run-config";
+
+const SMOKE_TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 
 const envSchema = composeEnvSchema({
   core: frameworkCoreEnvSchema,
@@ -16,4 +19,22 @@ await runProdApp({
   features: APP_FEATURES,
   envSchema,
   migrations: false,
+  // auth.admin triggert composeFeatures(includeBundled:true) — auto-mounts
+  // config + user + tenant + auth-email-password. Boot-mode exitiert
+  // bevor admin-Seeding läuft, der Wert ist nur ein Stub für die Typen.
+  auth: {
+    admin: {
+      email: "smoke@use-all-bundled.local",
+      password: "smoke-only-never-deployed",
+      displayName: "Smoke Admin",
+      memberships: [
+        {
+          tenantId: SMOKE_TENANT_ID,
+          tenantKey: "smoke",
+          tenantName: "Use-All-Bundled Smoke",
+          roles: ["TenantAdmin"],
+        },
+      ],
+    },
+  },
 });
