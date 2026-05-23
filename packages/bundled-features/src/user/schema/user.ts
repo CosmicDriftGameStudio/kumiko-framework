@@ -63,6 +63,7 @@ export const userEntity = createEntity({
       required: true,
       format: "email",
       maxLength: 320,
+      pii: true,
       access: { write: access.privileged },
     }),
 
@@ -74,8 +75,9 @@ export const userEntity = createEntity({
       access: { read: access.privileged, write: access.privileged },
     }),
 
-    // Profile — user-editable
-    displayName: createTextField({ required: true, maxLength: 100, searchable: true }),
+    // Profile — user-editable. Display-name is real-name in most apps,
+    // so treat as PII for DSGVO export/forget pipelines.
+    displayName: createTextField({ required: true, maxLength: 100, searchable: true, pii: true }),
     locale: createTextField({ maxLength: 10, default: "de" }),
 
     // Which tenant should this user land in on next login. Set by the login

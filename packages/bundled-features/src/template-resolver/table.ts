@@ -21,7 +21,9 @@ export const templateResourceEntity = createEntity({
     slug: createTextField({ required: true }),
     kind: createSelectField({ required: true, options: [...RENDER_KINDS] }),
     locale: createTextField({ required: true }),
-    content: createLongTextField({}),
+    // Template-body is authored by TenantAdmin/Operator (email-templates etc.),
+    // business data — kein end-user UGC.
+    content: createLongTextField({ allowPlaintext: "is-business-data" }),
     contentFormat: createSelectField({ required: true, options: [...CONTENT_FORMATS] }),
     variableSchema: createLongTextField({}),
     linkedResources: createLongTextField({}),
