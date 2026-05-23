@@ -24,10 +24,18 @@ export type FeatureTogglesOptions = {
   //
   // Production setup: resolve the runtime after buildServer returns, then
   // pass `() => runtime`. For tests, use createLateBoundHolder + .get().
-  readonly getRuntime: () => GlobalFeatureToggleRuntime;
+  //
+  // **Optional** — boot-mode (KUMIKO_DRY_RUN_ENV=boot) wires the feature
+  // up without ever calling the set-handler, so a runtime-stub is then
+  // pure cargo-cult. Omit `getRuntime` and the handler throws lazily on
+  // first call with an actionable message. App-authors who DO route to
+  // the set-handler at runtime MUST supply the accessor.
+  readonly getRuntime?: () => GlobalFeatureToggleRuntime;
 };
 
-export function createFeatureTogglesFeature(options: FeatureTogglesOptions): FeatureDefinition {
+export function createFeatureTogglesFeature(
+  options: FeatureTogglesOptions = {},
+): FeatureDefinition {
   return defineFeature("feature-toggles", (r) => {
     r.systemScope();
 
@@ -79,6 +87,12 @@ export function createFeatureTogglesFeature(options: FeatureTogglesOptions): Fea
           // than re-parsing — the payload round-trips through JSON and is
           // fixed at the source.
           const payload = event.payload as { featureName: string; enabled: boolean }; // @cast-boundary engine-payload
+          if (!options.getRuntime) {
+            throw new Error(
+              "[feature-toggles] toggle-cache-sync MSP fired but createFeatureTogglesFeature " +
+                "was wired up without `getRuntime`. Wire the accessor in your app-config.",
+            );
+          }
           options.getRuntime().apply(payload.featureName, payload.enabled);
         },
       },
