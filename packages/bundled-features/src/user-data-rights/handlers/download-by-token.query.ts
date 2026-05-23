@@ -26,7 +26,6 @@
 // signedUrl — User klickt 1× Email-Link, Browser folgt redirect, Download
 // startet. Dieser query-handler liefert nur das JSON.
 
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
@@ -87,11 +86,11 @@ export const downloadByTokenQuery = defineQueryHandler({
     const hash = await hashDownloadToken(query.payload.token);
     // ctx.db.raw weil Token+Job tenant-agnostisch — anonymous-pfad hat
     // keinen tenant-context im query.user.
-    const tokenRow = (await fetchOne(
+    const tokenRow = await fetchOne<TokenRow>(
       ctx.db.raw,
       exportDownloadTokensTable,
       eq(exportDownloadTokensTable["tokenHash"], hash),
-    )) as TokenRow | null; // @cast-boundary db-row
+    );
 
     if (!tokenRow) {
       // Invalid token — 404 ohne Existenz-Leak. Generic NotFoundError
@@ -116,18 +115,15 @@ export const downloadByTokenQuery = defineQueryHandler({
       // Audit-Skip noch nicht moeglich — jobRow noch nicht geladen,
       // tenantId unbekannt. Wir laden den Job hier noch fuer Audit-Context
       // (best-effort — wenn Job auch fehlt, audit-skip ist akzeptabel).
-      const jobForAudit = (await fetchOne(
+      const jobForAudit = await fetchOne<{ requestedFromTenantId: string }>(
         ctx.db.raw,
         exportJobsTable,
         eq(exportJobsTable["id"], tokenRow.jobId),
-      )) as { requestedFromTenantId: string } | null; // @cast-boundary db-row
+      );
       if (jobForAudit) {
-        const auditDb = ctx.db.raw as DbConnection; // @cast-boundary db-runner
         await recordInvalidAttempt({
-          db: auditDb,
-          tenantId: jobForAudit.requestedFromTenantId as Parameters<
-            typeof recordInvalidAttempt
-          >[0]["tenantId"], // @cast-boundary engine-bridge
+          db: ctx.db.raw,
+          tenantId: jobForAudit.requestedFromTenantId,
           now,
           result: "expired",
           via: "token",
@@ -144,11 +140,11 @@ export const downloadByTokenQuery = defineQueryHandler({
     }
 
     // Step 3-4: job-checks
-    const jobRow = (await fetchOne(
+    const jobRow = await fetchOne<JobRow>(
       ctx.db.raw,
       exportJobsTable,
       eq(exportJobsTable["id"], tokenRow.jobId),
-    )) as JobRow | null; // @cast-boundary db-row
+    );
 
     if (!jobRow) {
       throw new NotFoundError("export-download", undefined, {
@@ -157,10 +153,8 @@ export const downloadByTokenQuery = defineQueryHandler({
     }
     if (jobRow.status !== EXPORT_JOB_STATUS.Done) {
       await recordInvalidAttempt({
-        db: ctx.db.raw as DbConnection, // @cast-boundary db-runner
-        tenantId: jobRow.requestedFromTenantId as Parameters<
-          typeof recordInvalidAttempt
-        >[0]["tenantId"], // @cast-boundary engine-bridge
+        db: ctx.db.raw,
+        tenantId: jobRow.requestedFromTenantId,
         now,
         result: "failed",
         via: "token",
@@ -176,10 +170,8 @@ export const downloadByTokenQuery = defineQueryHandler({
     }
     if (!jobRow.downloadStorageKey) {
       await recordInvalidAttempt({
-        db: ctx.db.raw as DbConnection, // @cast-boundary db-runner
-        tenantId: jobRow.requestedFromTenantId as Parameters<
-          typeof recordInvalidAttempt
-        >[0]["tenantId"], // @cast-boundary engine-bridge
+        db: ctx.db.raw,
+        tenantId: jobRow.requestedFromTenantId,
         now,
         result: "expired",
         via: "token",
@@ -203,10 +195,8 @@ export const downloadByTokenQuery = defineQueryHandler({
     );
     if (!provider.getSignedUrl) {
       await recordInvalidAttempt({
-        db: ctx.db.raw as DbConnection, // @cast-boundary db-runner
-        tenantId: jobRow.requestedFromTenantId as Parameters<
-          typeof recordInvalidAttempt
-        >[0]["tenantId"], // @cast-boundary engine-bridge
+        db: ctx.db.raw,
+        tenantId: jobRow.requestedFromTenantId,
         now,
         result: "signedUrlNotSupported",
         via: "token",
@@ -236,11 +226,11 @@ export const downloadByTokenQuery = defineQueryHandler({
     // Wrapper (trusted-source). Direct-API-caller koennen luegen, aber
     // Audit ist nicht security-relevant.
     await recordDownloadUse({
-      db: ctx.db.raw as DbConnection, // @cast-boundary db-runner
+      db: ctx.db.raw,
       tokenId: tokenRow.id,
       tokenVersion: tokenRow.version,
       tokenUseCount: tokenRow.useCount ?? 0,
-      tenantId: jobRow.requestedFromTenantId as Parameters<typeof recordDownloadUse>[0]["tenantId"], // @cast-boundary engine-bridge
+      tenantId: jobRow.requestedFromTenantId,
       now,
       ip: query.payload.auditMeta?.ip ?? null,
       userAgent: query.payload.auditMeta?.userAgent ?? null,

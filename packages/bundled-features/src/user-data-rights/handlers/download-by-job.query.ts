@@ -23,7 +23,6 @@
 //   6. Audit-Update: useCount + 1, IP, UA, lastUsedAt (best-effort)
 //   7. Return {url, expiresAt}
 
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
@@ -76,15 +75,15 @@ export const downloadByJobQuery = defineQueryHandler({
     // Step 1-2: job-lookup + cross-user-isolation
     // ctx.db.raw weil tenant-agnostisch — Alice in Tenant B sucht den
     // aus Tenant A erstellten Job.
-    const jobRow = (await fetchOne(
+    const jobRow = await fetchOne<JobRow>(
       ctx.db.raw,
       exportJobsTable,
       eq(exportJobsTable["id"], jobId),
-    )) as JobRow | null; // @cast-boundary db-row
+    );
 
     if (!jobRow || jobRow.userId !== userId) {
       await recordInvalidAttempt({
-        db: ctx.db.raw as DbConnection, // @cast-boundary db-runner
+        db: ctx.db.raw,
         tenantId,
         now,
         result: "notFound",
@@ -102,7 +101,7 @@ export const downloadByJobQuery = defineQueryHandler({
 
     if (jobRow.status !== EXPORT_JOB_STATUS.Done) {
       await recordInvalidAttempt({
-        db: ctx.db.raw as DbConnection, // @cast-boundary db-runner
+        db: ctx.db.raw,
         tenantId,
         now,
         result: "failed",
@@ -119,7 +118,7 @@ export const downloadByJobQuery = defineQueryHandler({
     }
     if (!jobRow.downloadStorageKey) {
       await recordInvalidAttempt({
-        db: ctx.db.raw as DbConnection, // @cast-boundary db-runner
+        db: ctx.db.raw,
         tenantId,
         now,
         result: "expired",
@@ -142,7 +141,7 @@ export const downloadByJobQuery = defineQueryHandler({
     );
     if (!provider.getSignedUrl) {
       await recordInvalidAttempt({
-        db: ctx.db.raw as DbConnection, // @cast-boundary db-runner
+        db: ctx.db.raw,
         tenantId,
         now,
         result: "signedUrlNotSupported",
@@ -173,21 +172,19 @@ export const downloadByJobQuery = defineQueryHandler({
     // den plain-Token, aber wir wollen den useCount inkrementieren
     // damit die Audit-Felder konsistent sind (UI-clicks zaehlen auch
     // als Use). Lookup via jobId — UNIQUE-Index garantiert max 1 Row.
-    const tokenRow = (await fetchOne(
+    const tokenRow = await fetchOne<TokenRow>(
       ctx.db.raw,
       exportDownloadTokensTable,
       eq(exportDownloadTokensTable["jobId"], jobId),
-    )) as TokenRow | null; // @cast-boundary db-row
+    );
 
     if (tokenRow) {
       await recordDownloadUse({
-        db: ctx.db.raw as DbConnection, // @cast-boundary db-runner
+        db: ctx.db.raw,
         tokenId: tokenRow.id,
         tokenVersion: tokenRow.version,
         tokenUseCount: tokenRow.useCount ?? 0,
-        tenantId: jobRow.requestedFromTenantId as Parameters<
-          typeof recordDownloadUse
-        >[0]["tenantId"], // @cast-boundary engine-bridge
+        tenantId: jobRow.requestedFromTenantId,
         now,
         ip: query.payload.auditMeta?.ip ?? null,
         userAgent: query.payload.auditMeta?.userAgent ?? null,

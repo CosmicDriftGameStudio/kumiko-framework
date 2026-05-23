@@ -170,11 +170,11 @@ export async function rebuildMultiStreamProjection(
           };
           const storedEvent = await upcastStoredEvent(raw, upcasters, {
             db: tx,
-            tenantId: row.tenantId as TenantId, // @cast-boundary db-row
+            tenantId: row.tenantId,
           });
           const applyFn = msp.apply[row.type];
           if (!applyFn) continue;
-          const rebuildCtx = createRebuildCtx(registry, tx, row.tenantId as TenantId); // @cast-boundary db-row
+          const rebuildCtx = createRebuildCtx(registry, tx, row.tenantId);
           await applyFn(storedEvent, tx, rebuildCtx);
           eventsProcessed++;
           lastProcessedEventId = row.id;

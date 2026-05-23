@@ -104,20 +104,28 @@ export function createInviteSignupCompleteHandler() {
       const burn = await burnInviteToken(ctx.redis, event.payload.token);
       if (burn === "already-used") return invalidInviteToken();
 
+      type InvitationRow = {
+        readonly status: string;
+        readonly tenantId: TenantId;
+        readonly email: string;
+        readonly role: string;
+        readonly version: number;
+      };
+
       let committed = false;
       try {
-        const invitation = await fetchOne(
+        const invitation = await fetchOne<InvitationRow>(
           ctx.db.raw,
           tenantInvitationsTable,
           eq(tenantInvitationsTable.id, invitationId),
         );
-        if (!invitation || invitation["status"] !== INVITATION_STATUS.pending)
+        if (!invitation || invitation.status !== INVITATION_STATUS.pending)
           return invalidInviteToken();
 
-        const invitationTenantId = invitation["tenantId"] as TenantId; // @cast-boundary db-row
-        const invitationEmail = invitation["email"] as string; // @cast-boundary db-row
-        const invitationRole = invitation["role"] as string; // @cast-boundary db-row
-        const invitationVersion = invitation["version"] as number; // @cast-boundary db-row
+        const invitationTenantId = invitation.tenantId;
+        const invitationEmail = invitation.email;
+        const invitationRole = invitation.role;
+        const invitationVersion = invitation.version;
 
         // User-Not-Exists-Check: wenn die Email schon registriert ist,
         // muss der User Branch 2 (acceptWithLogin) nutzen. Hier ist

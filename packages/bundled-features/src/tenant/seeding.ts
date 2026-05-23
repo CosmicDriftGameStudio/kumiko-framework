@@ -34,7 +34,7 @@
 import {
   createEventStoreExecutor,
   createTenantDb,
-  type DbConnection,
+  type DbRunner,
   fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
@@ -83,7 +83,7 @@ export type SeedTenantOptions = {
  * `TenantHandlers.create`, minus the SystemAdmin-access-check and minus
  * ConflictError-on-duplicate.
  */
-export async function seedTenant(db: DbConnection, options: SeedTenantOptions): Promise<TenantId> {
+export async function seedTenant(db: DbRunner, options: SeedTenantOptions): Promise<TenantId> {
   const by = options.by ?? TestUsers.systemAdmin;
   // executor.create erwartet eine TenantDb (mit .insert()-API), nicht
   // die rohe DbConnection. Auch wenn das Tenant-Aggregat selbst NICHT
@@ -126,7 +126,7 @@ export async function seedTenant(db: DbConnection, options: SeedTenantOptions): 
  * ConflictError on duplicates (duplicate calls no-op).
  */
 export async function seedTenantMembership(
-  db: DbConnection,
+  db: DbRunner,
   options: SeedTenantMembershipOptions,
 ): Promise<void> {
   const by = options.by ?? TestUsers.systemAdmin;
