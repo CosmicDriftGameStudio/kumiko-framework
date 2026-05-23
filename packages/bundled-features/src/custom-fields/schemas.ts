@@ -33,13 +33,18 @@ export type CustomFieldAccess = z.infer<typeof customFieldAccessSchema>;
 //   money:    { type: "money", required: false, currency: "EUR" }
 //   embedded: { type: "embedded", required: false, schema: { ... } }
 //
-// `fieldAccess` is the only B1+ structured key — recognised by the
-// set/clear handlers (T1.5b). Everything else stays loose pending B2's
-// per-type discriminated-union.
+// `fieldAccess` (T1.5b) and `sensitive` (T1.5c) are the structured keys
+// recognised by the handlers / user-data-rights wiring. Everything else
+// stays loose pending B2's per-type discriminated-union.
 const serializedFieldSchema = z
   .looseObject({
     type: fieldTypeSchema,
     fieldAccess: customFieldAccessSchema,
+    // `sensitive: true` marks the field as PII — the user-data-rights
+    // wiring (wireCustomFieldsUserDataRightsFor) removes its value from
+    // the host row's customFields jsonb on user-forget when the strategy
+    // is "anonymize". Non-sensitive fields are untouched.
+    sensitive: z.boolean().optional(),
   })
   .refine((v) => typeof v["type"] === "string", "serializedField must have a string `type`");
 
