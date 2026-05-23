@@ -15,7 +15,6 @@ import {
   TestUsers,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { createChannelEmailFeature } from "../../channel-email/feature";
@@ -42,6 +41,7 @@ import { deliveryAttemptsTable, notificationPreferencesTable } from "../tables";
 import { createDeliveryTestContext } from "../testing";
 import type { DeliveryService } from "../types";
 import { createUnsubscribeRoute, signUnsubscribeToken } from "../unsubscribe";
+import { deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // --- Setup ---
 
@@ -346,10 +346,7 @@ describe("flow 1: handler sends notification via ctx.notify()", () => {
     expect(result).toEqual({ assigned: true });
 
     // InApp message in DB
-    const messages = await db
-      .select()
-      .from(inAppMessagesTable)
-      .where(eq(inAppMessagesTable.userId, user1.id));
+    const messages = await selectMany(db, inAppMessagesTable, { userId: user1.id });
     expect(messages).toHaveLength(1);
     expect(messages[0]?.["title"]).toBe("Neuer Auftrag");
     expect(messages[0]?.["body"]).toBe("Auftrag #42 wurde dir zugewiesen");
@@ -361,10 +358,7 @@ describe("flow 1: handler sends notification via ctx.notify()", () => {
     expect(sseEvents[0]?.data["userId"]).toBe(user1.id);
 
     // DeliveryLog entries for all 3 channels
-    const logs = await db
-      .select()
-      .from(deliveryAttemptsTable)
-      .where(eq(deliveryAttemptsTable.notificationType, "app:notify:order-assigned"));
+    const logs = await selectMany(db, deliveryAttemptsTable, { notificationType: "app:notify:order-assigned" });
     expect(logs).toHaveLength(3);
     const channels = logs.map((l) => l["channel"]);
     expect(channels).toContain("inApp");
@@ -452,15 +446,7 @@ describe("flow 3: broadcast to multiple users + markAllRead", () => {
 
     // Both users have messages in DB
     for (const user of [user1, user2]) {
-      const messages = await db
-        .select()
-        .from(inAppMessagesTable)
-        .where(
-          and(
-            eq(inAppMessagesTable.userId, user.id),
-            eq(inAppMessagesTable.notificationType, "app:notify:announcement"),
-          ),
-        );
+      const messages = await selectMany(db, inAppMessagesTable, { userId: user.id, notificationType: "app:notify:announcement" });
       expect(messages).toHaveLength(1);
     }
 
@@ -473,10 +459,7 @@ describe("flow 3: broadcast to multiple users + markAllRead", () => {
   });
 
   test("delivery log has entries for all recipients and channels", async () => {
-    const logs = await db
-      .select()
-      .from(deliveryAttemptsTable)
-      .where(eq(deliveryAttemptsTable.notificationType, "app:notify:announcement"));
+    const logs = await selectMany(db, deliveryAttemptsTable, { notificationType: "app:notify:announcement" });
 
     // 2 users × 3 channels (inApp + email + push) = 6 entries
     expect(logs).toHaveLength(6);
@@ -530,28 +513,12 @@ describe("flow 4: declarative notification via r.notification()", () => {
     );
 
     // user1 gets ticketAssigned, admin gets ticketCreatedAdmin
-    const user1Messages = await db
-      .select()
-      .from(inAppMessagesTable)
-      .where(
-        and(
-          eq(inAppMessagesTable.userId, user1.id),
-          eq(inAppMessagesTable.notificationType, "tickets:notify:ticket-assigned"),
-        ),
-      );
+    const user1Messages = await selectMany(db, inAppMessagesTable, { userId: user1.id, notificationType: "tickets:notify:ticket-assigned" });
     expect(user1Messages).toHaveLength(1);
     expect(user1Messages[0]?.["title"]).toBe("Neues Ticket");
     expect(user1Messages[0]?.["body"]).toContain("Server down");
 
-    const adminMessages = await db
-      .select()
-      .from(inAppMessagesTable)
-      .where(
-        and(
-          eq(inAppMessagesTable.userId, admin.id),
-          eq(inAppMessagesTable.notificationType, "tickets:notify:ticket-created-admin"),
-        ),
-      );
+    const adminMessages = await selectMany(db, inAppMessagesTable, { userId: admin.id, notificationType: "tickets:notify:ticket-created-admin" });
     expect(adminMessages).toHaveLength(1);
     expect(adminMessages[0]?.["title"]).toBe("Ticket erstellt");
 
@@ -564,16 +531,7 @@ describe("flow 4: declarative notification via r.notification()", () => {
   });
 
   test("delivery log entries for both notifications", async () => {
-    const logs = await db
-      .select()
-      .from(deliveryAttemptsTable)
-      .where(
-        and(
-          eq(deliveryAttemptsTable.channel, "inApp"),
-          eq(deliveryAttemptsTable.recipientId, user1.id),
-          eq(deliveryAttemptsTable.notificationType, "tickets:notify:ticket-assigned"),
-        ),
-      );
+    const logs = await selectMany(db, deliveryAttemptsTable, { channel: "inApp", recipientId: user1.id, notificationType: "tickets:notify:ticket-assigned" });
     expect(logs).toHaveLength(1);
     expect(logs[0]?.["status"]).toBe("sent");
   });
@@ -592,18 +550,12 @@ describe("flow 5: notification skipped when recipient is null", () => {
     );
 
     // No ticketAssigned notification (no assignee)
-    const assigneeNotifs = await db
-      .select()
-      .from(inAppMessagesTable)
-      .where(eq(inAppMessagesTable.notificationType, "tickets:notify:ticket-assigned"));
+    const assigneeNotifs = await selectMany(db, inAppMessagesTable, { notificationType: "tickets:notify:ticket-assigned" });
     // Only the one from flow 4 should exist
     expect(assigneeNotifs).toHaveLength(1);
 
     // But admin still gets ticketCreatedAdmin
-    const adminMessages = await db
-      .select()
-      .from(inAppMessagesTable)
-      .where(eq(inAppMessagesTable.notificationType, "tickets:notify:ticket-created-admin"));
+    const adminMessages = await selectMany(db, inAppMessagesTable, { notificationType: "tickets:notify:ticket-created-admin" });
     expect(adminMessages).toHaveLength(2); // flow 4 + flow 5
 
     // SSE: only 1 event (admin only, no assignee)
@@ -639,20 +591,14 @@ describe("flow 6: user preferences", () => {
     stack.events.reset();
 
     // Count messages before
-    const before = await db
-      .select()
-      .from(inAppMessagesTable)
-      .where(eq(inAppMessagesTable.userId, user1.id));
+    const before = await selectMany(db, inAppMessagesTable, { userId: user1.id });
     const beforeCount = before.length;
 
     // Send notification to user1 who has disabled inApp for orderAssigned
     await stack.http.writeOk("app:write:assign-order", { orderId: 99, driverId: user1.id }, admin);
 
     // No new InApp message for user1
-    const after = await db
-      .select()
-      .from(inAppMessagesTable)
-      .where(eq(inAppMessagesTable.userId, user1.id));
+    const after = await selectMany(db, inAppMessagesTable, { userId: user1.id });
     expect(after.length).toBe(beforeCount);
 
     // No SSE event
@@ -660,17 +606,7 @@ describe("flow 6: user preferences", () => {
     expect(notifs).toHaveLength(0);
 
     // DeliveryLog shows skipped with preference_disabled
-    const logs = await db
-      .select()
-      .from(deliveryAttemptsTable)
-      .where(
-        and(
-          eq(deliveryAttemptsTable.notificationType, "app:notify:order-assigned"),
-          eq(deliveryAttemptsTable.recipientId, user1.id),
-          eq(deliveryAttemptsTable.status, "skipped"),
-          eq(deliveryAttemptsTable.error, "preference_disabled"),
-        ),
-      );
+    const logs = await selectMany(db, deliveryAttemptsTable, { notificationType: "app:notify:order-assigned", recipientId: user1.id, status: "skipped", error: "preference_disabled" });
     expect(logs.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -816,10 +752,7 @@ describe("flow 9: email channel with renderer", () => {
   });
 
   test("delivery log has entries for both channels", async () => {
-    const logs = await db
-      .select()
-      .from(deliveryAttemptsTable)
-      .where(eq(deliveryAttemptsTable.notificationType, "tickets:notify:ticket-assigned"));
+    const logs = await selectMany(db, deliveryAttemptsTable, { notificationType: "tickets:notify:ticket-assigned" });
 
     const channels = logs.map((l) => l["channel"]);
     expect(channels).toContain("inApp");
@@ -862,15 +795,7 @@ describe("flow 10: complete end-to-end", () => {
     // --- InApp Channel ---
 
     // InApp message in DB with template-transformed data
-    const inAppMessages = await db
-      .select()
-      .from(inAppMessagesTable)
-      .where(
-        and(
-          eq(inAppMessagesTable.userId, user2.id),
-          eq(inAppMessagesTable.notificationType, "tickets:notify:ticket-assigned"),
-        ),
-      );
+    const inAppMessages = await selectMany(db, inAppMessagesTable, { userId: user2.id, notificationType: "tickets:notify:ticket-assigned" });
     // Filter to this specific ticket by checking title
     const thisMessage = inAppMessages.find((m) =>
       (m["body"] as string)?.includes("Datenbank Backup"),
@@ -906,15 +831,7 @@ describe("flow 10: complete end-to-end", () => {
 
     // --- DeliveryLog ---
 
-    const logs = await db
-      .select()
-      .from(deliveryAttemptsTable)
-      .where(
-        and(
-          eq(deliveryAttemptsTable.notificationType, "tickets:notify:ticket-assigned"),
-          eq(deliveryAttemptsTable.recipientId, user2.id),
-        ),
-      );
+    const logs = await selectMany(db, deliveryAttemptsTable, { notificationType: "tickets:notify:ticket-assigned", recipientId: user2.id });
     // Filter to logs from this test (there may be prior entries)
     const inAppLog = logs.find((l) => l["channel"] === "inApp");
     const emailLog = logs.find((l) => l["channel"] === "email");
@@ -937,10 +854,7 @@ describe("flow 8: tenant broadcast via to: { tenant }", () => {
     );
 
     // All 3 tenant users get a message
-    const messages = await db
-      .select()
-      .from(inAppMessagesTable)
-      .where(eq(inAppMessagesTable.notificationType, "app:notify:tenant-alert"));
+    const messages = await selectMany(db, inAppMessagesTable, { notificationType: "app:notify:tenant-alert" });
     const recipientIds = messages.map((m) => m["userId"]);
     expect(recipientIds).toContain(admin.id);
     expect(recipientIds).toContain(user1.id);
@@ -960,10 +874,7 @@ describe("flow 8: tenant broadcast via to: { tenant }", () => {
   });
 
   test("delivery log has entries for all recipients and channels", async () => {
-    const logs = await db
-      .select()
-      .from(deliveryAttemptsTable)
-      .where(eq(deliveryAttemptsTable.notificationType, "app:notify:tenant-alert"));
+    const logs = await selectMany(db, deliveryAttemptsTable, { notificationType: "app:notify:tenant-alert" });
 
     // 3 users × 3 channels (inApp + email + push) = 9
     expect(logs).toHaveLength(9);
@@ -1001,17 +912,7 @@ describe("flow 12: rate limiting", () => {
     await stack.http.writeOk("app:write:assign-order", { orderId: 501, driverId: user1.id }, admin);
 
     // Email should be skipped (rate limited), but inApp + push should work
-    const emailLogs = await db
-      .select()
-      .from(deliveryAttemptsTable)
-      .where(
-        and(
-          eq(deliveryAttemptsTable.notificationType, "app:notify:order-assigned"),
-          eq(deliveryAttemptsTable.recipientId, user1.id),
-          eq(deliveryAttemptsTable.channel, "email"),
-          eq(deliveryAttemptsTable.error, "rate_limited"),
-        ),
-      );
+    const emailLogs = await selectMany(db, deliveryAttemptsTable, { notificationType: "app:notify:order-assigned", recipientId: user1.id, channel: "email", error: "rate_limited" });
     expect(emailLogs.length).toBeGreaterThanOrEqual(1);
 
     // InApp still works
@@ -1107,15 +1008,7 @@ describe("flow 12c: idempotency key dedup", () => {
     expect(emails.length).toBe(1);
 
     // Dup attempt is recorded in the log for audit
-    const dupLogs = await db
-      .select()
-      .from(deliveryAttemptsTable)
-      .where(
-        and(
-          eq(deliveryAttemptsTable.notificationType, "app:notify:idem-test"),
-          eq(deliveryAttemptsTable.error, "duplicate_idempotency_key"),
-        ),
-      );
+    const dupLogs = await selectMany(db, deliveryAttemptsTable, { notificationType: "app:notify:idem-test", error: "duplicate_idempotency_key" });
     expect(dupLogs.length).toBe(1);
   });
 
@@ -1162,17 +1055,7 @@ describe("flow 12d: channel error paths", () => {
     expect(emails.length).toBe(0);
 
     // Log shows the failure with the original error string
-    const failedLogs = await db
-      .select()
-      .from(deliveryAttemptsTable)
-      .where(
-        and(
-          eq(deliveryAttemptsTable.notificationType, "app:notify:order-assigned"),
-          eq(deliveryAttemptsTable.recipientId, user1.id),
-          eq(deliveryAttemptsTable.channel, "email"),
-          eq(deliveryAttemptsTable.status, "failed"),
-        ),
-      );
+    const failedLogs = await selectMany(db, deliveryAttemptsTable, { notificationType: "app:notify:order-assigned", recipientId: user1.id, channel: "email", status: "failed" });
     expect(failedLogs.length).toBeGreaterThanOrEqual(1);
     expect(failedLogs.at(-1)?.["error"]).toContain("smtp_timeout_simulated");
 
@@ -1200,17 +1083,7 @@ describe("flow 12d: channel error paths", () => {
     );
     expect(broadcastEmails.length).toBe(1);
 
-    const failedLogs = await db
-      .select()
-      .from(deliveryAttemptsTable)
-      .where(
-        and(
-          eq(deliveryAttemptsTable.notificationType, "app:notify:announcement"),
-          eq(deliveryAttemptsTable.channel, "email"),
-          eq(deliveryAttemptsTable.status, "failed"),
-          eq(deliveryAttemptsTable.error, "smtp_transient"),
-        ),
-      );
+    const failedLogs = await selectMany(db, deliveryAttemptsTable, { notificationType: "app:notify:announcement", channel: "email", status: "failed", error: "smtp_transient" });
     expect(failedLogs.length).toBe(1);
   });
 });
@@ -1232,17 +1105,7 @@ describe("flow 13: tenant kill switch", () => {
     expect(pushes).toHaveLength(0);
 
     // DeliveryLog shows channel_disabled
-    const pushLogs = await db
-      .select()
-      .from(deliveryAttemptsTable)
-      .where(
-        and(
-          eq(deliveryAttemptsTable.notificationType, "app:notify:order-assigned"),
-          eq(deliveryAttemptsTable.recipientId, user1.id),
-          eq(deliveryAttemptsTable.channel, "push"),
-          eq(deliveryAttemptsTable.error, "channel_disabled"),
-        ),
-      );
+    const pushLogs = await selectMany(db, deliveryAttemptsTable, { notificationType: "app:notify:order-assigned", recipientId: user1.id, channel: "push", error: "channel_disabled" });
     expect(pushLogs.length).toBeGreaterThanOrEqual(1);
 
     // InApp + Email still work
@@ -1259,9 +1122,7 @@ describe("flow 13: tenant kill switch", () => {
 describe("flow 14: wildcard-only preference conflicts resolve deterministically", () => {
   test("conflicting wildcards (type=*, false vs channel=*, true) → disabled wins", async () => {
     // Clean slate for user2 on this type/channel
-    await db
-      .delete(notificationPreferencesTable)
-      .where(eq(notificationPreferencesTable.userId, user2.id));
+    await deleteMany(db, notificationPreferencesTable, { userId: user2.id });
 
     // Wildcard A: disable inApp globally
     await stack.http.writeOk(
@@ -1292,17 +1153,7 @@ describe("flow 14: wildcard-only preference conflicts resolve deterministically"
     const inAppEvents = stack.events.sse.filter((e) => e.type === "channel-in-app:event:delivered");
     expect(inAppEvents.filter((e) => e.data["userId"] === user2.id)).toHaveLength(0);
 
-    const skipped = await db
-      .select()
-      .from(deliveryAttemptsTable)
-      .where(
-        and(
-          eq(deliveryAttemptsTable.notificationType, "app:notify:wildcard-conflict"),
-          eq(deliveryAttemptsTable.recipientId, user2.id),
-          eq(deliveryAttemptsTable.channel, "inApp"),
-          eq(deliveryAttemptsTable.error, "preference_disabled"),
-        ),
-      );
+    const skipped = await selectMany(db, deliveryAttemptsTable, { notificationType: "app:notify:wildcard-conflict", recipientId: user2.id, channel: "inApp", error: "preference_disabled" });
     expect(skipped.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -1334,9 +1185,7 @@ describe("flow 14: wildcard-only preference conflicts resolve deterministically"
     expect(inAppEvents.filter((e) => e.data["userId"] === user2.id)).toHaveLength(1);
 
     // Clean up for later tests
-    await db
-      .delete(notificationPreferencesTable)
-      .where(eq(notificationPreferencesTable.userId, user2.id));
+    await deleteMany(db, notificationPreferencesTable, { userId: user2.id });
   });
 });
 
@@ -1395,16 +1244,7 @@ describe("flow 16: repeated unsubscribe clicks are idempotent", () => {
     }
 
     // Exactly one row exists, marked disabled
-    const rows = await db
-      .select()
-      .from(notificationPreferencesTable)
-      .where(
-        and(
-          eq(notificationPreferencesTable.userId, user1.id),
-          eq(notificationPreferencesTable.notificationType, "app:notify:concurrent-unsub"),
-          eq(notificationPreferencesTable.channel, "email"),
-        ),
-      );
+    const rows = await selectMany(db, notificationPreferencesTable, { userId: user1.id, notificationType: "app:notify:concurrent-unsub", channel: "email" });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["enabled"]).toBe(false);
   });

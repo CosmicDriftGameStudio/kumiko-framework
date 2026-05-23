@@ -8,7 +8,7 @@
 //   3. The table column types survive round-trip (bigint → number via
 //      Drizzle's mode:"number", so arithmetic in assertions Just Works).
 
-import { eq, sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import type { SessionUser } from "../../engine";
 import { createTestUser, setupTestStack, type TestStack, TestUsers } from "../../stack";
@@ -18,6 +18,7 @@ import {
   type InMemoryFileProvider,
   tenantStorageUsageTable,
 } from "..";
+import { asRawClient, selectMany } from "../../bun-db/query";
 
 let stack: TestStack;
 let provider: InMemoryFileProvider;
@@ -54,9 +55,7 @@ beforeEach(async () => {
   // each test starts from zero. kumiko_event_consumers registration is
   // re-asserted below; truncating it forces ensureRegistered to seed the
   // cursor at event.id = 0.
-  await stack.db.execute(
-    sql`TRUNCATE kumiko_events, kumiko_event_consumers, file_refs, read_tenant_storage_usage RESTART IDENTITY CASCADE`,
-  );
+  await asRawClient(stack.db).unsafe(`TRUNCATE kumiko_events, kumiko_event_consumers, file_refs, read_tenant_storage_usage RESTART IDENTITY CASCADE`);
   await stack.eventDispatcher?.ensureRegistered();
 });
 
@@ -105,10 +104,7 @@ describe("tenant-storage-usage MSP", () => {
 
     // Exactly one row per tenant — the UPSERT must not insert a second
     // row for the second upload.
-    const rows = await stack.db
-      .select()
-      .from(tenantStorageUsageTable)
-      .where(eq(tenantStorageUsageTable.tenantId, admin.tenantId));
+    const rows = await selectMany(stack.db, tenantStorageUsageTable, { tenantId: admin.tenantId });
     expect(rows).toHaveLength(1);
   });
 

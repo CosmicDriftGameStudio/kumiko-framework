@@ -10,8 +10,6 @@
 //      it hits the events-table. Mismatches throw ValidationError.
 //   3. r.defineEvent returns `{ name: qualifiedName, schema }` — callers
 //      pass `def.name` to ctx.appendEvent without building the qn manually.
-
-import { eq } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { defineFeature } from "../../engine";
@@ -25,6 +23,7 @@ import {
 } from "../../stack";
 import { sharedWidgetEntity } from "../../testing";
 import { generateId } from "../../utils";
+import { selectMany } from "../../bun-db/query";
 
 // Capture of the qualified event name defineEvent returns so tests can
 // assert against a moving target (kebab/qualifier transformations).
@@ -146,10 +145,7 @@ describe("E.3 — ctx.appendEvent strict validation", () => {
     );
     expect(res.status).toBe(200);
 
-    const stored = await stack.db
-      .select()
-      .from(eventsTable)
-      .where(eq(eventsTable.type, welcomeEventName));
+    const stored = await selectMany(stack.db, eventsTable, { type: welcomeEventName });
     expect(stored).toHaveLength(1);
     expect(stored[0]?.payload).toEqual({ userId, email: "welcome@test.de" });
     expect(stored[0]?.aggregateType).toBe("user");
@@ -164,7 +160,7 @@ describe("E.3 — ctx.appendEvent strict validation", () => {
     // Non-Kumiko throw inside a handler → wrapped as InternalError → 500.
     expect(res.status).toBe(500);
 
-    const stored = await stack.db.select().from(eventsTable);
+    const stored = await selectMany(stack.db, eventsTable);
     // TX rolled back: no event landed.
     expect(stored).toHaveLength(0);
   });
@@ -175,10 +171,7 @@ describe("E.3 — ctx.appendEvent strict validation", () => {
     // ValidationError is a first-class Kumiko error → 400.
     expect(res.status).toBe(400);
 
-    const stored = await stack.db
-      .select()
-      .from(eventsTable)
-      .where(eq(eventsTable.type, welcomeEventName));
+    const stored = await selectMany(stack.db, eventsTable, { type: welcomeEventName });
     expect(stored).toHaveLength(0);
   });
 });
@@ -193,10 +186,7 @@ describe("E.3 — cross-feature ownership guard", () => {
     const res = await stack.http.write("emitter:write:emit:foreign-event", { userId }, admin);
     expect(res.status).toBe(500);
 
-    const stored = await stack.db
-      .select()
-      .from(eventsTable)
-      .where(eq(eventsTable.type, foreignEventName));
+    const stored = await selectMany(stack.db, eventsTable, { type: foreignEventName });
     expect(stored).toHaveLength(0);
   });
 });

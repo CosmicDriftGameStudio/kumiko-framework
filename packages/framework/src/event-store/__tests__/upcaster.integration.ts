@@ -8,7 +8,7 @@
 //      with only a 1→2 migration fails immediately, so a missing upcaster
 //      can never silently hand half-migrated data to consumers.
 
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { integer as pgInteger, table as pgTable, text as pgText } from "../../db/dialect";
@@ -27,6 +27,7 @@ import {
 } from "../../stack";
 import { append, createEventsTable } from "../index";
 import { upcastStoredEvent } from "../upcaster";
+import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
 
 // --- Fixture entity + projection table ---
 
@@ -121,9 +122,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await testDb.db.execute(
-    sql`TRUNCATE kumiko_events, read_upcast_orders, read_upcast_order_summary, kumiko_projections RESTART IDENTITY CASCADE`,
-  );
+  await asRawClient(testDb.db).unsafe(`TRUNCATE kumiko_events, read_upcast_orders, read_upcast_order_summary, kumiko_projections RESTART IDENTITY CASCADE`);
 });
 
 // --- Tests ---
@@ -280,10 +279,7 @@ describe("upcaster: projection rebuild walks the chain on replay", () => {
     });
     expect(result.eventsProcessed).toBe(3);
 
-    const rows = await testDb.db
-      .select()
-      .from(orderSummaryTable)
-      .orderBy(orderSummaryTable.orderId);
+    const rows = await selectMany(testDb.db, orderSummaryTable);
 
     // Ordered by orderId → ord1 (10€ = 1000¢), ord2 ($25.50 = 2550¢), ord3 (9900¢)
     expect(rows).toHaveLength(3);
@@ -305,9 +301,7 @@ describe("upcaster: async (Marten AsyncOnlyEventUpcaster — DB-Lookups)", () =>
       segment: pgText("segment").notNull(),
     });
     await unsafePushTables(testDb.db, { upcastAsyncCustomerSegments: customerSegments });
-    await testDb.db
-      .insert(customerSegments)
-      .values({ customerId: "c-async-1", segment: "PREMIUM" });
+    await insertOne(testDb.db, customerSegments, { customerId: "c-async-1", segment: "PREMIUM" });
 
     const asyncSummary = pgTable("upcast_async_summary", {
       orderId: pgText("order_id").primaryKey(),
@@ -341,7 +335,7 @@ describe("upcaster: async (Marten AsyncOnlyEventUpcaster — DB-Lookups)", () =>
         apply: {
           [placed.name]: async (event, tx) => {
             const p = event.payload as { customerId: string; segment: string };
-            await tx.insert(asyncSummary).values({
+            await insertOne(tx, asyncSummary, {
               orderId: event.aggregateId,
               customerId: p.customerId,
               segment: p.segment,
@@ -384,7 +378,7 @@ describe("upcaster: async (Marten AsyncOnlyEventUpcaster — DB-Lookups)", () =>
     });
     expect(result.eventsProcessed).toBe(2);
 
-    const rows = await testDb.db.select().from(asyncSummary).orderBy(asyncSummary.orderId);
+    const rows = await selectMany(testDb.db, asyncSummary);
     expect(rows).toHaveLength(2);
     const byId = new Map(rows.map((r) => [r.orderId, r]));
     // v1 → v2 via async DB lookup → segment from customer_segments.

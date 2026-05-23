@@ -21,7 +21,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
@@ -37,6 +37,7 @@ import {
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults";
 import { createUserDataRightsFeature } from "../feature";
 import { runForgetCleanup } from "../run-forget-cleanup";
+import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 
@@ -70,7 +71,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
   // tenant-membership-Tabelle (von tenant-feature) manuell anlegen weil
   // wir ohne tenant-feature im stack arbeiten — minimaler Setup.
-  await stack.db.execute(sql`
+  await asRawClient(stack.db).unsafe(`
     CREATE TABLE IF NOT EXISTS read_tenant_memberships (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       tenant_id UUID NOT NULL,
@@ -87,7 +88,7 @@ beforeAll(async () => {
       UNIQUE(user_id, tenant_id)
     )
   `);
-  await stack.db.execute(sql`
+  await asRawClient(stack.db).unsafe(`
     CREATE TABLE IF NOT EXISTS file_refs (
       id UUID PRIMARY KEY,
       tenant_id UUID NOT NULL,
@@ -109,9 +110,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(userTable);
-  await stack.db.execute(sql`DELETE FROM read_tenant_memberships`);
-  await stack.db.execute(sql`DELETE FROM file_refs`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_memberships`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM file_refs`);
 });
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
@@ -131,7 +132,7 @@ async function seedUser(
     displayName?: string;
   } = {},
 ): Promise<void> {
-  await stack.db.insert(userTable).values({
+  await insertOne(stack.db, userTable, {
     id,
     tenantId: TENANT_SYSTEM,
     email: overrides.email ?? `user-${id}@example.com`,
@@ -146,11 +147,11 @@ async function seedUser(
 }
 
 async function seedMembership(userId: string, tenantId: string): Promise<void> {
-  await stack.db.execute(sql`
+  await asRawClient(stack.db).unsafe(`
     INSERT INTO read_tenant_memberships (tenant_id, user_id, roles)
-    VALUES (${tenantId}, ${userId}, '["Member"]')
+    VALUES ($1, $2, '["Member"]')
     ON CONFLICT (user_id, tenant_id) DO NOTHING
-  `);
+  `, [tenantId, userId]);
 }
 
 async function seedFileRef(
@@ -159,11 +160,11 @@ async function seedFileRef(
   insertedById: string | null,
   fileName: string,
 ): Promise<void> {
-  await stack.db.execute(sql`
+  await asRawClient(stack.db).unsafe(`
     INSERT INTO file_refs (id, tenant_id, storage_key, file_name, mime_type, size, inserted_by_id)
-    VALUES (${id}, ${tenantId}, ${`storage/${id}`}, ${fileName}, 'application/pdf', 1024, ${insertedById})
+    VALUES ($1, $2, $3, $4, 'application/pdf', 1024, $5)
     ON CONFLICT (id) DO NOTHING
-  `);
+  `, [id, tenantId, `storage/${id}`, fileName, insertedById]);
 }
 
 async function fetchUser(id: string): Promise<{
@@ -173,10 +174,10 @@ async function fetchUser(id: string): Promise<{
   status: string;
   deleted_at: string | null;
 } | null> {
-  const result = await stack.db.execute(sql`
+  const result = await asRawClient(stack.db).unsafe(`
     SELECT email, display_name, password_hash, status, deleted_at
-    FROM read_users WHERE id = ${id}
-  `);
+    FROM read_users WHERE id = $1
+  `, [id]);
   // biome-ignore lint/suspicious/noExplicitAny: drizzle execute typing
   const rows = ((result as any).rows ?? result) as Array<{
     email: string;
@@ -189,18 +190,18 @@ async function fetchUser(id: string): Promise<{
 }
 
 async function fetchFileRefsForUser(tenantId: string, userId: string): Promise<unknown[]> {
-  const result = await stack.db.execute(sql`
+  const result = await asRawClient(stack.db).unsafe(`
     SELECT id, file_name, inserted_by_id
-    FROM file_refs WHERE tenant_id = ${tenantId} AND inserted_by_id = ${userId}
-  `);
+    FROM file_refs WHERE tenant_id = $1 AND inserted_by_id = $2
+  `, [tenantId, userId]);
   // biome-ignore lint/suspicious/noExplicitAny: drizzle execute typing
   return ((result as any).rows ?? result) as unknown[];
 }
 
 async function fetchAllFileRefs(tenantId: string): Promise<unknown[]> {
-  const result = await stack.db.execute(sql`
-    SELECT id, file_name, inserted_by_id FROM file_refs WHERE tenant_id = ${tenantId}
-  `);
+  const result = await asRawClient(stack.db).unsafe(`
+    SELECT id, file_name, inserted_by_id FROM file_refs WHERE tenant_id = $1
+  `, [tenantId]);
   // biome-ignore lint/suspicious/noExplicitAny: drizzle execute typing
   return ((result as any).rows ?? result) as unknown[];
 }
@@ -352,9 +353,9 @@ describe("runForgetCleanup :: PII-Audit nach Cleanup", () => {
     });
 
     // Cross-Tabellen-PII-Check: koennen wir noch IRGENDWO Original-Werte finden?
-    const userRows = await stack.db.execute(sql`
-      SELECT id FROM read_users WHERE email = ${ORIGINAL_EMAIL} OR display_name = ${ORIGINAL_NAME}
-    `);
+    const userRows = await asRawClient(stack.db).unsafe(`
+      SELECT id FROM read_users WHERE email = $1 OR display_name = $2
+    `, [ORIGINAL_EMAIL, ORIGINAL_NAME]);
     // biome-ignore lint/suspicious/noExplicitAny: drizzle execute typing
     const userMatches = (userRows as any).rows ?? userRows;
     expect(userMatches).toHaveLength(0);
@@ -577,7 +578,7 @@ describe("runForgetCleanup :: sendDeletionExecutedEmail callback (Atom 5b)", () 
     // einem vorigen Run schon anonymisiert hat aber status haengen blieb,
     // oder durch external Migration). Skip schuetzt vor crashing-callback
     // mit invaliden Args.
-    await stack.db.insert(userTable).values({
+    await insertOne(stack.db, userTable, {
       id: ALICE_ID,
       tenantId: TENANT_SYSTEM,
       email: "",

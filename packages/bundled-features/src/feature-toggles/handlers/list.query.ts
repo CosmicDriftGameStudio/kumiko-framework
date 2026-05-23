@@ -12,7 +12,13 @@ export const listQuery = defineQueryHandler({
   schema: z.object({}),
   access: { roles: ["SystemAdmin", "Admin"] },
   handler: async (_event, ctx) => {
-    type Row = typeof globalFeatureStateTable.$inferSelect;
+    type Row = {
+      featureName: string;
+      enabled: boolean;
+      version: number;
+      updatedAt: Temporal.Instant;
+      updatedBy: string;
+    };
     const rows = await selectMany<Row>(ctx.db.raw, globalFeatureStateTable);
     return {
       items: rows.map((r) => ({

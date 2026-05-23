@@ -7,10 +7,11 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createTestDb, type TestDb } from "../../stack";
 import { detectDrift } from "../schema-drift";
+import { asRawClient } from "../../bun-db/query";
 
 let testDb: TestDb;
 let migrationsDir: string;
@@ -82,8 +83,8 @@ function writeSnapshotSimple(idx: number, tableNames: string[]): void {
 }
 
 async function ensureDrizzleMigrationsTable(): Promise<void> {
-  await testDb.db.execute(sql`CREATE SCHEMA IF NOT EXISTS drizzle`);
-  await testDb.db.execute(sql`
+  await asRawClient(testDb.db).unsafe(`CREATE SCHEMA IF NOT EXISTS drizzle`);
+  await asRawClient(testDb.db).unsafe(`
     CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (
       id serial PRIMARY KEY,
       hash text NOT NULL,
@@ -93,21 +94,19 @@ async function ensureDrizzleMigrationsTable(): Promise<void> {
 }
 
 async function dropDrizzleMigrationsTable(): Promise<void> {
-  await testDb.db.execute(sql`DROP TABLE IF EXISTS drizzle.__drizzle_migrations`);
+  await asRawClient(testDb.db).unsafe(`DROP TABLE IF EXISTS drizzle.__drizzle_migrations`);
 }
 
 async function insertAppliedMigration(hash: string): Promise<void> {
-  await testDb.db.execute(
-    sql`INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES (${hash}, ${Date.now()})`,
-  );
+  await asRawClient(testDb.db).unsafe(`INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ($1, $2)`, [hash, Date.now()]);
 }
 
 describe("detectDrift", () => {
   beforeEach(async () => {
     await dropDrizzleMigrationsTable();
     // Cleanup test tables that might still exist from earlier runs
-    await testDb.db.execute(sql`DROP TABLE IF EXISTS drift_test_users`);
-    await testDb.db.execute(sql`DROP TABLE IF EXISTS drift_test_orders`);
+    await asRawClient(testDb.db).unsafe(`DROP TABLE IF EXISTS drift_test_users`);
+    await asRawClient(testDb.db).unsafe(`DROP TABLE IF EXISTS drift_test_orders`);
   });
 
   test("frische DB ohne __drizzle_migrations + 1 Migration im Journal → 1 pending + table missing", async () => {
@@ -124,7 +123,7 @@ describe("detectDrift", () => {
   test("alle Migrations applied + alle Tabellen existieren → ok", async () => {
     writeJournal([{ idx: 0, tag: "0000_init" }]);
     writeSnapshotSimple(0, ["drift_test_users"]);
-    await testDb.db.execute(sql`CREATE TABLE drift_test_users (id uuid PRIMARY KEY)`);
+    await asRawClient(testDb.db).unsafe(`CREATE TABLE drift_test_users (id uuid PRIMARY KEY)`);
     await ensureDrizzleMigrationsTable();
     await insertAppliedMigration("hash-0000");
 
@@ -140,8 +139,8 @@ describe("detectDrift", () => {
       { idx: 1, tag: "0001_add_orders" },
     ]);
     writeSnapshotSimple(1, ["drift_test_users", "drift_test_orders"]);
-    await testDb.db.execute(sql`CREATE TABLE drift_test_users (id uuid PRIMARY KEY)`);
-    await testDb.db.execute(sql`CREATE TABLE drift_test_orders (id uuid PRIMARY KEY)`);
+    await asRawClient(testDb.db).unsafe(`CREATE TABLE drift_test_users (id uuid PRIMARY KEY)`);
+    await asRawClient(testDb.db).unsafe(`CREATE TABLE drift_test_orders (id uuid PRIMARY KEY)`);
     await ensureDrizzleMigrationsTable();
     await insertAppliedMigration("hash-0000"); // nur eine applied
 
@@ -155,7 +154,7 @@ describe("detectDrift", () => {
   test("alle Migrations applied aber Tabelle fehlt manuell → drift", async () => {
     writeJournal([{ idx: 0, tag: "0000_init" }]);
     writeSnapshotSimple(0, ["drift_test_users", "drift_test_orders"]);
-    await testDb.db.execute(sql`CREATE TABLE drift_test_users (id uuid PRIMARY KEY)`);
+    await asRawClient(testDb.db).unsafe(`CREATE TABLE drift_test_users (id uuid PRIMARY KEY)`);
     // drift_test_orders bewusst NICHT angelegt (simuliert manuellen DROP)
     await ensureDrizzleMigrationsTable();
     await insertAppliedMigration("hash-0000");
@@ -179,7 +178,7 @@ describe("detectDrift", () => {
         },
       ]);
       // DB hat email NULLABLE — drift.
-      await testDb.db.execute(sql`CREATE TABLE drift_test_users (id uuid PRIMARY KEY, email text)`);
+      await asRawClient(testDb.db).unsafe(`CREATE TABLE drift_test_users (id uuid PRIMARY KEY, email text)`);
       await ensureDrizzleMigrationsTable();
       await insertAppliedMigration("hash-0000");
 
@@ -204,7 +203,7 @@ describe("detectDrift", () => {
         },
       ]);
       // DB hat KEINE email-Spalte.
-      await testDb.db.execute(sql`CREATE TABLE drift_test_users (id uuid PRIMARY KEY)`);
+      await asRawClient(testDb.db).unsafe(`CREATE TABLE drift_test_users (id uuid PRIMARY KEY)`);
       await ensureDrizzleMigrationsTable();
       await insertAppliedMigration("hash-0000");
 
@@ -226,9 +225,7 @@ describe("detectDrift", () => {
         },
       ]);
       // DB hat zusätzliche Spalte (z.B. manueller ALTER TABLE in Prod).
-      await testDb.db.execute(
-        sql`CREATE TABLE drift_test_users (id uuid PRIMARY KEY, secret_legacy text)`,
-      );
+      await asRawClient(testDb.db).unsafe(`CREATE TABLE drift_test_users (id uuid PRIMARY KEY, secret_legacy text)`);
       await ensureDrizzleMigrationsTable();
       await insertAppliedMigration("hash-0000");
 
@@ -251,7 +248,7 @@ describe("detectDrift", () => {
         },
       ]);
       // DB hat age als TEXT statt INTEGER.
-      await testDb.db.execute(sql`CREATE TABLE drift_test_users (id uuid PRIMARY KEY, age text)`);
+      await asRawClient(testDb.db).unsafe(`CREATE TABLE drift_test_users (id uuid PRIMARY KEY, age text)`);
       await ensureDrizzleMigrationsTable();
       await insertAppliedMigration("hash-0000");
 
@@ -278,7 +275,7 @@ describe("detectDrift", () => {
           },
         },
       ]);
-      await testDb.db.execute(sql`
+      await asRawClient(testDb.db).unsafe(`
         CREATE TABLE drift_test_users (
           id uuid PRIMARY KEY,
           email text NOT NULL,
@@ -297,10 +294,10 @@ describe("detectDrift", () => {
   test("public.__drizzle_migrations Fallback (Pre-0.20-Drizzle)", async () => {
     writeJournal([{ idx: 0, tag: "0000_init" }]);
     writeSnapshotSimple(0, ["drift_test_users"]);
-    await testDb.db.execute(sql`CREATE TABLE drift_test_users (id uuid PRIMARY KEY)`);
+    await asRawClient(testDb.db).unsafe(`CREATE TABLE drift_test_users (id uuid PRIMARY KEY)`);
     // Legacy: Tabelle in public-Schema statt drizzle-Schema
     await dropDrizzleMigrationsTable();
-    await testDb.db.execute(sql`
+    await asRawClient(testDb.db).unsafe(`
       CREATE TABLE public.__drizzle_migrations (
         id serial PRIMARY KEY,
         hash text NOT NULL,
@@ -308,13 +305,11 @@ describe("detectDrift", () => {
       )
     `);
     try {
-      await testDb.db.execute(
-        sql`INSERT INTO public.__drizzle_migrations (hash, created_at) VALUES ('hash-0000', ${Date.now()})`,
-      );
+      await asRawClient(testDb.db).unsafe(`INSERT INTO public.__drizzle_migrations (hash, created_at) VALUES ('hash-0000', $1)`, [Date.now()]);
       const report = await detectDrift(testDb.db, migrationsDir);
       expect(report.ok).toBe(true);
     } finally {
-      await testDb.db.execute(sql`DROP TABLE public.__drizzle_migrations`);
+      await asRawClient(testDb.db).unsafe(`DROP TABLE public.__drizzle_migrations`);
     }
   });
 });

@@ -31,8 +31,8 @@ function refField(args: Omit<ReferenceFieldDef, "type">): ReferenceFieldDef {
   return { type: "reference", ...args };
 }
 
-function colByName(table: ReturnType<typeof buildDrizzleTable>, dbName: string) {
-  const cols = (table as unknown as { columns?: ReadonlyArray<{ name: string; notNull?: boolean }> }).columns;
+function colByName(table: unknown, dbName: string) {
+  const cols = (table as { columns?: ReadonlyArray<{ name: string; notNull?: boolean }> }).columns;
   if (!cols) throw new Error("Table has no columns metadata");
   for (const c of cols) {
     if (c.name === dbName) return { name: c.name, notNull: c.notNull };

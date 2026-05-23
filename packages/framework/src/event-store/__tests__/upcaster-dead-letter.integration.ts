@@ -6,7 +6,7 @@
 //   - die throw-Policy bleibt unverändert (Regression-Guard)
 //   - listDeadLetters filtert per eventType
 
-import { eq, sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { createTestDb, type TestDb } from "../../stack";
 import type { StoredEvent } from "../event-store";
@@ -17,6 +17,7 @@ import {
   listDeadLetters,
   upcasterDeadLetterTable,
 } from "../upcaster-dead-letter";
+import { asRawClient, insertOne } from "../../bun-db/query";
 
 let testDb: TestDb;
 
@@ -88,8 +89,8 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await testDb.db.delete(upcasterDeadLetterTable);
-  await testDb.db.delete(eventsTable);
+  await asRawClient(testDb.db).unsafe(`DELETE FROM "${upcasterDeadLetterTable.tableName}"`);
+  await asRawClient(testDb.db).unsafe(`DELETE FROM "${eventsTable.tableName}"`);
 });
 
 describe("upcaster error-policy: throw (default)", () => {
@@ -165,7 +166,7 @@ describe("upcaster error-policy: quarantine", () => {
     );
 
     // Drop one directly to add noise of a different type.
-    await testDb.db.insert(upcasterDeadLetterTable).values({
+    await insertOne(testDb.db, upcasterDeadLetterTable, {
       eventId: "99",
       tenantId: TENANT_ID,
       aggregateId: "other",

@@ -23,6 +23,7 @@ import {
   unsafeCreateEntityTable,
 } from "../stack";
 import { expectErrorIncludes } from "../testing";
+import { asRawClient } from "../bun-db/query";
 
 // ── Shared test entity ─────────────────────────────────────────────────────
 //
@@ -134,7 +135,7 @@ let engRow: { id: string; version: number };
 let opsRow: { id: string; version: number };
 
 beforeEach(async () => {
-  await stack.db.execute("DELETE FROM h2_contracts");
+  await asRawClient(stack.db).unsafe("DELETE FROM h2_contracts");
   const eng = await stack.http.writeOk<{ id: string; data: { version: number } }>(
     "h2contracts:write:contract:create",
     {

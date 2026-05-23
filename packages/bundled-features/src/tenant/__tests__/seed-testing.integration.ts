@@ -21,7 +21,6 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createConfigFeature } from "../../config/feature";
 import { createConfigResolver } from "../../config/resolver";
@@ -30,6 +29,7 @@ import { createTenantFeature } from "../feature";
 import { tenantMembershipsTable } from "../membership-table";
 import { tenantEntity, tenantTable } from "../schema/tenant";
 import { seedTenant, seedTenantMembership } from "../seeding";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 
@@ -53,11 +53,11 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(tenantMembershipsTable);
-  await stack.db.delete(tenantTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantTable.tableName}"`);
   // Events stay — the idempotency test below inspects how many .created
   // events exist for the same aggregate-key pair across runs.
-  await stack.db.delete(eventsTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${eventsTable.tableName}"`);
 });
 
 describe("seedTenant", () => {
@@ -69,7 +69,7 @@ describe("seedTenant", () => {
     });
     expect(id).toBe(TENANT_A);
 
-    const rows = await stack.db.select().from(tenantTable).where(eq(tenantTable["id"], TENANT_A));
+    const rows = await selectMany(stack.db, tenantTable, { id: TENANT_A });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["id"]).toBe(TENANT_A);
     expect(rows[0]?.["key"]).toBe("tenant-a");
@@ -78,10 +78,7 @@ describe("seedTenant", () => {
 
   test("emittiert tenant.created-Event auf den Aggregate-Stream", async () => {
     await seedTenant(stack.db, { id: TENANT_A, key: "tenant-a", name: "Tenant A" });
-    const events = await stack.db
-      .select()
-      .from(eventsTable)
-      .where(eq(eventsTable.aggregateType, "tenant"));
+    const events = await selectMany(stack.db, eventsTable, { aggregateType: "tenant" });
     const createdEvents = events.filter((e) => e.type === "tenant.created");
     expect(createdEvents).toHaveLength(1);
     // Aggregate-id steht im event-row (aggregateId), nicht im payload —
@@ -97,21 +94,18 @@ describe("seedTenant", () => {
     await seedTenant(stack.db, { id: TENANT_A, key: "tenant-a", name: "Tenant A v2" });
 
     // Projection bleibt bei Original-name (zweiter Call wurde geskippt, kein update).
-    const rows = await stack.db.select().from(tenantTable).where(eq(tenantTable["id"], TENANT_A));
+    const rows = await selectMany(stack.db, tenantTable, { id: TENANT_A });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["name"]).toBe("Tenant A");
 
-    const events = await stack.db
-      .select()
-      .from(eventsTable)
-      .where(eq(eventsTable.aggregateType, "tenant"));
+    const events = await selectMany(stack.db, eventsTable, { aggregateType: "tenant" });
     expect(events.filter((e) => e.type === "tenant.created")).toHaveLength(1);
   });
 
   test("zwei verschiedene Tenants in einem Test — beide in der Projection", async () => {
     await seedTenant(stack.db, { id: TENANT_A, key: "a", name: "A" });
     await seedTenant(stack.db, { id: TENANT_B, key: "b", name: "B" });
-    const rows = await stack.db.select().from(tenantTable);
+    const rows = await selectMany(stack.db, tenantTable);
     expect(rows.map((r) => r["id"]).sort()).toEqual([TENANT_A, TENANT_B].sort());
   });
 });
@@ -124,15 +118,7 @@ describe("seedTenantMembership", () => {
       roles: ["Admin", "Billing"],
     });
 
-    const rows = await stack.db
-      .select()
-      .from(tenantMembershipsTable)
-      .where(
-        and(
-          eq(tenantMembershipsTable.userId, ALICE_ID),
-          eq(tenantMembershipsTable.tenantId, TENANT_A),
-        ),
-      );
+    const rows = await selectMany(stack.db, tenantMembershipsTable, { userId: ALICE_ID, tenantId: TENANT_A });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["userId"]).toBe(ALICE_ID);
     expect(rows[0]?.["tenantId"]).toBe(TENANT_A);
@@ -146,10 +132,7 @@ describe("seedTenantMembership", () => {
       roles: ["User"],
     });
 
-    const events = await stack.db
-      .select()
-      .from(eventsTable)
-      .where(eq(eventsTable.aggregateType, "tenant-membership"));
+    const events = await selectMany(stack.db, eventsTable, { aggregateType: "tenant-membership" });
     const createdEvents = events.filter((e) => e.type === "tenant-membership.created");
     expect(createdEvents).toHaveLength(1);
     // Payload should carry the seeded data — MSPs/audit rely on this.
@@ -180,16 +163,10 @@ describe("seedTenantMembership", () => {
       roles: ["User"],
     });
 
-    const projectionRows = await stack.db
-      .select()
-      .from(tenantMembershipsTable)
-      .where(eq(tenantMembershipsTable.userId, ALICE_ID));
+    const projectionRows = await selectMany(stack.db, tenantMembershipsTable, { userId: ALICE_ID });
     expect(projectionRows).toHaveLength(1);
 
-    const events = await stack.db
-      .select()
-      .from(eventsTable)
-      .where(eq(eventsTable.aggregateType, "tenant-membership"));
+    const events = await selectMany(stack.db, eventsTable, { aggregateType: "tenant-membership" });
     expect(events.filter((e) => e.type === "tenant-membership.created")).toHaveLength(1);
   });
 
@@ -205,10 +182,7 @@ describe("seedTenantMembership", () => {
       by: seedActor,
     });
 
-    const [row] = await stack.db
-      .select()
-      .from(tenantMembershipsTable)
-      .where(eq(tenantMembershipsTable.userId, ALICE_ID));
+    const [row] = await selectMany(stack.db, tenantMembershipsTable, { userId: ALICE_ID });
     expect(row?.["insertedById"]).toBe(seedActor.id);
   });
 
@@ -220,10 +194,7 @@ describe("seedTenantMembership", () => {
       tenantId: TENANT_A,
       roles: ["User"],
     });
-    const [row] = await stack.db
-      .select()
-      .from(tenantMembershipsTable)
-      .where(eq(tenantMembershipsTable.userId, ALICE_ID));
+    const [row] = await selectMany(stack.db, tenantMembershipsTable, { userId: ALICE_ID });
     expect(row?.["insertedById"]).toBe(TestUsers.systemAdmin.id);
   });
 });

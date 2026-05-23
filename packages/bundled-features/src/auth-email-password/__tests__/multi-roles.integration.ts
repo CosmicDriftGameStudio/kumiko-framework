@@ -30,6 +30,7 @@ import { userEntity, userTable } from "../../user/schema/user";
 import { AuthErrors, AuthHandlers } from "../constants";
 import { createAuthEmailPasswordFeature } from "../feature";
 import { hashPassword } from "../password-hashing";
+import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 const systemAdmin = TestUsers.systemAdmin;
@@ -71,8 +72,8 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(userTable);
-  await stack.db.delete(tenantMembershipsTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
 });
 
 async function seedUser(
@@ -101,7 +102,7 @@ async function addMembership(
   tenantId: TenantId,
   roles: readonly string[],
 ): Promise<void> {
-  await stack.db.insert(tenantMembershipsTable).values({
+  await insertOne(stack.db, tenantMembershipsTable, {
     userId,
     tenantId,
     roles: JSON.stringify(roles),

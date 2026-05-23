@@ -247,8 +247,7 @@ async function processUser(args: {
   let currentTenantId: TenantId | null = null;
   let currentEntityName: string | null = null;
   try {
-    await (db as { transaction: (fn: (tx: DbRunner) => Promise<void>) => Promise<void> }) // @cast-boundary db-runner
-      .transaction(async (tx) => {
+    await (db as { begin: (fn: (tx: DbRunner) => Promise<void>) => Promise<void> }).begin(async (tx) => {
         for (const tenantId of tenantList) {
           currentTenantId = tenantId;
           for (const entry of hookEntries) {

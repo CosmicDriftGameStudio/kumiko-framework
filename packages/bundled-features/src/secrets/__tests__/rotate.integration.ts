@@ -16,12 +16,13 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { eq, sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createSecretsFeature } from "../feature";
 import { rotateJob } from "../handlers/rotate.job";
 import { createSecretsContext } from "../secrets-context";
 import { tenantSecretsTable } from "../table";
+import { deleteMany, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const admin = createTestUser({
   id: "00000000-0000-4000-8000-000000000010",
@@ -83,7 +84,7 @@ beforeAll(async () => {
   // Seed 20 V1 rows directly — too many for any maxFailures default.
   for (let i = 0; i < 20; i++) {
     const envelope = await encryptValue(`secret-${i}`, seedProvider);
-    await stack.db.insert(tenantSecretsTable).values({
+    await insertOne(stack.db, tenantSecretsTable, {
       tenantId: admin.tenantId,
       key: `test:secret:k-${i}`,
       envelope: {
@@ -100,7 +101,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   // Clean up the seeded fixtures so downstream suites don't see them.
-  await stack.db.delete(tenantSecretsTable).where(eq(tenantSecretsTable.tenantId, admin.tenantId));
+  await deleteMany(stack.db, tenantSecretsTable, { tenantId: admin.tenantId });
   await stack.cleanup();
 });
 

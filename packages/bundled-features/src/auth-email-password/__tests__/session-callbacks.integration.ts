@@ -23,6 +23,7 @@ import { userEntity, userTable } from "../../user/schema/user";
 import { AuthErrors, AuthHandlers } from "../constants";
 import { createAuthEmailPasswordFeature } from "../feature";
 import { hashPassword } from "../password-hashing";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // In-memory fake of a real sessions-store — just enough to observe that the
 // framework calls the callbacks at the right moments and threads the sid back
@@ -126,8 +127,8 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(userTable);
-  await stack.db.delete(tenantMembershipsTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
   // Reset the in-memory store but KEEP sidStream running — otherwise a test
   // that leaks a sid into another test would produce confusing collisions.
   store.live.clear();

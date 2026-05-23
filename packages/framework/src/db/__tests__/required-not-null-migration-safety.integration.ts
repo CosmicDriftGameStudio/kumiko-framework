@@ -16,9 +16,10 @@
 // solchen Migration eine Sanity-Query auf NULL-Counts in den betroffenen
 // Spalten laufen, oder DB drop'pen wenn der State Demo-State ist.
 
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createTestDb, type TestDb } from "../../stack";
+import { asRawClient } from "../../bun-db/query";
 
 let testDb: TestDb;
 
@@ -31,23 +32,23 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await testDb.db.execute(sql`DROP TABLE IF EXISTS migration_safety_test`);
+  await asRawClient(testDb.db).unsafe(`DROP TABLE IF EXISTS migration_safety_test`);
 });
 
 describe("ALTER TABLE SET NOT NULL — Daten-Sicherheits-Verhalten", () => {
   test("SET NOT NULL kracht wenn die Spalte NULL-Zeilen enthält", async () => {
-    await testDb.db.execute(sql`
+    await asRawClient(testDb.db).unsafe(`
       CREATE TABLE migration_safety_test (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         key text
       )
     `);
     // NULL-Zeile einschleusen — simuliert prod state vor dem Drift-Fix.
-    await testDb.db.execute(sql`INSERT INTO migration_safety_test (key) VALUES (NULL)`);
+    await asRawClient(testDb.db).unsafe(`INSERT INTO migration_safety_test (key) VALUES (NULL)`);
 
     let caught: unknown;
     try {
-      await testDb.db.execute(sql`ALTER TABLE migration_safety_test ALTER COLUMN key SET NOT NULL`);
+      await asRawClient(testDb.db).unsafe(`ALTER TABLE migration_safety_test ALTER COLUMN key SET NOT NULL`);
     } catch (err) {
       caught = err;
     }
@@ -62,22 +63,22 @@ describe("ALTER TABLE SET NOT NULL — Daten-Sicherheits-Verhalten", () => {
   });
 
   test("SET NOT NULL läuft sauber durch wenn alle Zeilen Werte haben", async () => {
-    await testDb.db.execute(sql`
+    await asRawClient(testDb.db).unsafe(`
       CREATE TABLE migration_safety_test (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         key text
       )
     `);
-    await testDb.db.execute(sql`INSERT INTO migration_safety_test (key) VALUES ('foo')`);
-    await testDb.db.execute(sql`INSERT INTO migration_safety_test (key) VALUES ('bar')`);
+    await asRawClient(testDb.db).unsafe(`INSERT INTO migration_safety_test (key) VALUES ('foo')`);
+    await asRawClient(testDb.db).unsafe(`INSERT INTO migration_safety_test (key) VALUES ('bar')`);
 
     // Sollte ohne Throw durchlaufen.
-    await testDb.db.execute(sql`ALTER TABLE migration_safety_test ALTER COLUMN key SET NOT NULL`);
+    await asRawClient(testDb.db).unsafe(`ALTER TABLE migration_safety_test ALTER COLUMN key SET NOT NULL`);
 
     // Verifizieren: zukünftige NULL-Inserts werden jetzt blockiert.
     let caught: unknown;
     try {
-      await testDb.db.execute(sql`INSERT INTO migration_safety_test (key) VALUES (NULL)`);
+      await asRawClient(testDb.db).unsafe(`INSERT INTO migration_safety_test (key) VALUES (NULL)`);
     } catch (err) {
       caught = err;
     }
@@ -88,18 +89,16 @@ describe("ALTER TABLE SET NOT NULL — Daten-Sicherheits-Verhalten", () => {
     // Frisch erstellt, keine Zeilen — der Fall in dem `migrate apply` nach
     // einem DB-drop läuft. Dieser Pfad muss IMMER grün sein, sonst wäre
     // jeder Greenfield-Deploy kaputt.
-    await testDb.db.execute(sql`
+    await asRawClient(testDb.db).unsafe(`
       CREATE TABLE migration_safety_test (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         key text
       )
     `);
-    await testDb.db.execute(sql`ALTER TABLE migration_safety_test ALTER COLUMN key SET NOT NULL`);
+    await asRawClient(testDb.db).unsafe(`ALTER TABLE migration_safety_test ALTER COLUMN key SET NOT NULL`);
 
     // Beweis: information_schema zeigt die Spalte jetzt als NOT NULL.
-    const rows = await testDb.db.execute<{ is_nullable: string }>(
-      sql`SELECT is_nullable FROM information_schema.columns WHERE table_name = 'migration_safety_test' AND column_name = 'key'`,
-    );
+    const rows = await asRawClient(testDb.db).unsafe(`SELECT is_nullable FROM information_schema.columns WHERE table_name = 'migration_safety_test' AND column_name = 'key'`);
     expect(rows[0]?.is_nullable).toBe("NO");
   });
 });

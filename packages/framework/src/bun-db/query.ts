@@ -261,7 +261,8 @@ function buildWhereClause(
   return { sqlText: conditions.join(" AND "), values };
 }
 
-export async function selectMany<TRow = Record<string, unknown>>(
+// biome-ignore lint/suspicious/noExplicitAny: opt-in default loosens row type for unannotated test fixtures
+export async function selectMany<TRow = any>(
   db: AnyDb,
   table: TableLike,
   where?: WhereObject,
@@ -286,7 +287,8 @@ export async function selectMany<TRow = Record<string, unknown>>(
   return (await asRawClient(db).unsafe(sqlText, values)) as readonly TRow[];
 }
 
-export async function fetchOne<TRow = Record<string, unknown>>(
+// biome-ignore lint/suspicious/noExplicitAny: see selectMany default
+export async function fetchOne<TRow = any>(
   db: AnyDb,
   table: TableLike,
   where: WhereObject,
@@ -295,7 +297,42 @@ export async function fetchOne<TRow = Record<string, unknown>>(
   return rows[0];
 }
 
-export async function insertOne<TRow = Record<string, unknown>>(
+// Bulk INSERT — same shape as insertOne but takes an array of rows and
+// produces one multi-VALUES statement. Mirrors drizzle's
+// `db.insert(t).values(rows[])`. Empty input is a no-op.
+// biome-ignore lint/suspicious/noExplicitAny: see selectMany default
+export async function insertMany<TRow = any>(
+  db: AnyDb,
+  table: TableLike,
+  rows: ReadonlyArray<Record<string, unknown>>,
+): Promise<readonly TRow[]> {
+  if (rows.length === 0) return [];
+  const info = extractTableInfo(table);
+  // Use the column-set from the first row; assume all rows share keys.
+  const firstRow = rows[0];
+  if (firstRow === undefined) return [];
+  const fields = Object.keys(firstRow);
+  if (fields.length === 0) throw new Error("insertMany: empty row object");
+  const cols = fields.map((k) => quoteIdent(info.columnOf(k))).join(", ");
+  const params: unknown[] = [];
+  const valuesClauses: string[] = [];
+  for (const row of rows) {
+    const placeholders: string[] = [];
+    for (const f of fields) {
+      const col = info.columnOf(f);
+      const pgType = info.pgTypeOf(col);
+      const p = prepareValue(row[f], pgType);
+      params.push(p.bound);
+      placeholders.push(`$${params.length}${p.sql}`);
+    }
+    valuesClauses.push(`(${placeholders.join(", ")})`);
+  }
+  const sqlText = `INSERT INTO ${quoteIdent(info.name)} (${cols}) VALUES ${valuesClauses.join(", ")} RETURNING *`;
+  return (await asRawClient(db).unsafe(sqlText, params)) as readonly TRow[];
+}
+
+// biome-ignore lint/suspicious/noExplicitAny: see selectMany default
+export async function insertOne<TRow = any>(
   db: AnyDb,
   table: TableLike,
   values: Record<string, unknown>,
@@ -316,7 +353,8 @@ export async function insertOne<TRow = Record<string, unknown>>(
   return rows[0];
 }
 
-export async function updateMany<TRow = Record<string, unknown>>(
+// biome-ignore lint/suspicious/noExplicitAny: see selectMany default
+export async function updateMany<TRow = any>(
   db: AnyDb,
   table: TableLike,
   set: Record<string, unknown>,

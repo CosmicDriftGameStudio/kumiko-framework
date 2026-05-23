@@ -17,7 +17,6 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createSecretsFeature } from "../feature";
 import {
@@ -26,6 +25,7 @@ import {
   TENANT_SECRET_READ_EVENT,
 } from "../secrets-context";
 import { tenantSecretsTable } from "../table";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const admin = createTestUser({
   id: "00000000-0000-4000-8000-000000000010",
@@ -59,8 +59,8 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(eventsTable);
-  await stack.db.delete(tenantSecretsTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${eventsTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantSecretsTable.tableName}"`);
 });
 
 describe("tenantSecret lifecycle events", () => {
@@ -71,10 +71,7 @@ describe("tenantSecret lifecycle events", () => {
       admin,
     );
 
-    const created = await stack.db
-      .select()
-      .from(eventsTable)
-      .where(eq(eventsTable.type, "tenant-secret.created"));
+    const created = await selectMany(stack.db, eventsTable, { type: "tenant-secret.created" });
     expect(created.length).toBe(1);
     // aggregateType stable; downstream MSPs filter by this.
     expect(created[0]?.aggregateType).toBe("tenant-secret");
@@ -91,10 +88,7 @@ describe("tenantSecret lifecycle events", () => {
     );
     await stack.http.writeOk("secrets:write:delete", { key: "example.to.delete" }, admin);
 
-    const events = await stack.db
-      .select()
-      .from(eventsTable)
-      .where(eq(eventsTable.aggregateType, "tenant-secret"));
+    const events = await selectMany(stack.db, eventsTable, { aggregateType: "tenant-secret" });
 
     // Exactly 2 events on the same aggregate-stream: created + deleted.
     expect(events.length).toBe(2);

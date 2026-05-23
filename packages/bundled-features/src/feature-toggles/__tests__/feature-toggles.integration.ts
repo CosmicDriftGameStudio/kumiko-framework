@@ -24,7 +24,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createLateBoundHolder } from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { Temporal } from "temporal-polyfill";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
@@ -32,6 +32,7 @@ import { FEATURE_TOGGLE_SET_EVENT_NAME } from "../constants";
 import { createFeatureTogglesFeature } from "../feature";
 import { globalFeatureStateTable } from "../global-feature-state-table";
 import { GlobalFeatureToggleRuntime } from "../toggle-runtime";
+import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // Widget — the "tenant" under test. toggleable(default=true), owns a
 // simple entity and a create-handler that writes via the event-store
@@ -92,7 +93,7 @@ function widgetAuditFeature(): FeatureDefinition {
       if (!ctx.db) return;
       const name = result.changes!["name"] as string | undefined;
       if (!name) return;
-      await ctx.db.insert(widgetAuditTable).values({
+      await insertOne(ctx.db, widgetAuditTable, {
         id: generateId(),
         widgetName: name,
         version: 1,
@@ -183,15 +184,15 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(widgetAuditTable);
-  await stack.db.delete(widgetTable);
-  await stack.db.delete(widgetTrackerTable);
-  await stack.db.delete(globalFeatureStateTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${widgetAuditTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${widgetTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${widgetTrackerTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${globalFeatureStateTable.tableName}"`);
   // Wipe the event log + reset every consumer cursor so each test starts
   // from event-id 0. Tests that drain via eventDispatcher.runOnce() need
   // this or they drain a shared backlog and see false-positive counters.
-  await stack.db.execute(sql`DELETE FROM kumiko_events`);
-  await stack.db.execute(sql`UPDATE kumiko_event_consumers SET last_processed_event_id = 0`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM kumiko_events`);
+  await asRawClient(stack.db).unsafe(`UPDATE kumiko_event_consumers SET last_processed_event_id = 0`);
   await runtime.refresh();
 });
 
@@ -212,17 +213,17 @@ async function createWidget(name: string) {
 }
 
 async function countWidgets(): Promise<number> {
-  const rows = await stack.db.select().from(widgetTable);
+  const rows = await selectMany(stack.db, widgetTable);
   return rows.length;
 }
 
 async function countAuditRows(): Promise<number> {
-  const rows = await stack.db.select().from(widgetAuditTable);
+  const rows = await selectMany(stack.db, widgetAuditTable);
   return rows.length;
 }
 
 async function trackerCount(): Promise<number> {
-  const rows = await stack.db.select().from(widgetTrackerTable);
+  const rows = await selectMany(stack.db, widgetTrackerTable);
   return rows[0]?.count ?? 0;
 }
 
@@ -231,16 +232,12 @@ async function trackerCount(): Promise<number> {
 // explicit shape — typed access everywhere else.
 type ConsumerCursorRow = { last_processed_event_id: number | string };
 async function trackerCursor(): Promise<number> {
-  const rows = (await stack.db.execute(
-    sql`SELECT last_processed_event_id FROM kumiko_event_consumers WHERE name LIKE '%tracker%' LIMIT 1`,
-  )) as unknown as readonly ConsumerCursorRow[];
+  const rows = (await asRawClient(stack.db).unsafe(`SELECT last_processed_event_id FROM kumiko_event_consumers WHERE name LIKE '%tracker%' LIMIT 1`)) as unknown as readonly ConsumerCursorRow[];
   return Number(rows[0]?.last_processed_event_id ?? 0);
 }
 
 async function setTrackerCursor(value: number): Promise<void> {
-  await stack.db.execute(
-    sql`UPDATE kumiko_event_consumers SET last_processed_event_id = ${value} WHERE name LIKE '%tracker%'`,
-  );
+  await asRawClient(stack.db).unsafe(`UPDATE kumiko_event_consumers SET last_processed_event_id = $1 WHERE name LIKE '%tracker%'`, [value]);
 }
 
 describe("feature-toggles runtime cache", () => {
@@ -252,7 +249,7 @@ describe("feature-toggles runtime cache", () => {
   });
 
   test("refresh() re-reads the DB snapshot", async () => {
-    await stack.db.insert(globalFeatureStateTable).values({
+    await insertOne(stack.db, globalFeatureStateTable, {
       featureName: "widget",
       enabled: false,
       version: 1,
@@ -330,7 +327,7 @@ describe("runtime on/off/on — the user's scenario", () => {
     expect(body.data?.previousEnabled).toBeNull();
 
     // Row persisted.
-    const rows = await stack.db.select().from(globalFeatureStateTable);
+    const rows = await selectMany(stack.db, globalFeatureStateTable);
     expect(rows).toHaveLength(1);
 
     // Snapshot updated — widget:create now 403s.
@@ -517,9 +514,7 @@ describe("feature-toggles queries + audit automation", () => {
       admin,
     );
 
-    const events = (await stack.db.execute(
-      sql`SELECT type, payload FROM kumiko_events WHERE type = 'feature-toggles:event:toggle-set'`,
-    )) as unknown as readonly {
+    const events = (await asRawClient(stack.db).unsafe(`SELECT type, payload FROM kumiko_events WHERE type = 'feature-toggles:event:toggle-set'`)) as unknown as readonly {
       type: string;
       payload: Record<string, unknown>;
     }[];

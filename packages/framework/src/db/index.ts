@@ -63,8 +63,10 @@ export { buildEntityTableMeta, defineUnmanagedTable } from "./entity-table-meta"
 export { renderTableDdl, renderTablesDdl } from "./render-ddl";
 export type { SelectOptions, WhereObject, WhereValue } from "./query-api";
 export {
+  asRawClient,
   deleteMany,
   fetchOne,
+  insertMany,
   insertOne,
   selectMany,
   transaction,

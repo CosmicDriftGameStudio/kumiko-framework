@@ -9,7 +9,7 @@
 //      in < 50ms (typical asOf/reducer rehydrate budget). Same gate the
 //      spike proved on raw SQL, now enforced on the framework path.
 
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import type { TenantId } from "../../engine/types";
 import { createTestDb, type TestDb } from "../../stack";
@@ -24,6 +24,7 @@ import {
   type SnapshotReducer,
   saveSnapshot,
 } from "../index";
+import { asRawClient } from "../../bun-db/query";
 
 let testDb: TestDb;
 const tenant = uuid() as TenantId;
@@ -58,9 +59,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await testDb.db.execute(
-    sql`TRUNCATE kumiko_events, kumiko_snapshots, kumiko_archived_streams RESTART IDENTITY`,
-  );
+  await asRawClient(testDb.db).unsafe(`TRUNCATE kumiko_events, kumiko_snapshots, kumiko_archived_streams RESTART IDENTITY`);
 });
 
 // Append N increment events to a fresh aggregate. Returns the aggregate id.

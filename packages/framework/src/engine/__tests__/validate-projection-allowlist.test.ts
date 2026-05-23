@@ -4,8 +4,7 @@
 // gate (Followup #15).
 
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
-import { pgTable, text, uuid } from "drizzle-orm/pg-core";
+import { table as pgTable, text, uuid } from "../../db/dialect";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { defineFeature } from "../define-feature";
@@ -117,7 +116,7 @@ describe("validateProjectionAllowlist", () => {
           perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
             r.step.unsafeProjectionDelete({
               table: widgetsTable,
-              where: () => eq(widgetsTable.id, "anything"),
+              where: () => ({ id: "anything" }),
             }),
             r.step.return({ isSuccess: true as const, data: { ok: true } }),
           ]),
@@ -140,7 +139,7 @@ describe("validateProjectionAllowlist", () => {
           perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
             r.step.unsafeProjectionDelete({
               table: demoLogTable,
-              where: () => eq(demoLogTable.id, "anything"),
+              where: () => ({ id: "anything" }),
             }),
             r.step.return({ isSuccess: true as const, data: { ok: true } }),
           ]),

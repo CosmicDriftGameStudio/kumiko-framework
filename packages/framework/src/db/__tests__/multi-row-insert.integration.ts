@@ -11,6 +11,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField } from "../../engine";
 import { setupTestStack, type TestStack, unsafeCreateEntityTable } from "../../stack";
+import { insertOne, selectMany } from "../../bun-db/query";
 
 const linkEntity = createEntity({
   table: "mri_links",
@@ -50,12 +51,12 @@ describe("instant() customType is forgiving with ISO strings", () => {
     // would call .toString() on a string and produce a malformed driver
     // value that PG rejects.
     const isoString = "2026-01-15T12:00:00Z";
-    await stack.db.insert(tsTable).values({
+    await insertOne(stack.db, tsTable, {
       name: "x",
       tenantId: "00000000-0000-4000-8000-000000000001",
       insertedAt: isoString as unknown as Temporal.Instant,
     });
-    const rows = await stack.db.select().from(tsTable);
+    const rows = await selectMany(stack.db, tsTable);
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["insertedAt"]).toBeInstanceOf(Temporal.Instant);
   });
@@ -63,11 +64,11 @@ describe("instant() customType is forgiving with ISO strings", () => {
 
 describe("multi-row INSERT", () => {
   test("two rows with no id supplied → both rows persist (PG gen_random_uuid per row)", async () => {
-    await stack.db.insert(linkTable).values([
+    await insertOne(stack.db, linkTable, [
       { leftId: "L1", rightId: "R1", tenantId: "00000000-0000-4000-8000-000000000001" },
       { leftId: "L2", rightId: "R2", tenantId: "00000000-0000-4000-8000-000000000001" },
     ]);
-    const rows = await stack.db.select().from(linkTable);
+    const rows = await selectMany(stack.db, linkTable);
     expect(rows).toHaveLength(2);
     // Each row got its own id from the PG default.
     const ids = new Set(rows.map((r) => r["id"] as string));

@@ -14,6 +14,7 @@ export {
   asRawClient,
   deleteMany,
   fetchOne,
+  insertMany,
   insertOne,
   selectMany,
   transaction,

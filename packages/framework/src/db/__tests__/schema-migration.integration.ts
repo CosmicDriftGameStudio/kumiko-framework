@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
   createBooleanField,
@@ -11,6 +11,7 @@ import {
 import type { FeatureDefinition } from "../../engine/types";
 import { createTestDb, type TestDb, unsafePushTables } from "../../stack";
 import { buildDrizzleTable } from "../table-builder";
+import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
 
 /**
  * Integration tests for the schema migration workflow.
@@ -48,13 +49,7 @@ async function applySchema(features: readonly FeatureDefinition[]): Promise<void
 async function getTableColumns(
   tableName: string,
 ): Promise<Map<string, { dataType: string; isNullable: boolean }>> {
-  const rows = await testDb.db.execute<{
-    column_name: string;
-    data_type: string;
-    is_nullable: string;
-  }>(
-    sql`SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = ${tableName} ORDER BY ordinal_position`,
-  );
+  const rows = await asRawClient(testDb.db).unsafe(`SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = $1 ORDER BY ordinal_position`, [tableName]);
 
   const result = new Map<string, { dataType: string; isNullable: boolean }>();
   for (const row of rows) {
@@ -170,9 +165,7 @@ describe("schema migration workflows", () => {
     await unsafePushTables(testDb.db, { project: initialTable });
 
     // Insert a row first (to prove ADD COLUMN with default doesn't break existing rows)
-    await testDb.db
-      .insert(initialTable)
-      .values({ tenantId: "00000000-0000-4000-8000-000000000001", name: "Test Project" });
+    await insertOne(testDb.db, initialTable, { tenantId: "00000000-0000-4000-8000-000000000001", name: "Test Project" });
 
     // Developer adds boolean field with default
     const updatedEntity = createEntity({
@@ -183,7 +176,7 @@ describe("schema migration workflows", () => {
     await unsafePushTables(testDb.db, { project: updatedTable }, { project: initialTable });
 
     // Existing row should have the default value
-    const rows = await testDb.db.select().from(updatedTable);
+    const rows = await selectMany(testDb.db, updatedTable);
 
     expect(rows[0]).toMatchObject({ name: "Test Project", isArchived: false });
   });
@@ -202,9 +195,7 @@ describe("schema migration workflows", () => {
     const initialTable = buildDrizzleTable("user", initialEntity);
     await unsafePushTables(testDb.db, { user: initialTable });
 
-    await testDb.db
-      .insert(initialTable)
-      .values({ tenantId: "00000000-0000-4000-8000-000000000001", email: "x@y.z" });
+    await insertOne(testDb.db, initialTable, { tenantId: "00000000-0000-4000-8000-000000000001", email: "x@y.z" });
 
     const updatedEntity = createEntity({
       table: "wf3b_users",
@@ -216,7 +207,7 @@ describe("schema migration workflows", () => {
     const updatedTable = buildDrizzleTable("user", updatedEntity);
     await unsafePushTables(testDb.db, { user: updatedTable }, { user: initialTable });
 
-    const rows = await testDb.db.select().from(updatedTable);
+    const rows = await selectMany(testDb.db, updatedTable);
     expect(rows[0]).toMatchObject({ email: "x@y.z", roles: "[]" });
   });
 

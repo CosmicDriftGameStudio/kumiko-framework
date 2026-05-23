@@ -18,10 +18,11 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { AuditQueries } from "../constants";
 import { createAuditFeature } from "../feature";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const widgetEntity = createEntity({
   table: "audit_widgets",
@@ -71,7 +72,7 @@ beforeEach(async () => {
   // Fresh event log per test — the audit query reads the events table
   // directly, so stale events from previous tests would leak into results.
   await resetEventStore(stack);
-  await stack.db.execute(sql`TRUNCATE audit_widgets`);
+  await asRawClient(stack.db).unsafe(`TRUNCATE audit_widgets`);
 });
 
 async function createWidget(user: SessionUser, name: string, color?: string): Promise<string> {

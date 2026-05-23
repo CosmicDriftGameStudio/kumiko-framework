@@ -13,6 +13,7 @@ import {
   unsafeCreateEntityTable,
 } from "../../stack";
 import { createRecordingProvider, type RecordingProvider, waitFor } from "../../testing";
+import { insertOne } from "../../bun-db/query";
 
 // End-to-end observability integration: wires a full Kumiko stack with a
 // RecordingProvider so we can assert on the span tree and metric events.
@@ -72,10 +73,7 @@ const todoFeature = defineFeature("todo", (r) => {
     "create",
     z.object({ title: z.string() }),
     async (event, ctx) => {
-      const rows = await ctx.db
-        .insert(todoTable)
-        .values({ title: event.payload.title })
-        .returning();
+      const rows = await insertOne(ctx.db, todoTable, { title: event.payload.title });
       const row = rows[0] as { id: number; title: string };
       return {
         isSuccess: true,

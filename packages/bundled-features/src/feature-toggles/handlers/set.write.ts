@@ -66,8 +66,14 @@ export function createSetWriteHandler(getRuntime: () => GlobalFeatureToggleRunti
       // Read current state for event payload + optimistic-lock version.
       // `$inferSelect` narrows the result shape to the real table schema —
       // no hand-rolled cast, no drift if a column is added later.
-      type StateRow = typeof globalFeatureStateTable.$inferSelect;
-      const [existing] = (await selectMany(ctx.db, globalFeatureStateTable, { featureName: featureName }, { limit: 1 })) as StateRow[]; // @cast-boundary db-row
+      type StateRow = {
+        featureName: string;
+        enabled: boolean;
+        version: number;
+        updatedAt: Temporal.Instant;
+        updatedBy: string;
+      };
+      const [existing] = await selectMany<StateRow>(ctx.db, globalFeatureStateTable, { featureName }, { limit: 1 });
 
       const previousEnabled = existing?.enabled ?? null;
 

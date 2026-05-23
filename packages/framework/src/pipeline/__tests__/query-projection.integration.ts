@@ -21,6 +21,7 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "../../stack";
+import { insertOne } from "../../bun-db/query";
 
 const widgetEntity = createEntity({
   table: "read_qp_widgets",
@@ -52,7 +53,7 @@ const qpFeature = defineFeature("qp", (r) => {
     apply: {
       "qp-widget.created": async (event, tx) => {
         const p = event.payload as { name?: string };
-        await tx.insert(tenantScopedTable).values({
+        await insertOne(tx, tenantScopedTable, {
           widgetId: event.aggregateId,
           tenantId: event.tenantId,
           label: p.name ?? "?",
@@ -68,7 +69,7 @@ const qpFeature = defineFeature("qp", (r) => {
     apply: {
       "qp-widget.created": async (event, tx) => {
         const p = event.payload as { name?: string };
-        await tx.insert(systemScopedTable).values({
+        await insertOne(tx, systemScopedTable, {
           widgetId: event.aggregateId,
           label: p.name ?? "?",
         });

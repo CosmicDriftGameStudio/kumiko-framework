@@ -16,7 +16,7 @@ export const registeredQuery = defineQueryHandler({
   schema: z.object({}),
   access: { roles: ["SystemAdmin", "Admin"] },
   handler: async (_event, ctx) => {
-    type OverrideRow = Pick<typeof globalFeatureStateTable.$inferSelect, "featureName" | "enabled">;
+    type OverrideRow = { featureName: string; enabled: boolean };
     const overrideRows = await selectMany<OverrideRow>(ctx.db.raw, globalFeatureStateTable);
     const overrides = new Map(overrideRows.map((r) => [r.featureName, r.enabled]));
 

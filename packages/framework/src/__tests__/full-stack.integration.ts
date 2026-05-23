@@ -12,6 +12,7 @@ import {
   unsafeCreateEntityTable,
 } from "../stack";
 import { expectErrorIncludes, sharedUserEntity, sharedUserTable } from "../testing";
+import { updateMany } from "../bun-db/query";
 
 // --- Entities ---
 
@@ -715,10 +716,7 @@ describe("full stack: entity cache", () => {
 
     // Raw DB update — bypasses cache invalidation
     const { eq } = await import("drizzle-orm");
-    await stack.db
-      .update(userTable)
-      .set({ firstName: "RawDbChange" })
-      .where(eq(userTable["id"], id));
+    await updateMany(stack.db, userTable, { firstName: "RawDbChange" }, { id: id });
 
     // Detail still returns cached (old) value
     const stale = await stack.http.queryOk<Record<string, unknown>>(

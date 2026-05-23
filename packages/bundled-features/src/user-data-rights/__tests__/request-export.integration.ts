@@ -26,13 +26,14 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createUserFeature } from "../../user";
 import { createUserDataRightsFeature } from "../feature";
 import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "../schema/export-job";
+import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const REQUEST_EXPORT = "user-data-rights:write:request-export";
 const EXPORT_STATUS = "user-data-rights:query:export-status";
@@ -63,8 +64,8 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(exportJobsTable);
-  await stack.db.execute(sql`DELETE FROM kumiko_events`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${exportJobsTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM kumiko_events`);
 });
 
 type RequestExportResponse = {
@@ -81,7 +82,7 @@ describe("request-export :: happy path", () => {
     expect(result.status).toBe(EXPORT_JOB_STATUS.Pending);
     expect(result.jobId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-/);
 
-    const rows = await stack.db.select().from(exportJobsTable);
+    const rows = await selectMany(stack.db, exportJobsTable);
     expect(rows).toHaveLength(1);
     // biome-ignore lint/suspicious/noExplicitAny: drizzle-row typing
     expect((rows[0] as any).userId).toBe(aliceUser.id);
@@ -94,7 +95,7 @@ describe("request-export :: happy path", () => {
   test("Event 'export-job.created' im Stream", async () => {
     await stack.http.writeOk(REQUEST_EXPORT, {}, aliceUser);
 
-    const events = await stack.db.execute(sql`
+    const events = await asRawClient(stack.db).unsafe(`
       SELECT type FROM kumiko_events WHERE aggregate_type = 'export-job'
     `);
     // biome-ignore lint/suspicious/noExplicitAny: drizzle-execute typing
@@ -114,10 +115,10 @@ describe("request-export :: App-side-Idempotency (primaerer Pfad)", () => {
     expect(second.jobId).toBe(first.jobId);
     expect(second.status).toBe(EXPORT_JOB_STATUS.Pending);
 
-    const rows = await stack.db.select().from(exportJobsTable);
+    const rows = await selectMany(stack.db, exportJobsTable);
     expect(rows).toHaveLength(1);
 
-    const events = await stack.db.execute(sql`
+    const events = await asRawClient(stack.db).unsafe(`
       SELECT type FROM kumiko_events WHERE aggregate_type = 'export-job'
     `);
     // biome-ignore lint/suspicious/noExplicitAny: drizzle-execute typing
@@ -137,7 +138,7 @@ describe("request-export :: App-side-Idempotency (primaerer Pfad)", () => {
     expect(second.isExisting).toBe(false);
     expect(second.jobId).not.toBe(first.jobId);
 
-    const rows = await stack.db.select().from(exportJobsTable);
+    const rows = await selectMany(stack.db, exportJobsTable);
     expect(rows).toHaveLength(2);
   });
 });
@@ -154,7 +155,7 @@ describe("request-export :: Cross-Tenant (Plan-Doc-Pflicht-Test)", () => {
     expect(fromB.jobId).toBe(fromA.jobId);
 
     // Genau 1 Job (kein 2. fuer Tenant B)
-    const rows = await stack.db.select().from(exportJobsTable);
+    const rows = await selectMany(stack.db, exportJobsTable);
     expect(rows).toHaveLength(1);
     // requestedFromTenantId = Tenant aus 1. Klick (= A), nicht B
     // biome-ignore lint/suspicious/noExplicitAny: drizzle-row typing
@@ -183,7 +184,7 @@ describe("request-export :: Race-Schutz (Promise.all parallel)", () => {
     const winners = [a, b].filter((r) => r.isExisting === false);
     expect(winners).toHaveLength(1);
 
-    const rows = await stack.db.select().from(exportJobsTable);
+    const rows = await selectMany(stack.db, exportJobsTable);
     expect(rows).toHaveLength(1);
   });
 
@@ -241,7 +242,7 @@ describe("export-status :: User-Polling", () => {
     const T = getTemporal();
     // 1. Job done in der Vergangenheit
     const oldJobId = "11111111-1111-4111-8111-111111111111";
-    await stack.db.insert(exportJobsTable).values({
+    await insertOne(stack.db, exportJobsTable, {
       id: oldJobId,
       tenantId: tenantA,
       userId: aliceUser.id,

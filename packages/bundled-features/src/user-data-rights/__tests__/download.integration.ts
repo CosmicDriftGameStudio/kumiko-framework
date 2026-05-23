@@ -24,7 +24,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import {
   createComplianceProfilesFeature,
@@ -43,6 +43,7 @@ import { createUserDataRightsFeature } from "../feature";
 import { runExportJobs } from "../run-export-jobs";
 import { exportDownloadTokenEntity, exportDownloadTokensTable } from "../schema/download-token";
 import { exportJobEntity, exportJobsTable } from "../schema/export-job";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 let providerPerTenant: Map<string, ReturnType<typeof createInMemoryFileProvider>>;
@@ -127,7 +128,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafePushTables(stack.db, { configValuesTable });
   await createEventsTable(stack.db);
-  await stack.db.execute(sql`
+  await asRawClient(stack.db).unsafe(`
     CREATE TABLE IF NOT EXISTS read_tenant_memberships (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       tenant_id UUID NOT NULL,
@@ -151,12 +152,12 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(exportDownloadTokensTable);
-  await stack.db.delete(exportJobsTable);
-  await stack.db.execute(sql`DELETE FROM kumiko_events`);
-  await stack.db.execute(sql`DELETE FROM read_tenant_compliance_profiles`);
-  await stack.db.execute(sql`DELETE FROM read_tenant_memberships`);
-  await stack.db.execute(sql`DELETE FROM ${configValuesTable}`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${exportDownloadTokensTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${exportJobsTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM kumiko_events`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_compliance_profiles`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_memberships`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM $1`, [configValuesTable]);
   providerPerTenant = new Map();
 
   // Setup file-foundation provider="inmemory" pro Tenant.
@@ -549,11 +550,11 @@ describe("download-by-job :: cross-user + cross-tenant", () => {
       roles: ["Member"],
     });
     // Membership in Tenant B persisten damit auth-stack User akzeptiert
-    await stack.db.execute(sql`
+    await asRawClient(stack.db).unsafe(`
       INSERT INTO read_tenant_memberships (tenant_id, user_id)
-      VALUES (${tenantB}, ${String(aliceUser.id)})
+      VALUES ($1, $2)
       ON CONFLICT (user_id, tenant_id) DO NOTHING
-    `);
+    `, [tenantB, String(aliceUser.id)]);
 
     const result = await stack.http.queryOk<{ url: string }>(
       "user-data-rights:query:download-by-job",

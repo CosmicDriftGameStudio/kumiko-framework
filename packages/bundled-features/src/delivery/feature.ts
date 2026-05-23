@@ -6,6 +6,7 @@ import { logQuery } from "./handlers/log.query";
 import { preferencesQuery } from "./handlers/preferences.query";
 import { setPreferenceWrite } from "./handlers/set-preference.write";
 import { deliveryAttemptsTable, notificationPreferenceEntity } from "./tables";
+import { insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 export function createDeliveryFeature(): FeatureDefinition {
   return defineFeature("delivery", (r) => {
@@ -34,7 +35,7 @@ export function createDeliveryFeature(): FeatureDefinition {
           const p = event.payload as z.infer<typeof deliveryAttemptSchema>; // @cast-boundary engine-payload
           // PK = aggregateId — replaying the same event twice conflicts on
           // the PK rather than silently duplicating the log row.
-          await tx.insert(deliveryAttemptsTable).values({
+          await insertOne(tx, deliveryAttemptsTable, {
             id: event.aggregateId,
             tenantId: event.tenantId,
             notificationType: p.notificationType,

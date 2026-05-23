@@ -7,6 +7,7 @@ import { buildDrizzleTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { generateId } from "../../utils";
+import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
 
 // End-to-end: UI code would call `dispatcher.write("feat:write:item:create", ...)`.
 // This test wires dispatcher-live against the real Kumiko HTTP stack via
@@ -42,7 +43,7 @@ const itemFeature = defineFeature("dlive", (r) => {
     "item:list",
     z.object({}).optional(),
     async (_event, ctx) => {
-      return ctx.db.select().from(itemTable);
+      return selectMany(ctx.db, itemTable);
     },
     { access: { roles: ["Admin"] } },
   );
@@ -105,7 +106,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(itemTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${itemTable.tableName}"`);
 });
 
 describe("dispatcher-live (integration) — full path against Kumiko server", () => {
@@ -123,7 +124,7 @@ describe("dispatcher-live (integration) — full path against Kumiko server", ()
     expect(result.isSuccess).toBe(true);
 
     // Prove the server actually persisted.
-    const rows = await stack.db.select().from(itemTable);
+    const rows = await selectMany(stack.db, itemTable);
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["name"]).toBe("hello-live");
   });
@@ -158,7 +159,7 @@ describe("dispatcher-live (integration) — full path against Kumiko server", ()
 
   test("query: dispatches GET-style-POST (Kumiko uses POST for query too), returns data", async () => {
     // Seed a row first.
-    await stack.db.insert(itemTable).values({
+    await insertOne(stack.db, itemTable, {
       id: generateId(),
       tenantId: admin.tenantId,
       name: "seed",
@@ -188,7 +189,7 @@ describe("dispatcher-live (integration) — full path against Kumiko server", ()
 
     expect(result.isSuccess).toBe(true);
 
-    const rows = await stack.db.select().from(itemTable);
+    const rows = await selectMany(stack.db, itemTable);
     expect(rows).toHaveLength(3);
     const names = rows.map((r) => r["name"]).sort();
     expect(names).toEqual(["a", "b", "c"]);
@@ -210,7 +211,7 @@ describe("dispatcher-live (integration) — full path against Kumiko server", ()
     }
 
     // DB must be empty — prior success within a failed batch rolls back.
-    const rows = await stack.db.select().from(itemTable);
+    const rows = await selectMany(stack.db, itemTable);
     expect(rows).toHaveLength(0);
   });
 });

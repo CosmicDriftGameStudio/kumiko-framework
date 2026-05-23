@@ -25,13 +25,14 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { fieldDefinitionEntity } from "../entity";
 import { createCustomFieldsFeature } from "../feature";
 import { runCustomFieldsRetention } from "../run-retention";
 import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const propertyEntity = createEntity({
   table: "read_t15d_properties",
@@ -81,8 +82,8 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await resetEventStore(stack);
-  await stack.db.execute(sql`DELETE FROM read_t15d_properties`);
-  await stack.db.execute(sql`DELETE FROM read_custom_field_definitions`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM read_t15d_properties`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM read_custom_field_definitions`);
 });
 
 async function defineField(fieldKey: string, serializedField: Record<string, unknown>) {
@@ -116,15 +117,11 @@ async function setField(entityId: string, fieldKey: string, value: unknown) {
 // older than the retention cutoff. Faster than waiting `keepFor` real
 // time and the cleanest way to drive the cron under test.
 async function backdateRow(id: string, isoOlderThan: string) {
-  await stack.db.execute(
-    sql`UPDATE read_t15d_properties SET modified_at = ${isoOlderThan}::timestamptz WHERE id = ${id}`,
-  );
+  await asRawClient(stack.db).unsafe(`UPDATE read_t15d_properties SET modified_at = $1::timestamptz WHERE id = $2`, [isoOlderThan, id]);
 }
 
 async function readRow(id: string): Promise<Record<string, unknown> | undefined> {
-  const rows = await stack.db.execute(
-    sql`SELECT id, custom_fields FROM read_t15d_properties WHERE id = ${id}`,
-  );
+  const rows = await asRawClient(stack.db).unsafe(`SELECT id, custom_fields FROM read_t15d_properties WHERE id = $1`, [id]);
   return (rows as ReadonlyArray<Record<string, unknown>>)[0];
 }
 

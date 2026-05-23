@@ -38,6 +38,7 @@ import {
 } from "../../stack";
 import { sharedWidgetEntity, sharedWidgetTable } from "../../testing";
 import { generateId } from "../../utils";
+import { insertOne } from "../../bun-db/query";
 
 // --- Fixture ---
 
@@ -91,7 +92,7 @@ async function bulkSeedWidgetCreated(count: number, namePrefix: string): Promise
     metadata: { userId: admin.id },
     createdBy: admin.id,
   }));
-  await stack.db.insert(eventsTable).values(rows);
+  await insertOne(stack.db, eventsTable, rows);
 }
 
 function buildDispatcherWith(consumers: readonly EventConsumer[]): EventDispatcher {

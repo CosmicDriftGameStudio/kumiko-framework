@@ -16,6 +16,7 @@ import {
 } from "../constants";
 import { createTemplateResolverFeature } from "../feature";
 import { templateResourceEntity, templateResourcesTable } from "../table";
+import { insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 let db: DbConnection;
@@ -55,7 +56,7 @@ async function seedTemplate(args: {
   linkedResources?: Record<string, string>;
   parentTemplateId?: string;
 }) {
-  await db.insert(templateResourcesTable).values({
+  await insertOne(db, templateResourcesTable, {
     tenantId: args.tenantId,
     slug: args.slug,
     kind: args.kind,

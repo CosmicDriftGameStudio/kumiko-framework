@@ -15,7 +15,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import {
   createEntity,
@@ -37,6 +37,7 @@ import {
   unsafeCreateEntityTable,
 } from "../../stack";
 import { createLocalProvider } from "../local-provider";
+import { asRawClient } from "../../bun-db/query";
 
 // Covers ALL four file-field variants: singular (file/image) stores a UUID in
 // the entity column; plural (files/images) has no entity column — the array
@@ -83,7 +84,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.execute(sql`TRUNCATE pipeline_documents`);
+  await asRawClient(stack.db).unsafe(`TRUNCATE pipeline_documents`);
 });
 
 async function uploadFile(fileName: string, body: Uint8Array, mimeType: string): Promise<string> {

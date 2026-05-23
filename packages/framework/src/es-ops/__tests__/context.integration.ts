@@ -13,12 +13,13 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { createTestDb, type TestDb } from "../../stack";
 import { createSeedMigrationContext } from "../context";
 import { createEsOperationsTable, esOperationsTable } from "../operations-schema";
 import { runPendingSeedMigrations } from "../runner";
+import { asRawClient, selectMany } from "../../bun-db/query";
 
 let testDb: TestDb;
 
@@ -28,7 +29,7 @@ beforeAll(async () => {
 
   // Minimal-Schema-Stubs für die 3 Read-Tabellen die context.ts liest.
   // Spalten matchen production (siehe Sysadmin-Stream-Tenant-Bug Memory).
-  await testDb.db.execute(sql`
+  await asRawClient(testDb.db).unsafe(`
     CREATE TABLE IF NOT EXISTS read_users (
       id          uuid PRIMARY KEY,
       email       text NOT NULL,
@@ -54,7 +55,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await testDb.db.execute(sql`
+  await asRawClient(testDb.db).unsafe(`
     TRUNCATE kumiko_es_operations, kumiko_events, read_users, read_tenant_memberships, read_tenants
     RESTART IDENTITY CASCADE
   `);
@@ -70,17 +71,17 @@ async function insertMembershipWithEvent(args: {
   readonly streamTenantId: string;
   readonly roles: string;
 }): Promise<void> {
-  await testDb.db.execute(sql`
+  await asRawClient(testDb.db).unsafe(`
     INSERT INTO read_tenant_memberships (id, user_id, tenant_id, roles)
-    VALUES (${args.id}::uuid, ${args.userId}, ${args.payloadTenantId}::uuid, ${args.roles})
-  `);
-  await testDb.db.execute(sql`
+    VALUES ($1::uuid, $2, $3::uuid, $4)
+  `, [args.id, args.userId, args.payloadTenantId, args.roles]);
+  await asRawClient(testDb.db).unsafe(`
     INSERT INTO kumiko_events
       (aggregate_id, aggregate_type, tenant_id, version, type, payload, metadata, created_by)
     VALUES
-      (${args.id}::uuid, 'tenant-membership', ${args.streamTenantId}::uuid, 1,
+      ($1::uuid, 'tenant-membership', $2::uuid, 1,
        'tenant-membership.created', '{}'::jsonb, '{"userId":"system"}'::jsonb, 'system')
-  `);
+  `, [args.id, args.streamTenantId]);
 }
 
 function makeMockDispatcher() {
@@ -105,10 +106,10 @@ describe("SeedMigrationContext.findUserByEmail (integration)", () => {
   test("liest existing user-row korrekt + maps tenant_id → tenantId", async () => {
     const userId = "01900000-0000-7000-8000-000000000001";
     const tenantId = "00000000-0000-4000-8000-000000000099";
-    await testDb.db.execute(sql`
+    await asRawClient(testDb.db).unsafe(`
       INSERT INTO read_users (id, email, tenant_id)
-      VALUES (${userId}::uuid, 'admin@example.com', ${tenantId}::uuid)
-    `);
+      VALUES ($1::uuid, 'admin@example.com', $2::uuid)
+    `, [userId, tenantId]);
 
     const ctx = createSeedMigrationContext({
       dispatcher: makeMockDispatcher() as never,
@@ -231,11 +232,11 @@ describe("SeedMigrationContext.findMembershipsOfUser (integration)", () => {
     // statt einer mit fehlendem stream-tenant zu arbeiten und schwer
     // diagnostizierbare version_conflict-Errors zu produzieren.
     const userId = "01900000-0000-7000-8000-000000000003";
-    await testDb.db.execute(sql`
+    await asRawClient(testDb.db).unsafe(`
       INSERT INTO read_tenant_memberships (id, user_id, tenant_id, roles) VALUES
-        ('00000000-0000-4000-8000-0000000000d1'::uuid, ${userId},
+        ('00000000-0000-4000-8000-0000000000d1'::uuid, $1,
          '00000000-0000-4000-8000-000000000005'::uuid, '["Admin"]')
-    `);
+    `, [userId]);
     const ctx = createSeedMigrationContext({
       dispatcher: makeMockDispatcher() as never,
       dbRunner: testDb.db,
@@ -247,7 +248,7 @@ describe("SeedMigrationContext.findMembershipsOfUser (integration)", () => {
 
 describe("SeedMigrationContext.findTenants (integration)", () => {
   test("returnt alle Tenants sortiert nach inserted_at", async () => {
-    await testDb.db.execute(sql`
+    await asRawClient(testDb.db).unsafe(`
       INSERT INTO read_tenants (id, name, tenant_key, inserted_at) VALUES
         ('00000000-0000-4000-8000-000000000002'::uuid, 'Beta',  'beta',  '2026-01-02'),
         ('00000000-0000-4000-8000-000000000001'::uuid, 'Alpha', 'alpha', '2026-01-01')
@@ -296,7 +297,7 @@ describe("runPendingSeedMigrations: skippable + env-flag (integration)", () => {
 
       // Kritisch: KEIN Marker — beim nächsten Boot ohne env-flag würde
       // der Seed dann tatsächlich laufen.
-      const markers = await testDb.db.select().from(esOperationsTable);
+      const markers = await selectMany(testDb.db, esOperationsTable);
       expect(markers).toHaveLength(0);
     } finally {
       delete process.env[envKey];
@@ -329,7 +330,7 @@ describe("runPendingSeedMigrations: skippable + env-flag (integration)", () => {
       expect(r.appliedIds).toEqual(["2026-05-20-skippable-but-no-flag"]);
       expect(r.skippedIds).toEqual([]);
 
-      const markers = await testDb.db.select().from(esOperationsTable);
+      const markers = await selectMany(testDb.db, esOperationsTable);
       expect(markers).toHaveLength(1);
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -341,7 +342,7 @@ describe("runPendingSeedMigrations: skippable + env-flag (integration)", () => {
 
 describe("SeedMigrationContext.db (escape-hatch, integration)", () => {
   test("ctx.db kann für eigene Lookups genutzt werden (read-only)", async () => {
-    await testDb.db.execute(sql`
+    await asRawClient(testDb.db).unsafe(`
       INSERT INTO read_tenants (id, name, tenant_key) VALUES
         ('00000000-0000-4000-8000-000000000007'::uuid, 'Lucky', 'lucky')
     `);
@@ -349,9 +350,7 @@ describe("SeedMigrationContext.db (escape-hatch, integration)", () => {
       dispatcher: makeMockDispatcher() as never,
       dbRunner: testDb.db,
     });
-    const rows = (await ctx.db.execute(
-      sql`SELECT name FROM read_tenants WHERE tenant_key = 'lucky'`,
-    )) as unknown as readonly { name: string }[];
+    const rows = (await asRawClient(ctx.db).unsafe(`SELECT name FROM read_tenants WHERE tenant_key = 'lucky'`)) as unknown as readonly { name: string }[];
     expect(rows[0]?.name).toBe("Lucky");
   });
 });

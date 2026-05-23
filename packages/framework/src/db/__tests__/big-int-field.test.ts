@@ -20,12 +20,11 @@ import { createBigIntField, createEntity, createNumberField } from "../../engine
 import { buildInsertSchema } from "../../engine/schema-builder";
 import { buildDrizzleTable } from "../table-builder";
 
-function colByName(table: ReturnType<typeof buildDrizzleTable>, dbName: string) {
-  const cols = (table as unknown as { columns?: ReadonlyArray<{ name: string; notNull?: boolean; pgType?: string }> }).columns;
+function colByName(table: unknown, dbName: string) {
+  const cols = (table as { columns?: ReadonlyArray<{ name: string; notNull?: boolean; pgType?: string }> }).columns;
   if (!cols) throw new Error("Table has no columns metadata");
   for (const c of cols) {
     if (c.name === dbName) {
-      // Map EntityTableMeta -> shape the assertions expect.
       return { name: c.name, notNull: c.notNull, columnType: c.pgType, dataType: c.pgType };
     }
   }

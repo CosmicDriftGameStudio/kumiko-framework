@@ -23,6 +23,7 @@ import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/schema/user";
 import { AuthHandlers } from "../constants";
 import { createAuthEmailPasswordFeature } from "../feature";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 const encryptionKey = randomBytes(32).toString("base64");
@@ -77,8 +78,8 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(userTable);
-  await stack.db.delete(tenantMembershipsTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
 });
 
 // Unique IP per test so buckets don't cross-contaminate. L2 default bucket

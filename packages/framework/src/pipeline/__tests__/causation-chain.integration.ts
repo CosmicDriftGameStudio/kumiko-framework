@@ -29,6 +29,7 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "../../stack";
+import { selectMany } from "../../bun-db/query";
 
 // --- Feature ---
 
@@ -121,7 +122,7 @@ afterEach(async () => {
 type EventRow = typeof eventsTable.$inferSelect;
 
 async function eventsByType(type: string): Promise<EventRow[]> {
-  const rows = await stack.db.select().from(eventsTable);
+  const rows = await selectMany(stack.db, eventsTable);
   return rows.filter((r) => r.type === type);
 }
 

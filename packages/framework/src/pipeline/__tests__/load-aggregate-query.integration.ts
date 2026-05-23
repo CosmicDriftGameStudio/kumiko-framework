@@ -19,6 +19,7 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "../../stack";
+import { insertOne } from "../../bun-db/query";
 
 // --- Fixture entity ---
 
@@ -214,8 +215,8 @@ describe("ctx.loadAggregate via queryHandler — Marten AggregateStreamAsync equ
     // against v2 (integer cents) — without upcasting it would blow up or
     // produce garbage.
     const invoiceId = "00000000-0000-4000-8000-000000000042";
-    await stack.db.transaction(async (tx) => {
-      await tx.insert(invoiceTable).values({
+    await stack.db.begin(async (tx) => {
+      await insertOne(tx, invoiceTable, {
         id: invoiceId,
         tenantId: admin.tenantId,
         customer: "LegacyCo",

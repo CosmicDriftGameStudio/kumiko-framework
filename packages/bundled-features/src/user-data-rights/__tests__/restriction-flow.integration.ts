@@ -23,7 +23,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createLateBoundHolder } from "@cosmicdrift/kumiko-framework/testing";
-import { eq, sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { AuthErrors, AuthHandlers } from "../../auth-email-password/constants";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
@@ -47,6 +47,7 @@ import { seedTenantMembership } from "../../tenant/seeding";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
 import { UserHandlers } from "../../user/constants";
 import { createUserDataRightsFeature } from "../feature";
+import { asRawClient, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const RESTRICT = "user-data-rights:write:restrict-account";
 const LIFT = "user-data-rights:write:lift-restriction";
@@ -97,11 +98,11 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(userSessionTable);
-  await stack.db.delete(userTable);
-  await stack.db.delete(tenantMembershipsTable);
-  await stack.db.execute(sql`DELETE FROM read_tenant_compliance_profiles`);
-  await stack.db.execute(sql`DELETE FROM kumiko_events`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userSessionTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_compliance_profiles`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM kumiko_events`);
 });
 
 async function seedAliceWithMembership(
@@ -114,7 +115,7 @@ async function seedAliceWithMembership(
     TestUsers.systemAdmin,
   );
   if (status !== USER_STATUS.Active) {
-    await stack.db.update(userTable).set({ status }).where(eq(userTable["id"], created.id));
+    await updateMany(stack.db, userTable, { status }, { id: created.id });
   }
   await seedTenantMembership(stack.db, {
     userId: created.id,

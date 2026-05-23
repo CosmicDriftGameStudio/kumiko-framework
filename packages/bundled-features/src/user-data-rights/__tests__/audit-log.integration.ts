@@ -8,7 +8,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import {
   createComplianceProfilesFeature,
@@ -19,6 +19,7 @@ import { USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserFeature } from "../../user/feature";
 import { createUserDataRightsFeature } from "../feature";
 import { downloadAttemptEntity, downloadAttemptsTable } from "../schema/download-attempt";
+import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const MY_AUDIT = "user-data-rights:query:my-audit-log";
 const LIST_ATTEMPTS = "user-data-rights:query:list-download-attempts";
@@ -50,14 +51,14 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(userTable);
-  await stack.db.execute(sql`DELETE FROM read_tenant_compliance_profiles`);
-  await stack.db.execute(sql`DELETE FROM read_download_attempts`);
-  await stack.db.execute(sql`DELETE FROM kumiko_events`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_compliance_profiles`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM read_download_attempts`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM kumiko_events`);
 });
 
 async function seedUser(u: typeof alice, email: string): Promise<void> {
-  await stack.db.insert(userTable).values({
+  await insertOne(stack.db, userTable, {
     id: u.id,
     tenantId: u.tenantId,
     email,
@@ -78,12 +79,12 @@ async function seedEvent(
   payload: object,
 ): Promise<void> {
   _eventVersion += 1;
-  await stack.db.execute(sql`
+  await asRawClient(stack.db).unsafe(`
     INSERT INTO kumiko_events
     (tenant_id, aggregate_type, aggregate_id, version, type, payload, metadata, created_at, created_by)
-    VALUES (${tenantId}, ${"test-aggregate"}, ${"00000000-0000-4000-8000-00000000aaaa"},
-            ${_eventVersion}, ${type}, ${JSON.stringify(payload)}, ${"{}"}, now(), ${createdBy})
-  `);
+    VALUES ($1, $2, $3,
+            $4, $5, $6, $7, now(), $8)
+  `, [tenantId, "test-aggregate", "00000000-0000-4000-8000-00000000aaaa", _eventVersion, type, JSON.stringify(payload), "{}", createdBy]);
 }
 
 describe("my-audit-log", () => {
@@ -161,7 +162,7 @@ describe("list-download-attempts (DPO operator-query)", () => {
     // Direct-INSERT in attempts (simuliert was die download-handler schreiben).
     const T = await import("@cosmicdrift/kumiko-framework/time");
     const now = T.getTemporal().Now.instant();
-    await stack.db.insert(downloadAttemptsTable).values([
+    await insertOne(stack.db, downloadAttemptsTable, [
       {
         id: "11111111-1111-4111-8111-111111111111",
         tenantId: tenantA,

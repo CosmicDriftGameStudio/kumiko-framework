@@ -15,7 +15,7 @@
 // carry a different state row (kumiko_event_consumers, not kumiko_projections)
 // and a different apply signature (3rd ctx arg).
 
-import { eq, sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect";
@@ -34,6 +34,7 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "../../stack";
+import { selectMany, updateMany } from "../../bun-db/query";
 
 // --- Fixtures: two aggregates feeding one MSP + two cornered MSPs ---
 
@@ -248,10 +249,7 @@ describe("rebuildMultiStreamProjection — rebuildable read-model", () => {
     // Disable the saga MSP for this test — it runs on the same event types
     // and would trip its own ctx.appendEvent path during live delivery
     // (which is fine in production, but noise here).
-    await stack.db
-      .update(eventConsumerStateTable)
-      .set({ status: "disabled", updatedAt: sql`now()` })
-      .where(eq(eventConsumerStateTable.name, SAGA_MSP));
+    await updateMany(stack.db, eventConsumerStateTable, { status: "disabled", updatedAt: sql`now()` }, { name: SAGA_MSP });
 
     await stack.http.writeOk("mspreb:write:invoice:bill", { customer: alice, cents: 10_00 }, admin);
     await stack.http.writeOk("mspreb:write:invoice:bill", { customer: alice, cents: 5_00 }, admin);
@@ -263,7 +261,7 @@ describe("rebuildMultiStreamProjection — rebuildable read-model", () => {
     await stack.http.writeOk("mspreb:write:invoice:bill", { customer: bob, cents: 7_50 }, admin);
     await runFullDispatcher();
 
-    const liveRows = await stack.db.select().from(balanceTable).orderBy(balanceTable.customer);
+    const liveRows = await selectMany(stack.db, balanceTable);
     const aliceLive = liveRows.find((r) => r.customer === alice);
     const bobLive = liveRows.find((r) => r.customer === bob);
     expect(aliceLive).toMatchObject({ invoicesCents: 15_00, paymentsCents: 3_00 });
@@ -279,7 +277,7 @@ describe("rebuildMultiStreamProjection — rebuildable read-model", () => {
     expect(result.eventsProcessed).toBe(4); // 2 invoices + 1 payment + 1 invoice
     expect(result.lastProcessedEventId).toBeGreaterThan(0n);
 
-    const rebuiltRows = await stack.db.select().from(balanceTable).orderBy(balanceTable.customer);
+    const rebuiltRows = await selectMany(stack.db, balanceTable);
     expect(rebuiltRows).toEqual(liveRows);
 
     // Consumer cursor is at head after rebuild — the live dispatcher should
@@ -291,28 +289,19 @@ describe("rebuildMultiStreamProjection — rebuildable read-model", () => {
 
   test("rebuild after table corruption restores the correct state", async () => {
     const carol = "00000000-0000-4000-8000-000000000c03";
-    await stack.db
-      .update(eventConsumerStateTable)
-      .set({ status: "disabled", updatedAt: sql`now()` })
-      .where(eq(eventConsumerStateTable.name, SAGA_MSP));
+    await updateMany(stack.db, eventConsumerStateTable, { status: "disabled", updatedAt: sql`now()` }, { name: SAGA_MSP });
     await stack.http.writeOk("mspreb:write:invoice:bill", { customer: carol, cents: 42_00 }, admin);
     await runFullDispatcher();
 
     // Corrupt the read-model — simulate a buggy apply() landing bad numbers.
-    await stack.db
-      .update(balanceTable)
-      .set({ invoicesCents: -999, paymentsCents: 999 })
-      .where(eq(balanceTable.customer, carol));
+    await updateMany(stack.db, balanceTable, { invoicesCents: -999, paymentsCents: 999 }, { customer: carol });
 
     await rebuildMultiStreamProjection(BALANCE_MSP, {
       db: stack.db,
       registry: stack.registry,
     });
 
-    const [row] = await stack.db
-      .select()
-      .from(balanceTable)
-      .where(eq(balanceTable.customer, carol));
+    const [row] = await selectMany(stack.db, balanceTable, { customer: carol });
     expect(row).toMatchObject({ invoicesCents: 42_00, paymentsCents: 0 });
   });
 });
@@ -339,18 +328,12 @@ describe("rebuildMultiStreamProjection — guard rails", () => {
   test("saga MSP using ctx.appendEvent fails rebuild at the first appendEvent call", async () => {
     const dave = "00000000-0000-4000-8000-000000000d04";
     // Disable the saga in live passes so we control when the apply runs.
-    await stack.db
-      .update(eventConsumerStateTable)
-      .set({ status: "disabled", updatedAt: sql`now()` })
-      .where(eq(eventConsumerStateTable.name, SAGA_MSP));
+    await updateMany(stack.db, eventConsumerStateTable, { status: "disabled", updatedAt: sql`now()` }, { name: SAGA_MSP });
     await stack.http.writeOk("mspreb:write:invoice:bill", { customer: dave, cents: 1_00 }, admin);
     // Put the consumer back to idle so rebuild doesn't treat it as "just
     // disabled on purpose" — rebuild is opinionated about WHEN it refuses,
     // not about the consumer's live-status.
-    await stack.db
-      .update(eventConsumerStateTable)
-      .set({ status: "idle", updatedAt: sql`now()` })
-      .where(eq(eventConsumerStateTable.name, SAGA_MSP));
+    await updateMany(stack.db, eventConsumerStateTable, { status: "idle", updatedAt: sql`now()` }, { name: SAGA_MSP });
 
     await expect(
       rebuildMultiStreamProjection(SAGA_MSP, {

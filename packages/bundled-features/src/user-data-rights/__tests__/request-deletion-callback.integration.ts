@@ -15,7 +15,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { eq, sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import {
   createComplianceProfilesFeature,
@@ -26,6 +26,7 @@ import { USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserFeature } from "../../user/feature";
 import { createUserDataRightsFeature } from "../feature";
 import type { SendDeletionRequestedEmailFn } from "../handlers/request-deletion.write";
+import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const REQUEST_DELETION = "user-data-rights:write:request-deletion";
 
@@ -76,13 +77,13 @@ afterAll(async () => {
 beforeEach(async () => {
   state.calls = [];
   state.shouldThrow = false;
-  await stack.db.delete(userTable);
-  await stack.db.execute(sql`DELETE FROM read_tenant_compliance_profiles`);
-  await stack.db.execute(sql`DELETE FROM kumiko_events`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_compliance_profiles`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM kumiko_events`);
 });
 
 async function seedAlice(email: string = "alice@example.com"): Promise<void> {
-  await stack.db.insert(userTable).values({
+  await insertOne(stack.db, userTable, {
     id: aliceUser.id,
     tenantId: tenantA,
     email,
@@ -152,7 +153,7 @@ describe("request-deletion :: sendDeletionRequestedEmail callback", () => {
   });
 
   test("422 user_not_in_active_state → callback NICHT gefeuert", async () => {
-    await stack.db.insert(userTable).values({
+    await insertOne(stack.db, userTable, {
       id: aliceUser.id,
       tenantId: tenantA,
       email: "alice@example.com",

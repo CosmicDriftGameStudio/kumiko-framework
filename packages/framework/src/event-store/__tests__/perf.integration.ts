@@ -12,7 +12,7 @@
 // latency, single-node PG. Production deploys are slower; these numbers
 // are the ceiling. Red test = framework regression, no slack tolerated.
 
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import type { TenantId } from "../../engine/types";
 import { createTestDb, type TestDb } from "../../stack";
@@ -24,6 +24,7 @@ import {
   loadAggregateWithSnapshot,
   saveSnapshot,
 } from "../index";
+import { asRawClient } from "../../bun-db/query";
 
 let testDb: TestDb;
 const tenantId = uuid() as TenantId;
@@ -39,9 +40,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await testDb.db.execute(
-    sql`TRUNCATE kumiko_events, kumiko_snapshots, kumiko_archived_streams RESTART IDENTITY CASCADE`,
-  );
+  await asRawClient(testDb.db).unsafe(`TRUNCATE kumiko_events, kumiko_snapshots, kumiko_archived_streams RESTART IDENTITY CASCADE`);
 });
 
 function percentile(sorted: readonly number[], p: number): number {
@@ -196,21 +195,21 @@ describe("event-store performance — Gate A", () => {
     // loadAggregateWithSnapshot performance on a finished stream, not
     // the seed phase.
     const aggregateId = uuid();
-    await testDb.db.execute(sql`
+    await asRawClient(testDb.db).unsafe(`
       INSERT INTO kumiko_events (aggregate_id, aggregate_type, tenant_id, version, type, payload, metadata, created_by)
-      SELECT ${aggregateId}::uuid, 'task', ${tenantId}::uuid, 1, 'task.created',
+      SELECT $1::uuid, 'task', $2::uuid, 1, 'task.created',
              jsonb_build_object('title', 'v1'),
-             jsonb_build_object('userId', ${userId}::text),
-             ${userId}::text;
-    `);
-    await testDb.db.execute(sql`
+             jsonb_build_object('userId', $3::text),
+             $4::text;
+    `, [aggregateId, tenantId, userId, userId]);
+    await asRawClient(testDb.db).unsafe(`
       INSERT INTO kumiko_events (aggregate_id, aggregate_type, tenant_id, version, type, payload, metadata, created_by)
-      SELECT ${aggregateId}::uuid, 'task', ${tenantId}::uuid, gs.v, 'task.updated',
+      SELECT $1::uuid, 'task', $2::uuid, gs.v, 'task.updated',
              jsonb_build_object('title', 'v' || gs.v),
-             jsonb_build_object('userId', ${userId}::text),
-             ${userId}::text
+             jsonb_build_object('userId', $3::text),
+             $4::text
         FROM generate_series(2, 1000) gs(v);
-    `);
+    `, [aggregateId, tenantId, userId, userId]);
 
     // Snapshot @ version 900 — typische Policy: snapshot every N events
     await saveSnapshot(testDb.db, {

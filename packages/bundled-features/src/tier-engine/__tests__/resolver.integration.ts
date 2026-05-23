@@ -33,11 +33,12 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import type { TierMap } from "../compose-app";
 import { tierAssignmentEntity } from "../entity";
 import { createTierEngineFeature } from "../feature";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // App-spezifische cap-shape (die TierMap ist generic). Hier dummy-caps —
 // fokus ist features-resolution, nicht caps.
@@ -96,9 +97,7 @@ beforeAll(async () => {
 afterAll(async () => stack?.cleanup());
 
 beforeEach(async () => {
-  await stack.db.execute(
-    sql`TRUNCATE read_tier_assignments, kumiko_events RESTART IDENTITY CASCADE`,
-  );
+  await asRawClient(stack.db).unsafe(`TRUNCATE read_tier_assignments, kumiko_events RESTART IDENTITY CASCADE`);
 });
 
 describe("createTierEngineFeature — per-tenant resolver", () => {

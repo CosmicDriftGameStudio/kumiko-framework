@@ -13,7 +13,7 @@
 // also nicht. Erst die projection-INSERT verletzt den Index. Ohne F8:
 // 500. Mit F8: writeFailure(UniqueViolationError) → 409.
 
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createEntity, createTextField } from "../../engine";
 import { createEventsTable } from "../../event-store";
@@ -21,6 +21,7 @@ import { createTestDb, type TestDb, TestUsers, unsafeCreateEntityTable } from ".
 import { createEventStoreExecutor } from "../event-store-executor";
 import { buildDrizzleTable } from "../table-builder";
 import { createTenantDb, type TenantDb } from "../tenant-db";
+import { asRawClient, selectMany } from "../../bun-db/query";
 
 const userEntity = createEntity({
   table: "read_unique_users",
@@ -58,7 +59,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await testDb.db.execute(sql`TRUNCATE kumiko_events, read_unique_users RESTART IDENTITY CASCADE`);
+  await asRawClient(testDb.db).unsafe(`TRUNCATE kumiko_events, read_unique_users RESTART IDENTITY CASCADE`);
 });
 
 // =============================================================================
@@ -98,7 +99,7 @@ describe("F8 — entity-level unique-violation auf create", () => {
       tdb,
     );
     expect(second.isSuccess).toBe(false);
-    const rows = await testDb.db.select().from(table);
+    const rows = await selectMany(testDb.db, table);
     expect(rows).toHaveLength(1);
     expect((rows[0] as { displayName: string }).displayName).toBe("Bob 1");
   });

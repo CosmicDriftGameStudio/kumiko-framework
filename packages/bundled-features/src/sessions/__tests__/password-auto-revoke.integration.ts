@@ -26,6 +26,7 @@ import { userSessionEntity, userSessionTable } from "../schema/user-session";
 import { createSessionCallbacks, type SessionCallbacks } from "../session-callbacks";
 import { sessionCallbacksFromLateBound } from "../testing";
 import { makeSessionHelpers } from "./test-helpers";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // When a user changes their password, every live session for that user must
 // stop working — the industry-standard "signs you out everywhere" rule.
@@ -88,9 +89,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(userTable);
-  await stack.db.delete(tenantMembershipsTable);
-  await stack.db.delete(userSessionTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userSessionTable.tableName}"`);
   massRevokeSpy.mockClear();
 });
 
@@ -143,7 +144,7 @@ describe("password change mass-revokes every live session", () => {
     ).toBe(401);
 
     // DB state confirms: zero live rows for this user
-    const liveRows = await stack.db.select().from(userSessionTable);
+    const liveRows = await selectMany(stack.db, userSessionTable);
     const stillLive = liveRows.filter((r) => r["revokedAt"] === null);
     expect(stillLive).toHaveLength(0);
 

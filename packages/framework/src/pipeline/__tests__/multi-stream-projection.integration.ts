@@ -6,7 +6,7 @@
 // event-dispatcher — at-least-once delivery, strictly ordered by events.id
 // per MSP consumer, dead-letters on repeated handler failures.
 
-import { eq, sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect";
@@ -21,6 +21,7 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "../../stack";
+import { selectMany } from "../../bun-db/query";
 
 // --- Two aggregate types that feed one MSP ---
 
@@ -207,10 +208,7 @@ describe("r.multiStreamProjection — Marten MultiStreamProjection equivalent", 
     // Drain the dispatcher — MSPs run async.
     await stack.eventDispatcher?.runOnce();
 
-    const rows = await stack.db
-      .select()
-      .from(customerBalanceTable)
-      .orderBy(customerBalanceTable.customer);
+    const rows = await selectMany(stack.db, customerBalanceTable);
     const byCustomer = new Map(rows.map((r) => [r.customer, r]));
 
     expect(byCustomer.get(customerA)).toMatchObject({
@@ -239,10 +237,7 @@ describe("r.multiStreamProjection — Marten MultiStreamProjection equivalent", 
     expect(pass2?.byConsumer[mspName]?.processed ?? 0).toBe(0);
 
     // Row state is stable across the no-op pass.
-    const [row] = await stack.db
-      .select()
-      .from(customerBalanceTable)
-      .where(eq(customerBalanceTable.customer, cust));
+    const [row] = await selectMany(stack.db, customerBalanceTable, { customer: cust });
     expect(row?.shipments).toBe(1);
     expect(row?.netCents).toBe(42);
   });
@@ -273,10 +268,7 @@ describe("r.multiStreamProjection — Marten MultiStreamProjection equivalent", 
     );
     await stack.eventDispatcher?.runOnce();
 
-    const rows = await stack.db
-      .select()
-      .from(customerBalanceTable)
-      .orderBy(customerBalanceTable.customer);
+    const rows = await selectMany(stack.db, customerBalanceTable);
     const alpha = rows.find((r) => r.customer === customerAlpha);
     const beta = rows.find((r) => r.customer === customerBeta);
 
@@ -298,10 +290,7 @@ describe("r.multiStreamProjection — Marten MultiStreamProjection equivalent", 
 
     // Only the shipment-billed event was folded in; the auto "created"
     // event was silently skipped.
-    const [row] = await stack.db
-      .select()
-      .from(customerBalanceTable)
-      .where(eq(customerBalanceTable.customer, cust));
+    const [row] = await selectMany(stack.db, customerBalanceTable, { customer: cust });
     expect(row?.shipments).toBe(1);
   });
 });

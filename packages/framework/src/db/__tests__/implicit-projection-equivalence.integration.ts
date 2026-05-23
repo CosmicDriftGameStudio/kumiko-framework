@@ -15,7 +15,7 @@
 //   5. Snapshot erneut nehmen
 //   6. deep-equal: identische Rows in identischer Reihenfolge
 
-import { asc, sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createBooleanField, createEntity, createTextField, defineFeature } from "../../engine";
 import { createRegistry } from "../../engine/registry";
@@ -60,13 +60,11 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await testDb.db.execute(
-    sql`TRUNCATE kumiko_events, read_implicit_users, kumiko_projections RESTART IDENTITY CASCADE`,
-  );
+  await asRawClient(testDb.db).unsafe(`TRUNCATE kumiko_events, read_implicit_users, kumiko_projections RESTART IDENTITY CASCADE`);
 });
 
 async function snapshotTable(): Promise<readonly Record<string, unknown>[]> {
-  const rows = await testDb.db.select().from(userTable).orderBy(asc(userTable["id"]));
+  const rows = await selectMany(testDb.db, userTable, { orderBy: { col: "id", direction: "asc" } });
   return rows as readonly Record<string, unknown>[];
 }
 
@@ -224,7 +222,8 @@ describe("implicit-projection / Live==Rebuild equivalence", () => {
 // sensitive-Spalte oder verschlüsseltem Event-Payload), bricht der Test
 // und zwingt zu Aufmerksamkeit.
 
-import { sql as drizzleSql, eq } from "drizzle-orm";
+import { sql as drizzleSql } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, selectMany } from "../../bun-db/query";
 
 const sensitiveTable = "read_implicit_sensitive_users";
 
@@ -269,10 +268,7 @@ describe("implicit-projection / dokumentierte Sensitive-Drift", () => {
     );
     if (!created.isSuccess) throw new Error("setup failed");
 
-    const [liveRow] = await testDb.db
-      .select()
-      .from(sensitiveDrizzleTable)
-      .where(eq(sensitiveDrizzleTable["id"], created.data.id as string));
+    const [liveRow] = await selectMany(testDb.db, sensitiveDrizzleTable, { id: created.data.id as string });
     expect(liveRow?.["apiKey"]).toBe("secret-token-abc");
     expect(liveRow?.["email"]).toBe("x@test.de");
 
@@ -293,10 +289,7 @@ describe("implicit-projection / dokumentierte Sensitive-Drift", () => {
       registry,
     });
 
-    const [rebuiltRow] = await testDb.db
-      .select()
-      .from(sensitiveDrizzleTable)
-      .where(eq(sensitiveDrizzleTable["id"], created.data.id as string));
+    const [rebuiltRow] = await selectMany(testDb.db, sensitiveDrizzleTable, { id: created.data.id as string });
     expect(rebuiltRow?.["email"]).toBe("x@test.de");
     // DAS ist die Drift: sensitive Feld ist nach Rebuild weg.
     expect(rebuiltRow?.["apiKey"]).toBeNull();

@@ -16,6 +16,7 @@ import {
   type TenantId,
 } from "../engine";
 import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../stack";
+import { asRawClient, selectMany } from "../bun-db/query";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 const OTHER_TENANT_ID = "00000000-0000-4000-8000-000000000002" as TenantId;
@@ -48,7 +49,7 @@ const shopFeature = defineFeature("anonshop", (r) => {
     "product:list",
     z.object({}),
     async (_event, ctx) => {
-      const rows = await ctx.db.select().from(productTable);
+      const rows = await selectMany(ctx.db, productTable);
       return rows;
     },
     { access: { roles: ["anonymous", "User", "Admin"] } },
@@ -59,7 +60,7 @@ const shopFeature = defineFeature("anonshop", (r) => {
     "product:list-auth-only",
     z.object({}),
     async (_event, ctx) => {
-      const rows = await ctx.db.select().from(productTable);
+      const rows = await selectMany(ctx.db, productTable);
       return rows;
     },
     { access: { openToAll: true } },
@@ -111,8 +112,8 @@ describe("anonymous access — single-tenant default", () => {
   afterAll(() => stack.cleanup());
 
   beforeEach(async () => {
-    await stack.db.delete(productTable);
-    await stack.db.delete(orderTable);
+    await asRawClient(stack.db).unsafe(`DELETE FROM "${productTable.tableName}"`);
+    await asRawClient(stack.db).unsafe(`DELETE FROM "${orderTable.tableName}"`);
   });
 
   test("anonymous query succeeds without any auth headers", async () => {
@@ -146,7 +147,7 @@ describe("anonymous access — single-tenant default", () => {
 
     // Verify the row landed with placedBy=anonymous in the DB. Confirms the
     // synthesised SessionUser actually flows through to the handler.
-    const rows = await stack.db.select().from(orderTable);
+    const rows = await selectMany(stack.db, orderTable);
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["placedBy"]).toBe(ANONYMOUS_USER_ID);
   });

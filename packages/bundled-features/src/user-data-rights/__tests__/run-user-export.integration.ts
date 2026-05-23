@@ -20,7 +20,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
@@ -29,6 +29,7 @@ import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../use
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults";
 import { createUserDataRightsFeature } from "../feature";
 import { runUserExport } from "../run-user-export";
+import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 
@@ -57,7 +58,7 @@ beforeAll(async () => {
   });
 
   await unsafeCreateEntityTable(stack.db, userEntity);
-  await stack.db.execute(sql`
+  await asRawClient(stack.db).unsafe(`
     CREATE TABLE IF NOT EXISTS read_tenant_memberships (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       tenant_id UUID NOT NULL,
@@ -74,7 +75,7 @@ beforeAll(async () => {
       UNIQUE(user_id, tenant_id)
     )
   `);
-  await stack.db.execute(sql`
+  await asRawClient(stack.db).unsafe(`
     CREATE TABLE IF NOT EXISTS file_refs (
       id UUID PRIMARY KEY,
       tenant_id UUID NOT NULL,
@@ -96,9 +97,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(userTable);
-  await stack.db.execute(sql`DELETE FROM read_tenant_memberships`);
-  await stack.db.execute(sql`DELETE FROM file_refs`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_memberships`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM file_refs`);
 });
 
 const NOW = () => getTemporal().Now.instant();
@@ -107,7 +108,7 @@ async function seedUser(
   id: string,
   overrides: { email?: string; displayName?: string; roles?: string } = {},
 ): Promise<void> {
-  await stack.db.insert(userTable).values({
+  await insertOne(stack.db, userTable, {
     id,
     tenantId: TENANT_SYSTEM,
     email: overrides.email ?? `user-${id}@example.com`,
@@ -121,11 +122,11 @@ async function seedUser(
 }
 
 async function seedMembership(userId: string, tenantId: string): Promise<void> {
-  await stack.db.execute(sql`
+  await asRawClient(stack.db).unsafe(`
     INSERT INTO read_tenant_memberships (tenant_id, user_id, roles)
-    VALUES (${tenantId}, ${userId}, '["Member"]')
+    VALUES ($1, $2, '["Member"]')
     ON CONFLICT (user_id, tenant_id) DO NOTHING
-  `);
+  `, [tenantId, userId]);
 }
 
 async function seedFileRef(
@@ -134,11 +135,11 @@ async function seedFileRef(
   insertedById: string | null,
   fileName: string,
 ): Promise<void> {
-  await stack.db.execute(sql`
+  await asRawClient(stack.db).unsafe(`
     INSERT INTO file_refs (id, tenant_id, storage_key, file_name, mime_type, size, inserted_by_id)
-    VALUES (${id}, ${tenantId}, ${`storage/${id}`}, ${fileName}, 'application/pdf', 1024, ${insertedById})
+    VALUES ($1, $2, $3, $4, 'application/pdf', 1024, $5)
     ON CONFLICT (id) DO NOTHING
-  `);
+  `, [id, tenantId, `storage/${id}`, fileName, insertedById]);
 }
 
 describe("runUserExport :: alle Daten enthalten + Cross-Tenant", () => {

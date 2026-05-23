@@ -25,6 +25,7 @@ import { AuthErrors, AuthHandlers } from "../constants";
 import { createAuthEmailPasswordFeature } from "../feature";
 import { hashPassword, verifyPassword } from "../password-hashing";
 import { signResetToken } from "../reset-token";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // Signed tokens are forwarded out-of-band (email). In the test we grab them
 // from the sendResetEmail callback instead.
@@ -93,9 +94,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(userTable);
-  await stack.db.delete(tenantMembershipsTable);
-  await stack.db.delete(userSessionTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userSessionTable.tableName}"`);
   capturedEmails.length = 0;
   autoRevokeCalls.length = 0;
 });
@@ -182,7 +183,7 @@ describe("POST /auth/reset-password", () => {
 
     // Proof: the new password actually hashes in. Read the row, verify the
     // hash matches the new plaintext.
-    const row = (await stack.db.select().from(userTable)).find((r) => r["id"] === seed.id);
+    const row = (await selectMany(stack.db, userTable)).find((r) => r["id"] === seed.id);
     if (!row?.["passwordHash"]) throw new Error("user row / hash missing");
     expect(await verifyPassword(row["passwordHash"] as string, "brand-new-pw-9876")).toBe(true);
     expect(await verifyPassword(row["passwordHash"] as string, "old-pw-1234")).toBe(false);
@@ -203,7 +204,7 @@ describe("POST /auth/reset-password", () => {
     expect(body.error?.details?.reason).toBe(AuthErrors.invalidResetToken);
 
     // Old password still wins.
-    const row = (await stack.db.select().from(userTable)).find((r) => r["id"] === seed.id);
+    const row = (await selectMany(stack.db, userTable)).find((r) => r["id"] === seed.id);
     if (!row?.["passwordHash"]) throw new Error("user row / hash missing");
     expect(await verifyPassword(row["passwordHash"] as string, "keep-me!")).toBe(true);
   });
@@ -262,7 +263,7 @@ describe("POST /auth/reset-password", () => {
     const seed = await seedUser({ email: "retry@example.com", password: "pw-retry-1234" });
     const { token } = signResetToken(seed.id, 15, resetSecret);
 
-    await stack.db.delete(tenantMembershipsTable);
+    await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
     const firstAttempt = await post("/api/auth/reset-password", {
       token,
       newPassword: "never-lands-1234",

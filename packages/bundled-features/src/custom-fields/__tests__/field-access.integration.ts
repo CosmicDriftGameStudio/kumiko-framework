@@ -24,12 +24,13 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { fieldDefinitionEntity } from "../entity";
 import { createCustomFieldsFeature } from "../feature";
 import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const propertyEntity = createEntity({
   table: "read_t15b_properties",
@@ -84,8 +85,8 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await resetEventStore(stack);
-  await stack.db.execute(sql`DELETE FROM read_t15b_properties`);
-  await stack.db.execute(sql`DELETE FROM read_custom_field_definitions`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM read_t15b_properties`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM read_custom_field_definitions`);
 });
 
 async function defineField(fieldKey: string, serializedField: Record<string, unknown>) {

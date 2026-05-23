@@ -28,6 +28,7 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "../stack";
+import { asRawClient } from "../bun-db/query";
 
 // --- Entity + handlers that deliberately raise each Kumiko error class ---
 
@@ -192,7 +193,7 @@ beforeAll(async () => {
 afterAll(async () => stack.cleanup());
 beforeEach(async () => {
   stack.events.reset();
-  await stack.db.delete(itemTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${itemTable.tableName}"`);
 });
 
 // --- Helpers ---

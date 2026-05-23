@@ -370,13 +370,14 @@ sql.raw = (text: string): SqlExpression => ({ kind: "sql-expr", text, params: []
 
 export type ColumnMap = Record<string, ColumnBuilder<unknown>>;
 
+type IndexOrPk = IndexBuilderWithCols | PrimaryKeyDescriptor;
+
 export function table<TCols extends ColumnMap>(
   tableName: string,
   cols: TCols,
-  optsFn?: (t: { [K in keyof TCols]: ColumnHandle }) => Record<
-    string,
-    IndexBuilderWithCols | PrimaryKeyDescriptor
-  >,
+  optsFn?: (
+    t: { [K in keyof TCols]: ColumnHandle },
+  ) => Record<string, IndexOrPk> | ReadonlyArray<IndexOrPk>,
 ): SchemaTable {
   // Finalise columns + build the column-handle map.
   const handles: Record<string, ColumnHandle> = {};
@@ -405,7 +406,10 @@ export function table<TCols extends ColumnMap>(
   if (optsFn) {
     const tHandle = handles as { [K in keyof TCols]: ColumnHandle };
     const opts = optsFn(tHandle);
-    for (const [key, value] of Object.entries(opts)) {
+    const entries: Array<[string, IndexOrPk | undefined]> = Array.isArray(opts)
+      ? (opts as ReadonlyArray<IndexOrPk>).map((v, i) => [String(i), v])
+      : Object.entries(opts);
+    for (const [key, value] of entries) {
       if (!value) continue;
       if ("__pk" in value && value.__pk === true) {
         compositePrimaryKey = {

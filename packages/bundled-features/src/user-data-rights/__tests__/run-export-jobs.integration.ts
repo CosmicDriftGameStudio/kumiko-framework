@@ -29,7 +29,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import {
   createComplianceProfilesFeature,
@@ -42,6 +42,7 @@ import { runExportJobs } from "../run-export-jobs";
 import { exportDownloadTokenEntity, exportDownloadTokensTable } from "../schema/download-token";
 import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "../schema/export-job";
 import { hashDownloadToken } from "../token-helpers";
+import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 let providerPerTenant: Map<string, ReturnType<typeof createInMemoryFileProvider>>;
@@ -65,7 +66,7 @@ beforeAll(async () => {
   await createEventsTable(stack.db);
   // tenant-membership-table fuer runUserExport's Cross-Tenant-Iteration.
   // Pattern matched user-data-rights-defaults integration-test.
-  await stack.db.execute(sql`
+  await asRawClient(stack.db).unsafe(`
     CREATE TABLE IF NOT EXISTS read_tenant_memberships (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       tenant_id UUID NOT NULL,
@@ -89,12 +90,12 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(exportDownloadTokensTable);
-  await stack.db.delete(exportJobsTable);
-  await stack.db.delete(userTable);
-  await stack.db.execute(sql`DELETE FROM kumiko_events`);
-  await stack.db.execute(sql`DELETE FROM read_tenant_compliance_profiles`);
-  await stack.db.execute(sql`DELETE FROM read_tenant_memberships`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${exportDownloadTokensTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${exportJobsTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM kumiko_events`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_compliance_profiles`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_memberships`);
   providerPerTenant = new Map();
 
   // Atom 5: aliceUser-Row mit email seeden — Worker-Notification-Callback
@@ -539,9 +540,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
       now: NOW(),
     });
 
-    const events = (await stack.db.execute(
-      sql`SELECT type FROM kumiko_events WHERE type LIKE 'export-download-token.%'`,
-    )) as unknown as Array<{ type: string }>;
+    const events = (await asRawClient(stack.db).unsafe(`SELECT type FROM kumiko_events WHERE type LIKE 'export-download-token.%'`)) as unknown as Array<{ type: string }>;
     // Mindestens 1 created-Event fuer den Token
     expect(events.some((e) => e.type === "export-download-token.created")).toBe(true);
   });
@@ -585,7 +584,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     expect(result.completedJobIds).toEqual([]);
     expect(result.tokenByJobId.size).toBe(0);
 
-    const allTokens = (await stack.db.select().from(exportDownloadTokensTable)) as Array<unknown>;
+    const allTokens = (await selectMany(stack.db, exportDownloadTokensTable)) as Array<unknown>;
     expect(allTokens).toHaveLength(0);
   });
 
@@ -605,21 +604,21 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     // direct-INSERT (Test-Exemption). Worker's tokenCrud.create wird
     // dann mit constraintName "read_export_download_tokens_one_per_job"
     // failen.
-    await stack.db.execute(sql`
+    await asRawClient(stack.db).unsafe(`
       INSERT INTO read_export_download_tokens
         (id, tenant_id, job_id, token_hash, issued_at, expires_at, version, inserted_at, modified_at)
       VALUES (
         gen_random_uuid(),
-        ${tenantA},
-        ${jobId},
-        ${"existing-hash"},
+        $1,
+        $2,
+        $3,
         now(),
         now() + interval '7 days',
         1,
         now(),
         now()
       )
-    `);
+    `, [tenantA, jobId, "existing-hash"]);
 
     const result = await runExportJobs({
       db: stack.db,
@@ -740,7 +739,7 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
     await unsafeCreateEntityTable(localStack.db, exportDownloadTokenEntity);
     await unsafeCreateEntityTable(localStack.db, tenantComplianceProfileEntity);
     await createEventsTable(localStack.db);
-    await localStack.db.execute(sql`
+    await asRawClient(localStack.db).unsafe(`
       CREATE TABLE IF NOT EXISTS read_tenant_memberships (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         tenant_id UUID NOT NULL,
@@ -765,21 +764,21 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
 
   beforeEach(async () => {
     if (!localStack) return;
-    await localStack.db.delete(exportDownloadTokensTable);
-    await localStack.db.delete(exportJobsTable);
-    await localStack.db.execute(sql`DELETE FROM kumiko_events`);
-    await localStack.db.execute(sql`DELETE FROM read_tenant_compliance_profiles`);
-    await localStack.db.execute(sql`DELETE FROM read_tenant_memberships`);
+    await asRawClient(localStack.db).unsafe(`DELETE FROM "${exportDownloadTokensTable.tableName}"`);
+    await asRawClient(localStack.db).unsafe(`DELETE FROM "${exportJobsTable.tableName}"`);
+    await asRawClient(localStack.db).unsafe(`DELETE FROM kumiko_events`);
+    await asRawClient(localStack.db).unsafe(`DELETE FROM read_tenant_compliance_profiles`);
+    await asRawClient(localStack.db).unsafe(`DELETE FROM read_tenant_memberships`);
     // Reset zu safe Default damit kein Test den State an den naechsten leakt.
     currentTestFileName = "report.pdf";
   });
 
   async function seedMembership(tenantId: string, userId: string | number) {
-    await localStack.db.execute(sql`
+    await asRawClient(localStack.db).unsafe(`
       INSERT INTO read_tenant_memberships (tenant_id, user_id)
-      VALUES (${tenantId}, ${String(userId)})
+      VALUES ($1, $2)
       ON CONFLICT (user_id, tenant_id) DO NOTHING
-    `);
+    `, [tenantId, String(userId)]);
   }
 
   async function seedPendingJobLocal(user: typeof aliceUser): Promise<string> {
@@ -1028,8 +1027,8 @@ describe("runExportJobs :: Atom 5 notification-callbacks", () => {
   test("user ohne email → Callback skipped + console.warn (kein Throw)", async () => {
     // User-Row mit email=null seeden (override). Worker logged warn,
     // Callback wird NICHT gerufen, Worker-Run bleibt successful.
-    await stack.db.delete(userTable);
-    await stack.db.insert(userTable).values({
+    await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+    await insertOne(stack.db, userTable, {
       id: String(aliceUser.id),
       tenantId: tenantA,
       email: "" as string, // empty string — lookupUserEmail returnt null
@@ -1076,7 +1075,7 @@ describe("runExportJobs :: Atom 5 notification-callbacks", () => {
       tenantId: tenantA,
       roles: ["Member"],
     });
-    await stack.db.insert(userTable).values({
+    await insertOne(stack.db, userTable, {
       id: String(bobUser.id),
       tenantId: tenantA,
       email: "bob@example.com",

@@ -15,7 +15,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
@@ -31,6 +31,7 @@ import {
 import { createUserDataRightsFeature } from "../../user-data-rights";
 import { createUserDataRightsDefaultsFeature } from "../feature";
 import { fileRefDeleteHook, fileRefExportHook, userDeleteHook, userExportHook } from "../index";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 
@@ -54,7 +55,7 @@ beforeAll(async () => {
   // file_refs ist framework-pgTable (nicht entity-getrieben, S1.5 hat
   // die Schema-Sicht ohne buildDrizzleTable-Auto-Generation). Manuelle
   // CREATE matched die Spalten aus framework/src/files/file-ref-table.ts
-  await stack.db.execute(sql`
+  await asRawClient(stack.db).unsafe(`
     CREATE TABLE IF NOT EXISTS file_refs (
       id UUID PRIMARY KEY,
       tenant_id UUID NOT NULL,
@@ -113,18 +114,18 @@ async function seedFileRef(
   insertedById: string | null,
   fileName: string,
 ): Promise<void> {
-  await stack.db.execute(sql`
+  await asRawClient(stack.db).unsafe(`
     INSERT INTO file_refs (id, tenant_id, storage_key, file_name, mime_type, size, inserted_by_id)
-    VALUES (${id}, ${tenantId}, ${`storage/${id}`}, ${fileName}, 'application/pdf', 1024, ${insertedById})
+    VALUES ($1, $2, $3, $4, 'application/pdf', 1024, $5)
     ON CONFLICT (id) DO NOTHING
-  `);
+  `, [id, tenantId, `storage/${id}`, fileName, insertedById]);
 }
 
 async function fetchUser(id: string) {
-  const result = await stack.db.execute(sql`
+  const result = await asRawClient(stack.db).unsafe(`
     SELECT id, email, display_name, password_hash, status, deleted_at
-    FROM read_users WHERE id = ${id}
-  `);
+    FROM read_users WHERE id = $1
+  `, [id]);
   // biome-ignore lint/suspicious/noExplicitAny: drizzle execute returns any-typed array
   const rows = ((result as any).rows ?? result) as Array<{
     id: string;
@@ -140,14 +141,10 @@ async function fetchUser(id: string) {
 async function fetchFileRefs(tenantId: string, insertedById?: string | null) {
   const result =
     insertedById === undefined
-      ? await stack.db.execute(sql`SELECT * FROM file_refs WHERE tenant_id = ${tenantId}`)
+      ? await asRawClient(stack.db).unsafe(`SELECT * FROM file_refs WHERE tenant_id = $1`, [tenantId])
       : insertedById === null
-        ? await stack.db.execute(
-            sql`SELECT * FROM file_refs WHERE tenant_id = ${tenantId} AND inserted_by_id IS NULL`,
-          )
-        : await stack.db.execute(
-            sql`SELECT * FROM file_refs WHERE tenant_id = ${tenantId} AND inserted_by_id = ${insertedById}`,
-          );
+        ? await asRawClient(stack.db).unsafe(`SELECT * FROM file_refs WHERE tenant_id = $1 AND inserted_by_id IS NULL`, [tenantId])
+        : await asRawClient(stack.db).unsafe(`SELECT * FROM file_refs WHERE tenant_id = $1 AND inserted_by_id = $2`, [tenantId, insertedById]);
   // biome-ignore lint/suspicious/noExplicitAny: drizzle execute typing
   return (result as any).rows ?? result;
 }

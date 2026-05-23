@@ -7,12 +7,13 @@
 // files.integration.ts because the bug is about *table generation*, not
 // runtime behaviour of the upload route.
 
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createEntity, createFileField, createImageField } from "../../engine";
 import { createTestDb, type TestDb, unsafeCreateEntityTable, unsafePushTables } from "../../stack";
 import { generateId } from "../../utils";
 import { fileRefsTable } from "../file-ref-table";
+import { asRawClient } from "../../bun-db/query";
 
 // Entity with BOTH singular file-field types exercised — the bug applied
 // identically to `file` and `image` (same switch-case in table-builder).
@@ -43,7 +44,7 @@ describe("file-field entity-column type", () => {
     // `unsafeCreateEntityTable` must be `uuid`. A regression to `integer` would
     // fail here even if higher-level code happened to still work through
     // implicit casts.
-    const rows = await testDb.db.execute<{ column_name: string; data_type: string }>(sql`
+    const rows = await asRawClient(testDb.db).unsafe(`
       SELECT column_name, data_type
       FROM information_schema.columns
       WHERE table_name = 'regression_documents'
@@ -62,26 +63,26 @@ describe("file-field entity-column type", () => {
     // flow isn't exercised here — we're verifying the CRUD column contract.
     const fileUuid = generateId();
     const tenantId = generateId();
-    await testDb.db.execute(sql`
+    await asRawClient(testDb.db).unsafe(`
       INSERT INTO file_refs (id, tenant_id, storage_key, file_name, mime_type, size)
       VALUES (
-        ${fileUuid}::uuid, ${tenantId}::uuid, 'seed-key',
+        $1::uuid, $2::uuid, 'seed-key',
         'seed.pdf', 'application/pdf', 1024
       )
-    `);
+    `, [fileUuid, tenantId]);
 
     const docId = generateId();
-    await testDb.db.execute(sql`
+    await asRawClient(testDb.db).unsafe(`
       INSERT INTO regression_documents (id, tenant_id, attachment, cover)
       VALUES (
-        ${docId}::uuid, ${tenantId}::uuid,
-        ${fileUuid}::uuid, ${fileUuid}::uuid
+        $1::uuid, $2::uuid,
+        $3::uuid, $4::uuid
       )
-    `);
+    `, [docId, tenantId, fileUuid, fileUuid]);
 
-    const read = await testDb.db.execute<{ attachment: string; cover: string }>(sql`
-      SELECT attachment, cover FROM regression_documents WHERE id = ${docId}::uuid
-    `);
+    const read = await asRawClient(testDb.db).unsafe(`
+      SELECT attachment, cover FROM regression_documents WHERE id = $1::uuid
+    `, [docId]);
     const docArr = read as unknown as Array<{ attachment: string; cover: string }>;
     expect(docArr[0]?.attachment).toBe(fileUuid);
     expect(docArr[0]?.cover).toBe(fileUuid);
@@ -94,10 +95,10 @@ describe("file-field entity-column type", () => {
     const docId = generateId();
     const tenantId = generateId();
     await expect(
-      testDb.db.execute(sql`
+      asRawClient(testDb.db).unsafe(`
         INSERT INTO regression_documents (id, tenant_id, attachment)
-        VALUES (${docId}::uuid, ${tenantId}::uuid, 'not-a-uuid')
-      `),
+        VALUES ($1::uuid, $2::uuid, 'not-a-uuid')
+      `, [docId, tenantId]),
     ).rejects.toThrow();
   });
 });

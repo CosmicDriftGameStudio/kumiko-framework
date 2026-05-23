@@ -9,7 +9,7 @@
 //   - Batch: single INSERT with multi-VALUES; atomic rollback on any
 //     failure; predecessor pre-flight per aggregate in the batch.
 
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createTestDb, type TestDb } from "../../stack";
@@ -18,6 +18,7 @@ import { appendRaw, appendRawBatch, type RawEventToAppend } from "../admin-api";
 import { VersionConflictError } from "../errors";
 import { append, loadAggregate } from "../event-store";
 import { createEventsTable } from "../events-schema";
+import { asRawClient } from "../../bun-db/query";
 
 let testDb: TestDb;
 
@@ -35,7 +36,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await testDb.db.execute(sql`TRUNCATE kumiko_events RESTART IDENTITY`);
+  await asRawClient(testDb.db).unsafe(`TRUNCATE kumiko_events RESTART IDENTITY`);
 });
 
 function makeEvent(partial: Partial<RawEventToAppend> = {}): RawEventToAppend {
@@ -86,9 +87,9 @@ describe("appendRaw — single event", () => {
       }),
     );
 
-    const rows = await testDb.db.execute<{ created_by: string }>(sql`
-      SELECT created_by FROM kumiko_events WHERE aggregate_id = ${aggregateId}::uuid
-    `);
+    const rows = await asRawClient(testDb.db).unsafe(`
+      SELECT created_by FROM kumiko_events WHERE aggregate_id = $1::uuid
+    `, [aggregateId]);
     expect(rows[0]?.created_by).toBe(legacyUser);
     expect(rows[0]?.created_by).not.toBe(userMigration);
   });
@@ -113,12 +114,9 @@ describe("appendRaw — single event", () => {
       }),
     );
 
-    const rows = await testDb.db.execute<{
-      payload: Record<string, unknown>;
-      metadata: Record<string, unknown>;
-    }>(sql`
-      SELECT payload, metadata FROM kumiko_events WHERE aggregate_id = ${aggregateId}::uuid
-    `);
+    const rows = await asRawClient(testDb.db).unsafe(`
+      SELECT payload, metadata FROM kumiko_events WHERE aggregate_id = $1::uuid
+    `, [aggregateId]);
     expect(rows[0]?.payload).toEqual(payload);
     expect(rows[0]?.metadata).toEqual(metadata);
   });
@@ -176,9 +174,9 @@ describe("appendRaw — single event", () => {
     ).rejects.toBeInstanceOf(VersionConflictError);
 
     // Sanity: no row landed.
-    const rows = await testDb.db.execute<{ c: number }>(sql`
-      SELECT count(*)::int as c FROM kumiko_events WHERE aggregate_id = ${aggregateId}::uuid
-    `);
+    const rows = await asRawClient(testDb.db).unsafe(`
+      SELECT count(*)::int as c FROM kumiko_events WHERE aggregate_id = $1::uuid
+    `, [aggregateId]);
     expect(rows[0]?.c).toBe(0);
   });
 
@@ -188,9 +186,9 @@ describe("appendRaw — single event", () => {
     await appendRaw(testDb.db, makeEvent({ aggregateId, expectedVersion: 1 }));
     await appendRaw(testDb.db, makeEvent({ aggregateId, expectedVersion: 2 }));
 
-    const rows = await testDb.db.execute<{ version: number }>(sql`
-      SELECT version FROM kumiko_events WHERE aggregate_id = ${aggregateId}::uuid ORDER BY version
-    `);
+    const rows = await asRawClient(testDb.db).unsafe(`
+      SELECT version FROM kumiko_events WHERE aggregate_id = $1::uuid ORDER BY version
+    `, [aggregateId]);
     expect(rows.map((r) => r.version)).toEqual([1, 2, 3]);
   });
 });
@@ -217,9 +215,9 @@ describe("appendRawBatch — multi-event", () => {
     expect(inserts).toHaveLength(1);
 
     // All three events persisted with ascending versions.
-    const rows = await testDb.db.execute<{ version: number; type: string }>(sql`
-      SELECT version, type FROM kumiko_events WHERE aggregate_id = ${aggregateId}::uuid ORDER BY version
-    `);
+    const rows = await asRawClient(testDb.db).unsafe(`
+      SELECT version, type FROM kumiko_events WHERE aggregate_id = $1::uuid ORDER BY version
+    `, [aggregateId]);
     expect(rows.map((r) => ({ v: r.version, t: r.type }))).toEqual([
       { v: 1, t: "legacy.order.created" },
       { v: 2, t: "legacy.order.accepted" },
@@ -263,7 +261,7 @@ describe("appendRawBatch — multi-event", () => {
     await expect(appendRawBatch(testDb.db, batch)).rejects.toBeInstanceOf(VersionConflictError);
 
     // Only the seed event survived — multi-VALUES INSERT is atomic.
-    const rows = await testDb.db.execute<{ c: number }>(sql`
+    const rows = await asRawClient(testDb.db).unsafe(`
       SELECT count(*)::int as c FROM kumiko_events
     `);
     expect(rows[0]?.c).toBe(1);
@@ -280,9 +278,9 @@ describe("appendRawBatch — multi-event", () => {
       ]),
     ).rejects.toBeInstanceOf(VersionConflictError);
 
-    const rows = await testDb.db.execute<{ c: number }>(sql`
-      SELECT count(*)::int as c FROM kumiko_events WHERE aggregate_id = ${aggregateId}::uuid
-    `);
+    const rows = await asRawClient(testDb.db).unsafe(`
+      SELECT count(*)::int as c FROM kumiko_events WHERE aggregate_id = $1::uuid
+    `, [aggregateId]);
     expect(rows[0]?.c).toBe(0);
   });
 
@@ -301,9 +299,9 @@ describe("appendRawBatch — multi-event", () => {
     ).rejects.toBeInstanceOf(VersionConflictError);
 
     // Zero events persisted — the whole batch is rejected before the INSERT.
-    const rows = await testDb.db.execute<{ c: number }>(sql`
-      SELECT count(*)::int as c FROM kumiko_events WHERE aggregate_id = ${aggregateId}::uuid
-    `);
+    const rows = await asRawClient(testDb.db).unsafe(`
+      SELECT count(*)::int as c FROM kumiko_events WHERE aggregate_id = $1::uuid
+    `, [aggregateId]);
     expect(rows[0]?.c).toBe(0);
   });
 

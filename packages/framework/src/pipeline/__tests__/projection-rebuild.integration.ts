@@ -10,7 +10,7 @@
 //   - status lifecycle (idle → rebuilding → idle on success, → failed on throw)
 //   - never-rebuilt projection has sensible default state
 
-import { eq, sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import {
   integer as drizzleInteger,
@@ -43,6 +43,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "../../stack";
+import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
 
 // --- Test fixtures ---
 
@@ -121,9 +122,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await testDb.db.execute(
-    sql`TRUNCATE kumiko_events, read_rebuild_items, read_rebuild_items_per_group, kumiko_projections RESTART IDENTITY CASCADE`,
-  );
+  await asRawClient(testDb.db).unsafe(`TRUNCATE kumiko_events, read_rebuild_items, read_rebuild_items_per_group, kumiko_projections RESTART IDENTITY CASCADE`);
 });
 
 // --- Live-apply helper: use the dispatcher pipeline so projections fire.
@@ -138,10 +137,7 @@ async function appendCreatedEvent(groupId: string, name: string): Promise<void> 
 }
 
 async function getCount(groupId: string): Promise<number | undefined> {
-  const [row] = await testDb.db
-    .select()
-    .from(itemsPerGroupTable)
-    .where(eq(itemsPerGroupTable.groupId, groupId));
+  const [row] = await selectMany(testDb.db, itemsPerGroupTable, { groupId: groupId });
   return row?.itemCount;
 }
 
@@ -174,9 +170,7 @@ describe("rebuildProjection — happy path", () => {
     await appendCreatedEvent(group, "b");
 
     // Seed the projection table with a stale/wrong value.
-    await testDb.db
-      .insert(itemsPerGroupTable)
-      .values({ groupId: group, tenantId: admin.tenantId, itemCount: 999 });
+    await insertOne(testDb.db, itemsPerGroupTable, { groupId: group, tenantId: admin.tenantId, itemCount: 999 });
 
     const result = await rebuildProjection(qualifiedProjectionName, {
       db: testDb.db,

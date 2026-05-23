@@ -32,7 +32,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
@@ -44,6 +44,7 @@ import { fieldDefinitionEntity } from "../entity";
 import { createCustomFieldsFeature } from "../feature";
 import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity";
 import { wireCustomFieldsUserDataRightsFor } from "../wire-user-data-rights";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const propertyEntity = createEntity({
   table: "read_t15c_properties",
@@ -59,10 +60,10 @@ const propertyTable = buildDrizzleTable("property", propertyEntity);
 // adds its strip-sensitive-jsonb layer on top). Both hooks fire in the
 // same cleanup-run.
 const hostExportHook: UserDataExportHook = async (ctx) => {
-  const rows = await ctx.db.execute(sql`
+  const rows = await asRawClient(ctx.db).unsafe(`
     SELECT id, name FROM read_t15c_properties
-    WHERE inserted_by_id = ${ctx.userId} AND tenant_id = ${ctx.tenantId}
-  `);
+    WHERE inserted_by_id = $1 AND tenant_id = $2
+  `, [ctx.userId, ctx.tenantId]);
   const list = rows as ReadonlyArray<Record<string, unknown>>;
   if (list.length === 0) return null;
   return {
@@ -73,16 +74,16 @@ const hostExportHook: UserDataExportHook = async (ctx) => {
 
 const hostDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
   if (strategy === "delete") {
-    await ctx.db.execute(sql`
+    await asRawClient(ctx.db).unsafe(`
       DELETE FROM read_t15c_properties
-      WHERE inserted_by_id = ${ctx.userId} AND tenant_id = ${ctx.tenantId}
-    `);
+      WHERE inserted_by_id = $1 AND tenant_id = $2
+    `, [ctx.userId, ctx.tenantId]);
   } else {
     // anonymize: clear owner, keep row + non-sensitive customFields
-    await ctx.db.execute(sql`
+    await asRawClient(ctx.db).unsafe(`
       UPDATE read_t15c_properties SET inserted_by_id = NULL
-      WHERE inserted_by_id = ${ctx.userId} AND tenant_id = ${ctx.tenantId}
-    `);
+      WHERE inserted_by_id = $1 AND tenant_id = $2
+    `, [ctx.userId, ctx.tenantId]);
   }
 };
 
@@ -143,8 +144,8 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await resetEventStore(stack);
-  await stack.db.execute(sql`DELETE FROM read_t15c_properties`);
-  await stack.db.execute(sql`DELETE FROM read_custom_field_definitions`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM read_t15c_properties`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM read_custom_field_definitions`);
 });
 
 async function defineField(fieldKey: string, serializedField: Record<string, unknown>) {
@@ -175,9 +176,7 @@ async function setField(entityId: string, fieldKey: string, value: unknown) {
 }
 
 async function readRow(id: string): Promise<Record<string, unknown> | undefined> {
-  const rows = await stack.db.execute(
-    sql`SELECT id, custom_fields FROM read_t15c_properties WHERE id = ${id}`,
-  );
+  const rows = await asRawClient(stack.db).unsafe(`SELECT id, custom_fields FROM read_t15c_properties WHERE id = $1`, [id]);
   const list = rows as ReadonlyArray<Record<string, unknown>>;
   return list[0];
 }

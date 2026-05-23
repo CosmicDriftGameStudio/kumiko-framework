@@ -26,7 +26,6 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { configValuesTable } from "../../config";
 import { TenantHandlers, tenantMembershipsTable, tenantTable } from "../../tenant";
@@ -34,6 +33,7 @@ import { userTable } from "../../user";
 import type { TierMap } from "../compose-app";
 import { tierAssignmentEntity } from "../entity";
 import { createTierEngineFeature } from "../feature";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const TEST_TIER_MAP: TierMap<{ readonly maxItems: number }> = {
   free: { features: [], caps: { maxItems: 1 } },
@@ -77,10 +77,7 @@ describe("auto-default-tier postSave hook on tenant-create", () => {
     const newTenantId = data["id"] as string;
     expect(typeof newTenantId).toBe("string");
 
-    const rows = await stack.db
-      .select()
-      .from(tierAssignmentTable)
-      .where(eq(tierAssignmentTable["tenantId"], newTenantId));
+    const rows = await selectMany(stack.db, tierAssignmentTable, { tenantId: newTenantId });
     expect(rows.length).toBe(1);
     expect((rows[0] as Record<string, unknown>)["tier"]).toBe("free");
   });
@@ -93,10 +90,7 @@ describe("auto-default-tier postSave hook on tenant-create", () => {
     ))!;
     const tenantId = created["id"] as string;
 
-    const existing = (await stack.db
-      .select()
-      .from(tenantTable)
-      .where(eq(tenantTable["id"], tenantId))) as Array<{ id: string; version: number }>;
+    const existing = (await selectMany(stack.db, tenantTable, { id: tenantId })) as Array<{ id: string; version: number }>;
     const currentVersion = existing[0]!.version;
 
     await stack.http.writeOk(
@@ -109,10 +103,7 @@ describe("auto-default-tier postSave hook on tenant-create", () => {
       sysadmin,
     );
 
-    const rows = await stack.db
-      .select()
-      .from(tierAssignmentTable)
-      .where(eq(tierAssignmentTable["tenantId"], tenantId));
+    const rows = await selectMany(stack.db, tierAssignmentTable, { tenantId: tenantId });
     expect(rows.length).toBe(1);
   });
 });

@@ -3,6 +3,7 @@ import { integer, table as pgTable, serial, text } from "../db/dialect";
 import { seedReferenceData } from "../db/reference-data";
 import type { ReferenceDataDef } from "../engine/types";
 import { createTestDb, type TestDb, unsafePushTables } from "../stack";
+import { selectMany } from "../bun-db/query";
 
 // --- Tables ---
 
@@ -34,12 +35,12 @@ afterAll(async () => {
 
 // Helper: read all rows from a table
 async function readCountries() {
-  const rows = await testDb.db.select().from(countryTable);
+  const rows = await selectMany(testDb.db, countryTable);
   return rows.sort((a, b) => a.code.localeCompare(b.code));
 }
 
 async function readStatuses() {
-  const rows = await testDb.db.select().from(statusTable);
+  const rows = await selectMany(testDb.db, statusTable);
   return rows.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 }
 

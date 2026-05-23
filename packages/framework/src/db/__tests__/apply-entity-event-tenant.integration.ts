@@ -15,7 +15,7 @@
 // zerbrechen — der bestehende seed-Test wäre der einzige Catcher, und
 // der lief vor dem Refactor durch Zufall grün.
 
-import { eq, sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createEntity, createTextField } from "../../engine/factories";
 import type { TenantId } from "../../engine/types";
@@ -24,6 +24,7 @@ import { createEventsTable } from "../../event-store";
 import { createTestDb, type TestDb } from "../../stack";
 import { applyEntityEvent } from "../apply-entity-event";
 import { buildDrizzleTable } from "../table-builder";
+import { asRawClient, selectMany } from "../../bun-db/query";
 
 const entity = createEntity({
   table: "read_apply_tenant_check",
@@ -38,7 +39,7 @@ let testDb: TestDb;
 beforeAll(async () => {
   testDb = await createTestDb();
   await createEventsTable(testDb.db);
-  await testDb.db.execute(sql`
+  await asRawClient(testDb.db).unsafe(`
     CREATE TABLE read_apply_tenant_check (
       id uuid PRIMARY KEY,
       tenant_id uuid NOT NULL,
@@ -57,7 +58,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await testDb.db.execute(sql`TRUNCATE read_apply_tenant_check`);
+  await asRawClient(testDb.db).unsafe(`TRUNCATE read_apply_tenant_check`);
 });
 
 const TENANT_OPERATOR = "11111111-1111-1111-1111-111111111111" as TenantId;
@@ -85,7 +86,7 @@ describe("applyEntityEvent — tenantId-Defaulting", () => {
     const result = await applyEntityEvent(event, table, entity, testDb.db);
     expect(result.kind).toBe("applied");
 
-    const [row] = await testDb.db.select().from(table).where(eq(table["id"], event.aggregateId));
+    const [row] = await selectMany(testDb.db, table, { id: event.aggregateId });
     expect(row?.["tenantId"]).toBe(TENANT_OPERATOR);
     expect(row?.["name"]).toBe("without-tenantId-in-payload");
   });
@@ -101,7 +102,7 @@ describe("applyEntityEvent — tenantId-Defaulting", () => {
     const result = await applyEntityEvent(event, table, entity, testDb.db);
     expect(result.kind).toBe("applied");
 
-    const [row] = await testDb.db.select().from(table).where(eq(table["id"], event.aggregateId));
+    const [row] = await selectMany(testDb.db, table, { id: event.aggregateId });
     expect(row?.["tenantId"]).toBe(TENANT_TARGET);
     expect(row?.["tenantId"]).not.toBe(TENANT_OPERATOR);
   });
@@ -148,7 +149,7 @@ describe("applyEntityEvent — tenantId-Defaulting", () => {
     const result = await applyEntityEvent(event, table, entity, testDb.db);
     expect(result.kind).toBe("applied");
 
-    const [row] = await testDb.db.select().from(table).where(eq(table["id"], event.aggregateId));
+    const [row] = await selectMany(testDb.db, table, { id: event.aggregateId });
     // event.aggregateId wins, nicht payload.id
     expect(row?.["id"]).toBe(event.aggregateId);
     // event.version wins, nicht payload.version

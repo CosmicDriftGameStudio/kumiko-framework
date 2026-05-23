@@ -16,7 +16,6 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createChannelInAppFeature } from "../../channel-in-app/feature";
 import { inAppMessagesTable } from "../../channel-in-app/tables";
@@ -30,6 +29,7 @@ import { deliveryAttemptSchema } from "../events";
 import { createDeliveryFeature } from "../feature";
 import { deliveryAttemptsTable, notificationPreferencesTable } from "../tables";
 import type { DeliveryService } from "../types";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 let db: DbConnection;
@@ -76,8 +76,8 @@ afterAll(async () => {
 
 beforeEach(async () => {
   // Fresh state per test so event-count assertions are deterministic.
-  await db.delete(eventsTable);
-  await db.delete(deliveryAttemptsTable);
+  await asRawClient(db).unsafe(`DELETE FROM "${eventsTable.tableName}"`);
+  await asRawClient(db).unsafe(`DELETE FROM "${deliveryAttemptsTable.tableName}"`);
 });
 
 describe("delivery event shape", () => {
@@ -89,10 +89,7 @@ describe("delivery event shape", () => {
       admin.tenantId,
     );
 
-    const events = await db
-      .select()
-      .from(eventsTable)
-      .where(eq(eventsTable.aggregateType, "deliveryAttempt"));
+    const events = await selectMany(db, eventsTable, { aggregateType: "deliveryAttempt" });
 
     // One channel registered (in-app) → one delivery attempt → one event.
     expect(events).toHaveLength(1);
@@ -121,10 +118,7 @@ describe("delivery event shape", () => {
       admin.tenantId,
     );
 
-    const [event] = await db
-      .select()
-      .from(eventsTable)
-      .where(eq(eventsTable.aggregateType, "deliveryAttempt"));
+    const [event] = await selectMany(db, eventsTable, { aggregateType: "deliveryAttempt" });
     if (!event) throw new Error("expected one event");
 
     // The service schema-parses before append (see logDelivery), but we
@@ -145,10 +139,7 @@ describe("delivery event shape", () => {
       admin.tenantId,
     );
 
-    const [event] = await db
-      .select()
-      .from(eventsTable)
-      .where(eq(eventsTable.aggregateType, "deliveryAttempt"));
+    const [event] = await selectMany(db, eventsTable, { aggregateType: "deliveryAttempt" });
     if (!event) throw new Error("expected one event");
 
     // PK is unique — a matching row on `id === aggregateId` is already the
@@ -156,10 +147,7 @@ describe("delivery event shape", () => {
     // + tenantSecretsTable: projection-row PK IS the event aggregateId, so
     // a replay of the same event conflicts on the PK rather than
     // duplicating the log row.
-    const [row] = await db
-      .select()
-      .from(deliveryAttemptsTable)
-      .where(eq(deliveryAttemptsTable.id, event.aggregateId));
+    const [row] = await selectMany(db, deliveryAttemptsTable, { id: event.aggregateId });
     expect(row).toBeDefined();
     expect(row?.notificationType).toBe("example:notify:pk-link");
   });
