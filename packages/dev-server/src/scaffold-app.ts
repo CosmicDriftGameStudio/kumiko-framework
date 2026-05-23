@@ -161,7 +161,7 @@ function renderRunConfig(): string {
       "// wenn runProdApp mit `auth: {…}` aufgerufen wird (siehe bin/main.ts).",
       "//",
       "// Neue features hinzufügen:",
-      "//   - bunx kumiko add feature <name>  (DX-2, automatisch)",
+      "//   - bunx @cosmicdrift/kumiko-cli add feature <name>  (DX-2, automatisch)",
       "//   - oder: hand-edit + import unten ergänzen",
       "",
       "",
@@ -249,7 +249,7 @@ function renderMain(appName: string): string {
       "// Production-bootstrap. KUMIKO_DRY_RUN_ENV=boot exits after",
       "// composeFeatures + validateBoot + createRegistry without DB/Redis-connect",
       "// (siehe @cosmicdrift/kumiko-dev-server runProdApp). Echter Dev-Boot",
-      "// passiert via `bunx kumiko dev` mit Docker-stack — DX-1.0 deckt nur",
+      "// passiert via `yarn kumiko dev` (in-repo dev-tool) mit Docker-stack — DX-1.0 deckt nur",
       "// den boot-mode-Pfad ab; `kumiko dev` kommt in einer späteren DX-Phase.",
       "",
       "",
@@ -277,7 +277,7 @@ function renderReadme(appName: string): string {
   return `# ${appName}
 
 Scaffolded by \`kumiko new app\`. Boots out-of-the-box with secrets + sessions
-mounted (foundation set). Add features with \`bunx kumiko add feature <name>\`.
+mounted (foundation set). Add features with \`bunx @cosmicdrift/kumiko-cli add feature <name>\`.
 
 ## First boot
 
@@ -293,7 +293,7 @@ Expected: \`[runProdApp] boot validation OK (… features, … registry entries)
 ## Adding features
 
 \`\`\`sh
-bunx kumiko add feature my-domain
+bunx @cosmicdrift/kumiko-cli add feature my-domain
 # → editiert src/run-config.ts automatisch + scaffolded src/features/my-domain/
 \`\`\`
 
