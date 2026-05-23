@@ -30,7 +30,6 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { createFileProviderForTenant } from "../../file-foundation";
 import { recordDownloadUse, recordInvalidAttempt } from "../audit-download";
@@ -86,11 +85,9 @@ export const downloadByTokenQuery = defineQueryHandler({
     const hash = await hashDownloadToken(query.payload.token);
     // ctx.db.raw weil Token+Job tenant-agnostisch — anonymous-pfad hat
     // keinen tenant-context im query.user.
-    const tokenRow = await fetchOne<TokenRow>(
-      ctx.db.raw,
-      exportDownloadTokensTable,
-      eq(exportDownloadTokensTable["tokenHash"], hash),
-    );
+    const tokenRow = await fetchOne<TokenRow>(ctx.db.raw, exportDownloadTokensTable, {
+      tokenHash: hash,
+    });
 
     if (!tokenRow) {
       // Invalid token — 404 ohne Existenz-Leak. Generic NotFoundError
@@ -118,7 +115,7 @@ export const downloadByTokenQuery = defineQueryHandler({
       const jobForAudit = await fetchOne<{ requestedFromTenantId: string }>(
         ctx.db.raw,
         exportJobsTable,
-        eq(exportJobsTable["id"], tokenRow.jobId),
+        { id: tokenRow.jobId },
       );
       if (jobForAudit) {
         await recordInvalidAttempt({
@@ -140,11 +137,9 @@ export const downloadByTokenQuery = defineQueryHandler({
     }
 
     // Step 3-4: job-checks
-    const jobRow = await fetchOne<JobRow>(
-      ctx.db.raw,
-      exportJobsTable,
-      eq(exportJobsTable["id"], tokenRow.jobId),
-    );
+    const jobRow = await fetchOne<JobRow>(ctx.db.raw, exportJobsTable, {
+      id: tokenRow.jobId,
+    });
 
     if (!jobRow) {
       throw new NotFoundError("export-download", undefined, {
