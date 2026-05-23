@@ -18,35 +18,38 @@ import {
   enforceRollingCapAndMaybeNotify,
 } from "../enforce-cap";
 
-// --- Calendar-Period stub: db.select().from(...).where(...).limit(1) ---
+// Test-mock: ctx.db unterstützt sowohl bun-db's .unsafe() (selectMany ruft das)
+// als auch drizzle's .select().from().where() chain (rolling-path nutzt das
+// direkt). Beide pfade returnen denselben rows-set unabhängig von filtern.
+
+function makeMockDb(rows: unknown[]) {
+  return {
+    unsafe: async () => rows,
+    begin: async <T,>(fn: (tx: unknown) => Promise<T>) =>
+      fn({ unsafe: async () => rows, begin: async () => undefined }),
+    select: () => ({
+      from: () => ({
+        where: Object.assign(async () => rows, {
+          // calendar path also chains .limit(1) after .where()
+          limit: async () => rows,
+        }),
+      }),
+    }),
+  };
+}
 
 function stubCalendarCtx(rows: { value: number; lastSoftWarnedAt: unknown }[]) {
   const ctx = {
-    db: {
-      select: () => ({
-        from: () => ({
-          where: () => ({
-            limit: async () => rows,
-          }),
-        }),
-      }),
-    },
+    db: makeMockDb(rows),
     user: { tenantId: "tenant-test" },
   };
   return ctx as unknown as Parameters<typeof enforceCap>[0];
 }
 
-// --- Rolling-Window stub: db.select(...).from(...).where(...) returns rows ---
-
 function stubRollingCtx(eventPayloads: { amount: number }[]) {
+  const rows = eventPayloads.map((p) => ({ payload: p }));
   const ctx = {
-    db: {
-      select: () => ({
-        from: () => ({
-          where: async () => eventPayloads.map((p) => ({ payload: p })),
-        }),
-      }),
-    },
+    db: makeMockDb(rows),
     user: { tenantId: "tenant-test" },
   };
   return ctx as unknown as Parameters<typeof enforceRollingCap>[0];
