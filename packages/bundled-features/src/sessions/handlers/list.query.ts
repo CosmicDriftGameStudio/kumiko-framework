@@ -1,35 +1,35 @@
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { desc } from "drizzle-orm";
 import { z } from "zod";
 import { userSessionTable } from "../schema/user-session";
 
-// Admin view of every session in the active tenant. Tenant admins use this
-// to investigate "who is logged in right now" or revoke a suspicious
-// device. Unlike `session:mine` this does NOT filter by userId — it's the
-// whole tenant. Tenant-scoping comes from ctx.db (TenantDb applies a tenant
-// filter automatically on select from tables with a tenantId column), so
-// cross-tenant bleed is impossible.
-//
-// Includes revoked rows too — distinct column in the response tells the UI
-// which entries are historical vs. live. The default ordering puts the
-// newest first so a security review starts at the recent activity.
+// Admin view of every session in the active tenant. ctx.db (TenantDb)
+// applies tenant-scoping automatically on selects from tables with a
+// tenantId column. Includes revoked rows; UI shows revokedAt distinct.
 export const listQuery = defineQueryHandler({
   name: "user-session:list",
   schema: z.object({}),
   access: { roles: access.admin },
   handler: async (_query, ctx) => {
-    const rows = await ctx.db
-      .select({
-        id: userSessionTable["id"],
-        userId: userSessionTable["userId"],
-        createdAt: userSessionTable["createdAt"],
-        expiresAt: userSessionTable["expiresAt"],
-        revokedAt: userSessionTable["revokedAt"],
-        ip: userSessionTable["ip"],
-        userAgent: userSessionTable["userAgent"],
-      })
-      .from(userSessionTable)
-      .orderBy(desc(userSessionTable["createdAt"]));
-    return rows;
+    const rows = await selectMany<{
+      id: string;
+      userId: string;
+      createdAt: unknown;
+      expiresAt: unknown;
+      revokedAt: unknown;
+      ip: string | null;
+      userAgent: string | null;
+    }>(ctx.db, userSessionTable, undefined, {
+      orderBy: { col: "createdAt", direction: "desc" },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      userId: r.userId,
+      createdAt: r.createdAt,
+      expiresAt: r.expiresAt,
+      revokedAt: r.revokedAt,
+      ip: r.ip,
+      userAgent: r.userAgent,
+    }));
   },
 });
