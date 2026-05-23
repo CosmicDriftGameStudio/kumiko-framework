@@ -1,11 +1,10 @@
+import { buildDrizzleTable, instant, table as pgTable, serial, text } from "@cosmicdrift/kumiko-framework/db";
 import {
-  buildBaseColumns,
-  instant,
-  integer,
-  table as pgTable,
-  serial,
-  text,
-} from "@cosmicdrift/kumiko-framework/db";
+  createEntity,
+  createNumberField,
+  createTextField,
+  createTimestampField,
+} from "@cosmicdrift/kumiko-framework/engine";
 
 export type JobRunStatus = "queued" | "running" | "completed" | "failed";
 export type JobLogLevel = "info" | "warn" | "error";
@@ -24,22 +23,29 @@ export type JobLogLevel = "info" | "warn" | "error";
 // expands the batch into N rows in jobRunLogsTable, keeping the pre-ES
 // detail-query-shape intact.
 //
-// No r.entity is registered for `jobRun` — the boot-validator accepts
-// events-only projection sources where every apply-key is a registered
-// domain-event (see registry.ts).
-export const jobRunsTable = pgTable("read_job_runs", {
-  ...buildBaseColumns(false, "uuid"),
-  jobName: text("job_name").notNull(),
-  bullJobId: text("bull_job_id").notNull(),
-  status: text("status").notNull().$type<JobRunStatus>(),
-  payload: text("payload"),
-  error: text("error"),
-  attempt: integer("attempt").default(1).notNull(),
-  startedAt: instant("started_at").notNull(),
-  finishedAt: instant("finished_at"),
-  duration: integer("duration"),
-  triggeredById: text("triggered_by_id"),
+// Entity-derived table — Phase 3b of drizzle-replacement. Earlier this was
+// a hand-written pgTable; the entity-form is the single source for both
+// the drizzle-table (query API) and the future EntityTableMeta-based
+// migration generator. status/$type<JobRunStatus> ist nicht im entity-
+// schema modelliert — Drizzle's column-type ist text mit CHECK-Constraint
+// als App-Boundary (gleicher Pattern wie template-resolver kind/scope).
+export const jobRunEntity = createEntity({
+  table: "read_job_runs",
+  fields: {
+    jobName: createTextField({ required: true }),
+    bullJobId: createTextField({ required: true }),
+    status: createTextField({ required: true }),
+    payload: createTextField(),
+    error: createTextField(),
+    attempt: createNumberField({ required: true, default: 1 }),
+    startedAt: createTimestampField({ required: true }),
+    finishedAt: createTimestampField(),
+    duration: createNumberField(),
+    triggeredById: createTextField(),
+  },
 });
+
+export const jobRunsTable = buildDrizzleTable("job-run", jobRunEntity);
 
 // Child projection keyed by the jobRun aggregate id. Pre-ES used a serial
 // PK + integer runId; post-ES runId is still exposed but now holds the
