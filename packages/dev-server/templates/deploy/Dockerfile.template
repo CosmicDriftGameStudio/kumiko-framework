@@ -58,6 +58,15 @@ COPY package.json yarn.lock .yarnrc.yml ./
 # bin/kumiko-build.ts), which writes .kumiko/define.ts and turns the
 # symlink real before the bundle is built.
 ENV YARN_ENABLE_INLINE_BUILDS=true
+# Skip postinstall scripts for ALL deps in the build stage. Reason:
+# `bun build` bundles JS source only — no native bindings needed at bundle-
+# time. msgpackr-extract is the most common offender (ARM/CI native-build
+# failures), but the rule applies broadly: any native dep loaded at runtime
+# gets re-installed via `bun install --production` in the runtime stage,
+# which uses bun's own postinstall handling. Apps that needed per-package
+# opt-outs via `dependenciesMeta.<pkg>.built=false` in package.json (e.g.
+# studio, enterprise) can remove those entries after adopting this template.
+ENV YARN_ENABLE_SCRIPTS=false
 {{#hasPrivateGhPackages}}
 # Re-export GITHUB_TOKEN as env so yarn-4's `${GITHUB_TOKEN:-…}` expansion
 # in .yarnrc.yml finds it during the install step.
