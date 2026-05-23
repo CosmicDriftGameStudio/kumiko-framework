@@ -98,6 +98,8 @@ const BUILD_ONLY_EXTERNALS = [
   "@neondatabase/serverless",
   "@vercel/postgres",
   "mysql2",
+  // ink (kumiko-tui) hat react-devtools-core als dev-only transitive import.
+  "react-devtools-core",
 ] as const;
 
 export type BuildServerBundleOptions = {
