@@ -16,6 +16,7 @@ import type { Category, Command, Role } from "../types";
 import "..";
 
 const EXPECTED_IDS = [
+  "add",
   "build",
   "check",
   "check:fast",
