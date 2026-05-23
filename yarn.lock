@@ -942,6 +942,16 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@cosmicdrift/kumiko-cli@workspace:packages/cli":
+  version: 0.0.0-use.local
+  resolution: "@cosmicdrift/kumiko-cli@workspace:packages/cli"
+  dependencies:
+    "@cosmicdrift/kumiko-dev-server": "workspace:*"
+  bin:
+    kumiko: ./bin/cli.ts
+  languageName: unknown
+  linkType: soft
+
 "@cosmicdrift/kumiko-dev-server@workspace:*, @cosmicdrift/kumiko-dev-server@workspace:packages/dev-server":
   version: 0.0.0-use.local
   resolution: "@cosmicdrift/kumiko-dev-server@workspace:packages/dev-server"
