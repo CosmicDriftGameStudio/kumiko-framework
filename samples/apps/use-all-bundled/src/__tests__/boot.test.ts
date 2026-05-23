@@ -5,8 +5,7 @@
 // self-extension, missing-requires, …) before they reach a real app.
 
 import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features";
-import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
-import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";
+import { createRegistry, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { describe, expect, test } from "vitest";
 import { APP_FEATURES } from "../run-config";
 
