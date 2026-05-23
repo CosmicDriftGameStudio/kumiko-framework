@@ -1,4 +1,3 @@
-import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { getUser } from "../api/auth-middleware";
@@ -11,6 +10,7 @@ import { buildContentDispositionHeader } from "./content-disposition";
 import { fileRefsTable } from "./file-ref-table";
 import type { FileStorageProvider } from "./types";
 import { buildStorageKey, validateFile } from "./types";
+import { deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/db";
 
 // Decision returned by a FileAccessGuard — distinct from boolean so callers
 // can't accidentally negate or default it.
@@ -271,7 +271,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     // Upload. Umgekehrt liesse ein storage-success + db-fail eine Row mit
     // permanent-broken Reference zurück — aus Sicht der API "Datei
     // existiert" aber jeder Read 404t aus dem Provider.
-    await db.delete(fileRefsTable).where(eq(fileRefsTable.id, id));
+    await deleteMany(db, fileRefsTable, { id: id });
     await storageProvider.delete(fileRef.storageKey);
     return c.json({ ok: true });
   });
@@ -342,10 +342,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   });
 
   async function loadFileForTenant(id: string, tenantId: TenantId): Promise<FileRef | null> {
-    const [row] = await db
-      .select()
-      .from(fileRefsTable)
-      .where(and(eq(fileRefsTable.id, id), eq(fileRefsTable.tenantId, tenantId)));
+    const [row] = await selectMany(db, fileRefsTable, { id, tenantId });
     return (row as FileRef | undefined) ?? null; // @cast-boundary db-row
   }
 

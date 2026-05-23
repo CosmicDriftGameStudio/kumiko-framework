@@ -5,6 +5,7 @@ import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { USER_STATUS, userTable } from "../../user";
+import { updateMany } from "@cosmicdrift/kumiko-framework/db";
 
 // Atom 5b — Email-Notification beim deletion-requested-flip. Pattern:
 // password-reset-Callback aus auth-routes.ts. Best-effort — Throw beim
@@ -78,13 +79,10 @@ export function createRequestDeletionHandler(opts: RequestDeletionOptions = {}) 
       const T = getTemporal();
       const gracePeriodEnd = addDurationSpec(T.Now.instant(), gracePeriod);
 
-      await ctx.db.raw
-        .update(userTable)
-        .set({
+      await updateMany(ctx.db.raw, userTable, {
           status: USER_STATUS.DeletionRequested,
           gracePeriodEnd,
-        })
-        .where(eq(userTable["id"], event.user.id));
+        }, { id: event.user.id });
 
       // Best-effort Email-Notification. Send-Failure darf das Write nicht
       // killen — siehe Type-Doc oben. console.warn ist die Operator-

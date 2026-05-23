@@ -1,7 +1,7 @@
 import { createEntityExecutor, type QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { capCounterEntity } from "../entity";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 
 const { table } = createEntityExecutor("cap-counter", capCounterEntity);
 
@@ -25,18 +25,7 @@ export const getCounterQuery: QueryHandlerDef = {
     const { capName, periodStartIso } = query.payload as z.infer<typeof getCounterSchema>; // @cast-boundary engine-payload
 
     // ctx.db is tenant-scoped; filter by capName + periodStart explicitly.
-    const rows = await ctx.db
-      .select()
-      .from(table)
-      .where(
-        and(
-          eq(table["capName"], capName),
-          // periodStart is stored as Temporal.Instant; compare against
-          // the iso string directly (timestamptz-column round-trips).
-          eq(table["periodStart"], periodStartIso),
-        ),
-      )
-      .limit(1);
+    const rows = await selectMany(ctx.db, table, { capName, periodStart: periodStartIso }, { limit: 1 });
 
     return rows[0] ?? null;
   },

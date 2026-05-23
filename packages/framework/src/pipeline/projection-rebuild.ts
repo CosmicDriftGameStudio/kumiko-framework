@@ -1,4 +1,4 @@
-import { asc, eq, getTableName, inArray, sql } from "drizzle-orm";
+import { asc, getTableName, inArray, sql } from "drizzle-orm";
 import type { DbConnection } from "../db/connection";
 import type { Registry, TenantId } from "../engine/types";
 import {
@@ -10,6 +10,7 @@ import {
 import { emitProjectionRebuild } from "../observability/standard-metrics";
 import type { Meter } from "../observability/types/metric";
 import { projectionStateTable } from "./projection-state";
+import { updateMany, selectMany } from "@cosmicdrift/kumiko-framework/db";
 
 // Rebuild a projection from the event log.
 //
@@ -164,16 +165,13 @@ export async function rebuildProjection(
       }
 
       // Finalize state row.
-      await tx
-        .update(projectionStateTable)
-        .set({
+      await updateMany(tx, projectionStateTable, {
           lastProcessedEventId,
           status: "idle",
           lastRebuildAt: sql`now()`,
           lastError: null,
           updatedAt: sql`now()`,
-        })
-        .where(eq(projectionStateTable.name, projectionName));
+        }, { name: projectionName });
     });
   } catch (e) {
     // Outer catch: TX has been rolled back by Postgres already. Record the
@@ -239,10 +237,15 @@ export async function getProjectionState(
   readonly lastError: string | null;
   readonly updatedAt: Temporal.Instant;
 } | null> {
-  const [row] = await db
-    .select()
-    .from(projectionStateTable)
-    .where(eq(projectionStateTable.name, projectionName));
+  type Row = {
+    readonly name: string;
+    readonly status: string;
+    readonly lastProcessedEventId: bigint;
+    readonly lastRebuildAt: Temporal.Instant | null;
+    readonly lastError: string | null;
+    readonly updatedAt: Temporal.Instant;
+  };
+  const [row] = await selectMany<Row>(db, projectionStateTable, { name: projectionName });
   if (!row) return null;
   return {
     name: row.name,

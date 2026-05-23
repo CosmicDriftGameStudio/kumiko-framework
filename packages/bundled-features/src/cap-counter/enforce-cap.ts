@@ -8,6 +8,7 @@ import {
   ROLLING_INCREMENTED_EVENT_QN,
 } from "./constants";
 import { capCounterEntity } from "./entity";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 
 // Temporal globally provided by the framework's polyfill init
 // (ensureTemporalPolyfill() in time/polyfill.ts, called from
@@ -109,13 +110,7 @@ export async function enforceCap(
   const softThreshold = options.limit * tolerance.soft;
   const hardThreshold = options.limit * tolerance.hard;
 
-  const rows = await ctx.db
-    .select()
-    .from(table)
-    .where(
-      and(eq(table["capName"], options.capName), eq(table["periodStart"], options.periodStartIso)),
-    )
-    .limit(1);
+  const rows = await selectMany(ctx.db, table, { capName: options.capName, periodStart: options.periodStartIso }, { limit: 1 });
 
   const row = rows[0];
   const value = row ? (row["value"] as number) : 0; // @cast-boundary db-row

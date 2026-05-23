@@ -53,6 +53,7 @@ import { InternalError } from "../errors";
 import type { StoredEvent } from "../event-store";
 import type { DbRow, DbRunner } from "./connection";
 import type { TableColumns } from "./dialect";
+import { deleteMany } from "@cosmicdrift/kumiko-framework/db";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle-Tabellen sind generisch typed; framework code erasiert die Spalten-Union absichtlich.
 type Table = TableColumns<any>;
@@ -162,7 +163,7 @@ export async function applyEntityEvent(
       // der Live-Pfad nutzt eh `existing` (pre-delete-Snapshot) für die
       // Response. Beim Replay ist das fine, der Caller braucht die Row
       // nicht weiter.
-      await tx.delete(table).where(eq(table["id"], event.aggregateId));
+      await deleteMany(tx, table, { id: event.aggregateId });
       return { kind: "applied", verb, row: null };
     }
 

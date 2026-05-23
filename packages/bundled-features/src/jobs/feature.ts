@@ -3,7 +3,6 @@ import {
   defineFeature,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { eq } from "drizzle-orm";
 import type { z } from "zod";
 // Event-payload schemas live in a sibling module so the logger can import
 // them without the cycle jobs-feature ↔ job-run-logger. The logger parses
@@ -20,6 +19,7 @@ import {
   JOB_RUN_STARTED_EVENT,
 } from "./job-run-logger";
 import { jobRunLogsTable, jobRunsTable } from "./job-run-table";
+import { updateMany } from "@cosmicdrift/kumiko-framework/db";
 
 export function createJobsFeature(): FeatureDefinition {
   return defineFeature("jobs", (r) => {
@@ -63,24 +63,19 @@ export function createJobsFeature(): FeatureDefinition {
         [JOB_RUN_COMPLETED_EVENT]: defineApply<z.infer<typeof runCompletedSchema>>(
           async (event, tx) => {
             const p = event.payload;
-            await tx
-              .update(jobRunsTable)
-              .set({
+            await updateMany(tx, jobRunsTable, {
                 status: "completed",
                 duration: p.duration,
                 finishedAt: Temporal.Instant.from(p.finishedAt),
                 version: event.version,
                 modifiedAt: event.createdAt,
                 modifiedById: event.metadata?.userId ?? "system",
-              })
-              .where(eq(jobRunsTable.id, event.aggregateId));
+              }, { id: event.aggregateId });
           },
         ),
         [JOB_RUN_FAILED_EVENT]: defineApply<z.infer<typeof runFailedSchema>>(async (event, tx) => {
           const p = event.payload;
-          await tx
-            .update(jobRunsTable)
-            .set({
+          await updateMany(tx, jobRunsTable, {
               status: "failed",
               error: p.error,
               duration: p.duration,
@@ -88,8 +83,7 @@ export function createJobsFeature(): FeatureDefinition {
               version: event.version,
               modifiedAt: event.createdAt,
               modifiedById: event.metadata?.userId ?? "system",
-            })
-            .where(eq(jobRunsTable.id, event.aggregateId));
+            }, { id: event.aggregateId });
         }),
       },
     });

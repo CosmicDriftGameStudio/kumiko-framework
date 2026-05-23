@@ -24,6 +24,7 @@ import {
   eventConsumerStateTable,
   SHARED_INSTANCE_SENTINEL,
 } from "./event-consumer-state";
+import { updateMany, selectMany } from "@cosmicdrift/kumiko-framework/db";
 
 // Async event-dispatcher — the "AsyncDaemon"-pendant for Kumiko.
 //
@@ -249,15 +250,7 @@ function consumerInstanceId(
 // lock already guarantees single-writer semantics; this is purely
 // informational (and resets on commit to idle/dead via persistConsumerOutcome).
 async function markProcessing(tx: DbTx, name: string, instanceId: string): Promise<void> {
-  await tx
-    .update(eventConsumerStateTable)
-    .set({ status: "processing", updatedAt: sql`now()` })
-    .where(
-      and(
-        eq(eventConsumerStateTable.name, name),
-        eq(eventConsumerStateTable.instanceId, instanceId),
-      ),
-    );
+  await updateMany(tx, eventConsumerStateTable, { status: "processing", updatedAt: sql`now()` }, { name, instanceId });
 }
 
 async function fetchPendingEvents(
@@ -376,21 +369,13 @@ async function persistConsumerOutcome(
   instanceId: string,
   outcome: DeliveryOutcome,
 ): Promise<void> {
-  await tx
-    .update(eventConsumerStateTable)
-    .set({
+  await updateMany(tx, eventConsumerStateTable, {
       lastProcessedEventId: outcome.cursor,
       attempts: outcome.attempts,
       status: outcome.deadLettered ? "dead" : "idle",
       lastError: outcome.lastError,
       updatedAt: sql`now()`,
-    })
-    .where(
-      and(
-        eq(eventConsumerStateTable.name, name),
-        eq(eventConsumerStateTable.instanceId, instanceId),
-      ),
-    );
+    }, { name, instanceId });
 }
 
 // Emit the lag gauge inside the consumer pass's tx so ops sees a snapshot
@@ -736,15 +721,7 @@ async function requireConsumerRow(
   name: string,
   instanceId: string,
 ): Promise<typeof eventConsumerStateTable.$inferSelect> {
-  const [row] = await db
-    .select()
-    .from(eventConsumerStateTable)
-    .where(
-      and(
-        eq(eventConsumerStateTable.name, name),
-        eq(eventConsumerStateTable.instanceId, instanceId),
-      ),
-    );
+  const [row] = await selectMany<ConsumerStateRow>(db, eventConsumerStateTable, { name, instanceId });
   if (!row) {
     throw new Error(
       `Consumer "${name}" (instance_id="${instanceId}") has no state row — it hasn't run yet, the name is misspelled, or the instance is misspelled. ` +
@@ -854,15 +831,7 @@ export async function skipPoisonEvent(
       .orderBy(asc(eventsTable.id))
       .limit(1)) as ReadonlyArray<{ id: bigint }>; // @cast-boundary db-row
     if (!poison) {
-      const [unchanged] = await tx
-        .select()
-        .from(eventConsumerStateTable)
-        .where(
-          and(
-            eq(eventConsumerStateTable.name, name),
-            eq(eventConsumerStateTable.instanceId, instanceId),
-          ),
-        );
+      const [unchanged] = await selectMany<ConsumerStateRow>(tx, eventConsumerStateTable, { name, instanceId });
       if (!unchanged)
         throw new Error(`Consumer "${name}" (instance_id="${instanceId}") vanished — retry.`);
       return { ...normalizeConsumerState(unchanged), skippedEventId: null };
@@ -905,15 +874,7 @@ export async function getConsumerState(
   readonly lastError: string | null;
   readonly updatedAt: Temporal.Instant;
 } | null> {
-  const [row] = await db
-    .select()
-    .from(eventConsumerStateTable)
-    .where(
-      and(
-        eq(eventConsumerStateTable.name, name),
-        eq(eventConsumerStateTable.instanceId, instanceId),
-      ),
-    );
+  const [row] = await selectMany<ConsumerStateRow>(db, eventConsumerStateTable, { name, instanceId });
   if (!row) return null;
   return {
     name: row.name,

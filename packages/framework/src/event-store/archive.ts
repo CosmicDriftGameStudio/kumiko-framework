@@ -4,6 +4,7 @@ import { instant, table as pgTable, text, uniqueIndex, uuid } from "../db/dialec
 import { tableExists } from "../db/schema-inspection";
 import type { TenantId } from "../engine/types";
 import { unsafePushTables } from "../stack";
+import { deleteMany } from "@cosmicdrift/kumiko-framework/db";
 
 // Marten-aligned stream archival. Archived streams become read-only: fresh
 // appendEvent on an archived aggregate throws, and loadAggregate returns
@@ -95,12 +96,5 @@ export async function restoreStream(
   tenantId: TenantId,
   aggregateId: string,
 ): Promise<void> {
-  await db
-    .delete(archivedStreamsTable)
-    .where(
-      and(
-        eq(archivedStreamsTable.tenantId, tenantId),
-        eq(archivedStreamsTable.aggregateId, aggregateId),
-      ),
-    );
+  await deleteMany(db, archivedStreamsTable, { tenantId, aggregateId });
 }

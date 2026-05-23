@@ -32,6 +32,7 @@
 // gefailten Hooks bleibt im DeletionRequested-Status (next Lauf
 // retried automatisch).
 
+import { updateMany } from "@cosmicdrift/kumiko-framework/db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import {
   EXT_USER_DATA,
@@ -282,10 +283,7 @@ async function processUser(args: {
         // geworfen hat, kommen wir hier nicht an — die Tx rollback'd
         // alles, der User bleibt im DeletionRequested-Status, naechster
         // Run retried.
-        await tx
-          .update(userTable)
-          .set({ status: USER_STATUS.Deleted })
-          .where(eq(userTable["id"], userId));
+        await updateMany(tx, userTable, { status: USER_STATUS.Deleted }, { id: userId });
         txSucceeded = true;
       });
   } catch (e) {

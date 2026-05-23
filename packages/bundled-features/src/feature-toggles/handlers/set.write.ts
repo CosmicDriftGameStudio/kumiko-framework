@@ -15,6 +15,7 @@ import {
 } from "../constants";
 import { globalFeatureStateTable } from "../global-feature-state-table";
 import type { GlobalFeatureToggleRuntime } from "../toggle-runtime";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 
 // Factory: binds a runtime accessor to the handler at registration time.
 // The runtime holds the in-memory snapshot that the dispatcher's gate
@@ -67,11 +68,7 @@ export function createSetWriteHandler(getRuntime: () => GlobalFeatureToggleRunti
       // `$inferSelect` narrows the result shape to the real table schema —
       // no hand-rolled cast, no drift if a column is added later.
       type StateRow = typeof globalFeatureStateTable.$inferSelect;
-      const [existing] = (await ctx.db
-        .select()
-        .from(globalFeatureStateTable)
-        .where(eq(globalFeatureStateTable.featureName, featureName))
-        .limit(1)) as StateRow[]; // @cast-boundary db-row
+      const [existing] = (await selectMany(ctx.db, globalFeatureStateTable, { featureName: featureName }, { limit: 1 })) as StateRow[]; // @cast-boundary db-row
 
       const previousEnabled = existing?.enabled ?? null;
 

@@ -3,6 +3,7 @@ import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { USER_STATUS, userTable } from "../../user";
+import { updateMany } from "@cosmicdrift/kumiko-framework/db";
 
 // POST /api/user/lift-restriction (S2.U6) — DSGVO Art. 18 Reverse.
 //
@@ -52,10 +53,7 @@ export const liftRestrictionWrite = defineWriteHandler({
       );
     }
 
-    await ctx.db.raw
-      .update(userTable)
-      .set({ status: USER_STATUS.Active })
-      .where(eq(userTable["id"], event.user.id));
+    await updateMany(ctx.db.raw, userTable, { status: USER_STATUS.Active }, { id: event.user.id });
 
     return {
       isSuccess: true as const,

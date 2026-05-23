@@ -10,6 +10,7 @@ import type { Meter } from "../observability/types/metric";
 import { eventConsumerStateTable, SHARED_INSTANCE_SENTINEL } from "./event-consumer-state";
 import type { MultiStreamApplyContext } from "./multi-stream-apply-context";
 import type { RebuildResult } from "./projection-rebuild";
+import { updateMany } from "@cosmicdrift/kumiko-framework/db";
 
 // Rebuild a multi-stream projection (MSP) from the event log. Symmetric to
 // `rebuildProjection` for single-stream projections — same single-TX
@@ -181,33 +182,17 @@ export async function rebuildMultiStreamProjection(
         }
       }
 
-      await tx
-        .update(eventConsumerStateTable)
-        .set({
+      await updateMany(tx, eventConsumerStateTable, {
           lastProcessedEventId,
           status: "idle",
           attempts: 0,
           lastError: null,
           updatedAt: sql`now()`,
-        })
-        .where(
-          and(
-            eq(eventConsumerStateTable.name, mspName),
-            eq(eventConsumerStateTable.instanceId, SHARED_INSTANCE_SENTINEL),
-          ),
-        );
+        }, { name: mspName, instanceId: SHARED_INSTANCE_SENTINEL });
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    await db
-      .update(eventConsumerStateTable)
-      .set({ status: "dead", lastError: message, updatedAt: sql`now()` })
-      .where(
-        and(
-          eq(eventConsumerStateTable.name, mspName),
-          eq(eventConsumerStateTable.instanceId, SHARED_INSTANCE_SENTINEL),
-        ),
-      );
+    await updateMany(db, eventConsumerStateTable, { status: "dead", lastError: message, updatedAt: sql`now()` }, { name: mspName, instanceId: SHARED_INSTANCE_SENTINEL });
     if (deps.meter) {
       emitProjectionRebuild(
         deps.meter,

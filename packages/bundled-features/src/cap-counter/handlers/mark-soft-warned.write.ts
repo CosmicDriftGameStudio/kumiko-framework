@@ -1,9 +1,9 @@
 import { createEntityExecutor, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { eq } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { capCounterAggregateId } from "../aggregate-id";
 import { capCounterEntity } from "../entity";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 
 const { table, executor } = createEntityExecutor("cap-counter", capCounterEntity);
 
@@ -32,7 +32,7 @@ export const markSoftWarnedHandler: WriteHandlerDef = {
       payload.periodStartIso,
     );
 
-    const existing = await ctx.db.select().from(table).where(eq(table["id"], aggregateId)).limit(1);
+    const existing = await selectMany(ctx.db, table, { id: aggregateId }, { limit: 1 });
     if (existing.length === 0) {
       throw new Error(
         `cap-counter: cannot mark-soft-warned, no counter found for tenant=${event.user.tenantId} cap=${payload.capName} period=${payload.periodStartIso}`,

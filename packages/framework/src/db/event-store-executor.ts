@@ -42,6 +42,7 @@ import type { TableColumns } from "./dialect";
 import type { CursorResult } from "./index";
 import { constraintOf, isUniqueViolation } from "./pg-error";
 import type { TenantDb } from "./tenant-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
 type Table = TableColumns<any>;
@@ -665,7 +666,7 @@ export function createEventStoreExecutor(
         );
       }
 
-      const [row] = await db.select().from(table).where(eq(table["id"], payload.id));
+      const [row] = await selectMany(db, table, { id: payload.id });
       if (!row) return writeFailure(new NotFoundError(entityName, payload.id));
       const data = row as DbRow;
       if (!data["isDeleted"]) {

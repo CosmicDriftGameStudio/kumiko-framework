@@ -3,6 +3,7 @@ import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { USER_STATUS, userTable } from "../../user";
+import { updateMany } from "@cosmicdrift/kumiko-framework/db";
 
 // POST /api/user/cancel-deletion (S2.U5).
 //
@@ -62,13 +63,10 @@ export const cancelDeletionWrite = defineWriteHandler({
       );
     }
 
-    await ctx.db.raw
-      .update(userTable)
-      .set({
+    await updateMany(ctx.db.raw, userTable, {
         status: USER_STATUS.Active,
         gracePeriodEnd: null,
-      })
-      .where(eq(userTable["id"], event.user.id));
+      }, { id: event.user.id });
 
     // gracePeriodEnd=null im Response symmetrisch zu request-deletion's
     // ISO-Timestamp — Frontend kann beide Endpoints uniform behandeln.
