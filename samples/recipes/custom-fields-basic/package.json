@@ -1,0 +1,9 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-custom-fields-basic",
+  "description": "Tenant-defined extra fields on an entity without writing migrations.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  }
+}
