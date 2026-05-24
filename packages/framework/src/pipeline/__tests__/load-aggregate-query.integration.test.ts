@@ -10,6 +10,7 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
+import type { DbConnection, DbTx } from "../../db/connection";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { insertOne } from "../../db/query";
 import { buildEntityTable } from "../../db/table-builder";
@@ -217,7 +218,7 @@ describe("ctx.loadAggregate via queryHandler — Marten AggregateStreamAsync equ
     // against v2 (integer cents) — without upcasting it would blow up or
     // produce garbage.
     const invoiceId = "00000000-0000-4000-8000-000000000042";
-    await stack.db.begin(async (tx) => {
+    await (stack.db as DbConnection).begin(async (tx: DbTx) => {
       await insertOne(tx, invoiceTable, {
         id: invoiceId,
         tenantId: admin.tenantId,

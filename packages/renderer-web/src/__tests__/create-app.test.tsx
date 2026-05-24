@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { afterAll, afterEach, describe, expect, spyOn, test } from "bun:test";
 import type {
   EntityDefinition,
   EntityEditScreenDefinition,
@@ -78,7 +78,8 @@ describe("createKumikoApp", () => {
   afterEach(() => {
     if (appRoot !== undefined) {
       act(() => {
-        appRoot.unmount();
+        // biome-ignore lint/style/noNonNullAssertion: TS can't narrow inside act() callback
+        appRoot!.unmount();
       });
       appRoot = undefined;
     }
@@ -90,7 +91,8 @@ describe("createKumikoApp", () => {
   afterAll(() => {
     if (appRoot !== undefined) {
       act(() => {
-        appRoot.unmount();
+        // biome-ignore lint/style/noNonNullAssertion: TS can't narrow inside act() callback
+        appRoot!.unmount();
       });
       appRoot = undefined;
     }

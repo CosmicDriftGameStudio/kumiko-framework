@@ -22,19 +22,24 @@
  */
 export async function buildMultipartBody(
   fd: FormData,
-): Promise<{ body: Uint8Array; contentType: string }> {
+): Promise<{ body: BodyInit; contentType: string }> {
   const boundary = `KumikoBnd${Date.now()}${Math.random().toString(36).slice(2, 8)}`;
   const enc = new TextEncoder();
   const parts: Uint8Array[] = [];
 
   for (const [name, value] of fd.entries()) {
-    if (value instanceof File) {
+    const v = value as unknown as {
+      name?: string;
+      type?: string;
+      arrayBuffer?: () => Promise<ArrayBuffer>;
+    };
+    if (typeof v === "object" && v !== null && typeof v.arrayBuffer === "function") {
       parts.push(
         enc.encode(
-          `--${boundary}\r\nContent-Disposition: form-data; name="${name}"; filename="${value.name}"\r\nContent-Type: ${value.type || "application/octet-stream"}\r\n\r\n`,
+          `--${boundary}\r\nContent-Disposition: form-data; name="${name}"; filename="${v.name ?? "blob"}"\r\nContent-Type: ${v.type || "application/octet-stream"}\r\n\r\n`,
         ),
       );
-      parts.push(new Uint8Array(await value.arrayBuffer()));
+      parts.push(new Uint8Array(await v.arrayBuffer()));
       parts.push(enc.encode("\r\n"));
     } else {
       parts.push(
@@ -53,7 +58,10 @@ export async function buildMultipartBody(
     buf.set(p, off);
     off += p.length;
   }
-  return { body: buf, contentType: `multipart/form-data; boundary=${boundary}` };
+  return {
+    body: buf as unknown as BodyInit,
+    contentType: `multipart/form-data; boundary=${boundary}`,
+  };
 }
 
 /**

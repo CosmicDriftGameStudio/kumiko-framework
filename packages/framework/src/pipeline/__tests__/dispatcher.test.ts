@@ -97,7 +97,7 @@ describe("dispatcher.write", () => {
     const res = await dispatcher.write("alias:write:item:create", { name: "x" }, user);
     expect(res.isSuccess).toBe(true);
     expect(captured.fromCtx).toBe(captured.fromEvent);
-    expect((captured.fromCtx as { id: number }).id).toBe(user.id);
+    expect((captured.fromCtx as { id: unknown }).id).toBe(user.id);
   });
 
   test("runs validation hooks", async () => {

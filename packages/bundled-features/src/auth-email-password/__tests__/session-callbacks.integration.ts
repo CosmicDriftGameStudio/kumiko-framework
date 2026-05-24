@@ -236,7 +236,7 @@ describe("logout routes through sessionRevoker", () => {
     expect(logoutRes.status).toBe(200);
 
     // Revoker was called with exactly the sid from the caller's JWT
-    expect(store.revoked).toEqual([sidBefore]);
+    expect(store.revoked).toEqual([sidBefore!]);
     expect(store.live.has(sidBefore ?? "")).toBe(false);
   });
 
@@ -280,7 +280,7 @@ describe("switch-tenant rotates the session", () => {
     expect(sidB).not.toBe(sidA);
 
     // Old sid is revoked; new sid is live
-    expect(store.revoked).toContain(sidA);
+    expect(store.revoked).toContain(sidA!);
     expect(store.live.has(sidA ?? "")).toBe(false);
     expect(store.live.has(sidB ?? "")).toBe(true);
 

@@ -448,7 +448,7 @@ describe("runProdApp", () => {
     });
 
     expect(invocations).toBe(1);
-    expect(factoryDeps).toEqual({ db: true, redis: true, registry: true });
+    expect(factoryDeps!).toEqual({ db: true, redis: true, registry: true });
     // Smoke: handle is functional (boot completed without error).
     expect(handle.entrypoint).toBeDefined();
   });

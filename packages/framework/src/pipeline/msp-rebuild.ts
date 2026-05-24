@@ -1,4 +1,4 @@
-import type { DbConnection, DbRunner } from "../db/connection";
+import type { DbConnection, DbRunner, DbTx } from "../db/connection";
 import { asRawClient, selectMany } from "../db/query";
 import type { Registry, TenantId } from "../engine/types";
 import { InternalError } from "../errors";
@@ -101,7 +101,7 @@ export async function rebuildMultiStreamProjection(
   let lastProcessedEventId = 0n;
 
   try {
-    await db.begin(async (tx) => {
+    await db.begin(async (tx: DbTx) => {
       const rawTx = asRawClient(tx);
       // Upsert + lock the consumer row. Rebuild always targets the
       // SHARED-delivery shard: per-instance MSPs are side-effect-only (no

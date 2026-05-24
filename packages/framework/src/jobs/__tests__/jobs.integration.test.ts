@@ -192,7 +192,7 @@ describe("scenario 2: scheduled job", () => {
 
   // BullMQ's repeatable scheduler needs a second or two to register its
   // first tick — a generous delay schedule covers the startup window.
-  test("cron job fires via BullMQ scheduler", { timeout: 15_000 }, async () => {
+  test("cron job fires via BullMQ scheduler", async () => {
     clearLog();
     await withRunner(async () => {
       await waitFor(
@@ -278,7 +278,7 @@ describe("concurrency: skip", () => {
 });
 
 describe("concurrency: sequential", () => {
-  test("same-name dispatches run strictly one after the other", { timeout: 15_000 }, async () => {
+  test("same-name dispatches run strictly one after the other", async () => {
     clearLog();
     await withRunner(async (runner) => {
       // Three rapid dispatches. Parallel mode would land all entries
@@ -318,7 +318,7 @@ describe("concurrency: sequential", () => {
     });
   });
 
-  test("lock is released even when the handler throws", { timeout: 10_000 }, async () => {
+  test("lock is released even when the handler throws", async () => {
     clearLog();
     await withRunner(async (runner) => {
       // First dispatch fails. If the finally-path didn't release the lock,
@@ -355,9 +355,7 @@ describe("concurrency: sequential", () => {
     });
   });
 
-  test("lock release is value-matched: foreign tokens survive expiration races", {
-    timeout: 5_000,
-  }, async () => {
+  test("lock release is value-matched: foreign tokens survive expiration races", async () => {
     // Pin the contract that distributed-lock's release script enforces:
     // a release call from a worker whose token has already expired and
     // been claimed by someone else must NOT delete the new owner's lock.

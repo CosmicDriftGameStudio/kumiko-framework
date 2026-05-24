@@ -10,7 +10,7 @@
 // JSONB top-level equality: wird getestet (JSON.stringify + ::jsonb cast in prepareValue).
 // Deep-path-queries (->>'key') sind out-of-scope für bun-db's WhereObject.
 import { afterAll, describe, expect, test } from "bun:test";
-import { deleteMany, fetchOne, insertMany, insertOne, selectMany } from "../query";
+import { insertMany, selectMany } from "../query";
 import { closeDb, withTable } from "./_helpers";
 
 afterAll(async () => {

@@ -1,5 +1,4 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient } from "../../db/query";
 import { createTestDb, type TestDb, unsafePushTables } from "../../stack";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { fileRefsTable } from "../file-ref-table";

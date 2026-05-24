@@ -55,7 +55,7 @@ function renderRL(props: {
 
 describe("RenderList — Search-Debounce", () => {
   beforeEach(() => {
-    jest.useFakeTimers({ shouldAdvanceTime: true });
+    jest.useFakeTimers();
   });
 
   afterEach(() => {

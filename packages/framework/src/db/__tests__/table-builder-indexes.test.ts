@@ -18,6 +18,7 @@ import { buildEntityTable } from "../table-builder";
 
 // Native dialect equivalent of drizzle's getTableConfig: reads the
 // EntityTableMeta-shape exposed on every SchemaTable.
+// biome-ignore lint/suspicious/noExplicitAny: DDL index test helper
 function getTableConfig(table: any): {
   indexes: Array<{ config: { name: string; unique: boolean; columns: Array<{ name: string }> } }>;
 } {

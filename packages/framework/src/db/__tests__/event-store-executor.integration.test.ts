@@ -140,15 +140,15 @@ describe("event-store-executor — sensitive fields", () => {
     type: string;
     payload: TPayload;
   }> {
-    const rows = await asRawClient(testDb.db).unsafe(
+    const rows = (await asRawClient(testDb.db).unsafe(
       `SELECT type, payload FROM kumiko_events ORDER BY id DESC LIMIT 1`,
-    );
+    )) as Array<{ type: string; payload: unknown }>;
     const row = rows[0];
     if (!row) throw new Error("no events in store");
     return {
-      type: row["type"] as string,
+      type: row["type"],
       payload: (typeof row["payload"] === "string"
-        ? JSON.parse(row["payload"] as string)
+        ? JSON.parse(row["payload"])
         : row["payload"]) as TPayload,
     };
   }

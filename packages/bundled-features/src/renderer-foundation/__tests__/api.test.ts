@@ -132,7 +132,7 @@ describe("renderer-foundation :: Plugin-Selection", () => {
     const api = createRendererFoundationApi([]);
     try {
       api.createRendererForTenant({ tenantId: TENANT, kind: "notification" });
-      expect.fail("expected RendererError");
+      throw new Error("expected RendererError");
     } catch (e) {
       expect(e).toBeInstanceOf(RendererError);
       expect((e as RendererError).code).toBe("no_plugin_for_kind");

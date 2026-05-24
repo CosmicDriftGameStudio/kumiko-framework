@@ -108,9 +108,7 @@ export type ColumnBuilder<TValue = unknown> = {
   defaultNow(): ColumnBuilder<TValue>;
   generatedAlwaysAsIdentity(): ColumnBuilder<TValue>;
   unique(name?: string): ColumnBuilder<TValue>;
-  // biome-ignore lint/suspicious/noExplicitAny: phantom $type marker
   $type<T>(): ColumnBuilder<T>;
-  // biome-ignore lint/suspicious/noExplicitAny: phantom $onUpdate marker
   $onUpdate(fn: () => unknown): ColumnBuilder<TValue>;
 };
 

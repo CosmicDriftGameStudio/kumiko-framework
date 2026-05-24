@@ -389,7 +389,7 @@ describe("text-content :: edge-cases", () => {
       { slug: "race-test", lang: "de" },
       tenantAdmin,
     );
-    const finalBody = fetched!["body"];
+    const finalBody = fetched!["body"] as string;
     expect(["from-a", "from-b", "v1"]).toContain(finalBody);
   });
 });

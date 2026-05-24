@@ -119,7 +119,7 @@ describe("parseFeatureFile against real Kumiko features", () => {
       for (const error of result.errors) {
         expect(error.methodName).toMatch(/^[a-zA-Z]+$/);
         expect(error.reason.length).toBeGreaterThan(10);
-        expect(error.source.file).toContain(feature.path.split("/").pop());
+        expect(error.source.file as string).toContain(feature.path.split("/").pop()!);
         expect(error.source.start.line).toBeGreaterThan(0);
         expect(error.source.raw).toContain("r.");
       }

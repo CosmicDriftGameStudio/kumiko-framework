@@ -20,7 +20,6 @@ import { createArchivedStreamsTable, createEventsTable } from "../../event-store
 import { createEventConsumerStateTable } from "../../pipeline";
 import { createTestRedis, type TestRedis, TestUsers } from "../../stack";
 import { waitFor } from "../../testing";
-import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { createAllInOneEntrypoint } from "../index";
 
 const jobRuns: Array<{ name: string; payload: Record<string, unknown> }> = [];

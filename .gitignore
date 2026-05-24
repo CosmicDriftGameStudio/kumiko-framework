@@ -39,3 +39,4 @@ playwright-report/
 
 # Bun install cache
 ~/.bun/install/cache
+.aider*

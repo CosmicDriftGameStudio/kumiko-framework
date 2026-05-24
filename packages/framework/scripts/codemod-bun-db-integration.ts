@@ -3,7 +3,7 @@
 //
 // Usage: bun run scripts/codemod-bun-db-integration.ts
 
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const FRAMEWORK_SRC = join(import.meta.dirname, "..", "src");
@@ -17,14 +17,6 @@ function* walk(dir: string): Generator<string> {
       yield full;
     }
   }
-}
-
-// Calculate relative import path from a file in src/ to bun-db/__tests__/
-function bunImportPath(filePath: string, name: string): string {
-  const rel = relative(join(FRAMEWORK_SRC, ".."), filePath);
-  const depth = rel.split("/").length - 1;
-  const prefix = depth <= 2 ? ".." : "../..";
-  return `${prefix}/bun-db/__tests__/${name}`;
 }
 
 function sameDepthPrefix(filePath: string): string {
@@ -43,8 +35,8 @@ function splitImport(line: string, toRemove: string[]): { rest: string; removed:
   if (!match) return { rest: line, removed: [] };
 
   const isTypeOnly = !!match[1];
-  const body = match[2]!;
-  const specifier = match[3]!;
+  const body = match[2] ?? "";
+  const specifier = match[3] ?? "";
   const items = body
     .split(",")
     .map((s) => s.trim())
@@ -98,6 +90,7 @@ for (const filePath of walk(FRAMEWORK_SRC)) {
 
   // Skip .client.listen files
   if (/\.client\.listen|\.listen\(/.test(code)) {
+    // biome-ignore lint/suspicious/noConsole: codemod script
     console.log(`  SKIP (LISTEN): ${rel}`);
     skipped++;
     continue;
@@ -106,9 +99,6 @@ for (const filePath of walk(FRAMEWORK_SRC)) {
   // --- Split imports ---
   const lines = code.split("\n");
   const newLines: string[] = [];
-  const addedBunStackImport = false;
-  const addedBunDbImport = false;
-  const addedPolyfill = false;
 
   for (const line of lines) {
     let processed = false;
@@ -213,16 +203,12 @@ for (const filePath of walk(FRAMEWORK_SRC)) {
       const lastBunImportIdx = code.lastIndexOf(bunDbMarker);
       if (lastBunImportIdx >= 0) {
         const insertAt = code.indexOf("\n", lastBunImportIdx) + 1;
-        code = code.slice(0, insertAt) + polyfillImport + "\n" + code.slice(insertAt);
+        code = `${code.slice(0, insertAt)}${polyfillImport}\n${code.slice(insertAt)}`;
       } else {
         // Insert after first import block
         const firstImportEnd = code.indexOf(";\n");
         if (firstImportEnd >= 0) {
-          code =
-            code.slice(0, firstImportEnd + 2) +
-            polyfillImport +
-            "\n" +
-            code.slice(firstImportEnd + 2);
+          code = `${code.slice(0, firstImportEnd + 2)}${polyfillImport}\n${code.slice(firstImportEnd + 2)}`;
         }
       }
       notes.push("+ensureTemporalPolyfill");
@@ -238,8 +224,10 @@ for (const filePath of walk(FRAMEWORK_SRC)) {
 
   // --- Write back ---
   writeFileSync(filePath, code);
+  // biome-ignore lint/suspicious/noConsole: codemod script
   console.log(`  EDITED ${rel}: ${notes.join(", ")}`);
   changed++;
 }
 
+// biome-ignore lint/suspicious/noConsole: codemod script
 console.log(`\nDone: ${changed} files edited, ${skipped} skipped`);

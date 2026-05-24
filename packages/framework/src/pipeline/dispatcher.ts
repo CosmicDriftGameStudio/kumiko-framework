@@ -1131,7 +1131,8 @@ export function createDispatcher(
             continue;
           }
           const currentValue =
-            (row as DbRow)[fieldName] ?? ((row as DbRow)[toSnakeCase(fieldName)] as string); // @cast-boundary engine-bridge
+            ((row as DbRow)[fieldName] as string | undefined) ??
+            ((row as DbRow)[toSnakeCase(fieldName)] as string); // @cast-boundary engine-bridge
           guardTransition(
             getTransitions({ entityName, fieldName, map: transitionMap }),
             currentValue,

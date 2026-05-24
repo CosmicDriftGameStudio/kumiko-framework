@@ -4,7 +4,9 @@ import { ResetPasswordScreen } from "../reset-password-screen";
 import { renderWithProviders } from "./test-utils";
 
 beforeEach(() => {
-  globalThis.fetch = mock(async () => new Response(null, { status: 200 })) as unknown as typeof fetch;
+  globalThis.fetch = mock(
+    async () => new Response(null, { status: 200 }),
+  ) as unknown as typeof fetch;
 });
 afterEach(() => {});
 
@@ -81,7 +83,9 @@ describe("ResetPasswordScreen", () => {
     const errBody = JSON.stringify({
       error: { code: "invalid_reset_token", details: { reason: "invalid_reset_token" } },
     });
-    globalThis.fetch = mock(async () => new Response(errBody, { status: 422 })) as unknown as typeof fetch;
+    globalThis.fetch = mock(
+      async () => new Response(errBody, { status: 422 }),
+    ) as unknown as typeof fetch;
 
     renderWithProviders(<ResetPasswordScreen token="bad" />);
     fireEvent.change(screen.getByLabelText(/^Neues Passwort/), {

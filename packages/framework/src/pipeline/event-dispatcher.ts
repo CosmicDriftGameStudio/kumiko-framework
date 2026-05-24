@@ -556,7 +556,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
     });
 
     try {
-      await db.begin(async (tx) => {
+      await db.begin(async (tx: DbTx) => {
         const acquired = await acquireConsumerState(tx, consumer.name, instanceId);
         // skip: another instance holds the lock, or the consumer is
         // disabled/dead. Nothing to deliver this pass.
@@ -857,7 +857,7 @@ export async function skipPoisonEvent(
   instanceId: string = SHARED_INSTANCE_SENTINEL,
 ): Promise<ConsumerRecoveryState & { readonly skippedEventId: bigint | null }> {
   const before = await requireConsumerRow(db, name, instanceId);
-  return db.begin(async (tx) => {
+  return db.begin(async (tx: DbTx) => {
     const poisonRows = (await asRawClient(tx).unsafe(
       `SELECT "id" FROM "kumiko_events" WHERE "id" > $1 ORDER BY "id" ASC LIMIT 1`,
       [before.lastProcessedEventId],

@@ -11,12 +11,12 @@
 // Schema-Tabellen bestehen aus einer id (uuid) + den getesteten Spalten.
 
 import { randomUUID } from "node:crypto";
-import { createConnection, type DbConnection } from "../../db/api";
+import { createConnection } from "../../db/api";
 import type { ColumnMeta, EntityTableMeta } from "../../db/entity-table-meta";
 
 const DATABASE_URL =
-  process.env.TEST_DATABASE_URL ??
-  process.env.DATABASE_URL ??
+  process.env["TEST_DATABASE_URL"] ??
+  process.env["DATABASE_URL"] ??
   "postgresql://kumiko:kumiko@localhost:15432/kumiko_test";
 
 let dbInstance: { db: unknown; close: () => Promise<void> } | undefined;

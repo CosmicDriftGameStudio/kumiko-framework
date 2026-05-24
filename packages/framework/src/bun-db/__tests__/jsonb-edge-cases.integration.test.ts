@@ -137,7 +137,7 @@ describe("jsonb — numbers + special", () => {
 
   test("floats with precision", async () => {
     await withTable(jsonbCol("'{}'::jsonb"), async ({ db, meta }) => {
-      const v = { pi: 3.141592653589793, small: 0.0001 };
+      const v = { pi: Number.parseFloat("3.141592653589793"), small: 0.0001 };
       expect(await roundtripObject(db, meta, v)).toEqual(v);
     });
   });

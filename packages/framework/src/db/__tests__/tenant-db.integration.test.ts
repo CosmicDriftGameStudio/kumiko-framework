@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient, deleteMany, insertOne, selectMany, updateMany } from "../../db/query";
+import { asRawClient, insertOne, selectMany } from "../../db/query";
 import { createBooleanField, createEntity, createTextField } from "../../engine";
 import {
   createTestDb,
@@ -427,6 +427,7 @@ describe("mass-update guard", () => {
     await tdb.insertOne(table, { name: "MassUpdateVictim1" });
     await tdb.insertOne(table, { name: "MassUpdateVictim2" });
 
+    // biome-ignore lint/suspicious/noExplicitAny: test cast
     await expect((tdb as any).updateMany(table, { name: "Wiped" })).rejects.toThrow(
       /without where would mass-update/,
     );
@@ -441,6 +442,7 @@ describe("mass-update guard", () => {
     const tdb = createTenantDb(testDb.db, tenant1.tenantId);
     await tdb.insertOne(table, { name: "AwaitGuardVictim" });
 
+    // biome-ignore lint/suspicious/noExplicitAny: test cast
     const promise = (tdb as any).updateMany(table, {
       name: "WipedByAwait",
     }) as unknown as Promise<void>;

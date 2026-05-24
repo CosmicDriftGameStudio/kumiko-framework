@@ -4,7 +4,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { LoginScreen } from "../login-screen";
 import { makeSessionApi, renderWithProviders } from "./test-utils";
 
-const requestEmailVerificationMock = mock(() => undefined);
+const requestEmailVerificationMock = mock<() => Promise<unknown>>(() => Promise.resolve());
 const actual_authClient = await import("../auth-client");
 mock.module("../auth-client", () => ({
   ...actual_authClient,

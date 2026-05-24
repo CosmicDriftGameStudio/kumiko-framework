@@ -53,7 +53,7 @@ describe("createKumikoServer", () => {
     const rows = await asRawClient(h.stack.db).unsafe(
       `SELECT to_regclass('public.kumiko_server_probe') IS NOT NULL AS "exists"`,
     );
-    expect((rows as Array<Record<string, unknown>>)[0]?.exists).toBe(true);
+    expect((rows as Array<Record<string, unknown>>)[0]?.["exists"]).toBe(true);
   });
 
   test("GET / → HTML + kumiko_auth/kumiko_csrf Set-Cookie", async () => {

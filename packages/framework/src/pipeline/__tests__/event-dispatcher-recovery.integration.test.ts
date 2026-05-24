@@ -110,7 +110,7 @@ describe("E.9 — restartConsumer", () => {
     expect(after.attempts).toBe(0);
     expect(after.lastError).toBeNull();
     // Cursor unchanged — next pass retries the SAME failing event.
-    expect(after.lastProcessedEventId).toBe(cursorBefore);
+    expect(after.lastProcessedEventId).toBe(cursorBefore!);
 
     // Retry still poisoned (handler still throws) — attempts climbs again.
     await stack.eventDispatcher?.runOnce();

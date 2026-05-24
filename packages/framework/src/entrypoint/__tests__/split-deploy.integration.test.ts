@@ -18,7 +18,6 @@ import { createRegistry, defineFeature } from "../../engine";
 import { createArchivedStreamsTable, createEventsTable } from "../../event-store";
 import { createEventConsumerStateTable } from "../../pipeline";
 import { createTestRedis, type TestRedis } from "../../stack";
-import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { createAllInOneEntrypoint, createApiEntrypoint, createWorkerEntrypoint } from "../index";
 
 const splitFeature = defineFeature("split", (r) => {

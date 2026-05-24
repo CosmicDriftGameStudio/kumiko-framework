@@ -496,6 +496,7 @@ describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher pat
     // across runs — order-independent assertions are the only kind that
     // stay green when test-files grow (Memory `feedback_jsdom_lies_*`
     // analog: order-dependent tests are flaky-in-waiting).
+    // biome-ignore lint/suspicious/noExplicitAny: test cast
     await asRawClient(stack.db).unsafe(`DELETE FROM "${(pipelineDemoLogTable as any).tableName}"`);
     await asRawClient(stack.db).unsafe(`DELETE FROM "${widgetTable.tableName}"`);
   });

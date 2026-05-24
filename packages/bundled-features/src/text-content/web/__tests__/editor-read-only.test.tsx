@@ -57,7 +57,8 @@ function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
 
 describe("TextContentEditor — role-based write-access", () => {
   test("TenantAdmin sieht Save-Button + editable inputs", () => {
-    useShellUser.mockReturnValue({ id: "u1", roles: ["TenantAdmin"] });
+    // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
+    (useShellUser as any).mockReturnValue({ id: "u1", roles: ["TenantAdmin"] });
     const Editor = getEditor();
     render(<Editor target={TARGET} onClose={() => {}} />, { wrapper: Wrapper });
 
@@ -69,7 +70,8 @@ describe("TextContentEditor — role-based write-access", () => {
   });
 
   test("SystemAdmin sieht Save-Button (alternative write-role)", () => {
-    useShellUser.mockReturnValue({ id: "u1", roles: ["SystemAdmin"] });
+    // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
+    (useShellUser as any).mockReturnValue({ id: "u1", roles: ["SystemAdmin"] });
     const Editor = getEditor();
     render(<Editor target={TARGET} onClose={() => {}} />, { wrapper: Wrapper });
 
@@ -78,7 +80,8 @@ describe("TextContentEditor — role-based write-access", () => {
   });
 
   test("Editor-Role sieht Read-only-Banner + KEIN Save-Button", () => {
-    useShellUser.mockReturnValue({ id: "u1", roles: ["Editor"] });
+    // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
+    (useShellUser as any).mockReturnValue({ id: "u1", roles: ["Editor"] });
     const Editor = getEditor();
     render(<Editor target={TARGET} onClose={() => {}} />, { wrapper: Wrapper });
 
@@ -87,7 +90,8 @@ describe("TextContentEditor — role-based write-access", () => {
   });
 
   test("Admin-Role (publicstatus-Convention, ohne TenantAdmin-dual-Tag) sieht Read-only-Banner", () => {
-    useShellUser.mockReturnValue({ id: "u1", roles: ["Admin"] });
+    // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
+    (useShellUser as any).mockReturnValue({ id: "u1", roles: ["Admin"] });
     const Editor = getEditor();
     render(<Editor target={TARGET} onClose={() => {}} />, { wrapper: Wrapper });
 
@@ -96,7 +100,8 @@ describe("TextContentEditor — role-based write-access", () => {
   });
 
   test("Logged-out (useShellUser=undefined) sieht Read-only-Banner", () => {
-    useShellUser.mockReturnValue(undefined);
+    // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
+    (useShellUser as any).mockReturnValue(undefined);
     const Editor = getEditor();
     render(<Editor target={TARGET} onClose={() => {}} />, { wrapper: Wrapper });
 

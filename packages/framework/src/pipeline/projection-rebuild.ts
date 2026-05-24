@@ -1,4 +1,4 @@
-import type { DbConnection } from "../db/connection";
+import type { DbConnection, DbTx } from "../db/connection";
 import { asRawClient, coerceRow, extractTableInfo, selectMany } from "../db/query";
 import type { Registry, TenantId } from "../engine/types";
 import {
@@ -86,7 +86,7 @@ export async function rebuildProjection(
   let lastProcessedEventId = 0n;
 
   try {
-    await db.begin(async (tx) => {
+    await db.begin(async (tx: DbTx) => {
       const rawTx = asRawClient(tx);
       // Lock the state row. Use upsert so a never-rebuilt projection also
       // gets a row. FOR UPDATE would need the row to exist — upsert-first

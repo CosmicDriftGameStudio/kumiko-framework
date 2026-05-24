@@ -4,7 +4,9 @@ import { VerifyEmailScreen } from "../verify-email-screen";
 import { renderWithProviders } from "./test-utils";
 
 beforeEach(() => {
-  globalThis.fetch = mock(async () => new Response(null, { status: 200 })) as unknown as typeof fetch;
+  globalThis.fetch = mock(
+    async () => new Response(null, { status: 200 }),
+  ) as unknown as typeof fetch;
 });
 afterEach(() => {});
 
@@ -39,7 +41,9 @@ describe("VerifyEmailScreen", () => {
         details: { reason: "invalid_verification_token" },
       },
     });
-    globalThis.fetch = mock(async () => new Response(errBody, { status: 422 })) as unknown as typeof fetch;
+    globalThis.fetch = mock(
+      async () => new Response(errBody, { status: 422 }),
+    ) as unknown as typeof fetch;
 
     renderWithProviders(<VerifyEmailScreen token="bad" />);
 

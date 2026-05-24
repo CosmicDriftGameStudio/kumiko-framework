@@ -72,7 +72,8 @@ describe("requireSecretsContext :: FileProviderContext surface", () => {
       "any-key" as unknown as Parameters<SecretsContext["get"]>[1],
     );
     // Erste-Aufruf-args: [tenantId, key, audit-Object]
-    const audit = raw.get.mock.calls[0]?.[2];
+    // biome-ignore lint/suspicious/noExplicitAny: Bun mock API requires any cast
+    const audit = (raw.get as any).mock.calls[0]?.[2];
     expect(audit).toEqual({
       userId: SYSTEM_USER_ID,
       handlerName: "user-data-rights:run-export-jobs",

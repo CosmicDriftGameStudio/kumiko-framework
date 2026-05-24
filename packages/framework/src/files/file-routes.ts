@@ -2,7 +2,7 @@ import { deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { Hono } from "hono";
 import { z } from "zod";
 import { getUser } from "../api/auth-middleware";
-import type { DbConnection } from "../db/connection";
+import type { DbConnection, DbTx } from "../db/connection";
 import type { EventDef } from "../engine/types";
 import { isFileField, type Registry, type SessionUser, type TenantId } from "../engine/types";
 import { append as appendEvent } from "../event-store/event-store";
@@ -172,7 +172,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     // Atomic: insert FileRef + append files:event:uploaded in one tx. Either
     // both land or neither — no dangling FileRef without event, no event
     // referencing a row that doesn't exist.
-    await db.begin(async (tx) => {
+    await db.begin(async (tx: DbTx) => {
       const { insertOne } = await import("../bun-db/query");
       await insertOne(tx, fileRefsTable, {
         id: fileRefId,

@@ -10,7 +10,7 @@
 //     failure; predecessor pre-flight per aggregate in the batch.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import type { DbConnection } from "../../db/connection";
+import type { DbConnection, PgClient } from "../../db/connection";
 import { asRawClient, selectMany } from "../../db/query";
 import { createTestDb, type TestDb } from "../../stack";
 import { generateId as uuid } from "../../utils";
@@ -146,9 +146,12 @@ describe("appendRaw — single event", () => {
     // client; the callback is invoked per NOTIFY payload. The resolved value
     // is a meta-object with an `unlisten` method, not a plain function.
     const notifications: string[] = [];
-    const subscription = await testDb.client.listen("kumiko_events_new", (payload) => {
-      notifications.push(payload);
-    });
+    const subscription = await (testDb.client as PgClient).listen(
+      "kumiko_events_new",
+      (payload: string) => {
+        notifications.push(payload);
+      },
+    );
 
     try {
       // appendRaw path — MUST NOT fire.

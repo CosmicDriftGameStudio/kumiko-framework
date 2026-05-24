@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { TreeChildrenSubscribe, TreeNode } from "@cosmicdrift/kumiko-framework/engine";
 import { NavProvider } from "@cosmicdrift/kumiko-renderer";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { useBrowserNavApi } from "../../app/nav";
 import { TreeProvidersProvider } from "../../app/tree-providers-context";

@@ -260,7 +260,7 @@ describe("runForgetCleanup :: happy path (Cross-Tenant Account-Deletion)", () =>
     expect(aliceRow?.email).not.toContain("alice@example.com");
     expect(aliceRow?.email).toContain("anonymized.invalid");
     expect([USER_DELETED_DISPLAY_NAME, USER_ANONYMIZED_DISPLAY_NAME]).toContain(
-      aliceRow?.display_name,
+      aliceRow!.display_name,
     );
     expect(aliceRow?.password_hash).toBeNull();
 

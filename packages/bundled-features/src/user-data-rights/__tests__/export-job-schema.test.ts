@@ -32,7 +32,7 @@ describe("EXPORT_JOB_STATUS Drift-Guard", () => {
     // alphabetische Sortierung — die State-Machine kuemmert sich nicht
     // um Sort-Order, ein Re-Order der Konstanten waere kein Bug.
     for (const value of Object.values(EXPORT_JOB_STATUS)) {
-      expect(value).toBe(value.toLowerCase());
+      expect(value as string).toBe(value.toLowerCase());
       expect(value).toMatch(/^[a-z]+$/);
     }
   });

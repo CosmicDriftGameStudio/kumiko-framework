@@ -251,9 +251,7 @@ export function toTableName(entityName: string): string {
 // (see ColumnHandle); the phantom-typed wrapper preserves the existing
 // generic-inference call-sites without recreating drizzle's full column
 // brand graph.
-// biome-ignore lint/suspicious/noExplicitAny: phantom-typed wrapper retained for source-compat
 type Col<_T> = ColumnHandle & { readonly __notNull: true };
-// biome-ignore lint/suspicious/noExplicitAny: phantom-typed wrapper retained for source-compat
 type NullCol<_T> = ColumnHandle & { readonly __notNull: false };
 
 // Per-field column shape — matches `fieldToColumns`. Money +
@@ -467,6 +465,7 @@ export function buildEntityTable<E extends EntityDefinition>(
       const indexes: Record<string, IndexBuilderWithCols> = {};
       const tHandle = table as unknown as Record<string, ColumnHandle>;
       indexes[`${tableName}_tenant_id_idx`] = index(`${tableName}_tenant_id_idx`).on(
+        // biome-ignore lint/style/noNonNullAssertion: tenantId column always exists on entity tables
         tHandle["tenantId"]!,
       );
       for (const fieldName of foreignKeyFields) {

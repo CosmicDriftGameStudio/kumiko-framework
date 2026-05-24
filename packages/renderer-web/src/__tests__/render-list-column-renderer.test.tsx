@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, type MockInstance, spyOn, test } from "bun:test";
+import { afterAll, beforeEach, describe, expect, type Mock, spyOn, test } from "bun:test";
 import type {
   EntityDefinition,
   EntityListScreenDefinition,
@@ -49,7 +49,7 @@ describe("RenderList — column-renderer registry", () => {
   // Spy lokal pro Test installieren + global zurückbauen, damit die
   // Mock-Implementation nicht in andere Test-Dateien leakt (Console-Spy
   // auf File-Level würde den ganzen Vitest-Worker betreffen).
-  let warnSpy: MockInstance<typeof console.warn>;
+  let warnSpy: Mock<typeof console.warn>;
   beforeEach(() => {
     warnSpy = spyOn(console, "warn").mockImplementation(() => {});
   });

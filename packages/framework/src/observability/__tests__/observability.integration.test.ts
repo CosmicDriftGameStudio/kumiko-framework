@@ -1,6 +1,5 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import { z } from "zod";
-import { insertOne } from "../../db/query";
 import { buildEntityTable } from "../../db/table-builder";
 import { createRegistry, defineFeature } from "../../engine";
 import type { AppContext, SaveContext } from "../../engine/types";

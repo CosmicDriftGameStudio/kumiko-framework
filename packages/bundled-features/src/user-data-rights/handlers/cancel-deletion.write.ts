@@ -54,7 +54,7 @@ export const cancelDeletionWrite = defineWriteHandler({
     const inGrace =
       gracePeriodEnd != null &&
       Temporal.Instant.compare(
-        gracePeriodEnd as Temporal.Instant,
+        gracePeriodEnd as unknown as Temporal.Instant,
         Temporal.Now.instant(),
       ) > 0;
 

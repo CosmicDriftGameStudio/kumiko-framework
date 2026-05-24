@@ -3,6 +3,7 @@ import type { AuthRoutesConfig } from "../api/auth-routes";
 import type { JwtHelper } from "../api/jwt";
 import { buildServer } from "../api/server";
 import { createSseBroker } from "../api/sse-broker";
+import type { PgClient } from "../db/connection";
 import { createRegistry } from "../engine/registry";
 import type { FeatureDefinition, Registry, TenantId } from "../engine/types";
 import { createArchivedStreamsTable, createEventsTable } from "../event-store";
@@ -291,7 +292,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     // post-commit latency (Sprint E.4).
     eventDispatcher: {
       pollIntervalMs: 50,
-      pgClient: testDb.client,
+      pgClient: testDb.client as PgClient | undefined,
       systemConsumers: {
         sse: enabledHooks.includes("sse"),
         search: enabledHooks.includes("search"),
