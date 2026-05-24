@@ -1,6 +1,7 @@
 import { asRawClient } from "../db/query";
 import type { DbConnection } from "../db/connection";
-import type { EntityTableMeta } from "../db/entity-table-meta";
+import { pgTypeToSqlType } from "../db/dialect";
+import type { ColumnMeta, EntityTableMeta } from "../db/entity-table-meta";
 import { renderTableDdl } from "../db/render-ddl";
 import { tableExists } from "../db/schema-inspection";
 import { buildEntityTable, toTableName } from "../db/table-builder";
@@ -73,16 +74,57 @@ function tableToMeta(table: unknown): EntityTableMeta {
 export async function unsafePushTables(
   db: DbConnection,
   tables: Record<string, unknown>,
-  _prevTables?: Record<string, unknown>,
+  prevTables?: Record<string, unknown>,
 ): Promise<void> {
   const raw = asRawClient(db);
-  for (const table of Object.values(tables)) {
-    const meta = tableToMeta(table);
-    const statements = renderTableDdl(meta);
-    for (const stmt of statements) {
-      await raw.unsafe(stmt);
+  const prevMetas = new Map<string, EntityTableMeta>();
+  if (prevTables) {
+    for (const [key, table] of Object.entries(prevTables)) {
+      const meta = tableToMeta(table);
+      prevMetas.set(key, meta);
     }
   }
+
+  for (const [key, table] of Object.entries(tables)) {
+    const meta = tableToMeta(table);
+    const prev = prevMetas.get(key);
+
+    if (prev) {
+      // Migration: ADD COLUMN for new fields
+      const prevCols = new Set(prev.columns.map((c) => c.name));
+      for (const col of meta.columns) {
+        if (!prevCols.has(col.name)) {
+          const type = renderColumnType(col);
+          const notNull = col.notNull && !col.primaryKey ? " NOT NULL" : "";
+          const defaultClause = col.defaultSql !== undefined ? ` DEFAULT ${col.defaultSql}` : "";
+          await raw.unsafe(
+            `ALTER TABLE "${meta.tableName}" ADD COLUMN "${col.name}" ${type}${defaultClause}${notNull}`,
+          );
+        }
+      }
+      // Migration: new indexes
+      const prevIdxNames = new Set(prev.indexes.map((i) => i.name));
+      for (const idx of meta.indexes) {
+        if (!prevIdxNames.has(idx.name)) {
+          const kind = idx.unique ? "UNIQUE INDEX" : "INDEX";
+          const colList = idx.columns.map((c) => `"${c}"`).join(", ");
+          await raw.unsafe(
+            `CREATE ${kind} IF NOT EXISTS "${idx.name}" ON "${meta.tableName}" (${colList})`,
+          );
+        }
+      }
+    } else {
+      // First push: full CREATE TABLE
+      const statements = renderTableDdl(meta);
+      for (const stmt of statements) {
+        await raw.unsafe(stmt);
+      }
+    }
+  }
+}
+
+function renderColumnType(col: ColumnMeta): string {
+  return pgTypeToSqlType(col.pgType);
 }
 
 /**

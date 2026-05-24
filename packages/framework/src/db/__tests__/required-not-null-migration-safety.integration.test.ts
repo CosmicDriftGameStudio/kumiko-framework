@@ -56,13 +56,9 @@ describe("ALTER TABLE SET NOT NULL — Daten-Sicherheits-Verhalten", () => {
       caught = err;
     }
     expect(caught).toBeDefined();
-    // Drizzle wrapped den PG-Error in einer DrizzleQueryError. Der echte
-    // not_null_violation steckt in `.cause` als postgres-js Error mit
-    // `.code === "23502"` und einem deutschsprachigen oder englischen
-    // `.message`. Wir prüfen pragmatisch beide Pfade.
-    const cause = (caught as { cause?: unknown }).cause;
-    const causeCode = (cause as { code?: string } | undefined)?.code;
-    expect(causeCode).toBe("23502");
+    // Postgres-js throws PostgresError directly (no drizzle wrapper anymore).
+    const code = (caught as { code?: string } | undefined)?.code;
+    expect(code).toBe("23502");
   });
 
   test("SET NOT NULL läuft sauber durch wenn alle Zeilen Werte haben", async () => {
