@@ -15,6 +15,7 @@ pathIgnorePatterns = [
   "**/e2e/**",
   "**/*.spec.ts",
   "**/*.spec.tsx",
+  "**/*.integration.test.ts",
   # dist/ enthält compiled .js mit denselben Test-Namen wie src/ —
   # ohne Exclude scant bun test BEIDE Kopien (duplicates kämpfen um
   # ephemerale DBs, sieht aus wie flaky-Tests).
