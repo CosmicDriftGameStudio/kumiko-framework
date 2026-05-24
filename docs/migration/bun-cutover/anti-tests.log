@@ -1,0 +1,11 @@
+bun install v1.3.14 (0d9b296a)
+UnsupportedYarnLockfileVersion: failed to migrate lockfile: 'yarn.lock'
+
+warn: Ignoring lockfile
+error: lockfile had changes, but lockfile is frozen
+===
+(fail) ResetPasswordScreen > server invalid_reset_token → mapped i18n-error im UI [0.03ms]
+ 2590 pass
+ 414 fail
+ 14 errors
+Ran 3004 tests across 277 files. [5.51s]

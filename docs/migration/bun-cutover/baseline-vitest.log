@@ -1,0 +1,10 @@
+...(49 lines)
+     58|     for (const id of all) {
+     59|       expect(EXPECTED_IDS).toContain(id);
+     60|     }
+     61|   });
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+ Test Files  1 failed | 265 passed (266)
+      Tests  1 failed | 3007 passed (3008)
+   Start at  08:13:45
+   Duration  19.81s (transform 13.96s, setup 7.81s, import 131.98s, tests 15.31s, env 16.69s)
