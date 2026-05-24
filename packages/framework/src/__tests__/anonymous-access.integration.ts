@@ -3,10 +3,13 @@
 // authentication. Covers the resolution chain (defaultTenantId, X-Tenant
 // header, kumiko_tenant cookie, custom resolver) plus the rejection paths
 // (no tenant, unknown tenant, openToAll-protected).
+//
+// Bun.SQL-only setup. KEIN postgres-js, KEIN setupTestStack.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { asRawClient, selectMany } from "../bun-db/query";
+import { setupBunTestStack, type BunTestStack } from "../bun-db/__tests__/bun-test-stack";
 import { createEventStoreExecutor } from "../db/event-store-executor";
 import { buildEntityTable } from "../db/table-builder";
 import {
@@ -16,7 +19,7 @@ import {
   defineFeature,
   type TenantId,
 } from "../engine";
-import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../stack";
+import { TestUsers, unsafeCreateEntityTable } from "../stack";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 const OTHER_TENANT_ID = "00000000-0000-4000-8000-000000000002" as TenantId;
@@ -98,10 +101,10 @@ const shopFeature = defineFeature("anonshop", (r) => {
 // --- Suite ---
 
 describe("anonymous access — single-tenant default", () => {
-  let stack: TestStack;
+  let stack: BunTestStack;
 
   beforeAll(async () => {
-    stack = await setupTestStack({
+    stack = await setupBunTestStack({
       features: [shopFeature],
       anonymousAccess: { defaultTenantId: TENANT_ID },
     });
@@ -207,10 +210,10 @@ describe("anonymous access — single-tenant default", () => {
 });
 
 describe("anonymous access — header-supplied tenant", () => {
-  let stack: TestStack;
+  let stack: BunTestStack;
 
   beforeAll(async () => {
-    stack = await setupTestStack({
+    stack = await setupBunTestStack({
       features: [shopFeature],
       anonymousAccess: {
         // No defaultTenantId — every anonymous request must declare its tenant.
@@ -306,10 +309,10 @@ describe("anonymous access — header-supplied tenant", () => {
 });
 
 describe("anonymous access — disabled by default", () => {
-  let stack: TestStack;
+  let stack: BunTestStack;
 
   beforeAll(async () => {
-    stack = await setupTestStack({ features: [shopFeature] });
+    stack = await setupBunTestStack({ features: [shopFeature] });
     await unsafeCreateEntityTable(stack.db, productEntity);
     await unsafeCreateEntityTable(stack.db, orderEntity);
   });
