@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { buildAbortError, buildNetworkError, mapServerError } from "../error-mapping";
 
 describe("mapServerError", () => {

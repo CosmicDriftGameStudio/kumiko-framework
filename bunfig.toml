@@ -5,5 +5,5 @@ linker = "hoisted"
 "@cosmicdriftgamestudio" = { url = "https://npm.pkg.github.com", token = "$GITHUB_TOKEN" }
 
 [test]
-preload = ["./test-setup/temporal.preload.ts"]
+preload = ["./test-setup/temporal.preload.ts", "./test-setup/dom.preload.ts"]
 concurrency = 8

@@ -20,7 +20,7 @@ import {
   type TestStack,
   testTenantId,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
 import { subscriptionAggregateId } from "../aggregate-id";
 import {
   SubscriptionEventTypes,

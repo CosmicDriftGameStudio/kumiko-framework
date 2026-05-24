@@ -6,7 +6,7 @@
 
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { DateInput } from "../primitives/date-input";
 
 describe("DateInput", () => {

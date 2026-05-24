@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { createLifecycle } from "../lifecycle";
 import { attachSignalHandlers } from "../signal-handlers";
 import { createTestLifecycle } from "./create-test-lifecycle";

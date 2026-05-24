@@ -9,7 +9,7 @@
 //   - Verschiedene Currencies → korrekte Decimal-Stellen (JPY=0).
 
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { MoneyInput, parseLocaleNumber } from "../primitives/money-input";
 
 describe("MoneyInput", () => {

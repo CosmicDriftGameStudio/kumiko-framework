@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { z } from "zod";
 import { emitEvent, typedPayload } from "../event-helpers";
 import type { EventDef } from "../types/handlers";

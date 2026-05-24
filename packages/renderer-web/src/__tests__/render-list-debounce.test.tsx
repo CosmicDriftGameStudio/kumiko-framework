@@ -16,7 +16,7 @@ import {
   RenderList,
 } from "@cosmicdrift/kumiko-renderer";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { advanceTimersByTime, afterEach, beforeEach, describe, expect, mock, test, useFakeTimers, useRealTimers } from "bun:test";
 import { defaultPrimitives } from "../primitives";
 
 // Minimal-Entity damit RenderList nicht über fehlende Felder stolpert.

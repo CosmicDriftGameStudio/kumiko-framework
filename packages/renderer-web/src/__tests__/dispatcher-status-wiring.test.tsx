@@ -19,7 +19,7 @@
 import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
 import { DispatcherProvider, useDispatcherStatus } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { act, render, screen, waitFor } from "./test-utils";
 
 function StatusProbe(): ReactNode {

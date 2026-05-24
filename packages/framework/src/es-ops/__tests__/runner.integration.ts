@@ -11,7 +11,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
 import { createTestDb, type TestDb } from "../../stack";
 import { createSeedMigrationContext } from "../context";

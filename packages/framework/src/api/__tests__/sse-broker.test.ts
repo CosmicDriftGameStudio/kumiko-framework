@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { createSseBroker, type SseEvent } from "../sse-broker";
 
 describe("SSE broker", () => {

@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test } from "bun:test";
 import { makeContext, makeSpyOutput, makeTempCwd } from "../_test-helpers";
 import { createCommand } from "../create";
 

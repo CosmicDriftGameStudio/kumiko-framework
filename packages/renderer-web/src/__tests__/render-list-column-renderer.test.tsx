@@ -8,7 +8,7 @@ import {
   RenderList,
 } from "@cosmicdrift/kumiko-renderer";
 import type { ReactElement, ReactNode } from "react";
-import { afterAll, beforeEach, describe, expect, type MockInstance, test } from "bun:test";
+import { afterAll, beforeEach, describe, expect, spyOn, test, type MockInstance } from "bun:test";
 import { render, screen } from "./test-utils";
 
 // Tests für die JSX-Renderer-Form von ListColumn-Spalten:

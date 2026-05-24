@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "bun:test";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import type { EventStoreExecutor } from "../../db/event-store-executor";
 import { getStep } from "../define-step";
 import { buildAggregateUpdateStep } from "../steps/aggregate-update";

@@ -5,7 +5,7 @@
 
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import Stripe from "stripe";
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import {
   createStripeCancelSubscription,
   createStripeCheckoutSession,

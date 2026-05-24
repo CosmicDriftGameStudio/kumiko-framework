@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test } from "bun:test";
 import { makeContext, makeSpyOutput, makeTempCwd } from "../_test-helpers";
 import { statusCommand } from "../status";
 

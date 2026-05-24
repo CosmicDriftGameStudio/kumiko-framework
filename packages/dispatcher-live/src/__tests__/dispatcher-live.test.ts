@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { createLiveDispatcher } from "../dispatcher-live";
 
 // Builds a fake fetch that returns a JSON body with the given

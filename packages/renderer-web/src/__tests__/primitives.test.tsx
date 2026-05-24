@@ -8,7 +8,7 @@
 // abhängen werden.
 
 import userEvent from "@testing-library/user-event";
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { defaultPrimitives } from "../primitives";
 import { fireEvent, render, screen } from "./test-utils";
 

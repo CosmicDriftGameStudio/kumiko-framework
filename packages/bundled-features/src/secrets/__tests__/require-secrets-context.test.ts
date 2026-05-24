@@ -14,7 +14,7 @@
 
 import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { requireSecretsContext } from "../feature";
 
 function makeRawSecretsContext(): SecretsContext {

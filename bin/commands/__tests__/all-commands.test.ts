@@ -6,7 +6,7 @@
 // erlaubten Werte enthalten — kein "drift" zwischen Command-Files und
 // TUI-Categories.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { getCommand, getCommands } from "..";
 import type { Category, Command, Role } from "../types";
 

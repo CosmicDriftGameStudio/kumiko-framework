@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { z } from "zod";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../index";
 

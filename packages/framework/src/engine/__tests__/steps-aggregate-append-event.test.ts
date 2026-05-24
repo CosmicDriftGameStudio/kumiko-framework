@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "bun:test";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { getStep } from "../define-step";
 import { buildAggregateAppendEventStep } from "../steps/aggregate-append-event";
 import type { PipelineCtx } from "../types/step";

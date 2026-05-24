@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { createTenantConfig, createUserConfig } from "../config-helpers";
 import { type ClampInfo, resolveConfigOrParam } from "../resolve-config-or-param";
 import type {

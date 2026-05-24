@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test } from "bun:test";
 import { makeTempCwd } from "../commands/_test-helpers";
 import { detectRole } from "../role";
 import { join } from "node:path";

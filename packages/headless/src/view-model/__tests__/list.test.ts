@@ -2,7 +2,7 @@ import type {
   EntityDefinition,
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { computeListViewModel } from "../list";
 
 // Minimal EntityDefinition-shape. ui-core's view-model only reads

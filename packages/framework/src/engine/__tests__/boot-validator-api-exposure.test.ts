@@ -9,7 +9,7 @@
 // Soft-Warning (console.warn):
 //   - Feature ruft eigene exposesApi via usesApi (Refactor-Leftover)
 
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
 import { validateBoot } from "../boot-validator";
 import { defineFeature } from "../define-feature";
 

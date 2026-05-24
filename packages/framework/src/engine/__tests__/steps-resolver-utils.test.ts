@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, mock } from "bun:test";
 import { resolveOptional, resolveRequired } from "../steps/_resolver-utils";
 import type { PipelineCtx } from "../types/step";
 

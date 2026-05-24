@@ -4,7 +4,7 @@
 // injection geht und keinen DB-roundtrip braucht.
 
 import { Hono } from "hono";
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { SubscriptionEventTypes, SubscriptionStatuses } from "../constants";
 import type { SubscriptionEvent, SubscriptionProviderPlugin } from "../types";
 import { createSubscriptionWebhookHandler, type SubscriptionWebhookDeps } from "../webhook-handler";

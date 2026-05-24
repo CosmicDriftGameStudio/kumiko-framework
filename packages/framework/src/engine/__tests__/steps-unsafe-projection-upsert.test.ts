@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "bun:test";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { table, text, uuid } from "../../db/dialect";
 import { getStep } from "../define-step";
 import { buildUnsafeProjectionUpsertStep } from "../steps/unsafe-projection-upsert";

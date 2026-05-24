@@ -3,8 +3,7 @@
 // without spinning up the test-stack — the real event-store +
 // dispatcher integration is exercised in cap-counter.integration.ts.
 
-import { describe, expect, test } from "bun:test";
-
+import { describe, expect, mock, test } from "bun:test";
 // Temporal: rely on the global ambient declaration from temporal-spec.
 // The framework polyfill is loaded by setupTestStack, but pure unit
 // tests (no stack) need a manual polyfill — vitest.setup.ts does that.
