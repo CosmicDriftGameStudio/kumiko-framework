@@ -50,7 +50,7 @@ describe("buildWebhookSendStep", () => {
 
 describe("webhook.send run", () => {
   beforeEach(() => {
-    mock.restore();
+    mock.clearAllMocks();
   });
 
   it("appends a step.dispatch-requested system event with the webhook spec", async () => {

@@ -49,7 +49,7 @@ describe("buildReadFindOneStep", () => {
 
 describe("read.findOne run", () => {
   beforeEach(() => {
-    mock.restore();
+    mock.clearAllMocks();
     unsafeMock.mockResolvedValue([]);
   });
 
@@ -109,7 +109,7 @@ describe("buildReadFindManyStep", () => {
 
 describe("read.findMany run", () => {
   beforeEach(() => {
-    mock.restore();
+    mock.clearAllMocks();
     unsafeMock.mockResolvedValue([]);
   });
 

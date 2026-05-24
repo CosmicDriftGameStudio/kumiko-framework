@@ -46,7 +46,7 @@ describe("buildWaitStep", () => {
 
 describe("workflow.wait run", () => {
   beforeEach(() => {
-    mock.restore();
+    mock.clearAllMocks();
   });
 
   it("throws when used outside defineWorkflow (no ctx.workflow)", async () => {
@@ -108,7 +108,7 @@ describe("buildWaitForEventStep", () => {
 
 describe("workflow.waitForEvent run", () => {
   beforeEach(() => {
-    mock.restore();
+    mock.clearAllMocks();
   });
 
   it("throws when used outside defineWorkflow", async () => {
@@ -162,7 +162,7 @@ describe("buildRetryStep", () => {
 
 describe("workflow.retry run", () => {
   beforeEach(() => {
-    mock.restore();
+    mock.clearAllMocks();
   });
 
   it("throws when used outside defineWorkflow", async () => {

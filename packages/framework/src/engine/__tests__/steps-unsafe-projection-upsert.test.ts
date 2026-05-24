@@ -71,7 +71,7 @@ describe("buildUnsafeProjectionUpsertStep", () => {
 
 describe("unsafeProjectionUpsert run", () => {
   beforeEach(() => {
-    mock.restore();
+    mock.clearAllMocks();
   });
 
   it("throws when a conflict-key column does not exist on the table", async () => {

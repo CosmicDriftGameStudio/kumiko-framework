@@ -39,7 +39,7 @@ describe("buildAggregateCreateStep", () => {
 
 describe("aggregate.create run", () => {
   beforeEach(() => {
-    mock.restore();
+    mock.clearAllMocks();
   });
 
   it("resolves data and calls executor.create with user and db", async () => {

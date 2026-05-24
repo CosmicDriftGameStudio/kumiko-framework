@@ -61,7 +61,7 @@ describe("buildAggregateUpdateStep", () => {
 
 describe("aggregate.update run", () => {
   beforeEach(() => {
-    mock.restore();
+    mock.clearAllMocks();
   });
 
   it("resolves id, changes, version and calls executor.update", async () => {

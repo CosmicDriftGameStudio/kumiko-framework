@@ -37,7 +37,7 @@ describe("buildCallFeatureStep", () => {
 
 describe("callFeature run", () => {
   beforeEach(() => {
-    mock.restore();
+    mock.clearAllMocks();
   });
 
   it("calls ctx.write with the resolved payload and handler name", async () => {

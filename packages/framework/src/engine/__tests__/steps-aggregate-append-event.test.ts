@@ -39,7 +39,7 @@ describe("buildAggregateAppendEventStep", () => {
 
 describe("aggregate.appendEvent run", () => {
   beforeEach(() => {
-    mock.restore();
+    mock.clearAllMocks();
   });
 
   it("calls ctx.unsafeAppendEvent with resolved aggregateId and payload", async () => {

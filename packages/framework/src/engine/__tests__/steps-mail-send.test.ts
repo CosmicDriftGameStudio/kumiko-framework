@@ -61,7 +61,7 @@ describe("buildMailSendStep", () => {
 
 describe("mail.send run", () => {
   beforeEach(() => {
-    mock.restore();
+    mock.clearAllMocks();
   });
 
   it("appends a step.dispatch-requested system event with the mail spec", async () => {

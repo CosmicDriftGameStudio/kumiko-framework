@@ -44,7 +44,7 @@ describe("buildUnsafeProjectionDeleteStep", () => {
 
 describe("unsafeProjectionDelete run", () => {
   beforeEach(() => {
-    mock.restore();
+    mock.clearAllMocks();
   });
 
   it("issues DELETE ... WHERE ... with the resolved where clause", async () => {
