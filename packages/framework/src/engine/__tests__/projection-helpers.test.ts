@@ -1,15 +1,19 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, mock, test } from "bun:test";
 import type { StoredEvent } from "../../event-store/event-store";
 import { setFields } from "../projection-helpers";
 import type { ProjectionTable } from "../types/projection";
 
-// Minimal fake table: only the `id` column is needed for setFields, and
-// setFields only hands it to `eq()` — no actual SQL runs in the unit test.
-// The cast mirrors ProjectionTable's deliberate erasure: the framework
-// doesn't know user table shapes at compile time, so real Drizzle tables
-// go through the same `any`-ish generic parameter.
+// Minimal fake table: only the `id` column is needed for setFields, plus
+// the kumiko:schema:Name + kumiko:schema:Columns symbols that bun-db introspects for
+// table-name + column-mapping. We don't run real SQL — unsafe() is mocked.
 const fakeIdCol = { name: "id" };
-const fakeTable = { id: fakeIdCol, __name: "fake_table" } as unknown as ProjectionTable;
+const fakeTable = Object.assign(
+  { id: fakeIdCol },
+  {
+    [Symbol.for("kumiko:schema:Name")]: "fake_table",
+    [Symbol.for("kumiko:schema:Columns")]: { id: fakeIdCol },
+  },
+) as unknown as ProjectionTable;
 
 function makeFakeEvent(overrides: Partial<StoredEvent> = {}): StoredEvent {
   return {
@@ -29,30 +33,34 @@ function makeFakeEvent(overrides: Partial<StoredEvent> = {}): StoredEvent {
   };
 }
 
-// Drizzle's tx.update(...).set(...).where(...) chain — capture each step.
+// bun-db path: setFields calls updateMany(tx, table, set, where) which lands
+// on asRawClient(tx).unsafe(sqlText, params). Capture the SQL + params.
 function makeFakeTx() {
-  const where = vi.fn().mockResolvedValue(undefined);
-  const set = vi.fn(() => ({ where }));
-  const update = vi.fn(() => ({ set }));
-  return { fakeTx: { update } as never, update, set, where };
+  const unsafe = mock(async (_sqlText: string, _params: unknown[]) => [] as unknown[]);
+  const fakeTx = { unsafe, begin: mock() } as never;
+  return { fakeTx, unsafe };
 }
 
 describe("setFields", () => {
   test("returns an apply fn that UPDATEs the passed fields WHERE id = aggregateId", async () => {
     const apply = setFields(fakeTable, { status: "sent" });
-    const { fakeTx, update, set } = makeFakeTx();
+    const { fakeTx, unsafe } = makeFakeTx();
     await apply(makeFakeEvent(), fakeTx);
-    expect(update).toHaveBeenCalledWith(fakeTable);
-    expect(set).toHaveBeenCalledWith({ status: "sent" });
+    expect(unsafe).toHaveBeenCalledTimes(1);
+    const [sqlText, params] = unsafe.mock.calls[0]!;
+    expect(sqlText).toMatch(/UPDATE "fake_table" SET "status" = \$1.*WHERE "id" = \$2/);
+    expect(params).toEqual(["sent", "agg-42"]);
   });
 
   test("fields as a function receives the event and returns the field values", async () => {
     const apply = setFields(fakeTable, (event) => ({
       status: (event.payload as { newStatus: string }).newStatus,
     }));
-    const { fakeTx, set } = makeFakeTx();
+    const { fakeTx, unsafe } = makeFakeTx();
     await apply(makeFakeEvent({ payload: { newStatus: "cancelled" } }), fakeTx);
-    expect(set).toHaveBeenCalledWith({ status: "cancelled" });
+    expect(unsafe).toHaveBeenCalledTimes(1);
+    const [, params] = unsafe.mock.calls[0]!;
+    expect(params).toEqual(["cancelled", "agg-42"]);
   });
 
   test("throws at construction time when the table has no 'id' column", () => {

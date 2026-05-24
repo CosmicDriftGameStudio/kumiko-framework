@@ -5,9 +5,9 @@
 // L3 dispatcher hook + resolver wiring are tested in framework-side
 // suites; here we only verify the feature's own surface area.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { createRateLimitingFeature } from "../feature";
 

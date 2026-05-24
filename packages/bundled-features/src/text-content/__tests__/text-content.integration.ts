@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -8,7 +9,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { TextContentHandlers, TextContentQueries } from "../constants";
 import { createTextContentFeature } from "../feature";
 import { seedTextBlock } from "../seeding";
@@ -389,7 +389,7 @@ describe("text-content :: edge-cases", () => {
       { slug: "race-test", lang: "de" },
       tenantAdmin,
     );
-    const finalBody = fetched!["body"];
+    const finalBody = fetched!["body"] as string;
     expect(["from-a", "from-b", "v1"]).toContain(finalBody);
   });
 });

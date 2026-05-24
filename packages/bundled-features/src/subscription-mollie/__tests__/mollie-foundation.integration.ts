@@ -18,6 +18,7 @@
 // Unit-Tests (verify-webhook.test.ts) abgedeckt, aber die Verdrahtung
 // von factory bis foundation-DB-row beweist nur dieser Test.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
   billingFoundationFeature,
   createSubscriptionWebhookHandler,
@@ -38,7 +39,6 @@ import type {
   Subscription as MollieSubscription,
 } from "@mollie/api-client";
 import { Hono } from "hono";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createSubscriptionMollieFeature } from "../feature";
 import type { MollieClientShape } from "../verify-webhook";
 

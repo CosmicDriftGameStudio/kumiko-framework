@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test } from "bun:test";
 import { _resetRegistry, defineCommand, getCommand, getCommands } from "../registry";
 import type { Command } from "../types";
 

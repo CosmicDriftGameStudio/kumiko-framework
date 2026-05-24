@@ -10,6 +10,7 @@
 // This is the smallest evidence that wireCustomFieldsFor + the bundle's
 // projection-hook + entity-postQuery flattening all line up.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
   createCustomFieldsFeature,
   fieldDefinitionEntity,
@@ -22,7 +23,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { sql } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { propertyEntity, propertyFeature } from "../feature";
 
 const admin = createTestUser({ roles: ["TenantAdmin"] });

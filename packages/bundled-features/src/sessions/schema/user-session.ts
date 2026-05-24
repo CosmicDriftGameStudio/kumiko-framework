@@ -1,4 +1,4 @@
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createEntity,
@@ -64,4 +64,4 @@ export const userSessionEntity = createEntity({
   },
 });
 
-export const userSessionTable = buildDrizzleTable("user_session", userSessionEntity);
+export const userSessionTable = buildEntityTable("user_session", userSessionEntity);

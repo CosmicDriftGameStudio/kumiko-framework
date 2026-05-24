@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 //
 // useBrowserNavApi({ basePath }) — Read-Pfad strippt den Prefix vor
 // parsePath, Write-Pfad prepend'd ihn vor pushState/replaceState/hrefFor.
@@ -9,10 +8,10 @@
 // Bereich unter /admin, Embedded-App unter /embed, Workspace-Routing
 // unter Prefix) sind hier mit Beispiel-URLs durchgespielt.
 
+import { beforeEach, describe, expect, test } from "bun:test";
 import { NavProvider, useNav } from "@cosmicdrift/kumiko-renderer";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { beforeEach, describe, expect, test } from "vitest";
 import { KumikoLink, useBrowserNavApi } from "../app/nav";
 
 function AdminBrowserNav({ children }: { readonly children: ReactNode }): ReactNode {

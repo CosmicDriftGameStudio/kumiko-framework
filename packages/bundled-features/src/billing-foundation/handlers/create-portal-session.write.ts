@@ -9,8 +9,8 @@
 // kann nicht zum Portal eines OTHER Providers, weil der ihn nicht
 // kennt.
 
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { subscriptionAggregateId } from "../aggregate-id";
 import { SUBSCRIPTION_PROVIDER_EXTENSION } from "../constants";
@@ -34,7 +34,7 @@ export const createPortalSessionHandler: WriteHandlerDef = {
     // 1. Hol current subscription-row für den Tenant. Aggregate-id ist
     //    deterministic per tenant — eine row pro tenant.
     const subAggId = subscriptionAggregateId(tenantId);
-    const rows = await ctx.db.select().from(subTable).where(eq(subTable["id"], subAggId)).limit(1);
+    const rows = await selectMany(ctx.db, subTable, { id: subAggId }, { limit: 1 });
     const row = rows[0];
     if (!row) {
       throw new Error(

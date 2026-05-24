@@ -114,7 +114,8 @@ function mountInRunConfig(runConfigPath: string, name: string): boolean {
 
   // 1. Prepend import after the last existing import.
   const imports = sf.getImportDeclarations();
-  const insertIndex = imports.length > 0 ? imports[imports.length - 1]!.getChildIndex() + 1 : 0;
+  const insertIndex =
+    imports.length > 0 ? (imports[imports.length - 1]?.getChildIndex() ?? 0) + 1 : 0;
   sf.insertImportDeclaration(insertIndex, {
     moduleSpecifier: `./features/${name}`,
     namedImports: [`${camel}Feature`],

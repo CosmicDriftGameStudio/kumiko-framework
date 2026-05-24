@@ -24,9 +24,16 @@ import {
   defineProjectionQueryHandler,
   typedPayload,
 } from "@app/define";
-import { buildDrizzleTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
-import { eq, sql } from "drizzle-orm";
-import { integer, pgTable, text, uuid } from "drizzle-orm/pg-core";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  buildEntityTable,
+  createEventStoreExecutor,
+  integer,
+  table,
+  text,
+  uuid,
+} from "@cosmicdrift/kumiko-framework/db";
+import { sql } from "drizzle-orm";
 import { z } from "zod";
 
 // --- Reducer: shared by live + snapshot-aware query handlers ---
@@ -81,11 +88,11 @@ export const invoiceEntity = createEntity({
   },
 });
 
-const invoiceTable = buildDrizzleTable("showcase-invoice", invoiceEntity);
+const invoiceTable = buildEntityTable("showcase-invoice", invoiceEntity);
 
 // --- Projection 1: per-invoice detail (single-stream, inline) ---
 
-export const invoiceDetailTable = pgTable("read_showcase_invoice_detail", {
+export const invoiceDetailTable = table("read_showcase_invoice_detail", {
   invoiceId: uuid("invoice_id").primaryKey(),
   tenantId: uuid("tenant_id").notNull(),
   customer: text("customer").notNull(),
@@ -95,7 +102,7 @@ export const invoiceDetailTable = pgTable("read_showcase_invoice_detail", {
 
 // --- Projection 2: per-customer revenue (multi-stream, async) ---
 
-export const customerRevenueTable = pgTable("read_showcase_customer_revenue", {
+export const customerRevenueTable = table("read_showcase_customer_revenue", {
   customer: text("customer").primaryKey(),
   tenantId: uuid("tenant_id").notNull(),
   paidInvoices: integer("paid_invoices").notNull().default(0),
@@ -106,7 +113,7 @@ export const customerRevenueTable = pgTable("read_showcase_customer_revenue", {
 // The async upcaster (invoice-acknowledged v1 → v2) reads from this table
 // to enrich legacy events with a human-readable name. In production this
 // would be a domain-owned read model; here it's a flat lookup table.
-export const approverDirectoryTable = pgTable("read_showcase_approver_directory", {
+export const approverDirectoryTable = table("read_showcase_approver_directory", {
   approverId: text("approver_id").primaryKey(),
   displayName: text("display_name").notNull(),
 });
@@ -146,10 +153,9 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
   );
   r.eventMigration("invoice-acknowledged", 1, 2, async (payload, ctx) => {
     const p = payload as { approverId: string };
-    const [row] = await ctx.db
-      .select()
-      .from(approverDirectoryTable)
-      .where(eq(approverDirectoryTable.approverId, p.approverId));
+    const row = await fetchOne<{ displayName: string }>(ctx.db, approverDirectoryTable, {
+      approverId: p.approverId,
+    });
     return {
       approverId: p.approverId,
       approverDisplayName: row?.displayName ?? `unknown:${p.approverId}`,
@@ -178,13 +184,13 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
         await tx
           .update(invoiceDetailTable)
           .set({ status: "approved", amountCents: p.amountCents })
-          .where(eq(invoiceDetailTable.invoiceId, event.aggregateId));
+          .where(sql`${invoiceDetailTable["invoiceId"]} = ${event.aggregateId}`);
       },
       [paid.name]: async (event, tx) => {
         await tx
           .update(invoiceDetailTable)
           .set({ status: "paid" })
-          .where(eq(invoiceDetailTable.invoiceId, event.aggregateId));
+          .where(sql`${invoiceDetailTable["invoiceId"]} = ${event.aggregateId}`);
       },
     },
   });
@@ -202,22 +208,22 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
         const [detail] = await tx
           .select()
           .from(invoiceDetailTable)
-          .where(eq(invoiceDetailTable.invoiceId, event.aggregateId));
+          .where(sql`${invoiceDetailTable["invoiceId"]} = ${event.aggregateId}`);
         if (!detail) return;
         const p = typedPayload(event, paid);
         await tx
           .insert(customerRevenueTable)
           .values({
-            customer: detail.customer,
+            customer: detail["customer"],
             tenantId: event.tenantId,
             paidInvoices: 1,
             totalCents: p.amountCents,
           })
           .onConflictDoUpdate({
-            target: customerRevenueTable.customer,
+            target: customerRevenueTable["customer"],
             set: {
-              paidInvoices: sql`${customerRevenueTable.paidInvoices} + 1`,
-              totalCents: sql`${customerRevenueTable.totalCents} + ${p.amountCents}`,
+              paidInvoices: sql`${customerRevenueTable["paidInvoices"]} + 1`,
+              totalCents: sql`${customerRevenueTable["totalCents"]} + ${p.amountCents}`,
             },
           });
       },
@@ -273,12 +279,10 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
     "invoice:acknowledge",
     z.object({ id: z.uuid(), approverId: z.string() }),
     async (event, ctx) => {
-      const [row] = await ctx.db
-        .select()
-        .from(approverDirectoryTable)
-        .where(eq(approverDirectoryTable.approverId, event.payload.approverId));
-      const approverDisplayName: string =
-        (row?.["displayName"] as string | undefined) ?? `unknown:${event.payload.approverId}`;
+      const row = await ctx.db.fetchOne<{ displayName: string }>(approverDirectoryTable, {
+        approverId: event.payload.approverId,
+      });
+      const approverDisplayName: string = row?.displayName ?? `unknown:${event.payload.approverId}`;
       await ctx.appendEvent({
         aggregateId: event.payload.id,
         aggregateType: "showcase-invoice",

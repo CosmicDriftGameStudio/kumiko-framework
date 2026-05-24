@@ -1,6 +1,7 @@
 // Tenant Isolation Sample — Integration Test
 // Proves: tenant_id scopes all data, cross-tenant access returns nothing
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -9,7 +10,6 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { noteEntity, noteFeature } from "../feature";
 
 let stack: TestStack;

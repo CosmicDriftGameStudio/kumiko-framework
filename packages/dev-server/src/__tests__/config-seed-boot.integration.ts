@@ -12,12 +12,14 @@
 //   3. an admin set on top of a seed wins the resolver cascade; coexistence
 //      vs. override semantics depend on the admin user's tenantId.
 
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
   configValuesTable,
   createConfigAccessorFactory,
   createConfigFeature,
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   access,
   createSystemConfig,
@@ -32,7 +34,6 @@ import {
   TestUsers,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { applyBootSeeds } from "../boot/apply-boot-seeds";
 
 const bootSeedsFeature = defineFeature("boot-seeds-test", (r) => {
@@ -82,7 +83,7 @@ describe("config-seed boot wiring", () => {
   test("first boot: applyBootSeeds writes one row per seed", async () => {
     await applyBootSeeds({ registry: stack.registry, db: stack.db });
 
-    const rows = await stack.db.select().from(configValuesTable);
+    const rows = await selectMany(stack.db, configValuesTable);
     expect(rows.length).toBe(2);
 
     const siteKeyDef = stack.registry.getConfigKey(SITE_KEY);
@@ -111,7 +112,7 @@ describe("config-seed boot wiring", () => {
   test("re-boot: idempotent — every seed already on disk → no extra rows", async () => {
     await applyBootSeeds({ registry: stack.registry, db: stack.db });
 
-    const rows = await stack.db.select().from(configValuesTable);
+    const rows = await selectMany(stack.db, configValuesTable);
     expect(rows.length).toBe(2);
   });
 
@@ -151,7 +152,7 @@ describe("config-seed boot wiring", () => {
     //   - 3 rows = coexistence path (admin tenantId !== SYSTEM_TENANT_ID,
     //     new specific-tenant row sits next to the seed system-row).
     // Either is correct as long as the resolver picks the admin value.
-    const rows = await stack.db.select().from(configValuesTable);
+    const rows = await selectMany(stack.db, configValuesTable);
     expect([2, 3]).toContain(rows.length);
   });
 });

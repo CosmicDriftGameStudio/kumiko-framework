@@ -1,10 +1,9 @@
-// @vitest-environment jsdom
+import { describe, expect, mock, test } from "bun:test";
 import type {
   EntityDefinition,
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { RenderList } from "@cosmicdrift/kumiko-renderer";
-import { describe, expect, test, vi } from "vitest";
 import { fireEvent, render, screen } from "./test-utils";
 
 const taskEntity = {
@@ -113,7 +112,7 @@ describe("RenderList", () => {
   });
 
   test("onRowClick fires with the ListRowViewModel when present; no-op without", () => {
-    const onClick = vi.fn();
+    const onClick = mock();
     render(
       <RenderList
         screen={listScreen}
@@ -124,7 +123,7 @@ describe("RenderList", () => {
       />,
     );
     fireEvent.click(screen.getByTestId("row-r1"));
-    expect(onClick).toHaveBeenCalledOnce();
+    expect(onClick).toHaveBeenCalledTimes(1);
     const arg = onClick.mock.lastCall?.[0] as { id: string; values: Record<string, unknown> };
     expect(arg.id).toBe("r1");
     expect(arg.values["title"]).toBe("A");

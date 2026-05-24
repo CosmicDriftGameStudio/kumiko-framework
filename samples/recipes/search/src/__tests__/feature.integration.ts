@@ -1,6 +1,7 @@
 // Search Sample — Integration Test
 // Proves: searchable fields indexed via system hook, search returns matches
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
@@ -8,7 +9,6 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { productEntity, productFeature } from "../feature";
 
 let stack: TestStack;

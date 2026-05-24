@@ -30,17 +30,13 @@
       "types": "./src/compose-features.ts",
       "default": "./src/compose-features.ts"
     },
-    "./drizzle-config": {
-      "types": "./src/drizzle-config.ts",
-      "default": "./src/drizzle-config.ts"
+    "./schema-tables-auth-mode": {
+      "types": "./src/schema-tables-auth-mode.ts",
+      "default": "./src/schema-tables-auth-mode.ts"
     },
-    "./drizzle-tables-auth-mode": {
-      "types": "./src/drizzle-tables-auth-mode.ts",
-      "default": "./src/drizzle-tables-auth-mode.ts"
-    },
-    "./drizzle-tables-minimal": {
-      "types": "./src/drizzle-tables-minimal.ts",
-      "default": "./src/drizzle-tables-minimal.ts"
+    "./schema-tables-minimal": {
+      "types": "./src/schema-tables-minimal.ts",
+      "default": "./src/schema-tables-minimal.ts"
     }
   },
   "bin": {

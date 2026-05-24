@@ -1,7 +1,7 @@
 // Currency — global reference data table
 // Seeded from CURRENCY_CATALOG in feature.ts via r.referenceData()
 
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
 
 export const currencyEntity = createEntity({
@@ -12,4 +12,4 @@ export const currencyEntity = createEntity({
   },
 });
 
-export const currencyTable = buildDrizzleTable("currency", currencyEntity);
+export const currencyTable = buildEntityTable("currency", currencyEntity);

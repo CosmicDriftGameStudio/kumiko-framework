@@ -3,6 +3,7 @@
 // subscription via getSubscriptionForTenant-helper (= ctx.db ist
 // tenant-scoped, gibt automatisch nur die row des Callers zurück).
 
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { subscriptionsProjectionTable } from "../projection";
@@ -14,7 +15,9 @@ export const listSubscriptionsQuery: QueryHandlerDef = {
   schema: listSchema,
   access: { roles: ["SystemAdmin", "TenantAdmin"] },
   handler: async (_query, ctx) => {
-    const rows = await ctx.db.select().from(subscriptionsProjectionTable);
+    const rows = await selectMany(ctx.db.raw, subscriptionsProjectionTable, {
+      tenantId: ctx.user.tenantId,
+    });
     return { rows };
   },
 };

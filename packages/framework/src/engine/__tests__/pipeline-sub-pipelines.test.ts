@@ -5,7 +5,7 @@
 // to steps/_no-return-guard.ts). Tests cover happy paths, scope
 // hygiene, error-propagation and build-time guards.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { z } from "zod";
 import { TestUsers } from "../../stack";
 import { defineWriteHandler } from "../define-handler";

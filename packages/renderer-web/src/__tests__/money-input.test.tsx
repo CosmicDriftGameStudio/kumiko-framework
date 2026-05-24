@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 //
 // MoneyInput hat genug Custom-Logik (focus-aware Format, +/- Buttons,
 // Locale-Parse), dass der Switch-Case-Test in primitives.test nicht
@@ -9,8 +8,8 @@
 //   - Blur mit Müll-Input verwirft den Wert (kein corrupt-set).
 //   - Verschiedene Currencies → korrekte Decimal-Stellen (JPY=0).
 
+import { describe, expect, mock, test } from "bun:test";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, test, vi } from "vitest";
 import { MoneyInput, parseLocaleNumber } from "../primitives/money-input";
 
 describe("MoneyInput", () => {
@@ -80,7 +79,7 @@ describe("MoneyInput", () => {
   });
 
   test("blur mit gültigem Edit-String: onChange feuert Cents", () => {
-    const onChange = vi.fn();
+    const onChange = mock();
     render(
       <MoneyInput
         id="eur"
@@ -99,7 +98,7 @@ describe("MoneyInput", () => {
   });
 
   test("blur mit leerem String: onChange(undefined) räumt den Wert", () => {
-    const onChange = vi.fn();
+    const onChange = mock();
     render(
       <MoneyInput
         id="eur"
@@ -118,7 +117,7 @@ describe("MoneyInput", () => {
   });
 
   test("blur mit korruptem Input (Buchstaben): onChange wird NICHT gerufen", () => {
-    const onChange = vi.fn();
+    const onChange = mock();
     render(
       <MoneyInput
         id="eur"
@@ -137,7 +136,7 @@ describe("MoneyInput", () => {
   });
 
   test("+ Button: addiert 1 Major-Unit (=100 cents bei EUR) zum Canonical-Wert", () => {
-    const onChange = vi.fn();
+    const onChange = mock();
     render(
       <MoneyInput
         id="eur"
@@ -153,7 +152,7 @@ describe("MoneyInput", () => {
   });
 
   test("− Button: subtrahiert 1 Major-Unit", () => {
-    const onChange = vi.fn();
+    const onChange = mock();
     render(
       <MoneyInput
         id="eur"
@@ -169,7 +168,7 @@ describe("MoneyInput", () => {
   });
 
   test("+ Button bei leerem Wert: startet bei 0 + 1 Major-Unit", () => {
-    const onChange = vi.fn();
+    const onChange = mock();
     render(
       <MoneyInput id="eur" name="eur" value="" onChange={onChange} currency="EUR" locale="de-DE" />,
     );
@@ -178,7 +177,7 @@ describe("MoneyInput", () => {
   });
 
   test("+ Button bei JPY: addiert 1 Yen (1 cent, weil JPY 0 decimals hat)", () => {
-    const onChange = vi.fn();
+    const onChange = mock();
     render(
       <MoneyInput
         id="jpy"

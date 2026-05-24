@@ -1,20 +1,17 @@
-// @vitest-environment jsdom
+import { describe, expect, test } from "bun:test";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, test } from "vitest";
 import { TenantSwitcher } from "../tenant-switcher";
 import { makeSessionApi, renderWithProviders } from "./test-utils";
 
 // Radix-DropdownMenu reagiert auf pointerdown, nicht auf click — daher
 // userEvent statt fireEvent.
-
 describe("TenantSwitcher", () => {
   test("renders nothing when user is null", () => {
     const session = makeSessionApi({ status: "unauthenticated", user: null });
     const { container } = renderWithProviders(<TenantSwitcher />, { session });
     expect(container.firstChild).toBeNull();
   });
-
   test("renders nothing when user has only one tenant", () => {
     const session = makeSessionApi({
       tenants: [{ tenantId: "t1", roles: ["Admin"] }],
@@ -22,7 +19,6 @@ describe("TenantSwitcher", () => {
     const { container } = renderWithProviders(<TenantSwitcher />, { session });
     expect(container.firstChild).toBeNull();
   });
-
   test("renders trigger when user has multiple tenants", () => {
     const session = makeSessionApi({
       activeTenantId: "tenant-a",
@@ -35,7 +31,6 @@ describe("TenantSwitcher", () => {
     // tenantName-Resolver liefert "Tenant tenant-a" als Trigger-Label
     expect(screen.getByText("Tenant tenant-a")).toBeTruthy();
   });
-
   test("opens dropdown showing all memberships with roles", async () => {
     const user = userEvent.setup();
     const session = makeSessionApi({
@@ -57,7 +52,6 @@ describe("TenantSwitcher", () => {
     expect(screen.getByText("Admin")).toBeTruthy();
     expect(screen.getByText("User, Billing")).toBeTruthy();
   });
-
   test("clicking a tenant triggers switchTenant", async () => {
     const user = userEvent.setup();
     const session = makeSessionApi({
@@ -74,7 +68,6 @@ describe("TenantSwitcher", () => {
     await user.click(screen.getByText("Tenant tenant-b"));
     expect(session.switchTenant).toHaveBeenCalledWith("tenant-b");
   });
-
   test("clicking the active tenant is a no-op (closes menu, no switch call)", async () => {
     const user = userEvent.setup();
     const session = makeSessionApi({

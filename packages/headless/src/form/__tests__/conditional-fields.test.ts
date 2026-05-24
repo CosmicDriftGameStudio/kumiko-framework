@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { createFormController } from "../form-controller";
 
@@ -97,13 +97,13 @@ describe("conditional fields — FieldState resolution", () => {
 
     // Force a snapshot build so the predicate runs once.
     form.getSnapshot();
-    expect(lastCtxSeen).toBe("user");
+    expect(lastCtxSeen!).toBe("user");
 
     form.setCtx({ role: "admin" });
     form.getSnapshot();
 
     // The predicate must have been re-called AND observed the new ctx.
-    expect(lastCtxSeen).toBe("admin");
+    expect(lastCtxSeen!).toBe("admin");
   });
 
   test("setCtx produces a new snapshot and notifies listeners", () => {

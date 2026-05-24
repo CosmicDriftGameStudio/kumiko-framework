@@ -7,7 +7,7 @@
 //      sample pattern (sanity check that entity-fields-editor points at
 //      `definition.fields`, not `fields`).
 
-import { describe, expect, expectTypeOf, test } from "vitest";
+import { describe, expect, expectTypeOf, test } from "bun:test";
 import {
   type FeaturePattern,
   type FeaturePatternKind,
@@ -24,7 +24,7 @@ import {
 // All FeaturePatternKind discriminator values, hand-listed so the test
 // fails CI when a new pattern is added without a library entry. Match
 // against the FeaturePattern union via type-test below.
-const ALL_KINDS: readonly FeaturePatternKind[] = [
+const ALL_KINDS: FeaturePatternKind[] = [
   "requires",
   "optionalRequires",
   "readsConfig",

@@ -3,7 +3,7 @@
 //
 // Pinst:
 //   - createBigIntField liefert FieldDefinition.type === "bigInt"
-//   - buildDrizzleTable mappt auf bigint(name, mode:"number"), nicht
+//   - buildEntityTable mappt auf bigint(name, mode:"number"), nicht
 //     integer (32-bit) → kein silent 2 GB-Cap
 //   - Zod-Schema akzeptiert int + safe-integer + lehnt non-int + Float
 //     + non-safe-integer ab
@@ -15,19 +15,20 @@
 // einrichten — pinst dort auf realer Postgres + Drizzle-customType-
 // Path statt parallel-mock hier.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { createBigIntField, createEntity, createNumberField } from "../../engine";
 import { buildInsertSchema } from "../../engine/schema-builder";
-import { buildDrizzleTable } from "../table-builder";
+import { buildEntityTable } from "../table-builder";
 
-function colByName(table: ReturnType<typeof buildDrizzleTable>, dbName: string) {
-  for (const col of Object.values(table) as Array<{
-    name?: string;
-    notNull?: boolean;
-    columnType?: string;
-    dataType?: string;
-  }>) {
-    if (col && typeof col === "object" && col.name === dbName) return col;
+function colByName(table: unknown, dbName: string) {
+  const cols = (
+    table as { columns?: ReadonlyArray<{ name: string; notNull?: boolean; pgType?: string }> }
+  ).columns;
+  if (!cols) throw new Error("Table has no columns metadata");
+  for (const c of cols) {
+    if (c.name === dbName) {
+      return { name: c.name, notNull: c.notNull, columnType: c.pgType, dataType: c.pgType };
+    }
   }
   throw new Error(`Column ${dbName} not found in table`);
 }
@@ -53,7 +54,7 @@ describe("createBigIntField factory", () => {
   });
 });
 
-describe("buildDrizzleTable — bigInt-Mapping", () => {
+describe("buildEntityTable — bigInt-Mapping", () => {
   test("bigInt-Spalte ist DISTINCT von number-Spalte (number=integer/32-bit, bigInt=bigint/64-bit)", () => {
     const entity = createEntity({
       fields: {
@@ -61,7 +62,7 @@ describe("buildDrizzleTable — bigInt-Mapping", () => {
         bigCount: createBigIntField({}),
       },
     });
-    const table = buildDrizzleTable("counters", entity);
+    const table = buildEntityTable("counters", entity);
 
     const small = colByName(table, "small_count");
     const big = colByName(table, "big_count");
@@ -79,7 +80,7 @@ describe("buildDrizzleTable — bigInt-Mapping", () => {
         optionalBig: createBigIntField({}),
       },
     });
-    const table = buildDrizzleTable("t", entity);
+    const table = buildEntityTable("t", entity);
     expect(colByName(table, "required_big").notNull).toBe(true);
     expect(colByName(table, "optional_big").notNull).toBe(false);
   });

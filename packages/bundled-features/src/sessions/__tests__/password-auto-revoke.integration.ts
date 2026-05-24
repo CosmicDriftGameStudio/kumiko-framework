@@ -1,4 +1,6 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import { randomBytes } from "node:crypto";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -9,7 +11,6 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createLateBoundHolder } from "@cosmicdrift/kumiko-framework/testing";
-import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { AuthHandlers } from "../../auth-email-password/constants";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
 import { createConfigFeature } from "../../config";
@@ -38,7 +39,7 @@ const callbacks = createLateBoundHolder<SessionCallbacks>("session-callbacks");
 
 // vi.fn spy for the revoker — lets us assert exact call counts and arguments
 // per test without leaking module-level mutable state across suites.
-const massRevokeSpy = vi.fn<(userId: string) => Promise<number>>();
+const massRevokeSpy = mock<(userId: string) => Promise<number>>();
 
 const encryptionKey = randomBytes(32).toString("base64");
 
@@ -88,9 +89,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(userTable);
-  await stack.db.delete(tenantMembershipsTable);
-  await stack.db.delete(userSessionTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userSessionTable.tableName}"`);
   massRevokeSpy.mockClear();
 });
 
@@ -143,7 +144,7 @@ describe("password change mass-revokes every live session", () => {
     ).toBe(401);
 
     // DB state confirms: zero live rows for this user
-    const liveRows = await stack.db.select().from(userSessionTable);
+    const liveRows = await selectMany(stack.db, userSessionTable);
     const stillLive = liveRows.filter((r) => r["revokedAt"] === null);
     expect(stillLive).toHaveLength(0);
 

@@ -1,9 +1,10 @@
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   complianceProfileOverrideSchema,
   SELECTABLE_PROFILE_KEYS,
 } from "@cosmicdrift/kumiko-framework/compliance";
-import { createEventStoreExecutor, fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   AccessDeniedError,
@@ -11,7 +12,6 @@ import {
   validationErrorFromZod,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import {
   tenantComplianceProfileEntity,
@@ -100,11 +100,9 @@ export const setProfileWrite = defineWriteHandler({
     }
 
     // Upsert: existierenden Eintrag suchen
-    const existing = (await fetchOne(
-      ctx.db,
-      tenantComplianceProfileTable,
-      eq(tenantComplianceProfileTable["tenantId"], tenantId),
-    )) as { id: string; version: number } | null; // @cast-boundary db-runner
+    const existing = (await fetchOne(ctx.db, tenantComplianceProfileTable, {
+      tenantId: tenantId,
+    })) as { id: string; version: number } | null; // @cast-boundary db-runner
 
     if (existing) {
       const result = await crud.update(

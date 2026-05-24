@@ -3,7 +3,7 @@
   "description": "Feature appends a typed domain event via ctx.appendEvent; a r.multiStreamProjection reacts asynchronously.",
   "private": true,
   "dependencies": {
-    "@app/define": "link:./.kumiko",
+    "@app/define": "file:./.kumiko",
     "@cosmicdrift/kumiko-framework": "workspace:*"
   }
 }

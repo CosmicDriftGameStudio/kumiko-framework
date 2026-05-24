@@ -26,7 +26,7 @@ ARG APP_ENTRY=src/main.ts
 # ------------------------------------------------------------------------------
 FROM oven/bun:${BUN_VERSION}-alpine AS deps
 WORKDIR /app
-COPY package.json yarn.lock ./
+COPY package.json bun.lock ./
 # Workspace-Manifeste: wenn deine App ein Workspace-Member ist, kopiere die
 # package.json jedes Workspaces BEVOR `bun install` laeuft, damit Bun den Graph
 # aufloesen kann. Beispiel:

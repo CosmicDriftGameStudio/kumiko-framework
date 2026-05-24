@@ -7,7 +7,7 @@
 // generierte Variante gedriftet sind. Hier: required muss durchschlagen,
 // für jeden Field-Type.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import {
   createBooleanField,
   createDateField,
@@ -24,25 +24,23 @@ import {
   createTzField,
 } from "../../engine";
 import type { ReferenceFieldDef } from "../../engine/types";
-import { buildDrizzleTable } from "../table-builder";
+import { buildEntityTable } from "../table-builder";
 
 // Reference-fields haben keinen Factory-Helper — direkt-typed inline.
 function refField(args: Omit<ReferenceFieldDef, "type">): ReferenceFieldDef {
   return { type: "reference", ...args };
 }
 
-function colByName(table: ReturnType<typeof buildDrizzleTable>, dbName: string) {
-  // Drizzle's PgTable proxies columns through both JS-prop-name and the
-  // serialized "name" attribute. We need the underlying column.config to
-  // read .notNull, which lives at runtime under the column instance. Simplest
-  // robust path: iterate Object.values, match by name.
-  for (const col of Object.values(table) as Array<{ name?: string; notNull?: boolean }>) {
-    if (col && typeof col === "object" && col.name === dbName) return col;
+function colByName(table: unknown, dbName: string) {
+  const cols = (table as { columns?: ReadonlyArray<{ name: string; notNull?: boolean }> }).columns;
+  if (!cols) throw new Error("Table has no columns metadata");
+  for (const c of cols) {
+    if (c.name === dbName) return { name: c.name, notNull: c.notNull };
   }
   throw new Error(`Column ${dbName} not found in table`);
 }
 
-describe("buildDrizzleTable — required: true → NOT NULL", () => {
+describe("buildEntityTable — required: true → NOT NULL", () => {
   test("text field — required true makes column NOT NULL", () => {
     const entity = createEntity({
       fields: {
@@ -50,7 +48,7 @@ describe("buildDrizzleTable — required: true → NOT NULL", () => {
         subtitle: createTextField({}),
       },
     });
-    const tbl = buildDrizzleTable("widget", entity);
+    const tbl = buildEntityTable("widget", entity);
     expect(colByName(tbl, "title").notNull).toBe(true);
     expect(colByName(tbl, "subtitle").notNull).toBe(false);
   });
@@ -62,7 +60,7 @@ describe("buildDrizzleTable — required: true → NOT NULL", () => {
         tag: createSelectField({ options: ["x"] as const }),
       },
     });
-    const tbl = buildDrizzleTable("widget", entity);
+    const tbl = buildEntityTable("widget", entity);
     expect(colByName(tbl, "status").notNull).toBe(true);
     expect(colByName(tbl, "tag").notNull).toBe(false);
   });
@@ -74,7 +72,7 @@ describe("buildDrizzleTable — required: true → NOT NULL", () => {
         optional: createNumberField({}),
       },
     });
-    const tbl = buildDrizzleTable("widget", entity);
+    const tbl = buildEntityTable("widget", entity);
     expect(colByName(tbl, "count").notNull).toBe(true);
     expect(colByName(tbl, "optional").notNull).toBe(false);
   });
@@ -86,7 +84,7 @@ describe("buildDrizzleTable — required: true → NOT NULL", () => {
         archived: createBooleanField({}),
       },
     });
-    const tbl = buildDrizzleTable("widget", entity);
+    const tbl = buildEntityTable("widget", entity);
     expect(colByName(tbl, "active").notNull).toBe(true);
     // Default ohne required ergibt notNull (default macht Spalte never-null)
     expect(colByName(tbl, "archived").notNull).toBe(true);
@@ -99,7 +97,7 @@ describe("buildDrizzleTable — required: true → NOT NULL", () => {
         assignee: refField({ entity: "user" }),
       },
     });
-    const tbl = buildDrizzleTable("task", entity);
+    const tbl = buildEntityTable("task", entity);
     expect(colByName(tbl, "owner").notNull).toBe(true);
     expect(colByName(tbl, "assignee").notNull).toBe(false);
   });
@@ -115,7 +113,7 @@ describe("buildDrizzleTable — required: true → NOT NULL", () => {
         zoneOpt: createTzField({}),
       },
     });
-    const tbl = buildDrizzleTable("event", entity);
+    const tbl = buildEntityTable("event", entity);
     expect(colByName(tbl, "born_on").notNull).toBe(true);
     expect(colByName(tbl, "born_on_opt").notNull).toBe(false);
     expect(colByName(tbl, "observed_at").notNull).toBe(true);
@@ -131,7 +129,7 @@ describe("buildDrizzleTable — required: true → NOT NULL", () => {
         dropoff: createLocatedTimestampField({}),
       },
     });
-    const tbl = buildDrizzleTable("transport", entity);
+    const tbl = buildEntityTable("transport", entity);
     expect(colByName(tbl, "pickup_utc").notNull).toBe(true);
     expect(colByName(tbl, "pickup_tz").notNull).toBe(true);
     expect(colByName(tbl, "dropoff_utc").notNull).toBe(false);
@@ -156,7 +154,7 @@ describe("buildDrizzleTable — required: true → NOT NULL", () => {
         }),
       },
     });
-    const tbl = buildDrizzleTable("acl", entity);
+    const tbl = buildEntityTable("acl", entity);
     expect(colByName(tbl, "roles_default").notNull).toBe(true);
     expect(colByName(tbl, "roles_optional").notNull).toBe(true);
     expect(colByName(tbl, "roles_required").notNull).toBe(true);
@@ -170,7 +168,7 @@ describe("buildDrizzleTable — required: true → NOT NULL", () => {
         metaOptional: createEmbeddedField({ note: { type: "text" } }, { required: false }),
       },
     });
-    const tbl = buildDrizzleTable("widget", entity);
+    const tbl = buildEntityTable("widget", entity);
     expect(colByName(tbl, "meta").notNull).toBe(true);
     expect(colByName(tbl, "meta_optional").notNull).toBe(true);
   });
@@ -183,7 +181,7 @@ describe("buildDrizzleTable — required: true → NOT NULL", () => {
         tagsOptional: refField({ entity: "tag", multiple: true, required: false }),
       },
     });
-    const tbl = buildDrizzleTable("post", entity);
+    const tbl = buildEntityTable("post", entity);
     expect(colByName(tbl, "tags").notNull).toBe(true);
     expect(colByName(tbl, "tags_optional").notNull).toBe(true);
   });
@@ -195,7 +193,7 @@ describe("buildDrizzleTable — required: true → NOT NULL", () => {
         discount: createMoneyField({}),
       },
     });
-    const tbl = buildDrizzleTable("listing", entity);
+    const tbl = buildEntityTable("listing", entity);
     expect(colByName(tbl, "price").notNull).toBe(true);
     expect(colByName(tbl, "price_currency").notNull).toBe(true);
     expect(colByName(tbl, "discount").notNull).toBe(false);
@@ -209,7 +207,7 @@ describe("buildDrizzleTable — required: true → NOT NULL", () => {
         cover: createImageField({}),
       },
     });
-    const tbl = buildDrizzleTable("profile", entity);
+    const tbl = buildEntityTable("profile", entity);
     expect(colByName(tbl, "avatar").notNull).toBe(true);
     expect(colByName(tbl, "cover").notNull).toBe(false);
   });

@@ -3,10 +3,10 @@
 // runtime aus ctx.templateResolver. Pattern symmetrisch zu textContent
 // (siehe text-content/api.ts).
 
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { and, eq } from "drizzle-orm";
 import type { ContentFormat, RenderKind } from "./constants";
 import { FALLBACK_LOCALE, SYSTEM_TENANT_ID } from "./constants";
 import { type TemplateResourceRow, templateResourcesTable } from "./table";
@@ -111,18 +111,12 @@ async function fetchTemplate(
   kind: RenderKind,
   locale: string,
 ): Promise<TemplateResourceRow | null> {
-  const rows = await db
-    .select()
-    .from(templateResourcesTable)
-    .where(
-      and(
-        eq(templateResourcesTable["tenantId"], tenantId),
-        eq(templateResourcesTable["slug"], slug),
-        eq(templateResourcesTable["kind"], kind),
-        eq(templateResourcesTable["locale"], locale),
-      ),
-    )
-    .limit(1);
+  const rows = await selectMany(
+    db,
+    templateResourcesTable,
+    { tenantId, slug, kind, locale },
+    { limit: 1 },
+  );
   // @cast-boundary db-row — db.select returnt unbenanntes unknown[],
   // Row-Shape ist via templateResourcesTable + buildBaseColumns garantiert.
   return (rows[0] as TemplateResourceRow | undefined) ?? null;

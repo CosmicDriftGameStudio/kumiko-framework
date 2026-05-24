@@ -183,15 +183,16 @@ const treeProvider: TreeChildrenSubscribe = () => (emit, emitError) => {
 // **Stale-Tree-Caveat (V.1.4-Followup)**: TreeProvider ist fetch-once.
 // Nach erfolgreichem Save flippt der visual state="stub"→"filled" in
 // der Sidebar NICHT, bis der User den Workspace re-mountet. Editor selbst
-// ist konsistent (lokaler Form-State trägt die neuen Werte). Echte
-// Lösung: SSE-driven Tree-Refresh oder explicit cache-bust nach set-write.
+// ist konsistent (by-slug-Re-Read würde aktuelle Werte liefern, hier
+// aber ohne extra-Re-Query — savedAt-Banner signalisiert success und
+// der lokale Form-State trägt die neuen Werte). Echte Lösung: SSE-
+// driven Tree-Refresh oder explicit cache-bust nach set-write.
 
 type TextBlock = {
   readonly slug: string;
   readonly lang: string;
   readonly title: string;
   readonly body: string | null;
-  readonly folder: string | null;
   readonly updatedAt: string;
 };
 
@@ -221,8 +222,8 @@ function TextContentEditor({
     user?.roles.includes("TenantAdmin") === true || user?.roles.includes("SystemAdmin") === true;
 
   // Load existing block via by-slug-query. Result ist entweder TextBlock
-  // oder null (slug existiert nicht — create-flow). useQuery returnt
-  // `data: T | null`, initial-loading: data=null + loading=true.
+  // oder null (slug existiert nicht). useQuery returnt `data: T | null`,
+  // initial-loading: data=null + loading=true.
   const {
     data: loaded,
     loading,
@@ -233,11 +234,11 @@ function TextContentEditor({
     { enabled: slug !== "" && lang !== "" },
   );
 
-  // Form-State unabhängig vom geladenen Block. Sync nur initial oder
-  // wenn target.slug+lang wechselt (User springt zwischen Knoten).
+  // Form-State unabhängig vom geladenen Block (User-Edits sollen
+  // erhalten bleiben wenn loaded-data sich ändert). sync nur initial
+  // oder wenn target.slug+lang wechselt.
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [folder, setFolder] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
@@ -249,7 +250,6 @@ function TextContentEditor({
     if (loading) return;
     setTitle(loaded?.title ?? "");
     setBody(loaded?.body ?? "");
-    setFolder(loaded?.folder ?? "");
     setSaveError(null);
     setSavedMsg(null);
   }, [loading, loaded]);
@@ -264,13 +264,12 @@ function TextContentEditor({
         lang,
         title,
         body: body.length > 0 ? body : null,
-        folder: folder.length > 0 ? folder : null,
       });
       if (result.isSuccess) {
         setSavedMsg(result.data.isNew ? "Neu angelegt." : "Gespeichert.");
-      } else {
-        setSaveError(result.error.message ?? result.error.code ?? "Speichern fehlgeschlagen.");
+        return;
       }
+      setSaveError(result.error.message ?? result.error.code ?? "Speichern fehlgeschlagen.");
     } catch (e) {
       // Network-blip / dispatcher-throw — sonst bleibt submitting=true,
       // Save-Button locked-forever, User klickt repeat ohne Feedback.
@@ -321,17 +320,6 @@ function TextContentEditor({
               onChange={setTitle}
               disabled={disabled}
               required
-            />
-          </Field>
-          <Field id="text-content-folder" label="Ordner (optional)">
-            <Input
-              kind="text"
-              id="text-content-folder"
-              name="text-content-folder"
-              value={folder}
-              onChange={setFolder}
-              disabled={disabled}
-              placeholder="z.B. page oder legal"
             />
           </Field>
           <Field id="text-content-body" label="Inhalt">

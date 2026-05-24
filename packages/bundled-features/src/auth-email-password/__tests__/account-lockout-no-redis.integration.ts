@@ -10,7 +10,9 @@
 // the stack must be built without `context.redis` — shared `beforeAll`
 // can't mix the two.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -20,7 +22,6 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
@@ -84,8 +85,8 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(userTable);
-  await stack.db.delete(tenantMembershipsTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
 });
 
 async function seedLoginUser(

@@ -3,7 +3,7 @@ import type { AuthRoutesConfig } from "../api/auth-routes";
 import type { JwtHelper } from "../api/jwt";
 import { buildServer } from "../api/server";
 import { createSseBroker } from "../api/sse-broker";
-import type { DbConnection } from "../db/connection";
+import type { PgClient } from "../db/connection";
 import { createRegistry } from "../engine/registry";
 import type { FeatureDefinition, Registry, TenantId } from "../engine/types";
 import { createArchivedStreamsTable, createEventsTable } from "../event-store";
@@ -23,9 +23,8 @@ export type TestStack = {
   app: Hono;
   jwt: JwtHelper;
   registry: Registry;
-  /** Drizzle connection — the test DB's lifecycle (name, raw pg client,
-   *  drop) lives inside setupTestStack and is released via stack.cleanup(). */
-  db: DbConnection;
+  // biome-ignore lint/suspicious/noExplicitAny: cross-provider connection
+  db: any;
   redis: TestRedis;
   search: SearchAdapter;
   events: EventCollector;
@@ -58,7 +57,8 @@ export type TestStackOptions = {
     | Record<string, unknown>
     | ((deps: {
         registry: Registry;
-        db: import("../db/connection").DbConnection;
+        // biome-ignore lint/suspicious/noExplicitAny: cross-provider connection
+        db: any;
         sseBroker: import("../api/sse-broker").SseBroker;
         redis: import("ioredis").default;
       }) => Record<string, unknown>);
@@ -110,7 +110,8 @@ export type TestStackOptions = {
     | import("../api/server").ServerOptions["anonymousAccess"]
     | ((deps: {
         registry: Registry;
-        db: import("../db/connection").DbConnection;
+        // biome-ignore lint/suspicious/noExplicitAny: cross-provider connection
+        db: any;
         sseBroker: import("../api/sse-broker").SseBroker;
         redis: import("ioredis").default;
       }) => import("../api/server").ServerOptions["anonymousAccess"]);
@@ -294,7 +295,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     // post-commit latency (Sprint E.4).
     eventDispatcher: {
       pollIntervalMs: 50,
-      pgClient: testDb.client,
+      pgClient: testDb.client as PgClient | undefined,
       systemConsumers: {
         sse: enabledHooks.includes("sse"),
         search: enabledHooks.includes("search"),

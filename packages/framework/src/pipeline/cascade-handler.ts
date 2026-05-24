@@ -1,5 +1,5 @@
-import { eq } from "drizzle-orm";
 import type { TableColumns } from "../db/dialect";
+import { deleteMany, fetchOne, updateMany } from "../db/query";
 import { OnDeleteStrategies, SystemHookNames, SystemHookPriorities } from "../engine/constants";
 import type { PreDeleteHookFn, Registry } from "../engine/types";
 import { ConflictError, FrameworkReasons } from "../errors";
@@ -44,12 +44,8 @@ export function createCascadeDeleteHook(
           if (!targetTable) continue;
 
           if (strategy === OnDeleteStrategies.restrict) {
-            const rows = await db
-              .select({ id: targetTable["id"] })
-              .from(targetTable)
-              .where(eq(targetTable[relation.foreignKey], payload.id))
-              .limit(1);
-            if (rows.length > 0) {
+            const row = await fetchOne(db, targetTable, { [relation.foreignKey]: payload.id });
+            if (row) {
               throw new ConflictError({
                 message: `${relation.target} has records referencing ${entityName}#${payload.id}`,
                 i18nKey: "errors.deleteRestricted",
@@ -64,14 +60,16 @@ export function createCascadeDeleteHook(
           }
 
           if (strategy === OnDeleteStrategies.cascade) {
-            await db.delete(targetTable).where(eq(targetTable[relation.foreignKey], payload.id));
+            await deleteMany(db, targetTable, { [relation.foreignKey]: payload.id });
           }
 
           if (strategy === OnDeleteStrategies.setNull) {
-            await db
-              .update(targetTable)
-              .set({ [relation.foreignKey]: null })
-              .where(eq(targetTable[relation.foreignKey], payload.id));
+            await updateMany(
+              db,
+              targetTable,
+              { [relation.foreignKey]: null },
+              { [relation.foreignKey]: payload.id },
+            );
           }
         }
 
@@ -79,17 +77,11 @@ export function createCascadeDeleteHook(
           const throughTable = tables.get(relation.through.table);
           if (!throughTable) continue;
           // sourceKey points at the owner side (the entity being deleted).
-          // targetKey would point at the other side — filtering by it here
-          // would miss every through-row for this entity.
           const sourceKey = relation.through.sourceKey;
 
           if (strategy === OnDeleteStrategies.restrict) {
-            const rows = await db
-              .select({ id: throughTable["id"] })
-              .from(throughTable)
-              .where(eq(throughTable[sourceKey], payload.id))
-              .limit(1);
-            if (rows.length > 0) {
+            const row = await fetchOne(db, throughTable, { [sourceKey]: payload.id });
+            if (row) {
               throw new ConflictError({
                 message: `${relation.through.table} has records referencing ${entityName}#${payload.id}`,
                 i18nKey: "errors.deleteRestricted",
@@ -104,7 +96,7 @@ export function createCascadeDeleteHook(
           }
 
           if (strategy === OnDeleteStrategies.cascade) {
-            await db.delete(throughTable).where(eq(throughTable[sourceKey], payload.id));
+            await deleteMany(db, throughTable, { [sourceKey]: payload.id });
           }
         }
       }

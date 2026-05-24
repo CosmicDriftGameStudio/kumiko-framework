@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { parseS3EnvConfig } from "../env-helper";
 
 // Tests run against real process.env — we snapshot + restore per-test so

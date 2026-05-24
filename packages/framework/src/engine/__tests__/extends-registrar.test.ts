@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, mock, test } from "bun:test";
 import { z } from "zod";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../index";
 
@@ -24,7 +24,7 @@ describe("extendsRegistrar", () => {
   });
 
   test("registry calls onRegister for each extension usage", () => {
-    const onRegister = vi.fn();
+    const onRegister = mock();
 
     const ext = defineFeature("tags", (r) => {
       r.extendsRegistrar("tags", { onRegister });
@@ -99,7 +99,7 @@ describe("extendsRegistrar", () => {
   });
 
   test("extension preSave hooks fire for entity-scoped handlers", () => {
-    const preSaveFn = vi.fn(async (changes: Record<string, unknown>) => changes);
+    const preSaveFn = mock(async (changes: Record<string, unknown>) => changes);
 
     const ext = defineFeature("audit", (r) => {
       r.extendsRegistrar("audited", {
@@ -137,7 +137,7 @@ describe("extendsRegistrar", () => {
   });
 
   test("extension postSave hooks are entity hooks", () => {
-    const postSaveFn = vi.fn(async () => {});
+    const postSaveFn = mock(async () => {});
 
     const ext = defineFeature("audit", (r) => {
       r.extendsRegistrar("audited", {

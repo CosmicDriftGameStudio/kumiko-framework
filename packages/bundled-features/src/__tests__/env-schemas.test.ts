@@ -1,10 +1,10 @@
+import { describe, expect, it } from "bun:test";
 import { randomBytes } from "node:crypto";
 import {
   composeEnvSchema,
   type KumikoBootError,
   parseEnv,
 } from "@cosmicdrift/kumiko-framework/env";
-import { describe, expect, it } from "vitest";
 import { authEmailPasswordEnvSchema, createAuthEmailPasswordFeature } from "../auth-email-password";
 import { createSecretsFeature, secretsEnvSchema } from "../secrets";
 import {

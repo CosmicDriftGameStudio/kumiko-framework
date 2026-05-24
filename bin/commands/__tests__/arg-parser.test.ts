@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { getFlag, getNumberFlag, getStringFlag, parseArgs } from "../arg-parser";
 
 describe("commands/arg-parser", () => {

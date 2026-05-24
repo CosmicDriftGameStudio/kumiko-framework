@@ -9,9 +9,11 @@
 // fetch direkt. Bun.serve-Wiring ist in Production-Coolify selbst
 // getestet wenn der Container hochfährt.
 
+import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createDbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   createBooleanField,
@@ -28,9 +30,7 @@ import {
   createProjectionStateTable,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import { unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-framework/stack";
-import { sql } from "drizzle-orm";
 import postgres from "postgres";
-import { afterEach, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { type ProdAppHandle, runProdApp } from "../run-prod-app";
 
@@ -448,7 +448,7 @@ describe("runProdApp", () => {
     });
 
     expect(invocations).toBe(1);
-    expect(factoryDeps).toEqual({ db: true, redis: true, registry: true });
+    expect(factoryDeps!).toEqual({ db: true, redis: true, registry: true });
     // Smoke: handle is functional (boot completed without error).
     expect(handle.entrypoint).toBeDefined();
   });
@@ -465,9 +465,9 @@ describe("runProdApp", () => {
       seedInvocations++;
       // Seed-side idempotence: check before inserting. runProdApp doesn't
       // gate seeds — the seed itself is responsible.
-      const existing = await db.execute(sql`SELECT 1 FROM prod_widgets LIMIT 1`);
-      if (existing.length > 0) return;
-      await db.execute(sql`INSERT INTO prod_widgets (id, tenant_id, name) VALUES
+      const existing = await asRawClient(db).unsafe(`SELECT 1 FROM prod_widgets LIMIT 1`);
+      if ((existing as Array<Record<string, unknown>>).length > 0) return;
+      await asRawClient(db).unsafe(`INSERT INTO prod_widgets (id, tenant_id, name) VALUES
         (gen_random_uuid(), '00000000-0000-4000-8000-000000000001', 'seeded')`);
       inserted = true;
     };

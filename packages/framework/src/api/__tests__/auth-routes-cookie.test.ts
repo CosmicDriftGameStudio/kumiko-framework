@@ -5,9 +5,9 @@
 // logic — full-stack login via real loginHandler is covered by the
 // auth-cookie sample integration test.
 
+import { describe, expect, test } from "bun:test";
 import type { Hono } from "hono";
 import { Hono as HonoCtor } from "hono";
-import { describe, expect, test } from "vitest";
 import type { SessionUser } from "../../engine/types";
 import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher";
 import { TestUsers } from "../../stack";

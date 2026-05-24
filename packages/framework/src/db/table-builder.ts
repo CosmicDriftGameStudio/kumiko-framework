@@ -1,5 +1,3 @@
-import { sql } from "drizzle-orm";
-import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type {
   EntityDefinition,
   EntityRelations,
@@ -10,29 +8,31 @@ import { assertUnreachable } from "../utils";
 import {
   bigint,
   boolean,
+  type ColumnBuilder,
+  type ColumnHandle,
+  type IndexBuilderWithCols,
   index,
   instant,
   integer,
   jsonb,
   moneyAmount,
   table as pgTable,
+  type SqlExpression,
   serial,
+  sql,
   type TableColumns,
   text,
   uniqueIndex,
   uuid,
 } from "./dialect";
 
-type ColumnBuilder =
-  | ReturnType<typeof text>
-  | ReturnType<typeof integer>
-  | ReturnType<typeof bigint>
-  | ReturnType<typeof boolean>
-  | ReturnType<typeof moneyAmount>
-  | ReturnType<typeof jsonb>
-  | ReturnType<typeof instant>
-  | ReturnType<typeof serial>
-  | ReturnType<typeof uuid>;
+// Local AnyPgColumn alias — kept for legacy field-definition callers that
+// still import this name as a type. ColumnHandle from the native dialect
+// matches the same role (snake_case name + sql type accessor).
+export type AnyPgColumn = ColumnHandle;
+
+// biome-ignore lint/suspicious/noExplicitAny: ColumnBuilder is parameterised over value type; we erase here
+type AnyColumnBuilder = ColumnBuilder<any>;
 
 // Returns column(s) for a field. Most fields return a single entry,
 // money returns two (amount + currency), files/images return none.
@@ -48,7 +48,7 @@ function fieldToColumns(
   name: string,
   field: FieldDefinition,
   entity: EntityDefinition,
-): Record<string, ColumnBuilder> {
+): Record<string, AnyColumnBuilder> {
   const snakeName = toSnakeCase(name);
 
   switch (field.type) {
@@ -246,10 +246,13 @@ export function toTableName(entityName: string): string {
 // fieldToColumns passen. Type-Tests gegen repräsentative Entities (siehe
 // db/__tests__/drizzle-table-types.test.ts) catchen Drift.
 
-// Single drizzle column with concrete data + nullability — preserves
-// Drizzle's `.select`/`eq`/`lt`-Inferenz für T.
-type Col<T> = AnyPgColumn<{ data: T; notNull: true }>;
-type NullCol<T> = AnyPgColumn<{ data: T; notNull: false }>;
+// Single column handle with concrete data + nullability phantom. After the
+// drizzle removal the runtime carries only the snake_case name + pg type
+// (see ColumnHandle); the phantom-typed wrapper preserves the existing
+// generic-inference call-sites without recreating drizzle's full column
+// brand graph.
+type Col<_T> = ColumnHandle & { readonly __notNull: true };
+type NullCol<_T> = ColumnHandle & { readonly __notNull: false };
 
 // Per-field column shape — matches `fieldToColumns`. Money +
 // locatedTimestamp produce two-column pairs; files/images contribute no
@@ -345,7 +348,7 @@ type SoftDeleteColumnsType = {
   readonly deletedById: NullCol<string>;
 };
 
-export type DrizzleTable<E extends EntityDefinition = EntityDefinition> =
+export type EntityTable<E extends EntityDefinition = EntityDefinition> =
   TableColumns<// biome-ignore lint/suspicious/noExplicitAny: drizzle's internal table-config stays generic; we layer typed columns on top via the intersection below.
   any> &
     BaseColumnsType<E> &
@@ -389,7 +392,7 @@ export function buildBaseColumns(softDelete: boolean, idType: "serial" | "uuid" 
   return base;
 }
 
-export type BuildDrizzleTableOptions = {
+export type BuildEntityTableOptions = {
   readonly featureName?: string;
   // Relations declared for this entity. When present, every belongsTo
   // foreignKey gets an index — otherwise joins and `WHERE fk = ?` filters
@@ -398,13 +401,13 @@ export type BuildDrizzleTableOptions = {
   readonly relations?: EntityRelations;
 };
 
-export function buildDrizzleTable<E extends EntityDefinition>(
+export function buildEntityTable<E extends EntityDefinition>(
   entityName: string,
   entity: E,
-  options?: BuildDrizzleTableOptions,
-): DrizzleTable<E> {
+  options?: BuildEntityTableOptions,
+): EntityTable<E> {
   const baseColumns = buildBaseColumns(entity.softDelete ?? false, entity.idType ?? "uuid");
-  const fieldColumns: Record<string, ColumnBuilder> = {};
+  const fieldColumns: Record<string, AnyColumnBuilder> = {};
 
   for (const [name, field] of Object.entries(entity.fields)) {
     const cols = fieldToColumns(name, field, entity);
@@ -444,7 +447,7 @@ export function buildDrizzleTable<E extends EntityDefinition>(
     }
   }
 
-  // Cast back to DrizzleTable<E>: drizzle-kit's pgTable returns a fully
+  // Cast back to EntityTable<E>: drizzle-kit's pgTable returns a fully
   // inferred PgTableWithColumns over the *exact* column-builder map we
   // hand in. Our typed signature narrows that to the static names from
   // EntityDefinition (kept in sync with fieldToColumns + buildBaseColumns).
@@ -457,14 +460,20 @@ export function buildDrizzleTable<E extends EntityDefinition>(
     },
     // Every multi-tenant query filters by tenant_id. Without this index, list
     // queries scan the whole table across all tenants. Applies to every table
-    // built via buildDrizzleTable since every entity inherits tenantId.
-    // biome-ignore lint/suspicious/noExplicitAny: Drizzle's table callback is generic; we access columns by their JS property name.
-    (table: any) => {
-      const indexes = [index(`${tableName}_tenant_id_idx`).on(table.tenantId)];
+    // built via buildEntityTable since every entity inherits tenantId.
+    (table) => {
+      const indexes: Record<string, IndexBuilderWithCols> = {};
+      const tHandle = table as unknown as Record<string, ColumnHandle>;
+      indexes[`${tableName}_tenant_id_idx`] = index(`${tableName}_tenant_id_idx`).on(
+        // biome-ignore lint/style/noNonNullAssertion: tenantId column always exists on entity tables
+        tHandle["tenantId"]!,
+      );
       for (const fieldName of foreignKeyFields) {
-        const column = table[fieldName];
+        const column = tHandle[fieldName];
         if (column) {
-          indexes.push(index(`${tableName}_${toSnakeCase(fieldName)}_idx`).on(column));
+          indexes[`${tableName}_${toSnakeCase(fieldName)}_idx`] = index(
+            `${tableName}_${toSnakeCase(fieldName)}_idx`,
+          ).on(column);
         }
       }
       // entity.indexes = composite/unique-Indices die der Author explizit
@@ -473,23 +482,22 @@ export function buildDrizzleTable<E extends EntityDefinition>(
       // — Override via index.name möglich.
       for (const def of entity.indexes ?? []) {
         const cols = def.columns
-          .map((fieldName) => table[fieldName])
-          .filter((col): col is unknown => col !== undefined);
-        if (cols.length !== def.columns.length) continue; // Boot-Validator catched das
+          .map((fieldName) => tHandle[fieldName])
+          .filter((col): col is ColumnHandle => col !== undefined);
+        if (cols.length !== def.columns.length) continue;
         const suffix = def.unique === true ? "unique" : "idx";
         const indexName =
           def.name ?? `${tableName}_${def.columns.map((c) => toSnakeCase(c)).join("_")}_${suffix}`;
         const builder = def.unique === true ? uniqueIndex(indexName) : index(indexName);
-        // biome-ignore lint/suspicious/noExplicitAny: drizzle's .on(...cols) is variadic generic
-        let chain = (builder.on as any)(...cols); // @cast-boundary drizzle-bridge
+        let chain = builder.on(...cols);
+        // entity.indexes[].where is now a SqlExpression (was drizzle SQL).
+        // Pass through to the IndexBuilderWithCols.where()-API.
         if (def.where !== undefined) {
-          // Partial-Index: drizzle's IndexBuilder.where(SQL) emittiert das
-          // `WHERE <condition>` ans Ende der `CREATE [UNIQUE] INDEX`-DDL.
-          chain = chain.where(def.where);
+          chain = chain.where(def.where as SqlExpression);
         }
-        indexes.push(chain);
+        indexes[indexName] = chain;
       }
       return indexes;
     },
-  ) as unknown as DrizzleTable<E>;
+  ) as unknown as EntityTable<E>;
 }

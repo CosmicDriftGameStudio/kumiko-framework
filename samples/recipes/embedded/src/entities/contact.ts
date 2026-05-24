@@ -1,7 +1,7 @@
 // Contact with embedded address — address belongs 1:1 to the contact,
 // is never shared, and is always read/written together
 
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEmbeddedField,
   createEntity,
@@ -32,4 +32,4 @@ export const contactEntity = createEntity({
   },
 });
 
-export const contactTable = buildDrizzleTable("contact", contactEntity);
+export const contactTable = buildEntityTable("contact", contactEntity);

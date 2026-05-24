@@ -16,8 +16,8 @@
 // `// kumiko-feature-version: 1` — sodass künftige Format-Bumps
 // gezielt migriert werden können (separater Migrator pro Version).
 
+import { describe, expect, test } from "bun:test";
 import { Project } from "ts-morph";
-import { describe, expect, test } from "vitest";
 import { parseSourceFile } from "../parse";
 
 const CANONICAL_FEATURE = `

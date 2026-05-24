@@ -6,9 +6,9 @@
 // HandlerContext. Beide Pfade nutzen denselben `parseRetentionOverrideOrNull`
 // + `resolveRetentionPolicy`, also kein Drift-Risiko.
 
-import { type DbRunner, fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { eq } from "drizzle-orm";
 import { parseRetentionOverrideOrNull } from "./_internal/parse-override";
 import { type EffectiveRetentionPolicy, resolveRetentionPolicy } from "./resolver";
 import { tenantRetentionOverrideTable } from "./schema/tenant-retention-override";
@@ -23,12 +23,10 @@ export interface ResolveForTenantArgs {
 export async function resolveRetentionPolicyForTenant(
   args: ResolveForTenantArgs,
 ): Promise<EffectiveRetentionPolicy> {
-  const overrideRow = (await fetchOne(
-    args.db,
-    tenantRetentionOverrideTable,
-    eq(tenantRetentionOverrideTable["tenantId"], args.tenantId),
-    eq(tenantRetentionOverrideTable["entityName"], args.entityName),
-  )) as { config: string | null } | null; // @cast-boundary db-runner
+  const overrideRow = (await fetchOne(args.db, tenantRetentionOverrideTable, {
+    tenantId: args.tenantId,
+    entityName: args.entityName,
+  })) as { config: string | null } | null; // @cast-boundary db-runner
 
   const tenantOverride = parseRetentionOverrideOrNull(
     overrideRow?.config ?? null,

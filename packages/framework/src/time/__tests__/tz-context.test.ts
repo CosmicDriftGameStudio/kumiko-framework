@@ -1,7 +1,7 @@
 // Unit-Tests für ctx.tz API.
 // Test-Fokus: korrekte Konvertierung Wall-Clock+TZ ↔ Instant ↔ JSON-Pair.
 
-import { beforeAll, describe, expect, test } from "vitest";
+import { beforeAll, describe, expect, test } from "bun:test";
 import { ensureTemporalPolyfill } from "../polyfill";
 import { createTzContext } from "../tz-context";
 

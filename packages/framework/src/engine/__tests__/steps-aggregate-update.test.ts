@@ -1,10 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import type { EventStoreExecutor } from "../../db/event-store-executor";
 import { getStep } from "../define-step";
 import { buildAggregateUpdateStep } from "../steps/aggregate-update";
 import type { PipelineCtx } from "../types/step";
 
-const mockUpdate = vi.fn();
+const mockUpdate = mock();
 const mockExecutor = { update: mockUpdate } as unknown as EventStoreExecutor & {
   update: typeof mockUpdate;
 };
@@ -61,7 +61,7 @@ describe("buildAggregateUpdateStep", () => {
 
 describe("aggregate.update run", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mock.clearAllMocks();
   });
 
   it("resolves id, changes, version and calls executor.update", async () => {

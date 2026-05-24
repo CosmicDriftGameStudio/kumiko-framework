@@ -11,18 +11,48 @@
 // rejected by boot-validation — domain mutation MUST go through
 // r.step.aggregate.*.
 
-import { getTableColumns, type Table } from "drizzle-orm";
-import type { PgColumn } from "drizzle-orm/pg-core";
+import { asRawClient } from "../../db/query";
 import { defineStep } from "../define-step";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
-import { asQueryTarget } from "./_drizzle-boundary";
 import { resolveRequired } from "./_resolver-utils";
 
 type UnsafeProjectionUpsertArgs = {
-  readonly table: Table;
+  readonly table: unknown;
   readonly on: readonly string[];
   readonly row: StepResolver<Record<string, unknown>>;
 };
+
+// @cast-boundary drizzle-bridge — reads table name + column snake_case
+// names from drizzle Symbol-based metadata without importing drizzle-orm.
+const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
+const KUMIKO_COLUMNS_SYMBOL = Symbol.for("kumiko:schema:Columns");
+
+function resolveTableName(table: unknown): string {
+  if (typeof table !== "object" || table === null) {
+    throw new Error("unsafeProjectionUpsert: table is not an object");
+  }
+  const name = (table as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL];
+  if (typeof name !== "string") {
+    throw new Error("unsafeProjectionUpsert: table has no kumiko:schema:Name symbol");
+  }
+  return name;
+}
+
+function resolveColumnName(table: unknown, field: string): string {
+  if (typeof table !== "object" || table === null) return field;
+  const cols = (table as Record<symbol, unknown>)[KUMIKO_COLUMNS_SYMBOL];
+  if (typeof cols !== "object" || cols === null) return field;
+  const col = (cols as Record<string, unknown>)[field];
+  if (typeof col === "object" && col !== null) {
+    const nameVal = (col as Record<string, unknown>)["name"];
+    if (typeof nameVal === "string") return nameVal;
+  }
+  return field;
+}
+
+function quoteIdent(name: string): string {
+  return `"${name.replace(/"/g, '""')}"`;
+}
 
 defineStep<UnsafeProjectionUpsertArgs, void>({
   kind: "unsafeProjectionUpsert",
@@ -30,37 +60,39 @@ defineStep<UnsafeProjectionUpsertArgs, void>({
   run: async (args, ctx: PipelineCtx) => {
     const resolvedRow = resolveRequired(args.row, ctx);
 
-    const columns = getTableColumns(args.table) as Record<string, unknown>;
-    const conflictTargets = args.on.map((key) => {
-      const col = columns[key];
-      if (!col) {
-        throw new Error(`unsafeProjectionUpsert: column "${key}" not found on target table`);
+    // Validate conflict-key columns exist in the row.
+    for (const key of args.on) {
+      if (!(key in resolvedRow)) {
+        throw new Error(`unsafeProjectionUpsert: column "${key}" not found in row`);
       }
-      return col;
-    });
-
-    // SET clause is the same row minus the conflict-key columns —
-    // updating a key to itself is harmless but verbose.
-    const updateSet: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(resolvedRow)) {
-      if (!args.on.includes(k)) updateSet[k] = v;
     }
 
-    // @cast-boundary drizzle-bridge — The values + set + target casts
-    // cross the drizzle type-boundary for the same reason as
-    // asQueryTarget: resolvedRow is Record<string, unknown> by design
-    // (M.1 phantom-typing limit), drizzle's typed-builder expects
-    // table-specific shapes. Step-author owns shape correctness.
-    // `as never` (not `as any`) — never is contravariantly assignable to
-    // every drizzle Insert-shape; explicit "this bypass cannot be made
-    // type-safe without lifting <TTable extends Table>" marker.
-    await ctx.db
-      .insert(asQueryTarget(args.table))
-      .values(resolvedRow as never)
-      .onConflictDoUpdate({
-        target: conflictTargets as unknown as PgColumn[],
-        set: updateSet as never,
-      });
+    const tableName = resolveTableName(args.table);
+    const entries = Object.entries(resolvedRow);
+    const params: unknown[] = [];
+
+    const colNames = entries.map(([k]) => quoteIdent(resolveColumnName(args.table, k)));
+    const placeholders = entries.map((_, i) => `$${i + 1}`);
+    for (const [, v] of entries) params.push(v);
+
+    const conflictCols = args.on
+      .map((k) => quoteIdent(resolveColumnName(args.table, k)))
+      .join(", ");
+
+    // SET clause excludes conflict-key columns.
+    const setClauses: string[] = [];
+    let paramIdx = entries.length + 1;
+    for (const [k, v] of entries) {
+      if (args.on.includes(k)) continue;
+      setClauses.push(`${quoteIdent(resolveColumnName(args.table, k))} = $${paramIdx++}`);
+      params.push(v);
+    }
+
+    const sqlText =
+      `INSERT INTO ${quoteIdent(tableName)} (${colNames.join(", ")}) VALUES (${placeholders.join(", ")}) ` +
+      `ON CONFLICT (${conflictCols}) DO UPDATE SET ${setClauses.join(", ")}`;
+
+    await asRawClient(ctx.db.raw).unsafe(sqlText, params);
   },
 });
 

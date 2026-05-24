@@ -1,21 +1,15 @@
-// @vitest-environment jsdom
+import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, test, vi } from "vitest";
-
-// Mock-Bridge für den resend-Flow: LoginScreen ruft requestEmailVerification
-// aus ../auth-client auf, wir stubben das hier um die Server-Antwort pro
-// Test-Case zu kontrollieren. vi.hoisted weil vi.mock() vor allen anderen
-// Statements gehoisted wird und sonst die Variable nicht sehen kann.
-const { requestEmailVerificationMock } = vi.hoisted(() => ({
-  requestEmailVerificationMock: vi.fn(),
-}));
-vi.mock("../auth-client", async () => {
-  const actual = await vi.importActual<typeof import("../auth-client")>("../auth-client");
-  return { ...actual, requestEmailVerification: requestEmailVerificationMock };
-});
 
 import { LoginScreen } from "../login-screen";
 import { makeSessionApi, renderWithProviders } from "./test-utils";
+
+const requestEmailVerificationMock = mock<() => Promise<unknown>>(() => Promise.resolve());
+const actual_authClient = await import("../auth-client");
+mock.module("../auth-client", () => ({
+  ...actual_authClient,
+  requestEmailVerification: requestEmailVerificationMock,
+}));
 
 describe("LoginScreen", () => {
   beforeEach(() => {
@@ -54,7 +48,7 @@ describe("LoginScreen", () => {
     const session = makeSessionApi({
       status: "unauthenticated",
       user: null,
-      login: vi.fn(async () => ({ ok: false, error: { reason: "invalid_credentials" } })),
+      login: mock(async () => ({ ok: false, error: { reason: "invalid_credentials" } })),
     });
     renderWithProviders(<LoginScreen />, { session });
 
@@ -76,7 +70,7 @@ describe("LoginScreen", () => {
     const session = makeSessionApi({
       status: "unauthenticated",
       user: null,
-      login: vi.fn(async () => ({
+      login: mock(async () => ({
         ok: false,
         error: { reason: "account_locked", retryAfterSeconds: 540 },
       })),
@@ -129,7 +123,7 @@ describe("LoginScreen", () => {
       return makeSessionApi({
         status: "unauthenticated",
         user: null,
-        login: vi.fn(async () => ({ ok: false, error: { reason: "email_not_verified" } })),
+        login: mock(async () => ({ ok: false, error: { reason: "email_not_verified" } })),
       });
     }
 
@@ -211,7 +205,7 @@ describe("LoginScreen", () => {
       const session = makeSessionApi({
         status: "unauthenticated",
         user: null,
-        login: vi.fn(async () => ({ ok: false, error: { reason: "invalid_credentials" } })),
+        login: mock(async () => ({ ok: false, error: { reason: "invalid_credentials" } })),
       });
       renderWithProviders(<LoginScreen />, { session });
       await loginUntilEmailNotVerified();

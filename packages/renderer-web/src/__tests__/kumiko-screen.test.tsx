@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+import { describe, expect, mock, test } from "bun:test";
 import type {
   ActionFormScreenDefinition,
   EntityDefinition,
@@ -9,7 +9,6 @@ import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import { DispatcherProvider, KumikoScreen } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, test, vi } from "vitest";
 import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils";
 
 const taskEntity = {
@@ -76,7 +75,7 @@ describe("KumikoScreen", () => {
 
   test("entityList → fires useQuery with derived query QN and renders RenderList", async () => {
     const seenTypes: string[] = [];
-    const query = vi.fn(async (type: string) => {
+    const query = mock(async (type: string) => {
       seenTypes.push(type);
       return {
         isSuccess: true,

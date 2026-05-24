@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, mock, test } from "bun:test";
 import { createLiveDispatcher } from "../dispatcher-live";
 
 // Builds a fake fetch that returns a JSON body with the given
@@ -9,7 +9,7 @@ function makeFetch(respond: { readonly status?: number; readonly body: unknown }
   readonly calls: Array<{ url: string; init: RequestInit }>;
 } {
   const calls: Array<{ url: string; init: RequestInit }> = [];
-  const fetchMock = vi.fn(async (url: string, init: RequestInit) => {
+  const fetchMock = mock(async (url: string, init: RequestInit) => {
     calls.push({ url, init });
     return {
       ok: (respond.status ?? 200) < 400,
@@ -139,7 +139,7 @@ describe("createLiveDispatcher", () => {
   });
 
   test("network error → failure with code='network_error', status flips offline", async () => {
-    const fetch = vi.fn(async () => {
+    const fetch = mock(async () => {
       throw new Error("ECONNREFUSED");
     }) as unknown as typeof globalThis.fetch;
     const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
@@ -157,7 +157,7 @@ describe("createLiveDispatcher", () => {
 
   test("network recovery: after offline → successful call flips back to online", async () => {
     let failNext = true;
-    const fetch = vi.fn(async () => {
+    const fetch = mock(async () => {
       if (failNext) {
         failNext = false;
         throw new Error("boom");
@@ -184,7 +184,7 @@ describe("createLiveDispatcher", () => {
 
   test("abort signal: request propagated + AbortError mapped to 'aborted'", async () => {
     const controller = new AbortController();
-    const fetch = vi.fn(async (_url: string, init: RequestInit) => {
+    const fetch = mock(async (_url: string, init: RequestInit) => {
       // Simulate real fetch: throw AbortError synchronously when signal
       // is already aborted.
       if (init.signal?.aborted) {
@@ -214,7 +214,7 @@ describe("createLiveDispatcher", () => {
   });
 
   test("non-JSON server response (HTML 502 page) maps to network_error", async () => {
-    const fetch = vi.fn(async () => {
+    const fetch = mock(async () => {
       return {
         ok: false,
         status: 502,
@@ -254,18 +254,18 @@ describe("createLiveDispatcher", () => {
   });
 
   test("pendingWrites / pendingFiles always return empty arrays for live dispatcher", () => {
-    const disp = createLiveDispatcher({ fetch: vi.fn() as unknown as typeof globalThis.fetch });
+    const disp = createLiveDispatcher({ fetch: mock() as unknown as typeof globalThis.fetch });
     expect(disp.pendingWrites()).toEqual([]);
     expect(disp.pendingFiles()).toEqual([]);
   });
 
   test("subscribeStatus returns unsubscribe handle", async () => {
-    const fetch = vi.fn(async () => {
+    const fetch = mock(async () => {
       throw new Error("boom");
     }) as unknown as typeof globalThis.fetch;
     const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
 
-    const listener = vi.fn();
+    const listener = mock();
     const unsub = disp.statusStore.subscribe(listener);
     await disp.write("x", {});
     expect(listener).toHaveBeenCalledTimes(1);
@@ -274,7 +274,7 @@ describe("createLiveDispatcher", () => {
     // A second status change (back to online) should not fire listener.
     // But — if fetch keeps throwing we stay offline (no transition).
     // Force a flip back by resetting fetch to success:
-    const fetchOk = vi.fn(async () => ({
+    const fetchOk = mock(async () => ({
       ok: true,
       status: 200,
       async json() {

@@ -4,15 +4,22 @@ export { seedConfigValues } from "./config-seed";
 export type { DbConnection, DbConnectionOptions, DbRow, DbRunner, DbTx } from "./connection";
 export { createDbConnection, dbConnectionOptionsFromEnv } from "./connection";
 export type { CursorQueryOptions, CursorResult } from "./cursor";
-export { applyCursorQuery, decodeCursor, encodeCursor } from "./cursor";
+export { decodeCursor, encodeCursor } from "./cursor";
 export type { SelectQuery, TableColumns } from "./dialect";
 export {
+  bigint,
+  bigserial,
   boolean,
+  index,
   instant,
+  instantToDriver,
   integer,
   jsonb,
+  moneyAmount,
+  numeric,
   primaryKey,
   serial,
+  sql,
   table,
   text,
   timestamp,
@@ -28,6 +35,16 @@ export {
 export type { EncryptionProvider } from "./encryption";
 export { createEncryptionProvider } from "./encryption";
 export type {
+  BuildEntityTableMetaOptions,
+  ColumnMeta,
+  CompositePrimaryKeyMeta,
+  EntityTableMeta,
+  IndexMeta,
+  PgType,
+  UnmanagedTableInput,
+} from "./entity-table-meta";
+export { buildEntityTableMeta, defineUnmanagedTable } from "./entity-table-meta";
+export type {
   EntityLifecycleVerb,
   EventStoreExecutor,
   EventStoreExecutorOptions,
@@ -42,13 +59,24 @@ export {
   isUniqueViolation,
   type PgErrorInfo,
 } from "./pg-error";
+export type { SelectOptions, WhereObject, WhereValue } from "./query-api";
+export {
+  asRawClient,
+  deleteMany,
+  fetchOne,
+  insertMany,
+  insertOne,
+  selectMany,
+  transaction,
+  updateMany,
+} from "./query-api";
 export { seedReferenceData } from "./reference-data";
-export { fetchOne } from "./row-helpers";
+export { renderTableDdl, renderTablesDdl } from "./render-ddl";
 export { tableExists } from "./schema-inspection";
 export {
   buildBaseColumns,
-  buildDrizzleTable,
-  type DrizzleTable,
+  buildEntityTable,
+  type EntityTable,
   toSnakeCase,
   toTableName,
 } from "./table-builder";

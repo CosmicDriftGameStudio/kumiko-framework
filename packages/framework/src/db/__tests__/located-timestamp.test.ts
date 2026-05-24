@@ -1,7 +1,7 @@
 // Pure Unit-Tests für die flatten/rehydrate Helpers — Auto-Convert für
 // locatedTimestamp-Felder. Keine DB, kein Stack, nur Daten-Transform.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { createEntity, createLocatedTimestampField, createTextField } from "../../engine";
 import type { EntityDefinition } from "../../engine/types";
 import { flattenLocatedTimestamp, rehydrateLocatedTimestamp } from "../located-timestamp";

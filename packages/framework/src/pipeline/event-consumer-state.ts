@@ -1,6 +1,15 @@
-import { sql } from "drizzle-orm";
+// sql now comes from native dialect
 import type { DbConnection } from "../db/connection";
-import { bigint, index, instant, integer, table as pgTable, primaryKey, text } from "../db/dialect";
+import {
+  bigint,
+  index,
+  instant,
+  integer,
+  table as pgTable,
+  primaryKey,
+  sql,
+  text,
+} from "../db/dialect";
 import { tableExists } from "../db/schema-inspection";
 import { unsafePushTables } from "../stack";
 

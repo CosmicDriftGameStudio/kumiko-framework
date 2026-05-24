@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+// sql now comes from native dialect
 import { type DbConnection, tableExists } from "../db";
 import {
   bigserial,
@@ -7,6 +7,7 @@ import {
   integer,
   jsonb,
   table as pgTable,
+  sql,
   text,
   uniqueIndex,
   uuid,

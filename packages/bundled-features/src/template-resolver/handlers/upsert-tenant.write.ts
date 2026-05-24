@@ -1,11 +1,10 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   defineWriteHandler,
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import type { TemplateResourceRow } from "../table";
 import { templateResourcesTable } from "../table";
@@ -52,14 +51,12 @@ export const upsertTenantWrite = defineWriteHandler({
     const tenantId = (override ?? event.user.tenantId) as TenantId;
     const executorUser = override !== undefined ? { ...event.user, tenantId } : event.user;
 
-    const existing = await fetchOne<TemplateResourceRow>(
-      db,
-      templateResourcesTable,
-      eq(templateResourcesTable["tenantId"], tenantId),
-      eq(templateResourcesTable["slug"], event.payload.slug),
-      eq(templateResourcesTable["kind"], event.payload.kind),
-      eq(templateResourcesTable["locale"], event.payload.locale),
-    );
+    const existing = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
+      tenantId,
+      slug: event.payload.slug,
+      kind: event.payload.kind,
+      locale: event.payload.locale,
+    });
 
     const fields = {
       slug: event.payload.slug,

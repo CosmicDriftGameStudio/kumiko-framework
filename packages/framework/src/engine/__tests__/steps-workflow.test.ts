@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { getStep } from "../define-step";
 import {
   SUSPEND_SENTINEL,
@@ -11,7 +11,7 @@ import { buildWaitStep } from "../steps/wait";
 import { buildWaitForEventStep } from "../steps/wait-for-event";
 import type { PipelineCtx } from "../types/step";
 
-const mockUnsafeAppendEvent = vi.fn();
+const mockUnsafeAppendEvent = mock();
 
 const workflowCtx = {
   unsafeAppendEvent: mockUnsafeAppendEvent,
@@ -46,7 +46,7 @@ describe("buildWaitStep", () => {
 
 describe("workflow.wait run", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mock.clearAllMocks();
   });
 
   it("throws when used outside defineWorkflow (no ctx.workflow)", async () => {
@@ -64,7 +64,7 @@ describe("workflow.wait run", () => {
     const result = await stepDef!.run({ for: "PT1H" }, workflowCtx);
 
     expect(result).toBe(SUSPEND_SENTINEL);
-    expect(mockUnsafeAppendEvent).toHaveBeenCalledOnce();
+    expect(mockUnsafeAppendEvent).toHaveBeenCalledTimes(1);
     const eventArg = mockUnsafeAppendEvent.mock.calls[0]![0];
     expect(eventArg.aggregateType).toBe(WORKFLOW_AGGREGATE_TYPE);
     expect(eventArg.type).toBe(WORKFLOW_WAITING_TYPE);
@@ -108,7 +108,7 @@ describe("buildWaitForEventStep", () => {
 
 describe("workflow.waitForEvent run", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mock.clearAllMocks();
   });
 
   it("throws when used outside defineWorkflow", async () => {
@@ -129,7 +129,7 @@ describe("workflow.waitForEvent run", () => {
     );
 
     expect(result).toBe(SUSPEND_SENTINEL);
-    expect(mockUnsafeAppendEvent).toHaveBeenCalledOnce();
+    expect(mockUnsafeAppendEvent).toHaveBeenCalledTimes(1);
     const eventArg = mockUnsafeAppendEvent.mock.calls[0]![0];
     expect(eventArg.aggregateType).toBe(WORKFLOW_AGGREGATE_TYPE);
     expect(eventArg.type).toBe(WORKFLOW_WAITING_FOR_EVENT_TYPE);
@@ -162,7 +162,7 @@ describe("buildRetryStep", () => {
 
 describe("workflow.retry run", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mock.clearAllMocks();
   });
 
   it("throws when used outside defineWorkflow", async () => {

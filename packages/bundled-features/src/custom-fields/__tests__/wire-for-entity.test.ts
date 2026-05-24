@@ -1,6 +1,6 @@
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { describe, expect, test } from "bun:test";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { describe, expect, test } from "vitest";
 import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity";
 
 // B2 wireCustomFieldsFor: einziger Aufruf registriert MSP + postQuery-hook +
@@ -15,7 +15,7 @@ const propertyEntity = createEntity({
   },
 });
 
-const propertyTable = buildDrizzleTable("property", propertyEntity);
+const propertyTable = buildEntityTable("property", propertyEntity);
 
 describe("wireCustomFieldsFor", () => {
   test("registers useExtension + MSP + postQuery-entity-hook + search-payload-extension", () => {

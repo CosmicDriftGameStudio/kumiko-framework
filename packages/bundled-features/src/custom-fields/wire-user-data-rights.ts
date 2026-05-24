@@ -33,17 +33,25 @@
 // fields onto tenant-owned entities (e.g. `property`) where DSGVO forget
 // doesn't apply per-user.
 
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
 import { EXT_USER_DATA, type FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
-import { getTableName, sql } from "drizzle-orm";
-import type { PgTable } from "drizzle-orm/pg-core";
 import { parseSerializedField } from "./lib/parse-serialized-field";
+
+const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
+function getTableName(table: unknown): string {
+  if (typeof table === "object" && table !== null) {
+    const sym = (table as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL];
+    if (typeof sym === "string") return sym;
+  }
+  throw new Error("wire-user-data-rights: table missing kumiko:schema:Name symbol");
+}
 
 export interface WireCustomFieldsUserDataRightsOptions {
   /** Host entity name as registered with wireCustomFieldsFor. */
   readonly entityName: string;
   /** Drizzle table for the host entity. Must have a `customFields` jsonb column. */
-  readonly entityTable: PgTable;
+  readonly entityTable: unknown;
   /**
    * Snake-case DB column that holds the owning user's id (e.g. `inserted_by_id`,
    * `author_id`, `assignee_id`). The hooks filter rows on this + tenant_id.
@@ -77,15 +85,14 @@ export function wireCustomFieldsUserDataRightsFor<TReg extends FeatureRegistrar<
   r: TReg,
   opts: WireCustomFieldsUserDataRightsOptions,
 ): void {
-  const tableName = sql.identifier(getTableName(opts.entityTable));
-  const userCol = sql.identifier(opts.userIdColumn);
+  const tableName = `"${getTableName(opts.entityTable)}"`;
+  const userCol = `"${opts.userIdColumn}"`;
 
   const exportHook: UserDataExportHook = async (ctx) => {
-    const rowsResult = await ctx.db.execute(sql`
-      SELECT id, custom_fields
-      FROM ${tableName}
-      WHERE ${userCol} = ${ctx.userId} AND tenant_id = ${ctx.tenantId}
-    `);
+    const rowsResult = await asRawClient(ctx.db).unsafe(
+      `SELECT id, custom_fields FROM ${tableName} WHERE ${userCol} = $1 AND tenant_id = $2`,
+      [ctx.userId, ctx.tenantId],
+    );
     const rows: ReadonlyArray<unknown> = Array.isArray(rowsResult) ? rowsResult : [];
     const snippetRows: Array<{ id: string; customFields: Record<string, unknown> }> = [];
     for (const raw of rows) {
@@ -113,16 +120,12 @@ export function wireCustomFieldsUserDataRightsFor<TReg extends FeatureRegistrar<
     // no-op. Avoids a useless UPDATE statement.
     if (sensitiveKeys.length === 0) return;
 
-    // Build the chain of jsonb minus operators: customFields - 'k1' - 'k2' - ...
-    const minusChain = sensitiveKeys.reduce<ReturnType<typeof sql>>(
-      (acc, key) => sql`${acc} - ${key}`,
-      sql`custom_fields`,
+    // Build the chain of jsonb minus operators: custom_fields - $1 - $2 - ...
+    const placeholders = sensitiveKeys.map((_, i) => `$${i + 1}`).join(" - ");
+    await asRawClient(ctx.db).unsafe(
+      `UPDATE ${tableName} SET custom_fields = custom_fields - ${placeholders} WHERE ${userCol} = $${sensitiveKeys.length + 1} AND tenant_id = $${sensitiveKeys.length + 2}`,
+      [...sensitiveKeys, ctx.userId, ctx.tenantId],
     );
-    await ctx.db.execute(sql`
-      UPDATE ${tableName}
-      SET custom_fields = ${minusChain}
-      WHERE ${userCol} = ${ctx.userId} AND tenant_id = ${ctx.tenantId}
-    `);
   };
 
   // r.useExtension's options-bag accepts a structural object — pass the
@@ -151,11 +154,10 @@ async function loadSensitiveFieldKeys(
   tenantId: string,
   entityName: string,
 ): Promise<string[]> {
-  const rowsResult = await db.execute(sql`
-    SELECT field_key, serialized_field
-    FROM read_custom_field_definitions
-    WHERE entity_name = ${entityName} AND tenant_id = ${tenantId}
-  `);
+  const rowsResult = await asRawClient(db).unsafe(
+    "SELECT field_key, serialized_field FROM read_custom_field_definitions WHERE entity_name = $1 AND tenant_id = $2",
+    [entityName, tenantId],
+  );
   const rows: ReadonlyArray<unknown> = Array.isArray(rowsResult) ? rowsResult : [];
   const keys: string[] = [];
   for (const raw of rows) {

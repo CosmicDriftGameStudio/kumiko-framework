@@ -4,7 +4,7 @@
 // in derselben Entity referenzieren. Sonst silent data loss — wir wollen
 // fail-fast beim Boot.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { validateBoot } from "../boot-validator";
 import { defineFeature } from "../define-feature";
 import { createEntity, createTimestampField, createTzField, locatedTimestamp } from "../factories";

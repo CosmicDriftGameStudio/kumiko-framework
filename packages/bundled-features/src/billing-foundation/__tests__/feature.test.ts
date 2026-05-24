@@ -1,6 +1,6 @@
 // feature.ts contract tests for subscription-foundation.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { subscriptionAggregateId } from "../aggregate-id";
 import {
   BILLING_FOUNDATION_FEATURE,

@@ -1,7 +1,7 @@
 // Currency — tenant-owned, each tenant manages their own currency list
 // No global reference data — tenants create currencies themselves
 
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createBooleanField,
   createEntity,
@@ -17,4 +17,4 @@ export const currencyEntity = createEntity({
   },
 });
 
-export const currencyTable = buildDrizzleTable("currency", currencyEntity);
+export const currencyTable = buildEntityTable("currency", currencyEntity);

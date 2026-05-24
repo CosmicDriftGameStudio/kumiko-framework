@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, mock, test } from "bun:test";
 import { createLifecycle } from "../lifecycle";
 
 describe("lifecycle — state machine", () => {
@@ -20,7 +20,7 @@ describe("lifecycle — state machine", () => {
 
   test("markReady from 'ready' is a no-op", () => {
     const lc = createLifecycle({ startReady: true });
-    const listener = vi.fn();
+    const listener = mock();
     lc.onStateChange(listener);
     lc.markReady();
     expect(listener).not.toHaveBeenCalled();
@@ -70,7 +70,7 @@ describe("lifecycle — shutdown hooks", () => {
   });
 
   test("one failing hook does not block the others, and the error is logged", async () => {
-    const logger = { error: vi.fn() };
+    const logger = { error: mock() };
     const lc = createLifecycle({ startReady: true, logger });
     const calls: string[] = [];
     lc.registerShutdownHook("healthy-a", async () => {
@@ -171,7 +171,7 @@ describe("lifecycle — onStateChange", () => {
 
   test("unsubscribe stops further callbacks", () => {
     const lc = createLifecycle();
-    const cb = vi.fn();
+    const cb = mock();
     const unsubscribe = lc.onStateChange(cb);
     lc.markReady();
     expect(cb).toHaveBeenCalledTimes(1);
@@ -184,9 +184,9 @@ describe("lifecycle — onStateChange", () => {
   });
 
   test("broken listener does not break others, and the error is logged", () => {
-    const logger = { error: vi.fn() };
+    const logger = { error: mock() };
     const lc = createLifecycle({ logger });
-    const healthy = vi.fn();
+    const healthy = mock();
     lc.onStateChange(() => {
       throw new Error("subscriber exploded");
     });

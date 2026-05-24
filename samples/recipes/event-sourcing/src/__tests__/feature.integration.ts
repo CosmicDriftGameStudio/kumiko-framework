@@ -11,6 +11,8 @@
 //   - streamAllEventsByType (memory-bounded ops iteration)
 //   - getAllProjectionProgress (projection lag for ops dashboards)
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import type { DbTx } from "@cosmicdrift/kumiko-framework/db";
 import {
   append,
   loadAggregate as loadAggregateRaw,
@@ -27,8 +29,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { eq } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { sql } from "drizzle-orm";
 import {
   approverDirectoryTable,
   invoiceDetailTable,
@@ -80,7 +81,7 @@ describe("Event Sourcing Showcase", () => {
     const [row] = await stack.db
       .select()
       .from(invoiceDetailTable)
-      .where(eq(invoiceDetailTable.invoiceId, id));
+      .where(sql`${invoiceDetailTable["invoiceId"]} = ${id}`);
     expect(row).toMatchObject({
       customer: "Acme",
       status: "paid",
@@ -183,7 +184,7 @@ describe("Event Sourcing Showcase", () => {
     // eventVersion=1. This is what stored v1 approval events look like
     // on disk today — the upcaster walks them to v2 on read.
     const invoiceId = "00000000-0000-4000-8000-00000000f001";
-    await stack.db.transaction(async (tx) => {
+    await stack.db.transaction(async (tx: DbTx) => {
       await tx.insert(invoiceDetailTable).values({
         invoiceId,
         tenantId: admin.tenantId,
@@ -301,7 +302,7 @@ describe("Event Sourcing Showcase", () => {
   test("snapshot: upcaster runs on delta events past the snapshot", async () => {
     // Seed only v1-shaped events directly to prove upcasting walks delta.
     const invoiceId = "00000000-0000-4000-8000-00000000f002";
-    await stack.db.transaction(async (tx) => {
+    await stack.db.transaction(async (tx: DbTx) => {
       await tx.insert(invoiceDetailTable).values({
         invoiceId,
         tenantId: admin.tenantId,
@@ -326,7 +327,7 @@ describe("Event Sourcing Showcase", () => {
 
     // Now append a v1-shape approval event (raw) — this becomes a delta
     // past the snapshot. fast-state must upcast it before the reducer.
-    await stack.db.transaction(async (tx) => {
+    await stack.db.transaction(async (tx: DbTx) => {
       await append(tx, {
         aggregateId: invoiceId,
         aggregateType: "showcase-invoice",
@@ -452,7 +453,7 @@ describe("Event Sourcing Showcase", () => {
     // so the only way to test the read-time upcaster is to write the older
     // shape via the raw event-store.
     const invoiceId = "00000000-0000-4000-8000-00000000ac01";
-    await stack.db.transaction(async (tx) => {
+    await stack.db.transaction(async (tx: DbTx) => {
       await tx.insert(invoiceDetailTable).values({
         invoiceId,
         tenantId: admin.tenantId,

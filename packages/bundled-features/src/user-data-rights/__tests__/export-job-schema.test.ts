@@ -13,8 +13,8 @@
 // Schema-Snapshot, kein Behavior-Test. Behavior-Tests kommen mit Atom 2
 // (request-export.write.ts) + Atom 3 (Worker).
 
+import { describe, expect, test } from "bun:test";
 import { COMPLIANCE_PROFILES } from "@cosmicdrift/kumiko-framework/compliance";
-import { describe, expect, test } from "vitest";
 import { EXPORT_JOB_STATUS, exportJobEntity } from "../schema/export-job";
 
 describe("EXPORT_JOB_STATUS Drift-Guard", () => {
@@ -32,7 +32,7 @@ describe("EXPORT_JOB_STATUS Drift-Guard", () => {
     // alphabetische Sortierung — die State-Machine kuemmert sich nicht
     // um Sort-Order, ein Re-Order der Konstanten waere kein Bug.
     for (const value of Object.values(EXPORT_JOB_STATUS)) {
-      expect(value).toBe(value.toLowerCase());
+      expect(value as string).toBe(value.toLowerCase());
       expect(value).toMatch(/^[a-z]+$/);
     }
   });

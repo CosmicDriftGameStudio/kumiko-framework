@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
 import type { TenantId } from "../../engine/types/identifiers";
@@ -97,7 +97,7 @@ describe("dispatcher.write", () => {
     const res = await dispatcher.write("alias:write:item:create", { name: "x" }, user);
     expect(res.isSuccess).toBe(true);
     expect(captured.fromCtx).toBe(captured.fromEvent);
-    expect((captured.fromCtx as { id: number }).id).toBe(user.id);
+    expect((captured.fromCtx as { id: unknown }).id).toBe(user.id);
   });
 
   test("runs validation hooks", async () => {

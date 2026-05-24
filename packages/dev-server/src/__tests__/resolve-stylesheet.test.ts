@@ -7,10 +7,10 @@
 // die anderen Tests dort booten ein TestStack (DB + Redis), das brauchen
 // wir für reine Resolver-Logik nicht.
 
+import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, test } from "vitest";
 import { resolveStylesheet } from "../create-kumiko-server";
 
 describe("resolveStylesheet", () => {
@@ -48,16 +48,20 @@ describe("resolveStylesheet", () => {
     expect(out).toBeUndefined();
   });
 
-  test("undefined + clientEntry unter Node (ohne Bun): undefined (silent skip)", () => {
-    // hasBun ist false in vitest-Node — Default-Resolution wird übersprungen,
-    // ohne Throw. Wer im Test eine echte CSS will, übergibt explicit string.
-    // Unter Bun (production) würde Bun.resolveSync den Path liefern; das
-    // testet der bestehende create-kumiko-server.integration.ts.
+  test("undefined + clientEntry: undefined (silent skip)", () => {
+    // Bun resolveSync findet packages/renderer-web/src/styles.css im
+    // Repo. Das ist der prod-Pfad — unter Bun (real oder CI) ist der
+    // Wert ein absoluter path; unter Node (von wo der Test portiert
+    // wurde) wäre es undefined. Wir akzeptieren beides.
     const out = resolveStylesheet({
       features: [],
       clientEntry: "./entry.tsx",
     });
-    expect(out).toBeUndefined();
+    if (typeof Bun === "undefined") {
+      expect(out).toBeUndefined();
+    } else {
+      expect(out).toMatch(/renderer-web\/src\/styles\.css$/);
+    }
   });
 
   test("undefined + clientEntry + src/styles.css existiert → returns App-Theme-Override", () => {

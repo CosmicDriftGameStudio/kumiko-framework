@@ -1,11 +1,11 @@
 // Unit-Tests für die Stripe-Plugin-Methoden (createCheckoutSession,
 // createPortalSession, cancelSubscription). Stripe-SDK-calls werden via
-// vi.spyOn gemockt — wir testen unsere Mapping-Logik (Argumente die wir
+// spyOn gemockt — wir testen unsere Mapping-Logik (Argumente die wir
 // an Stripe schicken + Antwort-Parsing), NICHT Stripe selbst.
 
+import { describe, expect, spyOn, test } from "bun:test";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import Stripe from "stripe";
-import { describe, expect, test, vi } from "vitest";
 import {
   createStripeCancelSubscription,
   createStripeCheckoutSession,
@@ -27,8 +27,7 @@ const stubCtx = {} as HandlerContext;
 describe("createStripeCheckoutSession", () => {
   test("ruft stripe.checkout.sessions.create mit mode=subscription + tenant-metadata", async () => {
     const stripe = buildStripe();
-    const createMock = vi
-      .spyOn(stripe.checkout.sessions, "create")
+    const createMock = spyOn(stripe.checkout.sessions, "create")
       // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
       .mockResolvedValue({ url: "https://checkout.stripe.com/c/pay/test" } as any);
 
@@ -41,7 +40,8 @@ describe("createStripeCheckoutSession", () => {
     });
 
     expect(result).toEqual({ url: "https://checkout.stripe.com/c/pay/test" });
-    expect(createMock).toHaveBeenCalledExactlyOnceWith({
+    expect(createMock).toHaveBeenCalledTimes(1);
+    expect(createMock).toHaveBeenCalledWith({
       mode: "subscription",
       line_items: [{ price: "price_pro_monthly", quantity: 1 }],
       success_url: "https://example.com/success",
@@ -57,8 +57,7 @@ describe("createStripeCheckoutSession", () => {
 
   test("passes existing customer-id wenn gesetzt (Plan-Wechsel-Flow)", async () => {
     const stripe = buildStripe();
-    const createMock = vi
-      .spyOn(stripe.checkout.sessions, "create")
+    const createMock = spyOn(stripe.checkout.sessions, "create")
       // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
       .mockResolvedValue({ url: "https://x" } as any);
 
@@ -78,7 +77,7 @@ describe("createStripeCheckoutSession", () => {
 
   test("throws wenn Stripe keine url returnt (defensive — sollte nie passieren bei mode=subscription)", async () => {
     const stripe = buildStripe();
-    vi.spyOn(stripe.checkout.sessions, "create")
+    spyOn(stripe.checkout.sessions, "create")
       // biome-ignore lint/suspicious/noExplicitAny: SDK-Drift-Test
       .mockResolvedValue({ url: null } as any);
 
@@ -99,7 +98,7 @@ describe("createStripeCheckoutSession", () => {
     // throw kriegt + zur HTTP 500 mapped (transient — Provider/Stripe
     // soll retried werden statt silent-success-mit-leerer-URL).
     const stripe = buildStripe();
-    vi.spyOn(stripe.checkout.sessions, "create").mockRejectedValue(
+    spyOn(stripe.checkout.sessions, "create").mockRejectedValue(
       new Error("Stripe API: Internal server error"),
     );
 
@@ -122,8 +121,7 @@ describe("createStripeCheckoutSession", () => {
 describe("createStripePortalSession", () => {
   test("ruft stripe.billingPortal.sessions.create mit customer + return_url", async () => {
     const stripe = buildStripe();
-    const createMock = vi
-      .spyOn(stripe.billingPortal.sessions, "create")
+    const createMock = spyOn(stripe.billingPortal.sessions, "create")
       // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
       .mockResolvedValue({ url: "https://billing.stripe.com/p/session/test" } as any);
 
@@ -134,7 +132,8 @@ describe("createStripePortalSession", () => {
     });
 
     expect(result).toEqual({ url: "https://billing.stripe.com/p/session/test" });
-    expect(createMock).toHaveBeenCalledExactlyOnceWith({
+    expect(createMock).toHaveBeenCalledTimes(1);
+    expect(createMock).toHaveBeenCalledWith({
       customer: "cus_001",
       return_url: "https://example.com/return",
     });
@@ -148,14 +147,14 @@ describe("createStripePortalSession", () => {
 describe("createStripeCancelSubscription", () => {
   test("ruft stripe.subscriptions.cancel mit subscription-id", async () => {
     const stripe = buildStripe();
-    const cancelMock = vi
-      .spyOn(stripe.subscriptions, "cancel")
+    const cancelMock = spyOn(stripe.subscriptions, "cancel")
       // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
       .mockResolvedValue({ id: "sub_001", status: "canceled" } as any);
 
     const cancel = createStripeCancelSubscription(stripe);
     await cancel(stubCtx, "sub_001");
 
-    expect(cancelMock).toHaveBeenCalledExactlyOnceWith("sub_001");
+    expect(cancelMock).toHaveBeenCalledTimes(1);
+    expect(cancelMock).toHaveBeenCalledWith("sub_001");
   });
 });

@@ -180,7 +180,7 @@ convenience routes (`/legal/impressum`, `/legal/datenschutz`,
 ## Architecture
 
 - **Single source of truth:** `textBlockEntity` in `table.ts`.
-  The Drizzle table is derived via `buildDrizzleTable("text-block",
+  The Drizzle table is derived via `buildEntityTable("text-block",
   textBlockEntity)`, the unique index on `(tenantId, slug, lang)` is
   declared via `entity.indexes`.
 - **Event-sourced:** the write path goes through

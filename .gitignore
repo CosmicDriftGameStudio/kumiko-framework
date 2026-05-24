@@ -25,10 +25,17 @@ playwright-report/
 .kumiko-check.log
 .kumiko-check.result
 
-# Codegen-Output (pro app generiert via `yarn kumiko codegen`).
+# Codegen-Output (pro app generiert via `bun kumiko codegen`).
 # Wrapper + Type-Map-Augmentation, aus den r.defineEvent-Aufrufen
 # der App synthetisiert.
 .kumiko/
+# Aber: samples/recipes/*/.kumiko/ MUSS commited sein. Die 3 recipes
+# (cross-feature-events, event-sourcing, state-machine) deklarieren
+# "@app/define": "file:./.kumiko" als dep. CI's `bun install` braucht
+# die Files VOR dem postinstall-codegen — sonst ENOENT. Lokal-Dev
+# regeneriert via codegen-samples-postinstall on commit-time-Diff.
+!samples/recipes/*/.kumiko/
+!samples/recipes/*/.kumiko/**
 
 # Migration-Runtime-State (sample-spezifisch, pro Run regeneriert)
 .beammycar-checkpoint.json
@@ -37,11 +44,6 @@ playwright-report/
 # Codegen-test fixtures (created+removed per test run)
 .tmp-fixtures/
 
-# Yarn 4 (berry) — commit only the bundled yarn binary + plugins, ignore
-# install-state and the cache. Zero-installs (committing .yarn/cache)
-# deferred per docs/plans/yarn4-migration.md.
-.yarn/*
-!.yarn/releases
-!.yarn/plugins
-.pnp.*
-.output.txt
+# Bun install cache
+~/.bun/install/cache
+.aider*

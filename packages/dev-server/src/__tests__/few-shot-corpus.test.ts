@@ -13,11 +13,11 @@
 // because the corpus JSON now lives there — framework is public and must
 // not carry the eval baseline.
 
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildFewShotCorpus, pathToId } from "@cosmicdrift/kumiko-dev-server";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 let workdir: string;
 

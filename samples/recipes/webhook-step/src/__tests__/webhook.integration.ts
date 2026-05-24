@@ -3,12 +3,14 @@
 // drains after COMMIT and calls the (stubbed) fetch, follow-up
 // step.dispatched / step.dispatch-failed events land on the same stream.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import {
   createStepDispatcherFeature,
   type MailSpec,
   setMailRunner,
   setWebhookFetch,
 } from "@cosmicdrift/kumiko-bundled-features/step-dispatcher";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   createTestUser,
   resetEventStore,
@@ -16,16 +18,15 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { eq } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
+
 import { incidentEntity, incidentTable, webhookDemoFeature } from "../feature";
 
 let stack: TestStack;
 const admin = createTestUser({ roles: ["Admin"] });
 
-const fetchMock = vi.fn<typeof fetch>();
+const fetchMock = mock<typeof fetch>();
 const mailMock =
-  vi.fn<
+  mock<
     (spec: { to: string | readonly string[]; subject: string; body: string }) => Promise<{
       ok: true;
       status: number;
@@ -33,7 +34,7 @@ const mailMock =
   >();
 
 beforeAll(async () => {
-  setWebhookFetch(fetchMock);
+  setWebhookFetch(fetchMock as unknown as typeof fetch);
   setMailRunner(async (spec: MailSpec) => mailMock(spec));
   stack = await setupTestStack({
     features: [createStepDispatcherFeature(), webhookDemoFeature],
@@ -68,7 +69,7 @@ describe("webhook-step Sample", () => {
     expect(id).toMatch(/^[0-9a-f-]{36}$/);
 
     // Aggregate landed
-    const [row] = await stack.db.select().from(incidentTable).where(eq(incidentTable.id, id));
+    const [row] = await selectMany(stack.db, incidentTable, { id });
     expect(row).toMatchObject({ title: "DB outage", severity: "high" });
 
     // Drain dispatcher (MSP runs async via runOnce in test mode)
@@ -115,7 +116,7 @@ describe("webhook-step Sample", () => {
     expect(id).toMatch(/^[0-9a-f-]{36}$/);
 
     // The inner incident:open ran and committed an aggregate
-    const [row] = await stack.db.select().from(incidentTable).where(eq(incidentTable.id, id));
+    const [row] = await selectMany(stack.db, incidentTable, { id });
     expect(row).toMatchObject({ title: "Network hiccup", severity: "low" });
 
     // And the inner handler's webhook fired
@@ -134,7 +135,7 @@ describe("webhook-step Sample", () => {
     await stack.eventDispatcher?.runOnce();
 
     expect(fetchMock).not.toHaveBeenCalled();
-    const rows = await stack.db.select().from(incidentTable);
+    const rows = await selectMany(stack.db, incidentTable);
     expect(rows).toHaveLength(0);
   });
 });

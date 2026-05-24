@@ -1,8 +1,7 @@
-// @vitest-environment jsdom
+import { describe, expect, test } from "bun:test";
 import type { LocaleResolver } from "@cosmicdrift/kumiko-headless";
 import { act, render, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { describe, expect, test } from "vitest";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
@@ -32,7 +31,6 @@ function makeStatefulResolver(initial: string): LocaleResolver {
     },
   };
 }
-
 const wrap =
   (resolver: LocaleResolver, fallbackBundles?: TranslationsByLocale[]) =>
   ({ children }: { readonly children: ReactNode }): ReactNode => (
@@ -40,7 +38,6 @@ const wrap =
       {children}
     </LocaleProvider>
   );
-
 describe("useTranslation — lookup order", () => {
   test("App-Resolver wins when it returns a non-key value", () => {
     const resolver: LocaleResolver = {
@@ -50,7 +47,6 @@ describe("useTranslation — lookup order", () => {
     const { result } = renderHook(() => useTranslation(), { wrapper: wrap(resolver) });
     expect(result.current("hello")).toBe("Resolved by app");
   });
-
   test("falls back to plugin-bundle for current locale", () => {
     const resolver = createStaticLocaleResolver({ locale: "de" });
     const bundles: TranslationsByLocale[] = [{ de: { greet: "Hallo" }, en: { greet: "Hello" } }];
@@ -59,7 +55,6 @@ describe("useTranslation — lookup order", () => {
     });
     expect(result.current("greet")).toBe("Hallo");
   });
-
   test("strips region for bundle lookup (de-AT → de)", () => {
     const resolver = createStaticLocaleResolver({ locale: "de-AT" });
     const bundles: TranslationsByLocale[] = [{ de: { greet: "Hallo" } }];
@@ -68,7 +63,6 @@ describe("useTranslation — lookup order", () => {
     });
     expect(result.current("greet")).toBe("Hallo");
   });
-
   test("falls back to fallbackLocale (en) when current locale missing", () => {
     const resolver = createStaticLocaleResolver({ locale: "fr" });
     const bundles: TranslationsByLocale[] = [{ de: { greet: "Hallo" }, en: { greet: "Hello" } }];
@@ -77,13 +71,11 @@ describe("useTranslation — lookup order", () => {
     });
     expect(result.current("greet")).toBe("Hello");
   });
-
   test("returns key as-is when nothing resolves", () => {
     const resolver = createStaticLocaleResolver({ locale: "de" });
     const { result } = renderHook(() => useTranslation(), { wrapper: wrap(resolver) });
     expect(result.current("missing.key")).toBe("missing.key");
   });
-
   test("interpolates {param}-placeholders from params arg", () => {
     const resolver = createStaticLocaleResolver({ locale: "de" });
     const bundles: TranslationsByLocale[] = [{ de: { greet: "Hallo {name}!" } }];
@@ -93,31 +85,26 @@ describe("useTranslation — lookup order", () => {
     expect(result.current("greet", { name: "Marc" })).toBe("Hallo Marc!");
   });
 });
-
 describe("useTranslation — re-render on locale change", () => {
   test("subscribe fires when setLocale runs, hook returns new value", () => {
     const resolver = makeStatefulResolver("de");
     const bundles: TranslationsByLocale[] = [{ de: { greet: "Hallo" }, en: { greet: "Hello" } }];
-
     function Probe(): ReactNode {
       const t = useTranslation();
       return <span data-testid="msg">{t("greet")}</span>;
     }
-
     const { getByTestId } = render(
       <LocaleProvider resolver={resolver} fallbackBundles={bundles}>
         <Probe />
       </LocaleProvider>,
     );
     expect(getByTestId("msg").textContent).toBe("Hallo");
-
     act(() => {
       resolver.setLocale?.("en");
     });
     expect(getByTestId("msg").textContent).toBe("Hello");
   });
 });
-
 describe("useLocale", () => {
   test("returns the resolver", () => {
     const resolver = createStaticLocaleResolver({ locale: "de" });

@@ -4,7 +4,8 @@
 // documented wire shape. If you extend the sample, add a matching test here
 // so the "copy this" guarantee stays valid.
 
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -14,11 +15,10 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { eq } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { OrdersLiteReasons, orderEntity, ordersLiteFeature } from "../feature";
 
 let stack: TestStack;
-const orderTable = buildDrizzleTable("order", orderEntity);
+const orderTable = buildEntityTable("order", orderEntity);
 
 const admin = TestUsers.admin;
 const alice = createTestUser({ id: 10, roles: ["User"] });

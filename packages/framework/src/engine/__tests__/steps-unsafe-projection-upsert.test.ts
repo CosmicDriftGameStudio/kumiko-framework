@@ -1,22 +1,26 @@
-import { pgTable, text, uuid } from "drizzle-orm/pg-core";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { table, text, uuid } from "../../db/dialect";
 import { getStep } from "../define-step";
 import { buildUnsafeProjectionUpsertStep } from "../steps/unsafe-projection-upsert";
 import type { PipelineCtx } from "../types/step";
 
-const testTable = pgTable("test_projection", {
+const testTable = table("test_projection", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id").notNull(),
   externalId: text("external_id").notNull().unique(),
   label: text("label"),
 });
 
-const mockConflictBuilder = { onConflictDoUpdate: vi.fn() };
-const mockValuesBuilder = { values: vi.fn(() => mockConflictBuilder) };
-const mockDb = { insert: vi.fn(() => mockValuesBuilder) };
+// New bun-db path: step uses asRawClient(ctx.db.raw).unsafe(sqlText, params).
+// Capture the raw SQL string + params per call instead of the old
+// insert/values/onConflictDoUpdate chain.
+const unsafeMock = mock(async (_sqlText: string, _params: unknown[]) => []);
+const beginMock = mock(async (fn: (tx: unknown) => Promise<unknown>) => fn({}));
+const rawDb = { unsafe: unsafeMock, begin: beginMock };
+const ctxDb = { raw: rawDb };
 
 const mockCtx = {
-  db: mockDb,
+  db: ctxDb,
   event: { type: "test", payload: {} },
   steps: {},
   scope: {},
@@ -46,7 +50,7 @@ describe("buildUnsafeProjectionUpsertStep", () => {
   });
 
   it("accepts a function row resolver", () => {
-    const resolver = vi.fn(() => ({ tenantId: "t1", externalId: "e1" }));
+    const resolver = mock(() => ({ tenantId: "t1", externalId: "e1" }));
     const step = buildUnsafeProjectionUpsertStep({
       table: testTable,
       on: ["externalId"],
@@ -67,7 +71,7 @@ describe("buildUnsafeProjectionUpsertStep", () => {
 
 describe("unsafeProjectionUpsert run", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mock.clearAllMocks();
   });
 
   it("throws when a conflict-key column does not exist on the table", async () => {
@@ -92,14 +96,19 @@ describe("unsafeProjectionUpsert run", () => {
 
     await stepDef!.run({ table: testTable, on: ["externalId"], row }, mockCtx);
 
-    expect(mockDb.insert).toHaveBeenCalledOnce();
-    expect(mockConflictBuilder.onConflictDoUpdate).toHaveBeenCalledOnce();
-
-    const conflictArgs = mockConflictBuilder.onConflictDoUpdate.mock.calls[0]![0]!;
-    expect(conflictArgs.set).toEqual({ tenantId: "t1", label: "hello" });
+    expect(unsafeMock).toHaveBeenCalledTimes(1);
+    const [sqlText, params] = unsafeMock.mock.calls[0]!;
+    expect(sqlText).toMatch(/INSERT INTO "test_projection"/);
+    expect(sqlText).toMatch(/ON CONFLICT \("external_id"\) DO UPDATE SET/);
+    // SET clause excludes the conflict-key column ("external_id") but
+    // includes the other columns (tenant_id, label).
+    expect(sqlText).toMatch(/"tenant_id" = \$/);
+    expect(sqlText).toMatch(/"label" = \$/);
+    expect(sqlText).not.toMatch(/"external_id" = \$\d+,/);
+    expect(params).toEqual(["t1", "e1", "hello", "t1", "hello"]);
   });
 
-  it("calls insert().onConflictDoUpdate with the resolved row and conflict targets", async () => {
+  it("calls INSERT ... ON CONFLICT DO UPDATE with the resolved row + conflict targets", async () => {
     const stepDef = getStep("unsafeProjectionUpsert");
 
     await stepDef!.run(
@@ -111,7 +120,9 @@ describe("unsafeProjectionUpsert run", () => {
       mockCtx,
     );
 
-    expect(mockDb.insert).toHaveBeenCalled();
-    expect(mockConflictBuilder.onConflictDoUpdate).toHaveBeenCalled();
+    expect(unsafeMock).toHaveBeenCalled();
+    const [sqlText] = unsafeMock.mock.calls[0]!;
+    expect(sqlText).toMatch(/INSERT INTO "test_projection"/);
+    expect(sqlText).toMatch(/ON CONFLICT \("external_id"\) DO UPDATE/);
   });
 });

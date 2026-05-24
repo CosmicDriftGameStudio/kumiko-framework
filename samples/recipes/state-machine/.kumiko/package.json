@@ -1,0 +1,13 @@
+{
+  "name": "@app/define",
+  "private": true,
+  "license": "BUSL-1.1",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./define.ts",
+  "types": "./define.ts",
+  "exports": {
+    ".": "./define.ts",
+    "./*": "./*"
+  }
+}

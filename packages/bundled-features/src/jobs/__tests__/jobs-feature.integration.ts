@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { buildServer, type JwtHelper } from "@cosmicdrift/kumiko-framework/api";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -18,7 +19,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { sleep } from "@cosmicdrift/kumiko-framework/testing";
 import type { Hono } from "hono";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { JobHandlers, JobQueries } from "../constants";
 import { createJobsFeature } from "../feature";
 import { createJobRunLogger } from "../job-run-logger";

@@ -12,8 +12,14 @@
 import { defineFeature, EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
 import { FILE_UPLOADED_EVENT_TYPE, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-framework/stack";
-import { getTableColumns } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+
+// Native dialect exposes column metadata on the `columns` array (EntityTableMeta)
+// and on the Symbol.for("kumiko:schema:Columns") map (compat shape). Tests use the
+// Symbol map because keys are JS field-names (camelCase), matching what
+// feature-entity definitions declare.
+const KUMIKO_COLUMNS_SYMBOL = Symbol.for("kumiko:schema:Columns");
+
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createFilesFeature, fileRefEntity } from "../feature";
 
 let stack: TestStack;
@@ -101,11 +107,16 @@ describe("files :: cross-feature behavior (F1, S1.7)", () => {
 });
 
 describe("files :: DDL-Konsistenz (M3, S1.7)", () => {
-  // Drizzle's getTableColumns liefert die typed column-map ohne den
-  // Symbol-Properties-Junk. Sauberer als Object.keys(table) das auch
-  // interne Drizzle-Symbols mitnimmt.
+  // The native dialect's SchemaTable exposes its column map via the
+  // Symbol.for("kumiko:schema:Columns") metadata (kept for back-compat with
+  // anything that previously introspected pgTable that way). Keys are
+  // JS field-names — exactly the level feature-entity declarations live at.
   function pgColumnNames(): Set<string> {
-    return new Set(Object.keys(getTableColumns(fileRefsTable)));
+    const cols = (fileRefsTable as unknown as Record<symbol, unknown>)[KUMIKO_COLUMNS_SYMBOL];
+    if (typeof cols !== "object" || cols === null) {
+      throw new Error("files.integration: fileRefsTable has no kumiko:schema:Columns symbol");
+    }
+    return new Set(Object.keys(cols as Record<string, unknown>));
   }
 
   test("Feature-Entity-Felder matchen die Framework-pgTable column-set", () => {
@@ -117,7 +128,7 @@ describe("files :: DDL-Konsistenz (M3, S1.7)", () => {
     // Vergleich: alle Feature-Felder muessen als Spalten in der pgTable
     // existieren (umgekehrt darf pgTable framework-managed Spalten haben
     // wie tenantId/createdAt/updatedAt/deletedAt — die deklariert das
-    // Framework automatisch beim buildDrizzleTable-Mapping).
+    // Framework automatisch beim buildEntityTable-Mapping).
     const pgColumns = pgColumnNames();
     const featureFields = Object.keys(fileRefEntity.fields);
 

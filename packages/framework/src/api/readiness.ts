@@ -11,7 +11,6 @@
 //   - Checks run in parallel — the probe is called on every kubelet/ALB poll,
 //     so total latency must stay ≈ slowest check, not sum.
 
-import { sql } from "drizzle-orm";
 import type Redis from "ioredis";
 import type { DbConnection } from "../db/connection";
 import { getAllConsumerProgress } from "../pipeline/event-dispatcher";
@@ -90,7 +89,10 @@ export function dbPingCheck(db: DbConnection): ReadinessCheck {
   return {
     name: "db",
     run: async () => {
-      await db.execute(sql`SELECT 1`);
+      const dbAny = db as unknown as { $client?: { unsafe: (s: string) => Promise<unknown> } };
+      const client = dbAny.$client;
+      if (client) await client.unsafe("SELECT 1");
+      else await (db as unknown as { unsafe: (s: string) => Promise<unknown> }).unsafe("SELECT 1");
     },
   };
 }

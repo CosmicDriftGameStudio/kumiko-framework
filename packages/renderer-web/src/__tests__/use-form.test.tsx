@@ -1,8 +1,7 @@
-// @vitest-environment jsdom
+import { describe, expect, mock, test } from "bun:test";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { DispatcherProvider, useForm } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { describe, expect, test, vi } from "vitest";
 import { z } from "zod";
 import { act, createMockDispatcher, renderHook } from "./test-utils";
 
@@ -40,7 +39,7 @@ describe("useForm", () => {
   });
 
   test("submit dispatches to the context dispatcher when no explicit one is passed", async () => {
-    const write = vi.fn(async () => ({ isSuccess: true, data: { id: "123" } }) as never);
+    const write = mock(async () => ({ isSuccess: true, data: { id: "123" } }) as never);
     const dispatcher = makeDispatcher(write);
     const { result } = renderHook(
       () =>
@@ -57,13 +56,13 @@ describe("useForm", () => {
       submitResult = await result.current.controller.submit();
     });
 
-    expect(write).toHaveBeenCalledOnce();
+    expect(write).toHaveBeenCalledTimes(1);
     expect(write).toHaveBeenCalledWith("x:create", expect.anything());
     expect((submitResult as { isSuccess: boolean }).isSuccess).toBe(true);
   });
 
   test("zod schema failure blocks submit; no network call fires", async () => {
-    const write = vi.fn();
+    const write = mock();
     const dispatcher = makeDispatcher(write as unknown as Dispatcher["write"]);
     const schema = z.object({ title: z.string().min(1), count: z.number().optional() });
     const { result } = renderHook(
@@ -87,8 +86,8 @@ describe("useForm", () => {
   });
 
   test("explicit dispatcher on submit wins over context dispatcher", async () => {
-    const contextWrite = vi.fn(async () => ({ isSuccess: true, data: {} }) as never);
-    const overrideWrite = vi.fn(async () => ({ isSuccess: true, data: {} }) as never);
+    const contextWrite = mock(async () => ({ isSuccess: true, data: {} }) as never);
+    const overrideWrite = mock(async () => ({ isSuccess: true, data: {} }) as never);
     const contextDispatcher = makeDispatcher(contextWrite);
     const overrideDispatcher = makeDispatcher(overrideWrite);
 

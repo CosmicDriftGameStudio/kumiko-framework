@@ -4,6 +4,7 @@
 // real HTTP + DB + Redis. If a reader copies the buildServer({...}) block
 // verbatim, the resulting app behaves like this test asserts.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
   AuthHandlers,
   createAuthEmailPasswordFeature,
@@ -42,7 +43,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createLateBoundHolder } from "@cosmicdrift/kumiko-framework/testing";
 import * as jose from "jose";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createSessionCallbacks, createSessionsFeature } from "../feature";
 
 const TENANT: TenantId = testTenantId(1);

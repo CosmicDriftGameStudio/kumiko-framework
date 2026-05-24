@@ -3,8 +3,7 @@
 // without spinning up the test-stack — the real event-store +
 // dispatcher integration is exercised in cap-counter.integration.ts.
 
-import { describe, expect, test, vi } from "vitest";
-
+import { describe, expect, mock, test } from "bun:test";
 // Temporal: rely on the global ambient declaration from temporal-spec.
 // The framework polyfill is loaded by setupTestStack, but pure unit
 // tests (no stack) need a manual polyfill — vitest.setup.ts does that.
@@ -18,35 +17,38 @@ import {
   enforceRollingCapAndMaybeNotify,
 } from "../enforce-cap";
 
-// --- Calendar-Period stub: db.select().from(...).where(...).limit(1) ---
+// Test-mock: ctx.db unterstützt sowohl bun-db's .unsafe() (selectMany ruft das)
+// als auch drizzle's .select().from().where() chain (rolling-path nutzt das
+// direkt). Beide pfade returnen denselben rows-set unabhängig von filtern.
+
+function makeMockDb(rows: unknown[]) {
+  return {
+    unsafe: async () => rows,
+    begin: async <T>(fn: (tx: unknown) => Promise<T>) =>
+      fn({ unsafe: async () => rows, begin: async () => undefined }),
+    select: () => ({
+      from: () => ({
+        where: Object.assign(async () => rows, {
+          // calendar path also chains .limit(1) after .where()
+          limit: async () => rows,
+        }),
+      }),
+    }),
+  };
+}
 
 function stubCalendarCtx(rows: { value: number; lastSoftWarnedAt: unknown }[]) {
   const ctx = {
-    db: {
-      select: () => ({
-        from: () => ({
-          where: () => ({
-            limit: async () => rows,
-          }),
-        }),
-      }),
-    },
+    db: makeMockDb(rows),
     user: { tenantId: "tenant-test" },
   };
   return ctx as unknown as Parameters<typeof enforceCap>[0];
 }
 
-// --- Rolling-Window stub: db.select(...).from(...).where(...) returns rows ---
-
 function stubRollingCtx(eventPayloads: { amount: number }[]) {
+  const rows = eventPayloads.map((p) => ({ payload: p }));
   const ctx = {
-    db: {
-      select: () => ({
-        from: () => ({
-          where: async () => eventPayloads.map((p) => ({ payload: p })),
-        }),
-      }),
-    },
+    db: makeMockDb(rows),
     user: { tenantId: "tenant-test" },
   };
   return ctx as unknown as Parameters<typeof enforceRollingCap>[0];
@@ -284,7 +286,7 @@ describe("enforceCapAndMaybeNotify — calendar", () => {
 
   test("ok → notifier NICHT aufgerufen", async () => {
     const ctx = stubCalendarCtx([{ value: 100, lastSoftWarnedAt: null }]);
-    const notify = vi.fn();
+    const notify = mock();
     const result = await enforceCapAndMaybeNotify(ctx, { ...baseOpts, notify });
     expect(result.state).toBe("ok");
     expect(notify).not.toHaveBeenCalled();
@@ -292,19 +294,21 @@ describe("enforceCapAndMaybeNotify — calendar", () => {
 
   test("soft-hit, crossed=true → notifier mit info-payload + ctx.write markSoftWarned", async () => {
     const ctx = stubCalendarCtx([{ value: 1100, lastSoftWarnedAt: null }]);
-    const write = vi.fn(async () => ({ isSuccess: true, data: {} }));
+    const write = mock(async () => ({ isSuccess: true, data: {} }));
     (ctx as unknown as { write: typeof write }).write = write;
-    const notify = vi.fn();
+    const notify = mock();
 
     const result = await enforceCapAndMaybeNotify(ctx, { ...baseOpts, notify });
     expect(result.state).toBe("soft-hit");
-    expect(notify).toHaveBeenCalledExactlyOnceWith({
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify).toHaveBeenCalledWith({
       capName: "mails-per-month",
       value: 1100,
       limit: 1000,
       tenantId: "tenant-test",
     });
-    expect(write).toHaveBeenCalledExactlyOnceWith("cap-counter:write:mark-soft-warned", {
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(write).toHaveBeenCalledWith("cap-counter:write:mark-soft-warned", {
       capName: "mails-per-month",
       periodStartIso: PERIOD,
     });
@@ -312,7 +316,7 @@ describe("enforceCapAndMaybeNotify — calendar", () => {
 
   test("soft-hit, crossed=false (already warned) → notifier NICHT erneut aufgerufen", async () => {
     const ctx = stubCalendarCtx([{ value: 1150, lastSoftWarnedAt: "2026-05-15T12:00:00Z" }]);
-    const notify = vi.fn();
+    const notify = mock();
     const result = await enforceCapAndMaybeNotify(ctx, { ...baseOpts, notify });
     expect(result.state).toBe("soft-hit");
     expect(notify).not.toHaveBeenCalled();
@@ -320,7 +324,7 @@ describe("enforceCapAndMaybeNotify — calendar", () => {
 
   test("hard-hit → throws CapExceededError BEVOR notifier feuert", async () => {
     const ctx = stubCalendarCtx([{ value: 1500, lastSoftWarnedAt: null }]);
-    const notify = vi.fn();
+    const notify = mock();
     await expect(enforceCapAndMaybeNotify(ctx, { ...baseOpts, notify })).rejects.toThrow(
       CapExceededError,
     );
@@ -342,7 +346,7 @@ describe("enforceRollingCapAndMaybeNotify — rolling", () => {
 
   test("ok → notifier NICHT aufgerufen", async () => {
     const ctx = stubRollingCtx([{ amount: 100 }]);
-    const notify = vi.fn();
+    const notify = mock();
     const result = await enforceRollingCapAndMaybeNotify(ctx, { ...baseOpts, notify });
     expect(result.state).toBe("ok");
     expect(notify).not.toHaveBeenCalled();
@@ -350,10 +354,11 @@ describe("enforceRollingCapAndMaybeNotify — rolling", () => {
 
   test("soft-hit → notifier feuert (ohne dedup, Caller-Verantwortung)", async () => {
     const ctx = stubRollingCtx([{ amount: 6000 }, { amount: 5000 }]);
-    const notify = vi.fn();
+    const notify = mock();
     const result = await enforceRollingCapAndMaybeNotify(ctx, { ...baseOpts, notify });
     expect(result.state).toBe("soft-hit");
-    expect(notify).toHaveBeenCalledExactlyOnceWith({
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify).toHaveBeenCalledWith({
       capName: "ai-tokens-7d",
       value: 11000,
       limit: 10000,
@@ -367,7 +372,7 @@ describe("enforceRollingCapAndMaybeNotify — rolling", () => {
     // ein Refactor heimlich Dedup einbaut ohne projection-row, fällt
     // das hier auf.
     const ctx = stubRollingCtx([{ amount: 11000 }]);
-    const notify = vi.fn();
+    const notify = mock();
     await enforceRollingCapAndMaybeNotify(ctx, { ...baseOpts, notify });
     await enforceRollingCapAndMaybeNotify(ctx, { ...baseOpts, notify });
     expect(notify).toHaveBeenCalledTimes(2);

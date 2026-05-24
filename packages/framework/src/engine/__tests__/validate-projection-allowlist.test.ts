@@ -3,11 +3,10 @@
 // is included here, plus the self-registration via defineStep({ subPaths })
 // gate (Followup #15).
 
+import { describe, expect, it } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
-import { pgTable, text, uuid } from "drizzle-orm/pg-core";
-import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { table as pgTable, text, uuid } from "../../db/dialect";
 import { defineFeature } from "../define-feature";
 import { defineWriteHandler } from "../define-handler";
 import { defineStep } from "../define-step";
@@ -117,7 +116,7 @@ describe("validateProjectionAllowlist", () => {
           perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
             r.step.unsafeProjectionDelete({
               table: widgetsTable,
-              where: () => eq(widgetsTable.id, "anything"),
+              where: () => ({ id: "anything" }),
             }),
             r.step.return({ isSuccess: true as const, data: { ok: true } }),
           ]),
@@ -140,7 +139,7 @@ describe("validateProjectionAllowlist", () => {
           perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
             r.step.unsafeProjectionDelete({
               table: demoLogTable,
-              where: () => eq(demoLogTable.id, "anything"),
+              where: () => ({ id: "anything" }),
             }),
             r.step.return({ isSuccess: true as const, data: { ok: true } }),
           ]),

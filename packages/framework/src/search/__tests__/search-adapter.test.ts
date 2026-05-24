@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from "vitest";
+import { beforeEach, describe, expect, test } from "bun:test";
 import { createInMemorySearchAdapter } from "../in-memory-adapter";
 import type { SearchAdapter } from "../types";
 

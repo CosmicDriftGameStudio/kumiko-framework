@@ -1,5 +1,5 @@
-import { sql } from "drizzle-orm";
-import { instant, integer, table as pgTable, text, uuid } from "../db/dialect";
+// sql now comes from native dialect
+import { instant, integer, table as pgTable, sql, text, uuid } from "../db/dialect";
 
 // `id` is a UUID (not serial): it doubles as the aggregate-id for the
 // `fileRef` event stream — every upload appends exactly one

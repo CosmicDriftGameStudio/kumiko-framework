@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, spyOn, test } from "bun:test";
 import { buildAbortError, buildNetworkError, mapServerError } from "../error-mapping";
 
 describe("mapServerError", () => {
@@ -80,7 +80,7 @@ describe("mapServerError", () => {
     // gleichzeitig prüfen: jeder der drei Malformed-Inputs muss genau
     // einen warn() ausgelöst haben. Das macht das "silence" im Test-
     // Output zur Assertion, nicht zu einem Sweep-under-the-rug.
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
     try {
       const mapped = mapServerError({
         code: "validation_error",

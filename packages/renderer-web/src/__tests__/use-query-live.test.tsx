@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+import { describe, expect, test } from "bun:test";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import {
   DispatcherProvider,
@@ -8,7 +8,6 @@ import {
   useQuery,
 } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { describe, expect, test } from "vitest";
 import { act, createMockDispatcher, render, waitFor } from "./test-utils";
 
 // Test-Helper: fake LiveEventSubscriber. Sammelt alle Subscriber, das

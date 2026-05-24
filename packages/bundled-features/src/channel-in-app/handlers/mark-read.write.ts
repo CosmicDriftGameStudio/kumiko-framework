@@ -1,6 +1,6 @@
+import { updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { inAppMessagesTable } from "../tables";
 
@@ -12,21 +12,15 @@ export const markReadWrite = defineWriteHandler({
   }),
   access: { openToAll: true },
   handler: async (event, ctx) => {
-    const rows = await ctx.db
-      .update(inAppMessagesTable)
-      .set({ isRead: true, readAt: Temporal.Now.instant() })
-      .where(
-        and(
-          eq(inAppMessagesTable.id, event.payload.id),
-          eq(inAppMessagesTable.userId, event.user.id),
-        ),
-      )
-      .returning();
-
+    const rows = await updateMany(
+      ctx.db,
+      inAppMessagesTable,
+      { isRead: true, readAt: Temporal.Now.instant() },
+      { id: event.payload.id, userId: event.user.id },
+    );
     if (rows.length === 0) {
       return writeFailure(new NotFoundError("inAppMessage", event.payload.id));
     }
-
-    return { isSuccess: true, data: { id: rows[0]?.["id"] } };
+    return { isSuccess: true, data: { id: (rows[0] as { id: number } | undefined)?.id } };
   },
 });

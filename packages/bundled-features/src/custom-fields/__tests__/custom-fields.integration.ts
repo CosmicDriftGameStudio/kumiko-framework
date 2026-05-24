@@ -10,7 +10,9 @@
 // Pattern follows cap-counter.integration.ts: probe-feature mit own entity,
 // wired via wireCustomFieldsFor.
 
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createEntityExecutor,
@@ -25,8 +27,6 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { sql } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { fieldDefinitionEntity } from "../entity";
 import { createCustomFieldsFeature } from "../feature";
@@ -41,7 +41,7 @@ const propertyEntity = createEntity({
     customFields: customFieldsField(),
   },
 });
-const propertyTable = buildDrizzleTable("property", propertyEntity);
+const propertyTable = buildEntityTable("property", propertyEntity);
 
 const propertyFeature = defineFeature("property-test", (r) => {
   r.entity("property", propertyEntity);
@@ -91,9 +91,9 @@ afterAll(async () => {
 
 beforeEach(async () => {
   // Clean slate per test — event-log + entity-rows.
-  await stack.db.execute(sql`DELETE FROM kumiko_events`);
-  await stack.db.execute(sql`DELETE FROM read_t1_properties`);
-  await stack.db.execute(sql`DELETE FROM read_custom_field_definitions`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM kumiko_events`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM read_t1_properties`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM read_custom_field_definitions`);
 });
 
 // --- Helpers ---

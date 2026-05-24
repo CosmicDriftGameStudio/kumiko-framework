@@ -2,6 +2,7 @@
 // provider-factory through the dispatcher so the real config-resolver
 // + secrets-context + tenant-scoped reads are exercised.
 
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { createEncryptionProvider, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
@@ -19,7 +20,6 @@ import {
   createMutableMasterKeyProvider,
   type MutableMasterKeyProvider,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { createConfigFeature } from "../../config";
 import { ConfigHandlers } from "../../config/constants";

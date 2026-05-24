@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 //
 // V.1.1-D Integration-Test — End-to-End-Beweis für die Schleife
 // `clientFeatures.treeProvider → useTreeProviders → VisualTree →
@@ -22,6 +21,7 @@
 // setupTestStack kommt mit V.1.2 wenn text-content's Slug-Liste durch
 // die Server-Pipeline geht.
 
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { TreeChildrenSubscribe, TreeNode } from "@cosmicdrift/kumiko-framework/engine";
 import type { FeatureSchema, WorkspaceSchema } from "@cosmicdrift/kumiko-renderer";
 import {
@@ -32,7 +32,6 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { useBrowserNavApi } from "../app/nav";
 import { TreeProvidersProvider } from "../app/tree-providers-context";
 import { setDispatchListener } from "../layout/target-resolver-stub";

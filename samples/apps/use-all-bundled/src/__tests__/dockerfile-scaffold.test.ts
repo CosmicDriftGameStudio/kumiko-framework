@@ -7,11 +7,11 @@
 // scaffold gegen sie funktioniert, decken wir die größte realistische
 // app-shape ab.
 
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { scaffoldDeploy } from "@cosmicdrift/kumiko-dev-server";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 const SAMPLE_DIR = join(__dirname, "..", "..");
 
@@ -69,7 +69,7 @@ describe("use-all-bundled scaffoldDeploy", () => {
     expect(dockerfile).toContain("exec bun run server.js");
   });
 
-  test("Dockerfile uses node:20-alpine build + oven/bun runtime", () => {
+  test("Dockerfile uses oven/bun build + oven/bun runtime", () => {
     scaffoldDeploy({
       appName: "use-all-bundled",
       port: 3000,
@@ -77,9 +77,8 @@ describe("use-all-bundled scaffoldDeploy", () => {
       sourceDir: SAMPLE_DIR,
     });
     const dockerfile = readFileSync(join(tmp, "deploy/Dockerfile"), "utf-8");
-    // Multi-stage build: node-alpine for yarn-4 corepack, bun-alpine
-    // for runtime. Pin via ARG BUN_VERSION damit reproducible.
-    expect(dockerfile).toMatch(/FROM node:20-alpine AS build/);
+    // Beide Stages sind bun-native (Phase-3 bun-cutover).
+    expect(dockerfile).toMatch(/FROM oven\/bun:\$\{BUN_VERSION\}-alpine AS build/);
     expect(dockerfile).toMatch(/FROM oven\/bun:\$\{BUN_VERSION\}-alpine AS runtime/);
   });
 });

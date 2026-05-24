@@ -13,10 +13,10 @@
 // Surface (kein optional). Der Type-Compiler erzwingt Implementierung,
 // kein silent runtime-throw mehr.
 
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { createInMemoryFileProvider } from "../in-memory-provider";
 import { createLocalProvider } from "../local-provider";
 

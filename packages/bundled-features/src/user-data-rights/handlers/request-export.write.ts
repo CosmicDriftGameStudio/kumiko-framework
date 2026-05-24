@@ -22,11 +22,11 @@
 // 1. Klick — Worker liest sein Compliance-Profile aus DIESEM Tenant
 // fuer Job-TTL/Stale/Cleanup.
 
-import { createEventStoreExecutor, fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import type { WriteFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import {
   ACTIVE_JOB_CONSTRAINT,
@@ -143,13 +143,9 @@ async function findActiveJob(
   db: import("@cosmicdrift/kumiko-framework/db").DbRunner,
   userId: string,
 ): Promise<{ id: string; status: string } | null> {
-  // @cast-boundary db-row — fetchOne liefert generic DbRow.
-  // Variadic-conditions werden intern mit AND verknuepft.
-  const row = (await fetchOne(
-    db,
-    exportJobsTable,
-    eq(exportJobsTable["userId"], userId),
-    inArray(exportJobsTable["status"], [EXPORT_JOB_STATUS.Pending, EXPORT_JOB_STATUS.Running]),
-  )) as { id: string; status: string } | null;
-  return row;
+  const row = await fetchOne<{ id: string; status: string }>(db, exportJobsTable, {
+    userId,
+    status: [EXPORT_JOB_STATUS.Pending, EXPORT_JOB_STATUS.Running],
+  });
+  return row ?? null;
 }

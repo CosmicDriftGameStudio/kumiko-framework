@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, mock, test } from "bun:test";
 import { createTenantConfig, createUserConfig } from "../config-helpers";
 import { type ClampInfo, resolveConfigOrParam } from "../resolve-config-or-param";
 import type {
@@ -25,7 +25,7 @@ function makeCtx(entries: Record<string, { def: KeyEntry; fallback: unknown }>) 
     getConfigKey: (key: string) => entries[key]?.def,
   } as unknown as Registry;
 
-  const configFn = vi.fn(async <T extends ConfigKeyType>(handle: ConfigKeyHandle<T>) => {
+  const configFn = mock(async <T extends ConfigKeyType>(handle: ConfigKeyHandle<T>) => {
     return entries[handle.name]?.fallback as ConfigValue<T> | undefined;
   });
 
@@ -273,14 +273,14 @@ describe("resolveConfigOrParam — onClamp audit hook", () => {
 
   test("onClamp does NOT fire when value is within bounds", async () => {
     const { ctx } = makeCtx({ k: { def: boundedDef, fallback: 10 } });
-    const onClamp = vi.fn();
+    const onClamp = mock();
     await resolveConfigOrParam(ctx, handleFor("k", "number"), 50, { onClamp });
     expect(onClamp).not.toHaveBeenCalled();
   });
 
   test("onClamp does NOT fire on exact boundary values", async () => {
     const { ctx } = makeCtx({ k: { def: boundedDef, fallback: 10 } });
-    const onClamp = vi.fn();
+    const onClamp = mock();
     await resolveConfigOrParam(ctx, handleFor("k", "number"), 1, { onClamp });
     await resolveConfigOrParam(ctx, handleFor("k", "number"), 100, { onClamp });
     expect(onClamp).not.toHaveBeenCalled();
@@ -288,7 +288,7 @@ describe("resolveConfigOrParam — onClamp audit hook", () => {
 
   test("onClamp does NOT fire when value is coerced to NaN (no clamp happens, config fallback used)", async () => {
     const { ctx } = makeCtx({ k: { def: boundedDef, fallback: 10 } });
-    const onClamp = vi.fn();
+    const onClamp = mock();
     await resolveConfigOrParam(ctx, handleFor("k", "number"), "abc", { onClamp });
     expect(onClamp).not.toHaveBeenCalled();
   });

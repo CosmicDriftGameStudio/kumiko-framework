@@ -3,11 +3,11 @@
 // als minimal-mock-shape (`MollieClientShape`) injiziert; Plugin-
 // Verhalten ist vom konkreten Mollie-SDK entkoppelt.
 
+import { describe, expect, mock, test } from "bun:test";
 import {
   SubscriptionEventTypes,
   SubscriptionStatuses,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
-import { describe, expect, test, vi } from "vitest";
 import {
   extractMollieId,
   type MollieClientShape,
@@ -61,18 +61,18 @@ function buildClient(
 ): MollieClientShape {
   return {
     payments: {
-      get: vi.fn(async () => {
+      get: mock(async () => {
         if (overrides.paymentReject) throw overrides.paymentReject;
         return overrides.paymentResolve ?? buildMockPayment();
       }),
     },
     customerSubscriptions: {
-      get: vi.fn(async () => {
+      get: mock(async () => {
         if (overrides.subReject) throw overrides.subReject;
         return overrides.subResolve ?? buildMockSubscription();
       }),
-      list: vi.fn(async () => overrides.listResolve ?? []),
-      create: vi.fn(
+      list: mock(async () => overrides.listResolve ?? []),
+      create: mock(
         async () => overrides.createResolve ?? buildMockSubscription({ id: "sub_just_created" }),
       ),
     },
@@ -197,7 +197,8 @@ describe("verifyAndParseMollieWebhook — mandate-setup-flow (= first-payment-pa
     expect(event).not.toBeNull();
     expect(event?.type).toBe(SubscriptionEventTypes.created);
     expect(event?.providerSubscriptionId).toBe("sub_just_created");
-    expect(client.customerSubscriptions.create).toHaveBeenCalledExactlyOnceWith("cst_test_001", {
+    expect(client.customerSubscriptions.create).toHaveBeenCalledTimes(1);
+    expect(client.customerSubscriptions.create).toHaveBeenCalledWith("cst_test_001", {
       amount: { currency: "EUR", value: "9.99" },
       interval: "1 month",
       description: "Pro-Abo monatlich",
@@ -250,7 +251,7 @@ describe("verifyAndParseMollieWebhook — mandate-setup-flow (= first-payment-pa
     const event = await verify(client)("id=tr_upgrade", {});
 
     expect(event?.providerSubscriptionId).toBe("sub_pro_new");
-    expect(client.customerSubscriptions.create).toHaveBeenCalledOnce();
+    expect(client.customerSubscriptions.create).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -1,13 +1,12 @@
-// @vitest-environment jsdom
 //
 // DateInput pinnt: Trigger zeigt formatiertes Datum (locale-aware),
 // Popover öffnet das DayPicker, Auswahl gibt ISO-yyyy-mm-dd zurück.
 // Wert-Roundtrip (ISO → Date → ISO) muss tag-stable sein, sonst
 // zeigt der Calendar je nach Timezone den Vortag.
 
+import { describe, expect, mock, test } from "bun:test";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, test, vi } from "vitest";
 import { DateInput } from "../primitives/date-input";
 
 describe("DateInput", () => {
@@ -79,7 +78,7 @@ describe("DateInput", () => {
 
   test("Tag-Auswahl im Calendar: onChange feuert ISO yyyy-mm-dd", async () => {
     const user = userEvent.setup();
-    const onChange = vi.fn();
+    const onChange = mock();
     render(<DateInput id="d" name="d" value="2026-04-23" onChange={onChange} locale="en-US" />);
     await user.click(screen.getByRole("button"));
     // react-day-picker rendert jeden Tag als gridcell. Der 25. April

@@ -5,7 +5,7 @@
 // echte TZ-Konvertierung (Wall-Clock ↔ UTC) testen wir später beim
 // DB-Wrapper-Schritt.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import {
   createLocatedTimestampField,
   createTimestampField,

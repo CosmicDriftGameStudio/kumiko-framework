@@ -3,7 +3,7 @@
 // Plugin-registration shape is also pinned (drift-pin: name "smtp",
 // build-fn presence).
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { mailTransportSmtpFeature, SMTP_PASSWORD } from "../feature";
 
 describe("mailTransportSmtpFeature — shape", () => {

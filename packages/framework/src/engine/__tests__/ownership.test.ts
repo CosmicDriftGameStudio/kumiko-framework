@@ -1,5 +1,4 @@
-import { sql } from "drizzle-orm";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import {
   buildOwnershipClause,
   from,
@@ -268,14 +267,14 @@ describe("userCanWriteFieldRow() — Straddle-attack prevention", () => {
 // --- buildOwnershipClause() — SQL WHERE builder ---
 
 describe("buildOwnershipClause() — SQL WHERE builder", () => {
-  // Fake Drizzle table — the builder only needs `table[columnName]` to
-  // resolve an opaque column reference, and hands it to eq()/inArray().
-  // We don't assert on the serialized SQL text (dialect-dependent); we
-  // assert on the diskriminated OwnershipClause return.
-  const fakeTable = {
-    teamId: sql.raw("team_id"),
-    assigneeId: sql.raw("assignee_id"),
-    tenantId: sql.raw("tenant_id"),
+  // Fake table — buildOwnershipClause checks (table[field] !== undefined)
+  // and falls back to snake_case mapping for column names. The fixture
+  // shape mirrors drizzle's pgTable for the purposes of the assertions
+  // here; we don't assert on the serialized SQL text.
+  const fakeTable: Record<string, unknown> = {
+    teamId: { name: "team_id" },
+    assigneeId: { name: "assignee_id" },
+    tenantId: { name: "tenant_id" },
   };
 
   test("undefined access map → pass (public entity)", () => {
@@ -372,7 +371,7 @@ describe("buildOwnershipClause() — SQL WHERE builder", () => {
   test("where-rule escape hatch: caller's SQL passed through", () => {
     const user = mkUser({ roles: ["Auditor"] });
     const map: OwnershipMap = {
-      Auditor: { kind: "where", where: () => sql`custom_expr_42 = 1` },
+      Auditor: { kind: "where", where: () => ({ sqlText: "custom_expr_42 = 1", params: [] }) },
     };
     const clause = buildOwnershipClause(user, map, fakeTable);
     expect(clause.kind).toBe("sql");

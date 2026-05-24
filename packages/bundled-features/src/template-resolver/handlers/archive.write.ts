@@ -1,7 +1,6 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import type { TemplateResourceRow } from "../table";
 import { templateResourcesTable } from "../table";
@@ -15,11 +14,9 @@ export const archiveWrite = defineWriteHandler({
   schema: z.object({ id: z.string().min(1) }),
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   handler: async (event, ctx) => {
-    const existing = await fetchOne<TemplateResourceRow>(
-      ctx.db,
-      templateResourcesTable,
-      eq(templateResourcesTable["id"], event.payload.id),
-    );
+    const existing = await fetchOne<TemplateResourceRow>(ctx.db, templateResourcesTable, {
+      id: event.payload.id,
+    });
     // ctx.db ist via createTenantDb tenant-scoped — existing ist null wenn
     // das Template einem fremden Tenant gehört (SystemAdmin-Cross-Tenant
     // braucht tenantIdOverride im Schema, M2-Erweiterung).

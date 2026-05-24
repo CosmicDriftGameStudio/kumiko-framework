@@ -2,8 +2,8 @@
 // layers authMiddleware → csrfMiddleware → handler. Covers the paths that
 // matter in production: cookie + state-changing, cookie + safe, bearer.
 
+import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
-import { describe, expect, test } from "vitest";
 import { TestUsers } from "../../stack";
 import {
   AUTH_COOKIE_NAME,

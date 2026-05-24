@@ -8,8 +8,8 @@
 // arg layout the AI/Designer provides and creates a syntactically valid
 // pattern.
 
+import { describe, expect, test } from "bun:test";
 import { Project, type SourceFile } from "ts-morph";
-import { describe, expect, test } from "vitest";
 import { parseSourceFile } from "../parse";
 import { createFeaturePatcher } from "../patcher";
 

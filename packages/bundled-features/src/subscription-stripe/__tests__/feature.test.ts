@@ -1,6 +1,6 @@
 // feature.ts contract tests for subscription-stripe.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { STRIPE_PROVIDER_NAME, StripeEventTypes, SUBSCRIPTION_STRIPE_FEATURE } from "../constants";
 import { createSubscriptionStripeFeature } from "../feature";
 

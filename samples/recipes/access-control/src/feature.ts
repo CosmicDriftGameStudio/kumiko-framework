@@ -11,7 +11,7 @@
 //     automatically — no manual CREATE INDEX. Inspect the Drizzle table
 //     config in tests to verify.
 
-import { buildDrizzleTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -54,12 +54,12 @@ export const taskRelations = {
   project: { type: "belongsTo", target: "project", foreignKey: "projectId" },
 } as const;
 
-// Relations flow into buildDrizzleTable — every belongsTo FK gets its own
+// Relations flow into buildEntityTable — every belongsTo FK gets its own
 // index on this table.
-export const projectTable = buildDrizzleTable("project", projectEntity, {
+export const projectTable = buildEntityTable("project", projectEntity, {
   relations: projectRelations,
 });
-export const taskTable = buildDrizzleTable("task", taskEntity, {
+export const taskTable = buildEntityTable("task", taskEntity, {
   relations: taskRelations,
 });
 

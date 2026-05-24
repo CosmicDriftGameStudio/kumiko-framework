@@ -11,14 +11,7 @@ import {
 } from "node:fs";
 import { join, resolve as resolvePath } from "node:path";
 
-// Suppress Node's deprecation warnings (notably DEP0169 url.parse, emitted
-// by yarn-classic's own url handling — not our code). Using --no-deprecation
-// is surgical: only Deprecation-class warnings are silenced, unhandled-
-// promise and other runtime warnings still surface. Inherited by child
-// processes through the environment.
-process.env["NODE_OPTIONS"] = [process.env["NODE_OPTIONS"], "--no-deprecation"]
-  .filter(Boolean)
-  .join(" ");
+// NODE_OPTIONS removed after bun cutover — no longer needed
 
 // --- ENV Check ---
 
@@ -106,7 +99,6 @@ const BIN_PATH = (() => {
 })();
 const BIOME = join(BIN_PATH, "biome");
 const TSC = join(BIN_PATH, "tsc");
-const VITEST = join(BIN_PATH, "vitest");
 const CHECK_APP_TSC = resolvePath(import.meta.dir, "..", "scripts", "check-app-tsc.ts");
 
 // Geteilte Liste der CPU-bound, kurzlaufenden Steps. `kumiko check` hängt
@@ -240,7 +232,7 @@ const UNIT_TEST_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: stri
     if (existsSync(join(absPath, "vitest.config.ts"))) {
       steps.push({
         name: `Unit Tests (${root.kind})`,
-        cmd: `cd ${absPath} && KUMIKO_CHECK=1 ${VITEST} run`,
+        cmd: `cd ${absPath} && KUMIKO_CHECK=1 bun test`,
       });
     }
   }
@@ -345,7 +337,7 @@ const commands = {
   create: {
     description: "Scaffold eine leere Feature-Workspace — kumiko create <camelCaseName> [--path <dir>]",
     run: async () => {
-      // CLI: yarn kumiko create <name> [--path <destination>]
+      // CLI: bun kumiko create <name> [--path <destination>]
       //   <name>: required, camelCase feature-Identifier (validiert)
       //   --path: optional Override; default samples/recipes/<kebab-name>/
       //
@@ -357,7 +349,7 @@ const commands = {
       const args = Bun.argv.slice(3);
       const name = args.find((a) => !a.startsWith("--"));
       if (!name) {
-        console.error("\n  Usage: yarn kumiko create <camelCaseName> [--path <dir>]\n");
+        console.error("\n  Usage: bun kumiko create <camelCaseName> [--path <dir>]\n");
         process.exit(1);
       }
       const pathIdx = args.indexOf("--path");
@@ -374,7 +366,7 @@ const commands = {
           `\n  ✓ Feature scaffolded — ${result.featureName}\n` +
             `    package: ${result.packageName}\n` +
             `    path:    ${relDest}\n\n` +
-            "  Next: run yarn install, then edit src/feature.ts.\n",
+            "  Next: run bun install, then edit src/feature.ts.\n",
         );
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -402,13 +394,13 @@ const commands = {
       const scope = Bun.argv[3];
       if (scope === "all") {
         console.log("Volle Breitseite — Unit + Integration...\n");
-        await $`node vitest.integration.guard.js`;
-        await $`yarn vitest run`;
-        await $`yarn vitest run --config vitest.integration.config.ts`;
+        await $`bun vitest.integration.guard.js`;
+        await $`bun test`;
+        await $`bun test --config vitest.integration.config.ts`;
       } else if (scope === "integration") {
         console.log("Integration Tests (Docker muss laufen)...\n");
-        await $`node vitest.integration.guard.js`;
-        await $`yarn vitest run --config vitest.integration.config.ts`;
+        await $`bun vitest.integration.guard.js`;
+        await $`bun test --config vitest.integration.config.ts`;
       } else if (scope === "e2e") {
         // E2E laufen opt-in (nicht Teil von `kumiko check`). Jedes
         // Package/Sample mit einer playwright.config.ts kriegt einen
@@ -444,9 +436,9 @@ const commands = {
           await $`${playwrightBin} test`.cwd(`${target.root}/${target.name}`);
         }
       } else if (scope) {
-        await $`yarn vitest run ${scope}`;
+        await $`bun test ${scope}`;
       } else {
-        await $`yarn vitest run`;
+        await $`bun test`;
       }
     },
   },
@@ -523,10 +515,7 @@ const commands = {
       console.log();
 
       console.log("--- Unit Tests (nur --changed) ---");
-      // vitest --changed nutzt git-diff vs. HEAD: alle Tests die
-      // (transitive) von einem geänderten Source-File abhängen werden
-      // gelaufen. Vitest macht die Resolution selbst.
-      const proc = Bun.spawn(["sh", "-c", "KUMIKO_CHECK=1 yarn vitest run --changed"], {
+      const proc = Bun.spawn(["sh", "-c", "KUMIKO_CHECK=1 bun test --changed"], {
         stdout: "inherit",
         stderr: "inherit",
         env: process.env,
@@ -588,7 +577,7 @@ const commands = {
         console.error(
           `\n  Kein drizzle.config.ts in ${appCwd}.\n  ` +
             `'kumiko migrate' läuft pro App-Workspace — wechsle in den App-Ordner ` +
-            `(samples/showcases/<app>) oder rufe via 'yarn workspace <app> kumiko migrate ...' auf.\n`,
+            `(samples/showcases/<app>) oder rufe via 'bun --filter <app> kumiko migrate ...' auf.\n`,
         );
         process.exit(1);
       }
@@ -610,7 +599,7 @@ const commands = {
       if (!existsSync(drizzleKitBin)) {
         console.error(
           `\n  drizzle-kit nicht gefunden unter ${drizzleKitBin}.\n` +
-            `  Wahrscheinlich ist 'yarn install' nicht gelaufen.\n`,
+            `  Wahrscheinlich ist 'bun install' nicht gelaufen.\n`,
         );
         process.exit(1);
       }
@@ -799,7 +788,7 @@ const commands = {
 
         case "status": {
           if (!arg) {
-            console.error("\n  Usage: yarn kumiko project status <projection-name>\n");
+            console.error("\n  Usage: bun kumiko project status <projection-name>\n");
             process.exit(1);
           }
           const state = await getProjectionState(db, arg);
@@ -829,7 +818,7 @@ const commands = {
 
         case "rebuild": {
           if (!arg) {
-            console.error("\n  Usage: yarn kumiko project rebuild <projection-name>\n");
+            console.error("\n  Usage: bun kumiko project rebuild <projection-name>\n");
             process.exit(1);
           }
           console.log(`\n  Rebuilding ${arg} ...`);
@@ -848,7 +837,7 @@ const commands = {
         }
 
         default:
-          console.log("\n  Usage: yarn kumiko project <list | status <name> | rebuild <name>>\n");
+          console.log("\n  Usage: bun kumiko project <list | status <name> | rebuild <name>>\n");
           await close();
           process.exit(1);
       }
@@ -865,7 +854,7 @@ const commands = {
       const subCommand = Bun.argv[3];
 
       if (subCommand !== "prune") {
-        console.log("\n  Usage: yarn kumiko events prune [--older-than <days>] [--dry-run]\n");
+        console.log("\n  Usage: bun kumiko events prune [--older-than <days>] [--dry-run]\n");
         process.exit(1);
       }
 
@@ -917,7 +906,7 @@ const commands = {
         if (e instanceof ConsumerLagError) {
           console.error(`\n  ${red}✗${reset} ${e.message}\n`);
           console.error(
-            `    ${dim}Options: catch up the consumer, disable it, or "yarn kumiko consumer skip <name>".${reset}\n`,
+            `    ${dim}Options: catch up the consumer, disable it, or "bun kumiko consumer skip <name>".${reset}\n`,
           );
         } else {
           console.error(`\n  ${red}✗${reset} ${e instanceof Error ? e.message : String(e)}\n`);
@@ -1022,14 +1011,14 @@ const commands = {
 
           case "status": {
             if (!arg) {
-              console.error("\n  Usage: yarn kumiko consumer status <consumer-name>\n");
+              console.error("\n  Usage: bun kumiko consumer status <consumer-name>\n");
               process.exit(1);
             }
             const state = await getConsumerState(db, arg);
             if (!state) {
               if (!registeredConsumerNames.includes(arg)) {
                 console.error(
-                  `\n  Consumer "${arg}" ist nicht registriert. Liste via "yarn kumiko consumer list".\n`,
+                  `\n  Consumer "${arg}" ist nicht registriert. Liste via "bun kumiko consumer list".\n`,
                 );
                 process.exit(1);
               }
@@ -1050,7 +1039,7 @@ const commands = {
 
           case "restart": {
             if (!arg) {
-              console.error("\n  Usage: yarn kumiko consumer restart <consumer-name>\n");
+              console.error("\n  Usage: bun kumiko consumer restart <consumer-name>\n");
               process.exit(1);
             }
             const state = await restartConsumer(db, arg);
@@ -1061,7 +1050,7 @@ const commands = {
 
           case "disable": {
             if (!arg) {
-              console.error("\n  Usage: yarn kumiko consumer disable <consumer-name>\n");
+              console.error("\n  Usage: bun kumiko consumer disable <consumer-name>\n");
               process.exit(1);
             }
             const state = await disableConsumer(db, arg);
@@ -1071,7 +1060,7 @@ const commands = {
 
           case "enable": {
             if (!arg) {
-              console.error("\n  Usage: yarn kumiko consumer enable <consumer-name>\n");
+              console.error("\n  Usage: bun kumiko consumer enable <consumer-name>\n");
               process.exit(1);
             }
             const state = await enableConsumer(db, arg);
@@ -1081,7 +1070,7 @@ const commands = {
 
           case "skip": {
             if (!arg) {
-              console.error("\n  Usage: yarn kumiko consumer skip <consumer-name>\n");
+              console.error("\n  Usage: bun kumiko consumer skip <consumer-name>\n");
               process.exit(1);
             }
             const state = await skipPoisonEvent(db, arg);
@@ -1098,7 +1087,7 @@ const commands = {
 
           default:
             console.log(
-              "\n  Usage: yarn kumiko consumer <list | status <name> | restart <name> | disable <name> | enable <name> | skip <name>>\n",
+              "\n  Usage: bun kumiko consumer <list | status <name> | restart <name> | disable <name> | enable <name> | skip <name>>\n",
             );
             await close();
             process.exit(1);
@@ -1151,7 +1140,7 @@ const commands = {
       checks.push({
         name: "docker services",
         ok: dockerOk,
-        hint: dockerOk ? undefined : "yarn kumiko dev",
+        hint: dockerOk ? undefined : "bun kumiko dev",
       });
 
       let pgOk = false;
@@ -1207,7 +1196,7 @@ const commands = {
       const subcommand = Bun.argv[3];
       if (subcommand !== "pipeline") {
         console.log(
-          "\n  Usage: yarn kumiko codemod pipeline [--dry-run] [--verbose] [--dir <path>]\n" +
+          "\n  Usage: bun kumiko codemod pipeline [--dry-run] [--verbose] [--dir <path>]\n" +
             "    --dry-run    Preview changes without writing\n" +
             "    --verbose    Show per-file conversion details\n" +
             "    --dir        Target directory (default: current directory)\n",
@@ -1350,7 +1339,7 @@ async function interactiveMenu(): Promise<void> {
 
 // --- Hidden commands ---
 
-// Easter egg: `yarn kumiko prost` — for when you need a moment.
+// Easter egg: `bun kumiko prost` — for when you need a moment.
 function prost(): void {
   const yellow = "\x1b[33m";
   const dim = "\x1b[2m";
@@ -1605,7 +1594,7 @@ if (!command) {
   } else {
     const handler = commands[command as keyof typeof commands];
     if (!handler) {
-      console.error(`\n  I don't know "${command}". Maybe a typo? Try: yarn kumiko help\n`);
+      console.error(`\n  I don't know "${command}". Maybe a typo? Try: bun kumiko help\n`);
       process.exit(1);
     }
     await handler.run();

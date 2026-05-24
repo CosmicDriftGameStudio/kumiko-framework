@@ -1,8 +1,8 @@
 // Resolver-helper: liest die current subscription-row für einen Tenant
 // aus der read_subscriptions-projection.
 
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
-import { eq } from "drizzle-orm";
 import { subscriptionAggregateId } from "./aggregate-id";
 import { subscriptionsProjectionTable } from "./projection";
 
@@ -22,11 +22,7 @@ export async function getSubscriptionForTenant(
   tenantId: string,
 ): Promise<SubscriptionView | null> {
   const aggId = subscriptionAggregateId(tenantId);
-  const [row] = await ctx.db
-    .select()
-    .from(subscriptionsProjectionTable)
-    .where(eq(subscriptionsProjectionTable["id"], aggId))
-    .limit(1);
+  const [row] = await selectMany(ctx.db, subscriptionsProjectionTable, { id: aggId }, { limit: 1 });
   if (!row) return null;
   // @cast-boundary db-row — drizzle-row carries column-as-unknown
   return {

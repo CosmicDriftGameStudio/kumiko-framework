@@ -1,4 +1,4 @@
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createLongTextField,
@@ -40,10 +40,7 @@ export const templateResourceEntity = createEntity({
   ],
 });
 
-export const templateResourcesTable = buildDrizzleTable(
-  "template-resource",
-  templateResourceEntity,
-);
+export const templateResourcesTable = buildEntityTable("template-resource", templateResourceEntity);
 
 // Concrete Row-Type — single-source dafür dass die unknown-Werte die
 // Drizzle aus `Record<string, unknown>` liefert genau einmal benannt

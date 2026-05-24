@@ -4,7 +4,7 @@
 // werden. Memory `feedback_no_fake_tests`: das Mapping IST die Logik,
 // nicht ein Detail.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { policyToStrategy } from "../run-forget-cleanup";
 
 describe("policyToStrategy", () => {

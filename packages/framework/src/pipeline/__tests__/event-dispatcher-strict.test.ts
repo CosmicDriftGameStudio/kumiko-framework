@@ -8,7 +8,7 @@
 // Unit-level because the check happens before any DB call — no pgClient,
 // no event-store schema, no setupTestStack needed.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import type { AppContext, Registry } from "../../engine/types";
 import { createEventDispatcher, type EventConsumer } from "../event-dispatcher";
 
@@ -35,18 +35,20 @@ describe("event-dispatcher — strict runOnce precondition", () => {
   test("ensureRegistered() is a valid alternative to start() — runOnce no longer throws", async () => {
     const consumers: EventConsumer[] = [{ name: "noop", handler: async () => {} }];
     let insertCalls = 0;
+    // bun-db path: dispatcher uses asRawClient(db).unsafe(sql, params) for
+    // INSERT/SELECT/UPDATE. Match by SQL substring so we count INSERTs and
+    // hand back empty rows for SELECT.
+    const unsafe = async (sqlText: string): Promise<unknown[]> => {
+      if (/INSERT INTO "kumiko_event_consumers"/.test(sqlText)) {
+        insertCalls += 1;
+        return [];
+      }
+      return [];
+    };
     const stubDb = {
-      insert: () => ({
-        values: () => ({ onConflictDoNothing: async () => ++insertCalls }),
-      }),
-      transaction: async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn({
-          select: () => ({
-            from: () => ({ where: () => ({ for: () => [] }) }),
-          }),
-          execute: async () => [],
-          update: () => ({ set: () => ({ where: () => Promise.resolve() }) }),
-        }),
+      unsafe,
+      begin: async (fn: (tx: unknown) => Promise<unknown>) => fn(stubDb),
+      transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(stubDb),
     };
     const dispatcher = createEventDispatcher({
       db: stubDb as never,

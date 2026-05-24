@@ -14,12 +14,14 @@
 // MIT einem mock-resolver. Diese tests zeigen die echte tier-engine als
 // resolver-implementierung funktioniert.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { configValuesTable } from "@cosmicdrift/kumiko-bundled-features/config";
 import { tenantSecretsTable } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { tenantMembershipsTable, tenantTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features";
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineFeature,
   findTierResolverUsage,
@@ -33,8 +35,6 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { sql } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import type { TierMap } from "../compose-app";
 import { tierAssignmentEntity } from "../entity";
 import { createTierEngineFeature } from "../feature";
@@ -63,7 +63,7 @@ const featProFeature = defineFeature("feat-pro", (r) => {
   );
 });
 
-const tierAssignmentTable = buildDrizzleTable("tier-assignment", tierAssignmentEntity);
+const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
 
 const features = composeFeatures(
   [createTierEngineFeature({ tierMap: TEST_TIER_MAP }), featProFeature],
@@ -96,8 +96,8 @@ beforeAll(async () => {
 afterAll(async () => stack?.cleanup());
 
 beforeEach(async () => {
-  await stack.db.execute(
-    sql`TRUNCATE read_tier_assignments, kumiko_events RESTART IDENTITY CASCADE`,
+  await asRawClient(stack.db).unsafe(
+    `TRUNCATE read_tier_assignments, kumiko_events RESTART IDENTITY CASCADE`,
   );
 });
 

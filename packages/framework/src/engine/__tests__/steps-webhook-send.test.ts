@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { getStep } from "../define-step";
 import {
   STEP_DISPATCH_AGGREGATE_TYPE,
@@ -7,7 +7,7 @@ import {
 import { buildWebhookSendStep } from "../steps/webhook-send";
 import type { PipelineCtx } from "../types/step";
 
-const mockUnsafeAppendEvent = vi.fn();
+const mockUnsafeAppendEvent = mock();
 
 const mockCtx = {
   unsafeAppendEvent: mockUnsafeAppendEvent,
@@ -50,7 +50,7 @@ describe("buildWebhookSendStep", () => {
 
 describe("webhook.send run", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mock.clearAllMocks();
   });
 
   it("appends a step.dispatch-requested system event with the webhook spec", async () => {
@@ -67,7 +67,7 @@ describe("webhook.send run", () => {
       mockCtx,
     );
 
-    expect(mockUnsafeAppendEvent).toHaveBeenCalledOnce();
+    expect(mockUnsafeAppendEvent).toHaveBeenCalledTimes(1);
     const eventArg = mockUnsafeAppendEvent.mock.calls[0]![0];
 
     expect(eventArg.aggregateType).toBe(STEP_DISPATCH_AGGREGATE_TYPE);
@@ -79,8 +79,8 @@ describe("webhook.send run", () => {
 
   it("resolves function-based url and body resolvers", async () => {
     const stepDef = getStep("webhook.send");
-    const urlFn = vi.fn(() => "https://hooks.example/dynamic");
-    const bodyFn = vi.fn(() => ({ key: "value" }));
+    const urlFn = mock(() => "https://hooks.example/dynamic");
+    const bodyFn = mock(() => ({ key: "value" }));
 
     await stepDef!.run(
       {

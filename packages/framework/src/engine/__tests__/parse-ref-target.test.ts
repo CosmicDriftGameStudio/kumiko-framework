@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { parseRefTarget } from "../parse-ref-target";
 
 // Tier 2.7e Cross-Feature: parser-Konvention für ReferenceFieldDef.

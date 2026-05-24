@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test } from "bun:test";
 import { evalCommand } from "../eval";
 import { makeContext, makeSpyOutput, makeTempCwd } from "../_test-helpers";
 

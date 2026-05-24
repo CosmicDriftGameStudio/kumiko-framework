@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+import { describe, expect, test } from "bun:test";
 import type { Dispatcher, DispatcherStatus } from "@cosmicdrift/kumiko-headless";
 import {
   DispatcherProvider,
@@ -7,7 +7,6 @@ import {
   useOptionalDispatcher,
 } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { describe, expect, test } from "vitest";
 import { act, createMockDispatcher, render, renderHook } from "./test-utils";
 
 // Minimal fake dispatcher: write/query/batch throwen, damit klar wird

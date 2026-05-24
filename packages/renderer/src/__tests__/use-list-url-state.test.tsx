@@ -1,13 +1,12 @@
-// @vitest-environment jsdom
 //
 // useListUrlState pinnt den URL-State-Vertrag pro Screen-ID-Namespace:
 // `?<screenId>.sort=…&<screenId>.dir=…&<screenId>.q=…&<screenId>.page=…`.
 // Zwei Listen auf der Route teilen sich die URL ohne Param-Konflikt.
 // Page wird bei Sort/Filter-Wechsel reseted; Sort bleibt bei Search.
 
+import { describe, expect, mock, test } from "bun:test";
 import { act, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { describe, expect, test, vi } from "vitest";
 import type { NavApi } from "../app/nav";
 import { NavProvider } from "../app/nav";
 import { useListUrlState } from "../hooks/use-list-url-state";
@@ -23,8 +22,8 @@ function makeNav(initial: Record<string, string> = {}): NavApi & {
     captures: Array<Record<string, string | null>>;
   } = {
     route: undefined,
-    navigate: vi.fn(),
-    replace: vi.fn(),
+    navigate: mock(),
+    replace: mock(),
     hrefFor: () => "",
     get searchParams() {
       return params;
@@ -41,11 +40,9 @@ function makeNav(initial: Record<string, string> = {}): NavApi & {
   };
   return api;
 }
-
 function wrapper(nav: NavApi): (props: { children: ReactNode }) => ReactNode {
   return ({ children }) => <NavProvider value={nav}>{children}</NavProvider>;
 }
-
 describe("useListUrlState", () => {
   test("Default-State: kein URL-Param → sort=null, q='', page=1", () => {
     const nav = makeNav();
@@ -54,25 +51,21 @@ describe("useListUrlState", () => {
     expect(result.current.q).toBe("");
     expect(result.current.page).toBe(1);
   });
-
   test("liest sort+dir aus URL-Params (mit screenId-Prefix)", () => {
     const nav = makeNav({ "orders.sort": "createdAt", "orders.dir": "desc" });
     const { result } = renderHook(() => useListUrlState("orders"), { wrapper: wrapper(nav) });
     expect(result.current.sort).toEqual({ field: "createdAt", dir: "desc" });
   });
-
   test("ignoriert sort einer ANDEREN Liste (Namespacing)", () => {
     const nav = makeNav({ "incidents.sort": "severity", "incidents.dir": "asc" });
     const { result } = renderHook(() => useListUrlState("orders"), { wrapper: wrapper(nav) });
     expect(result.current.sort).toBeNull();
   });
-
   test("invalid dir (z.B. 'foo') → sort=null (defensive parse)", () => {
     const nav = makeNav({ "orders.sort": "name", "orders.dir": "foo" });
     const { result } = renderHook(() => useListUrlState("orders"), { wrapper: wrapper(nav) });
     expect(result.current.sort).toBeNull();
   });
-
   test("setSort schreibt sort+dir, resettet page (atomic update)", () => {
     const nav = makeNav({ "orders.page": "5" });
     const { result } = renderHook(() => useListUrlState("orders"), { wrapper: wrapper(nav) });
@@ -86,7 +79,6 @@ describe("useListUrlState", () => {
       "orders.page": null, // page-reset bei sort-change
     });
   });
-
   test("setSort(null) löscht sort+dir+page", () => {
     const nav = makeNav({
       "orders.sort": "name",
@@ -103,7 +95,6 @@ describe("useListUrlState", () => {
       "orders.page": null,
     });
   });
-
   test("setQ schreibt q + resettet page (Sort bleibt unangetastet)", () => {
     const nav = makeNav({
       "orders.sort": "name",
@@ -122,7 +113,6 @@ describe("useListUrlState", () => {
     // die Sortierung nicht.
     expect(nav.captures[0]).not.toHaveProperty("orders.sort");
   });
-
   test("setQ('') löscht den q-Key", () => {
     const nav = makeNav({ "orders.q": "acme" });
     const { result } = renderHook(() => useListUrlState("orders"), { wrapper: wrapper(nav) });
@@ -134,7 +124,6 @@ describe("useListUrlState", () => {
       "orders.page": null,
     });
   });
-
   test("setPage(1) löscht den Key (Default-Page = unprefixed URL)", () => {
     const nav = makeNav({ "orders.page": "5" });
     const { result } = renderHook(() => useListUrlState("orders"), { wrapper: wrapper(nav) });
@@ -143,7 +132,6 @@ describe("useListUrlState", () => {
     });
     expect(nav.captures[0]).toEqual({ "orders.page": null });
   });
-
   test("setPage(N>1) speichert die Page als String", () => {
     const nav = makeNav();
     const { result } = renderHook(() => useListUrlState("orders"), { wrapper: wrapper(nav) });
@@ -152,7 +140,6 @@ describe("useListUrlState", () => {
     });
     expect(nav.captures[0]).toEqual({ "orders.page": "7" });
   });
-
   test("invalid page (negativ, NaN, 0) → fallback auf 1", () => {
     const nav = makeNav({ "orders.page": "-3" });
     const { result } = renderHook(() => useListUrlState("orders"), { wrapper: wrapper(nav) });

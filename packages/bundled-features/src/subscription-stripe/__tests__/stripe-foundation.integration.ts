@@ -12,6 +12,7 @@
 // Stripe-output liefert). Dieser Test fängt das Spalten-Mapping +
 // Verdrahtungs-Bugs ab.
 
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
   billingFoundationFeature,
   createSubscriptionWebhookHandler,
@@ -29,7 +30,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { Hono } from "hono";
 import Stripe from "stripe";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createSubscriptionStripeFeature } from "../feature";
 
 // =============================================================================

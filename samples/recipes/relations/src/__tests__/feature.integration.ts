@@ -1,6 +1,7 @@
 // Relations Sample — Integration Test
 // Proves: hasMany relations, cascade delete, restrict delete
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createCascadeDeleteHook } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
@@ -9,7 +10,6 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import {
   memberEntity,
   memberTable,

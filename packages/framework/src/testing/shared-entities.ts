@@ -1,4 +1,4 @@
-import { buildDrizzleTable } from "../db/table-builder";
+import { buildEntityTable } from "../db/table-builder";
 import {
   createBooleanField,
   createEntity,
@@ -8,7 +8,7 @@ import {
 
 // --- Shared Entity Fixtures -------------------------------------------------
 //
-// Replaces inline `createEntity(...) + buildDrizzleTable(...)` boilerplate
+// Replaces inline `createEntity(...) + buildEntityTable(...)` boilerplate
 // that appeared in 20+ integration tests. Pick the shape closest to what
 // the test needs; if a feature needs extras (hooks, state-machine, fields),
 // keep a local inline entity rather than bloating these shared ones.
@@ -20,7 +20,7 @@ export const sharedWidgetEntity = createEntity({
   fields: { name: createTextField({ required: true }) },
   softDelete: true,
 });
-export const sharedWidgetTable = buildDrizzleTable("widget", sharedWidgetEntity);
+export const sharedWidgetTable = buildEntityTable("widget", sharedWidgetEntity);
 
 // User with searchable name/email fields. Used by full-stack, cascade,
 // and any test that exercises search-indexing or field-access on a
@@ -35,7 +35,7 @@ export const sharedUserEntity = createEntity({
   softDelete: true,
   searchWeight: 10,
 });
-export const sharedUserTable = buildDrizzleTable("user", sharedUserEntity);
+export const sharedUserTable = buildEntityTable("user", sharedUserEntity);
 
 // Item with name + optional price. Used by error-contract, batch,
 // projection-rebuild — tests that need "a thing you can CRUD".
@@ -46,4 +46,4 @@ export const sharedItemEntity = createEntity({
   },
   softDelete: true,
 });
-export const sharedItemTable = buildDrizzleTable("item", sharedItemEntity);
+export const sharedItemTable = buildEntityTable("item", sharedItemEntity);

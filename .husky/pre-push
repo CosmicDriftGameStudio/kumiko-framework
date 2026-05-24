@@ -1,9 +1,9 @@
 #!/usr/bin/env sh
-# Pre-push hook — runs scoped `yarn check` before allowing push.
+# Pre-push hook — runs scoped `bun check` before allowing push.
 #
 # Logic:
 #   1. If running inside the cosmicdriftgamestudio Parent-Workspace,
-#      delegate to its `yarn check` with KUMIKO_CLI_SCOPE set to THIS
+#      delegate to its `bun check` with KUMIKO_CLI_SCOPE set to THIS
 #      sub-repo only — so a push from kumiko-framework doesn't run
 #      Biome/TS/Tests for kumiko-studio/-enterprise/-platform/
 #      publicstatus as well.
@@ -13,7 +13,7 @@
 #      `KUMIKO_GUARD_ROOTS` to scope guard scan explicitly when you
 #      know what you're doing.
 #   2. Else (standalone clone outside the parent workspace): run the
-#      sub-repo's own `yarn test:run`.
+#      sub-repo's own `bun test`.
 #
 # Override: set PRE_PUSH_SKIP=1 to bypass (use sparingly).
 
@@ -28,9 +28,9 @@ PARENT_DIR="$(cd "$REPO_ROOT/.." && pwd)"
 
 if [ -f "$PARENT_DIR/package.json" ] \
    && grep -q '"name": *"cosmicdriftgamestudio"' "$PARENT_DIR/package.json" 2>/dev/null; then
-  echo "[pre-push] yarn check (scoped: $REPO_NAME)…"
-  cd "$PARENT_DIR" && KUMIKO_CLI_SCOPE="$REPO_NAME" yarn check
+  echo "[pre-push] bun check (scoped: $REPO_NAME)…"
+  cd "$PARENT_DIR" && KUMIKO_CLI_SCOPE="$REPO_NAME" bun kumiko check
 else
-  echo "[pre-push] yarn test:run (standalone)…"
-  cd "$REPO_ROOT" && yarn test:run
+  echo "[pre-push] bun test (standalone)…"
+  cd "$REPO_ROOT" && bun test
 fi

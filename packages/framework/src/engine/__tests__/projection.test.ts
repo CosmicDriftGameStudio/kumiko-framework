@@ -1,5 +1,5 @@
-import { integer, pgTable, uuid } from "drizzle-orm/pg-core";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
+import { integer, type SchemaTable, table, uuid } from "../../db/dialect";
 import type { ProjectionDefinition } from "../../engine/types";
 import { defineFeature } from "../define-feature";
 import { createEntity, createTextField } from "../factories";
@@ -9,10 +9,10 @@ import { createRegistry } from "../registry";
 // the projection itself (apply, TX semantics) is covered by the MietNomade
 // integration suite; this file focuses on the registrar/registry contracts
 // that fire BEFORE any write happens.
-const testTable = pgTable("test_projection", {
+const testTable = table("test_projection", {
   id: uuid("id").primaryKey(),
   count: integer("count").notNull().default(0),
-});
+}) as unknown as SchemaTable;
 
 function exampleEntity(name = "unit") {
   return createEntity({

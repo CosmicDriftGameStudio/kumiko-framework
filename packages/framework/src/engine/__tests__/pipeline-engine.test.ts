@@ -3,8 +3,8 @@
 // Sub-step-builders (branch, forEach) live in pipeline-sub-pipelines.test.ts;
 // boot-validator in validate-projection-allowlist.test.ts.
 
+import { describe, expect, it } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { TestUsers } from "../../stack";
 import { defineWriteHandler } from "../define-handler";

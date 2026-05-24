@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, mock, test } from "bun:test";
 import { createFormController } from "../form-controller";
 
 describe("createFormController — core state machine", () => {
@@ -31,7 +31,7 @@ describe("createFormController — core state machine", () => {
   test("setField to same value is a no-op: no new snapshot, no listener fires", () => {
     const form = createFormController({ initial: { title: "hello" } });
     const before = form.getSnapshot();
-    const listener = vi.fn();
+    const listener = mock();
     form.subscribe(listener);
 
     form.setField("title", "hello");
@@ -54,7 +54,7 @@ describe("createFormController — core state machine", () => {
 
   test("setValues: bulk update fires one notify, one snapshot rebuild", () => {
     const form = createFormController({ initial: { a: 1, b: 2, c: 3 } });
-    const listener = vi.fn();
+    const listener = mock();
     form.subscribe(listener);
 
     form.setValues({ a: 10, b: 20 });
@@ -66,7 +66,7 @@ describe("createFormController — core state machine", () => {
   test("setValues with no effective changes is a no-op", () => {
     const form = createFormController({ initial: { a: 1, b: 2 } });
     const before = form.getSnapshot();
-    const listener = vi.fn();
+    const listener = mock();
     form.subscribe(listener);
 
     form.setValues({ a: 1 });
@@ -77,7 +77,7 @@ describe("createFormController — core state machine", () => {
 
   test("subscribe/unsubscribe: listener stops firing after unsubscribe", () => {
     const form = createFormController({ initial: { title: "hello" } });
-    const listener = vi.fn();
+    const listener = mock();
     const unsubscribe = form.subscribe(listener);
 
     form.setField("title", "world");
@@ -125,7 +125,7 @@ describe("createFormController — core state machine", () => {
   test("reset is a no-op when already clean and error-free", () => {
     const form = createFormController({ initial: { title: "hello" } });
     const before = form.getSnapshot();
-    const listener = vi.fn();
+    const listener = mock();
     form.subscribe(listener);
 
     form.reset();

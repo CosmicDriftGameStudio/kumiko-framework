@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+import { afterAll, beforeEach, describe, expect, type Mock, spyOn, test } from "bun:test";
 import type {
   EntityDefinition,
   EntityListScreenDefinition,
@@ -9,7 +9,6 @@ import {
   RenderList,
 } from "@cosmicdrift/kumiko-renderer";
 import type { ReactElement, ReactNode } from "react";
-import { afterAll, beforeEach, describe, expect, type MockInstance, test, vi } from "vitest";
 import { render, screen } from "./test-utils";
 
 // Tests für die JSX-Renderer-Form von ListColumn-Spalten:
@@ -50,9 +49,9 @@ describe("RenderList — column-renderer registry", () => {
   // Spy lokal pro Test installieren + global zurückbauen, damit die
   // Mock-Implementation nicht in andere Test-Dateien leakt (Console-Spy
   // auf File-Level würde den ganzen Vitest-Worker betreffen).
-  let warnSpy: MockInstance<typeof console.warn>;
+  let warnSpy: Mock<typeof console.warn>;
   beforeEach(() => {
-    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    warnSpy = spyOn(console, "warn").mockImplementation(() => {});
   });
   afterAll(() => {
     warnSpy.mockRestore();

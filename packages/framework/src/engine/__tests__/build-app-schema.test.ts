@@ -7,7 +7,7 @@
 //      projection-Schritt rausgefiltert — sonst landet Server-Runtime
 //      im Browser-Bundle.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { buildAppSchema } from "../build-app-schema";
 import { defineFeature } from "../define-feature";
 import { createRegistry } from "../registry";

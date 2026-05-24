@@ -7,12 +7,12 @@
 // events sind >100 Felder; full-fidelity-fixtures wären Maintenance-
 // Aufwand ohne Test-Wert.
 
+import { describe, expect, test } from "bun:test";
 import {
   SubscriptionEventTypes,
   SubscriptionStatuses,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import Stripe from "stripe";
-import { describe, expect, test } from "vitest";
 import {
   mapStripeEventType,
   mapStripeStatus,
@@ -83,8 +83,8 @@ function buildSubscriptionEvent(overrides: {
 }
 
 /** Erstellt einen valid Stripe-signed-Header für ein gegebenes payload. */
-function signEvent(payload: string, secret = TEST_SECRET): string {
-  return stripeForFixtures.webhooks.generateTestHeaderString({
+async function signEvent(payload: string, secret = TEST_SECRET): Promise<string> {
+  return stripeForFixtures.webhooks.generateTestHeaderStringAsync({
     payload,
     secret,
   });
@@ -102,7 +102,7 @@ describe("verifyAndParseStripeWebhook — sig-verify", () => {
 
   test("happy path: valid sig + bekannter event-type → SubscriptionEvent", async () => {
     const payload = JSON.stringify(buildSubscriptionEvent({}));
-    const sig = signEvent(payload);
+    const sig = await signEvent(payload);
 
     const event = await verify(payload, { "stripe-signature": sig });
     expect(event).not.toBeNull();
@@ -120,7 +120,7 @@ describe("verifyAndParseStripeWebhook — sig-verify", () => {
 
   test("wrong secret → sig-verify failed → throws", async () => {
     const payload = JSON.stringify(buildSubscriptionEvent({}));
-    const sig = signEvent(payload, "whsec_wrong_secret");
+    const sig = await signEvent(payload, "whsec_wrong_secret");
     await expect(verify(payload, { "stripe-signature": sig })).rejects.toThrow(
       /signature verify failed/,
     );
@@ -128,7 +128,7 @@ describe("verifyAndParseStripeWebhook — sig-verify", () => {
 
   test("modified body → sig-verify failed (Replay-Protection)", async () => {
     const original = JSON.stringify(buildSubscriptionEvent({}));
-    const sig = signEvent(original);
+    const sig = await signEvent(original);
     // Tamper with body — Stripe-sig matched die exakten bytes.
     const tampered = original.replace("tenant-test-1", "tenant-attacker");
     await expect(verify(tampered, { "stripe-signature": sig })).rejects.toThrow(
@@ -151,7 +151,7 @@ describe("verifyAndParseStripeWebhook — event-filter", () => {
     // customer.created ist gültiger Stripe-event aber nicht in unserer
     // 5-types-Whitelist.
     const payload = JSON.stringify(buildSubscriptionEvent({ eventType: "customer.created" }));
-    const sig = signEvent(payload);
+    const sig = await signEvent(payload);
     const event = await verify(payload, { "stripe-signature": sig });
     expect(event).toBeNull();
   });
@@ -160,7 +160,7 @@ describe("verifyAndParseStripeWebhook — event-filter", () => {
     const payload = JSON.stringify(
       buildSubscriptionEvent({ eventType: "customer.subscription.updated" }),
     );
-    const sig = signEvent(payload);
+    const sig = await signEvent(payload);
     const event = await verify(payload, { "stripe-signature": sig });
     expect(event?.type).toBe(SubscriptionEventTypes.updated);
   });
@@ -172,7 +172,7 @@ describe("verifyAndParseStripeWebhook — event-filter", () => {
         status: "canceled",
       }),
     );
-    const sig = signEvent(payload);
+    const sig = await signEvent(payload);
     const event = await verify(payload, { "stripe-signature": sig });
     expect(event?.type).toBe(SubscriptionEventTypes.canceled);
     expect(event?.status).toBe(SubscriptionStatuses.canceled);
@@ -200,7 +200,7 @@ describe("verifyAndParseStripeWebhook — event-filter", () => {
       },
     };
     const payload = JSON.stringify(ev);
-    const sig = signEvent(payload);
+    const sig = await signEvent(payload);
     const event = await verify(payload, { "stripe-signature": sig });
     expect(event).toBeNull();
   });
@@ -221,21 +221,21 @@ describe("verifyAndParseStripeWebhook — tenant-resolution + price-to-tier", ()
     // @ts-expect-error — entferne metadata für Test
     ev.data.object.metadata = {};
     const payload = JSON.stringify(ev);
-    const sig = signEvent(payload);
+    const sig = await signEvent(payload);
     const event = await verify(payload, { "stripe-signature": sig });
     expect(event).toBeNull();
   });
 
   test("price-id im Mapping → korrekter tier-Wert", async () => {
     const payload = JSON.stringify(buildSubscriptionEvent({ priceId: "price_business_yearly" }));
-    const sig = signEvent(payload);
+    const sig = await signEvent(payload);
     const event = await verify(payload, { "stripe-signature": sig });
     expect(event?.tier).toBe("business");
   });
 
   test("price-id NICHT im Mapping → null", async () => {
     const payload = JSON.stringify(buildSubscriptionEvent({ priceId: "price_unknown_xyz" }));
-    const sig = signEvent(payload);
+    const sig = await signEvent(payload);
     const event = await verify(payload, { "stripe-signature": sig });
     expect(event).toBeNull();
   });
@@ -243,7 +243,7 @@ describe("verifyAndParseStripeWebhook — tenant-resolution + price-to-tier", ()
   test("currentPeriodEnd wird aus subscription.items[0].current_period_end (Unix-sec) zu ISO konvertiert", async () => {
     const periodEndUnix = 1_780_000_000;
     const payload = JSON.stringify(buildSubscriptionEvent({ currentPeriodEndUnix: periodEndUnix }));
-    const sig = signEvent(payload);
+    const sig = await signEvent(payload);
     const event = await verify(payload, { "stripe-signature": sig });
     // 1_780_000_000 sec = 2026-05-28T20:26:40Z (in ms: 1.78e12)
     // Temporal.Instant.toString() droppt Trailing-Zeros — keine .000Z

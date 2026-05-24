@@ -1,6 +1,6 @@
+import { fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { USER_STATUS, userTable } from "../../user";
 
@@ -29,13 +29,11 @@ export const liftRestrictionWrite = defineWriteHandler({
   schema: z.object({}),
   access: { openToAll: true },
   handler: async (event, ctx) => {
-    const userRow = await ctx.db.raw
-      .select({ status: userTable["status"] })
-      .from(userTable)
-      .where(eq(userTable["id"], event.user.id))
-      .limit(1);
+    const userRow = await fetchOne<{ status: string }>(ctx.db.raw, userTable, {
+      id: event.user.id,
+    });
 
-    if (userRow.length === 0) {
+    if (!userRow) {
       return writeFailure(
         new UnprocessableError("user_not_found", {
           details: { reason: "user_not_found", userId: event.user.id },
@@ -43,7 +41,7 @@ export const liftRestrictionWrite = defineWriteHandler({
       );
     }
 
-    const currentStatus = userRow[0]?.status;
+    const currentStatus = userRow["status"];
     if (currentStatus !== USER_STATUS.Restricted) {
       return writeFailure(
         new UnprocessableError("not_restricted", {
@@ -52,10 +50,7 @@ export const liftRestrictionWrite = defineWriteHandler({
       );
     }
 
-    await ctx.db.raw
-      .update(userTable)
-      .set({ status: USER_STATUS.Active })
-      .where(eq(userTable["id"], event.user.id));
+    await updateMany(ctx.db.raw, userTable, { status: USER_STATUS.Active }, { id: event.user.id });
 
     return {
       isSuccess: true as const,

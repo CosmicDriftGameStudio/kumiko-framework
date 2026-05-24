@@ -1,5 +1,5 @@
 import { applyEntityEvent } from "../db/apply-entity-event";
-import { buildDrizzleTable } from "../db/table-builder";
+import { buildEntityTable } from "../db/table-builder";
 import { buildMetricName, validateMetricName } from "../observability";
 import { type QnType, qualifyEntityName } from "./qualified-name";
 import type {
@@ -67,7 +67,7 @@ function buildImplicitProjection(
   qualify: typeof qualifyEntityName,
 ): ProjectionDefinition {
   const name = qualify(featureName, "projection", `${entityName}${IMPLICIT_PROJECTION_SUFFIX}`);
-  const drizzleTable = buildDrizzleTable(entityName, entity);
+  const drizzleTable = buildEntityTable(entityName, entity);
   // applyEntityEvent gibt ApplyResult zurück; SingleStreamApplyFn erwartet
   // Promise<void>. Im rebuild-Pfad ist die Row irrelevant — wir discarden.
   const handler = async (

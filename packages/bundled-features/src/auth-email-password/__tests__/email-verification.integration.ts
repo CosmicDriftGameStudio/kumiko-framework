@@ -1,4 +1,6 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
+import { asRawClient, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -8,9 +10,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { eq } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
@@ -94,8 +94,8 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(userTable);
-  await stack.db.delete(tenantMembershipsTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
   capturedEmails.length = 0;
 });
 
@@ -121,10 +121,7 @@ async function seedUser(opts: {
   // it directly via SQL after create. Row.version is left at 1; no
   // subsequent event-store writes happen on this row in these tests.
   if (opts.emailVerified === true) {
-    await stack.db
-      .update(userTable)
-      .set({ emailVerified: true })
-      .where(eq(userTable["id"], created.id));
+    await updateMany(stack.db, userTable, { emailVerified: true }, { id: created.id });
   }
   const tenantId = opts.tenantId ?? "00000000-0000-4000-8000-000000000001";
   await seedTenantMembership(stack.db, {
@@ -191,7 +188,7 @@ describe("POST /auth/verify-email", () => {
     const res = await post("/api/auth/verify-email", { token });
     expect(res.status).toBe(200);
 
-    const row = (await stack.db.select().from(userTable)).find((r) => r["id"] === seed.id);
+    const row = (await selectMany(stack.db, userTable)).find((r) => r["id"] === seed.id);
     expect(row?.["emailVerified"]).toBe(true);
   });
 
@@ -214,7 +211,7 @@ describe("POST /auth/verify-email", () => {
     const seed = await seedUser({ email: "retry@example.com", password: "pw-retry-1234" });
     const { token } = signVerificationToken(seed.id, 60, verifySecret);
 
-    await stack.db.delete(tenantMembershipsTable);
+    await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
     const firstAttempt = await post("/api/auth/verify-email", { token });
     expect(firstAttempt.status).toBe(422);
 

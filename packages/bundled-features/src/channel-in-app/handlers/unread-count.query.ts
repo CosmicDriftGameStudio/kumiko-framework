@@ -1,5 +1,5 @@
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { and, count, eq } from "drizzle-orm";
 import { z } from "zod";
 import { inAppMessagesTable } from "../tables";
 
@@ -8,13 +8,14 @@ export const unreadCountQuery = defineQueryHandler({
   schema: z.object({}),
   access: { openToAll: true },
   handler: async (query, ctx) => {
-    const rows = await ctx.db
-      .select({ value: count() })
-      .from(inAppMessagesTable)
-      .where(
-        and(eq(inAppMessagesTable.userId, query.user.id), eq(inAppMessagesTable.isRead, false)),
-      );
-
-    return { count: rows[0]?.["value"] ?? 0 };
+    // bun-db hat keinen aggregate-helper — selectMany alle matching rows,
+    // count() in JS. Pragma: unread-counts sind low-cardinality (user-
+    // scoped, max ~hunderte rows). Wenn das wachsen sollte: raw .unsafe()
+    // mit COUNT(*).
+    const rows = await selectMany(ctx.db, inAppMessagesTable, {
+      userId: query.user.id,
+      isRead: false,
+    });
+    return { count: rows.length };
   },
 });

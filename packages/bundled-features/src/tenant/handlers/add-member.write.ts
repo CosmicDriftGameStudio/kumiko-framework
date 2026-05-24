@@ -1,7 +1,7 @@
-import { createEventStoreExecutor, fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { TenantErrors } from "../constants";
 import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-table";
@@ -20,12 +20,10 @@ export const addMemberWrite = defineWriteHandler({
   access: { roles: ["SystemAdmin"] },
   handler: async (event, ctx) => {
     const db = ctx.db;
-    const existing = await fetchOne(
-      db,
-      tenantMembershipsTable,
-      eq(tenantMembershipsTable.userId, event.payload.userId),
-      eq(tenantMembershipsTable.tenantId, event.payload.tenantId),
-    );
+    const existing = await fetchOne(db, tenantMembershipsTable, {
+      userId: event.payload.userId,
+      tenantId: event.payload.tenantId,
+    });
     if (existing) {
       return writeFailure(
         new ConflictError({

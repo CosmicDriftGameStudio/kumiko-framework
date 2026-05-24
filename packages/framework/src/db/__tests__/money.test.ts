@@ -1,6 +1,6 @@
 // Pure Unit-Tests für money flatten/rehydrate Helpers.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { createEntity, createMoneyField, createTextField } from "../../engine";
 import type { EntityDefinition } from "../../engine/types";
 import { flattenMoney, rehydrateMoney } from "../money";

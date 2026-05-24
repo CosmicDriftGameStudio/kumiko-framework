@@ -1,3 +1,4 @@
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { globalFeatureStateTable } from "../global-feature-state-table";
@@ -15,13 +16,8 @@ export const registeredQuery = defineQueryHandler({
   schema: z.object({}),
   access: { roles: ["SystemAdmin", "Admin"] },
   handler: async (_event, ctx) => {
-    type OverrideRow = Pick<typeof globalFeatureStateTable.$inferSelect, "featureName" | "enabled">;
-    const overrideRows = (await ctx.db
-      .select({
-        featureName: globalFeatureStateTable.featureName,
-        enabled: globalFeatureStateTable.enabled,
-      })
-      .from(globalFeatureStateTable)) as OverrideRow[]; // @cast-boundary db-row
+    type OverrideRow = { featureName: string; enabled: boolean };
+    const overrideRows = await selectMany<OverrideRow>(ctx.db.raw, globalFeatureStateTable);
     const overrides = new Map(overrideRows.map((r) => [r.featureName, r.enabled]));
 
     // SystemAdmin operator-tooling: das listing soll die PLATTFORM-truth

@@ -1,4 +1,4 @@
-import { expect } from "vitest";
+import { expect } from "bun:test";
 import type { WriteErrorInfo } from "../errors";
 
 // Vitest's toContain doesn't operate on plain objects, so after the move from

@@ -1,18 +1,18 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, mock, test } from "bun:test";
 import type { AuthClaimsContext, AuthClaimsHookDef, SessionUser } from "../../engine/types";
 import type { Logger } from "../../logging/types";
 import { resolveAuthClaims } from "../auth-claims-resolver";
 
 type TestLogger = {
   readonly log: Logger;
-  readonly warn: ReturnType<typeof vi.fn>;
+  readonly warn: ReturnType<typeof mock>;
 };
 
 function makeTestLogger(): TestLogger {
-  const warn = vi.fn();
-  const info = vi.fn();
-  const error = vi.fn();
-  const debug = vi.fn();
+  const warn = mock();
+  const info = mock();
+  const error = mock();
+  const debug = mock();
   const logger: Logger = {
     warn,
     info,
@@ -45,7 +45,7 @@ function hooks(...entries: AuthClaimsHookDef[]): readonly AuthClaimsHookDef[] {
 
 describe("resolveAuthClaims — empty", () => {
   test("zero hooks registered → empty record, contextFactory not called", async () => {
-    const factory = vi.fn();
+    const factory = mock();
     const result = await resolveAuthClaims({
       user: testUser,
       hooks: [],
@@ -73,8 +73,8 @@ describe("resolveAuthClaims — single hook", () => {
   });
 
   test("receives the user and context handed in", async () => {
-    const fn = vi.fn(async () => ({}));
-    const factory = vi.fn(() => stubContext);
+    const fn = mock(async () => ({}));
+    const factory = mock(() => stubContext);
     await resolveAuthClaims({
       user: testUser,
       hooks: hooks({ featureName: "any", fn }),

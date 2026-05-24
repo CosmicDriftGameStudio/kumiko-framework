@@ -1,4 +1,6 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -15,7 +17,6 @@ import {
   getSetCookieRaw,
   getSetCookieValue,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
@@ -67,8 +68,8 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(userTable);
-  await stack.db.delete(tenantMembershipsTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
 });
 
 // Helper: seed a full login-ready user (user row + membership).

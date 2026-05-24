@@ -8,10 +8,10 @@
 //   const { token, sid } = await h.login("x@example.com", "pw");
 //   const res = await h.authedPost("/api/query", token, { type, payload });
 
+import { expect } from "bun:test";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import * as jose from "jose";
-import { expect } from "vitest";
 import { hashPassword } from "../../auth-email-password/password-hashing";
 import { seedTenantMembership } from "../../tenant/seeding";
 import { UserHandlers } from "../../user";

@@ -1,3 +1,5 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createTestUser,
   setupTestStack,
@@ -6,7 +8,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { UserErrors, UserHandlers, UserQueries } from "../constants";
 import { createUserFeature } from "../feature";
 import { userEntity, userTable } from "../schema/user";
@@ -26,7 +27,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(userTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
 });
 
 // Helper: create a user as SystemAdmin and return its id.
@@ -103,7 +104,7 @@ describe("scenario 2: field-level read access", () => {
 
     expect(me).not.toHaveProperty("passwordHash");
     // Sanity: the value is actually stored, just hidden from this role
-    const [row] = await stack.db.select().from(userTable);
+    const [row] = await selectMany(stack.db, userTable);
     expect((row as { passwordHash: string }).passwordHash).toBe("must-stay-hidden");
   });
 });
@@ -137,7 +138,7 @@ describe("scenario 3: self-update + field-level write access", () => {
     expectErrorIncludes(error, "field_access_denied");
 
     // Email is unchanged in the DB
-    const [row] = await stack.db.select().from(userTable);
+    const [row] = await selectMany(stack.db, userTable);
     expect((row as { email: string }).email).toBe("locked@example.com");
   });
 

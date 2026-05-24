@@ -47,7 +47,7 @@
 //   - "skipped" → Event ist kein Auto-Verb (Domain-Event auf demselben
 //     Aggregate). Caller no-op.
 
-import { eq } from "drizzle-orm";
+import { deleteMany, insertOne, updateMany } from "../db/query";
 import type { EntityDefinition } from "../engine/types";
 import { InternalError } from "../errors";
 import type { StoredEvent } from "../event-store";
@@ -112,57 +112,65 @@ export async function applyEntityEvent(
           message: `applyEntityEvent: payload.tenantId set but invalid (${JSON.stringify(payloadTenantId)}). Tenant-isolation-kritisch: silent fallback auf event.tenantId würde Cross-Tenant-Drift erzeugen.`,
         });
       }
-      const [row] = await tx
-        .insert(table)
-        .values({
-          ...event.payload,
-          tenantId,
-          id: event.aggregateId,
-          version: event.version,
-          insertedAt: event.createdAt,
-          insertedById: event.createdBy,
-        })
-        .returning();
-      return { kind: "applied", verb, row: (row as DbRow | undefined) ?? null };
+      const row = await insertOne<DbRow>(tx, table, {
+        ...event.payload,
+        tenantId,
+        id: event.aggregateId,
+        version: event.version,
+        insertedAt: event.createdAt,
+        insertedById: event.createdBy,
+      });
+      return { kind: "applied", verb, row: row ?? null };
     }
 
     case "updated": {
       // payload-Shape: { changes, previous } — siehe event-store-executor.ts.
-      const changes = (event.payload["changes"] ?? {}) as Record<string, unknown>; // @cast-boundary engine-payload
-      const [row] = await tx
-        .update(table)
-        .set({
+      const rawChanges = (event.payload["changes"] ?? {}) as Record<string, unknown>; // @cast-boundary engine-payload
+      // Plural file fields (files/images) have no entity-table column — the
+      // array of UUIDs lives in the event payload only. Strip them from the
+      // UPDATE so Postgres doesn't error with "column X does not exist".
+      const changes: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(rawChanges)) {
+        const fieldType = entity.fields[key]?.type;
+        if (fieldType === "files" || fieldType === "images") continue;
+        changes[key] = value;
+      }
+      const rows = await updateMany<DbRow>(
+        tx,
+        table,
+        {
           ...changes,
           version: event.version,
           modifiedAt: event.createdAt,
           modifiedById: event.createdBy,
-        })
-        .where(eq(table["id"], event.aggregateId))
-        .returning();
-      return { kind: "applied", verb, row: (row as DbRow | undefined) ?? null };
+        },
+        { id: event.aggregateId },
+      );
+      return { kind: "applied", verb, row: rows[0] ?? null };
     }
 
     case "deleted": {
       if (softDelete) {
-        const [row] = await tx
-          .update(table)
-          .set({
+        const rows = await updateMany<DbRow>(
+          tx,
+          table,
+          {
             isDeleted: true,
             deletedAt: event.createdAt,
             deletedById: event.createdBy,
             version: event.version,
             modifiedAt: event.createdAt,
             modifiedById: event.createdBy,
-          })
-          .where(eq(table["id"], event.aggregateId))
-          .returning();
-        return { kind: "applied", verb, row: (row as DbRow | undefined) ?? null };
+          },
+          { id: event.aggregateId },
+        );
+        return { kind: "applied", verb, row: rows[0] ?? null };
       }
       // Hard-Delete: DELETE-Statement gibt keine returning-Row her und
       // der Live-Pfad nutzt eh `existing` (pre-delete-Snapshot) für die
       // Response. Beim Replay ist das fine, der Caller braucht die Row
       // nicht weiter.
-      await tx.delete(table).where(eq(table["id"], event.aggregateId));
+      await deleteMany(tx, table, { id: event.aggregateId });
       return { kind: "applied", verb, row: null };
     }
 
@@ -170,19 +178,20 @@ export async function applyEntityEvent(
       // Restore ist nur bei softDelete sinnvoll. Hard-Delete-Entities sollten
       // keine restored-Events erhalten — falls doch, defensive skip.
       if (!softDelete) return { kind: "skipped" };
-      const [row] = await tx
-        .update(table)
-        .set({
+      const rows = await updateMany<DbRow>(
+        tx,
+        table,
+        {
           isDeleted: false,
           deletedAt: null,
           deletedById: null,
           version: event.version,
           modifiedAt: event.createdAt,
           modifiedById: event.createdBy,
-        })
-        .where(eq(table["id"], event.aggregateId))
-        .returning();
-      return { kind: "applied", verb, row: (row as DbRow | undefined) ?? null };
+        },
+        { id: event.aggregateId },
+      );
+      return { kind: "applied", verb, row: rows[0] ?? null };
     }
   }
 }

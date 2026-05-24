@@ -24,14 +24,14 @@
 //      via DB-unique-index + generateUniqueName-isAvailable-check
 //      zusammen).
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { eq } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
@@ -80,7 +80,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, userEntity);
   // tenant-entity hat den unique-constraint auf .key (siehe
   // tenant.schema.indexes). unsafeCreateEntityTable baut das via
-  // buildDrizzleTable nach — pinst den TOCTOU-Schutz für signup-confirm.
+  // buildEntityTable nach — pinst den TOCTOU-Schutz für signup-confirm.
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 });
@@ -90,9 +90,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(userTable);
-  await stack.db.delete(tenantMembershipsTable);
-  await stack.db.delete(tenantTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantTable.tableName}"`);
   capturedActivationEmails.length = 0;
   // Redis-cleanup damit Resend-Tests keine state-leaks haben.
   const allKeys = await stack.redis.redis.keys("signup:*");
@@ -185,22 +185,18 @@ describe("POST /api/auth/signup-confirm", () => {
     expect(setCookies).toContain("kumiko_csrf=");
 
     // DB-State pinst
-    const userRows = await stack.db.select().from(userTable).where(eq(userTable.email, email));
+    const userRows = await selectMany(stack.db, userTable, { email: email });
     expect(userRows).toHaveLength(1);
     expect(userRows[0]?.["emailVerified"]).toBe(true);
     expect(userRows[0]?.["passwordHash"]).toBeTruthy();
 
-    const tenantRows = await stack.db
-      .select()
-      .from(tenantTable)
-      .where(eq(tenantTable.id, body.user?.tenantId ?? ""));
+    const tenantRows = await selectMany(stack.db, tenantTable, { id: body.user?.tenantId ?? "" });
     expect(tenantRows).toHaveLength(1);
     expect(tenantRows[0]?.["key"]).toBe(body.tenantKey);
 
-    const memberships = await stack.db
-      .select()
-      .from(tenantMembershipsTable)
-      .where(eq(tenantMembershipsTable.userId, body.user?.id ?? ""));
+    const memberships = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: body.user?.id ?? "",
+    });
     expect(memberships).toHaveLength(1);
     const rolesRaw = memberships[0]?.["roles"];
     if (typeof rolesRaw === "string") {

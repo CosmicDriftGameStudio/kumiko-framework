@@ -4,11 +4,11 @@
 // the resolver runs the hooks in parallel, merges the results under auto-prefixed
 // keys, and readClaim(user, handle) retrieves them with proper JS typing.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import type { AuthClaimsContext } from "@cosmicdrift/kumiko-framework/engine";
 import { defineFeature, readClaim } from "@cosmicdrift/kumiko-framework/engine";
 import { resolveAuthClaims } from "@cosmicdrift/kumiko-framework/pipeline";
 import { setupTestStack, type TestStack, testTenantId } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   type BetaFlagStore,
   fakeSession,
@@ -125,12 +125,12 @@ describe("scenario 3: drift-warning when a hook returns an undeclared key", () =
   test("declared teamId + undeclared 'rouge' → warn logged, both land in JWT (best-effort)", async () => {
     driftState.value = true;
 
-    const warn = vi.fn();
+    const warn = mock();
     const log = {
       warn,
-      info: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn(),
+      info: mock(),
+      error: mock(),
+      debug: mock(),
       child: () => log,
     };
 

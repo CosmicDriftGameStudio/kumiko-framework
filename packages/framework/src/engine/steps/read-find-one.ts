@@ -1,6 +1,6 @@
 // r.step.read.findOne — load a single row from a projection table.
 //
-// Thin wrapper on ctx.db.select().from(table).where(where).limit(1).
+// Thin wrapper on selectMany(db, table, where, { limit: 1 }) (bun-db).
 // Resolves to the first row or null. Tenant-isolation: the caller's
 // `where` clause is responsible for any tenantId filter — read.findOne
 // does NOT auto-inject one (different from ctx.queryProjection which
@@ -20,16 +20,15 @@
 // fine for "find by uuid", a footgun for "find by tenantId". No
 // runtime check; reviewer responsibility.
 
-import type { SQL, Table } from "drizzle-orm";
+import { selectMany, type WhereObject } from "../../db/query";
 import { defineStep } from "../define-step";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
-import { asQueryTarget } from "./_drizzle-boundary";
 import { resolveRequired } from "./_resolver-utils";
 
 type ReadFindOneArgs = {
   readonly name: string;
-  readonly table: Table;
-  readonly where: StepResolver<SQL | undefined>;
+  readonly table: unknown;
+  readonly where: StepResolver<WhereObject | undefined>;
 };
 
 defineStep<ReadFindOneArgs, Record<string, unknown> | null>({
@@ -38,8 +37,7 @@ defineStep<ReadFindOneArgs, Record<string, unknown> | null>({
   resultKey: (args) => args.name,
   run: async (args, ctx: PipelineCtx) => {
     const where = resolveRequired(args.where, ctx);
-    const query = ctx.db.select().from(asQueryTarget(args.table));
-    const rows = where === undefined ? await query.limit(1) : await query.where(where).limit(1);
+    const rows = await selectMany(ctx.db.raw, args.table, where, { limit: 1 });
     return (rows[0] as Record<string, unknown> | undefined) ?? null;
   },
 });
@@ -47,8 +45,8 @@ defineStep<ReadFindOneArgs, Record<string, unknown> | null>({
 export function buildReadFindOneStep(
   name: string,
   opts: {
-    readonly table: Table;
-    readonly where: StepResolver<SQL | undefined>;
+    readonly table: unknown;
+    readonly where: StepResolver<WhereObject | undefined>;
   },
 ): StepInstance {
   return {

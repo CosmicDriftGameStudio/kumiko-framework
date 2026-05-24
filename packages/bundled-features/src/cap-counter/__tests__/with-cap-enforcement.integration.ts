@@ -8,6 +8,7 @@
 //   5. Failed handler: counter NICHT inkrementiert (cap-quota nicht
 //      verbrannt für gescheiterte writes)
 
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -18,7 +19,6 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { CapCounterQueries } from "../constants";
 import type { SoftHitNotifier } from "../enforce-cap";

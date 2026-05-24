@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { buildServer, type JwtHelper } from "@cosmicdrift/kumiko-framework/api";
 import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -21,7 +22,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { bridgeStub, sleep } from "@cosmicdrift/kumiko-framework/testing";
 import type { Hono } from "hono";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createConfigFeature } from "../../config/feature";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";

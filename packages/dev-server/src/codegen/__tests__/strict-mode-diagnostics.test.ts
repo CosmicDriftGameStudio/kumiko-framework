@@ -1,7 +1,7 @@
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import * as ts from "typescript";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { runCodegen } from "../run-codegen";
 
 const REPO_ROOT = join(__dirname, "../../../../..");

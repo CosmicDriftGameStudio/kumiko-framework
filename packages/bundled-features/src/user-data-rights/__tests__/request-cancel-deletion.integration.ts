@@ -9,6 +9,8 @@
 // User-Explicit-Anforderung "exporte + fristen" — der Frist-Set-Pfad ist
 // hier; der Frist-Ablauf-Cleanup folgt mit S2.U5b.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -19,8 +21,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { eq, sql } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
@@ -71,9 +71,9 @@ afterAll(async () => {
 beforeEach(async () => {
   // Hard-clean User-Rows fuer einen sauberen Start je Test. softDelete
   // wuerde sonst row-state aus voherigen Tests einschleppen.
-  await stack.db.delete(userTable);
-  await stack.db.execute(sql`DELETE FROM read_tenant_compliance_profiles`);
-  await stack.db.execute(sql`DELETE FROM kumiko_events`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_compliance_profiles`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM kumiko_events`);
 });
 
 // gracePeriodEnd ist `instant()` (Temporal.Instant in JS). Nicht JS-Date —
@@ -91,7 +91,7 @@ async function seedAlice(
     gracePeriodEnd: Instant | null;
   }> = {},
 ): Promise<void> {
-  await stack.db.insert(userTable).values({
+  await insertOne(stack.db, userTable, {
     id: aliceUser.id,
     tenantId: tenantA,
     email: "alice@example.com",
@@ -109,14 +109,10 @@ async function fetchAlice(): Promise<{
   status: string;
   gracePeriodEnd: Instant | null;
 } | null> {
-  const rows = (await stack.db
-    .select({
-      status: userTable["status"],
-      gracePeriodEnd: userTable["gracePeriodEnd"],
-    })
-    .from(userTable)
-    .where(eq(userTable["id"], aliceUser.id))
-    .limit(1)) as Array<{ status: string; gracePeriodEnd: Instant | null }>;
+  const rows = (await selectMany(stack.db, userTable, { id: aliceUser.id })) as Array<{
+    status: string;
+    gracePeriodEnd: Instant | null;
+  }>;
   return rows[0] ?? null;
 }
 
@@ -348,7 +344,7 @@ describe("Cross-User-Isolation", () => {
       tenantId: tenantA,
       roles: ["Member"],
     });
-    await stack.db.insert(userTable).values({
+    await insertOne(stack.db, userTable, {
       id: testUserId(43),
       tenantId: tenantA,
       email: "bob@example.com",

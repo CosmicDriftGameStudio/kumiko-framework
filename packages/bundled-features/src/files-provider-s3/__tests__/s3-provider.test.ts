@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import type { S3ProviderConfig } from "../s3-provider";
 import { resolveForcePathStyle } from "../s3-provider";
 

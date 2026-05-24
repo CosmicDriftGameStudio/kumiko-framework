@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { computeEffectiveFeatures, type ToggleReader } from "../effective-features";
 import type { FeatureDefinition, Registry } from "../types";
 

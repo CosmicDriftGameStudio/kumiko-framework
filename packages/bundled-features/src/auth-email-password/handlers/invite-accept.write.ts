@@ -15,12 +15,8 @@
 // Session"-Flow. Branch 2 (anon + existing email) und Branch 3 (anon +
 // new email) kommen als separate Handler.
 
-import {
-  createEventStoreExecutor,
-  createTenantDb,
-  type DbConnection,
-  fetchOne,
-} from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   defineWriteHandler,
@@ -31,7 +27,6 @@ import {
   UnprocessableError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 // kumiko-lint-ignore cross-feature-import invite-flow lebt in auth-email-password (Magic-Link), DB-row-owner ist tenant-feature
 import {
@@ -97,26 +92,35 @@ export function createInviteAcceptHandler() {
       const burn = await burnInviteToken(ctx.redis, event.payload.token);
       if (burn === "already-used") return invalidInviteToken();
 
+      type InvitationRow = {
+        readonly status: string;
+        readonly tenantId: TenantId;
+        readonly email: string;
+        readonly role: string;
+        readonly version: number;
+      };
+      type UserEmailRow = { readonly email: string };
+
       let committed = false;
       try {
-        const invitation = await fetchOne(
-          ctx.db.raw,
-          tenantInvitationsTable,
-          eq(tenantInvitationsTable.id, invitationId),
-        );
-        if (!invitation || invitation["status"] !== INVITATION_STATUS.pending)
+        const invitation = await fetchOne<InvitationRow>(ctx.db.raw, tenantInvitationsTable, {
+          id: invitationId,
+        });
+        if (!invitation || invitation.status !== INVITATION_STATUS.pending)
           return invalidInviteToken();
 
-        const invitationTenantId = invitation["tenantId"] as TenantId; // @cast-boundary db-row
-        const invitationEmail = invitation["email"] as string; // @cast-boundary db-row
-        const invitationRole = invitation["role"] as string; // @cast-boundary db-row
-        const invitationVersion = invitation["version"] as number; // @cast-boundary db-row
+        const invitationTenantId = invitation.tenantId;
+        const invitationEmail = invitation.email;
+        const invitationRole = invitation.role;
+        const invitationVersion = invitation.version;
 
         // Email-Match: User muss mit der eingeladenen Email matchen.
         // Sonst kann ein Angreifer mit Zugriff zur invitee-Mail seinen
         // eigenen Account dem Tenant zuschlagen.
-        const userRow = await fetchOne(ctx.db.raw, userTable, eq(userTable.id, event.user.id));
-        const userEmail = userRow?.["email"] as string | undefined; // @cast-boundary db-row
+        const userRow = await fetchOne<UserEmailRow>(ctx.db.raw, userTable, {
+          id: event.user.id,
+        });
+        const userEmail = userRow?.email;
         if (!userRow || !userEmail || userEmail.toLowerCase() !== invitationEmail) {
           return writeFailure(
             new UnprocessableError(AuthErrors.inviteEmailMismatch, {
@@ -135,8 +139,7 @@ export function createInviteAcceptHandler() {
         )) as Array<{ tenantId: string }>; // @cast-boundary db-row
         const alreadyMember = memberships.some((m) => m.tenantId === invitationTenantId);
 
-        // @cast-boundary db-runner — TenantDb.raw is DbRunner
-        const dbConn = ctx.db.raw as DbConnection;
+        const dbConn = ctx.db.raw;
 
         if (!alreadyMember) {
           // Membership-Add via seedTenantMembership-helper (event-store-

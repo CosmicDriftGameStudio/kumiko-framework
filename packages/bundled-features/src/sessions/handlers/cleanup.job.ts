@@ -20,8 +20,6 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { JobHandlerFn } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { or, sql } from "drizzle-orm";
-import { userSessionTable } from "../schema/user-session";
 
 const DEFAULT_OLDER_THAN_DAYS = 30;
 const DEFAULT_BATCH_SIZE = 1000;
@@ -45,7 +43,16 @@ export const cleanupJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> =
       message: "[sessions:cleanup] ctx.db missing — job context requires a database connection.",
     });
   }
-  const db = ctx.db as DbConnection; // @cast-boundary db-operator
+  const db = ctx.db as DbConnection;
+  // raw postgres-js / Bun.sql client. ctx.db kann drizzle DbConnection
+  // (.$client) ODER Bun.SQL (direct) sein — Shim für beide.
+  const dbAny = db as unknown as {
+    $client?: { unsafe: (s: string, p?: readonly unknown[]) => Promise<readonly { id: string }[]> };
+    unsafe?: (s: string, p?: readonly unknown[]) => Promise<readonly { id: string }[]>;
+  };
+  const client = (dbAny.$client ?? dbAny) as {
+    unsafe: (s: string, p?: readonly unknown[]) => Promise<readonly { id: string }[]>;
+  };
 
   // Coerce-and-validate: BullMQ payloads arrive as opaque JSON, so TS types
   // don't survive. Guard before the value is interpolated into SQL.
@@ -61,11 +68,21 @@ export const cleanupJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> =
     ? Date.now() + payload.maxDurationMs
     : Number.POSITIVE_INFINITY;
 
-  const cutoff = sql`now() - (${olderThanDays} * interval '1 day')`;
-
   let deleted = 0;
   let batchesProcessed = 0;
   let stoppedReason: SessionCleanupResult["stoppedReason"] = "empty";
+
+  // DELETE-by-id-subquery mit LIMIT für bounded lock-duration. Safety-net:
+  // nur rows past-cutoff (expired OR revoked). PG-semantics: `x < cutoff`
+  // schließt NULL implicit aus.
+  const deleteSql = `DELETE FROM "read_user_sessions"
+    WHERE "id" IN (
+      SELECT "id" FROM "read_user_sessions"
+      WHERE "expires_at" < now() - ($1::int * interval '1 day')
+         OR "revoked_at" < now() - ($1::int * interval '1 day')
+      LIMIT $2
+    )
+    RETURNING "id"`;
 
   while (true) {
     if (ctx.signal?.aborted) {
@@ -77,25 +94,7 @@ export const cleanupJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> =
       break;
     }
 
-    // DELETE-by-id-subquery with an explicit LIMIT so the lock stays short.
-    // The WHERE clause is the safety net: we only touch rows that are
-    // PAST-CUTOFF (expired OR revoked), never currently-live sessions. A
-    // null-check in PG semantics: `x < cutoff` already excludes null.
-    const rows = await db
-      .delete(userSessionTable)
-      .where(
-        sql`${userSessionTable["id"]} in (
-          select ${userSessionTable["id"]}
-          from ${userSessionTable}
-          where ${or(
-            sql`${userSessionTable["expiresAt"]} < ${cutoff}`,
-            sql`${userSessionTable["revokedAt"]} < ${cutoff}`,
-          )}
-          limit ${batchSize}
-        )`,
-      )
-      .returning({ id: userSessionTable["id"] });
-
+    const rows = await client.unsafe(deleteSql, [olderThanDays, batchSize]);
     if (rows.length === 0) break;
 
     deleted += rows.length;

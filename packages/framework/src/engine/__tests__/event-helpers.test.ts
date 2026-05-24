@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, mock, test } from "bun:test";
 import { z } from "zod";
 import { emitEvent, typedPayload } from "../event-helpers";
 import type { EventDef } from "../types/handlers";
@@ -11,7 +11,7 @@ describe("emitEvent", () => {
   };
 
   test("delegates to ctx.appendEvent with eventDef.name as the type", async () => {
-    const ctx = { unsafeAppendEvent: vi.fn().mockResolvedValue(undefined) };
+    const ctx = { unsafeAppendEvent: mock().mockResolvedValue(undefined) };
     await emitEvent(ctx, orderPlaced, {
       aggregateId: "agg-1",
       aggregateType: "pubsub-order",
@@ -26,7 +26,7 @@ describe("emitEvent", () => {
   });
 
   test("payload type is inferred from the eventDef — wrong shape is a compile error", async () => {
-    const ctx = { unsafeAppendEvent: vi.fn().mockResolvedValue(undefined) };
+    const ctx = { unsafeAppendEvent: mock().mockResolvedValue(undefined) };
     // Runtime check: compile-time narrowing is the real win, but we also
     // make sure the value flows through unchanged.
     await emitEvent(ctx, orderPlaced, {

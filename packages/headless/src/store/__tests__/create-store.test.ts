@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, mock, test } from "bun:test";
 import { createStore } from "../create-store";
 
 describe("createStore — snapshot & setState", () => {
@@ -31,7 +31,7 @@ describe("createStore — snapshot & setState", () => {
 describe("createStore — subscribe & notify", () => {
   test("subscribed listener fires on setState", () => {
     const store = createStore({ count: 0 });
-    const listener = vi.fn();
+    const listener = mock();
     store.subscribe(listener);
 
     store.setState({ count: 1 });
@@ -41,8 +41,8 @@ describe("createStore — subscribe & notify", () => {
 
   test("multiple listeners all fire on setState", () => {
     const store = createStore({ count: 0 });
-    const a = vi.fn();
-    const b = vi.fn();
+    const a = mock();
+    const b = mock();
     store.subscribe(a);
     store.subscribe(b);
 
@@ -54,7 +54,7 @@ describe("createStore — subscribe & notify", () => {
 
   test("unsubscribe stops further notifications", () => {
     const store = createStore({ count: 0 });
-    const listener = vi.fn();
+    const listener = mock();
     const unsub = store.subscribe(listener);
 
     store.setState({ count: 1 });
@@ -67,14 +67,14 @@ describe("createStore — subscribe & notify", () => {
   test("Object.is-equal setState does NOT notify listeners", () => {
     const store = createStore({ count: 0 });
     const same = store.getSnapshot();
-    const listener = vi.fn();
+    const listener = mock();
     store.subscribe(listener);
 
     // Same reference — gate blocks notification.
     store.setState(same);
     // Primitive-equal setState on primitive-valued store also no-ops.
     const primStore = createStore(42);
-    const primListener = vi.fn();
+    const primListener = mock();
     primStore.subscribe(primListener);
     primStore.setState(42);
 
@@ -84,7 +84,7 @@ describe("createStore — subscribe & notify", () => {
 
   test("setState inside reducer that returns same ref does NOT notify", () => {
     const store = createStore({ count: 0 });
-    const listener = vi.fn();
+    const listener = mock();
     store.subscribe(listener);
 
     store.setState((prev) => prev); // reducer returns same ref

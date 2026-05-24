@@ -12,16 +12,16 @@
 // + FileProviderContext-shape direkt) und prueft dass beide den happy-path
 // + den fehlt-_userId-throw durchlaufen.
 
+import { describe, expect, mock, test } from "bun:test";
 import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
-import { describe, expect, test, vi } from "vitest";
 import { requireSecretsContext } from "../feature";
 
 function makeRawSecretsContext(): SecretsContext {
   return {
-    get: vi.fn(),
-    set: vi.fn(),
-    delete: vi.fn(),
+    get: mock(),
+    set: mock(),
+    delete: mock(),
   };
 }
 
@@ -72,7 +72,8 @@ describe("requireSecretsContext :: FileProviderContext surface", () => {
       "any-key" as unknown as Parameters<SecretsContext["get"]>[1],
     );
     // Erste-Aufruf-args: [tenantId, key, audit-Object]
-    const audit = vi.mocked(raw.get).mock.calls[0]?.[2];
+    // biome-ignore lint/suspicious/noExplicitAny: Bun mock API requires any cast
+    const audit = (raw.get as any).mock.calls[0]?.[2];
     expect(audit).toEqual({
       userId: SYSTEM_USER_ID,
       handlerName: "user-data-rights:run-export-jobs",

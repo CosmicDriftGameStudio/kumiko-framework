@@ -18,7 +18,7 @@
 // Outer-Tx aktiv, BEGIN sonst). Folge: ein failing Hook bei User A
 // rollt nur dessen Sub-Tx zurueck, User B + bisherige User-Status-Flips
 // bleiben commit-able. Ohne diese Sub-Tx wuerde der Outer-Dispatcher-Tx
-// (alle writeHandler laufen in `db.transaction(...)`) den ganzen
+// (alle writeHandler laufen in `db.begin(...)`) den ganzen
 // Cleanup-Run beim ersten Hook-Throw zurueckrollen.
 //
 // **Idempotenz:** Hooks sind idempotent designed (siehe
@@ -32,6 +32,12 @@
 // gefailten Hooks bleibt im DeletionRequested-Status (next Lauf
 // retried automatisch).
 
+import {
+  asRawClient,
+  fetchOne,
+  selectMany,
+  updateMany,
+} from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import {
   EXT_USER_DATA,
@@ -41,7 +47,6 @@ import {
   type UserDataDeleteStrategy,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { and, eq, lte } from "drizzle-orm";
 import { resolveRetentionPolicyForTenant } from "../data-retention";
 import { tenantMembershipsTable } from "../tenant";
 import { USER_STATUS, userTable } from "../user";
@@ -111,16 +116,11 @@ export async function runForgetCleanup(
   const { db, registry, now, sendDeletionExecutedEmail } = args;
 
   // Step 1: Find users with expired grace period.
-  // @cast-boundary db-row — drizzle-select gibt Record-Shape zurueck.
-  const dueUsers = (await db
-    .select({ id: userTable["id"] })
-    .from(userTable)
-    .where(
-      and(
-        eq(userTable["status"], USER_STATUS.DeletionRequested),
-        lte(userTable["gracePeriodEnd"], now),
-      ),
-    )) as Array<{ id: string }>;
+  // lte with Instant: no bun-db operator covers this — raw SQL.
+  const dueUsers = await asRawClient(db).unsafe<{ id: string }>(
+    `SELECT id FROM read_users WHERE status = $1 AND grace_period_end <= $2`,
+    [USER_STATUS.DeletionRequested, now.toString()],
+  );
 
   if (dueUsers.length === 0) {
     return { processedUserIds: [], hookCallsAttempted: 0, errors: [] };
@@ -212,23 +212,14 @@ async function processUser(args: {
   // Nach der Tx ist email = "deleted-{id}@{tenant}.example" oder NULL.
   // Memory-cache laesst Atom-5b-Callback nach success-flip den
   // ORIGINAL-email an App-Author-Callback geben.
-  // @cast-boundary db-row.
-  const userPreTx = (await db
-    .select({ email: userTable["email"] })
-    .from(userTable)
-    .where(eq(userTable["id"], userId))
-    .limit(1)) as Array<{ email: string | null }>;
+  const userPreTx = await fetchOne<{ email: string | null }>(db, userTable, { id: userId });
   const userEmailBeforeDelete =
-    userPreTx[0]?.email && userPreTx[0].email.length > 0 ? userPreTx[0].email : null;
+    userPreTx?.email && userPreTx.email.length > 0 ? userPreTx.email : null;
 
   // Memberships fuer diesen User holen — alle Tenants in denen er Mitglied ist.
-  // @cast-boundary db-row.
-  const memberships = (await db
-    .select({ tenantId: tenantMembershipsTable["tenantId"] })
-    .from(tenantMembershipsTable)
-    .where(eq(tenantMembershipsTable["userId"], userId))) as Array<{
-    tenantId: TenantId;
-  }>;
+  const memberships = await selectMany<{ tenantId: TenantId }>(db, tenantMembershipsTable, {
+    userId,
+  });
   // tenant-Liste fuer Atom 5b Email — Memberships VOR Tx, weil hooks
   // memberships in der Tx loeschen. Orphan-User (0 memberships) liefert
   // [] in Email-args; App-Author-Template kann das case-handlen.
@@ -259,8 +250,8 @@ async function processUser(args: {
   let currentTenantId: TenantId | null = null;
   let currentEntityName: string | null = null;
   try {
-    await (db as { transaction: (fn: (tx: DbRunner) => Promise<void>) => Promise<void> }) // @cast-boundary db-runner
-      .transaction(async (tx) => {
+    await (db as { begin: (fn: (tx: DbRunner) => Promise<void>) => Promise<void> }).begin(
+      async (tx) => {
         for (const tenantId of tenantList) {
           currentTenantId = tenantId;
           for (const entry of hookEntries) {
@@ -282,12 +273,10 @@ async function processUser(args: {
         // geworfen hat, kommen wir hier nicht an — die Tx rollback'd
         // alles, der User bleibt im DeletionRequested-Status, naechster
         // Run retried.
-        await tx
-          .update(userTable)
-          .set({ status: USER_STATUS.Deleted })
-          .where(eq(userTable["id"], userId));
+        await updateMany(tx, userTable, { status: USER_STATUS.Deleted }, { id: userId });
         txSucceeded = true;
-      });
+      },
+    );
   } catch (e) {
     // currentTenantId/currentEntityName tracken den Failing-Hook —
     // Operator sieht "Hook fileRef in Tenant A failed for user X" statt

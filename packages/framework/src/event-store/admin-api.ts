@@ -7,13 +7,12 @@
 // Allowlist: samples/*/migration/, scripts/migrations/, die Definition
 // selbst, das Guard-Script selbst.
 
-import { sql } from "drizzle-orm";
 import type { DbRunner } from "../db";
 import { isUniqueViolation } from "../db/pg-error";
+import { asRawClient } from "../db/query";
 import type { TenantId } from "../engine/types";
 import { VersionConflictError } from "./errors";
 import type { EventMetadata } from "./event-store";
-import { eventsTable } from "./events-schema";
 
 export type RawEventToAppend = {
   readonly aggregateId: string;
@@ -61,24 +60,25 @@ async function insertRawFirst(
   newVersion: number,
   eventVersion: number,
 ): Promise<void> {
-  await runner.execute(sql`
-    INSERT INTO ${eventsTable} (
-      aggregate_id, aggregate_type, tenant_id, version,
-      type, event_version, payload, metadata, created_at, created_by
-    )
-    VALUES (
-      ${event.aggregateId}::uuid,
-      ${event.aggregateType},
-      ${event.tenantId}::uuid,
-      ${newVersion},
-      ${event.type},
-      ${eventVersion},
-      ${JSON.stringify(event.payload)}::jsonb,
-      ${JSON.stringify(event.metadata)}::jsonb,
-      ${event.createdAt.toString()}::timestamptz,
-      ${event.createdBy}
-    )
-  `);
+  await asRawClient(runner).unsafe(
+    `INSERT INTO "kumiko_events" (
+       aggregate_id, aggregate_type, tenant_id, version,
+       type, event_version, payload, metadata, created_at, created_by
+     )
+     VALUES ($1::uuid, $2, $3::uuid, $4, $5, $6, $7::jsonb, $8::jsonb, $9::timestamptz, $10)`,
+    [
+      event.aggregateId,
+      event.aggregateType,
+      event.tenantId,
+      newVersion,
+      event.type,
+      eventVersion,
+      JSON.stringify(event.payload),
+      JSON.stringify(event.metadata),
+      event.createdAt.toString(),
+      event.createdBy,
+    ],
+  );
 }
 
 async function insertRawSubsequent(
@@ -87,29 +87,33 @@ async function insertRawSubsequent(
   newVersion: number,
   eventVersion: number,
 ): Promise<void> {
-  const rows = await runner.execute<{ id: string }>(sql`
-    INSERT INTO ${eventsTable} (
-      aggregate_id, aggregate_type, tenant_id, version,
-      type, event_version, payload, metadata, created_at, created_by
-    )
-    SELECT ${event.aggregateId}::uuid,
-           ${event.aggregateType},
-           ${event.tenantId}::uuid,
-           ${newVersion},
-           ${event.type},
-           ${eventVersion},
-           ${JSON.stringify(event.payload)}::jsonb,
-           ${JSON.stringify(event.metadata)}::jsonb,
-           ${event.createdAt.toString()}::timestamptz,
-           ${event.createdBy}
-    WHERE EXISTS (
-      SELECT 1 FROM ${eventsTable}
-      WHERE aggregate_id = ${event.aggregateId}::uuid
-        AND version = ${event.expectedVersion}
-        AND tenant_id = ${event.tenantId}::uuid
-    )
-    RETURNING id
-  `);
+  const rows = (await asRawClient(runner).unsafe(
+    `INSERT INTO "kumiko_events" (
+       aggregate_id, aggregate_type, tenant_id, version,
+       type, event_version, payload, metadata, created_at, created_by
+     )
+     SELECT $1::uuid, $2, $3::uuid, $4, $5, $6, $7::jsonb, $8::jsonb, $9::timestamptz, $10
+     WHERE EXISTS (
+       SELECT 1 FROM "kumiko_events"
+       WHERE aggregate_id = $1::uuid
+         AND version = $11
+         AND tenant_id = $3::uuid
+     )
+     RETURNING id`,
+    [
+      event.aggregateId,
+      event.aggregateType,
+      event.tenantId,
+      newVersion,
+      event.type,
+      eventVersion,
+      JSON.stringify(event.payload),
+      JSON.stringify(event.metadata),
+      event.createdAt.toString(),
+      event.createdBy,
+      event.expectedVersion,
+    ],
+  )) as ReadonlyArray<{ id: string }>;
   if (rows.length === 0) {
     throw new VersionConflictError(event.aggregateId, event.expectedVersion);
   }
@@ -133,31 +137,35 @@ export async function appendRawBatch(
   await verifyPredecessors(runner, events);
   await verifyNoDuplicates(runner, events);
 
-  const rows = events.map((e) => {
+  const params: unknown[] = [];
+  const valuesClauses = events.map((e) => {
     const newVersion = e.expectedVersion + 1;
     const eventVersion = e.eventVersion ?? 1;
-    return sql`(
-      ${e.aggregateId}::uuid,
-      ${e.aggregateType},
-      ${e.tenantId}::uuid,
-      ${newVersion},
-      ${e.type},
-      ${eventVersion},
-      ${JSON.stringify(e.payload)}::jsonb,
-      ${JSON.stringify(e.metadata)}::jsonb,
-      ${e.createdAt.toString()}::timestamptz,
-      ${e.createdBy}
-    )`;
+    const baseIdx = params.length;
+    params.push(
+      e.aggregateId,
+      e.aggregateType,
+      e.tenantId,
+      newVersion,
+      e.type,
+      eventVersion,
+      JSON.stringify(e.payload),
+      JSON.stringify(e.metadata),
+      e.createdAt.toString(),
+      e.createdBy,
+    );
+    return `($${baseIdx + 1}::uuid, $${baseIdx + 2}, $${baseIdx + 3}::uuid, $${baseIdx + 4}, $${baseIdx + 5}, $${baseIdx + 6}, $${baseIdx + 7}::jsonb, $${baseIdx + 8}::jsonb, $${baseIdx + 9}::timestamptz, $${baseIdx + 10})`;
   });
 
   try {
-    await runner.execute(sql`
-      INSERT INTO ${eventsTable} (
-        aggregate_id, aggregate_type, tenant_id, version,
-        type, event_version, payload, metadata, created_at, created_by
-      )
-      VALUES ${sql.join(rows, sql`, `)}
-    `);
+    await asRawClient(runner).unsafe(
+      `INSERT INTO "kumiko_events" (
+         aggregate_id, aggregate_type, tenant_id, version,
+         type, event_version, payload, metadata, created_at, created_by
+       )
+       VALUES ${valuesClauses.join(", ")}`,
+      params,
+    );
   } catch (e) {
     if (isUniqueViolation(e)) {
       // Pre-flight ran but lost a race against a concurrent writer. Rare for
@@ -221,14 +229,15 @@ async function verifyPredecessors(
 
   for (const g of groups.values()) {
     if (g.minExpected === 0) continue;
-    const rows = await runner.execute<{ present: boolean }>(sql`
-      SELECT EXISTS(
-        SELECT 1 FROM ${eventsTable}
-        WHERE aggregate_id = ${g.aggregateId}::uuid
-          AND tenant_id = ${g.tenantId}::uuid
-          AND version = ${g.minExpected}
-      ) AS present
-    `);
+    const rows = (await asRawClient(runner).unsafe(
+      `SELECT EXISTS(
+         SELECT 1 FROM "kumiko_events"
+         WHERE aggregate_id = $1::uuid
+           AND tenant_id = $2::uuid
+           AND version = $3
+       ) AS present`,
+      [g.aggregateId, g.tenantId, g.minExpected],
+    )) as ReadonlyArray<{ present: boolean }>;
     if (!rows[0]?.present) {
       throw new VersionConflictError(g.aggregateId, g.minExpected);
     }
@@ -242,14 +251,18 @@ async function verifyNoDuplicates(
   runner: DbRunner,
   events: readonly RawEventToAppend[],
 ): Promise<void> {
-  const triples = events.map(
-    (e) => sql`(${e.tenantId}::uuid, ${e.aggregateId}::uuid, ${e.expectedVersion + 1})`,
-  );
-  const rows = await runner.execute<{ aggregate_id: string; version: number }>(sql`
-    SELECT aggregate_id, version FROM ${eventsTable}
-    WHERE (tenant_id, aggregate_id, version) IN (${sql.join(triples, sql`, `)})
-    LIMIT 1
-  `);
+  const params: unknown[] = [];
+  const tripleClauses = events.map((e) => {
+    const baseIdx = params.length;
+    params.push(e.tenantId, e.aggregateId, e.expectedVersion + 1);
+    return `($${baseIdx + 1}::uuid, $${baseIdx + 2}::uuid, $${baseIdx + 3})`;
+  });
+  const rows = (await asRawClient(runner).unsafe(
+    `SELECT aggregate_id, version FROM "kumiko_events"
+     WHERE (tenant_id, aggregate_id, version) IN (${tripleClauses.join(", ")})
+     LIMIT 1`,
+    params,
+  )) as ReadonlyArray<{ aggregate_id: string; version: number }>;
   const conflict = rows[0];
   if (conflict) {
     throw new VersionConflictError(conflict.aggregate_id, conflict.version - 1);

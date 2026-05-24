@@ -72,7 +72,7 @@ export function verifyAndParseStripeWebhook(
     //    mapped throw → HTTP 401.
     let event: Stripe.Event;
     try {
-      event = stripe.webhooks.constructEvent(rawBody, sigHeader, options.webhookSecret);
+      event = await stripe.webhooks.constructEventAsync(rawBody, sigHeader, options.webhookSecret);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       throw new Error(`subscription-stripe: webhook signature verify failed — ${msg}`);

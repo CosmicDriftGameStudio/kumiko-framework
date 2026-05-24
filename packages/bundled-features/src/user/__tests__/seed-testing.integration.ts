@@ -6,6 +6,8 @@
 //   4. `passwordHash`-Field ist optional (User ohne Passwort, z.B. SSO-
 //      Federation, soll auch funktionieren)
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
@@ -14,8 +16,6 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { eq } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createConfigFeature } from "../../config/feature";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
@@ -41,8 +41,8 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(userTable);
-  await stack.db.delete(eventsTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${eventsTable.tableName}"`);
 });
 
 describe("seedUser", () => {
@@ -54,10 +54,7 @@ describe("seedUser", () => {
     });
     expect(userId).toMatch(/^[0-9a-f-]{36}$/);
 
-    const rows = await stack.db
-      .select()
-      .from(userTable)
-      .where(eq(userTable["email"], "alice@example.com"));
+    const rows = await selectMany(stack.db, userTable, { email: "alice@example.com" });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["email"]).toBe("alice@example.com");
     expect(rows[0]?.["displayName"]).toBe("Alice");
@@ -69,10 +66,7 @@ describe("seedUser", () => {
       email: "bob@example.com",
       displayName: "Bob",
     });
-    const events = await stack.db
-      .select()
-      .from(eventsTable)
-      .where(eq(eventsTable.aggregateType, "user"));
+    const events = await selectMany(stack.db, eventsTable, { aggregateType: "user" });
     const created = events.filter((e) => e.type === "user.created");
     expect(created).toHaveLength(1);
     expect(created[0]?.aggregateId).toBe(userId);
@@ -92,18 +86,12 @@ describe("seedUser", () => {
     });
     expect(second).toBe(first);
 
-    const rows = await stack.db
-      .select()
-      .from(userTable)
-      .where(eq(userTable["email"], "carol@example.com"));
+    const rows = await selectMany(stack.db, userTable, { email: "carol@example.com" });
     expect(rows).toHaveLength(1);
     // Original-displayName bleibt — zweiter Call wurde geskippt, kein update.
     expect(rows[0]?.["displayName"]).toBe("Carol");
 
-    const created = await stack.db
-      .select()
-      .from(eventsTable)
-      .where(eq(eventsTable.aggregateType, "user"));
+    const created = await selectMany(stack.db, eventsTable, { aggregateType: "user" });
     expect(created.filter((e) => e.type === "user.created")).toHaveLength(1);
   });
 
@@ -112,7 +100,7 @@ describe("seedUser", () => {
       email: "dave@example.com",
       displayName: "Dave",
     });
-    const [row] = await stack.db.select().from(userTable).where(eq(userTable["id"], userId));
+    const [row] = await selectMany(stack.db, userTable, { id: userId });
     expect(row?.["passwordHash"]).toBeNull();
   });
 
@@ -121,7 +109,7 @@ describe("seedUser", () => {
       email: "eve@example.com",
       displayName: "Eve",
     });
-    const [row] = await stack.db.select().from(userTable).where(eq(userTable["id"], userId));
+    const [row] = await selectMany(stack.db, userTable, { id: userId });
     expect(row?.["insertedById"]).toBe(TestUsers.systemAdmin.id);
   });
 });

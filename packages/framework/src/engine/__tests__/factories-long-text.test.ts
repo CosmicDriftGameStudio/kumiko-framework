@@ -8,7 +8,7 @@
 // source-code / markdown / blog-posts — explicitly NOT sortable /
 // searchable / filterable. Type-level enforcement statt soft-defaults.
 
-import { describe, expect, expectTypeOf, test } from "vitest";
+import { describe, expect, expectTypeOf, test } from "bun:test";
 import { createLongTextField } from "../factories";
 import type { LongTextFieldDef } from "../types";
 

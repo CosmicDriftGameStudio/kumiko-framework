@@ -7,7 +7,7 @@
 // Wenn parseAutoVerb für ein Domain-Event versehentlich einen Verb
 // returnt, würde die ImplicitProjection den falschen Handler firen.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import type { StoredEvent } from "../../event-store";
 import { parseAutoVerb } from "../apply-entity-event";
 

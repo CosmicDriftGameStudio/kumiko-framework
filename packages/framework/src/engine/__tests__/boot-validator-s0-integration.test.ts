@@ -13,7 +13,7 @@
 //                        + retention.blockDelete + anonymize-Funktion
 //                        + handler-access mit ROLES.TenantAdmin
 
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { z } from "zod";
 import { ROLES } from "../../auth";
 import { validateBoot } from "../boot-validator";
@@ -27,10 +27,10 @@ import {
 } from "../index";
 
 describe("S0 Integration — full surface stack", () => {
-  let warnSpy: ReturnType<typeof vi.spyOn>;
+  let warnSpy: ReturnType<typeof spyOn>;
 
   beforeEach(() => {
-    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    warnSpy = spyOn(console, "warn").mockImplementation(() => {});
   });
 
   afterEach(() => {

@@ -7,8 +7,8 @@
 // That is fine for framework-internal code, but the AI Builder must
 // NEVER produce code with ParseErrors. This test pins the contract.
 
+import { describe, expect, test } from "bun:test";
 import { Project } from "ts-morph";
-import { describe, expect, test } from "vitest";
 import { parseSourceFile } from "../parse";
 
 const INLINE_FEATURE = `

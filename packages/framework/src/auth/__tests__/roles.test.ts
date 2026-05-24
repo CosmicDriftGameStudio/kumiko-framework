@@ -1,6 +1,6 @@
 // Snapshot-Tests fuer ROLES — faengt stille Drift ab.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { ROLES } from "../roles";
 
 describe("ROLES constants", () => {
@@ -18,7 +18,7 @@ describe("ROLES constants", () => {
 
   test("ROLES-Werte sind identisch zu den Keys (keine Drift im Mapping)", () => {
     for (const [key, value] of Object.entries(ROLES)) {
-      expect(value).toBe(key);
+      expect(value as string).toBe(key);
     }
   });
 });

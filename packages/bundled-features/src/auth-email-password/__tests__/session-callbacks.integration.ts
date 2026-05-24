@@ -1,4 +1,6 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -9,7 +11,6 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import * as jose from "jose";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
@@ -126,8 +127,8 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(userTable);
-  await stack.db.delete(tenantMembershipsTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
   // Reset the in-memory store but KEEP sidStream running — otherwise a test
   // that leaks a sid into another test would produce confusing collisions.
   store.live.clear();
@@ -235,7 +236,7 @@ describe("logout routes through sessionRevoker", () => {
     expect(logoutRes.status).toBe(200);
 
     // Revoker was called with exactly the sid from the caller's JWT
-    expect(store.revoked).toEqual([sidBefore]);
+    expect(store.revoked).toEqual([sidBefore!]);
     expect(store.live.has(sidBefore ?? "")).toBe(false);
   });
 
@@ -279,7 +280,7 @@ describe("switch-tenant rotates the session", () => {
     expect(sidB).not.toBe(sidA);
 
     // Old sid is revoked; new sid is live
-    expect(store.revoked).toContain(sidA);
+    expect(store.revoked).toContain(sidA!);
     expect(store.live.has(sidA ?? "")).toBe(false);
     expect(store.live.has(sidB ?? "")).toBe(true);
 

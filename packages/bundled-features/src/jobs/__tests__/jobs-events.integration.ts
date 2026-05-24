@@ -8,6 +8,8 @@
 // projection side (list + detail queries). This file covers the event
 // side — complementary coverage, minimal overlap.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createRegistry, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -17,8 +19,6 @@ import {
   type TestRedis,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { eq } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { runCompletedSchema, runFailedSchema, runStartedSchema } from "../events";
 import { createJobsFeature } from "../feature";
 import {
@@ -48,9 +48,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await testDb.db.delete(eventsTable);
-  await testDb.db.delete(jobRunsTable);
-  await testDb.db.delete(jobRunLogsTable);
+  await asRawClient(testDb.db).unsafe(`DELETE FROM "${eventsTable.tableName}"`);
+  await asRawClient(testDb.db).unsafe(`DELETE FROM "${jobRunsTable.tableName}"`);
+  await asRawClient(testDb.db).unsafe(`DELETE FROM "${jobRunLogsTable.tableName}"`);
 });
 
 describe("jobRun event shapes", () => {
@@ -69,10 +69,7 @@ describe("jobRun event shapes", () => {
       attempt: 1,
     });
 
-    const events = await testDb.db
-      .select()
-      .from(eventsTable)
-      .where(eq(eventsTable.type, JOB_RUN_STARTED_EVENT));
+    const events = await selectMany(testDb.db, eventsTable, { type: JOB_RUN_STARTED_EVENT });
 
     expect(events.length).toBe(1);
     const e = events[0];
@@ -95,10 +92,7 @@ describe("jobRun event shapes", () => {
       { level: "info", message: "done", timestamp: Temporal.Now.instant() },
     ]);
 
-    const events = await testDb.db
-      .select()
-      .from(eventsTable)
-      .where(eq(eventsTable.type, JOB_RUN_COMPLETED_EVENT));
+    const events = await selectMany(testDb.db, eventsTable, { type: JOB_RUN_COMPLETED_EVENT });
 
     expect(events.length).toBe(1);
     const p = runCompletedSchema.parse(events[0]?.payload);
@@ -113,10 +107,7 @@ describe("jobRun event shapes", () => {
       { level: "error", message: "kaboom", timestamp: Temporal.Now.instant() },
     ]);
 
-    const events = await testDb.db
-      .select()
-      .from(eventsTable)
-      .where(eq(eventsTable.type, JOB_RUN_FAILED_EVENT));
+    const events = await selectMany(testDb.db, eventsTable, { type: JOB_RUN_FAILED_EVENT });
 
     expect(events.length).toBe(1);
     const p = runFailedSchema.parse(events[0]?.payload);
@@ -131,10 +122,7 @@ describe("jobRun event shapes", () => {
     // Both events should share the same aggregateId — that's what makes
     // the jobRun a single stream and lets ctx.loadAggregate() reduce
     // them into a coherent state.
-    const events = await testDb.db
-      .select()
-      .from(eventsTable)
-      .where(eq(eventsTable.aggregateType, "jobRun"));
+    const events = await selectMany(testDb.db, eventsTable, { aggregateType: "jobRun" });
 
     expect(events.length).toBe(2);
     const ids = new Set(events.map((e) => e.aggregateId));

@@ -13,8 +13,8 @@
 //     blobs, unsupported PRF — all the ways a verifier could leak a 500
 //     instead of returning false.
 
+import { describe, expect, test } from "bun:test";
 import { pbkdf2Sync } from "node:crypto";
-import { describe, expect, test } from "vitest";
 import { isIdentityV3Hash, verifyIdentityV3Hash } from "../identity-v3-hash";
 import { verifyPassword } from "../password-hashing";
 

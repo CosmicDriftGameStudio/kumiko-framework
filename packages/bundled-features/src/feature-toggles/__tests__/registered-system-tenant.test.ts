@@ -11,6 +11,7 @@
 // durchläuft. Die Convention-Pin ist die einzige Aussage des tests —
 // echtes integration-Verhalten deckt feature-toggles.integration.ts ab.
 
+import { describe, expect, test } from "bun:test";
 import {
   createEntity,
   createRegistry,
@@ -21,7 +22,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createDispatcher } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/stack";
-import { describe, expect, test } from "vitest";
 import { createFeatureTogglesFeature } from "../feature";
 import type { GlobalFeatureToggleRuntime } from "../toggle-runtime";
 
@@ -43,12 +43,13 @@ describe("Sprint 8a: registered.query SYSTEM_TENANT_ID convention", () => {
 
     const registry = createRegistry([dummy, featureToggles]);
 
-    // Mock ctx.db.select-chain damit der handler durch den DB-Pfad
-    // kommt. Wir liefern leere overrides (.from() returnt []), das
-    // genügt — registered.query iteriert dann über registry.features
-    // und ruft ctx.effectiveFeatures, was unser observable ist.
+    // Mock ctx.db via bun-db's asRawClient surface: handler ruft
+    // selectMany(ctx.db.raw, ...) → asRawClient(raw).unsafe(...). Wir
+    // liefern leere overrides damit der handler durch den DB-Pfad kommt
+    // und dann ctx.effectiveFeatures aufruft (das observable hier).
     const mockDb = {
-      select: () => ({ from: async () => [] as unknown[] }),
+      unsafe: async () => [] as unknown[],
+      begin: async () => undefined,
     } as unknown as Parameters<typeof createDispatcher>[1]["db"];
 
     const callerTenant = "00000000-0000-4000-8000-0000000000c1" as TenantId;

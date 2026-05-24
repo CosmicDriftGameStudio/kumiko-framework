@@ -4,7 +4,9 @@
 // (samples/secrets-demo) shows the broader rotation + cross-feature flow;
 // this test covers just the feature's own handlers.
 
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createEnvMasterKeyProvider,
@@ -16,8 +18,6 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { and, eq } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createSecretsFeature } from "../feature";
 import { createSecretsContext } from "../secrets-context";
 import { type StoredEnvelope, tenantSecretsTable } from "../table";
@@ -76,15 +76,10 @@ describe("secrets feature — CRUD round-trip", () => {
     expect(row?.kekVersion).toBe(1);
 
     // DB row holds an envelope, no plaintext
-    const [dbRow] = await stack.db
-      .select()
-      .from(tenantSecretsTable)
-      .where(
-        and(
-          eq(tenantSecretsTable.tenantId, admin.tenantId),
-          eq(tenantSecretsTable.key, "api.key.x"),
-        ),
-      );
+    const [dbRow] = await selectMany(stack.db, tenantSecretsTable, {
+      tenantId: admin.tenantId,
+      key: "api.key.x",
+    });
     if (!dbRow) throw new Error("row missing");
     const env = dbRow.envelope as StoredEnvelope;
     expect(env.ciphertext).toBeTruthy();

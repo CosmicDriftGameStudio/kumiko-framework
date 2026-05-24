@@ -24,7 +24,7 @@ export const counterEntity = createEntity({
 export const counterFeature = defineFeature("counters", (r) => {
   r.entity("counter", counterEntity);
 
-  // createEntityExecutor bundles buildDrizzleTable + createEventStoreExecutor —
+  // createEntityExecutor bundles buildEntityTable + createEventStoreExecutor —
   // the same pair every custom write-handler opens with. Collapses 3 lines
   // + the { entityName } bookkeeping into one destructure.
   const { executor: counterExecutor } = createEntityExecutor("counter", counterEntity);

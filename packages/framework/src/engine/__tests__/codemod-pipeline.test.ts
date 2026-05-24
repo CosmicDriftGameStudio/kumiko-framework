@@ -1,13 +1,13 @@
+import { afterAll, beforeAll, describe, expect, it, mock } from "bun:test";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 // Bun.Glob is only used by scanForCandidates / runCodemod, not by
 // analyzeFile or convertFile. Those higher-level functions are tested
 // in the integration suite; unit tests here focus on file-level
 // operations which don't need Glob. A stub class prevents import
-// errors in vitest (which runs on Node, not Bun).
-vi.mock("bun", () => {
+// errors in bun (which runs on Node, not Bun).
+mock.module("bun", () => {
   class StubGlob {
     scanSync(): never {
       throw new Error("Bun.Glob is not available in unit-test mode");

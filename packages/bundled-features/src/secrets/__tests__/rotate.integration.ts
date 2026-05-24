@@ -3,7 +3,9 @@
 // asserts the job bails after maxFailures instead of spraying the log
 // with every row's identical error.
 
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
+import { deleteMany, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { AppContext } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createEnvMasterKeyProvider,
@@ -16,8 +18,6 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { eq, sql } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createSecretsFeature } from "../feature";
 import { rotateJob } from "../handlers/rotate.job";
 import { createSecretsContext } from "../secrets-context";
@@ -83,7 +83,7 @@ beforeAll(async () => {
   // Seed 20 V1 rows directly — too many for any maxFailures default.
   for (let i = 0; i < 20; i++) {
     const envelope = await encryptValue(`secret-${i}`, seedProvider);
-    await stack.db.insert(tenantSecretsTable).values({
+    await insertOne(stack.db, tenantSecretsTable, {
       tenantId: admin.tenantId,
       key: `test:secret:k-${i}`,
       envelope: {
@@ -100,7 +100,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   // Clean up the seeded fixtures so downstream suites don't see them.
-  await stack.db.delete(tenantSecretsTable).where(eq(tenantSecretsTable.tenantId, admin.tenantId));
+  await deleteMany(stack.db, tenantSecretsTable, { tenantId: admin.tenantId });
   await stack.cleanup();
 });
 
@@ -128,11 +128,8 @@ function jobCtx(provider: MasterKeyProvider): Parameters<typeof rotateJob>[1] {
 }
 
 async function countV1Rows(): Promise<number> {
-  const rows = await stack.db
-    .select({ kekVersion: tenantSecretsTable.kekVersion })
-    .from(tenantSecretsTable)
-    .where(sql`${tenantSecretsTable.tenantId} = ${admin.tenantId}`);
-  return rows.filter((r) => r.kekVersion === 1).length;
+  const rows = await selectMany(stack.db, tenantSecretsTable, { tenantId: admin.tenantId });
+  return rows.filter((r: Record<string, unknown>) => r["kekVersion"] === 1).length;
 }
 
 describe("rotate-job circuit-breaker", () => {

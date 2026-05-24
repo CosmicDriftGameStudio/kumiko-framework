@@ -15,7 +15,7 @@
 // single-tenant recipe (samples/recipes/anonymous-access/) for
 // comparison.
 
-import { buildDrizzleTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createEntity,
@@ -31,7 +31,7 @@ export const productEntity = createEntity({
   },
 });
 
-export const productTable = buildDrizzleTable("product", productEntity);
+export const productTable = buildEntityTable("product", productEntity);
 
 export const multiTenantShopFeature = defineFeature("mtshop", (r) => {
   r.entity("product", productEntity);

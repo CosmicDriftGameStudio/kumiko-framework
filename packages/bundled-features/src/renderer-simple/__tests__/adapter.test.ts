@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { RendererError } from "../../renderer-foundation";
 import { adaptToFoundation } from "../feature";
 
@@ -41,7 +41,7 @@ describe("renderer-simple :: adaptToFoundation", () => {
         kind: "document-pdf",
         payload: { content: "test", contentFormat: "markdown" },
       });
-      expect.fail("expected RendererError");
+      throw new Error("expected RendererError");
     } catch (e) {
       expect(e).toBeInstanceOf(RendererError);
       expect((e as RendererError).code).toBe("invalid_payload");

@@ -1,6 +1,7 @@
 // Idempotency Sample — Integration Test
 // Proves: duplicate requestId returns cached result, no double insert
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -8,7 +9,6 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { orderEntity, orderFeature } from "../feature";
 
 let stack: TestStack;

@@ -3,7 +3,7 @@
 // Projection-Tabelle muss der Detector die richtigen Tabellen-Namen
 // melden, damit migrate apply den richtigen Rebuild triggert.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { compareSnapshots } from "../projection-detection";
 import type { Snapshot, SnapshotTable } from "../schema-drift";
 

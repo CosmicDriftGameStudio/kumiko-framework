@@ -12,11 +12,11 @@
 //           read logged") now sits on the events-table instead of a
 //           dedicated audit-table.
 
+import { asRawClient, fetchOne, transaction } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEventStoreExecutor,
   createTenantDb,
   type DbConnection,
-  fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, type WriteErrorInfo } from "@cosmicdrift/kumiko-framework/errors";
@@ -31,7 +31,6 @@ import {
   type SecretsContext,
 } from "@cosmicdrift/kumiko-framework/secrets";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import {
   type StoredEnvelope,
@@ -118,12 +117,7 @@ export function createSecretsContext(opts: SecretsContextOptions): SecretsContex
   };
 
   async function lookup(tenantId: string, key: string): Promise<SecretLookupRow | undefined> {
-    return fetchOne<SecretLookupRow>(
-      db,
-      tenantSecretsTable,
-      eq(tenantSecretsTable.tenantId, tenantId),
-      eq(tenantSecretsTable.key, key),
-    );
+    return fetchOne<SecretLookupRow>(db, tenantSecretsTable, { tenantId, key });
   }
 
   return {
@@ -142,16 +136,14 @@ export function createSecretsContext(opts: SecretsContextOptions): SecretsContex
         return createSecret(plaintext);
       }
 
-      const plaintext = await db.transaction(async (tx) => {
-        // Inline select inside the TX — fetchOne's SelectChainDb shape
-        // doesn't widen to drizzle's tx-object cleanly. Structurally
-        // identical; the one-off repeat beats a double-cast at the
-        // call site.
-        const [row] = await tx
-          .select({ envelope: tenantSecretsTable.envelope })
-          .from(tenantSecretsTable)
-          .where(and(eq(tenantSecretsTable.tenantId, tenantId), eq(tenantSecretsTable.key, key)))
-          .limit(1);
+      const plaintext = await transaction(db, async (tx) => {
+        // Inline select inside the TX via raw client — fetchOne's connection
+        // type doesn't widen to the transaction object cleanly.
+        const rows = await asRawClient(tx).unsafe<{ envelope: StoredEnvelope }>(
+          `SELECT envelope FROM read_tenant_secrets WHERE tenant_id = $1 AND key = $2 LIMIT 1`,
+          [tenantId, key],
+        );
+        const [row] = rows;
         if (!row) return undefined;
         const envelope = row.envelope;
         const pt = await decryptValue(decodeEnvelope(envelope), provider);
@@ -173,7 +165,7 @@ export function createSecretsContext(opts: SecretsContextOptions): SecretsContex
           userId: auditCtx.userId,
           handlerName: auditCtx.handlerName,
         });
-        await append(tx, {
+        await append(tx as unknown as Parameters<typeof append>[0], {
           aggregateId: readId,
           aggregateType: "tenantSecretRead",
           tenantId,

@@ -3,7 +3,7 @@
   "description": "Enforced entity state transitions. No more illegal state changes.",
   "private": true,
   "dependencies": {
-    "@app/define": "link:./.kumiko",
+    "@app/define": "file:./.kumiko",
     "@cosmicdrift/kumiko-framework": "workspace:*"
   }
 }

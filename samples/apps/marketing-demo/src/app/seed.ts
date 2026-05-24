@@ -9,8 +9,8 @@
 // nur Logik: Random-Generator, Datums-Helper, der eigentliche Seed.
 
 import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
-import { sql } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
 import { ASSET_STATUSES } from "../features/assets/schema";
 import { TICKET_SEVERITIES, TICKET_STATUSES } from "../features/helpdesk/schema";
@@ -50,8 +50,9 @@ export const seedMarketingDemo: SeedFn = async (stack) => {
   const tenantId = TestUsers.admin.tenantId;
 
   // Asset-Tracker — skip wenn schon ≥20 Rows da
-  const existingAssets = await stack.db.execute<{ count: number }>(
-    sql`SELECT count(*)::int AS count FROM read_assets WHERE tenant_id = ${tenantId}`,
+  const existingAssets = await asRawClient(stack.db).unsafe<{ count: number }>(
+    `SELECT count(*)::int AS count FROM read_assets WHERE tenant_id = $1`,
+    [tenantId],
   );
   if ((existingAssets[0]?.count ?? 0) < 20) {
     const r = rng(42);
@@ -102,8 +103,9 @@ export const seedMarketingDemo: SeedFn = async (stack) => {
   }
 
   // Helpdesk — skip wenn schon ≥10 Rows da
-  const existingTickets = await stack.db.execute<{ count: number }>(
-    sql`SELECT count(*)::int AS count FROM read_tickets WHERE tenant_id = ${tenantId}`,
+  const existingTickets = await asRawClient(stack.db).unsafe<{ count: number }>(
+    `SELECT count(*)::int AS count FROM read_tickets WHERE tenant_id = $1`,
+    [tenantId],
   );
   if ((existingTickets[0]?.count ?? 0) < 10) {
     const r = rng(7);

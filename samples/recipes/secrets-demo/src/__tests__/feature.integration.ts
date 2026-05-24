@@ -12,6 +12,7 @@
 //   5. KEK rotation works end-to-end via the core rotate job, triggered
 //      through BullMQ — app code writes zero rotation logic.
 
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { createJobsFeature } from "@cosmicdrift/kumiko-bundled-features/jobs";
 import {
@@ -37,7 +38,6 @@ import {
   waitFor,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { and, eq } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { createBillingFeature, STRIPE_API_KEY } from "../feature";
 

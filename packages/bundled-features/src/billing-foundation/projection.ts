@@ -14,7 +14,7 @@
 // `drizzle/generate.ts` ergänzen (= via subscriptionsProjectionTable-
 // import). setupTestStack pusht sie automatisch via r.projection.table.
 
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { defineApply } from "@cosmicdrift/kumiko-framework/engine";
 import { subscriptionEntity } from "./entities";
 import type { SubscriptionEventPayload } from "./events";
@@ -22,7 +22,7 @@ import type { SubscriptionEventPayload } from "./events";
 // Drizzle-table-instance aus dem entity-shape. Wird sowohl von der
 // projection-apply als auch von list-query / get-helper genutzt damit
 // alle drei Stellen denselben column-namespace teilen.
-export const subscriptionsProjectionTable = buildDrizzleTable("subscription", subscriptionEntity);
+export const subscriptionsProjectionTable = buildEntityTable("subscription", subscriptionEntity);
 
 // =============================================================================
 // Shared helpers
@@ -62,17 +62,37 @@ async function upsert(
   // jemand nur teil-felder updated (z.B. invoice-payment-failed nur
   // status+tier), nutzen wir trotzdem den vollen payload für den
   // INSERT-Pfad und nur den teil-`set` für ON CONFLICT.
-  await tx
-    .insert(subscriptionsProjectionTable)
-    .values({
-      id: event.aggregateId,
-      tenantId: event.tenantId,
-      ...fullSetFromPayload(fullPayload),
-    })
-    .onConflictDoUpdate({
-      target: subscriptionsProjectionTable["id"],
-      set,
-    });
+  const insertCols = {
+    id: event.aggregateId,
+    tenant_id: event.tenantId,
+    provider_name: fullPayload.providerName,
+    provider_customer_id: fullPayload.providerCustomerId,
+    provider_subscription_id: fullPayload.providerSubscriptionId,
+    status: fullPayload.status,
+    tier: fullPayload.tier,
+    current_period_end: fullPayload.currentPeriodEndIso,
+  };
+  // Map camelCase set-keys to snake_case DB columns.
+  const setMap: Record<keyof typeof set, string> = {
+    providerName: "provider_name",
+    providerCustomerId: "provider_customer_id",
+    providerSubscriptionId: "provider_subscription_id",
+    status: "status",
+    tier: "tier",
+    currentPeriodEnd: "current_period_end",
+  };
+  const insertKeys = Object.keys(insertCols);
+  const insertParams = Object.values(insertCols);
+  const insertPlaceholders = insertKeys.map((_, i) => `$${i + 1}`);
+  const setEntries = Object.entries(set).filter(([, v]) => v !== undefined);
+  const setClauses: string[] = [];
+  const allParams: unknown[] = [...insertParams];
+  for (const [k, v] of setEntries) {
+    allParams.push(v);
+    setClauses.push(`"${setMap[k as keyof typeof set]}" = $${allParams.length}`);
+  }
+  const sqlText = `INSERT INTO "${(subscriptionsProjectionTable as { tableName: string }).tableName}" (${insertKeys.map((k) => `"${k}"`).join(", ")}) VALUES (${insertPlaceholders.join(", ")}) ON CONFLICT ("id") DO UPDATE SET ${setClauses.join(", ")}`;
+  await asRawClient(tx).unsafe(sqlText, allParams);
 }
 
 // =============================================================================

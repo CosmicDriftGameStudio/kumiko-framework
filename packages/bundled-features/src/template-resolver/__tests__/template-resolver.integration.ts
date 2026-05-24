@@ -1,10 +1,11 @@
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createTemplateResolverApi, TemplateNotFoundError, type TemplateResolverApi } from "../api";
 import {
   type ContentFormat,
@@ -55,7 +56,7 @@ async function seedTemplate(args: {
   linkedResources?: Record<string, string>;
   parentTemplateId?: string;
 }) {
-  await db.insert(templateResourcesTable).values({
+  await insertOne(db, templateResourcesTable, {
     tenantId: args.tenantId,
     slug: args.slug,
     kind: args.kind,

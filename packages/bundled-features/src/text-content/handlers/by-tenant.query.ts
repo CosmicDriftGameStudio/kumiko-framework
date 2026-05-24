@@ -1,7 +1,7 @@
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { castTenantRows } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { type TextBlockRow, textBlocksTable } from "../table";
 
@@ -42,7 +42,7 @@ export const byTenantQuery = defineQueryHandler({
     }
     const tenantId = override ?? query.user.tenantId;
     const rows = castTenantRows<TextBlockRow>(
-      await ctx.db.select().from(textBlocksTable).where(eq(textBlocksTable["tenantId"], tenantId)),
+      await selectMany(ctx.db, textBlocksTable, { tenantId: tenantId }),
     );
     return {
       blocks: rows.map((row) => ({

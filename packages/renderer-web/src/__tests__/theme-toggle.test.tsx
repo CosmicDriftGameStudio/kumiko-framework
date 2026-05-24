@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 //
 // Tests pinnen den ThemeToggle-Vertrag: Click ruft toggleMode, Icon-
 // Slot defaultet auf Unicode, Custom-Slots werden durchgereicht, das
@@ -8,10 +7,10 @@
 // `mode` + `toggleMode`, der Rest (tokens, setMode) wird vom Toggle
 // nicht angefasst.
 
+import { describe, expect, mock, test } from "bun:test";
 import { TokensProvider } from "@cosmicdrift/kumiko-renderer";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { describe, expect, test, vi } from "vitest";
 import { ThemeToggle } from "../layout/theme-toggle";
 
 type StubApi = {
@@ -21,11 +20,11 @@ type StubApi = {
 
 function makeStub(
   initial: "light" | "dark" = "light",
-): StubApi & { toggleMode: ReturnType<typeof vi.fn> } {
+): StubApi & { toggleMode: ReturnType<typeof mock> } {
   const stub = {
     mode: initial,
-    toggleMode: vi.fn(),
-  } as StubApi & { toggleMode: ReturnType<typeof vi.fn> };
+    toggleMode: mock(),
+  } as StubApi & { toggleMode: ReturnType<typeof mock> };
   return stub;
 }
 

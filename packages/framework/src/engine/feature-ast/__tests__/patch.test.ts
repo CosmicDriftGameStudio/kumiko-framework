@@ -5,8 +5,8 @@
 // pinned by parse.test.ts + render-roundtrip.test.ts) so a failure
 // here narrows the cause to patch.ts itself.
 
+import { describe, expect, test } from "bun:test";
 import { Project, type SourceFile } from "ts-morph";
-import { describe, expect, test } from "vitest";
 import { parseSourceFile } from "../parse";
 import { addPattern, applyChanges, type PatternId, removePattern, replacePattern } from "../patch";
 import { createFeaturePatcher } from "../patcher";

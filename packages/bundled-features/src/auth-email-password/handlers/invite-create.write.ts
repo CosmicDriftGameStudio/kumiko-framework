@@ -15,10 +15,10 @@
 // invite-create.
 
 import { generateToken } from "@cosmicdrift/kumiko-framework/api";
-import { createEventStoreExecutor, fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { eq } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 // kumiko-lint-ignore cross-feature-import invite-flow lebt in auth-email-password (Magic-Link-Pattern), DB-row-owner ist tenant-feature
@@ -77,12 +77,7 @@ export function createInviteCreateHandler(opts: InviteCreateOptions = {}) {
       // max. eine Row. Status egal (cancelled/accepted/expired/pending);
       // wir setzen sie auf pending zurück und vergeben einen frischen
       // Token wenn der bisherige nicht mehr lebt.
-      const existing = await fetchOne(
-        ctx.db.raw,
-        tenantInvitationsTable,
-        eq(tenantInvitationsTable.tenantId, tenantId),
-        eq(tenantInvitationsTable.email, email),
-      );
+      const existing = await fetchOne(ctx.db.raw, tenantInvitationsTable, { tenantId, email });
 
       let invitationId: string;
       let token: string;

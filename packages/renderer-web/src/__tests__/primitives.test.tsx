@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 //
 // Default-Primitives für Web-Renderer. Tests pinnen den Vertrag, den die
 // Renderer-Komponenten (RenderEdit, RenderList, KumikoScreen) an die
@@ -8,8 +7,8 @@
 // ChangeEvent) und das testId-Forwarding, von dem die E2E-Tests
 // abhängen werden.
 
+import { describe, expect, mock, test } from "bun:test";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, test, vi } from "vitest";
 import { defaultPrimitives } from "../primitives";
 import { fireEvent, render, screen } from "./test-utils";
 
@@ -30,7 +29,7 @@ describe("Button", () => {
   });
 
   test("onClick fires on click", () => {
-    const onClick = vi.fn();
+    const onClick = mock();
     render(
       <Button onClick={onClick} testId="btn">
         Go
@@ -41,7 +40,7 @@ describe("Button", () => {
   });
 
   test("loading: rendert Spinner statt Children + ist disabled", () => {
-    const onClick = vi.fn();
+    const onClick = mock();
     render(
       <Button loading onClick={onClick} testId="btn">
         Save
@@ -126,14 +125,14 @@ describe("Field", () => {
 
 describe("Input kind mapping", () => {
   test('kind="text": onChange receives string', () => {
-    const onChange = vi.fn();
+    const onChange = mock();
     render(<Input id="i" name="i" kind="text" value="" onChange={onChange} />);
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "hello" } });
     expect(onChange).toHaveBeenCalledWith("hello");
   });
 
   test('kind="number": "" → undefined, numeric → number', () => {
-    const onChange = vi.fn();
+    const onChange = mock();
     render(<Input id="i" name="i" kind="number" value={0} onChange={onChange} />);
     const input = screen.getByRole("spinbutton");
     fireEvent.change(input, { target: { value: "42" } });
@@ -143,7 +142,7 @@ describe("Input kind mapping", () => {
   });
 
   test('kind="boolean": onChange receives checked', () => {
-    const onChange = vi.fn();
+    const onChange = mock();
     render(<Input id="i" name="i" kind="boolean" value={false} onChange={onChange} />);
     fireEvent.click(screen.getByRole("checkbox"));
     expect(onChange).toHaveBeenCalledWith(true);
@@ -153,7 +152,7 @@ describe("Input kind mapping", () => {
     // Default-DateInput nutzt Radix-Popover + DayPicker statt native
     // <input type="date">. Trigger ist ein Button mit dem formatierten
     // Datum als sichtbarem Text.
-    const onChange = vi.fn();
+    const onChange = mock();
     render(
       <Input id="i" name="i" kind="date" value="2026-04-23" onChange={onChange} locale="de-DE" />,
     );
@@ -198,7 +197,7 @@ describe("DataTable", () => {
   });
 
   test("onRowClick fires with the clicked row", () => {
-    const onRowClick = vi.fn();
+    const onRowClick = mock();
     const row = { id: "r1", values: { name: "Alice" } };
     render(
       <DataTable
@@ -233,7 +232,7 @@ describe("DataTable", () => {
     });
 
     test("mit onSortChange: sortable-Column rendert Button + ArrowUpDown-Icon", () => {
-      render(<DataTable columns={sortableCols} rows={oneRow} onSortChange={vi.fn()} />);
+      render(<DataTable columns={sortableCols} rows={oneRow} onSortChange={mock()} />);
       const header = screen.getByTestId("column-name");
       expect(header.querySelector("button")).not.toBeNull();
       // Default-Icon (kein active sort) ist ArrowUpDown — Lucide rendert
@@ -242,7 +241,7 @@ describe("DataTable", () => {
     });
 
     test("non-sortable Column rendert KEINEN Button (auch mit onSortChange)", () => {
-      render(<DataTable columns={sortableCols} rows={oneRow} onSortChange={vi.fn()} />);
+      render(<DataTable columns={sortableCols} rows={oneRow} onSortChange={mock()} />);
       expect(screen.getByTestId("column-id").querySelector("button")).toBeNull();
     });
 
@@ -252,7 +251,7 @@ describe("DataTable", () => {
           columns={sortableCols}
           rows={oneRow}
           sort={{ field: "name", dir: "asc" }}
-          onSortChange={vi.fn()}
+          onSortChange={mock()}
         />,
       );
       expect(screen.getByTestId("column-name").getAttribute("aria-sort")).toBe("ascending");
@@ -265,21 +264,21 @@ describe("DataTable", () => {
           columns={sortableCols}
           rows={oneRow}
           sort={{ field: "name", dir: "desc" }}
-          onSortChange={vi.fn()}
+          onSortChange={mock()}
         />,
       );
       expect(screen.getByTestId("column-name").getAttribute("aria-sort")).toBe("descending");
     });
 
     test("Click ohne aktiven Sort: onSortChange({field, dir:'asc'})", () => {
-      const onSortChange = vi.fn();
+      const onSortChange = mock();
       render(<DataTable columns={sortableCols} rows={oneRow} onSortChange={onSortChange} />);
       fireEvent.click(screen.getByTestId("column-name").querySelector("button") as HTMLElement);
       expect(onSortChange).toHaveBeenCalledWith({ field: "name", dir: "asc" });
     });
 
     test("Click mit aktivem asc: onSortChange({field, dir:'desc'})", () => {
-      const onSortChange = vi.fn();
+      const onSortChange = mock();
       render(
         <DataTable
           columns={sortableCols}
@@ -293,7 +292,7 @@ describe("DataTable", () => {
     });
 
     test("Click mit aktivem desc: onSortChange(null) (3-State zurück zu unsorted)", () => {
-      const onSortChange = vi.fn();
+      const onSortChange = mock();
       render(
         <DataTable
           columns={sortableCols}
@@ -307,7 +306,7 @@ describe("DataTable", () => {
     });
 
     test("Click auf andere Spalte (sort=null für die): startet bei asc", () => {
-      const onSortChange = vi.fn();
+      const onSortChange = mock();
       render(
         <DataTable
           columns={sortableCols}
@@ -342,7 +341,7 @@ describe("DataTable", () => {
           columns={cols}
           rows={[]}
           testId="dt"
-          pager={{ page: 1, limit: 50, total: 0, onPageChange: vi.fn() }}
+          pager={{ page: 1, limit: 50, total: 0, onPageChange: mock() }}
         />,
       );
       expect(screen.queryByTestId("dt-pager")).toBeNull();
@@ -354,7 +353,7 @@ describe("DataTable", () => {
           columns={cols}
           rows={oneRow}
           testId="dt"
-          pager={{ page: 1, limit: 50, total: 3000, onPageChange: vi.fn() }}
+          pager={{ page: 1, limit: 50, total: 3000, onPageChange: mock() }}
         />,
       );
       expect((screen.getByTestId("dt-pager-prev") as HTMLButtonElement).disabled).toBe(true);
@@ -367,14 +366,14 @@ describe("DataTable", () => {
           columns={cols}
           rows={oneRow}
           testId="dt"
-          pager={{ page: 60, limit: 50, total: 3000, onPageChange: vi.fn() }}
+          pager={{ page: 60, limit: 50, total: 3000, onPageChange: mock() }}
         />,
       );
       expect((screen.getByTestId("dt-pager-next") as HTMLButtonElement).disabled).toBe(true);
     });
 
     test("Click auf Page-Button: onPageChange feuert mit der Seite", () => {
-      const onPageChange = vi.fn();
+      const onPageChange = mock();
       render(
         <DataTable
           columns={cols}
@@ -388,7 +387,7 @@ describe("DataTable", () => {
     });
 
     test("Click auf Prev von page=3: onPageChange(2)", () => {
-      const onPageChange = vi.fn();
+      const onPageChange = mock();
       render(
         <DataTable
           columns={cols}
@@ -407,7 +406,7 @@ describe("DataTable", () => {
           columns={cols}
           rows={oneRow}
           testId="dt"
-          pager={{ page: 5, limit: 50, total: 3000, onPageChange: vi.fn() }}
+          pager={{ page: 5, limit: 50, total: 3000, onPageChange: mock() }}
         />,
       );
       expect(screen.getByTestId("dt-pager-page-5").getAttribute("aria-current")).toBe("page");
@@ -419,7 +418,7 @@ describe("DataTable", () => {
           columns={cols}
           rows={oneRow}
           testId="dt"
-          pager={{ page: 1, limit: 50, total: 200, onPageChange: vi.fn() }}
+          pager={{ page: 1, limit: 50, total: 200, onPageChange: mock() }}
         />,
       );
       // total=200, limit=50 → 4 Seiten, kein Window
@@ -435,7 +434,7 @@ describe("DataTable", () => {
           columns={cols}
           rows={oneRow}
           testId="dt"
-          pager={{ page: 30, limit: 50, total: 3000, onPageChange: vi.fn() }}
+          pager={{ page: 30, limit: 50, total: 3000, onPageChange: mock() }}
         />,
       );
       // Window: 1 ... 28 29 [30] 31 32 ... 60
@@ -465,7 +464,7 @@ describe("DataTable", () => {
           columns={cols}
           rows={oneRow}
           testId="dt"
-          onReachEnd={vi.fn()}
+          onReachEnd={mock()}
           loadingMore={false}
           hasMore={true}
         />,
@@ -483,7 +482,7 @@ describe("DataTable", () => {
           columns={cols}
           rows={oneRow}
           testId="dt"
-          onReachEnd={vi.fn()}
+          onReachEnd={mock()}
           loadingMore={true}
           hasMore={true}
         />,
@@ -497,7 +496,7 @@ describe("DataTable", () => {
           columns={cols}
           rows={oneRow}
           testId="dt"
-          onReachEnd={vi.fn()}
+          onReachEnd={mock()}
           loadingMore={false}
           hasMore={false}
         />,
@@ -528,7 +527,7 @@ describe("DataTable", () => {
           columns={cols}
           rows={rows}
           testId="dt"
-          rowActions={[{ id: "edit", label: "Edit", onTrigger: vi.fn() }]}
+          rowActions={[{ id: "edit", label: "Edit", onTrigger: mock() }]}
         />,
       );
       expect(screen.queryByTestId("column-actions")).not.toBeNull();
@@ -542,8 +541,8 @@ describe("DataTable", () => {
           rows={rows}
           testId="dt"
           rowActions={[
-            { id: "edit", label: "Edit", onTrigger: vi.fn() },
-            { id: "delete", label: "Delete", style: "danger", onTrigger: vi.fn() },
+            { id: "edit", label: "Edit", onTrigger: mock() },
+            { id: "delete", label: "Delete", style: "danger", onTrigger: mock() },
           ]}
         />,
       );
@@ -558,9 +557,9 @@ describe("DataTable", () => {
           rows={rows}
           testId="dt"
           rowActions={[
-            { id: "a", label: "A", onTrigger: vi.fn() },
-            { id: "b", label: "B", onTrigger: vi.fn() },
-            { id: "c", label: "C", onTrigger: vi.fn() },
+            { id: "a", label: "A", onTrigger: mock() },
+            { id: "b", label: "B", onTrigger: mock() },
+            { id: "c", label: "C", onTrigger: mock() },
           ]}
         />,
       );
@@ -578,9 +577,9 @@ describe("DataTable", () => {
           rows={rows}
           testId="dt"
           rowActions={[
-            { id: "a", label: "Archive", onTrigger: vi.fn() },
-            { id: "b", label: "Duplicate", onTrigger: vi.fn() },
-            { id: "c", label: "Export", onTrigger: vi.fn() },
+            { id: "a", label: "Archive", onTrigger: mock() },
+            { id: "b", label: "Duplicate", onTrigger: mock() },
+            { id: "c", label: "Export", onTrigger: mock() },
           ]}
         />,
       );
@@ -592,7 +591,7 @@ describe("DataTable", () => {
 
     test("Kebab: Click auf Item ohne confirm → onTrigger feuert direkt", async () => {
       const user = userEvent.setup();
-      const onTrigger = vi.fn();
+      const onTrigger = mock();
       render(
         <DataTable
           columns={cols}
@@ -600,8 +599,8 @@ describe("DataTable", () => {
           testId="dt"
           rowActions={[
             { id: "a", label: "Archive", onTrigger },
-            { id: "b", label: "Duplicate", onTrigger: vi.fn() },
-            { id: "c", label: "Export", onTrigger: vi.fn() },
+            { id: "b", label: "Duplicate", onTrigger: mock() },
+            { id: "c", label: "Export", onTrigger: mock() },
           ]}
         />,
       );
@@ -614,15 +613,15 @@ describe("DataTable", () => {
 
     test("Kebab: Click auf Danger-Item → Confirm-Dialog statt direkt-Trigger", async () => {
       const user = userEvent.setup();
-      const onTrigger = vi.fn();
+      const onTrigger = mock();
       render(
         <DataTable
           columns={cols}
           rows={rows}
           testId="dt"
           rowActions={[
-            { id: "a", label: "Archive", onTrigger: vi.fn() },
-            { id: "b", label: "Duplicate", onTrigger: vi.fn() },
+            { id: "a", label: "Archive", onTrigger: mock() },
+            { id: "b", label: "Duplicate", onTrigger: mock() },
             { id: "delete", label: "Delete", style: "danger", onTrigger },
           ]}
         />,
@@ -648,7 +647,7 @@ describe("DataTable", () => {
               style: "danger",
               confirmLabel: "Cancel Subscription",
               confirm: "This is permanent.",
-              onTrigger: vi.fn(),
+              onTrigger: mock(),
             },
           ]}
         />,
@@ -663,7 +662,7 @@ describe("DataTable", () => {
 
     test("Click auf Action ohne confirm: onTrigger wird mit Row gerufen", async () => {
       const user = userEvent.setup();
-      const onTrigger = vi.fn();
+      const onTrigger = mock();
       render(
         <DataTable
           columns={cols}
@@ -677,7 +676,7 @@ describe("DataTable", () => {
     });
 
     test("style=danger: erzwingt Confirm-Dialog vor onTrigger", async () => {
-      const onTrigger = vi.fn();
+      const onTrigger = mock();
       render(
         <DataTable
           columns={cols}
@@ -703,7 +702,7 @@ describe("DataTable", () => {
             {
               id: "archive",
               label: "Archive",
-              onTrigger: vi.fn(),
+              onTrigger: mock(),
               // Nur für r1 sichtbar
               isVisible: (row) => row.id === "r1",
             },
@@ -716,8 +715,8 @@ describe("DataTable", () => {
 
     test("Click auf Action-Cell propagiert NICHT auf onRowClick", async () => {
       const user = userEvent.setup();
-      const onRowClick = vi.fn();
-      const onTrigger = vi.fn();
+      const onRowClick = mock();
+      const onTrigger = mock();
       render(
         <DataTable
           columns={cols}
@@ -737,7 +736,7 @@ describe("DataTable", () => {
 
 describe("Form", () => {
   test("submit calls onSubmit and prevents default navigation", () => {
-    const onSubmit = vi.fn();
+    const onSubmit = mock();
     render(
       <Form onSubmit={onSubmit} testId="form">
         <button type="submit">Go</button>
@@ -852,8 +851,8 @@ describe("DataTable toolbar slots", () => {
 
 describe("Dialog", () => {
   test("open=true rendert Dialog mit Title und Confirm/Cancel Buttons", () => {
-    const onConfirm = vi.fn();
-    const onOpenChange = vi.fn();
+    const onConfirm = mock();
+    const onOpenChange = mock();
     render(
       <Dialog
         open
@@ -883,8 +882,8 @@ describe("Dialog", () => {
 
   test("Confirm-Button feuert onConfirm und schließt den Dialog", async () => {
     const user = userEvent.setup();
-    const onConfirm = vi.fn();
-    const onOpenChange = vi.fn();
+    const onConfirm = mock();
+    const onOpenChange = mock();
     render(
       <Dialog
         open

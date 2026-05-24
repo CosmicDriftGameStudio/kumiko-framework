@@ -5,7 +5,7 @@ import type { ConfigSeedDef, Registry } from "../engine/types";
 import type { DbConnection } from "./connection";
 import type { EncryptionProvider } from "./encryption";
 import { createEventStoreExecutor } from "./event-store-executor";
-import type { DrizzleTable } from "./table-builder";
+import type { EntityTable } from "./table-builder";
 import { createTenantDb } from "./tenant-db";
 
 // Namespace UUID for deterministic seed aggregate IDs. Same namespace +
@@ -24,10 +24,10 @@ const CONFIG_SEED_NS = "6f1e9d8c-2a5b-4c7d-9e3f-1a2b3c4d5e6f";
  * Idempotent, race-safe via DB-level unique constraints, and visible to
  * multi-stream-projection subscribers as normal configValue.created events.
  */
-export async function seedConfigValues(
+export async function seedConfigValues<E extends EntityDefinition>(
   seeds: readonly ConfigSeedDef[],
-  table: DrizzleTable,
-  entity: EntityDefinition,
+  table: EntityTable<E>,
+  entity: E,
   registry: Registry,
   db: DbConnection,
   encryption?: EncryptionProvider,

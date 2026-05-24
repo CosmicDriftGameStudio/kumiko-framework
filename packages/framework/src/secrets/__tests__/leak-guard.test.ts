@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { assertNoSecretLeak } from "../leak-guard";
 import { createSecret } from "../types";
 

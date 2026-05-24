@@ -1,8 +1,11 @@
 import {
   boolean,
   buildBaseColumns,
+  defineUnmanagedTable,
+  type EntityTableMeta,
   instant,
   table as pgTable,
+  sql,
   text,
   uniqueIndex,
   uuid,
@@ -12,7 +15,6 @@ import {
   createEntity,
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { sql } from "drizzle-orm";
 
 // Delivery-log is an append-only stream of per-attempt records. The stream
 // of truth lives in the events-Tabelle (one aggregate per attempt, event
@@ -37,6 +39,29 @@ export const deliveryAttemptsTable = pgTable("read_delivery_attempts", {
   status: text("status").notNull().$type<"sent" | "failed" | "skipped">(),
   error: text("error"),
   createdAt: instant("created_at").default(sql`now()`).notNull(),
+});
+
+// **Unmanaged table** — bewusst KEIN createEntity. Begründung:
+//   - id kommt aus dem Aggregate-Stream (kein gen_random_uuid()-DEFAULT)
+//   - kein version/inserted_by/modified_by/modified_at — keine in-place-
+//     Edits, keine Audit-Spalten nötig (idempotent-on-replay via PK-Konflikt)
+//   - created_at statt inserted_at — historischer Naming-Drift, kein Bug
+// App trägt Verantwortung für tenant-scoping in Queries + replay-idempotency.
+// pgTable bleibt source-of-truth für Query-API; Phase 4 leitet das pgTable
+// aus dieser Meta ab.
+export const deliveryAttemptsTableMeta: EntityTableMeta = defineUnmanagedTable({
+  tableName: "read_delivery_attempts",
+  columns: [
+    { name: "id", pgType: "uuid", notNull: true, primaryKey: true },
+    { name: "tenant_id", pgType: "uuid", notNull: true },
+    { name: "notification_type", pgType: "text", notNull: true },
+    { name: "channel", pgType: "text", notNull: true },
+    { name: "recipient_id", pgType: "text", notNull: false },
+    { name: "recipient_address", pgType: "text", notNull: false },
+    { name: "status", pgType: "text", notNull: true },
+    { name: "error", pgType: "text", notNull: false },
+    { name: "created_at", pgType: "timestamptz", notNull: true, defaultSql: "now()" },
+  ],
 });
 
 // User-scoped opt-in/opt-out for (notificationType, channel) pairs. Post-ES

@@ -9,8 +9,8 @@
 // (see TS-typing notes in the design doc). M.1 uses unsafeAppendEvent
 // semantics under the hood for r.step.aggregate.appendEvent.
 
-import type { SQL, Table } from "drizzle-orm";
 import type { EventStoreExecutor } from "../../db/event-store-executor";
+import type { WhereObject } from "../../db/query";
 import type { KumikoEventTypeMap } from "./event-type-map";
 import type { HandlerContext, WriteEvent, WriteResult } from "./handlers";
 import type { SaveContext } from "./hooks";
@@ -200,31 +200,31 @@ export type StepNamespace = {
   // and NOT registered as an aggregate-table via r.entity. See
   // step-vocabulary.md "Was unsafeProjection.* überspringt".
   readonly unsafeProjectionUpsert: (args: {
-    readonly table: Table;
+    readonly table: unknown;
     readonly on: readonly string[];
     readonly row: StepResolver<Record<string, unknown>>;
   }) => StepInstance;
   // Sibling: delete row(s) from a read-side projection table. Same
   // boot-validation contract as unsafeProjectionUpsert.
   readonly unsafeProjectionDelete: (args: {
-    readonly table: Table;
-    readonly where: StepResolver<SQL>;
+    readonly table: unknown;
+    readonly where: StepResolver<WhereObject>;
   }) => StepInstance;
-  // Read sub-namespace — thin wrapper on ctx.db.select(). Caller-owned
-  // tenant-filter (does NOT auto-inject like ctx.queryProjection does).
+  // Read sub-namespace — thin wrapper on selectMany/fetchOne (bun-db).
+  // Caller-owned tenant-filter (does NOT auto-inject like ctx.queryProjection does).
   readonly read: {
     readonly findOne: (
       name: string,
       opts: {
-        readonly table: Table;
-        readonly where: StepResolver<SQL | undefined>;
+        readonly table: unknown;
+        readonly where: StepResolver<WhereObject | undefined>;
       },
     ) => StepInstance;
     readonly findMany: (
       name: string,
       opts: {
-        readonly table: Table;
-        readonly where?: StepResolver<SQL | undefined>;
+        readonly table: unknown;
+        readonly where?: StepResolver<WhereObject | undefined>;
         readonly limit?: number;
       },
     ) => StepInstance;

@@ -22,6 +22,7 @@ import "./new";
 import "./ops";
 import "./project";
 import "./reset";
+import "./schema";
 import "./status";
 import "./stop";
 import "./test";

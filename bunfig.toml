@@ -1,0 +1,23 @@
+[install]
+linker = "hoisted"
+
+[install.scopes]
+"@cosmicdriftgamestudio" = { url = "https://npm.pkg.github.com", token = "$GITHUB_TOKEN" }
+
+[test]
+preload = ["./test-setup/temporal.preload.ts", "./test-setup/dom.preload.ts"]
+concurrency = 8
+
+# *.spec.ts gehören zu Playwright (e2e/-Folder). bun test versucht sonst
+# sie zu loaden und crash't weil Playwright eigene test()-Globals erwartet
+# (siehe "Playwright Test did not expect test() to be called here").
+pathIgnorePatterns = [
+  "**/e2e/**",
+  "**/*.spec.ts",
+  "**/*.spec.tsx",
+  # dist/ enthält compiled .js mit denselben Test-Namen wie src/ —
+  # ohne Exclude scant bun test BEIDE Kopien (duplicates kämpfen um
+  # ephemerale DBs, sieht aus wie flaky-Tests).
+  "**/dist/**",
+]
+

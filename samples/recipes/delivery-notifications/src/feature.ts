@@ -10,7 +10,7 @@
 //
 // The feature code only declares WHAT to notify. HOW is handled by Delivery.
 
-import { buildDrizzleTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
@@ -27,7 +27,7 @@ export const ticketEntity = createEntity({
   },
 });
 
-export const ticketTable = buildDrizzleTable("ticket", ticketEntity);
+export const ticketTable = buildEntityTable("ticket", ticketEntity);
 
 function ticketExecutor() {
   return createEventStoreExecutor(ticketTable, ticketEntity, { entityName: "ticket" });

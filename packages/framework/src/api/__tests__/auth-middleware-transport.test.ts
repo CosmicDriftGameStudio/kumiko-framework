@@ -2,8 +2,8 @@
 // against a hand-rolled Hono app — no DB, no dispatcher. Exercises the
 // transport-extraction path that drives the csrf-middleware downstream.
 
+import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
-import { describe, expect, test } from "vitest";
 import { TestUsers } from "../../stack";
 import { AUTH_COOKIE_NAME, authMiddleware, getAuthTransport, getUser } from "../auth-middleware";
 import { createJwtHelper } from "../jwt";

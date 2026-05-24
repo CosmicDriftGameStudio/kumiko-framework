@@ -21,6 +21,7 @@ export {
   type ParsedSetCookie,
 } from "./http-cookies";
 export { createLateBoundHolder, type LateBoundHolder } from "./late-bound";
+export { buildMultipartBody, patchFileInstanceofForBunTest } from "./multipart-helper";
 export {
   createMutableMasterKeyProvider,
   type MutableMasterKeyProvider,

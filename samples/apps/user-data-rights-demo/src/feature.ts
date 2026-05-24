@@ -25,7 +25,8 @@
 //   3. todoDeleteHook DELETEt alle Rows mit author_id = userId
 //   4. user wird anonymisiert (display_name="(deleted)", email=null)
 
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { deleteMany, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -36,7 +37,6 @@ import {
   type UserDataDeleteHook,
   type UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
 const FEATURE_NAME = "todos";
@@ -53,7 +53,7 @@ export const todoEntity = createEntity({
   },
 });
 
-export const todosTable = buildDrizzleTable("todo", todoEntity);
+export const todosTable = buildEntityTable("todo", todoEntity);
 
 const createSchema = z.object({
   title: z.string().min(1).max(200),
@@ -66,7 +66,7 @@ const createTodoHandler = defineWriteHandler({
   access: { openToAll: true },
   handler: async (event, ctx) => {
     const id = crypto.randomUUID();
-    await ctx.db.insert(todosTable).values({
+    await ctx.db.insertOne(todosTable, {
       id,
       tenantId: event.user.tenantId,
       authorId: event.user.id,
@@ -82,14 +82,9 @@ const listTodosHandler = defineQueryHandler({
   schema: z.object({}),
   access: { openToAll: true },
   handler: async (query, ctx) => {
-    const rows = await ctx.db
-      .select({
-        id: todosTable["id"],
-        title: todosTable["title"],
-        body: todosTable["body"],
-      })
-      .from(todosTable)
-      .where(eq(todosTable["authorId"], query.user.id));
+    const rows = await ctx.db.selectMany<{ id: string; title: string; body: string }>(todosTable, {
+      authorId: query.user.id,
+    });
     return { rows };
   },
 });
@@ -105,21 +100,17 @@ export const todosFeature = defineFeature(FEATURE_NAME, (r) => {
   // Cross-tenant: Hook wird pro Tenant des Users aufgerufen — wir filtern
   // hier on (tenantId, authorId), beide kommen aus dem ctx.
   const exportTodos: UserDataExportHook = async (ctx) => {
-    const rows = await ctx.db
-      .select({
-        id: todosTable["id"],
-        title: todosTable["title"],
-        body: todosTable["body"],
-      })
-      .from(todosTable)
-      .where(and(eq(todosTable["tenantId"], ctx.tenantId), eq(todosTable["authorId"], ctx.userId)));
+    const rows = await selectMany<{ id: string; title: string; body: string }>(ctx.db, todosTable, {
+      tenantId: ctx.tenantId,
+      authorId: ctx.userId,
+    });
     if (rows.length === 0) return null;
     return {
       entity: "todo",
       rows: rows.map((row) => ({
-        id: String(row["id"]),
-        title: row["title"] ?? "",
-        body: row["body"] ?? "",
+        id: String(row.id),
+        title: row.title ?? "",
+        body: row.body ?? "",
       })),
     };
   };
@@ -129,14 +120,11 @@ export const todosFeature = defineFeature(FEATURE_NAME, (r) => {
   // Profile (DE-HR, Steuer) koennen via retention.strategy=anonymize den
   // anonymize-Pfad triggern statt hardDelete. Pattern matched fileRef-hook.
   const deleteTodos: UserDataDeleteHook = async (ctx, strategy) => {
-    const where = and(
-      eq(todosTable["tenantId"], ctx.tenantId),
-      eq(todosTable["authorId"], ctx.userId),
-    );
+    const where = { tenantId: ctx.tenantId, authorId: ctx.userId };
     if (strategy === "anonymize") {
-      await ctx.db.update(todosTable).set({ authorId: null }).where(where);
+      await updateMany(ctx.db, todosTable, { authorId: null }, where);
     } else {
-      await ctx.db.delete(todosTable).where(where);
+      await deleteMany(ctx.db, todosTable, where);
     }
   };
 

@@ -4,9 +4,9 @@
 // throws (via bootErrorReporter override) and KUMIKO_DRY_RUN_ENV
 // returns the dry-run handle without booting.
 
+import { describe, expect, it } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { composeEnvSchema, KumikoBootError } from "@cosmicdrift/kumiko-framework/env";
-import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { frameworkCoreEnvSchema } from "../env-schema";
 import * as devServerPublicApi from "../index";

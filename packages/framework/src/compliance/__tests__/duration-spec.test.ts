@@ -5,8 +5,8 @@
 // Singular/Plural). Der Bug aus dem U5a-Review (`{hours: 6}` fiel auf
 // 30d-Default) wird hier zentral verhindert.
 
+import { beforeAll, describe, expect, test } from "bun:test";
 import { ensureTemporalPolyfill, getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { beforeAll, describe, expect, test } from "vitest";
 import { addDurationSpec, describeDurationSpec, durationSpecToMs } from "../duration-spec";
 
 beforeAll(async () => {

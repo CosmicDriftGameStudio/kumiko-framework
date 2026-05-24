@@ -51,7 +51,7 @@ export const doctorCommand = defineCommand({
     checks.push({
       name: "node_modules",
       ok: existsSync(nm),
-      hint: existsSync(nm) ? undefined : "yarn install",
+      hint: existsSync(nm) ? undefined : "bun install",
     });
 
     const dockerPs = await run("docker", ["compose", "ps", "--format", "json"], { cwd: ctx.cwd });

@@ -3,7 +3,7 @@
 // Wrapper aufgibt oder noch eine Runde respawnt; off-by-one am Fenster-
 // Rand würde im Bin-Skript schlecht auffallen.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { createCrashTracker } from "../crash-tracker";
 
 describe("createCrashTracker", () => {

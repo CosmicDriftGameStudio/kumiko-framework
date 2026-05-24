@@ -1,6 +1,6 @@
+import { updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { and, eq, isNull, ne } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { SessionErrors } from "../constants";
@@ -25,17 +25,12 @@ export const revokeAllOthersWrite = defineWriteHandler({
       );
     }
 
-    const updated = await ctx.db
-      .update(userSessionTable)
-      .set({ revokedAt: Temporal.Now.instant() })
-      .where(
-        and(
-          eq(userSessionTable["userId"], event.user.id),
-          isNull(userSessionTable["revokedAt"]),
-          ne(userSessionTable["id"], keepSid),
-        ),
-      )
-      .returning();
+    const updated = await updateMany(
+      ctx.db,
+      userSessionTable,
+      { revokedAt: Temporal.Now.instant() },
+      { userId: event.user.id, revokedAt: null, id: { ne: keepSid } },
+    );
 
     return { isSuccess: true, data: { count: updated.length } };
   },

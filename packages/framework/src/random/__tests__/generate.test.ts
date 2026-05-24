@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import {
   ADJECTIVES,
   generateAdjNounName,
@@ -12,16 +12,16 @@ describe("generateAdjNounName", () => {
     const name = generateAdjNounName();
     const [adj, noun, ...rest] = name.split("-");
     expect(rest).toEqual([]);
-    expect(ADJECTIVES).toContain(adj);
-    expect(NOUNS).toContain(noun);
+    expect(ADJECTIVES).toContain(adj!);
+    expect(NOUNS).toContain(noun!);
   });
 
   test("custom separator", () => {
     const name = generateAdjNounName({ separator: "_" });
     expect(name).toMatch(/^[a-z]+_[a-z]+$/);
     const [adj, noun] = name.split("_");
-    expect(ADJECTIVES).toContain(adj);
-    expect(NOUNS).toContain(noun);
+    expect(ADJECTIVES).toContain(adj!);
+    expect(NOUNS).toContain(noun!);
   });
 
   test("mit suffix: <adj>-<noun>-<suffix>", () => {
@@ -29,11 +29,11 @@ describe("generateAdjNounName", () => {
     const parts = name.split("-");
     expect(parts).toHaveLength(3);
     const [adj, noun, suffix] = parts;
-    expect(ADJECTIVES).toContain(adj);
-    expect(NOUNS).toContain(noun);
-    expect(suffix).toMatch(/^[a-z2-9]{3}$/);
+    expect(ADJECTIVES).toContain(adj!);
+    expect(NOUNS).toContain(noun!);
+    expect(suffix!).toMatch(/^[a-z2-9]{3}$/);
     // No-confusable: keine 0/1/o/l/i
-    expect(suffix).not.toMatch(/[01oli]/);
+    expect(suffix!).not.toMatch(/[01oli]/);
   });
 
   test("custom adjectives + nouns Wahl", () => {
@@ -94,7 +94,7 @@ describe("generateUniqueName", () => {
       },
     });
     expect(seen).toHaveLength(1);
-    expect(name).toBe(seen[0]);
+    expect(name).toBe(seen[0]!);
     // Clean = nur 2 Teile (adj + noun), kein suffix
     expect(name.split("-")).toHaveLength(2);
   });
@@ -112,11 +112,11 @@ describe("generateUniqueName", () => {
     expect(tried).toHaveLength(4);
     // Erste 3 ohne suffix
     for (let i = 0; i < 3; i++) {
-      expect(tried[i]?.split("-")).toHaveLength(2);
+      expect(tried[i]!.split("-")).toHaveLength(2);
     }
     // 4. Versuch hat suffix
-    expect(tried[3]?.split("-")).toHaveLength(3);
-    expect(name).toBe(tried[3]);
+    expect(tried[3]!.split("-")).toHaveLength(3);
+    expect(name).toBe(tried[3]!);
   });
 
   test("wirft wenn maxTotalAttempts erschöpft", async () => {

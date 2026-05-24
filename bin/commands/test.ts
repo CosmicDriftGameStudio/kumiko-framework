@@ -18,16 +18,16 @@ export const testCommand = defineCommand({
       ctx.out.log("");
       const guard = await runStreaming("node", ["vitest.integration.guard.js"], ctx.out, { cwd: ctx.cwd });
       if (guard !== 0) return guard;
-      const unit = await runStreaming("yarn", ["vitest", "run"], ctx.out, { cwd: ctx.cwd });
+      const unit = await runStreaming("bun", ["test"], ctx.out, { cwd: ctx.cwd });
       if (unit !== 0) return unit;
-      return await runStreaming("yarn", ["vitest", "run", "--config", "vitest.integration.config.ts"], ctx.out, { cwd: ctx.cwd });
+      return await runStreaming("bun", ["test", "packages/**/*.integration.test.ts"], ctx.out, { cwd: ctx.cwd });
     }
     if (scope === "integration") {
       ctx.out.log("Integration tests (docker must be running)...");
       ctx.out.log("");
       const guard = await runStreaming("node", ["vitest.integration.guard.js"], ctx.out, { cwd: ctx.cwd });
       if (guard !== 0) return guard;
-      return await runStreaming("yarn", ["vitest", "run", "--config", "vitest.integration.config.ts"], ctx.out, { cwd: ctx.cwd });
+      return await runStreaming("bun", ["test", "packages/**/*.integration.test.ts"], ctx.out, { cwd: ctx.cwd });
     }
     if (scope === "e2e") {
       const targets: Array<{ root: string; name: string }> = [];
@@ -62,8 +62,8 @@ export const testCommand = defineCommand({
       return lastCode;
     }
     if (scope) {
-      return await runStreaming("yarn", ["vitest", "run", scope], ctx.out, { cwd: ctx.cwd });
+      return await runStreaming("bun", ["test", scope], ctx.out, { cwd: ctx.cwd });
     }
-    return await runStreaming("yarn", ["vitest", "run"], ctx.out, { cwd: ctx.cwd });
+    return await runStreaming("bun", ["test"], ctx.out, { cwd: ctx.cwd });
   },
 });

@@ -19,6 +19,7 @@
 // bei !committed wird der burn released damit ein legitimer Retry
 // nicht durch einen stale Marker geblockt wird (wie reset/verify).
 
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineWriteHandler,
@@ -32,7 +33,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/errors";
 import { generateUniqueName } from "@cosmicdrift/kumiko-framework/random";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 // kumiko-lint-ignore cross-feature-import signup-confirm reads tenants.key for slug-uniqueness check (TOCTOU + DB-unique-index zusammen)
 import { tenantTable } from "../../tenant/schema/tenant";
@@ -108,12 +108,8 @@ export function createSignupConfirmHandler() {
 
         const tenantKey = await generateUniqueName({
           isAvailable: async (slug) => {
-            const existing = await dbConn
-              .select({ id: tenantTable.id })
-              .from(tenantTable)
-              .where(eq(tenantTable.key, slug))
-              .limit(1);
-            return existing.length === 0;
+            const existing = await fetchOne<{ id: string }>(dbConn, tenantTable, { key: slug });
+            return existing === undefined;
           },
         });
 

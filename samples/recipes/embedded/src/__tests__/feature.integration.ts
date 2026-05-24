@@ -3,6 +3,7 @@
 // required embedded fails when missing, optional embedded can be omitted,
 // searchable sub-fields registered, field access on sub-fields E2E
 
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
   createTestUser,
   setupTestStack,
@@ -10,7 +11,6 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { contactEntity } from "../entities/contact";
 import { embeddedFeature } from "../feature";
 

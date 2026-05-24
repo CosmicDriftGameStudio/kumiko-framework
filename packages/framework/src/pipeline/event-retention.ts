@@ -1,5 +1,5 @@
-import { and, getTableName, inArray, lt, sql } from "drizzle-orm";
 import type { DbConnection } from "../db/connection";
+import { deleteMany, selectMany, transaction } from "../db/query";
 import { eventsTable } from "../event-store";
 import { eventConsumerStateTable } from "./event-consumer-state";
 
@@ -83,7 +83,7 @@ export async function pruneEvents(
   const aggregateTypes = options.aggregateTypes;
   const dryRun = options.dryRun === true;
 
-  return db.transaction(async (tx) => {
+  return transaction(db, async (tx) => {
     // Serialise against consumer-bootstrap INSERTs. Without this, the race
     // is: prune reads consumers (snapshot misses a consumer bootstrapping
     // in a parallel tx) → consumer commits its row with
@@ -96,21 +96,13 @@ export async function pruneEvents(
     // (cursor advances) do too, but prune is measured in milliseconds and
     // pausing cursor advances for that window is cheap insurance against
     // a silent data-loss bug.
-    //
-    // Drizzle can't express LOCK TABLE — drop to raw SQL with the table
-    // name identifier so a future table-rename is caught at compile time.
-    await tx.execute(sql.raw(`LOCK TABLE ${getTableName(eventConsumerStateTable)} IN SHARE MODE`));
+    await tx.unsafe(`LOCK TABLE "kumiko_event_consumers" IN SHARE MODE`);
 
     // Step 1 — collect candidate event ids.
-    const candidates = await tx
-      .select({ id: eventsTable.id })
-      .from(eventsTable)
-      .where(
-        and(
-          inArray(eventsTable.aggregateType, [...aggregateTypes]),
-          lt(eventsTable.createdAt, cutoff),
-        ),
-      );
+    const candidates = await selectMany<{ id: bigint }>(tx, eventsTable, {
+      aggregateType: [...aggregateTypes],
+      createdAt: { lt: cutoff },
+    });
 
     if (candidates.length === 0) {
       return { deletedCount: 0, cutoff, aggregateTypes, dryRun };
@@ -127,10 +119,10 @@ export async function pruneEvents(
     // The SHARE lock above guarantees this SELECT sees a complete view:
     // no new consumer can INSERT a fresh-cursor row between here and the
     // DELETE below.
-    const activeConsumers = await tx
-      .select()
-      .from(eventConsumerStateTable)
-      .where(sql`${eventConsumerStateTable.status} <> 'disabled'`);
+    const activeConsumers = await selectMany<{
+      name: string;
+      lastProcessedEventId: bigint;
+    }>(tx, eventConsumerStateTable, { status: { ne: "disabled" } });
 
     for (const consumer of activeConsumers) {
       if (consumer.lastProcessedEventId < maxCandidateId) {
@@ -144,11 +136,8 @@ export async function pruneEvents(
 
     // Step 3 — actual delete, bounded to the candidate set.
     const candidateIds = candidates.map((c) => c.id);
-    const deleted = await tx
-      .delete(eventsTable)
-      .where(inArray(eventsTable.id, candidateIds))
-      .returning({ id: eventsTable.id });
+    await deleteMany(tx, eventsTable, { id: candidateIds });
 
-    return { deletedCount: deleted.length, cutoff, aggregateTypes, dryRun: false };
+    return { deletedCount: candidateIds.length, cutoff, aggregateTypes, dryRun: false };
   });
 }

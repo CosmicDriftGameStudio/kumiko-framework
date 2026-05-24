@@ -1,6 +1,6 @@
+import { fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { and, eq, isNull } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { SessionErrors } from "../constants";
@@ -28,17 +28,12 @@ export const revokeWrite = defineWriteHandler({
   }),
   access: { openToAll: true },
   handler: async (event, ctx) => {
-    const updated = await ctx.db
-      .update(userSessionTable)
-      .set({ revokedAt: Temporal.Now.instant() })
-      .where(
-        and(
-          eq(userSessionTable["id"], event.payload.id),
-          eq(userSessionTable["userId"], event.user.id),
-          isNull(userSessionTable["revokedAt"]),
-        ),
-      )
-      .returning();
+    const updated = await updateMany(
+      ctx.db,
+      userSessionTable,
+      { revokedAt: Temporal.Now.instant() },
+      { id: event.payload.id, userId: event.user.id, revokedAt: null },
+    );
 
     if (updated.length > 0) {
       return { isSuccess: true, data: { id: event.payload.id } };
@@ -46,13 +41,11 @@ export const revokeWrite = defineWriteHandler({
 
     // Zero rows touched — disambiguate between "not yours" and "already
     // revoked" via a point-read. Only hits on the error path.
-    const [row] = await ctx.db
-      .select({ userId: userSessionTable["userId"], revokedAt: userSessionTable["revokedAt"] })
-      .from(userSessionTable)
-      .where(eq(userSessionTable["id"], event.payload.id))
-      .limit(1);
+    const row = await fetchOne<{ userId: string; revokedAt: unknown }>(ctx.db, userSessionTable, {
+      id: event.payload.id,
+    });
 
-    if (row && row["userId"] === event.user.id && row["revokedAt"] !== null) {
+    if (row && row.userId === event.user.id && row.revokedAt !== null) {
       return writeFailure(
         new UnprocessableError(SessionErrors.alreadyRevoked, {
           i18nKey: "sessions.errors.alreadyRevoked",

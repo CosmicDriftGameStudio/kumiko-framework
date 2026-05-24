@@ -1,4 +1,4 @@
-import { buildDrizzleTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createMoneyField,
@@ -15,4 +15,4 @@ export const invoiceEntity = createEntity({
   defaultCurrency: "EUR",
 });
 
-export const invoiceTable = buildDrizzleTable("invoice", invoiceEntity);
+export const invoiceTable = buildEntityTable("invoice", invoiceEntity);

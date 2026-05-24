@@ -13,6 +13,7 @@
 // └──────────┴─────────────────────────┴─────────────────────────┘
 // XYZ is a custom currency — not ISO, created by tenant 1
 
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
   createTestUser,
   setupTestStack,
@@ -21,7 +22,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { currencyEntity } from "../entities/currency";
 import { invoiceEntity } from "../entities/invoice";
 import { currenciesPerTenantFeature } from "../feature";

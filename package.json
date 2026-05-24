@@ -3,7 +3,6 @@
   "version": "0.0.0",
   "description": "Config-driven, command-based, realtime multi-tenant app framework.",
   "private": true,
-  "packageManager": "yarn@4.14.1",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
   "repository": {
@@ -38,14 +37,17 @@
     "samples/recipes/*",
     "samples/apps/*"
   ],
+  "trustedDependencies": [
+    "@parcel/watcher",
+    "msgpackr-extract"
+  ],
   "bin": {
     "kumiko": "./bin/kumiko.ts"
   },
   "scripts": {
-    "kumiko": "NODE_OPTIONS=--no-deprecation bun run bin/kumiko.ts",
-    "test": "vitest",
-    "test:run": "vitest run",
-    "test:all": "vitest --config vitest.all.config.ts",
+    "kumiko": "bun run bin/kumiko.ts",
+    "test": "bun test",
+    "test:run": "bun test",
     "typecheck": "tsc --build",
     "build:apps": "bun run scripts/build-apps.ts",
     "build": "echo 'kumiko-framework: TypeScript source is published as-is (Bun resolver), no transpile step.'",
@@ -56,14 +58,14 @@
     "@biomejs/biome": "^2.4.15",
     "@changesets/cli": "^2.31.0",
     "@cosmicdriftgamestudio/kumiko-guards": "^0.2.0",
+    "@happy-dom/global-registrator": "^20.9.0",
     "@playwright/test": "^1.60.0",
     "@testing-library/dom": "^10.4.1",
-    "@vitest/coverage-v8": "^4.1.6",
     "bun-types": "^1.3.13",
+    "happy-dom": "^20.9.0",
     "husky": "^9.1.7",
     "ts-morph": "^28.0.0",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.6",
     "yaml": "^2.9.0"
   },
   "resolutions": {

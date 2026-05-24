@@ -3,6 +3,7 @@
 // Drives the whole Read/Write × Entity/Field matrix against the contract
 // feature. Each test maps directly to a cell in the design-doc matrix.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
   createTestUser,
   setupTestStack,
@@ -12,7 +13,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { contractEntity, contractsFeature, teamsFeature } from "../feature";
 
 let stack: TestStack;

@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 //
 // RenderList puffert Tipps im Search-Input lokal und schickt
 // onSearchChange erst nach 300ms ohne weitere Tasten. Vor dieser Suite
@@ -6,6 +5,7 @@
 // die Race-Condition (Sync-Effect auf searchValue + Debounce-Effect)
 // wahrscheinlich kaputt gegangen ohne dass eine CI das fängt.
 
+import { afterEach, beforeEach, describe, expect, jest, mock, test } from "bun:test";
 import type {
   EntityDefinition,
   EntityListScreenDefinition,
@@ -17,7 +17,6 @@ import {
   RenderList,
 } from "@cosmicdrift/kumiko-renderer";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { defaultPrimitives } from "../primitives";
 
 // Minimal-Entity damit RenderList nicht über fehlende Felder stolpert.
@@ -56,15 +55,15 @@ function renderRL(props: {
 
 describe("RenderList — Search-Debounce", () => {
   beforeEach(() => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+    jest.useFakeTimers();
   });
 
   afterEach(() => {
-    vi.useRealTimers();
+    jest.useRealTimers();
   });
 
   test("Tippen unter 300ms feuert NICHT mehrfach onSearchChange", () => {
-    const onSearchChange = vi.fn();
+    const onSearchChange = mock();
     renderRL({ searchValue: "", onSearchChange });
 
     const input = screen.getByPlaceholderText(/kumiko\.list\.search-placeholder|suchen/i);
@@ -76,20 +75,20 @@ describe("RenderList — Search-Debounce", () => {
     // Vor Debounce-Ablauf: kein call (jeder Keypress hat den Timer
     // resettet).
     act(() => {
-      vi.advanceTimersByTime(299);
+      jest.advanceTimersByTime(299);
     });
     expect(onSearchChange).not.toHaveBeenCalled();
 
     // 300ms: jetzt feuert es exakt einmal mit dem letzten Wert.
     act(() => {
-      vi.advanceTimersByTime(1);
+      jest.advanceTimersByTime(1);
     });
     expect(onSearchChange).toHaveBeenCalledTimes(1);
     expect(onSearchChange).toHaveBeenCalledWith("acme");
   });
 
   test("searchValue-Update von außen syncs lokalen Buffer (Browser-Back)", () => {
-    const onSearchChange = vi.fn();
+    const onSearchChange = mock();
     const { rerender } = renderRL({ searchValue: "first", onSearchChange });
     const input = screen.getByDisplayValue("first") as HTMLInputElement;
     expect(input.value).toBe("first");
@@ -118,10 +117,10 @@ describe("RenderList — Search-Debounce", () => {
     // Wenn der Parent searchValue auf "x" setzt UND der lokale Buffer
     // schon "x" ist (z.B. Cleanup-Timing), darf RenderList nicht den
     // Wert nochmal zurückrufen — sonst wäre's eine Loop.
-    const onSearchChange = vi.fn();
+    const onSearchChange = mock();
     renderRL({ searchValue: "x", onSearchChange });
     act(() => {
-      vi.advanceTimersByTime(500);
+      jest.advanceTimersByTime(500);
     });
     expect(onSearchChange).not.toHaveBeenCalled();
   });

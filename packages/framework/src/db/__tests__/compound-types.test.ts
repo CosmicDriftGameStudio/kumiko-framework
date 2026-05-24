@@ -5,7 +5,7 @@
 //   - Reihenfolge ist deterministisch + Konverter überlappen nicht
 //   - Pure (kein input-mutate)
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import {
   createEntity,
   createLocatedTimestampField,

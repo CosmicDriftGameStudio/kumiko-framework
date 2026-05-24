@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { createReadinessProbe, type ReadinessCheck } from "../readiness";
 
 function okCheck(name: string, delayMs = 0): ReadinessCheck {

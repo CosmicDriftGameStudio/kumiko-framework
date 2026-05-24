@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test } from "bun:test";
 import { makeContext, makeSpyOutput, makeTempCwd } from "../_test-helpers";
 import { doctorCommand } from "../doctor";
 
@@ -29,7 +29,7 @@ describe("doctor command", () => {
     expect(out).toMatch(/\.env file/);
     expect(out).toMatch(/cp \.env\.example/);
     expect(out).toMatch(/node_modules/);
-    expect(out).toMatch(/yarn install/);
+    expect(out).toMatch(/bun install/);
   });
 
   test("with .env present, the .env check is OK", async () => {
