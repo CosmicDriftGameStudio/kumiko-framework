@@ -10,13 +10,14 @@
 //     failure; predecessor pre-flight per aggregate in the batch.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "../../db/query";
+import { asRawClient, selectMany } from "../../db/query";
 import type { DbConnection } from "../../db/connection";
 import { createTestDb, type TestDb } from "../../stack";
 import { generateId as uuid } from "../../utils";
 import { appendRaw, appendRawBatch, type RawEventToAppend } from "../admin-api";
 import { VersionConflictError } from "../errors";
 import { append, loadAggregate } from "../event-store";
+import { eventsTable } from "../events-schema";
 import { createEventsTable } from "../events-schema";
 
 // Test-only spy: wrap a DbConnection's `.unsafe()` to capture the SQL
@@ -136,15 +137,7 @@ describe("appendRaw — single event", () => {
       }),
     );
 
-    const rows = await asRawClient(testDb.db).unsafe<{
-      payload: Record<string, unknown>;
-      metadata: Record<string, unknown>;
-    }>(
-      `
-      SELECT payload, metadata FROM kumiko_events WHERE aggregate_id = $1::uuid
-    `,
-      [aggregateId],
-    );
+    const rows = await selectMany(testDb.db, eventsTable, { aggregateId });
     expect(rows[0]?.payload).toEqual(payload);
     expect(rows[0]?.metadata).toEqual(metadata);
   });
