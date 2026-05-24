@@ -300,13 +300,15 @@ describe("enforceCapAndMaybeNotify — calendar", () => {
 
     const result = await enforceCapAndMaybeNotify(ctx, { ...baseOpts, notify });
     expect(result.state).toBe("soft-hit");
-    expect(notify).toHaveBeenCalledExactlyOnceWith({
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify).toHaveBeenCalledWith({
       capName: "mails-per-month",
       value: 1100,
       limit: 1000,
       tenantId: "tenant-test",
     });
-    expect(write).toHaveBeenCalledExactlyOnceWith("cap-counter:write:mark-soft-warned", {
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(write).toHaveBeenCalledWith("cap-counter:write:mark-soft-warned", {
       capName: "mails-per-month",
       periodStartIso: PERIOD,
     });
@@ -355,7 +357,8 @@ describe("enforceRollingCapAndMaybeNotify — rolling", () => {
     const notify = mock();
     const result = await enforceRollingCapAndMaybeNotify(ctx, { ...baseOpts, notify });
     expect(result.state).toBe("soft-hit");
-    expect(notify).toHaveBeenCalledExactlyOnceWith({
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify).toHaveBeenCalledWith({
       capName: "ai-tokens-7d",
       value: 11000,
       limit: 10000,
