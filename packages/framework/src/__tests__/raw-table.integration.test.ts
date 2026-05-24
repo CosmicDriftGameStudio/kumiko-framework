@@ -61,7 +61,7 @@ describe("r.rawTable — DB roundtrip via setupTestStack", () => {
 
     expect(rows).toHaveLength(1);
     expect(rows[0]?.payload).toBe(payload);
-    expect(rows[0]?.receivedAt).toBeTruthy();
+    expect(rows[0]?.receivedAt).toBeInstanceOf(Temporal.Instant);
   });
 
   test("registry exposes the raw table with its reason and featureName", () => {
