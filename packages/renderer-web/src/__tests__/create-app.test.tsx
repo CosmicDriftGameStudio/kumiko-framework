@@ -7,7 +7,7 @@ import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { ColumnRendererProps, FeatureSchema, NavApi } from "@cosmicdrift/kumiko-renderer";
 import { act, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { beforeEach, describe, expect, spyOn, test, type MockInstance } from "bun:test";
+import { beforeEach, describe, expect, spyOn, test } from "bun:test";
 import type { ClientFeatureDefinition } from "../app/client-plugin";
 import { type CreateKumikoAppOptions, createKumikoApp } from "../app/create-app";
 import { createMockDispatcher } from "./test-utils";
@@ -130,9 +130,7 @@ describe("createKumikoApp", () => {
     // create-app warnt und behält den späteren Eintrag (Last-Wins).
     // Beweist dass das bewusste Override-Verhalten nicht silent
     // wegrutscht falls jemand auf "first-wins" refactored.
-    const warnSpy: MockInstance<typeof console.warn> = vi
-      .spyOn(console, "warn")
-      .mockImplementation(() => {});
+    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
 
     function FirstSwatch({ value }: ColumnRendererProps): ReactNode {
       return <span data-testid="ca-first">{String(value)}</span>;
