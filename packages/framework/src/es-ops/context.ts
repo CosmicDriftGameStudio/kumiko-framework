@@ -7,7 +7,7 @@
 // config-seed.ts:40). Events haben createdBy = SYSTEM_TENANT_ID-User
 // → audit-fähig.
 
-import { asRawClient } from "../bun-db/query";
+import { asRawClient } from "../db/query";
 import type { DbRunner } from "../db";
 import { createSystemUser, SYSTEM_TENANT_ID } from "../engine";
 import type { Dispatcher } from "../pipeline/dispatcher";

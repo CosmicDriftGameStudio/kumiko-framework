@@ -14,7 +14,7 @@
 // ist strukturell kompatibel (beide haben .unsafe()/.begin()) — kein Cast nötig.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "../../bun-db/query";
+import { asRawClient } from "../../db/query";
 import type { TenantId } from "../../engine/types";
 import { createTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { ensureTemporalPolyfill } from "../../time/polyfill";

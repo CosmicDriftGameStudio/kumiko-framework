@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
-import { updateMany } from "../bun-db/query";
+import { updateMany } from "../db/query";
 import { createEventStoreExecutor } from "../db/event-store-executor";
 import { buildEntityTable } from "../db/table-builder";
 import {

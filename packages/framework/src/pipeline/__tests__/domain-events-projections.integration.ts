@@ -11,7 +11,7 @@
 // the aggregate stream), any of the assertions below go red.
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
-import { insertOne, selectMany, updateMany } from "../../bun-db/query";
+import { insertOne, selectMany, updateMany } from "../../db/query";
 import {
   integer as pgInteger,
   table as pgTable,

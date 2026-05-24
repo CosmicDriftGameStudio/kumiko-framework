@@ -23,7 +23,7 @@
 // keine framework-engine-Internals und kann auch von custom
 // query-handlern manuell aufgerufen werden.
 
-import { selectMany } from "../bun-db/query";
+import { selectMany } from "../db/query";
 import type { EntityDefinition, FieldDefinition, ReferenceFieldDef } from "../engine/types";
 import { buildEntityTable } from "./table-builder";
 import type { TenantDb } from "./tenant-db";

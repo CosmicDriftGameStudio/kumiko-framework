@@ -1,4 +1,4 @@
-import { fetchOne, insertOne, updateMany } from "../bun-db/query";
+import { fetchOne, insertOne, updateMany } from "../db/query";
 import type { ReferenceDataDef } from "../engine/types";
 import { SYSTEM_TENANT_ID } from "../engine/types";
 import type { DbConnection, DbRow } from "./connection";

@@ -45,7 +45,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
-import { asRawClient, selectMany } from "../../bun-db/query";
+import { asRawClient, selectMany } from "../../db/query";
 import { table, text, timestamp, uuid } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildEntityTable } from "../../db/table-builder";

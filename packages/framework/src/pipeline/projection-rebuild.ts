@@ -1,4 +1,4 @@
-import { asRawClient, selectMany } from "../bun-db/query";
+import { asRawClient, selectMany } from "../db/query";
 import type { DbConnection } from "../db/connection";
 import type { Registry, TenantId } from "../engine/types";
 import {

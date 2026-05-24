@@ -1,5 +1,5 @@
 // sql now comes from native dialect
-import { asRawClient, selectMany } from "../bun-db/query";
+import { asRawClient, selectMany } from "../db/query";
 import type { DbConnection, DbRunner } from "../db/connection";
 import {
   index,

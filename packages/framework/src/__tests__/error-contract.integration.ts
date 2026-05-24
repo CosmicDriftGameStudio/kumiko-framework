@@ -5,7 +5,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
-import { asRawClient } from "../bun-db/query";
+import { asRawClient } from "../db/query";
 import { createEventStoreExecutor } from "../db/event-store-executor";
 import { buildEntityTable } from "../db/table-builder";
 import {

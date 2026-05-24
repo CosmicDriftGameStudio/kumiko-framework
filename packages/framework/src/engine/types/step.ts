@@ -9,7 +9,7 @@
 // (see TS-typing notes in the design doc). M.1 uses unsafeAppendEvent
 // semantics under the hood for r.step.aggregate.appendEvent.
 
-import type { WhereObject } from "../../bun-db/query";
+import type { WhereObject } from "../../db/query";
 import type { EventStoreExecutor } from "../../db/event-store-executor";
 import type { KumikoEventTypeMap } from "./event-type-map";
 import type { HandlerContext, WriteEvent, WriteResult } from "./handlers";

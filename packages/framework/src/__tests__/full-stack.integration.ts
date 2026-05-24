@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
-import { selectMany, updateMany } from "../bun-db/query";
+import { selectMany, updateMany } from "../db/query";
 import { setupTestStack, type TestStack } from "../stack";
 import { createEventStoreExecutor } from "../db/event-store-executor";
 import { defineFeature, type EntityId, type HandlerContext, type SaveContext } from "../engine";

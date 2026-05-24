@@ -8,7 +8,7 @@
 // cause.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { insertOne, selectMany } from "../../bun-db/query";
+import { insertOne, selectMany } from "../../db/query";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField } from "../../engine";
 import { unsafeCreateEntityTable } from "../../stack";

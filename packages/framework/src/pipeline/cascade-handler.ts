@@ -1,4 +1,4 @@
-import { deleteMany, fetchOne, updateMany } from "../bun-db/query";
+import { deleteMany, fetchOne, updateMany } from "../db/query";
 import type { TableColumns } from "../db/dialect";
 import { OnDeleteStrategies, SystemHookNames, SystemHookPriorities } from "../engine/constants";
 import type { PreDeleteHookFn, Registry } from "../engine/types";

@@ -11,7 +11,7 @@
 // rejected by boot-validation — domain mutation MUST go through
 // r.step.aggregate.*.
 
-import { asRawClient } from "../../bun-db/query";
+import { asRawClient } from "../../db/query";
 import { defineStep } from "../define-step";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
 import { resolveRequired } from "./_resolver-utils";

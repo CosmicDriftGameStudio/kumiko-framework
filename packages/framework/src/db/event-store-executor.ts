@@ -1,6 +1,6 @@
 import { requestContext } from "../api/request-context";
-import type { WhereObject } from "../bun-db/query";
-import { asRawClient, selectMany } from "../bun-db/query";
+import type { WhereObject } from "../db/query";
+import { asRawClient, selectMany } from "../db/query";
 import { checkWriteFieldOwnership } from "../engine/field-access";
 import {
   buildOwnershipClause,

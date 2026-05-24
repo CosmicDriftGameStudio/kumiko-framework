@@ -226,7 +226,7 @@ describe("implicit-projection / Live==Rebuild equivalence", () => {
 // sensitive-Spalte oder verschlüsseltem Event-Payload), bricht der Test
 // und zwingt zu Aufmerksamkeit.
 
-import { asRawClient, selectMany } from "../../bun-db/query";
+import { asRawClient, selectMany } from "../../db/query";
 
 const sensitiveTable = "read_implicit_sensitive_users";
 

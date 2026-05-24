@@ -47,7 +47,7 @@
 //   - "skipped" → Event ist kein Auto-Verb (Domain-Event auf demselben
 //     Aggregate). Caller no-op.
 
-import { deleteMany, insertOne, updateMany } from "../bun-db/query";
+import { deleteMany, insertOne, updateMany } from "../db/query";
 import type { EntityDefinition } from "../engine/types";
 import { InternalError } from "../errors";
 import type { StoredEvent } from "../event-store";

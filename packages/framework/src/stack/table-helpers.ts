@@ -1,4 +1,4 @@
-import { asRawClient } from "../bun-db/query";
+import { asRawClient } from "../db/query";
 import type { DbConnection } from "../db/connection";
 import type { EntityTableMeta } from "../db/entity-table-meta";
 import { renderTableDdl } from "../db/render-ddl";

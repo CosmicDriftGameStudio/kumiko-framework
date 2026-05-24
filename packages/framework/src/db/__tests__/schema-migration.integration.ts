@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
+import { asRawClient, insertOne, selectMany } from "../../db/query";
 import {
   createBooleanField,
   createDateField,

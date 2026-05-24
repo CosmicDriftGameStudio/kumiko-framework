@@ -16,7 +16,7 @@
 // der lief vor dem Refactor durch Zufall grün.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, selectMany } from "../../bun-db/query";
+import { asRawClient, selectMany } from "../../db/query";
 import { createEntity, createTextField } from "../../engine/factories";
 import type { TenantId } from "../../engine/types";
 import type { StoredEvent } from "../../event-store";

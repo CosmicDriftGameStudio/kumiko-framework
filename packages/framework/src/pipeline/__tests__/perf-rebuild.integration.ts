@@ -14,7 +14,7 @@
 // "catastrophic regression detector", not "perf SLO".
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "../../bun-db/query";
+import { asRawClient } from "../../db/query";
 import { integer, table as pgTable, uuid as pgUuid } from "../../db/dialect";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
 import type { ProjectionDefinition } from "../../engine/types";

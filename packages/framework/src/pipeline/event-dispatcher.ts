@@ -1,5 +1,5 @@
 import { requestContext } from "../api/request-context";
-import { asRawClient, selectMany } from "../bun-db/query";
+import { asRawClient, selectMany } from "../db/query";
 import type { DbConnection, DbTx, PgClient } from "../db/connection";
 import type { AppContext } from "../engine/types";
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers";

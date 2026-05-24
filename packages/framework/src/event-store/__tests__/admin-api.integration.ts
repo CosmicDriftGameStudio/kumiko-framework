@@ -10,7 +10,7 @@
 //     failure; predecessor pre-flight per aggregate in the batch.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "../../bun-db/query";
+import { asRawClient } from "../../db/query";
 import type { DbConnection } from "../../db/connection";
 import { createTestDb, type TestDb } from "../../stack";
 import { generateId as uuid } from "../../utils";

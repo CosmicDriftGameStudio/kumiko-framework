@@ -7,7 +7,7 @@
 // Allowlist: samples/*/migration/, scripts/migrations/, die Definition
 // selbst, das Guard-Script selbst.
 
-import { asRawClient } from "../bun-db/query";
+import { asRawClient } from "../db/query";
 import type { DbRunner } from "../db";
 import { isUniqueViolation } from "../db/pg-error";
 import type { TenantId } from "../engine/types";

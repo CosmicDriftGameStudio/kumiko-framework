@@ -1,4 +1,4 @@
-import { fetchOne } from "../bun-db/query";
+import { fetchOne } from "../db/query";
 import type { TenantId } from "../engine/types/identifiers";
 import { NotFoundError } from "../errors";
 import type { DbConnection } from "./connection";

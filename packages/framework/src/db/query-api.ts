@@ -9,7 +9,7 @@ export type {
   WhereObject,
   WhereOperator,
   WhereValue,
-} from "../bun-db/query";
+} from "../db/query";
 export {
   asRawClient,
   deleteMany,
@@ -19,4 +19,4 @@ export {
   selectMany,
   transaction,
   updateMany,
-} from "../bun-db/query";
+} from "../db/query";

@@ -7,7 +7,7 @@ import {
   updateMany as bunUpdateMany,
   type SelectOptions,
   type WhereObject,
-} from "../bun-db/query";
+} from "../db/query";
 import { SYSTEM_TENANT_ID, type TenantId } from "../engine/types/identifiers";
 import { emitDbQuery, type Meter, registerStandardMetrics, type Tracer } from "../observability";
 import type { DbRunner } from "./connection";

@@ -5,7 +5,7 @@
 // für Framework-Code der von jeder App genutzt wird.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "../../bun-db/query";
+import { asRawClient } from "../../db/query";
 import { createEntity, createNumberField, createTextField } from "../../engine";
 import { createEventsTable } from "../../event-store";
 import { TestUsers, unsafeCreateEntityTable } from "../../stack";

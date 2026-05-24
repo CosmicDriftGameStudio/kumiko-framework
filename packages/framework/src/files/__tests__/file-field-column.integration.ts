@@ -8,7 +8,7 @@
 // runtime behaviour of the upload route.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient } from "../../bun-db/query";
+import { asRawClient } from "../../db/query";
 import { createEntity, createFileField, createImageField } from "../../engine";
 import { unsafeCreateEntityTable, unsafePushTables } from "../../stack";
 import { createTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";

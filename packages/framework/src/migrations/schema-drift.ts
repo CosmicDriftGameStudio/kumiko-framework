@@ -19,7 +19,7 @@
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { asRawClient } from "../bun-db/query";
+import { asRawClient } from "../db/query";
 import type { DbConnection } from "../db/connection";
 import { tableExists } from "../db/schema-inspection";
 import { parseJsonOrThrow } from "../utils/safe-json";

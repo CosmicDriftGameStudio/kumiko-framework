@@ -12,7 +12,7 @@
 //      pass `def.name` to ctx.appendEvent without building the qn manually.
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
-import { selectMany } from "../../bun-db/query";
+import { selectMany } from "../../db/query";
 import { defineFeature } from "../../engine";
 import { eventsTable } from "../../event-store";
 import { setupTestStack, type TestStack } from "../../stack";

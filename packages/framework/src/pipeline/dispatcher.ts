@@ -1,5 +1,5 @@
 import { requestContext } from "../api/request-context";
-import { asRawClient, selectMany } from "../bun-db/query";
+import { asRawClient, selectMany } from "../db/query";
 import type { DbConnection, DbRow, DbTx } from "../db/connection";
 import { buildEntityTable } from "../db/table-builder";
 import { createTenantDb } from "../db/tenant-db";

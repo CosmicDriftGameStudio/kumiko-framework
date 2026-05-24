@@ -4,7 +4,7 @@
 
 import { generateId } from "../utils";
 import { createConnection } from "../db/api";
-import { asRawClient } from "../bun-db/query";
+import { asRawClient } from "../db/query";
 import { ensureTemporalPolyfill } from "../time/polyfill";
 
 function requireEnv(name: string): string {

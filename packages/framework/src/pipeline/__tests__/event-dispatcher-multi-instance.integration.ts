@@ -19,7 +19,7 @@
 // here first.
 
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { insertMany } from "../../bun-db/query";
+import { insertMany } from "../../db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { defineFeature } from "../../engine";

@@ -1,4 +1,4 @@
-import { deleteMany, selectMany, transaction } from "../bun-db/query";
+import { deleteMany, selectMany, transaction } from "../db/query";
 import type { DbConnection } from "../db/connection";
 import { eventsTable } from "../event-store";
 import { eventConsumerStateTable } from "./event-consumer-state";

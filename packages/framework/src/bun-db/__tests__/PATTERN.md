@@ -1,83 +1,29 @@
-# Pattern: Integration-Tests auf Bun.SQL umstellen
+# Pattern: Provider-agnostische DB-Integration-Tests
 
-## Neue Helper (bun-db/__tests__/)
+## Architektur
 
-### `createBunTestDb()` (bun-test-db.ts)
-Bun.SQL-only Ersatz für `createTestDb()`:
-- Admin-`Bun.SQL` → `CREATE DATABASE "kumiko_test_<random>"`
-- Test-`Bun.SQL` zur neuen DB
-- `cleanup()` droppt die DB
-- KEIN postgres-js, KEIN Drizzle
+```
+db/api.ts                    createConnection() — liest DB_PROVIDER env
+db/postgres-provider.ts      postgres-js Factory (default, stabil)
+db/bun-provider.ts           Bun.SQL Factory (DB_PROVIDER=bun, experimentell)
+stack/db.ts                  createTestDb() — provider-agnostisch via createConnection
+stack/test-stack.ts          setupTestStack() — provider-agnostisch via createTestDb
+bun-db/__tests__/bun-test-stack.ts  Alias: setupBunTestStack → setupTestStack
+bun-db/__tests__/bun-test-db.ts     Alias: createBunTestDb → createTestDb
+```
 
-### `setupBunTestStack()` (bun-test-stack.ts)
-Bun.SQL-only Ersatz für `setupTestStack()`:
-- Nutzt `createBunTestDb()` statt `createTestDb()`
-- Gleiches Hono/Redis/SSE/Search-Wiring wie `setupTestStack`
-- Kein `pgClient` für LISTEN — Tests nutzen `runOnce()` deterministisch
-- IdempotencyGuard, EventDedup, EntityCache (Redis) inklusive
-
----
-
-## Was sich pro File geändert hat
-
-### 1. `snapshot.integration.ts` — createTestDb → createBunTestDb
-**Vorher:** `createTestDb()` (postgres-js) + eigene Tables via `createEventsTable()`  
-**Nachher:** `createBunTestDb()` + `ensureTemporalPolyfill()` (fehlte vorher → Tests waren rot)  
-**Änderung:** 2 Zeilen Imports, Setup/Teardown auf BunTestDb umgestellt  
-**Besonderheit:** `bun.db` direkt an event-store-APIs übergeben — Bun.SQL und postgres-js sind strukturell kompatibel (`.unsafe()`, `.begin()`)
-
-### 2. `load-aggregate-query.integration.ts` — setupTestStack → setupBunTestStack
-**Vorher:** `setupTestStack({ features, systemHooks: [] })`  
-**Nachher:** `setupBunTestStack({ features, systemHooks: [] })`  
-**Änderung:** 3 Zeilen (import + setup/teardown)  
-**Besonderheit:** `resetEventStore(stack, ...)` erwartet `TestStack`-Type, aber nutzt nur `.db` und `.eventDispatcher` — beides in `BunTestStack` vorhanden
-
-### 3. `anonymous-access.integration.ts` — setupTestStack → setupBunTestStack
-**Vorher:** 3× `setupTestStack({ features, anonymousAccess: ... })`  
-**Nachher:** 3× `setupBunTestStack({ features, anonymousAccess: ... })`  
-**Änderung:** 3× Import + Typ, 3× setup-Aufruf  
-**Besonderheit:** `anonymousAccess`-Factory-Form (Funktion) wird von setupBunTestStack NICHT unterstützt — wird aber in diesem File nicht genutzt
-
-### 4. `full-stack.integration.ts` — setupTestStack → setupBunTestStack
-**Vorher:** `setupTestStack({ features: [userFeature] })`  
-**Nachher:** `setupBunTestStack({ features: [userFeature] })`  
-**Änderung:** 3 Zeilen imports, setup/teardown  
-**Besonderheit:** IdempotencyGuard + EntityCache mussten in setupBunTestStack nachgerüstet werden (Redis), sonst 2 neue Fails
-
----
-
-## Stolpersteine
-
-### Connection-Lifecycle / asyncDispose
-`new Bun.SQL(url)` erzeugt einen internen Pool. Connection teilen (Singleton) ist safe — Bun.SQL managed Pool-Lifecycle. Kein asyncDispose-Problem in diesen 4 Files.
-
-### Transaction-Behavior
-`Bun.SQL.begin(async tx => {...})` verhält sich wie postgres-js `db.begin()` — `tx` hat `.unsafe()` für Raw-SQL. `asRawClient(tx)` erkennt Bun.SQL-transactions (via `.unsafe`-Check direkt auf dem Objekt).
-
-### Temporal-Polyfill
-`createTestDb()` ruft NICHT `ensureTemporalPolyfill()` auf — Tests die direkt `createTestDb` nutzen fliegen mit `Temporal is not defined`. `setupTestStack()` und `setupBunTestStack()` inkludieren den Aufruf.
-
-### LISTEN/NOTIFY
-Bun.SQL 1.2.x hat kein `listen()`. Der event-dispatcher braucht postgres-js für LISTEN-Wakeup. Ohne `pgClient` fällt er auf polling-only zurück (pollIntervalMs=50). Tests die `runOnce()` nutzen sind davon nicht betroffen.
-
-### IdempotencyGuard + EntityCache
-Redis-backed Middleware (IdempotencyGuard, EventDedup, EntityCache) muss explizit gesetzt werden — fehlt sie, funktionieren idempotency- und cache-Tests nicht.
-
----
-
-## Snippet: So sieht ein neuer Integration-Test aus
+## Snippet: Integration-Test
 
 ```typescript
-// Bun.SQL-only setup. KEIN postgres-js, KEIN createTestDb/setupTestStack.
-import { setupBunTestStack, type BunTestStack } from "../bun-db/__tests__/bun-test-stack";
+import { setupTestStack, type TestStack } from "../stack";
 import { defineFeature } from "../engine";
 
 const feature = defineFeature("example", (r) => { /* ... */ });
 
-let stack: BunTestStack;
+let stack: TestStack;
 
 beforeAll(async () => {
-  stack = await setupBunTestStack({ features: [feature] });
+  stack = await setupTestStack({ features: [feature] });
 });
 
 afterAll(async () => {
@@ -85,33 +31,43 @@ afterAll(async () => {
 });
 
 test("works", async () => {
-  // stack.db    → Bun.SQL (begin, unsafe, query-API)
+  // stack.db    → provider-agnostic (asRawClient für .unsafe/.begin)
   // stack.http  → RequestHelper (writeOk, queryOk, raw)
   // stack.redis → TestRedis
   // stack.events → EventCollector
-  // stack.search → SearchAdapter
 });
 ```
 
-Wenn nur DB (kein HTTP/Stack) gebraucht wird:
+Nur DB (ohne HTTP/Stack):
 
 ```typescript
-import { createBunTestDb, type BunTestDb } from "../bun-db/__tests__/bun-test-db";
-import { ensureTemporalPolyfill } from "../time/polyfill";
+import { createTestDb, type TestDb } from "../stack";
+import { asRawClient } from "../bun-db/query";
 
-let bun: BunTestDb;
-
-beforeAll(async () => {
-  await ensureTemporalPolyfill();
-  bun = await createBunTestDb();
-});
-
-afterAll(async () => {
-  await bun.cleanup();
-});
-
+let td: TestDb;
+beforeAll(async () => { td = await createTestDb(); });
+afterAll(async () => { await td.cleanup(); });
 test("works", async () => {
-  await bun.db.unsafe("SELECT 1");
-  // asRawClient(bun.db) für Raw-SQL-API
+  await asRawClient(td.db).unsafe("SELECT 1");
 });
 ```
+
+## Switching Driver
+
+```bash
+# Default: postgres-js
+bun test ./src/**/*.integration.ts
+
+# Bun.SQL (experimentell)
+DB_PROVIDER=bun bun test ./src/**/*.integration.ts
+```
+
+## Bekannte Issues
+
+- **Bun.SQL Extended-Query-Protocol Bug**: PostgresError "bind message has 11 result
+  formats but query has 1 columns" bei sequentiellen Queries mit unterschiedlicher
+  Spaltenzahl innerhalb derselben Transaction. Nur bei `DB_PROVIDER=bun`.
+- **Temporal-Polyfill**: `createTestDb()` ruft jetzt `ensureTemporalPolyfill()` auf.
+- **TenantDb.insertOne**: Immer `tdb.insertOne(table, ...)` verwenden (Methode),
+  NICHT `insertOne(tdb, table, ...)` (standalone aus bun-db/query — bypassed
+  tenant-injection via asRawClient).

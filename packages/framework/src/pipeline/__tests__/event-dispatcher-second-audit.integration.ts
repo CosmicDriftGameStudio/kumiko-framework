@@ -15,7 +15,7 @@
 //      pollIntervalMs.
 
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient, insertOne, selectMany, updateMany } from "../../bun-db/query";
+import { asRawClient, insertOne, selectMany, updateMany } from "../../db/query";
 import { defineFeature } from "../../engine";
 import { eventsTable } from "../../event-store";
 import {

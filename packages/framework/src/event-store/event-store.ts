@@ -1,4 +1,4 @@
-import { asRawClient, insertOne, selectMany } from "../bun-db/query";
+import { asRawClient, insertOne, selectMany } from "../db/query";
 import type { DbRunner } from "../db";
 import { isUniqueViolation } from "../db/pg-error";
 import type { TenantId } from "../engine/types";

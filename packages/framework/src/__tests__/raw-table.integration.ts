@@ -4,7 +4,7 @@
 // kumiko-platform/docs/plans/architecture/table-ddl-guard.md (Stufe 3).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient, insertOne, selectMany } from "../bun-db/query";
+import { asRawClient, insertOne, selectMany } from "../db/query";
 import { table, text, timestamp } from "../db/dialect";
 import { defineFeature } from "../engine";
 import { unsafePushTables } from "../stack";

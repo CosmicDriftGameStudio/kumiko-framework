@@ -10,7 +10,7 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
-import { insertOne } from "../../bun-db/query";
+import { insertOne } from "../../db/query";
 import { setupTestStack, type TestStack } from "../../stack";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildEntityTable } from "../../db/table-builder";
