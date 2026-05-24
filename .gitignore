@@ -25,7 +25,7 @@ playwright-report/
 .kumiko-check.log
 .kumiko-check.result
 
-# Codegen-Output (pro app generiert via `yarn kumiko codegen`).
+# Codegen-Output (pro app generiert via `bun kumiko codegen`).
 # Wrapper + Type-Map-Augmentation, aus den r.defineEvent-Aufrufen
 # der App synthetisiert.
 .kumiko/
@@ -37,11 +37,5 @@ playwright-report/
 # Codegen-test fixtures (created+removed per test run)
 .tmp-fixtures/
 
-# Yarn 4 (berry) — commit only the bundled yarn binary + plugins, ignore
-# install-state and the cache. Zero-installs (committing .yarn/cache)
-# deferred per docs/plans/yarn4-migration.md.
-.yarn/*
-!.yarn/releases
-!.yarn/plugins
-.pnp.*
-.output.txt
+# Bun install cache
+~/.bun/install/cache

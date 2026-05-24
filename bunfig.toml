@@ -1,0 +1,5 @@
+[install]
+linker = "hoisted"
+
+[install.scopes]
+"@cosmicdriftgamestudio" = { url = "https://npm.pkg.github.com", token = "$GITHUB_TOKEN" }

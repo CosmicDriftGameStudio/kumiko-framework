@@ -3,7 +3,6 @@
   "version": "0.0.0",
   "description": "Config-driven, command-based, realtime multi-tenant app framework.",
   "private": true,
-  "packageManager": "yarn@4.14.1",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
   "repository": {
@@ -38,14 +37,18 @@
     "samples/recipes/*",
     "samples/apps/*"
   ],
+  "trustedDependencies": [
+    "@parcel/watcher",
+    "msgpackr-extract"
+  ],
   "bin": {
     "kumiko": "./bin/kumiko.ts"
   },
   "scripts": {
-    "kumiko": "NODE_OPTIONS=--no-deprecation bun run bin/kumiko.ts",
-    "test": "vitest",
-    "test:run": "vitest run",
-    "test:all": "vitest --config vitest.all.config.ts",
+    "kumiko": "bun run bin/kumiko.ts",
+    "test": "bun test",
+    "test:run": "bun test",
+    "test:all": "bun test --config vitest.all.config.ts",
     "typecheck": "tsc --build",
     "build:apps": "bun run scripts/build-apps.ts",
     "build": "echo 'kumiko-framework: TypeScript source is published as-is (Bun resolver), no transpile step.'",
