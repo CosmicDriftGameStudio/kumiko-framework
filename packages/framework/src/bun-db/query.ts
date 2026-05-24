@@ -153,6 +153,8 @@ type TableInfo = {
   // Used at the result boundary to rename row keys back to the API shape
   // that callers consume (`row.aggregateId` instead of `row.aggregate_id`).
   readonly fieldOf: (column: string) => string;
+  // Check if a field name or column name is known to this table
+  readonly hasColumn: (fieldOrColumn: string) => boolean;
 };
 
 
@@ -183,6 +185,7 @@ function extractTableInfo(table: TableLike): TableInfo {
       columnOf: (field) => colByField.get(field) ?? toSnakeCase(field),
       pgTypeOf: (col) => typeByCol.get(col),
       fieldOf: (col) => fieldByCol.get(col) ?? snakeToCamel(col),
+      hasColumn: (fieldOrColumn) => colByField.has(fieldOrColumn) || fieldByCol.has(fieldOrColumn),
     };
   }
   // drizzle pgTable: tableName via Symbol.for("kumiko:schema:Name"), columns via
@@ -208,6 +211,7 @@ function extractTableInfo(table: TableLike): TableInfo {
     columnOf: (field) => colByField.get(field) ?? toSnakeCase(field),
     pgTypeOf: (col) => typeByCol.get(col),
     fieldOf: (col) => fieldByCol.get(col) ?? snakeToCamel(col),
+    hasColumn: (fieldOrColumn) => colByField.has(fieldOrColumn) || fieldByCol.has(fieldOrColumn),
   };
 }
 
@@ -433,7 +437,8 @@ export async function insertMany<TRow = any>(
   // Use the column-set from the first row; assume all rows share keys.
   const firstRow = rows[0];
   if (firstRow === undefined) return [];
-  const fields = Object.keys(firstRow);
+  // Filter out fields that don't exist as columns in the table (like drizzle did implicitly)
+  const fields = Object.keys(firstRow).filter((k) => info.hasColumn(k));
   if (fields.length === 0) throw new Error("insertMany: empty row object");
   const cols = fields.map((k) => quoteIdent(info.columnOf(k))).join(", ");
   const params: unknown[] = [];
@@ -461,12 +466,14 @@ export async function insertOne<TRow = any>(
   values: Record<string, unknown>,
 ): Promise<TRow | undefined> {
   const info = extractTableInfo(table);
-  const entries = Object.entries(values).map(([k, v]) => {
-    const col = info.columnOf(k);
-    const pgType = info.pgTypeOf(col);
-    const p = prepareValue(v, pgType);
-    return { col, value: p.bound, cast: p.sql };
-  });
+  const entries = Object.entries(values)
+    .filter(([k]) => info.hasColumn(k))
+    .map(([k, v]) => {
+      const col = info.columnOf(k);
+      const pgType = info.pgTypeOf(col);
+      const p = prepareValue(v, pgType);
+      return { col, value: p.bound, cast: p.sql };
+    });
   if (entries.length === 0) throw new Error("insertOne: empty values object");
   const cols = entries.map((e) => quoteIdent(e.col)).join(", ");
   const placeholders = entries.map((e, i) => `$${i + 1}${e.cast}`).join(", ");
