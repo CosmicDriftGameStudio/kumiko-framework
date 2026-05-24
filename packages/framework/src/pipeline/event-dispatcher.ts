@@ -1,5 +1,5 @@
 import { requestContext } from "../api/request-context";
-import { asRawClient, selectMany } from "../db/query";
+import { asRawClient, coerceRow, extractTableInfo, selectMany } from "../db/query";
 import type { DbConnection, DbTx, PgClient } from "../db/connection";
 import type { AppContext } from "../engine/types";
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers";
@@ -209,22 +209,11 @@ async function acquireConsumerState(
   )) as ReadonlyArray<Record<string, unknown>>;
   const rawState = rawRows[0];
 
-    if (!rawState) {
+  if (!rawState) {
     return { state: null, skip: "not_registered" };
   }
 
-  // Raw query returns snake_case — postgres-js returns bigint as string.
-  // Convert last_processed_event_id and attempts to proper JS types.
-  const rawCursor = rawState["last_processed_event_id"] ?? rawState["lastProcessedEventId"];
-  const state: ConsumerStateRow = {
-    name: (rawState["name"] ?? rawState["Name"]) as string,
-    instanceId: (rawState["instance_id"] ?? rawState["instanceId"]) as string,
-    lastProcessedEventId: typeof rawCursor === "bigint" ? rawCursor : BigInt(rawCursor ?? 0),
-    status: (rawState["status"] ?? rawState["Status"]) as string,
-    attempts: Number(rawState["attempts"] ?? rawState["Attempts"] ?? 0),
-    lastError: (rawState["last_error"] ?? rawState["lastError"] ?? null) as string | null,
-    updatedAt: (rawState["updated_at"] ?? rawState["updatedAt"]) as Temporal.Instant,
-  };
+  const state = coerceRow(rawState, extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow;
 
   if (!state) {
     // Either the row never existed (no pre-reg, no ensureRegistered) or
