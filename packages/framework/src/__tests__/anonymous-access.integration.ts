@@ -4,7 +4,7 @@
 // header, kumiko_tenant cookie, custom resolver) plus the rejection paths
 // (no tenant, unknown tenant, openToAll-protected).
 //
-// Bun.SQL-only setup. KEIN postgres-js, KEIN setupTestStack.
+// Bun.SQL-only setup. KEIN postgres-js, KEIN setupBunTestStack.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";

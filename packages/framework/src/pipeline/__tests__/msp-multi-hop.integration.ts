@@ -17,13 +17,11 @@ import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { eventsTable } from "../../event-store";
+import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
 import {
   resetEventStore,
-  setupTestStack,
-  type TestStack,
   TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack";
+  unsafeCreateEntityTable } from "../../stack";
 
 // --- Feature ---
 
@@ -105,11 +103,11 @@ const mmhFeature = defineFeature("mmh", (r) => {
 
 // --- Stack ---
 
-let stack: TestStack;
+let stack: BunTestStack;
 const admin = TestUsers.admin;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [mmhFeature], systemHooks: [] });
+  stack = await setupBunTestStack({ features: [mmhFeature], systemHooks: [] });
   await unsafeCreateEntityTable(stack.db, orderEntity, "mmh-order");
 });
 

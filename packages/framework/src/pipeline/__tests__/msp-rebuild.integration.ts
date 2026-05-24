@@ -28,13 +28,11 @@ import {
   getConsumerState,
   rebuildMultiStreamProjection,
 } from "../../pipeline";
+import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
 import {
   resetEventStore,
-  setupTestStack,
-  type TestStack,
   TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack";
+  unsafeCreateEntityTable } from "../../stack";
 
 // --- Fixtures: two aggregates feeding one MSP + two cornered MSPs ---
 
@@ -189,10 +187,10 @@ const WEBHOOK_MSP = "mspreb:projection:webhook-sink";
 const SAGA_MSP = "mspreb:projection:saga-emitter";
 
 const admin = TestUsers.admin;
-let stack: TestStack;
+let stack: BunTestStack;
 
 beforeAll(async () => {
-  stack = await setupTestStack({
+  stack = await setupBunTestStack({
     features: [feature],
     systemHooks: [],
   });

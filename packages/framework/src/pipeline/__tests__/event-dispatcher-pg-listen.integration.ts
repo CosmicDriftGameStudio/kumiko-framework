@@ -15,7 +15,8 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { defineFeature } from "../../engine";
-import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
+import { TestUsers, unsafeCreateEntityTable } from "../../stack";
+import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
 import { sharedWidgetEntity, sharedWidgetTable } from "../../testing";
 
 // --- Fixture ---
@@ -40,11 +41,11 @@ const listenFeature = defineFeature("listen", (r) => {
 });
 
 const admin = TestUsers.admin;
-let stack: TestStack;
+let stack: BunTestStack;
 let tdb: TenantDb;
 
 beforeAll(async () => {
-  stack = await setupTestStack({
+  stack = await setupBunTestStack({
     features: [listenFeature],
     systemHooks: [],
   });
@@ -53,7 +54,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  // setupTestStack's cleanup handles eventDispatcher.stop(), which in
+  // setupBunTestStack's cleanup handles eventDispatcher.stop(), which in
   // turn unlistens.
 });
 

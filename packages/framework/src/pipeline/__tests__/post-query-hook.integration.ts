@@ -6,14 +6,15 @@
 //   - order: handler-keyed fires BEFORE entity-keyed (gap #2)
 //   - {rows}-shape (the most common case for list-handlers) (gap #3)
 //
-// Memory `feedback_no_fake_dispatcher`: real HTTP-Calls via setupTestStack,
+// Memory `feedback_no_fake_dispatcher`: real HTTP-Calls via setupBunTestStack,
 // nicht createTestDispatcher.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import type { PostQueryHookFn } from "../../engine/types";
-import { setupTestStack, type TestStack, TestUsers } from "../../stack";
+import { TestUsers } from "../../stack";
+import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
 
 // --- Fixture entity ---
 
@@ -70,11 +71,11 @@ const postQueryFeature = defineFeature("postquerytest", (r) => {
 
 // --- Test stack ---
 
-let stack: TestStack;
+let stack: BunTestStack;
 const admin = TestUsers.admin;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [postQueryFeature], systemHooks: [] });
+  stack = await setupBunTestStack({ features: [postQueryFeature], systemHooks: [] });
 });
 
 afterAll(async () => {

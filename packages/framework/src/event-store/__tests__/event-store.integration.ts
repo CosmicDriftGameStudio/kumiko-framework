@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "../../bun-db/query";
-import { createTestDb, type TestDb } from "../../stack";
+import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { generateId as uuid } from "../../utils";
 import {
   append,
@@ -14,14 +15,15 @@ import {
   VersionConflictError,
 } from "../index";
 
-let testDb: TestDb;
+let testDb: BunTestDb;
 
 const tenantA = uuid();
 const tenantB = uuid();
 const userA = uuid();
 
 beforeAll(async () => {
-  testDb = await createTestDb();
+  await ensureTemporalPolyfill();
+  testDb = await createBunTestDb();
   await createEventsTable(testDb.db);
 });
 

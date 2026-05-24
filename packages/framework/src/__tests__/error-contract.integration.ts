@@ -22,13 +22,11 @@ import {
   UnprocessableError,
   writeFailure,
 } from "../errors";
+import { setupBunTestStack, type BunTestStack } from "../bun-db/__tests__/bun-test-stack";
 import {
   createTestUser,
-  setupTestStack,
-  type TestStack,
   TestUsers,
-  unsafeCreateEntityTable,
-} from "../stack";
+  unsafeCreateEntityTable } from "../stack";
 
 // --- Entity + handlers that deliberately raise each Kumiko error class ---
 
@@ -182,12 +180,12 @@ const errorFeature = defineFeature("errctr", (r) => {
   );
 });
 
-let stack: TestStack;
+let stack: BunTestStack;
 const admin = TestUsers.admin;
 const guest = createTestUser({ id: 2, roles: ["Guest"] });
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [errorFeature] });
+  stack = await setupBunTestStack({ features: [errorFeature] });
   await unsafeCreateEntityTable(stack.db, itemEntity);
 });
 afterAll(async () => stack.cleanup());

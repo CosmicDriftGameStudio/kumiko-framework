@@ -4,7 +4,7 @@ import type { EntityTableMeta } from "../db/entity-table-meta";
 import { renderTableDdl } from "../db/render-ddl";
 import { tableExists } from "../db/schema-inspection";
 import { buildEntityTable, toTableName } from "../db/table-builder";
-import type { TestStack } from "./test-stack";
+import type { EventDispatcher } from "../pipeline";
 
 const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
 function tableNameOf(table: unknown): string {
@@ -92,7 +92,7 @@ export async function unsafePushTables(
  * rebuilding it.
  */
 export async function resetEventStore(
-  stack: TestStack,
+  stack: { db: unknown; eventDispatcher?: EventDispatcher },
   extraTables: readonly (unknown | string)[] = [],
 ): Promise<void> {
   const frameworkTables = [

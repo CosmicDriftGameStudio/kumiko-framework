@@ -18,12 +18,14 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "../../bun-db/query";
-import { createTestDb, type TestDb } from "../../stack";
+import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { ensureTemporalPolyfill } from "../../time/polyfill";
 
-let testDb: TestDb;
+let testDb: BunTestDb;
 
 beforeAll(async () => {
-  testDb = await createTestDb();
+  await ensureTemporalPolyfill();
+  testDb = await createBunTestDb();
 });
 
 afterAll(async () => {

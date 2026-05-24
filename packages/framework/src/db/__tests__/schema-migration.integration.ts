@@ -9,7 +9,9 @@ import {
   defineFeature,
 } from "../../engine";
 import type { FeatureDefinition } from "../../engine/types";
-import { createTestDb, type TestDb, unsafePushTables } from "../../stack";
+import { unsafePushTables } from "../../stack";
+import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { buildEntityTable } from "../table-builder";
 
 /**
@@ -23,10 +25,11 @@ import { buildEntityTable } from "../table-builder";
  *   4. We verify the DB state matches expectations
  */
 
-let testDb: TestDb;
+let testDb: BunTestDb;
 
 beforeAll(async () => {
-  testDb = await createTestDb();
+  await ensureTemporalPolyfill();
+  testDb = await createBunTestDb();
 });
 
 afterAll(async () => {

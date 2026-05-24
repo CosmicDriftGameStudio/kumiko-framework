@@ -13,7 +13,8 @@ import {
   type SaveContext,
 } from "../../engine";
 import { UnprocessableError, writeFailure } from "../../errors";
-import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
+import { TestUsers, unsafeCreateEntityTable } from "../../stack";
+import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
 
 // Entity: a simple "item" with name + counter
 const itemEntity = createEntity({
@@ -93,7 +94,7 @@ const itemFeature = defineFeature("batch", (r) => {
     item,
     async (result, ctx) => {
       if (!ctx.db) return;
-      await insertOne(ctx.db, auditTable, { action: "item_saved", itemId: result.id });
+      await ctx.db.insertOne(auditTable, { action: "item_saved", itemId: result.id });
     },
     { phase: HookPhases.inTransaction },
   );
@@ -144,11 +145,11 @@ const itemFeature = defineFeature("batch", (r) => {
 type ParallelismEvent = { hook: "A" | "B"; start?: number; end?: number };
 const parallelismWindows: ParallelismEvent[] = [];
 
-let stack: TestStack;
+let stack: BunTestStack;
 const admin = TestUsers.admin;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [itemFeature] });
+  stack = await setupBunTestStack({ features: [itemFeature] });
   await unsafeCreateEntityTable(stack.db, itemEntity);
   await unsafeCreateEntityTable(stack.db, auditEntity);
 });

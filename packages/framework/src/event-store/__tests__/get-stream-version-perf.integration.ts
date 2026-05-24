@@ -11,16 +11,18 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { TenantId } from "../../engine/types";
-import { createTestDb, type TestDb } from "../../stack";
+import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { generateId as uuid } from "../../utils";
 import { append, createEventsTable, getStreamVersion } from "../index";
 
-let testDb: TestDb;
+let testDb: BunTestDb;
 const tenantId: TenantId = uuid();
 const userId = uuid();
 
 beforeAll(async () => {
-  testDb = await createTestDb();
+  await ensureTemporalPolyfill();
+  testDb = await createBunTestDb();
   await createEventsTable(testDb.db);
 });
 

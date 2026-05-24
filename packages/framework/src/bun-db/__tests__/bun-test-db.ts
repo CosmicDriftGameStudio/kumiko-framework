@@ -1,50 +1,34 @@
-// Bun.SQL-only createTestDb equivalent. KEIN postgres-js Import.
+// Provider-agnostic Test-DB: delegiert an createTestDb (postgres-js default).
+// Set TEST_DB_PROVIDER=bun für Bun.SQL (experimentell — siehe db/bun-provider.ts).
+// Setzt temporär DB_PROVIDER=TEST_DB_PROVIDER für createConnection.
 //
-// Pattern: admin-Verbindung zum postgres-DB → CREATE DATABASE →
-// Bun.SQL zur neuen DB → cleanup droppt die DB.
-// Kein Drizzle, kein postgres-js, nur Bun.SQL(.unsafe).
+// Typ ist bewusst `unknown` — Business-Code nutzt asRawClient().
 
-import { generateId } from "../../utils";
-
-const DATABASE_URL =
-  process.env.TEST_DATABASE_URL ??
-  process.env.DATABASE_URL ??
-  "postgresql://kumiko:kumiko@localhost:15432/kumiko_test";
+import { createTestDb, type CreateTestDbOptions } from "../../stack/db";
 
 export type BunTestDb = {
-  db: Bun.SQL;
+  db: unknown;
+  client: unknown;
   dbName: string;
   cleanup: () => Promise<void>;
 };
 
-export async function createBunTestDb(
-  baseUrl?: string,
-): Promise<BunTestDb> {
-  const url = baseUrl ?? DATABASE_URL;
-  const dbName = `kumiko_test_${generateId().slice(-8)}`;
-  const adminUrl = url.replace(/\/[^/]+$/, "/postgres");
-
-  const admin = new Bun.SQL(adminUrl);
-  try {
-    await admin.unsafe(`CREATE DATABASE "${dbName}"`);
-  } finally {
-    await admin.end();
+export async function createBunTestDb(baseUrl?: string): Promise<BunTestDb> {
+  const provider = process.env["TEST_DB_PROVIDER"];
+  if (provider) {
+    // Temporär DB_PROVIDER überschreiben — createConnection liest DB_PROVIDER
+    const saved = process.env["DB_PROVIDER"];
+    process.env["DB_PROVIDER"] = provider;
+    try {
+      const opts: CreateTestDbOptions = baseUrl ? { baseUrl } : {};
+      const td = await createTestDb(opts);
+      return { db: td.db, client: td.client, dbName: td.dbName, cleanup: td.cleanup };
+    } finally {
+      if (saved) process.env["DB_PROVIDER"] = saved;
+      else delete process.env["DB_PROVIDER"];
+    }
   }
-
-  const testUrl = url.replace(/\/[^/]+$/, `/${dbName}`);
-  const db = new Bun.SQL(testUrl);
-
-  return {
-    db,
-    dbName,
-    cleanup: async () => {
-      await db.end();
-      const admin2 = new Bun.SQL(adminUrl);
-      try {
-        await admin2.unsafe(`DROP DATABASE IF EXISTS "${dbName}"`);
-      } finally {
-        await admin2.end();
-      }
-    },
-  };
+  // Default: createTestDb (postgres-js via DB_PROVIDER unset)
+  const td = await createTestDb(baseUrl);
+  return { db: td.db, client: td.client, dbName: td.dbName, cleanup: td.cleanup };
 }

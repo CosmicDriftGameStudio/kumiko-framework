@@ -4,7 +4,8 @@ import { asRawClient, selectMany } from "../../bun-db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
-import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
+import { TestUsers, unsafeCreateEntityTable } from "../../stack";
+import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
 
 // Two entities in a 1:N relation. The relation is declared with
 // `nestedWrite: true`, which opts the framework into expanding
@@ -64,11 +65,11 @@ const nestedFeature = defineFeature("nested", (r) => {
   );
 });
 
-let stack: TestStack;
+let stack: BunTestStack;
 const admin = TestUsers.admin;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [nestedFeature] });
+  stack = await setupBunTestStack({ features: [nestedFeature] });
   await unsafeCreateEntityTable(stack.db, projectEntity);
   await unsafeCreateEntityTable(stack.db, taskEntity);
 });

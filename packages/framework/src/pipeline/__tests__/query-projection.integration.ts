@@ -15,13 +15,11 @@ import {
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
+import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
 import {
   resetEventStore,
-  setupTestStack,
-  type TestStack,
   TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack";
+  unsafeCreateEntityTable } from "../../stack";
 
 const widgetEntity = createEntity({
   table: "read_qp_widgets",
@@ -113,7 +111,7 @@ const qpFeature = defineFeature("qp", (r) => {
   );
 });
 
-let stack: TestStack;
+let stack: BunTestStack;
 const admin = TestUsers.admin;
 const otherTenantAdmin = {
   ...admin,
@@ -121,7 +119,7 @@ const otherTenantAdmin = {
 };
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [qpFeature], systemHooks: [] });
+  stack = await setupBunTestStack({ features: [qpFeature], systemHooks: [] });
   await unsafeCreateEntityTable(stack.db, widgetEntity, "qp-widget");
 });
 

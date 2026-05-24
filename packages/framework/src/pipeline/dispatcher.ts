@@ -1301,7 +1301,7 @@ export function createDispatcher(
     }
 
     try {
-      await db.begin(async (tx) => {
+      await asRawClient(db).begin(async (tx) => {
         for (let i = 0; i < commands.length; i++) {
           const cmd = commands[i];
           if (!cmd) continue;
@@ -1321,10 +1321,6 @@ export function createDispatcher(
           results,
         });
       }
-      // Unexpected throw — typically a DB driver error from commit/rollback.
-      // executeWrite already traps handler + lifecycle throws into WriteResult,
-      // so anything reaching here is infrastructure-level. Wrap as InternalError
-      // so the contract ("non-Kumiko → InternalError") holds uniformly.
       return finalize({
         isSuccess: false,
         error: toWriteErrorInfo(wrapToKumiko(e)),

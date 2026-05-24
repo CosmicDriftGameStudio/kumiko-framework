@@ -1,5 +1,5 @@
 // Integration test for r.rawTable() — proves the full boot path:
-// defineFeature declares a raw table → setupTestStack auto-pushes it →
+// defineFeature declares a raw table → setupBunTestStack auto-pushes it →
 // INSERT/SELECT against the real DB roundtrip. Plan reference:
 // kumiko-platform/docs/plans/architecture/table-ddl-guard.md (Stufe 3).
 
@@ -7,7 +7,8 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient, insertOne, selectMany } from "../bun-db/query";
 import { table, text, timestamp } from "../db/dialect";
 import { defineFeature } from "../engine";
-import { setupTestStack, type TestStack, unsafePushTables } from "../stack";
+import { unsafePushTables } from "../stack";
+import { setupBunTestStack, type BunTestStack } from "../bun-db/__tests__/bun-test-stack";
 
 // External-system payload cache — the textbook r.rawTable() use case:
 // write-only by an integration handler, read-only by a query, never
@@ -39,17 +40,17 @@ const webhookCacheFeature = defineFeature("webhook-cache", (r) => {
   });
 });
 
-let stack: TestStack;
+let stack: BunTestStack;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [webhookCacheFeature] });
+  stack = await setupBunTestStack({ features: [webhookCacheFeature] });
 });
 
 afterAll(async () => {
   await stack.cleanup();
 });
 
-describe("r.rawTable — DB roundtrip via setupTestStack", () => {
+describe("r.rawTable — DB roundtrip via setupBunTestStack", () => {
   test("table is auto-pushed and accepts INSERT + SELECT", async () => {
     const eventId = "evt_test_123";
     const payload = JSON.stringify({ type: "invoice.paid", amount: 4200 });
@@ -97,8 +98,8 @@ describe("r.rawTable — DB roundtrip via setupTestStack", () => {
 
   test("two registrations sharing one PgTable result in one CREATE (dedupe by reference)", async () => {
     // primary-sync + secondary-sync both target sharedSyncCache. If the
-    // setupTestStack dedupe (seenTables-by-table-reference) had silently
-    // broken, beforeAll's setupTestStack would have raised a 42P07 on
+    // setupBunTestStack dedupe (seenTables-by-table-reference) had silently
+    // broken, beforeAll's setupBunTestStack would have raised a 42P07 on
     // the second push and never reached this test.
     await insertOne(stack.db, sharedSyncCache, { syncId: "sync_1", payload: "{}" });
     const rows = await selectMany(stack.db, sharedSyncCache, { syncId: "sync_1" });
@@ -110,7 +111,7 @@ describe("r.rawTable — DB roundtrip via setupTestStack", () => {
   });
 
   test("a second push on the same rawTable would crash — proves tableExists-filter is load-bearing", async () => {
-    // The setupTestStack push is idempotent because it filters by
+    // The setupBunTestStack push is idempotent because it filters by
     // tableExists before calling unsafePushTables (which is itself
     // strict — that's the contract of the unsafe-prefix). Pin the
     // failure mode of the unfiltered call: a direct second push on

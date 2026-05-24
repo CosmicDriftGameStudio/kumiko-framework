@@ -6,13 +6,11 @@ import { createRegistry, defineFeature } from "../../engine";
 import type { AppContext, SaveContext } from "../../engine/types";
 import { createJobRunner } from "../../jobs";
 import { createLogger } from "../../logging/pino-logger";
+import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
 import {
   createTestRedis,
-  setupTestStack,
   type TestRedis,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "../../stack";
+  unsafeCreateEntityTable } from "../../stack";
 import { createRecordingProvider, type RecordingProvider, waitFor } from "../../testing";
 
 // End-to-end observability integration: wires a full Kumiko stack with a
@@ -73,8 +71,8 @@ const todoFeature = defineFeature("todo", (r) => {
     "create",
     z.object({ title: z.string() }),
     async (event, ctx) => {
-      const rows = await insertOne(ctx.db, todoTable, { title: event.payload.title });
-      const row = rows[0] as { id: number; title: string };
+      const rows = await ctx.db.insertOne(todoTable, { title: event.payload.title });
+      const row = rows as { id: number; title: string };
       return {
         isSuccess: true,
         data: {
@@ -103,12 +101,12 @@ const adminUser = {
 };
 
 describe("Observability (integration)", () => {
-  let stack: TestStack;
+  let stack: BunTestStack;
   let provider: RecordingProvider;
 
   beforeEach(async () => {
     provider = createRecordingProvider();
-    stack = await setupTestStack({
+    stack = await setupBunTestStack({
       features: [productFeature],
       observability: provider,
     });
@@ -181,13 +179,13 @@ describe("Observability (integration)", () => {
 });
 
 describe("Observability (integration) — DB + pipeline hook spans", () => {
-  let stack: TestStack;
+  let stack: BunTestStack;
   let provider: RecordingProvider;
 
   beforeEach(async () => {
     postSaveInvocations = 0;
     provider = createRecordingProvider();
-    stack = await setupTestStack({
+    stack = await setupBunTestStack({
       features: [todoFeature],
       observability: provider,
       systemHooks: [],
@@ -273,7 +271,7 @@ describe("Observability (integration) — DB + pipeline hook spans", () => {
 // that arrives in the AppContext emits a `redis.cmd` span with command name
 // and a key pattern (never the raw key).
 describe("Observability (integration) — Redis wrapper", () => {
-  let stack: TestStack;
+  let stack: BunTestStack;
   let provider: RecordingProvider;
 
   const redisFeature = defineFeature("redis-cmds", (r) => {
@@ -292,7 +290,7 @@ describe("Observability (integration) — Redis wrapper", () => {
 
   beforeEach(async () => {
     provider = createRecordingProvider();
-    stack = await setupTestStack({
+    stack = await setupBunTestStack({
       features: [redisFeature],
       observability: provider,
       systemHooks: [],
@@ -338,7 +336,7 @@ describe("Observability (integration) — Redis wrapper", () => {
 // it via extraContext, fire an HTTP request that calls ctx.log inside a
 // handler, then parse the captured NDJSON and verify trace fields landed.
 describe("Observability (integration) — Pino trace bridge", () => {
-  let stack: TestStack;
+  let stack: BunTestStack;
   let provider: RecordingProvider;
   let capturedLines: string[];
 
@@ -365,7 +363,7 @@ describe("Observability (integration) — Pino trace bridge", () => {
       },
     };
     const realLogger = createLogger({ level: "info", destination });
-    stack = await setupTestStack({
+    stack = await setupBunTestStack({
       features: [logFeature],
       observability: provider,
       systemHooks: [],
@@ -526,12 +524,12 @@ describe("Observability (integration) — Jobs cross-process trace", () => {
 });
 
 describe("Observability (integration) — error path", () => {
-  let stack: TestStack;
+  let stack: BunTestStack;
   let provider: RecordingProvider;
 
   beforeEach(async () => {
     provider = createRecordingProvider();
-    stack = await setupTestStack({
+    stack = await setupBunTestStack({
       features: [errorFeature],
       observability: provider,
     });

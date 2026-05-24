@@ -16,7 +16,9 @@ import { z } from "zod";
 import { createRegistry, defineFeature } from "../../engine";
 import { createArchivedStreamsTable, createEventsTable } from "../../event-store";
 import { createEventConsumerStateTable } from "../../pipeline";
-import { createTestDb, createTestRedis, type TestDb, type TestRedis } from "../../stack";
+import { createTestRedis, type TestRedis } from "../../stack";
+import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { createAllInOneEntrypoint, createApiEntrypoint, createWorkerEntrypoint } from "../index";
 
 const splitFeature = defineFeature("split", (r) => {
@@ -38,11 +40,11 @@ function uniquePrefix(label: string): string {
   return `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-let testDb: TestDb;
+let testDb: BunTestDb;
 let testRedis: TestRedis;
 
 beforeAll(async () => {
-  [testDb, testRedis] = await Promise.all([createTestDb(), createTestRedis()]);
+  [testDb, testRedis] = await Promise.all([createBunTestDb(), createTestRedis()]);
   await createEventsTable(testDb.db);
   await createArchivedStreamsTable(testDb.db);
   await createEventConsumerStateTable(testDb.db);

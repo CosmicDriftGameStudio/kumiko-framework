@@ -15,13 +15,11 @@ import {
   isStreamArchived,
   loadAggregate as loadAggregateRaw,
 } from "../../event-store";
+import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
 import {
   resetEventStore,
-  setupTestStack,
-  type TestStack,
   TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack";
+  unsafeCreateEntityTable } from "../../stack";
 
 const itemEntity = createEntity({
   table: "read_arch_items",
@@ -98,11 +96,11 @@ const archFeature = defineFeature("archtest", (r) => {
   );
 });
 
-let stack: TestStack;
+let stack: BunTestStack;
 const admin = TestUsers.admin;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [archFeature], systemHooks: [] });
+  stack = await setupBunTestStack({ features: [archFeature], systemHooks: [] });
   await unsafeCreateEntityTable(stack.db, itemEntity, "arch-item");
 });
 

@@ -17,7 +17,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { asRawClient, selectMany } from "../../bun-db/query";
 import { createEntity, createTextField } from "../../engine";
 import { createEventsTable } from "../../event-store";
-import { createTestDb, type TestDb, TestUsers, unsafeCreateEntityTable } from "../../stack";
+import { TestUsers, unsafeCreateEntityTable } from "../../stack";
+import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { createEventStoreExecutor } from "../event-store-executor";
 import { buildEntityTable } from "../table-builder";
 import { createTenantDb, type TenantDb } from "../tenant-db";
@@ -42,12 +44,13 @@ const userEntity = createEntity({
 const table = buildEntityTable("unique-user", userEntity);
 const exec = createEventStoreExecutor(table, userEntity, { entityName: "unique-user" });
 
-let testDb: TestDb;
+let testDb: BunTestDb;
 let tdb: TenantDb;
 const admin = TestUsers.admin;
 
 beforeAll(async () => {
-  testDb = await createTestDb();
+  await ensureTemporalPolyfill();
+  testDb = await createBunTestDb();
   await unsafeCreateEntityTable(testDb.db, userEntity, "unique-user");
   await createEventsTable(testDb.db);
   tdb = createTenantDb(testDb.db, admin.tenantId);

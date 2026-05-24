@@ -29,13 +29,11 @@ import {
   defineEntityUpdateHandler,
   defineFeature,
 } from "../../engine";
+import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
 import {
   createTestUser,
-  setupTestStack,
-  type TestStack,
   testTenantId,
-  unsafeCreateEntityTable,
-} from "../../stack";
+  unsafeCreateEntityTable } from "../../stack";
 import { createLocalProvider } from "../local-provider";
 
 // Covers ALL four file-field variants: singular (file/image) stores a UUID in
@@ -62,7 +60,7 @@ const documentFeature = defineFeature("pipeline-documents", (r) => {
   r.queryHandler(defineEntityDetailHandler("document", documentEntity, ROLES));
 });
 
-let stack: TestStack;
+let stack: BunTestStack;
 let storagePath: string;
 
 const tenantId = testTenantId(1);
@@ -70,7 +68,7 @@ const user = createTestUser({ id: 1, tenantId, roles: ["Admin"] });
 
 beforeAll(async () => {
   storagePath = await mkdtemp(join(tmpdir(), "kumiko-file-field-pipeline-"));
-  stack = await setupTestStack({
+  stack = await setupBunTestStack({
     features: [documentFeature],
     files: { storageProvider: createLocalProvider(storagePath) },
   });

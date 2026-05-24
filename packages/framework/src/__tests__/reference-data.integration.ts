@@ -3,7 +3,9 @@ import { selectMany } from "../bun-db/query";
 import { integer, table as pgTable, serial, text } from "../db/dialect";
 import { seedReferenceData } from "../db/reference-data";
 import type { ReferenceDataDef } from "../engine/types";
-import { createTestDb, type TestDb, unsafePushTables } from "../stack";
+import { unsafePushTables } from "../stack";
+import { createBunTestDb, type BunTestDb } from "../bun-db/__tests__/bun-test-db";
+import { ensureTemporalPolyfill } from "../time/polyfill";
 
 // --- Tables ---
 
@@ -22,10 +24,11 @@ const statusTable = pgTable("ref_statuses", {
 
 // --- Test state ---
 
-let testDb: TestDb;
+let testDb: BunTestDb;
 
 beforeAll(async () => {
-  testDb = await createTestDb();
+  await ensureTemporalPolyfill();
+  testDb = await createBunTestDb();
   await unsafePushTables(testDb.db, { countryTable, statusTable });
 });
 

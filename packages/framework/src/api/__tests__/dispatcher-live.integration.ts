@@ -6,7 +6,8 @@ import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
-import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
+import { TestUsers, unsafeCreateEntityTable } from "../../stack";
+import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
 import { generateId } from "../../utils";
 
 // End-to-end: UI code would call `dispatcher.write("feat:write:item:create", ...)`.
@@ -49,7 +50,7 @@ const itemFeature = defineFeature("dlive", (r) => {
   );
 });
 
-let stack: TestStack;
+let stack: BunTestStack;
 const admin = TestUsers.admin;
 
 // Wire dispatcher-live's `fetch` to Hono's in-memory `app.request`. Also
@@ -97,7 +98,7 @@ async function buildFetch(): Promise<{
 }
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [itemFeature] });
+  stack = await setupBunTestStack({ features: [itemFeature] });
   await unsafeCreateEntityTable(stack.db, itemEntity);
 });
 

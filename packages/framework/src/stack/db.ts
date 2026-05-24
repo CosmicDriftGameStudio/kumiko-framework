@@ -1,5 +1,11 @@
-import postgres from "postgres";
+// Test-DB Factory: CREATE DATABASE → connect → createEventsTable.
+// Provider-agnostic via createConnection (DB_PROVIDER env).
+// postgres-js = default. DB_PROVIDER=bun = Bun.SQL (experimentell).
+
 import { generateId } from "../utils";
+import { createConnection } from "../db/api";
+import { asRawClient } from "../bun-db/query";
+import { ensureTemporalPolyfill } from "../time/polyfill";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -12,88 +18,69 @@ function requireEnv(name: string): string {
 }
 
 export type TestDb = {
-  db: ReturnType<typeof postgres>;
-  client: ReturnType<typeof postgres>;
+  db: unknown;
+  client: unknown;
   dbName: string;
   cleanup: () => Promise<void>;
 };
 
 export type CreateTestDbOptions = {
-  /** Override TEST_DATABASE_URL. Rare — mostly for tests that want a
-   *  non-default Postgres (e.g. a read-replica probe). */
   readonly baseUrl?: string;
-  /** Use a specific DB name instead of the default
-   *  `kumiko_test_<8chars>`. Combined with `persistent: true`, lets a
-   *  dev server keep state across restarts. Must be a legal Postgres
-   *  identifier — the caller is responsible for matching the usual
-   *  [a-z_0-9]+ shape. */
   readonly dbName?: string;
-  /** When true, cleanup() is a no-op and the DB survives. Also
-   *  changes CREATE DATABASE to IF-NOT-EXISTS semantics so restarts
-   *  reuse the same storage. Default false (test contract: fresh DB
-   *  per call, dropped on cleanup). */
   readonly persistent?: boolean;
 };
 
 /**
- * Accepts a baseUrl string (legacy shorthand used by most tests) OR an
- * options object. The string form is kept because thousands of tests
- * call `createTestDb()` with no args; only dev-server and niche tests
- * need the options form.
+ * Provider-agnostische Test-DB. createConnection liest DB_PROVIDER.
+ * Für Bun.SQL: DB_PROVIDER=bun setzen (experimentell — siehe db/bun-provider.ts).
  */
 export async function createTestDb(arg?: string | CreateTestDbOptions): Promise<TestDb> {
+  await ensureTemporalPolyfill();
   const opts: CreateTestDbOptions = typeof arg === "string" ? { baseUrl: arg } : (arg ?? {});
   const url = opts.baseUrl ?? requireEnv("TEST_DATABASE_URL");
-  // slice(-8) — the last 8 hex chars of a UUIDv7 are pure random (the
-  // front 48 bits are a timestamp, which would collide across workers
-  // that start within the same millisecond).
   const dbName = opts.dbName ?? `kumiko_test_${generateId().slice(-8)}`;
   const adminUrl = url.replace(/\/[^/]+$/, "/postgres");
 
-  const adminClient = postgres(adminUrl);
+  // Admin-Verbindung für CREATE DATABASE — provider-agnostisch
+  const admin = await createConnection(adminUrl, { maxConnections: 1 });
+  const adminDb = asRawClient(admin.db);
   try {
     if (opts.persistent) {
-      // Postgres has no CREATE DATABASE IF NOT EXISTS; emulate with a
-      // catalog probe so restarts are idempotent.
-      const existing = await adminClient<{ exists: boolean }[]>`
-        SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = ${dbName}) AS exists
-      `;
-      if (!existing[0]?.exists) {
-        await adminClient.unsafe(`CREATE DATABASE "${dbName}"`);
+      const existing = await adminDb.unsafe(
+        `SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = $1) AS exists`,
+        [dbName],
+      );
+      if (!(existing[0] as { exists?: boolean } | undefined)?.exists) {
+        await adminDb.unsafe(`CREATE DATABASE "${dbName}"`);
       }
     } else {
-      await adminClient.unsafe(`CREATE DATABASE "${dbName}"`);
+      await adminDb.unsafe(`CREATE DATABASE "${dbName}"`);
     }
   } finally {
-    await adminClient.end();
+    await admin.close();
   }
 
+  // Verbindung zur neuen DB
   const testUrl = url.replace(/\/[^/]+$/, `/${dbName}`);
-  const client = postgres(testUrl);
-  const db = client;
+  const conn = await createConnection(testUrl);
 
-  // Every ES-entity writes events; auto-create the events table so tests that
-  // go straight to createTestDb (not setupTestStack) also work out of the box.
-  // In persistent mode this is idempotent: createEventsTable emits IF NOT
-  // EXISTS so a second boot is a no-op.
+  // Events-Table — idempotent via IF NOT EXISTS
   const { createEventsTable } = await import("../event-store");
-  await createEventsTable(db);
+  await createEventsTable(conn.db);
 
   return {
-    db,
-    client,
+    db: conn.db,
+    client: conn.client,
     dbName,
     cleanup: async () => {
-      await client.end();
-      // Persistent mode: dev-server owns the DB lifecycle — don't drop
-      // on process exit. `yarn kumiko clean-test-dbs` is the escape
-      // hatch when you really want to start over.
+      await conn.close();
       if (!opts.persistent) {
-        const admin = postgres(adminUrl);
+        const admin2 = await createConnection(adminUrl, { maxConnections: 1 });
+        const admin2Db = asRawClient(admin2.db);
         try {
-          await admin.unsafe(`DROP DATABASE IF EXISTS "${dbName}"`);
+          await admin2Db.unsafe(`DROP DATABASE IF EXISTS "${dbName}"`);
         } finally {
-          await admin.end();
+          await admin2.close();
         }
       }
     },

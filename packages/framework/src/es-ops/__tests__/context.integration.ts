@@ -15,15 +15,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import { asRawClient, selectMany } from "../../bun-db/query";
-import { createTestDb, type TestDb } from "../../stack";
+import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { createSeedMigrationContext } from "../context";
 import { createEsOperationsTable, esOperationsTable } from "../operations-schema";
 import { runPendingSeedMigrations } from "../runner";
 
-let testDb: TestDb;
+let testDb: BunTestDb;
 
 beforeAll(async () => {
-  testDb = await createTestDb();
+  await ensureTemporalPolyfill();
+  testDb = await createBunTestDb();
   await createEsOperationsTable(testDb.db);
 
   // Minimal-Schema-Stubs für die 3 Read-Tabellen die context.ts liest.

@@ -21,7 +21,9 @@ import { createRegistry } from "../../engine/registry";
 import { createEventsTable } from "../../event-store";
 import { rebuildProjection } from "../../pipeline";
 import { createProjectionStateTable } from "../../pipeline/projection-state";
-import { createTestDb, type TestDb, TestUsers, unsafeCreateEntityTable } from "../../stack";
+import { TestUsers, unsafeCreateEntityTable } from "../../stack";
+import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { createEventStoreExecutor } from "../event-store-executor";
 import { buildEntityTable } from "../table-builder";
 import { createTenantDb, type TenantDb } from "../tenant-db";
@@ -42,12 +44,13 @@ const userFeature = defineFeature("implicittest", (r) => {
 
 const userTable = buildEntityTable("user", userEntity);
 
-let testDb: TestDb;
+let testDb: BunTestDb;
 let tdb: TenantDb;
 const adminUser = TestUsers.admin;
 
 beforeAll(async () => {
-  testDb = await createTestDb();
+  await ensureTemporalPolyfill();
+  testDb = await createBunTestDb();
   await unsafeCreateEntityTable(testDb.db, userEntity, "user");
   await createEventsTable(testDb.db);
   await createProjectionStateTable(testDb.db);

@@ -25,13 +25,11 @@ import {
   restartConsumer,
   skipPoisonEvent,
 } from "../../pipeline";
+import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
 import {
   resetEventStore,
-  setupTestStack,
-  type TestStack,
   TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack";
+  unsafeCreateEntityTable } from "../../stack";
 import { sharedWidgetEntity, sharedWidgetTable } from "../../testing";
 
 // --- Fixture ---
@@ -63,11 +61,11 @@ const recoveryFeature = defineFeature("recoverytest", (r) => {
 
 const admin = TestUsers.admin;
 const qn = "recoverytest:projection:observer";
-let stack: TestStack;
+let stack: BunTestStack;
 let tdb: TenantDb;
 
 beforeAll(async () => {
-  stack = await setupTestStack({
+  stack = await setupBunTestStack({
     features: [recoveryFeature],
     systemHooks: [],
   });

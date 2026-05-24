@@ -15,14 +15,12 @@ import {
   from,
 } from "../engine";
 import type { SessionUser, TenantId } from "../engine/types";
+import { setupBunTestStack, type BunTestStack } from "../bun-db/__tests__/bun-test-stack";
 import {
   createTestUser,
-  setupTestStack,
-  type TestStack,
   TestUsers,
   testTenantId,
-  unsafeCreateEntityTable,
-} from "../stack";
+  unsafeCreateEntityTable } from "../stack";
 import { expectErrorIncludes } from "../testing";
 
 // ── Shared test entity ─────────────────────────────────────────────────────
@@ -120,10 +118,10 @@ function mkUser(n: number, roles: readonly string[], team: string | undefined): 
 
 // ── Test stack ─────────────────────────────────────────────────────────────
 
-let stack: TestStack;
+let stack: BunTestStack;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [teamsFeature, contractsFeature] });
+  stack = await setupBunTestStack({ features: [teamsFeature, contractsFeature] });
   await unsafeCreateEntityTable(stack.db, contractEntity, "contract");
 });
 

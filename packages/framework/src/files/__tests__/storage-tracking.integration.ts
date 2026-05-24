@@ -11,7 +11,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, selectMany } from "../../bun-db/query";
 import type { SessionUser } from "../../engine";
-import { createTestUser, setupTestStack, type TestStack, TestUsers } from "../../stack";
+import { createTestUser, TestUsers } from "../../stack";
+import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
 import {
   createInMemoryFileProvider,
   filesStorageTrackingFeature,
@@ -19,7 +20,7 @@ import {
   tenantStorageUsageTable,
 } from "..";
 
-let stack: TestStack;
+let stack: BunTestStack;
 let provider: InMemoryFileProvider;
 
 const admin = TestUsers.admin;
@@ -37,7 +38,7 @@ const LARGE = new Uint8Array([0x89, 0x50, 0x4e, 0x47, ...Array(96).fill(0)]); //
 
 beforeAll(async () => {
   provider = createInMemoryFileProvider();
-  stack = await setupTestStack({
+  stack = await setupBunTestStack({
     features: [filesStorageTrackingFeature],
     files: { storageProvider: provider },
   });

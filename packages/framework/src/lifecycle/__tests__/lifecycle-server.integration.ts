@@ -3,7 +3,7 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { defineFeature } from "../../engine";
-import { setupTestStack, type TestStack } from "../../stack";
+import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
 import { sharedWidgetEntity } from "../../testing";
 import { createLifecycle, type Lifecycle } from "../lifecycle";
 
@@ -20,7 +20,7 @@ const widgetFeature = defineFeature("lifecycle-probe", (r) => {
   });
 });
 
-let stack: TestStack;
+let stack: BunTestStack;
 let lifecycle: Lifecycle;
 let hookOrder: string[];
 
@@ -28,15 +28,15 @@ beforeAll(async () => {
   lifecycle = createLifecycle({ startReady: true });
   hookOrder = [];
 
-  // Register BEFORE setupTestStack so buildServer's hook lands in the middle
+  // Register BEFORE setupBunTestStack so buildServer's hook lands in the middle
   // of registration order — our assertion below keys on that layout.
   lifecycle.registerShutdownHook("probe-before-boot", async () => {
     hookOrder.push("probe-before-boot");
   });
 
-  stack = await setupTestStack({ features: [widgetFeature], lifecycle });
+  stack = await setupBunTestStack({ features: [widgetFeature], lifecycle });
 
-  if (!stack.lifecycle) throw new Error("lifecycle not wired through setupTestStack");
+  if (!stack.lifecycle) throw new Error("lifecycle not wired through setupBunTestStack");
   if (!stack.eventDispatcher) throw new Error("eventDispatcher not built — MSP missing?");
 });
 
@@ -76,14 +76,14 @@ describe("lifecycle — /health/ready live state", () => {
 describe("lifecycle — drain wiring", () => {
   test("buildServer registers eventDispatcher between caller hooks", () => {
     // Order matters, not just existence: probe-before-boot was registered
-    // before setupTestStack, so buildServer's eventDispatcher hook must land
+    // before setupBunTestStack, so buildServer's eventDispatcher hook must land
     // AFTER it in registration order. probe-after-boot is registered in the
     // next test, so it isn't in the list yet.
     expect(lifecycle.hookNames()).toEqual(["probe-before-boot", "eventDispatcher"]);
   });
 
   test("drain() flips /health/ready to 503 and runs hooks LIFO", async () => {
-    // Second probe registered AFTER setupTestStack — landing last in
+    // Second probe registered AFTER setupBunTestStack — landing last in
     // registration order means LIFO drain runs it first.
     lifecycle.registerShutdownHook("probe-after-boot", async () => {
       hookOrder.push("probe-after-boot");

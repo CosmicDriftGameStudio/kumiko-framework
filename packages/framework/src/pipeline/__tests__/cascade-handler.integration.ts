@@ -11,13 +11,15 @@ import {
   type Registry,
 } from "../../engine";
 import { createEventsTable } from "../../event-store";
-import { createTestDb, type TestDb, TestUsers, unsafeCreateEntityTable } from "../../stack";
+import { TestUsers, unsafeCreateEntityTable } from "../../stack";
+import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { createCascadeDeleteHook } from "../cascade-handler";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
 type Table = TableColumns<any>;
 
-let testDb: TestDb;
+let testDb: BunTestDb;
 let tdb: TenantDb;
 let registry: Registry;
 let departmentTable: Table;
@@ -77,7 +79,8 @@ const memberEntity = createEntity({
 });
 
 beforeAll(async () => {
-  testDb = await createTestDb();
+  await ensureTemporalPolyfill();
+  testDb = await createBunTestDb();
   await createEventsTable(testDb.db);
   tdb = createTenantDb(testDb.db, admin.tenantId);
 

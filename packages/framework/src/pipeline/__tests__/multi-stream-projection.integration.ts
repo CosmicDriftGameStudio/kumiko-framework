@@ -13,14 +13,12 @@ import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
+import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
 import {
   createTestUser,
   resetEventStore,
-  setupTestStack,
-  type TestStack,
   TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack";
+  unsafeCreateEntityTable } from "../../stack";
 
 // --- Two aggregate types that feed one MSP ---
 
@@ -133,11 +131,11 @@ const mspFeature = defineFeature("msptest", (r) => {
   );
 });
 
-let stack: TestStack;
+let stack: BunTestStack;
 const admin = TestUsers.admin;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [mspFeature], systemHooks: [] });
+  stack = await setupBunTestStack({ features: [mspFeature], systemHooks: [] });
   await unsafeCreateEntityTable(stack.db, shipmentEntity, "msp-shipment");
   await unsafeCreateEntityTable(stack.db, refundEntity, "msp-refund");
 });

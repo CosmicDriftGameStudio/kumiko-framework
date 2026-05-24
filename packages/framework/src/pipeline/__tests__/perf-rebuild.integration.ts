@@ -20,7 +20,9 @@ import { createEntity, createRegistry, createTextField, defineFeature } from "..
 import type { ProjectionDefinition } from "../../engine/types";
 import { createEventsTable } from "../../event-store";
 import { createProjectionStateTable, rebuildProjection } from "../../pipeline";
-import { createTestDb, type TestDb, TestUsers, unsafePushTables } from "../../stack";
+import { TestUsers, unsafePushTables } from "../../stack";
+import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { generateId as uuid } from "../../utils";
 
 // Counter projection: every task.created bumps a counter, every
@@ -62,12 +64,13 @@ const feature = defineFeature("perfrebuild", (r) => {
 });
 
 const admin = TestUsers.admin;
-let testDb: TestDb;
+let testDb: BunTestDb;
 const registry = createRegistry([feature]);
 const qualifiedProjectionName = "perfrebuild:projection:task-count";
 
 beforeAll(async () => {
-  testDb = await createTestDb();
+  await ensureTemporalPolyfill();
+  testDb = await createBunTestDb();
   await createEventsTable(testDb.db);
   await createProjectionStateTable(testDb.db);
   await unsafePushTables(testDb.db, { perf_rebuild_task_count: taskCountTable });

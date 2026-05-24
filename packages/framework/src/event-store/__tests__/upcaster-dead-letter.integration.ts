@@ -8,7 +8,8 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
-import { createTestDb, type TestDb } from "../../stack";
+import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { ensureTemporalPolyfill } from "../../time/polyfill";
 import type { StoredEvent } from "../event-store";
 import { createEventsTable, eventsTable } from "../events-schema";
 import { type EventUpcasters, makeUpcastCtx, upcastStoredEvents } from "../upcaster";
@@ -18,7 +19,7 @@ import {
   upcasterDeadLetterTable,
 } from "../upcaster-dead-letter";
 
-let testDb: TestDb;
+let testDb: BunTestDb;
 
 const TENANT_ID = "00000000-0000-4000-8000-0000000000aa";
 
@@ -78,7 +79,8 @@ const passthroughUpcasters: EventUpcasters = new Map([
 ]);
 
 beforeAll(async () => {
-  testDb = await createTestDb();
+  await ensureTemporalPolyfill();
+  testDb = await createBunTestDb();
   await createEventsTable(testDb.db);
   await createUpcasterDeadLetterTable(testDb.db);
 });

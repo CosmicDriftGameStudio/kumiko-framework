@@ -8,7 +8,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { asRawClient } from "../../bun-db/query";
 import { createEntity, createNumberField, createTextField } from "../../engine";
 import { createEventsTable } from "../../event-store";
-import { createTestDb, type TestDb, TestUsers, unsafeCreateEntityTable } from "../../stack";
+import { TestUsers, unsafeCreateEntityTable } from "../../stack";
+import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { createEventStoreExecutor } from "../event-store-executor";
 import { buildEntityTable } from "../table-builder";
 import { createTenantDb, type TenantDb } from "../tenant-db";
@@ -22,12 +24,13 @@ const entity = createEntity({
 });
 const table = buildEntityTable("pagerItem", entity);
 
-let testDb: TestDb;
+let testDb: BunTestDb;
 let tdb: TenantDb;
 const admin = TestUsers.admin;
 
 beforeAll(async () => {
-  testDb = await createTestDb();
+  await ensureTemporalPolyfill();
+  testDb = await createBunTestDb();
   await unsafeCreateEntityTable(testDb.db, entity, "pagerItem");
   await createEventsTable(testDb.db);
   tdb = createTenantDb(testDb.db, admin.tenantId);

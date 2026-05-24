@@ -10,7 +10,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient } from "../../bun-db/query";
 import { createEntity, createFileField, createImageField } from "../../engine";
-import { createTestDb, type TestDb, unsafeCreateEntityTable, unsafePushTables } from "../../stack";
+import { unsafeCreateEntityTable, unsafePushTables } from "../../stack";
+import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { generateId } from "../../utils";
 import { fileRefsTable } from "../file-ref-table";
 
@@ -24,10 +26,11 @@ const documentEntity = createEntity({
   },
 });
 
-let testDb: TestDb;
+let testDb: BunTestDb;
 
 beforeAll(async () => {
-  testDb = await createTestDb();
+  await ensureTemporalPolyfill();
+  testDb = await createBunTestDb();
   await unsafePushTables(testDb.db, { fileRefsTable });
   await unsafeCreateEntityTable(testDb.db, documentEntity);
 });

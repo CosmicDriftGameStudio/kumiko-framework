@@ -26,13 +26,11 @@ import {
   RecordingTracer,
 } from "../../observability";
 import { ConsumerLagError, eventConsumerStateTable, pruneEvents } from "../../pipeline";
+import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
 import {
   resetEventStore,
-  setupTestStack,
-  type TestStack,
   TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack";
+  unsafeCreateEntityTable } from "../../stack";
 import { sharedWidgetEntity } from "../../testing";
 import { generateId } from "../../utils";
 
@@ -55,10 +53,10 @@ const auditFeature = defineFeature("audit", (r) => {
 });
 
 const admin = TestUsers.admin;
-let stack: TestStack;
+let stack: BunTestStack;
 
 beforeAll(async () => {
-  stack = await setupTestStack({
+  stack = await setupBunTestStack({
     features: [auditFeature],
     systemHooks: [],
   });
@@ -174,7 +172,7 @@ describe("Second audit — LISTEN gauge", () => {
       shutdown: async () => {},
     };
 
-    const recStack = await setupTestStack({
+    const recStack = await setupBunTestStack({
       features: [auditFeature],
       systemHooks: [],
       observability: recordingProvider,
@@ -228,7 +226,7 @@ describe("Second audit — LISTEN gauge", () => {
       shutdown: async () => {},
     };
 
-    const recStack = await setupTestStack({
+    const recStack = await setupBunTestStack({
       features: [auditFeature],
       systemHooks: [],
       observability: recordingProvider,

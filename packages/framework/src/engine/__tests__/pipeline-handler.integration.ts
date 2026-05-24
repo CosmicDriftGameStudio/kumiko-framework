@@ -50,13 +50,11 @@ import { table, text, timestamp, uuid } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildEntityTable } from "../../db/table-builder";
 import { eventsTable } from "../../event-store";
-import {
-  setupTestStack,
-  type TestStack,
+import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
+import { 
   TestUsers,
   unsafeCreateEntityTable,
-  unsafePushTables,
-} from "../../stack";
+  unsafePushTables } from "../../stack";
 import { defineFeature } from "../define-feature";
 import { defineWriteHandler } from "../define-handler";
 import { createEntity, createTextField } from "../factories";
@@ -473,16 +471,16 @@ const demoPipelineFeature = defineFeature("demoPipeline", (r) => {
   r.writeHandler(bulkLogHandler);
 });
 
-let stack: TestStack;
+let stack: BunTestStack;
 const admin = TestUsers.admin;
 
 describe("defineWriteHandler({ perform: pipeline(...) }) — real dispatcher path", () => {
   beforeAll(async () => {
-    stack = await setupTestStack({ features: [demoPipelineFeature] });
+    stack = await setupBunTestStack({ features: [demoPipelineFeature] });
     // Push the read-side-projection table — not registered as an entity,
     // so push-entity-projection-tables doesn't pick it up automatically.
     await unsafePushTables(stack.db, { pipeline_demo_log: pipelineDemoLogTable });
-    // Aggregate-projection table for the widget entity. setupTestStack
+    // Aggregate-projection table for the widget entity. setupBunTestStack
     // doesn't push entity-tables out of the box for ad-hoc test entities.
     await unsafeCreateEntityTable(stack.db, widgetEntity);
   });

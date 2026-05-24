@@ -9,13 +9,14 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
-import { asRawClient } from "../../bun-db/query";
+import { asRawClient } from "../../db/query-api";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { UnprocessableError, writeFailure } from "../../errors";
 import { loadAggregate } from "../../event-store";
-import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
+import { TestUsers, unsafeCreateEntityTable } from "../../stack";
+import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
 
 // --- Feature ---
 
@@ -131,11 +132,11 @@ const cartFeature = defineFeature("f4w", (r) => {
 
 // --- Stack ---
 
-let stack: TestStack;
+let stack: BunTestStack;
 const admin = TestUsers.admin;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [cartFeature], systemHooks: [] });
+  stack = await setupBunTestStack({ features: [cartFeature], systemHooks: [] });
   await unsafeCreateEntityTable(stack.db, cartEntity, "f4wCart");
 });
 

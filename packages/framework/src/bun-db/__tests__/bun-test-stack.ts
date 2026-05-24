@@ -29,7 +29,7 @@ export type BunTestStack = {
   app: Hono;
   jwt: JwtHelper;
   registry: Registry;
-  db: Bun.SQL;
+  db: unknown;
   redis: TestRedis;
   search: SearchAdapter;
   events: EventCollector;
@@ -53,7 +53,7 @@ export type BunTestStackOptions = {
     | Record<string, unknown>
     | ((deps: {
         registry: Registry;
-        db: Bun.SQL;
+        db: unknown;
         sseBroker: import("../../api/sse-broker").SseBroker;
         redis: import("ioredis").default;
       }) => Record<string, unknown>);
@@ -66,12 +66,12 @@ export type BunTestStackOptions = {
   effectiveFeatures?: (tenantId: TenantId) => ReadonlySet<string>;
   anonymousAccess?:
     | import("../../api/server").ServerOptions["anonymousAccess"]
-    | ((deps: {
-        registry: Registry;
-        db: Bun.SQL;
-        sseBroker: import("../../api/sse-broker").SseBroker;
-        redis: import("ioredis").default;
-      }) => import("../../api/server").ServerOptions["anonymousAccess"]);
+     | ((deps: {
+         registry: Registry;
+         db: unknown;
+         sseBroker: import("../../api/sse-broker").SseBroker;
+         redis: import("ioredis").default;
+       }) => import("../../api/server").ServerOptions["anonymousAccess"]);
 };
 
 const DEFAULT_JWT_SECRET = "test-stack-secret-minimum-32-characters!!";

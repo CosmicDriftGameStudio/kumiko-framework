@@ -9,7 +9,9 @@ import {
   SYSTEM_TENANT_ID,
 } from "../../engine";
 import type { ConfigSeedDef, Registry } from "../../engine/types";
-import { createTestDb, type TestDb, unsafeCreateEntityTable } from "../../stack";
+import { unsafeCreateEntityTable } from "../../stack";
+import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { seedConfigValues } from "../config-seed";
 import { createEncryptionProvider } from "../encryption";
 import { buildEntityTable } from "../table-builder";
@@ -53,7 +55,7 @@ const encryption = createEncryptionProvider(
   Buffer.from("0123456789abcdef0123456789abcdef").toString("base64"),
 );
 
-let testDb: TestDb;
+let testDb: BunTestDb;
 
 async function countRows(): Promise<number> {
   const [r] = await asRawClient(testDb.db).unsafe<{ count: number }>(
@@ -71,7 +73,8 @@ async function countEvents(): Promise<number> {
 
 // --- Setup ---
 beforeAll(async () => {
-  testDb = await createTestDb();
+  await ensureTemporalPolyfill();
+  testDb = await createBunTestDb();
   await unsafeCreateEntityTable(testDb.db, configEntity, "cfgSeedTest");
 });
 

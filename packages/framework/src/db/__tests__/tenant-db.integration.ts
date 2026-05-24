@@ -58,16 +58,16 @@ describe("scoped mode (default)", () => {
     test("auto-injects tenantId into values", async () => {
       const tdb = createTenantDb(testDb.db, tenant1.tenantId);
 
-      const rows = await insertOne(tdb, table, { name: "Item 1" });
-      expect(rows[0]?.["tenantId"]).toBe(testTenantId(1));
-      expect(rows[0]?.["name"]).toBe("Item 1");
+      const row = await tdb.insertOne(table, { name: "Item 1" });
+      expect(row?.["tenantId"]).toBe(testTenantId(1));
+      expect(row?.["name"]).toBe("Item 1");
     });
 
     test("cannot override tenantId via values", async () => {
       const tdb = createTenantDb(testDb.db, tenant1.tenantId);
 
-      const rows = await insertOne(tdb, table, { name: "Sneaky", tenantId: testTenantId(999) });
-      expect(rows[0]?.["tenantId"]).toBe(testTenantId(1));
+      const row = await tdb.insertOne(table, { name: "Sneaky", tenantId: testTenantId(999) });
+      expect(row?.["tenantId"]).toBe(testTenantId(1));
     });
   });
 
@@ -89,10 +89,10 @@ describe("scoped mode (default)", () => {
     test("additional where conditions combine with tenant filter", async () => {
       const tdb = createTenantDb(testDb.db, tenant1.tenantId);
 
-      await insertOne(tdb, table, { name: "findme", status: "active" });
-      await insertOne(tdb, table, { name: "notme", status: "draft" });
+      await tdb.insertOne(table, { name: "findme", status: "active" });
+      await tdb.insertOne(table, { name: "notme", status: "draft" });
 
-      const rows = await selectMany(tdb, table, { status: "active" });
+      const rows = await tdb.selectMany(table, { status: "active" });
 
       expect(rows.length).toBeGreaterThanOrEqual(1);
       expect(
@@ -103,7 +103,7 @@ describe("scoped mode (default)", () => {
     test("select with columns", async () => {
       const tdb = createTenantDb(testDb.db, tenant1.tenantId);
 
-      await insertOne(tdb, table, { name: "ColSelect" });
+      await tdb.insertOne(table, { name: "ColSelect" });
 
       const rows = await asRawClient(tdb).unsafe<Record<string, unknown>>(
         `SELECT id, name FROM "tenant_db_items" WHERE name = $1 LIMIT 10`,
@@ -121,10 +121,10 @@ describe("scoped mode (default)", () => {
       const tdb = createTenantDb(testDb.db, tenant1.tenantId);
 
       for (let i = 0; i < 5; i++) {
-        await insertOne(tdb, table, { name: `Limit${i}` });
+        await tdb.insertOne(table, { name: `Limit${i}` });
       }
 
-      const rows = await selectMany(tdb, table, { limit: 2 });
+      const rows = await tdb.selectMany(table, { limit: 2 });
       expect(rows).toHaveLength(2);
     });
   });
@@ -149,12 +149,12 @@ describe("scoped mode (default)", () => {
     test("update without returning", async () => {
       const tdb = createTenantDb(testDb.db, tenant1.tenantId);
 
-      const row = await insertOne(tdb, table, { name: "NoReturn" });
+      const row = await tdb.insertOne(table, { name: "NoReturn" });
       const id = row!["id"] as string;
 
-      await updateMany(tdb, table, { name: "NoReturnUpdated" }, { id: id });
+      await tdb.updateMany(table, { name: "NoReturnUpdated" }, { id: id });
 
-      const [updated] = await selectMany(tdb, table, { id: id });
+      const [updated] = await tdb.selectMany(table, { id: id });
       expect(updated!["name"]).toBe("NoReturnUpdated");
     });
   });
@@ -354,14 +354,14 @@ describe("tables without tenantId column", () => {
     await insertOne(testDb.db, systemTable, { label: "System-B" });
 
     const tdb = createTenantDb(testDb.db, tenant1.tenantId);
-    const rows = await selectMany(tdb, systemTable);
+    const rows = await tdb.selectMany(systemTable);
     expect(rows.length).toBeGreaterThanOrEqual(2);
   });
 
   test("insert does not inject tenantId", async () => {
     const tdb = createTenantDb(testDb.db, tenant1.tenantId);
 
-    const row = await insertOne(tdb, systemTable, { label: "NoTenantInjection" });
+    const row = await tdb.insertOne(systemTable, { label: "NoTenantInjection" });
     const data = row!;
     expect(data["label"]).toBe("NoTenantInjection");
     // No tenantId column at all — should not be in the result
@@ -371,33 +371,33 @@ describe("tables without tenantId column", () => {
   test("select with where works without tenant filter", async () => {
     const tdb = createTenantDb(testDb.db, tenant1.tenantId);
 
-    await insertOne(tdb, systemTable, { label: "FindThis" });
+    await tdb.insertOne(systemTable, { label: "FindThis" });
 
-    const rows = await selectMany(tdb, systemTable, { label: "FindThis" });
+    const rows = await tdb.selectMany(systemTable, { label: "FindThis" });
     expect(rows).toHaveLength(1);
   });
 
   test("update works without tenant filter", async () => {
     const tdb = createTenantDb(testDb.db, tenant1.tenantId);
 
-    const row = await insertOne(tdb, systemTable, { label: "BeforeUpd" });
+    const row = await tdb.insertOne(systemTable, { label: "BeforeUpd" });
     const id = row!["id"] as number;
 
-    await updateMany(tdb, systemTable, { label: "AfterUpd" }, { id: id });
+    await tdb.updateMany(systemTable, { label: "AfterUpd" }, { id: id });
 
-    const [updated] = await selectMany(tdb, systemTable, { id: id });
+    const [updated] = await tdb.selectMany(systemTable, { id: id });
     expect(updated!["label"]).toBe("AfterUpd");
   });
 
   test("delete works without tenant filter", async () => {
     const tdb = createTenantDb(testDb.db, tenant1.tenantId);
 
-    const row = await insertOne(tdb, systemTable, { label: "ToDelete" });
+    const row = await tdb.insertOne(systemTable, { label: "ToDelete" });
     const id = row!["id"] as number;
 
-    await deleteMany(tdb, systemTable, { id: id });
+    await tdb.deleteMany(systemTable, { id: id });
 
-    const remaining = await selectMany(tdb, systemTable, { id: id });
+    const remaining = await tdb.selectMany(systemTable, { id: id });
     expect(remaining).toHaveLength(0);
   });
 });
@@ -424,39 +424,39 @@ describe("tenantId property", () => {
 describe("mass-update guard", () => {
   test(".set().returning() without .where() rejects with a clear error", async () => {
     const tdb = createTenantDb(testDb.db, tenant1.tenantId);
-    await insertOne(tdb, table, { name: "MassUpdateVictim1" });
-    await insertOne(tdb, table, { name: "MassUpdateVictim2" });
+    await tdb.insertOne(table, { name: "MassUpdateVictim1" });
+    await tdb.insertOne(table, { name: "MassUpdateVictim2" });
 
     await expect((tdb as any).updateMany(table, { name: "Wiped" })).rejects.toThrow(
       /without \.where\(\) would mass-update/,
     );
 
     // Rows must be untouched — the rejection happened before any SQL ran.
-    const untouched = await selectMany(tdb, table);
+    const untouched = await tdb.selectMany(table);
     const touched = untouched.filter((r) => r["name"] === "Wiped");
     expect(touched).toHaveLength(0);
   });
 
   test(".set() awaited without .where() rejects too", async () => {
     const tdb = createTenantDb(testDb.db, tenant1.tenantId);
-    await insertOne(tdb, table, { name: "AwaitGuardVictim" });
+    await tdb.insertOne(table, { name: "AwaitGuardVictim" });
 
     const promise = (tdb as any).updateMany(table, {
       name: "WipedByAwait",
     }) as unknown as Promise<void>;
     await expect(promise).rejects.toThrow(/awaited without \.where\(\) would mass-update/);
 
-    const untouched = await selectMany(tdb, table);
+    const untouched = await tdb.selectMany(table);
     const touched = untouched.filter((r) => r["name"] === "WipedByAwait");
     expect(touched).toHaveLength(0);
   });
 
   test(".set().where(...).returning() still works (guard only triggers on missing where)", async () => {
     const tdb = createTenantDb(testDb.db, tenant1.tenantId);
-    const row = await insertOne(tdb, table, { name: "HappyPath" });
+    const row = await tdb.insertOne(table, { name: "HappyPath" });
     const id = row!["id"] as string;
 
-    const updated = await updateMany(tdb, table, { name: "HappyPathUpdated" }, { id: id });
+    const updated = await tdb.updateMany(table, { name: "HappyPathUpdated" }, { id: id });
     expect(updated[0]!["name"]).toBe("HappyPathUpdated");
   });
 });
@@ -476,7 +476,7 @@ describe("pre-flight signal cancellation", () => {
 
     let thrown: unknown;
     try {
-      await selectMany(tdb, table);
+      await tdb.selectMany(table);
     } catch (e) {
       thrown = e;
     }
@@ -497,7 +497,7 @@ describe("pre-flight signal cancellation", () => {
 
     let insertThrown: unknown;
     try {
-      await insertOne(tdb, table, { name: "x" });
+      await tdb.insertOne(table, { name: "x" });
     } catch (e) {
       insertThrown = e;
     }
@@ -505,7 +505,7 @@ describe("pre-flight signal cancellation", () => {
 
     let updateThrown: unknown;
     try {
-      await updateMany(tdb, table, { name: "y" }, { id: "00000000-0000-0000-0000-000000000001" });
+      await tdb.updateMany(table, { name: "y" }, { id: "00000000-0000-0000-0000-000000000001" });
     } catch (e) {
       updateThrown = e;
     }
@@ -513,7 +513,7 @@ describe("pre-flight signal cancellation", () => {
 
     let deleteThrown: unknown;
     try {
-      await deleteMany(tdb, table, { id: "00000000-0000-0000-0000-000000000001" });
+      await tdb.deleteMany(table, { id: "00000000-0000-0000-0000-000000000001" });
     } catch (e) {
       deleteThrown = e;
     }
@@ -535,14 +535,14 @@ describe("pre-flight signal cancellation", () => {
       controller.signal,
     );
 
-    const first = await insertOne(tdb, table, { name: "preflight-first" });
+    const first = await tdb.insertOne(table, { name: "preflight-first" });
     expect(first).toBeDefined();
 
     controller.abort();
 
     let secondThrown: unknown;
     try {
-      await insertOne(tdb, table, { name: "preflight-second" });
+      await tdb.insertOne(table, { name: "preflight-second" });
     } catch (e) {
       secondThrown = e;
     }
@@ -559,7 +559,7 @@ describe("pre-flight signal cancellation", () => {
 
   test("no signal passed: queries run normally (signal is opt-in)", async () => {
     const tdb = createTenantDb(testDb.db, tenant1.tenantId);
-    const result = await insertOne(tdb, table, { name: "no-signal" });
+    const result = await tdb.insertOne(table, { name: "no-signal" });
     expect(result).toHaveLength(1);
   });
 });

@@ -22,13 +22,11 @@ import {
   eventConsumerStateTable,
   pruneEvents,
 } from "../../pipeline";
+import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
 import {
   resetEventStore,
-  setupTestStack,
-  type TestStack,
   TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack";
+  unsafeCreateEntityTable } from "../../stack";
 import { sharedWidgetEntity, sharedWidgetTable } from "../../testing";
 import { generateId } from "../../utils";
 
@@ -53,11 +51,11 @@ const retentionFeature = defineFeature("retention", (r) => {
 
 const admin = TestUsers.admin;
 const observerQn = "retention:projection:observer";
-let stack: TestStack;
+let stack: BunTestStack;
 let tdb: TenantDb;
 
 beforeAll(async () => {
-  stack = await setupTestStack({
+  stack = await setupBunTestStack({
     features: [retentionFeature],
     systemHooks: [],
   });
@@ -106,7 +104,7 @@ describe("E.2 — explicit-aggregateTypes pruning", () => {
     const widgetId = await seedOldAggregateEvent(tenDaysAgo, "widget.legacy", "widget");
 
     // Disable the single consumer so the lag guard doesn't interfere. The
-    // row was auto-registered by setupTestStack (strict Sprint-E mode);
+    // row was auto-registered by setupBunTestStack (strict Sprint-E mode);
     // flip its status to disabled instead of inserting a duplicate.
     await disableConsumer(stack.db, observerQn);
 

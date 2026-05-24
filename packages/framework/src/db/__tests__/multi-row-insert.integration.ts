@@ -11,7 +11,8 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { insertOne, selectMany } from "../../bun-db/query";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField } from "../../engine";
-import { setupTestStack, type TestStack, unsafeCreateEntityTable } from "../../stack";
+import { unsafeCreateEntityTable } from "../../stack";
+import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
 
 const linkEntity = createEntity({
   table: "mri_links",
@@ -22,10 +23,10 @@ const linkEntity = createEntity({
 });
 const linkTable = buildEntityTable("link", linkEntity);
 
-let stack: TestStack;
+let stack: BunTestStack;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [] });
+  stack = await setupBunTestStack({ features: [] });
   await unsafeCreateEntityTable(stack.db, linkEntity);
 });
 

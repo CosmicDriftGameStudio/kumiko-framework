@@ -11,7 +11,9 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { buildServer, type JwtHelper } from "../../api";
 import { createRegistry, defineFeature, type SessionUser } from "../../engine";
-import { createTestDb, createTestRedis, type TestDb, type TestRedis, TestUsers } from "../../stack";
+import { createTestRedis, type TestRedis, TestUsers } from "../../stack";
+import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { waitFor } from "../../testing";
 import { createJobRunner, type JobRunner } from "../job-runner";
 
@@ -48,7 +50,7 @@ const orderFeature = defineFeature("multi", (r) => {
   );
 });
 
-let testDb: TestDb;
+let testDb: BunTestDb;
 let testRedis: TestRedis;
 let app: Hono;
 let jwt: JwtHelper;
@@ -58,7 +60,8 @@ const adminUser = TestUsers.admin;
 const JWT_SECRET = "multi-trigger-test-secret-minimum-32-chars!!";
 
 beforeAll(async () => {
-  testDb = await createTestDb();
+  await ensureTemporalPolyfill();
+  testDb = await createBunTestDb();
   testRedis = await createTestRedis();
 
   const registry = createRegistry([orderFeature]);

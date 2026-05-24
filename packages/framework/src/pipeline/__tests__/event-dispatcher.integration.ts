@@ -9,7 +9,7 @@
 //   - maxAttempts dead-letter: repeated throws eventually mark the consumer
 //     status="dead", preserving lastError.
 //
-// Uses setupTestStack's registry-driven wiring so we exercise the same path
+// Uses setupBunTestStack's registry-driven wiring so we exercise the same path
 // production would take once ops wires CreateApp. No createEventDispatcher
 // calls in the test — only the registry round-trip.
 
@@ -21,14 +21,12 @@ import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { defineFeature, type FeatureDefinition } from "../../engine";
 import type { StoredEvent } from "../../event-store";
 import { eventConsumerStateTable, getAllConsumerProgress, getConsumerState } from "../../pipeline";
+import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
 import {
   resetEventStore,
-  setupTestStack,
-  type TestStack,
   TestUsers,
   unsafeCreateEntityTable,
-  unsafePushTables,
-} from "../../stack";
+  unsafePushTables } from "../../stack";
 import { sharedWidgetEntity, sharedWidgetTable } from "../../testing";
 
 // --- Test fixtures ---
@@ -77,7 +75,7 @@ const testFeature: FeatureDefinition = defineFeature("dispatchertest", (r) => {
 });
 
 const admin = TestUsers.admin;
-let stack: TestStack;
+let stack: BunTestStack;
 let tdb: TenantDb;
 
 const qnA = "dispatchertest:projection:observer-a";
@@ -88,7 +86,7 @@ const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity,
 });
 
 beforeAll(async () => {
-  stack = await setupTestStack({
+  stack = await setupBunTestStack({
     features: [testFeature],
     // Keep hooks off — we're testing the dispatcher, not the legacy postSave
     // hook chain. SSE / search are irrelevant to cursor behaviour.

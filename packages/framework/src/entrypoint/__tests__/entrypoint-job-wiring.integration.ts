@@ -17,7 +17,9 @@ import { z } from "zod";
 import { createRegistry, defineFeature } from "../../engine";
 import { createArchivedStreamsTable, createEventsTable } from "../../event-store";
 import { createEventConsumerStateTable } from "../../pipeline";
-import { createTestDb, createTestRedis, type TestDb, type TestRedis, TestUsers } from "../../stack";
+import { createTestRedis, type TestRedis, TestUsers } from "../../stack";
+import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { waitFor } from "../../testing";
 import { createAllInOneEntrypoint } from "../index";
 
@@ -72,11 +74,11 @@ const mixedLaneFeature = defineFeature("mixed", (r) => {
 const JWT = "entrypoint-wiring-test-secret-must-be-32-chars!";
 const adminUser = TestUsers.admin;
 
-let testDb: TestDb;
+let testDb: BunTestDb;
 let testRedis: TestRedis;
 
 beforeAll(async () => {
-  [testDb, testRedis] = await Promise.all([createTestDb(), createTestRedis()]);
+  [testDb, testRedis] = await Promise.all([createBunTestDb(), createTestRedis()]);
   await createEventsTable(testDb.db);
   await createArchivedStreamsTable(testDb.db);
   await createEventConsumerStateTable(testDb.db);

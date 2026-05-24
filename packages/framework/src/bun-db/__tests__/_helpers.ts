@@ -1,16 +1,17 @@
 // Helpers für bun-db SQL-Layer-Integration-Tests.
+// Provider-agnostic via createConnection (DB_PROVIDER env).
 //
 // Pattern: pro Test eine eigene Tabelle mit unique-Name (random-Suffix),
 // damit concurrency=8 tests sich nicht in die Quere kommen. CREATE TABLE
 // im before, DROP TABLE im after (auch bei test-fail damit Test-DB clean
-// bleibt). KEINE TEMP TABLES — die wären connection-bound und bun.sql's
-// Pool reused connections, was tests in zwei verschiedenen Pool-Slots
+// bleibt). KEINE TEMP TABLES — die wären connection-bound und pools
+// reused connections, was tests in zwei verschiedenen Pool-Slots
 // in verschiedene "TEMP-Welten" stecken würde.
 //
 // Schema-Tabellen bestehen aus einer id (uuid) + den getesteten Spalten.
 
 import { randomUUID } from "node:crypto";
-import { createBunDbConnection, type BunDbConnection } from "../connection";
+import { createConnection, type DbConnection } from "../../db/api";
 import type { EntityTableMeta, ColumnMeta } from "../../db/entity-table-meta";
 
 const DATABASE_URL =
@@ -18,14 +19,14 @@ const DATABASE_URL =
   process.env.DATABASE_URL ??
   "postgresql://kumiko:kumiko@localhost:15432/kumiko_test";
 
-// Singleton-Connection für die gesamte Test-Suite. Bun.SQL hat internen
-// Pool — ein Connection-Wrapper reicht.
-let dbInstance: { db: BunDbConnection; close: () => Promise<void> } | undefined;
+let dbInstance: { db: unknown; close: () => Promise<void> } | undefined;
 
-export function getDb(): BunDbConnection {
+export async function getDb(): Promise<unknown> {
+  return ensureDb();
+}
+export async function ensureDb(): Promise<unknown> {
   if (!dbInstance) {
-    const conn = createBunDbConnection(DATABASE_URL, { maxConnections: 4 });
-    dbInstance = { db: conn.db, close: conn.close };
+    dbInstance = await createConnection(DATABASE_URL, { maxConnections: 4 });
   }
   return dbInstance.db;
 }
@@ -86,16 +87,17 @@ export function renderCreateTable(meta: EntityTableMeta): string {
 // fn bekommt {db, meta} — alle SQL-Operationen laufen direkt darauf.
 export async function withTable<T>(
   columns: readonly ColumnMeta[],
-  fn: (ctx: { db: BunDbConnection; meta: EntityTableMeta }) => Promise<T>,
+  fn: (ctx: { db: unknown; meta: EntityTableMeta }) => Promise<T>,
   prefix?: string,
 ): Promise<T> {
-  const db = getDb();
+  const db = await getDb();
   const tableName = uniqueTableName(prefix);
   const meta = makeTableMeta(tableName, columns);
-  await db.unsafe(renderCreateTable(meta));
+  const { asRawClient } = await import("../query");
+  await asRawClient(db).unsafe(renderCreateTable(meta));
   try {
     return await fn({ db, meta });
   } finally {
-    await db.unsafe(`DROP TABLE IF EXISTS "${tableName}"`);
+    await asRawClient(db).unsafe(`DROP TABLE IF EXISTS "${tableName}"`);
   }
 }

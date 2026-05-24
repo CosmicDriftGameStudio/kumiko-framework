@@ -6,7 +6,7 @@
 // Events are upcasted by the dispatcher, so the reducer sees the current
 // payload shape even for old v1 events.
 //
-// Bun.SQL-only setup. KEIN postgres-js, KEIN setupTestStack.
+// Bun.SQL-only setup. KEIN postgres-js, KEIN setupBunTestStack.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
@@ -19,8 +19,7 @@ import { append, loadAggregate as loadAggregateRaw } from "../../event-store";
 import {
   resetEventStore,
   TestUsers,
-  unsafeCreateEntityTable,
-} from "../../stack";
+  unsafeCreateEntityTable } from "../../stack";
 
 // --- Fixture entity ---
 
