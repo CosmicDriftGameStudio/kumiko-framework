@@ -5,6 +5,7 @@ import type { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { JwtHelper } from "../../api/jwt";
 import { buildServer } from "../../api/server";
+import { buildMultipartBody, patchFileInstanceofForBunTest } from "../../testing";
 import {
   createEntity,
   createImageField,
@@ -60,6 +61,10 @@ const tenantFeature = defineFeature("tenant", (r) => {
 });
 
 beforeAll(async () => {
+  // Bun v1.3.x bun:test: Hono's parseBody() returns cross-realm Blob objects
+  // that fail `instanceof File`. Patch File[Symbol.hasInstance] with duck-typing.
+  patchFileInstanceofForBunTest();
+
   testDb = await createTestDb();
   storagePath = await mkdtemp(join(tmpdir(), "kumiko-files-test-"));
 
@@ -105,10 +110,11 @@ async function uploadFile(
       formData.append(k, v);
     }
   }
+  const { body, contentType } = await buildMultipartBody(formData);
   return app.request("/api/files", {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
-    body: formData,
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+    body,
   });
 }
 
@@ -422,10 +428,11 @@ describe("custom file access guard", () => {
         fd.append("entityType", "tenant");
         fd.append("entityId", "1");
         fd.append("fieldName", "logo");
+        const { body: multipartBody, contentType } = await buildMultipartBody(fd);
         return isolatedServer.app.request("/api/files", {
           method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-          body: fd,
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+          body: multipartBody,
         });
       };
       const request = async (user: SessionUser, fileId: string, init: RequestInit = {}) => {
@@ -546,10 +553,11 @@ describe("error handling", () => {
     const formData = new FormData();
     formData.append("notafile", "just text");
 
+    const { body: multipartBody, contentType } = await buildMultipartBody(formData);
     const res = await app.request("/api/files", {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+      body: multipartBody,
     });
 
     expect(res.status).toBe(400);
@@ -584,9 +592,11 @@ describe("error handling", () => {
     const formData = new FormData();
     formData.append("file", new File([new Uint8Array(10)], "test.png", { type: "image/png" }));
 
+    const { body: multipartBody, contentType } = await buildMultipartBody(formData);
     const res = await app.request("/api/files", {
       method: "POST",
-      body: formData,
+      headers: { "Content-Type": contentType },
+      body: multipartBody,
     });
     expect(res.status).toBe(401);
   });
@@ -614,10 +624,11 @@ describe("Content-Disposition header hardening", () => {
     const token = await jwt.sign(adminUser);
     const fd = new FormData();
     fd.append("file", new File([Buffer.from(smallPng)], fileName, { type: "image/png" }));
+    const { body: multipartBody, contentType } = await buildMultipartBody(fd);
     const res = await app.request("/api/files", {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: fd,
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+      body: multipartBody,
     });
     expect(res.status).toBe(201);
     const body = await res.json();
@@ -734,10 +745,11 @@ describe("download-url endpoint", () => {
         fd.append("entityType", "tenant");
         fd.append("entityId", "1");
         fd.append("fieldName", "logo");
+        const { body: multipartBody, contentType } = await buildMultipartBody(fd);
         return isolatedServer.app.request("/api/files", {
           method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-          body: fd,
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+          body: multipartBody,
         });
       };
       const getDownloadUrl = async (user: SessionUser, fileId: string) => {

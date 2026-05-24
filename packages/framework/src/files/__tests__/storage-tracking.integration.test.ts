@@ -11,6 +11,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, selectMany } from "../../db/query";
 import type { SessionUser } from "../../engine";
+import { buildMultipartBody, patchFileInstanceofForBunTest } from "../../testing";
 import { createTestUser, TestUsers } from "../../stack";
 import { setupTestStack, type TestStack } from "../../stack";
 import {
@@ -37,6 +38,7 @@ const SMALL = new Uint8Array([0x89, 0x50, 0x4e, 0x47, ...Array(16).fill(0)]); //
 const LARGE = new Uint8Array([0x89, 0x50, 0x4e, 0x47, ...Array(96).fill(0)]); // 100 bytes
 
 beforeAll(async () => {
+  patchFileInstanceofForBunTest();
   provider = createInMemoryFileProvider();
   stack = await setupTestStack({
     features: [filesStorageTrackingFeature],
@@ -65,10 +67,11 @@ async function upload(user: SessionUser, name: string, content: Uint8Array): Pro
   const token = await stack.jwt.sign(user);
   const formData = new FormData();
   formData.append("file", new File([Buffer.from(content)], name, { type: "image/png" }));
+  const { body: multipartBody, contentType } = await buildMultipartBody(formData);
   const res = await stack.app.request("/api/files", {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
-    body: formData,
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+    body: multipartBody,
   });
   expect(res.status).toBe(201);
 }

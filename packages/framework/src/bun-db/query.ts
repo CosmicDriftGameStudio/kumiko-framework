@@ -305,14 +305,27 @@ function coerceRows<T extends Record<string, unknown>>(
 // Helper für jsonb-Werte: Bun.sql kann arrays/objects nicht direkt als
 // jsonb binden — wir JSON.stringify + ::jsonb cast.
 // Plus Temporal.Instant → ISO string coercion for timestamptz columns.
-function prepareValue(value: unknown, pgType: string | undefined): { sql: string; bound: unknown } {
+// SqlExpression (sql`now()`, sql`gen_random_uuid()`) wird als kind:"literal"
+// returned — Caller embedded das inline statt einen $N-placeholder zu setzen.
+type PreparedValue =
+  | { readonly kind: "param"; readonly sql: string; readonly bound: unknown }
+  | { readonly kind: "literal"; readonly literal: string };
+
+function isSqlExpression(v: unknown): v is { kind: "sql-expr"; text: string } {
+  return typeof v === "object" && v !== null && (v as { kind?: unknown }).kind === "sql-expr";
+}
+
+function prepareValue(value: unknown, pgType: string | undefined): PreparedValue {
+  if (isSqlExpression(value)) {
+    return { kind: "literal", literal: value.text };
+  }
   if (pgType === "jsonb" && value !== null && typeof value === "object" && !isTemporalInstant(value)) {
-    return { sql: "::jsonb", bound: JSON.stringify(value) };
+    return { kind: "param", sql: "::jsonb", bound: JSON.stringify(value) };
   }
   if ((pgType === "timestamptz" || pgType === "timestamptz(3)") && isTemporalInstant(value)) {
-    return { sql: "", bound: (value as Temporal.Instant).toString() };
+    return { kind: "param", sql: "", bound: (value as Temporal.Instant).toString() };
   }
-  return { sql: "", bound: value };
+  return { kind: "param", sql: "", bound: value };
 }
 
 function buildWhereClause(
@@ -332,17 +345,17 @@ function buildWhereClause(
       if (value.length === 0) {
         conditions.push("FALSE");
       } else {
-        const placeholders = value
-          .map(() => {
-            const i = idx++;
-            return `$${i}`;
-          })
-          .join(", ");
-        conditions.push(`${quoteIdent(col)} IN (${placeholders})`);
+        const parts: string[] = [];
         for (const v of value) {
           const p = prepareValue(v, pgType);
-          values.push(p.bound);
+          if (p.kind === "literal") {
+            parts.push(p.literal);
+          } else {
+            parts.push(`$${idx++}${p.sql}`);
+            values.push(p.bound);
+          }
         }
+        conditions.push(`${quoteIdent(col)} IN (${parts.join(", ")})`);
       }
     } else if (isWhereOperator(value)) {
       const opMap: Record<string, string> = {
@@ -357,26 +370,39 @@ function buildWhereClause(
         const opVal = (value as Record<string, unknown>)[opKey];
         if (opVal === undefined) continue;
         const p = prepareValue(opVal, pgType);
-        conditions.push(`${quoteIdent(col)} ${opSym} $${idx++}${p.sql}`);
-        values.push(p.bound);
+        if (p.kind === "literal") {
+          conditions.push(`${quoteIdent(col)} ${opSym} ${p.literal}`);
+        } else {
+          conditions.push(`${quoteIdent(col)} ${opSym} $${idx++}${p.sql}`);
+          values.push(p.bound);
+        }
       }
       const inVal = (value as Record<string, unknown>)["in"];
       if (Array.isArray(inVal)) {
         if (inVal.length === 0) {
           conditions.push("FALSE");
         } else {
-          const placeholders = inVal.map(() => `$${idx++}`).join(", ");
-          conditions.push(`${quoteIdent(col)} IN (${placeholders})`);
+          const parts: string[] = [];
           for (const v of inVal) {
             const p = prepareValue(v, pgType);
-            values.push(p.bound);
+            if (p.kind === "literal") {
+              parts.push(p.literal);
+            } else {
+              parts.push(`$${idx++}${p.sql}`);
+              values.push(p.bound);
+            }
           }
+          conditions.push(`${quoteIdent(col)} IN (${parts.join(", ")})`);
         }
       }
     } else {
       const p = prepareValue(value, pgType);
-      conditions.push(`${quoteIdent(col)} = $${idx++}${p.sql}`);
-      values.push(p.bound);
+      if (p.kind === "literal") {
+        conditions.push(`${quoteIdent(col)} = ${p.literal}`);
+      } else {
+        conditions.push(`${quoteIdent(col)} = $${idx++}${p.sql}`);
+        values.push(p.bound);
+      }
     }
   }
   return { sqlText: conditions.join(" AND "), values };
@@ -449,8 +475,12 @@ export async function insertMany<TRow = any>(
       const col = info.columnOf(f);
       const pgType = info.pgTypeOf(col);
       const p = prepareValue(row[f], pgType);
-      params.push(p.bound);
-      placeholders.push(`$${params.length}${p.sql}`);
+      if (p.kind === "literal") {
+        placeholders.push(p.literal);
+      } else {
+        params.push(p.bound);
+        placeholders.push(`$${params.length}${p.sql}`);
+      }
     }
     valuesClauses.push(`(${placeholders.join(", ")})`);
   }
@@ -471,13 +501,16 @@ export async function insertOne<TRow = any>(
     .map(([k, v]) => {
       const col = info.columnOf(k);
       const pgType = info.pgTypeOf(col);
-      const p = prepareValue(v, pgType);
-      return { col, value: p.bound, cast: p.sql };
+      return { col, prepared: prepareValue(v, pgType) };
     });
   if (entries.length === 0) throw new Error("insertOne: empty values object");
   const cols = entries.map((e) => quoteIdent(e.col)).join(", ");
-  const placeholders = entries.map((e, i) => `$${i + 1}${e.cast}`).join(", ");
-  const params = entries.map((e) => e.value);
+  const params: unknown[] = [];
+  const placeholders = entries.map((e) => {
+    if (e.prepared.kind === "literal") return e.prepared.literal;
+    params.push(e.prepared.bound);
+    return `$${params.length}${e.prepared.sql}`;
+  }).join(", ");
   const sqlText = `INSERT INTO ${quoteIdent(info.name)} (${cols}) VALUES (${placeholders}) RETURNING *`;
   const rows = (await asRawClient(db).unsafe(sqlText, params)) as readonly Record<string, unknown>[];
   const first = rows[0];
@@ -496,16 +529,19 @@ export async function updateMany<TRow = any>(
   const setEntries = Object.entries(set).map(([k, v]) => {
     const col = info.columnOf(k);
     const pgType = info.pgTypeOf(col);
-    const p = prepareValue(v, pgType);
-    return { col, value: p.bound, cast: p.sql };
+    return { col, prepared: prepareValue(v, pgType) };
   });
   if (setEntries.length === 0) throw new Error("updateMany: empty set object");
   const values: unknown[] = [];
   let idx = 1;
   const setParts: string[] = [];
   for (const e of setEntries) {
-    setParts.push(`${quoteIdent(e.col)} = $${idx++}${e.cast}`);
-    values.push(e.value);
+    if (e.prepared.kind === "literal") {
+      setParts.push(`${quoteIdent(e.col)} = ${e.prepared.literal}`);
+    } else {
+      setParts.push(`${quoteIdent(e.col)} = $${idx++}${e.prepared.sql}`);
+      values.push(e.prepared.bound);
+    }
   }
   const w = buildWhereClause(info, where, idx);
   let sqlText = `UPDATE ${quoteIdent(info.name)} SET ${setParts.join(", ")}`;

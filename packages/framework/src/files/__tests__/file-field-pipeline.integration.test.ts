@@ -17,6 +17,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "../../db/query";
+import { buildMultipartBody, patchFileInstanceofForBunTest } from "../../testing";
 import {
   createEntity,
   createFileField,
@@ -67,6 +68,7 @@ const tenantId = testTenantId(1);
 const user = createTestUser({ id: 1, tenantId, roles: ["Admin"] });
 
 beforeAll(async () => {
+  patchFileInstanceofForBunTest();
   storagePath = await mkdtemp(join(tmpdir(), "kumiko-file-field-pipeline-"));
   stack = await setupTestStack({
     features: [documentFeature],
@@ -88,10 +90,11 @@ async function uploadFile(fileName: string, body: Uint8Array, mimeType: string):
   const token = await stack.jwt.sign(user);
   const fd = new FormData();
   fd.append("file", new File([Buffer.from(body)], fileName, { type: mimeType }));
+  const { body: multipartBody, contentType } = await buildMultipartBody(fd);
   const res = await stack.app.request("/api/files", {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
-    body: fd,
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+    body: multipartBody,
   });
   // File-routes return 201 Created on successful upload.
   expect(res.status).toBe(201);
