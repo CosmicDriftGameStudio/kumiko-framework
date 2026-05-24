@@ -235,9 +235,11 @@ const UNIT_TEST_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: stri
     if (!existsSync(absPath)) continue;
 
     if (existsSync(join(absPath, "bunfig.toml"))) {
+      const ciFlag = root.name === "kumiko-framework" && process.env.CI === "true"
+        ? " --config=bunfig.ci.toml" : "";
       steps.push({
         name: `Unit Tests (${root.kind})`,
-        cmd: `cd ${absPath} && KUMIKO_CHECK=1 bun --env-file=../.env test`,
+        cmd: `cd ${absPath} && KUMIKO_CHECK=1 bun${ciFlag} --env-file=../.env test`,
       });
     }
   }
