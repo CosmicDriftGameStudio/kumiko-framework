@@ -10,6 +10,10 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join, resolve as resolvePath } from "node:path";
+import {
+  formatCheckWorkContext,
+  resolveCheckWorkContext,
+} from "./_lib/check-work-context";
 
 // NODE_OPTIONS removed after bun cutover — no longer needed
 
@@ -463,6 +467,8 @@ const commands = {
 
       registerLockCleanup(lockDir);
 
+      const workCtx = resolveCheckWorkContext(process.cwd(), REPO_ROOT);
+      logBoth(`${formatCheckWorkContext(workCtx)}\n`, logPath);
       logBoth("Checke alles durch...\n", logPath);
       const results: Array<{ name: string; ok: boolean }> = [];
 
