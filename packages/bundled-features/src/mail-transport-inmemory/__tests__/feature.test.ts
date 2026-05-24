@@ -1,6 +1,6 @@
 // feature.ts contract tests for mail-transport-inmemory.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { clearInbox, getInbox, mailTransportInMemoryFeature } from "../feature";
 
 describe("mailTransportInMemoryFeature — shape", () => {

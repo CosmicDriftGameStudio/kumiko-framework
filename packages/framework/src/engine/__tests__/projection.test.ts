@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { integer, type SchemaTable, table, uuid } from "../../db/dialect";
 import type { ProjectionDefinition } from "../../engine/types";
 import { defineFeature } from "../define-feature";

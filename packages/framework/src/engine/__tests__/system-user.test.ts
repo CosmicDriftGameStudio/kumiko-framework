@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { hasAccess } from "../access";
 import { createApp } from "../create-app";
 import { defineFeature } from "../define-feature";

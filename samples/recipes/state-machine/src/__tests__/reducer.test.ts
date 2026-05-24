@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { eventName, INVOICE_CREATED_EVENT, INVOICE_EVENTS } from "../events";
 import { type InvoiceState, initialInvoiceState, reduceInvoice } from "../reducer";
 

@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { buildServer } from "../api/server";
 import { createEventStoreExecutor } from "../db/event-store-executor";

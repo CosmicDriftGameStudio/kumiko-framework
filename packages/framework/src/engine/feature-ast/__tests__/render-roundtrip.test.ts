@@ -9,7 +9,7 @@
 // up at canonical positions). We compare every other field.
 
 import { Project } from "ts-morph";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { parseSourceFile } from "../parse";
 import type { FeaturePattern } from "../patterns";
 import { renderFeatureFile, renderPattern } from "../render";

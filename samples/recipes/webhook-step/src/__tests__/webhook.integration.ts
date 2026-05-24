@@ -17,15 +17,15 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { eq } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test, mock } from "bun:test";
 import { incidentEntity, incidentTable, webhookDemoFeature } from "../feature";
 
 let stack: TestStack;
 const admin = createTestUser({ roles: ["Admin"] });
 
-const fetchMock = vi.fn<typeof fetch>();
+const fetchMock = mock<typeof fetch>();
 const mailMock =
-  vi.fn<
+  mock<
     (spec: { to: string | readonly string[]; subject: string; body: string }) => Promise<{
       ok: true;
       status: number;

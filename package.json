@@ -48,7 +48,6 @@
     "kumiko": "bun run bin/kumiko.ts",
     "test": "bun test",
     "test:run": "bun test",
-    "test:all": "bun test --config vitest.all.config.ts",
     "typecheck": "tsc --build",
     "build:apps": "bun run scripts/build-apps.ts",
     "build": "echo 'kumiko-framework: TypeScript source is published as-is (Bun resolver), no transpile step.'",
@@ -61,12 +60,10 @@
     "@cosmicdriftgamestudio/kumiko-guards": "^0.2.0",
     "@playwright/test": "^1.60.0",
     "@testing-library/dom": "^10.4.1",
-    "@vitest/coverage-v8": "^4.1.6",
     "bun-types": "^1.3.13",
     "husky": "^9.1.7",
     "ts-morph": "^28.0.0",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.6",
     "yaml": "^2.9.0"
   },
   "resolutions": {

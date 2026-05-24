@@ -10,7 +10,7 @@
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { afterAll, describe, expect, test } from "vitest";
+import { afterAll, describe, expect, test } from "bun:test";
 import type { CodegenResult } from "../run-codegen";
 import { watchAndRegenerate } from "../watch";
 

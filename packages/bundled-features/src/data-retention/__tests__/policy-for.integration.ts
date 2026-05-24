@@ -15,7 +15,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../feature";
 import { tenantRetentionOverrideTable } from "../schema/tenant-retention-override";
 

@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import type {
   EntityDefinition,
   EntityListScreenDefinition,
@@ -9,7 +8,7 @@ import {
   RenderList,
 } from "@cosmicdrift/kumiko-renderer";
 import type { ReactElement, ReactNode } from "react";
-import { afterAll, beforeEach, describe, expect, type MockInstance, test, vi } from "vitest";
+import { afterAll, beforeEach, describe, expect, type MockInstance, test } from "bun:test";
 import { render, screen } from "./test-utils";
 
 // Tests für die JSX-Renderer-Form von ListColumn-Spalten:
@@ -52,7 +51,7 @@ describe("RenderList — column-renderer registry", () => {
   // auf File-Level würde den ganzen Vitest-Worker betreffen).
   let warnSpy: MockInstance<typeof console.warn>;
   beforeEach(() => {
-    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    warnSpy = spyOn(console, "warn").mockImplementation(() => {});
   });
   afterAll(() => {
     warnSpy.mockRestore();

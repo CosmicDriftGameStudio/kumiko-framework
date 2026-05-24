@@ -1,10 +1,9 @@
-// @vitest-environment jsdom
 //
 // Sidebar: 4-Slot-Layout (header, actions, children, footer). Pinnt
 // dass die Sektionen conditional rendern UND in der richtigen
 // Reihenfolge stehen — header → actions → nav → footer.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { Sidebar } from "../layout/sidebar";
 import { render, screen } from "./test-utils";
 

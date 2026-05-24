@@ -4,7 +4,7 @@
 // injection geht und keinen DB-roundtrip braucht.
 
 import { Hono } from "hono";
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { SubscriptionEventTypes, SubscriptionStatuses } from "../constants";
 import type { SubscriptionEvent, SubscriptionProviderPlugin } from "../types";
 import { createSubscriptionWebhookHandler, type SubscriptionWebhookDeps } from "../webhook-handler";
@@ -65,7 +65,7 @@ async function postWebhook(app: Hono, providerName: string, body = '{"id":"evt_t
 
 describe("webhook-handler — happy path", () => {
   test("verifyAndParseWebhook → SubscriptionEvent → dispatchWrite → 200 processed", async () => {
-    const dispatchWrite = vi.fn(async () => ({
+    const dispatchWrite = mock(async () => ({
       isSuccess: true,
       data: { duplicate: false, eventAggregateId: "evt-id" },
     }));
@@ -92,7 +92,7 @@ describe("webhook-handler — happy path", () => {
   });
 
   test("plugin returns null (= unbekannter event-type) → 200 ignored, kein dispatch", async () => {
-    const dispatchWrite = vi.fn();
+    const dispatchWrite = mock();
     const plugin = buildPlugin({ verifyAndParseWebhook: async () => null });
     const app = buildApp(buildDeps({ dispatchWrite, resolveProvider: () => plugin }));
 
@@ -137,7 +137,7 @@ describe("webhook-handler — error paths", () => {
   });
 
   test("dispatchWrite returns isSuccess: false → 500 mit subscription_webhook_processing_failed", async () => {
-    const dispatchWrite = vi.fn(async () => ({
+    const dispatchWrite = mock(async () => ({
       isSuccess: false,
       error: { code: "internal_error", message: "DB unavailable" },
     }));

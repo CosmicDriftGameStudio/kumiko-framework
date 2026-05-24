@@ -27,7 +27,7 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { configValuesTable } from "../../config";
 import { TenantHandlers, tenantMembershipsTable, tenantTable } from "../../tenant";
 import { userTable } from "../../user";

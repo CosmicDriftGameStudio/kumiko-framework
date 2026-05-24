@@ -9,7 +9,7 @@
 // Memory `feedback_no_fake_dispatcher`: real HTTP-Calls via setupTestStack,
 // nicht createTestDispatcher.
 
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import type { PostQueryHookFn } from "../../engine/types";

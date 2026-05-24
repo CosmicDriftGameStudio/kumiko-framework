@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 //
 // NavTree: Sidebar-Navigation aus dem Schema. Pinnt zwei Verträge:
 //   1. Section-Header (parent ohne screen) plus children-Collapse
@@ -7,7 +6,7 @@
 //      screenId matcht (Standard-Sidebar-Verhalten).
 
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { NavTree } from "../layout/nav-tree";
 import { fireEvent, render, screen } from "./test-utils";
 

@@ -14,7 +14,7 @@
 //                    will never succeed (broken payload, removed code).
 //   (list/status are read-only; covered by event-dispatcher wiring tests.)
 
-import { afterEach, beforeAll, describe, expect, test } from "vitest";
+import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { defineFeature } from "../../engine";

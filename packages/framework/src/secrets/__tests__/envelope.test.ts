@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { createEnvMasterKeyProvider } from "../env-master-key-provider";
 import { decryptValue, encryptValue } from "../envelope";
 

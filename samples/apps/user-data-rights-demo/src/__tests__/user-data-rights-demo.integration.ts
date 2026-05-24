@@ -35,7 +35,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { sql } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { TODO_CREATE_QN, TODO_LIST_QN, todoEntity } from "../feature";
 import { APP_FEATURES } from "../run-config";
 

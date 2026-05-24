@@ -30,7 +30,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import { unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-framework/stack";
 import postgres from "postgres";
-import { afterEach, beforeAll, describe, expect, test } from "vitest";
+import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { type ProdAppHandle, runProdApp } from "../run-prod-app";
 

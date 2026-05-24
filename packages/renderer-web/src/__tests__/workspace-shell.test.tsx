@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 
 import type { WorkspaceSchema } from "@cosmicdrift/kumiko-renderer";
 import {
@@ -9,7 +8,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { render as _render, act } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test } from "bun:test";
 import { useBrowserNavApi } from "../app/nav";
 import {
   filterByAccess,
@@ -237,7 +236,7 @@ describe("WorkspaceSwitcher", () => {
   });
 
   test("clicking a tab calls onSelect with that workspace id", () => {
-    const onSelect = vi.fn();
+    const onSelect = mock();
     render(
       <WorkspaceSwitcher
         workspaces={[

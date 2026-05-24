@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { buildMetricName, validateLabelKey, validateMetricName } from "../metric-validator";
 
 describe("validateMetricName", () => {

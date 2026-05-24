@@ -26,7 +26,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { bridgeStub, sleep } from "@cosmicdrift/kumiko-framework/testing";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { ConfigHandlers } from "../../config/constants";
 import { createConfigAccessor, createConfigFeature } from "../../config/feature";
 import { type ConfigResolver, createConfigResolver } from "../../config/resolver";

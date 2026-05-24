@@ -11,7 +11,7 @@
 //   2. The dispatcher starts cleanly when pgClient is wired and stops
 //      without leaking the LISTEN connection.
 
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { defineFeature } from "../../engine";

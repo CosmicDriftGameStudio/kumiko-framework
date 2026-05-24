@@ -1,9 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "bun:test";
 import { getStep } from "../define-step";
 import { buildAggregateAppendEventStep } from "../steps/aggregate-append-event";
 import type { PipelineCtx } from "../types/step";
 
-const mockUnsafeAppendEvent = vi.fn();
+const mockUnsafeAppendEvent = mock();
 
 const mockCtx = {
   unsafeAppendEvent: mockUnsafeAppendEvent,
@@ -39,7 +39,7 @@ describe("buildAggregateAppendEventStep", () => {
 
 describe("aggregate.appendEvent run", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mock.restore();
   });
 
   it("calls ctx.unsafeAppendEvent with resolved aggregateId and payload", async () => {
@@ -68,9 +68,9 @@ describe("aggregate.appendEvent run", () => {
 
   it("resolves function resolvers before calling unsafeAppendEvent", async () => {
     const stepDef = getStep("aggregate.appendEvent");
-    const idFn = vi.fn(() => "dynamic-id");
-    const payloadFn = vi.fn(() => ({ note: "dynamic" }));
-    const headersFn = vi.fn(() => ({ key: "val" }));
+    const idFn = mock(() => "dynamic-id");
+    const payloadFn = mock(() => ({ note: "dynamic" }));
+    const headersFn = mock(() => ({ key: "val" }));
 
     await stepDef!.run(
       {

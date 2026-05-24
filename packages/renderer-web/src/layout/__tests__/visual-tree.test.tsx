@@ -1,10 +1,9 @@
-// @vitest-environment jsdom
 
 import type { TreeChildrenSubscribe, TreeNode } from "@cosmicdrift/kumiko-framework/engine";
 import { NavProvider } from "@cosmicdrift/kumiko-renderer";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { useBrowserNavApi } from "../../app/nav";
 import { TreeProvidersProvider } from "../../app/tree-providers-context";
 import { setDispatchListener } from "../target-resolver-stub";

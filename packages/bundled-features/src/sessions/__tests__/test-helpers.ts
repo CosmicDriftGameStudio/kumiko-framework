@@ -11,7 +11,7 @@
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import * as jose from "jose";
-import { expect } from "vitest";
+import { expect } from "bun:test";
 import { hashPassword } from "../../auth-email-password/password-hashing";
 import { seedTenantMembership } from "../../tenant/seeding";
 import { UserHandlers } from "../../user";

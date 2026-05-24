@@ -21,7 +21,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { currencyEntity } from "../entities/currency";
 import { invoiceEntity } from "../entities/invoice";
 import { currenciesPerTenantFeature } from "../feature";

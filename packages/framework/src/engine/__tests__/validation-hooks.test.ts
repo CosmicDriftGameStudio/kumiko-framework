@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../index";
 import type { ValidationError } from "../validation";
 import { runValidation } from "../validation";

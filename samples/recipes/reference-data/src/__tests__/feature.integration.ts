@@ -4,7 +4,7 @@
 import { seedReferenceData } from "@cosmicdrift/kumiko-framework/db";
 import type { ReferenceDataDef } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestDb, type TestDb, unsafePushTables } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { categoryFeature, categoryTable } from "../feature";
 
 let testDb: TestDb;

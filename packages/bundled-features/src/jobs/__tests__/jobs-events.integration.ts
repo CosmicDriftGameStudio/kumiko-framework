@@ -18,7 +18,7 @@ import {
   type TestRedis,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { runCompletedSchema, runFailedSchema, runStartedSchema } from "../events";
 import { createJobsFeature } from "../feature";
 import {

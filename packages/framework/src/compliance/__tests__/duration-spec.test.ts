@@ -6,7 +6,7 @@
 // 30d-Default) wird hier zentral verhindert.
 
 import { ensureTemporalPolyfill, getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { beforeAll, describe, expect, test } from "vitest";
+import { beforeAll, describe, expect, test } from "bun:test";
 import { addDurationSpec, describeDurationSpec, durationSpecToMs } from "../duration-spec";
 
 beforeAll(async () => {

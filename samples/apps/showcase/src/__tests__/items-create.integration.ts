@@ -12,7 +12,7 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, expect, test } from "vitest";
+import { afterAll, beforeAll, expect, test } from "bun:test";
 import { itemsFeature } from "../features/items/feature";
 import { itemEntity } from "../features/items/schema";
 

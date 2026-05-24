@@ -6,7 +6,7 @@
 // Extract-Roots zu schreiben.
 
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { buildFileRefZipPath, sanitizeZipFilename } from "../zip-path";
 
 const TENANT = "00000000-0000-0000-0000-000000000001" as TenantId;

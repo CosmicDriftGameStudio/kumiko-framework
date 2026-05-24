@@ -21,7 +21,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createDispatcher } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/stack";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { createFeatureTogglesFeature } from "../feature";
 import type { GlobalFeatureToggleRuntime } from "../toggle-runtime";
 

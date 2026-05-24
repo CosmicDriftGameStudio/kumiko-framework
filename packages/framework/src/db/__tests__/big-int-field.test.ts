@@ -15,7 +15,7 @@
 // einrichten — pinst dort auf realer Postgres + Drizzle-customType-
 // Path statt parallel-mock hier.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { createBigIntField, createEntity, createNumberField } from "../../engine";
 import { buildInsertSchema } from "../../engine/schema-builder";
 import { buildEntityTable } from "../table-builder";

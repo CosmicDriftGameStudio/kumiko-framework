@@ -5,7 +5,7 @@
 // Restarts (DX schlecht) oder echte Schema-Änderungen schlagen
 // nicht durch (UX broken). Beide sind teuer — daher pinnen wir.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { classifyChange } from "../create-kumiko-server";
 
 describe("classifyChange", () => {

@@ -37,7 +37,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createConfigFeature } from "../config/feature";
 import { createConfigResolver } from "../config/resolver";
 import { configValuesTable } from "../config/table";

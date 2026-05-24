@@ -6,7 +6,7 @@
 // declares an extension-point + a single selector config-key, nothing
 // provider-concrete.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { mailFoundationFeature } from "../feature";
 
 describe("mailFoundationFeature — shape", () => {

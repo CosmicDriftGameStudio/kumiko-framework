@@ -5,7 +5,7 @@
 // Tweaks.
 
 import { SSE_HEARTBEAT_INTERVAL_MS } from "@cosmicdrift/kumiko-framework/api";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { buildBunServeOptions } from "../run-prod-app";
 
 describe("Bun.serve options for production", () => {

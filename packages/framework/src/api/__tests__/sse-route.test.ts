@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { TestUsers } from "../../stack";
 import { authMiddleware } from "../auth-middleware";
 import { createJwtHelper } from "../jwt";

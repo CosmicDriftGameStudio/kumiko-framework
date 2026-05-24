@@ -17,7 +17,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createChannelInAppFeature } from "../../channel-in-app/feature";
 import { inAppMessagesTable } from "../../channel-in-app/tables";
 import { createConfigFeature, createConfigResolver } from "../../config";

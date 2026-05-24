@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";

@@ -9,7 +9,7 @@
 // Not a strict SLA test — the threshold is generous enough to survive CI
 // noise but tight enough that an index-miss regression would fail loudly.
 
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { TenantId } from "../../engine/types";
 import { createTestDb, type TestDb } from "../../stack";
 import { generateId as uuid } from "../../utils";

@@ -4,7 +4,7 @@
 // entity-write, field-level) into one file with shared fixtures. Each
 // `describe` block maps to a cell of the core-auth.md Policy-Matrix.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "../bun-db/query";
 import {
   createEntity,

@@ -8,7 +8,7 @@
 // repräsentative Fälle: required-Literal, required-Default, money-Pair,
 // locatedTimestamp-Pair, multiSelect-jsonb-default, idType-Variation.
 
-import { describe, expect, expectTypeOf, test } from "vitest";
+import { describe, expect, expectTypeOf, test } from "bun:test";
 import {
   createBooleanField,
   createDateField,

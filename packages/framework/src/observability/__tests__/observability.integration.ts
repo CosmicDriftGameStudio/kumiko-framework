@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import { z } from "zod";
 import { insertOne } from "../../bun-db/query";
 import { buildEntityTable } from "../../db/table-builder";

@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 //
 // useBrowserNavApi Lese-/Schreib-Pfad für searchParams. Vor dieser
 // Suite war das Mapping `window.location.search ↔ NavApi.searchParams`
@@ -6,7 +5,7 @@
 // echte URLSearchParams-Parse + replaceState-Roundtrip war ungetestet.
 
 import { act, renderHook } from "@testing-library/react";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { useBrowserNavApi } from "../app/nav";
 
 function setLocation(pathname: string, search: string): void {

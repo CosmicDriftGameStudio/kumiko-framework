@@ -13,7 +13,7 @@
 // jitter does not. If this ever flakes in CI, drop to 3000 — the goal is
 // "catastrophic regression detector", not "perf SLO".
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "../../bun-db/query";
 import { integer, table as pgTable, uuid as pgUuid } from "../../db/dialect";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";

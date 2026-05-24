@@ -3,7 +3,7 @@
 // matter in production: cookie + state-changing, cookie + safe, bearer.
 
 import { Hono } from "hono";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { TestUsers } from "../../stack";
 import {
   AUTH_COOKIE_NAME,

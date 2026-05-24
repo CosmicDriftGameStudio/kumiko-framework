@@ -1,5 +1,5 @@
 import { Temporal } from "temporal-polyfill";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { signToken, TokenPurpose, verifyToken } from "../signed-token";
 
 const SECRET = "test-hmac-secret-32-bytes-minimum!!";

@@ -11,7 +11,7 @@
 //      guard — buildServer always wires an SSE consumer so this only
 //      fires with systemConsumers explicitly disabled).
 
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { createRegistry, defineFeature } from "../../engine";
 import { createArchivedStreamsTable, createEventsTable } from "../../event-store";

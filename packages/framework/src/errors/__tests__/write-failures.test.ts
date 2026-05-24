@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { failNotFound, failTransition, failUnprocessable } from "../write-error-info";
 
 describe("failNotFound", () => {

@@ -1,6 +1,6 @@
 // Snapshot-Tests fuer ROLES — faengt stille Drift ab.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { ROLES } from "../roles";
 
 describe("ROLES constants", () => {

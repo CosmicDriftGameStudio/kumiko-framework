@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { RendererError } from "../../renderer-foundation";
 import { adaptToFoundation } from "../feature";
 

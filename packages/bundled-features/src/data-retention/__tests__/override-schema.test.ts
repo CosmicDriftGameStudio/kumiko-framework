@@ -1,7 +1,7 @@
 // Tests fuer retentionOverrideSchema (S2.D2.5 M2+M3) — strict-Zod
 // faengt Sub-Level-Tippfehler + Strategy-Enum-Drift + keepFor-Format-Drift.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { retentionOverrideSchema } from "../override-schema";
 
 describe("retentionOverrideSchema — accept-Faelle", () => {

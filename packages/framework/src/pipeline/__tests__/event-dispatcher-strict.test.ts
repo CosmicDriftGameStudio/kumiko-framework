@@ -8,7 +8,7 @@
 // Unit-level because the check happens before any DB call — no pgClient,
 // no event-store schema, no setupTestStack needed.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import type { AppContext, Registry } from "../../engine/types";
 import { createEventDispatcher, type EventConsumer } from "../event-dispatcher";
 

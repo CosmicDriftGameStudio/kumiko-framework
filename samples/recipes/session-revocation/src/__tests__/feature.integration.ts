@@ -42,7 +42,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createLateBoundHolder } from "@cosmicdrift/kumiko-framework/testing";
 import * as jose from "jose";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createSessionCallbacks, createSessionsFeature } from "../feature";
 
 const TENANT: TenantId = testTenantId(1);

@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTestRedis, type TestRedis } from "../../stack";
 import { createEntityCache } from "../entity-cache";
 import { createEventDedup } from "../event-dedup";

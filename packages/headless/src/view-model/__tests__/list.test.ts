@@ -2,7 +2,7 @@ import type {
   EntityDefinition,
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { computeListViewModel } from "../list";
 
 // Minimal EntityDefinition-shape. ui-core's view-model only reads
@@ -112,7 +112,7 @@ describe("computeListViewModel", () => {
   });
 
   test("translate is called with the expected i18n-key per field", () => {
-    const spy = vi.fn((key: string) => `T:${key}`);
+    const spy = mock((key: string) => `T:${key}`);
     computeListViewModel({
       screen: listScreen(["title", "priority"]),
       entity: taskEntity,

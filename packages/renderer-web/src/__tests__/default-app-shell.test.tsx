@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 //
 // DefaultAppShell — pinnt dass user-prop an NavTree durchgereicht wird.
 //
@@ -8,7 +7,7 @@
 // pinst dass DefaultAppShell user nun akzeptiert UND durchreicht.
 
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { DefaultAppShell } from "../layout/default-app-shell";
 import { render, screen } from "./test-utils";
 

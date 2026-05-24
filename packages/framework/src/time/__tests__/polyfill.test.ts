@@ -2,7 +2,7 @@
 // Sicher dass nach ensureTemporalPolyfill() die wichtigsten Temporal-Typen
 // (Instant, PlainDate, ZonedDateTime) konstruktor-fähig sind.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { ensureTemporalPolyfill, getTemporal } from "../polyfill";
 
 describe("Temporal Polyfill", () => {

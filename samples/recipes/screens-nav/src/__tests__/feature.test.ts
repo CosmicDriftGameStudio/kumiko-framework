@@ -16,7 +16,7 @@ import {
   normalizeListColumn,
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { bookEntity, createBookshopAdminFeature, createBookshopFeature } from "../feature";
 
 const bookshop = createBookshopFeature();

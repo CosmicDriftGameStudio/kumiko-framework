@@ -9,7 +9,7 @@
 // pattern.
 
 import { Project, type SourceFile } from "ts-morph";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { parseSourceFile } from "../parse";
 import { createFeaturePatcher } from "../patcher";
 

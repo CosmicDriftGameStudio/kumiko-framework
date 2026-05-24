@@ -1,19 +1,12 @@
-// @vitest-environment jsdom
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { ForgotPasswordScreen } from "../forgot-password-screen";
 import { renderWithProviders } from "./test-utils";
 
 beforeEach(() => {
-  // global fetch wird von auth-client.ts gerufen — wir mocken pro Test.
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async () => new Response(null, { status: 200 })),
-  );
+  globalThis.fetch = mock(async () => new Response(null, { status: 200 }));
 });
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
+afterEach(() => {});
 
 describe("ForgotPasswordScreen", () => {
   test("rendert title + email-input + submit-button (de)", () => {
@@ -24,8 +17,8 @@ describe("ForgotPasswordScreen", () => {
   });
 
   test("submit ruft /api/auth/request-password-reset mit der Email", async () => {
-    const fetchMock = vi.fn(async () => new Response(null, { status: 200 }));
-    vi.stubGlobal("fetch", fetchMock);
+    const fetchMock = mock(async () => new Response(null, { status: 200 }));
+    globalThis.fetch = fetchMock;
 
     renderWithProviders(<ForgotPasswordScreen />);
     fireEvent.change(screen.getByLabelText(/^E-Mail/), {
@@ -54,15 +47,11 @@ describe("ForgotPasswordScreen", () => {
     await waitFor(() => {
       expect(screen.getByText("Mail gesendet")).toBeTruthy();
     });
-    // Link zurück zum Login muss im Success-State da sein.
     expect(screen.getByRole("link", { name: /Zurück zum Login/i })).toBeTruthy();
   });
 
   test("server 5xx → error-banner statt Success-State", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => new Response(null, { status: 500 })),
-    );
+    globalThis.fetch = mock(async () => new Response(null, { status: 500 }));
 
     renderWithProviders(<ForgotPasswordScreen />);
     fireEvent.change(screen.getByLabelText(/^E-Mail/), {
@@ -71,10 +60,8 @@ describe("ForgotPasswordScreen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Link anfordern" }));
 
     await waitFor(() => {
-      // unknownError-Bundle-key → "Etwas ist schief gegangen..."
       expect(screen.getByRole("alert").textContent).toContain("schief");
     });
-    // Kein success-state.
     expect(screen.queryByText("Mail gesendet")).toBeNull();
   });
 });

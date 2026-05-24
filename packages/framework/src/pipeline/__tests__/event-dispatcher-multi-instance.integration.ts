@@ -18,7 +18,7 @@
 // single-instance runs. Any regression in the locking strategy shows up
 // here first.
 
-import { afterEach, beforeAll, describe, expect, test } from "vitest";
+import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { insertMany } from "../../bun-db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";

@@ -1,11 +1,11 @@
 // Unit-Tests für die Stripe-Plugin-Methoden (createCheckoutSession,
 // createPortalSession, cancelSubscription). Stripe-SDK-calls werden via
-// vi.spyOn gemockt — wir testen unsere Mapping-Logik (Argumente die wir
+// spyOn gemockt — wir testen unsere Mapping-Logik (Argumente die wir
 // an Stripe schicken + Antwort-Parsing), NICHT Stripe selbst.
 
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import Stripe from "stripe";
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "bun:test";
 import {
   createStripeCancelSubscription,
   createStripeCheckoutSession,
@@ -78,7 +78,7 @@ describe("createStripeCheckoutSession", () => {
 
   test("throws wenn Stripe keine url returnt (defensive — sollte nie passieren bei mode=subscription)", async () => {
     const stripe = buildStripe();
-    vi.spyOn(stripe.checkout.sessions, "create")
+    spyOn(stripe.checkout.sessions, "create")
       // biome-ignore lint/suspicious/noExplicitAny: SDK-Drift-Test
       .mockResolvedValue({ url: null } as any);
 
@@ -99,7 +99,7 @@ describe("createStripeCheckoutSession", () => {
     // throw kriegt + zur HTTP 500 mapped (transient — Provider/Stripe
     // soll retried werden statt silent-success-mit-leerer-URL).
     const stripe = buildStripe();
-    vi.spyOn(stripe.checkout.sessions, "create").mockRejectedValue(
+    spyOn(stripe.checkout.sessions, "create").mockRejectedValue(
       new Error("Stripe API: Internal server error"),
     );
 

@@ -34,7 +34,7 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import type { TierMap } from "../compose-app";
 import { tierAssignmentEntity } from "../entity";
 import { createTierEngineFeature } from "../feature";

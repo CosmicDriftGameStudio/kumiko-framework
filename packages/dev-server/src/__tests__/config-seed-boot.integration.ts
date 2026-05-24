@@ -33,7 +33,7 @@ import {
   TestUsers,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { applyBootSeeds } from "../boot/apply-boot-seeds";
 
 const bootSeedsFeature = defineFeature("boot-seeds-test", (r) => {

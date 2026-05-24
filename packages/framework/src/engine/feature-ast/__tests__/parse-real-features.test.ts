@@ -24,7 +24,7 @@
 // inline contract by construction.
 
 import { resolve } from "node:path";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { parseFeatureFile } from "../parse";
 import type { FeaturePattern } from "../patterns";
 

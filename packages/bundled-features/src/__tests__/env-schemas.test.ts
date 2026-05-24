@@ -4,7 +4,7 @@ import {
   type KumikoBootError,
   parseEnv,
 } from "@cosmicdrift/kumiko-framework/env";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { authEmailPasswordEnvSchema, createAuthEmailPasswordFeature } from "../auth-email-password";
 import { createSecretsFeature, secretsEnvSchema } from "../secrets";
 import {

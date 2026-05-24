@@ -1,7 +1,6 @@
-// @vitest-environment jsdom
 import { screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { makeAuthGate } from "../auth-gate";
 import { makeSessionApi, renderWithProviders } from "./test-utils";
 

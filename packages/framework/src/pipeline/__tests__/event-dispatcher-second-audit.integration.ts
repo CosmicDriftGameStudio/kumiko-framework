@@ -14,7 +14,7 @@
 //      moment delivery latency regresses from TCP-round-trip to
 //      pollIntervalMs.
 
-import { afterEach, beforeAll, describe, expect, test } from "vitest";
+import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient, insertOne, selectMany, updateMany } from "../../bun-db/query";
 import { defineFeature } from "../../engine";
 import { eventsTable } from "../../event-store";

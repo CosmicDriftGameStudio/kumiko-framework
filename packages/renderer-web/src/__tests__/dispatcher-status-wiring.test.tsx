@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 //
 // Verdrahtungs-Test: beweist dass die ganze UI-Store-Kette zusammenhält:
 //   createLiveDispatcher → dispatcher.statusStore → DispatcherProvider →
@@ -20,7 +19,7 @@
 import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
 import { DispatcherProvider, useDispatcherStatus } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { act, render, screen, waitFor } from "./test-utils";
 
 function StatusProbe(): ReactNode {
@@ -30,7 +29,7 @@ function StatusProbe(): ReactNode {
 
 describe("UI-Store Verdrahtung: Dispatcher → statusStore → useDispatcherStatus", () => {
   test("initial-status: Probe rendert 'online' nach Provider-Mount", () => {
-    const fetch = vi.fn() as unknown as typeof globalThis.fetch;
+    const fetch = mock() as unknown as typeof globalThis.fetch;
     const dispatcher = createLiveDispatcher({ fetch, readCsrf: () => "t" });
 
     render(
@@ -43,7 +42,7 @@ describe("UI-Store Verdrahtung: Dispatcher → statusStore → useDispatcherStat
   });
 
   test("network-fail flippt Probe von 'online' nach 'offline'", async () => {
-    const fetch = vi.fn(async () => {
+    const fetch = mock(async () => {
       throw new Error("ECONNREFUSED");
     }) as unknown as typeof globalThis.fetch;
     const dispatcher = createLiveDispatcher({ fetch, readCsrf: () => "t" });
@@ -67,7 +66,7 @@ describe("UI-Store Verdrahtung: Dispatcher → statusStore → useDispatcherStat
 
   test("recovery flippt Probe zurück auf 'online'", async () => {
     let failNext = true;
-    const fetch = vi.fn(async () => {
+    const fetch = mock(async () => {
       if (failNext) {
         failNext = false;
         throw new Error("boom");
@@ -100,7 +99,7 @@ describe("UI-Store Verdrahtung: Dispatcher → statusStore → useDispatcherStat
   });
 
   test("statusStore ist read-only auf dem public Dispatcher-Type", () => {
-    const fetch = vi.fn() as unknown as typeof globalThis.fetch;
+    const fetch = mock() as unknown as typeof globalThis.fetch;
     const dispatcher = createLiveDispatcher({ fetch, readCsrf: () => "t" });
 
     // Der Dispatcher-Contract exponiert statusStore als Store<T> (nicht

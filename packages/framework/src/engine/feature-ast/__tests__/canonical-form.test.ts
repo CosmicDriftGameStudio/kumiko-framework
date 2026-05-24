@@ -17,7 +17,7 @@
 // gezielt migriert werden können (separater Migrator pro Version).
 
 import { Project } from "ts-morph";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { parseSourceFile } from "../parse";
 
 const CANONICAL_FEATURE = `

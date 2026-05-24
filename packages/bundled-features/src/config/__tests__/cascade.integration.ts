@@ -20,7 +20,7 @@ import {
   TestUsers,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { ConfigHandlers, ConfigQueries } from "../constants";
 import { createConfigAccessorFactory, createConfigFeature } from "../feature";
 import { type ConfigResolver, createConfigResolver } from "../resolver";

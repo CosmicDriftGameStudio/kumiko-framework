@@ -12,7 +12,7 @@ import {
   SubscriptionStatuses,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import Stripe from "stripe";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import {
   mapStripeEventType,
   mapStripeStatus,

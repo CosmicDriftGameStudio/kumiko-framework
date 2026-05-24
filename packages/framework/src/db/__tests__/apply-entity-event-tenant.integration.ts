@@ -15,7 +15,7 @@
 // zerbrechen — der bestehende seed-Test wäre der einzige Catcher, und
 // der lief vor dem Refactor durch Zufall grün.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, selectMany } from "../../bun-db/query";
 import { createEntity, createTextField } from "../../engine/factories";
 import type { TenantId } from "../../engine/types";

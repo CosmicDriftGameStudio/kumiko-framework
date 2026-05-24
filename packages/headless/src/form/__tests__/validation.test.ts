@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { createFormController } from "../form-controller";
 import { groupIssuesByPath, zodErrorToFieldIssues } from "../zod-bridge";
@@ -63,7 +63,7 @@ describe("groupIssuesByPath", () => {
 describe("createFormController — validate()", () => {
   test("without a schema: validate() is a no-op that returns true", () => {
     const form = createFormController({ initial: { title: "" } });
-    const listener = vi.fn();
+    const listener = mock();
     form.subscribe(listener);
 
     const ok = form.validate();

@@ -13,7 +13,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, selectMany } from "../../bun-db/query";
 import { createTestDb, type TestDb } from "../../stack";
 import { createSeedMigrationContext } from "../context";
@@ -91,11 +91,11 @@ async function insertMembershipWithEvent(args: {
 
 function makeMockDispatcher() {
   return {
-    write: vi.fn(async () => ({ isSuccess: true as const, data: {} })),
-    query: vi.fn(),
-    command: vi.fn(),
-    batch: vi.fn(),
-    resolveAuthClaims: vi.fn(),
+    write: mock(async () => ({ isSuccess: true as const, data: {} })),
+    query: mock(),
+    command: mock(),
+    batch: mock(),
+    resolveAuthClaims: mock(),
   };
 }
 

@@ -7,7 +7,7 @@
 //      the stream version internally — a sequence of appendOne calls writes
 //      consecutive versions without re-reading the DB.
 
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { asRawClient } from "../../bun-db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";

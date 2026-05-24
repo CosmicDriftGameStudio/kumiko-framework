@@ -7,7 +7,7 @@ import {
   SubscriptionEventTypes,
   SubscriptionStatuses,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "bun:test";
 import {
   extractMollieId,
   type MollieClientShape,
@@ -61,18 +61,18 @@ function buildClient(
 ): MollieClientShape {
   return {
     payments: {
-      get: vi.fn(async () => {
+      get: mock(async () => {
         if (overrides.paymentReject) throw overrides.paymentReject;
         return overrides.paymentResolve ?? buildMockPayment();
       }),
     },
     customerSubscriptions: {
-      get: vi.fn(async () => {
+      get: mock(async () => {
         if (overrides.subReject) throw overrides.subReject;
         return overrides.subResolve ?? buildMockSubscription();
       }),
-      list: vi.fn(async () => overrides.listResolve ?? []),
-      create: vi.fn(
+      list: mock(async () => overrides.listResolve ?? []),
+      create: mock(
         async () => overrides.createResolve ?? buildMockSubscription({ id: "sub_just_created" }),
       ),
     },

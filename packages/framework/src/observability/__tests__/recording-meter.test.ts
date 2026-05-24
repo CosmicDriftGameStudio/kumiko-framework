@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { type MetricEvent, RecordingMeter } from "../recording-meter";
 
 function makeMeter() {

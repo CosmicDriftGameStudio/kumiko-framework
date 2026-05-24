@@ -1,8 +1,7 @@
-// @vitest-environment jsdom
 import { fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { act } from "react";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { ComboboxInput } from "../primitives/combobox";
 import { render, screen } from "./test-utils";
 

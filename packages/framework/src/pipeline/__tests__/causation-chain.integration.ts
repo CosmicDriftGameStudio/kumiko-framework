@@ -15,7 +15,7 @@
 // The active propagation into cascaded writes is covered by
 // msp-multi-hop.integration.ts.
 
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { requestContext } from "../../api/request-context";
 import { selectMany } from "../../bun-db/query";

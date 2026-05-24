@@ -9,7 +9,7 @@
 //   - boot-validator catches the common author mistakes
 
 import { createRegistry, defineFeature, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { demoFeature } from "../features/demo";
 import { driverFeature } from "../features/demo-driver";
 

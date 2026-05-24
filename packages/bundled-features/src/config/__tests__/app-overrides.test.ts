@@ -1,5 +1,5 @@
 import { createTenantConfig, createUserConfig } from "@cosmicdrift/kumiko-framework/engine";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { validateAppOverrides } from "../resolver";
 
 // Minimal registry stub — validateAppOverrides only reads getConfigKey.

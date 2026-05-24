@@ -4,7 +4,7 @@
 // nicht und mountet leer. Tests pinnen die Idempotenz + die zwei
 // Insertion-Punkte (vor /client.js-Tag oder vor </body>).
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { injectSchema } from "../inject-schema";
 
 const SCHEMA = '{"features":[]}';

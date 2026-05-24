@@ -13,7 +13,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createSessionsFeature } from "../feature";
 import { cleanupJob } from "../handlers/cleanup.job";
 import { userSessionEntity, userSessionTable } from "../schema/user-session";

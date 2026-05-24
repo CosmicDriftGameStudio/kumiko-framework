@@ -37,7 +37,7 @@ import {
   waitFor,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { and, eq } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { createBillingFeature, STRIPE_API_KEY } from "../feature";
 

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { createRegistry, defineFeature, readClaim } from "../index";
 import type { ClaimKeyHandle, SessionUser } from "../types";
 

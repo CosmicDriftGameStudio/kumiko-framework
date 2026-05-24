@@ -2,7 +2,7 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { computeEditViewModel } from "../edit";
 
 const orderEntity = {

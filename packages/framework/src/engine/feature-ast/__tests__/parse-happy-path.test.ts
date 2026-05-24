@@ -8,7 +8,7 @@
 // NEVER produce code with ParseErrors. This test pins the contract.
 
 import { Project } from "ts-morph";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { parseSourceFile } from "../parse";
 
 const INLINE_FEATURE = `

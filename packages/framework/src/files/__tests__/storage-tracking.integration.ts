@@ -8,7 +8,7 @@
 //   3. The table column types survive round-trip (bigint → number via
 //      Drizzle's mode:"number", so arithmetic in assertions Just Works).
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, selectMany } from "../../bun-db/query";
 import type { SessionUser } from "../../engine";
 import { createTestUser, setupTestStack, type TestStack, TestUsers } from "../../stack";

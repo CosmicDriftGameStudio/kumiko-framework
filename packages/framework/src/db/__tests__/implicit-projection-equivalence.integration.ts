@@ -15,7 +15,7 @@
 //   5. Snapshot erneut nehmen
 //   6. deep-equal: identische Rows in identischer Reihenfolge
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createBooleanField, createEntity, createTextField, defineFeature } from "../../engine";
 import { createRegistry } from "../../engine/registry";
 import { createEventsTable } from "../../event-store";

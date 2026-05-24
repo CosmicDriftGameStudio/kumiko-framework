@@ -22,7 +22,7 @@
 // gate; if a future regression suspect needs that breakdown, extend
 // here with a longer-pipeline handler variant.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { defineFeature } from "../define-feature";

@@ -7,7 +7,7 @@
 // generierte Variante gedriftet sind. Hier: required muss durchschlagen,
 // für jeden Field-Type.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import {
   createBooleanField,
   createDateField,

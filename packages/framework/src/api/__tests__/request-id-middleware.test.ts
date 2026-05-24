@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { requestContext } from "../request-context";
 import { requestIdMiddleware } from "../request-id-middleware";
 

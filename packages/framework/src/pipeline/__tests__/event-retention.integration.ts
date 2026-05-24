@@ -10,7 +10,7 @@
 //   4. olderThanDays / olderThan convenience: both resolve to the same
 //      cutoff semantics (createdAt < cutoff).
 
-import { afterEach, beforeAll, describe, expect, test } from "vitest";
+import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient, insertOne, selectMany, updateMany } from "../../bun-db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";

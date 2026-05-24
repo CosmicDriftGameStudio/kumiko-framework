@@ -1,7 +1,6 @@
-// @vitest-environment jsdom
 import { createStore, shallowEqual } from "@cosmicdrift/kumiko-headless";
 import { useStore, useStoreSelector } from "@cosmicdrift/kumiko-renderer";
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { act, renderHook } from "./test-utils";
 
 describe("useStore", () => {
@@ -116,7 +115,7 @@ describe("useStoreSelector", () => {
 
   test("custom equals receives previous and current selected values", () => {
     const store = createStore({ count: 0 });
-    const equals = vi.fn((_a: number, _b: number) => false); // never equal
+    const equals = mock((_a: number, _b: number) => false); // never equal
     let renderCount = 0;
     renderHook(() => {
       renderCount += 1;

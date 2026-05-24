@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
 import type { TenantId } from "../../engine/types/identifiers";

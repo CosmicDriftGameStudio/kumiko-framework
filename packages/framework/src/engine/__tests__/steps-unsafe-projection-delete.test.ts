@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "bun:test";
 import { table, text, uuid } from "../../db/dialect";
 import { getStep } from "../define-step";
 import { buildUnsafeProjectionDeleteStep } from "../steps/unsafe-projection-delete";
@@ -12,8 +12,8 @@ const testTable = table("test_projection", {
 
 // bun-db path: step calls deleteMany(ctx.db.raw, table, where) which lands on
 // asRawClient(ctx.db.raw).unsafe(sqlText, params).
-const unsafeMock = vi.fn(async (_sqlText: string, _params: unknown[]): Promise<unknown[]> => []);
-const rawDb = { unsafe: unsafeMock, begin: vi.fn() };
+const unsafeMock = mock(async (_sqlText: string, _params: unknown[]): Promise<unknown[]> => []);
+const rawDb = { unsafe: unsafeMock, begin: mock() };
 const ctxDb = { raw: rawDb };
 
 const mockCtx = {
@@ -44,7 +44,7 @@ describe("buildUnsafeProjectionDeleteStep", () => {
 
 describe("unsafeProjectionDelete run", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mock.restore();
   });
 
   it("issues DELETE ... WHERE ... with the resolved where clause", async () => {
@@ -63,7 +63,7 @@ describe("unsafeProjectionDelete run", () => {
   it("resolves a function where-clause before calling delete", async () => {
     const stepDef = getStep("unsafeProjectionDelete");
 
-    const whereFn = vi.fn(() => ({ tenantId: "t1" }));
+    const whereFn = mock(() => ({ tenantId: "t1" }));
     await stepDef!.run({ table: testTable, where: whereFn }, mockCtx);
 
     expect(whereFn).toHaveBeenCalledWith(mockCtx);

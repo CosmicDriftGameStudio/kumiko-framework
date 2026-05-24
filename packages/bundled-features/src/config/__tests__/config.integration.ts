@@ -24,7 +24,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { ConfigHandlers, ConfigQueries } from "../constants";
 import { createConfigAccessor, createConfigAccessorFactory, createConfigFeature } from "../feature";

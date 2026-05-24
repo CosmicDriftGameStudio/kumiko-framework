@@ -17,7 +17,7 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createSecretsFeature } from "../feature";
 import { rotateJob } from "../handlers/rotate.job";
 import { createSecretsContext } from "../secrets-context";

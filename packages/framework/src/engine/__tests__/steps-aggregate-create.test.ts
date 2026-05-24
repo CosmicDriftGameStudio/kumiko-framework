@@ -1,10 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "bun:test";
 import type { EventStoreExecutor } from "../../db/event-store-executor";
 import { getStep } from "../define-step";
 import { buildAggregateCreateStep } from "../steps/aggregate-create";
 import type { PipelineCtx } from "../types/step";
 
-const mockCreate = vi.fn();
+const mockCreate = mock();
 const mockExecutor = { create: mockCreate } as unknown as EventStoreExecutor & {
   create: typeof mockCreate;
 };
@@ -39,7 +39,7 @@ describe("buildAggregateCreateStep", () => {
 
 describe("aggregate.create run", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mock.restore();
   });
 
   it("resolves data and calls executor.create with user and db", async () => {
@@ -64,7 +64,7 @@ describe("aggregate.create run", () => {
 
   it("resolves a function data resolver before calling executor.create", async () => {
     const stepDef = getStep("aggregate.create");
-    const dataFn = vi.fn((ctx: PipelineCtx) => ({
+    const dataFn = mock((ctx: PipelineCtx) => ({
       label: (ctx.event.payload as { label: string }).label,
     }));
     mockExecutor.create.mockResolvedValue({

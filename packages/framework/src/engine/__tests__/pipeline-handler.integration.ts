@@ -43,7 +43,7 @@
 // Unit-side tests in pipeline-vertical-slice.test.ts cover the same
 // surface against an empty ctx mock; this file is the real-stack gate.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { asRawClient, selectMany } from "../../bun-db/query";
 import { table, text, timestamp, uuid } from "../../db/dialect";

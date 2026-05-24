@@ -10,7 +10,7 @@
 //   - status lifecycle (idle → rebuilding → idle on success, → failed on throw)
 //   - never-rebuilt projection has sensible default state
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
 import { integer, table as pgTable, uuid } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";

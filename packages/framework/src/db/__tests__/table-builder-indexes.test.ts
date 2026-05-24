@@ -6,7 +6,7 @@
 // Constraint deklarativ in der EntityDefinition; buildEntityTable rendert
 // sie via uniqueIndex/index.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import {
   createBooleanField,
   createEntity,

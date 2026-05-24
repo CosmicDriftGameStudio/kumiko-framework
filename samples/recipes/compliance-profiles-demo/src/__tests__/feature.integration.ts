@@ -29,7 +29,7 @@ import {
   type TestStack,
   testTenantId,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { complianceProfilesDemoFeatures } from "../feature";
 
 const SET_PROFILE = "compliance-profiles:write:set-profile";

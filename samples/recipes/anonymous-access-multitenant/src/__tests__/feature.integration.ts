@@ -11,7 +11,7 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { multiTenantShopFeature, productEntity, productTable } from "../feature";
 import { createSubdomainResolver, extractSubdomain } from "../subdomain-resolver";
 

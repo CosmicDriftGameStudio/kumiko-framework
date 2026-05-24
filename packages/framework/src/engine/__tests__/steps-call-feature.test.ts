@@ -1,10 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "bun:test";
 import { getStep } from "../define-step";
 import { buildCallFeatureStep } from "../steps/call-feature";
 import type { PipelineCtx } from "../types/step";
 
-const mockWrite = vi.fn();
-const mockWriteAs = vi.fn();
+const mockWrite = mock();
+const mockWriteAs = mock();
 
 const mockCtx = {
   write: mockWrite,
@@ -37,7 +37,7 @@ describe("buildCallFeatureStep", () => {
 
 describe("callFeature run", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mock.restore();
   });
 
   it("calls ctx.write with the resolved payload and handler name", async () => {
@@ -64,7 +64,7 @@ describe("callFeature run", () => {
 
   it("resolves a function payload resolver before calling ctx.write", async () => {
     const stepDef = getStep("callFeature");
-    const payloadFn = vi.fn((ctx: PipelineCtx) => ({
+    const payloadFn = mock((ctx: PipelineCtx) => ({
       title: (ctx.event.payload as { title: string }).title,
     }));
     mockWrite.mockResolvedValue({

@@ -3,7 +3,7 @@
 // drizzle-tables directly. Auto-filters by tenant_id when the projection
 // table carries that column.
 
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { insertOne } from "../../bun-db/query";
 import {

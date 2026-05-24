@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "bun:test";
 import {
   createEntityExecutor,
   defineEntityCreateHandler,
@@ -170,7 +170,7 @@ describe("defineProjectionQueryHandler", () => {
     );
     const fakeRows = [{ customer: "a", totalCents: 100 }];
     const ctx = {
-      queryProjection: vi.fn().mockResolvedValue(fakeRows),
+      queryProjection: mock().mockResolvedValue(fakeRows),
     };
     const result = await def.handler(
       // biome-ignore lint/suspicious/noExplicitAny: test shim — handler only touches ctx.queryProjection here.
@@ -191,7 +191,7 @@ describe("defineProjectionQueryHandler", () => {
       "showcase:projection:customer-revenue",
       { unsafeAllTenants: true },
     );
-    const ctx = { queryProjection: vi.fn().mockResolvedValue([]) };
+    const ctx = { queryProjection: mock().mockResolvedValue([]) };
     await def.handler(
       // biome-ignore lint/suspicious/noExplicitAny: test shim.
       { type: "revenue:list", user: {} as any, payload: {} },

@@ -11,7 +11,7 @@ import {
   TestUsers,
   testTenantId,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createConfigFeature } from "../../config";
 import { createTenantFeature } from "../../tenant";
 import { createUserFeature } from "../../user";

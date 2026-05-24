@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "bun:test";
 import { table, text, uuid } from "../../db/dialect";
 import { getStep } from "../define-step";
 import { buildReadFindManyStep } from "../steps/read-find-many";
@@ -14,10 +14,10 @@ const testTable = table("test_read", {
 // bun-db path: read-find-many/one call selectMany(ctx.db.raw, table, where, opts)
 // which goes through asRawClient(ctx.db.raw).unsafe(sqlText, params).
 // Mock the .unsafe() return value to feed back rows.
-const unsafeMock = vi.fn(
+const unsafeMock = mock(
   async (_sqlText: string, _params: unknown[]): Promise<Record<string, unknown>[]> => [],
 );
-const rawDb = { unsafe: unsafeMock, begin: vi.fn() };
+const rawDb = { unsafe: unsafeMock, begin: mock() };
 const ctxDb = { raw: rawDb };
 
 const mockCtx = {
@@ -49,7 +49,7 @@ describe("buildReadFindOneStep", () => {
 
 describe("read.findOne run", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mock.restore();
     unsafeMock.mockResolvedValue([]);
   });
 
@@ -80,7 +80,7 @@ describe("read.findOne run", () => {
 
   it("resolves a function where-clause before querying", async () => {
     const stepDef = getStep("read.findOne");
-    const whereFn = vi.fn(() => ({ tenantId: "dyn-tenant" }));
+    const whereFn = mock(() => ({ tenantId: "dyn-tenant" }));
     unsafeMock.mockResolvedValueOnce([]);
 
     await stepDef!.run({ name: "lookup", table: testTable, where: whereFn }, mockCtx);
@@ -109,7 +109,7 @@ describe("buildReadFindManyStep", () => {
 
 describe("read.findMany run", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mock.restore();
     unsafeMock.mockResolvedValue([]);
   });
 

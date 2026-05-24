@@ -4,7 +4,7 @@
 // boot-validator in validate-projection-allowlist.test.ts.
 
 import { randomUUID } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { z } from "zod";
 import { TestUsers } from "../../stack";
 import { defineWriteHandler } from "../define-handler";

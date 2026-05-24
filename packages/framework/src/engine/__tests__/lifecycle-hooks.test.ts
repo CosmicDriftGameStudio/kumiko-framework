@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { createEntity, createRegistry, defineFeature } from "../index";
 import type { PostSaveHookFn, PreDeleteHookFn, PreSaveHookFn, SaveContext } from "../types";

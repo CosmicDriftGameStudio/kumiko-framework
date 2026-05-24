@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { buildTarget, createRegistry, defineFeature } from "../index";
 import type { TreeChildrenSubscribe, TreeNode } from "../types/tree-node";
 

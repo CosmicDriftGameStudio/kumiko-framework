@@ -4,7 +4,7 @@
 // oder hinzufuegt ohne dass die DPA/Tenant-Notification-Pipeline das
 // mitbekommt.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import {
   getActiveSubProcessors,
   getPlannedSubProcessors,

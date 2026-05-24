@@ -6,7 +6,7 @@
 //   3. Deep-merge-Semantik beim Override (rekursiv, Top-Level-Replace nicht)
 //   4. Override darf einzelne Felder gezielt setzen ohne Required-Drops
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { complianceProfileOverrideSchema } from "../override-schema";
 import {
   COMPLIANCE_PROFILES,

@@ -6,7 +6,7 @@
 // event-dispatcher — at-least-once delivery, strictly ordered by events.id
 // per MSP consumer, dead-letters on repeated handler failures.
 
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { asRawClient, selectMany } from "../../bun-db/query";
 import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect";

@@ -14,7 +14,7 @@
 //     instead of returning false.
 
 import { pbkdf2Sync } from "node:crypto";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { isIdentityV3Hash, verifyIdentityV3Hash } from "../identity-v3-hash";
 import { verifyPassword } from "../password-hashing";
 

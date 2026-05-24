@@ -43,7 +43,7 @@ import {
   createMutableMasterKeyProvider,
   type MutableMasterKeyProvider,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { NEWSLETTER_SEND_QN, NEWSLETTER_TIER_CONFIG_KEY } from "../feature";
 import { APP_FEATURES } from "../run-config";
 

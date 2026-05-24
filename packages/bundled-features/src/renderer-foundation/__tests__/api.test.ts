@@ -1,5 +1,5 @@
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { createRendererFoundationApi } from "../api";
 import {
   type RendererContext,

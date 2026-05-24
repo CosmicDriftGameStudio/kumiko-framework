@@ -1,7 +1,7 @@
 // Full-stack proof for lifecycle ↔ buildServer wiring.
 // Drives drain() directly — SIGTERM plumbing has its own unit test.
 
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { defineFeature } from "../../engine";
 import { setupTestStack, type TestStack } from "../../stack";
 import { sharedWidgetEntity } from "../../testing";

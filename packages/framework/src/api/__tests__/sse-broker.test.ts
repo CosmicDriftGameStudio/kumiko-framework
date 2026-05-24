@@ -1,12 +1,12 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { createSseBroker, type SseEvent } from "../sse-broker";
 
 describe("SSE broker", () => {
   test("adds client and tracks count", () => {
     const broker = createSseBroker();
-    broker.addClient("ch1", vi.fn(), vi.fn());
-    broker.addClient("ch1", vi.fn(), vi.fn());
-    broker.addClient("ch2", vi.fn(), vi.fn());
+    broker.addClient("ch1", mock(), mock());
+    broker.addClient("ch1", mock(), mock());
+    broker.addClient("ch2", mock(), mock());
 
     expect(broker.getClientCount("ch1")).toBe(2);
     expect(broker.getClientCount("ch2")).toBe(1);
@@ -15,13 +15,13 @@ describe("SSE broker", () => {
 
   test("pushToChannel sends to all clients on channel", () => {
     const broker = createSseBroker();
-    const send1 = vi.fn();
-    const send2 = vi.fn();
-    const sendOther = vi.fn();
+    const send1 = mock();
+    const send2 = mock();
+    const sendOther = mock();
 
-    broker.addClient("users", send1, vi.fn());
-    broker.addClient("users", send2, vi.fn());
-    broker.addClient("other", sendOther, vi.fn());
+    broker.addClient("users", send1, mock());
+    broker.addClient("users", send2, mock());
+    broker.addClient("other", sendOther, mock());
 
     const event: SseEvent = { type: "user.created", data: { id: 1 } };
     broker.pushToChannel("users", event);
@@ -33,9 +33,9 @@ describe("SSE broker", () => {
 
   test("removeClient stops delivery", () => {
     const broker = createSseBroker();
-    const send = vi.fn();
+    const send = mock();
 
-    const clientId = broker.addClient("ch", send, vi.fn());
+    const clientId = broker.addClient("ch", send, mock());
     broker.removeClient("ch", clientId);
 
     broker.pushToChannel("ch", { type: "test", data: {} });

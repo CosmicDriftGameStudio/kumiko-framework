@@ -5,7 +5,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTemplateResolverApi, TemplateNotFoundError, type TemplateResolverApi } from "../api";
 import {
   type ContentFormat,

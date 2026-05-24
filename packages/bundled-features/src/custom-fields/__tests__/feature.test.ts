@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { fieldDefinitionAggregateId } from "../aggregate-id";
 import { SUPPORTED_FIELD_TYPES } from "../constants";
 import { createCustomFieldsFeature } from "../feature";

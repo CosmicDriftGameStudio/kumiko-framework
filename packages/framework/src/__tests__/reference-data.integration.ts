@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { selectMany } from "../bun-db/query";
 import { integer, table as pgTable, serial, text } from "../db/dialect";
 import { seedReferenceData } from "../db/reference-data";

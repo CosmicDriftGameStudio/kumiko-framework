@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 import {
   createEntity,
@@ -200,7 +200,7 @@ describe("runPostSave", () => {
 
   test("postSave errors don't throw — logged and continued", async () => {
     const calls: string[] = [];
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const consoleSpy = spyOn(console, "error").mockImplementation(() => {});
 
     const registry = makeRegistry({
       postSave: [
@@ -234,7 +234,7 @@ describe("runPostSave", () => {
 
   test("system hook failure doesn't block other system hooks", async () => {
     const calls: string[] = [];
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const consoleSpy = spyOn(console, "error").mockImplementation(() => {});
 
     const registry = makeRegistry();
 
@@ -334,7 +334,7 @@ describe("runPostSave phase routing", () => {
   });
 
   test("afterCommit phase: hook errors are logged, never thrown", async () => {
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const consoleSpy = spyOn(console, "error").mockImplementation(() => {});
     const afterRan: string[] = [];
     const feature = defineFeature("phases", (r) => {
       r.entity("user", createEntity({ table: "Users", fields: {} }));

@@ -4,7 +4,7 @@
 // expiresAt, HTML escaped XSS-Versuche, beide Locales unterscheiden
 // sich erwartungsgemäß.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { renderResetPasswordEmail, renderVerifyEmail } from "../email-templates";
 
 describe("renderResetPasswordEmail", () => {

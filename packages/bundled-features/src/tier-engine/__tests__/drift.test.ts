@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { tierAssignmentAggregateId } from "../aggregate-id";
 import { TIER_ENGINE_FEATURE, TierEngineHandlers, TierEngineQueries } from "../constants";
 import { tierEngineFeature } from "../feature";

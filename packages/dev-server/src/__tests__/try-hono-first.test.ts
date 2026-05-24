@@ -5,7 +5,7 @@
 // sich ändert (z.B. "matched" auch für 4xx anders als 404), MÜSSEN
 // beide Pfade synchron updaten.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { type HonoLikeApp, tryHonoFirst } from "../try-hono-first";
 
 function makeApp(response: Response): HonoLikeApp {

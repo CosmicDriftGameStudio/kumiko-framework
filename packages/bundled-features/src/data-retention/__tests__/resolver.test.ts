@@ -2,7 +2,7 @@
 // Test-Stack-Abhängigkeit.
 
 import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { resolveRetentionPolicy } from "../resolver";
 
 describe("resolveRetentionPolicy — Layer-Resolution", () => {

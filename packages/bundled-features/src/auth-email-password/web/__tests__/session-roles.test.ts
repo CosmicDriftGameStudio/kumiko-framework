@@ -3,7 +3,7 @@
 // Sonst sieht client andere roles als server → role-gating divergiert
 // (entweder UI zeigt was nicht erlaubt ist, oder umgekehrt).
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import type { CurrentUserProfile, TenantSummary } from "../auth-client";
 import { computeActiveRoles } from "../session";
 

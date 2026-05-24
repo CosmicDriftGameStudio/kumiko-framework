@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { resolveOptional, resolveRequired } from "../steps/_resolver-utils";
 import type { PipelineCtx } from "../types/step";
 
@@ -13,7 +13,7 @@ describe("resolveRequired", () => {
   });
 
   it("calls a function resolver with the ctx and returns its result", () => {
-    const fn = vi.fn((_ctx: PipelineCtx) => "from-fn");
+    const fn = mock((_ctx: PipelineCtx) => "from-fn");
     expect(resolveRequired(fn, dummyCtx)).toBe("from-fn");
     expect(fn).toHaveBeenCalledOnce();
     expect(fn).toHaveBeenCalledWith(dummyCtx);
@@ -21,7 +21,7 @@ describe("resolveRequired", () => {
 
   it("passes the full ctx to the resolver function", () => {
     const ctx = { event: { type: "test" }, steps: { x: 1 }, scope: {} } as unknown as PipelineCtx;
-    const fn = vi.fn((c: PipelineCtx) => c.event.type);
+    const fn = mock((c: PipelineCtx) => c.event.type);
     expect(resolveRequired(fn, ctx)).toBe("test");
   });
 });
@@ -39,7 +39,7 @@ describe("resolveOptional", () => {
   });
 
   it("calls a function resolver when defined", () => {
-    const fn = vi.fn(() => "resolved");
+    const fn = mock(() => "resolved");
     expect(resolveOptional(fn, dummyCtx)).toBe("resolved");
     expect(fn).toHaveBeenCalledOnce();
   });

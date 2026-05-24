@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { createConsoleProvider } from "../../observability";
 import { mergeTraceFields } from "../pino-logger";
 

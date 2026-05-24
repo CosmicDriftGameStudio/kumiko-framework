@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { RateLimitError } from "../../errors";
 import { createTestRedis, type TestRedis } from "../../stack";
 import {

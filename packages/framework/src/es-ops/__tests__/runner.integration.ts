@@ -11,7 +11,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
 import { createTestDb, type TestDb } from "../../stack";
 import { createSeedMigrationContext } from "../context";
@@ -42,14 +42,14 @@ function makeTempSeedsDir(files: readonly { name: string; content: string }[]): 
 function makeMockDispatcher() {
   const calls: Array<{ qn: string; payload: unknown }> = [];
   return {
-    write: vi.fn(async (qn: string, payload: unknown) => {
+    write: mock(async (qn: string, payload: unknown) => {
       calls.push({ qn, payload });
       return { isSuccess: true as const, data: {} };
     }),
-    query: vi.fn(),
-    command: vi.fn(),
-    batch: vi.fn(),
-    resolveAuthClaims: vi.fn(),
+    query: mock(),
+    command: mock(),
+    batch: mock(),
+    resolveAuthClaims: mock(),
     calls,
   };
 }
@@ -192,14 +192,14 @@ describe("runPendingSeedMigrations (integration)", () => {
     ]);
     try {
       const dispatcher = {
-        write: vi.fn(async () => ({
+        write: mock(async () => ({
           isSuccess: false as const,
           error: { code: "version_conflict", message: "stream changed" },
         })),
-        query: vi.fn(),
-        command: vi.fn(),
-        batch: vi.fn(),
-        resolveAuthClaims: vi.fn(),
+        query: mock(),
+        command: mock(),
+        batch: mock(),
+        resolveAuthClaims: mock(),
       };
 
       await expect(

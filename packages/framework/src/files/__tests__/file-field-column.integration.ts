@@ -7,7 +7,7 @@
 // files.integration.ts because the bug is about *table generation*, not
 // runtime behaviour of the upload route.
 
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient } from "../../bun-db/query";
 import { createEntity, createFileField, createImageField } from "../../engine";
 import { createTestDb, type TestDb, unsafeCreateEntityTable, unsafePushTables } from "../../stack";

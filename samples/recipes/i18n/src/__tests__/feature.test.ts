@@ -4,7 +4,7 @@
 
 import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";
 import { createI18n } from "@cosmicdrift/kumiko-framework/i18n";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { errorFeature, greetingFeature } from "../feature";
 
 const registry = createRegistry([greetingFeature, errorFeature]);

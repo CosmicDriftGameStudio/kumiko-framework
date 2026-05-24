@@ -16,7 +16,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/files";
 import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { sql } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { derivateLog, filesPostProcessingFeature } from "../feature";
 
 let stack: TestStack;

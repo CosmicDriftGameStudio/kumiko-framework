@@ -2,7 +2,7 @@
 // aggregation. Full DB roundtrip (setupTestStack pushes the table → INSERT
 // / SELECT) lives in src/__tests__/raw-table.integration.ts.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import type { SchemaTable } from "../../db/dialect";
 import { table, text } from "../../db/dialect";
 import { defineFeature } from "../define-feature";

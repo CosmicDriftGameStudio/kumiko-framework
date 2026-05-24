@@ -8,7 +8,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { TextContentHandlers, TextContentQueries } from "../constants";
 import { createTextContentFeature } from "../feature";
 import { seedTextBlock } from "../seeding";

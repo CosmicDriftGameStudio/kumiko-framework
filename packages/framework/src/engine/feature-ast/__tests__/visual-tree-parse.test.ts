@@ -8,7 +8,7 @@
 // getEditability, PATTERN_LIBRARY). Both halves must agree on shape.
 
 import { Project } from "ts-morph";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { parseSourceFile } from "../parse";
 import { getEditability } from "../patterns";
 import { renderPattern } from "../render";

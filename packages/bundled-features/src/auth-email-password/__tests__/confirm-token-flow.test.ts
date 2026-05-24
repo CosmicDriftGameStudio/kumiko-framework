@@ -1,6 +1,6 @@
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { runConfirmTokenFlow } from "../handlers/confirm-token-flow";
 
 // Pins the "fail-loud when ctx.redis is missing" branch. Without this

@@ -7,7 +7,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { UserErrors, UserHandlers, UserQueries } from "../constants";
 import { createUserFeature } from "../feature";
 import { userEntity, userTable } from "../schema/user";

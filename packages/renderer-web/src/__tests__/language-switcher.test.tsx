@@ -1,10 +1,9 @@
-// @vitest-environment jsdom
 import type { LocaleResolver } from "@cosmicdrift/kumiko-headless";
 import { createStaticLocaleResolver, LocaleProvider } from "@cosmicdrift/kumiko-renderer";
 import { render as _render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { LanguageSwitcher } from "../layout/language-switcher";
 
 // Tests greifen den LanguageSwitcher mit einem stateful Stub-Resolver
@@ -26,7 +25,7 @@ function makeStatefulResolver(initial: string): LocaleResolver {
         listeners.delete(l);
       };
     },
-    setLocale: vi.fn((next: string) => {
+    setLocale: mock((next: string) => {
       current = next;
       for (const l of listeners) l();
     }),

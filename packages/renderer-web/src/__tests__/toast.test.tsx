@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 //
 // ToastProvider + useToast pinnt: toast() rendert Title+Description in
 // einem Radix-Toast; mehrere toasts stapeln; Variant=destructive setzt
@@ -8,7 +7,7 @@
 
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { type ReactNode, useEffect } from "react";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { type ToastOptions, ToastProvider, useToast } from "../primitives/toast";
 
 // Trigger-Component die im Mount toast() aufruft. So testen wir den

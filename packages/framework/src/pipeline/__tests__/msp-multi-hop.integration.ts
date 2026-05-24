@@ -10,7 +10,7 @@
 //      a three-hop causal chain (order.placed → order.confirmed → order.shipped).
 //   5. ctx.loadAggregate reads the triggering stream's full history.
 
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { selectMany } from "../../bun-db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";

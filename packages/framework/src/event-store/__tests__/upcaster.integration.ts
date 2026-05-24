@@ -8,7 +8,7 @@
 //      with only a 1→2 migration fails immediately, so a missing upcaster
 //      can never silently hand half-migrated data to consumers.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
 import { integer as pgInteger, table as pgTable, text as pgText } from "../../db/dialect";

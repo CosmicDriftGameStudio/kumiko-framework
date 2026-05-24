@@ -29,7 +29,7 @@ import {
   TestUsers,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { createLaneRoutingFeature, renderedReceipts, sentConfirmations } from "../feature";
 
 const JWT = "lane-routing-sample-secret-minimum-32-chars!";

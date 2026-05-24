@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { createLifecycle } from "../lifecycle";
 import { attachSignalHandlers } from "../signal-handlers";
 import { createTestLifecycle } from "./create-test-lifecycle";
@@ -6,7 +6,7 @@ import { createTestLifecycle } from "./create-test-lifecycle";
 describe("attachSignalHandlers", () => {
   test("SIGTERM triggers drain and calls exit(0)", async () => {
     const lc = createLifecycle({ startReady: true });
-    const exit = vi.fn();
+    const exit = mock();
     const hookCalls: string[] = [];
     lc.registerShutdownHook("spy", async (signal) => {
       hookCalls.push(signal);
@@ -25,7 +25,7 @@ describe("attachSignalHandlers", () => {
 
   test("SIGINT path drains with the right signal label", async () => {
     const lc = createLifecycle({ startReady: true });
-    const exit = vi.fn();
+    const exit = mock();
     const seen: string[] = [];
     lc.registerShutdownHook("spy", async (signal) => {
       seen.push(signal);
@@ -44,7 +44,7 @@ describe("attachSignalHandlers", () => {
 
   test("multiple SIGTERMs still call exit exactly once", async () => {
     const lc = createLifecycle({ startReady: true });
-    const exit = vi.fn();
+    const exit = mock();
     // Slow hook so we can fire additional signals while drain is in-flight.
     lc.registerShutdownHook("slow", async () => {
       await new Promise((r) => setTimeout(r, 30));
@@ -74,7 +74,7 @@ describe("attachSignalHandlers", () => {
         throw new Error("drain itself exploded");
       },
     });
-    const exit = vi.fn();
+    const exit = mock();
     const handle = attachSignalHandlers(brokenLifecycle, { exit, signals: ["SIGTERM"] });
     try {
       process.emit("SIGTERM");
@@ -87,7 +87,7 @@ describe("attachSignalHandlers", () => {
 
   test("detach() removes the process listeners", () => {
     const lc = createLifecycle({ startReady: true });
-    const exit = vi.fn();
+    const exit = mock();
     const before = process.listenerCount("SIGTERM");
     const handle = attachSignalHandlers(lc, { exit, signals: ["SIGTERM"] });
     expect(process.listenerCount("SIGTERM")).toBe(before + 1);

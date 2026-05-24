@@ -7,7 +7,7 @@
 // have a real footgun, or whether the showcase bug had a different root
 // cause.
 
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { insertOne, selectMany } from "../../bun-db/query";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField } from "../../engine";

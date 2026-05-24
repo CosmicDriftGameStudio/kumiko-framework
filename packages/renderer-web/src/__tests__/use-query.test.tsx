@@ -1,8 +1,7 @@
-// @vitest-environment jsdom
 import type { Dispatcher, DispatcherError } from "@cosmicdrift/kumiko-headless";
 import { DispatcherProvider, useQuery } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { act, createMockDispatcher, renderHook, waitFor } from "./test-utils";
 
 function makeDispatcher(queryFn?: Dispatcher["query"]): Dispatcher {
@@ -17,7 +16,7 @@ function wrap(dispatcher: Dispatcher) {
 
 describe("useQuery", () => {
   test("loads on mount; populates data, flips loading to false", async () => {
-    const query = vi.fn(
+    const query = mock(
       async () => ({ isSuccess: true, data: [{ id: "1" }, { id: "2" }] }) as never,
     );
     const dispatcher = makeDispatcher(query as unknown as Dispatcher["query"]);
@@ -42,7 +41,7 @@ describe("useQuery", () => {
       i18nKey: "errors.not_found",
       message: "no",
     };
-    const query = vi.fn(async () => ({ isSuccess: false, error: err }) as never);
+    const query = mock(async () => ({ isSuccess: false, error: err }) as never);
     const { result } = renderHook(() => useQuery("task:list", {}), {
       wrapper: wrap(makeDispatcher(query as unknown as Dispatcher["query"])),
     });
@@ -53,7 +52,7 @@ describe("useQuery", () => {
   });
 
   test("enabled:false skips the auto-fetch until refetch is called", async () => {
-    const query = vi.fn(async () => ({ isSuccess: true, data: ["hi"] }) as never);
+    const query = mock(async () => ({ isSuccess: true, data: ["hi"] }) as never);
     const { result } = renderHook(() => useQuery("task:list", {}, { enabled: false }), {
       wrapper: wrap(makeDispatcher(query as unknown as Dispatcher["query"])),
     });
@@ -71,7 +70,7 @@ describe("useQuery", () => {
 
   test("refetch re-runs and replaces data (after-mutation reload pattern)", async () => {
     let callCount = 0;
-    const query = vi.fn(async () => {
+    const query = mock(async () => {
       callCount += 1;
       return { isSuccess: true, data: [callCount] } as never;
     });

@@ -2,7 +2,7 @@
 // Plugin-API-shaped file-foundation. Provider-specific configs/secrets
 // are tested in their own provider-feature (file-provider-s3/__tests__).
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { fileFoundationFeature } from "../feature";
 
 describe("fileFoundationFeature — shape", () => {

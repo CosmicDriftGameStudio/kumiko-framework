@@ -5,7 +5,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { runPendingSeedMigrations } from "../runner";
 
 function makeTempSeedsDir(files: readonly { name: string; content: string }[]): string {

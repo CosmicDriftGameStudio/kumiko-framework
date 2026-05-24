@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME, readCsrfToken } from "../csrf";
 
 describe("CSRF token extraction", () => {

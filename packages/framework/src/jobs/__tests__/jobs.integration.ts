@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { requestContext } from "../../api/request-context";
 import { createRegistry, defineFeature } from "../../engine";
 import type { AppContext, Registry } from "../../engine/types";

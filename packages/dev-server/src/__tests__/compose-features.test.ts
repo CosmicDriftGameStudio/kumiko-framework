@@ -8,7 +8,7 @@
 // dispatched ins Leere → 500.
 
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { composeFeatures } from "../compose-features";
 
 const noopFeature = defineFeature("noop-app", () => {});

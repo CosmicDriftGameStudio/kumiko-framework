@@ -11,7 +11,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createBooleanField, createEntity, createTextField, defineFeature } from "../../engine";
 import { createRegistry } from "../../engine/registry";
 import { detectProjectionsToRebuild } from "../projection-detection";

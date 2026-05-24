@@ -1,6 +1,6 @@
 // feature.ts contract tests for file-provider-inmemory.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { clearStorage, fileProviderInMemoryFeature, listKeys } from "../feature";
 
 describe("fileProviderInMemoryFeature — shape", () => {

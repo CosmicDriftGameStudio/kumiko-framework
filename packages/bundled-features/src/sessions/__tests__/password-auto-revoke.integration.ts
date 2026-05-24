@@ -10,7 +10,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createLateBoundHolder } from "@cosmicdrift/kumiko-framework/testing";
-import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test, mock } from "bun:test";
 import { AuthHandlers } from "../../auth-email-password/constants";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
 import { createConfigFeature } from "../../config";
@@ -39,7 +39,7 @@ const callbacks = createLateBoundHolder<SessionCallbacks>("session-callbacks");
 
 // vi.fn spy for the revoker — lets us assert exact call counts and arguments
 // per test without leaking module-level mutable state across suites.
-const massRevokeSpy = vi.fn<(userId: string) => Promise<number>>();
+const massRevokeSpy = mock<(userId: string) => Promise<number>>();
 
 const encryptionKey = randomBytes(32).toString("base64");
 

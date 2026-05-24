@@ -12,7 +12,7 @@
 // via payload, not via a wrapped DB handle. Tenant-isolation-via-MSP is
 // tested in multi-stream-projection.integration.ts.
 
-import { afterEach, beforeAll, describe, expect, test } from "vitest";
+import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { defineFeature } from "../../engine";

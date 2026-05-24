@@ -16,7 +16,7 @@
 // solchen Migration eine Sanity-Query auf NULL-Counts in den betroffenen
 // Spalten laufen, oder DB drop'pen wenn der State Demo-State ist.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "../../bun-db/query";
 import { createTestDb, type TestDb } from "../../stack";
 

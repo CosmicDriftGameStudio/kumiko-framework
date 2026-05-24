@@ -1,5 +1,5 @@
 import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { generateToken } from "../../api/tokens";
 import { asRawClient, insertOne, selectMany } from "../../bun-db/query";

@@ -9,7 +9,7 @@
 //      in < 50ms (typical asOf/reducer rehydrate budget). Same gate the
 //      spike proved on raw SQL, now enforced on the framework path.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "../../bun-db/query";
 import type { TenantId } from "../../engine/types";
 import { createTestDb, type TestDb } from "../../stack";

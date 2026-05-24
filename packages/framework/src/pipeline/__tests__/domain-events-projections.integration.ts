@@ -9,7 +9,7 @@
 // Without all three pieces wired together (registry opens defineEvent names,
 // projections-runner fires on appendEvent, dispatcher routes appendEvent to
 // the aggregate stream), any of the assertions below go red.
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { insertOne, selectMany, updateMany } from "../../bun-db/query";
 import {

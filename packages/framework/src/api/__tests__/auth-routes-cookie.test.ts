@@ -7,7 +7,7 @@
 
 import type { Hono } from "hono";
 import { Hono as HonoCtor } from "hono";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import type { SessionUser } from "../../engine/types";
 import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher";
 import { TestUsers } from "../../stack";

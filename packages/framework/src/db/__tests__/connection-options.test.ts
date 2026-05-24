@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { dbConnectionOptionsFromEnv } from "../connection";
 
 // createDbConnection itself opens a real postgres.js socket, so it's

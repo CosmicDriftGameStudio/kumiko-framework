@@ -1,6 +1,6 @@
 import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createS3ProviderFromEnv } from "../env-helper";
 import { createS3Provider } from "../s3-provider";
 

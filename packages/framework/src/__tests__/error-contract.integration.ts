@@ -3,7 +3,7 @@
 // come back with a stable code + i18nKey and the shape that the client SDK
 // and docs promise. If you change the contract, this is the file that moves.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { asRawClient } from "../bun-db/query";
 import { createEventStoreExecutor } from "../db/event-store-executor";

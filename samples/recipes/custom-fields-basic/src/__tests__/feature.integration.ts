@@ -22,7 +22,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { sql } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { propertyEntity, propertyFeature } from "../feature";
 
 const admin = createTestUser({ roles: ["TenantAdmin"] });

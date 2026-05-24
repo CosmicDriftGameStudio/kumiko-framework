@@ -17,7 +17,7 @@ import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-framework/st
 // Symbol map because keys are JS field-names (camelCase), matching what
 // feature-entity definitions declare.
 const KUMIKO_COLUMNS_SYMBOL = Symbol.for("kumiko:schema:Columns");
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createFilesFeature, fileRefEntity } from "../feature";
 
 let stack: TestStack;

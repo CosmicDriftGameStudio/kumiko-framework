@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient, deleteMany, insertOne, selectMany, updateMany } from "../../bun-db/query";
 import { createBooleanField, createEntity, createTextField } from "../../engine";
 import {

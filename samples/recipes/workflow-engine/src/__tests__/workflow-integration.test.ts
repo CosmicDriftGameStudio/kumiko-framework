@@ -5,7 +5,7 @@ import {
   type WorkflowDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { VersionConflictError } from "@cosmicdrift/kumiko-framework/event-store";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { type CronWorkflow, nextCronDate, runDueCronWorkflows } from "../cron-scheduler";
 import { registerEventTrigger } from "../event-trigger";
 import {
@@ -75,7 +75,7 @@ describe("workflow-engine", () => {
 
 describe("workflow-runner", () => {
   function makeAppendOnlyCtx() {
-    return { unsafeAppendEvent: vi.fn().mockResolvedValue(undefined) };
+    return { unsafeAppendEvent: mock().mockResolvedValue(undefined) };
   }
 
   it("startAndRunWorkflow writes run.started with Q7 snapshot fingerprint, then runs the pipeline to completion when no suspension", async () => {
@@ -159,7 +159,7 @@ describe("workflow-runner", () => {
 
 describe("userOnboardingWorkflow (end-to-end, in-memory)", () => {
   it("suspends on the first wait, then resume-loop runs it through to completion", async () => {
-    const ctx = { unsafeAppendEvent: vi.fn().mockResolvedValue(undefined) };
+    const ctx = { unsafeAppendEvent: mock().mockResolvedValue(undefined) };
 
     const result = await startAndRunWorkflow({
       runId: "wf-onboarding-active-42",
@@ -211,7 +211,7 @@ describe("userOnboardingWorkflow (end-to-end, in-memory)", () => {
       definitionFingerprint: waitingCall.payload["definitionFingerprint"] as string,
     };
 
-    const resumeCtx = { unsafeAppendEvent: vi.fn().mockResolvedValue(undefined) };
+    const resumeCtx = { unsafeAppendEvent: mock().mockResolvedValue(undefined) };
     const count = await runResumeLoop(
       createInMemorySuspendedRunFetcher([suspendedRun]),
       resumeCtx as never,
@@ -237,7 +237,7 @@ describe("userOnboardingWorkflow (end-to-end, in-memory)", () => {
   });
 
   it("not-engaged path picks the reminder branch", async () => {
-    const ctx = { unsafeAppendEvent: vi.fn().mockResolvedValue(undefined) };
+    const ctx = { unsafeAppendEvent: mock().mockResolvedValue(undefined) };
     await startAndRunWorkflow({
       runId: "wf-onboarding-cold-1",
       workflow: userOnboardingWorkflow as unknown as WorkflowDefinition,
@@ -263,7 +263,7 @@ describe("userOnboardingWorkflow (end-to-end, in-memory)", () => {
       } as never,
       definitionFingerprint: waiting.payload["definitionFingerprint"] as string,
     };
-    const resumeCtx = { unsafeAppendEvent: vi.fn().mockResolvedValue(undefined) };
+    const resumeCtx = { unsafeAppendEvent: mock().mockResolvedValue(undefined) };
     await runResumeLoop(createInMemorySuspendedRunFetcher([suspendedRun]), resumeCtx as never);
 
     const reminderMail = resumeCtx.unsafeAppendEvent.mock.calls[1]![0] as {
@@ -395,7 +395,7 @@ describe("cron-scheduler", () => {
       steps: pipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
     });
 
-    const handlerCtx = { unsafeAppendEvent: vi.fn() };
+    const handlerCtx = { unsafeAppendEvent: mock() };
     const lastRuns = new Map<string, Temporal.Instant>();
     const now = Temporal.Instant.from("2025-06-01T08:00:00Z");
 
@@ -417,7 +417,7 @@ describe("cron-scheduler", () => {
       steps: pipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
     });
 
-    const handlerCtx = { unsafeAppendEvent: vi.fn().mockResolvedValue(undefined) };
+    const handlerCtx = { unsafeAppendEvent: mock().mockResolvedValue(undefined) };
     const lastRuns = new Map<string, Temporal.Instant>();
     const lastRun = Temporal.Instant.from("2025-05-31T08:00:00Z");
     lastRuns.set("test-daily", lastRun);
@@ -443,7 +443,7 @@ describe("cron-scheduler", () => {
 describe("resume-loop", () => {
   it("returns 0 when no suspended runs exist", async () => {
     const fetchRuns = createInMemorySuspendedRunFetcher([]);
-    const handlerCtx = { unsafeAppendEvent: vi.fn() };
+    const handlerCtx = { unsafeAppendEvent: mock() };
 
     const count = await runResumeLoop(fetchRuns, handlerCtx as never);
 
@@ -465,7 +465,7 @@ describe("resume-loop", () => {
     };
 
     const fetchRuns = createInMemorySuspendedRunFetcher([suspendedRun]);
-    const handlerCtx = { unsafeAppendEvent: vi.fn().mockResolvedValue(undefined) };
+    const handlerCtx = { unsafeAppendEvent: mock().mockResolvedValue(undefined) };
 
     const count = await runResumeLoop(fetchRuns, handlerCtx as never);
 
@@ -499,7 +499,7 @@ describe("resume-loop", () => {
     };
 
     const fetchRuns = createInMemorySuspendedRunFetcher([suspendedRun]);
-    const handlerCtx = { unsafeAppendEvent: vi.fn().mockResolvedValue(undefined) };
+    const handlerCtx = { unsafeAppendEvent: mock().mockResolvedValue(undefined) };
 
     const count = await runResumeLoop(fetchRuns, handlerCtx as never);
 

@@ -1,6 +1,6 @@
 // feature.ts contract tests for subscription-mollie.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { MOLLIE_PROVIDER_NAME, SUBSCRIPTION_MOLLIE_FEATURE } from "../constants";
 import { createSubscriptionMollieFeature } from "../feature";
 

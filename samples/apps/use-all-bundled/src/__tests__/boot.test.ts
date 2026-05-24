@@ -13,7 +13,7 @@
 
 import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features";
 import { createRegistry, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { APP_FEATURES } from "../run-config";
 
 const composedFeatures = composeFeatures([...APP_FEATURES], {

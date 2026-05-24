@@ -1,5 +1,4 @@
-// @vitest-environment jsdom
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { Avatar } from "../layout/avatar";
 import { render, screen } from "./test-utils";
 

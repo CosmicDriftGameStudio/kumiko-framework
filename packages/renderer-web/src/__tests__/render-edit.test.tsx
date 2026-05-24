@@ -1,11 +1,10 @@
-// @vitest-environment jsdom
 import type {
   EntityDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher, SubmitResult } from "@cosmicdrift/kumiko-headless";
 import { DispatcherProvider, RenderEdit } from "@cosmicdrift/kumiko-renderer";
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { act, createMockDispatcher, fireEvent, render, screen } from "./test-utils";
 
 const orderEntity = {
@@ -120,7 +119,7 @@ describe("RenderEdit", () => {
   });
 
   test("submit fires dispatcher.write with the current values; onSubmit receives the result", async () => {
-    const write = vi.fn(async () => ({ isSuccess: true, data: { id: "42" } }) as never);
+    const write = mock(async () => ({ isSuccess: true, data: { id: "42" } }) as never);
     const dispatcher = makeDispatcher(write);
     const seenResults: SubmitResult<unknown>[] = [];
 

@@ -14,7 +14,7 @@
 //
 // allowPlaintext-Marker unterdrückt Heuristik-Warnings.
 
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { validateBoot } from "../boot-validator";
 import { defineFeature } from "../define-feature";
@@ -48,10 +48,10 @@ function stubListHandler(r: any, entityName: string): void {
 }
 
 describe("validateBoot — PII annotations", () => {
-  let warnSpy: ReturnType<typeof vi.spyOn>;
+  let warnSpy: ReturnType<typeof spyOn>;
 
   beforeEach(() => {
-    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    warnSpy = spyOn(console, "warn").mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -428,10 +428,10 @@ describe("validateBoot — PII annotations", () => {
 });
 
 describe("validateBoot — retention", () => {
-  let warnSpy: ReturnType<typeof vi.spyOn>;
+  let warnSpy: ReturnType<typeof spyOn>;
 
   beforeEach(() => {
-    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    warnSpy = spyOn(console, "warn").mockImplementation(() => {});
   });
 
   afterEach(() => {

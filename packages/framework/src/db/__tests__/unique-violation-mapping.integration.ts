@@ -13,7 +13,7 @@
 // also nicht. Erst die projection-INSERT verletzt den Index. Ohne F8:
 // 500. Mit F8: writeFailure(UniqueViolationError) → 409.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, selectMany } from "../../bun-db/query";
 import { createEntity, createTextField } from "../../engine";
 import { createEventsTable } from "../../event-store";

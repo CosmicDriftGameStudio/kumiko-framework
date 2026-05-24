@@ -1,5 +1,5 @@
 import { composeEnvSchema, KumikoBootError, parseEnv } from "@cosmicdrift/kumiko-framework/env";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { z } from "zod";
 import { type FrameworkCoreEnv, frameworkCoreEnvSchema } from "../env-schema";
 

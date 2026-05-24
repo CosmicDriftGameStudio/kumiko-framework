@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "bun:test";
 import { table, text, uuid } from "../../db/dialect";
 import { getStep } from "../define-step";
 import { buildUnsafeProjectionUpsertStep } from "../steps/unsafe-projection-upsert";
@@ -14,8 +14,8 @@ const testTable = table("test_projection", {
 // New bun-db path: step uses asRawClient(ctx.db.raw).unsafe(sqlText, params).
 // Capture the raw SQL string + params per call instead of the old
 // insert/values/onConflictDoUpdate chain.
-const unsafeMock = vi.fn(async (_sqlText: string, _params: unknown[]) => []);
-const beginMock = vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn({}));
+const unsafeMock = mock(async (_sqlText: string, _params: unknown[]) => []);
+const beginMock = mock(async (fn: (tx: unknown) => Promise<unknown>) => fn({}));
 const rawDb = { unsafe: unsafeMock, begin: beginMock };
 const ctxDb = { raw: rawDb };
 
@@ -50,7 +50,7 @@ describe("buildUnsafeProjectionUpsertStep", () => {
   });
 
   it("accepts a function row resolver", () => {
-    const resolver = vi.fn(() => ({ tenantId: "t1", externalId: "e1" }));
+    const resolver = mock(() => ({ tenantId: "t1", externalId: "e1" }));
     const step = buildUnsafeProjectionUpsertStep({
       table: testTable,
       on: ["externalId"],
@@ -71,7 +71,7 @@ describe("buildUnsafeProjectionUpsertStep", () => {
 
 describe("unsafeProjectionUpsert run", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mock.restore();
   });
 
   it("throws when a conflict-key column does not exist on the table", async () => {

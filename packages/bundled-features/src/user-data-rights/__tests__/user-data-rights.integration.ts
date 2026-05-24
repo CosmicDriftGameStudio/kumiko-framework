@@ -7,7 +7,7 @@
 // Sprint-2-H1/H2-Hooks) kommt in S2.T1 (Cross-Data-Matrix).
 
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createUserFeature } from "../../user";

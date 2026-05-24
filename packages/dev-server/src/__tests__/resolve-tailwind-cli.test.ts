@@ -2,7 +2,7 @@
 // genau das, was den dev-server-Crash bei flakigem Netz verhindert:
 // kein Bun → undefined, Package nicht installiert → undefined.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { resolveTailwindCli } from "../resolve-tailwind-cli";
 
 describe("resolveTailwindCli", () => {

@@ -7,7 +7,7 @@
 //   /manifest.json, /sw.js  → no-cache
 //   alles andere            → kein expliziter Header
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { cacheHeadersFor } from "../run-prod-app";
 
 describe("cacheHeadersFor", () => {

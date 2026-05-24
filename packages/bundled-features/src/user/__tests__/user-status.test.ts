@@ -6,7 +6,7 @@
 // Tuple synchron mitwaechst, faengt der Test es ab — entity.fields.status
 // liefert die options-Liste.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { USER_STATUS, userEntity } from "../schema/user";
 
 describe("USER_STATUS — Drift-Guard (S2.D2.5 N1)", () => {

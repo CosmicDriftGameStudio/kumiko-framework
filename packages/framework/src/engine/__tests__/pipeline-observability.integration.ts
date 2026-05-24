@@ -13,7 +13,7 @@
 // every step inside a pipeline-form handler would be untraceable —
 // and we wouldn't notice until a prod incident lacks the breadcrumbs.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { createRecordingProvider, type RecordingProvider } from "../../testing";

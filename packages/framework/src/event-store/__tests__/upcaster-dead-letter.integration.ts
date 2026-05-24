@@ -6,7 +6,7 @@
 //   - die throw-Policy bleibt unverändert (Regression-Guard)
 //   - listDeadLetters filtert per eventType
 
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
 import { createTestDb, type TestDb } from "../../stack";
 import type { StoredEvent } from "../event-store";

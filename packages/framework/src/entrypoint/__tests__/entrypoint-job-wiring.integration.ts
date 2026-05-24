@@ -12,7 +12,7 @@
 // so a future refactor that drops the merge fails here instead of silently
 // regressing to the Welle-2.5 state.
 
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { createRegistry, defineFeature } from "../../engine";
 import { createArchivedStreamsTable, createEventsTable } from "../../event-store";

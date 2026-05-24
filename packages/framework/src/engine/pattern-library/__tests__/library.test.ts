@@ -7,7 +7,7 @@
 //      sample pattern (sanity check that entity-fields-editor points at
 //      `definition.fields`, not `fields`).
 
-import { describe, expect, expectTypeOf, test } from "vitest";
+import { describe, expect, expectTypeOf, test } from "bun:test";
 import {
   type FeaturePattern,
   type FeaturePatternKind,

@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseSourceFile, VERSION_HEADER } from "@cosmicdrift/kumiko-framework/engine";
 import { Project } from "ts-morph";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { scaffoldFeature } from "../scaffold-feature";
 
 let workdir: string;

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "bun:test";
 import { getStep } from "../define-step";
 import {
   SUSPEND_SENTINEL,
@@ -11,7 +11,7 @@ import { buildWaitStep } from "../steps/wait";
 import { buildWaitForEventStep } from "../steps/wait-for-event";
 import type { PipelineCtx } from "../types/step";
 
-const mockUnsafeAppendEvent = vi.fn();
+const mockUnsafeAppendEvent = mock();
 
 const workflowCtx = {
   unsafeAppendEvent: mockUnsafeAppendEvent,
@@ -46,7 +46,7 @@ describe("buildWaitStep", () => {
 
 describe("workflow.wait run", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mock.restore();
   });
 
   it("throws when used outside defineWorkflow (no ctx.workflow)", async () => {
@@ -108,7 +108,7 @@ describe("buildWaitForEventStep", () => {
 
 describe("workflow.waitForEvent run", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mock.restore();
   });
 
   it("throws when used outside defineWorkflow", async () => {
@@ -162,7 +162,7 @@ describe("buildRetryStep", () => {
 
 describe("workflow.retry run", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mock.restore();
   });
 
   it("throws when used outside defineWorkflow", async () => {

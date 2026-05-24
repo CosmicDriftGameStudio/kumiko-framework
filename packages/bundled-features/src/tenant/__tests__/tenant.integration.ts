@@ -10,7 +10,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes, rolesOf } from "@cosmicdrift/kumiko-framework/testing";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createConfigAccessor, createConfigFeature } from "../../config";
 import { ConfigHandlers, ConfigQueries } from "../../config/constants";
 import { type ConfigResolver, createConfigResolver } from "../../config/resolver";

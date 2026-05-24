@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 import type { SchemaTable } from "../../db/dialect";
 import { table, text } from "../../db/dialect";

@@ -7,7 +7,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createComplianceProfilesFeature, tenantComplianceProfileEntity } from "../feature";
 
 const SET_PROFILE = "compliance-profiles:write:set-profile";

@@ -29,7 +29,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { Hono } from "hono";
 import Stripe from "stripe";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createSubscriptionStripeFeature } from "../feature";
 
 // =============================================================================

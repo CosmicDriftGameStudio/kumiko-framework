@@ -25,7 +25,7 @@ import {
   createMutableMasterKeyProvider,
   type MutableMasterKeyProvider,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { createConfigFeature } from "../../config";
 import { ConfigHandlers } from "../../config/constants";

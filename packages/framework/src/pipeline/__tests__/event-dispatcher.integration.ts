@@ -13,7 +13,7 @@
 // production would take once ops wires CreateApp. No createEventDispatcher
 // calls in the test — only the registry round-trip.
 
-import { afterEach, beforeAll, describe, expect, test } from "vitest";
+import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { selectMany } from "../../bun-db/query";
 import { integer, table as pgTable, uuid } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";

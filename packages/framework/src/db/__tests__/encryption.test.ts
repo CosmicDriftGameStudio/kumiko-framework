@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { createEncryptionProvider } from "../encryption";
 
 // 32 bytes base64-encoded for AES-256

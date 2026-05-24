@@ -4,7 +4,7 @@
 // header, kumiko_tenant cookie, custom resolver) plus the rejection paths
 // (no tenant, unknown tenant, openToAll-protected).
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { asRawClient, selectMany } from "../bun-db/query";
 import { createEventStoreExecutor } from "../db/event-store-executor";

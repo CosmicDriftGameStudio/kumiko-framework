@@ -6,7 +6,7 @@
 
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { composeEnvSchema, KumikoBootError } from "@cosmicdrift/kumiko-framework/env";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { z } from "zod";
 import { frameworkCoreEnvSchema } from "../env-schema";
 import * as devServerPublicApi from "../index";

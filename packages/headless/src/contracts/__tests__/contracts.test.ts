@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "bun:test";
 import type {
   AssetResolver,
   ButtonProps,
@@ -51,7 +51,7 @@ describe("Asset / Locale / Primitives contracts", () => {
     expect(resolver.translate("errors.value.minimum", { min: 3 })).toBe("≥3");
     expect(resolver.locale()).toBe("de-AT");
 
-    const listener = vi.fn();
+    const listener = mock();
     const unsubscribe = resolver.subscribe(listener);
     for (const l of listeners) l();
     expect(listener).toHaveBeenCalledTimes(1);

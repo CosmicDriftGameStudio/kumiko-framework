@@ -6,7 +6,7 @@
 // Events are upcasted by the dispatcher, so the reducer sees the current
 // payload shape even for old v1 events.
 
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { insertOne } from "../../bun-db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { z } from "zod";
 import { defineFeature } from "../../engine/define-feature";
 import { camelCase, composeEnvSchema, KumikoBootError, parseEnv, pulumiConfigKey } from "../index";

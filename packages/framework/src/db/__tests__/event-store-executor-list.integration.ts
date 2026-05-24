@@ -4,7 +4,7 @@
 // items-create.integration im Showcase abgedeckt — nicht ausreichend
 // für Framework-Code der von jeder App genutzt wird.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "../../bun-db/query";
 import { createEntity, createNumberField, createTextField } from "../../engine";
 import { createEventsTable } from "../../event-store";

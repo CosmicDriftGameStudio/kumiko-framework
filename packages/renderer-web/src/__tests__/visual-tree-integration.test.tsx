@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 //
 // V.1.1-D Integration-Test — End-to-End-Beweis für die Schleife
 // `clientFeatures.treeProvider → useTreeProviders → VisualTree →
@@ -32,7 +31,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { useBrowserNavApi } from "../app/nav";
 import { TreeProvidersProvider } from "../app/tree-providers-context";
 import { setDispatchListener } from "../layout/target-resolver-stub";

@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "bun:test";
 import type { StoredEvent } from "../../event-store/event-store";
 import { setFields } from "../projection-helpers";
 import type { ProjectionTable } from "../types/projection";
@@ -36,8 +36,8 @@ function makeFakeEvent(overrides: Partial<StoredEvent> = {}): StoredEvent {
 // bun-db path: setFields calls updateMany(tx, table, set, where) which lands
 // on asRawClient(tx).unsafe(sqlText, params). Capture the SQL + params.
 function makeFakeTx() {
-  const unsafe = vi.fn(async (_sqlText: string, _params: unknown[]) => [] as unknown[]);
-  const fakeTx = { unsafe, begin: vi.fn() } as never;
+  const unsafe = mock(async (_sqlText: string, _params: unknown[]) => [] as unknown[]);
+  const fakeTx = { unsafe, begin: mock() } as never;
   return { fakeTx, unsafe };
 }
 

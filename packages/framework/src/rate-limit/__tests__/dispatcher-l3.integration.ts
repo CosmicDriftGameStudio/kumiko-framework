@@ -1,5 +1,5 @@
 import { defineFeature, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { createTestUser, setupTestStack, type TestStack, TestUsers } from "../../stack";
 

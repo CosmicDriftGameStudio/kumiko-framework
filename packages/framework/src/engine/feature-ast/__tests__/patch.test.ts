@@ -6,7 +6,7 @@
 // here narrows the cause to patch.ts itself.
 
 import { Project, type SourceFile } from "ts-morph";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { parseSourceFile } from "../parse";
 import { addPattern, applyChanges, type PatternId, removePattern, replacePattern } from "../patch";
 import { createFeaturePatcher } from "../patcher";

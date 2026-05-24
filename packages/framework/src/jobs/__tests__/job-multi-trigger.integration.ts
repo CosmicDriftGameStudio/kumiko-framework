@@ -7,7 +7,7 @@
 // einen echten BullMQ-Worker.
 
 import type { Hono } from "hono";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { buildServer, type JwtHelper } from "../../api";
 import { createRegistry, defineFeature, type SessionUser } from "../../engine";

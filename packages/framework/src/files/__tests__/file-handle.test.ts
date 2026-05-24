@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { createFileContext, createFileHandle, deriveKey } from "../file-handle";
 import { createInMemoryFileProvider } from "../in-memory-provider";
 

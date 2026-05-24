@@ -9,15 +9,15 @@
 // Soft-Warning (console.warn):
 //   - Feature ruft eigene exposesApi via usesApi (Refactor-Leftover)
 
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { validateBoot } from "../boot-validator";
 import { defineFeature } from "../define-feature";
 
 describe("validateBoot — r.exposesApi / r.usesApi", () => {
-  let warnSpy: ReturnType<typeof vi.spyOn>;
+  let warnSpy: ReturnType<typeof spyOn>;
 
   beforeEach(() => {
-    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    warnSpy = spyOn(console, "warn").mockImplementation(() => {});
   });
 
   afterEach(() => {

@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test, mock } from "bun:test";
 import { z } from "zod";
 import type { Dispatcher, WriteResult } from "../../dispatcher";
 import { createStore } from "../../store";
@@ -7,9 +7,9 @@ import { createFormController } from "../form-controller";
 // Fake dispatcher scoped to this test file — same shape as contract.test.ts
 // but with an explicit spy on write() so assertions can inspect argv.
 function makeDispatcher(response?: WriteResult): Dispatcher & {
-  readonly writeSpy: ReturnType<typeof vi.fn>;
+  readonly writeSpy: ReturnType<typeof mock>;
 } {
-  const writeSpy = vi.fn(
+  const writeSpy = mock(
     async () => response ?? ({ isSuccess: true, data: { id: "srv-1" } } as WriteResult),
   );
   return {
@@ -261,7 +261,7 @@ describe("createFormController — submit()", () => {
       resolve = r;
     });
     const disp: Dispatcher = {
-      write: vi.fn(async () => slow) as unknown as Dispatcher["write"],
+      write: mock(async () => slow) as unknown as Dispatcher["write"],
       async query<TData>() {
         return { isSuccess: true, data: null } as unknown as { isSuccess: true; data: TData };
       },

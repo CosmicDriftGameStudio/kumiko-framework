@@ -1,6 +1,6 @@
 // feature.ts contract tests for file-provider-s3.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { fileProviderS3Feature, S3_SECRET_ACCESS_KEY } from "../feature";
 
 describe("fileProviderS3Feature — shape", () => {
