@@ -73,8 +73,10 @@ const mspFeature = defineFeature("msptest", (r) => {
       },
       [refundIssued.name]: async (event, tx) => {
         const p = event.payload as { customer: string; cents: number };
+        // -$3 ohne cast wird vom planner als "unary minus on unknown type"
+        // mehrdeutig — wir casten $3 explizit auf integer.
         await asRawClient(tx).unsafe(
-          `INSERT INTO "read_msp_customer_balance" (customer, tenant_id, shipments, refunds, net_cents) VALUES ($1::uuid, $2::uuid, 0, 1, -$3) ON CONFLICT (customer) DO UPDATE SET refunds = read_msp_customer_balance.refunds + 1, net_cents = read_msp_customer_balance.net_cents - $3`,
+          `INSERT INTO "read_msp_customer_balance" (customer, tenant_id, shipments, refunds, net_cents) VALUES ($1::uuid, $2::uuid, 0, 1, -$3::integer) ON CONFLICT (customer) DO UPDATE SET refunds = read_msp_customer_balance.refunds + 1, net_cents = read_msp_customer_balance.net_cents - $3::integer`,
           [p.customer, event.tenantId, p.cents],
         );
       },
