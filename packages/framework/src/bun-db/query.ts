@@ -8,6 +8,9 @@
 //   insertOne<T>(db, table, values) → T | undefined
 //   updateMany<T>(db, table, set, where) → readonly T[]
 //   deleteMany(db, table, where) → void
+//   countWhere(db, table, where?) → number
+//   upsertByPk / upsertOnConflict / incrementCounter
+//   deleteManyBatched(db, table, where, { limit }) → { deleted, batches }
 //   transaction<T>(db, fn) → T
 //
 // `table` kann sein:
@@ -572,6 +575,264 @@ export async function deleteMany(db: AnyDb, table: TableLike, where: WhereObject
   let sqlText = `DELETE FROM ${quoteIdent(info.name)}`;
   if (w.sqlText) sqlText += ` WHERE ${w.sqlText}`;
   await asRawClient(db).unsafe(sqlText, w.values);
+}
+
+type InsertEntry = {
+  readonly field: string;
+  readonly col: string;
+  readonly prepared: PreparedValue;
+};
+
+function insertEntries(info: TableInfo, values: Record<string, unknown>): InsertEntry[] {
+  return Object.entries(values)
+    .filter(([k]) => info.hasColumn(k))
+    .map(([k, v]) => {
+      const col = info.columnOf(k);
+      return { field: k, col, prepared: prepareValue(v, info.pgTypeOf(col)) };
+    });
+}
+
+function isEntityTableMeta(table: unknown): table is EntityTableMeta {
+  return (
+    typeof table === "object" &&
+    table !== null &&
+    "source" in table &&
+    (table.source === "managed" || table.source === "unmanaged") &&
+    "columns" in table
+  );
+}
+
+function resolveConflictColumns(
+  table: TableLike,
+  info: TableInfo,
+  conflictKeys: readonly string[] | undefined,
+): readonly string[] {
+  if (conflictKeys !== undefined && conflictKeys.length > 0) {
+    return conflictKeys.map((field) => info.columnOf(field));
+  }
+  if (isEntityTableMeta(table)) {
+    const pks = table.columns.filter((c) => c.primaryKey).map((c) => c.name);
+    if (pks.length > 0) return pks;
+  }
+  if (info.hasColumn("id")) return [info.columnOf("id")];
+  throw new Error("upsert: cannot infer conflict keys — pass conflictKeys explicitly");
+}
+
+function buildInsertSql(
+  info: TableInfo,
+  entries: readonly InsertEntry[],
+): { sqlPrefix: string; params: unknown[] } {
+  if (entries.length === 0) throw new Error("insert: empty values object");
+  const cols = entries.map((e) => quoteIdent(e.col)).join(", ");
+  const params: unknown[] = [];
+  const placeholders = entries
+    .map((e) => {
+      if (e.prepared.kind === "literal") return e.prepared.literal;
+      params.push(e.prepared.bound);
+      return `$${params.length}${e.prepared.sql}`;
+    })
+    .join(", ");
+  const sqlPrefix = `INSERT INTO ${quoteIdent(info.name)} (${cols}) VALUES (${placeholders})`;
+  return { sqlPrefix, params };
+}
+
+export type UpsertOnConflictOptions = {
+  readonly conflictKeys: readonly string[];
+  /** Columns to set on conflict. Default: EXCLUDED for every inserted non-key column. */
+  readonly update?: Record<string, unknown>;
+};
+
+export type DeleteManyBatchedOptions = {
+  readonly limit: number;
+  readonly maxBatches?: number;
+  /** Row id field for the LIMIT subquery. Default `id`. */
+  readonly idColumn?: string;
+};
+
+export type DeleteManyBatchedResult = {
+  readonly deleted: number;
+  readonly batches: number;
+};
+
+export async function countWhere(
+  db: AnyDb,
+  table: TableLike,
+  where: WhereObject = {},
+): Promise<number> {
+  const info = extractTableInfo(table);
+  let sqlText = `SELECT COUNT(*)::int AS count FROM ${quoteIdent(info.name)}`;
+  let values: unknown[] = [];
+  if (Object.keys(where).length > 0) {
+    const w = buildWhereClause(info, where, 1);
+    sqlText += ` WHERE ${w.sqlText}`;
+    values = w.values;
+  }
+  const rows = (await asRawClient(db).unsafe(sqlText, values)) as readonly { count: number }[];
+  return rows[0]?.count ?? 0;
+}
+
+// biome-ignore lint/suspicious/noExplicitAny: see selectMany default
+export async function upsertOnConflict<TRow = any>(
+  db: AnyDb,
+  table: TableLike,
+  values: Record<string, unknown>,
+  options: UpsertOnConflictOptions,
+): Promise<TRow | undefined> {
+  const info = extractTableInfo(table);
+  const entries = insertEntries(info, values);
+  const conflictCols = resolveConflictColumns(table, info, options.conflictKeys);
+  const conflictSet = new Set(conflictCols);
+  const { sqlPrefix, params } = buildInsertSql(info, entries);
+  const tableQ = quoteIdent(info.name);
+
+  const updateParts: string[] = [];
+  let idx = params.length + 1;
+
+  if (options.update !== undefined) {
+    for (const [field, value] of Object.entries(options.update)) {
+      const col = info.columnOf(field);
+      const p = prepareValue(value, info.pgTypeOf(col));
+      if (p.kind === "literal") {
+        updateParts.push(`${quoteIdent(col)} = ${p.literal}`);
+      } else {
+        updateParts.push(`${quoteIdent(col)} = $${idx++}${p.sql}`);
+        params.push(p.bound);
+      }
+    }
+  } else {
+    for (const e of entries) {
+      if (conflictSet.has(e.col)) continue;
+      updateParts.push(`${quoteIdent(e.col)} = EXCLUDED.${quoteIdent(e.col)}`);
+    }
+  }
+
+  if (updateParts.length === 0) {
+    throw new Error("upsertOnConflict: nothing to update on conflict");
+  }
+
+  const conflictList = conflictCols.map((c) => quoteIdent(c)).join(", ");
+  const sqlText = `${sqlPrefix} ON CONFLICT (${conflictList}) DO UPDATE SET ${updateParts.join(", ")} RETURNING *`;
+  const rows = (await asRawClient(db).unsafe(sqlText, params)) as readonly Record<string, unknown>[];
+  const first = rows[0];
+  if (!first) return undefined;
+  return coerceRow(first, info) as TRow;
+}
+
+// biome-ignore lint/suspicious/noExplicitAny: see selectMany default
+export async function upsertByPk<TRow = any>(
+  db: AnyDb,
+  table: TableLike,
+  values: Record<string, unknown>,
+  updateOnConflict?: Record<string, unknown>,
+): Promise<TRow | undefined> {
+  const info = extractTableInfo(table);
+  const conflictKeys = resolveConflictColumns(table, info, undefined);
+  const fieldKeys = conflictKeys.map((col) => info.fieldOf(col));
+  return upsertOnConflict<TRow>(db, table, values, {
+    conflictKeys: fieldKeys,
+    ...(updateOnConflict !== undefined ? { update: updateOnConflict } : {}),
+  });
+}
+
+export type IncrementCounterOptions = {
+  readonly conflictKeys?: readonly string[];
+  /** Extra SET clauses on conflict (e.g. lastUpdatedAt: sql\`NOW()\`). */
+  readonly set?: Record<string, unknown>;
+};
+
+// biome-ignore lint/suspicious/noExplicitAny: see selectMany default
+export async function incrementCounter<TRow = any>(
+  db: AnyDb,
+  table: TableLike,
+  values: Record<string, unknown>,
+  increments: Record<string, number>,
+  options: IncrementCounterOptions = {},
+): Promise<TRow | undefined> {
+  const info = extractTableInfo(table);
+  const entries = insertEntries(info, values);
+  const conflictCols = resolveConflictColumns(table, info, options.conflictKeys);
+  const conflictSet = new Set(conflictCols);
+  const { sqlPrefix, params } = buildInsertSql(info, entries);
+  const tableQ = quoteIdent(info.name);
+
+  const updateParts: string[] = [];
+  let idx = params.length + 1;
+
+  for (const [field, delta] of Object.entries(increments)) {
+    const col = info.columnOf(field);
+    updateParts.push(`${quoteIdent(col)} = ${tableQ}.${quoteIdent(col)} + $${idx++}`);
+    params.push(delta);
+  }
+
+  if (options.set !== undefined) {
+    for (const [field, value] of Object.entries(options.set)) {
+      const col = info.columnOf(field);
+      const p = prepareValue(value, info.pgTypeOf(col));
+      if (p.kind === "literal") {
+        updateParts.push(`${quoteIdent(col)} = ${p.literal}`);
+      } else {
+        updateParts.push(`${quoteIdent(col)} = $${idx++}${p.sql}`);
+        params.push(p.bound);
+      }
+    }
+  }
+
+  for (const e of entries) {
+    if (conflictSet.has(e.col)) continue;
+    if (Object.hasOwn(increments, e.field)) continue;
+    if (options.set !== undefined && Object.hasOwn(options.set, e.field)) continue;
+    updateParts.push(`${quoteIdent(e.col)} = EXCLUDED.${quoteIdent(e.col)}`);
+  }
+
+  if (updateParts.length === 0) {
+    throw new Error("incrementCounter: nothing to update on conflict");
+  }
+
+  const conflictList = conflictCols.map((c) => quoteIdent(c)).join(", ");
+  const sqlText = `${sqlPrefix} ON CONFLICT (${conflictList}) DO UPDATE SET ${updateParts.join(", ")} RETURNING *`;
+  const rows = (await asRawClient(db).unsafe(sqlText, params)) as readonly Record<string, unknown>[];
+  const first = rows[0];
+  if (!first) return undefined;
+  return coerceRow(first, info) as TRow;
+}
+
+export async function deleteManyBatched(
+  db: AnyDb,
+  table: TableLike,
+  where: WhereObject,
+  options: DeleteManyBatchedOptions,
+): Promise<DeleteManyBatchedResult> {
+  const info = extractTableInfo(table);
+  const w = buildWhereClause(info, where, 1);
+  if (!w.sqlText) {
+    throw new Error("deleteManyBatched: where clause required — refusing unbounded batch delete");
+  }
+  const limit = options.limit;
+  if (!Number.isFinite(limit) || limit <= 0) {
+    throw new Error("deleteManyBatched: limit must be a positive number");
+  }
+  const idField = options.idColumn ?? "id";
+  const idCol = info.columnOf(idField);
+  const tableQ = quoteIdent(info.name);
+  const idQ = quoteIdent(idCol);
+  const maxBatches = options.maxBatches ?? Number.POSITIVE_INFINITY;
+
+  let deleted = 0;
+  let batches = 0;
+
+  while (batches < maxBatches) {
+    const limitIdx = w.values.length + 1;
+    const params = [...w.values, limit];
+    const sqlText = `DELETE FROM ${tableQ} WHERE ${idQ} IN (
+      SELECT ${idQ} FROM ${tableQ} WHERE ${w.sqlText} LIMIT $${limitIdx}
+    ) RETURNING ${idQ}`;
+    const rows = (await asRawClient(db).unsafe(sqlText, params)) as readonly unknown[];
+    batches++;
+    deleted += rows.length;
+    if (rows.length < limit) break;
+  }
+
+  return { deleted, batches };
 }
 
 export async function transaction<T>(db: AnyDb, fn: (tx: BunDbRunner) => Promise<T>): Promise<T> {

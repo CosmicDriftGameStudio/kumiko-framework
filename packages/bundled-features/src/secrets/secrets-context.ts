@@ -12,7 +12,8 @@
 //           read logged") now sits on the events-table instead of a
 //           dedicated audit-table.
 
-import { asRawClient, fetchOne, transaction } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne, transaction } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectTenantSecretEnvelope } from "./db/queries/read";
 import {
   createEventStoreExecutor,
   createTenantDb,
@@ -139,13 +140,8 @@ export function createSecretsContext(opts: SecretsContextOptions): SecretsContex
       const plaintext = await transaction(db, async (tx) => {
         // Inline select inside the TX via raw client — fetchOne's connection
         // type doesn't widen to the transaction object cleanly.
-        const rows = await asRawClient(tx).unsafe<{ envelope: StoredEnvelope }>(
-          `SELECT envelope FROM read_tenant_secrets WHERE tenant_id = $1 AND key = $2 LIMIT 1`,
-          [tenantId, key],
-        );
-        const [row] = rows;
-        if (!row) return undefined;
-        const envelope = row.envelope;
+        const envelope = await selectTenantSecretEnvelope(tx, tenantId, key);
+        if (!envelope) return undefined;
         const pt = await decryptValue(decodeEnvelope(envelope), provider);
 
         // One event per read on its own aggregate-stream (fresh UUID as

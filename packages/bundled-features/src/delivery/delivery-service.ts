@@ -1,5 +1,5 @@
 import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectNotificationPreferences } from "./db/queries/preferences";
 import type { DbConnection, DbRow } from "@cosmicdrift/kumiko-framework/db";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { NotifyPriority, Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
@@ -226,22 +226,12 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     notificationType: string,
     channelName: string,
   ): Promise<boolean> {
-    type PrefRow = {
-      readonly notificationType: string;
-      readonly channel: string;
-      readonly enabled: boolean;
-    };
-    const prefs = await asRawClient(db).unsafe<PrefRow>(
-      `SELECT notification_type AS "notificationType", channel, enabled
-       FROM read_notification_preferences
-       WHERE tenant_id = $1
-         AND user_id = $2
-         AND (
-           (notification_type = $3 AND channel = $4)
-           OR (notification_type = '*' AND channel = $4)
-           OR (notification_type = $3 AND channel = '*')
-         )`,
-      [tenantId, userId, notificationType, channelName],
+    const prefs = await selectNotificationPreferences(
+      db,
+      tenantId,
+      userId,
+      notificationType,
+      channelName,
     );
 
     if (prefs.length === 0) return true;

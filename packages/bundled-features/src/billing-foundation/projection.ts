@@ -14,8 +14,9 @@
 // `drizzle/generate.ts` ergänzen (= via subscriptionsProjectionTable-
 // import). setupTestStack pusht sie automatisch via r.projection.table.
 
-import { asRawClient, buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { defineApply } from "@cosmicdrift/kumiko-framework/engine";
+import { upsertSubscriptionProjectionRow } from "./db/queries/subscription-projection";
 import { subscriptionEntity } from "./entities";
 import type { SubscriptionEventPayload } from "./events";
 
@@ -81,9 +82,7 @@ async function upsert(
     tier: "tier",
     currentPeriodEnd: "current_period_end",
   };
-  const insertKeys = Object.keys(insertCols);
   const insertParams = Object.values(insertCols);
-  const insertPlaceholders = insertKeys.map((_, i) => `$${i + 1}`);
   const setEntries = Object.entries(set).filter(([, v]) => v !== undefined);
   const setClauses: string[] = [];
   const allParams: unknown[] = [...insertParams];
@@ -91,8 +90,8 @@ async function upsert(
     allParams.push(v);
     setClauses.push(`"${setMap[k as keyof typeof set]}" = $${allParams.length}`);
   }
-  const sqlText = `INSERT INTO "${(subscriptionsProjectionTable as { tableName: string }).tableName}" (${insertKeys.map((k) => `"${k}"`).join(", ")}) VALUES (${insertPlaceholders.join(", ")}) ON CONFLICT ("id") DO UPDATE SET ${setClauses.join(", ")}`;
-  await asRawClient(tx).unsafe(sqlText, allParams);
+  const tableName = (subscriptionsProjectionTable as { tableName: string }).tableName;
+  await upsertSubscriptionProjectionRow(tx, tableName, insertCols, setClauses, allParams);
 }
 
 // =============================================================================

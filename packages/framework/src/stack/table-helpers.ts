@@ -1,7 +1,12 @@
 import type { DbConnection } from "../db/connection";
 import { pgTypeToSqlType } from "../db/dialect";
 import type { ColumnMeta, EntityTableMeta } from "../db/entity-table-meta";
-import { asRawClient } from "../db/query";
+import {
+  alterTableAddColumn,
+  createIndexIfNotExists,
+  executeDdlStatement,
+  truncateTablesRestartIdentity,
+} from "../db/queries/test-stack";
 import { renderTableDdl } from "../db/render-ddl";
 import { tableExists } from "../db/schema-inspection";
 import { buildEntityTable, toTableName } from "../db/table-builder";
@@ -47,8 +52,7 @@ export async function unsafeEnsureEntityTable(
 
 // Tables produced by the native dialect already carry EntityTableMeta-shape
 // (source/columns/indexes). renderTableDdl converts that to CREATE TABLE +
-// CREATE INDEX statements which we execute via asRawClient. No drizzle-kit
-// roundtrip needed.
+// CREATE INDEX statements executed via db/queries/test-stack.
 function tableToMeta(table: unknown): EntityTableMeta {
   if (
     typeof table === "object" &&
@@ -66,7 +70,7 @@ function tableToMeta(table: unknown): EntityTableMeta {
 /**
  * Bypass: pushes table definitions to the database directly. Produces
  * CREATE TABLE IF NOT EXISTS + CREATE INDEX statements via renderTableDdl
- * and executes them via the raw client. Idempotent re-runs are safe.
+ * and executes them via db/queries/test-stack. Idempotent re-runs are safe.
  *
  * Reserved for framework-internal meta-tables + test setup. App-defined
  * entities go through `kumiko schema apply` (committed SQL files).
@@ -76,7 +80,6 @@ export async function unsafePushTables(
   tables: Record<string, unknown>,
   prevTables?: Record<string, unknown>,
 ): Promise<void> {
-  const raw = asRawClient(db);
   const prevMetas = new Map<string, EntityTableMeta>();
   if (prevTables) {
     for (const [key, table] of Object.entries(prevTables)) {
@@ -90,34 +93,34 @@ export async function unsafePushTables(
     const prev = prevMetas.get(key);
 
     if (prev) {
-      // Migration: ADD COLUMN for new fields
       const prevCols = new Set(prev.columns.map((c) => c.name));
       for (const col of meta.columns) {
         if (!prevCols.has(col.name)) {
           const type = renderColumnType(col);
           const notNull = col.notNull && !col.primaryKey ? " NOT NULL" : "";
           const defaultClause = col.defaultSql !== undefined ? ` DEFAULT ${col.defaultSql}` : "";
-          await raw.unsafe(
-            `ALTER TABLE "${meta.tableName}" ADD COLUMN "${col.name}" ${type}${defaultClause}${notNull}`,
+          await alterTableAddColumn(
+            db,
+            meta.tableName,
+            col.name,
+            type,
+            defaultClause,
+            notNull,
           );
         }
       }
-      // Migration: new indexes
       const prevIdxNames = new Set(prev.indexes.map((i) => i.name));
       for (const idx of meta.indexes) {
         if (!prevIdxNames.has(idx.name)) {
           const kind = idx.unique ? "UNIQUE INDEX" : "INDEX";
           const colList = idx.columns.map((c) => `"${c}"`).join(", ");
-          await raw.unsafe(
-            `CREATE ${kind} IF NOT EXISTS "${idx.name}" ON "${meta.tableName}" (${colList})`,
-          );
+          await createIndexIfNotExists(db, kind, idx.name, meta.tableName, colList);
         }
       }
     } else {
-      // First push: full CREATE TABLE
       const statements = renderTableDdl(meta);
       for (const stmt of statements) {
-        await raw.unsafe(stmt);
+        await executeDdlStatement(db, stmt);
       }
     }
   }
@@ -145,8 +148,7 @@ export async function resetEventStore(
     "kumiko_projections",
   ];
   const extraNames = extraTables.map((t) => (typeof t === "string" ? t : tableNameOf(t)));
-  const allTables = [...frameworkTables, ...extraNames];
-  await asRawClient(stack.db).unsafe(`TRUNCATE ${allTables.join(", ")} RESTART IDENTITY CASCADE`);
+  await truncateTablesRestartIdentity(stack.db, [...frameworkTables, ...extraNames]);
   if (stack.eventDispatcher) {
     await stack.eventDispatcher.ensureRegistered();
   }

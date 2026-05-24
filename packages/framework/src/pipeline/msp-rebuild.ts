@@ -1,5 +1,12 @@
 import type { DbConnection, DbRunner, DbTx } from "../db/connection";
-import { asRawClient, selectMany } from "../db/query";
+import {
+  markConsumerRebuildFailed,
+  resetConsumerForMspRebuild,
+  selectConsumerForUpdate,
+  updateConsumerRebuildCursor,
+} from "../db/queries/event-consumer";
+import { truncateTable } from "../db/queries/table-ops";
+import { selectMany } from "../db/query";
 import type { Registry, TenantId } from "../engine/types";
 import { InternalError } from "../errors";
 import { eventsTable, type StoredEvent, upcastStoredEvent } from "../event-store";
@@ -102,35 +109,12 @@ export async function rebuildMultiStreamProjection(
 
   try {
     await db.begin(async (tx: DbTx) => {
-      const rawTx = asRawClient(tx);
-      // Upsert + lock the consumer row. Rebuild always targets the
-      // SHARED-delivery shard: per-instance MSPs are side-effect-only (no
-      // table, so the guard above refuses them anyway), and rebuild's
-      // purpose is to rematerialize one persistent read-model, not fan
-      // out a local cache reset across instances. The FOR UPDATE on the
-      // next SELECT is what blocks concurrent rebuilds of the same MSP;
-      // live dispatcher passes use SKIP LOCKED on this row and will bail
-      // silently while we hold it.
-      await rawTx.unsafe(
-        `INSERT INTO "kumiko_event_consumers" ("name", "instance_id", "last_processed_event_id", "status")
-         VALUES ($1, $2, 0, 'idle')
-         ON CONFLICT ("name", "instance_id") DO UPDATE SET
-           "last_processed_event_id" = 0,
-           "status" = 'idle',
-           "attempts" = 0,
-           "last_error" = NULL,
-           "updated_at" = now()`,
-        [mspName, SHARED_INSTANCE_SENTINEL],
-      );
-      await rawTx.unsafe(
-        `SELECT * FROM "kumiko_event_consumers" WHERE "name" = $1 AND "instance_id" = $2 FOR UPDATE`,
-        [mspName, SHARED_INSTANCE_SENTINEL],
-      );
+      await resetConsumerForMspRebuild(tx, mspName, SHARED_INSTANCE_SENTINEL);
+      await selectConsumerForUpdate(tx, mspName, SHARED_INSTANCE_SENTINEL);
 
-      // msp.table is narrowed by the upfront guard.
       const mspTable = msp.table as NonNullable<typeof msp.table>;
       const tableName = getTableName(mspTable);
-      await rawTx.unsafe(`TRUNCATE TABLE ${quoteIdent(tableName)}`);
+      await truncateTable(tx, tableName);
 
       const subscribedTypes = Object.keys(msp.apply);
       if (subscribedTypes.length > 0) {
@@ -182,24 +166,16 @@ export async function rebuildMultiStreamProjection(
         }
       }
 
-      await rawTx.unsafe(
-        `UPDATE "kumiko_event_consumers" SET
-           "last_processed_event_id" = $1,
-           "status" = 'idle',
-           "attempts" = 0,
-           "last_error" = NULL,
-           "updated_at" = now()
-         WHERE "name" = $2 AND "instance_id" = $3`,
-        [lastProcessedEventId, mspName, SHARED_INSTANCE_SENTINEL],
+      await updateConsumerRebuildCursor(
+        tx,
+        mspName,
+        SHARED_INSTANCE_SENTINEL,
+        lastProcessedEventId,
       );
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    await asRawClient(db).unsafe(
-      `UPDATE "kumiko_event_consumers" SET "status" = 'dead', "last_error" = $1, "updated_at" = now()
-       WHERE "name" = $2 AND "instance_id" = $3`,
-      [message, mspName, SHARED_INSTANCE_SENTINEL],
-    );
+    await markConsumerRebuildFailed(db, mspName, SHARED_INSTANCE_SENTINEL, message);
     if (deps.meter) {
       emitProjectionRebuild(
         deps.meter,
@@ -227,10 +203,6 @@ export async function rebuildMultiStreamProjection(
   }
   deps.onMetrics?.(result);
   return result;
-}
-
-function quoteIdent(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
 }
 
 const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");

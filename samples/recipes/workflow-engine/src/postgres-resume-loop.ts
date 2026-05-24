@@ -16,6 +16,7 @@ import {
   WORKFLOW_WAITING_TYPE,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { SuspendableRun } from "./resume-loop";
+import { selectExpiredSuspensionEvents } from "./db/queries/suspended-runs";
 
 export type WorkflowRegistry = ReadonlyMap<string, WorkflowDefinition>;
 
@@ -42,14 +43,7 @@ export function createSuspendedRunFetcher(
   workflowRegistry: WorkflowRegistry,
 ): () => Promise<SuspendableRun[]> {
   return async () => {
-    const { asRawClient } = await import("@cosmicdrift/kumiko-framework/db");
-
-    const rows = (await asRawClient(db).unsafe(
-      `SELECT * FROM kumiko_events
-       WHERE "type" = ANY($1)
-       AND (("payload"->>'wakeAt')::timestamptz < now() OR ("payload"->>'timeoutAt')::timestamptz < now())`,
-      [SUSPEND_EVENT_TYPES as unknown as string[]],
-    )) as Record<string, unknown>[];
+    const rows = await selectExpiredSuspensionEvents(db, SUSPEND_EVENT_TYPES);
 
     const results: SuspendableRun[] = [];
 

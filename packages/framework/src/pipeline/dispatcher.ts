@@ -1,6 +1,7 @@
 import { requestContext } from "../api/request-context";
 import type { DbConnection, DbRow, DbTx } from "../db/connection";
-import { asRawClient, selectMany } from "../db/query";
+import { selectRowForUpdateById } from "../db/queries/entity-read";
+import { selectMany, transaction } from "../db/query";
 import { buildEntityTable, toSnakeCase } from "../db/table-builder";
 import { createTenantDb } from "../db/tenant-db";
 import { hasAccess } from "../engine/access";
@@ -1113,11 +1114,11 @@ export function createDispatcher(
           // can false-pass; optimistic locking would catch it later, but with
           // a less specific error. Falls back to a plain SELECT if no tx is
           // active (tests without a DB connection).
+          const tableName = String(
+            (table as { [key: symbol]: unknown })[Symbol.for("kumiko:schema:Name")],
+          );
           const rows = tx
-            ? ((await asRawClient(handlerContext.db).unsafe(
-                `SELECT * FROM "${(table as { [key: symbol]: unknown })[Symbol.for("kumiko:schema:Name")]}" WHERE "id" = $1 FOR UPDATE`,
-                [id],
-              )) as readonly unknown[])
+            ? await selectRowForUpdateById(handlerContext.db, tableName, id)
             : await selectMany(handlerContext.db, table, { id });
           const row = rows[0];
 
@@ -1304,7 +1305,7 @@ export function createDispatcher(
     }
 
     try {
-      await asRawClient(db).begin(async (tx) => {
+      await transaction(db, async (tx) => {
         for (let i = 0; i < commands.length; i++) {
           const cmd = commands[i];
           if (!cmd) continue;

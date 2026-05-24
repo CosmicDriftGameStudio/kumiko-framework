@@ -44,7 +44,8 @@
 // (`expiresAt + exportStorageCleanupGraceHours < now`) — abgelaufene ZIPs
 // auf S3 sollen nicht ewig liegen.
 
-import { asRawClient, fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectExportJobsForStorageCleanup } from "./db/queries/export-jobs";
 import { addDurationSpec } from "@cosmicdrift/kumiko-framework/compliance";
 import type { DbConnection, DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
@@ -599,16 +600,10 @@ async function storageCleanupPass(args: {
   // done-jobs nach 30 Tagen) reduziert das den Worker-Roundtrip drastisch.
   //
   // or() + isNotNull(): no bun-db helper covers this combination — raw SQL.
-  const candidates = await asRawClient(db).unsafe<{
-    id: string;
-    version: number;
-    status: string;
-    requestedFromTenantId: TenantId;
-    downloadStorageKey: string | null;
-    expiresAt: Instant | null;
-  }>(
-    `SELECT id, version, status, requested_from_tenant_id AS "requestedFromTenantId", download_storage_key AS "downloadStorageKey", expires_at AS "expiresAt" FROM read_export_jobs WHERE status IN ($1, $2) AND download_storage_key IS NOT NULL`,
-    [EXPORT_JOB_STATUS.Done, EXPORT_JOB_STATUS.Failed],
+  const candidates = await selectExportJobsForStorageCleanup(
+    db,
+    EXPORT_JOB_STATUS.Done,
+    EXPORT_JOB_STATUS.Failed,
   );
 
   const cleaned: string[] = [];

@@ -13,6 +13,7 @@
 
 import type Redis from "ioredis";
 import type { DbConnection } from "../db/connection";
+import { pingDatabase } from "../db/queries/raw-sql";
 import { getAllConsumerProgress } from "../pipeline/event-dispatcher";
 
 export type ReadinessCheck = {
@@ -89,10 +90,7 @@ export function dbPingCheck(db: DbConnection): ReadinessCheck {
   return {
     name: "db",
     run: async () => {
-      const dbAny = db as unknown as { $client?: { unsafe: (s: string) => Promise<unknown> } };
-      const client = dbAny.$client;
-      if (client) await client.unsafe("SELECT 1");
-      else await (db as unknown as { unsafe: (s: string) => Promise<unknown> }).unsafe("SELECT 1");
+      await pingDatabase(db);
     },
   };
 }

@@ -20,7 +20,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { DbConnection } from "../db/connection";
-import { asRawClient } from "../db/query";
+import type { DbConnection } from "../db/connection";
+import { selectAppliedMigrations, selectPublicTableColumns } from "../db/queries/schema-drift";
 import { tableExists } from "../db/schema-inspection";
 import { parseJsonOrThrow } from "../utils/safe-json";
 
@@ -125,12 +126,10 @@ export async function loadAppliedMigrations(db: DbConnection): Promise<AppliedMi
     ? false
     : await tableExists(db, "public.__drizzle_migrations");
   if (!drizzleSchemaExists && !publicSchemaExists) return [];
-  const tableRef = drizzleSchemaExists
-    ? `drizzle.__drizzle_migrations`
-    : `public.__drizzle_migrations`;
-  const rows = (await asRawClient(db).unsafe(
-    `SELECT hash, created_at FROM ${tableRef} ORDER BY id`,
-  )) as ReadonlyArray<{ hash: string; created_at: bigint | number | null }>;
+  const rows = await selectAppliedMigrations(
+    db,
+    drizzleSchemaExists ? "drizzle.__drizzle_migrations" : "public.__drizzle_migrations",
+  );
   return rows.map((r) => ({
     hash: r.hash,
     createdAt: typeof r.created_at === "bigint" ? Number(r.created_at) : (r.created_at ?? 0),
@@ -138,12 +137,6 @@ export async function loadAppliedMigrations(db: DbConnection): Promise<AppliedMi
 }
 
 // --- Column-Diff (Welle 2 Boot-Gate Layer 3) ---
-
-type DbColumnRow = {
-  readonly column_name: string;
-  readonly data_type: string;
-  readonly is_nullable: "YES" | "NO";
-};
 
 /** Liest information_schema.columns für eine Tabelle im public-Schema.
  *  Map by column_name. Default-Werte werden bewusst ausgelassen — die
@@ -154,12 +147,7 @@ async function loadDbColumns(
   db: DbConnection,
   tableName: string,
 ): Promise<ReadonlyMap<string, { type: string; notNull: boolean }>> {
-  const rows = (await asRawClient(db).unsafe(
-    `SELECT column_name, data_type, is_nullable
-     FROM information_schema.columns
-     WHERE table_schema = 'public' AND table_name = $1`,
-    [tableName],
-  )) as ReadonlyArray<DbColumnRow>;
+  const rows = await selectPublicTableColumns(db, tableName);
   const map = new Map<string, { type: string; notNull: boolean }>();
   for (const r of rows) {
     map.set(r.column_name, {

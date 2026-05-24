@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import {
-  asRawClient,
   deleteMany,
   selectMany,
   updateMany,
@@ -15,7 +14,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createLateBoundHolder } from "@cosmicdrift/kumiko-framework/testing";
+import { createLateBoundHolder, resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import { Temporal } from "temporal-polyfill";
 import { AuthHandlers } from "../../auth-email-password/constants";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
@@ -80,9 +79,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userSessionTable.tableName}"`);
+  await resetTestTables(stack.db, [userTable, tenantMembershipsTable, userSessionTable]);
 });
 
 describe("sessions feature — login → check → revoke → rejected", () => {

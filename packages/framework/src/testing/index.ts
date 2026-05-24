@@ -20,6 +20,7 @@ export {
   getSetCookieValue,
   type ParsedSetCookie,
 } from "./http-cookies";
+export { clearTables, resetTestTables, type ClearableTable } from "./db-cleanup";
 export { createLateBoundHolder, type LateBoundHolder } from "./late-bound";
 export { buildMultipartBody, patchFileInstanceofForBunTest } from "./multipart-helper";
 export {

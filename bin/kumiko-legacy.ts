@@ -209,6 +209,17 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   steps.push({ name: "Predicate Extraction Check", cmd: "bunx kumiko-check-predicates" });
   steps.push({ name: "as-Cast Audit", cmd: "bunx kumiko-check-as-casts" });
   steps.push({ name: "Table-DDL Guard", cmd: "bunx kumiko-guard-table-ddl" });
+  const frameworkRepoRoot = resolvePath(import.meta.dir, "..");
+  const rawSqlGuard = join(REPO_ROOT, "infra/guards/guard-raw-sql.ts");
+  const sqlInventoryScript = join(frameworkRepoRoot, "scripts/sql-inventory.ts");
+  steps.push({
+    name: "Raw-SQL Guard",
+    cmd: existsSync(rawSqlGuard)
+      ? `bun ${rawSqlGuard}`
+      : existsSync(sqlInventoryScript)
+        ? `cd ${frameworkRepoRoot} && bun scripts/sql-inventory.ts --compare-baseline`
+        : "bunx kumiko-guard-raw-sql",
+  });
   steps.push({ name: "License Check", cmd: "bunx kumiko-check-licenses" });
 
   return steps;
