@@ -26,7 +26,7 @@ export type DbConnection = {
   close: () => Promise<void>;
 };
 
-let _provider: undefined | (() => Promise<typeof import("./postgres-provider")>);
+import { createPgConnection } from "./postgres-provider";
 
 export async function createConnection(
   url: string,
@@ -37,7 +37,5 @@ export async function createConnection(
     const { createBunConnection } = await import("./bun-provider");
     return createBunConnection(url, options);
   }
-  // postgres-js: sync, kein async import nötig
-  const { createPgConnection } = await import("./postgres-provider");
   return createPgConnection(url, options);
 }
