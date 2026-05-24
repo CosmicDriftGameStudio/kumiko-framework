@@ -15,8 +15,8 @@ import {
   WORKFLOW_WAITING_FOR_EVENT_TYPE,
   WORKFLOW_WAITING_TYPE,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { SuspendableRun } from "./resume-loop";
 import { selectExpiredSuspensionEvents } from "./db/queries/suspended-runs";
+import type { SuspendableRun } from "./resume-loop";
 
 export type WorkflowRegistry = ReadonlyMap<string, WorkflowDefinition>;
 

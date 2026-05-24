@@ -3,11 +3,7 @@
 // postgres-js = default. DB_PROVIDER=bun = Bun.SQL (experimentell).
 
 import { createConnection } from "../db/api";
-import {
-  createDatabase,
-  databaseExists,
-  dropDatabaseIfExists,
-} from "../db/queries/test-stack";
+import { createDatabase, databaseExists, dropDatabaseIfExists } from "../db/queries/test-stack";
 import { ensureTemporalPolyfill } from "../time/polyfill";
 import { generateId } from "../utils";
 

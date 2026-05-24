@@ -2,9 +2,16 @@
  * Raw-SQL inventory — shared allowlist for `kumiko sql-inventory` and
  * `guard-raw-sql` (Phase 5). Scans TypeScript sources for escape-hatch patterns.
  *
- * Bun-only I/O: Bun.Glob + Bun.file (no node:fs).
+ * Bun-only I/O: Bun.Glob + Bun.file (no node:fs, no node:path).
  */
-import { join } from "path";
+
+/** POSIX path join without Node path module. */
+export function joinPath(base: string, ...segments: string[]): string {
+  return [base, ...segments]
+    .join("/")
+    .replace(/\/+/g, "/")
+    .replace(/\/\.\//g, "/");
+}
 
 export type SqlInventoryKind = "unsafe" | "asRawClient" | "delete_from" | "execute";
 
@@ -94,12 +101,12 @@ function directoryExists(path: string): boolean {
 async function collectTsFiles(repoRoot: string): Promise<string[]> {
   const out: string[] = [];
   for (const sub of SCAN_DIRS) {
-    const cwd = join(repoRoot, sub);
+    const cwd = joinPath(repoRoot, sub);
     if (!directoryExists(cwd)) continue;
     for await (const rel of TS_GLOB.scan({ cwd, onlyFiles: true })) {
       const normalized = rel.replace(/\0/g, "");
       if (!normalized || shouldSkipRelativePath(normalized)) continue;
-      out.push(join(sub, normalized));
+      out.push(joinPath(sub, normalized));
     }
   }
   return out;
@@ -136,7 +143,7 @@ export async function scanRepo(repoRoot: string): Promise<SqlInventoryReport> {
   const hits: SqlInventoryHit[] = [];
 
   for (const rel of relFiles) {
-    const abs = join(repoRoot, rel);
+    const abs = joinPath(repoRoot, rel);
     const text = await Bun.file(abs).text();
     scanFileText(rel, text, hits);
   }

@@ -128,13 +128,7 @@ export async function upsertSnapshot(db: AnyDb, params: SaveSnapshotParams): Pro
        "state" = $5::jsonb,
        "aggregate_type" = $3,
        "created_at" = now()`,
-    [
-      params.aggregateId,
-      params.tenantId,
-      params.aggregateType,
-      params.version,
-      params.stateJson,
-    ],
+    [params.aggregateId, params.tenantId, params.aggregateType, params.version, params.stateJson],
   );
 }
 
@@ -156,12 +150,6 @@ export async function upsertArchivedStream(db: AnyDb, params: ArchiveStreamParam
        "archived_by" = $4,
        "aggregate_type" = $3,
        "reason" = $5`,
-    [
-      params.tenantId,
-      params.aggregateId,
-      params.aggregateType,
-      params.archivedBy,
-      params.reason,
-    ],
+    [params.tenantId, params.aggregateId, params.aggregateType, params.archivedBy, params.reason],
   );
 }

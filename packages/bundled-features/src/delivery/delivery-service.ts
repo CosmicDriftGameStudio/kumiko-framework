@@ -1,5 +1,4 @@
 import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
-import { selectNotificationPreferences } from "./db/queries/preferences";
 import type { DbConnection, DbRow } from "@cosmicdrift/kumiko-framework/db";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { NotifyPriority, Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
@@ -10,6 +9,7 @@ import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing/handler-contex
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import type { Redis } from "ioredis";
 import { DELIVERY_ATTEMPT_EVENT } from "./constants";
+import { selectNotificationPreferences } from "./db/queries/preferences";
 import { deliveryAttemptSchema } from "./events";
 import type {
   ChannelContext,

@@ -1,6 +1,5 @@
 import { fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
-import { anonymizeDeletedUser } from "../db/queries/user-hook";
 import {
   USER_ANONYMIZED_DISPLAY_NAME,
   USER_ANONYMIZED_EMAIL_DOMAIN,
@@ -10,6 +9,7 @@ import {
   USER_STATUS,
   userTable,
 } from "../../user";
+import { anonymizeDeletedUser } from "../db/queries/user-hook";
 
 // userData-Hook fuer user-entity (S2.H1).
 //

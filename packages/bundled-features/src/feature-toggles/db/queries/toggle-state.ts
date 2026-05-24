@@ -1,5 +1,6 @@
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import type { Temporal } from "temporal-polyfill";
 
 export async function updateFeatureToggleOptimistic(
   db: DbRunner,

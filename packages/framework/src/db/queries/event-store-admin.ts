@@ -14,7 +14,10 @@ export type RawFirstEventInsertParams = {
   readonly createdBy: string;
 };
 
-export async function insertRawFirstEvent(db: AnyDb, params: RawFirstEventInsertParams): Promise<void> {
+export async function insertRawFirstEvent(
+  db: AnyDb,
+  params: RawFirstEventInsertParams,
+): Promise<void> {
   await asRawClient(db).unsafe(
     `INSERT INTO "kumiko_events" (
        aggregate_id, aggregate_type, tenant_id, version,
@@ -74,7 +77,11 @@ export async function insertRawSubsequentEvent(
   return rows.length > 0;
 }
 
-export async function insertRawEventBatch(db: AnyDb, sqlValues: string, params: unknown[]): Promise<void> {
+export async function insertRawEventBatch(
+  db: AnyDb,
+  sqlValues: string,
+  params: unknown[],
+): Promise<void> {
   await asRawClient(db).unsafe(
     `INSERT INTO "kumiko_events" (
        aggregate_id, aggregate_type, tenant_id, version,

@@ -1,5 +1,4 @@
 import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { updateFeatureToggleOptimistic } from "../db/queries/toggle-state";
 import { defineWriteHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   UnprocessableError,
@@ -13,6 +12,7 @@ import {
   FEATURE_TOGGLE_SET_EVENT_NAME,
   FeatureToggleErrors,
 } from "../constants";
+import { updateFeatureToggleOptimistic } from "../db/queries/toggle-state";
 import { globalFeatureStateTable } from "../global-feature-state-table";
 import type { GlobalFeatureToggleRuntime } from "../toggle-runtime";
 

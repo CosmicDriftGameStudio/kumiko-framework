@@ -1,14 +1,14 @@
 import {
-  clearCustomFieldKey,
-  removeCustomFieldKeyFromAllRows,
-  setCustomFieldValue,
-} from "./db/queries/projection";
-import {
   createJsonbField,
   type FeatureRegistrar,
   type JsonbFieldDef,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { CUSTOM_FIELDS_EXTENSION } from "./constants";
+import {
+  clearCustomFieldKey,
+  removeCustomFieldKeyFromAllRows,
+  setCustomFieldValue,
+} from "./db/queries/projection";
 
 const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
 function getTableName(table: unknown): string {

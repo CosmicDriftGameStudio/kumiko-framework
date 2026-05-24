@@ -5,6 +5,7 @@
 
 export { rolesOf } from "./access-assertions";
 export { expectError, expectSuccess } from "./assertions";
+export { type ClearableTable, clearTables, resetTestTables } from "./db-cleanup";
 export {
   type E2EGeneratorOptions,
   type E2ETestSpec,
@@ -20,7 +21,6 @@ export {
   getSetCookieValue,
   type ParsedSetCookie,
 } from "./http-cookies";
-export { clearTables, resetTestTables, type ClearableTable } from "./db-cleanup";
 export { createLateBoundHolder, type LateBoundHolder } from "./late-bound";
 export { buildMultipartBody, patchFileInstanceofForBunTest } from "./multipart-helper";
 export {

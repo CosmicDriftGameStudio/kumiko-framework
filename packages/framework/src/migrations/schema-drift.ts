@@ -20,7 +20,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { DbConnection } from "../db/connection";
-import type { DbConnection } from "../db/connection";
 import { selectAppliedMigrations, selectPublicTableColumns } from "../db/queries/schema-drift";
 import { tableExists } from "../db/schema-inspection";
 import { parseJsonOrThrow } from "../utils/safe-json";

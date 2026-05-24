@@ -5,7 +5,7 @@ export type { DbConnection, DbConnectionOptions, DbRow, DbRunner, DbTx } from ".
 export { createDbConnection, dbConnectionOptionsFromEnv } from "./connection";
 export type { CursorQueryOptions, CursorResult } from "./cursor";
 export { decodeCursor, encodeCursor } from "./cursor";
-export type { SelectQuery, TableColumns } from "./dialect";
+export type { SchemaTable, SelectQuery, TableColumns } from "./dialect";
 export {
   bigint,
   bigserial,

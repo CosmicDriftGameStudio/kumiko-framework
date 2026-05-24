@@ -11,10 +11,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { assertUnreachable, parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
-import {
-  selectConfigRowsForKeys,
-  selectConfigRowsForScope,
-} from "./db/queries/resolver";
+import { selectConfigRowsForKeys, selectConfigRowsForScope } from "./db/queries/resolver";
 import { configValuesTable } from "./table";
 
 type ConfigRow = {

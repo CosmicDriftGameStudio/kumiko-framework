@@ -27,10 +27,10 @@ export async function clearCustomFieldKey(
   aggregateId: string,
 ): Promise<void> {
   const tbl = quoteTable(tableName);
-  await asRawClient(db).unsafe(`UPDATE ${tbl} SET custom_fields = custom_fields - $1 WHERE id = $2`, [
-    fieldKey,
-    aggregateId,
-  ]);
+  await asRawClient(db).unsafe(
+    `UPDATE ${tbl} SET custom_fields = custom_fields - $1 WHERE id = $2`,
+    [fieldKey, aggregateId],
+  );
 }
 
 export async function removeCustomFieldKeyFromAllRows(

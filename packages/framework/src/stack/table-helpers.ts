@@ -99,14 +99,7 @@ export async function unsafePushTables(
           const type = renderColumnType(col);
           const notNull = col.notNull && !col.primaryKey ? " NOT NULL" : "";
           const defaultClause = col.defaultSql !== undefined ? ` DEFAULT ${col.defaultSql}` : "";
-          await alterTableAddColumn(
-            db,
-            meta.tableName,
-            col.name,
-            type,
-            defaultClause,
-            notNull,
-          );
+          await alterTableAddColumn(db, meta.tableName, col.name, type, defaultClause, notNull);
         }
       }
       const prevIdxNames = new Set(prev.indexes.map((i) => i.name));

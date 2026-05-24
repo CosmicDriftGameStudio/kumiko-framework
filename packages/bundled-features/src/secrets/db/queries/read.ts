@@ -1,8 +1,7 @@
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-
-export type StoredEnvelope = Record<string, unknown>;
+import type { StoredEnvelope } from "../../table";
 
 export async function selectTenantSecretEnvelope(
   db: DbRunner,

@@ -37,8 +37,8 @@ import {
   createTenantDb,
   type DbRunner,
 } from "@cosmicdrift/kumiko-framework/db";
-import { getAggregateStreamMaxVersion } from "@cosmicdrift/kumiko-framework/event-store";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { getAggregateStreamMaxVersion } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table";
 import { tenantEntity, tenantTable } from "./schema/tenant";

@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import type { EntityTableMeta } from "../../db/entity-table-meta";
 import { sql } from "../../db/dialect";
+import type { EntityTableMeta } from "../../db/entity-table-meta";
 import {
   asRawClient,
   countWhere,
@@ -17,7 +17,9 @@ afterAll(async () => {
   await closeDb();
 });
 
-const scoreCols = [{ name: "score", pgType: "integer" as const, notNull: true, defaultSql: "0" }] as const;
+const scoreCols = [
+  { name: "score", pgType: "integer" as const, notNull: true, defaultSql: "0" },
+] as const;
 
 function makeCodePkMeta(tableName: string): EntityTableMeta {
   return {

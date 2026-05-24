@@ -6,15 +6,15 @@
  *   bun scripts/sql-inventory.ts --write-baseline
  *   bun scripts/sql-inventory.ts --compare-baseline
  */
-import { join, resolve } from "path";
 import {
   formatReport,
+  joinPath,
   scanRepo,
   type SqlInventoryReport,
 } from "../packages/framework/src/db/sql-inventory";
 
-const REPO_ROOT = resolve(import.meta.dir, "..");
-const BASELINE_PATH = join(REPO_ROOT, ".kumiko", "sql-inventory-baseline.json");
+const REPO_ROOT = joinPath(import.meta.dir, "..");
+const BASELINE_PATH = joinPath(REPO_ROOT, ".kumiko", "sql-inventory-baseline.json");
 
 function parseArgs(argv: string[]): { writeBaseline: boolean; compareBaseline: boolean } {
   return {

@@ -1,6 +1,6 @@
 import { requestContext } from "../api/request-context";
-import type { WhereObject } from "../db/query";
 import { executeRawQuery } from "../db/queries/raw-sql";
+import type { WhereObject } from "../db/query";
 import { coerceRow, extractTableInfo, selectMany } from "../db/query";
 import { checkWriteFieldOwnership } from "../engine/field-access";
 import {
@@ -331,7 +331,7 @@ export function createEventStoreExecutor(
     whereParts.push(shifted.sqlText);
     for (const p of shifted.params) params.push(p);
     const sqlText = `SELECT * FROM "${tableName}" WHERE ${whereParts.join(" AND ")} LIMIT 1`;
-    return executeRawQuery(db.raw, sqlText, params);
+    return [...(await executeRawQuery<Record<string, unknown>>(db.raw, sqlText, params))];
   }
 
   return {

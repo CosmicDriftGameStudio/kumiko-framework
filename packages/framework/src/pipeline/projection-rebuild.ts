@@ -121,11 +121,7 @@ export async function rebuildProjection(
         };
         const sourcesList = [...sources];
         const subscribedList = [...subscribed];
-        const rawEvents = await selectEventsForProjectionRebuild(
-          tx,
-          sourcesList,
-          subscribedList,
-        );
+        const rawEvents = await selectEventsForProjectionRebuild(tx, sourcesList, subscribedList);
         const events = rawEvents.map((r) => {
           const info = extractTableInfo(eventsTable);
           return coerceRow(r, info) as EventRow;

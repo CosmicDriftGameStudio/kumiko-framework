@@ -67,8 +67,10 @@ export function wireCustomFieldsUserDataRightsFor<TReg extends FeatureRegistrar<
   };
 
   const deleteHook: UserDataDeleteHook = async (ctx, strategy) => {
+    // skip: delete strategy removes rows wholesale — custom-field redaction N/A.
     if (strategy === "delete") return;
     const sensitiveKeys = await loadSensitiveFieldKeys(ctx.db, ctx.tenantId, opts.entityName);
+    // skip: no sensitive custom fields configured for this entity.
     if (sensitiveKeys.length === 0) return;
 
     await stripSensitiveCustomFieldKeys(

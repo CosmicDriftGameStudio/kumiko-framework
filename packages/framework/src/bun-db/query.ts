@@ -683,7 +683,6 @@ export async function upsertOnConflict<TRow = any>(
   const conflictCols = resolveConflictColumns(table, info, options.conflictKeys);
   const conflictSet = new Set(conflictCols);
   const { sqlPrefix, params } = buildInsertSql(info, entries);
-  const tableQ = quoteIdent(info.name);
 
   const updateParts: string[] = [];
   let idx = params.length + 1;
@@ -712,7 +711,10 @@ export async function upsertOnConflict<TRow = any>(
 
   const conflictList = conflictCols.map((c) => quoteIdent(c)).join(", ");
   const sqlText = `${sqlPrefix} ON CONFLICT (${conflictList}) DO UPDATE SET ${updateParts.join(", ")} RETURNING *`;
-  const rows = (await asRawClient(db).unsafe(sqlText, params)) as readonly Record<string, unknown>[];
+  const rows = (await asRawClient(db).unsafe(sqlText, params)) as readonly Record<
+    string,
+    unknown
+  >[];
   const first = rows[0];
   if (!first) return undefined;
   return coerceRow(first, info) as TRow;
@@ -790,7 +792,10 @@ export async function incrementCounter<TRow = any>(
 
   const conflictList = conflictCols.map((c) => quoteIdent(c)).join(", ");
   const sqlText = `${sqlPrefix} ON CONFLICT (${conflictList}) DO UPDATE SET ${updateParts.join(", ")} RETURNING *`;
-  const rows = (await asRawClient(db).unsafe(sqlText, params)) as readonly Record<string, unknown>[];
+  const rows = (await asRawClient(db).unsafe(sqlText, params)) as readonly Record<
+    string,
+    unknown
+  >[];
   const first = rows[0];
   if (!first) return undefined;
   return coerceRow(first, info) as TRow;

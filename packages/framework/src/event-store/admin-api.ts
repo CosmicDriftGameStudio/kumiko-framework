@@ -60,11 +60,7 @@ export async function appendRaw(runner: DbRunner, event: RawEventToAppend): Prom
   }
 }
 
-function rawEventParams(
-  event: RawEventToAppend,
-  newVersion: number,
-  eventVersion: number,
-) {
+function rawEventParams(event: RawEventToAppend, newVersion: number, eventVersion: number) {
   return {
     aggregateId: event.aggregateId,
     aggregateType: event.aggregateType,
@@ -206,12 +202,7 @@ async function verifyPredecessors(
 
   for (const g of groups.values()) {
     if (g.minExpected === 0) continue;
-    const present = await eventPredecessorExists(
-      runner,
-      g.aggregateId,
-      g.tenantId,
-      g.minExpected,
-    );
+    const present = await eventPredecessorExists(runner, g.aggregateId, g.tenantId, g.minExpected);
     if (!present) {
       throw new VersionConflictError(g.aggregateId, g.minExpected);
     }
