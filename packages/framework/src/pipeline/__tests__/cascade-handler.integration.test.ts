@@ -222,10 +222,10 @@ describe("cascade delete: cascade", () => {
     const user = await userExecutor.create({ name: "Cascade User" }, admin, tdb);
     if (!user.isSuccess) throw new Error("Setup failed");
 
-    await sessionExecutor.create({ userId: user.data.id, token: "abc" }, admin, tdb);
-    await sessionExecutor.create({ userId: user.data.id, token: "def" }, admin, tdb);
+    const s1 = await sessionExecutor.create({ userId: user.data.id, token: "abc" }, admin, tdb);
+    const s2 = await sessionExecutor.create({ userId: user.data.id, token: "def" }, admin, tdb);
+    if (!s1.isSuccess || !s2.isSuccess) throw new Error("Setup failed");
 
-    // Verify sessions exist
     const before = await sessionExecutor.list({}, admin, tdb);
     const sessionsBefore = before.rows.filter((r) => r["userId"] === user.data.id);
     expect(sessionsBefore.length).toBe(2);

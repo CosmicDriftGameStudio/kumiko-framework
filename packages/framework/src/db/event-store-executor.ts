@@ -1,6 +1,6 @@
 import { requestContext } from "../api/request-context";
 import type { WhereObject } from "../db/query";
-import { asRawClient, selectMany } from "../db/query";
+import { asRawClient, coerceRow, extractTableInfo, selectMany } from "../db/query";
 import { checkWriteFieldOwnership } from "../engine/field-access";
 import {
   buildOwnershipClause,
@@ -899,9 +899,9 @@ export function createEventStoreExecutor(
         string,
         unknown
       >[]; // @cast-boundary engine-payload
-      // Read-Side rehydrate pro Row. Cache speichert die hydrated Form,
-      // damit Cache-Hits dieselbe API-Form liefern.
-      const rows = rawRows.map((r) => rehydrateCompoundTypes(r, entity));
+      // Read-Side rehydrate pro Row + snake→camel coercion für driver-agnostic Feldnamen
+      const tableInfo = extractTableInfo(table);
+      const rows = rawRows.map((r) => coerceRow(rehydrateCompoundTypes(r, entity), tableInfo));
 
       if (entityCache && entityName && rows.length > 0) {
         await entityCache.mset(

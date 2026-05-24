@@ -143,7 +143,7 @@ export type SelectOptions = {
 // biome-ignore lint/suspicious/noExplicitAny: legacy drizzle pgTable surface
 type TableLike = EntityTableMeta | any;
 
-type TableInfo = {
+export type TableInfo = {
   readonly name: string;
   // field-name (camelCase oder snake_case) → snake_case column-name
   readonly columnOf: (field: string) => string;
@@ -158,7 +158,7 @@ type TableInfo = {
 };
 
 
-function extractTableInfo(table: TableLike): TableInfo {
+export function extractTableInfo(table: TableLike): TableInfo {
   // EntityTableMeta discriminator: hat source-property "managed" | "unmanaged"
   if (
     table !== null &&
@@ -260,7 +260,7 @@ function instantFromDriver(value: unknown): Temporal.Instant | null {
 //   - coerce timestamptz Date/string → Temporal.Instant
 //
 // Unknown columns (computed/aliased) pass through unchanged.
-function coerceRow<T extends Record<string, unknown>>(row: T, info: TableInfo): T {
+export function coerceRow<T extends Record<string, unknown>>(row: T, info: TableInfo): T {
   const out: Record<string, unknown> = {};
   let changed = false;
   for (const key of Object.keys(row)) {

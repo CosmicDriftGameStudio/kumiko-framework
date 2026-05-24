@@ -2,6 +2,8 @@
 // Alle Consumer importieren von hier, nicht direkt aus bun-db/.
 export {
   asRawClient,
+  coerceRow,
+  extractTableInfo,
   deleteMany,
   fetchOne,
   insertMany,
@@ -10,6 +12,7 @@ export {
   updateMany,
   transaction,
   type AnyDb,
+  type TableInfo,
   type WhereObject,
   type WhereOperator,
   type WhereValue,
