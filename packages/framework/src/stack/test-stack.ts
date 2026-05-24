@@ -3,7 +3,6 @@ import type { AuthRoutesConfig } from "../api/auth-routes";
 import type { JwtHelper } from "../api/jwt";
 import { buildServer } from "../api/server";
 import { createSseBroker } from "../api/sse-broker";
-import type { DbConnection } from "../db/connection";
 import { createRegistry } from "../engine/registry";
 import type { FeatureDefinition, Registry, TenantId } from "../engine/types";
 import { createArchivedStreamsTable, createEventsTable } from "../event-store";
@@ -23,9 +22,7 @@ export type TestStack = {
   app: Hono;
   jwt: JwtHelper;
   registry: Registry;
-  /** Drizzle connection — the test DB's lifecycle (name, raw pg client,
-   *  drop) lives inside setupTestStack and is released via stack.cleanup(). */
-  db: DbConnection;
+  db: unknown;
   redis: TestRedis;
   search: SearchAdapter;
   events: EventCollector;
@@ -58,7 +55,7 @@ export type TestStackOptions = {
     | Record<string, unknown>
     | ((deps: {
         registry: Registry;
-        db: import("../db/connection").DbConnection;
+        db: unknown;
         sseBroker: import("../api/sse-broker").SseBroker;
         redis: import("ioredis").default;
       }) => Record<string, unknown>);
@@ -110,7 +107,7 @@ export type TestStackOptions = {
     | import("../api/server").ServerOptions["anonymousAccess"]
     | ((deps: {
         registry: Registry;
-        db: import("../db/connection").DbConnection;
+        db: unknown;
         sseBroker: import("../api/sse-broker").SseBroker;
         redis: import("ioredis").default;
       }) => import("../api/server").ServerOptions["anonymousAccess"]);
