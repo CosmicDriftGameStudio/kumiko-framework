@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTestRedis, type TestRedis } from "../../stack";
+import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { createEntityCache } from "../entity-cache";
 import { createEventDedup } from "../event-dedup";
 import { createIdempotencyGuard } from "../idempotency";
@@ -7,6 +8,7 @@ import { createIdempotencyGuard } from "../idempotency";
 let testRedis: TestRedis;
 
 beforeAll(async () => {
+  await ensureTemporalPolyfill();
   testRedis = await createTestRedis();
 });
 
@@ -294,13 +296,13 @@ describe("entity cache", () => {
     });
 
     const single = await cache.get("00000000-0000-4000-8000-000000000001", "event", 42);
-    expect(single?.["insertedAt"]).toBeInstanceOf(Temporal.Instant);
-    expect((single?.["insertedAt"] as Temporal.Instant).epochMilliseconds).toBe(insertedAt.epochMilliseconds);
+    expect(single?.["insertedAt"]).toBeInstanceOf(Date);
+    expect((single?.["insertedAt"] as Date).getTime()).toBe(insertedAt.getTime());
     // Non-ISO strings must not be coerced
     expect(typeof single?.["title"]).toBe("string");
     expect(single?.["note"]).toBe("not a date: 2026-04");
 
     const batch = await cache.mget("00000000-0000-4000-8000-000000000001", "event", [42]);
-    expect(batch.get(42)?.["insertedAt"]).toBeInstanceOf(Temporal.Instant);
+    expect(batch.get(42)?.["insertedAt"]).toBeInstanceOf(Date);
   });
 });
