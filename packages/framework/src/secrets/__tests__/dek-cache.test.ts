@@ -153,8 +153,6 @@ describe("DekCache", () => {
     t = 5 * 60 * 1000 + 1; // just past 5 min
     await cache.unwrapDek(Buffer.from("x"), 1, provider);
     expect(provider.unwrapCallCount()).toBe(2);
-    // avoid vitest unused-import warning
-    void vi;
   });
 
   test("LRU: evicts oldest when maxEntries is reached", async () => {

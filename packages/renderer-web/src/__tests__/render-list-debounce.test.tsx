@@ -16,7 +16,7 @@ import {
   RenderList,
 } from "@cosmicdrift/kumiko-renderer";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { advanceTimersByTime, afterEach, beforeEach, describe, expect, mock, test, useFakeTimers, useRealTimers } from "bun:test";
+import { afterEach, beforeEach, describe, expect, jest, mock, test } from "bun:test";
 import { defaultPrimitives } from "../primitives";
 
 // Minimal-Entity damit RenderList nicht über fehlende Felder stolpert.
@@ -55,11 +55,11 @@ function renderRL(props: {
 
 describe("RenderList — Search-Debounce", () => {
   beforeEach(() => {
-    useFakeTimers({ shouldAdvanceTime: true });
+    jest.useFakeTimers({ shouldAdvanceTime: true });
   });
 
   afterEach(() => {
-    useRealTimers();
+    jest.useRealTimers();
   });
 
   test("Tippen unter 300ms feuert NICHT mehrfach onSearchChange", () => {
@@ -75,13 +75,13 @@ describe("RenderList — Search-Debounce", () => {
     // Vor Debounce-Ablauf: kein call (jeder Keypress hat den Timer
     // resettet).
     act(() => {
-      advanceTimersByTime(299);
+      jest.advanceTimersByTime(299);
     });
     expect(onSearchChange).not.toHaveBeenCalled();
 
     // 300ms: jetzt feuert es exakt einmal mit dem letzten Wert.
     act(() => {
-      advanceTimersByTime(1);
+      jest.advanceTimersByTime(1);
     });
     expect(onSearchChange).toHaveBeenCalledTimes(1);
     expect(onSearchChange).toHaveBeenCalledWith("acme");
@@ -120,7 +120,7 @@ describe("RenderList — Search-Debounce", () => {
     const onSearchChange = mock();
     renderRL({ searchValue: "x", onSearchChange });
     act(() => {
-      advanceTimersByTime(500);
+      jest.advanceTimersByTime(500);
     });
     expect(onSearchChange).not.toHaveBeenCalled();
   });

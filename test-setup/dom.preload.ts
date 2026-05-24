@@ -6,6 +6,12 @@
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { afterEach } from "bun:test";
 
+// react-dom prüft IS_REACT_ACT_ENVIRONMENT um act()-Warnungen zu
+// unterdrücken. vitest setzte das via @testing-library/react auto-magic;
+// bei bun:test setzen wir es explizit.
+// @ts-expect-error — React-Typing kennt das Property nicht auf globalThis
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+
 // Idempotent registrieren — beim zweiten preload-Eintrag nicht crashen.
 if (typeof globalThis.window === "undefined") {
   // Bun's native fetch/Request/Response/Headers vor happy-dom's
@@ -37,6 +43,12 @@ if (typeof globalThis.window === "undefined") {
   globalThis.TransformStream = bunTransformStream;
 }
 
+// @testing-library/dom/dist/screen.js prüft document.body beim
+// Modul-Import. Mit static import würde screen vor happy-dom
+// evaluieren → alle screen-Queries werfen TypeError. Deshalb
+// require() erst nach der Registration oben.
+const { cleanup } = require("@testing-library/react/pure") as { cleanup: () => void };
+
 // Pointer-Capture-APIs fehlen in happy-dom genauso wie in jsdom. Radix-UI
 // (DropdownMenu/Select/Popover-Triggers) ruft die — ohne Polyfill öffnet
 // sich nichts im Test.
@@ -50,32 +62,53 @@ if (typeof globalThis.HTMLElement !== "undefined") {
 
 // Auto-Cleanup nach jedem Test (DOM-Pollution-Schutz):
 // Bun-test läuft alle test-files in einem Process. Ohne afterEach hängen
-// React-Komponenten von File N im document, File N+1 sieht polluted state.
-// vitest hatte das via testing-library/react auto-magic. Bei bun: selbst
-// registrieren.
+// React-Komponenten von File N im DOM von File N+1.
 //
-// Zwei Pollution-Quellen:
-//   a) DOM-Knoten von React (replaceChildren)
-//   b) Radix DismissableLayer setzt body.style.pointerEvents='none'
-//      beim Öffnen von Dialog/Popover/Dropdown. Wenn afterEach DOM
-//      vor Reacts useEffect-Cleanup zerstört, bleibt pointer-events
-//      auf body hängen — alle userEvent.click() im nächsten Test
-//      schlagen feil mit "pointer-events: none".
-//   c) style-Tags im head (Radix, Emotion, etc.) — per
-//      querySelectorAll entfernen.
+// VIER Leak-Quellen:
+//
+//   a) testing-library/react-Container — cleanup() unmountet + entfernt
+//      alle von render() erzeugten Container-Knoten.
+//
+//   b) body.replaceChildren() — räumt Container die nicht über
+//      testing-library/react erzeugt wurden (z.B. `#root` via
+//      ReactDOM.createRoot + renderShell). Muss NACH cleanup()
+//      kommen — React braucht seine Knoten zum unmount.
+//
+//   c) Radix DismissableLayer setzt body.style.pointerEvents='none'
+//      beim Öffnen von Dialog/Popover/Dropdown.
+//
+//   d) Radix-injizierte style-tags im head.
+//
+//   e) window.location / history.pushState.
 afterEach(() => {
   if (typeof globalThis.document === "undefined") return;
+
+  // (a) React-Cleanup zuerst — unmountet alle testing-library-gerenderten
+  //     Komponenten via ReactDOM.unmountComponentAtNode. Das muss vor
+  //     jeder DOM-Manipulation passieren weil React seine Knoten braucht.
+  cleanup();
+
   const doc = globalThis.document;
-  // (b) Radix-Leak: body inline-style reset
-  if (doc.body) {
-    doc.body.style.pointerEvents = "";
-    doc.body.replaceChildren();
-  }
-  // (c) Injected style-tags entfernen (Radix-/CSS-in-JS-Leaks)
-  for (const el of doc.head.querySelectorAll("style,link[rel=stylesheet]")) {
-    const style = el as HTMLStyleElement | HTMLLinkElement;
-    if (style.id?.startsWith("radix-") || style.dataset?.radium) {
+  if (!doc.body) return;
+
+  // (b) Übrige Knoten entfernen (z.B. #root-Container die nicht über
+  //     testing-library gerendert wurden). Erst NACH cleanup() weil
+  //     React da seine Knoten schon sauber geräumt hat.
+  doc.body.replaceChildren();
+
+  // (c) Radix-Leak: body inline-style reset
+  doc.body.style.pointerEvents = "";
+
+  // (d) Radix-injizierte style-tags
+  for (const el of doc.head.querySelectorAll("style")) {
+    const style = el as HTMLStyleElement;
+    if (style.id?.startsWith("radix-")) {
       style.remove();
     }
+  }
+
+  // (e) window.location zurücksetzen — happy-dom initial url
+  if (typeof globalThis.history !== "undefined") {
+    globalThis.history.pushState(null, "", "http://localhost/");
   }
 });

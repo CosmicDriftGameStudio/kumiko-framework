@@ -529,8 +529,7 @@ describe("resume-loop", () => {
 
     const fetchRuns = createInMemorySuspendedRunFetcher([suspendedRun]);
     const handlerCtx = {
-      unsafeAppendEvent: vi
-        .fn()
+      unsafeAppendEvent: mock()
         .mockRejectedValueOnce(new VersionConflictError("wf-conflict-run", 1))
         .mockResolvedValue(undefined),
     };
