@@ -68,7 +68,7 @@ beforeEach(async () => {
 });
 
 async function snapshotTable(): Promise<readonly Record<string, unknown>[]> {
-  const rows = await selectMany(testDb.db, userTable, { orderBy: { col: "id", direction: "asc" } });
+  const rows = await selectMany(testDb.db, userTable, {}, { orderBy: { col: "id", direction: "asc" } });
   return rows as readonly Record<string, unknown>[];
 }
 
@@ -276,13 +276,10 @@ describe("implicit-projection / dokumentierte Sensitive-Drift", () => {
     expect(liveRow?.["email"]).toBe("x@test.de");
 
     // 2. Verifiziere dass das Event-Log das Feld NICHT enthält (stripped).
-    const events = await asRawClient(testDb.db).unsafe<{ payload: Record<string, unknown> }>(
-      `SELECT payload FROM kumiko_events WHERE aggregate_id = $1::uuid`,
-      [created.data.id],
-    );
-    expect(events[0]?.payload).toBeDefined();
-    expect(events[0]?.payload?.["apiKey"]).toBeUndefined();
-    expect(events[0]?.payload?.["email"]).toBe("x@test.de");
+    const { eventsTable } = await import("../../event-store");
+    const [event] = await selectMany(testDb.db, eventsTable, { aggregateId: created.data.id }, { orderBy: { col: "version", direction: "asc" } });
+    expect(event?.payload?.["apiKey"]).toBeUndefined();
+    expect(event?.payload?.["email"]).toBe("x@test.de");
 
     // 3. Rebuild über die ImplicitProjection. Read-Tabelle wird aus
     //    event.payload neu materialisiert — apiKey ist nicht im Log,
