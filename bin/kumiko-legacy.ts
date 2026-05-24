@@ -234,6 +234,10 @@ const UNIT_TEST_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: stri
     const absPath = join(REPO_ROOT, root.name);
     if (!existsSync(absPath)) continue;
 
+    // Framework-Unit-Tests sind Integration-Tests (brauchen DB/Redis).
+    // Sie laufen via `kumiko test integration`, nicht im Default-Check.
+    if (root.name === "kumiko-framework") continue;
+
     if (existsSync(join(absPath, "bunfig.toml"))) {
       steps.push({
         name: `Unit Tests (${root.kind})`,
