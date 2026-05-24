@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { selectMany } from "../db/query";
-import { integer, table as pgTable, serial, text, timestamp, uuid } from "../db/dialect";
+import { integer, table as pgTable, serial, text } from "../db/dialect";
 import { seedReferenceData } from "../db/reference-data";
 import type { ReferenceDataDef } from "../engine/types";
 import { unsafePushTables } from "../stack";
@@ -10,18 +10,12 @@ import { ensureTemporalPolyfill } from "../time/polyfill";
 // --- Tables ---
 
 const countryTable = pgTable("ref_countries", {
-  tenantId: uuid("tenant_id").notNull(),
-  version: integer("version").notNull().default(1),
-  insertedAt: timestamp("inserted_at").notNull().defaultNow(),
   code: text("code").primaryKey(),
   name: text("name").notNull(),
   region: text("region"),
 });
 
 const statusTable = pgTable("ref_statuses", {
-  tenantId: uuid("tenant_id").notNull(),
-  version: integer("version").notNull().default(1),
-  insertedAt: timestamp("inserted_at").notNull().defaultNow(),
   id: serial("id").primaryKey(),
   slug: text("slug").notNull(),
   label: text("label").notNull(),

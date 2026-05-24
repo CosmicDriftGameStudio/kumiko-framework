@@ -7,6 +7,14 @@ import type { TableColumns } from "./dialect";
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
 type Table = TableColumns<any>;
 
+const KUMIKO_COLUMNS_SYMBOL = Symbol.for("kumiko:schema:Columns");
+
+function hasColumn(table: Table, field: string): boolean {
+  const cols = (table as Record<symbol, unknown>)[KUMIKO_COLUMNS_SYMBOL];
+  if (typeof cols !== "object" || cols === null) return false;
+  return field in (cols as Record<string, unknown>);
+}
+
 /**
  * Seed reference data at boot time.
  * For each ReferenceDataDef: upsert rows (insert missing, update changed, never delete).
@@ -50,12 +58,13 @@ export async function seedReferenceData(
           updated++;
         }
       } else {
-        await insertOne(db, table, {
-          ...row,
-          tenantId: SYSTEM_TENANT_ID,
-          version: 1,
-          insertedAt: Temporal.Now.instant(),
-        });
+        // Only add framework columns if the table actually has them.
+        // Drizzle used to filter extra fields silently; bunInsertOne doesn't.
+        const values: Record<string, unknown> = { ...row };
+        if (hasColumn(table, "tenantId")) values["tenantId"] = SYSTEM_TENANT_ID;
+        if (hasColumn(table, "version")) values["version"] = 1;
+        if (hasColumn(table, "insertedAt")) values["insertedAt"] = Temporal.Now.instant();
+        await insertOne(db, table, values);
         inserted++;
       }
     }
