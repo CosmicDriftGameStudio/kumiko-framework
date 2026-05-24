@@ -784,8 +784,8 @@ export async function restartConsumer(
      WHERE "name" = $1 AND "instance_id" = $2
      RETURNING *`,
     [name, instanceId],
-  )) as ReadonlyArray<ConsumerStateRow>;
-  const updated = updatedRows[0];
+  )) as ReadonlyArray<Record<string, unknown>>;
+  const updated = updatedRows[0] && coerceRow(updatedRows[0], extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow;
   if (!updated) {
     throw new Error(
       `Consumer "${name}" (instance_id="${instanceId}") vanished between read and write — retry.`,
@@ -801,12 +801,12 @@ export async function disableConsumer(
 ): Promise<ConsumerRecoveryState> {
   await requireConsumerRow(db, name, instanceId);
   const updatedRows = (await asRawClient(db).unsafe(
-    `UPDATE "kumiko_event_consumers" SET "status" = 'disabled', "updated_at" = now()
+    `UPDATE "kumiko_event_consumers" SET "status" = 'disabled', "attempts" = 0, "last_error" = NULL, "updated_at" = now()
      WHERE "name" = $1 AND "instance_id" = $2
      RETURNING *`,
     [name, instanceId],
-  )) as ReadonlyArray<ConsumerStateRow>;
-  const updated = updatedRows[0];
+  )) as ReadonlyArray<Record<string, unknown>>;
+  const updated = updatedRows[0] && coerceRow(updatedRows[0], extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow;
   if (!updated) {
     throw new Error(
       `Consumer "${name}" (instance_id="${instanceId}") vanished between read and write — retry.`,
@@ -831,8 +831,8 @@ export async function enableConsumer(
      WHERE "name" = $1 AND "instance_id" = $2
      RETURNING *`,
     [name, instanceId],
-  )) as ReadonlyArray<ConsumerStateRow>;
-  const updated = updatedRows[0];
+  )) as ReadonlyArray<Record<string, unknown>>;
+  const updated = updatedRows[0] && coerceRow(updatedRows[0], extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow;
   if (!updated) {
     throw new Error(
       `Consumer "${name}" (instance_id="${instanceId}") vanished between read and write — retry.`,
@@ -855,8 +855,9 @@ export async function skipPoisonEvent(
     const poisonRows = (await asRawClient(tx).unsafe(
       `SELECT "id" FROM "kumiko_events" WHERE "id" > $1 ORDER BY "id" ASC LIMIT 1`,
       [before.lastProcessedEventId],
-    )) as ReadonlyArray<{ id: bigint }>;
+    )) as ReadonlyArray<{ id: string | bigint }>;
     const poison = poisonRows[0];
+    const poisonId = poison ? (typeof poison.id === "bigint" ? poison.id : BigInt(poison.id)) : null;
     if (!poison) {
       const [unchanged] = await selectMany<ConsumerStateRow>(tx, eventConsumerStateTable, {
         name,
@@ -875,14 +876,14 @@ export async function skipPoisonEvent(
          "updated_at" = now()
        WHERE "name" = $2 AND "instance_id" = $3
        RETURNING *`,
-      [poison.id, name, instanceId],
-    )) as ReadonlyArray<ConsumerStateRow>;
-    const updated = updatedRows[0];
+      [poisonId, name, instanceId],
+    )) as ReadonlyArray<Record<string, unknown>>;
+    const updated = updatedRows[0] && coerceRow(updatedRows[0], extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow;
     if (!updated)
       throw new Error(
         `Consumer "${name}" (instance_id="${instanceId}") vanished mid-skip — retry.`,
       );
-    return { ...normalizeConsumerState(updated), skippedEventId: poison.id };
+    return { ...normalizeConsumerState(updated), skippedEventId: poisonId };
   });
 }
 
