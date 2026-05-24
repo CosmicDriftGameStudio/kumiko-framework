@@ -108,8 +108,11 @@ afterEach(() => {
     }
   }
 
-  // (e) window.location zurücksetzen — happy-dom initial url
+  // (e) window.location zurücksetzen — happy-dom initial url.
+  // replaceState statt pushState — sonst akkumuliert über alle Tests
+  // ein History-Stack mit 3000+ Einträgen (Memory-Leak + bricht Tests
+  // die history.length checken).
   if (typeof globalThis.history !== "undefined") {
-    globalThis.history.pushState(null, "", "http://localhost/");
+    globalThis.history.replaceState(null, "", "http://localhost/");
   }
 });
