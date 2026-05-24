@@ -1,7 +1,7 @@
 import { requestContext } from "../api/request-context";
 import { asRawClient, selectMany } from "../db/query";
 import type { DbConnection, DbRow, DbTx } from "../db/connection";
-import { buildEntityTable } from "../db/table-builder";
+import { buildEntityTable, toSnakeCase } from "../db/table-builder";
 import { createTenantDb } from "../db/tenant-db";
 import { hasAccess } from "../engine/access";
 import { checkWriteFieldRoles, filterReadFields } from "../engine/field-access";
@@ -1126,10 +1126,11 @@ export function createDispatcher(
           // at all; a handler that wants to move a deleted row should use
           // unsafeSkipTransitionGuard or restore first.
           const rowAsRow = row as DbRow; // @cast-boundary engine-payload
-          if (entity.softDelete && rowAsRow["isDeleted"] === true) {
+          const isDeleted = rowAsRow["isDeleted"] ?? rowAsRow["is_deleted"];
+          if (entity.softDelete && isDeleted === true) {
             continue;
           }
-          const currentValue = (row as DbRow)[fieldName] as string; // @cast-boundary engine-bridge
+          const currentValue = (row as DbRow)[fieldName] ?? (row as DbRow)[toSnakeCase(fieldName)] as string; // @cast-boundary engine-bridge
           guardTransition(
             getTransitions({ entityName, fieldName, map: transitionMap }),
             currentValue,
