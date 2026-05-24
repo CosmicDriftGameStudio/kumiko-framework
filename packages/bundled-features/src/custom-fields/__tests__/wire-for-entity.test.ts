@@ -43,7 +43,7 @@ describe("wireCustomFieldsFor", () => {
     expect(feature.entityHooks.postQuery["property"]).toHaveLength(1);
 
     // 4. search-payload-extension on "property"
-    expect(feature.searchPayloadExtensions["property"]).toHaveLength(1);
+    expect(feature.searchPayloadExtensions!["property"]).toHaveLength(1);
   });
 
   test("postQuery-hook flattens row.customFields onto root", async () => {
@@ -107,7 +107,7 @@ describe("wireCustomFieldsFor", () => {
       wireCustomFieldsFor(r, "property", propertyTable);
     });
 
-    const contributor = feature.searchPayloadExtensions["property"]?.[0]?.fn;
+    const contributor = feature.searchPayloadExtensions!["property"]?.[0]?.fn;
     expect(contributor).toBeDefined();
     const result = await contributor?.({
       entityName: "property",
