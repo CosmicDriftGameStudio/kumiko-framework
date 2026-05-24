@@ -76,6 +76,7 @@ export async function buildMultipartBody(
  * Safe to call multiple times (idempotent via the `_patched` marker).
  */
 export function patchFileInstanceofForBunTest(): void {
+  // skip: idempotent re-patch — already installed, nothing to do
   if ((File as unknown as { _kumikoPatched?: boolean })._kumikoPatched) return;
   Object.defineProperty(File, Symbol.hasInstance, {
     value(instance: unknown): boolean {
