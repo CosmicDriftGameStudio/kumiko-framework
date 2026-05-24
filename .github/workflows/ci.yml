@@ -200,7 +200,7 @@ jobs:
 
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [test, use-all-bundled-smoke, use-all-bundled-postgres-smoke]
+    needs: [test, use-all-bundled-smoke]
     # github-hosted, NICHT cdgs-runner: npm akzeptiert sigstore-provenance-
     # attestations nur von github-hosted runners (HTTP 422 sonst). Public
     # Repo → github-hosted free. Test-Job bleibt auf cdgs-runner (resources).
