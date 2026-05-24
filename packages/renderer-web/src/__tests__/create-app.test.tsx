@@ -7,7 +7,7 @@ import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { ColumnRendererProps, FeatureSchema, NavApi } from "@cosmicdrift/kumiko-renderer";
 import { act, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import type { ClientFeatureDefinition } from "../app/client-plugin";
 import { type CreateKumikoAppOptions, createKumikoApp } from "../app/create-app";
 import { createMockDispatcher } from "./test-utils";
@@ -61,18 +61,39 @@ const baseSchema: FeatureSchema = {
 // im Test-Modus als "outside act()" flaggt. Produktions-Code muss nicht in
 // act() wissen; der Test übernimmt das Wrapping an der einzigen
 // Test-eigenen Aufrufstelle. async weil der erste useEffect-Tick in
-// KumikoScreen (useQuery) ebenfalls flushed werden muss.
+// KumikoScreen (useQuery) ebenfalls geflusht werden muss.
+let appRoot: { unmount: () => void } | undefined;
+
 async function mountApp(options: CreateKumikoAppOptions): Promise<void> {
   await act(async () => {
-    createKumikoApp(options);
+    const result = createKumikoApp(options);
+    appRoot = result.root;
   });
 }
 
 describe("createKumikoApp", () => {
   // createKumikoApp mounts via createRoot into document.body. Reset
-  // between tests so a previous test's mount doesn't leak through
-  // and fool the next one into finding stale markup.
-  beforeEach(() => {
+  // between tests: unmount den React-Root (damit keine pending Effects
+  // in nachfolgende Tests leaken) + leere den body.
+  afterEach(() => {
+    if (appRoot !== undefined) {
+      act(() => {
+        appRoot.unmount();
+      });
+      appRoot = undefined;
+    }
+    while (document.body.firstChild) {
+      document.body.removeChild(document.body.firstChild);
+    }
+  });
+
+  afterAll(() => {
+    if (appRoot !== undefined) {
+      act(() => {
+        appRoot.unmount();
+      });
+      appRoot = undefined;
+    }
     while (document.body.firstChild) {
       document.body.removeChild(document.body.firstChild);
     }

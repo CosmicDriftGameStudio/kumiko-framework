@@ -1,7 +1,7 @@
 
 import type { TreeChildrenSubscribe, TreeNode } from "@cosmicdrift/kumiko-framework/engine";
 import { NavProvider } from "@cosmicdrift/kumiko-renderer";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { useBrowserNavApi } from "../../app/nav";
@@ -42,9 +42,9 @@ function makeMutableProvider(initial: readonly TreeNode[]): {
   };
 }
 
-function renderTree(
+async function renderTree(
   providers: ReadonlyMap<string, TreeChildrenSubscribe>,
-): ReturnType<typeof render> {
+): Promise<ReturnType<typeof render>> {
   function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
     // V.1.4b: TreeNodeRenderer + ActionButton nutzen useDispatchTarget,
     // das useNav greift — Tests brauchen NavProvider. Browser-nav reset
@@ -56,7 +56,12 @@ function renderTree(
       </NavProvider>
     );
   }
-  return render(<VisualTree workspaceId="test-ws" />, { wrapper: Wrapper });
+  const result = render(<VisualTree workspaceId="test-ws" />, { wrapper: Wrapper });
+  // Asynchrone React-Effects (useEffect mit setTimeout/Promise) in
+  // act() abfangen. Ohne das feuern State-Updates außerhalb von act
+  // und produzieren "not wrapped in act"-Warnungen.
+  await act(async () => {});
+  return result;
 }
 
 // vitest+Bun-Runtime liefert nur ein partielles localStorage (kein
@@ -89,15 +94,15 @@ beforeEach(() => {
 });
 
 describe("VisualTree — Empty-State", () => {
-  test("ohne registrierte Provider rendert sichtbaren Empty-Hint", () => {
-    renderTree(new Map());
+  test("ohne registrierte Provider rendert sichtbaren Empty-Hint", async () => {
+    await renderTree(new Map());
     expect(screen.getByLabelText("Visual Tree (no providers)")).toBeTruthy();
     expect(screen.getByText(/Keine Tree-Provider aktiv/)).toBeTruthy();
   });
 
-  test("Provider-Map vorhanden + emittet leere TreeNode[]: kein Empty-State, kein NavTree-Fallback", () => {
+  test("Provider-Map vorhanden + emittet leere TreeNode[]: kein Empty-State, kein NavTree-Fallback", async () => {
     const providers = new Map([["text-content", makeStaticProvider([])]]);
-    renderTree(providers);
+    await renderTree(providers);
     // Nicht im Empty-State (es gibt einen registrierten Provider, der
     // hat nur kein Knoten emittet). Stattdessen rendert die ProviderBranch
     // mit dem featureName als Label im aria-tree.
@@ -107,39 +112,39 @@ describe("VisualTree — Empty-State", () => {
 });
 
 describe("VisualTree — Provider-Iteration", () => {
-  test("Single-Provider mit static-children rendert Top-Level-Knoten", () => {
+  test("Single-Provider mit static-children rendert Top-Level-Knoten", async () => {
     const providers = new Map([
       ["text-content", makeStaticProvider([{ label: "Marketing" }, { label: "Legal" }])],
     ]);
-    renderTree(providers);
+    await renderTree(providers);
     expect(screen.getByText("Marketing")).toBeTruthy();
     expect(screen.getByText("Legal")).toBeTruthy();
   });
 
-  test("Multi-Provider alphabetisch sortiert nach featureName", () => {
+  test("Multi-Provider alphabetisch sortiert nach featureName", async () => {
     // legal-pages kommt alphabetisch vor text-content
     const providers = new Map<string, TreeChildrenSubscribe>([
       ["text-content", makeStaticProvider([{ label: "Marketing" }])],
       ["legal-pages", makeStaticProvider([{ label: "Imprint" }])],
     ]);
-    renderTree(providers);
+    await renderTree(providers);
     const branches = document.querySelectorAll("[data-kumiko-tree-branch]");
     expect(branches[0]?.getAttribute("data-kumiko-tree-branch")).toBe("legal-pages");
     expect(branches[1]?.getAttribute("data-kumiko-tree-branch")).toBe("text-content");
   });
 
-  test("Provider der nicht emittet bleibt im loading-State sichtbar", () => {
+  test("Provider der nicht emittet bleibt im loading-State sichtbar", async () => {
     // Provider ruft emit nie auf (z.B. async-fetch noch im Flug)
     const noopProvider: TreeChildrenSubscribe = () => () => () => {};
     const providers = new Map([["slow-feature", noopProvider]]);
-    renderTree(providers);
+    await renderTree(providers);
     expect(screen.getByText("slow-feature: lädt …")).toBeTruthy();
   });
 
-  test("Subscribe-Update: zweiter Emit re-rendert die Liste", () => {
+  test("Subscribe-Update: zweiter Emit re-rendert die Liste", async () => {
     const { provider, emit } = makeMutableProvider([{ label: "Hero" }]);
     const providers = new Map([["text-content", provider]]);
-    renderTree(providers);
+    await renderTree(providers);
 
     expect(screen.getByText("Hero")).toBeTruthy();
 
@@ -152,7 +157,7 @@ describe("VisualTree — Provider-Iteration", () => {
     expect(screen.getByText("Hero")).toBeTruthy();
   });
 
-  test("Provider-Unsubscribe wird beim Unmount gecallt", () => {
+  test("Provider-Unsubscribe wird beim Unmount gecallt", async () => {
     let unsubscribed = false;
     const provider: TreeChildrenSubscribe = () => (emit) => {
       emit([{ label: "Foo" }]);
@@ -161,7 +166,7 @@ describe("VisualTree — Provider-Iteration", () => {
       };
     };
     const providers = new Map([["test", provider]]);
-    const result = renderTree(providers);
+    const result = await renderTree(providers);
 
     expect(unsubscribed).toBe(false);
     result.unmount();
@@ -176,7 +181,7 @@ describe("VisualTree — Click-Dispatch", () => {
     cleanup = undefined;
   });
 
-  test("Click auf Knoten mit target ruft dispatchTarget mit dem TargetRef", () => {
+  test("Click auf Knoten mit target ruft dispatchTarget mit dem TargetRef", async () => {
     const dispatched: unknown[] = [];
     cleanup = setDispatchListener((target) => {
       dispatched.push(target);
@@ -193,7 +198,7 @@ describe("VisualTree — Click-Dispatch", () => {
         ]),
       ],
     ]);
-    renderTree(providers);
+    await renderTree(providers);
 
     fireEvent.click(screen.getByText("Hero"));
 
@@ -202,7 +207,7 @@ describe("VisualTree — Click-Dispatch", () => {
     ]);
   });
 
-  test('Skeleton-Affordance: state="empty" + createAction rendert + Button und dispatcht createAction.target', () => {
+  test('Skeleton-Affordance: state="empty" + createAction rendert + Button und dispatcht createAction.target', async () => {
     // D3-Validation aus visual-tree.md V.1.1-Decisions: Provider-explizit
     // createAction-Field auf TreeNode mit state="empty" → Tree-Component
     // zeigt automatisch ein "+"-Icon und dispatcht createAction.target
@@ -228,7 +233,7 @@ describe("VisualTree — Click-Dispatch", () => {
         ]),
       ],
     ]);
-    renderTree(providers);
+    await renderTree(providers);
 
     // + Button greifbar via aria-label aus createAction.label
     const addButton = screen.getByLabelText("Add section");
@@ -237,7 +242,7 @@ describe("VisualTree — Click-Dispatch", () => {
     expect(dispatched).toEqual([{ featureId: "sections", action: "create" }]);
   });
 
-  test("Click auf Container-Knoten (mit children) toggled expand statt Dispatch", () => {
+  test("Click auf Container-Knoten (mit children) toggled expand statt Dispatch", async () => {
     const dispatched: unknown[] = [];
     cleanup = setDispatchListener((target) => {
       dispatched.push(target);
@@ -254,7 +259,7 @@ describe("VisualTree — Click-Dispatch", () => {
         ]),
       ],
     ]);
-    renderTree(providers);
+    await renderTree(providers);
 
     // Initial collapsed: Hero nicht sichtbar
     expect(screen.queryByText("Hero")).toBeNull();
@@ -266,11 +271,11 @@ describe("VisualTree — Click-Dispatch", () => {
 });
 
 describe("VisualTree — localStorage-Persistenz", () => {
-  test("Toggle persistiert expanded-Set ins localStorage pro Workspace", () => {
+  test("Toggle persistiert expanded-Set ins localStorage pro Workspace", async () => {
     const providers = new Map([
       ["text-content", makeStaticProvider([{ label: "Marketing", children: [{ label: "Hero" }] }])],
     ]);
-    renderTree(providers);
+    await renderTree(providers);
 
     fireEvent.click(screen.getByText("Marketing"));
 
@@ -281,7 +286,7 @@ describe("VisualTree — localStorage-Persistenz", () => {
     expect(parsed[0]).toContain("Marketing");
   });
 
-  test("Re-mount restored expanded-Set aus localStorage", () => {
+  test("Re-mount restored expanded-Set aus localStorage", async () => {
     // Setup: persistierter expanded-Set für test-ws-Workspace
     window.localStorage.setItem(
       "kumiko:visual-tree:expanded:test-ws",
@@ -291,7 +296,7 @@ describe("VisualTree — localStorage-Persistenz", () => {
     const providers = new Map([
       ["text-content", makeStaticProvider([{ label: "Marketing", children: [{ label: "Hero" }] }])],
     ]);
-    renderTree(providers);
+    await renderTree(providers);
 
     // Marketing ist expandiert → Hero sichtbar ohne Click
     expect(screen.getByText("Hero")).toBeTruthy();

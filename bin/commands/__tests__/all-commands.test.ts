@@ -37,6 +37,7 @@ const EXPECTED_IDS = [
   "ops",
   "project",
   "reset",
+  "schema",
   "status",
   "stop",
   "test",

@@ -27,7 +27,7 @@ import {
   useNav,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ComponentType, type ReactNode, useMemo } from "react";
-import { createRoot } from "react-dom/client";
+import { createRoot, type Root } from "react-dom/client";
 import { lastSegment } from "../layout/nav-tree";
 import { defaultPrimitives } from "../primitives";
 import { ToastProvider } from "../primitives/toast";
@@ -111,7 +111,9 @@ function readInjectedSchema(): AppSchema | FeatureSchema | undefined {
   return w.__KUMIKO_SCHEMA__;
 }
 
-export function createKumikoApp(options: CreateKumikoAppOptions = {}): void {
+export function createKumikoApp(
+  options: CreateKumikoAppOptions = {},
+): { readonly root: Root } {
   const rootId = options.rootId ?? "root";
   const container = document.getElementById(rootId);
   if (!container) {
@@ -272,7 +274,9 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): void {
     </TokensBoot>
   );
 
-  createRoot(container).render(tree);
+  const root = createRoot(container);
+  root.render(tree);
+  return { root };
 }
 
 // TokensBoot nutzt den browser-backed TokensApi-Hook (class-based

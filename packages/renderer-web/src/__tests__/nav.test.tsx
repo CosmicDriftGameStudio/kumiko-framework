@@ -1,5 +1,5 @@
 import { formatPath, NavProvider, parsePath, useNav } from "@cosmicdrift/kumiko-renderer";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, test } from "bun:test";
 import { KumikoLink, useBrowserNavApi } from "../app/nav";
@@ -123,23 +123,25 @@ describe("useBrowserNavApi + NavProvider", () => {
     );
   }
 
-  test("initial-route aus window.location.pathname", () => {
+  test("initial-route aus window.location.pathname", async () => {
     window.history.replaceState(null, "", "/task-list");
     render(
       <BrowserNav>
         <Probe />
       </BrowserNav>,
     );
+    await act(async () => {});
     expect(screen.getByTestId("screen-id").textContent).toBe("task-list");
     expect(screen.getByTestId("entity-id").textContent).toBe("(none)");
   });
 
-  test("navigate() aktualisiert location + re-rendert", () => {
+  test("navigate() aktualisiert location + re-rendert", async () => {
     render(
       <BrowserNav>
         <Probe />
       </BrowserNav>,
     );
+    await act(async () => {});
     expect(screen.getByTestId("screen-id").textContent).toBe("(none)");
 
     act(() => {
@@ -151,12 +153,14 @@ describe("useBrowserNavApi + NavProvider", () => {
     expect(screen.getByTestId("entity-id").textContent).toBe("xyz");
   });
 
-  test("replace() aktualisiert location ohne History-Eintrag", () => {
+  test("replace() aktualisiert location ohne History-Eintrag", async () => {
     render(
       <BrowserNav>
         <Probe />
       </BrowserNav>,
     );
+    await act(async () => {});
+    expect(screen.getByTestId("screen-id").textContent).toBe("(none)");
     const before = window.history.length;
     act(() => {
       fireEvent.click(screen.getByTestId("replace-list"));
@@ -170,12 +174,13 @@ describe("useBrowserNavApi + NavProvider", () => {
     expect(window.history.length).toBe(before);
   });
 
-  test("popstate (Browser-Back) re-rendert die aktuelle Route", () => {
+  test("popstate (Browser-Back) re-rendert die aktuelle Route", async () => {
     render(
       <BrowserNav>
         <Probe />
       </BrowserNav>,
     );
+    await act(async () => {});
     act(() => {
       fireEvent.click(screen.getByTestId("go-list"));
     });
@@ -197,35 +202,38 @@ describe("KumikoLink", () => {
     window.history.replaceState(null, "", "/");
   });
 
-  test("rendert <a> mit korrekter href", () => {
+  test("rendert <a> mit korrekter href", async () => {
     render(
       <BrowserNav>
         <KumikoLink to={{ screenId: "task-edit", entityId: "xyz" }}>Edit</KumikoLink>
       </BrowserNav>,
     );
+    await act(async () => {});
     const anchor = screen.getByText("Edit") as HTMLAnchorElement;
     expect(anchor.tagName).toBe("A");
     expect(anchor.getAttribute("href")).toBe("/task-edit/xyz");
   });
 
-  test("left-click wird abgefangen → navigate() statt full reload", () => {
+  test("left-click wird abgefangen → navigate() statt full reload", async () => {
     render(
       <BrowserNav>
         <KumikoLink to={{ screenId: "task-list" }}>Liste</KumikoLink>
       </BrowserNav>,
     );
+    await act(async () => {});
     act(() => {
       fireEvent.click(screen.getByText("Liste"), { button: 0 });
     });
     expect(window.location.pathname).toBe("/task-list");
   });
 
-  test("meta-click (Cmd/Ctrl) wird NICHT abgefangen — Browser öffnet in neuem Tab", () => {
+  test("meta-click (Cmd/Ctrl) wird NICHT abgefangen — Browser öffnet in neuem Tab", async () => {
     render(
       <BrowserNav>
         <KumikoLink to={{ screenId: "task-list" }}>Liste</KumikoLink>
       </BrowserNav>,
     );
+    await act(async () => {});
     const anchor = screen.getByText("Liste") as HTMLAnchorElement;
     let kumikoLinkPreventedDefault: boolean | undefined;
     const observer = (e: Event) => {

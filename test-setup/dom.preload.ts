@@ -91,10 +91,11 @@ afterEach(() => {
   const doc = globalThis.document;
   if (!doc.body) return;
 
-  // (b) Übrige Knoten entfernen (z.B. #root-Container die nicht über
-  //     testing-library gerendert wurden). Erst NACH cleanup() weil
-  //     React da seine Knoten schon sauber geräumt hat.
-  doc.body.replaceChildren();
+  // (b) Übrige Knoten werden nicht aktiv entfernt — cleanup() aus
+  //     testing-library/react räumt alle render()-Container. Nicht-
+  //     standard Container (#root via createRoot) müssen die Tests
+  //     selbst cleanen oder via afterEach im Test-File. body.replace-
+  //     Children() triggert asynchrone React-Effects ohne act-Kontext.
 
   // (c) Radix-Leak: body inline-style reset
   doc.body.style.pointerEvents = "";

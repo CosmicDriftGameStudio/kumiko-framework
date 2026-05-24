@@ -14,6 +14,12 @@
 # Build context: repository root (monorepo is used in the build stage).
 
 ARG BUN_VERSION=1.3.14
+{{#hasPrivateGhPackages}}
+# Private GH-Packages: der CI-Workflow injects GITHUB_TOKEN via --build-arg.
+# Docker's multi-stage ARG scoping braucht die Re-declaration in jeder Stage
+# die sie nutzt; das top-level ARG macht sie per `docker build` setzbar.
+ARG GITHUB_TOKEN=
+{{/hasPrivateGhPackages}}
 # Build identity — passed in by the CI workflow via --build-arg. Defaults
 # for local container builds.
 ARG BUILD_VERSION=dev
@@ -22,6 +28,12 @@ ARG BUILD_TIME=unknown
 # ----- build: produces dist/ + dist-server/ ---------------------------------
 FROM oven/bun:${BUN_VERSION}-alpine AS build
 WORKDIR /app
+{{#hasPrivateGhPackages}}
+# GITHUB_TOKEN für @cosmicdriftgamestudio/*-Scope beim bun install.
+ARG GITHUB_TOKEN
+ENV GITHUB_TOKEN=${GITHUB_TOKEN}
+RUN bun config set --scope @cosmicdriftgamestudio token "${GITHUB_TOKEN}"
+{{/hasPrivateGhPackages}}
 
 # Standalone-repo layout: @cosmicdrift/* pulled from NPM, no workspace:*
 # refs. Manifests first for Docker layer cache (bun install only
