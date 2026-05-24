@@ -31,7 +31,7 @@ describe("useQuery", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.data).toEqual([{ id: "1" }, { id: "2" }]);
     expect(result.current.error).toBeNull();
-    expect(query).toHaveBeenCalledOnce();
+    expect(query).toHaveBeenCalledTimes(1);
   });
 
   test("server error surfaces via `error`; data stays null", async () => {
@@ -64,7 +64,7 @@ describe("useQuery", () => {
     await act(async () => {
       await result.current.refetch();
     });
-    expect(query).toHaveBeenCalledOnce();
+    expect(query).toHaveBeenCalledTimes(1);
     expect(result.current.data).toEqual(["hi"]);
   });
 

@@ -123,7 +123,7 @@ describe("RenderList", () => {
       />,
     );
     fireEvent.click(screen.getByTestId("row-r1"));
-    expect(onClick).toHaveBeenCalledOnce();
+    expect(onClick).toHaveBeenCalledTimes(1);
     const arg = onClick.mock.lastCall?.[0] as { id: string; values: Record<string, unknown> };
     expect(arg.id).toBe("r1");
     expect(arg.values["title"]).toBe("A");

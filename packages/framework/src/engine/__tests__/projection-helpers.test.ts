@@ -46,7 +46,7 @@ describe("setFields", () => {
     const apply = setFields(fakeTable, { status: "sent" });
     const { fakeTx, unsafe } = makeFakeTx();
     await apply(makeFakeEvent(), fakeTx);
-    expect(unsafe).toHaveBeenCalledOnce();
+    expect(unsafe).toHaveBeenCalledTimes(1);
     const [sqlText, params] = unsafe.mock.calls[0]!;
     expect(sqlText).toMatch(/UPDATE "fake_table" SET "status" = \$1.*WHERE "id" = \$2/);
     expect(params).toEqual(["sent", "agg-42"]);
@@ -58,7 +58,7 @@ describe("setFields", () => {
     }));
     const { fakeTx, unsafe } = makeFakeTx();
     await apply(makeFakeEvent({ payload: { newStatus: "cancelled" } }), fakeTx);
-    expect(unsafe).toHaveBeenCalledOnce();
+    expect(unsafe).toHaveBeenCalledTimes(1);
     const [, params] = unsafe.mock.calls[0]!;
     expect(params).toEqual(["cancelled", "agg-42"]);
   });

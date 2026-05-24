@@ -53,7 +53,7 @@ describe("unsafeProjectionDelete run", () => {
 
     await stepDef!.run({ table: testTable, where: { id: "abc" } }, mockCtx);
 
-    expect(unsafeMock).toHaveBeenCalledOnce();
+    expect(unsafeMock).toHaveBeenCalledTimes(1);
     const [sqlText, params] = unsafeMock.mock.calls[0]!;
     expect(sqlText).toMatch(/DELETE FROM "test_projection"/);
     expect(sqlText).toMatch(/"id" = \$1/);
@@ -67,7 +67,7 @@ describe("unsafeProjectionDelete run", () => {
     await stepDef!.run({ table: testTable, where: whereFn }, mockCtx);
 
     expect(whereFn).toHaveBeenCalledWith(mockCtx);
-    expect(unsafeMock).toHaveBeenCalledOnce();
+    expect(unsafeMock).toHaveBeenCalledTimes(1);
     const [, params] = unsafeMock.mock.calls[0]!;
     expect(params).toEqual(["t1"]);
   });

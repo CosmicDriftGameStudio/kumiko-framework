@@ -64,7 +64,7 @@ describe("workflow.wait run", () => {
     const result = await stepDef!.run({ for: "PT1H" }, workflowCtx);
 
     expect(result).toBe(SUSPEND_SENTINEL);
-    expect(mockUnsafeAppendEvent).toHaveBeenCalledOnce();
+    expect(mockUnsafeAppendEvent).toHaveBeenCalledTimes(1);
     const eventArg = mockUnsafeAppendEvent.mock.calls[0]![0];
     expect(eventArg.aggregateType).toBe(WORKFLOW_AGGREGATE_TYPE);
     expect(eventArg.type).toBe(WORKFLOW_WAITING_TYPE);
@@ -129,7 +129,7 @@ describe("workflow.waitForEvent run", () => {
     );
 
     expect(result).toBe(SUSPEND_SENTINEL);
-    expect(mockUnsafeAppendEvent).toHaveBeenCalledOnce();
+    expect(mockUnsafeAppendEvent).toHaveBeenCalledTimes(1);
     const eventArg = mockUnsafeAppendEvent.mock.calls[0]![0];
     expect(eventArg.aggregateType).toBe(WORKFLOW_AGGREGATE_TYPE);
     expect(eventArg.type).toBe(WORKFLOW_WAITING_FOR_EVENT_TYPE);

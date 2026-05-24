@@ -67,7 +67,7 @@ describe("webhook.send run", () => {
       mockCtx,
     );
 
-    expect(mockUnsafeAppendEvent).toHaveBeenCalledOnce();
+    expect(mockUnsafeAppendEvent).toHaveBeenCalledTimes(1);
     const eventArg = mockUnsafeAppendEvent.mock.calls[0]![0];
 
     expect(eventArg.aggregateType).toBe(STEP_DISPATCH_AGGREGATE_TYPE);

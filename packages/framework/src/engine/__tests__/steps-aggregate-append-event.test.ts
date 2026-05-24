@@ -56,7 +56,7 @@ describe("aggregate.appendEvent run", () => {
       mockCtx,
     );
 
-    expect(mockUnsafeAppendEvent).toHaveBeenCalledOnce();
+    expect(mockUnsafeAppendEvent).toHaveBeenCalledTimes(1);
     const call = mockUnsafeAppendEvent.mock.calls[0]![0];
     expect(call).toMatchObject({
       aggregateId: "abc-123",

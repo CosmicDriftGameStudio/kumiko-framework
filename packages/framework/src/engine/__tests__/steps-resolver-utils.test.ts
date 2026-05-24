@@ -15,7 +15,7 @@ describe("resolveRequired", () => {
   it("calls a function resolver with the ctx and returns its result", () => {
     const fn = mock((_ctx: PipelineCtx) => "from-fn");
     expect(resolveRequired(fn, dummyCtx)).toBe("from-fn");
-    expect(fn).toHaveBeenCalledOnce();
+    expect(fn).toHaveBeenCalledTimes(1);
     expect(fn).toHaveBeenCalledWith(dummyCtx);
   });
 
@@ -41,7 +41,7 @@ describe("resolveOptional", () => {
   it("calls a function resolver when defined", () => {
     const fn = mock(() => "resolved");
     expect(resolveOptional(fn, dummyCtx)).toBe("resolved");
-    expect(fn).toHaveBeenCalledOnce();
+    expect(fn).toHaveBeenCalledTimes(1);
   });
 
   it("returns undefined for undefined function resolver", () => {

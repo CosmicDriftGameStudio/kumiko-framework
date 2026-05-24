@@ -149,7 +149,7 @@ describe("RenderEdit", () => {
       await Promise.resolve();
     });
 
-    expect(write).toHaveBeenCalledOnce();
+    expect(write).toHaveBeenCalledTimes(1);
     expect(write).toHaveBeenCalledWith("order:create", expect.anything());
     expect(seenResults).toHaveLength(1);
     expect(seenResults[0]?.isSuccess).toBe(true);

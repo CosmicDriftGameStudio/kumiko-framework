@@ -96,7 +96,7 @@ describe("unsafeProjectionUpsert run", () => {
 
     await stepDef!.run({ table: testTable, on: ["externalId"], row }, mockCtx);
 
-    expect(unsafeMock).toHaveBeenCalledOnce();
+    expect(unsafeMock).toHaveBeenCalledTimes(1);
     const [sqlText, params] = unsafeMock.mock.calls[0]!;
     expect(sqlText).toMatch(/INSERT INTO "test_projection"/);
     expect(sqlText).toMatch(/ON CONFLICT \("external_id"\) DO UPDATE SET/);

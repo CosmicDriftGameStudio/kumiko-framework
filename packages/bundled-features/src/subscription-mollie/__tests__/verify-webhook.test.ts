@@ -251,7 +251,7 @@ describe("verifyAndParseMollieWebhook — mandate-setup-flow (= first-payment-pa
     const event = await verify(client)("id=tr_upgrade", {});
 
     expect(event?.providerSubscriptionId).toBe("sub_pro_new");
-    expect(client.customerSubscriptions.create).toHaveBeenCalledOnce();
+    expect(client.customerSubscriptions.create).toHaveBeenCalledTimes(1);
   });
 });
 

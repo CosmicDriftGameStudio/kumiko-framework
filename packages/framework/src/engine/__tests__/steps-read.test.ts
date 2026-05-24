@@ -86,7 +86,7 @@ describe("read.findOne run", () => {
     await stepDef!.run({ name: "lookup", table: testTable, where: whereFn }, mockCtx);
 
     expect(whereFn).toHaveBeenCalledWith(mockCtx);
-    expect(unsafeMock).toHaveBeenCalledOnce();
+    expect(unsafeMock).toHaveBeenCalledTimes(1);
     const [sqlText, params] = unsafeMock.mock.calls[0]!;
     expect(sqlText).toMatch(/SELECT \* FROM "test_read"/);
     expect(sqlText).toMatch(/"tenant_id" = \$1/);
@@ -129,7 +129,7 @@ describe("read.findMany run", () => {
 
     await stepDef!.run({ name: "list", table: testTable, limit: 2 }, mockCtx);
 
-    expect(unsafeMock).toHaveBeenCalledOnce();
+    expect(unsafeMock).toHaveBeenCalledTimes(1);
     const [sqlText] = unsafeMock.mock.calls[0]!;
     expect(sqlText).toMatch(/LIMIT 2/);
   });

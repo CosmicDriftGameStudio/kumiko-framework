@@ -44,6 +44,6 @@ describe("UserMenu", () => {
     renderWithProviders(<UserMenu />, { session });
     await user.click(screen.getByRole("button", { name: /Test User/ }));
     await user.click(screen.getByText("Abmelden"));
-    expect(session.logout).toHaveBeenCalledOnce();
+    expect(session.logout).toHaveBeenCalledTimes(1);
   });
 });

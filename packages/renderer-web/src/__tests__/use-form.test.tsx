@@ -56,7 +56,7 @@ describe("useForm", () => {
       submitResult = await result.current.controller.submit();
     });
 
-    expect(write).toHaveBeenCalledOnce();
+    expect(write).toHaveBeenCalledTimes(1);
     expect(write).toHaveBeenCalledWith("x:create", expect.anything());
     expect((submitResult as { isSuccess: boolean }).isSuccess).toBe(true);
   });
