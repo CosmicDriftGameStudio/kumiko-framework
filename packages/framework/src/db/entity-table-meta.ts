@@ -50,6 +50,7 @@ export type ColumnMeta = {
   // `'[]'::jsonb`). undefined = no DEFAULT clause.
   readonly defaultSql?: string;
   readonly primaryKey?: boolean;
+  readonly identity?: boolean;
 };
 
 export type IndexMeta = {

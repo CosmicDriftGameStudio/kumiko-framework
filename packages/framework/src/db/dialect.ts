@@ -49,7 +49,7 @@ export type SchemaTable = EntityTableMeta & {
   readonly [field: string]: unknown;
 };
 
-function pgTypeToSqlType(pgType: PgType): string {
+export function pgTypeToSqlType(pgType: PgType): string {
   switch (pgType) {
     case "uuid":
       return "uuid";
@@ -92,6 +92,7 @@ type ColumnFinal = {
   readonly notNull: boolean;
   readonly primaryKey: boolean;
   readonly unique: boolean;
+  readonly identity: boolean;
   readonly defaultSql?: string;
 };
 
@@ -117,6 +118,7 @@ function buildColumn(sqlName: string, pgType: PgType): ColumnBuilder<unknown> {
   let notNull = false;
   let primaryKey = false;
   let unique = false;
+  let identity = false;
   let defaultSql: string | undefined;
 
   function literalDefault(value: unknown): string | null {
@@ -150,6 +152,7 @@ function buildColumn(sqlName: string, pgType: PgType): ColumnBuilder<unknown> {
         notNull,
         primaryKey,
         unique,
+        identity,
         ...(defaultSql !== undefined && { defaultSql }),
       };
     },
@@ -176,8 +179,7 @@ function buildColumn(sqlName: string, pgType: PgType): ColumnBuilder<unknown> {
       return builder;
     },
     generatedAlwaysAsIdentity() {
-      // Treated as bigserial-equivalent for DDL purposes. The migrate-runner
-      // renders `bigint GENERATED ALWAYS AS IDENTITY` via pgType inference.
+      identity = true;
       defaultSql = undefined;
       return builder;
     },
@@ -405,6 +407,7 @@ export function table<TCols extends ColumnMap>(
       pgType: final.pgType,
       notNull: final.notNull,
       ...(final.primaryKey && { primaryKey: true }),
+      ...(final.identity && { identity: true }),
       ...(final.defaultSql !== undefined && { defaultSql: final.defaultSql }),
     };
     columnMetas.push(meta);

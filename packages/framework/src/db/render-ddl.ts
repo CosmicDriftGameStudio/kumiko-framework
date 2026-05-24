@@ -8,13 +8,15 @@
 // Nur Build-Step. Runner liest checked-in SQL, nicht Renderer-Output.
 
 import type { ColumnMeta, EntityTableMeta, IndexMeta } from "./entity-table-meta";
+import { pgTypeToSqlType } from "./dialect";
 
 function quoteIdent(name: string): string {
   return `"${name.replace(/"/g, '""')}"`;
 }
 
 function renderColumn(col: ColumnMeta): string {
-  const parts: string[] = [quoteIdent(col.name), col.pgType];
+  const parts: string[] = [quoteIdent(col.name), pgTypeToSqlType(col.pgType)];
+  if (col.identity) parts.push("GENERATED ALWAYS AS IDENTITY");
   if (col.primaryKey) parts.push("PRIMARY KEY");
   if (col.defaultSql !== undefined) parts.push(`DEFAULT ${col.defaultSql}`);
   if (col.notNull && !col.primaryKey) parts.push("NOT NULL");
