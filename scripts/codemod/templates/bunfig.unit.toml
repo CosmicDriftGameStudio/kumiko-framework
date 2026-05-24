@@ -1,0 +1,15 @@
+# Unit-Test bunfig.toml — Template pro Repo anpassen
+#
+# Aufruf: bun test (liest bunfig.toml im cwd)
+# Watch:  bun test --watch
+# Coverage: bun test --coverage
+#
+# Replacement für vitest.config.ts test-section. Aliase wandern in tsconfig.json paths.
+
+[test]
+preload = ["./test-setup/unit.preload.ts"]
+timeout = 5000
+
+[test.env]
+KUMIKO_INSTANCE_ID = "test-instance"
+NODE_ENV = "test"

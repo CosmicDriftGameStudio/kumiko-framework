@@ -29,7 +29,7 @@ PARENT_DIR="$(cd "$REPO_ROOT/.." && pwd)"
 if [ -f "$PARENT_DIR/package.json" ] \
    && grep -q '"name": *"cosmicdriftgamestudio"' "$PARENT_DIR/package.json" 2>/dev/null; then
   echo "[pre-push] bun check (scoped: $REPO_NAME)…"
-  cd "$PARENT_DIR" && KUMIKO_CLI_SCOPE="$REPO_NAME" bun kumiko check
+  cd "$PARENT_DIR" && KUMIKO_CLI_SCOPE="$REPO_NAME" bun kumiko-framework/bin/kumiko.ts check
 else
   echo "[pre-push] bun test (standalone)…"
   cd "$REPO_ROOT" && bun test

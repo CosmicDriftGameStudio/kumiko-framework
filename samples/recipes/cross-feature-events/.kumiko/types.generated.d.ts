@@ -12,3 +12,5 @@ declare module "@cosmicdrift/kumiko-framework/engine" {
     "pubsub-orders:event:order-placed": z.infer<typeof _kg_pubsubOrders__orderPlaced>;
   }
 }
+
+export {};

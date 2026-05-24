@@ -1,0 +1,10 @@
+# Integration-Test bunfig.toml — Template pro Repo anpassen
+#
+# Aufruf via package.json script (nicht direkt):
+#   "test:integration": "bun scripts/test-db-setup.ts && bun test --preload ./test-setup/integration.preload.ts 'packages/**/*.integration.ts'; STATUS=$?; bun scripts/test-db-teardown.ts; exit $STATUS"
+#
+# WARUM: globalSetup-Pendant fehlt in bun-test — Setup+Teardown als separate Scripts.
+
+[test]
+preload = ["./test-setup/integration.preload.ts"]
+timeout = 15000
