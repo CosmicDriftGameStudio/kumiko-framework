@@ -111,9 +111,7 @@ function readInjectedSchema(): AppSchema | FeatureSchema | undefined {
   return w.__KUMIKO_SCHEMA__;
 }
 
-export function createKumikoApp(
-  options: CreateKumikoAppOptions = {},
-): { readonly root: Root } {
+export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonly root: Root } {
   const rootId = options.rootId ?? "root";
   const container = document.getElementById(rootId);
   if (!container) {

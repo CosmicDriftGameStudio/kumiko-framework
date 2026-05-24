@@ -14,6 +14,7 @@
 // MIT einem mock-resolver. Diese tests zeigen die echte tier-engine als
 // resolver-implementierung funktioniert.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { configValuesTable } from "@cosmicdrift/kumiko-bundled-features/config";
 import { tenantSecretsTable } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { tenantMembershipsTable, tenantTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
@@ -34,7 +35,6 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import type { TierMap } from "../compose-app";
 import { tierAssignmentEntity } from "../entity";
 import { createTierEngineFeature } from "../feature";

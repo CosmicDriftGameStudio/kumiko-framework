@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { asRawClient } from "../../db/query";
 import {
   createEntity,
@@ -10,7 +11,6 @@ import {
 } from "../../engine";
 import type { ConfigSeedDef, Registry } from "../../engine/types";
 import { unsafeCreateEntityTable } from "../../stack";
-import { createTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { seedConfigValues } from "../config-seed";
 import { createEncryptionProvider } from "../encryption";

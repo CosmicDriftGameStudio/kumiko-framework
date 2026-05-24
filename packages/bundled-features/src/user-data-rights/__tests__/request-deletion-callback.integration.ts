@@ -7,6 +7,7 @@
 // Der Code-Comment in handlers/request-deletion.write.ts behauptet beide
 // Properties — dieser Test verifiziert sie end-to-end.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -16,7 +17,6 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,

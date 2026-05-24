@@ -12,12 +12,11 @@
 //   POST /api/write → entity:update with new file-UUID
 //   POST /api/query → entity:detail → new UUID persisted
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "../../db/query";
-import { buildMultipartBody, patchFileInstanceofForBunTest } from "../../testing";
 import {
   createEntity,
   createFileField,
@@ -30,11 +29,14 @@ import {
   defineEntityUpdateHandler,
   defineFeature,
 } from "../../engine";
-import { setupTestStack, type TestStack } from "../../stack";
 import {
   createTestUser,
+  setupTestStack,
+  type TestStack,
   testTenantId,
-  unsafeCreateEntityTable } from "../../stack";
+  unsafeCreateEntityTable,
+} from "../../stack";
+import { buildMultipartBody, patchFileInstanceofForBunTest } from "../../testing";
 import { createLocalProvider } from "../local-provider";
 
 // Covers ALL four file-field variants: singular (file/image) stores a UUID in

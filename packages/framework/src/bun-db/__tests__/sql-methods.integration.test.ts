@@ -58,7 +58,12 @@ describe("selectMany", () => {
   test("orderBy asc", async () => {
     await withTable(textCols, async ({ db, meta }) => {
       await insertMany(db, meta, [{ val: "c" }, { val: "a" }, { val: "b" }]);
-      const rows = (await selectMany(db, meta, {}, { orderBy: { col: "val", direction: "asc" } })) as readonly { val: string }[];
+      const rows = (await selectMany(
+        db,
+        meta,
+        {},
+        { orderBy: { col: "val", direction: "asc" } },
+      )) as readonly { val: string }[];
       expect(rows.map((r) => r.val)).toEqual(["a", "b", "c"]);
     });
   });
@@ -66,7 +71,12 @@ describe("selectMany", () => {
   test("orderBy desc", async () => {
     await withTable(textCols, async ({ db, meta }) => {
       await insertMany(db, meta, [{ val: "a" }, { val: "c" }, { val: "b" }]);
-      const rows = (await selectMany(db, meta, {}, { orderBy: { col: "val", direction: "desc" } })) as readonly { val: string }[];
+      const rows = (await selectMany(
+        db,
+        meta,
+        {},
+        { orderBy: { col: "val", direction: "desc" } },
+      )) as readonly { val: string }[];
       expect(rows.map((r) => r.val)).toEqual(["c", "b", "a"]);
     });
   });
@@ -131,7 +141,12 @@ describe("updateMany", () => {
   test("zero match gibt [] zurück + keine Änderung", async () => {
     await withTable(textCols, async ({ db, meta }) => {
       await insertOne(db, meta, { val: "unchanged" });
-      const result = await updateMany(db, meta, { val: "new" }, { id: "00000000-0000-4000-8000-000000000001" });
+      const result = await updateMany(
+        db,
+        meta,
+        { val: "new" },
+        { id: "00000000-0000-4000-8000-000000000001" },
+      );
       expect(result).toEqual([]);
       const rows = await selectMany<{ val: string }>(db, meta);
       expect(rows[0]!.val).toBe("unchanged");

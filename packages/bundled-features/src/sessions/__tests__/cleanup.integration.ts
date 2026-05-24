@@ -4,6 +4,7 @@
 // exercised by the framework's job tests. Here we pin the semantics: old
 // expired/revoked rows go, live rows stay, batching + signal work.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { sql } from "@cosmicdrift/kumiko-framework/db";
 import type { AppContext } from "@cosmicdrift/kumiko-framework/engine";
@@ -13,7 +14,6 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createSessionsFeature } from "../feature";
 import { cleanupJob } from "../handlers/cleanup.job";
 import { userSessionEntity, userSessionTable } from "../schema/user-session";

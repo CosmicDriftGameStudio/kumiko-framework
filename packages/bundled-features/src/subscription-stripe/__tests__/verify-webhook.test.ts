@@ -7,12 +7,12 @@
 // events sind >100 Felder; full-fidelity-fixtures wären Maintenance-
 // Aufwand ohne Test-Wert.
 
+import { describe, expect, test } from "bun:test";
 import {
   SubscriptionEventTypes,
   SubscriptionStatuses,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import Stripe from "stripe";
-import { describe, expect, test } from "bun:test";
 import {
   mapStripeEventType,
   mapStripeStatus,

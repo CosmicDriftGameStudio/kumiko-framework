@@ -12,7 +12,7 @@
 
 import { randomUUID } from "node:crypto";
 import { createConnection, type DbConnection } from "../../db/api";
-import type { EntityTableMeta, ColumnMeta } from "../../db/entity-table-meta";
+import type { ColumnMeta, EntityTableMeta } from "../../db/entity-table-meta";
 
 const DATABASE_URL =
   process.env.TEST_DATABASE_URL ??

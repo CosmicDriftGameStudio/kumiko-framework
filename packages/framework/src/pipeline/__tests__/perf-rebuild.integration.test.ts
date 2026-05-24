@@ -14,14 +14,14 @@
 // "catastrophic regression detector", not "perf SLO".
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "../../db/query";
+import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { integer, table as pgTable, uuid as pgUuid } from "../../db/dialect";
+import { asRawClient } from "../../db/query";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
 import type { ProjectionDefinition } from "../../engine/types";
 import { createEventsTable } from "../../event-store";
 import { createProjectionStateTable, rebuildProjection } from "../../pipeline";
 import { TestUsers, unsafePushTables } from "../../stack";
-import { createTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { generateId as uuid } from "../../utils";
 

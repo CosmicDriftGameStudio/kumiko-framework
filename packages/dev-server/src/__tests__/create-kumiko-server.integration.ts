@@ -1,3 +1,4 @@
+import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,7 +9,6 @@ import {
   createTextField,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { afterEach, describe, expect, test } from "bun:test";
 import { createKumikoServer, type KumikoServerHandle } from "../create-kumiko-server";
 
 // Integration-Test: bootet createKumikoServer mit echtem Postgres,

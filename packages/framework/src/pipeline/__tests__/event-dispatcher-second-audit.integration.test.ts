@@ -26,11 +26,13 @@ import {
   RecordingTracer,
 } from "../../observability";
 import { ConsumerLagError, eventConsumerStateTable, pruneEvents } from "../../pipeline";
-import { setupTestStack, type TestStack } from "../../stack";
 import {
   resetEventStore,
+  setupTestStack,
+  type TestStack,
   TestUsers,
-  unsafeCreateEntityTable } from "../../stack";
+  unsafeCreateEntityTable,
+} from "../../stack";
 import { sharedWidgetEntity } from "../../testing";
 import { generateId } from "../../utils";
 

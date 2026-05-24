@@ -12,10 +12,10 @@
 // AsyncIterable-source pinst die Streaming-Semantik (Caller streamt
 // chunk-fuer-chunk, Provider niemals alles im Memory).
 
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createInMemoryFileProvider } from "../in-memory-provider";
 import { createLocalProvider } from "../local-provider";
 

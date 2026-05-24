@@ -1,8 +1,7 @@
-import { defineFeature, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { defineFeature, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
-import { createTestUser, TestUsers } from "../../stack";
-import { setupTestStack, type TestStack } from "../../stack";
+import { createTestUser, setupTestStack, type TestStack, TestUsers } from "../../stack";
 
 // Full-stack L3 proof: a handler with `rateLimit` opt-in is gated by the
 // dispatcher BEFORE its handler-fn runs. After `limit` calls within the

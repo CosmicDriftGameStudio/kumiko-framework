@@ -3,11 +3,11 @@
 // als minimal-mock-shape (`MollieClientShape`) injiziert; Plugin-
 // Verhalten ist vom konkreten Mollie-SDK entkoppelt.
 
+import { describe, expect, mock, test } from "bun:test";
 import {
   SubscriptionEventTypes,
   SubscriptionStatuses,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
-import { describe, expect, mock, test } from "bun:test";
 import {
   extractMollieId,
   type MollieClientShape,

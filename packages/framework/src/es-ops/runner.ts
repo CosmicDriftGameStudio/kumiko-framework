@@ -22,8 +22,8 @@
 
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import { asRawClient, insertOne, selectMany } from "../db/query";
 import type { DbConnection, DbRunner } from "../db";
+import { asRawClient, insertOne, selectMany } from "../db/query";
 import type { Registry } from "../engine";
 import { esOperationsTable } from "./operations-schema";
 import type { EsOperationAppliedBy, SeedMigration, SeedMigrationContext } from "./types";

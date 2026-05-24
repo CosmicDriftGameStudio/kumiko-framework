@@ -11,9 +11,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, selectMany } from "../../db/query";
 import type { SessionUser } from "../../engine";
+import { createTestUser, setupTestStack, type TestStack, TestUsers } from "../../stack";
 import { buildMultipartBody, patchFileInstanceofForBunTest } from "../../testing";
-import { createTestUser, TestUsers } from "../../stack";
-import { setupTestStack, type TestStack } from "../../stack";
 import {
   createInMemoryFileProvider,
   filesStorageTrackingFeature,

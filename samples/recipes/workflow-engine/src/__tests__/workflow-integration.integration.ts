@@ -11,6 +11,7 @@
 // stack); the unit-test file covers the Pipeline/resume-loop logic
 // against the in-memory fetcher.
 
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { WorkflowDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import {
   computeDefinitionFingerprint,
@@ -24,7 +25,6 @@ import {
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { eq } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createSuspendedRunFetcher } from "../postgres-resume-loop";
 
 let stack: TestStack;

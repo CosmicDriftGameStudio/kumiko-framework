@@ -2,12 +2,14 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { z } from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { defineFeature, type SaveContext } from "../../engine";
-import { setupTestStack, type TestStack } from "../../stack";
 import {
   createTestRedis,
+  setupTestStack,
   type TestRedis,
+  type TestStack,
   TestUsers,
-  unsafeCreateEntityTable } from "../../stack";
+  unsafeCreateEntityTable,
+} from "../../stack";
 import { sharedItemEntity, sharedItemTable } from "../../testing";
 import { createEventDedup } from "../event-dedup";
 

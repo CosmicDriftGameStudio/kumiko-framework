@@ -5,9 +5,9 @@
 // (kein crash); IDs sind kollisionsfrei auch bei zwei Calls im selben
 // Tick (Counter-Race-Bug).
 
+import { describe, expect, test } from "bun:test";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { type ReactNode, useEffect } from "react";
-import { describe, expect, test } from "bun:test";
 import { type ToastOptions, ToastProvider, useToast } from "../primitives/toast";
 
 // Trigger-Component die im Mount toast() aufruft. So testen wir den

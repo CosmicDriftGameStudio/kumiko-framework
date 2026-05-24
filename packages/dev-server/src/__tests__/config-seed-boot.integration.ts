@@ -12,6 +12,7 @@
 //   3. an admin set on top of a seed wins the resolver cascade; coexistence
 //      vs. override semantics depend on the admin user's tenantId.
 
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
   configValuesTable,
   createConfigAccessorFactory,
@@ -33,7 +34,6 @@ import {
   TestUsers,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { applyBootSeeds } from "../boot/apply-boot-seeds";
 
 const bootSeedsFeature = defineFeature("boot-seeds-test", (r) => {

@@ -17,8 +17,8 @@
 // Spalten laufen, oder DB drop'pen wenn der State Demo-State ist.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { asRawClient } from "../../db/query";
-import { createTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 
 let testDb: BunTestDb;

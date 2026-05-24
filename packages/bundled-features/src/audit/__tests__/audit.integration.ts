@@ -2,6 +2,7 @@
 // log IS the audit trail; this suite proves the query handler exposes the
 // right slices of it (tenant-isolated, filtered, paginated, content-intact).
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEntity,
@@ -19,7 +20,6 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { AuditQueries } from "../constants";
 import { createAuditFeature } from "../feature";
 

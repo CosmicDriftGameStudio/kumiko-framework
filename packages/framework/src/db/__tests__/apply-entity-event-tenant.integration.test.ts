@@ -16,12 +16,12 @@
 // der lief vor dem Refactor durch Zufall grün.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { asRawClient, selectMany } from "../../db/query";
 import { createEntity, createTextField } from "../../engine/factories";
 import type { TenantId } from "../../engine/types";
 import type { StoredEvent } from "../../event-store";
 import { createEventsTable } from "../../event-store";
-import { createTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { applyEntityEvent } from "../apply-entity-event";
 import { buildEntityTable } from "../table-builder";

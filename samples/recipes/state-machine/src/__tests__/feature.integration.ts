@@ -7,6 +7,7 @@
 //   draft → sent → paid
 //                 → cancelled → draft (reopen)
 
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
   createTestUser,
   setupTestStack,
@@ -14,7 +15,6 @@ import {
   TestUsers,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { stateMachineFeature } from "../feature";
 
 let stack: TestStack;

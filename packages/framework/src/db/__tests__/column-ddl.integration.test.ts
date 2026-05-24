@@ -1,8 +1,16 @@
 // DDL-Render-Test: alle pgTable Column-Types + Builder-Optionen.
 import { describe, expect, test } from "bun:test";
 import {
-  bigint, bigserial, boolean as pgBoolean, integer, jsonb, serial, text, timestamp, uuid,
+  bigint,
+  bigserial,
+  integer,
+  jsonb,
+  boolean as pgBoolean,
   table as pgTable,
+  serial,
+  text,
+  timestamp,
+  uuid,
 } from "../dialect";
 import { renderTableDdl } from "../render-ddl";
 
@@ -61,7 +69,9 @@ describe("renderTableDdl — column types", () => {
   });
 
   test("timestamptz defaultNow", () => {
-    const t = pgTable("t_ts", { created: timestamp("created", { withTimezone: true }).notNull().defaultNow() });
+    const t = pgTable("t_ts", {
+      created: timestamp("created", { withTimezone: true }).notNull().defaultNow(),
+    });
     const ddl = renderTableDdl(t as any);
     expect(ddl[0]).toContain('"created" timestamp with time zone DEFAULT now() NOT NULL');
   });

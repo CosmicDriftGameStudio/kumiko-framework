@@ -4,6 +4,7 @@
 // so legacy stateless tokens are expected to have expired. Default false
 // keeps pre-upgrade tokens working; this suite flips it on and asserts.
 
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
@@ -11,7 +12,6 @@ import {
   TestUsers,
   testTenantId,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createConfigFeature } from "../../config";
 import { createTenantFeature } from "../../tenant";
 import { createUserFeature } from "../../user";

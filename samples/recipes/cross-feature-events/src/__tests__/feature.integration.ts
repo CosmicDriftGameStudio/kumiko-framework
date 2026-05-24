@@ -10,6 +10,7 @@
 //   3. The handler is a regular async function — no timers, no magic
 //      callbacks. runOnce() drains deterministically.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -19,7 +20,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { and, eq } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { capturedEvents, orderEntity, pubsubOrderFeature } from "../feature";
 
 let stack: TestStack;

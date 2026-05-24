@@ -1,3 +1,4 @@
+import { describe, expect, test } from "bun:test";
 import {
   access,
   type ConfigKeyDefinition,
@@ -11,7 +12,6 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { describe, expect, test } from "bun:test";
 import { prepareConfigWrite, validateBounds } from "../../write-helpers";
 
 // Minimal Registry stub — only getConfigKey is exercised by prepareConfigWrite.

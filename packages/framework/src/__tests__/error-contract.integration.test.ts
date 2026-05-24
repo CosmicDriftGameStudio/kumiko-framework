@@ -5,8 +5,8 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
-import { asRawClient } from "../db/query";
 import { createEventStoreExecutor } from "../db/event-store-executor";
+import { asRawClient } from "../db/query";
 import { buildEntityTable } from "../db/table-builder";
 import {
   createEntity,
@@ -22,11 +22,13 @@ import {
   UnprocessableError,
   writeFailure,
 } from "../errors";
-import { setupTestStack, type TestStack } from "../stack";
 import {
   createTestUser,
+  setupTestStack,
+  type TestStack,
   TestUsers,
-  unsafeCreateEntityTable } from "../stack";
+  unsafeCreateEntityTable,
+} from "../stack";
 
 // --- Entity + handlers that deliberately raise each Kumiko error class ---
 

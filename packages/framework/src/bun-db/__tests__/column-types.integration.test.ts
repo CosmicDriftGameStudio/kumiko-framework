@@ -61,31 +61,25 @@ describe("column-type roundtrip", () => {
   });
 
   test("integer ±max", async () => {
-    await withTable(
-      [{ name: "n", pgType: "integer", notNull: true }],
-      async ({ db, meta }) => {
-        const max = await insertOne<{ id: string; n: number }>(db, meta, { n: 2147483647 });
-        const min = await insertOne<{ id: string; n: number }>(db, meta, { n: -2147483648 });
-        const zero = await insertOne<{ id: string; n: number }>(db, meta, { n: 0 });
-        expect((await fetchOne<{ n: number }>(db, meta, { id: max!.id }))?.n).toBe(2147483647);
-        expect((await fetchOne<{ n: number }>(db, meta, { id: min!.id }))?.n).toBe(-2147483648);
-        expect((await fetchOne<{ n: number }>(db, meta, { id: zero!.id }))?.n).toBe(0);
-      },
-    );
+    await withTable([{ name: "n", pgType: "integer", notNull: true }], async ({ db, meta }) => {
+      const max = await insertOne<{ id: string; n: number }>(db, meta, { n: 2147483647 });
+      const min = await insertOne<{ id: string; n: number }>(db, meta, { n: -2147483648 });
+      const zero = await insertOne<{ id: string; n: number }>(db, meta, { n: 0 });
+      expect((await fetchOne<{ n: number }>(db, meta, { id: max!.id }))?.n).toBe(2147483647);
+      expect((await fetchOne<{ n: number }>(db, meta, { id: min!.id }))?.n).toBe(-2147483648);
+      expect((await fetchOne<{ n: number }>(db, meta, { id: zero!.id }))?.n).toBe(0);
+    });
   });
 
   test("bigint ±max (as bigint)", async () => {
-    await withTable(
-      [{ name: "n", pgType: "bigint", notNull: true }],
-      async ({ db, meta }) => {
-        // JS Number-Max = 2^53-1. Postgres bigint = ±2^63-1.
-        // bun-db boundary coerziert string→bigint (siehe commit 0be2db9b).
-        const bigPos = 9007199254740993n;
-        const ins = await insertOne<{ id: string; n: bigint }>(db, meta, { n: bigPos });
-        const row = await fetchOne<{ id: string; n: bigint }>(db, meta, { id: ins!.id });
-        expect(row?.n).toBe(bigPos);
-      },
-    );
+    await withTable([{ name: "n", pgType: "bigint", notNull: true }], async ({ db, meta }) => {
+      // JS Number-Max = 2^53-1. Postgres bigint = ±2^63-1.
+      // bun-db boundary coerziert string→bigint (siehe commit 0be2db9b).
+      const bigPos = 9007199254740993n;
+      const ins = await insertOne<{ id: string; n: bigint }>(db, meta, { n: bigPos });
+      const row = await fetchOne<{ id: string; n: bigint }>(db, meta, { id: ins!.id });
+      expect(row?.n).toBe(bigPos);
+    });
   });
 
   test("uuid roundtrip", async () => {
@@ -108,9 +102,7 @@ describe("column-type roundtrip", () => {
         // checken über instant.toString() bzw. Date-equivalence.
         const fetched = row?.ts;
         const ms =
-          fetched instanceof Date
-            ? fetched.getTime()
-            : new Date(String(fetched)).getTime();
+          fetched instanceof Date ? fetched.getTime() : new Date(String(fetched)).getTime();
         expect(ms).toBe(new Date(iso).getTime());
       },
     );

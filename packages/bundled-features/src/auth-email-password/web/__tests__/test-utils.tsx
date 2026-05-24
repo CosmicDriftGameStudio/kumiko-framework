@@ -2,6 +2,8 @@
 // Shared test setup für die Web-UI-Components. Mountet das Minimum
 // an Provider-Tree den die Components zur Laufzeit voraussetzen
 // (LocaleProvider mit Bundle, SessionContext mit injizierbarem Wert).
+
+import { mock } from "bun:test";
 import type { LocaleResolver } from "@cosmicdrift/kumiko-headless";
 import {
   createStaticLocaleResolver,
@@ -11,10 +13,10 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { render as _render, type RenderResult } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { mock } from "bun:test";
 import { defaultTranslations } from "../../i18n";
 import type { SessionApi, SessionState } from "../session";
 import { SessionContext } from "../session";
+
 // Stateless Resolver — module-level cached, weil renderWithProviders
 // ihn pro Mount sonst neu konstruiert (~0.5ms × N Tests). Tests die
 // einen *anderen* Locale brauchen, übergeben ihren eigenen Resolver

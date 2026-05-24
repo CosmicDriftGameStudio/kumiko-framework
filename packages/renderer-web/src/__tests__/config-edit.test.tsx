@@ -7,12 +7,12 @@
 //   - Save-Button Greying via controller.rebase nach Success
 //   - Loading-State während config:query:values noch läuft
 
+import { describe, expect, mock, test } from "bun:test";
 import type { ConfigEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import { DispatcherProvider, KumikoScreen } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, mock, test } from "bun:test";
 import { createMockDispatcher, render, screen, waitFor } from "./test-utils";
 
 const settingsScreen: ConfigEditScreenDefinition = {
@@ -90,12 +90,10 @@ describe("KumikoScreen / configEdit", () => {
   });
 
   test("submit dispatches one /api/batch with one command per changed field", async () => {
-    const batchSpy = mock(
-      async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
-        isSuccess: true as const,
-        results: [],
-      }),
-    );
+    const batchSpy = mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+      isSuccess: true as const,
+      results: [],
+    }));
     const dispatcher: Dispatcher = createMockDispatcher({
       query: (async () => ({
         isSuccess: true,

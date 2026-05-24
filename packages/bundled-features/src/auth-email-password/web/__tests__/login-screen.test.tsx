@@ -1,5 +1,5 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 
 import { LoginScreen } from "../login-screen";
 import { makeSessionApi, renderWithProviders } from "./test-utils";

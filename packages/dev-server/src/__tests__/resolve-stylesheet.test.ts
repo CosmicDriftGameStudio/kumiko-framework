@@ -7,10 +7,10 @@
 // die anderen Tests dort booten ein TestStack (DB + Redis), das brauchen
 // wir für reine Resolver-Logik nicht.
 
+import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, test } from "bun:test";
 import { resolveStylesheet } from "../create-kumiko-server";
 
 describe("resolveStylesheet", () => {

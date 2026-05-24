@@ -24,11 +24,13 @@ import {
   RecordingMeter,
   RecordingTracer,
 } from "../../observability";
-import { setupTestStack, type TestStack } from "../../stack";
 import {
   resetEventStore,
+  setupTestStack,
+  type TestStack,
   TestUsers,
-  unsafeCreateEntityTable } from "../../stack";
+  unsafeCreateEntityTable,
+} from "../../stack";
 import { sharedWidgetEntity, sharedWidgetTable } from "../../testing";
 
 // --- Test fixtures ---

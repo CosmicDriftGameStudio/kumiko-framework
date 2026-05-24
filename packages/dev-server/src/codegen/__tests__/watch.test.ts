@@ -8,9 +8,9 @@
 // 'zod' nicht direct nutzen, runCodegen scant feature-files die
 // `import { z } from "zod"` haben.
 
+import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { afterAll, describe, expect, test } from "bun:test";
 import type { CodegenResult } from "../run-codegen";
 import { watchAndRegenerate } from "../watch";
 

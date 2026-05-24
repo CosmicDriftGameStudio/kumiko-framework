@@ -15,11 +15,13 @@ import { z } from "zod";
 import { selectMany } from "../../db/query";
 import { defineFeature } from "../../engine";
 import { eventsTable } from "../../event-store";
-import { setupTestStack, type TestStack } from "../../stack";
 import {
   resetEventStore,
+  setupTestStack,
+  type TestStack,
   TestUsers,
-  unsafeCreateEntityTable } from "../../stack";
+  unsafeCreateEntityTable,
+} from "../../stack";
 import { sharedWidgetEntity } from "../../testing";
 import { generateId } from "../../utils";
 

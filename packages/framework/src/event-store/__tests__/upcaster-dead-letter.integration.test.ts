@@ -7,8 +7,8 @@
 //   - listDeadLetters filtert per eventType
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { asRawClient, insertOne, selectMany } from "../../db/query";
-import { createTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import type { StoredEvent } from "../event-store";
 import { createEventsTable, eventsTable } from "../events-schema";

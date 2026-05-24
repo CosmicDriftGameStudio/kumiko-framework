@@ -8,8 +8,8 @@
 // (where the pattern came from) and the rendered file (where it ends
 // up at canonical positions). We compare every other field.
 
-import { Project } from "ts-morph";
 import { describe, expect, test } from "bun:test";
+import { Project } from "ts-morph";
 import { parseSourceFile } from "../parse";
 import type { FeaturePattern } from "../patterns";
 import { renderFeatureFile, renderPattern } from "../render";

@@ -8,6 +8,7 @@
 // it saw. That's the cheapest way to get a real `HandlerContext` in a
 // test without re-implementing the dispatcher.
 
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { createEncryptionProvider, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
@@ -25,7 +26,6 @@ import {
   createMutableMasterKeyProvider,
   type MutableMasterKeyProvider,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { createConfigFeature } from "../../config";
 import { ConfigHandlers } from "../../config/constants";

@@ -1,6 +1,6 @@
+import { describe, expect, test } from "bun:test";
 import { screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { describe, expect, test } from "bun:test";
 import { makeAuthGate } from "../auth-gate";
 import { makeSessionApi, renderWithProviders } from "./test-utils";
 

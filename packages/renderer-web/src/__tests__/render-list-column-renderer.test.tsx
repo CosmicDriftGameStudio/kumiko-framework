@@ -1,3 +1,4 @@
+import { afterAll, beforeEach, describe, expect, type MockInstance, spyOn, test } from "bun:test";
 import type {
   EntityDefinition,
   EntityListScreenDefinition,
@@ -8,7 +9,6 @@ import {
   RenderList,
 } from "@cosmicdrift/kumiko-renderer";
 import type { ReactElement, ReactNode } from "react";
-import { afterAll, beforeEach, describe, expect, spyOn, test, type MockInstance } from "bun:test";
 import { render, screen } from "./test-utils";
 
 // Tests für die JSX-Renderer-Form von ListColumn-Spalten:

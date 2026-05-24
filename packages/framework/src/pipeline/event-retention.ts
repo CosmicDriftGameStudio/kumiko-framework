@@ -1,5 +1,5 @@
-import { deleteMany, selectMany, transaction } from "../db/query";
 import type { DbConnection } from "../db/connection";
+import { deleteMany, selectMany, transaction } from "../db/query";
 import { eventsTable } from "../event-store";
 import { eventConsumerStateTable } from "./event-consumer-state";
 

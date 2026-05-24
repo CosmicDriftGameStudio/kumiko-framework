@@ -8,6 +8,7 @@
 //   3. Override wird als JSON-String persistiert + via for-tenant
 //      korrekt zurueckgelesen
 
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -16,7 +17,6 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createComplianceProfilesFeature, tenantComplianceProfileEntity } from "../feature";
 import { seedComplianceProfile } from "../seeding";
 

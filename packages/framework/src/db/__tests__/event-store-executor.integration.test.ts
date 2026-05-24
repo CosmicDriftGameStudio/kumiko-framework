@@ -147,7 +147,9 @@ describe("event-store-executor — sensitive fields", () => {
     if (!row) throw new Error("no events in store");
     return {
       type: row["type"] as string,
-      payload: (typeof row["payload"] === "string" ? JSON.parse(row["payload"] as string) : row["payload"]) as TPayload,
+      payload: (typeof row["payload"] === "string"
+        ? JSON.parse(row["payload"] as string)
+        : row["payload"]) as TPayload,
     };
   }
 

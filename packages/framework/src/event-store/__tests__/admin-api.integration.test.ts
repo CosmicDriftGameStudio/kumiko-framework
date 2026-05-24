@@ -10,15 +10,14 @@
 //     failure; predecessor pre-flight per aggregate in the batch.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, selectMany } from "../../db/query";
 import type { DbConnection } from "../../db/connection";
+import { asRawClient, selectMany } from "../../db/query";
 import { createTestDb, type TestDb } from "../../stack";
 import { generateId as uuid } from "../../utils";
 import { appendRaw, appendRawBatch, type RawEventToAppend } from "../admin-api";
 import { VersionConflictError } from "../errors";
 import { append, loadAggregate } from "../event-store";
-import { eventsTable } from "../events-schema";
-import { createEventsTable } from "../events-schema";
+import { createEventsTable, eventsTable } from "../events-schema";
 
 // Test-only spy: wrap a DbConnection's `.unsafe()` to capture the SQL
 // string of every query the framework runs. Used to assert batching

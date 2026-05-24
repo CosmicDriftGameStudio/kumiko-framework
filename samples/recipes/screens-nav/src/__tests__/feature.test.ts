@@ -9,6 +9,7 @@
 //   - validateBoot catches the common author mistakes (unknown field,
 //     custom screen without a renderer component)
 
+import { describe, expect, test } from "bun:test";
 import {
   createRegistry,
   defineFeature,
@@ -16,7 +17,6 @@ import {
   normalizeListColumn,
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { describe, expect, test } from "bun:test";
 import { bookEntity, createBookshopAdminFeature, createBookshopFeature } from "../feature";
 
 const bookshop = createBookshopFeature();

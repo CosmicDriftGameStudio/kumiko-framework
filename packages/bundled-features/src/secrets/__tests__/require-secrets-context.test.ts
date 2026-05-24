@@ -12,9 +12,9 @@
 // + FileProviderContext-shape direkt) und prueft dass beide den happy-path
 // + den fehlt-_userId-throw durchlaufen.
 
+import { describe, expect, mock, test } from "bun:test";
 import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
-import { describe, expect, mock, test } from "bun:test";
 import { requireSecretsContext } from "../feature";
 
 function makeRawSecretsContext(): SecretsContext {

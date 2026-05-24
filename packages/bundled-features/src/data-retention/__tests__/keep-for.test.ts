@@ -1,5 +1,5 @@
-import { ensureTemporalPolyfill, getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { beforeAll, describe, expect, test } from "bun:test";
+import { ensureTemporalPolyfill, getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { computeCutoff, InvalidKeepForError, isPastCutoff } from "../keep-for";
 
 beforeAll(async () => {

@@ -16,13 +16,13 @@
 //   6. deep-equal: identische Rows in identischer Reihenfolge
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { createBooleanField, createEntity, createTextField, defineFeature } from "../../engine";
 import { createRegistry } from "../../engine/registry";
 import { createEventsTable } from "../../event-store";
 import { rebuildProjection } from "../../pipeline";
 import { createProjectionStateTable } from "../../pipeline/projection-state";
 import { TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { createTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { createEventStoreExecutor } from "../event-store-executor";
 import { buildEntityTable } from "../table-builder";
@@ -68,7 +68,12 @@ beforeEach(async () => {
 });
 
 async function snapshotTable(): Promise<readonly Record<string, unknown>[]> {
-  const rows = await selectMany(testDb.db, userTable, {}, { orderBy: { col: "id", direction: "asc" } });
+  const rows = await selectMany(
+    testDb.db,
+    userTable,
+    {},
+    { orderBy: { col: "id", direction: "asc" } },
+  );
   return rows as readonly Record<string, unknown>[];
 }
 
@@ -277,7 +282,12 @@ describe("implicit-projection / dokumentierte Sensitive-Drift", () => {
 
     // 2. Verifiziere dass das Event-Log das Feld NICHT enthält (stripped).
     const { eventsTable } = await import("../../event-store");
-    const [event] = await selectMany(testDb.db, eventsTable, { aggregateId: created.data.id }, { orderBy: { col: "version", direction: "asc" } });
+    const [event] = await selectMany(
+      testDb.db,
+      eventsTable,
+      { aggregateId: created.data.id },
+      { orderBy: { col: "version", direction: "asc" } },
+    );
     expect(event?.payload?.["apiKey"]).toBeUndefined();
     expect(event?.payload?.["email"]).toBe("x@test.de");
 

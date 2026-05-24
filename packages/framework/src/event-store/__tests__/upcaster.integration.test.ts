@@ -10,9 +10,9 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
-import { asRawClient, insertOne, selectMany } from "../../db/query";
 import { integer as pgInteger, table as pgTable, text as pgText } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
+import { asRawClient, insertOne, selectMany } from "../../db/query";
 import { buildEntityTable } from "../../db/table-builder";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";

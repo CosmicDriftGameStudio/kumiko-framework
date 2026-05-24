@@ -2,6 +2,7 @@
 // charge-handler liest entschlüsselt → caller sieht charge-id, NIE den
 // Key. Plus: zwei Tenants haben getrennte Keys.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import {
   configValuesTable,
@@ -18,7 +19,6 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { eq } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { billingFeature, stripeApiKeyHandle } from "../feature";
 
 const TENANT_A = testTenantId(1);

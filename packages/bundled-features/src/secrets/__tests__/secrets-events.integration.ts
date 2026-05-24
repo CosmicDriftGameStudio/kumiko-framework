@@ -5,6 +5,7 @@
 // pins both paths so a silent rename breaks here, not in a compliance
 // audit query.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -18,7 +19,6 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createSecretsFeature } from "../feature";
 import {
   createSecretsContext,

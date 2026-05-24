@@ -1,11 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
-import { asRawClient, selectMany } from "../../db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
+import { asRawClient, selectMany } from "../../db/query";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
-import { TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { setupTestStack, type TestStack } from "../../stack";
+import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
 
 // Two entities in a 1:N relation. The relation is declared with
 // `nestedWrite: true`, which opts the framework into expanding

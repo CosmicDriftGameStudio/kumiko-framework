@@ -1,7 +1,7 @@
+import { describe, expect, test } from "bun:test";
 import type { LocaleResolver } from "@cosmicdrift/kumiko-headless";
 import { act, render, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { describe, expect, test } from "bun:test";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
@@ -9,6 +9,7 @@ import {
   useLocale,
   useTranslation,
 } from "../i18n";
+
 // Stateful resolver fixture: we drive locale changes with setState
 // and the test asserts re-render via subscribe.
 function makeStatefulResolver(initial: string): LocaleResolver {

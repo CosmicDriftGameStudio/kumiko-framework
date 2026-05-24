@@ -14,13 +14,13 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
+import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { createRegistry, defineFeature } from "../../engine";
 import { createArchivedStreamsTable, createEventsTable } from "../../event-store";
 import { createEventConsumerStateTable } from "../../pipeline";
 import { createTestRedis, type TestRedis, TestUsers } from "../../stack";
-import { createTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
-import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { waitFor } from "../../testing";
+import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { createAllInOneEntrypoint } from "../index";
 
 const jobRuns: Array<{ name: string; payload: Record<string, unknown> }> = [];

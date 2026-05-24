@@ -1,5 +1,5 @@
-import type { NavDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { describe, expect, test } from "bun:test";
+import type { NavDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { resolveNavigation } from "../resolve";
 import type { NavRegistrySlice } from "../types";
 

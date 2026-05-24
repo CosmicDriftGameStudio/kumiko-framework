@@ -15,12 +15,12 @@
 // carry a different state row (kumiko_event_consumers, not kumiko_projections)
 // and a different apply signature (3rd ctx arg).
 
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { z } from "zod";
-import { asRawClient, selectMany, updateMany } from "../../db/query";
 import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
+import { asRawClient, selectMany, updateMany } from "../../db/query";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import {
@@ -28,11 +28,13 @@ import {
   getConsumerState,
   rebuildMultiStreamProjection,
 } from "../../pipeline";
-import { setupTestStack, type TestStack } from "../../stack";
 import {
   resetEventStore,
+  setupTestStack,
+  type TestStack,
   TestUsers,
-  unsafeCreateEntityTable } from "../../stack";
+  unsafeCreateEntityTable,
+} from "../../stack";
 
 // --- Fixtures: two aggregates feeding one MSP + two cornered MSPs ---
 

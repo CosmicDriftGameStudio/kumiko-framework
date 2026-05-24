@@ -1,6 +1,7 @@
+import { afterAll, beforeAll, describe, expect, it, mock } from "bun:test";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it, mock } from "bun:test";
+
 // Bun.Glob is only used by scanForCandidates / runCodemod, not by
 // analyzeFile or convertFile. Those higher-level functions are tested
 // in the integration suite; unit tests here focus on file-level

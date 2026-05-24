@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   buildEntityTable,
@@ -26,7 +27,6 @@ import {
 import { createLateBoundHolder } from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { FEATURE_TOGGLE_SET_EVENT_NAME } from "../constants";
 import { createFeatureTogglesFeature } from "../feature";

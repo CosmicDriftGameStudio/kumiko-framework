@@ -7,11 +7,11 @@
 // scaffold gegen sie funktioniert, decken wir die größte realistische
 // app-shape ab.
 
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { scaffoldDeploy } from "@cosmicdrift/kumiko-dev-server";
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 const SAMPLE_DIR = join(__dirname, "..", "..");
 

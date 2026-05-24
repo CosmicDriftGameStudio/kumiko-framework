@@ -15,11 +15,13 @@ import {
   isStreamArchived,
   loadAggregate as loadAggregateRaw,
 } from "../../event-store";
-import { setupTestStack, type TestStack } from "../../stack";
 import {
   resetEventStore,
+  setupTestStack,
+  type TestStack,
   TestUsers,
-  unsafeCreateEntityTable } from "../../stack";
+  unsafeCreateEntityTable,
+} from "../../stack";
 
 const itemEntity = createEntity({
   table: "read_arch_items",

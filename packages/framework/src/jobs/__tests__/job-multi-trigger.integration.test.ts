@@ -6,15 +6,15 @@
 // Validator-Reject). Hier prüfen wir die runtime-dispatch-Pfade durch
 // einen echten BullMQ-Worker.
 
-import type { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import type { Hono } from "hono";
 import { z } from "zod";
 import { buildServer, type JwtHelper } from "../../api";
+import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { createRegistry, defineFeature, type SessionUser } from "../../engine";
 import { createTestRedis, type TestRedis, TestUsers } from "../../stack";
-import { createTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
-import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { waitFor } from "../../testing";
+import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { createJobRunner, type JobRunner } from "../job-runner";
 
 const jobExecutions: Array<{ trigger: string; payload: Record<string, unknown> }> = [];

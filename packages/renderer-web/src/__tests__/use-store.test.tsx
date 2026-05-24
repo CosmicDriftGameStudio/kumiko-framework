@@ -1,6 +1,6 @@
+import { describe, expect, mock, test } from "bun:test";
 import { createStore, shallowEqual } from "@cosmicdrift/kumiko-headless";
 import { useStore, useStoreSelector } from "@cosmicdrift/kumiko-renderer";
-import { describe, expect, mock, test } from "bun:test";
 import { act, renderHook } from "./test-utils";
 
 describe("useStore", () => {

@@ -1,3 +1,4 @@
+import { describe, expect, it, mock } from "bun:test";
 import {
   computeDefinitionFingerprint,
   defineWorkflow,
@@ -5,7 +6,6 @@ import {
   type WorkflowDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { VersionConflictError } from "@cosmicdrift/kumiko-framework/event-store";
-import { describe, expect, it, mock } from "bun:test";
 import { type CronWorkflow, nextCronDate, runDueCronWorkflows } from "../cron-scheduler";
 import { registerEventTrigger } from "../event-trigger";
 import {

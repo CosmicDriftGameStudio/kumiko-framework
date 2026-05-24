@@ -9,6 +9,7 @@
 // fetch direkt. Bun.serve-Wiring ist in Production-Coolify selbst
 // getestet wenn der Container hochfährt.
 
+import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -30,7 +31,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import { unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-framework/stack";
 import postgres from "postgres";
-import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { type ProdAppHandle, runProdApp } from "../run-prod-app";
 

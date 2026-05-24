@@ -20,6 +20,7 @@
 //   - Audit-Retention: 10y (HGB-Override)
 //   - Plus worksCouncilApprovalRequired
 
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { tenantComplianceProfileEntity } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -29,7 +30,6 @@ import {
   type TestStack,
   testTenantId,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { complianceProfilesDemoFeatures } from "../feature";
 
 const SET_PROFILE = "compliance-profiles:write:set-profile";

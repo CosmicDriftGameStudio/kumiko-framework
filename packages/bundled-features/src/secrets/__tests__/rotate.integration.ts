@@ -3,6 +3,7 @@
 // asserts the job bails after maxFailures instead of spraying the log
 // with every row's identical error.
 
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { deleteMany, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { AppContext } from "@cosmicdrift/kumiko-framework/engine";
@@ -17,7 +18,6 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createSecretsFeature } from "../feature";
 import { rotateJob } from "../handlers/rotate.job";
 import { createSecretsContext } from "../secrets-context";

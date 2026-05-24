@@ -7,8 +7,8 @@
 // NO-MAGIC-ON-DATA: dieser Renderer wird NIE zur App-Runtime aufgerufen.
 // Nur Build-Step. Runner liest checked-in SQL, nicht Renderer-Output.
 
-import type { ColumnMeta, EntityTableMeta, IndexMeta } from "./entity-table-meta";
 import { pgTypeToSqlType } from "./dialect";
+import type { ColumnMeta, EntityTableMeta, IndexMeta } from "./entity-table-meta";
 
 function quoteIdent(name: string): string {
   return `"${name.replace(/"/g, '""')}"`;

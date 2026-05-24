@@ -5,6 +5,7 @@
 // ../feature.ts; this file proves they wire correctly to the
 // HTTP dispatcher + event-store + projections.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
   createTestUser,
   resetEventStore,
@@ -13,7 +14,6 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { eq } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { inventoryFeature, lowStockAlertsTable, productTable } from "../feature";
 
 let stack: TestStack;

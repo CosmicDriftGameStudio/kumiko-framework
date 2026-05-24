@@ -45,16 +45,18 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
-import { asRawClient, selectMany } from "../../db/query";
 import { table, text, timestamp, uuid } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
+import { asRawClient, selectMany } from "../../db/query";
 import { buildEntityTable } from "../../db/table-builder";
 import { eventsTable } from "../../event-store";
-import { setupTestStack, type TestStack } from "../../stack";
-import { 
+import {
+  setupTestStack,
+  type TestStack,
   TestUsers,
   unsafeCreateEntityTable,
-  unsafePushTables } from "../../stack";
+  unsafePushTables,
+} from "../../stack";
 import { defineFeature } from "../define-feature";
 import { defineWriteHandler } from "../define-handler";
 import { createEntity, createTextField } from "../factories";

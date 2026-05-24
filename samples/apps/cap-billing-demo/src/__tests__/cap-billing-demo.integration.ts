@@ -7,6 +7,7 @@
 // hier sehen wie die Plattform im Realbetrieb cap-bedingtes Billing
 // verdrahtet.
 
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import {
   SubscriptionEventTypes,
@@ -43,7 +44,6 @@ import {
   createMutableMasterKeyProvider,
   type MutableMasterKeyProvider,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { NEWSLETTER_SEND_QN, NEWSLETTER_TIER_CONFIG_KEY } from "../feature";
 import { APP_FEATURES } from "../run-config";
 

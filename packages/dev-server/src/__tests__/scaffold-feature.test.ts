@@ -8,12 +8,12 @@
 //   4. Validation: bad names fail loudly, existing destination refuses
 //      to overwrite
 
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseSourceFile, VERSION_HEADER } from "@cosmicdrift/kumiko-framework/engine";
 import { Project } from "ts-morph";
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { scaffoldFeature } from "../scaffold-feature";
 
 let workdir: string;

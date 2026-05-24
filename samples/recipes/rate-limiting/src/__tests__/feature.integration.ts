@@ -10,8 +10,8 @@
 // clean. Limits are picked so the 4th/3rd/21st call is the first 429
 // in each layer's test.
 
-import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { createRateLimitShowcaseFeature } from "../feature";
 
 let stack: TestStack;

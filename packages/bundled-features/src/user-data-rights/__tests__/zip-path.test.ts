@@ -5,8 +5,8 @@
 // Filename mit "../" einen ZIP-Reader dazu bringen, ausserhalb des
 // Extract-Roots zu schreiben.
 
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { describe, expect, test } from "bun:test";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { buildFileRefZipPath, sanitizeZipFilename } from "../zip-path";
 
 const TENANT = "00000000-0000-0000-0000-000000000001" as TenantId;

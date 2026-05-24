@@ -10,8 +10,8 @@
 // and surfaced as UnknownPattern with the correct methodName, so the
 // Designer/AI know the call exists.
 
-import { Project } from "ts-morph";
 import { describe, expect, test } from "bun:test";
+import { Project } from "ts-morph";
 import { parseSourceFile } from "../parse";
 
 function createProject() {

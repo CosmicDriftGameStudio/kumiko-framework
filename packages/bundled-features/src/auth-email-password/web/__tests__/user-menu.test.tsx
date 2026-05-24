@@ -1,8 +1,9 @@
+import { describe, expect, test } from "bun:test";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, test } from "bun:test";
 import { UserMenu } from "../user-menu";
 import { makeSessionApi, renderWithProviders } from "./test-utils";
+
 // Radix-DropdownMenu reagiert auf pointerdown — fireEvent.click greift
 // dort nicht. userEvent simuliert die volle Pointer-Sequenz und Radix
 // öffnet sauber.

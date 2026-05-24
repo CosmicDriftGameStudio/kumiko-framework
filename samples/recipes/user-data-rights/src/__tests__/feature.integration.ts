@@ -8,6 +8,7 @@
 //   3. Strategy "anonymize" (HR-Override) setzt authorId=null statt zu
 //      löschen — Row bleibt für Multi-User-Refs intakt.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
@@ -35,7 +36,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { sql } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { noteEntity, notesFeature, notesTable } from "../feature";
 
 let stack: TestStack;

@@ -3,6 +3,7 @@
 // drains after COMMIT and calls the (stubbed) fetch, follow-up
 // step.dispatched / step.dispatch-failed events land on the same stream.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import {
   createStepDispatcherFeature,
   type MailSpec,
@@ -17,7 +18,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { eq } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, test, mock } from "bun:test";
 import { incidentEntity, incidentTable, webhookDemoFeature } from "../feature";
 
 let stack: TestStack;

@@ -12,13 +12,13 @@
 //      braucht Bun. Spawnen kumiko-build als subprocess via PATH.
 //      Skipped wenn `bun` nicht erreichbar — selten, aber sauber.
 
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { buildProdBundle } from "../build-prod-bundle";
 
 const __filename = fileURLToPath(import.meta.url);

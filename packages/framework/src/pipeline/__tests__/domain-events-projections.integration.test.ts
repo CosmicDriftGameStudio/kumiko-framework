@@ -11,7 +11,6 @@
 // the aggregate stream), any of the assertions below go red.
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
-import { insertOne, selectMany, updateMany } from "../../db/query";
 import {
   integer as pgInteger,
   table as pgTable,
@@ -19,14 +18,17 @@ import {
   uuid as pgUuid,
 } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
+import { insertOne, selectMany, updateMany } from "../../db/query";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { loadAggregate } from "../../event-store";
-import { setupTestStack, type TestStack } from "../../stack";
 import {
   resetEventStore,
+  setupTestStack,
+  type TestStack,
   TestUsers,
-  unsafeCreateEntityTable } from "../../stack";
+  unsafeCreateEntityTable,
+} from "../../stack";
 
 // --- Entity ---
 

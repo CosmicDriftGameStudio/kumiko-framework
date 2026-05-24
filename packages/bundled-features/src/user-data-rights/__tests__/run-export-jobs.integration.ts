@@ -12,6 +12,7 @@
 //      downloadStorageKey wird genullt + storage-key geloescht
 //   6. Idempotency: 2× run → kein Re-Processing von done/failed-Jobs
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -35,7 +36,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,

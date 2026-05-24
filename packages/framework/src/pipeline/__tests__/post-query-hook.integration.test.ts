@@ -13,8 +13,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import type { PostQueryHookFn } from "../../engine/types";
-import { TestUsers } from "../../stack";
-import { setupTestStack, type TestStack } from "../../stack";
+import { setupTestStack, type TestStack, TestUsers } from "../../stack";
 
 // --- Fixture entity ---
 

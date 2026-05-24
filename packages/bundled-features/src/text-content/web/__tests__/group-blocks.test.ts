@@ -1,6 +1,7 @@
-import type { TreeNode } from "@cosmicdrift/kumiko-framework/engine";
 import { describe, expect, test } from "bun:test";
+import type { TreeNode } from "@cosmicdrift/kumiko-framework/engine";
 import { type BlockSummary, groupBlocksByFolder } from "../client-plugin";
+
 // TreeNode.children ist `readonly TreeNode[] | TreeChildrenSubscribe` —
 // im Provider-Output ist die Subscribe-Form nur für deferred-children
 // gedacht, groupBlocksByFolder produziert ausschließlich statische

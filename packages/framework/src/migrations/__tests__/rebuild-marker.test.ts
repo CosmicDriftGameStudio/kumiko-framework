@@ -4,10 +4,10 @@
 //   - schemaVersion-Mismatch wirft (verhindert dass alte Markers gegen
 //     neue Lese-Logik fahren)
 
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { readRebuildMarker, writeRebuildMarker } from "../rebuild-marker";
 
 let tmpDir: string;

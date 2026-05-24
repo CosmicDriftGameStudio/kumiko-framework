@@ -1,7 +1,7 @@
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { generateId as uuid } from "@cosmicdrift/kumiko-framework/utils";
 import { Meilisearch } from "meilisearch";
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createMeilisearchAdapter } from "../meilisearch-adapter";
 import type { SearchAdapter } from "../types";
 

@@ -6,11 +6,13 @@ import { createRegistry, defineFeature } from "../../engine";
 import type { AppContext, SaveContext } from "../../engine/types";
 import { createJobRunner } from "../../jobs";
 import { createLogger } from "../../logging/pino-logger";
-import { setupTestStack, type TestStack } from "../../stack";
 import {
   createTestRedis,
+  setupTestStack,
   type TestRedis,
-  unsafeCreateEntityTable } from "../../stack";
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "../../stack";
 import { createRecordingProvider, type RecordingProvider, waitFor } from "../../testing";
 
 // End-to-end observability integration: wires a full Kumiko stack with a

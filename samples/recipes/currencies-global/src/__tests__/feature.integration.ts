@@ -14,6 +14,7 @@
 // └──────────┴────────────────────────────┴──────────────────────────┘
 // XYZ is NOT in DEFAULT_CURRENCIES — proves custom currencies work end-to-end
 
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { seedReferenceData } from "@cosmicdrift/kumiko-framework/db";
 import {
   createTestUser,
@@ -23,7 +24,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { currencyEntity, currencyTable } from "../entities/currency";
 import { invoiceEntity } from "../entities/invoice";
 import { tenantCurrencyEntity } from "../entities/tenant-currency";

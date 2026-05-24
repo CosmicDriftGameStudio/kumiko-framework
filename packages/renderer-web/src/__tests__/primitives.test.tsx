@@ -7,8 +7,8 @@
 // ChangeEvent) und das testId-Forwarding, von dem die E2E-Tests
 // abhängen werden.
 
-import userEvent from "@testing-library/user-event";
 import { describe, expect, mock, test } from "bun:test";
+import userEvent from "@testing-library/user-event";
 import { defaultPrimitives } from "../primitives";
 import { fireEvent, render, screen } from "./test-utils";
 

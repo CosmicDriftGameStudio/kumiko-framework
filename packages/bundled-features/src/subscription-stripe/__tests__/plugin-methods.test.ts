@@ -3,9 +3,9 @@
 // spyOn gemockt — wir testen unsere Mapping-Logik (Argumente die wir
 // an Stripe schicken + Antwort-Parsing), NICHT Stripe selbst.
 
+import { describe, expect, spyOn, test } from "bun:test";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import Stripe from "stripe";
-import { describe, expect, spyOn, test } from "bun:test";
 import {
   createStripeCancelSubscription,
   createStripeCheckoutSession,

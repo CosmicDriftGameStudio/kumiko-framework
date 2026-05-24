@@ -17,6 +17,7 @@
 //   - Status-Polling: User sieht eigene Jobs, Cross-User-Isolation,
 //     hasJob=false wenn nichts da
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
   asRawClient,
   insertOne,
@@ -32,7 +33,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createUserFeature } from "../../user";

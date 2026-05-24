@@ -1,6 +1,6 @@
 import { requestContext } from "../api/request-context";
-import { asRawClient, selectMany } from "../db/query";
 import type { DbConnection, DbRow, DbTx } from "../db/connection";
+import { asRawClient, selectMany } from "../db/query";
 import { buildEntityTable, toSnakeCase } from "../db/table-builder";
 import { createTenantDb } from "../db/tenant-db";
 import { hasAccess } from "../engine/access";
@@ -1130,7 +1130,8 @@ export function createDispatcher(
           if (entity.softDelete && isDeleted === true) {
             continue;
           }
-          const currentValue = (row as DbRow)[fieldName] ?? (row as DbRow)[toSnakeCase(fieldName)] as string; // @cast-boundary engine-bridge
+          const currentValue =
+            (row as DbRow)[fieldName] ?? ((row as DbRow)[toSnakeCase(fieldName)] as string); // @cast-boundary engine-bridge
           guardTransition(
             getTransitions({ entityName, fieldName, map: transitionMap }),
             currentValue,

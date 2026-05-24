@@ -1,6 +1,7 @@
 // Lifecycle Hooks Sample — Integration Test
 // Proves: validation rejects bad data, postSave tracks changes
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -9,7 +10,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { articleEntity, articlesFeature, hookLog } from "../feature";
 
 let stack: TestStack;

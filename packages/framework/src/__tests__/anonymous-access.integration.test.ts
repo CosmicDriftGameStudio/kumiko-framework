@@ -8,9 +8,8 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
-import { asRawClient, selectMany } from "../db/query";
-import { setupTestStack, type TestStack } from "../stack";
 import { createEventStoreExecutor } from "../db/event-store-executor";
+import { asRawClient, selectMany } from "../db/query";
 import { buildEntityTable } from "../db/table-builder";
 import {
   ANONYMOUS_USER_ID,
@@ -19,7 +18,7 @@ import {
   defineFeature,
   type TenantId,
 } from "../engine";
-import { TestUsers, unsafeCreateEntityTable } from "../stack";
+import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../stack";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 const OTHER_TENANT_ID = "00000000-0000-4000-8000-000000000002" as TenantId;

@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { asRawClient, insertOne, selectMany } from "../../db/query";
 import {
   createBooleanField,
@@ -10,7 +11,6 @@ import {
 } from "../../engine";
 import type { FeatureDefinition } from "../../engine/types";
 import { unsafePushTables } from "../../stack";
-import { createTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { buildEntityTable } from "../table-builder";
 

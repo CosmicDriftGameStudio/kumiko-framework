@@ -7,8 +7,8 @@
 // AST extractor + the Designer/AI consumers (renderPattern,
 // getEditability, PATTERN_LIBRARY). Both halves must agree on shape.
 
-import { Project } from "ts-morph";
 import { describe, expect, test } from "bun:test";
+import { Project } from "ts-morph";
 import { parseSourceFile } from "../parse";
 import { getEditability } from "../patterns";
 import { renderPattern } from "../render";

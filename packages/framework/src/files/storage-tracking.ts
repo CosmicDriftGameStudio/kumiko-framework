@@ -10,9 +10,9 @@
 // consumer-cursor row. Apps that want it pass filesStorageTrackingFeature
 // into createApp / setupTestStack alongside their domain features.
 
+import { bigint, instant, integer, table as pgTable, sql, uuid } from "../db/dialect";
 // sql now comes from native dialect
 import { asRawClient } from "../db/query";
-import { bigint, instant, integer, table as pgTable, sql, uuid } from "../db/dialect";
 import { defineFeature, typedPayload } from "../engine";
 import { fileUploadedEvent } from "./file-routes";
 

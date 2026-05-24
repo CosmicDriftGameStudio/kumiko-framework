@@ -1,5 +1,5 @@
 // sql now comes from native dialect
-import { asRawClient, selectMany } from "../db/query";
+
 import type { DbConnection, DbRunner } from "../db/connection";
 import {
   index,
@@ -12,6 +12,7 @@ import {
   text,
   uuid,
 } from "../db/dialect";
+import { asRawClient, selectMany } from "../db/query";
 import { tableExists } from "../db/schema-inspection";
 import type { TenantId } from "../engine/types";
 import { unsafePushTables } from "../stack";

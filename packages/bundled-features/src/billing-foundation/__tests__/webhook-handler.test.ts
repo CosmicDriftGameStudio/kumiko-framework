@@ -3,8 +3,8 @@
 // ohne setupTestStack, weil der webhook-handler nur über die deps-
 // injection geht und keinen DB-roundtrip braucht.
 
-import { Hono } from "hono";
 import { describe, expect, mock, test } from "bun:test";
+import { Hono } from "hono";
 import { SubscriptionEventTypes, SubscriptionStatuses } from "../constants";
 import type { SubscriptionEvent, SubscriptionProviderPlugin } from "../types";
 import { createSubscriptionWebhookHandler, type SubscriptionWebhookDeps } from "../webhook-handler";

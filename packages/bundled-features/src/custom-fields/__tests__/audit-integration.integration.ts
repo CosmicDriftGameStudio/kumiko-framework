@@ -10,6 +10,7 @@
 // directly) picks them up automatically. This suite is the evidence that
 // the promise holds end-to-end.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -27,7 +28,6 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { AuditQueries } from "../../audit/constants";
 import { createAuditFeature } from "../../audit/feature";

@@ -5,9 +5,9 @@
 // dokumentiert das Ergebnis; jeder Feature-Autor der den Generator zum
 // ersten Mal anfasst kann hier reinschauen statt in die Implementation.
 
+import { describe, expect, test } from "bun:test";
 import { createRegistry, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { generateE2ESpec } from "@cosmicdrift/kumiko-framework/testing";
-import { describe, expect, test } from "bun:test";
 import { createShopFeature } from "../feature";
 
 const shop = createShopFeature();

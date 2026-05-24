@@ -9,6 +9,7 @@
 // in Atom 1a's pure unit-Test absichtlich ausgelassen wurde weil er
 // reale Postgres + Drizzle-customType-Codec-Path braucht.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
   asRawClient,
   insertOne,
@@ -21,7 +22,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createUserFeature } from "../../user";

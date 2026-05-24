@@ -1,5 +1,5 @@
-import { deleteMany, fetchOne, updateMany } from "../db/query";
 import type { TableColumns } from "../db/dialect";
+import { deleteMany, fetchOne, updateMany } from "../db/query";
 import { OnDeleteStrategies, SystemHookNames, SystemHookPriorities } from "../engine/constants";
 import type { PreDeleteHookFn, Registry } from "../engine/types";
 import { ConflictError, FrameworkReasons } from "../errors";

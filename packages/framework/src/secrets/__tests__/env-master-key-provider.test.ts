@@ -1,5 +1,5 @@
-import { randomBytes } from "node:crypto";
 import { describe, expect, test } from "bun:test";
+import { randomBytes } from "node:crypto";
 import { createEnvMasterKeyProvider } from "../env-master-key-provider";
 
 function env(vars: Record<string, string>): Record<string, string> {

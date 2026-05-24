@@ -1,6 +1,6 @@
 import { requestContext } from "../api/request-context";
-import { asRawClient, coerceRow, extractTableInfo, selectMany } from "../db/query";
 import type { DbConnection, DbTx, PgClient } from "../db/connection";
+import { asRawClient, coerceRow, extractTableInfo, selectMany } from "../db/query";
 import type { AppContext } from "../engine/types";
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers";
 import {
@@ -785,7 +785,9 @@ export async function restartConsumer(
      RETURNING *`,
     [name, instanceId],
   )) as ReadonlyArray<Record<string, unknown>>;
-  const updated = updatedRows[0] && coerceRow(updatedRows[0], extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow;
+  const updated =
+    updatedRows[0] &&
+    (coerceRow(updatedRows[0], extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow);
   if (!updated) {
     throw new Error(
       `Consumer "${name}" (instance_id="${instanceId}") vanished between read and write — retry.`,
@@ -806,7 +808,9 @@ export async function disableConsumer(
      RETURNING *`,
     [name, instanceId],
   )) as ReadonlyArray<Record<string, unknown>>;
-  const updated = updatedRows[0] && coerceRow(updatedRows[0], extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow;
+  const updated =
+    updatedRows[0] &&
+    (coerceRow(updatedRows[0], extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow);
   if (!updated) {
     throw new Error(
       `Consumer "${name}" (instance_id="${instanceId}") vanished between read and write — retry.`,
@@ -832,7 +836,9 @@ export async function enableConsumer(
      RETURNING *`,
     [name, instanceId],
   )) as ReadonlyArray<Record<string, unknown>>;
-  const updated = updatedRows[0] && coerceRow(updatedRows[0], extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow;
+  const updated =
+    updatedRows[0] &&
+    (coerceRow(updatedRows[0], extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow);
   if (!updated) {
     throw new Error(
       `Consumer "${name}" (instance_id="${instanceId}") vanished between read and write — retry.`,
@@ -857,7 +863,11 @@ export async function skipPoisonEvent(
       [before.lastProcessedEventId],
     )) as ReadonlyArray<{ id: string | bigint }>;
     const poison = poisonRows[0];
-    const poisonId = poison ? (typeof poison.id === "bigint" ? poison.id : BigInt(poison.id)) : null;
+    const poisonId = poison
+      ? typeof poison.id === "bigint"
+        ? poison.id
+        : BigInt(poison.id)
+      : null;
     if (!poison) {
       const [unchanged] = await selectMany<ConsumerStateRow>(tx, eventConsumerStateTable, {
         name,
@@ -878,7 +888,9 @@ export async function skipPoisonEvent(
        RETURNING *`,
       [poisonId, name, instanceId],
     )) as ReadonlyArray<Record<string, unknown>>;
-    const updated = updatedRows[0] && coerceRow(updatedRows[0], extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow;
+    const updated =
+      updatedRows[0] &&
+      (coerceRow(updatedRows[0], extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow);
     if (!updated)
       throw new Error(
         `Consumer "${name}" (instance_id="${instanceId}") vanished mid-skip — retry.`,

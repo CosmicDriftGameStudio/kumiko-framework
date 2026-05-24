@@ -4,8 +4,8 @@
 // nur über useListUrlState mit Mock-NavApi indirekt getestet — der
 // echte URLSearchParams-Parse + replaceState-Roundtrip war ungetestet.
 
-import { act, renderHook } from "@testing-library/react";
 import { describe, expect, test } from "bun:test";
+import { act, renderHook } from "@testing-library/react";
 import { useBrowserNavApi } from "../app/nav";
 
 function setLocation(pathname: string, search: string): void {

@@ -11,6 +11,7 @@
 // durchläuft. Die Convention-Pin ist die einzige Aussage des tests —
 // echtes integration-Verhalten deckt feature-toggles.integration.ts ab.
 
+import { describe, expect, test } from "bun:test";
 import {
   createEntity,
   createRegistry,
@@ -21,7 +22,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createDispatcher } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/stack";
-import { describe, expect, test } from "bun:test";
 import { createFeatureTogglesFeature } from "../feature";
 import type { GlobalFeatureToggleRuntime } from "../toggle-runtime";
 

@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { selectMany } from "../db/query";
+import { type BunTestDb, createTestDb } from "../bun-db/__tests__/bun-test-db";
 import { integer, table as pgTable, serial, text } from "../db/dialect";
+import { selectMany } from "../db/query";
 import { seedReferenceData } from "../db/reference-data";
 import type { ReferenceDataDef } from "../engine/types";
 import { unsafePushTables } from "../stack";
-import { createTestDb, type BunTestDb } from "../bun-db/__tests__/bun-test-db";
 import { ensureTemporalPolyfill } from "../time/polyfill";
 
 // --- Tables ---

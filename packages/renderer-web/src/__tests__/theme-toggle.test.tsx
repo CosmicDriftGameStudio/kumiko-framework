@@ -7,10 +7,10 @@
 // `mode` + `toggleMode`, der Rest (tokens, setMode) wird vom Toggle
 // nicht angefasst.
 
+import { describe, expect, mock, test } from "bun:test";
 import { TokensProvider } from "@cosmicdrift/kumiko-renderer";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { describe, expect, test, mock } from "bun:test";
 import { ThemeToggle } from "../layout/theme-toggle";
 
 type StubApi = {

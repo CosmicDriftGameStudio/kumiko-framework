@@ -14,19 +14,21 @@
 // calls in the test — only the registry round-trip.
 
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { selectMany } from "../../db/query";
 import { integer, table as pgTable, uuid } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
+import { selectMany } from "../../db/query";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { defineFeature, type FeatureDefinition } from "../../engine";
 import type { StoredEvent } from "../../event-store";
 import { eventConsumerStateTable, getAllConsumerProgress, getConsumerState } from "../../pipeline";
-import { setupTestStack, type TestStack } from "../../stack";
 import {
   resetEventStore,
+  setupTestStack,
+  type TestStack,
   TestUsers,
   unsafeCreateEntityTable,
-  unsafePushTables } from "../../stack";
+  unsafePushTables,
+} from "../../stack";
 import { sharedWidgetEntity, sharedWidgetTable } from "../../testing";
 
 // --- Test fixtures ---

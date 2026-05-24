@@ -14,6 +14,7 @@
 //   - Orphan-User (0 Memberships): user-Profil-Hook laeuft trotzdem
 //     ueber Pseudo-Tenant.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   setupTestStack,
@@ -21,7 +22,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createFilesFeature } from "../../files";

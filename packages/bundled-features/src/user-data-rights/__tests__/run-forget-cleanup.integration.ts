@@ -15,6 +15,7 @@
 // Unit-Test pinned (policy-to-strategy.test.ts), nicht hier. Hier nur
 // der end-to-end-Default-Pfad (delete).
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   setupTestStack,
@@ -22,7 +23,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
 import { createFilesFeature } from "../../files";

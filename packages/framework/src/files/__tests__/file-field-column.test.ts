@@ -10,5 +10,9 @@ beforeAll(async () => {
   testDb = await createTestDb();
   await unsafePushTables(testDb.db, { fileRefsTable });
 });
-afterAll(async () => { await testDb.cleanup(); });
-describe("probe", () => { test("ok", () => expect(1).toBe(1)); });
+afterAll(async () => {
+  await testDb.cleanup();
+});
+describe("probe", () => {
+  test("ok", () => expect(1).toBe(1));
+});

@@ -1,5 +1,5 @@
-import { Hono } from "hono";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { Hono } from "hono";
 import { createTestRedis, type TestRedis } from "../../stack";
 import { authEndpointRateLimit, globalIpRateLimit } from "../middleware";
 import { createRateLimitResolver, type RateLimitResolver } from "../resolver";

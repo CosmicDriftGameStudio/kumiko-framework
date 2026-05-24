@@ -7,8 +7,8 @@
 // config-seed.ts:40). Events haben createdBy = SYSTEM_TENANT_ID-User
 // → audit-fähig.
 
-import { asRawClient } from "../db/query";
 import type { DbRunner } from "../db";
+import { asRawClient } from "../db/query";
 import { createSystemUser, SYSTEM_TENANT_ID } from "../engine";
 import type { Dispatcher } from "../pipeline/dispatcher";
 import type { SeedMembershipRow, SeedMigrationContext, SeedTenantRow } from "./types";

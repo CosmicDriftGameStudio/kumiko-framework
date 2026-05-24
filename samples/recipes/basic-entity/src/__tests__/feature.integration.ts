@@ -1,6 +1,7 @@
 // Basic CRUD Sample — Integration Test
 // Proves: create, read, update, delete, soft delete, optimistic locking, sort
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -10,7 +11,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { taskEntity, taskFeature } from "../feature";
 
 let stack: TestStack;

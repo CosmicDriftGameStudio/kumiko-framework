@@ -1,6 +1,7 @@
 // Field Access Sample — Integration Test
 // Proves: field-level read/write restrictions per role
 
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -10,7 +11,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { employeeEntity, employeeFeature } from "../feature";
 
 let stack: TestStack;

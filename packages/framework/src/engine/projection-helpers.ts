@@ -1,5 +1,5 @@
-import { updateMany } from "../db/query";
 import type { DbRunner } from "../db/connection";
+import { updateMany } from "../db/query";
 import type { StoredEvent } from "../event-store/event-store";
 import type { MultiStreamApplyContext } from "../pipeline/multi-stream-apply-context";
 import type { MultiStreamApplyFn, ProjectionTable, SingleStreamApplyFn } from "./types/projection";

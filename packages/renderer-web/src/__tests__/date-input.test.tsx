@@ -4,9 +4,9 @@
 // Wert-Roundtrip (ISO → Date → ISO) muss tag-stable sein, sonst
 // zeigt der Calendar je nach Timezone den Vortag.
 
+import { describe, expect, mock, test } from "bun:test";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, mock, test } from "bun:test";
 import { DateInput } from "../primitives/date-input";
 
 describe("DateInput", () => {

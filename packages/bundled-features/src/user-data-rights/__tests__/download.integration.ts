@@ -7,6 +7,7 @@
 // Plus Audit-Updates (useCount, lastUsedAt, IP, UA), TTL-checks,
 // cross-user-isolation, cross-tenant-same-user.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { asRawClient, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
@@ -25,7 +26,6 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,

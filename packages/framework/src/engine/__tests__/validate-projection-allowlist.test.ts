@@ -3,8 +3,8 @@
 // is included here, plus the self-registration via defineStep({ subPaths })
 // gate (Followup #15).
 
-import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "bun:test";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { table as pgTable, text, uuid } from "../../db/dialect";
 import { defineFeature } from "../define-feature";

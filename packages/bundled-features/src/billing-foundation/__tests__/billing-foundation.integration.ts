@@ -11,6 +11,7 @@
 // Webhook-Handler-Factory (createSubscriptionWebhookHandler) wird in
 // einem separaten Test mit Hono-mock geprüft.
 
+import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
@@ -20,7 +21,6 @@ import {
   type TestStack,
   testTenantId,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
 import { subscriptionAggregateId } from "../aggregate-id";
 import {
   SubscriptionEventTypes,

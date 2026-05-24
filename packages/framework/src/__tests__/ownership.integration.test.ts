@@ -15,12 +15,14 @@ import {
   from,
 } from "../engine";
 import type { SessionUser, TenantId } from "../engine/types";
-import { setupTestStack, type TestStack } from "../stack";
 import {
   createTestUser,
+  setupTestStack,
+  type TestStack,
   TestUsers,
   testTenantId,
-  unsafeCreateEntityTable } from "../stack";
+  unsafeCreateEntityTable,
+} from "../stack";
 import { expectErrorIncludes } from "../testing";
 
 // ── Shared test entity ─────────────────────────────────────────────────────

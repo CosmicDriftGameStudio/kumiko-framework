@@ -4,11 +4,10 @@
 // kumiko-platform/docs/plans/architecture/table-ddl-guard.md (Stufe 3).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient, insertOne, selectMany } from "../db/query";
 import { table, text, timestamp } from "../db/dialect";
+import { asRawClient, insertOne, selectMany } from "../db/query";
 import { defineFeature } from "../engine";
-import { unsafePushTables } from "../stack";
-import { setupTestStack, type TestStack } from "../stack";
+import { setupTestStack, type TestStack, unsafePushTables } from "../stack";
 
 // External-system payload cache — the textbook r.rawTable() use case:
 // write-only by an integration handler, read-only by a query, never

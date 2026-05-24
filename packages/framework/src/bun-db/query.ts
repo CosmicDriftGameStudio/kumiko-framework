@@ -29,6 +29,7 @@ function snakeToCamel(key: string): string {
   if (!key.includes("_")) return key;
   return envCamelCase(key);
 }
+
 import type { BunDbRunner } from "./connection";
 
 // Drizzle-pgTable-Inspection via raw Symbol-access (kein drizzle-orm import).
@@ -156,7 +157,6 @@ export type TableInfo = {
   // Check if a field name or column name is known to this table
   readonly hasColumn: (fieldOrColumn: string) => boolean;
 };
-
 
 export function extractTableInfo(table: TableLike): TableInfo {
   // EntityTableMeta discriminator: hat source-property "managed" | "unmanaged"
@@ -319,7 +319,12 @@ function prepareValue(value: unknown, pgType: string | undefined): PreparedValue
   if (isSqlExpression(value)) {
     return { kind: "literal", literal: value.text };
   }
-  if (pgType === "jsonb" && value !== null && typeof value === "object" && !isTemporalInstant(value)) {
+  if (
+    pgType === "jsonb" &&
+    value !== null &&
+    typeof value === "object" &&
+    !isTemporalInstant(value)
+  ) {
     return { kind: "param", sql: "::jsonb", bound: JSON.stringify(value) };
   }
   if ((pgType === "timestamptz" || pgType === "timestamptz(3)") && isTemporalInstant(value)) {
@@ -506,13 +511,18 @@ export async function insertOne<TRow = any>(
   if (entries.length === 0) throw new Error("insertOne: empty values object");
   const cols = entries.map((e) => quoteIdent(e.col)).join(", ");
   const params: unknown[] = [];
-  const placeholders = entries.map((e) => {
-    if (e.prepared.kind === "literal") return e.prepared.literal;
-    params.push(e.prepared.bound);
-    return `$${params.length}${e.prepared.sql}`;
-  }).join(", ");
+  const placeholders = entries
+    .map((e) => {
+      if (e.prepared.kind === "literal") return e.prepared.literal;
+      params.push(e.prepared.bound);
+      return `$${params.length}${e.prepared.sql}`;
+    })
+    .join(", ");
   const sqlText = `INSERT INTO ${quoteIdent(info.name)} (${cols}) VALUES (${placeholders}) RETURNING *`;
-  const rows = (await asRawClient(db).unsafe(sqlText, params)) as readonly Record<string, unknown>[];
+  const rows = (await asRawClient(db).unsafe(sqlText, params)) as readonly Record<
+    string,
+    unknown
+  >[];
   const first = rows[0];
   if (!first) return undefined;
   return coerceRow(first, info) as TRow;

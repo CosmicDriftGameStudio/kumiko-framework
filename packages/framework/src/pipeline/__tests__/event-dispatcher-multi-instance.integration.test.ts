@@ -19,8 +19,8 @@
 // here first.
 
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { insertMany } from "../../db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
+import { insertMany } from "../../db/query";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { defineFeature } from "../../engine";
 import { eventsTable, type StoredEvent } from "../../event-store";
@@ -30,11 +30,13 @@ import {
   type EventDispatcher,
   getConsumerState,
 } from "../../pipeline";
-import { setupTestStack, type TestStack } from "../../stack";
 import {
   resetEventStore,
+  setupTestStack,
+  type TestStack,
   TestUsers,
-  unsafeCreateEntityTable } from "../../stack";
+  unsafeCreateEntityTable,
+} from "../../stack";
 import { sharedWidgetEntity, sharedWidgetTable } from "../../testing";
 import { generateId } from "../../utils";
 

@@ -4,11 +4,11 @@
 // the resolver runs the hooks in parallel, merges the results under auto-prefixed
 // keys, and readClaim(user, handle) retrieves them with proper JS typing.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import type { AuthClaimsContext } from "@cosmicdrift/kumiko-framework/engine";
 import { defineFeature, readClaim } from "@cosmicdrift/kumiko-framework/engine";
 import { resolveAuthClaims } from "@cosmicdrift/kumiko-framework/pipeline";
 import { setupTestStack, type TestStack, testTenantId } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import {
   type BetaFlagStore,
   fakeSession,

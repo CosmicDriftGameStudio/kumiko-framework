@@ -1,13 +1,14 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
-import { selectMany, updateMany } from "../db/query";
-import { setupTestStack, type TestStack } from "../stack";
 import { createEventStoreExecutor } from "../db/event-store-executor";
+import { selectMany, updateMany } from "../db/query";
 import { defineFeature, type EntityId, type HandlerContext, type SaveContext } from "../engine";
 import { UnprocessableError, writeFailure } from "../errors";
 import { eventsTable } from "../event-store";
 import {
   createTestUser,
+  setupTestStack,
+  type TestStack,
   TestUsers,
   unsafeCreateEntityTable,
 } from "../stack";

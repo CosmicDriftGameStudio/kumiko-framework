@@ -10,13 +10,13 @@
 //   - "cross data matrix checks" (Cross-Tenant-Isolation: Tenant A's
 //     fileRef-Forget beruehrt Tenant B's Files nicht)
 
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createFilesFeature } from "../../files";

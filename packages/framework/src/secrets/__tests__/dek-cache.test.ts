@@ -1,5 +1,5 @@
-import { randomBytes } from "node:crypto";
 import { describe, expect, test } from "bun:test";
+import { randomBytes } from "node:crypto";
 import { createDekCache } from "../dek-cache";
 import type { MasterKeyProvider } from "../types";
 

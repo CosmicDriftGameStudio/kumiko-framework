@@ -6,6 +6,7 @@
 // aggregateType) fails loudly instead of breaking downstream consumers
 // (MSPs, audit-feature, event-replays) who subscribe by name.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -17,7 +18,6 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createChannelInAppFeature } from "../../channel-in-app/feature";
 import { inAppMessagesTable } from "../../channel-in-app/tables";
 import { createConfigFeature, createConfigResolver } from "../../config";

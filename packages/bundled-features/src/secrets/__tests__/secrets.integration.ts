@@ -4,6 +4,7 @@
 // (samples/secrets-demo) shows the broader rotation + cross-feature flow;
 // this test covers just the feature's own handlers.
 
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -17,7 +18,6 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createSecretsFeature } from "../feature";
 import { createSecretsContext } from "../secrets-context";
 import { type StoredEnvelope, tenantSecretsTable } from "../table";

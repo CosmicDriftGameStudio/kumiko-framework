@@ -21,6 +21,7 @@
 // schreibt in ein lokales Array — gewollter Capture-Spy ohne vitest-
 // Mock-API (CLAUDE.md "Kein Mock in *.integration.ts").
 
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import {
   AuthErrors,
@@ -43,7 +44,6 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { composeFeatures } from "../compose-features";
 
 const RESET_HMAC = randomBytes(32).toString("base64");

@@ -23,8 +23,8 @@
 // generated features and Designer-authored features will follow the
 // inline contract by construction.
 
-import { resolve } from "node:path";
 import { describe, expect, test } from "bun:test";
+import { resolve } from "node:path";
 import { parseFeatureFile } from "../parse";
 import type { FeaturePattern } from "../patterns";
 

@@ -3,14 +3,10 @@
 //
 // Usage: bun run scripts/codemod-bun-db-integration.ts
 
-import { existsSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
-const FRAMEWORK_SRC = join(
-  import.meta.dirname,
-  "..",
-  "src",
-);
+const FRAMEWORK_SRC = join(import.meta.dirname, "..", "src");
 
 function* walk(dir: string): Generator<string> {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -40,10 +36,7 @@ function sameDepthPrefix(filePath: string): string {
 
 // Import-Splitter: entfernt named-imports aus einer import-declaration.
 // Returns { rest, removed }.
-function splitImport(
-  line: string,
-  toRemove: string[],
-): { rest: string; removed: string[] } {
+function splitImport(line: string, toRemove: string[]): { rest: string; removed: string[] } {
   const match = line.match(
     /^import\s+(type\s+)?\{\s*([^}]+)\s*\}\s+from\s+["']([^"']+)["']\s*;?\s*$/,
   );
@@ -52,7 +45,10 @@ function splitImport(
   const isTypeOnly = !!match[1];
   const body = match[2]!;
   const specifier = match[3]!;
-  const items = body.split(",").map((s) => s.trim()).filter(Boolean);
+  const items = body
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 
   const remaining: string[] = [];
   const removed: string[] = [];
@@ -70,9 +66,8 @@ function splitImport(
     return { rest: "", removed };
   }
 
-  const prefix = isTypeOnly && remaining.every((i) => i.startsWith("type "))
-    ? "import type { "
-    : "import { ";
+  const prefix =
+    isTypeOnly && remaining.every((i) => i.startsWith("type ")) ? "import type { " : "import { ";
   return {
     rest: `${prefix}${remaining.join(", ")} } from "${specifier}";`,
     removed,
@@ -111,9 +106,9 @@ for (const filePath of walk(FRAMEWORK_SRC)) {
   // --- Split imports ---
   const lines = code.split("\n");
   const newLines: string[] = [];
-  let addedBunStackImport = false;
-  let addedBunDbImport = false;
-  let addedPolyfill = false;
+  const addedBunStackImport = false;
+  const addedBunDbImport = false;
+  const addedPolyfill = false;
 
   for (const line of lines) {
     let processed = false;
@@ -166,7 +161,10 @@ for (const filePath of walk(FRAMEWORK_SRC)) {
         if (/\bTestDb\b/.test(code)) toRemove.push("type TestDb", "TestDb");
 
         const { rest, removed } = splitImport(line, toRemove);
-        if (removed.length > 0 && (removed.includes("createTestDb") || removed.includes("TestDb"))) {
+        if (
+          removed.length > 0 &&
+          (removed.includes("createTestDb") || removed.includes("TestDb"))
+        ) {
           if (rest) newLines2.push(rest);
           processed = true;
           modified = true;

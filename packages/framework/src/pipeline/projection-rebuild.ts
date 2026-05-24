@@ -1,5 +1,5 @@
-import { asRawClient, coerceRow, extractTableInfo, selectMany } from "../db/query";
 import type { DbConnection } from "../db/connection";
+import { asRawClient, coerceRow, extractTableInfo, selectMany } from "../db/query";
 import type { Registry, TenantId } from "../engine/types";
 import {
   eventsTable,
@@ -96,7 +96,8 @@ export async function rebuildProjection(
          ON CONFLICT ("name") DO UPDATE SET
            "status" = 'rebuilding',
            "last_error" = NULL,
-           "updated_at" = now()`);
+           "updated_at" = now()`,
+      );
 
       // Wipe the projection table.
       const tableName = getTableName(projection.table);
@@ -122,12 +123,16 @@ export async function rebuildProjection(
           createdAt: Temporal.Instant;
           createdBy: string;
         };
-        const sourcesList = [...sources].map(s => `'${(s as string).replace(/'/g, "''")}'`).join(", ");
-        const subscribedList = [...subscribed].map(s => `'${(s as string).replace(/'/g, "''")}'`).join(", ");
-        const rawEvents = await rawTx.unsafe(
+        const sourcesList = [...sources]
+          .map((s) => `'${(s as string).replace(/'/g, "''")}'`)
+          .join(", ");
+        const subscribedList = [...subscribed]
+          .map((s) => `'${(s as string).replace(/'/g, "''")}'`)
+          .join(", ");
+        const rawEvents = (await rawTx.unsafe(
           `SELECT * FROM "kumiko_events" WHERE "aggregate_type" IN (${sourcesList}) AND "type" IN (${subscribedList}) ORDER BY "id" ASC`,
-        ) as ReadonlyArray<Record<string, unknown>>;
-        const events = rawEvents.map(r => {
+        )) as ReadonlyArray<Record<string, unknown>>;
+        const events = rawEvents.map((r) => {
           const info = extractTableInfo(eventsTable);
           return coerceRow(r, info) as EventRow;
         });
@@ -173,7 +178,8 @@ export async function rebuildProjection(
            "last_rebuild_at" = now(),
            "last_error" = NULL,
            "updated_at" = now()
-         WHERE "name" = '${projectionName.replace(/'/g, "''")}'`);
+         WHERE "name" = '${projectionName.replace(/'/g, "''")}'`,
+      );
     });
   } catch (e) {
     // Outer catch: TX has been rolled back by Postgres already. Record the
@@ -184,7 +190,8 @@ export async function rebuildProjection(
        ON CONFLICT ("name") DO UPDATE SET
          "status" = 'failed',
          "last_error" = '${message.replace(/'/g, "''")}',
-         "updated_at" = now()`);
+         "updated_at" = now()`,
+    );
     // Failure metric: duration until throw, 0 events "delivered" (the replayed
     // rows were rolled back — counting them would overstate live delivery).
     // success=false label distinguishes these in Prom dashboards.

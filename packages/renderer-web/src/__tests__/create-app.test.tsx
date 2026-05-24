@@ -1,3 +1,4 @@
+import { afterAll, afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import type {
   EntityDefinition,
   EntityEditScreenDefinition,
@@ -7,7 +8,6 @@ import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { ColumnRendererProps, FeatureSchema, NavApi } from "@cosmicdrift/kumiko-renderer";
 import { act, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { afterAll, afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import type { ClientFeatureDefinition } from "../app/client-plugin";
 import { type CreateKumikoAppOptions, createKumikoApp } from "../app/create-app";
 import { createMockDispatcher } from "./test-utils";

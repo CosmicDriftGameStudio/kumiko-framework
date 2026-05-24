@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { TextContentApi } from "@cosmicdrift/kumiko-bundled-features/text-content";
 import {
   createTextContentApi,
@@ -13,7 +14,6 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createLegalPagesFeature, runLegalPagesBootCheck } from "../feature";
 import { renderMarkdownToHtml, wrapInLayout } from "../markdown";
 

@@ -6,6 +6,7 @@
 // assert. Mirrors the mail-foundation / file-foundation integration
 // test pattern.
 
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -17,7 +18,6 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { CapCounterHandlers, CapCounterQueries } from "../constants";
 import {

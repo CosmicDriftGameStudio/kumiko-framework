@@ -17,6 +17,7 @@
 // updateMemberRoles auf — MUSS tenantIdOverride nutzen sonst
 // version_conflict.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -37,7 +38,6 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createConfigFeature } from "../config/feature";
 import { createConfigResolver } from "../config/resolver";
 import { configValuesTable } from "../config/table";

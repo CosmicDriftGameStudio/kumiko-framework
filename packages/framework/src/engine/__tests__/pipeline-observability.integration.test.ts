@@ -15,8 +15,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
-import { TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { setupTestStack, type TestStack } from "../../stack";
+import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { createRecordingProvider, type RecordingProvider } from "../../testing";
 import { defineFeature } from "../define-feature";
 import { defineWriteHandler } from "../define-handler";

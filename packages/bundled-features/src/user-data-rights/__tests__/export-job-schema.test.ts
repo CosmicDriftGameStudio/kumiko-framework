@@ -13,8 +13,8 @@
 // Schema-Snapshot, kein Behavior-Test. Behavior-Tests kommen mit Atom 2
 // (request-export.write.ts) + Atom 3 (Worker).
 
-import { COMPLIANCE_PROFILES } from "@cosmicdrift/kumiko-framework/compliance";
 import { describe, expect, test } from "bun:test";
+import { COMPLIANCE_PROFILES } from "@cosmicdrift/kumiko-framework/compliance";
 import { EXPORT_JOB_STATUS, exportJobEntity } from "../schema/export-job";
 
 describe("EXPORT_JOB_STATUS Drift-Guard", () => {

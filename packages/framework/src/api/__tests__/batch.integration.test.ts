@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
-import { asRawClient, insertOne, selectMany } from "../../db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
+import { asRawClient, insertOne, selectMany } from "../../db/query";
 import { buildEntityTable } from "../../db/table-builder";
 import {
   createEntity,
@@ -13,8 +13,7 @@ import {
   type SaveContext,
 } from "../../engine";
 import { UnprocessableError, writeFailure } from "../../errors";
-import { TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { setupTestStack, type TestStack } from "../../stack";
+import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
 
 // Entity: a simple "item" with name + counter
 const itemEntity = createEntity({

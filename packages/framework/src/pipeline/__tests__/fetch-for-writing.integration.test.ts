@@ -9,14 +9,13 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
-import { asRawClient } from "../../db/query-api";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
+import { asRawClient } from "../../db/query-api";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { UnprocessableError, writeFailure } from "../../errors";
 import { loadAggregate } from "../../event-store";
-import { TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { setupTestStack, type TestStack } from "../../stack";
+import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
 
 // --- Feature ---
 

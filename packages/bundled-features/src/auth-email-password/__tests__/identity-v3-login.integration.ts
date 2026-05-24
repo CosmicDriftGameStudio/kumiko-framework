@@ -5,6 +5,7 @@
 // Das ist der Kern-Use-Case der BMC-Migration — Legacy-Hashes 1:1
 // übernommen, Login funktioniert weiter.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { pbkdf2Sync, randomBytes } from "node:crypto";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
@@ -16,7 +17,6 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";

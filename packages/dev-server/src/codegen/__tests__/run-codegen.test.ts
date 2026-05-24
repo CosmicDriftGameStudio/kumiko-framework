@@ -16,10 +16,10 @@
 //   - skipped-Flag wenn 0 Events UND kein .kumiko/ schon existiert
 //   - schemas.generated.ts wird erzeugt wenn inline-Schemas, sonst nicht
 
+import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, test } from "bun:test";
 import { runCodegen } from "../run-codegen";
 
 function makeAppDir(): string {

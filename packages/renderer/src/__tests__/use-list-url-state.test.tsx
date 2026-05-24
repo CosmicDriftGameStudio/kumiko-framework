@@ -3,12 +3,14 @@
 // `?<screenId>.sort=…&<screenId>.dir=…&<screenId>.q=…&<screenId>.page=…`.
 // Zwei Listen auf der Route teilen sich die URL ohne Param-Konflikt.
 // Page wird bei Sort/Filter-Wechsel reseted; Sort bleibt bei Search.
+
+import { describe, expect, mock, test } from "bun:test";
 import { act, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { describe, expect, mock, test } from "bun:test";
 import type { NavApi } from "../app/nav";
 import { NavProvider } from "../app/nav";
 import { useListUrlState } from "../hooks/use-list-url-state";
+
 function makeNav(initial: Record<string, string> = {}): NavApi & {
   readonly current: { params: Record<string, string> };
   readonly captures: Array<Record<string, string | null>>;

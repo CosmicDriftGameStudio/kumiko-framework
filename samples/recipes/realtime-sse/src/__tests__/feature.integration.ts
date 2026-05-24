@@ -3,6 +3,7 @@
 // event-dispatcher (D.3). Shape mirrors the StoredEvent: `type` is the
 // event type ("message.created"), `data` carries id/version/payload.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -11,7 +12,6 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { chatFeature, messageEntity } from "../feature";
 
 let stack: TestStack;

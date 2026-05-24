@@ -1,13 +1,12 @@
-import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
 import { z } from "zod";
 import { generateToken } from "../../api/tokens";
-import { asRawClient, insertOne, selectMany } from "../../db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
+import { asRawClient, insertOne, selectMany } from "../../db/query";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
-import { TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { setupTestStack, type TestStack } from "../../stack";
+import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
 import { generateId } from "../../utils";
 
 // End-to-end: UI code would call `dispatcher.write("feat:write:item:create", ...)`.

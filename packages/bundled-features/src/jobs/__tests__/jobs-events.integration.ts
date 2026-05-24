@@ -8,6 +8,7 @@
 // projection side (list + detail queries). This file covers the event
 // side — complementary coverage, minimal overlap.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createRegistry, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -18,7 +19,6 @@ import {
   type TestRedis,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { runCompletedSchema, runFailedSchema, runStartedSchema } from "../events";
 import { createJobsFeature } from "../feature";
 import {

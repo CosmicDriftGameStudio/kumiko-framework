@@ -2,9 +2,9 @@
 // Proves: translations registered, locale resolution, fallback to default
 // Note: keys are prefixed with feature name → "featureName:key"
 
+import { describe, expect, test } from "bun:test";
 import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";
 import { createI18n } from "@cosmicdrift/kumiko-framework/i18n";
-import { describe, expect, test } from "bun:test";
 import { errorFeature, greetingFeature } from "../feature";
 
 const registry = createRegistry([greetingFeature, errorFeature]);

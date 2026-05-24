@@ -4,6 +4,7 @@
 // documented wire shape. If you extend the sample, add a matching test here
 // so the "copy this" guarantee stays valid.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -14,7 +15,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { eq } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { OrdersLiteReasons, orderEntity, ordersLiteFeature } from "../feature";
 
 let stack: TestStack;

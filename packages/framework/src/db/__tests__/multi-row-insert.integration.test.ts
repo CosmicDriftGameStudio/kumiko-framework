@@ -11,8 +11,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { insertOne, selectMany } from "../../db/query";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField } from "../../engine";
-import { unsafeCreateEntityTable } from "../../stack";
-import { setupTestStack, type TestStack } from "../../stack";
+import { setupTestStack, type TestStack, unsafeCreateEntityTable } from "../../stack";
 
 const linkEntity = createEntity({
   table: "mri_links",

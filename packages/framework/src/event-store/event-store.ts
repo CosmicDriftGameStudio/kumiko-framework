@@ -1,6 +1,6 @@
-import { asRawClient, insertOne, selectMany } from "../db/query";
 import type { DbRunner } from "../db";
 import { isUniqueViolation } from "../db/pg-error";
+import { asRawClient, insertOne, selectMany } from "../db/query";
 import type { TenantId } from "../engine/types";
 import { isStreamArchived } from "./archive";
 import { VersionConflictError } from "./errors";
@@ -337,7 +337,12 @@ export async function loadAllEventsByType(
     db,
     eventsTable,
     { aggregateType },
-    { orderBy: [{ col: "createdAt", direction: "asc" }, { col: "id", direction: "asc" }] },
+    {
+      orderBy: [
+        { col: "createdAt", direction: "asc" },
+        { col: "id", direction: "asc" },
+      ],
+    },
   );
   return rows.map(toStoredEvent);
 }

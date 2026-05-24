@@ -12,6 +12,7 @@
 //   - Other-User-Isolation: Bobs notes/files bleiben unangetastet bei
 //     Alices Forget; Bobs Daten landen NICHT in Alices Export-Bundle.
 
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   defineFeature,
@@ -25,7 +26,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,

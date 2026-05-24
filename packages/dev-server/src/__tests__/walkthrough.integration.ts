@@ -9,13 +9,13 @@
 //   - composeFeatures(includeBundled:true) yields the exact feature-count
 //     the walkthrough advertises in "Expected output"
 
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createRegistry, defineFeature, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { composeFeatures } from "../compose-features";
 import { scaffoldApp } from "../scaffold-app";
 import { scaffoldAppFeature } from "../scaffold-app-feature";

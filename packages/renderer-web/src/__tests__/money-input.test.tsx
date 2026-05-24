@@ -8,8 +8,8 @@
 //   - Blur mit Müll-Input verwirft den Wert (kein corrupt-set).
 //   - Verschiedene Currencies → korrekte Decimal-Stellen (JPY=0).
 
-import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, mock, test } from "bun:test";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MoneyInput, parseLocaleNumber } from "../primitives/money-input";
 
 describe("MoneyInput", () => {

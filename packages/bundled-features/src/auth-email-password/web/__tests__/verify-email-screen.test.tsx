@@ -1,5 +1,5 @@
-import { screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { screen, waitFor } from "@testing-library/react";
 import { VerifyEmailScreen } from "../verify-email-screen";
 import { renderWithProviders } from "./test-utils";
 

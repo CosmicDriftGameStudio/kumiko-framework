@@ -1,4 +1,4 @@
-
+import { beforeEach, describe, expect, mock, test } from "bun:test";
 import type { WorkspaceSchema } from "@cosmicdrift/kumiko-renderer";
 import {
   createStaticLocaleResolver,
@@ -8,7 +8,6 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { render as _render, act } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { useBrowserNavApi } from "../app/nav";
 import {
   filterByAccess,

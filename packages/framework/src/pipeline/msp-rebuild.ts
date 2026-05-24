@@ -1,5 +1,5 @@
-import { asRawClient, selectMany } from "../db/query";
 import type { DbConnection, DbRunner } from "../db/connection";
+import { asRawClient, selectMany } from "../db/query";
 import type { Registry, TenantId } from "../engine/types";
 import { InternalError } from "../errors";
 import { eventsTable, type StoredEvent, upcastStoredEvent } from "../event-store";

@@ -11,8 +11,8 @@
 //      cutoff semantics (createdAt < cutoff).
 
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient, insertOne, selectMany, updateMany } from "../../db/query";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
+import { asRawClient, insertOne, selectMany, updateMany } from "../../db/query";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { defineFeature } from "../../engine";
 import { eventsTable } from "../../event-store";
@@ -22,11 +22,13 @@ import {
   eventConsumerStateTable,
   pruneEvents,
 } from "../../pipeline";
-import { setupTestStack, type TestStack } from "../../stack";
 import {
   resetEventStore,
+  setupTestStack,
+  type TestStack,
   TestUsers,
-  unsafeCreateEntityTable } from "../../stack";
+  unsafeCreateEntityTable,
+} from "../../stack";
 import { sharedWidgetEntity, sharedWidgetTable } from "../../testing";
 import { generateId } from "../../utils";
 

@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
   createTextContentApi,
   textBlockEntity,
@@ -11,7 +12,6 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { LEGAL_ROUTES, legalPagesFeature, textContentFeature } from "../feature";
 
 let stack: TestStack;

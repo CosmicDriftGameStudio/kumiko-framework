@@ -5,6 +5,7 @@
 // die Race-Condition (Sync-Effect auf searchValue + Debounce-Effect)
 // wahrscheinlich kaputt gegangen ohne dass eine CI das fängt.
 
+import { afterEach, beforeEach, describe, expect, jest, mock, test } from "bun:test";
 import type {
   EntityDefinition,
   EntityListScreenDefinition,
@@ -16,7 +17,6 @@ import {
   RenderList,
 } from "@cosmicdrift/kumiko-renderer";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, jest, mock, test } from "bun:test";
 import { defaultPrimitives } from "../primitives";
 
 // Minimal-Entity damit RenderList nicht über fehlende Felder stolpert.

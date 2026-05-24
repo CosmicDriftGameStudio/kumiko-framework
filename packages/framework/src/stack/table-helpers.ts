@@ -1,7 +1,7 @@
-import { asRawClient } from "../db/query";
 import type { DbConnection } from "../db/connection";
 import { pgTypeToSqlType } from "../db/dialect";
 import type { ColumnMeta, EntityTableMeta } from "../db/entity-table-meta";
+import { asRawClient } from "../db/query";
 import { renderTableDdl } from "../db/render-ddl";
 import { tableExists } from "../db/schema-inspection";
 import { buildEntityTable, toTableName } from "../db/table-builder";
