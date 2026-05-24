@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "bun:test";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { getStep } from "../define-step";
 import {
   SUSPEND_SENTINEL,

@@ -11,14 +11,16 @@ import { resolve, relative } from "node:path";
 const PROJECT_ROOT = process.argv[2] ?? process.cwd();
 
 // Symbol → Detektor-Regex (Word-Boundary + Open-Paren oder Identifier-Usage)
+// KEIN /g-Flag! regex.test() mit /g hat lastIndex-state das zwischen
+// Aufrufen leakt. Wir wollen pure boolean ob das Pattern *irgendwo* matched.
 const SYMBOLS: ReadonlyArray<readonly [string, RegExp]> = [
-  ["mock", /\bmock\s*[(<.]/g],
-  ["spyOn", /\bspyOn\s*\(/g],
-  ["useFakeTimers", /\buseFakeTimers\s*\(/g],
-  ["useRealTimers", /\buseRealTimers\s*\(/g],
-  ["setSystemTime", /\bsetSystemTime\s*\(/g],
-  ["advanceTimersByTime", /\badvanceTimersByTime\s*\(/g],
-  ["jest", /\bjest\b/g],
+  ["mock", /\bmock\s*[(<.]/],
+  ["spyOn", /\bspyOn\s*\(/],
+  ["useFakeTimers", /\buseFakeTimers\s*\(/],
+  ["useRealTimers", /\buseRealTimers\s*\(/],
+  ["setSystemTime", /\bsetSystemTime\s*\(/],
+  ["advanceTimersByTime", /\badvanceTimersByTime\s*\(/],
+  ["jest", /\bjest\b/],
 ];
 
 const BUN_IMPORT_RE = /^import\s+\{([^}]+)\}\s+from\s+["']bun:test["']\s*;?\s*$/m;

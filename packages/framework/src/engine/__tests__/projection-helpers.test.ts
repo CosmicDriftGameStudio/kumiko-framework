@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import type { StoredEvent } from "../../event-store/event-store";
 import { setFields } from "../projection-helpers";
 import type { ProjectionTable } from "../types/projection";

@@ -3,7 +3,7 @@ import { createStaticLocaleResolver, LocaleProvider } from "@cosmicdrift/kumiko-
 import { render as _render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { LanguageSwitcher } from "../layout/language-switcher";
 
 // Tests greifen den LanguageSwitcher mit einem stateful Stub-Resolver
