@@ -185,7 +185,7 @@ export function createTenantDb(
       set: Record<string, unknown>,
       where: WhereObject,
     ): Promise<readonly T[]> {
-      if (Object.keys(where).length === 0) {
+      if (!where || Object.keys(where).length === 0) {
         return Promise.reject(
           new Error(
             "TenantDb.updateMany without where would mass-update all tenant rows. Pass at least one where condition.",
@@ -197,7 +197,7 @@ export function createTenantDb(
     },
 
     deleteMany(table: Table, where: WhereObject): Promise<void> {
-      if (Object.keys(where).length === 0) {
+      if (!where || Object.keys(where).length === 0) {
         return Promise.reject(
           new Error(
             "TenantDb.deleteMany without where would mass-delete all tenant rows. Pass at least one where condition.",

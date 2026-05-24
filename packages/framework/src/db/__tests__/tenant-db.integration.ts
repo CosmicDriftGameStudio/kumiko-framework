@@ -124,7 +124,7 @@ describe("scoped mode (default)", () => {
         await tdb.insertOne(table, { name: `Limit${i}` });
       }
 
-      const rows = await tdb.selectMany(table, { limit: 2 });
+      const rows = await tdb.selectMany(table, {}, { limit: 2 });
       expect(rows).toHaveLength(2);
     });
   });
@@ -428,7 +428,7 @@ describe("mass-update guard", () => {
     await tdb.insertOne(table, { name: "MassUpdateVictim2" });
 
     await expect((tdb as any).updateMany(table, { name: "Wiped" })).rejects.toThrow(
-      /without \.where\(\) would mass-update/,
+      /without where would mass-update/,
     );
 
     // Rows must be untouched — the rejection happened before any SQL ran.
@@ -444,7 +444,7 @@ describe("mass-update guard", () => {
     const promise = (tdb as any).updateMany(table, {
       name: "WipedByAwait",
     }) as unknown as Promise<void>;
-    await expect(promise).rejects.toThrow(/awaited without \.where\(\) would mass-update/);
+    await expect(promise).rejects.toThrow(/without where would mass-update/);
 
     const untouched = await tdb.selectMany(table);
     const touched = untouched.filter((r) => r["name"] === "WipedByAwait");
@@ -560,6 +560,7 @@ describe("pre-flight signal cancellation", () => {
   test("no signal passed: queries run normally (signal is opt-in)", async () => {
     const tdb = createTenantDb(testDb.db, tenant1.tenantId);
     const result = await tdb.insertOne(table, { name: "no-signal" });
-    expect(result).toHaveLength(1);
+    expect(result).toBeDefined();
+    expect(result?.["name"]).toBe("no-signal");
   });
 });
