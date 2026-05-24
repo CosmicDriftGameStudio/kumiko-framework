@@ -4,6 +4,7 @@
 // Code-Pfad ändert sich für sie).
 
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
+import { afterEach } from "bun:test";
 
 // Idempotent registrieren — beim zweiten preload-Eintrag nicht crashen.
 if (typeof globalThis.window === "undefined") {
@@ -34,3 +35,13 @@ if (typeof globalThis.HTMLElement !== "undefined") {
   if (proto.releasePointerCapture === undefined) proto.releasePointerCapture = () => undefined;
   if (proto.scrollIntoView === undefined) proto.scrollIntoView = () => undefined;
 }
+
+// Auto-Cleanup nach jedem Test (DOM-Pollution-Schutz):
+// Bun-test läuft alle test-files in einem Process. Ohne afterEach hängen
+// React-Komponenten von File N im document, File N+1 sieht polluted state.
+// vitest hatte das via testing-library/react auto-magic. Bei bun: selbst
+// registrieren — replaceChildren() statt innerHTML (XSS-safe).
+afterEach(() => {
+  if (typeof globalThis.document === "undefined") return;
+  globalThis.document.body?.replaceChildren();
+});
