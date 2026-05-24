@@ -9,10 +9,15 @@
 //      in < 50ms (typical asOf/reducer rehydrate budget). Same gate the
 //      spike proved on raw SQL, now enforced on the framework path.
 
+// Bun.SQL-only setup. KEIN postgres-js, KEIN createTestDb.
+// Event-store functions expect DbRunner (= postgres-js) but Bun.SQL
+// ist strukturell kompatibel (beide haben .unsafe()/.begin()) — kein Cast nötig.
+
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "../../bun-db/query";
 import type { TenantId } from "../../engine/types";
-import { createTestDb, type TestDb } from "../../stack";
+import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { generateId as uuid } from "../../utils";
 import {
   append,
@@ -25,7 +30,7 @@ import {
   saveSnapshot,
 } from "../index";
 
-let testDb: TestDb;
+let bun: BunTestDb;
 const tenant = uuid() as TenantId;
 const userId = uuid();
 
@@ -49,16 +54,17 @@ const reducer: SnapshotReducer<CounterState> = (state, event) => {
 };
 
 beforeAll(async () => {
-  testDb = await createTestDb();
-  await createEventsTable(testDb.db);
+  await ensureTemporalPolyfill();
+  bun = await createBunTestDb();
+  await createEventsTable(bun.db);
 });
 
 afterAll(async () => {
-  await testDb.cleanup();
+  await bun.cleanup();
 });
 
 beforeEach(async () => {
-  await asRawClient(testDb.db).unsafe(
+  await asRawClient(bun.db).unsafe(
     `TRUNCATE kumiko_events, kumiko_snapshots, kumiko_archived_streams RESTART IDENTITY`,
   );
 });
@@ -67,7 +73,7 @@ beforeEach(async () => {
 async function seedAggregate(eventCount: number): Promise<string> {
   const aggId = uuid();
   for (let i = 0; i < eventCount; i++) {
-    await append(testDb.db, {
+    await append(bun.db, {
       aggregateId: aggId,
       aggregateType: "counter",
       tenantId: tenant,
@@ -85,7 +91,7 @@ async function seedAggregate(eventCount: number): Promise<string> {
 // raw SQL) keeps the invariant honest: if loadAggregate semantics drift,
 // this helper shifts with them.
 async function loadFullState(aggregateId: string): Promise<CounterState> {
-  const events = await loadAggregate(testDb.db, aggregateId, tenant);
+  const events = await loadAggregate(bun.db, aggregateId, tenant);
   let state: CounterState = initial;
   for (const event of events) {
     state = reducer(state, event);
@@ -96,7 +102,7 @@ async function loadFullState(aggregateId: string): Promise<CounterState> {
 describe("snapshot-store — round-trip", () => {
   test("saveSnapshot + loadLatestSnapshot roundtrip the state", async () => {
     const aggId = uuid();
-    await saveSnapshot(testDb.db, {
+    await saveSnapshot(bun.db, {
       aggregateId: aggId,
       tenantId: tenant,
       aggregateType: "counter",
@@ -104,7 +110,7 @@ describe("snapshot-store — round-trip", () => {
       state: { count: 100, label: "checkpoint" },
     });
 
-    const loaded = await loadLatestSnapshot<CounterState>(testDb.db, aggId, tenant);
+    const loaded = await loadLatestSnapshot<CounterState>(bun.db, aggId, tenant);
     expect(loaded).not.toBeNull();
     expect(loaded?.version).toBe(42);
     expect(loaded?.state).toEqual({ count: 100, label: "checkpoint" });
@@ -113,28 +119,28 @@ describe("snapshot-store — round-trip", () => {
 
   test("saveSnapshot is idempotent — re-snapshotting the same version upserts", async () => {
     const aggId = uuid();
-    await saveSnapshot(testDb.db, {
+    await saveSnapshot(bun.db, {
       aggregateId: aggId,
       tenantId: tenant,
       aggregateType: "counter",
       version: 10,
       state: { count: 10, label: "v1" },
     });
-    await saveSnapshot(testDb.db, {
+    await saveSnapshot(bun.db, {
       aggregateId: aggId,
       tenantId: tenant,
       aggregateType: "counter",
       version: 10,
       state: { count: 10, label: "v2-updated" },
     });
-    const loaded = await loadLatestSnapshot<CounterState>(testDb.db, aggId, tenant);
+    const loaded = await loadLatestSnapshot<CounterState>(bun.db, aggId, tenant);
     expect(loaded?.state.label).toBe("v2-updated");
   });
 
   test("loadLatestSnapshot picks the highest version when multiple exist", async () => {
     const aggId = uuid();
     for (const v of [5, 50, 20, 100, 75]) {
-      await saveSnapshot(testDb.db, {
+      await saveSnapshot(bun.db, {
         aggregateId: aggId,
         tenantId: tenant,
         aggregateType: "counter",
@@ -142,7 +148,7 @@ describe("snapshot-store — round-trip", () => {
         state: { count: v * 2, label: `at-${v}` },
       });
     }
-    const loaded = await loadLatestSnapshot<CounterState>(testDb.db, aggId, tenant);
+    const loaded = await loadLatestSnapshot<CounterState>(bun.db, aggId, tenant);
     expect(loaded?.version).toBe(100);
     expect(loaded?.state.label).toBe("at-100");
   });
@@ -155,7 +161,7 @@ describe("snapshot-store — loadAggregateWithSnapshot", () => {
     // Snapshot MUST reflect that truth; otherwise the "snapshot + deltas =
     // full replay" invariant is meaningless.
     const partial = { count: 40, label: "snap-at-40" };
-    await saveSnapshot(testDb.db, {
+    await saveSnapshot(bun.db, {
       aggregateId: aggId,
       tenantId: tenant,
       aggregateType: "counter",
@@ -165,7 +171,7 @@ describe("snapshot-store — loadAggregateWithSnapshot", () => {
 
     const full = await loadFullState(aggId);
     const snapBased = await loadAggregateWithSnapshot<CounterState>(
-      testDb.db,
+      bun.db,
       aggId,
       tenant,
       reducer,
@@ -181,7 +187,7 @@ describe("snapshot-store — loadAggregateWithSnapshot", () => {
     const aggId = await seedAggregate(20);
     const full = await loadFullState(aggId);
     const snapBased = await loadAggregateWithSnapshot<CounterState>(
-      testDb.db,
+      bun.db,
       aggId,
       tenant,
       reducer,
@@ -198,14 +204,14 @@ describe("snapshot-store — loadAggregateWithSnapshot", () => {
     // presence. Otherwise a snapshot would silently survive a GDPR-style
     // archival and leak state that the event log hid.
     const aggId = await seedAggregate(10);
-    await saveSnapshot(testDb.db, {
+    await saveSnapshot(bun.db, {
       aggregateId: aggId,
       tenantId: tenant,
       aggregateType: "counter",
       version: 10,
       state: { count: 10, label: "pre-archive" },
     });
-    await archiveStream(testDb.db, {
+    await archiveStream(bun.db, {
       tenantId: tenant,
       aggregateId: aggId,
       aggregateType: "counter",
@@ -213,7 +219,7 @@ describe("snapshot-store — loadAggregateWithSnapshot", () => {
     });
 
     const snapBased = await loadAggregateWithSnapshot<CounterState>(
-      testDb.db,
+      bun.db,
       aggId,
       tenant,
       reducer,
@@ -225,7 +231,7 @@ describe("snapshot-store — loadAggregateWithSnapshot", () => {
 
     // includeArchived opt-in surfaces the snapshot + deltas for ops tooling.
     const archived = await loadAggregateWithSnapshot<CounterState>(
-      testDb.db,
+      bun.db,
       aggId,
       tenant,
       reducer,
@@ -238,7 +244,7 @@ describe("snapshot-store — loadAggregateWithSnapshot", () => {
 
   test("1000-event aggregate with snapshot at v900 loads in under 50ms", async () => {
     const aggId = await seedAggregate(1000);
-    await saveSnapshot(testDb.db, {
+    await saveSnapshot(bun.db, {
       aggregateId: aggId,
       tenantId: tenant,
       aggregateType: "counter",
@@ -247,11 +253,11 @@ describe("snapshot-store — loadAggregateWithSnapshot", () => {
     });
 
     // Warm cache
-    await loadAggregateWithSnapshot<CounterState>(testDb.db, aggId, tenant, reducer, initial);
+    await loadAggregateWithSnapshot<CounterState>(bun.db, aggId, tenant, reducer, initial);
 
     const start = performance.now();
     const snapBased = await loadAggregateWithSnapshot<CounterState>(
-      testDb.db,
+      bun.db,
       aggId,
       tenant,
       reducer,
