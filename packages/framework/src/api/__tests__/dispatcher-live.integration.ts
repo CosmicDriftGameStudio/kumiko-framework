@@ -7,7 +7,7 @@ import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
+import { setupTestStack, type TestStack } from "../../stack";
 import { generateId } from "../../utils";
 
 // End-to-end: UI code would call `dispatcher.write("feat:write:item:create", ...)`.
@@ -50,7 +50,7 @@ const itemFeature = defineFeature("dlive", (r) => {
   );
 });
 
-let stack: BunTestStack;
+let stack: TestStack;
 const admin = TestUsers.admin;
 
 // Wire dispatcher-live's `fetch` to Hono's in-memory `app.request`. Also
@@ -98,7 +98,7 @@ async function buildFetch(): Promise<{
 }
 
 beforeAll(async () => {
-  stack = await setupBunTestStack({ features: [itemFeature] });
+  stack = await setupTestStack({ features: [itemFeature] });
   await unsafeCreateEntityTable(stack.db, itemEntity);
 });
 

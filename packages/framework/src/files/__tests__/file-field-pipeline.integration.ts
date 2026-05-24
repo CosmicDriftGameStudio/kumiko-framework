@@ -29,7 +29,7 @@ import {
   defineEntityUpdateHandler,
   defineFeature,
 } from "../../engine";
-import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
+import { setupTestStack, type TestStack } from "../../stack";
 import {
   createTestUser,
   testTenantId,
@@ -60,7 +60,7 @@ const documentFeature = defineFeature("pipeline-documents", (r) => {
   r.queryHandler(defineEntityDetailHandler("document", documentEntity, ROLES));
 });
 
-let stack: BunTestStack;
+let stack: TestStack;
 let storagePath: string;
 
 const tenantId = testTenantId(1);
@@ -68,7 +68,7 @@ const user = createTestUser({ id: 1, tenantId, roles: ["Admin"] });
 
 beforeAll(async () => {
   storagePath = await mkdtemp(join(tmpdir(), "kumiko-file-field-pipeline-"));
-  stack = await setupBunTestStack({
+  stack = await setupTestStack({
     features: [documentFeature],
     files: { storageProvider: createLocalProvider(storagePath) },
   });

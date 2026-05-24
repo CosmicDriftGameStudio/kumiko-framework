@@ -12,7 +12,7 @@ import {
 } from "../../engine";
 import { createEventsTable } from "../../event-store";
 import { TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { createTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { createCascadeDeleteHook } from "../cascade-handler";
 
@@ -80,7 +80,7 @@ const memberEntity = createEntity({
 
 beforeAll(async () => {
   await ensureTemporalPolyfill();
-  testDb = await createBunTestDb();
+  testDb = await createTestDb();
   await createEventsTable(testDb.db);
   tdb = createTenantDb(testDb.db, admin.tenantId);
 

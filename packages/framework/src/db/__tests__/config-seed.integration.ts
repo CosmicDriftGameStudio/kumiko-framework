@@ -10,7 +10,7 @@ import {
 } from "../../engine";
 import type { ConfigSeedDef, Registry } from "../../engine/types";
 import { unsafeCreateEntityTable } from "../../stack";
-import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { createTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { seedConfigValues } from "../config-seed";
 import { createEncryptionProvider } from "../encryption";
@@ -74,7 +74,7 @@ async function countEvents(): Promise<number> {
 // --- Setup ---
 beforeAll(async () => {
   await ensureTemporalPolyfill();
-  testDb = await createBunTestDb();
+  testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, configEntity, "cfgSeedTest");
 });
 

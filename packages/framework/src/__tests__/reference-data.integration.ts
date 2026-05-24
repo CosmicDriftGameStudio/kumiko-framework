@@ -4,7 +4,7 @@ import { integer, table as pgTable, serial, text } from "../db/dialect";
 import { seedReferenceData } from "../db/reference-data";
 import type { ReferenceDataDef } from "../engine/types";
 import { unsafePushTables } from "../stack";
-import { createBunTestDb, type BunTestDb } from "../bun-db/__tests__/bun-test-db";
+import { createTestDb, type BunTestDb } from "../bun-db/__tests__/bun-test-db";
 import { ensureTemporalPolyfill } from "../time/polyfill";
 
 // --- Tables ---
@@ -28,7 +28,7 @@ let testDb: BunTestDb;
 
 beforeAll(async () => {
   await ensureTemporalPolyfill();
-  testDb = await createBunTestDb();
+  testDb = await createTestDb();
   await unsafePushTables(testDb.db, { countryTable, statusTable });
 });
 

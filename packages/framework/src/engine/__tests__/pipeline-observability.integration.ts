@@ -16,7 +16,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
+import { setupTestStack, type TestStack } from "../../stack";
 import { createRecordingProvider, type RecordingProvider } from "../../testing";
 import { defineFeature } from "../define-feature";
 import { defineWriteHandler } from "../define-handler";
@@ -67,12 +67,12 @@ const obsFeature = defineFeature("obstest", (r) => {
   r.writeHandler(observedHandler);
 });
 
-let stack: BunTestStack;
+let stack: TestStack;
 let provider: RecordingProvider;
 
 beforeAll(async () => {
   provider = createRecordingProvider();
-  stack = await setupBunTestStack({
+  stack = await setupTestStack({
     features: [obsFeature],
     systemHooks: [],
     observability: provider,

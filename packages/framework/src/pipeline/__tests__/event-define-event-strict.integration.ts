@@ -15,7 +15,7 @@ import { z } from "zod";
 import { selectMany } from "../../bun-db/query";
 import { defineFeature } from "../../engine";
 import { eventsTable } from "../../event-store";
-import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
+import { setupTestStack, type TestStack } from "../../stack";
 import {
   resetEventStore,
   TestUsers,
@@ -110,10 +110,10 @@ const emitterFeature = defineFeature("emitter", (r) => {
 });
 
 const admin = TestUsers.admin;
-let stack: BunTestStack;
+let stack: TestStack;
 
 beforeAll(async () => {
-  stack = await setupBunTestStack({
+  stack = await setupTestStack({
     features: [emitterFeature, neighborFeature],
     systemHooks: [],
   });

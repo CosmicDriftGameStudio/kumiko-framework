@@ -14,7 +14,7 @@ import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
 import { defineFeature } from "../../engine";
 import { getConsumerState } from "../../pipeline";
-import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
+import { setupTestStack, type TestStack } from "../../stack";
 import {
   resetEventStore,
   TestUsers,
@@ -67,14 +67,14 @@ const z2Feature = defineFeature("errmode", (r) => {
 
 // --- Stack ---
 
-let stack: BunTestStack;
+let stack: TestStack;
 let tdb: TenantDb;
 const admin = TestUsers.admin;
 const strictQn = "errmode:projection:strict";
 const lenientQn = "errmode:projection:lenient";
 
 beforeAll(async () => {
-  stack = await setupBunTestStack({
+  stack = await setupTestStack({
     features: [z2Feature],
     systemHooks: [],
   });

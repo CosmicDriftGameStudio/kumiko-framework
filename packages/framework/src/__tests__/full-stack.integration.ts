@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { selectMany, updateMany } from "../bun-db/query";
-import { setupBunTestStack, type BunTestStack } from "../bun-db/__tests__/bun-test-stack";
+import { setupTestStack, type TestStack } from "../stack";
 import { createEventStoreExecutor } from "../db/event-store-executor";
 import { defineFeature, type EntityId, type HandlerContext, type SaveContext } from "../engine";
 import { UnprocessableError, writeFailure } from "../errors";
@@ -192,7 +192,7 @@ const userFeature = defineFeature("users", (r) => {
 
 // --- Stack + Users ---
 
-let stack: BunTestStack;
+let stack: TestStack;
 
 const adminUser = TestUsers.admin;
 const guestUser = createTestUser({ id: 2, roles: ["Guest"] });
@@ -202,7 +202,7 @@ const otherTenantAdmin = createTestUser({
 });
 
 beforeAll(async () => {
-  stack = await setupBunTestStack({ features: [userFeature] });
+  stack = await setupTestStack({ features: [userFeature] });
   await unsafeCreateEntityTable(stack.db, userEntity, "user");
 });
 

@@ -14,7 +14,7 @@ import {
 } from "../../engine";
 import { UnprocessableError, writeFailure } from "../../errors";
 import { TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
+import { setupTestStack, type TestStack } from "../../stack";
 
 // Entity: a simple "item" with name + counter
 const itemEntity = createEntity({
@@ -145,11 +145,11 @@ const itemFeature = defineFeature("batch", (r) => {
 type ParallelismEvent = { hook: "A" | "B"; start?: number; end?: number };
 const parallelismWindows: ParallelismEvent[] = [];
 
-let stack: BunTestStack;
+let stack: TestStack;
 const admin = TestUsers.admin;
 
 beforeAll(async () => {
-  stack = await setupBunTestStack({ features: [itemFeature] });
+  stack = await setupTestStack({ features: [itemFeature] });
   await unsafeCreateEntityTable(stack.db, itemEntity);
   await unsafeCreateEntityTable(stack.db, auditEntity);
 });

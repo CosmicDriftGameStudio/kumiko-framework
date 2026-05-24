@@ -22,7 +22,7 @@ import {
   UnprocessableError,
   writeFailure,
 } from "../errors";
-import { setupBunTestStack, type BunTestStack } from "../bun-db/__tests__/bun-test-stack";
+import { setupTestStack, type TestStack } from "../stack";
 import {
   createTestUser,
   TestUsers,
@@ -180,12 +180,12 @@ const errorFeature = defineFeature("errctr", (r) => {
   );
 });
 
-let stack: BunTestStack;
+let stack: TestStack;
 const admin = TestUsers.admin;
 const guest = createTestUser({ id: 2, roles: ["Guest"] });
 
 beforeAll(async () => {
-  stack = await setupBunTestStack({ features: [errorFeature] });
+  stack = await setupTestStack({ features: [errorFeature] });
   await unsafeCreateEntityTable(stack.db, itemEntity);
 });
 afterAll(async () => stack.cleanup());

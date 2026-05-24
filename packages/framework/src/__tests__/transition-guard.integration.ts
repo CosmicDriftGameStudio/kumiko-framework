@@ -11,7 +11,7 @@ import {
   defineFeature,
 } from "../engine";
 import { TestUsers, unsafeCreateEntityTable } from "../stack";
-import { setupBunTestStack, type BunTestStack } from "../bun-db/__tests__/bun-test-stack";
+import { setupTestStack, type TestStack } from "../stack";
 import { expectErrorIncludes } from "../testing";
 
 // Two entities, both with a field named `status`, but different transitions.
@@ -175,11 +175,11 @@ const feature = defineFeature("txguard", (r) => {
   );
 });
 
-let stack: BunTestStack;
+let stack: TestStack;
 const admin = TestUsers.admin;
 
 beforeAll(async () => {
-  stack = await setupBunTestStack({ features: [feature] });
+  stack = await setupTestStack({ features: [feature] });
   await unsafeCreateEntityTable(stack.db, invoiceEntity);
   await unsafeCreateEntityTable(stack.db, orderEntity);
   await unsafeCreateEntityTable(stack.db, ticketEntity);

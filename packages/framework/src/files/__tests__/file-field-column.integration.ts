@@ -11,7 +11,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient } from "../../bun-db/query";
 import { createEntity, createFileField, createImageField } from "../../engine";
 import { unsafeCreateEntityTable, unsafePushTables } from "../../stack";
-import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { createTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { generateId } from "../../utils";
 import { fileRefsTable } from "../file-ref-table";
@@ -30,7 +30,7 @@ let testDb: BunTestDb;
 
 beforeAll(async () => {
   await ensureTemporalPolyfill();
-  testDb = await createBunTestDb();
+  testDb = await createTestDb();
   await unsafePushTables(testDb.db, { fileRefsTable });
   await unsafeCreateEntityTable(testDb.db, documentEntity);
 });

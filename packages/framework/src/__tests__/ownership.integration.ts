@@ -15,7 +15,7 @@ import {
   from,
 } from "../engine";
 import type { SessionUser, TenantId } from "../engine/types";
-import { setupBunTestStack, type BunTestStack } from "../bun-db/__tests__/bun-test-stack";
+import { setupTestStack, type TestStack } from "../stack";
 import {
   createTestUser,
   TestUsers,
@@ -118,10 +118,10 @@ function mkUser(n: number, roles: readonly string[], team: string | undefined): 
 
 // ── Test stack ─────────────────────────────────────────────────────────────
 
-let stack: BunTestStack;
+let stack: TestStack;
 
 beforeAll(async () => {
-  stack = await setupBunTestStack({ features: [teamsFeature, contractsFeature] });
+  stack = await setupTestStack({ features: [teamsFeature, contractsFeature] });
   await unsafeCreateEntityTable(stack.db, contractEntity, "contract");
 });
 

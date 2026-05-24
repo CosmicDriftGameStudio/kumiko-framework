@@ -11,7 +11,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { TenantId } from "../../engine/types";
-import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { createTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { generateId as uuid } from "../../utils";
 import { append, createEventsTable, getStreamVersion } from "../index";
@@ -22,7 +22,7 @@ const userId = uuid();
 
 beforeAll(async () => {
   await ensureTemporalPolyfill();
-  testDb = await createBunTestDb();
+  testDb = await createTestDb();
   await createEventsTable(testDb.db);
 });
 

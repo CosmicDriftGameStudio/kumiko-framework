@@ -4,12 +4,12 @@
 // header, kumiko_tenant cookie, custom resolver) plus the rejection paths
 // (no tenant, unknown tenant, openToAll-protected).
 //
-// Bun.SQL-only setup. KEIN postgres-js, KEIN setupBunTestStack.
+// Bun.SQL-only setup. KEIN postgres-js, KEIN setupTestStack.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { asRawClient, selectMany } from "../bun-db/query";
-import { setupBunTestStack, type BunTestStack } from "../bun-db/__tests__/bun-test-stack";
+import { setupTestStack, type TestStack } from "../stack";
 import { createEventStoreExecutor } from "../db/event-store-executor";
 import { buildEntityTable } from "../db/table-builder";
 import {
@@ -101,10 +101,10 @@ const shopFeature = defineFeature("anonshop", (r) => {
 // --- Suite ---
 
 describe("anonymous access — single-tenant default", () => {
-  let stack: BunTestStack;
+  let stack: TestStack;
 
   beforeAll(async () => {
-    stack = await setupBunTestStack({
+    stack = await setupTestStack({
       features: [shopFeature],
       anonymousAccess: { defaultTenantId: TENANT_ID },
     });
@@ -210,10 +210,10 @@ describe("anonymous access — single-tenant default", () => {
 });
 
 describe("anonymous access — header-supplied tenant", () => {
-  let stack: BunTestStack;
+  let stack: TestStack;
 
   beforeAll(async () => {
-    stack = await setupBunTestStack({
+    stack = await setupTestStack({
       features: [shopFeature],
       anonymousAccess: {
         // No defaultTenantId — every anonymous request must declare its tenant.
@@ -309,10 +309,10 @@ describe("anonymous access — header-supplied tenant", () => {
 });
 
 describe("anonymous access — disabled by default", () => {
-  let stack: BunTestStack;
+  let stack: TestStack;
 
   beforeAll(async () => {
-    stack = await setupBunTestStack({ features: [shopFeature] });
+    stack = await setupTestStack({ features: [shopFeature] });
     await unsafeCreateEntityTable(stack.db, productEntity);
     await unsafeCreateEntityTable(stack.db, orderEntity);
   });

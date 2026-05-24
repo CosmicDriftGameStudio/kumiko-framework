@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "../../bun-db/query";
-import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { createTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { detectDrift } from "../schema-drift";
 
@@ -18,7 +18,7 @@ let migrationsDir: string;
 
 beforeAll(async () => {
   await ensureTemporalPolyfill();
-  testDb = await createBunTestDb();
+  testDb = await createTestDb();
 });
 
 afterAll(async () => {

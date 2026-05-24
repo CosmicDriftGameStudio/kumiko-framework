@@ -17,7 +17,7 @@ import { createRegistry, defineFeature } from "../../engine";
 import { createArchivedStreamsTable, createEventsTable } from "../../event-store";
 import { createEventConsumerStateTable } from "../../pipeline";
 import { createTestRedis, type TestRedis } from "../../stack";
-import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { createTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { createAllInOneEntrypoint, createApiEntrypoint, createWorkerEntrypoint } from "../index";
 
@@ -44,7 +44,7 @@ let testDb: BunTestDb;
 let testRedis: TestRedis;
 
 beforeAll(async () => {
-  [testDb, testRedis] = await Promise.all([createBunTestDb(), createTestRedis()]);
+  [testDb, testRedis] = await Promise.all([createTestDb(), createTestRedis()]);
   await createEventsTable(testDb.db);
   await createArchivedStreamsTable(testDb.db);
   await createEventConsumerStateTable(testDb.db);

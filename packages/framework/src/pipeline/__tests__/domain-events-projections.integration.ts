@@ -22,7 +22,7 @@ import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { loadAggregate } from "../../event-store";
-import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
+import { setupTestStack, type TestStack } from "../../stack";
 import {
   resetEventStore,
   TestUsers,
@@ -166,11 +166,11 @@ const shippingFeature = defineFeature("shipping", (r) => {
 
 // --- Test stack ---
 
-let stack: BunTestStack;
+let stack: TestStack;
 const admin = TestUsers.admin;
 
 beforeAll(async () => {
-  stack = await setupBunTestStack({
+  stack = await setupTestStack({
     features: [shippingFeature],
     systemHooks: [],
   });

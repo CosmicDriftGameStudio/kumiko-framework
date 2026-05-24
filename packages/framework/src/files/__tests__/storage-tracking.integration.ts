@@ -12,7 +12,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { asRawClient, selectMany } from "../../bun-db/query";
 import type { SessionUser } from "../../engine";
 import { createTestUser, TestUsers } from "../../stack";
-import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
+import { setupTestStack, type TestStack } from "../../stack";
 import {
   createInMemoryFileProvider,
   filesStorageTrackingFeature,
@@ -20,7 +20,7 @@ import {
   tenantStorageUsageTable,
 } from "..";
 
-let stack: BunTestStack;
+let stack: TestStack;
 let provider: InMemoryFileProvider;
 
 const admin = TestUsers.admin;
@@ -38,7 +38,7 @@ const LARGE = new Uint8Array([0x89, 0x50, 0x4e, 0x47, ...Array(96).fill(0)]); //
 
 beforeAll(async () => {
   provider = createInMemoryFileProvider();
-  stack = await setupBunTestStack({
+  stack = await setupTestStack({
     features: [filesStorageTrackingFeature],
     files: { storageProvider: provider },
   });

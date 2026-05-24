@@ -15,7 +15,7 @@ import {
   isStreamArchived,
   loadAggregate as loadAggregateRaw,
 } from "../../event-store";
-import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
+import { setupTestStack, type TestStack } from "../../stack";
 import {
   resetEventStore,
   TestUsers,
@@ -96,11 +96,11 @@ const archFeature = defineFeature("archtest", (r) => {
   );
 });
 
-let stack: BunTestStack;
+let stack: TestStack;
 const admin = TestUsers.admin;
 
 beforeAll(async () => {
-  stack = await setupBunTestStack({ features: [archFeature], systemHooks: [] });
+  stack = await setupTestStack({ features: [archFeature], systemHooks: [] });
   await unsafeCreateEntityTable(stack.db, itemEntity, "arch-item");
 });
 

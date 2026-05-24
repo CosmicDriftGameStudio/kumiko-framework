@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
-import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { createTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { createSeedMigrationContext } from "../context";
 import { createEsOperationsTable, esOperationsTable } from "../operations-schema";
@@ -23,7 +23,7 @@ let testDb: BunTestDb;
 
 beforeAll(async () => {
   await ensureTemporalPolyfill();
-  testDb = await createBunTestDb();
+  testDb = await createTestDb();
   await createEsOperationsTable(testDb.db);
 });
 

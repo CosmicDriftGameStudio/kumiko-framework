@@ -22,7 +22,7 @@ import { createEventsTable } from "../../event-store";
 import { rebuildProjection } from "../../pipeline";
 import { createProjectionStateTable } from "../../pipeline/projection-state";
 import { TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { createTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { createEventStoreExecutor } from "../event-store-executor";
 import { buildEntityTable } from "../table-builder";
@@ -50,7 +50,7 @@ const adminUser = TestUsers.admin;
 
 beforeAll(async () => {
   await ensureTemporalPolyfill();
-  testDb = await createBunTestDb();
+  testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, userEntity, "user");
   await createEventsTable(testDb.db);
   await createProjectionStateTable(testDb.db);

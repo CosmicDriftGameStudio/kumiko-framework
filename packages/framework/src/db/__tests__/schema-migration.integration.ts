@@ -10,7 +10,7 @@ import {
 } from "../../engine";
 import type { FeatureDefinition } from "../../engine/types";
 import { unsafePushTables } from "../../stack";
-import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { createTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { buildEntityTable } from "../table-builder";
 
@@ -29,7 +29,7 @@ let testDb: BunTestDb;
 
 beforeAll(async () => {
   await ensureTemporalPolyfill();
-  testDb = await createBunTestDb();
+  testDb = await createTestDb();
 });
 
 afterAll(async () => {

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { z } from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { defineFeature, type SaveContext } from "../../engine";
-import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
+import { setupTestStack, type TestStack } from "../../stack";
 import {
   createTestRedis,
   type TestRedis,
@@ -57,14 +57,14 @@ const dedupFeature = defineFeature("dedup", (r) => {
 
 // --- Setup ---
 
-let stack: BunTestStack;
+let stack: TestStack;
 let testRedis: TestRedis;
 const admin = TestUsers.admin;
 
 beforeAll(async () => {
   testRedis = await createTestRedis();
 
-  stack = await setupBunTestStack({
+  stack = await setupTestStack({
     features: [dedupFeature],
     systemHooks: [],
   });

@@ -2,7 +2,7 @@ import { defineFeature, defineQueryHandler } from "@cosmicdrift/kumiko-framework
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { createTestUser, TestUsers } from "../../stack";
-import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
+import { setupTestStack, type TestStack } from "../../stack";
 
 // Full-stack L3 proof: a handler with `rateLimit` opt-in is gated by the
 // dispatcher BEFORE its handler-fn runs. After `limit` calls within the
@@ -33,11 +33,11 @@ const userOpsLimited = defineFeature("rl-test", (r) => {
   r.queryHandler(objFormPing);
 });
 
-let stack: BunTestStack;
+let stack: TestStack;
 const admin = TestUsers.admin;
 
 beforeAll(async () => {
-  stack = await setupBunTestStack({ features: [userOpsLimited] });
+  stack = await setupTestStack({ features: [userOpsLimited] });
 });
 
 afterAll(async () => {

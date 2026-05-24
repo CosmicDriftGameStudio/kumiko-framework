@@ -12,7 +12,7 @@ import { z } from "zod";
 import { buildServer, type JwtHelper } from "../../api";
 import { createRegistry, defineFeature, type SessionUser } from "../../engine";
 import { createTestRedis, type TestRedis, TestUsers } from "../../stack";
-import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { createTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { waitFor } from "../../testing";
 import { createJobRunner, type JobRunner } from "../job-runner";
@@ -61,7 +61,7 @@ const JWT_SECRET = "multi-trigger-test-secret-minimum-32-chars!!";
 
 beforeAll(async () => {
   await ensureTemporalPolyfill();
-  testDb = await createBunTestDb();
+  testDb = await createTestDb();
   testRedis = await createTestRedis();
 
   const registry = createRegistry([orderFeature]);

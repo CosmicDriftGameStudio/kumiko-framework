@@ -13,7 +13,7 @@ import {
 } from "../../engine";
 import { UnprocessableError, writeFailure } from "../../errors";
 import { TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
+import { setupTestStack, type TestStack } from "../../stack";
 
 // Two entities: `bag` (outer) + `secret` (inner). The outer handler calls
 // the inner via ctx.queryAs / ctx.writeAs. We verify:
@@ -45,7 +45,7 @@ const secretEntity = createEntity({
 });
 const secretTable = buildEntityTable("secret", secretEntity);
 
-let stack: BunTestStack;
+let stack: TestStack;
 const admin = TestUsers.admin;
 
 const afterCommitLog: string[] = [];
@@ -145,7 +145,7 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
 });
 
 beforeAll(async () => {
-  stack = await setupBunTestStack({ features: [bridgeFeature] });
+  stack = await setupTestStack({ features: [bridgeFeature] });
   await unsafeCreateEntityTable(stack.db, bagEntity);
   await unsafeCreateEntityTable(stack.db, secretEntity);
 });

@@ -16,7 +16,7 @@ import { createEntity, createTextField, defineFeature } from "../../engine";
 import { UnprocessableError, writeFailure } from "../../errors";
 import { loadAggregate } from "../../event-store";
 import { TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
+import { setupTestStack, type TestStack } from "../../stack";
 
 // --- Feature ---
 
@@ -132,11 +132,11 @@ const cartFeature = defineFeature("f4w", (r) => {
 
 // --- Stack ---
 
-let stack: BunTestStack;
+let stack: TestStack;
 const admin = TestUsers.admin;
 
 beforeAll(async () => {
-  stack = await setupBunTestStack({ features: [cartFeature], systemHooks: [] });
+  stack = await setupTestStack({ features: [cartFeature], systemHooks: [] });
   await unsafeCreateEntityTable(stack.db, cartEntity, "f4wCart");
 });
 

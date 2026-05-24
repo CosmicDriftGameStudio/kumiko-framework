@@ -12,7 +12,7 @@ import { insertOne, selectMany } from "../../bun-db/query";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField } from "../../engine";
 import { unsafeCreateEntityTable } from "../../stack";
-import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
+import { setupTestStack, type TestStack } from "../../stack";
 
 const linkEntity = createEntity({
   table: "mri_links",
@@ -23,10 +23,10 @@ const linkEntity = createEntity({
 });
 const linkTable = buildEntityTable("link", linkEntity);
 
-let stack: BunTestStack;
+let stack: TestStack;
 
 beforeAll(async () => {
-  stack = await setupBunTestStack({ features: [] });
+  stack = await setupTestStack({ features: [] });
   await unsafeCreateEntityTable(stack.db, linkEntity);
 });
 

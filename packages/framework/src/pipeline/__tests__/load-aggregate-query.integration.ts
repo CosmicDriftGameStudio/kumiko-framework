@@ -6,12 +6,12 @@
 // Events are upcasted by the dispatcher, so the reducer sees the current
 // payload shape even for old v1 events.
 //
-// Bun.SQL-only setup. KEIN postgres-js, KEIN setupBunTestStack.
+// Bun.SQL-only setup. KEIN postgres-js, KEIN setupTestStack.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { insertOne } from "../../bun-db/query";
-import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
+import { setupTestStack, type TestStack } from "../../stack";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
@@ -127,11 +127,11 @@ const asOfFeature = defineFeature("asoftest", (r) => {
 
 // --- Test stack ---
 
-let stack: BunTestStack;
+let stack: TestStack;
 const admin = TestUsers.admin;
 
 beforeAll(async () => {
-  stack = await setupBunTestStack({ features: [asOfFeature], systemHooks: [] });
+  stack = await setupTestStack({ features: [asOfFeature], systemHooks: [] });
   await unsafeCreateEntityTable(stack.db, invoiceEntity, "asof-invoice");
 });
 

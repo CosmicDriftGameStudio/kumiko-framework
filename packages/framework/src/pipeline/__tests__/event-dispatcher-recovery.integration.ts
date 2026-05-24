@@ -25,7 +25,7 @@ import {
   restartConsumer,
   skipPoisonEvent,
 } from "../../pipeline";
-import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
+import { setupTestStack, type TestStack } from "../../stack";
 import {
   resetEventStore,
   TestUsers,
@@ -61,11 +61,11 @@ const recoveryFeature = defineFeature("recoverytest", (r) => {
 
 const admin = TestUsers.admin;
 const qn = "recoverytest:projection:observer";
-let stack: BunTestStack;
+let stack: TestStack;
 let tdb: TenantDb;
 
 beforeAll(async () => {
-  stack = await setupBunTestStack({
+  stack = await setupTestStack({
     features: [recoveryFeature],
     systemHooks: [],
   });

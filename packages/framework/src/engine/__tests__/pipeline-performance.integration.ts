@@ -25,7 +25,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
+import { setupTestStack, type TestStack } from "../../stack";
 import { defineFeature } from "../define-feature";
 import { defineWriteHandler } from "../define-handler";
 import { createEntity, createNumberField, createTextField } from "../factories";
@@ -77,10 +77,10 @@ const perfFeature = defineFeature("perftest", (r) => {
   r.writeHandler(trivialFreeform);
 });
 
-let stack: BunTestStack;
+let stack: TestStack;
 
 beforeAll(async () => {
-  stack = await setupBunTestStack({ features: [perfFeature], systemHooks: [] });
+  stack = await setupTestStack({ features: [perfFeature], systemHooks: [] });
   await unsafeCreateEntityTable(stack.db, productEntity, "perf-product");
 });
 

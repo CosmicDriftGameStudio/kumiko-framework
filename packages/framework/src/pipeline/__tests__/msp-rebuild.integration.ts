@@ -28,7 +28,7 @@ import {
   getConsumerState,
   rebuildMultiStreamProjection,
 } from "../../pipeline";
-import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
+import { setupTestStack, type TestStack } from "../../stack";
 import {
   resetEventStore,
   TestUsers,
@@ -187,10 +187,10 @@ const WEBHOOK_MSP = "mspreb:projection:webhook-sink";
 const SAGA_MSP = "mspreb:projection:saga-emitter";
 
 const admin = TestUsers.admin;
-let stack: BunTestStack;
+let stack: TestStack;
 
 beforeAll(async () => {
-  stack = await setupBunTestStack({
+  stack = await setupTestStack({
     features: [feature],
     systemHooks: [],
   });

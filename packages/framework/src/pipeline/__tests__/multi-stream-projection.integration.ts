@@ -13,7 +13,7 @@ import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
-import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
+import { setupTestStack, type TestStack } from "../../stack";
 import {
   createTestUser,
   resetEventStore,
@@ -131,11 +131,11 @@ const mspFeature = defineFeature("msptest", (r) => {
   );
 });
 
-let stack: BunTestStack;
+let stack: TestStack;
 const admin = TestUsers.admin;
 
 beforeAll(async () => {
-  stack = await setupBunTestStack({ features: [mspFeature], systemHooks: [] });
+  stack = await setupTestStack({ features: [mspFeature], systemHooks: [] });
   await unsafeCreateEntityTable(stack.db, shipmentEntity, "msp-shipment");
   await unsafeCreateEntityTable(stack.db, refundEntity, "msp-refund");
 });

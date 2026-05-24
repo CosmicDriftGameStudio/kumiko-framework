@@ -8,7 +8,7 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient, insertOne, selectMany } from "../../bun-db/query";
-import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { createTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import type { StoredEvent } from "../event-store";
 import { createEventsTable, eventsTable } from "../events-schema";
@@ -80,7 +80,7 @@ const passthroughUpcasters: EventUpcasters = new Map([
 
 beforeAll(async () => {
   await ensureTemporalPolyfill();
-  testDb = await createBunTestDb();
+  testDb = await createTestDb();
   await createEventsTable(testDb.db);
   await createUpcasterDeadLetterTable(testDb.db);
 });

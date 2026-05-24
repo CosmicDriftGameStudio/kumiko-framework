@@ -24,7 +24,7 @@ import {
   RecordingMeter,
   RecordingTracer,
 } from "../../observability";
-import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
+import { setupTestStack, type TestStack } from "../../stack";
 import {
   resetEventStore,
   TestUsers,
@@ -75,11 +75,11 @@ const wiringFeature = defineFeature("wiring", (r) => {
 });
 
 const admin = TestUsers.admin;
-let stack: BunTestStack;
+let stack: TestStack;
 let tdb: TenantDb;
 
 beforeAll(async () => {
-  stack = await setupBunTestStack({
+  stack = await setupTestStack({
     features: [wiringFeature],
     systemHooks: [],
   });
@@ -173,7 +173,7 @@ describe("E.1 — consumer-lag metric", () => {
       shutdown: async () => {},
     };
 
-    const recStack = await setupBunTestStack({
+    const recStack = await setupTestStack({
       features: [wiringFeature],
       systemHooks: [],
       observability: recordingProvider,

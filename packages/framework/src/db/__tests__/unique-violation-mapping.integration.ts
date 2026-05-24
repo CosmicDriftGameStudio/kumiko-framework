@@ -18,7 +18,7 @@ import { asRawClient, selectMany } from "../../bun-db/query";
 import { createEntity, createTextField } from "../../engine";
 import { createEventsTable } from "../../event-store";
 import { TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { createTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { createEventStoreExecutor } from "../event-store-executor";
 import { buildEntityTable } from "../table-builder";
@@ -50,7 +50,7 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   await ensureTemporalPolyfill();
-  testDb = await createBunTestDb();
+  testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, userEntity, "unique-user");
   await createEventsTable(testDb.db);
   tdb = createTenantDb(testDb.db, admin.tenantId);

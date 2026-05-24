@@ -16,7 +16,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "../../bun-db/query";
 import type { TenantId } from "../../engine/types";
-import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { createTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { generateId as uuid } from "../../utils";
 import {
@@ -55,7 +55,7 @@ const reducer: SnapshotReducer<CounterState> = (state, event) => {
 
 beforeAll(async () => {
   await ensureTemporalPolyfill();
-  bun = await createBunTestDb();
+  bun = await createTestDb();
   await createEventsTable(bun.db);
 });
 

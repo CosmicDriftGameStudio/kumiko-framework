@@ -21,7 +21,7 @@ import { createEntity, createTextField } from "../../engine/factories";
 import type { TenantId } from "../../engine/types";
 import type { StoredEvent } from "../../event-store";
 import { createEventsTable } from "../../event-store";
-import { createBunTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { createTestDb, type BunTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { applyEntityEvent } from "../apply-entity-event";
 import { buildEntityTable } from "../table-builder";
@@ -38,7 +38,7 @@ let testDb: BunTestDb;
 
 beforeAll(async () => {
   await ensureTemporalPolyfill();
-  testDb = await createBunTestDb();
+  testDb = await createTestDb();
   await createEventsTable(testDb.db);
   await asRawClient(testDb.db).unsafe(`
     CREATE TABLE read_apply_tenant_check (

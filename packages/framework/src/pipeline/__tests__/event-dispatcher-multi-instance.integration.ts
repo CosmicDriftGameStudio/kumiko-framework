@@ -30,7 +30,7 @@ import {
   type EventDispatcher,
   getConsumerState,
 } from "../../pipeline";
-import { setupBunTestStack, type BunTestStack } from "../../bun-db/__tests__/bun-test-stack";
+import { setupTestStack, type TestStack } from "../../stack";
 import {
   resetEventStore,
   TestUsers,
@@ -54,11 +54,11 @@ const multiFeature = defineFeature("multi", (r) => {
 });
 
 const admin = TestUsers.admin;
-let stack: BunTestStack;
+let stack: TestStack;
 let tdb: TenantDb;
 
 beforeAll(async () => {
-  stack = await setupBunTestStack({
+  stack = await setupTestStack({
     features: [multiFeature],
     systemHooks: [],
   });
@@ -225,7 +225,7 @@ describe("E.5 — cursor-lag catch-up", () => {
     const count = 500;
     await bulkSeedWidgetCreated(count, "backlog-");
     // State row does not exist yet — this dispatcher is constructed inside
-    // the test, not via setupBunTestStack's auto-ensureRegistered.
+    // the test, not via setupTestStack's auto-ensureRegistered.
     expect(await getConsumerState(stack.db, name)).toBeNull();
 
     const disp = createEventDispatcher({
