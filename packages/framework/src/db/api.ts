@@ -16,12 +16,15 @@ export type DbConnectionOptions = {
 // Connection-Handle: db für Queries, client für Legacy-Zugriff (LISTEN/NOTIFY-Peer
 // bei Bun.SQL), close für Pool-Shutdown.
 export type DbConnection = {
-  /** Provider Connection — leerer Handle, Calls über asRawClient() */
-  readonly db: unknown;
+  /** Provider Connection — Calls gehen über asRawClient() oder direkt. */
+  // biome-ignore lint/suspicious/noExplicitAny: cross-provider connection — postgres-js | Bun.SQL
+  readonly db: any;
   /** Legacy postgres-js Client (für LISTEN peer) */
-  readonly client: unknown;
+  // biome-ignore lint/suspicious/noExplicitAny: postgres-js client
+  readonly client: any;
   /** Optionaler Bun.SQL LISTEN peer */
-  readonly listenClient?: unknown;
+  // biome-ignore lint/suspicious/noExplicitAny: postgres-js LISTEN peer
+  readonly listenClient?: any;
   /** Pool schliessen */
   close: () => Promise<void>;
 };

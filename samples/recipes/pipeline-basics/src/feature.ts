@@ -24,8 +24,10 @@ import {
   buildEntityTable,
   createEventStoreExecutor,
   integer,
+  selectMany,
   table,
   text,
+  updateMany,
   uuid,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { PipelineCtx } from "@cosmicdrift/kumiko-framework/engine";
@@ -37,7 +39,6 @@ import {
   defineWriteHandler,
   pipeline,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 const LOW_STOCK_THRESHOLD = 10;
@@ -108,10 +109,7 @@ export const inventoryFeature = defineFeature("inventory", (r) => {
     apply: {
       [stockAdjusted.name]: async (event, tx) => {
         const p = event.payload as { newStock: number };
-        await tx
-          .update(productTable)
-          .set({ currentStock: p.newStock })
-          .where(eq(productTable.id, event.aggregateId));
+        await updateMany(tx, productTable, { currentStock: p.newStock }, { id: event.aggregateId });
       },
     },
   });
@@ -164,7 +162,7 @@ export const inventoryFeature = defineFeature("inventory", (r) => {
         ({ event, r }) => [
           r.step.read.findOne("current", {
             table: productTable,
-            where: () => eq(productTable.id, event.payload.id),
+            where: () => ({ id: event.payload.id }),
           }),
           r.step.branch({
             if: ({ steps }) => {
@@ -216,7 +214,7 @@ export const inventoryFeature = defineFeature("inventory", (r) => {
       >(({ event, r }) => [
         r.step.read.findOne("current", {
           table: productTable,
-          where: () => eq(productTable.id, event.payload.id),
+          where: () => ({ id: event.payload.id }),
         }),
         r.step.compute("newStock", ({ steps }) => {
           const cur = steps["current"] as { currentStock: number } | null;
@@ -266,7 +264,7 @@ export const inventoryFeature = defineFeature("inventory", (r) => {
           onFalse: [
             r.step.unsafeProjectionDelete({
               table: lowStockAlertsTable,
-              where: () => eq(lowStockAlertsTable.productId, event.payload.id),
+              where: () => ({ productId: event.payload.id }),
             }),
           ],
         }),
@@ -304,7 +302,7 @@ export const inventoryFeature = defineFeature("inventory", (r) => {
           do: [
             r.step.read.findOne("current", {
               table: productTable,
-              where: ({ scope }) => eq(productTable.id, (scope["adj"] as { id: string }).id),
+              where: ({ scope }) => ({ id: (scope["adj"] as { id: string }).id }),
             }),
             r.step.compute("newStock", ({ steps, scope }) => {
               const cur = steps["current"] as { currentStock: number } | null;
@@ -351,7 +349,7 @@ export const inventoryFeature = defineFeature("inventory", (r) => {
         }),
         r.step.unsafeProjectionDelete({
           table: lowStockAlertsTable,
-          where: () => eq(lowStockAlertsTable.productId, event.payload.id),
+          where: () => ({ productId: event.payload.id }),
         }),
         r.step.return(() => ({
           isSuccess: true as const,
@@ -389,11 +387,9 @@ export const inventoryFeature = defineFeature("inventory", (r) => {
             }),
             r.step.unsafeProjectionDelete({
               table: lowStockAlertsTable,
-              where: ({ scope }) =>
-                eq(
-                  lowStockAlertsTable.productId,
-                  (scope["alert"] as { productId: string }).productId,
-                ),
+              where: ({ scope }) => ({
+                productId: (scope["alert"] as { productId: string }).productId,
+              }),
             }),
           ],
         }),
@@ -416,7 +412,7 @@ export const inventoryFeature = defineFeature("inventory", (r) => {
     "low-stock-alerts:list",
     z.object({}),
     async (_query, ctx) => {
-      const rows = await ctx.db.select().from(lowStockAlertsTable);
+      const rows = await selectMany(ctx.db, lowStockAlertsTable);
       return { rows };
     },
     { access: { roles: ["Admin"] } },

@@ -13,7 +13,8 @@
       "app/**",
       "!**/drizzle/migrations",
       "!**/dist",
-      "!**/dist-server"
+      "!**/dist-server",
+      "!**/.kumiko"
     ]
   },
   "assist": {

@@ -24,6 +24,7 @@ import {
   defineProjectionQueryHandler,
   typedPayload,
 } from "@app/define";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   buildEntityTable,
   createEventStoreExecutor,
@@ -32,7 +33,7 @@ import {
   text,
   uuid,
 } from "@cosmicdrift/kumiko-framework/db";
-import { eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { z } from "zod";
 
 // --- Reducer: shared by live + snapshot-aware query handlers ---
@@ -152,10 +153,9 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
   );
   r.eventMigration("invoice-acknowledged", 1, 2, async (payload, ctx) => {
     const p = payload as { approverId: string };
-    const [row] = await ctx.db
-      .select()
-      .from(approverDirectoryTable)
-      .where(eq(approverDirectoryTable.approverId, p.approverId));
+    const row = await fetchOne<{ displayName: string }>(ctx.db, approverDirectoryTable, {
+      approverId: p.approverId,
+    });
     return {
       approverId: p.approverId,
       approverDisplayName: row?.displayName ?? `unknown:${p.approverId}`,
@@ -184,13 +184,13 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
         await tx
           .update(invoiceDetailTable)
           .set({ status: "approved", amountCents: p.amountCents })
-          .where(eq(invoiceDetailTable.invoiceId, event.aggregateId));
+          .where(sql`${invoiceDetailTable["invoiceId"]} = ${event.aggregateId}`);
       },
       [paid.name]: async (event, tx) => {
         await tx
           .update(invoiceDetailTable)
           .set({ status: "paid" })
-          .where(eq(invoiceDetailTable.invoiceId, event.aggregateId));
+          .where(sql`${invoiceDetailTable["invoiceId"]} = ${event.aggregateId}`);
       },
     },
   });
@@ -208,22 +208,22 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
         const [detail] = await tx
           .select()
           .from(invoiceDetailTable)
-          .where(eq(invoiceDetailTable.invoiceId, event.aggregateId));
+          .where(sql`${invoiceDetailTable["invoiceId"]} = ${event.aggregateId}`);
         if (!detail) return;
         const p = typedPayload(event, paid);
         await tx
           .insert(customerRevenueTable)
           .values({
-            customer: detail.customer,
+            customer: detail["customer"],
             tenantId: event.tenantId,
             paidInvoices: 1,
             totalCents: p.amountCents,
           })
           .onConflictDoUpdate({
-            target: customerRevenueTable.customer,
+            target: customerRevenueTable["customer"],
             set: {
-              paidInvoices: sql`${customerRevenueTable.paidInvoices} + 1`,
-              totalCents: sql`${customerRevenueTable.totalCents} + ${p.amountCents}`,
+              paidInvoices: sql`${customerRevenueTable["paidInvoices"]} + 1`,
+              totalCents: sql`${customerRevenueTable["totalCents"]} + ${p.amountCents}`,
             },
           });
       },
@@ -279,12 +279,10 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
     "invoice:acknowledge",
     z.object({ id: z.uuid(), approverId: z.string() }),
     async (event, ctx) => {
-      const [row] = await ctx.db
-        .select()
-        .from(approverDirectoryTable)
-        .where(eq(approverDirectoryTable.approverId, event.payload.approverId));
-      const approverDisplayName: string =
-        (row?.["displayName"] as string | undefined) ?? `unknown:${event.payload.approverId}`;
+      const row = await ctx.db.fetchOne<{ displayName: string }>(approverDirectoryTable, {
+        approverId: event.payload.approverId,
+      });
+      const approverDisplayName: string = row?.displayName ?? `unknown:${event.payload.approverId}`;
       await ctx.appendEvent({
         aggregateId: event.payload.id,
         aggregateType: "showcase-invoice",

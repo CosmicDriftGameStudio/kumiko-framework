@@ -6,6 +6,7 @@
 // HTTP dispatcher + event-store + projections.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   createTestUser,
   resetEventStore,
@@ -13,7 +14,6 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { eq } from "drizzle-orm";
 import { inventoryFeature, lowStockAlertsTable, productTable } from "../feature";
 
 let stack: TestStack;
@@ -51,7 +51,7 @@ describe("Pipeline Basics — Inventory", () => {
 
     expect(id).toMatch(/^[0-9a-f-]{36}$/);
 
-    const [row] = await stack.db.select().from(productTable).where(eq(productTable.id, id));
+    const [row] = await selectMany(stack.db, productTable, { id });
     expect(row).toMatchObject({ sku: "SKU-001", name: "Widget", currentStock: 50 });
   });
 
@@ -91,10 +91,7 @@ describe("Pipeline Basics — Inventory", () => {
     );
     expect(adjusted.newStock).toBe(5);
 
-    const [alert] = await stack.db
-      .select()
-      .from(lowStockAlertsTable)
-      .where(eq(lowStockAlertsTable.productId, id));
+    const [alert] = await selectMany(stack.db, lowStockAlertsTable, { productId: id });
     expect(alert).toBeDefined();
     expect(alert).toMatchObject({
       productId: id,
@@ -117,10 +114,7 @@ describe("Pipeline Basics — Inventory", () => {
       { id, delta: 0, reason: "seed-alert" },
       admin,
     );
-    const [seeded] = await stack.db
-      .select()
-      .from(lowStockAlertsTable)
-      .where(eq(lowStockAlertsTable.productId, id));
+    const [seeded] = await selectMany(stack.db, lowStockAlertsTable, { productId: id });
     expect(seeded).toBeDefined();
 
     // Restock above threshold — branch.onFalse should delete the alert.
@@ -129,10 +123,7 @@ describe("Pipeline Basics — Inventory", () => {
       { id, delta: 20, reason: "restock" },
       admin,
     );
-    const after = await stack.db
-      .select()
-      .from(lowStockAlertsTable)
-      .where(eq(lowStockAlertsTable.productId, id));
+    const after = await selectMany(stack.db, lowStockAlertsTable, { productId: id });
     expect(after).toHaveLength(0);
   });
 
@@ -165,7 +156,7 @@ describe("Pipeline Basics — Inventory", () => {
     // that logic lives only in the single-product `adjust-stock`
     // handler. So even when bulk-adjustments push stock below the
     // threshold, no alert rows are written here.
-    const alerts = await stack.db.select().from(lowStockAlertsTable);
+    const alerts = await selectMany(stack.db, lowStockAlertsTable);
     expect(alerts).toHaveLength(0);
   });
 
@@ -182,10 +173,7 @@ describe("Pipeline Basics — Inventory", () => {
       { id, delta: 0, reason: "seed" },
       admin,
     );
-    const [before] = await stack.db
-      .select()
-      .from(lowStockAlertsTable)
-      .where(eq(lowStockAlertsTable.productId, id));
+    const [before] = await selectMany(stack.db, lowStockAlertsTable, { productId: id });
     expect(before).toBeDefined();
 
     await stack.http.writeOk(
@@ -194,10 +182,7 @@ describe("Pipeline Basics — Inventory", () => {
       admin,
     );
 
-    const after = await stack.db
-      .select()
-      .from(lowStockAlertsTable)
-      .where(eq(lowStockAlertsTable.productId, id));
+    const after = await selectMany(stack.db, lowStockAlertsTable, { productId: id });
     expect(after).toHaveLength(0);
   });
 
@@ -221,7 +206,7 @@ describe("Pipeline Basics — Inventory", () => {
     );
     expect(ids).toHaveLength(3);
 
-    const before = await stack.db.select().from(lowStockAlertsTable);
+    const before = await selectMany(stack.db, lowStockAlertsTable);
     expect(before).toHaveLength(3);
 
     const result = await stack.http.writeOk<{ archivedCount: number }>(
@@ -231,7 +216,7 @@ describe("Pipeline Basics — Inventory", () => {
     );
     expect(result.archivedCount).toBe(3);
 
-    const after = await stack.db.select().from(lowStockAlertsTable);
+    const after = await selectMany(stack.db, lowStockAlertsTable);
     expect(after).toHaveLength(0);
   });
 

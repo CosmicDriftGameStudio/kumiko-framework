@@ -42,56 +42,50 @@ export function createSuspendedRunFetcher(
   workflowRegistry: WorkflowRegistry,
 ): () => Promise<SuspendableRun[]> {
   return async () => {
-    const { eventsTable } = await import("@cosmicdrift/kumiko-framework/event-store");
-    const { lt, sql, inArray, or, and } = await import("drizzle-orm");
+    const { asRawClient } = await import("@cosmicdrift/kumiko-framework/db");
 
-    const rows = await db
-      .select()
-      .from(eventsTable)
-      .where(
-        and(
-          inArray(eventsTable.type, SUSPEND_EVENT_TYPES as unknown as typeof eventsTable.type),
-          or(
-            lt(sql`(${eventsTable.payload}->>'wakeAt')::timestamp`, sql`now()`),
-            lt(sql`(${eventsTable.payload}->>'timeoutAt')::timestamp`, sql`now()`),
-          ),
-        ),
-      );
+    const rows = (await asRawClient(db).unsafe(
+      `SELECT * FROM kumiko_events
+       WHERE "type" = ANY($1)
+       AND (("payload"->>'wakeAt')::timestamptz < now() OR ("payload"->>'timeoutAt')::timestamptz < now())`,
+      [SUSPEND_EVENT_TYPES as unknown as string[]],
+    )) as Record<string, unknown>[];
 
     const results: SuspendableRun[] = [];
 
     for (const row of rows) {
-      const workflowName = row.payload["workflowName"] as string | undefined;
+      const aggregateId = row["aggregateId"] as string;
+      const type = row["type"] as string;
+      const payload = row["payload"] as Record<string, unknown>;
+
+      const workflowName = payload["workflowName"] as string | undefined;
       if (!workflowName) continue;
 
       const workflow = workflowRegistry.get(workflowName);
       if (!workflow) continue;
 
-      const stepIndex = row.payload["stepIndex"] as number | undefined;
+      const stepIndex = payload["stepIndex"] as number | undefined;
       if (stepIndex === undefined) continue;
 
-      const wakeAt = (row.payload["wakeAt"] ?? row.payload["timeoutAt"]) as string | undefined;
+      const wakeAt = (payload["wakeAt"] ?? payload["timeoutAt"]) as string | undefined;
       if (!wakeAt) continue;
 
-      // Reconstruct the original trigger event from the snapshot stamped
-      // by the suspension step. Falls back to a synthetic event when the
-      // suspension event predates Q7 stamping (legacy rows).
       const triggerEvent = {
-        aggregateId: (row.payload["triggerAggregateId"] as string | undefined) ?? row.aggregateId,
-        type: (row.payload["triggerEventType"] as string | undefined) ?? "kumiko:system:resume",
-        payload: row.payload["triggerPayload"] ?? {},
+        aggregateId: (payload["triggerAggregateId"] as string | undefined) ?? aggregateId,
+        type: (payload["triggerEventType"] as string | undefined) ?? "kumiko:system:resume",
+        payload: payload["triggerPayload"] ?? {},
       };
 
       results.push({
-        runId: row.aggregateId,
+        runId: aggregateId,
         workflowName,
         stepIndex,
         wakeAt,
-        retryAttempt: row.payload["attempt"] as number | undefined,
-        suspensionEventType: row.type,
+        retryAttempt: payload["attempt"] as number | undefined,
+        suspensionEventType: type,
         workflow,
         triggerEvent,
-        definitionFingerprint: row.payload["definitionFingerprint"] as string | undefined,
+        definitionFingerprint: payload["definitionFingerprint"] as string | undefined,
       });
     }
 

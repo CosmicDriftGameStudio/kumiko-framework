@@ -23,7 +23,8 @@ export type TestStack = {
   app: Hono;
   jwt: JwtHelper;
   registry: Registry;
-  db: unknown;
+  // biome-ignore lint/suspicious/noExplicitAny: cross-provider connection
+  db: any;
   redis: TestRedis;
   search: SearchAdapter;
   events: EventCollector;
@@ -56,7 +57,8 @@ export type TestStackOptions = {
     | Record<string, unknown>
     | ((deps: {
         registry: Registry;
-        db: unknown;
+        // biome-ignore lint/suspicious/noExplicitAny: cross-provider connection
+        db: any;
         sseBroker: import("../api/sse-broker").SseBroker;
         redis: import("ioredis").default;
       }) => Record<string, unknown>);
@@ -108,7 +110,8 @@ export type TestStackOptions = {
     | import("../api/server").ServerOptions["anonymousAccess"]
     | ((deps: {
         registry: Registry;
-        db: unknown;
+        // biome-ignore lint/suspicious/noExplicitAny: cross-provider connection
+        db: any;
         sseBroker: import("../api/sse-broker").SseBroker;
         redis: import("ioredis").default;
       }) => import("../api/server").ServerOptions["anonymousAccess"]);

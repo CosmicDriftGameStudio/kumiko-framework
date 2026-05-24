@@ -1,3 +1,4 @@
+// @runtime dev
 // App-Schema für `kumiko schema generate`. Sammelt alle EntityDefinitions
 // + Unmanaged-Tables die in der App laufen, gibt sie als EntityTableMeta[]
 // zurück. CLI importiert ENTITY_METAS via dynamic-import.

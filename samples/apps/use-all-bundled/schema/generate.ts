@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+// @runtime dev
 // biome-ignore-all lint/suspicious/noConsole: CLI-Script, console ist Feature.
 //
 // Regeneriert schema.generated.ts (Entity-Tables) für die use-all-bundled

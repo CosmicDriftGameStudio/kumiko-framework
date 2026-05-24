@@ -25,15 +25,15 @@
 // the loose framework versions in the local module's export table.
 export * from "@cosmicdrift/kumiko-framework/engine";
 
+import {
+  defineWriteHandler as fwDefineWriteHandler,
+  defineQueryHandler as fwDefineQueryHandler,
+} from "@cosmicdrift/kumiko-framework/engine";
 import type {
   KumikoEventTypeMap,
-  QueryHandlerDefinition,
   WriteHandlerDefinition,
   WriteHandlerInput,
-} from "@cosmicdrift/kumiko-framework/engine";
-import {
-  defineQueryHandler as fwDefineQueryHandler,
-  defineWriteHandler as fwDefineWriteHandler,
+  QueryHandlerDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { ZodType } from "zod";
 

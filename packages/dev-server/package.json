@@ -30,10 +30,6 @@
       "types": "./src/compose-features.ts",
       "default": "./src/compose-features.ts"
     },
-    "./schema-config": {
-      "types": "./src/schema-config.ts",
-      "default": "./src/schema-config.ts"
-    },
     "./schema-tables-auth-mode": {
       "types": "./src/schema-tables-auth-mode.ts",
       "default": "./src/schema-tables-auth-mode.ts"

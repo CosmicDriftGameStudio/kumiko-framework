@@ -1,66 +1,214 @@
 {
   "format": 2,
-  "generated": "2026-05-20",
-  "totalSuspect": 34,
+  "generated": "2026-05-24",
+  "totalSuspect": 156,
   "perFile": {
-    "packages/bundled-features/src/step-dispatcher/feature.ts": {
+    "../kumiko-framework/packages/bundled-features/src/billing-foundation/projection.ts": {
+      "{ tableName: string }": 1,
+      "keyof typeof set": 1
+    },
+    "../kumiko-framework/packages/bundled-features/src/channel-in-app/handlers/mark-read.write.ts": {
+      "{ id: number } | undefined": 1
+    },
+    "../kumiko-framework/packages/bundled-features/src/custom-fields/run-retention.ts": {
+      "Record<symbol, unknown>": 1
+    },
+    "../kumiko-framework/packages/bundled-features/src/custom-fields/wire-for-entity.ts": {
+      "Record<symbol, unknown>": 1
+    },
+    "../kumiko-framework/packages/bundled-features/src/custom-fields/wire-user-data-rights.ts": {
+      "Record<symbol, unknown>": 1
+    },
+    "../kumiko-framework/packages/bundled-features/src/feature-toggles/handlers/set.write.ts": {
+      "unknown[]": 1
+    },
+    "../kumiko-framework/packages/bundled-features/src/sessions/handlers/cleanup.job.ts": {
+      "{\n    unsafe: (s: string, p?: readonly unknown[]) => Promise": 1,
+      "DbConnection": 1
+    },
+    "../kumiko-framework/packages/bundled-features/src/step-dispatcher/feature.ts": {
       "DispatchRequestedPayload": 1
     },
-    "packages/bundled-features/src/text-content/feature.ts": {
+    "../kumiko-framework/packages/bundled-features/src/text-content/feature.ts": {
       "string": 3
     },
-    "packages/framework/src/engine/codemod/pipeline-codemod.ts": {
+    "../kumiko-framework/packages/bundled-features/src/user-data-rights/handlers/cancel-deletion.write.ts": {
+      "string | null": 1
+    },
+    "../kumiko-framework/packages/bundled-features/src/user-data-rights/run-forget-cleanup.ts": {
+      "{ begin: (fn: (tx: DbRunner) => Promise<void>) => Promise<vo": 1
+    },
+    "../kumiko-framework/packages/framework/src/bun-db/query.ts": {
+      "{ epochNanoseconds?: unknown }": 1,
+      "{ name?: unknown; getSQLType?: () => string }": 1,
+      "BunDbRunner": 1,
+      "EntityTableMeta": 1,
+      "readonly Record<string, unknown>[]": 4,
+      "readonly TRow[]": 3,
+      "Record<string, unknown>": 7,
+      "Record<string, unknown> | undefined": 1,
+      "Record<symbol, unknown>": 2,
+      "T": 2,
+      "Temporal.Instant": 2,
+      "TRow": 1
+    },
+    "../kumiko-framework/packages/framework/src/db/dialect.ts": {
+      "{ [K in keyof TCols]: ColumnHandle }": 1,
+      "{ kind: string }": 1,
+      "ColumnBuilder<bigint>": 2,
+      "ColumnBuilder<boolean>": 1,
+      "ColumnBuilder<number>": 3,
+      "ColumnBuilder<Record<string, unknown>>": 1,
+      "ColumnBuilder<string>": 3,
+      "ColumnBuilder<Temporal.Instant | string>": 1,
+      "ColumnBuilder<Temporal.Instant>": 1,
+      "IndexBuilderWithCols": 1,
+      "ReadonlyArray<IndexOrPk>": 1,
+      "SchemaTable": 1,
+      "SqlExpression": 2
+    },
+    "../kumiko-framework/packages/framework/src/db/eagerload.ts": {
+      "Array<\n        Record<string, unknown>\n      >": 1
+    },
+    "../kumiko-framework/packages/framework/src/db/entity-table-meta.ts": {
+      "readonly EntityIndexDef[]": 1
+    },
+    "../kumiko-framework/packages/framework/src/db/event-store-executor.ts": {
+      "{ name?: string } | undefined": 2,
+      "Array<{\n            count: number;\n          }>": 1,
+      "Record<string, unknown>": 2,
+      "Record<string, unknown>[]": 1
+    },
+    "../kumiko-framework/packages/framework/src/db/migrate-generator.ts": {
+      "{ version?: unknown }": 1,
+      "NodeJS.ErrnoException": 1,
+      "Snapshot": 1
+    },
+    "../kumiko-framework/packages/framework/src/db/migrate-runner.ts": {
+      "{ checksum: string }": 1,
+      "{ checksum?: unknown }": 1,
+      "{ id: string }": 1,
+      "{ id?: unknown }": 1,
+      "{ unsafe: (s: string, p?: readonly unknown[]) => Promise<unk": 1,
+      "never": 3,
+      "Record<string, unknown>": 2,
+      "Record<string, unknown> | undefined": 1
+    },
+    "../kumiko-framework/packages/framework/src/db/schema-inspection.ts": {
+      "{\n      unsafe: (s: string, p?: readonly unknown[]) => Promi": 1
+    },
+    "../kumiko-framework/packages/framework/src/db/table-builder.ts": {
+      "SqlExpression": 1
+    },
+    "../kumiko-framework/packages/framework/src/db/tenant-db.ts": {
+      "Record<string, unknown>": 1
+    },
+    "../kumiko-framework/packages/framework/src/engine/codemod/pipeline-codemod.ts": {
       "import(\"ts-morph\").PropertyAssignment": 1,
       "string": 4
     },
-    "packages/framework/src/engine/define-feature.ts": {
+    "../kumiko-framework/packages/framework/src/engine/define-feature.ts": {
       "PipelineDef": 1,
       "RequiresApi": 1,
       "WriteHandlerFn": 1
     },
-    "packages/framework/src/engine/define-handler.ts": {
+    "../kumiko-framework/packages/framework/src/engine/define-handler.ts": {
       "{\n    readonly handler?: unknown;\n    readonly perform?: unk": 1
     },
-    "packages/framework/src/engine/define-step.ts": {
+    "../kumiko-framework/packages/framework/src/engine/define-step.ts": {
       "StepDef": 1
     },
-    "packages/framework/src/engine/run-pipeline.ts": {
+    "../kumiko-framework/packages/framework/src/engine/ownership.ts": {
+      "Record<string, unknown>": 3,
+      "Record<symbol, unknown>": 2
+    },
+    "../kumiko-framework/packages/framework/src/engine/run-pipeline.ts": {
       "PipelineCtx<TPayload, TMap>": 1,
       "WriteResult<TData>": 1,
       "WriteResult<unknown>": 1
     },
-    "packages/framework/src/engine/steps/_resolver-utils.ts": {
+    "../kumiko-framework/packages/framework/src/engine/steps/_resolver-utils.ts": {
       "(c: PipelineCtx) => T": 1
     },
-    "packages/framework/src/engine/steps/branch.ts": {
+    "../kumiko-framework/packages/framework/src/engine/steps/branch.ts": {
       "Record<string, unknown>": 2
     },
-    "packages/framework/src/engine/steps/call-feature.ts": {
+    "../kumiko-framework/packages/framework/src/engine/steps/call-feature.ts": {
       "Error & { cause?: unknown }": 1
     },
-    "packages/framework/src/engine/steps/for-each.ts": {
+    "../kumiko-framework/packages/framework/src/engine/steps/for-each.ts": {
       "Record<string, unknown>": 2
     },
-    "packages/framework/src/engine/steps/read-find-many.ts": {
+    "../kumiko-framework/packages/framework/src/engine/steps/read-find-many.ts": {
       "readonly Record<string, unknown>[]": 1
     },
-    "packages/framework/src/engine/steps/read-find-one.ts": {
+    "../kumiko-framework/packages/framework/src/engine/steps/read-find-one.ts": {
       "Record<string, unknown> | undefined": 1
     },
-    "packages/framework/src/engine/steps/retry.ts": {
+    "../kumiko-framework/packages/framework/src/engine/steps/retry.ts": {
       "Record<string, unknown>": 2
     },
-    "packages/framework/src/engine/steps/unsafe-projection-upsert.ts": {
-      "Record<string, unknown>": 1
+    "../kumiko-framework/packages/framework/src/engine/steps/unsafe-projection-upsert.ts": {
+      "Record<string, unknown>": 2,
+      "Record<symbol, unknown>": 2
     },
-    "packages/framework/src/engine/validate-projection-allowlist.ts": {
+    "../kumiko-framework/packages/framework/src/engine/validate-projection-allowlist.ts": {
       "{ readonly perform?: PipelineDef }": 1,
       "readonly StepInstance[]": 1,
-      "Record<string, unknown>": 1,
+      "Record<string, unknown>": 3,
+      "Record<symbol, unknown>": 1,
+      "string": 1,
       "UnsafeProjectionStepArgs": 1
     },
-    "packages/framework/src/pipeline/append-event-core.ts": {
+    "../kumiko-framework/packages/framework/src/es-ops/runner.ts": {
+      "readonly unknown[]": 1
+    },
+    "../kumiko-framework/packages/framework/src/event-store/admin-api.ts": {
+      "ReadonlyArray<{ aggregate_id: string; version: number }>": 1,
+      "ReadonlyArray<{ id: string }>": 1,
+      "ReadonlyArray<{ present: boolean }>": 1
+    },
+    "../kumiko-framework/packages/framework/src/event-store/event-store.ts": {
+      "ReadonlyArray<{ id: string | bigint; created_at: Date | stri": 1,
+      "ReadonlyArray<{ max: bigint | string | number | null }>": 1,
+      "ReadonlyArray<{ v: number | null }>": 1
+    },
+    "../kumiko-framework/packages/framework/src/migrations/projection-detection.ts": {
+      "Record<symbol, unknown>": 1
+    },
+    "../kumiko-framework/packages/framework/src/migrations/schema-drift.ts": {
+      "ReadonlyArray<{ hash: string; created_at: bigint | number | ": 1,
+      "ReadonlyArray<DbColumnRow>": 1
+    },
+    "../kumiko-framework/packages/framework/src/pipeline/append-event-core.ts": {
       "Record<string, unknown>": 2
+    },
+    "../kumiko-framework/packages/framework/src/pipeline/dispatcher.ts": {
+      "{ [key: symbol]: unknown }": 1,
+      "DbConnection | undefined": 1,
+      "readonly unknown[]": 1,
+      "Record<string, unknown>": 1
+    },
+    "../kumiko-framework/packages/framework/src/pipeline/event-dispatcher.ts": {
+      "ReadonlyArray<{ id: bigint }>": 1,
+      "ReadonlyArray<ConsumerStateRow>": 5
+    },
+    "../kumiko-framework/packages/framework/src/pipeline/msp-rebuild.ts": {
+      "NonNullable<typeof msp.table>": 1,
+      "Record<symbol, unknown>": 1
+    },
+    "../kumiko-framework/packages/framework/src/pipeline/projection-rebuild.ts": {
+      "Record<symbol, unknown>": 1
+    },
+    "../kumiko-framework/packages/framework/src/stack/push-entity-projection-tables.ts": {
+      "string": 1
+    },
+    "../kumiko-framework/packages/framework/src/stack/table-helpers.ts": {
+      "{ tableName: string }": 1,
+      "{ tableName?: unknown }": 1,
+      "EntityTableMeta": 1,
+      "Record<string | symbol, unknown>": 1,
+      "string": 1
     }
   }
 }

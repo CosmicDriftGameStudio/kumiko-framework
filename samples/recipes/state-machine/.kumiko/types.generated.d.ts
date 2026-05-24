@@ -5,13 +5,7 @@
 // =====================================================================
 
 import type { z } from "zod";
-import type {
-  _kg_billing__invoiceCancelled,
-  _kg_billing__invoiceMarkedPaid,
-  _kg_billing__invoiceReopened,
-  _kg_billing__invoiceSent,
-  _kg_billing__invoiceStatusForced,
-} from "./schemas.generated";
+import type { _kg_billing__invoiceCancelled, _kg_billing__invoiceMarkedPaid, _kg_billing__invoiceReopened, _kg_billing__invoiceSent, _kg_billing__invoiceStatusForced } from "./schemas.generated";
 
 declare module "@cosmicdrift/kumiko-framework/engine" {
   interface KumikoEventTypeMap {
@@ -22,3 +16,5 @@ declare module "@cosmicdrift/kumiko-framework/engine" {
     "billing:event:invoice-status-forced": z.infer<typeof _kg_billing__invoiceStatusForced>;
   }
 }
+
+export {};

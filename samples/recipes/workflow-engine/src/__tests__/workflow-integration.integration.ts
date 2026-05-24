@@ -12,6 +12,7 @@
 // against the in-memory fetcher.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { WorkflowDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import {
   computeDefinitionFingerprint,
@@ -24,7 +25,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
-import { eq } from "drizzle-orm";
 import { createSuspendedRunFetcher } from "../postgres-resume-loop";
 
 let stack: TestStack;
@@ -53,7 +53,7 @@ describe("workflow-engine event-store roundtrip", () => {
   test("write and read WORKFLOW_WAITING_TYPE via event store", async () => {
     const runId = crypto.randomUUID();
 
-    await stack.db.insert(eventsTable).values({
+    await insertOne(stack.db, eventsTable, {
       aggregateId: runId,
       aggregateType: WORKFLOW_AGGREGATE_TYPE,
       tenantId: admin.tenantId,
@@ -65,7 +65,7 @@ describe("workflow-engine event-store roundtrip", () => {
       createdBy: admin.id,
     });
 
-    await stack.db.insert(eventsTable).values({
+    await insertOne(stack.db, eventsTable, {
       aggregateId: runId,
       aggregateType: WORKFLOW_AGGREGATE_TYPE,
       tenantId: admin.tenantId,
@@ -81,17 +81,18 @@ describe("workflow-engine event-store roundtrip", () => {
       createdBy: admin.id,
     });
 
-    const rows = await stack.db
-      .select()
-      .from(eventsTable)
-      .where(eq(eventsTable.aggregateId, runId))
-      .orderBy(eventsTable.version);
+    const rows = await selectMany(
+      stack.db,
+      eventsTable,
+      { aggregateId: runId },
+      { orderBy: { col: "version", direction: "asc" } },
+    );
 
     expect(rows).toHaveLength(2);
-    expect(rows[0]!.type).toBe(WORKFLOW_RUN_STARTED_TYPE);
-    expect(rows[1]!.type).toBe(WORKFLOW_WAITING_TYPE);
-    expect(rows[1]!.payload["workflowName"]).toBe("test-workflow");
-    expect(rows[1]!.payload["stepIndex"]).toBe(2);
+    expect(rows[0]!["type"]).toBe(WORKFLOW_RUN_STARTED_TYPE);
+    expect(rows[1]!["type"]).toBe(WORKFLOW_WAITING_TYPE);
+    expect(rows[1]!["payload"]["workflowName"]).toBe("test-workflow");
+    expect(rows[1]!["payload"]["stepIndex"]).toBe(2);
   });
 
   test("fetcher hydrates SuspendableRun with workflow + trigger snapshot + Q7 fingerprint", async () => {
@@ -99,7 +100,7 @@ describe("workflow-engine event-store roundtrip", () => {
     const workflow = buildTestWorkflow("test-workflow-hydration");
     const fingerprint = computeDefinitionFingerprint(workflow);
 
-    await stack.db.insert(eventsTable).values({
+    await insertOne(stack.db, eventsTable, {
       aggregateId: runId,
       aggregateType: WORKFLOW_AGGREGATE_TYPE,
       tenantId: admin.tenantId,
@@ -139,7 +140,7 @@ describe("workflow-engine event-store roundtrip", () => {
   test("fetcher skips workflows that are not in the registry", async () => {
     const runId = crypto.randomUUID();
 
-    await stack.db.insert(eventsTable).values({
+    await insertOne(stack.db, eventsTable, {
       aggregateId: runId,
       aggregateType: WORKFLOW_AGGREGATE_TYPE,
       tenantId: admin.tenantId,
@@ -164,7 +165,7 @@ describe("workflow-engine event-store roundtrip", () => {
   test("WORKFLOW_RESUMED_TYPE appends after WAITING on the same stream", async () => {
     const runId = crypto.randomUUID();
 
-    await stack.db.insert(eventsTable).values({
+    await insertOne(stack.db, eventsTable, {
       aggregateId: runId,
       aggregateType: WORKFLOW_AGGREGATE_TYPE,
       tenantId: admin.tenantId,
@@ -180,7 +181,7 @@ describe("workflow-engine event-store roundtrip", () => {
       createdBy: admin.id,
     });
 
-    await stack.db.insert(eventsTable).values({
+    await insertOne(stack.db, eventsTable, {
       aggregateId: runId,
       aggregateType: WORKFLOW_AGGREGATE_TYPE,
       tenantId: admin.tenantId,
@@ -192,14 +193,15 @@ describe("workflow-engine event-store roundtrip", () => {
       createdBy: admin.id,
     });
 
-    const rows = await stack.db
-      .select()
-      .from(eventsTable)
-      .where(eq(eventsTable.aggregateId, runId))
-      .orderBy(eventsTable.version);
+    const rows = await selectMany(
+      stack.db,
+      eventsTable,
+      { aggregateId: runId },
+      { orderBy: { col: "version", direction: "asc" } },
+    );
 
     expect(rows).toHaveLength(2);
-    expect(rows[0]!.type).toBe(WORKFLOW_WAITING_TYPE);
-    expect(rows[1]!.type).toBe(WORKFLOW_RESUMED_TYPE);
+    expect(rows[0]!["type"]).toBe(WORKFLOW_WAITING_TYPE);
+    expect(rows[1]!["type"]).toBe(WORKFLOW_RESUMED_TYPE);
   });
 });
