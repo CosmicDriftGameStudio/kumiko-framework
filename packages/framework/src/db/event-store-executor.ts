@@ -961,12 +961,14 @@ export function createEventStoreExecutor(
       const raw = rows[0];
       if (!raw) return null;
       const row = rehydrateCompoundTypes(raw, entity);
+      const rowInfo = extractTableInfo(table);
+      const coerced = coerceRow(row, rowInfo);
 
       if (entityCache && entityName) {
-        await entityCache.set(user.tenantId, entityName, payload.id, row);
+        await entityCache.set(user.tenantId, entityName, payload.id, coerced);
       }
 
-      return row;
+      return coerced;
     },
   };
 }
