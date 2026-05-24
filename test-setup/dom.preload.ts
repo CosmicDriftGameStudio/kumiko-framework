@@ -18,15 +18,23 @@ if (typeof globalThis.window === "undefined") {
   const bunResponse = globalThis.Response;
   const bunHeaders = globalThis.Headers;
   const bunFetch = globalThis.fetch;
+  const bunAbortController = globalThis.AbortController;
+  const bunAbortSignal = globalThis.AbortSignal;
+  const bunWritableStream = globalThis.WritableStream;
+  const bunTransformStream = globalThis.TransformStream;
   // url-Option setzt window.location auf http://localhost/. Ohne hat
   // happy-dom about:blank als Default — history.pushState/replaceState
-  // greift dann nicht (invalid origin) und window.location.pathname
+  // greift dann nicht (invalid origin) and window.location.pathname
   // bleibt "blank". Bricht alle Router/Nav-Tests.
   GlobalRegistrator.register({ url: "http://localhost/" });
   globalThis.Request = bunRequest;
   globalThis.Response = bunResponse;
   globalThis.Headers = bunHeaders;
   globalThis.fetch = bunFetch;
+  globalThis.AbortController = bunAbortController;
+  globalThis.AbortSignal = bunAbortSignal;
+  globalThis.WritableStream = bunWritableStream;
+  globalThis.TransformStream = bunTransformStream;
 }
 
 // Pointer-Capture-APIs fehlen in happy-dom genauso wie in jsdom. Radix-UI
