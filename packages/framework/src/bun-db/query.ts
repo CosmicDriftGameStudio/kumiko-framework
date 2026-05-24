@@ -240,7 +240,9 @@ function isTemporalInstant(v: unknown): boolean {
 function instantFromDriver(value: unknown): Temporal.Instant | null {
   if (value === null || value === undefined) return null;
   if (isTemporalInstant(value)) return value as Temporal.Instant;
-  if (value instanceof Date) return Temporal.Instant.fromEpochMilliseconds(value.getTime());
+  // Number-coercion via +date — equivalent to .getTime() ohne Date-API-Methode
+  // (guard-no-date-api). Date → epochMilliseconds, dann zu Temporal.Instant.
+  if (value instanceof Date) return Temporal.Instant.fromEpochMilliseconds(+value);
   if (typeof value === "string") {
     try {
       return Temporal.Instant.from(value);

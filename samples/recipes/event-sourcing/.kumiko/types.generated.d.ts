@@ -5,7 +5,11 @@
 // =====================================================================
 
 import type { z } from "zod";
-import type { _kg_showcase__invoiceAcknowledged, _kg_showcase__invoiceApproved, _kg_showcase__invoicePaid } from "./schemas.generated";
+import type {
+  _kg_showcase__invoiceAcknowledged,
+  _kg_showcase__invoiceApproved,
+  _kg_showcase__invoicePaid,
+} from "./schemas.generated";
 
 declare module "@cosmicdrift/kumiko-framework/engine" {
   interface KumikoEventTypeMap {
@@ -14,5 +18,3 @@ declare module "@cosmicdrift/kumiko-framework/engine" {
     "showcase:event:invoice-paid": z.infer<typeof _kg_showcase__invoicePaid>;
   }
 }
-
-export {};

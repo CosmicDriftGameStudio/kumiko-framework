@@ -26,6 +26,6 @@ export const _kg_billing__invoiceSent = z.object({});
 
 // billing:event:invoice-status-forced — from /Users/marc/code/cosmicdriftgamestudio/kumiko-framework-bun-cutover/samples/recipes/state-machine/src/feature.ts:52
 export const _kg_billing__invoiceStatusForced = z.object({
-      newStatus: z.enum(["draft", "sent", "paid", "cancelled"]),
-      fromStatus: z.enum(["draft", "sent", "paid", "cancelled"]),
-    });
+  newStatus: z.enum(["draft", "sent", "paid", "cancelled"]),
+  fromStatus: z.enum(["draft", "sent", "paid", "cancelled"]),
+});

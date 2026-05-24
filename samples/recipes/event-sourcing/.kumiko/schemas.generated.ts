@@ -13,10 +13,16 @@
 import { z } from "zod";
 
 // showcase:event:invoice-acknowledged — from /Users/marc/code/cosmicdriftgamestudio/kumiko-framework-bun-cutover/samples/recipes/event-sourcing/src/feature.ts:148
-export const _kg_showcase__invoiceAcknowledged = z.object({ approverId: z.string(), approverDisplayName: z.string() });
+export const _kg_showcase__invoiceAcknowledged = z.object({
+  approverId: z.string(),
+  approverDisplayName: z.string(),
+});
 
 // showcase:event:invoice-approved — from /Users/marc/code/cosmicdriftgamestudio/kumiko-framework-bun-cutover/samples/recipes/event-sourcing/src/feature.ts:128
-export const _kg_showcase__invoiceApproved = z.object({ amountCents: z.number().int(), approvedBy: z.string() });
+export const _kg_showcase__invoiceApproved = z.object({
+  amountCents: z.number().int(),
+  approvedBy: z.string(),
+});
 
 // showcase:event:invoice-paid — from /Users/marc/code/cosmicdriftgamestudio/kumiko-framework-bun-cutover/samples/recipes/event-sourcing/src/feature.ts:141
 export const _kg_showcase__invoicePaid = z.object({ amountCents: z.number().int() });
