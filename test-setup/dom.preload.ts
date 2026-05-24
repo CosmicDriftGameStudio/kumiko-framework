@@ -52,8 +52,30 @@ if (typeof globalThis.HTMLElement !== "undefined") {
 // Bun-test läuft alle test-files in einem Process. Ohne afterEach hängen
 // React-Komponenten von File N im document, File N+1 sieht polluted state.
 // vitest hatte das via testing-library/react auto-magic. Bei bun: selbst
-// registrieren — replaceChildren() statt innerHTML (XSS-safe).
+// registrieren.
+//
+// Zwei Pollution-Quellen:
+//   a) DOM-Knoten von React (replaceChildren)
+//   b) Radix DismissableLayer setzt body.style.pointerEvents='none'
+//      beim Öffnen von Dialog/Popover/Dropdown. Wenn afterEach DOM
+//      vor Reacts useEffect-Cleanup zerstört, bleibt pointer-events
+//      auf body hängen — alle userEvent.click() im nächsten Test
+//      schlagen feil mit "pointer-events: none".
+//   c) style-Tags im head (Radix, Emotion, etc.) — per
+//      querySelectorAll entfernen.
 afterEach(() => {
   if (typeof globalThis.document === "undefined") return;
-  globalThis.document.body?.replaceChildren();
+  const doc = globalThis.document;
+  // (b) Radix-Leak: body inline-style reset
+  if (doc.body) {
+    doc.body.style.pointerEvents = "";
+    doc.body.replaceChildren();
+  }
+  // (c) Injected style-tags entfernen (Radix-/CSS-in-JS-Leaks)
+  for (const el of doc.head.querySelectorAll("style,link[rel=stylesheet]")) {
+    const style = el as HTMLStyleElement | HTMLLinkElement;
+    if (style.id?.startsWith("radix-") || style.dataset?.radium) {
+      style.remove();
+    }
+  }
 });
