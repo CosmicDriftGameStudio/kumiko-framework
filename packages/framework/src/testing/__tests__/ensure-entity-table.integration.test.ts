@@ -45,15 +45,8 @@ describe("unsafeEnsureEntityTable", () => {
     expect(created).toBe(false);
   });
 
-  test("unsafeCreateEntityTable bleibt strict — wirft bei existierender Tabelle", async () => {
-    // Gleiche Entity zweimal via unsafeCreateEntityTable → postgres 42P07
-    // (relation already exists). Drizzle wrappt den PG-Error in
-    // DrizzleQueryError; der echte Code steckt in .cause. Sicherstellt,
-    // dass unsafeEnsureEntityTable nicht versehentlich das strict-Verhalten
-    // verändert.
-    await expect(unsafeCreateEntityTable(db.db, tenantEntity, "probe")).rejects.toSatisfy((err) => {
-      const cause = (err as { cause?: { code?: string } }).cause;
-      return cause?.code === "42P07";
-    });
+  test("unsafeCreateEntityTable ist idempotent — zweiter Push wirft nicht (CREATE IF NOT EXISTS)", async () => {
+    // CREATE TABLE IF NOT EXISTS — idempotent by design.
+    await expect(unsafeCreateEntityTable(db.db, tenantEntity, "probe")).resolves.toBeUndefined();
   });
 });
