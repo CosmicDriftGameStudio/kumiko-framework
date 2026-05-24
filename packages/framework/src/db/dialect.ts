@@ -91,6 +91,7 @@ type ColumnFinal = {
   readonly pgType: PgType;
   readonly notNull: boolean;
   readonly primaryKey: boolean;
+  readonly unique: boolean;
   readonly defaultSql?: string;
 };
 
@@ -115,6 +116,7 @@ export type ColumnBuilder<TValue = unknown> = {
 function buildColumn(sqlName: string, pgType: PgType): ColumnBuilder<unknown> {
   let notNull = false;
   let primaryKey = false;
+  let unique = false;
   let defaultSql: string | undefined;
 
   function literalDefault(value: unknown): string | null {
@@ -147,6 +149,7 @@ function buildColumn(sqlName: string, pgType: PgType): ColumnBuilder<unknown> {
         pgType,
         notNull,
         primaryKey,
+        unique,
         ...(defaultSql !== undefined && { defaultSql }),
       };
     },
@@ -179,8 +182,7 @@ function buildColumn(sqlName: string, pgType: PgType): ColumnBuilder<unknown> {
       return builder;
     },
     unique(_name?: string) {
-      // Unique-column → emitted as a single-column unique index by table().
-      // The constraint name is optional; we'd compute a default if needed.
+      unique = true;
       return builder;
     },
     $type<T>() {
@@ -389,6 +391,7 @@ export function table<TCols extends ColumnMap>(
   // Finalise columns + build the column-handle map.
   const handles: Record<string, ColumnHandle> = {};
   const columnMetas: ColumnMeta[] = [];
+  const indexes: IndexMeta[] = [];
   for (const [field, builder] of Object.entries(cols)) {
     const final = builder.finalise();
     const handle: ColumnHandle = {
@@ -405,10 +408,18 @@ export function table<TCols extends ColumnMap>(
       ...(final.defaultSql !== undefined && { defaultSql: final.defaultSql }),
     };
     columnMetas.push(meta);
+
+    // Per-column .unique() → single-column unique index
+    if (final.unique) {
+      indexes.push({
+        name: `${tableName}_${final.sqlName}_unique`,
+        columns: [final.sqlName],
+        unique: true,
+      });
+    }
   }
 
   // Evaluate index/pk callback with the column handles.
-  const indexes: IndexMeta[] = [];
   let compositePrimaryKey: CompositePrimaryKeyMeta | undefined;
   if (optsFn) {
     const tHandle = handles as { [K in keyof TCols]: ColumnHandle };
