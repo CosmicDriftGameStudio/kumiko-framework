@@ -77,7 +77,8 @@ describe("webhook-handler — happy path", () => {
     expect(body.processed).toBe(true);
     expect(body.duplicate).toBe(false);
 
-    expect(dispatchWrite).toHaveBeenCalledExactlyOnceWith(
+    expect(dispatchWrite).toHaveBeenCalledTimes(1);
+    expect(dispatchWrite).toHaveBeenCalledWith(
       expect.objectContaining({
         handlerQn: "billing-foundation:write:process-event",
         tenantId: "tenant-test",

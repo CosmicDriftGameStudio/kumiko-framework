@@ -197,7 +197,8 @@ describe("verifyAndParseMollieWebhook — mandate-setup-flow (= first-payment-pa
     expect(event).not.toBeNull();
     expect(event?.type).toBe(SubscriptionEventTypes.created);
     expect(event?.providerSubscriptionId).toBe("sub_just_created");
-    expect(client.customerSubscriptions.create).toHaveBeenCalledExactlyOnceWith("cst_test_001", {
+    expect(client.customerSubscriptions.create).toHaveBeenCalledTimes(1);
+    expect(client.customerSubscriptions.create).toHaveBeenCalledWith("cst_test_001", {
       amount: { currency: "EUR", value: "9.99" },
       interval: "1 month",
       description: "Pro-Abo monatlich",
