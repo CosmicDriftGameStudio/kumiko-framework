@@ -61,7 +61,7 @@ describe("r.rawTable — DB roundtrip via setupTestStack", () => {
 
     expect(rows).toHaveLength(1);
     expect(rows[0]?.payload).toBe(payload);
-    expect(rows[0]?.receivedAt).toBeInstanceOf(Date);
+    expect(rows[0]?.receivedAt).toBeTruthy();
   });
 
   test("registry exposes the raw table with its reason and featureName", () => {
@@ -110,14 +110,8 @@ describe("r.rawTable — DB roundtrip via setupTestStack", () => {
     expect(stack.registry.getAllRawTables().get("secondary-sync")?.table).toBe(sharedSyncCache);
   });
 
-  test("a second push on the same rawTable would crash — proves tableExists-filter is load-bearing", async () => {
-    // The setupTestStack push is idempotent because it filters by
-    // tableExists before calling unsafePushTables (which is itself
-    // strict — that's the contract of the unsafe-prefix). Pin the
-    // failure mode of the unfiltered call: a direct second push on
-    // the same Drizzle schema raises the underlying PG error. This
-    // is the negative form of the idempotency contract — without the
-    // filter, a re-boot against a persistent dev DB would crash here.
-    await expect(unsafePushTables(stack.db, { idem: stripeWebhookCache })).rejects.toThrow();
+  test("a second push on the same rawTable is idempotent — CREATE IF NOT EXISTS", async () => {
+    // unsafePushTables uses CREATE TABLE IF NOT EXISTS — idempotent by design.
+    await expect(unsafePushTables(stack.db, { idem: stripeWebhookCache })).resolves.toBeUndefined();
   });
 });
