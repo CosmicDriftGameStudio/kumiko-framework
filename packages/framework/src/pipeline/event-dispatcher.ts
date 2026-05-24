@@ -213,13 +213,15 @@ async function acquireConsumerState(
     return { state: null, skip: "not_registered" };
   }
 
-  // Raw query returns snake_case — map to camelCase ConsumerStateRow
+  // Raw query returns snake_case — postgres-js returns bigint as string.
+  // Convert last_processed_event_id and attempts to proper JS types.
+  const rawCursor = rawState["last_processed_event_id"] ?? rawState["lastProcessedEventId"];
   const state: ConsumerStateRow = {
     name: (rawState["name"] ?? rawState["Name"]) as string,
     instanceId: (rawState["instance_id"] ?? rawState["instanceId"]) as string,
-    lastProcessedEventId: (rawState["last_processed_event_id"] ?? rawState["lastProcessedEventId"] ?? 0n) as bigint,
+    lastProcessedEventId: typeof rawCursor === "bigint" ? rawCursor : BigInt(rawCursor ?? 0),
     status: (rawState["status"] ?? rawState["Status"]) as string,
-    attempts: (rawState["attempts"] ?? rawState["Attempts"] ?? 0) as number,
+    attempts: Number(rawState["attempts"] ?? rawState["Attempts"] ?? 0),
     lastError: (rawState["last_error"] ?? rawState["lastError"] ?? null) as string | null,
     updatedAt: (rawState["updated_at"] ?? rawState["updatedAt"]) as Temporal.Instant,
   };
