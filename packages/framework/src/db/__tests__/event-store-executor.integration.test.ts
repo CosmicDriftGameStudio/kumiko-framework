@@ -145,7 +145,10 @@ describe("event-store-executor — sensitive fields", () => {
     );
     const row = rows[0];
     if (!row) throw new Error("no events in store");
-    return row as { type: string; payload: TPayload };
+    return {
+      type: row["type"] as string,
+      payload: (typeof row["payload"] === "string" ? JSON.parse(row["payload"] as string) : row["payload"]) as TPayload,
+    };
   }
 
   test("create event payload excludes sensitive fields but entity row keeps them", async () => {

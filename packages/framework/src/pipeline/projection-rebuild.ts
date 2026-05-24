@@ -1,4 +1,4 @@
-import { asRawClient, selectMany } from "../db/query";
+import { asRawClient, coerceRow, extractTableInfo, selectMany } from "../db/query";
 import type { DbConnection } from "../db/connection";
 import type { Registry, TenantId } from "../engine/types";
 import {
@@ -92,13 +92,11 @@ export async function rebuildProjection(
       // gets a row. FOR UPDATE would need the row to exist — upsert-first
       // keeps it idempotent.
       await rawTx.unsafe(
-        `INSERT INTO "kumiko_projections" ("name", "status") VALUES ($1, 'rebuilding')
+        `INSERT INTO "kumiko_projections" ("name", "status") VALUES ('${projectionName.replace(/'/g, "''")}', 'rebuilding')
          ON CONFLICT ("name") DO UPDATE SET
            "status" = 'rebuilding',
            "last_error" = NULL,
-           "updated_at" = now()`,
-        [projectionName],
-      );
+           "updated_at" = now()`);
 
       // Wipe the projection table.
       const tableName = getTableName(projection.table);
@@ -124,12 +122,15 @@ export async function rebuildProjection(
           createdAt: Temporal.Instant;
           createdBy: string;
         };
-        const events = await selectMany<EventRow>(
-          tx,
-          eventsTable,
-          { aggregateType: [...sources], type: [...subscribed] },
-          { orderBy: { col: "id", direction: "asc" } },
-        );
+        const sourcesList = [...sources].map(s => `'${(s as string).replace(/'/g, "''")}'`).join(", ");
+        const subscribedList = [...subscribed].map(s => `'${(s as string).replace(/'/g, "''")}'`).join(", ");
+        const rawEvents = await rawTx.unsafe(
+          `SELECT * FROM "kumiko_events" WHERE "aggregate_type" IN (${sourcesList}) AND "type" IN (${subscribedList}) ORDER BY "id" ASC`,
+        ) as ReadonlyArray<Record<string, unknown>>;
+        const events = rawEvents.map(r => {
+          const info = extractTableInfo(eventsTable);
+          return coerceRow(r, info) as EventRow;
+        });
 
         // Upcasters run at read time: older stored payloads get walked
         // through the registered r.eventMigration chain until their shape
@@ -167,27 +168,23 @@ export async function rebuildProjection(
       // Finalize state row.
       await rawTx.unsafe(
         `UPDATE "kumiko_projections" SET
-           "last_processed_event_id" = $1,
+           "last_processed_event_id" = ${lastProcessedEventId},
            "status" = 'idle',
            "last_rebuild_at" = now(),
            "last_error" = NULL,
            "updated_at" = now()
-         WHERE "name" = $2`,
-        [lastProcessedEventId, projectionName],
-      );
+         WHERE "name" = '${projectionName.replace(/'/g, "''")}'`);
     });
   } catch (e) {
     // Outer catch: TX has been rolled back by Postgres already. Record the
     // failure in a SEPARATE write so ops can see what happened.
     const message = e instanceof Error ? e.message : String(e);
     await asRawClient(db).unsafe(
-      `INSERT INTO "kumiko_projections" ("name", "status", "last_error") VALUES ($1, 'failed', $2)
+      `INSERT INTO "kumiko_projections" ("name", "status", "last_error") VALUES ('${projectionName.replace(/'/g, "''")}', 'failed', '${message.replace(/'/g, "''")}')
        ON CONFLICT ("name") DO UPDATE SET
          "status" = 'failed',
-         "last_error" = $2,
-         "updated_at" = now()`,
-      [projectionName, message],
-    );
+         "last_error" = '${message.replace(/'/g, "''")}',
+         "updated_at" = now()`);
     // Failure metric: duration until throw, 0 events "delivered" (the replayed
     // rows were rolled back — counting them would overstate live delivery).
     // success=false label distinguishes these in Prom dashboards.
