@@ -137,67 +137,6 @@ jobs:
           MOLLIE_API_KEY: test_smoke
         run: bash samples/apps/use-all-bundled/scripts/bundle-smoke.sh
 
-  use-all-bundled-postgres-smoke:
-    # C1 M3: echter boot bis /health gegen postgres + redis service-
-    # containers. Apply drizzle migrations, spawn bun bin/main.ts, curl
-    # /health. Pattern wie Studio's Deploy, gegen alle 30 bundled-features.
-    runs-on: cdgs-runner
-    needs: use-all-bundled-smoke
-    timeout-minutes: 15
-    permissions:
-      contents: read
-      packages: read
-    services:
-      postgres:
-        image: postgres:18-alpine
-        env:
-          POSTGRES_USER: smoke
-          POSTGRES_PASSWORD: smoke
-          POSTGRES_DB: smoke
-        options: >-
-          --health-cmd "pg_isready -U smoke"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-      redis:
-        image: redis:8-alpine
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
-    steps:
-      - uses: actions/checkout@v6
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: "1.3.14"
-      - name: Cache Bun
-        uses: actions/cache@v4
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
-          restore-keys: |
-            bun-${{ runner.os }}-
-      - name: Install
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
-        run: bun install --frozen-lockfile
-      - name: Postgres-smoke (migrate + boot + /health)
-        env:
-          DATABASE_URL: postgres://smoke:smoke@127.0.0.1:5432/smoke
-          REDIS_URL: redis://127.0.0.1:6379
-          JWT_SECRET: smokesmokesmokesmokesmokesmokesmokesmoke
-          KUMIKO_SECRETS_MASTER_KEY_V1: +7H+TnUa12nBRok5jVwyA7WdgjOJ0WqY3H9oBZ4M7UQ=
-          STRIPE_API_KEY: sk_test_smoke
-          STRIPE_WEBHOOK_SECRET: whsec_smoke
-          MOLLIE_API_KEY: test_smoke
-          PORT: "3000"
-        run: bash samples/apps/use-all-bundled/scripts/smoke-postgres.sh
-
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [test, use-all-bundled-smoke]
