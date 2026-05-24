@@ -203,11 +203,26 @@ async function acquireConsumerState(
   name: string,
   instanceId: string,
 ): Promise<AcquireOutcome> {
-  const stateRows = (await asRawClient(tx).unsafe(
+  const rawRows = (await asRawClient(tx).unsafe(
     `SELECT * FROM "kumiko_event_consumers" WHERE "name" = $1 AND "instance_id" = $2 FOR UPDATE SKIP LOCKED`,
     [name, instanceId],
-  )) as ReadonlyArray<ConsumerStateRow>;
-  const state = stateRows[0];
+  )) as ReadonlyArray<Record<string, unknown>>;
+  const rawState = rawRows[0];
+
+    if (!rawState) {
+    return { state: null, skip: "not_registered" };
+  }
+
+  // Raw query returns snake_case — map to camelCase ConsumerStateRow
+  const state: ConsumerStateRow = {
+    name: (rawState["name"] ?? rawState["Name"]) as string,
+    instanceId: (rawState["instance_id"] ?? rawState["instanceId"]) as string,
+    lastProcessedEventId: (rawState["last_processed_event_id"] ?? rawState["lastProcessedEventId"] ?? 0n) as bigint,
+    status: (rawState["status"] ?? rawState["Status"]) as string,
+    attempts: (rawState["attempts"] ?? rawState["Attempts"] ?? 0) as number,
+    lastError: (rawState["last_error"] ?? rawState["lastError"] ?? null) as string | null,
+    updatedAt: (rawState["updated_at"] ?? rawState["updatedAt"]) as Temporal.Instant,
+  };
 
   if (!state) {
     // Either the row never existed (no pre-reg, no ensureRegistered) or
