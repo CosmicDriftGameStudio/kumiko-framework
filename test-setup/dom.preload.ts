@@ -18,7 +18,11 @@ if (typeof globalThis.window === "undefined") {
   const bunResponse = globalThis.Response;
   const bunHeaders = globalThis.Headers;
   const bunFetch = globalThis.fetch;
-  GlobalRegistrator.register();
+  // url-Option setzt window.location auf http://localhost/. Ohne hat
+  // happy-dom about:blank als Default — history.pushState/replaceState
+  // greift dann nicht (invalid origin) und window.location.pathname
+  // bleibt "blank". Bricht alle Router/Nav-Tests.
+  GlobalRegistrator.register({ url: "http://localhost/" });
   globalThis.Request = bunRequest;
   globalThis.Response = bunResponse;
   globalThis.Headers = bunHeaders;
