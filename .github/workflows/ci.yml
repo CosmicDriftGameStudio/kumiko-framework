@@ -86,12 +86,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
         run: bun install --frozen-lockfile
-      - name: Verify drizzle/generate.ts is idempotent
-        # Re-run and assert kein Diff. Wenn jemand das schema-generated.ts
+      - name: Verify generate.ts is idempotent
+        # Re-run and assert kein Diff. Wenn jemand das schema.generated.ts
         # ändert ohne generate.ts re-runned zu haben → CI fail.
         run: |
-          bun samples/apps/use-all-bundled/drizzle/generate.ts
-          git diff --exit-code samples/apps/use-all-bundled/drizzle/schema.generated.ts
+          bun samples/apps/use-all-bundled/schema/generate.ts
+          git diff --exit-code samples/apps/use-all-bundled/schema/schema.generated.ts
       - name: Coverage lint (M5)
         # Diffs bundled-features exports gegen FEATURE_IMPORT_REGISTRY +
         # known held-back. Fail wenn ein neuer feature-export ohne mount
@@ -102,7 +102,7 @@ jobs:
         # kumiko-schema-check diff't mounted features (runtime) gegen
         # FEATURE_IMPORT_REGISTRY (statisch). Studio's 9.8-Drama:
         # registry 18 features hinter APP_FEATURES → migrations fehlten.
-        run: bun packages/dev-server/bin/kumiko-schema-check.ts --run-config samples/apps/use-all-bundled/src/run-config.ts --generate samples/apps/use-all-bundled/drizzle/generate.ts
+        run: bun packages/dev-server/bin/kumiko-schema-check.ts --run-config samples/apps/use-all-bundled/src/run-config.ts --generate samples/apps/use-all-bundled/schema/generate.ts
 
       - name: Boot smoke (no DB)
         # Stub-secrets: validators check Format (base64 32-byte, min-length),
