@@ -75,21 +75,13 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.3.14"
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "20"
-      - name: Enable corepack
-        run: corepack enable
-      - name: Cache Yarn
+      - name: Cache Bun
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.yarn/cache
-            ~/.yarn/berry/cache
-            .yarn/cache
-          key: yarn-${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
           restore-keys: |
-            yarn-${{ runner.os }}-
+            bun-${{ runner.os }}-
       - name: Install
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
@@ -246,7 +238,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
         run: bun install --frozen-lockfile
 
-      # OIDC Trusted Publishing + Provenance via npm-CLI (yarn-berry kann
+      # OIDC Trusted Publishing + Provenance via npm-CLI (bun pm publish kann
       # kein OIDC). scripts/publish-with-oidc.sh iteriert publishable
       # workspaces, ruft `npm publish --provenance --access public`.
       - uses: changesets/action@v1
