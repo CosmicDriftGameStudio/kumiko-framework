@@ -4,7 +4,7 @@ import { ResetPasswordScreen } from "../reset-password-screen";
 import { renderWithProviders } from "./test-utils";
 
 beforeEach(() => {
-  globalThis.fetch = mock(async () => new Response(null, { status: 200 }));
+  globalThis.fetch = mock(async () => new Response(null, { status: 200 })) as unknown as typeof fetch;
 });
 afterEach(() => {});
 
@@ -24,7 +24,7 @@ describe("ResetPasswordScreen", () => {
 
   test("Passwort < 8 Zeichen → client-side error, kein fetch-Call", async () => {
     const fetchMock = mock(async () => new Response(null, { status: 200 }));
-    globalThis.fetch = fetchMock;
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     renderWithProviders(<ResetPasswordScreen token="abc" />);
     fireEvent.change(screen.getByLabelText(/^Neues Passwort/), { target: { value: "short" } });
@@ -54,7 +54,7 @@ describe("ResetPasswordScreen", () => {
 
   test("happy path: gültiges Passwort → fetch-Call + success-State", async () => {
     const fetchMock = mock(async () => new Response(null, { status: 200 }));
-    globalThis.fetch = fetchMock;
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     renderWithProviders(<ResetPasswordScreen token="abc-token" />);
     fireEvent.change(screen.getByLabelText(/^Neues Passwort/), {
@@ -81,7 +81,7 @@ describe("ResetPasswordScreen", () => {
     const errBody = JSON.stringify({
       error: { code: "invalid_reset_token", details: { reason: "invalid_reset_token" } },
     });
-    globalThis.fetch = mock(async () => new Response(errBody, { status: 422 }));
+    globalThis.fetch = mock(async () => new Response(errBody, { status: 422 })) as unknown as typeof fetch;
 
     renderWithProviders(<ResetPasswordScreen token="bad" />);
     fireEvent.change(screen.getByLabelText(/^Neues Passwort/), {

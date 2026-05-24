@@ -4,7 +4,7 @@ import { ForgotPasswordScreen } from "../forgot-password-screen";
 import { renderWithProviders } from "./test-utils";
 
 beforeEach(() => {
-  globalThis.fetch = mock(async () => new Response(null, { status: 200 }));
+  globalThis.fetch = mock(async () => new Response(null, { status: 200 })) as unknown as typeof fetch;
 });
 afterEach(() => {});
 
@@ -18,7 +18,7 @@ describe("ForgotPasswordScreen", () => {
 
   test("submit ruft /api/auth/request-password-reset mit der Email", async () => {
     const fetchMock = mock(async () => new Response(null, { status: 200 }));
-    globalThis.fetch = fetchMock;
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     renderWithProviders(<ForgotPasswordScreen />);
     fireEvent.change(screen.getByLabelText(/^E-Mail/), {
@@ -51,7 +51,7 @@ describe("ForgotPasswordScreen", () => {
   });
 
   test("server 5xx → error-banner statt Success-State", async () => {
-    globalThis.fetch = mock(async () => new Response(null, { status: 500 }));
+    globalThis.fetch = mock(async () => new Response(null, { status: 500 })) as unknown as typeof fetch;
 
     renderWithProviders(<ForgotPasswordScreen />);
     fireEvent.change(screen.getByLabelText(/^E-Mail/), {
