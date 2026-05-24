@@ -48,10 +48,15 @@ export const cancelDeletionWrite = defineWriteHandler({
       );
     }
 
-    // inGrace computed JS-side: compare grace_period_end (Date from Bun.SQL)
-    // against current server clock.
+    // inGrace computed JS-side: compare grace_period_end (Temporal.Instant
+    // from bun-db boundary) against current server clock.
     const gracePeriodEnd = row["grace_period_end"];
-    const inGrace = gracePeriodEnd != null && gracePeriodEnd.getTime() > Date.now();
+    const inGrace =
+      gracePeriodEnd != null &&
+      Temporal.Instant.compare(
+        gracePeriodEnd as Temporal.Instant,
+        Temporal.Now.instant(),
+      ) > 0;
 
     if (!inGrace) {
       return writeFailure(
