@@ -1,6 +1,7 @@
 {
   "extends": "../../../tsconfig.json",
   "compilerOptions": {
+    "baseUrl": ".",
     "paths": {
       "@cosmicdrift/kumiko-framework/*": [
         "../../../packages/framework/src/*/index.ts"

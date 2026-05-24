@@ -181,7 +181,7 @@ export type FeatureDefinition = {
   // F3 search-payload-extension — per-entity contributors that add flat fields
   // to the search-index payload during indexing. Keyed by entityName. Wrapped
   // in OwnedFn for feature-toggle filtering (consistent with postQuery-Hooks).
-  readonly searchPayloadExtensions: Readonly<
+  readonly searchPayloadExtensions?: Readonly<
     Record<string, readonly OwnedFn<SearchPayloadContributorFn>[]>
   >;
   readonly configKeys: Readonly<Record<string, ConfigKeyDefinition>>;

@@ -13,7 +13,17 @@
 
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
-import { runCodegen } from "@cosmicdrift/kumiko-dev-server";
+
+async function main() {
+  // Dynamic import — during `bun install`, workspace packages may not be
+  // linked yet (install order differs from yarn). Skip silently.
+  let runCodegen: typeof import("@cosmicdrift/kumiko-dev-server").runCodegen;
+  try {
+    ({ runCodegen } = await import("@cosmicdrift/kumiko-dev-server"));
+  } catch {
+    console.log("[codegen-samples] kumiko-dev-server not yet available — skip.");
+    process.exit(0);
+  }
 
 const REPO_ROOT = resolve(import.meta.dir, "..");
 
@@ -43,24 +53,27 @@ function findSampleApps(): string[] {
 }
 
 const apps = findSampleApps();
-if (apps.length === 0) {
-  console.log("[codegen-samples] no sample apps — nothing to do.");
-  process.exit(0);
+  if (apps.length === 0) {
+    console.log("[codegen-samples] no sample apps — nothing to do.");
+    return;
+  }
+
+  const t0 = performance.now();
+  let totalEvents = 0;
+  let touchedApps = 0;
+  for (const appRoot of apps) {
+    const result = runCodegen({ appRoot });
+    if (result.skipped) continue;
+    totalEvents += result.eventCount;
+    if (result.didWriteTypes || result.didWriteSchemas || result.didWriteDefine) {
+      touchedApps += 1;
+      console.log(`  ✓ ${relative(REPO_ROOT, appRoot)} — ${result.eventCount} events`);
+    }
+  }
+  const ms = Math.round(performance.now() - t0);
+  console.log(
+    `[codegen-samples] ${apps.length} app(s) scanned, ${touchedApps} touched, ${totalEvents} events total, ${ms}ms`,
+  );
 }
 
-const t0 = performance.now();
-let totalEvents = 0;
-let touchedApps = 0;
-for (const appRoot of apps) {
-  const result = runCodegen({ appRoot });
-  if (result.skipped) continue;
-  totalEvents += result.eventCount;
-  if (result.didWriteTypes || result.didWriteSchemas || result.didWriteDefine) {
-    touchedApps += 1;
-    console.log(`  ✓ ${relative(REPO_ROOT, appRoot)} — ${result.eventCount} events`);
-  }
-}
-const ms = Math.round(performance.now() - t0);
-console.log(
-  `[codegen-samples] ${apps.length} app(s) scanned, ${touchedApps} touched, ${totalEvents} events total, ${ms}ms`,
-);
+main();

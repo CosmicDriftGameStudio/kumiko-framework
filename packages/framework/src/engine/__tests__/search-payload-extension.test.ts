@@ -21,7 +21,7 @@ describe("searchPayloadExtension registration", () => {
       r.searchPayloadExtension(thing, noop);
     });
 
-    const entry = feature.searchPayloadExtensions["thing"];
+    const entry = feature.searchPayloadExtensions!["thing"];
     expect(entry).toHaveLength(1);
   });
 
@@ -35,7 +35,7 @@ describe("searchPayloadExtension registration", () => {
       r.searchPayloadExtension(thing, c2);
     });
 
-    expect(feature.searchPayloadExtensions["thing"]).toHaveLength(2);
+    expect(feature.searchPayloadExtensions!["thing"]).toHaveLength(2);
   });
 });
 
