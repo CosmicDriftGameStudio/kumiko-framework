@@ -137,12 +137,13 @@ describe("createKumikoServer", () => {
     expect(res.headers.get("content-type") ?? "").not.toMatch(/text\/event-stream/);
   });
 
-  test("Server-Instanz ist undefined unter Node (vitest)", async () => {
-    // Sanity check: unter Bun wäre .server gesetzt, unter Node
-    // (wo dieser Test läuft) muss er undefined sein, sonst hätten
-    // wir eine falsche Bun-Detection.
+  test("Server-Instanz unter Bun gesetzt, unter Node undefined", async () => {
     const h = await boot();
-    expect(h.server).toBeUndefined();
+    if (typeof Bun !== "undefined") {
+      expect(h.server).toBeDefined();
+    } else {
+      expect(h.server).toBeUndefined();
+    }
   });
 });
 
