@@ -3,7 +3,7 @@
 // postgres-js = default. DB_PROVIDER=bun = Bun.SQL (experimentell).
 
 import { createConnection } from "../db/api";
-import { asRawClient } from "../db/query";
+import { createDatabase, databaseExists, dropDatabaseIfExists } from "../db/queries/test-stack";
 import { ensureTemporalPolyfill } from "../time/polyfill";
 import { generateId } from "../utils";
 
@@ -41,30 +41,22 @@ export async function createTestDb(arg?: string | CreateTestDbOptions): Promise<
   const dbName = opts.dbName ?? `kumiko_test_${generateId().slice(-8)}`;
   const adminUrl = url.replace(/\/[^/]+$/, "/postgres");
 
-  // Admin-Verbindung für CREATE DATABASE — provider-agnostisch
   const admin = await createConnection(adminUrl, { maxConnections: 1 });
-  const adminDb = asRawClient(admin.db);
   try {
     if (opts.persistent) {
-      const existing = await adminDb.unsafe(
-        `SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = $1) AS exists`,
-        [dbName],
-      );
-      if (!(existing[0] as { exists?: boolean } | undefined)?.exists) {
-        await adminDb.unsafe(`CREATE DATABASE "${dbName}"`);
+      if (!(await databaseExists(admin.db, dbName))) {
+        await createDatabase(admin.db, dbName);
       }
     } else {
-      await adminDb.unsafe(`CREATE DATABASE "${dbName}"`);
+      await createDatabase(admin.db, dbName);
     }
   } finally {
     await admin.close();
   }
 
-  // Verbindung zur neuen DB
   const testUrl = url.replace(/\/[^/]+$/, `/${dbName}`);
   const conn = await createConnection(testUrl);
 
-  // Events-Table — idempotent via IF NOT EXISTS
   const { createEventsTable } = await import("../event-store");
   await createEventsTable(conn.db);
 
@@ -76,9 +68,8 @@ export async function createTestDb(arg?: string | CreateTestDbOptions): Promise<
       await conn.close();
       if (!opts.persistent) {
         const admin2 = await createConnection(adminUrl, { maxConnections: 1 });
-        const admin2Db = asRawClient(admin2.db);
         try {
-          await admin2Db.unsafe(`DROP DATABASE IF EXISTS "${dbName}"`);
+          await dropDatabaseIfExists(admin2.db, dbName);
         } finally {
           await admin2.close();
         }

@@ -1,5 +1,11 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.15.0
+
+### Patch Changes
+
+- 5a7f7ac: migrate: detect repos via bunfig.toml, make searchPayloadExtensions optional, TS 6.0 baseUrl fix for samples
+
 ## 0.14.0
 
 ## 0.13.0

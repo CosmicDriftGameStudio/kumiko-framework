@@ -20,6 +20,7 @@
 // `unsafe`-prefix is designed for: framework-author opting into
 // raw projection-writes after seeing the prefix at every call site.
 
+import type { EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import {
   buildEntityTable,
   createEventStoreExecutor,
@@ -55,7 +56,7 @@ export const productEntity = createEntity({
 // Custom non-aggregate projection. The boot-validator allows direct
 // upsert/delete only because `r.requires.projection(...)` is declared
 // inside the feature below — without that line, boot fails fast.
-export const lowStockAlertsTable = table("read_inventory_low_stock_alerts", {
+export const lowStockAlertsTable: EntityTableMeta = table("read_inventory_low_stock_alerts", {
   productId: uuid("product_id").primaryKey(),
   sku: text("sku").notNull(),
   currentStock: integer("current_stock").notNull(),

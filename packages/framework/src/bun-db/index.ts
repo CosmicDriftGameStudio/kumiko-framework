@@ -12,11 +12,20 @@ export { bunDbConnectionOptionsFromEnv, createBunDbConnection } from "./connecti
 export type { SelectOptions, WhereObject, WhereOperator, WhereValue } from "./query";
 export {
   asRawClient,
+  countWhere,
+  type DeleteManyBatchedOptions,
+  type DeleteManyBatchedResult,
   deleteMany,
+  deleteManyBatched,
   fetchOne,
+  type IncrementCounterOptions,
+  incrementCounter,
   insertMany,
   insertOne,
   selectMany,
   transaction,
+  type UpsertOnConflictOptions,
   updateMany,
+  upsertByPk,
+  upsertOnConflict,
 } from "./query";

@@ -1,5 +1,12 @@
 import type { DbConnection, DbTx } from "../db/connection";
-import { asRawClient, coerceRow, extractTableInfo, selectMany } from "../db/query";
+import {
+  finalizeProjectionRebuild,
+  markProjectionRebuildFailed,
+  markProjectionRebuilding,
+  selectEventsForProjectionRebuild,
+} from "../db/queries/projection-rebuild";
+import { truncateTable } from "../db/queries/table-ops";
+import { coerceRow, extractTableInfo, selectMany } from "../db/query";
 import type { Registry, TenantId } from "../engine/types";
 import {
   eventsTable,
@@ -87,21 +94,10 @@ export async function rebuildProjection(
 
   try {
     await db.begin(async (tx: DbTx) => {
-      const rawTx = asRawClient(tx);
-      // Lock the state row. Use upsert so a never-rebuilt projection also
-      // gets a row. FOR UPDATE would need the row to exist — upsert-first
-      // keeps it idempotent.
-      await rawTx.unsafe(
-        `INSERT INTO "kumiko_projections" ("name", "status") VALUES ('${projectionName.replace(/'/g, "''")}', 'rebuilding')
-         ON CONFLICT ("name") DO UPDATE SET
-           "status" = 'rebuilding',
-           "last_error" = NULL,
-           "updated_at" = now()`,
-      );
+      await markProjectionRebuilding(tx, projectionName);
 
-      // Wipe the projection table.
       const tableName = getTableName(projection.table);
-      await rawTx.unsafe(`TRUNCATE TABLE ${quoteIdent(tableName)}`);
+      await truncateTable(tx, tableName);
 
       // Stream events in chronological order for every source. The event
       // type filter prunes events the projection doesn't care about early.
@@ -123,15 +119,9 @@ export async function rebuildProjection(
           createdAt: Temporal.Instant;
           createdBy: string;
         };
-        const sourcesList = [...sources]
-          .map((s) => `'${(s as string).replace(/'/g, "''")}'`)
-          .join(", ");
-        const subscribedList = [...subscribed]
-          .map((s) => `'${(s as string).replace(/'/g, "''")}'`)
-          .join(", ");
-        const rawEvents = (await rawTx.unsafe(
-          `SELECT * FROM "kumiko_events" WHERE "aggregate_type" IN (${sourcesList}) AND "type" IN (${subscribedList}) ORDER BY "id" ASC`,
-        )) as ReadonlyArray<Record<string, unknown>>;
+        const sourcesList = [...sources];
+        const subscribedList = [...subscribed];
+        const rawEvents = await selectEventsForProjectionRebuild(tx, sourcesList, subscribedList);
         const events = rawEvents.map((r) => {
           const info = extractTableInfo(eventsTable);
           return coerceRow(r, info) as EventRow;
@@ -170,28 +160,13 @@ export async function rebuildProjection(
         }
       }
 
-      // Finalize state row.
-      await rawTx.unsafe(
-        `UPDATE "kumiko_projections" SET
-           "last_processed_event_id" = ${lastProcessedEventId},
-           "status" = 'idle',
-           "last_rebuild_at" = now(),
-           "last_error" = NULL,
-           "updated_at" = now()
-         WHERE "name" = '${projectionName.replace(/'/g, "''")}'`,
-      );
+      await finalizeProjectionRebuild(tx, projectionName, lastProcessedEventId);
     });
   } catch (e) {
     // Outer catch: TX has been rolled back by Postgres already. Record the
     // failure in a SEPARATE write so ops can see what happened.
     const message = e instanceof Error ? e.message : String(e);
-    await asRawClient(db).unsafe(
-      `INSERT INTO "kumiko_projections" ("name", "status", "last_error") VALUES ('${projectionName.replace(/'/g, "''")}', 'failed', '${message.replace(/'/g, "''")}')
-       ON CONFLICT ("name") DO UPDATE SET
-         "status" = 'failed',
-         "last_error" = '${message.replace(/'/g, "''")}',
-         "updated_at" = now()`,
-    );
+    await markProjectionRebuildFailed(db, projectionName, message);
     // Failure metric: duration until throw, 0 events "delivered" (the replayed
     // rows were rolled back — counting them would overstate live delivery).
     // success=false label distinguishes these in Prom dashboards.
@@ -222,12 +197,6 @@ export async function rebuildProjection(
   }
   deps.onMetrics?.(result);
   return result;
-}
-
-// Identifier quoting for raw TRUNCATE. Double-quote + escape double-quote
-// matches Postgres identifier rules.
-function quoteIdent(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
 }
 
 const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");

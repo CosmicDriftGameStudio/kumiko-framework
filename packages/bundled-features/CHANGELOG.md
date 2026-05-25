@@ -1,5 +1,29 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.15.0
+
+### Minor Changes
+
+- 79d5891: `createFeatureTogglesFeature({ getRuntime })` — `getRuntime` ist jetzt
+  optional. Smoke-Apps (`KUMIKO_DRY_RUN_ENV=boot`) wirken die feature
+  ohne runtime-stub-cast aus; production-Apps + Tests müssen den accessor
+  weiter setzen.
+
+  Internal: set-handler + toggle-cache-sync MSP fail jetzt lazy mit
+  einer aktionsfähigen message, falls jemand `getRuntime` weglässt aber
+  trotzdem dispatchet. Vorher mussten App-Authors `null as unknown as
+GlobalFeatureToggleRuntime`-doublecasts schreiben — Coding-standards
+  verbieten das.
+
+### Patch Changes
+
+- 5a7f7ac: migrate: detect repos via bunfig.toml, make searchPayloadExtensions optional, TS 6.0 baseUrl fix for samples
+- Updated dependencies [5a7f7ac]
+  - @cosmicdrift/kumiko-framework@0.15.0
+  - @cosmicdrift/kumiko-renderer@0.15.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.15.0
+  - @cosmicdrift/kumiko-renderer-web@0.15.0
+
 ## 0.14.0
 
 ### Patch Changes

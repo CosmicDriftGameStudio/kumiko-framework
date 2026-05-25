@@ -1,10 +1,14 @@
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createJsonbField,
   type FeatureRegistrar,
   type JsonbFieldDef,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { CUSTOM_FIELDS_EXTENSION } from "./constants";
+import {
+  clearCustomFieldKey,
+  removeCustomFieldKeyFromAllRows,
+  setCustomFieldValue,
+} from "./db/queries/projection";
 
 const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
 function getTableName(table: unknown): string {
@@ -100,11 +104,13 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
         // jsonb_set: setze key auf value. Wenn key noch nicht existiert →
         // wird angelegt (create_missing=true ist default). value muss als
         // jsonb-literal kommen.
-        const tbl = `"${getTableName(entityTable)}"`;
-        const escapedKey = payload.fieldKey.replace(/'/g, "''");
-        await asRawClient(tx).unsafe(
-          `UPDATE ${tbl} SET custom_fields = jsonb_set(custom_fields, '{${escapedKey}}', $1::jsonb, true) WHERE id = $2`,
-          [JSON.stringify(payload.value), event.aggregateId],
+        const tableName = getTableName(entityTable);
+        await setCustomFieldValue(
+          tx,
+          tableName,
+          payload.fieldKey,
+          JSON.stringify(payload.value),
+          event.aggregateId,
         );
       },
       [clearedEventType]: async (event, tx) => {
@@ -114,11 +120,8 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
         const payload = event.payload as CustomFieldClearedPayload; // @cast-boundary engine-payload
 
         // jsonb minus operator (`-`) entfernt key aus jsonb-object.
-        const tbl = `"${getTableName(entityTable)}"`;
-        await asRawClient(tx).unsafe(
-          `UPDATE ${tbl} SET custom_fields = custom_fields - $1 WHERE id = $2`,
-          [payload.fieldKey, event.aggregateId],
-        );
+        const tableName = getTableName(entityTable);
+        await clearCustomFieldKey(tx, tableName, payload.fieldKey, event.aggregateId);
       },
       [fieldDefDeletedType]: async (event, tx) => {
         // fieldDefinition.deleted fires nur einmal pro fieldDef-delete
@@ -130,10 +133,8 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
         // ihre Rows.
         if (payload.entityName !== entityName) return;
 
-        const tbl = `"${getTableName(entityTable)}"`;
-        await asRawClient(tx).unsafe(`UPDATE ${tbl} SET custom_fields = custom_fields - $1`, [
-          payload.fieldKey,
-        ]);
+        const tableName = getTableName(entityTable);
+        await removeCustomFieldKeyFromAllRows(tx, tableName, payload.fieldKey);
       },
     },
   });

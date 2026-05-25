@@ -1,7 +1,7 @@
 {
   "format": 2,
   "generated": "2026-05-24",
-  "totalSuspect": 156,
+  "totalSuspect": 171,
   "perFile": {
     "../kumiko-framework/packages/bundled-features/src/billing-foundation/projection.ts": {
       "{ tableName: string }": 1,
@@ -40,10 +40,12 @@
     },
     "../kumiko-framework/packages/framework/src/bun-db/query.ts": {
       "{ epochNanoseconds?: unknown }": 1,
+      "{ kind?: unknown }": 1,
       "{ name?: unknown; getSQLType?: () => string }": 1,
       "BunDbRunner": 1,
       "EntityTableMeta": 1,
-      "readonly Record<string, unknown>[]": 4,
+      "readonly Record<\n    string,\n    unknown\n  >[]": 1,
+      "readonly Record<string, unknown>[]": 3,
       "readonly TRow[]": 3,
       "Record<string, unknown>": 7,
       "Record<string, unknown> | undefined": 1,
@@ -93,6 +95,10 @@
       "never": 3,
       "Record<string, unknown>": 2,
       "Record<string, unknown> | undefined": 1
+    },
+    "../kumiko-framework/packages/framework/src/db/reference-data.ts": {
+      "Record<string, unknown>": 1,
+      "Record<symbol, unknown>": 1
     },
     "../kumiko-framework/packages/framework/src/db/schema-inspection.ts": {
       "{\n      unsafe: (s: string, p?: readonly unknown[]) => Promi": 1
@@ -190,15 +196,22 @@
       "Record<string, unknown>": 1
     },
     "../kumiko-framework/packages/framework/src/pipeline/event-dispatcher.ts": {
-      "ReadonlyArray<{ id: bigint }>": 1,
-      "ReadonlyArray<ConsumerStateRow>": 5
+      "ConsumerStateRow": 5,
+      "ReadonlyArray<{ id: string | bigint }>": 1,
+      "ReadonlyArray<Record<string, unknown>>": 5
     },
     "../kumiko-framework/packages/framework/src/pipeline/msp-rebuild.ts": {
       "NonNullable<typeof msp.table>": 1,
       "Record<symbol, unknown>": 1
     },
     "../kumiko-framework/packages/framework/src/pipeline/projection-rebuild.ts": {
-      "Record<symbol, unknown>": 1
+      "EventRow": 1,
+      "ReadonlyArray<Record<string, unknown>>": 1,
+      "Record<symbol, unknown>": 1,
+      "string": 2
+    },
+    "../kumiko-framework/packages/framework/src/stack/db.ts": {
+      "{ exists?: boolean } | undefined": 1
     },
     "../kumiko-framework/packages/framework/src/stack/push-entity-projection-tables.ts": {
       "string": 1
@@ -209,6 +222,12 @@
       "EntityTableMeta": 1,
       "Record<string | symbol, unknown>": 1,
       "string": 1
+    },
+    "../kumiko-framework/packages/framework/src/stack/test-stack.ts": {
+      "PgClient | undefined": 1
+    },
+    "../kumiko-framework/packages/framework/src/testing/multipart-helper.ts": {
+      "Record<string, unknown>": 1
     }
   }
 }

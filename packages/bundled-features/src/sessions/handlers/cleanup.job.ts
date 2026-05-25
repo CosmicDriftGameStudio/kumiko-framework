@@ -20,6 +20,7 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { JobHandlerFn } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { deleteStaleSessionsBatch } from "../db/queries/cleanup";
 
 const DEFAULT_OLDER_THAN_DAYS = 30;
 const DEFAULT_BATCH_SIZE = 1000;
@@ -44,18 +45,7 @@ export const cleanupJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> =
     });
   }
   const db = ctx.db as DbConnection;
-  // raw postgres-js / Bun.sql client. ctx.db kann drizzle DbConnection
-  // (.$client) ODER Bun.SQL (direct) sein — Shim für beide.
-  const dbAny = db as unknown as {
-    $client?: { unsafe: (s: string, p?: readonly unknown[]) => Promise<readonly { id: string }[]> };
-    unsafe?: (s: string, p?: readonly unknown[]) => Promise<readonly { id: string }[]>;
-  };
-  const client = (dbAny.$client ?? dbAny) as {
-    unsafe: (s: string, p?: readonly unknown[]) => Promise<readonly { id: string }[]>;
-  };
 
-  // Coerce-and-validate: BullMQ payloads arrive as opaque JSON, so TS types
-  // don't survive. Guard before the value is interpolated into SQL.
   const olderThanDaysRaw = payload.olderThanDays ?? DEFAULT_OLDER_THAN_DAYS;
   const olderThanDays = Number(olderThanDaysRaw);
   if (!Number.isFinite(olderThanDays) || olderThanDays < 0 || !Number.isInteger(olderThanDays)) {
@@ -72,18 +62,6 @@ export const cleanupJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> =
   let batchesProcessed = 0;
   let stoppedReason: SessionCleanupResult["stoppedReason"] = "empty";
 
-  // DELETE-by-id-subquery mit LIMIT für bounded lock-duration. Safety-net:
-  // nur rows past-cutoff (expired OR revoked). PG-semantics: `x < cutoff`
-  // schließt NULL implicit aus.
-  const deleteSql = `DELETE FROM "read_user_sessions"
-    WHERE "id" IN (
-      SELECT "id" FROM "read_user_sessions"
-      WHERE "expires_at" < now() - ($1::int * interval '1 day')
-         OR "revoked_at" < now() - ($1::int * interval '1 day')
-      LIMIT $2
-    )
-    RETURNING "id"`;
-
   while (true) {
     if (ctx.signal?.aborted) {
       stoppedReason = "signal";
@@ -94,13 +72,13 @@ export const cleanupJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> =
       break;
     }
 
-    const rows = await client.unsafe(deleteSql, [olderThanDays, batchSize]);
-    if (rows.length === 0) break;
+    const batchDeleted = await deleteStaleSessionsBatch(db, olderThanDays, batchSize);
+    if (batchDeleted === 0) break;
 
-    deleted += rows.length;
+    deleted += batchDeleted;
     batchesProcessed++;
 
-    if (rows.length < batchSize) break;
+    if (batchDeleted < batchSize) break;
   }
 
   const result: SessionCleanupResult = { deleted, batchesProcessed, stoppedReason };

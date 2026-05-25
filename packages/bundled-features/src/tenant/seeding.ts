@@ -31,13 +31,14 @@
 // Fixture-seeding prioritises "make the state exist" over "detect duplicate
 // seeding", which is usually a test-author bug we don't need to surface.
 
-import { asRawClient, fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEventStoreExecutor,
   createTenantDb,
   type DbRunner,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { getAggregateStreamMaxVersion } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table";
 import { tenantEntity, tenantTable } from "./schema/tenant";
@@ -97,11 +98,8 @@ export async function seedTenant(db: DbRunner, options: SeedTenantOptions): Prom
   // (Projection-Drift nach rebuild, manuellem DELETE, oder async-lag). Wenn
   // Stream-Version > 0 → kein create() — wäre version_conflict. Caller
   // bekommt die ID, Projection wird beim nächsten Dispatcher-Cycle aufgebaut.
-  const [streamRow] = await asRawClient(db).unsafe<{ v: number | null }>(
-    `SELECT MAX(version) AS v FROM kumiko_events WHERE aggregate_id = $1`,
-    [options.id],
-  );
-  if ((streamRow?.v ?? 0) > 0) return options.id;
+  const streamVersion = await getAggregateStreamMaxVersion(db, options.id);
+  if (streamVersion > 0) return options.id;
 
   const result = await tenantExecutor.create(
     { id: options.id, key: options.key, name: options.name },
