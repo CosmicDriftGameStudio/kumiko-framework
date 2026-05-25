@@ -1,5 +1,26 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.16.0
+
+### Minor Changes
+
+- 1dcc743: DX-4. Neue Registrar-API `r.unmanagedTable(meta, { reason })`. Features
+  mit unmanaged-tables (delivery-attempts, job-run-logs) deklarieren die
+  jetzt selbst innerhalb ihrer `defineFeature`-Callbacks — Apps müssen sie
+  nicht mehr in `kumiko/schema.ts` manuell pushen.
+
+  `composed.unmanagedTables` aggregiert die metas cross-feature, sodass
+  `kumiko schema generate` sie automatisch findet.
+
+  `r.rawTable` (PgTable-basiert, legacy) bleibt unverändert; `r.unmanagedTable`
+  ist die EntityTableMeta-Variante (framework-native, post-drizzle).
+
+### Patch Changes
+
+- 9aeabb3: Remove leftover `drizzle-orm` dynamic import from `setupTestStack` projection
+  table setup. Use native `extractTableInfo` instead so downstream apps typecheck
+  without adding `drizzle-orm` as a devDependency.
+
 ## 0.15.0
 
 ### Patch Changes
