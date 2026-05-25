@@ -28,12 +28,12 @@ export async function selectHostRowsWithCustomFields(
 export async function updateHostRowCustomFields(
   db: DbRunner,
   tableName: string,
-  customFieldsJson: string,
+  customFields: Record<string, unknown>,
   rowId: string,
 ): Promise<void> {
   const quoted = `"${tableName.replace(/"/g, '""')}"`;
   await asRawClient(db).unsafe(`UPDATE ${quoted} SET custom_fields = $1::jsonb WHERE id = $2`, [
-    customFieldsJson,
+    customFields,
     rowId,
   ]);
 }

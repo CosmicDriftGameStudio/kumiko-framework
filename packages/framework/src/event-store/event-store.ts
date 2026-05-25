@@ -9,6 +9,7 @@ import {
 } from "../db/queries/event-store";
 import { insertOne, selectMany } from "../db/query";
 import type { TenantId } from "../engine/types";
+import { stringifyJson } from "../utils/safe-json";
 import { isStreamArchived } from "./archive";
 import { VersionConflictError } from "./errors";
 import { eventsTable } from "./events-schema";
@@ -173,8 +174,8 @@ async function insertSubsequentEvent(
     newVersion,
     type: event.type,
     eventVersion,
-    payloadJson: JSON.stringify(event.payload),
-    metadataJson: JSON.stringify(event.metadata),
+    payloadJson: stringifyJson(event.payload),
+    metadataJson: stringifyJson(event.metadata),
     createdBy: event.metadata.userId,
     expectedVersion: event.expectedVersion,
   });

@@ -9,6 +9,7 @@ import {
   ValidationError,
 } from "../errors";
 import type { Dispatcher } from "../pipeline/dispatcher";
+import { stringifyJson } from "../utils/safe-json";
 import { Routes } from "./api-constants";
 import { getUser } from "./auth-middleware";
 import { requestContext } from "./request-context";
@@ -25,7 +26,7 @@ export function createApiRoutes(dispatcher: Dispatcher) {
       if (!result.isSuccess) {
         return writeErrorResponse(c, reraiseAsKumikoError(result.error));
       }
-      return c.json(result);
+      return jsonResponse(c, result);
     } catch (e) {
       return writeErrorResponse(c, toKumiko(e));
     }
@@ -66,7 +67,8 @@ export function createApiRoutes(dispatcher: Dispatcher) {
         // Keep failedIndex + results alongside the error envelope so callers
         // can tell which command in the batch failed and inspect the partial
         // results from the successful commands before the rollback.
-        return c.json(
+        return jsonResponse(
+          c,
           {
             isSuccess: false,
             error,
@@ -88,7 +90,7 @@ export function createApiRoutes(dispatcher: Dispatcher) {
 
     try {
       const result = await dispatcher.query(body.type, body.payload, user);
-      return c.json({ data: result });
+      return jsonResponse(c, { data: result });
     } catch (e) {
       return queryErrorResponse(c, toKumiko(e));
     }
@@ -107,6 +109,10 @@ export function createApiRoutes(dispatcher: Dispatcher) {
   });
 
   return api;
+}
+
+function jsonResponse(c: Context, body: unknown, status: ContentfulStatusCode = 200) {
+  return c.body(stringifyJson(body), status, { "Content-Type": "application/json" });
 }
 
 function toKumiko(e: unknown): KumikoError {

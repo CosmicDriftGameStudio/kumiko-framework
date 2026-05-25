@@ -76,7 +76,7 @@ export function createProductAuditFeature(): FeatureDefinition {
       if (!ctx.db) return;
       const name = (result.changes as Record<string, unknown>)["name"] as string | undefined;
       if (!name) return;
-      await ctx.db.insert(productAuditTable).values({
+      await ctx.db.insertOne(productAuditTable, {
         id: generateId(),
         productName: name,
         version: 1,

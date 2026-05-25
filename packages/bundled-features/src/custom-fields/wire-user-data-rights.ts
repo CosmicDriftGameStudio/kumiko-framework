@@ -32,8 +32,9 @@ interface CustomFieldsHostRow {
 function asCustomFieldsHostRow(value: unknown): CustomFieldsHostRow | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   if (!("id" in value) || typeof value.id !== "string") return null;
-  if (!("custom_fields" in value)) return null;
-  const cf = value.custom_fields;
+  const record = value as Record<string, unknown>;
+  const cf = record["custom_fields"] ?? record["customFields"];
+  if (cf === undefined) return null;
   if (cf === null) return { id: value.id, customFields: null };
   if (!cf || typeof cf !== "object" || Array.isArray(cf)) return null;
   return { id: value.id, customFields: Object.fromEntries(Object.entries(cf)) };

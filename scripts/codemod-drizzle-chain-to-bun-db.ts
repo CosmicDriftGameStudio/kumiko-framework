@@ -11,6 +11,7 @@
 //   db.select(<proj>).from(t).where(...)                     → asRawClient(db).unsafe(`SELECT … `) — flagged TODO
 //   db.insert(t).values(v).returning()                       → insertOne(db, t, v)
 //   db.insert(t).values(v)                                   → insertOne(db, t, v)
+//   const [row] = await *.insertOne(...)                     → const row = await *.insertOne(...)
 //   db.update(t).set(v).where(eq(...))                       → updateMany(db, t, v, { col: x })
 //   db.update(t).set(v).where(eq(...)).returning()           → updateMany(db, t, v, { col: x })
 //   db.delete(t).where(eq(...))                              → deleteMany(db, t, { col: x })
@@ -37,7 +38,12 @@ import {
 const APPLY = process.argv.includes("--apply");
 const FILTER = process.argv.find((a) => a.startsWith("--file="))?.slice(7);
 
-const ROOTS = ["packages/framework/src", "packages/bundled-features/src"];
+const ROOTS = [
+  "packages/framework/src",
+  "packages/bundled-features/src",
+  "samples/recipes",
+  "samples/apps",
+];
 
 const project = new Project({
   tsConfigFilePath: "tsconfig.json",
@@ -400,7 +406,7 @@ function collectEdits(sf: SourceFile): Edit[] {
   // member-call form (`tdb.selectMany(...)`) instead of `selectMany(tdb,
   // ...)` so the auto-tenant-scoping semantics are preserved.
   function isTenantDbReceiver(receiver: string): boolean {
-    return /(^|[.])tdb\d*$|TenantDb$|tDb$/i.test(receiver.trim());
+    return /(^|[.])tdb\d*$|TenantDb$|tDb$|ctx\.db$/i.test(receiver.trim());
   }
 
   function isWrappedByUnknownChain(call: CallExpression): boolean {
@@ -647,6 +653,17 @@ function collectEdits(sf: SourceFile): Edit[] {
   return edits;
 }
 
+/** Drizzle `.returning()` yields an array; bun-db `insertOne` returns a single row. */
+function fixInsertOneArrayDestructuring(sf: SourceFile): boolean {
+  const re = /const \[(\w+)\] = await ([^;\n]*?\.insertOne\([^;\n]+\))/g;
+  const text = sf.getFullText();
+  const next = text.replace(re, "const $1 = await $2");
+  if (next === text) return false;
+  sf.replaceWithText(next);
+  bump("insertOne[]→row");
+  return true;
+}
+
 function rewriteFile(sf: SourceFile): boolean {
   const filePath = sf.getFilePath();
   if (filePath.endsWith(".d.ts") || filePath.includes("/dist/")) return false;
@@ -662,7 +679,11 @@ function rewriteFile(sf: SourceFile): boolean {
   }
 
   const edits = collectEdits(sf);
-  if (edits.length === 0) return false;
+  if (edits.length === 0) {
+    if (!fixInsertOneArrayDestructuring(sf)) return false;
+    touched++;
+    return true;
+  }
 
   // Apply edits to the raw text in reverse source-order so positions stay valid.
   let text = sf.getFullText();
@@ -671,6 +692,7 @@ function rewriteFile(sf: SourceFile): boolean {
     text = text.slice(0, e.start) + e.replacement + text.slice(e.end);
   }
   sf.replaceWithText(text);
+  fixInsertOneArrayDestructuring(sf);
 
   const helpersUsed = new Set<string>();
   for (const e of edits) for (const h of e.helpers) helpersUsed.add(h);

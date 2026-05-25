@@ -17,6 +17,7 @@ import {
   insertRawSubsequentEvent,
 } from "../db/queries/event-store-admin";
 import type { TenantId } from "../engine/types";
+import { stringifyJson } from "../utils/safe-json";
 import { VersionConflictError } from "./errors";
 import type { EventMetadata } from "./event-store";
 
@@ -68,8 +69,8 @@ function rawEventParams(event: RawEventToAppend, newVersion: number, eventVersio
     newVersion,
     type: event.type,
     eventVersion,
-    payloadJson: JSON.stringify(event.payload),
-    metadataJson: JSON.stringify(event.metadata),
+    payloadJson: stringifyJson(event.payload),
+    metadataJson: stringifyJson(event.metadata),
     createdAt: event.createdAt.toString(),
     createdBy: event.createdBy,
   };
@@ -129,8 +130,8 @@ export async function appendRawBatch(
       newVersion,
       e.type,
       eventVersion,
-      JSON.stringify(e.payload),
-      JSON.stringify(e.metadata),
+      stringifyJson(e.payload),
+      stringifyJson(e.metadata),
       e.createdAt.toString(),
       e.createdBy,
     );

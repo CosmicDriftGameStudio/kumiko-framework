@@ -50,7 +50,7 @@ describe("classifyChange", () => {
   });
 
   test("Integration-Test → ignore (würde sonst Schema-Restart auslösen)", () => {
-    expect(classifyChange("/abs/samples/foo/src/feature.integration.ts")).toBe("ignore");
+    expect(classifyChange("/abs/samples/foo/src/feature.integration.test.ts")).toBe("ignore");
   });
 
   test("E2E-Test → ignore", () => {

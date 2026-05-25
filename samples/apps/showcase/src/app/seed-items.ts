@@ -9,8 +9,8 @@
 // bei jedem Restart neu geseeded sonst.
 
 import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
-import { sql } from "drizzle-orm";
 
 const STATUSES = ["draft", "active", "blocked", "done"] as const;
 

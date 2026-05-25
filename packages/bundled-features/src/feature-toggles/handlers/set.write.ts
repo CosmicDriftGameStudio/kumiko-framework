@@ -12,7 +12,6 @@ import {
   FEATURE_TOGGLE_SET_EVENT_NAME,
   FeatureToggleErrors,
 } from "../constants";
-import { updateFeatureToggleOptimistic } from "../db/queries/toggle-state";
 import { globalFeatureStateTable } from "../global-feature-state-table";
 import type { GlobalFeatureToggleRuntime } from "../toggle-runtime";
 
@@ -101,13 +100,16 @@ export function createSetWriteHandler(getRuntime: (() => GlobalFeatureToggleRunt
         // Upsert with optimistic lock. Two operators flipping the same
         // toggle simultaneously is rare but possible — the version-WHERE
         // ensures only one wins; the loser sees VersionConflictError.
-        const updated = await updateFeatureToggleOptimistic(ctx.db, {
-          enabled,
-          updatedBy: event.user.id,
-          updatedAt: Temporal.Now.instant(),
-          featureName,
-          expectedVersion: existing.version,
-        });
+        const updated = await ctx.db.updateMany(
+          globalFeatureStateTable,
+          {
+            enabled,
+            updatedBy: event.user.id,
+            updatedAt: Temporal.Now.instant(),
+            version: existing.version + 1,
+          },
+          { featureName, version: existing.version },
+        );
 
         if (updated.length === 0) {
           return writeFailure(

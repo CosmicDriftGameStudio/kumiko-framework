@@ -63,6 +63,12 @@ const tenantAdminAccess = { access: { roles: ["TenantAdmin"] } } as const;
 const fieldDefinitionDeletedSchema = z.object({
   entityName: z.string(),
   fieldKey: z.string(),
+  // Owning tenant of the deleted definition: a specific tenant for tenant-scope
+  // deletions, SYSTEM_TENANT_ID for system-scope. The cascade-MSP scopes its
+  // orphan-cleanup by this so a tenant deletion never touches other tenants'
+  // rows. Optional for backward-compat with events appended before this field
+  // existed — the MSP falls back to the event's stream tenantId.
+  tenantId: z.string().optional(),
 });
 
 // Singleton feature-definition mit typed exports. Handler + wire-for-entity

@@ -44,6 +44,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { canResolveTailwindStylesheet, resolveTailwindCli } from "./resolve-tailwind-cli";
 
 // Bun-Runtime-Check als module-level Konstante: alle Build-Schritte
 // (Tailwind via Bun.spawn, Client-Bundle via Bun.build, Stylesheet-
@@ -138,7 +139,7 @@ export async function buildProdBundle(options: BuildProdBundleOptions = {}): Pro
   //    der client.tsx ein "import './foo.css'" macht — den Fall lassen
   //    wir hier raus, Tailwind ist die einzige CSS-Quelle).
   if (stylesheet) {
-    const css = await runTailwindOnce(stylesheet);
+    const css = await runTailwindOnce(stylesheet, cwd);
     const hash = shortHash(css);
     const filename = `styles-${hash}.css`;
     await writeFile(join(assetsDir, filename), css);
@@ -302,9 +303,14 @@ function resolveStylesheetEntry(
 
   if (!hasBun) return undefined;
   try {
-    return (
+    const resolved = (
       globalThis as { Bun: { resolveSync: (id: string, from: string) => string } }
     ).Bun.resolveSync("@cosmicdrift/kumiko-renderer-web/styles.css", cwd);
+    const bun = (globalThis as { Bun: { resolveSync: (id: string, from: string) => string } }).Bun;
+    if (!canResolveTailwindStylesheet(resolved, { bun, cwd })) {
+      return undefined;
+    }
+    return resolved;
   } catch {
     return undefined;
   }
@@ -323,18 +329,30 @@ export function discoverHtmlTemplate(cwd: string): string | undefined {
 // Build steps
 // ---------------------------------------------------------------------------
 
-async function runTailwindOnce(entry: string): Promise<string> {
+async function runTailwindOnce(entry: string, cwd: string): Promise<string> {
   if (!hasBun) {
     throw new Error(
       "[kumiko build] Tailwind one-shot requires Bun (Bun.spawn) — run via `bun run …` or `yarn kumiko build`.",
     );
   }
+  const bunResolver = (globalThis as { Bun: { resolveSync: (id: string, from: string) => string } })
+    .Bun;
+  const cliPath = resolveTailwindCli({ bun: bunResolver, cwd });
+  if (cliPath === undefined) {
+    throw new Error(
+      "[kumiko build] @tailwindcss/cli nicht auflösbar — `bun install` im App-Root ausführen.",
+    );
+  }
+  if (!canResolveTailwindStylesheet(entry, { bun: bunResolver, cwd })) {
+    throw new Error(
+      `[kumiko build] tailwindcss nicht auflösbar für ${entry} — peer dependency fehlt am Stylesheet-Ort.`,
+    );
+  }
   const tmpDir = await mkdtemp(join(tmpdir(), "kumiko-build-tw-"));
   const outPath = join(tmpDir, "styles.css");
-  // --minify: Tailwind-CLI default ist NICHT minified. Symmetric zum
-  // Bun.build minify-Flag — sonst ist das CSS in dist/ ~30 % größer als
-  // nötig (Whitespace, Kommentare, Newlines).
-  const proc = Bun.spawn(["bunx", "@tailwindcss/cli", "-i", entry, "-o", outPath, "--minify"], {
+  const bunPath = process.argv[0] ?? "bun";
+  const proc = Bun.spawn([bunPath, "run", cliPath, "-i", entry, "-o", outPath, "--minify"], {
+    cwd,
     stdout: "inherit",
     stderr: "inherit",
   });

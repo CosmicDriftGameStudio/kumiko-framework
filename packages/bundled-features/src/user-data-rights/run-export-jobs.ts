@@ -595,11 +595,8 @@ async function storageCleanupPass(args: {
   // → Trade-off zugunsten DSGVO entschieden. Wenn ein Operator forensik
   // braucht, muss er das vor dem Cleanup-Pass capturen (out-of-band).
   //
-  // **SQL-Filter:** WHERE-clause auf downloadStorageKey IS NOT NULL filtert
-  // bereits in der DB statt im Loop. Bei skalierender DB-Historie (10k+
-  // done-jobs nach 30 Tagen) reduziert das den Worker-Roundtrip drastisch.
-  //
-  // or() + isNotNull(): no bun-db helper covers this combination — raw SQL.
+  // **SQL-Filter:** status IN (done, failed) + downloadStorageKey IS NOT NULL
+  // via selectMany (db/queries/export-jobs.ts).
   const candidates = await selectExportJobsForStorageCleanup(
     db,
     EXPORT_JOB_STATUS.Done,

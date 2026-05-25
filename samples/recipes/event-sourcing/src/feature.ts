@@ -24,7 +24,12 @@ import {
   defineProjectionQueryHandler,
   typedPayload,
 } from "@app/define";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  fetchOne,
+  incrementCounter,
+  insertOne,
+  updateMany,
+} from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   buildEntityTable,
   createEventStoreExecutor,
@@ -33,7 +38,6 @@ import {
   text,
   uuid,
 } from "@cosmicdrift/kumiko-framework/db";
-import { sql } from "drizzle-orm";
 import { z } from "zod";
 
 // --- Reducer: shared by live + snapshot-aware query handlers ---
@@ -171,7 +175,7 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
     apply: {
       "showcase-invoice.created": async (event, tx) => {
         const p = event.payload as { customer: string; status: string };
-        await tx.insert(invoiceDetailTable).values({
+        await insertOne(tx, invoiceDetailTable, {
           invoiceId: event.aggregateId,
           tenantId: event.tenantId,
           customer: p.customer,
@@ -181,16 +185,20 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
       },
       [approved.name]: async (event, tx) => {
         const p = typedPayload(event, approved);
-        await tx
-          .update(invoiceDetailTable)
-          .set({ status: "approved", amountCents: p.amountCents })
-          .where(sql`${invoiceDetailTable["invoiceId"]} = ${event.aggregateId}`);
+        await updateMany(
+          tx,
+          invoiceDetailTable,
+          { status: "approved", amountCents: p.amountCents },
+          { invoiceId: event.aggregateId },
+        );
       },
       [paid.name]: async (event, tx) => {
-        await tx
-          .update(invoiceDetailTable)
-          .set({ status: "paid" })
-          .where(sql`${invoiceDetailTable["invoiceId"]} = ${event.aggregateId}`);
+        await updateMany(
+          tx,
+          invoiceDetailTable,
+          { status: "paid" },
+          { invoiceId: event.aggregateId },
+        );
       },
     },
   });
@@ -205,27 +213,23 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
         // Resolve the customer: pull it from the invoice-detail projection
         // that the inline projection just populated. Cross-projection reads
         // are fine inside apply() — we're at the read model layer.
-        const [detail] = await tx
-          .select()
-          .from(invoiceDetailTable)
-          .where(sql`${invoiceDetailTable["invoiceId"]} = ${event.aggregateId}`);
+        const detail = await fetchOne<{ customer: string }>(tx, invoiceDetailTable, {
+          invoiceId: event.aggregateId,
+        });
         if (!detail) return;
         const p = typedPayload(event, paid);
-        await tx
-          .insert(customerRevenueTable)
-          .values({
-            customer: detail["customer"],
+        await incrementCounter(
+          tx,
+          customerRevenueTable,
+          {
+            customer: detail.customer,
             tenantId: event.tenantId,
             paidInvoices: 1,
             totalCents: p.amountCents,
-          })
-          .onConflictDoUpdate({
-            target: customerRevenueTable["customer"],
-            set: {
-              paidInvoices: sql`${customerRevenueTable["paidInvoices"]} + 1`,
-              totalCents: sql`${customerRevenueTable["totalCents"]} + ${p.amountCents}`,
-            },
-          });
+          },
+          { paidInvoices: 1, totalCents: p.amountCents },
+          { conflictKeys: ["customer"] },
+        );
       },
     },
   });
@@ -279,7 +283,7 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
     "invoice:acknowledge",
     z.object({ id: z.uuid(), approverId: z.string() }),
     async (event, ctx) => {
-      const row = await ctx.db.fetchOne<{ displayName: string }>(approverDirectoryTable, {
+      const row = await fetchOne<{ displayName: string }>(ctx.db, approverDirectoryTable, {
         approverId: event.payload.approverId,
       });
       const approverDisplayName: string = row?.displayName ?? `unknown:${event.payload.approverId}`;

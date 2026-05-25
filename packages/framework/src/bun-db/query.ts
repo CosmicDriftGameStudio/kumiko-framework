@@ -107,6 +107,59 @@ export function asRawClient(db: unknown): RawClient {
   );
 }
 
+/**
+ * When handlers call `selectMany(ctx.db, …)` instead of `ctx.db.selectMany(…)`,
+ * unwrap via asRawClient would bypass TenantDb scoping. Duck-type TenantDb and
+ * delegate so reads/writes keep tenant filter + tenantId injection.
+ */
+type TenantDbDelegate = {
+  selectMany<TRow>(
+    table: TableLike,
+    where?: WhereObject,
+    options?: SelectOptions,
+  ): Promise<readonly TRow[]>;
+  fetchOne<TRow>(table: TableLike, where: WhereObject): Promise<TRow | undefined>;
+  insertOne<TRow>(table: TableLike, values: Record<string, unknown>): Promise<TRow | undefined>;
+  updateMany<TRow>(
+    table: TableLike,
+    set: Record<string, unknown>,
+    where: WhereObject,
+  ): Promise<readonly TRow[]>;
+  deleteMany(table: TableLike, where: WhereObject): Promise<void>;
+};
+
+function tenantDbDelegate(db: unknown): TenantDbDelegate | undefined {
+  if (typeof db !== "object" || db === null) return undefined;
+  const d = db as Record<string, unknown>;
+  const raw = d["raw"];
+  if (
+    raw &&
+    typeof (raw as Record<string, unknown>)["unsafe"] === "function" &&
+    typeof d["selectMany"] === "function" &&
+    typeof d["fetchOne"] === "function" &&
+    typeof d["insertOne"] === "function" &&
+    typeof d["updateMany"] === "function" &&
+    typeof d["deleteMany"] === "function" &&
+    "tenantId" in d
+  ) {
+    return db as TenantDbDelegate;
+  }
+  return undefined;
+}
+
+// Guard for helpers that do NOT delegate to TenantDb (upsert/increment/insertMany):
+// passing a TenantDb here would silently run unscoped against `.raw`, bypassing
+// the tenant filter. Fail loudly so the caller picks `ctx.db.<method>` (scoped)
+// or `ctx.db.raw` (explicit cross-tenant) on purpose.
+function assertNotTenantScoped(db: unknown, fnName: string): void {
+  if (tenantDbDelegate(db) !== undefined) {
+    throw new Error(
+      `${fnName}: received a tenant-scoped db but this helper does not apply the tenant filter. ` +
+        `Pass ctx.db.raw for an explicit cross-tenant op, or use a scoped TenantDb method.`,
+    );
+  }
+}
+
 export type AnyDb = BunDbRunner | unknown;
 
 // WhereValue: primitive für eq, array für IN, null für IS NULL, oder
@@ -154,6 +207,8 @@ export type TableInfo = {
   readonly columnOf: (field: string) => string;
   // pgType per column-name, for jsonb-cast detection
   readonly pgTypeOf: (column: string) => string | undefined;
+  // bigint/bigserial JS round-trip mode per DB column name
+  readonly bigintJsModeOf: (column: string) => "number" | "bigint" | undefined;
   // Inverse of columnOf — snake_case DB column → JS field-name (camelCase).
   // Used at the result boundary to rename row keys back to the API shape
   // that callers consume (`row.aggregateId` instead of `row.aggregate_id`).
@@ -174,8 +229,10 @@ export function extractTableInfo(table: TableLike): TableInfo {
     const colByField = new Map<string, string>();
     const fieldByCol = new Map<string, string>();
     const typeByCol = new Map<string, string>();
+    const bigintModeByCol = new Map<string, "number" | "bigint">();
     for (const c of meta.columns) {
       typeByCol.set(c.name, c.pgType);
+      if (c.bigintJsMode !== undefined) bigintModeByCol.set(c.name, c.bigintJsMode);
       // EntityTableMeta column names are snake_case. Map snake → snake AND
       // derive a camelCase JS field-name so result rows can be renamed back
       // to the API shape (`aggregate_id` → `aggregateId`).
@@ -188,6 +245,7 @@ export function extractTableInfo(table: TableLike): TableInfo {
       name: meta.tableName,
       columnOf: (field) => colByField.get(field) ?? toSnakeCase(field),
       pgTypeOf: (col) => typeByCol.get(col),
+      bigintJsModeOf: (col) => bigintModeByCol.get(col),
       fieldOf: (col) => fieldByCol.get(col) ?? snakeToCamel(col),
       hasColumn: (fieldOrColumn) => colByField.has(fieldOrColumn) || fieldByCol.has(fieldOrColumn),
     };
@@ -205,6 +263,17 @@ export function extractTableInfo(table: TableLike): TableInfo {
   const colByField = new Map<string, string>();
   const fieldByCol = new Map<string, string>();
   const typeByCol = new Map<string, string>();
+  const bigintModeByCol = new Map<string, "number" | "bigint">();
+  if (
+    table !== null &&
+    typeof table === "object" &&
+    "columns" in table &&
+    Array.isArray((table as EntityTableMeta).columns)
+  ) {
+    for (const c of (table as EntityTableMeta).columns) {
+      if (c.bigintJsMode !== undefined) bigintModeByCol.set(c.name, c.bigintJsMode);
+    }
+  }
   for (const [field, { name: colName, sqlType }] of cols) {
     colByField.set(field, colName);
     fieldByCol.set(colName, field);
@@ -214,6 +283,7 @@ export function extractTableInfo(table: TableLike): TableInfo {
     name,
     columnOf: (field) => colByField.get(field) ?? toSnakeCase(field),
     pgTypeOf: (col) => typeByCol.get(col),
+    bigintJsModeOf: (col) => bigintModeByCol.get(col),
     fieldOf: (col) => fieldByCol.get(col) ?? snakeToCamel(col),
     hasColumn: (fieldOrColumn) => colByField.has(fieldOrColumn) || fieldByCol.has(fieldOrColumn),
   };
@@ -239,6 +309,30 @@ function isTemporalInstant(v: unknown): boolean {
     v !== null &&
     typeof (v as { epochNanoseconds?: unknown }).epochNanoseconds === "bigint"
   );
+}
+
+// Postgres bigint → JS: safe integers become `number` (matches createBigIntField /
+// drizzle mode:"number"); values outside ±2^53 stay `bigint` (money cents, raw
+// unmanaged columns). Uses BigInt equality check so 9007199254740993n never
+// silently rounds to a safe integer.
+function coerceBigIntFromDriver(value: bigint | string): bigint | number {
+  let bi: bigint;
+  if (typeof value === "string") {
+    try {
+      bi = BigInt(value);
+    } catch {
+      return value as unknown as bigint;
+    }
+  } else {
+    bi = value;
+  }
+  const min = BigInt(Number.MIN_SAFE_INTEGER);
+  const max = BigInt(Number.MAX_SAFE_INTEGER);
+  if (bi >= min && bi <= max) {
+    const n = Number(bi);
+    if (BigInt(n) === bi) return n;
+  }
+  return bi;
 }
 
 function instantFromDriver(value: unknown): Temporal.Instant | null {
@@ -278,16 +372,30 @@ export function coerceRow<T extends Record<string, unknown>>(row: T, info: Table
       if (t !== null) coerced = t;
     } else if (pgType === "jsonb" && typeof value === "string") {
       coerced = parseJsonSafe(value, value);
-    } else if ((pgType === "bigint" || pgType === "bigserial") && typeof value === "string") {
-      // postgres-js returns BIGINT as string to avoid JS-Number precision
-      // loss past 2^53. Framework contract: bigint columns surface as
-      // JS `bigint`. Drizzle's bigint customType did this conversion
-      // invisibly; the native dialect rebuild needs it explicit.
-      try {
-        coerced = BigInt(value);
-      } catch {
-        // leave as string on parse error
+    } else if (
+      (pgType === "bigint" || pgType === "bigserial") &&
+      (typeof value === "string" || typeof value === "bigint")
+    ) {
+      const jsMode = info.bigintJsModeOf(key);
+      if (jsMode === "number") {
+        coerced = coerceBigIntFromDriver(value);
+      } else if (typeof value === "string") {
+        try {
+          coerced = BigInt(value);
+        } catch {
+          // leave as string on parse error
+        }
+      } else {
+        coerced = value;
       }
+    } else if (
+      (pgType === "integer" || pgType === "int4" || pgType === "smallint" || pgType === "int2") &&
+      (typeof value === "bigint" || typeof value === "string")
+    ) {
+      // Bun.SQL / some drivers return int4 as bigint or numeric string.
+      // Drizzle coerced to number for numberField columns — match that.
+      const n = typeof value === "bigint" ? Number(value) : Number(value);
+      if (!Number.isNaN(n)) coerced = n;
     }
     const fieldName = info.fieldOf(key);
     if (fieldName !== key) changed = true;
@@ -304,8 +412,8 @@ function coerceRows<T extends Record<string, unknown>>(
   return rows.map((r) => coerceRow(r, info));
 }
 
-// Helper für jsonb-Werte: Bun.sql kann arrays/objects nicht direkt als
-// jsonb binden — wir JSON.stringify + ::jsonb cast.
+// Helper für jsonb-Werte: structured values binden als JS object/array mit
+// ::jsonb cast. JSON.stringify vor dem cast würde JSON-string-scalars erzeugen.
 // Plus Temporal.Instant → ISO string coercion for timestamptz columns.
 // SqlExpression (sql`now()`, sql`gen_random_uuid()`) wird als kind:"literal"
 // returned — Caller embedded das inline statt einen $N-placeholder zu setzen.
@@ -321,13 +429,21 @@ function prepareValue(value: unknown, pgType: string | undefined): PreparedValue
   if (isSqlExpression(value)) {
     return { kind: "literal", literal: value.text };
   }
-  if (
-    pgType === "jsonb" &&
-    value !== null &&
-    typeof value === "object" &&
-    !isTemporalInstant(value)
-  ) {
-    return { kind: "param", sql: "::jsonb", bound: JSON.stringify(value) };
+  if (pgType === "jsonb" && value !== null) {
+    if (typeof value === "boolean") {
+      return { kind: "param", sql: "::text::jsonb", bound: JSON.stringify(value) };
+    }
+    if (typeof value === "object" && !isTemporalInstant(value)) {
+      // Plain objects: bind directly — JSON.stringify + ::jsonb stores a JSON string scalar.
+      if (!Array.isArray(value)) {
+        return { kind: "param", sql: "::jsonb", bound: value };
+      }
+      // All-boolean arrays are inferred as boolean[] by postgres-js; route via text::jsonb.
+      if (value.length > 0 && value.every((entry) => typeof entry === "boolean")) {
+        return { kind: "param", sql: "::text::jsonb", bound: JSON.stringify(value) };
+      }
+      return { kind: "param", sql: "::jsonb", bound: value };
+    }
   }
   if ((pgType === "timestamptz" || pgType === "timestamptz(3)") && isTemporalInstant(value)) {
     return { kind: "param", sql: "", bound: (value as Temporal.Instant).toString() };
@@ -365,6 +481,10 @@ function buildWhereClause(
         conditions.push(`${quoteIdent(col)} IN (${parts.join(", ")})`);
       }
     } else if (isWhereOperator(value)) {
+      if (value.ne === null && Object.keys(value).length === 1) {
+        conditions.push(`${quoteIdent(col)} IS NOT NULL`);
+        continue;
+      }
       const opMap: Record<string, string> = {
         gt: ">",
         gte: ">=",
@@ -422,6 +542,10 @@ export async function selectMany<TRow = any>(
   where?: WhereObject,
   options?: SelectOptions,
 ): Promise<readonly TRow[]> {
+  const scoped = tenantDbDelegate(db);
+  if (scoped) {
+    return scoped.selectMany<TRow>(table, where, options);
+  }
   const info = extractTableInfo(table);
   let sqlText = `SELECT * FROM ${quoteIdent(info.name)}`;
   let values: unknown[] = [];
@@ -440,6 +564,11 @@ export async function selectMany<TRow = any>(
     if (parts.length > 0) sqlText += ` ORDER BY ${parts.join(", ")}`;
   }
   if (options?.limit !== undefined) {
+    // Interpolated, not bound — guard against a non-integer slipping in via an
+    // `any`-typed call site and injecting SQL.
+    if (!Number.isInteger(options.limit) || options.limit < 0) {
+      throw new Error(`selectMany: limit must be a non-negative integer, got ${options.limit}`);
+    }
     sqlText += ` LIMIT ${options.limit}`;
   }
   const raw = (await asRawClient(db).unsafe(sqlText, values)) as readonly Record<string, unknown>[];
@@ -466,6 +595,7 @@ export async function insertMany<TRow = any>(
   rows: ReadonlyArray<Record<string, unknown>>,
 ): Promise<readonly TRow[]> {
   if (rows.length === 0) return [];
+  assertNotTenantScoped(db, "insertMany");
   const info = extractTableInfo(table);
   // Use the column-set from the first row; assume all rows share keys.
   const firstRow = rows[0];
@@ -502,6 +632,10 @@ export async function insertOne<TRow = any>(
   table: TableLike,
   values: Record<string, unknown>,
 ): Promise<TRow | undefined> {
+  const scoped = tenantDbDelegate(db);
+  if (scoped) {
+    return scoped.insertOne<TRow>(table, values);
+  }
   const info = extractTableInfo(table);
   const entries = Object.entries(values)
     .filter(([k]) => info.hasColumn(k))
@@ -537,6 +671,10 @@ export async function updateMany<TRow = any>(
   set: Record<string, unknown>,
   where: WhereObject,
 ): Promise<readonly TRow[]> {
+  const scoped = tenantDbDelegate(db);
+  if (scoped) {
+    return scoped.updateMany<TRow>(table, set, where);
+  }
   const info = extractTableInfo(table);
   const setEntries = Object.entries(set).map(([k, v]) => {
     const col = info.columnOf(k);
@@ -567,6 +705,10 @@ export async function updateMany<TRow = any>(
 }
 
 export async function deleteMany(db: AnyDb, table: TableLike, where: WhereObject): Promise<void> {
+  const scoped = tenantDbDelegate(db);
+  if (scoped) {
+    return scoped.deleteMany(table, where);
+  }
   const info = extractTableInfo(table);
   const w = buildWhereClause(info, where, 1);
   let sqlText = `DELETE FROM ${quoteIdent(info.name)}`;
@@ -675,6 +817,7 @@ export async function upsertOnConflict<TRow = any>(
   values: Record<string, unknown>,
   options: UpsertOnConflictOptions,
 ): Promise<TRow | undefined> {
+  assertNotTenantScoped(db, "upsertOnConflict");
   const info = extractTableInfo(table);
   const entries = insertEntries(info, values);
   const conflictCols = resolveConflictColumns(table, info, options.conflictKeys);
@@ -747,6 +890,7 @@ export async function incrementCounter<TRow = any>(
   increments: Record<string, number>,
   options: IncrementCounterOptions = {},
 ): Promise<TRow | undefined> {
+  assertNotTenantScoped(db, "incrementCounter");
   const info = extractTableInfo(table);
   const entries = insertEntries(info, values);
   const conflictCols = resolveConflictColumns(table, info, options.conflictKeys);

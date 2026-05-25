@@ -42,7 +42,7 @@ export const multiTenantShopFeature = defineFeature("mtshop", (r) => {
   r.queryHandler(
     "product:list",
     z.object({}),
-    async (_event, ctx) => ctx.db.select().from(productTable),
+    async (_event, ctx) => ctx.db.selectMany(productTable),
     { access: { roles: [...access.anonymous, "User", "Admin"] } },
   );
 

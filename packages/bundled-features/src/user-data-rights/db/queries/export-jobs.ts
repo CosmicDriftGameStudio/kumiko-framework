@@ -1,6 +1,7 @@
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { exportJobsTable } from "../../schema/export-job";
 
 export type ExportJobCleanupCandidate = {
   readonly id: string;
@@ -16,8 +17,8 @@ export async function selectExportJobsForStorageCleanup(
   doneStatus: string,
   failedStatus: string,
 ): Promise<readonly ExportJobCleanupCandidate[]> {
-  return asRawClient(db).unsafe<ExportJobCleanupCandidate>(
-    `SELECT id, version, status, requested_from_tenant_id AS "requestedFromTenantId", download_storage_key AS "downloadStorageKey", expires_at AS "expiresAt" FROM read_export_jobs WHERE status IN ($1, $2) AND download_storage_key IS NOT NULL`,
-    [doneStatus, failedStatus],
-  );
+  return selectMany<ExportJobCleanupCandidate>(db, exportJobsTable, {
+    status: { in: [doneStatus, failedStatus] },
+    downloadStorageKey: { ne: null },
+  });
 }

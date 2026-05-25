@@ -62,7 +62,7 @@ export const anonymousAccessFeature = defineFeature("shop", (r) => {
   r.queryHandler(
     "product:list",
     z.object({}),
-    async (_event, ctx) => ctx.db.select().from(productTable),
+    async (_event, ctx) => ctx.db.selectMany(productTable),
     { access: { roles: [...access.anonymous, "User", "Admin"] } },
   );
 
@@ -72,7 +72,7 @@ export const anonymousAccessFeature = defineFeature("shop", (r) => {
   r.queryHandler(
     "product:authenticated-only",
     z.object({}),
-    async (_event, ctx) => ctx.db.select().from(productTable),
+    async (_event, ctx) => ctx.db.selectMany(productTable),
     { access: { openToAll: true } },
   );
 

@@ -25,9 +25,11 @@ export async function createIndexIfNotExists(
   indexName: string,
   tableName: string,
   columnList: string,
+  whereSql?: string,
 ): Promise<void> {
+  const where = whereSql !== undefined ? ` WHERE ${whereSql}` : "";
   await asRawClient(db).unsafe(
-    `CREATE ${indexKind} IF NOT EXISTS ${quoteTableIdent(indexName)} ON ${quoteTableIdent(tableName)} (${columnList})`,
+    `CREATE ${indexKind} IF NOT EXISTS ${quoteTableIdent(indexName)} ON ${quoteTableIdent(tableName)} (${columnList})${where}`,
   );
 }
 

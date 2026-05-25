@@ -14,6 +14,9 @@ import {
   formatCheckWorkContext,
   resolveCheckWorkContext,
 } from "./_lib/check-work-context";
+import {
+  INTEGRATION_RUNNER,
+} from "./_lib/integration-test";
 
 // NODE_OPTIONS removed after bun cutover — no longer needed
 
@@ -106,8 +109,8 @@ const TSC = join(BIN_PATH, "tsc");
 const CHECK_APP_TSC = resolvePath(import.meta.dir, "..", "scripts", "check-app-tsc.ts");
 
 // Geteilte Liste der CPU-bound, kurzlaufenden Steps. `kumiko check` hängt
-// danach noch Unit + Integration Tests an; `kumiko check:fast` hängt nur
-// `vitest run --changed` an und skipt Integration komplett.
+// danach Unit-Tests (+ Integration lokal, nicht in CI) an; `kumiko check:fast`
+// hängt nur `bun test --changed` an und skipt Integration komplett.
 // Optional scope-down via env-var: `KUMIKO_CLI_SCOPE=kumiko-framework`
 // (or comma-separated list) limits Biome/TypeScript per-repo steps + the
 // Unit-Tests-loop to those repos. Used by the pre-push hook so "push
@@ -267,6 +270,22 @@ const UNIT_TEST_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: stri
   return steps;
 })();
 
+const INTEGRATION_TEST_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: string }> =
+  (() => {
+    const steps: Array<{ name: string; cmd: string }> = [];
+    if (!inScope("kumiko-framework")) return steps;
+
+    const absPath = repoAbsPath("kumiko-framework");
+    if (!existsSync(absPath)) return steps;
+    if (!existsSync(join(absPath, INTEGRATION_RUNNER))) return steps;
+
+    steps.push({
+      name: "Integration Tests (framework)",
+      cmd: `cd ${absPath} && bun ${INTEGRATION_RUNNER}`,
+    });
+    return steps;
+  })();
+
 const commands = {
   dev: {
     description: "Feuer frei! Docker Services hochfahren",
@@ -423,13 +442,11 @@ const commands = {
       const scope = Bun.argv[3];
       if (scope === "all") {
         console.log("Volle Breitseite — Unit + Integration...\n");
-        await $`bun vitest.integration.guard.js`;
         await $`bun test`;
-        await $`bun test --config vitest.integration.config.ts`;
+        await $`bun ${INTEGRATION_RUNNER}`;
       } else if (scope === "integration") {
         console.log("Integration Tests (Docker muss laufen)...\n");
-        await $`bun vitest.integration.guard.js`;
-        await $`bun test --config vitest.integration.config.ts`;
+        await $`bun ${INTEGRATION_RUNNER}`;
       } else if (scope === "e2e") {
         // E2E laufen opt-in (nicht Teil von `kumiko check`). Jedes
         // Package/Sample mit einer playwright.config.ts kriegt einen
@@ -507,14 +524,23 @@ const commands = {
       // check-Laufs, da soll Wall-Time zählen. Im Watch-Mode/IDE bleibt
       // der konservative Default aktiv.
       //
-      // Phase O.11: Integration-Tests aus dem Default-`check`-Run
-      // entfernt — sie brauchen DB/Redis/Meilisearch und gehören in
-      // einen separaten `check:integration`-Lauf bzw. CI-Job.
+      // Integration-Tests lokal in `check`, in CI skip (brauchen Docker-Stack).
       for (const step of UNIT_TEST_STEPS) {
         logBoth(`--- ${step.name} ---`, logPath);
         const code = await runWithTee(step.cmd, logPath);
         results.push({ name: step.name, ok: code === 0 });
         logBoth("", logPath);
+      }
+
+      if (process.env.CI === "true") {
+        logBoth("--- Integration Tests (framework) --- skipped (CI)", logPath);
+      } else {
+        for (const step of INTEGRATION_TEST_STEPS) {
+          logBoth(`--- ${step.name} ---`, logPath);
+          const code = await runWithTee(step.cmd, logPath);
+          results.push({ name: step.name, ok: code === 0 });
+          logBoth("", logPath);
+        }
       }
 
       const allGood = results.every((r) => r.ok);

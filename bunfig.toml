@@ -12,6 +12,7 @@ concurrency = 8
 # sie zu loaden und crash't weil Playwright eigene test()-Globals erwartet
 # (siehe "Playwright Test did not expect test() to be called here").
 pathIgnorePatterns = [
+  "**/*.integration.test.ts",
   "**/e2e/**",
   "**/*.spec.ts",
   "**/*.spec.tsx",

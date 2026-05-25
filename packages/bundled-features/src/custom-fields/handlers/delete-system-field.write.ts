@@ -38,7 +38,11 @@ export const deleteSystemFieldHandler: WriteHandlerDef = {
         aggregateId,
         aggregateType: "field-definition",
         type: customFieldsFeature.exports.fieldDefinitionDeletedEvent.name,
-        payload: { entityName: payload.entityName, fieldKey: payload.fieldKey },
+        payload: {
+          entityName: payload.entityName,
+          fieldKey: payload.fieldKey,
+          tenantId: SYSTEM_TENANT_ID,
+        },
       });
     }
 

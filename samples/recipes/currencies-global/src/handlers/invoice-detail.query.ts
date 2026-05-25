@@ -1,5 +1,4 @@
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { invoiceTable } from "../entities/invoice";
 
@@ -8,10 +7,7 @@ export const invoiceDetail = defineQueryHandler({
   schema: z.object({ id: z.uuid() }),
   access: { openToAll: true },
   handler: async (query, ctx) => {
-    const [row] = await ctx.db
-      .select()
-      .from(invoiceTable)
-      .where(eq(invoiceTable["id"], query.payload.id));
+    const [row] = await ctx.db.selectMany(invoiceTable, { id: query.payload.id });
     return (row as Record<string, unknown>) ?? null;
   },
 });

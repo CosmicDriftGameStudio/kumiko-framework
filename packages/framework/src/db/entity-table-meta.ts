@@ -51,6 +51,9 @@ export type ColumnMeta = {
   readonly defaultSql?: string;
   readonly primaryKey?: boolean;
   readonly identity?: boolean;
+  // bigint/bigserial only: JS round-trip mode. `number` = createBigIntField /
+  // drizzle mode:"number" (safe ≤2^53). `bigint` = money cents, raw unmanaged.
+  readonly bigintJsMode?: "number" | "bigint";
 };
 
 export type IndexMeta = {
@@ -199,6 +202,7 @@ function fieldToColumnMeta(
           name: snake,
           pgType: "bigint",
           notNull: field.required === true,
+          bigintJsMode: "number",
           ...(def !== undefined && { defaultSql: def }),
         },
       ];
@@ -211,7 +215,7 @@ function fieldToColumnMeta(
     case "money": {
       const cur = entity.defaultCurrency ?? "EUR";
       return [
-        { name: snake, pgType: "bigint", notNull: field.required === true },
+        { name: snake, pgType: "bigint", notNull: field.required === true, bigintJsMode: "bigint" },
         {
           name: `${snake}_currency`,
           pgType: "text",
@@ -329,23 +333,22 @@ export function buildEntityTableMeta(
     indexes.push({ name: `${tableName}_${snake}_idx`, columns: [snake] });
   }
 
-  // Explizit deklarierte indexes (EntityIndexDef). `def.where` ist heute
-  // ein drizzle SQL-AST — wir können daraus keinen zuverlässigen Raw-SQL-
-  // String rendern (queryChunks sind internal). Wenn ein where gesetzt
-  // ist, markieren wir den IndexMeta mit needsManualWhere=true; der DDL-
-  // Renderer emittiert das Statement dann als AUSKOMMENTIERT mit Warn-
-  // Hinweis. App-Author muss das im generierten SQL-File hand-editieren.
+  // Explizit deklarierte indexes (EntityIndexDef). `def.where` ist ein
+  // SqlExpression (`sql\`…\`` aus @cosmicdrift/kumiko-framework/db) —
+  // renderbar via `.text`. Unbekannte where-Shapes bleiben needsManualWhere.
   for (const def of (entity.indexes ?? []) as readonly EntityIndexDef[]) {
     const cols = def.columns.map(
       (fieldName) => fieldNameToSnake.get(fieldName) ?? toSnakeCase(fieldName),
     );
     const suffix = def.unique === true ? "unique" : "idx";
     const indexName = def.name ?? `${tableName}_${cols.join("_")}_${suffix}`;
+    const whereSql = sqlExpressionText(def.where);
     indexes.push({
       name: indexName,
       columns: cols,
       ...(def.unique === true && { unique: true }),
-      ...(def.where !== undefined && { needsManualWhere: true }),
+      ...(whereSql !== undefined && { whereSql }),
+      ...(def.where !== undefined && whereSql === undefined && { needsManualWhere: true }),
     });
   }
 
@@ -376,6 +379,18 @@ export type UnmanagedTableInput = {
   readonly indexes?: readonly IndexMeta[];
   readonly compositePrimaryKey?: CompositePrimaryKeyMeta;
 };
+
+function sqlExpressionText(where: unknown): string | undefined {
+  if (
+    typeof where === "object" &&
+    where !== null &&
+    (where as { kind?: unknown }).kind === "sql-expr" &&
+    typeof (where as { text?: unknown }).text === "string"
+  ) {
+    return (where as { text: string }).text;
+  }
+  return undefined;
+}
 
 export function defineUnmanagedTable(input: UnmanagedTableInput): EntityTableMeta {
   return {

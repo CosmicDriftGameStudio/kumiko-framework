@@ -3,7 +3,7 @@
 // kein Bun → undefined, Package nicht installiert → undefined.
 
 import { describe, expect, test } from "bun:test";
-import { resolveTailwindCli } from "../resolve-tailwind-cli";
+import { canResolveTailwindStylesheet, resolveTailwindCli } from "../resolve-tailwind-cli";
 
 describe("resolveTailwindCli", () => {
   test("ohne Bun-Resolver → undefined (silent skip)", () => {
@@ -45,5 +45,37 @@ describe("resolveTailwindCli", () => {
       cwd: "/some/working/dir",
     });
     expect(calls).toEqual([{ id: "@tailwindcss/cli/package.json", from: "/some/working/dir" }]);
+  });
+});
+
+describe("canResolveTailwindStylesheet", () => {
+  test("tailwindcss resolvable from entry dir → true", () => {
+    const out = canResolveTailwindStylesheet("/repo/packages/app/src/styles.css", {
+      bun: {
+        resolveSync: (id, from) => {
+          if (id === "tailwindcss" && from === "/repo/packages/app/src") {
+            return "/repo/node_modules/tailwindcss/index.css";
+          }
+          throw new Error("not found");
+        },
+      },
+      cwd: "/repo/packages/app",
+    });
+    expect(out).toBe(true);
+  });
+
+  test("tailwindcss not resolvable from entry dir → false", () => {
+    const out = canResolveTailwindStylesheet(
+      "/cache/@cosmicdrift/kumiko-renderer-web/src/styles.css",
+      {
+        bun: {
+          resolveSync: () => {
+            throw new Error("not found");
+          },
+        },
+        cwd: "/tmp/minimal-fixture",
+      },
+    );
+    expect(out).toBe(false);
   });
 });

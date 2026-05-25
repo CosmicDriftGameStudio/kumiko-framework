@@ -1,4 +1,3 @@
-import { insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { tenantChannel } from "@cosmicdrift/kumiko-framework/engine";
 import type { DeliveryChannel } from "../delivery";
 import { inAppMessagesTable } from "./tables";
@@ -15,8 +14,7 @@ export const inAppChannel: DeliveryChannel = {
     // address is the user-id string after the ES migration — keep it as-is.
     const userId = address;
 
-    const row = await insertOne<{ id: string }>(ctx.db, inAppMessagesTable, {
-      tenantId: ctx.tenantId,
+    const row = await ctx.db.insertOne<{ id: string }>(inAppMessagesTable, {
       userId,
       notificationType: message.notificationType,
       title: message.title,

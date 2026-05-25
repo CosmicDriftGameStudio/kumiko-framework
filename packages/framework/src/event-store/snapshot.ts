@@ -17,6 +17,7 @@ import { selectMany } from "../db/query";
 import { tableExists } from "../db/schema-inspection";
 import type { TenantId } from "../engine/types";
 import { unsafePushTables } from "../stack";
+import { stringifyJson } from "../utils/safe-json";
 import { isStreamArchived } from "./archive";
 import { loadEventsAfterVersion, type StoredEvent } from "./event-store";
 
@@ -107,7 +108,7 @@ export async function saveSnapshot(db: DbRunner, args: SaveSnapshotArgs): Promis
     tenantId: args.tenantId,
     aggregateType: args.aggregateType,
     version: args.version,
-    stateJson: JSON.stringify(args.state),
+    stateJson: stringifyJson(args.state),
   });
 }
 

@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
+import { INTEGRATION_RUNNER } from "../_lib/integration-test";
 import { runStreaming } from "./_spawn";
 import { defineCommand } from "./registry";
 
@@ -8,7 +9,7 @@ export const testCommand = defineCommand({
   id: "test",
   label: "test",
   description: "Run tests (test | integration | e2e | all | <path>)",
-  help: "Vitest runner with scope shortcuts:\n  test         Unit tests\n  integration  vitest.integration.config.ts (docker required)\n  e2e          Playwright per package/sample with playwright.config.ts\n  all          Unit + integration\n  <path>       Vitest with a path filter",
+  help: "Bun test runner with scope shortcuts:\n  test         Unit tests (integration excluded via bunfig.toml)\n  integration  scripts/run-integration-tests.ts (docker required)\n  e2e          Playwright per package/sample with playwright.config.ts\n  all          Unit + integration\n  <path>       bun test with a path filter",
   category: "quality",
   roles: ["maintainer", "app-dev"],
   run: async (ctx) => {
@@ -16,18 +17,14 @@ export const testCommand = defineCommand({
     if (scope === "all") {
       ctx.out.log("Full broadside — unit + integration...");
       ctx.out.log("");
-      const guard = await runStreaming("node", ["vitest.integration.guard.js"], ctx.out, { cwd: ctx.cwd });
-      if (guard !== 0) return guard;
       const unit = await runStreaming("bun", ["test"], ctx.out, { cwd: ctx.cwd });
       if (unit !== 0) return unit;
-      return await runStreaming("bun", ["test", "packages/**/*.integration.test.ts"], ctx.out, { cwd: ctx.cwd });
+      return await runStreaming("bun", [INTEGRATION_RUNNER], ctx.out, { cwd: ctx.cwd });
     }
     if (scope === "integration") {
       ctx.out.log("Integration tests (docker must be running)...");
       ctx.out.log("");
-      const guard = await runStreaming("node", ["vitest.integration.guard.js"], ctx.out, { cwd: ctx.cwd });
-      if (guard !== 0) return guard;
-      return await runStreaming("bun", ["test", "packages/**/*.integration.test.ts"], ctx.out, { cwd: ctx.cwd });
+      return await runStreaming("bun", [INTEGRATION_RUNNER], ctx.out, { cwd: ctx.cwd });
     }
     if (scope === "e2e") {
       const targets: Array<{ root: string; name: string }> = [];

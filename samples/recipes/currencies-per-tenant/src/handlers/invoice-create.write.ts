@@ -45,18 +45,15 @@ export const invoiceCreate = defineWriteHandler({
       }
     }
 
-    const [row] = await ctx.db
-      .insert(invoiceTable)
-      .values({
-        title,
-        amount,
-        amountCurrency,
-        shippingCost: shippingCost ?? null,
-        ...(shippingCostCurrency !== undefined && { shippingCostCurrency }),
-        insertedById: event.user.id,
-        insertedAt: Temporal.Now.instant(),
-      })
-      .returning();
+    const row = await ctx.db.insertOne(invoiceTable, {
+      title,
+      amount,
+      amountCurrency,
+      shippingCost: shippingCost ?? null,
+      ...(shippingCostCurrency !== undefined && { shippingCostCurrency }),
+      insertedById: event.user.id,
+      insertedAt: Temporal.Now.instant(),
+    });
 
     const data = row as Record<string, unknown>;
     return {

@@ -1,12 +1,15 @@
 import {
   createJsonbField,
   type FeatureRegistrar,
+  isSystemTenant,
   type JsonbFieldDef,
+  type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { CUSTOM_FIELDS_EXTENSION } from "./constants";
 import {
   clearCustomFieldKey,
-  removeCustomFieldKeyFromAllRows,
+  removeCustomFieldKeyForTenant,
+  removeCustomFieldKeyFromAllTenants,
   setCustomFieldValue,
 } from "./db/queries/projection";
 
@@ -109,7 +112,7 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
           tx,
           tableName,
           payload.fieldKey,
-          JSON.stringify(payload.value),
+          payload.value,
           event.aggregateId,
         );
       },
@@ -127,14 +130,29 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
         // fieldDefinition.deleted fires nur einmal pro fieldDef-delete
         // (NICHT per-entity). Wir entfernen den key aus ALLEN rows der host-
         // entity falls die deleted-fieldDef für diese entity galt.
-        const payload = event.payload as { entityName: string; fieldKey: string }; // @cast-boundary engine-payload
+        const payload = event.payload as {
+          entityName: string;
+          fieldKey: string;
+          tenantId?: TenantId;
+        }; // @cast-boundary engine-payload
         // skip: fieldDefinition.deleted feuert für ALLE fieldDefs cross-entity;
         // nur wenn die deleted-fieldDef diese host-entity betraf, cleanen wir
         // ihre Rows.
         if (payload.entityName !== entityName) return;
 
         const tableName = getTableName(entityTable);
-        await removeCustomFieldKeyFromAllRows(tx, tableName, payload.fieldKey);
+        // Scope cleanup to the deleted definition's owning tenant. System-scope
+        // definitions apply to every tenant → cascade across all rows; tenant-
+        // scope deletions must only touch that tenant's rows, else deleting one
+        // tenant's field strips the same kebab key from every tenant (data loss).
+        // Fallback to the event's stream tenantId for events appended before the
+        // payload carried tenantId.
+        const defTenantId = payload.tenantId ?? event.tenantId;
+        if (isSystemTenant(defTenantId)) {
+          await removeCustomFieldKeyFromAllTenants(tx, tableName, payload.fieldKey);
+        } else {
+          await removeCustomFieldKeyForTenant(tx, tableName, payload.fieldKey, defTenantId);
+        }
       },
     },
   });

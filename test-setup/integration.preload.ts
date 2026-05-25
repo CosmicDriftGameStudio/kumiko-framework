@@ -1,6 +1,7 @@
-// Integration-test preload — sets default env vars for docker-compose services
-// started via `kumiko dev`. Tests fail loudly when a service is unreachable.
+// Integration-test preload — env defaults for docker-compose services started
+// via `kumiko dev`. Tests fail loudly when a service is unreachable.
 
+import "./app-define-resolver";
 import { ensureTemporalPolyfill } from "../packages/framework/src/time/polyfill";
 await ensureTemporalPolyfill();
 

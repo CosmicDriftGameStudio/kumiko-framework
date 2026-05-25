@@ -1,0 +1,17 @@
+[install]
+linker = "hoisted"
+
+[install.scopes]
+"@cosmicdriftgamestudio" = { url = "https://npm.pkg.github.com", token = "$GITHUB_TOKEN" }
+
+[test]
+preload = ["./test-setup/integration.preload.ts"]
+timeout = 15000
+concurrency = 1
+
+pathIgnorePatterns = [
+  "**/e2e/**",
+  "**/*.spec.ts",
+  "**/*.spec.tsx",
+  "**/dist/**",
+]

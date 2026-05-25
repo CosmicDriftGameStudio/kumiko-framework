@@ -22,11 +22,11 @@ type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 type ExportJobRow = {
   readonly id: string;
   readonly status: string;
-  readonly requested_at: Instant;
-  readonly completed_at: Instant | null;
-  readonly expires_at: Instant | null;
-  readonly error_message: string | null;
-  readonly bytes_written: number | null;
+  readonly requestedAt: Instant;
+  readonly completedAt: Instant | null;
+  readonly expiresAt: Instant | null;
+  readonly errorMessage: string | null;
+  readonly bytesWritten: number | null;
 };
 
 export const exportStatusQuery = defineQueryHandler({
@@ -49,13 +49,13 @@ export const exportStatusQuery = defineQueryHandler({
     return {
       hasJob: true as const,
       job: {
-        id: latest["id"],
-        status: latest["status"],
-        requestedAt: latest["requested_at"].toString(),
-        completedAt: latest["completed_at"]?.toString() ?? null,
-        expiresAt: latest["expires_at"]?.toString() ?? null,
-        errorMessage: latest["error_message"],
-        bytesWritten: latest["bytes_written"],
+        id: latest.id,
+        status: latest.status,
+        requestedAt: latest.requestedAt.toString(),
+        completedAt: latest.completedAt?.toString() ?? null,
+        expiresAt: latest.expiresAt?.toString() ?? null,
+        errorMessage: latest.errorMessage,
+        bytesWritten: latest.bytesWritten,
       },
     };
   },

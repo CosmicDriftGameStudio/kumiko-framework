@@ -153,7 +153,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
   }
 
   function buildChannelContext(tenantId: TenantId): ChannelContext {
-    return { db, registry, sseBroker, tenantId };
+    return { db: createTenantDb(db, tenantId), registry, sseBroker, tenantId };
   }
 
   async function logDelivery(entry: DeliveryLogEntry): Promise<void> {

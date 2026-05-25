@@ -30,7 +30,7 @@ import {
   TestUsers,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { injectSchema } from "./inject-schema";
-import { resolveTailwindCli } from "./resolve-tailwind-cli";
+import { canResolveTailwindStylesheet, resolveTailwindCli } from "./resolve-tailwind-cli";
 import { buildBunServeOptions } from "./run-prod-app";
 import { tryHonoFirst } from "./try-hono-first";
 
@@ -362,7 +362,13 @@ export function classifyChange(filename: string): "restart" | "hot-reload" | "ig
   if (!filename.endsWith(".ts") && !filename.endsWith(".tsx")) return "ignore";
   if (filename.includes("__tests__")) return "ignore";
   if (filename.endsWith(".test.ts") || filename.endsWith(".test.tsx")) return "ignore";
-  if (filename.endsWith(".integration.ts") || filename.endsWith(".e2e.ts")) return "ignore";
+  if (
+    filename.endsWith(".integration.ts") ||
+    filename.endsWith(".integration.test.ts") ||
+    filename.endsWith(".e2e.ts")
+  ) {
+    return "ignore";
+  }
   // Plattformpfad-agnostisch: prüfen auf POSIX und Windows-Trenner.
   // Wir matchen sowohl `<sep><dir><sep>` als auch trailing-`<sep><dir>`
   // (für Watcher-Filenames die als relativer Pfad ankommen).
@@ -465,9 +471,14 @@ export function resolveStylesheet(options: CreateKumikoServerOptions): string | 
     return undefined;
   }
   try {
-    return (
+    const resolved = (
       globalThis as { Bun: { resolveSync: (id: string, from: string) => string } }
     ).Bun.resolveSync("@cosmicdrift/kumiko-renderer-web/styles.css", process.cwd());
+    const bun = (globalThis as { Bun: { resolveSync: (id: string, from: string) => string } }).Bun;
+    if (!canResolveTailwindStylesheet(resolved, { bun, cwd: process.cwd() })) {
+      return undefined;
+    }
+    return resolved;
   } catch (err) {
     logError(
       "[kumiko-server] couldn't auto-resolve @cosmicdrift/kumiko-renderer-web/styles.css — " +

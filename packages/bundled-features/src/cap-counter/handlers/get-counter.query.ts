@@ -1,4 +1,3 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEntityExecutor, type QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { capCounterEntity } from "../entity";
@@ -25,8 +24,7 @@ export const getCounterQuery: QueryHandlerDef = {
     const { capName, periodStartIso } = query.payload as z.infer<typeof getCounterSchema>; // @cast-boundary engine-payload
 
     // ctx.db is tenant-scoped; filter by capName + periodStart explicitly.
-    const rows = await selectMany(
-      ctx.db,
+    const rows = await ctx.db.selectMany(
       table,
       { capName, periodStart: periodStartIso },
       { limit: 1 },
