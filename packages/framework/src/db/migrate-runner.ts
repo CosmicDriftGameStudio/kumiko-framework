@@ -111,7 +111,9 @@ async function executeRaw(db: DbRunner, sqlText: string): Promise<void> {
   await rawClient(db).unsafe(sqlText);
 }
 
-async function fetchAppliedMigrations(db: DbConnection): Promise<readonly AppliedMigration[]> {
+export async function fetchAppliedMigrations(
+  db: DbConnection,
+): Promise<readonly AppliedMigration[]> {
   const result = await rawClient(db).unsafe(
     `SELECT id, checksum FROM "_kumiko_migrations" ORDER BY id`,
   );
@@ -203,4 +205,36 @@ export async function runMigrations(
 export async function runMigrationsFromDir(db: DbConnection, dir: string): Promise<ApplyResult> {
   const migrations = loadMigrationsFromDir(dir);
   return runMigrations(db, migrations);
+}
+
+export type BaselineResult = {
+  readonly marked: readonly string[];
+  readonly alreadyTracked: readonly string[];
+};
+
+// Marks migrations as applied in `_kumiko_migrations` WITHOUT executing their
+// SQL. For adopting an existing DB whose tables already exist — e.g. the
+// cutover from the legacy drizzle-kit system, where re-running 0001_init would
+// hit CREATE-TABLE conflicts. Idempotent: already-tracked ids are left as-is.
+export async function baselineMigrations(
+  db: DbConnection,
+  migrations: readonly Migration[],
+): Promise<BaselineResult> {
+  await executeRaw(db, MIGRATIONS_TABLE_DDL);
+  const applied = new Set((await fetchAppliedMigrations(db)).map((a) => a.id));
+  const marked: string[] = [];
+  const alreadyTracked: string[] = [];
+  const client = rawClient(db);
+  for (const m of migrations) {
+    if (applied.has(m.id)) {
+      alreadyTracked.push(m.id);
+      continue;
+    }
+    await client.unsafe(
+      `INSERT INTO "_kumiko_migrations" ("id", "checksum") VALUES ($1, $2) ON CONFLICT ("id") DO NOTHING`,
+      [m.id, m.checksum],
+    );
+    marked.push(m.id);
+  }
+  return { marked, alreadyTracked };
 }
