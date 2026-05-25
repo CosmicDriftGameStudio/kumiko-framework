@@ -21,8 +21,8 @@ set -eu
 PORT="${PORT:-3000}"
 APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
-echo "[smoke] applying drizzle migrations…"
-(cd "$APP_DIR" && bunx drizzle-kit migrate)
+echo "[smoke] applying migrations…"
+(cd "$APP_DIR" && bun run schema/generate.ts)
 
 echo "[smoke] spawning bun bin/main.ts on :${PORT}…"
 (cd "$APP_DIR" && PORT="$PORT" bun bin/main.ts) &
