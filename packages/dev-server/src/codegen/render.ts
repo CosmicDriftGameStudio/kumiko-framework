@@ -22,8 +22,8 @@
 // actual change, so mtime doesn't tick and the TS language server
 // doesn't reload every 100ms.
 
-import type { ScannedEvent } from "./scan-events";
 import { relative } from "node:path";
+import type { ScannedEvent } from "./scan-events";
 import { rewriteImportPath } from "./scan-events";
 
 const HEADER = [

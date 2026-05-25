@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { renderDefineFile, renderInlineSchemasFile, renderTypesAugmentation } from "../render";
 import type { ScannedEvent } from "../scan-events";
 
@@ -28,7 +28,7 @@ describe("renderInlineSchemasFile", () => {
         qualifiedName: "inventory:event:product-archived",
         schemaSource: {
           kind: "inline",
-          schemaSource: 'z.object({ reason: z.string() })',
+          schemaSource: "z.object({ reason: z.string() })",
           generatedConstName: "_kg_inventory__productArchived",
         },
         featureFilePath: featurePath,
