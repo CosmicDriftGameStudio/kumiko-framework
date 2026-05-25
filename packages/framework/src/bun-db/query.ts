@@ -146,6 +146,19 @@ function tenantDbDelegate(db: unknown): TenantDbDelegate | undefined {
   return undefined;
 }
 
+// Guard for helpers that do NOT delegate to TenantDb (upsert/increment/insertMany):
+// passing a TenantDb here would silently run unscoped against `.raw`, bypassing
+// the tenant filter. Fail loudly so the caller picks `ctx.db.<method>` (scoped)
+// or `ctx.db.raw` (explicit cross-tenant) on purpose.
+function assertNotTenantScoped(db: unknown, fnName: string): void {
+  if (tenantDbDelegate(db) !== undefined) {
+    throw new Error(
+      `${fnName}: received a tenant-scoped db but this helper does not apply the tenant filter. ` +
+        `Pass ctx.db.raw for an explicit cross-tenant op, or use a scoped TenantDb method.`,
+    );
+  }
+}
+
 export type AnyDb = BunDbRunner | unknown;
 
 // WhereValue: primitive für eq, array für IN, null für IS NULL, oder
@@ -554,6 +567,11 @@ export async function selectMany<TRow = any>(
     if (parts.length > 0) sqlText += ` ORDER BY ${parts.join(", ")}`;
   }
   if (options?.limit !== undefined) {
+    // Interpolated, not bound — guard against a non-integer slipping in via an
+    // `any`-typed call site and injecting SQL.
+    if (!Number.isInteger(options.limit) || options.limit < 0) {
+      throw new Error(`selectMany: limit must be a non-negative integer, got ${options.limit}`);
+    }
     sqlText += ` LIMIT ${options.limit}`;
   }
   const raw = (await asRawClient(db).unsafe(sqlText, values)) as readonly Record<string, unknown>[];
@@ -580,6 +598,7 @@ export async function insertMany<TRow = any>(
   rows: ReadonlyArray<Record<string, unknown>>,
 ): Promise<readonly TRow[]> {
   if (rows.length === 0) return [];
+  assertNotTenantScoped(db, "insertMany");
   const info = extractTableInfo(table);
   // Use the column-set from the first row; assume all rows share keys.
   const firstRow = rows[0];
@@ -801,6 +820,7 @@ export async function upsertOnConflict<TRow = any>(
   values: Record<string, unknown>,
   options: UpsertOnConflictOptions,
 ): Promise<TRow | undefined> {
+  assertNotTenantScoped(db, "upsertOnConflict");
   const info = extractTableInfo(table);
   const entries = insertEntries(info, values);
   const conflictCols = resolveConflictColumns(table, info, options.conflictKeys);
@@ -873,6 +893,7 @@ export async function incrementCounter<TRow = any>(
   increments: Record<string, number>,
   options: IncrementCounterOptions = {},
 ): Promise<TRow | undefined> {
+  assertNotTenantScoped(db, "incrementCounter");
   const info = extractTableInfo(table);
   const entries = insertEntries(info, values);
   const conflictCols = resolveConflictColumns(table, info, options.conflictKeys);
