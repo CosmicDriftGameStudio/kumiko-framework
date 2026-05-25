@@ -434,6 +434,10 @@ function buildWhereClause(
         conditions.push(`${quoteIdent(col)} IN (${parts.join(", ")})`);
       }
     } else if (isWhereOperator(value)) {
+      if (value.ne === null && Object.keys(value).length === 1) {
+        conditions.push(`${quoteIdent(col)} IS NOT NULL`);
+        continue;
+      }
       const opMap: Record<string, string> = {
         gt: ">",
         gte: ">=",

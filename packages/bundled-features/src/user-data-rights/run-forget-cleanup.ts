@@ -112,7 +112,6 @@ export async function runForgetCleanup(
   const { db, registry, now, sendDeletionExecutedEmail } = args;
 
   // Step 1: Find users with expired grace period.
-  // lte with Instant: no bun-db operator covers this — raw SQL.
   const dueUsers = await selectUsersDueForForgetCleanup(
     db,
     USER_STATUS.DeletionRequested,

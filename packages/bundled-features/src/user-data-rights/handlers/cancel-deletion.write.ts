@@ -23,7 +23,7 @@ export const cancelDeletionWrite = defineWriteHandler({
     // ctx.db.raw (kein TenantDb-Wrapper) weil User-Entity tenant-agnostisch
     // ist — siehe request-deletion.write.ts fuer die Begruendung. Cancel
     // muss aus jedem Tenant-Mode den User finden + zuruecksetzen koennen.
-    const row = await fetchOne<{ status: string; grace_period_end: Date | null }>(
+    const row = await fetchOne<{ status: string; gracePeriodEnd: Temporal.Instant | null }>(
       ctx.db.raw,
       userTable,
       { id: event.user.id },
@@ -37,26 +37,21 @@ export const cancelDeletionWrite = defineWriteHandler({
       );
     }
 
-    if (row["status"] !== USER_STATUS.DeletionRequested) {
+    if (row.status !== USER_STATUS.DeletionRequested) {
       return writeFailure(
         new UnprocessableError("no_pending_deletion", {
           details: {
             reason: "no_pending_deletion",
-            currentStatus: row["status"],
+            currentStatus: row.status,
           },
         }),
       );
     }
 
-    // inGrace computed JS-side: compare grace_period_end (Temporal.Instant
-    // from bun-db boundary) against current server clock.
-    const gracePeriodEnd = row["grace_period_end"];
+    const gracePeriodEnd = row.gracePeriodEnd;
     const inGrace =
       gracePeriodEnd != null &&
-      Temporal.Instant.compare(
-        gracePeriodEnd as unknown as Temporal.Instant,
-        Temporal.Now.instant(),
-      ) > 0;
+      Temporal.Instant.compare(gracePeriodEnd, Temporal.Now.instant()) > 0;
 
     if (!inGrace) {
       return writeFailure(

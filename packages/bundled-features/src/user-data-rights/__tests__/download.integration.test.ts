@@ -159,7 +159,7 @@ beforeEach(async () => {
   await asRawClient(stack.db).unsafe(`DELETE FROM kumiko_events`);
   await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_compliance_profiles`);
   await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_memberships`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM $1`, [configValuesTable]);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${configValuesTable.tableName}"`);
   providerPerTenant = new Map();
 
   // Setup file-foundation provider="inmemory" pro Tenant.
