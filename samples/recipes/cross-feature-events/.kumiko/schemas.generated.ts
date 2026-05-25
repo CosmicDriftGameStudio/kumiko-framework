@@ -12,5 +12,5 @@
 
 import { z } from "zod";
 
-// pubsub-orders:event:order-placed — from /Users/marc/code/cosmicdriftgamestudio/kumiko-framework/samples/recipes/cross-feature-events/src/feature.ts:71
+// pubsub-orders:event:order-placed — from /Users/marc/code/cosmicdriftgamestudio/kumiko-framework-int-rename/samples/recipes/cross-feature-events/src/feature.ts:71
 export const _kg_pubsubOrders__orderPlaced = z.object({ id: z.string(), customer: z.string(), product: z.string() });

@@ -7,7 +7,6 @@ import { Glob } from "bun";
 import {
   INTEGRATION_BUNFIG,
   INTEGRATION_GUARD,
-  isIntegrationExcluded,
   parseBunTestRunOutput,
   type IntegrationDiscovery,
 } from "../bin/_lib/integration-test";
@@ -28,25 +27,17 @@ function unitTestIgnorePatterns(dir: string): string[] {
 
 async function discoverIntegrationTargets(): Promise<IntegrationDiscovery> {
   const includedFiles: string[] = [];
-  const excludedFiles: Array<{ file: string; prefix: string }> = [];
   const dirSet = new Set<string>();
 
   for await (const file of new Glob("{packages,samples}/**/*.integration.test.ts").scan(".")) {
-    const prefix = isIntegrationExcluded(file);
-    if (prefix) {
-      excludedFiles.push({ file, prefix });
-      continue;
-    }
     includedFiles.push(file);
     dirSet.add(dirname(file));
   }
 
   includedFiles.sort();
-  excludedFiles.sort((a, b) => a.file.localeCompare(b.file));
 
   return {
     includedFiles,
-    excludedFiles,
     includedDirs: [...dirSet].sort(),
   };
 }
@@ -80,13 +71,7 @@ function printIntegrationSummary(
   const dirsOk = ran.length === expectedDirs && skipped.length === 0;
 
   console.log("\n=== Integration summary ===");
-  console.log(
-    `  Files: ${totals.files}/${expectedFiles} executed` +
-      (filesOk ? "" : "  ← MISMATCH") +
-      (discovery.excludedFiles.length > 0
-        ? ` (${discovery.excludedFiles.length} excluded by policy)`
-        : ""),
-  );
+  console.log(`  Files: ${totals.files}/${expectedFiles} executed` + (filesOk ? "" : "  ← MISMATCH"));
   console.log(
     `  Dirs:  ${ran.length}/${expectedDirs} executed` +
       (dirsOk ? "" : ` (${skipped.length} skipped)`),
@@ -94,13 +79,6 @@ function printIntegrationSummary(
   console.log(
     `  Tests: ${totals.pass} pass, ${totals.fail} fail (${totals.tests} total)`,
   );
-
-  if (discovery.excludedFiles.length > 0) {
-    console.log("\n  Excluded (run from recipe dir):");
-    for (const { file, prefix } of discovery.excludedFiles) {
-      console.log(`    ${file}  [${prefix}]`);
-    }
-  }
 
   if (!filesOk) {
     console.error(`\n  Expected ${expectedFiles} integration files, bun ran ${totals.files}.`);

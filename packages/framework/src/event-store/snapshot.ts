@@ -1,6 +1,5 @@
 // sql now comes from native dialect
 
-import { stringifyJson } from "../utils/safe-json";
 import type { DbConnection, DbRunner } from "../db/connection";
 import {
   index,
@@ -18,6 +17,7 @@ import { selectMany } from "../db/query";
 import { tableExists } from "../db/schema-inspection";
 import type { TenantId } from "../engine/types";
 import { unsafePushTables } from "../stack";
+import { stringifyJson } from "../utils/safe-json";
 import { isStreamArchived } from "./archive";
 import { loadEventsAfterVersion, type StoredEvent } from "./event-store";
 

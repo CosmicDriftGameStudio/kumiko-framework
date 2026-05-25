@@ -118,10 +118,7 @@ type TenantDbDelegate = {
     options?: SelectOptions,
   ): Promise<readonly TRow[]>;
   fetchOne<TRow>(table: TableLike, where: WhereObject): Promise<TRow | undefined>;
-  insertOne<TRow>(
-    table: TableLike,
-    values: Record<string, unknown>,
-  ): Promise<TRow | undefined>;
+  insertOne<TRow>(table: TableLike, values: Record<string, unknown>): Promise<TRow | undefined>;
   updateMany<TRow>(
     table: TableLike,
     set: Record<string, unknown>,
@@ -382,10 +379,7 @@ export function coerceRow<T extends Record<string, unknown>>(row: T, info: Table
         coerced = value;
       }
     } else if (
-      (pgType === "integer" ||
-        pgType === "int4" ||
-        pgType === "smallint" ||
-        pgType === "int2") &&
+      (pgType === "integer" || pgType === "int4" || pgType === "smallint" || pgType === "int2") &&
       (typeof value === "bigint" || typeof value === "string")
     ) {
       // Bun.SQL / some drivers return int4 as bigint or numeric string.

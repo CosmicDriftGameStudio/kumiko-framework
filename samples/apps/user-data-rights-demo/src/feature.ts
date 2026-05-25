@@ -25,8 +25,13 @@
 //   3. todoDeleteHook DELETEt alle Rows mit author_id = userId
 //   4. user wird anonymisiert (display_name="(deleted)", email=null)
 
-import { deleteMany, insertOne, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/db";
-import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
+import {
+  buildEntityTable,
+  deleteMany,
+  insertOne,
+  selectMany,
+  updateMany,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,

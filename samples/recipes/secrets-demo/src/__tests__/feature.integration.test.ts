@@ -22,6 +22,7 @@ import {
   TENANT_SECRET_READ_EVENT,
   tenantSecretsTable,
 } from "@cosmicdrift/kumiko-bundled-features/secrets";
+import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineFeature, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
@@ -39,7 +40,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/testing";
 import { z } from "zod";
 import { createBillingFeature, STRIPE_API_KEY } from "../feature";
-import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // Stable KEK bytes across provider rebuilds — mimics ops flipping env vars
 // across a redeploy without rotating the actual key material.
@@ -135,7 +135,10 @@ describe("1. at-rest representation", () => {
       tenantAdmin,
     );
 
-    const [row] = await selectMany(stack.db, tenantSecretsTable, { tenantId: tenantAdmin.tenantId, key: STRIPE_API_KEY.name });
+    const [row] = await selectMany(stack.db, tenantSecretsTable, {
+      tenantId: tenantAdmin.tenantId,
+      key: STRIPE_API_KEY.name,
+    });
     if (!row) throw new Error("row missing");
 
     const env = row.envelope as StoredEnvelope;
@@ -164,7 +167,10 @@ describe("3. feature code decrypts via audited path", () => {
     // Post-ES: read-audit rides on the events-table as tenantSecretRead
     // domain-events (one per get() call, fresh aggregate-id each). Filter
     // by tenantId so parallel tests don't skew the count.
-    const before = await selectMany(stack.db, eventsTable, { tenantId: tenantAdmin.tenantId, type: TENANT_SECRET_READ_EVENT });
+    const before = await selectMany(stack.db, eventsTable, {
+      tenantId: tenantAdmin.tenantId,
+      type: TENANT_SECRET_READ_EVENT,
+    });
 
     const result = await stack.http.writeOk<{
       chargeId: string;
@@ -176,7 +182,10 @@ describe("3. feature code decrypts via audited path", () => {
     expect(result.chargeId).toContain("cust_42");
     expect(JSON.stringify(result)).not.toContain("sk_test_SuperSecretLivePlatz12345");
 
-    const after = await selectMany(stack.db, eventsTable, { tenantId: tenantAdmin.tenantId, type: TENANT_SECRET_READ_EVENT });
+    const after = await selectMany(stack.db, eventsTable, {
+      tenantId: tenantAdmin.tenantId,
+      type: TENANT_SECRET_READ_EVENT,
+    });
     expect(after.length).toBe(before.length + 1);
 
     const newest = after[after.length - 1];

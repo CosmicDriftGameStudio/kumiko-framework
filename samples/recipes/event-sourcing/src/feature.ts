@@ -24,7 +24,12 @@ import {
   defineProjectionQueryHandler,
   typedPayload,
 } from "@app/define";
-import { fetchOne, incrementCounter, insertOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  fetchOne,
+  incrementCounter,
+  insertOne,
+  updateMany,
+} from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   buildEntityTable,
   createEventStoreExecutor,
@@ -33,7 +38,6 @@ import {
   text,
   uuid,
 } from "@cosmicdrift/kumiko-framework/db";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { z } from "zod";
 
 // --- Reducer: shared by live + snapshot-aware query handlers ---
@@ -189,7 +193,12 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
         );
       },
       [paid.name]: async (event, tx) => {
-        await updateMany(tx, invoiceDetailTable, { status: "paid" }, { invoiceId: event.aggregateId });
+        await updateMany(
+          tx,
+          invoiceDetailTable,
+          { status: "paid" },
+          { invoiceId: event.aggregateId },
+        );
       },
     },
   });

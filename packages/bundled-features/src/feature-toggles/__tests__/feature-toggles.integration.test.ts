@@ -1,6 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   buildEntityTable,
   createEventStoreExecutor,
@@ -17,6 +16,7 @@ import {
   type FeatureDefinition,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEventDispatcher, type EventConsumer } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   createTestUser,

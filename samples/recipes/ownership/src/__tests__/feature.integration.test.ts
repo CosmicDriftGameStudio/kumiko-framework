@@ -4,6 +4,7 @@
 // feature. Each test maps directly to a cell in the design-doc matrix.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createTestUser,
   setupTestStack,
@@ -14,7 +15,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
 import { contractEntity, contractsFeature, teamsFeature } from "../feature";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 const tenant = testTenantId(1);

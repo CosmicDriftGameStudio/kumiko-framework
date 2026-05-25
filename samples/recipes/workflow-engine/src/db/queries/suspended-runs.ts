@@ -6,8 +6,8 @@ export async function selectExpiredSuspensionEvents(
   eventTypes: readonly string[],
 ): Promise<readonly Record<string, unknown>[]> {
   return (await asRawClient(db).unsafe(
-    `SELECT * FROM kumiko_events
-       WHERE "type" = ANY($1)
+    `SELECT * FROM "kumiko_events"
+       WHERE "type" = ANY($1::text[])
        AND (("payload"->>'wakeAt')::timestamptz < now() OR ("payload"->>'timeoutAt')::timestamptz < now())`,
     [eventTypes as unknown as string[]],
   )) as Record<string, unknown>[];

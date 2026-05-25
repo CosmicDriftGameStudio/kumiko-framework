@@ -48,7 +48,7 @@ export function createSuspendedRunFetcher(
     const results: SuspendableRun[] = [];
 
     for (const row of rows) {
-      const aggregateId = row["aggregateId"] as string;
+      const aggregateId = (row["aggregateId"] ?? row["aggregate_id"]) as string;
       const type = row["type"] as string;
       const payload = row["payload"] as Record<string, unknown>;
 

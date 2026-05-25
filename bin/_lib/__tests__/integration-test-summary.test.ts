@@ -54,7 +54,6 @@ describe("printIntegrationSummary", () => {
       const { exitCode } = printIntegrationSummary(
         {
           includedFiles: ["packages/a/__tests__/one.integration.test.ts"],
-          excludedFiles: [{ file: "samples/x.integration.test.ts", prefix: "samples/" }],
           includedDirs: ["packages/a/__tests__"],
         },
         [

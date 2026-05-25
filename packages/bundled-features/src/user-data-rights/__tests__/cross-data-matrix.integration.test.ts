@@ -20,23 +20,23 @@ import {
   type UserDataDeleteHook,
   type UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
-import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
 } from "../../compliance-profiles";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
 import { createFilesFeature } from "../../files";
-import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
 import { createSessionsFeature } from "../../sessions";
 import { tenantMembershipsTable } from "../../tenant";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults";
 import { createUserDataRightsFeature } from "../feature";
 import { runForgetCleanup } from "../run-forget-cleanup";

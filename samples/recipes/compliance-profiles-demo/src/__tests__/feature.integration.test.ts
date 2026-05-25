@@ -24,11 +24,11 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { tenantComplianceProfileEntity } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
-  createEntityTable,
   createTestUser,
   setupTestStack,
   type TestStack,
   testTenantId,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { complianceProfilesDemoFeatures } from "../feature";
 
@@ -55,7 +55,7 @@ const tenantCHrAdmin = createTestUser({
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: complianceProfilesDemoFeatures });
-  await createEntityTable(stack.db, tenantComplianceProfileEntity);
+  await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await createEventsTable(stack.db);
 
   // Onboarding-Setup: jeder Tenant-Admin waehlt sein Profile.

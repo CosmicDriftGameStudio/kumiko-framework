@@ -23,8 +23,8 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
 import { createFilesFeature } from "../../files";

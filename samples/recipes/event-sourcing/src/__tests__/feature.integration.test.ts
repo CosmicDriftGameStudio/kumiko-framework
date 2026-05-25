@@ -12,6 +12,7 @@
 //   - getAllProjectionProgress (projection lag for ops dashboards)
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbTx } from "@cosmicdrift/kumiko-framework/db";
 import {
   append,
@@ -29,14 +30,12 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import {
   approverDirectoryTable,
   invoiceDetailTable,
   invoiceEntity,
   invoiceFeature,
 } from "../feature";
-import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 const admin = createTestUser({ roles: ["Admin"] });

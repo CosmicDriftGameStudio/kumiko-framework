@@ -10,15 +10,14 @@
 //      original handle can reconstruct without any lookup table.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createInMemoryFileProvider,
   FILE_UPLOADED_EVENT_TYPE,
   type InMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
 import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { derivateLog, filesPostProcessingFeature } from "../feature";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 let provider: InMemoryFileProvider;
@@ -59,7 +58,9 @@ beforeEach(async () => {
   stack.events.reset();
   // Truncate events + consumer cursors + file_refs so each case starts from
   // a clean log and the dispatcher replays only the current upload.
-  await asRawClient(stack.db).unsafe(`TRUNCATE kumiko_events, kumiko_event_consumers, file_refs RESTART IDENTITY CASCADE`);
+  await asRawClient(stack.db).unsafe(
+    `TRUNCATE kumiko_events, kumiko_event_consumers, file_refs RESTART IDENTITY CASCADE`,
+  );
   await stack.eventDispatcher?.ensureRegistered();
 });
 
@@ -130,7 +131,10 @@ describe("event emission contract", () => {
     // pointer-shape by reading through it, but this test guards the
     // contract directly: no one accidentally adds a binary field later
     // and explodes the events table.
-    const rows = await asRawClient(stack.db).unsafe(`SELECT type, payload FROM kumiko_events WHERE type = $1`, [FILE_UPLOADED_EVENT_TYPE]);
+    const rows = await asRawClient(stack.db).unsafe(
+      `SELECT type, payload FROM kumiko_events WHERE type = $1`,
+      [FILE_UPLOADED_EVENT_TYPE],
+    );
     expect(rows.length).toBe(1);
     const payload = rows[0]?.["payload"];
     expect(typeof payload["storageKey"]).toBe("string");

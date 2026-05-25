@@ -20,17 +20,17 @@ import {
   testUserId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
 } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
+import { createSessionsFeature } from "../../sessions";
 import { USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserFeature } from "../../user/feature";
-import { createSessionsFeature } from "../../sessions";
 import { createUserDataRightsFeature } from "../feature";
 
 const REQUEST_DELETION = "user-data-rights:write:request-deletion";

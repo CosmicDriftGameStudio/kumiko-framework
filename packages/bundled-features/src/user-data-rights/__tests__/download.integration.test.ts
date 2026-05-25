@@ -25,8 +25,8 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,

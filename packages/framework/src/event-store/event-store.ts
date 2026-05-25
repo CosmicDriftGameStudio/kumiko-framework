@@ -1,4 +1,3 @@
-import { stringifyJson } from "../utils/safe-json";
 import type { DbRunner } from "../db";
 import { isUniqueViolation } from "../db/pg-error";
 import {
@@ -10,6 +9,7 @@ import {
 } from "../db/queries/event-store";
 import { insertOne, selectMany } from "../db/query";
 import type { TenantId } from "../engine/types";
+import { stringifyJson } from "../utils/safe-json";
 import { isStreamArchived } from "./archive";
 import { VersionConflictError } from "./errors";
 import { eventsTable } from "./events-schema";

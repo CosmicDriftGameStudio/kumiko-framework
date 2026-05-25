@@ -41,6 +41,7 @@ import {
   TenantQueries,
   tenantMembershipsTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -53,7 +54,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
 import { supportFeature, ticketTable } from "../feature";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // --- Test Infrastructure ---
 
@@ -170,7 +170,10 @@ describe("delivery-notifications sample", () => {
     expect(push?.body).toContain("critical");
 
     // --- Assert: DeliveryLog has entries for all 3 channels ---
-    const logs = await selectMany(db, deliveryAttemptsTable, { notificationType: "support:notify:ticket-assigned", recipientId: assignee.id });
+    const logs = await selectMany(db, deliveryAttemptsTable, {
+      notificationType: "support:notify:ticket-assigned",
+      recipientId: assignee.id,
+    });
     expect(logs).toHaveLength(3);
     const channels = logs.map((l) => l["channel"]);
     expect(channels).toContain("inApp");

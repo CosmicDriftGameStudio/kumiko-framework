@@ -1,6 +1,7 @@
 // Integration-test preload — env defaults for Docker-Compose services.
 // Replaces vitest.integration.config.ts `test.env` section.
 
+import "./app-define-resolver";
 import { ensureTemporalPolyfill } from "../packages/framework/src/time/polyfill";
 await ensureTemporalPolyfill();
 

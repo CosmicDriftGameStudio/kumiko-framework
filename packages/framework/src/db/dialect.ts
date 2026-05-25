@@ -225,10 +225,7 @@ export function serial(name: string): ColumnBuilder<number> {
   return buildColumn(name, "serial") as ColumnBuilder<number>;
 }
 
-export function bigint(
-  name: string,
-  opts?: { mode?: "bigint" | "number" },
-): ColumnBuilder<bigint> {
+export function bigint(name: string, opts?: { mode?: "bigint" | "number" }): ColumnBuilder<bigint> {
   const jsMode = opts?.mode === "number" ? "number" : "bigint";
   return buildColumn(name, "bigint", { bigintJsMode: jsMode }) as ColumnBuilder<bigint>;
 }

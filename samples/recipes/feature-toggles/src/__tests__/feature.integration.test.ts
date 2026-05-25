@@ -4,6 +4,7 @@ import {
   GlobalFeatureToggleRuntime,
   globalFeatureStateTable,
 } from "@cosmicdrift/kumiko-bundled-features/feature-toggles";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createTestUser,
@@ -21,7 +22,6 @@ import {
   productEntity,
   productTable,
 } from "../feature";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 let runtime: GlobalFeatureToggleRuntime;

@@ -11,6 +11,7 @@
 //      callbacks. runOnce() drains deterministically.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -20,7 +21,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { capturedEvents, orderEntity, pubsubOrderFeature } from "../feature";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 
@@ -54,7 +54,10 @@ describe("cross-feature reactions via ctx.appendEvent + r.multiStreamProjection"
     // The event row is committed alongside the order row. It lives on the
     // order's OWN stream now — aggregateType "pubsub-order", version 2
     // (auto "created" is v1, domain "order-placed" is v2).
-    const domainEvents = await selectMany(stack.db, eventsTable, { aggregateType: "pubsub-order", type: "pubsub-orders:event:order-placed" });
+    const domainEvents = await selectMany(stack.db, eventsTable, {
+      aggregateType: "pubsub-order",
+      type: "pubsub-orders:event:order-placed",
+    });
     expect(domainEvents).toHaveLength(1);
     expect(domainEvents[0]?.aggregateId).toBe(orderId);
     expect(domainEvents[0]?.version).toBeGreaterThan(1);
@@ -84,7 +87,9 @@ describe("cross-feature reactions via ctx.appendEvent + r.multiStreamProjection"
     // it with.
     await stack.http.writeErr("pubsub-orders:write:order:place", { customer: "" }, customer);
 
-    const domainEvents = await selectMany(stack.db, eventsTable, { type: "pubsub-orders:event:order-placed" });
+    const domainEvents = await selectMany(stack.db, eventsTable, {
+      type: "pubsub-orders:event:order-placed",
+    });
     expect(domainEvents).toHaveLength(0);
 
     await stack.eventDispatcher?.runOnce();

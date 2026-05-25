@@ -24,9 +24,9 @@ import {
   tenantComplianceProfileTable,
 } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
+import { createSessionsFeature } from "../../sessions";
 import { USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserFeature } from "../../user/feature";
-import { createSessionsFeature } from "../../sessions";
 import { createUserDataRightsFeature } from "../feature";
 import type { SendDeletionRequestedEmailFn } from "../handlers/request-deletion.write";
 

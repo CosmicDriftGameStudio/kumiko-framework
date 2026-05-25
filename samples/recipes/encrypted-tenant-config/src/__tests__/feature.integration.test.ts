@@ -10,6 +10,7 @@ import {
   createConfigFeature,
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import {
   setupTestStack,
@@ -19,7 +20,6 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { billingFeature, stripeApiKeyHandle } from "../feature";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const TENANT_A = testTenantId(1);
 const TENANT_B = testTenantId(2);

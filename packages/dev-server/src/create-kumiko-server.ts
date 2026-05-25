@@ -30,7 +30,7 @@ import {
   TestUsers,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { injectSchema } from "./inject-schema";
-import { resolveTailwindCli, canResolveTailwindStylesheet } from "./resolve-tailwind-cli";
+import { canResolveTailwindStylesheet, resolveTailwindCli } from "./resolve-tailwind-cli";
 import { buildBunServeOptions } from "./run-prod-app";
 import { tryHonoFirst } from "./try-hono-first";
 

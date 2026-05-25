@@ -335,9 +335,8 @@ async function runTailwindOnce(entry: string, cwd: string): Promise<string> {
       "[kumiko build] Tailwind one-shot requires Bun (Bun.spawn) — run via `bun run …` or `yarn kumiko build`.",
     );
   }
-  const bunResolver = (
-    globalThis as { Bun: { resolveSync: (id: string, from: string) => string } }
-  ).Bun;
+  const bunResolver = (globalThis as { Bun: { resolveSync: (id: string, from: string) => string } })
+    .Bun;
   const cliPath = resolveTailwindCli({ bun: bunResolver, cwd });
   if (cliPath === undefined) {
     throw new Error(

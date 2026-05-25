@@ -14,7 +14,4 @@ pathIgnorePatterns = [
   "**/*.spec.ts",
   "**/*.spec.tsx",
   "**/dist/**",
-  # Own vitest configs / worktree-specific aliases — run locally from recipe dir.
-  "samples/recipes/pipeline-basics/**",
-  "samples/recipes/webhook-step/**",
 ]

@@ -12,19 +12,19 @@
 
 import { z } from "zod";
 
-// billing:event:invoice-cancelled — from /Users/marc/code/cosmicdriftgamestudio/kumiko-framework-sql-queries/samples/recipes/state-machine/src/feature.ts:50
+// billing:event:invoice-cancelled — from /Users/marc/code/cosmicdriftgamestudio/kumiko-framework-int-rename/samples/recipes/state-machine/src/feature.ts:50
 export const _kg_billing__invoiceCancelled = z.object({});
 
-// billing:event:invoice-marked-paid — from /Users/marc/code/cosmicdriftgamestudio/kumiko-framework-sql-queries/samples/recipes/state-machine/src/feature.ts:49
+// billing:event:invoice-marked-paid — from /Users/marc/code/cosmicdriftgamestudio/kumiko-framework-int-rename/samples/recipes/state-machine/src/feature.ts:49
 export const _kg_billing__invoiceMarkedPaid = z.object({});
 
-// billing:event:invoice-reopened — from /Users/marc/code/cosmicdriftgamestudio/kumiko-framework-sql-queries/samples/recipes/state-machine/src/feature.ts:51
+// billing:event:invoice-reopened — from /Users/marc/code/cosmicdriftgamestudio/kumiko-framework-int-rename/samples/recipes/state-machine/src/feature.ts:51
 export const _kg_billing__invoiceReopened = z.object({});
 
-// billing:event:invoice-sent — from /Users/marc/code/cosmicdriftgamestudio/kumiko-framework-sql-queries/samples/recipes/state-machine/src/feature.ts:48
+// billing:event:invoice-sent — from /Users/marc/code/cosmicdriftgamestudio/kumiko-framework-int-rename/samples/recipes/state-machine/src/feature.ts:48
 export const _kg_billing__invoiceSent = z.object({});
 
-// billing:event:invoice-status-forced — from /Users/marc/code/cosmicdriftgamestudio/kumiko-framework-sql-queries/samples/recipes/state-machine/src/feature.ts:52
+// billing:event:invoice-status-forced — from /Users/marc/code/cosmicdriftgamestudio/kumiko-framework-int-rename/samples/recipes/state-machine/src/feature.ts:52
 export const _kg_billing__invoiceStatusForced = z.object({
       newStatus: z.enum(["draft", "sent", "paid", "cancelled"]),
       fromStatus: z.enum(["draft", "sent", "paid", "cancelled"]),

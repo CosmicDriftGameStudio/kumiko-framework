@@ -4,6 +4,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { setTenantCookie } from "@cosmicdrift/kumiko-framework/api";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -14,7 +15,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { multiTenantShopFeature, productEntity, productTable } from "../feature";
 import { createSubdomainResolver, extractSubdomain } from "../subdomain-resolver";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const ACME_TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 const GLOBEX_TENANT_ID = "00000000-0000-4000-8000-000000000002" as TenantId;

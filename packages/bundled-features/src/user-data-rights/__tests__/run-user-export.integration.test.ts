@@ -22,13 +22,13 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createFilesFeature } from "../../files";
-import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
 import { createSessionsFeature } from "../../sessions";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults";
 import { createUserDataRightsFeature } from "../feature";
 import { runUserExport } from "../run-user-export";

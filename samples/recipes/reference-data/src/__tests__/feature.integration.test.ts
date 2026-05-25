@@ -2,11 +2,11 @@
 // Proves: seed data is inserted, upsert updates existing rows, new rows added
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { seedReferenceData } from "@cosmicdrift/kumiko-framework/db";
 import type { ReferenceDataDef } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestDb, type TestDb, unsafePushTables } from "@cosmicdrift/kumiko-framework/stack";
 import { categoryFeature, categoryTable } from "../feature";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let testDb: TestDb;
 

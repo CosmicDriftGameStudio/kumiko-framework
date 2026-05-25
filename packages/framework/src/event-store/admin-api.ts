@@ -7,7 +7,6 @@
 // Allowlist: samples/*/migration/, scripts/migrations/, die Definition
 // selbst, das Guard-Script selbst.
 
-import { stringifyJson } from "../utils/safe-json";
 import type { DbRunner } from "../db";
 import { isUniqueViolation } from "../db/pg-error";
 import {
@@ -18,6 +17,7 @@ import {
   insertRawSubsequentEvent,
 } from "../db/queries/event-store-admin";
 import type { TenantId } from "../engine/types";
+import { stringifyJson } from "../utils/safe-json";
 import { VersionConflictError } from "./errors";
 import type { EventMetadata } from "./event-store";
 

@@ -15,6 +15,7 @@ import {
   createCustomFieldsFeature,
   fieldDefinitionEntity,
 } from "@cosmicdrift/kumiko-bundled-features/custom-fields";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -22,9 +23,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { propertyEntity, propertyFeature } from "../feature";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const admin = createTestUser({ roles: ["TenantAdmin"] });
 const customFields = createCustomFieldsFeature();

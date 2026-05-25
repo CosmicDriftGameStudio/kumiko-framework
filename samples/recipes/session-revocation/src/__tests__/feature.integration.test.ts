@@ -32,6 +32,7 @@ import {
   userEntity,
   userTable,
 } from "@cosmicdrift/kumiko-bundled-features/user";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
@@ -44,7 +45,6 @@ import {
 import { createLateBoundHolder } from "@cosmicdrift/kumiko-framework/testing";
 import * as jose from "jose";
 import { createSessionCallbacks, createSessionsFeature } from "../feature";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const TENANT: TenantId = testTenantId(1);
 

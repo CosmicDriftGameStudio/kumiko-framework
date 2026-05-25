@@ -28,10 +28,10 @@ export const contactCreate = defineWriteHandler({
   access: { roles: ["Admin"] },
   handler: async (event, ctx) => {
     const row = await ctx.db.insertOne(contactTable, {
-        ...event.payload,
-        insertedById: event.user.id,
-        insertedAt: Temporal.Now.instant(),
-      });
+      ...event.payload,
+      insertedById: event.user.id,
+      insertedAt: Temporal.Now.instant(),
+    });
     const data = row as Record<string, unknown>;
     return {
       isSuccess: true,

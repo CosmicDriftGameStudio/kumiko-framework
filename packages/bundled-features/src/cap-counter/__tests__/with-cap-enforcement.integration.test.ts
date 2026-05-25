@@ -10,7 +10,11 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { createEntityExecutor, defineFeature, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createEntityExecutor,
+  defineFeature,
+  type WriteHandlerDef,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,

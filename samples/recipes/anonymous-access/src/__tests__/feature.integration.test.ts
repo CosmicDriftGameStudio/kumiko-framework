@@ -7,6 +7,7 @@
 // callback that confirms the tenant is real (against DB or cache).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { ANONYMOUS_USER_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -22,7 +23,6 @@ import {
   productEntity,
   productTable,
 } from "../feature";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 

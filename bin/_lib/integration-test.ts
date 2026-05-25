@@ -4,12 +4,6 @@ export const INTEGRATION_BUNFIG = "bunfig.integration.toml";
 export const INTEGRATION_GUARD = "integration.guard.js";
 export const INTEGRATION_RUNNER = "scripts/run-integration-tests.ts";
 
-/** Recipe dirs with local-only test wiring — excluded from root integration run. */
-export const INTEGRATION_EXCLUDED_PREFIXES = [
-  "samples/recipes/pipeline-basics/",
-  "samples/recipes/webhook-step/",
-] as const;
-
 export type BunTestRunTotals = {
   pass: number;
   fail: number;
@@ -41,10 +35,5 @@ export function parseBunTestRunOutput(output: string): BunTestRunTotals | null {
 
 export type IntegrationDiscovery = {
   includedFiles: string[];
-  excludedFiles: Array<{ file: string; prefix: string }>;
   includedDirs: string[];
 };
-
-export function isIntegrationExcluded(file: string): string | undefined {
-  return INTEGRATION_EXCLUDED_PREFIXES.find((prefix) => file.startsWith(prefix));
-}

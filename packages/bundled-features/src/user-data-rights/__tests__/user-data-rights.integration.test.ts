@@ -10,8 +10,8 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-framework/stack";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
-import { createUserFeature } from "../../user";
 import { createSessionsFeature } from "../../sessions";
+import { createUserFeature } from "../../user";
 import { createUserDataRightsFeature } from "../feature";
 
 let stack: TestStack;
