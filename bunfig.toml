@@ -5,7 +5,7 @@ linker = "hoisted"
 "@cosmicdriftgamestudio" = { url = "https://npm.pkg.github.com", token = "$GITHUB_TOKEN" }
 
 [test]
-preload = ["./test-setup/temporal.preload.ts", "./test-setup/dom.preload.ts"]
+preload = ["./test-setup/integration.preload.ts", "./test-setup/dom.preload.ts"]
 concurrency = 8
 
 # *.spec.ts gehören zu Playwright (e2e/-Folder). bun test versucht sonst

@@ -1,0 +1,86 @@
+# Local dev stack for `kumiko dev` and integration tests.
+# Port defaults match test-setup/integration.preload.ts (high ports avoid
+# clashing with system Postgres/Redis installs).
+
+services:
+  postgres:
+    image: postgres:18.3-alpine
+    environment:
+      POSTGRES_USER: kumiko
+      POSTGRES_PASSWORD: kumiko
+      POSTGRES_DB: kumiko_dev
+    ports:
+      - "${KUMIKO_PG_PORT:-15432}:5432"
+    volumes:
+      # PG18+ image: mount parent dir, not .../data (enables pg_upgrade on same volume).
+      - postgres_data:/var/lib/postgresql
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kumiko -d kumiko_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${KUMIKO_REDIS_PORT:-16379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.12
+    environment:
+      MEILI_MASTER_KEY: kumiko-dev-key
+      MEILI_ENV: development
+    ports:
+      - "${KUMIKO_MEILI_PORT:-17700}:7700"
+    volumes:
+      - meili_data:/meili_data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:7700/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:RELEASE.2025-01-20T14-49-07Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: kumiko
+      MINIO_ROOT_PASSWORD: kumiko-dev-secret
+    ports:
+      - "${KUMIKO_MINIO_PORT:-19000}:9000"
+      - "${KUMIKO_MINIO_CONSOLE_PORT:-19001}:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # One-shot bucket bootstrap for S3 integration tests (files-provider-s3).
+  minio-init:
+    image: minio/mc:RELEASE.2025-01-17T23-25-50Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: /bin/sh
+    command: >
+      -c "
+      mc alias set local http://minio:9000 kumiko kumiko-dev-secret &&
+      mc mb --ignore-existing local/kumiko-dev
+      "
+    restart: "no"
+
+volumes:
+  postgres_data:
+  redis_data:
+  meili_data:
+  minio_data:

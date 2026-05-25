@@ -22,6 +22,7 @@
 // actual change, so mtime doesn't tick and the TS language server
 // doesn't reload every 100ms.
 
+import { relative } from "node:path";
 import type { ScannedEvent } from "./scan-events";
 import { rewriteImportPath } from "./scan-events";
 
@@ -115,7 +116,10 @@ export function renderTypesAugmentation(
  * the schema. Returns undefined when no inline-schemas exist (so the
  * runner can skip writing the file entirely).
  */
-export function renderInlineSchemasFile(events: readonly ScannedEvent[]): string | undefined {
+export function renderInlineSchemasFile(
+  events: readonly ScannedEvent[],
+  appRootAbs: string,
+): string | undefined {
   const inlines = events.filter((ev) => ev.schemaSource.kind === "inline");
   if (inlines.length === 0) return undefined;
 
@@ -139,8 +143,9 @@ export function renderInlineSchemasFile(events: readonly ScannedEvent[]): string
   });
   for (const ev of sorted) {
     if (ev.schemaSource.kind !== "inline") continue;
+    const sourcePath = relative(appRootAbs, ev.featureFilePath).split("\\").join("/");
     lines.push(
-      `// ${ev.qualifiedName} — from ${ev.featureFilePath}:${ev.source.line}`,
+      `// ${ev.qualifiedName} — from ${sourcePath}:${ev.source.line}`,
       `export const ${ev.schemaSource.generatedConstName} = ${ev.schemaSource.schemaSource};`,
       "",
     );
