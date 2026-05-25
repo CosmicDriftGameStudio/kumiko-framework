@@ -25,7 +25,7 @@ export function createJobsFeature(): FeatureDefinition {
   return defineFeature("jobs", (r) => {
     r.systemScope();
     r.unmanagedTable(jobRunLogsTableMeta, {
-      reason: "append-only run-log via BullMQ-callback path — no aggregate lifecycle.",
+      reason: "read_side.job_run_logs",
     });
     // Events-only aggregate: "jobRun" has no r.entity registration, because
     // the entire lifecycle is driven by BullMQ-callback → r.defineEvent

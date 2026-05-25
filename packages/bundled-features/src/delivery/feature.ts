@@ -17,8 +17,7 @@ export function createDeliveryFeature(): FeatureDefinition {
     r.systemScope();
     r.entity("notification-preference", notificationPreferenceEntity);
     r.unmanagedTable(deliveryAttemptsTableMeta, {
-      reason:
-        "read-side log projection of DELIVERY_ATTEMPT events — flat shape, no aggregate lifecycle.",
+      reason: "read_side.delivery_attempt_log",
     });
 
     // Events-only projection source: "deliveryAttempt" is the aggregate-
