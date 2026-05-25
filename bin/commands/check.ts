@@ -11,8 +11,8 @@ const LEGACY_BIN = "bin/kumiko-legacy.ts";
 export const checkCommand = defineCommand({
   id: "check",
   label: "check",
-  description: "Full quality pass: lint, types, guards, tests",
-  help: "Runs Biome + TS + guards + tests as a parallel pool.\nParallel-lock: concurrent invocations follow the lead run.\n\n(Sprint B: subprocess-dispatch to legacy implementation.\nSprint C: native extraction into bin/commands/_check/)",
+  description: "Full quality pass: lint, types, guards, unit + integration (local only)",
+  help: "Runs Biome + TS + guards + unit tests (+ integration locally, not in CI).\nParallel-lock: concurrent invocations follow the lead run.\n\n(Sprint B: subprocess-dispatch to legacy implementation.\nSprint C: native extraction into bin/commands/_check/)",
   category: "quality",
   roles: ["maintainer", "app-dev"],
   run: async (ctx) => {

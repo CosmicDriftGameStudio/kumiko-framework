@@ -30,10 +30,12 @@ import {
   deliveryAttemptsTable,
   notificationPreferencesTable,
 } from "@cosmicdrift/kumiko-bundled-features/delivery";
+import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import {
   createRendererSimpleFeature,
   simpleRenderer,
 } from "@cosmicdrift/kumiko-bundled-features/renderer-simple";
+import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import {
   createTenantFeature,
   TenantQueries,
@@ -71,6 +73,8 @@ const assignee = createTestUser({ id: 5, roles: ["Support"] });
 const features = [
   createConfigFeature(),
   createTenantFeature(),
+  createTemplateResolverFeature(),
+  createRendererFoundationFeature(),
   createDeliveryFeature(),
   createChannelInAppFeature(),
   createRendererSimpleFeature(),

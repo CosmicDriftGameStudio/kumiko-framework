@@ -13,6 +13,7 @@ concurrency = 8
 # (siehe "Playwright Test did not expect test() to be called here").
 pathIgnorePatterns = [
   "**/*.integration.test.ts",
+  "**/*.integration.ts",
   "**/e2e/**",
   "**/*.spec.ts",
   "**/*.spec.tsx",

@@ -1,5 +1,5 @@
 import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type {
   NotifyOptions,
   Registry,
@@ -10,7 +10,7 @@ import type {
 // --- Channel Interface ---
 
 export type ChannelContext = {
-  readonly db: DbConnection;
+  readonly db: TenantDb;
   readonly registry: Registry;
   readonly sseBroker: SseBroker | undefined;
   readonly tenantId: TenantId;

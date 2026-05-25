@@ -46,21 +46,18 @@ export const notesFeature = defineFeature("notes", (r) => {
   // Export-Hook: Snippet pro Tenant des Users. user-data-rights iteriert
   // die Memberships und ruft den Hook pro Tenant auf.
   const exportNotes: UserDataExportHook = async (ctx) => {
-    const rows = await ctx.db
-      .select({
-        id: notesTable["id"],
-        title: notesTable["title"],
-        body: notesTable["body"],
-      })
-      .from(notesTable)
-      .where(and(eq(notesTable["tenantId"], ctx.tenantId), eq(notesTable["authorId"], ctx.userId)));
+    const rows = await selectMany<{ id: string; title: string | null; body: string | null }>(
+      ctx.db,
+      notesTable,
+      { tenantId: ctx.tenantId, authorId: ctx.userId },
+    );
     if (rows.length === 0) return null;
     return {
       entity: "note",
       rows: rows.map((row) => ({
-        id: String(row["id"]),
-        title: row["title"] ?? "",
-        body: row["body"] ?? "",
+        id: String(row.id),
+        title: row.title ?? "",
+        body: row.body ?? "",
       })),
     };
   };

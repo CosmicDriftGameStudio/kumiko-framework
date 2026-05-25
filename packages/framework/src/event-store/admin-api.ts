@@ -7,6 +7,7 @@
 // Allowlist: samples/*/migration/, scripts/migrations/, die Definition
 // selbst, das Guard-Script selbst.
 
+import { stringifyJson } from "../utils/safe-json";
 import type { DbRunner } from "../db";
 import { isUniqueViolation } from "../db/pg-error";
 import {
@@ -68,8 +69,8 @@ function rawEventParams(event: RawEventToAppend, newVersion: number, eventVersio
     newVersion,
     type: event.type,
     eventVersion,
-    payloadJson: JSON.stringify(event.payload),
-    metadataJson: JSON.stringify(event.metadata),
+    payloadJson: stringifyJson(event.payload),
+    metadataJson: stringifyJson(event.metadata),
     createdAt: event.createdAt.toString(),
     createdBy: event.createdBy,
   };
@@ -129,8 +130,8 @@ export async function appendRawBatch(
       newVersion,
       e.type,
       eventVersion,
-      JSON.stringify(e.payload),
-      JSON.stringify(e.metadata),
+      stringifyJson(e.payload),
+      stringifyJson(e.metadata),
       e.createdAt.toString(),
       e.createdBy,
     );

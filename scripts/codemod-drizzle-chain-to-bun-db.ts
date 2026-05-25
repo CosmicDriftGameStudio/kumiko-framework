@@ -37,7 +37,12 @@ import {
 const APPLY = process.argv.includes("--apply");
 const FILTER = process.argv.find((a) => a.startsWith("--file="))?.slice(7);
 
-const ROOTS = ["packages/framework/src", "packages/bundled-features/src"];
+const ROOTS = [
+  "packages/framework/src",
+  "packages/bundled-features/src",
+  "samples/recipes",
+  "samples/apps",
+];
 
 const project = new Project({
   tsConfigFilePath: "tsconfig.json",
@@ -400,7 +405,7 @@ function collectEdits(sf: SourceFile): Edit[] {
   // member-call form (`tdb.selectMany(...)`) instead of `selectMany(tdb,
   // ...)` so the auto-tenant-scoping semantics are preserved.
   function isTenantDbReceiver(receiver: string): boolean {
-    return /(^|[.])tdb\d*$|TenantDb$|tDb$/i.test(receiver.trim());
+    return /(^|[.])tdb\d*$|TenantDb$|tDb$|ctx\.db$/i.test(receiver.trim());
   }
 
   function isWrappedByUnknownChain(call: CallExpression): boolean {

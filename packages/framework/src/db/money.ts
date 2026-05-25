@@ -106,6 +106,11 @@ export function rehydrateMoney(
     let amount: number;
     if (typeof amountRaw === "number") {
       amount = amountRaw;
+    } else if (typeof amountRaw === "bigint") {
+      amount = Number(amountRaw);
+      if (Number.isNaN(amount)) {
+        throw new Error(`rehydrateMoney: field "${name}" bigint amount is not a number`);
+      }
     } else if (typeof amountRaw === "string" && amountRaw !== "") {
       // PG-driver liefert BIGINT manchmal als String (>2^53 sicher).
       amount = Number(amountRaw);

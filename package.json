@@ -48,6 +48,7 @@
     "kumiko": "bun run bin/kumiko.ts",
     "test": "bun test",
     "test:run": "bun test",
+    "test:integration": "bun scripts/run-integration-tests.ts",
     "typecheck": "tsc --build",
     "build:apps": "bun run scripts/build-apps.ts",
     "build": "echo 'kumiko-framework: TypeScript source is published as-is (Bun resolver), no transpile step.'",

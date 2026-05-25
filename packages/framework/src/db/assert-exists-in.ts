@@ -4,6 +4,10 @@ import { NotFoundError } from "../errors";
 import type { DbConnection } from "./connection";
 import type { TenantDb } from "./tenant-db";
 
+function isTenantDb(db: DbConnection | TenantDb): db is TenantDb {
+  return typeof (db as TenantDb).fetchOne === "function" && "raw" in db;
+}
+
 /**
  * Generic constraint helper: asserts a value exists in a table.
  * Returns a ready-to-return NotFoundError when the row is missing, or null
@@ -32,7 +36,9 @@ export async function assertExistsIn(
   if (options.tenantId !== undefined) where["tenantId"] = options.tenantId;
   if (options.where) Object.assign(where, options.where);
 
-  const row = await fetchOne(db, entity, where);
+  const row = isTenantDb(db)
+    ? await db.fetchOne(entity, where)
+    : await fetchOne(db, entity, where);
 
   if (!row) {
     const entityName = options.entityName ?? String(options.field).replace(/Id$/, "");

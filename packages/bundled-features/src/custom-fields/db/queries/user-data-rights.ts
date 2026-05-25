@@ -35,10 +35,13 @@ export async function stripSensitiveCustomFieldKeys(
 ): Promise<void> {
   const tbl = quoteTable(tableName);
   const userCol = quoteColumn(userIdColumn);
-  const placeholders = sensitiveKeys.map((_, i) => `$${i + 1}`).join(" - ");
   await asRawClient(db).unsafe(
-    `UPDATE ${tbl} SET custom_fields = custom_fields - ${placeholders} WHERE ${userCol} = $${sensitiveKeys.length + 1} AND tenant_id = $${sensitiveKeys.length + 2}`,
-    [...sensitiveKeys, userId, tenantId],
+    `UPDATE ${tbl} SET custom_fields = CASE
+       WHEN jsonb_typeof(custom_fields) = 'object' THEN custom_fields - $1::text[]
+       ELSE custom_fields
+     END
+     WHERE ${userCol} = $2 AND tenant_id = $3`,
+    [sensitiveKeys, userId, tenantId],
   );
 }
 

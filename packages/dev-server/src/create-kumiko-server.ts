@@ -362,7 +362,13 @@ export function classifyChange(filename: string): "restart" | "hot-reload" | "ig
   if (!filename.endsWith(".ts") && !filename.endsWith(".tsx")) return "ignore";
   if (filename.includes("__tests__")) return "ignore";
   if (filename.endsWith(".test.ts") || filename.endsWith(".test.tsx")) return "ignore";
-  if (filename.endsWith(".integration.ts") || filename.endsWith(".e2e.ts")) return "ignore";
+  if (
+    filename.endsWith(".integration.ts") ||
+    filename.endsWith(".integration.test.ts") ||
+    filename.endsWith(".e2e.ts")
+  ) {
+    return "ignore";
+  }
   // Plattformpfad-agnostisch: prüfen auf POSIX und Windows-Trenner.
   // Wir matchen sowohl `<sep><dir><sep>` als auch trailing-`<sep><dir>`
   // (für Watcher-Filenames die als relativer Pfad ankommen).

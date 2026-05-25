@@ -1,0 +1,20 @@
+[install]
+linker = "hoisted"
+
+[install.scopes]
+"@cosmicdriftgamestudio" = { url = "https://npm.pkg.github.com", token = "$GITHUB_TOKEN" }
+
+[test]
+preload = ["./test-setup/integration.preload.ts"]
+timeout = 15000
+concurrency = 1
+
+pathIgnorePatterns = [
+  "**/e2e/**",
+  "**/*.spec.ts",
+  "**/*.spec.tsx",
+  "**/dist/**",
+  # Own vitest configs / worktree-specific aliases — run locally from recipe dir.
+  "samples/recipes/pipeline-basics/**",
+  "samples/recipes/webhook-step/**",
+]

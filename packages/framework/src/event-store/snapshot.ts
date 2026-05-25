@@ -1,5 +1,6 @@
 // sql now comes from native dialect
 
+import { stringifyJson } from "../utils/safe-json";
 import type { DbConnection, DbRunner } from "../db/connection";
 import {
   index,
@@ -107,7 +108,7 @@ export async function saveSnapshot(db: DbRunner, args: SaveSnapshotArgs): Promis
     tenantId: args.tenantId,
     aggregateType: args.aggregateType,
     version: args.version,
-    stateJson: JSON.stringify(args.state),
+    stateJson: stringifyJson(args.state),
   });
 }
 

@@ -17,6 +17,7 @@ import {
   createDataRetentionFeature,
   tenantRetentionOverrideEntity,
 } from "@cosmicdrift/kumiko-bundled-features/data-retention";
+import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import {
   createUserFeature,
   USER_STATUS,
@@ -28,6 +29,7 @@ import {
   runForgetCleanup,
   runUserExport,
 } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
+import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
@@ -35,7 +37,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { sql } from "drizzle-orm";
 import { noteEntity, notesFeature, notesTable } from "../feature";
 
 let stack: TestStack;
@@ -52,6 +53,7 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [
       createUserFeature(),
+      createSessionsFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
       createUserDataRightsFeature(),
@@ -62,7 +64,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, noteEntity);
   await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
-  await stack.db.execute(sql`
+  await asRawClient(stack.db).unsafe(`
     CREATE TABLE IF NOT EXISTS read_tenant_memberships (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       tenant_id UUID NOT NULL,
@@ -86,13 +88,13 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.execute(sql`DELETE FROM read_notes`);
-  await stack.db.delete(userTable);
-  await stack.db.execute(sql`DELETE FROM read_tenant_memberships`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM read_notes`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_memberships`);
 });
 
 async function seedAlice(opts: { gracePeriodEnd?: Instant; status?: string } = {}): Promise<void> {
-  await stack.db.insert(userTable).values({
+  await insertOne(stack.db, userTable, {
     id: ALICE_ID,
     tenantId: TENANT_SYSTEM,
     email: "alice@recipe.test",
@@ -104,15 +106,18 @@ async function seedAlice(opts: { gracePeriodEnd?: Instant; status?: string } = {
     status: opts.status ?? USER_STATUS.Active,
     gracePeriodEnd: opts.gracePeriodEnd ?? null,
   });
-  await stack.db.execute(sql`
+  await asRawClient(stack.db).unsafe(
+    `
     INSERT INTO read_tenant_memberships (tenant_id, user_id, roles)
-    VALUES (${TENANT_A}, ${ALICE_ID}, '["Member"]')
+    VALUES ($1, $2, '["Member"]')
     ON CONFLICT DO NOTHING
-  `);
+  `,
+    [TENANT_A, ALICE_ID],
+  );
 }
 
 async function seedNote(id: string, title: string): Promise<void> {
-  await stack.db.insert(notesTable).values({
+  await insertOne(stack.db, notesTable, {
     id,
     tenantId: TENANT_A,
     authorId: ALICE_ID,
@@ -154,15 +159,11 @@ describe("user-data-rights recipe :: EXT_USER_DATA-Hooks integrieren Notes-Domai
     });
     expect(result.processedUserIds).toContain(ALICE_ID);
 
-    const remaining = await stack.db.execute(sql`SELECT id FROM read_notes`);
-    // biome-ignore lint/suspicious/noExplicitAny: drizzle execute typing
-    expect((((remaining as any).rows ?? remaining) as unknown[]).length).toBe(0);
+    const remaining = await asRawClient(stack.db).unsafe(`SELECT id FROM read_notes`);
+    expect(remaining.length).toBe(0);
   });
 
   test("Strategy=anonymize: authorId=null, Row bleibt (HR-Compliance-Pfad)", async () => {
-    // Direkter Hook-Call pinnt den anonymize-Vertrag — der Cron-Pfad wird
-    // im obigen Test abgedeckt. retention.policyFor entscheidet welche
-    // Strategy gilt; hier zeigen wir nur den Hook selber.
     await seedAlice();
     await seedNote("aaaaaaaa-aaaa-4aaa-8aaa-000000000004", "stays-anonymous");
 
@@ -179,14 +180,11 @@ describe("user-data-rights recipe :: EXT_USER_DATA-Hooks integrieren Notes-Domai
       | undefined;
     await hooks?.delete?.({ db: stack.db, tenantId: TENANT_A, userId: ALICE_ID }, "anonymize");
 
-    const after = await stack.db.execute(sql`SELECT title, author_id FROM read_notes`);
-    // biome-ignore lint/suspicious/noExplicitAny: drizzle execute typing
-    const rows = ((after as any).rows ?? after) as Array<{
-      title: string;
-      author_id: string | null;
-    }>;
-    expect(rows).toHaveLength(1);
-    expect(rows[0]?.author_id).toBeNull();
-    expect(rows[0]?.title).toBe("stays-anonymous");
+    const after = (await asRawClient(stack.db).unsafe(
+      `SELECT title, author_id FROM read_notes`,
+    )) as Array<{ title: string; author_id: string | null }>;
+    expect(after).toHaveLength(1);
+    expect(after[0]?.author_id).toBeNull();
+    expect(after[0]?.title).toBe("stays-anonymous");
   });
 });

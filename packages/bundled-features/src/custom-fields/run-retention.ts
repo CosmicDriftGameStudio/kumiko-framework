@@ -132,7 +132,7 @@ export async function runCustomFieldsRetention(
       removalsByFieldKey[key] = (removalsByFieldKey[key] ?? 0) + 1;
     }
 
-    await updateHostRowCustomFields(opts.db, tableName, JSON.stringify(mutated), row.id);
+    await updateHostRowCustomFields(opts.db, tableName, mutated, row.id);
     rowsUpdated++;
   }
 

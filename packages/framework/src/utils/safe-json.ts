@@ -28,3 +28,22 @@ export function parseJsonOrThrow<T>(raw: string, context: string): T {
     throw new Error(`Invalid JSON in ${context}: ${msg}`);
   }
 }
+
+/** JSON.stringify that survives BigInt / Temporal values from DB rows. */
+export function stringifyJson(value: unknown): string {
+  return JSON.stringify(value, (_key, v) => {
+    if (typeof v === "bigint") {
+      const asNumber = Number(v);
+      if (
+        asNumber <= Number.MAX_SAFE_INTEGER &&
+        asNumber >= Number.MIN_SAFE_INTEGER &&
+        BigInt(asNumber) === v
+      ) {
+        return asNumber;
+      }
+      return v.toString();
+    }
+    if (v instanceof Temporal.Instant) return v.toString();
+    return v;
+  });
+}

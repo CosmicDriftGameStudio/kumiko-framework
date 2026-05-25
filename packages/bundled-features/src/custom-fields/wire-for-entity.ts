@@ -109,7 +109,7 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
           tx,
           tableName,
           payload.fieldKey,
-          JSON.stringify(payload.value),
+          payload.value,
           event.aggregateId,
         );
       },

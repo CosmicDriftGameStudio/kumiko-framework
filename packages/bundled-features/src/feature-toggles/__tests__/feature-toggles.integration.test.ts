@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   buildEntityTable,
   createEventStoreExecutor,
@@ -517,12 +518,11 @@ describe("feature-toggles queries + audit automation", () => {
       admin,
     );
 
-    const events = (await asRawClient(stack.db).unsafe(
-      `SELECT type, payload FROM kumiko_events WHERE type = 'feature-toggles:event:toggle-set'`,
-    )) as unknown as readonly {
-      type: string;
-      payload: Record<string, unknown>;
-    }[];
+    const events = await selectMany<{ type: string; payload: Record<string, unknown> }>(
+      stack.db,
+      eventsTable,
+      { type: "feature-toggles:event:toggle-set" },
+    );
 
     expect(events).toHaveLength(1);
     expect(events[0]?.payload).toMatchObject({

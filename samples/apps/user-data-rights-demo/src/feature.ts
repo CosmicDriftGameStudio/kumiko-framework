@@ -25,7 +25,7 @@
 //   3. todoDeleteHook DELETEt alle Rows mit author_id = userId
 //   4. user wird anonymisiert (display_name="(deleted)", email=null)
 
-import { deleteMany, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { deleteMany, insertOne, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/db";
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
@@ -66,7 +66,7 @@ const createTodoHandler = defineWriteHandler({
   access: { openToAll: true },
   handler: async (event, ctx) => {
     const id = crypto.randomUUID();
-    await ctx.db.insertOne(todosTable, {
+    await insertOne(ctx.db, todosTable, {
       id,
       tenantId: event.user.tenantId,
       authorId: event.user.id,
@@ -82,7 +82,7 @@ const listTodosHandler = defineQueryHandler({
   schema: z.object({}),
   access: { openToAll: true },
   handler: async (query, ctx) => {
-    const rows = await ctx.db.selectMany<{ id: string; title: string; body: string }>(todosTable, {
+    const rows = await selectMany<{ id: string; title: string; body: string }>(ctx.db, todosTable, {
       authorId: query.user.id,
     });
     return { rows };

@@ -1,3 +1,4 @@
+import { stringifyJson } from "../utils/safe-json";
 import type { DbRunner } from "../db";
 import { isUniqueViolation } from "../db/pg-error";
 import {
@@ -173,8 +174,8 @@ async function insertSubsequentEvent(
     newVersion,
     type: event.type,
     eventVersion,
-    payloadJson: JSON.stringify(event.payload),
-    metadataJson: JSON.stringify(event.metadata),
+    payloadJson: stringifyJson(event.payload),
+    metadataJson: stringifyJson(event.metadata),
     createdBy: event.metadata.userId,
     expectedVersion: event.expectedVersion,
   });

@@ -291,6 +291,22 @@ export function coerceRow<T extends Record<string, unknown>>(row: T, info: Table
       } catch {
         // leave as string on parse error
       }
+    } else if (
+      (pgType === "bigint" || pgType === "bigserial") &&
+      typeof value === "bigint"
+    ) {
+      coerced = value;
+    } else if (
+      (pgType === "integer" ||
+        pgType === "int4" ||
+        pgType === "smallint" ||
+        pgType === "int2") &&
+      (typeof value === "bigint" || typeof value === "string")
+    ) {
+      // Bun.SQL / some drivers return int4 as bigint or numeric string.
+      // Drizzle coerced to number for numberField columns — match that.
+      const n = typeof value === "bigint" ? Number(value) : Number(value);
+      if (!Number.isNaN(n)) coerced = n;
     }
     const fieldName = info.fieldOf(key);
     if (fieldName !== key) changed = true;
@@ -307,8 +323,8 @@ function coerceRows<T extends Record<string, unknown>>(
   return rows.map((r) => coerceRow(r, info));
 }
 
-// Helper für jsonb-Werte: Bun.sql kann arrays/objects nicht direkt als
-// jsonb binden — wir JSON.stringify + ::jsonb cast.
+// Helper für jsonb-Werte: structured values binden als JS object/array mit
+// ::jsonb cast. JSON.stringify vor dem cast würde JSON-string-scalars erzeugen.
 // Plus Temporal.Instant → ISO string coercion for timestamptz columns.
 // SqlExpression (sql`now()`, sql`gen_random_uuid()`) wird als kind:"literal"
 // returned — Caller embedded das inline statt einen $N-placeholder zu setzen.
@@ -324,13 +340,21 @@ function prepareValue(value: unknown, pgType: string | undefined): PreparedValue
   if (isSqlExpression(value)) {
     return { kind: "literal", literal: value.text };
   }
-  if (
-    pgType === "jsonb" &&
-    value !== null &&
-    typeof value === "object" &&
-    !isTemporalInstant(value)
-  ) {
-    return { kind: "param", sql: "::jsonb", bound: JSON.stringify(value) };
+  if (pgType === "jsonb" && value !== null) {
+    if (typeof value === "boolean") {
+      return { kind: "param", sql: "::text::jsonb", bound: JSON.stringify(value) };
+    }
+    if (typeof value === "object" && !isTemporalInstant(value)) {
+      // Plain objects: bind directly — JSON.stringify + ::jsonb stores a JSON string scalar.
+      if (!Array.isArray(value)) {
+        return { kind: "param", sql: "::jsonb", bound: value };
+      }
+      // All-boolean arrays are inferred as boolean[] by postgres-js; route via text::jsonb.
+      if (value.length > 0 && value.every((entry) => typeof entry === "boolean")) {
+        return { kind: "param", sql: "::text::jsonb", bound: JSON.stringify(value) };
+      }
+      return { kind: "param", sql: "::jsonb", bound: value };
+    }
   }
   if ((pgType === "timestamptz" || pgType === "timestamptz(3)") && isTemporalInstant(value)) {
     return { kind: "param", sql: "", bound: (value as Temporal.Instant).toString() };
