@@ -277,6 +277,7 @@ const commands = {
       console.log(`  PostgreSQL   localhost:${Bun.env.KUMIKO_PG_PORT ?? "15432"}`);
       console.log(`  Redis        localhost:${Bun.env.KUMIKO_REDIS_PORT ?? "16379"}`);
       console.log(`  Meilisearch  localhost:${Bun.env.KUMIKO_MEILI_PORT ?? "17700"}`);
+      console.log(`  MinIO (S3)   localhost:${Bun.env.KUMIKO_MINIO_PORT ?? "19000"}`);
       console.log("\nLaeuft! Happy coding.");
     },
   },

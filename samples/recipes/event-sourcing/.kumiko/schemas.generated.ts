@@ -12,11 +12,11 @@
 
 import { z } from "zod";
 
-// showcase:event:invoice-acknowledged — from /Users/marc/code/cosmicdriftgamestudio/kumiko-framework-sql-queries/samples/recipes/event-sourcing/src/feature.ts:149
+// showcase:event:invoice-acknowledged — from src/feature.ts:149
 export const _kg_showcase__invoiceAcknowledged = z.object({ approverId: z.string(), approverDisplayName: z.string() });
 
-// showcase:event:invoice-approved — from /Users/marc/code/cosmicdriftgamestudio/kumiko-framework-sql-queries/samples/recipes/event-sourcing/src/feature.ts:129
+// showcase:event:invoice-approved — from src/feature.ts:129
 export const _kg_showcase__invoiceApproved = z.object({ amountCents: z.number().int(), approvedBy: z.string() });
 
-// showcase:event:invoice-paid — from /Users/marc/code/cosmicdriftgamestudio/kumiko-framework-sql-queries/samples/recipes/event-sourcing/src/feature.ts:142
+// showcase:event:invoice-paid — from src/feature.ts:142
 export const _kg_showcase__invoicePaid = z.object({ amountCents: z.number().int() });
