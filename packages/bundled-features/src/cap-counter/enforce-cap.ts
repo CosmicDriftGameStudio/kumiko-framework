@@ -1,4 +1,3 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEntityExecutor, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { rollingCapAggregateId } from "./aggregate-id";
@@ -109,8 +108,7 @@ export async function enforceCap(
   const softThreshold = options.limit * tolerance.soft;
   const hardThreshold = options.limit * tolerance.hard;
 
-  const rows = await selectMany(
-    ctx.db,
+  const rows = await ctx.db.selectMany(
     table,
     { capName: options.capName, periodStart: options.periodStartIso },
     { limit: 1 },
@@ -188,7 +186,7 @@ export async function enforceRollingCap(
   // covers the prefix; the additional aggregate_id eq narrows to the
   // single rolling-stream. Postgres can use the index even with the
   // aggregate_id filter applied as a residual.
-  const rows = await selectMany<{ payload: { amount?: number } }>(ctx.db, eventsTable, {
+  const rows = await ctx.db.selectMany<{ payload: { amount?: number } }>(eventsTable, {
     tenantId: ctx.user.tenantId,
     aggregateType: CAP_COUNTER_ROLLING_AGGREGATE_TYPE,
     aggregateId,

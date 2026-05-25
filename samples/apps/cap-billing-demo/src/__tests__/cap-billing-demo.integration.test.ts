@@ -7,12 +7,13 @@
 // hier sehen wie die Plattform im Realbetrieb cap-bedingtes Billing
 // verdrahtet.
 
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import {
   SubscriptionEventTypes,
   SubscriptionFoundationHandlers,
   SubscriptionStatuses,
+  subscriptionsProjectionTable,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import { capCounterEntity } from "@cosmicdrift/kumiko-bundled-features/cap-counter";
 import {
@@ -30,7 +31,8 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { createTenantFeature, tenantEntity } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { createEncryptionProvider, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createEntityExecutor } from "@cosmicdrift/kumiko-framework/engine";
+import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import {
   createTestUser,
@@ -43,6 +45,7 @@ import {
 import {
   createMutableMasterKeyProvider,
   type MutableMasterKeyProvider,
+  resetTestTables,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { NEWSLETTER_SEND_QN, NEWSLETTER_TIER_CONFIG_KEY } from "../feature";
 import { APP_FEATURES } from "../run-config";
@@ -57,6 +60,7 @@ let resolver: ConfigResolver;
 let providerRef: MutableMasterKeyProvider;
 
 const testEncryptionKey = randomBytes(32).toString("base64");
+const { table: capCounterTable } = createEntityExecutor("cap-counter", capCounterEntity);
 
 beforeAll(async () => {
   const encryption = createEncryptionProvider(testEncryptionKey);
@@ -95,6 +99,15 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await stack.cleanup();
+});
+
+beforeEach(async () => {
+  await resetTestTables(db, [
+    capCounterTable,
+    eventsTable,
+    configValuesTable,
+    subscriptionsProjectionTable,
+  ]);
 });
 
 // =============================================================================

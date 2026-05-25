@@ -17,15 +17,19 @@ import {
   enforceRollingCapAndMaybeNotify,
 } from "../enforce-cap";
 
-// Test-mock: ctx.db unterstützt sowohl bun-db's .unsafe() (selectMany ruft das)
-// als auch drizzle's .select().from().where() chain (rolling-path nutzt das
-// direkt). Beide pfade returnen denselben rows-set unabhängig von filtern.
+// Test-mock: ctx.db exposes TenantDb-style selectMany (production path)
+// plus legacy drizzle .select().from().where() chain stubs.
 
 function makeMockDb(rows: unknown[]) {
+  const selectMany = async (_table: unknown, _where?: unknown, options?: { limit?: number }) => {
+    const slice = options?.limit !== undefined ? rows.slice(0, options.limit) : rows;
+    return slice;
+  };
   return {
     unsafe: async () => rows,
+    selectMany,
     begin: async <T>(fn: (tx: unknown) => Promise<T>) =>
-      fn({ unsafe: async () => rows, begin: async () => undefined }),
+      fn({ unsafe: async () => rows, selectMany, begin: async () => undefined }),
     select: () => ({
       from: () => ({
         where: Object.assign(async () => rows, {
