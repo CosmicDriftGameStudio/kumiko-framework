@@ -5,6 +5,10 @@ import type {
   FieldsMap,
 } from "../engine/types";
 import { assertUnreachable } from "../utils";
+import { toSnakeCase } from "../utils/case";
+
+export { toSnakeCase } from "../utils/case";
+
 import {
   bigint,
   boolean,
@@ -192,12 +196,8 @@ function fieldToColumns(
 }
 
 // Accepts both camelCase (`tenantMembership`) and kebab-case (`tenant-membership`)
-// entity / field names. Kebab is the canonical form for new multi-word entity
-// types (consistent across r.entity, event-types, table names) — camelCase is
-// kept working for already-shipped code.
-export function toSnakeCase(str: string): string {
-  return str.replace(/-/g, "_").replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
-}
+// entity / field names. Implementation lives in utils/case — re-exported here
+// for backwards-compatible imports from db/table-builder.
 
 /**
  * Derives a table name from an entity name:

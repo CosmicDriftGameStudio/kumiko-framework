@@ -6,7 +6,13 @@ import type {
   SessionUser,
   WriteResult,
 } from "../engine/types";
-import { InternalError, isKumikoError, type KumikoError, type WriteErrorInfo } from "../errors";
+import {
+  type FieldIssue,
+  InternalError,
+  isKumikoError,
+  type KumikoError,
+  type WriteErrorInfo,
+} from "../errors";
 
 export type FailedWriteResult = Extract<WriteResult, { isSuccess: false }>;
 
@@ -146,12 +152,7 @@ export function prefixValidationPath(info: WriteErrorInfo, prefix: string): Writ
   if (info.code !== "validation_error") return info;
   const details = info.details as // @cast-boundary error-details
     | {
-        fields?: readonly {
-          path: string;
-          code: string;
-          i18nKey: string;
-          params?: Readonly<Record<string, unknown>>;
-        }[];
+        fields?: readonly FieldIssue[];
       }
     | undefined;
   const fields = details?.fields;

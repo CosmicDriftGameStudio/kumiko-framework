@@ -29,17 +29,13 @@
 // ---------------------------------------------------------------------------
 
 // A validation failure issue pinned to a specific payload field. Paths follow
-// the same dotted convention the server uses (see kumiko errors/classes.ts),
+// the same dotted convention the server uses (see kumiko errors/field-issue.ts),
 // so form-controllers can map `tasks.2.title` back to the right sub-line's
 // input without any translation.
+import type { FieldIssue } from "@cosmicdrift/kumiko-framework/errors";
 import type { Store } from "../store";
 
-export type FieldIssue = {
-  readonly path: string;
-  readonly code: string;
-  readonly i18nKey: string;
-  readonly params?: Readonly<Record<string, unknown>>;
-};
+export type { FieldIssue };
 
 // Everything the UI needs to show or retry a failed call. `code` + `httpStatus`
 // are the structured hooks (Toast picks icon/colour, Form-Controller filters

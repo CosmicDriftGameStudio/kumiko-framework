@@ -6,6 +6,7 @@ import { createSystemUser } from "../engine/system-user";
 import { type SessionUser, SYSTEM_TENANT_ID, type TenantId } from "../engine/types";
 import { NotFoundError } from "../errors";
 import type { Dispatcher } from "../pipeline/dispatcher";
+import { parseStringArrayJson } from "../utils/parse-string-array-json";
 import { Routes } from "./api-constants";
 import {
   AUTH_COOKIE_NAME,
@@ -819,11 +820,7 @@ export function createAuthRoutes(
         )) as { roles?: string | null } | null;
         const raw = userRow?.roles;
         if (typeof raw === "string" && raw.length > 0) {
-          // @cast-boundary db-row — userTable.roles is JSON-encoded string[] per AuthUserRow contract
-          const parsed = JSON.parse(raw) as unknown;
-          if (Array.isArray(parsed) && parsed.every((r) => typeof r === "string")) {
-            globalRoles = parsed;
-          }
+          globalRoles = parseStringArrayJson(raw);
         }
       } catch (e) {
         // Non-fatal: globale Rollen kann nicht aufgelöst werden → switch

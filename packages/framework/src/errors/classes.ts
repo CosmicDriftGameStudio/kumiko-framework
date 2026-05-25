@@ -1,16 +1,11 @@
+import { toSnakeCase } from "../utils/case";
+import type { FieldIssue } from "./field-issue";
 import { type ErrorOpts, KumikoError } from "./kumiko-error";
 
-// Per-field validation issue. Shared shape between Zod-derived and
-// hook-derived validation errors so the client sees one list.
-export type ValidationFieldIssue = {
-  readonly path: string;
-  readonly code: string;
-  readonly i18nKey: string;
-  readonly params?: Readonly<Record<string, unknown>>;
-};
+export type { FieldIssue, ValidationFieldIssue } from "./field-issue";
 
 export type ValidationDetails = {
-  readonly fields: readonly ValidationFieldIssue[];
+  readonly fields: readonly FieldIssue[];
 };
 
 export class ValidationError extends KumikoError {
@@ -89,7 +84,7 @@ export class NotFoundError extends KumikoError {
     // The reason string follows `<snake_entity>_not_found` — keeps a stable,
     // client-friendly tag that survives wire serialization even if the entity
     // name is later renamed for display purposes.
-    const reason = `${toSnake(entity)}_not_found`;
+    const reason = `${toSnakeCase(entity)}_not_found`;
     const details: NotFoundDetails & { reason: string } = { reason, entity, id: idStr };
     super({
       message: idStr !== undefined ? `${entity} ${idStr} not found` : `${entity} not found`,
@@ -99,15 +94,6 @@ export class NotFoundError extends KumikoError {
       cause: opts?.cause,
     });
   }
-}
-
-// Accepts camelCase OR kebab-case entity names and produces snake_case for
-// the reason tag. New code uses kebab; legacy camelCase still flows through.
-function toSnake(s: string): string {
-  return s
-    .replace(/-/g, "_")
-    .replace(/([a-z])([A-Z])/g, "$1_$2")
-    .toLowerCase();
 }
 
 // Generic 409. Features that need a narrower shape should subclass (see
