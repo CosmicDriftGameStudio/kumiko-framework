@@ -142,10 +142,10 @@ function buildStripeSubscriptionEvent(overrides: {
   };
 }
 
-function signEvent(payload: string): string {
-  return stripeForFixtures.webhooks.generateTestHeaderString({
+async function signEvent(payload: string, secret = TEST_SECRET): Promise<string> {
+  return stripeForFixtures.webhooks.generateTestHeaderStringAsync({
     payload,
-    secret: TEST_SECRET,
+    secret,
   });
 }
 
@@ -172,7 +172,7 @@ describe("scenario 1: Stripe-event → DB happy path", () => {
       priceId: "price_business_yearly",
     });
     const payload = JSON.stringify(stripeEvent);
-    const sig = signEvent(payload);
+    const sig = await signEvent(payload);
 
     const res = await postStripeWebhook(payload, sig);
     expect(res.status).toBe(200);
@@ -225,10 +225,7 @@ describe("scenario 2: invalid sig → 401, kein DB-write", () => {
     });
     const payload = JSON.stringify(stripeEvent);
     // Wrong secret = invalid sig.
-    const wrongSig = stripeForFixtures.webhooks.generateTestHeaderString({
-      payload,
-      secret: "whsec_wrong_secret",
-    });
+    const wrongSig = await signEvent(payload, "whsec_wrong_secret");
 
     const res = await postStripeWebhook(payload, wrongSig);
     expect(res.status).toBe(401);
@@ -260,7 +257,7 @@ describe("scenario 3: idempotency via Stripe-retry", () => {
       subscriptionId: "sub_4003",
     });
     const payload = JSON.stringify(stripeEvent);
-    const sig = signEvent(payload);
+    const sig = await signEvent(payload);
 
     const res1 = await postStripeWebhook(payload, sig);
     expect(res1.status).toBe(200);
@@ -292,7 +289,7 @@ describe("scenario 4: ignored event-types pass through", () => {
       tenantId: tenantStringId,
     });
     const payload = JSON.stringify(stripeEvent);
-    const sig = signEvent(payload);
+    const sig = await signEvent(payload);
 
     const res = await postStripeWebhook(payload, sig);
     expect(res.status).toBe(200);
