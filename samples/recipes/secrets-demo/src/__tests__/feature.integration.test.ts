@@ -37,9 +37,9 @@ import {
   type MutableMasterKeyProvider,
   waitFor,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { createBillingFeature, STRIPE_API_KEY } from "../feature";
+import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // Stable KEK bytes across provider rebuilds — mimics ops flipping env vars
 // across a redeploy without rotating the actual key material.
@@ -135,15 +135,7 @@ describe("1. at-rest representation", () => {
       tenantAdmin,
     );
 
-    const [row] = await stack.db
-      .select()
-      .from(tenantSecretsTable)
-      .where(
-        and(
-          eq(tenantSecretsTable.tenantId, tenantAdmin.tenantId),
-          eq(tenantSecretsTable.key, STRIPE_API_KEY.name),
-        ),
-      );
+    const [row] = await selectMany(stack.db, tenantSecretsTable, { tenantId: tenantAdmin.tenantId, key: STRIPE_API_KEY.name });
     if (!row) throw new Error("row missing");
 
     const env = row.envelope as StoredEnvelope;
@@ -172,15 +164,7 @@ describe("3. feature code decrypts via audited path", () => {
     // Post-ES: read-audit rides on the events-table as tenantSecretRead
     // domain-events (one per get() call, fresh aggregate-id each). Filter
     // by tenantId so parallel tests don't skew the count.
-    const before = await stack.db
-      .select()
-      .from(eventsTable)
-      .where(
-        and(
-          eq(eventsTable.tenantId, tenantAdmin.tenantId),
-          eq(eventsTable.type, TENANT_SECRET_READ_EVENT),
-        ),
-      );
+    const before = await selectMany(stack.db, eventsTable, { tenantId: tenantAdmin.tenantId, type: TENANT_SECRET_READ_EVENT });
 
     const result = await stack.http.writeOk<{
       chargeId: string;
@@ -192,15 +176,7 @@ describe("3. feature code decrypts via audited path", () => {
     expect(result.chargeId).toContain("cust_42");
     expect(JSON.stringify(result)).not.toContain("sk_test_SuperSecretLivePlatz12345");
 
-    const after = await stack.db
-      .select()
-      .from(eventsTable)
-      .where(
-        and(
-          eq(eventsTable.tenantId, tenantAdmin.tenantId),
-          eq(eventsTable.type, TENANT_SECRET_READ_EVENT),
-        ),
-      );
+    const after = await selectMany(stack.db, eventsTable, { tenantId: tenantAdmin.tenantId, type: TENANT_SECRET_READ_EVENT });
     expect(after.length).toBe(before.length + 1);
 
     const newest = after[after.length - 1];
@@ -238,10 +214,9 @@ describe("4. response guard via the real dispatcher", () => {
 describe("5. KEK rotation via the core job + real BullMQ dispatch", () => {
   test("rotate job triggered over BullMQ migrates the V1 row onto V2", async () => {
     // Sanity: row is still on V1 before we flip the ring.
-    const [beforeRow] = await stack.db
-      .select({ kekVersion: tenantSecretsTable.kekVersion })
-      .from(tenantSecretsTable)
-      .where(eq(tenantSecretsTable.key, STRIPE_API_KEY.name));
+    const beforeRow = await fetchOne<{ kekVersion: number }>(stack.db, tenantSecretsTable, {
+      key: STRIPE_API_KEY.name,
+    });
     expect(beforeRow?.kekVersion).toBe(1);
 
     // Ops flipped CURRENT to V2 (and keyring has V1+V2). In production
@@ -261,19 +236,15 @@ describe("5. KEK rotation via the core job + real BullMQ dispatch", () => {
     // final attempt — so a real rotation failure surfaces as a clear
     // "expected 2, got 1" instead of a "polling timed out" noise message.
     await waitFor(async () => {
-      const [row] = await stack.db
-        .select({ kekVersion: tenantSecretsTable.kekVersion })
-        .from(tenantSecretsTable)
-        .where(eq(tenantSecretsTable.key, STRIPE_API_KEY.name));
+      const row = await fetchOne<{ kekVersion: number }>(stack.db, tenantSecretsTable, {
+        key: STRIPE_API_KEY.name,
+      });
       expect(row?.kekVersion).toBe(2);
     });
 
     // Ciphertext byte-identical — only the DEK wrapper changed. Proves
     // rewrapDek's promise (cheap rotation on large tables).
-    const [full] = await stack.db
-      .select()
-      .from(tenantSecretsTable)
-      .where(eq(tenantSecretsTable.key, STRIPE_API_KEY.name));
+    const [full] = await selectMany(stack.db, tenantSecretsTable, { key: STRIPE_API_KEY.name });
     if (!full) throw new Error("row missing");
     expect((full.envelope as StoredEnvelope).kekVersion).toBe(2);
   });
@@ -297,10 +268,9 @@ describe("5. KEK rotation via the core job + real BullMQ dispatch", () => {
     // on the assertion succeeding, so if the job worker stayed idle (no
     // work to do) this returns on the first check.
     await waitFor(async () => {
-      const [row] = await stack.db
-        .select({ kekVersion: tenantSecretsTable.kekVersion })
-        .from(tenantSecretsTable)
-        .where(eq(tenantSecretsTable.key, STRIPE_API_KEY.name));
+      const row = await fetchOne<{ kekVersion: number }>(stack.db, tenantSecretsTable, {
+        key: STRIPE_API_KEY.name,
+      });
       expect(row?.kekVersion).toBe(2);
     });
   });

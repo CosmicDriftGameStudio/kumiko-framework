@@ -10,7 +10,8 @@
 
 import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const STATUSES = ["draft", "active", "blocked", "done"] as const;
 
@@ -30,9 +31,7 @@ function mulberry32(seed: number): () => number {
 export const seedShowcaseItems: SeedFn = async (stack) => {
   // toTableName("item") → "read_items". Direct-SQL-COUNT für die Skip-
   // Probe — billiger als ein listOk + Length-Check.
-  const existing = await stack.db.execute<{ count: number }>(
-    sql`SELECT count(*)::int AS count FROM read_items WHERE tenant_id = ${TestUsers.admin.tenantId}`,
-  );
+  const existing = await asRawClient(stack.db).unsafe(`SELECT count(*)::int AS count FROM read_items WHERE tenant_id = $1`, [TestUsers.admin.tenantId]);
   if ((existing[0]?.count ?? 0) >= 100) {
     // biome-ignore lint/suspicious/noConsole: sample-server diagnostics
     console.log(`[showcase-seed] read_items has ${existing[0]?.count} rows — skip`);

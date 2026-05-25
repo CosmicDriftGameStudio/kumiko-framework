@@ -22,6 +22,7 @@ import {
   productEntity,
   productTable,
 } from "../feature";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 
@@ -44,8 +45,8 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(productTable);
-  await stack.db.delete(guestOrderTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${productTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${guestOrderTable.tableName}"`);
 });
 
 describe("public read: anonymous + authenticated share the listing", () => {
@@ -97,7 +98,7 @@ describe("guest checkout: anonymous write lands with placedBy=anonymous", () => 
 
     expect(res.status).toBe(200);
 
-    const orders = await stack.db.select().from(guestOrderTable);
+    const orders = await selectMany(stack.db, guestOrderTable);
     expect(orders).toHaveLength(1);
     expect(orders[0]?.placedBy).toBe(ANONYMOUS_USER_ID);
     expect(orders[0]?.email).toBe("guest@example.com");

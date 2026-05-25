@@ -6,6 +6,7 @@ import { seedReferenceData } from "@cosmicdrift/kumiko-framework/db";
 import type { ReferenceDataDef } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestDb, type TestDb, unsafePushTables } from "@cosmicdrift/kumiko-framework/stack";
 import { categoryFeature, categoryTable } from "../feature";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let testDb: TestDb;
 
@@ -19,7 +20,7 @@ afterAll(async () => {
 });
 
 async function readCategories() {
-  const rows = await testDb.db.select().from(categoryTable);
+  const rows = await selectMany(testDb.db, categoryTable);
   return rows.sort((a, b) => a.code.localeCompare(b.code));
 }
 

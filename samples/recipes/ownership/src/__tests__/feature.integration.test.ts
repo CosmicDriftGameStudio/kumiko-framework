@@ -14,6 +14,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
 import { contractEntity, contractsFeature, teamsFeature } from "../feature";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 const tenant = testTenantId(1);
@@ -51,7 +52,7 @@ let engRowVersion: number;
 let opsRowId: string;
 
 beforeEach(async () => {
-  await stack.db.execute("DELETE FROM read_ownership_contracts");
+  await asRawClient(stack.db).unsafe("DELETE FROM read_ownership_contracts");
   const eng = await stack.http.writeOk<{ id: string; data: { version: number } }>(
     "contracts:write:contract:create",
     {

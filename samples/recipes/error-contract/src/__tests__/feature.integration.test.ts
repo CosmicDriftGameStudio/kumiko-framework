@@ -14,8 +14,8 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { eq } from "drizzle-orm";
 import { OrdersLiteReasons, orderEntity, ordersLiteFeature } from "../feature";
+import { asRawClient, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 const orderTable = buildEntityTable("order", orderEntity);
@@ -31,7 +31,7 @@ beforeAll(async () => {
 });
 afterAll(async () => stack.cleanup());
 beforeEach(async () => {
-  await stack.db.delete(orderTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${orderTable.tableName}"`);
 });
 
 // --- 1) Zod validation error via schema: empty cart rejected ---
@@ -119,7 +119,7 @@ describe("ConflictError → 409", () => {
     // doesn't expose a "place" action, so we can't walk the state machine —
     // the point of this test is ConflictError semantics, not the transition
     // path itself.
-    await stack.db.update(orderTable).set({ status: "paid" }).where(eq(orderTable["id"], order.id));
+    await updateMany(stack.db, orderTable, { status: "paid" }, { id: order.id });
 
     const error = await stack.http.writeErr(
       "orders-lite:write:order:cancel",

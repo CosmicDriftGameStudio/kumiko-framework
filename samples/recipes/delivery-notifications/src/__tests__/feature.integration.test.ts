@@ -52,8 +52,8 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
-import { and, eq } from "drizzle-orm";
 import { supportFeature, ticketTable } from "../feature";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 // --- Test Infrastructure ---
 
@@ -137,10 +137,7 @@ describe("delivery-notifications sample", () => {
     );
 
     // --- Assert: InApp ---
-    const inAppMessages = await db
-      .select()
-      .from(inAppMessagesTable)
-      .where(eq(inAppMessagesTable.userId, assignee.id));
+    const inAppMessages = await selectMany(db, inAppMessagesTable, { userId: assignee.id });
     expect(inAppMessages).toHaveLength(1);
     expect(inAppMessages[0]?.["title"]).toBe("Neues Ticket: Login-Button reagiert nicht");
     expect(inAppMessages[0]?.["body"]).toContain("Nach Klick auf Login");
@@ -173,15 +170,7 @@ describe("delivery-notifications sample", () => {
     expect(push?.body).toContain("critical");
 
     // --- Assert: DeliveryLog has entries for all 3 channels ---
-    const logs = await db
-      .select()
-      .from(deliveryAttemptsTable)
-      .where(
-        and(
-          eq(deliveryAttemptsTable.notificationType, "support:notify:ticket-assigned"),
-          eq(deliveryAttemptsTable.recipientId, assignee.id),
-        ),
-      );
+    const logs = await selectMany(db, deliveryAttemptsTable, { notificationType: "support:notify:ticket-assigned", recipientId: assignee.id });
     expect(logs).toHaveLength(3);
     const channels = logs.map((l) => l["channel"]);
     expect(channels).toContain("inApp");

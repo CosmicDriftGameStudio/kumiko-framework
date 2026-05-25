@@ -24,7 +24,7 @@ import {
   defineProjectionQueryHandler,
   typedPayload,
 } from "@app/define";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne, incrementCounter, insertOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   buildEntityTable,
   createEventStoreExecutor,
@@ -33,7 +33,7 @@ import {
   text,
   uuid,
 } from "@cosmicdrift/kumiko-framework/db";
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { z } from "zod";
 
 // --- Reducer: shared by live + snapshot-aware query handlers ---
@@ -171,7 +171,7 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
     apply: {
       "showcase-invoice.created": async (event, tx) => {
         const p = event.payload as { customer: string; status: string };
-        await tx.insert(invoiceDetailTable).values({
+        await insertOne(tx, invoiceDetailTable, {
           invoiceId: event.aggregateId,
           tenantId: event.tenantId,
           customer: p.customer,

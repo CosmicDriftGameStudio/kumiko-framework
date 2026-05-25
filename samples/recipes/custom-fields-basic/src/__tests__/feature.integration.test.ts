@@ -22,8 +22,9 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { sql } from "drizzle-orm";
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { propertyEntity, propertyFeature } from "../feature";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const admin = createTestUser({ roles: ["TenantAdmin"] });
 const customFields = createCustomFieldsFeature();
@@ -42,9 +43,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.execute(sql`DELETE FROM kumiko_events`);
-  await stack.db.execute(sql`DELETE FROM read_sample_cf_properties`);
-  await stack.db.execute(sql`DELETE FROM read_custom_field_definitions`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM kumiko_events`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM read_sample_cf_properties`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM read_custom_field_definitions`);
 });
 
 async function defineField(fieldKey: string, type = "text") {

@@ -28,7 +28,6 @@ import {
   UnprocessableError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 // --- Feature-local reasons: snake_case, no feature prefix needed since the
@@ -106,10 +105,7 @@ export const ordersLiteFeature = defineFeature("orders-lite", (r) => {
     "order:pay",
     z.object({ id: z.uuid() }),
     async (event, ctx) => {
-      const [current] = await ctx.db
-        .select()
-        .from(orderTable)
-        .where(eq(orderTable["id"], event.payload.id));
+      const [current] = await ctx.db.selectMany(orderTable, { id: event.payload.id });
 
       // NotFoundError — automatic reason = "order_not_found" via snake-case
       // derivation of the entity name.
@@ -165,10 +161,7 @@ export const ordersLiteFeature = defineFeature("orders-lite", (r) => {
     "order:cancel",
     z.object({ id: z.uuid() }),
     async (event, ctx) => {
-      const [current] = await ctx.db
-        .select()
-        .from(orderTable)
-        .where(eq(orderTable["id"], event.payload.id));
+      const [current] = await ctx.db.selectMany(orderTable, { id: event.payload.id });
       if (!current) return failNotFound("order", event.payload.id);
 
       const data = current as Record<string, unknown>;
@@ -209,10 +202,7 @@ export const ordersLiteFeature = defineFeature("orders-lite", (r) => {
     "order:rename",
     z.object({ id: z.uuid(), nickname: z.string().min(1) }),
     async (event, ctx) => {
-      const [current] = await ctx.db
-        .select()
-        .from(orderTable)
-        .where(eq(orderTable["id"], event.payload.id));
+      const [current] = await ctx.db.selectMany(orderTable, { id: event.payload.id });
 
       if (!current) {
         // Throwing a KumikoError is equivalent to `return writeFailure(...)`

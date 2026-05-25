@@ -4,6 +4,44 @@ import type { SessionUser } from "../engine/types";
 
 export type BatchCommand = { type: string; payload: unknown };
 
+type WireErrorBody = {
+  readonly code?: string;
+  readonly details?: {
+    readonly causeName?: string;
+    readonly causeMessage?: string;
+    readonly causeStack?: string;
+  };
+};
+
+function formatWriteFailure(type: string, body: unknown): string {
+  const parsed = body as {
+    isSuccess?: boolean;
+    error?: WireErrorBody | string;
+  };
+  const code =
+    (typeof parsed.error === "object" ? parsed.error?.code : undefined) ??
+    (typeof parsed.error === "string" ? parsed.error : "unknown");
+  const details =
+    typeof parsed.error === "object" && parsed.error?.details !== undefined
+      ? parsed.error.details
+      : undefined;
+  const causeMessage =
+    details && typeof details === "object" && "causeMessage" in details
+      ? String((details as { causeMessage?: unknown }).causeMessage ?? "")
+      : "";
+  const causeName =
+    details && typeof details === "object" && "causeName" in details
+      ? String((details as { causeName?: unknown }).causeName ?? "")
+      : "";
+  if (code === "internal_error" && (causeMessage || causeName)) {
+    return `Expected write "${type}" to succeed but got error: ${code} (${causeName}: ${causeMessage})`;
+  }
+  if (details !== undefined) {
+    return `Expected write "${type}" to succeed but got error: ${code} — ${JSON.stringify(details)}`;
+  }
+  return `Expected write "${type}" to succeed but got error: ${code}`;
+}
+
 export type RequestHelper = {
   write: (
     type: string,
@@ -123,10 +161,7 @@ export function createRequestHelper(app: Hono, jwt: JwtHelper): RequestHelper {
       // follow the error-contract shape { error: { code, i18nKey, ... } } with
       // a 4xx/5xx status — no isSuccess flag. Detect either.
       if (body.isSuccess !== true) {
-        const code =
-          (typeof body.error === "object" ? body.error?.code : undefined) ??
-          (typeof body.error === "string" ? body.error : "unknown");
-        throw new Error(`Expected write "${type}" to succeed but got error: ${code}`);
+        throw new Error(formatWriteFailure(type, body));
       }
       return body.data as T; // @cast-boundary engine-bridge
     },

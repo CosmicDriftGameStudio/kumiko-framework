@@ -19,8 +19,8 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { and, eq } from "drizzle-orm";
 import { capturedEvents, orderEntity, pubsubOrderFeature } from "../feature";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 
@@ -54,15 +54,7 @@ describe("cross-feature reactions via ctx.appendEvent + r.multiStreamProjection"
     // The event row is committed alongside the order row. It lives on the
     // order's OWN stream now — aggregateType "pubsub-order", version 2
     // (auto "created" is v1, domain "order-placed" is v2).
-    const domainEvents = await stack.db
-      .select()
-      .from(eventsTable)
-      .where(
-        and(
-          eq(eventsTable.aggregateType, "pubsub-order"),
-          eq(eventsTable.type, "pubsub-orders:event:order-placed"),
-        ),
-      );
+    const domainEvents = await selectMany(stack.db, eventsTable, { aggregateType: "pubsub-order", type: "pubsub-orders:event:order-placed" });
     expect(domainEvents).toHaveLength(1);
     expect(domainEvents[0]?.aggregateId).toBe(orderId);
     expect(domainEvents[0]?.version).toBeGreaterThan(1);
@@ -92,10 +84,7 @@ describe("cross-feature reactions via ctx.appendEvent + r.multiStreamProjection"
     // it with.
     await stack.http.writeErr("pubsub-orders:write:order:place", { customer: "" }, customer);
 
-    const domainEvents = await stack.db
-      .select()
-      .from(eventsTable)
-      .where(eq(eventsTable.type, "pubsub-orders:event:order-placed"));
+    const domainEvents = await selectMany(stack.db, eventsTable, { type: "pubsub-orders:event:order-placed" });
     expect(domainEvents).toHaveLength(0);
 
     await stack.eventDispatcher?.runOnce();

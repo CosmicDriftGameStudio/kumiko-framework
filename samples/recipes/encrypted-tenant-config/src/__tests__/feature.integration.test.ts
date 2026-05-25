@@ -18,8 +18,8 @@ import {
   testTenantId,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { eq } from "drizzle-orm";
 import { billingFeature, stripeApiKeyHandle } from "../feature";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 const TENANT_A = testTenantId(1);
 const TENANT_B = testTenantId(2);
@@ -46,7 +46,7 @@ beforeAll(async () => {
 afterAll(async () => stack?.cleanup());
 
 beforeEach(async () => {
-  await stack.db.delete(configValuesTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${configValuesTable.tableName}"`);
 });
 
 describe("encrypted tenant-config: per-tenant Stripe-API-key", () => {
@@ -58,10 +58,7 @@ describe("encrypted tenant-config: per-tenant Stripe-API-key", () => {
       acmeAdmin,
     );
 
-    const rows = await stack.db
-      .select()
-      .from(configValuesTable)
-      .where(eq(configValuesTable.key, stripeApiKeyHandle.name));
+    const rows = await selectMany(stack.db, configValuesTable, { key: stripeApiKeyHandle.name });
     expect(rows.length).toBe(1);
     const stored = rows[0]?.["value"];
     expect(typeof stored).toBe("string");

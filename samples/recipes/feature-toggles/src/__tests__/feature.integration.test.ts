@@ -21,6 +21,7 @@ import {
   productEntity,
   productTable,
 } from "../feature";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 
 let stack: TestStack;
 let runtime: GlobalFeatureToggleRuntime;
@@ -54,9 +55,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.delete(productAuditTable);
-  await stack.db.delete(productTable);
-  await stack.db.delete(globalFeatureStateTable);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${productAuditTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${productTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${globalFeatureStateTable.tableName}"`);
   await runtime.refresh();
 });
 
@@ -75,7 +76,7 @@ describe("feature-toggles showcase", () => {
     // ON
     const ok = await createProduct("alpha");
     expect((await ok.json()).isSuccess).toBe(true);
-    const auditRowsAfterOn = await stack.db.select().from(productAuditTable);
+    const auditRowsAfterOn = await selectMany(stack.db, productAuditTable);
     expect(auditRowsAfterOn.length).toBe(1);
 
     // OFF
@@ -91,7 +92,7 @@ describe("feature-toggles showcase", () => {
     runtime.apply("product", true);
     const again = await createProduct("gamma");
     expect((await again.json()).isSuccess).toBe(true);
-    const auditRowsAfterReEnable = await stack.db.select().from(productAuditTable);
+    const auditRowsAfterReEnable = await selectMany(stack.db, productAuditTable);
     expect(auditRowsAfterReEnable.length).toBe(2);
   });
 
@@ -101,10 +102,10 @@ describe("feature-toggles showcase", () => {
     const ok = await createProduct("delta");
     expect((await ok.json()).isSuccess).toBe(true);
     // Product row written — handler unaffected.
-    const productRows = await stack.db.select().from(productTable);
+    const productRows = await selectMany(stack.db, productTable);
     expect(productRows.length).toBe(1);
     // Audit hook owned by product-audit — silently skipped.
-    const auditRows = await stack.db.select().from(productAuditTable);
+    const auditRows = await selectMany(stack.db, productAuditTable);
     expect(auditRows.length).toBe(0);
   });
 });
