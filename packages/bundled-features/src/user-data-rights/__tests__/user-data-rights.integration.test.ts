@@ -11,6 +11,7 @@ import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-framework/st
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createUserFeature } from "../../user";
+import { createSessionsFeature } from "../../sessions";
 import { createUserDataRightsFeature } from "../feature";
 
 let stack: TestStack;
@@ -18,11 +19,12 @@ let stack: TestStack;
 const userFeature = createUserFeature();
 const dataRetention = createDataRetentionFeature();
 const complianceProfiles = createComplianceProfilesFeature();
+const sessionsFeature = createSessionsFeature();
 const userDataRights = createUserDataRightsFeature();
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [userFeature, dataRetention, complianceProfiles, userDataRights],
+    features: [userFeature, sessionsFeature, dataRetention, complianceProfiles, userDataRights],
   });
 });
 

@@ -16,6 +16,7 @@
 //   - HTTP-Endpoints fuer create/list
 //   - Compliance-Profile-Wiring + Cron-Scheduling
 
+import { deleteMany, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
@@ -25,7 +26,6 @@ import {
   type UserDataDeleteHook,
   type UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { and, eq } from "drizzle-orm";
 
 export const noteEntity = createEntity({
   table: "read_notes",
@@ -43,14 +43,11 @@ export const notesFeature = defineFeature("notes", (r) => {
   r.requires("user-data-rights");
   r.entity("note", noteEntity);
 
-  // Export-Hook: Snippet pro Tenant des Users. user-data-rights iteriert
-  // die Memberships und ruft den Hook pro Tenant auf.
   const exportNotes: UserDataExportHook = async (ctx) => {
-    const rows = await selectMany<{ id: string; title: string | null; body: string | null }>(
-      ctx.db,
-      notesTable,
-      { tenantId: ctx.tenantId, authorId: ctx.userId },
-    );
+    const rows = await selectMany(ctx.db, notesTable, {
+      tenantId: ctx.tenantId,
+      authorId: ctx.userId,
+    });
     if (rows.length === 0) return null;
     return {
       entity: "note",
@@ -62,18 +59,12 @@ export const notesFeature = defineFeature("notes", (r) => {
     };
   };
 
-  // Delete-Hook: hardDelete bei strategy="delete", row-anonymize bei
-  // strategy="anonymize". user-data-rights resolved die Strategy aus
-  // retention.policyFor pro Entity (HR-Compliance kann anonymize forcen).
   const deleteNotes: UserDataDeleteHook = async (ctx, strategy) => {
-    const where = and(
-      eq(notesTable["tenantId"], ctx.tenantId),
-      eq(notesTable["authorId"], ctx.userId),
-    );
+    const where = { tenantId: ctx.tenantId, authorId: ctx.userId };
     if (strategy === "anonymize") {
-      await ctx.db.update(notesTable).set({ authorId: null }).where(where);
+      await updateMany(ctx.db, notesTable, { authorId: null }, where);
     } else {
-      await ctx.db.delete(notesTable).where(where);
+      await deleteMany(ctx.db, notesTable, where);
     }
   };
 

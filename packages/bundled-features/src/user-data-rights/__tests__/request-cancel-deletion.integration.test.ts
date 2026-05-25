@@ -28,6 +28,7 @@ import {
 import { createDataRetentionFeature } from "../../data-retention";
 import { USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserFeature } from "../../user/feature";
+import { createSessionsFeature } from "../../sessions";
 import { createUserDataRightsFeature } from "../feature";
 
 const REQUEST_DELETION = "user-data-rights:write:request-deletion";
@@ -54,6 +55,8 @@ const features = [
   createUserFeature(),
   createDataRetentionFeature(),
   createComplianceProfilesFeature(),
+  createSessionsFeature(),
+
   createUserDataRightsFeature(),
 ];
 

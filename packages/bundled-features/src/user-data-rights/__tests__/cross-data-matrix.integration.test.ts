@@ -33,6 +33,7 @@ import {
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
 import { createFilesFeature } from "../../files";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
+import { createSessionsFeature } from "../../sessions";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults";
 import { createUserDataRightsFeature } from "../feature";
 import { runForgetCleanup } from "../run-forget-cleanup";
@@ -104,6 +105,8 @@ beforeAll(async () => {
       createFilesFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
+      createSessionsFeature(),
+
       createUserDataRightsFeature(),
       createUserDataRightsDefaultsFeature(),
       testNotesFeature,

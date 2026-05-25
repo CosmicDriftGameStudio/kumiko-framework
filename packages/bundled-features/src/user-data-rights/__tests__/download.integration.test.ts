@@ -39,6 +39,7 @@ import { createDataRetentionFeature } from "../../data-retention";
 import { fileFoundationFeature } from "../../file-foundation";
 import { fileProviderInMemoryFeature } from "../../file-provider-inmemory";
 import { createUserFeature } from "../../user";
+import { createSessionsFeature } from "../../sessions";
 import { createUserDataRightsFeature } from "../feature";
 import { runExportJobs } from "../run-export-jobs";
 import { exportDownloadTokenEntity, exportDownloadTokensTable } from "../schema/download-token";
@@ -108,6 +109,8 @@ beforeAll(async () => {
       fileFoundationFeature,
       fileProviderInMemoryFeature,
       noSignedUrlProviderFeature,
+      createSessionsFeature(),
+
       createUserDataRightsFeature(),
     ],
     extraContext: ({ registry }) => ({

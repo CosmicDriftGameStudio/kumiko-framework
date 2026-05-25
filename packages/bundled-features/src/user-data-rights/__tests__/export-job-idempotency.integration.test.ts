@@ -25,6 +25,7 @@ import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createUserFeature } from "../../user";
+import { createSessionsFeature } from "../../sessions";
 import { createUserDataRightsFeature } from "../feature";
 import {
   ACTIVE_JOB_CONSTRAINT,
@@ -45,6 +46,8 @@ beforeAll(async () => {
       createUserFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
+      createSessionsFeature(),
+
       createUserDataRightsFeature(),
     ],
   });

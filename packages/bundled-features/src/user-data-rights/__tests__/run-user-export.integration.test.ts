@@ -26,6 +26,7 @@ import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createFilesFeature } from "../../files";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
+import { createSessionsFeature } from "../../sessions";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults";
 import { createUserDataRightsFeature } from "../feature";
 import { runUserExport } from "../run-user-export";
@@ -51,6 +52,8 @@ beforeAll(async () => {
       createFilesFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
+      createSessionsFeature(),
+
       createUserDataRightsFeature(),
       createUserDataRightsDefaultsFeature(),
     ],

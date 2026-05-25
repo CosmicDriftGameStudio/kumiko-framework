@@ -17,6 +17,7 @@ import {
 import { createDataRetentionFeature } from "../../data-retention";
 import { USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserFeature } from "../../user/feature";
+import { createSessionsFeature } from "../../sessions";
 import { createUserDataRightsFeature } from "../feature";
 import { downloadAttemptEntity, downloadAttemptsTable } from "../schema/download-attempt";
 
@@ -36,6 +37,8 @@ beforeAll(async () => {
       createUserFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
+      createSessionsFeature(),
+
       createUserDataRightsFeature(),
     ],
   });

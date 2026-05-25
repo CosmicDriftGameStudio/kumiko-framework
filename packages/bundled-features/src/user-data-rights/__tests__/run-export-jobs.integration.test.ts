@@ -42,6 +42,7 @@ import {
 } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
+import { createSessionsFeature } from "../../sessions";
 import { createUserDataRightsFeature } from "../feature";
 import { runExportJobs } from "../run-export-jobs";
 import { exportDownloadTokenEntity, exportDownloadTokensTable } from "../schema/download-token";
@@ -60,6 +61,8 @@ beforeAll(async () => {
       createUserFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
+      createSessionsFeature(),
+
       createUserDataRightsFeature(),
     ],
   });
@@ -734,6 +737,8 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
         createUserFeature(),
         createDataRetentionFeature(),
         createComplianceProfilesFeature(),
+        createSessionsFeature(),
+
         createUserDataRightsFeature(),
         testFileExporter,
       ],

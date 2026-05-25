@@ -15,6 +15,7 @@ import { createAuthEmailPasswordFeature } from "@cosmicdrift/kumiko-bundled-feat
 import { tenantComplianceProfileEntity } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import { tenantRetentionOverrideEntity } from "@cosmicdrift/kumiko-bundled-features/data-retention";
+import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import {
   createUserFeature,
@@ -26,6 +27,7 @@ import {
   runForgetCleanup,
   runUserExport,
 } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
+import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createTestUser,
@@ -35,7 +37,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { sql } from "drizzle-orm";
 import { TODO_CREATE_QN, TODO_LIST_QN, todoEntity } from "../feature";
 import { APP_FEATURES } from "../run-config";
 
@@ -49,14 +50,12 @@ const NOW = (): Instant => getTemporal().Now.instant();
 const PAST = (): Instant => getTemporal().Instant.fromEpochMilliseconds(Date.now() - 60_000);
 
 beforeAll(async () => {
-  // setupTestStack ergaenzt config/user/tenant/auth NICHT automatisch
-  // (anders als runDevApp via composeFeatures). Wir mounten sie hier
-  // explicit, sonst scheitert file-foundation.requires("config").
   stack = await setupTestStack({
     features: [
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
+      createSessionsFeature(),
       createAuthEmailPasswordFeature({}),
       ...APP_FEATURES,
     ],
@@ -66,7 +65,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, todoEntity);
   await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
-  await stack.db.execute(sql`
+  await asRawClient(stack.db).unsafe(`
     CREATE TABLE IF NOT EXISTS read_tenant_memberships (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       tenant_id UUID NOT NULL,
@@ -83,7 +82,7 @@ beforeAll(async () => {
       UNIQUE(user_id, tenant_id)
     )
   `);
-  await stack.db.execute(sql`
+  await asRawClient(stack.db).unsafe(`
     CREATE TABLE IF NOT EXISTS file_refs (
       id UUID PRIMARY KEY,
       tenant_id UUID NOT NULL,
@@ -105,14 +104,14 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await stack.db.execute(sql`DELETE FROM read_todos`);
-  await stack.db.delete(userTable);
-  await stack.db.execute(sql`DELETE FROM read_tenant_memberships`);
-  await stack.db.execute(sql`DELETE FROM kumiko_events`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM read_todos`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_memberships`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM kumiko_events`);
 });
 
 async function seedAlice(): Promise<void> {
-  await stack.db.insert(userTable).values({
+  await insertOne(stack.db, userTable, {
     id: alice.id,
     tenantId: alice.tenantId,
     email: "alice@demo.local",
@@ -123,18 +122,20 @@ async function seedAlice(): Promise<void> {
     roles: '["Member"]',
     status: USER_STATUS.Active,
   });
-  await stack.db.execute(sql`
+  await asRawClient(stack.db).unsafe(
+    `
     INSERT INTO read_tenant_memberships (tenant_id, user_id, roles)
-    VALUES (${tenantId}, ${alice.id}, '["Member"]')
+    VALUES ($1, $2, '["Member"]')
     ON CONFLICT (user_id, tenant_id) DO NOTHING
-  `);
+  `,
+    [tenantId, alice.id],
+  );
 }
 
 describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {
   test("Schritt 1+2+3: Todos anlegen → eigene Todos listen → Export-Bundle hat alle Daten", async () => {
     await seedAlice();
 
-    // Schritt 1: User legt zwei Todos an.
     await stack.http.writeOk(
       TODO_CREATE_QN,
       { title: "Steuererklaerung 2025", body: "bis Ende Mai" },
@@ -146,16 +147,11 @@ describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {
       alice,
     );
 
-    // Schritt 2: User listet eigene Todos.
     const list = await stack.http.queryOk<{
       rows: Array<{ id: string; title: string }>;
     }>(TODO_LIST_QN, {}, alice);
     expect(list.rows).toHaveLength(2);
 
-    // Schritt 3: runUserExport baut das Bundle (in der echten App ueber
-    // request-export-Job gefahren; hier rufen wir den Runner direkt fuer
-    // Determinismus). Bundle enthaelt user + todo (kein fileRef weil keine
-    // Files).
     const bundle = await runUserExport({
       db: stack.db,
       registry: stack.registry,
@@ -184,14 +180,13 @@ describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {
       alice,
     );
 
-    // Direkt-flip auf DeletionRequested + abgelaufene Grace, damit wir den
-    // Cron-Lauf testen ohne 30 Tage zu warten. In der echten App passiert
-    // das ueber request-deletion.write + abgelaufene grace_period_end.
-    await stack.db.execute(sql`
-      UPDATE read_users SET status = ${USER_STATUS.DeletionRequested},
-                             grace_period_end = ${PAST().toString()}::timestamptz
-      WHERE id = ${alice.id}
-    `);
+    await asRawClient(stack.db).unsafe(
+      `
+      UPDATE read_users SET status = $1, grace_period_end = $2::timestamptz
+      WHERE id = $3
+    `,
+      [USER_STATUS.DeletionRequested, PAST().toString(), alice.id],
+    );
 
     const result = await runForgetCleanup({
       db: stack.db,
@@ -201,35 +196,22 @@ describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {
     expect(result.processedUserIds).toContain(alice.id);
     expect(result.errors).toHaveLength(0);
 
-    // Todos weg.
-    const remaining = await stack.db.execute(sql`
-      SELECT id FROM read_todos WHERE author_id = ${alice.id}
-    `);
-    // biome-ignore lint/suspicious/noExplicitAny: drizzle execute typing
-    expect(((remaining as any).rows ?? remaining) as unknown[]).toHaveLength(0);
+    const remaining = (await asRawClient(stack.db).unsafe(
+      `SELECT id FROM read_todos WHERE author_id = $1`,
+      [alice.id],
+    )) as unknown[];
+    expect(remaining).toHaveLength(0);
 
-    // User anonymisiert.
-    const userRow = await stack.db.execute(sql`
-      SELECT email, display_name, status FROM read_users WHERE id = ${alice.id}
-    `);
-    // biome-ignore lint/suspicious/noExplicitAny: drizzle execute typing
-    const rows = ((userRow as any).rows ?? userRow) as Array<{
-      email: string | null;
-      display_name: string;
-      status: string;
-    }>;
-    expect(rows[0]?.status).toBe(USER_STATUS.Deleted);
-    // Default user-Anonymisierung ersetzt email mit Sentinel-Pattern
-    // "deleted-<id>@anonymized.invalid" — original PII raus, FK-Refs
-    // und unique-Constraint bleiben intakt.
-    expect(rows[0]?.email).toMatch(/^deleted-.*@anonymized\.invalid$/);
-    expect(rows[0]?.email).not.toContain("alice@demo.local");
+    const userRows = (await asRawClient(stack.db).unsafe(
+      `SELECT email, display_name, status FROM read_users WHERE id = $1`,
+      [alice.id],
+    )) as Array<{ email: string | null; display_name: string; status: string }>;
+    expect(userRows[0]?.status).toBe(USER_STATUS.Deleted);
+    expect(userRows[0]?.email).toMatch(/^deleted-.*@anonymized\.invalid$/);
+    expect(userRows[0]?.email).not.toContain("alice@demo.local");
   });
 
   test("anonymize-Strategy: todoDeleteHook setzt authorId=null statt hard-delete", async () => {
-    // Direct-Hook-Test: belegt dass deleteTodos die Strategy respektiert.
-    // (runForgetCleanup waehlt Strategy via retention.policyFor; hier
-    // pinnen wir den Hook-Vertrag — App-Author kopiert das Pattern.)
     await seedAlice();
     await stack.http.writeOk(
       TODO_CREATE_QN,
@@ -253,16 +235,9 @@ describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {
       "anonymize",
     );
 
-    // Row existiert weiter, authorId=null.
-    const after = await stack.db.execute(sql`
-      SELECT id, title, author_id FROM read_todos
-    `);
-    // biome-ignore lint/suspicious/noExplicitAny: drizzle execute typing
-    const todoRows = ((after as any).rows ?? after) as Array<{
-      id: string;
-      title: string;
-      author_id: string | null;
-    }>;
+    const todoRows = (await asRawClient(stack.db).unsafe(
+      `SELECT id, title, author_id FROM read_todos`,
+    )) as Array<{ id: string; title: string; author_id: string | null }>;
     expect(todoRows).toHaveLength(1);
     expect(todoRows[0]?.title).toBe("anonymize-me");
     expect(todoRows[0]?.author_id).toBeNull();

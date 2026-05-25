@@ -36,6 +36,7 @@ import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createUserFeature } from "../../user";
+import { createSessionsFeature } from "../../sessions";
 import { createUserDataRightsFeature } from "../feature";
 import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "../schema/export-job";
 
@@ -56,6 +57,8 @@ beforeAll(async () => {
       createUserFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
+      createSessionsFeature(),
+
       createUserDataRightsFeature(),
     ],
   });

@@ -24,6 +24,7 @@ import {
 import { createDataRetentionFeature } from "../../data-retention";
 import { USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserFeature } from "../../user/feature";
+import { createSessionsFeature } from "../../sessions";
 import { createUserDataRightsFeature } from "../feature";
 import type { SendDeletionRequestedEmailFn } from "../handlers/request-deletion.write";
 
@@ -61,6 +62,8 @@ beforeAll(async () => {
       createUserFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
+      createSessionsFeature(),
+
       createUserDataRightsFeature({ sendDeletionRequestedEmail }),
     ],
   });
