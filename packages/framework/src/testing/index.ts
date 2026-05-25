@@ -5,6 +5,7 @@
 
 export { rolesOf } from "./access-assertions";
 export { expectError, expectSuccess } from "./assertions";
+export { type ClearableTable, clearTables, resetTestTables } from "./db-cleanup";
 export {
   type E2EGeneratorOptions,
   type E2ETestSpec,

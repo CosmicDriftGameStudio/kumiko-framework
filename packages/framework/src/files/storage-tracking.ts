@@ -11,8 +11,7 @@
 // into createApp / setupTestStack alongside their domain features.
 
 import { bigint, instant, integer, table as pgTable, sql, uuid } from "../db/dialect";
-// sql now comes from native dialect
-import { asRawClient } from "../db/query";
+import { incrementCounter } from "../db/query";
 import { defineFeature, typedPayload } from "../engine";
 import { fileUploadedEvent } from "./file-routes";
 
@@ -40,14 +39,12 @@ export const filesStorageTrackingFeature = defineFeature("files-storage-tracking
         // The SQL increment guarantees correctness under concurrent dispatcher
         // runs (shouldn't happen with a single consumer, but the invariant is
         // free and cheap — no reason to rely on serial delivery).
-        await asRawClient(tx).unsafe(
-          `INSERT INTO "read_tenant_storage_usage" ("tenant_id", "total_bytes", "file_count")
-           VALUES ($1, $2, 1)
-           ON CONFLICT ("tenant_id") DO UPDATE SET
-             "total_bytes" = "read_tenant_storage_usage"."total_bytes" + $2,
-             "file_count" = "read_tenant_storage_usage"."file_count" + 1,
-             "last_updated_at" = NOW()`,
-          [event.tenantId, payload.size],
+        await incrementCounter(
+          tx,
+          tenantStorageUsageTable,
+          { tenantId: event.tenantId, totalBytes: payload.size, fileCount: 1 },
+          { totalBytes: payload.size, fileCount: 1 },
+          { set: { lastUpdatedAt: sql`now()` } },
         );
       },
     },

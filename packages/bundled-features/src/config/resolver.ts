@@ -1,4 +1,4 @@
-import { asRawClient, fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection, EncryptionProvider, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type {
   ConfigCascade,
@@ -11,6 +11,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { assertUnreachable, parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
+import { selectConfigRowsForKeys, selectConfigRowsForScope } from "./db/queries/resolver";
 import { configValuesTable } from "./table";
 
 type ConfigRow = {
@@ -298,14 +299,7 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
 
     async getAll(tenantId, userId, db) {
       // Only load rows relevant to this user/tenant (system + tenant + user scope)
-      const rows = await asRawClient(db).unsafe<ConfigRow>(
-        `SELECT id, key, value, tenant_id AS "tenantId", user_id AS "userId"
-         FROM read_config_values
-         WHERE (tenant_id = $1 AND user_id IS NULL)
-            OR (tenant_id = $2 AND user_id IS NULL)
-            OR (tenant_id = $2 AND user_id = $3)`,
-        [SYSTEM_TENANT_ID, tenantId, userId],
-      );
+      const rows = await selectConfigRowsForScope(db, SYSTEM_TENANT_ID, tenantId, userId);
 
       const result = new Map<string, ConfigRow>();
       for (const r of rows) {
@@ -325,14 +319,7 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
 
     async getAllWithSource(tenantId, userId, db) {
       // Load ALL potentially relevant rows (user + tenant + system)
-      const rows = await asRawClient(db).unsafe<ConfigRow>(
-        `SELECT id, key, value, tenant_id AS "tenantId", user_id AS "userId"
-         FROM read_config_values
-         WHERE (tenant_id = $1 AND user_id IS NULL)
-            OR (tenant_id = $2 AND user_id IS NULL)
-            OR (tenant_id = $2 AND user_id = $3)`,
-        [SYSTEM_TENANT_ID, tenantId, userId],
-      );
+      const rows = await selectConfigRowsForScope(db, SYSTEM_TENANT_ID, tenantId, userId);
 
       const result = new Map<string, ConfigStoredRowWithSource>();
 
@@ -399,17 +386,7 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
       // One SQL query for all keys + every scope (user-row,
       // tenant-row, system-row). The cascade-builder then matches
       // per-key from this preloaded set instead of querying again.
-      const rows = await asRawClient(db).unsafe<ConfigRow>(
-        `SELECT id, key, value, tenant_id AS "tenantId", user_id AS "userId"
-         FROM read_config_values
-         WHERE key = ANY($1)
-           AND (
-             (tenant_id = $2 AND user_id IS NULL)
-             OR (tenant_id = $3 AND user_id IS NULL)
-             OR (tenant_id = $3 AND user_id = $4)
-           )`,
-        [[...keys], SYSTEM_TENANT_ID, tenantId, userId],
-      );
+      const rows = await selectConfigRowsForKeys(db, keys, SYSTEM_TENANT_ID, tenantId, userId);
 
       const grouped = new Map<string, ConfigRow[]>();
       for (const r of rows) {

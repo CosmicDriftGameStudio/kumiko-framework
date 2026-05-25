@@ -1,4 +1,4 @@
-import { asRawClient, fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
 import {
   USER_ANONYMIZED_DISPLAY_NAME,
@@ -9,6 +9,7 @@ import {
   USER_STATUS,
   userTable,
 } from "../../user";
+import { anonymizeDeletedUser } from "../db/queries/user-hook";
 
 // userData-Hook fuer user-entity (S2.H1).
 //
@@ -63,16 +64,12 @@ export const userDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
   // Tenants Member sein), kein tenantId-Filter noetig.
 
   if (strategy === "delete") {
-    await asRawClient(ctx.db).unsafe(
-      'UPDATE "read_users" SET email = $1, display_name = $2, password_hash = $3, status = $4, deleted_at = now() WHERE id = $5',
-      [
-        `${USER_DELETED_EMAIL_PREFIX}-${ctx.userId}@${USER_ANONYMIZED_EMAIL_DOMAIN}`,
-        USER_DELETED_DISPLAY_NAME,
-        null,
-        USER_STATUS.Deleted,
-        ctx.userId,
-      ],
-    );
+    await anonymizeDeletedUser(ctx.db, {
+      email: `${USER_DELETED_EMAIL_PREFIX}-${ctx.userId}@${USER_ANONYMIZED_EMAIL_DOMAIN}`,
+      displayName: USER_DELETED_DISPLAY_NAME,
+      status: USER_STATUS.Deleted,
+      userId: ctx.userId,
+    });
   } else {
     // anonymize: PII raus, aber Row bleibt active (damit FK-References
     // weiter aufloesbar sind). Account ist effektiv weiter nutzbar

@@ -1,4 +1,4 @@
-import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineWriteHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   UnprocessableError,
@@ -12,6 +12,7 @@ import {
   FEATURE_TOGGLE_SET_EVENT_NAME,
   FeatureToggleErrors,
 } from "../constants";
+import { updateFeatureToggleOptimistic } from "../db/queries/toggle-state";
 import { globalFeatureStateTable } from "../global-feature-state-table";
 import type { GlobalFeatureToggleRuntime } from "../toggle-runtime";
 
@@ -100,10 +101,13 @@ export function createSetWriteHandler(getRuntime: (() => GlobalFeatureToggleRunt
         // Upsert with optimistic lock. Two operators flipping the same
         // toggle simultaneously is rare but possible — the version-WHERE
         // ensures only one wins; the loser sees VersionConflictError.
-        const updated = (await asRawClient(ctx.db).unsafe(
-          'UPDATE "read_global_feature_state" SET enabled = $1, version = version + 1, updated_by = $2, updated_at = $3 WHERE feature_name = $4 AND version = $5 RETURNING *',
-          [enabled, event.user.id, Temporal.Now.instant(), featureName, existing.version],
-        )) as unknown[];
+        const updated = await updateFeatureToggleOptimistic(ctx.db, {
+          enabled,
+          updatedBy: event.user.id,
+          updatedAt: Temporal.Now.instant(),
+          featureName,
+          expectedVersion: existing.version,
+        });
 
         if (updated.length === 0) {
           return writeFailure(

@@ -1,6 +1,13 @@
 import type { DbRunner } from "../db";
 import { isUniqueViolation } from "../db/pg-error";
-import { asRawClient, insertOne, selectMany } from "../db/query";
+import {
+  insertSubsequentEventRow,
+  notifyPgChannel,
+  selectAggregateMaxVersion,
+  selectEventsHighWaterMark,
+  selectStreamMaxVersion,
+} from "../db/queries/event-store";
+import { insertOne, selectMany } from "../db/query";
 import type { TenantId } from "../engine/types";
 import { isStreamArchived } from "./archive";
 import { VersionConflictError } from "./errors";
@@ -111,7 +118,7 @@ export async function append(db: DbRunner, event: EventToAppend): Promise<Stored
     // NOTIFY fires on commit (PG buffers NOTIFY per TX), so subscribers never
     // see a wake-up for an event that later rolled back. Harmless no-op when
     // no LISTENer is attached.
-    await asRawClient(db).unsafe(`SELECT pg_notify($1, '')`, [EVENTS_PUBSUB_CHANNEL]);
+    await notifyPgChannel(db, EVENTS_PUBSUB_CHANNEL);
 
     return buildStoredEvent(event, newVersion, eventVersion, row);
   } catch (e) {
@@ -159,37 +166,18 @@ async function insertSubsequentEvent(
   newVersion: number,
   eventVersion: number,
 ): Promise<InsertReturn> {
-  const payloadJson = JSON.stringify(event.payload);
-  const metadataJson = JSON.stringify(event.metadata);
-  const rows = (await asRawClient(db).unsafe(
-    `INSERT INTO "kumiko_events" (
-       aggregate_id, aggregate_type, tenant_id, version,
-       type, event_version, payload, metadata, created_by
-     )
-     SELECT $1::uuid, $2, $3::uuid, $4,
-            $5, $6, $7::jsonb,
-            $8::jsonb, $9
-     WHERE EXISTS (
-       SELECT 1 FROM "kumiko_events"
-       WHERE aggregate_id = $1::uuid
-         AND version = $10
-         AND tenant_id = $3::uuid
-     )
-     RETURNING id, created_at`,
-    [
-      event.aggregateId,
-      event.aggregateType,
-      event.tenantId,
-      newVersion,
-      event.type,
-      eventVersion,
-      payloadJson,
-      metadataJson,
-      event.metadata.userId,
-      event.expectedVersion,
-    ],
-  )) as ReadonlyArray<{ id: string | bigint; created_at: Date | string }>;
-  const row = rows[0];
+  const row = await insertSubsequentEventRow(db, {
+    aggregateId: event.aggregateId,
+    aggregateType: event.aggregateType,
+    tenantId: event.tenantId,
+    newVersion,
+    type: event.type,
+    eventVersion,
+    payloadJson: JSON.stringify(event.payload),
+    metadataJson: JSON.stringify(event.metadata),
+    createdBy: event.metadata.userId,
+    expectedVersion: event.expectedVersion,
+  });
   if (!row) throw new VersionConflictError(event.aggregateId, event.expectedVersion);
   return {
     id: typeof row.id === "bigint" ? row.id : BigInt(row.id),
@@ -282,11 +270,15 @@ export async function getStreamVersion(
   aggregateId: string,
   tenantId: TenantId,
 ): Promise<number> {
-  const rows = (await asRawClient(db).unsafe(
-    `SELECT MAX("version") AS v FROM "kumiko_events" WHERE "aggregate_id" = $1 AND "tenant_id" = $2`,
-    [aggregateId, tenantId],
-  )) as ReadonlyArray<{ v: number | null }>;
-  return rows[0]?.v ?? 0;
+  return selectStreamMaxVersion(db, aggregateId, tenantId);
+}
+
+/** MAX(version) for one aggregate — no tenant filter. Used by seed idempotency. */
+export async function getAggregateStreamMaxVersion(
+  db: DbRunner,
+  aggregateId: string,
+): Promise<number> {
+  return selectAggregateMaxVersion(db, aggregateId);
 }
 
 // Global high-water-mark = MAX(events.id). Marten/Wolverine standard for
@@ -294,13 +286,7 @@ export async function getStreamVersion(
 // the bigserial PK index — sub-millisecond cost. Returns 0n on an empty log
 // (boot, fresh tenant, post-archive).
 export async function getEventsHighWaterMark(db: DbRunner): Promise<bigint> {
-  const rows = (await asRawClient(db).unsafe(
-    `SELECT COALESCE(MAX("id"), 0)::bigint AS max FROM "kumiko_events"`,
-  )) as ReadonlyArray<{ max: bigint | string | number | null }>;
-  const raw = rows[0]?.max;
-  if (typeof raw === "bigint") return raw;
-  if (raw === null || raw === undefined) return 0n;
-  return BigInt(raw);
+  return selectEventsHighWaterMark(db);
 }
 
 // Load events strictly newer than a given version. Used by snapshot-aware

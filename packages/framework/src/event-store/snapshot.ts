@@ -12,7 +12,8 @@ import {
   text,
   uuid,
 } from "../db/dialect";
-import { asRawClient, selectMany } from "../db/query";
+import { upsertSnapshot } from "../db/queries/event-store";
+import { selectMany } from "../db/query";
 import { tableExists } from "../db/schema-inspection";
 import type { TenantId } from "../engine/types";
 import { unsafePushTables } from "../stack";
@@ -101,16 +102,13 @@ export type SaveSnapshotArgs = {
 // bespoke error handling — useful when a feature's snapshot policy runs
 // during a concurrent retake.
 export async function saveSnapshot(db: DbRunner, args: SaveSnapshotArgs): Promise<void> {
-  await asRawClient(db).unsafe(
-    `INSERT INTO "kumiko_snapshots"
-       ("aggregate_id", "tenant_id", "aggregate_type", "version", "state")
-     VALUES ($1, $2, $3, $4, $5::jsonb)
-     ON CONFLICT ("aggregate_id", "version") DO UPDATE SET
-       "state" = $5::jsonb,
-       "aggregate_type" = $3,
-       "created_at" = now()`,
-    [args.aggregateId, args.tenantId, args.aggregateType, args.version, JSON.stringify(args.state)],
-  );
+  await upsertSnapshot(db, {
+    aggregateId: args.aggregateId,
+    tenantId: args.tenantId,
+    aggregateType: args.aggregateType,
+    version: args.version,
+    stateJson: JSON.stringify(args.state),
+  });
 }
 
 // Latest snapshot lookup. Tenant filter is belt-and-suspenders — the

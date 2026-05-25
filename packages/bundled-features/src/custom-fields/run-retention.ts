@@ -15,9 +15,13 @@
 // — for value-level granularity, future work needs a value-timestamp
 // jsonb shape, which would be a breaking schema change.
 
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import {
+  selectFieldDefinitionsWithSerialized,
+  selectHostRowsWithCustomFields,
+  updateHostRowCustomFields,
+} from "./db/queries/retention";
 import { parseSerializedField } from "./lib/parse-serialized-field";
 
 const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
@@ -83,17 +87,13 @@ export async function runCustomFieldsRetention(
     return { rowsScanned: 0, rowsUpdated: 0, removalsByFieldKey: {} };
   }
 
-  const tableName = `"${getTableName(opts.entityTable)}"`;
-  const rowsResult = await asRawClient(opts.db).unsafe(
-    `SELECT id, modified_at, custom_fields FROM ${tableName} WHERE tenant_id = $1 AND custom_fields IS NOT NULL`,
-    [opts.tenantId],
-  );
+  const tableName = getTableName(opts.entityTable);
+  const rows = await selectHostRowsWithCustomFields(opts.db, tableName, opts.tenantId);
 
   const removalsByFieldKey: Record<string, number> = {};
   let rowsUpdated = 0;
   let rowsScanned = 0;
 
-  const rows: ReadonlyArray<unknown> = Array.isArray(rowsResult) ? rowsResult : [];
   for (const raw of rows) {
     rowsScanned++;
     const row = asHostRow(raw);
@@ -132,10 +132,7 @@ export async function runCustomFieldsRetention(
       removalsByFieldKey[key] = (removalsByFieldKey[key] ?? 0) + 1;
     }
 
-    await asRawClient(opts.db).unsafe(
-      `UPDATE ${tableName} SET custom_fields = $1::jsonb WHERE id = $2`,
-      [JSON.stringify(mutated), row.id],
-    );
+    await updateHostRowCustomFields(opts.db, tableName, JSON.stringify(mutated), row.id);
     rowsUpdated++;
   }
 
@@ -177,11 +174,7 @@ async function loadRetentionPolicies(
   tenantId: string,
   entityName: string,
 ): Promise<Map<string, RetentionPolicy>> {
-  const rowsResult = await asRawClient(db).unsafe(
-    "SELECT field_key, serialized_field FROM read_custom_field_definitions WHERE entity_name = $1 AND tenant_id = $2",
-    [entityName, tenantId],
-  );
-  const rows: ReadonlyArray<unknown> = Array.isArray(rowsResult) ? rowsResult : [];
+  const rows = await selectFieldDefinitionsWithSerialized(db, entityName, tenantId);
   const out = new Map<string, RetentionPolicy>();
   for (const raw of rows) {
     // skip: see asHostRow rationale.

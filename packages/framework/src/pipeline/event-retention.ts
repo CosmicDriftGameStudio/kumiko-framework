@@ -1,4 +1,5 @@
 import type { DbConnection } from "../db/connection";
+import { lockEventConsumersShareMode } from "../db/queries/event-consumer";
 import { deleteMany, selectMany, transaction } from "../db/query";
 import { eventsTable } from "../event-store";
 import { eventConsumerStateTable } from "./event-consumer-state";
@@ -96,7 +97,7 @@ export async function pruneEvents(
     // (cursor advances) do too, but prune is measured in milliseconds and
     // pausing cursor advances for that window is cheap insurance against
     // a silent data-loss bug.
-    await tx.unsafe(`LOCK TABLE "kumiko_event_consumers" IN SHARE MODE`);
+    await lockEventConsumersShareMode(tx);
 
     // Step 1 — collect candidate event ids.
     const candidates = await selectMany<{ id: bigint }>(tx, eventsTable, {

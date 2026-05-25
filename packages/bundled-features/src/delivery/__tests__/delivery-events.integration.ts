@@ -7,7 +7,7 @@
 // (MSPs, audit-feature, event-replays) who subscribe by name.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -18,6 +18,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import { createChannelInAppFeature } from "../../channel-in-app/feature";
 import { inAppMessagesTable } from "../../channel-in-app/tables";
 import { createConfigFeature, createConfigResolver } from "../../config";
@@ -75,9 +76,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  // Fresh state per test so event-count assertions are deterministic.
-  await asRawClient(db).unsafe(`DELETE FROM "${eventsTable.tableName}"`);
-  await asRawClient(db).unsafe(`DELETE FROM "${deliveryAttemptsTable.tableName}"`);
+  await resetTestTables(db, [eventsTable, deliveryAttemptsTable]);
 });
 
 describe("delivery event shape", () => {

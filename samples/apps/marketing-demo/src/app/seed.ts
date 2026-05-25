@@ -9,9 +9,9 @@
 // nur Logik: Random-Generator, Datums-Helper, der eigentliche Seed.
 
 import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { Temporal } from "temporal-polyfill";
+import { countAssetsForTenant, countTicketsForTenant } from "../db/queries/seed-counts";
 import { ASSET_STATUSES } from "../features/assets/schema";
 import { TICKET_SEVERITIES, TICKET_STATUSES } from "../features/helpdesk/schema";
 import {
@@ -50,11 +50,8 @@ export const seedMarketingDemo: SeedFn = async (stack) => {
   const tenantId = TestUsers.admin.tenantId;
 
   // Asset-Tracker — skip wenn schon ≥20 Rows da
-  const existingAssets = await asRawClient(stack.db).unsafe<{ count: number }>(
-    `SELECT count(*)::int AS count FROM read_assets WHERE tenant_id = $1`,
-    [tenantId],
-  );
-  if ((existingAssets[0]?.count ?? 0) < 20) {
+  const existingAssets = await countAssetsForTenant(stack.db, tenantId);
+  if (existingAssets < 20) {
     const r = rng(42);
     let serialCounter = 1000;
     for (const tpl of ASSET_TEMPLATES) {
@@ -103,11 +100,8 @@ export const seedMarketingDemo: SeedFn = async (stack) => {
   }
 
   // Helpdesk — skip wenn schon ≥10 Rows da
-  const existingTickets = await asRawClient(stack.db).unsafe<{ count: number }>(
-    `SELECT count(*)::int AS count FROM read_tickets WHERE tenant_id = $1`,
-    [tenantId],
-  );
-  if ((existingTickets[0]?.count ?? 0) < 10) {
+  const existingTickets = await countTicketsForTenant(stack.db, tenantId);
+  if (existingTickets < 10) {
     const r = rng(7);
     // Anker für dueDate: 2026-05-01 — bewusst konstant, damit Screenshots
     // reproduzierbar bleiben (auch wenn der Seed später läuft).

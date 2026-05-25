@@ -35,7 +35,7 @@ describe("event-dispatcher — strict runOnce precondition", () => {
   test("ensureRegistered() is a valid alternative to start() — runOnce no longer throws", async () => {
     const consumers: EventConsumer[] = [{ name: "noop", handler: async () => {} }];
     let insertCalls = 0;
-    // bun-db path: dispatcher uses asRawClient(db).unsafe(sql, params) for
+    // bun-db path: dispatcher uses db/queries/ for transition guard + transaction().
     // INSERT/SELECT/UPDATE. Match by SQL substring so we count INSERTs and
     // hand back empty rows for SELECT.
     const unsafe = async (sqlText: string): Promise<unknown[]> => {

@@ -132,6 +132,16 @@ function inScope(repoName: string): boolean {
   return SCOPED_CLI_REPOS === null || SCOPED_CLI_REPOS.has(repoName);
 }
 
+/** Resolve sibling repo path; prefer git worktree when `kumiko check` runs from one. */
+function repoAbsPath(repoName: string): string {
+  const sibling = join(REPO_ROOT, repoName);
+  const workCtx = resolveCheckWorkContext(process.cwd(), REPO_ROOT);
+  if (workCtx.localRepoName === repoName && workCtx.localRepoPath) {
+    return workCtx.localRepoPath;
+  }
+  return sibling;
+}
+
 const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: string }> = (() => {
   const steps: Array<{ name: string; cmd: string }> = [];
 
@@ -145,7 +155,7 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
 
   for (const root of siblings) {
     if (!inScope(root.name)) continue;
-    const absPath = join(REPO_ROOT, root.name);
+    const absPath = repoAbsPath(root.name);
     if (!existsSync(absPath)) continue;
 
     // 1. Biome Check
@@ -214,6 +224,17 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   // as-Cast Audit temporarily disabled — baseline broken after bun migration.
   // steps.push({ name: "as-Cast Audit", cmd: "bunx kumiko-check-as-casts" });
   steps.push({ name: "Table-DDL Guard", cmd: "bunx kumiko-guard-table-ddl" });
+  const frameworkRepoRoot = resolvePath(import.meta.dir, "..");
+  const rawSqlGuard = join(REPO_ROOT, "infra/guards/guard-raw-sql.ts");
+  const sqlInventoryScript = join(frameworkRepoRoot, "scripts/sql-inventory.ts");
+  steps.push({
+    name: "Raw-SQL Guard",
+    cmd: existsSync(rawSqlGuard)
+      ? `bun ${rawSqlGuard}`
+      : existsSync(sqlInventoryScript)
+        ? `cd ${frameworkRepoRoot} && bun scripts/sql-inventory.ts --compare-baseline`
+        : "bunx kumiko-guard-raw-sql",
+  });
   steps.push({ name: "License Check", cmd: "bunx kumiko-check-licenses" });
 
   return steps;
@@ -231,7 +252,7 @@ const UNIT_TEST_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: stri
 
   for (const root of siblings) {
     if (!inScope(root.name)) continue;
-    const absPath = join(REPO_ROOT, root.name);
+    const absPath = repoAbsPath(root.name);
     if (!existsSync(absPath)) continue;
 
     if (existsSync(join(absPath, "bunfig.toml"))) {

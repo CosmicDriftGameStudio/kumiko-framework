@@ -1,6 +1,7 @@
 import { requestContext } from "../api/request-context";
+import { executeRawQuery } from "../db/queries/raw-sql";
 import type { WhereObject } from "../db/query";
-import { asRawClient, coerceRow, extractTableInfo, selectMany } from "../db/query";
+import { coerceRow, extractTableInfo, selectMany } from "../db/query";
 import { checkWriteFieldOwnership } from "../engine/field-access";
 import {
   buildOwnershipClause,
@@ -330,7 +331,7 @@ export function createEventStoreExecutor(
     whereParts.push(shifted.sqlText);
     for (const p of shifted.params) params.push(p);
     const sqlText = `SELECT * FROM "${tableName}" WHERE ${whereParts.join(" AND ")} LIMIT 1`;
-    return (await asRawClient(db.raw).unsafe(sqlText, params)) as Record<string, unknown>[];
+    return [...(await executeRawQuery<Record<string, unknown>>(db.raw, sqlText, params))];
   }
 
   return {
@@ -895,10 +896,7 @@ export function createEventStoreExecutor(
       const whereClauseSqlText = whereSql.length > 0 ? ` WHERE ${whereSql.join(" AND ")}` : "";
       const listSql = `SELECT * FROM "${tableName}"${whereClauseSqlText}${orderByClause} LIMIT ${limit}${offsetClause}`;
 
-      const rawRows = (await asRawClient(db.raw).unsafe(listSql, params)) as Record<
-        string,
-        unknown
-      >[]; // @cast-boundary engine-payload
+      const rawRows = await executeRawQuery<Record<string, unknown>>(db.raw, listSql, params);
       // Read-Side rehydrate pro Row + snake→camel coercion für driver-agnostic Feldnamen
       const tableInfo = extractTableInfo(table);
       const rows = rawRows.map((r) => coerceRow(rehydrateCompoundTypes(r, entity), tableInfo));
@@ -925,9 +923,7 @@ export function createEventStoreExecutor(
           total = filterIds.length;
         } else {
           const countSql = `SELECT COUNT(*)::int AS count FROM "${tableName}"${whereClauseSqlText}`;
-          const countRows = (await asRawClient(db.raw).unsafe(countSql, params)) as Array<{
-            count: number;
-          }>;
+          const countRows = await executeRawQuery<{ count: number }>(db.raw, countSql, params);
           total = countRows[0]?.count ?? 0;
         }
       }

@@ -32,12 +32,7 @@
 // gefailten Hooks bleibt im DeletionRequested-Status (next Lauf
 // retried automatisch).
 
-import {
-  asRawClient,
-  fetchOne,
-  selectMany,
-  updateMany,
-} from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import {
   EXT_USER_DATA,
@@ -50,6 +45,7 @@ import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resolveRetentionPolicyForTenant } from "../data-retention";
 import { tenantMembershipsTable } from "../tenant";
 import { USER_STATUS, userTable } from "../user";
+import { selectUsersDueForForgetCleanup } from "./db/queries/forget-cleanup";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 
@@ -117,9 +113,10 @@ export async function runForgetCleanup(
 
   // Step 1: Find users with expired grace period.
   // lte with Instant: no bun-db operator covers this — raw SQL.
-  const dueUsers = await asRawClient(db).unsafe<{ id: string }>(
-    `SELECT id FROM read_users WHERE status = $1 AND grace_period_end <= $2`,
-    [USER_STATUS.DeletionRequested, now.toString()],
+  const dueUsers = await selectUsersDueForForgetCleanup(
+    db,
+    USER_STATUS.DeletionRequested,
+    now.toString(),
   );
 
   if (dueUsers.length === 0) {

@@ -11,7 +11,7 @@
 // rejected by boot-validation — domain mutation MUST go through
 // r.step.aggregate.*.
 
-import { asRawClient } from "../../db/query";
+import { executeRawQuery } from "../../db/queries/raw-sql";
 import { defineStep } from "../define-step";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
 import { resolveRequired } from "./_resolver-utils";
@@ -92,7 +92,7 @@ defineStep<UnsafeProjectionUpsertArgs, void>({
       `INSERT INTO ${quoteIdent(tableName)} (${colNames.join(", ")}) VALUES (${placeholders.join(", ")}) ` +
       `ON CONFLICT (${conflictCols}) DO UPDATE SET ${setClauses.join(", ")}`;
 
-    await asRawClient(ctx.db.raw).unsafe(sqlText, params);
+    await executeRawQuery(ctx.db.raw, sqlText, params);
   },
 });
 

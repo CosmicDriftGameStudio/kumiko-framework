@@ -9,7 +9,7 @@
 // side — complementary coverage, minimal overlap.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createRegistry, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -19,6 +19,7 @@ import {
   type TestRedis,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import { runCompletedSchema, runFailedSchema, runStartedSchema } from "../events";
 import { createJobsFeature } from "../feature";
 import {
@@ -48,9 +49,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(testDb.db).unsafe(`DELETE FROM "${eventsTable.tableName}"`);
-  await asRawClient(testDb.db).unsafe(`DELETE FROM "${jobRunsTable.tableName}"`);
-  await asRawClient(testDb.db).unsafe(`DELETE FROM "${jobRunLogsTable.tableName}"`);
+  await resetTestTables(testDb.db, [eventsTable, jobRunsTable, jobRunLogsTable]);
 });
 
 describe("jobRun event shapes", () => {

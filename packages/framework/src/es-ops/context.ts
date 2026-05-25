@@ -8,7 +8,11 @@
 // → audit-fähig.
 
 import type { DbRunner } from "../db";
-import { asRawClient } from "../db/query";
+import {
+  selectAllTenants,
+  selectMembershipsOfUser,
+  selectUserByEmail,
+} from "../db/queries/seed-context";
 import { createSystemUser, SYSTEM_TENANT_ID } from "../engine";
 import type { Dispatcher } from "../pipeline/dispatcher";
 import type { SeedMembershipRow, SeedMigrationContext, SeedTenantRow } from "./types";
@@ -59,48 +63,13 @@ export function createSeedMigrationContext(
     },
 
     findUserByEmail: async (email) => {
-      // Direct DB-Read via read_users-Projection (gleicher Pfad wie
-      // UserQueries.findForAuth aber ohne Dispatcher-Roundtrip; Seeds
-      // greifen oft 1-N Lookups → direkt schneller).
-      // @cast-boundary db-row — drizzle execute(sql) returns row-array
-      // direkt (kein { rows }-Wrapper); column-types vom SQL-Cast oben
-      const rows = (await asRawClient(args.dbRunner).unsafe(
-        `SELECT id::text AS id, email, tenant_id::text AS tenant_id
-         FROM read_users
-         WHERE email = $1
-         LIMIT 1`,
-        [email],
-      )) as readonly { id: string; email: string; tenant_id: string }[];
-      const row = rows[0];
+      const row = await selectUserByEmail(args.dbRunner, email);
       if (!row) return null;
-      return { id: row.id, email: row.email, tenantId: row.tenant_id };
+      return { id: row.id, email: row.email, tenantId: row.tenantId };
     },
 
     findMembershipsOfUser: async (userId) => {
-      // INNER JOIN auf kumiko_events um den stream-tenant (events.tenant_id
-      // der v1-Row) neben dem payload-tenant (memberships.tenant_id) zu
-      // liefern. Die beiden divergieren wenn das Aggregate von einem
-      // Executor mit fremder tenantId angelegt wurde (seedTenantMembership
-      // by=systemAdmin) — typischer publicstatus-Driver-Use-Case.
-      // INNER (nicht LEFT): kein v1-Event bei vorhandener Read-Row wäre
-      // Data-Drift, kein legitimer Zustand für Seed-Migrations.
-      // @cast-boundary db-row — roles ist JSON-string in der text-Spalte
-      // (Memory: tenant-membership.created payload "[\"User\"]"), wird unten geparst
-      const rows = (await asRawClient(args.dbRunner).unsafe(
-        `SELECT m.user_id::text AS user_id,
-                m.tenant_id::text AS tenant_id,
-                e.tenant_id::text AS stream_tenant_id,
-                m.roles
-         FROM read_tenant_memberships m
-         JOIN kumiko_events e ON e.aggregate_id = m.id AND e.version = 1
-         WHERE m.user_id = $1`,
-        [userId],
-      )) as readonly {
-        user_id: string;
-        tenant_id: string;
-        stream_tenant_id: string;
-        roles: string;
-      }[];
+      const rows = await selectMembershipsOfUser(args.dbRunner, userId);
       return rows.map(
         (r): SeedMembershipRow => ({
           userId: r.user_id,
@@ -112,12 +81,7 @@ export function createSeedMigrationContext(
     },
 
     findTenants: async () => {
-      // @cast-boundary db-row
-      const rows = (await asRawClient(args.dbRunner).unsafe(
-        `SELECT id::text AS id, name, tenant_key
-         FROM read_tenants
-         ORDER BY inserted_at`,
-      )) as readonly { id: string; name: string; tenant_key: string }[];
+      const rows = await selectAllTenants(args.dbRunner);
       return rows.map((r): SeedTenantRow => ({ id: r.id, name: r.name, tenantKey: r.tenant_key }));
     },
 

@@ -40,7 +40,7 @@
 //
 // **Boot-Dependencies:** config + tenant.
 
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   buildEntityTable,
   createEventStoreExecutor,
@@ -60,6 +60,7 @@ import {
   type TenantId,
   type TierResolverPlugin,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { getAggregateStreamMaxVersion } from "@cosmicdrift/kumiko-framework/event-store";
 import { tierAssignmentAggregateId } from "./aggregate-id";
 import type { TierMap } from "./compose-app";
 import { TIER_ENGINE_FEATURE } from "./constants";
@@ -271,16 +272,9 @@ export function createTierEngineFeature<
 
           // Idempotency: stream-existence-check vor create. Pattern aus
           // seedTenant.ts. Bei re-replay (rebuild) nicht versionsbumpen.
-          type StreamRow = { v: number | null };
-          const [streamRow] = await asRawClient(rawDb).unsafe<StreamRow>(
-            `SELECT MAX(version) AS v FROM kumiko_events WHERE aggregate_id = $1`,
-            [aggregateId],
-          );
-          // skip: idempotency — aggregate-stream existiert schon (re-replay
-          // nach projection-rebuild oder hook-retry). create() würde
-          // version_conflict werfen + tenant-create rollback'n. Pattern aus
-          // tenant/seeding.ts seedTenant.
-          if ((streamRow?.v ?? 0) > 0) return;
+          const streamVersion = await getAggregateStreamMaxVersion(rawDb, aggregateId);
+          // skip: idempotent — tier-assignment stream already seeded (rebuild/replay).
+          if (streamVersion > 0) return;
 
           // SystemUser für den NEUEN tenant — der Hook wird vom signup-
           // user (anderer tenant, oder SystemAdmin) ausgelöst, aber das
