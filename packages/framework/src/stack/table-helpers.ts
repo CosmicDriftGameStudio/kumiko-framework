@@ -107,7 +107,7 @@ export async function unsafePushTables(
         if (!prevIdxNames.has(idx.name)) {
           const kind = idx.unique ? "UNIQUE INDEX" : "INDEX";
           const colList = idx.columns.map((c) => `"${c}"`).join(", ");
-          await createIndexIfNotExists(db, kind, idx.name, meta.tableName, colList);
+          await createIndexIfNotExists(db, kind, idx.name, meta.tableName, colList, idx.whereSql);
         }
       }
     } else {

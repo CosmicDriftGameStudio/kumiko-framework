@@ -153,6 +153,8 @@ export type TableInfo = {
   readonly columnOf: (field: string) => string;
   // pgType per column-name, for jsonb-cast detection
   readonly pgTypeOf: (column: string) => string | undefined;
+  // bigint/bigserial JS round-trip mode per DB column name
+  readonly bigintJsModeOf: (column: string) => "number" | "bigint" | undefined;
   // Inverse of columnOf — snake_case DB column → JS field-name (camelCase).
   // Used at the result boundary to rename row keys back to the API shape
   // that callers consume (`row.aggregateId` instead of `row.aggregate_id`).
@@ -173,8 +175,10 @@ export function extractTableInfo(table: TableLike): TableInfo {
     const colByField = new Map<string, string>();
     const fieldByCol = new Map<string, string>();
     const typeByCol = new Map<string, string>();
+    const bigintModeByCol = new Map<string, "number" | "bigint">();
     for (const c of meta.columns) {
       typeByCol.set(c.name, c.pgType);
+      if (c.bigintJsMode !== undefined) bigintModeByCol.set(c.name, c.bigintJsMode);
       // EntityTableMeta column names are snake_case. Map snake → snake AND
       // derive a camelCase JS field-name so result rows can be renamed back
       // to the API shape (`aggregate_id` → `aggregateId`).
@@ -187,6 +191,7 @@ export function extractTableInfo(table: TableLike): TableInfo {
       name: meta.tableName,
       columnOf: (field) => colByField.get(field) ?? toSnakeCase(field),
       pgTypeOf: (col) => typeByCol.get(col),
+      bigintJsModeOf: (col) => bigintModeByCol.get(col),
       fieldOf: (col) => fieldByCol.get(col) ?? snakeToCamel(col),
       hasColumn: (fieldOrColumn) => colByField.has(fieldOrColumn) || fieldByCol.has(fieldOrColumn),
     };
@@ -204,6 +209,17 @@ export function extractTableInfo(table: TableLike): TableInfo {
   const colByField = new Map<string, string>();
   const fieldByCol = new Map<string, string>();
   const typeByCol = new Map<string, string>();
+  const bigintModeByCol = new Map<string, "number" | "bigint">();
+  if (
+    table !== null &&
+    typeof table === "object" &&
+    "columns" in table &&
+    Array.isArray((table as EntityTableMeta).columns)
+  ) {
+    for (const c of (table as EntityTableMeta).columns) {
+      if (c.bigintJsMode !== undefined) bigintModeByCol.set(c.name, c.bigintJsMode);
+    }
+  }
   for (const [field, { name: colName, sqlType }] of cols) {
     colByField.set(field, colName);
     fieldByCol.set(colName, field);
@@ -213,6 +229,7 @@ export function extractTableInfo(table: TableLike): TableInfo {
     name,
     columnOf: (field) => colByField.get(field) ?? toSnakeCase(field),
     pgTypeOf: (col) => typeByCol.get(col),
+    bigintJsModeOf: (col) => bigintModeByCol.get(col),
     fieldOf: (col) => fieldByCol.get(col) ?? snakeToCamel(col),
     hasColumn: (fieldOrColumn) => colByField.has(fieldOrColumn) || fieldByCol.has(fieldOrColumn),
   };
@@ -238,6 +255,30 @@ function isTemporalInstant(v: unknown): boolean {
     v !== null &&
     typeof (v as { epochNanoseconds?: unknown }).epochNanoseconds === "bigint"
   );
+}
+
+// Postgres bigint → JS: safe integers become `number` (matches createBigIntField /
+// drizzle mode:"number"); values outside ±2^53 stay `bigint` (money cents, raw
+// unmanaged columns). Uses BigInt equality check so 9007199254740993n never
+// silently rounds to a safe integer.
+function coerceBigIntFromDriver(value: bigint | string): bigint | number {
+  let bi: bigint;
+  if (typeof value === "string") {
+    try {
+      bi = BigInt(value);
+    } catch {
+      return value as unknown as bigint;
+    }
+  } else {
+    bi = value;
+  }
+  const min = BigInt(Number.MIN_SAFE_INTEGER);
+  const max = BigInt(Number.MAX_SAFE_INTEGER);
+  if (bi >= min && bi <= max) {
+    const n = Number(bi);
+    if (BigInt(n) === bi) return n;
+  }
+  return bi;
 }
 
 function instantFromDriver(value: unknown): Temporal.Instant | null {
@@ -281,21 +322,22 @@ export function coerceRow<T extends Record<string, unknown>>(row: T, info: Table
       } catch {
         // leave as string on parse error — caller decides
       }
-    } else if ((pgType === "bigint" || pgType === "bigserial") && typeof value === "string") {
-      // postgres-js returns BIGINT as string to avoid JS-Number precision
-      // loss past 2^53. Framework contract: bigint columns surface as
-      // JS `bigint`. Drizzle's bigint customType did this conversion
-      // invisibly; the native dialect rebuild needs it explicit.
-      try {
-        coerced = BigInt(value);
-      } catch {
-        // leave as string on parse error
-      }
     } else if (
       (pgType === "bigint" || pgType === "bigserial") &&
-      typeof value === "bigint"
+      (typeof value === "string" || typeof value === "bigint")
     ) {
-      coerced = value;
+      const jsMode = info.bigintJsModeOf(key);
+      if (jsMode === "number") {
+        coerced = coerceBigIntFromDriver(value);
+      } else if (typeof value === "string") {
+        try {
+          coerced = BigInt(value);
+        } catch {
+          // leave as string on parse error
+        }
+      } else {
+        coerced = value;
+      }
     } else if (
       (pgType === "integer" ||
         pgType === "int4" ||

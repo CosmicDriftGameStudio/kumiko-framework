@@ -94,6 +94,7 @@ type ColumnFinal = {
   readonly unique: boolean;
   readonly identity: boolean;
   readonly defaultSql?: string;
+  readonly bigintJsMode?: "number" | "bigint";
 };
 
 export type ColumnBuilder<TValue = unknown> = {
@@ -112,7 +113,11 @@ export type ColumnBuilder<TValue = unknown> = {
   $onUpdate(fn: () => unknown): ColumnBuilder<TValue>;
 };
 
-function buildColumn(sqlName: string, pgType: PgType): ColumnBuilder<unknown> {
+function buildColumn(
+  sqlName: string,
+  pgType: PgType,
+  opts?: { bigintJsMode?: "number" | "bigint" },
+): ColumnBuilder<unknown> {
   let notNull = false;
   let primaryKey = false;
   let unique = false;
@@ -152,6 +157,7 @@ function buildColumn(sqlName: string, pgType: PgType): ColumnBuilder<unknown> {
         unique,
         identity,
         ...(defaultSql !== undefined && { defaultSql }),
+        ...(opts?.bigintJsMode !== undefined && { bigintJsMode: opts.bigintJsMode }),
       };
     },
     notNull() {
@@ -221,9 +227,10 @@ export function serial(name: string): ColumnBuilder<number> {
 
 export function bigint(
   name: string,
-  _opts?: { mode?: "bigint" | "number" },
+  opts?: { mode?: "bigint" | "number" },
 ): ColumnBuilder<bigint> {
-  return buildColumn(name, "bigint") as ColumnBuilder<bigint>;
+  const jsMode = opts?.mode === "number" ? "number" : "bigint";
+  return buildColumn(name, "bigint", { bigintJsMode: jsMode }) as ColumnBuilder<bigint>;
 }
 
 export function bigserial(
@@ -407,6 +414,7 @@ export function table<TCols extends ColumnMap>(
       ...(final.primaryKey && { primaryKey: true }),
       ...(final.identity && { identity: true }),
       ...(final.defaultSql !== undefined && { defaultSql: final.defaultSql }),
+      ...(final.bigintJsMode !== undefined && { bigintJsMode: final.bigintJsMode }),
     };
     columnMetas.push(meta);
 

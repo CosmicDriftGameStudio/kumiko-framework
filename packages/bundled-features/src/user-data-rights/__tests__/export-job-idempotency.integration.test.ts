@@ -16,6 +16,7 @@ import {
   selectMany,
   updateMany,
 } from "@cosmicdrift/kumiko-framework/bun-db";
+import { extractPgError } from "@cosmicdrift/kumiko-framework/db";
 import {
   setupTestStack,
   type TestStack,
@@ -65,13 +66,10 @@ beforeEach(async () => {
 
 const NOW = () => getTemporal().Now.instant();
 
-// Drizzle wraps PostgresError mit "Failed query: ..."; die original
-// PG-Message ist im `cause`. Unique-Violation hat sqlstate 23505.
-//
-// Constraint-Name pinnen damit der Test nur unsere Idempotency-
-// Constraint pinst, nicht zufaellig eine andere unique-violation
-// (z.B. UUID-Kollision auf id-PK durch wiederholtes Test-Setup) —
-// silent-Pass durch fremden Constraint waere falsche Bestaetigung.
+// postgres-js wirft PostgresError direkt; Drizzle wrappt in .cause.
+// extractPgError normalisiert beide Shapes. Constraint-Name pinnen damit
+// der Test nur unsere Idempotency-Constraint pinst, nicht zufaellig eine
+// andere unique-violation (z.B. UUID-Kollision auf id-PK).
 async function expectUniqueViolation(
   promise: Promise<unknown>,
   expectedConstraint: string,
@@ -83,9 +81,9 @@ async function expectUniqueViolation(
     caught = e;
   }
   expect(caught).toBeDefined();
-  const cause = (caught as { cause?: { code?: string; constraint_name?: string } }).cause;
-  expect(cause?.code).toBe("23505");
-  expect(cause?.constraint_name).toBe(expectedConstraint);
+  const pg = extractPgError(caught);
+  expect(pg?.code).toBe("23505");
+  expect(pg?.constraint_name).toBe(expectedConstraint);
 }
 
 // Re-Export aus dem Schema — Single source of truth, Rename hier
