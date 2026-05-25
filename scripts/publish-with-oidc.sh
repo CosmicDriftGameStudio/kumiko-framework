@@ -70,14 +70,19 @@ for pkg_json in packages/*/package.json; do
   fi
 
   echo "[publish] $name@$version (registry has '${registry_version:-<none>}')" >&2
-  # Wir packen via `yarn pack` (rewrited workspace:* → echte Versionen)
-  # und publishen die Tarball via `npm publish` (für OIDC + provenance).
-  # Direkt `npm publish` würde workspace:* in registry schreiben → Konsumenten
-  # bekommen "Workspace not found" beim install. Direkt `yarn npm publish`
-  # rewrited richtig, unterstützt aber kein OIDC.
-  TARBALL="$(mktemp -t cdgs-pack-XXXXXX.tgz)"
-  if (cd "$pkg_dir" && yarn pack -o "$TARBALL" >&2) \
-     && npm publish "$TARBALL" --provenance --access public >&2; then
+  # Wir packen via `bun pm pack` (rewrited workspace:* → echte Versionen) und
+  # publishen die Tarball via `npm publish` (für OIDC + provenance). Direkt
+  # `npm publish` würde workspace:* in die registry schreiben → Konsumenten
+  # bekommen "Workspace not found" beim install. `bun publish` rewrited richtig,
+  # unterstützt aber kein OIDC-Trusted-Publishing.
+  # --quiet emittet den Tarball-Basename auf stdout (im pkg_dir erzeugt), aber
+  # mit führender Leerzeile (bun 1.3.14) → .tgz-Zeile rausfiltern. Die pack-
+  # Substitution bleibt in der if-Condition, damit `set -e` einen Pack-Fehler
+  # nicht zum Script-Abbruch macht (er soll nur dieses Paket als failed zählen).
+  TARBALL=""
+  if TARBALL="$(cd "$pkg_dir" && bun pm pack --quiet | grep -E '\.tgz$' | tail -n1)" \
+     && [ -n "$TARBALL" ] \
+     && npm publish "$pkg_dir/$TARBALL" --provenance --access public >&2; then
     published=$((published + 1))
     published_json="$(jq -c \
       --arg name "$name" --arg version "$version" \
@@ -103,7 +108,7 @@ for pkg_json in packages/*/package.json; do
   else
     failed+=("$name@$version")
   fi
-  rm -f "$TARBALL"
+  if [ -n "$TARBALL" ]; then rm -f "$pkg_dir/$TARBALL"; fi
 done
 
 echo "" >&2

@@ -193,6 +193,10 @@ jobs:
           commit: "chore: version packages"
           title: "chore: version packages"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # PAT statt GITHUB_TOKEN: ein vom default-GITHUB_TOKEN erstellter PR
+          # triggert per GitHub-Design keine Workflows (Recursion-Schutz). Die
+          # Version-PR bliebe so dauerhaft BLOCKED, weil der required `test`-
+          # Check nie läuft. Der PAT-Actor triggert die pull_request-Workflows.
+          GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
