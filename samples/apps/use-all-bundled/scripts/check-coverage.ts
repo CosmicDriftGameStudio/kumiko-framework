@@ -61,7 +61,7 @@ function readBundledExports(): Set<string> {
 }
 
 function readRegistryFeatures(): Set<string> {
-  const generateSrc = readFileSync(resolve(ROOT, "drizzle", "generate.ts"), "utf-8");
+  const generateSrc = readFileSync(resolve(ROOT, "schema", "generate.ts"), "utf-8");
   // Match object-keys mit Discriminator `kind: "factory" | "named"`.
   // Property-Keys können quoted ("billing-foundation") oder unquoted
   // (config, user) sein — beides ist gültig wenn kebab-segment-free.
