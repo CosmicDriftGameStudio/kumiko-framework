@@ -4,6 +4,12 @@
 
 name: CI
 
+# Husky-Hooks (pre-push etc.) gehören in CI nicht installiert: changesets/action
+# pusht intern einen Versions-Branch, was sonst den pre-push-Hook + dessen
+# `bun test` (mit DB-Bedarf) feuert und den Release-Job rot macht.
+env:
+  HUSKY: "0"
+
 on:
   push:
     branches: [main]
