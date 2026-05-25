@@ -24,7 +24,7 @@ export const tenantCurrencyAssign = defineWriteHandler({
     });
     if (notFound) return writeFailure(notFound);
 
-    const [row] = await ctx.db.insertOne(tenantCurrencyTable, {
+    const row = await ctx.db.insertOne(tenantCurrencyTable, {
         currencyCode: event.payload.currencyCode,
         isActive: event.payload.isActive ?? true,
         insertedById: event.user.id,

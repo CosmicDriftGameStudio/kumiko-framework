@@ -13,7 +13,7 @@ export const currencyCreate = defineWriteHandler({
   }),
   access: { roles: ["Admin"] },
   handler: async (event, ctx) => {
-    const [row] = await ctx.db.insertOne(currencyTable, {
+    const row = await ctx.db.insertOne(currencyTable, {
         ...event.payload,
         insertedById: event.user.id,
         insertedAt: Temporal.Now.instant(),

@@ -27,7 +27,7 @@ export const contactCreate = defineWriteHandler({
   }),
   access: { roles: ["Admin"] },
   handler: async (event, ctx) => {
-    const [row] = await ctx.db.insertOne(contactTable, {
+    const row = await ctx.db.insertOne(contactTable, {
         ...event.payload,
         insertedById: event.user.id,
         insertedAt: Temporal.Now.instant(),

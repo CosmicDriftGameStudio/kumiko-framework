@@ -47,7 +47,7 @@ export const invoiceCreate = defineWriteHandler({
       }
     }
 
-    const [row] = await ctx.db.insertOne(invoiceTable, {
+    const row = await ctx.db.insertOne(invoiceTable, {
         title,
         amount,
         amountCurrency,
