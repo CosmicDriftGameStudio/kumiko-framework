@@ -12,7 +12,7 @@ import { randomBytes } from "node:crypto";
 import { asRawClient, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createInMemoryFileProvider,
   type FileStorageProvider,
@@ -26,9 +26,11 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
+  tenantComplianceProfileTable,
 } from "../../compliance-profiles";
 import { createConfigFeature } from "../../config";
 import { ConfigHandlers } from "../../config/constants";
@@ -38,8 +40,9 @@ import { configValuesTable } from "../../config/table";
 import { createDataRetentionFeature } from "../../data-retention";
 import { fileFoundationFeature } from "../../file-foundation";
 import { fileProviderInMemoryFeature } from "../../file-provider-inmemory";
-import { createUserFeature } from "../../user";
 import { createSessionsFeature } from "../../sessions";
+import { tenantMembershipsTable } from "../../tenant";
+import { createUserFeature } from "../../user";
 import { createUserDataRightsFeature } from "../feature";
 import { runExportJobs } from "../run-export-jobs";
 import { exportDownloadTokenEntity, exportDownloadTokensTable } from "../schema/download-token";
@@ -154,12 +157,14 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${exportDownloadTokensTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${exportJobsTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM kumiko_events`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_compliance_profiles`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_memberships`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${configValuesTable.tableName}"`);
+  await resetTestTables(stack.db, [
+    exportDownloadTokensTable,
+    exportJobsTable,
+    eventsTable,
+    tenantComplianceProfileTable,
+    tenantMembershipsTable,
+    configValuesTable,
+  ]);
   providerPerTenant = new Map();
 
   // Setup file-foundation provider="inmemory" pro Tenant.

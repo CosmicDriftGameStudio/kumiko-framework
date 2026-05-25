@@ -10,8 +10,8 @@
 // hier; der Frist-Ablauf-Cleanup folgt mit S2.U5b.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -21,9 +21,11 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
+  tenantComplianceProfileTable,
 } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { USER_STATUS, userEntity, userTable } from "../../user";
@@ -72,11 +74,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  // Hard-clean User-Rows fuer einen sauberen Start je Test. softDelete
-  // wuerde sonst row-state aus voherigen Tests einschleppen.
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_compliance_profiles`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM kumiko_events`);
+  await resetTestTables(stack.db, [userTable, tenantComplianceProfileTable, eventsTable]);
 });
 
 // gracePeriodEnd ist `instant()` (Temporal.Instant in JS). Nicht JS-Date —

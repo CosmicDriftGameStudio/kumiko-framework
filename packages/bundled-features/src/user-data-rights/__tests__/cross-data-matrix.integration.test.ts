@@ -13,7 +13,7 @@
 //     Alices Forget; Bobs Daten landen NICHT in Alices Export-Bundle.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, deleteMany, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   defineFeature,
   EXT_USER_DATA,
@@ -26,6 +26,8 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
@@ -34,6 +36,7 @@ import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../..
 import { createFilesFeature } from "../../files";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
 import { createSessionsFeature } from "../../sessions";
+import { tenantMembershipsTable } from "../../tenant";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults";
 import { createUserDataRightsFeature } from "../feature";
 import { runForgetCleanup } from "../run-forget-cleanup";
@@ -55,6 +58,18 @@ const BOB_ID = uuid(2);
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 const NOW = (): Instant => getTemporal().Now.instant();
 const PAST = (): Instant => getTemporal().Instant.fromEpochMilliseconds(Date.now() - 60_000);
+
+const KUMIKO_NAME = Symbol.for("kumiko:schema:Name");
+const KUMIKO_COLUMNS = Symbol.for("kumiko:schema:Columns");
+
+/** Minimal bun-db table descriptor for the synthetic test_notes table. */
+const testNotesTable = {
+  [KUMIKO_NAME]: "test_notes",
+  [KUMIKO_COLUMNS]: {
+    tenantId: { name: "tenant_id", getSQLType: () => "uuid" },
+    authorId: { name: "author_id", getSQLType: () => "text" },
+  },
+};
 
 // Synthetic third-party Domain-Feature: "note" mit export- + delete-Hook.
 // Stellvertretend fuer App-spezifische Entities (Chat-Message, Blog-Post
@@ -82,13 +97,10 @@ const exportNotes: UserDataExportHook = async (ctx) => {
 };
 
 const deleteNotes: UserDataDeleteHook = async (ctx, _strategy) => {
-  await asRawClient(ctx.db).unsafe(
-    `
-    DELETE FROM test_notes
-    WHERE tenant_id = $1 AND author_id = $2
-  `,
-    [ctx.tenantId, ctx.userId],
-  );
+  await deleteMany(ctx.db, testNotesTable, {
+    tenantId: ctx.tenantId,
+    authorId: ctx.userId,
+  });
 };
 
 const testNotesFeature = defineFeature("test-notes", (r) => {
@@ -164,10 +176,12 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_memberships`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM file_refs`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM test_notes`);
+  await resetTestTables(stack.db, [
+    userTable,
+    tenantMembershipsTable,
+    fileRefsTable,
+    testNotesTable,
+  ]);
 });
 
 async function seedUser(

@@ -17,12 +17,14 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
 import { createFilesFeature } from "../../files";
@@ -112,9 +114,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_memberships`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM file_refs`);
+  await resetTestTables(stack.db, [userTable, "read_tenant_memberships", fileRefsTable]);
 });
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;

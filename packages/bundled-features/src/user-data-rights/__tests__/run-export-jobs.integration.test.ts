@@ -23,7 +23,7 @@ import {
   selectMany,
   updateMany,
 } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createInMemoryFileProvider,
   type FileStorageProvider,
@@ -36,13 +36,16 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
+  tenantComplianceProfileTable,
 } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
 import { createSessionsFeature } from "../../sessions";
+import { tenantMembershipsTable } from "../../tenant";
 import { createUserDataRightsFeature } from "../feature";
 import { runExportJobs } from "../run-export-jobs";
 import { exportDownloadTokenEntity, exportDownloadTokensTable } from "../schema/download-token";
@@ -97,12 +100,14 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${exportDownloadTokensTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${exportJobsTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM kumiko_events`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_compliance_profiles`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_memberships`);
+  await resetTestTables(stack.db, [
+    exportDownloadTokensTable,
+    exportJobsTable,
+    userTable,
+    eventsTable,
+    tenantComplianceProfileTable,
+    tenantMembershipsTable,
+  ]);
   providerPerTenant = new Map();
 
   // Atom 5: aliceUser-Row mit email seeden — Worker-Notification-Callback
@@ -772,11 +777,13 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
 
   beforeEach(async () => {
     if (!localStack) return;
-    await asRawClient(localStack.db).unsafe(`DELETE FROM "${exportDownloadTokensTable.tableName}"`);
-    await asRawClient(localStack.db).unsafe(`DELETE FROM "${exportJobsTable.tableName}"`);
-    await asRawClient(localStack.db).unsafe(`DELETE FROM kumiko_events`);
-    await asRawClient(localStack.db).unsafe(`DELETE FROM read_tenant_compliance_profiles`);
-    await asRawClient(localStack.db).unsafe(`DELETE FROM read_tenant_memberships`);
+    await resetTestTables(localStack.db, [
+      exportDownloadTokensTable,
+      exportJobsTable,
+      eventsTable,
+      tenantComplianceProfileTable,
+      tenantMembershipsTable,
+    ]);
     // Reset zu safe Default damit kein Test den State an den naechsten leakt.
     currentTestFileName = "report.pdf";
   });
@@ -1038,7 +1045,7 @@ describe("runExportJobs :: Atom 5 notification-callbacks", () => {
   test("user ohne email → Callback skipped + console.warn (kein Throw)", async () => {
     // User-Row mit email=null seeden (override). Worker logged warn,
     // Callback wird NICHT gerufen, Worker-Run bleibt successful.
-    await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+    await resetTestTables(stack.db, [userTable]);
     await insertOne(stack.db, userTable, {
       id: String(aliceUser.id),
       tenantId: tenantA,

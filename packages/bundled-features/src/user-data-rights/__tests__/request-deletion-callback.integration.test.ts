@@ -8,8 +8,8 @@
 // Properties — dieser Test verifiziert sie end-to-end.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -17,9 +17,11 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
+  tenantComplianceProfileTable,
 } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { USER_STATUS, userEntity, userTable } from "../../user";
@@ -79,9 +81,7 @@ afterAll(async () => {
 beforeEach(async () => {
   state.calls = [];
   state.shouldThrow = false;
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_compliance_profiles`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM kumiko_events`);
+  await resetTestTables(stack.db, [userTable, tenantComplianceProfileTable, eventsTable]);
 });
 
 async function seedAlice(email: string = "alice@example.com"): Promise<void> {

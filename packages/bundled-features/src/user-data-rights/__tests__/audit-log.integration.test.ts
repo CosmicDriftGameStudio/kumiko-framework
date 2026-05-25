@@ -2,7 +2,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, insertMany, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -10,9 +10,11 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
+  tenantComplianceProfileTable,
 } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { USER_STATUS, userEntity, userTable } from "../../user";
@@ -53,10 +55,12 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_compliance_profiles`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_download_attempts`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM kumiko_events`);
+  await resetTestTables(stack.db, [
+    userTable,
+    tenantComplianceProfileTable,
+    downloadAttemptsTable,
+    eventsTable,
+  ]);
 });
 
 async function seedUser(u: typeof alice, email: string): Promise<void> {

@@ -23,6 +23,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createUserFeature } from "../../user";
@@ -61,7 +62,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${exportJobsTable.tableName}"`);
+  await resetTestTables(stack.db, [exportJobsTable]);
 });
 
 const NOW = () => getTemporal().Now.instant();
