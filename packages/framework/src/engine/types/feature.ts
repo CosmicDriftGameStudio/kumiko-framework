@@ -5,6 +5,7 @@ import type { EntityTableMeta } from "../../db/entity-table-meta";
 // no longer carries drizzle internal class types. Every caller really
 // needs "an opaque table-object with Symbol-based introspection".
 type PgTable = unknown;
+
 import type { QueryHandlerDefinition, WriteHandlerDefinition } from "../define-handler";
 import type {
   ConfigKeyDefinition,

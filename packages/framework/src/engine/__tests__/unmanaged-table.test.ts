@@ -2,7 +2,7 @@
 // r.rawTable. Same audit-trail contract, different storage shape (post-
 // drizzle migrate-runner). See define-feature.ts / DX-4.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "bun:test";
 import { defineUnmanagedTable } from "../../db/entity-table-meta";
 import { defineFeature } from "../define-feature";
 import { createRegistry } from "../registry";
