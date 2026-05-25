@@ -21,15 +21,15 @@ const explodingDb = {
 
 describe("bun-db guards — limit injection", () => {
   test("selectMany rejects a non-integer limit", async () => {
-    await expect(
-      selectMany(explodingDb, meta, undefined, { limit: 1.5 }),
-    ).rejects.toThrow("limit must be a non-negative integer");
+    await expect(selectMany(explodingDb, meta, undefined, { limit: 1.5 })).rejects.toThrow(
+      "limit must be a non-negative integer",
+    );
   });
 
   test("selectMany rejects a negative limit", async () => {
-    await expect(
-      selectMany(explodingDb, meta, undefined, { limit: -1 }),
-    ).rejects.toThrow("limit must be a non-negative integer");
+    await expect(selectMany(explodingDb, meta, undefined, { limit: -1 })).rejects.toThrow(
+      "limit must be a non-negative integer",
+    );
   });
 });
 

@@ -118,7 +118,12 @@ async function defineField(user: SessionUser, fieldKey: string) {
   );
 }
 
-async function setCustomField(user: SessionUser, entityId: string, fieldKey: string, value: unknown) {
+async function setCustomField(
+  user: SessionUser,
+  entityId: string,
+  fieldKey: string,
+  value: unknown,
+) {
   return stack.http.writeOk(
     "custom-fields:write:set-custom-field",
     { entityName: "property", entityId, fieldKey, value },
