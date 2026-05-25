@@ -41,6 +41,7 @@
 
 import { readdirSync, statSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
+import { toKebab } from "@cosmicdrift/kumiko-framework/engine";
 import {
   type CallExpression,
   type ImportDeclaration,
@@ -50,27 +51,6 @@ import {
   type SourceFile,
   SyntaxKind,
 } from "ts-morph";
-
-/**
- * Replicates `packages/framework/src/engine/qualified-name.ts:toKebab`.
- * Frame's r.defineEvent runs the feature-name + event-name through this
- * helper before joining them — `defineFeature("driverOrders")` writes
- * events under `driver-orders:event:...`. We MUST mirror the same
- * transform here, otherwise the augmentation key drifts from the
- * runtime event-type and strict-mode would catch a phantom mismatch.
- *
- * Inlined (instead of imported from framework) to keep the codegen
- * package boundary clean — codegen doesn't depend on the runtime
- * framework, only the framework-source-tree via paths-mapping at the
- * caller's compile.
- */
-function toKebab(input: string): string {
-  return input
-    .replace(/\./g, "-")
-    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1-$2")
-    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
-    .toLowerCase();
-}
 
 export type ScannedEvent = {
   /** Qualified event-name as it appears in the events table:

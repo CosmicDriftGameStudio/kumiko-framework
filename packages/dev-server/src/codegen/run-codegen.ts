@@ -68,7 +68,7 @@ export function runCodegen(opts: CodegenOptions): CodegenResult {
 
   const typesContent = renderTypesAugmentation(scan.events, outputDir);
   const defineContent = renderDefineFile();
-  const schemasContent = renderInlineSchemasFile(scan.events);
+  const schemasContent = renderInlineSchemasFile(scan.events, opts.appRoot);
   // package.json — turns `.kumiko/` into a real installable package
   // named `@app/define`. Apps that declare
   //   "@app/define": "link:./.kumiko"

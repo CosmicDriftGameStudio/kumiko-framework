@@ -17,8 +17,8 @@ async function waitForPostgres(cwd: string, retries = 30): Promise<boolean> {
 export const devCommand = defineCommand({
   id: "dev",
   label: "dev",
-  description: "Bring up local Docker services (Postgres, Redis, Meilisearch)",
-  help: "Boots Postgres + Redis + Meilisearch via docker compose up -d.\nIdempotent — no-op if already running.",
+  description: "Bring up local Docker services (Postgres, Redis, Meilisearch, MinIO)",
+  help: "Boots Postgres + Redis + Meilisearch + MinIO via docker compose up -d.\nIdempotent — no-op if already running.",
   category: "lifecycle",
   roles: ["maintainer", "app-dev"],
   run: async (ctx) => {
@@ -36,9 +36,11 @@ export const devCommand = defineCommand({
     const pg = process.env["KUMIKO_PG_PORT"] ?? "15432";
     const redis = process.env["KUMIKO_REDIS_PORT"] ?? "16379";
     const meili = process.env["KUMIKO_MEILI_PORT"] ?? "17700";
+    const minio = process.env["KUMIKO_MINIO_PORT"] ?? "19000";
     ctx.out.log(`  PostgreSQL   localhost:${pg}`);
     ctx.out.log(`  Redis        localhost:${redis}`);
     ctx.out.log(`  Meilisearch  localhost:${meili}`);
+    ctx.out.log(`  MinIO (S3)   localhost:${minio}`);
     ctx.out.log("");
     ctx.out.log("Up and running. Happy coding.");
     return 0;

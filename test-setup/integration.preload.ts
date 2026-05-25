@@ -1,5 +1,5 @@
-// Integration-test preload — env defaults for Docker-Compose services.
-// Replaces vitest.integration.config.ts `test.env` section.
+// Integration-test preload — env defaults for docker-compose services started
+// via `kumiko dev`. Tests fail loudly when a service is unreachable.
 
 import "./app-define-resolver";
 import { ensureTemporalPolyfill } from "../packages/framework/src/time/polyfill";

@@ -4,6 +4,7 @@ import type { JwtHelper } from "../api/jwt";
 import { buildServer } from "../api/server";
 import { createSseBroker } from "../api/sse-broker";
 import type { PgClient } from "../db/connection";
+import { extractTableInfo } from "../db/query";
 import { createRegistry } from "../engine/registry";
 import type { FeatureDefinition, Registry, TenantId } from "../engine/types";
 import { createArchivedStreamsTable, createEventsTable } from "../event-store";
@@ -207,10 +208,9 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     // exist; drizzle-kit's diff machinery would otherwise emit CREATE for
     // them again.
     const { tableExists } = await import("../db/schema-inspection");
-    const { getTableName } = await import("drizzle-orm");
     const missing: Record<string, unknown> = {};
     for (const [key, tbl] of Object.entries(projectionTables)) {
-      const physical = getTableName(tbl as Parameters<typeof getTableName>[0]); // @cast-boundary drizzle-bridge
+      const physical = extractTableInfo(tbl).name;
       if (await tableExists(testDb.db, `public.${physical}`)) continue;
       missing[key] = tbl;
     }

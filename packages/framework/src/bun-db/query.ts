@@ -22,6 +22,7 @@
 import type { EntityTableMeta } from "../db/entity-table-meta";
 import { toSnakeCase } from "../db/table-builder";
 import { camelCase as envCamelCase } from "../env";
+import { parseJsonSafe } from "../utils/safe-json";
 
 // Idempotent snake_case → camelCase. `env.camelCase` always lowercases first
 // (designed for SHOUT_CASE input) — for already-camelCase keys (mock rows
@@ -370,11 +371,7 @@ export function coerceRow<T extends Record<string, unknown>>(row: T, info: Table
       const t = instantFromDriver(value);
       if (t !== null) coerced = t;
     } else if (pgType === "jsonb" && typeof value === "string") {
-      try {
-        coerced = JSON.parse(value);
-      } catch {
-        // leave as string on parse error — caller decides
-      }
+      coerced = parseJsonSafe(value, value);
     } else if (
       (pgType === "bigint" || pgType === "bigserial") &&
       (typeof value === "string" || typeof value === "bigint")

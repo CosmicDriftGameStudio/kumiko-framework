@@ -1,5 +1,6 @@
 import type { ZodError, ZodIssue } from "zod";
-import { ValidationError, type ValidationFieldIssue } from "./classes";
+import { ValidationError } from "./classes";
+import type { FieldIssue } from "./field-issue";
 
 // Zod issues carry a .code and sometimes issue-specific params (min, max, etc).
 // We surface those under `params` so the client can render "must be at least N"
@@ -24,7 +25,7 @@ const ISSUE_PARAM_KEYS = [
 ] as const;
 
 export function validationErrorFromZod(error: ZodError): ValidationError {
-  const fields = error.issues.map<ValidationFieldIssue>((issue) => {
+  const fields = error.issues.map<FieldIssue>((issue) => {
     const params = extractIssueParams(issue);
     return {
       path: issue.path.map(String).join(".") || "(root)",

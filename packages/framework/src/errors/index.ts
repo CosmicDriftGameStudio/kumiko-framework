@@ -1,5 +1,6 @@
 export type {
   FeatureDisabledDetails,
+  FieldIssue,
   NotFoundDetails,
   RateLimitDetails,
   UniqueViolationDetails,

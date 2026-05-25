@@ -1,5 +1,6 @@
 import type { CallExpression, Node } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
+import { isPlainObject } from "../../../utils/is-plain-object";
 import type { ParseError } from "../parse";
 
 export type ExtractOutput<TPattern> =
@@ -107,9 +108,7 @@ export function readDataLiteralNode(node: Node): unknown {
   }
 }
 
-export function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+export { isPlainObject } from "../../../utils/is-plain-object";
 
 export function readPropertyKey(propAssign: import("ts-morph").PropertyAssignment): string {
   const nameNode = propAssign.getNameNode();
