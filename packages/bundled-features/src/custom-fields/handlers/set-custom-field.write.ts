@@ -2,7 +2,8 @@ import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { customFieldsFeature } from "../feature";
-import { checkFieldAccessForWrite } from "../lib/field-access";
+import { fieldWriteAccessDeniedRoles, loadFieldDefinition } from "../lib/field-access";
+import { buildCustomFieldValueSchema } from "../lib/value-schema";
 
 export const setCustomFieldPayloadSchema = z.object({
   entityName: z.string().min(1).max(64),
@@ -24,16 +25,18 @@ export type SetCustomFieldPayload = z.infer<typeof setCustomFieldPayloadSchema>;
 // concurrent writes auf gleiches Field gehen beide durch (Plan-Doc v2
 // Concurrency-Tabelle).
 //
-// **WAS DIESER HANDLER NICHT MACHT (yet)**:
-//   - Validation des Werts gegen fieldDefinition-type (B2-todo: rehydriere
-//     r.field.X() aus serializedField, .schema.safeParse(value))
-//   - cap-counter-quota-Check (T1.5e)
-// → Diese Aspekte kommen als Folgekommits oder durch consumer-side hooks.
+// **Write-Pfad (Single-Fetch)** — eine fieldDefinition-Ladung, drei Gates:
+//   1. Definition fehlt → 404.
+//   2. field-access (T1.5b): fieldAccess.write-Rollen müssen intersecten, sonst
+//      403/422. Handler-level RBAC (TenantAdmin/Member) bleibt zusätzlich.
+//   3. Value-Validation (Builder-Reuse): der Wert wird gegen das aus
+//      serializedField rehydrierte fieldToZod-Schema geparst. Type-Mismatch →
+//      422, KEIN Event entsteht (Projection bleibt typed — Plan-Doc
+//      Stammfeld-Identität). `value: null` auf einem typisierten Feld ist ein
+//      Type-Mismatch → 422; zum Entfernen eines Werts dient clear-custom-field.
 //
-// **WAS NEU IST (T1.5b)**:
-//   - field-access-check: wenn fieldDefinition.serializedField.fieldAccess.write
-//     gesetzt ist, muss der calling user mindestens eine der Rollen halten.
-//     Handler-level RBAC (TenantAdmin/Member) bleibt zusätzlich.
+// Scope: NUR Type-Validation. Required-on-set + Default-Application sind
+// out-of-scope (Plan-Doc "Stammfeld-Identität" listet sie als eigene Zeilen).
 export const setCustomFieldHandler: WriteHandlerDef = {
   name: "set-custom-field",
   schema: setCustomFieldPayloadSchema,
@@ -41,21 +44,34 @@ export const setCustomFieldHandler: WriteHandlerDef = {
   handler: async (event, ctx) => {
     const payload = event.payload as SetCustomFieldPayload; // @cast-boundary engine-payload
 
-    const accessCheck = await checkFieldAccessForWrite(
+    const loaded = await loadFieldDefinition(
       ctx.db,
       event.user.tenantId,
       payload.entityName,
       payload.fieldKey,
-      event.user.roles,
     );
-    if (!accessCheck.ok) {
-      if (accessCheck.reason === "field_definition_not_found") {
-        return failNotFound("fieldDefinition", payload.fieldKey);
-      }
+    if (!loaded.found) {
+      return failNotFound("fieldDefinition", payload.fieldKey);
+    }
+
+    const deniedRoles = fieldWriteAccessDeniedRoles(loaded.field, event.user.roles);
+    if (deniedRoles) {
       return failUnprocessable("field_access_denied", {
         fieldKey: payload.fieldKey,
-        requiredRoles: accessCheck.requiredRoles ?? [],
+        requiredRoles: deniedRoles,
       });
+    }
+
+    const valueSchema = buildCustomFieldValueSchema(loaded.field);
+    if (valueSchema) {
+      const parsed = valueSchema.safeParse(payload.value);
+      if (!parsed.success) {
+        return failUnprocessable("custom_field_value_invalid", {
+          fieldKey: payload.fieldKey,
+          fieldType: loaded.field?.type,
+          issues: parsed.error.issues.map((i) => i.message),
+        });
+      }
     }
 
     // Emit customField.set on host-aggregate stream. unsafeAppendEvent
