@@ -20,6 +20,7 @@ import {
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createFilesFeature } from "../../files";
+import { createSessionsFeature } from "../../sessions";
 import {
   createUserFeature,
   USER_ANONYMIZED_DISPLAY_NAME,
@@ -39,6 +40,7 @@ const features = [
   createFilesFeature(),
   createDataRetentionFeature(),
   createComplianceProfilesFeature(),
+  createSessionsFeature(),
   createUserDataRightsFeature(),
   createUserDataRightsDefaultsFeature(),
 ];

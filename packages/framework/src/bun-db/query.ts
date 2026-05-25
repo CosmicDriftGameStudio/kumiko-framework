@@ -106,6 +106,49 @@ export function asRawClient(db: unknown): RawClient {
   );
 }
 
+/**
+ * When handlers call `selectMany(ctx.db, …)` instead of `ctx.db.selectMany(…)`,
+ * unwrap via asRawClient would bypass TenantDb scoping. Duck-type TenantDb and
+ * delegate so reads/writes keep tenant filter + tenantId injection.
+ */
+type TenantDbDelegate = {
+  selectMany<TRow>(
+    table: TableLike,
+    where?: WhereObject,
+    options?: SelectOptions,
+  ): Promise<readonly TRow[]>;
+  fetchOne<TRow>(table: TableLike, where: WhereObject): Promise<TRow | undefined>;
+  insertOne<TRow>(
+    table: TableLike,
+    values: Record<string, unknown>,
+  ): Promise<TRow | undefined>;
+  updateMany<TRow>(
+    table: TableLike,
+    set: Record<string, unknown>,
+    where: WhereObject,
+  ): Promise<readonly TRow[]>;
+  deleteMany(table: TableLike, where: WhereObject): Promise<void>;
+};
+
+function tenantDbDelegate(db: unknown): TenantDbDelegate | undefined {
+  if (typeof db !== "object" || db === null) return undefined;
+  const d = db as Record<string, unknown>;
+  const raw = d["raw"];
+  if (
+    raw &&
+    typeof (raw as Record<string, unknown>)["unsafe"] === "function" &&
+    typeof d["selectMany"] === "function" &&
+    typeof d["fetchOne"] === "function" &&
+    typeof d["insertOne"] === "function" &&
+    typeof d["updateMany"] === "function" &&
+    typeof d["deleteMany"] === "function" &&
+    "tenantId" in d
+  ) {
+    return db as TenantDbDelegate;
+  }
+  return undefined;
+}
+
 export type AnyDb = BunDbRunner | unknown;
 
 // WhereValue: primitive für eq, array für IN, null für IS NULL, oder
@@ -495,6 +538,10 @@ export async function selectMany<TRow = any>(
   where?: WhereObject,
   options?: SelectOptions,
 ): Promise<readonly TRow[]> {
+  const scoped = tenantDbDelegate(db);
+  if (scoped) {
+    return scoped.selectMany<TRow>(table, where, options);
+  }
   const info = extractTableInfo(table);
   let sqlText = `SELECT * FROM ${quoteIdent(info.name)}`;
   let values: unknown[] = [];
@@ -575,6 +622,10 @@ export async function insertOne<TRow = any>(
   table: TableLike,
   values: Record<string, unknown>,
 ): Promise<TRow | undefined> {
+  const scoped = tenantDbDelegate(db);
+  if (scoped) {
+    return scoped.insertOne<TRow>(table, values);
+  }
   const info = extractTableInfo(table);
   const entries = Object.entries(values)
     .filter(([k]) => info.hasColumn(k))
@@ -610,6 +661,10 @@ export async function updateMany<TRow = any>(
   set: Record<string, unknown>,
   where: WhereObject,
 ): Promise<readonly TRow[]> {
+  const scoped = tenantDbDelegate(db);
+  if (scoped) {
+    return scoped.updateMany<TRow>(table, set, where);
+  }
   const info = extractTableInfo(table);
   const setEntries = Object.entries(set).map(([k, v]) => {
     const col = info.columnOf(k);
@@ -640,6 +695,10 @@ export async function updateMany<TRow = any>(
 }
 
 export async function deleteMany(db: AnyDb, table: TableLike, where: WhereObject): Promise<void> {
+  const scoped = tenantDbDelegate(db);
+  if (scoped) {
+    return scoped.deleteMany(table, where);
+  }
   const info = extractTableInfo(table);
   const w = buildWhereClause(info, where, 1);
   let sqlText = `DELETE FROM ${quoteIdent(info.name)}`;

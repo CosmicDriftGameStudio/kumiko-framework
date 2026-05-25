@@ -6,10 +6,10 @@
 // assert. Mirrors the mail-foundation / file-foundation integration
 // test pattern.
 
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { defineFeature, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createEntityExecutor, defineFeature, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -18,6 +18,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import { z } from "zod";
 import { CapCounterHandlers, CapCounterQueries } from "../constants";
 import {
@@ -192,6 +193,12 @@ afterAll(async () => {
 // which month — just need a stable iso-string so `increment` +
 // `readCounter` hit the same aggregate.
 const PERIOD = "2026-05-01T00:00:00Z";
+const { table: capCounterTable } = createEntityExecutor("cap-counter", capCounterEntity);
+
+beforeEach(async () => {
+  await resetTestTables(db, [capCounterTable, eventsTable]);
+});
+
 const sysadmin = TestUsers.systemAdmin;
 
 function adminFor(tenantNumber: number) {

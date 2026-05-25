@@ -8,10 +8,10 @@
 //   5. Failed handler: counter NICHT inkrementiert (cap-quota nicht
 //      verbrannt für gescheiterte writes)
 
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { defineFeature, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createEntityExecutor, defineFeature, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -19,6 +19,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import { z } from "zod";
 import { CapCounterQueries } from "../constants";
 import type { SoftHitNotifier } from "../enforce-cap";
@@ -58,6 +59,8 @@ const innerSendHandler: WriteHandlerDef = {
 };
 
 const PERIOD = "2026-07-01T00:00:00Z";
+
+const { table: capCounterTable } = createEntityExecutor("cap-counter", capCounterEntity);
 
 const wrappedCalendar = withCapEnforcement(innerSendHandler, () => ({
   capName: "newsletter-cap",
@@ -101,6 +104,10 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await stack.cleanup();
+});
+
+beforeEach(async () => {
+  await resetTestTables(db, [capCounterTable, eventsTable]);
 });
 
 function adminFor(tenantNumber: number) {

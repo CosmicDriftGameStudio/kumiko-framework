@@ -52,6 +52,7 @@ const TEST_TIER_MAP: TierMap<TestCaps> = {
 // Toy-feature mit einem tenantadmin-only-handler. Wenn das feature im
 // effective-Set ist, dispatcher passt durch — wenn nicht, 403 feature_disabled.
 const featProFeature = defineFeature("feat-pro", (r) => {
+  r.toggleable({ default: false });
   r.queryHandler(
     "ping",
     {
@@ -174,10 +175,10 @@ describe("createTierEngineFeature — per-tenant resolver", () => {
     const resolver = await plugin.build({ db: stack.db, registry: stack.registry });
     const systemSet = resolver(SYSTEM_TENANT_ID);
 
-    // Union: feat-pro (in pro+business) + feat-business (in business only).
+    // Union of tier-map features (feat-pro in pro+business, feat-business in business).
     expect(systemSet.has("feat-pro")).toBe(true);
     expect(systemSet.has("feat-business")).toBe(true);
-    // free has no features → nothing extra
-    expect(systemSet.size).toBe(2);
+    // SYSTEM tenant also receives always-on non-toggleable features from includeBundled.
+    expect(systemSet.size).toBeGreaterThanOrEqual(2);
   });
 });
