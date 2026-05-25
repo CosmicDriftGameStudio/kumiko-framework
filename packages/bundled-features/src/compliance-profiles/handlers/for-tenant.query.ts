@@ -1,12 +1,12 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   type ComplianceProfileKey,
-  type ComplianceProfileOverride,
   type EffectiveComplianceProfile,
   resolveComplianceProfile,
 } from "@cosmicdrift/kumiko-framework/compliance";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
+import { parseComplianceProfileOverride } from "../_internal/parse-override";
 import { tenantComplianceProfileTable } from "../schema/profile-selection";
 
 // Liefert das effektive Compliance-Profile fuer den aktuellen Tenant.
@@ -29,33 +29,14 @@ export const forTenantQuery = defineQueryHandler({
       return resolveComplianceProfile({});
     }
 
-    const override = parseOverride(row.override, query.user.tenantId);
+    const override = parseComplianceProfileOverride(
+      row.override,
+      query.user.tenantId,
+      "compliance-profiles:for-tenant",
+    );
     return resolveComplianceProfile({
       selection: row.profileKey as ComplianceProfileKey, // @cast-boundary engine-payload
       override,
     });
   },
 });
-
-function parseOverride(
-  raw: string | null,
-  tenantId: string,
-): ComplianceProfileOverride | undefined {
-  if (!raw || raw.trim() === "") return undefined;
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    return parsed as ComplianceProfileOverride; // @cast-boundary engine-payload
-  } catch (e: unknown) {
-    const reason = e instanceof Error ? e.message : String(e);
-    // Defensiv: ungültiges JSON wird als "kein Override" behandelt. Der
-    // set-profile-Handler validiert Zod das Override schon — invalides
-    // JSON in der DB ist also nur möglich bei manueller DB-Manipulation
-    // oder Migration-Bug. Resolver-Caller darf trotzdem nicht crashen.
-    // Operator-Sichtbarkeit via console.warn — Telemetry-Hook spaeter.
-    // biome-ignore lint/suspicious/noConsole: operator visibility for DB-corruption edge-case
-    console.warn(
-      `[compliance-profiles:for-tenant] tenant ${tenantId}: stored override is not valid JSON, falling back to base profile. Reason: ${reason}`,
-    );
-    return undefined;
-  }
-}

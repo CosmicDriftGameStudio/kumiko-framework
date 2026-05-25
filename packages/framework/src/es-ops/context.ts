@@ -15,6 +15,7 @@ import {
 } from "../db/queries/seed-context";
 import { createSystemUser, SYSTEM_TENANT_ID } from "../engine";
 import type { Dispatcher } from "../pipeline/dispatcher";
+import { parseStringArrayJson } from "../utils/parse-string-array-json";
 import type { SeedMembershipRow, SeedMigrationContext, SeedTenantRow } from "./types";
 
 export type CreateSeedMigrationContextArgs = {
@@ -75,7 +76,7 @@ export function createSeedMigrationContext(
           userId: r.user_id,
           tenantId: r.tenant_id,
           streamTenantId: r.stream_tenant_id,
-          roles: safeParseRolesJson(r.roles),
+          roles: parseStringArrayJson(r.roles),
         }),
       );
     },
@@ -87,18 +88,6 @@ export function createSeedMigrationContext(
 
     db: args.dbRunner,
   };
-}
-
-function safeParseRolesJson(raw: string): readonly string[] {
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.every((x) => typeof x === "string")) {
-      return parsed;
-    }
-  } catch {
-    // Fallthrough — return empty rather than throwing in a seed context.
-  }
-  return [];
 }
 
 // Re-export für Caller-Convenience.

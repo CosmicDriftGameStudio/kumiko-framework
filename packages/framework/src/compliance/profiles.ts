@@ -33,6 +33,7 @@
 //
 // Siehe docs/plans/datenschutz/compliance-profiles.md.
 
+import { isPlainObject } from "../utils/is-plain-object";
 import type { BundleTier } from "./sub-processors";
 
 // --- Profile-Schema ---
@@ -301,10 +302,6 @@ type DeepReadonly<T> = T extends object ? { readonly [K in keyof T]: DeepReadonl
 export type ComplianceProfileOverride = DeepReadonly<DeepPartial<ComplianceProfile>>;
 
 type DeepPartial<T> = T extends object ? { [K in keyof T]?: DeepPartial<T[K]> } : T;
-
-function isPlainObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null && !Array.isArray(v);
-}
 
 // Pfade die als ganzes Atom ersetzt werden (NICHT rekursiv gemergt).
 // Notwendig fuer Diskriminierte-Union-Types wo das Patch ein Schwester-
