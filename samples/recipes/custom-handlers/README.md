@@ -42,5 +42,5 @@ tests cover the optimistic-lock case, the skip-lock case, and the
 custom-filter query.
 
 ```bash
-yarn kumiko test integration samples/custom-handlers
+bun kumiko test integration samples/custom-handlers
 ```

@@ -12,8 +12,8 @@ edit screen without a login. To exercise auth paths, see
 ## Run
 
 ```bash
-yarn kumiko dev                  # Postgres + Redis
-cd samples/apps/showcase && yarn dev
+bun kumiko dev                  # Postgres + Redis
+cd samples/apps/showcase && bun dev
 # → http://localhost:4175
 ```
 

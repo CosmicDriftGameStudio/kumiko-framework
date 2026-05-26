@@ -38,11 +38,11 @@ text-content für Cross-Feature-Aufruf-Beispiel).
 
 ```bash
 # Aus dem framework-Repo-Root (kumiko-framework):
-bunx vitest run --config vitest.integration.config.ts \
+bun test
   samples/recipes/compliance-profiles-demo/src/__tests__/feature.integration.ts
 
 # Alle Integration-Tests (incl. dieses Sample):
-bunx vitest run --config vitest.integration.config.ts
+bun test
 ```
 
 5 Tests, alle full-stack via `setupTestStack` + echte HTTP-Calls.

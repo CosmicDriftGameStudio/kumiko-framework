@@ -15,10 +15,10 @@ AppSchema via `window.__KUMIKO_SCHEMA__` injection.
 
 ```bash
 # Boot Postgres + Redis (once)
-yarn kumiko dev
+bun kumiko dev
 
 # In a new terminal — boots the sample on http://localhost:4174
-cd samples/apps/workspaces && yarn dev
+cd samples/apps/workspaces && bun dev
 ```
 
 Port 4174 is hardcoded so three sample apps can run in parallel
@@ -62,8 +62,8 @@ see `feature.ts` for the workspaces' `access.roles` configuration.
 
 ```bash
 # Unit (registry compose)
-yarn vitest run samples/apps/workspaces/src/__tests__/feature.test.ts
+bun test
 
 # Playwright E2E
-yarn kumiko test e2e samples/apps/workspaces
+bun kumiko test e2e samples/apps/workspaces
 ```

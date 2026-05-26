@@ -61,7 +61,7 @@ needed. The inbox is read via a helper function.
 The most thorough doc for the demo is the integration test itself:
 
 ```bash
-yarn vitest run --config vitest.integration.config.ts samples/apps/cap-billing-demo
+bun test
 ```
 
 `src/__tests__/cap-billing-demo.integration.ts` boots the full
@@ -81,10 +81,10 @@ Read the test file top-to-bottom — it's written as a living doc.
 ## Run locally
 
 ```bash
-yarn kumiko dev      # Postgres + Redis
-yarn install
+bun kumiko dev      # Postgres + Redis
+bun install
 cd samples/apps/cap-billing-demo
-yarn dev             # → http://localhost:4290
+bun dev             # → http://localhost:4290
 ```
 
 | Login | Value |

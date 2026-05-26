@@ -42,5 +42,5 @@ tests exercise each of the four hook phases plus the rollback path on
 preDelete violation.
 
 ```bash
-yarn kumiko test integration samples/lifecycle-hooks
+bun kumiko test integration samples/lifecycle-hooks
 ```

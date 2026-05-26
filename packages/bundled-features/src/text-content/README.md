@@ -22,20 +22,23 @@ runProdApp({
 
 ### Production table setup
 
-Each app creates the `read_text_blocks` table via a Drizzle migration:
+Each app creates the `read_text_blocks` table via a schema migration:
 
 ```bash
-# In the app workspace (e.g. samples/showcases/myapp):
-yarn kumiko migrate generate    # detects the new r.entity("text-block")
-                                # → drizzle migration in the drizzle/ folder
-yarn kumiko migrate apply       # apply (pre-deploy step in prod)
+# In the app workspace (legacy drizzle.config.ts apps):
+bun kumiko migrate generate    # detects the new r.entity("text-block")
+bun kumiko migrate apply       # pre-deploy step in prod
+
+# New apps (kumiko/schema.ts):
+bun kumiko schema generate text-content
+bun kumiko schema apply
 ```
 
 The boot gate (`runProdApp`) checks hard: missing table = `SchemaDriftError`,
 container exits. No auto-heal in production. See
 [docs/plans/architecture/migrations.md](../../../../docs/plans/architecture/migrations.md).
 
-In integration tests (vitest) it's enough to do:
+In integration tests (`bun test`) it's enough to do:
 
 ```typescript
 import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-framework/stack";

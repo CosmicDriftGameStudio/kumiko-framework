@@ -44,7 +44,9 @@ Seed-Migrations sind der saubere Fix: ein File schreibt das gewünschte Update e
 ## Don't reach for it when
 
 - **Initial Seeding** (erste Daten beim leeren Stack). Dafür gibt es `r.config({seeds})` + `options.seeds`-Array — idempotent-by-design durch deterministische Aggregate-IDs.
-- **Schema-Migrations**. Dafür gibt es `drizzle-kit` + die `drizzle/migrations/`-Files. Seed-migrations sind Data-Layer, nicht Schema-Layer.
+- **Schema-Migrations**. Dafür gibt es `kumiko schema generate` (neu) bzw.
+  `kumiko migrate generate` (Legacy-Apps mit `drizzle/`). Seed-migrations sind
+  Data-Layer, nicht Schema-Layer.
 - **Read-only Operationen / Reports**. Dafür gibt es App-spezifische Routes / Queries.
 
 ## How it works

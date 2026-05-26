@@ -58,7 +58,7 @@ HTTP POST /api/write { type: "showcase:write:invoice:approve", ... }
 ## Test
 
 ```bash
-yarn kumiko test integration samples/recipes/event-sourcing
+bun kumiko test integration samples/recipes/event-sourcing
 ```
 
 Six integration tests pin everything at once:

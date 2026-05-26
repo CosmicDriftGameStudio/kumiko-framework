@@ -59,5 +59,5 @@ The integration test pins three guarantees:
    row nor the event row nor the MSP side effect exists.
 
 ```bash
-yarn kumiko test integration samples/cross-feature-events
+bun kumiko test integration samples/cross-feature-events
 ```
