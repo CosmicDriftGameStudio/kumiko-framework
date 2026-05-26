@@ -18,7 +18,7 @@ function embeddedSubFieldToZod(subField: EmbeddedSubFieldDef): z.ZodTypeAny {
   }
 }
 
-function fieldToZod(field: FieldDefinition, currencies: readonly string[]): z.ZodTypeAny {
+export function fieldToZod(field: FieldDefinition, currencies: readonly string[]): z.ZodTypeAny {
   switch (field.type) {
     case "text": {
       let schema = z.string();

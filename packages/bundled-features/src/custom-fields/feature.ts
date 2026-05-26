@@ -30,12 +30,12 @@
 //   hand-gebauten Template-Literals mehr (T1 hat den toKebab-collapse-drift
 //   aufgedeckt, siehe Memory feedback_event_def_exports_pattern).
 //
-// **Out-of-B2 (future iterations)**:
+// **Noch offen (future iterations)**:
 //   - Cross-scope-conflict-Detection (Tenant überschreibt system fieldKey)
-//   - cap-counter quota-Check beim fieldDefinition-create
-//   - user-data-rights anonymization-Wiring für sensitive customFields
-//   - Value-Validation gegen fieldDefinition.serializedField
 //   - Cross-Scope-Read-UNION (system + tenant fieldDefinitions in einem List)
+//   (cap-counter-quota → T1.5e, user-data-rights-anonymization → T1.5c,
+//    Value-Validation gegen serializedField → set-custom-field via fieldToZod —
+//    alle erledigt.)
 
 import { defineEntityListHandler, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
