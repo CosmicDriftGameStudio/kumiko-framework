@@ -67,15 +67,15 @@ an open-source statuspage clone built with Kumiko.
 ## Running tests
 
 ```bash
-yarn kumiko test              # Unit tests (incl. recipes/i18n + recipes/screens-nav)
-yarn kumiko test integration  # Integration tests (all recipes with DB)
-yarn kumiko test e2e          # Playwright E2Es (apps/)
-yarn kumiko test all          # Unit + Integration
+bun kumiko test              # Unit tests (incl. recipes/i18n + recipes/screens-nav)
+bun kumiko test integration  # Integration tests (all recipes with DB)
+bun kumiko test e2e          # Playwright E2Es (apps/)
+bun kumiko test all          # Unit + Integration
 ```
 
 ## Production build
 
-`yarn build` in any app workspace produces deployable artifacts. Requires
+`bun run build` in any app workspace produces deployable artifacts. Requires
 `"scripts": { "build": "kumiko-build" }` in the `package.json`. Convention-
 driven discovery — `kumiko-build` builds whatever is present:
 
@@ -88,8 +88,8 @@ Workspaces without `bin/main.ts` get only the client; headless apps without
 a browser get only the server. Both are built in parallel when present.
 
 **Server bundle:** bundles framework + bundled-features + app source into a
-~1 MB JS file. Seven native externals (argon2, bullmq, drizzle-kit,
-drizzle-orm, ioredis, postgres, temporal-polyfill) stay as prod-deps in a
+~1 MB JS file. Native externals (argon2, bullmq, postgres, ioredis,
+temporal-polyfill) stay as prod-deps in a
 generated `dist-server/package.json`. Version-pin from the repo's
 `packages/framework/package.json`. For app-specific externals, see
 `buildServerBundle({ extraRuntimeExternals })` in
@@ -97,7 +97,8 @@ generated `dist-server/package.json`. Version-pin from the repo's
 
 **Container deploy:** the [publicstatus deploy folder](https://github.com/cosmicdriftgamestudio/publicstatus/tree/main/deploy)
 is the reference — multi-stage Dockerfile builds both bundles, runtime
-image only knows `dist/`, `dist-server/`, `drizzle/`. The
+image only knows `dist/`, `dist-server/`, migration SQL dirs (`drizzle/`
+legacy or `kumiko/migrations/`). The
 `dist-server/package.json` is filled in the runtime stage via
 `bun install --production` (~30 MB node_modules + 100 MB bun-alpine base
 ≈ 270 MB image). Migrate step in pre-deploy: `bun /app/kumiko.js migrate

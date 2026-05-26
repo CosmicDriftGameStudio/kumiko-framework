@@ -63,31 +63,20 @@ Two patterns the pipeline form catches that the free-form does not:
 ## Running
 
 ```bash
-# From THIS sample directory — uses the local vitest.config.ts which
-# aliases @cosmicdrift/kumiko-framework to the worktree source.
+# From THIS sample directory
 cd samples/recipes/pipeline-basics
-bunx vitest run
+bun test
 ```
 
 The test relies on Postgres + Redis from `docker compose up`
 (framework dev stack — not the published image).
 
-### Why a sample-local vitest config (and CI consequence)
+### Worktree / alias note
 
-Running this sample's tests via the worktree-wide
-`vitest.integration.config.ts` would crash at import time
-(`r.requires.projection is not a function`): the worktree's
-`node_modules/` is symlinked to the main framework's, so
-`@cosmicdrift/kumiko-framework` resolves to **main** — which doesn't
-yet have the M.1 step-engine.
-
-The sample-local `vitest.config.ts` aliases
-`@cosmicdrift/kumiko-framework` → `packages/framework/src` so the
-tests see the worktree code. The worktree-wide config explicitly
-**excludes** `samples/recipes/pipeline-basics/**`, so CI runs cleanly
-without picking these up. **Until M.1 lands in main, these tests
-run only locally.** Once M.1 is published, the exclude + sample-
-local config can both go away.
+This sample may need tsconfig `paths` so `@cosmicdrift/kumiko-framework`
+resolves to `packages/framework/src` when testing unreleased engine APIs.
+The repo-wide integration test config excludes this sample until the
+engine APIs land in a published release.
 
 ## Caveats / things to know
 
@@ -112,9 +101,6 @@ local config can both go away.
   known M.1 DX gap (Followup #4 — TData-inference); the rest of
   this sample's `as`-cast lastiness will get cleaner once that
   followup is closed.
-- **Worktree-local vitest config**: `vitest.config.ts` here aliases
-  `@cosmicdrift/kumiko-framework` to the worktree source rather
-  than the published main framework — necessary because the M.1
-  step-engine isn't in main yet. Once M.1 lands in main this
-  sample-local config can move into the worktree-wide
-  `vitest.integration.config.ts` (or be deleted entirely).
+- **Worktree-local test setup**: tsconfig `paths` may alias
+  `@cosmicdrift/kumiko-framework` to the worktree source when testing
+  unreleased engine APIs. Once published, the alias can go away.

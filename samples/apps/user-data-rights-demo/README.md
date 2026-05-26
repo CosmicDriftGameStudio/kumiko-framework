@@ -55,7 +55,7 @@ DSGVO requests work end-to-end:
 The most thorough doc is the integration test itself:
 
 ```bash
-yarn vitest run --config vitest.integration.config.ts samples/apps/user-data-rights-demo
+bun test
 ```
 
 `src/__tests__/user-data-rights-demo.integration.ts` boots the full
@@ -74,10 +74,10 @@ Read the test top-to-bottom — it's written as a living doc.
 ## Run locally
 
 ```bash
-yarn kumiko dev      # Postgres + Redis
-yarn install
+bun kumiko dev      # Postgres + Redis
+bun install
 cd samples/apps/user-data-rights-demo
-yarn dev             # → http://localhost:4291
+bun dev             # → http://localhost:4291
 ```
 
 | Login | Value |

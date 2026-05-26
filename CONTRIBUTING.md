@@ -17,17 +17,17 @@ investing time in something we're already building or have ruled out.
 ```bash
 git clone git@github.com:cosmicdriftgamestudio/kumiko-framework.git
 cd kumiko-framework
-yarn install
-yarn kumiko dev      # start Postgres + Redis
-yarn kumiko check    # full validation: Biome + TypeScript + Tests + Guards
+bun install
+bun kumiko dev      # start Postgres + Redis
+bun kumiko check    # full validation: Biome + TypeScript + Tests + Guards
 ```
 
-`yarn kumiko check` is what CI runs. If it's green locally, your PR will
+`bun kumiko check` is what CI runs. If it's green locally, your PR will
 likely be green in CI too.
 
 ## Conventions
 
-- **Package manager:** `yarn` or `bun` — never `npm`/`npx`
+- **Package manager:** `bun` — never `npm`/`npx`/`yarn`
 - **No `any`** — concrete types or branded types only
 - **TypeScript strict mode** — `noUncheckedIndexedAccess` is on, deal with it
 - **Tests are not optional.** Every feature change ships with tests:

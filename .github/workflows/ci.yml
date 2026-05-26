@@ -15,7 +15,7 @@ on:
     # Feature-branch pushes keep required checks alive when pull_request webhooks stall.
     branches: [main, "feat/**", "fix/**", "chore/**", "docs/**", "changeset-release/**"]
   pull_request:
-    branches: [main, "feat/**"]
+    branches: [main, "feat/**", "fix/**", "chore/**", "docs/**"]
   workflow_dispatch:
 
 concurrency:

@@ -48,8 +48,8 @@ legal-pages doesn't have its own table — it uses text-content's
 `read_text_blocks`. Table setup therefore goes through text-content:
 
 ```bash
-yarn kumiko migrate generate    # text-block entity is detected
-yarn kumiko migrate apply
+bun kumiko migrate generate    # text-block entity is detected
+bun kumiko migrate apply
 ```
 
 See [text-content/README.md](../text-content/README.md#production-table-setup).

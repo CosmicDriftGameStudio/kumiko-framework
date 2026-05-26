@@ -47,7 +47,7 @@ S3_SECRET_ACCESS_KEY=...
 
 1. **Entry point** — set `APP_ENTRY` in `compose.prod.yml` (or as a
    build arg). Default: `src/main.ts`.
-2. **Workspace manifests** — if your app is part of a Yarn workspace,
+2. **Workspace manifests** — if your app is part of a Bun workspace,
    uncomment the `COPY packages/*/package.json` block in the Dockerfile.
 3. **Port** — hardcoded to 3000. Adjust `EXPOSE` + `HEALTHCHECK` if
    your server listens on a different port.

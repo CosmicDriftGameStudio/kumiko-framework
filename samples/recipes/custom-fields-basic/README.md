@@ -75,7 +75,7 @@ The integration test under `src/__tests__/` walks two scenarios:
   number type preserved.
 
 ```bash
-yarn kumiko test integration samples/custom-fields-basic
+bun kumiko test integration samples/custom-fields-basic
 ```
 
 ## Source

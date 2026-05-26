@@ -29,7 +29,7 @@ lives in `bin/main.ts` (see "Integration into a real app" below).
 
 ```bash
 # From the repo root:
-yarn test:all run samples/recipes/legal-pages/
+bun kumiko test all samples/recipes/legal-pages/
 ```
 
 Expected output:
@@ -87,8 +87,8 @@ imprint" decision.
 
 ```bash
 # In the app workspace:
-yarn kumiko migrate generate    # detects text-block entity → SQL migration
-yarn kumiko migrate apply       # one-time (pre-deploy step in prod)
+bun kumiko migrate generate    # detects text-block entity → SQL migration
+bun kumiko migrate apply       # one-time (pre-deploy step in prod)
 ```
 
 ### 3. Initial seed of the required blocks

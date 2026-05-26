@@ -68,8 +68,8 @@ You get, for free:
 
 ### Prerequisites
 
-- [Bun](https://bun.sh/) (server runtime)
-- [Node.js](https://nodejs.org/) >= 20 (for Yarn)
+- [Bun](https://bun.sh/) ≥ 1.2 (runtime, package manager, test runner)
+- [Node.js](https://nodejs.org/) ≥ 20 (optional — Astro/docs tooling only)
 - [Docker](https://www.docker.com/) (PostgreSQL + Redis)
 
 ### Setup
@@ -77,22 +77,22 @@ You get, for free:
 ```bash
 git clone git@github.com:cosmicdriftgamestudio/kumiko-framework.git
 cd kumiko-framework
-yarn install
+bun install
 ```
 
 ### Run
 
 ```bash
 # Interactive CLI — shows all commands
-yarn kumiko
+bun kumiko
 
 # Or directly:
-yarn kumiko dev      # Start Docker services (PG:15432, Redis:16379)
-yarn kumiko test     # Run unit tests
-yarn kumiko check    # Biome + TypeScript + Tests + Guards
-yarn kumiko status   # What's running?
-yarn kumiko stop     # Stop services
-yarn kumiko reset    # Wipe + restart everything
+bun kumiko dev      # Start Docker services (PG:15432, Redis:16379)
+bun kumiko test     # Run unit tests
+bun kumiko check    # Biome + TypeScript + Tests + Guards
+bun kumiko status   # What's running?
+bun kumiko stop     # Stop services
+bun kumiko reset    # Wipe + restart everything
 
 ```
 
@@ -100,7 +100,7 @@ To explore feature patterns hands-on, run any sample:
 
 ```bash
 cd samples/recipes/basic-entity
-yarn test
+bun test
 ```
 
 ## Why use this
@@ -116,12 +116,12 @@ yarn test
 |-------|------|
 | Runtime | Bun |
 | API | Hono |
-| DB | Postgres + Drizzle ORM |
+| DB | Postgres (EntityTableMeta + SQL migrations) |
 | Auth | jose (JWT) |
 | Search | Meilisearch |
 | UI | React + Expo (Web + Mobile) |
 | Realtime | SSE via Redis Pub/Sub |
-| Tests | Vitest |
+| Tests | bun:test |
 
 Pipeline flow:
 
