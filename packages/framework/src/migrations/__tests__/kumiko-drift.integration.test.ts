@@ -10,7 +10,11 @@ import { join } from "node:path";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { buildEntityTableMeta } from "../../db/entity-table-meta";
 import { generateMigration, writeSnapshotJson } from "../../db/migrate-generator";
-import { baselineMigrations, loadMigrationsFromDir, runMigrationsFromDir } from "../../db/migrate-runner";
+import {
+  baselineMigrations,
+  loadMigrationsFromDir,
+  runMigrationsFromDir,
+} from "../../db/migrate-runner";
 import { asRawClient } from "../../db/query";
 import { createEntity, createTextField } from "../../engine";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
@@ -67,7 +71,9 @@ describe("kumiko-drift boot-gate", () => {
     const report = await detectKumikoDrift(testDb.db, dir);
     expect(report.ok).toBe(false);
     expect(report.pending).toEqual(["0001_init"]);
-    await expect(assertKumikoSchemaCurrent(testDb.db, dir)).rejects.toBeInstanceOf(SchemaDriftError);
+    await expect(assertKumikoSchemaCurrent(testDb.db, dir)).rejects.toBeInstanceOf(
+      SchemaDriftError,
+    );
   });
 
   test("applied migration edited afterwards → checksum mismatch", async () => {
@@ -76,7 +82,10 @@ describe("kumiko-drift boot-gate", () => {
     await runMigrationsFromDir(testDb.db, dir);
 
     // File nachträglich editieren (anderer Inhalt → andere checksum).
-    writeMigration("0001_init.sql", `CREATE TABLE "kdrift_widget" ("id" text PRIMARY KEY, "x" int);`);
+    writeMigration(
+      "0001_init.sql",
+      `CREATE TABLE "kdrift_widget" ("id" text PRIMARY KEY, "x" int);`,
+    );
     const report = await detectKumikoDrift(testDb.db, dir);
     expect(report.ok).toBe(false);
     expect(report.checksumMismatches.map((m) => m.id)).toEqual(["0001_init"]);
@@ -117,7 +126,12 @@ describe("kumiko-drift end-to-end (generate → apply → gate)", () => {
       fields: { name: createTextField({ required: true }) },
     });
     const meta = buildEntityTableMeta("kdriftGen", entity);
-    const result = generateMigration({ metas: [meta], prevSnapshot: null, name: "init", sequenceNumber: 1 });
+    const result = generateMigration({
+      metas: [meta],
+      prevSnapshot: null,
+      name: "init",
+      sequenceNumber: 1,
+    });
 
     writeFileSync(join(dir, result.filename), result.sqlContent);
     writeSnapshotJson(join(dir, ".snapshot.json"), result.snapshot);

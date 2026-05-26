@@ -53,9 +53,9 @@ export { createEventStoreExecutor, entityEventName } from "./event-store-executo
 export { flattenLocatedTimestamp, rehydrateLocatedTimestamp } from "./located-timestamp";
 export {
   diffSnapshots,
-  generateMigration,
   type GenerateMigrationInput,
   type GenerateMigrationOutput,
+  generateMigration,
   loadSnapshotJson,
   renderMigrationSql,
   type SchemaDiff,
