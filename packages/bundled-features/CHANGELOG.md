@@ -1,5 +1,28 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.18.0
+
+### Minor Changes
+
+- ff49c38: custom-fields: validate set-custom-field values against the fieldDefinition.
+
+  `set-custom-field` now rehydrates the field's `serializedField` into the
+  framework's `fieldToZod` schema and validates the incoming value (Builder-Reuse
+  / Plan-Doc "Stammfeld-Identität"). Type mismatches return 422 and emit no event,
+  so the jsonb projection stays typed. `fieldToZod` is now exported from
+  `@cosmicdrift/kumiko-framework/engine`.
+
+  Scope: type-validation only — required-on-set, default-application and the
+  searchable-filter remain out of scope.
+
+### Patch Changes
+
+- Updated dependencies [ff49c38]
+  - @cosmicdrift/kumiko-framework@0.18.0
+  - @cosmicdrift/kumiko-renderer@0.18.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.18.0
+  - @cosmicdrift/kumiko-renderer-web@0.18.0
+
 ## 0.17.0
 
 ### Patch Changes
