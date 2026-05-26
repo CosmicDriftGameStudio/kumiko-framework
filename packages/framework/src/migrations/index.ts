@@ -1,3 +1,14 @@
+// Drizzle-free gate (kumiko/migrations system) — the canonical boot-gate.
+// `SchemaDriftError` is re-exported from here; the legacy drizzle gate above
+// keeps its own internal error until Phase 3 removes schema-drift.ts.
+export {
+  assertKumikoSchemaCurrent,
+  type ChecksumMismatch,
+  detectKumikoDrift,
+  formatKumikoDriftReport,
+  type KumikoDriftReport,
+  SchemaDriftError,
+} from "./kumiko-drift";
 export {
   buildProjectionTableIndex,
   type ChangedTable,
@@ -22,7 +33,6 @@ export {
   loadLatestSnapshot,
   loadPreviousSnapshot,
   loadSnapshot,
-  SchemaDriftError,
   type Snapshot,
   type SnapshotTable,
 } from "./schema-drift";
