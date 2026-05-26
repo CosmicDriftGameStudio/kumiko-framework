@@ -491,40 +491,21 @@ describe("runProdApp", () => {
     expect(res.status).toBe(200);
   });
 
-  test("Hard Boot-Gate: pending Migration im Journal → SchemaDriftError, kein Boot", async () => {
-    // Schreibt ein synthetisches Migration-Dir mit einer Migration die
-    // nie applied wurde. runProdApp soll mit SchemaDriftError abbrechen
-    // bevor irgendetwas anderes initialisiert wird.
-    const { mkdir } = await import("node:fs/promises");
+  test("Hard Boot-Gate: pending kumiko-Migration → SchemaDriftError, kein Boot", async () => {
+    // Synthetisches kumiko/migrations-Dir mit einer checked-in Migration die
+    // nie applied wurde (kein _kumiko_migrations-Eintrag). runProdApp soll mit
+    // SchemaDriftError abbrechen bevor irgendetwas anderes initialisiert wird.
     const driftDir = await mkdtemp(join(tmpdir(), "kumiko-drift-boot-"));
     tempDirs.push(driftDir);
-    await mkdir(join(driftDir, "meta"), { recursive: true });
     await writeFile(
-      join(driftDir, "meta", "_journal.json"),
-      JSON.stringify({
-        version: "7",
-        dialect: "postgresql",
-        entries: [
-          {
-            idx: 0,
-            version: "7",
-            when: 1700000000000,
-            tag: "0000_pending_migration",
-            breakpoints: true,
-          },
-        ],
-      }),
+      join(driftDir, "0001_pending.sql"),
+      `CREATE TABLE "never_created_table" ("id" uuid PRIMARY KEY);`,
     );
     await writeFile(
-      join(driftDir, "meta", "0000_snapshot.json"),
+      join(driftDir, ".snapshot.json"),
       JSON.stringify({
-        tables: {
-          "public.never_created_table": {
-            schema: "",
-            name: "never_created_table",
-            columns: { id: { name: "id", type: "uuid", primaryKey: true, notNull: true } },
-          },
-        },
+        version: 1,
+        tables: [{ tableName: "never_created_table", columns: [] }],
       }),
     );
 

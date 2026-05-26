@@ -51,6 +51,31 @@ export type {
 } from "./event-store-executor";
 export { createEventStoreExecutor, entityEventName } from "./event-store-executor";
 export { flattenLocatedTimestamp, rehydrateLocatedTimestamp } from "./located-timestamp";
+export {
+  diffSnapshots,
+  type GenerateMigrationInput,
+  type GenerateMigrationOutput,
+  generateMigration,
+  loadSnapshotJson,
+  renderMigrationSql,
+  type SchemaDiff,
+  type Snapshot,
+  snapshotFromMetas,
+  writeSnapshotJson,
+} from "./migrate-generator";
+export {
+  type AppliedMigration,
+  type ApplyResult,
+  type BaselineResult,
+  baselineMigrations,
+  fetchAppliedMigrations,
+  loadMigrationsFromDir,
+  type Migration,
+  MigrationChecksumMismatchError,
+  runMigrations,
+  runMigrationsFromDir,
+  splitSqlStatements,
+} from "./migrate-runner";
 export { flattenMoney, rehydrateMoney } from "./money";
 export {
   constraintOf,

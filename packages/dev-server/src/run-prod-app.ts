@@ -69,7 +69,10 @@ import {
   createSeedMigrationContext,
   runPendingSeedMigrations,
 } from "@cosmicdrift/kumiko-framework/es-ops";
-import { assertSchemaCurrent, SchemaDriftError } from "@cosmicdrift/kumiko-framework/migrations";
+import {
+  assertKumikoSchemaCurrent,
+  SchemaDriftError,
+} from "@cosmicdrift/kumiko-framework/migrations";
 import {
   createDispatcher,
   createEntityCache,
@@ -369,7 +372,7 @@ export type RunProdAppOptions = {
    *  werden. CSP-Header pro Host können zusätzlich Asset-Pfade
    *  einschränken. */
   readonly hostDispatch?: HostDispatchFn;
-  /** Pfad zu drizzle/migrations für den Boot-Gate. Default "./drizzle/
+  /** Pfad zu kumiko/migrations für den Boot-Gate. Default "./kumiko/
    *  migrations" relativ zum process-cwd (wo die App gestartet wird —
    *  bei Container-Deploys typischerweise der App-Workspace-Root, weil
    *  WORKDIR im Dockerfile dorthin zeigt). Boot wirft SchemaDriftError
@@ -592,20 +595,20 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     }
   }
 
-  // 5. Schema-Drift-Gate. Drizzle-kit migrate (yarn kumiko migrate apply)
-  //    läuft als CI-Step VOR dem Container-Rollout. Boot prüft hier nur:
-  //      (a) Alle Migrations aus drizzle/migrations/meta/_journal.json
-  //          sind in __drizzle_migrations applied
-  //      (b) Alle erwarteten Tabellen existieren physisch
+  // 5. Schema-Drift-Gate (drizzle-frei, kumiko/migrations). `kumiko schema
+  //    apply` läuft als Deploy-Step VOR dem Container-Rollout. Boot prüft nur:
+  //      (a) Alle Migrations aus kumiko/migrations/*.sql sind in
+  //          _kumiko_migrations applied (+ checksum unverändert)
+  //      (b) Alle Tabellen aus kumiko/migrations/.snapshot.json existieren
   //    Drift = Boot-Error mit klarer Meldung (kein Auto-Heal — mehrere
-  //    Container-Replicas würden sonst race-conditionen beim ALTER TABLE
-  //    fahren). Opt-out via `migrations: false` für custom Schema-Setups.
+  //    Container-Replicas würden sonst race-conditionen fahren). Opt-out via
+  //    `migrations: false` für custom Schema-Setups.
   if (options.migrations !== false) {
-    const migrationsDir = options.migrations?.dir ?? "./drizzle/migrations";
+    const migrationsDir = options.migrations?.dir ?? "./kumiko/migrations";
     // biome-ignore lint/suspicious/noConsole: boot-time progress hint
     console.log(`[runProdApp] checking schema drift (${migrationsDir})…`);
     try {
-      await assertSchemaCurrent(db, migrationsDir);
+      await assertKumikoSchemaCurrent(db, migrationsDir);
     } catch (err) {
       if (err instanceof SchemaDriftError) {
         // biome-ignore lint/suspicious/noConsole: terminal error message

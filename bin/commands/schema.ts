@@ -174,20 +174,18 @@ export const schemaCommand = defineCommand({
           ctx.out.log("  Kein kumiko/migrations/ — App ist noch auf dem alten drizzle-Pfad.");
           return 0;
         }
-        const { createDbConnection, loadMigrationsFromDir } = await import("@cosmicdrift/kumiko-framework/db");
+        const { createDbConnection, fetchAppliedMigrations, loadMigrationsFromDir } = await import(
+          "@cosmicdrift/kumiko-framework/db"
+        );
         const local = loadMigrationsFromDir(migrationsDir);
         const { db, close } = createDbConnection(dbUrl);
         try {
-          // Frag _kumiko_migrations ab (falls existiert)
+          // Frag _kumiko_migrations ab (falls existiert). fetchAppliedMigrations
+          // wirft wenn die tracking-table noch nicht da ist → leeres Set.
           let applied: Set<string>;
           try {
-            const { sql } = await import("drizzle-orm");
-            const rows = (await db.execute(
-              sql.raw(`SELECT id FROM "_kumiko_migrations"`),
-            )) as Array<{ id: string }>;
-            applied = new Set(rows.map((r) => r.id));
+            applied = new Set((await fetchAppliedMigrations(db)).map((a) => a.id));
           } catch {
-            // tracking-table existiert noch nicht
             applied = new Set();
           }
           ctx.out.log("");
@@ -206,11 +204,48 @@ export const schemaCommand = defineCommand({
         }
       }
 
+      case "baseline": {
+        // Adoptiert eine bestehende DB: markiert alle checked-in Migrations als
+        // applied OHNE ihr SQL zu runnen (Prod-Tabellen existieren schon —
+        // Cutover vom legacy drizzle-System). Danach ist der Boot-Gate drift-frei.
+        const dbUrl = process.env["DATABASE_URL"];
+        if (!dbUrl) {
+          ctx.out.err("  DATABASE_URL not set.");
+          return 1;
+        }
+        if (!existsSync(migrationsDir)) {
+          ctx.out.err(`  ${migrationsDir} fehlt — erst kumiko schema generate <name>.`);
+          return 1;
+        }
+        const { baselineMigrations, createDbConnection, loadMigrationsFromDir } = await import(
+          "@cosmicdrift/kumiko-framework/db"
+        );
+        const local = loadMigrationsFromDir(migrationsDir);
+        const { db, close } = createDbConnection(dbUrl);
+        try {
+          const result = await baselineMigrations(db, local);
+          ctx.out.log("");
+          ctx.out.log(`  ✓ Marked ${result.marked.length} migration(s) as applied (no SQL run):`);
+          for (const id of result.marked) ctx.out.log(`    + ${id}`);
+          if (result.alreadyTracked.length > 0) {
+            ctx.out.log(`  (${result.alreadyTracked.length} already tracked)`);
+          }
+          ctx.out.log("");
+          return 0;
+        } catch (e) {
+          ctx.out.err(`  ✗ ${e instanceof Error ? e.message : String(e)}`);
+          return 1;
+        } finally {
+          await close();
+        }
+      }
+
       default: {
         ctx.out.log("");
         ctx.out.log("  Subcommands:");
         ctx.out.log("    generate <name>   Schreibe neue Migration aus EntityTableMeta-Diff");
         ctx.out.log("    apply             Applied pending checked-in SQL-Files");
+        ctx.out.log("    baseline          Markiere checked-in Migrations als applied (kein SQL-Run)");
         ctx.out.log("    status            Liste applied vs pending");
         ctx.out.log("");
         return 0;
