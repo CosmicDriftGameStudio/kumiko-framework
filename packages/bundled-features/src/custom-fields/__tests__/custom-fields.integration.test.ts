@@ -283,7 +283,9 @@ describe("custom-fields integration — value validation (Builder-Reuse)", () =>
       [entityId],
     );
     const cf = (rows as ReadonlyArray<{ custom_fields: unknown }>)[0]?.custom_fields;
-    return cf && typeof cf === "object" && !Array.isArray(cf) ? (cf as Record<string, unknown>) : {};
+    return cf && typeof cf === "object" && !Array.isArray(cf)
+      ? (cf as Record<string, unknown>)
+      : {};
   }
 
   test("type mismatch → 422, no event emitted, no jsonb key after projection", async () => {
