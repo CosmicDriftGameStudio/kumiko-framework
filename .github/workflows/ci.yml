@@ -12,11 +12,11 @@ env:
 
 on:
   push:
-    branches: [main]
+    # Feature-branch pushes keep required checks alive when pull_request webhooks stall.
+    branches: [main, "feat/**", "fix/**", "chore/**", "docs/**", "changeset-release/**"]
   pull_request:
-    # `feat/**` covers stacked PRs (e.g. Sprint-9-style `feat/env-migration-core`
-    # based on `feat/env-schemas`) — those used to silently skip CI.
     branches: [main, "feat/**"]
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
