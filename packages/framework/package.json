@@ -127,6 +127,10 @@
       "types": "./src/secrets/index.ts",
       "default": "./src/secrets/index.ts"
     },
+    "./schema-cli": {
+      "types": "./src/schema-cli.ts",
+      "default": "./src/schema-cli.ts"
+    },
     "./stack": {
       "types": "./src/stack/index.ts",
       "default": "./src/stack/index.ts"
