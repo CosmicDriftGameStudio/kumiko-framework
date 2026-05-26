@@ -154,7 +154,7 @@ export { resolveConfigOrParam } from "./resolve-config-or-param";
 export { runsInLane } from "./run-in";
 export type { StepListOutcome } from "./run-pipeline";
 export { runPipeline, runStepList } from "./run-pipeline";
-export { buildInsertSchema, buildUpdateSchema } from "./schema-builder";
+export { buildInsertSchema, buildUpdateSchema, fieldToZod } from "./schema-builder";
 export type { TransitionGraph } from "./state-machine";
 export { defineTransitions, guardTransition } from "./state-machine";
 export {

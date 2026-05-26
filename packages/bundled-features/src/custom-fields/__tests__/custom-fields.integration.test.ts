@@ -259,3 +259,108 @@ describe("custom-fields integration — Last-Wins on concurrent set", () => {
     expect(p6?.["status"]).toBe("published");
   });
 });
+
+describe("custom-fields integration — value validation (Builder-Reuse)", () => {
+  async function setErr(entityId: string, fieldKey: string, value: unknown) {
+    return stack.http.writeErr(
+      "custom-fields:write:set-custom-field",
+      { entityName: "property", entityId, fieldKey, value },
+      admin,
+    );
+  }
+
+  async function countSetEvents(entityId: string): Promise<number> {
+    const rows = await asRawClient(stack.db).unsafe(
+      "SELECT count(*)::int AS n FROM kumiko_events WHERE aggregate_id = $1 AND type = $2",
+      [entityId, "custom-fields:event:custom-field-set"],
+    );
+    return (rows as ReadonlyArray<{ n: number }>)[0]?.n ?? 0;
+  }
+
+  async function rawCustomFields(entityId: string): Promise<Record<string, unknown>> {
+    const rows = await asRawClient(stack.db).unsafe(
+      "SELECT custom_fields FROM read_t1_properties WHERE id = $1",
+      [entityId],
+    );
+    const cf = (rows as ReadonlyArray<{ custom_fields: unknown }>)[0]?.custom_fields;
+    return cf && typeof cf === "object" && !Array.isArray(cf)
+      ? (cf as Record<string, unknown>)
+      : {};
+  }
+
+  test("type mismatch → 422, no event emitted, no jsonb key after projection", async () => {
+    const id = "77777777-7777-4000-8000-000000000007";
+    await defineField("property", "count", "number");
+    await createProperty(id, "TypeMismatch");
+
+    const err = await setErr(id, "count", "not-a-number");
+    expect(err.httpStatus).toBe(422);
+    expect(err.code).toBe("unprocessable");
+    expect(err.details).toMatchObject({ reason: "custom_field_value_invalid" });
+
+    // Plan-Promise: kein Event entsteht — Projection bleibt typed.
+    expect(await countSetEvents(id)).toBe(0);
+
+    await stack.eventDispatcher?.runOnce();
+    expect(await rawCustomFields(id)).not.toHaveProperty("count");
+  });
+
+  test("matching values pass — number/text/boolean land correctly", async () => {
+    const id = "88888888-8888-4000-8000-000000000008";
+    await defineField("property", "count", "number");
+    await defineField("property", "label", "text");
+    await defineField("property", "active", "boolean");
+    await createProperty(id, "Valid");
+
+    await setCustomField("property", id, "count", 42);
+    await setCustomField("property", id, "label", "ok");
+    await setCustomField("property", id, "active", true);
+    await stack.eventDispatcher?.runOnce();
+
+    const row = (await listProperties()).rows.find((r) => r["id"] === id);
+    expect(row?.["count"]).toBe(42);
+    expect(row?.["label"]).toBe("ok");
+    expect(row?.["active"]).toBe(true);
+  });
+
+  test("boolean field rejects a string value → 422, no event", async () => {
+    const id = "99999999-9999-4000-8000-000000000009";
+    await defineField("property", "flag", "boolean");
+    await createProperty(id, "BoolReject");
+
+    const err = await setErr(id, "flag", "yes");
+    expect(err.httpStatus).toBe(422);
+    expect(err.code).toBe("unprocessable");
+    expect(err.details).toMatchObject({ reason: "custom_field_value_invalid" });
+    expect(await countSetEvents(id)).toBe(0);
+  });
+
+  test("embedded field rejects a non-object value → 422, no event", async () => {
+    const id = "aaaaaaaa-aaaa-4000-8000-00000000000a";
+    // embedded carries a sub-field schema in serializedField — exercises
+    // fieldToZod's z.object(...) dispatch (the structurally complex path).
+    await stack.http.writeOk(
+      "custom-fields:write:define-tenant-field",
+      {
+        entityName: "property",
+        fieldKey: "geo",
+        serializedField: { type: "embedded", schema: { city: { type: "text", required: true } } },
+        required: false,
+        searchable: false,
+        displayOrder: 0,
+      },
+      admin,
+    );
+    await createProperty(id, "EmbeddedReject");
+
+    const err = await setErr(id, "geo", "not-an-object");
+    expect(err.httpStatus).toBe(422);
+    expect(err.details).toMatchObject({ reason: "custom_field_value_invalid" });
+    expect(await countSetEvents(id)).toBe(0);
+
+    // Positive: a matching object passes + lands.
+    await setCustomField("property", id, "geo", { city: "Bonn" });
+    await stack.eventDispatcher?.runOnce();
+    expect(await rawCustomFields(id)).toMatchObject({ geo: { city: "Bonn" } });
+  });
+});
