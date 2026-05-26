@@ -36,5 +36,5 @@ tests cover all three roles reading + writing the entity, including the
 expected `field_access_denied` response shape.
 
 ```bash
-yarn kumiko test integration samples/field-access
+bun kumiko test integration samples/field-access
 ```

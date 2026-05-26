@@ -7,7 +7,7 @@ Framework core for Kumiko — engine, pipeline, API, DB, event-store, and
 every other bit that makes Kumiko go.
 
 > Multi-tenant, command-based, event-sourced app framework for Bun + Hono +
-> Drizzle. Define features, register entities, write commands — the framework
+> Postgres. Define features, register entities, write commands — the framework
 > wires dispatch, persistence, projections, async subscribers, and realtime
 > delivery.
 
@@ -18,12 +18,12 @@ for runnable examples of every feature.
 ## Install
 
 ```bash
-yarn add @cosmicdrift/kumiko-framework
+bun add @cosmicdrift/kumiko-framework
 # peers you probably already have:
-yarn add drizzle-orm hono ioredis zod
+bun add hono ioredis zod
 ```
 
-Bun is the intended runtime. Node 20+ works for the CLI and tests.
+Bun is the intended runtime and test runner.
 
 ## At-a-glance
 
@@ -108,7 +108,7 @@ export const taskFeature = defineFeature("tasks", (r) => {
 | Entry | What's in it |
 |---|---|
 | `@cosmicdrift/kumiko-framework/engine` | `defineFeature`, `createEntity`, field helpers, access rules, registry |
-| `@cosmicdrift/kumiko-framework/db` | Drizzle re-exports, `createEventStoreExecutor`, table builders, tenant-db |
+| `@cosmicdrift/kumiko-framework/db` | `buildEntityTableMeta`, `createEventStoreExecutor`, migrations, tenant-db |
 | `@cosmicdrift/kumiko-framework/event-store` | `events` table, `append`, `loadAggregate`, `loadAggregateAsOf` |
 | `@cosmicdrift/kumiko-framework/pipeline` | Dispatcher, event-dispatcher (AsyncDaemon), projection-rebuild, SSE + search consumers |
 | `@cosmicdrift/kumiko-framework/api` | `buildServer`, auth middleware, SSE route, error contract |

@@ -58,7 +58,7 @@ Der Test-File pinst beide Pfade.
 ## Demo-Szenario im Test
 
 ```bash
-bunx vitest run --config vitest.all.config.ts samples/recipes/user-data-rights
+bun test
 ```
 
 `src/__tests__/feature.integration.ts` beweist Schritt für Schritt:

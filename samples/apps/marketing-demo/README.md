@@ -12,8 +12,8 @@ the edit/list screen without a login. To exercise auth paths, see
 ## Run
 
 ```bash
-yarn kumiko dev                          # Postgres + Redis
-cd samples/apps/marketing-demo && yarn dev
+bun kumiko dev                          # Postgres + Redis
+cd samples/apps/marketing-demo && bun dev
 # → http://localhost:4178
 ```
 
@@ -64,7 +64,7 @@ them, no drift when options change.
 ## Screenshots
 
 ```bash
-yarn screenshots                         # Playwright E2E on 4179
+bun run screenshots                         # Playwright E2E on 4179
 ```
 
 Writes 4 PNGs to

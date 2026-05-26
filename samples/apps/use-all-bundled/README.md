@@ -60,10 +60,11 @@ The 3 remaining are utilities or auto-mounted — they cannot be added to `APP_F
 
 When you add a new feature-export to `@cosmicdrift/kumiko-bundled-features` you MUST either:
 
-1. Mount it in `src/run-config.ts` AND add a `FEATURE_IMPORT_REGISTRY` entry in `drizzle/generate.ts`. Then re-run:
+1. Mount it in `src/run-config.ts`. `kumiko/schema.ts` picks up entities via
+   `composeFeatures(APP_FEATURES)` — then regenerate if schema changed:
    ```sh
-   bun samples/apps/use-all-bundled/drizzle/generate.ts
-   cd samples/apps/use-all-bundled && bunx drizzle-kit generate
+   cd samples/apps/use-all-bundled
+   bun ../../bin/kumiko.ts schema generate feature-coverage
    ```
 2. Or, if the feature is not yet smoke-ready, add it to `EXPECTED_HELD_BACK` in `scripts/check-coverage.ts` with a one-line reason.
 

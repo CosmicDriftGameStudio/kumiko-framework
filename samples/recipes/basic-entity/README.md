@@ -36,5 +36,5 @@ under `src/__tests__/` exercise list-with-sort, soft-delete + restore, and
 the per-verb access boundaries.
 
 ```bash
-yarn kumiko test integration samples/basic-entity
+bun kumiko test integration samples/basic-entity
 ```

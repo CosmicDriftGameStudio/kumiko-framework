@@ -10,15 +10,15 @@ access) with two dev tenants so the TenantSwitcher is visible.
 
 ```bash
 # Boot Postgres + Redis (once)
-yarn kumiko dev
+bun kumiko dev
 
 # In a new terminal — boots the sample on http://localhost:4173
-cd samples/apps/ui-walkthrough && yarn dev
+cd samples/apps/ui-walkthrough && bun dev
 ```
 
 Port 4173 is hardcoded in the dev script so three samples can run in
 parallel (workspaces=4174, showcase=4175). Use
-`KUMIKO_DEV_DB_NAME=tasks_demo yarn dev` for a persistent DB (data
+`KUMIKO_DEV_DB_NAME=tasks_demo bun dev` for a persistent DB (data
 survives restarts).
 
 ## Login
@@ -61,7 +61,7 @@ topbar toggles between "Dev Tenant" (role Admin) and "Beta Tenant"
 
 ```bash
 # From repo root
-yarn kumiko test e2e samples/apps/ui-walkthrough
+bun kumiko test e2e samples/apps/ui-walkthrough
 ```
 
 Six Playwright specs: smoke + create flow + update flow + 4 generated
