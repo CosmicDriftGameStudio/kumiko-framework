@@ -14,6 +14,7 @@ import type { SessionUser } from "../../engine";
 import { createTestUser, setupTestStack, type TestStack, TestUsers } from "../../stack";
 import { buildMultipartBody, patchFileInstanceofForBunTest } from "../../testing";
 import {
+  createFilesFeature,
   createInMemoryFileProvider,
   filesStorageTrackingFeature,
   type InMemoryFileProvider,
@@ -40,7 +41,7 @@ beforeAll(async () => {
   patchFileInstanceofForBunTest();
   provider = createInMemoryFileProvider();
   stack = await setupTestStack({
-    features: [filesStorageTrackingFeature],
+    features: [createFilesFeature(), filesStorageTrackingFeature],
     files: { storageProvider: provider },
   });
 });

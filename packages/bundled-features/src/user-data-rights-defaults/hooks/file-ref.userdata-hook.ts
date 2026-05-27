@@ -30,9 +30,12 @@ import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 // Cleanup als TODO und faellen das in S2.U5 nochmal an.
 
 export const fileRefExportHook: UserDataExportHook = async (ctx) => {
+  // isDeleted:false — soft-deleted (trashed) Files gehören nicht ins
+  // Auskunfts-Bundle. Forget (delete-Hook unten) erfasst sie trotzdem.
   const rawRows = await selectMany(ctx.db, fileRefsTable, {
     tenantId: ctx.tenantId,
     insertedById: ctx.userId,
+    isDeleted: false,
   });
 
   // @cast-boundary db-row: drizzle liefert insertedAt als Instant

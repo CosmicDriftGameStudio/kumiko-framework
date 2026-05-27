@@ -1,13 +1,13 @@
-import { deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { Hono } from "hono";
-import { z } from "zod";
 import { getUser } from "../api/auth-middleware";
-import type { DbConnection, DbTx } from "../db/connection";
-import type { EventDef } from "../engine/types";
+import type { DbConnection } from "../db/connection";
+import { createEventStoreExecutor } from "../db/event-store-executor";
+import { createTenantDb } from "../db/tenant-db";
 import { isFileField, type Registry, type SessionUser, type TenantId } from "../engine/types";
-import { append as appendEvent } from "../event-store/event-store";
 import { generateId } from "../utils";
 import { buildContentDispositionHeader } from "./content-disposition";
+import { fileRefEntity } from "./file-ref-entity";
 import { fileRefsTable } from "./file-ref-table";
 import type { FileStorageProvider } from "./types";
 import { buildStorageKey, validateFile } from "./types";
@@ -29,38 +29,11 @@ export type FileRef = {
   insertedById: string | null;
 };
 
-// Event emitted after a successful upload. Downstream hooks / MSPs subscribe
-// on `fileUploadedEvent.name` via an r.multiStreamProjection apply map. The
-// payload carries metadata + the storage key — never the binary itself.
-// Consumers that need the bytes call `ctx.files.ref(payload.storageKey).read()`.
-//
-// Packaged as a framework-owned EventDef so consumers can narrow the raw
-// StoredEvent.payload via `typedPayload(event, fileUploadedEvent)` instead
-// of hand-casting. Schema version starts at 1; bump in lockstep with an
-// r.eventMigration when the shape breaks.
-export const fileUploadedPayloadSchema = z.object({
-  fileRefId: z.uuid(),
-  storageKey: z.string().min(1),
-  fileName: z.string().min(1),
-  mimeType: z.string().min(1),
-  size: z.number().int().nonnegative(),
-  entityType: z.string().nullable(),
-  entityId: z.string().nullable(),
-  fieldName: z.string().nullable(),
-  insertedById: z.string().min(1),
-});
-
-export type FileUploadedPayload = z.infer<typeof fileUploadedPayloadSchema>;
-
-export const fileUploadedEvent: EventDef<FileUploadedPayload> = {
-  name: "files:event:uploaded",
-  schema: fileUploadedPayloadSchema,
-  version: 1,
-};
-
-// Convenience re-export so apps that only reach for the event name (e.g. as
-// an apply-map key) don't have to dereference `.name` everywhere.
-export const FILE_UPLOADED_EVENT_TYPE = fileUploadedEvent.name;
+// fileRef is a standard ES entity: upload/delete go through the entity
+// executor (executor.create/delete below), which emits `fileRef.created` /
+// `fileRef.deleted` and materialises file_refs via applyEntityEvent in one
+// tx. Downstream MSPs (e.g. storage-tracking) subscribe on those entity
+// event types — there is no bespoke files:event:* anymore.
 
 // Checks whether `user` may read/delete the given file. The default guard
 // (ownerOrPrivilegedGuard) approves uploaders + any role in privilegedRoles.
@@ -110,6 +83,13 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   const { db, storageProvider } = options;
   const privilegedRoles = options.privilegedRoles ?? DEFAULT_PRIVILEGED_ROLES;
   const guard: FileAccessGuard = options.accessGuard ?? createDefaultGuard(privilegedRoles);
+  // Standard entity executor for fileRef — self-contained (table + entity),
+  // no registry needed. create/delete emit fileRef.created/deleted and write
+  // file_refs via applyEntityEvent in one tx (read-your-own-write), exactly
+  // like any other entity's lifecycle.
+  const executor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
+    entityName: "fileRef",
+  });
   const api = new Hono();
 
   // POST /files — multipart upload.
@@ -169,14 +149,16 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     const data = new Uint8Array(await file.arrayBuffer());
     await storageProvider.write(storageKey, data, file.type);
 
-    // Atomic: insert FileRef + append files:event:uploaded in one tx. Either
-    // both land or neither — no dangling FileRef without event, no event
-    // referencing a row that doesn't exist.
-    await db.begin(async (tx: DbTx) => {
-      const { insertOne } = await import("../bun-db/query");
-      await insertOne(tx, fileRefsTable, {
+    // Create via the standard entity executor: emits fileRef.created +
+    // materialises the file_refs row in one tx (read-your-own-write). id is
+    // explicit so the response + storageKey stay consistent; tenantId,
+    // insertedAt and insertedById are set by applyEntityEvent from the event
+    // metadata. The binary was written above, outside the tx — a create
+    // failure orphans bytes (cleanup-job sweeps) rather than committing a row
+    // whose binary is missing.
+    const result = await executor.create(
+      {
         id: fileRefId,
-        tenantId: user.tenantId,
         storageKey,
         fileName: file.name,
         mimeType: file.type,
@@ -184,33 +166,13 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
         entityType: entityType ?? null,
         entityId: entityId ?? null,
         fieldName: fieldName ?? null,
-        insertedById: user.id,
-      });
-
-      const payload: FileUploadedPayload = {
-        fileRefId,
-        storageKey,
-        fileName: file.name,
-        mimeType: file.type,
-        size: file.size,
-        entityType: entityType ?? null,
-        entityId: entityId ?? null,
-        fieldName: fieldName ?? null,
-        insertedById: user.id,
-      };
-      await appendEvent(tx, {
-        aggregateId: fileRefId,
-        aggregateType: "fileRef",
-        tenantId: user.tenantId,
-        expectedVersion: 0,
-        type: fileUploadedEvent.name,
-        // EventToAppend wants a Record — payload is typed through the
-        // EventDef so the cast collapses to a single boundary, not a
-        // double-`as unknown as` at the call site.
-        payload: payload as Record<string, unknown>, // @cast-boundary engine-payload
-        metadata: { userId: user.id },
-      });
-    });
+      },
+      user,
+      createTenantDb(db, user.tenantId),
+    );
+    if (!result.isSuccess) {
+      return c.json({ error: "upload_failed" }, 500);
+    }
 
     return c.json(
       {
@@ -265,15 +227,17 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     const decision = await guard({ fileRef, user, operation: "delete" });
     if (decision === "deny") return c.json({ error: "not_found" }, 404);
 
-    // Tombstone-Reihenfolge: DB-Row löschen FIRST, Bytes danach. Wenn der
-    // Storage-Call hängt oder fehlschlägt, sieht der User trotzdem den
-    // konsistenten "weg"-Zustand (kein Read findet die Row mehr) und der
-    // Cleanup-Job sweept die orphan'd bytes wie beim fehlgeschlagenen
-    // Upload. Umgekehrt liesse ein storage-success + db-fail eine Row mit
-    // permanent-broken Reference zurück — aus Sicht der API "Datei
-    // existiert" aber jeder Read 404t aus dem Provider.
-    await deleteMany(db, fileRefsTable, { id: id });
-    await storageProvider.delete(fileRef.storageKey);
+    // Delete via the standard entity executor: emits fileRef.deleted and
+    // applies it in one tx. fileRef is softDelete → the row is flagged
+    // isDeleted=true (reads filter it out) and stays recoverable; the binary
+    // is intentionally KEPT so a restore can bring the file back. Hard
+    // erasure of row + binary is the job of the forget-flow (Art. 17) and the
+    // generic data-retention cleanup — same lifecycle as any soft-delete
+    // entity, not a files-specific path.
+    const result = await executor.delete({ id }, user, createTenantDb(db, user.tenantId));
+    if (!result.isSuccess) {
+      return c.json({ error: "not_found" }, 404);
+    }
     return c.json({ ok: true });
   });
 
@@ -343,7 +307,9 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   });
 
   async function loadFileForTenant(id: string, tenantId: TenantId): Promise<FileRef | null> {
-    const [row] = await selectMany(db, fileRefsTable, { id, tenantId });
+    // isDeleted:false — soft-deleted (trashed) rows stay recoverable but must
+    // never surface to reads/guards.
+    const [row] = await selectMany(db, fileRefsTable, { id, tenantId, isDeleted: false });
     return (row as FileRef | undefined) ?? null; // @cast-boundary db-row
   }
 

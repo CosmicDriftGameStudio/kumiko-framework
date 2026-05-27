@@ -12,10 +12,12 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
@@ -53,24 +55,10 @@ beforeAll(async () => {
   // Drizzle-Generated-Queries kollidieren).
   await unsafeCreateEntityTable(stack.db, userEntity);
 
-  // file_refs ist framework-pgTable (nicht entity-getrieben, S1.5 hat
-  // die Schema-Sicht ohne buildEntityTable-Auto-Generation). Manuelle
-  // CREATE matched die Spalten aus framework/src/files/file-ref-table.ts
-  await asRawClient(stack.db).unsafe(`
-    CREATE TABLE IF NOT EXISTS file_refs (
-      id UUID PRIMARY KEY,
-      tenant_id UUID NOT NULL,
-      storage_key TEXT NOT NULL,
-      file_name TEXT NOT NULL,
-      mime_type TEXT NOT NULL,
-      size INTEGER NOT NULL,
-      entity_type TEXT,
-      entity_id TEXT,
-      field_name TEXT,
-      inserted_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-      inserted_by_id TEXT
-    )
-  `);
+  // file_refs ist jetzt das buildEntityTable-getriebene fileRef-Entity
+  // (softDelete → is_deleted/deleted_at/deleted_by_id). Echte Entity-Tabelle
+  // pushen statt hand-CREATE, damit der is_deleted-Filter der Hooks greift.
+  await unsafePushTables(stack.db, { fileRefsTable });
 });
 
 afterAll(async () => {

@@ -25,6 +25,7 @@ import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
@@ -145,21 +146,9 @@ beforeAll(async () => {
       UNIQUE(user_id, tenant_id)
     )
   `);
-  await asRawClient(stack.db).unsafe(`
-    CREATE TABLE IF NOT EXISTS file_refs (
-      id UUID PRIMARY KEY,
-      tenant_id UUID NOT NULL,
-      storage_key TEXT NOT NULL,
-      file_name TEXT NOT NULL,
-      mime_type TEXT NOT NULL,
-      size INTEGER NOT NULL,
-      entity_type TEXT,
-      entity_id TEXT,
-      field_name TEXT,
-      inserted_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-      inserted_by_id TEXT
-    )
-  `);
+  // fileRef ist buildEntityTable-getrieben (softDelete) — echte Entity-Tabelle
+  // pushen statt hand-CREATE, damit is_deleted/deleted_at/deleted_by_id da sind.
+  await unsafePushTables(stack.db, { fileRefsTable });
   await asRawClient(stack.db).unsafe(`
     CREATE TABLE IF NOT EXISTS test_notes (
       id UUID PRIMARY KEY,
