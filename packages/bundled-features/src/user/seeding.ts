@@ -1,8 +1,9 @@
 // Testing-Helper fürs user-Feature. `seedUser` legt einen User direkt
 // über den Event-Store-Executor an — gleicher Pfad wie der echte
 // `UserHandlers.create`, aber ohne Access-Check und ohne ConflictError
-// bei Duplikaten (idempotent: zweiter Aufruf für dieselbe Email
-// liefert die existierende userId zurück).
+// bei Duplikaten. Verhält sich wie ifExists="skip" (siehe
+// @cosmicdrift/kumiko-framework/seeding): existierende Email → return
+// ohne Event.
 //
 // Warum nicht direkt `db.insert(userTable)`: das würde den Event-Store
 // umgehen, also kein `user.created`-Event und keine MSP-Konsumenten

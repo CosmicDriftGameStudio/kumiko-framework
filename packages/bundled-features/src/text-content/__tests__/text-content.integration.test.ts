@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { type DbConnection, fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -12,7 +12,7 @@ import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
 import { TextContentHandlers, TextContentQueries } from "../constants";
 import { createTextContentFeature } from "../feature";
 import { seedTextBlock } from "../seeding";
-import { textBlockEntity } from "../table";
+import { type TextBlockRow, textBlockEntity, textBlocksTable } from "../table";
 
 let stack: TestStack;
 let db: DbConnection;
@@ -395,7 +395,7 @@ describe("text-content :: edge-cases", () => {
 });
 
 describe("text-content :: seedTextBlock", () => {
-  test("seedTextBlock is idempotent", async () => {
+  test('ifExists="update" overwrites existing row (same aggregate id)', async () => {
     const a = await seedTextBlock(db, {
       tenantId: tenantAdmin.tenantId,
       slug: "seed-test",
@@ -409,8 +409,42 @@ describe("text-content :: seedTextBlock", () => {
       lang: "de",
       title: "v2",
       body: "neu",
+      ifExists: "update",
     });
     expect(a.id).toBe(b.id);
+  });
+
+  test('default ifExists="skip" does not overwrite on re-boot', async () => {
+    const base = {
+      tenantId: tenantAdmin.tenantId,
+      slug: "seed-skip",
+      lang: "de",
+    };
+    await seedTextBlock(db, {
+      ...base,
+      title: "Initial",
+      body: "from seed",
+    });
+    await seedTextBlock(db, {
+      ...base,
+      title: "User edit",
+      body: "from admin",
+      ifExists: "update",
+    });
+    await seedTextBlock(db, {
+      ...base,
+      title: "Seed again",
+      body: "would overwrite",
+    });
+
+    const row = await fetchOne<TextBlockRow>(db, textBlocksTable, base);
+    expect(row).toMatchObject({ title: "User edit", body: "from admin", version: 2 });
+
+    const events = await selectMany(db, eventsTable, {
+      aggregateId: String(row!.id),
+    });
+    expect(events).toHaveLength(2);
+    expect(events.map((e) => e.type)).toEqual(["text-block.created", "text-block.updated"]);
   });
 
   // Drift-Documentation: seedTextBlock geht direkt durch den Executor

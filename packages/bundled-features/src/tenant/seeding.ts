@@ -25,11 +25,7 @@
 // correct event + projection.
 //
 // Idempotent: calling twice for the same (userId, tenantId) is a no-op on
-// the second call. Test fixtures that seed the same membership across
-// `beforeEach` runs don't need explicit cleanup. A real `addMember` handler
-// returns ConflictError on duplicates — that's the user-facing contract.
-// Fixture-seeding prioritises "make the state exist" over "detect duplicate
-// seeding", which is usually a test-author bug we don't need to surface.
+// the second call (ifExists="skip", siehe @cosmicdrift/kumiko-framework/seeding).
 
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
@@ -77,8 +73,8 @@ export type SeedTenantOptions = {
 };
 
 /**
- * Seed a tenant through the event-store executor. Idempotent: a second
- * call for the same `id` is a no-op. Same TX-semantics as the real
+ * Seed a tenant through the event-store executor. Idempotent (ifExists="skip"):
+ * a second call for the same `id` is a no-op. Same TX-semantics as the real
  * `TenantHandlers.create`, minus the SystemAdmin-access-check and minus
  * ConflictError-on-duplicate.
  */

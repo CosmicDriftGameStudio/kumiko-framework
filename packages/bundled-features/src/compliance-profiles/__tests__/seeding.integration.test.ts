@@ -3,13 +3,13 @@
 // Beweist:
 //   1. Helper umgeht set-profile-Zod-Engung (kann minimal-no-region
 //      setzen für Migration-Edge-Case-Tests in Sprint 2+)
-//   2. Idempotent: zweiter Call mit gleichem tenantId updated den
-//      bestehenden Eintrag
+//   2. Default skip: zweiter Boot-Call ohne ifExists="update" ändert nichts
 //   3. Override wird als JSON-String persistiert + via for-tenant
 //      korrekt zurueckgelesen
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -17,7 +17,11 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createComplianceProfilesFeature, tenantComplianceProfileEntity } from "../feature";
+import { createComplianceProfilesFeature } from "../feature";
+import {
+  tenantComplianceProfileEntity,
+  tenantComplianceProfileTable,
+} from "../schema/profile-selection";
 import { seedComplianceProfile } from "../seeding";
 
 const FOR_TENANT = "compliance-profiles:query:for-tenant";
@@ -47,15 +51,40 @@ describe("seedComplianceProfile", () => {
     expect(result.profile.key).toBe("eu-dsgvo");
   });
 
-  test("idempotent: zweiter Call updated den bestehenden Eintrag", async () => {
+  test('ifExists="update" overwrites bestehenden Eintrag', async () => {
     const tenantId = testTenantId(201);
     const user = createTestUser({ id: 201, tenantId, roles: ["TenantAdmin"] });
 
     await seedComplianceProfile(stack.db, { tenantId, profileKey: "eu-dsgvo" });
-    await seedComplianceProfile(stack.db, { tenantId, profileKey: "swiss-dsg" });
+    await seedComplianceProfile(stack.db, {
+      tenantId,
+      profileKey: "swiss-dsg",
+      ifExists: "update",
+    });
 
     const result = await stack.http.queryOk<{ profile: { key: string } }>(FOR_TENANT, {}, user);
     expect(result.profile.key).toBe("swiss-dsg");
+  });
+
+  test("default skip: zweiter Boot-Call ohne update überschreibt nicht", async () => {
+    const tenantId = testTenantId(204);
+
+    await seedComplianceProfile(stack.db, { tenantId, profileKey: "eu-dsgvo" });
+    await seedComplianceProfile(stack.db, {
+      tenantId,
+      profileKey: "swiss-dsg",
+      ifExists: "update",
+    });
+    await seedComplianceProfile(stack.db, { tenantId, profileKey: "de-hr-dsgvo-hgb" });
+
+    const row = (await fetchOne(stack.db, tenantComplianceProfileTable, {
+      tenantId,
+    })) as { id: string; profileKey: string; version: number };
+    expect(row.profileKey).toBe("swiss-dsg");
+    expect(row.version).toBe(2);
+
+    const events = await selectMany(stack.db, eventsTable, { aggregateId: row.id });
+    expect(events).toHaveLength(2);
   });
 
   test("kann minimal-no-region direkt seeden (Migration-Edge-Case, ohne set-profile-Zod-Engung)", async () => {

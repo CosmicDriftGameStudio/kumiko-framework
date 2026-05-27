@@ -123,6 +123,10 @@
       "types": "./src/search/meilisearch-adapter.ts",
       "default": "./src/search/meilisearch-adapter.ts"
     },
+    "./seeding": {
+      "types": "./src/seeding/index.ts",
+      "default": "./src/seeding/index.ts"
+    },
     "./secrets": {
       "types": "./src/secrets/index.ts",
       "default": "./src/secrets/index.ts"
