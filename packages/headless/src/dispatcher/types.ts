@@ -51,7 +51,7 @@ export type DispatcherError = {
   readonly details?: {
     readonly fields?: readonly FieldIssue[];
   } & Record<string, unknown>;
-  // Self-service deep-link to docs.kumiko.so/errors/<reason>. Always set on
+  // Self-service deep-link to docs.kumiko.rocks/errors/<reason>. Always set on
   // server-side errors (computed from details.reason or code by KumikoError).
   // Optional only because client-synthesized errors (network drop, savable-
   // queue rejection before transport) can't compute a meaningful docs URL.

@@ -49,14 +49,14 @@ describe("ToastProvider + useToast", () => {
             {
               title: "Konflikt",
               variant: "destructive",
-              docsUrl: "https://docs.kumiko.so/errors/stale_state",
+              docsUrl: "https://docs.kumiko.rocks/errors/stale_state",
             },
           ]}
         />
       </ToastProvider>,
     );
     const link = screen.getByRole("link", { name: /Mehr erfahren/i });
-    expect(link.getAttribute("href")).toBe("https://docs.kumiko.so/errors/stale_state");
+    expect(link.getAttribute("href")).toBe("https://docs.kumiko.rocks/errors/stale_state");
     expect(link.getAttribute("target")).toBe("_blank");
     expect(link.getAttribute("rel")).toBe("noopener noreferrer");
   });
@@ -68,7 +68,7 @@ describe("ToastProvider + useToast", () => {
           options={[
             {
               title: "Conflict",
-              docsUrl: "https://docs.kumiko.so/errors/stale_state",
+              docsUrl: "https://docs.kumiko.rocks/errors/stale_state",
               docsLinkLabel: "Learn more",
             },
           ]}

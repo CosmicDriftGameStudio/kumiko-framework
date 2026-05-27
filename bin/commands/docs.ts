@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { defineCommand, getCommand } from "./registry";
 
-const DOCS_BASE = "https://docs.kumiko.so";
+const DOCS_BASE = "https://docs.kumiko.rocks";
 const CLI_BASE = `${DOCS_BASE}/cli`;
 
 function openUrl(url: string): void {
@@ -18,7 +18,7 @@ export const docsCommand = defineCommand({
   id: "docs",
   label: "docs",
   description: "Open the Kumiko docs (overall or per command) in your browser",
-  help: "Usage:\n  kumiko docs                 Open docs.kumiko.so/cli/\n  kumiko docs <command>       Open docs.kumiko.so/cli/<command>/\n\n  --print                     Print the URL instead of opening it (CI / SSH friendly)",
+  help: "Usage:\n  kumiko docs                 Open docs.kumiko.rocks/cli/\n  kumiko docs <command>       Open docs.kumiko.rocks/cli/<command>/\n\n  --print                     Print the URL instead of opening it (CI / SSH friendly)",
   category: "help",
   roles: ["maintainer", "app-dev"],
   run: async (ctx) => {

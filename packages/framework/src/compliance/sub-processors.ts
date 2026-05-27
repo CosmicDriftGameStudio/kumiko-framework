@@ -4,7 +4,7 @@
 // Plattform-Betrieb einsetzt. Wird oeffentlich exposed unter
 //   /api/compliance/sub-processors        (JSON, Sprint 1)
 //   /api/compliance/sub-processors.rss    (RSS, Sprint 1)
-//   kumiko.so/subprocessors               (HTML, Marketing-Repo)
+//   kumiko.rocks/subprocessors               (HTML, Marketing-Repo)
 //
 // Tenant-Admins muessen ueber Add/Change/Remove informiert werden mit
 // Lead-Time aus dem Compliance-Profile (typisch 30d). Cron-Job kommt

@@ -302,7 +302,7 @@ bunx @cosmicdrift/kumiko-cli add feature my-domain
 - \`src/run-config.ts\` — single source of truth: which features your app mounts.
 - \`bin/main.ts\` — production-bootstrap. Reads env, mounts features, starts server.
 
-For full docs see https://docs.kumiko.so.
+For full docs see https://docs.kumiko.rocks.
 `;
 }
 

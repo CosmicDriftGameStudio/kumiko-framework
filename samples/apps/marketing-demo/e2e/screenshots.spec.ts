@@ -1,4 +1,4 @@
-// Marketing-Screenshot-Generator für kumiko.so.
+// Marketing-Screenshot-Generator für kumiko.rocks.
 //
 // Liest Szenarien aus ./scenarios.ts → schreibt PNGs cross-repo nach
 // `kumiko-platform/apps/marketing/public/screenshots/`. Override via

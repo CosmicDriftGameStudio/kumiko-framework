@@ -12,7 +12,7 @@
   "bugs": {
     "url": "https://github.com/CosmicDriftGameStudio/kumiko-framework/issues"
   },
-  "homepage": "https://kumiko.so",
+  "homepage": "https://kumiko.rocks",
   "type": "module",
   "kumiko": {
     "runtime": "dev"

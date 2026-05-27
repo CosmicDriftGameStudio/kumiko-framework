@@ -1,4 +1,4 @@
-// Marketing-Screenshot-Szenarien für die kumiko.so-Site.
+// Marketing-Screenshot-Szenarien für die kumiko.rocks-Site.
 //
 // Jeder Case ist eine bewusste Marketing-Story — beweist eine USP
 // visuell. Neuer Eintrag = neues PNG beim nächsten `yarn screenshots`.

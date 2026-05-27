@@ -72,7 +72,7 @@ function renderFeature(name: string): string {
   const camel = kebabToCamel(name);
   return `// ${name} feature — scaffolded by \`kumiko add feature\`. Edit freely.
 //
-// Doc-Pointer: https://docs.kumiko.so/en/patterns/ for the \`r.*\` API
+// Doc-Pointer: https://docs.kumiko.rocks/en/patterns/ for the \`r.*\` API
 // (r.entity, r.writeHandler, r.queryHandler, hooks, …).
 
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";

@@ -30,22 +30,22 @@ describe("KumikoError: abstract base", () => {
   describe("docsUrl getter — Self-Service-Link", () => {
     test("uses details.reason when set (NotFoundError sets entity-specific reason)", () => {
       const err = new NotFoundError("order", 42);
-      expect(err.docsUrl).toBe("https://docs.kumiko.so/errors/order_not_found");
+      expect(err.docsUrl).toBe("https://docs.kumiko.rocks/errors/order_not_found");
     });
 
     test("uses details.reason when explicitly set (ConflictError-style)", () => {
       const err = new ConflictError({ details: { reason: "stale_state" } });
-      expect(err.docsUrl).toBe("https://docs.kumiko.so/errors/stale_state");
+      expect(err.docsUrl).toBe("https://docs.kumiko.rocks/errors/stale_state");
     });
 
     test("falls back to code when details has no reason field", () => {
       const err = new ConflictError({ details: { foo: "bar" } });
-      expect(err.docsUrl).toBe("https://docs.kumiko.so/errors/conflict");
+      expect(err.docsUrl).toBe("https://docs.kumiko.rocks/errors/conflict");
     });
 
     test("falls back to code when details is undefined", () => {
       const err = new ConflictError();
-      expect(err.docsUrl).toBe("https://docs.kumiko.so/errors/conflict");
+      expect(err.docsUrl).toBe("https://docs.kumiko.rocks/errors/conflict");
     });
 
     test("respects KUMIKO_DOCS_URL env override (Self-Hosted-Kunden)", () => {
@@ -63,7 +63,7 @@ describe("KumikoError: abstract base", () => {
     test("serializeError exposes docsUrl in the wire response", () => {
       const err = new ConflictError({ details: { reason: "stale_state" } });
       const body = serializeError(err);
-      expect(body.error.docsUrl).toBe("https://docs.kumiko.so/errors/stale_state");
+      expect(body.error.docsUrl).toBe("https://docs.kumiko.rocks/errors/stale_state");
     });
   });
 });
