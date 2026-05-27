@@ -4,7 +4,7 @@
 // signed Magic-Link auf seine Mailadresse. ZIP enthaelt user-Profil +
 // fileRefs + todos. Plus request-deletion mit 30-day-grace.
 //
-// Vorbedingungen (siehe README): Postgres + Redis via `yarn kumiko dev`.
+// Vorbedingungen (siehe README): Postgres + Redis via `bun kumiko dev`.
 
 import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";

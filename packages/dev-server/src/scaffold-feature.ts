@@ -1,12 +1,12 @@
 // scaffoldFeature — generate a fresh feature workspace from a name.
-// Used by `yarn kumiko create <name>` and (later) by the Designer when
+// Used by `bun kumiko create <name>` and (later) by the Designer when
 // a tenant scaffolds a new feature inside their repo. Wraps the
 // canonical-form renderer (feature-ast/render.ts) so every freshly
 // scaffolded feature is born in canonical Object-Form with the
 // schema-version header set.
 //
 // The generated workspace is intentionally minimal: a single entity
-// pattern as a starter, so the user has something to point a "yarn
+// pattern as a starter, so the user has something to point a "bun
 // kumiko dev" at and immediately see something on screen. Adding more
 // patterns is the user's job (or the Designer's / AI's, on top of this
 // scaffolding).
@@ -48,7 +48,7 @@ export type ScaffoldFeatureResult = {
 /**
  * Generate a starter feature workspace at `destination`. Throws when
  * the destination already exists — refuses to overwrite. The caller is
- * expected to run `yarn install` afterwards to wire the workspace.
+ * expected to run `bun install` afterwards to wire the workspace.
  */
 export function scaffoldFeature(options: ScaffoldFeatureOptions): ScaffoldFeatureResult {
   const featureName = validateFeatureName(options.name);
@@ -156,7 +156,7 @@ function renderPackageJson(packageName: string): string {
   return `${JSON.stringify(
     {
       name: packageName,
-      description: "Kumiko sample feature — scaffolded by `yarn kumiko create`",
+      description: "Kumiko sample feature — scaffolded by `bun kumiko create`",
       private: true,
       dependencies: {
         "@cosmicdrift/kumiko-framework": "workspace:*",
@@ -170,7 +170,7 @@ function renderPackageJson(packageName: string): string {
 /**
  * Standard tsconfig matching the rest of the sample workspaces:
  * strict, ESNext, bundler-resolution, no-emit. Without this file
- * `yarn install + tsc` immediately complains about missing config —
+ * `bun install + tsc` immediately complains about missing config —
  * scaffolded features should compile cleanly out of the box.
  */
 function renderTsconfig(): string {
@@ -210,7 +210,7 @@ const SYNTHETIC_LOC: SourceLocation = {
 
 function starterPatterns(): readonly FeaturePattern[] {
   // One entity, one field. Smallest interesting output: parses, renders,
-  // can be `yarn kumiko dev`'d, and gives the user something to extend.
+  // can be `bun kumiko dev`'d, and gives the user something to extend.
   return [
     {
       kind: "entity",

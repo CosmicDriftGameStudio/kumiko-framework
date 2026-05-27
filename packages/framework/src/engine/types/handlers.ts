@@ -614,7 +614,7 @@ export type TypedAppendEventArgs<TMap extends object, K extends keyof TMap> = {
 //   We pick the first option and force the wrong path to fail visibly.
 //
 // How this is wired in practice:
-//   - Apps run `yarn kumiko codegen`, which writes `.kumiko/define.ts`
+//   - Apps run `bun kumiko codegen`, which writes `.kumiko/define.ts`
 //     with locally-bound `defineWriteHandler<TName, TSchema, TData,
 //     KumikoEventTypeMap>(...)` wrappers. Handlers inside those wrappers
 //     get a strict ctx.appendEvent.

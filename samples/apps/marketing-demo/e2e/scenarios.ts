@@ -1,7 +1,7 @@
 // Marketing-Screenshot-Szenarien für die kumiko.rocks-Site.
 //
 // Jeder Case ist eine bewusste Marketing-Story — beweist eine USP
-// visuell. Neuer Eintrag = neues PNG beim nächsten `yarn screenshots`.
+// visuell. Neuer Eintrag = neues PNG beim nächsten `bun screenshots`.
 
 import type { Page } from "@playwright/test";
 

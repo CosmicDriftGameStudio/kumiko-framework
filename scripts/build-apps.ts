@@ -1,13 +1,13 @@
 #!/usr/bin/env bun
-// build-apps — Wrapper-Skript, das `yarn build` in allen Workspaces
-// aufruft die ein `build`-Script haben. yarn-classic kennt
-// `--if-present` nicht, also enumerieren wir manuell.
+// build-apps — Wrapper-Skript, das `bun run build` in allen Workspaces
+// aufruft die ein `build`-Script haben. Wir enumerieren manuell statt
+// `--filter`, weil wir nur Workspaces mit vorhandenem build-Script wollen.
 //
-// Workspace-Discovery liest package.json#workspaces (yarn 1 Format)
-// und expandiert single-level globs (`samples/apps/*`). Damit gibt's
-// keine Drift wenn du das Repo-Layout umorganisierst.
+// Workspace-Discovery liest package.json#workspaces und expandiert
+// single-level globs (`samples/apps/*`). Damit gibt's keine Drift wenn
+// du das Repo-Layout umorganisierst.
 //
-// CI: `yarn build:apps` ruft das hier; lokal genauso.
+// CI: `bun build:apps` ruft das hier; lokal genauso.
 
 import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
@@ -95,7 +95,7 @@ let failed = 0;
 for (const ws of workspaces) {
   // biome-ignore lint/suspicious/noConsole: CLI-Output
   console.log(`\n${dim}=== ${ws.name} ===${reset}`);
-  const proc = Bun.spawn(["yarn", "build"], {
+  const proc = Bun.spawn(["bun", "run", "build"], {
     cwd: ws.path,
     stdout: "inherit",
     stderr: "inherit",

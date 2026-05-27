@@ -392,7 +392,7 @@ const commands = {
       // Output: minimal-Workspace mit package.json + src/feature.ts.
       // feature.ts ist canonical Object-Form (// kumiko-feature-version: 1)
       // mit einem Starter-Entity — direkt durch parser/patcher
-      // weiterbearbeitbar. yarn install nach create für Workspace-Wiring.
+      // weiterbearbeitbar. bun install nach create für Workspace-Wiring.
       const { scaffoldFeature } = await import("@cosmicdrift/kumiko-dev-server");
       const args = Bun.argv.slice(3);
       const name = args.find((a) => !a.startsWith("--"));
@@ -1066,7 +1066,7 @@ const commands = {
       checks.push({
         name: "node_modules",
         ok: existsSync("node_modules"),
-        hint: existsSync("node_modules") ? undefined : "yarn install",
+        hint: existsSync("node_modules") ? undefined : "bun install",
       });
 
       let dockerOk = false;

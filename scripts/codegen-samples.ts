@@ -3,7 +3,7 @@
 // codegen-samples — runs runCodegen() for every sample app under
 // `samples/<category>/<app>/`. Wired as root postinstall so that
 // `.kumiko/` (the @app/define package) exists right after a fresh
-// `yarn install`. Without this, tsc and vitest can't resolve
+// `bun install`. Without this, tsc and vitest can't resolve
 // `@app/define` until the dev-server has run once.
 //
 // Auto-discovery mirrors check-app-tsc.ts: any directory with a
@@ -16,7 +16,7 @@ import { join, relative, resolve } from "node:path";
 
 async function main() {
   // Dynamic import — during `bun install`, workspace packages may not be
-  // linked yet (install order differs from yarn). Skip silently.
+  // linked yet (workspace link order isn't guaranteed). Skip silently.
   let runCodegen: typeof import("@cosmicdrift/kumiko-dev-server").runCodegen;
   try {
     ({ runCodegen } = await import("@cosmicdrift/kumiko-dev-server"));

@@ -3,7 +3,7 @@
 // Bun.build und Tailwind-CLI brauchen einen Bun-Runtime, deshalb
 // werden die hier nicht aufgerufen — nur Discovery + HTML-Injection
 // die unter Node funktionieren. End-to-End-Tests (mit echtem Bun.build)
-// laufen im CI als `yarn build` auf der Showcase-App; das ist der
+// laufen im CI als `bun run build` auf der Showcase-App; das ist der
 // ehrlichere Smoke-Test.
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";

@@ -10,7 +10,7 @@
 //     Crash-Loop-Schutz via createCrashTracker. Verhindert Endlos-Loop
 //     bei syntaktisch totem bin/main.ts und gibt dem User trotzdem
 //     "Live-Edit"-Feeling: ein Code-Fehler in einem Feature killt nicht
-//     die ganze yarn-dev-Session.
+//     die ganze bun-dev-Session.
 //   - Signal-killed (SIGINT/SIGTERM): wir folgen dem Caller, exit 0.
 //
 // Nutzung: `kumiko-dev src/app/server.ts` in package.json:
@@ -74,7 +74,7 @@ const spawnServer = (): void => {
     if (!allowed) {
       process.stderr.write(
         `[kumiko-dev] ${MAX_CRASHES} Crashes in ${CRASH_WINDOW_MS / 1000}s — aufgeben (exit ${code}). ` +
-          "Fehler oben fixen und yarn dev erneut starten.\n",
+          "Fehler oben fixen und bun dev erneut starten.\n",
       );
       process.exit(code);
       return;

@@ -249,7 +249,7 @@ function renderMain(appName: string): string {
       "// Production-bootstrap. KUMIKO_DRY_RUN_ENV=boot exits after",
       "// composeFeatures + validateBoot + createRegistry without DB/Redis-connect",
       "// (siehe @cosmicdrift/kumiko-dev-server runProdApp). Echter Dev-Boot",
-      "// passiert via `yarn kumiko dev` (in-repo dev-tool) mit Docker-stack — DX-1.0 deckt nur",
+      "// passiert via `bun kumiko dev` (in-repo dev-tool) mit Docker-stack — DX-1.0 deckt nur",
       "// den boot-mode-Pfad ab; `kumiko dev` kommt in einer späteren DX-Phase.",
       "",
       "",
@@ -282,7 +282,7 @@ mounted (foundation set). Add features with \`bunx @cosmicdrift/kumiko-cli add f
 ## First boot
 
 \`\`\`sh
-yarn install
+bun install
 cp .env.example .env
 # edit .env — set JWT_SECRET + KUMIKO_SECRETS_MASTER_KEY_V1
 bun run boot

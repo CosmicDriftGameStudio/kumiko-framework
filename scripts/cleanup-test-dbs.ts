@@ -6,8 +6,8 @@
 // they accumulate — thousands is not unusual on a dev workstation.
 //
 // Usage:
-//   yarn tsx scripts/cleanup-test-dbs.ts             → drop all
-//   yarn tsx scripts/cleanup-test-dbs.ts --dry-run   → list only
+//   bun scripts/cleanup-test-dbs.ts             → drop all
+//   bun scripts/cleanup-test-dbs.ts --dry-run   → list only
 //
 // Drops in parallel batches so a cleanup-backlog of thousands finishes
 // in minutes not hours. Each DROP is independent — if one DB is in

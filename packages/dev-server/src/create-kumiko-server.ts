@@ -221,7 +221,7 @@ const AUTH_COOKIE = "kumiko_auth";
 //     die erste bootId; wenn nach einem Reconnect (Server-Restart!) eine
 //     ANDERE bootId kommt, refresh — sonst bleibt der Browser ewig auf
 //     dem alten Bundle hängen wenn der Watcher classifyChange="restart"
-//     gewählt hat oder der User Ctrl-C/yarn dev gemacht hat.
+//     gewählt hat oder der User Ctrl-C/bun dev gemacht hat.
 const RELOAD_SNIPPET = `
 <script>
   (() => {
