@@ -99,7 +99,7 @@ export async function rebuildMultiStreamProjection(
   }
   if (!msp.table) {
     throw new Error(
-      `MultiStreamProjection "${mspName}" has no backing table — it is a pure side-effect consumer (webhooks, notifications, external sync). Rebuild would re-invoke those side-effects by replaying the log. For poison events use yarn kumiko consumer skip / restart; there is no analogous "rebuild" concept for side-effect sinks.`,
+      `MultiStreamProjection "${mspName}" has no backing table — it is a pure side-effect consumer (webhooks, notifications, external sync). Rebuild would re-invoke those side-effects by replaying the log. For poison events use bun kumiko consumer skip / restart; there is no analogous "rebuild" concept for side-effect sinks.`,
     );
   }
 

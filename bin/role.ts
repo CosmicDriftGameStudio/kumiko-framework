@@ -6,7 +6,7 @@ import type { Role } from "./commands/types";
  * Detect the active role by walking up from `cwd` looking for marker
  * files:
  *
- *   - cosmicdriftgamestudio/ Parent (yarn-workspace root) → maintainer
+ *   - cosmicdriftgamestudio/ Parent (workspace root) → maintainer
  *   - kumiko-framework / kumiko-platform / kumiko-enterprise → maintainer
  *   - anything else with a kumiko-framework dependency → app-dev
  *   - no markers found → app-dev (safe default)

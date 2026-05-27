@@ -32,7 +32,7 @@ export const createCommand = defineCommand({
       ctx.out.log(`    package: ${result.packageName}`);
       ctx.out.log(`    path:    ${relDest}`);
       ctx.out.log("");
-      ctx.out.log("  Next: run yarn install, then edit src/feature.ts.");
+      ctx.out.log("  Next: run bun install, then edit src/feature.ts.");
       ctx.out.log("");
       return 0;
     } catch (err) {

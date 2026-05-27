@@ -161,7 +161,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // Idempotent (writeIfChanged) — der TS-Sprachserver kriegt nur einen
   // Reload-Tick wenn sich tatsächlich was geändert hat.
   //
-  // App-Root ist process.cwd() (yarn-dev läuft vom App-Workspace). Der
+  // App-Root ist process.cwd() (bun-dev läuft vom App-Workspace). Der
   // Watcher läuft solange der Dev-Server lebt; close() bei Shutdown
   // wird über das createKumikoServer-Handle implizit erledigt (Bun's
   // process-exit räumt fs.watch-handles auf).

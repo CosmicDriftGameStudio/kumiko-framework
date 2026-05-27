@@ -27,7 +27,7 @@ function sanitizeSlug(input: string): string {
 
 function usage(): void {
   console.log(
-    "\n  Usage: yarn kumiko ops <subcommand>\n\n" +
+    "\n  Usage: bun kumiko ops <subcommand>\n\n" +
       "  Subcommands:\n" +
       "    seed:new <slug>          Scaffold seeds/<date>-<slug>.ts\n" +
       "    seed:status              Liste applied + pending seed-migrations\n" +
@@ -47,7 +47,7 @@ function readSeedsDirArg(argv: readonly string[]): string {
 function seedNew(argv: readonly string[]): void {
   const slug = argv[0];
   if (!slug) {
-    console.error("\n  Missing <slug>. Usage: yarn kumiko ops seed:new <slug>\n");
+    console.error("\n  Missing <slug>. Usage: bun kumiko ops seed:new <slug>\n");
     process.exit(1);
   }
   const sanitized = sanitizeSlug(slug);
@@ -100,7 +100,7 @@ export default {
 `;
 
   writeFileSync(filePath, template);
-  console.log(`\n  ✓ ${filePath}\n  Edit + commit. Wird beim nächsten Boot oder via 'yarn kumiko ops seed:apply' angewendet.\n`);
+  console.log(`\n  ✓ ${filePath}\n  Edit + commit. Wird beim nächsten Boot oder via 'bun kumiko ops seed:apply' angewendet.\n`);
 }
 
 // --- ops seed:status ---------------------------------------------------------

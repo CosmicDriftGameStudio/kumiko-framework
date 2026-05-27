@@ -1,7 +1,7 @@
 // DX-3.1 — walkthrough-snapshot-test. Reproduces the 3-command path from
 // docs.kumiko.rocks/en/walkthrough/ in-process and asserts what the walkthrough
 // claims. Catches drift in scaffoldApp + scaffoldAppFeature against the
-// docs without an actual `bunx … && yarn install && bun run boot` CI run.
+// docs without an actual `bunx … && bun install && bun run boot` CI run.
 //
 // What this test pins:
 //   - scaffoldApp produces the 6 files the walkthrough lists

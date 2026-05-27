@@ -6,7 +6,7 @@
 //   - Hard Schema-Drift-Gate: prüft drizzle/migrations/_journal vs.
 //     __drizzle_migrations + tableExists für jede erwartete Tabelle.
 //     KEIN Auto-CREATE TABLE im Boot — Migration ist ein CI-Step
-//     (`yarn kumiko migrate apply`), Boot validiert nur. Verhindert
+//     (`bun kumiko migrate apply`), Boot validiert nur. Verhindert
 //     Race-Conditions bei Multi-Replica-Deploys + macht Schema-Stand
 //     reviewbar in der Pull-Request.
 //   - Idempotente Seeds: laufen nur wenn DB leer (über `isDbEmpty`-Probe

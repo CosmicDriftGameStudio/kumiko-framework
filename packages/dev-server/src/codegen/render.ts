@@ -29,7 +29,7 @@ import { rewriteImportPath } from "./scan-events";
 const HEADER = [
   "// =====================================================================",
   "// AUTO-GENERATED — DO NOT EDIT BY HAND",
-  "// Run `yarn kumiko codegen` to regenerate (or rely on the dev-server's",
+  "// Run `bun kumiko codegen` to regenerate (or rely on the dev-server's",
   "// file-watcher, which calls it on every r.defineEvent change).",
   "// =====================================================================",
 ].join("\n");
@@ -129,7 +129,7 @@ export function renderInlineSchemasFile(
     "// Schema extracts purely for type inference: this file is referenced",
     "// from types.generated.d.ts via `import type`. ts-strip elides it at",
     "// build time, so there is NO runtime duplication of the inline schemas",
-    "// in feature files. When an event schema changes: re-run `yarn kumiko",
+    "// in feature files. When an event schema changes: re-run `bun kumiko",
     "// codegen` — otherwise the z.infer type drifts from the runtime schema.",
     "",
     `import { z } from "zod";`,

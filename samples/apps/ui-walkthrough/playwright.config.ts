@@ -1,5 +1,5 @@
 // Playwright-Config für den ui-walkthrough-Durchstich. Startet den
-// echten dev-server als webServer-Fixture, genau wie `yarn dev` — nur
+// echten dev-server als webServer-Fixture, genau wie `bun dev` — nur
 // auf Port 4174 damit die laufende Dev-Session (4173) nicht kollidiert.
 //
 // Der dev-server macht auf PORT-Env basierend das HTTP-Binding. Die

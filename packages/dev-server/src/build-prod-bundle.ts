@@ -332,7 +332,7 @@ export function discoverHtmlTemplate(cwd: string): string | undefined {
 async function runTailwindOnce(entry: string, cwd: string): Promise<string> {
   if (!hasBun) {
     throw new Error(
-      "[kumiko build] Tailwind one-shot requires Bun (Bun.spawn) — run via `bun run …` or `yarn kumiko build`.",
+      "[kumiko build] Tailwind one-shot requires Bun (Bun.spawn) — run via `bun run …` or `bun kumiko build`.",
     );
   }
   const bunResolver = (globalThis as { Bun: { resolveSync: (id: string, from: string) => string } })
@@ -373,7 +373,7 @@ async function buildClientBundles(
   outDir: string,
 ): Promise<Record<string, string>> {
   if (!hasBun) {
-    throw new Error("[kumiko build] requires Bun — run via `bun run …` or `yarn kumiko build`.");
+    throw new Error("[kumiko build] requires Bun — run via `bun run …` or `bun kumiko build`.");
   }
   const built = await Bun.build({
     entrypoints: entries.map((e) => e.sourceFile),

@@ -4,8 +4,8 @@
 // 100/month). Mails landen im in-memory-transport, abrufbar über die
 // Helper aus @cosmicdrift/kumiko-bundled-features/mail-transport-inmemory.
 //
-// Vorbedingungen (siehe README): Postgres + Redis via `yarn kumiko dev`;
-// Migrations via `yarn kumiko migrate apply` (aktuell nur die Default-
+// Vorbedingungen (siehe README): Postgres + Redis via `bun kumiko dev`;
+// Migrations via `bun kumiko migrate apply` (aktuell nur die Default-
 // Tabellen — das Demo nutzt keine eigene Entity-Projektion).
 
 import { runDevApp } from "@cosmicdrift/kumiko-dev-server";

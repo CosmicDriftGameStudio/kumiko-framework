@@ -69,7 +69,7 @@ function runNew(args: readonly string[], out: Output, cwd: string): number {
     out.log("");
     out.log("Next:");
     out.log(`  cd ${name}`);
-    out.log("  yarn install && cp .env.example .env");
+    out.log("  bun install && cp .env.example .env");
     out.log("  bun run boot");
     return 0;
   } catch (e) {

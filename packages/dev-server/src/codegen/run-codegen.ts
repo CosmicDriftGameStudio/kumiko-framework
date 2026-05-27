@@ -1,5 +1,5 @@
 // runCodegen — Top-Level Entry-Point. Wird vom Dev-Server (auf Boot),
-// vom Build-Step (vor Bundle) und von der CLI (`yarn kumiko codegen`)
+// vom Build-Step (vor Bundle) und von der CLI (`bun kumiko codegen`)
 // aufgerufen.
 //
 // Lifecycle:

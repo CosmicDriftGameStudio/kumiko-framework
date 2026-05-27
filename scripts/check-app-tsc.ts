@@ -7,7 +7,7 @@
 // The root `tsconfig.json#references` only points at framework packages
 // (`packages/*`) and `app/`. Sample apps under `samples/` have their own
 // per-app `tsconfig.json` files but aren't in the references chain — so
-// `yarn tsc -b` from the root never traverses into them. The IDE checks
+// `tsc -b` from the root never traverses into them. The IDE checks
 // them individually (the language server picks the closest tsconfig per
 // file), so developers see errors that `kumiko check` had reported as
 // PASS. This script closes that gap.
@@ -67,8 +67,7 @@ function checkApp(appRoot: string): AppResult {
   // Änderung, no-op wenn synchron.
   runCodegen({ appRoot });
   // tsc lives in the root node_modules/.bin (single hoisted install).
-  // yarn 4 doesn't auto-fallback to root .bin from a workspace, so we
-  // invoke the binary directly with the workspace as cwd — that gives
+  // We invoke the binary directly with the workspace as cwd — that gives
   // tsc the workspace's tsconfig as the project root.
   const tscBin = (() => {
     // 1. Check workspace node_modules
@@ -86,7 +85,7 @@ function checkApp(appRoot: string): AppResult {
     return null;
   })();
 
-  const tscCommand = tscBin ?? "yarn";
+  const tscCommand = tscBin ?? "bunx";
   const tscArgs = tscBin ? ["--noEmit"] : ["tsc", "--noEmit"];
   
   const result = spawnSync(tscCommand, tscArgs, {

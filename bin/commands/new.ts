@@ -5,7 +5,7 @@ import { defineCommand } from "./registry";
 // workspace. Sister to `kumiko create <feature>` (single feature in
 // samples/recipes/) — but here we make a TOP-LEVEL standalone app with
 // run-config + bin/main.ts so a new dev gets "boots cleanly" in 3
-// commands: `kumiko new app foo && cd foo && yarn install && bun run boot`.
+// commands: `kumiko new app foo && cd foo && bun install && bun run boot`.
 //
 // Sub-commands:
 //   kumiko new app <kebab-name>   — scaffold the app skeleton
@@ -62,7 +62,7 @@ export const newCommand = defineCommand({
       ctx.out.log("");
       ctx.out.log(`  Next:`);
       ctx.out.log(`    cd ${relDest}`);
-      ctx.out.log(`    yarn install`);
+      ctx.out.log(`    bun install`);
       ctx.out.log(`    cp .env.example .env  # edit JWT_SECRET + KUMIKO_SECRETS_MASTER_KEY_V1`);
       ctx.out.log(`    bun run boot`);
       ctx.out.log("");
