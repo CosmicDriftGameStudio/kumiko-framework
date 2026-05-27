@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-marketing-demo",
-  "description": "Marketing-Showcase — zwei kleine Demo-Apps (Asset-Tracker + Helpdesk) auf einer Kumiko-Instanz. Liefert die Screenshots für kumiko.so. Cream/Light-Branding wie die echte Marketing-Site.",
+  "description": "Marketing-Showcase — zwei kleine Demo-Apps (Asset-Tracker + Helpdesk) auf einer Kumiko-Instanz. Liefert die Screenshots für kumiko.rocks. Cream/Light-Branding wie die echte Marketing-Site.",
   "private": true,
   "type": "module",
   "scripts": {

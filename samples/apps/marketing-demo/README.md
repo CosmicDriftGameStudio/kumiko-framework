@@ -1,7 +1,7 @@
 # Marketing Demo
 
 Sample app that produces marketing screenshots for
-[kumiko.so](https://kumiko.so). Two small internal tools (asset tracker
+[kumiko.rocks](https://kumiko.rocks). Two small internal tools (asset tracker
 + helpdesk) on a single Kumiko instance — a DACH-persona proof that the
 same framework stack covers two tools without separate codebases.
 

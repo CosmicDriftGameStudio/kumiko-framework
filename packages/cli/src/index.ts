@@ -113,5 +113,5 @@ function printHelp(out: Output): void {
   out.log("  kumiko --version             Print version");
   out.log("  kumiko --help                This help");
   out.log("");
-  out.log("Docs: https://docs.kumiko.so");
+  out.log("Docs: https://docs.kumiko.rocks");
 }

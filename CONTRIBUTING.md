@@ -6,7 +6,7 @@ investing time in something we're already building or have ruled out.
 
 ## Before you start
 
-- Skim the [Kumiko docs](https://docs.kumiko.so) for the architecture and
+- Skim the [Kumiko docs](https://docs.kumiko.rocks) for the architecture and
   conventions in use.
 - Check open issues — your idea may already be tracked.
 - For substantial changes (new features, architectural shifts), please

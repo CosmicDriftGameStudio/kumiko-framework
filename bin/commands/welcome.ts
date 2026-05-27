@@ -8,10 +8,10 @@ import type { Role } from "./types";
 const TAGLINE = "Config-driven, command-based, realtime multi-tenant app framework.";
 
 const DOCS_LINKS: ReadonlyArray<readonly [string, string]> = [
-  ["Quickstart", "https://docs.kumiko.so/quickstart/quickstart/"],
-  ["Walkthrough", "https://docs.kumiko.so/walkthrough/"],
-  ["Concepts", "https://docs.kumiko.so/concepts/"],
-  ["CLI reference", "https://docs.kumiko.so/cli/"],
+  ["Quickstart", "https://docs.kumiko.rocks/quickstart/quickstart/"],
+  ["Walkthrough", "https://docs.kumiko.rocks/walkthrough/"],
+  ["Concepts", "https://docs.kumiko.rocks/concepts/"],
+  ["CLI reference", "https://docs.kumiko.rocks/cli/"],
 ];
 
 const ROLE_HINT: Record<Role, string> = {

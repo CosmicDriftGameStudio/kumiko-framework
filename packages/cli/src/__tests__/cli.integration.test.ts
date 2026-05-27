@@ -41,7 +41,7 @@ describe("kumiko cli", () => {
     const joined = captured.logs.join("\n");
     expect(joined).toContain("kumiko new app");
     expect(joined).toContain("kumiko add feature");
-    expect(joined).toContain("docs.kumiko.so");
+    expect(joined).toContain("docs.kumiko.rocks");
   });
 
   test("no args prints help", async () => {

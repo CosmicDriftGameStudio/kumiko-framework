@@ -157,7 +157,7 @@ Tested, runnable examples per feature. Three buckets:
 
 ## Documentation
 
-Full docs: [docs.kumiko.so](https://docs.kumiko.so).
+Full docs: [docs.kumiko.rocks](https://docs.kumiko.rocks).
 
 ## Status
 
@@ -179,7 +179,7 @@ Details: [LICENSE](./LICENSE).
 
 ## Hosted platform
 
-Don't want to self-host? [kumiko.so](https://kumiko.so) is the hosted version with AI-builder, designer, and managed hosting.
+Don't want to self-host? [kumiko.rocks](https://kumiko.rocks) is the hosted version with AI-builder, designer, and managed hosting.
 
 ## Contributing
 

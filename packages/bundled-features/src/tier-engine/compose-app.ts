@@ -10,7 +10,7 @@ import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
  * compile-time-checked.
  *
  * Die Tier-Engine selbst ist **agnostisch** zu konkreten Tier-Werten und
- * Cap-Dimensionen. Jede App definiert ihre TierMap: kumiko.so hat
+ * Cap-Dimensionen. Jede App definiert ihre TierMap: kumiko.rocks hat
  * free/pro/business/enterprise/self-host, PublicStatus hat
  * free/starter/team/agency. Die Engine speichert nur den Tier-Namen als
  * String und vertraut der App's TierMap, was das beim Boot bedeutet.

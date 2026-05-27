@@ -118,7 +118,7 @@
 
 - ce23d48: `walkthrough.integration.ts` — DX-3.1 walkthrough-snapshot-test. Pins
   scaffoldApp + scaffoldAppFeature output gegen die Behauptungen in
-  docs.kumiko.so/en/walkthrough/. Catches doc-drift ohne actual
+  docs.kumiko.rocks/en/walkthrough/. Catches doc-drift ohne actual
   `bunx … && yarn install && bun run boot` CI-run.
 
   5 Tests: file-list, auto-mount-diff, run-config text-content,
@@ -312,7 +312,7 @@
 
 - 37fe758: `scaffoldDeploy()` inspects the app source-tree and emits Dockerfile blocks conditionally (Sprint 9.6 follow-up).
 
-  **Why this exists:** Sprint 9.6's first Dockerfile.template hardcoded `COPY --from=build /app/seeds ./seeds` with a "comment out if you don't use it" note in the changeset. Apps without a `seeds/` directory (e.g. studio.kumiko.so) crashed in Docker-build with `failed to compute cache key: "/app/seeds": not found`. Root-cause was a framework issue (template too rigid), not a per-app symptom — the framework should detect what the app actually has.
+  **Why this exists:** Sprint 9.6's first Dockerfile.template hardcoded `COPY --from=build /app/seeds ./seeds` with a "comment out if you don't use it" note in the changeset. Apps without a `seeds/` directory (e.g. studio.kumiko.rocks) crashed in Docker-build with `failed to compute cache key: "/app/seeds": not found`. Root-cause was a framework issue (template too rigid), not a per-app symptom — the framework should detect what the app actually has.
 
   **Detection:**
 

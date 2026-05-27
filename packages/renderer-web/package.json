@@ -62,7 +62,7 @@
     "url": "git+https://github.com/CosmicDriftGameStudio/kumiko-framework.git",
     "directory": "packages/renderer-web"
   },
-  "homepage": "https://kumiko.so",
+  "homepage": "https://kumiko.rocks",
   "bugs": {
     "url": "https://github.com/CosmicDriftGameStudio/kumiko-framework/issues"
   },

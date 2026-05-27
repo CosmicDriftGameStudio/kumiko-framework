@@ -22,7 +22,7 @@ export type ErrorCtorInput = {
 // Default-Doku-URL für Self-Service-Errors. Kann via env-var
 // `KUMIKO_DOCS_URL` überschrieben werden — z.B. für Self-Hosted-Kunden
 // die ihre eigene Doku-Instanz hosten.
-const DEFAULT_DOCS_BASE_URL = "https://docs.kumiko.so";
+const DEFAULT_DOCS_BASE_URL = "https://docs.kumiko.rocks";
 
 function docsBaseUrl(): string {
   return process.env["KUMIKO_DOCS_URL"] ?? DEFAULT_DOCS_BASE_URL;

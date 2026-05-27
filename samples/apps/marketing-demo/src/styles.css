@@ -4,7 +4,7 @@
    + @source für renderer + renderer-web + samples mit), dann unsere
    Brand-Tokens als App-Theme-Override.
 
-   Light/Cream als Default — passt zum Marketing-Look (kumiko.so +
+   Light/Cream als Default — passt zum Marketing-Look (kumiko.rocks +
    publicstatus.eu Familienzugehörigkeit). Components in public/ und
    admin/ nutzen ausschließlich shadcn-Token-Refs (bg-card,
    text-foreground, …), daher reicht das Token-Override hier ohne
