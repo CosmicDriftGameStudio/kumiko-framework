@@ -63,7 +63,6 @@ const BUILD_ONLY_EXTERNALS = [
   "meilisearch",
   "pino",
   "pino-pretty",
-  "@aws-sdk/*",
   "@planetscale/database",
   "@libsql/client",
   "better-sqlite3",
