@@ -1,5 +1,15 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.19.1
+
+### Patch Changes
+
+- a146fc4: Add shared boot-seed contract (`SeedIfExists`, `runEventStoreSeed`) and default skip-if-exists for `seedTextBlock` / `seedComplianceProfile`.
+- Updated dependencies [a146fc4]
+  - @cosmicdrift/kumiko-dispatcher-live@0.19.1
+  - @cosmicdrift/kumiko-headless@0.19.1
+  - @cosmicdrift/kumiko-renderer@0.19.1
+
 ## 0.19.0
 
 ### Patch Changes
