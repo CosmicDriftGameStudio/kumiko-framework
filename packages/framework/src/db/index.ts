@@ -95,6 +95,11 @@ export {
   transaction,
   updateMany,
 } from "./query-api";
+export {
+  readRebuildMarker,
+  rebuildTablesFromDiff,
+  writeRebuildMarker,
+} from "./rebuild-marker";
 export { seedReferenceData } from "./reference-data";
 export { renderTableDdl, renderTablesDdl } from "./render-ddl";
 export { tableExists } from "./schema-inspection";
