@@ -21,8 +21,6 @@ export {
   type BuildServerBundleOptions,
   type BuildServerBundleResult,
   buildServerBundle,
-  discoverDrizzleConfig,
-  discoverMigrationHooks,
   discoverServerEntry,
   formatServerBuildResult,
 } from "./build-server-bundle";
