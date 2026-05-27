@@ -17,8 +17,10 @@ import {
   generateMigration,
   loadMigrationsFromDir,
   loadSnapshotJson,
+  rebuildTablesFromDiff,
   type renderTablesDdl,
   runMigrationsFromDir,
+  writeRebuildMarker,
   writeSnapshotJson,
 } from "./db";
 
@@ -105,11 +107,22 @@ export async function runSchemaCli(
       writeFileSync(join(migrationsDir, result.filename), result.sqlContent);
       writeSnapshotJson(snapshotPath, result.snapshot);
 
+      // Rebuild-Marker nur für inkrementelle Migrationen — die Init-Migration
+      // (prevSnapshot===null) legt nur Tabellen an, es gibt keine historischen
+      // Events zum Replayen.
+      const rebuildTables = prevSnapshot === null ? [] : rebuildTablesFromDiff(result.diff);
+      writeRebuildMarker(migrationsDir, result.filename, rebuildTables);
+
       out.log("");
       out.log(`  ✓ ${result.filename}`);
       out.log(
         `    new tables: ${result.diff.newTables.length}, changed: ${result.diff.changedTables.length}, dropped: ${result.diff.droppedTables.length}`,
       );
+      if (rebuildTables.length > 0) {
+        out.log(
+          `    rebuild-marker: ${result.filename.replace(/\.sql$/, ".rebuild.json")} (${rebuildTables.length} table(s))`,
+        );
+      }
       out.log("");
       out.log("  Review + ggf. hand-edit + git add + commit. Apply via: kumiko-schema apply");
       out.log("");
