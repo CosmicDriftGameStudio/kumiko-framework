@@ -153,6 +153,7 @@ describe("legal-pages :: edge-cases", () => {
       lang: "de",
       title: "Impressum",
       body: "## XSS-Test\n\n<script>window.x=1</script>\n\nDanach.",
+      ifExists: "update",
     });
     const res = await stack.app.request("/legal/impressum");
     expect(res.status).toBe(200);
