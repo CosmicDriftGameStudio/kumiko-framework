@@ -50,6 +50,7 @@ export function writeRebuildMarker(
   sqlFilename: string,
   tables: readonly string[],
 ): void {
+  // skip: leere Tabellen-Liste → kein Marker (z.B. reine Drop-Migration).
   if (tables.length === 0) return;
   const migrationId = sqlFilename.replace(/\.sql$/, "");
   const marker: RebuildMarker = { version: MARKER_VERSION, tables };
