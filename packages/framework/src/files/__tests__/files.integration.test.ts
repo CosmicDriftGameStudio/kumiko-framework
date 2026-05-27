@@ -28,7 +28,7 @@ import {
   patchFileInstanceofForBunTest,
 } from "../../testing";
 import { fileRefsTable } from "../file-ref-table";
-import { FILE_UPLOADED_EVENT_TYPE, type FileRoutesOptions } from "../file-routes";
+import type { FileRoutesOptions } from "../file-routes";
 import { createInMemoryFileProvider } from "../in-memory-provider";
 import { createLocalProvider } from "../local-provider";
 import type { FileStorageProvider } from "../types";
@@ -248,18 +248,17 @@ describe("file upload flow via API", () => {
     expect(downloaded[0]).toBe(0x89); // PNG magic byte
   });
 
-  test("upload appends files:event:uploaded to the fileRef stream", async () => {
-    // Load the full event stream for the just-uploaded FileRef. Phase 1
-    // guarantees exactly one event per upload — "uploaded" at version 1.
+  test("upload emits fileRef.created to the entity stream", async () => {
+    // fileRef is a standard ES entity — the upload goes through the entity
+    // executor, so the stream carries exactly one `fileRef.created` at v1.
     const events = await loadAggregate(testDb.db, uploadedFileId, adminUser.tenantId);
 
     expect(events).toHaveLength(1);
     const event = events[0];
-    expect(event?.type).toBe(FILE_UPLOADED_EVENT_TYPE);
+    expect(event?.type).toBe("fileRef.created");
     expect(event?.version).toBe(1);
 
-    type UploadedPayload = {
-      fileRefId: string;
+    type CreatedPayload = {
       fileName: string;
       mimeType: string;
       size: number;
@@ -269,8 +268,10 @@ describe("file upload flow via API", () => {
       data?: unknown;
       binary?: unknown;
     };
-    const payload = event!.payload as UploadedPayload;
-    expect(payload.fileRefId).toBe(uploadedFileId);
+    // The entity executor strips `id` from the event payload (it's the
+    // aggregateId / stream id, which we loaded by above) and threads
+    // insertedById through metadata — neither appears in payload.
+    const payload = event!.payload as CreatedPayload;
     expect(payload.fileName).toBe("logo.png");
     expect(payload.mimeType).toBe("image/png");
     expect(payload.size).toBe(testPngContent.length);

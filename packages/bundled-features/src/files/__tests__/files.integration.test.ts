@@ -4,13 +4,11 @@
 //   1. Feature-Definition Smoke (Boot-Validation passes)
 //   2. Cross-Feature-Behavior: fileRef-Entity ist als Hook-Anker für
 //      Sprint-2-userData-Extension nutzbar
-//   3. DDL-Konsistenz: Framework-pgTable + Feature-Entity zeigen auf
-//      dieselbe Postgres-Struktur (Drift-Guard)
-//   4. Event-QN-Match: r.defineEvent + framework's fileUploadedEvent
-//      resolven zum selben QN
+//   3. DDL-Konsistenz: fileRefsTable (buildEntityTable) + fileRefEntity
+//      zeigen auf dieselbe Postgres-Struktur (Drift-Guard)
 
 import { defineFeature, EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
-import { FILE_UPLOADED_EVENT_TYPE, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-framework/stack";
 
 // Native dialect exposes column metadata on the `columns` array (EntityTableMeta)
@@ -146,23 +144,5 @@ describe("files :: DDL-Konsistenz (M3, S1.7)", () => {
     expect(pgColumns.has("fileName")).toBe(true);
     expect(pgColumns.has("mimeType")).toBe(true);
     expect(pgColumns.has("size")).toBe(true);
-  });
-});
-
-describe("files :: event-QN-match (M4, S1.7)", () => {
-  test("framework's fileUploadedEvent.name === 'files:event:uploaded'", () => {
-    // Wenn das Framework den Event-Namen aendert, fliegt dieser Test
-    // sofort an — und der QN aus r.defineEvent("uploaded") im feature
-    // wuerde nicht mehr matchen. Drift-Guard.
-    expect(FILE_UPLOADED_EVENT_TYPE).toBe("files:event:uploaded");
-  });
-
-  test("Feature-Name 'files' + Event-Short 'uploaded' = QN 'files:event:uploaded'", () => {
-    // r.defineEvent("uploaded") in defineFeature("files", ...) resolved
-    // zu QN "files:event:uploaded" via Framework-Convention. Match
-    // garantiert dass framework's appendEvent + EventDef-Schema-
-    // Validation auf demselben QN landen.
-    const expected = `${feature.name}:event:uploaded`;
-    expect(expected).toBe(FILE_UPLOADED_EVENT_TYPE);
   });
 });

@@ -37,6 +37,7 @@ import {
   unsafeCreateEntityTable,
 } from "../../stack";
 import { buildMultipartBody, patchFileInstanceofForBunTest } from "../../testing";
+import { createFilesFeature } from "../feature";
 import { createLocalProvider } from "../local-provider";
 
 // Covers ALL four file-field variants: singular (file/image) stores a UUID in
@@ -73,7 +74,7 @@ beforeAll(async () => {
   patchFileInstanceofForBunTest();
   storagePath = await mkdtemp(join(tmpdir(), "kumiko-file-field-pipeline-"));
   stack = await setupTestStack({
-    features: [documentFeature],
+    features: [createFilesFeature(), documentFeature],
     files: { storageProvider: createLocalProvider(storagePath) },
   });
   await unsafeCreateEntityTable(stack.db, documentEntity);
