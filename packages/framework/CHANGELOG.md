@@ -1,5 +1,11 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.19.1
+
+### Patch Changes
+
+- a146fc4: Add shared boot-seed contract (`SeedIfExists`, `runEventStoreSeed`) and default skip-if-exists for `seedTextBlock` / `seedComplianceProfile`.
+
 ## 0.19.0
 
 ### Minor Changes
