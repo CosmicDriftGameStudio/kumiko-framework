@@ -30,7 +30,7 @@ describe("sql-inventory", () => {
       true,
     );
     expect(isRawSqlAllowed("/repo/bin/commands/schema.ts")).toBe(true);
-    expect(isRawSqlAllowed("/repo/scripts/codemod-drizzle-chain-to-bun-db.ts")).toBe(true);
+    expect(isRawSqlAllowed("/repo/scripts/codemod-bun-db-swap.ts")).toBe(true);
     expect(
       isRawSqlAllowed("/repo/packages/bundled-features/src/sessions/handlers/cleanup.job.ts"),
     ).toBe(false);
