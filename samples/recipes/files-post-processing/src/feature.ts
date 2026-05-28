@@ -7,7 +7,8 @@
 //   1. Client does POST /api/files with multipart body.
 //   2. file-routes.ts validates + writes the binary to the registered
 //      FileStorageProvider, then atomically inserts FileRef +
-//      appends `files:event:uploaded` into the event-store.
+//      appends `fileRef.created` (Entity-Standard-Verb) into the
+//      event-store.
 //   3. The event-dispatcher picks up the committed event and invokes
 //      every matching r.multiStreamProjection at-least-once.
 //   4. Our MSP here reads the binary back via `ctx.files.ref(key).read()`
@@ -19,8 +20,17 @@
 // This is how beammycar's Image-Feature should plug in resize / EXIF-strip /
 // virus-scan etc. — each as its own small feature with a single MSP.
 
-import { defineFeature, typedPayload } from "@cosmicdrift/kumiko-framework/engine";
-import { fileUploadedEvent } from "@cosmicdrift/kumiko-framework/files";
+import { entityEventName } from "@cosmicdrift/kumiko-framework/db";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+
+const FILE_REF_CREATED = entityEventName("fileRef", "created");
+
+type FileRefCreatedPayload = {
+  readonly storageKey: string;
+  readonly fileName: string;
+  readonly mimeType: string;
+  readonly size: number;
+};
 
 // Exported so the integration test can assert which derivates got produced
 // and reset between cases. Real consumers would push to a queue, write a
@@ -35,11 +45,11 @@ export const filesPostProcessingFeature = defineFeature("files-post-processing",
       // dispatcher's live transaction — useful for writing follow-up rows
       // in the same commit. Here we only need ctx.files, so tx goes
       // unused.
-      [fileUploadedEvent.name]: async (event, _tx, ctx) => {
-        // typedPayload narrows the raw StoredEvent.payload to the
-        // EventDef's inferred shape at runtime AND at compile time —
-        // no more `as unknown as FileUploadedPayload` escape hatches.
-        const payload = typedPayload(event, fileUploadedEvent);
+      [FILE_REF_CREATED]: async (event, _tx, ctx) => {
+        // entity-event payloads sind generisch `Record<string, unknown>`.
+        // Mit der lokalen Shape oben narrowen wir an der MSP-Boundary,
+        // statt jeden Feld-Zugriff einzeln zu casten.
+        const payload = event.payload as FileRefCreatedPayload;
 
         // Skip non-images. Keeping the check on content type (not the filename
         // extension) matches what the upload route already validated.
