@@ -18,6 +18,17 @@ export type {
 export { ColumnRenderersProvider, useColumnRenderer } from "./app/column-renderers";
 export type { CustomScreensMap, CustomScreensProviderProps } from "./app/custom-screens";
 export { CustomScreensProvider, useCustomScreenComponent } from "./app/custom-screens";
+export type {
+  ExtensionSectionComponent,
+  ExtensionSectionProps,
+  ExtensionSectionsMap,
+  ExtensionSectionsProviderProps,
+} from "./app/extension-sections";
+export {
+  extensionSectionName,
+  ExtensionSectionsProvider,
+  useExtensionSectionComponent,
+} from "./app/extension-sections";
 export type { AppSchema, FeatureSchema, WorkspaceSchema } from "./app/feature-schema";
 export { isAppSchema, toAppSchema } from "./app/feature-schema";
 export type { KumikoScreenProps } from "./app/kumiko-screen";
