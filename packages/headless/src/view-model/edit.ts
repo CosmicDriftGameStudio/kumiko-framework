@@ -3,7 +3,11 @@ import type {
   EntityEditScreenDefinition,
   FieldCondition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { normalizeEditField, parseRefTarget } from "@cosmicdrift/kumiko-framework/ui-types";
+import {
+  isExtensionEditSection,
+  normalizeEditField,
+  parseRefTarget,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import { buildOptionLabels, fieldLabelKey } from "./list";
 import type { EditFieldViewModel, EditSectionViewModel, EditViewModel, Translate } from "./types";
 
@@ -36,6 +40,13 @@ export function computeEditViewModel<
   const { screen, entity, values, translate, featureName, ctx } = input;
 
   const sections: EditSectionViewModel[] = screen.layout.sections.map((sectionSpec) => {
+    if (isExtensionEditSection(sectionSpec)) {
+      return {
+        kind: "extension" as const,
+        title: translate(sectionSpec.title),
+        component: sectionSpec.component,
+      };
+    }
     const fields: EditFieldViewModel[] = sectionSpec.fields.map((fieldSpec) => {
       const normalized = normalizeEditField(fieldSpec);
       const fieldDef = entity.fields[normalized.field];
@@ -124,6 +135,7 @@ export function computeEditViewModel<
       return view;
     });
     return {
+      kind: "fields" as const,
       title: translate(sectionSpec.title),
       columns: sectionSpec.columns ?? 1,
       fields,

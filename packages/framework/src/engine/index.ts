@@ -226,7 +226,9 @@ export type {
   CustomScreenRoute,
   DateFieldDef,
   DeleteContext,
+  EditExtensionSection,
   EditFieldSpec,
+  EditFieldsSection,
   EditLayout,
   EditSectionSpec,
   EntityDefinition,
@@ -325,7 +327,7 @@ export type {
 export { DEFAULT_CURRENCIES, HookPhases } from "./types";
 export { resolveName, withResponseData } from "./types/handlers";
 export { isSystemTenant, parseTenantId, SYSTEM_TENANT_ID } from "./types/identifiers";
-export { normalizeEditField, normalizeListColumn } from "./types/screen";
+export { isExtensionEditSection, normalizeEditField, normalizeListColumn } from "./types/screen";
 export type {
   PipelineBuildCtx,
   PipelineCtx,

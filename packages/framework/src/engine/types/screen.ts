@@ -280,11 +280,30 @@ export type EditFieldSpec =
       readonly renderer?: FieldRenderer;
     };
 
-export type EditSectionSpec = {
+// A section is either a normal field-grid (default — `kind` omitted keeps
+// every existing screen-def working) or an extension slot that mounts a
+// feature-provided component. The extension component is resolved client-
+// side by name (same `__component` marker as custom screens / column
+// renderers) and receives the host entity name + id, so a bundled feature
+// (e.g. custom-fields) can load and persist its own data inside the form.
+export type EditSectionSpec = EditFieldsSection | EditExtensionSection;
+
+export type EditFieldsSection = {
+  readonly kind?: "fields";
   readonly title: string;
   readonly columns?: number;
   readonly fields: readonly EditFieldSpec[];
 };
+
+export type EditExtensionSection = {
+  readonly kind: "extension";
+  readonly title: string;
+  readonly component: PlatformComponent;
+};
+
+export function isExtensionEditSection(section: EditSectionSpec): section is EditExtensionSection {
+  return section.kind === "extension";
+}
 
 export type EditLayout = {
   readonly sections: readonly EditSectionSpec[];

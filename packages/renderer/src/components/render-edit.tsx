@@ -2,7 +2,7 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { normalizeEditField } from "@cosmicdrift/kumiko-framework/ui-types";
+import { isExtensionEditSection, normalizeEditField } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   DispatcherError,
   EditFieldViewModel,
@@ -67,6 +67,7 @@ function deriveFormFields<TValues extends FormValues, TCtx>(
 ): Record<string, FieldConditions<TValues, TCtx>> {
   const out: Record<string, FieldConditions<TValues, TCtx>> = {};
   for (const section of screen.layout.sections) {
+    if (isExtensionEditSection(section)) continue;
     for (const spec of section.fields) {
       const normalized = normalizeEditField(spec);
       out[normalized.field] = {
@@ -258,29 +259,44 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       actions={formActions}
       testId="render-edit-form"
     >
-      {vm.sections.map((section: EditSectionViewModel) => (
-        <Section key={section.title} title={section.title} testId={`section-${section.title}`}>
-          <Grid columns={section.columns}>
-            {section.fields.map((field: EditFieldViewModel) => (
-              <GridCellForField
-                key={field.field}
-                field={field}
-                columns={section.columns}
-                issues={snapshot.errors[field.field]}
-                onChange={(v) => {
-                  (controller.setField as (k: string, v: unknown) => void)(field.field, v);
-                }}
-                GridCell={GridCell}
-                featureName={featureName}
-                {...(fieldAppendix !== undefined && {
-                  labelAppendix: fieldAppendix(field.field),
-                  fieldAppendix: fieldAppendix(field.field),
-                })}
-              />
-            ))}
-          </Grid>
-        </Section>
-      ))}
+      {vm.sections.map((section: EditSectionViewModel) => {
+        if (section.kind === "extension") {
+          return (
+            <Section
+              key={section.title}
+              title={section.title}
+              testId={`section-extension-${section.title}`}
+            >
+              <Banner variant="info" testId={`section-extension-placeholder-${section.title}`}>
+                <Text>Extension component not mounted — no renderer extension provider wired.</Text>
+              </Banner>
+            </Section>
+          );
+        }
+        return (
+          <Section key={section.title} title={section.title} testId={`section-${section.title}`}>
+            <Grid columns={section.columns}>
+              {section.fields.map((field: EditFieldViewModel) => (
+                <GridCellForField
+                  key={field.field}
+                  field={field}
+                  columns={section.columns}
+                  issues={snapshot.errors[field.field]}
+                  onChange={(v) => {
+                    (controller.setField as (k: string, v: unknown) => void)(field.field, v);
+                  }}
+                  GridCell={GridCell}
+                  featureName={featureName}
+                  {...(fieldAppendix !== undefined && {
+                    labelAppendix: fieldAppendix(field.field),
+                    fieldAppendix: fieldAppendix(field.field),
+                  })}
+                />
+              ))}
+            </Grid>
+          </Section>
+        );
+      })}
       {formError !== null && (
         <Banner
           variant="error"
