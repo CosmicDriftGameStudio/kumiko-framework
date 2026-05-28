@@ -202,7 +202,10 @@ describe("RenderEdit", () => {
     const MyCustomFieldsForm = ({
       entityName,
       entityId,
-    }: { entityName: string; entityId: string | null }) => (
+    }: {
+      entityName: string;
+      entityId: string | null;
+    }) => (
       <div data-testid="my-custom-fields-form">
         {entityName}:{entityId ?? "(create)"}
       </div>

@@ -25,8 +25,8 @@ export type {
   ExtensionSectionsProviderProps,
 } from "./app/extension-sections";
 export {
-  extensionSectionName,
   ExtensionSectionsProvider,
+  extensionSectionName,
   useExtensionSectionComponent,
 } from "./app/extension-sections";
 export type { AppSchema, FeatureSchema, WorkspaceSchema } from "./app/feature-schema";

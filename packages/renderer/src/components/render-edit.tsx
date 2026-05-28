@@ -18,10 +18,7 @@ import type {
 import { computeEditViewModel } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useMemo, useState } from "react";
 import type { z } from "zod";
-import {
-  extensionSectionName,
-  useExtensionSectionComponent,
-} from "../app/extension-sections";
+import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections";
 import { useForm } from "../hooks/use-form";
 import { useTranslation } from "../i18n";
 import { usePrimitives } from "../primitives";
