@@ -29,6 +29,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
+import { fileRefEntity } from "@cosmicdrift/kumiko-framework/files";
 import {
   createTestUser,
   setupTestStack,
@@ -82,21 +83,13 @@ beforeAll(async () => {
       UNIQUE(user_id, tenant_id)
     )
   `);
-  await asRawClient(stack.db).unsafe(`
-    CREATE TABLE IF NOT EXISTS file_refs (
-      id UUID PRIMARY KEY,
-      tenant_id UUID NOT NULL,
-      storage_key TEXT NOT NULL,
-      file_name TEXT NOT NULL,
-      mime_type TEXT NOT NULL,
-      size INTEGER NOT NULL,
-      entity_type TEXT,
-      entity_id TEXT,
-      field_name TEXT,
-      inserted_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-      inserted_by_id TEXT
-    )
-  `);
+  // PR #177 hat fileRef zu einem Standard-ES-Entity gemacht (softDelete:
+  // true). Die handgepflegte CREATE TABLE-Variante hätte die Spalten
+  // is_deleted/deleted_at/deleted_by_id/version/modified_at/modified_by_id
+  // nachziehen müssen — der user-data-rights-Hook filtert auf isDeleted:
+  // false. Statt das Schema doppelt zu pflegen, kommt es jetzt aus der
+  // EntityDefinition.
+  await unsafeCreateEntityTable(stack.db, fileRefEntity);
 });
 
 afterAll(async () => {
