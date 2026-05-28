@@ -1167,17 +1167,6 @@ const commands = {
 
 // --- Interactive menu ---
 
-// Wendet alle pending Migrations gegen DATABASE_URL an und ruft danach
-// die Rebuild-Hooks für die soeben neu applied Migrations. Ablauf:
-//
-//   1. Pre-apply: applied-Count merken (kommt aus __drizzle_migrations
-//      über loadAppliedMigrations).
-//   2. drizzle-kit migrate fährt alle pending SQL-Files. Idempotent —
-//      bei Re-Run no-op weil Hashes schon getrackt sind.
-//   3. Post-apply: Journal-Slice ab dem Pre-apply-Index gibt die neu
-//      applied Tags. Für jeden Tag liest migration-hooks.ts die
-//      <tag>__rebuild.json-Marker und ruft rebuildProjection.
-//
 async function interactiveMenu(): Promise<void> {
   // Sprint A spike: Ink-TUI für interactive Browsing. Wenn das Modul
   // nicht installiert oder Ink lädt fehlschlägt, fallback auf das alte
