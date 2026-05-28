@@ -2,8 +2,8 @@
 //
 // Proves the end-to-end flow a real app would rely on:
 //
-//   1. POST /api/files writes the binary + FileRef + event atomically.
-//   2. The event-dispatcher delivers `files:event:uploaded` to the MSP.
+//   1. POST /api/files writes the binary + fileRef entity + event atomically.
+//   2. The event-dispatcher delivers `fileRef.created` to the MSP.
 //   3. The MSP resolves the binary via ctx.files.ref(key).read() — no
 //      binary ever rode through the event payload.
 //   4. The derivate is written under a keyed variant (.thumb) the
@@ -11,13 +11,15 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { entityEventName } from "@cosmicdrift/kumiko-framework/db";
 import {
   createInMemoryFileProvider,
-  FILE_UPLOADED_EVENT_TYPE,
   type InMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
 import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { derivateLog, filesPostProcessingFeature } from "../feature";
+
+const FILE_REF_CREATED = entityEventName("fileRef", "created");
 
 let stack: TestStack;
 let provider: InMemoryFileProvider;
@@ -133,7 +135,7 @@ describe("event emission contract", () => {
     // and explodes the events table.
     const rows = await asRawClient(stack.db).unsafe(
       `SELECT type, payload FROM kumiko_events WHERE type = $1`,
-      [FILE_UPLOADED_EVENT_TYPE],
+      [FILE_REF_CREATED],
     );
     expect(rows.length).toBe(1);
     const payload = rows[0]?.["payload"];

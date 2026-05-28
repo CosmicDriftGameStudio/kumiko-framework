@@ -29,6 +29,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
+import { fileRefEntity } from "@cosmicdrift/kumiko-framework/files";
 import {
   createTestUser,
   setupTestStack,
@@ -82,21 +83,7 @@ beforeAll(async () => {
       UNIQUE(user_id, tenant_id)
     )
   `);
-  await asRawClient(stack.db).unsafe(`
-    CREATE TABLE IF NOT EXISTS file_refs (
-      id UUID PRIMARY KEY,
-      tenant_id UUID NOT NULL,
-      storage_key TEXT NOT NULL,
-      file_name TEXT NOT NULL,
-      mime_type TEXT NOT NULL,
-      size INTEGER NOT NULL,
-      entity_type TEXT,
-      entity_id TEXT,
-      field_name TEXT,
-      inserted_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-      inserted_by_id TEXT
-    )
-  `);
+  await unsafeCreateEntityTable(stack.db, fileRefEntity);
 });
 
 afterAll(async () => {
