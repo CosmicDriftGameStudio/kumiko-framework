@@ -9,11 +9,12 @@ import { readRebuildMarker, rebuildTablesFromDiff, writeRebuildMarker } from "..
 function meta(
   tableName: string,
   extraColumn?: EntityTableMeta["columns"][number],
+  indexes: EntityTableMeta["indexes"] = [],
 ): EntityTableMeta {
   return {
     tableName,
     source: "unmanaged",
-    indexes: [],
+    indexes,
     columns: [
       { name: "id", pgType: "uuid", notNull: true, primaryKey: true },
       ...(extraColumn ? [extraColumn] : []),
@@ -39,6 +40,30 @@ describe("rebuildTablesFromDiff", () => {
   test("no schema change → empty", () => {
     const snap = snapshotFromMetas([meta("read_a")]);
     expect(rebuildTablesFromDiff(diffSnapshots(snap, snap))).toEqual([]);
+  });
+
+  test("index-only change → no rebuild (ALTER bringt Tabelle alleine in Soll)", () => {
+    const prev = snapshotFromMetas([meta("read_a")]);
+    const next = snapshotFromMetas([
+      meta("read_a", undefined, [{ name: "read_a_id_idx", columns: ["id"] }]),
+    ]);
+    expect(rebuildTablesFromDiff(diffSnapshots(prev, next))).toEqual([]);
+  });
+
+  test("dropped-column-only change → no rebuild", () => {
+    const prev = snapshotFromMetas([
+      meta("read_a", { name: "old", pgType: "text", notNull: false }),
+    ]);
+    const next = snapshotFromMetas([meta("read_a")]);
+    expect(rebuildTablesFromDiff(diffSnapshots(prev, next))).toEqual([]);
+  });
+
+  test("new-column change → rebuild (Backfill aus Events nötig)", () => {
+    const prev = snapshotFromMetas([meta("read_a")]);
+    const next = snapshotFromMetas([
+      meta("read_a", { name: "title", pgType: "text", notNull: false }),
+    ]);
+    expect(rebuildTablesFromDiff(diffSnapshots(prev, next))).toEqual(["read_a"]);
   });
 });
 
@@ -79,6 +104,29 @@ describe("write/read marker", () => {
     try {
       writeFileSync(join(dir, "0004_broken.rebuild.json"), "{ not json");
       expect(readRebuildMarker(dir, "0004_broken")).toEqual([]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("version-mismatch marker → [] (graceful degradation, blockt v2 nicht als v1)", () => {
+    const dir = tmpDir();
+    try {
+      writeFileSync(
+        join(dir, "0005_future.rebuild.json"),
+        JSON.stringify({ version: 2, tables: ["read_x"] }),
+      );
+      expect(readRebuildMarker(dir, "0005_future")).toEqual([]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("missing version field → []", () => {
+    const dir = tmpDir();
+    try {
+      writeFileSync(join(dir, "0006_noversion.rebuild.json"), JSON.stringify({ tables: ["x"] }));
+      expect(readRebuildMarker(dir, "0006_noversion")).toEqual([]);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

@@ -33,12 +33,16 @@ function markerPathFor(migrationsDir: string, migrationId: string): string {
 }
 
 // Tabellen die nach dieser Migration einen Projection-Rebuild brauchen können:
-// neu angelegte + spalten-/index-geänderte. Gelöschte Tabellen NICHT (die
-// Projektion ist mit der Tabelle weg). Sortiert + dedupliziert für stabilen
-// PR-Diff.
+// neu angelegte + Tabellen mit neuer Spalte. Index-/Nullability-/Default-/
+// Drop-only-Änderungen brauchen KEINEN Rebuild — das generierte ALTER-SQL
+// bringt die Tabelle alleine in den Soll-Zustand. Über-Rebuild ist safe-but-
+// wasteful (Tabellen-Lock + Full-Replay auf grossen Streams), deshalb hier
+// konservativ einschränken. Sortiert + dedupliziert für stabilen PR-Diff.
 export function rebuildTablesFromDiff(diff: SchemaDiff): readonly string[] {
   const names = new Set<string>();
-  for (const t of diff.changedTables) names.add(t.tableName);
+  for (const t of diff.changedTables) {
+    if (t.newColumns.length > 0) names.add(t.tableName);
+  }
   for (const t of diff.newTables) names.add(t.tableName);
   return [...names].sort();
 }
@@ -50,7 +54,6 @@ export function writeRebuildMarker(
   sqlFilename: string,
   tables: readonly string[],
 ): void {
-  // skip: leere Tabellen-Liste → kein Marker (z.B. reine Drop-Migration).
   if (tables.length === 0) return;
   const migrationId = sqlFilename.replace(/\.sql$/, "");
   const marker: RebuildMarker = { version: MARKER_VERSION, tables };
@@ -68,7 +71,9 @@ export function readRebuildMarker(migrationsDir: string, migrationId: string): r
   } catch {
     return [];
   }
-  if (typeof parsed !== "object" || parsed === null || !("tables" in parsed)) return [];
+  if (typeof parsed !== "object" || parsed === null) return [];
+  if (!("version" in parsed) || parsed.version !== MARKER_VERSION) return [];
+  if (!("tables" in parsed)) return [];
   const { tables } = parsed;
   if (!Array.isArray(tables)) return [];
   return tables.filter((t): t is string => typeof t === "string");
