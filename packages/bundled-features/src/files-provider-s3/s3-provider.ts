@@ -72,26 +72,21 @@ export function createS3Provider(config: S3ProviderConfig): FileStorageProvider 
     },
 
     async writeStream(key, source, options): Promise<void> {
-      // Echtes multipart-streaming via Bun's S3-Writer — der Source-
-      // AsyncIterable wird chunk-weise hochgeladen, niemals alles im Memory.
-      // Wir flushen sobald ein Part voll ist, damit der Heap-Footprint auf
-      // ~ein Part begrenzt bleibt, unabhaengig von der Total-Bundle-Size —
-      // macht 1GB+ Exports ohne OOM moeglich.
+      // Echtes multipart-streaming via Bun's S3-Writer — partSize steuert die
+      // Part-Boundary intern (AWS/R2 verlangen non-final Parts >= 5 MiB,
+      // sonst EntityTooSmall beim CompleteMultipartUpload). Manuelles flush()
+      // hier wuerde genau diese Garantie brechen, sobald die Source-Chunks
+      // nicht auf partSize aufgehen.
       const writer = client.file(key).writer({
         ...(options?.mimeType !== undefined && { type: options.mimeType }),
         retry: 3,
         queueSize: 4,
         partSize: STREAM_PART_SIZE,
       });
-      let buffered = 0;
       for await (const chunk of source) {
-        // write() returns a Promise when the writer applies backpressure —
-        // awaiting it bounds the in-flight queue instead of buffering ahead.
-        buffered += await writer.write(chunk);
-        if (buffered >= STREAM_PART_SIZE) {
-          await writer.flush();
-          buffered = 0;
-        }
+        // Await applies Backpressure und bounded die in-flight Queue auf
+        // queueSize, statt unbegrenzt zu puffern.
+        await writer.write(chunk);
       }
       await writer.end();
     },

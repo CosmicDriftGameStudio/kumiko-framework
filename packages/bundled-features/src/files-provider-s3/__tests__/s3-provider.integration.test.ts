@@ -110,6 +110,33 @@ describe("s3-provider (Minio)", () => {
     const key = uniqueKey("never-existed.bin");
     await expect(provider.read(key)).rejects.toThrow();
   });
+
+  test("writeStream round-trip via multipart writer preserves bytes", async () => {
+    // Pinst die idiomatic Bun-S3-writer-Form (write + end, kein manual
+    // flush). Chunks summieren absichtlich auf > 5 MiB (partSize) UND auf
+    // einen krummen Rest, damit der multipart-finalizer auch dann greift,
+    // wenn die Source-Chunks nicht auf die Part-Boundary aufgehen.
+    const key = uniqueKey("stream-multipart.bin");
+    const partSize = 5 * 1024 * 1024;
+    const chunk = new Uint8Array(1024 * 1024);
+    for (let i = 0; i < chunk.length; i++) chunk[i] = i % 251;
+    const chunks: Uint8Array[] = [];
+    for (let i = 0; i < 7; i++) chunks.push(chunk);
+
+    if (!provider.writeStream) throw new Error("s3 provider should implement writeStream");
+    await provider.writeStream(
+      key,
+      (async function* () {
+        for (const c of chunks) yield c;
+      })(),
+    );
+
+    const readBack = await provider.read(key);
+    expect(readBack.byteLength).toBe(chunks.length * chunk.length);
+    expect(readBack.byteLength).toBeGreaterThan(partSize);
+    expect(readBack[0]).toBe(0);
+    expect(readBack[readBack.byteLength - 1]).toBe(chunk[chunk.length - 1]);
+  });
 });
 
 describe("createS3ProviderFromEnv", () => {
