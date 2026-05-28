@@ -46,7 +46,9 @@ export type {
   ConfigEditScreenDefinition,
   CustomScreenDefinition,
   CustomScreenRoute,
+  EditExtensionSection,
   EditFieldSpec,
+  EditFieldsSection,
   EditLayout,
   EditSectionSpec,
   EntityEditScreenDefinition,
@@ -64,6 +66,10 @@ export type {
   ScreenSlots,
   ToolbarAction,
 } from "../engine/types/screen";
-export { normalizeEditField, normalizeListColumn } from "../engine/types/screen";
+export {
+  isExtensionEditSection,
+  normalizeEditField,
+  normalizeListColumn,
+} from "../engine/types/screen";
 export type { WorkspaceDefinition } from "../engine/types/workspace";
 export type { AppSchema, FeatureSchema, WorkspaceSchema } from "./app-schema";

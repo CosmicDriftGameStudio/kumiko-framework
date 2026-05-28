@@ -3,6 +3,7 @@ import type {
   EditSectionSpec,
   FieldRenderer,
   ListColumnSpec,
+  PlatformComponent,
   ScreenSlots,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 
@@ -117,10 +118,22 @@ export type EditFieldViewModel = {
   readonly refMultiple?: boolean;
 };
 
-export type EditSectionViewModel = {
+// Discriminated by `kind` — mirrors EditSectionSpec on the engine side.
+// The builder always emits `kind` explicitly (no defaulting), so the
+// renderer narrows with a strict equality check.
+export type EditSectionViewModel = EditFieldsSectionViewModel | EditExtensionSectionViewModel;
+
+export type EditFieldsSectionViewModel = {
+  readonly kind: "fields";
   readonly title: string;
   readonly columns: number;
   readonly fields: readonly EditFieldViewModel[];
+};
+
+export type EditExtensionSectionViewModel = {
+  readonly kind: "extension";
+  readonly title: string;
+  readonly component: PlatformComponent;
 };
 
 export type EditViewModel = {

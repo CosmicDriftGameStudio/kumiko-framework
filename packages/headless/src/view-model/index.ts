@@ -3,8 +3,10 @@ export { computeEditViewModel } from "./edit";
 export type { ComputeListViewModelInput } from "./list";
 export { computeListViewModel, fieldLabelKey } from "./list";
 export type {
+  EditExtensionSectionViewModel,
   EditFieldSpec,
   EditFieldViewModel,
+  EditFieldsSectionViewModel,
   EditSectionSpec,
   EditSectionViewModel,
   EditViewModel,

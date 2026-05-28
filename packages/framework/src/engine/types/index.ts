@@ -204,7 +204,9 @@ export type {
   ConfigEditScreenDefinition,
   CustomScreenDefinition,
   CustomScreenRoute,
+  EditExtensionSection,
   EditFieldSpec,
+  EditFieldsSection,
   EditLayout,
   EditSectionSpec,
   EntityEditScreenDefinition,
@@ -222,7 +224,7 @@ export type {
   ScreenSlots,
   ToolbarAction,
 } from "./screen";
-export { normalizeEditField, normalizeListColumn } from "./screen";
+export { isExtensionEditSection, normalizeEditField, normalizeListColumn } from "./screen";
 export type { TargetRef } from "./target-ref";
 export type {
   Subscribe,
