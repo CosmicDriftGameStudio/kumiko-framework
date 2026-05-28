@@ -2,8 +2,8 @@
 //
 // Proves the end-to-end flow a real app would rely on:
 //
-//   1. POST /api/files writes the binary + FileRef + event atomically.
-//   2. The event-dispatcher delivers `files:event:uploaded` to the MSP.
+//   1. POST /api/files writes the binary + fileRef entity + event atomically.
+//   2. The event-dispatcher delivers `fileRef.created` to the MSP.
 //   3. The MSP resolves the binary via ctx.files.ref(key).read() — no
 //      binary ever rode through the event payload.
 //   4. The derivate is written under a keyed variant (.thumb) the

@@ -60,6 +60,8 @@ export const filesPostProcessingFeature = defineFeature("files-post-processing",
         // test stacks that deliberately omit the provider.
         if (!ctx.files) return;
 
+        if (!payload.storageKey) return;
+
         const src = ctx.files.ref(payload.storageKey);
         const original = await src.read();
 
