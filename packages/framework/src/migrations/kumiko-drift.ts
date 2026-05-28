@@ -14,6 +14,7 @@
 // ALTERs / stale defs) is a documented follow-up; see
 // docs/plans/migration-system-consolidation.md.
 
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { DbConnection } from "../db/connection";
 import { loadSnapshotJson } from "../db/migrate-generator";
@@ -48,6 +49,15 @@ export async function detectKumikoDrift(
   db: DbConnection,
   migrationsDir: string,
 ): Promise<KumikoDriftReport> {
+  // App auf neuer Framework-Version, hat aber `./kumiko/migrations` noch nicht
+  // generiert (z.B. erstes Upgrade, custom Schema-Setup ohne kumiko schema
+  // generate) → keine local migrations → keine drift. Konsistent zum
+  // status-Subcommand, der ebenfalls existsSync-guarded ist. Ohne diesen Guard
+  // würde loadMigrationsFromDir → readdirSync synchron ENOENT werfen
+  // (plain Error, kein SchemaDriftError) und der Boot crasht roh.
+  if (!existsSync(migrationsDir)) {
+    return { ok: true, pending: [], checksumMismatches: [], missingTables: [] };
+  }
   const local = loadMigrationsFromDir(migrationsDir);
   // Frische DB ohne je gelaufenes `kumiko schema apply` → tracking-table fehlt.
   // Das ist kein Fehler, sondern "nichts applied" → alle local sind pending.
@@ -106,8 +116,24 @@ export function formatKumikoDriftReport(report: KumikoDriftReport): string {
     lines.push(`  ${report.missingTables.length} missing table(s):`);
     for (const t of report.missingTables) lines.push(`    - ${t}`);
   }
+  // Per-Cause Remediation — `kumiko schema apply` löst NUR pending. Checksum-
+  // mismatch ist eine Sackgasse für apply (MigrationChecksumMismatchError) und
+  // baseline (ON CONFLICT DO NOTHING → landet in alreadyTracked). Missing
+  // tables ohne pending = manuell gelöschte Tabelle nach apply → ebenfalls
+  // nicht durch apply heilbar.
   lines.push("");
-  lines.push("Run 'kumiko schema apply' to bring the DB up-to-date.");
+  if (report.pending.length > 0) {
+    lines.push("Run 'kumiko schema apply' to apply the pending migration(s).");
+  }
+  if (report.checksumMismatches.length > 0) {
+    lines.push("Revert the edited migration file(s) to their applied content, or hand-correct");
+    lines.push("the checksum in _kumiko_migrations — 'kumiko schema apply' cannot resolve a");
+    lines.push("checksum mismatch.");
+  }
+  if (report.missingTables.length > 0 && report.pending.length === 0) {
+    lines.push("Missing table(s) without pending migration(s) — table was dropped after apply.");
+    lines.push("Restore from backup, or generate a new migration that re-creates the table.");
+  }
   return lines.join("\n");
 }
 

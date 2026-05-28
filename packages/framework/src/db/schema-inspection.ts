@@ -29,10 +29,23 @@ export async function tableExists(
     unsafe?: (s: string, p?: readonly unknown[]) => Promise<readonly { exists: boolean }[]>;
   };
   const client = dbAny.$client ?? dbAny.session?.client ?? dbAny;
+  // quote_ident-Round-trip auf SQL-Seite: ohne Quotes folded postgres
+  // unquoted identifier case-insensitiv (myWidget → mywidget), während die
+  // generierte DDL den Namen via quoteIdent("myWidget") → "myWidget" case-
+  // preserved schreibt. quote_ident sorgt für identische Quotierung beidseits.
+  // Schema-qualifizierte Namen (`public.events`) werden per Split einzeln quotet.
+  const dotIdx = fullyQualifiedName.indexOf(".");
+  const [sql, params] =
+    dotIdx >= 0
+      ? [
+          `SELECT to_regclass(quote_ident($1) || '.' || quote_ident($2)) IS NOT NULL AS exists`,
+          [fullyQualifiedName.slice(0, dotIdx), fullyQualifiedName.slice(dotIdx + 1)],
+        ]
+      : [`SELECT to_regclass(quote_ident($1)) IS NOT NULL AS exists`, [fullyQualifiedName]];
   const rows = await (
     client as {
       unsafe: (s: string, p?: readonly unknown[]) => Promise<readonly { exists: boolean }[]>;
     }
-  ).unsafe(`SELECT to_regclass($1) IS NOT NULL AS exists`, [fullyQualifiedName]);
+  ).unsafe(sql, params);
   return rows[0]?.exists ?? false;
 }

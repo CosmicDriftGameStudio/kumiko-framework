@@ -16,6 +16,7 @@ import {
   runMigrationsFromDir,
 } from "../../db/migrate-runner";
 import { asRawClient } from "../../db/query";
+import { tableExists } from "../../db/schema-inspection";
 import { createEntity, createTextField } from "../../engine";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { assertKumikoSchemaCurrent, detectKumikoDrift, SchemaDriftError } from "../kumiko-drift";
@@ -38,6 +39,7 @@ beforeEach(async () => {
   await asRawClient(testDb.db).unsafe(`DROP TABLE IF EXISTS "_kumiko_migrations"`);
   await asRawClient(testDb.db).unsafe(`DROP TABLE IF EXISTS "kdrift_widget"`);
   await asRawClient(testDb.db).unsafe(`DROP TABLE IF EXISTS "kdrift_gen"`);
+  await asRawClient(testDb.db).unsafe(`DROP TABLE IF EXISTS "kdriftMixed"`);
 });
 
 afterEach(() => {
@@ -99,6 +101,37 @@ describe("kumiko-drift boot-gate", () => {
     const report = await detectKumikoDrift(testDb.db, dir);
     expect(report.ok).toBe(false);
     expect(report.missingTables).toEqual(["kdrift_widget"]);
+  });
+
+  test("missing migrations dir → ok (no migrations to validate)", async () => {
+    // Regression für review #155 finding 1: existing-App-Upgrade ohne
+    // ./kumiko/migrations darf nicht roh ENOENT werfen (würde sonst plain
+    // Error statt SchemaDriftError → kein Remediation-Hint im Boot-Log).
+    rmSync(dir, { recursive: true, force: true });
+    const report = await detectKumikoDrift(testDb.db, dir);
+    expect(report.ok).toBe(true);
+    expect(report.pending).toEqual([]);
+    await expect(assertKumikoSchemaCurrent(testDb.db, dir)).resolves.toBeUndefined();
+  });
+
+  test("mixed-case snapshot tableName resolves via quote_ident round-trip", async () => {
+    // Regression für review #155 finding 3: postgres folded unquoted
+    // identifier case-insensitiv (myWidget → mywidget) in to_regclass, während
+    // die DDL via quoteIdent("kdriftMixed") → "kdriftMixed" case-preserved
+    // schreibt. tableExists muss quote_ident-Round-trip machen, sonst False-
+    // positive-Drift bei jeder mixed-case Entity-Tabelle.
+    await asRawClient(testDb.db).unsafe(`CREATE TABLE "kdriftMixed" ("id" text PRIMARY KEY)`);
+    expect(await tableExists(testDb.db, "kdriftMixed")).toBe(true);
+    // Lowercase-Variante DARF nicht matchen — Round-trip preserved case.
+    expect(await tableExists(testDb.db, "kdriftmixed")).toBe(false);
+
+    writeMigration("0001_init.sql", `CREATE TABLE "kdriftMixed" ("id" text PRIMARY KEY);`);
+    writeSnapshot(["kdriftMixed"]);
+    await asRawClient(testDb.db).unsafe(`DROP TABLE "kdriftMixed"`);
+    await runMigrationsFromDir(testDb.db, dir);
+    const report = await detectKumikoDrift(testDb.db, dir);
+    expect(report.missingTables).toEqual([]);
+    expect(report.ok).toBe(true);
   });
 
   test("baseline marks migrations applied without running SQL", async () => {
