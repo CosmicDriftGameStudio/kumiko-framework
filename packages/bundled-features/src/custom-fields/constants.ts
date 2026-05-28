@@ -5,6 +5,28 @@
 
 export const CUSTOM_FIELDS_FEATURE_NAME = "custom-fields";
 
+// Qualified handler names (QN format: scope:type:name). Mirror text-
+// content's Handler/Queries object pattern — Clients (z.B. die
+// CustomFieldsFormSection web-component) referenzieren über das Object
+// statt magic-strings.
+export const CustomFieldsHandlers = {
+  defineTenantField: "custom-fields:write:define-tenant-field",
+  defineSystemField: "custom-fields:write:define-system-field",
+  deleteTenantField: "custom-fields:write:delete-tenant-field",
+  deleteSystemField: "custom-fields:write:delete-system-field",
+  setCustomField: "custom-fields:write:set-custom-field",
+  clearCustomField: "custom-fields:write:clear-custom-field",
+} as const;
+
+export const CustomFieldsQueries = {
+  fieldDefinitionList: "custom-fields:query:field-definition:list",
+} as const;
+
+// Name unter dem die web-component im ExtensionSectionsProvider
+// registriert wird — Apps referenzieren ihn im Screen-Schema via
+// `component: { react: { __component: CUSTOM_FIELDS_FORM_EXTENSION_NAME } }`.
+export const CUSTOM_FIELDS_FORM_EXTENSION_NAME = "CustomFieldsFormSection";
+
 // Event-Type-Names (qualified at registration via r.defineEvent — final
 // names are `custom-fields:event:field-definition-created` etc.).
 // Short-names MUST be in kebab-case (no dots): qualifyEntityName runs toKebab

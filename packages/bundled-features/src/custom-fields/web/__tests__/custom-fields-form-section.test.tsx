@@ -1,0 +1,116 @@
+import { describe, expect, mock, test } from "bun:test";
+import {
+  createStaticLocaleResolver,
+  LocaleProvider,
+  PrimitivesProvider,
+} from "@cosmicdrift/kumiko-renderer";
+import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
+import { fireEvent, render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { CustomFieldsFormSection } from "../custom-fields-form-section";
+
+type FieldRow = {
+  id: string;
+  entityName: string;
+  fieldKey: string;
+  type: string;
+  required: boolean;
+  displayOrder: number;
+};
+
+const dispatchSpy = mock(async () => ({ isSuccess: true, data: undefined }));
+let mockedQueryRows: readonly FieldRow[] = [];
+
+const actual_renderer = await import("@cosmicdrift/kumiko-renderer");
+mock.module("@cosmicdrift/kumiko-renderer", () => ({
+  ...actual_renderer,
+  useDispatcher: mock(() => ({
+    write: dispatchSpy,
+    query: mock(),
+    batch: mock(),
+  })),
+  useQuery: mock(() => ({
+    data: { rows: mockedQueryRows },
+    loading: false,
+    error: null,
+    refetch: mock(),
+  })),
+}));
+
+function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
+  return (
+    <LocaleProvider resolver={createStaticLocaleResolver()}>
+      <PrimitivesProvider value={defaultPrimitives}>{children}</PrimitivesProvider>
+    </LocaleProvider>
+  );
+}
+
+describe("CustomFieldsFormSection", () => {
+  test("renders an input per matching fieldDefinition and dispatches set-custom-field on save", async () => {
+    mockedQueryRows = [
+      { id: "f1", entityName: "component", fieldKey: "vendor", type: "text", required: false, displayOrder: 1 },
+      { id: "f2", entityName: "component", fieldKey: "tier", type: "number", required: false, displayOrder: 2 },
+      { id: "f3", entityName: "incident", fieldKey: "rootCause", type: "text", required: false, displayOrder: 1 },
+    ];
+    dispatchSpy.mockClear();
+
+    render(
+      <Wrapper>
+        <CustomFieldsFormSection entityName="component" entityId="row-42" />
+      </Wrapper>,
+    );
+
+    // Only `component`-entity fields are rendered (incident's rootCause filtered out).
+    expect(screen.getByTestId("custom-fields-form-section")).toBeTruthy();
+    const vendorInput = document.getElementById("custom-field-vendor") as HTMLInputElement;
+    const tierInput = document.getElementById("custom-field-tier") as HTMLInputElement;
+    expect(vendorInput).toBeTruthy();
+    expect(tierInput).toBeTruthy();
+    expect(document.getElementById("custom-field-rootCause")).toBeNull();
+
+    // Type in vendor; tier left empty (should be skipped on save).
+    fireEvent.change(vendorInput, { target: { value: "Hetzner" } });
+
+    const saveBtn = screen.getByTestId("custom-fields-form-save");
+    fireEvent.click(saveBtn);
+    // Wait one microtask for the async handleSave loop.
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(dispatchSpy).toHaveBeenCalledTimes(1);
+    expect(dispatchSpy).toHaveBeenCalledWith("custom-fields:write:set-custom-field", {
+      entityName: "component",
+      entityId: "row-42",
+      fieldKey: "vendor",
+      value: "Hetzner",
+    });
+  });
+
+  test("shows create-mode banner when entityId is null", () => {
+    mockedQueryRows = [];
+
+    render(
+      <Wrapper>
+        <CustomFieldsFormSection entityName="component" entityId={null} />
+      </Wrapper>,
+    );
+
+    expect(screen.getByTestId("custom-fields-form-create-mode")).toBeTruthy();
+    expect(screen.queryByTestId("custom-fields-form-section")).toBeNull();
+  });
+
+  test("shows empty banner when no fieldDefinitions match entityName", () => {
+    mockedQueryRows = [
+      { id: "f3", entityName: "incident", fieldKey: "rootCause", type: "text", required: false, displayOrder: 1 },
+    ];
+
+    render(
+      <Wrapper>
+        <CustomFieldsFormSection entityName="component" entityId="row-42" />
+      </Wrapper>,
+    );
+
+    expect(screen.getByTestId("custom-fields-form-empty")).toBeTruthy();
+    expect(screen.queryByTestId("custom-fields-form-section")).toBeNull();
+  });
+});
