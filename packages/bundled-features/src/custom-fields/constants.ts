@@ -1,3 +1,4 @@
+// @runtime client
 // custom-fields bundle constants — feature-name + event-names.
 //
 // Spec: kumiko-platform/docs/plans/features/custom-fields.md

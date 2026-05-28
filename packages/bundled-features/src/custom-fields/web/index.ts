@@ -1,3 +1,4 @@
+// @runtime client
 export {
   CUSTOM_FIELDS_FORM_EXTENSION_NAME,
   CustomFieldsHandlers,

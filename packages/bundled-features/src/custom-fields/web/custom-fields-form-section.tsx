@@ -1,3 +1,4 @@
+// @runtime client
 // CustomFieldsFormSection — extension-section component für entityEdit-
 // Screens. Lädt die fieldDefinition-Liste des Tenants, filtert auf die
 // host-Entity, rendert pro Definition einen typed Input, dispatched
