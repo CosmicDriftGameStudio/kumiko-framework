@@ -38,7 +38,7 @@ export const textBlocksTable = buildEntityTable("text-block", textBlockEntity);
 // createdAt, updatedAt, createdBy, updatedBy) die buildBaseColumns
 // erzwingt.
 export type TextBlockRow = {
-  readonly id: string | number;
+  readonly id: string;
   readonly version: number;
   readonly tenantId: string;
   readonly slug: string;

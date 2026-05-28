@@ -3,12 +3,11 @@
 // Symmetrisch zu runDevApp, aber:
 //   - DATABASE_URL / REDIS_URL / JWT_SECRET aus env (fail-fast bei Boot,
 //     keine ephemeralen Test-DBs)
-//   - Hard Schema-Drift-Gate: prüft drizzle/migrations/_journal vs.
-//     __drizzle_migrations + tableExists für jede erwartete Tabelle.
-//     KEIN Auto-CREATE TABLE im Boot — Migration ist ein CI-Step
-//     (`bun kumiko migrate apply`), Boot validiert nur. Verhindert
-//     Race-Conditions bei Multi-Replica-Deploys + macht Schema-Stand
-//     reviewbar in der Pull-Request.
+//   - Hard Schema-Drift-Gate: prüft kumiko/migrations vs. _kumiko_migrations
+//     + tableExists für jede erwartete Tabelle. KEIN Auto-CREATE TABLE im
+//     Boot — Migration ist ein CI-Step (`bun kumiko schema apply`), Boot
+//     validiert nur. Verhindert Race-Conditions bei Multi-Replica-Deploys
+//     + macht Schema-Stand reviewbar in der Pull-Request.
 //   - Idempotente Seeds: laufen nur wenn DB leer (über `isDbEmpty`-Probe
 //     pro Seed). Re-Boots nach erstem Seed sind no-op.
 //   - HTTP-Server via Bun.serve mit graceful SIGTERM/SIGINT → drain().

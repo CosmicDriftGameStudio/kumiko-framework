@@ -46,12 +46,12 @@ export type SeedUserWithPasswordOptions = {
 
 /**
  * Seed a user mit Plain-Password (wird vor dem Insert mit argon2
- * gehasht). Liefert userId, idempotent über email.
+ * gehasht). Liefert die userId, idempotent über email.
  */
 export async function seedUserWithPassword(
   db: DbConnection,
   options: SeedUserWithPasswordOptions,
-): Promise<string> {
+): Promise<{ id: string }> {
   const passwordHash = await hashPassword(options.password);
   return seedUser(db, {
     email: options.email,
@@ -114,7 +114,7 @@ export async function provisionSignupAccount(
     key: options.tenantKey,
     name: options.tenantName,
   });
-  const userId = await seedUserWithPassword(db, {
+  const { id: userId } = await seedUserWithPassword(db, {
     email: options.email,
     password: options.password,
     displayName: options.displayName,
@@ -155,14 +155,17 @@ export type SeedAdminOptions = {
  * Password + N Tenants + N Memberships. Alles idempotent (Re-Run im
  * persistent-DB-Modus läuft durch). Liefert die userId zurück.
  */
-export async function seedAdmin(db: DbConnection, options: SeedAdminOptions): Promise<string> {
+export async function seedAdmin(
+  db: DbConnection,
+  options: SeedAdminOptions,
+): Promise<{ id: string }> {
   const by = options.by ?? TestUsers.systemAdmin;
 
   for (const m of options.memberships) {
     await seedTenant(db, { id: m.tenantId, key: m.tenantKey, name: m.tenantName, by });
   }
 
-  const userId = await seedUserWithPassword(db, {
+  const { id: userId } = await seedUserWithPassword(db, {
     email: options.email,
     password: options.password,
     displayName: options.displayName,
@@ -179,5 +182,5 @@ export async function seedAdmin(db: DbConnection, options: SeedAdminOptions): Pr
     });
   }
 
-  return userId;
+  return { id: userId };
 }

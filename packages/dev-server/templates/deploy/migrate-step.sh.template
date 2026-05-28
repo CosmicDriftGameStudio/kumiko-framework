@@ -6,7 +6,7 @@
 # equivalent). Lives on the server under `/srv/{{appName}}/migrate-step.sh`,
 # called via `bash migrate-step.sh`.
 #
-# Task: apply drizzle-kit migrations + auto-rebuild for projection-schema
+# Task: apply checked-in SQL migrations + auto-rebuild for projection-schema
 # changes BEFORE the app container starts — runProdApp's boot gate would
 # otherwise abort with SchemaDriftError.
 #
@@ -36,4 +36,4 @@ docker run --rm \
   --network "$STACK_NETWORK" \
   -e DATABASE_URL="postgresql://{{appName}}:${DB_PASSWORD}@db:5432/{{appName}}" \
   ghcr.io/{{githubOrg}}/{{appName}}:latest \
-  bun /app/kumiko.js migrate apply
+  bun /app/kumiko.js schema apply
