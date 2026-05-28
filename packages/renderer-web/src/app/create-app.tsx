@@ -12,6 +12,8 @@ import {
   ColumnRenderersProvider,
   CustomScreensProvider,
   DispatcherProvider,
+  type ExtensionSectionComponent,
+  ExtensionSectionsProvider,
   type FeatureSchema,
   KumikoScreen,
   kumikoDefaultTranslations,
@@ -194,6 +196,22 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
       columnRenderers[key] = value;
     }
   }
+  // Extension-Section-Components — same Last-Wins + Warn-Semantik wie
+  // columnRenderers. Mountet sich am ExtensionSectionsProvider; RenderEdit
+  // löst die Component aus dem `__component`-Marker der section.
+  const extensionSectionComponents: Record<string, ExtensionSectionComponent> = {};
+  for (const f of clientFeatures) {
+    if (f.extensionSectionComponents === undefined) continue;
+    for (const [key, value] of Object.entries(f.extensionSectionComponents)) {
+      if (extensionSectionComponents[key] !== undefined) {
+        // biome-ignore lint/suspicious/noConsole: dev-warning für Schema-Konflikte
+        console.warn(
+          `[kumiko] extensionSectionComponent "${key}" defined by multiple clientFeatures — last definition (from "${f.name}") wins.`,
+        );
+      }
+      extensionSectionComponents[key] = value;
+    }
+  }
 
   // Tree-Provider-Map aggregieren — keyed by clientFeature.name (matches
   // server-side FeatureDefinition.name). Mehrere clientFeatures mit
@@ -256,13 +274,15 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
             <LiveEventsProvider value={liveEvents}>
               <CustomScreensProvider value={customScreens}>
                 <ColumnRenderersProvider value={columnRenderers}>
-                  <TreeProvidersProvider value={treeProviders} entities={treeEntities}>
-                    <ResolversProvider resolvers={resolvers}>
-                      <ToastProvider>
-                        {stackWrappers(providers, stackWrappers(gates, screenNode))}
-                      </ToastProvider>
-                    </ResolversProvider>
-                  </TreeProvidersProvider>
+                  <ExtensionSectionsProvider value={extensionSectionComponents}>
+                    <TreeProvidersProvider value={treeProviders} entities={treeEntities}>
+                      <ResolversProvider resolvers={resolvers}>
+                        <ToastProvider>
+                          {stackWrappers(providers, stackWrappers(gates, screenNode))}
+                        </ToastProvider>
+                      </ResolversProvider>
+                    </TreeProvidersProvider>
+                  </ExtensionSectionsProvider>
                 </ColumnRenderersProvider>
               </CustomScreensProvider>
             </LiveEventsProvider>
