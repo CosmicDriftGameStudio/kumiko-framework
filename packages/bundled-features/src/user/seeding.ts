@@ -1,9 +1,9 @@
 // Testing-Helper fürs user-Feature. `seedUser` legt einen User direkt
 // über den Event-Store-Executor an — gleicher Pfad wie der echte
 // `UserHandlers.create`, aber ohne Access-Check und ohne ConflictError
-// bei Duplikaten. Verhält sich wie ifExists="skip" (siehe
-// @cosmicdrift/kumiko-framework/seeding): existierende Email → return
-// ohne Event.
+// bei Duplikaten. Idempotent add-only über die `email`-Spalte: ein
+// existierender User → return ohne Event. Kein update-Pfad — Profilfelder
+// ändern läuft über den regulären Handler.
 //
 // Warum nicht direkt `db.insert(userTable)`: das würde den Event-Store
 // umgehen, also kein `user.created`-Event und keine MSP-Konsumenten
@@ -46,10 +46,13 @@ export type SeedUserOptions = {
 
 /**
  * Seed a user. Returns the userId (existing oder neu angelegt).
- * Idempotent über die `email`-Spalte: wenn ein User mit dieser Email
- * existiert, kommt seine ID zurück ohne neuen Insert.
+ * Idempotent add-only über die `email`-Spalte: wenn ein User mit dieser
+ * Email existiert, kommt seine ID zurück ohne neuen Insert.
  */
-export async function seedUser(db: DbConnection, options: SeedUserOptions): Promise<string> {
+export async function seedUser(
+  db: DbConnection,
+  options: SeedUserOptions,
+): Promise<{ id: string }> {
   const by = options.by ?? TestUsers.systemAdmin;
   // executor.create erwartet eine TenantDb (mit .insert()-API). User
   // ist zwar tenant-agnostic (kein tenant_id-Spalte), aber das runtime-
@@ -57,7 +60,9 @@ export async function seedUser(db: DbConnection, options: SeedUserOptions): Prom
   const tdb = createTenantDb(db, by.tenantId, "system");
 
   const existing = await fetchOne(db, userTable, { email: options.email });
-  if (existing) return existing["id"] as string; // @cast-boundary db-row
+  // @cast-boundary db-row: users.id ist uuid-Spalte (string), fetchOne
+  // liefert die Projection-Row als Record<string, unknown>.
+  if (existing) return { id: existing["id"] as string };
 
   const result = await userExecutor.create(
     {
@@ -76,7 +81,7 @@ export async function seedUser(db: DbConnection, options: SeedUserOptions): Prom
       `seedUser failed: ${result.error.code} — ${JSON.stringify(result.error.details ?? {})}`,
     );
   }
-  return extractId(result.data, "seedUser");
+  return { id: extractId(result.data, "seedUser") };
 }
 
 // Extrahiert die `id`-Spalte aus dem executor.create-Result. Der

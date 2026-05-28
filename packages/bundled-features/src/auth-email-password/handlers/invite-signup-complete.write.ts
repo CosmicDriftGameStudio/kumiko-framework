@@ -138,7 +138,7 @@ export function createInviteSignupCompleteHandler() {
         // @cast-boundary db-runner — TenantDb.raw is DbRunner; seed-helpers
         // operate on plain drizzle-API which both shapes expose identically.
         const dbConn = ctx.db.raw as DbConnection;
-        const userId = await seedUserWithPassword(dbConn, {
+        const { id: userId } = await seedUserWithPassword(dbConn, {
           email: invitationEmail,
           password: event.payload.password,
           displayName: invitationEmail.split("@")[0] ?? invitationEmail,

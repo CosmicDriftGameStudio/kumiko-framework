@@ -138,12 +138,12 @@ beforeEach(async () => {
   });
 
   // Alice = Admin von Tenant-A
-  aliceId = await seedUser(stack.db, {
+  ({ id: aliceId } = await seedUser(stack.db, {
     email: ALICE_EMAIL,
     displayName: "Alice",
     passwordHash: await hashPassword("alice-pw-1234"),
     emailVerified: true,
-  });
+  }));
   await seedTenantMembership(stack.db, {
     userId: aliceId,
     tenantId: TENANT_A_ID,
@@ -151,12 +151,12 @@ beforeEach(async () => {
   });
 
   // Bob = Member von Tenant-B (für Branch 1 + 2 tests)
-  bobId = await seedUser(stack.db, {
+  ({ id: bobId } = await seedUser(stack.db, {
     email: BOB_EMAIL,
     displayName: "Bob",
     passwordHash: await hashPassword(BOB_PASSWORD),
     emailVerified: true,
-  });
+  }));
   await seedTenantMembership(stack.db, {
     userId: bobId,
     tenantId: TENANT_B_ID,
