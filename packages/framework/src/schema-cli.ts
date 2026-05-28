@@ -20,6 +20,7 @@ import {
   rebuildTablesFromDiff,
   type renderTablesDdl,
   runMigrationsFromDir,
+  tableExists,
   writeRebuildMarker,
   writeSnapshotJson,
 } from "./db";
@@ -207,13 +208,14 @@ export async function runSchemaCli(
       const local = loadMigrationsFromDir(migrationsDir);
       const { db, close } = createDbConnection(dbUrl);
       try {
-        // fetchAppliedMigrations wirft wenn die tracking-table noch nicht da ist.
-        let applied: Set<string>;
-        try {
-          applied = new Set((await fetchAppliedMigrations(db)).map((a) => a.id));
-        } catch {
-          applied = new Set();
-        }
+        // Frische DB ohne je gelaufenes `kumiko schema apply` → tracking-table
+        // fehlt = "nichts applied". Connection-/Permission-Fehler dagegen
+        // sollen NICHT geschluckt werden (False-pending verschleiert das Problem) —
+        // tableExists prüft gezielt nur Existenz, alles andere propagiert.
+        const trackingExists = await tableExists(db, "_kumiko_migrations");
+        const applied = trackingExists
+          ? new Set((await fetchAppliedMigrations(db)).map((a) => a.id))
+          : new Set<string>();
         out.log("");
         out.log(`  ${local.length} migrations in ${migrationsDir}:`);
         for (const m of local) out.log(`    ${applied.has(m.id) ? "✓" : " "} ${m.id}`);
