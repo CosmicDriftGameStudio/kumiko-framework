@@ -335,6 +335,64 @@ describe("custom-fields integration — value validation (Builder-Reuse)", () =>
     expect(await countSetEvents(id)).toBe(0);
   });
 
+  test("required-text accepts empty + over-maxLength strings (constraint-keys stripped)", async () => {
+    const id = "bbbbbbbb-bbbb-4000-8000-00000000000b";
+    // serializedField carries required + maxLength + format — value-schema
+    // strips these before fieldToZod, so the runtime schema collapses to a
+    // bare z.string(). Required-on-set + length/format-enforcement remain
+    // out-of-scope (Plan-Doc "Stammfeld-Identität").
+    await stack.http.writeOk(
+      "custom-fields:write:define-tenant-field",
+      {
+        entityName: "property",
+        fieldKey: "note",
+        serializedField: { type: "text", required: true, maxLength: 5, format: "email" },
+        required: false,
+        searchable: false,
+        displayOrder: 0,
+      },
+      admin,
+    );
+    await createProperty(id, "TypeOnly");
+
+    await setCustomField("property", id, "note", "");
+    await setCustomField("property", id, "note", "not-an-email-and-way-too-long");
+    await stack.eventDispatcher?.runOnce();
+
+    expect(await rawCustomFields(id)).toMatchObject({ note: "not-an-email-and-way-too-long" });
+  });
+
+  test("default-having field validates as plain type (default-key stripped)", async () => {
+    const id = "cccccccc-cccc-4000-8000-00000000000c";
+    // Pre-fix: fieldToZod folded `default` into `.default(...)`. Combined with
+    // emitting `payload.value` (not `parsed.data`) the in-code path would skip
+    // the type-check for a missing value. value-schema now strips `default`
+    // before fieldToZod so the runtime schema is bare `z.number()` — matching
+    // values still pass, type-mismatches still 422.
+    await stack.http.writeOk(
+      "custom-fields:write:define-tenant-field",
+      {
+        entityName: "property",
+        fieldKey: "score",
+        serializedField: { type: "number", default: 0 },
+        required: false,
+        searchable: false,
+        displayOrder: 0,
+      },
+      admin,
+    );
+    await createProperty(id, "DefaultStripped");
+
+    const err = await setErr(id, "score", "not-a-number");
+    expect(err.httpStatus).toBe(422);
+    expect(err.details).toMatchObject({ reason: "custom_field_value_invalid" });
+    expect(await countSetEvents(id)).toBe(0);
+
+    await setCustomField("property", id, "score", 7);
+    await stack.eventDispatcher?.runOnce();
+    expect(await rawCustomFields(id)).toMatchObject({ score: 7 });
+  });
+
   test("embedded field rejects a non-object value → 422, no event", async () => {
     const id = "aaaaaaaa-aaaa-4000-8000-00000000000a";
     // embedded carries a sub-field schema in serializedField — exercises
