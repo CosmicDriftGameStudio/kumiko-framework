@@ -62,7 +62,7 @@ beforeEach(async () => {
 
 describe("seedTenant", () => {
   test("schreibt Projection-Row mit id/key/name", async () => {
-    const id = await seedTenant(stack.db, {
+    const { id } = await seedTenant(stack.db, {
       id: TENANT_A,
       key: "tenant-a",
       name: "Tenant A",

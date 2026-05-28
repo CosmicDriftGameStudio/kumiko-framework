@@ -32,11 +32,15 @@ export type SetCustomFieldPayload = z.infer<typeof setCustomFieldPayloadSchema>;
 //   3. Value-Validation (Builder-Reuse): der Wert wird gegen das aus
 //      serializedField rehydrierte fieldToZod-Schema geparst. Type-Mismatch →
 //      422, KEIN Event entsteht (Projection bleibt typed — Plan-Doc
-//      Stammfeld-Identität). `value: null` auf einem typisierten Feld ist ein
-//      Type-Mismatch → 422; zum Entfernen eines Werts dient clear-custom-field.
+//      Stammfeld-Identität). `value: null` ODER `value: undefined` auf einem
+//      typisierten Feld sind Type-Mismatches → 422; zum Entfernen eines Werts
+//      dient clear-custom-field.
 //
-// Scope: NUR Type-Validation. Required-on-set + Default-Application sind
-// out-of-scope (Plan-Doc "Stammfeld-Identität" listet sie als eigene Zeilen).
+// Scope: ECHTE type-only Validation. value-schema.ts strippt `required`,
+// `maxLength`, `format` und `default` aus dem serializedField bevor fieldToZod
+// daraus ein Schema baut — wir prüfen nur die Type-Shape. Required-on-set,
+// Default-Application und Length-/Format-Enforcement bleiben out-of-scope
+// (Plan-Doc "Stammfeld-Identität" listet sie als eigene Zeilen).
 export const setCustomFieldHandler: WriteHandlerDef = {
   name: "set-custom-field",
   schema: setCustomFieldPayloadSchema,

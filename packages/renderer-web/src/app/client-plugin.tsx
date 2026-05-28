@@ -14,7 +14,11 @@ import type {
   TreeActionDef,
   TreeChildrenSubscribe,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { ColumnRendererComponent, TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
+import type {
+  ColumnRendererComponent,
+  ExtensionSectionComponent,
+  TranslationsByLocale,
+} from "@cosmicdrift/kumiko-renderer";
 import type { ComponentType, ReactNode } from "react";
 
 export type ClientFeatureDefinition = {
@@ -50,6 +54,13 @@ export type ClientFeatureDefinition = {
    *  echte JSX-Renderer leben im Client-Bundle. Last-Wins bei Key-
    *  Kollision über mehrere Features. */
   readonly columnRenderers?: Readonly<Record<string, ColumnRendererComponent>>;
+  /** Extension-Section-Components — Map `__component`-name → React-
+   *  Component. Schema deklariert eine entityEdit-Section mit
+   *  `kind: "extension"` + `component: { react: { __component: "X" } }`;
+   *  RenderEdit zieht den Component hier raus und mountet ihn mit
+   *  `{ entityName, entityId }`. Pattern wie columnRenderers — Last-Wins
+   *  bei Key-Kollision über mehrere Features. */
+  readonly extensionSectionComponents?: Readonly<Record<string, ExtensionSectionComponent>>;
   /** Tree-Provider für `r.workspace({ navigation: "tree" })`-Workspaces
    *  (Visual-Tree). Wird beim Mount des Tree-Workspaces mit ctx aufgerufen,
    *  emittiert TreeNode[] die in der Sidebar gerendert werden. Closure-

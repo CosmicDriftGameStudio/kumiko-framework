@@ -1,5 +1,87 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.23.0
+
+### Minor Changes
+
+- 8289134: Unified return-type für alle event-store-Seed-Helper. Alle 5 seed-helpers liefern jetzt `Promise<{ id: ... }>` statt heterogener `string | TenantId | void | { id: string|number }`:
+
+  - `seedTextBlock`, `seedComplianceProfile` — Return-Type von `{ id: string | number }` zu `{ id: string }` (präzise, kein Generic-Inferenz-Verlust)
+  - `seedTenant` — Return-Type von `TenantId` zu `{ id: TenantId }`
+  - `seedTenantMembership` — Return-Type von `void` zu `{ id: string }` (membership-row-id)
+  - `seedUser`, `seedUserWithPassword`, `seedAdmin` — Return-Type von `string` zu `{ id: string }`
+
+  **Breaking:** Caller, die den Return verwenden, müssen destructuren:
+
+  ```ts
+  // Vorher
+  const userId = await seedUser(db, { email, displayName });
+
+  // Jetzt
+  const { id: userId } = await seedUser(db, { email, displayName });
+  ```
+
+  Caller, die den Return nicht nutzen (`await seedTenantMembership(...)`), sind unverändert.
+
+  Zusätzlich:
+
+  - `runEventStoreSeed<TId, TExisting>` — Generic-Parameter für die id-Spalte. Default `TId = string` hält die meisten Call-Sites unverändert. `TExisting`-Typ wird aus `existing`-Argument inferred.
+  - `TextBlockRow.id` von `string | number` auf `string` präzisiert (text_blocks.id ist uuid).
+  - `tenant/seeding.ts` + `user/seeding.ts` Helper-Kommentare präzisieren, dass die Helper add-only-Semantik haben (kein update-Pfad, kein `ifExists`-Knopf — Memberships/Tenant/User ändern läuft über den regulären Handler).
+  - Cast-Marker `// @cast-boundary db-row` über den beiden `result.data as ...`-Casts in `compliance-profiles/seeding.ts` und `text-content/seeding.ts` re-added.
+
+### Patch Changes
+
+- Updated dependencies [e27b7b7]
+- Updated dependencies [8289134]
+  - @cosmicdrift/kumiko-framework@0.23.0
+  - @cosmicdrift/kumiko-renderer@0.23.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.23.0
+  - @cosmicdrift/kumiko-renderer-web@0.23.0
+
+## 0.22.0
+
+### Minor Changes
+
+- dcc8d4c: Neues subpath-export `@cosmicdrift/kumiko-bundled-features/custom-fields/web` mit `CustomFieldsFormSection`-Component + `customFieldsClient()`-Factory. Apps mounten die Set-Value-UI via `createKumikoApp({ clientFeatures: [customFieldsClient()] })` und referenzieren sie im Screen-Schema als extension-section: `{ kind: "extension", title, component: { react: { __component: CUSTOM_FIELDS_FORM_EXTENSION_NAME } } }`. Plus `CustomFieldsHandlers` / `CustomFieldsQueries` constants und `CUSTOM_FIELDS_FORM_EXTENSION_NAME`-Konstante für den Schema-Lookup.
+
+  Werte werden heute beim Save sequentiell via `custom-fields:write:set-custom-field` dispatched; Pre-population existierender Werte ist ein Follow-up (braucht erweiterte `ExtensionSectionProps.values`).
+
+- 4156981: Make `fileRef` a standard event-sourced entity. Uploads and deletes now go through the standard entity executor (emitting `fileRef.created` / `fileRef.deleted`, materialised via `applyEntityEvent`) instead of the previous custom `files:event:*` events + bespoke inline projection. `file_refs` is built via `buildEntityTable` (single source of truth) and the entity opts into `softDelete`, so delete / anonymize / retention behaviour now comes from the generic entity lifecycle + `data-retention` + forget pipeline — there is no file-specific retention logic.
+
+  BREAKING: `files:event:uploaded`, `fileUploadedEvent`, `fileUploadedPayloadSchema`, `FileUploadedPayload` and `FILE_UPLOADED_EVENT_TYPE` are removed from `@cosmicdrift/kumiko-framework/files`. Consumers (e.g. multi-stream projections) that subscribed to `files:event:uploaded` must subscribe to the entity auto-verb events `fileRef.created` / `fileRef.deleted` instead. `createFilesFeature` now lives in the framework and is re-exported from `@cosmicdrift/kumiko-bundled-features/files`, so that import path is unchanged.
+
+### Patch Changes
+
+- edebd91: custom-fields: tighten set-custom-field value-validation to pure type-only.
+
+  `buildCustomFieldValueSchema` now strips `required`, `maxLength`, `format`, and
+  `default` from the rehydrated `serializedField` before handing it to
+  `fieldToZod`, so the runtime schema validates the TYPE-shape only — matching
+  the handler's documented scope ("NUR Type-Validation"). Pre-fix `fieldToZod`
+  folded these keys into Zod refinements asymmetrically: `text` with
+  `required:true` rejected empty strings while `number` constraints in
+  `serializedField` were silently ignored.
+
+  The supported-types pre-check (with explicit known sub-types for `embedded`)
+  also replaces the catch-all try/catch — unexpected throws from `fieldToZod`
+  now propagate as real bugs instead of silently disabling validation.
+
+  Behavior change: empty strings, over-`maxLength` text, and non-email/url
+  strings on `text` fields with constraint keys in `serializedField` now pass
+  set-custom-field. Use a separate validation layer if you need them rejected
+  on set; required-on-set + length/format enforcement remain explicit
+  non-goals of the handler (Plan-Doc "Stammfeld-Identität").
+
+- 62bf38b: Fix `files-provider-s3` `writeStream` to trust Bun's S3-Writer for part boundaries instead of manually tracking `buffered` and calling `writer.flush()` at `STREAM_PART_SIZE`. The manual flush could commit a non-final part below the 5 MiB minimum, which AWS S3 and Cloudflare R2 reject with `EntityTooSmall` on `CompleteMultipartUpload` (the integration test runs against MinIO which doesn't enforce the minimum, so the failure mode was invisible there). Adds a multipart `writeStream` round-trip to the integration suite.
+- Updated dependencies [dcc8d4c]
+- Updated dependencies [dcc8d4c]
+- Updated dependencies [4156981]
+  - @cosmicdrift/kumiko-framework@0.22.0
+  - @cosmicdrift/kumiko-renderer@0.22.0
+  - @cosmicdrift/kumiko-renderer-web@0.22.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.22.0
+
 ## 0.21.1
 
 ### Patch Changes

@@ -64,7 +64,9 @@ export { createStore, shallowEqual } from "./store";
 export type {
   ComputeEditViewModelInput,
   ComputeListViewModelInput,
+  EditExtensionSectionViewModel,
   EditFieldSpec,
+  EditFieldsSectionViewModel,
   EditFieldViewModel,
   EditSectionSpec,
   EditSectionViewModel,

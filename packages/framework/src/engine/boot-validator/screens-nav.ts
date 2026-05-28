@@ -1,7 +1,7 @@
 import { qualifyEntityName } from "../qualified-name";
 import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops";
 import type { FeatureDefinition, NavDefinition, WorkspaceDefinition } from "../types";
-import { normalizeEditField, normalizeListColumn } from "../types/screen";
+import { isExtensionEditSection, normalizeEditField, normalizeListColumn } from "../types/screen";
 
 // --- Screen validation ---
 //
@@ -62,6 +62,7 @@ export function validateScreens(
         );
       }
       for (const section of screen.layout.sections) {
+        if (isExtensionEditSection(section)) continue;
         if (section.fields.length === 0) {
           throw new Error(
             `[Feature ${feature.name}] Screen "${screenId}" (configEdit) has a section "${section.title}" ` +
@@ -160,6 +161,7 @@ export function validateScreens(
         );
       }
       for (const section of screen.layout.sections) {
+        if (isExtensionEditSection(section)) continue;
         if (section.fields.length === 0) {
           throw new Error(
             `[Feature ${feature.name}] Screen "${screenId}" (actionForm) has a section "${section.title}" ` +
@@ -341,6 +343,15 @@ export function validateScreens(
         );
       }
       for (const section of screen.layout.sections) {
+        if (isExtensionEditSection(section)) {
+          if (section.component.react === undefined && section.component.native === undefined) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (entityEdit) extension section ` +
+                `"${section.title}" has no component — declare a react/native component marker.`,
+            );
+          }
+          continue;
+        }
         if (section.fields.length === 0) {
           throw new Error(
             `[Feature ${feature.name}] Screen "${screenId}" (entityEdit) has a section "${section.title}" ` +

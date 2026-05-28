@@ -75,7 +75,7 @@ export async function runSchemaCli(
     case "generate": {
       const name = argv[1];
       if (!name) {
-        out.err("  Usage: kumiko-schema generate <name>");
+        out.err("  Usage: schema generate <name>");
         return 1;
       }
       if (!existsSync(schemaFile)) {
@@ -124,7 +124,7 @@ export async function runSchemaCli(
         );
       }
       out.log("");
-      out.log("  Review + ggf. hand-edit + git add + commit. Apply via: kumiko-schema apply");
+      out.log("  Review + ggf. hand-edit + git add + commit. Apply via: schema apply");
       out.log("");
       return 0;
     }
@@ -136,7 +136,7 @@ export async function runSchemaCli(
         return 1;
       }
       if (!existsSync(migrationsDir)) {
-        out.err(`  ${migrationsDir} fehlt — erst kumiko-schema generate <name>.`);
+        out.err(`  ${migrationsDir} fehlt — erst schema generate <name>.`);
         return 1;
       }
       const { db, close } = createDbConnection(dbUrl);
@@ -172,7 +172,7 @@ export async function runSchemaCli(
         return 1;
       }
       if (!existsSync(migrationsDir)) {
-        out.err(`  ${migrationsDir} fehlt — erst kumiko-schema generate <name>.`);
+        out.err(`  ${migrationsDir} fehlt — erst schema generate <name>.`);
         return 1;
       }
       const { db, close } = createDbConnection(dbUrl);
@@ -221,7 +221,7 @@ export async function runSchemaCli(
         out.log("");
         out.log(`  ${applied.size} applied, ${pending} pending.`);
         out.log("");
-        return 0;
+        return pending === 0 ? 0 : 1;
       } finally {
         await close();
       }

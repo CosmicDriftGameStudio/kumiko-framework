@@ -2,9 +2,10 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { normalizeEditField } from "@cosmicdrift/kumiko-framework/ui-types";
+import { isExtensionEditSection, normalizeEditField } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   DispatcherError,
+  EditExtensionSectionViewModel,
   EditFieldViewModel,
   EditSectionViewModel,
   FieldConditions,
@@ -17,6 +18,7 @@ import type {
 import { computeEditViewModel } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useMemo, useState } from "react";
 import type { z } from "zod";
+import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections";
 import { useForm } from "../hooks/use-form";
 import { useTranslation } from "../i18n";
 import { usePrimitives } from "../primitives";
@@ -67,6 +69,7 @@ function deriveFormFields<TValues extends FormValues, TCtx>(
 ): Record<string, FieldConditions<TValues, TCtx>> {
   const out: Record<string, FieldConditions<TValues, TCtx>> = {};
   for (const section of screen.layout.sections) {
+    if (isExtensionEditSection(section)) continue;
     for (const spec of section.fields) {
       const normalized = normalizeEditField(spec);
       out[normalized.field] = {
@@ -83,6 +86,48 @@ function deriveFormFields<TValues extends FormValues, TCtx>(
     }
   }
   return out;
+}
+
+// Resolves an extension-section's `{ react: { __component: "X" } }` marker
+// to a registered React component via ExtensionSectionsProvider (filled in
+// createKumikoApp from clientFeatures.extensionSectionComponents) and
+// mounts it with the host entity name + id. Hook lives in its own
+// component so we don't call `use*` inside vm.sections.map (rules-of-
+// hooks would punish reordering sections between renders).
+function ExtensionSectionMount({
+  section,
+  entityName,
+  entityId,
+}: {
+  readonly section: EditExtensionSectionViewModel;
+  readonly entityName: string;
+  readonly entityId: string | null;
+}): ReactNode {
+  const { Banner, Section, Text } = usePrimitives();
+  const name = extensionSectionName(section.component);
+  const Component = useExtensionSectionComponent(name ?? "");
+  if (Component === undefined) {
+    return (
+      <Section
+        key={section.title}
+        title={section.title}
+        testId={`section-extension-${section.title}`}
+      >
+        <Banner variant="info" testId={`section-extension-placeholder-${section.title}`}>
+          <Text>
+            Extension section component{" "}
+            <Text variant="code">{name ?? "(no __component name)"}</Text> not registered in
+            clientFeatures.extensionSectionComponents.
+          </Text>
+        </Banner>
+      </Section>
+    );
+  }
+  return (
+    <Section title={section.title} testId={`section-extension-${section.title}`}>
+      <Component entityName={entityName} entityId={entityId} />
+    </Section>
+  );
 }
 
 export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
@@ -258,29 +303,41 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       actions={formActions}
       testId="render-edit-form"
     >
-      {vm.sections.map((section: EditSectionViewModel) => (
-        <Section key={section.title} title={section.title} testId={`section-${section.title}`}>
-          <Grid columns={section.columns}>
-            {section.fields.map((field: EditFieldViewModel) => (
-              <GridCellForField
-                key={field.field}
-                field={field}
-                columns={section.columns}
-                issues={snapshot.errors[field.field]}
-                onChange={(v) => {
-                  (controller.setField as (k: string, v: unknown) => void)(field.field, v);
-                }}
-                GridCell={GridCell}
-                featureName={featureName}
-                {...(fieldAppendix !== undefined && {
-                  labelAppendix: fieldAppendix(field.field),
-                  fieldAppendix: fieldAppendix(field.field),
-                })}
-              />
-            ))}
-          </Grid>
-        </Section>
-      ))}
+      {vm.sections.map((section: EditSectionViewModel) => {
+        if (section.kind === "extension") {
+          return (
+            <ExtensionSectionMount
+              key={section.title}
+              section={section}
+              entityName={vm.entityName}
+              entityId={vm.id}
+            />
+          );
+        }
+        return (
+          <Section key={section.title} title={section.title} testId={`section-${section.title}`}>
+            <Grid columns={section.columns}>
+              {section.fields.map((field: EditFieldViewModel) => (
+                <GridCellForField
+                  key={field.field}
+                  field={field}
+                  columns={section.columns}
+                  issues={snapshot.errors[field.field]}
+                  onChange={(v) => {
+                    (controller.setField as (k: string, v: unknown) => void)(field.field, v);
+                  }}
+                  GridCell={GridCell}
+                  featureName={featureName}
+                  {...(fieldAppendix !== undefined && {
+                    labelAppendix: fieldAppendix(field.field),
+                    fieldAppendix: fieldAppendix(field.field),
+                  })}
+                />
+              ))}
+            </Grid>
+          </Section>
+        );
+      })}
       {formError !== null && (
         <Banner
           variant="error"

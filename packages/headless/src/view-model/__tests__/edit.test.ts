@@ -4,6 +4,14 @@ import type {
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { computeEditViewModel } from "../edit";
+import type { EditFieldsSectionViewModel, EditSectionViewModel } from "../types";
+
+function asFields(s: EditSectionViewModel | undefined): EditFieldsSectionViewModel {
+  if (s === undefined || s.kind !== "fields") {
+    throw new Error(`expected fields-section, got ${s?.kind ?? "undefined"}`);
+  }
+  return s;
+}
 
 const orderEntity = {
   fields: {
@@ -44,8 +52,8 @@ describe("computeEditViewModel", () => {
     expect(vm.sections).toHaveLength(1);
     const section = vm.sections[0];
     expect(section?.title).toBe("Hauptdaten");
-    expect(section?.columns).toBe(1); // default
-    expect(section?.fields).toEqual([
+    expect(asFields(section).columns).toBe(1); // default
+    expect(asFields(section).fields).toEqual([
       {
         field: "customerName",
         label: "orders:entity:order:field:customerName",
@@ -81,8 +89,8 @@ describe("computeEditViewModel", () => {
       featureName: "orders",
     });
 
-    expect(vm.sections[0]?.columns).toBe(2);
-    expect(vm.sections[1]?.columns).toBe(1);
+    expect(asFields(vm.sections[0]).columns).toBe(2);
+    expect(asFields(vm.sections[1]).columns).toBe(1);
   });
 
   test("visible predicate evaluated against current values (live-reactive)", () => {
@@ -110,7 +118,7 @@ describe("computeEditViewModel", () => {
       translate,
       featureName: "orders",
     });
-    const reasonHidden = hidden.sections[0]?.fields[1];
+    const reasonHidden = asFields(hidden.sections[0]).fields[1];
     expect(reasonHidden?.visible).toBe(false);
     expect(reasonHidden?.required).toBe(false);
 
@@ -121,7 +129,7 @@ describe("computeEditViewModel", () => {
       translate,
       featureName: "orders",
     });
-    const reasonShown = shown.sections[0]?.fields[1];
+    const reasonShown = asFields(shown.sections[0]).fields[1];
     expect(reasonShown?.visible).toBe(true);
     expect(reasonShown?.required).toBe(true);
   });
@@ -149,7 +157,7 @@ describe("computeEditViewModel", () => {
       translate,
       featureName: "orders",
     });
-    expect(nonAdmin.sections[0]?.fields[0]?.readOnly).toBe(true);
+    expect(asFields(nonAdmin.sections[0]).fields[0]?.readOnly).toBe(true);
 
     const admin = computeEditViewModel({
       screen,
@@ -159,7 +167,7 @@ describe("computeEditViewModel", () => {
       translate,
       featureName: "orders",
     });
-    expect(admin.sections[0]?.fields[0]?.readOnly).toBe(false);
+    expect(asFields(admin.sections[0]).fields[0]?.readOnly).toBe(false);
   });
 
   test("screen-level required override wins over entity-level required", () => {
@@ -180,7 +188,7 @@ describe("computeEditViewModel", () => {
       featureName: "orders",
     });
 
-    expect(vm.sections[0]?.fields[0]?.required).toBe(false);
+    expect(asFields(vm.sections[0]).fields[0]?.required).toBe(false);
   });
 
   test("id is extracted from values or null on create (no existing row)", () => {
@@ -237,6 +245,6 @@ describe("computeEditViewModel", () => {
       translate,
       featureName: "orders",
     });
-    expect(vm.sections[0]?.fields[0]?.span).toBe(2);
+    expect(asFields(vm.sections[0]).fields[0]?.span).toBe(2);
   });
 });

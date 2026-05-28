@@ -67,6 +67,38 @@ describe("scaffoldDeploy", () => {
     expect(dockerfile).toContain("exec bun run server.js");
   });
 
+  it("Dockerfile copies kumiko/migrations and is free of stale drizzle artefacts", () => {
+    // Regression guard for PR #167 deploy-template drift: after the drizzle
+    // replacement (framework 0.21) + single-bundle server build (0.20), the
+    // template kept three dead drizzle references that broke fresh deploys —
+    // a COPY for the unbundled drizzle.config.ts, a COPY of /app/drizzle
+    // (apps now ship kumiko/), and a KUMIKO_MIGRATION_HOOKS env pointing at
+    // a no-longer-bundled migration-hooks.js. The migrate path is now
+    // `kumiko schema apply` reading ${INIT_CWD}/kumiko/migrations/*.sql.
+    scaffoldDeploy({ appName: "drift-guard", destination: tmp });
+    const dockerfile = readFileSync(join(tmp, "deploy", "Dockerfile"), "utf-8");
+
+    expect(dockerfile).toContain(
+      "COPY --from=build --chown=app:app /app/kumiko/migrations ./kumiko/migrations",
+    );
+
+    expect(dockerfile).not.toContain("/app/dist-server/drizzle.config.ts");
+    expect(dockerfile).not.toContain("COPY --from=build --chown=app:app /app/drizzle ./drizzle");
+    expect(dockerfile).not.toContain("KUMIKO_MIGRATION_HOOKS");
+    expect(dockerfile).not.toContain("migration-hooks.js");
+  });
+
+  it("migrate-step.sh invokes the schema-CLI subcommand registered in kumiko.ts", () => {
+    // Regression guard for PR #167: the deploy step was calling
+    // `bun /app/kumiko.js migrate apply`, but the CLI only registers
+    // `schema` (with subcommand `apply`). The pre-deploy migrate step
+    // crashed with "Unknown command: migrate" until this was fixed.
+    scaffoldDeploy({ appName: "cli-cmd", destination: tmp });
+    const migrate = readFileSync(join(tmp, "deploy", "migrate-step.sh"), "utf-8");
+    expect(migrate).toContain("bun /app/kumiko.js schema apply");
+    expect(migrate).not.toContain("kumiko.js migrate apply");
+  });
+
   it("skips existing files by default", () => {
     const existing = join(tmp, "deploy");
     scaffoldDeploy({ appName: "first", destination: tmp });

@@ -24,8 +24,9 @@
 // IS a test fixture, not a user request) while still producing the
 // correct event + projection.
 //
-// Idempotent: calling twice for the same (userId, tenantId) is a no-op on
-// the second call (ifExists="skip", siehe @cosmicdrift/kumiko-framework/seeding).
+// Idempotent (add-only): calling twice for the same (userId, tenantId) is
+// a no-op on the second call. Memberships have no update-semantic — to
+// change roles, write a new event via the regular handler path.
 
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
@@ -73,12 +74,15 @@ export type SeedTenantOptions = {
 };
 
 /**
- * Seed a tenant through the event-store executor. Idempotent (ifExists="skip"):
- * a second call for the same `id` is a no-op. Same TX-semantics as the real
- * `TenantHandlers.create`, minus the SystemAdmin-access-check and minus
- * ConflictError-on-duplicate.
+ * Seed a tenant through the event-store executor. Idempotent add-only:
+ * a second call for the same `id` is a no-op (no update path). Same
+ * TX-semantics as the real `TenantHandlers.create`, minus the SystemAdmin-
+ * access-check and minus ConflictError-on-duplicate.
  */
-export async function seedTenant(db: DbRunner, options: SeedTenantOptions): Promise<TenantId> {
+export async function seedTenant(
+  db: DbRunner,
+  options: SeedTenantOptions,
+): Promise<{ id: TenantId }> {
   const by = options.by ?? TestUsers.systemAdmin;
   // executor.create erwartet eine TenantDb (mit .insert()-API), nicht
   // die rohe DbConnection. Auch wenn das Tenant-Aggregat selbst NICHT
@@ -88,14 +92,14 @@ export async function seedTenant(db: DbRunner, options: SeedTenantOptions): Prom
   const tdb = createTenantDb(db, by.tenantId, "system");
 
   const existing = await fetchOne(db, tenantTable, { id: options.id });
-  if (existing) return options.id;
+  if (existing) return { id: options.id };
 
   // Idempotenz: Aggregate kann im Event-Store existieren ohne Projection-Row
   // (Projection-Drift nach rebuild, manuellem DELETE, oder async-lag). Wenn
   // Stream-Version > 0 → kein create() — wäre version_conflict. Caller
   // bekommt die ID, Projection wird beim nächsten Dispatcher-Cycle aufgebaut.
   const streamVersion = await getAggregateStreamMaxVersion(db, options.id);
-  if (streamVersion > 0) return options.id;
+  if (streamVersion > 0) return { id: options.id };
 
   const result = await tenantExecutor.create(
     { id: options.id, key: options.key, name: options.name },
@@ -107,7 +111,7 @@ export async function seedTenant(db: DbRunner, options: SeedTenantOptions): Prom
       `seedTenant failed: ${result.error.code} — ${JSON.stringify(result.error.details ?? {})}`,
     );
   }
-  return options.id;
+  return { id: options.id };
 }
 
 /**
@@ -116,11 +120,13 @@ export async function seedTenant(db: DbRunner, options: SeedTenantOptions): Prom
  * projection row in one transaction — identical effect to
  * `TenantHandlers.addMember`, minus the access-check and minus the
  * ConflictError on duplicates (duplicate calls no-op).
+ *
+ * Returns the membership-row id (existing on no-op, freshly minted on create).
  */
 export async function seedTenantMembership(
   db: DbRunner,
   options: SeedTenantMembershipOptions,
-): Promise<void> {
+): Promise<{ id: string }> {
   const by = options.by ?? TestUsers.systemAdmin;
   // Wrap into a system-scoped TenantDb so the insert respects the tenant-
   // override (we write into options.tenantId, which may differ from by.tenantId).
@@ -134,10 +140,11 @@ export async function seedTenantMembership(
     userId: options.userId,
     tenantId: options.tenantId,
   });
-  // skip: idempotent no-op — duplicate seed is expected across beforeEach-
-  // resets that don't truncate this table. Cheaper than try/catch on the
-  // unique-index, and documented in the function JSDoc above.
-  if (existing) return;
+  if (existing) {
+    // @cast-boundary db-row: membership-row id is uuid (string) per
+    // entity definition; fetchOne returns the raw projection row.
+    return { id: existing["id"] as string };
+  }
 
   const result = await executor.create(
     {
@@ -153,4 +160,17 @@ export async function seedTenantMembership(
       `seedTenantMembership failed: ${result.error.code} — ${JSON.stringify(result.error.details ?? {})}`,
     );
   }
+  return { id: extractMembershipId(result.data) };
+}
+
+function extractMembershipId(data: unknown): string {
+  if (typeof data === "object" && data !== null && "id" in data) {
+    // @cast-boundary engine-bridge: executor.create returns the projection
+    // row as Record<string, unknown>; id is uuid per entity definition.
+    const id = (data as { id: unknown }).id;
+    if (typeof id === "string") return id;
+  }
+  throw new Error(
+    `seedTenantMembership: executor.create returned no string id (got ${JSON.stringify(data)})`,
+  );
 }

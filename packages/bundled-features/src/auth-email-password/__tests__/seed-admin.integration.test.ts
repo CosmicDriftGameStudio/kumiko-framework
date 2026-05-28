@@ -61,7 +61,7 @@ beforeEach(async () => {
 
 describe("seedAdmin", () => {
   test("legt Tenants, User mit gehashtem Password und Memberships an — Login-Roundtrip funktioniert", async () => {
-    const userId = await seedAdmin(stack.db, {
+    const { id: userId } = await seedAdmin(stack.db, {
       email: "admin@example.com",
       password: "secret-pw",
       displayName: "Admin",
@@ -113,7 +113,7 @@ describe("seedAdmin", () => {
 
   test("idempotent: zweiter Aufruf no-op (kein Crash, Stand bleibt)", async () => {
     // Erstaufruf
-    const userId1 = await seedAdmin(stack.db, {
+    const { id: userId1 } = await seedAdmin(stack.db, {
       email: "admin@example.com",
       password: "pw1",
       displayName: "Admin",
@@ -124,7 +124,7 @@ describe("seedAdmin", () => {
     // Zweiter Aufruf — gleicher Email, anderes Password (würde theoretisch
     // einen neuen Hash erzeugen und neu schreiben, der idempotent-Check
     // greift VOR dem Insert).
-    const userId2 = await seedAdmin(stack.db, {
+    const { id: userId2 } = await seedAdmin(stack.db, {
       email: "admin@example.com",
       password: "pw2",
       displayName: "Admin",

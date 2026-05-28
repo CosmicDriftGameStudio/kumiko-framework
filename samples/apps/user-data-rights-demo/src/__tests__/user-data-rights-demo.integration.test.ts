@@ -83,6 +83,12 @@ beforeAll(async () => {
       UNIQUE(user_id, tenant_id)
     )
   `);
+  // PR #177 hat fileRef zu einem Standard-ES-Entity gemacht (softDelete:
+  // true). Die handgepflegte CREATE TABLE-Variante hätte die Spalten
+  // is_deleted/deleted_at/deleted_by_id/version/modified_at/modified_by_id
+  // nachziehen müssen — der user-data-rights-Hook filtert auf isDeleted:
+  // false. Statt das Schema doppelt zu pflegen, kommt es jetzt aus der
+  // EntityDefinition.
   await unsafeCreateEntityTable(stack.db, fileRefEntity);
 });
 
