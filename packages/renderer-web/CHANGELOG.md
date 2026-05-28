@@ -1,5 +1,19 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.22.0
+
+### Minor Changes
+
+- dcc8d4c: `ExtensionSectionsProvider` + `useExtensionSectionComponent(name)`-Hook für client-side Component-Auflösung im entityEdit-Screen via `__component`-Marker. Apps registrieren Components über das neue `ClientFeatureDefinition.extensionSectionComponents`-Feld (Pattern analog zu `columnRenderers`, Last-Wins-Semantik bei Multi-Feature-Kollision). `createKumikoApp` aggregiert + mountet den Provider automatisch. RenderEdit mountet die aufgelöste Component mit `{ entityName, entityId }`; fehlt die Registrierung → Banner mit dem gesuchten Component-Namen.
+
+### Patch Changes
+
+- Updated dependencies [dcc8d4c]
+- Updated dependencies [dcc8d4c]
+  - @cosmicdrift/kumiko-headless@0.22.0
+  - @cosmicdrift/kumiko-renderer@0.22.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.22.0
+
 ## 0.21.1
 
 ### Patch Changes

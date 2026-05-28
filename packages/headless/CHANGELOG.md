@@ -1,5 +1,17 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.22.0
+
+### Minor Changes
+
+- dcc8d4c: `EditSectionSpec` ist jetzt eine Discriminated Union mit `kind?: "fields"` (default, backwards-compat) und `kind: "extension"` (mountet eine feature-bereitgestellte Component). `EditSectionViewModel` parallel als Union (`kind` required). Neue exports: `EditFieldsSection`, `EditExtensionSection`, `EditFieldsSectionViewModel`, `EditExtensionSectionViewModel`, plus Type-Guard `isExtensionEditSection(section)`. Boot-Validator validiert den component-Marker für extension-sections im entityEdit-Block. Bestehende screens (kind weggelassen) rendern unverändert.
+
+### Patch Changes
+
+- Updated dependencies [dcc8d4c]
+- Updated dependencies [4156981]
+  - @cosmicdrift/kumiko-framework@0.22.0
+
 ## 0.21.1
 
 ### Patch Changes
