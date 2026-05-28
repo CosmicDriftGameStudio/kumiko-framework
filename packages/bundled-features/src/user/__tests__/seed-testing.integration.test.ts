@@ -47,7 +47,7 @@ beforeEach(async () => {
 
 describe("seedUser", () => {
   test("schreibt Projection-Row mit email/displayName/passwordHash", async () => {
-    const userId = await seedUser(stack.db, {
+    const { id: userId } = await seedUser(stack.db, {
       email: "alice@example.com",
       displayName: "Alice",
       passwordHash: "$argon2id$test-hash",
@@ -62,7 +62,7 @@ describe("seedUser", () => {
   });
 
   test("emittiert user.created-Event auf den Aggregate-Stream", async () => {
-    const userId = await seedUser(stack.db, {
+    const { id: userId } = await seedUser(stack.db, {
       email: "bob@example.com",
       displayName: "Bob",
     });
@@ -84,7 +84,7 @@ describe("seedUser", () => {
       email: "carol@example.com",
       displayName: "Carol Updated",
     });
-    expect(second).toBe(first);
+    expect(second.id).toBe(first.id);
 
     const rows = await selectMany(stack.db, userTable, { email: "carol@example.com" });
     expect(rows).toHaveLength(1);
@@ -96,7 +96,7 @@ describe("seedUser", () => {
   });
 
   test("passwordHash optional — User ohne Hash anlegbar (z.B. SSO-Federation)", async () => {
-    const userId = await seedUser(stack.db, {
+    const { id: userId } = await seedUser(stack.db, {
       email: "dave@example.com",
       displayName: "Dave",
     });
@@ -105,7 +105,7 @@ describe("seedUser", () => {
   });
 
   test("default `by` ist TestUsers.systemAdmin (für audit-trail)", async () => {
-    const userId = await seedUser(stack.db, {
+    const { id: userId } = await seedUser(stack.db, {
       email: "eve@example.com",
       displayName: "Eve",
     });

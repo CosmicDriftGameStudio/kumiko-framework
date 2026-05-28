@@ -36,7 +36,7 @@ export type SeedTextBlockOptions = {
 export async function seedTextBlock(
   db: DbConnection,
   opts: SeedTextBlockOptions,
-): Promise<{ id: string | number }> {
+): Promise<{ id: string }> {
   // Default-user muss user.tenantId === opts.tenantId haben, sonst
   // landet der event-store-stream im user.tenantId-bucket aber die
   // projection-row im opts.tenantId-bucket. Spätere echte writes via
@@ -75,6 +75,9 @@ export async function seedTextBlock(
       if (!result.isSuccess) {
         throw new Error(`seedTextBlock create failed: ${JSON.stringify(result)}`);
       }
+      // @cast-boundary db-row: executor.create result.data ist die
+      // inserted Drizzle-Row (Record<string, unknown>), projected
+      // nach INSERT/RETURNING auf TextBlockRow. Runtime-Check unten.
       const data = result.data as Partial<TextBlockRow>;
       if (data.id === undefined) {
         throw new Error("seedTextBlock: executor.create did not return an id");

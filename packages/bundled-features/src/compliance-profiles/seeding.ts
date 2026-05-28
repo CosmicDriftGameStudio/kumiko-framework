@@ -45,7 +45,7 @@ export type SeedComplianceProfileOptions = {
 export async function seedComplianceProfile(
   db: DbConnection,
   opts: SeedComplianceProfileOptions,
-): Promise<{ id: string | number }> {
+): Promise<{ id: string }> {
   // user.tenantId muss === opts.tenantId sein damit Event-Store-Stream
   // + Projection im selben Tenant-Bucket landen (Memory:
   // feedback_event_store_tenant_consistency).
@@ -73,6 +73,9 @@ export async function seedComplianceProfile(
       if (!result.isSuccess) {
         throw new Error(`seedComplianceProfile create failed: ${JSON.stringify(result)}`);
       }
+      // @cast-boundary db-row: executor.create result.data ist die
+      // inserted Projection-Row (Record<string, unknown>); id ist nach
+      // INSERT garantiert (Runtime-Check direkt darunter).
       const data = result.data as { id?: string };
       if (data.id === undefined) {
         throw new Error("seedComplianceProfile: executor.create did not return an id");

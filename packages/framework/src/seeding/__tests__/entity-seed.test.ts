@@ -6,7 +6,7 @@ describe("runEventStoreSeed", () => {
     let updateCalls = 0;
     let createCalls = 0;
 
-    const result = await runEventStoreSeed({
+    const result = await runEventStoreSeed<string>({
       existing: { id: "agg-1", version: 3 },
       create: async () => {
         createCalls++;
@@ -26,7 +26,7 @@ describe("runEventStoreSeed", () => {
   test('ifExists="update" calls update when row exists', async () => {
     let updateCalls = 0;
 
-    const result = await runEventStoreSeed({
+    const result = await runEventStoreSeed<string>({
       existing: { id: "agg-2", version: 1 },
       ifExists: "update",
       create: async () => ({ id: "new" }),
@@ -44,7 +44,7 @@ describe("runEventStoreSeed", () => {
   test("missing row calls create", async () => {
     let createCalls = 0;
 
-    const result = await runEventStoreSeed({
+    const result = await runEventStoreSeed<string>({
       existing: null,
       create: async () => {
         createCalls++;
@@ -55,5 +55,16 @@ describe("runEventStoreSeed", () => {
 
     expect(result.id).toBe("created");
     expect(createCalls).toBe(1);
+  });
+
+  test("supports numeric id type via explicit generic", async () => {
+    const result = await runEventStoreSeed<number>({
+      existing: { id: 42, version: 1 },
+      ifExists: "update",
+      create: async () => ({ id: 99 }),
+      update: async (row) => ({ id: row.id }),
+    });
+
+    expect(result.id).toBe(42);
   });
 });
