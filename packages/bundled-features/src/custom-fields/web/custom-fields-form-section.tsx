@@ -35,10 +35,7 @@ export function CustomFieldsFormSection({
 }): ReactNode {
   const { Banner, Button, Field, Input, Text } = usePrimitives();
   const dispatcher = useDispatcher();
-  const query = useQuery<FieldDefinitionListResponse>(
-    CustomFieldsQueries.fieldDefinitionList,
-    {},
-  );
+  const query = useQuery<FieldDefinitionListResponse>(CustomFieldsQueries.fieldDefinitionList, {});
   const [pending, setPending] = useState<Readonly<Record<string, string>>>({});
   const [saving, setSaving] = useState(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
@@ -166,13 +163,7 @@ export function CustomFieldsFormSection({
     }
     if (field.type === "date") {
       return (
-        <Input
-          kind="date"
-          id={id}
-          name={name}
-          value={raw}
-          onChange={(v) => onChange(v ?? "")}
-        />
+        <Input kind="date" id={id} name={name} value={raw} onChange={(v) => onChange(v ?? "")} />
       );
     }
     return <Input kind="text" id={id} name={name} value={raw} onChange={onChange} />;

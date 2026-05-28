@@ -48,9 +48,30 @@ function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
 describe("CustomFieldsFormSection", () => {
   test("renders an input per matching fieldDefinition and dispatches set-custom-field on save", async () => {
     mockedQueryRows = [
-      { id: "f1", entityName: "component", fieldKey: "vendor", type: "text", required: false, displayOrder: 1 },
-      { id: "f2", entityName: "component", fieldKey: "tier", type: "number", required: false, displayOrder: 2 },
-      { id: "f3", entityName: "incident", fieldKey: "rootCause", type: "text", required: false, displayOrder: 1 },
+      {
+        id: "f1",
+        entityName: "component",
+        fieldKey: "vendor",
+        type: "text",
+        required: false,
+        displayOrder: 1,
+      },
+      {
+        id: "f2",
+        entityName: "component",
+        fieldKey: "tier",
+        type: "number",
+        required: false,
+        displayOrder: 2,
+      },
+      {
+        id: "f3",
+        entityName: "incident",
+        fieldKey: "rootCause",
+        type: "text",
+        required: false,
+        displayOrder: 1,
+      },
     ];
     dispatchSpy.mockClear();
 
@@ -101,7 +122,14 @@ describe("CustomFieldsFormSection", () => {
 
   test("shows empty banner when no fieldDefinitions match entityName", () => {
     mockedQueryRows = [
-      { id: "f3", entityName: "incident", fieldKey: "rootCause", type: "text", required: false, displayOrder: 1 },
+      {
+        id: "f3",
+        entityName: "incident",
+        fieldKey: "rootCause",
+        type: "text",
+        required: false,
+        displayOrder: 1,
+      },
     ];
 
     render(

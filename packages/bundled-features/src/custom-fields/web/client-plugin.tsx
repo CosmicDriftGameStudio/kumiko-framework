@@ -12,10 +12,7 @@
 //   ]}
 
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
-import {
-  CUSTOM_FIELDS_FEATURE_NAME,
-  CUSTOM_FIELDS_FORM_EXTENSION_NAME,
-} from "../constants";
+import { CUSTOM_FIELDS_FEATURE_NAME, CUSTOM_FIELDS_FORM_EXTENSION_NAME } from "../constants";
 import { CustomFieldsFormSection } from "./custom-fields-form-section";
 
 export function customFieldsClient(): ClientFeatureDefinition {
