@@ -5,8 +5,8 @@ export { computeListViewModel, fieldLabelKey } from "./list";
 export type {
   EditExtensionSectionViewModel,
   EditFieldSpec,
-  EditFieldViewModel,
   EditFieldsSectionViewModel,
+  EditFieldViewModel,
   EditSectionSpec,
   EditSectionViewModel,
   EditViewModel,

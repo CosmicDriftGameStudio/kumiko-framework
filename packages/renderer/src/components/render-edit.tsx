@@ -2,10 +2,7 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import {
-  isExtensionEditSection,
-  normalizeEditField,
-} from "@cosmicdrift/kumiko-framework/ui-types";
+import { isExtensionEditSection, normalizeEditField } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   DispatcherError,
   EditFieldViewModel,
