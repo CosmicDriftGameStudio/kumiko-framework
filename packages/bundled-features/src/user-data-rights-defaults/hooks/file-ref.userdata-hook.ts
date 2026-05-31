@@ -1,6 +1,6 @@
 import { deleteMany, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
-import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { type FileStorageProvider, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 
 // userData-Hook fuer fileRef-entity (S2.H2).
 //
@@ -9,10 +9,9 @@ import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 // NICHT direkt — sie werden via signed-Download-URLs separat ins ZIP
 // gepackt (S2.U3 Export-Job-Pipeline orchestriert das).
 //
-// Delete-Hook entfernt FileRef-Zeile + Storage-Binary. Plan-Roadmap
-// docs/plans/datenschutz/storage-encryption.md hat das Subject-
-// Resolver-Pattern fuer File-Encryption als Sprint 4 — bis dahin:
-//   "delete":    Row hard-delete + storageProvider.delete() pro File
+// Delete-Hook entfernt FileRef-Zeile via factory
+// `createFileRefDeleteHook(storageProvider)`:
+//   "delete":    storageProvider.delete() pro File (best-effort) + Row hard-delete
 //   "anonymize": insertedById=null, Row + binary bleiben (FK-Refs
 //                koennen weiter zeigen; Personenbezug raus)
 //
@@ -22,12 +21,17 @@ import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 // idempotent, KEIN globaler Rollback — wenn ein File-Delete failt,
 // bleibt der User-Row trotzdem anonymisiert.
 //
-// Storage-Provider kommt aus dem App-Bootstrap (createBunServer-
-// options.files.storageProvider). Wir greifen darauf via ctx — der
-// Hook-ctx hat aktuell nur db/tenantId/userId, also fuer Storage-
-// Calls braucht es eine Erweiterung. S2.U3 Export-Job-Pipeline regelt
-// das (Job-ctx hat ctx.files.ref(key)). Hier lassen wir Storage-
-// Cleanup als TODO und faellen das in S2.U5 nochmal an.
+// `storageProvider` ist optional. App-Author wired es beim
+// Feature-Mount rein (`createUserDataRightsDefaultsFeature({
+// storageProvider })`). Ohne Provider macht der Hook row-only-delete,
+// die Bytes leaken — der Caller bekommt EINEN Warn beim ersten Lauf
+// pro Process, damit die Konfiguration sichtbar fehlerhaft ist.
+//
+// Caveat: hard-delete via deleteMany emittiert KEIN fileRef.deleted —
+// die storage-tracking-MSP dekrementiert nicht. Wenn die zu loeschenden
+// Files vorher nicht soft-deleted waren, bleibt `tenant_storage_usage`
+// inflated. Forget-Flows sind selten (per-User-Art.-17) und damit
+// bounded; ein executor.purge-API folgt mit dem trashed-files-GC.
 
 export const fileRefExportHook: UserDataExportHook = async (ctx) => {
   // isDeleted:false — soft-deleted (trashed) Files gehören nicht ins
@@ -76,22 +80,54 @@ export const fileRefExportHook: UserDataExportHook = async (ctx) => {
   };
 };
 
-export const fileRefDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
-  if (strategy === "delete") {
-    // Hard-delete der FileRef-Rows fuer diesen User in diesem Tenant.
-    // Storage-Binary-Cleanup folgt in S2.U5 wenn der Forget-Job-Ctx
-    // den Storage-Provider exposed.
-    await deleteMany(ctx.db, fileRefsTable, { tenantId: ctx.tenantId, insertedById: ctx.userId });
-  } else {
-    // anonymize: insertedById=null, FileRef + binary bleiben.
-    // Use-case: shared chat-Attachment in einem Multi-User-Channel —
-    // Author-Identifikation raus, Datei bleibt fuer andere User
-    // sichtbar.
-    await updateMany(
-      ctx.db,
-      fileRefsTable,
-      { insertedById: null },
-      { tenantId: ctx.tenantId, insertedById: ctx.userId },
-    );
-  }
-};
+let missingStorageWarned = false;
+
+export function createFileRefDeleteHook(
+  storageProvider: FileStorageProvider | undefined,
+): UserDataDeleteHook {
+  return async (ctx, strategy) => {
+    if (strategy === "delete") {
+      if (storageProvider) {
+        const rows = await selectMany(ctx.db, fileRefsTable, {
+          tenantId: ctx.tenantId,
+          insertedById: ctx.userId,
+        });
+        for (const row of rows) {
+          const key = (row as Record<string, unknown>)["storageKey"]; // @cast-boundary db-row
+          if (typeof key !== "string" || key.length === 0) continue;
+          try {
+            await storageProvider.delete(key);
+          } catch (err) {
+            // biome-ignore lint/suspicious/noConsole: operator-visibility for binary-cleanup-failure
+            console.warn(
+              `[user-data-rights-defaults:fileRef] storage delete failed key=${key} err=${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+        }
+      } else if (!missingStorageWarned) {
+        missingStorageWarned = true;
+        // biome-ignore lint/suspicious/noConsole: misconfiguration visibility — disk-leak in forget-flow
+        console.warn(
+          "[user-data-rights-defaults:fileRef] no storageProvider configured — file binaries are NOT deleted on forget. Pass createUserDataRightsDefaultsFeature({ storageProvider }) to fix.",
+        );
+      }
+      await deleteMany(ctx.db, fileRefsTable, { tenantId: ctx.tenantId, insertedById: ctx.userId });
+    } else {
+      // anonymize: insertedById=null, FileRef + binary bleiben.
+      // Use-case: shared chat-Attachment in einem Multi-User-Channel —
+      // Author-Identifikation raus, Datei bleibt fuer andere User
+      // sichtbar.
+      await updateMany(
+        ctx.db,
+        fileRefsTable,
+        { insertedById: null },
+        { tenantId: ctx.tenantId, insertedById: ctx.userId },
+      );
+    }
+  };
+}
+
+// Legacy export: storage-less hook for callers that haven't migrated.
+// Binaries are NOT cleaned up — disk leak. Migrate to
+// createUserDataRightsDefaultsFeature({ storageProvider }).
+export const fileRefDeleteHook: UserDataDeleteHook = createFileRefDeleteHook(undefined);
