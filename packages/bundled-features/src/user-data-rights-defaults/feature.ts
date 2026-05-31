@@ -3,8 +3,19 @@ import {
   EXT_USER_DATA,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { fileRefDeleteHook, fileRefExportHook } from "./hooks/file-ref.userdata-hook";
+import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
+import { createFileRefDeleteHook, fileRefExportHook } from "./hooks/file-ref.userdata-hook";
 import { userDeleteHook, userExportHook } from "./hooks/user.userdata-hook";
+
+export interface UserDataRightsDefaultsOptions {
+  /**
+   * Wired into the fileRef delete-hook: on strategy="delete" the hook
+   * calls `storageProvider.delete(key)` per row before hard-deleting
+   * the row. Without it, file binaries leak on forget (Art. 17) — the
+   * hook logs a one-shot warning so misconfiguration stays visible.
+   */
+  readonly storageProvider?: FileStorageProvider;
+}
 
 // user-data-rights-defaults — Default-Hooks für die Core-Entities
 // `user` (S2.H1) und `fileRef` (S2.H2).
@@ -23,7 +34,10 @@ import { userDeleteHook, userExportHook } from "./hooks/user.userdata-hook";
 // Pattern matched file-foundation + file-provider-s3 (separate Plugin-
 // Feature), nicht user/files schreiben ihre eigenen Hooks selbst weil
 // das circular-requires waere.
-export function createUserDataRightsDefaultsFeature(): FeatureDefinition {
+export function createUserDataRightsDefaultsFeature(
+  options: UserDataRightsDefaultsOptions = {},
+): FeatureDefinition {
+  const fileRefDeleteHook = createFileRefDeleteHook(options.storageProvider);
   return defineFeature("user-data-rights-defaults", (r) => {
     r.requires("user", "files", "user-data-rights");
 

@@ -9,13 +9,17 @@
 //      Drizzle's mode:"number", so arithmetic in assertions Just Works).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { asRawClient, selectMany } from "../../db/query";
+import { createTenantDb } from "../../db/tenant-db";
 import type { SessionUser } from "../../engine";
 import { createTestUser, setupTestStack, type TestStack, TestUsers } from "../../stack";
 import { buildMultipartBody, patchFileInstanceofForBunTest } from "../../testing";
 import {
   createFilesFeature,
   createInMemoryFileProvider,
+  fileRefEntity,
+  fileRefsTable,
   filesStorageTrackingFeature,
   type InMemoryFileProvider,
   tenantStorageUsageTable,
@@ -63,7 +67,7 @@ beforeEach(async () => {
   await stack.eventDispatcher?.ensureRegistered();
 });
 
-async function upload(user: SessionUser, name: string, content: Uint8Array): Promise<void> {
+async function upload(user: SessionUser, name: string, content: Uint8Array): Promise<string> {
   const token = await stack.jwt.sign(user);
   const formData = new FormData();
   formData.append("file", new File([Buffer.from(content)], name, { type: "image/png" }));
@@ -74,6 +78,28 @@ async function upload(user: SessionUser, name: string, content: Uint8Array): Pro
     body: multipartBody,
   });
   expect(res.status).toBe(201);
+  const body = (await res.json()) as { id: string };
+  return body.id;
+}
+
+async function deleteFile(user: SessionUser, id: string): Promise<void> {
+  const token = await stack.jwt.sign(user);
+  const res = await stack.app.request(`/api/files/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  expect(res.status).toBe(200);
+}
+
+async function restoreFile(user: SessionUser, id: string): Promise<void> {
+  // No HTTP route for restore — drive the entity executor directly, which is
+  // the same path file-routes uses for create/delete. Emits fileRef.restored
+  // with { previous } that the MSP re-increments on.
+  const executor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
+    entityName: "fileRef",
+  });
+  const result = await executor.restore({ id }, user, createTenantDb(stack.db, user.tenantId));
+  if (!result.isSuccess) throw new Error(`restore failed: ${JSON.stringify(result)}`);
 }
 
 async function usageFor(tenantId: string): Promise<{ totalBytes: number; fileCount: number }> {
@@ -119,6 +145,32 @@ describe("tenant-storage-usage MSP", () => {
 
     expect(adminUsage).toEqual({ totalBytes: SMALL.length, fileCount: 1 });
     expect(otherUsage).toEqual({ totalBytes: LARGE.length, fileCount: 1 });
+  });
+
+  test("delete decrements totalBytes and fileCount by the deleted file's size", async () => {
+    const idSmall = await upload(admin, "a.png", SMALL);
+    await upload(admin, "b.png", LARGE);
+    await stack.eventDispatcher?.runOnce();
+
+    await deleteFile(admin, idSmall);
+    await stack.eventDispatcher?.runOnce();
+
+    const usage = await usageFor(admin.tenantId);
+    expect(usage).toEqual({ totalBytes: LARGE.length, fileCount: 1 });
+  });
+
+  test("restore re-increments after delete — round-trip leaves usage unchanged", async () => {
+    const id = await upload(admin, "a.png", SMALL);
+    await stack.eventDispatcher?.runOnce();
+    expect(await usageFor(admin.tenantId)).toEqual({ totalBytes: SMALL.length, fileCount: 1 });
+
+    await deleteFile(admin, id);
+    await stack.eventDispatcher?.runOnce();
+    expect(await usageFor(admin.tenantId)).toEqual({ totalBytes: 0, fileCount: 0 });
+
+    await restoreFile(admin, id);
+    await stack.eventDispatcher?.runOnce();
+    expect(await usageFor(admin.tenantId)).toEqual({ totalBytes: SMALL.length, fileCount: 1 });
   });
 
   test("lastUpdatedAt is set and advances on subsequent uploads", async () => {

@@ -17,13 +17,22 @@ import { defineFeature } from "../engine";
 
 // fileRef is a standard ES entity, so usage tracking subscribes to its
 // auto-verb events. `fileRef.created` payload carries the entity fields
-// (incl. size); `fileRef.deleted` carries `{ previous }` (the pre-delete
-// row), so the byte count to reverse lives at previous.size.
+// (incl. size); `fileRef.deleted` / `fileRef.restored` carry `{ previous }`
+// (the pre-event row), so the byte count to apply lives at previous.size.
 const FILE_REF_CREATED = entityEventName("fileRef", "created");
 const FILE_REF_DELETED = entityEventName("fileRef", "deleted");
+const FILE_REF_RESTORED = entityEventName("fileRef", "restored");
 
 function readNumber(value: unknown): number {
   return typeof value === "number" ? value : 0;
+}
+
+function sizeFromPrevious(payload: Record<string, unknown>): number {
+  const previous = payload["previous"];
+  if (previous && typeof previous === "object" && !Array.isArray(previous)) {
+    return readNumber((previous as Record<string, unknown>)["size"]); // @cast-boundary engine-payload
+  }
+  return 0;
 }
 
 // bigint in `mode: "number"` returns a JS number (safe up to 2^53 ≈ 9e15
@@ -59,12 +68,7 @@ export const filesStorageTrackingFeature = defineFeature("files-storage-tracking
         );
       },
       [FILE_REF_DELETED]: async (event, tx) => {
-        // Delete events carry the pre-delete row under `previous`.
-        const previous = event.payload["previous"];
-        const size =
-          previous && typeof previous === "object" && !Array.isArray(previous)
-            ? readNumber((previous as Record<string, unknown>)["size"]) // @cast-boundary engine-payload
-            : 0;
+        const size = sizeFromPrevious(event.payload);
         // Decrement on delete. INSERT values are 0/0 so a delete that somehow
         // precedes any upload can't create negative usage; the on-conflict
         // path applies the real negative delta. Async (dispatcher) —
@@ -74,6 +78,19 @@ export const filesStorageTrackingFeature = defineFeature("files-storage-tracking
           tenantStorageUsageTable,
           { tenantId: event.tenantId, totalBytes: 0, fileCount: 0 },
           { totalBytes: -size, fileCount: -1 },
+          { set: { lastUpdatedAt: sql`now()` } },
+        );
+      },
+      [FILE_REF_RESTORED]: async (event, tx) => {
+        // Restore re-increments by the soft-deleted row's size — symmetric
+        // to delete. Without this handler totalBytes/fileCount drift low
+        // after every delete→restore round-trip.
+        const size = sizeFromPrevious(event.payload);
+        await incrementCounter(
+          tx,
+          tenantStorageUsageTable,
+          { tenantId: event.tenantId, totalBytes: size, fileCount: 1 },
+          { totalBytes: size, fileCount: 1 },
           { set: { lastUpdatedAt: sql`now()` } },
         );
       },

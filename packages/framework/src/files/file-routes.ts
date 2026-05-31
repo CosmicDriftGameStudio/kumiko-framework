@@ -236,7 +236,14 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     // entity, not a files-specific path.
     const result = await executor.delete({ id }, user, createTenantDb(db, user.tenantId));
     if (!result.isSuccess) {
-      return c.json({ error: "not_found" }, 404);
+      // NotFound (race between guard and executor) reuses the 404-masking
+      // pattern from the access-deny path above. Everything else (version
+      // conflict 409, ownership 403, validation 422, internal 500) gets the
+      // real status off the error so callers can distinguish recoverable
+      // from terminal — pauschales 404 hier hat genau das verschleiert.
+      const status = result.error.httpStatus as 400 | 403 | 404 | 409 | 422 | 500;
+      const code = status === 404 ? "not_found" : result.error.code;
+      return c.json({ error: code }, status);
     }
     return c.json({ ok: true });
   });
