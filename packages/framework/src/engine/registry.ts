@@ -422,18 +422,18 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     // Lifecycle hooks: keyed by handler QN. featureName rides along on each
     // hook entry — defineFeature sets it, the registry just appends.
     // Save/delete hooks target write handlers, query hooks target query handlers.
-    mergeHookListQualified(preSaveHooks, feature.hooks.preSave, feature.name, "write");
-    mergeHookListQualified(postSaveHooks, feature.hooks.postSave, feature.name, "write");
-    mergeHookListQualified(preDeleteHooks, feature.hooks.preDelete, feature.name, "write");
-    mergeHookListQualified(postDeleteHooks, feature.hooks.postDelete, feature.name, "write");
-    mergeHookListQualified(preQueryHooks, feature.hooks.preQuery, feature.name, "query");
-    mergeHookListQualified(postQueryHooks, feature.hooks.postQuery, feature.name, "query");
+    mergeHookListQualified(preSaveHooks, feature.hooks?.preSave, feature.name, "write");
+    mergeHookListQualified(postSaveHooks, feature.hooks?.postSave, feature.name, "write");
+    mergeHookListQualified(preDeleteHooks, feature.hooks?.preDelete, feature.name, "write");
+    mergeHookListQualified(postDeleteHooks, feature.hooks?.postDelete, feature.name, "write");
+    mergeHookListQualified(preQueryHooks, feature.hooks?.preQuery, feature.name, "query");
+    mergeHookListQualified(postQueryHooks, feature.hooks?.postQuery, feature.name, "query");
 
     // Entity hooks: NOT prefixed, keyed by entity name
-    mergeHookList(entityPostSaveHooks, feature.entityHooks.postSave);
-    mergeHookList(entityPreDeleteHooks, feature.entityHooks.preDelete);
-    mergeHookList(entityPostDeleteHooks, feature.entityHooks.postDelete);
-    mergeHookList(entityPostQueryHooks, feature.entityHooks.postQuery);
+    mergeHookList(entityPostSaveHooks, feature.entityHooks?.postSave);
+    mergeHookList(entityPreDeleteHooks, feature.entityHooks?.preDelete);
+    mergeHookList(entityPostDeleteHooks, feature.entityHooks?.postDelete);
+    mergeHookList(entityPostQueryHooks, feature.entityHooks?.postQuery);
 
     // F3 search-payload-extensions: per-entity contributors merged additively
     for (const [entityName, contributors] of Object.entries(
@@ -453,9 +453,9 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       }
       extensionMap.set(extName, extDef);
     }
-    extensionUsages.push(...feature.extensionUsages);
-    allReferenceData.push(...feature.referenceData);
-    allConfigSeeds.push(...feature.configSeeds);
+    extensionUsages.push(...(feature.extensionUsages ?? []));
+    allReferenceData.push(...(feature.referenceData ?? []));
+    allConfigSeeds.push(...(feature.configSeeds ?? []));
 
     // Metrics: validate + qualify per feature. Collisions across features are
     // rejected here — two features can't both register "created_total" under
@@ -477,7 +477,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     // Secret keys: already qualified during defineFeature (same "<feature>:<short>"
     // convention used elsewhere). Reject cross-feature duplicates — extensions
     // could theoretically register on another feature's namespace.
-    for (const def of Object.values(feature.secretKeys)) {
+    for (const def of Object.values(feature.secretKeys ?? {})) {
       if (secretKeyMap.has(def.qualifiedName)) {
         throw new Error(
           `[Kumiko Secrets] Secret key "${def.qualifiedName}" registered multiple times. ` +
@@ -567,7 +567,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     // correctness — the only way to hit this is a hand-built FeatureDefinition
     // bypassing defineFeature's per-feature duplicate check.
     const declaredShortNames = new Set<string>();
-    for (const def of Object.values(feature.claimKeys)) {
+    for (const def of Object.values(feature.claimKeys ?? {})) {
       if (claimKeyMap.has(def.qualifiedName)) {
         throw new Error(
           `[Kumiko ClaimKeys] Claim key "${def.qualifiedName}" registered multiple times. ` +
@@ -670,7 +670,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     // on undeclared inner-keys (typo / rename drift). Features that don't
     // declare claimKeys skip the check entirely — it's opt-in.
     const declaredKeys = declaredShortNames.size > 0 ? declaredShortNames : undefined;
-    for (const fn of feature.authClaimsHooks) {
+    for (const fn of feature.authClaimsHooks ?? []) {
       authClaimsHooks.push({
         featureName: feature.name,
         fn,
@@ -1035,7 +1035,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
   // Validate: all required features must be registered
   for (const feature of features) {
-    for (const required of feature.requires) {
+    for (const required of feature.requires ?? []) {
       if (!featureMap.has(required)) {
         throw new Error(
           `Feature "${feature.name}" requires feature "${required}" which is not registered`,
