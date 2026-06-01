@@ -54,9 +54,12 @@ export function ExtensionSectionsProvider({
 /** Schaut die Component für einen extension-section-Namen nach. Returnt
  *  undefined wenn weder Provider gemounted noch der Name in der Map
  *  registriert ist — der Caller (RenderEdit) zeigt dann seinen
- *  Placeholder-Banner. */
-export function useExtensionSectionComponent(name: string): ExtensionSectionComponent | undefined {
+ *  Placeholder-Banner. `name` ist optional damit Caller den Hook
+ *  unkonditional aufrufen können (Rules-of-Hooks), ohne einen Stub-Key
+ *  wie `""` reichen zu müssen — analog `useColumnRenderer`. */
+export function useExtensionSectionComponent(name?: string): ExtensionSectionComponent | undefined {
   const map = useContext(ExtensionSectionsContext);
+  if (name === undefined || name === "") return undefined;
   if (map === undefined) return undefined;
   return map[name];
 }

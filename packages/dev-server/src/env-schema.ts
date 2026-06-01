@@ -47,7 +47,7 @@ export const frameworkCoreEnvSchema = z.object({
     ),
 
   // `z.string().optional()` (not `z.literal("1")`) — the run-prod-app
-  // call-site (`process.env["KUMIKO_SKIP_ES_OPS"] !== "1"`) ignores any
+  // call-site (`envSource["KUMIKO_SKIP_ES_OPS"] !== "1"`) ignores any
   // value other than literal "1". A stricter schema would reject e.g.
   // "true" / "yes" that the runtime silently ignores, surfacing
   // boot-errors for inputs the framework doesn't actually care about.

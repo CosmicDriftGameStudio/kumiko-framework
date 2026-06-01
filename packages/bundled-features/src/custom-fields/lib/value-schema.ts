@@ -47,20 +47,32 @@ export function buildCustomFieldValueSchema(parsedField: unknown): z.ZodTypeAny 
   // Embedded sub-fields: pre-check the sub-type set so we surface unknown
   // sub-types as "skip validation" (return null) rather than letting
   // fieldToZod's assertUnreachable throw and the catch swallow real bugs.
+  // Build a constraint-stripped copy of each sub-field in the same pass —
+  // symmetric with the top-level strip below. Without it a sub-field's
+  // `required` folds into z.string().min(1) + non-optional, re-enforcing a
+  // constraint the contract ("type-mismatches and ONLY type-mismatches")
+  // drops everywhere else.
+  let strippedSubSchema: Record<string, Record<string, unknown>> | undefined;
   if (rawType === "embedded") {
     const schema = obj["schema"];
     if (!schema || typeof schema !== "object") return null;
-    for (const sub of Object.values(schema)) {
+    strippedSubSchema = {};
+    for (const [subKey, sub] of Object.entries(schema)) {
       if (!sub || typeof sub !== "object") return null;
-      const subType = (sub as Record<string, unknown>)["type"];
+      const subObj = sub as Record<string, unknown>;
+      const subType = subObj["type"];
       if (typeof subType !== "string" || !SUPPORTED_EMBEDDED_SUB_TYPES.has(subType)) {
         return null;
       }
+      const strippedSub = { ...subObj };
+      for (const k of CONSTRAINT_KEYS) delete strippedSub[k];
+      strippedSubSchema[subKey] = strippedSub;
     }
   }
 
   const fieldDef: Record<string, unknown> = { ...obj };
   for (const k of CONSTRAINT_KEYS) delete fieldDef[k];
+  if (strippedSubSchema !== undefined) fieldDef["schema"] = strippedSubSchema;
   if (rawType === "enum") {
     fieldDef["type"] = "select";
     fieldDef["options"] = obj["values"] ?? obj["options"] ?? [];

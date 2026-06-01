@@ -249,7 +249,7 @@ function renderMain(appName: string): string {
       "// Production-bootstrap. KUMIKO_DRY_RUN_ENV=boot exits after",
       "// composeFeatures + validateBoot + createRegistry without DB/Redis-connect",
       "// (siehe @cosmicdrift/kumiko-dev-server runProdApp). Echter Dev-Boot",
-      "// passiert via `bun kumiko dev` (in-repo dev-tool) mit Docker-stack — DX-1.0 deckt nur",
+      "// passiert via `bunx kumiko dev` (in-repo dev-tool) mit Docker-stack — DX-1.0 deckt nur",
       "// den boot-mode-Pfad ab; `kumiko dev` kommt in einer späteren DX-Phase.",
       "",
       "",
