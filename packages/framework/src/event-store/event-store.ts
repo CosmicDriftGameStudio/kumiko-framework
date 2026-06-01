@@ -4,6 +4,7 @@ import {
   insertSubsequentEventRow,
   notifyPgChannel,
   selectAggregateMaxVersion,
+  selectAggregateStreamTenant,
   selectEventsHighWaterMark,
   selectStreamMaxVersion,
 } from "../db/queries/event-store";
@@ -280,6 +281,20 @@ export async function getAggregateStreamMaxVersion(
   aggregateId: string,
 ): Promise<number> {
   return selectAggregateMaxVersion(db, aggregateId);
+}
+
+/** Stream tenant of an aggregate (the tenant_id its events live under), with no
+ *  membership/tenant filter. Recovers the write target for a systemScope
+ *  aggregate whose stream tenant isn't one of the subject's memberships.
+ *  Returns null for unknown streams. */
+export async function getAggregateStreamTenant(
+  db: DbRunner,
+  aggregateId: string,
+  aggregateType: string,
+): Promise<TenantId | null> {
+  const tenantId = await selectAggregateStreamTenant(db, aggregateId, aggregateType);
+  // DB-boundary: kumiko_events.tenant_id is a TenantId-shaped uuid column.
+  return tenantId as TenantId | null;
 }
 
 // Global high-water-mark = MAX(events.id). Marten/Wolverine standard for

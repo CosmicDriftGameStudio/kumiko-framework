@@ -303,6 +303,37 @@ describe("POST /auth/reset-password", () => {
     const body = await second.json();
     expect(body.error?.details?.reason).toBe(AuthErrors.invalidResetToken);
   });
+
+  test("user whose aggregate stream lives in a tenant they are NOT a member of can still reset", async () => {
+    // Mirror of the verify-email sysadmin repro: aggregate stream in …0001
+    // (created via systemAdmin), only membership on …0002. The reset must
+    // target the real stream tenant, not the membership tenant.
+    const membershipTenant = "00000000-0000-4000-8000-000000000002" as TenantId;
+    const seed = await seedUser({
+      email: "sysadmin-reset@example.com",
+      password: "pw-old-sysadmin-1234",
+      tenantId: membershipTenant,
+    });
+
+    const streamRows = (await asRawClient(stack.db).unsafe(
+      `SELECT "tenant_id", "aggregate_type" FROM "kumiko_events" WHERE "aggregate_id" = $1 ORDER BY "version" LIMIT 1`,
+      [seed.id],
+    )) as ReadonlyArray<{ tenant_id: string; aggregate_type: string }>;
+    expect(streamRows[0]?.aggregate_type).toBe("user");
+    expect(streamRows[0]?.tenant_id).toBe(systemAdmin.tenantId);
+    expect(streamRows[0]?.tenant_id).not.toBe(membershipTenant);
+
+    const { token } = signResetToken(seed.id, 15, resetSecret);
+    const res = await post("/api/auth/reset-password", {
+      token,
+      newPassword: "pw-new-sysadmin-1234",
+    });
+    expect(res.status).toBe(200);
+
+    const row = (await selectMany(stack.db, userTable)).find((r) => r["id"] === seed.id);
+    const valid = await verifyPassword(row?.["passwordHash"] as string, "pw-new-sysadmin-1234");
+    expect(valid).toBe(true);
+  });
 });
 
 // --- session auto-revoke (H.3 cross-feature hook) -------------------------

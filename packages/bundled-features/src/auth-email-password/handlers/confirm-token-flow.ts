@@ -29,8 +29,9 @@ import {
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
+import { getAggregateStreamTenant } from "@cosmicdrift/kumiko-framework/event-store";
 import type Redis from "ioredis";
-import { UserHandlers, UserQueries } from "../../user";
+import { USER_FEATURE, UserHandlers, UserQueries } from "../../user";
 import type { AuthUserRow } from "../auth-user-row";
 import { parseAuthUserRow } from "../auth-user-row";
 import { orderTenantsByPreference } from "../stream-tenant";
@@ -153,7 +154,21 @@ async function resolveStreamTenants(
   const memberships = (await ctx.queryAs(systemUser, "tenant:query:memberships", {
     userId: me.id,
   })) as Array<{ tenantId: TenantId }>; // @cast-boundary db-runner
-  return orderTenantsByPreference(memberships, me.lastActiveTenantId);
+  const ordered = orderTenantsByPreference(memberships, me.lastActiveTenantId);
+  if (ordered.length === 0) return [];
+
+  // The user aggregate is r.systemScope(): its event stream lives in whichever
+  // tenant the creating executor used, which need NOT be a membership tenant.
+  // A platform operator seeded under a fixture/platform tenant is the live case
+  // — its stream tenant is absent from `ordered`, so a membership-only search
+  // rejects every write and collapses to invalid_token. Recover the real stream
+  // tenant from the event log and try it first; memberships stay as fallback,
+  // and an empty/unknown lookup degrades to the prior membership-only behaviour.
+  const streamTenant = await getAggregateStreamTenant(ctx.db.raw, me.id, USER_FEATURE);
+  if (streamTenant && !ordered.includes(streamTenant)) {
+    return [streamTenant, ...ordered];
+  }
+  return ordered;
 }
 
 // Discriminated result for the write-across-tenants loop.

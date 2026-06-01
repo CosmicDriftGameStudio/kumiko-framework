@@ -177,7 +177,8 @@
     "../kumiko-framework/packages/framework/src/event-store/event-store.ts": {
       "ReadonlyArray<{ id: string | bigint; created_at: Date | stri": 1,
       "ReadonlyArray<{ max: bigint | string | number | null }>": 1,
-      "ReadonlyArray<{ v: number | null }>": 1
+      "ReadonlyArray<{ v: number | null }>": 1,
+      "TenantId | null": 1
     },
     "../kumiko-framework/packages/framework/src/migrations/projection-detection.ts": {
       "Record<symbol, unknown>": 1

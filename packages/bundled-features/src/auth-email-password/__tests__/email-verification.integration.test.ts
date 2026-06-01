@@ -322,3 +322,35 @@ describe("login with strict email-verification", () => {
     expect(body.error?.details?.reason).toBe(AuthErrors.invalidCredentials);
   });
 });
+
+describe("verify-email — aggregate stream in a non-membership tenant (sysadmin pattern)", () => {
+  test("user whose aggregate stream lives in a tenant they are NOT a member of still verifies", async () => {
+    // Prod sysadmin repro: the user aggregate is created via `systemAdmin`,
+    // so its event stream lives in systemAdmin.tenantId (…0001), while the
+    // user's ONLY membership is on a different tenant (…0002). resolveStream-
+    // Tenants must discover the real stream tenant from the event log — if it
+    // only tried membership tenants, every write would target …0002, get a
+    // version_conflict, collapse to all_conflicts → invalid_verification_token.
+    const membershipTenant = "00000000-0000-4000-8000-000000000002" as TenantId;
+    const seed = await seedUser({
+      email: "sysadmin-pattern@example.com",
+      password: "pw-sysadmin-pat-1234",
+      tenantId: membershipTenant,
+    });
+
+    const streamRows = (await asRawClient(stack.db).unsafe(
+      `SELECT "tenant_id", "aggregate_type" FROM "kumiko_events" WHERE "aggregate_id" = $1 ORDER BY "version" LIMIT 1`,
+      [seed.id],
+    )) as ReadonlyArray<{ tenant_id: string; aggregate_type: string }>;
+    expect(streamRows[0]?.aggregate_type).toBe("user");
+    expect(streamRows[0]?.tenant_id).toBe(systemAdmin.tenantId);
+    expect(streamRows[0]?.tenant_id).not.toBe(membershipTenant);
+
+    const { token } = signVerificationToken(seed.id, 60, verifySecret);
+    const res = await post("/api/auth/verify-email", { token });
+    expect(res.status).toBe(200);
+
+    const row = (await selectMany(stack.db, userTable)).find((r) => r["id"] === seed.id);
+    expect(row?.["emailVerified"]).toBe(true);
+  });
+});
