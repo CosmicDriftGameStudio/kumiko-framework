@@ -1,5 +1,58 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.24.1
+
+### Patch Changes
+
+- 35d5833: Stop swallowing errors at six review-flagged sites (fail-closed / make visible
+  instead of silently dropping).
+
+  - **framework — dispatcher postQuery (single-object result):** a hook that
+    returned 0 rows used to fall back to the unhooked original (`rows[0] ?? result`),
+    and ≥2 rows silently dropped the extras. A single-object response can only
+    carry one row, so this now throws instead of hiding the contract violation.
+  - **bundled-features — custom-fields write access-gate:** when a field
+    definition row exists but its `serialized_field` is corrupt, the per-field
+    `fieldAccess.write` check fell open (`{ ok: true }`) and let the write through
+    unvalidated. It now fails closed with `field_definition_corrupt` (secure-by-default).
+  - **bundled-features — compliance-profiles override parser:** a corrupt stored
+    override is still ignored, but the warning now preserves the parser's failure
+    reason instead of flattening it to a generic message.
+  - **dev-server — scaffold-deploy:** a malformed `package.json` no longer
+    silently skips private-GitHub-package detection; it warns so the
+    mis-detection (and a later `yarn install` YN0041) is traceable.
+
+- 52cd396: Fix a batch of "wrong-api" issues surfaced in PR review:
+
+  - **`runProdApp` boot-path now reads the injected `envSource`, not the real
+    `process.env`.** `requireEnv`/`readEnv`, the `PORT` read, and the
+    `KUMIKO_SKIP_ES_OPS` guard all thread the validated env-source (default
+    `process.env`), so a caller injecting env (tests / mirrored boot) fully
+    controls configuration instead of silently picking up ambient values.
+  - **`set-custom-field` embedded validation is now type-shape only.** Embedded
+    sub-fields had their `required`/`maxLength`/`format`/`default` constraints
+    stripped at the top level but not per sub-field, so a required sub-field
+    still rejected missing/empty values — contrary to the documented
+    "type-mismatches and ONLY type-mismatches" contract. Embedded values with a
+    missing or empty required sub-field are now accepted (the constraint is
+    enforced elsewhere, not at set-time), matching the top-level behavior.
+  - **`useExtensionSectionComponent(name?)` accepts an optional name**, mirroring
+    `useColumnRenderer`, so callers can invoke the hook unconditionally without
+    passing a `""` stub.
+  - **`kumiko init-deploy` scaffolds into `ctx.cwd`** (not `process.cwd()`) and
+    derives the displayed paths via `node:path` `relative(ctx.cwd, …)`, so the
+    write target and the printed paths share one root under injected working
+    directories.
+  - Generated dev-app comment uses the valid `bunx kumiko dev` invocation.
+
+- Updated dependencies [35d5833]
+- Updated dependencies [6079a87]
+- Updated dependencies [b497f4d]
+- Updated dependencies [52cd396]
+- Updated dependencies [c5fe2ba]
+  - @cosmicdrift/kumiko-framework@0.24.1
+  - @cosmicdrift/kumiko-bundled-features@0.24.1
+
 ## 0.24.0
 
 ### Patch Changes
