@@ -13,6 +13,7 @@ import { buildEntityTable, toTableName } from "../db/table-builder";
 import type { EventDispatcher } from "../pipeline";
 
 const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
+const KUMIKO_META_SYMBOL = Symbol.for("kumiko:schema:Meta");
 function tableNameOf(table: unknown): string {
   if (typeof table !== "object" || table === null) {
     throw new Error("table-helpers: table is not a SchemaTable object");
@@ -53,17 +54,26 @@ export async function unsafeEnsureEntityTable(
 // Tables produced by the native dialect already carry EntityTableMeta-shape
 // (source/columns/indexes). renderTableDdl converts that to CREATE TABLE +
 // CREATE INDEX statements executed via db/queries/test-stack.
+function isMetaShape(v: unknown): v is EntityTableMeta {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    typeof (v as EntityTableMeta).tableName === "string" &&
+    Array.isArray((v as EntityTableMeta).columns) &&
+    "indexes" in v &&
+    "source" in v
+  );
+}
+
 function tableToMeta(table: unknown): EntityTableMeta {
-  if (
-    typeof table === "object" &&
-    table !== null &&
-    "tableName" in table &&
-    "columns" in table &&
-    "indexes" in table &&
-    "source" in table
-  ) {
-    return table as EntityTableMeta;
+  // table() spreads column handles as enumerable props, so a field named
+  // `columns`/`tableName`/`source`/… shadows the matching meta key — read the
+  // canonical meta from the unshadowable symbol when present.
+  if (table !== null && typeof table === "object") {
+    const fromSymbol = (table as Record<symbol, unknown>)[KUMIKO_META_SYMBOL];
+    if (isMetaShape(fromSymbol)) return fromSymbol;
   }
+  if (isMetaShape(table)) return table;
   throw new Error("unsafePushTables: argument is not a SchemaTable / EntityTableMeta");
 }
 

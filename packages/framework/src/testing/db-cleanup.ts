@@ -3,19 +3,17 @@
  * beforeEach hooks. All table clears go through typed `deleteMany` (empty
  * where = full table wipe). Raw SQL stays out of test files.
  */
+import type { EntityTableMeta } from "../db/entity-table-meta";
 import { type AnyDb, deleteMany } from "../db/query";
 
-const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
-const KUMIKO_COLUMNS_SYMBOL = Symbol.for("kumiko:schema:Columns");
-
-/** EntityTableMeta, drizzle pgTable, or plain table name string. */
+/** EntityTableMeta, a built table, or a plain table name string. */
 export type ClearableTable = string | { readonly tableName?: string } | unknown;
 
-function tableFromName(name: string): unknown {
-  return {
-    [KUMIKO_NAME_SYMBOL]: name,
-    [KUMIKO_COLUMNS_SYMBOL]: {},
-  };
+// A full-table wipe (empty where) only needs the table name — give deleteMany
+// a minimal-but-canonical EntityTableMeta so extractTableInfo accepts it
+// without inferring columns.
+function tableFromName(name: string): EntityTableMeta {
+  return { tableName: name, columns: [], indexes: [], source: "unmanaged" };
 }
 
 function resolveClearableTable(table: ClearableTable): unknown {

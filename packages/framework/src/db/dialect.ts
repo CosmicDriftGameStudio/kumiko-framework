@@ -40,6 +40,11 @@ export type ColumnHandle = {
 
 const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
 const KUMIKO_COLUMNS_SYMBOL = Symbol.for("kumiko:schema:Columns");
+// Shadow-proof handle on the EntityTableMeta. The column handles below are
+// spread as enumerable props, so an entity field named `source`/`columns`/
+// `tableName`/… would overwrite the matching meta key. extractTableInfo reads
+// the canonical meta from this symbol instead of the (shadowable) props.
+const KUMIKO_META_SYMBOL = Symbol.for("kumiko:schema:Meta");
 
 // SchemaTable — opaque shape with both EntityTableMeta + Symbol-based
 // introspection. Returned by `table(...)`.
@@ -469,6 +474,7 @@ export function table<TCols extends ColumnMap>(
   const out = Object.assign({}, base, handles, {
     [KUMIKO_NAME_SYMBOL]: tableName,
     [KUMIKO_COLUMNS_SYMBOL]: handles,
+    [KUMIKO_META_SYMBOL]: base,
   }) as SchemaTable;
   return out;
 }
