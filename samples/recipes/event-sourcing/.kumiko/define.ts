@@ -1,6 +1,6 @@
 // =====================================================================
 // AUTO-GENERATED — DO NOT EDIT BY HAND
-// Run `yarn kumiko codegen` to regenerate (or rely on the dev-server's
+// Run `bun kumiko codegen` to regenerate (or rely on the dev-server's
 // file-watcher, which calls it on every r.defineEvent change).
 // =====================================================================
 
