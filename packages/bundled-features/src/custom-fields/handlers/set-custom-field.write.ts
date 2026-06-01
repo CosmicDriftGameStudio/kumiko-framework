@@ -61,6 +61,9 @@ export const setCustomFieldHandler: WriteHandlerDef = {
     if (!loaded.found) {
       return failNotFound("fieldDefinition", payload.fieldKey);
     }
+    if (loaded.field === null) {
+      return failUnprocessable("field_definition_corrupt", { fieldKey: payload.fieldKey });
+    }
 
     const deniedRoles = fieldWriteAccessDeniedRoles(loaded.field, event.user.roles);
     if (deniedRoles) {

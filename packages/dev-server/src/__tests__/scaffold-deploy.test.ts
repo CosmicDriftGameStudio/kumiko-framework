@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -205,10 +205,17 @@ describe("scaffoldDeploy", () => {
       expect(df).not.toContain("ENV GITHUB_TOKEN");
     });
 
-    it("malformed package.json doesn't crash detection (defaults to no private deps)", () => {
-      writeFileSync(join(tmp, "package.json"), "{ this is not json");
-      const result = scaffoldDeploy({ appName: "broken", destination: tmp });
-      expect(result.detected.hasPrivateGhPackages).toBe(false);
+    it("malformed package.json warns + defaults to no private deps (mis-detection is visible)", () => {
+      const warn = spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        writeFileSync(join(tmp, "package.json"), "{ this is not json");
+        const result = scaffoldDeploy({ appName: "broken", destination: tmp });
+        expect(result.detected.hasPrivateGhPackages).toBe(false);
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(warn.mock.calls[0]?.[0]).toContain("is not valid JSON");
+      } finally {
+        warn.mockRestore();
+      }
     });
   });
 });

@@ -143,8 +143,14 @@ function detectOptionalSurfaces(sourceDir: string): ScaffoldDeployDetected {
       hasPrivateGhPackages = Object.keys(allDeps).some((d) =>
         d.startsWith("@cosmicdriftgamestudio/"),
       );
-    } catch {
-      // malformed package.json — assume no private packages, app-author can override via Dockerfile
+    } catch (err) {
+      // malformed package.json — assume no private packages, app-author can
+      // override via Dockerfile. Warn so a silent mis-detection (later YN0041
+      // on yarn install) is traceable to the scaffold step.
+      // biome-ignore lint/suspicious/noConsole: scaffold visibility for skipped private-package detection
+      console.warn(
+        `scaffoldDeploy: package.json at ${pkgJsonPath} is not valid JSON — private-GH-packages detection skipped (${err instanceof Error ? err.message : String(err)})`,
+      );
     }
   }
   return { hasSeeds, hasPrivateGhPackages };
