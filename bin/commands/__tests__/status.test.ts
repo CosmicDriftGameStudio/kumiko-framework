@@ -1,6 +1,5 @@
-import { spawnSync } from "node:child_process";
 import { afterEach, describe, expect, test } from "bun:test";
-import { makeContext, makeSpyOutput, makeTempCwd } from "../_test-helpers";
+import { makeContext, makeSpyOutput, makeTempCwd, runGit } from "../_test-helpers";
 import { statusCommand } from "../status";
 
 const cleanups: Array<() => void> = [];
@@ -37,10 +36,10 @@ describe("status command", () => {
   test("real git repo shows current branch + status", async () => {
     const cwd = tmp();
     // Setup a real, tiny git repo so we can verify the integration.
-    spawnSync("git", ["init", "-b", "main"], { cwd });
-    spawnSync("git", ["config", "user.email", "test@test"], { cwd });
-    spawnSync("git", ["config", "user.name", "Test"], { cwd });
-    spawnSync("git", ["commit", "--allow-empty", "-m", "init"], { cwd });
+    runGit(["init", "-b", "main"], cwd);
+    runGit(["config", "user.email", "test@test"], cwd);
+    runGit(["config", "user.name", "Test"], cwd);
+    runGit(["commit", "--allow-empty", "-m", "init"], cwd);
 
     const spy = makeSpyOutput();
     const exit = await statusCommand.run(makeContext({ cwd, out: spy.out }));
@@ -52,9 +51,9 @@ describe("status command", () => {
 
   test("dirty working tree is reported", async () => {
     const cwd = tmp({ "file.txt": "hello" });
-    spawnSync("git", ["init", "-b", "main"], { cwd });
-    spawnSync("git", ["config", "user.email", "test@test"], { cwd });
-    spawnSync("git", ["config", "user.name", "Test"], { cwd });
+    runGit(["init", "-b", "main"], cwd);
+    runGit(["config", "user.email", "test@test"], cwd);
+    runGit(["config", "user.name", "Test"], cwd);
     // Don't commit — file.txt stays untracked.
 
     const spy = makeSpyOutput();

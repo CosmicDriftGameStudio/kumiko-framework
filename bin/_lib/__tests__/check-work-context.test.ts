@@ -1,8 +1,8 @@
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
 import { afterEach, describe, expect, test } from "bun:test";
+import { runGit } from "../../commands/_test-helpers";
 import {
   formatCheckWorkContext,
   resolveCheckWorkContext,
@@ -66,12 +66,12 @@ describe("check-work-context", () => {
 
   test("resolveCheckWorkContext uses git worktree when package.json name is canonical", () => {
     const root = tempDir();
-    spawnSync("git", ["init", "-b", "main"], { cwd: root });
-    spawnSync("git", ["config", "user.email", "test@test"], { cwd: root });
-    spawnSync("git", ["config", "user.name", "Test"], { cwd: root });
+    runGit(["init", "-b", "main"], root);
+    runGit(["config", "user.email", "test@test"], root);
+    runGit(["config", "user.name", "Test"], root);
     writePkg(root, "kumiko-framework");
-    spawnSync("git", ["add", "package.json"], { cwd: root });
-    spawnSync("git", ["commit", "-m", "init"], { cwd: root });
+    runGit(["add", "package.json"], root);
+    runGit(["commit", "-m", "init"], root);
     const nested = join(root, "packages", "framework", "src");
     mkdirSync(nested, { recursive: true });
 
