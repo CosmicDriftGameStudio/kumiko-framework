@@ -143,6 +143,84 @@ jobs:
           MOLLIE_API_KEY: test_smoke
         run: bash samples/apps/use-all-bundled/scripts/bundle-smoke.sh
 
+  # Non-blocking: nicht in release.needs, nicht in Branch-Protection → der
+  # required `test`-Check bleibt unberührt. Fährt die ~213
+  # *.integration.test.ts via scripts/run-integration-tests.ts (dir-by-dir,
+  # concurrency=1) gegen den vollen Stack. test-setup/integration.preload.ts
+  # setzt die localhost-Env-Defaults selbst (kein --env-file nötig).
+  # cdgs-runner hat die docker-CLI aber kein compose-v2-Plugin → `docker run`
+  # + user-defined Network, damit der minio-Bucket-Init minio per
+  # Container-Name erreicht (wie es docker-compose.yml tat). Ersetzt den 2026
+  # entfernten postgres-smoke-Job (war flaky vor dem bun-db-Cutover).
+  integration:
+    runs-on: cdgs-runner
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+
+      - name: Cache Bun
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+
+      - name: Install
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
+        run: bun install --frozen-lockfile
+
+      - name: Start services
+        run: |
+          docker network create kumiko-ci
+          docker run -d --name kumiko-ci-pg --network kumiko-ci -p 15432:5432 \
+            -e POSTGRES_USER=kumiko -e POSTGRES_PASSWORD=kumiko -e POSTGRES_DB=kumiko_dev \
+            postgres:18.3-alpine
+          docker run -d --name kumiko-ci-redis --network kumiko-ci -p 16379:6379 redis:7-alpine
+          docker run -d --name kumiko-ci-meili --network kumiko-ci -p 17700:7700 \
+            -e MEILI_MASTER_KEY=kumiko-dev-key -e MEILI_ENV=development \
+            getmeili/meilisearch:v1.12
+          docker run -d --name kumiko-ci-minio --network kumiko-ci -p 19000:9000 \
+            -e MINIO_ROOT_USER=kumiko -e MINIO_ROOT_PASSWORD=kumiko-dev-secret \
+            minio/minio:RELEASE.2025-01-20T14-49-07Z server /data
+          for i in $(seq 1 30); do
+            if docker exec kumiko-ci-pg pg_isready -U kumiko -d postgres >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          docker exec kumiko-ci-pg pg_isready -U kumiko -d postgres
+          for i in $(seq 1 30); do
+            if docker exec kumiko-ci-redis redis-cli ping >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          docker exec kumiko-ci-redis redis-cli ping
+          for i in $(seq 1 30); do
+            if docker exec kumiko-ci-meili wget -q --spider http://127.0.0.1:7700/health 2>/dev/null; then break; fi
+            sleep 2
+          done
+          docker exec kumiko-ci-meili wget -q --spider http://127.0.0.1:7700/health
+          for i in $(seq 1 30); do
+            if docker run --rm --network kumiko-ci --entrypoint sh minio/mc:RELEASE.2025-01-17T23-25-50Z -c "mc alias set local http://kumiko-ci-minio:9000 kumiko kumiko-dev-secret && mc mb --ignore-existing local/kumiko-dev" >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          docker run --rm --network kumiko-ci --entrypoint sh minio/mc:RELEASE.2025-01-17T23-25-50Z -c "mc alias set local http://kumiko-ci-minio:9000 kumiko kumiko-dev-secret && mc ls local/kumiko-dev"
+
+      - name: Run integration tests
+        run: bun run test:integration
+
+      - name: Stop services
+        if: always()
+        run: |
+          docker rm -f kumiko-ci-pg kumiko-ci-redis kumiko-ci-meili kumiko-ci-minio || true
+          docker network rm kumiko-ci || true
+
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [test, use-all-bundled-smoke]
