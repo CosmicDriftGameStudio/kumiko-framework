@@ -13,6 +13,7 @@ export {
   type EventMetadata,
   type EventToAppend,
   getAggregateStreamMaxVersion,
+  getAggregateStreamTenant,
   getEventsHighWaterMark,
   getStreamVersion,
   loadAggregate,

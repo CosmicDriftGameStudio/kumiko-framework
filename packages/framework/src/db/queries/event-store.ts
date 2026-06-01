@@ -81,6 +81,22 @@ export async function selectAggregateMaxVersion(db: AnyDb, aggregateId: string):
   return rows[0]?.v ?? 0;
 }
 
+/** tenant_id the aggregate's events were written under — no membership/tenant
+ *  filter. A r.systemScope() aggregate (e.g. user) lives in whichever tenant
+ *  its creating executor used, which need not be a tenant the subject holds a
+ *  membership in. Returns null for unknown streams. */
+export async function selectAggregateStreamTenant(
+  db: AnyDb,
+  aggregateId: string,
+  aggregateType: string,
+): Promise<string | null> {
+  const rows = (await asRawClient(db).unsafe(
+    `SELECT "tenant_id" AS t FROM "kumiko_events" WHERE "aggregate_id" = $1 AND "aggregate_type" = $2 ORDER BY "version" LIMIT 1`,
+    [aggregateId, aggregateType],
+  )) as ReadonlyArray<{ t: string | null }>;
+  return rows[0]?.t ?? null;
+}
+
 export async function selectEventsHighWaterMark(db: AnyDb): Promise<bigint> {
   const rows = (await asRawClient(db).unsafe(
     `SELECT COALESCE(MAX("id"), 0)::bigint AS max FROM "kumiko_events"`,
