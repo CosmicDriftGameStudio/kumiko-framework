@@ -13,7 +13,11 @@ export const setCustomFieldPayloadSchema = z.object({
     .min(1)
     .max(64)
     .regex(/^[a-zA-Z][a-zA-Z0-9_-]*$/),
-  value: z.unknown(),
+  // z.unknown() is implicitly optional; reject a missing value here (clearing is
+  // clear-custom-field's job) so the projection never binds JSON.stringify(undefined).
+  value: z
+    .unknown()
+    .refine((v) => v !== undefined, "value is required (use clear-custom-field to remove a value)"),
 });
 export type SetCustomFieldPayload = z.infer<typeof setCustomFieldPayloadSchema>;
 

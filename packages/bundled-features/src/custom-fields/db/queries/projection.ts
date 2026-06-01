@@ -13,19 +13,22 @@ function bindJsonbParam(value: unknown): { sql: string; bound: unknown } {
   return { sql: "$1::jsonb", bound: value };
 }
 
+// Security invariant: aggregateId is a global row UUID, so without the tenant_id
+// filter tenant A could mutate tenant B's row by its UUID (cf. removeCustomFieldKeyForTenant).
 export async function setCustomFieldValue(
   db: DbRunner,
   tableName: string,
   fieldKey: string,
   value: unknown,
   aggregateId: string,
+  tenantId: string,
 ): Promise<void> {
   const tbl = quoteTable(tableName);
   const escapedKey = fieldKey.replace(/'/g, "''");
   const jsonb = bindJsonbParam(value);
   await asRawClient(db).unsafe(
-    `UPDATE ${tbl} SET custom_fields = jsonb_set(custom_fields, '{${escapedKey}}', ${jsonb.sql}, true) WHERE id = $2`,
-    [jsonb.bound, aggregateId],
+    `UPDATE ${tbl} SET custom_fields = jsonb_set(custom_fields, '{${escapedKey}}', ${jsonb.sql}, true) WHERE id = $2 AND tenant_id = $3`,
+    [jsonb.bound, aggregateId, tenantId],
   );
 }
 
@@ -34,11 +37,12 @@ export async function clearCustomFieldKey(
   tableName: string,
   fieldKey: string,
   aggregateId: string,
+  tenantId: string,
 ): Promise<void> {
   const tbl = quoteTable(tableName);
   await asRawClient(db).unsafe(
-    `UPDATE ${tbl} SET custom_fields = custom_fields - $1 WHERE id = $2`,
-    [fieldKey, aggregateId],
+    `UPDATE ${tbl} SET custom_fields = custom_fields - $1 WHERE id = $2 AND tenant_id = $3`,
+    [fieldKey, aggregateId, tenantId],
   );
 }
 

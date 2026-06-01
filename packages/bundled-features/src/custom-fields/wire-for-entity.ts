@@ -114,6 +114,7 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
           payload.fieldKey,
           payload.value,
           event.aggregateId,
+          event.tenantId,
         );
       },
       [clearedEventType]: async (event, tx) => {
@@ -124,7 +125,13 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
 
         // jsonb minus operator (`-`) entfernt key aus jsonb-object.
         const tableName = getTableName(entityTable);
-        await clearCustomFieldKey(tx, tableName, payload.fieldKey, event.aggregateId);
+        await clearCustomFieldKey(
+          tx,
+          tableName,
+          payload.fieldKey,
+          event.aggregateId,
+          event.tenantId,
+        );
       },
       [fieldDefDeletedType]: async (event, tx) => {
         // fieldDefinition.deleted fires nur einmal pro fieldDef-delete
