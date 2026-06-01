@@ -236,6 +236,43 @@ describe("scenario 5: change-password success", () => {
   });
 });
 
+describe("scenario 5b: change-password when the aggregate stream tenant != session tenant (sysadmin pattern)", () => {
+  test("user whose stream lives in a non-session tenant still changes password", async () => {
+    // Sysadmin pattern: created via systemAdmin (stream = systemAdmin.tenantId),
+    // only membership on a different tenant → the session/membership tenant
+    // diverges from where the aggregate actually lives. change-password writes
+    // as the session tenant; without recovering the real stream tenant it
+    // version_conflicts against an empty stream and the operator is locked out
+    // of rotating their own password.
+    const membershipTenant = testTenantId(2);
+    const seed = await seedLoginUser({
+      email: "sysadmin-cp@example.com",
+      password: "old-sysadmin-pw",
+      tenantId: membershipTenant,
+    });
+
+    const streamRows = (await asRawClient(stack.db).unsafe(
+      `SELECT "tenant_id" AS t FROM "kumiko_events" WHERE "aggregate_id" = $1 AND "aggregate_type" = $2 ORDER BY "version" LIMIT 1`,
+      [seed.id, "user"],
+    )) as ReadonlyArray<{ t: string }>;
+    expect(streamRows[0]?.t).toBe(systemAdmin.tenantId);
+    expect(streamRows[0]?.t).not.toBe(membershipTenant);
+
+    const signedIn = createTestUser({ id: seed.id, tenantId: seed.tenantId, roles: ["User"] });
+    await stack.http.writeOk(
+      AuthHandlers.changePassword,
+      { oldPassword: "old-sysadmin-pw", newPassword: "new-sysadmin-pw-long" },
+      signedIn,
+    );
+
+    const newRes = await stack.http.raw("POST", "/api/auth/login", {
+      email: "sysadmin-cp@example.com",
+      password: "new-sysadmin-pw-long",
+    });
+    expect(newRes.status).toBe(200);
+  });
+});
+
 // --- Scenario 6: logout is reachable for authenticated users ---
 
 describe("scenario 6: logout", () => {
