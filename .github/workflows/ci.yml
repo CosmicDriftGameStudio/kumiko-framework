@@ -196,6 +196,10 @@ jobs:
             sleep 2
           done
           docker exec kumiko-ci-pg pg_isready -U kumiko -d postgres
+          # bun-db tests connect directly to TEST_DATABASE_URL (kumiko_test);
+          # docker-compose.yml seeds it via postgres-init, which a bare
+          # `docker run` does not mount, so create it explicitly.
+          docker exec kumiko-ci-pg psql -U kumiko -d kumiko_dev -c "CREATE DATABASE kumiko_test;"
           for i in $(seq 1 30); do
             if docker exec kumiko-ci-redis redis-cli ping >/dev/null 2>&1; then break; fi
             sleep 2
