@@ -105,7 +105,7 @@ function ExtensionSectionMount({
 }): ReactNode {
   const { Banner, Section, Text } = usePrimitives();
   const name = extensionSectionName(section.component);
-  const Component = useExtensionSectionComponent(name ?? "");
+  const Component = useExtensionSectionComponent(name);
   if (Component === undefined) {
     return (
       <Section

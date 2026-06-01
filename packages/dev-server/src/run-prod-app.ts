@@ -110,8 +110,11 @@ export function buildBunServeOptions(
 
 // Strict env-var read. Throws with a clear hint when missing — better
 // than discovering a Postgres-connection-refused 30s into the boot.
-function requireEnv(name: string): string {
-  const value = process.env[name];
+// `src` defaults to process.env but is threaded from the caller's envSource
+// so the boot-path reads the SAME env-quelle that was validated above —
+// injected dummies in test-mode must not silently fall back to process.env.
+function requireEnv(name: string, src: Record<string, string | undefined> = process.env): string {
+  const value = src[name];
   if (value === undefined || value === "") {
     throw new Error(
       `runProdApp: required env var "${name}" is missing or empty. ` +
@@ -123,8 +126,11 @@ function requireEnv(name: string): string {
 
 // Optional env helper — returns undefined for missing, string for set.
 // Used for KUMIKO_INSTANCE_ID, JWT_ISSUER and other "nice to have" knobs.
-function readEnv(name: string): string | undefined {
-  const value = process.env[name];
+function readEnv(
+  name: string,
+  src: Record<string, string | undefined> = process.env,
+): string | undefined {
+  const value = src[name];
   return value === undefined || value === "" ? undefined : value;
 }
 
@@ -535,12 +541,12 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // 2. Env-vars: fail-fast. Better a 0s boot crash with a clear error
   //    than a 30s timeout chasing a Postgres connection that was never
   //    configured.
-  const databaseUrl = requireEnv("DATABASE_URL");
-  const redisUrl = requireEnv("REDIS_URL");
-  const jwtSecret = requireEnv("JWT_SECRET");
-  const jwtIssuer = readEnv("JWT_ISSUER");
-  const instanceId = readEnv("KUMIKO_INSTANCE_ID");
-  const port = options.port ?? Number.parseInt(process.env["PORT"] ?? "3000", 10);
+  const databaseUrl = requireEnv("DATABASE_URL", envSource);
+  const redisUrl = requireEnv("REDIS_URL", envSource);
+  const jwtSecret = requireEnv("JWT_SECRET", envSource);
+  const jwtIssuer = readEnv("JWT_ISSUER", envSource);
+  const instanceId = readEnv("KUMIKO_INSTANCE_ID", envSource);
+  const port = options.port ?? Number.parseInt(envSource["PORT"] ?? "3000", 10);
 
   // biome-ignore lint/suspicious/noConsole: boot-time progress hint, no logger configured this early
   console.log(`[runProdApp] booting Kumiko stack on port ${port}…`);
@@ -774,7 +780,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // if-missing"-Schicht; seed-migrations sind die "diff-and-update"-
   // Schicht für Drift den existing Seeds nicht erfassen können (z.B.
   // Membership-Roles-Change nach initialer Seed-Erstellung).
-  if (options.seedsDir !== undefined && process.env["KUMIKO_SKIP_ES_OPS"] !== "1") {
+  if (options.seedsDir !== undefined && envSource["KUMIKO_SKIP_ES_OPS"] !== "1") {
     await createEsOperationsTable(db);
     const seedDispatcher = createDispatcher(registry, {
       db,

@@ -1,3 +1,4 @@
+import { relative } from "node:path";
 import type { ScaffoldedFile } from "@cosmicdrift/kumiko-dev-server";
 import { getNumberFlag, getStringFlag, parseArgs } from "./arg-parser";
 import { defineCommand } from "./registry";
@@ -37,13 +38,16 @@ export const initDeployCommand = defineCommand({
         appName,
         ...(port !== undefined && { port }),
         ...(githubOrg !== undefined && { githubOrg }),
-        ...(destination !== undefined && { destination }),
+        // Scaffold into the CLI's cwd, not process.cwd() — they diverge under
+        // ctx-injected working dirs (tests), which would write the files and
+        // compute the displayed paths against different roots.
+        destination: destination ?? ctx.cwd,
         force,
       });
       ctx.out.log("");
       ctx.out.log(`  ✓ Deploy scaffolding generated — ${appName}`);
       for (const f of result.files as readonly ScaffoldedFile[]) {
-        const rel = f.path.startsWith(ctx.cwd) ? f.path.slice(ctx.cwd.length + 1) : f.path;
+        const rel = relative(ctx.cwd, f.path);
         const marker = f.written
           ? f.reason === "force"
             ? "OVERWRITTEN"
