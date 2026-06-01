@@ -65,7 +65,8 @@ describe("runSchemaCli status", () => {
     writeMigration("0001_init.sql", `SELECT 1;`);
     const { out, lines } = captureOut();
     const code = await runSchemaCli(["status"], appDir, out);
-    expect(code).toBe(0);
+    // Exit 1 = pending-drift erkannt (1 Migration lokal, 0 applied); status gated CI non-zero.
+    expect(code).toBe(1);
     const joined = lines.join("\n");
     expect(joined).toContain("0 applied");
     expect(joined).toContain("1 pending");
