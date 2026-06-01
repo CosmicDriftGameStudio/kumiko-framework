@@ -1,5 +1,5 @@
 import type { ComplianceProfileOverride } from "@cosmicdrift/kumiko-framework/compliance";
-import { parseJsonSafe } from "@cosmicdrift/kumiko-framework/utils";
+import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 
 export function parseComplianceProfileOverride(
   raw: string | null,
@@ -7,13 +7,14 @@ export function parseComplianceProfileOverride(
   callerLabel: string,
 ): ComplianceProfileOverride | undefined {
   if (!raw || raw.trim() === "") return undefined;
-  const parsed = parseJsonSafe<ComplianceProfileOverride | null>(raw, null);
-  if (parsed === null) {
+  let parsed: ComplianceProfileOverride | null;
+  try {
+    parsed = parseJsonOrThrow<ComplianceProfileOverride | null>(raw, "compliance override");
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
     // biome-ignore lint/suspicious/noConsole: operator visibility for DB-corruption edge-case
-    console.warn(
-      `[${callerLabel}] tenant ${tenantId}: stored override is not valid JSON, ignoring.`,
-    );
+    console.warn(`[${callerLabel}] tenant ${tenantId}: stored override ignored. Reason: ${reason}`);
     return undefined;
   }
-  return parsed;
+  return parsed ?? undefined;
 }

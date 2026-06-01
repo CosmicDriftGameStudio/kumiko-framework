@@ -266,3 +266,62 @@ describe("T1.5b: per-field fieldAccess.write rejects users without required role
     expect(err.code).toBe("not_found");
   });
 });
+
+// A row whose serialized_field is corrupt (DB corruption / partial write)
+// must NOT silently drop the per-field write gate. Before the fix the access
+// check fell open ({ ok: true }) and the write went through unvalidated; now
+// it fails closed with a distinct reason.
+describe("fail-closed on corrupt serialized_field", () => {
+  async function corruptStoredDefinition(fieldKey: string) {
+    await asRawClient(stack.db).unsafe(
+      `UPDATE read_custom_field_definitions SET serialized_field = '{not valid json' WHERE field_key = $1`,
+      [fieldKey],
+    );
+  }
+
+  test("set: corrupt definition row → unprocessable field_definition_corrupt (not silent allow)", async () => {
+    const propertyId = "77777777-7777-4000-8000-000000000007";
+    await defineField("corruptField", { type: "text", fieldAccess: { write: ["TenantAdmin"] } });
+    await corruptStoredDefinition("corruptField");
+    await stack.http.writeOk(
+      "property-t15b:write:property:create",
+      { id: propertyId, name: "Corrupt" },
+      tenantAdmin,
+    );
+
+    const err = await stack.http.writeErr(
+      "custom-fields:write:set-custom-field",
+      { entityName: "property", entityId: propertyId, fieldKey: "corruptField", value: "X-42" },
+      tenantAdmin,
+    );
+
+    expect(err.code).toBe("unprocessable");
+    expect(err.details).toMatchObject({
+      reason: "field_definition_corrupt",
+      fieldKey: "corruptField",
+    });
+  });
+
+  test("clear: corrupt definition row → unprocessable field_definition_corrupt", async () => {
+    const propertyId = "88888888-8888-4000-8000-000000000008";
+    await defineField("corruptField", { type: "boolean" });
+    await corruptStoredDefinition("corruptField");
+    await stack.http.writeOk(
+      "property-t15b:write:property:create",
+      { id: propertyId, name: "Corrupt2" },
+      tenantAdmin,
+    );
+
+    const err = await stack.http.writeErr(
+      "custom-fields:write:clear-custom-field",
+      { entityName: "property", entityId: propertyId, fieldKey: "corruptField" },
+      tenantAdmin,
+    );
+
+    expect(err.code).toBe("unprocessable");
+    expect(err.details).toMatchObject({
+      reason: "field_definition_corrupt",
+      fieldKey: "corruptField",
+    });
+  });
+});

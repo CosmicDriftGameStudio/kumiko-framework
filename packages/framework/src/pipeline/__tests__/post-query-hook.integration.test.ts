@@ -68,13 +68,50 @@ const postQueryFeature = defineFeature("postquerytest", (r) => {
   r.entityHook("postQuery", widget, entityKeyedHook);
 });
 
+// --- Single-object-result invariant fixtures ---
+//
+// A query handler that returns a plain object (not array, not {rows}) carries
+// exactly one row through the hook pipeline. A hook that returns 0 or ≥2 rows
+// for such a result used to be swallowed (`rows[0] ?? result`): 0 rows fell
+// back to the unhooked original, ≥2 silently dropped the extras. Both now
+// surface as a dispatcher error instead.
+
+const gadgetEntity = createEntity({
+  table: "read_post_query_gadgets",
+  fields: { name: createTextField({ required: true }) },
+});
+const gizmoEntity = createEntity({
+  table: "read_post_query_gizmos",
+  fields: { name: createTextField({ required: true }) },
+});
+
+const dropRowHook: PostQueryHookFn = async () => ({ rows: [] });
+const duplicateRowHook: PostQueryHookFn = async ({ rows }) => ({ rows: [...rows, ...rows] });
+
+const singleObjectFeature = defineFeature("singleobjtest", (r) => {
+  const gadget = r.entity("gadget", gadgetEntity);
+  r.queryHandler("gadget:get", z.object({}), async () => ({ id: "g1", name: "Gadget" }), {
+    access: { openToAll: true },
+  });
+  r.entityHook("postQuery", gadget, dropRowHook);
+
+  const gizmo = r.entity("gizmo", gizmoEntity);
+  r.queryHandler("gizmo:get", z.object({}), async () => ({ id: "z1", name: "Gizmo" }), {
+    access: { openToAll: true },
+  });
+  r.entityHook("postQuery", gizmo, duplicateRowHook);
+});
+
 // --- Test stack ---
 
 let stack: TestStack;
 const admin = TestUsers.admin;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [postQueryFeature], systemHooks: [] });
+  stack = await setupTestStack({
+    features: [postQueryFeature, singleObjectFeature],
+    systemHooks: [],
+  });
 });
 
 afterAll(async () => {
@@ -112,5 +149,17 @@ describe("postQuery-Hook integration through dispatcher", () => {
 
     // {rows}-Shape preserved through hook-pipeline
     expect(result.nextCursor).toBeNull();
+  });
+});
+
+describe("single-object-result postQuery invariant: exactly one row", () => {
+  test("hook returning 0 rows surfaces as 500 (not a silent fallback to the unhooked result)", async () => {
+    const res = await stack.http.query("singleobjtest:query:gadget:get", {}, admin);
+    expect(res.status).toBe(500);
+  });
+
+  test("hook returning ≥2 rows surfaces as 500 (not a silent truncation to the first)", async () => {
+    const res = await stack.http.query("singleobjtest:query:gizmo:get", {}, admin);
+    expect(res.status).toBe(500);
   });
 });

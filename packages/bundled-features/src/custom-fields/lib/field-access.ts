@@ -10,15 +10,15 @@ export type FieldAccessCheckResult =
   | { ok: true }
   | {
       ok: false;
-      reason: "field_definition_not_found" | "field_access_denied";
+      reason: "field_definition_not_found" | "field_definition_corrupt" | "field_access_denied";
       requiredRoles?: ReadonlyArray<string>;
     };
 
 export type LoadedFieldDefinition =
   | { found: false }
-  // `field` is null when the row exists but its serialized_field is corrupt —
-  // callers treat that as "no restriction / no schema" (lenient), distinct
-  // from `found: false` (no definition → 404).
+  // `field` is null when the row exists but its serialized_field is corrupt.
+  // A write access-gate treats this fail-closed (secure-by-default): a corrupt
+  // definition must not silently drop a per-field write restriction.
   | { found: true; field: SerializedFieldShape | null };
 
 export async function loadFieldDefinition(
@@ -54,6 +54,7 @@ export async function checkFieldAccessForWrite(
 ): Promise<FieldAccessCheckResult> {
   const loaded = await loadFieldDefinition(db, tenantId, entityName, fieldKey);
   if (!loaded.found) return { ok: false, reason: "field_definition_not_found" };
+  if (loaded.field === null) return { ok: false, reason: "field_definition_corrupt" };
 
   const deniedRoles = fieldWriteAccessDeniedRoles(loaded.field, userRoles);
   if (!deniedRoles) return { ok: true };

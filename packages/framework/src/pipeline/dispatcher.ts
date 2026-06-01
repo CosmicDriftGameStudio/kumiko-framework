@@ -803,7 +803,17 @@ export function createDispatcher(
             const out = await hook({ entityName, rows }, handlerContext);
             rows = [...out.rows];
           }
-          result = rows[0] ?? result;
+          // A single-object result carries exactly one row through the hook
+          // pipeline. Returning 0 rows (effect lost) or ≥2 rows (extras
+          // dropped) cannot be represented in the single-object response —
+          // surface it instead of silently falling back / truncating.
+          const [only, ...extra] = rows;
+          if (only === undefined || extra.length > 0) {
+            throw new Error(
+              `postQuery hook on single-object result for "${type}" must return exactly one row, got ${rows.length}`,
+            );
+          }
+          result = only;
         }
       }
 

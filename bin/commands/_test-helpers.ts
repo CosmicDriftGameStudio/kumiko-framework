@@ -110,7 +110,25 @@ export function runGit(args: ReadonlyArray<string>, cwd: string): void {
     encoding: "utf-8",
   });
   if (result.status !== 0) {
-    const detail = result.stderr?.trim() ?? `exit ${String(result.status)}`;
-    throw new Error(`git ${args.join(" ")} (cwd=${cwd}) failed: ${detail}`);
+    throw new Error(`git ${args.join(" ")} (cwd=${cwd}) failed: ${gitFailureDetail(result)}`);
   }
+}
+
+interface GitSpawnResult {
+  readonly status: number | null;
+  readonly signal: NodeJS.Signals | null;
+  readonly error?: Error;
+  readonly stderr: string | null;
+}
+
+/** Build a useful failure detail from a spawnSync result. A spawn failure
+ *  (ENOENT) or signal kill leaves status === null and carries the real cause
+ *  on error / signal, not stderr; and an empty stderr must fall through
+ *  (`||`, not `??`) to a usable detail rather than yielding "failed: ". */
+export function gitFailureDetail(result: GitSpawnResult): string {
+  return (
+    result.error?.message ??
+    (result.stderr?.trim() ||
+      (result.signal ? `signal ${result.signal}` : `exit ${String(result.status)}`))
+  );
 }

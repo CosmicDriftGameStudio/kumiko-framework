@@ -36,6 +36,9 @@ export const clearCustomFieldHandler: WriteHandlerDef = {
       if (accessCheck.reason === "field_definition_not_found") {
         return failNotFound("fieldDefinition", payload.fieldKey);
       }
+      if (accessCheck.reason === "field_definition_corrupt") {
+        return failUnprocessable("field_definition_corrupt", { fieldKey: payload.fieldKey });
+      }
       return failUnprocessable("field_access_denied", {
         fieldKey: payload.fieldKey,
         requiredRoles: accessCheck.requiredRoles ?? [],
