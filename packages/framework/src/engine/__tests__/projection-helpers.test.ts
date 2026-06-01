@@ -3,15 +3,20 @@ import type { StoredEvent } from "../../event-store/event-store";
 import { setFields } from "../projection-helpers";
 import type { ProjectionTable } from "../types/projection";
 
-// Minimal fake table: only the `id` column is needed for setFields, plus
-// the kumiko:schema:Name + kumiko:schema:Columns symbols that bun-db introspects for
-// table-name + column-mapping. We don't run real SQL — unsafe() is mocked.
-const fakeIdCol = { name: "id" };
+// Minimal fake table: an EntityTableMeta (what bun-db introspects for
+// table-name + column-mapping) plus a top-level `id` handle, which setFields
+// existence-checks before building its apply fn. We don't run real SQL —
+// unsafe() is mocked.
 const fakeTable = Object.assign(
-  { id: fakeIdCol },
+  { id: { name: "id" } },
   {
-    [Symbol.for("kumiko:schema:Name")]: "fake_table",
-    [Symbol.for("kumiko:schema:Columns")]: { id: fakeIdCol },
+    tableName: "fake_table",
+    source: "unmanaged",
+    indexes: [],
+    columns: [
+      { name: "id", pgType: "uuid", notNull: true },
+      { name: "status", pgType: "text", notNull: false },
+    ],
   },
 ) as unknown as ProjectionTable;
 
