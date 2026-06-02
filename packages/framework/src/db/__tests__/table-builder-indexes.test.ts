@@ -147,6 +147,21 @@ describe("validateBoot — entity.indexes", () => {
     expect(() => validateBoot([feature])).toThrow(/redundant/);
   });
 
+  test("single-column UNIQUE auf tenantId ist erlaubt (1:1-Constraint)", () => {
+    // Der `&& !def.unique`-Branch in entity-handler.ts: ein UNIQUE-Index auf
+    // tenantId allein ist kein redundanter Read-Index, sondern ein
+    // 1:1-Constraint (genau ein Row pro Tenant). Nur die NON-unique-Variante
+    // oben ist redundant — beide Hälften der Bedingung sind damit gepinnt,
+    // sonst fliegt der Branch beim nächsten Revert/Refactor stumm raus.
+    const feature = defineFeature("widgetFeature", (r) => {
+      r.entity("widget", {
+        fields: { title: createTextField({}) },
+        indexes: [{ unique: true, columns: ["tenantId"] }],
+      });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
   test("composite mit tenantId ist OK (z.B. für unique über 3 Cols)", () => {
     const feature = defineFeature("widgetFeature", (r) => {
       r.entity("widget", {

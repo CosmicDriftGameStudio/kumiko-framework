@@ -70,6 +70,7 @@ describe("frameworkCoreEnvSchema", () => {
 
     try {
       parseEnv(schema, {}, { sources });
+      throw new Error("should have thrown");
     } catch (err) {
       const boot = err as KumikoBootError;
       const formatted = boot.format();

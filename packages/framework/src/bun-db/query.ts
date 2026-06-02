@@ -693,7 +693,9 @@ function insertEntries(info: TableInfo, values: Record<string, unknown>): Insert
     });
 }
 
-function resolveConflictColumns(
+// Exported for the shadow-proof regression test — `table.columns` would be the
+// drizzle handle (not the PK list) when an entity has a field named `columns`.
+export function resolveConflictColumns(
   table: TableLike,
   info: TableInfo,
   conflictKeys: readonly string[] | undefined,
