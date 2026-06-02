@@ -32,12 +32,7 @@
 // gefailten Hooks bleibt im DeletionRequested-Status (next Lauf
 // retried automatisch).
 
-import {
-  asRawClient,
-  fetchOne,
-  selectMany,
-  updateMany,
-} from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import {
   EXT_USER_DATA,
@@ -322,21 +317,22 @@ async function runInSubTransaction(
   db: DbRunner,
   fn: (tx: DbRunner) => Promise<void>,
 ): Promise<void> {
-  const raw = asRawClient(db) as {
+  // `db` is already the raw runner (the handler passes ctx.db.raw, the tests a
+  // top-level connection) — cast to read the transaction surface directly,
+  // without asRawClient (a test-only escape hatch). A top-level connection
+  // exposes `.begin`; a TransactionSql only `.savepoint`. They are mutually
+  // exclusive, so prefer whichever is present.
+  const runner = db as {
     begin?: (f: (tx: DbRunner) => Promise<void>) => Promise<void>;
     savepoint?: (f: (tx: DbRunner) => Promise<void>) => Promise<void>;
   };
-  if (typeof raw.begin === "function") {
-    await raw.begin(fn);
-    return;
+  const open = runner.begin ?? runner.savepoint;
+  if (!open) {
+    throw new Error(
+      "runForgetCleanup: db exposes neither .begin nor .savepoint — cannot open a per-user sub-transaction",
+    );
   }
-  if (typeof raw.savepoint === "function") {
-    await raw.savepoint(fn);
-    return;
-  }
-  throw new Error(
-    "runForgetCleanup: db exposes neither .begin nor .savepoint — cannot open a per-user sub-transaction",
-  );
+  await open.call(runner, fn);
 }
 
 // Pseudo-Tenant fuer User ohne aktive Memberships. RFC4122-konforme
