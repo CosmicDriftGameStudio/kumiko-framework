@@ -11,7 +11,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { buildEntityTable } from "../../db/table-builder";
-import { extractTableInfo } from "../query";
+import { extractTableInfo, resolveConflictColumns } from "../query";
 
 describe("extractTableInfo — EntityTableMeta discriminator is shadow-proof", () => {
   test("an entity field named `source` does not shadow the discriminator", () => {
@@ -47,5 +47,26 @@ describe("extractTableInfo — EntityTableMeta discriminator is shadow-proof", (
     });
     const info = extractTableInfo(table);
     expect(info.pgTypeOf("inserted_at")).toBe("timestamptz");
+  });
+});
+
+describe("resolveConflictColumns — shadow-proof PK inference", () => {
+  test("an entity field named `columns` does not shadow the inferred primary key", () => {
+    const table = buildEntityTable("thing", {
+      fields: { columns: { type: "text", required: true } },
+    });
+    const info = extractTableInfo(table);
+    // No explicit conflictKeys → infer the real PK (`id`) from the symbol-based
+    // meta. Reading `table.columns` directly would yield the `columns` field
+    // handle (the bug this guards), not the PK list.
+    expect(resolveConflictColumns(table, info, undefined)).toEqual(["id"]);
+  });
+
+  test("explicit conflictKeys are mapped through columnOf (control)", () => {
+    const table = buildEntityTable("thing", {
+      fields: { slug: { type: "text", required: true } },
+    });
+    const info = extractTableInfo(table);
+    expect(resolveConflictColumns(table, info, ["slug"])).toEqual(["slug"]);
   });
 });

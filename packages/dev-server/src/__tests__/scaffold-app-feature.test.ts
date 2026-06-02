@@ -50,15 +50,13 @@ describe("scaffoldAppFeature", () => {
     expect(runConfig).toMatch(/\]\s*as const;/);
   });
 
-  test("idempotent: re-mount of existing feature is a no-op", () => {
+  test("mounting a second feature keeps the first feature's import exactly once", () => {
+    // Cross-feature non-duplication: adding billing must not touch the
+    // product-catalog import/entry. Same-feature re-mount idempotency is the
+    // next test — the dir-exists guard blocks a direct second scaffold of the
+    // same name, so this one cannot reach the short-circuit branches.
     scaffoldAppFeature({ name: "product-catalog", appRoot });
     const firstRunConfig = readFileSync(join(appRoot, "src/run-config.ts"), "utf-8");
-    // Now re-mount (second feature creates dir-already-exists error;
-    // we instead simulate "feature dir exists, only run-config dance").
-    // → Real DX-2 flow: scaffold fails on dir-exists; manual remount
-    //   would call mountInRunConfig directly. Test the mount-side
-    //   idempotency by triggering a second feature with a different
-    //   name and asserting the first import stays exactly once.
     scaffoldAppFeature({ name: "billing", appRoot });
     const secondRunConfig = readFileSync(join(appRoot, "src/run-config.ts"), "utf-8");
     expect(secondRunConfig).toContain("productCatalogFeature");
@@ -67,6 +65,25 @@ describe("scaffoldAppFeature", () => {
     const occurrences = secondRunConfig.match(/productCatalogFeature/g) ?? [];
     expect(occurrences.length).toBe(2); // 1 import + 1 array-entry
     expect(firstRunConfig.length).toBeLessThan(secondRunConfig.length);
+  });
+
+  test("idempotent: re-scaffolding the same feature is a full no-op on run-config", () => {
+    scaffoldAppFeature({ name: "product-catalog", appRoot });
+    const runConfigPath = join(appRoot, "src/run-config.ts");
+    const afterFirst = readFileSync(runConfigPath, "utf-8");
+
+    // Drop only the feature dir so the dir-exists guard doesn't trip; the
+    // run-config import + APP_FEATURES entry both survive. The re-scaffold must
+    // hit the full short-circuit in mountInRunConfig (import present AND
+    // alreadyListed → changed=false → no save) and duplicate neither half —
+    // the branch the cross-feature test above never reaches.
+    rmSync(join(appRoot, "src/features/product-catalog"), { recursive: true, force: true });
+    const result = scaffoldAppFeature({ name: "product-catalog", appRoot });
+    expect(result.autoMounted).toBe(true);
+
+    const afterSecond = readFileSync(runConfigPath, "utf-8");
+    expect(afterSecond).toBe(afterFirst); // byte-identical: no save, no duplication
+    expect((afterSecond.match(/productCatalogFeature/g) ?? []).length).toBe(2);
   });
 
   test("self-heals a half-mounted run-config: import present but APP_FEATURES entry removed", () => {

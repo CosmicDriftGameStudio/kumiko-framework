@@ -235,6 +235,20 @@ describe("boot-validator", () => {
     expect(() => validateBoot([ext, consumer])).not.toThrow();
   });
 
+  test("passes when a feature provides AND uses its own extension (self-extension)", () => {
+    // tier-engine pattern: a feature defines an extension-point and ships a
+    // default plugin for it, so providerFeature === feature.name. Requiring
+    // the feature to requires(self) would be circular — the validator must
+    // skip the requires-check for self-provided extensions. The cross-feature
+    // tests above only exercise providerFeature !== feature.name.
+    const self = defineFeature("tier-stub", (r) => {
+      r.extendsRegistrar("tenantTierResolver", { onRegister: () => {} });
+      r.entity("dummy", createEntity({ table: "Dummies", fields: {} }));
+      r.useExtension("tenantTierResolver", "dummy");
+    });
+    expect(() => validateBoot([self])).not.toThrow();
+  });
+
   // --- FILE_STORAGE_PROVIDER ---
 
   test("throws when file fields exist but FILE_STORAGE_PROVIDER not set", () => {
@@ -1473,6 +1487,43 @@ describe("boot-validator", () => {
           }),
         ]),
       ).toThrow(/Config-Key "shop:config:typo-here" ist in keiner Feature-Registry deklariert/);
+    });
+  });
+
+  // --- entityEdit extension section ---
+  // Eine extension-Section delegiert das Rendering an eine feature-provided
+  // PlatformComponent (custom-fields-Panel etc.), die client-seitig per Name
+  // aufgelöst wird. Ohne react/native-Marker bliebe der Slot zur Laufzeit leer
+  // — Boot-Fail statt stummem Loch. Field-Sections bleiben davon unberührt.
+  describe("entityEdit extension section", () => {
+    function makeFeature(component: unknown) {
+      return defineFeature("shop", (r) => {
+        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.screen({
+          id: "product-edit",
+          type: "entityEdit",
+          entity: "product",
+          layout: {
+            sections: [
+              { kind: "extension", title: "Custom Fields", component: component as never },
+            ],
+          },
+        });
+      });
+    }
+
+    test("extension section ohne react/native component → Throw", () => {
+      expect(() => validateBoot([makeFeature({})])).toThrow(
+        /extension section "Custom Fields" has no component — declare a react\/native component marker/,
+      );
+    });
+
+    test("extension section mit react component → kein Throw", () => {
+      expect(() => validateBoot([makeFeature({ react: "CustomFieldsPanel" })])).not.toThrow();
+    });
+
+    test("extension section mit native component → kein Throw", () => {
+      expect(() => validateBoot([makeFeature({ native: "CustomFieldsPanel" })])).not.toThrow();
     });
   });
 

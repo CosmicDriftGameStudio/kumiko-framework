@@ -1131,7 +1131,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // postQuery-special.
   const allEntities = new Set<string>();
   for (const feature of features) {
-    for (const entityName of Object.keys(feature.entities)) {
+    for (const entityName of Object.keys(feature.entities ?? {})) {
       allEntities.add(entityName);
     }
   }
@@ -1492,7 +1492,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
 /** Returns true if any entity in the feature has field-level access rules (read or write). */
 function hasFieldAccessRules(feature: FeatureDefinition): boolean {
-  for (const entity of Object.values(feature.entities)) {
+  for (const entity of Object.values(feature.entities ?? {})) {
     for (const field of Object.values(entity.fields)) {
       if (field.access?.read?.length || field.access?.write?.length) {
         return true;
