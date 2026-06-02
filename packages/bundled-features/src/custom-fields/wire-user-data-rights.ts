@@ -40,6 +40,14 @@ function asCustomFieldsHostRow(value: unknown): CustomFieldsHostRow | null {
   return { id: value.id, customFields: Object.fromEntries(Object.entries(cf)) };
 }
 
+// The anonymize strip filters rows by `WHERE userIdColumn = userId`. A host
+// anonymize hook on the SAME entity that nulls that column (e.g. inserted_by_id
+// = NULL) would, if it ran first, leave the strip matching 0 rows → sensitive
+// jsonb PII silently retained (DSGVO Art. 17 violation). A negative order makes
+// runForgetCleanup run this strip before any default-order (0) owner-nulling
+// hook, independent of feature registration order.
+const ORDER_REDACT_BEFORE_OWNER_MUTATION = -100;
+
 export function wireCustomFieldsUserDataRightsFor<TReg extends FeatureRegistrar<string>>(
   r: TReg,
   opts: WireCustomFieldsUserDataRightsOptions,
@@ -88,6 +96,7 @@ export function wireCustomFieldsUserDataRightsFor<TReg extends FeatureRegistrar<
   r.useExtension(EXT_USER_DATA, opts.entityName, {
     export: exportHook,
     delete: deleteHook,
+    order: ORDER_REDACT_BEFORE_OWNER_MUTATION,
   });
 }
 
