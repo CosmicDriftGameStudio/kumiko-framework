@@ -104,7 +104,15 @@ export interface RunForgetCleanupResult {
 interface HookEntry {
   readonly entityName: string;
   readonly deleteHook: UserDataDeleteHook;
+  /** Lower runs first. Owner-column-preserving redaction declares a negative
+   * order so it precedes owner-nulling hooks on the same entity (see sort below). */
+  readonly order: number;
 }
+
+// EXT_USER_DATA delete-hooks default here; a hook that redacts data keyed on an
+// owner column it doesn't own must register a lower order so it runs BEFORE any
+// hook that nulls that column. See custom-fields wire-user-data-rights.ts.
+const HOOK_ORDER_DEFAULT = 0;
 
 export async function runForgetCleanup(
   args: RunForgetCleanupArgs,
@@ -127,10 +135,18 @@ export async function runForgetCleanup(
   const usages = registry.getExtensionUsages(EXT_USER_DATA);
   const hookEntries: HookEntry[] = usages
     .map((u): HookEntry | null => {
-      const opts = (u.options ?? {}) as { delete?: UserDataDeleteHook }; // @cast-boundary engine-payload
-      return opts.delete ? { entityName: u.entityName, deleteHook: opts.delete } : null;
+      const opts = (u.options ?? {}) as { delete?: UserDataDeleteHook; order?: number }; // @cast-boundary engine-payload
+      if (!opts.delete) return null;
+      const order = typeof opts.order === "number" ? opts.order : HOOK_ORDER_DEFAULT;
+      return { entityName: u.entityName, deleteHook: opts.delete, order };
     })
-    .filter((x): x is HookEntry => x !== null);
+    .filter((x): x is HookEntry => x !== null)
+    // Order ascending. Array.sort is ES2019-stable, so equal orders keep
+    // registration order; correctness here needs only distinct orders, not
+    // stability. Guarantees owner-preserving redaction (negative order) runs
+    // before owner-nulling hooks on the same entity, independent of feature
+    // registration order.
+    .sort((a, b) => a.order - b.order);
 
   const errors: ForgetCleanupError[] = [];
   const processedUserIds: string[] = [];
