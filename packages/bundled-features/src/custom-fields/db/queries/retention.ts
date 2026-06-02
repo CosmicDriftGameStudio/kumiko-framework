@@ -25,15 +25,29 @@ export async function selectHostRowsWithCustomFields(
   return Array.isArray(rowsResult) ? rowsResult : [];
 }
 
-export async function updateHostRowCustomFields(
+export async function applyRetentionRemovals(
   db: DbRunner,
   tableName: string,
-  customFields: Record<string, unknown>,
+  deleteKeys: readonly string[],
+  anonymizeKeys: readonly string[],
   rowId: string,
 ): Promise<void> {
   const quoted = `"${tableName.replace(/"/g, '""')}"`;
-  await asRawClient(db).unsafe(`UPDATE ${quoted} SET custom_fields = $1::jsonb WHERE id = $2`, [
-    customFields,
-    rowId,
-  ]);
+  // Atomic per-row jsonb edit instead of read-modify-write of the whole
+  // object: delete-keys are dropped (`- $1::text[]`), anonymize-keys are set
+  // to JSON null via a merge patch. Operating on the live row value preserves
+  // a concurrent set-custom-field on any *other* key — no lost update.
+  await asRawClient(db).unsafe(
+    `UPDATE ${quoted} SET custom_fields = CASE
+       WHEN jsonb_typeof(custom_fields) = 'object' THEN
+         (custom_fields - $1::text[])
+         || COALESCE(
+              (SELECT jsonb_object_agg(k, 'null'::jsonb) FROM unnest($2::text[]) AS k),
+              '{}'::jsonb
+            )
+       ELSE custom_fields
+     END
+     WHERE id = $3`,
+    [deleteKeys, anonymizeKeys, rowId],
+  );
 }

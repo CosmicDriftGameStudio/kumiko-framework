@@ -28,6 +28,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
+import { applyRetentionRemovals, selectHostRowsWithCustomFields } from "../db/queries/retention";
 import { fieldDefinitionEntity } from "../entity";
 import { createCustomFieldsFeature } from "../feature";
 import { runCustomFieldsRetention } from "../run-retention";
@@ -260,5 +261,80 @@ describe("T1.5d: per-field retention sweep", () => {
     const cf = (await readRow(propertyId))?.["custom_fields"] as Record<string, unknown>;
     expect(cf).not.toHaveProperty("temp");
     expect(cf["keepThis"]).toBe("should-stay");
+  });
+
+  test("mixed strategies on one row: delete drops the key, anonymize nulls it, others stay", async () => {
+    const propertyId = "66666666-6666-4000-8000-000000000006";
+    await defineField("dropMe", {
+      type: "text",
+      retention: { keepFor: "30d", strategy: "delete" },
+    });
+    await defineField("nullMe", {
+      type: "text",
+      retention: { keepFor: "30d", strategy: "anonymize" },
+    });
+    await defineField("keepMe", { type: "text" });
+    await createProperty(propertyId, "MixedStrategies");
+    await setField(propertyId, "dropMe", "secret-a");
+    await setField(propertyId, "nullMe", "secret-b");
+    await setField(propertyId, "keepMe", "public-c");
+    await stack.eventDispatcher?.runOnce();
+
+    await backdateRow(propertyId, "2026-04-22T10:00:00Z");
+
+    const report = await runCustomFieldsRetention({
+      db: stack.db,
+      tenantId: admin.tenantId,
+      entityName: "property",
+      entityTable: propertyTable,
+      now: NOW,
+    });
+
+    expect(report.removalsByFieldKey).toEqual({ dropMe: 1, nullMe: 1 });
+    const cf = (await readRow(propertyId))?.["custom_fields"] as Record<string, unknown>;
+    expect(cf).not.toHaveProperty("dropMe");
+    expect(cf).toHaveProperty("nullMe");
+    expect(cf["nullMe"]).toBeNull();
+    expect(cf["keepMe"]).toBe("public-c");
+  });
+
+  test("atomic removal touches only the targeted keys — a value written after the scan is not clobbered", async () => {
+    const propertyId = "77777777-7777-4000-8000-000000000007";
+    await defineField("temp", {
+      type: "text",
+      retention: { keepFor: "30d", strategy: "delete" },
+    });
+    // No retention policy → never swept; stands in for a concurrent edit.
+    await defineField("liveEdit", { type: "text" });
+    await createProperty(propertyId, "Concurrent");
+    await setField(propertyId, "temp", "expired-value");
+    await stack.eventDispatcher?.runOnce();
+    await backdateRow(propertyId, "2026-04-22T10:00:00Z");
+
+    // The sweep scans the row (snapshot has only `temp`)...
+    const snapshot = await selectHostRowsWithCustomFields(
+      stack.db,
+      "read_t15d_properties",
+      admin.tenantId,
+    );
+    expect(snapshot).toHaveLength(1);
+
+    // ...then a concurrent set-custom-field adds `liveEdit`...
+    await setField(propertyId, "liveEdit", "written-mid-sweep");
+    await stack.eventDispatcher?.runOnce();
+
+    // ...then the sweep applies the removal it computed from the (now stale)
+    // snapshot. This drives `applyRetentionRemovals` directly because the
+    // scan→write window inside `runCustomFieldsRetention` can't be paused
+    // mid-flight in-process. It pins the property that actually removes the
+    // lost-update class: the write is `custom_fields - {temp}` against the LIVE
+    // row, never a read-modify-write of the whole jsonb — so a key absent from
+    // the removal lists survives. The pre-fix code rebuilt the whole object
+    // from the stale snapshot and would have dropped `liveEdit`.
+    await applyRetentionRemovals(stack.db, "read_t15d_properties", ["temp"], [], propertyId);
+
+    const cf = (await readRow(propertyId))?.["custom_fields"] as Record<string, unknown>;
+    expect(cf).not.toHaveProperty("temp");
+    expect(cf["liveEdit"]).toBe("written-mid-sweep");
   });
 });

@@ -108,20 +108,25 @@ function mountInRunConfig(runConfigPath: string, name: string): boolean {
   });
   const sf = project.addSourceFileAtPath(runConfigPath);
 
-  // Already mounted? short-circuit (idempotent re-runs).
-  const existingImport = sf.getImportDeclaration(`./features/${name}`);
-  if (existingImport) return true;
+  // Import and APP_FEATURES entry are checked independently so a half-applied
+  // state self-heals: if the import exists but the entry was hand-removed (or
+  // vice versa), re-running adds only the missing half instead of short-
+  // circuiting on the import alone and leaving the feature unmounted.
+  let changed = false;
 
-  // 1. Prepend import after the last existing import.
-  const imports = sf.getImportDeclarations();
-  const insertIndex =
-    imports.length > 0 ? (imports[imports.length - 1]?.getChildIndex() ?? 0) + 1 : 0;
-  sf.insertImportDeclaration(insertIndex, {
-    moduleSpecifier: `./features/${name}`,
-    namedImports: [`${camel}Feature`],
-  });
+  // 1. Prepend import after the last existing import — only if absent.
+  if (!sf.getImportDeclaration(`./features/${name}`)) {
+    const imports = sf.getImportDeclarations();
+    const insertIndex =
+      imports.length > 0 ? (imports[imports.length - 1]?.getChildIndex() ?? 0) + 1 : 0;
+    sf.insertImportDeclaration(insertIndex, {
+      moduleSpecifier: `./features/${name}`,
+      namedImports: [`${camel}Feature`],
+    });
+    changed = true;
+  }
 
-  // 2. Find `export const APP_FEATURES = [...]` and append the new entry.
+  // 2. Find `export const APP_FEATURES = [...]` and append the entry — only if absent.
   const appFeaturesDecl = sf.getVariableDeclaration("APP_FEATURES");
   if (!appFeaturesDecl) {
     throw new Error(
@@ -143,9 +148,13 @@ function mountInRunConfig(runConfigPath: string, name: string): boolean {
   if (!arr) {
     throw new Error(`mountInRunConfig: APP_FEATURES is not an array literal — cannot auto-mount.`);
   }
-  arr.addElement(`${camel}Feature`);
+  const alreadyListed = arr.getElements().some((el) => el.getText() === `${camel}Feature`);
+  if (!alreadyListed) {
+    arr.addElement(`${camel}Feature`);
+    changed = true;
+  }
 
-  sf.saveSync();
+  if (changed) sf.saveSync();
   return true;
 }
 
