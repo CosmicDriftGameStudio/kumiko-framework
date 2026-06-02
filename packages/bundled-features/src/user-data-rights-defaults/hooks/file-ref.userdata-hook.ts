@@ -11,15 +11,21 @@ import { type FileStorageProvider, fileRefsTable } from "@cosmicdrift/kumiko-fra
 //
 // Delete-Hook entfernt FileRef-Zeile via factory
 // `createFileRefDeleteHook(storageProvider)`:
-//   "delete":    storageProvider.delete() pro File (best-effort) + Row hard-delete
+//   "delete":    storageProvider.delete() pro File + Row hard-delete
 //   "anonymize": insertedById=null, Row + binary bleiben (FK-Refs
 //                koennen weiter zeigen; Personenbezug raus)
 //
-// Storage-Provider-Cleanup ist BEST-EFFORT — wenn S3-delete failt,
-// log + skip (Cron-Job kann es retry). Memory: Forget-Atomicity-
-// Decision aus Sprint-2-Architektur (advisor-pinned): per-Hook
-// idempotent, KEIN globaler Rollback — wenn ein File-Delete failt,
-// bleibt der User-Row trotzdem anonymisiert.
+// Delete-Pfad ist FAIL-CLOSED, sobald ein Provider gewired ist: schlaegt ein
+// binary-delete fehl, wirft der Hook
+// NACH dem Loop — die per-User-Sub-Tx von runForgetCleanup rollt zurueck, der
+// User bleibt DeletionRequested, der naechste Run retried (storageProvider.delete
+// ist idempotent, schon-geloeschte Keys sind no-op). Den Fehler zu schlucken und
+// die Row trotzdem hard-zu-loeschen wuerde Art.-17-Erasure als "done" markieren
+// waehrend die Bytes auf Disk bleiben — eine falsche Compliance-Aussage. Das
+// "KEIN globaler Rollback" der Sprint-2-Atomicity-Decision bleibt gewahrt: nur
+// DIESE User-Sub-Tx rollt zurueck (= der Retry-Mechanismus), andere User des
+// Laufs committen. Der anonymize-Pfad behaelt Row+binary bewusst, hat also
+// nichts zu schlucken.
 //
 // `storageProvider` ist optional. App-Author wired es beim
 // Feature-Mount rein (`createUserDataRightsDefaultsFeature({
@@ -92,6 +98,7 @@ export function createFileRefDeleteHook(
           tenantId: ctx.tenantId,
           insertedById: ctx.userId,
         });
+        const failedKeys: string[] = [];
         for (const row of rows) {
           const key = (row as Record<string, unknown>)["storageKey"]; // @cast-boundary db-row
           if (typeof key !== "string" || key.length === 0) continue;
@@ -102,7 +109,15 @@ export function createFileRefDeleteHook(
             console.warn(
               `[user-data-rights-defaults:fileRef] storage delete failed key=${key} err=${err instanceof Error ? err.message : String(err)}`,
             );
+            failedKeys.push(key);
           }
+        }
+        // Fail-closed: abort before the row hard-delete so the sub-tx rolls back
+        // and the next forget run retries (delete is idempotent → converges).
+        if (failedKeys.length > 0) {
+          throw new Error(
+            `[user-data-rights-defaults:fileRef] ${failedKeys.length} binary delete(s) failed — aborting forget so the rows are retried next run (keys: ${failedKeys.join(", ")})`,
+          );
         }
       } else if (!missingStorageWarned) {
         missingStorageWarned = true;
