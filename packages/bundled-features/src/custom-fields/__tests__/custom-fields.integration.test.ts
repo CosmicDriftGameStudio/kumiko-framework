@@ -19,6 +19,7 @@ import {
   createTextField,
   defineEntityListHandler,
   defineFeature,
+  SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -102,6 +103,15 @@ beforeEach(async () => {
 // (Memory: feedback_role_naming_drift — bundled-features-Convention vs.
 // platform-Convention). Wir bauen einen tenant-admin für die Tests.
 const admin = createTestUser({ roles: ["TenantAdmin"] });
+const systemAdmin = createTestUser({ roles: ["SystemAdmin"] });
+
+async function countDefinitions(tenantId: string, fieldKey: string): Promise<number> {
+  const rows = await asRawClient(stack.db).unsafe(
+    "SELECT count(*)::int AS n FROM read_custom_field_definitions WHERE tenant_id = $1 AND field_key = $2",
+    [tenantId, fieldKey],
+  );
+  return (rows as ReadonlyArray<{ n: number }>)[0]?.n ?? 0;
+}
 
 async function defineField(entityName: string, fieldKey: string, type = "text") {
   return stack.http.writeOk(
@@ -260,6 +270,84 @@ describe("custom-fields integration — Last-Wins on concurrent set", () => {
   });
 });
 
+describe("custom-fields integration — define/delete handler coverage (B1)", () => {
+  // feature.test.ts only covers schema/aggregate-id/registration shape. These
+  // drive the handler bodies through the real dispatcher: the deterministic
+  // aggregate-id → version_conflict on a duplicate define, the system-tenant
+  // guard on define-tenant-field, and the system-scope define→delete roundtrip.
+
+  test("re-defining the same tenant-field → 409 (deterministic aggregate-id conflict)", async () => {
+    await defineField("property", "color", "text");
+    const err = await stack.http.writeErr(
+      "custom-fields:write:define-tenant-field",
+      {
+        entityName: "property",
+        fieldKey: "color",
+        serializedField: { type: "text" },
+        required: false,
+        searchable: false,
+        displayOrder: 0,
+      },
+      admin,
+    );
+    expect(err.httpStatus).toBe(409);
+    // Only the first define produced a row.
+    expect(await countDefinitions(admin.tenantId, "color")).toBe(1);
+  });
+
+  test("define-tenant-field rejects a caller whose tenant IS the system tenant", async () => {
+    // The strict guard (isSystemTenant) blocks system-scope writes through the
+    // tenant handler — system definitions must go via define-system-field.
+    const systemScopedAdmin = createTestUser({
+      roles: ["TenantAdmin"],
+      tenantId: SYSTEM_TENANT_ID,
+    });
+    const err = await stack.http.writeErr(
+      "custom-fields:write:define-tenant-field",
+      {
+        entityName: "property",
+        fieldKey: "leaky",
+        serializedField: { type: "text" },
+        required: false,
+        searchable: false,
+        displayOrder: 0,
+      },
+      systemScopedAdmin,
+    );
+    // The guard throws a plain Error → 500 internal_error. Pin the guard's own
+    // message (surfaced as the InternalError cause in test/dev) so this can't
+    // be satisfied by some unrelated 5xx that also happens to write no row.
+    expect(err.httpStatus).toBe(500);
+    expect(err.code).toBe("internal_error");
+    const causeMessage = (err.details as { causeMessage?: string } | undefined)?.causeMessage ?? "";
+    expect(causeMessage).toContain("define-system-field");
+    expect(await countDefinitions(SYSTEM_TENANT_ID, "leaky")).toBe(0);
+  });
+
+  test("define-system-field → delete-system-field roundtrip (SystemAdmin, system scope)", async () => {
+    const defineRes = await stack.http.writeOk(
+      "custom-fields:write:define-system-field",
+      {
+        entityName: "property",
+        fieldKey: "vendorTag",
+        serializedField: { type: "text" },
+        required: false,
+        searchable: false,
+        displayOrder: 0,
+      },
+      systemAdmin,
+    );
+    expect(defineRes).toBeDefined();
+    expect(await countDefinitions(SYSTEM_TENANT_ID, "vendorTag")).toBe(1);
+    await stack.http.writeOk(
+      "custom-fields:write:delete-system-field",
+      { entityName: "property", fieldKey: "vendorTag" },
+      systemAdmin,
+    );
+    expect(await countDefinitions(SYSTEM_TENANT_ID, "vendorTag")).toBe(0);
+  });
+});
+
 describe("custom-fields integration — value validation (Builder-Reuse)", () => {
   async function setErr(entityId: string, fieldKey: string, value: unknown) {
     return stack.http.writeErr(
@@ -391,6 +479,57 @@ describe("custom-fields integration — value validation (Builder-Reuse)", () =>
     await setCustomField("property", id, "score", 7);
     await stack.eventDispatcher?.runOnce();
     expect(await rawCustomFields(id)).toMatchObject({ score: 7 });
+  });
+
+  async function setMissingValueErr(entityId: string, fieldKey: string) {
+    // value omitted entirely — JSON drops undefined, so the payload arrives
+    // without `value` and the schema-level refine rejects it.
+    return stack.http.writeErr(
+      "custom-fields:write:set-custom-field",
+      { entityName: "property", entityId, fieldKey },
+      admin,
+    );
+  }
+
+  test("missing value → 400 validation_error, no event (set requires a value)", async () => {
+    // The payload refine (set-custom-field.write.ts) rejects a missing value
+    // before the handler runs — otherwise `undefined` would bind as a jsonb
+    // NULL against the NOT-NULL custom_fields column. clear-custom-field is the
+    // documented way to remove a value.
+    const id = "11111111-2222-4000-8000-00000000000e";
+    await defineField("property", "label", "text");
+    await createProperty(id, "MissingValue");
+
+    const err = await setMissingValueErr(id, "label");
+    expect(err.httpStatus).toBe(400);
+    expect(err.code).toBe("validation_error");
+    expect(err.details).toMatchObject({ fields: [{ path: "value" }] });
+    expect(await countSetEvents(id)).toBe(0);
+  });
+
+  test("default-having field: a missing value is still rejected (default not silently applied)", async () => {
+    // Pre-fix bug: `z.number().default(0).safeParse(undefined)` succeeded with
+    // data=0, and the handler emitted `payload.value` (= undefined). The refine
+    // now rejects the missing value outright — no event, no defaulted-undefined.
+    const id = "22222222-3333-4000-8000-00000000000f";
+    await stack.http.writeOk(
+      "custom-fields:write:define-tenant-field",
+      {
+        entityName: "property",
+        fieldKey: "rank",
+        serializedField: { type: "number", default: 0 },
+        required: false,
+        searchable: false,
+        displayOrder: 0,
+      },
+      admin,
+    );
+    await createProperty(id, "DefaultMissing");
+
+    const err = await setMissingValueErr(id, "rank");
+    expect(err.httpStatus).toBe(400);
+    expect(err.code).toBe("validation_error");
+    expect(await countSetEvents(id)).toBe(0);
   });
 
   test("embedded field rejects a non-object value → 422, no event", async () => {

@@ -173,6 +173,32 @@ describe("seedTenantMembership", () => {
     expect(events.filter((e) => e.type === "tenant-membership.created")).toHaveLength(1);
   });
 
+  test("returns the membership-row id — identical across create + no-op re-seed", async () => {
+    // Both return paths (create via extractMembershipId, no-op via fetched row)
+    // must yield the same valid uuid string that the projection actually holds.
+    // Previously the return was never asserted; a no-op returning the wrong /
+    // undefined id would have gone unnoticed.
+    const created = await seedTenantMembership(stack.db, {
+      userId: ALICE_ID,
+      tenantId: TENANT_A,
+      roles: ["User"],
+    });
+    const reSeeded = await seedTenantMembership(stack.db, {
+      userId: ALICE_ID,
+      tenantId: TENANT_A,
+      roles: ["User"],
+    });
+
+    expect(created.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+    expect(reSeeded.id).toBe(created.id);
+
+    const [row] = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: ALICE_ID,
+      tenantId: TENANT_A,
+    });
+    expect(row?.["id"]).toBe(created.id);
+  });
+
   test("records the `by` user as insertedById on the projection", async () => {
     // Audit-queries that join events → users need a stable actor. Default
     // `by` is TestUsers.systemAdmin; override to a custom test user and

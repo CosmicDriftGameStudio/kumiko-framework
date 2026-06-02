@@ -210,10 +210,17 @@ describe("runProdApp envSchema integration", () => {
     }
   });
 
-  it("KUMIKO_DRY_RUN_ENV=boot still aggregates env-errors before exit", async () => {
+  it("KUMIKO_DRY_RUN_ENV=boot does not skip env-validation (no success handle on invalid env)", async () => {
+    // Env-error aggregation itself is mode-independent (covered above). The
+    // boot-specific guarantee here: the boot dry-run — which returns a handle
+    // and exits early on VALID env (see the test above) — must NOT report
+    // success on INVALID env. It aborts with the aggregated errors and returns
+    // no handle, so a regression that made boot-mode bail out before validation
+    // would surface as a falsely-returned handle.
     let captured: KumikoBootError | undefined;
+    let handle: unknown;
     try {
-      await runProdApp({
+      handle = await runProdApp({
         features: [secretsFeature, authFeature],
         envSchema: composed,
         envSource: {
@@ -229,6 +236,7 @@ describe("runProdApp envSchema integration", () => {
     } catch (err) {
       expect(err).toBeInstanceOf(KumikoBootError);
     }
+    expect(handle).toBeUndefined();
     expect(captured).toBeDefined();
     expect(captured!.errors.length).toBeGreaterThanOrEqual(3);
   });

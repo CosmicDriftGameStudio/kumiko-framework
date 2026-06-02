@@ -141,9 +141,9 @@ export async function seedTenantMembership(
     tenantId: options.tenantId,
   });
   if (existing) {
-    // @cast-boundary db-row: membership-row id is uuid (string) per
-    // entity definition; fetchOne returns the raw projection row.
-    return { id: existing["id"] as string };
+    // Same validation as the create-path — a missing/non-string id throws
+    // instead of silently returning `undefined as string`.
+    return { id: extractMembershipId(existing) };
   }
 
   const result = await executor.create(
