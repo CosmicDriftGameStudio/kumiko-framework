@@ -18,9 +18,9 @@
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
+  applyRetentionRemovals,
   selectFieldDefinitionsWithSerialized,
   selectHostRowsWithCustomFields,
-  updateHostRowCustomFields,
 } from "./db/queries/retention";
 import { parseSerializedField } from "./lib/parse-serialized-field";
 
@@ -122,17 +122,18 @@ export async function runCustomFieldsRetention(
     // skip: nothing on this row aged out — no UPDATE needed.
     if (removals.length === 0) continue;
 
-    const mutated: Record<string, unknown> = { ...row.customFields };
+    const deleteKeys: string[] = [];
+    const anonymizeKeys: string[] = [];
     for (const { key, strategy } of removals) {
       if (strategy === "delete") {
-        delete mutated[key];
+        deleteKeys.push(key);
       } else {
-        mutated[key] = null;
+        anonymizeKeys.push(key);
       }
       removalsByFieldKey[key] = (removalsByFieldKey[key] ?? 0) + 1;
     }
 
-    await updateHostRowCustomFields(opts.db, tableName, mutated, row.id);
+    await applyRetentionRemovals(opts.db, tableName, deleteKeys, anonymizeKeys, row.id);
     rowsUpdated++;
   }
 

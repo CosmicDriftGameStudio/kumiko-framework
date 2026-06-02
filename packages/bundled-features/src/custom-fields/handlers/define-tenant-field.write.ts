@@ -32,8 +32,15 @@ const { executor } = createEntityExecutor("field-definition", fieldDefinitionEnt
 // `unprocessable` + reason `cap_exceeded` BEFORE attempting the insert.
 // The factory below closes over the limit; the legacy const-export keeps
 // behavior unchanged for callers who didn't opt into a limit.
+//
+// Soft cap, not a hard guarantee: the count-then-insert is not serialized, so
+// N concurrent defines with distinct fieldKeys can each read `current < limit`
+// and overshoot by up to N. Acceptable here — defining fields is an admin-only,
+// low-frequency action and the limit is not wired to billing/tier enforcement.
+// If an exact cap is ever needed, serialize via advisory lock or a count
+// constraint at the insert.
 export interface DefineTenantFieldOptions {
-  /** Hard quota — `>= limit` definitions per tenant rejects further defines. */
+  /** Soft cap — `>= limit` definitions per tenant rejects further defines (see header: concurrent defines may overshoot). */
   readonly fieldDefinitionLimitPerTenant?: number;
 }
 
