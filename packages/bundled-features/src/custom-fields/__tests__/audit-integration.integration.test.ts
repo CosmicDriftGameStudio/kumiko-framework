@@ -265,12 +265,39 @@ describe("T1.5a: custom-fields events are visible in the audit log", () => {
       adminWithAudit,
     );
 
+    // Tenant-2 defines its OWN field. Without this, an audit query that
+    // returned zero rows for ANY reason (e.g. a broken filter) would still
+    // pass the "doesn't see leakyField" assertion — a false-positive that
+    // reads "isolated" but actually means "blind". Asserting tenant-2 sees its
+    // own event proves the query genuinely returns tenant-2's data.
+    const otherTenantDefiner = createTestUser({
+      id: 11,
+      roles: ["TenantAdmin"],
+      tenantId: otherTenantAdmin.tenantId,
+    });
+    await stack.http.writeOk(
+      "custom-fields:write:define-tenant-field",
+      {
+        entityName: "property",
+        fieldKey: "ownField",
+        serializedField: { type: "text" },
+        required: false,
+        searchable: false,
+        displayOrder: 0,
+      },
+      otherTenantDefiner,
+    );
+
     const res = await stack.http.queryOk<AuditResponse>(
       AuditQueries.list,
       { aggregateType: "field-definition" },
       otherTenantAdmin,
     );
 
+    // Tenant-2 sees its own event ...
+    const own = res.rows.find((r) => (r.payload["fieldKey"] as string) === "ownField");
+    expect(own).toBeDefined();
+    // ... but never tenant-1's.
     const leak = res.rows.find((r) => (r.payload["fieldKey"] as string) === "leakyField");
     expect(leak).toBeUndefined();
   });

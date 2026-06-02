@@ -143,3 +143,69 @@ describe("forget fail-closed :: storage.delete failure aborts the row hard-delet
     expect(row?.status).toBe(USER_STATUS.Deleted);
   });
 });
+
+// Same contract, but driven through the REAL dispatcher (POST run-forget-cleanup)
+// rather than calling runForgetCleanup with a top-level connection. The
+// dispatcher wraps the handler in an outer transaction, so ctx.db.raw is a
+// TransactionSql — which has `.savepoint`, not `.begin`. The per-user sub-tx
+// must open as a SAVEPOINT here; the previous `.begin`-only path threw on every
+// user when invoked this way (the cron path), so production deleted nobody while
+// these direct-connection tests stayed green. #214.
+describe("forget-cleanup through the real dispatcher :: per-user savepoint nests under the handler tx", () => {
+  const systemUser = {
+    id: "00000000-0000-4000-8000-0000000000ff",
+    tenantId: TENANT,
+    roles: ["SystemAdmin"],
+  };
+  type CleanupResult = {
+    readonly processedUserIds: readonly string[];
+    readonly hookCallsAttempted: number;
+    readonly errorCount: number;
+    readonly errors: ReadonlyArray<{ readonly userId: string; readonly entityName: string }>;
+  };
+  const RUN_FORGET = "user-data-rights:write:run-forget-cleanup";
+
+  test("dispatcher POST flips a due user to Deleted (SAVEPOINT inside the outer handler tx)", async () => {
+    failDeletes = false;
+    const userId = "cccccccc-cccc-4ccc-8ccc-000000000003";
+    await seed.seedForgetUser(userId);
+    await seed.seedMembership(userId, TENANT);
+    const key = await seed.seedFile("dddddddd-dddd-4ddd-8ddd-000000000003", TENANT, userId);
+
+    const result = await stack.http.writeOk<CleanupResult>(RUN_FORGET, {}, systemUser);
+
+    // Pre-fix this list was always empty — `.begin` is absent on the
+    // dispatcher's TransactionSql, so the per-user sub-tx threw for every user.
+    expect(result.processedUserIds).toContain(userId);
+    expect(result.errorCount).toBe(0);
+    expect(await base.exists(key)).toBe(false);
+    expect(await fileRowCount(TENANT, userId)).toBe(0);
+    const row = await fetchOne<{ status: string }>(db, userTable, { id: userId });
+    expect(row?.status).toBe(USER_STATUS.Deleted);
+  });
+
+  test("fail-closed + retry-convergence through the dispatcher (savepoint rolls back one user)", async () => {
+    const userId = "cccccccc-cccc-4ccc-8ccc-000000000004";
+    await seed.seedForgetUser(userId);
+    await seed.seedMembership(userId, TENANT);
+    const key = await seed.seedFile("dddddddd-dddd-4ddd-8ddd-000000000004", TENANT, userId);
+
+    // Storage down → fileRef hook throws → ROLLBACK TO SAVEPOINT undoes just
+    // this user; the outer handler tx still commits the run. User stays pending.
+    failDeletes = true;
+    const failed = await stack.http.writeOk<CleanupResult>(RUN_FORGET, {}, systemUser);
+    expect(failed.processedUserIds).not.toContain(userId);
+    expect(failed.errors.some((e) => e.userId === userId && e.entityName === "fileRef")).toBe(true);
+    expect(await base.exists(key)).toBe(true);
+    let row = await fetchOne<{ status: string }>(db, userTable, { id: userId });
+    expect(row?.status).toBe(USER_STATUS.DeletionRequested);
+
+    // Storage recovers → retry converges (idempotent delete).
+    failDeletes = false;
+    const ok = await stack.http.writeOk<CleanupResult>(RUN_FORGET, {}, systemUser);
+    expect(ok.processedUserIds).toContain(userId);
+    expect(await base.exists(key)).toBe(false);
+    row = await fetchOne<{ status: string }>(db, userTable, { id: userId });
+    expect(row?.status).toBe(USER_STATUS.Deleted);
+  });
+});

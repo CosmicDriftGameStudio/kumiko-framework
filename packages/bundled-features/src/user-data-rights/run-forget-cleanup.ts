@@ -249,46 +249,40 @@ async function processUser(args: {
     memberships.length > 0 ? memberships.map((m) => m.tenantId) : [SYSTEM_TENANT_ID_FOR_ORPHANS];
 
   // Per-User-Sub-Tx: hooks + status-flip atomar. Bei Hook-Throw rollt
-  // nur dieser User zurueck, andere User bleiben commit-fest. Drizzle
-  // mappt das in nested-Tx auf SAVEPOINT, in top-level auf BEGIN — die
-  // `transaction()`-API ist auf DbRunner uniform.
-  //
-  // Cast `db as {transaction: ...}` ist eine TS-Limitation: DbRunner ist
-  // `DbConnection | DbTx`, beide haben `.transaction()`, aber TS kann
-  // die Signaturen ueber die Union nicht unifizieren (PgDatabase vs
-  // PgTransaction haben unterschiedliche Generics). Cast macht das
-  // Strukturelle explizit, kein Hack.
+  // nur dieser User zurueck, andere User bleiben commit-fest. Die Sub-Tx
+  // nestet korrekt: eine Top-Level-Connection oeffnet sie via `.begin`
+  // (BEGIN), eine TransactionSql — der Fall im Dispatcher, wo jeder
+  // writeHandler bereits IN der Outer-Tx laeuft — via `.savepoint`
+  // (SAVEPOINT). Siehe runInSubTransaction.
   let txSucceeded = false;
   let currentTenantId: TenantId | null = null;
   let currentEntityName: string | null = null;
   try {
-    await (db as { begin: (fn: (tx: DbRunner) => Promise<void>) => Promise<void> }).begin(
-      async (tx) => {
-        for (const tenantId of tenantList) {
-          currentTenantId = tenantId;
-          for (const entry of hookEntries) {
-            currentEntityName = entry.entityName;
-            const policy = await resolveRetentionPolicyForTenant({
-              db: tx,
-              registry,
-              tenantId,
-              entityName: entry.entityName,
-            });
-            const strategy = policyToStrategy(policy.policy?.strategy ?? null);
+    await runInSubTransaction(db, async (tx) => {
+      for (const tenantId of tenantList) {
+        currentTenantId = tenantId;
+        for (const entry of hookEntries) {
+          currentEntityName = entry.entityName;
+          const policy = await resolveRetentionPolicyForTenant({
+            db: tx,
+            registry,
+            tenantId,
+            entityName: entry.entityName,
+          });
+          const strategy = policyToStrategy(policy.policy?.strategy ?? null);
 
-            hookCallsAttempted++;
-            await entry.deleteHook({ db: tx, tenantId, userId }, strategy);
-          }
+          hookCallsAttempted++;
+          await entry.deleteHook({ db: tx, tenantId, userId }, strategy);
         }
+      }
 
-        // Status-Flip in derselben Sub-Tx. Falls einer der Hooks oben
-        // geworfen hat, kommen wir hier nicht an — die Tx rollback'd
-        // alles, der User bleibt im DeletionRequested-Status, naechster
-        // Run retried.
-        await updateMany(tx, userTable, { status: USER_STATUS.Deleted }, { id: userId });
-        txSucceeded = true;
-      },
-    );
+      // Status-Flip in derselben Sub-Tx. Falls einer der Hooks oben
+      // geworfen hat, kommen wir hier nicht an — die Tx rollback'd
+      // alles, der User bleibt im DeletionRequested-Status, naechster
+      // Run retried.
+      await updateMany(tx, userTable, { status: USER_STATUS.Deleted }, { id: userId });
+      txSucceeded = true;
+    });
   } catch (e) {
     // currentTenantId/currentEntityName tracken den Failing-Hook —
     // Operator sieht "Hook fileRef in Tenant A failed for user X" statt
@@ -308,6 +302,37 @@ async function processUser(args: {
     userEmailBeforeDelete,
     tenantIdsBeforeDelete,
   };
+}
+
+// Per-user sub-transaction, nesting-aware across both db shapes:
+//   - top-level connection (Bun.SQL / postgres-js Sql) → `.begin` (BEGIN)
+//   - TransactionSql (inside the dispatcher's outer tx, where every
+//     writeHandler already runs) → `.savepoint` (SAVEPOINT)
+// A TransactionSql has no `.begin`, so the previous unconditional `.begin`
+// threw "is not a function" on every user when invoked through the dispatcher
+// (the cron path) → zero deletions in production, while direct-connection tests
+// stayed green. Selecting the available method makes the sub-tx work in both
+// contexts; on throw the savepoint rolls back just this user (others survive).
+async function runInSubTransaction(
+  db: DbRunner,
+  fn: (tx: DbRunner) => Promise<void>,
+): Promise<void> {
+  // `db` is already the raw runner (the handler passes ctx.db.raw, the tests a
+  // top-level connection) — cast to read the transaction surface directly,
+  // without asRawClient (a test-only escape hatch). A top-level connection
+  // exposes `.begin`; a TransactionSql only `.savepoint`. They are mutually
+  // exclusive, so prefer whichever is present.
+  const runner = db as {
+    begin?: (f: (tx: DbRunner) => Promise<void>) => Promise<void>;
+    savepoint?: (f: (tx: DbRunner) => Promise<void>) => Promise<void>;
+  };
+  const open = runner.begin ?? runner.savepoint;
+  if (!open) {
+    throw new Error(
+      "runForgetCleanup: db exposes neither .begin nor .savepoint — cannot open a per-user sub-transaction",
+    );
+  }
+  await open.call(runner, fn);
 }
 
 // Pseudo-Tenant fuer User ohne aktive Memberships. RFC4122-konforme
