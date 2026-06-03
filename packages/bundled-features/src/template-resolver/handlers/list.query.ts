@@ -20,15 +20,11 @@ export const listQuery = defineQueryHandler({
     const isSystemAdmin = query.user.roles.includes("SystemAdmin");
     const where: Record<string, unknown> = {};
 
-    // Tenant-Scope: SystemAdmin sieht alles, andere nur eigener Tenant + System
-    if (!isSystemAdmin) {
-      if (query.payload.includeSystem) {
-        where["tenantId"] = [query.user.tenantId, SYSTEM_TENANT_ID];
-      } else {
-        where["tenantId"] = query.user.tenantId;
-      }
-    } else if (!query.payload.includeSystem) {
-      // SystemAdmin mit includeSystem=false → nur eigener Tenant
+    // TenantDb scopes non-SystemAdmin reads to [own tenant, SYSTEM reference] and
+    // refuses a caller-narrowed where.tenantId (enforced isolation). SystemAdmin
+    // uses a system-scoped db that sees every tenant, so narrow to own explicitly
+    // when they don't want the cross-tenant view.
+    if (isSystemAdmin && !query.payload.includeSystem) {
       where["tenantId"] = query.user.tenantId;
     }
 
@@ -48,7 +44,13 @@ export const listQuery = defineQueryHandler({
       limit: 500,
     })) as TemplateResourceRow[];
 
-    return rows.map((row) => ({
+    // TenantDb always surfaces SYSTEM reference rows alongside the tenant's own;
+    // includeSystem=false drops them here since they can't be excluded at the DB.
+    const visible = query.payload.includeSystem
+      ? rows
+      : rows.filter((row) => row.tenantId !== SYSTEM_TENANT_ID);
+
+    return visible.map((row) => ({
       id: String(row.id),
       tenantId: row.tenantId,
       slug: row.slug,
