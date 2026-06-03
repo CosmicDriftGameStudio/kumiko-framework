@@ -107,6 +107,11 @@ jobs:
         # Re-run and assert kein Diff. Wenn jemand das schema.generated.ts
         # ändert ohne generate.ts re-runned zu haben → CI fail.
         run: |
+          # Im Job-Container gehört der Workspace einer anderen uid als dem
+          # run-Step-User → rohes git verweigert das Repo (dubious ownership →
+          # "git diff --no-index"-Usage). Scoped auf genau diesen Workspace,
+          # NICHT global safe.directory '*' im Image (Least-Privilege).
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           bun samples/apps/use-all-bundled/schema/generate.ts
           git diff --exit-code samples/apps/use-all-bundled/schema/schema.generated.ts
       - name: Coverage lint (M5)
