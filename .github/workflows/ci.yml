@@ -122,10 +122,6 @@ jobs:
           # Random 32-byte base64-encoded stub. Never used as real KEK —
           # boot-mode exits before any encrypt/decrypt path runs.
           KUMIKO_SECRETS_MASTER_KEY_V1: +7H+TnUa12nBRok5jVwyA7WdgjOJ0WqY3H9oBZ4M7UQ=
-          # M0.1 subscription-stripe + subscription-mollie env-stubs.
-          STRIPE_API_KEY: sk_test_smoke
-          STRIPE_WEBHOOK_SECRET: whsec_smoke
-          MOLLIE_API_KEY: test_smoke
         run: bun samples/apps/use-all-bundled/bin/main.ts
 
       - name: Bundle smoke (Empfehlung 4)
@@ -138,9 +134,6 @@ jobs:
           REDIS_URL: redis://127.0.0.1:1
           JWT_SECRET: smokesmokesmokesmokesmokesmokesmokesmoke
           KUMIKO_SECRETS_MASTER_KEY_V1: +7H+TnUa12nBRok5jVwyA7WdgjOJ0WqY3H9oBZ4M7UQ=
-          STRIPE_API_KEY: sk_test_smoke
-          STRIPE_WEBHOOK_SECRET: whsec_smoke
-          MOLLIE_API_KEY: test_smoke
         run: bash samples/apps/use-all-bundled/scripts/bundle-smoke.sh
 
   # Non-blocking: nicht in release.needs, nicht in Branch-Protection → der

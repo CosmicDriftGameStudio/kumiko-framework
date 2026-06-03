@@ -11,6 +11,7 @@ import {
   joinPath,
   scanRepo,
   type SqlInventoryReport,
+  toBaselineJson,
 } from "../packages/framework/src/db/sql-inventory";
 
 const REPO_ROOT = joinPath(import.meta.dir, "..");
@@ -35,7 +36,7 @@ async function main(): Promise<void> {
   console.log(formatReport(report));
 
   if (writeBaseline) {
-    await Bun.write(BASELINE_PATH, `${JSON.stringify(report, null, 2)}\n`);
+    await Bun.write(BASELINE_PATH, toBaselineJson(report));
     console.log(`\n  Baseline written: ${BASELINE_PATH}\n`);
   }
 

@@ -1,6 +1,6 @@
 {
-  "scannedAt": "2026-05-28T12:11:28.843Z",
-  "root": "/Users/marc/code/cosmicdriftgamestudio/kumiko-framework/.claude/worktrees/drizzle-cleanup/scripts/..",
+  "scannedAt": "",
+  "root": ".",
   "hits": [
     {
       "file": "packages/bundled-features/src/custom-fields/db/queries/projection.ts",
