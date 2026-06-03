@@ -5,7 +5,9 @@ linker = "hoisted"
 "@cosmicdriftgamestudio" = { url = "https://npm.pkg.github.com", token = "$GITHUB_TOKEN" }
 
 [test]
-preload = ["./test-setup/integration.preload.ts", "./test-setup/dom.preload.ts"]
+# Unit-test default: polyfill-only preload (no service-URL env). Integration
+# runs pull service defaults via bunfig.integration.toml → integration.preload.ts.
+preload = ["./test-setup/base.preload.ts", "./test-setup/dom.preload.ts"]
 concurrency = 8
 
 # *.spec.ts gehören zu Playwright (e2e/-Folder). bun test versucht sonst

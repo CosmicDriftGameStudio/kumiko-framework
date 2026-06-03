@@ -111,17 +111,45 @@ describe("s3-provider (Minio)", () => {
     await expect(provider.read(key)).rejects.toThrow();
   });
 
-  test("writeStream round-trip via multipart writer preserves bytes", async () => {
-    // Pinst die idiomatic Bun-S3-writer-Form (write + end, kein manual
-    // flush). Chunks summieren absichtlich auf > 5 MiB (partSize) UND auf
-    // einen krummen Rest, damit der multipart-finalizer auch dann greift,
-    // wenn die Source-Chunks nicht auf die Part-Boundary aufgehen.
+  test("writeStream round-trip via multipart writer preserves byte-exact ordering", async () => {
+    // Regression guard for the multipart-flush bug: the source chunks are
+    // deliberately NON-ALIGNED to the 5 MiB part boundary ([3,3,2] MiB → the
+    // internal part split at 5 MiB lands mid-chunk #2). The old
+    // `buffered >= STREAM_PART_SIZE` flush would emit a non-final part of an
+    // odd size at that boundary; the Bun-writer (partSize) path produces the
+    // correct part topology. Either way we verify END-TO-END byte integrity,
+    // not just total size + first/last byte.
+    //
+    // Each chunk carries a chunk-distinct content pattern (incl. a per-chunk
+    // marker in byte[0]). A re-order, dropped, or duplicated part therefore
+    // changes the readback SHA256 — a same-pattern-per-part test would not
+    // catch that. We assert both the SHA256 over the whole stream AND the
+    // per-chunk-offset marker bytes.
+    //
+    // NOTE: MinIO does NOT enforce the AWS `MinPartSize` (5 MiB non-final
+    // part) rule, so this test cannot reproduce the genuine S3 `EntityTooSmall`
+    // rejection — that needs a manual smoke against AWS/R2. What it DOES guard
+    // is byte-ordering/integrity of the multipart round-trip, which is
+    // provider-agnostic.
     const key = uniqueKey("stream-multipart.bin");
     const partSize = 5 * 1024 * 1024;
-    const chunk = new Uint8Array(1024 * 1024);
-    for (let i = 0; i < chunk.length; i++) chunk[i] = i % 251;
-    const chunks: Uint8Array[] = [];
-    for (let i = 0; i < 7; i++) chunks.push(chunk);
+    const MiB = 1024 * 1024;
+    const chunkSizes = [3 * MiB, 3 * MiB, 2 * MiB]; // 8 MiB total, non-aligned to 5 MiB
+
+    function makeChunk(index: number, size: number): Uint8Array {
+      const c = new Uint8Array(size);
+      // byte[0] = chunk marker; remaining bytes mix index + position so each
+      // chunk's body is distinct (reorder/duplicate changes the hash).
+      c[0] = index;
+      for (let i = 1; i < size; i++) c[i] = (index * 31 + i) % 251;
+      return c;
+    }
+    const chunks = chunkSizes.map((size, i) => makeChunk(i, size));
+
+    // Expected hash over the concatenated source.
+    const sourceHasher = new Bun.CryptoHasher("sha256");
+    for (const c of chunks) sourceHasher.update(c);
+    const expectedHash = sourceHasher.digest("hex");
 
     if (!provider.writeStream) throw new Error("s3 provider should implement writeStream");
     await provider.writeStream(
@@ -132,10 +160,24 @@ describe("s3-provider (Minio)", () => {
     );
 
     const readBack = await provider.read(key);
-    expect(readBack.byteLength).toBe(chunks.length * chunk.length);
+    const totalSize = chunkSizes.reduce((a, b) => a + b, 0);
+    expect(readBack.byteLength).toBe(totalSize);
     expect(readBack.byteLength).toBeGreaterThan(partSize);
-    expect(readBack[0]).toBe(0);
-    expect(readBack[readBack.byteLength - 1]).toBe(chunk[chunk.length - 1]);
+
+    // Byte-exact integrity over the full stream — catches any mid-stream
+    // corruption / reorder / off-by-part the size+endpoints check would miss.
+    const readHasher = new Bun.CryptoHasher("sha256");
+    readHasher.update(readBack);
+    expect(readHasher.digest("hex")).toBe(expectedHash);
+
+    // Explicit per-chunk marker check at the expected source offsets — proves
+    // the parts landed in order (not just that the bytes are collectively
+    // present).
+    let offset = 0;
+    for (let i = 0; i < chunks.length; i++) {
+      expect(readBack[offset]).toBe(i);
+      offset += chunkSizes[i] ?? 0;
+    }
   });
 });
 

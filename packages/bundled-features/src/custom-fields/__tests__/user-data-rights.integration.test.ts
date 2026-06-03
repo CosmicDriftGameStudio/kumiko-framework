@@ -1,22 +1,33 @@
-// T1.5c — user-data-rights wiring for custom-fields.
+// T1.5c — user-data-rights wiring for custom-fields, exercised through the
+// REAL export/forget runners (runUserExport / runForgetCleanup), not by
+// calling the registered hooks in isolation.
 //
-// Verifies the full DSGVO loop for custom-field values on a user-owned
-// host entity:
+// What the real runners prove that direct hook calls cannot:
 //
-//   * Export (Art. 15+20): every row owned by the user contributes its
-//     customFields jsonb into the user's export bundle under
-//     `<entity>.customFields`.
+//   * runUserExport actually picks up the custom-fields export hook from the
+//     registry and folds its snippet into the user's cross-tenant bundle.
 //
-//   * Forget strategy=anonymize (Art. 17 with retention obligation):
-//     sensitive customFields keys are stripped from the jsonb; non-
-//     sensitive keys stay so co-tenants / co-authors keep useful data.
+//   * runForgetCleanup fires BOTH the host EXT_USER_DATA hook (owner-nulling
+//     anonymize) AND the custom-fields strip hook, in the order their declared
+//     `order` demands. The strip declares order -100 so it redacts sensitive
+//     jsonb keyed on `inserted_by_id` BEFORE the host hook nulls that column.
+//     If the ordering regressed, the host hook would null inserted_by_id first,
+//     the strip's `WHERE inserted_by_id = userId` would match 0 rows, and
+//     sensitive PII would silently survive (Art. 17 violation). Calling the
+//     hooks by hand never exercised this interaction.
 //
-//   * Forget strategy=delete: no-op — the host entity's own user-data-
-//     rights hook handles the row delete, jsonb travels with the row.
+//   * The anonymize-vs-delete strategy comes from the data-retention policy:
+//     no override → strategy "delete" (custom-fields strip is a no-op, host
+//     deletes the row); per-tenant anonymize override → strategy "anonymize"
+//     (strip runs, host nulls the owner).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  buildEntityTable,
+  createEventStoreExecutor,
+  createTenantDb,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createEntityExecutor,
@@ -32,18 +43,27 @@ import {
   resetEventStore,
   setupTestStack,
   type TestStack,
+  TestUsers,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
-import { createDataRetentionFeature } from "../../data-retention";
+import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
+import { tenantRetentionOverrideTable } from "../../data-retention/schema/tenant-retention-override";
 import { createSessionsFeature } from "../../sessions";
-import { createUserFeature, userEntity } from "../../user";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserDataRightsFeature } from "../../user-data-rights";
+import { runForgetCleanup } from "../../user-data-rights/run-forget-cleanup";
+import { runUserExport } from "../../user-data-rights/run-user-export";
 import { fieldDefinitionEntity } from "../entity";
 import { createCustomFieldsFeature } from "../feature";
 import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity";
 import { wireCustomFieldsUserDataRightsFor } from "../wire-user-data-rights";
+
+type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
+const NOW = (): Instant => getTemporal().Now.instant();
+const PAST = (): Instant => getTemporal().Instant.fromEpochMilliseconds(Date.now() - 60_000);
 
 const propertyEntity = createEntity({
   table: "read_t15c_properties",
@@ -55,15 +75,12 @@ const propertyEntity = createEntity({
 const propertyTable = buildEntityTable("property", propertyEntity);
 
 // Host entity gets its own EXT_USER_DATA-registration too — that's the
-// canonical setup (host bundle handles row-anonymize/delete, custom-fields
-// adds its strip-sensitive-jsonb layer on top). Both hooks fire in the
-// same cleanup-run.
+// canonical setup. The host's anonymize hook NULLS inserted_by_id (default
+// order 0); the custom-fields strip (order -100) must run first. Both fire in
+// the same runForgetCleanup sub-transaction.
 const hostExportHook: UserDataExportHook = async (ctx) => {
   const rows = await asRawClient(ctx.db).unsafe(
-    `
-    SELECT id, name FROM read_t15c_properties
-    WHERE inserted_by_id = $1 AND tenant_id = $2
-  `,
+    `SELECT id, name FROM read_t15c_properties WHERE inserted_by_id = $1 AND tenant_id = $2`,
     [ctx.userId, ctx.tenantId],
   );
   const list = rows as ReadonlyArray<Record<string, unknown>>;
@@ -77,19 +94,15 @@ const hostExportHook: UserDataExportHook = async (ctx) => {
 const hostDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
   if (strategy === "delete") {
     await asRawClient(ctx.db).unsafe(
-      `
-      DELETE FROM read_t15c_properties
-      WHERE inserted_by_id = $1 AND tenant_id = $2
-    `,
+      `DELETE FROM read_t15c_properties WHERE inserted_by_id = $1 AND tenant_id = $2`,
       [ctx.userId, ctx.tenantId],
     );
   } else {
-    // anonymize: clear owner, keep row + non-sensitive customFields
+    // anonymize: clear owner, keep row + non-sensitive customFields. Runs AFTER
+    // the custom-fields strip (order -100 < 0) — if it ran first, the strip's
+    // owner-keyed WHERE would match nothing.
     await asRawClient(ctx.db).unsafe(
-      `
-      UPDATE read_t15c_properties SET inserted_by_id = NULL
-      WHERE inserted_by_id = $1 AND tenant_id = $2
-    `,
+      `UPDATE read_t15c_properties SET inserted_by_id = NULL WHERE inserted_by_id = $1 AND tenant_id = $2`,
       [ctx.userId, ctx.tenantId],
     );
   }
@@ -125,8 +138,10 @@ const propertyFeature = defineFeature("property-t15c", (r) => {
 
 const customFieldsFeature = createCustomFieldsFeature();
 const admin = createTestUser({ id: 1, roles: ["TenantAdmin"] });
+const TENANT = admin.tenantId;
 
 let stack: TestStack;
+let overrideExecutor: ReturnType<typeof createEventStoreExecutor>;
 
 beforeAll(async () => {
   stack = await setupTestStack({
@@ -143,7 +158,34 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, fieldDefinitionEntity);
   await unsafeCreateEntityTable(stack.db, propertyEntity);
+  await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
   await createEventsTable(stack.db);
+
+  // runForgetCleanup + runUserExport iterate the user's memberships. Provide a
+  // minimal membership read-model (same shape the user-data-rights suite uses).
+  await asRawClient(stack.db).unsafe(`
+    CREATE TABLE IF NOT EXISTS read_tenant_memberships (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      tenant_id UUID NOT NULL,
+      user_id TEXT NOT NULL,
+      version INTEGER NOT NULL DEFAULT 0,
+      inserted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      modified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      inserted_by_id TEXT,
+      modified_by_id TEXT,
+      is_deleted BOOLEAN NOT NULL DEFAULT false,
+      deleted_at TIMESTAMPTZ,
+      deleted_by_id TEXT,
+      roles TEXT NOT NULL DEFAULT '[]',
+      UNIQUE(user_id, tenant_id)
+    )
+  `);
+
+  overrideExecutor = createEventStoreExecutor(
+    tenantRetentionOverrideTable,
+    tenantRetentionOverrideEntity,
+    { entityName: "tenant-retention-override" },
+  );
 });
 
 afterAll(async () => {
@@ -154,6 +196,9 @@ beforeEach(async () => {
   await resetEventStore(stack);
   await asRawClient(stack.db).unsafe(`DELETE FROM read_t15c_properties`);
   await asRawClient(stack.db).unsafe(`DELETE FROM read_custom_field_definitions`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_memberships`);
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantRetentionOverrideTable.tableName}"`);
 });
 
 async function defineField(fieldKey: string, serializedField: Record<string, unknown>) {
@@ -185,43 +230,78 @@ async function setField(entityId: string, fieldKey: string, value: unknown) {
 
 async function readRow(id: string): Promise<Record<string, unknown> | undefined> {
   const rows = await asRawClient(stack.db).unsafe(
-    `SELECT id, custom_fields FROM read_t15c_properties WHERE id = $1`,
+    `SELECT id, custom_fields, inserted_by_id FROM read_t15c_properties WHERE id = $1`,
     [id],
   );
   const list = rows as ReadonlyArray<Record<string, unknown>>;
   return list[0];
 }
 
-async function callExportHook(userId: string, tenantId: string) {
-  const usages = stack.registry.getExtensionUsages(EXT_USER_DATA);
-  const customFieldsUsage = usages.find(
-    (u) =>
-      u.entityName === "property" &&
-      (u.options as { export?: unknown })?.export &&
-      u.options !== undefined &&
-      (u.options as Record<string, unknown>)["export"] !== hostExportHook,
-  );
-  if (!customFieldsUsage) throw new Error("custom-fields user-data-rights export hook not found");
-  const hook = (customFieldsUsage.options as { export: UserDataExportHook }).export;
-  return hook({ db: stack.db, tenantId, userId });
+// Seed the acting admin as a normal active user with a membership in TENANT so
+// the export runner iterates their data. Status active = NOT picked up by
+// runForgetCleanup.
+async function seedActiveUserWithMembership(): Promise<void> {
+  await insertOne(stack.db, userTable, {
+    id: admin.id,
+    tenantId: TENANT,
+    email: `admin@example.com`,
+    passwordHash: "hashed",
+    displayName: "Admin",
+    locale: "de",
+    emailVerified: true,
+    roles: '["TenantAdmin"]',
+    status: USER_STATUS.Active,
+  });
+  await seedMembership();
 }
 
-async function callDeleteHook(userId: string, tenantId: string, strategy: "anonymize" | "delete") {
-  const usages = stack.registry.getExtensionUsages(EXT_USER_DATA);
-  const customFieldsUsage = usages.find(
-    (u) =>
-      u.entityName === "property" &&
-      (u.options as { delete?: unknown })?.delete &&
-      u.options !== undefined &&
-      (u.options as Record<string, unknown>)["delete"] !== hostDeleteHook,
-  );
-  if (!customFieldsUsage) throw new Error("custom-fields user-data-rights delete hook not found");
-  const hook = (customFieldsUsage.options as { delete: UserDataDeleteHook }).delete;
-  return hook({ db: stack.db, tenantId, userId }, strategy);
+// Seed the acting admin as DeletionRequested + grace expired so
+// runForgetCleanup picks them up, with a membership in TENANT.
+async function seedForgetUserWithMembership(): Promise<void> {
+  await insertOne(stack.db, userTable, {
+    id: admin.id,
+    tenantId: TENANT,
+    email: `admin@example.com`,
+    passwordHash: "hashed",
+    displayName: "Admin",
+    locale: "de",
+    emailVerified: true,
+    roles: '["TenantAdmin"]',
+    status: USER_STATUS.DeletionRequested,
+    gracePeriodEnd: PAST(),
+  });
+  await seedMembership();
 }
 
-describe("T1.5c: user-data-rights wiring for custom-fields", () => {
-  test("export: customFields jsonb travels into the user's export snippet", async () => {
+async function seedMembership(): Promise<void> {
+  await asRawClient(stack.db).unsafe(
+    `INSERT INTO read_tenant_memberships (tenant_id, user_id, roles)
+     VALUES ($1, $2, '["TenantAdmin"]') ON CONFLICT (user_id, tenant_id) DO NOTHING`,
+    [TENANT, admin.id],
+  );
+}
+
+// Set a per-tenant retention override for the property entity through the same
+// event-store path the forget resolver reads — no test-only shortcut.
+async function seedPropertyAnonymizeOverride(): Promise<void> {
+  const by = { ...TestUsers.systemAdmin, tenantId: TENANT };
+  const result = await overrideExecutor.create(
+    {
+      entityName: "property",
+      config: JSON.stringify({ keepFor: "30d", strategy: "anonymize" }),
+      reason: "test",
+      tenantId: TENANT,
+    },
+    by,
+    createTenantDb(stack.db, TENANT, "system"),
+  );
+  if (!result.isSuccess)
+    throw new Error(`seedPropertyAnonymizeOverride failed: ${JSON.stringify(result)}`);
+}
+
+describe("T1.5c: custom-fields user-data-rights through the real runners", () => {
+  test("export: customFields jsonb lands in the user's export bundle", async () => {
+    await seedActiveUserWithMembership();
     const propertyId = "11111111-1111-4000-8000-000000000001";
     await defineField("email", { type: "text", sensitive: true });
     await defineField("vipFlag", { type: "boolean" });
@@ -230,17 +310,27 @@ describe("T1.5c: user-data-rights wiring for custom-fields", () => {
     await setField(propertyId, "vipFlag", true);
     await stack.eventDispatcher?.runOnce();
 
-    const snippet = await callExportHook(String(admin.id), admin.tenantId);
-    expect(snippet).not.toBeNull();
-    expect(snippet?.entity).toBe("property.customFields");
-    expect(snippet?.rows).toHaveLength(1);
-    expect(snippet?.rows[0]?.["customFields"]).toMatchObject({
+    const bundle = await runUserExport({
+      db: stack.db,
+      registry: stack.registry,
+      userId: admin.id,
+      now: NOW(),
+    });
+
+    const tenantSection = bundle.tenants.find((t) => t.tenantId === TENANT);
+    expect(tenantSection).toBeDefined();
+    const cfSnippet = tenantSection?.entities.find((e) => e.entity === "property.customFields");
+    expect(cfSnippet).toBeDefined();
+    expect(cfSnippet?.rows).toHaveLength(1);
+    expect(cfSnippet?.rows[0]?.["customFields"]).toMatchObject({
       email: "alice@example.com",
       vipFlag: true,
     });
   });
 
-  test("forget anonymize: sensitive keys stripped, non-sensitive keys kept", async () => {
+  test("forget anonymize: strip runs BEFORE host owner-nulling → sensitive key gone, non-sensitive kept", async () => {
+    await seedForgetUserWithMembership();
+    await seedPropertyAnonymizeOverride();
     const propertyId = "22222222-2222-4000-8000-000000000002";
     await defineField("email", { type: "text", sensitive: true });
     await defineField("vipFlag", { type: "boolean" });
@@ -249,50 +339,81 @@ describe("T1.5c: user-data-rights wiring for custom-fields", () => {
     await setField(propertyId, "vipFlag", true);
     await stack.eventDispatcher?.runOnce();
 
-    await callDeleteHook(String(admin.id), admin.tenantId, "anonymize");
+    const result = await runForgetCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      now: NOW(),
+    });
+    expect(result.processedUserIds).toContain(admin.id);
+    expect(result.errors).toHaveLength(0);
 
     const row = await readRow(propertyId);
+    // Host hook ran (owner nulled), and the strip ran BEFORE it (sensitive
+    // key removed despite the owner-keyed WHERE — proof of the -100 ordering).
+    expect(row?.["inserted_by_id"]).toBeNull();
     const customFields = row?.["custom_fields"] as Record<string, unknown> | undefined;
     expect(customFields).toBeDefined();
     expect(customFields).not.toHaveProperty("email");
     expect(customFields).toMatchObject({ vipFlag: true });
   });
 
-  test("forget delete: no-op on customFields (host hook removes the row)", async () => {
+  test("forget delete (no override → strategy delete): host removes the row, strip is a no-op", async () => {
+    await seedForgetUserWithMembership();
+    // No retention override → policyToStrategy(null) = "delete".
     const propertyId = "33333333-3333-4000-8000-000000000003";
     await defineField("email", { type: "text", sensitive: true });
     await createProperty(propertyId, "Delete-Me");
     await setField(propertyId, "email", "alice@example.com");
     await stack.eventDispatcher?.runOnce();
 
-    // call only the custom-fields delete hook (strategy=delete) — verify
-    // it doesn't mutate the row (the host hook would handle the actual
-    // row delete; we're proving custom-fields stays out of the way).
-    await callDeleteHook(String(admin.id), admin.tenantId, "delete");
+    const result = await runForgetCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      now: NOW(),
+    });
+    expect(result.processedUserIds).toContain(admin.id);
 
-    const row = await readRow(propertyId);
-    const customFields = row?.["custom_fields"] as Record<string, unknown> | undefined;
-    expect(customFields).toMatchObject({ email: "alice@example.com" });
+    // Host delete-hook removed the row; custom-fields strip stayed out of the
+    // way (it returns early on strategy=delete).
+    expect(await readRow(propertyId)).toBeUndefined();
   });
 
   test("export: rows without customFields are not included in the snippet", async () => {
+    await seedActiveUserWithMembership();
     const propertyId = "44444444-4444-4000-8000-000000000004";
     await createProperty(propertyId, "NoCustomFields");
+    await stack.eventDispatcher?.runOnce();
 
-    const snippet = await callExportHook(String(admin.id), admin.tenantId);
-    expect(snippet).toBeNull();
+    const bundle = await runUserExport({
+      db: stack.db,
+      registry: stack.registry,
+      userId: admin.id,
+      now: NOW(),
+    });
+
+    const tenantSection = bundle.tenants.find((t) => t.tenantId === TENANT);
+    const cfSnippet = tenantSection?.entities.find((e) => e.entity === "property.customFields");
+    expect(cfSnippet).toBeUndefined();
   });
 
-  test("anonymize without sensitive fields defined is a no-op (everything kept)", async () => {
+  test("forget anonymize without sensitive fields defined → all customFields kept", async () => {
+    await seedForgetUserWithMembership();
+    await seedPropertyAnonymizeOverride();
     const propertyId = "55555555-5555-4000-8000-000000000005";
     await defineField("nonSensitive", { type: "text" });
     await createProperty(propertyId, "AllStay");
     await setField(propertyId, "nonSensitive", "still-here");
     await stack.eventDispatcher?.runOnce();
 
-    await callDeleteHook(String(admin.id), admin.tenantId, "anonymize");
+    const result = await runForgetCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      now: NOW(),
+    });
+    expect(result.processedUserIds).toContain(admin.id);
 
     const row = await readRow(propertyId);
+    expect(row?.["inserted_by_id"]).toBeNull();
     expect((row?.["custom_fields"] as Record<string, unknown>)?.["nonSensitive"]).toBe(
       "still-here",
     );

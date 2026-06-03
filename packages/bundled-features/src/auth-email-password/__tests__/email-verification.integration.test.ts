@@ -1,6 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { asRawClient, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  asRawClient,
+  insertOne,
+  selectMany,
+  updateMany,
+} from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -204,25 +209,84 @@ describe("POST /auth/verify-email", () => {
   });
 
   test("verify that fails before the write is retryable (burn released on failure)", async () => {
-    // Symmetric to the reset-password retry test: if the confirm-flow
-    // fails AFTER burning (here: no memberships → empty tenantOrder),
-    // the finally-block in runConfirmTokenFlow releases the burn so
-    // the user can click the same link again once ops restores state.
+    // Symmetric to the reset-password retry test: if the confirm-flow fails
+    // AFTER burning, the finally-block in runConfirmTokenFlow releases the
+    // burn so the user can click the same link again once ops restores state.
+    //
+    // Trigger: delete the user READ-MODEL row (kumiko_events untouched) →
+    // loadValidatedUser returns null after the burn → invalidToken + unburn.
+    // Re-insert the same row verbatim → retry with the SAME token succeeds.
+    //
+    // (Membership-deletion no longer fails: the stream lives in
+    // systemAdmin.tenantId and is recovered with zero memberships — see the
+    // zero-membership-sysadmin test below.)
     const seed = await seedUser({ email: "retry@example.com", password: "pw-retry-1234" });
     const { token } = signVerificationToken(seed.id, 60, verifySecret);
 
-    await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
+    const userRow = (await selectMany(stack.db, userTable)).find((r) => r["id"] === seed.id);
+    if (!userRow) throw new Error("seeded user row missing");
+    await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}" WHERE id = $1`, [
+      seed.id,
+    ]);
+
     const firstAttempt = await post("/api/auth/verify-email", { token });
     expect(firstAttempt.status).toBe(422);
 
-    await seedTenantMembership(stack.db, {
-      userId: seed.id,
-      tenantId: seed.tenantId,
-      roles: ["User"],
-    });
+    await insertOne(stack.db, userTable, userRow);
 
     const secondAttempt = await post("/api/auth/verify-email", { token });
     expect(secondAttempt.status).toBe(200);
+  });
+
+  test("zero-membership sysadmin can still verify (stream recovered without any membership)", async () => {
+    // 205#1: a systemScope user whose stream lives in systemAdmin.tenantId
+    // (…0001) but who holds NO membership must still resolve. The stream-
+    // tenant recovery runs BEFORE the empty-membership check, so verify
+    // targets …0001 and lands instead of collapsing to invalid_token.
+    const seed = await seedUser({ email: "lonely-admin@example.com", password: "pw-lonely-1234" });
+    await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
+
+    const streamRows = (await asRawClient(stack.db).unsafe(
+      `SELECT "tenant_id" FROM "kumiko_events" WHERE "aggregate_id" = $1 AND "aggregate_type" = 'user' ORDER BY "version" LIMIT 1`,
+      [seed.id],
+    )) as ReadonlyArray<{ tenant_id: string }>;
+    expect(streamRows[0]?.tenant_id).toBe(systemAdmin.tenantId);
+
+    const { token } = signVerificationToken(seed.id, 60, verifySecret);
+    const res = await post("/api/auth/verify-email", { token });
+    expect(res.status).toBe(200);
+
+    const row = (await selectMany(stack.db, userTable)).find((r) => r["id"] === seed.id);
+    expect(row?.["emailVerified"]).toBe(true);
+  });
+
+  test("direct-inserted user with no stream + no membership → 422 (recovery stays bounded)", async () => {
+    // 205#1 "strikt sicher" boundary: a user inserted straight into the read
+    // model (no create-event → no event stream) with no membership has
+    // nothing to recover → invalidToken. Proves the fix only gains "empty
+    // memberships + recoverable stream", never blanket-opens zero-membership.
+    // Build a fully-populated user row with NO event stream: seed a normal
+    // user (gets all NOT-NULL columns), capture its row, then re-key it to a
+    // fresh id + email. getAggregateStreamTenant(orphanId) finds no events
+    // (the stream lives under the original id), and no membership is seeded
+    // → tenantOrder is empty.
+    const donor = await seedUser({ email: "donor@example.com", password: "donor-pw-1234" });
+    const donorRow = (await selectMany(stack.db, userTable)).find((r) => r["id"] === donor.id);
+    if (!donorRow) throw new Error("donor row missing");
+    await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
+
+    const orphanId = "00000000-0000-4000-8000-0000000000ff";
+    await insertOne(stack.db, userTable, {
+      ...donorRow,
+      id: orphanId,
+      email: "orphan@example.com",
+    });
+
+    const { token } = signVerificationToken(orphanId, 60, verifySecret);
+    const res = await post("/api/auth/verify-email", { token });
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.error?.details?.reason).toBe(AuthErrors.invalidVerificationToken);
   });
 
   test("cross-purpose burn isolation: consuming a reset-token doesn't block a verify-token for the same user+expiry", async () => {
