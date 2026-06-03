@@ -241,6 +241,11 @@ describe("NotFoundError", () => {
     const err = new NotFoundError("billing-period", 7);
     expect((err.details as { reason: string }).reason).toBe("billing_period_not_found");
   });
+
+  test("PascalCase entity name does not leak a leading underscore into the reason", () => {
+    const err = new NotFoundError("Invoice", 7);
+    expect((err.details as { reason: string }).reason).toBe("invoice_not_found");
+  });
 });
 
 describe("ConflictError + VersionConflictError", () => {

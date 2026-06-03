@@ -3,8 +3,9 @@
 // drizzle migrate-runner). See define-feature.ts / DX-4.
 
 import { describe, expect, test } from "bun:test";
-import { defineUnmanagedTable } from "../../db/entity-table-meta";
+import { defineUnmanagedTable, resolveTableName } from "../../db/entity-table-meta";
 import { defineFeature } from "../define-feature";
+import { createEntity, createTextField } from "../index";
 import { createRegistry } from "../registry";
 
 const probeMeta = defineUnmanagedTable({
@@ -94,5 +95,33 @@ describe("createRegistry — unmanagedTable aggregation", () => {
       r.unmanagedTable(probeMetaTwo, { reason: "second" });
     });
     expect(() => createRegistry([featA, featB])).not.toThrow();
+  });
+
+  test("rejects an unmanaged-table that collides with an entity's physical name", () => {
+    const widget = createEntity({ fields: { name: createTextField() } });
+    // resolveTableName mirrors the migrate-runner — pin the exact physical name.
+    const physical = resolveTableName("widget", widget, "shop");
+    const clashing = defineUnmanagedTable({
+      tableName: physical,
+      columns: [{ name: "id", pgType: "text", notNull: true, primaryKey: true }],
+    });
+    const entityFeature = defineFeature("shop", (r) => {
+      r.entity("widget", widget);
+    });
+    const tableFeature = defineFeature("other", (r) => {
+      r.unmanagedTable(clashing, { reason: "clash" });
+    });
+
+    // Entity registered first, then the colliding unmanaged table.
+    expect(() => createRegistry([entityFeature, tableFeature])).toThrow(
+      new RegExp(
+        `Unmanaged-table "${physical}".*collides with the physical table of entity "widget"`,
+      ),
+    );
+
+    // Order-independent: unmanaged table registered first, then the entity.
+    expect(() => createRegistry([tableFeature, entityFeature])).toThrow(
+      new RegExp(`Entity "widget".*collides with r.unmanagedTable\\("${physical}"\\)`),
+    );
   });
 });

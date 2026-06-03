@@ -133,15 +133,18 @@ export function createTenantDb(
 
   // Reads see own-tenant rows + reference data (tenantId === SYSTEM_TENANT_ID).
   // Writes never touch reference rows — those are system-mode only.
+  // The tenant filter is spread LAST so a caller-supplied `where.tenantId`
+  // cannot override the enforced scope — overriding it would be a
+  // tenant-isolation bypass.
   function readWhere(table: Table, where?: WhereObject): WhereObject | undefined {
     if (!hasTenantColumn(table) || mode === "system") return where;
     const tenantFilter: WhereObject = { tenantId: [tenantId, SYSTEM_TENANT_ID] };
-    return where ? { ...tenantFilter, ...where } : tenantFilter;
+    return where ? { ...where, ...tenantFilter } : tenantFilter;
   }
 
   function writeWhere(table: Table, where: WhereObject): WhereObject {
     if (!hasTenantColumn(table) || mode === "system") return where;
-    return { tenantId, ...where };
+    return { ...where, tenantId };
   }
 
   function insertValues(table: Table, data: Record<string, unknown>): Record<string, unknown> {

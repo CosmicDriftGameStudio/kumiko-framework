@@ -1,4 +1,5 @@
 import { applyEntityEvent } from "../db/apply-entity-event";
+import { resolveTableName } from "../db/entity-table-meta";
 import { buildEntityTable } from "../db/table-builder";
 import { buildMetricName, validateMetricName } from "../observability";
 import { type QnType, qualifyEntityName } from "./qualified-name";
@@ -174,6 +175,13 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // Cousin of rawTables: same uniqueness-by-tableName invariant, different
   // storage shape (post-drizzle migrate-runner consumes EntityTableMeta).
   const unmanagedTableMap = new Map<string, UnmanagedTableDef>();
+  // Final physical table names (entity-derived + unmanaged) → owner. Catches
+  // a collision between an r.unmanagedTable() tableName and an r.entity()
+  // physical name at boot instead of as a duplicate CREATE TABLE in migrate.
+  const physicalTableOwners = new Map<
+    string,
+    { kind: "entity" | "unmanaged"; owner: string; featureName: string }
+  >();
   // Auth-claims hooks — tagged with featureName so the login resolver can
   // auto-prefix each hook's returned keys with "<feature>:".
   const authClaimsHooks: AuthClaimsHookDef[] = [];
@@ -321,6 +329,16 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
         throw new Error(`Duplicate entity: "${name}" (registered by multiple features)`);
       }
       entityMap.set(name, entity);
+      const physical = resolveTableName(name, entity, feature.name);
+      const clash = physicalTableOwners.get(physical);
+      if (clash?.kind === "unmanaged") {
+        throw new Error(
+          `Entity "${name}" (feature "${feature.name}") has physical table "${physical}" which ` +
+            `collides with r.unmanagedTable("${physical}") (feature "${clash.featureName}"). ` +
+            `Pick a different tableName — both would emit CREATE TABLE "${physical}".`,
+        );
+      }
+      physicalTableOwners.set(physical, { kind: "entity", owner: name, featureName: feature.name });
     }
 
     // Relations: entityName (not prefixed)
@@ -559,6 +577,19 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
             `"${feature.name}". Pick a feature-prefixed tableName to disambiguate.`,
         );
       }
+      const physicalClash = physicalTableOwners.get(umName);
+      if (physicalClash?.kind === "entity") {
+        throw new Error(
+          `Unmanaged-table "${umName}" (feature "${feature.name}") collides with the physical ` +
+            `table of entity "${physicalClash.owner}" (feature "${physicalClash.featureName}"). ` +
+            `Pick a different tableName — both would emit CREATE TABLE "${umName}".`,
+        );
+      }
+      physicalTableOwners.set(umName, {
+        kind: "unmanaged",
+        owner: umName,
+        featureName: feature.name,
+      });
       unmanagedTableMap.set(umName, { ...umDef, featureName: feature.name });
     }
 
@@ -870,7 +901,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     if (!hasFieldAccessRules(feature)) continue;
 
     // Write handlers: ALL must be entity-mapped (security-critical, writes need field-access checks)
-    for (const handlerName of Object.keys(feature.writeHandlers)) {
+    for (const handlerName of Object.keys(feature.writeHandlers ?? {})) {
       const qualified = qualify(feature.name, "write", handlerName);
       if (!handlerEntityMap.has(qualified)) {
         throw new Error(
@@ -882,7 +913,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     // Query handlers: only those with a dash must resolve (typo protection).
     // No dash = standalone query (dashboard, stats) — intentionally not entity-bound.
-    for (const handlerName of Object.keys(feature.queryHandlers)) {
+    for (const handlerName of Object.keys(feature.queryHandlers ?? {})) {
       if (!handlerName.includes(":")) continue;
       const qualified = qualify(feature.name, "query", handlerName);
       if (!handlerEntityMap.has(qualified)) {
@@ -1136,18 +1167,18 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     }
   }
   const entityHookMaps = [
-    { map: entityPostSaveHooks, phase: "postSave (entityHook)" },
-    { map: entityPreDeleteHooks, phase: "preDelete (entityHook)" },
-    { map: entityPostDeleteHooks, phase: "postDelete (entityHook)" },
-    { map: entityPostQueryHooks, phase: "postQuery (entityHook)" },
-    { map: searchPayloadExtensions, phase: "searchPayloadExtension" },
+    { map: entityPostSaveHooks, phase: "postSave (entityHook)", kind: "hook" },
+    { map: entityPreDeleteHooks, phase: "preDelete (entityHook)", kind: "hook" },
+    { map: entityPostDeleteHooks, phase: "postDelete (entityHook)", kind: "hook" },
+    { map: entityPostQueryHooks, phase: "postQuery (entityHook)", kind: "hook" },
+    { map: searchPayloadExtensions, phase: "searchPayloadExtension", kind: "extension" },
   ] as const;
-  for (const { map, phase } of entityHookMaps) {
+  for (const { map, phase, kind } of entityHookMaps) {
     for (const entityName of map.keys()) {
       if (!allEntities.has(entityName)) {
         throw new Error(
-          `${phase} hook targets entity "${entityName}" but no entity with that name exists. ` +
-            `Check for typos — the hook will never fire.`,
+          `${phase} ${kind} targets entity "${entityName}" but no entity with that name exists. ` +
+            `Check for typos — the ${kind} will never fire.`,
         );
       }
     }

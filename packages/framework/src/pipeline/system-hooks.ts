@@ -98,7 +98,7 @@ function reconstructStateForSearch(
 // Build a SearchDocument from raw field-state. Parallel to the old
 // buildSearchDocument that took a SaveContext — same selector logic, just
 // a different input shape.
-async function buildSearchDocument(
+export async function buildSearchDocument(
   entityName: string,
   entityId: EntityId,
   state: Record<string, unknown>,
@@ -143,12 +143,24 @@ async function buildSearchDocument(
   // F3 — Search-Payload-Extensions: contributors merge flat fields into the
   // search-doc (customFields-bundle / tags / computed-counts / etc.).
   // Sequential await — extensions are expected sync or sub-millisecond async;
-  // sequential keeps the path simple and deterministic. If parallel ever
-  // matters, switch to Promise.all but bind contributor-output-precedence
-  // (last-wins vs. merge-conflict) explicitly.
+  // sequential keeps the path simple and deterministic.
+  //
+  // Precedence is base-fields-win: a contributor key that collides with a
+  // searchable Stammfield is dropped (not silently merged over the real value)
+  // and warned. A jsonb custom-field that happens to share a Stammfield name
+  // must not shadow the indexed Stammfield.
   for (const contribute of extensions) {
     const contributed = await contribute({ entityName, entityId, state });
-    Object.assign(fields, contributed);
+    for (const [key, value] of Object.entries(contributed)) {
+      if (Object.hasOwn(fields, key)) {
+        console.warn(
+          `[kumiko:search] searchPayloadExtension on "${entityName}" tried to overwrite ` +
+            `Stammfield "${key}" — keeping the base field. Rename the contributor key.`,
+        );
+        continue;
+      }
+      fields[key] = value;
+    }
   }
 
   return {

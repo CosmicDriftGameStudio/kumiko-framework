@@ -55,13 +55,23 @@ function* walkAllSteps(steps: readonly StepInstance[]): Generator<StepInstance, 
   }
 }
 
-// @cast-boundary drizzle-bridge — reads table name from drizzle Symbol
-// without importing drizzle-orm (bun-db pattern, see bun-db/query.ts).
+// @cast-boundary drizzle-bridge — reads table name from a Symbol without
+// importing drizzle-orm (bun-db pattern, see bun-db/query.ts).
 const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
+// table()/buildEntityTable spread column handles as enumerable props, so an
+// entity field named `tableName`/`source` would shadow the matching meta key —
+// the canonical meta under this symbol is the only collision-safe source.
+const KUMIKO_META_SYMBOL = Symbol.for("kumiko:schema:Meta");
 
 function resolveTableNameFromStep(table: unknown): string {
   if (typeof table === "object" && table !== null) {
-    // EntityTableMeta discriminator
+    // Canonical meta under the unshadowable symbol — preferred path.
+    const meta = (table as Record<symbol, unknown>)[KUMIKO_META_SYMBOL];
+    if (meta !== null && typeof meta === "object") {
+      const metaName = (meta as Record<string, unknown>)["tableName"];
+      if (typeof metaName === "string") return metaName;
+    }
+    // Plain meta (buildEntityTableMeta / defineUnmanagedTable — no handle-spread).
     if (
       "source" in table &&
       "tableName" in table &&

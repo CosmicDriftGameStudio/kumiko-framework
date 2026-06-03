@@ -50,6 +50,7 @@ function isEntityTableMeta(v: unknown): v is EntityTableMeta {
     typeof v === "object" &&
     typeof (v as EntityTableMeta).tableName === "string" &&
     Array.isArray((v as EntityTableMeta).columns) &&
+    Array.isArray((v as EntityTableMeta).indexes) &&
     ((v as EntityTableMeta).source === "managed" || (v as EntityTableMeta).source === "unmanaged")
   );
 }
@@ -356,7 +357,7 @@ export function coerceRow<T extends Record<string, unknown>>(row: T, info: Table
     ) {
       // Bun.SQL / some drivers return int4 as bigint or numeric string.
       // Drizzle coerced to number for numberField columns — match that.
-      const n = typeof value === "bigint" ? Number(value) : Number(value);
+      const n = Number(value);
       if (!Number.isNaN(n)) coerced = n;
     }
     const fieldName = info.fieldOf(key);

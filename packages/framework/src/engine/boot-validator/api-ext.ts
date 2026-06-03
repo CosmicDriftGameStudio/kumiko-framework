@@ -67,11 +67,7 @@ export function validateExtensionUsages(
       );
     }
 
-    // Self-extension (feature provides AND consumes the same extension)
-    // doesn't need requires(self) — that would be a circular declaration.
-    // tier-engine is the canonical case: defines + uses tenantTierResolver
-    // because it ships a default tier-resolver-plugin alongside the
-    // extension-point.
+    // self-extension is legitimate: requires(self) would be circular.
     if (providerFeature === feature.name) {
       continue;
     }

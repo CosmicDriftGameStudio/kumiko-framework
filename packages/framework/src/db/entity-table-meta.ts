@@ -253,7 +253,7 @@ function fieldToColumnMeta(
   }
 }
 
-function resolveTableName(
+export function resolveTableName(
   entityName: string,
   entity: EntityDefinition,
   featureName: string | undefined,

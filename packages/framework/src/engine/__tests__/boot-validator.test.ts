@@ -1386,6 +1386,20 @@ describe("boot-validator", () => {
         /redirect "ghost-screen" does not resolve to a registered screen/,
       );
     });
+
+    test("extension section ohne component → Throw (Parität zu entityEdit)", () => {
+      // synthesizeActionFormScreen reicht die layout 1:1 an RenderEdit weiter —
+      // eine Extension-Section ohne react/native-Marker rendert sonst stumm leer.
+      const section = { kind: "extension", title: "Custom", component: {} };
+      expect(() => validateBoot([makeFeature({ sections: [section] as never })])).toThrow(
+        /\(actionForm\) extension section "Custom" has no component/,
+      );
+    });
+
+    test("extension section mit react component → kein Throw", () => {
+      const section = { kind: "extension", title: "Custom", component: { react: "Panel" } };
+      expect(() => validateBoot([makeFeature({ sections: [section] as never })])).not.toThrow();
+    });
   });
 
   // --- configEdit-Screen ---
@@ -1487,6 +1501,20 @@ describe("boot-validator", () => {
           }),
         ]),
       ).toThrow(/Config-Key "shop:config:typo-here" ist in keiner Feature-Registry deklariert/);
+    });
+
+    test("extension section ohne component → Throw (Parität zu entityEdit)", () => {
+      // synthesizeConfigEditScreen reicht die layout 1:1 an RenderEdit weiter —
+      // eine Extension-Section ohne react/native-Marker rendert sonst stumm leer.
+      const section = { kind: "extension", title: "Custom", component: {} };
+      expect(() => validateBoot([makeFeature({ sections: [section] as never })])).toThrow(
+        /\(configEdit\) extension section "Custom" has no component/,
+      );
+    });
+
+    test("extension section mit react component → kein Throw", () => {
+      const section = { kind: "extension", title: "Custom", component: { react: "Panel" } };
+      expect(() => validateBoot([makeFeature({ sections: [section] as never })])).not.toThrow();
     });
   });
 
