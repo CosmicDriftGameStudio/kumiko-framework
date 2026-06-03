@@ -124,6 +124,31 @@ describe("scaffoldAppFeature", () => {
     expect(() => scaffoldAppFeature({ name: "product_catalog", appRoot })).toThrow(/kebab-case/);
   });
 
+  test("rejects trailing- and double-hyphen names (kebabToCamel would break)", () => {
+    // `product-` → kebabToCamel leaves a trailing hyphen → `product-Feature`,
+    // an invalid identifier. The segment-strict regex must reject these.
+    expect(() => scaffoldAppFeature({ name: "product-", appRoot })).toThrow(/kebab-case/);
+    expect(() => scaffoldAppFeature({ name: "foo--bar", appRoot })).toThrow(/kebab-case/);
+  });
+
+  test("rolls back the scaffolded dir when run-config has no APP_FEATURES (re-run not blocked)", () => {
+    // run-config exists but is the wrong shape → mountInRunConfig throws. The
+    // feature files were already written; without rollback a re-run would hit
+    // the "already exists" guard and the user would be stuck.
+    const runConfigPath = join(appRoot, "src/run-config.ts");
+    writeFileSync(runConfigPath, "export const NOT_APP_FEATURES = [];\n", "utf-8");
+
+    expect(() => scaffoldAppFeature({ name: "orders", appRoot })).toThrow(/APP_FEATURES/);
+    // Rolled back: the half-written feature dir is gone.
+    expect(existsSync(join(appRoot, "src/features/orders"))).toBe(false);
+
+    // Re-run with a valid run-config now succeeds instead of "already exists".
+    writeFileSync(runConfigPath, "export const APP_FEATURES = [] as const;\n", "utf-8");
+    const result = scaffoldAppFeature({ name: "orders", appRoot });
+    expect(result.autoMounted).toBe(true);
+    expect(existsSync(join(appRoot, "src/features/orders/feature.ts"))).toBe(true);
+  });
+
   test("refuses to overwrite existing feature dir", () => {
     scaffoldAppFeature({ name: "billing", appRoot });
     expect(() => scaffoldAppFeature({ name: "billing", appRoot })).toThrow(/already exists/);

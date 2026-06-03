@@ -20,6 +20,11 @@ export type ScaffoldAppOptions = {
   readonly name: string;
   /** Absolute or cwd-relative target dir. Default: <cwd>/<name>. */
   readonly destination?: string;
+  /** Base dir a relative `destination` (or the name-default) resolves
+   *  against. Defaults to process.cwd(). Callers with their own cwd-notion
+   *  (the CLI's ctx.cwd) MUST pass it so the scaffold lands where the
+   *  command's output claims it does. */
+  readonly cwd?: string;
   /** npm-version-pin for @cosmicdrift/* deps. Default "*" for latest. */
   readonly frameworkVersion?: string;
 };
@@ -30,13 +35,15 @@ export type ScaffoldAppResult = {
   readonly appName: string;
 };
 
-const KEBAB_RE = /^[a-z][a-z0-9-]*$/;
+// Segment-strict: rejects trailing/double hyphen so the name is a valid
+// package-name + folder (`my-shop`, not `my-` or `my--shop`).
+const KEBAB_RE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 
 export function scaffoldApp(options: ScaffoldAppOptions): ScaffoldAppResult {
   if (!KEBAB_RE.test(options.name)) {
     throw new Error(`scaffoldApp: name must be kebab-case (a-z, 0-9, -); got "${options.name}"`);
   }
-  const cwd = process.cwd();
+  const cwd = options.cwd ?? process.cwd();
   const destination = resolve(cwd, options.destination ?? options.name);
   if (existsSync(destination)) {
     throw new Error(`scaffoldApp: ${destination} already exists — refusing to overwrite`);
@@ -178,7 +185,7 @@ function renderMain(appName: string): string {
 
   sf.addImportDeclaration({
     moduleSpecifier: "@cosmicdrift/kumiko-dev-server",
-    namedImports: ["frameworkCoreEnvSchema", "runProdApp"],
+    namedImports: ["composeFeatures", "frameworkCoreEnvSchema", "runProdApp"],
   });
   sf.addImportDeclaration({
     moduleSpecifier: "@cosmicdrift/kumiko-framework/engine",
@@ -204,12 +211,27 @@ function renderMain(appName: string): string {
     ],
   });
 
+  // The envSchema must cover the SAME features runProdApp mounts at boot.
+  // `auth: { admin: … }` below makes runProdApp auto-mix config/user/tenant/
+  // auth-email-password via composeFeatures(includeBundled:true); compose the
+  // identical set here so the auth feature's JWT_SECRET (min-32) declaration
+  // is part of the boot-gate — otherwise a too-short JWT_SECRET slips through.
+  sf.addVariableStatement({
+    declarationKind: VariableDeclarationKind.Const,
+    declarations: [
+      {
+        name: "bootFeatures",
+        initializer: "composeFeatures(APP_FEATURES, { includeBundled: true })",
+      },
+    ],
+  });
+
   sf.addVariableStatement({
     declarationKind: VariableDeclarationKind.Const,
     declarations: [
       {
         name: "envSchema",
-        initializer: "composeEnvSchema({ core: frameworkCoreEnvSchema, features: APP_FEATURES })",
+        initializer: "composeEnvSchema({ core: frameworkCoreEnvSchema, features: bootFeatures })",
       },
     ],
   });

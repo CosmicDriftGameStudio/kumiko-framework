@@ -11,7 +11,7 @@
 // for the run-config side. Drizzle FEATURE_IMPORT_REGISTRY is NOT
 // touched here — DX-4 auto-discovery resolves that.
 
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { Project, SyntaxKind } from "ts-morph";
 
@@ -31,7 +31,10 @@ export type ScaffoldAppFeatureResult = {
   readonly autoMounted: boolean;
 };
 
-const KEBAB_RE = /^[a-z][a-z0-9-]*$/;
+// Segment-strict: rejects trailing/double hyphen (`product-`, `foo--bar`),
+// which kebabToCamel would otherwise turn into an invalid identifier
+// (`productFeature` vs the broken `product-Feature`).
+const KEBAB_RE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 
 export function scaffoldAppFeature(options: ScaffoldAppFeatureOptions): ScaffoldAppFeatureResult {
   if (!KEBAB_RE.test(options.name)) {
@@ -56,9 +59,19 @@ export function scaffoldAppFeature(options: ScaffoldAppFeatureOptions): Scaffold
   files.push(`src/features/${options.name}/index.ts`);
 
   const runConfigPath = join(appRoot, "src", "run-config.ts");
-  const autoMounted = existsSync(runConfigPath)
-    ? mountInRunConfig(runConfigPath, options.name)
-    : false;
+  let autoMounted = false;
+  if (existsSync(runConfigPath)) {
+    try {
+      autoMounted = mountInRunConfig(runConfigPath, options.name);
+    } catch (err) {
+      // Roll back the freshly-written feature dir so a re-run isn't blocked
+      // by this function's own "already exists" guard. Without this, a
+      // shape-mismatch in run-config leaves feature.ts + index.ts on disk and
+      // the user is stuck having to hand-delete before retrying.
+      rmSync(featureDir, { recursive: true, force: true });
+      throw err;
+    }
+  }
 
   return {
     featureName: options.name,
@@ -98,8 +111,8 @@ function kebabToCamel(name: string): string {
 }
 
 // ts-morph: open run-config, prepend import, append APP_FEATURES entry.
-// Returns true on success, throws on shape-mismatch (caller swallows the
-// scaffolded files but warns).
+// Returns true on success, throws on shape-mismatch — the caller rolls back
+// the scaffolded feature dir and re-throws so a re-run isn't blocked.
 function mountInRunConfig(runConfigPath: string, name: string): boolean {
   const camel = kebabToCamel(name);
   const project = new Project({

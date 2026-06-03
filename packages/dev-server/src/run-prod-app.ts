@@ -551,16 +551,11 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // biome-ignore lint/suspicious/noConsole: boot-time progress hint, no logger configured this early
   console.log(`[runProdApp] booting Kumiko stack on port ${port}…`);
 
-  // 3. Connections — Postgres + Redis. The Redis client is shared by
-  //    idempotency, event-dedup, entity-cache, rate-limit; failing to
-  //    construct here surfaces the misconfig immediately.
-  const { db, close: closeDb } = createDbConnection(databaseUrl);
-  const redis = new Redis(redisUrl, { maxRetriesPerRequest: null });
-
-  // 4. Feature registry. Auth-mode auto-mixes config/user/tenant/auth-email-
+  // 3. Feature registry. Auth-mode auto-mixes config/user/tenant/auth-email-
   //    password via composeFeatures — same source-of-truth as runDevApp
   //    AND the per-app drizzle-Schema-Generator, so Migration und Runtime
-  //    sehen exakt dieselbe Liste.
+  //    sehen exakt dieselbe Liste. Built BEFORE any connection so boot-mode
+  //    can validate wiring and exit without opening a Postgres/Redis socket.
   const composeAuthOptions = buildComposeAuthOptions(options.auth);
   const features = composeFeatures(options.features, {
     includeBundled: !!options.auth,
@@ -570,21 +565,26 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   validateBoot(features);
   const registry = createRegistry(features);
 
-  // C1 boot-mode exit: validators ran, registry built, no DB/Redis
-  // operations executed yet (postgres.js + ioredis are lazy). Tear down
-  // the lazy clients so Bun doesn't keep them open, then exit / return.
+  // C1 boot-mode exit: validators ran + registry built; no DB/Redis client
+  // is constructed at all in this branch (the eager `new Redis(...)` below
+  // would otherwise open a TCP connect just to immediately disconnect it).
   if (runMode === "boot") {
     // biome-ignore lint/suspicious/noConsole: boot-mode output IS the deliverable
     console.log(
       `[runProdApp] boot validation OK (${features.length} features, ${registry.features.size} registry entries)`,
     );
-    await closeDb();
-    redis.disconnect();
     if (options.envSource === undefined) {
       process.exit(0);
     }
     return makeDryRunHandle();
   }
+
+  // 4. Connections — Postgres + Redis. The Redis client is shared by
+  //    idempotency, event-dedup, entity-cache, rate-limit; failing to
+  //    construct here surfaces the misconfig immediately. `new Redis(...)`
+  //    connects eagerly, so it must stay AFTER the boot-mode exit above.
+  const { db, close: closeDb } = createDbConnection(databaseUrl);
+  const redis = new Redis(redisUrl, { maxRetriesPerRequest: null });
 
   // Sprint-8a Tier-Composition auto-wire: scan features for a
   // tenantTierResolver-extension. If found AND user didn't supply own

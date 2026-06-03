@@ -75,6 +75,7 @@ export const newCommand = defineCommand({
     try {
       const result = scaffoldApp({
         name,
+        cwd: ctx.cwd,
         ...(destination !== undefined && { destination }),
         ...(frameworkVersion !== undefined && { frameworkVersion }),
       });

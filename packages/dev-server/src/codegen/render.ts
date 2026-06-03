@@ -22,7 +22,7 @@
 // actual change, so mtime doesn't tick and the TS language server
 // doesn't reload every 100ms.
 
-import { relative } from "node:path";
+import { basename, relative } from "node:path";
 import type { ScannedEvent } from "./scan-events";
 import { rewriteImportPath } from "./scan-events";
 
@@ -143,7 +143,11 @@ export function renderInlineSchemasFile(
   });
   for (const ev of sorted) {
     if (ev.schemaSource.kind !== "inline") continue;
-    const sourcePath = relative(appRootAbs, ev.featureFilePath).split("\\").join("/");
+    const rel = relative(appRootAbs, ev.featureFilePath).split("\\").join("/");
+    // Feature files outside the app root (e.g. a bundled dependency) yield a
+    // `../../..`-walk that clutters the source comment; fall back to the bare
+    // filename. Comment-only — the generated schema is unaffected.
+    const sourcePath = rel.startsWith("..") ? basename(ev.featureFilePath) : rel;
     lines.push(
       `// ${ev.qualifiedName} — from ${sourcePath}:${ev.source.line}`,
       `export const ${ev.schemaSource.generatedConstName} = ${ev.schemaSource.schemaSource};`,

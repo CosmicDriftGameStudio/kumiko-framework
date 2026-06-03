@@ -25,6 +25,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { implicitAuthModeFeatureNames, resolveGeneratePath } from "../src/schema-check-core";
 
 type Args = {
   readonly runConfigPath: string;
@@ -34,7 +35,7 @@ type Args = {
 function parseArgs(argv: readonly string[]): Args {
   const cwd = process.cwd();
   let runConfigPath = resolve(cwd, "src/run-config.ts");
-  let generatePath = resolve(cwd, "drizzle/generate.ts");
+  let generatePath: string | undefined;
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i];
     const value = argv[i + 1];
@@ -46,7 +47,7 @@ function parseArgs(argv: readonly string[]): Args {
       i++;
     }
   }
-  return { runConfigPath, generatePath };
+  return { runConfigPath, generatePath: generatePath ?? resolveGeneratePath(cwd) };
 }
 
 function readRegistryFeatures(generateSrc: string): Set<string> {
@@ -74,20 +75,15 @@ async function readMountedFeatures(runConfigPath: string): Promise<Set<string>> 
         `Convention: 'export const APP_FEATURES = [...] as const'.`,
     );
   }
-  // composeFeatures auto-prepends config + user + tenant + auth-email-
-  // password im auth-mode. Wenn HAS_AUTH=true (oder default), die 4
-  // implicit-mounted features auch in die Set tun damit der Diff nicht
-  // false-positive "auth-email-password is mounted but no registry-entry"
-  // produziert. Studio/use-all-bundled HAS_AUTH=true ist convention.
   const set = new Set<string>();
   for (const f of mod.APP_FEATURES) {
     set.add(f.name);
   }
+  // HAS_AUTH defaults to true (Studio/use-all-bundled convention). When set,
+  // include the implicit auth-mode features so the diff doesn't false-positive
+  // "auth-email-password is mounted but no registry-entry".
   if (mod.HAS_AUTH ?? true) {
-    set.add("config");
-    set.add("user");
-    set.add("tenant");
-    set.add("auth-email-password");
+    for (const name of implicitAuthModeFeatureNames()) set.add(name);
   }
   return set;
 }
@@ -156,4 +152,8 @@ async function main(): Promise<void> {
   }
 }
 
-await main();
+// Only run when executed as a CLI, not when imported (e.g. from tests that
+// exercise the exported pure helpers).
+if (import.meta.main) {
+  await main();
+}

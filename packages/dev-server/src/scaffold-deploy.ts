@@ -64,7 +64,9 @@ const TEMPLATE_FILES = [
   { template: "migrate-step.sh.template", output: "migrate-step.sh" },
 ] as const;
 
-const KEBAB_RE = /^[a-z][a-z0-9-]*$/;
+// Segment-strict: rejects trailing/double hyphen so the appName is a valid
+// image-tag + folder segment (`kumiko-studio`, not `kumiko-` / `kumiko--x`).
+const KEBAB_RE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 
 export function scaffoldDeploy(options: ScaffoldDeployOptions): ScaffoldDeployResult {
   if (!KEBAB_RE.test(options.appName)) {
@@ -156,7 +158,13 @@ function detectOptionalSurfaces(sourceDir: string): ScaffoldDeployDetected {
   return { hasSeeds, hasPrivateGhPackages };
 }
 
-function render(
+// Unconsumed-mustache guard. After step 1+2 the only legitimate `{{`
+// survivors are Docker/Go template tags (`{{.Name}}`, leading `.`). An
+// orphan close-tag (`{{/foo}}` without an opener) matches neither step and
+// would otherwise leak into the rendered file as a silent failure.
+const ORPHAN_MUSTACHE_RE = /\{\{(?!\.)[^}]*\}\}/;
+
+export function render(
   source: string,
   subs: Readonly<Record<string, string>>,
   flags: Readonly<Record<string, boolean>>,
@@ -187,6 +195,14 @@ function render(
     }
     return value;
   });
+
+  const orphan = ORPHAN_MUSTACHE_RE.exec(result);
+  if (orphan) {
+    throw new Error(
+      `scaffoldDeploy.render: unconsumed mustache tag "${orphan[0]}" — ` +
+        `likely an orphan close-tag (e.g. a stray "{{/flag}}") in the template.`,
+    );
+  }
 
   return result;
 }
