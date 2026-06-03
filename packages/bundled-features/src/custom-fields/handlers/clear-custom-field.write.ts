@@ -7,7 +7,11 @@ import { checkFieldAccessForWrite } from "../lib/field-access";
 export const clearCustomFieldPayloadSchema = z.object({
   entityName: z.string().min(1).max(64),
   entityId: z.string().min(1),
-  fieldKey: z.string().min(1).max(64),
+  fieldKey: z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[a-zA-Z][a-zA-Z0-9_-]*$/),
 });
 export type ClearCustomFieldPayload = z.infer<typeof clearCustomFieldPayloadSchema>;
 

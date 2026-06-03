@@ -295,10 +295,10 @@ describe("T1.5a: custom-fields events are visible in the audit log", () => {
     );
 
     // Tenant-2 sees its own event ...
-    const own = res.rows.find((r) => (r.payload["fieldKey"] as string) === "ownField");
+    const own = res.rows.find((r) => r.payload["fieldKey"] === "ownField");
     expect(own).toBeDefined();
     // ... but never tenant-1's.
-    const leak = res.rows.find((r) => (r.payload["fieldKey"] as string) === "leakyField");
+    const leak = res.rows.find((r) => r.payload["fieldKey"] === "leakyField");
     expect(leak).toBeUndefined();
   });
 });

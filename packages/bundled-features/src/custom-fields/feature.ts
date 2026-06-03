@@ -37,7 +37,12 @@
 //    Value-Validation gegen serializedField → set-custom-field via fieldToZod —
 //    alle erledigt.)
 
-import { defineEntityListHandler, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineEntityListHandler,
+  defineFeature,
+  type FeatureRegistrar,
+  type WriteHandlerDef,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import {
   CUSTOM_FIELD_CLEARED_EVENT,
@@ -71,12 +76,14 @@ const fieldDefinitionDeletedSchema = z.object({
   tenantId: z.string().optional(),
 });
 
-// Singleton feature-definition mit typed exports. Handler + wire-for-entity
-// importieren diesen `customFieldsFeature` und greifen lazy in ihrer
-// runtime-arrow-fn auf `.exports.<event>.name` zu — der module-cycle
-// (feature.ts -> handlers/*.write.ts -> feature.ts) löst sich auf weil
-// kein top-level-access stattfindet.
-export const customFieldsFeature = defineFeature(CUSTOM_FIELDS_FEATURE_NAME, (r) => {
+// Shared registration body for both the singleton and the quota-variant.
+// Only the define-tenant-field handler differs (quota baked in or not); every
+// other entity/event/handler is registered identically here so a new
+// event/handler can never silently miss the quota variant.
+function registerCustomFields(
+  r: FeatureRegistrar<typeof CUSTOM_FIELDS_FEATURE_NAME>,
+  defineTenantHandler: WriteHandlerDef,
+) {
   r.entity("field-definition", fieldDefinitionEntity);
 
   // Event-types — qualified als "custom-fields:event:<short-name>".
@@ -101,7 +108,7 @@ export const customFieldsFeature = defineFeature(CUSTOM_FIELDS_FEATURE_NAME, (r)
   r.extendsRegistrar(CUSTOM_FIELDS_EXTENSION, {});
 
   // Definition-CRUD handlers (B1).
-  r.writeHandler(defineTenantFieldHandler);
+  r.writeHandler(defineTenantHandler);
   r.writeHandler(defineSystemFieldHandler);
   r.writeHandler(deleteTenantFieldHandler);
   r.writeHandler(deleteSystemFieldHandler);
@@ -116,7 +123,16 @@ export const customFieldsFeature = defineFeature(CUSTOM_FIELDS_FEATURE_NAME, (r)
   );
 
   return { setEvent, clearedEvent, fieldDefinitionDeletedEvent };
-});
+}
+
+// Singleton feature-definition mit typed exports. Handler + wire-for-entity
+// importieren diesen `customFieldsFeature` und greifen lazy in ihrer
+// runtime-arrow-fn auf `.exports.<event>.name` zu — der module-cycle
+// (feature.ts -> handlers/*.write.ts -> feature.ts) löst sich auf weil
+// kein top-level-access stattfindet.
+export const customFieldsFeature = defineFeature(CUSTOM_FIELDS_FEATURE_NAME, (r) =>
+  registerCustomFields(r, defineTenantFieldHandler),
+);
 
 // Backwards-compat-wrapper. Bestehende Caller (z.B. integration-tests,
 // host-apps) nutzen weiterhin `createCustomFieldsFeature()`. Returnt den
@@ -133,34 +149,11 @@ export function createCustomFieldsFeature(
   if (opts.fieldDefinitionLimitPerTenant === undefined) {
     return customFieldsFeature;
   }
-  return defineFeature(CUSTOM_FIELDS_FEATURE_NAME, (r) => {
-    r.entity("field-definition", fieldDefinitionEntity);
-
-    const setEvent = r.defineEvent(CUSTOM_FIELD_SET_EVENT, customFieldSetSchema);
-    const clearedEvent = r.defineEvent(CUSTOM_FIELD_CLEARED_EVENT, customFieldClearedSchema);
-    const fieldDefinitionDeletedEvent = r.defineEvent(
-      FIELD_DEFINITION_DELETED_EVENT,
-      fieldDefinitionDeletedSchema,
-    );
-
-    r.extendsRegistrar(CUSTOM_FIELDS_EXTENSION, {});
-
-    r.writeHandler(
-      createDefineTenantFieldHandler({
-        fieldDefinitionLimitPerTenant: opts.fieldDefinitionLimitPerTenant,
-      }),
-    );
-    r.writeHandler(defineSystemFieldHandler);
-    r.writeHandler(deleteTenantFieldHandler);
-    r.writeHandler(deleteSystemFieldHandler);
-
-    r.writeHandler(setCustomFieldHandler);
-    r.writeHandler(clearCustomFieldHandler);
-
-    r.queryHandler(
-      defineEntityListHandler("field-definition", fieldDefinitionEntity, tenantAdminAccess),
-    );
-
-    return { setEvent, clearedEvent, fieldDefinitionDeletedEvent };
-  });
+  const limit = opts.fieldDefinitionLimitPerTenant;
+  return defineFeature(CUSTOM_FIELDS_FEATURE_NAME, (r) =>
+    registerCustomFields(
+      r,
+      createDefineTenantFieldHandler({ fieldDefinitionLimitPerTenant: limit }),
+    ),
+  );
 }

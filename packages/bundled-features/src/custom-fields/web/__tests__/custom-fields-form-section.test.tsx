@@ -8,6 +8,7 @@ import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { CustomFieldsFormSection } from "../custom-fields-form-section";
+import { defaultTranslations } from "../i18n";
 
 type FieldRow = {
   id: string;
@@ -21,6 +22,13 @@ type FieldRow = {
 const dispatchSpy = mock(async () => ({ isSuccess: true, data: undefined }));
 let mockedQueryRows: readonly FieldRow[] = [];
 
+const useQuerySpy = mock((_type: string, _params: unknown, _options?: { enabled?: boolean }) => ({
+  data: { rows: mockedQueryRows },
+  loading: false,
+  error: null,
+  refetch: mock(),
+}));
+
 const actual_renderer = await import("@cosmicdrift/kumiko-renderer");
 mock.module("@cosmicdrift/kumiko-renderer", () => ({
   ...actual_renderer,
@@ -29,17 +37,12 @@ mock.module("@cosmicdrift/kumiko-renderer", () => ({
     query: mock(),
     batch: mock(),
   })),
-  useQuery: mock(() => ({
-    data: { rows: mockedQueryRows },
-    loading: false,
-    error: null,
-    refetch: mock(),
-  })),
+  useQuery: useQuerySpy,
 }));
 
 function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
   return (
-    <LocaleProvider resolver={createStaticLocaleResolver()}>
+    <LocaleProvider resolver={createStaticLocaleResolver()} fallbackBundles={[defaultTranslations]}>
       <PrimitivesProvider value={defaultPrimitives}>{children}</PrimitivesProvider>
     </LocaleProvider>
   );
@@ -107,8 +110,9 @@ describe("CustomFieldsFormSection", () => {
     });
   });
 
-  test("shows create-mode banner when entityId is null", () => {
+  test("shows create-mode banner when entityId is null and skips the fieldDefinition query", () => {
     mockedQueryRows = [];
+    useQuerySpy.mockClear();
 
     render(
       <Wrapper>
@@ -116,8 +120,14 @@ describe("CustomFieldsFormSection", () => {
       </Wrapper>,
     );
 
-    expect(screen.getByTestId("custom-fields-form-create-mode")).toBeTruthy();
+    const banner = screen.getByTestId("custom-fields-form-create-mode");
+    expect(banner).toBeTruthy();
     expect(screen.queryByTestId("custom-fields-form-section")).toBeNull();
+    // The banner shows the translated string, not the raw i18n key.
+    expect(banner.textContent).toBe("Save the entity first to add custom field values.");
+    // create-mode discards the query result via the early return, so the
+    // fetch-on-mount must be disabled — no wasted server roundtrip.
+    expect(useQuerySpy.mock.calls[0]?.[2]).toEqual({ enabled: false });
   });
 
   test("shows empty banner when no fieldDefinitions match entityName", () => {
@@ -138,7 +148,32 @@ describe("CustomFieldsFormSection", () => {
       </Wrapper>,
     );
 
-    expect(screen.getByTestId("custom-fields-form-empty")).toBeTruthy();
+    const banner = screen.getByTestId("custom-fields-form-empty");
+    expect(banner).toBeTruthy();
     expect(screen.queryByTestId("custom-fields-form-section")).toBeNull();
+    // Translated + interpolated with the host entity name, not the raw key.
+    expect(banner.textContent).toBe('No custom fields defined for "component".');
+  });
+
+  test("save button renders the translated label, not the raw i18n key", () => {
+    mockedQueryRows = [
+      {
+        id: "f1",
+        entityName: "component",
+        fieldKey: "vendor",
+        type: "text",
+        required: false,
+        displayOrder: 1,
+      },
+    ];
+
+    render(
+      <Wrapper>
+        <CustomFieldsFormSection entityName="component" entityId="row-42" />
+      </Wrapper>,
+    );
+
+    const saveBtn = screen.getByTestId("custom-fields-form-save");
+    expect(saveBtn.textContent).toBe("Save custom fields");
   });
 });

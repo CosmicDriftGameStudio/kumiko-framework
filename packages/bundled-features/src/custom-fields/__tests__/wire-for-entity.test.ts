@@ -76,6 +76,35 @@ describe("wireCustomFieldsFor", () => {
     });
   });
 
+  test("postQuery-hook lets base columns win over shadowing custom fieldKeys", async () => {
+    const feature = defineFeature("test-property", (r) => {
+      r.entity("property", propertyEntity);
+      wireCustomFieldsFor(r, "property", propertyTable);
+    });
+
+    const hook = feature.entityHooks.postQuery["property"]?.[0]?.fn;
+    const result = await hook?.(
+      {
+        entityName: "property",
+        rows: [
+          {
+            id: "p1",
+            name: "Hofgarten",
+            // a malicious/colliding custom fieldKey must not shadow the real column
+            customFields: { id: "spoofed", name: "spoofed", internalNumber: "X-42" },
+          },
+        ],
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      {} as never,
+    );
+    expect(result?.rows[0]).toMatchObject({
+      id: "p1",
+      name: "Hofgarten",
+      internalNumber: "X-42",
+    });
+  });
+
   test("postQuery-hook handles missing/invalid customFields gracefully", async () => {
     const feature = defineFeature("test-property", (r) => {
       r.entity("property", propertyEntity);

@@ -1,10 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { randomBytes } from "node:crypto";
-import {
-  composeEnvSchema,
-  type KumikoBootError,
-  parseEnv,
-} from "@cosmicdrift/kumiko-framework/env";
+import { composeEnvSchema, KumikoBootError, parseEnv } from "@cosmicdrift/kumiko-framework/env";
 import { authEmailPasswordEnvSchema, createAuthEmailPasswordFeature } from "../auth-email-password";
 import { createSecretsFeature, secretsEnvSchema } from "../secrets";
 import {
@@ -17,6 +13,13 @@ import {
 } from "../subscription-stripe";
 
 const validKek = randomBytes(32).toString("base64");
+
+function asBootError(err: unknown): KumikoBootError {
+  if (!(err instanceof KumikoBootError)) {
+    throw err instanceof Error ? err : new Error(String(err));
+  }
+  return err;
+}
 
 describe("secretsEnvSchema", () => {
   it("accepts a base64-32 KEK and defaults CURRENT_VERSION to '1'", () => {
@@ -32,7 +35,7 @@ describe("secretsEnvSchema", () => {
       parseEnv(secretsEnvSchema, { KUMIKO_SECRETS_MASTER_KEY_V1: "dGVzdA==" });
       throw new Error("should have thrown");
     } catch (err) {
-      const boot = err as KumikoBootError;
+      const boot = asBootError(err);
       const v1 = boot.errors.find((e) => e.name === "KUMIKO_SECRETS_MASTER_KEY_V1");
       expect(v1?.kind).toBe("invalid");
       expect(v1?.message).toContain("32 bytes");
@@ -47,11 +50,34 @@ describe("secretsEnvSchema", () => {
       });
       throw new Error("should have thrown");
     } catch (err) {
-      const cur = (err as KumikoBootError).errors.find(
+      const cur = asBootError(err).errors.find(
         (e) => e.name === "KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION",
       );
       expect(cur?.kind).toBe("invalid");
     }
+  });
+
+  it("rejects CURRENT_VERSION '0' (V0 never exists, selector starts at V1)", () => {
+    try {
+      parseEnv(secretsEnvSchema, {
+        KUMIKO_SECRETS_MASTER_KEY_V1: validKek,
+        KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "0",
+      });
+      throw new Error("should have thrown");
+    } catch (err) {
+      const cur = asBootError(err).errors.find(
+        (e) => e.name === "KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION",
+      );
+      expect(cur?.kind).toBe("invalid");
+    }
+  });
+
+  it("accepts CURRENT_VERSION '2' (positive version selector)", () => {
+    const env = parseEnv(secretsEnvSchema, {
+      KUMIKO_SECRETS_MASTER_KEY_V1: validKek,
+      KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "2",
+    });
+    expect(env.KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION).toBe("2");
   });
 
   it("attaches the schema via r.envSchema() on createSecretsFeature()", () => {
@@ -74,7 +100,7 @@ describe("authEmailPasswordEnvSchema", () => {
       parseEnv(authEmailPasswordEnvSchema, { JWT_SECRET: "short" });
       throw new Error("should have thrown");
     } catch (err) {
-      const jwt = (err as KumikoBootError).errors.find((e) => e.name === "JWT_SECRET");
+      const jwt = asBootError(err).errors.find((e) => e.name === "JWT_SECRET");
       expect(jwt?.kind).toBe("invalid");
     }
   });
@@ -103,8 +129,24 @@ describe("subscriptionStripeEnvSchema", () => {
       });
       throw new Error("should have thrown");
     } catch (err) {
-      const boot = err as KumikoBootError;
+      const boot = asBootError(err);
       expect(boot.errors.length).toBe(2);
+    }
+  });
+
+  it("rejects a publishable key and a non-whsec webhook secret", () => {
+    try {
+      parseEnv(subscriptionStripeEnvSchema, {
+        STRIPE_WEBHOOK_SECRET: "wrong_abc",
+        STRIPE_API_KEY: "pk_live_xyz",
+      });
+      throw new Error("should have thrown");
+    } catch (err) {
+      const boot = asBootError(err);
+      const api = boot.errors.find((e) => e.name === "STRIPE_API_KEY");
+      const hook = boot.errors.find((e) => e.name === "STRIPE_WEBHOOK_SECRET");
+      expect(api?.kind).toBe("invalid");
+      expect(hook?.kind).toBe("invalid");
     }
   });
 
@@ -129,7 +171,7 @@ describe("subscriptionMollieEnvSchema", () => {
       parseEnv(subscriptionMollieEnvSchema, { MOLLIE_API_KEY: "no-prefix" });
       throw new Error("should have thrown");
     } catch (err) {
-      const k = (err as KumikoBootError).errors.find((e) => e.name === "MOLLIE_API_KEY");
+      const k = asBootError(err).errors.find((e) => e.name === "MOLLIE_API_KEY");
       expect(k?.kind).toBe("invalid");
     }
   });
@@ -200,7 +242,7 @@ describe("compose across all Phase-2 features", () => {
       parseEnv(composed.schema, {}, { sources: composed.sources });
       throw new Error("should have thrown");
     } catch (err) {
-      const out = (err as KumikoBootError).format();
+      const out = asBootError(err).format();
       expect(out).toContain("✗ JWT_SECRET (auth-email-password, required, missing)");
       expect(out).toContain("✗ KUMIKO_SECRETS_MASTER_KEY_V1 (secrets, required, missing)");
       expect(out).toContain("✗ STRIPE_API_KEY (subscription-stripe, required, missing)");

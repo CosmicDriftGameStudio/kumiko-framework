@@ -28,13 +28,14 @@ export const CustomFieldsQueries = {
 // `component: { react: { __component: CUSTOM_FIELDS_FORM_EXTENSION_NAME } }`.
 export const CUSTOM_FIELDS_FORM_EXTENSION_NAME = "CustomFieldsFormSection";
 
-// Event-Type-Names (qualified at registration via r.defineEvent — final
-// names are `custom-fields:event:field-definition-created` etc.).
-// Short-names MUST be in kebab-case (no dots): qualifyEntityName runs toKebab
-// which collapses dots to dashes, so a dotted short-name diverges from the
-// registry key when handlers hand-build the qualified string.
-export const FIELD_DEFINITION_CREATED_EVENT = "field-definition-created";
-export const FIELD_DEFINITION_UPDATED_EVENT = "field-definition-updated";
+// Entity-CRUD auto-events for the `field-definition` entity. registry.ts emits
+// these as `${entityName}.created`/`.updated` (dot form) — they do NOT run
+// through r.defineEvent/toKebab, so the dot MUST stay.
+export const FIELD_DEFINITION_CREATED_EVENT = "field-definition.created";
+export const FIELD_DEFINITION_UPDATED_EVENT = "field-definition.updated";
+// Qualified at registration via r.defineEvent — final name is
+// `custom-fields:event:field-definition-deleted`. Short-name MUST be kebab
+// (no dots): qualifyEntityName runs toKebab which collapses dots to dashes.
 export const FIELD_DEFINITION_DELETED_EVENT = "field-definition-deleted";
 
 // Custom-field-VALUE events. Live auf host-aggregate stream (ES-Option-B).
