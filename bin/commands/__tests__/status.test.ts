@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { makeContext, makeSpyOutput, makeTempCwd, runGit } from "../_test-helpers";
+import { runGit } from "../../_git-test-helpers";
+import { makeContext, makeSpyOutput, makeTempCwd } from "../_test-helpers";
 import { statusCommand } from "../status";
 
 const cleanups: Array<() => void> = [];

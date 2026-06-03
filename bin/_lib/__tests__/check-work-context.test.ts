@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
-import { runGit } from "../../commands/_test-helpers";
+import { runGit } from "../../_git-test-helpers";
 import {
   formatCheckWorkContext,
   resolveCheckWorkContext,
