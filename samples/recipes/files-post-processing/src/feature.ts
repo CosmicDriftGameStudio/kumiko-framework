@@ -6,7 +6,7 @@
 //
 //   1. Client does POST /api/files with multipart body.
 //   2. file-routes.ts validates + writes the binary to the registered
-//      FileStorageProvider, then atomically inserts FileRef +
+//      FileStorageProvider, then atomically inserts the fileRef entity +
 //      appends `fileRef.created` (Entity-Standard-Verb) into the
 //      event-store.
 //   3. The event-dispatcher picks up the committed event and invokes
@@ -59,8 +59,6 @@ export const filesPostProcessingFeature = defineFeature("files-post-processing",
         // registered. Defensive early-return keeps the projection safe for
         // test stacks that deliberately omit the provider.
         if (!ctx.files) return;
-
-        if (!payload.storageKey) return;
 
         const src = ctx.files.ref(payload.storageKey);
         const original = await src.read();
