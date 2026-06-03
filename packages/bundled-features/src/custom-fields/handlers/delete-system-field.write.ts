@@ -1,14 +1,8 @@
-import {
-  createEntityExecutor,
-  SYSTEM_TENANT_ID,
-  type WriteHandlerDef,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { SYSTEM_TENANT_ID, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { fieldDefinitionAggregateId } from "../aggregate-id";
-import { fieldDefinitionEntity } from "../entity";
+import { fieldDefinitionExecutor } from "../executor";
 import { customFieldsFeature } from "../feature";
 import { type DeleteFieldPayload, deleteFieldPayloadSchema } from "../schemas";
-
-const { executor } = createEntityExecutor("field-definition", fieldDefinitionEntity);
 
 // delete-system-field — SystemAdmin entfernt eine system-weite Field-
 // Definition. Konsequenz: KEIN Tenant kann mehr neue Werte dafür setzen,
@@ -29,7 +23,7 @@ export const deleteSystemFieldHandler: WriteHandlerDef = {
     );
 
     const systemUser = { ...event.user, tenantId: SYSTEM_TENANT_ID };
-    const result = await executor.delete({ id: aggregateId }, systemUser, ctx.db);
+    const result = await fieldDefinitionExecutor.delete({ id: aggregateId }, systemUser, ctx.db);
 
     // Cascade-cleanup-Event — host-entity-MSPs entfernen orphan values aus
     // ihrer customFields jsonb. Im selben TX = atomic.

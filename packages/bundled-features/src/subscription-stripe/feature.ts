@@ -60,12 +60,12 @@ import { verifyAndParseStripeWebhook } from "./verify-webhook";
 export const subscriptionStripeEnvSchema = z.object({
   STRIPE_WEBHOOK_SECRET: z
     .string()
-    .min(1, "STRIPE_WEBHOOK_SECRET must not be empty")
+    .regex(/^whsec_/, "STRIPE_WEBHOOK_SECRET must start with 'whsec_'")
     .describe("Stripe webhook-signing secret (`whsec_...` from the Stripe dashboard).")
     .meta({ kumiko: { pulumi: { secret: true } } }),
   STRIPE_API_KEY: z
     .string()
-    .min(1, "STRIPE_API_KEY must not be empty")
+    .regex(/^sk_(test|live)_/, "STRIPE_API_KEY must start with 'sk_test_' or 'sk_live_'")
     .describe("Stripe API key (`sk_live_...` / `sk_test_...`).")
     .meta({ kumiko: { pulumi: { secret: true } } }),
 });

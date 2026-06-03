@@ -23,21 +23,14 @@ import { tenantSecretEntity } from "./table";
 export const secretsEnvSchema = z.object({
   KUMIKO_SECRETS_MASTER_KEY_V1: z
     .string()
-    .refine(
-      (v) => {
-        try {
-          return Buffer.from(v, "base64").length === 32;
-        } catch {
-          return false;
-        }
-      },
-      { message: "must be base64-encoded 32 bytes (AES-256 KEK)" },
-    )
+    .refine((v) => Buffer.from(v, "base64").length === 32, {
+      message: "must be base64-encoded 32 bytes (AES-256 KEK)",
+    })
     .describe("AES-256 master-key (KEK) for tenant-secrets encryption.")
     .meta({ kumiko: { pulumi: { generator: "openssl rand -base64 32", secret: true } } }),
   KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: z
     .string()
-    .regex(/^\d+$/, "must be a positive integer (V<n> selector)")
+    .regex(/^[1-9]\d*$/, "must be a positive integer (V<n> selector)")
     .default("1")
     .describe(
       "Pins the active KEK version. Default '1'. Bump after writing a higher KUMIKO_SECRETS_MASTER_KEY_V<n>.",

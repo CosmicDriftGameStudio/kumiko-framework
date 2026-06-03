@@ -1,15 +1,10 @@
-import {
-  createEntityExecutor,
-  isSystemTenant,
-  type WriteHandlerDef,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { isSystemTenant, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import { fieldDefinitionAggregateId } from "../aggregate-id";
-import { fieldDefinitionEntity } from "../entity";
+import { fieldDefinitionExecutor } from "../executor";
+import { buildFieldDefinitionColumns } from "../lib/field-definition-row";
 import { countTenantFieldDefinitions } from "../lib/quota";
 import { type DefineFieldPayload, defineFieldPayloadSchema } from "../schemas";
-
-const { executor } = createEntityExecutor("field-definition", fieldDefinitionEntity);
 
 // define-tenant-field — TenantAdmin definiert eine Custom-Field-Definition
 // für seinen eigenen Tenant. tenantId wird automatisch aus event.user.tenantId
@@ -80,20 +75,8 @@ export function createDefineTenantFieldHandler(
         payload.fieldKey,
       );
 
-      return executor.create(
-        {
-          id: aggregateId,
-          entityName: payload.entityName,
-          fieldKey: payload.fieldKey,
-          type: payload.serializedField.type,
-          required: payload.required,
-          searchable: payload.searchable,
-          displayOrder: payload.displayOrder,
-          serializedField: JSON.stringify({
-            ...payload.serializedField,
-            label: payload.label,
-          }),
-        },
+      return fieldDefinitionExecutor.create(
+        { id: aggregateId, ...buildFieldDefinitionColumns(payload) },
         event.user,
         ctx.db,
       );

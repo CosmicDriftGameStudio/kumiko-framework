@@ -1,6 +1,7 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import type { Temporal } from "temporal-polyfill";
 import { exportJobsTable } from "../../schema/export-job";
 
 export type ExportJobCleanupCandidate = {

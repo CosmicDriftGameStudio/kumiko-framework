@@ -1,14 +1,8 @@
-import {
-  createEntityExecutor,
-  isSystemTenant,
-  type WriteHandlerDef,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { isSystemTenant, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { fieldDefinitionAggregateId } from "../aggregate-id";
-import { fieldDefinitionEntity } from "../entity";
+import { fieldDefinitionExecutor } from "../executor";
 import { customFieldsFeature } from "../feature";
 import { type DeleteFieldPayload, deleteFieldPayloadSchema } from "../schemas";
-
-const { executor } = createEntityExecutor("field-definition", fieldDefinitionEntity);
 
 // delete-tenant-field — TenantAdmin löscht eigene Field-Definition.
 // Spec-Promise (Plan-Doc v2 "wie Entity-Delete"): Events bleiben im event-
@@ -36,7 +30,7 @@ export const deleteTenantFieldHandler: WriteHandlerDef = {
 
     const aggregateId = fieldDefinitionAggregateId(tenantId, payload.entityName, payload.fieldKey);
 
-    const result = await executor.delete({ id: aggregateId }, event.user, ctx.db);
+    const result = await fieldDefinitionExecutor.delete({ id: aggregateId }, event.user, ctx.db);
 
     // Emit cascade-cleanup-Event NACH erfolgreichem Delete. host-entity-MSPs
     // (registriert via wireCustomFieldsFor) konsumieren das + entfernen orphan

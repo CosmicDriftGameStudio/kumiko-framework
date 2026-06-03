@@ -10,7 +10,12 @@
 // `component: { react: { __component: CUSTOM_FIELDS_FORM_EXTENSION_NAME } }`
 // referenziert.
 
-import { useDispatcher, usePrimitives, useQuery } from "@cosmicdrift/kumiko-renderer";
+import {
+  useDispatcher,
+  usePrimitives,
+  useQuery,
+  useTranslation,
+} from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
 import { CustomFieldsHandlers, CustomFieldsQueries } from "../constants";
 
@@ -35,8 +40,13 @@ export function CustomFieldsFormSection({
   readonly entityId: string | null;
 }): ReactNode {
   const { Banner, Button, Field, Input, Text } = usePrimitives();
+  const t = useTranslation();
   const dispatcher = useDispatcher();
-  const query = useQuery<FieldDefinitionListResponse>(CustomFieldsQueries.fieldDefinitionList, {});
+  const query = useQuery<FieldDefinitionListResponse>(
+    CustomFieldsQueries.fieldDefinitionList,
+    {},
+    { enabled: entityId !== null },
+  );
   const [pending, setPending] = useState<Readonly<Record<string, string>>>({});
   const [saving, setSaving] = useState(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
@@ -44,21 +54,21 @@ export function CustomFieldsFormSection({
   if (entityId === null) {
     return (
       <Banner variant="info" testId="custom-fields-form-create-mode">
-        <Text>Save the entity first to add custom field values.</Text>
+        <Text>{t("custom-fields.form.createMode")}</Text>
       </Banner>
     );
   }
   if (query.loading && query.data === null) {
     return (
       <Banner variant="loading" testId="custom-fields-form-loading">
-        <Text>Loading…</Text>
+        <Text>{t("custom-fields.form.loading")}</Text>
       </Banner>
     );
   }
   if (query.error) {
     return (
       <Banner variant="error" testId="custom-fields-form-error">
-        <Text>{query.error.i18nKey}</Text>
+        <Text>{t(query.error.i18nKey, query.error.i18nParams)}</Text>
       </Banner>
     );
   }
@@ -71,7 +81,7 @@ export function CustomFieldsFormSection({
   if (matchingFields.length === 0) {
     return (
       <Banner variant="info" testId="custom-fields-form-empty">
-        <Text>No custom fields defined for "{entityName}".</Text>
+        <Text>{t("custom-fields.form.empty", { entityName })}</Text>
       </Banner>
     );
   }
@@ -91,7 +101,7 @@ export function CustomFieldsFormSection({
           value,
         });
         if (!result.isSuccess) {
-          setErrorKey(result.error?.i18nKey ?? "custom-fields:save-failed");
+          setErrorKey(result.error?.i18nKey ?? "custom-fields.errors.saveFailed");
           return;
         }
       }
@@ -123,11 +133,11 @@ export function CustomFieldsFormSection({
         disabled={saving || !dirty}
         testId="custom-fields-form-save"
       >
-        {saving ? "Saving…" : "Save custom fields"}
+        {saving ? t("custom-fields.form.saving") : t("custom-fields.form.save")}
       </Button>
       {errorKey !== null && (
         <Banner variant="error" testId="custom-fields-form-save-error">
-          <Text>{errorKey}</Text>
+          <Text>{t(errorKey)}</Text>
         </Banner>
       )}
     </div>

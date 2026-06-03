@@ -42,6 +42,17 @@ export function createSetWriteHandler(getRuntime: (() => GlobalFeatureToggleRunt
     handler: async (event, ctx) => {
       const { featureName, enabled } = event.payload;
 
+      // Guard 0: fail fast on a misconfigured app BEFORE any DB write or event
+      // append — otherwise the row + toggle-set event commit and the operator
+      // only sees the error, leaving the in-memory snapshot stale until reboot.
+      if (!getRuntime) {
+        throw new Error(
+          "[feature-toggles] set-handler called but createFeatureTogglesFeature " +
+            "was wired up without `getRuntime`. Wire the accessor in your app-config " +
+            "(production: `() => runtime` after buildServer; tests: createLateBoundHolder.get).",
+        );
+      }
+
       // Guard 1: featureName must be a registered feature. Otherwise we'd
       // pile up orphan rows from typos that the gate would silently apply
       // (if someone ever added a feature with that name later).
@@ -153,14 +164,8 @@ export function createSetWriteHandler(getRuntime: (() => GlobalFeatureToggleRunt
       // for a dispatcher tick. Other instances learn the change through
       // the `toggle-cache-sync` MSP (see feature-toggles-feature.ts). Both
       // paths are idempotent — Map.set is last-write-wins and the DB is
-      // the source of truth after boot-time initialize().
-      if (!getRuntime) {
-        throw new Error(
-          "[feature-toggles] set-handler called but createFeatureTogglesFeature " +
-            "was wired up without `getRuntime`. Wire the accessor in your app-config " +
-            "(production: `() => runtime` after buildServer; tests: createLateBoundHolder.get).",
-        );
-      }
+      // the source of truth after boot-time initialize(). getRuntime presence
+      // is enforced at Guard 0, so it is non-undefined here.
       getRuntime().apply(featureName, enabled);
 
       return {

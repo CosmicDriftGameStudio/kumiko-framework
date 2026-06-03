@@ -171,8 +171,8 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
       const customFields = row["customFields"];
       if (customFields && typeof customFields === "object" && !Array.isArray(customFields)) {
         return {
-          ...row,
           ...(customFields as Record<string, unknown>), // @cast-boundary db-row jsonb runtime-untyped
+          ...row, // base fields win: a custom fieldKey named `id`/`name` must not shadow the real column
         };
       }
       return row;
