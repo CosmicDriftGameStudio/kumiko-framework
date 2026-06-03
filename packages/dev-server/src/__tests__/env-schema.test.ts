@@ -32,6 +32,51 @@ describe("frameworkCoreEnvSchema", () => {
     }
   });
 
+  it("rejects a non-postgres DATABASE_URL even when it is a valid WHATWG URL", () => {
+    try {
+      parseEnv(frameworkCoreEnvSchema, {
+        DATABASE_URL: "https://example.com/db",
+        REDIS_URL: "redis://localhost:6379",
+      });
+      throw new Error("should have thrown");
+    } catch (err) {
+      expect(err).toBeInstanceOf(KumikoBootError);
+      const db = (err as KumikoBootError).errors.find((e) => e.name === "DATABASE_URL");
+      expect(db?.kind).toBe("invalid");
+    }
+  });
+
+  it("accepts postgres:// and postgresql:// for DATABASE_URL", () => {
+    for (const url of ["postgres://localhost:5432/db", "postgresql://localhost:5432/db"]) {
+      const env = parseEnv(frameworkCoreEnvSchema, {
+        DATABASE_URL: url,
+        REDIS_URL: "redis://localhost:6379",
+      });
+      expect(env.DATABASE_URL).toBe(url);
+    }
+  });
+
+  it("rejects a non-redis REDIS_URL and accepts redis:// + rediss://", () => {
+    try {
+      parseEnv(frameworkCoreEnvSchema, {
+        DATABASE_URL: "postgres://localhost:5432/db",
+        REDIS_URL: "https://example.com/cache",
+      });
+      throw new Error("should have thrown");
+    } catch (err) {
+      expect(err).toBeInstanceOf(KumikoBootError);
+      const redis = (err as KumikoBootError).errors.find((e) => e.name === "REDIS_URL");
+      expect(redis?.kind).toBe("invalid");
+    }
+    for (const url of ["redis://localhost:6379", "rediss://localhost:6379"]) {
+      const env = parseEnv(frameworkCoreEnvSchema, {
+        DATABASE_URL: "postgres://localhost:5432/db",
+        REDIS_URL: url,
+      });
+      expect(env.REDIS_URL).toBe(url);
+    }
+  });
+
   it("rejects an invalid PORT (non-numeric)", () => {
     try {
       parseEnv(frameworkCoreEnvSchema, {

@@ -39,6 +39,28 @@ describe("renderInlineSchemasFile", () => {
     expect(out).toContain("// inventory:event:product-archived — from src/feature.ts:92");
     expect(out).not.toContain(appRoot);
   });
+
+  test("falls back to the bare filename when a feature file is outside the app root", () => {
+    // A bundled-feature file lives in node_modules, outside the app root —
+    // relative() would emit `../../..`. The comment falls back to basename.
+    const appRoot = join(tmpdir(), "kumiko-codegen-app");
+    const featurePath = join(tmpdir(), "node_modules", "pkg", "dist", "feature.ts");
+    const events: ScannedEvent[] = [
+      {
+        qualifiedName: "bundled:event:thing-happened",
+        schemaSource: {
+          kind: "inline",
+          schemaSource: "z.object({ id: z.string() })",
+          generatedConstName: "_kg_bundled__thingHappened",
+        },
+        featureFilePath: featurePath,
+        source: { file: featurePath, line: 7 },
+      },
+    ];
+    const out = renderInlineSchemasFile(events, appRoot);
+    expect(out).toContain("// bundled:event:thing-happened — from feature.ts:7");
+    expect(out).not.toContain("..");
+  });
 });
 
 describe("renderDefineFile", () => {

@@ -27,12 +27,16 @@ export const frameworkCoreEnvSchema = z.object({
     .describe("HTTP listen port. runProdApp defaults to 3000 when unset."),
 
   DATABASE_URL: z
-    .url("DATABASE_URL must be a valid postgres:// URL")
+    // `protocol` is matched against the URL scheme without the trailing
+    // colon — `postgres://`/`postgresql://` pass, `https://`/`ftp://` are
+    // rejected so the error message's promise actually holds at boot.
+    .url({ protocol: /^postgres(ql)?$/, error: "DATABASE_URL must be a valid postgres:// URL" })
     .describe("Primary Postgres connection string (write + read).")
     .meta({ kumiko: { pulumi: { secret: true } } }),
 
   REDIS_URL: z
-    .url("REDIS_URL must be a valid redis:// URL")
+    // `redis://` + the TLS variant `rediss://` pass; other schemes reject.
+    .url({ protocol: /^rediss?$/, error: "REDIS_URL must be a valid redis:// URL" })
     .describe("Redis connection string for SSE-broker + job-queues.")
     .meta({ kumiko: { pulumi: { secret: true } } }),
 

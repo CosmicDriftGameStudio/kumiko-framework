@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { scaffoldDeploy } from "../scaffold-deploy";
+import { render, scaffoldDeploy } from "../scaffold-deploy";
 
 describe("scaffoldDeploy", () => {
   let tmp: string;
@@ -41,6 +41,16 @@ describe("scaffoldDeploy", () => {
     expect(migrate).toContain("ghcr.io/acme/myapp:latest");
     // biome-ignore lint/suspicious/noTemplateCurlyInString: shell-substitution literal, not a JS template
     expect(migrate).toContain("postgresql://myapp:${DB_PASSWORD}@db:5432/myapp");
+    // The password-bearing URL is composed into the shell env and passed by
+    // NAME (`-e DATABASE_URL`, no `=`), so the expanded value never lands in
+    // `docker run`'s argv (would be visible in `ps auxe`).
+    expect(migrate).toContain("export DATABASE_URL=");
+    expect(migrate).toMatch(/-e DATABASE_URL\b(?!=)/);
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: shell-substitution literal, not a JS template
+    expect(migrate).not.toContain('-e DATABASE_URL="postgresql://myapp:${DB_PASSWORD}');
+    // grep's no-match exit must not abort the script before the friendly
+    // "No _stack network found" branch runs.
+    expect(migrate).toContain("| head -1 || true)");
     // Docker template syntax {{.Name}} must pass through verbatim — our
     // placeholder regex only matches lowercase-leading identifiers.
     expect(migrate).toContain('"{{.Name}}"');
@@ -146,6 +156,27 @@ describe("scaffoldDeploy", () => {
     expect(() => scaffoldDeploy({ appName: "x", port: 70000, destination: tmp })).toThrow(
       /1\.\.65535/,
     );
+  });
+
+  describe("render placeholder consumption", () => {
+    it("passes Docker/Go template syntax {{.X}} through verbatim", () => {
+      const out = render('docker network ls --format "{{.Name}}"', {}, {});
+      expect(out).toBe('docker network ls --format "{{.Name}}"');
+    });
+
+    it("substitutes known {{key}} placeholders", () => {
+      expect(render("hello {{who}}", { who: "world" }, {})).toBe("hello world");
+    });
+
+    it("throws on an orphan close-tag (no opener) instead of leaking it", () => {
+      expect(() => render("line\n{{/hasSeeds}}\nmore", {}, {})).toThrow(/unconsumed mustache/);
+    });
+
+    it("strips a matched block but does not leave its close-tag behind", () => {
+      const out = render("a\n{{#flag}}\nkept\n{{/flag}}\nb", {}, { flag: true });
+      expect(out).toContain("kept");
+      expect(out).not.toContain("{{/flag}}");
+    });
   });
 
   describe("source-tree detection", () => {

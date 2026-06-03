@@ -65,16 +65,30 @@ describe("runProdApp boot-mode env-source", () => {
   });
 
   test("boots from injected envSource even when process.env lacks the required vars", async () => {
-    const handle = await runProdApp({
-      features: [probeFeature],
-      autoListen: false,
-      migrations: false,
-      envSource: { ...DUMMY_ENV },
-    });
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => {
+      logs.push(args.map(String).join(" "));
+    };
+    let handle: Awaited<ReturnType<typeof runProdApp>>;
+    try {
+      handle = await runProdApp({
+        features: [probeFeature],
+        autoListen: false,
+        migrations: false,
+        // REDIS_URL points at an unreachable port — boot-mode must NOT
+        // construct the (eager) Redis client, so this never tries to connect.
+        envSource: { ...DUMMY_ENV },
+      });
+    } finally {
+      console.log = originalLog;
+    }
 
     // Boot-mode with an injected envSource returns an inert dry-run handle.
     expect(handle).toBeDefined();
     expect(typeof handle.stop).toBe("function");
+    // The registry was built + validated before any connection was opened.
+    expect(logs.some((line) => line.includes("boot validation OK"))).toBe(true);
     await handle.stop();
   });
 

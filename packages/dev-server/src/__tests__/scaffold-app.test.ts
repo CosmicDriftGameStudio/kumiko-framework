@@ -63,6 +63,21 @@ describe("scaffoldApp", () => {
     expect(main).toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/);
   });
 
+  test("bin/main.ts composes the auth-mode feature set into envSchema (JWT_SECRET boot-gate)", () => {
+    const dest = join(tmp, "my-shop");
+    scaffoldApp({ name: "my-shop", destination: dest });
+
+    const main = readFileSync(join(dest, "bin/main.ts"), "utf-8");
+    // envSchema must cover the same features runProdApp auto-mixes via
+    // auth-mode — otherwise auth-email-password's JWT_SECRET (min-32) is
+    // absent from the boot-gate and a too-short secret slips through.
+    expect(main).toContain("composeFeatures(APP_FEATURES, { includeBundled: true })");
+    expect(main).toContain(
+      "composeEnvSchema({ core: frameworkCoreEnvSchema, features: bootFeatures })",
+    );
+    expect(main).toContain("composeFeatures");
+  });
+
   test("src/run-config.ts mounts secrets + sessions as foundation", () => {
     const dest = join(tmp, "my-shop");
     scaffoldApp({ name: "my-shop", destination: dest });
@@ -77,6 +92,25 @@ describe("scaffoldApp", () => {
     expect(() => scaffoldApp({ name: "MyShop", destination: tmp })).toThrow(/kebab-case/);
     expect(() => scaffoldApp({ name: "my_shop", destination: tmp })).toThrow(/kebab-case/);
     expect(() => scaffoldApp({ name: "0shop", destination: tmp })).toThrow(/kebab-case/);
+  });
+
+  test("rejects trailing- and double-hyphen names (invalid package segment)", () => {
+    expect(() => scaffoldApp({ name: "my-shop-", destination: tmp })).toThrow(/kebab-case/);
+    expect(() => scaffoldApp({ name: "my--shop", destination: tmp })).toThrow(/kebab-case/);
+  });
+
+  test("resolves a relative destination against the supplied cwd, not process.cwd()", () => {
+    // The CLI passes ctx.cwd; the scaffold must land under it so the
+    // displayed path matches the actual write location.
+    const result = scaffoldApp({ name: "shop", destination: "apps/shop", cwd: tmp });
+    expect(result.destination).toBe(join(tmp, "apps/shop"));
+    expect(existsSync(join(tmp, "apps/shop", "package.json"))).toBe(true);
+  });
+
+  test("resolves the name-default destination against the supplied cwd", () => {
+    const result = scaffoldApp({ name: "shop", cwd: tmp });
+    expect(result.destination).toBe(join(tmp, "shop"));
+    expect(existsSync(join(tmp, "shop", "package.json"))).toBe(true);
   });
 
   test("refuses to overwrite existing destination", () => {

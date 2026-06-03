@@ -16,7 +16,10 @@
 
 set -euo pipefail
 
-STACK_NETWORK=$(docker network ls --format "{{.Name}}" | grep -E "_stack$" | head -1)
+# `|| true` keeps `set -e`/`pipefail` from aborting the script when `grep`
+# finds no match (exit 1) — the empty-check below owns that case and prints
+# the actionable hint instead of a bare pipefail abort.
+STACK_NETWORK=$(docker network ls --format "{{.Name}}" | grep -E "_stack$" | head -1 || true)
 if [ -z "$STACK_NETWORK" ]; then
   echo "No _stack network found — compose project not running?" >&2
   exit 1
@@ -32,8 +35,14 @@ set +a
 # DATABASE_URL assumes: db user = appName, db name = appName, host "db"
 # (compose-service-name), port 5432. Adjust to your stack if different.
 # Image tag pinned to :latest — swap to :${BUILD_SHA} for atomic deploys.
+#
+# Compose DATABASE_URL into the shell env and pass it to the container by
+# NAME (`-e DATABASE_URL`, no value) so the expanded password never appears
+# in `docker run`'s argv — otherwise it would be visible in `ps auxe` for
+# the duration of the migrate run.
+export DATABASE_URL="postgresql://{{appName}}:${DB_PASSWORD}@db:5432/{{appName}}"
 docker run --rm \
   --network "$STACK_NETWORK" \
-  -e DATABASE_URL="postgresql://{{appName}}:${DB_PASSWORD}@db:5432/{{appName}}" \
+  -e DATABASE_URL \
   ghcr.io/{{githubOrg}}/{{appName}}:latest \
   bun /app/kumiko.js schema apply

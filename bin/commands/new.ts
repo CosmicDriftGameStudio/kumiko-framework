@@ -50,6 +50,7 @@ export const newCommand = defineCommand({
     try {
       const result = scaffoldApp({
         name,
+        cwd: ctx.cwd,
         ...(destination !== undefined && { destination }),
       });
       const relDest = result.destination.startsWith(ctx.cwd)
