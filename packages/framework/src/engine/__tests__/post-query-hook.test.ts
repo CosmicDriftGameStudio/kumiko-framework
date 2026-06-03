@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { createEntity, createRegistry, defineFeature } from "../index";
-import type { PostQueryHookFn } from "../types";
+import type { AppContext, PostQueryHookFn } from "../types";
+
+// The hooks under test never read context (they only transform rows), so a
+// stub at the cast-boundary is sufficient — no real db/redis/registry needed.
+const stubContext = {} as unknown as AppContext;
 
 // postQuery-Hook (F1) — feuert nach Query-Handler-Execute, vor Field-Access-
 // Read-Filter. Zwei Registrierungs-Pfade:
@@ -112,11 +116,7 @@ describe("Hook function semantics", () => {
     const hooks = registry.getEntityPostQueryHooks("thing");
     const inputRows: ReadonlyArray<Record<string, unknown>> = [{ id: "1" }, { id: "2" }];
     // Context shape is { user, db, ... } in real runtime; unit-tests stub.
-    const result = await hooks[0]?.(
-      { entityName: "thing", rows: inputRows },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      {} as never,
-    );
+    const result = await hooks[0]?.({ entityName: "thing", rows: inputRows }, stubContext);
     expect(result?.rows).toEqual([
       { id: "1", enriched: true },
       { id: "2", enriched: true },

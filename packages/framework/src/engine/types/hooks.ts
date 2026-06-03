@@ -84,7 +84,10 @@ export type PreQueryHookFn = (
 // on added fields (field-access-filter only knows entity's stammfields).
 export type PostQueryHookFn = (
   result: {
-    readonly entityName: string;
+    // undefined for standalone queries (no-colon handler names like
+    // "ns:dashboard") — those have no backing entity, but handler-keyed
+    // postQuery hooks still fire on them.
+    readonly entityName: string | undefined;
     readonly rows: ReadonlyArray<Record<string, unknown>>;
   },
   context: AppContext,

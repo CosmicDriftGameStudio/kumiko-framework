@@ -159,6 +159,59 @@ describe("dispatcher.query", () => {
   });
 });
 
+// --- postQuery hooks on standalone (entity-less) queries ---
+
+describe("dispatcher.query postQuery hooks", () => {
+  test("handler-keyed postQuery hook fires on a standalone (no-colon) query", async () => {
+    // Standalone queries (name without colon, e.g. "dashboard") map to no
+    // entity. Handler-keyed postQuery hooks must still fire — gating the hook
+    // pass on entity-existence makes such a hook register silently + never run.
+    const feature = defineFeature("dash", (r) => {
+      r.queryHandler("dashboard", z.object({}), async () => ({ count: 1 }), {
+        access: { openToAll: true },
+      });
+      r.hook("postQuery", "dashboard", async ({ entityName, rows }) => {
+        expect(entityName).toBeUndefined();
+        return { rows: rows.map((row) => ({ ...row, enriched: true })) };
+      });
+    });
+
+    const dispatcher = createDispatcher(createRegistry([feature]), {});
+    const result = await dispatcher.query("dash:query:dashboard", {}, createTestUser());
+    expect(result).toEqual({ count: 1, enriched: true });
+  });
+
+  test("postQuery hook does not run for a result with rows:null (not an array)", async () => {
+    // `{ rows: null }` is a legitimate 'nothing found' shape — it must take the
+    // single-object branch, not the rows-list branch (which would crash on
+    // [...null]). The hook here returns the row unchanged so the shape survives.
+    const feature = defineFeature("nullrows", (r) => {
+      r.queryHandler("dashboard", z.object({}), async () => ({ rows: null, nextCursor: null }), {
+        access: { openToAll: true },
+      });
+      r.hook("postQuery", "dashboard", async ({ rows }) => ({ rows }));
+    });
+
+    const dispatcher = createDispatcher(createRegistry([feature]), {});
+    const result = await dispatcher.query("nullrows:query:dashboard", {}, createTestUser());
+    expect(result).toEqual({ rows: null, nextCursor: null });
+  });
+
+  test("single-object postQuery hook returning ≠1 row throws", async () => {
+    const feature = defineFeature("multi", (r) => {
+      r.queryHandler("dashboard", z.object({}), async () => ({ count: 1 }), {
+        access: { openToAll: true },
+      });
+      r.hook("postQuery", "dashboard", async ({ rows }) => ({ rows: [...rows, ...rows] }));
+    });
+
+    const dispatcher = createDispatcher(createRegistry([feature]), {});
+    await expect(dispatcher.query("multi:query:dashboard", {}, createTestUser())).rejects.toThrow(
+      /must return exactly one row, got 2/,
+    );
+  });
+});
+
 // --- Dispatch: Command (fire-and-forget) ---
 
 describe("dispatcher.command", () => {

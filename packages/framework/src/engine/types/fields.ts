@@ -484,7 +484,8 @@ export type TransitionMap = Readonly<Record<string, readonly string[]>>;
  *  vermeidet Migration-Churn beim Refactor.
  *
  *  Single-column indices über `tenantId` sind redundant (buildEntityTable
- *  legt die immer automatisch an); die Boot-Validation warnt. */
+ *  legt die immer automatisch an); die Boot-Validation warnt (außer
+ *  `{ unique: true }` — semantische 1:1-Constraint, kein Performance-Hint). */
 export type EntityIndexDef = {
   readonly columns: readonly [string, ...string[]];
   readonly unique?: boolean;

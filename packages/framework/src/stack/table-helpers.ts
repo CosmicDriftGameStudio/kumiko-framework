@@ -60,8 +60,8 @@ function isMetaShape(v: unknown): v is EntityTableMeta {
     v !== null &&
     typeof (v as EntityTableMeta).tableName === "string" &&
     Array.isArray((v as EntityTableMeta).columns) &&
-    "indexes" in v &&
-    "source" in v
+    Array.isArray((v as EntityTableMeta).indexes) &&
+    ((v as EntityTableMeta).source === "managed" || (v as EntityTableMeta).source === "unmanaged")
   );
 }
 

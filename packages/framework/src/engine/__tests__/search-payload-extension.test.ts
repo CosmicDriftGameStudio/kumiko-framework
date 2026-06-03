@@ -1,5 +1,6 @@
-import { describe, expect, test } from "bun:test";
-import { createEntity, createRegistry, defineFeature } from "../index";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
+import { buildSearchDocument } from "../../pipeline/system-hooks";
+import { createEntity, createRegistry, createTextField, defineFeature } from "../index";
 import type { SearchPayloadContributorFn } from "../types";
 
 // F3 — Search-Payload-Extension registers per-entity contributors that
@@ -115,6 +116,36 @@ describe("effectiveFeatures filtering", () => {
   });
 });
 
+describe("buildSearchDocument — contributor precedence (base fields win)", () => {
+  const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+  afterEach(() => warnSpy.mockClear());
+
+  function registryWith(contributor: SearchPayloadContributorFn) {
+    const feature = defineFeature("test", (r) => {
+      const thing = r.entity(
+        "thing",
+        createEntity({ table: "things", fields: { title: createTextField({ searchable: true }) } }),
+      );
+      r.searchPayloadExtension(thing, contributor);
+    });
+    return createRegistry([feature]);
+  }
+
+  test("a contributor cannot overwrite an indexed Stammfield value", async () => {
+    const registry = registryWith(() => ({ title: "from-contributor" }));
+    const doc = await buildSearchDocument("thing", "t1", { title: "real-value" }, registry);
+    expect(doc?.fields["title"]).toBe("real-value");
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("a non-colliding contributor key is still merged in", async () => {
+    const registry = registryWith(() => ({ flatTags: "a,b" }));
+    const doc = await buildSearchDocument("thing", "t1", { title: "real-value" }, registry);
+    expect(doc?.fields).toMatchObject({ title: "real-value", flatTags: "a,b" });
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+});
+
 describe("Boot-Validation", () => {
   test("rejects searchPayloadExtension on unknown entity-name (sibling to entity-hooks)", () => {
     expect(() =>
@@ -131,6 +162,21 @@ describe("Boot-Validation", () => {
         r.searchPayloadExtension("propery", noop);
       });
       createRegistry([feature]);
-    }).toThrow(/searchPayloadExtension.*"propery".*no entity/);
+    }).toThrow(/searchPayloadExtension extension targets entity "propery" but no entity/);
+  });
+
+  test("error message calls a searchPayloadExtension an 'extension', not a 'hook'", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity("thing", createEntity({ table: "things", fields: {} }));
+      r.searchPayloadExtension("propery", noop);
+    });
+    let message = "";
+    try {
+      createRegistry([feature]);
+    } catch (err) {
+      message = err instanceof Error ? err.message : String(err);
+    }
+    expect(message).toContain("searchPayloadExtension extension");
+    expect(message).not.toContain("searchPayloadExtension hook");
   });
 });

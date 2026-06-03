@@ -83,8 +83,10 @@ export class NotFoundError extends KumikoError {
     const idStr = id !== undefined ? String(id) : undefined;
     // The reason string follows `<snake_entity>_not_found` — keeps a stable,
     // client-friendly tag that survives wire serialization even if the entity
-    // name is later renamed for display purposes.
-    const reason = `${toSnakeCase(entity)}_not_found`;
+    // name is later renamed for display purposes. Strip the leading underscore
+    // toSnakeCase emits for a PascalCase name ("Invoice" → "_invoice") so the
+    // wire tag stays "invoice_not_found", not "_invoice_not_found".
+    const reason = `${toSnakeCase(entity).replace(/^_/, "")}_not_found`;
     const details: NotFoundDetails & { reason: string } = { reason, entity, id: idStr };
     super({
       message: idStr !== undefined ? `${entity} ${idStr} not found` : `${entity} not found`,

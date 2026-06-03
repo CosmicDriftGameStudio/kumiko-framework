@@ -62,7 +62,15 @@ export function validateScreens(
         );
       }
       for (const section of screen.layout.sections) {
-        if (isExtensionEditSection(section)) continue;
+        if (isExtensionEditSection(section)) {
+          if (section.component.react === undefined && section.component.native === undefined) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (configEdit) extension section ` +
+                `"${section.title}" has no component — declare a react/native component marker.`,
+            );
+          }
+          continue;
+        }
         if (section.fields.length === 0) {
           throw new Error(
             `[Feature ${feature.name}] Screen "${screenId}" (configEdit) has a section "${section.title}" ` +
@@ -161,7 +169,15 @@ export function validateScreens(
         );
       }
       for (const section of screen.layout.sections) {
-        if (isExtensionEditSection(section)) continue;
+        if (isExtensionEditSection(section)) {
+          if (section.component.react === undefined && section.component.native === undefined) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (actionForm) extension section ` +
+                `"${section.title}" has no component — declare a react/native component marker.`,
+            );
+          }
+          continue;
+        }
         if (section.fields.length === 0) {
           throw new Error(
             `[Feature ${feature.name}] Screen "${screenId}" (actionForm) has a section "${section.title}" ` +

@@ -171,8 +171,8 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   // everything registered via r.projection() — keeps tests from having to
   // know which projections a feature happens to declare. Two projections
   // backed by the same physical table (e.g. an alternative apply-shape for
-  // the same read-model in a test feature) are deduped by Drizzle-table
-  // reference so drizzle-kit doesn't emit duplicate CREATE TABLE statements.
+  // the same read-model in a test feature) are deduped by table reference so
+  // we emit only one CREATE TABLE per physical table.
   const projectionTables: Record<string, unknown> = {};
   const seenTables = new Set<unknown>();
   for (const feature of options.features) {
@@ -205,8 +205,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     // unsafePushTables emits raw CREATE TABLE — fine for ephemeral test DBs but
     // collides on re-boot against a persistent DB whose projection tables
     // were created during a previous run. Filter out the ones that already
-    // exist; drizzle-kit's diff machinery would otherwise emit CREATE for
-    // them again.
+    // exist so the re-boot doesn't fail on duplicate CREATE TABLE.
     const { tableExists } = await import("../db/schema-inspection");
     const missing: Record<string, unknown> = {};
     for (const [key, tbl] of Object.entries(projectionTables)) {

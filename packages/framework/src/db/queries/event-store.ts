@@ -107,14 +107,9 @@ export async function selectEventsHighWaterMark(db: AnyDb): Promise<bigint> {
   return BigInt(raw);
 }
 
-/** Head event id for lag metrics — same aggregate as selectEventsHighWaterMark. */
+/** Head event id for lag metrics — alias for selectEventsHighWaterMark. */
 export async function selectEventsHeadId(db: AnyDb): Promise<bigint> {
-  const rows = (await asRawClient(db).unsafe(
-    `SELECT COALESCE(MAX(id), 0)::bigint AS head FROM kumiko_events`,
-  )) as ReadonlyArray<{ head?: bigint | string | null }>;
-  const raw = rows[0]?.head;
-  if (typeof raw === "bigint") return raw;
-  return BigInt(raw ?? 0);
+  return selectEventsHighWaterMark(db);
 }
 
 export async function selectNextEventIdAfter(db: AnyDb, afterId: bigint): Promise<bigint | null> {

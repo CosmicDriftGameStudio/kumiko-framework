@@ -223,7 +223,7 @@ type SharedContextFields = {
   // set handler needs to encrypt on write, the resolver needs to decrypt
   // on read, and both reach for the same provider. Wired via extraContext.
   readonly configEncryption?: import("../../db").EncryptionProvider;
-  // Rate-limit resolver. Wired by the framework when the `rateLimiting`
+  // Rate-limit resolver. Wired by the framework when the `rate-limiting`
   // feature is loaded — pipeline reads handler.rateLimit and calls
   // .enforce() on this resolver before access-check. Absent when the
   // app didn't load the feature: handlers with rateLimit set are
