@@ -6,16 +6,15 @@ Canonical smoke-sample. Mounts every bundled-feature so framework-CI catches fea
 
 Sprint 9.8 found 12 framework-bugs in Studio's deploy that all could have been caught earlier: 27 of 30 bundled-features had zero integration-coverage from any real app. This sample is the gate. See `kumiko-platform/docs/plans/features/use-all-features-smoke.md`.
 
-## CI-Gate Hierarchy
+## CI-Gate
 
-Two CI-jobs guard `release`. They form a hierarchy — the cheap one runs first, the expensive one runs only if the first passes.
+The `use-all-bundled-smoke` job guards `release`. It boots the sample with `KUMIKO_DRY_RUN_ENV=boot` (no DB) so feature-wiring bugs surface before publish.
 
-| Layer | Job | What it catches |
-|---|---|---|
-| **Pre-flight sanity** | `use-all-bundled-smoke` | feature-wiring bugs: `Object.entries(undefined)`, self-extension, missing-requires, schema-Validators, `composeFeatures` failures. **No DB**. Boot exits after `createRegistry`. |
-| **Real gate** | `use-all-bundled-postgres-smoke` | everything above **plus** schema-drift, `tierResolverUsage.plugin.build({ db, registry })`, `assertSchemaCurrent`, idempotency/dedup wiring, and `GET /health` endpoint. **postgres+redis service containers**. |
+| Job | What it catches |
+|---|---|
+| `use-all-bundled-smoke` | feature-wiring bugs: `Object.entries(undefined)`, self-extension, missing-requires, schema-Validators, `composeFeatures` failures. **No DB**. Boot exits after `createRegistry`. |
 
-**Boot-mode coverage gap to be aware of**: `KUMIKO_DRY_RUN_ENV=boot` exits **before** the `tierResolverUsage.plugin.build`-loop, so tier-resolver-plugin bugs only surface in `postgres-smoke`. If you ship a Sprint-9.8-style fix that touches tier-engine internals, rely on the postgres-smoke as the truth-gate, not the pre-flight.
+DB-backed paths (schema-drift, `tierResolverUsage.plugin.build`, `assertSchemaCurrent`, `GET /health`) are exercised by the `*.integration.test.ts` suite in the non-blocking `integration` CI-job against the full stack.
 
 ## Boot-test (no DB, pre-flight)
 
@@ -29,22 +28,6 @@ KUMIKO_DRY_RUN_ENV=boot \
 ```
 
 Exits 0 on success; any feature-wiring fault throws and exits 1.
-
-## Postgres-smoke (real gate)
-
-```sh
-# Erst postgres + redis lokal starten (z.B. via docker):
-# docker run -d --name pg -p 5432:5432 -e POSTGRES_PASSWORD=smoke -e POSTGRES_USER=smoke -e POSTGRES_DB=smoke postgres:18-alpine
-# docker run -d --name rd -p 6379:6379 redis:8-alpine
-
-DATABASE_URL=postgres://smoke:smoke@127.0.0.1:5432/smoke \
-  REDIS_URL=redis://127.0.0.1:6379 \
-  JWT_SECRET=$(openssl rand -base64 32) \
-  KUMIKO_SECRETS_MASTER_KEY_V1=$(openssl rand -base64 32) \
-  bash samples/apps/use-all-bundled/scripts/smoke-postgres.sh
-```
-
-Migrates schema, spawns the server, curls `/health` until 200.
 
 ## Coverage status
 
