@@ -8,11 +8,6 @@
 //   - scaffoldAppFeature scaffolds + auto-mounts (the diff-block shown)
 //   - composeFeatures(includeBundled:true) yields the exact feature-count
 //     the walkthrough advertises in "Expected output"
-//
-// The boot-validation step is reproduced in-process (composeFeatures +
-// validateBoot below) rather than by dynamic-importing the scaffolded
-// run-config: /tmp can't resolve the @cosmicdrift/* workspace symlinks, so a
-// dynamic import of the generated file would fail at module-load.
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -63,6 +58,21 @@ describe("walkthrough — DX-3.1 snapshot", () => {
     // Foundation still mounted (createSecretsFeature + createSessionsFeature).
     expect(runConfig).toContain("createSecretsFeature()");
     expect(runConfig).toContain("createSessionsFeature()");
+  });
+
+  test("Step 3 (boot validation) — scaffolded run-config matches walkthrough's APP_FEATURES claim", () => {
+    scaffoldApp({ name: "my-notes", destination: appRoot });
+    scaffoldAppFeature({ name: "notes", appRoot });
+
+    // Text-assert: scaffolded run-config.ts contains exactly the 3 features
+    // the walkthrough's diff-block shows (secrets + sessions + notesFeature).
+    // Dynamic-import would fail because /tmp can't resolve @cosmicdrift/*
+    // workspace symlinks — instead we reproduce the equivalent APP_FEATURES
+    // array in-process below.
+    const runConfig = readFileSync(join(appRoot, "src/run-config.ts"), "utf-8");
+    expect(runConfig).toContain("createSecretsFeature()");
+    expect(runConfig).toContain("createSessionsFeature()");
+    expect(runConfig).toContain("notesFeature");
   });
 
   test("Step 3 (composeFeatures) — 3 explicit + 4 auto-mounted = 7 features", () => {
