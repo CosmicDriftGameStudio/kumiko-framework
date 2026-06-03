@@ -29,13 +29,21 @@ jobs:
     permissions:
       contents: read
       packages: read
+    container:
+      # Prebuild-Image: bun + node + git vorinstalliert → kein setup-bun nötig.
+      # debian/glibc, damit GitHub-JS-Actions (checkout/cache) auf arm64 laufen.
+      # Privates Image → credentials (wie kumiko-enterprise integration-job).
+      image: ghcr.io/cosmicdriftgamestudio/build:bun-1.3.14
+      # Recursive fs.watch (codegen watch-tests) öffnet viele inotify-FDs; das
+      # ulimit -n des Job-Containers liegt unter dem des bare-Runners → EMFILE →
+      # Watcher degradiert → watch-tests timeouten. Auf Runner-Niveau heben.
+      options: --ulimit nofile=65536:65536
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
 
     steps:
       - uses: actions/checkout@v6
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: "1.3.14"
 
       - name: Cache Bun
         uses: actions/cache@v4
@@ -76,11 +84,14 @@ jobs:
     permissions:
       contents: read
       packages: read
+    container:
+      image: ghcr.io/cosmicdriftgamestudio/build:bun-1.3.14
+      options: --ulimit nofile=65536:65536
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v6
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: "1.3.14"
       - name: Cache Bun
         uses: actions/cache@v4
         with:
@@ -96,6 +107,11 @@ jobs:
         # Re-run and assert kein Diff. Wenn jemand das schema.generated.ts
         # ändert ohne generate.ts re-runned zu haben → CI fail.
         run: |
+          # Im Job-Container gehört der Workspace einer anderen uid als dem
+          # run-Step-User → rohes git verweigert das Repo (dubious ownership →
+          # "git diff --no-index"-Usage). Scoped auf genau diesen Workspace,
+          # NICHT global safe.directory '*' im Image (Least-Privilege).
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           bun samples/apps/use-all-bundled/schema/generate.ts
           git diff --exit-code samples/apps/use-all-bundled/schema/schema.generated.ts
       - name: Coverage lint (M5)
