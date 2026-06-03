@@ -69,7 +69,19 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Run tests
-        run: bun kumiko check
+        # `container: options: --ulimit nofile` greift NICHT (EMFILE trat in einem
+        # Run mit gesetzter Option auf) — vermutlich vom ARC-Runner verschluckt.
+        # Folge: nofile-Soft bleibt beim Container-Default → recursive fs.watch
+        # (codegen watch-tests) läuft in EMFILE. Soft-Limit zur Laufzeit aufs
+        # Hard-Limit ziehen greift unabhängig von der Option; das Echo zeigt die
+        # echten Werte (soft niedrig + hard hoch bestätigt die Hypothese).
+        run: |
+          echo "::group::nofile ulimit"
+          echo "before: soft=$(ulimit -Sn) hard=$(ulimit -Hn)"
+          ulimit -Sn "$(ulimit -Hn)" 2>/dev/null || true
+          echo "after:  soft=$(ulimit -Sn) hard=$(ulimit -Hn)"
+          echo "::endgroup::"
+          bun kumiko check
 
   use-all-bundled-smoke:
     # C1 Sprint 9.8 Phase C, M4: canonical smoke-gate. Bootet
