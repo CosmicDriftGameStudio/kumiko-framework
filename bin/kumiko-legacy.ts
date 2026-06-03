@@ -224,7 +224,9 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   steps.push({ name: "Runtime-Isolation Guard", cmd: "bunx kumiko-check-runtime-isolation" });
   steps.push({ name: "Error-Reasons Guard", cmd: "bunx kumiko-guard-error-reasons" });
   steps.push({ name: "Predicate Extraction Check", cmd: "bunx kumiko-check-predicates" });
-  // as-Cast Audit temporarily disabled — baseline broken after bun migration.
+  // TODO(2026-06-03): re-enable as-Cast Audit — baseline broke after the bun
+  // migration; regenerating it lives in infra/guards/check-as-casts.ts. Until
+  // fixed, new as-cast violations are not gated by `bun run check`.
   // steps.push({ name: "as-Cast Audit", cmd: "bunx kumiko-check-as-casts" });
   steps.push({ name: "Table-DDL Guard", cmd: "bunx kumiko-guard-table-ddl" });
   const frameworkRepoRoot = resolvePath(import.meta.dir, "..");

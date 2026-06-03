@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { gitFailureDetail } from "../_test-helpers";
+import { gitFailureDetail } from "../../_git-test-helpers";
 
 describe("gitFailureDetail", () => {
   test("spawn failure (status null, error set) surfaces the spawn error, not 'exit null'", () => {
@@ -26,6 +26,15 @@ describe("gitFailureDetail", () => {
   test("signal kill (status null, no error) surfaces the signal", () => {
     expect(gitFailureDetail({ status: null, signal: "SIGKILL", stderr: "" })).toBe(
       "signal SIGKILL",
+    );
+  });
+
+  test("error with EMPTY message falls through to signal/exit (|| not ??)", () => {
+    expect(
+      gitFailureDetail({ status: null, signal: "SIGTERM", error: new Error(""), stderr: "" }),
+    ).toBe("signal SIGTERM");
+    expect(gitFailureDetail({ status: 1, signal: null, error: new Error(""), stderr: "" })).toBe(
+      "exit 1",
     );
   });
 });

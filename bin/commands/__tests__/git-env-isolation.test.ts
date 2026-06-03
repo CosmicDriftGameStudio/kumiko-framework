@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
-import { cleanGitEnv, runGit } from "../_test-helpers";
+import { cleanGitEnv, runGit } from "../../_git-test-helpers";
 
 const cleanups: Array<() => void> = [];
 afterEach(() => {

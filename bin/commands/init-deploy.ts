@@ -1,5 +1,4 @@
 import { relative } from "node:path";
-import type { ScaffoldedFile } from "@cosmicdrift/kumiko-dev-server";
 import { getNumberFlag, getStringFlag, parseArgs } from "./arg-parser";
 import { defineCommand } from "./registry";
 
@@ -46,7 +45,7 @@ export const initDeployCommand = defineCommand({
       });
       ctx.out.log("");
       ctx.out.log(`  ✓ Deploy scaffolding generated — ${appName}`);
-      for (const f of result.files as readonly ScaffoldedFile[]) {
+      for (const f of result.files) {
         const rel = relative(ctx.cwd, f.path);
         const marker = f.written
           ? f.reason === "force"
