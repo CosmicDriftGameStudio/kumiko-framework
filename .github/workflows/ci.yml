@@ -34,10 +34,15 @@ jobs:
       # debian/glibc, damit GitHub-JS-Actions (checkout/cache) auf arm64 laufen.
       # Privates Image → credentials (wie kumiko-enterprise integration-job).
       image: ghcr.io/cosmicdriftgamestudio/build:bun-1.3.14
-      # Recursive fs.watch (codegen watch-tests) öffnet viele inotify-FDs; das
-      # ulimit -n des Job-Containers liegt unter dem des bare-Runners → EMFILE →
-      # Watcher degradiert → watch-tests timeouten. Auf Runner-Niveau heben.
-      options: --ulimit nofile=65536:65536
+      # Recursive fs.watch (codegen watch-tests) erschöpft die inotify-INSTANZEN
+      # (fs.inotify.max_user_instances, Default 128) → inotify_init failt mit EMFILE
+      # (verifiziert: nofile war 65536 und EMFILE trat trotzdem auf). Das Limit ist
+      # ein per-userns-Sysctl → via --sysctl am Container heben. nofile bleibt als
+      # Sicherheitsnetz für reine FD-Last.
+      options: >-
+        --ulimit nofile=65536:65536
+        --sysctl fs.inotify.max_user_instances=1024
+        --sysctl fs.inotify.max_user_watches=524288
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
@@ -69,17 +74,11 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Run tests
-        # `container: options: --ulimit nofile` greift NICHT (EMFILE trat in einem
-        # Run mit gesetzter Option auf) — vermutlich vom ARC-Runner verschluckt.
-        # Folge: nofile-Soft bleibt beim Container-Default → recursive fs.watch
-        # (codegen watch-tests) läuft in EMFILE. Soft-Limit zur Laufzeit aufs
-        # Hard-Limit ziehen greift unabhängig von der Option; das Echo zeigt die
-        # echten Werte (soft niedrig + hard hoch bestätigt die Hypothese).
         run: |
-          echo "::group::nofile ulimit"
-          echo "before: soft=$(ulimit -Sn) hard=$(ulimit -Hn)"
-          ulimit -Sn "$(ulimit -Hn)" 2>/dev/null || true
-          echo "after:  soft=$(ulimit -Sn) hard=$(ulimit -Hn)"
+          echo "::group::inotify limits"
+          echo "nofile soft=$(ulimit -Sn) hard=$(ulimit -Hn)"
+          echo "max_user_instances=$(cat /proc/sys/fs/inotify/max_user_instances 2>/dev/null || echo '?')"
+          echo "max_user_watches=$(cat /proc/sys/fs/inotify/max_user_watches 2>/dev/null || echo '?')"
           echo "::endgroup::"
           bun kumiko check
 
