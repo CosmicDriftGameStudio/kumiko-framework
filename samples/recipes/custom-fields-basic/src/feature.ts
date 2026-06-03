@@ -10,7 +10,8 @@
 //      `wireCustomFieldsFor(r, "property", propertyTable)`.
 //   2. A tenant admin defines a field at runtime
 //      (e.g. `internalNumber: text`) via the bundle's CRUD.
-//   3. Any property write can carry a `customFields` payload.
+//   3. Values are written via `custom-fields:write:set-custom-field`,
+//      not through the host entity's own write handler.
 //   4. Reads return the field flattened onto the row — looks like a
 //      first-class column.
 

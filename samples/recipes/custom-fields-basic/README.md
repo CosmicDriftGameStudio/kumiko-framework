@@ -80,5 +80,5 @@ bun kumiko test integration samples/custom-fields-basic
 
 ## Source
 
-The feature is ~30 lines (`src/feature.ts`). The integration test is
-~80 lines (`src/__tests__/feature.integration.ts`).
+The feature is ~80 lines (`src/feature.ts`). The integration test is
+~110 lines (`src/__tests__/feature.integration.test.ts`).
