@@ -176,6 +176,15 @@ export async function scanRepo(repoRoot: string): Promise<SqlInventoryReport> {
   };
 }
 
+// Serialize for the checked-in baseline. `root` (absolute scan path) and
+// `scannedAt` (run timestamp) are machine-/run-specific noise that churned the
+// baseline on every regen; --compare-baseline reads only summary.disallowed.
+// Pin them to stable placeholders so the committed file is reproducible.
+export function toBaselineJson(report: SqlInventoryReport): string {
+  const stable: SqlInventoryReport = { ...report, root: ".", scannedAt: "" };
+  return `${JSON.stringify(stable, null, 2)}\n`;
+}
+
 export function formatReport(report: SqlInventoryReport): string {
   const lines: string[] = [
     "--- sql inventory ---",

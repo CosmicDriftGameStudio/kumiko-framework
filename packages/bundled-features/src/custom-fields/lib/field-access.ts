@@ -34,6 +34,10 @@ export async function loadFieldDefinition(
 
 // Pure access-check on an already-loaded definition. Returns the required
 // roles when the caller is denied, or `null` when access is allowed.
+//
+// Contract: `fieldAccess.write` entries MUST be verbatim membership-system role
+// names (e.g. "TenantAdmin", not "Admin") — match is exact like framework-wide
+// `engine/access.ts`; no normalization, so a drifted name denies silently.
 export function fieldWriteAccessDeniedRoles(
   field: SerializedFieldShape | null,
   userRoles: ReadonlyArray<string>,

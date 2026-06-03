@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { formatReport, isRawSqlAllowed, joinPath, scanRepo } from "../sql-inventory";
+import {
+  formatReport,
+  isRawSqlAllowed,
+  joinPath,
+  scanRepo,
+  toBaselineJson,
+} from "../sql-inventory";
 
 const cleanups: string[] = [];
 
@@ -52,5 +58,24 @@ describe("sql-inventory", () => {
     expect(report.summary.byBucket.tests).toBeGreaterThanOrEqual(1);
     expect(report.summary.byBucket.disallowed).toBeGreaterThanOrEqual(1);
     expect(formatReport(report)).toContain("sql inventory");
+  });
+
+  test("toBaselineJson normalizes machine-specific root + scannedAt, keeps the rest", async () => {
+    const root = await tempRepo({
+      "packages/framework/src/handlers/bad.ts": `export async function y(db: unknown) {
+  return asRawClient(db).unsafe("DELETE FROM read_users");
+}`,
+    });
+
+    const report = await scanRepo(root);
+    expect(report.root).toBe(root);
+    expect(report.scannedAt).not.toBe("");
+
+    const parsed = JSON.parse(toBaselineJson(report));
+    expect(parsed.root).toBe(".");
+    expect(parsed.scannedAt).toBe("");
+    expect(parsed.root).not.toContain(root);
+    expect(parsed.summary.disallowed).toBe(report.summary.disallowed);
+    expect(parsed.hits).toHaveLength(report.hits.length);
   });
 });
