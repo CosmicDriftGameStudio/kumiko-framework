@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -251,37 +251,107 @@ describe("POST /auth/reset-password", () => {
 
   test("reset that fails before the write is retryable (burn is released on failure)", async () => {
     // The burn marker goes down BEFORE the state change so a racing replay
-    // can't slip through. But if the state change itself fails — e.g. no
-    // memberships in the row, every tenant stream rejected, DB error —
-    // the token was never actually consumed. The handler releases the
-    // burn in those branches so the user can click the link again
-    // without hitting a stuck "already-used".
+    // can't slip through. But if the state change itself fails — DB error,
+    // user-row vanished, every tenant stream rejected — the token was never
+    // actually consumed. The handler releases the burn in those branches so
+    // the user can click the link again once ops restores state.
     //
-    // Repro: drop the user's membership → tenantOrder is empty →
-    // invalidToken + unburn. Re-insert membership → second attempt
-    // with the same token succeeds (proves the burn was released).
+    // Repro: delete the user READ-MODEL row (kumiko_events untouched) →
+    // loadValidatedUser returns null AFTER the burn → invalidToken + unburn.
+    // Re-insert the same row verbatim (restores version → optimistic write
+    // still matches the untouched event stream) → second attempt with the
+    // SAME token succeeds, proving the burn was released.
+    //
+    // (Deleting the membership no longer works as a failure trigger: the
+    // user aggregate stream lives in systemAdmin.tenantId and is recovered
+    // by resolveStreamTenants even with zero memberships — see the
+    // zero-membership-sysadmin test below.)
     const seed = await seedUser({ email: "retry@example.com", password: "pw-retry-1234" });
     const { token } = signResetToken(seed.id, 15, resetSecret);
 
-    await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
+    const userRow = (await selectMany(stack.db, userTable)).find((r) => r["id"] === seed.id);
+    if (!userRow) throw new Error("seeded user row missing");
+    await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}" WHERE id = $1`, [
+      seed.id,
+    ]);
+
     const firstAttempt = await post("/api/auth/reset-password", {
       token,
       newPassword: "never-lands-1234",
     });
     expect(firstAttempt.status).toBe(422);
 
-    // Re-insert the membership. Same userId, same token still valid.
-    await seedTenantMembership(stack.db, {
-      userId: seed.id,
-      tenantId: seed.tenantId,
-      roles: ["User"],
-    });
+    // Re-insert the captured row verbatim. Same userId, same version, same
+    // token still valid.
+    await insertOne(stack.db, userTable, userRow);
 
     const secondAttempt = await post("/api/auth/reset-password", {
       token,
       newPassword: "finally-lands-1234",
     });
     expect(secondAttempt.status).toBe(200);
+  });
+
+  test("zero-membership sysadmin can still reset (stream recovered without any membership)", async () => {
+    // 205#1: a systemScope user whose stream lives in systemAdmin.tenantId
+    // (…0001) but who holds NO membership must still resolve. The stream-
+    // tenant recovery in resolveStreamTenants runs BEFORE the empty-
+    // membership check, so the reset targets …0001 and lands — instead of
+    // collapsing to invalid_token. Mirrors change-password's unconditional
+    // recovery.
+    const seed = await seedUser({ email: "lonely-admin@example.com", password: "pw-old-lonely!" });
+    await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
+
+    // Confirm the stream tenant the recovery must find: the user aggregate
+    // was created via systemAdmin, so its stream lives in …0001.
+    const streamRows = (await asRawClient(stack.db).unsafe(
+      `SELECT "tenant_id" FROM "kumiko_events" WHERE "aggregate_id" = $1 AND "aggregate_type" = 'user' ORDER BY "version" LIMIT 1`,
+      [seed.id],
+    )) as ReadonlyArray<{ tenant_id: string }>;
+    expect(streamRows[0]?.tenant_id).toBe(systemAdmin.tenantId);
+
+    const { token } = signResetToken(seed.id, 15, resetSecret);
+    const res = await post("/api/auth/reset-password", {
+      token,
+      newPassword: "pw-new-lonely-1234",
+    });
+    expect(res.status).toBe(200);
+
+    const row = (await selectMany(stack.db, userTable)).find((r) => r["id"] === seed.id);
+    expect(await verifyPassword(row?.["passwordHash"] as string, "pw-new-lonely-1234")).toBe(true);
+  });
+
+  test("direct-inserted user with no stream + no membership → 422 (recovery stays bounded)", async () => {
+    // 205#1 "strikt sicher" boundary: a user inserted straight into the read
+    // model (no create-event → no event stream) with no membership has
+    // nothing to recover. resolveStreamTenants returns [] → invalidToken.
+    // Proves the fix only gains "empty memberships + recoverable stream",
+    // never blanket-opens zero-membership.
+    // Build a fully-populated user row with NO event stream: seed a normal
+    // user (gets all NOT-NULL columns), capture its row, then re-key it to a
+    // fresh id + email. getAggregateStreamTenant(orphanId) finds no events
+    // (the stream lives under the original id), and no membership is seeded
+    // → tenantOrder is empty.
+    const donor = await seedUser({ email: "donor@example.com", password: "donor-pw-1234" });
+    const donorRow = (await selectMany(stack.db, userTable)).find((r) => r["id"] === donor.id);
+    if (!donorRow) throw new Error("donor row missing");
+    await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
+
+    const orphanId = "00000000-0000-4000-8000-0000000000ff";
+    await insertOne(stack.db, userTable, {
+      ...donorRow,
+      id: orphanId,
+      email: "orphan@example.com",
+    });
+
+    const { token } = signResetToken(orphanId, 15, resetSecret);
+    const res = await post("/api/auth/reset-password", {
+      token,
+      newPassword: "should-not-land-1234",
+    });
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.error?.details?.reason).toBe(AuthErrors.invalidResetToken);
   });
 
   test("replayed reset-token → 422 invalid_reset_token (single-use burn)", async () => {

@@ -14,6 +14,12 @@ services:
     volumes:
       # PG18+ image: mount parent dir, not .../data (enables pg_upgrade on same volume).
       - postgres_data:/var/lib/postgresql
+      # docker-entrypoint-initdb.d runs ONLY on a fresh (empty) volume. On an
+      # already-populated postgres_data the kumiko_test database is NOT created,
+      # so integration tests fail with "database \"kumiko_test\" does not exist".
+      # Recover with one of:
+      #   docker compose exec postgres createdb -U kumiko kumiko_test
+      #   docker compose down -v && docker compose up -d   # recreates the volume
       - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U kumiko -d kumiko_dev"]

@@ -2,9 +2,8 @@
 // Run via: bun integration.guard.js
 
 const { readdirSync, readFileSync } = require("node:fs");
-const { join } = require("node:path");
-
-const MOCK_PATTERN = /\b(vi\.(mock|fn|spyOn)|mock\.module)\s*\(/;
+const { join, relative } = require("node:path");
+const { hasDisallowedMock, isMockGuardAllowlisted } = require("./bin/_lib/integration-mock-guard.ts");
 
 function scanForMocks(dir) {
   const violations = [];
@@ -17,9 +16,11 @@ function scanForMocks(dir) {
         entry.name.endsWith(".integration.test.ts") ||
         entry.name.endsWith(".integration.ts")
       ) {
+        const relPath = relative(process.cwd(), fullPath);
+        if (isMockGuardAllowlisted(relPath)) continue;
         const content = readFileSync(fullPath, "utf-8");
-        if (MOCK_PATTERN.test(content)) {
-          violations.push(fullPath);
+        if (hasDisallowedMock(content)) {
+          violations.push(relPath);
         }
       }
     }

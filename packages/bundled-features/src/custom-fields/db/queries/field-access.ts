@@ -11,6 +11,6 @@ export async function selectSerializedFieldDefinition(
     "SELECT serialized_field FROM read_custom_field_definitions WHERE entity_name = $1 AND field_key = $2 AND tenant_id = $3 LIMIT 1",
     [entityName, fieldKey, tenantId],
   );
-  const first = (rows as ReadonlyArray<Record<string, unknown>>)[0];
+  const first = (rows as ReadonlyArray<Record<string, unknown>>)[0]; // @cast-boundary db-row
   return first ? (first["serialized_field"] ?? null) : null;
 }

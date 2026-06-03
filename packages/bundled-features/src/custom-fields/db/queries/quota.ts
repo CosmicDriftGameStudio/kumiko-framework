@@ -6,7 +6,7 @@ export async function countTenantFieldDefinitions(db: TenantDb, tenantId: string
     "SELECT COUNT(*)::int AS n FROM read_custom_field_definitions WHERE tenant_id = $1",
     [tenantId],
   );
-  const rows = rowsResult as ReadonlyArray<Record<string, unknown>>;
+  const rows = rowsResult as ReadonlyArray<Record<string, unknown>>; // @cast-boundary db-row
   const first = rows[0];
   if (!first) return 0;
   const n = first["n"];

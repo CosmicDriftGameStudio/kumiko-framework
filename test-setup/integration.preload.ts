@@ -1,12 +1,12 @@
 // Integration-test preload — env defaults for docker-compose services started
 // via `kumiko dev`. Tests fail loudly when a service is unreachable.
+//
+// Service-URL defaults are deliberately scoped to THIS preload (referenced only
+// by bunfig.integration.toml). The default bunfig (unit tests) uses
+// base.preload.ts, which carries only polyfills — so a unit test never branches
+// on the presence of DATABASE_URL/REDIS_URL/etc. and never tries a real connect.
 
-import "./app-define-resolver";
-import { ensureTemporalPolyfill } from "../packages/framework/src/time/polyfill";
-await ensureTemporalPolyfill();
-
-process.env.KUMIKO_INSTANCE_ID ??= "test-instance";
-process.env.NODE_ENV ??= "test";
+import "./base.preload";
 
 process.env.DATABASE_URL ??= "postgresql://kumiko:kumiko@localhost:15432/kumiko_dev";
 process.env.TEST_DATABASE_URL ??= "postgresql://kumiko:kumiko@localhost:15432/kumiko_test";

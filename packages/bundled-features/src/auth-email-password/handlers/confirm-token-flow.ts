@@ -141,11 +141,14 @@ async function loadValidatedUser(
   return { ...me, version: me.version };
 }
 
-// Loads the user's memberships and returns a prioritised tenant list.
-// Empty when the user has no memberships at all — the caller treats that
-// as invalid_token (a user without memberships can't own a usable auth
-// flow anyway, and a deterministic early-return is cleaner than
-// discovering it at write time).
+// Loads the user's memberships and returns a prioritised tenant list, with the
+// aggregate's real stream tenant recovered from the event log prepended.
+//
+// Empty only when the user has NO memberships AND no recoverable stream tenant
+// — the caller treats that as invalid_token. A zero-membership systemScope user
+// whose stream lives outside any membership (a platform operator seeded under a
+// fixture/SYSTEM tenant) still resolves, because the stream-tenant lookup runs
+// before the empty check rather than being short-circuited by it.
 async function resolveStreamTenants(
   ctx: HandlerContext,
   systemUser: SessionUser,
@@ -155,15 +158,16 @@ async function resolveStreamTenants(
     userId: me.id,
   })) as Array<{ tenantId: TenantId }>; // @cast-boundary db-runner
   const ordered = orderTenantsByPreference(memberships, me.lastActiveTenantId);
-  if (ordered.length === 0) return [];
 
   // The user aggregate is r.systemScope(): its event stream lives in whichever
   // tenant the creating executor used, which need NOT be a membership tenant.
   // A platform operator seeded under a fixture/platform tenant is the live case
   // — its stream tenant is absent from `ordered`, so a membership-only search
   // rejects every write and collapses to invalid_token. Recover the real stream
-  // tenant from the event log and try it first; memberships stay as fallback,
-  // and an empty/unknown lookup degrades to the prior membership-only behaviour.
+  // tenant from the event log and try it first; memberships stay as fallback.
+  // Pulled BEFORE the empty-membership check so a zero-membership operator whose
+  // stream lives in SYSTEM_TENANT is recoverable instead of collapsing to
+  // invalid_token — mirrors change-password.write.ts's unconditional recovery.
   const streamTenant = await getAggregateStreamTenant(ctx.db.raw, me.id, USER_FEATURE);
   if (streamTenant && !ordered.includes(streamTenant)) {
     return [streamTenant, ...ordered];
