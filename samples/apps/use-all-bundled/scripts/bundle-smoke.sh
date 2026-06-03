@@ -16,10 +16,10 @@ set -eu
 
 APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
-echo "[bundle-smoke] building via kumiko-build…"
-(cd "$APP_DIR" && bun ../../../packages/dev-server/bin/kumiko-build.ts)
+echo "[bundle-smoke] building via package.json build-script…"
+(cd "$APP_DIR" && bun run build)
 
 echo "[bundle-smoke] booting dist-server/server.js…"
-KUMIKO_DRY_RUN_ENV=boot bun "$APP_DIR/dist-server/server.js"
+(cd "$APP_DIR" && bun run boot:bundled)
 
 echo "[bundle-smoke] OK"

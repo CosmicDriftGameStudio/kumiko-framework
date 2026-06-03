@@ -18,8 +18,8 @@ const envSchema = composeEnvSchema({
 await runProdApp({
   features: APP_FEATURES,
   envSchema,
-  // migrations default ("./drizzle/migrations") — Boot-mode springt davor
-  // raus, postgres-smoke (M3) braucht die echte Schema-Drift-Validation.
+  // migrations default ("./kumiko/migrations") — Boot-mode springt vor dem
+  // Schema-Drift-Gate raus, der Pfad ist hier nur der runProdApp-Default.
   // auth.admin triggert composeFeatures(includeBundled:true) — auto-mounts
   // config + user + tenant + auth-email-password. Boot-mode exitiert
   // bevor admin-Seeding läuft, der Wert ist nur ein Stub für die Typen.

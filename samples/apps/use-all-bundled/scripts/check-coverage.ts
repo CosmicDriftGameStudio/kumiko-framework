@@ -2,7 +2,7 @@
 // biome-ignore-all lint/suspicious/noConsole: CLI-Script, console ist Feature.
 //
 // C1 M5 coverage lint. Diffs bundled-features-Exports gegen den
-// FEATURE_IMPORT_REGISTRY in samples/apps/use-all-bundled/drizzle/
+// FEATURE_IMPORT_REGISTRY in samples/apps/use-all-bundled/schema/
 // generate.ts. Fängt zwei Drifts:
 //
 //   1. Ein neuer feature-export ohne Aufnahme in use-all-bundled
@@ -40,11 +40,20 @@ const EXPECTED_HELD_BACK = new Set([
 
 // Sub-paths in bundled-features's package.json exports (./tenant/seeding,
 // ./auth-email-password/web, …) sind keine Features, nur utilities.
-// Wir interessieren uns nur für top-level-paths.
+// Wir interessieren uns nur für top-level-paths. Nicht-Feature-Exports
+// (Root ".", package.json, Asset-Endungen) sind ausgeschlossen, damit ein
+// künftiger ./styles.css o.ä. nicht fälschlich als unreferenced Feature
+// einen CI-Fail auslöst.
 function isFeatureExportPath(path: string): boolean {
   if (!path.startsWith("./")) return false;
-  // Top-level only: kein weiterer "/" nach der ersten Segment.
-  return path.slice(2).includes("/") === false;
+  const segment = path.slice(2);
+  if (segment.length === 0) return false;
+  // Top-level only: kein weiterer "/" nach dem ersten Segment.
+  if (segment.includes("/")) return false;
+  // Feature-Export-Pfade sind extension-frei (./audit, ./feature-toggles).
+  // Asset-/Manifest-Exports (./package.json, ./styles.css) haben einen "."
+  // im Segment → keine Features.
+  return segment.includes(".") === false;
 }
 
 function readBundledExports(): Set<string> {
@@ -60,14 +69,32 @@ function readBundledExports(): Set<string> {
   return out;
 }
 
+function extractRegistryBlock(src: string): string {
+  // Anchor auf den FEATURE_IMPORT_REGISTRY-Object-Body. Ohne diesen Anchor
+  // würde die kind-Regex jedes `<ident>: { kind: "factory"|"named" }` im File
+  // matchen (z.B. eine künftige Hilfsvariable) → false positive/negative.
+  const startMatch = /FEATURE_IMPORT_REGISTRY[^=]*=\s*\{/.exec(src);
+  if (!startMatch) {
+    throw new Error("check-coverage: FEATURE_IMPORT_REGISTRY block not found in generate.ts");
+  }
+  const bodyStart = startMatch.index + startMatch[0].length;
+  // Top-level-Close ist das erste `};` am Zeilenanfang nach bodyStart.
+  const closeMatch = /\n};/.exec(src.slice(bodyStart));
+  if (!closeMatch) {
+    throw new Error("check-coverage: FEATURE_IMPORT_REGISTRY closing `};` not found");
+  }
+  return src.slice(bodyStart, bodyStart + closeMatch.index);
+}
+
 function readRegistryFeatures(): Set<string> {
   const generateSrc = readFileSync(resolve(ROOT, "schema", "generate.ts"), "utf-8");
+  const registryBlock = extractRegistryBlock(generateSrc);
   // Match object-keys mit Discriminator `kind: "factory" | "named"`.
   // Property-Keys können quoted ("billing-foundation") oder unquoted
   // (config, user) sein — beides ist gültig wenn kebab-segment-free.
   const re = /(?:"([a-z][a-z0-9-]*)"|([a-z][a-z0-9]*)):\s*\{\s*kind:\s*"(factory|named)"/g;
   const out = new Set<string>();
-  for (const m of generateSrc.matchAll(re)) {
+  for (const m of registryBlock.matchAll(re)) {
     const name = m[1] ?? m[2];
     if (name) out.add(name);
   }
@@ -79,6 +106,10 @@ const registry = readRegistryFeatures();
 
 const unreferenced: string[] = [];
 const stale: string[] = [];
+// Held-back-Einträge, die kein bundled-Export mehr sind → stale Konfig.
+// Ohne diese Prüfung hätte der Drift-Guard in seiner eigenen Konfig einen
+// Blind-Spot: ein umbenanntes/entferntes Feature bliebe still in der Liste.
+const staleHeldBack: string[] = [];
 
 for (const name of exports) {
   if (registry.has(name)) continue;
@@ -90,17 +121,21 @@ for (const name of registry) {
   if (!exports.has(name)) stale.push(name);
 }
 
+for (const name of EXPECTED_HELD_BACK) {
+  if (!exports.has(name)) staleHeldBack.push(name);
+}
+
 let ok = true;
 
 if (unreferenced.length > 0) {
   console.error(
-    `\n❌ ${unreferenced.length} bundled-feature export(s) NICHT in use-all-bundled/drizzle/generate.ts:`,
+    `\n❌ ${unreferenced.length} bundled-feature export(s) NICHT in use-all-bundled/schema/generate.ts:`,
   );
   for (const name of unreferenced.sort()) {
     console.error(`   - ${name}`);
   }
   console.error(
-    "\n  Action: in src/run-config.ts + drizzle/generate.ts FEATURE_IMPORT_REGISTRY aufnehmen,",
+    "\n  Action: in src/run-config.ts + schema/generate.ts FEATURE_IMPORT_REGISTRY aufnehmen,",
   );
   console.error(
     "  oder (wenn mount-options noch fehlen) zu EXPECTED_HELD_BACK in dieser Datei hinzufügen.",
@@ -116,14 +151,36 @@ if (stale.length > 0) {
     console.error(`   - ${name}`);
   }
   console.error(
-    "\n  Action: aus drizzle/generate.ts FEATURE_IMPORT_REGISTRY entfernen, ggf. App-eigenes Feature.",
+    "\n  Action: aus schema/generate.ts FEATURE_IMPORT_REGISTRY entfernen, ggf. App-eigenes Feature.",
+  );
+  ok = false;
+}
+
+if (staleHeldBack.length > 0) {
+  console.error(
+    `\n❌ ${staleHeldBack.length} EXPECTED_HELD_BACK entry/entries ohne Match in bundled-features exports:`,
+  );
+  for (const name of staleHeldBack.sort()) {
+    console.error(`   - ${name}`);
+  }
+  console.error(
+    "\n  Action: aus EXPECTED_HELD_BACK in dieser Datei entfernen (Feature wurde umbenannt/entfernt).",
   );
   ok = false;
 }
 
 if (ok) {
+  // Disjunkte Zahlen: `mountable` = exports ohne held-back; `coveredCount`
+  // zählt nur Registry-Einträge, die ein echter mountbarer Export sind
+  // (auth-email-password steht im Registry für schema-check-Konsistenz,
+  // ist aber held-back — würde sonst die Ratio >1 verfälschen).
+  const mountable = exports.size - EXPECTED_HELD_BACK.size;
+  let coveredCount = 0;
+  for (const name of registry) {
+    if (exports.has(name) && !EXPECTED_HELD_BACK.has(name)) coveredCount++;
+  }
   console.log(
-    `✓ Coverage: ${registry.size}/${exports.size} bundled-features mounted, ${EXPECTED_HELD_BACK.size} held-back (M0.1).`,
+    `✓ Coverage: ${coveredCount}/${mountable} mountable bundled-features im Registry, ${EXPECTED_HELD_BACK.size} held-back (M0.1).`,
   );
   process.exit(0);
 } else {
