@@ -9,12 +9,12 @@
 //   - Keine Personennamen (cultural appropriation, prominenten-collision)
 //   - Keine Themen-Cluster (kein Wetter-only, kein Geographie-only)
 //   - Lowercase, ASCII-only, keine Bindestriche im Wort selbst
-//   - 4-8 Buchstaben pro Wort (kompakter Slug)
+//   - 3-10 Buchstaben pro Wort (kompakter Slug)
 //   - Aussprechbar in Deutsch UND Englisch (User-Telefon-Support)
 //   - Keine Wörter mit ambiguer Bedeutung in Englisch+Deutsch
 //
-// 150 × 150 = 22.500 saubere Kombinationen — bei einer Standard-
-// Hashing-Kollision (Birthday-Bound) reicht das für ~150 Tenants ohne
+// 191 × 173 = 33.043 saubere Kombinationen — bei einer Standard-
+// Hashing-Kollision (Birthday-Bound) reicht das für ~180 Tenants ohne
 // Suffix. Drüber kommt der Suffix-Pfad in generateUniqueName.
 //
 // Erweiterung: weitere Wörter unten anhängen reicht (sortiert ist
