@@ -20,7 +20,9 @@ export {
   enforceCapAndMaybeNotify,
   enforceRollingCap,
   enforceRollingCapAndMaybeNotify,
+  enforceStockCap,
   type SoftHitNotifier,
+  type StockCapResult,
 } from "./enforce-cap";
 export { capCounterEntity } from "./entity";
 export { capCounterFeature } from "./feature";
