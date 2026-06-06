@@ -394,3 +394,36 @@ export async function enforceRollingCapAndMaybeNotify(
 
   return result;
 }
+
+// =============================================================================
+// Stock-Cap (Bestand) — live-gezählte Kardinalität gegen Tier-Limit
+// =============================================================================
+
+export type StockCapResult =
+  | { readonly state: "ok"; readonly current: number; readonly limit: number }
+  | { readonly state: "exceeded"; readonly current: number; readonly limit: number };
+
+/**
+ * Stock-Cap: prüft eine vom Caller LIVE gezählte Kardinalität (z.B. Anzahl
+ * existierender Components eines Tenants) gegen ein Tier-Limit.
+ *
+ * Anders als {@link enforceCap}/{@link enforceRollingCap} gibt es KEINEN
+ * gespeicherten Counter: der Caller zählt die Projektion selbst
+ * (`count(*) WHERE tenant_id = …`) und übergibt `current`. Das ist drift-frei
+ * (ein Delete gibt den Slot sofort frei), braucht keine Counter-Tabelle und
+ * kein Increment/Decrement-Bookkeeping. Misst einen Bestand, keinen Fluss.
+ *
+ * Reine Funktion — wirft NICHT und mappt KEINEN HTTP-Status. Ein erreichtes
+ * Stock-Limit heißt „Upgrade nötig", nicht „retry later" (429): der Caller
+ * entscheidet die Reaktion, typisch ein app-eigener 422/`upgrade_required`
+ * mit i18n. Mit `hardSlot` (soft=hard=1.0) ist die Grenze exakt `limit`.
+ */
+export function enforceStockCap(options: {
+  readonly current: number;
+  readonly limit: number;
+  readonly profile: CapToleranceProfileName;
+}): StockCapResult {
+  const hardThreshold = options.limit * CAP_TOLERANCES[options.profile].hard;
+  const state = options.current >= hardThreshold ? "exceeded" : "ok";
+  return { state, current: options.current, limit: options.limit };
+}
