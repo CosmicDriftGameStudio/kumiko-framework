@@ -1,5 +1,16 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.26.0
+
+### Patch Changes
+
+- de348c6: fix(pagination): `computeVisiblePages` keeps 5 page numbers visible at the list edges (sliding the window instead of clamping it) — e.g. `p=1/20` now shows `1 2 3 4 5 … 20` instead of `1 2 3 … 20`, matching the documented behaviour. Mid-list rendering is unchanged.
+- 4e68aff: test(primitives): export pure helpers for unit testing — `computeVisiblePages`, `defaultCellRender`, `isComponentRendererRef` (index.tsx) and `parseIso`/`toIso` (date-input). No behaviour change; mirrors money-input which already exports its pure logic.
+- Updated dependencies [4911a41]
+  - @cosmicdrift/kumiko-renderer@0.26.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.26.0
+  - @cosmicdrift/kumiko-headless@0.26.0
+
 ## 0.25.0
 
 ### Patch Changes

@@ -1,5 +1,13 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.26.0
+
+### Patch Changes
+
+- 4911a41: fix(render-field): forward the app i18n locale (`useLocale`) to money/date inputs. Previously they fell back to `navigator.language` (browser language) — `money` only honoured an explicit `field.locale`, `date`/`timestamp` passed no locale at all. When the app language differed from the browser language this caused a decimal-separator mismatch (comma vs. period). `field.locale` still overrides the app locale.
+  - @cosmicdrift/kumiko-framework@0.26.0
+  - @cosmicdrift/kumiko-headless@0.26.0
+
 ## 0.25.0
 
 ### Patch Changes
