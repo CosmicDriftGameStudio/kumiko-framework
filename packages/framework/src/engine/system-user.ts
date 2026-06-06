@@ -7,11 +7,19 @@ import type { TenantId } from "./types/identifiers";
 export const SYSTEM_USER_ID = "00000000-0000-0000-0000-000000000000";
 export const SYSTEM_ROLE = "system" as const;
 
-export function createSystemUser(tenantId: TenantId): SessionUser {
+// extraRoles: hasAccess kennt keinen System-Bypass — Handler gaten auf
+// explizite Rollen. Caller, die Handler mit z.B. SystemAdmin-Gate erreichen
+// müssen (extraRoutes.dispatchSystemWrite → billing-foundation
+// process-event), geben die Rolle hier zusätzlich mit; createdBy bleibt
+// SYSTEM_USER_ID, der Audit-Trail zeigt weiterhin System.
+export function createSystemUser(
+  tenantId: TenantId,
+  extraRoles: readonly string[] = [],
+): SessionUser {
   return {
     id: SYSTEM_USER_ID,
     tenantId,
-    roles: [SYSTEM_ROLE],
+    roles: [SYSTEM_ROLE, ...extraRoles],
   };
 }
 

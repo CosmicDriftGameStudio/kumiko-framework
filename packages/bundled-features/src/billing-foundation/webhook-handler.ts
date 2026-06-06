@@ -7,12 +7,20 @@
 // `/api/subscription/webhook/paypal`. Eine Hono-Route, alle Plugins
 // gleichzeitig aktiv.
 //
-// Beispiel-Verwendung in bin/server.ts:
+// Beispiel-Verwendung in bin/server.ts (runDevApp wie runProdApp liefern
+// `registry` + `dispatchSystemWrite` in den extraRoutes-deps):
 //
 //   await runDevApp({
 //     features: APP_FEATURES,
 //     extraRoutes: (app, deps) => {
-//       const handler = createSubscriptionWebhookHandler(deps);
+//       const handler = createSubscriptionWebhookHandler({
+//         dispatchWrite: ({ handlerQn, payload, tenantId }) =>
+//           deps.dispatchSystemWrite({ handlerQn, payload, tenantId: tenantId as TenantId }),
+//         resolveProvider: (name) =>
+//           deps.registry.getExtensionUsages("subscriptionProvider")
+//             .find((u) => u.entityName === name)?.options as
+//             SubscriptionProviderPlugin | undefined,
+//       });
 //       app.post("/api/subscription/webhook/:providerName", handler);
 //     },
 //   });
@@ -43,8 +51,9 @@ import {
 import type { SubscriptionProviderPlugin } from "./types";
 
 /**
- * Dependencies the App-Owner gibt dem webhook-handler. Identisch zum
- * `extraRoutes`-Callback-Argument-shape von runDevApp/runProdApp.
+ * Dependencies the App-Owner gibt dem webhook-handler — beide direkt aus
+ * den `extraRoutes`-deps ableitbar (`dispatchSystemWrite` + `registry`),
+ * siehe Beispiel im Header.
  */
 export type SubscriptionWebhookDeps = {
   /** Schreibt durch den Standard-Dispatcher mit einem auto-konstruierten
