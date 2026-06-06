@@ -138,6 +138,12 @@ export type ToggleablePattern = {
   readonly default: boolean;
 };
 
+export type DescribePattern = {
+  readonly kind: "describe";
+  readonly source: SourceLocation;
+  readonly text: string;
+};
+
 export type MetricPattern = {
   readonly kind: "metric";
   readonly source: SourceLocation;
@@ -419,6 +425,7 @@ export type FeaturePattern =
   | OptionalRequiresPattern
   | SystemScopePattern
   | ToggleablePattern
+  | DescribePattern
   | MetricPattern
   | SecretPattern
   | ClaimKeyPattern
@@ -476,6 +483,7 @@ export function getEditability(pattern: FeaturePattern): Editability {
     case "optionalRequires":
     case "systemScope":
     case "toggleable":
+    case "describe":
     case "metric":
     case "secret":
     case "claimKey":

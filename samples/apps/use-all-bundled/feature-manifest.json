@@ -4,6 +4,7 @@
   "features": [
     {
       "name": "audit",
+      "description": "Exposes the framework's event store as a paginated, filterable audit log via the `audit:query:list` handler (accessible to `Admin` and `SystemAdmin` roles). No separate table or projection — the event store is the audit trail by construction: every entity write already records who, when, what entity, and the event payload with PII stripped. Filter by `aggregateType`, `aggregateId`, `eventType`, `userId`, or time range.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -16,6 +17,7 @@
     },
     {
       "name": "auth-email-password",
+      "description": "Provides email+password authentication: the always-on handlers are `login`, `changePassword`, and `logout`; optional flows — password reset, email verification, magic-link self-signup, and tenant invite — are registered only when you pass their respective option objects (`passwordReset`, `emailVerification`, `signup`, `invite`) to `createAuthEmailPasswordFeature(opts)`. Each opt-in flow uses HMAC-signed or opaque-random tokens delivered via callback (e.g. `sendResetEmail`) so the feature stays transport-agnostic. Requires the `user` and `tenant` features, and declares `JWT_SECRET` (≥ 32 chars) in `authEmailPasswordEnvSchema` so a missing secret surfaces at boot validation rather than on the first login attempt.",
       "toggleableDefault": null,
       "requires": [
         "user",
@@ -31,6 +33,7 @@
     },
     {
       "name": "billing-foundation",
+      "description": "Plugin host for subscription billing — manages the `read_subscriptions` projection table and exposes 5 domain events (subscription created/updated/canceled, invoice paid/failed) appended by the foundation's own `billing-foundation:write:process-event` write-handler after provider plugins verify and normalize each webhook. Also ships `billing-foundation:write:create-checkout-session` and `billing-foundation:write:create-portal-session` write-handlers, a `billing-foundation:query:subscription:list` query handler, and a `createSubscriptionWebhookHandler` factory for the `/api/subscription/webhook/:providerName` route. Low-level building block — use `subscription-stripe` or `subscription-mollie` unless you are writing a new payment provider.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -43,6 +46,7 @@
     },
     {
       "name": "cap-counter",
+      "description": "Tracks per-tenant usage against configurable limits using two complementary storage models: calendar-period counters (one projection row per tenant/capName/period, reset implicitly by period rollover) and rolling-window counters (append-only event stream, no projection). Use `enforceCap` / `enforceRollingCap` (or the `withCapEnforcement` / `withRollingCapEnforcement` handler wrappers) in your write-handlers to check limits with soft-warn and hard-block tolerances; call `enforceCapAndMaybeNotify` when you also want to trigger a delivery notification on soft-threshold hits.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -55,6 +59,7 @@
     },
     {
       "name": "channel-email",
+      "description": "Wires an `EmailTransport` (typically `mail-transport-smtp` in production, `createInMemoryTransport()` in tests) into the delivery system as the `email` channel. Requires `delivery`; pass an `EmailChannelOptions` with a `transport`, a `renderer: NotificationRenderer` (e.g. backed by `renderer-simple`), and a `resolveEmail` function that maps a user ID to their email address.",
       "toggleableDefault": null,
       "requires": [
         "delivery"
@@ -74,6 +79,7 @@
     },
     {
       "name": "channel-in-app",
+      "description": "Persists notifications to an in-app inbox table so users can retrieve them via `handlers.inbox` and track unread state with `handlers.markRead` / `handlers.markAllRead` and `queries.unreadCount`. Requires `delivery`; no external service needed — messages are stored in the app's own database.",
       "toggleableDefault": null,
       "requires": [
         "delivery"
@@ -93,6 +99,7 @@
     },
     {
       "name": "channel-push",
+      "description": "Delivers push notifications through a `PushTransport` (bring your own FCM/APNs adapter or use `createInMemoryPushTransport()` for tests) registered as the `push` channel in the delivery system. Requires `delivery`; supply a `PushChannelOptions` with a transport and a resolver that maps a user ID to their device token.",
       "toggleableDefault": null,
       "requires": [
         "delivery"
@@ -112,6 +119,7 @@
     },
     {
       "name": "compliance-profiles",
+      "description": "Lets each tenant select a compliance regime (e.g. `eu-dsgvo`, `swiss-dsg`, `de-hr-dsgvo-hgb`) that bundles user-rights grace periods, breach-disclosure deadlines, sub-processor requirements, and audit-retention rules into a single named profile. Tenant admins call `compliance-profiles:write:set-profile` to choose a profile (with optional JSON override for edge cases); other features resolve the effective profile via the `compliance.forTenant` cross-feature API. Required by `user-data-rights` — mount this feature before it.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -126,6 +134,7 @@
     },
     {
       "name": "config",
+      "description": "Stores per-tenant (and optionally per-user) configuration values with a multi-layer cascade: user-row → tenant-row → system-row → app-override (deploy-time `AppConfigOverrides`) → computed → feature default. Access a value in handlers via `ctx.config(handle)`, declare keys with `r.config({ keys: { ... } })` inside a feature's registry callback, and optionally mark them `encrypted: true` to route storage through an `EncryptionProvider`. Use this feature whenever a tenant admin needs to customise behaviour at runtime without a code deploy.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -138,6 +147,7 @@
     },
     {
       "name": "custom-fields",
+      "description": "Tenant- and system-scoped custom field definitions with generic value storage on any host entity. Registers the `field-definition` entity (event-sourced CRUD via `define-tenant-field`, `define-system-field`, `delete-tenant-field`, `delete-system-field`) and two value write-handlers (`set-custom-field`, `clear-custom-field`) that emit `custom-fields:event:custom-field-set` / `custom-fields:event:custom-field-cleared` events on the host aggregate's stream. To attach custom fields to your own entity, call `wireCustomFieldsFor(r, entityName, entityTable)` in the host feature — this wires the JSONB projection, `postQuery` flattening hook, and search-payload extension. The host entity must declare a `customFieldsField()` JSONB column.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -150,6 +160,7 @@
     },
     {
       "name": "data-retention",
+      "description": "Resolves the effective retention policy for any entity using a 3-layer stack: entity-level default → tenant preset (`dsgvo-basic`, `dsgvo-hgb`, `swiss-dsg`) → per-tenant override stored in `tenantRetentionOverride`. Other features query the resolved policy via the `retention.policyFor` cross-feature API — most notably `user-data-rights`, which uses it to decide whether to anonymize instead of hard-delete a record that is still within a mandatory retention window.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -164,6 +175,7 @@
     },
     {
       "name": "delivery",
+      "description": "The notification dispatch core: call `ctx.notify(notificationType, { to, route, data, priority, idempotencyKey })` from any handler to fan out a notification across all registered channels (email, in-app, push). It stores per-user channel preferences in the `notification-preference` entity, logs every attempt to `read_delivery_attempts`, and enforces idempotency and rate-limiting — add `channel-email`, `channel-in-app`, or `channel-push` on top to actually send anything.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -176,6 +188,7 @@
     },
     {
       "name": "feature-toggles",
+      "description": "Persists per-feature enabled/disabled state in the `read_global_feature_state` table and exposes a `set` write-handler plus `list`/`registered` query-handlers so operators can flip features at runtime without redeploying. Each API instance keeps an in-memory `GlobalFeatureToggleRuntime` snapshot (initialize it via `createFeatureToggleRuntime`, pass a `() => runtime` accessor to `createFeatureTogglesFeature`) that the dispatcher gate reads on every request; a `toggle-cache-sync` multi-stream projection with `delivery: \"per-instance\"` syncs the snapshot across instances whenever a `toggle-set` event is appended.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -188,6 +201,7 @@
     },
     {
       "name": "file-foundation",
+      "description": "Defines the `fileProvider` extension point and a per-tenant `provider` config key that selects which registered storage plugin to use at runtime. Call `createFileProviderForTenant(ctx, tenantId)` to get a `FileStorageProvider` — use this feature together with at least one `file-provider-*` feature; the `files` feature builds on top of it for tracked `FileRef` entities with GDPR hooks.",
       "toggleableDefault": null,
       "requires": [
         "config"
@@ -223,6 +237,7 @@
     },
     {
       "name": "file-provider-inmemory",
+      "description": "Registers an in-process `\"inmemory\"` provider for `file-foundation` that stores file bytes per tenant in a module-level Map. Use `listKeys(tenantId)` and `clearStorage(tenantId)` in demo apps and tests; not for production (data is lost on restart and grows without bound).",
       "toggleableDefault": null,
       "requires": [
         "file-foundation"
@@ -242,6 +257,7 @@
     },
     {
       "name": "file-provider-s3",
+      "description": "Registers itself as the `\"s3\"` provider for `file-foundation` and owns the per-tenant config keys (`bucket`, `region`, `endpoint`, `forcePathStyle`, `accessKeyId`) and the encrypted `s3.secretAccessKey` secret. Compatible with any S3-compatible object store (AWS S3, Hetzner Object Storage); set credentials via the admin UI or a seed handler before the first file operation.",
       "toggleableDefault": null,
       "requires": [
         "config",
@@ -365,6 +381,7 @@
     },
     {
       "name": "files",
+      "description": "Exposes the `fileRef` entity and `createFilesFeature` from the framework core so that uploaded files — tracked in the `file_refs` table by `createFileRoutes` — participate in cross-feature hooks: `user-data-rights-defaults` automatically includes file blobs in GDPR exports and forget flows, and future tenant-lifecycle cleanup will delete all refs on tenant destroy. This feature does not add upload or download routes; those remain in the server bootstrap via the `options.files` parameter.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -377,6 +394,7 @@
     },
     {
       "name": "jobs",
+      "description": "Persistence and operator tooling for background jobs registered via `r.job(...)`. Every job execution appends `run-started`, `run-completed`, and `run-failed` events to the `jobRun` aggregate stream, which two inline projections materialize into `read_job_runs` (current status + duration) and `read_job_run_logs` (per-line log rows). Exposes `jobs:write:trigger` (manual run) and `jobs:write:retry` (operator retry of a failed run), plus `jobs:query:list` and `jobs:query:details` for the operator UI.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -389,6 +407,7 @@
     },
     {
       "name": "legal-pages",
+      "description": "Opt-in wrapper around `text-content` that registers four public HTML routes (`/legal/impressum`, `/legal/datenschutz`, `/legal/imprint`, `/legal/privacy`) with Markdown-to-HTML rendering and a boot-time job that hard-fails in production when the required DE blocks (`imprint/de`, `privacy/de`) are not seeded in `SYSTEM_TENANT`. Requires `anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID }` and `extraContext.textContent` to be wired at app bootstrap; for per-tenant imprints or a custom layout call `text-content:query:by-slug` directly.",
       "toggleableDefault": null,
       "requires": [
         "text-content"
@@ -403,6 +422,7 @@
     },
     {
       "name": "mail-foundation",
+      "description": "Defines the `mailTransport` extension point and a per-tenant `provider` config key that selects which registered transport plugin to use at runtime. Call `createTransportForTenant(ctx, tenantId)` to get an `EmailTransport` ready for sending — use this feature together with at least one `mail-transport-*` feature; use `delivery` + `channel-email` instead when you need the full notification pipeline with delivery attempts and user preferences.",
       "toggleableDefault": null,
       "requires": [
         "config"
@@ -438,6 +458,7 @@
     },
     {
       "name": "mail-transport-inmemory",
+      "description": "Registers an in-process `\"inmemory\"` provider for `mail-foundation` that buffers sent mails per tenant instead of contacting an SMTP server. Use `getInbox(tenantId)` and `clearInbox(tenantId)` in demo apps and tests; not for production (buffer is process-memory, lost on restart).",
       "toggleableDefault": null,
       "requires": [
         "mail-foundation"
@@ -457,6 +478,7 @@
     },
     {
       "name": "mail-transport-smtp",
+      "description": "Registers itself as the `\"smtp\"` provider for `mail-foundation` and owns the per-tenant config keys (`host`, `port`, `secure`, `from`, `authUser`) and the encrypted `smtp.password` secret. Tenants set `mail-foundation`'s `provider` config key to `\"smtp\"` to activate it; set the SMTP credentials via the admin UI or a seed handler before sending the first mail.",
       "toggleableDefault": null,
       "requires": [
         "config",
@@ -582,6 +604,7 @@
     },
     {
       "name": "rate-limiting",
+      "description": "Adds an ops-side `rate-limiting:query:status` query handler for inspecting current bucket state; the actual request throttling is wired automatically by the dispatcher when any handler declares a `rateLimit` option (e.g. `{ per: 'user', limit: 3, windowSeconds: 60 }`) or when you pass `context.rateLimit` to `buildServer`. Loading this feature is optional if you only need L3 per-handler rate limits and have no need for ops introspection.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -594,6 +617,7 @@
     },
     {
       "name": "renderer-foundation",
+      "description": "Plugin registry for content rendering (notification HTML, mail HTML, PDF, images): call `foundation.createRendererForTenant({ tenantId, kind })` at render time to get the right renderer plugin selected by kind, with tenant-level overrides via the `rendererPluginByKind` config key. Requires `template-resolver` (declared via `r.requires`). Low-level building block — add `renderer-simple` (or write a custom plugin via `r.useExtension(\"renderer\", name, { kinds, render })`) rather than using this feature alone.",
       "toggleableDefault": null,
       "requires": [
         "template-resolver"
@@ -608,6 +632,7 @@
     },
     {
       "name": "renderer-simple",
+      "description": "Default renderer plugin for `kind=\"notification\"`: takes a structured `EmailTemplateData` variable map (with `header`, `sections[]` of text/button objects, and optional `footer`; falls back to `title`/`body` if no structured fields are present) and returns rendered HTML with inline CSS. Requires `renderer-foundation`; sufficient for plain notification emails — swap it for `renderer-mail-html` if you need MJML/Markdown layouts.",
       "toggleableDefault": null,
       "requires": [
         "renderer-foundation"
@@ -627,6 +652,7 @@
     },
     {
       "name": "secrets",
+      "description": "Stores arbitrary per-tenant secrets (API keys, tokens, credentials) encrypted at rest using AES-256 with a KEK loaded from `KUMIKO_SECRETS_MASTER_KEY_V1` (and successive versions for rotation). Read a secret in handlers via `ctx.secrets.get(tenantId, handle)`, which automatically appends a `tenantSecretRead` audit event so every access is traceable. A `rotate` job re-encrypts all envelopes after a KEK version bump.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -639,6 +665,7 @@
     },
     {
       "name": "sessions",
+      "description": "Tracks signed-in clients in the `read_user_sessions` table (one row per JWT, keyed by the `sid`/`jti` claim) and exposes handlers for `mine` (list your sessions), `revoke`, and `revokeAllOthers`. Session creation and revocation on the hot auth path are handled by `createSessionCallbacks()`, wired into `buildServer({ auth: { ... } })` outside the dispatcher; the feature also ships a manual-trigger cleanup job for pruning expired rows and an optional `autoRevokeOnPasswordChange` hook that mass-revokes all sessions for a user whenever their `passwordHash` changes.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -653,6 +680,7 @@
     },
     {
       "name": "step-dispatcher",
+      "description": "Internal system feature that drains deferred Tier-2 side-effects (currently `webhook.send` and `mail.send`) after their originating transaction commits. Listens via `r.multiStreamProjection` on the `kumiko:system:step.dispatch-requested` system event, performs the actual HTTP or mail delivery, then appends `kumiko:system:step.dispatched` or `kumiko:system:step.dispatch-failed` back onto the same stream so the outcome is recorded in the event log without a separate status table. Mount this feature explicitly via `createStepDispatcherFeature()` in your app's feature list alongside any features that use `r.step.webhook.send` or `r.step.mail.send`.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -665,6 +693,7 @@
     },
     {
       "name": "subscription-mollie",
+      "description": "Mollie payment provider plugin for `billing-foundation`, covering the DACH/EU mid-market use case. Mount via `createSubscriptionMollieFeature({ apiKey, webhookUrl, priceToTier, priceToConfig })` — the factory validates that `priceToTier` and `priceToConfig` keys are identical at boot time. Implements `verifyAndParseWebhook` (lazy Mollie-API fetch + heuristic event-type mapping) and `createCheckoutSession` (customer + first-payment with `sequenceType=\"first\"`); `createPortalSession` and `cancelSubscription` are not available because Mollie has no customer portal and requires a `customerId` that the plugin contract does not carry.",
       "toggleableDefault": null,
       "requires": [
         "billing-foundation"
@@ -684,6 +713,7 @@
     },
     {
       "name": "subscription-stripe",
+      "description": "Stripe payment provider plugin for `billing-foundation`. Mount via `createSubscriptionStripeFeature({ webhookSecret, apiKey, priceToTier })` — a factory function that holds the app-wide credentials in a closure for use before tenant resolution. Implements all four provider methods: `verifyAndParseWebhook` (HMAC signature verification), `createCheckoutSession`, `createPortalSession`, and `cancelSubscription`. The `priceToTier` map connects Stripe price IDs to your tier names.",
       "toggleableDefault": null,
       "requires": [
         "billing-foundation"
@@ -703,6 +733,7 @@
     },
     {
       "name": "template-resolver",
+      "description": "Stores notification and mail templates in the database with a 4-level fallback: tenant+locale → system+locale → tenant+fallback-locale → system+fallback-locale. Call `ctx.templateResolver.resolveTemplate({ tenantId, slug, kind, locale })` at render time; manage templates via the `upsertSystem`, `upsertTenant`, `publish`, and `archive` write handlers. Tenants can override system-default templates without touching application code.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -715,6 +746,7 @@
     },
     {
       "name": "tenant",
+      "description": "Registers the three core multi-tenancy entities — `tenant`, `tenant-membership`, and `tenant-invitation` (DB tables `read_tenants`, `read_tenant_memberships`, and `read_tenant_invitations`) — along with write handlers for create/update/disable/addMember/removeMember/updateMemberRoles and the matching queries. It also declares a set of per-tenant config keys (companyName, timezone, locale, SMTP credentials) and system-only keys (priceModel, maxUsers) via `r.config({ keys: { ... } })`. Use this feature in every multi-tenant app; membership resolution and invitation flows depend on it, and `auth-email-password` requires it.",
       "toggleableDefault": null,
       "requires": [
         "config"
@@ -877,6 +909,7 @@
     },
     {
       "name": "text-content",
+      "description": "Generic Markdown text store keyed by `(tenantId, slug, lang)` — one row per combination in the `read_text_blocks` entity table. Provides `text-content:write:set` (TenantAdmin upsert) and `text-content:query:by-slug` (anonymous-capable read); use `SYSTEM_TENANT_ID` as the tenant for app-wide texts such as imprint, privacy policy, or FAQ. Other features (e.g. `legal-pages`) read blocks without a direct code import via the `createTextContentApi` / `requireTextContent` extraContext pattern.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -889,6 +922,7 @@
     },
     {
       "name": "tier-engine",
+      "description": "Stores a `tier-assignment` entity per tenant (which pricing tier is active) and, when configured with a `TierMap`, registers itself as the `tenantTierResolver` extension so the dispatcher automatically gates `r.toggleable()` features per tenant based on their assigned tier. Call `createTierEngineFeature({ defaultTier, tierMap })` to get full tier composition — including an `inTransaction` entity hook that atomically writes the default tier when a new tenant is created — or use `createTierEngineFeature()` without options for storage-only mode when you manage tier assignment yourself via `composeApp`.",
       "toggleableDefault": null,
       "requires": [
         "config",
@@ -904,6 +938,7 @@
     },
     {
       "name": "user",
+      "description": "Manages the cross-tenant user identity: the `read_users` table holds each user's email, `displayName`, global `roles`, `emailVerified` flag, and lifecycle `status` (active / restricted / deletionRequested / deleted). Because users exist above any individual tenant, the feature runs with `r.systemScope()` — membership and tenant-specific roles live in the `tenant` feature instead. Add this feature whenever your app needs a persistent, tenant-agnostic user record that auth and GDPR pipelines can reference.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -916,6 +951,7 @@
     },
     {
       "name": "user-data-rights",
+      "description": "Implements GDPR Art. 15 (access / `my-audit-log` query), Art. 17 (erasure / `request-deletion` + `cancel-deletion` + cron cleanup with grace period), Art. 18 (restriction / `restrict-account` + `lift-restriction`), and Art. 20 (portability / async `request-export` → ZIP via `file-foundation`, Magic-Link download) as first-class HTTP handlers and cron jobs. Each domain feature opts in by calling `r.useExtension(EXT_USER_DATA, \"<entity>\", { export, delete })` — the feature then orchestrates the export and forget pipelines across all registered hooks automatically. Requires `user`, `data-retention`, `compliance-profiles`, and `sessions`.",
       "toggleableDefault": null,
       "requires": [
         "user",
@@ -940,6 +976,7 @@
     },
     {
       "name": "user-data-rights-defaults",
+      "description": "Registers ready-made `EXT_USER_DATA` export and delete hooks for the two core entities: `user` (delete strategy sets email to `deleted-<id>@anonymized.invalid`, nulls `passwordHash`, sets status to `Deleted`; anonymize strategy sets email to `anonymized-<id>@anonymized.invalid` without touching `passwordHash`) and `fileRef` (delete removes both the DB row and the storage binary). Mount this alongside `user-data-rights` for standard GDPR compliance; omit it only if your app needs custom anonymization logic for these entities.",
       "toggleableDefault": null,
       "requires": [
         "user",

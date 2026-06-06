@@ -1,5 +1,6 @@
 import type { CallExpression, SourceFile } from "ts-morph";
 import type {
+  DescribePattern,
   OptionalRequiresPattern,
   ReadsConfigPattern,
   RequiresPattern,
@@ -12,6 +13,7 @@ import {
   fail,
   ok,
   readBooleanProperty,
+  readStringLiteralArgs,
   readVarargsOrArrayProp,
 } from "./shared";
 
@@ -79,6 +81,26 @@ export function extractSystemScope(
   return ok({
     kind: "systemScope",
     source: sourceLocationFromNode(call, sourceFile),
+  });
+}
+
+export function extractDescribe(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<DescribePattern> {
+  const args = readStringLiteralArgs(call);
+  const text = args?.[0];
+  if (text === undefined || args?.length !== 1) {
+    return fail(
+      "describe",
+      sourceLocationFromNode(call, sourceFile),
+      "expected a single string literal",
+    );
+  }
+  return ok({
+    kind: "describe",
+    source: sourceLocationFromNode(call, sourceFile),
+    text,
   });
 }
 

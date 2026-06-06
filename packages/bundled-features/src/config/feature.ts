@@ -24,6 +24,9 @@ export type ConfigContext = { readonly config: ConfigAccessor };
 
 export function createConfigFeature(): FeatureDefinition {
   return defineFeature("config", (r) => {
+    r.describe(
+      "Stores per-tenant (and optionally per-user) configuration values with a multi-layer cascade: user-row \u2192 tenant-row \u2192 system-row \u2192 app-override (deploy-time `AppConfigOverrides`) \u2192 computed \u2192 feature default. Access a value in handlers via `ctx.config(handle)`, declare keys with `r.config({ keys: { ... } })` inside a feature's registry callback, and optionally mark them `encrypted: true` to route storage through an `EncryptionProvider`. Use this feature whenever a tenant admin needs to customise behaviour at runtime without a code deploy.",
+    );
     r.systemScope();
 
     // One aggregate stream per (key, scope) pair — the executor handles the

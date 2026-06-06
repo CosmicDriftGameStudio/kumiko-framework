@@ -29,6 +29,9 @@ type DispatchRequestedPayload =
 
 export function createStepDispatcherFeature(): FeatureDefinition {
   return defineFeature("step-dispatcher", (r) => {
+    r.describe(
+      "Internal system feature that drains deferred Tier-2 side-effects (currently `webhook.send` and `mail.send`) after their originating transaction commits. Listens via `r.multiStreamProjection` on the `kumiko:system:step.dispatch-requested` system event, performs the actual HTTP or mail delivery, then appends `kumiko:system:step.dispatched` or `kumiko:system:step.dispatch-failed` back onto the same stream so the outcome is recorded in the event log without a separate status table. Mount this feature explicitly via `createStepDispatcherFeature()` in your app's feature list alongside any features that use `r.step.webhook.send` or `r.step.mail.send`.",
+    );
     r.systemScope();
 
     r.multiStreamProjection({

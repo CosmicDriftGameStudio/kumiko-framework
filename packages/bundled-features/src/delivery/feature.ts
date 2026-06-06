@@ -14,6 +14,9 @@ import {
 
 export function createDeliveryFeature(): FeatureDefinition {
   return defineFeature("delivery", (r) => {
+    r.describe(
+      "The notification dispatch core: call `ctx.notify(notificationType, { to, route, data, priority, idempotencyKey })` from any handler to fan out a notification across all registered channels (email, in-app, push). It stores per-user channel preferences in the `notification-preference` entity, logs every attempt to `read_delivery_attempts`, and enforces idempotency and rate-limiting \u2014 add `channel-email`, `channel-in-app`, or `channel-push` on top to actually send anything.",
+    );
     r.systemScope();
     r.entity("notification-preference", notificationPreferenceEntity);
     r.unmanagedTable(deliveryAttemptsTableMeta, {

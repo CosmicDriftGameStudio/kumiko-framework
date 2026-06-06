@@ -90,6 +90,9 @@ export type FileProviderPlugin = {
 // =============================================================================
 
 export const fileFoundationFeature = defineFeature(FEATURE_NAME, (r) => {
+  r.describe(
+    "Defines the `fileProvider` extension point and a per-tenant `provider` config key that selects which registered storage plugin to use at runtime. Call `createFileProviderForTenant(ctx, tenantId)` to get a `FileStorageProvider` \u2014 use this feature together with at least one `file-provider-*` feature; the `files` feature builds on top of it for tracked `FileRef` entities with GDPR hooks.",
+  );
   r.requires("config");
 
   r.extendsRegistrar("fileProvider", {

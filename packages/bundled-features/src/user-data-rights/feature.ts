@@ -84,6 +84,9 @@ export type UserDataRightsOptions = {
 
 export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): FeatureDefinition {
   return defineFeature("user-data-rights", (r) => {
+    r.describe(
+      'Implements GDPR Art. 15 (access / `my-audit-log` query), Art. 17 (erasure / `request-deletion` + `cancel-deletion` + cron cleanup with grace period), Art. 18 (restriction / `restrict-account` + `lift-restriction`), and Art. 20 (portability / async `request-export` \u2192 ZIP via `file-foundation`, Magic-Link download) as first-class HTTP handlers and cron jobs. Each domain feature opts in by calling `r.useExtension(EXT_USER_DATA, "<entity>", { export, delete })` \u2014 the feature then orchestrates the export and forget pipelines across all registered hooks automatically. Requires `user`, `data-retention`, `compliance-profiles`, and `sessions`.',
+    );
     r.requires("user", "data-retention", "compliance-profiles", "sessions");
     r.usesApi("compliance.forTenant");
     r.usesApi("retention.policyFor");

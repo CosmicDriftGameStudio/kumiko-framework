@@ -30,6 +30,7 @@ import {
   extractClaimKey,
   extractConfig,
   extractDefineEvent,
+  extractDescribe,
   extractEntity,
   extractEntityHook,
   extractEnvSchema,
@@ -297,6 +298,8 @@ function dispatchExtractor(
       return extractSystemScope(call, sourceFile);
     case "toggleable":
       return extractToggleable(call, sourceFile);
+    case "describe":
+      return extractDescribe(call, sourceFile);
     // Round 2 — object-literal-based static patterns
     case "entity":
       return extractEntity(call, sourceFile);

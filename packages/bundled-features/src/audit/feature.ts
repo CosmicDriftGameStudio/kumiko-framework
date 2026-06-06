@@ -15,6 +15,9 @@ import { listQuery } from "./handlers/list.query";
 // the framework).
 export function createAuditFeature(): FeatureDefinition {
   return defineFeature("audit", (r) => {
+    r.describe(
+      "Exposes the framework's event store as a paginated, filterable audit log via the `audit:query:list` handler (accessible to `Admin` and `SystemAdmin` roles). No separate table or projection \u2014 the event store is the audit trail by construction: every entity write already records who, when, what entity, and the event payload with PII stripped. Filter by `aggregateType`, `aggregateId`, `eventType`, `userId`, or time range.",
+    );
     const queries = {
       list: r.queryHandler(listQuery),
     };

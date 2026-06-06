@@ -39,6 +39,9 @@ export function createUserDataRightsDefaultsFeature(
 ): FeatureDefinition {
   const fileRefDeleteHook = createFileRefDeleteHook(options.storageProvider);
   return defineFeature("user-data-rights-defaults", (r) => {
+    r.describe(
+      "Registers ready-made `EXT_USER_DATA` export and delete hooks for the two core entities: `user` (delete strategy sets email to `deleted-<id>@anonymized.invalid`, nulls `passwordHash`, sets status to `Deleted`; anonymize strategy sets email to `anonymized-<id>@anonymized.invalid` without touching `passwordHash`) and `fileRef` (delete removes both the DB row and the storage binary). Mount this alongside `user-data-rights` for standard GDPR compliance; omit it only if your app needs custom anonymization logic for these entities.",
+    );
     r.requires("user", "files", "user-data-rights");
 
     r.useExtension(EXT_USER_DATA, "user", {

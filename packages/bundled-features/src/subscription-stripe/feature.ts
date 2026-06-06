@@ -124,6 +124,9 @@ export function createSubscriptionStripeFeature(
   const cancel = createStripeCancelSubscription(stripe);
 
   return defineFeature(SUBSCRIPTION_STRIPE_FEATURE, (r) => {
+    r.describe(
+      "Stripe payment provider plugin for `billing-foundation`. Mount via `createSubscriptionStripeFeature({ webhookSecret, apiKey, priceToTier })` \u2014 a factory function that holds the app-wide credentials in a closure for use before tenant resolution. Implements all four provider methods: `verifyAndParseWebhook` (HMAC signature verification), `createCheckoutSession`, `createPortalSession`, and `cancelSubscription`. The `priceToTier` map connects Stripe price IDs to your tier names.",
+    );
     // Hard-deps: subscription-foundation als plugin-host. KEIN
     // `r.requires("config", "secrets")` — der Plugin nutzt weder
     // tenant-config noch tenant-secrets (alles app-wide via factory-

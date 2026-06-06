@@ -51,6 +51,7 @@ export type ManifestExtension = {
 
 export type ManifestFeature = {
   readonly name: string;
+  readonly description: string | null;
   readonly toggleableDefault: boolean | null;
   readonly requires: readonly string[];
   readonly optionalRequires: readonly string[];
@@ -111,6 +112,7 @@ export function buildFeatureManifest(): FeatureManifest {
 
     manifestFeatures.push({
       name: feature.name,
+      description: feature.description ?? null,
       toggleableDefault: feature.toggleableDefault ?? null,
       requires: [...feature.requires],
       optionalRequires: [...feature.optionalRequires],
