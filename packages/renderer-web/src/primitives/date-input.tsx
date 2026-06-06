@@ -133,7 +133,7 @@ const dayPickerClasses = {
   disabled: "text-muted-foreground/30 pointer-events-none",
 };
 
-function parseIso(v: string): Date | undefined {
+export function parseIso(v: string): Date | undefined {
   if (v === "") return undefined;
   // Date(yyyy-mm-dd) parses as UTC — wir wollen local damit "2026-04-25"
   // im Calendar nicht je nach Timezone als 24. oder 25. erscheint.
@@ -152,7 +152,7 @@ function parseIso(v: string): Date | undefined {
   return new Date(y, m - 1, d);
 }
 
-function toIso(d: Date): string {
+export function toIso(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
