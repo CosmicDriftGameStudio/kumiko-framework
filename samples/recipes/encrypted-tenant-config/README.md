@@ -6,7 +6,7 @@ the platform operator being able to read the plaintext from the DB.
 
 ## Pattern
 
-```ts
+```ts illustration
 import { access, createTenantConfig } from "@cosmicdrift/kumiko-framework/engine";
 
 createTenantConfig("text", {
@@ -43,7 +43,7 @@ config keys.
 
 ## Boot wiring
 
-```ts
+```ts illustration
 import { createConfigResolver } from "@cosmicdrift/kumiko-bundled-features/config";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 

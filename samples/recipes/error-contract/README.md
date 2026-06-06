@@ -28,13 +28,13 @@ Every Kumiko error class in a real handler context. A single feature `orders-lit
 
 Instead of
 
-```ts
+```ts illustration
 return { isSuccess: false, error: toWriteErrorInfo(new NotFoundError("order", id)) };
 ```
 
 write
 
-```ts
+```ts illustration
 return failNotFound("order", id);
 ```
 
@@ -44,7 +44,7 @@ Likewise: `failUnprocessable("reason", details?)` and `writeFailure(new AnyKumik
 
 When your feature needs its own differentiation (e.g. `already_paid` vs. `already_cancelled`), use `UnprocessableError` or `ConflictError` and set `details.reason`:
 
-```ts
+```ts illustration
 export const OrdersLiteReasons = {
   alreadyPaid: "already_paid",
   alreadyCancelled: "already_cancelled",
@@ -69,7 +69,7 @@ Both end up in the same wire format. Rule of thumb:
 
 When you throw a KumikoError that has another error as its cause:
 
-```ts
+```ts illustration
 try {
   await externalApi.call();
 } catch (e) {

@@ -52,7 +52,7 @@ Step-by-step for an existing Kumiko app (e.g.
 
 ### 1. Activate features in `runProdApp`
 
-```typescript
+```typescript illustration
 // bin/main.ts
 import { runProdApp } from "@cosmicdrift/kumiko-dev-server";
 import {
@@ -95,7 +95,7 @@ bun kumiko migrate apply       # one-time (pre-deploy step in prod)
 
 A one-shot setup routine that runs on first boot or via the CLI:
 
-```typescript
+```typescript illustration
 // bin/seed-legal.ts
 import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/text-content/seeding";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
@@ -162,7 +162,7 @@ component — deliberately, every app has its own layout).
 
 Through the standard write API:
 
-```typescript
+```typescript illustration
 await fetch("/api/write", {
   method: "POST",
   headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },

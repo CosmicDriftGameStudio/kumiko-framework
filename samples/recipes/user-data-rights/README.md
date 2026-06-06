@@ -10,7 +10,7 @@ automatisch.
 Eine minimale Notes-Domain, die DSGVO Art. 15+17+20 vollständig integriert,
 ohne Forget-Logik selbst zu schreiben:
 
-```ts
+```ts illustration
 defineFeature("notes", (r) => {
   r.requires("user-data-rights");
   r.entity("note", noteEntity);
@@ -77,7 +77,7 @@ Recipe = 1 Hook-Pattern, fokussiert auf das Wesentliche.
 
 ## Dependencies
 
-```ts
+```ts illustration
 // In deiner App's run-config:
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";

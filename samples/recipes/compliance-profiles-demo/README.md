@@ -23,7 +23,7 @@ geerbt aus `swiss-dsg` (das selbst extends auf `eu-dsgvo`).
 
 Das Sample importiert nur ein Feature:
 
-```ts
+```ts illustration
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 
 export const features = [createComplianceProfilesFeature()];
