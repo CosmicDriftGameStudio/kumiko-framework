@@ -16,6 +16,10 @@ dist-server/
 .env
 .env.*
 !.env.example
+
+# Lokale Compose-Overrides (dev-spezifisch: offline-Modell-Bind-Mount, alt. Ports).
+docker-compose.override.yml
+docker-compose.override.yaml
 .DS_Store
 coverage/
 test-results/
