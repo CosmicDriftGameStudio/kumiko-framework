@@ -2,6 +2,7 @@ import type { EditFieldViewModel, FieldIssue } from "@cosmicdrift/kumiko-headles
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits";
 import { useQuery } from "../hooks/use-query";
+import { useLocale } from "../i18n";
 import { usePrimitives } from "../primitives";
 
 // RenderField übersetzt ein EditFieldViewModel → Primitives-Baum.
@@ -36,6 +37,11 @@ export function RenderField({
   fieldAppendix,
 }: RenderFieldProps): ReactNode {
   const { Field, Input } = usePrimitives();
+  // App-Locale (i18n) für money/date-Inputs — sonst fielen sie auf
+  // navigator.language (Browser-Sprache) zurück statt der gewählten
+  // App-Sprache. useLocale() wirft ohne LocaleProvider; ok, weil
+  // RenderField nur unter RenderEdit im Kumiko-App-Tree läuft.
+  const appLocale = useLocale().locale();
   if (!field.visible) return null;
 
   const id = inputId(field);
@@ -55,7 +61,7 @@ export function RenderField({
         featureName={featureName ?? ""}
       />
     ) : (
-      renderInput({ field, id, hasError, onChange, Input })
+      renderInput({ field, id, hasError, onChange, Input, appLocale })
     );
 
   return (
@@ -189,12 +195,14 @@ function renderInput({
   hasError,
   onChange,
   Input,
+  appLocale,
 }: {
   readonly field: EditFieldViewModel;
   readonly id: string;
   readonly hasError: boolean;
   readonly onChange: (value: unknown) => void;
   readonly Input: ReturnType<typeof usePrimitives>["Input"];
+  readonly appLocale: string;
 }): ReactNode {
   const common = {
     id,
@@ -223,7 +231,7 @@ function renderInput({
           value={numberValue(field.value)}
           onChange={(v) => onChange(v)}
           {...(moneyDef.currency !== undefined && { currency: moneyDef.currency })}
-          {...(moneyDef.locale !== undefined && { locale: moneyDef.locale })}
+          locale={moneyDef.locale ?? appLocale}
         />
       );
     }
@@ -243,6 +251,7 @@ function renderInput({
           {...common}
           value={stringValue(field.value)}
           onChange={(v) => onChange(v)}
+          locale={appLocale}
         />
       );
     case "timestamp":
