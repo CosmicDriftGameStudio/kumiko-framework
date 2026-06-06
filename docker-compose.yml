@@ -85,8 +85,77 @@ services:
       "
     restart: "no"
 
+  # ── Local AI stack (opt-in `ai` profile; heavy — NOT started by a plain
+  #    `docker compose up`). Bring up with:  docker compose --profile ai up -d
+  #    Replaces standalone Ollama / Whisper installs so every dev gets the
+  #    same local AI backend. Consumed by ai-provider-openai-compat (LLM) +
+  #    transcribe-provider-openai-compat (STT) — point their `endpoint`
+  #    config at the host ports below. ────────────────────────────────────
+
+  # LLM — OpenAI-compatible at http://localhost:11434/v1.
+  # Pull a model once: `docker compose exec ollama ollama pull qwen2.5:7b`
+  # (good tool-use + German; needed by ai-triage / ai-draft).
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["ai"]
+    ports:
+      - "${KUMIKO_OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  # One-shot: pull a default model so the LLM works out of the box (no manual
+  # `ollama pull`). The pull is server-side (into ollama_data). Override with
+  # KUMIKO_OLLAMA_MODEL=llama3.1:8b etc.
+  ollama-init:
+    image: ollama/ollama:latest
+    profiles: ["ai"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: "http://ollama:11434"
+    entrypoint: /bin/sh
+    command: >
+      -c "ollama pull ${KUMIKO_OLLAMA_MODEL:-qwen2.5:7b}"
+    restart: "no"
+
+  # STT — OpenAI-compatible /v1/audio/transcriptions at http://localhost:9000/v1.
+  # Default model is UNGATED → downloads on first request (no HF token needed),
+  # cached in the named volume. For HF-blocked networks, pre-download once:
+  #   hf download deepdml/faster-whisper-large-v3-turbo-ct2 --local-dir ~/kumiko-whisper-de
+  # then set KUMIKO_WHISPER_MODEL=/models/de and bind-mount ~/kumiko-whisper-de
+  # to /models/de via a docker-compose.override.yml.
+  whisper:
+    image: fedirz/faster-whisper-server:latest-cpu
+    profiles: ["ai"]
+    ports:
+      - "${KUMIKO_WHISPER_PORT:-9000}:8000"
+    environment:
+      WHISPER__MODEL: "${KUMIKO_WHISPER_MODEL:-deepdml/faster-whisper-large-v3-turbo-ct2}"
+      WHISPER__INFERENCE_DEVICE: cpu
+    volumes:
+      - whisper_cache:/root/.cache/huggingface
+    healthcheck:
+      test:
+        - CMD
+        - python3
+        - -c
+        - import urllib.request; urllib.request.urlopen("http://localhost:8000/health")
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 90s
+
 volumes:
   postgres_data:
   redis_data:
   meili_data:
   minio_data:
+  ollama_data:
+  whisper_cache:
