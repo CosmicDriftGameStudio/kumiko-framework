@@ -924,7 +924,10 @@ function PagerButton({
 //   p=10, total=20: 1 … 8 9 [10] 11 12 … 20
 //   p=20, total=20: 1 … 16 17 18 19 [20]
 //   total=5: 1 2 3 4 5 (kein Window nötig)
-function computeVisiblePages(page: number, totalPages: number): readonly (number | "ellipsis")[] {
+export function computeVisiblePages(
+  page: number,
+  totalPages: number,
+): readonly (number | "ellipsis")[] {
   if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
   const out: (number | "ellipsis")[] = [];
   // Always show 1
@@ -1017,7 +1020,7 @@ function nextSortState(current: DataTableSortDir | undefined, field: string): Da
 // PlatformComponent-Renderer im Schema serialisiert ankommen. Schemas
 // reisen über die Wire (Server → Client), echte Component-Refs würden
 // das brechen — der String-Key ist die SSoT.
-function isComponentRendererRef(renderer: unknown): { readonly name: string } | undefined {
+export function isComponentRendererRef(renderer: unknown): { readonly name: string } | undefined {
   if (renderer === null || typeof renderer !== "object") return undefined;
   const reactBranch = (renderer as { react?: unknown }).react;
   if (reactBranch === null || typeof reactBranch !== "object") return undefined;
@@ -1034,7 +1037,7 @@ function isComponentRendererRef(renderer: unknown): { readonly name: string } | 
 //   - timestamp/date → locale-formatiert (kein roher ISO-String)
 //   - select → human-lesbar (kebab-case → Title Case)
 //   - text/number/sonst → toString
-function defaultCellRender(
+export function defaultCellRender(
   value: unknown,
   type: string,
   optionLabels?: Readonly<Record<string, string>>,
