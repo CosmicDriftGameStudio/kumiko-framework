@@ -105,7 +105,7 @@ the DB (or wait the configured grace period) and run the
 
 To add another DSGVO-compliant entity to the demo:
 
-```ts
+```ts illustration
 // In your feature:
 r.useExtension(EXT_USER_DATA, "your-entity", {
   export: async (ctx) => {
