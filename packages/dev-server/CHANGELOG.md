@@ -1,5 +1,18 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.28.0
+
+### Minor Changes
+
+- 743db9b: extraRoutes-deps liefern jetzt `registry` + `dispatchSystemWrite` (runProdApp + createKumikoServer/runDevApp) — das Wiring, das `createSubscriptionWebhookHandler` für Provider-Webhook-Routen braucht. Dazu: `KumikoServer`/`ApiEntrypoint`/`TestStack` exponieren den Command-Dispatcher, `createSystemUser` nimmt optionale `extraRoles` (kein Access-Bypass für die system-Rolle — Ziel-Handler gaten auf explizite Rollen wie SystemAdmin).
+
+### Patch Changes
+
+- Updated dependencies [743db9b]
+- Updated dependencies [e42fef9]
+  - @cosmicdrift/kumiko-framework@0.28.0
+  - @cosmicdrift/kumiko-bundled-features@0.28.0
+
 ## 0.27.0
 
 ### Patch Changes

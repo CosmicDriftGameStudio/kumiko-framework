@@ -1,5 +1,24 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.28.0
+
+### Minor Changes
+
+- e42fef9: `r.describe(text)` — features declare a one-to-three-sentence docs-lead that flows
+  into `FeatureDefinition.description` and the generated feature-manifest. All bundled
+  features ship descriptions; the docs feature-reference pages render them as lead
+  paragraphs.
+
+### Patch Changes
+
+- 743db9b: extraRoutes-deps liefern jetzt `registry` + `dispatchSystemWrite` (runProdApp + createKumikoServer/runDevApp) — das Wiring, das `createSubscriptionWebhookHandler` für Provider-Webhook-Routen braucht. Dazu: `KumikoServer`/`ApiEntrypoint`/`TestStack` exponieren den Command-Dispatcher, `createSystemUser` nimmt optionale `extraRoles` (kein Access-Bypass für die system-Rolle — Ziel-Handler gaten auf explizite Rollen wie SystemAdmin).
+- Updated dependencies [743db9b]
+- Updated dependencies [e42fef9]
+  - @cosmicdrift/kumiko-framework@0.28.0
+  - @cosmicdrift/kumiko-renderer@0.28.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.28.0
+  - @cosmicdrift/kumiko-renderer-web@0.28.0
+
 ## 0.27.0
 
 ### Minor Changes
