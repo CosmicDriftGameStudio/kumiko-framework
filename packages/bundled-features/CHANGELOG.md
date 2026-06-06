@@ -1,5 +1,22 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.26.0
+
+### Minor Changes
+
+- ed1ce4b: fix(tier-engine): tier-assignment create/update are now SystemAdmin-only (was `TenantAdmin | SystemAdmin`). A tenant admin could previously write their own tier-assignment — a free self-upgrade to a higher plan. Tier changes are a platform/billing concern; reads (list, get-active-tier) stay TenantAdmin-visible, and the auto-default-tier hook + billing both write as system, so neither is affected. **Breaking** only for callers that invoked tier-assignment writes as a plain TenantAdmin — switch them to SystemAdmin.
+
+### Patch Changes
+
+- b539942: fix(foundation-shared): trim whitespace in `requireNonEmpty` — whitespace-only config values are now rejected and surrounding whitespace is stripped, so a stray `" host "` no longer reaches the provider SDK as-is
+- Updated dependencies [de348c6]
+- Updated dependencies [4911a41]
+- Updated dependencies [4e68aff]
+  - @cosmicdrift/kumiko-renderer-web@0.26.0
+  - @cosmicdrift/kumiko-renderer@0.26.0
+  - @cosmicdrift/kumiko-framework@0.26.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.26.0
+
 ## 0.25.0
 
 ### Patch Changes
