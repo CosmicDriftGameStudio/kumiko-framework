@@ -24,7 +24,7 @@ stale_state:
     und Entity neu fetchen.
 
     Wenn du Conflict-Handling pro Entity anpassen willst, siehe
-    [Optimistic-Locking-Konfiguration](/de/architecture/optimistic-locking/).
+    [Optimistic-Locking-Konfiguration](/en/concepts/commands/).
 
 invalid_transition:
   endUser: |
@@ -38,7 +38,7 @@ invalid_transition:
 
     `details.from`, `details.to` und `details.validTargets` enthalten die
     Diagnose. Definiere erlaubte Übergänge in
-    [`r.entity({ stateMachine: ... })`](/de/architecture/state-machine/),
+    `r.entity({ stateMachine: ... })`,
     oder prüfe vor dem Aufruf den aktuellen Zustand.
 
 field_access_denied:
@@ -52,7 +52,7 @@ field_access_denied:
 
     `details.field` und `details.handler` enthalten die Diagnose.
     Konfiguriere Field-Access in der Entity-Definition
-    (siehe [Permissions](/de/architecture/permissions/)) oder fordere die
+    (siehe [Permissions](/en/guides/field-level-permissions/)) oder fordere die
     nötige Rolle an.
 
 delete_restricted:
@@ -80,4 +80,4 @@ feature_disabled:
 
     `details.feature` und `details.handler` zeigen welches Feature/Handler.
     Aktiviere das Feature via Feature-Toggle oder Routing-Config (siehe
-    [Feature-Toggles](/de/features/feature-toggles/)).
+    [Feature-Toggles](/en/feature-reference/feature-toggles/)).

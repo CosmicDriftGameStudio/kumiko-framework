@@ -24,7 +24,7 @@ stale_state:
     re-fetch the entity.
 
     To customize conflict handling per entity, see
-    [optimistic locking configuration](/en/architecture/optimistic-locking/).
+    [optimistic locking configuration](/en/concepts/commands/).
 
 invalid_transition:
   endUser: |
@@ -37,7 +37,7 @@ invalid_transition:
 
     `details.from`, `details.to` and `details.validTargets` carry the
     diagnostics. Define allowed transitions in
-    [`r.entity({ stateMachine: ... })`](/en/architecture/state-machine/),
+    `r.entity({ stateMachine: ... })`,
     or check the current state before calling.
 
 field_access_denied:
@@ -50,7 +50,7 @@ field_access_denied:
 
     `details.field` and `details.handler` contain the diagnostics.
     Configure field-level access in the entity definition (see
-    [Permissions](/en/architecture/permissions/)) or request the required
+    [Permissions](/en/guides/field-level-permissions/)) or request the required
     role.
 
 delete_restricted:
@@ -77,4 +77,4 @@ feature_disabled:
 
     `details.feature` and `details.handler` indicate which feature and
     handler. Enable the feature via feature toggle or routing config (see
-    [Feature Toggles](/en/features/feature-toggles/)).
+    [Feature Toggles](/en/feature-reference/feature-toggles/)).
