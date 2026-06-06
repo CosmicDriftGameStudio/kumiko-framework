@@ -14,7 +14,8 @@
       "!**/drizzle/migrations",
       "!**/dist",
       "!**/dist-server",
-      "!**/.kumiko"
+      "!**/.kumiko",
+      "!**/feature-manifest.json"
     ]
   },
   "assist": {

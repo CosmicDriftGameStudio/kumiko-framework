@@ -1,0 +1,967 @@
+{
+  "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled)",
+  "featureCount": 37,
+  "features": [
+    {
+      "name": "audit",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "auth-email-password",
+      "toggleableDefault": null,
+      "requires": [
+        "user",
+        "tenant"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "billing-foundation",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "cap-counter",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "channel-email",
+      "toggleableDefault": null,
+      "requires": [
+        "delivery"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "deliveryChannel",
+          "entityName": "email"
+        }
+      ],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "channel-in-app",
+      "toggleableDefault": null,
+      "requires": [
+        "delivery"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "deliveryChannel",
+          "entityName": "inApp"
+        }
+      ],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "channel-push",
+      "toggleableDefault": null,
+      "requires": [
+        "delivery"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "deliveryChannel",
+          "entityName": "push"
+        }
+      ],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "compliance-profiles",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [
+        "compliance.forTenant"
+      ],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "config",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "custom-fields",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "data-retention",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [
+        "retention.policyFor"
+      ],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "delivery",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "feature-toggles",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "file-foundation",
+      "toggleableDefault": null,
+      "requires": [
+        "config"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [
+        {
+          "key": "provider",
+          "qualifiedName": "file-foundation:config:provider",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "SystemAdmin",
+            "User"
+          ]
+        }
+      ],
+      "secrets": []
+    },
+    {
+      "name": "file-provider-inmemory",
+      "toggleableDefault": null,
+      "requires": [
+        "file-foundation"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "fileProvider",
+          "entityName": "inmemory"
+        }
+      ],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "file-provider-s3",
+      "toggleableDefault": null,
+      "requires": [
+        "config",
+        "secrets",
+        "file-foundation"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "fileProvider",
+          "entityName": "s3"
+        }
+      ],
+      "configKeys": [
+        {
+          "key": "bucket",
+          "qualifiedName": "file-provider-s3:config:bucket",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "region",
+          "qualifiedName": "file-provider-s3:config:region",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "endpoint",
+          "qualifiedName": "file-provider-s3:config:endpoint",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "force-path-style",
+          "qualifiedName": "file-provider-s3:config:force-path-style",
+          "type": "boolean",
+          "scope": "tenant",
+          "default": false,
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "access-key-id",
+          "qualifiedName": "file-provider-s3:config:access-key-id",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ]
+        }
+      ],
+      "secrets": [
+        {
+          "qualifiedName": "file-provider-s3:secret:s3-secret-access-key",
+          "scope": "tenant",
+          "label": "S3 Secret Access Key",
+          "hint": "Private half of the S3 key pair. Hetzner calls it 'Secret Key', AWS calls it 'Secret Access Key'."
+        }
+      ]
+    },
+    {
+      "name": "files",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "jobs",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "legal-pages",
+      "toggleableDefault": null,
+      "requires": [
+        "text-content"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "mail-foundation",
+      "toggleableDefault": null,
+      "requires": [
+        "config"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [
+        {
+          "key": "provider",
+          "qualifiedName": "mail-foundation:config:provider",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "SystemAdmin",
+            "User"
+          ]
+        }
+      ],
+      "secrets": []
+    },
+    {
+      "name": "mail-transport-inmemory",
+      "toggleableDefault": null,
+      "requires": [
+        "mail-foundation"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "mailTransport",
+          "entityName": "inmemory"
+        }
+      ],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "mail-transport-smtp",
+      "toggleableDefault": null,
+      "requires": [
+        "config",
+        "secrets",
+        "mail-foundation"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "mailTransport",
+          "entityName": "smtp"
+        }
+      ],
+      "configKeys": [
+        {
+          "key": "host",
+          "qualifiedName": "mail-transport-smtp:config:host",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "port",
+          "qualifiedName": "mail-transport-smtp:config:port",
+          "type": "number",
+          "scope": "tenant",
+          "default": 587,
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": {
+            "min": 1,
+            "max": 65535
+          },
+          "writeRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "secure",
+          "qualifiedName": "mail-transport-smtp:config:secure",
+          "type": "boolean",
+          "scope": "tenant",
+          "default": false,
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "from",
+          "qualifiedName": "mail-transport-smtp:config:from",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "auth-user",
+          "qualifiedName": "mail-transport-smtp:config:auth-user",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ]
+        }
+      ],
+      "secrets": [
+        {
+          "qualifiedName": "mail-transport-smtp:secret:smtp-password",
+          "scope": "tenant",
+          "label": "SMTP password",
+          "hint": "Login password at the SMTP server. Brevo/Postmark/SES call it 'API key' or 'SMTP credentials'."
+        }
+      ]
+    },
+    {
+      "name": "rate-limiting",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "renderer-foundation",
+      "toggleableDefault": null,
+      "requires": [
+        "template-resolver"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "renderer-simple",
+      "toggleableDefault": null,
+      "requires": [
+        "renderer-foundation"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "renderer",
+          "entityName": "simple"
+        }
+      ],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "secrets",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "sessions",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [
+        "sessions.revokeAllForUser"
+      ],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "step-dispatcher",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "subscription-mollie",
+      "toggleableDefault": null,
+      "requires": [
+        "billing-foundation"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "subscriptionProvider",
+          "entityName": "mollie"
+        }
+      ],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "subscription-stripe",
+      "toggleableDefault": null,
+      "requires": [
+        "billing-foundation"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "subscriptionProvider",
+          "entityName": "stripe"
+        }
+      ],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "template-resolver",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "tenant",
+      "toggleableDefault": null,
+      "requires": [
+        "config"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [
+        {
+          "key": "company-name",
+          "qualifiedName": "tenant:config:company-name",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "writeRoles": [
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "timezone",
+          "qualifiedName": "tenant:config:timezone",
+          "type": "select",
+          "scope": "tenant",
+          "default": "Europe/Berlin",
+          "encrypted": false,
+          "computed": false,
+          "options": [
+            "UTC",
+            "Europe/Berlin",
+            "Europe/London",
+            "Europe/Paris",
+            "Europe/Madrid",
+            "Europe/Rome",
+            "America/New_York",
+            "America/Los_Angeles",
+            "America/Sao_Paulo",
+            "Asia/Tokyo",
+            "Asia/Singapore",
+            "Australia/Sydney"
+          ],
+          "bounds": null,
+          "writeRoles": [
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "locale",
+          "qualifiedName": "tenant:config:locale",
+          "type": "select",
+          "scope": "tenant",
+          "default": "de",
+          "encrypted": false,
+          "computed": false,
+          "options": [
+            "de",
+            "en",
+            "fr",
+            "es"
+          ],
+          "bounds": null,
+          "writeRoles": [
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "smtp-host",
+          "qualifiedName": "tenant:config:smtp-host",
+          "type": "text",
+          "scope": "tenant",
+          "default": null,
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "writeRoles": [
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "Admin",
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "smtp-pass",
+          "qualifiedName": "tenant:config:smtp-pass",
+          "type": "text",
+          "scope": "tenant",
+          "default": null,
+          "encrypted": true,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "writeRoles": [
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "price-model",
+          "qualifiedName": "tenant:config:price-model",
+          "type": "select",
+          "scope": "system",
+          "default": "basic",
+          "encrypted": false,
+          "computed": false,
+          "options": [
+            "basic",
+            "pro",
+            "enterprise"
+          ],
+          "bounds": null,
+          "writeRoles": [
+            "system"
+          ],
+          "readRoles": [
+            "Admin",
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "max-users",
+          "qualifiedName": "tenant:config:max-users",
+          "type": "number",
+          "scope": "system",
+          "default": 50,
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "writeRoles": [
+            "system"
+          ],
+          "readRoles": [
+            "Admin",
+            "SystemAdmin"
+          ]
+        }
+      ],
+      "secrets": []
+    },
+    {
+      "name": "text-content",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "tier-engine",
+      "toggleableDefault": null,
+      "requires": [
+        "config",
+        "tenant"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "user",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "user-data-rights",
+      "toggleableDefault": null,
+      "requires": [
+        "user",
+        "data-retention",
+        "compliance-profiles",
+        "sessions"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [
+        "userDataRights.runForget",
+        "userDataRights.runExport"
+      ],
+      "usesApis": [
+        "compliance.forTenant",
+        "retention.policyFor",
+        "sessions.revokeAllForUser"
+      ],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "user-data-rights-defaults",
+      "toggleableDefault": null,
+      "requires": [
+        "user",
+        "files",
+        "user-data-rights"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "userData",
+          "entityName": "user"
+        },
+        {
+          "extensionName": "userData",
+          "entityName": "fileRef"
+        }
+      ],
+      "configKeys": [],
+      "secrets": []
+    }
+  ]
+}
