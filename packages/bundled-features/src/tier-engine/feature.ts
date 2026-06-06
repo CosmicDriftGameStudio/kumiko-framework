@@ -81,6 +81,12 @@ const tierAssignmentExecutor = createEventStoreExecutor(tierAssignmentTable, tie
 });
 
 const adminAccess = { access: { roles: ["TenantAdmin", "SystemAdmin"] } } as const;
+// Tier-Wechsel ist Plattform-/Billing-Hoheit — ein Tenant-Admin darf den
+// eigenen Tier NIE setzen (sonst Gratis-Self-Upgrade). Daher sind die
+// Writes SystemAdmin-only; Reads (list, get-active-tier) bleiben
+// TenantAdmin-sichtbar. Auto-default-Hook + Billing schreiben als System,
+// hängen also nicht an diesem Handler-Access.
+const writeAccess = { access: { roles: ["SystemAdmin"] } } as const;
 
 /**
  * Options for createTierEngineFeature. Both fields optional — wenn beide
@@ -167,8 +173,8 @@ export function createTierEngineFeature<
     r.entity("tier-assignment", tierAssignmentEntity);
 
     // Standard-CRUD via Helper.
-    r.writeHandler(defineEntityCreateHandler("tier-assignment", tierAssignmentEntity, adminAccess));
-    r.writeHandler(defineEntityUpdateHandler("tier-assignment", tierAssignmentEntity, adminAccess));
+    r.writeHandler(defineEntityCreateHandler("tier-assignment", tierAssignmentEntity, writeAccess));
+    r.writeHandler(defineEntityUpdateHandler("tier-assignment", tierAssignmentEntity, writeAccess));
 
     // Reads.
     r.queryHandler(defineEntityListHandler("tier-assignment", tierAssignmentEntity, adminAccess));

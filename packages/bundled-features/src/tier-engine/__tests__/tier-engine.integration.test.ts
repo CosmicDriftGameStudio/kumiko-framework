@@ -223,6 +223,61 @@ describe("scenario 6: access control", () => {
     expectErrorIncludes(error, "access_denied");
   });
 
+  test("TenantAdmin (ohne SystemAdmin) cannot create a tier-assignment — Self-Upgrade-Schutz", async () => {
+    // Tier-Wechsel ist Plattform-/Billing-Hoheit: ein Tenant-Admin darf
+    // seinen eigenen Tier NICHT setzen (sonst Gratis-Self-Upgrade).
+    const tenantAdmin = createTestUser({
+      id: 310,
+      tenantId: testTenantId(310),
+      roles: ["TenantAdmin"],
+    });
+
+    const error = await stack.http.writeErr(
+      TierEngineHandlers.create,
+      { tier: "pro" },
+      tenantAdmin,
+    );
+
+    expectErrorIncludes(error, "access_denied");
+  });
+
+  test("TenantAdmin cannot update a tier-assignment", async () => {
+    const sysadmin = createTestUser({
+      id: 311,
+      tenantId: testTenantId(311),
+      roles: ["SystemAdmin"],
+    });
+    const created = await stack.http.writeOk(TierEngineHandlers.create, { tier: "free" }, sysadmin);
+    const id = (created!["data"] as Record<string, unknown>)["id"] as string;
+
+    // Selber Tenant, aber reiner TenantAdmin → darf den Tier nicht ändern.
+    const tenantAdmin = createTestUser({
+      id: 312,
+      tenantId: testTenantId(311),
+      roles: ["TenantAdmin"],
+    });
+
+    const error = await stack.http.writeErr(
+      TierEngineHandlers.update,
+      { id, version: 1, changes: { tier: "agency" } },
+      tenantAdmin,
+    );
+
+    expectErrorIncludes(error, "access_denied");
+  });
+
+  test("SystemAdmin (ohne TenantAdmin) CAN create a tier-assignment", async () => {
+    const sysadmin = createTestUser({
+      id: 313,
+      tenantId: testTenantId(313),
+      roles: ["SystemAdmin"],
+    });
+
+    const result = await stack.http.writeOk(TierEngineHandlers.create, { tier: "team" }, sysadmin);
+
+    expect((result!["data"] as Record<string, unknown>)["tier"]).toBe("team");
+  });
+
   test("query handlers carry the admin-only access rule (config-level check)", () => {
     // Read-access is enforced by the same role-rule set on the query handler.
     // We assert the rule is registered correctly — covers regression when
