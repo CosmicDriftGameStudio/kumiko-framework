@@ -84,6 +84,9 @@ function registerCustomFields(
   r: FeatureRegistrar<typeof CUSTOM_FIELDS_FEATURE_NAME>,
   defineTenantHandler: WriteHandlerDef,
 ) {
+  r.describe(
+    "Tenant- and system-scoped custom field definitions with generic value storage on any host entity. Registers the `field-definition` entity (event-sourced CRUD via `define-tenant-field`, `define-system-field`, `delete-tenant-field`, `delete-system-field`) and two value write-handlers (`set-custom-field`, `clear-custom-field`) that emit `custom-fields:event:custom-field-set` / `custom-fields:event:custom-field-cleared` events on the host aggregate's stream. To attach custom fields to your own entity, call `wireCustomFieldsFor(r, entityName, entityTable)` in the host feature — this wires the JSONB projection, `postQuery` flattening hook, and search-payload extension. The host entity must declare a `customFieldsField()` JSONB column.",
+  );
   r.entity("field-definition", fieldDefinitionEntity);
 
   // Event-types — qualified als "custom-fields:event:<short-name>".

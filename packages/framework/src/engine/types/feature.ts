@@ -170,6 +170,9 @@ export type UnmanagedTableDef = UnmanagedTableEntry & {
 
 export type FeatureDefinition = {
   readonly name: string;
+  // Docs-lead paragraph declared via r.describe(). Flows through the
+  // manifest introspection into the generated feature-reference pages.
+  readonly description?: string;
   readonly systemScope: boolean;
   // Set from the setup-callback return — typed via `defineFeature<TExports>`.
   // `undefined` for setups that return nothing.
@@ -335,6 +338,9 @@ export type RequiresApi = ((...featureNames: string[]) => void) & {
 
 export type FeatureRegistrar<TFeature extends string = string> = {
   systemScope(): void;
+  // One-to-three-sentence docs-lead for the feature ("what it does + when
+  // you need it"). At most once per feature; must be non-empty.
+  describe(text: string): void;
   requires: RequiresApi;
   optionalRequires(...featureNames: string[]): void;
   // Declare the feature as operator-togglable. `default` is the effective

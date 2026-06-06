@@ -1,4 +1,5 @@
 export {
+  extractDescribe,
   extractOptionalRequires,
   extractReadsConfig,
   extractRequires,

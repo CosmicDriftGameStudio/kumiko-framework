@@ -16,6 +16,9 @@ export { fileRefEntity } from "./file-ref-entity";
 // file-routes + fileRefsTable; bundled-features/files re-exportiert nur.
 export function createFilesFeature(): FeatureDefinition {
   return defineFeature("files", (r) => {
+    r.describe(
+      "Exposes the `fileRef` entity and `createFilesFeature` from the framework core so that uploaded files \u2014 tracked in the `file_refs` table by `createFileRoutes` \u2014 participate in cross-feature hooks: `user-data-rights-defaults` automatically includes file blobs in GDPR exports and forget flows, and future tenant-lifecycle cleanup will delete all refs on tenant destroy. This feature does not add upload or download routes; those remain in the server bootstrap via the `options.files` parameter.",
+    );
     r.entity("fileRef", fileRefEntity);
   });
 }

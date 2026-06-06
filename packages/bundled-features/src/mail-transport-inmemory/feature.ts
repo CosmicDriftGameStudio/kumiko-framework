@@ -73,6 +73,9 @@ export function clearInbox(tenantId: string): void {
 // =============================================================================
 
 export const mailTransportInMemoryFeature = defineFeature(FEATURE_NAME, (r) => {
+  r.describe(
+    'Registers an in-process `"inmemory"` provider for `mail-foundation` that buffers sent mails per tenant instead of contacting an SMTP server. Use `getInbox(tenantId)` and `clearInbox(tenantId)` in demo apps and tests; not for production (buffer is process-memory, lost on restart).',
+  );
   // Kein r.requires("config") + kein r.requires("secrets") — der
   // In-Memory-Transport hat keine Config (nichts zu konfigurieren) und
   // kein Secret. Der einzige hard-require ist mail-foundation, das den

@@ -23,6 +23,35 @@ describe("defineFeature", () => {
     expect(feature.name).toBe("test");
   });
 
+  test("r.describe() flows into the definition, trimmed", () => {
+    const feature = defineFeature("test", (r) => {
+      r.describe("  Stores per-tenant widgets.  ");
+    });
+    expect(feature.description).toBe("Stores per-tenant widgets.");
+  });
+
+  test("description is absent when r.describe() is not called", () => {
+    const feature = defineFeature("test", () => {});
+    expect("description" in feature).toBe(false);
+  });
+
+  test("r.describe() throws when called twice", () => {
+    expect(() =>
+      defineFeature("test", (r) => {
+        r.describe("first");
+        r.describe("second");
+      }),
+    ).toThrow(/r\.describe\(\) called twice/);
+  });
+
+  test("r.describe() throws on empty or whitespace-only text", () => {
+    expect(() =>
+      defineFeature("test", (r) => {
+        r.describe("   ");
+      }),
+    ).toThrow(/non-empty string/);
+  });
+
   test("collects entities", () => {
     const feature = defineFeature("test", (r) => {
       r.entity(

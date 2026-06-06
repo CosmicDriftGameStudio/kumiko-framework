@@ -167,6 +167,9 @@ export function createTierEngineFeature<
   TCaps extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
 >(opts: CreateTierEngineOptions<TCaps> = {}): FeatureDefinition {
   return defineFeature(TIER_ENGINE_FEATURE, (r) => {
+    r.describe(
+      "Stores a `tier-assignment` entity per tenant (which pricing tier is active) and, when configured with a `TierMap`, registers itself as the `tenantTierResolver` extension so the dispatcher automatically gates `r.toggleable()` features per tenant based on their assigned tier. Call `createTierEngineFeature({ defaultTier, tierMap })` to get full tier composition \u2014 including an `inTransaction` entity hook that atomically writes the default tier when a new tenant is created \u2014 or use `createTierEngineFeature()` without options for storage-only mode when you manage tier assignment yourself via `composeApp`.",
+    );
     r.requires("config");
     r.requires("tenant");
 

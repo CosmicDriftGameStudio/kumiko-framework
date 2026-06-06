@@ -197,6 +197,7 @@ export type AddRequiresArgs = { readonly features: readonly string[] };
 export type AddOptionalRequiresArgs = { readonly features: readonly string[] };
 export type AddReadsConfigArgs = { readonly keys: readonly string[] };
 export type AddToggleableArgs = { readonly default: boolean };
+export type AddDescribeArgs = { readonly text: string };
 export type AddNavArgs = { readonly definition: NavDefinition };
 export type AddWorkspaceArgs = { readonly definition: WorkspaceDefinition };
 export type AddConfigArgs = {
@@ -223,6 +224,7 @@ export type FeaturePatcher = {
   readonly addReadsConfig: (args: AddReadsConfigArgs) => void;
   readonly addSystemScope: () => void;
   readonly addToggleable: (args: AddToggleableArgs) => void;
+  readonly addDescribe: (args: AddDescribeArgs) => void;
   readonly addEntity: (args: AddEntityArgs) => void;
   readonly addRelation: (args: AddRelationArgs) => void;
   readonly addNav: (args: AddNavArgs) => void;
@@ -299,6 +301,9 @@ export function createFeaturePatcher(sourceFile: SourceFile): FeaturePatcher {
     },
     addToggleable({ default: defaultOn }) {
       add({ kind: "toggleable", source: SYNTHETIC_LOC, default: defaultOn });
+    },
+    addDescribe({ text }) {
+      add({ kind: "describe", source: SYNTHETIC_LOC, text });
     },
     addEntity({ name, definition }) {
       add({

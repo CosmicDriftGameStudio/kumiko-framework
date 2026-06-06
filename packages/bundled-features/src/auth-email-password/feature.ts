@@ -125,6 +125,9 @@ export function createAuthEmailPasswordFeature(
     opts.emailVerification !== undefined && (opts.emailVerification.mode ?? "strict") === "strict";
 
   return defineFeature("auth-email-password", (r) => {
+    r.describe(
+      "Provides email+password authentication: the always-on handlers are `login`, `changePassword`, and `logout`; optional flows \u2014 password reset, email verification, magic-link self-signup, and tenant invite \u2014 are registered only when you pass their respective option objects (`passwordReset`, `emailVerification`, `signup`, `invite`) to `createAuthEmailPasswordFeature(opts)`. Each opt-in flow uses HMAC-signed or opaque-random tokens delivered via callback (e.g. `sendResetEmail`) so the feature stays transport-agnostic. Requires the `user` and `tenant` features, and declares `JWT_SECRET` (\u2265 32 chars) in `authEmailPasswordEnvSchema` so a missing secret surfaces at boot validation rather than on the first login attempt.",
+    );
     r.requires("user");
     r.requires("tenant");
     r.envSchema(authEmailPasswordEnvSchema);

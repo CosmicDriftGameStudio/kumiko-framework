@@ -176,6 +176,24 @@ const toggleableSchema: PatternFormSchema = {
   ],
 };
 
+const describeSchema: PatternFormSchema = {
+  kind: "describe",
+  label: { en: "Description", de: "Beschreibung" },
+  summary: { en: "One-to-three-sentence docs-lead: what the feature does + when you need it." },
+  category: "meta",
+  editability: "static",
+  singleton: true,
+  fields: [
+    {
+      path: "text",
+      label: { en: "Text", de: "Text" },
+      input: "textarea",
+      required: true,
+      placeholder: "Stores per-tenant widgets and exposes CRUD handlers for them.",
+    },
+  ],
+};
+
 const entitySchema: PatternFormSchema = {
   kind: "entity",
   label: { en: "Entity", de: "Entität" },
@@ -1142,6 +1160,7 @@ export const PATTERN_LIBRARY: Readonly<Record<FeaturePatternKind, PatternFormSch
   readsConfig: readsConfigSchema,
   systemScope: systemScopeSchema,
   toggleable: toggleableSchema,
+  describe: describeSchema,
   entity: entitySchema,
   relation: relationSchema,
   nav: navSchema,

@@ -146,6 +146,9 @@ export function createSubscriptionMollieFeature(
   );
 
   return defineFeature(SUBSCRIPTION_MOLLIE_FEATURE, (r) => {
+    r.describe(
+      'Mollie payment provider plugin for `billing-foundation`, covering the DACH/EU mid-market use case. Mount via `createSubscriptionMollieFeature({ apiKey, webhookUrl, priceToTier, priceToConfig })` \u2014 the factory validates that `priceToTier` and `priceToConfig` keys are identical at boot time. Implements `verifyAndParseWebhook` (lazy Mollie-API fetch + heuristic event-type mapping) and `createCheckoutSession` (customer + first-payment with `sequenceType="first"`); `createPortalSession` and `cancelSubscription` are not available because Mollie has no customer portal and requires a `customerId` that the plugin contract does not carry.',
+    );
     r.requires("billing-foundation");
     r.envSchema(subscriptionMollieEnvSchema);
 

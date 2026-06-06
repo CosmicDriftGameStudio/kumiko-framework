@@ -21,6 +21,7 @@ import type {
   ClaimKeyPattern,
   ConfigPattern,
   DefineEventPattern,
+  DescribePattern,
   EntityHookPattern,
   EntityPattern,
   EnvSchemaPattern,
@@ -77,6 +78,8 @@ export function renderPattern(pattern: FeaturePattern): string {
       return renderSystemScope(pattern);
     case "toggleable":
       return renderToggleable(pattern);
+    case "describe":
+      return renderDescribe(pattern);
     case "entity":
       return renderEntity(pattern);
     case "relation":
@@ -230,6 +233,10 @@ function renderSystemScope(_p: SystemScopePattern): string {
 
 function renderToggleable(p: ToggleablePattern): string {
   return `r.toggleable({ default: ${p.default} });`;
+}
+
+function renderDescribe(p: DescribePattern): string {
+  return `r.describe(${JSON.stringify(p.text)});`;
 }
 
 function renderEntity(p: EntityPattern): string {

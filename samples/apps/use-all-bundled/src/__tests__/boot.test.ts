@@ -31,4 +31,13 @@ describe("use-all-bundled boot", () => {
       expect(registry.getFeature(f.name)).toBeDefined();
     }
   });
+
+  // Descriptions feed the generated feature-reference docs — a bundled
+  // feature without r.describe() would render as a bare table page.
+  test("every bundled feature declares a description", () => {
+    const undescribed = composedFeatures
+      .filter((f) => f.description === undefined || f.description.length === 0)
+      .map((f) => f.name);
+    expect(undescribed).toEqual([]);
+  });
 });

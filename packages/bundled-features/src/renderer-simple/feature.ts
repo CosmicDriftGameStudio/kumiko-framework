@@ -27,6 +27,9 @@ export async function adaptToFoundation(req: RenderRequest): Promise<RenderRespo
 
 export function createRendererSimpleFeature(): FeatureDefinition {
   return defineFeature("renderer-simple", (r) => {
+    r.describe(
+      'Default renderer plugin for `kind="notification"`: takes a structured `EmailTemplateData` variable map (with `header`, `sections[]` of text/button objects, and optional `footer`; falls back to `title`/`body` if no structured fields are present) and returns rendered HTML with inline CSS. Requires `renderer-foundation`; sufficient for plain notification emails \u2014 swap it for `renderer-mail-html` if you need MJML/Markdown layouts.',
+    );
     r.requires("renderer-foundation");
 
     r.useExtension("renderer", "simple", {

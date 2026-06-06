@@ -5,6 +5,9 @@ export function createChannelEmailFeature(options: EmailChannelOptions): Feature
   const channel = createEmailChannel(options);
 
   return defineFeature("channel-email", (r) => {
+    r.describe(
+      "Wires an `EmailTransport` (typically `mail-transport-smtp` in production, `createInMemoryTransport()` in tests) into the delivery system as the `email` channel. Requires `delivery`; pass an `EmailChannelOptions` with a `transport`, a `renderer: NotificationRenderer` (e.g. backed by `renderer-simple`), and a `resolveEmail` function that maps a user ID to their email address.",
+    );
     r.requires("delivery");
 
     r.useExtension("deliveryChannel", "email", {

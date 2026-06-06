@@ -17,6 +17,9 @@ import { templateResourceEntity } from "./table";
 //   - Cross-Feature: requireTemplateResolver(ctx, callerName) — Pattern wie requireTextContent
 export function createTemplateResolverFeature() {
   return defineFeature("template-resolver", (r) => {
+    r.describe(
+      "Stores notification and mail templates in the database with a 4-level fallback: tenant+locale \u2192 system+locale \u2192 tenant+fallback-locale \u2192 system+fallback-locale. Call `ctx.templateResolver.resolveTemplate({ tenantId, slug, kind, locale })` at render time; manage templates via the `upsertSystem`, `upsertTenant`, `publish`, and `archive` write handlers. Tenants can override system-default templates without touching application code.",
+    );
     r.entity("template-resource", templateResourceEntity);
 
     const handlers = {

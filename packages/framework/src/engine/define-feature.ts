@@ -153,6 +153,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
 
   let isSystemScoped = false;
   let toggleableDefault: boolean | undefined;
+  let description: string | undefined;
   // Visual-Tree-Slots — at-most-one per feature, only-once-guard im
   // registrar (siehe r.treeActions / r.tree). Undefined wenn das Feature
   // keinen Visual-Tree-Beitrag liefert (Zero-Whitelist-Filter).
@@ -180,6 +181,18 @@ export function defineFeature<const TName extends string, TExports = undefined>(
   const registrar: FeatureRegistrar<TName> = {
     systemScope(): void {
       isSystemScoped = true;
+    },
+
+    describe(text: string): void {
+      if (description !== undefined) {
+        throw new Error(
+          `[Feature ${name}] r.describe() called twice — a feature's description is declared once`,
+        );
+      }
+      if (typeof text !== "string" || text.trim().length === 0) {
+        throw new Error(`[Feature ${name}] r.describe(): text must be a non-empty string`);
+      }
+      description = text.trim();
     },
 
     requires: (() => {
@@ -888,6 +901,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
 
   return {
     name,
+    ...(description !== undefined && { description }),
     systemScope: isSystemScoped,
     exports,
     requires,

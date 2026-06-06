@@ -65,6 +65,9 @@ export type MailTransportPlugin = {
 // =============================================================================
 
 export const mailFoundationFeature = defineFeature(FEATURE_NAME, (r) => {
+  r.describe(
+    "Defines the `mailTransport` extension point and a per-tenant `provider` config key that selects which registered transport plugin to use at runtime. Call `createTransportForTenant(ctx, tenantId)` to get an `EmailTransport` ready for sending \u2014 use this feature together with at least one `mail-transport-*` feature; use `delivery` + `channel-email` instead when you need the full notification pipeline with delivery attempts and user preferences.",
+  );
   r.requires("config");
 
   // Plugin extension-point. Provider-features register here. The

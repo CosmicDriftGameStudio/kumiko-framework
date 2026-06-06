@@ -71,6 +71,9 @@ import {
 } from "./projection";
 
 export const billingFoundationFeature = defineFeature(BILLING_FOUNDATION_FEATURE, (r) => {
+  r.describe(
+    "Plugin host for subscription billing \u2014 manages the `read_subscriptions` projection table and exposes 5 domain events (subscription created/updated/canceled, invoice paid/failed) appended by the foundation's own `billing-foundation:write:process-event` write-handler after provider plugins verify and normalize each webhook. Also ships `billing-foundation:write:create-checkout-session` and `billing-foundation:write:create-portal-session` write-handlers, a `billing-foundation:query:subscription:list` query handler, and a `createSubscriptionWebhookHandler` factory for the `/api/subscription/webhook/:providerName` route. Low-level building block \u2014 use `subscription-stripe` or `subscription-mollie` unless you are writing a new payment provider.",
+  );
   // 5 fine-grained domain-events. Alle 5 nutzen denselben payload-
   // shape (= subscription-state-snapshot); der event-type taggt was
   // passiert ist. Future-consumer (billing-history, accounting)

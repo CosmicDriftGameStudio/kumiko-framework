@@ -29,6 +29,9 @@ export { tenantEntity, tenantTable } from "./schema/tenant";
 
 export function createTenantFeature(): FeatureDefinition {
   return defineFeature("tenant", (r) => {
+    r.describe(
+      "Registers the three core multi-tenancy entities \u2014 `tenant`, `tenant-membership`, and `tenant-invitation` (DB tables `read_tenants`, `read_tenant_memberships`, and `read_tenant_invitations`) \u2014 along with write handlers for create/update/disable/addMember/removeMember/updateMemberRoles and the matching queries. It also declares a set of per-tenant config keys (companyName, timezone, locale, SMTP credentials) and system-only keys (priceModel, maxUsers) via `r.config({ keys: { ... } })`. Use this feature in every multi-tenant app; membership resolution and invitation flows depend on it, and `auth-email-password` requires it.",
+    );
     r.systemScope();
     r.requires("config");
     r.entity("tenant", tenantEntity);

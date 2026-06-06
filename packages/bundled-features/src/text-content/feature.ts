@@ -23,6 +23,9 @@ import { textBlockEntity } from "./table";
 // Target nutzt. Der Client-side TreeProvider lebt in `web/client-plugin.ts`.
 export function createTextContentFeature() {
   return defineFeature("text-content", (r) => {
+    r.describe(
+      "Generic Markdown text store keyed by `(tenantId, slug, lang)` \u2014 one row per combination in the `read_text_blocks` entity table. Provides `text-content:write:set` (TenantAdmin upsert) and `text-content:query:by-slug` (anonymous-capable read); use `SYSTEM_TENANT_ID` as the tenant for app-wide texts such as imprint, privacy policy, or FAQ. Other features (e.g. `legal-pages`) read blocks without a direct code import via the `createTextContentApi` / `requireTextContent` extraContext pattern.",
+    );
     r.entity("text-block", textBlockEntity);
 
     const handlers = {
