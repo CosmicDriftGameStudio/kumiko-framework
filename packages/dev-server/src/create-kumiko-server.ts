@@ -20,7 +20,11 @@ import { readFile, watch } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { type AuthRoutesConfig, generateToken } from "@cosmicdrift/kumiko-framework/api";
-import { buildAppSchema, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  buildAppSchema,
+  createSystemUser,
+  type FeatureDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   pushEntityProjectionTables,
@@ -190,7 +194,21 @@ export type CreateKumikoServerOptions = {
    *  `ctx` weil dies kein HandlerContext ist — kein user/tenant. */
   readonly extraRoutes?: (
     app: import("hono").Hono,
-    deps: { db: TestStack["db"]; redis: TestStack["redis"] },
+    deps: {
+      db: TestStack["db"];
+      redis: TestStack["redis"];
+      /** Feature-registry — z.B. für Plugin-Lookups via
+       *  `registry.getExtensionUsages("subscriptionProvider")`. */
+      registry: TestStack["registry"];
+      /** System-Write durch den Command-Dispatcher — Semantik identisch zu
+       *  runProdApp.extraRoutes (SystemAdmin des Ziel-Tenants, kein
+       *  Access-Check; nur für signatur-authentifizierte Pfade). */
+      dispatchSystemWrite: (args: {
+        readonly handlerQn: string;
+        readonly payload: unknown;
+        readonly tenantId: import("@cosmicdrift/kumiko-framework/engine").TenantId;
+      }) => Promise<import("@cosmicdrift/kumiko-framework/engine").WriteResult>;
+    },
   ) => void;
 };
 
@@ -681,7 +699,13 @@ export async function createKumikoServer(
   // (HTML/JS/CSS-Serving via handleFetch unten) registriert, damit
   // explizite Routen wie /feed.xml den Asset-Pfad schlagen.
   if (options.extraRoutes !== undefined) {
-    options.extraRoutes(stack.app, { db: stack.db, redis: stack.redis });
+    options.extraRoutes(stack.app, {
+      db: stack.db,
+      redis: stack.redis,
+      registry: stack.registry,
+      dispatchSystemWrite: ({ handlerQn, payload, tenantId }) =>
+        stack.dispatcher.write(handlerQn, payload, createSystemUser(tenantId, ["SystemAdmin"])),
+    });
   }
 
   // setupTestStack konfiguriert den eventDispatcher, startet ihn aber

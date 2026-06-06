@@ -45,12 +45,15 @@ import { createDbConnection, type DbRunner } from "@cosmicdrift/kumiko-framework
 import {
   buildAppSchema,
   createRegistry,
+  createSystemUser,
   type EffectiveFeaturesResolver,
   type FeatureDefinition,
   findTierResolverUsage,
+  type Registry,
   type TenantId,
   type TierResolverPlugin,
   validateBoot,
+  type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   type ApiEntrypoint,
@@ -421,6 +424,19 @@ export type RunProdAppOptions = {
     deps: {
       db: import("@cosmicdrift/kumiko-framework/db").DbConnection;
       redis: import("ioredis").default;
+      /** Feature-registry — z.B. für Plugin-Lookups via
+       *  `registry.getExtensionUsages("subscriptionProvider")`. */
+      registry: Registry;
+      /** Schreibt durch den /api/*-Command-Dispatcher (gleiche Idempotency/
+       *  Job-Hooks) — aber als auto-konstruierter SystemAdmin des Ziel-
+       *  Tenants, OHNE Access-Check der Route. Nur für Pfade, die ihre
+       *  Authentizität selbst beweisen (Provider-Webhook-Signaturen,
+       *  createSubscriptionWebhookHandler et al.). */
+      dispatchSystemWrite: (args: {
+        readonly handlerQn: string;
+        readonly payload: unknown;
+        readonly tenantId: TenantId;
+      }) => Promise<WriteResult>;
     },
   ) => void;
   /** When true (default), Bun.serve is started before runProdApp resolves —
@@ -808,7 +824,17 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   //     belegt; extraRoutes sollte die nicht überschreiben (kein
   //     enforce, das ist Author-Verantwortung).
   if (options.extraRoutes) {
-    options.extraRoutes(entrypoint.app, { db, redis });
+    options.extraRoutes(entrypoint.app, {
+      db,
+      redis,
+      registry,
+      dispatchSystemWrite: ({ handlerQn, payload, tenantId }) =>
+        entrypoint.dispatcher.write(
+          handlerQn,
+          payload,
+          createSystemUser(tenantId, ["SystemAdmin"]),
+        ),
+    });
   }
 
   // 11. Build the fetch-handler. Static-fallback for non-/api/ paths

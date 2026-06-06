@@ -10,7 +10,7 @@ import type { FeatureDefinition, Registry, TenantId } from "../engine/types";
 import { createArchivedStreamsTable, createEventsTable } from "../event-store";
 import type { Lifecycle } from "../lifecycle";
 import type { ObservabilityProvider } from "../observability";
-import type { EventDispatcher } from "../pipeline";
+import type { Dispatcher, EventDispatcher } from "../pipeline";
 import { createEntityCache, createEventDedup, createIdempotencyGuard } from "../pipeline";
 import { createInMemorySearchAdapter } from "../search";
 import type { SearchAdapter } from "../search/types";
@@ -31,6 +31,9 @@ export type TestStack = {
   events: EventCollector;
   http: RequestHelper;
   observability: ObservabilityProvider;
+  // Command-dispatcher behind the HTTP routes — for direct system-writes
+  // in tests and dev-server extraRoutes (provider-webhook wiring).
+  dispatcher: Dispatcher;
   // Present whenever a system consumer (SSE, Search) or
   // r.multiStreamProjection is wired. Tests drain it via runOnce() for
   // deterministic assertion — no timer-induced flakiness.
@@ -355,6 +358,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     events,
     http,
     observability: server.observability,
+    dispatcher: server.dispatcher,
     ...(eventDispatcher ? { eventDispatcher } : {}),
     ...(server.lifecycle ? { lifecycle: server.lifecycle } : {}),
     cleanup: async () => {

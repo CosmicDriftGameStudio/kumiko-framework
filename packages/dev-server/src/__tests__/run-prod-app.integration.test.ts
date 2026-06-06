@@ -68,6 +68,19 @@ const widgetFeature = defineFeature("prod-probe", (r) => {
     access: { roles: ["anonymous"] },
     handler: async () => ({ pong: true }),
   });
+  // SystemAdmin-gated write — Ziel des extraRoutes.dispatchSystemWrite-
+  // Tests: Echo von user.tenantId + roles beweist, dass der Dispatch
+  // durch den echten Dispatcher (Zod + Access-Check) läuft und der
+  // auto-konstruierte SystemUser den Ziel-Tenant trägt.
+  r.writeHandler({
+    name: "probe-write",
+    schema: z.object({ note: z.string() }),
+    access: { roles: ["SystemAdmin"] },
+    handler: async (event) => ({
+      isSuccess: true as const,
+      data: { tenantSeen: event.user.tenantId, roles: event.user.roles },
+    }),
+  });
 });
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001";
@@ -204,6 +217,41 @@ describe("runProdApp", () => {
     expect(res.headers.get("content-type")).toBe("application/rss+xml");
     const body = await res.text();
     expect(body).toContain('<probe ok="true" />');
+  });
+
+  test("extraRoutes-deps: dispatchSystemWrite schreibt als SystemAdmin des Ziel-Tenants, registry verfügbar", async () => {
+    // Das ist das Wiring für Provider-Webhook-Routes (billing-foundation
+    // createSubscriptionWebhookHandler): die Route authentifiziert via
+    // Provider-Signatur und schreibt dann am JWT-Pfad vorbei durch den
+    // Command-Dispatcher. Beweist: (a) registry liegt in den deps,
+    // (b) dispatchSystemWrite geht durch Zod + Access-Check des Handlers,
+    // (c) der SystemUser trägt den Ziel-Tenant (Event-Store-Konsistenz).
+    let registryHasProbe = false;
+    const handle = await boot(undefined, {
+      extraRoutes: (app, deps) => {
+        registryHasProbe = deps.registry.features.has("prod-probe");
+        app.post("/webhook-probe", async (c) => {
+          const result = await deps.dispatchSystemWrite({
+            handlerQn: "prod-probe:write:probe-write",
+            payload: { note: "from-webhook" },
+            tenantId: TENANT_ID as import("@cosmicdrift/kumiko-framework/engine").TenantId,
+          });
+          return c.json(result);
+        });
+      },
+    });
+
+    expect(registryHasProbe).toBe(true);
+
+    const res = await handle.fetch(new Request("http://test/webhook-probe", { method: "POST" }));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      isSuccess: boolean;
+      data?: { tenantSeen: string; roles: string[] };
+    };
+    expect(body.isSuccess).toBe(true);
+    expect(body.data?.tenantSeen).toBe(TENANT_ID);
+    expect(body.data?.roles).toContain("SystemAdmin");
   });
 
   test("static-fallback: extraRoute beats Disk-File at colliding path (Hono-First)", async () => {

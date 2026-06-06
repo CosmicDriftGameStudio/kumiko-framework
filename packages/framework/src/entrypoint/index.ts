@@ -45,7 +45,7 @@ import type { Lifecycle } from "../lifecycle";
 import { createLifecycle } from "../lifecycle";
 import type { ObservabilityOptions, ObservabilityProvider } from "../observability";
 import type { EventDedup, EventDispatcher } from "../pipeline";
-import type { DispatcherOptions } from "../pipeline/dispatcher";
+import type { Dispatcher, DispatcherOptions } from "../pipeline/dispatcher";
 import type { SystemHooks } from "../pipeline/lifecycle-pipeline";
 
 // Shared fields across all three modes. A caller that swaps between
@@ -114,9 +114,12 @@ export type ApiEntrypoint = {
   readonly sseBroker: SseBroker;
   readonly lifecycle: Lifecycle;
   readonly observability: ObservabilityProvider;
+  // Command-dispatcher behind /api/* — for writes outside the HTTP
+  // pipeline (provider-webhook routes, see KumikoServer.dispatcher).
+  readonly dispatcher: Dispatcher;
   readonly mode: "api";
-  // No-op on API mode — dispatcher isn't built, job-runner doesn't exist.
-  // Kept for a uniform call-site so `main.ts` doesn't branch on mode.
+  // No-op on API mode — event-dispatcher isn't built, job-runner doesn't
+  // exist. Kept for a uniform call-site so `main.ts` doesn't branch on mode.
   start(): Promise<void>;
   stop(): Promise<void>;
 };
@@ -329,6 +332,7 @@ export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoin
     sseBroker: server.sseBroker,
     lifecycle,
     observability: server.observability,
+    dispatcher: server.dispatcher,
     mode: "api",
     async start() {
       // Start the local BullMQ worker when runLocalJobs=true; enqueuer-only
@@ -424,6 +428,7 @@ export function createAllInOneEntrypoint(options: AllInOneEntrypointOptions): Al
     eventDispatcher,
     jobRunner: workerJobRunner,
     observability: server.observability,
+    dispatcher: server.dispatcher,
     mode: "all-in-one",
     async start() {
       await eventDispatcher.start();

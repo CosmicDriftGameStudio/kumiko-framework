@@ -23,7 +23,7 @@ import {
   wrapRedisClient,
 } from "../observability";
 import type { DispatcherOptions } from "../pipeline/dispatcher";
-import { createDispatcher } from "../pipeline/dispatcher";
+import { createDispatcher, type Dispatcher } from "../pipeline/dispatcher";
 import { SHARED_INSTANCE_SENTINEL } from "../pipeline/event-consumer-state";
 import type { EventDedup } from "../pipeline/event-dedup";
 import type { EventConsumer, EventDispatcher } from "../pipeline/event-dispatcher";
@@ -195,6 +195,11 @@ export type KumikoServer = {
   jwt: JwtHelper;
   sseBroker: SseBroker;
   observability: ObservabilityProvider;
+  // The command-dispatcher behind /api/* — same idempotency/jobRunner/
+  // lifecycle wiring as HTTP-dispatched writes. For dispatching outside
+  // the HTTP pipeline, e.g. provider-webhook routes that authenticate
+  // via signature instead of JWT (subscription-stripe et al.).
+  dispatcher: Dispatcher;
   // Present when at least one consumer is wired and context.db is a
   // DbConnection. Caller owns the lifecycle: `.start()` in boot, `.stop()`
   // in shutdown. Tests drain via `.runOnce()` instead.
@@ -619,6 +624,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
     jwt,
     sseBroker,
     observability,
+    dispatcher,
     ...(eventDispatcher ? { eventDispatcher } : {}),
     ...(options.lifecycle ? { lifecycle: options.lifecycle } : {}),
   };
