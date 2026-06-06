@@ -929,16 +929,29 @@ export function computeVisiblePages(
   totalPages: number,
 ): readonly (number | "ellipsis")[] {
   if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
-  const out: (number | "ellipsis")[] = [];
-  // Always show 1
-  out.push(1);
-  if (page > 4) out.push("ellipsis");
-  const start = Math.max(2, page - 2);
-  const end = Math.min(totalPages - 1, page + 2);
-  for (let i = start; i <= end; i++) out.push(i);
-  if (page < totalPages - 3) out.push("ellipsis");
-  // Always show last
-  out.push(totalPages);
+
+  // Fenster von 5 Seiten um die aktuelle Seite. An den Rändern wird das
+  // Fenster verschoben (nicht abgeschnitten), damit immer 5 Zahlen + die
+  // gegenüberliegende Anker-Seite sichtbar sind:
+  //   p=1,  total=20: 1 2 3 4 5 … 20
+  //   p=10, total=20: 1 … 8 9 10 11 12 … 20
+  //   p=20, total=20: 1 … 16 17 18 19 20
+  const leftSibling = Math.max(page - 2, 1);
+  const rightSibling = Math.min(page + 2, totalPages);
+  const showLeftEllipsis = leftSibling > 2;
+  const showRightEllipsis = rightSibling < totalPages - 1;
+
+  if (!showLeftEllipsis) {
+    return [1, 2, 3, 4, 5, "ellipsis", totalPages];
+  }
+  if (!showRightEllipsis) {
+    const tail: (number | "ellipsis")[] = [1, "ellipsis"];
+    for (let i = totalPages - 4; i <= totalPages; i++) tail.push(i);
+    return tail;
+  }
+  const out: (number | "ellipsis")[] = [1, "ellipsis"];
+  for (let i = leftSibling; i <= rightSibling; i++) out.push(i);
+  out.push("ellipsis", totalPages);
   return out;
 }
 

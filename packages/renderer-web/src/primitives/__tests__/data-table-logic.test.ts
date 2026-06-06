@@ -22,12 +22,16 @@ describe("computeVisiblePages", () => {
     expect(computeVisiblePages(10, 20)).toEqual([1, "ellipsis", 8, 9, 10, 11, 12, "ellipsis", 20]);
   });
 
-  test("Rand p=1/20: page±2-Window (3 Zahlen links, dann Ellipsis)", () => {
-    expect(computeVisiblePages(1, 20)).toEqual([1, 2, 3, "ellipsis", 20]);
+  test("Rand p=1/20: 5 Zahlen links sichtbar (Fenster verschoben, nicht abgeschnitten)", () => {
+    expect(computeVisiblePages(1, 20)).toEqual([1, 2, 3, 4, 5, "ellipsis", 20]);
   });
 
-  test("Rand p=20/20: page±2-Window (Ellipsis, dann 3 Zahlen rechts)", () => {
-    expect(computeVisiblePages(20, 20)).toEqual([1, "ellipsis", 18, 19, 20]);
+  test("Rand p=20/20: 5 Zahlen rechts sichtbar", () => {
+    expect(computeVisiblePages(20, 20)).toEqual([1, "ellipsis", 16, 17, 18, 19, 20]);
+  });
+
+  test("page=5/20: Übergang Rand→Mitte (Ellipsis links erscheint)", () => {
+    expect(computeVisiblePages(5, 20)).toEqual([1, "ellipsis", 3, 4, 5, 6, 7, "ellipsis", 20]);
   });
 });
 
