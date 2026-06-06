@@ -12,6 +12,7 @@ export type {
 } from "../db/query";
 export {
   asRawClient,
+  countWhere,
   deleteMany,
   fetchOne,
   insertMany,

@@ -1,8 +1,14 @@
 ---
 "@cosmicdrift/kumiko-bundled-features": minor
+"@cosmicdrift/kumiko-framework": minor
 ---
 
 feat(cap-counter): `enforceStockCap` für Bestands-Caps (max N Entities)
+
+Plus `countWhere(db, table, where)` aus `@cosmicdrift/kumiko-framework/db`
+exportiert — der Live-Count (`SELECT COUNT(*)`), den ein Stock-Cap-Caller
+braucht, um `current` zu bestimmen. War bisher nur intern (`bun-db/query`).
+
 
 Reine Funktion für Stock-Caps (Bestand: „max 5 Components") neben den metered
 Flow-Caps (`enforceCap`/`enforceRollingCap`). Der Caller zählt die Projektion

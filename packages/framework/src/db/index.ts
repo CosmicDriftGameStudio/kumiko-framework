@@ -87,6 +87,7 @@ export {
 export type { SelectOptions, WhereObject, WhereValue } from "./query-api";
 export {
   asRawClient,
+  countWhere,
   deleteMany,
   fetchOne,
   insertMany,
