@@ -1,8 +1,29 @@
 # Test-Lücken schließen — Integration & Unit
 
-> **Status:** Revised 2026-06-03 (gegen HEAD `addd6794` verifiziert)
+> **Status:** Phase 1 weitgehend abgeschlossen (2026-06-06) — 5 Test-PRs + 2 Fix-PRs gemergt. Siehe Status-Abschnitt.
 > **Scope:** kumiko-framework — `packages/{framework,bundled-features,renderer,renderer-web,headless}`
 > **Priorisierung:** nach **tatsächlicher Verhaltens-Coverage**, nicht nach dir-lokalem Test-File-Count.
+
+## Status (2026-06-06)
+
+**Erledigt — Phase 1 + zwei dabei gefundene Bugs (7 PRs gemergt):**
+
+| PR | Inhalt |
+|----|--------|
+| #235 | foundation-shared (+`requireNonEmpty`-trim-Bugfix), framework/logging (`createFallbackLogger`), framework/random (words-Invarianten + Doku-Fix) |
+| #237 | file-provider Contract (`createInMemoryFileProvider`) + inmemory/s3-Wrapper |
+| #238 | renderer-web/primitives — money-input (Pure-Logik + happy-dom-Render), DataTable-Logik, date-input |
+| #240 | renderer/app — nav (`parsePath`/`formatPath`) + qualified-names |
+| #241 | renderer/app — feature-schema (`toAppSchema`/`isAppSchema`) |
+| #244 | **Fix:** RenderField reicht App-Locale (`useLocale`) an money/date durch statt `navigator.language` |
+| #246 | **Fix:** `computeVisiblePages` zeigt 5 Seiten an Listen-Rändern (Window verschieben statt abschneiden) |
+
+**Noch offen / bewusst zurückgestellt (diminishing returns):**
+
+- `renderer-web/layout` (`nav-tree`/`workspace-shell`): fixture-lastig (WorkspaceDefinition/NavDefinition), mittlerer Wert.
+- `renderer/app` `config-edit-shim` / `extension-sections`: triviale Daten-Shims/Guards, Fixture-Typen tief re-exportiert → Aufwand > Wert. `action-form-shim` ist bereits getestet.
+- Radix-Primitives (dialog/combobox/dropdown/toast/date-input-Popover): **Tier 3 = Playwright** — happy-dom hat kein Pointer-Capture.
+- **Phase 2 + 3 (unten)** in dieser Runde nicht angefasst — Scope war Phase 1 + die dabei gefundenen Bugs.
 
 ## Befund vorab — warum die Prio nicht nach File-Count geht
 
@@ -28,13 +49,13 @@ irreführende Metrik:
 > Im ersten Entwurf nicht enthalten. Das ist der Code mit echtem Risiko: viel
 > Logik, kaum/keine Coverage — direkt *oder* transitiv.
 
-- [ ] **`renderer-web/primitives`** — 8 Files, **2.404 LOC, 0 Tests** (dialog, combobox, toast, money-input, …). Unit-Tests für State/Logik. ⚠️ jsdom-Decke: CSS/pointer-events/z-index sind hier **nicht** abdeckbar → Playwright (separater E2E-Scope).
-- [ ] **`renderer-web/layout`** — 16 Files, **2.173 LOC, nur 2 Tests** (sidebar, nav, header).
-- [ ] **`renderer/app`** — 9 Files, **1.568 LOC, nur 1 Test** (create-app, nav, client-plugin, action-form-shim).
-- [ ] **`framework/logging`** — `createLogger()` + trace-field-merge, nur 1 Test. Boot-kritisch.
-- [ ] **`framework/random`** — `generate.ts`/`words.ts` (tenant-keys/webhook-slugs/api-names), nur 1 Test.
-- [ ] **`bundled-features/foundation-shared`** — `config-helpers` (`requireDefined`/`requireNonEmpty`), **0 Tests**, konsumiert von mail-/file-/ai-foundation.
-- [ ] **`bundled-features/file-provider-{inmemory,s3}`** — je nur Smoke (1 Test). Provider-Contract-Test (`writeStream`/`readStream`/`getSignedUrl`).
+- [x] **`renderer-web/primitives`** (#238) — money-input (Pure-Logik `currencyDecimals`/`parseLocaleNumber` + happy-dom-Render), DataTable-Logik (`computeVisiblePages`/`defaultCellRender`/`isComponentRendererRef`), date-input (`parseIso`/`toIso`). Radix-Komponenten (dialog/combobox/dropdown/toast) → Tier 3 Playwright.
+- [ ] **`renderer-web/layout`** — 16 Files, **2.173 LOC, nur 2 Tests**. Offen: `nav-tree`/`workspace-shell` Pure-Logik (schema-fixture-lastig); `target-url` ist bereits getestet.
+- [x] **`renderer/app`** (#240, #241) — nav (`parsePath`/`formatPath`), qualified-names (`lastSegment`/`qualify*`), feature-schema (`toAppSchema`/`isAppSchema`). Zurückgestellt: `config-edit-shim`/`extension-sections` (triviale Shims, Fixture-Aufwand > Wert); `action-form-shim` war schon getestet.
+- [x] **`framework/logging`** (#235) — `createFallbackLogger`. `mergeTraceFields` war bereits via `pino-trace-bridge.test.ts` abgedeckt; `createLogger`-NDJSON bewusst nicht getestet (pino-async-flaky, Repo-Konvention).
+- [x] **`framework/random`** (#235) — `words.ts`-Invarianten + Doku-Fix (150→191/173, 4-8→3-10). `generate.ts` war bereits umfassend getestet.
+- [x] **`bundled-features/foundation-shared`** (#235) — `config-helpers` `requireDefined`/`requireNonEmpty` + dabei gefundener trim-Bugfix.
+- [x] **`bundled-features/file-provider-{inmemory,s3}`** (#237) — `createInMemoryFileProvider`-Contract + beide Wrapper (build/Tenant-Isolation/Error-Pfade). Echter S3-Roundtrip (MinIO) = separater Integration-Follow-up.
 
 ## Phase 2 — Dünne Coverage gezielt ausbauen
 
