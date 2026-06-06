@@ -42,9 +42,9 @@ export type AdjNounNameOptions = {
    *  (no-confusable-Alphabet). Empfohlen 3 Zeichen = 32^3 = 32.768
    *  zusätzliche Combinations pro Wortpaar. */
   readonly suffix?: { readonly length: number };
-  /** Custom Adjective-Liste — default ADJECTIVES (150 generic). */
+  /** Custom Adjective-Liste — default ADJECTIVES (191 generic). */
   readonly adjectives?: readonly string[];
-  /** Custom Noun-Liste — default NOUNS (150 generic). Apps die Domain-
+  /** Custom Noun-Liste — default NOUNS (173 generic). Apps die Domain-
    *  spezifische Slugs wollen (z.B. webhook-feature mit eigenen
    *  -receiver/-listener-Substantiven) reichen ihre eigene Liste. */
   readonly nouns?: readonly string[];
@@ -83,7 +83,7 @@ export type GenerateUniqueNameOptions = {
    *  ist (typisch: DB-Query "select where slug=$1" → row count === 0). */
   readonly isAvailable: (name: string) => Promise<boolean>;
   /** Max Versuche OHNE Suffix bevor wir auf suffix-mode wechseln.
-   *  Default 3. Bei 22.500 Default-Combos und ~150 existierenden
+   *  Default 3. Bei 33.043 Default-Combos und ~150 existierenden
    *  Tenants liegt p(Kollision) < 1% — 3 Versuche reichen weit. */
   readonly maxCleanAttempts?: number;
   /** Suffix-Länge bei Kollision-Mode. Default 3 (= 32.768 Combinations

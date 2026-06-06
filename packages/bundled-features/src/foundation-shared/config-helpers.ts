@@ -50,6 +50,10 @@ export function requireDefined<T>(value: T | undefined, featureName: string, lab
  * Typical use: SMTP host, S3 bucket, model id — values without which the
  * downstream SDK would 400 with a cryptic message. The clearer "tenant
  * must configure X via tenant-admin UI" lands at the call-site instead.
+ *
+ * Whitespace is trimmed: a whitespace-only value counts as empty, and the
+ * returned string has surrounding whitespace removed — so a stray " host "
+ * never reaches the SDK as-is.
  */
 export function requireNonEmpty(
   value: string | undefined,
@@ -57,11 +61,11 @@ export function requireNonEmpty(
   label: string,
   uiHint = "Set via tenant-admin UI or seed-handler.",
 ): string {
-  const defined = requireDefined(value, featureName, label);
-  if (defined.length === 0) {
+  const trimmed = requireDefined(value, featureName, label).trim();
+  if (trimmed.length === 0) {
     throw new Error(
       `${featureName}: '${label}' is empty — tenant must configure it before use. ${uiHint}`,
     );
   }
-  return defined;
+  return trimmed;
 }
