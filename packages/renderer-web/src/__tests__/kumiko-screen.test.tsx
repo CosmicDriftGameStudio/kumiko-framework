@@ -547,6 +547,127 @@ describe("KumikoScreen", () => {
     expect(searchParamUpdates).toEqual([]);
   });
 
+  // JSON-Schema-Fall (window.__KUMIKO_SCHEMA__): Function-Props wie
+  // action.entityId werden beim JSON-Roundtrip silent gedroppt. Zielt
+  // die navigate-Action auf einen entityEdit-Screen, MUSS row.id als
+  // deklarativer Default greifen — sonst öffnet der Edit im Create-Mode
+  // (Prod-e2e-Befund 2026-06-07 nach F1).
+  test("entityList rowActions kind=navigate auf entityEdit-Ziel: row.id ist der entityId-Default (JSON-Schema-sicher)", async () => {
+    const navigateCalls: { screenId: string; entityId?: string }[] = [];
+    const memoryNav = {
+      route: { screenId: "task-list" },
+      navigate: (target: { screenId: string; entityId?: string }) => navigateCalls.push(target),
+      replace: () => undefined,
+      hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
+      searchParams: {},
+      setSearchParams: () => undefined,
+    };
+    const dispatcher = makeDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: {
+          rows: [{ id: "r1", title: "Alpha", count: 1, done: false }],
+          nextCursor: null,
+        },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    const screenWithEdit: EntityListScreenDefinition = {
+      id: "task-list",
+      type: "entityList",
+      entity: "task",
+      columns: ["title"],
+      rowActions: [
+        {
+          kind: "navigate",
+          id: "edit",
+          label: "actions.edit",
+          screen: "task-edit",
+          // entityId-Function ABSICHTLICH gesetzt und dann per
+          // JSON-Roundtrip gedroppt — exakt was buildAppSchema +
+          // JSON.stringify mit dem Schema im Browser machen.
+          entityId: (row) => String(row["id"] ?? ""),
+        },
+      ],
+    };
+    const jsonSchema = JSON.parse(
+      JSON.stringify({ ...schema, screens: [screenWithEdit, editScreen] }),
+    ) as FeatureSchema;
+
+    const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
+    const user = userEvent.setup();
+    render(
+      <NavProvider value={memoryNav}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen schema={jsonSchema} qn="tasks:screen:task-list" />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+
+    await user.click(screen.getByTestId("row-r1-action-edit"));
+    await waitFor(() => expect(navigateCalls.length).toBe(1));
+    expect(navigateCalls[0]).toEqual({ screenId: "task-edit", entityId: "r1" });
+  });
+
+  test("entityList rowActions kind=navigate auf NICHT-entityEdit-Ziel: kein entityId-Default", async () => {
+    const navigateCalls: { screenId: string; entityId?: string }[] = [];
+    const memoryNav = {
+      route: { screenId: "task-list" },
+      navigate: (target: { screenId: string; entityId?: string }) => navigateCalls.push(target),
+      replace: () => undefined,
+      hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
+      searchParams: {},
+      setSearchParams: () => undefined,
+    };
+    const dispatcher = makeDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: {
+          rows: [{ id: "r1", title: "Alpha", count: 1, done: false }],
+          nextCursor: null,
+        },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    const actionScreen: ActionFormScreenDefinition = {
+      id: "task-approve",
+      type: "actionForm",
+      handler: "tasks:write:task:approve",
+      fields: { note: { type: "text" } } as ActionFormScreenDefinition["fields"],
+      layout: { sections: [{ title: "x", fields: ["note"] }] },
+    };
+    const screenWithNav: EntityListScreenDefinition = {
+      id: "task-list",
+      type: "entityList",
+      entity: "task",
+      columns: ["title"],
+      rowActions: [
+        { kind: "navigate", id: "approve", label: "actions.approve", screen: "task-approve" },
+      ],
+    };
+
+    const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
+    const user = userEvent.setup();
+    render(
+      <NavProvider value={memoryNav}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={{ ...schema, screens: [screenWithNav, actionScreen] }}
+            qn="tasks:screen:task-list"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+
+    await user.click(screen.getByTestId("row-r1-action-approve"));
+    await waitFor(() => expect(navigateCalls.length).toBe(1));
+    // actionForm-Ziel: row-Kontext kommt via params/searchParams, NICHT
+    // als Pfad-Segment — kein entityId-Default.
+    expect(navigateCalls[0]).toEqual({ screenId: "task-approve" });
+  });
+
   test("entityList rowActions kind=navigate ohne params: setSearchParams wird NICHT gerufen", async () => {
     const navigateCalls: { screenId: string }[] = [];
     const searchParamUpdates: Record<string, string | null>[] = [];

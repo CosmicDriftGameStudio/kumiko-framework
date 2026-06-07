@@ -659,12 +659,22 @@ function EntityListBody({
         // navigate-Variante braucht keinen Dispatcher; nav ist
         // immer da (Provider von createKumikoApp).
         if (action.kind === "navigate") {
+          // Deklarativer entityId-Default: zielt die Action auf einen
+          // entityEdit-Screen, ist row.id die entityId. Nötig weil die
+          // Function-Form (action.entityId) JSON-injizierte Schemas
+          // (window.__KUMIKO_SCHEMA__) nicht überlebt — silent gedroppt,
+          // siehe RowAction-Type-Header.
+          const targetIsEntityEdit = schema.screens.some(
+            (s) => s.type === "entityEdit" && lastSegment(s.id) === action.screen,
+          );
           return {
             id: action.id,
             label: effectiveTranslate(action.label),
             ...(action.style !== undefined && { style: action.style }),
             onTrigger: (row: ListRowViewModel) => {
-              const entityId = action.entityId?.(row.values);
+              const explicit = action.entityId?.(row.values);
+              const fallback = targetIsEntityEdit ? String(row.values["id"] ?? "") : undefined;
+              const entityId = explicit ?? fallback;
               nav.navigate({
                 screenId: action.screen,
                 ...(entityId !== undefined && entityId !== "" && { entityId }),
@@ -725,7 +735,7 @@ function EntityListBody({
         };
       })
       .filter((a: DataTableRowAction | null): a is DataTableRowAction => a !== null);
-  }, [screen.rowActions, effectiveTranslate, dispatcher, nav]);
+  }, [screen.rowActions, effectiveTranslate, dispatcher, nav, schema.screens]);
 
   // ToolbarActions: Schema → Resolved-Form (analog rowActions).
   // navigate-kind → useNav().navigate({ screenId }), writeHandler-kind
