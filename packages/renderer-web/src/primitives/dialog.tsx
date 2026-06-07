@@ -36,9 +36,12 @@ export function DefaultDialog({
     setLoading(true);
     try {
       await onConfirm();
-      onOpenChange(false);
     } finally {
       setLoading(false);
+      // Auch bei rejected onConfirm schließen — ein offen hängendes Modal
+      // ohne Botschaft wirkt eingefroren; der Fehler selbst wird vom
+      // onConfirm-Pfad surfaced (Row-Actions: Toast).
+      onOpenChange(false);
     }
   }
 

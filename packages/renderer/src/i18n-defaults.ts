@@ -41,6 +41,9 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.dialog.cancel": "Abbrechen",
     "kumiko.dialog.close": "Schließen",
 
+    // Row-Actions — Fehler-Toast wenn ein Action-Write fehlschlägt.
+    "kumiko.rowAction.failed": "Aktion fehlgeschlagen",
+
     // Form — Standard-Errors (App-Code kann eigene zod-Reasons nutzen,
     // diese sind die letzte Sicherheitsschicht).
     "kumiko.form.error.generic": "Etwas ist schiefgegangen.",
@@ -80,6 +83,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.dialog.confirm": "Confirm",
     "kumiko.dialog.cancel": "Cancel",
     "kumiko.dialog.close": "Close",
+
+    "kumiko.rowAction.failed": "Action failed",
 
     "kumiko.form.error.generic": "Something went wrong.",
     "kumiko.form.error.version-conflict":

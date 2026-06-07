@@ -29,6 +29,7 @@ import {
   type TextProps,
   useColumnRenderer,
   useTranslation,
+  WriteFailedError,
 } from "@cosmicdrift/kumiko-renderer";
 import * as LabelPrimitive from "@radix-ui/react-label";
 import { cva } from "class-variance-authority";
@@ -53,6 +54,7 @@ import {
   DropdownMenuTrigger,
 } from "./dropdown-menu";
 import { MoneyInput } from "./money-input";
+import { useToast } from "./toast";
 
 // ---- Button ----
 
@@ -599,10 +601,22 @@ function needsConfirm(action: DataTableRowAction): boolean {
 
 function useRowActionTrigger(row: ListRowViewModel) {
   const [busy, setBusy] = useState(false);
+  const { toast } = useToast();
+  const t = useTranslation();
   const triggerNow = async (action: DataTableRowAction): Promise<void> => {
     setBusy(true);
     try {
       await action.onTrigger(row);
+    } catch (e) {
+      // Surfacing statt schlucken: ein verschluckter Write-Fehler sah für
+      // den User wie "nichts passiert" aus (Prod-Bug 2026-06-07).
+      const docsUrl = e instanceof WriteFailedError ? e.dispatcherError.docsUrl : undefined;
+      toast({
+        title: t("kumiko.rowAction.failed"),
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+        ...(docsUrl !== undefined && { docsUrl }),
+      });
     } finally {
       setBusy(false);
     }

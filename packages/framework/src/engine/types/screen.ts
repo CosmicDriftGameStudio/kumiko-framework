@@ -177,6 +177,11 @@ export type RowActionNavigate = {
   /** Screen-id (kurz, unqualified) zu dem navigiert wird. Boot-
    *  Validator prüft Existenz im selben Feature. */
   readonly screen: string;
+  /** Optional: Entity-Id für entityEdit-Targets — landet als Pfad-
+   *  Segment (`/<workspace>/<screen>/<entityId>`). entityEdit liest die
+   *  Id AUSSCHLIESSLICH aus dem Pfad; ein `?id=`-Search-Param öffnet
+   *  den Create-Mode. ⚠️ Function-Form nur im Monolith-Bundle-Pattern. */
+  readonly entityId?: (row: Readonly<Record<string, unknown>>) => string;
   /** Optional: URL-Search-Params aus row-Context. Wird in actionForm-
    *  Targets als initial values gelesen ("Edit Customer X" → URL hat
    *  `?customerId=row-uuid`, actionForm initial values pre-fillen).

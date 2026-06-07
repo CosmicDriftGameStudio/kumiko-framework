@@ -32,6 +32,7 @@ import { useCustomScreenComponent } from "./custom-screens";
 import type { FeatureSchema } from "./feature-schema";
 import { useNav } from "./nav";
 import { lastSegment } from "./qn";
+import { dispatcherErrorText, WriteFailedError } from "./write-failed-error";
 
 // KumikoScreen picks up a ScreenDefinition from the schema by qn and
 // routes it to the right renderer based on `screen.type`. Command
@@ -663,6 +664,11 @@ function EntityListBody({
             label: effectiveTranslate(action.label),
             ...(action.style !== undefined && { style: action.style }),
             onTrigger: (row: ListRowViewModel) => {
+              const entityId = action.entityId?.(row.values);
+              nav.navigate({
+                screenId: action.screen,
+                ...(entityId !== undefined && entityId !== "" && { entityId }),
+              });
               const params = action.params?.(row.values);
               if (params !== undefined) {
                 // setSearchParams nimmt string|null. Komplexe Werte
@@ -673,9 +679,11 @@ function EntityListBody({
                 for (const [k, v] of Object.entries(params)) {
                   stringified[k] = v === null || v === undefined ? null : String(v);
                 }
+                // NACH navigate: pushState trägt keine Query — Params die
+                // vor dem Push gesetzt werden, kleben an der ALTEN URL und
+                // sind auf dem Ziel-Screen weg (actionForm-Prefill leer).
                 nav.setSearchParams(stringified);
               }
-              nav.navigate({ screenId: action.screen });
             },
             ...(action.visible !== undefined && {
               isVisible: (row: ListRowViewModel) => action.visible?.(row.values, undefined) ?? true,
@@ -699,7 +707,16 @@ function EntityListBody({
             const buildPayload = writeAction.payload;
             const payload =
               buildPayload !== undefined ? buildPayload(row.values) : { id: row.values["id"] };
-            await dispatcher.write(writeAction.handler, payload);
+            const result = await dispatcher.write(writeAction.handler, payload);
+            // write() wirft nicht — Failure-Result MUSS hier zum Error
+            // werden, sonst schließt der Confirm-Dialog kommentarlos und
+            // der User sieht "nichts passiert" (Prod-Bug 2026-06-07).
+            if (!result.isSuccess) {
+              throw new WriteFailedError(
+                result.error,
+                dispatcherErrorText(result.error, effectiveTranslate),
+              );
+            }
           },
           isVisible:
             writeAction.visible !== undefined

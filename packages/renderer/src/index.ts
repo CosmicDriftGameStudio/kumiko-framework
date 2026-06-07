@@ -36,6 +36,7 @@ export { KumikoScreen, qualifyNavId, qualifyScreenId } from "./app/kumiko-screen
 export type { NavApi, NavProviderProps, NavRoute, NavTarget } from "./app/nav";
 export { formatPath, NavProvider, parsePath, useNav } from "./app/nav";
 export { lastSegment } from "./app/qn";
+export { dispatcherErrorText, WriteFailedError } from "./app/write-failed-error";
 export type { RenderEditProps } from "./components/render-edit";
 export { RenderEdit } from "./components/render-edit";
 export type { RenderFieldProps } from "./components/render-field";
