@@ -1,4 +1,5 @@
 export { assertExistsIn } from "./assert-exists-in";
+export { collectTableMetas } from "./collect-table-metas";
 export { flattenCompoundTypes, rehydrateCompoundTypes } from "./compound-types";
 export { seedConfigValues } from "./config-seed";
 export type { DbConnection, DbConnectionOptions, DbRow, DbRunner, DbTx } from "./connection";
@@ -50,6 +51,10 @@ export type {
   EventStoreExecutorOptions,
 } from "./event-store-executor";
 export { createEventStoreExecutor, entityEventName } from "./event-store-executor";
+export {
+  enumerateFeatureTableSources,
+  type FeatureTableSource,
+} from "./feature-table-sources";
 export { flattenLocatedTimestamp, rehydrateLocatedTimestamp } from "./located-timestamp";
 export {
   diffSnapshots,

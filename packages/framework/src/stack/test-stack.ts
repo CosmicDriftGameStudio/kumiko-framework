@@ -169,39 +169,22 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     await unsafePushTables(testDb.db, { fileRefsTable });
   }
 
-  // Projection tables: the executor writes into them in the same TX as the
-  // event-append, so they have to exist before the first write. Auto-push
-  // everything registered via r.projection() — keeps tests from having to
-  // know which projections a feature happens to declare. Two projections
-  // backed by the same physical table (e.g. an alternative apply-shape for
-  // the same read-model in a test feature) are deduped by table reference so
-  // we emit only one CREATE TABLE per physical table.
+  // Projection-/MSP-/raw-tables: the executor (or async dispatcher) writes
+  // into them as soon as the first matching event flows, so the DDL must
+  // exist before setupTestStack returns. The source list is shared with
+  // collectTableMetas (`kumiko schema generate`) — divergence between the
+  // two was exactly the #255 prod-crash. Two registrations backed by the
+  // same physical table (e.g. an alternative apply-shape for the same
+  // read-model in a test feature) are deduped by table reference so we
+  // emit only one CREATE TABLE per physical table.
+  const { enumerateFeatureTableSources } = await import("../db/feature-table-sources");
   const projectionTables: Record<string, unknown> = {};
   const seenTables = new Set<unknown>();
   for (const feature of options.features) {
-    for (const [projName, proj] of Object.entries(feature.projections)) {
-      if (seenTables.has(proj.table)) continue;
-      seenTables.add(proj.table);
-      projectionTables[projName] = proj.table;
-    }
-    // Multi-stream projection tables follow the same auto-push rule — the
-    // async dispatcher writes to them as soon as the first matching event
-    // flows through, so the DDL must exist before setupTestStack returns.
-    // skip: MSPs without a table are pure side-effect consumers.
-    for (const [mspName, msp] of Object.entries(feature.multiStreamProjections)) {
-      if (!msp.table) continue;
-      if (seenTables.has(msp.table)) continue;
-      seenTables.add(msp.table);
-      projectionTables[`msp_${mspName}`] = msp.table;
-    }
-    // Raw tables declared via r.rawTable(). Same auto-push rule — the
-    // table needs to exist before the first reader query runs. The
-    // bypass is in the registration site (r.rawTable's `unsafe` cousins
-    // would target the same DDL), not in setting up the test DB.
-    for (const [rawName, raw] of Object.entries(feature.rawTables)) {
-      if (seenTables.has(raw.table)) continue;
-      seenTables.add(raw.table);
-      projectionTables[`raw_${rawName}`] = raw.table;
+    for (const { table, origin } of enumerateFeatureTableSources(feature)) {
+      if (seenTables.has(table)) continue;
+      seenTables.add(table);
+      projectionTables[origin] = table;
     }
   }
   if (Object.keys(projectionTables).length > 0) {

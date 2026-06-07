@@ -60,7 +60,7 @@ function isEntityTableMeta(v: unknown): v is EntityTableMeta {
 //    to a column-handle shadowing a meta key.
 //  - buildEntityTableMeta / defineUnmanagedTable return a plain meta with no
 //    handle-spread, so its structural shape is itself unshadowable.
-function asEntityTableMeta(table: unknown): EntityTableMeta | undefined {
+export function asEntityTableMeta(table: unknown): EntityTableMeta | undefined {
   if (table === null || typeof table !== "object") return undefined;
   const fromSymbol = (table as Record<symbol, unknown>)[KUMIKO_META_SYMBOL];
   if (isEntityTableMeta(fromSymbol)) return fromSymbol;
