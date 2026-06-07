@@ -44,6 +44,19 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     // Row-Actions — Fehler-Toast wenn ein Action-Write fehlschlägt.
     "kumiko.rowAction.failed": "Aktion fehlgeschlagen",
 
+    // Config-Cascade — Source-Badges + Cascade-Panel (ConfigCascadeView).
+    "kumiko.config.source.user": "Mein Wert",
+    "kumiko.config.source.tenant": "Tenant",
+    "kumiko.config.source.system": "System",
+    "kumiko.config.source.appOverride": "App-Override",
+    "kumiko.config.source.computed": "Berechnet",
+    "kumiko.config.source.default": "Standard",
+    "kumiko.config.source.missing": "Fehlt",
+    "kumiko.config.cascade.preset": "Vorgabe",
+    "kumiko.config.cascade.noValue": "Kein Wert gesetzt",
+    "kumiko.config.cascade.activeMarker": "aktiv",
+    "kumiko.config.cascade.resetTo": "Überschreibung zurücksetzen ({scope})",
+
     // Form — Standard-Errors (App-Code kann eigene zod-Reasons nutzen,
     // diese sind die letzte Sicherheitsschicht).
     "kumiko.form.error.generic": "Etwas ist schiefgegangen.",
@@ -85,6 +98,18 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.dialog.close": "Close",
 
     "kumiko.rowAction.failed": "Action failed",
+
+    "kumiko.config.source.user": "My value",
+    "kumiko.config.source.tenant": "Tenant",
+    "kumiko.config.source.system": "System",
+    "kumiko.config.source.appOverride": "App override",
+    "kumiko.config.source.computed": "Computed",
+    "kumiko.config.source.default": "Default",
+    "kumiko.config.source.missing": "Missing",
+    "kumiko.config.cascade.preset": "Preset",
+    "kumiko.config.cascade.noValue": "No value set",
+    "kumiko.config.cascade.activeMarker": "active",
+    "kumiko.config.cascade.resetTo": "Reset override ({scope})",
 
     "kumiko.form.error.generic": "Something went wrong.",
     "kumiko.form.error.version-conflict":

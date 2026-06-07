@@ -1,17 +1,19 @@
 import type { ConfigValueSource } from "@cosmicdrift/kumiko-framework/engine";
+import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
 
-const SOURCE_CONFIG: Record<ConfigValueSource, { label: string; bg: string; text: string }> = {
-  "user-row": { label: "User", bg: "#dbeafe", text: "#1e40af" },
-  "tenant-row": { label: "Tenant", bg: "#dcfce7", text: "#166534" },
-  "system-row": { label: "System", bg: "#f3e8ff", text: "#6b21a8" },
-  "app-override": { label: "Override", bg: "#ffedd5", text: "#9a3412" },
-  computed: { label: "Computed", bg: "#ccfbf1", text: "#115e59" },
-  default: { label: "Default", bg: "#f3f4f6", text: "#4b5563" },
-  missing: { label: "Missing", bg: "#fee2e2", text: "#991b1b" },
+const SOURCE_CONFIG: Record<ConfigValueSource, { labelKey: string; bg: string; text: string }> = {
+  "user-row": { labelKey: "kumiko.config.source.user", bg: "#dbeafe", text: "#1e40af" },
+  "tenant-row": { labelKey: "kumiko.config.source.tenant", bg: "#dcfce7", text: "#166534" },
+  "system-row": { labelKey: "kumiko.config.source.system", bg: "#f3e8ff", text: "#6b21a8" },
+  "app-override": { labelKey: "kumiko.config.source.appOverride", bg: "#ffedd5", text: "#9a3412" },
+  computed: { labelKey: "kumiko.config.source.computed", bg: "#ccfbf1", text: "#115e59" },
+  default: { labelKey: "kumiko.config.source.default", bg: "#f3f4f6", text: "#4b5563" },
+  missing: { labelKey: "kumiko.config.source.missing", bg: "#fee2e2", text: "#991b1b" },
 };
 
 export function ConfigSourceBadge({ source }: { readonly source: ConfigValueSource }): ReactNode {
+  const t = useTranslation();
   const cfg = SOURCE_CONFIG[source];
 
   return (
@@ -30,7 +32,7 @@ export function ConfigSourceBadge({ source }: { readonly source: ConfigValueSour
         whiteSpace: "nowrap",
       }}
     >
-      {cfg.label}
+      {t(cfg.labelKey)}
     </span>
   );
 }
