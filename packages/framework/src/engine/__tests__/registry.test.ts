@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { createTenantConfig } from "../config-helpers";
 import { defineFeature } from "../define-feature";
 import { createRegistry } from "../registry";
-import { createTenantConfig } from "../config-helpers";
 import type { FeatureDefinition } from "../types/feature";
 
 // Hand-built FeatureDefinition that bypasses defineFeature() — the latter
