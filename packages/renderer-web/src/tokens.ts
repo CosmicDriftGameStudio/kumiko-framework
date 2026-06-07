@@ -16,8 +16,19 @@ import { useSyncExternalStore } from "react";
 // reiner Notification-Bus (Tick-Counter), den setMode/toggleMode bei
 // jedem Class-Wechsel hochzählen. So bleibt die DOM-Klasse die einzige
 // Wahrheit — readCurrentMode liest sie frisch bei jedem getSnapshot.
+//
+// Persistenz: die Wahl landet in localStorage (THEME_STORAGE_KEY) und
+// wird beim ersten Hook-Mount restored — ohne das war der Toggle nach
+// jedem Reload weg ("dark/light geht nicht", Prod-Bug 2026-06-07).
+// Gegen FOUC gehört zusätzlich ein synchrones Inline-Script in die
+// Host-HTML, VOR dem Stylesheet-Link:
+//
+//   <script>try{if(localStorage.getItem("kumiko:theme")==="dark")
+//     document.documentElement.classList.add("dark")}catch(e){}</script>
 
 const themeTick = createStore(0);
+
+export const THEME_STORAGE_KEY = "kumiko:theme";
 
 function readCurrentMode(): ThemeMode {
   if (typeof document === "undefined") return "dark";
@@ -28,11 +39,46 @@ function notifyThemeChange(): void {
   themeTick.setState((t) => t + 1);
 }
 
+function persistMode(mode: ThemeMode): void {
+  try {
+    window.localStorage.setItem(THEME_STORAGE_KEY, mode);
+  } catch {
+    // skip: localStorage kann werfen (Private-Mode/Quota) — Theme bleibt
+    // dann sessionbasiert, der Class-Toggle hat trotzdem funktioniert.
+  }
+}
+
+/** Liest die persistierte Theme-Wahl und setzt die `.dark`-Class. Wird
+ *  beim ersten useBrowserTokensApi-Mount aufgerufen; das Inline-Script
+ *  in der Host-HTML (siehe Header-Kommentar) macht dasselbe synchron
+ *  vor dem ersten Paint. */
+export function applyStoredThemeMode(): void {
+  if (typeof document === "undefined") return;
+  let stored: string | null = null;
+  try {
+    stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+  } catch {
+    // skip: localStorage kann werfen (Private-Mode) — ohne gespeicherte
+    // Wahl bleibt der Server-/HTML-Default stehen.
+  }
+  if (stored !== "dark" && stored !== "light") return;
+  document.documentElement.classList.toggle("dark", stored === "dark");
+  notifyThemeChange();
+}
+
+let storedModeApplied = false;
+
 /** Hook der eine TokensApi für den Browser baut. Wird von
  *  createKumikoApp genutzt; App-Code der einen eigenen Token-State
  *  braucht (z.B. User-Präferenz aus localStorage) kann selber
  *  `<TokensProvider value={...}>` mounten. */
 export function useBrowserTokensApi(): TokensApi {
+  // Einmal pro Page-Load: gespeicherte Wahl anwenden. Lazy statt
+  // Modul-Side-Effect, damit Import ohne DOM (SSR/Tests) safe bleibt.
+  if (!storedModeApplied && typeof document !== "undefined") {
+    storedModeApplied = true;
+    applyStoredThemeMode();
+  }
   const mode = useSyncExternalStore(themeTick.subscribe, readCurrentMode, () => "dark" as const);
   return {
     tokens: cssVarTokens,
@@ -40,11 +86,13 @@ export function useBrowserTokensApi(): TokensApi {
     setMode: (next) => {
       if (typeof document === "undefined") return;
       document.documentElement.classList.toggle("dark", next === "dark");
+      persistMode(next);
       notifyThemeChange();
     },
     toggleMode: () => {
       if (typeof document === "undefined") return;
-      document.documentElement.classList.toggle("dark");
+      const nowDark = document.documentElement.classList.toggle("dark");
+      persistMode(nowDark ? "dark" : "light");
       notifyThemeChange();
     },
   };

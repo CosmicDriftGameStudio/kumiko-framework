@@ -1287,6 +1287,7 @@ describe("boot-validator", () => {
         readonly fields: readonly string[];
       }>;
       readonly redirect?: string;
+      readonly cancelTarget?: string | false;
       readonly extraScreens?: readonly string[];
     };
 
@@ -1318,6 +1319,7 @@ describe("boot-validator", () => {
           fields: fields as never,
           layout: { sections: sections as never },
           ...(override.redirect !== undefined && { redirect: override.redirect }),
+          ...(override.cancelTarget !== undefined && { cancelTarget: override.cancelTarget }),
         });
         for (const extra of override.extraScreens ?? []) {
           r.screen({
@@ -1385,6 +1387,22 @@ describe("boot-validator", () => {
       expect(() => validateBoot([makeFeature({ redirect: "ghost-screen" })])).toThrow(
         /redirect "ghost-screen" does not resolve to a registered screen/,
       );
+    });
+
+    test("cancelTarget → existing screen-id → kein Throw", () => {
+      expect(() =>
+        validateBoot([makeFeature({ cancelTarget: "after-form", extraScreens: ["after-form"] })]),
+      ).not.toThrow();
+    });
+
+    test("cancelTarget → unknown screen-id → Throw", () => {
+      expect(() => validateBoot([makeFeature({ cancelTarget: "ghost-screen" })])).toThrow(
+        /cancelTarget "ghost-screen" does not resolve to a registered screen/,
+      );
+    });
+
+    test("cancelTarget=false (Button abgeschaltet) → kein Throw", () => {
+      expect(() => validateBoot([makeFeature({ cancelTarget: false })])).not.toThrow();
     });
 
     test("extension section ohne component → Throw (Parität zu entityEdit)", () => {

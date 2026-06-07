@@ -885,6 +885,85 @@ describe("KumikoScreen", () => {
     expect(navigateCalls[0]).toEqual({ screenId: "task-list" });
   });
 
+  // cancelTarget (Bug-Bash 2026-06-07, Bug 9): redirect erzeugte
+  // automatisch einen Abbrechen-Button mit demselben Ziel wie der
+  // Submit-Redirect — auf Single-Action-Screens ("Test-Mail senden")
+  // semantisch leer. `cancelTarget: false` schaltet ihn ab,
+  // `cancelTarget: "<screen>"` entkoppelt ihn vom redirect.
+  test("actionForm mit redirect: Abbrechen-Button existiert (historisches Default-Verhalten)", () => {
+    const actionScreen: ActionFormScreenDefinition = {
+      id: "quick-add",
+      type: "actionForm",
+      handler: "tasks:write:task:quick-add",
+      fields: { title: { type: "text", required: true } },
+      layout: { sections: [{ title: "x", fields: ["title"] }] },
+      redirect: "task-list",
+    };
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <KumikoScreen
+          schema={{ ...schema, screens: [actionScreen, listScreen] }}
+          qn="tasks:screen:quick-add"
+        />
+      </DispatcherProvider>,
+    );
+    expect(screen.getByTestId("render-edit-cancel")).toBeTruthy();
+  });
+
+  test("actionForm mit cancelTarget=false: KEIN Abbrechen-Button trotz redirect", () => {
+    const actionScreen: ActionFormScreenDefinition = {
+      id: "quick-add",
+      type: "actionForm",
+      handler: "tasks:write:task:quick-add",
+      fields: { title: { type: "text", required: true } },
+      layout: { sections: [{ title: "x", fields: ["title"] }] },
+      redirect: "task-list",
+      cancelTarget: false,
+    };
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <KumikoScreen
+          schema={{ ...schema, screens: [actionScreen, listScreen] }}
+          qn="tasks:screen:quick-add"
+        />
+      </DispatcherProvider>,
+    );
+    expect(screen.queryByTestId("render-edit-cancel")).toBeNull();
+  });
+
+  test("actionForm mit cancelTarget-Screen: Abbrechen navigiert dorthin, auch ohne redirect", async () => {
+    const navigateCalls: { screenId: string }[] = [];
+    const memoryNav = {
+      route: { screenId: "quick-add" },
+      navigate: (target: { screenId: string }) => navigateCalls.push(target),
+      replace: () => undefined,
+      hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
+      searchParams: {},
+      setSearchParams: () => undefined,
+    };
+    const actionScreen: ActionFormScreenDefinition = {
+      id: "quick-add",
+      type: "actionForm",
+      handler: "tasks:write:task:quick-add",
+      fields: { title: { type: "text", required: true } },
+      layout: { sections: [{ title: "x", fields: ["title"] }] },
+      cancelTarget: "task-list",
+    };
+    const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
+    render(
+      <NavProvider value={memoryNav}>
+        <DispatcherProvider dispatcher={makeDispatcher()}>
+          <KumikoScreen
+            schema={{ ...schema, screens: [actionScreen, listScreen] }}
+            qn="tasks:screen:quick-add"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+    fireEvent.click(screen.getByTestId("render-edit-cancel"));
+    expect(navigateCalls).toEqual([{ screenId: "task-list" }]);
+  });
+
   // Tier 2.7e-2: URL-Search-Params füllen die actionForm initial values.
   // Use-case: rowAction kind=navigate setzt `?taskId=r1`, das actionForm
   // sieht es beim Mount und pre-fillt das title-Feld.
