@@ -196,6 +196,37 @@ const seedFeature = defineFeature("seeddemo", (r) => {
   });
 });
 
+// Readiness-Scenario: required keys — feature is unusable until the tenant
+// sets real values (mirrors mail-transport-smtp / file-provider-s3).
+const transportFeature = defineFeature("transport", (r) => {
+  r.requires("config");
+  return r.config({
+    keys: {
+      smtpHost: createTenantConfig("text", {
+        required: true,
+        default: "",
+        write: access.roles("Admin"),
+        read: access.admin,
+      }),
+      apiUrl: createTenantConfig("text", {
+        required: true,
+        default: "",
+        write: access.roles("Admin"),
+      }),
+      // Stays unset for the whole suite — read-access tests rely on it.
+      webhookUrl: createTenantConfig("text", {
+        required: true,
+        default: "",
+        write: access.roles("Admin"),
+      }),
+      timeout: createTenantConfig("number", {
+        required: true,
+        write: access.roles("Admin"),
+      }),
+    },
+  });
+});
+
 const testEncryptionKey = randomBytes(32).toString("base64");
 
 beforeAll(async () => {
@@ -212,6 +243,7 @@ beforeAll(async () => {
       integrationFeature,
       probeFeature,
       seedFeature,
+      transportFeature,
     ],
     // Wire `ctx.config()` for real handlers: pass the resolver-bound factory
     // so the dispatcher can mint a per-user accessor inside buildHandlerContext.
@@ -687,6 +719,87 @@ describe("config.schema query handler", () => {
 
     expect(schema["invoicing:config:mail-signature"]).toBeDefined();
     expect(schema["app:config:service-url"]).toBeUndefined();
+  });
+});
+
+// --- config.readiness query ---
+
+describe("config.readiness query handler", () => {
+  type Missing = { missing: Array<{ key: string; scope: string; type: string }> };
+
+  test("lists required keys without a usable value — and only those", async () => {
+    const { missing } = await stack.http.queryOk<Missing>(ConfigQueries.readiness, {}, tenantAdmin);
+
+    const keys = missing.map((m) => m.key);
+    expect(keys).toContain("transport:config:smtp-host");
+    expect(keys).toContain("transport:config:api-url");
+    expect(keys).toContain("transport:config:timeout");
+    // Non-required keys never show up, configured or not.
+    expect(keys).not.toContain("app:config:mail-server");
+    expect(keys).not.toContain("orders:config:max-order-count");
+  });
+
+  test("whitespace-only text value still counts as missing (requireNonEmpty-Parität)", async () => {
+    await stack.http.writeOk(
+      ConfigHandlers.set,
+      { key: "transport:config:api-url", value: "   " },
+      tenantAdmin,
+    );
+
+    const { missing } = await stack.http.queryOk<Missing>(ConfigQueries.readiness, {}, tenantAdmin);
+    expect(missing.map((m) => m.key)).toContain("transport:config:api-url");
+  });
+
+  test("a real value clears the key from the missing list", async () => {
+    await stack.http.writeOk(
+      ConfigHandlers.set,
+      { key: "transport:config:api-url", value: "https://api.example.com" },
+      tenantAdmin,
+    );
+    await stack.http.writeOk(
+      ConfigHandlers.set,
+      { key: "transport:config:timeout", value: 30 },
+      tenantAdmin,
+    );
+
+    const { missing } = await stack.http.queryOk<Missing>(ConfigQueries.readiness, {}, tenantAdmin);
+    const keys = missing.map((m) => m.key);
+    expect(keys).not.toContain("transport:config:api-url");
+    expect(keys).not.toContain("transport:config:timeout");
+    // Untouched required keys stay missing.
+    expect(keys).toContain("transport:config:smtp-host");
+  });
+
+  test("filters by read access", async () => {
+    const { missing } = await stack.http.queryOk<Missing>(ConfigQueries.readiness, {}, normalUser);
+
+    const keys = missing.map((m) => m.key);
+    // read: all (tenant-scope default) → visible to a plain User
+    expect(keys).toContain("transport:config:webhook-url");
+    // read: admin-only → hidden from a plain User even though unset
+    expect(keys).not.toContain("transport:config:smtp-host");
+  });
+
+  test("readiness is per-tenant: another tenant still sees the keys as missing", async () => {
+    const { missing } = await stack.http.queryOk<Missing>(
+      ConfigQueries.readiness,
+      {},
+      otherTenantAdmin,
+    );
+
+    const keys = missing.map((m) => m.key);
+    expect(keys).toContain("transport:config:api-url");
+    expect(keys).toContain("transport:config:timeout");
+  });
+
+  test("schema query exposes the required flag for UI rendering", async () => {
+    const schema = await stack.http.queryOk<Record<string, { required?: boolean }>>(
+      ConfigQueries.schema,
+      {},
+      tenantAdmin,
+    );
+    expect(schema["transport:config:smtp-host"]?.required).toBe(true);
+    expect(schema["app:config:mail-server"]?.required).toBeUndefined();
   });
 });
 

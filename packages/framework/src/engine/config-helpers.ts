@@ -49,6 +49,7 @@ type ConfigKeyOptions<T extends ConfigKeyType> = {
   bounds?: T extends "number" ? ConfigBounds : never;
   computed?: ConfigComputedFn<T>;
   allowPerRequest?: T extends "text" ? never : boolean;
+  required?: boolean;
 };
 
 // --- Scope Defaults ---
@@ -80,6 +81,7 @@ function createConfigKey<T extends ConfigKeyType>(
     bounds: opts.bounds as ConfigBounds | undefined, // @cast-boundary schema-walk
     computed: opts.computed,
     ...(opts.allowPerRequest === true ? { allowPerRequest: true } : {}),
+    ...(opts.required === true ? { required: true } : {}),
   };
 }
 

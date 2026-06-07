@@ -86,6 +86,11 @@ export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
   // Nicht kombinierbar mit encrypted (Boot-Reject) — encrypted Keys
   // werden nicht transient aus Query-Strings heraus gelesen.
   readonly allowPerRequest?: boolean;
+  // Tenant must supply a real value before the owning feature works — for
+  // text keys an empty/whitespace value counts as unset. Surfaced by
+  // config:query:readiness; keep in sync with the feature's requireNonEmpty
+  // calls in its build-fn.
+  readonly required?: boolean;
 };
 
 export type ConfigDefinition = {

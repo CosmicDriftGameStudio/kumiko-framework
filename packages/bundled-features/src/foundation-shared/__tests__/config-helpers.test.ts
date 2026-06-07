@@ -7,6 +7,7 @@
 // unterschieden werden.
 
 import { describe, expect, test } from "bun:test";
+import { InternalError, UnconfiguredError } from "@cosmicdrift/kumiko-framework/errors";
 import { requireDefined, requireNonEmpty } from "../config-helpers";
 
 describe("requireDefined", () => {
@@ -14,6 +15,10 @@ describe("requireDefined", () => {
     expect(() => requireDefined(undefined, "ai-foundation", "apiKey")).toThrow(
       "ai-foundation: 'apiKey' config key resolved to undefined — registry misconfigured (no value + no default)",
     );
+  });
+
+  test("undefined → wirft InternalError (500): Dev-Bug, kein Tenant-Gap", () => {
+    expect(() => requireDefined(undefined, "ai-foundation", "apiKey")).toThrow(InternalError);
   });
 
   test("defined Wert → unverändert zurück", () => {
@@ -46,6 +51,18 @@ describe("requireNonEmpty", () => {
     expect(() => requireNonEmpty("", "file-foundation", "bucket")).toThrow(
       "file-foundation: 'bucket' is empty — tenant must configure it before use. Set via tenant-admin UI or seed-handler.",
     );
+  });
+
+  test("leerer String → wirft UnconfiguredError (422, code unconfigured, typed details)", () => {
+    try {
+      requireNonEmpty("", "file-foundation", "bucket");
+      throw new Error("expected requireNonEmpty to throw");
+    } catch (err) {
+      if (!(err instanceof UnconfiguredError)) throw err;
+      expect(err.code).toBe("unconfigured");
+      expect(err.httpStatus).toBe(422);
+      expect(err.details).toMatchObject({ feature: "file-foundation", key: "bucket" });
+    }
   });
 
   test("leerer String mit custom uiHint → Hint landet in der Message", () => {

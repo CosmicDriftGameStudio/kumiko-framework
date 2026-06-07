@@ -176,7 +176,9 @@ export type UnprocessableOpts = Pick<ErrorOpts, "i18nKey" | "i18nParams" | "caus
 };
 
 export class UnprocessableError extends KumikoError {
-  readonly code = "unprocessable";
+  // Widened to `string` so subclasses (UnconfiguredError) can refine the
+  // value — same pattern as ConflictError above.
+  readonly code: string = "unprocessable";
   readonly httpStatus = 422;
 
   constructor(reason: string, opts?: UnprocessableOpts) {
@@ -187,6 +189,32 @@ export class UnprocessableError extends KumikoError {
       details: { reason, ...opts?.details },
       ...(opts?.cause && { cause: opts.cause }),
     });
+  }
+}
+
+// A required tenant-config key has no usable value yet. Same 422 as the
+// parent, but a distinct code so clients can route the user to the settings
+// screen instead of showing a generic business-rule error.
+export type UnconfiguredDetails = {
+  readonly feature: string;
+  readonly key: string;
+  readonly hint?: string;
+};
+
+export class UnconfiguredError extends UnprocessableError {
+  override readonly code: string = "unconfigured";
+
+  constructor(details: UnconfiguredDetails, opts?: Pick<ErrorOpts, "i18nKey" | "cause">) {
+    super(
+      `${details.feature}: '${details.key}' is empty — tenant must configure it before use.${
+        details.hint ? ` ${details.hint}` : ""
+      }`,
+      {
+        i18nKey: opts?.i18nKey ?? "errors.unconfigured",
+        details,
+        ...(opts?.cause && { cause: opts.cause }),
+      },
+    );
   }
 }
 
