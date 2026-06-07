@@ -205,6 +205,14 @@ describe("multi-tenant user", () => {
     const tenantIds = memberships.map((m: Record<string, unknown>) => m["tenantId"]);
     expect(tenantIds).toContain(testTenantId(1));
     expect(tenantIds).toContain(testTenantId(2));
+
+    // tenantName/tenantKey machen die Memberships im UI unterscheidbar
+    // (Tenant-Switcher) — die Query reichert sie aus der tenants-Tabelle an.
+    const acme = memberships.find(
+      (m: Record<string, unknown>) => m["tenantId"] === testTenantId(1),
+    );
+    expect(acme["tenantName"]).toBe("ACME");
+    expect(acme["tenantKey"]).toBe("acme");
   });
 
   test("user has different roles per tenant", async () => {
@@ -231,6 +239,14 @@ describe("multi-tenant user", () => {
     const body = await res.json();
     expect(body.tenants.length).toBe(2);
     expect(body.activeTenantId).toBe(testTenantId(1));
+
+    // name/key kommen bis in die HTTP-Response durch (Tenant-Switcher-Label).
+    const names = body.tenants.map((t: Record<string, unknown>) => t["name"]);
+    expect(names).toContain("ACME");
+    expect(names).toContain("Beta Inc");
+    const keys = body.tenants.map((t: Record<string, unknown>) => t["key"]);
+    expect(keys).toContain("acme");
+    expect(keys).toContain("beta");
   });
 
   test("POST /auth/switch-tenant issues new JWT with different tenant", async () => {

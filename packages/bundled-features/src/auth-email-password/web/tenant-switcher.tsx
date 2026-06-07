@@ -57,8 +57,14 @@ export function TenantSwitcher({ tenantName }: TenantSwitcherProps): ReactNode {
     [activeTenantId, switchTenant],
   );
 
-  const nameOf = (tenantId: string): string =>
-    tenantName !== undefined ? tenantName(tenantId) : tenantId.slice(0, 8);
+  // Label-Priorität: App-eigener Resolver (Prop) > Server-geliefertes
+  // name/key aus /auth/tenants > UUID-Präfix. Letzteres ist nur noch der
+  // Notnagel — bei Seed-Tenants (00000000-…) ist es ununterscheidbar.
+  const nameOf = (tenantId: string): string => {
+    if (tenantName !== undefined) return tenantName(tenantId);
+    const membership = tenants.find((m) => m.tenantId === tenantId);
+    return membership?.name ?? membership?.key ?? tenantId.slice(0, 8);
+  };
 
   // Rendering-Gate: kein User → nix; nur ein Tenant → auch nix
   // (Single-Tenant-Apps brauchen keinen Switcher).

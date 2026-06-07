@@ -14,6 +14,10 @@ import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-dispatcher-
 export type TenantSummary = {
   readonly tenantId: string;
   readonly roles: readonly string[];
+  /** Display-Name aus /auth/tenants — fehlt nur bei App-eigenen
+   *  membership-Queries ohne tenantName-Anreicherung. */
+  readonly name?: string;
+  readonly key?: string;
 };
 
 export type LoginRequest = {
