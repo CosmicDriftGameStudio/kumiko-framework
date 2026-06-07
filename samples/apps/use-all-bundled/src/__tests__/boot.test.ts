@@ -13,7 +13,10 @@
 
 import { describe, expect, test } from "bun:test";
 import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features";
+import { extractTableInfo } from "@cosmicdrift/kumiko-framework/bun-db";
+import { enumerateFeatureTableSources } from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import { ENTITY_METAS } from "../../kumiko/schema";
 import { APP_FEATURES } from "../run-config";
 
 const composedFeatures = composeFeatures([...APP_FEATURES], {
@@ -39,5 +42,29 @@ describe("use-all-bundled boot", () => {
       .filter((f) => f.description === undefined || f.description.length === 0)
       .map((f) => f.name);
     expect(undescribed).toEqual([]);
+  });
+
+  // Parity-Guard für #255: setupTestStack auto-pusht projection-/MSP-/raw-
+  // Tabellen, `kumiko schema generate` liest ENTITY_METAS. Divergieren die
+  // Mengen, sind Tests grün während der erste Prod-Write crasht (Tabelle
+  // fehlt in den Migrations).
+  test("ENTITY_METAS covers every table the test-stack would auto-push (#255)", () => {
+    const generated = new Set(ENTITY_METAS.map((m) => m.tableName));
+    const missing: string[] = [];
+    for (const f of composedFeatures) {
+      for (const { table, origin } of enumerateFeatureTableSources(f)) {
+        const name = extractTableInfo(table).name;
+        if (!generated.has(name)) missing.push(`${name} (${origin})`);
+      }
+    }
+    expect(missing).toEqual([]);
+  });
+
+  test("projection-only tables land in ENTITY_METAS (#255)", () => {
+    const generated = new Set(ENTITY_METAS.map((m) => m.tableName));
+    // billing-foundation registriert read_subscriptions NUR als r.projection,
+    // jobs read_job_runs ebenso — vor dem Fix fehlten beide in Migrations.
+    expect(generated.has("read_subscriptions")).toBe(true);
+    expect(generated.has("read_job_runs")).toBe(true);
   });
 });

@@ -9,14 +9,16 @@ export type {
   PgListenClient,
 } from "./connection";
 export { bunDbConnectionOptionsFromEnv, createBunDbConnection } from "./connection";
-export type { SelectOptions, WhereObject, WhereOperator, WhereValue } from "./query";
+export type { SelectOptions, TableInfo, WhereObject, WhereOperator, WhereValue } from "./query";
 export {
+  asEntityTableMeta,
   asRawClient,
   countWhere,
   type DeleteManyBatchedOptions,
   type DeleteManyBatchedResult,
   deleteMany,
   deleteManyBatched,
+  extractTableInfo,
   fetchOne,
   type IncrementCounterOptions,
   incrementCounter,
