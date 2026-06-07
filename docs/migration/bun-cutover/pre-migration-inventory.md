@@ -1,3 +1,9 @@
+---
+status: reference
+verified: 2026-06-07
+evidence: git: 462a33da 'phase-1.5: node-api-sweep + native-module-inventar' — reines Inventar-Snapshot, kein Plan, kein Aktionspunkt
+---
+
 # Pre-Migration Inventory (2026-05-24)
 
 ## Node-API Usage
