@@ -22,6 +22,7 @@
     "./compliance-profiles": "./src/compliance-profiles/index.ts",
     "./config": "./src/config/index.ts",
     "./data-retention": "./src/data-retention/index.ts",
+    "./readiness": "./src/readiness/index.ts",
     "./jobs": "./src/jobs/index.ts",
     "./tier-engine": "./src/tier-engine/index.ts",
     "./cap-counter": "./src/cap-counter/index.ts",

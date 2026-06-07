@@ -20,6 +20,7 @@ import { requireSecretsContext } from "../feature";
 function makeRawSecretsContext(): SecretsContext {
   return {
     get: mock(),
+    has: mock(),
     set: mock(),
     delete: mock(),
   };

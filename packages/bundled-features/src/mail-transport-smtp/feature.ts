@@ -32,6 +32,7 @@ import {
 import {
   requireDefined,
   requireNonEmpty,
+  requireSecretSet,
 } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
 import type { MailTransportPlugin } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
@@ -68,6 +69,8 @@ export const mailTransportSmtpFeature = defineFeature(FEATURE_NAME, (r) => {
       return `${plaintext.slice(0, 3)}...${plaintext.slice(-2)}`;
     },
     scope: "tenant",
+    // required: true ↔ the missing-secret throw in readPassword — keep in sync.
+    required: true,
   });
 
   // required: true ↔ the requireNonEmpty calls in buildSmtpTransport — keep in sync.
@@ -180,10 +183,5 @@ async function buildSmtpTransport(ctx: HandlerContext, tenantId: string): Promis
 async function readPassword(ctx: HandlerContext, tenantId: string): Promise<string> {
   const secrets = requireSecretsContext(ctx, FEATURE_NAME);
   const branded = await secrets.get(tenantId, SMTP_PASSWORD);
-  if (!branded) {
-    throw new Error(
-      `${FEATURE_NAME}: ${SMTP_PASSWORD.name} not set for tenant ${tenantId} — Tenant-Admin must set it via /api/write/secrets:write:set`,
-    );
-  }
-  return branded.reveal();
+  return requireSecretSet(branded, FEATURE_NAME, SMTP_PASSWORD.name).reveal();
 }

@@ -108,6 +108,10 @@ export type SecretKeyDefinition = {
   readonly hint?: { readonly [locale: string]: string };
   // Per-secret scope. v1 only "tenant" — user / system scopes ship in v2.
   readonly scope: "tenant";
+  // Tenant must set this secret before the owning feature works. Surfaced
+  // by readiness:query:status; keep in sync with the missing-secret throw
+  // in the feature's build-fn.
+  readonly required?: boolean;
 };
 
 export type SecretOptions = Omit<SecretKeyDefinition, "shortName" | "qualifiedName">;

@@ -75,6 +75,8 @@ export function requireSecretsContext(
   return {
     get: (tenantId, key, overrideAudit) =>
       raw.get(tenantId, key, overrideAudit ?? { userId, handlerName }),
+    // No audit injection: has() is metadata-only and never logs a read.
+    has: raw.has.bind(raw),
     set: raw.set.bind(raw),
     delete: raw.delete.bind(raw),
   };

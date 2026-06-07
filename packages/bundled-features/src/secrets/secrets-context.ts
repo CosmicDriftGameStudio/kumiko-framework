@@ -179,6 +179,14 @@ export function createSecretsContext(opts: SecretsContextOptions): SecretsContex
       return createSecret(plaintext);
     },
 
+    async has(tenantId, keyOrHandle) {
+      // Row-existence only — no decrypt, no DEK unwrap, no read-audit
+      // event. The audit table logs credential reads; a readiness probe
+      // never sees the value, so logging it would dilute the trail.
+      const existing = await lookup(tenantId, resolveKey(keyOrHandle));
+      return existing !== undefined;
+    },
+
     async set(tenantId, keyOrHandle, value, setOpts = {}) {
       const key = resolveKey(keyOrHandle);
       const envelope = await encryptValue(value, masterKeyProvider);

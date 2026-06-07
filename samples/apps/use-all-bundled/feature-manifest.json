@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled)",
-  "featureCount": 37,
+  "featureCount": 38,
   "features": [
     {
       "name": "audit",
@@ -607,6 +607,22 @@
       "description": "Adds an ops-side `rate-limiting:query:status` query handler for inspecting current bucket state; the actual request throttling is wired automatically by the dispatcher when any handler declares a `rateLimit` option (e.g. `{ per: 'user', limit: 3, windowSeconds: 60 }`) or when you pass `context.rateLimit` to `buildServer`. Loading this feature is optional if you only need L3 per-handler rate limits and have no need for ops introspection.",
       "toggleableDefault": null,
       "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "readiness",
+      "description": "One-call tenant-onboarding probe: `readiness:query:status` rolls up every config key and secret declared `required: true` across all mounted features and reports which still lack a usable value for the calling tenant, plus a single `ready` boolean. Mount it (together with `config` and `secrets`) when an admin UI needs a settings checklist before the first mail-send or file-write; the per-concern lists stay available via `config:query:readiness` and `secrets:query:list`.",
+      "toggleableDefault": null,
+      "requires": [
+        "config",
+        "secrets"
+      ],
       "optionalRequires": [],
       "configReads": [],
       "exposesApis": [],

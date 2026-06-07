@@ -206,6 +206,11 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "@cosmicdrift/kumiko-bundled-features/channel-push",
     factory: "createChannelPushFeature",
   },
+  readiness: {
+    kind: "named",
+    path: "@cosmicdrift/kumiko-bundled-features/readiness",
+    exportName: "readinessFeature",
+  },
   "mail-transport-smtp": {
     kind: "named",
     path: "@cosmicdrift/kumiko-bundled-features/mail-transport-smtp",

@@ -75,3 +75,23 @@ export function requireNonEmpty(
   }
   return trimmed;
 }
+
+/**
+ * Narrow a `ctx.secrets.get()` result → set secret. The secrets-counterpart
+ * to requireNonEmpty: a missing secret is a tenant-configuration gap, not a
+ * crash — same 422 contract, so clients route to the settings screen.
+ *
+ * `key` is the secret's qualified name (`HANDLE.name`) so the error names
+ * exactly what `secrets:write:set` expects.
+ */
+export function requireSecretSet<T>(
+  value: T | undefined,
+  featureName: string,
+  key: string,
+  uiHint = "Set via secrets:write:set or the tenant-admin UI.",
+): T {
+  if (value === undefined) {
+    throw new UnconfiguredError({ feature: featureName, key, hint: uiHint });
+  }
+  return value;
+}
