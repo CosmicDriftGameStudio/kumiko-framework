@@ -111,6 +111,9 @@ export const fileFoundationFeature = defineFeature(FEATURE_NAME, (r) => {
       }),
     },
   });
+  // Readiness gating: provider-plugins' required keys/secrets count only
+  // while their plugin is the one this key selects.
+  r.extensionSelector("fileProvider", configKeys.provider);
 
   return { configKeys };
 });

@@ -96,6 +96,9 @@ export const mailFoundationFeature = defineFeature(FEATURE_NAME, (r) => {
       }),
     },
   });
+  // Readiness gating: transport-plugins' required keys/secrets count only
+  // while their plugin is the one this key selects.
+  r.extensionSelector("mailTransport", configKeys.provider);
 
   return {
     /** Config-key-handle for the provider-selector. */

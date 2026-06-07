@@ -43,6 +43,7 @@ export type {
   ReferenceDataDef,
   RegistrarExtensionDef,
   RegistrarExtensionHooks,
+  ExtensionSelectorDef,
   RegistrarExtensionRegistration,
   RunIn,
   TranslationEntry,

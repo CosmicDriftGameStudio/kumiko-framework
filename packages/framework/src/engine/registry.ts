@@ -143,6 +143,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const handlerFeatureMap = new Map<string, string>();
   const extensionMap = new Map<string, RegistrarExtensionDef>();
   const extensionUsages: RegistrarExtensionRegistration[] = [];
+  const extensionSelectorMap = new Map<string, string>();
   const allReferenceData: ReferenceDataDef[] = [];
   const allConfigSeeds: ConfigSeedDef[] = [];
   const mergedTranslations: Record<string, Record<string, string>> = {};
@@ -471,7 +472,20 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       }
       extensionMap.set(extName, extDef);
     }
-    extensionUsages.push(...(feature.extensionUsages ?? []));
+    // Annotate the owner so consumers (readiness gating) can map a
+    // registration back to the feature's config keys + secrets.
+    extensionUsages.push(
+      ...(feature.extensionUsages ?? []).map((u) => ({ ...u, featureName: feature.name })),
+    );
+    for (const sel of feature.extensionSelectors ?? []) {
+      if (extensionSelectorMap.has(sel.extensionName)) {
+        throw new Error(
+          `Duplicate extension selector for "${sel.extensionName}" ` +
+            `(feature "${feature.name}") — one owning feature declares the selector.`,
+        );
+      }
+      extensionSelectorMap.set(sel.extensionName, sel.qualifiedKey);
+    }
     allReferenceData.push(...(feature.referenceData ?? []));
     allConfigSeeds.push(...(feature.configSeeds ?? []));
 
@@ -739,6 +753,24 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       if (queryHandlerMap.has(queryQn)) {
         handlerEntityMap.set(queryQn, entityName);
       }
+    }
+  }
+
+  // Selector declarations point into the merged extension + config-key
+  // sets — a typo'd extension or dropped key must fail the boot, not
+  // silently un-gate readiness.
+  for (const [extensionName, qualifiedKey] of extensionSelectorMap) {
+    if (!extensionMap.has(extensionName)) {
+      throw new Error(
+        `extensionSelector("${extensionName}") declared but no feature ` +
+          `registers that extension via extendsRegistrar.`,
+      );
+    }
+    if (!configKeyMap.has(qualifiedKey)) {
+      throw new Error(
+        `extensionSelector("${extensionName}") points at unknown config key ` +
+          `"${qualifiedKey}" — no mounted feature declares it.`,
+      );
     }
   }
 
@@ -1409,6 +1441,10 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     getExtensionUsages(extensionName: string): readonly RegistrarExtensionRegistration[] {
       return extensionUsages.filter((u) => u.extensionName === extensionName);
+    },
+
+    getAllExtensionSelectors(): ReadonlyMap<string, string> {
+      return extensionSelectorMap;
     },
 
     getAllNotifications(): ReadonlyMap<string, NotificationDefinition> {

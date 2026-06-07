@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { defineFeature } from "../define-feature";
 import { createRegistry } from "../registry";
+import { createTenantConfig } from "../config-helpers";
 import type { FeatureDefinition } from "../types/feature";
 
 // Hand-built FeatureDefinition that bypasses defineFeature() — the latter
@@ -54,5 +56,78 @@ describe("createRegistry slot robustness", () => {
     expect(() =>
       createRegistry([bareFeature({ entities: {}, entityHooks: undefined })]),
     ).not.toThrow();
+  });
+});
+
+describe("extensionSelector boot-validation", () => {
+  function foundationFeature() {
+    return defineFeature("probe-foundation", (r) => {
+      r.extendsRegistrar("probeTransport", { onRegister: () => undefined });
+      const configKeys = r.config({
+        keys: { provider: createTenantConfig("text", { default: "" }) },
+      });
+      r.extensionSelector("probeTransport", configKeys.provider);
+      return { configKeys };
+    });
+  }
+
+  test("valid declaration lands in getAllExtensionSelectors", () => {
+    const registry = createRegistry([foundationFeature()]);
+    expect(registry.getAllExtensionSelectors().get("probeTransport")).toBe(
+      "probe-foundation:config:provider",
+    );
+  });
+
+  test("usages carry the owning featureName after merge", () => {
+    const provider = defineFeature("probe-smtp", (r) => {
+      r.useExtension("probeTransport", "smtp");
+    });
+    const registry = createRegistry([foundationFeature(), provider]);
+    const usage = registry.getExtensionUsages("probeTransport")[0];
+    expect(usage?.featureName).toBe("probe-smtp");
+  });
+
+  test("duplicate selector across features fails the boot", () => {
+    const rival = defineFeature("probe-rival", (r) => {
+      const configKeys = r.config({
+        keys: { provider: createTenantConfig("text", { default: "" }) },
+      });
+      r.extensionSelector("probeTransport", configKeys.provider);
+      return { configKeys };
+    });
+    expect(() => createRegistry([foundationFeature(), rival])).toThrow(
+      /Duplicate extension selector/,
+    );
+  });
+
+  test("selector for an undeclared extension fails the boot", () => {
+    const orphan = defineFeature("probe-orphan", (r) => {
+      const configKeys = r.config({
+        keys: { provider: createTenantConfig("text", { default: "" }) },
+      });
+      r.extensionSelector("ghostTransport", configKeys.provider);
+      return { configKeys };
+    });
+    expect(() => createRegistry([orphan])).toThrow(/no feature registers that extension/);
+  });
+
+  test("selector pointing at an unknown config key fails the boot", () => {
+    const typo = defineFeature("probe-typo", (r) => {
+      r.extendsRegistrar("probeTransport", { onRegister: () => undefined });
+      r.extensionSelector("probeTransport", "probe-typo:config:does-not-exist");
+    });
+    expect(() => createRegistry([typo])).toThrow(/unknown config key/);
+  });
+
+  test("declaring the selector twice in one feature fails at define-time", () => {
+    expect(() =>
+      defineFeature("probe-double", (r) => {
+        const configKeys = r.config({
+          keys: { provider: createTenantConfig("text", { default: "" }) },
+        });
+        r.extensionSelector("probeTransport", configKeys.provider);
+        r.extensionSelector("probeTransport", configKeys.provider);
+      }),
+    ).toThrow(/declared twice/);
   });
 });
