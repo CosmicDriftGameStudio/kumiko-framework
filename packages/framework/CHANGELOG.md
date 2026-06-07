@@ -1,5 +1,28 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.31.0
+
+### Minor Changes
+
+- b74ddbe: Readiness provider-gating: `ready` counts only the selected provider's keys.
+
+  - `r.extensionSelector(extensionName, configKeyHandle)` — extension-point
+    owners declare which config key selects the active provider
+    (`mail-foundation` and `file-foundation` do). Without this, an app
+    mounting smtp + inmemory transports showed `ready: false` forever for a
+    tenant correctly running on inmemory.
+  - Readiness gating counts a provider-feature's required keys and secrets
+    only while that provider is the selected one. Applies to
+    `readiness:query:status` AND `config:query:readiness`. Features without
+    a selector-gated registration count unconditionally, as before.
+  - `RegistrarExtensionRegistration.featureName` — the registry annotates
+    each usage with its owning feature at merge time.
+  - `buildProviderSelectionGate` exported from the config barrel.
+  - Registry-build fails on duplicate selectors, selectors for undeclared
+    extensions, and unknown selector keys.
+
+- 5b1a594: `collectTableMetas(features)` (new export from `/db`): canonical `ENTITY_METAS` source for `kumiko schema generate` that covers the same table sources as the test-stack auto-push — entities, unmanaged tables, `r.projection`, `r.multiStreamProjection` (with table) and `r.rawTable`. Previously the canonical schema.ts template only collected entities + unmanaged tables, so projection-only tables (e.g. billing-foundation `read_subscriptions`, jobs `read_job_runs`) never landed in app migrations and the first prod write crashed (#255). Also exports `extractTableInfo`/`asEntityTableMeta` from `/bun-db`.
+
 ## 0.30.0
 
 ### Minor Changes
