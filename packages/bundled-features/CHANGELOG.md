@@ -1,5 +1,33 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.32.0
+
+### Minor Changes
+
+- 0009486: Theme-Persistenz, cancelTarget für actionForms, Login-Legal-Links
+
+  - Theme-Wahl wird in localStorage persistiert (`kumiko:theme`) und beim
+    ersten Mount restored (`applyStoredThemeMode` + `THEME_STORAGE_KEY`
+    exportiert) — vorher war der Dark/Light-Toggle nach jedem Reload weg.
+    FOUC-Schutz: Inline-Script-Snippet siehe tokens.ts-Header.
+  - `ActionFormScreenDefinition.cancelTarget?: string | false`: entkoppelt
+    den Abbrechen-Button vom Submit-`redirect`; `false` entfernt ihn
+    (Single-Action-Screens wie „Test-Mail senden"). Boot-Validator prüft
+    String-Targets wie `redirect`.
+  - `LoginScreen` bekommt `legalLinks` (Impressum/Datenschutz unterhalb
+    der Card) — der Login ist oft die einzige öffentliche Seite einer
+    Admin-Domain und braucht erreichbare Legal-Links (Impressumspflicht).
+
+### Patch Changes
+
+- Updated dependencies [5bb198b]
+- Updated dependencies [05c4447]
+- Updated dependencies [0009486]
+  - @cosmicdrift/kumiko-renderer@0.32.0
+  - @cosmicdrift/kumiko-renderer-web@0.32.0
+  - @cosmicdrift/kumiko-framework@0.32.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.32.0
+
 ## 0.31.1
 
 ### Patch Changes

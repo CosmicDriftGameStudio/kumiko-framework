@@ -1,5 +1,63 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.32.0
+
+### Minor Changes
+
+- 05c4447: Workspace-Navigation + Row-Action-Fehler sichtbar machen
+
+  - `useBrowserNavApi` honoriert jetzt den dokumentierten NavTarget-Contract:
+    `workspaceId` weglassen = aktueller Workspace bleibt. Vorher erzeugte
+    `navigate({ screenId })` im Workspace-Mode einen Pfad ohne Workspace-
+    Prefix, `parsePath` las das Screen-Segment als Workspace-Id und
+    `WorkspaceShell` revertete sofort auf den Default-Screen — Edit-/
+    Toolbar-Navigate-Aktionen wirkten tot.
+  - `RowActionNavigate` hat ein neues optionales `entityId(row)`:
+    entityEdit-Targets bekommen die Id als Pfad-Segment (`route.entityId`),
+    `?id=`-Search-Params öffneten den Edit-Screen im Create-Mode.
+  - navigate-Row-Actions setzen Search-Params jetzt NACH `nav.navigate`
+    (pushState trägt keine Query — vorher gesetzte Params klebten an der
+    alten URL, actionForm-Prefill kam leer an).
+  - Row-Action-Writes verwerfen Failure-Results nicht mehr:
+    `WriteFailedError` (neu exportiert, inkl. `dispatcherErrorText`) wird
+    geworfen und im Web-Renderer als destructive Toast gezeigt (inkl.
+    docsUrl). Vorher schloss der Confirm-Dialog kommentarlos — "Klick tut
+    nichts". Confirm-Dialoge schließen außerdem auch bei rejected
+    onConfirm statt offen zu hängen.
+
+### Patch Changes
+
+- 5bb198b: ConfigCascadeView übersetzt + scope-gefiltert
+
+  - Source-Badges und Cascade-Texte zeigten rohe i18n-Keys
+    (`config.source.default` …) — die Keys existierten in keinem Bundle.
+    Jetzt `kumiko.config.source.*` / `kumiko.config.cascade.*` mit de/en-
+    Defaults in `kumikoDefaultTranslations`; `ConfigSourceBadge` nutzt
+    dieselben Keys statt hartkodiertem Englisch.
+  - Nicht-System-Screens zeigen nur noch die eigene Cascade-Ebene plus
+    EINE neutrale „Vorgabe"-Zeile (effektiver Wert) — System/App-Override/
+    Computed sind Operator-Interna und für Tenant-/User-Scope unsichtbar.
+    `screenScope="system"` behält die Vollsicht.
+
+- 0009486: Theme-Persistenz, cancelTarget für actionForms, Login-Legal-Links
+
+  - Theme-Wahl wird in localStorage persistiert (`kumiko:theme`) und beim
+    ersten Mount restored (`applyStoredThemeMode` + `THEME_STORAGE_KEY`
+    exportiert) — vorher war der Dark/Light-Toggle nach jedem Reload weg.
+    FOUC-Schutz: Inline-Script-Snippet siehe tokens.ts-Header.
+  - `ActionFormScreenDefinition.cancelTarget?: string | false`: entkoppelt
+    den Abbrechen-Button vom Submit-`redirect`; `false` entfernt ihn
+    (Single-Action-Screens wie „Test-Mail senden"). Boot-Validator prüft
+    String-Targets wie `redirect`.
+  - `LoginScreen` bekommt `legalLinks` (Impressum/Datenschutz unterhalb
+    der Card) — der Login ist oft die einzige öffentliche Seite einer
+    Admin-Domain und braucht erreichbare Legal-Links (Impressumspflicht).
+
+- Updated dependencies [05c4447]
+- Updated dependencies [0009486]
+  - @cosmicdrift/kumiko-framework@0.32.0
+  - @cosmicdrift/kumiko-headless@0.32.0
+
 ## 0.31.1
 
 ### Patch Changes
