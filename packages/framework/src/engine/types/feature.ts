@@ -346,7 +346,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // Declare the feature as operator-togglable. `default` is the effective
   // state when no global-toggle row exists. Must be called at most once per
   // feature; calling on an always-on feature (e.g. auth/tenant/user) is a
-  // bug the registry catches at boot.
+  // bug — and one nothing catches at boot, so don't.
   toggleable(options: { default: boolean }): void;
 
   entity(name: string, definition: EntityDefinition): EntityRef;
@@ -555,8 +555,9 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // rules are for).
   authClaims(fn: AuthClaimsFn): void;
 
-  // Declare a claim key. Qualified name follows "<feature>:<kebab-short>"
-  // via the QN helper — same convention as r.secret / r.config. Returns a
+  // Declare a claim key. Qualified name follows "<feature>:<shortName>" —
+  // NO kebab conversion (it would break the claim round-trip, unlike
+  // r.secret / r.config). Returns a
   // typed handle so feature code can pass it to `readClaim(user, handle)`
   // without retyping the qualified string and with the right narrowed
   // return type.
@@ -593,7 +594,8 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // Register an HTTP-route owned by this feature. The route is mounted
   // outside the dispatcher pipeline (= außerhalb /api/write|query|batch),
   // direkt an die app — Use-Case: RSS/Atom-Feeds, OG-Images, OpenAPI-Specs.
-  // Boot-validation rejects duplicate "method path"-Combinations.
+  // Duplicate "method path"-Combinations are rejected per feature at setup
+  // time; there is no cross-feature check.
   // Symmetric to queryHandler/writeHandler — Routes leben mit dem Feature,
   // nicht im Bootstrap. Escape-hatch für nicht-feature-bound Routes
   // bleibt runProdApp.extraRoutes.

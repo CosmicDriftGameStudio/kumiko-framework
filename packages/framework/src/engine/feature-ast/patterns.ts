@@ -76,6 +76,11 @@ import type { SourceLocation } from "./source-location";
 // generates them as pure data. Round-trip without code spans.
 // =============================================================================
 
+// `r.entity(name, definition)` — declares an event-sourced entity: field
+// schema plus search/sort and PII metadata as one declarative object. The
+// framework derives the aggregate table, CRUD events, and the read-side
+// projection from it at boot. Fully static — the Designer renders it as a
+// form, the AI patcher edits it as pure data.
 export type EntityPattern = {
   readonly kind: "entity";
   readonly source: SourceLocation;
@@ -83,6 +88,13 @@ export type EntityPattern = {
   readonly definition: EntityDefinition;
 };
 
+// `r.relation(entity, relationName, definition)` — attaches a named
+// relationship to an entity: `belongsTo`, `hasMany`, or `manyToMany`
+// (discriminated by `type`). Each variant carries the target entity plus
+// its own extras: foreign key or join table, cascade behaviour (`onDelete`
+// — parent-side only, not on `belongsTo`), search includes, opt-in
+// `nestedWrite` expansion. Boot-validation checks that every target
+// resolves to a registered entity (cross-feature targets allowed).
 export type RelationPattern = {
   readonly kind: "relation";
   readonly source: SourceLocation;
@@ -91,59 +103,104 @@ export type RelationPattern = {
   readonly definition: RelationDefinition;
 };
 
+// `r.nav(definition)` — registers a nav entry under the feature-local short
+// id (qualified to `<feature>:nav:<id>`). Boot-validation checks that the
+// referenced `screen` and `parent` exist (cross-feature QNs allowed) and
+// that parent chains contain no cycles.
 export type NavPattern = {
   readonly kind: "nav";
   readonly source: SourceLocation;
   readonly definition: NavDefinition;
 };
 
+// `r.workspace(definition)` — registers a workspace, a persona-/role-scoped
+// UI surface (qualified to `<feature>:workspace:<id>`). Pure UI composition;
+// boot-validation checks that nav refs exist and that at most one workspace
+// per app declares `default: true`.
 export type WorkspacePattern = {
   readonly kind: "workspace";
   readonly source: SourceLocation;
   readonly definition: WorkspaceDefinition;
 };
 
+// `r.config({ keys, seeds? })` — declares per-tenant config keys and returns
+// a handle map; passing a handle to `ctx.config(handle)` narrows the value
+// type by the key's declared `type`. Optional `seeds` write boot-time rows
+// via the event-store executor (system-tenant by default, explicit
+// `tenantId` per seed) — idempotent, skipped when the stream already exists.
 export type ConfigPattern = {
   readonly kind: "config";
   readonly source: SourceLocation;
   readonly keys: Readonly<Record<string, ConfigKeyDefinition<ConfigKeyType>>>;
 };
 
+// `r.translations({ keys })` — registers locale-keyed string maps
+// (`key → { locale → text }`). The registry namespaces every key by feature
+// (`<feature>:<key>`), so short keys never collide across features;
+// `createI18n` consumes the merged map with default-locale fallback.
+// Multiple calls per feature merge, last write wins per key.
 export type TranslationsPattern = {
   readonly kind: "translations";
   readonly source: SourceLocation;
   readonly keys: TranslationKeys;
 };
 
+// `r.requires(...featureNames)` — hard dependency on other features; boot
+// fails when one is missing from the app composition. Callable-plus-
+// namespace: `r.requires.projection(table)` allow-lists a read-side table
+// for pipeline-step writes, `r.requires.step(kind)` opts into Tier-2 step
+// kinds.
 export type RequiresPattern = {
   readonly kind: "requires";
   readonly source: SourceLocation;
   readonly featureNames: readonly string[];
 };
 
+// `r.optionalRequires(...featureNames)` — soft dependency: the feature
+// integrates with the named features when they are mounted but boots fine
+// without them. For cross-cutting integrations (audit, notifications) that
+// degrade gracefully.
 export type OptionalRequiresPattern = {
   readonly kind: "optionalRequires";
   readonly source: SourceLocation;
   readonly featureNames: readonly string[];
 };
 
+// `r.systemScope()` — switches the feature's `TenantDb` to system mode: no
+// tenant filter on reads/updates/deletes, and INSERT treats `tenantId` as a
+// default the handler may override (tenant mode forces it). For features
+// whose aggregates span tenants, e.g. user management or platform
+// operations. Marker call — no arguments.
 export type SystemScopePattern = {
   readonly kind: "systemScope";
   readonly source: SourceLocation;
 };
 
+// `r.toggleable({ default })` — declares the feature operator-switchable via
+// the feature-toggles bundled feature; `default` is the effective state when
+// no global-toggle row exists. At most once per feature. Don't declare it on
+// always-on core features (auth, tenant, user) — that is a bug, and nothing
+// catches it at boot.
 export type ToggleablePattern = {
   readonly kind: "toggleable";
   readonly source: SourceLocation;
   readonly default: boolean;
 };
 
+// `r.describe(text)` — the one-to-three-sentence docs lead for the feature
+// ("what it does + when you need it"). At most once per feature, must be
+// non-empty. Flows through the feature manifest into the generated
+// feature-reference pages.
 export type DescribePattern = {
   readonly kind: "describe";
   readonly source: SourceLocation;
   readonly text: string;
 };
 
+// `r.metric(shortName, options)` — declares a metric under its short name
+// (without the `kumiko_<feature>_` prefix; the framework qualifies it at
+// boot and validates snake_case + type suffix). Runtime usage:
+// `ctx.metrics.inc("created_total", { status: "new" })`.
 export type MetricPattern = {
   readonly kind: "metric";
   readonly source: SourceLocation;
@@ -151,6 +208,10 @@ export type MetricPattern = {
   readonly options: MetricOptions;
 };
 
+// `r.secret(shortName, options)` — declares a tenant-scoped secret key,
+// qualified to `<feature>:secret:<kebab-short>` via the QN helper. Returns a
+// typed handle for `ctx.secrets.get`, so feature code never retypes the
+// qualified string — same ergonomics as `r.config` handles.
 export type SecretPattern = {
   readonly kind: "secret";
   readonly source: SourceLocation;
@@ -158,6 +219,12 @@ export type SecretPattern = {
   readonly options: SecretOptions;
 };
 
+// `r.claimKey(shortName, { type })` — declares a session-claim key,
+// qualified to `<feature>:<shortName>` (no kebab conversion — it would
+// break the claim round-trip), and returns a typed handle for
+// `readClaim(user, handle)`. Declaring keys also enables typo-drift
+// protection: `r.authClaims` hooks returning an undeclared inner key log a
+// warning (the claim still lands in the JWT — this is not strict mode).
 export type ClaimKeyPattern = {
   readonly kind: "claimKey";
   readonly source: SourceLocation;
@@ -165,6 +232,12 @@ export type ClaimKeyPattern = {
   readonly claimType: ClaimKeyType;
 };
 
+// `r.referenceData(entity, rows, options?)` — declares static lookup rows
+// for an entity, upserted by `seedReferenceData` (the app or dev-server
+// calls it at boot — not the framework itself): insert or update by
+// `upsertKey` — which defaults to the first field of the first row, so
+// declare it explicitly — and never delete. New rows land under
+// `SYSTEM_TENANT_ID`, i.e. global reference data, not tenant rows.
 export type ReferenceDataPattern = {
   readonly kind: "referenceData";
   readonly source: SourceLocation;
@@ -173,12 +246,23 @@ export type ReferenceDataPattern = {
   readonly upsertKey?: string;
 };
 
+// `r.readsConfig(...qualifiedKeys)` — declares that this feature reads
+// config keys owned by other features, in dot notation
+// (`featureName.shortKey`). Boot-validation throws when a declared key does
+// not exist anywhere. Purely declarative beyond that boot-time safety net —
+// runtime reads still go through `ctx.config(handle)`.
 export type ReadsConfigPattern = {
   readonly kind: "readsConfig";
   readonly source: SourceLocation;
   readonly qualifiedKeys: readonly string[];
 };
 
+// `r.useExtension(extensionName, entity, options?)` — opts an entity into a
+// registrar extension declared via `r.extendsRegistrar`: runs its
+// `onRegister`, merges its extra schema fields, and installs its entity
+// hooks at registry build time. The `options` bag is passed verbatim to
+// `onRegister` (per-entity configuration). Boot-validation throws when the
+// extension name does not exist.
 export type UseExtensionPattern = {
   readonly kind: "useExtension";
   readonly source: SourceLocation;
@@ -187,11 +271,12 @@ export type UseExtensionPattern = {
   readonly options?: Readonly<Record<string, unknown>>;
 };
 
-// `r.treeActions({ ... })` — Schema-Map für Visual-Tree-Action-Verben.
-// Static: Args sind Type-Samples (kein Runtime-Validator), Designer
-// rendert das als nested form pro Action. Compile-Time-Validation
-// passiert via setup-export-Handle (TreeActionsHandle), nicht über
-// dieses Pattern — das hier ist reine Runtime-Repräsentation.
+// `r.treeActions({ ... })` — the schema map for visual-tree action verbs
+// (action name → definition with optional typed args). Static: args are
+// type samples, not runtime validators; the Designer renders a nested form
+// per action. Compile-time validation happens via the exported
+// `TreeActionsHandle`, not through this pattern — this is the erased
+// runtime representation.
 export type TreeActionsPattern = {
   readonly kind: "treeActions";
   readonly source: SourceLocation;
@@ -219,6 +304,11 @@ export type OpaquePropMap = Readonly<Record<string, SourceLocation>>;
 export const SCREEN_OPAQUE_MARKER = "$opaque" as const;
 export type ScreenOpaqueMarker = typeof SCREEN_OPAQUE_MARKER;
 
+// `r.screen(definition)` — registers a screen under the feature-local short
+// id (qualified to `<feature>:screen:<id>`). Boot-validation checks that
+// entity-bound screens reference a registered entity and that column/form
+// field refs name real fields. Closure-valued props (visibility conditions,
+// row-action payloads, custom renderers) stay opaque — see `opaqueProps`.
 export type ScreenPattern = {
   readonly kind: "screen";
   readonly source: SourceLocation;
@@ -229,6 +319,9 @@ export type ScreenPattern = {
   readonly opaqueProps: OpaquePropMap;
 };
 
+// `r.writeHandler(...)` — registers a command handler: name, Zod input
+// schema, handler closure, plus optional `access` and `rateLimit` rules.
+// The header is declarative; schema and body stay opaque source spans.
 export type WriteHandlerPattern = {
   readonly kind: "writeHandler";
   readonly source: SourceLocation;
@@ -245,6 +338,9 @@ export type WriteHandlerPattern = {
   readonly unsafeSkipTransitionGuard?: boolean;
 };
 
+// `r.queryHandler(...)` — registers a read handler: name, Zod input schema,
+// handler closure, plus optional `access` and `rateLimit` rules. Read-side
+// counterpart of `r.writeHandler` with the same header/body split.
 export type QueryHandlerPattern = {
   readonly kind: "queryHandler";
   readonly source: SourceLocation;
@@ -255,6 +351,11 @@ export type QueryHandlerPattern = {
   readonly rateLimit?: RateLimitOption;
 };
 
+// `r.hook(type, target, fn, options?)` — attaches a lifecycle hook
+// (`validation`, `preSave`, `postSave`, `preDelete`, `postDelete`,
+// `preQuery`, `postQuery`) to one or more target handlers. Post-hooks
+// accept a `phase` option; `preDelete` always runs in-transaction — it
+// guards the delete. The hook body is an opaque code span.
 export type HookPattern = {
   readonly kind: "hook";
   readonly source: SourceLocation;
@@ -266,6 +367,11 @@ export type HookPattern = {
   readonly phase?: HookPhase;
 };
 
+// `r.entityHook(type, entity, fn, options?)` — like `r.hook`, but bound to
+// an entity instead of individual handlers: `postSave`, `preDelete`, and
+// `postDelete` fire on every matching write. The runtime API additionally
+// accepts `postQuery` (fires for all query-handlers of the entity), but
+// this pattern type only represents the three write-side hooks.
 export type EntityHookPattern = {
   readonly kind: "entityHook";
   readonly source: SourceLocation;
@@ -275,6 +381,13 @@ export type EntityHookPattern = {
   readonly phase?: HookPhase;
 };
 
+// `r.job(name, options, handler)` — registers a background job, qualified
+// to `<feature>:job:<short>` and executed on a BullMQ queue outside the
+// request pipeline. `trigger` is `{ on: handlerRef(s) }` (fires after the
+// handler commits), `{ cron: "..." }`, or `{ manual: true }`; options cover
+// concurrency modes, retries/backoff, timeout, `perTenant` fan-out, and the
+// `runIn` lane (`api`/`worker`). The handler body stays an opaque code
+// span.
 export type JobPattern = {
   readonly kind: "job";
   readonly source: SourceLocation;
@@ -285,6 +398,13 @@ export type JobPattern = {
   readonly handlerBody: SourceLocation;
 };
 
+// `r.notification(name, definition)` — declarative notification template,
+// qualified to `<feature>:notify:<short>`. At registry build it becomes an
+// after-commit postSave hook on the trigger handler that calls
+// `ctx.notify(name, { to, data })`: `recipient` picks userId(s), a tenant
+// broadcast, or `null` to skip; `data` builds the payload; per-channel
+// `templates` (email, in-app, push) render it. Delivered by the `delivery`
+// bundled feature — declare `r.requires("delivery")` alongside.
 export type NotificationPattern = {
   readonly kind: "notification";
   readonly source: SourceLocation;
@@ -296,22 +416,36 @@ export type NotificationPattern = {
   readonly templates?: Readonly<Record<string, SourceLocation>>;
 };
 
+// `r.authClaims(fn)` — contributes claims into `SessionUser.claims` whenever
+// a session is issued (login AND tenant switch — claims are recomputed to
+// avoid stale leaks across tenancies).
+// Multiple hooks merge; keys are auto-prefixed `<feature>:<key>`, so
+// cross-feature collisions are impossible by construction. Best-effort by
+// design: a throwing hook logs and drops only that feature's claims — login
+// still succeeds (identity facts are convenience, not access gates).
 export type AuthClaimsPattern = {
   readonly kind: "authClaims";
   readonly source: SourceLocation;
   readonly fnBody: SourceLocation;
 };
 
-// r.tree(provider) — Top-Level-Tree-Provider-Function. Closure-only,
-// kein Header-Form. Designer rendert als read-only Code-Block, AI-
-// Patcher überschreibt span verbatim. Konsistent mit r.authClaims —
-// auch da ist die Function-Body die einzige Information.
+// `r.tree(provider)` — the feature's top-level tree provider: a subscribe
+// function (emit-fn in, unsubscribe-fn out) that feeds workspaces with
+// `navigation: "tree"`. Features without `r.tree()` are invisible there —
+// provider presence IS the filter, there is no workspace mapping.
+// Closure-only, no header form: the Designer renders a read-only code
+// block, the AI patcher overwrites the span verbatim.
 export type TreePattern = {
   readonly kind: "tree";
   readonly source: SourceLocation;
   readonly providerBody: SourceLocation;
 };
 
+// `r.httpRoute(definition)` — mounts an HTTP route owned by the feature,
+// outside the dispatcher pipeline (not under `/api/write|query|batch`) —
+// for RSS/Atom feeds, OG images, OpenAPI specs and similar. Duplicate
+// method+path pairs are rejected per feature at setup time; nothing checks
+// across features.
 export type HttpRoutePattern = {
   readonly kind: "httpRoute";
   readonly source: SourceLocation;
@@ -321,6 +455,11 @@ export type HttpRoutePattern = {
   readonly handlerBody: SourceLocation;
 };
 
+// `r.projection(definition)` — registers a read-side projection driven by
+// events of one or more source entities. Apply functions run inside the
+// event-store's transaction, so the projection stays consistent with the
+// events that feed it. Apply bodies are opaque code spans keyed by event
+// type.
 export type ProjectionPattern = {
   readonly kind: "projection";
   readonly source: SourceLocation;
@@ -332,6 +471,12 @@ export type ProjectionPattern = {
   readonly applyBodies: Readonly<Record<string, SourceLocation>>;
 };
 
+// `r.multiStreamProjection(definition)` — registers a cross-aggregate async
+// projection. The event-dispatcher owns delivery via a dedicated cursor:
+// at-least-once, strictly ordered by event id — handlers must be idempotent.
+// For views spanning many aggregate types (billing summaries, audit views,
+// saga state); omit the table for pure side-effect consumers (notifications,
+// webhooks, external-system sync).
 export type MultiStreamProjectionPattern = {
   readonly kind: "multiStreamProjection";
   readonly source: SourceLocation;
@@ -342,6 +487,12 @@ export type MultiStreamProjectionPattern = {
   readonly delivery?: "shared" | "per-instance";
 };
 
+// `r.defineEvent(name, schema, options?)` — registers an event payload
+// shape and returns the qualified `EventDef`, so callers pass `.name` to
+// `ctx.appendEvent` instead of hand-building `<feature>:event:<short>`.
+// `options.version` declares the CURRENT schema generation (default 1);
+// bump it together with an `r.eventMigration` step — the framework refuses
+// to boot if the chain from 1 to the current version has gaps.
 export type DefineEventPattern = {
   readonly kind: "defineEvent";
   readonly source: SourceLocation;
@@ -350,6 +501,11 @@ export type DefineEventPattern = {
   readonly version?: number;
 };
 
+// `r.eventMigration(eventName, fromVersion, toVersion, transform)` —
+// registers a step-wise payload upcast for event-schema evolution.
+// `toVersion` must be `fromVersion + 1`; chain larger jumps step by step.
+// Transforms are pure old-payload-in/new-payload-out functions and run once
+// per READ, not once per event persisted — keep them cheap.
 export type EventMigrationPattern = {
   readonly kind: "eventMigration";
   readonly source: SourceLocation;
@@ -359,6 +515,11 @@ export type EventMigrationPattern = {
   readonly transformBody: SourceLocation;
 };
 
+// `r.extendsRegistrar(extensionName, def)` — declares a named, globally
+// unique extension point that other features opt into per entity via
+// `r.useExtension`. The def can contribute `onRegister`, extra schema
+// fields (`extendSchema`), and entity hooks; wiring happens at registry
+// build time.
 export type ExtendsRegistrarPattern = {
   readonly kind: "extendsRegistrar";
   readonly source: SourceLocation;
