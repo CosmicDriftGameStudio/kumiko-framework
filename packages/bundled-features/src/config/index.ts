@@ -15,6 +15,8 @@ export {
   createConfigAccessorFactory,
   createConfigFeature,
 } from "./feature";
+export type { ReadinessMissingKey } from "./handlers/readiness.query";
+export { collectMissingRequiredConfig } from "./handlers/readiness.query";
 export type { AppConfigOverrides, ConfigResolver } from "./resolver";
 export { createConfigResolver, validateAppOverrides } from "./resolver";
 export { configValuesTable } from "./table";

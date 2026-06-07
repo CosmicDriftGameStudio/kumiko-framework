@@ -41,6 +41,7 @@ import { mailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/mail
 import { mailTransportInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory";
 import { mailTransportSmtpFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-smtp";
 import { createRateLimitingFeature } from "@cosmicdrift/kumiko-bundled-features/rate-limiting";
+import { readinessFeature } from "@cosmicdrift/kumiko-bundled-features/readiness";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import { createRendererSimpleFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-simple";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
@@ -75,6 +76,7 @@ export const APP_FEATURES = [
   // foundations not in the auto-mounted bundled-set
   createSecretsFeature(),
   createSessionsFeature(),
+  readinessFeature,
 
   // delivery + channels
   createDeliveryFeature(),

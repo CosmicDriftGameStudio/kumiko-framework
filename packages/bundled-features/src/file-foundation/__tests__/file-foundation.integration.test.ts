@@ -189,7 +189,7 @@ describe("scenario 2: validation errors", () => {
     expect(error.details).toMatchObject({ feature: "file-provider-s3", key: "bucket" });
   });
 
-  test("missing secret-access-key → factory throws naming the secret", async () => {
+  test("missing secret-access-key → 422 unconfigured naming the secret", async () => {
     const admin = adminFor(503);
 
     await selectS3Provider(admin);
@@ -200,6 +200,12 @@ describe("scenario 2: validation errors", () => {
 
     const error = await stack.http.writeErr(TEST_HANDLER_QN, {}, admin);
     expect(JSON.stringify(error)).toMatch(/s3-secret-access-key/);
+    expect(error.httpStatus).toBe(422);
+    expect(error.code).toBe("unconfigured");
+    expect(error.details).toMatchObject({
+      feature: "file-provider-s3",
+      key: S3_SECRET_ACCESS_KEY.name,
+    });
   });
 });
 

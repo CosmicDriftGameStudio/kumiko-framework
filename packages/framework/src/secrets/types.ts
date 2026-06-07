@@ -58,6 +58,9 @@ export interface SecretsContext {
     key: SecretKeyRef,
     auditCtx?: SecretAuditContext,
   ): Promise<Secret<string> | undefined>;
+  // Metadata-only existence probe: no decryption, no read-audit event.
+  // For readiness checks — use get() when the value itself is needed.
+  has(tenantId: TenantId, key: SecretKeyRef): Promise<boolean>;
   set(
     tenantId: TenantId,
     key: SecretKeyRef,

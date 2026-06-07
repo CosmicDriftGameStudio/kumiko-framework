@@ -188,7 +188,7 @@ describe("scenario 2: validation errors", () => {
     expect(JSON.stringify(error)).toMatch(/'host' is empty/);
   });
 
-  test("missing password secret → factory throws naming the secret", async () => {
+  test("missing password secret → 422 unconfigured naming the secret", async () => {
     const admin = adminFor(403);
 
     await selectSmtpProvider(admin);
@@ -201,6 +201,12 @@ describe("scenario 2: validation errors", () => {
 
     const error = await stack.http.writeErr(TEST_HANDLER_QN, {}, admin);
     expect(JSON.stringify(error)).toMatch(/smtp-password/);
+    expect(error.httpStatus).toBe(422);
+    expect(error.code).toBe("unconfigured");
+    expect(error.details).toMatchObject({
+      feature: "mail-transport-smtp",
+      key: SMTP_PASSWORD.name,
+    });
   });
 });
 

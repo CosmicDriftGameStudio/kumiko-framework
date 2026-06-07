@@ -26,6 +26,7 @@ import { createS3Provider } from "@cosmicdrift/kumiko-bundled-features/files-pro
 import {
   requireDefined,
   requireNonEmpty,
+  requireSecretSet,
 } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { access, createTenantConfig, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
@@ -56,6 +57,8 @@ export const fileProviderS3Feature = defineFeature(FEATURE_NAME, (r) => {
       return `${plaintext.slice(0, 4)}...${plaintext.slice(-4)}`;
     },
     scope: "tenant",
+    // required: true ↔ the missing-secret throw in readSecretAccessKey — keep in sync.
+    required: true,
   });
 
   // required: true ↔ the requireNonEmpty calls in buildS3Provider — keep in sync.
@@ -165,10 +168,5 @@ async function buildS3Provider(
 async function readSecretAccessKey(ctx: FileProviderContext, tenantId: string): Promise<string> {
   const secrets = requireSecretsContext(ctx, FEATURE_NAME);
   const branded = await secrets.get(tenantId, S3_SECRET_ACCESS_KEY);
-  if (!branded) {
-    throw new Error(
-      `${FEATURE_NAME}: ${S3_SECRET_ACCESS_KEY.name} not set for tenant ${tenantId} — Tenant-Admin must set it via /api/write/secrets:write:set`,
-    );
-  }
-  return branded.reveal();
+  return requireSecretSet(branded, FEATURE_NAME, S3_SECRET_ACCESS_KEY.name).reveal();
 }
