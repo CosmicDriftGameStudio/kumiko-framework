@@ -1,3 +1,10 @@
+---
+status: parked
+verified: 2026-06-07
+evidence: Status-Box (line 572-590): alle Phasen 1-6 'pending'; Phase 0 und 7 'entfällt'. Drizzle-Session pausiert 2026-05-24. Git: commit 59107c3f phase-1 vorarbeit gestartet aber kein weiterer Fortschritt.
+next: Bun-Migration erst angehen wenn Drizzle-Replacement 2.0 abgeschlossen ist (Sync-Punkt laut Plan)
+---
+
 # Bun-Cutover — yarn/vitest/node → bun (test/build/runtime)
 
 **Stand:** 2026-05-24 (Plan), Start ausstehend.
