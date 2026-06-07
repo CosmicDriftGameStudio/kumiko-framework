@@ -187,7 +187,7 @@ export type UseExtensionPattern = {
   readonly options?: Readonly<Record<string, unknown>>;
 };
 
-// r.treeActions({ ... }) — Schema-Map für Visual-Tree-Action-Verben.
+// `r.treeActions({ ... })` — Schema-Map für Visual-Tree-Action-Verben.
 // Static: Args sind Type-Samples (kein Runtime-Validator), Designer
 // rendert das als nested form pro Action. Compile-Time-Validation
 // passiert via setup-export-Handle (TreeActionsHandle), nicht über
@@ -386,14 +386,7 @@ export type ExposesApiPattern = {
   readonly apiName: string;
 };
 
-// =============================================================================
-// Catch-all — r.* calls the visitor doesn't recognise. Designer renders
-// "unknown call (cannot edit)", AI patcher leaves them unchanged. When
-// an UnknownPattern shows up in the wild it's a signal that a new r.*
-// API exists and needs its own pattern type here.
-// =============================================================================
-
-// r.envSchema(z.object({...})) — the env-vars contract for a feature.
+// `r.envSchema(z.object({...}))` — the env-vars contract for a feature.
 // Argument is a Zod-expression (computed); we keep the source-location of
 // the schema body so Designer / AI render the raw TS code (opaque).
 export type EnvSchemaPattern = {
@@ -402,6 +395,10 @@ export type EnvSchemaPattern = {
   readonly schemaBody: SourceLocation;
 };
 
+// Catch-all — r.* calls the visitor doesn't recognise. Designer renders
+// "unknown call (cannot edit)", AI patcher leaves them unchanged. When
+// an UnknownPattern shows up in the wild it's a signal that a new r.*
+// API exists and needs its own pattern type here.
 export type UnknownPattern = {
   readonly kind: "unknown";
   readonly source: SourceLocation;
