@@ -364,6 +364,13 @@ export type ActionFormScreenDefinition = {
    *  Wenn nicht gesetzt, bleibt der User auf dem Form-Screen. Boot-
    *  Validator prüft dass die ID einen registrierten Screen meint. */
   readonly redirect?: string;
+  /** Ziel des Abbrechen-Buttons. Default: `redirect` (historisches
+   *  Verhalten — Cancel und Submit-Redirect landen dann am selben Ort).
+   *  `false` = kein Abbrechen-Button; richtig für Single-Action-Screens
+   *  ohne verwerfbaren Zustand (z.B. "Test-Mail senden"), wo Abbrechen
+   *  nur ein zweiter Weg zum selben Ziel wäre. Boot-Validator prüft
+   *  String-Targets wie `redirect`. */
+  readonly cancelTarget?: string | false;
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;
 };

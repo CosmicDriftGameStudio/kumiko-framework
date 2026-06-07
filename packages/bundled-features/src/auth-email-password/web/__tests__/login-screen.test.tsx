@@ -103,6 +103,31 @@ describe("LoginScreen", () => {
     expect(screen.queryByRole("link", { name: /Passwort vergessen/i })).toBeNull();
   });
 
+  // Bug-Bash 2026-06-07 (Bug 1): Login-Screen ist oft die einzige
+  // öffentliche Seite einer Admin-Domain — ohne erreichbares Impressum
+  // verletzt die Domain die Impressumspflicht.
+  test("legalLinks-prop → Impressum/Datenschutz-Links mit korrekten hrefs", () => {
+    renderWithProviders(
+      <LoginScreen
+        legalLinks={[
+          { label: "Impressum", href: "/legal/impressum" },
+          { label: "Datenschutz", href: "/legal/datenschutz" },
+        ]}
+      />,
+    );
+    const nav = screen.getByTestId("login-legal-links");
+    expect(nav).toBeTruthy();
+    const imprint = screen.getByRole("link", { name: "Impressum" });
+    expect(imprint.getAttribute("href")).toBe("/legal/impressum");
+    const privacy = screen.getByRole("link", { name: "Datenschutz" });
+    expect(privacy.getAttribute("href")).toBe("/legal/datenschutz");
+  });
+
+  test("ohne legalLinks → kein Legal-Footer (Opt-in der App)", () => {
+    renderWithProviders(<LoginScreen />);
+    expect(screen.queryByTestId("login-legal-links")).toBeNull();
+  });
+
   // Resend-Flow: bei email_not_verified bietet der LoginScreen einen
   // "Bestätigungs-Mail erneut senden"-Link im Fehler-Banner an.
   describe("resend verification on email_not_verified", () => {

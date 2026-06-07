@@ -210,6 +210,19 @@ export function validateScreens(
           );
         }
       }
+      if (typeof screen.cancelTarget === "string") {
+        // Gleiche Regel wie redirect — `false` (kein Cancel-Button)
+        // braucht keine Validierung.
+        const candidateQn = qualifyEntityName(feature.name, "screen", screen.cancelTarget);
+        if (!allScreenQns.has(candidateQn)) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (actionForm) cancelTarget "${screen.cancelTarget}" ` +
+              `does not resolve to a registered screen in this feature. Known screens: ${
+                [...Object.keys(feature.screens)].sort().join(", ") || "(none)"
+              }.`,
+          );
+        }
+      }
       continue;
     }
 

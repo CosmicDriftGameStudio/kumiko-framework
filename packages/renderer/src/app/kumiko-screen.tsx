@@ -897,15 +897,15 @@ function ActionFormBody({
     },
     [nav, screen.redirect],
   );
-  // Cancel ist nur sinnvoll wenn ein Redirect-Target gesetzt ist —
-  // sonst hätte der Button nirgendwo hin zu navigieren. Bei Forms
-  // ohne redirect bleibt der User per Sidebar/Browser-Back im Flow,
-  // analog zu Settings-Pages.
+  // Cancel ist nur sinnvoll wenn ein Navigations-Ziel existiert —
+  // sonst hätte der Button nirgendwo hin zu navigieren. cancelTarget
+  // gewinnt über redirect; `false` schaltet den Button explizit ab
+  // (Single-Action-Screens, wo Cancel nur Submit-ohne-Senden wäre).
   const handleCancel = useMemo<(() => void) | undefined>(() => {
-    if (screen.redirect === undefined) return undefined;
-    const target = screen.redirect;
+    const target = screen.cancelTarget ?? screen.redirect;
+    if (target === undefined || target === false) return undefined;
     return () => nav.navigate({ screenId: target });
-  }, [nav, screen.redirect]);
+  }, [nav, screen.redirect, screen.cancelTarget]);
   return (
     <RenderEdit
       screen={synthScreen}

@@ -24,6 +24,11 @@ type ResendStatus =
   | { readonly kind: "rateLimited" }
   | { readonly kind: "error" };
 
+export type AuthLegalLink = {
+  readonly label: string;
+  readonly href: string;
+};
+
 export type LoginScreenProps = {
   /** Overridet den `auth.login.title`-i18n-Key. Nur setzen wenn der
    *  Titel stark app-branded ist und keine Translation braucht. */
@@ -39,6 +44,12 @@ export type LoginScreenProps = {
    *  einen "Account erstellen"-Link. Apps die kein Self-Signup wollen
    *  (closed-invite-only) setzen das einfach nicht. */
   readonly signupHref?: string;
+  /** Impressum/Datenschutz unterhalb der Card — der Login-Screen ist
+   *  oft die einzige öffentliche Seite einer Admin-Domain und braucht
+   *  dann selbst erreichbare Legal-Links (DE: Impressumspflicht).
+   *  Labels kommen vom Caller (typisch schon übersetzt bzw. Eigennamen
+   *  wie "Impressum"). */
+  readonly legalLinks?: readonly AuthLegalLink[];
 };
 
 // Map vom Reason-Code des Login-Handlers auf einen i18n-Key plus
@@ -78,6 +89,7 @@ export function LoginScreen({
   submitLabel,
   forgotPasswordHref,
   signupHref,
+  legalLinks,
 }: LoginScreenProps): ReactNode {
   const t = useTranslation();
   const { Form, Field, Input, Button, Banner } = usePrimitives();
@@ -208,6 +220,18 @@ export function LoginScreen({
           <a href={signupHref} className={`${authMutedLinkClass} self-center`}>
             {t("auth.signup.title")}
           </a>
+        )}
+        {legalLinks !== undefined && legalLinks.length > 0 && (
+          <nav
+            data-testid="login-legal-links"
+            className="flex items-center justify-center gap-3 pt-2 border-t border-border/50"
+          >
+            {legalLinks.map((link) => (
+              <a key={link.href} href={link.href} className={`${authMutedLinkClass} text-xs`}>
+                {link.label}
+              </a>
+            ))}
+          </nav>
         )}
       </div>
     </AuthCard>
