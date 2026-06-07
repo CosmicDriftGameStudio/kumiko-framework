@@ -83,6 +83,13 @@ export const defineFieldPayloadSchema = z.object({
 });
 export type DefineFieldPayload = z.infer<typeof defineFieldPayloadSchema>;
 
+// Payload für `update-tenant-field` — bewusst dieselbe Shape wie define
+// (Vollersatz-Semantik: der Edit-Screen schickt den kompletten neuen Stand;
+// entityName+fieldKey sind die Identität, type ist immutable und wird im
+// Handler gegen den Bestand geprüft).
+export const updateFieldPayloadSchema = defineFieldPayloadSchema;
+export type UpdateFieldPayload = DefineFieldPayload;
+
 // Payload für `delete-tenant-field` / `delete-system-field`.
 export const deleteFieldPayloadSchema = z.object({
   entityName: z.string().min(1).max(64),
