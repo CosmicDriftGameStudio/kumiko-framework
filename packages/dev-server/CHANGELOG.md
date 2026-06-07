@@ -1,5 +1,17 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.29.0
+
+### Patch Changes
+
+- 581b5e9: run-prod-app: static-fallback served index.html nur noch für GET/HEAD — non-GET ohne Hono-Match liefert den Hono-404 durch (vorher 200 index.html, wodurch z.B. falsch konfigurierte Webhook-Endpoints als delivered galten).
+- Updated dependencies [f9d41ae]
+- Updated dependencies [290a05b]
+- Updated dependencies [4398d02]
+- Updated dependencies [3186d8a]
+  - @cosmicdrift/kumiko-framework@0.29.0
+  - @cosmicdrift/kumiko-bundled-features@0.29.0
+
 ## 0.28.0
 
 ### Minor Changes

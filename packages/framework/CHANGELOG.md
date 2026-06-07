@@ -1,5 +1,39 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.29.0
+
+### Minor Changes
+
+- f9d41ae: Tenant-config readiness: declare required config keys, query what's missing.
+
+  - `createTenantConfig("text", { required: true, ... })` — new `required` flag on
+    config-key declarations. Semantics: the tenant must supply a real value before
+    the owning feature works; for text keys an empty/whitespace value counts as unset.
+  - New query `config:query:readiness` returns the flat list of required keys that
+    still lack a usable value for the calling tenant/user — resolved through the same
+    cascade as `ctx.config()`, so it can never drift from what handlers will see.
+    No boolean "ready" verdict on purpose: secret-presence is queryable via the
+    secrets list-handler; UIs compose both.
+  - `config:query:schema` now exposes the `required` flag per key (UI form rendering).
+  - New `UnconfiguredError` (422, code `unconfigured`, i18nKey `errors.unconfigured`)
+    subclassing `UnprocessableError` — `requireNonEmpty` throws it instead of a bare
+    `Error`, so clients can route the user to the settings screen. `requireDefined`
+    now throws `InternalError` (500): undefined there is a registry misconfiguration,
+    a developer bug, not a tenant gap.
+  - `mail-transport-smtp` (host/from/authUser) and `file-provider-s3`
+    (bucket/region/accessKeyId) mark their must-configure keys `required: true`.
+
+- 3186d8a: Tenant-Switcher zeigt Tenant-Namen statt UUID-Präfix: `tenant:query:memberships` reichert jede Membership um `tenantName`/`tenantKey` aus der tenants-Projection an, `GET /auth/tenants` reicht beides als `name`/`key` durch (`TenantSummary` erweitert), und der TenantSwitcher rendert `name > key > UUID-Präfix` — die `tenantName`-Prop bleibt als App-Override erhalten. Vorher waren Seed-Tenants (`00000000-…0001/0002`) im Switcher ununterscheidbar.
+
+### Patch Changes
+
+- 290a05b: Fix dead docs links in the error-reason i18n texts (en + de): the targets
+  `/{en,de}/architecture/*` and `/en/features/feature-toggles/` never existed on
+  docs.kumiko.rocks. Links now point to the real pages (`/en/concepts/commands/`,
+  `/en/guides/field-level-permissions/`, `/en/feature-reference/feature-toggles/`);
+  the state-machine link is dropped until a target page exists. German texts link
+  to the English pages — the docs site is single-locale by design.
+
 ## 0.28.0
 
 ### Minor Changes

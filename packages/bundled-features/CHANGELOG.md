@@ -1,5 +1,41 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.29.0
+
+### Minor Changes
+
+- f9d41ae: Tenant-config readiness: declare required config keys, query what's missing.
+
+  - `createTenantConfig("text", { required: true, ... })` — new `required` flag on
+    config-key declarations. Semantics: the tenant must supply a real value before
+    the owning feature works; for text keys an empty/whitespace value counts as unset.
+  - New query `config:query:readiness` returns the flat list of required keys that
+    still lack a usable value for the calling tenant/user — resolved through the same
+    cascade as `ctx.config()`, so it can never drift from what handlers will see.
+    No boolean "ready" verdict on purpose: secret-presence is queryable via the
+    secrets list-handler; UIs compose both.
+  - `config:query:schema` now exposes the `required` flag per key (UI form rendering).
+  - New `UnconfiguredError` (422, code `unconfigured`, i18nKey `errors.unconfigured`)
+    subclassing `UnprocessableError` — `requireNonEmpty` throws it instead of a bare
+    `Error`, so clients can route the user to the settings screen. `requireDefined`
+    now throws `InternalError` (500): undefined there is a registry misconfiguration,
+    a developer bug, not a tenant gap.
+  - `mail-transport-smtp` (host/from/authUser) and `file-provider-s3`
+    (bucket/region/accessKeyId) mark their must-configure keys `required: true`.
+
+- 4398d02: tenant: Neuer `tenant:write:enable`-Handler (SystemAdmin) als Recovery-Gegenstück zu disable. `tenant:query:memberships` filtert jetzt Memberships deaktivierter Tenants — disabled Tenants verschwinden damit aus Login-Tenant-Wahl, /auth/tenants (Tenant-Switcher) und switch-tenant.
+- 3186d8a: Tenant-Switcher zeigt Tenant-Namen statt UUID-Präfix: `tenant:query:memberships` reichert jede Membership um `tenantName`/`tenantKey` aus der tenants-Projection an, `GET /auth/tenants` reicht beides als `name`/`key` durch (`TenantSummary` erweitert), und der TenantSwitcher rendert `name > key > UUID-Präfix` — die `tenantName`-Prop bleibt als App-Override erhalten. Vorher waren Seed-Tenants (`00000000-…0001/0002`) im Switcher ununterscheidbar.
+
+### Patch Changes
+
+- Updated dependencies [f9d41ae]
+- Updated dependencies [290a05b]
+- Updated dependencies [3186d8a]
+  - @cosmicdrift/kumiko-framework@0.29.0
+  - @cosmicdrift/kumiko-renderer@0.29.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.29.0
+  - @cosmicdrift/kumiko-renderer-web@0.29.0
+
 ## 0.28.0
 
 ### Minor Changes
