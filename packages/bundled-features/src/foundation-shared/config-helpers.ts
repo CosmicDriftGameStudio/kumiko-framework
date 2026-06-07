@@ -19,10 +19,15 @@
 //     across foundations live here. Per-foundation transport/provider-
 //     factories stay in their own package.
 
+import { InternalError, UnconfiguredError } from "@cosmicdrift/kumiko-framework/errors";
+
 /**
  * Narrow `value | undefined` → `value` with a clear message that names
  * which config key resolved to nothing. Use for keys whose `undefined`
  * means a registry misconfiguration (no value + no default).
+ *
+ * Throws InternalError (500): `undefined` here is a developer bug, not a
+ * tenant-configuration gap — contrast requireNonEmpty.
  *
  * Foundation-Pattern: this is the wrap-helper around `await ctx.config(
  * featureFoundationFeature.exports.configKeys.someKey)` — the call-site
@@ -34,9 +39,9 @@
  */
 export function requireDefined<T>(value: T | undefined, featureName: string, label: string): T {
   if (value === undefined) {
-    throw new Error(
-      `${featureName}: '${label}' config key resolved to undefined — registry misconfigured (no value + no default)`,
-    );
+    throw new InternalError({
+      message: `${featureName}: '${label}' config key resolved to undefined — registry misconfigured (no value + no default)`,
+    });
   }
   return value;
 }
@@ -54,6 +59,9 @@ export function requireDefined<T>(value: T | undefined, featureName: string, lab
  * Whitespace is trimmed: a whitespace-only value counts as empty, and the
  * returned string has surrounding whitespace removed — so a stray " host "
  * never reaches the SDK as-is.
+ *
+ * Throws UnconfiguredError (422, code "unconfigured") so clients can route
+ * the user to the settings screen instead of a generic 500.
  */
 export function requireNonEmpty(
   value: string | undefined,
@@ -63,9 +71,7 @@ export function requireNonEmpty(
 ): string {
   const trimmed = requireDefined(value, featureName, label).trim();
   if (trimmed.length === 0) {
-    throw new Error(
-      `${featureName}: '${label}' is empty — tenant must configure it before use. ${uiHint}`,
-    );
+    throw new UnconfiguredError({ feature: featureName, key: label, hint: uiHint });
   }
   return trimmed;
 }

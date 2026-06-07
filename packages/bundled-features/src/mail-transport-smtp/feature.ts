@@ -70,9 +70,11 @@ export const mailTransportSmtpFeature = defineFeature(FEATURE_NAME, (r) => {
     scope: "tenant",
   });
 
+  // required: true ↔ the requireNonEmpty calls in buildSmtpTransport — keep in sync.
   const configKeys = r.config({
     keys: {
       host: createTenantConfig("text", {
+        required: true,
         default: "",
         write: access.roles("TenantAdmin", "SystemAdmin"),
         read: access.roles("TenantAdmin", "SystemAdmin"),
@@ -87,11 +89,13 @@ export const mailTransportSmtpFeature = defineFeature(FEATURE_NAME, (r) => {
         write: access.roles("TenantAdmin", "SystemAdmin"),
       }),
       from: createTenantConfig("text", {
+        required: true,
         default: "",
         write: access.roles("TenantAdmin", "SystemAdmin"),
         read: access.roles("TenantAdmin", "SystemAdmin"),
       }),
       authUser: createTenantConfig("text", {
+        required: true,
         default: "",
         write: access.roles("TenantAdmin", "SystemAdmin"),
         read: access.roles("TenantAdmin", "SystemAdmin"),

@@ -12,6 +12,7 @@ export const ConfigQueries = {
   cascade: "config:query:cascade",
   values: "config:query:values",
   schema: "config:query:schema",
+  readiness: "config:query:readiness",
 } as const;
 
 // Error codes

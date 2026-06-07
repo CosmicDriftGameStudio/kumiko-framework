@@ -58,14 +58,17 @@ export const fileProviderS3Feature = defineFeature(FEATURE_NAME, (r) => {
     scope: "tenant",
   });
 
+  // required: true ↔ the requireNonEmpty calls in buildS3Provider — keep in sync.
   const configKeys = r.config({
     keys: {
       bucket: createTenantConfig("text", {
+        required: true,
         default: "",
         write: access.roles("TenantAdmin", "SystemAdmin"),
         read: access.roles("TenantAdmin", "SystemAdmin"),
       }),
       region: createTenantConfig("text", {
+        required: true,
         default: "",
         write: access.roles("TenantAdmin", "SystemAdmin"),
         read: access.roles("TenantAdmin", "SystemAdmin"),
@@ -80,6 +83,7 @@ export const fileProviderS3Feature = defineFeature(FEATURE_NAME, (r) => {
         write: access.roles("TenantAdmin", "SystemAdmin"),
       }),
       accessKeyId: createTenantConfig("text", {
+        required: true,
         default: "",
         write: access.roles("TenantAdmin", "SystemAdmin"),
         read: access.roles("TenantAdmin", "SystemAdmin"),
