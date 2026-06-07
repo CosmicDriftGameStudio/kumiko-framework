@@ -80,7 +80,12 @@ function fieldToColumns(
               : boolean(snakeName),
       };
     case "select": {
-      const col = text(snakeName);
+      // default() durchreichen — entity-table-meta rendert deklarierte
+      // defaults, dieser Builder MUSS lock-step bleiben (sonst trägt das
+      // Meta am buildEntityTable-Objekt eine andere Spalte als die
+      // Migration, #255-Follow-up-Befund).
+      const base = text(snakeName);
+      const col = field.default !== undefined ? base.default(field.default) : base;
       return { [name]: field.required ? col.notNull() : col };
     }
     case "multiSelect":
@@ -95,7 +100,8 @@ function fieldToColumns(
       // multi-select.
       return { [name]: jsonb(snakeName).default([]).notNull() };
     case "number": {
-      const col = integer(snakeName);
+      const base = integer(snakeName);
+      const col = field.default !== undefined ? base.default(field.default) : base;
       return { [name]: field.required ? col.notNull() : col };
     }
     case "bigInt": {
@@ -104,7 +110,8 @@ function fieldToColumns(
       // JS-`bigint` — JSON-serialisierbar, Frontend-tauglich. Wer >2^53
       // braucht (Astronomie-Astronomie), nutzt einen Text-Field mit
       // eigenem Codec.
-      const col = bigint(snakeName, { mode: "number" });
+      const base = bigint(snakeName, { mode: "number" });
+      const col = field.default !== undefined ? base.default(field.default) : base;
       return { [name]: field.required ? col.notNull() : col };
     }
     case "reference":

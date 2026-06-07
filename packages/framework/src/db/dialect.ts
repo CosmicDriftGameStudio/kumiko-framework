@@ -272,8 +272,11 @@ export function instant(
 }
 
 // moneyAmount kept as a customType-style API but produces a bigint column.
+// bigintJsMode "bigint" — money cents must round-trip as JS bigint (lock-step
+// with entity-table-meta's money rendering; without it bun-db reads the
+// column as number and loses precision past 2^53).
 export const moneyAmount = (name: string): ColumnBuilder<number> =>
-  buildColumn(name, "bigint") as ColumnBuilder<number>;
+  buildColumn(name, "bigint", { bigintJsMode: "bigint" }) as ColumnBuilder<number>;
 
 // ---- Index + primaryKey helpers ----
 
