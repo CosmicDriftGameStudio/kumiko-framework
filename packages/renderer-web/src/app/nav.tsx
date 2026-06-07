@@ -185,17 +185,28 @@ export function useBrowserNavApi(options?: {
   const basePath = useMemo(() => normalizeBasePath(options?.basePath), [options?.basePath]);
   const searchParams = useMemo(() => parseSearchParams(search), [search]);
   const inAppPath = useMemo(() => stripBasePath(path, basePath), [path, basePath]);
-  return useMemo<NavApi>(
-    () => ({
-      route: inAppPath === undefined ? undefined : parsePath(inAppPath, hasWorkspaces),
-      navigate: (target) => pushPath(prependBasePath(formatPath(target), basePath)),
-      replace: (target) => replacePath(prependBasePath(formatPath(target), basePath)),
-      hrefFor: (target) => prependBasePath(formatPath(target), basePath),
+  return useMemo<NavApi>(() => {
+    const route = inAppPath === undefined ? undefined : parsePath(inAppPath, hasWorkspaces);
+    // NavTarget-Contract: workspaceId weglassen = aktueller Workspace
+    // bleibt. formatPath kennt die aktuelle Route nicht — ohne Injection
+    // landet `/screen-id` in parsePath(hasWorkspaces) als workspaceId,
+    // WorkspaceShell sieht einen unbekannten Workspace und revertet
+    // sofort auf den Default-Screen ("Klick tut nichts"-Prod-Bug).
+    const inCurrentWorkspace = (target: NavTarget): NavTarget =>
+      hasWorkspaces && target.workspaceId === undefined && route?.workspaceId !== undefined
+        ? { ...target, workspaceId: route.workspaceId }
+        : target;
+    return {
+      route,
+      navigate: (target) =>
+        pushPath(prependBasePath(formatPath(inCurrentWorkspace(target)), basePath)),
+      replace: (target) =>
+        replacePath(prependBasePath(formatPath(inCurrentWorkspace(target)), basePath)),
+      hrefFor: (target) => prependBasePath(formatPath(inCurrentWorkspace(target)), basePath),
       searchParams,
       setSearchParams: applySearchParamUpdates,
-    }),
-    [inAppPath, hasWorkspaces, basePath, searchParams],
-  );
+    };
+  }, [inAppPath, hasWorkspaces, basePath, searchParams]);
 }
 
 // ---- KumikoLink (Anchor-basiert, nur Web) ----

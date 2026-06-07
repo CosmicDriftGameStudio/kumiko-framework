@@ -348,18 +348,95 @@ describe("KumikoScreen", () => {
     });
   });
 
+  // Regression zum Prod-Bug 2026-06-07 (Bug 4): dispatcher.write wirft
+  // nicht — ein Failure-Result wurde verworfen, der Confirm-Dialog
+  // schloss kommentarlos und der User sah "nichts passiert". Jetzt:
+  // Dialog schließt UND ein destructive-Toast zeigt den Fehlertext.
+  test("entityList rowActions writeHandler: fehlgeschlagener Write → Fehler-Toast statt stillem Dialog-Close", async () => {
+    const dispatcher = makeDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: {
+          rows: [{ id: "r1", title: "Alpha", count: 1, done: false }],
+          nextCursor: null,
+        },
+      })) as unknown as Dispatcher["query"],
+      write: (async () => ({
+        isSuccess: false,
+        error: {
+          code: "conflict",
+          httpStatus: 409,
+          // Key absichtlich in keinem Bundle — dispatcherErrorText muss
+          // auf error.message zurückfallen.
+          i18nKey: "tasks.errors.delete-conflict",
+          message: "Version conflict for entity r1",
+        },
+      })) as unknown as Dispatcher["write"],
+    });
+
+    const screenWithDelete: EntityListScreenDefinition = {
+      id: "task-list",
+      type: "entityList",
+      entity: "task",
+      columns: ["title"],
+      rowActions: [
+        {
+          id: "delete",
+          label: "actions.delete",
+          handler: "tasks:write:task:delete",
+          confirm: "actions.delete-confirm",
+          style: "danger",
+        },
+      ],
+    };
+
+    const { ToastProvider } = await import("../primitives/toast");
+    const user = userEvent.setup();
+    render(
+      <ToastProvider>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={{ ...schema, screens: [screenWithDelete] }}
+            qn="tasks:screen:task-list"
+          />
+        </DispatcherProvider>
+      </ToastProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+
+    // danger erzwingt den Confirm-Dialog.
+    await user.click(screen.getByTestId("row-r1-action-delete"));
+    expect(await screen.findByTestId("row-r1-action-delete-dialog")).toBeTruthy();
+
+    await user.click(screen.getByTestId("row-r1-action-delete-dialog-confirm"));
+
+    // Dialog schließt — aber NICHT kommentarlos: der Fehlertext ist da.
+    await waitFor(() => expect(screen.queryByTestId("row-r1-action-delete-dialog")).toBeNull());
+    expect(await screen.findByText("Version conflict for entity r1")).toBeTruthy();
+  });
+
   // Tier 2.7e-1: rowAction kind="navigate" — Click ruft nav.navigate
   // mit screen-id, ggf. mit URL-Search-Params aus params(row).
-  test("entityList rowActions kind=navigate: Click → nav.navigate + setSearchParams", async () => {
+  // Reihenfolge ist Teil des Contracts: navigate ZUERST, dann
+  // setSearchParams — pushState trägt keine Query, vorher gesetzte
+  // Params kleben sonst an der alten URL (actionForm-Prefill leer).
+  test("entityList rowActions kind=navigate: Click → nav.navigate, DANN setSearchParams", async () => {
+    const calls: { kind: "navigate" | "setSearchParams"; value: unknown }[] = [];
     const navigateCalls: { screenId: string }[] = [];
     const searchParamUpdates: Record<string, string | null>[] = [];
     const memoryNav = {
       route: { screenId: "task-list" },
-      navigate: (target: { screenId: string }) => navigateCalls.push(target),
+      navigate: (target: { screenId: string }) => {
+        calls.push({ kind: "navigate", value: target });
+        navigateCalls.push(target);
+      },
       replace: () => undefined,
       hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
       searchParams: {},
-      setSearchParams: (u: Record<string, string | null>) => searchParamUpdates.push(u),
+      setSearchParams: (u: Record<string, string | null>) => {
+        calls.push({ kind: "setSearchParams", value: u });
+        searchParamUpdates.push(u);
+      },
     };
     const dispatcher = makeDispatcher({
       query: (async () => ({
@@ -406,6 +483,68 @@ describe("KumikoScreen", () => {
     expect(navigateCalls[0]).toEqual({ screenId: "task-edit" });
     // params werden zu Strings serialisiert (URL-Layer kennt nur Strings).
     expect(searchParamUpdates).toEqual([{ taskId: "r1", priority: "5" }]);
+    // Reihenfolge-Pin: erst navigate, dann setSearchParams.
+    expect(calls.map((c) => c.kind)).toEqual(["navigate", "setSearchParams"]);
+  });
+
+  // entityId-Variante: entityEdit-Targets brauchen die Id als PFAD-
+  // Segment (route.entityId), nicht als Search-Param — sonst öffnet
+  // der Edit-Screen im Create-Mode (Prod-Bug 2026-06-07, Bug 3).
+  test("entityList rowActions kind=navigate mit entityId: Id landet im NavTarget, nicht in den Search-Params", async () => {
+    const navigateCalls: { screenId: string; entityId?: string }[] = [];
+    const searchParamUpdates: Record<string, string | null>[] = [];
+    const memoryNav = {
+      route: { screenId: "task-list" },
+      navigate: (target: { screenId: string; entityId?: string }) => navigateCalls.push(target),
+      replace: () => undefined,
+      hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
+      searchParams: {},
+      setSearchParams: (u: Record<string, string | null>) => searchParamUpdates.push(u),
+    };
+    const dispatcher = makeDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: {
+          rows: [{ id: "r1", title: "Alpha", count: 1, done: false }],
+          nextCursor: null,
+        },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    const screenWithEdit: EntityListScreenDefinition = {
+      id: "task-list",
+      type: "entityList",
+      entity: "task",
+      columns: ["title"],
+      rowActions: [
+        {
+          kind: "navigate",
+          id: "edit",
+          label: "actions.edit",
+          screen: "task-edit",
+          entityId: (row) => String(row["id"] ?? ""),
+        },
+      ],
+    };
+
+    const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
+    const user = userEvent.setup();
+    render(
+      <NavProvider value={memoryNav}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={{ ...schema, screens: [screenWithEdit] }}
+            qn="tasks:screen:task-list"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+
+    await user.click(screen.getByTestId("row-r1-action-edit"));
+    await waitFor(() => expect(navigateCalls.length).toBe(1));
+    expect(navigateCalls[0]).toEqual({ screenId: "task-edit", entityId: "r1" });
+    expect(searchParamUpdates).toEqual([]);
   });
 
   test("entityList rowActions kind=navigate ohne params: setSearchParams wird NICHT gerufen", async () => {
