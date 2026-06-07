@@ -12,6 +12,7 @@ import type {
   ConfigKeyHandle,
   ConfigKeyType,
   ConfigSeedDef,
+  ExtensionSelectorDef,
   JobDefinition,
   JobHandlerFn,
   NotificationDataFn,
@@ -214,6 +215,7 @@ export type FeatureDefinition = {
   readonly jobs: Readonly<Record<string, JobDefinition>>;
   readonly registrarExtensions: Readonly<Record<string, RegistrarExtensionDef>>;
   readonly extensionUsages: readonly RegistrarExtensionRegistration[];
+  readonly extensionSelectors: readonly ExtensionSelectorDef[];
   /**
    * Cross-feature API names this feature exposes via `r.exposesApi(name)`.
    * Pure Marker-Deklaration — die echte Implementation wird als
@@ -483,6 +485,17 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   extendsRegistrar(name: string, def: RegistrarExtensionDef): void;
 
   useExtension(extensionName: string, entity: NameOrRef, options?: Record<string, unknown>): void;
+
+  /**
+   * Declares which config key selects the active provider under an
+   * extension point — called by the point-owning foundation (e.g.
+   * `r.extensionSelector("mailTransport", configKeys.provider)`).
+   * Readiness gating counts a provider-feature's `required` keys and
+   * secrets only while that provider is the selected one. Registry-build
+   * fails on duplicate declarations per extension and on selector keys
+   * that no mounted feature declares.
+   */
+  extensionSelector(extensionName: string, key: { readonly name: string } | string): void;
 
   /**
    * Marker-Deklaration: dieses Feature stellt eine Cross-Feature-API
@@ -794,6 +807,8 @@ export type Registry = {
   >;
   getExtension(name: string): RegistrarExtensionDef | undefined;
   getExtensionUsages(extensionName: string): readonly RegistrarExtensionRegistration[];
+  // Extension point → selector config key, from r.extensionSelector calls.
+  getAllExtensionSelectors(): ReadonlyMap<string, string>;
   getAllNotifications(): ReadonlyMap<string, NotificationDefinition>;
   getAllReferenceData(): readonly ReferenceDataDef[];
   // Look up projections by source-entity name. Empty list when no projection

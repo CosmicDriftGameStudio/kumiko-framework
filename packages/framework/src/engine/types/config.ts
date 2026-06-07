@@ -355,6 +355,17 @@ export type RegistrarExtensionRegistration = {
   readonly extensionName: string;
   readonly entityName: string;
   readonly options?: Record<string, unknown> | undefined;
+  // Owning feature — annotated by the registry at merge time so consumers
+  // (readiness gating) can map a registration back to the feature's keys.
+  readonly featureName?: string;
+};
+
+// Declared by the extension-point-owning foundation via r.extensionSelector:
+// "which provider under <extensionName> is active is chosen by <qualifiedKey>".
+// Readiness counts a provider-feature's required keys only when selected.
+export type ExtensionSelectorDef = {
+  readonly extensionName: string;
+  readonly qualifiedKey: string;
 };
 
 // --- Reference Data ---

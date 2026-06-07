@@ -32,6 +32,7 @@ export type {
   CreateSeedOptions,
   CreateTenantSeedOptions,
   CreateUserSeedOptions,
+  ExtensionSelectorDef,
   JobDefinition,
   JobHandlerFn,
   JobRunIn,

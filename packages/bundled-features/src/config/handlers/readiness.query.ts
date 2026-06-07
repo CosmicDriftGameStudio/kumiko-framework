@@ -4,6 +4,7 @@ import {
   defineQueryHandler,
   type HandlerContext,
   type SessionUser,
+  toKebab,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { requireConfigResolver } from "../feature";
@@ -22,6 +23,38 @@ function isUnset(value: string | number | boolean | undefined, type: ConfigKeyTy
   return type === "text" && typeof value === "string" && value.trim().length === 0;
 }
 
+// Whether a required key/secret counts for THIS tenant right now. Keys of
+// provider-features under a selector-declared extension point count only
+// while their provider is the selected one — an SMTP password is no gap
+// for a tenant running the inmemory transport.
+export type RequiredKeyGate = (qualifiedName: string) => boolean;
+
+// Builds the per-tenant gate from r.extensionSelector declarations: resolve
+// each selector through the config cascade, mark every provider-feature
+// registered under that point as counted/uncounted. Features without a
+// selector-gated registration always count.
+export async function buildProviderSelectionGate(
+  ctx: HandlerContext,
+  callerQn: string,
+  user: SessionUser,
+): Promise<RequiredKeyGate> {
+  const resolver = requireConfigResolver(ctx, callerQn);
+  const countsByFeature = new Map<string, boolean>();
+  for (const [extensionName, selectorKey] of ctx.registry.getAllExtensionSelectors()) {
+    const keyDef = ctx.registry.getConfigKey(selectorKey);
+    if (!keyDef) continue; // registry-build already failed this; defensive
+    const value = await resolver.get(selectorKey, keyDef, user.tenantId, user.id, ctx.db);
+    const selected = typeof value === "string" ? value.trim() : "";
+    for (const usage of ctx.registry.getExtensionUsages(extensionName)) {
+      if (usage.featureName === undefined) continue;
+      const owner = toKebab(usage.featureName);
+      const isSelected = usage.entityName === selected;
+      countsByFeature.set(owner, (countsByFeature.get(owner) ?? false) || isSelected);
+    }
+  }
+  return (qualifiedName) => countsByFeature.get(qualifiedName.split(":")[0] ?? "") ?? true;
+}
+
 // Core of config:query:readiness, exported through the config barrel so the
 // readiness rollup-feature reuses the exact same cascade + access filter.
 // Resolved through the same cascade as ctx.config() so readiness can never
@@ -32,11 +65,14 @@ export async function collectMissingRequiredConfig(
   ctx: HandlerContext,
   callerQn: string,
   user: SessionUser,
+  gate?: RequiredKeyGate,
 ): Promise<ReadinessMissingKey[]> {
   const resolver = requireConfigResolver(ctx, callerQn);
+  const effectiveGate = gate ?? (await buildProviderSelectionGate(ctx, callerQn, user));
   const missing: ReadinessMissingKey[] = [];
   for (const [qualifiedKey, keyDef] of ctx.registry.getAllConfigKeys()) {
     if (keyDef.required !== true) continue;
+    if (!effectiveGate(qualifiedKey)) continue;
     if (!hasConfigAccess(keyDef.access.read, user.roles)) continue;
     const value = await resolver.get(qualifiedKey, keyDef, user.tenantId, user.id, ctx.db);
     if (isUnset(value, keyDef.type)) {

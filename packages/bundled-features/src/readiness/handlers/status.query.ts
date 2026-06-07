@@ -1,4 +1,7 @@
-import { collectMissingRequiredConfig } from "@cosmicdrift/kumiko-bundled-features/config";
+import {
+  buildProviderSelectionGate,
+  collectMissingRequiredConfig,
+} from "@cosmicdrift/kumiko-bundled-features/config";
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
@@ -14,10 +17,14 @@ export const statusQuery = defineQueryHandler({
   // Same gate as secrets:query:list — the response names missing secrets.
   access: { roles: ["TenantAdmin"] },
   handler: async (query, ctx) => {
+    // One gate for both halves: required keys/secrets of provider-features
+    // count only while their provider is the selected one (r.extensionSelector).
+    const gate = await buildProviderSelectionGate(ctx, ReadinessQueries.status, query.user);
     const missingConfig = await collectMissingRequiredConfig(
       ctx,
       ReadinessQueries.status,
       query.user,
+      gate,
     );
 
     // has() is metadata-only: no decryption, no read-audit event — a
@@ -26,6 +33,7 @@ export const statusQuery = defineQueryHandler({
     const missingSecrets: ReadinessMissingSecret[] = [];
     for (const [qualifiedName, keyDef] of ctx.registry.getAllSecretKeys()) {
       if (keyDef.required !== true) continue;
+      if (!gate(qualifiedName)) continue;
       if (!(await secrets.has(query.user.tenantId, qualifiedName))) {
         missingSecrets.push({ key: qualifiedName });
       }

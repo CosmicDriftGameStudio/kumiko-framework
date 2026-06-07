@@ -19,6 +19,7 @@ import type {
   EventDef,
   EventMigrationDef,
   EventUpcastFn,
+  ExtensionSelectorDef,
   FeatureDefinition,
   FeatureMetricDef,
   FeatureRegistrar,
@@ -129,6 +130,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
   const notifications: Record<string, NotificationDefinition> = {};
   const registrarExtensions: Record<string, RegistrarExtensionDef> = {};
   const extensionUsages: RegistrarExtensionRegistration[] = [];
+  const extensionSelectors: ExtensionSelectorDef[] = [];
   const exposedApis: Set<string> = new Set();
   const usedApis: Set<string> = new Set();
   const referenceData: ReferenceDataDef[] = [];
@@ -565,6 +567,17 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       extensionUsages.push({ extensionName, entityName: resolveName(entityRef), options });
     },
 
+    extensionSelector(extensionName: string, key: { readonly name: string } | string): void {
+      if (extensionSelectors.some((s) => s.extensionName === extensionName)) {
+        throw new Error(
+          `[Feature ${name}] extensionSelector("${extensionName}") declared twice — ` +
+            `one selector key per extension point.`,
+        );
+      }
+      const qualifiedKey = typeof key === "string" ? key : key.name;
+      extensionSelectors.push({ extensionName, qualifiedKey });
+    },
+
     /**
      * Marker-Deklaration: dieses Feature stellt eine Cross-Feature-API
      * unter dem genannten Namen bereit. Die eigentliche Implementation
@@ -936,6 +949,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     notifications,
     registrarExtensions,
     extensionUsages,
+    extensionSelectors,
     exposedApis,
     usedApis,
     referenceData,
