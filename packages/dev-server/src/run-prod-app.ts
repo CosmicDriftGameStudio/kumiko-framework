@@ -1070,6 +1070,14 @@ function buildStaticFallback(
     }
     const honoRes = honoTry.response;
 
+    // Disk-/SPA-Fallback ist GET/HEAD-only. Ein non-GET ohne Hono-Match
+    // (z.B. POST auf einen falsch konfigurierten Webhook-Pfad) muss den
+    // Hono-404 durchreichen — 200 index.html würde dem Provider
+    // "delivered" signalisieren und Events gingen still verloren (#259).
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      return honoRes;
+    }
+
     // Disk-Datei (Asset oder konkrete File). Asset-Pfade laufen
     // host-unabhängig — die Bundles in /assets/* werden vom client
     // aktiv geladen, kein Server-side Routing nötig.

@@ -313,6 +313,38 @@ describe("runProdApp", () => {
     expect(await res.text()).toContain("SPA shell");
   });
 
+  test("static-fallback: non-GET ohne Hono-Match → 404, nicht SPA-Shell (#259)", async () => {
+    // Prod-Szenario: POST auf einen falsch konfigurierten Webhook-Pfad
+    // (Route nicht gemountet). 200 index.html würde dem Provider
+    // "delivered" signalisieren — Events gingen still verloren.
+    const tmpStaticDir = await createTempStaticDir({
+      "index.html": "<html>SPA shell</html>",
+      "robots.txt": "User-agent: *\nAllow: /",
+    });
+
+    const handle = await boot(undefined, { staticDir: tmpStaticDir });
+
+    const unmatched = await handle.fetch(
+      new Request("http://test/webhooks/subscription/stripe", { method: "POST" }),
+    );
+    expect(unmatched.status).toBe(404);
+
+    // Disk-Files werden ebenfalls nicht auf non-GET serviert.
+    const diskFile = await handle.fetch(new Request("http://test/robots.txt", { method: "POST" }));
+    expect(diskFile.status).toBe(404);
+  });
+
+  test("static-fallback: HEAD auf SPA-Route bleibt 200 (spiegelt GET)", async () => {
+    const tmpStaticDir = await createTempStaticDir({
+      "index.html": "<html>SPA shell</html>",
+    });
+
+    const handle = await boot(undefined, { staticDir: tmpStaticDir });
+
+    const res = await handle.fetch(new Request("http://test/some/spa/route", { method: "HEAD" }));
+    expect(res.status).toBe(200);
+  });
+
   test("hostDispatch: per-host html-Datei + Schema-Gating", async () => {
     // Multi-App-Deployment: zwei HTML-Dateien für unterschiedliche
     // Hosts. Schema wird NUR für admin-Host injected — Public-Host
