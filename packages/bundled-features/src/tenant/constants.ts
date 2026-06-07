@@ -12,6 +12,7 @@ export const TenantHandlers = {
   create: "tenant:write:create",
   update: "tenant:write:update",
   disable: "tenant:write:disable",
+  enable: "tenant:write:enable",
   addMember: "tenant:write:add-member",
   removeMember: "tenant:write:remove-member",
   updateMemberRoles: "tenant:write:update-member-roles",

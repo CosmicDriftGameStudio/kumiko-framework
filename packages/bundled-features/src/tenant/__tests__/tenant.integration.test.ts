@@ -145,6 +145,22 @@ describe("scenario 4: tenant.disable", () => {
       "SystemAdmin",
     ]);
   });
+
+  test("SystemAdmin can re-enable a disabled tenant", async () => {
+    const me = await stack.http.queryOk<Record<string, unknown>>(TenantQueries.me, {}, systemAdmin);
+    const tenantId = me["id"] as string;
+
+    const data = await stack.http.writeOk(TenantHandlers.enable, { id: tenantId }, systemAdmin);
+    expect(data!["data"]).toMatchObject({
+      isEnabled: true,
+    });
+  });
+
+  test("enable handler requires SystemAdmin role", async () => {
+    expect(rolesOf(stack.registry.getWriteHandler(TenantHandlers.enable)?.access)).toEqual([
+      "SystemAdmin",
+    ]);
+  });
 });
 
 // --- Scenario 5: tenant.list ---
