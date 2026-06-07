@@ -18,11 +18,19 @@ export const membershipsQuery = defineQueryHandler({
     // (Tenant-Switcher zeigte sonst nur das UUID-Präfix — bei Seed-Tenants
     // mit 00000000-…-Präfix sind die ununterscheidbar). Eine Handvoll
     // Memberships pro User → Einzel-Fetches sind ok.
-    return Promise.all(
+    const enriched = await Promise.all(
       rows.map(async (row) => {
-        const tenant = await fetchOne<{ name?: unknown; key?: unknown }>(ctx.db, tenantTable, {
-          id: row["tenantId"],
-        });
+        const tenant = await fetchOne<{ name?: unknown; key?: unknown; isEnabled?: unknown }>(
+          ctx.db,
+          tenantTable,
+          { id: row["tenantId"] },
+        );
+        // Disabled Tenants (tenant:write:disable) zählen nicht als Membership:
+        // Login wählt sie nicht, /auth/tenants listet sie nicht, switch-tenant
+        // antwortet not_a_member. Nur das explizite false filtert — eine
+        // fehlende tenant-Row (Projektions-Drift) soll keinen Login-Lockout
+        // aller Member auslösen.
+        if (tenant !== undefined && tenant.isEnabled === false) return null;
         return {
           ...row,
           roles: parseRoles(row["roles"]),
@@ -31,5 +39,6 @@ export const membershipsQuery = defineQueryHandler({
         };
       }),
     );
+    return enriched.filter((m) => m !== null);
   },
 });

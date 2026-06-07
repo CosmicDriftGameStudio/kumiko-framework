@@ -292,3 +292,55 @@ describe("perTenant jobs", () => {
     }
   });
 });
+
+// --- Scenario 6: disabled tenant verschwindet aus allen Auth-Flächen ---
+//
+// tenant:write:disable legt den Tenant still: memberships-Query filtert ihn,
+// damit listet /auth/tenants ihn nicht mehr (Switcher), switch-tenant lehnt
+// ab (not_a_member) und der Login wählt ihn nicht. active-tenant-ids lässt
+// ihn ebenfalls aus (perTenant-Jobs). enable macht alles rückgängig.
+// Läuft bewusst NACH den perTenant-Job-Tests — die erwarten 2 aktive Tenants.
+
+describe("disabled tenant", () => {
+  const user = createTestUser({ id: 10 });
+
+  test("disable removes the tenant from memberships, /auth/tenants and switch-tenant", async () => {
+    const r = await writeApi(systemAdmin, TenantHandlers.disable, { id: testTenantId(2) });
+    expect(r.isSuccess).toBe(true);
+
+    const result = await queryApi(systemAdmin, TenantQueries.memberships, {
+      userId: "11111111-0000-4000-8000-000000000010",
+    });
+    const tenantIds = result.data.map((m: Record<string, unknown>) => m["tenantId"]);
+    expect(tenantIds).toEqual([testTenantId(1)]);
+
+    const res = await getApi(user, "/auth/tenants");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.tenants.map((t: Record<string, unknown>) => t["tenantId"])).toEqual([
+      testTenantId(1),
+    ]);
+
+    const switchRes = await postApi(user, "/auth/switch-tenant", { tenantId: testTenantId(2) });
+    expect(switchRes.status).toBe(403);
+
+    const activeIds = await queryApi(systemAdmin, TenantQueries.activeTenantIds, {});
+    expect(activeIds.data).toEqual([testTenantId(1)]);
+  });
+
+  test("enable restores membership, switcher and active-tenant-ids", async () => {
+    const r = await writeApi(systemAdmin, TenantHandlers.enable, { id: testTenantId(2) });
+    expect(r.isSuccess).toBe(true);
+
+    const result = await queryApi(systemAdmin, TenantQueries.memberships, {
+      userId: "11111111-0000-4000-8000-000000000010",
+    });
+    expect(result.data.length).toBe(2);
+
+    const switchRes = await postApi(user, "/auth/switch-tenant", { tenantId: testTenantId(2) });
+    expect(switchRes.status).toBe(200);
+
+    const activeIds = await queryApi(systemAdmin, TenantQueries.activeTenantIds, {});
+    expect(activeIds.data).toContain(testTenantId(2));
+  });
+});

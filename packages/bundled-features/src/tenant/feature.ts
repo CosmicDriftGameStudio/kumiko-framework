@@ -10,6 +10,7 @@ import { addMemberWrite } from "./handlers/add-member.write";
 import { cancelInvitationWrite } from "./handlers/cancel-invitation.write";
 import { createWrite } from "./handlers/create.write";
 import { disableWrite } from "./handlers/disable.write";
+import { enableWrite } from "./handlers/enable.write";
 import { invitationsQuery } from "./handlers/invitations.query";
 import { listQuery } from "./handlers/list.query";
 import { meQuery } from "./handlers/me.query";
@@ -30,7 +31,7 @@ export { tenantEntity, tenantTable } from "./schema/tenant";
 export function createTenantFeature(): FeatureDefinition {
   return defineFeature("tenant", (r) => {
     r.describe(
-      "Registers the three core multi-tenancy entities \u2014 `tenant`, `tenant-membership`, and `tenant-invitation` (DB tables `read_tenants`, `read_tenant_memberships`, and `read_tenant_invitations`) \u2014 along with write handlers for create/update/disable/addMember/removeMember/updateMemberRoles and the matching queries. It also declares a set of per-tenant config keys (companyName, timezone, locale, SMTP credentials) and system-only keys (priceModel, maxUsers) via `r.config({ keys: { ... } })`. Use this feature in every multi-tenant app; membership resolution and invitation flows depend on it, and `auth-email-password` requires it.",
+      "Registers the three core multi-tenancy entities \u2014 `tenant`, `tenant-membership`, and `tenant-invitation` (DB tables `read_tenants`, `read_tenant_memberships`, and `read_tenant_invitations`) \u2014 along with write handlers for create/update/disable/enable/addMember/removeMember/updateMemberRoles and the matching queries. It also declares a set of per-tenant config keys (companyName, timezone, locale, SMTP credentials) and system-only keys (priceModel, maxUsers) via `r.config({ keys: { ... } })`. Use this feature in every multi-tenant app; membership resolution and invitation flows depend on it, and `auth-email-password` requires it.",
     );
     r.systemScope();
     r.requires("config");
@@ -90,6 +91,7 @@ export function createTenantFeature(): FeatureDefinition {
       create: r.writeHandler(createWrite),
       update: r.writeHandler(updateWrite),
       disable: r.writeHandler(disableWrite),
+      enable: r.writeHandler(enableWrite),
       addMember: r.writeHandler(addMemberWrite),
       removeMember: r.writeHandler(removeMemberWrite),
       updateMemberRoles: r.writeHandler(updateMemberRolesWrite),
