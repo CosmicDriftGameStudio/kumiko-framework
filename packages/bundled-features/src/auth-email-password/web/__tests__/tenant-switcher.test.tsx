@@ -31,6 +31,26 @@ describe("TenantSwitcher", () => {
     // tenantName-Resolver liefert "Tenant tenant-a" als Trigger-Label
     expect(screen.getByText("Tenant tenant-a")).toBeTruthy();
   });
+  test("renders server-provided membership name without tenantName prop", () => {
+    // /auth/tenants liefert name/key mit — der Switcher braucht keinen
+    // App-Resolver mehr. Fallback-Kette: name > key > UUID-Präfix.
+    const session = makeSessionApi({
+      activeTenantId: "00000000-0000-4000-8000-000000000001",
+      tenants: [
+        {
+          tenantId: "00000000-0000-4000-8000-000000000001",
+          roles: ["Admin"],
+          name: "Status",
+          key: "status",
+        },
+        { tenantId: "00000000-0000-4000-8000-000000000002", roles: ["Admin"], key: "demo" },
+      ],
+    });
+    renderWithProviders(<TenantSwitcher />, { session });
+    // Ohne den Fix wären beide Labels das identische UUID-Präfix "00000000".
+    expect(screen.getByText("Status")).toBeTruthy();
+  });
+
   test("opens dropdown showing all memberships with roles", async () => {
     const user = userEvent.setup();
     const session = makeSessionApi({

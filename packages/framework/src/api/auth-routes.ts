@@ -115,6 +115,10 @@ type MembershipRow = {
   userId: string;
   tenantId: TenantId;
   roles: string[];
+  /** Display-Name des Tenants — liefert die membershipQuery seit dem
+   *  tenant-switcher-Fix mit; optional für ältere App-eigene Queries. */
+  tenantName?: string;
+  tenantKey?: string;
 };
 
 // Guest identity used for unauthenticated calls (e.g. login). The "all" role
@@ -754,6 +758,8 @@ export function createAuthRoutes(
         tenants: memberships.map((m) => ({
           tenantId: m.tenantId,
           roles: m.roles,
+          ...(m.tenantName !== undefined && { name: m.tenantName }),
+          ...(m.tenantKey !== undefined && { key: m.tenantKey }),
         })),
         activeTenantId: user.tenantId,
       });
