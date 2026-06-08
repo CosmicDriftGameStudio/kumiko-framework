@@ -57,7 +57,7 @@ describe("computeListViewModel", () => {
   });
 
   test("object-form column carries renderer through to the view model", () => {
-    const fmt = (v: unknown) => `${v} !`;
+    const fmt = { format: "currency" as const, symbol: "€" };
     const vm = computeListViewModel({
       screen: listScreen([{ field: "title", renderer: fmt }]),
       entity: taskEntity,
@@ -66,7 +66,7 @@ describe("computeListViewModel", () => {
       featureName: "tasks",
     });
 
-    expect(vm.columns[0]?.renderer).toBe(fmt);
+    expect(vm.columns[0]?.renderer).toEqual(fmt);
   });
 
   test("rows map to { id, values } with id pulled from the row", () => {

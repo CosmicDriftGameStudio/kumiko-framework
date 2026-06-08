@@ -97,6 +97,7 @@ export type {
   InputProps,
   PrimitivesProviderProps,
   PrimitivesRegistry,
+  RuntimeRenderer,
   SectionProps,
   TextProps,
 } from "./primitives";

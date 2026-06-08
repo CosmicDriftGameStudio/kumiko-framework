@@ -95,7 +95,7 @@ export const itemListScreen: EntityListScreenDefinition = {
     "isDone",
     {
       field: "priority",
-      renderer: (v: unknown) => (v === undefined || v === 0 ? "—" : `P${v}`),
+      renderer: { format: "priority", prefix: "P" },
     },
     "dueDate",
     // Tier 2.7e-4 Demo — Reference-Spalte. Renderer macht Bulk-Lookup
@@ -145,7 +145,7 @@ export const itemFeedScreen: EntityListScreenDefinition = {
     "status",
     {
       field: "priority",
-      renderer: (v: unknown) => (v === undefined || v === 0 ? "—" : `P${v}`),
+      renderer: { format: "priority", prefix: "P" },
     },
     "dueDate",
   ],

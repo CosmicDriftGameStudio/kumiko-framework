@@ -23,7 +23,7 @@ const listScreen: EntityListScreenDefinition = {
     "title",
     "status",
     "isUrgent",
-    { field: "priority", renderer: (v: unknown) => `P${v}` },
+    { field: "priority", renderer: { format: "priority" as const, prefix: "P" } },
   ],
 };
 

@@ -24,18 +24,31 @@ export type PlatformComponent = {
   readonly native?: unknown;
 };
 
+// Built-in value formatters. Apps extend via module augmentation:
+//   declare module "@cosmicdrift/kumiko-framework" {
+//     interface FieldFormatRegistry { myFormat: { myOption?: string } }
+//   }
+// renderer-web handles all built-in keys; unknown app-specific keys fall back
+// to String(value).
+export interface FieldFormatRegistry {
+  timestamp: Record<never, never>;
+  date: Record<never, never>;
+  boolean: { readonly trueLabel?: string; readonly falseLabel?: string };
+  currency: { readonly symbol?: string };
+  priority: { readonly emptyLabel?: string; readonly prefix?: string };
+}
+
+// Discriminated union derived from the registry — one variant per key.
+// JSON-safe: no function members, survives buildAppSchema → window.__KUMIKO_SCHEMA__.
+export type FormatSpec = {
+  [K in keyof FieldFormatRegistry]: { readonly format: K } & FieldFormatRegistry[K];
+}[keyof FieldFormatRegistry];
+
 // Level-2 field renderer (ui-architecture.md §Renderer Customization):
 //   - PlatformComponent → platform-specific component from the same feature
-//   - string            → cross-feature QN reference (resolved by the renderer)
-//   - function          → inline value formatter (e.g. `v => `${v} €``)
-// Function-Form bekommt optional die ganze Row als 2. Argument —
-// nützlich für context-aware Renderer (Tier 2.7e-Eagerload nutzt das
-// um aus row._refs den resolved Display-Wert zu lesen). Renderer die
-// nur den value brauchen ignorieren das Argument einfach.
-export type FieldRenderer =
-  | PlatformComponent
-  | string
-  | ((value: unknown, row?: Readonly<Record<string, unknown>>) => string);
+//   - string            → cross-feature QN reference (resolved at mount-time)
+//   - FormatSpec        → declarative value formatter, JSON-safe ({ format: "timestamp" } etc.)
+export type FieldRenderer = PlatformComponent | string | FormatSpec;
 
 // Declarative field-state condition. Evaluated by the renderer against the
 // current row/form values. Three forms:

@@ -57,20 +57,20 @@ describe("RenderList — column-renderer registry", () => {
     warnSpy.mockRestore();
   });
 
-  test("function-renderer pfad bleibt unverändert (Bestand)", () => {
-    const screenWithFn: EntityListScreenDefinition = {
+  test("FormatSpec-renderer: currency formatiert Wert + Symbol", () => {
+    const screenWithFmt: EntityListScreenDefinition = {
       ...baseScreen,
-      columns: ["title", { field: "color", renderer: (v) => `[${String(v)}]` }],
+      columns: ["title", { field: "color", renderer: { format: "currency", symbol: "€" } }],
     };
     render(
       <RenderList
-        screen={screenWithFn}
+        screen={screenWithFmt}
         entity={taskEntity}
-        rows={[{ id: "r1", title: "Alpha", color: "#fff" }]}
+        rows={[{ id: "r1", title: "Alpha", color: "42" }]}
         featureName="tasks"
       />,
     );
-    expect(screen.getByTestId("cell-r1-color").textContent).toBe("[#fff]");
+    expect(screen.getByTestId("cell-r1-color").textContent).toBe("42 €");
   });
 
   test("__component-renderer mit Provider → Component wird gemountet, value+row+column kommen an", () => {

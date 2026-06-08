@@ -1056,8 +1056,40 @@ export function isComponentRendererRef(renderer: unknown): { readonly name: stri
   return { name: component };
 }
 
+// Applies a FormatSpec ({ format: "timestamp" } etc.) to a value.
+// Handles all built-in FieldFormatRegistry keys; unknown app-specific keys
+// fall back to String(value). Exported for unit tests.
+export function applyFormatSpec(
+  spec: { format: string } & Record<string, unknown>,
+  value: unknown,
+): string {
+  if (value === null || value === undefined || value === "") return "";
+  switch (spec.format) {
+    case "timestamp":
+    case "date":
+      return formatDateCell(value, spec.format);
+    case "boolean": {
+      if (value === true) return (spec["trueLabel"] as string | undefined) ?? "✓";
+      if (value === false) return (spec["falseLabel"] as string | undefined) ?? "";
+      return "";
+    }
+    case "currency": {
+      const sym = (spec["symbol"] as string | undefined) ?? "";
+      return sym.length > 0 ? `${value} ${sym}` : String(value);
+    }
+    case "priority": {
+      const emptyLabel = (spec["emptyLabel"] as string | undefined) ?? "—";
+      const prefix = (spec["prefix"] as string | undefined) ?? "";
+      if (value === 0 || value === undefined || value === null) return emptyLabel;
+      return `${prefix}${value}`;
+    }
+    default:
+      return typeof value === "string" ? value : String(value);
+  }
+}
+
 // Type-spezifische Default-Cell-Renderer. Author kann pro Spalte einen
-// expliziten renderer setzen (Function oder PlatformComponent); ohne
+// expliziten renderer setzen (FormatSpec oder PlatformComponent); ohne
 // expliziten renderer fällt DataTableCell hier durch.
 //
 //   - boolean → ✓ / leer
@@ -1135,14 +1167,14 @@ type DataTableCellProps = {
 };
 
 // Cell-Renderer als Component (statt reiner Funktion) damit der
-// useColumnRenderer-Hook aus dem Provider lesen kann. Die drei Pfade
-// sind:
-//   1. Funktion → ruft fn(value) auf, returnt String. Bestand-Pfad,
-//      bleibt unverändert für alle bestehenden Schemas.
-//   2. PlatformComponent (`{ react: { __component: "X" } }`) → schaut
+// useColumnRenderer-Hook aus dem Provider lesen kann. Die vier Pfade:
+//   1. FormatSpec (`{ format: "timestamp" }` etc.) → applyFormatSpec.
+//   2. RuntimeRenderer (Funktion) → direkter Aufruf. Nur für render-list-
+//      interne Reference-Lookup-Closures — niemals aus dem serialisierten Schema.
+//   3. PlatformComponent (`{ react: { __component: "X" } }`) → schaut
 //      "X" über useColumnRenderer auf und rendert `<X value row column/>`.
 //      Nicht registriert → einmalige Warnung + Default-Fallback.
-//   3. Sonst → defaultCellRender (Type-basierter String-Renderer).
+//   4. Sonst → defaultCellRender (Type-basierter String-Renderer).
 function DataTableCell({
   value,
   row,
@@ -1153,9 +1185,10 @@ function DataTableCell({
 }: DataTableCellProps): ReactNode {
   const componentRef = isComponentRendererRef(renderer);
   const ResolvedComponent = useColumnRenderer(componentRef?.name);
+  if (typeof renderer === "object" && renderer !== null && "format" in renderer) {
+    return applyFormatSpec(renderer as { format: string } & Record<string, unknown>, value);
+  }
   if (typeof renderer === "function") {
-    // 2. Argument: ganze Row als read-only — function-Renderer können
-    // context-aware sein (Tier 2.7e-Eagerload nutzt das für _refs).
     const fn = renderer as (v: unknown, r?: Readonly<Record<string, unknown>>) => string;
     return fn(value, row);
   }
@@ -1163,7 +1196,7 @@ function DataTableCell({
     if (ResolvedComponent !== undefined) {
       return <ResolvedComponent value={value} row={row} column={{ field }} />;
     }
-    // Renderer im Schema referenziert, aber client-side keine Map-Eintrag —
+    // Renderer im Schema referenziert, aber client-side kein Map-Eintrag —
     // typischer Fall: clientFeatures.columnRenderers vergessen oder
     // Tippfehler im __component-Key. Warnen statt crashen, damit ein
     // Schema-Boot trotzdem funktioniert (Default-Type-Renderer übernimmt).

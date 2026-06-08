@@ -62,7 +62,7 @@ export const listScreen: EntityListScreenDefinition = {
     "isUrgent",
     {
       field: "priority",
-      renderer: (v: unknown) => (v === undefined || v === 0 ? "—" : `P${v}`),
+      renderer: { format: "priority", prefix: "P" },
     },
   ],
 };

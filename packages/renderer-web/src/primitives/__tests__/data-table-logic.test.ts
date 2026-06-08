@@ -4,7 +4,12 @@
 // money-input seine Pure-Logik exportiert). Kein DOM.
 
 import { describe, expect, test } from "bun:test";
-import { computeVisiblePages, defaultCellRender, isComponentRendererRef } from "../index";
+import {
+  applyFormatSpec,
+  computeVisiblePages,
+  defaultCellRender,
+  isComponentRendererRef,
+} from "../index";
 
 describe("computeVisiblePages", () => {
   test("<= 7 Seiten: alle Seiten, keine Ellipsis", () => {
@@ -52,6 +57,52 @@ describe("isComponentRendererRef", () => {
   test("leerer oder fehlender __component → undefined", () => {
     expect(isComponentRendererRef({ react: {} })).toBeUndefined();
     expect(isComponentRendererRef({ react: { __component: "" } })).toBeUndefined();
+  });
+});
+
+describe("applyFormatSpec", () => {
+  test("null/undefined/leer → leerer String (alle Formate)", () => {
+    expect(applyFormatSpec({ format: "boolean" }, null)).toBe("");
+    expect(applyFormatSpec({ format: "currency", symbol: "€" }, undefined)).toBe("");
+    expect(applyFormatSpec({ format: "priority" }, "")).toBe("");
+  });
+
+  test("boolean: true → ✓, false → leer (defaults)", () => {
+    expect(applyFormatSpec({ format: "boolean" }, true)).toBe("✓");
+    expect(applyFormatSpec({ format: "boolean" }, false)).toBe("");
+  });
+
+  test("boolean: benutzerdefinierte Labels", () => {
+    expect(
+      applyFormatSpec({ format: "boolean", trueLabel: "Public", falseLabel: "Hidden" }, true),
+    ).toBe("Public");
+    expect(
+      applyFormatSpec({ format: "boolean", trueLabel: "Public", falseLabel: "Hidden" }, false),
+    ).toBe("Hidden");
+  });
+
+  test("currency: value + Leerzeichen + symbol", () => {
+    expect(applyFormatSpec({ format: "currency", symbol: "€" }, 42)).toBe("42 €");
+    expect(applyFormatSpec({ format: "currency", symbol: "$" }, "99.90")).toBe("99.90 $");
+  });
+
+  test("currency: kein symbol → reiner Wert", () => {
+    expect(applyFormatSpec({ format: "currency" }, 42)).toBe("42");
+  });
+
+  test("priority: 0 → Standard-Dash, Zahl → prefix+value", () => {
+    expect(applyFormatSpec({ format: "priority", prefix: "P" }, 0)).toBe("—");
+    expect(applyFormatSpec({ format: "priority", prefix: "P" }, 3)).toBe("P3");
+  });
+
+  test("priority: benutzerdefinierter emptyLabel + kein prefix", () => {
+    expect(applyFormatSpec({ format: "priority", emptyLabel: "none" }, 0)).toBe("none");
+    expect(applyFormatSpec({ format: "priority" }, 5)).toBe("5");
+  });
+
+  test("unbekanntes format → String(value) fallback", () => {
+    expect(applyFormatSpec({ format: "custom-app-format" }, 42)).toBe("42");
+    expect(applyFormatSpec({ format: "custom-app-format" }, "hello")).toBe("hello");
   });
 });
 
