@@ -69,6 +69,7 @@ export type {
 } from "../engine/types/screen";
 export {
   isExtensionEditSection,
+  isFormatSpec,
   normalizeEditField,
   normalizeListColumn,
 } from "../engine/types/screen";

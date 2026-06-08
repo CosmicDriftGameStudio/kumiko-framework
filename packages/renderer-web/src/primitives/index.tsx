@@ -8,6 +8,7 @@
 // basierte Stile. Radix-UI-Unterbau für interaktive Elemente (Modal,
 // Dropdown etc. kommen später).
 
+import { applyFormatSpec } from "@cosmicdrift/kumiko-headless";
 import type { ListRowViewModel } from "@cosmicdrift/kumiko-headless";
 import type {
   DataTableRowAction,
@@ -1056,42 +1057,8 @@ export function isComponentRendererRef(renderer: unknown): { readonly name: stri
   return { name: component };
 }
 
-// Applies a FormatSpec ({ format: "timestamp" } etc.) to a value.
-// Handles all built-in FieldFormatRegistry keys; unknown app-specific keys
-// fall back to String(value). Exported for unit tests.
-export function applyFormatSpec(
-  spec: { format: string } & Record<string, unknown>,
-  value: unknown,
-): string {
-  if (value === null || value === undefined || value === "") return "";
-  switch (spec.format) {
-    case "timestamp":
-    case "date":
-      return formatDateCell(value, spec.format);
-    case "boolean": {
-      if (value === true) return (spec["trueLabel"] as string | undefined) ?? "✓";
-      if (value === false) return (spec["falseLabel"] as string | undefined) ?? "";
-      return "";
-    }
-    case "currency": {
-      const sym = (spec["symbol"] as string | undefined) ?? "";
-      return sym.length > 0 ? `${value} ${sym}` : String(value);
-    }
-    case "priority": {
-      const emptyLabel = (spec["emptyLabel"] as string | undefined) ?? "—";
-      const prefix = (spec["prefix"] as string | undefined) ?? "";
-      if (value === 0 || value === undefined || value === null) return emptyLabel;
-      return `${prefix}${value}`;
-    }
-    default:
-      if (typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
-        console.warn(
-          `[kumiko] applyFormatSpec: unbekannter Format-Key "${spec.format}" — via FieldFormatRegistry module augmentation registriert?`,
-        );
-      }
-      return typeof value === "string" ? value : String(value);
-  }
-}
+// applyFormatSpec re-exported from headless (platform-agnostic).
+export { applyFormatSpec };
 
 // Type-spezifische Default-Cell-Renderer. Author kann pro Spalte einen
 // expliziten renderer setzen (FormatSpec oder PlatformComponent); ohne
@@ -1108,7 +1075,7 @@ export function defaultCellRender(
 ): string {
   if (value === null || value === undefined || value === "") return "";
   if (type === "boolean") return value === true ? "✓" : "";
-  if (type === "timestamp" || type === "date") return formatDateCell(value, type);
+  if (type === "timestamp" || type === "date") return applyFormatSpec({ format: type }, value);
   if (type === "select") {
     const raw = String(value);
     // Translated Label aus dem ViewModel-Builder (Convention-Key
@@ -1120,29 +1087,6 @@ export function defaultCellRender(
     return humanizeSlug(raw);
   }
   return typeof value === "string" ? value : String(value);
-}
-
-function formatDateCell(value: unknown, type: string): string {
-  // Server liefert ISO-String oder Temporal.Instant.toJSON() (gleicher
-  // ISO-shape). Für `type:"date"` zeigen wir nur das Datum, für
-  // `type:"timestamp"` Datum + Uhrzeit. Locale-Default = Browser.
-  try {
-    const raw = typeof value === "string" ? value : String(value);
-    const date = new Date(raw);
-    if (Number.isNaN(date.getTime())) return raw;
-    if (type === "date") {
-      return date.toLocaleDateString();
-    }
-    return date.toLocaleString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return String(value);
-  }
 }
 
 function humanizeSlug(slug: string): string {

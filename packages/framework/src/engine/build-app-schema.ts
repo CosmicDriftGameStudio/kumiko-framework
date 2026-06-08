@@ -59,10 +59,22 @@ export function buildAppSchema(registry: Registry): AppSchema {
     }
   }
 
-  return {
+  const schema = {
     features,
     ...(workspaces.length > 0 && { workspaces }),
   };
+
+  if (typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
+    const roundTripped = JSON.parse(JSON.stringify(schema));
+    if (JSON.stringify(roundTripped) !== JSON.stringify(schema)) {
+      console.error(
+        "[kumiko] buildAppSchema: Output ist nicht JSON-safe — ein Funktions-Renderer oder nicht-serialisierbarer Wert ist in das Schema gerutscht. Details im Diff:",
+        schema,
+      );
+    }
+  }
+
+  return schema;
 }
 
 function projectEntities(

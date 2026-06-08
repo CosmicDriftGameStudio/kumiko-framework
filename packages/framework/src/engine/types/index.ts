@@ -227,7 +227,7 @@ export type {
   ScreenSlots,
   ToolbarAction,
 } from "./screen";
-export { isExtensionEditSection, normalizeEditField, normalizeListColumn } from "./screen";
+export { isExtensionEditSection, isFormatSpec, normalizeEditField, normalizeListColumn } from "./screen";
 export type { TargetRef } from "./target-ref";
 export type {
   Subscribe,

@@ -81,4 +81,5 @@ export type {
   ScreenSlots,
   Translate,
 } from "./view-model";
+export { applyFormatSpec } from "./format";
 export { computeEditViewModel, computeListViewModel, fieldLabelKey } from "./view-model";

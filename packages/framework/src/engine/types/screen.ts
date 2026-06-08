@@ -31,8 +31,15 @@ export type PlatformComponent = {
 // renderer-web handles all built-in keys; unknown app-specific keys fall back
 // to String(value).
 export interface FieldFormatRegistry {
-  timestamp: Record<never, never>;
-  date: Record<never, never>;
+  timestamp: {
+    readonly locale?: string;
+    readonly dateStyle?: "full" | "long" | "medium" | "short";
+    readonly timeStyle?: "full" | "long" | "medium" | "short";
+  };
+  date: {
+    readonly locale?: string;
+    readonly dateStyle?: "full" | "long" | "medium" | "short";
+  };
   boolean: { readonly trueLabel?: string; readonly falseLabel?: string };
   currency: { readonly symbol?: string };
   priority: { readonly emptyLabel?: string; readonly prefix?: string };
@@ -478,11 +485,29 @@ export type ScreenDefinition =
   | ConfigEditScreenDefinition
   | CustomScreenDefinition;
 
+// Type guard — narrows FieldRenderer to FormatSpec. Useful for renderer
+// authors who branch on the three FieldRenderer variants without manual
+// "format" in renderer checks.
+export function isFormatSpec(r: unknown): r is FormatSpec {
+  return typeof r === "object" && r !== null && "format" in r && typeof (r as Record<string, unknown>)["format"] === "string";
+}
+
 // Collapse the string-shorthand into the object form. Both the boot-validator
 // and (later) ui-core's view-model builder iterate over fields/columns — the
 // helper keeps that loop from growing two branches everywhere.
 export function normalizeListColumn(c: ListColumnSpec): Exclude<ListColumnSpec, string> {
-  return typeof c === "string" ? { field: c } : c;
+  const col = typeof c === "string" ? { field: c } : c;
+  if (
+    typeof process !== "undefined" &&
+    process.env.NODE_ENV !== "production" &&
+    col.renderer !== undefined &&
+    typeof col.renderer === "function"
+  ) {
+    console.warn(
+      `[kumiko] normalizeListColumn: Feld "${col.field}" hat einen Funktions-Renderer — dieser wird von JSON.stringify verworfen. Bitte auf FormatSpec ({ format: "..." }) migrieren.`,
+    );
+  }
+  return col;
 }
 
 export function normalizeEditField(f: EditFieldSpec): Exclude<EditFieldSpec, string> {
