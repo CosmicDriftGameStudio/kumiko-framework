@@ -113,6 +113,17 @@ async function countDefinitions(tenantId: string, fieldKey: string): Promise<num
   return (rows as ReadonlyArray<{ n: number }>)[0]?.n ?? 0;
 }
 
+async function fetchDefinitionRow(
+  tenantId: string,
+  fieldKey: string,
+): Promise<Record<string, unknown> | undefined> {
+  const rows = await asRawClient(stack.db).unsafe(
+    "SELECT entity_name, field_key, type, required, searchable, display_order, serialized_field FROM read_custom_field_definitions WHERE tenant_id = $1 AND field_key = $2",
+    [tenantId, fieldKey],
+  );
+  return (rows as ReadonlyArray<Record<string, unknown>>)[0];
+}
+
 async function defineField(entityName: string, fieldKey: string, type = "text") {
   return stack.http.writeOk(
     "custom-fields:write:define-tenant-field",
@@ -559,5 +570,144 @@ describe("custom-fields integration — value validation (Builder-Reuse)", () =>
     await setCustomField("property", id, "geo", { city: "Bonn" });
     await stack.eventDispatcher?.runOnce();
     expect(await rawCustomFields(id)).toMatchObject({ geo: { city: "Bonn" } });
+  });
+});
+
+describe("custom-fields integration — update-tenant-field (Bug-Bash D2)", () => {
+  async function updateField(fieldKey: string, overrides: Record<string, unknown>, user = admin) {
+    return stack.http.writeOk(
+      "custom-fields:write:update-tenant-field",
+      {
+        entityName: "property",
+        fieldKey,
+        serializedField: { type: "text" },
+        required: false,
+        searchable: false,
+        displayOrder: 0,
+        ...overrides,
+      },
+      user,
+    );
+  }
+
+  test("define → update ersetzt Spalten + serializedField-Inhalt (Projektion)", async () => {
+    await defineField("property", "priority", "number");
+    await updateField("priority", {
+      serializedField: { type: "number", min: 0, max: 10 },
+      required: true,
+      searchable: true,
+      displayOrder: 7,
+      label: { de: "Priorität", en: "Priority" },
+    });
+
+    const row = await fetchDefinitionRow(admin.tenantId, "priority");
+    expect(row).toBeDefined();
+    expect(row?.["type"]).toBe("number");
+    expect(row?.["required"]).toBe(true);
+    expect(row?.["searchable"]).toBe(true);
+    expect(Number(row?.["display_order"])).toBe(7);
+    // serializedField über den update-Pfad (flattenCompoundTypes ≠ create-Pfad)
+    // zurückparsen — Inhalt beweisen, nicht nur write-success.
+    const sf = JSON.parse(String(row?.["serialized_field"])) as Record<string, unknown>;
+    expect(sf["min"]).toBe(0);
+    expect(sf["max"]).toBe(10);
+    expect(sf["label"]).toEqual({ de: "Priorität", en: "Priority" });
+  });
+
+  test("zwei sequentielle Updates ohne version_conflict (skipOptimisticLock)", async () => {
+    await defineField("property", "stage", "text");
+    await updateField("stage", { displayOrder: 1 });
+    await updateField("stage", { displayOrder: 2 });
+    const row = await fetchDefinitionRow(admin.tenantId, "stage");
+    expect(Number(row?.["display_order"])).toBe(2);
+  });
+
+  test("update auf nicht-existente Definition → 404", async () => {
+    const err = await stack.http.writeErr(
+      "custom-fields:write:update-tenant-field",
+      {
+        entityName: "property",
+        fieldKey: "ghost",
+        serializedField: { type: "text" },
+        required: false,
+        searchable: false,
+        displayOrder: 0,
+      },
+      admin,
+    );
+    expect(err.httpStatus).toBe(404);
+  });
+
+  test("type-Wechsel → 422 field_type_immutable, Bestand unverändert", async () => {
+    await defineField("property", "color", "text");
+    const err = await stack.http.writeErr(
+      "custom-fields:write:update-tenant-field",
+      {
+        entityName: "property",
+        fieldKey: "color",
+        serializedField: { type: "number" },
+        required: false,
+        searchable: false,
+        displayOrder: 0,
+      },
+      admin,
+    );
+    expect(err.httpStatus).toBe(422);
+    expect(err.details).toMatchObject({
+      reason: "field_type_immutable",
+      currentType: "text",
+      requestedType: "number",
+    });
+    const row = await fetchDefinitionRow(admin.tenantId, "color");
+    expect(row?.["type"]).toBe("text");
+  });
+
+  test("Cross-Tenant: fremde (entityName,fieldKey) → 404, Owner-Definition unverändert", async () => {
+    await defineField("property", "secret", "text");
+    // Expliziter Fremd-Tenant — createTestUser ohne tenantId landet im
+    // selben Default-Test-Tenant wie `admin`.
+    const otherAdmin = createTestUser({
+      roles: ["TenantAdmin"],
+      tenantId: "00000000-0000-4000-8000-000000000099",
+    });
+    const err = await stack.http.writeErr(
+      "custom-fields:write:update-tenant-field",
+      {
+        entityName: "property",
+        fieldKey: "secret",
+        serializedField: { type: "text" },
+        required: true,
+        searchable: false,
+        displayOrder: 0,
+      },
+      otherAdmin,
+    );
+    // aggregate-id deriviert aus otherAdmin.tenantId → trifft nichts.
+    expect(err.httpStatus).toBe(404);
+    const row = await fetchDefinitionRow(admin.tenantId, "secret");
+    expect(row?.["required"]).toBe(false);
+  });
+
+  test("update-tenant-field rejects a caller whose tenant IS the system tenant", async () => {
+    const systemScopedAdmin = createTestUser({
+      roles: ["TenantAdmin"],
+      tenantId: SYSTEM_TENANT_ID,
+    });
+    const err = await stack.http.writeErr(
+      "custom-fields:write:update-tenant-field",
+      {
+        entityName: "property",
+        fieldKey: "leaky",
+        serializedField: { type: "text" },
+        required: false,
+        searchable: false,
+        displayOrder: 0,
+      },
+      systemScopedAdmin,
+    );
+    // Guard wirft plain Error → 500; Message pinnen (wie der define-Guard-Test).
+    expect(err.httpStatus).toBe(500);
+    const causeMessage = (err.details as { causeMessage?: string } | undefined)?.causeMessage ?? "";
+    expect(causeMessage).toContain("update-tenant-field");
   });
 });

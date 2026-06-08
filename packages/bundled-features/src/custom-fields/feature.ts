@@ -6,6 +6,7 @@
 //   2. define-tenant-field / define-system-field — RBAC write-handlers für
 //      Definition-CRUD.
 //   3. delete-tenant-field / delete-system-field — RBAC write-handlers.
+//   3b. update-tenant-field — Vollersatz-Edit (Bug-Bash D2); type immutable.
 //   4. set-custom-field / clear-custom-field — write-handlers für VALUES.
 //      Emittieren customField.set/.cleared-Events auf host-aggregate-stream.
 //   5. r.defineEvent für customField.set/.cleared + fieldDefinition.deleted.
@@ -62,6 +63,7 @@ import {
 import { deleteSystemFieldHandler } from "./handlers/delete-system-field.write";
 import { deleteTenantFieldHandler } from "./handlers/delete-tenant-field.write";
 import { setCustomFieldHandler } from "./handlers/set-custom-field.write";
+import { updateTenantFieldHandler } from "./handlers/update-tenant-field.write";
 
 const tenantAdminAccess = { access: { roles: ["TenantAdmin"] } } as const;
 
@@ -85,7 +87,7 @@ function registerCustomFields(
   defineTenantHandler: WriteHandlerDef,
 ) {
   r.describe(
-    "Tenant- and system-scoped custom field definitions with generic value storage on any host entity. Registers the `field-definition` entity (event-sourced CRUD via `define-tenant-field`, `define-system-field`, `delete-tenant-field`, `delete-system-field`) and two value write-handlers (`set-custom-field`, `clear-custom-field`) that emit `custom-fields:event:custom-field-set` / `custom-fields:event:custom-field-cleared` events on the host aggregate's stream. To attach custom fields to your own entity, call `wireCustomFieldsFor(r, entityName, entityTable)` in the host feature — this wires the JSONB projection, `postQuery` flattening hook, and search-payload extension. The host entity must declare a `customFieldsField()` JSONB column.",
+    "Tenant- and system-scoped custom field definitions with generic value storage on any host entity. Registers the `field-definition` entity (event-sourced CRUD via `define-tenant-field`, `define-system-field`, `update-tenant-field`, `delete-tenant-field`, `delete-system-field`) and two value write-handlers (`set-custom-field`, `clear-custom-field`) that emit `custom-fields:event:custom-field-set` / `custom-fields:event:custom-field-cleared` events on the host aggregate's stream. To attach custom fields to your own entity, call `wireCustomFieldsFor(r, entityName, entityTable)` in the host feature — this wires the JSONB projection, `postQuery` flattening hook, and search-payload extension. The host entity must declare a `customFieldsField()` JSONB column.",
   );
   r.entity("field-definition", fieldDefinitionEntity);
 
@@ -110,9 +112,10 @@ function registerCustomFields(
   // explicit-wiring statt magic-auto-wiring.
   r.extendsRegistrar(CUSTOM_FIELDS_EXTENSION, {});
 
-  // Definition-CRUD handlers (B1).
+  // Definition-CRUD handlers (B1; update kam mit Bug-Bash D2 2026-06-08).
   r.writeHandler(defineTenantHandler);
   r.writeHandler(defineSystemFieldHandler);
+  r.writeHandler(updateTenantFieldHandler);
   r.writeHandler(deleteTenantFieldHandler);
   r.writeHandler(deleteSystemFieldHandler);
 
