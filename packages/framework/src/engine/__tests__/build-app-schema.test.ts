@@ -151,4 +151,86 @@ describe("buildAppSchema", () => {
     // Feature-namen identisch nach Roundtrip
     expect(parsed.features[0].featureName).toBe("ent");
   });
+
+  test("FormatSpec-Renderer + FieldCondition-RowActions überleben JSON-Roundtrip unverändert", () => {
+    // Pinnt: FormatSpec ({ format: "timestamp" } etc.) ist JSON-sicher
+    // und FieldCondition ({ field, eq/ne } | boolean) bleibt nach
+    // JSON.parse(JSON.stringify(app)) deep-equal zum Original.
+    const entity = {
+      table: "events",
+      fields: {
+        id: { type: "text" },
+        startedAt: { type: "timestamp" },
+        status: { type: "text" },
+        priority: { type: "number" },
+      },
+    } as unknown as EntityDefinition;
+
+    const f = defineFeature("ev", (r) => {
+      r.entity("event", entity);
+      r.screen({
+        id: "list",
+        type: "entityList",
+        entity: "event",
+        columns: [
+          "id",
+          { field: "startedAt", renderer: { format: "timestamp" as const } },
+          { field: "priority", renderer: { format: "priority" as const, prefix: "P" } },
+          { field: "status" },
+        ],
+        rowActions: [
+          {
+            kind: "navigate",
+            id: "open",
+            label: "Öffnen",
+            screen: "detail",
+            visible: { field: "status", ne: "archived" },
+          },
+          {
+            kind: "navigate",
+            id: "archive",
+            label: "Archivieren",
+            screen: "archive",
+            visible: { field: "status", eq: "open" },
+          },
+          {
+            kind: "navigate",
+            id: "always",
+            label: "Immer",
+            screen: "view",
+            visible: true,
+          },
+        ],
+      });
+    });
+
+    const app = buildAppSchema(createRegistry([f]));
+    const roundTripped = JSON.parse(JSON.stringify(app));
+
+    // Vollständige deep-equality — kein Silent-Drop durch JSON.stringify
+    expect(roundTripped).toEqual(app);
+
+    // Explizit: FormatSpec-Felder landen unverändert an
+    const screen = roundTripped.features[0]?.screens[0];
+    const cols = screen?.columns as Array<{ field?: string; renderer?: unknown }>;
+    expect(cols?.find((c) => c.field === "startedAt")?.renderer).toEqual({
+      format: "timestamp",
+    });
+    expect(cols?.find((c) => c.field === "priority")?.renderer).toEqual({
+      format: "priority",
+      prefix: "P",
+    });
+
+    // Explizit: FieldCondition-Varianten (eq, ne, boolean) landen unverändert an
+    const actions = screen?.rowActions as Array<{ id: string; visible?: unknown }>;
+    expect(actions?.find((a) => a.id === "open")?.visible).toEqual({
+      field: "status",
+      ne: "archived",
+    });
+    expect(actions?.find((a) => a.id === "archive")?.visible).toEqual({
+      field: "status",
+      eq: "open",
+    });
+    expect(actions?.find((a) => a.id === "always")?.visible).toBe(true);
+  });
 });

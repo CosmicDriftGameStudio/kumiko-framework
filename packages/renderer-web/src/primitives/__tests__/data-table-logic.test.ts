@@ -3,7 +3,7 @@
 // Reine Funktionen aus primitives/index.tsx (exportiert für Test, wie
 // money-input seine Pure-Logik exportiert). Kein DOM.
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import {
   applyFormatSpec,
   computeVisiblePages,
@@ -100,9 +100,13 @@ describe("applyFormatSpec", () => {
     expect(applyFormatSpec({ format: "priority" }, 5)).toBe("5");
   });
 
-  test("unbekanntes format → String(value) fallback", () => {
+  test("unbekanntes format → String(value) fallback + dev-warning", () => {
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
     expect(applyFormatSpec({ format: "custom-app-format" }, 42)).toBe("42");
     expect(applyFormatSpec({ format: "custom-app-format" }, "hello")).toBe("hello");
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(warn.mock.calls[0]?.[0]).toContain("custom-app-format");
+    warn.mockRestore();
   });
 });
 
