@@ -88,6 +88,7 @@ export type {
   DataTableRowAction,
   DataTableSort,
   DataTableSortDir,
+  RuntimeRenderer,
   DialogProps,
   FieldProps,
   FormProps,

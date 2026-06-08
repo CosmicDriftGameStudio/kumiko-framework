@@ -36,8 +36,10 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import type {
   FieldIssue,
+  FieldRenderer,
   ListColumnViewModel,
   ListRowViewModel,
+  RuntimeRenderer,
 } from "@cosmicdrift/kumiko-headless";
 import {
   type ComponentType,
@@ -46,6 +48,8 @@ import {
   type ReactNode,
   useContext,
 } from "react";
+
+export type { RuntimeRenderer };
 
 // ---- Prop-Types (die Primitive-Contract-Oberfläche) ----
 

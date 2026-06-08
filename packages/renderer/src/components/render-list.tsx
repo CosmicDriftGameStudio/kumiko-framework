@@ -6,6 +6,7 @@ import type {
 import type {
   ListColumnViewModel,
   ListRowViewModel,
+  ListViewModel,
   Translate,
 } from "@cosmicdrift/kumiko-headless";
 import { computeListViewModel } from "@cosmicdrift/kumiko-headless";
@@ -13,7 +14,11 @@ import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react
 import type { ListSort } from "../hooks/use-list-url-state";
 import { type ReferenceLookupMap, useReferenceLookup } from "../hooks/use-reference-lookup";
 import { useTranslation } from "../i18n";
-import { type DataTableRowAction, usePrimitives } from "../primitives";
+import type { RuntimeRenderer } from "@cosmicdrift/kumiko-headless";
+import {
+  type DataTableRowAction,
+  usePrimitives,
+} from "../primitives";
 
 // RenderList — präsentationaler View für entityList-Screens.
 //
@@ -185,7 +190,7 @@ export function RenderList(props: RenderListProps): ReactNode {
       return { ...prev, [field]: map };
     });
   }, []);
-  const enrichedColumns = useMemo(() => {
+  const enrichedColumns = useMemo((): readonly ListColumnViewModel[] => {
     if (referenceColumns.length === 0) return vm.columns;
     return vm.columns.map((col: ListColumnViewModel) => {
       if (col.type !== "reference") return col;
@@ -194,7 +199,7 @@ export function RenderList(props: RenderListProps): ReactNode {
       if (col.renderer !== undefined) return col;
       const map = referenceLookups[col.field];
       const labelField = col.refLabelField ?? "id";
-      const renderer = (value: unknown, row?: Readonly<Record<string, unknown>>): string => {
+      const renderer: RuntimeRenderer = (value: unknown, row?: Readonly<Record<string, unknown>>): string => {
         // Tier 2.7e Server-Eagerload: wenn der Server _refs mit-
         // schickt, lesen wir den Display-Wert direkt aus der
         // resolved Row — kein Roundtrip durch die Bridge-Map nötig
@@ -221,7 +226,13 @@ export function RenderList(props: RenderListProps): ReactNode {
       return { ...col, renderer };
     });
   }, [vm.columns, referenceColumns, referenceLookups]);
-  const enrichedVm = useMemo(() => ({ ...vm, columns: enrichedColumns }), [vm, enrichedColumns]);
+  const enrichedVm = useMemo(
+    (): Omit<ListViewModel, "columns"> & { columns: readonly ListColumnViewModel[] } => ({
+      ...vm,
+      columns: enrichedColumns,
+    }),
+    [vm, enrichedColumns],
+  );
 
   // i18n-Defaults für Toolbar/Empty-State Strings — Caller kann jeden
   // einzeln per Prop überschreiben, sonst kommen die Framework-Bundles

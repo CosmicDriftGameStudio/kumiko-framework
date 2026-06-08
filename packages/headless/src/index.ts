@@ -77,6 +77,7 @@ export type {
   ListColumnViewModel,
   ListRowViewModel,
   ListViewModel,
+  RuntimeRenderer,
   ScreenSlots,
   Translate,
 } from "./view-model";

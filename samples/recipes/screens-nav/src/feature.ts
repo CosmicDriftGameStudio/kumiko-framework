@@ -76,10 +76,7 @@ export function createBookshopFeature(): FeatureDefinition {
         "author",
         {
           field: "price",
-          // Inline formatter — FieldRenderer union accepts strings (QN
-          // refs), functions (value → display), and PlatformComponent
-          // objects (per-platform {react, native}).
-          renderer: (value) => `${value} €`,
+          renderer: { format: "currency", symbol: "€" },
         },
         "published",
       ],

@@ -61,7 +61,7 @@ export function createShopFeature(): FeatureDefinition {
       id: "product-list",
       type: "entityList",
       entity: "product",
-      columns: ["name", { field: "price", renderer: (v) => `${v} €` }, "status", "featured"],
+      columns: ["name", { field: "price", renderer: { format: "currency", symbol: "€" } }, "status", "featured"],
     });
 
     r.screen({

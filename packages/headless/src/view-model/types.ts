@@ -7,6 +7,14 @@ import type {
   ScreenSlots,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 
+// Runtime-only renderer — function form allowed here because the renderer
+// layer (render-list) injects reference-column lookup closures at mount time.
+// Never serialized to JSON.
+export type RuntimeRenderer = (
+  value: unknown,
+  row?: Readonly<Record<string, unknown>>,
+) => string;
+
 // View-Models — plain data structures produced by computeListViewModel and
 // computeEditViewModel. They flatten the combined [screen-def + entity-def
 // + row-data + user] inputs into a shape the renderer draws directly,
@@ -29,12 +37,13 @@ import type {
 // One column, fully resolved. `label` is the localized string the
 // renderer puts in the column header; view-model builder runs it through
 // LocaleResolver.translate() from the i18nKey wired onto the field.
-// `renderer` passes through ScreenDefinition's FieldRenderer verbatim.
+// `renderer` passes through ScreenDefinition's FieldRenderer verbatim; the
+// renderer layer may also inject a RuntimeRenderer closure (reference lookups).
 export type ListColumnViewModel = {
   readonly field: string;
   readonly label: string;
   readonly type: string; // field-type ("text", "number", "money", ...)
-  readonly renderer?: FieldRenderer;
+  readonly renderer?: FieldRenderer | RuntimeRenderer;
   readonly sortable: boolean;
   /** Nur bei `type: "select"` — translated Option-Labels keyed nach raw
    *  value. Renderer rendert `optionLabels[value]` statt humanizeSlug
