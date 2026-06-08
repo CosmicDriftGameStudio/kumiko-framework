@@ -1084,6 +1084,11 @@ export function applyFormatSpec(
       return `${prefix}${value}`;
     }
     default:
+      if (typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
+        console.warn(
+          `[kumiko] applyFormatSpec: unbekannter Format-Key "${spec.format}" — via FieldFormatRegistry module augmentation registriert?`,
+        );
+      }
       return typeof value === "string" ? value : String(value);
   }
 }
