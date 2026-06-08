@@ -120,7 +120,8 @@ export const itemListScreen: EntityListScreenDefinition = {
       id: "duplicate",
       label: "showcase:actions.duplicate",
       screen: "item-quick-add",
-      params: (row) => ({ title: `Copy of ${row["title"]}`, priority: row["priority"] }),
+      // DSL-Limit: kein "Copy of"-Prefix darstellbar → server-side im Handler lösen.
+      params: { pick: ["title", "priority"] },
     },
     {
       id: "delete",

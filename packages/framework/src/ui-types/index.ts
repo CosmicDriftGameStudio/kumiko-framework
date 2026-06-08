@@ -60,6 +60,7 @@ export type {
   RowAction,
   RowActionNavigate,
   RowActionWriteHandler,
+  RowFieldExtractor,
   ScreenDefinition,
   ScreenFilter,
   ScreenFilterOp,

@@ -316,7 +316,7 @@ describe("KumikoScreen", () => {
           id: "archive",
           label: "actions.archive",
           handler: "tasks:write:task:archive",
-          payload: (row) => ({ id: row["id"], reason: "manual" }),
+          payload: { pick: ["id"] },
         },
       ],
     };
@@ -344,7 +344,7 @@ describe("KumikoScreen", () => {
     await waitFor(() => expect(writeCalls.length).toBe(1));
     expect(writeCalls[0]).toEqual({
       type: "tasks:write:task:archive",
-      payload: { id: "r1", reason: "manual" },
+      payload: { id: "r1" },
     });
   });
 
@@ -459,7 +459,7 @@ describe("KumikoScreen", () => {
           id: "edit",
           label: "actions.edit",
           screen: "task-edit",
-          params: (row) => ({ taskId: row["id"], priority: 5 }),
+          params: { map: { taskId: "id" } },
         },
       ],
     };
@@ -482,7 +482,7 @@ describe("KumikoScreen", () => {
     await waitFor(() => expect(navigateCalls.length).toBe(1));
     expect(navigateCalls[0]).toEqual({ screenId: "task-edit" });
     // params werden zu Strings serialisiert (URL-Layer kennt nur Strings).
-    expect(searchParamUpdates).toEqual([{ taskId: "r1", priority: "5" }]);
+    expect(searchParamUpdates).toEqual([{ taskId: "r1" }]);
     // Reihenfolge-Pin: erst navigate, dann setSearchParams.
     expect(calls.map((c) => c.kind)).toEqual(["navigate", "setSearchParams"]);
   });
@@ -522,7 +522,7 @@ describe("KumikoScreen", () => {
           id: "edit",
           label: "actions.edit",
           screen: "task-edit",
-          entityId: (row) => String(row["id"] ?? ""),
+          entityId: "id",
         },
       ],
     };
@@ -547,12 +547,10 @@ describe("KumikoScreen", () => {
     expect(searchParamUpdates).toEqual([]);
   });
 
-  // JSON-Schema-Fall (window.__KUMIKO_SCHEMA__): Function-Props wie
-  // action.entityId werden beim JSON-Roundtrip silent gedroppt. Zielt
-  // die navigate-Action auf einen entityEdit-Screen, MUSS row.id als
-  // deklarativer Default greifen — sonst öffnet der Edit im Create-Mode
-  // (Prod-e2e-Befund 2026-06-07 nach F1).
-  test("entityList rowActions kind=navigate auf entityEdit-Ziel: row.id ist der entityId-Default (JSON-Schema-sicher)", async () => {
+  // JSON-Schema-Fall (window.__KUMIKO_SCHEMA__): Declarative entityId: "id"
+  // überlebt JSON.stringify (String, kein Function-Drop). Das Schema
+  // funktioniert identisch ob direkt oder nach JSON-Roundtrip geladen.
+  test("entityList rowActions kind=navigate auf entityEdit-Ziel: entityId-String überlebt JSON-Roundtrip (JSON-Schema-sicher)", async () => {
     const navigateCalls: { screenId: string; entityId?: string }[] = [];
     const memoryNav = {
       route: { screenId: "task-list" },
@@ -583,10 +581,7 @@ describe("KumikoScreen", () => {
           id: "edit",
           label: "actions.edit",
           screen: "task-edit",
-          // entityId-Function ABSICHTLICH gesetzt und dann per
-          // JSON-Roundtrip gedroppt — exakt was buildAppSchema +
-          // JSON.stringify mit dem Schema im Browser machen.
-          entityId: (row) => String(row["id"] ?? ""),
+          entityId: "id",
         },
       ],
     };
@@ -786,7 +781,7 @@ describe("KumikoScreen", () => {
           id: "sync",
           label: "actions.sync",
           handler: "tasks:write:task:sync",
-          payload: () => ({ all: true }),
+          payload: { all: true },
         },
       ],
     };
