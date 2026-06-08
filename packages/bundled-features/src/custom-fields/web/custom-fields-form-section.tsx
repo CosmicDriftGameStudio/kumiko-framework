@@ -35,9 +35,15 @@ type FieldDefinitionListResponse = {
 export function CustomFieldsFormSection({
   entityName,
   entityId,
+  initialValues,
 }: {
   readonly entityName: string;
   readonly entityId: string | null;
+  /** Bereits gespeicherte customField-Werte der Entity (aus der detail-
+   *  row durchgereicht). Ohne sie wäre die Section write-only — die Inputs
+   *  zeigen den Bestand beim Edit. `pending` trackt nur Änderungen, also
+   *  bleibt der Save-Button bis zur ersten Eingabe disabled. */
+  readonly initialValues?: Readonly<Record<string, unknown>>;
 }): ReactNode {
   const { Banner, Button, Field, Input, Text } = usePrimitives();
   const t = useTranslation();
@@ -122,8 +128,10 @@ export function CustomFieldsFormSection({
           label={field.fieldKey}
           required={field.required}
         >
-          {renderInputFor(field, pending[field.fieldKey] ?? "", (v) =>
-            setPending((p) => ({ ...p, [field.fieldKey]: v })),
+          {renderInputFor(
+            field,
+            pending[field.fieldKey] ?? displayValue(field.type, initialValues?.[field.fieldKey]),
+            (v) => setPending((p) => ({ ...p, [field.fieldKey]: v })),
           )}
         </Field>
       ))}
@@ -188,4 +196,14 @@ function coerceValue(type: string, raw: string): unknown {
   }
   if (type === "boolean") return raw === "true";
   return raw;
+}
+
+// Umkehrung von coerceValue: gespeicherter jsonb-Wert → string-Form für den
+// Input. number/boolean/date/text werden so dargestellt, wie der Input sie
+// erwartet; fehlende Werte werden zu "".
+function displayValue(type: string, value: unknown): string {
+  if (value === undefined || value === null) return "";
+  if (type === "boolean") return value === true ? "true" : "false";
+  if (type === "number") return typeof value === "number" ? String(value) : String(value);
+  return String(value);
 }

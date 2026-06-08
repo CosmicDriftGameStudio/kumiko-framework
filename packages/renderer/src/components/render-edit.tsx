@@ -42,6 +42,10 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  die Section bliebe dann fälschlich im create-mode. Weglassen
    *  (undefined) = create-mode / kein extension-Kontext (vm.id-Fallback). */
   readonly entityId?: string | null;
+  /** Bereits gespeicherte Extension-Werte (z.B. `record.customFields`) für
+   *  extension-section-Mounts. Erlaubt der Section, den Bestand beim Edit
+   *  anzuzeigen. Nur der Update-Body liefert das. */
+  readonly extensionInitialValues?: Readonly<Record<string, unknown>>;
   /** Standard single-write Submit-Pfad. Ignoriert wenn `customSubmit`
    *  gesetzt ist (configEdit-Screens dispatchen mehrere Writes pro
    *  Submit, da macht writeCommand keinen Sinn). */
@@ -118,10 +122,12 @@ function ExtensionSectionMount({
   section,
   entityName,
   entityId,
+  initialValues,
 }: {
   readonly section: EditExtensionSectionViewModel;
   readonly entityName: string;
   readonly entityId: string | null;
+  readonly initialValues?: Readonly<Record<string, unknown>>;
 }): ReactNode {
   const { Banner, Section, Text } = usePrimitives();
   const name = extensionSectionName(section.component);
@@ -145,7 +151,7 @@ function ExtensionSectionMount({
   }
   return (
     <Section title={section.title} testId={`section-extension-${section.title}`}>
-      <Component entityName={entityName} entityId={entityId} />
+      <Component entityName={entityName} entityId={entityId} initialValues={initialValues} />
     </Section>
   );
 }
@@ -171,6 +177,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     submitLabel,
     fieldAppendix,
     entityId: entityIdProp,
+    extensionInitialValues,
   } = props;
   const { customSubmit } = props;
   // Translate-Fallback: wenn der Caller keine Translate-Fn übergibt,
@@ -331,6 +338,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
               section={section}
               entityName={vm.entityName}
               entityId={entityIdProp !== undefined ? entityIdProp : vm.id}
+              initialValues={extensionInitialValues}
             />
           );
         }

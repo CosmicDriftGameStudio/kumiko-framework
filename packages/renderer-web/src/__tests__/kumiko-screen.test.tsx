@@ -197,20 +197,31 @@ describe("KumikoScreen", () => {
     const TaskCustomFields = ({
       entityName,
       entityId,
+      initialValues,
     }: {
       entityName: string;
       entityId: string | null;
+      initialValues?: Readonly<Record<string, unknown>>;
     }) => (
       <div data-testid="task-custom-fields">
-        {entityName}:{entityId ?? "(create)"}
+        {entityName}:{entityId ?? "(create)"}:{String(initialValues?.["vendor"] ?? "(no-value)")}
       </div>
     );
     const dispatcher = makeDispatcher({
-      // detail liefert die row MIT id — aber der Update-Form filtert id aus
-      // den Form-values; die Section darf trotzdem nicht in create-mode fallen.
+      // detail liefert die row MIT id + customFields-jsonb. Update-Form
+      // filtert id aus den Form-values (Section darf nicht create-mode
+      // sein) UND die Section muss den gespeicherten customFields-Bestand
+      // bekommen (sonst write-only → Read-Back leer).
       query: (async () => ({
         isSuccess: true,
-        data: { id: "task-1", version: 7, title: "loaded", count: 0, done: false },
+        data: {
+          id: "task-1",
+          version: 7,
+          title: "loaded",
+          count: 0,
+          done: false,
+          customFields: { vendor: "Hetzner" },
+        },
       })) as unknown as Dispatcher["query"],
     });
 
@@ -224,8 +235,9 @@ describe("KumikoScreen", () => {
 
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
     const section = screen.getByTestId("task-custom-fields");
-    // Der Anker: echte route-id, NICHT "(create)". Vor dem Fix: "task:(create)".
-    expect(section.textContent).toBe("task:task-1");
+    // Anker: (1) echte route-id statt "(create)" [create-mode-Bug],
+    //        (2) gespeicherter customFields-Wert statt "(no-value)" [write-only-Bug].
+    expect(section.textContent).toBe("task:task-1:Hetzner");
   });
 
   test("entityList onRowClick → Callback feuert mit Row-Viewmodel", async () => {

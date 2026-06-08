@@ -29,6 +29,11 @@ export function extensionSectionName(component: PlatformComponent): string | und
 export type ExtensionSectionProps = {
   readonly entityName: string;
   readonly entityId: string | null;
+  /** Bereits gespeicherte Extension-Werte der Entity (aus der geladenen
+   *  detail-row durchgereicht). `undefined` im Create-Mode oder wenn der
+   *  Host-Screen keine Werte liefert. Erlaubt der Section, den Bestand
+   *  beim Edit anzuzeigen statt write-only zu sein. */
+  readonly initialValues?: Readonly<Record<string, unknown>>;
 };
 
 export type ExtensionSectionComponent = ComponentType<ExtensionSectionProps>;
