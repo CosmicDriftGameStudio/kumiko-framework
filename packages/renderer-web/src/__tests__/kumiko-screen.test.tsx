@@ -7,7 +7,11 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
-import { DispatcherProvider, KumikoScreen } from "@cosmicdrift/kumiko-renderer";
+import {
+  DispatcherProvider,
+  ExtensionSectionsProvider,
+  KumikoScreen,
+} from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
 import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils";
 
@@ -158,6 +162,70 @@ describe("KumikoScreen", () => {
       version: 7,
       changes: { title: "edited-title" },
     });
+  });
+
+  // Regression-Anker für den Set-Value-UI-Bug: die extension-section muss im
+  // Update-Mode die ECHTE entity-id bekommen — durch den vollen Flow
+  // (KumikoScreen → detail-load → EntityEditUpdateForm → RenderEdit → Mount).
+  // EntityEditUpdateForm lässt `id` bewusst aus den Form-values (id ist keine
+  // deklarierte Field), also reicht NUR der route-entityId-Durchgriff. Ohne
+  // ihn fiele die Section auf vm.id (=values["id"]=undefined) zurück und zeigte
+  // create-mode trotz Edit. Der alte render-edit-Test mockte `initial.id`
+  // manuell und war für genau diesen Flow blind — dieser Test rendert den
+  // realen detail-Pfad, der das in CI gefangen hätte.
+  test("entityEdit mit entityId → extension-section bekommt die echte entity-id (nicht create-mode)", async () => {
+    const editScreenWithExtension: EntityEditScreenDefinition = {
+      id: "task-edit-ext",
+      type: "entityEdit",
+      entity: "task",
+      layout: {
+        sections: [
+          { title: "Basics", fields: ["title"] },
+          {
+            kind: "extension",
+            title: "Custom Fields",
+            component: { react: { __component: "TaskCustomFields" } },
+          },
+        ],
+      },
+    };
+    const extSchema: FeatureSchema = {
+      featureName: "tasks",
+      entities: { task: taskEntity },
+      screens: [editScreenWithExtension],
+    };
+    const TaskCustomFields = ({
+      entityName,
+      entityId,
+    }: {
+      entityName: string;
+      entityId: string | null;
+    }) => (
+      <div data-testid="task-custom-fields">
+        {entityName}:{entityId ?? "(create)"}
+      </div>
+    );
+    const dispatcher = makeDispatcher({
+      // detail liefert die row MIT id — aber der Update-Form filtert id aus
+      // den Form-values; die Section darf trotzdem nicht in create-mode fallen.
+      query: (async () => ({
+        isSuccess: true,
+        data: { id: "task-1", version: 7, title: "loaded", count: 0, done: false },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <ExtensionSectionsProvider value={{ TaskCustomFields }}>
+          <KumikoScreen schema={extSchema} qn="tasks:screen:task-edit-ext" entityId="task-1" />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+    const section = screen.getByTestId("task-custom-fields");
+    // Der Anker: echte route-id, NICHT "(create)". Vor dem Fix: "task:(create)".
+    expect(section.textContent).toBe("task:task-1");
   });
 
   test("entityList onRowClick → Callback feuert mit Row-Viewmodel", async () => {

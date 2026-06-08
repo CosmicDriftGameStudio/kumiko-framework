@@ -35,6 +35,13 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   readonly entity: EntityDefinition;
   readonly featureName: string;
   readonly initial: TValues;
+  /** Echte entity-id für extension-section-Mounts (Set-Value-UI). Der
+   *  Update-Body kennt sie aus der Route; ohne sie fiele die Section auf
+   *  `vm.id` (= values["id"]) zurück, das im Update-Form immer fehlt
+   *  (id ist keine deklarierte Form-Field, siehe EntityEditUpdateForm) —
+   *  die Section bliebe dann fälschlich im create-mode. Weglassen
+   *  (undefined) = create-mode / kein extension-Kontext (vm.id-Fallback). */
+  readonly entityId?: string | null;
   /** Standard single-write Submit-Pfad. Ignoriert wenn `customSubmit`
    *  gesetzt ist (configEdit-Screens dispatchen mehrere Writes pro
    *  Submit, da macht writeCommand keinen Sinn). */
@@ -163,6 +170,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     onReload,
     submitLabel,
     fieldAppendix,
+    entityId: entityIdProp,
   } = props;
   const { customSubmit } = props;
   // Translate-Fallback: wenn der Caller keine Translate-Fn übergibt,
@@ -322,7 +330,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
               key={section.title}
               section={section}
               entityName={vm.entityName}
-              entityId={vm.id}
+              entityId={entityIdProp !== undefined ? entityIdProp : vm.id}
             />
           );
         }

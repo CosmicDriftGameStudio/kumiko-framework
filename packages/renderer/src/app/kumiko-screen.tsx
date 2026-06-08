@@ -452,6 +452,10 @@ function EntityEditUpdateForm({
       entity={entity}
       featureName={schema.featureName}
       initial={initial}
+      // Echte route-id an die extension-section (Set-Value-UI): das
+      // Update-Form lässt `id` bewusst aus den Form-values, daher braucht
+      // die Section die id explizit — sonst create-mode trotz Edit.
+      entityId={entityId}
       writeCommand={writeCommand}
       payloadMode="changes"
       buildPayload={buildPayload}

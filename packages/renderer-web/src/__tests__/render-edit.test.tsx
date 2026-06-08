@@ -229,6 +229,59 @@ describe("RenderEdit", () => {
     expect(mounted.textContent).toBe("order:row-42");
   });
 
+  // Realer Update-Flow: EntityEditUpdateForm lässt `id` BEWUSST aus den
+  // Form-values (id ist keine deklarierte Field) und reicht die route-id
+  // stattdessen über die entityId-prop durch. Ohne den entityId-prop-Pfad
+  // fiele die Section auf vm.id (=values["id"]=undefined) zurück → create-
+  // mode trotz Edit (der Set-Value-UI-Bug, #187..fix).
+  test("extension section uses the entityId prop when id is absent from form values", () => {
+    const screenDef: EntityEditScreenDefinition = {
+      id: "orders:screen:order-edit",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        sections: [
+          { title: "Basics", columns: 2, fields: [{ field: "title", span: 2 }] },
+          {
+            kind: "extension",
+            title: "Custom Fields",
+            component: { react: { __component: "MyCustomFieldsForm" } },
+          },
+        ],
+      },
+    };
+    const MyCustomFieldsForm = ({
+      entityName,
+      entityId,
+    }: {
+      entityName: string;
+      entityId: string | null;
+    }) => (
+      <div data-testid="my-custom-fields-form">
+        {entityName}:{entityId ?? "(create)"}
+      </div>
+    );
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <ExtensionSectionsProvider value={{ MyCustomFieldsForm }}>
+          <RenderEdit<TestValues>
+            screen={screenDef}
+            entity={orderEntity}
+            featureName="orders"
+            // KEIN id in den values (wie der echte Update-Form), aber
+            // entityId-prop trägt die route-id.
+            initial={{ title: "Existing", count: 0, isUrgent: false } as TestValues}
+            entityId="order-99"
+            writeCommand="order:update"
+          />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+
+    const mounted = screen.getByTestId("my-custom-fields-form");
+    expect(mounted.textContent).toBe("order:order-99");
+  });
+
   test("extension section without registered component shows the placeholder banner", () => {
     const screenDef: EntityEditScreenDefinition = {
       id: "orders:screen:order-edit",
