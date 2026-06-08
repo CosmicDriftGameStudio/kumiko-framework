@@ -1,5 +1,11 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.33.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.33.0
+
 ## 0.32.1
 
 ### Patch Changes
