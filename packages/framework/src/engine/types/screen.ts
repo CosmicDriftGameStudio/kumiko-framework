@@ -503,6 +503,7 @@ export function normalizeListColumn(c: ListColumnSpec): Exclude<ListColumnSpec, 
     col.renderer !== undefined &&
     typeof col.renderer === "function"
   ) {
+    // biome-ignore lint/suspicious/noConsole: dev-only warning
     console.warn(
       `[kumiko] normalizeListColumn: Feld "${col.field}" hat einen Funktions-Renderer — dieser wird von JSON.stringify verworfen. Bitte auf FormatSpec ({ format: "..." }) migrieren.`,
     );

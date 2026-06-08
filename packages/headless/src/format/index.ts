@@ -67,6 +67,7 @@ export function applyFormatSpec(
     }
     default:
       if (typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
+        // biome-ignore lint/suspicious/noConsole: dev-only warning
         console.warn(
           `[kumiko] applyFormatSpec: unbekannter Format-Key "${spec.format}" — via FieldFormatRegistry module augmentation registriert?`,
         );

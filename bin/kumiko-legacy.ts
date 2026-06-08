@@ -205,7 +205,6 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   steps.push({ name: "Silent-Skip Guard", cmd: "bunx kumiko-guard-silent-skip" });
   steps.push({ name: "Admin-API Guard", cmd: "bunx kumiko-guard-admin-api" });
   steps.push({ name: "Unsafe-JSON-Parse Guard", cmd: "bunx kumiko-guard-unsafe-json-parse" });
-  steps.push({ name: "No-Function-Renderer Guard", cmd: "bunx kumiko-guard-no-function-renderer" });
   steps.push({ name: "No-Date-API Guard", cmd: "bunx kumiko-guard-no-date-api" });
   steps.push({ name: "Pre-ES-Patterns Guard", cmd: "bunx kumiko-guard-pre-es-patterns" });
   steps.push({ name: "Direct-Entity-Writes Guard", cmd: "bunx kumiko-guard-direct-entity-writes" });

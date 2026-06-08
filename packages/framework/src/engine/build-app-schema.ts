@@ -65,12 +65,18 @@ export function buildAppSchema(registry: Registry): AppSchema {
   };
 
   if (typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
-    const roundTripped = JSON.parse(JSON.stringify(schema));
-    if (JSON.stringify(roundTripped) !== JSON.stringify(schema)) {
-      console.error(
-        "[kumiko] buildAppSchema: Output ist nicht JSON-safe — ein Funktions-Renderer oder nicht-serialisierbarer Wert ist in das Schema gerutscht. Details im Diff:",
-        schema,
-      );
+    try {
+      const roundTripped = JSON.parse(JSON.stringify(schema));
+      if (JSON.stringify(roundTripped) !== JSON.stringify(schema)) {
+        // biome-ignore lint/suspicious/noConsole: dev-only assertion
+        console.error(
+          "[kumiko] buildAppSchema: Output ist nicht JSON-safe — ein Funktions-Renderer oder nicht-serialisierbarer Wert ist in das Schema gerutscht. Details im Diff:",
+          schema,
+        );
+      }
+    } catch {
+      // biome-ignore lint/suspicious/noConsole: dev-only assertion
+      console.error("[kumiko] buildAppSchema: JSON.stringify fehlgeschlagen — Schema enthält nicht-serialisierbare Werte.", schema);
     }
   }
 
