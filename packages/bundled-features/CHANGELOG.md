@@ -1,5 +1,24 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.33.0
+
+### Minor Changes
+
+- 0bb1b92: custom-fields: neuer `update-tenant-field`-Write-Handler (Bug-Bash D2)
+
+  Vollersatz-Edit für bestehende Field-Definitionen — Payload-Shape wie
+  define, Identität via (entityName, fieldKey), `type` ist immutable
+  (422 `field_type_immutable`; Type-Wechsel = delete + re-define).
+  Kein delete+redefine im Update: Event-Historie und Field-Ids bleiben
+  erhalten. QN: `custom-fields:write:update-tenant-field`.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.33.0
+- @cosmicdrift/kumiko-dispatcher-live@0.33.0
+- @cosmicdrift/kumiko-renderer@0.33.0
+- @cosmicdrift/kumiko-renderer-web@0.33.0
+
 ## 0.32.1
 
 ### Patch Changes
