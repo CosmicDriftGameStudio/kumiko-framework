@@ -36,7 +36,6 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import type {
   FieldIssue,
-  FieldRenderer,
   ListColumnViewModel,
   ListRowViewModel,
   RuntimeRenderer,

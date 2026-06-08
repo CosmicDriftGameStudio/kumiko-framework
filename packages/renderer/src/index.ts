@@ -88,7 +88,6 @@ export type {
   DataTableRowAction,
   DataTableSort,
   DataTableSortDir,
-  RuntimeRenderer,
   DialogProps,
   FieldProps,
   FormProps,
@@ -98,6 +97,7 @@ export type {
   InputProps,
   PrimitivesProviderProps,
   PrimitivesRegistry,
+  RuntimeRenderer,
   SectionProps,
   TextProps,
 } from "./primitives";

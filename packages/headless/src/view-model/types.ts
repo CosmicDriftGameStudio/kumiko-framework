@@ -10,10 +10,7 @@ import type {
 // Runtime-only renderer — function form allowed here because the renderer
 // layer (render-list) injects reference-column lookup closures at mount time.
 // Never serialized to JSON.
-export type RuntimeRenderer = (
-  value: unknown,
-  row?: Readonly<Record<string, unknown>>,
-) => string;
+export type RuntimeRenderer = (value: unknown, row?: Readonly<Record<string, unknown>>) => string;
 
 // View-Models — plain data structures produced by computeListViewModel and
 // computeEditViewModel. They flatten the combined [screen-def + entity-def

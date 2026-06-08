@@ -7,6 +7,7 @@ import type {
   ListColumnViewModel,
   ListRowViewModel,
   ListViewModel,
+  RuntimeRenderer,
   Translate,
 } from "@cosmicdrift/kumiko-headless";
 import { computeListViewModel } from "@cosmicdrift/kumiko-headless";
@@ -14,11 +15,7 @@ import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react
 import type { ListSort } from "../hooks/use-list-url-state";
 import { type ReferenceLookupMap, useReferenceLookup } from "../hooks/use-reference-lookup";
 import { useTranslation } from "../i18n";
-import type { RuntimeRenderer } from "@cosmicdrift/kumiko-headless";
-import {
-  type DataTableRowAction,
-  usePrimitives,
-} from "../primitives";
+import { type DataTableRowAction, usePrimitives } from "../primitives";
 
 // RenderList — präsentationaler View für entityList-Screens.
 //
@@ -199,7 +196,10 @@ export function RenderList(props: RenderListProps): ReactNode {
       if (col.renderer !== undefined) return col;
       const map = referenceLookups[col.field];
       const labelField = col.refLabelField ?? "id";
-      const renderer: RuntimeRenderer = (value: unknown, row?: Readonly<Record<string, unknown>>): string => {
+      const renderer: RuntimeRenderer = (
+        value: unknown,
+        row?: Readonly<Record<string, unknown>>,
+      ): string => {
         // Tier 2.7e Server-Eagerload: wenn der Server _refs mit-
         // schickt, lesen wir den Display-Wert direkt aus der
         // resolved Row — kein Roundtrip durch die Bridge-Map nötig

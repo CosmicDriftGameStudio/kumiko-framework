@@ -699,6 +699,7 @@ function EntityListBody({
           const targetIsEntityEdit = schema.screens.some(
             (s) => s.type === "entityEdit" && lastSegment(s.id) === action.screen,
           );
+          const actionVisible = action.visible;
           return {
             id: action.id,
             label: effectiveTranslate(action.label),
@@ -733,14 +734,15 @@ function EntityListBody({
                 nav.setSearchParams(stringified);
               }
             },
-            ...(action.visible !== undefined && {
-              isVisible: (row: ListRowViewModel) => evalFieldCondition(action.visible!, row.values),
+            ...(actionVisible !== undefined && {
+              isVisible: (row: ListRowViewModel) => evalFieldCondition(actionVisible, row.values),
             }),
           };
         }
         if (dispatcher === undefined) return null;
         if (action.kind !== "writeHandler" && action.kind !== undefined) return null;
         const writeAction = action as RowActionWriteHandler;
+        const writeActionVisible = writeAction.visible;
         return {
           id: writeAction.id,
           label: effectiveTranslate(writeAction.label),
@@ -769,8 +771,8 @@ function EntityListBody({
             }
           },
           isVisible:
-            writeAction.visible !== undefined
-              ? (row: ListRowViewModel) => evalFieldCondition(writeAction.visible!, row.values)
+            writeActionVisible !== undefined
+              ? (row: ListRowViewModel) => evalFieldCondition(writeActionVisible, row.values)
               : undefined,
         };
       })

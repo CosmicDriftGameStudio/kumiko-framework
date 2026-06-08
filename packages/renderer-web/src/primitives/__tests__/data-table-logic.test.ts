@@ -73,8 +73,12 @@ describe("applyFormatSpec", () => {
   });
 
   test("boolean: benutzerdefinierte Labels", () => {
-    expect(applyFormatSpec({ format: "boolean", trueLabel: "Public", falseLabel: "Hidden" }, true)).toBe("Public");
-    expect(applyFormatSpec({ format: "boolean", trueLabel: "Public", falseLabel: "Hidden" }, false)).toBe("Hidden");
+    expect(
+      applyFormatSpec({ format: "boolean", trueLabel: "Public", falseLabel: "Hidden" }, true),
+    ).toBe("Public");
+    expect(
+      applyFormatSpec({ format: "boolean", trueLabel: "Public", falseLabel: "Hidden" }, false),
+    ).toBe("Hidden");
   });
 
   test("currency: value + Leerzeichen + symbol", () => {
