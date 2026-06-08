@@ -110,6 +110,63 @@ describe("CustomFieldsFormSection", () => {
     });
   });
 
+  test("pre-fills inputs from initialValues (Edit zeigt den Bestand, nicht write-only)", async () => {
+    mockedQueryRows = [
+      {
+        id: "f1",
+        entityName: "component",
+        fieldKey: "vendor",
+        type: "text",
+        required: false,
+        displayOrder: 1,
+      },
+      {
+        id: "f2",
+        entityName: "component",
+        fieldKey: "tier",
+        type: "number",
+        required: false,
+        displayOrder: 2,
+      },
+    ];
+    dispatchSpy.mockClear();
+
+    render(
+      <Wrapper>
+        <CustomFieldsFormSection
+          entityName="component"
+          entityId="row-42"
+          initialValues={{ vendor: "Hetzner", tier: 3 }}
+        />
+      </Wrapper>,
+    );
+
+    // Gespeicherte Werte sind in den Inputs sichtbar (kein write-only mehr).
+    const vendorInput = document.getElementById("custom-field-vendor") as HTMLInputElement;
+    const tierInput = document.getElementById("custom-field-tier") as HTMLInputElement;
+    expect(vendorInput.value).toBe("Hetzner");
+    expect(tierInput.value).toBe("3");
+
+    // Save bleibt disabled bis zur ersten Änderung (pending trackt nur Edits) —
+    // sonst würde jeder Mount alle Werte sinnlos neu schreiben.
+    const saveBtn = screen.getByTestId("custom-fields-form-save") as HTMLButtonElement;
+    expect(saveBtn.disabled).toBe(true);
+
+    // Nur das geänderte Feld wird geschrieben, nicht der unveränderte Bestand.
+    fireEvent.change(vendorInput, { target: { value: "Netcup" } });
+    expect(saveBtn.disabled).toBe(false);
+    fireEvent.click(saveBtn);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(dispatchSpy).toHaveBeenCalledTimes(1);
+    expect(dispatchSpy).toHaveBeenCalledWith("custom-fields:write:set-custom-field", {
+      entityName: "component",
+      entityId: "row-42",
+      fieldKey: "vendor",
+      value: "Netcup",
+    });
+  });
+
   test("shows create-mode banner when entityId is null and skips the fieldDefinition query", () => {
     mockedQueryRows = [];
     useQuerySpy.mockClear();

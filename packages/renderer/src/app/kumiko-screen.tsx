@@ -421,6 +421,15 @@ function EntityEditUpdateForm({
     return out as FormValues;
   }, [entity.fields, record]);
 
+  // Extension-Werte (z.B. customFields-jsonb) an extension-sections geben,
+  // damit sie beim Edit den Bestand zeigen statt write-only zu sein.
+  const extensionInitialValues = useMemo((): Readonly<Record<string, unknown>> | undefined => {
+    const cf = record["customFields"];
+    return cf !== null && typeof cf === "object" && !Array.isArray(cf)
+      ? (cf as Record<string, unknown>)
+      : undefined;
+  }, [record]);
+
   const writeCommand = entityWriteCommand(schema.featureName, screen.entity, "update");
   const deleteCommand = entityWriteCommand(schema.featureName, screen.entity, "delete");
   const buildPayload = useMemo(
@@ -456,6 +465,9 @@ function EntityEditUpdateForm({
       // Update-Form lässt `id` bewusst aus den Form-values, daher braucht
       // die Section die id explizit — sonst create-mode trotz Edit.
       entityId={entityId}
+      // customFields-Bestand an die extension-section, damit sie beim Edit
+      // die gespeicherten Werte zeigt (nicht write-only).
+      extensionInitialValues={extensionInitialValues}
       writeCommand={writeCommand}
       payloadMode="changes"
       buildPayload={buildPayload}
