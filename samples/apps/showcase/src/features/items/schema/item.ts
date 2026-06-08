@@ -75,8 +75,8 @@ export const itemEditScreen: EntityEditScreenDefinition = {
         fields: [
           {
             field: "notes",
-            visible: (d) => (d as { isDone?: boolean }).isDone === true,
-            required: (d) => (d as { isDone?: boolean }).isDone === true,
+            visible: { field: "isDone", eq: true },
+            required: { field: "isDone", eq: true },
           },
           "dueDate",
         ],

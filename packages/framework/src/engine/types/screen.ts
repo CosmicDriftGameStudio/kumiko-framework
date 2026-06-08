@@ -37,13 +37,16 @@ export type FieldRenderer =
   | string
   | ((value: unknown, row?: Readonly<Record<string, unknown>>) => string);
 
-// Conditional field-state evaluator. `data` is the current form row and
-// `ctx` carries user / session info — the form-controller in ui-core passes
-// both at evaluation time. Engine-side defaults are `unknown` because the
-// framework has nothing to assert about the shapes; feature code can narrow
-// them by passing type args (e.g. `FieldCondition<OrderRow>`) to skip the
-// cast at call sites.
-export type FieldCondition<TData = unknown, TCtx = unknown> = (data: TData, ctx: TCtx) => boolean;
+// Declarative field-state condition. Evaluated by the renderer against the
+// current row/form values. Three forms:
+//   boolean          — static on/off (e.g. readOnly: true)
+//   { field, eq }    — true when row[field] === eq
+//   { field, ne }    — true when row[field] !== ne
+// JSON-safe: survives buildAppSchema → window.__KUMIKO_SCHEMA__ stringify.
+export type FieldCondition =
+  | boolean
+  | { readonly field: string; readonly eq: unknown }
+  | { readonly field: string; readonly ne: unknown };
 
 // --- entityList ---
 
@@ -127,10 +130,6 @@ export type RowFieldExtractor =
 // complete, Incident resolve, Order ship etc.) — Sachen die in einem
 // CRUD-update kein passendes Verb haben aber als WriteHandler existieren.
 //
-// ⚠️ `visible` ist noch eine Function (FieldCondition) — nur im
-// Monolith-Bundle-Pattern nutzbar; JSON-injected Apps sollten Visibility
-// server-side im Handler lösen.
-//
 // Discriminated Union mit `kind`:
 //   - "writeHandler" (default): dispatched einen Write-Handler mit
 //     Payload pro Row.
@@ -164,8 +163,7 @@ export type RowActionWriteHandler = {
    *  Action einen langen Namen hat ("Mark Subscription as Cancelled")
    *  und der Button kürzer sein soll ("Cancel Subscription"). */
   readonly confirmLabel?: string;
-  /** Conditional Visibility pro Row — ⚠️ Function (FieldCondition),
-   *  nur im Monolith-Bundle-Pattern nutzbar. */
+  /** Conditional Visibility pro Row. */
   readonly visible?: FieldCondition;
   /** Visual-Style. "danger" rendert rot + erzwingt einen Confirm-
    *  Dialog (auch ohne expliziten `confirm`-Key). */
@@ -188,8 +186,7 @@ export type RowActionNavigate = {
    *  Targets als initial values gelesen (actionForm pre-fillen).
    *  `pick` extrahiert Felder gleichen Namens; `map` benennt um. */
   readonly params?: RowFieldExtractor;
-  /** Conditional Visibility pro Row — ⚠️ Function (FieldCondition),
-   *  nur im Monolith-Bundle-Pattern nutzbar. */
+  /** Conditional Visibility pro Row. */
   readonly visible?: FieldCondition;
   readonly style?: "primary" | "secondary";
 };

@@ -5,6 +5,7 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
+  FieldCondition,
   RowAction,
   RowActionWriteHandler,
   RowFieldExtractor,
@@ -43,6 +44,13 @@ function evalRowExtractor(
     return Object.fromEntries(extractor.pick.map((f) => [f, row[f]]));
   }
   return Object.fromEntries(Object.entries(extractor.map).map(([to, from]) => [to, row[from]]));
+}
+
+function evalFieldCondition(cond: FieldCondition, values: Record<string, unknown>): boolean {
+  if (typeof cond === "boolean") return cond;
+  const val = values[cond.field];
+  if ("eq" in cond) return val === cond.eq;
+  return val !== cond.ne;
 }
 
 // KumikoScreen picks up a ScreenDefinition from the schema by qn and
@@ -710,7 +718,7 @@ function EntityListBody({
               }
             },
             ...(action.visible !== undefined && {
-              isVisible: (row: ListRowViewModel) => action.visible?.(row.values, undefined) ?? true,
+              isVisible: (row: ListRowViewModel) => evalFieldCondition(action.visible!, row.values),
             }),
           };
         }
@@ -746,7 +754,7 @@ function EntityListBody({
           },
           isVisible:
             writeAction.visible !== undefined
-              ? (row: ListRowViewModel) => writeAction.visible?.(row.values, undefined) ?? true
+              ? (row: ListRowViewModel) => evalFieldCondition(writeAction.visible!, row.values)
               : undefined,
         };
       })

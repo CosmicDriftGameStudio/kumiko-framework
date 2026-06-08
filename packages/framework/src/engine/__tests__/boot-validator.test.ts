@@ -1854,6 +1854,110 @@ describe("boot-validator", () => {
     });
   });
 
+  // --- rowAction kind="writeHandler" handler-QN-Validierung (Tier 2.7e-1 erw.) ---
+  describe("entityList rowAction kind=writeHandler handler-QN", () => {
+    function makeFeature(handlerQn: string, register: boolean) {
+      return defineFeature("shop", (r) => {
+        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.screen({
+          id: "product-list",
+          type: "entityList",
+          entity: "product",
+          columns: ["name"],
+          rowActions: [{ id: "delete", label: "actions.delete", handler: handlerQn }],
+        });
+        if (register) {
+          r.writeHandler(
+            "delete",
+            z.object({}),
+            async () => ({ isSuccess: true as const, data: null }),
+            {
+              access: { roles: ["Admin"] },
+            },
+          );
+        }
+      });
+    }
+
+    test("handler → registriert → kein Throw", () => {
+      expect(() => validateBoot([makeFeature("shop:write:delete", true)])).not.toThrow();
+    });
+
+    test("handler → nicht registriert → Throw mit klarer Message", () => {
+      expect(() => validateBoot([makeFeature("shop:write:ghost", false)])).toThrow(
+        /rowAction "delete" .*handler "shop:write:ghost" is not a registered write-handler/,
+      );
+    });
+  });
+
+  // --- toolbarAction navigate + writeHandler Validierung (Tier 2.7e-2) ---
+  describe("entityList toolbarAction navigate (Tier 2.7e-2)", () => {
+    function makeFeature(targetScreen: string, withTarget: boolean) {
+      return defineFeature("shop", (r) => {
+        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.screen({
+          id: "product-list",
+          type: "entityList",
+          entity: "product",
+          columns: ["name"],
+          toolbarActions: [
+            { kind: "navigate", id: "open-form", label: "actions.open", screen: targetScreen },
+          ],
+        });
+        if (withTarget) {
+          r.screen({ id: targetScreen, type: "custom", renderer: { react: "stub" } });
+        }
+      });
+    }
+
+    test("navigate-target → registriert → kein Throw", () => {
+      expect(() => validateBoot([makeFeature("product-form", true)])).not.toThrow();
+    });
+
+    test("navigate-target → unbekannt → Throw mit klarer Message", () => {
+      expect(() => validateBoot([makeFeature("ghost-form", false)])).toThrow(
+        /toolbarAction "open-form" navigate-target "ghost-form" does not resolve/,
+      );
+    });
+  });
+
+  describe("entityList toolbarAction writeHandler handler-QN (Tier 2.7e-2)", () => {
+    function makeFeature(handlerQn: string, register: boolean) {
+      return defineFeature("shop", (r) => {
+        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.screen({
+          id: "product-list",
+          type: "entityList",
+          entity: "product",
+          columns: ["name"],
+          toolbarActions: [
+            { kind: "writeHandler", id: "sync", label: "actions.sync", handler: handlerQn },
+          ],
+        });
+        if (register) {
+          r.writeHandler(
+            "sync",
+            z.object({}),
+            async () => ({ isSuccess: true as const, data: null }),
+            {
+              access: { roles: ["Admin"] },
+            },
+          );
+        }
+      });
+    }
+
+    test("handler → registriert → kein Throw", () => {
+      expect(() => validateBoot([makeFeature("shop:write:sync", true)])).not.toThrow();
+    });
+
+    test("handler → nicht registriert → Throw mit klarer Message", () => {
+      expect(() => validateBoot([makeFeature("shop:write:ghost", false)])).toThrow(
+        /toolbarAction "sync" .*handler "shop:write:ghost" is not a registered write-handler/,
+      );
+    });
+  });
+
   // --- defaultSort funktioniert für ALLE Field-Types die sortable
   //     unterstützen (Tier 2.6b Field-Erweiterung) ---
   // Vor Tier 2.6b war `sortable` nur auf TextFieldDef. Erweitert auf

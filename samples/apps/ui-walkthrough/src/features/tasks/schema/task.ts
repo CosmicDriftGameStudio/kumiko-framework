@@ -43,8 +43,8 @@ export const editScreen: EntityEditScreenDefinition = {
           {
             field: "notes",
             span: 2,
-            visible: (d) => (d as { isUrgent?: boolean }).isUrgent === true,
-            required: (d) => (d as { isUrgent?: boolean }).isUrgent === true,
+            visible: { field: "isUrgent", eq: true },
+            required: { field: "isUrgent", eq: true },
           },
         ],
       },

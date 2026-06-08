@@ -893,8 +893,7 @@ describe("KumikoScreen", () => {
           id: "start",
           label: "actions.start",
           handler: "tasks:write:task:start",
-          // Nur sichtbar bei status===scheduled
-          visible: (row: unknown) => (row as { status?: string }).status === "scheduled",
+          visible: { field: "status", eq: "scheduled" },
         },
       ],
     };

@@ -102,9 +102,8 @@ describe("computeEditViewModel", () => {
             "vatExempt",
             {
               field: "vatReason",
-              // Only visible when VAT is exempt.
-              visible: (data) => (data as { vatExempt?: boolean }).vatExempt === true,
-              required: (data) => (data as { vatExempt?: boolean }).vatExempt === true,
+              visible: { field: "vatExempt", eq: true },
+              required: { field: "vatExempt", eq: true },
             },
           ],
         },
@@ -134,40 +133,33 @@ describe("computeEditViewModel", () => {
     expect(reasonShown?.required).toBe(true);
   });
 
-  test("readonly predicate receives ctx and evaluates per snapshot", () => {
+  test("readonly condition { field, ne } evaluates against form values", () => {
     const screen = editScreen({
       sections: [
         {
           title: "x",
-          fields: [
-            {
-              field: "customerName",
-              readOnly: (_d, ctx) => (ctx as { isAdmin: boolean }).isAdmin === false,
-            },
-          ],
+          fields: [{ field: "customerName", readOnly: { field: "isEditable", ne: true } }],
         },
       ],
     });
 
-    const nonAdmin = computeEditViewModel({
+    const locked = computeEditViewModel({
       screen,
       entity: orderEntity,
-      values: { customerName: "A" },
-      ctx: { isAdmin: false },
+      values: { customerName: "A", isEditable: false },
       translate,
       featureName: "orders",
     });
-    expect(asFields(nonAdmin.sections[0]).fields[0]?.readOnly).toBe(true);
+    expect(asFields(locked.sections[0]).fields[0]?.readOnly).toBe(true);
 
-    const admin = computeEditViewModel({
+    const editable = computeEditViewModel({
       screen,
       entity: orderEntity,
-      values: { customerName: "A" },
-      ctx: { isAdmin: true },
+      values: { customerName: "A", isEditable: true },
       translate,
       featureName: "orders",
     });
-    expect(asFields(admin.sections[0]).fields[0]?.readOnly).toBe(false);
+    expect(asFields(editable.sections[0]).fields[0]?.readOnly).toBe(false);
   });
 
   test("screen-level required override wins over entity-level required", () => {
@@ -178,7 +170,7 @@ describe("computeEditViewModel", () => {
         sections: [
           {
             title: "x",
-            fields: [{ field: "customerName", required: () => false }],
+            fields: [{ field: "customerName", required: false }],
           },
         ],
       }),
