@@ -37,13 +37,16 @@ export type FieldRenderer =
   | string
   | ((value: unknown, row?: Readonly<Record<string, unknown>>) => string);
 
-// Conditional field-state evaluator. `data` is the current form row and
-// `ctx` carries user / session info — the form-controller in ui-core passes
-// both at evaluation time. Engine-side defaults are `unknown` because the
-// framework has nothing to assert about the shapes; feature code can narrow
-// them by passing type args (e.g. `FieldCondition<OrderRow>`) to skip the
-// cast at call sites.
-export type FieldCondition<TData = unknown, TCtx = unknown> = (data: TData, ctx: TCtx) => boolean;
+// Declarative field-state condition. Evaluated by the renderer against the
+// current row/form values. Three forms:
+//   boolean          — static on/off (e.g. readOnly: true)
+//   { field, eq }    — true when row[field] === eq
+//   { field, ne }    — true when row[field] !== ne
+// JSON-safe: survives buildAppSchema → window.__KUMIKO_SCHEMA__ stringify.
+export type FieldCondition =
+  | boolean
+  | { readonly field: string; readonly eq: unknown }
+  | { readonly field: string; readonly ne: unknown };
 
 // --- entityList ---
 
@@ -108,31 +111,31 @@ export type ScreenFilter = {
   readonly value: unknown;
 };
 
+/** Deklarativer Row-Field-Extraktor — JSON-sicher (kein Function-Prop,
+ *  überlebt window.__KUMIKO_SCHEMA__ / buildAppSchema).
+ *
+ *  `pick`: extrahiert Felder 1:1. `{ pick: ["id", "version"] }` → `{ id: row.id, version: row.version }`
+ *  `map`:  benennt um.        `{ map: { incidentId: "id" } }` → `{ incidentId: row.id }`
+ *
+ *  Limitation: computed/template-Werte können nicht ausgedrückt werden
+ *  — solche Logik gehört server-side in den Write-Handler. */
+export type RowFieldExtractor =
+  | { readonly pick: readonly string[] }
+  | { readonly map: Readonly<Record<string, string>> };
+
 // RowAction — per-Row Button/Dropdown-Item das einen Write-Handler
-// triggert. Lebt im Schema (Author deklariert pro List-Screen welche
-// Aktionen möglich sind), Caller liefert die handler-QN + optional
-// payload-Builder + Confirm-Prompt.
+// triggert oder zu einem anderen Screen navigiert.
 //
 // Pattern: row-level Lifecycle-Operations (Maintenance start/cancel/
 // complete, Incident resolve, Order ship etc.) — Sachen die in einem
 // CRUD-update kein passendes Verb haben aber als WriteHandler existieren.
 //
-// ⚠️ Function-Props (`payload`, `params`, `visible`) leben nur im
-// Monolith-Bundle-Pattern (Server + Client teilen Source-Bundle, wie
-// Showcase mit dev-server). In setups mit JSON-injected window.__
-// KUMIKO_SCHEMA__ werden Functions silent gedroppt (`buildAppSchema`
-// whitelist-projeziert + JSON.stringify entfernt sie). Für solche Apps:
-//   - `payload`/`params` weglassen → Default `{ id: row.id }` greift.
-//   - `visible` über server-side Filter im Handler statt Client-side
-//     Visibility lösen.
-// Declarative Alternative kommt wenn ein konkreter Use-Case das fordert.
-//
 // Discriminated Union mit `kind`:
-//   - "writeHandler" (default für Backwards-Compat): dispatched einen
-//     Write-Handler mit Payload pro Row.
+//   - "writeHandler" (default): dispatched einen Write-Handler mit
+//     Payload pro Row.
 //   - "navigate" (Tier 2.7e): navigiert zu einem anderen Screen,
-//     optional mit URL-Search-Params aus `params(row)`. Use-case:
-//     "Edit", "View Audit-Log", "Open in actionForm" etc.
+//     optional mit URL-Search-Params aus `params`. Use-case: "Edit",
+//     "View Audit-Log", "Open in actionForm" etc.
 export type RowAction = RowActionWriteHandler | RowActionNavigate;
 
 export type RowActionWriteHandler = {
@@ -147,9 +150,9 @@ export type RowActionWriteHandler = {
    *  "publicstatus:write:maintenance:start". Wird via useDispatcher
    *  dispatcht. */
   readonly handler: string;
-  /** Payload-Builder pro Row. Default = `{ id: row.id }`. ⚠️ Function-
-   *  Form nur im Monolith-Bundle-Pattern — siehe Type-Header. */
-  readonly payload?: (row: Readonly<Record<string, unknown>>) => Record<string, unknown>;
+  /** Deklarativer Payload pro Row. Default = `{ id: row.id }`.
+   *  `pick` extrahiert Felder gleichen Namens; `map` benennt um. */
+  readonly payload?: RowFieldExtractor;
   /** i18n-Key für die Confirm-Dialog-Description. Wenn gesetzt, öffnet
    *  ein Modal vor der Ausführung — der User muss explizit bestätigen.
    *  Zusammen mit `style: "danger"` ist das die Standard-Sicherheits-
@@ -160,10 +163,7 @@ export type RowActionWriteHandler = {
    *  Action einen langen Namen hat ("Mark Subscription as Cancelled")
    *  und der Button kürzer sein soll ("Cancel Subscription"). */
   readonly confirmLabel?: string;
-  /** Conditional Visibility pro Row — Action erscheint nur wenn die
-   *  Bedingung true returnt. Beispiel: nur "Start" zeigen wenn
-   *  status === "scheduled". ⚠️ Function-Form nur im Monolith-Bundle-
-   *  Pattern — siehe Type-Header. */
+  /** Conditional Visibility pro Row. */
   readonly visible?: FieldCondition;
   /** Visual-Style. "danger" rendert rot + erzwingt einen Confirm-
    *  Dialog (auch ohne expliziten `confirm`-Key). */
@@ -177,17 +177,16 @@ export type RowActionNavigate = {
   /** Screen-id (kurz, unqualified) zu dem navigiert wird. Boot-
    *  Validator prüft Existenz im selben Feature. */
   readonly screen: string;
-  /** Optional: Entity-Id für entityEdit-Targets — landet als Pfad-
-   *  Segment (`/<workspace>/<screen>/<entityId>`). entityEdit liest die
-   *  Id AUSSCHLIESSLICH aus dem Pfad; ein `?id=`-Search-Param öffnet
-   *  den Create-Mode. ⚠️ Function-Form nur im Monolith-Bundle-Pattern. */
-  readonly entityId?: (row: Readonly<Record<string, unknown>>) => string;
-  /** Optional: URL-Search-Params aus row-Context. Wird in actionForm-
-   *  Targets als initial values gelesen ("Edit Customer X" → URL hat
-   *  `?customerId=row-uuid`, actionForm initial values pre-fillen).
-   *  ⚠️ Function-Form nur im Monolith-Bundle-Pattern. */
-  readonly params?: (row: Readonly<Record<string, unknown>>) => Record<string, unknown>;
-  /** Conditional Visibility pro Row — analog zu writeHandler-Variante. */
+  /** Feldname dessen Wert als entityId in den URL-Pfad eingebettet wird
+   *  (`/<workspace>/<screen>/<entityId>`). entityEdit liest die Id
+   *  AUSSCHLIESSLICH aus dem Pfad. Default: "id" wenn der Ziel-Screen
+   *  ein entityEdit ist. */
+  readonly entityId?: string;
+  /** Deklarative URL-Search-Params aus row-Context. Wird in actionForm-
+   *  Targets als initial values gelesen (actionForm pre-fillen).
+   *  `pick` extrahiert Felder gleichen Namens; `map` benennt um. */
+  readonly params?: RowFieldExtractor;
+  /** Conditional Visibility pro Row. */
   readonly visible?: FieldCondition;
   readonly style?: "primary" | "secondary";
 };
@@ -195,11 +194,6 @@ export type RowActionNavigate = {
 // ToolbarAction — Button im List-Header. Zwei Varianten: navigate auf
 // einen anderen Screen (z.B. zu einem actionForm) oder direkt einen
 // Handler dispatchen (z.B. "Sync All" ohne Form).
-//
-// ⚠️ Function-Props (`payload`) leben nur im Monolith-Bundle-Pattern
-// (siehe RowAction-JSDoc) — JSON-injected Schemas droppen sie silent.
-// Für solche Apps payload weglassen oder im writeHandler server-side
-// die Tenant-/Session-Kontext-Werte ableiten.
 export type ToolbarAction =
   | {
       readonly kind: "navigate";
@@ -214,8 +208,8 @@ export type ToolbarAction =
       readonly id: string;
       readonly label: string;
       readonly handler: string;
-      /** Optional: Payload-Builder ohne row-Context. Default = `{}`. */
-      readonly payload?: () => Record<string, unknown>;
+      /** Statischer Payload ohne row-Context. Default = `{}`. */
+      readonly payload?: Record<string, unknown>;
       /** i18n-Key für Confirm-Dialog-Description. Wenn gesetzt UND/ODER
        *  style="danger": Modal vor der Ausführung. */
       readonly confirm?: string;

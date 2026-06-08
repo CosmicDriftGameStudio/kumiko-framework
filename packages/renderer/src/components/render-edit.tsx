@@ -1,6 +1,7 @@
 import type {
   EntityDefinition,
   EntityEditScreenDefinition,
+  FieldCondition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { isExtensionEditSection, normalizeEditField } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
@@ -64,6 +65,18 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   readonly fieldAppendix?: (fieldName: string) => ReactNode | undefined;
 };
 
+function toConditionValue<TValues extends FormValues, TCtx>(
+  cond: FieldCondition,
+): NonNullable<FieldConditions<TValues, TCtx>["visible"]> {
+  if (typeof cond === "boolean") return cond;
+  if ("eq" in cond) {
+    const { field, eq } = cond;
+    return (values: TValues) => (values as Record<string, unknown>)[field] === eq;
+  }
+  const { field, ne } = cond;
+  return (values: TValues) => (values as Record<string, unknown>)[field] !== ne;
+}
+
 function deriveFormFields<TValues extends FormValues, TCtx>(
   screen: EntityEditScreenDefinition,
 ): Record<string, FieldConditions<TValues, TCtx>> {
@@ -74,13 +87,13 @@ function deriveFormFields<TValues extends FormValues, TCtx>(
       const normalized = normalizeEditField(spec);
       out[normalized.field] = {
         ...(normalized.visible !== undefined && {
-          visible: normalized.visible as FieldConditions<TValues, TCtx>["visible"],
+          visible: toConditionValue<TValues, TCtx>(normalized.visible),
         }),
         ...(normalized.readOnly !== undefined && {
-          readonly: normalized.readOnly as FieldConditions<TValues, TCtx>["readonly"],
+          readonly: toConditionValue<TValues, TCtx>(normalized.readOnly),
         }),
         ...(normalized.required !== undefined && {
-          required: normalized.required as FieldConditions<TValues, TCtx>["required"],
+          required: toConditionValue<TValues, TCtx>(normalized.required),
         }),
       };
     }
@@ -195,9 +208,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         values: snapshot.values,
         translate,
         featureName,
-        ctx,
       }),
-    [screen, entity, snapshot.values, translate, featureName, ctx],
+    [screen, entity, snapshot.values, translate, featureName],
   );
 
   async function handleSubmit(): Promise<void> {

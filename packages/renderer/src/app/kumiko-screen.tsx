@@ -5,8 +5,10 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
+  FieldCondition,
   RowAction,
   RowActionWriteHandler,
+  RowFieldExtractor,
   ScreenDefinition,
   ToolbarAction,
 } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -33,6 +35,23 @@ import type { FeatureSchema } from "./feature-schema";
 import { useNav } from "./nav";
 import { lastSegment } from "./qn";
 import { dispatcherErrorText, WriteFailedError } from "./write-failed-error";
+
+function evalRowExtractor(
+  extractor: RowFieldExtractor,
+  row: Record<string, unknown>,
+): Record<string, unknown> {
+  if ("pick" in extractor) {
+    return Object.fromEntries(extractor.pick.map((f) => [f, row[f]]));
+  }
+  return Object.fromEntries(Object.entries(extractor.map).map(([to, from]) => [to, row[from]]));
+}
+
+function evalFieldCondition(cond: FieldCondition, values: Record<string, unknown>): boolean {
+  if (typeof cond === "boolean") return cond;
+  const val = values[cond.field];
+  if ("eq" in cond) return val === cond.eq;
+  return val !== cond.ne;
+}
 
 // KumikoScreen picks up a ScreenDefinition from the schema by qn and
 // routes it to the right renderer based on `screen.type`. Command
@@ -659,11 +678,8 @@ function EntityListBody({
         // navigate-Variante braucht keinen Dispatcher; nav ist
         // immer da (Provider von createKumikoApp).
         if (action.kind === "navigate") {
-          // Deklarativer entityId-Default: zielt die Action auf einen
-          // entityEdit-Screen, ist row.id die entityId. Nötig weil die
-          // Function-Form (action.entityId) JSON-injizierte Schemas
-          // (window.__KUMIKO_SCHEMA__) nicht überlebt — silent gedroppt,
-          // siehe RowAction-Type-Header.
+          // Default entityId für entityEdit-Targets: row["id"] wenn
+          // kein expliziter entityId-Feldname gesetzt ist.
           const targetIsEntityEdit = schema.screens.some(
             (s) => s.type === "entityEdit" && lastSegment(s.id) === action.screen,
           );
@@ -672,14 +688,20 @@ function EntityListBody({
             label: effectiveTranslate(action.label),
             ...(action.style !== undefined && { style: action.style }),
             onTrigger: (row: ListRowViewModel) => {
-              const explicit = action.entityId?.(row.values);
+              const explicit =
+                action.entityId !== undefined
+                  ? String(row.values[action.entityId] ?? "")
+                  : undefined;
               const fallback = targetIsEntityEdit ? String(row.values["id"] ?? "") : undefined;
               const entityId = explicit ?? fallback;
               nav.navigate({
                 screenId: action.screen,
                 ...(entityId !== undefined && entityId !== "" && { entityId }),
               });
-              const params = action.params?.(row.values);
+              const params =
+                action.params !== undefined
+                  ? evalRowExtractor(action.params, row.values)
+                  : undefined;
               if (params !== undefined) {
                 // setSearchParams nimmt string|null. Komplexe Werte
                 // (number/boolean) wandeln wir zu String — der Reader
@@ -696,7 +718,7 @@ function EntityListBody({
               }
             },
             ...(action.visible !== undefined && {
-              isVisible: (row: ListRowViewModel) => action.visible?.(row.values, undefined) ?? true,
+              isVisible: (row: ListRowViewModel) => evalFieldCondition(action.visible!, row.values),
             }),
           };
         }
@@ -716,7 +738,9 @@ function EntityListBody({
           onTrigger: async (row: ListRowViewModel) => {
             const buildPayload = writeAction.payload;
             const payload =
-              buildPayload !== undefined ? buildPayload(row.values) : { id: row.values["id"] };
+              buildPayload !== undefined
+                ? evalRowExtractor(buildPayload, row.values)
+                : { id: row.values["id"] };
             const result = await dispatcher.write(writeAction.handler, payload);
             // write() wirft nicht — Failure-Result MUSS hier zum Error
             // werden, sonst schließt der Confirm-Dialog kommentarlos und
@@ -730,7 +754,7 @@ function EntityListBody({
           },
           isVisible:
             writeAction.visible !== undefined
-              ? (row: ListRowViewModel) => writeAction.visible?.(row.values, undefined) ?? true
+              ? (row: ListRowViewModel) => evalFieldCondition(writeAction.visible!, row.values)
               : undefined,
         };
       })
@@ -766,7 +790,7 @@ function EntityListBody({
             confirmLabel: effectiveTranslate(action.confirmLabel),
           }),
           onTrigger: async () => {
-            const payload = action.payload?.() ?? {};
+            const payload = action.payload ?? {};
             await dispatcher.write(action.handler, payload);
           },
         };

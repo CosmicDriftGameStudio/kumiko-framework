@@ -75,8 +75,8 @@ export const itemEditScreen: EntityEditScreenDefinition = {
         fields: [
           {
             field: "notes",
-            visible: (d) => (d as { isDone?: boolean }).isDone === true,
-            required: (d) => (d as { isDone?: boolean }).isDone === true,
+            visible: { field: "isDone", eq: true },
+            required: { field: "isDone", eq: true },
           },
           "dueDate",
         ],
@@ -120,7 +120,8 @@ export const itemListScreen: EntityListScreenDefinition = {
       id: "duplicate",
       label: "showcase:actions.duplicate",
       screen: "item-quick-add",
-      params: (row) => ({ title: `Copy of ${row["title"]}`, priority: row["priority"] }),
+      // DSL-Limit: kein "Copy of"-Prefix darstellbar → server-side im Handler lösen.
+      params: { pick: ["title", "priority"] },
     },
     {
       id: "delete",

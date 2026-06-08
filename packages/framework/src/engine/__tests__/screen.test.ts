@@ -42,10 +42,7 @@ describe("r.screen() — registration", () => {
             {
               title: "shop:section.basics",
               columns: 2,
-              fields: [
-                "name",
-                { field: "sku", readOnly: (data) => Boolean((data as { sku?: string }).sku) },
-              ],
+              fields: ["name", { field: "sku", readOnly: { field: "sku", ne: null } }],
             },
           ],
         },
@@ -358,7 +355,7 @@ describe("validateBoot — screen validation", () => {
             {
               title: "shop:section.basics",
               columns: 2,
-              fields: ["name", { field: "sku", visible: () => true, required: () => true }],
+              fields: ["name", { field: "sku", visible: true, required: true }],
             },
           ],
         },

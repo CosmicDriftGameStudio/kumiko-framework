@@ -36,8 +36,8 @@ function makeScreen(): EntityEditScreenDefinition {
             "isUrgent",
             {
               field: "notes",
-              visible: (d) => (d as { isUrgent?: boolean }).isUrgent === true,
-              required: (d) => (d as { isUrgent?: boolean }).isUrgent === true,
+              visible: { field: "isUrgent", eq: true },
+              required: { field: "isUrgent", eq: true },
             },
           ],
         },

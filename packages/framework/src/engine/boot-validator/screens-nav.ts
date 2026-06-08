@@ -345,19 +345,51 @@ export function validateScreens(
           );
         }
       }
-      // Tier 2.7e-1: rowActions mit kind:"navigate" pinst dass das
-      // referenced screen tatsächlich existiert (selbes Feature). Ein
-      // typo'd target landet sonst beim Klick als "Screen not found"-
-      // Banner.
+      // Tier 2.7e-1: rowActions pinnen — navigate-target existiert (selbes
+      // Feature), writeHandler-QN ist registriert. Tippfehler fallen sonst
+      // erst beim ersten Klick als "Screen not found" / 404 auf.
       if (screen.rowActions !== undefined) {
         for (const action of screen.rowActions) {
-          if (action.kind !== "navigate") continue;
-          const candidateQn = qualifyEntityName(feature.name, "screen", action.screen);
-          if (!allScreenQns.has(candidateQn)) {
-            throw new Error(
-              `[Feature ${feature.name}] Screen "${screenId}" (entityList) rowAction "${action.id}" ` +
-                `navigate-target "${action.screen}" does not resolve to a registered screen in this feature.`,
-            );
+          if (action.kind === "navigate") {
+            const candidateQn = qualifyEntityName(feature.name, "screen", action.screen);
+            if (!allScreenQns.has(candidateQn)) {
+              throw new Error(
+                `[Feature ${feature.name}] Screen "${screenId}" (entityList) rowAction "${action.id}" ` +
+                  `navigate-target "${action.screen}" does not resolve to a registered screen in this feature.`,
+              );
+            }
+          } else {
+            if (!allWriteHandlerQns.has(action.handler)) {
+              throw new Error(
+                `[Feature ${feature.name}] Screen "${screenId}" (entityList) rowAction "${action.id}" ` +
+                  `handler "${action.handler}" is not a registered write-handler. Check the QN spelling ` +
+                  `(expected "<feature>:write:<short>") and that the handler is declared via r.writeHandler(...).`,
+              );
+            }
+          }
+        }
+      }
+      // Tier 2.7e-2: toolbarActions — analog zu rowActions, aber bisher
+      // ohne Validator. Typo'd navigate-targets und unregistrierte
+      // writeHandler-QNs fallen bis hierhin erst beim Klick auf.
+      if (screen.toolbarActions !== undefined) {
+        for (const action of screen.toolbarActions) {
+          if (action.kind === "navigate") {
+            const candidateQn = qualifyEntityName(feature.name, "screen", action.screen);
+            if (!allScreenQns.has(candidateQn)) {
+              throw new Error(
+                `[Feature ${feature.name}] Screen "${screenId}" (entityList) toolbarAction "${action.id}" ` +
+                  `navigate-target "${action.screen}" does not resolve to a registered screen in this feature.`,
+              );
+            }
+          } else {
+            if (!allWriteHandlerQns.has(action.handler)) {
+              throw new Error(
+                `[Feature ${feature.name}] Screen "${screenId}" (entityList) toolbarAction "${action.id}" ` +
+                  `handler "${action.handler}" is not a registered write-handler. Check the QN spelling ` +
+                  `(expected "<feature>:write:<short>") and that the handler is declared via r.writeHandler(...).`,
+              );
+            }
           }
         }
       }
