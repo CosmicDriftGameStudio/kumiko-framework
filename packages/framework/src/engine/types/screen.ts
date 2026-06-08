@@ -489,7 +489,12 @@ export type ScreenDefinition =
 // authors who branch on the three FieldRenderer variants without manual
 // "format" in renderer checks.
 export function isFormatSpec(r: unknown): r is FormatSpec {
-  return typeof r === "object" && r !== null && "format" in r && typeof (r as Record<string, unknown>)["format"] === "string";
+  return (
+    typeof r === "object" &&
+    r !== null &&
+    "format" in r &&
+    typeof (r as Record<string, unknown>)["format"] === "string"
+  );
 }
 
 // Collapse the string-shorthand into the object form. Both the boot-validator

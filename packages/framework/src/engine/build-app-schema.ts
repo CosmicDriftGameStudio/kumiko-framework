@@ -76,7 +76,10 @@ export function buildAppSchema(registry: Registry): AppSchema {
       }
     } catch {
       // biome-ignore lint/suspicious/noConsole: dev-only assertion
-      console.error("[kumiko] buildAppSchema: JSON.stringify fehlgeschlagen — Schema enthält nicht-serialisierbare Werte.", schema);
+      console.error(
+        "[kumiko] buildAppSchema: JSON.stringify fehlgeschlagen — Schema enthält nicht-serialisierbare Werte.",
+        schema,
+      );
     }
   }
 
