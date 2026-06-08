@@ -8,8 +8,8 @@
 // basierte Stile. Radix-UI-Unterbau für interaktive Elemente (Modal,
 // Dropdown etc. kommen später).
 
-import { applyFormatSpec } from "@cosmicdrift/kumiko-headless";
 import type { ListRowViewModel } from "@cosmicdrift/kumiko-headless";
+import { applyFormatSpec } from "@cosmicdrift/kumiko-headless";
 import type {
   DataTableRowAction,
   DataTableSort,
