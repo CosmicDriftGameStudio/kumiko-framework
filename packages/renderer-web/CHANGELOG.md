@@ -1,5 +1,16 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.36.0
+
+### Patch Changes
+
+- d84a515: FormatSpec-Verbesserungen: isFormatSpec-TypeGuard, timestamp/date Locale-Optionen, applyFormatSpec nach headless verschoben, normalizeListColumn dev-warning für Funktions-Renderer, buildAppSchema dev-assertion für JSON-Safety
+- 1901bdf: applyFormatSpec: dev-warning für unbekannte Format-Keys (console.warn in !production); JSON-round-trip-Tests für FormatSpec-Renderer und FieldCondition-RowActions
+- Updated dependencies [d84a515]
+  - @cosmicdrift/kumiko-headless@0.36.0
+  - @cosmicdrift/kumiko-renderer@0.36.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.36.0
+
 ## 0.35.0
 
 ### Minor Changes

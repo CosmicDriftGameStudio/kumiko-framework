@@ -1,5 +1,11 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.36.0
+
+### Minor Changes
+
+- d84a515: FormatSpec-Verbesserungen: isFormatSpec-TypeGuard, timestamp/date Locale-Optionen, applyFormatSpec nach headless verschoben, normalizeListColumn dev-warning für Funktions-Renderer, buildAppSchema dev-assertion für JSON-Safety
+
 ## 0.35.0
 
 ### Minor Changes
