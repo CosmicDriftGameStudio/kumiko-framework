@@ -743,6 +743,23 @@ async function requireConsumerRow(
   return row;
 }
 
+async function applyConsumerStatusTransition(
+  db: DbConnection,
+  name: string,
+  instanceId: string,
+  targetStatus: "idle" | "disabled",
+): Promise<ConsumerRecoveryState> {
+  const raw = await updateConsumerStatusReturning(db, name, instanceId, targetStatus);
+  const updated =
+    raw && (coerceRow(raw, extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow);
+  if (!updated) {
+    throw new Error(
+      `Consumer "${name}" (instance_id="${instanceId}") vanished between read and write — retry.`,
+    );
+  }
+  return normalizeConsumerState(updated);
+}
+
 export async function restartConsumer(
   db: DbConnection,
   name: string,
@@ -754,15 +771,7 @@ export async function restartConsumer(
       `Consumer "${name}" (instance_id="${instanceId}") is not dead (status="${before.status}"). Restart only applies to dead consumers; use "enable" for a disabled one.`,
     );
   }
-  const raw = await updateConsumerStatusReturning(db, name, instanceId, "idle");
-  const updated =
-    raw && (coerceRow(raw, extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow);
-  if (!updated) {
-    throw new Error(
-      `Consumer "${name}" (instance_id="${instanceId}") vanished between read and write — retry.`,
-    );
-  }
-  return normalizeConsumerState(updated);
+  return applyConsumerStatusTransition(db, name, instanceId, "idle");
 }
 
 export async function disableConsumer(
@@ -771,15 +780,7 @@ export async function disableConsumer(
   instanceId: string = SHARED_INSTANCE_SENTINEL,
 ): Promise<ConsumerRecoveryState> {
   await requireConsumerRow(db, name, instanceId);
-  const raw = await updateConsumerStatusReturning(db, name, instanceId, "disabled");
-  const updated =
-    raw && (coerceRow(raw, extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow);
-  if (!updated) {
-    throw new Error(
-      `Consumer "${name}" (instance_id="${instanceId}") vanished between read and write — retry.`,
-    );
-  }
-  return normalizeConsumerState(updated);
+  return applyConsumerStatusTransition(db, name, instanceId, "disabled");
 }
 
 export async function enableConsumer(
@@ -793,15 +794,7 @@ export async function enableConsumer(
       `Consumer "${name}" (instance_id="${instanceId}") is not disabled (status="${before.status}"). Enable only flips disabled → idle; use "restart" for a dead consumer.`,
     );
   }
-  const raw = await updateConsumerStatusReturning(db, name, instanceId, "idle");
-  const updated =
-    raw && (coerceRow(raw, extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow);
-  if (!updated) {
-    throw new Error(
-      `Consumer "${name}" (instance_id="${instanceId}") vanished between read and write — retry.`,
-    );
-  }
-  return normalizeConsumerState(updated);
+  return applyConsumerStatusTransition(db, name, instanceId, "idle");
 }
 
 // skipPoisonEvent advances the cursor past the first event after the
