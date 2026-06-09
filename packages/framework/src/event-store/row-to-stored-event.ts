@@ -1,3 +1,5 @@
+import type { EventMetadata, StoredEvent } from "./event-store";
+
 // Minimal row shape accepted by toStoredEvent. Both SelectedEvent
 // (event-store) and StoredEventRow (event-dispatcher) satisfy it.
 type EventRow = {
@@ -9,12 +11,12 @@ type EventRow = {
   readonly type: string;
   readonly eventVersion: number;
   readonly payload: Record<string, unknown>;
-  readonly metadata: Record<string, unknown>;
+  readonly metadata: EventMetadata;
   readonly createdAt: Temporal.Instant;
   readonly createdBy: string;
 };
 
-export function toStoredEvent(row: EventRow) {
+export function toStoredEvent(row: EventRow): StoredEvent {
   return {
     id: String(row.id),
     aggregateId: row.aggregateId,
