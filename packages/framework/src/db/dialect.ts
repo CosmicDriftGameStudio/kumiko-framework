@@ -482,6 +482,19 @@ export function table<TCols extends ColumnMap>(
   return out;
 }
 
+/** Reads the `kumiko:schema:Name` symbol from a table object.
+ *  Throws with `context` in the message so callers don't have to duplicate the guard. */
+export function extractTableName(table: unknown, context = "extractTableName"): string {
+  if (typeof table !== "object" || table === null) {
+    throw new Error(`${context}: table is not an object`);
+  }
+  const name = (table as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL];
+  if (typeof name !== "string") {
+    throw new Error(`${context}: table missing kumiko:schema:Name symbol`);
+  }
+  return name;
+}
+
 // Helper used by `instantToDriver` callers in legacy code — kept identical
 // to the previous behaviour. The native dialect handles parse/serialize
 // implicitly via the Bun driver; this function is a defensive coerce at

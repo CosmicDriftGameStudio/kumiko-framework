@@ -8,9 +8,7 @@ import type {
 } from "../engine/types";
 import {
   type FieldIssue,
-  InternalError,
-  isKumikoError,
-  type KumikoError,
+  toKumikoError,
   type WriteErrorInfo,
 } from "../errors";
 
@@ -182,8 +180,4 @@ export function resolveType(type: HandlerType): string {
   return typeof type === "string" ? type : type.name;
 }
 
-export function wrapToKumiko(e: unknown): KumikoError {
-  if (isKumikoError(e)) return e;
-  if (e instanceof Error) return new InternalError({ cause: e });
-  return new InternalError({ message: String(e) });
-}
+export const wrapToKumiko = toKumikoError;

@@ -1,4 +1,5 @@
 import type { DbConnection, DbRunner, DbTx } from "../db/connection";
+import { extractTableName } from "../db";
 import {
   markConsumerRebuildFailed,
   resetConsumerForMspRebuild,
@@ -113,7 +114,7 @@ export async function rebuildMultiStreamProjection(
       await selectConsumerForUpdate(tx, mspName, SHARED_INSTANCE_SENTINEL);
 
       const mspTable = msp.table as NonNullable<typeof msp.table>;
-      const tableName = getTableName(mspTable);
+      const tableName = extractTableName(mspTable, "msp-rebuild");
       await truncateTable(tx, tableName);
 
       const subscribedTypes = Object.keys(msp.apply);
@@ -205,14 +206,3 @@ export async function rebuildMultiStreamProjection(
   return result;
 }
 
-const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
-function getTableName(table: unknown): string {
-  if (typeof table !== "object" || table === null) {
-    throw new InternalError({ message: "msp-rebuild: msp.table is not a pgTable object" });
-  }
-  const name = (table as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL];
-  if (typeof name !== "string") {
-    throw new InternalError({ message: "msp-rebuild: msp.table missing drizzle name symbol" });
-  }
-  return name;
-}

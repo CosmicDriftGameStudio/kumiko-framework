@@ -41,4 +41,5 @@ export {
   toWriteErrorInfo,
   writeFailure,
 } from "./write-error-info";
+export { toKumikoError } from "./to-kumiko-error";
 export { validationErrorFromZod } from "./zod-bridge";

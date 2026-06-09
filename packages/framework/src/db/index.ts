@@ -7,6 +7,7 @@ export { createDbConnection, dbConnectionOptionsFromEnv } from "./connection";
 export type { CursorQueryOptions, CursorResult } from "./cursor";
 export { decodeCursor, encodeCursor } from "./cursor";
 export type { SchemaTable, SelectQuery, TableColumns } from "./dialect";
+export { extractTableName } from "./dialect";
 export {
   bigint,
   bigserial,

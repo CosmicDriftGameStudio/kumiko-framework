@@ -1,4 +1,5 @@
 import type { DbConnection, DbTx } from "../db/connection";
+import { extractTableName } from "../db";
 import {
   finalizeProjectionRebuild,
   markProjectionRebuildFailed,
@@ -96,7 +97,7 @@ export async function rebuildProjection(
     await db.begin(async (tx: DbTx) => {
       await markProjectionRebuilding(tx, projectionName);
 
-      const tableName = getTableName(projection.table);
+      const tableName = extractTableName(projection.table, "projection-rebuild");
       await truncateTable(tx, tableName);
 
       // Stream events in chronological order for every source. The event
@@ -199,17 +200,6 @@ export async function rebuildProjection(
   return result;
 }
 
-const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
-function getTableName(table: unknown): string {
-  if (typeof table !== "object" || table === null) {
-    throw new Error("projection-rebuild: projection.table is not a pgTable object");
-  }
-  const name = (table as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL];
-  if (typeof name !== "string") {
-    throw new Error("projection-rebuild: projection.table missing drizzle name symbol");
-  }
-  return name;
-}
 
 // Read-only status for one projection. Returns null if the projection was
 // registered but never rebuilt (no row yet).

@@ -1,3 +1,4 @@
+import { extractTableName } from "@cosmicdrift/kumiko-framework/db";
 import {
   createJsonbField,
   type FeatureRegistrar,
@@ -12,15 +13,6 @@ import {
   removeCustomFieldKeyFromAllTenants,
   setCustomFieldValue,
 } from "./db/queries/projection";
-
-const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
-function getTableName(table: unknown): string {
-  if (typeof table === "object" && table !== null) {
-    const sym = (table as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL];
-    if (typeof sym === "string") return sym;
-  }
-  throw new Error("wire-for-entity: table missing kumiko:schema:Name symbol");
-}
 
 import type { CustomFieldClearedPayload, CustomFieldSetPayload } from "./events";
 import { customFieldsFeature } from "./feature";
@@ -107,7 +99,7 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
         // jsonb_set: setze key auf value. Wenn key noch nicht existiert →
         // wird angelegt (create_missing=true ist default). value muss als
         // jsonb-literal kommen.
-        const tableName = getTableName(entityTable);
+        const tableName = extractTableName(entityTable, "custom-fields/wire-for-entity");
         await setCustomFieldValue(
           tx,
           tableName,
@@ -124,7 +116,7 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
         const payload = event.payload as CustomFieldClearedPayload; // @cast-boundary engine-payload
 
         // jsonb minus operator (`-`) entfernt key aus jsonb-object.
-        const tableName = getTableName(entityTable);
+        const tableName = extractTableName(entityTable, "custom-fields/wire-for-entity");
         await clearCustomFieldKey(
           tx,
           tableName,
@@ -147,7 +139,7 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
         // ihre Rows.
         if (payload.entityName !== entityName) return;
 
-        const tableName = getTableName(entityTable);
+        const tableName = extractTableName(entityTable, "custom-fields/wire-for-entity");
         // Scope cleanup to the deleted definition's owning tenant. System-scope
         // definitions apply to every tenant → cascade across all rows; tenant-
         // scope deletions must only touch that tenant's rows, else deleting one

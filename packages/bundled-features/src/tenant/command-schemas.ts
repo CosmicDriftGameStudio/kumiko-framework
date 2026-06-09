@@ -22,7 +22,7 @@
 
 import { addMemberWrite } from "./handlers/add-member.write";
 import { createWrite } from "./handlers/create.write";
-import { disableWrite } from "./handlers/disable.write";
+import { disableWrite } from "./handlers/toggle-enabled.write";
 import { removeMemberWrite } from "./handlers/remove-member.write";
 import { updateWrite } from "./handlers/update.write";
 import { updateMemberRolesWrite } from "./handlers/update-member-roles.write";
