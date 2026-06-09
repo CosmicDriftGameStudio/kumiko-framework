@@ -3,7 +3,11 @@ export { AUTH_EMAIL_PASSWORD_FEATURE, AuthErrors, AuthHandlers } from "./constan
 // emailVerification, signup und invite Setups gegen mailSender + Render-
 // Funktionen — eliminiert Duplikate zwischen kumiko-studio, publicstatus
 // und solon (jede App hatte identische send*Email-Wrapper kopiert).
-export { createAuthMailerConfig, type AuthMailerConfig, type CreateAuthMailerConfigArgs } from "./auth-mailer";
+export {
+  createAuthMailerConfig,
+  type AuthMailerConfig,
+  type CreateAuthMailerConfigArgs,
+} from "./auth-mailer";
 // Default-HTML-Renderer für die Reset-Password + Verify-Email Mails.
 // Apps wiren die `sendResetEmail` / `sendVerificationEmail` callbacks
 // im framework-config — diese Renderer können als one-liner genutzt

@@ -88,9 +88,7 @@ export type CreateAuthMailerConfigArgs = {
  * Jede App ruft das einmal auf und spreadet das Resultat in die
  * `auth`-Option von `runProdApp` / `runDevApp`.
  */
-export function createAuthMailerConfig(
-  args: CreateAuthMailerConfigArgs,
-): AuthMailerConfig {
+export function createAuthMailerConfig(args: CreateAuthMailerConfigArgs): AuthMailerConfig {
   const appName = args.appName ?? "Account";
   const locale = args.locale ?? "de";
   return {

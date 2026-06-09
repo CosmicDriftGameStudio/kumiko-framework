@@ -31,18 +31,10 @@ describe("createAuthMailerConfig", () => {
 
   test("constructs URLs from baseUrl + paths", () => {
     const config = createAuthMailerConfig(makeArgs());
-    expect(config.passwordReset.appResetUrl).toBe(
-      "https://admin.example.com/reset-password",
-    );
-    expect(config.emailVerification.appVerifyUrl).toBe(
-      "https://admin.example.com/verify-email",
-    );
-    expect(config.signup.appActivationUrl).toBe(
-      "https://admin.example.com/signup/complete",
-    );
-    expect(config.invite.appAcceptUrl).toBe(
-      "https://admin.example.com/invite/accept",
-    );
+    expect(config.passwordReset.appResetUrl).toBe("https://admin.example.com/reset-password");
+    expect(config.emailVerification.appVerifyUrl).toBe("https://admin.example.com/verify-email");
+    expect(config.signup.appActivationUrl).toBe("https://admin.example.com/signup/complete");
+    expect(config.invite.appAcceptUrl).toBe("https://admin.example.com/invite/accept");
   });
 
   test("forwards hmacSecret", () => {
