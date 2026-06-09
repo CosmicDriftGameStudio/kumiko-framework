@@ -1,5 +1,30 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.37.0
+
+### Minor Changes
+
+- createAuthMailerConfig: Factory für Auth-Mail-Setups
+
+  Neue Exporte aus `@cosmicdrift/kumiko-bundled-features/auth-email-password`:
+
+  - `createAuthMailerConfig(args)` — baut `passwordReset`, `emailVerification`,
+    `signup` und `invite` Setups gegen `mailSender` + Render-Funktionen in
+    einem Aufruf. Nimmt `hmacSecret`, `baseUrl`, `paths`, `appName`, `locale`
+    und `emailVerificationMode` als Parameter.
+
+  - `AuthMailerConfig` und `CreateAuthMailerConfigArgs` Typen.
+
+  Eliminiert Duplikate zwischen kumiko-studio, publicstatus und solon — jede
+  App hatte identische `send*Email`-Wrapper × 4 kopiert.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.37.0
+- @cosmicdrift/kumiko-dispatcher-live@0.37.0
+- @cosmicdrift/kumiko-renderer@0.37.0
+- @cosmicdrift/kumiko-renderer-web@0.37.0
+
 ## 0.36.0
 
 ### Patch Changes
