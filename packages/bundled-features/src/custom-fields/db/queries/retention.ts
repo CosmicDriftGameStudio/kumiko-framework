@@ -1,6 +1,7 @@
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 
+// guard:dup-ok — andere SQL als selectFieldDefinitionsForEntity; gleiche Bezeichner, verschiedene Queries
 export async function selectFieldDefinitionsWithSerialized(
   db: DbRunner,
   entityName: string,

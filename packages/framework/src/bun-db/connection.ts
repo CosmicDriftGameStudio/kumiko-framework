@@ -66,6 +66,7 @@ export function createBunDbConnection(
   };
 }
 
+// guard:dup-ok — ENV-Reader für BunDB (gibt { db, listenClient } zurück), nicht verwandt mit redisClientOptionsFromEnv
 export function bunDbConnectionOptionsFromEnv(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): BunDbConnectionOptions {

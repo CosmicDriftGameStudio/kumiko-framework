@@ -64,6 +64,7 @@ const STRINGS = {
   de: {
     resetSubject: (app: string) => `${app} — Passwort zurücksetzen`,
     resetGreeting: "Hallo,",
+    // guard:dup-ok — false positive: i18n-String-Template, gleiche Arrow-Struktur wie anonymous fn in collect-table-metas
     resetIntro: (app: string) =>
       `du hast den Reset deines Passworts für ${app} angefordert. Klicke auf den folgenden Link, um ein neues Passwort zu setzen:`,
     resetButton: "Passwort zurücksetzen",
@@ -160,6 +161,7 @@ function renderTokenEmail(spec: TokenEmailSpec): RenderedEmail {
 
 // Plain inline-styled HTML — funktioniert in Gmail/Outlook/Apple-Mail
 // ohne dass wir Tailwind oder eine HTML-mail-Lib reinziehen müssen.
+// guard:dup-ok — Email-HTML (table-layout, inline CSS) ≠ Web-HTML (legal-pages/markdown.ts)
 function renderShell(args: { title: string; bodyHtml: string }): string {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -182,10 +184,12 @@ function renderShell(args: { title: string; bodyHtml: string }): string {
 </html>`;
 }
 
+// guard:dup-ok — Email-HTML-Helper; selbe normalisierte AST-Form wie wrapInLayout (legal-pages), verschiedene Semantik
 function renderButton(args: { url: string; label: string }): string {
   return `<a href="${escapeHtmlAttr(args.url)}" style="display: inline-block; background: #1a1a1a; color: #ffffff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">${escapeHtml(args.label)}</a>`;
 }
 
+// guard:dup-ok — Email-HTML-Helper; selbe normalisierte AST-Form wie wrapInLayout (legal-pages), verschiedene Semantik
 function renderFallbackUrl(args: { url: string; label: string }): string {
   return `<p style="margin: 24px 0 0; font-size: 12px; color: #666;">${escapeHtml(args.label)}<br /><a href="${escapeHtmlAttr(args.url)}" style="color: #1a1a1a; word-break: break-all;">${escapeHtml(args.url)}</a></p>`;
 }

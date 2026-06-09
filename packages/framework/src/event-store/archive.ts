@@ -31,6 +31,7 @@ export const archivedStreamsTable = pgTable(
   }),
 );
 
+// guard:dup-ok — intentionale Parallele zu createSnapshotsTable; verschiedene Tabellen-Schemas by design
 export async function createArchivedStreamsTable(db: DbConnection): Promise<void> {
   // skip: table already exists — idempotent boot + test-setup call
   if (await tableExists(db, "public.kumiko_archived_streams")) return;

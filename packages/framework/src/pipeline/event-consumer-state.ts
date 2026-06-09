@@ -97,6 +97,7 @@ export type ConsumerStatus = (typeof ConsumerStatuses)[keyof typeof ConsumerStat
 // table is already present (second stack in the same test DB, prod boot
 // after migration), skip cleanly.
 //
+// guard:dup-ok — intentionale Parallele zu createProjectionStateTable; symmetrische State-Tabellen by design
 export async function createEventConsumerStateTable(db: DbConnection): Promise<void> {
   // skip: table already exists — bootstrap is called from multiple paths
   if (await tableExists(db, "public.kumiko_event_consumers")) return;
