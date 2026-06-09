@@ -29,11 +29,7 @@ import {
   type SessionUser,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  InternalError,
-  UnprocessableError,
-  writeFailure,
-} from "@cosmicdrift/kumiko-framework/errors";
+import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 // kumiko-lint-ignore cross-feature-import invite-flow
 import {
@@ -45,7 +41,7 @@ import {
 import { seedTenantMembership } from "../../tenant/seeding";
 // kumiko-lint-ignore cross-feature-import existence-check
 import { userTable } from "../../user/schema/user";
-import { AuthErrors } from "../constants";
+import { invalidInviteToken } from "../errors";
 import {
   burnInviteToken,
   deleteInviteToken,
@@ -72,14 +68,6 @@ const invitationExecutor = createEventStoreExecutor(
   tenantInvitationEntity,
   { entityName: "tenant-invitation" },
 );
-
-function invalidInviteToken() {
-  return writeFailure(
-    new UnprocessableError(AuthErrors.invalidInviteToken, {
-      i18nKey: "auth.errors.invalidInviteToken",
-    }),
-  );
-}
 
 export function createInviteSignupCompleteHandler() {
   return defineWriteHandler<

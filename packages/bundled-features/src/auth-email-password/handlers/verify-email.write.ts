@@ -2,6 +2,7 @@ import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { AuthErrors } from "../constants";
+import { invalidVerificationToken } from "../errors";
 import { verifyVerificationToken } from "../verification-token";
 import { runConfirmTokenFlow } from "./confirm-token-flow";
 
@@ -14,14 +15,6 @@ const VerifyEmailSchema = z.object({
 });
 
 export type VerifyEmailData = { readonly kind: "verified" } | { readonly kind: "already-verified" };
-
-function invalidToken() {
-  return writeFailure(
-    new UnprocessableError(AuthErrors.invalidVerificationToken, {
-      i18nKey: "auth.errors.invalidVerificationToken",
-    }),
-  );
-}
 
 // Sets user.emailVerified = true on a valid token. Idempotent via the
 // `alreadyDone` short-circuit — when the row already reads verified
@@ -44,12 +37,12 @@ export function createVerifyEmailHandler(opts: VerifyEmailOptions) {
       }
 
       const verify = verifyVerificationToken(event.payload.token, opts.hmacSecret);
-      if (!verify.ok) return invalidToken();
+      if (!verify.ok) return invalidVerificationToken();
 
       return runConfirmTokenFlow<VerifyEmailData>(ctx, verify.userId, verify.expiresAtMs, {
         purpose: "verify",
         redisRequiredMessage: "email-verification requires ctx.redis to enforce token single-use",
-        invalidToken,
+        invalidToken: invalidVerificationToken,
         buildChanges: async () => ({ emailVerified: true }),
         successData: { kind: "verified" },
         alreadyDone: {

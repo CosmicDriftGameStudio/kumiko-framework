@@ -39,6 +39,7 @@ import { seedTenantMembership } from "../../tenant/seeding";
 // kumiko-lint-ignore cross-feature-import auth handler reads user-row für email-match
 import { userTable } from "../../user/schema/user";
 import { AuthErrors } from "../constants";
+import { invalidInviteToken } from "../errors";
 import {
   burnInviteToken,
   deleteInviteToken,
@@ -62,14 +63,6 @@ const invitationExecutor = createEventStoreExecutor(
   tenantInvitationEntity,
   { entityName: "tenant-invitation" },
 );
-
-function invalidInviteToken() {
-  return writeFailure(
-    new UnprocessableError(AuthErrors.invalidInviteToken, {
-      i18nKey: "auth.errors.invalidInviteToken",
-    }),
-  );
-}
 
 export function createInviteAcceptHandler() {
   return defineWriteHandler<"invite-accept", typeof InviteAcceptSchema, InviteAcceptData>({

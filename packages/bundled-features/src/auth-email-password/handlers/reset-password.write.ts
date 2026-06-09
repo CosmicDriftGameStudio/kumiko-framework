@@ -2,6 +2,7 @@ import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { AuthErrors } from "../constants";
+import { invalidResetToken } from "../errors";
 import { hashPassword } from "../password-hashing";
 import { verifyResetToken } from "../reset-token";
 import { runConfirmTokenFlow } from "./confirm-token-flow";
@@ -9,14 +10,6 @@ import { runConfirmTokenFlow } from "./confirm-token-flow";
 export type ResetPasswordOptions = {
   readonly hmacSecret: string;
 };
-
-function invalidToken() {
-  return writeFailure(
-    new UnprocessableError(AuthErrors.invalidResetToken, {
-      i18nKey: "auth.errors.invalidResetToken",
-    }),
-  );
-}
 
 // Confirm step of the reset flow. Token-verify happens inline; the
 // post-verify pipeline (burn, load user, memberships, try-all-tenants,
@@ -45,12 +38,12 @@ export function createResetPasswordHandler(opts: ResetPasswordOptions) {
       // the same invalid_reset_token error — a probing caller can't
       // distinguish tampered from stale from random-string.
       const verify = verifyResetToken(event.payload.token, opts.hmacSecret);
-      if (!verify.ok) return invalidToken();
+      if (!verify.ok) return invalidResetToken();
 
       return runConfirmTokenFlow(ctx, verify.userId, verify.expiresAtMs, {
         purpose: "reset",
         redisRequiredMessage: "password-reset requires ctx.redis to enforce token single-use",
-        invalidToken,
+        invalidToken: invalidResetToken,
         buildChanges: async () => ({
           passwordHash: await hashPassword(event.payload.newPassword),
         }),

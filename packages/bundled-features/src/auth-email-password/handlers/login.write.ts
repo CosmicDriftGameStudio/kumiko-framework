@@ -4,7 +4,6 @@ import {
   type SessionUser,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
 import { USER_STATUS, UserQueries } from "../../user";
@@ -12,59 +11,16 @@ import { parseAuthUserRow } from "../auth-user-row";
 import {
   AUTH_LOCKOUT_DEFAULT_DURATION_MINUTES,
   AUTH_LOCKOUT_DEFAULT_MAX_FAILED_ATTEMPTS,
-  AuthErrors,
 } from "../constants";
+import {
+  accountLocked,
+  accountRestricted,
+  emailNotVerified,
+  invalidCredentials,
+  noMembership,
+} from "../errors";
 import { clearLockoutState, getLockoutState, recordFailedAttempt } from "../lockout-store";
 import { verifyPassword } from "../password-hashing";
-
-function invalidCredentials() {
-  return writeFailure(
-    new UnprocessableError(AuthErrors.invalidCredentials, {
-      i18nKey: "auth.errors.invalidCredentials",
-    }),
-  );
-}
-
-function noMembership() {
-  return writeFailure(
-    new UnprocessableError(AuthErrors.noMembership, {
-      i18nKey: "auth.errors.noMembership",
-    }),
-  );
-}
-
-function emailNotVerified() {
-  return writeFailure(
-    new UnprocessableError(AuthErrors.emailNotVerified, {
-      i18nKey: "auth.errors.emailNotVerified",
-    }),
-  );
-}
-
-function accountLocked(retryAfterSeconds: number) {
-  return writeFailure(
-    new UnprocessableError(AuthErrors.accountLocked, {
-      i18nKey: "auth.errors.accountLocked",
-      // Seconds until auto-unlock — UI renders a countdown, clients can
-      // schedule a retry. Rounded up so the UI never shows 0 while the
-      // lock is still active.
-      details: { retryAfterSeconds },
-    }),
-  );
-}
-
-// S2.U6 — DSGVO Art. 18 Account-Freeze. Distinct error code (nicht zu
-// invalid_credentials collapsen) damit UI klar sagen kann "Account ist
-// pausiert, hier klicken zum Aufheben". User weiss schon dass sein Konto
-// restricted ist (er hat selbst die Restriction gesetzt), also kein
-// Enumeration-Leak.
-function accountRestricted() {
-  return writeFailure(
-    new UnprocessableError(AuthErrors.accountRestricted, {
-      i18nKey: "auth.errors.accountRestricted",
-    }),
-  );
-}
 
 export type LoginHandlerOptions = {
   // When true, a valid (email + password) login fails with email_not_verified
