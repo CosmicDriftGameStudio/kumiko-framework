@@ -43,3 +43,14 @@ export function parseSerializedField(raw: unknown): SerializedFieldShape | null 
   const parsed = typeof raw === "string" ? parseJsonSafe<unknown>(raw, null) : raw;
   return isShape(parsed) ? parsed : null;
 }
+
+export interface FieldDefinitionRow {
+  readonly field_key: string;
+  readonly serialized_field: unknown;
+}
+
+export function isFieldDefinitionRow(value: unknown): value is FieldDefinitionRow {
+  if (!value || typeof value !== "object") return false;
+  if (!("field_key" in value)) return false;
+  return typeof value.field_key === "string";
+}

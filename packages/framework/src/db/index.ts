@@ -11,6 +11,7 @@ export {
   bigint,
   bigserial,
   boolean,
+  extractTableName,
   index,
   instant,
   instantToDriver,

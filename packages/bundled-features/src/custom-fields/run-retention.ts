@@ -16,22 +16,14 @@
 // jsonb shape, which would be a breaking schema change.
 
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import { extractTableName } from "@cosmicdrift/kumiko-framework/db";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   applyRetentionRemovals,
   selectFieldDefinitionsWithSerialized,
   selectHostRowsWithCustomFields,
 } from "./db/queries/retention";
-import { parseSerializedField } from "./lib/parse-serialized-field";
-
-const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
-function getTableName(table: unknown): string {
-  if (typeof table === "object" && table !== null) {
-    const sym = (table as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL];
-    if (typeof sym === "string") return sym;
-  }
-  throw new Error("custom-fields/run-retention: table missing kumiko:schema:Name symbol");
-}
+import { isFieldDefinitionRow, parseSerializedField } from "./lib/parse-serialized-field";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 
@@ -87,7 +79,7 @@ export async function runCustomFieldsRetention(
     return { rowsScanned: 0, rowsUpdated: 0, removalsByFieldKey: {} };
   }
 
-  const tableName = getTableName(opts.entityTable);
+  const tableName = extractTableName(opts.entityTable, "custom-fields/run-retention");
   const rows = await selectHostRowsWithCustomFields(opts.db, tableName, opts.tenantId);
 
   const removalsByFieldKey: Record<string, number> = {};
@@ -157,17 +149,6 @@ function asHostRow(value: unknown): HostRow | null {
     modifiedAt: "modified_at" in value ? value.modified_at : null,
     customFields: Object.fromEntries(Object.entries(cf)),
   };
-}
-
-interface FieldDefinitionRow {
-  readonly field_key: string;
-  readonly serialized_field: unknown;
-}
-
-function isFieldDefinitionRow(value: unknown): value is FieldDefinitionRow {
-  if (!value || typeof value !== "object") return false;
-  if (!("field_key" in value)) return false;
-  return typeof value.field_key === "string";
 }
 
 async function loadRetentionPolicies(

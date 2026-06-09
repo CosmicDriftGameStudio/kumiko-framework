@@ -11,6 +11,7 @@
 // rejected by boot-validation — domain mutation MUST go through
 // r.step.aggregate.*.
 
+import { extractTableName } from "../../db";
 import { executeRawQuery } from "../../db/queries/raw-sql";
 import { defineStep } from "../define-step";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
@@ -22,21 +23,9 @@ type UnsafeProjectionUpsertArgs = {
   readonly row: StepResolver<Record<string, unknown>>;
 };
 
-// @cast-boundary drizzle-bridge — reads table name + column snake_case
-// names from drizzle Symbol-based metadata without importing drizzle-orm.
-const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
+// @cast-boundary drizzle-bridge — reads column snake_case names from
+// drizzle Symbol-based metadata without importing drizzle-orm.
 const KUMIKO_COLUMNS_SYMBOL = Symbol.for("kumiko:schema:Columns");
-
-function resolveTableName(table: unknown): string {
-  if (typeof table !== "object" || table === null) {
-    throw new Error("unsafeProjectionUpsert: table is not an object");
-  }
-  const name = (table as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL];
-  if (typeof name !== "string") {
-    throw new Error("unsafeProjectionUpsert: table has no kumiko:schema:Name symbol");
-  }
-  return name;
-}
 
 function resolveColumnName(table: unknown, field: string): string {
   if (typeof table !== "object" || table === null) return field;
@@ -67,7 +56,7 @@ defineStep<UnsafeProjectionUpsertArgs, void>({
       }
     }
 
-    const tableName = resolveTableName(args.table);
+    const tableName = extractTableName(args.table, "unsafeProjectionUpsert");
     const entries = Object.entries(resolvedRow);
     const params: unknown[] = [];
 

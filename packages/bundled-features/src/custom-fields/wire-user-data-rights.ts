@@ -1,5 +1,6 @@
 // T1.5c — user-data-rights wiring for custom-fields.
 
+import { extractTableName } from "@cosmicdrift/kumiko-framework/db";
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
 import { EXT_USER_DATA, type FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -7,16 +8,7 @@ import {
   selectFieldDefinitionsForEntity,
   stripSensitiveCustomFieldKeys,
 } from "./db/queries/user-data-rights";
-import { parseSerializedField } from "./lib/parse-serialized-field";
-
-const KUMIKO_NAME_SYMBOL = Symbol.for("kumiko:schema:Name");
-function getTableName(table: unknown): string {
-  if (typeof table === "object" && table !== null) {
-    const sym = (table as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL];
-    if (typeof sym === "string") return sym;
-  }
-  throw new Error("wire-user-data-rights: table missing kumiko:schema:Name symbol");
-}
+import { isFieldDefinitionRow, parseSerializedField } from "./lib/parse-serialized-field";
 
 export interface WireCustomFieldsUserDataRightsOptions {
   readonly entityName: string;
@@ -52,7 +44,7 @@ export function wireCustomFieldsUserDataRightsFor<TReg extends FeatureRegistrar<
   r: TReg,
   opts: WireCustomFieldsUserDataRightsOptions,
 ): void {
-  const tableName = getTableName(opts.entityTable);
+  const tableName = extractTableName(opts.entityTable, "custom-fields/wire-user-data-rights");
 
   const exportHook: UserDataExportHook = async (ctx) => {
     const rows = await selectCustomFieldsHostRows(
@@ -98,17 +90,6 @@ export function wireCustomFieldsUserDataRightsFor<TReg extends FeatureRegistrar<
     delete: deleteHook,
     order: ORDER_REDACT_BEFORE_OWNER_MUTATION,
   });
-}
-
-interface FieldDefinitionRow {
-  readonly field_key: string;
-  readonly serialized_field: unknown;
-}
-
-function isFieldDefinitionRow(value: unknown): value is FieldDefinitionRow {
-  if (!value || typeof value !== "object") return false;
-  if (!("field_key" in value)) return false;
-  return typeof value.field_key === "string";
 }
 
 async function loadSensitiveFieldKeys(

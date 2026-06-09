@@ -1,8 +1,7 @@
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { archiveWrite } from "./handlers/archive.write";
 import { findByIdQuery } from "./handlers/find-by-id.query";
 import { listQuery } from "./handlers/list.query";
-import { publishWrite } from "./handlers/publish.write";
+import { archiveWrite, publishWrite } from "./handlers/toggle-status.write";
 import { upsertSystemWrite } from "./handlers/upsert-system.write";
 import { upsertTenantWrite } from "./handlers/upsert-tenant.write";
 import { templateResourceEntity } from "./table";

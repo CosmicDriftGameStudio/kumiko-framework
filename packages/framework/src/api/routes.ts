@@ -1,11 +1,10 @@
 import { type Context, Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import {
-  InternalError,
-  isKumikoError,
   type KumikoError,
   reraiseAsKumikoError,
   serializeError,
+  toKumikoError,
   ValidationError,
 } from "../errors";
 import type { Dispatcher } from "../pipeline/dispatcher";
@@ -115,11 +114,7 @@ function jsonResponse(c: Context, body: unknown, status: ContentfulStatusCode = 
   return c.body(stringifyJson(body), status, { "Content-Type": "application/json" });
 }
 
-function toKumiko(e: unknown): KumikoError {
-  if (isKumikoError(e)) return e;
-  if (e instanceof Error) return new InternalError({ cause: e });
-  return new InternalError({ message: String(e) });
-}
+const toKumiko = toKumikoError;
 
 // For /write + /batch: keep the isSuccess flag so clients can flip on a single
 // boolean (mirrors the success shape). The actual error body is the
