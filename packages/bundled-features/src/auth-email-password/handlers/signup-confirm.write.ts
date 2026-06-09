@@ -26,17 +26,13 @@ import {
   type SessionUser,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  InternalError,
-  UnprocessableError,
-  writeFailure,
-} from "@cosmicdrift/kumiko-framework/errors";
+import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { generateUniqueName } from "@cosmicdrift/kumiko-framework/random";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
 // kumiko-lint-ignore cross-feature-import signup-confirm reads tenants.key for slug-uniqueness check (TOCTOU + DB-unique-index zusammen)
 import { tenantTable } from "../../tenant/schema/tenant";
-import { AuthErrors } from "../constants";
+import { invalidSignupToken } from "../errors";
 // kumiko-lint-ignore cross-feature-import provisioning needs cross-feature seeding helpers
 import { INITIAL_SIGNUP_ROLES, provisionSignupAccount } from "../seeding";
 import {
@@ -62,14 +58,6 @@ export type SignupConfirmData = {
   readonly session: SessionUser;
   readonly tenantKey: string;
 };
-
-function invalidSignupToken() {
-  return writeFailure(
-    new UnprocessableError(AuthErrors.invalidSignupToken, {
-      i18nKey: "auth.errors.invalidSignupToken",
-    }),
-  );
-}
 
 export function createSignupConfirmHandler() {
   return defineWriteHandler<"signup-confirm", typeof SignupConfirmSchema, SignupConfirmData>({

@@ -1,18 +1,9 @@
 import { access, createSystemUser, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { getAggregateStreamTenant } from "@cosmicdrift/kumiko-framework/event-store";
 import { z } from "zod";
 import { USER_FEATURE, UserHandlers, UserQueries } from "../../user";
-import { AuthErrors } from "../constants";
+import { invalidCredentials } from "../errors";
 import { hashPassword, verifyPassword } from "../password-hashing";
-
-function invalidCredentials() {
-  return writeFailure(
-    new UnprocessableError(AuthErrors.invalidCredentials, {
-      i18nKey: "auth.errors.invalidCredentials",
-    }),
-  );
-}
 
 // Change-password — authenticated. The user supplies their current password
 // (re-auth) and the new one. The new hash is written via ctx.writeAs(system)
