@@ -17,6 +17,7 @@ export type PgClient = ReturnType<typeof postgres>;
 export type PgListenClient = ReturnType<typeof postgres>;
 
 // Legacy: postgres-js only. Neue Aufrufer: createConnection() aus api.ts.
+// guard:dup-ok — andere Layer als createPgConnection (gibt DbConnection zurück, nicht postgres-Instanz)
 export function createDbConnection(
   url: string,
   options: import("./api").DbConnectionOptions = {},

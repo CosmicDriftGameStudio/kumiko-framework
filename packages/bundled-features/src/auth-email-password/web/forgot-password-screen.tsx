@@ -34,6 +34,7 @@ export function ForgotPasswordScreen({
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // guard:dup-ok — gleiches Submit-Muster wie signup-screen, aber verschiedene API-Endpoints und State
   const doSubmit = async (): Promise<void> => {
     setSubmitting(true);
     setError(null);

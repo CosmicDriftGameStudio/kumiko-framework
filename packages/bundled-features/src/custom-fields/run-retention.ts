@@ -173,6 +173,7 @@ interface InstantLike {
   readonly epochMilliseconds: number;
 }
 
+// guard:dup-ok — false positive: gleiche TypeGuard-Struktur wie isFieldDefinitionRow, völlig andere Semantik
 function isInstantLike(value: unknown): value is InstantLike {
   if (!value || typeof value !== "object") return false;
   if (!("epochMilliseconds" in value)) return false;

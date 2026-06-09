@@ -926,6 +926,7 @@ export type ConsumerProgress = {
 // post-commit — lag is the primary signal for backpressure, dead consumers,
 // or dispatcher stalls. Programmatic callers can map the result to a
 // `kumiko_consumer_lag{name}` Prometheus gauge.
+// guard:dup-ok — intentionale Parallele zu getAllProjectionProgress; Consumer ≠ Projection (verschiedene Subsysteme)
 export async function getAllConsumerProgress(
   db: DbConnection,
   registeredNames: readonly string[],
