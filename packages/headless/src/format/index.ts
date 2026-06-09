@@ -34,6 +34,7 @@ function formatDateCell(
   }
 }
 
+export { escapeHtml, escapeHtmlAttr, escapeXml } from "./escape";
 export function applyFormatSpec(
   spec: { format: string } & Record<string, unknown>,
   value: unknown,

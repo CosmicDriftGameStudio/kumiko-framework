@@ -1,3 +1,4 @@
+import { escapeHtml } from "@cosmicdrift/kumiko-headless";
 import type { NotificationRenderer } from "../delivery";
 
 type Section =
@@ -13,14 +14,6 @@ type EmailTemplateData = {
   readonly title?: string;
   readonly body?: string;
 };
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
 
 function renderSection(section: Section): string {
   if ("text" in section) {

@@ -1,3 +1,4 @@
+import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
 import { Marked } from "marked";
 
 // Markdown→HTML mit eigener `marked`-Instance. GFM aus, breaks aus —
@@ -53,17 +54,4 @@ ${opts.bodyHtml}
 </main>
 </body>
 </html>`;
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function escapeHtmlAttr(s: string): string {
-  return escapeHtml(s);
 }

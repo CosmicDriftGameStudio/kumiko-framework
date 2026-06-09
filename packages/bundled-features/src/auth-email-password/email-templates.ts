@@ -20,6 +20,7 @@
 //
 // Locale: de + en. Apps mit anderen Sprachen rendern selbst.
 
+import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
 import { Temporal } from "temporal-polyfill";
 
 export type AuthMailLocale = "de" | "en";
@@ -182,11 +183,11 @@ function renderShell(args: { title: string; bodyHtml: string }): string {
 }
 
 function renderButton(args: { url: string; label: string }): string {
-  return `<a href="${escapeAttr(args.url)}" style="display: inline-block; background: #1a1a1a; color: #ffffff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">${escapeHtml(args.label)}</a>`;
+  return `<a href="${escapeHtmlAttr(args.url)}" style="display: inline-block; background: #1a1a1a; color: #ffffff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">${escapeHtml(args.label)}</a>`;
 }
 
 function renderFallbackUrl(args: { url: string; label: string }): string {
-  return `<p style="margin: 24px 0 0; font-size: 12px; color: #666;">${escapeHtml(args.label)}<br /><a href="${escapeAttr(args.url)}" style="color: #1a1a1a; word-break: break-all;">${escapeHtml(args.url)}</a></p>`;
+  return `<p style="margin: 24px 0 0; font-size: 12px; color: #666;">${escapeHtml(args.label)}<br /><a href="${escapeHtmlAttr(args.url)}" style="color: #1a1a1a; word-break: break-all;">${escapeHtml(args.url)}</a></p>`;
 }
 
 export function renderResetPasswordEmail(args: RenderResetPasswordEmailArgs): RenderedEmail {
@@ -269,15 +270,4 @@ function formatExpiry(iso: string): string {
 
 function pad2(n: number): string {
   return String(n).padStart(2, "0");
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-function escapeAttr(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
 }
