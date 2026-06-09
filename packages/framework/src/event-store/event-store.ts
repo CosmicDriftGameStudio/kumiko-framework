@@ -14,6 +14,7 @@ import { stringifyJson } from "../utils/safe-json";
 import { isStreamArchived } from "./archive";
 import { VersionConflictError } from "./errors";
 import { eventsTable } from "./events-schema";
+import { toStoredEvent } from "./row-to-stored-event";
 
 export type EventMetadata = {
   readonly userId: string;
@@ -408,20 +409,4 @@ export async function* streamAllEventsByType(
     }
     cursorId = nextCursor;
   }
-}
-
-function toStoredEvent(row: SelectedEvent): StoredEvent {
-  return {
-    id: String(row.id),
-    aggregateId: row.aggregateId,
-    aggregateType: row.aggregateType,
-    tenantId: row.tenantId,
-    version: row.version,
-    type: row.type,
-    eventVersion: row.eventVersion,
-    payload: row.payload,
-    metadata: row.metadata,
-    createdAt: row.createdAt,
-    createdBy: row.createdBy,
-  };
 }
