@@ -15,8 +15,8 @@
 // — for value-level granularity, future work needs a value-timestamp
 // jsonb shape, which would be a breaking schema change.
 
-import { extractTableName } from "@cosmicdrift/kumiko-framework/db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import { extractTableName } from "@cosmicdrift/kumiko-framework/db";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   applyRetentionRemovals,
@@ -24,7 +24,6 @@ import {
   selectHostRowsWithCustomFields,
 } from "./db/queries/retention";
 import { isFieldDefinitionRow, parseSerializedField } from "./lib/parse-serialized-field";
-
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 

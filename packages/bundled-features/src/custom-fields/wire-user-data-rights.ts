@@ -92,8 +92,6 @@ export function wireCustomFieldsUserDataRightsFor<TReg extends FeatureRegistrar<
   });
 }
 
-
-
 async function loadSensitiveFieldKeys(
   db: Parameters<UserDataExportHook>[0]["db"],
   tenantId: string,

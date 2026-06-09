@@ -1,5 +1,5 @@
-import type { DbConnection, DbRunner, DbTx } from "../db/connection";
 import { extractTableName } from "../db";
+import type { DbConnection, DbRunner, DbTx } from "../db/connection";
 import {
   markConsumerRebuildFailed,
   resetConsumerForMspRebuild,
@@ -205,4 +205,3 @@ export async function rebuildMultiStreamProjection(
   deps.onMetrics?.(result);
   return result;
 }
-

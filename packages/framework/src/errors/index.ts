@@ -29,10 +29,10 @@ export type { FrameworkReason } from "./reasons";
 export { FrameworkReasons } from "./reasons";
 export type { ErrorLogEntry, ErrorResponseBody } from "./serialize";
 export { buildErrorLog, serializeError } from "./serialize";
+export { toKumikoError } from "./to-kumiko-error";
 export type { InvalidTransitionDetails } from "./transition-details";
 export { buildInvalidTransitionDetails } from "./transition-details";
 export type { WriteErrorInfo, WriteFailure } from "./write-error-info";
-
 export {
   failNotFound,
   failTransition,
@@ -41,5 +41,4 @@ export {
   toWriteErrorInfo,
   writeFailure,
 } from "./write-error-info";
-export { toKumikoError } from "./to-kumiko-error";
 export { validationErrorFromZod } from "./zod-bridge";

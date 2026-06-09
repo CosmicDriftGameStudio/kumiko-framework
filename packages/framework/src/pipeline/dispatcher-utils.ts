@@ -6,11 +6,7 @@ import type {
   SessionUser,
   WriteResult,
 } from "../engine/types";
-import {
-  type FieldIssue,
-  toKumikoError,
-  type WriteErrorInfo,
-} from "../errors";
+import { type FieldIssue, toKumikoError, type WriteErrorInfo } from "../errors";
 
 export type FailedWriteResult = Extract<WriteResult, { isSuccess: false }>;
 

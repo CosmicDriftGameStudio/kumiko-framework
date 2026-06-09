@@ -1,5 +1,5 @@
-import type { DbConnection, DbTx } from "../db/connection";
 import { extractTableName } from "../db";
+import type { DbConnection, DbTx } from "../db/connection";
 import {
   finalizeProjectionRebuild,
   markProjectionRebuildFailed,
@@ -199,7 +199,6 @@ export async function rebuildProjection(
   deps.onMetrics?.(result);
   return result;
 }
-
 
 // Read-only status for one projection. Returns null if the projection was
 // registered but never rebuilt (no row yet).
