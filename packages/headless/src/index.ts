@@ -51,7 +51,7 @@ export type {
   SubmitResult,
 } from "./form";
 export { createFormController } from "./form";
-export { applyFormatSpec } from "./format";
+export { applyFormatSpec, escapeHtml, escapeHtmlAttr, escapeXml } from "./format";
 export type {
   NavDefinition,
   NavNode,
