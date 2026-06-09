@@ -18,6 +18,7 @@ import {
   getEventsHighWaterMark,
   type StoredEvent,
 } from "../event-store";
+import { toStoredEvent as rowToStoredEvent } from "../event-store/row-to-stored-event";
 import {
   emitDispatcherError,
   emitEventConsumerLag,
@@ -297,22 +298,6 @@ type DeliveryOutcome = {
   readonly processed: number;
   readonly failed: number;
 };
-
-function rowToStoredEvent(row: StoredEventRow): StoredEvent {
-  return {
-    id: String(row.id),
-    aggregateId: row.aggregateId,
-    aggregateType: row.aggregateType,
-    tenantId: row.tenantId,
-    version: row.version,
-    type: row.type,
-    eventVersion: row.eventVersion,
-    payload: row.payload,
-    metadata: row.metadata,
-    createdAt: row.createdAt,
-    createdBy: row.createdBy,
-  };
-}
 
 // Deliver events to the consumer's handler in events.id order. Halt-on-
 // poison: a throw breaks the loop, the cursor stays at the last successful
