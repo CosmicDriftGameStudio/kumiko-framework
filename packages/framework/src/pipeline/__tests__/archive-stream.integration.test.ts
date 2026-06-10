@@ -83,6 +83,26 @@ const archFeature = defineFeature("archtest", (r) => {
     { access: { roles: ["Admin"] } },
   );
 
+  r.writeHandler(
+    "item:update",
+    z.object({ id: z.uuid(), label: z.string() }),
+    async (event, ctx) =>
+      executor.update(
+        { id: event.payload.id, changes: { label: event.payload.label } },
+        event.user,
+        ctx.db,
+        { skipOptimisticLock: true },
+      ),
+    { access: { roles: ["Admin"] } },
+  );
+
+  r.writeHandler(
+    "item:delete",
+    z.object({ id: z.uuid() }),
+    async (event, ctx) => executor.delete({ id: event.payload.id }, event.user, ctx.db),
+    { access: { roles: ["Admin"] } },
+  );
+
   r.queryHandler(
     "item:events",
     z.object({ id: z.uuid() }),
@@ -216,5 +236,60 @@ describe("archiveStream — Marten ArchiveStream equivalent", () => {
     expect(err.aggregateId).toBe("agg-1");
     expect(err.tenantId).toBe(admin.tenantId);
     expect(err.name).toBe("ArchivedStreamError");
+  });
+
+  // The CRUD executor appends via append() + getStreamVersion(), neither of
+  // which consults the archive flag. Without the executor-level guard a
+  // PATCH/DELETE would silently land an event on an archived stream — the
+  // read-only contract honoured by ctx.appendEvent would not extend to
+  // entity-CRUD writes. These prove the guard closes that gap on both paths.
+  describe("CRUD writes honour the archive guard", () => {
+    test("executor.update on an archived stream is rejected, no event lands", async () => {
+      const { id } = await stack.http.writeOk<{ id: string }>(
+        "archtest:write:item:create",
+        { label: "before-archive" },
+        admin,
+      );
+      await stack.http.writeOk("archtest:write:item:archive", { id }, admin);
+
+      const res = await stack.http.write(
+        "archtest:write:item:update",
+        { id, label: "too-late" },
+        admin,
+      );
+      expect(res.status).toBe(500);
+
+      const raw = await loadAggregateRaw(stack.db, id, admin.tenantId, { includeArchived: true });
+      expect(raw.map((e) => e.type)).not.toContain("arch-item.updated");
+    });
+
+    test("executor.delete on an archived stream is rejected, no event lands", async () => {
+      const { id } = await stack.http.writeOk<{ id: string }>(
+        "archtest:write:item:create",
+        { label: "keep-me" },
+        admin,
+      );
+      await stack.http.writeOk("archtest:write:item:archive", { id }, admin);
+
+      const res = await stack.http.write("archtest:write:item:delete", { id }, admin);
+      expect(res.status).toBe(500);
+
+      const raw = await loadAggregateRaw(stack.db, id, admin.tenantId, { includeArchived: true });
+      expect(raw.map((e) => e.type)).not.toContain("arch-item.deleted");
+    });
+
+    test("restoreStream re-opens the stream for CRUD updates", async () => {
+      const { id } = await stack.http.writeOk<{ id: string }>(
+        "archtest:write:item:create",
+        { label: "v1" },
+        admin,
+      );
+      await stack.http.writeOk("archtest:write:item:archive", { id }, admin);
+      await stack.http.writeOk("archtest:write:item:restore", { id }, admin);
+
+      await stack.http.writeOk("archtest:write:item:update", { id, label: "v2" }, admin);
+      const raw = await loadAggregateRaw(stack.db, id, admin.tenantId);
+      expect(raw.map((e) => e.type)).toEqual(["arch-item.created", "arch-item.updated"]);
+    });
   });
 });
