@@ -225,6 +225,11 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   steps.push({ name: "Runtime-Isolation Guard", cmd: "bunx kumiko-check-runtime-isolation" });
   steps.push({ name: "Error-Reasons Guard", cmd: "bunx kumiko-guard-error-reasons" });
   steps.push({ name: "Predicate Extraction Check", cmd: "bunx kumiko-check-predicates" });
+  // Action-Wiring + Doc-Status waren als bins registriert, hingen aber an
+  // keinem Pipeline-Step — ein nicht-aufgerufener Guard ist ein No-op.
+  steps.push({ name: "Action-Wiring Guard", cmd: "bunx kumiko-guard-action-wiring" });
+  steps.push({ name: "Doc-Status Guard", cmd: "bunx kumiko-guard-doc-status" });
+  steps.push({ name: "Doc-Status-Index Drift", cmd: "bunx kumiko-docs-status-index" });
   // TODO(2026-07-03): re-enable as-Cast Audit — coverage extended to all repos
   // (enterprise, platform, solon, .tsx) in check-as-casts.ts; baseline must be
   // regenerated with `--write-baseline` from framework repo after validation.
