@@ -65,25 +65,55 @@ export function buildAppSchema(registry: Registry): AppSchema {
   };
 
   if (typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
-    try {
-      const roundTripped = JSON.parse(JSON.stringify(schema));
-      if (JSON.stringify(roundTripped) !== JSON.stringify(schema)) {
-        // biome-ignore lint/suspicious/noConsole: dev-only assertion
-        console.error(
-          "[kumiko] buildAppSchema: Output ist nicht JSON-safe — ein Funktions-Renderer oder nicht-serialisierbarer Wert ist in das Schema gerutscht. Details im Diff:",
-          schema,
-        );
-      }
-    } catch {
+    // A stringify-roundtrip comparison can never fire here: JSON.stringify
+    // drops functions/undefined identically on both sides. Walk the value
+    // instead so a leaked function renderer is actually caught.
+    const offender = findNonJsonSafePath(schema, "schema");
+    if (offender !== null) {
       // biome-ignore lint/suspicious/noConsole: dev-only assertion
       console.error(
-        "[kumiko] buildAppSchema: JSON.stringify fehlgeschlagen — Schema enthält nicht-serialisierbare Werte.",
+        `[kumiko] buildAppSchema: Output ist nicht JSON-safe — nicht-serialisierbarer Wert bei "${offender}" (Funktions-Renderer oder Klassen-Instanz im Schema?).`,
         schema,
       );
     }
   }
 
   return schema;
+}
+
+// PlatformComponent slots ({ react, native }) legitimately hold component
+// functions — JSON.stringify drops them at inject-time and the client
+// re-resolves by name, so the walker treats them as opaque.
+function isPlatformComponentShape(value: object): boolean {
+  const keys = Object.keys(value);
+  return keys.length > 0 && keys.every((k) => k === "react" || k === "native");
+}
+
+// Returns the path of the first value JSON.stringify would drop or distort
+// (function, undefined, symbol, bigint, non-finite number, class instance) —
+// or null when the value is JSON-safe apart from PlatformComponent slots.
+export function findNonJsonSafePath(value: unknown, path: string): string | null {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return null;
+  if (typeof value === "number") return Number.isFinite(value) ? null : path;
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) {
+      const hit = findNonJsonSafePath(value[i], `${path}[${i}]`);
+      if (hit !== null) return hit;
+    }
+    return null;
+  }
+  if (typeof value === "object") {
+    const proto = Object.getPrototypeOf(value);
+    if (proto !== Object.prototype && proto !== null) return path;
+    if (isPlatformComponentShape(value)) return null;
+    for (const [key, entry] of Object.entries(value)) {
+      const hit = findNonJsonSafePath(entry, `${path}.${key}`);
+      if (hit !== null) return hit;
+    }
+    return null;
+  }
+  // function, symbol, bigint, undefined
+  return path;
 }
 
 function projectEntities(

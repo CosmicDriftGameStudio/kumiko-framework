@@ -19,9 +19,9 @@ export class WriteFailedError extends Error {
 // unverändert wenn nicht — Renderer-Convention), sonst message, zuletzt code.
 export function dispatcherErrorText(
   error: DispatcherError,
-  translate: (key: string) => string,
+  translate: (key: string, params?: Readonly<Record<string, unknown>>) => string,
 ): string {
-  const translated = translate(error.i18nKey);
+  const translated = translate(error.i18nKey, error.i18nParams);
   if (translated !== error.i18nKey) return translated;
   return error.message !== "" ? error.message : error.code;
 }

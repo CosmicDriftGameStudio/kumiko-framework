@@ -92,20 +92,35 @@ export function CustomFieldsFormSection({
     );
   }
 
+  // Dirty heißt: weicht vom GESPEICHERTEN Wert ab — nicht von "". Sonst ist
+  // das Leeren eines gespeicherten Werts unsichtbar (Button disabled) und
+  // handleSave würde es überspringen statt zu clearen.
+  const initialDisplay = (field: (typeof matchingFields)[number]): string =>
+    displayValue(field.type, initialValues?.[field.fieldKey]);
+  const changedFields = matchingFields.filter((field) => {
+    const raw = pending[field.fieldKey];
+    return raw !== undefined && raw !== initialDisplay(field);
+  });
+
   const handleSave = async (): Promise<void> => {
     setSaving(true);
     setErrorKey(null);
     try {
-      for (const field of matchingFields) {
-        const raw = pending[field.fieldKey];
-        if (raw === undefined || raw === "") continue;
-        const value = coerceValue(field.type, raw);
-        const result = await dispatcher.write(CustomFieldsHandlers.setCustomField, {
-          entityName,
-          entityId,
-          fieldKey: field.fieldKey,
-          value,
-        });
+      for (const field of changedFields) {
+        const raw = pending[field.fieldKey] ?? "";
+        const result =
+          raw === ""
+            ? await dispatcher.write(CustomFieldsHandlers.clearCustomField, {
+                entityName,
+                entityId,
+                fieldKey: field.fieldKey,
+              })
+            : await dispatcher.write(CustomFieldsHandlers.setCustomField, {
+                entityName,
+                entityId,
+                fieldKey: field.fieldKey,
+                value: coerceValue(field.type, raw),
+              });
         if (!result.isSuccess) {
           setErrorKey(result.error?.i18nKey ?? "custom-fields.errors.saveFailed");
           return;
@@ -117,7 +132,7 @@ export function CustomFieldsFormSection({
     }
   };
 
-  const dirty = Object.values(pending).some((v) => v !== "");
+  const dirty = changedFields.length > 0;
 
   return (
     <div data-testid="custom-fields-form-section">
