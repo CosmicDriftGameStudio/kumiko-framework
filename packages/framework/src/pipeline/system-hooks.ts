@@ -100,13 +100,14 @@ function reconstructStateForSearch(
 const warnedKeyCollisions = new Set<string>();
 function warnOncePerKeyCollision(entityName: string, key: string, isBaseField: boolean): void {
   const dedupKey = `${entityName}:${key}`;
-  if (warnedKeyCollisions.has(dedupKey)) return;
-  warnedKeyCollisions.add(dedupKey);
-  const collidesWith = isBaseField ? `Stammfield "${key}"` : `earlier contributor key "${key}"`;
-  console.warn(
-    `[kumiko:search] searchPayloadExtension on "${entityName}" tried to overwrite ` +
-      `${collidesWith} — keeping the first value. Rename the contributor key.`,
-  );
+  if (!warnedKeyCollisions.has(dedupKey)) {
+    warnedKeyCollisions.add(dedupKey);
+    const collidesWith = isBaseField ? `Stammfield "${key}"` : `earlier contributor key "${key}"`;
+    console.warn(
+      `[kumiko:search] searchPayloadExtension on "${entityName}" tried to overwrite ` +
+        `${collidesWith} — keeping the first value. Rename the contributor key.`,
+    );
+  }
 }
 
 // Build a SearchDocument from raw field-state. Parallel to the old
