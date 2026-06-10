@@ -16,6 +16,7 @@ import type {
   FieldDefinition,
   SaveContext,
   SessionUser,
+  TenantId,
   WriteResult,
 } from "../engine/types";
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers";
@@ -29,10 +30,12 @@ import {
   writeFailure,
 } from "../errors";
 import {
+  ArchivedStreamError,
   append,
   type EventMetadata,
   VersionConflictError as EventStoreVersionConflict,
   getStreamVersion,
+  isStreamArchived,
 } from "../event-store";
 import type { EntityCache } from "../pipeline/entity-cache";
 import type { SearchAdapter } from "../search/types";
@@ -291,6 +294,26 @@ export function createEventStoreExecutor(
     return rehydrateCompoundTypes(row as DbRow, entity);
   }
 
+  // Archive guard for the CRUD write paths. Archived streams are read-only —
+  // ctx.appendEvent (append-event-core) already enforces this, but the
+  // executor appends directly via append() and getStreamVersion() ignores
+  // the archive flag, so without this check a PATCH/DELETE on an archived
+  // entity would silently land an event and break the read-only contract
+  // (loadAggregate returns [] for the same stream). Throws ArchivedStreamError
+  // to mirror the appendEvent path exactly — same 500 + rolled-back tx.
+  // Creates skip this: a fresh UUID can't be archived, and a deterministic-id
+  // re-create onto an archived stream collides on the unique index →
+  // version_conflict, which already blocks the write.
+  async function assertStreamWritable(
+    db: TenantDb,
+    id: EntityId,
+    tenantId: TenantId,
+  ): Promise<void> {
+    if (await isStreamArchived(db.raw, tenantId, String(id))) {
+      throw new ArchivedStreamError(tenantId, String(id));
+    }
+  }
+
   // SELECT a row by id with the ownership clause applied at the DB layer.
   // Detail() uses this both on cold path and as a cache-revalidation probe.
   async function loadWithOwnership(
@@ -521,6 +544,8 @@ export function createEventStoreExecutor(
         );
       }
 
+      await assertStreamWritable(db, payload.id, user.tenantId);
+
       // Stream-version is authoritative, not row.version. `ctx.appendEvent`
       // can bump the stream between CRUD writes (domain event on the same
       // aggregate); a stale row.version here would make the next CRUD write
@@ -655,6 +680,8 @@ export function createEventStoreExecutor(
         );
       }
 
+      await assertStreamWritable(db, payload.id, user.tenantId);
+
       // Stream-version authoritative (see update() for rationale).
       const currentVersion = await getStreamVersion(db.raw, String(payload.id), user.tenantId);
 
@@ -729,6 +756,8 @@ export function createEventStoreExecutor(
           }),
         );
       }
+
+      await assertStreamWritable(db, payload.id, user.tenantId);
 
       // Stream-version authoritative (see update() for rationale).
       const currentVersion = await getStreamVersion(db.raw, String(payload.id), user.tenantId);
