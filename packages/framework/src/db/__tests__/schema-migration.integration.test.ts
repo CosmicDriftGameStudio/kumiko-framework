@@ -40,7 +40,7 @@ afterAll(async () => {
 async function applySchema(features: readonly FeatureDefinition[]): Promise<void> {
   const tables: Record<string, unknown> = {};
   for (const feature of features) {
-    for (const [entityName, entity] of Object.entries(feature.entities)) {
+    for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
       tables[entityName] = buildEntityTable(entityName, entity);
     }
   }

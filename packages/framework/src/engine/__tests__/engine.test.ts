@@ -65,9 +65,9 @@ describe("defineFeature", () => {
       );
     });
 
-    expect(feature.entities["user"]).toBeDefined();
-    expect(feature.entities["user"]?.table).toBe("Users");
-    expect(feature.entities["user"]?.fields["email"]?.type).toBe("text");
+    expect(feature.entities?.["user"]).toBeDefined();
+    expect(feature.entities?.["user"]?.table).toBe("Users");
+    expect(feature.entities?.["user"]?.fields["email"]?.type).toBe("text");
   });
 
   test("collects write handlers with inferred types", () => {

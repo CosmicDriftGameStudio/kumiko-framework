@@ -635,7 +635,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
 // the yes/no answer for the boot check.
 function registryDeclaresFileFields(registry: Registry): boolean {
   for (const feature of registry.features.values()) {
-    for (const entity of Object.values(feature.entities)) {
+    for (const entity of Object.values(feature.entities ?? {})) {
       for (const field of Object.values(entity.fields)) {
         if (isFileField(field)) return true;
       }

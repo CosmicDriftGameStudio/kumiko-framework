@@ -14,8 +14,8 @@ describe("validation hooks", () => {
       });
     });
 
-    expect(feature.hooks["validation"]).toBeDefined();
-    expect(feature.hooks["validation"]?.["user:create"]).toBeDefined();
+    expect(feature.hooks?.["validation"]).toBeDefined();
+    expect(feature.hooks?.["validation"]?.["user:create"]).toBeDefined();
   });
 
   test("runValidation returns null when valid", () => {

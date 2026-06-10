@@ -30,7 +30,7 @@ describe("postQuery hook registration", () => {
 
     // feature.hooks.postQuery is keyed by raw handler-name (qualification
     // happens at registry-merge time).
-    const entry = feature.hooks.postQuery["thing:list"];
+    const entry = feature.hooks?.postQuery?.["thing:list"];
     expect(entry).toHaveLength(1);
     expect(entry?.[0]?.featureName).toBe("test");
   });
@@ -41,7 +41,7 @@ describe("postQuery hook registration", () => {
       r.entityHook("postQuery", thing, noop);
     });
 
-    const entry = feature.entityHooks.postQuery["thing"];
+    const entry = feature.entityHooks?.postQuery?.["thing"];
     expect(entry).toHaveLength(1);
     expect(entry?.[0]?.featureName).toBe("test");
   });
@@ -56,7 +56,7 @@ describe("postQuery hook registration", () => {
       r.entityHook("postQuery", thing, hookB);
     });
 
-    expect(feature.entityHooks.postQuery["thing"]).toHaveLength(2);
+    expect(feature.entityHooks?.postQuery?.["thing"]).toHaveLength(2);
   });
 });
 

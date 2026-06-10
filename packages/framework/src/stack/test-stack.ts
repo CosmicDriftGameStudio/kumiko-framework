@@ -212,7 +212,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   if (enabledHooks.includes("search")) {
     const searchableFields: string[] = [];
     for (const feature of options.features) {
-      for (const [, entity] of Object.entries(feature.entities)) {
+      for (const [, entity] of Object.entries(feature.entities ?? {})) {
         for (const [fieldName, field] of Object.entries(entity.fields)) {
           if (field.type === "text" && field.searchable) {
             searchableFields.push(fieldName);

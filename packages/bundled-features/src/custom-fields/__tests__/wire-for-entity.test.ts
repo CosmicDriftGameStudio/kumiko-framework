@@ -40,7 +40,7 @@ describe("wireCustomFieldsFor", () => {
     );
 
     // 3. postQuery entity-hook on "property"
-    expect(feature.entityHooks.postQuery["property"]).toHaveLength(1);
+    expect(feature.entityHooks?.postQuery?.["property"]).toHaveLength(1);
 
     // 4. search-payload-extension on "property"
     expect(feature.searchPayloadExtensions!["property"]).toHaveLength(1);
@@ -52,7 +52,7 @@ describe("wireCustomFieldsFor", () => {
       wireCustomFieldsFor(r, "property", propertyTable);
     });
 
-    const hook = feature.entityHooks.postQuery["property"]?.[0]?.fn;
+    const hook = feature.entityHooks?.postQuery?.["property"]?.[0]?.fn;
     expect(hook).toBeDefined();
     const result = await hook?.(
       {
@@ -82,7 +82,7 @@ describe("wireCustomFieldsFor", () => {
       wireCustomFieldsFor(r, "property", propertyTable);
     });
 
-    const hook = feature.entityHooks.postQuery["property"]?.[0]?.fn;
+    const hook = feature.entityHooks?.postQuery?.["property"]?.[0]?.fn;
     const result = await hook?.(
       {
         entityName: "property",
@@ -111,7 +111,7 @@ describe("wireCustomFieldsFor", () => {
       wireCustomFieldsFor(r, "property", propertyTable);
     });
 
-    const hook = feature.entityHooks.postQuery["property"]?.[0]?.fn;
+    const hook = feature.entityHooks?.postQuery?.["property"]?.[0]?.fn;
     const result = await hook?.(
       {
         entityName: "property",

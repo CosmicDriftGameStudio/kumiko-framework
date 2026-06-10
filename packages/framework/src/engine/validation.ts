@@ -17,7 +17,7 @@ export function runValidation(
   for (const [featureName, feature] of registry.features) {
     if (toKebab(featureName) !== parsed.scope) continue;
 
-    const validationHooks = feature.hooks.validation;
+    const validationHooks = feature.hooks?.validation;
     if (!validationHooks) continue;
 
     // Find the hook by matching the QN name segment against the stored short name.

@@ -42,7 +42,7 @@ const KEEP_FOR_PATTERN = /^\d+[hdwmy]$/;
 // Encrypt/Decrypt-Mechanik landet in Sprint 3 (crypto-shredding); diese
 // Validation greift schon ab Sprint 0 damit Schema-Drift früh auffällt.
 export function validatePiiAndRetention(feature: FeatureDefinition): void {
-  for (const [entityName, entity] of Object.entries(feature.entities)) {
+  for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     const fieldsByName = entity.fields;
 
     for (const [fieldName, field] of Object.entries(fieldsByName)) {

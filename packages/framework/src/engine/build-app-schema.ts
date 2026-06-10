@@ -35,7 +35,7 @@ export function buildAppSchema(registry: Registry): AppSchema {
     const navs = Object.values(feature.navs);
     const featureSchema: FeatureSchema = {
       featureName,
-      entities: projectEntities(feature.entities),
+      entities: projectEntities(feature.entities ?? {}),
       screens: Object.values(feature.screens),
       ...(navs.length > 0 && { navs }),
     };
