@@ -61,7 +61,7 @@ Der Test-File pinst beide Pfade.
 bun test
 ```
 
-`src/__tests__/feature.integration.ts` beweist Schritt für Schritt:
+`src/__tests__/feature.integration.test.ts` beweist Schritt für Schritt:
 
 1. Alice legt 2 Notes an → `runUserExport` returned Bundle mit Note-Snippet
 2. Alice triggered Deletion + Grace abgelaufen → `runForgetCleanup` löscht alle Notes
@@ -72,7 +72,7 @@ bun test
 Recipe = 1 Hook-Pattern, fokussiert auf das Wesentliche.
 
 - Vollständige runnable App: [`samples/apps/user-data-rights-demo`](../../apps/user-data-rights-demo)
-- Cross-Data-Matrix-Test (3 Provider gleichzeitig): [`packages/bundled-features/src/user-data-rights/__tests__/cross-data-matrix.integration.ts`](../../../packages/bundled-features/src/user-data-rights/__tests__/cross-data-matrix.integration.ts)
+- Cross-Data-Matrix-Test (3 Provider gleichzeitig): [`packages/bundled-features/src/user-data-rights/__tests__/cross-data-matrix.integration.test.ts`](../../../packages/bundled-features/src/user-data-rights/__tests__/cross-data-matrix.integration.test.ts)
 - Operator-Guide für Verarbeitungsverzeichnis + AVV: [`packages/bundled-features/src/user-data-rights/COMPLIANCE.md`](../../../packages/bundled-features/src/user-data-rights/COMPLIANCE.md)
 
 ## Dependencies

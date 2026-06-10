@@ -91,7 +91,7 @@ export const propertyFeature = defineFeature("property-management", (r) => {
     schema: z.object({}),
     access: { roles: ["TenantAdmin"] },
     handler: async (_query, ctx) => {
-      const rows = await ctx.db.selectMany(propertyTable, {}, {});
+      const rows = await ctx.db.selectMany(propertyTable);
       return { rows };
     },
   });

@@ -112,7 +112,7 @@ samples/recipes/my-recipe/
   src/
     feature.ts              ← defineFeature + entity + handler
     __tests__/
-      feature.integration.ts ← test (or .test.ts for unit tests)
+      feature.integration.test.ts ← test (or .test.ts for unit tests)
 ```
 
 Rule: every new framework feature needs a recipe — or an extension to an

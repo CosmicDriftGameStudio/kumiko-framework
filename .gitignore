@@ -53,3 +53,6 @@ playwright-report/
 # Bun install cache
 ~/.bun/install/cache
 .aider*
+
+# check-app-tsc scratch (written into recipe dirs during the check)
+.check-tsconfig.json

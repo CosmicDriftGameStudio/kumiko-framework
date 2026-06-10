@@ -95,6 +95,21 @@ function reconstructStateForSearch(
   return (payload["previous"] as Record<string, unknown> | undefined) ?? {}; // @cast-boundary engine-payload
 }
 
+// buildSearchDocument runs per save — without dedup a colliding contributor
+// key would spam one warn line per write on the hotpath.
+const warnedKeyCollisions = new Set<string>();
+function warnOncePerKeyCollision(entityName: string, key: string, isBaseField: boolean): void {
+  const dedupKey = `${entityName}:${key}`;
+  if (!warnedKeyCollisions.has(dedupKey)) {
+    warnedKeyCollisions.add(dedupKey);
+    const collidesWith = isBaseField ? `Stammfield "${key}"` : `earlier contributor key "${key}"`;
+    console.warn(
+      `[kumiko:search] searchPayloadExtension on "${entityName}" tried to overwrite ` +
+        `${collidesWith} — keeping the first value. Rename the contributor key.`,
+    );
+  }
+}
+
 // Build a SearchDocument from raw field-state. Parallel to the old
 // buildSearchDocument that took a SaveContext — same selector logic, just
 // a different input shape.
@@ -149,14 +164,12 @@ export async function buildSearchDocument(
   // searchable Stammfield is dropped (not silently merged over the real value)
   // and warned. A jsonb custom-field that happens to share a Stammfield name
   // must not shadow the indexed Stammfield.
+  const baseFieldKeys = new Set(Object.keys(fields));
   for (const contribute of extensions) {
     const contributed = await contribute({ entityName, entityId, state });
     for (const [key, value] of Object.entries(contributed)) {
       if (Object.hasOwn(fields, key)) {
-        console.warn(
-          `[kumiko:search] searchPayloadExtension on "${entityName}" tried to overwrite ` +
-            `Stammfield "${key}" — keeping the base field. Rename the contributor key.`,
-        );
+        warnOncePerKeyCollision(entityName, key, baseFieldKeys.has(key));
         continue;
       }
       fields[key] = value;

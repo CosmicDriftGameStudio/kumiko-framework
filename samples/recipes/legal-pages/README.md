@@ -19,7 +19,7 @@ samples/recipes/legal-pages/
 └── src/
     ├── feature.ts              # the two features re-exported for tests
     └── __tests__/
-        └── feature.integration.ts  # 5 tests: routes + boot check
+        └── feature.integration.test.ts  # 5 tests: routes + boot check
 ```
 
 `feature.ts` is intentionally thin (re-export). In a real app this
@@ -195,7 +195,7 @@ from SYSTEM_TENANT:
 | Route returns `503 legal page unavailable` | `anonymousAccess` not configured in `runProdApp` | Set `anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID }` |
 | Boot check throws `ctx.textContent missing` | `extraContext.textContent` not wired | Set `extraContext: ({ db }) => ({ textContent: createTextContentApi(db) })` |
 | Route returns `404 not configured` | Required block doesn't exist or has `body=null` | `seedTextBlock` with a body string |
-| Multi-tenant app: tenant subdomain shows an empty page | (Bug regression?) Routes should ALWAYS show SYSTEM_TENANT texts | The `legal-pages.integration.ts` test "SYSTEM_TENANT routing" covers this — should be green |
+| Multi-tenant app: tenant subdomain shows an empty page | (Bug regression?) Routes should ALWAYS show SYSTEM_TENANT texts | The `legal-pages.integration.test.ts` test "SYSTEM_TENANT routing" covers this — should be green |
 | `<script>` tags in a Markdown body land 1:1 in the HTML | Deliberately accepted right now — see [legal-pages/README.md XSS section](../../../packages/bundled-features/src/legal-pages/README.md#xss--currently-not-secured-by-design) | DOMPurify is a Phase 2 once a multi-author setup arrives |
 
 ## Cross-refs

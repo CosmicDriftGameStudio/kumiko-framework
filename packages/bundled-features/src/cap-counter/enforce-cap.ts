@@ -413,6 +413,11 @@ export type StockCapResult =
  * (ein Delete gibt den Slot sofort frei), braucht keine Counter-Tabelle und
  * kein Increment/Decrement-Bookkeeping. Misst einen Bestand, keinen Fluss.
  *
+ * **TOCTOU-Caveat:** Zählen und Schreiben sind nicht atomar — zwei parallele
+ * Creates können beide `ok` sehen und das Limit um eins überschreiten (gleiche
+ * Race wie bei {@link enforceCap}). Exakt harte Slots brauchen zusätzliche
+ * Serialisierung im Create-Pfad (z.B. Unique-Index auf tenantId+slot).
+ *
  * Reine Funktion — wirft NICHT und mappt KEINEN HTTP-Status. Ein erreichtes
  * Stock-Limit heißt „Upgrade nötig", nicht „retry later" (429): der Caller
  * entscheidet die Reaktion, typisch ein app-eigener 422/`upgrade_required`

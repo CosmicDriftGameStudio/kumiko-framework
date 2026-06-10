@@ -41,6 +41,7 @@ import { createSessionCallbacks } from "@cosmicdrift/kumiko-bundled-features/ses
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { UserQueries } from "@cosmicdrift/kumiko-bundled-features/user";
 import { createSseBroker, type SseBroker } from "@cosmicdrift/kumiko-framework/api";
+import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { createDbConnection, type DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import {
   buildAppSchema,
@@ -832,7 +833,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
         entrypoint.dispatcher.write(
           handlerQn,
           payload,
-          createSystemUser(tenantId, ["SystemAdmin"]),
+          createSystemUser(tenantId, [ROLES.SystemAdmin]),
         ),
     });
   }

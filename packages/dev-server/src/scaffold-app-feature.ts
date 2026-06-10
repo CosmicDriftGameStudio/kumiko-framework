@@ -14,6 +14,7 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { Project, SyntaxKind } from "ts-morph";
+import { isKebabSegment } from "./kebab";
 
 export type ScaffoldAppFeatureOptions = {
   /** kebab-case feature name (e.g. "product-catalog"). */
@@ -31,13 +32,10 @@ export type ScaffoldAppFeatureResult = {
   readonly autoMounted: boolean;
 };
 
-// Segment-strict: rejects trailing/double hyphen (`product-`, `foo--bar`),
-// which kebabToCamel would otherwise turn into an invalid identifier
-// (`productFeature` vs the broken `product-Feature`).
-const KEBAB_RE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
-
 export function scaffoldAppFeature(options: ScaffoldAppFeatureOptions): ScaffoldAppFeatureResult {
-  if (!KEBAB_RE.test(options.name)) {
+  // Segment-strict guard: a trailing/double hyphen (`product-`, `foo--bar`)
+  // would make kebabToCamel produce an invalid identifier.
+  if (!isKebabSegment(options.name)) {
     throw new Error(
       `scaffoldAppFeature: name must be kebab-case (a-z, 0-9, -); got "${options.name}"`,
     );

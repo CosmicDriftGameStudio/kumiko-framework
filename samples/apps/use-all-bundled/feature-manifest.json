@@ -276,8 +276,8 @@
       ],
       "configKeys": [
         {
-          "key": "bucket",
-          "qualifiedName": "file-provider-s3:config:bucket",
+          "key": "access-key-id",
+          "qualifiedName": "file-provider-s3:config:access-key-id",
           "type": "text",
           "scope": "tenant",
           "default": "",
@@ -295,8 +295,8 @@
           ]
         },
         {
-          "key": "region",
-          "qualifiedName": "file-provider-s3:config:region",
+          "key": "bucket",
+          "qualifiedName": "file-provider-s3:config:bucket",
           "type": "text",
           "scope": "tenant",
           "default": "",
@@ -351,8 +351,8 @@
           ]
         },
         {
-          "key": "access-key-id",
-          "qualifiedName": "file-provider-s3:config:access-key-id",
+          "key": "region",
+          "qualifiedName": "file-provider-s3:config:region",
           "type": "text",
           "scope": "tenant",
           "default": "",
@@ -497,6 +497,44 @@
       ],
       "configKeys": [
         {
+          "key": "auth-user",
+          "qualifiedName": "mail-transport-smtp:config:auth-user",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "from",
+          "qualifiedName": "mail-transport-smtp:config:from",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ]
+        },
+        {
           "key": "host",
           "qualifiedName": "mail-transport-smtp:config:host",
           "type": "text",
@@ -552,44 +590,6 @@
           ],
           "readRoles": [
             "all"
-          ]
-        },
-        {
-          "key": "from",
-          "qualifiedName": "mail-transport-smtp:config:from",
-          "type": "text",
-          "scope": "tenant",
-          "default": "",
-          "encrypted": false,
-          "computed": false,
-          "options": null,
-          "bounds": null,
-          "writeRoles": [
-            "TenantAdmin",
-            "SystemAdmin"
-          ],
-          "readRoles": [
-            "TenantAdmin",
-            "SystemAdmin"
-          ]
-        },
-        {
-          "key": "auth-user",
-          "qualifiedName": "mail-transport-smtp:config:auth-user",
-          "type": "text",
-          "scope": "tenant",
-          "default": "",
-          "encrypted": false,
-          "computed": false,
-          "options": null,
-          "bounds": null,
-          "writeRoles": [
-            "TenantAdmin",
-            "SystemAdmin"
-          ],
-          "readRoles": [
-            "TenantAdmin",
-            "SystemAdmin"
           ]
         }
       ],
@@ -792,37 +792,6 @@
           ]
         },
         {
-          "key": "timezone",
-          "qualifiedName": "tenant:config:timezone",
-          "type": "select",
-          "scope": "tenant",
-          "default": "Europe/Berlin",
-          "encrypted": false,
-          "computed": false,
-          "options": [
-            "UTC",
-            "Europe/Berlin",
-            "Europe/London",
-            "Europe/Paris",
-            "Europe/Madrid",
-            "Europe/Rome",
-            "America/New_York",
-            "America/Los_Angeles",
-            "America/Sao_Paulo",
-            "Asia/Tokyo",
-            "Asia/Singapore",
-            "Australia/Sydney"
-          ],
-          "bounds": null,
-          "writeRoles": [
-            "Admin",
-            "SystemAdmin"
-          ],
-          "readRoles": [
-            "all"
-          ]
-        },
-        {
           "key": "locale",
           "qualifiedName": "tenant:config:locale",
           "type": "select",
@@ -843,6 +812,46 @@
           ],
           "readRoles": [
             "all"
+          ]
+        },
+        {
+          "key": "max-users",
+          "qualifiedName": "tenant:config:max-users",
+          "type": "number",
+          "scope": "system",
+          "default": 50,
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "writeRoles": [
+            "system"
+          ],
+          "readRoles": [
+            "Admin",
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "price-model",
+          "qualifiedName": "tenant:config:price-model",
+          "type": "select",
+          "scope": "system",
+          "default": "basic",
+          "encrypted": false,
+          "computed": false,
+          "options": [
+            "basic",
+            "pro",
+            "enterprise"
+          ],
+          "bounds": null,
+          "writeRoles": [
+            "system"
+          ],
+          "readRoles": [
+            "Admin",
+            "SystemAdmin"
           ]
         },
         {
@@ -881,43 +890,34 @@
           ]
         },
         {
-          "key": "price-model",
-          "qualifiedName": "tenant:config:price-model",
+          "key": "timezone",
+          "qualifiedName": "tenant:config:timezone",
           "type": "select",
-          "scope": "system",
-          "default": "basic",
+          "scope": "tenant",
+          "default": "Europe/Berlin",
           "encrypted": false,
           "computed": false,
           "options": [
-            "basic",
-            "pro",
-            "enterprise"
+            "UTC",
+            "Europe/Berlin",
+            "Europe/London",
+            "Europe/Paris",
+            "Europe/Madrid",
+            "Europe/Rome",
+            "America/New_York",
+            "America/Los_Angeles",
+            "America/Sao_Paulo",
+            "Asia/Tokyo",
+            "Asia/Singapore",
+            "Australia/Sydney"
           ],
           "bounds": null,
           "writeRoles": [
-            "system"
-          ],
-          "readRoles": [
             "Admin",
             "SystemAdmin"
-          ]
-        },
-        {
-          "key": "max-users",
-          "qualifiedName": "tenant:config:max-users",
-          "type": "number",
-          "scope": "system",
-          "default": 50,
-          "encrypted": false,
-          "computed": false,
-          "options": null,
-          "bounds": null,
-          "writeRoles": [
-            "system"
           ],
           "readRoles": [
-            "Admin",
-            "SystemAdmin"
+            "all"
           ]
         }
       ],

@@ -24,6 +24,7 @@ export {
   streamAllEventsByType,
 } from "./event-store";
 export { createEventsTable, eventsTable } from "./events-schema";
+export { toStoredEvent } from "./row-to-stored-event";
 export {
   createSnapshotsTable,
   type LoadAggregateWithSnapshotResult,

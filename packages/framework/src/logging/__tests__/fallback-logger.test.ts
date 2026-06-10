@@ -1,8 +1,8 @@
 // createFallbackLogger Unit-Tests (Phase 1, test-luecken-integration).
 //
-// Pinnt beide Pfade des Fallback-Loggers — inkl. des non-obvious
-// Format-Unterschieds: der wrapped-Pfad schreibt "[ns] msg", der
-// console-Fallback "[ns] msg:" (trailing colon).
+// Pinnt beide Pfade des Fallback-Loggers auf das identische
+// "[ns] msg"-Format — wrapped logger und console-Fallback dürfen
+// nicht divergieren (Log-Parser/Grep-Konsistenz).
 
 import { describe, expect, mock, spyOn, test } from "bun:test";
 import { createFallbackLogger } from "../utils";
@@ -30,7 +30,7 @@ describe("createFallbackLogger", () => {
   });
 
   describe("ohne logger (console-Fallback)", () => {
-    test("schreibt auf console.error mit [namespace]-Prefix UND trailing colon", () => {
+    test("schreibt auf console.error mit [namespace]-Prefix im selben Format wie wrapped", () => {
       const spy = spyOn(console, "error").mockImplementation(() => {});
       try {
         const fallback = createFallbackLogger("boot");
@@ -38,7 +38,7 @@ describe("createFallbackLogger", () => {
         fallback.error("no logger wired", { phase: "init" });
 
         expect(spy).toHaveBeenCalledTimes(1);
-        expect(spy).toHaveBeenCalledWith("[boot] no logger wired:", { phase: "init" });
+        expect(spy).toHaveBeenCalledWith("[boot] no logger wired", { phase: "init" });
       } finally {
         spy.mockRestore();
       }

@@ -78,7 +78,7 @@ explizit als eigene Entity.
 
 ## Tests
 
-`__tests__/compliance-profiles.integration.ts` — 9 full-stack Tests via
+`__tests__/compliance-profiles.integration.test.ts` — 9 full-stack Tests via
 `setupTestStack` + echte HTTP-Calls (Memory: `feedback_no_fake_dispatcher`):
 list-profiles, for-tenant ohne/mit Setting, set-profile als TenantAdmin /
 Member (403) / mit Override / mit invalidem JSON / mit Array statt Object /

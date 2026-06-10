@@ -1,7 +1,10 @@
 // feature.ts contract tests for file-provider-s3.
 
 import { describe, expect, test } from "bun:test";
-import type { FileProviderPlugin } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
+import {
+  type FileProviderPlugin,
+  isFileProviderPlugin,
+} from "@cosmicdrift/kumiko-bundled-features/file-foundation";
 import { fileProviderS3Feature, S3_SECRET_ACCESS_KEY } from "../feature";
 
 describe("fileProviderS3Feature — shape", () => {
@@ -53,11 +56,6 @@ describe("fileProviderS3Feature — plugin-registration", () => {
     );
   });
 });
-
-// extension-usage `options` is engine-payload (unknown) — structurally validate.
-function isFileProviderPlugin(o: unknown): o is FileProviderPlugin {
-  return typeof o === "object" && o !== null && "build" in o && typeof o.build === "function";
-}
 
 function s3Plugin(): FileProviderPlugin {
   const options = fileProviderS3Feature.extensionUsages.find(

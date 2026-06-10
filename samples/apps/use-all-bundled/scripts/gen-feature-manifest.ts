@@ -110,6 +110,9 @@ export function buildFeatureManifest(): FeatureManifest {
       });
     }
 
+    configKeys.sort((a, b) => a.qualifiedName.localeCompare(b.qualifiedName));
+    secrets.sort((a, b) => a.qualifiedName.localeCompare(b.qualifiedName));
+
     manifestFeatures.push({
       name: feature.name,
       description: feature.description ?? null,

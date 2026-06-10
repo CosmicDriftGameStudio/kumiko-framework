@@ -10,6 +10,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isKebabSegment } from "./kebab";
 
 export type ScaffoldDeployOptions = {
   /** App name, kebab-case (e.g. "publicstatus", "kumiko-studio"). */
@@ -64,12 +65,8 @@ const TEMPLATE_FILES = [
   { template: "migrate-step.sh.template", output: "migrate-step.sh" },
 ] as const;
 
-// Segment-strict: rejects trailing/double hyphen so the appName is a valid
-// image-tag + folder segment (`kumiko-studio`, not `kumiko-` / `kumiko--x`).
-const KEBAB_RE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
-
 export function scaffoldDeploy(options: ScaffoldDeployOptions): ScaffoldDeployResult {
-  if (!KEBAB_RE.test(options.appName)) {
+  if (!isKebabSegment(options.appName)) {
     throw new Error(
       `scaffoldDeploy: appName must be kebab-case (a-z, 0-9, -); got "${options.appName}"`,
     );

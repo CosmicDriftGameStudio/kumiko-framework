@@ -14,10 +14,10 @@ import type { Registry } from "../engine/types/feature";
 export function buildProjectionTableIndex(registry: Registry): ReadonlyMap<string, string> {
   const index = new Map<string, string>();
   for (const [name, def] of registry.getAllProjections()) {
-    index.set(extractTableName(def.table), name);
+    index.set(extractTableName(def.table, `projection-table-index(${name})`), name);
   }
   for (const [name, def] of registry.getAllMultiStreamProjections()) {
-    if (def.table) index.set(extractTableName(def.table), name);
+    if (def.table) index.set(extractTableName(def.table, `projection-table-index(${name})`), name);
   }
   return index;
 }

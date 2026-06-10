@@ -1,7 +1,10 @@
 // feature.ts contract tests for file-provider-inmemory.
 
 import { describe, expect, test } from "bun:test";
-import type { FileProviderPlugin } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
+import {
+  type FileProviderPlugin,
+  isFileProviderPlugin,
+} from "@cosmicdrift/kumiko-bundled-features/file-foundation";
 import { clearStorage, fileProviderInMemoryFeature, listKeys } from "../feature";
 
 describe("fileProviderInMemoryFeature — shape", () => {
@@ -34,12 +37,6 @@ describe("listKeys / clearStorage — per-tenant store helpers", () => {
     expect(() => clearStorage("never-touched")).not.toThrow();
   });
 });
-
-// extension-usage `options` is engine-payload (unknown) — structurally validate
-// instead of casting blind.
-function isFileProviderPlugin(o: unknown): o is FileProviderPlugin {
-  return typeof o === "object" && o !== null && "build" in o && typeof o.build === "function";
-}
 
 function inmemoryPlugin(): FileProviderPlugin {
   const options = fileProviderInMemoryFeature.extensionUsages.find(

@@ -1,5 +1,3 @@
-// feature-schema Pure-Logik Tests (Phase 1, test-luecken-integration, Tier 1).
-//
 // toAppSchema normalisiert FeatureSchema → AppSchema (idempotent),
 // isAppSchema diskriminiert die beiden Formen. Zero source-change.
 

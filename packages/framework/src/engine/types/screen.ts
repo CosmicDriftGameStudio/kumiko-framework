@@ -25,7 +25,7 @@ export type PlatformComponent = {
 };
 
 // Built-in value formatters. Apps extend via module augmentation:
-//   declare module "@cosmicdrift/kumiko-framework" {
+//   declare module "@cosmicdrift/kumiko-framework/engine/types" {
 //     interface FieldFormatRegistry { myFormat: { myOption?: string } }
 //   }
 // renderer-web handles all built-in keys; unknown app-specific keys fall back
@@ -489,12 +489,7 @@ export type ScreenDefinition =
 // authors who branch on the three FieldRenderer variants without manual
 // "format" in renderer checks.
 export function isFormatSpec(r: unknown): r is FormatSpec {
-  return (
-    typeof r === "object" &&
-    r !== null &&
-    "format" in r &&
-    typeof (r as Record<string, unknown>)["format"] === "string"
-  );
+  return typeof r === "object" && r !== null && "format" in r && typeof r.format === "string";
 }
 
 // Collapse the string-shorthand into the object form. Both the boot-validator

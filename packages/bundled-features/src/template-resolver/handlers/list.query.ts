@@ -21,7 +21,7 @@ export const listQuery = defineQueryHandler({
     const where: Record<string, unknown> = {};
 
     // TenantDb scopes non-SystemAdmin reads to [own tenant, SYSTEM reference] and
-    // refuses a caller-narrowed where.tenantId (enforced isolation). SystemAdmin
+    // overrides a caller-narrowed where.tenantId (enforced isolation). SystemAdmin
     // uses a system-scoped db that sees every tenant, so narrow to own explicitly
     // when they don't want the cross-tenant view.
     if (isSystemAdmin && !query.payload.includeSystem) {

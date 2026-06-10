@@ -85,6 +85,12 @@ export type FileProviderPlugin = {
   readonly build: (ctx: FileProviderContext, tenantId: string) => Promise<FileStorageProvider>;
 };
 
+// extension-usage `options` is engine-payload (unknown) — structurally validate
+// instead of casting blind.
+export function isFileProviderPlugin(o: unknown): o is FileProviderPlugin {
+  return typeof o === "object" && o !== null && "build" in o && typeof o.build === "function";
+}
+
 // =============================================================================
 // Feature-definition
 // =============================================================================
@@ -163,7 +169,11 @@ export async function createFileProviderForTenant(
     );
   }
 
-  // @cast-boundary engine-payload — extension-usage carries unknown options
-  const plugin = usage.options as FileProviderPlugin;
-  return plugin.build(ctx, tenantId);
+  if (!isFileProviderPlugin(usage.options)) {
+    throw new Error(
+      `${FEATURE_NAME}: provider "${provider}" registered without a build() — ` +
+        `extension options must be a FileProviderPlugin.`,
+    );
+  }
+  return usage.options.build(ctx, tenantId);
 }

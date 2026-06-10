@@ -272,7 +272,7 @@ test("Tier 2.7e Remote-Combobox: list mit search-Param geht durch die Pipeline o
   // Pinst die HTTP-Pipeline für search: Zod-Validation, Handler,
   // executor mit ctx.searchAdapter durchgereicht. Echtes Filter-
   // Verhalten ist im executor-Unit-Integrationstest (event-store-
-  // executor-list.integration.ts) gepinst — dort mit Mock-Adapter,
+  // executor-list.integration.test.ts) gepinst — dort mit Mock-Adapter,
   // ohne dass der test-stack einen Search-EventConsumer registriert
   // haben muss.
   const result = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(

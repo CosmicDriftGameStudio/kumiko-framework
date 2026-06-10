@@ -13,9 +13,10 @@
 //   - Aussprechbar in Deutsch UND Englisch (User-Telefon-Support)
 //   - Keine Wörter mit ambiguer Bedeutung in Englisch+Deutsch
 //
-// 191 × 173 = 33.043 saubere Kombinationen — bei einer Standard-
-// Hashing-Kollision (Birthday-Bound) reicht das für ~180 Tenants ohne
-// Suffix. Drüber kommt der Suffix-Pfad in generateUniqueName.
+// 191 × 173 = 33.043 saubere Kombinationen. Birthday-Bound: ab ~180
+// Tenants wird kumulativ die erste Kollision wahrscheinlich (~50%);
+// pro Einzel-Draw bleibt p(Kollision) < 1% (vgl. generate.ts). Bei
+// Kollision greift der Suffix-Pfad in generateUniqueName.
 //
 // Erweiterung: weitere Wörter unten anhängen reicht (sortiert ist
 // hilfreich für Reviews aber nicht erforderlich). Caller können auch
