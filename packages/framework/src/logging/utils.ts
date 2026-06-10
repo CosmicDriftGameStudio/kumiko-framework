@@ -18,7 +18,7 @@ export function createFallbackLogger(
   return {
     error(msg, data) {
       // biome-ignore lint/suspicious/noConsole: ops-visible fallback when no logger is wired
-      console.error(`[${namespace}] ${msg}:`, data);
+      console.error(`[${namespace}] ${msg}`, data);
     },
   };
 }

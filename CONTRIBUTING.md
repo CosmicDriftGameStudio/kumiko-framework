@@ -33,7 +33,7 @@ likely be green in CI too.
 - **Tests are not optional.** Every feature change ships with tests:
   - Recipe-level changes need a recipe test
   - Framework changes need integration tests, not unit tests with mocks
-  - Mocking the dispatcher / DB in `*.integration.ts` is blocked by guards
+  - Mocking the dispatcher / DB in `*.integration.test.ts` is blocked by guards
 - **Each new framework feature needs a sample** in `samples/recipes/` or
   `samples/apps/`. Samples are tested documentation — without one, the
   feature is not done.

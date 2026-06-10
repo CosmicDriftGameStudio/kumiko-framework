@@ -70,7 +70,7 @@ export function applyFormatSpec(
       if (typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
         // biome-ignore lint/suspicious/noConsole: dev-only warning
         console.warn(
-          `[kumiko] applyFormatSpec: unbekannter Format-Key "${spec.format}" — via FieldFormatRegistry module augmentation registriert?`,
+          `[kumiko] applyFormatSpec: unknown format key "${spec.format}" — registered via FieldFormatRegistry module augmentation?`,
         );
       }
       return typeof value === "string" ? value : String(value);

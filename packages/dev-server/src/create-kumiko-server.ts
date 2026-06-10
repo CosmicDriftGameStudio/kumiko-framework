@@ -20,6 +20,7 @@ import { readFile, watch } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { type AuthRoutesConfig, generateToken } from "@cosmicdrift/kumiko-framework/api";
+import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import {
   buildAppSchema,
   createSystemUser,
@@ -704,7 +705,7 @@ export async function createKumikoServer(
       redis: stack.redis,
       registry: stack.registry,
       dispatchSystemWrite: ({ handlerQn, payload, tenantId }) =>
-        stack.dispatcher.write(handlerQn, payload, createSystemUser(tenantId, ["SystemAdmin"])),
+        stack.dispatcher.write(handlerQn, payload, createSystemUser(tenantId, [ROLES.SystemAdmin])),
     });
   }
 

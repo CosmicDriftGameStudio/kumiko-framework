@@ -14,6 +14,8 @@ function createStatusUpdateHandler(name: string, status: TemplateStatus) {
     schema: z.object({ id: z.string().min(1) }),
     access: { roles: ["TenantAdmin", "SystemAdmin"] },
     handler: async (event, ctx) => {
+      // ctx.db is tenant-scoped: a foreign tenant's id reads as absent → NotFound.
+      // Cross-tenant toggling needs SystemAdmin with tenantIdOverride.
       const existing = await fetchOne<TemplateResourceRow>(ctx.db, templateResourcesTable, {
         id: event.payload.id,
       });

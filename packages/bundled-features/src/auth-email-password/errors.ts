@@ -57,6 +57,7 @@ export function emailNotVerified() {
   );
 }
 
+// retryAfterSeconds drives the login/signup UI countdown — must stay > 0.
 export function accountLocked(retryAfterSeconds: number) {
   return writeFailure(
     new UnprocessableError(AuthErrors.accountLocked, {

@@ -2,6 +2,7 @@
 // Alle Consumer importieren von hier, nicht direkt aus bun-db/.
 export {
   type AnyDb,
+  asEntityTableMeta,
   asRawClient,
   coerceRow,
   countWhere,

@@ -90,15 +90,15 @@ weglassen wenn er Custom-Hooks registrieren will.
 
 | Datei | Pinst |
 |-------|-------|
-| `audit-log.integration.ts` | Cross-User-Isolation, Account-weite Sicht, eventType-Filter, Admin-only operator-query, download-attempt 90d-retention |
-| `cross-data-matrix.integration.ts` | 3-Provider-Pipeline (user + fileRef + custom-domain), Cross-Tenant Forget mit user-anonymize, Other-User-Isolation |
-| `download.integration.ts` | HTTP-e2e via `r.httpRoute`: Magic-Link, multi-use, expired, failed-job, storage-cleared, cross-tenant-same-user, malicious-filename |
-| `request-export.integration.ts` | Idempotency, active-job-constraint, cross-tenant-anyMember-userId-pattern |
-| `request-deletion-callback.integration.ts` + `request-cancel-deletion.integration.ts` | Grace + Cancel-Pfad + Email-Callback best-effort |
-| `restriction-flow.integration.ts` | Status-Flip + Auth-Middleware-Block + Lift |
-| `run-{export-jobs,forget-cleanup,user-export}.integration.ts` | Worker-Logic + Idempotency + Email-Callbacks |
+| `audit-log.integration.test.ts` | Cross-User-Isolation, Account-weite Sicht, eventType-Filter, Admin-only operator-query, download-attempt 90d-retention |
+| `cross-data-matrix.integration.test.ts` | 3-Provider-Pipeline (user + fileRef + custom-domain), Cross-Tenant Forget mit user-anonymize, Other-User-Isolation |
+| `download.integration.test.ts` | HTTP-e2e via `r.httpRoute`: Magic-Link, multi-use, expired, failed-job, storage-cleared, cross-tenant-same-user, malicious-filename |
+| `request-export.integration.test.ts` | Idempotency, active-job-constraint, cross-tenant-anyMember-userId-pattern |
+| `request-deletion-callback.integration.test.ts` + `request-cancel-deletion.integration.test.ts` | Grace + Cancel-Pfad + Email-Callback best-effort |
+| `restriction-flow.integration.test.ts` | Status-Flip + Auth-Middleware-Block + Lift |
+| `run-{export-jobs,forget-cleanup,user-export}.integration.test.ts` | Worker-Logic + Idempotency + Email-Callbacks |
 | `policy-to-strategy.test.ts` | Retention.strategy → UserDataDeleteStrategy mapping |
-| `user-data-rights.integration.ts` | Boot-Smoke + Feature-Meta |
+| `user-data-rights.integration.test.ts` | Boot-Smoke + Feature-Meta |
 | `token-helpers.test.ts` + `zip-path.test.ts` | Token-Hashing + Path-Traversal-Schutz |
 | `export-job-{idempotency,schema}.test.ts` | Active-job-uniqueness + Schema-Constraints |
 

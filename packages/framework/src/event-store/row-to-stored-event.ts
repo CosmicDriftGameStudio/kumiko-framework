@@ -1,3 +1,4 @@
+import type { TenantId } from "../engine/types";
 import type { EventMetadata, StoredEvent } from "./event-store";
 
 // Minimal row shape accepted by toStoredEvent. Both SelectedEvent
@@ -6,7 +7,7 @@ type EventRow = {
   readonly id: bigint;
   readonly aggregateId: string;
   readonly aggregateType: string;
-  readonly tenantId: string;
+  readonly tenantId: TenantId;
   readonly version: number;
   readonly type: string;
   readonly eventVersion: number;

@@ -5,4 +5,5 @@ export {
   type FileProviderContext,
   type FileProviderPlugin,
   fileFoundationFeature,
+  isFileProviderPlugin,
 } from "./feature";

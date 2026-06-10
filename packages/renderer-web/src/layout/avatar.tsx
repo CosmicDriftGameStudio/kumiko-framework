@@ -61,7 +61,7 @@ function pickColor(id: string): string {
 }
 
 function extractInitials(label: string): string {
-  // "Daniel Hennig" → "DH". "alice@example.com" → "A". Single-word
+  // "Daniel Hennig" → "DH". "alice@example.com" → "AL". Single-word
   // fällt auf erste 2 Buchstaben zurück ("Daniel" → "DA"). Alles
   // upper-case.
   const trimmed = label.trim();

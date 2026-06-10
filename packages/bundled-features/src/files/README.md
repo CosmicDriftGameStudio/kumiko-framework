@@ -46,5 +46,5 @@ Sprint 4).
 
 ## Tests
 
-`__tests__/files.integration.ts` — 5 Tests die beweisen dass die Feature-
+`__tests__/files.integration.test.ts` — 5 Tests die beweisen dass die Feature-
 Definition clean lädt + die PII-Markers + Tabellenname stimmen.

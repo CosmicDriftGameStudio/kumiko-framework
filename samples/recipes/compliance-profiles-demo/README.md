@@ -39,7 +39,7 @@ text-content für Cross-Feature-Aufruf-Beispiel).
 ```bash
 # Aus dem framework-Repo-Root (kumiko-framework):
 bun test
-  samples/recipes/compliance-profiles-demo/src/__tests__/feature.integration.ts
+  samples/recipes/compliance-profiles-demo/src/__tests__/feature.integration.test.ts
 
 # Alle Integration-Tests (incl. dieses Sample):
 bun test

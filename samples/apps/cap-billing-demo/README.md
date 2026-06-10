@@ -64,7 +64,7 @@ The most thorough doc for the demo is the integration test itself:
 bun test
 ```
 
-`src/__tests__/cap-billing-demo.integration.ts` boots the full
+`src/__tests__/cap-billing-demo.integration.test.ts` boots the full
 dispatcher + DB and proves step by step:
 
 - 10 newsletters sent without warning
@@ -129,7 +129,7 @@ config value: `mail-foundation:config:provider` flips from
 - **`src/tier-map.ts`** — DEMO_TIER_MAP + tier-name whitelist
 - **`src/run-config.ts`** — feature composition (which bundled-features
   the demo mounts)
-- **`src/__tests__/cap-billing-demo.integration.ts`** — the played-out
+- **`src/__tests__/cap-billing-demo.integration.test.ts`** — the played-out
   story (10/11/12/13 newsletters, soft+hard transitions, tenant
   isolation)
 

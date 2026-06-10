@@ -16,9 +16,9 @@ import {
   EVENTS_PUBSUB_CHANNEL,
   eventsTable,
   getEventsHighWaterMark,
+  toStoredEvent as rowToStoredEvent,
   type StoredEvent,
 } from "../event-store";
-import { toStoredEvent as rowToStoredEvent } from "../event-store/row-to-stored-event";
 import {
   emitDispatcherError,
   emitEventConsumerLag,

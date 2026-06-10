@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { asEntityTableMeta } from "../../bun-db/query";
 import { createEntity } from "../../engine/factories";
 import type { ColumnMeta, IndexMeta } from "../entity-table-meta";
 import { buildEntityTableMeta } from "../entity-table-meta";
+import { asEntityTableMeta } from "../query";
 import { buildEntityTable } from "../table-builder";
 
 // Lock-step-Guard: buildEntityTable (Runtime-/Test-Stack-Pfad, Meta am

@@ -58,7 +58,7 @@ The most thorough doc is the integration test itself:
 bun test
 ```
 
-`src/__tests__/user-data-rights-demo.integration.ts` boots the full
+`src/__tests__/user-data-rights-demo.integration.test.ts` boots the full
 dispatcher + DB and walks through:
 
 - User creates 2 todos
@@ -133,7 +133,7 @@ cleaned by the forget cron. No changes to `user-data-rights` needed.
   this to understand what an app-author needs to write.
 - **`src/run-config.ts`** — feature composition (which bundled-features
   the demo mounts).
-- **`src/__tests__/user-data-rights-demo.integration.ts`** — the played-
+- **`src/__tests__/user-data-rights-demo.integration.test.ts`** — the played-
   out story (create todos → export → request-deletion → forget cron).
 
 ## Related samples

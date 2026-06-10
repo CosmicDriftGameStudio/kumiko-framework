@@ -14,6 +14,7 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { IndentationText, Project, VariableDeclarationKind } from "ts-morph";
+import { isKebabSegment } from "./kebab";
 
 export type ScaffoldAppOptions = {
   /** kebab-case app name (e.g. "my-shop"). Becomes package-name + folder. */
@@ -35,12 +36,8 @@ export type ScaffoldAppResult = {
   readonly appName: string;
 };
 
-// Segment-strict: rejects trailing/double hyphen so the name is a valid
-// package-name + folder (`my-shop`, not `my-` or `my--shop`).
-const KEBAB_RE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
-
 export function scaffoldApp(options: ScaffoldAppOptions): ScaffoldAppResult {
-  if (!KEBAB_RE.test(options.name)) {
+  if (!isKebabSegment(options.name)) {
     throw new Error(`scaffoldApp: name must be kebab-case (a-z, 0-9, -); got "${options.name}"`);
   }
   const cwd = options.cwd ?? process.cwd();

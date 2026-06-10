@@ -204,6 +204,5 @@ function coerceValue(type: string, raw: string): unknown {
 function displayValue(type: string, value: unknown): string {
   if (value === undefined || value === null) return "";
   if (type === "boolean") return value === true ? "true" : "false";
-  if (type === "number") return typeof value === "number" ? String(value) : String(value);
   return String(value);
 }

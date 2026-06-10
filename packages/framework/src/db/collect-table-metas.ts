@@ -6,10 +6,10 @@
 // read_subscriptions) nie in Migrations landeten und der erste Prod-Write
 // crashte (#255).
 
-import { asEntityTableMeta } from "../bun-db/query";
 import type { FeatureDefinition } from "../engine/types";
 import { buildEntityTableMeta, type EntityTableMeta } from "./entity-table-meta";
 import { enumerateFeatureTableSources } from "./feature-table-sources";
+import { asEntityTableMeta } from "./query";
 
 function canonicalColumnsKey(meta: EntityTableMeta): string {
   // Spalten-Identität unabhängig von Deklarations-Reihenfolge und
