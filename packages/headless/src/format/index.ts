@@ -39,7 +39,10 @@ export function applyFormatSpec(
   spec: { format: string } & Record<string, unknown>,
   value: unknown,
 ): string {
-  if (value === null || value === undefined || value === "") return "";
+  const isEmpty = value === null || value === undefined || value === "";
+  // priority renders its emptyLabel for empty values — every other format
+  // collapses empty to "".
+  if (isEmpty && spec.format !== "priority") return "";
   switch (spec.format) {
     case "timestamp":
     case "date":
@@ -63,7 +66,7 @@ export function applyFormatSpec(
     case "priority": {
       const emptyLabel = (spec["emptyLabel"] as string | undefined) ?? "—";
       const prefix = (spec["prefix"] as string | undefined) ?? "";
-      if (value === 0 || value === undefined || value === null) return emptyLabel;
+      if (isEmpty || value === 0) return emptyLabel;
       return `${prefix}${value}`;
     }
     default:

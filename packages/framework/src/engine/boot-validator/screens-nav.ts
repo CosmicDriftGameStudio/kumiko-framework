@@ -63,7 +63,7 @@ export function validateScreens(
       }
       for (const section of screen.layout.sections) {
         if (isExtensionEditSection(section)) {
-          if (section.component.react === undefined && section.component.native === undefined) {
+          if (section.component?.react === undefined && section.component?.native === undefined) {
             throw new Error(
               `[Feature ${feature.name}] Screen "${screenId}" (configEdit) extension section ` +
                 `"${section.title}" has no component — declare a react/native component marker.`,
@@ -170,7 +170,7 @@ export function validateScreens(
       }
       for (const section of screen.layout.sections) {
         if (isExtensionEditSection(section)) {
-          if (section.component.react === undefined && section.component.native === undefined) {
+          if (section.component?.react === undefined && section.component?.native === undefined) {
             throw new Error(
               `[Feature ${feature.name}] Screen "${screenId}" (actionForm) extension section ` +
                 `"${section.title}" has no component — declare a react/native component marker.`,
@@ -405,7 +405,7 @@ export function validateScreens(
       }
       for (const section of screen.layout.sections) {
         if (isExtensionEditSection(section)) {
-          if (section.component.react === undefined && section.component.native === undefined) {
+          if (section.component?.react === undefined && section.component?.native === undefined) {
             throw new Error(
               `[Feature ${feature.name}] Screen "${screenId}" (entityEdit) extension section ` +
                 `"${section.title}" has no component — declare a react/native component marker.`,

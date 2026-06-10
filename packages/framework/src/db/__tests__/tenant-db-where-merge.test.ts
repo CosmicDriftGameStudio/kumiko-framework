@@ -79,3 +79,37 @@ describe("tenant-db WHERE merge — caller cannot override tenant scope", () => 
     expect(captured[0]?.values).toContain(own);
   });
 });
+
+describe("tenant-db WHERE merge — narrowing within the enforced scope", () => {
+  const SYSTEM = "00000000-0000-4000-8000-000000000000";
+
+  test("where.tenantId = own narrows to own only (excludes SYSTEM reference rows)", async () => {
+    const captured: Captured[] = [];
+    const tdb = createTenantDb(recordingDb(captured), own);
+
+    await tdb.selectMany(table, { tenantId: own });
+
+    expect(captured[0]?.values).toContain(own);
+    expect(captured[0]?.values).not.toContain(SYSTEM);
+  });
+
+  test("where.tenantId = [own, SYSTEM] keeps both", async () => {
+    const captured: Captured[] = [];
+    const tdb = createTenantDb(recordingDb(captured), own);
+
+    await tdb.selectMany(table, { tenantId: [own, SYSTEM] });
+
+    expect(captured[0]?.values).toContain(own);
+    expect(captured[0]?.values).toContain(SYSTEM);
+  });
+
+  test("mixed [own, foreign] drops the foreign id, keeps own", async () => {
+    const captured: Captured[] = [];
+    const tdb = createTenantDb(recordingDb(captured), own);
+
+    await tdb.selectMany(table, { tenantId: [own, foreign] });
+
+    expect(captured[0]?.values).toContain(own);
+    expect(captured[0]?.values).not.toContain(foreign);
+  });
+});

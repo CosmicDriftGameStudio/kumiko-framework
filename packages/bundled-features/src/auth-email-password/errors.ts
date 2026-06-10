@@ -17,6 +17,14 @@ export function invalidInviteToken() {
   );
 }
 
+export function inviteEmailMismatch() {
+  return writeFailure(
+    new UnprocessableError(AuthErrors.inviteEmailMismatch, {
+      i18nKey: "auth.errors.inviteEmailMismatch",
+    }),
+  );
+}
+
 export function invalidResetToken() {
   return writeFailure(
     new UnprocessableError(AuthErrors.invalidResetToken, {

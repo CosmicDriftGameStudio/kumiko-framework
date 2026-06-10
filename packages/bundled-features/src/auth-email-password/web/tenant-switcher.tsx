@@ -63,7 +63,8 @@ export function TenantSwitcher({ tenantName }: TenantSwitcherProps): ReactNode {
   const nameOf = (tenantId: string): string => {
     if (tenantName !== undefined) return tenantName(tenantId);
     const membership = tenants.find((m) => m.tenantId === tenantId);
-    return membership?.name ?? membership?.key ?? tenantId.slice(0, 8);
+    // || statt ??: ein leerer name/key-String darf nicht als Label durchrutschen.
+    return membership?.name || membership?.key || tenantId.slice(0, 8);
   };
 
   // Rendering-Gate: kein User → nix; nur ein Tenant → auch nix

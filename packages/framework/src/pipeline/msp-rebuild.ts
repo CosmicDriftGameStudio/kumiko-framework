@@ -92,16 +92,16 @@ export async function rebuildMultiStreamProjection(
   const { db, registry } = deps;
   const msp = registry.getAllMultiStreamProjections().get(mspName);
   if (!msp) {
-    throw new Error(
-      `MultiStreamProjection "${mspName}" is not registered. Known: ${
+    throw new InternalError({
+      message: `MultiStreamProjection "${mspName}" is not registered. Known: ${
         [...registry.getAllMultiStreamProjections().keys()].join(", ") || "(none)"
       }`,
-    );
+    });
   }
   if (!msp.table) {
-    throw new Error(
-      `MultiStreamProjection "${mspName}" has no backing table — it is a pure side-effect consumer (webhooks, notifications, external sync). Rebuild would re-invoke those side-effects by replaying the log. For poison events use bun kumiko consumer skip / restart; there is no analogous "rebuild" concept for side-effect sinks.`,
-    );
+    throw new InternalError({
+      message: `MultiStreamProjection "${mspName}" has no backing table — it is a pure side-effect consumer (webhooks, notifications, external sync). Rebuild would re-invoke those side-effects by replaying the log. For poison events use bun kumiko consumer skip / restart; there is no analogous "rebuild" concept for side-effect sinks.`,
+    });
   }
 
   const startedAt = Date.now();
