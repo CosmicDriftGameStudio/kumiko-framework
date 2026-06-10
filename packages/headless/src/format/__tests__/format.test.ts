@@ -37,3 +37,35 @@ describe("applyFormatSpec — boolean/currency", () => {
     expect(applyFormatSpec({ format: "currency" }, 12)).toBe("12");
   });
 });
+
+describe("applyFormatSpec — timestamp/date (formatDateCell-Pfad)", () => {
+  // Mittag UTC: das Datum kippt in keiner Zeitzone UTC-11..UTC+11 —
+  // deterministisch auf CI (UTC) und lokal (CET).
+  const instant = "2026-01-15T12:00:00Z";
+
+  test("timestamp mit locale+dateStyle+timeStyle rendert lokalisiert", () => {
+    const out = applyFormatSpec(
+      { format: "timestamp", locale: "en-US", dateStyle: "long", timeStyle: "short" },
+      instant,
+    );
+    expect(out).toContain("January");
+    expect(out).toContain("2026");
+  });
+
+  test("date mit locale de-DE rendert deutschen Monatsnamen", () => {
+    const out = applyFormatSpec({ format: "date", locale: "de-DE", dateStyle: "long" }, instant);
+    expect(out).toContain("Januar");
+    expect(out).toContain("2026");
+  });
+
+  test("timestamp ohne Optionen nutzt das kompakte Default-Format", () => {
+    const out = applyFormatSpec({ format: "timestamp", locale: "en-US" }, instant);
+    expect(out).toContain("2026");
+    expect(out).not.toBe(instant);
+  });
+
+  test("unparsebarer Wert fällt auf den Rohstring zurück", () => {
+    expect(applyFormatSpec({ format: "timestamp" }, "kein-datum")).toBe("kein-datum");
+    expect(applyFormatSpec({ format: "date" }, "kein-datum")).toBe("kein-datum");
+  });
+});

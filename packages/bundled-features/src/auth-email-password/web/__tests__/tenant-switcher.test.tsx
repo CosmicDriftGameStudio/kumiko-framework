@@ -111,3 +111,27 @@ describe("TenantSwitcher", () => {
     expect(session.switchTenant).not.toHaveBeenCalled();
   });
 });
+
+describe("TenantSwitcher — key-only-Fallback im geöffneten Dropdown", () => {
+  test("Membership ohne name rendert ihren key als Dropdown-Label", async () => {
+    const user = userEvent.setup();
+    const session = makeSessionApi({
+      activeTenantId: "00000000-0000-4000-8000-000000000001",
+      tenants: [
+        {
+          tenantId: "00000000-0000-4000-8000-000000000001",
+          roles: ["Admin"],
+          name: "Status",
+          key: "status",
+        },
+        { tenantId: "00000000-0000-4000-8000-000000000002", roles: ["Admin"], key: "demo" },
+      ],
+    });
+    renderWithProviders(<TenantSwitcher />, { session });
+    await user.click(screen.getByRole("button", { name: /Status/ }));
+    // Der key-only-Pfad (kein name) muss im Dropdown sichtbar werden —
+    // nicht das UUID-Präfix "00000000".
+    expect(screen.getByText("demo")).toBeTruthy();
+    expect(screen.queryByText("00000000")).toBeNull();
+  });
+});

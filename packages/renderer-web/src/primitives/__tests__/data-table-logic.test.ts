@@ -38,6 +38,24 @@ describe("computeVisiblePages", () => {
   test("page=5/20: Übergang Rand→Mitte (Ellipsis links erscheint)", () => {
     expect(computeVisiblePages(5, 20)).toEqual([1, "ellipsis", 3, 4, 5, 6, 7, "ellipsis", 20]);
   });
+
+  test("page=16/20: letzte Mitte-Position (Ellipsis rechts noch da)", () => {
+    expect(computeVisiblePages(16, 20)).toEqual([
+      1,
+      "ellipsis",
+      14,
+      15,
+      16,
+      17,
+      18,
+      "ellipsis",
+      20,
+    ]);
+  });
+
+  test("page=17/20: Übergang Mitte→Rand (Ellipsis rechts verschwindet, 5er-Tail)", () => {
+    expect(computeVisiblePages(17, 20)).toEqual([1, "ellipsis", 16, 17, 18, 19, 20]);
+  });
 });
 
 describe("isComponentRendererRef", () => {
@@ -101,12 +119,20 @@ describe("applyFormatSpec", () => {
   });
 
   test("unbekanntes format → String(value) fallback + dev-warning", () => {
+    // Warnung feuert nur bei NODE_ENV !== "production" — explizit setzen
+    // statt sich aufs Test-Runner-Preset zu verlassen.
+    const prevNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "development";
     const warn = spyOn(console, "warn").mockImplementation(() => {});
-    expect(applyFormatSpec({ format: "custom-app-format" }, 42)).toBe("42");
-    expect(applyFormatSpec({ format: "custom-app-format" }, "hello")).toBe("hello");
-    expect(warn).toHaveBeenCalledTimes(2);
-    expect(warn.mock.calls[0]?.[0]).toContain("custom-app-format");
-    warn.mockRestore();
+    try {
+      expect(applyFormatSpec({ format: "custom-app-format" }, 42)).toBe("42");
+      expect(applyFormatSpec({ format: "custom-app-format" }, "hello")).toBe("hello");
+      expect(warn).toHaveBeenCalledTimes(2);
+      expect(warn.mock.calls[0]?.[0]).toContain("custom-app-format");
+    } finally {
+      warn.mockRestore();
+      process.env.NODE_ENV = prevNodeEnv;
+    }
   });
 });
 

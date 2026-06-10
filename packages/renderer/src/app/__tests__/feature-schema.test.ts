@@ -27,3 +27,14 @@ describe("isAppSchema", () => {
     expect(isAppSchema(feature)).toBe(false);
   });
 });
+
+describe("toAppSchema — workspaces-Hoist (Legacy-Form)", () => {
+  test("hebt feature-lokale workspaces auf App-Ebene und entfernt sie vom Feature", () => {
+    const ws = [{ definition: { id: "admin", label: "Admin", navs: [] }, navMembers: [] }];
+    const withWs: FeatureSchema = { ...feature, workspaces: ws };
+    const app = toAppSchema(withWs);
+    expect(app.workspaces).toEqual(ws);
+    expect(app.features[0]).not.toHaveProperty("workspaces");
+    expect(app.features[0]?.featureName).toBe("tasks");
+  });
+});

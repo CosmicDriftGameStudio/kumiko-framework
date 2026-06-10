@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createEntity } from "../../engine/factories";
+import { sql } from "../dialect";
 import type { ColumnMeta, IndexMeta } from "../entity-table-meta";
 import { buildEntityTableMeta } from "../entity-table-meta";
 import { asEntityTableMeta } from "../query";
@@ -58,5 +59,45 @@ describe("buildEntityTable ↔ buildEntityTableMeta lock-step", () => {
     expect(cols.get("bytes")?.defaultSql).toBe("0");
     expect(cols.get("title")?.defaultSql).toBe("'untitled'");
     expect(cols.get("active")?.defaultSql).toBe("true");
+  });
+});
+
+// Zweite Probe: softDelete + explizite Indexes (unique, partial, multi-col).
+// Diese Pfade generieren zusätzliche Spalten (deleted_at/_by) bzw. Index-
+// Metas — Drift hier blieb von der defaults-Probe oben unentdeckt.
+const entityWithSoftDeleteAndIndexes = createEntity({
+  table: "read_lockstep_probe_sd",
+  fields: {
+    title: { type: "text", required: true },
+    ownerId: { type: "text", required: true },
+    status: { type: "select", options: ["open", "done"], required: true, default: "open" },
+  },
+  softDelete: true,
+  indexes: [
+    { columns: ["ownerId"] },
+    { columns: ["ownerId", "status"], unique: true },
+    { columns: ["title"], unique: true, where: sql`status = 'open'`, name: "open_title_unique" },
+  ],
+});
+
+describe("lock-step — softDelete + explizite Indexes", () => {
+  const fromBuilder = asEntityTableMeta(
+    buildEntityTable("lockstepProbeSd", entityWithSoftDeleteAndIndexes),
+  );
+  const fromMeta = buildEntityTableMeta("lockstepProbeSd", entityWithSoftDeleteAndIndexes);
+
+  test("identical columns inkl. softDelete-Spalten", () => {
+    expect(byName<ColumnMeta>(fromBuilder?.columns ?? [])).toEqual(
+      byName<ColumnMeta>(fromMeta.columns),
+    );
+    const names = (fromBuilder?.columns ?? []).map((c) => c.name);
+    expect(names).toContain("deleted_at");
+  });
+
+  test("identical indexes inkl. unique/partial/multi-col", () => {
+    expect(byName<IndexMeta>(fromBuilder?.indexes ?? [])).toEqual(
+      byName<IndexMeta>(fromMeta.indexes),
+    );
+    expect((fromBuilder?.indexes ?? []).length).toBeGreaterThanOrEqual(3);
   });
 });

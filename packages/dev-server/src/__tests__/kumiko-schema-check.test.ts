@@ -4,7 +4,6 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { composeFeatures } from "../compose-features";
 import { implicitAuthModeFeatureNames, resolveGeneratePath } from "../schema-check-core";
 
 describe("resolveGeneratePath", () => {
@@ -43,10 +42,10 @@ describe("resolveGeneratePath", () => {
 });
 
 describe("implicitAuthModeFeatureNames", () => {
-  test("matches composeFeatures' auth-mode prepend exactly (no hardcoded drift)", () => {
-    const fromCompose = composeFeatures([], { includeBundled: true }).map((f) => f.name);
-    expect(implicitAuthModeFeatureNames()).toEqual(fromCompose);
-    // Sanity: the current bundled-foundation set.
+  test("liefert exakt das bundled-foundation-Set", () => {
+    // Bewusst hartkodierte Erwartung: ein Vergleich gegen composeFeatures
+    // wäre tautologisch (die Funktion IST dieser Ausdruck). Ändert sich das
+    // Foundation-Set, muss dieser Test bewusst angefasst werden.
     expect([...implicitAuthModeFeatureNames()].sort()).toEqual([
       "auth-email-password",
       "config",
