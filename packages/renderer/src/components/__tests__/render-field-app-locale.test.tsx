@@ -52,12 +52,24 @@ function moneyField(): EditFieldViewModel {
   };
 }
 
-function renderUnderLocale(locale: string): void {
+function dateField(): EditFieldViewModel {
+  return {
+    field: "dueAt",
+    label: "Fällig",
+    type: "date",
+    value: "2026-01-15",
+    visible: true,
+    readOnly: false,
+    required: false,
+  };
+}
+
+function renderUnderLocale(locale: string, field: EditFieldViewModel = moneyField()): void {
   captured = undefined;
   render(
     <LocaleProvider resolver={createStaticLocaleResolver({ locale })}>
       <PrimitivesProvider value={testPrimitives}>
-        <RenderField field={moneyField()} onChange={() => {}} />
+        <RenderField field={field} onChange={() => {}} />
       </PrimitivesProvider>
     </LocaleProvider>,
   );
@@ -72,6 +84,16 @@ describe("RenderField — App-Locale an money durchreichen", () => {
 
   test("ein anderes App-Locale wird ebenso durchgereicht (en-US)", () => {
     renderUnderLocale("en-US");
+    // Unconditional zuerst — ohne sie wäre der Test bei falschem kind leer.
+    expect(captured?.kind).toBe("money");
     if (captured?.kind === "money") expect(captured.locale).toBe("en-US");
+  });
+});
+
+describe("RenderField — App-Locale an date durchreichen", () => {
+  test("date ohne field.locale bekommt das App-Locale (de-DE)", () => {
+    renderUnderLocale("de-DE", dateField());
+    expect(captured?.kind).toBe("date");
+    if (captured?.kind === "date") expect(captured.locale).toBe("de-DE");
   });
 });

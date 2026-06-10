@@ -207,8 +207,9 @@ describe("buildAppSchema", () => {
     const app = buildAppSchema(createRegistry([f]));
     const roundTripped = JSON.parse(JSON.stringify(app));
 
-    // Vollständige deep-equality — kein Silent-Drop durch JSON.stringify
-    expect(roundTripped).toEqual(app);
+    // toStrictEqual: toEqual ignoriert undefined-Props und würde einen
+    // Silent-Drop durch JSON.stringify genau NICHT fangen.
+    expect(roundTripped).toStrictEqual(app);
 
     // Explizit: FormatSpec-Felder landen unverändert an
     const screen = roundTripped.features[0]?.screens[0];

@@ -309,3 +309,76 @@ describe("CustomFieldsFormSection — clear-Pfad", () => {
     expect(dispatchSpy).not.toHaveBeenCalled();
   });
 });
+
+describe("CustomFieldsFormSection — boolean/date-Pfade", () => {
+  test("boolean: Bestand wird als true/false-String angezeigt, Save coerced zu boolean", async () => {
+    mockedQueryRows = [
+      {
+        id: "f1",
+        entityName: "component",
+        fieldKey: "active",
+        type: "boolean",
+        required: false,
+        displayOrder: 1,
+      },
+    ];
+    dispatchSpy.mockClear();
+
+    render(
+      <Wrapper>
+        <CustomFieldsFormSection
+          entityName="component"
+          entityId="row-42"
+          initialValues={{ active: true }}
+        />
+      </Wrapper>,
+    );
+
+    // boolean rendert als Checkbox — Bestand steckt in checked, nicht value.
+    const input = document.getElementById("custom-field-active") as HTMLInputElement;
+    expect(input.checked).toBe(true);
+
+    fireEvent.click(input);
+    fireEvent.click(screen.getByTestId("custom-fields-form-save"));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(dispatchSpy).toHaveBeenCalledWith("custom-fields:write:set-custom-field", {
+      entityName: "component",
+      entityId: "row-42",
+      fieldKey: "active",
+      value: false,
+    });
+  });
+
+  test("date: Bestand erreicht den DateInput-Trigger (lokalisierte Anzeige)", () => {
+    mockedQueryRows = [
+      {
+        id: "f1",
+        entityName: "component",
+        fieldKey: "launchedAt",
+        type: "date",
+        required: false,
+        displayOrder: 1,
+      },
+    ];
+    dispatchSpy.mockClear();
+
+    render(
+      <Wrapper>
+        <CustomFieldsFormSection
+          entityName="component"
+          entityId="row-42"
+          initialValues={{ launchedAt: "2026-01-15" }}
+        />
+      </Wrapper>,
+    );
+
+    // DateInput ist ein Kalender-Trigger-Button (kein <input value>) mit
+    // lokalisierter Anzeige — der Kalender-Flow selbst ist jsdom-untauglich
+    // (Popover), hier zählt: der Bestand kommt im Trigger an, nicht "—".
+    const trigger = document.getElementById("custom-field-launchedAt") as HTMLButtonElement;
+    expect(trigger.textContent).toContain("2026");
+    expect(trigger.textContent).not.toContain("—");
+  });
+});

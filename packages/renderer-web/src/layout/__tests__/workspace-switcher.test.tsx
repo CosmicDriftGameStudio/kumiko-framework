@@ -5,7 +5,11 @@
 // Nutzt useTranslation → über test-utils mit LocaleProvider gerendert.
 
 import { describe, expect, mock, test } from "bun:test";
-import type { WorkspaceSchema } from "@cosmicdrift/kumiko-renderer";
+import {
+  createStaticLocaleResolver,
+  LocaleProvider,
+  type WorkspaceSchema,
+} from "@cosmicdrift/kumiko-renderer";
 import { fireEvent, render, screen } from "../../__tests__/test-utils";
 import { WorkspaceSwitcher } from "../workspace-switcher";
 
@@ -46,5 +50,26 @@ describe("WorkspaceSwitcher — Render", () => {
     );
     fireEvent.click(screen.getByTestId("workspace-tab-b"));
     expect(onSelect).toHaveBeenCalledWith("b");
+  });
+});
+
+describe("WorkspaceSwitcher — i18n-Labels (Punkt-Konvention)", () => {
+  test("Label mit Punkt geht durch t() und rendert die Übersetzung", () => {
+    const bundle = { en: { "nav.adminArea": "Admin Area" } };
+    const { getByTestId } = render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en" })}
+        fallbackBundles={[bundle]}
+      >
+        <WorkspaceSwitcher
+          workspaces={[ws("a", "nav.adminArea"), ws("b", "Plain Label")]}
+          activeId="a"
+          onSelect={mock()}
+        />
+      </LocaleProvider>,
+    );
+    expect(getByTestId("workspace-tab-a").textContent).toBe("Admin Area");
+    // ohne Punkt: verbatim, kein t()-Roundtrip
+    expect(getByTestId("workspace-tab-b").textContent).toBe("Plain Label");
   });
 });
