@@ -14,10 +14,11 @@
 //
 // AUTO-DISCOVERY:
 //
-// Every directory under `samples/<category>/<app>/` with a `tsconfig.json`
-// is included automatically. A dev creating a new sample app under
-// `samples/...` gets the check coverage for free — no manual list to
-// update, no documentation to remember.
+// Every directory under `samples/<category>/<app>/` with a `package.json`
+// is included. Workspaces with their own `tsconfig.json` use it directly
+// (codegen recipes with `@app/define`). Direct-import recipes without a
+// per-app tsconfig share `samples/recipes/tsconfig.base.json` — they are
+// the few-shot corpus source and must typecheck in CI too (#234).
 //
 // EXIT BEHAVIOUR:
 //
@@ -25,29 +26,99 @@
 // Errors are printed per-workspace, plus a summary line with totals.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, unlinkSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { runCodegen } from "@cosmicdrift/kumiko-dev-server";
 
 const REPO_ROOT = resolve(import.meta.dir, "..");
 
-function findSampleTsconfigs(): string[] {
+type SampleWorkspace = {
+  readonly root: string;
+  readonly tsconfig: string;
+  readonly cwd: string;
+  readonly ephemeralTsconfig?: string;
+};
+
+function recipeTsconfigTemplate(includeKumiko: boolean): Record<string, unknown> {
+  return {
+    extends: "../../../tsconfig.json",
+    compilerOptions: {
+      baseUrl: ".",
+      paths: {
+        "@cosmicdrift/kumiko-framework/*": ["../../../packages/framework/src/*/index.ts"],
+        "@cosmicdrift/kumiko-bundled-features/*": [
+          "../../../packages/bundled-features/src/*/index.ts",
+        ],
+        "@cosmicdrift/kumiko-dev-server": ["../../../packages/dev-server/src/index.ts"],
+        "@cosmicdrift/kumiko-dev-server/*": ["../../../packages/dev-server/src/*"],
+        ...(includeKumiko
+          ? {
+              "@app/define": ["./.kumiko/define.ts"],
+              "@app/*": ["./.kumiko/*"],
+            }
+          : {}),
+      },
+      noEmit: true,
+      rootDir: "../../..",
+      lib: ["ESNext", "DOM", "DOM.Iterable"],
+      types: ["bun-types"],
+    },
+    include: includeKumiko ? ["src", ".kumiko"] : ["src"],
+  };
+}
+
+function findSampleWorkspaces(): SampleWorkspace[] {
   const samplesDir = join(REPO_ROOT, "samples");
   if (!existsSync(samplesDir)) return [];
 
-  const out: string[] = [];
-  // Two-level walk: samples/<category>/<app>/tsconfig.json
+  const out: SampleWorkspace[] = [];
   for (const category of readdirSync(samplesDir)) {
     const catPath = join(samplesDir, category);
     if (!statSync(catPath).isDirectory()) continue;
     for (const app of readdirSync(catPath)) {
       const appPath = join(catPath, app);
       if (!statSync(appPath).isDirectory()) continue;
-      const tsconfig = join(appPath, "tsconfig.json");
-      if (existsSync(tsconfig)) out.push(appPath);
+      if (!existsSync(join(appPath, "package.json"))) continue;
+
+      const ownTsconfig = join(appPath, "tsconfig.json");
+      if (existsSync(ownTsconfig)) {
+        out.push({ root: appPath, tsconfig: ownTsconfig, cwd: appPath });
+        continue;
+      }
+
+      if (category === "recipes") {
+        out.push({
+          root: appPath,
+          tsconfig: join(appPath, ".check-tsconfig.json"),
+          cwd: appPath,
+          ephemeralTsconfig: join(appPath, ".check-tsconfig.json"),
+        });
+      }
     }
   }
-  return out.sort();
+  return out.sort((a, b) => a.root.localeCompare(b.root));
+}
+
+function workspaceUsesAppDefine(appRoot: string): boolean {
+  const srcDir = join(appRoot, "src");
+  if (!existsSync(srcDir)) return false;
+  const stack = [srcDir];
+  while (stack.length > 0) {
+    const dir = stack.pop();
+    if (!dir) continue;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name === "node_modules") continue;
+        stack.push(full);
+        continue;
+      }
+      if (!entry.isFile() || !entry.name.endsWith(".ts")) continue;
+      const source = readFileSync(full, "utf8");
+      if (source.includes("@app/define")) return true;
+    }
+  }
+  return false;
 }
 
 type AppResult = {
@@ -57,58 +128,59 @@ type AppResult = {
   readonly output: string;
 };
 
-function checkApp(appRoot: string): AppResult {
-  const name = relative(REPO_ROOT, appRoot);
-  // Codegen vor tsc: apps die `r.defineEvent` nutzen brauchen
-  // `.kumiko/define.ts` + `.kumiko/types.generated.d.ts` damit
-  // `@app/define`-Imports resolven und event-name-templates typed
-  // sind. Lokal generiert der dev-server das, in CI ist alles frisch
-  // — also hier explizit triggern. Idempotent: schreibt nur bei
-  // Änderung, no-op wenn synchron.
-  runCodegen({ appRoot });
-  // tsc lives in the root node_modules/.bin (single hoisted install).
-  // We invoke the binary directly with the workspace as cwd — that gives
-  // tsc the workspace's tsconfig as the project root.
-  const tscBin = (() => {
-    // 1. Check workspace node_modules
-    const workspaceBin = join(REPO_ROOT, "node_modules", ".bin", "tsc");
-    if (existsSync(workspaceBin)) return workspaceBin;
-    
-    // 2. Check hoisted node_modules
-    const rootBin = join(REPO_ROOT, "..", "node_modules", ".bin", "tsc");
-    if (existsSync(rootBin)) return rootBin;
-    
-    // 3. Check local node_modules
-    const localBin = join(appRoot, "node_modules", ".bin", "tsc");
-    if (existsSync(localBin)) return localBin;
-    
-    return null;
-  })();
-
-  const tscCommand = tscBin ?? "bunx";
-  const tscArgs = tscBin ? ["--noEmit"] : ["tsc", "--noEmit"];
-  
-  const result = spawnSync(tscCommand, tscArgs, {
-    cwd: appRoot,
-    encoding: "utf8",
-  });
-  const combined = (result.stdout ?? "") + (result.stderr ?? "");
-  const errorLines = combined.split("\n").filter((l) => / error TS\d+:/.test(l));
-  return {
-    name,
-    ok: result.status === 0,
-    errorCount: errorLines.length,
-    output: errorLines.length > 0 ? errorLines.join("\n") : combined,
-  };
+function resolveTscBin(): { readonly command: string; readonly argsPrefix: readonly string[] } {
+  const candidates = [
+    join(REPO_ROOT, "node_modules", ".bin", "tsc"),
+    join(REPO_ROOT, "..", "node_modules", ".bin", "tsc"),
+  ];
+  for (const bin of candidates) {
+    if (existsSync(bin)) return { command: bin, argsPrefix: [] };
+  }
+  return { command: "bunx", argsPrefix: ["tsc"] };
 }
 
-const apps = findSampleTsconfigs();
+function checkApp(workspace: SampleWorkspace): AppResult {
+  const name = relative(REPO_ROOT, workspace.root);
+  runCodegen({ appRoot: workspace.root });
+
+  if (workspace.ephemeralTsconfig) {
+    const includeKumiko = workspaceUsesAppDefine(workspace.root);
+    Bun.write(
+      workspace.ephemeralTsconfig,
+      JSON.stringify(recipeTsconfigTemplate(includeKumiko), null, 2),
+    );
+  }
+
+  const { command, argsPrefix } = resolveTscBin();
+  const tscArgs = [...argsPrefix, "--noEmit", "-p", workspace.tsconfig];
+
+  try {
+    const result = spawnSync(command, tscArgs, {
+      cwd: workspace.cwd,
+      encoding: "utf8",
+    });
+    const combined = (result.stdout ?? "") + (result.stderr ?? "");
+    const errorLines = combined.split("\n").filter((l) => / error TS\d+:/.test(l));
+    return {
+      name,
+      ok: result.status === 0,
+      errorCount: errorLines.length,
+      output: errorLines.length > 0 ? errorLines.join("\n") : combined,
+    };
+  } finally {
+    if (workspace.ephemeralTsconfig && existsSync(workspace.ephemeralTsconfig)) {
+      unlinkSync(workspace.ephemeralTsconfig);
+    }
+  }
+}
+
+const apps = findSampleWorkspaces();
 if (apps.length === 0) {
-  console.log("check-app-tsc: no sample tsconfigs found — nothing to check.");
+  console.log("check-app-tsc: no sample workspaces found — nothing to check.");
   process.exit(0);
 }
 
-console.log(`check-app-tsc: type-checking ${apps.length} sample app(s)`);
+console.log(`check-app-tsc: type-checking ${apps.length} sample workspace(s)`);
 
 let totalErrors = 0;
 const failedApps: { name: string; errorCount: number }[] = [];
@@ -125,9 +197,9 @@ for (const app of apps) {
 }
 
 if (failedApps.length > 0) {
-  console.log(`\n${totalErrors} errors across ${failedApps.length} app(s):`);
+  console.log(`\n${totalErrors} errors across ${failedApps.length} workspace(s):`);
   for (const a of failedApps) console.log(`  - ${a.name}: ${a.errorCount}`);
   process.exit(1);
 }
 
-console.log(`\nAll ${apps.length} sample app(s) compile cleanly.`);
+console.log(`\nAll ${apps.length} sample workspace(s) compile cleanly.`);

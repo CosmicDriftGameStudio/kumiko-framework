@@ -65,7 +65,7 @@ export const supportFeature = defineFeature("support", (r) => {
   r.notification("ticket-assigned", {
     trigger: { on: createHandler },
     recipient: (result) => {
-      const assigneeId = result.data["assigneeId"] as number | undefined;
+      const assigneeId = result.data["assigneeId"] as string | undefined;
       return assigneeId ?? null;
     },
     data: (result) => ({

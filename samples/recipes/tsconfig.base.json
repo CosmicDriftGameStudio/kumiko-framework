@@ -1,0 +1,24 @@
+{
+  "_comment": "Reference only — check-app-tsc generates per-recipe .check-tsconfig.json at runtime. Paths are relative to samples/recipes/<name>/.",
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@cosmicdrift/kumiko-framework/*": [
+        "../../../packages/framework/src/*/index.ts"
+      ],
+      "@cosmicdrift/kumiko-bundled-features/*": [
+        "../../../packages/bundled-features/src/*/index.ts"
+      ],
+      "@cosmicdrift/kumiko-dev-server": [
+        "../../../packages/dev-server/src/index.ts"
+      ],
+      "@cosmicdrift/kumiko-dev-server/*": ["../../../packages/dev-server/src/*"]
+    },
+    "noEmit": true,
+    "rootDir": "../../..",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "types": ["bun-types"]
+  },
+  "include": ["src"]
+}

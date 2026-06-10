@@ -14,6 +14,7 @@
 // XYZ is a custom currency — not ISO, created by tenant 1
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createTestUser,
   setupTestStack,
@@ -46,7 +47,7 @@ beforeAll(async () => {
     { code: "USD", name: "US Dollar" },
     { code: "XYZ", name: "Custom Token" },
   ]) {
-    await stack.http.writeOk(
+    await stack.http.writeOk<SaveContext>(
       "currencies-per-tenant:write:currency:create",
       { code, name },
       tenant1Admin,
@@ -60,7 +61,7 @@ beforeAll(async () => {
     { code: "TRY", name: "Turkish Lira", isActive: true },
     { code: "KRW", name: "Korean Won", isActive: false },
   ]) {
-    await stack.http.writeOk(
+    await stack.http.writeOk<SaveContext>(
       "currencies-per-tenant:write:currency:create",
       { code, name, isActive },
       tenant2Admin,
@@ -76,7 +77,7 @@ afterAll(async () => {
 
 describe("tenant 1: allowed currencies", () => {
   test("create invoice with EUR succeeds", async () => {
-    const data = await stack.http.writeOk(
+    const data = await stack.http.writeOk<SaveContext>(
       "currencies-per-tenant:write:invoice:create",
       { title: "Invoice T1-EUR", amount: 150050, amountCurrency: "EUR" },
       tenant1Admin,
@@ -87,7 +88,7 @@ describe("tenant 1: allowed currencies", () => {
   });
 
   test("create invoice with XYZ (custom tenant currency) succeeds", async () => {
-    const data = await stack.http.writeOk(
+    const data = await stack.http.writeOk<SaveContext>(
       "currencies-per-tenant:write:invoice:create",
       { title: "Invoice T1-XYZ", amount: 42, amountCurrency: "XYZ" },
       tenant1Admin,
@@ -112,7 +113,7 @@ describe("tenant 1: denied currencies", () => {
 
 describe("tenant 2: allowed currencies", () => {
   test("create invoice with GBP succeeds", async () => {
-    const data = await stack.http.writeOk(
+    const data = await stack.http.writeOk<SaveContext>(
       "currencies-per-tenant:write:invoice:create",
       { title: "Invoice T2-GBP", amount: 99999, amountCurrency: "GBP" },
       tenant2Admin,
@@ -168,12 +169,12 @@ describe("tenant isolation", () => {
 
 describe("invoice detail", () => {
   test("detail returns the correct invoice by id", async () => {
-    const _first = await stack.http.writeOk(
+    const _first = await stack.http.writeOk<SaveContext>(
       "currencies-per-tenant:write:invoice:create",
       { title: "Detail-First", amount: 100, amountCurrency: "EUR" },
       tenant1Admin,
     );
-    const second = await stack.http.writeOk(
+    const second = await stack.http.writeOk<SaveContext>(
       "currencies-per-tenant:write:invoice:create",
       { title: "Detail-Second", amount: 200, amountCurrency: "USD" },
       tenant1Admin,
@@ -190,7 +191,7 @@ describe("invoice detail", () => {
   });
 
   test("detail returns null for other tenant's invoice", async () => {
-    const created = await stack.http.writeOk(
+    const created = await stack.http.writeOk<SaveContext>(
       "currencies-per-tenant:write:invoice:create",
       { title: "Tenant1-Only", amount: 50, amountCurrency: "EUR" },
       tenant1Admin,

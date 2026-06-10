@@ -19,9 +19,11 @@ afterAll(async () => {
   await testDb?.cleanup();
 });
 
-async function readCategories() {
+type CategoryRow = { code: string; name: string; description: string | null };
+
+async function readCategories(): Promise<CategoryRow[]> {
   const rows = await selectMany(testDb.db, categoryTable);
-  return rows.sort((a, b) => a.code.localeCompare(b.code));
+  return [...rows].sort((a: CategoryRow, b: CategoryRow) => a.code.localeCompare(b.code));
 }
 
 describe("reference data seeding", () => {
@@ -62,10 +64,10 @@ describe("reference data seeding", () => {
     const rows = await readCategories();
     expect(rows).toHaveLength(5);
 
-    const books = rows.find((r) => r.code === "books");
+    const books = rows.find((r: CategoryRow) => r.code === "books");
     expect(books?.name).toBe("Books & Media");
 
-    const sports = rows.find((r) => r.code === "sports");
+    const sports = rows.find((r: CategoryRow) => r.code === "sports");
     expect(sports?.name).toBe("Sports");
   });
 });

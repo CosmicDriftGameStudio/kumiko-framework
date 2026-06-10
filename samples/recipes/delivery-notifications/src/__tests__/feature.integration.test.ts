@@ -61,8 +61,8 @@ const emailTransport = createInMemoryTransport();
 const pushTransport = createInMemoryPushTransport();
 
 // Simple resolvers: userId → address
-const testEmail = (userId: number) => `user-${userId}@example.com`;
-const testPushToken = (userId: number) => `push-token-${userId}`;
+const testEmail = (userId: string) => `user-${userId}@example.com`;
+const testPushToken = (userId: string) => `push-token-${userId}`;
 
 // Test users
 const admin: SessionUser = TestUsers.admin;

@@ -2,6 +2,7 @@
 // Proves: field-level read/write restrictions per role
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import type { EntityId, SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -29,8 +30,8 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-async function seedEmployee(): Promise<string> {
-  const data = await stack.http.writeOk(
+async function seedEmployee(): Promise<EntityId> {
+  const data = await stack.http.writeOk<SaveContext>(
     "hr:write:employee:create",
     {
       name: "Test Employee",
@@ -40,7 +41,7 @@ async function seedEmployee(): Promise<string> {
     },
     adminUser,
   );
-  return data.id as number;
+  return data.id;
 }
 
 describe("read access: field filtering per role", () => {
@@ -87,7 +88,7 @@ describe("read access: field filtering per role", () => {
 describe("write access: field-level write restrictions", () => {
   test("Admin can write salary", async () => {
     const id = await seedEmployee();
-    const updated = await stack.http.writeOk(
+    const updated = await stack.http.writeOk<SaveContext>(
       "hr:write:employee:update",
       {
         id,
@@ -132,7 +133,7 @@ describe("write access: field-level write restrictions", () => {
 
   test("Employee can write unrestricted fields", async () => {
     const id = await seedEmployee();
-    const updated = await stack.http.writeOk(
+    const updated = await stack.http.writeOk<SaveContext>(
       "hr:write:employee:update",
       {
         id,
