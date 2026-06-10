@@ -71,7 +71,7 @@ export function createApp(config: AppConfig): App {
 
   // Validate defaultCurrency on entities that have money fields
   for (const feature of config.features) {
-    for (const [entityName, entity] of Object.entries(feature.entities)) {
+    for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
       const hasMoneyField = Object.values(entity.fields).some((f) => f.type === "money");
       if (entity.defaultCurrency && !currencies.includes(entity.defaultCurrency)) {
         throw new Error(

@@ -306,9 +306,10 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     featureName: string,
     hookQnType: QnType,
   ): void {
-    // skip: optionaler hook-slot — defineFeature lässt das slot undefined
-    // wenn das feature keine hooks dieses typs hat. Behandeln wie leeres
-    // record statt Object.entries(undefined)-crash.
+    // skip: optionaler hook-slot — defineFeature materialisiert zwar alle
+    // Slots, aber hand-gebaute Definitionen an System-Grenzen (Fixtures,
+    // Partial-Boots, s. registry.test.ts) lassen sie weg. Leeres Record
+    // statt Object.entries(undefined)-Crash.
     if (!source) return;
     for (const [name, fns] of Object.entries(source)) {
       const qualified = qualify(featureName, hookQnType, name);

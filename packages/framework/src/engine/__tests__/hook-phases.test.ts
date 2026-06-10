@@ -22,7 +22,7 @@ describe("HookPhases defaults", () => {
       r.hook("postSave", "thing:create", noopSave);
     });
 
-    const entry = feature.hooks.postSave["thing:create"];
+    const entry = feature.hooks?.postSave?.["thing:create"];
     expect(entry).toHaveLength(1);
     expect(entry?.[0]?.phase).toBe(HookPhases.afterCommit);
   });
@@ -36,7 +36,7 @@ describe("HookPhases defaults", () => {
       r.hook("postSave", "thing:create", noopSave, { phase: HookPhases.inTransaction });
     });
 
-    const entry = feature.hooks.postSave["thing:create"];
+    const entry = feature.hooks?.postSave?.["thing:create"];
     expect(entry?.[0]?.phase).toBe(HookPhases.inTransaction);
   });
 
@@ -55,7 +55,7 @@ describe("HookPhases defaults", () => {
       r.hook("preDelete", "thing:delete", async () => undefined);
     });
 
-    const entry = feature.hooks.preDelete["thing:delete"];
+    const entry = feature.hooks?.preDelete?.["thing:delete"];
     expect(entry?.[0]?.phase).toBe(HookPhases.inTransaction);
   });
 
@@ -66,8 +66,8 @@ describe("HookPhases defaults", () => {
       r.entityHook("preDelete", thing, async () => undefined);
     });
 
-    expect(feature.entityHooks.postSave["thing"]?.[0]?.phase).toBe(HookPhases.afterCommit);
-    expect(feature.entityHooks.preDelete["thing"]?.[0]?.phase).toBe(HookPhases.inTransaction);
+    expect(feature.entityHooks?.postSave?.["thing"]?.[0]?.phase).toBe(HookPhases.afterCommit);
+    expect(feature.entityHooks?.preDelete?.["thing"]?.[0]?.phase).toBe(HookPhases.inTransaction);
   });
 });
 

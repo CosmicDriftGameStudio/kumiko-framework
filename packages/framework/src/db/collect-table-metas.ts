@@ -34,7 +34,7 @@ export function collectTableMetas(
   // Pass 1: kanonische Schema-Quellen, identisch zum bisherigen Template-
   // Verhalten (gleiche Reihenfolge, gleiche buildEntityTableMeta-Optionen).
   for (const feature of features) {
-    for (const [name, ent] of Object.entries(feature.entities)) {
+    for (const [name, ent] of Object.entries(feature.entities ?? {})) {
       const meta = buildEntityTableMeta(name, ent, { relations: feature.relations[name] });
       metas.push(meta);
       byName.set(meta.tableName, { meta, origin: `entity "${name}" (${feature.name})` });

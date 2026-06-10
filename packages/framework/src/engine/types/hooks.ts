@@ -143,21 +143,25 @@ export type OwnedFn<TFn> = {
 
 // --- Hook Maps ---
 
+// Slots are optional: defineFeature materializes every slot, but hand-built
+// FeatureDefinitions at system boundaries (test fixtures, partial boots —
+// see registry.test.ts "slot robustness") legitimately omit them, and the
+// registry merge paths tolerate undefined. The type mirrors that contract.
 export type HookMap = {
-  readonly validation: Readonly<Record<string, ValidationHookFn>>;
-  readonly preSave: Readonly<Record<string, readonly OwnedFn<PreSaveHookFn>[]>>;
-  readonly postSave: Readonly<Record<string, readonly PhasedHook<PostSaveHookFn>[]>>;
-  readonly preDelete: Readonly<Record<string, readonly PhasedHook<PreDeleteHookFn>[]>>;
-  readonly postDelete: Readonly<Record<string, readonly PhasedHook<PostDeleteHookFn>[]>>;
-  readonly preQuery: Readonly<Record<string, readonly OwnedFn<PreQueryHookFn>[]>>;
-  readonly postQuery: Readonly<Record<string, readonly OwnedFn<PostQueryHookFn>[]>>;
+  readonly validation?: Readonly<Record<string, ValidationHookFn>>;
+  readonly preSave?: Readonly<Record<string, readonly OwnedFn<PreSaveHookFn>[]>>;
+  readonly postSave?: Readonly<Record<string, readonly PhasedHook<PostSaveHookFn>[]>>;
+  readonly preDelete?: Readonly<Record<string, readonly PhasedHook<PreDeleteHookFn>[]>>;
+  readonly postDelete?: Readonly<Record<string, readonly PhasedHook<PostDeleteHookFn>[]>>;
+  readonly preQuery?: Readonly<Record<string, readonly OwnedFn<PreQueryHookFn>[]>>;
+  readonly postQuery?: Readonly<Record<string, readonly OwnedFn<PostQueryHookFn>[]>>;
 };
 
 export type EntityHookMap = {
-  readonly postSave: Readonly<Record<string, readonly PhasedHook<PostSaveHookFn>[]>>;
-  readonly preDelete: Readonly<Record<string, readonly PhasedHook<PreDeleteHookFn>[]>>;
-  readonly postDelete: Readonly<Record<string, readonly PhasedHook<PostDeleteHookFn>[]>>;
-  readonly postQuery: Readonly<Record<string, readonly OwnedFn<PostQueryHookFn>[]>>;
+  readonly postSave?: Readonly<Record<string, readonly PhasedHook<PostSaveHookFn>[]>>;
+  readonly preDelete?: Readonly<Record<string, readonly PhasedHook<PreDeleteHookFn>[]>>;
+  readonly postDelete?: Readonly<Record<string, readonly PhasedHook<PostDeleteHookFn>[]>>;
+  readonly postQuery?: Readonly<Record<string, readonly OwnedFn<PostQueryHookFn>[]>>;
 };
 
 // Search-Payload-Extension (F3) — contributor function that adds flat

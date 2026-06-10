@@ -12,7 +12,7 @@ describe("createCustomFieldsFeature shape", () => {
   test("registers field-definition entity + 6 write-handlers + 1 query-handler", () => {
     const feature = createCustomFieldsFeature();
 
-    expect(Object.keys(feature.entities)).toContain("field-definition");
+    expect(Object.keys(feature.entities ?? {})).toContain("field-definition");
 
     const writeHandlerNames = Object.keys(feature.writeHandlers);
     expect(writeHandlerNames).toEqual(

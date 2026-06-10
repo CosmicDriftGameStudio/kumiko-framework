@@ -145,7 +145,7 @@ export function validateMultiStreamProjections(feature: FeatureDefinition): void
 // ohne das `fooTz`-Feld zu deklarieren. Der `locatedTimestamp(name)` Helper
 // macht das Pair atomar — wer ihn nutzt, fliegt nicht durch diesen Validator.
 export function validateLocatedTimestamps(feature: FeatureDefinition): void {
-  for (const [entityName, entity] of Object.entries(feature.entities)) {
+  for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     const fields = entity.fields;
     for (const [fieldName, field] of Object.entries(fields)) {
       if (field.type !== "timestamp" || field.locatedBy === undefined) continue;
@@ -182,7 +182,7 @@ export function validateLocatedTimestamps(feature: FeatureDefinition): void {
 // (`["tenantId", "key"]` ist sinnvoll), nur die rein-tenantId-Single-
 // column-Form blockieren wir.
 export function validateEntityIndexes(feature: FeatureDefinition): void {
-  for (const [entityName, entity] of Object.entries(feature.entities)) {
+  for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     if (!entity.indexes) continue;
     const fieldNames = new Set(Object.keys(entity.fields));
     for (const [idx, def] of entity.indexes.entries()) {
@@ -242,7 +242,7 @@ export function validateEntityIndexes(feature: FeatureDefinition): void {
 
 export function validateEncryptedFields(feature: FeatureDefinition): boolean {
   let found = false;
-  for (const [entityName, entity] of Object.entries(feature.entities)) {
+  for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     for (const [fieldName, field] of Object.entries(entity.fields)) {
       // Beide string-typed fields können encrypted sein. Die
       // searchable/sortable-Konflikt-Checks gelten nur für `text`
@@ -271,7 +271,7 @@ export function validateEncryptedFields(feature: FeatureDefinition): boolean {
 // --- File field detection ---
 
 export function validateFileFields(feature: FeatureDefinition): boolean {
-  for (const entity of Object.values(feature.entities)) {
+  for (const entity of Object.values(feature.entities ?? {})) {
     for (const field of Object.values(entity.fields)) {
       if (FILE_FIELD_TYPES.has(field.type)) return true;
     }
@@ -296,7 +296,7 @@ export function validateReferenceFields(
   feature: FeatureDefinition,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
 ): void {
-  for (const [entityName, entity] of Object.entries(feature.entities)) {
+  for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     for (const [fieldName, field] of Object.entries(entity.fields)) {
       if (field.type !== "reference") continue;
 
@@ -310,9 +310,12 @@ export function validateReferenceFields(
             `Known features: ${knownFeatures}.`,
         );
       }
-      const targetEntity = targetFeature.entities[target.entityName];
+      const targetEntity = targetFeature.entities?.[target.entityName];
       if (!targetEntity) {
-        const known = Object.keys(targetFeature.entities).sort().join(", ") || "(none)";
+        const known =
+          Object.keys(targetFeature.entities ?? {})
+            .sort()
+            .join(", ") || "(none)";
         const where =
           target.featureName === feature.name
             ? `in this feature`
@@ -354,7 +357,7 @@ export function validateReferenceFields(
 }
 
 export function validateEmbeddedFields(feature: FeatureDefinition): void {
-  for (const [entityName, entity] of Object.entries(feature.entities)) {
+  for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     for (const [fieldName, field] of Object.entries(entity.fields)) {
       if (field.type !== "embedded") continue;
 
@@ -382,7 +385,7 @@ export function validateEmbeddedFields(feature: FeatureDefinition): void {
 // auch im Zod-Schema bei runtime fehlschlagen, der Boot-Catch ist nur
 // die früheste Stelle für klare Fehlermeldungen.
 export function validateMultiSelectFields(feature: FeatureDefinition): void {
-  for (const [entityName, entity] of Object.entries(feature.entities)) {
+  for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     for (const [fieldName, field] of Object.entries(entity.fields)) {
       if (field.type !== "multiSelect") continue;
 
@@ -409,7 +412,7 @@ export function validateMultiSelectFields(feature: FeatureDefinition): void {
 // --- Transition validation ---
 
 export function validateTransitions(feature: FeatureDefinition): void {
-  for (const [entityName, entity] of Object.entries(feature.entities)) {
+  for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     if (!entity.transitions) continue;
 
     for (const [fieldName, transitionMap] of Object.entries(entity.transitions)) {
@@ -451,7 +454,7 @@ export function validateTransitions(feature: FeatureDefinition): void {
 // --- extendSchema column collision detection ---
 
 export function validateExtendSchemaCollisions(feature: FeatureDefinition): void {
-  for (const [entityName, entity] of Object.entries(feature.entities)) {
+  for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     const existingFields = new Set(Object.keys(entity.fields));
 
     // Check if any registered extension would collide with existing fields

@@ -15,7 +15,7 @@ describe("lifecycle hook registration", () => {
       });
     });
 
-    expect(Object.keys(feature.hooks.preSave)).toContain("user");
+    expect(Object.keys(feature.hooks?.preSave ?? {})).toContain("user");
   });
 
   test("postSave hooks are registered", () => {
@@ -23,7 +23,7 @@ describe("lifecycle hook registration", () => {
       r.hook("postSave", "user", async () => {});
     });
 
-    expect(Object.keys(feature.hooks.postSave)).toContain("user");
+    expect(Object.keys(feature.hooks?.postSave ?? {})).toContain("user");
   });
 
   test("preDelete hooks are registered", () => {
@@ -31,7 +31,7 @@ describe("lifecycle hook registration", () => {
       r.hook("preDelete", "user", async () => {});
     });
 
-    expect(Object.keys(feature.hooks.preDelete)).toContain("user");
+    expect(Object.keys(feature.hooks?.preDelete ?? {})).toContain("user");
   });
 
   test("postDelete hooks are registered", () => {
@@ -39,7 +39,7 @@ describe("lifecycle hook registration", () => {
       r.hook("postDelete", "user", async () => {});
     });
 
-    expect(Object.keys(feature.hooks.postDelete)).toContain("user");
+    expect(Object.keys(feature.hooks?.postDelete ?? {})).toContain("user");
   });
 
   test("multiple hooks on same entity are collected in order", () => {
@@ -48,7 +48,7 @@ describe("lifecycle hook registration", () => {
       r.hook("preSave", "user", async (changes) => changes);
     });
 
-    const hooks = feature.hooks.preSave["user"];
+    const hooks = feature.hooks?.preSave?.["user"];
     expect(hooks).toHaveLength(2);
   });
 
@@ -59,9 +59,9 @@ describe("lifecycle hook registration", () => {
       r.hook("postSave", "user", async () => {});
     });
 
-    expect(feature.hooks.validation["userForm"]).toBeDefined();
-    expect(feature.hooks.preSave["user"]).toHaveLength(1);
-    expect(feature.hooks.postSave["user"]).toHaveLength(1);
+    expect(feature.hooks?.validation?.["userForm"]).toBeDefined();
+    expect(feature.hooks?.preSave?.["user"]).toHaveLength(1);
+    expect(feature.hooks?.postSave?.["user"]).toHaveLength(1);
   });
 });
 

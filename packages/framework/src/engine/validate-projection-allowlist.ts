@@ -112,7 +112,7 @@ export function validateProjectionAllowlist(features: readonly FeatureDefinition
   // Followup #8.
   const aggregateTables = new Map<string, string>();
   for (const f of features) {
-    for (const [entityName, entity] of Object.entries(f.entities)) {
+    for (const [entityName, entity] of Object.entries(f.entities ?? {})) {
       const tableName = entity.table ?? entityName;
       const existing = aggregateTables.get(tableName);
       if (existing && existing !== f.name) {

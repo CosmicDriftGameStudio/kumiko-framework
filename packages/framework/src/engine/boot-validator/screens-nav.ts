@@ -227,9 +227,12 @@ export function validateScreens(
     }
 
     // entityList / entityEdit: entity-refs are feature-local.
-    const entityDef = feature.entities[screen.entity];
+    const entityDef = feature.entities?.[screen.entity];
     if (!entityDef) {
-      const known = Object.keys(feature.entities).sort().join(", ") || "(none)";
+      const known =
+        Object.keys(feature.entities ?? {})
+          .sort()
+          .join(", ") || "(none)";
       const crossFeature = findEntityFeature(screen.entity, featureMap);
       const hint = crossFeature
         ? ` Entity "${screen.entity}" is owned by feature "${crossFeature}" — cross-feature screen ownership is not supported.`
@@ -484,7 +487,7 @@ export function findEntityFeature(
   featureMap: ReadonlyMap<string, FeatureDefinition>,
 ): string | undefined {
   for (const [name, feature] of featureMap) {
-    if (feature.entities[entityName]) return name;
+    if (feature.entities?.[entityName]) return name;
   }
   return undefined;
 }

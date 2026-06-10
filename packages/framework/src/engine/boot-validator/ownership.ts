@@ -13,7 +13,7 @@ export function validateOwnershipRules(
   allClaimKeys: ReadonlyMap<string, ClaimKeyDefinition>,
   knownRoles: ReadonlySet<string>,
 ): void {
-  for (const [entityName, entity] of Object.entries(feature.entities)) {
+  for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     const columnNames = new Set<string>(Object.keys(entity.fields));
     // Framework-managed columns that rules are allowed to reference too.
     // These are the base columns buildEntityTable adds unconditionally.

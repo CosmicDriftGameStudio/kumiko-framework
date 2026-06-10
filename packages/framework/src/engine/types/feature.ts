@@ -197,13 +197,17 @@ export type FeatureDefinition = {
   // means the feature is always-on (e.g. auth, tenant, user — core infra
   // that would brick the system if switchable).
   readonly toggleableDefault?: boolean;
-  readonly entities: Readonly<Record<string, EntityDefinition>>;
+  // entities/hooks/entityHooks are optional: defineFeature always
+  // materializes them, but hand-built definitions at system boundaries
+  // (test fixtures, partial boots — see registry.test.ts "slot robustness")
+  // omit them and the registry guards against that. Type follows runtime.
+  readonly entities?: Readonly<Record<string, EntityDefinition>>;
   readonly relations: Readonly<Record<string, EntityRelations>>;
   readonly writeHandlers: Readonly<Record<string, WriteHandlerDef>>;
   readonly queryHandlers: Readonly<Record<string, QueryHandlerDef>>;
   readonly translations: TranslationKeys;
-  readonly hooks: HookMap;
-  readonly entityHooks: EntityHookMap;
+  readonly hooks?: HookMap;
+  readonly entityHooks?: EntityHookMap;
   // F3 search-payload-extension — per-entity contributors that add flat fields
   // to the search-index payload during indexing. Keyed by entityName. Wrapped
   // in OwnedFn for feature-toggle filtering (consistent with postQuery-Hooks).
