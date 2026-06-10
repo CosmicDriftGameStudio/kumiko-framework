@@ -234,3 +234,78 @@ describe("CustomFieldsFormSection", () => {
     expect(saveBtn.textContent).toBe("Save custom fields");
   });
 });
+
+describe("CustomFieldsFormSection — clear-Pfad", () => {
+  test("Leeren eines gespeicherten Werts dispatched clear-custom-field (nicht skip)", async () => {
+    mockedQueryRows = [
+      {
+        id: "f1",
+        entityName: "component",
+        fieldKey: "vendor",
+        type: "text",
+        required: false,
+        displayOrder: 1,
+      },
+    ];
+    dispatchSpy.mockClear();
+
+    render(
+      <Wrapper>
+        <CustomFieldsFormSection
+          entityName="component"
+          entityId="row-42"
+          initialValues={{ vendor: "Hetzner" }}
+        />
+      </Wrapper>,
+    );
+
+    const vendorInput = document.getElementById("custom-field-vendor") as HTMLInputElement;
+    expect(vendorInput.value).toBe("Hetzner");
+
+    fireEvent.change(vendorInput, { target: { value: "" } });
+    fireEvent.click(screen.getByTestId("custom-fields-form-save"));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(dispatchSpy).toHaveBeenCalledTimes(1);
+    expect(dispatchSpy).toHaveBeenCalledWith("custom-fields:write:clear-custom-field", {
+      entityName: "component",
+      entityId: "row-42",
+      fieldKey: "vendor",
+    });
+  });
+
+  test("unveränderter Bestandswert wird beim Save NICHT erneut geschrieben", async () => {
+    mockedQueryRows = [
+      {
+        id: "f1",
+        entityName: "component",
+        fieldKey: "vendor",
+        type: "text",
+        required: false,
+        displayOrder: 1,
+      },
+    ];
+    dispatchSpy.mockClear();
+
+    render(
+      <Wrapper>
+        <CustomFieldsFormSection
+          entityName="component"
+          entityId="row-42"
+          initialValues={{ vendor: "Hetzner" }}
+        />
+      </Wrapper>,
+    );
+
+    const vendorInput = document.getElementById("custom-field-vendor") as HTMLInputElement;
+    // Tippen + zurück auf den Bestandswert → nicht dirty, kein Write.
+    fireEvent.change(vendorInput, { target: { value: "Hetzner2" } });
+    fireEvent.change(vendorInput, { target: { value: "Hetzner" } });
+    fireEvent.click(screen.getByTestId("custom-fields-form-save"));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(dispatchSpy).not.toHaveBeenCalled();
+  });
+});

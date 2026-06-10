@@ -61,10 +61,10 @@ describe("isComponentRendererRef", () => {
 });
 
 describe("applyFormatSpec", () => {
-  test("null/undefined/leer → leerer String (alle Formate)", () => {
+  test("null/undefined/leer → leerer String (priority rendert stattdessen emptyLabel)", () => {
     expect(applyFormatSpec({ format: "boolean" }, null)).toBe("");
     expect(applyFormatSpec({ format: "currency", symbol: "€" }, undefined)).toBe("");
-    expect(applyFormatSpec({ format: "priority" }, "")).toBe("");
+    expect(applyFormatSpec({ format: "priority" }, "")).toBe("—");
   });
 
   test("boolean: true → ✓, false → leer (defaults)", () => {

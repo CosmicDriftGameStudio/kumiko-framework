@@ -35,8 +35,8 @@ describe("escapeHtmlAttr", () => {
     expect(escapeHtmlAttr(`& " < >`)).toBe("&amp; &quot; &lt; &gt;");
   });
 
-  test("does not escape '", () => {
-    expect(escapeHtmlAttr("it's")).toBe("it's");
+  test("escapes ' so single-quoted attributes cannot break out", () => {
+    expect(escapeHtmlAttr("it's")).toBe("it&#39;s");
   });
 
   test("plain attribute value passes through", () => {

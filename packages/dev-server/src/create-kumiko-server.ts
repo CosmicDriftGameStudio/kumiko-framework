@@ -869,7 +869,9 @@ export async function createKumikoServer(
     // staticDir-fallback") und macht r.httpRoute mit non-/api paths im
     // dev-server symmetrisch zu prod.
     if (
-      req.method === "GET" &&
+      // HEAD mitnehmen — prod (runProdApp) fällt für GET UND HEAD auf die
+      // SPA zurück; ohne das liefert dev 404 wo prod 200 liefert.
+      (req.method === "GET" || req.method === "HEAD") &&
       !url.pathname.startsWith("/api/") &&
       !url.pathname.startsWith("/sse") &&
       !url.pathname.includes(".")

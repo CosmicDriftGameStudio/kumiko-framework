@@ -22,11 +22,7 @@ import {
   defineWriteHandler,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  InternalError,
-  UnprocessableError,
-  writeFailure,
-} from "@cosmicdrift/kumiko-framework/errors";
+import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 // kumiko-lint-ignore cross-feature-import invite-flow lebt in auth-email-password (Magic-Link), DB-row-owner ist tenant-feature
 import {
@@ -34,12 +30,13 @@ import {
   tenantInvitationEntity,
   tenantInvitationsTable,
 } from "../../tenant/invitation-table";
+// kumiko-lint-ignore cross-feature-import direkter membership-Lookup (ungefiltert, s. alreadyMember-Kommentar)
+import { tenantMembershipsTable } from "../../tenant/membership-table";
 // kumiko-lint-ignore cross-feature-import membership-seed-helper für privilegierten cross-tenant-add (analog provisionSignupAccount)
 import { seedTenantMembership } from "../../tenant/seeding";
 // kumiko-lint-ignore cross-feature-import auth handler reads user-row für email-match
 import { userTable } from "../../user/schema/user";
-import { AuthErrors } from "../constants";
-import { invalidInviteToken } from "../errors";
+import { invalidInviteToken, inviteEmailMismatch } from "../errors";
 import {
   burnInviteToken,
   deleteInviteToken,
@@ -115,22 +112,19 @@ export function createInviteAcceptHandler() {
         });
         const userEmail = userRow?.email;
         if (!userRow || !userEmail || userEmail.toLowerCase() !== invitationEmail) {
-          return writeFailure(
-            new UnprocessableError(AuthErrors.inviteEmailMismatch, {
-              i18nKey: "auth.errors.inviteEmailMismatch",
-            }),
-          );
+          return inviteEmailMismatch();
         }
 
-        // Already-Member-Check via memberships-query. Wenn der User schon
-        // im invited Tenant Member ist, kein Error — no-op + 200 mit
-        // alreadyMember=true (advisor-Constraint #4: idempotent).
-        const memberships = (await ctx.queryAs(
-          createSystemUser(invitationTenantId),
-          "tenant:query:memberships",
-          { userId: event.user.id },
-        )) as Array<{ tenantId: string }>; // @cast-boundary db-row
-        const alreadyMember = memberships.some((m) => m.tenantId === invitationTenantId);
+        // Already-Member-Check direkt gegen die memberships-Projektion —
+        // NICHT via tenant:query:memberships, die disabled Tenants filtert:
+        // ein Re-Invite in einen (vorübergehend) disabled Tenant würde dort
+        // alreadyMember=false sehen und am Unique-Constraint scheitern.
+        // Idempotenz: schon Member → no-op + 200 mit alreadyMember=true.
+        const membershipRow = await fetchOne(ctx.db.raw, tenantMembershipsTable, {
+          userId: event.user.id,
+          tenantId: invitationTenantId,
+        });
+        const alreadyMember = membershipRow !== undefined;
 
         const dbConn = ctx.db.raw;
 

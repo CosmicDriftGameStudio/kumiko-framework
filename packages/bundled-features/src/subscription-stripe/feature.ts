@@ -65,8 +65,11 @@ export const subscriptionStripeEnvSchema = z.object({
     .meta({ kumiko: { pulumi: { secret: true } } }),
   STRIPE_API_KEY: z
     .string()
-    .regex(/^sk_(test|live)_/, "STRIPE_API_KEY must start with 'sk_test_' or 'sk_live_'")
-    .describe("Stripe API key (`sk_live_...` / `sk_test_...`).")
+    .regex(
+      /^(sk|rk)_(test|live)_/,
+      "STRIPE_API_KEY must start with 'sk_test_'/'sk_live_' or a restricted 'rk_test_'/'rk_live_' key",
+    )
+    .describe("Stripe API key (`sk_live_...` / `sk_test_...`, restricted `rk_...` keys allowed).")
     .meta({ kumiko: { pulumi: { secret: true } } }),
 });
 

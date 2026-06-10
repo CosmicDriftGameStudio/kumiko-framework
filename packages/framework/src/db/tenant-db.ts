@@ -133,12 +133,22 @@ export function createTenantDb(
 
   // Reads see own-tenant rows + reference data (tenantId === SYSTEM_TENANT_ID).
   // Writes never touch reference rows — those are system-mode only.
-  // The tenant filter is spread LAST so a caller-supplied `where.tenantId`
-  // cannot override the enforced scope — overriding it would be a
-  // tenant-isolation bypass.
+  // A caller-supplied `where.tenantId` may only NARROW the enforced scope
+  // (e.g. exclude SYSTEM reference rows at the DB instead of post-filtering
+  // after a limit). Values outside the scope are dropped; if nothing valid
+  // remains, the full enforced scope applies — widening is never possible.
   function readWhere(table: Table, where?: WhereObject): WhereObject | undefined {
     if (!hasTenantColumn(table) || mode === "system") return where;
-    const tenantFilter: WhereObject = { tenantId: [tenantId, SYSTEM_TENANT_ID] };
+    const allowed = [tenantId, SYSTEM_TENANT_ID];
+    const requested = where?.["tenantId"];
+    if (requested !== undefined) {
+      const requestedList = Array.isArray(requested) ? requested : [requested];
+      const narrowed = requestedList.filter(
+        (t): t is string => typeof t === "string" && allowed.includes(t),
+      );
+      return { ...where, tenantId: narrowed.length > 0 ? narrowed : allowed };
+    }
+    const tenantFilter: WhereObject = { tenantId: allowed };
     return where ? { ...where, ...tenantFilter } : tenantFilter;
   }
 

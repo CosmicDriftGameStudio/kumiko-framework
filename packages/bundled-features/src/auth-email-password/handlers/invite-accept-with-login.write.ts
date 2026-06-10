@@ -25,11 +25,7 @@ import {
   type SessionUser,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  InternalError,
-  UnprocessableError,
-  writeFailure,
-} from "@cosmicdrift/kumiko-framework/errors";
+import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 // kumiko-lint-ignore cross-feature-import invite-flow
 import {
@@ -41,8 +37,7 @@ import {
 import { seedTenantMembership } from "../../tenant/seeding";
 // kumiko-lint-ignore cross-feature-import login-style password-check
 import { userTable } from "../../user/schema/user";
-import { AuthErrors } from "../constants";
-import { invalidInviteToken } from "../errors";
+import { invalidInviteToken, inviteEmailMismatch } from "../errors";
 import {
   burnInviteToken,
   deleteInviteToken,
@@ -116,11 +111,7 @@ export function createInviteAcceptWithLoginHandler() {
 
         // Email-Match vom User-Input (nicht aus session — User ist anon)
         if (event.payload.email.toLowerCase() !== invitationEmail) {
-          return writeFailure(
-            new UnprocessableError(AuthErrors.inviteEmailMismatch, {
-              i18nKey: "auth.errors.inviteEmailMismatch",
-            }),
-          );
+          return inviteEmailMismatch();
         }
 
         // Password-Check gegen userTable. Anti-enumeration: bei

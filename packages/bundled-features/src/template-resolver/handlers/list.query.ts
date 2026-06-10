@@ -1,5 +1,5 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { defineQueryHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { RENDER_KINDS, TEMPLATE_STATUSES } from "../constants";
 import { type TemplateResourceRow, templateResourcesTable } from "../table";
@@ -17,14 +17,13 @@ export const listQuery = defineQueryHandler({
   }),
   access: { roles: ["TenantAdmin", "SystemAdmin", "User"] },
   handler: async (query, ctx) => {
-    const isSystemAdmin = query.user.roles.includes("SystemAdmin");
     const where: Record<string, unknown> = {};
 
-    // TenantDb scopes non-SystemAdmin reads to [own tenant, SYSTEM reference] and
-    // overrides a caller-narrowed where.tenantId (enforced isolation). SystemAdmin
-    // uses a system-scoped db that sees every tenant, so narrow to own explicitly
-    // when they don't want the cross-tenant view.
-    if (isSystemAdmin && !query.payload.includeSystem) {
+    // includeSystem=false narrows to own tenant AT THE DB — for non-SystemAdmin
+    // TenantDb permits narrowing within its enforced [own, SYSTEM] scope, for
+    // SystemAdmin (system-scoped db) the where applies verbatim. Filtering at
+    // the DB keeps the limit meaningful (no post-filter starvation).
+    if (!query.payload.includeSystem) {
       where["tenantId"] = query.user.tenantId;
     }
 
@@ -44,13 +43,7 @@ export const listQuery = defineQueryHandler({
       limit: 500,
     })) as TemplateResourceRow[];
 
-    // TenantDb always surfaces SYSTEM reference rows alongside the tenant's own;
-    // includeSystem=false drops them here since they can't be excluded at the DB.
-    const visible = query.payload.includeSystem
-      ? rows
-      : rows.filter((row) => row.tenantId !== SYSTEM_TENANT_ID);
-
-    return visible.map((row) => ({
+    return rows.map((row) => ({
       id: String(row.id),
       tenantId: row.tenantId,
       slug: row.slug,

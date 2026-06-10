@@ -8,7 +8,7 @@
 //      im Browser-Bundle.
 
 import { describe, expect, test } from "bun:test";
-import { buildAppSchema } from "../build-app-schema";
+import { buildAppSchema, findNonJsonSafePath } from "../build-app-schema";
 import { defineFeature } from "../define-feature";
 import { createRegistry } from "../registry";
 import type { EntityDefinition } from "../types/fields";
@@ -232,5 +232,32 @@ describe("buildAppSchema", () => {
       eq: "open",
     });
     expect(actions?.find((a) => a.id === "always")?.visible).toBe(true);
+  });
+});
+
+describe("findNonJsonSafePath", () => {
+  test("findet eine Funktion ausserhalb von PlatformComponent-Slots mit Pfad", () => {
+    const schema = { features: [{ label: () => "nope" }] };
+    expect(findNonJsonSafePath(schema, "schema")).toBe("schema.features[0].label");
+  });
+
+  test("PlatformComponent-Slots ({ react, native }) sind opak — Komponenten-Funktionen erlaubt", () => {
+    const schema = {
+      features: [{ screens: [{ id: "s1", component: { react: () => null } }] }],
+    };
+    expect(findNonJsonSafePath(schema, "schema")).toBeNull();
+  });
+
+  test("faengt undefined, bigint und Klassen-Instanzen", () => {
+    expect(findNonJsonSafePath({ a: undefined }, "schema")).toBe("schema.a");
+    expect(findNonJsonSafePath({ a: 1n }, "schema")).toBe("schema.a");
+    expect(findNonJsonSafePath({ a: new Map() }, "schema")).toBe("schema.a");
+    expect(findNonJsonSafePath({ a: Number.NaN }, "schema")).toBe("schema.a");
+  });
+
+  test("normales JSON-Schema passiert ohne Befund", () => {
+    expect(
+      findNonJsonSafePath({ features: [{ name: "x", count: 3, on: true, opt: null }] }, "schema"),
+    ).toBeNull();
   });
 });
