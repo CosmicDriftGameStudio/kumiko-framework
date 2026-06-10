@@ -4,6 +4,7 @@
 // searchable sub-fields registered, field access on sub-fields E2E
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import type { EntityId, SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createTestUser,
   setupTestStack,
@@ -36,7 +37,7 @@ afterAll(async () => {
 
 describe("create and read embedded objects", () => {
   test("create contact with required address succeeds", async () => {
-    const data = await stack.http.writeOk(
+    const data = await stack.http.writeOk<SaveContext>(
       "contacts:write:contact:create",
       {
         name: "Max Mustermann",
@@ -55,7 +56,7 @@ describe("create and read embedded objects", () => {
   });
 
   test("detail returns embedded object intact", async () => {
-    const created = await stack.http.writeOk(
+    const created = await stack.http.writeOk<SaveContext>(
       "contacts:write:contact:create",
       {
         name: "Detail Test",
@@ -70,13 +71,13 @@ describe("create and read embedded objects", () => {
       admin,
     );
     expect(detail["name"]).toBe("Detail Test");
-    const addr = detail["address"];
+    const addr = detail["address"] as Record<string, unknown>;
     expect(addr["street"]).toBe("Musterweg 5");
     expect(addr["city"]).toBe("München");
   });
 
   test("create with optional billingAddress", async () => {
-    const data = await stack.http.writeOk(
+    const data = await stack.http.writeOk<SaveContext>(
       "contacts:write:contact:create",
       {
         name: "With Billing",
@@ -91,12 +92,12 @@ describe("create and read embedded objects", () => {
       admin,
     );
     expect(data.isNew).toBe(true);
-    const billing = data.data["billingAddress"];
+    const billing = data.data["billingAddress"] as Record<string, unknown>;
     expect(billing["vatId"]).toBe("DE123456789");
   });
 
   test("create without optional billingAddress succeeds", async () => {
-    const data = await stack.http.writeOk(
+    const data = await stack.http.writeOk<SaveContext>(
       "contacts:write:contact:create",
       {
         name: "No Billing",
@@ -136,10 +137,10 @@ describe("embedded validation", () => {
 // --- Field access on embedded sub-fields (E2E via API) ---
 
 describe("field access on embedded sub-fields", () => {
-  let contactWithBillingId: number;
+  let contactWithBillingId: EntityId;
 
   test("create contact with billingAddress for access tests", async () => {
-    const created = await stack.http.writeOk(
+    const created = await stack.http.writeOk<SaveContext>(
       "contacts:write:contact:create",
       {
         name: "Access Test Contact",
@@ -157,7 +158,7 @@ describe("field access on embedded sub-fields", () => {
       { id: contactWithBillingId },
       admin,
     );
-    const billing = detail["billingAddress"];
+    const billing = detail["billingAddress"] as Record<string, unknown>;
     expect(billing["vatId"]).toBe("DE999");
     expect(billing["street"]).toBe("B");
   });
@@ -168,7 +169,7 @@ describe("field access on embedded sub-fields", () => {
       { id: contactWithBillingId },
       viewer,
     );
-    const billing = detail["billingAddress"];
+    const billing = detail["billingAddress"] as Record<string, unknown>;
     expect(billing["vatId"]).toBeUndefined();
     expect(billing["street"]).toBe("B"); // other fields still visible
   });
@@ -191,7 +192,7 @@ describe("searchable embedded sub-fields", () => {
 
 describe("tenant isolation", () => {
   test("other tenant cannot read contact", async () => {
-    const created = await stack.http.writeOk(
+    const created = await stack.http.writeOk<SaveContext>(
       "contacts:write:contact:create",
       {
         name: "Secret Contact",

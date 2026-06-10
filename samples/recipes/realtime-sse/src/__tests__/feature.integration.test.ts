@@ -4,6 +4,7 @@
 // event type ("message.created"), `data` carries id/version/payload.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -39,7 +40,7 @@ beforeEach(async () => {
 
 describe("SSE broadcast on create", () => {
   test("emits message.created event", async () => {
-    await stack.http.writeOk(
+    await stack.http.writeOk<SaveContext>(
       "chat:write:message:create",
       {
         channel: "general",
@@ -61,7 +62,7 @@ describe("SSE broadcast on create", () => {
 
 describe("SSE broadcast on update", () => {
   test("emits message.updated event with changes", async () => {
-    const created = await stack.http.writeOk(
+    const created = await stack.http.writeOk<SaveContext>(
       "chat:write:message:create",
       {
         channel: "general",
@@ -74,7 +75,7 @@ describe("SSE broadcast on update", () => {
     await stack.eventDispatcher?.runOnce();
     stack.events.reset();
 
-    await stack.http.writeOk(
+    await stack.http.writeOk<SaveContext>(
       "chat:write:message:update",
       {
         id: created.id,
@@ -87,14 +88,14 @@ describe("SSE broadcast on update", () => {
 
     const updateEvent = stack.events.sse.find((e) => e.type === "message.updated");
     expect(updateEvent).toBeDefined();
-    const payload = updateEvent?.data["payload"];
+    const payload = updateEvent?.data["payload"] as Record<string, unknown> | undefined;
     expect(payload?.["changes"]).toEqual({ text: "Edited" });
   });
 });
 
 describe("SSE broadcast on delete", () => {
   test("emits message.deleted event", async () => {
-    const created = await stack.http.writeOk(
+    const created = await stack.http.writeOk<SaveContext>(
       "chat:write:message:create",
       {
         channel: "general",
@@ -106,7 +107,7 @@ describe("SSE broadcast on delete", () => {
     await stack.eventDispatcher?.runOnce();
     stack.events.reset();
 
-    await stack.http.writeOk("chat:write:message:delete", { id: created.id }, admin);
+    await stack.http.writeOk<SaveContext>("chat:write:message:delete", { id: created.id }, admin);
     await stack.eventDispatcher?.runOnce();
 
     const deleteEvent = stack.events.sse.find((e) => e.type === "message.deleted");

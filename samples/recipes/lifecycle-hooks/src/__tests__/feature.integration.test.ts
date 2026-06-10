@@ -2,6 +2,7 @@
 // Proves: validation rejects bad data, postSave tracks changes
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -45,7 +46,7 @@ describe("validation hook: single handler", () => {
   });
 
   test("accepts clean title", async () => {
-    const data = await stack.http.writeOk(
+    const data = await stack.http.writeOk<SaveContext>(
       "blog:write:article:create",
       {
         title: "Clean Article",
@@ -71,7 +72,7 @@ describe("validation hook: multi-handler", () => {
   });
 
   test("rejects overly long title on update", async () => {
-    const created = await stack.http.writeOk(
+    const created = await stack.http.writeOk<SaveContext>(
       "blog:write:article:create",
       {
         title: "Short",
@@ -95,7 +96,7 @@ describe("validation hook: multi-handler", () => {
 
 describe("postSave entity hook", () => {
   test("logs create event", async () => {
-    await stack.http.writeOk(
+    await stack.http.writeOk<SaveContext>(
       "blog:write:article:create",
       {
         title: "Hook Test",
@@ -108,7 +109,7 @@ describe("postSave entity hook", () => {
   });
 
   test("logs update event with changes", async () => {
-    const created = await stack.http.writeOk(
+    const created = await stack.http.writeOk<SaveContext>(
       "blog:write:article:create",
       {
         title: "Before Update",
@@ -118,7 +119,7 @@ describe("postSave entity hook", () => {
 
     hookLog.length = 0;
 
-    await stack.http.writeOk(
+    await stack.http.writeOk<SaveContext>(
       "blog:write:article:update",
       {
         id: created.id,
@@ -130,13 +131,13 @@ describe("postSave entity hook", () => {
 
     expect(hookLog).toHaveLength(1);
     expect(hookLog[0]?.type).toBe("updated");
-    expect(hookLog[0]?.data.changes).toEqual({ title: "After Update" });
+    expect(hookLog[0]?.data["changes"]).toEqual({ title: "After Update" });
   });
 });
 
 describe("preDelete + postDelete entity hooks", () => {
   test("postDelete fires after a successful delete", async () => {
-    const created = await stack.http.writeOk(
+    const created = await stack.http.writeOk<SaveContext>(
       "blog:write:article:create",
       { title: "Doomed" },
       editor,
@@ -144,20 +145,20 @@ describe("preDelete + postDelete entity hooks", () => {
 
     hookLog.length = 0;
 
-    await stack.http.writeOk("blog:write:article:delete", { id: created.id }, editor);
+    await stack.http.writeOk<SaveContext>("blog:write:article:delete", { id: created.id }, editor);
 
     expect(hookLog).toHaveLength(1);
     expect(hookLog[0]?.type).toBe("deleted");
-    expect(hookLog[0]?.data.id).toBe(created.id);
+    expect(hookLog[0]?.data["id"]).toBe(created.id);
   });
 
   test("preDelete blocks delete when the article is still published", async () => {
-    const created = await stack.http.writeOk(
+    const created = await stack.http.writeOk<SaveContext>(
       "blog:write:article:create",
       { title: "Live Article" },
       editor,
     );
-    await stack.http.writeOk(
+    await stack.http.writeOk<SaveContext>(
       "blog:write:article:update",
       {
         id: created.id,
@@ -182,7 +183,7 @@ describe("preDelete + postDelete entity hooks", () => {
   });
 
   test("preDelete allows delete when article is not published", async () => {
-    const created = await stack.http.writeOk(
+    const created = await stack.http.writeOk<SaveContext>(
       "blog:write:article:create",
       { title: "Draft Article" },
       editor,
@@ -190,7 +191,7 @@ describe("preDelete + postDelete entity hooks", () => {
 
     hookLog.length = 0;
 
-    await stack.http.writeOk("blog:write:article:delete", { id: created.id }, editor);
+    await stack.http.writeOk<SaveContext>("blog:write:article:delete", { id: created.id }, editor);
 
     expect(hookLog.map((e) => e.type)).toEqual(["deleted"]);
   });

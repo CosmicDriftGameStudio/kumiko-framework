@@ -2,6 +2,7 @@
 // Proves: tenant_id scopes all data, cross-tenant access returns nothing
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -33,7 +34,7 @@ beforeEach(() => {
 
 describe("tenant isolation", () => {
   test("tenant A cannot see tenant B's data via detail", async () => {
-    const noteA = await stack.http.writeOk(
+    const noteA = await stack.http.writeOk<SaveContext>(
       "notes:write:note:create",
       {
         title: "Tenant A secret",
@@ -53,7 +54,7 @@ describe("tenant isolation", () => {
   });
 
   test("tenant B cannot see tenant A's data in list", async () => {
-    await stack.http.writeOk(
+    await stack.http.writeOk<SaveContext>(
       "notes:write:note:create",
       {
         title: "Only-For-A",
@@ -72,8 +73,16 @@ describe("tenant isolation", () => {
   });
 
   test("each tenant sees only their own data", async () => {
-    await stack.http.writeOk("notes:write:note:create", { title: "A-Note" }, tenantAAdmin);
-    await stack.http.writeOk("notes:write:note:create", { title: "B-Note" }, tenantBAdmin);
+    await stack.http.writeOk<SaveContext>(
+      "notes:write:note:create",
+      { title: "A-Note" },
+      tenantAAdmin,
+    );
+    await stack.http.writeOk<SaveContext>(
+      "notes:write:note:create",
+      { title: "B-Note" },
+      tenantBAdmin,
+    );
 
     const listA = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
       "notes:query:note:list",

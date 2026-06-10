@@ -2,6 +2,7 @@
 // Proves: create, read, update, delete, soft delete, optimistic locking, sort
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -36,7 +37,7 @@ beforeEach(() => {
 
 describe("create and read", () => {
   test("create returns SaveContext with isNew=true", async () => {
-    const data = await stack.http.writeOk(
+    const data = await stack.http.writeOk<SaveContext>(
       "tasks:write:task:create",
       {
         title: "Buy milk",
@@ -52,7 +53,7 @@ describe("create and read", () => {
   });
 
   test("detail returns created record", async () => {
-    const created = await stack.http.writeOk(
+    const created = await stack.http.writeOk<SaveContext>(
       "tasks:write:task:create",
       {
         title: "Read me back",
@@ -71,7 +72,7 @@ describe("create and read", () => {
   });
 
   test("boolean default applied", async () => {
-    const created = await stack.http.writeOk(
+    const created = await stack.http.writeOk<SaveContext>(
       "tasks:write:task:create",
       {
         title: "Defaults test",
@@ -87,7 +88,7 @@ describe("create and read", () => {
 
 describe("update", () => {
   test("update returns changes and previous", async () => {
-    const created = await stack.http.writeOk(
+    const created = await stack.http.writeOk<SaveContext>(
       "tasks:write:task:create",
       {
         title: "Before",
@@ -96,7 +97,7 @@ describe("update", () => {
       admin,
     );
 
-    const updated = await stack.http.writeOk(
+    const updated = await stack.http.writeOk<SaveContext>(
       "tasks:write:task:update",
       {
         id: created.id,
@@ -114,7 +115,7 @@ describe("update", () => {
   });
 
   test("version increments on update", async () => {
-    const created = await stack.http.writeOk(
+    const created = await stack.http.writeOk<SaveContext>(
       "tasks:write:task:create",
       {
         title: "Versioned",
@@ -122,7 +123,7 @@ describe("update", () => {
       admin,
     );
 
-    const updated = await stack.http.writeOk(
+    const updated = await stack.http.writeOk<SaveContext>(
       "tasks:write:task:update",
       {
         id: created.id,
@@ -140,7 +141,7 @@ describe("update", () => {
 
 describe("optimistic locking", () => {
   test("stale version causes version_conflict", async () => {
-    const created = await stack.http.writeOk(
+    const created = await stack.http.writeOk<SaveContext>(
       "tasks:write:task:create",
       {
         title: "Lock me",
@@ -149,7 +150,7 @@ describe("optimistic locking", () => {
     );
 
     // First update succeeds
-    await stack.http.writeOk(
+    await stack.http.writeOk<SaveContext>(
       "tasks:write:task:update",
       {
         id: created.id,
@@ -178,7 +179,7 @@ describe("optimistic locking", () => {
 
 describe("soft delete", () => {
   test("deleted record disappears from detail", async () => {
-    const created = await stack.http.writeOk(
+    const created = await stack.http.writeOk<SaveContext>(
       "tasks:write:task:create",
       {
         title: "Delete me",
@@ -186,7 +187,7 @@ describe("soft delete", () => {
       admin,
     );
 
-    await stack.http.writeOk("tasks:write:task:delete", { id: created.id }, admin);
+    await stack.http.writeOk<SaveContext>("tasks:write:task:delete", { id: created.id }, admin);
 
     const detail = await stack.http.queryOk<null>(
       "tasks:query:task:detail",
@@ -197,7 +198,7 @@ describe("soft delete", () => {
   });
 
   test("deleted record disappears from list", async () => {
-    const created = await stack.http.writeOk(
+    const created = await stack.http.writeOk<SaveContext>(
       "tasks:write:task:create",
       {
         title: "Unique-Del-List-Check",
@@ -205,7 +206,7 @@ describe("soft delete", () => {
       admin,
     );
 
-    await stack.http.writeOk("tasks:write:task:delete", { id: created.id }, admin);
+    await stack.http.writeOk<SaveContext>("tasks:write:task:delete", { id: created.id }, admin);
 
     const list = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
       "tasks:query:task:list",
@@ -220,8 +221,8 @@ describe("soft delete", () => {
 
 describe("list and sort", () => {
   test("list returns rows", async () => {
-    await stack.http.writeOk("tasks:write:task:create", { title: "List-A" }, admin);
-    await stack.http.writeOk("tasks:write:task:create", { title: "List-B" }, admin);
+    await stack.http.writeOk<SaveContext>("tasks:write:task:create", { title: "List-A" }, admin);
+    await stack.http.writeOk<SaveContext>("tasks:write:task:create", { title: "List-B" }, admin);
 
     const list = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
       "tasks:query:task:list",
@@ -232,12 +233,12 @@ describe("list and sort", () => {
   });
 
   test("sort by status ASC", async () => {
-    await stack.http.writeOk(
+    await stack.http.writeOk<SaveContext>(
       "tasks:write:task:create",
       { title: "Sort-Z", status: "z-last" },
       admin,
     );
-    await stack.http.writeOk(
+    await stack.http.writeOk<SaveContext>(
       "tasks:write:task:create",
       { title: "Sort-A", status: "a-first" },
       admin,
@@ -259,7 +260,7 @@ describe("list and sort", () => {
 
 describe("access control", () => {
   test("User role can create", async () => {
-    const data = await stack.http.writeOk(
+    const data = await stack.http.writeOk<SaveContext>(
       "tasks:write:task:create",
       {
         title: "User task",
@@ -270,7 +271,7 @@ describe("access control", () => {
   });
 
   test("User role cannot delete (Admin only)", async () => {
-    const created = await stack.http.writeOk(
+    const created = await stack.http.writeOk<SaveContext>(
       "tasks:write:task:create",
       {
         title: "Protected",

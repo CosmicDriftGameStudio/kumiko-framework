@@ -1,9 +1,9 @@
 // Screens + Nav Showcase — two features prove:
 //   1. All three screen variants (entityList, entityEdit, custom) register
 //      through r.screen()
-//   2. Field-level conditionals (visible/readOnly/required) use typed
-//      FieldCondition<TData> so feature authors get narrowed access to
-//      the form row and the user context without any `as`-casts
+//   2. Field-level conditionals (visible/readOnly/required) use declarative
+//      FieldCondition ({ field, eq/ne } | boolean) — JSON-safe for schema
+//      injection and ui-core evaluation at render time
 //   3. Level-4 slots + Level-2 renderers are plain-data shapes — engine
 //      stores them verbatim, ui-core resolves at mount-time
 //   4. r.nav() flattens into a registry-wide tree whose parent refs can
@@ -21,7 +21,6 @@ import {
   createTextField,
   defineFeature,
   type FeatureDefinition,
-  type FieldCondition,
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const bookEntity = createEntity({
@@ -33,31 +32,6 @@ export const bookEntity = createEntity({
     published: createBooleanField({ default: false }),
   },
 });
-
-type BookRow = {
-  readonly title: string;
-  readonly author: string;
-  readonly price: number;
-  readonly published: boolean;
-};
-
-type FormCtx = {
-  readonly user?: { readonly roles: readonly string[] };
-};
-
-// Typed FieldCondition — `data` is BookRow, `ctx.user.roles` is available.
-// Feature author gets completions at every dot-access; no `as`-casts needed
-// at call sites. The framework treats these functions as opaque; TS carries
-// the narrowing through to wherever ui-core evaluates them.
-const priceReadOnlyWhenPublished: FieldCondition<BookRow, FormCtx> = (data, ctx) => {
-  // Admins can always edit the price. Non-admins can only edit it before
-  // the book is published.
-  if (ctx.user?.roles.includes("Admin")) return false;
-  return data.published === true;
-};
-
-const authorVisibleOnlyToAdmin: FieldCondition<BookRow, FormCtx> = (_data, ctx) =>
-  ctx.user?.roles.includes("Admin") ?? false;
 
 export function createBookshopFeature(): FeatureDefinition {
   return defineFeature("bookshop", (r) => {
@@ -82,7 +56,7 @@ export function createBookshopFeature(): FeatureDefinition {
       ],
     });
 
-    // entityEdit — sections + spans + conditionals + slots.
+    // entityEdit — sections + spans + declarative conditionals + slots.
     r.screen({
       id: "book-edit",
       type: "entityEdit",
@@ -92,7 +66,7 @@ export function createBookshopFeature(): FeatureDefinition {
           {
             title: "bookshop:section.basics",
             columns: 2,
-            fields: ["title", { field: "author", visible: authorVisibleOnlyToAdmin }],
+            fields: ["title", { field: "author", visible: { field: "published", eq: false } }],
           },
           {
             title: "bookshop:section.publishing",
@@ -100,9 +74,7 @@ export function createBookshopFeature(): FeatureDefinition {
             fields: [
               {
                 field: "price",
-                readOnly: priceReadOnlyWhenPublished,
-                // Spans on the section's column-grid: price takes 1
-                // column, the boolean below takes 1.
+                readOnly: { field: "published", eq: true },
                 span: 1,
               },
               { field: "published", span: 1 },
@@ -111,15 +83,11 @@ export function createBookshopFeature(): FeatureDefinition {
         ],
       },
       slots: {
-        // Opaque to the engine — ui-core resolves the platform at mount.
-        // The shape { react, native } is the PlatformComponent contract.
         afterForm: { react: { __component: "BookHistorySidebar" } },
       },
       access: { roles: ["Admin", "Editor"] },
     });
 
-    // Top-level nav group — no screen attached (pure container). Children
-    // come from this feature AND from bookshop-admin below.
     r.nav({
       id: "main",
       label: "bookshop:nav.main",
@@ -140,9 +108,6 @@ export function createBookshopAdminFeature(): FeatureDefinition {
   return defineFeature("bookshop-admin", (r) => {
     r.systemScope();
 
-    // Custom screen — no entity, renderer is opaque. `renderer` is a
-    // PlatformComponent; react OR native must be set (boot-validator
-    // enforces this).
     r.screen({
       id: "audit-log",
       type: "custom",
@@ -150,9 +115,6 @@ export function createBookshopAdminFeature(): FeatureDefinition {
       access: { roles: ["Admin"] },
     });
 
-    // Cross-feature nav parent — `bookshop:nav:main` lives in the other
-    // feature. Both boot-validator refs (screen + parent) + the cycle
-    // check resolve across all registered features.
     r.nav({
       id: "audit",
       label: "bookshop-admin:nav.audit",

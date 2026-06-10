@@ -45,6 +45,8 @@ export const OrdersLiteReasons = {
 //     conflicts. Prices in cents (integer minor unit — see money-type.md).
 
 const ORDER_STATES = ["draft", "placed", "paid", "cancelled"] as const;
+type OrderState = (typeof ORDER_STATES)[number];
+
 const ORDER_TRANSITIONS = defineTransitions({
   draft: ["placed", "cancelled"],
   placed: ["paid", "cancelled"],
@@ -56,7 +58,7 @@ export const orderEntity = createEntity({
   table: "read_errctr_orders",
   fields: {
     ownerId: createTextField({ required: true }),
-    status: createSelectField(ORDER_STATES, { default: "draft" }),
+    status: createSelectField({ options: ORDER_STATES, default: "draft" }),
     totalCents: createNumberField({ default: 0 }),
   },
   transitions: {
@@ -138,7 +140,7 @@ export const ordersLiteFeature = defineFeature("orders-lite", (r) => {
       // guardTransition throws UnprocessableError with
       // reason = FrameworkReasons.invalidTransition. Callers can branch on
       // that framework-level reason uniformly across entities.
-      guardTransition(ORDER_TRANSITIONS, data["status"] as string, "paid");
+      guardTransition(ORDER_TRANSITIONS, data["status"] as OrderState, "paid");
 
       const crud = createEventStoreExecutor(orderTable, orderEntity, { entityName: "order" });
       return crud.update(

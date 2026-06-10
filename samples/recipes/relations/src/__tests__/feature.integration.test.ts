@@ -2,6 +2,7 @@
 // Proves: hasMany relations, cascade delete, restrict delete
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createCascadeDeleteHook } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
@@ -41,8 +42,12 @@ beforeEach(() => {
 
 describe("restrict: team cannot be deleted with members", () => {
   test("delete team with members fails", async () => {
-    const team = await stack.http.writeOk("org:write:team:create", { name: "Engineering" }, admin);
-    await stack.http.writeOk(
+    const team = await stack.http.writeOk<SaveContext>(
+      "org:write:team:create",
+      { name: "Engineering" },
+      admin,
+    );
+    await stack.http.writeOk<SaveContext>(
       "org:write:member:create",
       {
         name: "Alice",
@@ -57,6 +62,7 @@ describe("restrict: team cannot be deleted with members", () => {
     await expect(
       cascadeHook.fn(
         {
+          kind: "delete",
           id: team.id,
           data: { tenantId: "00000000-0000-4000-8000-000000000001" },
           entityName: "team",
@@ -67,13 +73,18 @@ describe("restrict: team cannot be deleted with members", () => {
   });
 
   test("delete empty team succeeds", async () => {
-    const team = await stack.http.writeOk("org:write:team:create", { name: "Empty Team" }, admin);
+    const team = await stack.http.writeOk<SaveContext>(
+      "org:write:team:create",
+      { name: "Empty Team" },
+      admin,
+    );
 
     const cascadeHook = createCascadeDeleteHook(stack.registry, new Map([["member", memberTable]]));
 
     await expect(
       cascadeHook.fn(
         {
+          kind: "delete",
           id: team.id,
           data: { tenantId: "00000000-0000-4000-8000-000000000001" },
           entityName: "team",
@@ -86,8 +97,12 @@ describe("restrict: team cannot be deleted with members", () => {
 
 describe("cascade: deleting member removes tasks", () => {
   test("member's tasks are deleted when member is deleted", async () => {
-    const team = await stack.http.writeOk("org:write:team:create", { name: "Cascade Team" }, admin);
-    const member = await stack.http.writeOk(
+    const team = await stack.http.writeOk<SaveContext>(
+      "org:write:team:create",
+      { name: "Cascade Team" },
+      admin,
+    );
+    const member = await stack.http.writeOk<SaveContext>(
       "org:write:member:create",
       {
         name: "Bob",
@@ -96,7 +111,7 @@ describe("cascade: deleting member removes tasks", () => {
       admin,
     );
 
-    const task1 = await stack.http.writeOk(
+    const task1 = await stack.http.writeOk<SaveContext>(
       "org:write:task:create",
       {
         title: "Task A",
@@ -104,7 +119,7 @@ describe("cascade: deleting member removes tasks", () => {
       },
       admin,
     );
-    const task2 = await stack.http.writeOk(
+    const task2 = await stack.http.writeOk<SaveContext>(
       "org:write:task:create",
       {
         title: "Task B",
@@ -118,6 +133,7 @@ describe("cascade: deleting member removes tasks", () => {
 
     await cascadeHook.fn(
       {
+        kind: "delete",
         id: member.id,
         data: { tenantId: "00000000-0000-4000-8000-000000000001" },
         entityName: "member",

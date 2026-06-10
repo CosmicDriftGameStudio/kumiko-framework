@@ -2,6 +2,7 @@
 // Proves: duplicate requestId returns cached result, no double insert
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -33,14 +34,14 @@ describe("idempotent writes", () => {
   test("same requestId returns cached result, no duplicate", async () => {
     const requestId = "order-idem-001";
 
-    const first = await stack.http.writeOk(
+    const first = await stack.http.writeOk<SaveContext>(
       "orders:write:order:place",
       { customerName: "Alice", product: "Widget" },
       customer,
       requestId,
     );
 
-    const second = await stack.http.writeOk(
+    const second = await stack.http.writeOk<SaveContext>(
       "orders:write:order:place",
       { customerName: "Alice", product: "Widget" },
       customer,
@@ -52,14 +53,14 @@ describe("idempotent writes", () => {
   });
 
   test("different requestIds create separate records", async () => {
-    const first = await stack.http.writeOk(
+    const first = await stack.http.writeOk<SaveContext>(
       "orders:write:order:place",
       { customerName: "Bob", product: "Gadget A" },
       customer,
       "order-a",
     );
 
-    const second = await stack.http.writeOk(
+    const second = await stack.http.writeOk<SaveContext>(
       "orders:write:order:place",
       { customerName: "Bob", product: "Gadget B" },
       customer,
@@ -70,13 +71,13 @@ describe("idempotent writes", () => {
   });
 
   test("no requestId = always creates new record", async () => {
-    const first = await stack.http.writeOk(
+    const first = await stack.http.writeOk<SaveContext>(
       "orders:write:order:place",
       { customerName: "Carol", product: "Same" },
       customer,
     );
 
-    const second = await stack.http.writeOk(
+    const second = await stack.http.writeOk<SaveContext>(
       "orders:write:order:place",
       { customerName: "Carol", product: "Same" },
       customer,

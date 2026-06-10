@@ -2,6 +2,7 @@
 // Proves: custom business logic in handlers, payload transformation, custom queries
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -34,7 +35,7 @@ beforeEach(() => {
 
 describe("custom write handler: increment", () => {
   test("increment adds to existing count", async () => {
-    const created = await stack.http.writeOk(
+    const created = await stack.http.writeOk<SaveContext>(
       "counters:write:counter:create",
       {
         name: "page-views",
@@ -43,7 +44,7 @@ describe("custom write handler: increment", () => {
     );
     expect(created.data["count"]).toBe(0);
 
-    const incremented = await stack.http.writeOk(
+    const incremented = await stack.http.writeOk<SaveContext>(
       "counters:write:counter:increment",
       {
         id: created.id,
@@ -57,7 +58,7 @@ describe("custom write handler: increment", () => {
   });
 
   test("multiple increments accumulate", async () => {
-    const created = await stack.http.writeOk(
+    const created = await stack.http.writeOk<SaveContext>(
       "counters:write:counter:create",
       {
         name: "clicks",
@@ -65,7 +66,7 @@ describe("custom write handler: increment", () => {
       admin,
     );
 
-    await stack.http.writeOk(
+    await stack.http.writeOk<SaveContext>(
       "counters:write:counter:increment",
       {
         id: created.id,
@@ -73,7 +74,7 @@ describe("custom write handler: increment", () => {
       },
       user,
     );
-    const result = await stack.http.writeOk(
+    const result = await stack.http.writeOk<SaveContext>(
       "counters:write:counter:increment",
       {
         id: created.id,
@@ -86,7 +87,7 @@ describe("custom write handler: increment", () => {
   });
 
   test("increment validates max amount", async () => {
-    const created = await stack.http.writeOk(
+    const created = await stack.http.writeOk<SaveContext>(
       "counters:write:counter:create",
       {
         name: "guarded",
@@ -120,7 +121,7 @@ describe("custom write handler: increment", () => {
 
 describe("custom write handler: reset", () => {
   test("reset sets count back to zero", async () => {
-    const created = await stack.http.writeOk(
+    const created = await stack.http.writeOk<SaveContext>(
       "counters:write:counter:create",
       {
         name: "resettable",
@@ -128,7 +129,7 @@ describe("custom write handler: reset", () => {
       admin,
     );
 
-    await stack.http.writeOk(
+    await stack.http.writeOk<SaveContext>(
       "counters:write:counter:increment",
       {
         id: created.id,
@@ -137,7 +138,7 @@ describe("custom write handler: reset", () => {
       user,
     );
 
-    const reset = await stack.http.writeOk(
+    const reset = await stack.http.writeOk<SaveContext>(
       "counters:write:counter:reset",
       {
         id: created.id,
@@ -150,7 +151,7 @@ describe("custom write handler: reset", () => {
   });
 
   test("only Admin can reset", async () => {
-    const created = await stack.http.writeOk(
+    const created = await stack.http.writeOk<SaveContext>(
       "counters:write:counter:create",
       {
         name: "admin-only-reset",
@@ -171,20 +172,32 @@ describe("custom write handler: reset", () => {
 
 describe("custom query handler: active counters", () => {
   test("filters counters by minimum count", async () => {
-    const c1 = await stack.http.writeOk(
+    const c1 = await stack.http.writeOk<SaveContext>(
       "counters:write:counter:create",
       { name: "active-a" },
       admin,
     );
-    const c2 = await stack.http.writeOk(
+    const c2 = await stack.http.writeOk<SaveContext>(
       "counters:write:counter:create",
       { name: "active-b" },
       admin,
     );
-    await stack.http.writeOk("counters:write:counter:create", { name: "inactive" }, admin);
+    await stack.http.writeOk<SaveContext>(
+      "counters:write:counter:create",
+      { name: "inactive" },
+      admin,
+    );
 
-    await stack.http.writeOk("counters:write:counter:increment", { id: c1.id, amount: 10 }, user);
-    await stack.http.writeOk("counters:write:counter:increment", { id: c2.id, amount: 5 }, user);
+    await stack.http.writeOk<SaveContext>(
+      "counters:write:counter:increment",
+      { id: c1.id, amount: 10 },
+      user,
+    );
+    await stack.http.writeOk<SaveContext>(
+      "counters:write:counter:increment",
+      { id: c2.id, amount: 5 },
+      user,
+    );
 
     const result = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
       "counters:query:counter:active",

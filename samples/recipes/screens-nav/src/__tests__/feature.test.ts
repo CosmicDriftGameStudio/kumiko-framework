@@ -4,7 +4,7 @@
 //   - cross-feature nav parents resolve
 //   - convenience indexes (getScreensByEntity / getTopLevelNavs /
 //     getNavsByParent) enable zero-reverse-index tree walks
-//   - FieldCondition<TData, TCtx> lands typed on the stored EditFieldSpec
+//   - declarative FieldCondition ({ field, eq/ne } | boolean) lands on EditFieldSpec
 //   - normalizeEditField / normalizeListColumn collapse the string shorthand
 //   - validateBoot catches the common author mistakes (unknown field,
 //     custom screen without a renderer component)
@@ -89,7 +89,7 @@ describe("screens-nav showcase — field specs", () => {
     // it the same as the full object with no overrides.
     expect(normalizeEditField("title")).toEqual({ field: "title" });
     // Object form is returned verbatim.
-    const condition = () => true;
+    const condition = { field: "published", eq: true } as const;
     expect(normalizeEditField({ field: "price", readOnly: condition, span: 1 })).toEqual({
       field: "price",
       readOnly: condition,
@@ -99,29 +99,28 @@ describe("screens-nav showcase — field specs", () => {
 
   test("normalizeListColumn collapses string columns too", () => {
     expect(normalizeListColumn("author")).toEqual({ field: "author" });
-    const fmt = (v: unknown) => String(v);
-    expect(normalizeListColumn({ field: "price", renderer: fmt })).toEqual({
+    const renderer = { format: "currency", symbol: "€" } as const;
+    expect(normalizeListColumn({ field: "price", renderer })).toEqual({
       field: "price",
-      renderer: fmt,
+      renderer,
     });
   });
 
-  test("FieldCondition functions survive registry storage intact", () => {
-    // The engine treats conditions as opaque values; ui-core evaluates
-    // them at render time. We verify the function reference round-trips
-    // and its typed call signature still works.
+  test("declarative FieldCondition survives registry storage intact", () => {
     const screen = registry.getScreen("bookshop:screen:book-edit");
     if (screen?.type !== "entityEdit") throw new Error("expected entityEdit");
-    const priceField = normalizeEditField(screen.layout.sections[1]!.fields[0]!);
-    expect(typeof priceField.readOnly).toBe("function");
-    // Simulate a call with narrowed data / ctx — Admin bypass + published gate.
-    const adminCtx = { user: { roles: ["Admin"] as const } };
-    const readerCtx = { user: { roles: ["Reader"] as const } };
-    const publishedBook = { title: "t", author: "a", price: 9.99, published: true };
-    const draftBook = { ...publishedBook, published: false };
-    expect(priceField.readOnly?.(publishedBook, adminCtx)).toBe(false);
-    expect(priceField.readOnly?.(publishedBook, readerCtx)).toBe(true);
-    expect(priceField.readOnly?.(draftBook, readerCtx)).toBe(false);
+    const basicsSection = screen.layout.sections[0];
+    const publishingSection = screen.layout.sections[1];
+    if (!basicsSection || basicsSection.kind === "extension") {
+      throw new Error("expected fields section");
+    }
+    if (!publishingSection || publishingSection.kind === "extension") {
+      throw new Error("expected fields section");
+    }
+    const priceField = normalizeEditField(publishingSection.fields[0]!);
+    expect(priceField.readOnly).toEqual({ field: "published", eq: true });
+    const authorField = normalizeEditField(basicsSection.fields[1]!);
+    expect(authorField.visible).toEqual({ field: "published", eq: false });
   });
 });
 

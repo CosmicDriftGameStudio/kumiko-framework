@@ -104,7 +104,7 @@ describe("image upload → MSP writes thumb under a derived key", () => {
     // the same bytes, so a roundtrip confirms the MSP read + write path.
     const thumbKey = derivateLog[0]?.derivateKey as string;
     expect(thumbKey).toMatch(/\.thumb\.png$/);
-    expect(provider.keys().sort()).toEqual([storageKey, thumbKey].sort());
+    expect([...provider.keys()].sort()).toEqual([storageKey, thumbKey].sort());
 
     const thumbBytes = await provider.read(thumbKey);
     expect(Array.from(thumbBytes)).toEqual(Array.from(pngBytes));
@@ -138,7 +138,8 @@ describe("event emission contract", () => {
       [FILE_REF_CREATED],
     );
     expect(rows.length).toBe(1);
-    const payload = rows[0]?.["payload"];
+    const row = rows[0] as { payload: Record<string, unknown> };
+    const payload = row.payload;
     expect(typeof payload["storageKey"]).toBe("string");
     expect(payload["mimeType"]).toBe("image/png");
     expect(payload["data"]).toBeUndefined();

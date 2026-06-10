@@ -10,10 +10,9 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 defineFeature("designerDemo", (r) => {
-  r.optionalRequires({ features: ["analytics"] });
+  r.optionalRequires("analytics");
 
-  r.entity({
-    name: "task",
+  r.entity("task", {
     fields: {
       title: { type: "text", required: true },
       done: { type: "boolean", default: false },
@@ -45,5 +44,5 @@ defineFeature("designerDemo", (r) => {
     screen: "designerDemo:screen:task-list",
   });
 
-  r.metric({ name: "tasks_created", type: "counter" });
+  r.metric("tasks_created", { type: "counter" });
 });
