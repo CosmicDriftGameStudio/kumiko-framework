@@ -2,10 +2,20 @@ import { access, createSystemUser, defineWriteHandler } from "@cosmicdrift/kumik
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { getAggregateStreamTenant } from "@cosmicdrift/kumiko-framework/event-store";
 import { z } from "zod";
-import { invalidCredentials } from "../../auth-email-password/errors";
-import { verifyPassword } from "../../auth-email-password/password-hashing";
+import { AuthErrors, verifyPassword } from "../../auth-email-password";
 import { USER_FEATURE, UserErrors, UserHandlers, UserQueries } from "../../user";
 import { UserProfileErrors } from "../constants";
+
+// Gleiche Failure-Shape wie auth-email-password (anti-enumeration):
+// dessen errors.ts ist nicht Teil des Feature-Barrels, der Reason-Code
+// + i18nKey sind aber stabile Public-API.
+function invalidCredentials() {
+  return writeFailure(
+    new UnprocessableError(AuthErrors.invalidCredentials, {
+      i18nKey: "auth.errors.invalidCredentials",
+    }),
+  );
+}
 
 // Change-email — authenticated, self-only. Der User bestätigt mit seinem
 // aktuellen Passwort (Re-Auth wie change-password); die neue Adresse wird

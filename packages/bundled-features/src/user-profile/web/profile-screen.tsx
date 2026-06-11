@@ -15,8 +15,7 @@ import {
 import { type FormEvent, type ReactNode, useState } from "react";
 import { AuthHandlers } from "../../auth-email-password/constants";
 import { requestEmailVerification } from "../../auth-email-password/web";
-import { UserQueries } from "../../user";
-import { UserDataRightsHandlers, UserProfileHandlers } from "../constants";
+import { UserDataRightsHandlers, UserProfileHandlers, UserProfileQueries } from "../constants";
 
 type MeRow = {
   readonly id: string;
@@ -294,7 +293,7 @@ function DangerZoneSection({
 export function ProfileScreen(): ReactNode {
   const t = useTranslation();
   const { Banner, Heading } = usePrimitives();
-  const meQuery = useQuery<MeRow | null>(UserQueries.me, {});
+  const meQuery = useQuery<MeRow | null>(UserProfileQueries.me, {});
 
   if (meQuery.error) {
     return (

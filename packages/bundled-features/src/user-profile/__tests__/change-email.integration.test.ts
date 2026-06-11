@@ -32,11 +32,16 @@ import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/schema/tenant";
 import { seedTenantMembership } from "../../tenant/testing";
-import { UserErrors, UserHandlers } from "../../user";
+import { UserErrors, UserHandlers, UserQueries } from "../../user";
 import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/schema/user";
 import { createUserDataRightsFeature } from "../../user-data-rights";
-import { UserDataRightsHandlers, UserProfileErrors, UserProfileHandlers } from "../constants";
+import {
+  UserDataRightsHandlers,
+  UserProfileErrors,
+  UserProfileHandlers,
+  UserProfileQueries,
+} from "../constants";
 import { createUserProfileFeature } from "../feature";
 
 let stack: TestStack;
@@ -183,6 +188,15 @@ describe("change-email guards", () => {
       signedIn,
     );
     expectErrorIncludes(error, UserProfileErrors.emailUnchanged);
+  });
+});
+
+describe("QN-Drift-Pins (client-Konstanten vs. Feature-Originale)", () => {
+  test("UserProfileQueries.me spiegelt UserQueries.me", () => {
+    // Der ProfileScreen darf das runtime-Barrel des user-Features nicht
+    // importieren (Runtime-Isolation) und pinnt die QN lokal — dieser
+    // Vergleich macht stillen Drift unmöglich.
+    expect(UserProfileQueries.me).toBe(UserQueries.me);
   });
 });
 

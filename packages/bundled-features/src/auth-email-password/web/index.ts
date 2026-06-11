@@ -5,7 +5,7 @@
 // `@cosmicdrift/kumiko-bundled-features/auth-email-password` und hat keine
 // React-/DOM-Deps. Trennung bleibt sauber so wie renderer vs renderer-web.
 
-export { defaultTranslations } from "../i18n";
+export { defaultTranslations, mergeTranslations } from "../i18n";
 export type {
   AuthTokenFailure,
   CurrentUserProfile,

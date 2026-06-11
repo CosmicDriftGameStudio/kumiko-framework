@@ -75,6 +75,7 @@ export type {
 export {
   createStaticLocaleResolver,
   LocaleProvider,
+  mergeTranslations,
   useLocale,
   useTranslation,
 } from "./i18n";

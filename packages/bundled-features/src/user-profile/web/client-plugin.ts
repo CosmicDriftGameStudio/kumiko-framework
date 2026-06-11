@@ -1,7 +1,6 @@
 // @runtime client
-import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
+import { mergeTranslations, type TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ComponentType, ReactNode } from "react";
-import { mergeTranslations } from "../../auth-email-password/i18n";
 import { defaultTranslations } from "../i18n";
 
 export type UserProfileClientOptions = {
