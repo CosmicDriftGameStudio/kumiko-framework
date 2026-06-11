@@ -1152,7 +1152,9 @@ function ConfigEditBody({
       {...(translate !== undefined && { translate })}
       labelAppendix={(fieldName: string) => {
         const source = sources[fieldName];
-        return source ? <ConfigSourceBadge source={source} screenScope={screen.scope} /> : undefined;
+        return source ? (
+          <ConfigSourceBadge source={source} screenScope={screen.scope} />
+        ) : undefined;
       }}
       fieldAppendix={(fieldName: string) => {
         const cascade = cascades[fieldName];
