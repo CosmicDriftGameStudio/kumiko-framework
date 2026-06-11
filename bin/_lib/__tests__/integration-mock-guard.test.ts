@@ -58,3 +58,41 @@ describe("isMockGuardAllowlisted", () => {
     ).toBe(false);
   });
 });
+
+// 233/3: der eigentliche Integrationspfad (File-Walk → Allowlist-Exemption
+// → Mock-Erkennung → relPath in violations) gegen ein Temp-Verzeichnis.
+// Ein verschobener cwd oder falsch normalisierter relative()-Pfad würde
+// sonst still die Exemption oder die Erkennung aushebeln.
+describe("scanForMocks — File-Walk-Integration", () => {
+  test("allowlistete Datei exempt, neue mock-haltige Datei als Violation, saubere Datei still", () => {
+    const { mkdtempSync, mkdirSync, rmSync, writeFileSync } = require("node:fs");
+    const { join } = require("node:path");
+    const { tmpdir } = require("node:os");
+    const { scanForMocks } = require("../../../integration.guard.js");
+
+    const base = mkdtempSync(join(tmpdir(), "mock-guard-walk-"));
+    try {
+      const allowlisted = "packages/framework/src/es-ops/__tests__";
+      mkdirSync(join(base, allowlisted), { recursive: true });
+      writeFileSync(
+        join(base, allowlisted, "runner.integration.test.ts"),
+        'const d = mock(() => {});\n',
+      );
+
+      mkdirSync(join(base, "packages/foo/__tests__"), { recursive: true });
+      writeFileSync(
+        join(base, "packages/foo/__tests__/new.integration.test.ts"),
+        'spyOn(console, "log");\n',
+      );
+      writeFileSync(
+        join(base, "packages/foo/__tests__/clean.integration.test.ts"),
+        "const x = 1;\n",
+      );
+
+      const violations = scanForMocks(join(base, "packages"), base);
+      expect(violations).toEqual(["packages/foo/__tests__/new.integration.test.ts"]);
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+});

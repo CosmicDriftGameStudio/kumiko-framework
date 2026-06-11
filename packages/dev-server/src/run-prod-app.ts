@@ -41,20 +41,16 @@ import { createSessionCallbacks } from "@cosmicdrift/kumiko-bundled-features/ses
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { UserQueries } from "@cosmicdrift/kumiko-bundled-features/user";
 import { createSseBroker, type SseBroker } from "@cosmicdrift/kumiko-framework/api";
-import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { createDbConnection, type DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import {
   buildAppSchema,
   createRegistry,
-  createSystemUser,
   type EffectiveFeaturesResolver,
   type FeatureDefinition,
   findTierResolverUsage,
-  type Registry,
   type TenantId,
   type TierResolverPlugin,
   validateBoot,
-  type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   type ApiEntrypoint,
@@ -86,6 +82,7 @@ import Redis from "ioredis";
 import { applyBootSeeds } from "./boot/apply-boot-seeds";
 import { ASSETS_DIR } from "./build-prod-bundle";
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features";
+import { type ExtraRoutesSystemDeps, makeDispatchSystemWrite } from "./extra-routes-deps";
 import { injectSchema } from "./inject-schema";
 import { tryHonoFirst } from "./try-hono-first";
 
@@ -428,26 +425,7 @@ export type RunProdAppOptions = {
    *  Naming: `deps` statt `ctx` weil im Framework `ctx` der HandlerContext
    *  mit user/tenant/registry ist — hier ist der Scope absichtlich kleiner
    *  (Routes laufen außerhalb der Auth/Tenant-Pipeline). */
-  readonly extraRoutes?: (
-    app: import("hono").Hono,
-    deps: {
-      db: import("@cosmicdrift/kumiko-framework/db").DbConnection;
-      redis: import("ioredis").default;
-      /** Feature-registry — z.B. für Plugin-Lookups via
-       *  `registry.getExtensionUsages("subscriptionProvider")`. */
-      registry: Registry;
-      /** Schreibt durch den /api/*-Command-Dispatcher (gleiche Idempotency/
-       *  Job-Hooks) — aber als auto-konstruierter SystemAdmin des Ziel-
-       *  Tenants, OHNE Access-Check der Route. Nur für Pfade, die ihre
-       *  Authentizität selbst beweisen (Provider-Webhook-Signaturen,
-       *  createSubscriptionWebhookHandler et al.). */
-      dispatchSystemWrite: (args: {
-        readonly handlerQn: string;
-        readonly payload: unknown;
-        readonly tenantId: TenantId;
-      }) => Promise<WriteResult>;
-    },
-  ) => void;
+  readonly extraRoutes?: (app: import("hono").Hono, deps: ExtraRoutesSystemDeps) => void;
   /** When true (default), Bun.serve is started before runProdApp resolves —
    *  the common case: `await runProdApp({...})` boots the server and the
    *  process stays up listening on PORT. Set to false in tests that drive
@@ -840,12 +818,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       db,
       redis,
       registry,
-      dispatchSystemWrite: ({ handlerQn, payload, tenantId }) =>
-        entrypoint.dispatcher.write(
-          handlerQn,
-          payload,
-          createSystemUser(tenantId, [ROLES.SystemAdmin]),
-        ),
+      dispatchSystemWrite: makeDispatchSystemWrite(entrypoint.dispatcher),
     });
   }
 

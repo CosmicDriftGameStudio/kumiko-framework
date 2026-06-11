@@ -5,7 +5,7 @@ import {
   type Tokens,
   type TokensApi,
 } from "@cosmicdrift/kumiko-renderer";
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 
 // Web-spezifische TokensApi-Impl. Theme-Toggle via `.dark`-Class auf
 // <html>. Die echten Farben leben in styles.css; hier ist nur die
@@ -68,6 +68,13 @@ export function applyStoredThemeMode(): void {
 
 let storedModeApplied = false;
 
+/** Nur für Tests: der once-per-page-load-Guard ist ein Module-Singleton —
+ *  ohne Reset wäre der Mount-Restore-Pfad nach der ersten Render im
+ *  Testfile strukturell unerreichbar. */
+export function __resetStoredModeAppliedForTests(): void {
+  storedModeApplied = false;
+}
+
 /** Hook der eine TokensApi für den Browser baut. Wird von
  *  createKumikoApp genutzt; App-Code der einen eigenen Token-State
  *  braucht (z.B. User-Präferenz aus localStorage) kann selber
@@ -75,10 +82,16 @@ let storedModeApplied = false;
 export function useBrowserTokensApi(): TokensApi {
   // Einmal pro Page-Load: gespeicherte Wahl anwenden. Lazy statt
   // Modul-Side-Effect, damit Import ohne DOM (SSR/Tests) safe bleibt.
-  if (!storedModeApplied && typeof document !== "undefined") {
-    storedModeApplied = true;
-    applyStoredThemeMode();
-  }
+  // Als useState-Lazy-Initializer statt nackt im Render-Body: der
+  // DOM-Side-Effect lief sonst potenziell in einem verworfenen
+  // Concurrent-Render (React darf Render-Bodies wiederholen/abbrechen).
+  useState(() => {
+    if (!storedModeApplied && typeof document !== "undefined") {
+      storedModeApplied = true;
+      applyStoredThemeMode();
+    }
+    return null;
+  });
   const mode = useSyncExternalStore(themeTick.subscribe, readCurrentMode, () => "dark" as const);
   return {
     tokens: cssVarTokens,

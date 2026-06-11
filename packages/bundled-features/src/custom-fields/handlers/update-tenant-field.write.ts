@@ -18,6 +18,14 @@ import { type UpdateFieldPayload, updateFieldPayloadSchema } from "../schemas";
 // delete+redefine im update — das würde Event-Historie + Field-Ids
 // zerstören, aber ein Type-Wechsel will genau diese Zäsur).
 //
+// **Bekannte MVP-Grenze (bewusst):** der Edit reconciled bestehende
+// Host-Werte NICHT gegen die neue Definition — Constraint-Narrowing
+// (enum-Wert weg, min/max enger) lässt alte Werte still non-conformant,
+// required false→true macht Bestands-Rows unvollständig, searchable-Toggle
+// re-indexed nicht. Werte werden beim NÄCHSTEN Write der Host-Row gegen
+// die aktuelle Def validiert; eine Reject-mit-Konflikt-Liste-Variante
+// wäre der Ausbau, wenn der Bedarf real wird.
+//
 // **skipOptimisticLock:** Definition-Edits sind admin-only + low-frequency
 // (gleiche Abwägung wie der Quota-soft-cap in define). Last-write-wins
 // statt version-Roundtrip durch den Edit-Screen.

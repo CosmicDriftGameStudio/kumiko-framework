@@ -135,7 +135,7 @@ describe("event-store performance — Gate A", () => {
 
     // 25ms statt der 10ms aus dem Spike-Doc: der shared cdgs-runner failt
     // lastabhängig (real gemessen 13.7ms p99) — als CI-Gate zählt die
-    // Größenordnung, nicht der Idle-Bestwert.
+    // Größenordnung, nicht der Idle-Bestwert. Tracking: #325.
     expect(p99).toBeLessThan(25);
   });
 

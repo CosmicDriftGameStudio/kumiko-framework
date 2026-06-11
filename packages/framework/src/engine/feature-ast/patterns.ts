@@ -3,6 +3,12 @@
 // `defineFeature(name, (r) => { ... })` setup callback and yields one
 // FeaturePattern per recognised call.
 //
+// **Doc single-source:** THIS file is the canonical pattern reference
+// (mirrored into docs/corpus). The FeatureRegistrar JSDoc in
+// types/feature.ts stays a short pointer — duplicating semantics there
+// has already drifted once; verify any "checks at boot" claim against
+// engine/boot-validator/* before writing it down.
+//
 // **Design principle:**
 //
 //   - Whatever the Designer/AI can edit declaratively → typed static

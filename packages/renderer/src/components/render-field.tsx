@@ -39,8 +39,9 @@ export function RenderField({
   const { Field, Input } = usePrimitives();
   // App-Locale (i18n) für money/date-Inputs — sonst fielen sie auf
   // navigator.language (Browser-Sprache) zurück statt der gewählten
-  // App-Sprache. useLocale() wirft ohne LocaleProvider; ok, weil
-  // RenderField nur unter RenderEdit im Kumiko-App-Tree läuft.
+  // App-Sprache. BEWUSSTE API-Verschärfung (seit 0.38): RenderField ist
+  // public exportiert und verlangt jetzt einen LocaleProvider —
+  // Standalone-Consumer/Tests müssen wrappen (createKumikoApp tut es).
   const appLocale = useLocale().locale();
   if (!field.visible) return null;
 

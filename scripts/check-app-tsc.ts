@@ -39,32 +39,23 @@ type SampleWorkspace = {
   readonly ephemeralTsconfig?: string;
 };
 
+// Single source of truth: samples/recipes/tsconfig.base.json. Das Inline-
+// Template hier hatte bereits gedriftet (config-drift 311/1) — jetzt liest
+// das Script die Base-Datei und legt nur den @app/define-Zweig drüber.
+const RECIPE_TSCONFIG_BASE = resolve(import.meta.dir, "../samples/recipes/tsconfig.base.json");
+
 function recipeTsconfigTemplate(includeKumiko: boolean): Record<string, unknown> {
-  return {
-    extends: "../../../tsconfig.json",
-    compilerOptions: {
-      baseUrl: ".",
-      paths: {
-        "@cosmicdrift/kumiko-framework/*": ["../../../packages/framework/src/*/index.ts"],
-        "@cosmicdrift/kumiko-bundled-features/*": [
-          "../../../packages/bundled-features/src/*/index.ts",
-        ],
-        "@cosmicdrift/kumiko-dev-server": ["../../../packages/dev-server/src/index.ts"],
-        "@cosmicdrift/kumiko-dev-server/*": ["../../../packages/dev-server/src/*"],
-        ...(includeKumiko
-          ? {
-              "@app/define": ["./.kumiko/define.ts"],
-              "@app/*": ["./.kumiko/*"],
-            }
-          : {}),
-      },
-      noEmit: true,
-      rootDir: "../../..",
-      lib: ["ESNext", "DOM", "DOM.Iterable"],
-      types: ["bun-types"],
-    },
-    include: includeKumiko ? ["src", ".kumiko"] : ["src"],
+  const base = JSON.parse(readFileSync(RECIPE_TSCONFIG_BASE, "utf-8")) as {
+    compilerOptions: { paths: Record<string, unknown>; [k: string]: unknown };
+    include: string[];
+    [k: string]: unknown;
   };
+  if (includeKumiko) {
+    base.compilerOptions.paths["@app/define"] = ["./.kumiko/define.ts"];
+    base.compilerOptions.paths["@app/*"] = ["./.kumiko/*"];
+    base.include = [...base.include, ".kumiko"];
+  }
+  return base;
 }
 
 function findSampleWorkspaces(): SampleWorkspace[] {

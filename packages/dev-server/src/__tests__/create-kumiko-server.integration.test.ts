@@ -9,6 +9,7 @@ import {
   createTextField,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
 import { createKumikoServer, type KumikoServerHandle } from "../create-kumiko-server";
 
 // Integration-Test: bootet createKumikoServer mit echtem Postgres,
@@ -27,6 +28,18 @@ const probeEntity = createEntity({
 
 const probeFeature = defineFeature("dev-server-probe", (r) => {
   r.entity("probe", probeEntity);
+  // SystemAdmin-gated write — Ziel des extraRoutes.dispatchSystemWrite-
+  // Tests (252/2): Echo von user.tenantId + roles beweist Dispatch durch
+  // den echten Dispatcher (Zod + Access-Check) mit Ziel-Tenant-SystemUser.
+  r.writeHandler({
+    name: "probe-write",
+    schema: z.object({ note: z.string() }),
+    access: { roles: ["SystemAdmin"] },
+    handler: async (event) => ({
+      isSuccess: true as const,
+      data: { tenantSeen: event.user.tenantId, roles: event.user.roles },
+    }),
+  });
 });
 
 let handle: KumikoServerHandle | undefined;
@@ -283,5 +296,43 @@ describe("createKumikoServer (Multi-Entry)", () => {
       new Request("http://apex.test/", { headers: { host: "apex.test" } }),
     );
     expect(res.status).toBe(404);
+  });
+});
+
+// 252/2: der Dev-Pfad bekommt dieselbe extraRoutes-deps-Closure wie
+// runProdApp (seit der Extraktion nach extra-routes-deps.ts geteilt) —
+// hier der analoge Beweis gegen createKumikoServer.
+describe("createKumikoServer extraRoutes-deps", () => {
+  test("dispatchSystemWrite schreibt als SystemAdmin des Ziel-Tenants, registry verfügbar", async () => {
+    const tenantId = "00000000-0000-4000-8000-000000000042";
+    let registryHasProbe = false;
+    handle = await createKumikoServer({
+      features: [probeFeature],
+      port: 0,
+      installSignalHandlers: false,
+      extraRoutes: (app, deps) => {
+        registryHasProbe = deps.registry.features.has("dev-server-probe");
+        app.post("/webhook-probe", async (c) => {
+          const result = await deps.dispatchSystemWrite({
+            handlerQn: "dev-server-probe:write:probe-write",
+            payload: { note: "from-webhook" },
+            tenantId: tenantId as import("@cosmicdrift/kumiko-framework/engine").TenantId,
+          });
+          return c.json(result);
+        });
+      },
+    });
+
+    expect(registryHasProbe).toBe(true);
+
+    const res = await handle.fetch(new Request("http://test/webhook-probe", { method: "POST" }));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      isSuccess: boolean;
+      data?: { tenantSeen: string; roles: string[] };
+    };
+    expect(body.isSuccess).toBe(true);
+    expect(body.data?.tenantSeen).toBe(tenantId);
+    expect(body.data?.roles).toContain("SystemAdmin");
   });
 });

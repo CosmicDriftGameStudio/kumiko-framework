@@ -5,6 +5,7 @@ import {
   validateConfigKeyAllowPerRequest,
   validateConfigKeyBounds,
   validateConfigKeyComputed,
+  validateConfigKeyRequired,
   validateConfigReads,
   warnOnToggleableDependencies,
 } from "./config-deps";
@@ -132,6 +133,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     validateLocatedTimestamps(feature);
     validateEntityIndexes(feature);
     validateConfigKeyBounds(feature);
+    validateConfigKeyRequired(feature);
     validateConfigKeyComputed(feature);
     validateConfigKeyAllowPerRequest(feature);
     validateOwnershipRules(feature, allClaimKeys, knownRoles);

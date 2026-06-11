@@ -68,6 +68,7 @@ export type {
   ToolbarAction,
 } from "../engine/types/screen";
 export {
+  evalFieldCondition,
   isExtensionEditSection,
   isFormatSpec,
   normalizeEditField,

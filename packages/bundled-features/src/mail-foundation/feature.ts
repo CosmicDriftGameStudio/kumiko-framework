@@ -91,6 +91,10 @@ export const mailFoundationFeature = defineFeature(FEATURE_NAME, (r) => {
       // ("mailTransport").map(u => u.entityName)` as the option-list.
       provider: createTenantConfig("text", {
         default: "",
+        // required: ohne gewählten Provider wirft createTransportForTenant —
+        // readiness meldete vorher ready:true und der erste Mail-Send
+        // lieferte den UnconfiguredError (280/1).
+        required: true,
         write: access.roles("TenantAdmin", "SystemAdmin"),
         read: access.roles("TenantAdmin", "SystemAdmin", "User"),
       }),

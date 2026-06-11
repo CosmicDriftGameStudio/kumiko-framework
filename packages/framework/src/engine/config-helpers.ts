@@ -15,7 +15,10 @@ import type {
 
 export const access = {
   all: ["all"] as readonly string[], // @cast-boundary schema-walk
-  admin: ["Admin", "SystemAdmin"] as readonly string[], // @cast-boundary schema-walk
+  // TenantAdmin zusätzlich: bundled-features vergeben "TenantAdmin",
+  // App-Repos historisch "Admin" — das Preset deckt beide ab, sonst
+  // driftet die writeRole-Spalte der Feature-Reference (Manifest 243/2).
+  admin: ["TenantAdmin", "Admin", "SystemAdmin"] as readonly string[], // @cast-boundary schema-walk
   systemAdmin: ["SystemAdmin"] as readonly string[], // @cast-boundary schema-walk
   system: ["system"] as readonly string[], // @cast-boundary schema-walk
   privileged: ["system", "SystemAdmin"] as readonly string[], // @cast-boundary schema-walk

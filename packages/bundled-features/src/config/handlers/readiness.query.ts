@@ -66,15 +66,41 @@ export async function collectMissingRequiredConfig(
   callerQn: string,
   user: SessionUser,
   gate?: RequiredKeyGate,
+  options?: {
+    /** Verdict-Pfade (Rollup, selbst role-gated) MÜSSEN ungefiltert zählen:
+     *  der Per-Key-read-Filter ist Info-Disclosure-Schutz für den
+     *  openToAll-Handler — im Verdict droppte er SystemAdmin-gated
+     *  required-Keys still und meldete ready:true trotz Lücke. */
+    readonly skipAccessFilter?: boolean;
+  },
 ): Promise<ReadinessMissingKey[]> {
   const resolver = requireConfigResolver(ctx, callerQn);
   const effectiveGate = gate ?? (await buildProviderSelectionGate(ctx, callerQn, user));
-  const missing: ReadinessMissingKey[] = [];
+  // Kandidaten erst sammeln, dann EIN Batch-Resolve — die sequentielle
+  // resolver.get-Schleife war ein N+1 über alle required Keys (272/1).
+  type KeyDef =
+    ReturnType<typeof ctx.registry.getAllConfigKeys> extends ReadonlyMap<string, infer D>
+      ? D
+      : never;
+  const candidates = new Map<string, KeyDef>();
   for (const [qualifiedKey, keyDef] of ctx.registry.getAllConfigKeys()) {
     if (keyDef.required !== true) continue;
     if (!effectiveGate(qualifiedKey)) continue;
-    if (!hasConfigAccess(keyDef.access.read, user.roles)) continue;
-    const value = await resolver.get(qualifiedKey, keyDef, user.tenantId, user.id, ctx.db);
+    if (options?.skipAccessFilter !== true && !hasConfigAccess(keyDef.access.read, user.roles)) {
+      continue;
+    }
+    candidates.set(qualifiedKey, keyDef);
+  }
+  const missing: ReadinessMissingKey[] = [];
+  const cascades = await resolver.getCascadeBatch(
+    [...candidates.keys()],
+    candidates,
+    user.tenantId,
+    user.id,
+    ctx.db,
+  );
+  for (const [qualifiedKey, keyDef] of candidates) {
+    const value = cascades.get(qualifiedKey)?.value;
     if (isUnset(value, keyDef.type)) {
       missing.push({ key: qualifiedKey, scope: keyDef.scope, type: keyDef.type });
     }

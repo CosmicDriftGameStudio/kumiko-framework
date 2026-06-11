@@ -18,11 +18,8 @@
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { extractTableName } from "@cosmicdrift/kumiko-framework/db";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import {
-  applyRetentionRemovals,
-  selectFieldDefinitionsWithSerialized,
-  selectHostRowsWithCustomFields,
-} from "./db/queries/retention";
+import { applyRetentionRemovals, selectHostRowsWithCustomFields } from "./db/queries/retention";
+import { selectFieldDefinitionsForEntity } from "./db/queries/user-data-rights";
 import { isFieldDefinitionRow, parseSerializedField } from "./lib/parse-serialized-field";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
@@ -156,7 +153,7 @@ async function loadRetentionPolicies(
   tenantId: string,
   entityName: string,
 ): Promise<Map<string, RetentionPolicy>> {
-  const rows = await selectFieldDefinitionsWithSerialized(db, entityName, tenantId);
+  const rows = await selectFieldDefinitionsForEntity(db, entityName, tenantId);
   const out = new Map<string, RetentionPolicy>();
   for (const raw of rows) {
     // skip: see asHostRow rationale.

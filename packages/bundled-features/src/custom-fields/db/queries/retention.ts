@@ -1,18 +1,6 @@
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 
-// guard:dup-ok — andere SQL als selectFieldDefinitionsForEntity; gleiche Bezeichner, verschiedene Queries
-export async function selectFieldDefinitionsWithSerialized(
-  db: DbRunner,
-  entityName: string,
-  tenantId: string,
-): Promise<readonly { field_key: string; serialized_field: unknown }[]> {
-  return asRawClient(db).unsafe(
-    "SELECT field_key, serialized_field FROM read_custom_field_definitions WHERE entity_name = $1 AND tenant_id = $2",
-    [entityName, tenantId],
-  ) as Promise<readonly { field_key: string; serialized_field: unknown }[]>;
-}
-
 export async function selectHostRowsWithCustomFields(
   db: DbRunner,
   tableName: string,

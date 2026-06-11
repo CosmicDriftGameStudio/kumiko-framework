@@ -340,6 +340,16 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
             `Pick a different tableName — both would emit CREATE TABLE "${physical}".`,
         );
       }
+      // Entity-vs-entity ist genauso fatal: zwei Entities mit explizitem,
+      // identischem tableName überschrieben sich hier vorher still —
+      // doppeltes CREATE TABLE bzw. eine Projektion frisst die andere.
+      if (clash?.kind === "entity") {
+        throw new Error(
+          `Entity "${name}" (feature "${feature.name}") has physical table "${physical}" which ` +
+            `collides with entity "${clash.owner}" (feature "${clash.featureName}"). ` +
+            `Pick a different tableName — both would project into "${physical}".`,
+        );
+      }
       physicalTableOwners.set(physical, { kind: "entity", owner: name, featureName: feature.name });
     }
 

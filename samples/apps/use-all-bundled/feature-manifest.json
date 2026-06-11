@@ -784,6 +784,7 @@
           "options": null,
           "bounds": null,
           "writeRoles": [
+            "TenantAdmin",
             "Admin",
             "SystemAdmin"
           ],
@@ -807,6 +808,7 @@
           ],
           "bounds": null,
           "writeRoles": [
+            "TenantAdmin",
             "Admin",
             "SystemAdmin"
           ],
@@ -828,6 +830,7 @@
             "system"
           ],
           "readRoles": [
+            "TenantAdmin",
             "Admin",
             "SystemAdmin"
           ]
@@ -850,6 +853,7 @@
             "system"
           ],
           "readRoles": [
+            "TenantAdmin",
             "Admin",
             "SystemAdmin"
           ]
@@ -868,6 +872,7 @@
             "SystemAdmin"
           ],
           "readRoles": [
+            "TenantAdmin",
             "Admin",
             "SystemAdmin"
           ]
@@ -913,6 +918,7 @@
           ],
           "bounds": null,
           "writeRoles": [
+            "TenantAdmin",
             "Admin",
             "SystemAdmin"
           ],

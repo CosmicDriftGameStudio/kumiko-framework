@@ -727,8 +727,21 @@ describe("config.schema query handler", () => {
 describe("config.readiness query handler", () => {
   type Missing = { missing: Array<{ key: string; scope: string; type: string }> };
 
+  // Pro Test ein frischer Tenant — die Tests mutieren required-Keys und
+  // dürfen sich nicht über Reihenfolge-Kopplung gegenseitig sehen (272/3).
+  function readinessAdminFor(n: number) {
+    return createTestUser({
+      id: 700 + n,
+      tenantId: `00000000-0000-4000-8000-0000000007${String(n).padStart(2, "0")}`,
+    });
+  }
+
   test("lists required keys without a usable value — and only those", async () => {
-    const { missing } = await stack.http.queryOk<Missing>(ConfigQueries.readiness, {}, tenantAdmin);
+    const { missing } = await stack.http.queryOk<Missing>(
+      ConfigQueries.readiness,
+      {},
+      readinessAdminFor(1),
+    );
 
     const keys = missing.map((m) => m.key);
     expect(keys).toContain("transport:config:smtp-host");
@@ -740,29 +753,31 @@ describe("config.readiness query handler", () => {
   });
 
   test("whitespace-only text value still counts as missing (requireNonEmpty-Parität)", async () => {
+    const admin = readinessAdminFor(2);
     await stack.http.writeOk(
       ConfigHandlers.set,
       { key: "transport:config:api-url", value: "   " },
-      tenantAdmin,
+      admin,
     );
 
-    const { missing } = await stack.http.queryOk<Missing>(ConfigQueries.readiness, {}, tenantAdmin);
+    const { missing } = await stack.http.queryOk<Missing>(ConfigQueries.readiness, {}, admin);
     expect(missing.map((m) => m.key)).toContain("transport:config:api-url");
   });
 
   test("a real value clears the key from the missing list", async () => {
+    const admin = readinessAdminFor(3);
     await stack.http.writeOk(
       ConfigHandlers.set,
       { key: "transport:config:api-url", value: "https://api.example.com" },
-      tenantAdmin,
+      admin,
     );
     await stack.http.writeOk(
       ConfigHandlers.set,
       { key: "transport:config:timeout", value: 30 },
-      tenantAdmin,
+      admin,
     );
 
-    const { missing } = await stack.http.queryOk<Missing>(ConfigQueries.readiness, {}, tenantAdmin);
+    const { missing } = await stack.http.queryOk<Missing>(ConfigQueries.readiness, {}, admin);
     const keys = missing.map((m) => m.key);
     expect(keys).not.toContain("transport:config:api-url");
     expect(keys).not.toContain("transport:config:timeout");

@@ -87,6 +87,29 @@ export function validateConfigKeyComputed(feature: FeatureDefinition): void {
   }
 }
 
+// --- Config key required/default compatibility ---
+
+export function validateConfigKeyRequired(feature: FeatureDefinition): void {
+  for (const [keyName, keyDef] of Object.entries(feature.configKeys ?? {})) {
+    if (keyDef.required !== true) continue;
+    // required heißt "Tenant MUSS konfigurieren" — ein non-empty default
+    // oder ein computed-Resolver macht den Key nie unset, readiness könnte
+    // die Lücke nie melden: der required-Flag wäre eine stille Lüge.
+    if (keyDef.computed !== undefined) {
+      throw new Error(
+        `[Feature ${feature.name}] Config key "${keyName}" has required=true AND a computed resolver — a computed key can never be missing; drop one of the two`,
+      );
+    }
+    const d = keyDef.default;
+    const nonEmptyDefault = d !== undefined && !(typeof d === "string" && d.trim().length === 0);
+    if (nonEmptyDefault) {
+      throw new Error(
+        `[Feature ${feature.name}] Config key "${keyName}" has required=true AND a non-empty default (${JSON.stringify(d)}) — the key can never be unset, readiness would never flag it; use default "" or drop required`,
+      );
+    }
+  }
+}
+
 // --- Config key allowPerRequest compatibility ---
 
 export function validateConfigKeyAllowPerRequest(feature: FeatureDefinition): void {

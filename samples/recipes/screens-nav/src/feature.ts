@@ -66,6 +66,9 @@ export function createBookshopFeature(): FeatureDefinition {
           {
             title: "bookshop:section.basics",
             columns: 2,
+            // Demonstrates the declarative FieldCondition MECHANIC (data-gate
+            // on another field) — role-gates are not expressible here; use
+            // field-level access on the entity for those.
             fields: ["title", { field: "author", visible: { field: "published", eq: false } }],
           },
           {

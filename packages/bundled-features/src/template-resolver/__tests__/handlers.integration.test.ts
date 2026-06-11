@@ -358,6 +358,65 @@ describe("template-resolver :: list query", () => {
     expect(slugs).not.toContain("list-system-2");
   });
 
+  // Regressions-Pin 230/2 — SystemAdmin-Zweige der list-Query. Empirisch
+  // (und gewollt): auch SystemAdmin sieht über die TenantDb nur den
+  // [own, SYSTEM]-Scope — es gibt KEINE Cross-Tenant-Sicht auf fremde
+  // Tenant-Templates. TestUsers.systemAdmin lebt in testTenantId(1),
+  // NICHT im System-Tenant.
+  test("SystemAdmin + includeSystem=false → nur eigener Tenant, weder System- noch Fremd-Templates", async () => {
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertSystem,
+      { ...basePayload, slug: "sysown-system", locale: "pl", kind: "mail-html" },
+      systemAdmin,
+    );
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertTenant,
+      { ...basePayload, slug: "sysown-own", locale: "pl", kind: "mail-html" },
+      systemAdmin,
+    );
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertTenant,
+      { ...basePayload, slug: "sysown-tenant-a", locale: "pl", kind: "mail-html" },
+      tenantA_Admin,
+    );
+    const result = (await stack.http.queryOk(
+      TemplateResolverQueries.list,
+      { kind: "mail-html", locale: "pl", includeSystem: false },
+      systemAdmin,
+    )) as Array<{ slug: string }>;
+    const slugs = result.map((r) => r.slug);
+    expect(slugs).toContain("sysown-own");
+    expect(slugs).not.toContain("sysown-system");
+    expect(slugs).not.toContain("sysown-tenant-a");
+  });
+
+  test("SystemAdmin + includeSystem=true → eigene + System-Templates, Fremd-Tenant bleibt unsichtbar", async () => {
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertSystem,
+      { ...basePayload, slug: "syscross-system", locale: "nl", kind: "mail-html" },
+      systemAdmin,
+    );
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertTenant,
+      { ...basePayload, slug: "syscross-own", locale: "nl", kind: "mail-html" },
+      systemAdmin,
+    );
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertTenant,
+      { ...basePayload, slug: "syscross-tenant-b", locale: "nl", kind: "mail-html" },
+      tenantB_Admin,
+    );
+    const result = (await stack.http.queryOk(
+      TemplateResolverQueries.list,
+      { kind: "mail-html", locale: "nl", includeSystem: true },
+      systemAdmin,
+    )) as Array<{ slug: string }>;
+    const slugs = result.map((r) => r.slug);
+    expect(slugs).toContain("syscross-system");
+    expect(slugs).toContain("syscross-own");
+    expect(slugs).not.toContain("syscross-tenant-b");
+  });
+
   test("tenant-isolation: TenantA's templates nicht für TenantB", async () => {
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertTenant,

@@ -1,6 +1,7 @@
 import { qualifyEntityName } from "../qualified-name";
 import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops";
 import type { FeatureDefinition, NavDefinition, WorkspaceDefinition } from "../types";
+import type { FieldCondition, RowAction, RowFieldExtractor, ToolbarAction } from "../types/screen";
 import { isExtensionEditSection, normalizeEditField, normalizeListColumn } from "../types/screen";
 
 // --- Screen validation ---
@@ -16,6 +17,62 @@ import { isExtensionEditSection, normalizeEditField, normalizeListColumn } from 
 // Field-level renderer QN strings (cross-feature `component:` references)
 // are NOT validated here — the r.uiComponent registry that would resolve
 // them ships in M4/M5. Until then those are kept opaque on purpose.
+
+// Tier 2.7e-3: deklarative Feld-Referenzen einer Action gegen die Entity-
+// Felder pinnen — ein Tippfehler in pick/map-Quellfeldern oder
+// visible.field erzeugte sonst still `undefined` im Payload bzw. dauerhaft
+// falsche Sichtbarkeit (gleiche "Typo fällt erst beim Klick"-Klasse wie
+// navigate/handler).
+function validateActionFieldRefs(
+  featureName: string,
+  screenId: string,
+  actionKind: "rowAction" | "toolbarAction",
+  actionId: string,
+  action: RowAction | ToolbarAction,
+  fieldNames: ReadonlySet<string>,
+): void {
+  // ToolbarAction.payload ist ein STATISCHER Record (kein Row-Context) —
+  // nur echte pick/map-Extractoren werden gegen die Feldnamen geprüft.
+  const isExtractor = (v: unknown): v is RowFieldExtractor =>
+    typeof v === "object" && v !== null && ("pick" in v || "map" in v);
+  const payload = "payload" in action && isExtractor(action.payload) ? action.payload : undefined;
+  const params = "params" in action && isExtractor(action.params) ? action.params : undefined;
+  const visible: FieldCondition | undefined = "visible" in action ? action.visible : undefined;
+  const entityId: string | undefined = "entityId" in action ? action.entityId : undefined;
+  const known = () => [...fieldNames].sort().join(", ") || "(none)";
+  const checkExtractor = (label: string, extractor: RowFieldExtractor | undefined): void => {
+    // skip: extractor ist ein optionaler Action-Slot — ohne ihn gibt es
+    // keine Feld-Referenzen zu validieren.
+    if (extractor === undefined) {
+      return;
+    }
+    const sources = "pick" in extractor ? extractor.pick : Object.values(extractor.map);
+    for (const source of sources) {
+      if (source === "id") continue; // row.id ist immer da (Aggregat-Id)
+      if (!fieldNames.has(source)) {
+        throw new Error(
+          `[Feature ${featureName}] Screen "${screenId}" ${actionKind} "${actionId}" ` +
+            `${label} references unknown field "${source}". Known fields: ${known()}.`,
+        );
+      }
+    }
+  };
+  checkExtractor("payload", payload);
+  checkExtractor("params", params);
+  if (visible !== undefined && typeof visible !== "boolean" && !fieldNames.has(visible.field)) {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" ${actionKind} "${actionId}" ` +
+        `visible.field references unknown field "${visible.field}". Known fields: ${known()}.`,
+    );
+  }
+  if (entityId !== undefined && entityId !== "id" && !fieldNames.has(entityId)) {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" ${actionKind} "${actionId}" ` +
+        `entityId references unknown field "${entityId}". Known fields: ${known()}.`,
+    );
+  }
+}
+
 export function validateScreens(
   feature: FeatureDefinition,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
@@ -370,6 +427,14 @@ export function validateScreens(
               );
             }
           }
+          validateActionFieldRefs(
+            feature.name,
+            screenId,
+            "rowAction",
+            action.id,
+            action,
+            fieldNames,
+          );
         }
       }
       // Tier 2.7e-2: toolbarActions — analog zu rowActions, aber bisher
@@ -394,6 +459,14 @@ export function validateScreens(
               );
             }
           }
+          validateActionFieldRefs(
+            feature.name,
+            screenId,
+            "toolbarAction",
+            action.id,
+            action,
+            fieldNames,
+          );
         }
       }
     } else {

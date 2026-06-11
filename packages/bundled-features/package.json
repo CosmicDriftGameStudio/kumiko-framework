@@ -78,6 +78,7 @@
   "dependencies": {
     "@cosmicdrift/kumiko-dispatcher-live": "workspace:*",
     "@cosmicdrift/kumiko-framework": "workspace:*",
+    "@cosmicdrift/kumiko-headless": "workspace:*",
     "@cosmicdrift/kumiko-renderer": "workspace:*",
     "@cosmicdrift/kumiko-renderer-web": "workspace:*",
     "@mollie/api-client": "^4.5.0",

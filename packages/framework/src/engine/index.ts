@@ -66,6 +66,7 @@ export {
   EXT_STORAGE_PROVIDER,
   EXT_TENANT_DATA,
   EXT_USER_DATA,
+  EXT_USER_DATA_ORDER,
 } from "./extension-names";
 export type {
   UserDataDeleteHook,

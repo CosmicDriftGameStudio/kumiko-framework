@@ -3,7 +3,11 @@ import type {
   EntityEditScreenDefinition,
   FieldCondition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { isExtensionEditSection, normalizeEditField } from "@cosmicdrift/kumiko-framework/ui-types";
+import {
+  evalFieldCondition,
+  isExtensionEditSection,
+  normalizeEditField,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   DispatcherError,
   EditExtensionSectionViewModel,
@@ -84,12 +88,8 @@ function toConditionValue<TValues extends FormValues, TCtx>(
   cond: FieldCondition,
 ): NonNullable<FieldConditions<TValues, TCtx>["visible"]> {
   if (typeof cond === "boolean") return cond;
-  if ("eq" in cond) {
-    const { field, eq } = cond;
-    return (values: TValues) => (values as Record<string, unknown>)[field] === eq;
-  }
-  const { field, ne } = cond;
-  return (values: TValues) => (values as Record<string, unknown>)[field] !== ne;
+  // @cast-boundary form-values: TValues ist strukturell ein Record.
+  return (values: TValues) => evalFieldCondition(cond, values as Record<string, unknown>);
 }
 
 function deriveFormFields<TValues extends FormValues, TCtx>(

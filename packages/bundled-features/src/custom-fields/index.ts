@@ -24,6 +24,10 @@ export {
   setCustomFieldPayloadSchema,
 } from "./handlers/set-custom-field.write";
 export {
+  isFieldDefinitionRow,
+  parseSerializedField,
+} from "./lib/parse-serialized-field";
+export {
   type DefineFieldPayload,
   type DeleteFieldPayload,
   defineFieldPayloadSchema,

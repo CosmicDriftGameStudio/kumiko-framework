@@ -486,9 +486,16 @@ export type DialogProps = {
 };
 
 /** Source-badge for one cascade step (User / Tenant / System / …).
- *  Used inline next to a config value to indicate where it came from. */
+ *  Used inline next to a config value to indicate where it came from.
+ *  Requires a LocaleProvider above it (labels run through useTranslation)
+ *  — createKumikoApp wires one; standalone consumers must wrap. */
 export type ConfigSourceBadgeProps = {
   readonly source: ConfigValueSource;
+  /** Scope of the hosting screen. Non-system screens collapse sources
+   *  ABOVE their scope (system-row/app-override/computed) into the neutral
+   *  default badge — operator internals stay invisible to tenants, same
+   *  rule as ConfigCascadeView's toDisplayLevels. */
+  readonly screenScope?: ConfigScope;
 };
 
 /** Collapsible cascade-view that lives under a config-edit input.

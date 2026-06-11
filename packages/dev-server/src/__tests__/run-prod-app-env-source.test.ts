@@ -92,6 +92,45 @@ describe("runProdApp boot-mode env-source", () => {
     await handle.stop();
   });
 
+  test("boot-mode constructs no eager Redis client — kein TCP-Connect auf REDIS_URL", async () => {
+    // Kern-Garantie (224/2), als Netzwerk-Beweis statt Konstruktor-Spy:
+    // REDIS_URL zeigt auf einen lokalen Listener — `new Redis(...)`
+    // connectet eager, der Boot-Exit MUSS also vorher liegen, sonst
+    // zählt der Listener eine Connection.
+    let connections = 0;
+    const listener = Bun.listen({
+      hostname: "127.0.0.1",
+      port: 0,
+      socket: {
+        open(socket) {
+          connections += 1;
+          socket.end();
+        },
+        data() {},
+      },
+    });
+
+    const originalLog = console.log;
+    console.log = () => {};
+    try {
+      const handle = await runProdApp({
+        features: [probeFeature],
+        autoListen: false,
+        migrations: false,
+        envSource: { ...DUMMY_ENV, REDIS_URL: `redis://127.0.0.1:${listener.port}` },
+      });
+      await handle.stop();
+    } finally {
+      console.log = originalLog;
+    }
+
+    // Ein eager Connect wäre bereits beim runProdApp-await passiert;
+    // kleine Nachfrist für asynchrone Socket-Anläufe.
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    listener.stop(true);
+    expect(connections).toBe(0);
+  });
+
   test("resolves PORT from envSource, not process.env", async () => {
     const logs: string[] = [];
     const originalLog = console.log;

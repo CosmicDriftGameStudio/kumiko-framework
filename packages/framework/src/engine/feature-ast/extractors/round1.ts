@@ -97,10 +97,17 @@ export function extractDescribe(
       "expected a single string literal",
     );
   }
+  // Mirrors the define-feature boot guard: whitespace-only describes throw
+  // at boot — the AST path must reject them too, and store the TRIMMED
+  // text so render output matches the runtime/manifest value.
+  const trimmed = text.trim();
+  if (trimmed.length === 0) {
+    return fail("describe", sourceLocationFromNode(call, sourceFile), "must be a non-empty string");
+  }
   return ok({
     kind: "describe",
     source: sourceLocationFromNode(call, sourceFile),
-    text,
+    text: trimmed,
   });
 }
 

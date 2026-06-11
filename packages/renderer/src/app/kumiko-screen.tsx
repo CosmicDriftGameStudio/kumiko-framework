@@ -5,13 +5,13 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
-  FieldCondition,
   RowAction,
   RowActionWriteHandler,
   RowFieldExtractor,
   ScreenDefinition,
   ToolbarAction,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   Command,
   FormSnapshot,
@@ -44,13 +44,6 @@ function evalRowExtractor(
     return Object.fromEntries(extractor.pick.map((f) => [f, row[f]]));
   }
   return Object.fromEntries(Object.entries(extractor.map).map(([to, from]) => [to, row[from]]));
-}
-
-function evalFieldCondition(cond: FieldCondition, values: Record<string, unknown>): boolean {
-  if (typeof cond === "boolean") return cond;
-  const val = values[cond.field];
-  if ("eq" in cond) return val === cond.eq;
-  return val !== cond.ne;
 }
 
 // KumikoScreen picks up a ScreenDefinition from the schema by qn and
@@ -695,9 +688,16 @@ function EntityListBody({
         // immer da (Provider von createKumikoApp).
         if (action.kind === "navigate") {
           // Default entityId für entityEdit-Targets: row["id"] wenn
-          // kein expliziter entityId-Feldname gesetzt ist.
+          // kein expliziter entityId-Feldname gesetzt ist. Nur für Targets
+          // DERSELBEN Entity — ein Cross-Entity-Edit-Screen bekäme sonst die
+          // falsche row.id injiziert, und "Duplicate → Create"-Patterns
+          // würden in den Update-Mode gezwungen. Cross-Entity-Navigation
+          // setzt action.entityId explizit.
           const targetIsEntityEdit = schema.screens.some(
-            (s) => s.type === "entityEdit" && lastSegment(s.id) === action.screen,
+            (s) =>
+              s.type === "entityEdit" &&
+              s.entity === screen.entity &&
+              lastSegment(s.id) === action.screen,
           );
           const actionVisible = action.visible;
           return {
@@ -731,6 +731,11 @@ function EntityListBody({
                 // NACH navigate: pushState trägt keine Query — Params die
                 // vor dem Push gesetzt werden, kleben an der ALTEN URL und
                 // sind auf dem Ziel-Screen weg (actionForm-Prefill leer).
+                // Bekannte Kante (bewusst offen): zielt die Action auf den
+                // AKTUELLEN pathname, short-circuit't pushPath ohne die Query
+                // zu leeren — die neuen Params mergen dann auf den alten
+                // ?-String. Für Row-Actions praktisch nicht erreichbar
+                // (Pfad differiert über entityId/screen).
                 nav.setSearchParams(stringified);
               }
             },
@@ -777,7 +782,7 @@ function EntityListBody({
         };
       })
       .filter((a: DataTableRowAction | null): a is DataTableRowAction => a !== null);
-  }, [screen.rowActions, effectiveTranslate, dispatcher, nav, schema.screens]);
+  }, [screen.rowActions, screen.entity, effectiveTranslate, dispatcher, nav, schema.screens]);
 
   // ToolbarActions: Schema → Resolved-Form (analog rowActions).
   // navigate-kind → useNav().navigate({ screenId }), writeHandler-kind
@@ -1147,7 +1152,9 @@ function ConfigEditBody({
       {...(translate !== undefined && { translate })}
       labelAppendix={(fieldName: string) => {
         const source = sources[fieldName];
-        return source ? <ConfigSourceBadge source={source} /> : undefined;
+        return source ? (
+          <ConfigSourceBadge source={source} screenScope={screen.scope} />
+        ) : undefined;
       }}
       fieldAppendix={(fieldName: string) => {
         const cascade = cascades[fieldName];

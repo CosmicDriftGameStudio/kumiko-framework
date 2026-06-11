@@ -1,5 +1,5 @@
 {
-  "_comment": "Reference only — check-app-tsc generates per-recipe .check-tsconfig.json at runtime. Paths are relative to samples/recipes/<name>/.",
+  "_comment": "Single source of truth \u2014 check-app-tsc reads this template and overlays the @app/define branch for codegen recipes. Paths are relative to samples/recipes/<name>/.",
   "extends": "../../../tsconfig.json",
   "compilerOptions": {
     "baseUrl": ".",
