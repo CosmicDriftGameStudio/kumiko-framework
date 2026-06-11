@@ -51,6 +51,15 @@ const probeFeature = defineFeature("readiness-probe", (r) => {
         default: 30,
         write: access.roles("TenantAdmin", "SystemAdmin"),
       }),
+      // Operator-Key: required, aber read/write über dem TenantAdmin —
+      // der Verdict muss ihn TROTZDEM zählen (277/1: der Per-Key-read-
+      // Filter droppte ihn still und log ready:true).
+      operatorEndpoint: createTenantConfig("text", {
+        required: true,
+        default: "",
+        write: access.roles("SystemAdmin"),
+        read: access.roles("SystemAdmin"),
+      }),
     },
   });
 
@@ -169,6 +178,16 @@ function adminFor(tenantNumber: number) {
   });
 }
 
+// Der 277/1-Probe-Key ist SystemAdmin-gated — Tests, die ready:true
+// erwarten, setzen ihn über diesen Helper (gleicher Tenant, Operator-Rolle).
+async function setOperatorEndpoint(admin: ReturnType<typeof adminFor>): Promise<void> {
+  await stack.http.writeOk(
+    "config:write:set",
+    { key: "readiness-probe:config:operator-endpoint", value: "https://op.example.test" },
+    { ...admin, roles: ["SystemAdmin"] },
+  );
+}
+
 async function statusFor(admin: ReturnType<typeof adminFor>): Promise<StatusResult> {
   return stack.http.queryOk<StatusResult>(ReadinessQueries.status, {}, admin);
 }
@@ -206,11 +225,25 @@ describe("readiness:query:status", () => {
       { key: REQUIRED_SECRET_KEY, value: "token-xyz" },
       admin,
     );
+    await setOperatorEndpoint(admin);
 
     const status = await statusFor(admin);
     expect(status.missingConfig.map((k) => k.key)).not.toContain(REQUIRED_CONFIG_KEY);
     expect(status.missingSecrets).toEqual([]);
     expect(status.ready).toBe(true);
+  });
+
+  test("SystemAdmin-gated required Key zählt im Verdict des TenantAdmin (277/1)", async () => {
+    const admin = adminFor(605);
+
+    const status = await statusFor(admin);
+
+    // Der Caller darf den Key nicht LESEN — fürs Verdict muss er trotzdem
+    // als missing erscheinen, sonst lügt ready:true.
+    expect(status.missingConfig.map((k) => k.key)).toContain(
+      "readiness-probe:config:operator-endpoint",
+    );
+    expect(status.ready).toBe(false);
   });
 
   test("tenant isolation: tenant A's values don't make tenant B ready", async () => {
@@ -227,6 +260,7 @@ describe("readiness:query:status", () => {
       { key: REQUIRED_SECRET_KEY, value: "token-a" },
       adminA,
     );
+    await setOperatorEndpoint(adminA);
 
     expect((await statusFor(adminA)).ready).toBe(true);
     const statusB = await statusFor(adminB);
@@ -288,6 +322,7 @@ describe("readiness:query:status", () => {
       { key: REQUIRED_SECRET_KEY, value: "token-609" },
       admin,
     );
+    await setOperatorEndpoint(admin);
 
     const status = await statusFor(admin);
     expect(status.missingConfig).toEqual([]);
