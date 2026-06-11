@@ -20,7 +20,6 @@ import { readFile, watch } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { type AuthRoutesConfig, generateToken } from "@cosmicdrift/kumiko-framework/api";
-import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import {
   buildAppSchema,
   type FeatureDefinition,
