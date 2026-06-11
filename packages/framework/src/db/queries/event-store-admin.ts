@@ -8,8 +8,11 @@ export type RawFirstEventInsertParams = {
   readonly newVersion: number;
   readonly type: string;
   readonly eventVersion: number;
-  readonly payloadJson: string;
-  readonly metadataJson: string;
+  // Plain objects — a JS string bound to ::jsonb double-encodes under
+  // Bun.SQL (jsonb string scalar instead of object), see
+  // db/queries/event-store.ts SubsequentEventInsertParams.
+  readonly payload: Record<string, unknown>;
+  readonly metadata: Record<string, unknown>;
   readonly createdAt: string;
   readonly createdBy: string;
 };
@@ -31,8 +34,8 @@ export async function insertRawFirstEvent(
       params.newVersion,
       params.type,
       params.eventVersion,
-      params.payloadJson,
-      params.metadataJson,
+      params.payload,
+      params.metadata,
       params.createdAt,
       params.createdBy,
     ],
@@ -67,8 +70,8 @@ export async function insertRawSubsequentEvent(
       params.newVersion,
       params.type,
       params.eventVersion,
-      params.payloadJson,
-      params.metadataJson,
+      params.payload,
+      params.metadata,
       params.createdAt,
       params.createdBy,
       params.expectedVersion,

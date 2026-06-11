@@ -1,6 +1,7 @@
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
+import { DEFAULT_VALUE_WRITE_ROLES } from "../constants";
 import { customFieldsFeature } from "../feature";
 import { fieldWriteAccessDeniedRoles, loadFieldDefinition } from "../lib/field-access";
 import { buildCustomFieldValueSchema } from "../lib/value-schema";
@@ -48,7 +49,7 @@ export type SetCustomFieldPayload = z.infer<typeof setCustomFieldPayloadSchema>;
 export const setCustomFieldHandler: WriteHandlerDef = {
   name: "set-custom-field",
   schema: setCustomFieldPayloadSchema,
-  access: { roles: ["TenantAdmin", "TenantMember"] },
+  access: { roles: DEFAULT_VALUE_WRITE_ROLES },
   handler: async (event, ctx) => {
     const payload = event.payload as SetCustomFieldPayload; // @cast-boundary engine-payload
 
@@ -102,3 +103,12 @@ export const setCustomFieldHandler: WriteHandlerDef = {
     };
   },
 };
+
+/** Value-Write mit App-Rollen statt der Bundle-Defaults — Apps mit eigenem
+ *  Rollen-Vokabular (z.B. "Admin"/"Editor") reichen ihre Rollen über
+ *  createCustomFieldsFeature({ valueWriteRoles }) hierher durch. */
+export function createSetCustomFieldHandler(
+  roles: readonly string[] = DEFAULT_VALUE_WRITE_ROLES,
+): WriteHandlerDef {
+  return { ...setCustomFieldHandler, access: { roles } };
+}

@@ -50,6 +50,15 @@ export const CUSTOM_FIELD_CLEARED_EVENT = "custom-field-cleared";
 // dass eine host-entity Custom-Fields haben darf.
 export const CUSTOM_FIELDS_EXTENSION = "customFields";
 
+// Default-RBAC der Value-Write- und List-Pfade. Apps mit eigenem Rollen-
+// Vokabular (publicstatus: "Admin"/"Editor" statt "TenantAdmin"/
+// "TenantMember") überschreiben via createCustomFieldsFeature({
+// valueWriteRoles, fieldDefinitionListRoles }) — sonst sind die hart
+// verdrahteten Bundle-QNs, die die CustomFieldsFormSection dispatcht,
+// für jeden App-User access_denied.
+export const DEFAULT_VALUE_WRITE_ROLES = ["TenantAdmin", "TenantMember"] as const;
+export const DEFAULT_FIELD_DEFINITION_LIST_ROLES = ["TenantAdmin"] as const;
+
 // Field-type union — identisch zu Stammfeld-Field-Type-System (Spec Z.59-73:
 // `Identisch zu Entity-Feld-Typen`). Builder-Reuse-Promise: was `r.field.X()`
 // kann, kann eine Custom-Field-Definition auch.

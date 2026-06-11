@@ -13,8 +13,12 @@ export type SubsequentEventInsertParams = {
   readonly newVersion: number;
   readonly type: string;
   readonly eventVersion: number;
-  readonly payloadJson: string;
-  readonly metadataJson: string;
+  // Plain objects, NOT pre-stringified JSON: Bun.SQL encodes a JS string
+  // bound to ::jsonb as a JSON string scalar (double-encoding) — every
+  // version>1 event written between 2026-05-25 and this fix carried
+  // payload/metadata as jsonb strings instead of objects.
+  readonly payload: Record<string, unknown>;
+  readonly metadata: Record<string, unknown>;
   readonly createdBy: string;
   readonly expectedVersion: number;
 };
@@ -51,8 +55,8 @@ export async function insertSubsequentEventRow(
       params.newVersion,
       params.type,
       params.eventVersion,
-      params.payloadJson,
-      params.metadataJson,
+      params.payload,
+      params.metadata,
       params.createdBy,
       params.expectedVersion,
     ],
@@ -127,7 +131,9 @@ export type SaveSnapshotParams = {
   readonly tenantId: string;
   readonly aggregateType: string;
   readonly version: number;
-  readonly stateJson: string;
+  // Plain object — see SubsequentEventInsertParams on why pre-stringified
+  // JSON double-encodes under Bun.SQL's ::jsonb binding.
+  readonly state: Record<string, unknown>;
 };
 
 export async function upsertSnapshot(db: AnyDb, params: SaveSnapshotParams): Promise<void> {
@@ -139,7 +145,7 @@ export async function upsertSnapshot(db: AnyDb, params: SaveSnapshotParams): Pro
        "state" = $5::jsonb,
        "aggregate_type" = $3,
        "created_at" = now()`,
-    [params.aggregateId, params.tenantId, params.aggregateType, params.version, params.stateJson],
+    [params.aggregateId, params.tenantId, params.aggregateType, params.version, params.state],
   );
 }
 

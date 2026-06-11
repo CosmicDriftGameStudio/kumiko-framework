@@ -1553,3 +1553,126 @@ describe("KumikoScreen", () => {
     expect(navigateCalls[0]).toEqual({ screenId: "task-edit" });
   });
 });
+
+// --- update-only entityEdit (allowCreate / allowDelete, Wave J) ---
+// Lifecycle-Entities (incident: Create über incident:open, kein CRUD-delete)
+// brauchen einen Edit-Screen OHNE die CRUD-Annahmen — sonst rendert die
+// Liste einen „+ Neu"-Button in einen Create-Branch, dessen Submit gegen
+// einen nicht registrierten <entity>:create-Handler liefe, und das
+// Update-Form einen Delete-Button gegen einen fehlenden delete-Handler.
+describe("KumikoScreen: update-only entityEdit (allowCreate/allowDelete)", () => {
+  const updateOnlyEdit: EntityEditScreenDefinition = {
+    id: "task-edit",
+    type: "entityEdit",
+    entity: "task",
+    allowCreate: false,
+    allowDelete: false,
+    layout: { sections: [{ title: "Basics", fields: ["title"] }] },
+  };
+  const updateOnlySchema: FeatureSchema = {
+    featureName: "tasks",
+    entities: { task: taskEntity },
+    screens: [updateOnlyEdit, listScreen],
+  };
+
+  test("allowDelete:false → update-mode rendert keinen Delete-Button", async () => {
+    const dispatcher = makeDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { id: "task-1", version: 3, title: "loaded", count: 0, done: false },
+      })) as unknown as Dispatcher["query"],
+    });
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={updateOnlySchema} qn="tasks:screen:task-edit" entityId="task-1" />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+    expect(screen.queryByTestId("render-edit-delete")).toBeNull();
+  });
+
+  test("allowCreate:false → entityList rendert keinen automatischen + Neu-Button", async () => {
+    const dispatcher = makeDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { rows: [], nextCursor: null },
+      })) as unknown as Dispatcher["query"],
+    });
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={updateOnlySchema} qn="tasks:screen:task-list" />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+    expect(screen.queryByTestId("render-list-create")).toBeNull();
+  });
+
+  test("allowCreate:false → Aufruf ohne entityId zeigt Fehler-Banner statt Create-Form", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <KumikoScreen schema={updateOnlySchema} qn="tasks:screen:task-edit" />
+      </DispatcherProvider>,
+    );
+    expect(screen.getByTestId("kumiko-screen-create-disabled")).toBeTruthy();
+    expect(screen.queryByTestId("render-edit-form")).toBeNull();
+  });
+});
+
+// --- actionForm extension-section (Wave J: Incident-Update-Timeline) ---
+// actionForm hat keinen record — Extension-Sections bekommen stattdessen
+// die initialen Form-Values (inkl. searchParams-Prefill) als initialValues.
+// Ohne den Durchgriff bliebe eine Kontext-Section (z.B. Update-Timeline,
+// die ?incidentId liest) blind.
+describe("KumikoScreen: actionForm extension-section", () => {
+  test("extension-section erhält initialValues inkl. searchParams-Prefill", async () => {
+    const actionScreen: ActionFormScreenDefinition = {
+      id: "post-update",
+      type: "actionForm",
+      handler: "tasks:write:task:post-update",
+      fields: {
+        incidentId: { type: "text", required: true },
+        body: { type: "text", required: true },
+      },
+      layout: {
+        sections: [
+          {
+            kind: "extension",
+            title: "Timeline",
+            component: { react: { __component: "UpdateTimeline" } },
+          },
+          { title: "Update", fields: ["incidentId", "body"] },
+        ],
+      },
+    };
+    const UpdateTimeline = ({
+      initialValues,
+    }: {
+      initialValues?: Readonly<Record<string, unknown>>;
+    }) => (
+      <div data-testid="update-timeline">{String(initialValues?.["incidentId"] ?? "(none)")}</div>
+    );
+    const memoryNav = {
+      route: { screenId: "post-update" },
+      navigate: () => undefined,
+      replace: () => undefined,
+      hrefFor: (t: { screenId: string }) => `/${t.screenId}`,
+      searchParams: { incidentId: "inc-7" },
+      setSearchParams: () => undefined,
+    };
+    const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
+    render(
+      <NavProvider value={memoryNav}>
+        <DispatcherProvider dispatcher={makeDispatcher()}>
+          <ExtensionSectionsProvider value={{ UpdateTimeline }}>
+            <KumikoScreen
+              schema={{ ...schema, screens: [actionScreen] }}
+              qn="tasks:screen:post-update"
+            />
+          </ExtensionSectionsProvider>
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+    expect(screen.getByTestId("update-timeline").textContent).toBe("inc-7");
+  });
+});

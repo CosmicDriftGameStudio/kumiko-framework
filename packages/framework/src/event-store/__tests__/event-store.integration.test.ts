@@ -584,3 +584,59 @@ describe("event-store: streamAllEventsByType (memory-bounded iteration)", () => 
     expect((thrown as Error).name).toBe("AbortError");
   });
 });
+
+describe("event-store: jsonb encoding of payload/metadata", () => {
+  // Regression für die Bun.SQL-Doppelkodierung (Prod-Incident 2026-06-11):
+  // insertSubsequentEventRow band stringifyJson(payload) an ::jsonb — Bun
+  // kodiert einen JS-String für jsonb erneut, das Ergebnis ist ein jsonb-
+  // STRING-Skalar statt einem Objekt. Der typed Read-Pfad parsed Strings
+  // beim Laden zurück (bun-db/query.ts), deshalb blieb das in allen
+  // loadAggregate-Tests unsichtbar — nur SQL-Konsumenten (payload->>'x',
+  // GDPR-Pipeline, MSP-Replays über raw rows) sahen kaputte Daten. Darum
+  // prüft dieser Test das Spalten-Encoding direkt in SQL.
+  test("first AND subsequent append store payload/metadata as jsonb objects", async () => {
+    const aggregateId = uuid();
+    const base = {
+      aggregateId,
+      aggregateType: "task",
+      tenantId: tenantA,
+      metadata: { userId: userA },
+    };
+
+    await append(testDb.db, {
+      ...base,
+      expectedVersion: 0,
+      type: "task.created",
+      payload: { title: "T" },
+    });
+    await append(testDb.db, {
+      ...base,
+      expectedVersion: 1,
+      type: "task.updated",
+      payload: { title: "T2", nested: { deep: true } },
+    });
+
+    const rows = (await asRawClient(testDb.db).unsafe(
+      `SELECT version,
+              jsonb_typeof(payload) AS payload_type,
+              jsonb_typeof(metadata) AS metadata_type,
+              payload->>'title' AS title
+       FROM kumiko_events WHERE aggregate_id = $1 ORDER BY version`,
+      [aggregateId],
+    )) as ReadonlyArray<{
+      version: number;
+      payload_type: string;
+      metadata_type: string;
+      title: string | null;
+    }>;
+
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row.payload_type).toBe("object");
+      expect(row.metadata_type).toBe("object");
+    }
+    // SQL-seitiger Feldzugriff funktioniert nur auf echten Objekten —
+    // genau der Pfad, der mit String-Skalaren null lieferte.
+    expect(rows[1]?.title).toBe("T2");
+  });
+});

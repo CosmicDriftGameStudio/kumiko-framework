@@ -96,6 +96,15 @@ export type ApiEntrypointOptions = BaseEntrypointOptions & {
   readonly jobs?: JobsBlock & {
     readonly runLocalJobs?: boolean;
   };
+  // Event-dispatcher inside the API process — the MSP analog to
+  // `jobs.runLocalJobs`. Single-container deployments (runProdApp) have no
+  // worker process; without `runLocal: true` their multiStreamProjections
+  // NEVER apply (the read-side silently stays empty — 2026-06-11 incident).
+  // processLane becomes "both" so worker-lane MSPs run here too.
+  // Deployments with a dedicated worker keep this unset.
+  readonly eventDispatcher?: ServerOptions["eventDispatcher"] & {
+    readonly runLocal?: boolean;
+  };
 };
 
 export type WorkerEntrypointOptions = BaseEntrypointOptions &
@@ -117,9 +126,13 @@ export type ApiEntrypoint = {
   // Command-dispatcher behind /api/* — for writes outside the HTTP
   // pipeline (provider-webhook routes, see KumikoServer.dispatcher).
   readonly dispatcher: Dispatcher;
+  // Set when `eventDispatcher.runLocal: true` built a local poller —
+  // single-container mode. Undefined for API-only processes.
+  readonly eventDispatcher?: EventDispatcher;
   readonly mode: "api";
-  // No-op on API mode — event-dispatcher isn't built, job-runner doesn't
-  // exist. Kept for a uniform call-site so `main.ts` doesn't branch on mode.
+  // Starts the local BullMQ worker (runLocalJobs) and the local
+  // event-dispatcher (eventDispatcher.runLocal) when configured;
+  // no-op otherwise. Uniform call-site so `main.ts` doesn't branch on mode.
   start(): Promise<void>;
   stop(): Promise<void>;
 };
@@ -322,9 +335,19 @@ export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoin
       )
     : undefined;
 
-  // `{disabled:true}` skips dispatcher creation entirely — an API process
-  // doesn't hold an idle poller.
-  const server = buildApiServer(options, lifecycle, { disabled: true }, apiJobRunner, "api");
+  // Without `runLocal` the dispatcher is skipped entirely (`{disabled:true}`)
+  // — an API process behind a dedicated worker doesn't hold an idle poller.
+  // WITH `runLocal` this process fills every role (single-container), so
+  // processLane is "both": worker-lane MSPs must run here or they'd never
+  // apply anywhere.
+  const { runLocal: runLocalDispatcher, ...dispatcherTunables } = options.eventDispatcher ?? {};
+  const server = buildApiServer(
+    options,
+    lifecycle,
+    runLocalDispatcher ? dispatcherTunables : { disabled: true },
+    apiJobRunner,
+    runLocalDispatcher ? "both" : "api",
+  );
 
   return {
     app: server.app,
@@ -333,12 +356,17 @@ export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoin
     lifecycle,
     observability: server.observability,
     dispatcher: server.dispatcher,
+    ...(server.eventDispatcher && { eventDispatcher: server.eventDispatcher }),
     mode: "api",
     async start() {
       // Start the local BullMQ worker when runLocalJobs=true; enqueuer-only
       // runners have a no-op .start() by design (JobRunner skips worker
       // creation when consumerLane is undefined).
       if (apiJobRunner) await apiJobRunner.start();
+      // Local event-dispatcher (runLocal): begins the poll loop so MSPs
+      // apply in-process. stop() is already lifecycle-registered by
+      // buildServer.
+      if (server.eventDispatcher) await server.eventDispatcher.start();
     },
     async stop() {
       await lifecycle.drain();
@@ -410,11 +438,13 @@ export function createAllInOneEntrypoint(options: AllInOneEntrypointOptions): Al
   // config instead of `{disabled:true}`, so buildServer wires the poller
   // alongside the HTTP app. processLane "both" disables MSP lane-filter
   // entirely: all-in-one is a single process that fills every role, so
-  // every MSP (api-only, worker-only, both) must run here.
+  // every MSP (api-only, worker-only, both) must run here. `runLocal` is
+  // the API-mode flag — all-in-one is always local, strip it.
+  const { runLocal: _runLocal, ...allInOneDispatcherTunables } = options.eventDispatcher ?? {};
   const server = buildApiServer(
     options,
     lifecycle,
-    options.eventDispatcher,
+    allInOneDispatcherTunables,
     workerJobRunner,
     "both",
   );
