@@ -13,7 +13,7 @@
 
 import type { DbConnection } from "../db/connection";
 import { instant, table as pgTable, sql, text } from "../db/dialect";
-import { asRawClient } from "../db/query";
+import { deleteMany, selectMany, upsertOnConflict } from "../db/query";
 import { readRebuildMarker } from "../db/rebuild-marker";
 import { tableExists } from "../db/schema-inspection";
 import type { Registry } from "../engine/types";
@@ -35,8 +35,8 @@ export async function createPendingRebuildsTable(db: DbConnection): Promise<void
 
 /** Liest die rebuild-Marker der frisch applizierten Migrations und queued
  *  die betroffenen Tabellen. Upsert: ein bereits pending-er Tisch behält
- *  seinen Eintrag (älteste migration_id gewinnt — fürs Debugging reicht
- *  irgendein Bezug). */
+ *  seinen Queue-Slot (queued_at bleibt, damit die Reihenfolge stabil ist) —
+ *  migration_id zeigt auf die zuletzt flaggende Migration (Debug-Bezug). */
 export async function queueRebuildsFromMarkers(
   db: DbConnection,
   options: { readonly migrationsDir: string; readonly appliedIds: readonly string[] },
@@ -45,11 +45,11 @@ export async function queueRebuildsFromMarkers(
   const queued: string[] = [];
   for (const migrationId of options.appliedIds) {
     for (const tableName of readRebuildMarker(options.migrationsDir, migrationId)) {
-      await asRawClient(db).unsafe(
-        `INSERT INTO kumiko_pending_rebuilds (table_name, migration_id)
-         VALUES ($1, $2)
-         ON CONFLICT (table_name) DO NOTHING`,
-        [tableName, migrationId],
+      await upsertOnConflict(
+        db,
+        pendingRebuildsTable,
+        { tableName, migrationId },
+        { conflictKeys: ["tableName"], update: { migrationId } },
       );
       queued.push(tableName);
     }
@@ -57,24 +57,19 @@ export async function queueRebuildsFromMarkers(
   return queued;
 }
 
+type PendingRebuildRow = { readonly tableName: string };
+
 export async function listPendingRebuilds(db: DbConnection): Promise<readonly string[]> {
   await createPendingRebuildsTable(db);
-  const rows = await asRawClient(db).unsafe(
-    `SELECT table_name FROM kumiko_pending_rebuilds ORDER BY queued_at, table_name`,
-  );
-  const names: string[] = [];
-  for (const row of rows as Array<Record<string, unknown>>) {
-    const name = row["table_name"];
-    if (typeof name === "string") names.push(name);
-  }
-  return names;
+  const rows = await selectMany<PendingRebuildRow>(db, pendingRebuildsTable, undefined, {
+    orderBy: [{ col: "queuedAt" }, { col: "tableName" }],
+  });
+  return rows.map((row) => row.tableName);
 }
 
 async function clearPendingRebuilds(db: DbConnection, tables: readonly string[]): Promise<void> {
   for (const tableName of tables) {
-    await asRawClient(db).unsafe(`DELETE FROM kumiko_pending_rebuilds WHERE table_name = $1`, [
-      tableName,
-    ]);
+    await deleteMany(db, pendingRebuildsTable, { tableName });
   }
 }
 
