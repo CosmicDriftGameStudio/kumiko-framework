@@ -90,6 +90,9 @@ export type RunDevAppAuthOptions = {
   readonly signup?: SignupSetup;
   /** Tenant-Invite flow (Magic-Link). Symmetric. */
   readonly invite?: InviteSetup;
+  /** Domain attribute for both auth cookies (see
+   *  AuthRoutesConfig.cookieDomain). Symmetric zu RunProdAppAuthOptions. */
+  readonly cookieDomain?: string;
 };
 
 /** Hook for app-specific seeding (demo data, fixtures). Runs after the
@@ -268,6 +271,9 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
           [AuthErrors.invalidCredentials]: 401,
           [AuthErrors.noMembership]: 403,
         },
+        ...(options.auth.cookieDomain !== undefined && {
+          cookieDomain: options.auth.cookieDomain,
+        }),
         ...sessionAuthFragment,
         ...(options.auth.passwordReset && {
           passwordReset: {

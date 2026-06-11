@@ -177,3 +177,82 @@ describe("auth-routes cookie behaviour on /auth/switch-tenant", () => {
     expect(newAuth?.value).not.toBe(validToken); // new jwt
   });
 });
+
+// cookieDomain — Bug-Bash-2 Wave I (Auth auf Marketing-Host): Login auf
+// dem Apex muss eine Session setzen die admin.<domain> mitliest. Ohne
+// Option bleibt das Cookie host-only (kein Domain-Attribut).
+describe("auth-routes cookieDomain", () => {
+  async function login(app: Hono): Promise<Response> {
+    return app.request("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "a@b.c", password: "pw" }),
+    });
+  }
+
+  test("ohne cookieDomain: kein Domain-Attribut auf den Cookies", async () => {
+    const { app } = await buildApp();
+    const res = await login(app);
+    expect(getSetCookieRaw(res, AUTH_COOKIE_NAME)).not.toMatch(/Domain=/i);
+    expect(getSetCookieRaw(res, CSRF_COOKIE_NAME)).not.toMatch(/Domain=/i);
+  });
+
+  test("login: cookieDomain setzt Domain auf BEIDEN Cookies", async () => {
+    const { app } = await buildApp({ cookieDomain: "example.eu" });
+    const res = await login(app);
+    expect(getSetCookieRaw(res, AUTH_COOKIE_NAME)).toMatch(/Domain=example\.eu/i);
+    expect(getSetCookieRaw(res, CSRF_COOKIE_NAME)).toMatch(/Domain=example\.eu/i);
+  });
+
+  test("switch-tenant: rotierte Cookies tragen das Domain-Attribut", async () => {
+    const otherTenant = TestUsers.otherTenant;
+    const dispatcher = createStubDispatcher({
+      async query(type: string, _payload: unknown, _user: SessionUser): Promise<unknown> {
+        if (type === "tenant:query:memberships") {
+          return [
+            {
+              userId: TestUsers.user.id,
+              tenantId: otherTenant.tenantId,
+              roles: otherTenant.roles,
+            },
+          ];
+        }
+        return [];
+      },
+    });
+    const { app, validToken } = await buildApp({ cookieDomain: "example.eu" }, dispatcher);
+    const res = await app.request("/api/auth/switch-tenant", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${validToken}`,
+      },
+      body: JSON.stringify({ tenantId: otherTenant.tenantId }),
+    });
+    expect(res.status).toBe(200);
+    expect(getSetCookieRaw(res, AUTH_COOKIE_NAME)).toMatch(/Domain=example\.eu/i);
+  });
+
+  test("logout löscht beide Varianten: mit Domain UND host-only", async () => {
+    const { app, validToken } = await buildApp({ cookieDomain: "example.eu" });
+    const res = await app.request("/api/auth/logout", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${validToken}` },
+    });
+    expect(res.status).toBe(200);
+    const raw = res.headers.getSetCookie();
+    const authDeletes = raw.filter(
+      (c) => c.startsWith(`${AUTH_COOKIE_NAME}=`) && /Max-Age=0/i.test(c),
+    );
+    const csrfDeletes = raw.filter(
+      (c) => c.startsWith(`${CSRF_COOKIE_NAME}=`) && /Max-Age=0/i.test(c),
+    );
+    // Host-only-Bestand (vor cookieDomain gesetzt) + aktuelle Domain-
+    // Variante — beide müssen invalidiert werden, sonst wirkt der Logout
+    // auf dem alten Cookie nicht.
+    expect(authDeletes.some((c) => /Domain=example\.eu/i.test(c))).toBe(true);
+    expect(authDeletes.some((c) => !/Domain=/i.test(c))).toBe(true);
+    expect(csrfDeletes.some((c) => /Domain=example\.eu/i.test(c))).toBe(true);
+    expect(csrfDeletes.some((c) => !/Domain=/i.test(c))).toBe(true);
+  });
+});
