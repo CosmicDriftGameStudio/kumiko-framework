@@ -63,7 +63,7 @@ import { wireCustomFieldsUserDataRightsFor } from "../wire-user-data-rights";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 const NOW = (): Instant => getTemporal().Now.instant();
-const PAST = (): Instant => getTemporal().Instant.fromEpochMilliseconds(Date.now() - 60_000);
+const PAST = (): Instant => getTemporal().Now.instant().subtract({ minutes: 1 });
 
 const propertyEntity = createEntity({
   table: "read_t15c_properties",

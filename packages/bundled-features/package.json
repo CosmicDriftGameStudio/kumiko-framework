@@ -1,7 +1,12 @@
 {
   "name": "@cosmicdrift/kumiko-bundled-features",
+<<<<<<< HEAD
   "version": "0.39.0",
   "description": "Built-in features — tenant, user, auth, delivery. The stuff you'd rewrite anyway, already typed.",
+=======
+  "version": "0.38.0",
+  "description": "Built-in features \u2014 tenant, user, auth, delivery. The stuff you'd rewrite anyway, already typed.",
+>>>>>>> ff5669de (fix: review-findings Rest-Welle A (19 Findings, inkl. 4 zugewiesene))
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
   "repository": {
@@ -78,6 +83,7 @@
   "dependencies": {
     "@cosmicdrift/kumiko-dispatcher-live": "workspace:*",
     "@cosmicdrift/kumiko-framework": "workspace:*",
+    "@cosmicdrift/kumiko-headless": "workspace:*",
     "@cosmicdrift/kumiko-renderer": "workspace:*",
     "@cosmicdrift/kumiko-renderer-web": "workspace:*",
     "@mollie/api-client": "^4.5.0",

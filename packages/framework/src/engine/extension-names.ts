@@ -33,6 +33,16 @@
  */
 export const EXT_USER_DATA = "userData" as const;
 
+// Order-Bänder für EXT_USER_DATA-Hooks (forget-Pipeline). Der Kontrakt war
+// implizit über zwei Packages verteilt (-100 in custom-fields, 0 in
+// user-data-rights) — ein Host-Hook mit order < REDACT_BEFORE_OWNER liefe
+// VOR den Redaktoren und brächte den Strip-nach-owner-null-Bug zurück
+// (DSGVO-Art.-17-Regression). Regel: Redaktoren < 0 <= owner-mutierende Hooks.
+export const EXT_USER_DATA_ORDER = {
+  REDACT_BEFORE_OWNER: -100,
+  DEFAULT: 0,
+} as const;
+
 /**
  * `tenantData` — Tenant-Destroy-Hooks pro Entity (DSGVO + AVV-Beendigung).
  *

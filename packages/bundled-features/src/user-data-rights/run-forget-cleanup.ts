@@ -36,6 +36,7 @@ import { fetchOne, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import {
   EXT_USER_DATA,
+  EXT_USER_DATA_ORDER,
   type Registry,
   type TenantId,
   type UserDataDeleteHook,
@@ -112,7 +113,7 @@ interface HookEntry {
 // EXT_USER_DATA delete-hooks default here; a hook that redacts data keyed on an
 // owner column it doesn't own must register a lower order so it runs BEFORE any
 // hook that nulls that column. See custom-fields wire-user-data-rights.ts.
-const HOOK_ORDER_DEFAULT = 0;
+const HOOK_ORDER_DEFAULT = EXT_USER_DATA_ORDER.DEFAULT;
 
 export async function runForgetCleanup(
   args: RunForgetCleanupArgs,

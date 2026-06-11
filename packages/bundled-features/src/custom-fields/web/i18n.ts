@@ -3,8 +3,10 @@
 // hangs it into the LocaleProvider as a fallback bundle — apps override
 // individual keys via `customFieldsClient({ translations: { de: { ... } } })`.
 //
-// Keys follow `custom-fields.<area>.<slug>`. `custom-fields.errors.*` mirror
-// the i18nKeys the server-side handlers emit (e.g. `custom-fields:save-failed`).
+// Keys follow `custom-fields.<area>.<slug>`. `custom-fields.errors.saveFailed`
+// is a LOCAL fallback only — server handlers emit generic error i18nKeys
+// (errors.unprocessable / errors.notFound via fail* defaults), never a
+// custom-fields-specific key; the form prefers the server key when present.
 
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
@@ -15,7 +17,6 @@ export const defaultTranslations: TranslationsByLocale = {
     "custom-fields.form.empty": 'Keine Custom-Felder für "{entityName}" definiert.',
     "custom-fields.form.save": "Custom-Felder speichern",
     "custom-fields.form.saving": "Speichert…",
-    "custom-fields.errors.loadFailed": "Custom-Felder konnten nicht geladen werden.",
     "custom-fields.errors.saveFailed": "Speichern fehlgeschlagen.",
   },
   en: {
@@ -24,7 +25,6 @@ export const defaultTranslations: TranslationsByLocale = {
     "custom-fields.form.empty": 'No custom fields defined for "{entityName}".',
     "custom-fields.form.save": "Save custom fields",
     "custom-fields.form.saving": "Saving…",
-    "custom-fields.errors.loadFailed": "Could not load custom fields.",
     "custom-fields.errors.saveFailed": "Save failed.",
   },
 };

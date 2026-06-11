@@ -179,11 +179,16 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   // emit only one CREATE TABLE per physical table.
   const { enumerateFeatureTableSources } = await import("../db/feature-table-sources");
   const projectionTables: Record<string, unknown> = {};
-  const seenTables = new Set<unknown>();
+  // Dedup by NAME, matching collectTableMetas — by-reference alone let two
+  // distinct table objects with the same name slip through as a double
+  // CREATE TABLE while schema-generate emitted only one meta (silent
+  // test-vs-schema divergence).
+  const seenTableNames = new Set<string>();
   for (const feature of options.features) {
     for (const { table, origin } of enumerateFeatureTableSources(feature)) {
-      if (seenTables.has(table)) continue;
-      seenTables.add(table);
+      const name = extractTableInfo(table).name;
+      if (seenTableNames.has(name)) continue;
+      seenTableNames.add(name);
       projectionTables[origin] = table;
     }
   }

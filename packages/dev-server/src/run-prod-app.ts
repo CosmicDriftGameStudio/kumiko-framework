@@ -438,8 +438,11 @@ export type RunProdAppOptions = {
       registry: Registry;
       /** Schreibt durch den /api/*-Command-Dispatcher (gleiche Idempotency/
        *  Job-Hooks) — aber als auto-konstruierter SystemAdmin des Ziel-
-       *  Tenants, OHNE Access-Check der Route. Nur für Pfade, die ihre
-       *  Authentizität selbst beweisen (Provider-Webhook-Signaturen,
+       *  Tenants, OHNE Access-Check der Route. Privilege-Scope: SystemAdmin
+       *  ist die höchste nicht-tenant-scoped Rolle — der Call erreicht JEDEN
+       *  SystemAdmin-gegateten Handler auf jedem Tenant; das Rollen-Set ist
+       *  nicht konfigurierbar. Nur für Pfade, die ihre Authentizität selbst
+       *  beweisen (Provider-Webhook-Signaturen,
        *  createSubscriptionWebhookHandler et al.). */
       dispatchSystemWrite: (args: {
         readonly handlerQn: string;

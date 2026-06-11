@@ -2,7 +2,11 @@
 
 import { extractTableName } from "@cosmicdrift/kumiko-framework/db";
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
-import { EXT_USER_DATA, type FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  EXT_USER_DATA,
+  EXT_USER_DATA_ORDER,
+  type FeatureRegistrar,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   selectCustomFieldsHostRows,
   selectFieldDefinitionsForEntity,
@@ -38,7 +42,7 @@ function asCustomFieldsHostRow(value: unknown): CustomFieldsHostRow | null {
 // jsonb PII silently retained (DSGVO Art. 17 violation). A negative order makes
 // runForgetCleanup run this strip before any default-order (0) owner-nulling
 // hook, independent of feature registration order.
-const ORDER_REDACT_BEFORE_OWNER_MUTATION = -100;
+const ORDER_REDACT_BEFORE_OWNER_MUTATION = EXT_USER_DATA_ORDER.REDACT_BEFORE_OWNER;
 
 export function wireCustomFieldsUserDataRightsFor<TReg extends FeatureRegistrar<string>>(
   r: TReg,

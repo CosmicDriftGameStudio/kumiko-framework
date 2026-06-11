@@ -7,6 +7,9 @@ const DEV_SERVER_PACKAGE = "@cosmicdrift/kumiko-dev-server";
 
 // Pin scaffolded @cosmicdrift/* deps to the running dev-server's `^x.y.z`
 // instead of the "*" default, which yields unreproducible installs.
+// Latente Kopplung, bewusst: ALLE @cosmicdrift-Pakete releasen im Lockstep
+// (changesets fixed-group), dev-server's Version IST die Framework-Version.
+// Bricht der Lockstep jemals auf, muss hier pro Paket aufgelöst werden.
 function resolveFrameworkVersion(): string | undefined {
   const entry = Bun.resolveSync(DEV_SERVER_PACKAGE, import.meta.dir);
   let dir = dirname(entry);

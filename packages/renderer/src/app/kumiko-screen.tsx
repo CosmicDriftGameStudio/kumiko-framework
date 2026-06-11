@@ -695,9 +695,16 @@ function EntityListBody({
         // immer da (Provider von createKumikoApp).
         if (action.kind === "navigate") {
           // Default entityId für entityEdit-Targets: row["id"] wenn
-          // kein expliziter entityId-Feldname gesetzt ist.
+          // kein expliziter entityId-Feldname gesetzt ist. Nur für Targets
+          // DERSELBEN Entity — ein Cross-Entity-Edit-Screen bekäme sonst die
+          // falsche row.id injiziert, und "Duplicate → Create"-Patterns
+          // würden in den Update-Mode gezwungen. Cross-Entity-Navigation
+          // setzt action.entityId explizit.
           const targetIsEntityEdit = schema.screens.some(
-            (s) => s.type === "entityEdit" && lastSegment(s.id) === action.screen,
+            (s) =>
+              s.type === "entityEdit" &&
+              s.entity === screen.entity &&
+              lastSegment(s.id) === action.screen,
           );
           const actionVisible = action.visible;
           return {
