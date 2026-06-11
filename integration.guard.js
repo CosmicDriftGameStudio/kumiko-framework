@@ -5,18 +5,21 @@ const { readdirSync, readFileSync } = require("node:fs");
 const { join, relative } = require("node:path");
 const { hasDisallowedMock, isMockGuardAllowlisted } = require("./bin/_lib/integration-mock-guard.ts");
 
-function scanForMocks(dir) {
+// baseDir bestimmt die Allowlist-relativen Pfade — im Guard-Lauf ist das
+// process.cwd(); Tests reichen ihr Temp-Verzeichnis, damit der Walk- und
+// Allowlist-Pfad ohne cwd-Kopplung prüfbar ist.
+function scanForMocks(dir, baseDir = process.cwd()) {
   const violations = [];
   try {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const fullPath = join(dir, entry.name);
       if (entry.isDirectory() && entry.name !== "node_modules" && entry.name !== "dist") {
-        violations.push(...scanForMocks(fullPath));
+        violations.push(...scanForMocks(fullPath, baseDir));
       } else if (
         entry.name.endsWith(".integration.test.ts") ||
         entry.name.endsWith(".integration.ts")
       ) {
-        const relPath = relative(process.cwd(), fullPath);
+        const relPath = relative(baseDir, fullPath);
         if (isMockGuardAllowlisted(relPath)) continue;
         const content = readFileSync(fullPath, "utf-8");
         if (hasDisallowedMock(content)) {
@@ -30,18 +33,22 @@ function scanForMocks(dir) {
   return violations;
 }
 
-const violations = [];
-for (const root of ["packages", "samples"]) {
-  violations.push(...scanForMocks(join(process.cwd(), root)));
-}
+module.exports = { scanForMocks };
 
-if (violations.length > 0) {
-  console.error("\n  BLOCKED: Integration tests must NOT use mocks:\n");
-  for (const v of violations) {
-    console.error(`    ${v}`);
+if (require.main === module) {
+  const violations = [];
+  for (const root of ["packages", "samples"]) {
+    violations.push(...scanForMocks(join(process.cwd(), root)));
   }
-  console.error("\n  Move mock-based tests to *.test.ts files.\n");
-  process.exit(1);
-}
 
-console.log("  Integration guard: no mocks found in integration test files");
+  if (violations.length > 0) {
+    console.error("\n  BLOCKED: Integration tests must NOT use mocks:\n");
+    for (const v of violations) {
+      console.error(`    ${v}`);
+    }
+    console.error("\n  Move mock-based tests to *.test.ts files.\n");
+    process.exit(1);
+  }
+
+  console.log("  Integration guard: no mocks found in integration test files");
+}

@@ -34,6 +34,7 @@ import {
   type TestStackOptions,
   TestUsers,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { type ExtraRoutesSystemDeps, makeDispatchSystemWrite } from "./extra-routes-deps";
 import { injectSchema } from "./inject-schema";
 import { canResolveTailwindStylesheet, resolveTailwindCli } from "./resolve-tailwind-cli";
 import { buildBunServeOptions } from "./run-prod-app";
@@ -193,24 +194,7 @@ export type CreateKumikoServerOptions = {
    *  Static/HTML-Auslieferung aufgerufen, sodass eigene GETs (/feed.xml,
    *  /og-image, …) Vorrang vor dem Dev-Asset-Pfad haben. `deps` statt
    *  `ctx` weil dies kein HandlerContext ist — kein user/tenant. */
-  readonly extraRoutes?: (
-    app: import("hono").Hono,
-    deps: {
-      db: TestStack["db"];
-      redis: TestStack["redis"];
-      /** Feature-registry — z.B. für Plugin-Lookups via
-       *  `registry.getExtensionUsages("subscriptionProvider")`. */
-      registry: TestStack["registry"];
-      /** System-Write durch den Command-Dispatcher — Semantik identisch zu
-       *  runProdApp.extraRoutes (SystemAdmin des Ziel-Tenants, kein
-       *  Access-Check; nur für signatur-authentifizierte Pfade). */
-      dispatchSystemWrite: (args: {
-        readonly handlerQn: string;
-        readonly payload: unknown;
-        readonly tenantId: import("@cosmicdrift/kumiko-framework/engine").TenantId;
-      }) => Promise<import("@cosmicdrift/kumiko-framework/engine").WriteResult>;
-    },
-  ) => void;
+  readonly extraRoutes?: (app: import("hono").Hono, deps: ExtraRoutesSystemDeps) => void;
 };
 
 export type KumikoServerHandle = {
@@ -702,10 +686,11 @@ export async function createKumikoServer(
   if (options.extraRoutes !== undefined) {
     options.extraRoutes(stack.app, {
       db: stack.db,
-      redis: stack.redis,
+      // Der nackte ioredis-Client (nicht der TestRedis-Wrapper) —
+      // Parität mit runProdApp, App-Code soll in dev+prod dasselbe sehen.
+      redis: stack.redis.redis,
       registry: stack.registry,
-      dispatchSystemWrite: ({ handlerQn, payload, tenantId }) =>
-        stack.dispatcher.write(handlerQn, payload, createSystemUser(tenantId, [ROLES.SystemAdmin])),
+      dispatchSystemWrite: makeDispatchSystemWrite(stack.dispatcher),
     });
   }
 
