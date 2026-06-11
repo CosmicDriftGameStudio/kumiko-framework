@@ -8,6 +8,7 @@
 // ab (Bug-Bash-2, 2026-06-08).
 
 import type { ChangeEvent, ReactNode } from "react";
+import { cn } from "../lib/cn";
 
 const LOCAL_MINUTES = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 const HAS_OFFSET = /(?:Z|[+-]\d{2}:\d{2})$/;
@@ -78,7 +79,10 @@ export function TimestampInput({
       onChange={(e: ChangeEvent<HTMLInputElement>) =>
         onChange(inputValueToTimestamp(e.target.value, wallClock === true))
       }
-      className={className}
+      // Das `flex` der Input-Basisklasse macht die Shadow-DOM-Teile des
+      // datetime-local zu Flex-Items — der Picker-Indicator klebt dann
+      // direkt am Text statt am rechten Rand. ml-auto schiebt ihn zurück.
+      className={cn("[&::-webkit-calendar-picker-indicator]:ml-auto", className)}
     />
   );
 }

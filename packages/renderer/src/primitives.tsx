@@ -410,7 +410,10 @@ export type FormProps = {
  *  View mit Header-Text. Native-Impls können den Title als Accordion
  *  oder Collapsible rendern. */
 export type SectionProps = {
-  readonly title: string;
+  /** Optional — ohne Titel rendert die Section nur die Gruppierung
+   *  (kein Header). RenderEdit lässt ihn weg, wenn er den Screen-Titel
+   *  der Action-Bar 1:1 wiederholen würde. */
+  readonly title?: string;
   readonly children: ReactNode;
   readonly testId?: string;
 };

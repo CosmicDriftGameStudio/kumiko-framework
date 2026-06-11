@@ -347,8 +347,16 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
             />
           );
         }
+        // Section-Header unterdrücken wenn er den Form-Titel der
+        // Action-Bar 1:1 wiederholen würde (typisch bei Single-Section-
+        // ActionForms, deren Section-Label = Screen-Titel ist).
+        const sectionTitle = section.title === formTitle ? undefined : section.title;
         return (
-          <Section key={section.title} title={section.title} testId={`section-${section.title}`}>
+          <Section
+            key={section.title}
+            {...(sectionTitle !== undefined && { title: sectionTitle })}
+            testId={`section-${section.title}`}
+          >
             <Grid columns={section.columns}>
               {section.fields.map((field: EditFieldViewModel) => (
                 <GridCellForField
