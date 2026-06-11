@@ -1,5 +1,11 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.40.1
+
+### Patch Changes
+
+- 667c79b: Boot-Validator: `version` als pick/map-Quelle in Action-Extractoren erlauben — Row-Meta (id, version) ist auf jeder Entity-Row vorhanden ohne Entity-Field zu sein; `pick: ["id", "version"]` ist das Standard-Payload für optimistic-lock-Lifecycle-Writes. Der 0.40.0-Validator lehnte solche rowActions beim Boot ab (Prod-CrashLoop publicstatus).
+
 ## 0.40.0
 
 ### Minor Changes
