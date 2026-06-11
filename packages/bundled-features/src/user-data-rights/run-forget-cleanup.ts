@@ -327,7 +327,13 @@ async function runInSubTransaction(
     begin?: (f: (tx: DbRunner) => Promise<void>) => Promise<void>;
     savepoint?: (f: (tx: DbRunner) => Promise<void>) => Promise<void>;
   };
-  const open = runner.begin ?? runner.savepoint;
+  // savepoint-FIRST — empirisch (Bun 1.3.14) sind die Flächen NICHT
+  // mutually exclusive: eine TransactionSql exposed begin UND savepoint,
+  // nur die Top-Level-Connection hat ausschließlich begin. begin-first
+  // wählte im Tx-Fall das nested BEGIN (Prod-Incident-Klasse, s. Header);
+  // savepoint-first trifft im Tx-Fall den Savepoint und fällt top-level
+  // sauber auf begin zurück.
+  const open = runner.savepoint ?? runner.begin;
   if (!open) {
     throw new Error(
       "runForgetCleanup: db exposes neither .begin nor .savepoint — cannot open a per-user sub-transaction",

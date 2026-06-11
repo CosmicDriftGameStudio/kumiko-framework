@@ -732,6 +732,11 @@ function EntityListBody({
                 // NACH navigate: pushState trägt keine Query — Params die
                 // vor dem Push gesetzt werden, kleben an der ALTEN URL und
                 // sind auf dem Ziel-Screen weg (actionForm-Prefill leer).
+                // Bekannte Kante (bewusst offen): zielt die Action auf den
+                // AKTUELLEN pathname, short-circuit't pushPath ohne die Query
+                // zu leeren — die neuen Params mergen dann auf den alten
+                // ?-String. Für Row-Actions praktisch nicht erreichbar
+                // (Pfad differiert über entityId/screen).
                 nav.setSearchParams(stringified);
               }
             },
