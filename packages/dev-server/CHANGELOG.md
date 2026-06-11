@@ -1,5 +1,34 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.39.0
+
+### Minor Changes
+
+- 34cb1f7: Bug-Bash-2 Wave F2: Renderer-Fixes + Auth-Vorarbeit
+
+  - Settings-Screens: "Vorgabe"-Block (Source-Badge + Cascade-Disclosure)
+    erschien doppelt pro Feld — RenderEdit reichte denselben Callback als
+    labelAppendix UND fieldAppendix durch. Jetzt zwei getrennte Callbacks.
+  - timestamp-Felder: neues TimestampInput konvertiert zwischen lokaler
+    Wall-Clock (datetime-local) und UTC-Instant mit `Z` — Saves endeten
+    vorher in 422 invalid_format. locatedTimestamps bleiben Wall-Clock
+    (neues wallClock-Flag im EditFieldViewModel/FieldInputProps).
+  - Validierungsfehler: errors.validation.\*-Keys (Zod-4-Codes +
+    Framework-Codes) in den de/en-Default-Bundles, Field interpoliert
+    issue.params ({minimum} etc.) — vorher rohe Keys in der UI.
+  - AuthRoutesConfig.cookieDomain: Domain-Attribut für beide Auth-Cookies
+    (Cross-Subdomain-Login), Logout löscht Domain- und host-only-Variante.
+    Pass-through via RunProdApp/RunDevApp-Auth-Options.
+  - HostDispatchFn bekommt `search` (Query-String) für verlustfreie
+    Host-Redirects (additiv).
+
+### Patch Changes
+
+- Updated dependencies [34cb1f7]
+- Updated dependencies [12e1137]
+  - @cosmicdrift/kumiko-framework@0.39.0
+  - @cosmicdrift/kumiko-bundled-features@0.39.0
+
 ## 0.38.0
 
 ### Patch Changes
