@@ -1055,7 +1055,7 @@ function ConfigEditBody({
   }, [valuesQuery.data, screen.fields, screen.configKeys]);
 
   // Sources-Lookup: qualifiedKey → ConfigValueSource für das
-  // ConfigSourceBadge. Wird via fieldAppendix an RenderEdit
+  // ConfigSourceBadge. Wird via labelAppendix an RenderEdit
   // durchgereicht.
   const sources = useMemo<Record<string, ConfigValueSource>>(() => {
     if (valuesQuery.data === null) return {};
@@ -1145,25 +1145,24 @@ function ConfigEditBody({
       customSubmit={customSubmit}
       {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
       {...(translate !== undefined && { translate })}
-      fieldAppendix={(fieldName: string) => {
+      labelAppendix={(fieldName: string) => {
         const source = sources[fieldName];
+        return source ? <ConfigSourceBadge source={source} /> : undefined;
+      }}
+      fieldAppendix={(fieldName: string) => {
         const cascade = cascades[fieldName];
+        if (cascade === undefined) return undefined;
         return (
-          <>
-            {source ? <ConfigSourceBadge source={source} /> : null}
-            {cascade !== undefined ? (
-              <ConfigCascadeView
-                cascade={cascade}
-                screenScope={screen.scope}
-                qualifiedKey={screen.configKeys[fieldName]}
-                onReset={async (key, scope) => {
-                  await dispatcher.write("config:write:reset", { key, scope });
-                  await valuesQuery.refetch?.();
-                  await cascadeQuery.refetch?.();
-                }}
-              />
-            ) : null}
-          </>
+          <ConfigCascadeView
+            cascade={cascade}
+            screenScope={screen.scope}
+            qualifiedKey={screen.configKeys[fieldName]}
+            onReset={async (key, scope) => {
+              await dispatcher.write("config:write:reset", { key, scope });
+              await valuesQuery.refetch?.();
+              await cascadeQuery.refetch?.();
+            }}
+          />
         );
       }}
     />

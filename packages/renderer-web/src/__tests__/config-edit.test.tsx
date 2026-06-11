@@ -166,4 +166,63 @@ describe("KumikoScreen / configEdit", () => {
     // dieser State stale (regression-guard).
     await waitFor(() => expect(submit.disabled).toBe(true));
   });
+
+  // Regression Bug-Bash-2 (2026-06-08): RenderEdit reichte denselben
+  // Appendix-Callback als labelAppendix UND fieldAppendix durch —
+  // Badge + Vorgabe-Disclosure erschienen doppelt (vor und nach dem
+  // Input) auf jedem Settings-Screen mit Default-Werten.
+  test("Source-Badge und Vorgabe-Disclosure erscheinen genau einmal pro Feld", async () => {
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async (qn: string) => {
+        if (qn === "config:query:cascade") {
+          return {
+            isSuccess: true,
+            data: {
+              "demo:config:site-name": {
+                value: "Acme",
+                source: "tenant-row",
+                levels: [
+                  {
+                    source: "tenant-row",
+                    label: "tenant-row",
+                    value: "Acme",
+                    isActive: true,
+                    hasValue: true,
+                  },
+                  {
+                    source: "default",
+                    label: "default",
+                    value: "fallback",
+                    isActive: false,
+                    hasValue: true,
+                  },
+                ],
+              },
+            },
+          };
+        }
+        return {
+          isSuccess: true,
+          data: {
+            "demo:config:site-name": { value: "Acme", scope: "tenant", source: "tenant-row" },
+          },
+        };
+      }) as unknown as Dispatcher["query"],
+    });
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={schema} qn="demo:screen:settings" />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const field = screen.getByTestId("field-siteName");
+    await waitFor(() =>
+      expect(field.querySelectorAll('[data-testid="config-cascade"]')).toHaveLength(1),
+    );
+    expect(field.querySelectorAll('[data-testid="config-source-badge"]')).toHaveLength(1);
+    // Badge inline am Label, Disclosure unter dem Input — nicht umgekehrt.
+    const label = field.querySelector("label");
+    expect(label?.querySelector('[data-testid="config-source-badge"]')).toBeTruthy();
+    expect(label?.querySelector('[data-testid="config-cascade"]')).toBeNull();
+  });
 });

@@ -70,7 +70,11 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  damit "Speichern" durch domain-spezifischere Strings ersetzt
    *  werden kann ("Genehmigen" / "Versenden" / etc.). */
   readonly submitLabel?: string;
-  /** Pro-Field-Zusatz-Inhalt nach dem Label (z.B. ConfigSourceBadge).
+  /** Pro-Field-Zusatz-Inhalt inline nach dem Label (z.B. ConfigSourceBadge).
+   *  Wird mit dem Field-Namen aufgerufen, returnt ReactNode oder
+   *  undefined. */
+  readonly labelAppendix?: (fieldName: string) => ReactNode | undefined;
+  /** Pro-Field-Zusatz-Inhalt unter dem Input (z.B. ConfigCascadeView).
    *  Wird mit dem Field-Namen aufgerufen, returnt ReactNode oder
    *  undefined. */
   readonly fieldAppendix?: (fieldName: string) => ReactNode | undefined;
@@ -175,6 +179,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     onCancel,
     onReload,
     submitLabel,
+    labelAppendix,
     fieldAppendix,
     entityId: entityIdProp,
     extensionInitialValues,
@@ -356,8 +361,10 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                   }}
                   GridCell={GridCell}
                   featureName={featureName}
+                  {...(labelAppendix !== undefined && {
+                    labelAppendix: labelAppendix(field.field),
+                  })}
                   {...(fieldAppendix !== undefined && {
-                    labelAppendix: fieldAppendix(field.field),
                     fieldAppendix: fieldAppendix(field.field),
                   })}
                 />

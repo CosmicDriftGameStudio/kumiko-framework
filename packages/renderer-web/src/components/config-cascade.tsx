@@ -137,7 +137,7 @@ export function ConfigCascadeView({
   const hasOverride = activeDisplay?.level.source === screenScopeSource;
 
   return (
-    <div className="mt-1 text-xs">
+    <div className="mt-1 text-xs" data-testid="config-cascade">
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
