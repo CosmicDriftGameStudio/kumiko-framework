@@ -55,6 +55,7 @@ import {
   DropdownMenuTrigger,
 } from "./dropdown-menu";
 import { MoneyInput } from "./money-input";
+import { TimestampInput } from "./timestamp-input";
 import { useToast } from "./toast";
 
 // ---- Button ----
@@ -172,7 +173,7 @@ function DefaultField({
           className="text-xs text-destructive"
         >
           {issues.map((issue) => (
-            <div key={`${issue.path}:${issue.code}`}>{t(issue.i18nKey)}</div>
+            <div key={`${issue.path}:${issue.code}`}>{t(issue.i18nKey, issue.params)}</div>
           ))}
         </div>
       )}
@@ -340,13 +341,15 @@ function DefaultInput(props: InputProps): ReactNode {
       );
     case "timestamp":
       return (
-        <input
-          type="datetime-local"
-          {...common}
+        <TimestampInput
+          id={props.id}
+          name={props.name}
           value={props.value}
-          onChange={(e: ChangeEvent<HTMLInputElement>) =>
-            props.onChange(e.target.value !== "" ? e.target.value : undefined)
-          }
+          onChange={props.onChange}
+          {...(props.wallClock !== undefined && { wallClock: props.wallClock })}
+          {...(props.disabled !== undefined && { disabled: props.disabled })}
+          {...(props.required !== undefined && { required: props.required })}
+          {...(props.hasError !== undefined && { hasError: props.hasError })}
           className={cn(inputClassBase, errorClass)}
         />
       );
@@ -1176,14 +1179,19 @@ function DefaultForm({ onSubmit, children, title, actions, testId }: FormProps):
       {(title !== undefined || actions !== undefined) && (
         <div
           data-testid={testId !== undefined ? `${testId}-actions` : undefined}
-          className="sticky top-0 z-10 h-12 px-6 bg-muted/30 border-b flex items-center gap-3"
+          className="sticky top-0 z-10 h-12 bg-muted/30 border-b"
         >
-          {title !== undefined && (
-            <div className="text-lg font-semibold tracking-tight truncate">{title}</div>
-          )}
-          {actions !== undefined && (
-            <div className="flex items-center gap-2 ml-auto">{actions}</div>
-          )}
+          {/* Bar-Hintergrund spannt die volle Breite, der Inhalt aligned
+              aber mit dem max-w-2xl-Form-Body — sonst kleben die Buttons
+              am Fensterrand, optisch abgekoppelt vom Formular. */}
+          <div className="h-full px-6 max-w-2xl w-full flex items-center gap-3">
+            {title !== undefined && (
+              <div className="text-lg font-semibold tracking-tight truncate">{title}</div>
+            )}
+            {actions !== undefined && (
+              <div className="flex items-center gap-2 ml-auto">{actions}</div>
+            )}
+          </div>
         </div>
       )}
       <div className="px-6 pt-6 pb-12 max-w-2xl w-full flex flex-col gap-8">{children}</div>
@@ -1198,9 +1206,11 @@ function DefaultSection({ title, children, testId }: SectionProps): ReactNode {
   // aus Border + Shadow. Spart Chrome und sieht weniger "boxy" aus.
   return (
     <section data-testid={testId} className="flex flex-col gap-4">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        {title}
-      </h3>
+      {title !== undefined && (
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {title}
+        </h3>
+      )}
       <div className="flex flex-col gap-4">{children}</div>
     </section>
   );

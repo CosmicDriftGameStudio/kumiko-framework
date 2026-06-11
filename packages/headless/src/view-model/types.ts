@@ -107,6 +107,10 @@ export type EditFieldViewModel = {
    *  ist — dann rendert der Renderer textarea statt single-line input.
    *  `true` = Default-Zeilen, `{ rows }` = explizite Höhe. */
   readonly multiline?: boolean | { readonly rows?: number };
+  /** Nur bei `type: "timestamp"` gesetzt wenn TimestampFieldDef.locatedBy
+   *  existiert — Wall-Clock-Zeit ohne Offset. Der Renderer emittiert
+   *  dann lokale Zeit ohne `Z` statt eines UTC-Instants. */
+  readonly wallClock?: boolean;
   /** Nur bei `type: "reference"` gesetzt — Tier 2.7e-3.
    *  Die referenced Entity (kurz, ohne feature-prefix). Der Renderer
    *  baut die Query-QN als `<refFeature>:query:<refEntity>:list`. */

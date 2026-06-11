@@ -18,6 +18,7 @@ export function ConfigSourceBadge({ source }: { readonly source: ConfigValueSour
 
   return (
     <span
+      data-testid="config-source-badge"
       style={{
         display: "inline-flex",
         alignItems: "center",

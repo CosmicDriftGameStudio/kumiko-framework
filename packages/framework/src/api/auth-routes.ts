@@ -40,7 +40,12 @@ function cookieSecure(): boolean {
 // state that would trip the csrf-middleware on every retry.
 function setAuthCookies(
   c: Context,
-  opts: { token: string; csrfToken: string; sameSite: "lax" | "strict" },
+  opts: {
+    token: string;
+    csrfToken: string;
+    sameSite: "lax" | "strict";
+    domain?: string | undefined;
+  },
 ): void {
   const sameSite = opts.sameSite === "strict" ? "Strict" : "Lax";
   const common = {
@@ -48,6 +53,7 @@ function setAuthCookies(
     sameSite,
     path: "/",
     maxAge: JWT_TTL_SECONDS,
+    ...(opts.domain !== undefined && { domain: opts.domain }),
   } as const;
 
   setCookie(c, AUTH_COOKIE_NAME, opts.token, { ...common, httpOnly: true });
@@ -56,9 +62,17 @@ function setAuthCookies(
   setCookie(c, CSRF_COOKIE_NAME, opts.csrfToken, { ...common, httpOnly: false });
 }
 
-function clearAuthCookies(c: Context): void {
+function clearAuthCookies(c: Context, domain?: string): void {
+  // Beide Varianten löschen: mit Domain (aktuelle Cookies) UND host-only
+  // (Bestand aus der Zeit vor cookieDomain) — sonst bleibt nach einem
+  // Deploy mit neu gesetztem cookieDomain der alte Cookie liegen und der
+  // Logout wirkt nur scheinbar.
   deleteCookie(c, AUTH_COOKIE_NAME, { path: "/" });
   deleteCookie(c, CSRF_COOKIE_NAME, { path: "/" });
+  if (domain !== undefined) {
+    deleteCookie(c, AUTH_COOKIE_NAME, { path: "/", domain });
+    deleteCookie(c, CSRF_COOKIE_NAME, { path: "/", domain });
+  }
 }
 
 // Body schema for POST /auth/login. Enforced BEFORE rate-limit so that a
@@ -237,6 +251,14 @@ export type AuthRoutesConfig = {
   // The framework always pairs the cookie with a Double-Submit CSRF token
   // (see csrf-middleware), so "lax" is defense-in-depth, not defense-alone.
   cookieSameSite?: "lax" | "strict";
+  // Domain attribute for both auth cookies. Unset (default) = host-only
+  // cookie, scoped to the exact host that served the response. Set it to
+  // the registrable parent domain (e.g. "example.eu") when login and app
+  // live on DIFFERENT subdomains (login on apex, app on admin.) — the
+  // browser then sends the session to every subdomain. Careful: that
+  // includes ALL subdomains (tenant pages, previews); widen the scope
+  // only when the cross-subdomain session is actually required.
+  cookieDomain?: string;
 };
 
 export type PasswordResetConfig = {
@@ -402,6 +424,7 @@ export function createAuthRoutes(
   // "lax" keeps email deep-links (invite, magic-link, notification click)
   // working. High-security apps can opt into "strict" — see AuthRoutesConfig.
   const cookieSameSite = config.cookieSameSite ?? "lax";
+  const cookieDomain = config.cookieDomain;
 
   // POST /auth/login — public endpoint (bypasses auth middleware via PUBLIC_API_PATHS).
   // The configured login handler authenticates and returns a SessionUser;
@@ -481,7 +504,7 @@ export function createAuthRoutes(
       // ignores Set-Cookie keeps working without any server-side knowledge
       // of which transport this client will use next.
       const csrfToken = generateToken();
-      setAuthCookies(c, { token, csrfToken, sameSite: cookieSameSite });
+      setAuthCookies(c, { token, csrfToken, sameSite: cookieSameSite, domain: cookieDomain });
 
       return c.json({
         isSuccess: true,
@@ -588,7 +611,7 @@ export function createAuthRoutes(
 
       const token = await jwt.sign(sessionForJwt);
       const csrfToken = generateToken();
-      setAuthCookies(c, { token, csrfToken, sameSite: cookieSameSite });
+      setAuthCookies(c, { token, csrfToken, sameSite: cookieSameSite, domain: cookieDomain });
 
       return c.json({
         isSuccess: true,
@@ -671,7 +694,7 @@ export function createAuthRoutes(
       }
       const token = await jwt.sign(sessionForJwt);
       const csrfToken = generateToken();
-      setAuthCookies(c, { token, csrfToken, sameSite: cookieSameSite });
+      setAuthCookies(c, { token, csrfToken, sameSite: cookieSameSite, domain: cookieDomain });
       return c.json({
         isSuccess: true,
         token,
@@ -711,7 +734,7 @@ export function createAuthRoutes(
       }
       const token = await jwt.sign(sessionForJwt);
       const csrfToken = generateToken();
-      setAuthCookies(c, { token, csrfToken, sameSite: cookieSameSite });
+      setAuthCookies(c, { token, csrfToken, sameSite: cookieSameSite, domain: cookieDomain });
       return c.json({
         isSuccess: true,
         token,
@@ -737,7 +760,7 @@ export function createAuthRoutes(
     }
     // Clear cookies on the cookie-transport path. Idempotent — clearing a
     // missing cookie is a no-op, so bearer-only clients aren't affected.
-    clearAuthCookies(c);
+    clearAuthCookies(c, cookieDomain);
     return c.json({ isSuccess: true });
   });
 
@@ -876,7 +899,12 @@ export function createAuthRoutes(
     // the new token in the body below — their Set-Cookie is a no-op
     // because the browser never sent cookies.
     const csrfToken = generateToken();
-    setAuthCookies(c, { token: newToken, csrfToken, sameSite: cookieSameSite });
+    setAuthCookies(c, {
+      token: newToken,
+      csrfToken,
+      sameSite: cookieSameSite,
+      domain: cookieDomain,
+    });
 
     return c.json({ token: newToken, tenantId: targetTenantId, roles: mergedRoles });
   });

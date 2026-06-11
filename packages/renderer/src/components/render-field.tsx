@@ -261,6 +261,7 @@ function renderInput({
           {...common}
           value={stringValue(field.value)}
           onChange={(v) => onChange(v)}
+          {...(field.wallClock !== undefined && { wallClock: field.wallClock })}
         />
       );
     case "select": {

@@ -276,6 +276,10 @@ export type RunProdAppAuthOptions = {
    *  /api/auth/invite-accept-with-login, /api/auth/invite-signup-complete
    *  are mounted. */
   readonly invite?: InviteSetup;
+  /** Domain attribute for both auth cookies (see
+   *  AuthRoutesConfig.cookieDomain). Set to the registrable parent
+   *  domain when login and app live on different subdomains. */
+  readonly cookieDomain?: string;
 };
 
 /** Hook for app-specific seeding — runs after the admin (when auth is
@@ -334,6 +338,10 @@ export type HostDispatchResult =
 export type HostDispatchFn = (req: {
   readonly host: string;
   readonly path: string;
+  /** Query-String inkl. führendem `?`, `""` wenn keiner. Redirects die
+   *  den Pfad auf einen anderen Host umbiegen (z.B. Auth-Routen mit
+   *  `?token=` aus alten Mail-Links) MÜSSEN ihn an `to` anhängen. */
+  readonly search: string;
 }) => HostDispatchResult;
 
 export type RunProdAppOptions = {
@@ -714,6 +722,9 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
           [AuthErrors.invalidCredentials]: 401,
           [AuthErrors.noMembership]: 403,
         },
+        ...(options.auth.cookieDomain !== undefined && {
+          cookieDomain: options.auth.cookieDomain,
+        }),
         ...sessionAuthFragment,
         ...(options.auth.passwordReset && {
           passwordReset: {
@@ -1027,7 +1038,7 @@ function buildStaticFallback(
     if (!hostDispatch) return null;
     const url = new URL(req.url);
     const host = req.headers.get("host") ?? url.host;
-    const result = hostDispatch({ host, path: url.pathname });
+    const result = hostDispatch({ host, path: url.pathname, search: url.search });
     if (result.kind === "not-found") {
       return new Response("Not Found", { status: 404 });
     }

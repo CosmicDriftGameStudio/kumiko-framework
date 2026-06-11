@@ -77,6 +77,13 @@ export function computeEditViewModel<
         fieldDef.type === "text"
           ? (fieldDef as unknown as { multiline?: boolean | { rows?: number } }).multiline
           : undefined;
+      // Wall-Clock-Hint bei `type: "timestamp"` mit locatedBy — der
+      // Renderer emittiert dann lokale Zeit ohne `Z` statt UTC-Instant.
+      const wallClock =
+        fieldDef.type === "timestamp" &&
+        (fieldDef as unknown as { locatedBy?: string }).locatedBy !== undefined
+          ? true
+          : undefined;
       // Tier 2.7e-3: Reference-Field — refEntity + refLabelField in
       // das ViewModel reichen damit der Renderer die Lookup-Query
       // bauen kann ohne noch an EntityDefinition zu greifen.
@@ -112,6 +119,7 @@ export function computeEditViewModel<
         ...(options !== undefined && { options }),
         ...(optionLabels !== undefined && { optionLabels }),
         ...(multiline !== undefined && { multiline }),
+        ...(wallClock !== undefined && { wallClock }),
         ...(refEntity !== undefined && { refEntity }),
         ...(refFeature !== undefined && { refFeature }),
         ...(refLabelField !== undefined && { refLabelField }),
