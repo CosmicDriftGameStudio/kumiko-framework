@@ -13,7 +13,7 @@ describe("access presets", () => {
   });
 
   test("access.admin", () => {
-    expect(access.admin).toEqual(["Admin", "SystemAdmin"]);
+    expect(access.admin).toEqual(["TenantAdmin", "Admin", "SystemAdmin"]);
   });
 
   test("access.systemAdmin", () => {
@@ -41,7 +41,7 @@ describe("createTenantConfig", () => {
   test("defaults: admin writes, all reads", () => {
     const key = createTenantConfig("text");
     expect(key.scope).toBe("tenant");
-    expect(key.access.write).toEqual(["Admin", "SystemAdmin"]);
+    expect(key.access.write).toEqual(["TenantAdmin", "Admin", "SystemAdmin"]);
     expect(key.access.read).toEqual(["all"]);
   });
 
@@ -76,7 +76,7 @@ describe("createSystemConfig", () => {
     const key = createSystemConfig("number");
     expect(key.scope).toBe("system");
     expect(key.access.write).toEqual(["system"]);
-    expect(key.access.read).toEqual(["Admin", "SystemAdmin"]);
+    expect(key.access.read).toEqual(["TenantAdmin", "Admin", "SystemAdmin"]);
   });
 
   test("with default value", () => {
