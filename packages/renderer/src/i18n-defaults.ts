@@ -71,6 +71,25 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.validation.too-short": "Zu kurz (mindestens {min} Zeichen).",
     "kumiko.validation.too-long": "Zu lang (höchstens {max} Zeichen).",
     "kumiko.validation.out-of-range": "Wert außerhalb des erlaubten Bereichs.",
+
+    // errors.validation.* — der kanonische Key-Namespace den Server
+    // (ValidationError) und Client (zod-bridge) für Field-Issues
+    // erzeugen. Codes = Zod-4-Issue-Codes + Framework-eigene.
+    "errors.validation.invalid_type": "Ungültiger Wert.",
+    "errors.validation.too_small": "Zu klein oder zu kurz (Minimum: {minimum}).",
+    "errors.validation.too_big": "Zu groß oder zu lang (Maximum: {maximum}).",
+    "errors.validation.invalid_format": "Ungültiges Format.",
+    "errors.validation.not_multiple_of": "Muss ein Vielfaches von {divisor} sein.",
+    "errors.validation.unrecognized_keys": "Unbekannte Felder.",
+    "errors.validation.invalid_union": "Ungültiger Wert.",
+    "errors.validation.invalid_key": "Ungültiger Schlüssel.",
+    "errors.validation.invalid_element": "Ungültiger Eintrag.",
+    "errors.validation.invalid_value": "Ungültige Auswahl.",
+    "errors.validation.custom": "Ungültiger Wert.",
+    "errors.validation.unexpected_field": "Unbekanntes Feld.",
+    "errors.validation.out_of_bounds": "Wert außerhalb des erlaubten Bereichs.",
+    "errors.validation.invalid_option": "Ungültige Auswahl.",
+    "errors.validation.failed": "Validierung fehlgeschlagen.",
   },
   en: {
     "kumiko.actions.save": "Save",
@@ -120,5 +139,21 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.validation.too-short": "Too short (at least {min} characters).",
     "kumiko.validation.too-long": "Too long (at most {max} characters).",
     "kumiko.validation.out-of-range": "Value out of allowed range.",
+
+    "errors.validation.invalid_type": "Invalid value.",
+    "errors.validation.too_small": "Too small or too short (minimum: {minimum}).",
+    "errors.validation.too_big": "Too big or too long (maximum: {maximum}).",
+    "errors.validation.invalid_format": "Invalid format.",
+    "errors.validation.not_multiple_of": "Must be a multiple of {divisor}.",
+    "errors.validation.unrecognized_keys": "Unknown fields.",
+    "errors.validation.invalid_union": "Invalid value.",
+    "errors.validation.invalid_key": "Invalid key.",
+    "errors.validation.invalid_element": "Invalid entry.",
+    "errors.validation.invalid_value": "Invalid choice.",
+    "errors.validation.custom": "Invalid value.",
+    "errors.validation.unexpected_field": "Unknown field.",
+    "errors.validation.out_of_bounds": "Value out of allowed range.",
+    "errors.validation.invalid_option": "Invalid choice.",
+    "errors.validation.failed": "Validation failed.",
   },
 };
