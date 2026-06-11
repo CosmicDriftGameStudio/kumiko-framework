@@ -10,6 +10,7 @@ import { pbkdf2Sync, randomBytes } from "node:crypto";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
   type TestStack,
@@ -20,7 +21,7 @@ import {
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
-import { createTenantFeature } from "../../tenant";
+import { createTenantFeature, TenantHandlers } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/schema/tenant";
 import { seedTenantMembership } from "../../tenant/testing";
@@ -73,6 +74,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
+  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -147,5 +149,59 @@ describe("Identity-V3 password-hash compatibility", () => {
     expect(res.status).toBe(401);
     const body = await res.json();
     expect(body.error?.details?.reason).toBe(AuthErrors.invalidCredentials);
+  });
+});
+
+// 273/2: Changeset-Zusage "disabled Tenants verschwinden aus der
+// Login-Tenant-Wahl" — der Auto-Select (chosen = preferred ?? memberships[0])
+// darf nie auf einem disabled Tenant landen. Der disabled Tenant ist hier
+// bewusst die ERSTE Membership, also genau der memberships[0]-Kandidat.
+describe("login auto-select skips disabled tenants", () => {
+  test("first membership disabled → login lands on the active tenant", async () => {
+    const password = "Active!Tenant-2026";
+    const salt = randomBytes(16);
+    const v3Hash = buildBmcStyleV3Hash(password, salt);
+
+    const disabledTenantId = "00000000-0000-4000-8000-000000000301" as TenantId;
+    const activeTenantId = "00000000-0000-4000-8000-000000000302" as TenantId;
+    await stack.http.writeOk(
+      TenantHandlers.create,
+      { id: disabledTenantId, key: "ghost", name: "Ghost Corp" },
+      systemAdmin,
+    );
+    await stack.http.writeOk(
+      TenantHandlers.create,
+      { id: activeTenantId, key: "alive", name: "Alive Corp" },
+      systemAdmin,
+    );
+    await stack.http.writeOk(TenantHandlers.disable, { id: disabledTenantId }, systemAdmin);
+
+    const created = await stack.http.writeOk<{ id: string }>(
+      UserHandlers.create,
+      {
+        email: "carol@autoselect.example",
+        passwordHash: v3Hash,
+        displayName: "Carol Two-Tenants",
+      },
+      systemAdmin,
+    );
+    await seedTenantMembership(stack.db, {
+      userId: created.id,
+      tenantId: disabledTenantId,
+      roles: ["User"],
+    });
+    await seedTenantMembership(stack.db, {
+      userId: created.id,
+      tenantId: activeTenantId,
+      roles: ["User"],
+    });
+
+    const res = await stack.http.raw("POST", "/api/auth/login", {
+      email: "carol@autoselect.example",
+      password,
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.user).toMatchObject({ id: created.id, tenantId: activeTenantId });
   });
 });

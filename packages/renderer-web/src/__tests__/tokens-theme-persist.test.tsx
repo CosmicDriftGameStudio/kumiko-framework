@@ -7,7 +7,12 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { act, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { applyStoredThemeMode, THEME_STORAGE_KEY, useBrowserTokensApi } from "../tokens";
+import {
+  __resetStoredModeAppliedForTests,
+  applyStoredThemeMode,
+  THEME_STORAGE_KEY,
+  useBrowserTokensApi,
+} from "../tokens";
 
 function Probe(): ReactNode {
   const api = useBrowserTokensApi();
@@ -53,6 +58,20 @@ describe("useBrowserTokensApi — Theme-Persistenz", () => {
     });
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe("light");
     expect(document.documentElement.classList.contains("dark")).toBe(false);
+  });
+
+  test("Mount-Restore: erster Hook-Mount übernimmt die gespeicherte Wahl ins DOM", () => {
+    // Der eigentliche Headline-Pfad (286/1): nicht applyStoredThemeMode
+    // isoliert, sondern die Glue im Hook — localStorage VOR dem Mount
+    // geseedet, der Mount selbst muss die .dark-Class setzen.
+    __resetStoredModeAppliedForTests();
+    window.localStorage.setItem(THEME_STORAGE_KEY, "dark");
+    document.documentElement.classList.remove("dark");
+
+    render(<Probe />);
+
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+    expect(screen.getByTestId("mode").textContent).toBe("dark");
   });
 
   test("applyStoredThemeMode restored die gespeicherte Wahl (Reload-Simulation)", () => {

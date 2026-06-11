@@ -495,6 +495,75 @@ describe("KumikoScreen", () => {
     expect(await screen.findByText("Version conflict for entity r1")).toBeTruthy();
   });
 
+  // 284/2: der HIT-Zweig von dispatcherErrorText — bekannter i18nKey
+  // mit Params → der ÜBERSETZTE, interpolierte Text landet im Toast
+  // (nicht error.message). Genau die Logik, die die Funktion rechtfertigt.
+  test("entityList rowActions writeHandler: bekannter i18nKey → übersetzter Toast mit interpolierten Params", async () => {
+    const dispatcher = makeDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: {
+          rows: [{ id: "r1", title: "Alpha", count: 1, done: false }],
+          nextCursor: null,
+        },
+      })) as unknown as Dispatcher["query"],
+      write: (async () => ({
+        isSuccess: false,
+        error: {
+          code: "validation_error",
+          httpStatus: 422,
+          i18nKey: "kumiko.validation.too-short",
+          i18nParams: { min: 5 },
+          message: "raw fallback — must NOT appear",
+        },
+      })) as unknown as Dispatcher["write"],
+    });
+
+    const screenWithDelete: EntityListScreenDefinition = {
+      id: "task-list",
+      type: "entityList",
+      entity: "task",
+      columns: ["title"],
+      rowActions: [
+        {
+          id: "delete",
+          label: "actions.delete",
+          handler: "tasks:write:task:delete",
+          confirm: "actions.delete-confirm",
+          style: "danger",
+        },
+      ],
+    };
+
+    const { ToastProvider } = await import("../primitives/toast");
+    const { LocaleProvider, createStaticLocaleResolver, kumikoDefaultTranslations } = await import(
+      "@cosmicdrift/kumiko-renderer"
+    );
+    const user = userEvent.setup();
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver()}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <ToastProvider>
+          <DispatcherProvider dispatcher={dispatcher}>
+            <KumikoScreen
+              schema={{ ...schema, screens: [screenWithDelete] }}
+              qn="tasks:screen:task-list"
+            />
+          </DispatcherProvider>
+        </ToastProvider>
+      </LocaleProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+
+    await user.click(screen.getByTestId("row-r1-action-delete"));
+    await user.click(screen.getByTestId("row-r1-action-delete-dialog-confirm"));
+
+    expect(await screen.findByText("Too short (at least 5 characters).")).toBeTruthy();
+    expect(screen.queryByText("raw fallback — must NOT appear")).toBeNull();
+  });
+
   // Tier 2.7e-1: rowAction kind="navigate" — Click ruft nav.navigate
   // mit screen-id, ggf. mit URL-Search-Params aus params(row).
   // Reihenfolge ist Teil des Contracts: navigate ZUERST, dann
@@ -565,6 +634,66 @@ describe("KumikoScreen", () => {
     expect(searchParamUpdates).toEqual([{ taskId: "r1" }]);
     // Reihenfolge-Pin: erst navigate, dann setSearchParams.
     expect(calls.map((c) => c.kind)).toEqual(["navigate", "setSearchParams"]);
+  });
+
+  // 284/3: derselbe Contract gegen die ECHTE useBrowserNavApi statt
+  // memoryNav — der eigentliche Bug-Mechanismus (pushState verwirft die
+  // Query, setSearchParams muss auf der NEUEN URL landen) ist nur hier
+  // real verifiziert. Kombination navigate + entityId + params.
+  test("entityList rowActions kind=navigate: echte useBrowserNavApi → Pfad-Segmente + ?param auf der neuen URL", async () => {
+    window.history.replaceState(null, "", "/task-list");
+
+    const dispatcher = makeDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: {
+          rows: [{ id: "r1", title: "Alpha", count: 1, done: false }],
+          nextCursor: null,
+        },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    const screenWithNav: EntityListScreenDefinition = {
+      id: "task-list",
+      type: "entityList",
+      entity: "task",
+      columns: ["title"],
+      rowActions: [
+        {
+          kind: "navigate",
+          id: "edit",
+          label: "actions.edit",
+          screen: "task-edit",
+          entityId: "id",
+          params: { map: { from: "title" } },
+        },
+      ],
+    };
+
+    const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
+    const { useBrowserNavApi } = await import("../app/nav");
+    function BrowserNav({ children }: { readonly children: React.ReactNode }): React.ReactNode {
+      const api = useBrowserNavApi({ hasWorkspaces: false });
+      return <NavProvider value={api}>{children}</NavProvider>;
+    }
+
+    const user = userEvent.setup();
+    render(
+      <BrowserNav>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={{ ...schema, screens: [screenWithNav] }}
+            qn="tasks:screen:task-list"
+          />
+        </DispatcherProvider>
+      </BrowserNav>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+
+    await user.click(screen.getByTestId("row-r1-action-edit"));
+
+    await waitFor(() => expect(window.location.pathname).toBe("/task-edit/r1"));
+    expect(new URLSearchParams(window.location.search).get("from")).toBe("Alpha");
   });
 
   // entityId-Variante: entityEdit-Targets brauchen die Id als PFAD-

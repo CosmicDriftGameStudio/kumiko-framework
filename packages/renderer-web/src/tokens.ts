@@ -68,6 +68,13 @@ export function applyStoredThemeMode(): void {
 
 let storedModeApplied = false;
 
+/** Nur für Tests: der once-per-page-load-Guard ist ein Module-Singleton —
+ *  ohne Reset wäre der Mount-Restore-Pfad nach der ersten Render im
+ *  Testfile strukturell unerreichbar. */
+export function __resetStoredModeAppliedForTests(): void {
+  storedModeApplied = false;
+}
+
 /** Hook der eine TokensApi für den Browser baut. Wird von
  *  createKumikoApp genutzt; App-Code der einen eigenen Token-State
  *  braucht (z.B. User-Präferenz aus localStorage) kann selber
