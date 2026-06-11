@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled)",
-  "featureCount": 38,
+  "featureCount": 39,
   "features": [
     {
       "name": "audit",
@@ -1013,6 +1013,23 @@
           "entityName": "fileRef"
         }
       ],
+      "configKeys": [],
+      "secrets": []
+    },
+    {
+      "name": "user-profile",
+      "description": "Self-service account page building blocks: a `change-email` write handler (re-auth via current password, uniqueness check, resets emailVerified and expects the app to trigger the verification flow) plus the ProfileScreen web component that composes change-password (auth-email-password), change-email and account deletion (user-data-rights request/cancel with grace period) into one screen. Apps register the screen as `type: \"custom\"` with `__component: \"UserProfileScreen\"`. Requires `user`, `auth-email-password`, and `user-data-rights`.",
+      "toggleableDefault": null,
+      "requires": [
+        "user",
+        "auth-email-password",
+        "user-data-rights"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
       "configKeys": [],
       "secrets": []
     }

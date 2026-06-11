@@ -48,6 +48,8 @@
     "./user": "./src/user/index.ts",
     "./user/seeding": "./src/user/seeding.ts",
     "./user/testing": "./src/user/testing.ts",
+    "./user-profile": "./src/user-profile/index.ts",
+    "./user-profile/web": "./src/user-profile/web/index.ts",
     "./auth-email-password": "./src/auth-email-password/index.ts",
     "./auth-email-password/constants": "./src/auth-email-password/constants.ts",
     "./auth-email-password/seeding": "./src/auth-email-password/seeding.ts",
