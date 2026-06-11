@@ -228,8 +228,16 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   // Action-Wiring + Doc-Status waren als bins registriert, hingen aber an
   // keinem Pipeline-Step — ein nicht-aufgerufener Guard ist ein No-op.
   steps.push({ name: "Action-Wiring Guard", cmd: "bunx kumiko-guard-action-wiring" });
-  steps.push({ name: "Doc-Status Guard", cmd: "bunx kumiko-guard-doc-status" });
-  steps.push({ name: "Doc-Status-Index Drift", cmd: "bunx kumiko-docs-status-index" });
+  // Doc-Status braucht das Multi-Repo-Parent (STATUS.md lebt in
+  // kumiko-platform) — im standalone CI-Checkout existiert das nicht.
+  // LAUT überspringen statt silent-skip; der Drift-Check läuft im lokalen
+  // Parent-Kontext, wo bun run check vor jedem Push Pflicht ist.
+  if (existsSync(join(REPO_ROOT, "kumiko-platform"))) {
+    steps.push({ name: "Doc-Status Guard", cmd: "bunx kumiko-guard-doc-status" });
+    steps.push({ name: "Doc-Status-Index Drift", cmd: "bunx kumiko-docs-status-index" });
+  } else {
+    console.log("Doc-Status-Steps übersprungen: kumiko-platform nicht im Workspace (CI-standalone).");
+  }
   // TODO(2026-07-03): re-enable as-Cast Audit — coverage extended to all repos
   // (enterprise, platform, solon, .tsx) in check-as-casts.ts; baseline must be
   // regenerated with `--write-baseline` from framework repo after validation.
