@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-headless",
-  "version": "0.39.0",
+  "version": "0.40.0",
   "description": "Headless UI logic for Kumiko — Dispatcher contract, Form-Controller, View-Model, Nav-Resolver. Plattform- und React-frei; jeder Renderer (renderer, renderer-web, renderer-native, …) komponiert darauf.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",

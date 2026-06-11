@@ -1,5 +1,44 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.40.0
+
+### Minor Changes
+
+- d10ef7e: Drei geteilte Bausteine aus den Review-Findings (studio#36/#46, studio#15, enterprise#95):
+
+  - **Pending-Rebuild-Queue** (`@cosmicdrift/kumiko-framework/migrations`):
+    `queueRebuildsFromMarkers` + `runPendingRebuilds` persistieren
+    Projection-Rebuilds in `kumiko_pending_rebuilds` — ein fehlgeschlagener
+    Rebuild nach `schema apply` bleibt pending und wird beim nächsten Lauf
+    nachgeholt, statt still verloren zu gehen.
+  - **`parseEnvDryRun`** (`@cosmicdrift/kumiko-framework/env`): ehrliches
+    `Partial<z.infer<S>>` für den KUMIKO_DRY_RUN_ENV-Pfad statt
+    `({} as Shape)`-Cast — vorhandene Werte typisiert gecoerct, wirft nie.
+  - **`buildManifestFromRegistry`** (`@cosmicdrift/kumiko-framework/engine`):
+    die Feature-Manifest-Extraktion als geteilter Builder (+ `Manifest*`-Typen,
+    `serializeManifest`, optionaler `tier`-Tag + Feature-Filter) — der
+    use-all-bundled-Generator nutzt ihn bereits, der enterprise-Fork folgt.
+
+- 64a51ac: Review-Findings Rest-Welle (PR #323, 35 Findings). Verhaltens-relevant:
+
+  - **Boot strenger** (kann bisher durchlaufende Boots brechen): required
+    Config-Keys mit computed bzw. non-empty default sind jetzt Boot-Fehler;
+    Action-Field-Refs (pick/map/visible.field/entityId) werden gegen die
+    Entity-Felder validiert; zwei Entities mit gleichem tableName werfen.
+  - **readiness:** SystemAdmin-gated required-Keys zählen jetzt im Verdict
+    jedes Callers (skipAccessFilter im Rollup) — `ready` kann von true auf
+    false kippen, wo vorher Lücken unsichtbar waren; mail-foundation
+    Provider-Key ist required.
+  - **access.admin-Preset** enthält zusätzlich `TenantAdmin`.
+  - **user-data-rights:** runForgetCleanup wählt savepoint-FIRST — nested
+    BEGIN in Transaktionen (Prod-Incident-Klasse) behoben.
+  - **dev-server:** `extraRoutes`-deps zwischen runProdApp und
+    createKumikoServer geteilt (`ExtraRoutesSystemDeps`); createKumikoServer
+    reicht jetzt den nackten ioredis-Client statt des TestRedis-Wrappers.
+  - **renderer-web:** Theme-Restore concurrent-render-sicher (useState-Lazy);
+    ConfigSourceBadge kollabiert Operator-Quellen auf Tenant-Screens.
+  - **renderer/headless:** evalFieldCondition als Single-Source re-exportiert.
+
 ## 0.39.0
 
 ### Minor Changes
