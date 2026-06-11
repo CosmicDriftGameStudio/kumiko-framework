@@ -138,6 +138,16 @@ export {
   VERSION_HEADER,
 } from "./feature-ast";
 export {
+  type BuildManifestOptions,
+  buildManifestFromRegistry,
+  type FeatureManifest,
+  type ManifestConfigKey,
+  type ManifestExtension,
+  type ManifestFeature,
+  type ManifestSecret,
+  serializeManifest,
+} from "./feature-manifest";
+export {
   checkWriteFieldOwnership,
   checkWriteFieldRoles,
   filterReadFields,

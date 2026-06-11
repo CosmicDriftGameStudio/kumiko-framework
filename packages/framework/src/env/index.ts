@@ -316,6 +316,28 @@ function ucfirst(s: string): string {
   return s.length === 0 ? s : s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+/** Dry-Run-Gegenstück zu parseEnv (KUMIKO_DRY_RUN_ENV-Pfad): parst jedes
+ *  Feld einzeln und liefert ein ehrliches Partial — vorhandene Werte kommen
+ *  typisiert (gecoerct) durch, fehlende/invalide fehlen einfach. Wirft nie:
+ *  der Dry-Run soll das Inventory rendern, nicht an required-Feldern
+ *  scheitern. Ersetzt das `({} as Shape)`-Muster, bei dem JEDER Zugriff
+ *  silent undefined war und das Compile-Level nichts davon wusste. */
+export function parseEnvDryRun<S extends z.ZodObject<z.ZodRawShape>>(
+  schema: S,
+  env: Record<string, string | undefined>,
+): Partial<z.infer<S>> {
+  const out: Record<string, unknown> = {};
+  for (const [name, field] of Object.entries(zodShape(schema))) {
+    const raw = env[name];
+    if (raw === undefined) continue;
+    const result = field.safeParse(raw);
+    if (result.success) out[name] = result.data;
+  }
+  // @cast-boundary schema-walk — Partial<z.infer<S>> erasure über den
+  // per-Feld-safeParse; jeder enthaltene Wert hat seinen Feld-Parse bestanden.
+  return out as Partial<z.infer<S>>;
+}
+
 export function camelCase(snakeShout: string): string {
   const parts = snakeShout.toLowerCase().split("_").filter(Boolean);
   if (parts.length === 0) return snakeShout.toLowerCase();
