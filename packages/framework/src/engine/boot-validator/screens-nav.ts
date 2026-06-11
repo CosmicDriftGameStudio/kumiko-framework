@@ -48,7 +48,9 @@ function validateActionFieldRefs(
     }
     const sources = "pick" in extractor ? extractor.pick : Object.values(extractor.map);
     for (const source of sources) {
-      if (source === "id") continue; // row.id ist immer da (Aggregat-Id)
+      // Row-Meta ist immer da, ohne Entity-Field zu sein: id (Aggregat-Id)
+      // und version (optimistic lock — Standard-pick für Lifecycle-Writes).
+      if (source === "id" || source === "version") continue;
       if (!fieldNames.has(source)) {
         throw new Error(
           `[Feature ${featureName}] Screen "${screenId}" ${actionKind} "${actionId}" ` +

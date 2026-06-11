@@ -1890,6 +1890,56 @@ describe("boot-validator", () => {
     });
   });
 
+  // --- rowAction payload-Extractor Feld-Referenzen (Tier 2.7e-3) ---
+  // Row-Meta (id, version) ist auf jeder Entity-Row vorhanden ohne ein
+  // Entity-Field zu sein — pick ["id", "version"] ist das Standard-Payload
+  // für optimistic-lock-Lifecycle-Writes und darf den Boot nicht killen
+  // (Prod-Incident publicstatus 2026-06-11: 0.40-Validator lehnte
+  // maintenance-start/cancel/complete ab, CrashLoopBackOff).
+  describe("entityList rowAction payload pick (Tier 2.7e-3)", () => {
+    function makeFeature(pick: readonly string[]) {
+      return defineFeature("shop", (r) => {
+        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.screen({
+          id: "product-list",
+          type: "entityList",
+          entity: "product",
+          columns: ["name"],
+          rowActions: [
+            {
+              id: "archive",
+              label: "actions.archive",
+              handler: "shop:write:archive",
+              payload: { pick: [...pick] },
+            },
+          ],
+        });
+        r.writeHandler(
+          "archive",
+          z.object({}),
+          async () => ({ isSuccess: true as const, data: null }),
+          {
+            access: { roles: ["Admin"] },
+          },
+        );
+      });
+    }
+
+    test("pick mit Row-Meta id + version → kein Throw (optimistic-lock-Standard)", () => {
+      expect(() => validateBoot([makeFeature(["id", "version"])])).not.toThrow();
+    });
+
+    test("pick mit Entity-Field → kein Throw", () => {
+      expect(() => validateBoot([makeFeature(["id", "name"])])).not.toThrow();
+    });
+
+    test("pick mit unknown Field → Throw mit klarer Message", () => {
+      expect(() => validateBoot([makeFeature(["id", "ghost"])])).toThrow(
+        /rowAction "archive" payload references unknown field "ghost"/,
+      );
+    });
+  });
+
   // --- toolbarAction navigate + writeHandler Validierung (Tier 2.7e-2) ---
   describe("entityList toolbarAction navigate (Tier 2.7e-2)", () => {
     function makeFeature(targetScreen: string, withTarget: boolean) {
