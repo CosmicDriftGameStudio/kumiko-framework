@@ -81,6 +81,41 @@ const widgetFeature = defineFeature("prod-probe", (r) => {
       data: { tenantSeen: event.user.tenantId, roles: event.user.roles },
     }),
   });
+  // Event + MSP-Paar für den lokalen Event-Dispatcher (2026-06-11):
+  // runProdApp ist Single-Container — ohne lokalen Dispatcher wendet KEINE
+  // multiStreamProjection jemals an (Prod hatte deshalb leere Projektionen
+  // + leere kumiko_event_consumers). Der Write appended das Event; die MSP
+  // schreibt async in prod_probe_pings — der Test pollt darauf.
+  const pingedEvent = r.defineEvent("probe-pinged", z.object({ note: z.string() }));
+  r.writeHandler({
+    name: "probe-append",
+    schema: z.object({ aggregateId: z.string(), note: z.string() }),
+    access: { roles: ["SystemAdmin"] },
+    handler: async (event, ctx) => {
+      const payload = event.payload as { aggregateId: string; note: string }; // @cast-boundary engine-payload
+      // unsafeAppendEvent: das Test-Feature augmentiert keine Event-Type-Map,
+      // der strict-typed appendEvent narrowt hier auf never.
+      await ctx.unsafeAppendEvent({
+        aggregateId: payload.aggregateId,
+        aggregateType: "probe",
+        type: pingedEvent.name,
+        payload: { note: payload.note },
+      });
+      return { isSuccess: true as const, data: { ok: true as const } };
+    },
+  });
+  r.multiStreamProjection({
+    name: "probe-ping-projection",
+    apply: {
+      [pingedEvent.name]: async (event, tx) => {
+        const payload = event.payload as { note: string }; // @cast-boundary engine-payload
+        await asRawClient(tx).unsafe(
+          `INSERT INTO prod_probe_pings (aggregate_id, note) VALUES ($1, $2)`,
+          [event.aggregateId, payload.note],
+        );
+      },
+    },
+  });
 });
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001";
@@ -130,6 +165,13 @@ async function migrateTestDb(): Promise<void> {
     await createProjectionStateTable(db);
     await createEventConsumerStateTable(db);
     await unsafeEnsureEntityTable(db, widgetEntity, "widget");
+    await asRawClient(db).unsafe(
+      `CREATE TABLE IF NOT EXISTS prod_probe_pings (
+         id BIGSERIAL PRIMARY KEY,
+         aggregate_id UUID NOT NULL,
+         note TEXT NOT NULL
+       )`,
+    );
   } finally {
     await close();
   }
@@ -592,5 +634,78 @@ describe("runProdApp", () => {
     await expect(boot(undefined, { migrations: { dir: driftDir } })).rejects.toThrow(
       /Schema drift detected/,
     );
+  });
+});
+
+describe("runProdApp: lokaler Event-Dispatcher (MSP-Anwendung im Single-Container)", () => {
+  // Regression für den 2026-06-11-Incident: runProdApp baute den
+  // Event-Dispatcher nie ({disabled:true} im API-Entrypoint) — jede
+  // multiStreamProjection blieb in Prod unangewendet, kumiko_event_consumers
+  // blieb leer. Der Test schreibt über den ECHTEN Boot-Pfad und pollt auf
+  // die async projizierte Row.
+  async function pollFor<T>(
+    probe: () => Promise<T | undefined>,
+    timeoutMs = 8000,
+  ): Promise<T> {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      const result = await probe();
+      if (result !== undefined) return result;
+      if (Date.now() > deadline) throw new Error("pollFor: timeout");
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
+
+  test("Write → appendEvent → MSP wendet async an; Consumer-Cursor wandert", async () => {
+    let dispatchSystemWrite: import("../extra-routes-deps").ExtraRoutesSystemDeps["dispatchSystemWrite"];
+    const handle = await boot(undefined, {
+      eventDispatcher: { pollIntervalMs: 50 },
+      extraRoutes: (_app, deps) => {
+        dispatchSystemWrite = deps.dispatchSystemWrite;
+      },
+    });
+
+    // Default-Boot baut den lokalen Dispatcher und start() hat ihn gestartet.
+    expect(handle.entrypoint.eventDispatcher).toBeDefined();
+
+    const aggregateId = crypto.randomUUID();
+    const result = await dispatchSystemWrite!({
+      handlerQn: "prod-probe:write:probe-append",
+      payload: { aggregateId, note: "dispatched" },
+      tenantId: TENANT_ID as import("@cosmicdrift/kumiko-framework/engine").TenantId,
+    });
+    expect(result.isSuccess).toBe(true);
+
+    const url = ADMIN_URL.replace(/\/[^/]+$/, `/${TEST_DB}`);
+    const { db, close } = createDbConnection(url);
+    try {
+      const row = await pollFor(async () => {
+        const rows = (await asRawClient(db).unsafe(
+          `SELECT note FROM prod_probe_pings WHERE aggregate_id = $1`,
+          [aggregateId],
+        )) as Array<{ note: string }>;
+        return rows[0];
+      });
+      expect(row.note).toBe("dispatched");
+
+      // Consumer-Registrierung + Cursor-Fortschritt — in Prod war diese
+      // Tabelle komplett leer, DER Beweis dass nie ein Dispatcher lief.
+      const consumers = (await asRawClient(db).unsafe(
+        `SELECT name, last_processed_event_id FROM kumiko_event_consumers
+         WHERE name = 'prod-probe:projection:probe-ping-projection'
+            OR name LIKE '%probe-ping-projection%'`,
+      )) as Array<{ name: string; last_processed_event_id: string | number }>;
+      expect(consumers.length).toBeGreaterThan(0);
+      expect(Number(consumers[0]?.last_processed_event_id)).toBeGreaterThan(0);
+    } finally {
+      await close();
+    }
+  });
+
+  test("eventDispatcher.disabled: kein lokaler Dispatcher gebaut", async () => {
+    const handle = await boot(undefined, {
+      eventDispatcher: { disabled: true },
+    });
+    expect(handle.entrypoint.eventDispatcher).toBeUndefined();
   });
 });

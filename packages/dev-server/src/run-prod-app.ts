@@ -416,6 +416,20 @@ export type RunProdAppOptions = {
     /** BullMQ-Queue-Prefix (default "kumiko"). */
     readonly queueNamePrefix?: string;
   };
+  /** Event-Dispatcher (MSP-Anwendung) im API-Process. Default AN —
+   *  runProdApp ist das Single-Container-Deployment, es gibt keinen
+   *  Worker-Process der multiStreamProjections anwenden könnte. Bis
+   *  2026-06-11 fehlte der Dispatcher hier komplett: jede MSP-basierte
+   *  Read-Projektion (z.B. custom-fields jsonb) blieb in Prod leer,
+   *  kumiko_event_consumers blieb ohne Rows. `disabled: true` nur für
+   *  Setups mit dezidiertem Worker-Process. */
+  readonly eventDispatcher?: {
+    readonly disabled?: boolean;
+    /** Poll-Intervall des Dispatcher-Loops (default siehe
+     *  createEventDispatcher). LISTEN/NOTIFY-Wiring kommt mit einem
+     *  späteren pgClient-Pass-through. */
+    readonly pollIntervalMs?: number;
+  };
   /** Mount-Point für app-eigene HTTP-Routes außerhalb des Dispatcher-
    *  Systems. Aufgerufen NACH /api/* + /health, VOR der static-fallback —
    *  perfekt für GET-Endpoints die kein JSON liefern: /feed.xml,
@@ -751,6 +765,17 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
         runLocalJobs: options.jobs?.runLocalJobs ?? true,
         ...(options.jobs?.queueNamePrefix !== undefined && {
           queueNamePrefix: options.jobs.queueNamePrefix,
+        }),
+      },
+    }),
+    // Single-Container: MSPs laufen im API-Process (Default an, analog
+    // runLocalJobs). Ohne lokalen Dispatcher würden r.multiStreamProjection-
+    // Projektionen nie anwenden — es gibt hier keinen Worker-Process.
+    ...(!options.eventDispatcher?.disabled && {
+      eventDispatcher: {
+        runLocal: true,
+        ...(options.eventDispatcher?.pollIntervalMs !== undefined && {
+          pollIntervalMs: options.eventDispatcher.pollIntervalMs,
         }),
       },
     }),
