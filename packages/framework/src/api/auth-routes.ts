@@ -899,7 +899,12 @@ export function createAuthRoutes(
     // the new token in the body below — their Set-Cookie is a no-op
     // because the browser never sent cookies.
     const csrfToken = generateToken();
-    setAuthCookies(c, { token: newToken, csrfToken, sameSite: cookieSameSite, domain: cookieDomain });
+    setAuthCookies(c, {
+      token: newToken,
+      csrfToken,
+      sameSite: cookieSameSite,
+      domain: cookieDomain,
+    });
 
     return c.json({ token: newToken, tenantId: targetTenantId, roles: mergedRoles });
   });

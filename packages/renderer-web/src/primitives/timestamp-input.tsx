@@ -73,7 +73,7 @@ export function TimestampInput({
       id={id}
       name={name}
       disabled={disabled}
-      aria-required={required}
+      required={required}
       aria-invalid={hasError === true ? true : undefined}
       value={timestampToInputValue(value)}
       onChange={(e: ChangeEvent<HTMLInputElement>) =>
