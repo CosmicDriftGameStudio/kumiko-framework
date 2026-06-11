@@ -333,6 +333,17 @@ export type EntityEditScreenDefinition = {
   readonly type: "entityEdit";
   readonly entity: string;
   readonly layout: EditLayout;
+  /** Default true. `false` für Entities deren Create über einen eigenen
+   *  Lifecycle-Write läuft (z.B. incident:open mit Event-Stream + Joins)
+   *  statt über `<entity>:create`: unterdrückt den automatischen
+   *  „+ Neu"-Button auf entityList-Screens dieser Entity und rendert den
+   *  Create-Branch (Aufruf ohne entityId) als Fehler statt eines Forms,
+   *  dessen Submit gegen einen nicht registrierten Handler liefe. */
+  readonly allowCreate?: boolean;
+  /** Default true. `false` wenn kein `<entity>:delete`-Handler existiert
+   *  (History-/Audit-Erhalt): unterdrückt den Löschen-Button im
+   *  Update-Form. */
+  readonly allowDelete?: boolean;
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;
 };

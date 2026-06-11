@@ -123,3 +123,47 @@ describe("fieldDefinitionAggregateId determinism", () => {
     expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
   });
 });
+
+// Role-Naming-Drift (Wave J): die CustomFieldsFormSection dispatcht die
+// Bundle-QNs hart — Apps mit eigenem Rollen-Vokabular (publicstatus:
+// "Admin"/"Editor") müssen die Access-Rollen der Value-Writes + des
+// fieldDefinition-List-Queries überschreiben können, sonst ist jeder
+// Save/Load für App-User access_denied.
+describe("createCustomFieldsFeature access-options", () => {
+  function writeAccess(
+    feature: ReturnType<typeof createCustomFieldsFeature>,
+    nameMatch: string,
+  ): readonly string[] {
+    const entry = Object.entries(feature.writeHandlers).find(([qn]) => qn.includes(nameMatch));
+    if (!entry) throw new Error(`handler ${nameMatch} not registered`);
+    const access = entry[1].access;
+    if (!access || !("roles" in access)) throw new Error(`handler ${nameMatch} has no roles`);
+    return access.roles;
+  }
+
+  test("ohne Optionen: Singleton mit Default-Rollen", () => {
+    const feature = createCustomFieldsFeature();
+    expect(feature).toBe(createCustomFieldsFeature());
+    expect(writeAccess(feature, "set-custom-field")).toEqual(["TenantAdmin", "TenantMember"]);
+    expect(writeAccess(feature, "clear-custom-field")).toEqual(["TenantAdmin", "TenantMember"]);
+  });
+
+  test("valueWriteRoles überschreibt set- UND clear-custom-field", () => {
+    const feature = createCustomFieldsFeature({ valueWriteRoles: ["Admin", "Editor"] });
+    expect(writeAccess(feature, "set-custom-field")).toEqual(["Admin", "Editor"]);
+    expect(writeAccess(feature, "clear-custom-field")).toEqual(["Admin", "Editor"]);
+    // Definition-CRUD bleibt unberührt — dafür existieren App-Wrapper.
+    expect(writeAccess(feature, "define-tenant-field")).toEqual(["TenantAdmin"]);
+  });
+
+  test("fieldDefinitionListRoles überschreibt den List-Query (FormSection-Lade-Pfad)", () => {
+    const feature = createCustomFieldsFeature({ fieldDefinitionListRoles: ["Admin", "Editor"] });
+    const entry = Object.entries(feature.queryHandlers).find(([qn]) =>
+      qn.includes("field-definition:list"),
+    );
+    if (!entry) throw new Error("field-definition:list not registered");
+    const access = entry[1].access;
+    if (!access || !("roles" in access)) throw new Error("list-query has no roles");
+    expect(access.roles).toEqual(["Admin", "Editor"]);
+  });
+});

@@ -1,6 +1,7 @@
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
+import { DEFAULT_VALUE_WRITE_ROLES } from "../constants";
 import { customFieldsFeature } from "../feature";
 import { checkFieldAccessForWrite } from "../lib/field-access";
 
@@ -25,7 +26,7 @@ export type ClearCustomFieldPayload = z.infer<typeof clearCustomFieldPayloadSche
 export const clearCustomFieldHandler: WriteHandlerDef = {
   name: "clear-custom-field",
   schema: clearCustomFieldPayloadSchema,
-  access: { roles: ["TenantAdmin", "TenantMember"] },
+  access: { roles: DEFAULT_VALUE_WRITE_ROLES },
   handler: async (event, ctx) => {
     const payload = event.payload as ClearCustomFieldPayload; // @cast-boundary engine-payload
 
@@ -62,3 +63,11 @@ export const clearCustomFieldHandler: WriteHandlerDef = {
     };
   },
 };
+
+/** Pendant zu createSetCustomFieldHandler — gleiche Rollen für set + clear,
+ *  ein Wert ohne Clear-Recht wäre nur halb beherrschbar. */
+export function createClearCustomFieldHandler(
+  roles: readonly string[] = DEFAULT_VALUE_WRITE_ROLES,
+): WriteHandlerDef {
+  return { ...clearCustomFieldHandler, access: { roles } };
+}

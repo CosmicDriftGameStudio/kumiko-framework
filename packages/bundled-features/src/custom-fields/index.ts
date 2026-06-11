@@ -14,7 +14,11 @@ export {
   customFieldClearedSchema,
   customFieldSetSchema,
 } from "./events";
-export { createCustomFieldsFeature, customFieldsFeature } from "./feature";
+export {
+  type CustomFieldsFeatureOptions,
+  createCustomFieldsFeature,
+  customFieldsFeature,
+} from "./feature";
 export {
   type ClearCustomFieldPayload,
   clearCustomFieldPayloadSchema,

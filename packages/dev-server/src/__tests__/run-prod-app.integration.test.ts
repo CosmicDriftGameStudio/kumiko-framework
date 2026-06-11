@@ -643,10 +643,7 @@ describe("runProdApp: lokaler Event-Dispatcher (MSP-Anwendung im Single-Containe
   // multiStreamProjection blieb in Prod unangewendet, kumiko_event_consumers
   // blieb leer. Der Test schreibt über den ECHTEN Boot-Pfad und pollt auf
   // die async projizierte Row.
-  async function pollFor<T>(
-    probe: () => Promise<T | undefined>,
-    timeoutMs = 8000,
-  ): Promise<T> {
+  async function pollFor<T>(probe: () => Promise<T | undefined>, timeoutMs = 8000): Promise<T> {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
       const result = await probe();

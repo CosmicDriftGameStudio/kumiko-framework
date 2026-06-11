@@ -206,8 +206,11 @@ function useNavigateToCreateFor(
 ): (() => void) | undefined {
   const nav = useNav();
   const editScreenId = useMemo(() => {
+    // allowCreate:false = update-only Edit-Screen (Create läuft über einen
+    // Lifecycle-Write) — der zählt nicht als „+ Neu"-Ziel.
     const edit = schema.screens.find(
-      (s: ScreenDefinition) => s.type === "entityEdit" && s.entity === entityName,
+      (s: ScreenDefinition) =>
+        s.type === "entityEdit" && s.entity === entityName && s.allowCreate !== false,
     );
     return edit !== undefined ? lastSegment(edit.id) : undefined;
   }, [schema.screens, entityName]);
@@ -272,6 +275,17 @@ function EntityEditScreen({
         entityId={entityId}
         {...(translate !== undefined && { translate })}
       />
+    );
+  }
+  if (screen.allowCreate === false) {
+    // Update-only Screen ohne entityId (Direkt-URL / verirrte Navigation):
+    // ein Create-Form würde gegen den nicht registrierten
+    // `<entity>:create`-Handler submitten — Fehler statt Falle.
+    return (
+      <Banner padded variant="error" testId="kumiko-screen-create-disabled">
+        Screen <Text variant="code">{screen.id}</Text> is update-only (allowCreate: false) — open it
+        from a row action with an entity id.
+      </Banner>
     );
   }
   return (
@@ -465,7 +479,10 @@ function EntityEditUpdateForm({
       payloadMode="changes"
       buildPayload={buildPayload}
       onSubmit={handleSubmitted}
-      onDelete={handleDelete}
+      // allowDelete:false = Entity ohne CRUD-delete (History-Erhalt) —
+      // ohne das Gate dispatchte der Button gegen einen nicht
+      // registrierten `<entity>:delete`-Handler.
+      {...(screen.allowDelete !== false && { onDelete: handleDelete })}
       onCancel={navigateToList}
       onReload={() => void onReload()}
       {...(translate !== undefined && { translate })}
@@ -969,6 +986,11 @@ function ActionFormBody({
       entity={synthEntity}
       featureName={schema.featureName}
       initial={initial}
+      // Extension-Sections im actionForm sehen die initialen Form-Values
+      // (inkl. searchParams-Prefill, z.B. ?incidentId=…) als initialValues
+      // — anders als im entityEdit gibt es hier keinen record, aus dem
+      // sie Kontext ziehen könnten.
+      extensionInitialValues={initial}
       writeCommand={screen.handler}
       payloadMode="values"
       onSubmit={handleSubmitted}
