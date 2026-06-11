@@ -5,7 +5,6 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
-  FieldCondition,
   RowAction,
   RowActionWriteHandler,
   RowFieldExtractor,

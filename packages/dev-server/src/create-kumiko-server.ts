@@ -23,7 +23,6 @@ import { type AuthRoutesConfig, generateToken } from "@cosmicdrift/kumiko-framew
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import {
   buildAppSchema,
-  createSystemUser,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
