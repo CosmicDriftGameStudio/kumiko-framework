@@ -9,7 +9,7 @@ import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features
 import {
   createKumikoServer,
   type KumikoServerHandle,
-} from "@cosmicdrift/kumiko-dev-server/create-kumiko-server";
+} from "@cosmicdrift/kumiko-dev-server";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { APP_FEATURES } from "../run-config";
 

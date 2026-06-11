@@ -41,7 +41,11 @@ function validateActionFieldRefs(
   const entityId: string | undefined = "entityId" in action ? action.entityId : undefined;
   const known = () => [...fieldNames].sort().join(", ") || "(none)";
   const checkExtractor = (label: string, extractor: RowFieldExtractor | undefined): void => {
-    if (extractor === undefined) return;
+    // skip: extractor ist ein optionaler Action-Slot — ohne ihn gibt es
+    // keine Feld-Referenzen zu validieren.
+    if (extractor === undefined) {
+      return;
+    }
     const sources = "pick" in extractor ? extractor.pick : Object.values(extractor.map);
     for (const source of sources) {
       if (source === "id") continue; // row.id ist immer da (Aggregat-Id)
