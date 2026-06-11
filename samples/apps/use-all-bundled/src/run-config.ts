@@ -54,6 +54,7 @@ import { createTextContentFeature } from "@cosmicdrift/kumiko-bundled-features/t
 import { tierEngineFeature } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
+import { createUserProfileFeature } from "@cosmicdrift/kumiko-bundled-features/user-profile";
 
 // Smoke-only stubs. Boot-mode skipt jede operative Methode — diese werden
 // nie aufgerufen, nur typecheck'd.
@@ -141,6 +142,7 @@ export const APP_FEATURES = [
   createDataRetentionFeature(),
   createUserDataRightsFeature(),
   createUserDataRightsDefaultsFeature(),
+  createUserProfileFeature(),
 
   // CMS / content
   createTextContentFeature(),

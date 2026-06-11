@@ -207,17 +207,7 @@ export const defaultTranslations: TranslationsByLocale = {
   },
 };
 
-/** Merged zwei TranslationsByLocale-Maps — der override gewinnt pro Key,
- *  die Locales werden zusammengeführt. Wird von emailPasswordClient()
- *  benutzt, um App-Overrides über die Defaults zu legen. */
-export function mergeTranslations(
-  base: TranslationsByLocale,
-  override: TranslationsByLocale,
-): TranslationsByLocale {
-  const locales = new Set([...Object.keys(base), ...Object.keys(override)]);
-  const merged: Record<string, Record<string, string>> = {};
-  for (const locale of locales) {
-    merged[locale] = { ...(base[locale] ?? {}), ...(override[locale] ?? {}) };
-  }
-  return merged;
-}
+// Kanonische Implementierung lebt jetzt im Renderer (neben
+// TranslationsByLocale) — Re-Export hält die bestehende Import-Surface
+// (auth-email-password/web) stabil.
+export { mergeTranslations } from "@cosmicdrift/kumiko-renderer";

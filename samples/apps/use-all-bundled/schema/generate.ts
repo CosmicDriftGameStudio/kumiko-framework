@@ -151,6 +151,11 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults",
     factory: "createUserDataRightsDefaultsFeature",
   },
+  "user-profile": {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-bundled-features/user-profile",
+    factory: "createUserProfileFeature",
+  },
   "text-content": {
     kind: "factory",
     path: "@cosmicdrift/kumiko-bundled-features/text-content",

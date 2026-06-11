@@ -25,6 +25,21 @@ export type TranslationBundle = Readonly<Record<string, string>>;
 /** Map von Locale-Code (BCP-47, z.B. `"de"`, `"en-US"`) → Bundle. */
 export type TranslationsByLocale = Readonly<Record<string, TranslationBundle>>;
 
+/** Merged zwei TranslationsByLocale-Maps — der override gewinnt pro Key,
+ *  die Locales werden zusammengeführt. Standard-Baustein für Client-
+ *  Plugins, die App-Overrides über ihre Default-Bundles legen. */
+export function mergeTranslations(
+  base: TranslationsByLocale,
+  override: TranslationsByLocale,
+): TranslationsByLocale {
+  const locales = new Set([...Object.keys(base), ...Object.keys(override)]);
+  const merged: Record<string, Record<string, string>> = {};
+  for (const locale of locales) {
+    merged[locale] = { ...(base[locale] ?? {}), ...(override[locale] ?? {}) };
+  }
+  return merged;
+}
+
 type LocaleContextValue = {
   readonly resolver: LocaleResolver;
   readonly fallbackBundles: readonly TranslationsByLocale[];
