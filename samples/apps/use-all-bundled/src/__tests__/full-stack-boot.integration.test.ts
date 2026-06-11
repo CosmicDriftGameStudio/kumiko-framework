@@ -5,11 +5,8 @@
 // und treibt eine echte HTTP-Round-Trip durch den Dispatcher.
 
 import { afterAll, describe, expect, test } from "bun:test";
+import { createKumikoServer, type KumikoServerHandle } from "@cosmicdrift/kumiko-dev-server";
 import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features";
-import {
-  createKumikoServer,
-  type KumikoServerHandle,
-} from "@cosmicdrift/kumiko-dev-server";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { APP_FEATURES } from "../run-config";
 
