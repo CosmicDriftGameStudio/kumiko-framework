@@ -12,6 +12,7 @@ import type {
   ScreenDefinition,
   ToolbarAction,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   Command,
   FormSnapshot,
@@ -44,13 +45,6 @@ function evalRowExtractor(
     return Object.fromEntries(extractor.pick.map((f) => [f, row[f]]));
   }
   return Object.fromEntries(Object.entries(extractor.map).map(([to, from]) => [to, row[from]]));
-}
-
-function evalFieldCondition(cond: FieldCondition, values: Record<string, unknown>): boolean {
-  if (typeof cond === "boolean") return cond;
-  const val = values[cond.field];
-  if ("eq" in cond) return val === cond.eq;
-  return val !== cond.ne;
 }
 
 // KumikoScreen picks up a ScreenDefinition from the schema by qn and
@@ -1154,7 +1148,7 @@ function ConfigEditBody({
       {...(translate !== undefined && { translate })}
       labelAppendix={(fieldName: string) => {
         const source = sources[fieldName];
-        return source ? <ConfigSourceBadge source={source} /> : undefined;
+        return source ? <ConfigSourceBadge source={source} screenScope={screen.scope} /> : undefined;
       }}
       fieldAppendix={(fieldName: string) => {
         const cascade = cascades[fieldName];

@@ -511,6 +511,18 @@ export function normalizeListColumn(c: ListColumnSpec): Exclude<ListColumnSpec, 
   return col;
 }
 
+/** Evaluates a declarative FieldCondition against the current row/form
+ *  values. THE single implementation — renderer (row-action visibility),
+ *  headless view-model (visible/readOnly/required) and render-edit
+ *  (form-condition closures) reuse it; three hand-rolled copies had
+ *  already drifted in shape. */
+export function evalFieldCondition(cond: FieldCondition, values: Record<string, unknown>): boolean {
+  if (typeof cond === "boolean") return cond;
+  const val = values[cond.field];
+  if ("eq" in cond) return val === cond.eq;
+  return val !== cond.ne;
+}
+
 export function normalizeEditField(f: EditFieldSpec): Exclude<EditFieldSpec, string> {
   return typeof f === "string" ? { field: f } : f;
 }

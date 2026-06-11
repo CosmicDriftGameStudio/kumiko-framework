@@ -4,6 +4,7 @@ import type {
   FieldCondition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
+  evalFieldCondition,
   isExtensionEditSection,
   normalizeEditField,
   parseRefTarget,
@@ -154,8 +155,6 @@ function evalCondition<TValues>(
   values: TValues,
 ): boolean {
   if (condition === undefined) return fallback;
-  if (typeof condition === "boolean") return condition;
-  const val = (values as Record<string, unknown>)[condition.field];
-  if ("eq" in condition) return val === condition.eq;
-  return val !== condition.ne;
+  // @cast-boundary view-model: TValues ist strukturell ein Record.
+  return evalFieldCondition(condition, values as Record<string, unknown>);
 }

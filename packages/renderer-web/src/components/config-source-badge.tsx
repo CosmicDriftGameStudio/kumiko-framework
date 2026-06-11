@@ -1,4 +1,4 @@
-import type { ConfigValueSource } from "@cosmicdrift/kumiko-framework/engine";
+import type { ConfigScope, ConfigValueSource } from "@cosmicdrift/kumiko-framework/engine";
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
 
@@ -12,9 +12,42 @@ const SOURCE_CONFIG: Record<ConfigValueSource, { labelKey: string; bg: string; t
   missing: { labelKey: "kumiko.config.source.missing", bg: "#fee2e2", text: "#991b1b" },
 };
 
-export function ConfigSourceBadge({ source }: { readonly source: ConfigValueSource }): ReactNode {
+const SOURCE_ORDER: readonly ConfigValueSource[] = [
+  "user-row",
+  "tenant-row",
+  "system-row",
+  "app-override",
+  "computed",
+  "default",
+  "missing",
+];
+
+function scopeToSource(scope: ConfigScope): ConfigValueSource {
+  if (scope === "user") return "user-row";
+  if (scope === "tenant") return "tenant-row";
+  return "system-row";
+}
+
+export function ConfigSourceBadge({
+  source,
+  screenScope,
+}: {
+  readonly source: ConfigValueSource;
+  readonly screenScope?: ConfigScope;
+}): ReactNode {
   const t = useTranslation();
-  const cfg = SOURCE_CONFIG[source];
+  // Gleiche Kollaps-Regel wie toDisplayLevels (config-cascade.tsx):
+  // Operator-Quellen oberhalb des Screen-Scopes erscheinen für Nicht-
+  // Operator-Screens als neutrales "Vorgabe"-Badge — sonst leakte das
+  // Badge die System-Quelle, die die Cascade-View bewusst versteckt.
+  let effective = source;
+  if (screenScope !== undefined && screenScope !== "system") {
+    const scopeIdx = SOURCE_ORDER.indexOf(scopeToSource(screenScope));
+    if (SOURCE_ORDER.indexOf(source) > scopeIdx && source !== "missing") {
+      effective = "default";
+    }
+  }
+  const cfg = SOURCE_CONFIG[effective];
 
   return (
     <span
