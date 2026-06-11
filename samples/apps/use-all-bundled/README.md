@@ -14,7 +14,7 @@ The `use-all-bundled-smoke` job guards `release`. It boots the sample with `KUMI
 |---|---|
 | `use-all-bundled-smoke` | feature-wiring bugs: `Object.entries(undefined)`, self-extension, missing-requires, schema-Validators, `composeFeatures` failures. **No DB**. Boot exits after `createRegistry`. |
 
-DB-backed paths (schema-drift, `tierResolverUsage.plugin.build`, `assertSchemaCurrent`, `GET /health`) are exercised by the `*.integration.test.ts` suite in the non-blocking `integration` CI-job against the full stack.
+DB-backed boot (schema apply for every bundled feature against real Postgres + Redis, dispatcher round-trip) is gated by `src/__tests__/full-stack-boot.integration.test.ts` in the non-blocking `integration` CI-job. The prod-only paths (`assertSchemaCurrent`, `GET /health`) run in `packages/dev-server`'s `run-prod-app.integration.test.ts` — not against this sample's feature set.
 
 ## Boot-test (no DB, pre-flight)
 

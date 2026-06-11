@@ -614,6 +614,20 @@ describe("custom-fields integration — update-tenant-field (Bug-Bash D2)", () =
     expect(sf["label"]).toEqual({ de: "Priorität", en: "Priority" });
   });
 
+  test("update ohne label entfernt ein bestehendes Label (Vollersatz-Semantik)", async () => {
+    await defineField("property", "weight", "number");
+    await updateField("weight", {
+      serializedField: { type: "number" },
+      label: { de: "Gewicht", en: "Weight" },
+    });
+
+    await updateField("weight", { serializedField: { type: "number" } });
+
+    const row = await fetchDefinitionRow(admin.tenantId, "weight");
+    const sf = JSON.parse(String(row?.["serialized_field"])) as Record<string, unknown>;
+    expect(sf["label"]).toBeUndefined();
+  });
+
   test("zwei sequentielle Updates ohne version_conflict (skipOptimisticLock)", async () => {
     await defineField("property", "stage", "text");
     await updateField("stage", { displayOrder: 1 });
