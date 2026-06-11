@@ -264,10 +264,16 @@ export type InputProps =
       readonly kind: "timestamp";
       readonly id: string;
       readonly name: string;
-      /** ISO-8601 Datetime-String inkl. Zeit ("2026-04-25T13:45").
-       *  Empty-State = `""`. Web nutzt `<input type="datetime-local">`. */
+      /** ISO-8601 Datetime-String. UTC-Instant mit `Z`
+       *  ("2026-04-25T13:45:00Z") oder Wall-Clock ohne Offset
+       *  ("2026-04-25T13:45", nur bei wallClock). Empty-State = `""`.
+       *  Web nutzt `<input type="datetime-local">` und konvertiert. */
       readonly value: string;
       readonly onChange: (v: string | undefined) => void;
+      /** true = locatedTimestamp (Wall-Clock ohne Offset, Server
+       *  validiert z.iso.datetime({local:true})). false/undefined =
+       *  UTC-Instant, onChange MUSS mit `Z`-Suffix emittieren. */
+      readonly wallClock?: boolean;
       readonly disabled?: boolean;
       readonly required?: boolean;
       readonly hasError?: boolean;

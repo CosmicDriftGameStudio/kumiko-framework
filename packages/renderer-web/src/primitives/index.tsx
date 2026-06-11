@@ -55,6 +55,7 @@ import {
   DropdownMenuTrigger,
 } from "./dropdown-menu";
 import { MoneyInput } from "./money-input";
+import { TimestampInput } from "./timestamp-input";
 import { useToast } from "./toast";
 
 // ---- Button ----
@@ -340,13 +341,15 @@ function DefaultInput(props: InputProps): ReactNode {
       );
     case "timestamp":
       return (
-        <input
-          type="datetime-local"
-          {...common}
+        <TimestampInput
+          id={props.id}
+          name={props.name}
           value={props.value}
-          onChange={(e: ChangeEvent<HTMLInputElement>) =>
-            props.onChange(e.target.value !== "" ? e.target.value : undefined)
-          }
+          onChange={props.onChange}
+          {...(props.wallClock !== undefined && { wallClock: props.wallClock })}
+          {...(props.disabled !== undefined && { disabled: props.disabled })}
+          {...(props.required !== undefined && { required: props.required })}
+          {...(props.hasError !== undefined && { hasError: props.hasError })}
           className={cn(inputClassBase, errorClass)}
         />
       );
