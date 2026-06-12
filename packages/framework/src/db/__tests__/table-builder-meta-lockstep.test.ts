@@ -22,6 +22,7 @@ const entityWithDefaults = createEntity({
     tags: { type: "multiSelect", options: ["a", "b"] },
     attempt: { type: "number", required: true, default: 1 },
     bytes: { type: "bigInt", default: 0 },
+    rate: { type: "decimal", precision: 6, scale: 4, required: true, default: 1.5 },
     price: { type: "money" },
     meta: { type: "embedded", fields: {} },
     startedAt: { type: "timestamp", required: true },
@@ -59,6 +60,13 @@ describe("buildEntityTable ↔ buildEntityTableMeta lock-step", () => {
     expect(cols.get("bytes")?.defaultSql).toBe("0");
     expect(cols.get("title")?.defaultSql).toBe("'untitled'");
     expect(cols.get("active")?.defaultSql).toBe("true");
+    expect(cols.get("rate")?.defaultSql).toBe("1.5");
+  });
+
+  test("decimal field maps to numeric(precision,scale) on both paths", () => {
+    const cols = new Map((fromBuilder?.columns ?? []).map((c) => [c.name, c]));
+    expect(cols.get("rate")?.pgType).toBe("numeric(6,4)");
+    expect(cols.get("rate")?.notNull).toBe(true);
   });
 });
 

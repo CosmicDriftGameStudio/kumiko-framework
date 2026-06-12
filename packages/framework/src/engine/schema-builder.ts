@@ -60,6 +60,20 @@ export function fieldToZod(field: FieldDefinition, currencies: readonly string[]
       const schema = z.number();
       return field.default !== undefined ? schema.default(field.default) : schema;
     }
+    case "decimal": {
+      // Stored as numeric(precision, scale), surfaced as JS number. Bound the
+      // value at the write boundary so an over-range or over-scale input fails
+      // loud here instead of being silently rounded/rejected by Postgres.
+      const limit = 10 ** (field.precision - field.scale);
+      const schema = z
+        .number()
+        .gt(-limit)
+        .lt(limit)
+        .refine((n) => Number(n.toFixed(field.scale)) === n, {
+          message: `at most ${field.scale} decimal places`,
+        });
+      return field.default !== undefined ? schema.default(field.default) : schema;
+    }
     case "bigInt": {
       // JS-`number`-Round-trip via mode:"number"; sicher bis 2^53.
       // safe-integer-Cap ist explizit damit ein Caller, der einen

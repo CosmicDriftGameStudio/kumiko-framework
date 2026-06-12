@@ -54,7 +54,15 @@ export type SchemaTable = EntityTableMeta & {
   readonly [field: string]: unknown;
 };
 
+function isNumericPgType(t: PgType): t is `numeric(${number},${number})` {
+  return t.startsWith("numeric(");
+}
+
 export function pgTypeToSqlType(pgType: PgType): string {
+  // numeric(p,s) carries its precision/scale in the type string — already
+  // valid SQL. The guard narrows it out so the switch below stays exhaustive
+  // over the fixed members (a forgotten member still fails the type-check).
+  if (isNumericPgType(pgType)) return pgType;
   switch (pgType) {
     case "uuid":
       return "uuid";
@@ -270,6 +278,17 @@ export function instant(
   const pgType: PgType = opts?.precision === 3 ? "timestamptz(3)" : "timestamptz";
   return buildColumn(name, pgType) as ColumnBuilder<Temporal.Instant>;
 }
+
+// Real numeric(precision, scale) column — exact decimal storage (interest
+// rates, percentages, ratios). pg returns numeric as a STRING; coerceRow
+// parses it back to JS number on read (safe ≤ 2^53). Precision/scale live in
+// the pgType string, so DDL render + coercion need no extra metadata.
+export const decimalColumn = (
+  name: string,
+  precision: number,
+  scale: number,
+): ColumnBuilder<number> =>
+  buildColumn(name, `numeric(${precision},${scale})`) as ColumnBuilder<number>;
 
 // moneyAmount kept as a customType-style API but produces a bigint column.
 // bigintJsMode "bigint" — entity-table-meta renders money as bigint, and the

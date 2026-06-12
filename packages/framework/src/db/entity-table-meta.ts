@@ -40,7 +40,10 @@ export type PgType =
   | "bigserial"
   | "jsonb"
   | "timestamptz"
-  | "timestamptz(3)";
+  | "timestamptz(3)"
+  // Exact decimal — precision/scale are encoded in the type string so the
+  // DDL renderer and read-coercion need no side-channel metadata.
+  | `numeric(${number},${number})`;
 
 export type ColumnMeta = {
   readonly name: string; // snake_case PG column name
@@ -203,6 +206,17 @@ function fieldToColumnMeta(
           pgType: "bigint",
           notNull: field.required === true,
           bigintJsMode: "number",
+          ...(def !== undefined && { defaultSql: def }),
+        },
+      ];
+    }
+    case "decimal": {
+      const def = fieldDefaultLiteral(field);
+      return [
+        {
+          name: snake,
+          pgType: `numeric(${field.precision},${field.scale})`,
+          notNull: field.required === true,
           ...(def !== undefined && { defaultSql: def }),
         },
       ];

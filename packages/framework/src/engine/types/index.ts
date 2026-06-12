@@ -79,6 +79,7 @@ export type {
   BigIntFieldDef,
   BooleanFieldDef,
   DateFieldDef,
+  DecimalFieldDef,
   DefaultCurrency,
   EmbeddedFieldDef,
   EmbeddedSubFieldDef,
