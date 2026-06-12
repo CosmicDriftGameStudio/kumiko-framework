@@ -3,7 +3,8 @@ import type {
   EntityDefinition,
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { RenderList } from "@cosmicdrift/kumiko-renderer";
+import type { ExtensionSectionProps } from "@cosmicdrift/kumiko-renderer";
+import { ExtensionSectionsProvider, RenderList } from "@cosmicdrift/kumiko-renderer";
 import { fireEvent, render, screen } from "./test-utils";
 
 const taskEntity = {
@@ -146,5 +147,43 @@ describe("RenderList", () => {
         />,
       ),
     ).toThrow(/unknown field "ghost"/);
+  });
+});
+
+describe("RenderList — slots.header", () => {
+  const ListHeader = (props: ExtensionSectionProps) => (
+    <div data-testid="list-header-slot">
+      header for {props.entityName} (id={String(props.entityId)})
+    </div>
+  );
+  const screenWithHeader: EntityListScreenDefinition = {
+    ...listScreen,
+    slots: { header: { react: { __component: "list-cap-header" } } },
+  };
+
+  test("rendert die registrierte header-Component über der Tabelle (entityId null)", () => {
+    render(
+      <ExtensionSectionsProvider value={{ "list-cap-header": ListHeader }}>
+        <RenderList screen={screenWithHeader} entity={taskEntity} rows={[]} featureName="tasks" />
+      </ExtensionSectionsProvider>,
+    );
+    const header = screen.getByTestId("list-header-slot");
+    expect(header.textContent).toContain("header for task");
+    // Listen-Kontext → keine Row → entityId null.
+    expect(header.textContent).toContain("id=null");
+  });
+
+  test("ohne slots.header wird nichts gerendert (kein Crash)", () => {
+    render(<RenderList screen={listScreen} entity={taskEntity} rows={[]} featureName="tasks" />);
+    expect(screen.queryByTestId("list-header-slot")).toBeNull();
+  });
+
+  test("slots.header gesetzt, aber Component nicht registriert → kein Crash, kein Header", () => {
+    render(
+      <ExtensionSectionsProvider value={{}}>
+        <RenderList screen={screenWithHeader} entity={taskEntity} rows={[]} featureName="tasks" />
+      </ExtensionSectionsProvider>,
+    );
+    expect(screen.queryByTestId("list-header-slot")).toBeNull();
   });
 });

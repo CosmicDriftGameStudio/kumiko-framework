@@ -12,6 +12,7 @@ import type {
 } from "@cosmicdrift/kumiko-headless";
 import { computeListViewModel } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections";
 import type { ListSort } from "../hooks/use-list-url-state";
 import { type ReferenceLookupMap, useReferenceLookup } from "../hooks/use-reference-lookup";
 import { useTranslation } from "../i18n";
@@ -299,6 +300,7 @@ export function RenderList(props: RenderListProps): ReactNode {
   // ListSort = DataTableSort (use-list-url-state aliased) — kein Cast nötig.
   return (
     <>
+      <ListHeaderSlotMount screen={screen} />
       {referenceColumns.map(
         (rc: { field: string; refEntity: string; refFeature: string; labelField: string }) => (
           <ReferenceLookupBridge
@@ -330,6 +332,25 @@ export function RenderList(props: RenderListProps): ReactNode {
       />
     </>
   );
+}
+
+// Header-Slot über der Liste: `screen.slots.header` ist eine
+// PlatformComponent (`{ react: { __component: "X" } }`), aufgelöst über
+// dieselbe ExtensionSectionsProvider-Registry wie entityEdit-Sections.
+// entityId ist null (Listen-Kontext, keine Row); die Component lädt ihre
+// Daten selbst (z.B. ein Cap-Counter aus einer usage-Query). Eigene
+// Component wegen Rules-of-Hooks — useExtensionSectionComponent darf nicht
+// konditional im RenderList-Body laufen.
+function ListHeaderSlotMount({
+  screen,
+}: {
+  readonly screen: EntityListScreenDefinition;
+}): ReactNode {
+  const header = screen.slots?.header;
+  const name = header !== undefined ? extensionSectionName(header) : undefined;
+  const Component = useExtensionSectionComponent(name);
+  if (Component === undefined) return null;
+  return <Component entityName={screen.entity} entityId={null} />;
 }
 
 // Tier 2.7e-4: Bridge-Component pro reference-Spalte. Mounted für jede
