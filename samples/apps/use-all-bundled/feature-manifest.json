@@ -729,10 +729,12 @@
     },
     {
       "name": "subscription-stripe",
-      "description": "Stripe payment provider plugin for `billing-foundation`. Mount via `createSubscriptionStripeFeature({ webhookSecret, apiKey, priceToTier })` — a factory function that holds the app-wide credentials in a closure for use before tenant resolution. Implements all four provider methods: `verifyAndParseWebhook` (HMAC signature verification), `createCheckoutSession`, `createPortalSession`, and `cancelSubscription`. The `priceToTier` map connects Stripe price IDs to your tier names.",
+      "description": "Stripe payment provider plugin for `billing-foundation`. Reads its Stripe API key + webhook secret from the **secrets** feature (stored under the system tenant) and a `billingLive` **system config** flag — all at runtime, so keys rotate and prod goes live without a redeploy. Mount via `createSubscriptionStripeFeature({ priceToTier })`; the optional `apiKey`/`webhookSecret` options are env→secrets bridge fallbacks. The plugin always mounts — `createCheckoutSession` throws `feature_disabled` unless `billingLive` is true, so sk_test_ keys in prod never produce a live checkout. Implements all four provider methods (webhook verify, checkout, portal, cancel).",
       "toggleableDefault": null,
       "requires": [
-        "billing-foundation"
+        "billing-foundation",
+        "config",
+        "secrets"
       ],
       "optionalRequires": [],
       "configReads": [],
@@ -744,8 +746,41 @@
           "entityName": "stripe"
         }
       ],
-      "configKeys": [],
-      "secrets": []
+      "configKeys": [
+        {
+          "key": "billing-live",
+          "qualifiedName": "subscription-stripe:config:billing-live",
+          "type": "boolean",
+          "scope": "system",
+          "default": false,
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "writeRoles": [
+            "system"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ]
+        }
+      ],
+      "secrets": [
+        {
+          "qualifiedName": "subscription-stripe:secret:api-key",
+          "scope": "tenant",
+          "label": "Stripe API Key",
+          "hint": "Stripe secret key (`sk_live_...`). Stripe dashboard → Developers → API keys."
+        },
+        {
+          "qualifiedName": "subscription-stripe:secret:webhook-secret",
+          "scope": "tenant",
+          "label": "Stripe Webhook Secret",
+          "hint": "Webhook signing secret (`whsec_...`). Stripe dashboard → the webhook endpoint."
+        }
+      ]
     },
     {
       "name": "template-resolver",

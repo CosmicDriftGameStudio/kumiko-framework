@@ -245,8 +245,13 @@ describe("compose across all Phase-2 features", () => {
       const out = asBootError(err).format();
       expect(out).toContain("✗ JWT_SECRET (auth-email-password, required, missing)");
       expect(out).toContain("✗ KUMIKO_SECRETS_MASTER_KEY_V1 (secrets, required, missing)");
-      expect(out).toContain("✗ STRIPE_API_KEY (subscription-stripe, required, missing)");
       expect(out).toContain("✗ MOLLIE_API_KEY (subscription-mollie, required, missing)");
+      // subscription-stripe-v2: STRIPE_API_KEY/STRIPE_WEBHOOK_SECRET sind
+      // jetzt optionale env→secrets-Bridge-Fallbacks, also KEIN missing-
+      // required-Boot-Fehler mehr — credentials kommen zur Laufzeit aus
+      // secrets.
+      expect(out).not.toContain("STRIPE_API_KEY");
+      expect(out).not.toContain("STRIPE_WEBHOOK_SECRET");
     }
   });
 });
