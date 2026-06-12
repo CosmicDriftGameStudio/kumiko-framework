@@ -2,6 +2,7 @@ import type {
   BigIntFieldDef,
   BooleanFieldDef,
   DateFieldDef,
+  DecimalFieldDef,
   EmbeddedFieldDef,
   EntityDefinition,
   EntityIndexDef,
@@ -138,6 +139,21 @@ export function createBigIntField<R extends true | false = false>(
     required: false,
     ...overrides,
   } as BigIntFieldDef & { required: R }; // @cast-boundary engine-payload
+}
+
+// Exact decimal column — numeric(precision, scale). precision/scale are
+// required (no truncating default). See DecimalFieldDef for the precision
+// caveat (surfaced as JS number, safe ≤ 2^53).
+export function createDecimalField<R extends true | false = false>(
+  config: { precision: number; scale: number } & Partial<
+    Omit<DecimalFieldDef, "type" | "precision" | "scale" | "required">
+  > & { required?: R },
+): DecimalFieldDef & { required: R } {
+  return {
+    type: "decimal",
+    required: false,
+    ...config,
+  } as DecimalFieldDef & { required: R }; // @cast-boundary engine-payload
 }
 
 export function createMoneyField<R extends true | false = false>(

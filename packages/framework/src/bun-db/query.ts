@@ -359,6 +359,17 @@ export function coerceRow<T extends Record<string, unknown>>(row: T, info: Table
       // Drizzle coerced to number for numberField columns — match that.
       const n = Number(value);
       if (!Number.isNaN(n)) coerced = n;
+    } else if (
+      typeof pgType === "string" &&
+      pgType.startsWith("numeric") &&
+      (typeof value === "string" || typeof value === "bigint")
+    ) {
+      // pg returns numeric(p,s) as a string to preserve precision; the
+      // decimal-field contract surfaces it as JS number (safe ≤ 2^53). A
+      // non-numeric string would be DB corruption — leave it untouched so it
+      // surfaces loud downstream rather than becoming a silent NaN.
+      const n = Number(value);
+      if (!Number.isNaN(n)) coerced = n;
     }
     const fieldName = info.fieldOf(key);
     if (fieldName !== key) changed = true;

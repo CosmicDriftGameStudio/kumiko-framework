@@ -14,6 +14,7 @@ import {
   boolean,
   type ColumnBuilder,
   type ColumnHandle,
+  decimalColumn,
   type IndexBuilderWithCols,
   index,
   instant,
@@ -101,6 +102,11 @@ function fieldToColumns(
       return { [name]: jsonb(snakeName).default([]).notNull() };
     case "number": {
       const base = integer(snakeName);
+      const col = field.default !== undefined ? base.default(field.default) : base;
+      return { [name]: field.required ? col.notNull() : col };
+    }
+    case "decimal": {
+      const base = decimalColumn(snakeName, field.precision, field.scale);
       const col = field.default !== undefined ? base.default(field.default) : base;
       return { [name]: field.required ? col.notNull() : col };
     }
@@ -283,42 +289,46 @@ type ColumnsForField<K extends string, F extends FieldDefinition> = F extends {
         ? F extends { required: true }
           ? { readonly [P in K]: Col<number> }
           : { readonly [P in K]: NullCol<number> }
-        : F extends { type: "money" }
+        : F extends { type: "decimal" }
           ? F extends { required: true }
-            ? { readonly [P in K]: Col<number> } & {
-                readonly [P in `${K}Currency`]: Col<string>;
-              }
-            : { readonly [P in K]: NullCol<number> } & {
-                readonly [P in `${K}Currency`]: Col<string>;
-              }
-          : F extends { type: "reference"; multiple: true }
-            ? { readonly [P in K]: Col<readonly string[]> }
-            : F extends { type: "reference" }
-              ? F extends { required: true }
-                ? { readonly [P in K]: Col<string> }
-                : { readonly [P in K]: NullCol<string> }
-              : F extends { type: "embedded" }
-                ? // jsonb default `{}`, immer notNull
-                  { readonly [P in K]: Col<Readonly<Record<string, unknown>>> }
-                : F extends { type: "date" | "timestamp" }
-                  ? F extends { required: true }
-                    ? { readonly [P in K]: Col<Temporal.Instant> }
-                    : { readonly [P in K]: NullCol<Temporal.Instant> }
-                  : F extends { type: "locatedTimestamp" }
+            ? { readonly [P in K]: Col<number> }
+            : { readonly [P in K]: NullCol<number> }
+          : F extends { type: "money" }
+            ? F extends { required: true }
+              ? { readonly [P in K]: Col<number> } & {
+                  readonly [P in `${K}Currency`]: Col<string>;
+                }
+              : { readonly [P in K]: NullCol<number> } & {
+                  readonly [P in `${K}Currency`]: Col<string>;
+                }
+            : F extends { type: "reference"; multiple: true }
+              ? { readonly [P in K]: Col<readonly string[]> }
+              : F extends { type: "reference" }
+                ? F extends { required: true }
+                  ? { readonly [P in K]: Col<string> }
+                  : { readonly [P in K]: NullCol<string> }
+                : F extends { type: "embedded" }
+                  ? // jsonb default `{}`, immer notNull
+                    { readonly [P in K]: Col<Readonly<Record<string, unknown>>> }
+                  : F extends { type: "date" | "timestamp" }
                     ? F extends { required: true }
-                      ? { readonly [P in `${K}Utc`]: Col<Temporal.Instant> } & {
-                          readonly [P in `${K}Tz`]: Col<string>;
-                        }
-                      : { readonly [P in `${K}Utc`]: NullCol<Temporal.Instant> } & {
-                          readonly [P in `${K}Tz`]: NullCol<string>;
-                        }
-                    : F extends { type: "file" | "image" }
+                      ? { readonly [P in K]: Col<Temporal.Instant> }
+                      : { readonly [P in K]: NullCol<Temporal.Instant> }
+                    : F extends { type: "locatedTimestamp" }
                       ? F extends { required: true }
-                        ? { readonly [P in K]: Col<string> }
-                        : { readonly [P in K]: NullCol<string> }
-                      : F extends { type: "files" | "images" }
-                        ? Record<never, never>
-                        : never;
+                        ? { readonly [P in `${K}Utc`]: Col<Temporal.Instant> } & {
+                            readonly [P in `${K}Tz`]: Col<string>;
+                          }
+                        : { readonly [P in `${K}Utc`]: NullCol<Temporal.Instant> } & {
+                            readonly [P in `${K}Tz`]: NullCol<string>;
+                          }
+                      : F extends { type: "file" | "image" }
+                        ? F extends { required: true }
+                          ? { readonly [P in K]: Col<string> }
+                          : { readonly [P in K]: NullCol<string> }
+                        : F extends { type: "files" | "images" }
+                          ? Record<never, never>
+                          : never;
 
 type UnionToIntersection<U> = (U extends unknown ? (k: U) => void : never) extends (
   k: infer I,

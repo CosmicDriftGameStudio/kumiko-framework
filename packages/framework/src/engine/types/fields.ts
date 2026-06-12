@@ -223,6 +223,30 @@ export type BigIntFieldDef = {
   readonly access?: FieldAccess;
 } & PiiAnnotations;
 
+/**
+ * Exact decimal — Postgres `numeric(precision, scale)`. For values that need
+ * fractional precision the integer `number` field (32-bit int) and `money`
+ * field (BIGINT minor units + currency) can't hold: interest rates,
+ * percentages, ratios, measurements.
+ *
+ * `precision` = total significant digits, `scale` = digits after the decimal
+ * point (both required — no silent default that could truncate). pg returns
+ * `numeric` as a string to preserve precision; the read-codec surfaces it as
+ * a JS `number` (safe ≤ 2^53, same trade-off as `bigInt` mode:"number" — a
+ * value past that boundary loses precision, so keep `precision - scale` ≤ 15).
+ */
+export type DecimalFieldDef = {
+  readonly type: "decimal";
+  readonly precision: number;
+  readonly scale: number;
+  readonly required?: boolean;
+  readonly sortable?: boolean;
+  readonly filterable?: boolean;
+  readonly sensitive?: boolean;
+  readonly default?: number;
+  readonly access?: FieldAccess;
+} & PiiAnnotations;
+
 export type MoneyFieldDef = {
   readonly type: "money";
   readonly required?: boolean;
@@ -440,6 +464,7 @@ export type FieldDefinition =
   | MultiSelectFieldDef
   | NumberFieldDef
   | BigIntFieldDef
+  | DecimalFieldDef
   | MoneyFieldDef
   | ReferenceFieldDef
   | EmbeddedFieldDef
