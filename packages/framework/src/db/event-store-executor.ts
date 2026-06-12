@@ -969,6 +969,19 @@ export function createEventStoreExecutor(
 
       const idWhere = idFilter(payload.id);
 
+      // Stream-version authoritative (same policy as update/Block 0):
+      // ctx.appendEvent (lifecycle-writes like incident:post-update) bumps
+      // the stream WITHOUT touching row.version — a detail-read that hands
+      // out the stale row.version dooms the next CRUD update built on it
+      // (entityEdit loads detail.version as its optimistic-lock base) to a
+      // guaranteed version_conflict.
+      const withStreamVersion = async (
+        row: Record<string, unknown>,
+      ): Promise<Record<string, unknown>> => {
+        const streamVersion = await getStreamVersion(db.raw, String(payload.id), user.tenantId);
+        return streamVersion > 0 ? { ...row, version: streamVersion } : row;
+      };
+
       if (entityCache && entityName) {
         const cached = await entityCache.get(user.tenantId, entityName, payload.id);
         if (cached) {
@@ -978,7 +991,7 @@ export function createEventStoreExecutor(
             const checkRows = await loadWithOwnership(db, idWhere, ownership);
             if (checkRows.length === 0) return null;
           }
-          return cached;
+          return withStreamVersion(cached);
         }
       }
 
@@ -993,7 +1006,7 @@ export function createEventStoreExecutor(
         await entityCache.set(user.tenantId, entityName, payload.id, coerced);
       }
 
-      return coerced;
+      return withStreamVersion(coerced);
     },
   };
 }
