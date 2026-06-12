@@ -1,151 +1,175 @@
-// kumiko-feature-version: 1
+// kumiko-feature-version: 2
 //
-// subscription-stripe — Stripe-Plugin für die subscription-foundation
+// subscription-stripe — Stripe-Plugin für die billing-foundation
 // Plugin-API.
 //
-// **Factory-Pattern (= createSubscriptionStripeFeature(options)):**
-// Im Gegensatz zu mail-transport-smtp / file-provider-s3 (die ihre
-// secrets aus tenant-secrets lesen) ist Stripe's webhook-secret
-// **app-wide** — App-Owner hat einen Stripe-account, alle Webhooks
-// gehen dorthin. Plugin braucht den secret beim webhook-sig-verify-
-// Zeitpunkt, der ist PRE-tenant-resolution (kein ctx).
+// **Runtime-config (v2):** Stripe-credentials + der billing-live-Master-
+// Switch kommen ZUR LAUFZEIT aus config/secrets, nicht mehr aus einem
+// mount-time-Closure. Damit lassen sich Keys rotieren und prod live-
+// schalten ohne Redeploy.
+//   - `subscription-stripe:api-key` + `:webhook-secret` → **secrets**
+//     (encrypted-at-rest), gespeichert/gelesen unter SYSTEM_TENANT_ID
+//     (Stripe ist app-wide, secrets-v1 deklariert nur `scope:"tenant"`,
+//     also lebt der app-wide-Wert unter dem System-Tenant — dieselbe
+//     Konvention die der config-resolver für system-scope-rows nutzt).
+//   - `subscription-stripe:config:billingLive` → **system config**
+//     (boolean, default false). Der Master-Switch: ohne ihn darf kein
+//     checkout eine Stripe-Session erzeugen (#104-Invariante, write-side
+//     im createCheckoutSession-Gate durchgesetzt).
 //
-// Lösung: factory-Funktion `createSubscriptionStripeFeature(options)`
-// liest webhook-secret + apiKey beim mount-time aus dem Caller (= App-
-// Builder's bin/server.ts der's aus process.env zieht). Closure
-// hält's für den verifyAndParseWebhook-call.
+// **Factory-options als Fallback:** `createSubscriptionStripeFeature({
+// apiKey, webhookSecret, priceToTier })` bleibt — apiKey/webhookSecret
+// sind jetzt OPTIONAL und dienen nur als Fallback während der env→secrets-
+// Bridge-Phase und in Tests, die keinen secrets-context wiren. `priceToTier`
+// (Stripe-price-id → app-tier-name) bleibt eine factory-option: app-
+// spezifisch, kein Secret, ändert sich selten.
 //
-// Beispiel-Verwendung in run-config.ts:
-//
-//   import { createSubscriptionStripeFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-stripe";
-//
-//   const features = [
-//     billingFoundationFeature,
-//     createSubscriptionStripeFeature({
-//       webhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? "",
-//       apiKey: process.env.STRIPE_API_KEY ?? "",
-//       priceToTier: {
-//         "price_1ABC": "pro",
-//         "price_1XYZ": "business",
-//       },
-//     }),
-//   ];
-//
-// **Pattern-Vorbild:** mirrors createFeatureTogglesFeature(options) —
-// gleiche factory-Form für features die module-load-time-Konfiguration
-// haben (analog zum FeatureToggle-runtime-holder).
+// **Webhook + system-secrets:** verifyAndParseWebhook ist pre-tenant
+// (kein ctx). Der billing-foundation-webhook-handler reicht einen system-
+// scoped SecretsContext als 3. Arg durch, aus dem der Plugin api-key +
+// webhook-secret un-audited liest (sanctioned framework-internal read).
 
 import type { SubscriptionProviderPlugin } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
-import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import Stripe from "stripe";
+import {
+  createSystemConfig,
+  defineFeature,
+  type FeatureDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
-import { STRIPE_PROVIDER_NAME, SUBSCRIPTION_STRIPE_FEATURE } from "./constants";
+import {
+  STRIPE_API_KEY_SECRET,
+  STRIPE_BILLING_LIVE_CONFIG,
+  STRIPE_PROVIDER_NAME,
+  STRIPE_WEBHOOK_SECRET_SECRET,
+  SUBSCRIPTION_STRIPE_FEATURE,
+} from "./constants";
 import {
   createStripeCancelSubscription,
   createStripeCheckoutSession,
   createStripePortalSession,
 } from "./plugin-methods";
+import { createStripeRuntimes } from "./runtime";
 import { verifyAndParseStripeWebhook } from "./verify-webhook";
 
 /**
- * Env-vars contract for the `subscription-stripe` feature.
- *
- * The feature itself reads via factory-options (`createSubscriptionStripeFeature({
- * webhookSecret, apiKey })`), so the schema is a Kumiko-pattern contract:
- * apps that mount stripe SHOULD load `STRIPE_WEBHOOK_SECRET` / `STRIPE_API_KEY`
- * from env and forward them. `composeEnvSchema({ features: [stripeFeature] })`
- * surfaces missing/empty values at boot, before
- * `createSubscriptionStripeFeature` throws on `webhookSecret.length === 0`.
+ * Env-vars contract for the `subscription-stripe` feature — now a **bridge
+ * contract**: both fields are optional. v2 reads credentials from secrets
+ * at runtime; `STRIPE_WEBHOOK_SECRET` / `STRIPE_API_KEY` are only consumed
+ * as factory-fallback during the env→secrets transition. The regex still
+ * validates the shape when a value IS present, so a typo'd bridge key fails
+ * at boot rather than at the first webhook.
  */
 export const subscriptionStripeEnvSchema = z.object({
   STRIPE_WEBHOOK_SECRET: z
     .string()
     .regex(/^whsec_/, "STRIPE_WEBHOOK_SECRET must start with 'whsec_'")
-    .describe("Stripe webhook-signing secret (`whsec_...` from the Stripe dashboard).")
-    .meta({ kumiko: { pulumi: { secret: true } } }),
+    .describe("Stripe webhook-signing secret (`whsec_...`). Bridge-fallback — prefer the secret.")
+    .meta({ kumiko: { pulumi: { secret: true } } })
+    .optional(),
   STRIPE_API_KEY: z
     .string()
     .regex(
       /^(sk|rk)_(test|live)_/,
       "STRIPE_API_KEY must start with 'sk_test_'/'sk_live_' or a restricted 'rk_test_'/'rk_live_' key",
     )
-    .describe("Stripe API key (`sk_live_...` / `sk_test_...`, restricted `rk_...` keys allowed).")
-    .meta({ kumiko: { pulumi: { secret: true } } }),
+    .describe(
+      "Stripe API key (`sk_live_...` / `sk_test_...`). Bridge-fallback — prefer the secret.",
+    )
+    .meta({ kumiko: { pulumi: { secret: true } } })
+    .optional(),
 });
 
 export type SubscriptionStripeOptions = {
-  /** Webhook-secret aus dem Stripe-Dashboard. App-wide. Plugin throws
-   *  beim runtime wenn empty (= App-Owner hat sub-stripe gemountet
-   *  aber Stripe-Account nicht konfiguriert). */
-  readonly webhookSecret: string;
-  /** Stripe-API-key (sk_live_... / sk_test_...). Heute nur für
-   *  constructEvent-API-Version-Pin gebraucht; Phase 5.2b nutzt's
-   *  für outgoing-API-calls (createPortalSession etc.). */
-  readonly apiKey: string;
-  /** Price-to-tier-Mapping. Plugin liest die price-id aus Stripe-event
-   *  (subscription.items.data[0].price.id) und mappt auf einen tier-
-   *  name. Fehlt die price-id im Mapping → null (foundation 200
-   *  ignored — App-Owner-Bug, hat den Stripe-price angelegt aber
-   *  nicht zur tier zugeordnet). */
-  readonly priceToTier: Readonly<Record<string, string>>;
+  /** Bridge-fallback webhook-secret. Optional: v2 liest aus
+   *  `subscription-stripe:webhook-secret` (system-secret). Gesetzt nur
+   *  während der env→secrets-Übergangsphase / in Tests. */
+  readonly webhookSecret?: string;
+  /** Bridge-fallback api-key. Optional: v2 liest aus
+   *  `subscription-stripe:api-key` (system-secret). */
+  readonly apiKey?: string;
+  /** Price-to-tier-Mapping. Plugin liest die price-id aus dem Stripe-event
+   *  (subscription.items.data[0].price.id) und mappt auf einen tier-name.
+   *  App-spezifisch → bleibt factory-option. Fehlt die price-id im Mapping
+   *  → null (event ignored). */
+  readonly priceToTier?: Readonly<Record<string, string>>;
 };
 
+const SECRET_REDACT = (plaintext: string): string =>
+  plaintext.length < 12
+    ? "•".repeat(plaintext.length)
+    : `${plaintext.slice(0, 8)}...${plaintext.slice(-4)}`;
+
 /**
- * Factory für das subscription-stripe-feature. Wird mit den App-Owner-
- * eigenen Stripe-Credentials gemountet. Der returnte FeatureDefinition
- * registriert den Plugin gegen subscription-foundation's
- * "subscriptionProvider"-extension-point unter entityName "stripe".
+ * Factory für das subscription-stripe-feature. Mountet IMMER (kein
+ * key-presence-Guard mehr) — die Aktivität wird runtime über config/secrets
+ * gegatet (Muster wie feature-toggles). Der returnte FeatureDefinition
+ * registriert den Plugin gegen billing-foundation's "subscriptionProvider"-
+ * extension unter entityName "stripe".
  */
 export function createSubscriptionStripeFeature(
-  options: SubscriptionStripeOptions,
+  options: SubscriptionStripeOptions = {},
 ): FeatureDefinition {
-  // Module-load-Validation: ohne webhook-secret kann der Plugin keinen
-  // single Webhook verifizieren. Throw vor dem mount damit der App-
-  // Owner nicht zur Laufzeit Mystery-401s sieht.
-  if (options.webhookSecret.length === 0) {
-    throw new Error(
-      "subscription-stripe: webhookSecret is empty. Set STRIPE_WEBHOOK_SECRET (or system-config) before mounting.",
-    );
-  }
-  if (options.apiKey.length === 0) {
-    throw new Error(
-      "subscription-stripe: apiKey is empty. Set STRIPE_API_KEY (or system-config) before mounting.",
-    );
-  }
-
-  // EIN Stripe-Client für alle vier plugin-methods (verify-webhook +
-  // checkout + portal + cancel). API-version-pin zentral, kein
-  // Connection-Duplikat.
-  const stripe = new Stripe(options.apiKey, { apiVersion: "2026-04-22.dahlia" });
-
-  const verifyAndParse = verifyAndParseStripeWebhook(stripe, {
-    webhookSecret: options.webhookSecret,
-    priceToTier: options.priceToTier,
-  });
-  const checkoutSession = createStripeCheckoutSession(stripe);
-  const portalSession = createStripePortalSession(stripe);
-  const cancel = createStripeCancelSubscription(stripe);
-
   return defineFeature(SUBSCRIPTION_STRIPE_FEATURE, (r) => {
     r.describe(
-      "Stripe payment provider plugin for `billing-foundation`. Mount via `createSubscriptionStripeFeature({ webhookSecret, apiKey, priceToTier })` \u2014 a factory function that holds the app-wide credentials in a closure for use before tenant resolution. Implements all four provider methods: `verifyAndParseWebhook` (HMAC signature verification), `createCheckoutSession`, `createPortalSession`, and `cancelSubscription`. The `priceToTier` map connects Stripe price IDs to your tier names.",
+      "Stripe payment provider plugin for `billing-foundation`. Reads its Stripe API key + webhook secret from the **secrets** feature (stored under the system tenant) and a `billingLive` **system config** flag — all at runtime, so keys rotate and prod goes live without a redeploy. Mount via `createSubscriptionStripeFeature({ priceToTier })`; the optional `apiKey`/`webhookSecret` options are env→secrets bridge fallbacks. The plugin always mounts — `createCheckoutSession` throws `feature_disabled` unless `billingLive` is true, so sk_test_ keys in prod never produce a live checkout. Implements all four provider methods (webhook verify, checkout, portal, cancel).",
     );
-    // Hard-deps: subscription-foundation als plugin-host. KEIN
-    // `r.requires("config", "secrets")` — der Plugin nutzt weder
-    // tenant-config noch tenant-secrets (alles app-wide via factory-
-    // options).
+    // Hard-deps: billing-foundation (plugin-host) + config (billing-live)
+    // + secrets (api-key/webhook-secret).
     r.requires("billing-foundation");
+    r.requires("config");
+    r.requires("secrets");
     r.envSchema(subscriptionStripeEnvSchema);
 
-    // Plugin: register against subscription-foundation's
-    // "subscriptionProvider" extension. entityName "stripe" matcht den
-    // path-segment in der webhook-URL (`/api/subscription/webhook/stripe`).
+    // Runtime-credentials. scope "tenant" (secrets-v1) — gespeichert/gelesen
+    // unter SYSTEM_TENANT_ID (app-wide). required:false: der factory-Fallback
+    // deckt die Bridge-Phase, also kein readiness-false-negative.
+    const apiKeySecret = r.secret(STRIPE_API_KEY_SECRET, {
+      label: { de: "Stripe API Key", en: "Stripe API Key" },
+      hint: {
+        de: "Geheimer Stripe-Schlüssel (`sk_live_...`). Im Stripe-Dashboard unter Entwickler → API-Schlüssel.",
+        en: "Stripe secret key (`sk_live_...`). Stripe dashboard → Developers → API keys.",
+      },
+      redact: SECRET_REDACT,
+      scope: "tenant",
+      required: false,
+    });
+    const webhookSecret = r.secret(STRIPE_WEBHOOK_SECRET_SECRET, {
+      label: { de: "Stripe Webhook Secret", en: "Stripe Webhook Secret" },
+      hint: {
+        de: "Webhook-Signing-Secret (`whsec_...`). Im Stripe-Dashboard beim Webhook-Endpoint.",
+        en: "Webhook signing secret (`whsec_...`). Stripe dashboard → the webhook endpoint.",
+      },
+      redact: SECRET_REDACT,
+      scope: "tenant",
+      required: false,
+    });
+
+    const configKeys = r.config({
+      keys: {
+        [STRIPE_BILLING_LIVE_CONFIG]: createSystemConfig("boolean", { default: false }),
+      },
+    });
+
+    const runtimes = createStripeRuntimes({
+      apiKeyHandle: apiKeySecret,
+      webhookSecretHandle: webhookSecret,
+      billingLiveHandle: configKeys[STRIPE_BILLING_LIVE_CONFIG],
+      fallback: {
+        ...(options.apiKey !== undefined && { apiKey: options.apiKey }),
+        ...(options.webhookSecret !== undefined && { webhookSecret: options.webhookSecret }),
+      },
+    });
+
     const plugin: SubscriptionProviderPlugin = {
-      verifyAndParseWebhook: verifyAndParse,
-      createCheckoutSession: checkoutSession,
-      createPortalSession: portalSession,
-      cancelSubscription: cancel,
+      verifyAndParseWebhook: verifyAndParseStripeWebhook(runtimes.webhook, {
+        priceToTier: options.priceToTier ?? {},
+      }),
+      createCheckoutSession: createStripeCheckoutSession(runtimes.ctx),
+      createPortalSession: createStripePortalSession(runtimes.ctx),
+      cancelSubscription: createStripeCancelSubscription(runtimes.ctx),
     };
     r.useExtension("subscriptionProvider", STRIPE_PROVIDER_NAME, plugin);
+
+    return { apiKeySecret, webhookSecret, configKeys };
   });
 }

@@ -4,7 +4,9 @@
 // Werden vom Plugin-build (feature.ts) als methods auf dem
 // SubscriptionProviderPlugin registriert. Anders als
 // verifyAndParseWebhook (= pre-tenant) bekommen diese den vollen
-// HandlerContext (für ggf. tenant-spezifische Lookups).
+// HandlerContext — sie lösen den Stripe-Client zur CALL-Zeit aus dem
+// runtime auf (api-key aus system-secrets, audited), statt aus einem
+// mount-time-Closure. Key-Rotation wirkt damit ohne Redeploy.
 //
 // **Type-Ableitung:** die options-shapes der drei methods werden
 // **direkt vom Plugin-Contract** abgeleitet (`Parameters<NonNullable
@@ -14,7 +16,7 @@
 
 import type { SubscriptionProviderPlugin } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
-import type Stripe from "stripe";
+import type { StripeCtxRuntime } from "./runtime";
 
 // =============================================================================
 // createCheckoutSession
@@ -30,8 +32,16 @@ export type StripeCheckoutOptions = Parameters<
   NonNullable<SubscriptionProviderPlugin["createCheckoutSession"]>
 >[1];
 
-export function createStripeCheckoutSession(stripe: Stripe) {
-  return async (_ctx: HandlerContext, options: StripeCheckoutOptions): Promise<{ url: string }> => {
+export function createStripeCheckoutSession(runtime: StripeCtxRuntime) {
+  return async (ctx: HandlerContext, options: StripeCheckoutOptions): Promise<{ url: string }> => {
+    // #104-Invariante: ohne billing-live darf keine Stripe-Session
+    // entstehen (sk_test_-Keys in prod erzeugen sonst einen Test-Mode-
+    // Checkout). Throw VOR jedem Stripe-Call. Früher hielt diese Schranke
+    // das ungemountete Plugin; jetzt mountet stripe immer, also gatet der
+    // billing-live-config-key write-side.
+    await runtime.assertBillingLive(ctx);
+    const stripe = await runtime.clientForCtx(ctx);
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [{ price: options.priceId, quantity: 1 }],
@@ -66,8 +76,9 @@ export type StripePortalOptions = Parameters<
   NonNullable<SubscriptionProviderPlugin["createPortalSession"]>
 >[1];
 
-export function createStripePortalSession(stripe: Stripe) {
-  return async (_ctx: HandlerContext, options: StripePortalOptions): Promise<{ url: string }> => {
+export function createStripePortalSession(runtime: StripeCtxRuntime) {
+  return async (ctx: HandlerContext, options: StripePortalOptions): Promise<{ url: string }> => {
+    const stripe = await runtime.clientForCtx(ctx);
     const session = await stripe.billingPortal.sessions.create({
       customer: options.providerCustomerId,
       return_url: options.returnUrl,
@@ -84,8 +95,9 @@ export function createStripePortalSession(stripe: Stripe) {
 // state-update läuft über den normalen webhook-pfad. Diese function
 // triggert nur die API-Cancellation.
 
-export function createStripeCancelSubscription(stripe: Stripe) {
-  return async (_ctx: HandlerContext, providerSubscriptionId: string): Promise<void> => {
+export function createStripeCancelSubscription(runtime: StripeCtxRuntime) {
+  return async (ctx: HandlerContext, providerSubscriptionId: string): Promise<void> => {
+    const stripe = await runtime.clientForCtx(ctx);
     await stripe.subscriptions.cancel(providerSubscriptionId);
   };
 }

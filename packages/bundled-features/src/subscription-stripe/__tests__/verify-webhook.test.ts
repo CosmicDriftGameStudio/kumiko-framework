@@ -13,6 +13,7 @@ import {
   SubscriptionStatuses,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import Stripe from "stripe";
+import type { StripeWebhookRuntime } from "../runtime";
 import {
   mapStripeEventType,
   mapStripeStatus,
@@ -27,6 +28,12 @@ const TEST_API_KEY = "sk_test_dummy_apikey";
 // =============================================================================
 
 const stripeForFixtures = new Stripe(TEST_API_KEY, { apiVersion: "2026-04-22.dahlia" });
+
+/** Test-runtime: liefert den fixture-Client + TEST_SECRET (statt sie aus
+ *  system-secrets aufzulösen — die Resolution testet runtime.test.ts). */
+function webhookRuntime(webhookSecret = TEST_SECRET): StripeWebhookRuntime {
+  return { resolve: async () => ({ stripe: stripeForFixtures, webhookSecret }) };
+}
 
 function buildSubscriptionEvent(overrides: {
   eventType?: string;
@@ -95,8 +102,7 @@ async function signEvent(payload: string, secret = TEST_SECRET): Promise<string>
 // =============================================================================
 
 describe("verifyAndParseStripeWebhook — sig-verify", () => {
-  const verify = verifyAndParseStripeWebhook(stripeForFixtures, {
-    webhookSecret: TEST_SECRET,
+  const verify = verifyAndParseStripeWebhook(webhookRuntime(), {
     priceToTier: { price_pro_monthly: "pro" },
   });
 
@@ -142,8 +148,7 @@ describe("verifyAndParseStripeWebhook — sig-verify", () => {
 // =============================================================================
 
 describe("verifyAndParseStripeWebhook — event-filter", () => {
-  const verify = verifyAndParseStripeWebhook(stripeForFixtures, {
-    webhookSecret: TEST_SECRET,
+  const verify = verifyAndParseStripeWebhook(webhookRuntime(), {
     priceToTier: { price_pro_monthly: "pro" },
   });
 
@@ -211,8 +216,7 @@ describe("verifyAndParseStripeWebhook — event-filter", () => {
 // =============================================================================
 
 describe("verifyAndParseStripeWebhook — tenant-resolution + price-to-tier", () => {
-  const verify = verifyAndParseStripeWebhook(stripeForFixtures, {
-    webhookSecret: TEST_SECRET,
+  const verify = verifyAndParseStripeWebhook(webhookRuntime(), {
     priceToTier: { price_pro_monthly: "pro", price_business_yearly: "business" },
   });
 

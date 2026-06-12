@@ -6,10 +6,14 @@
 // **Two-phase plugin contract:**
 //   1. **Pre-tenant-resolution:** `verifyAndParseWebhook` läuft BEVOR
 //      ein Tenant aus dem Event aufgelöst ist — kein HandlerContext
-//      verfügbar. Plugin liest seinen webhook-secret aus
-//      module-load-Closure (ENV-VAR oder system-config), NICHT aus
-//      ctx. **Webhook-secret ist app-wide**, nicht per-tenant — das
-//      ist App-Owner's Stripe-/PayPal-Account, nicht Tenant-Sache.
+//      verfügbar. Das **Webhook-secret ist app-wide** (App-Owner's
+//      Stripe-/PayPal-Account, nicht Tenant-Sache). Damit ein Plugin den
+//      secret ZUR LAUFFZEIT aus dem secrets-Feature lesen kann (statt aus
+//      einem mount-time-Closure), reicht der webhook-handler einen
+//      optionalen system-scoped `SecretsContext` als 3. Arg durch — der
+//      Plugin liest seine app-wide-Secrets daraus un-audited unter
+//      SYSTEM_TENANT_ID. Plugins, die ihre Keys weiter aus einem Closure
+//      halten (z.B. mollie), ignorieren den Param → backward-compatible.
 //   2. **Post-tenant-resolution:** `createPortalSession` +
 //      `cancelSubscription` werden aus regulären write-handlern
 //      gerufen mit voll-aufgelöstem HandlerContext. Plugin kann
@@ -21,6 +25,7 @@
 // und sind über den Customer-Portal-Link erreichbar.
 
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
+import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import type { SubscriptionEventType, SubscriptionStatus } from "./constants";
 
 // =============================================================================
@@ -75,9 +80,12 @@ export type SubscriptionProviderPlugin = {
    * (Plugin macht die Tenant-Resolution selbst aus dem provider-
    * payload metadata).
    *
-   * Plugin liest seinen webhook-secret aus module-load-Closure
-   * (process.env.STRIPE_WEBHOOK_SECRET oder system-config), NICHT
-   * aus ctx. App-wide-secret = App-Owner's eigener Provider-Account.
+   * App-wide-secret = App-Owner's eigener Provider-Account. Der Plugin
+   * liest ihn entweder aus einem mount-time-Closure ODER — zur Laufzeit
+   * rotierbar — aus dem optionalen `systemSecrets`-Arg (system-scoped
+   * SecretsContext, vom webhook-handler durchgereicht). `systemSecrets`
+   * ist undefined, wenn der App-Owner keinen wired; Plugins müssen dann
+   * auf ihren Closure-Fallback zurückfallen.
    *
    * Returns null für events die der Plugin nicht versteht oder die
    * foundation nicht braucht (= filter out, foundation returnt 200
@@ -90,6 +98,7 @@ export type SubscriptionProviderPlugin = {
   readonly verifyAndParseWebhook: (
     rawBody: string,
     headers: Record<string, string>,
+    systemSecrets?: SecretsContext,
   ) => Promise<SubscriptionEvent | null>;
 
   /**
