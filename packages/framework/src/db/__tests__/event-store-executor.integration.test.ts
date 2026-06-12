@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "../../db/query";
 import { createBooleanField, createEntity, createTextField } from "../../engine";
-import { createEventsTable } from "../../event-store";
+import { append, createEventsTable } from "../../event-store";
 import {
   createTestDb,
   type TestDb,
@@ -244,5 +244,44 @@ describe("event-store-executor — sensitive fields", () => {
     expect(event.payload.previous.email).toBe("r@test.de");
     expect(event.payload.previous.passwordHash).toBeUndefined();
     expect(event.payload.previous.apiToken).toBeUndefined();
+  });
+});
+
+describe("event-store-executor — detail liefert die Stream-Version", () => {
+  const crud = createEventStoreExecutor(table, entity, { entityName: "esExecUser" });
+
+  // Lifecycle-Writes (ctx.appendEvent) bumpen den Stream, ohne row.version
+  // anzufassen — gäbe detail die stale Row-Version heraus, liefe jedes
+  // darauf gebaute CRUD-Update (entityEdit nutzt detail.version als
+  // optimistic-lock-Basis) in ein garantiertes version_conflict.
+  // Prod-Repro: incident:open appended das Eröffnungs-Update → Stream v2,
+  // Row v1 → incident-edit konnte nie speichern.
+  test("nach ctx.appendEvent-artigem Stream-Bump: detail.version == Stream, Update damit erfolgreich", async () => {
+    const created = await crud.create({ email: "stream@test.de" }, adminUser, tdb);
+    expect(created.isSuccess).toBe(true);
+    if (!created.isSuccess) return;
+    const id = created.data.id;
+
+    // Hand-emittiertes Event auf demselben Aggregat (wie incident:post-update).
+    await append(testDb.db, {
+      aggregateId: String(id),
+      aggregateType: "esExecUser",
+      tenantId: adminUser.tenantId,
+      expectedVersion: 1,
+      type: "esExecUser.lifecycle-bumped",
+      payload: { note: "stream moved past the row" },
+      metadata: { userId: String(adminUser.id) },
+    });
+
+    const detail = await crud.detail({ id }, adminUser, tdb);
+    expect(detail).not.toBeNull();
+    expect(detail?.["version"]).toBe(2);
+
+    const updated = await crud.update(
+      { id, version: 2, changes: { firstName: "After" } },
+      adminUser,
+      tdb,
+    );
+    expect(updated.isSuccess).toBe(true);
   });
 });
