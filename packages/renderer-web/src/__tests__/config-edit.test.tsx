@@ -169,9 +169,9 @@ describe("KumikoScreen / configEdit", () => {
 
   // Regression Bug-Bash-2 (2026-06-08): RenderEdit reichte denselben
   // Appendix-Callback als labelAppendix UND fieldAppendix durch —
-  // Badge + Vorgabe-Disclosure erschienen doppelt (vor und nach dem
+  // Badge + Standard-Disclosure erschienen doppelt (vor und nach dem
   // Input) auf jedem Settings-Screen mit Default-Werten.
-  test("Source-Badge und Vorgabe-Disclosure erscheinen genau einmal pro Feld", async () => {
+  test("Source-Badge und Standard-Disclosure erscheinen genau einmal pro Feld", async () => {
     const dispatcher: Dispatcher = createMockDispatcher({
       query: (async (qn: string) => {
         if (qn === "config:query:cascade") {

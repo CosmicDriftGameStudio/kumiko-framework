@@ -52,7 +52,6 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.config.source.computed": "Berechnet",
     "kumiko.config.source.default": "Standard",
     "kumiko.config.source.missing": "Fehlt",
-    "kumiko.config.cascade.preset": "Vorgabe",
     "kumiko.config.cascade.noValue": "Kein Wert gesetzt",
     "kumiko.config.cascade.activeMarker": "aktiv",
     "kumiko.config.cascade.resetTo": "Überschreibung zurücksetzen ({scope})",
@@ -62,6 +61,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.form.error.generic": "Etwas ist schiefgegangen.",
     "kumiko.form.error.version-conflict":
       "Datensatz wurde zwischenzeitlich geändert. Lade neu und versuche es erneut.",
+    "kumiko.form.extension.save-failed": "Ein Zusatzfeld konnte nicht gespeichert werden.",
 
     // Validation — Default-Reason-Codes aus dem Framework. App-Code
     // kann eigene Codes via Validation-Hooks reinwerfen; die hier sind
@@ -125,7 +125,6 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.config.source.computed": "Computed",
     "kumiko.config.source.default": "Default",
     "kumiko.config.source.missing": "Missing",
-    "kumiko.config.cascade.preset": "Preset",
     "kumiko.config.cascade.noValue": "No value set",
     "kumiko.config.cascade.activeMarker": "active",
     "kumiko.config.cascade.resetTo": "Reset override ({scope})",
@@ -133,6 +132,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.form.error.generic": "Something went wrong.",
     "kumiko.form.error.version-conflict":
       "Record was modified in the meantime. Reload and try again.",
+    "kumiko.form.extension.save-failed": "A custom field could not be saved.",
 
     "kumiko.validation.required": "Required.",
     "kumiko.validation.invalid": "Invalid value.",

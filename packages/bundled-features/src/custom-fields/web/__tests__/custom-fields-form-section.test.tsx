@@ -1,6 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
 import {
   createStaticLocaleResolver,
+  ExtensionFormRegistryProvider,
   LocaleProvider,
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
@@ -380,5 +381,32 @@ describe("CustomFieldsFormSection — boolean/date-Pfade", () => {
     const trigger = document.getElementById("custom-field-launchedAt") as HTMLButtonElement;
     expect(trigger.textContent).toContain("2026");
     expect(trigger.textContent).not.toContain("—");
+  });
+});
+
+describe("CustomFieldsFormSection — composed mode (Bug-Bash 3 #1)", () => {
+  test("Registry vorhanden → kein eigener Save-Button (Section schreibt am Haupt-Form mit)", () => {
+    mockedQueryRows = [
+      {
+        id: "f1",
+        entityName: "component",
+        fieldKey: "vendor",
+        type: "text",
+        required: false,
+        displayOrder: 1,
+      },
+    ];
+    const stubRegistry = { upsert: () => {}, remove: () => {} };
+    render(
+      <Wrapper>
+        <ExtensionFormRegistryProvider value={stubRegistry}>
+          <CustomFieldsFormSection entityName="component" entityId="row-42" />
+        </ExtensionFormRegistryProvider>
+      </Wrapper>,
+    );
+    // Inputs sind da …
+    expect(screen.getByTestId("custom-fields-form-section")).toBeTruthy();
+    // … aber KEIN standalone-Save-Button (composed: ein Save im Haupt-Form).
+    expect(screen.queryByTestId("custom-fields-form-save")).toBeNull();
   });
 });

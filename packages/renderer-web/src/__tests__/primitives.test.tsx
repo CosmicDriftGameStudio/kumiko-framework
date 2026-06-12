@@ -569,6 +569,41 @@ describe("DataTable", () => {
       expect(screen.queryByTestId("row-r1-action-a")).toBeNull();
     });
 
+    test("rowActionMode='inline': IMMER Inline-Buttons, kein Kebab auch bei >2 (#9)", () => {
+      render(
+        <DataTable
+          columns={cols}
+          rows={rows}
+          testId="dt"
+          rowActionMode="inline"
+          rowActions={[
+            { id: "a", label: "A", onTrigger: mock() },
+            { id: "b", label: "B", onTrigger: mock() },
+            { id: "c", label: "C", onTrigger: mock() },
+          ]}
+        />,
+      );
+      expect(screen.queryByTestId("row-r1-actions-menu")).toBeNull();
+      expect(screen.queryByTestId("row-r1-action-a")).not.toBeNull();
+      expect(screen.queryByTestId("row-r1-action-b")).not.toBeNull();
+      expect(screen.queryByTestId("row-r1-action-c")).not.toBeNull();
+    });
+
+    test("rowActionMode='inline': Buttons linksbündig + w-full (alignt über Rows, #8)", () => {
+      render(
+        <DataTable
+          columns={cols}
+          rows={rows}
+          testId="dt"
+          rowActionMode="inline"
+          rowActions={[{ id: "edit", label: "Edit", onTrigger: mock() }]}
+        />,
+      );
+      const group = screen.getByTestId("row-r1-action-edit").parentElement;
+      expect(group?.className).toContain("justify-start");
+      expect(group?.className).toContain("w-full");
+    });
+
     test("Kebab: Click auf Trigger öffnet Dropdown mit allen Items", async () => {
       const user = userEvent.setup();
       render(

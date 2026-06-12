@@ -161,7 +161,7 @@ describe("RenderList — slots.header", () => {
     slots: { header: { react: { __component: "list-cap-header" } } },
   };
 
-  test("rendert die registrierte header-Component über der Tabelle (entityId null)", () => {
+  test("rendert die header-Component in der Toolbar, nicht über dem Titel (#12)", () => {
     render(
       <ExtensionSectionsProvider value={{ "list-cap-header": ListHeader }}>
         <RenderList screen={screenWithHeader} entity={taskEntity} rows={[]} featureName="tasks" />
@@ -171,6 +171,11 @@ describe("RenderList — slots.header", () => {
     expect(header.textContent).toContain("header for task");
     // Listen-Kontext → keine Row → entityId null.
     expect(header.textContent).toContain("id=null");
+    // Placement-Regression (Bug-Bash 3 #12): der Header-Slot lebt IM
+    // Toolbar-Container (toolbarEnd), NICHT als loser Node über dem
+    // Screen-Titel.
+    const toolbar = screen.getByTestId("render-list-table-toolbar");
+    expect(toolbar.contains(header)).toBe(true);
   });
 
   test("ohne slots.header wird nichts gerendert (kein Crash)", () => {

@@ -5,7 +5,7 @@
 // obwohl er nur die Tenant-Ebene beeinflussen kann. Jetzt: Keys leben
 // als kumiko.config.* in kumikoDefaultTranslations, und Nicht-System-
 // Screens kollabieren alles oberhalb des Screen-Scopes zu EINER
-// neutralen "Preset"-Zeile.
+// neutralen "Standard"-Zeile (Bug-Bash 3 #11: ein durchgängiger Begriff).
 
 import { describe, expect, test } from "bun:test";
 import type { ConfigCascade, ConfigCascadeLevel } from "@cosmicdrift/kumiko-framework/engine";
@@ -78,31 +78,31 @@ describe("ConfigCascadeView — i18n (Bug 7)", () => {
 });
 
 describe("ConfigCascadeView — Scope-Filter (Bug 8)", () => {
-  test("screenScope=tenant: Operator-Ebenen sind unsichtbar, EIN Preset-Fallback bleibt", async () => {
+  test("screenScope=tenant: Operator-Ebenen sind unsichtbar, EIN neutraler Standard-Fallback bleibt", async () => {
     const user = userEvent.setup();
     const view = render(<ConfigCascadeView cascade={tenantCascade()} screenScope="tenant" />);
     await user.click(screen.getByRole("button"));
 
-    // Sichtbar: Tenant-Zeile + genau eine neutrale Preset-Zeile.
+    // Sichtbar: Tenant-Zeile + genau eine neutrale "Standard"-Zeile (Bug-Bash 3
+    // #11: ein durchgängiger Begriff, EN-Locale → "Default").
     expect(view.container.textContent).toContain("Tenant");
-    expect(view.container.textContent).toContain("Preset");
+    expect(view.container.textContent).toContain("Default");
     // Unsichtbar: alles was nur der Operator steuert.
     expect(view.container.textContent).not.toContain("System");
     expect(view.container.textContent).not.toContain("App override");
     expect(view.container.textContent).not.toContain("Computed");
-    // Der deklarierte Default erscheint als Preset-Wert, nicht als
-    // eigene "Default"-Ebene.
+    // Der deklarierte Default erscheint als Wert der neutralen Standard-Zeile,
+    // nicht als eigene Operator-Ebene.
     expect(view.container.textContent).toContain("fallback");
-    expect(view.container.textContent).not.toContain("Default");
   });
 
-  test("screenScope=tenant mit aktivem System-Wert: Preset zeigt den effektiven Wert, nicht die Quelle", async () => {
+  test("screenScope=tenant mit aktivem System-Wert: Standard-Zeile zeigt den effektiven Wert, nicht die Quelle", async () => {
     const user = userEvent.setup();
     const view = render(
       <ConfigCascadeView cascade={tenantCascade({ systemActive: true })} screenScope="tenant" />,
     );
     // Collapsed-Header leakt die Operator-Quelle nicht …
-    expect(view.container.textContent).toContain("Preset");
+    expect(view.container.textContent).toContain("Default");
     expect(view.container.textContent).toContain("system-smtp");
     expect(view.container.textContent).not.toContain("System");
 

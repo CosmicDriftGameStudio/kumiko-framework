@@ -23,6 +23,7 @@ import type {
 import { computeEditViewModel } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useMemo, useState } from "react";
 import type { z } from "zod";
+import { ExtensionFormRegistryProvider, useExtensionFormHost } from "../app/extension-form-submit";
 import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections";
 import { useForm } from "../hooks/use-form";
 import { useTranslation } from "../i18n";
@@ -196,6 +197,14 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<DispatcherError | null>(null);
+  // Composed-Save: Extension-Sections melden hier ihren dirty-State (damit der
+  // Save-Button aktiv wird wenn NUR eine Section geändert wurde) + ihren
+  // Submit-Handler (läuft nach dem Entity-Write). extensionErrorKey hält den
+  // i18n-Key einer fehlgeschlagenen Section-Persistierung.
+  const [extensionDirty, setExtensionDirty] = useState(false);
+  const [extensionErrorKey, setExtensionErrorKey] = useState<string | null>(null);
+  const { registry: extensionFormRegistry, runAll: runExtensionSubmits } =
+    useExtensionFormHost(setExtensionDirty);
   const { Button, Banner, Dialog, Form, Section, Grid, GridCell, Text } = usePrimitives();
 
   const fields = useMemo(() => deriveFormFields<TValues, TCtx>(screen), [screen]);
@@ -232,9 +241,32 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     [screen, entity, snapshot.values, translate, featureName],
   );
 
+  // Persistiert alle composed Extension-Sections mit der aufgelösten entityId.
+  // false = eine Section schlug fehl (ihr i18n-Key landet im Banner). Ohne
+  // Entity-Kontext (create-mode ohne route-id) gibt es nichts zu schreiben.
+  async function persistExtensions(): Promise<boolean> {
+    const entityId = entityIdProp ?? null;
+    if (entityId === null) return true;
+    const results = await runExtensionSubmits({ entityId });
+    const failed = results.find((r) => !r.isSuccess);
+    if (failed !== undefined) {
+      setExtensionErrorKey(failed.errorKey ?? "kumiko.form.extension.save-failed");
+      return false;
+    }
+    return true;
+  }
+
   async function handleSubmit(): Promise<void> {
     setIsSubmitting(true);
+    setExtensionErrorKey(null);
     try {
+      // Extension-only: nur eine Section ist dirty, das Haupt-Form unverändert.
+      // Kein Entity-Write (würde einen leeren changes-Payload schreiben) — nur
+      // die Section-Handler laufen lassen.
+      if (snapshot.isUnchanged && extensionDirty) {
+        await persistExtensions();
+        return;
+      }
       let result: SubmitResult<unknown>;
       if (customSubmit !== undefined) {
         // customSubmit-Pfad (z.B. configEdit, das pro Field einen
@@ -274,6 +306,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       // Field-Errors fließen über snapshot.errors in die einzelnen Fields.
       if (result.isSuccess) {
         setFormError(null);
+        await persistExtensions();
       } else if (!result.validationBlocked) {
         const fieldIssues = result.error.details?.fields ?? [];
         setFormError(fieldIssues.length === 0 ? result.error : null);
@@ -312,7 +345,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       )}
       <Button
         type="submit"
-        disabled={snapshot.isUnchanged || isSubmitting}
+        disabled={(snapshot.isUnchanged && !extensionDirty) || isSubmitting}
         loading={isSubmitting}
         variant="primary"
         testId="render-edit-submit"
@@ -329,94 +362,101 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const formTitle = resolvedTitle === titleKey ? screen.id : resolvedTitle;
 
   return (
-    <Form
-      onSubmit={() => void handleSubmit()}
-      title={formTitle}
-      actions={formActions}
-      testId="render-edit-form"
-    >
-      {vm.sections.map((section: EditSectionViewModel) => {
-        if (section.kind === "extension") {
-          return (
-            <ExtensionSectionMount
-              key={section.title}
-              section={section}
-              entityName={vm.entityName}
-              entityId={entityIdProp !== undefined ? entityIdProp : vm.id}
-              initialValues={extensionInitialValues}
-            />
-          );
-        }
-        // Section-Header unterdrücken wenn er den Form-Titel der
-        // Action-Bar 1:1 wiederholen würde (typisch bei Single-Section-
-        // ActionForms, deren Section-Label = Screen-Titel ist).
-        const sectionTitle = section.title === formTitle ? undefined : section.title;
-        return (
-          <Section
-            key={section.title}
-            {...(sectionTitle !== undefined && { title: sectionTitle })}
-            testId={`section-${section.title}`}
-          >
-            <Grid columns={section.columns}>
-              {section.fields.map((field: EditFieldViewModel) => (
-                <GridCellForField
-                  key={field.field}
-                  field={field}
-                  columns={section.columns}
-                  issues={snapshot.errors[field.field]}
-                  onChange={(v) => {
-                    (controller.setField as (k: string, v: unknown) => void)(field.field, v);
-                  }}
-                  GridCell={GridCell}
-                  featureName={featureName}
-                  {...(labelAppendix !== undefined && {
-                    labelAppendix: labelAppendix(field.field),
-                  })}
-                  {...(fieldAppendix !== undefined && {
-                    fieldAppendix: fieldAppendix(field.field),
-                  })}
-                />
-              ))}
-            </Grid>
-          </Section>
-        );
-      })}
-      {formError !== null && (
-        <Banner
-          variant="error"
-          testId="render-edit-form-error"
-          actions={
-            formError.code === "version_conflict" && onReload !== undefined ? (
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  onReload();
-                  setFormError(null);
-                }}
-                testId="render-edit-form-error-reload"
-              >
-                {translate("kumiko.actions.reload")}
-              </Button>
-            ) : undefined
+    <ExtensionFormRegistryProvider value={extensionFormRegistry}>
+      <Form
+        onSubmit={() => void handleSubmit()}
+        title={formTitle}
+        actions={formActions}
+        testId="render-edit-form"
+      >
+        {vm.sections.map((section: EditSectionViewModel) => {
+          if (section.kind === "extension") {
+            return (
+              <ExtensionSectionMount
+                key={section.title}
+                section={section}
+                entityName={vm.entityName}
+                entityId={entityIdProp !== undefined ? entityIdProp : vm.id}
+                initialValues={extensionInitialValues}
+              />
+            );
           }
-        >
-          <Text testId="render-edit-form-error-key">{translate(formError.i18nKey)}</Text>
-        </Banner>
-      )}
-      {onDelete !== undefined && (
-        <Dialog
-          open={confirmDeleteOpen}
-          onOpenChange={setConfirmDeleteOpen}
-          title={translate("kumiko.actions.delete-confirm")}
-          confirmLabel={translate("kumiko.actions.delete")}
-          variant="danger"
-          onConfirm={async () => {
-            await onDelete();
-          }}
-          testId="render-edit-delete-dialog"
-        />
-      )}
-    </Form>
+          // Section-Header unterdrücken wenn er den Form-Titel der
+          // Action-Bar 1:1 wiederholen würde (typisch bei Single-Section-
+          // ActionForms, deren Section-Label = Screen-Titel ist).
+          const sectionTitle = section.title === formTitle ? undefined : section.title;
+          return (
+            <Section
+              key={section.title}
+              {...(sectionTitle !== undefined && { title: sectionTitle })}
+              testId={`section-${section.title}`}
+            >
+              <Grid columns={section.columns}>
+                {section.fields.map((field: EditFieldViewModel) => (
+                  <GridCellForField
+                    key={field.field}
+                    field={field}
+                    columns={section.columns}
+                    issues={snapshot.errors[field.field]}
+                    onChange={(v) => {
+                      (controller.setField as (k: string, v: unknown) => void)(field.field, v);
+                    }}
+                    GridCell={GridCell}
+                    featureName={featureName}
+                    {...(labelAppendix !== undefined && {
+                      labelAppendix: labelAppendix(field.field),
+                    })}
+                    {...(fieldAppendix !== undefined && {
+                      fieldAppendix: fieldAppendix(field.field),
+                    })}
+                  />
+                ))}
+              </Grid>
+            </Section>
+          );
+        })}
+        {formError !== null && (
+          <Banner
+            variant="error"
+            testId="render-edit-form-error"
+            actions={
+              formError.code === "version_conflict" && onReload !== undefined ? (
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    onReload();
+                    setFormError(null);
+                  }}
+                  testId="render-edit-form-error-reload"
+                >
+                  {translate("kumiko.actions.reload")}
+                </Button>
+              ) : undefined
+            }
+          >
+            <Text testId="render-edit-form-error-key">{translate(formError.i18nKey)}</Text>
+          </Banner>
+        )}
+        {extensionErrorKey !== null && (
+          <Banner variant="error" testId="render-edit-extension-error">
+            <Text testId="render-edit-extension-error-key">{translate(extensionErrorKey)}</Text>
+          </Banner>
+        )}
+        {onDelete !== undefined && (
+          <Dialog
+            open={confirmDeleteOpen}
+            onOpenChange={setConfirmDeleteOpen}
+            title={translate("kumiko.actions.delete-confirm")}
+            confirmLabel={translate("kumiko.actions.delete")}
+            variant="danger"
+            onConfirm={async () => {
+              await onDelete();
+            }}
+            testId="render-edit-delete-dialog"
+          />
+        )}
+      </Form>
+    </ExtensionFormRegistryProvider>
   );
 }
 
