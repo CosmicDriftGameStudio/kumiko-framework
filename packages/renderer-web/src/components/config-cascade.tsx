@@ -102,10 +102,13 @@ function toDisplayLevels(
     {
       level: fallback,
       badgeSource: "default",
-      // Neutral "Vorgabe" statt System/Override/Computed — der Screen-
-      // Scope kann diese Ebenen weder setzen noch zurücksetzen, die
-      // Quelle ist für ihn Operator-Interna.
-      badgeLabelKey: "kumiko.config.cascade.preset",
+      // Ein durchgängiger Begriff "Standard" (DE) / "Default" (EN) — derselbe
+      // Key wie das Feld-Label-Badge (kumiko.config.source.default), damit
+      // Badge + Cascade-Disclosure NICHT zwei verschiedene Wörter zeigen
+      // (Bug-Bash 3 #11). Der Screen-Scope kann die Operator-Ebenen
+      // (System/Override/Computed) weder setzen noch zurücksetzen, deshalb
+      // erscheinen sie hier neutral als "Standard".
+      badgeLabelKey: "kumiko.config.source.default",
     },
   ];
 }
