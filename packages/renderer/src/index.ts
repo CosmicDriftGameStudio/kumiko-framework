@@ -19,6 +19,13 @@ export { ColumnRenderersProvider, useColumnRenderer } from "./app/column-rendere
 export type { CustomScreensMap, CustomScreensProviderProps } from "./app/custom-screens";
 export { CustomScreensProvider, useCustomScreenComponent } from "./app/custom-screens";
 export type {
+  ExtensionFormRegistry,
+  ExtensionFormSubmitHandler,
+  ExtensionSubmitContext,
+  ExtensionSubmitResult,
+} from "./app/extension-form-submit";
+export { ExtensionFormRegistryProvider, useExtensionFormSubmit } from "./app/extension-form-submit";
+export type {
   ExtensionSectionComponent,
   ExtensionSectionProps,
   ExtensionSectionsMap,

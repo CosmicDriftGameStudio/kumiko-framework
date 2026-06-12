@@ -7,8 +7,11 @@ import type { Dispatcher, SubmitResult } from "@cosmicdrift/kumiko-headless";
 import {
   DispatcherProvider,
   ExtensionSectionsProvider,
+  type ExtensionSubmitContext,
   RenderEdit,
+  useExtensionFormSubmit,
 } from "@cosmicdrift/kumiko-renderer";
+import { useState } from "react";
 import { act, createMockDispatcher, fireEvent, render, screen } from "./test-utils";
 
 const orderEntity = {
@@ -318,5 +321,83 @@ describe("RenderEdit", () => {
 
     const placeholder = screen.getByTestId("section-extension-placeholder-Custom Fields");
     expect(placeholder.textContent).toContain("UnregisteredComp");
+  });
+});
+
+describe("RenderEdit — composed extension save (Bug-Bash 3 #1)", () => {
+  const screenDef: EntityEditScreenDefinition = {
+    id: "orders:screen:order-edit",
+    type: "entityEdit",
+    entity: "order",
+    layout: {
+      sections: [
+        { title: "Basics", columns: 2, fields: [{ field: "title", span: 2 }] },
+        {
+          kind: "extension",
+          title: "Custom Fields",
+          component: { react: { __component: "ComposedCF" } },
+        },
+      ],
+    },
+  };
+
+  function renderWith(
+    submitSpy: (ctx: ExtensionSubmitContext) => void,
+    writeSpy: Dispatcher["write"],
+  ): void {
+    const ComposedCF = (_: { entityName: string; entityId: string | null }) => {
+      const [touched, setTouched] = useState(false);
+      useExtensionFormSubmit({
+        dirty: touched,
+        onSubmit: async (ctx) => {
+          submitSpy(ctx);
+          return { isSuccess: true as const };
+        },
+      });
+      return (
+        <button type="button" data-testid="composed-touch" onClick={() => setTouched(true)}>
+          touch
+        </button>
+      );
+    };
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher(writeSpy)}>
+        <ExtensionSectionsProvider value={{ ComposedCF }}>
+          <RenderEdit<TestValues>
+            screen={screenDef}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "Existing", count: 0, isUrgent: false } as TestValues}
+            entityId="order-99"
+            writeCommand="order:update"
+          />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+  }
+
+  test("Section-dirty aktiviert den Haupt-Save; CF-only-Save ruft den Handler ohne Main-Write", async () => {
+    const submitSpy = mock();
+    const writeSpy = mock(async () => ({
+      isSuccess: true,
+      data: { id: "order-99" },
+    })) as unknown as Dispatcher["write"];
+    renderWith(submitSpy, writeSpy);
+
+    // Main unverändert + Section nicht dirty → Save disabled.
+    expect((screen.getByTestId("render-edit-submit") as HTMLButtonElement).disabled).toBe(true);
+
+    // Section dirty machen → Save enabled (composed-dirty propagiert hoch).
+    act(() => {
+      fireEvent.click(screen.getByTestId("composed-touch"));
+    });
+    expect((screen.getByTestId("render-edit-submit") as HTMLButtonElement).disabled).toBe(false);
+
+    // Save → Section-Handler mit entityId; KEIN Main-Write (main unverändert).
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-submit"));
+    });
+    expect(submitSpy).toHaveBeenCalledWith({ entityId: "order-99" });
+    expect(writeSpy).not.toHaveBeenCalled();
   });
 });

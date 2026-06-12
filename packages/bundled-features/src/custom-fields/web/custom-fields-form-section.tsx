@@ -11,7 +11,9 @@
 // referenziert.
 
 import {
+  type ExtensionSubmitResult,
   useDispatcher,
+  useExtensionFormSubmit,
   usePrimitives,
   useQuery,
   useTranslation,
@@ -57,6 +59,61 @@ export function CustomFieldsFormSection({
   const [saving, setSaving] = useState(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
 
+  // Vor den early-returns berechnet, weil useExtensionFormSubmit (Hook) davor
+  // laufen muss. matchingFields ist während des Loadings []; dirty bleibt dann
+  // false. Dirty = weicht vom GESPEICHERTEN Wert ab (nicht von ""), sonst ist
+  // das Leeren eines Bestandswerts unsichtbar und würde übersprungen statt
+  // gecleart.
+  const matchingFields = (query.data?.rows ?? [])
+    .filter((f) => f.entityName === entityName)
+    .slice()
+    .sort((a, b) => a.displayOrder - b.displayOrder);
+  const initialDisplay = (field: (typeof matchingFields)[number]): string =>
+    displayValue(field.type, initialValues?.[field.fieldKey]);
+  const changedFields = matchingFields.filter((field) => {
+    const raw = pending[field.fieldKey];
+    return raw !== undefined && raw !== initialDisplay(field);
+  });
+  const dirty = changedFields.length > 0;
+
+  // Schreibt alle geänderten Felder via set/clear. Genutzt vom composed-Submit
+  // (Haupt-Form ruft den Handler nach dem Entity-Write) UND vom standalone-
+  // Button (wenn die Section ohne umgebende composed-Form gemountet ist).
+  const flushChanges = async (targetEntityId: string): Promise<ExtensionSubmitResult> => {
+    for (const field of changedFields) {
+      const raw = pending[field.fieldKey] ?? "";
+      const result =
+        raw === ""
+          ? await dispatcher.write(CustomFieldsHandlers.clearCustomField, {
+              entityName,
+              entityId: targetEntityId,
+              fieldKey: field.fieldKey,
+            })
+          : await dispatcher.write(CustomFieldsHandlers.setCustomField, {
+              entityName,
+              entityId: targetEntityId,
+              fieldKey: field.fieldKey,
+              value: coerceValue(field.type, raw),
+            });
+      if (!result.isSuccess) {
+        return {
+          isSuccess: false,
+          errorKey: result.error?.i18nKey ?? "custom-fields.errors.saveFailed",
+        };
+      }
+    }
+    setPending({});
+    return { isSuccess: true };
+  };
+
+  // composed = innerhalb eines entityEdit-Forms → kein eigener Save-Button,
+  // die Section schreibt beim Haupt-Save mit (Bug-Bash 3 #1). Außerhalb einer
+  // composed-Form (composed === false) bleibt der standalone-Button.
+  const composed = useExtensionFormSubmit({
+    dirty,
+    onSubmit: (ctx) => flushChanges(ctx.entityId),
+  });
+
   if (entityId === null) {
     return (
       <Banner variant="info" testId="custom-fields-form-create-mode">
@@ -78,12 +135,6 @@ export function CustomFieldsFormSection({
       </Banner>
     );
   }
-
-  const matchingFields = (query.data?.rows ?? [])
-    .filter((f) => f.entityName === entityName)
-    .slice()
-    .sort((a, b) => a.displayOrder - b.displayOrder);
-
   if (matchingFields.length === 0) {
     return (
       <Banner variant="info" testId="custom-fields-form-empty">
@@ -92,47 +143,18 @@ export function CustomFieldsFormSection({
     );
   }
 
-  // Dirty heißt: weicht vom GESPEICHERTEN Wert ab — nicht von "". Sonst ist
-  // das Leeren eines gespeicherten Werts unsichtbar (Button disabled) und
-  // handleSave würde es überspringen statt zu clearen.
-  const initialDisplay = (field: (typeof matchingFields)[number]): string =>
-    displayValue(field.type, initialValues?.[field.fieldKey]);
-  const changedFields = matchingFields.filter((field) => {
-    const raw = pending[field.fieldKey];
-    return raw !== undefined && raw !== initialDisplay(field);
-  });
-
-  const handleSave = async (): Promise<void> => {
+  const handleStandaloneSave = async (): Promise<void> => {
     setSaving(true);
     setErrorKey(null);
     try {
-      for (const field of changedFields) {
-        const raw = pending[field.fieldKey] ?? "";
-        const result =
-          raw === ""
-            ? await dispatcher.write(CustomFieldsHandlers.clearCustomField, {
-                entityName,
-                entityId,
-                fieldKey: field.fieldKey,
-              })
-            : await dispatcher.write(CustomFieldsHandlers.setCustomField, {
-                entityName,
-                entityId,
-                fieldKey: field.fieldKey,
-                value: coerceValue(field.type, raw),
-              });
-        if (!result.isSuccess) {
-          setErrorKey(result.error?.i18nKey ?? "custom-fields.errors.saveFailed");
-          return;
-        }
+      const result = await flushChanges(entityId);
+      if (!result.isSuccess) {
+        setErrorKey(result.errorKey ?? "custom-fields.errors.saveFailed");
       }
-      setPending({});
     } finally {
       setSaving(false);
     }
   };
-
-  const dirty = changedFields.length > 0;
 
   return (
     <div data-testid="custom-fields-form-section">
@@ -150,15 +172,17 @@ export function CustomFieldsFormSection({
           )}
         </Field>
       ))}
-      <Button
-        variant="primary"
-        onClick={() => void handleSave()}
-        disabled={saving || !dirty}
-        testId="custom-fields-form-save"
-      >
-        {saving ? t("custom-fields.form.saving") : t("custom-fields.form.save")}
-      </Button>
-      {errorKey !== null && (
+      {!composed && (
+        <Button
+          variant="primary"
+          onClick={() => void handleStandaloneSave()}
+          disabled={saving || !dirty}
+          testId="custom-fields-form-save"
+        >
+          {saving ? t("custom-fields.form.saving") : t("custom-fields.form.save")}
+        </Button>
+      )}
+      {!composed && errorKey !== null && (
         <Banner variant="error" testId="custom-fields-form-save-error">
           <Text>{t(errorKey)}</Text>
         </Banner>
