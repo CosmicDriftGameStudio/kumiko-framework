@@ -253,14 +253,18 @@ export function RenderList(props: RenderListProps): ReactNode {
     />
   ) : undefined;
 
-  // Toolbar-End-Slot: Toolbar-Actions (List-Header-Buttons aus dem
-  // Schema) + optional "+ Neu" am rechten Edge. Reihenfolge im Rendering
-  // = Reihenfolge im Array (Schema-deklariert), "+ Neu" kommt zuletzt
-  // weil das die häufigste/auffälligste CTA ist.
+  // Toolbar-End-Slot: optionaler Header-Slot (z.B. Cap-Counter, links im
+  // rechten Cluster) + Toolbar-Actions (List-Header-Buttons aus dem Schema)
+  // + optional "+ Neu" am rechten Edge. Der Header-Slot lebt IN der Toolbar-
+  // Zeile (gleicher Card-Rahmen), nicht als loser Text über dem Screen-Titel
+  // (Bug-Bash 3 #12). Reihenfolge = Array-Reihenfolge (Schema-deklariert),
+  // "+ Neu" zuletzt weil das die häufigste/auffälligste CTA ist.
   const hasToolbarActions = toolbarActions !== undefined && toolbarActions.length > 0;
+  const hasHeaderSlot = screen.slots?.header !== undefined;
   const toolbarEnd =
-    hasToolbarActions || onCreate !== undefined ? (
+    hasHeaderSlot || hasToolbarActions || onCreate !== undefined ? (
       <>
+        {hasHeaderSlot && <ListHeaderSlotMount screen={screen} />}
         {hasToolbarActions &&
           toolbarActions.map((a) => (
             <ToolbarActionView key={a.id} action={a} Button={Button} Dialog={Dialog} />
@@ -300,7 +304,6 @@ export function RenderList(props: RenderListProps): ReactNode {
   // ListSort = DataTableSort (use-list-url-state aliased) — kein Cast nötig.
   return (
     <>
-      <ListHeaderSlotMount screen={screen} />
       {referenceColumns.map(
         (rc: { field: string; refEntity: string; refFeature: string; labelField: string }) => (
           <ReferenceLookupBridge
@@ -334,8 +337,8 @@ export function RenderList(props: RenderListProps): ReactNode {
   );
 }
 
-// Header-Slot über der Liste: `screen.slots.header` ist eine
-// PlatformComponent (`{ react: { __component: "X" } }`), aufgelöst über
+// Header-Slot in der Listen-Toolbar (toolbarEnd): `screen.slots.header` ist
+// eine PlatformComponent (`{ react: { __component: "X" } }`), aufgelöst über
 // dieselbe ExtensionSectionsProvider-Registry wie entityEdit-Sections.
 // entityId ist null (Listen-Kontext, keine Row); die Component lädt ihre
 // Daten selbst (z.B. ein Cap-Counter aus einer usage-Query). Eigene
