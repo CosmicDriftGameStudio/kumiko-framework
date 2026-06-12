@@ -87,6 +87,7 @@ export type {
   CorePrimitives,
   DataTableProps,
   DataTableRowAction,
+  DataTableRowActionMode,
   DataTableSort,
   DataTableSortDir,
   DialogProps,

@@ -302,6 +302,9 @@ export type DataTableSort = {
   readonly dir: DataTableSortDir;
 };
 
+// Render-Modus der Row-Action-Spalte (siehe DataTableProps.rowActionMode).
+export type DataTableRowActionMode = "adaptive" | "inline";
+
 // Resolved-Form einer Row-Action (KumikoScreen baut das aus
 // EntityListScreenDefinition.rowActions): Labels schon translated,
 // handler-QN aufgelöst zu einer onTrigger-Function die den dispatcher
@@ -348,6 +351,14 @@ export type DataTableProps = {
    *  Form (Labels + onTrigger schon verdrahtet); DataTable kümmert
    *  sich nur um Render + Confirm-Dialog. */
   readonly rowActions?: readonly DataTableRowAction[];
+  /** Wie die Row-Action-Spalte rendert:
+   *  - `"adaptive"` (Default): ≤2 sichtbare Actions inline (rechtsbündig),
+   *    >2 als Kebab-Dropdown. Passt die Optik automatisch an die Anzahl an.
+   *  - `"inline"`: IMMER Inline-Buttons, linksbündig — auch bei >2 (kein
+   *    Kebab). So stehen die Aktionen über alle Rows an derselben x-Position
+   *    (kein Wandern durch unterschiedlich breite Labels) und alle Listen
+   *    einer App sehen gleich aus. */
+  readonly rowActionMode?: DataTableRowActionMode;
   /** Custom Empty-State-Inhalt (z. B. Icon + Heading + CTA-Button).
    *  Default-Renderer rahmt ihn in einer dashed-border Box. */
   readonly emptyState?: ReactNode;

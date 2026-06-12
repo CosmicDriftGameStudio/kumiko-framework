@@ -12,6 +12,7 @@ import type { ListRowViewModel } from "@cosmicdrift/kumiko-headless";
 import { applyFormatSpec } from "@cosmicdrift/kumiko-headless";
 import type {
   DataTableRowAction,
+  DataTableRowActionMode,
   DataTableSort,
   DataTableSortDir,
 } from "@cosmicdrift/kumiko-renderer";
@@ -393,6 +394,7 @@ function DefaultDataTable({
   loadingMore,
   hasMore,
   rowActions,
+  rowActionMode,
   testId,
 }: DataTableProps): ReactNode {
   // Toolbar-Wrapper: gemeinsamer Container für Toolbar+Tabelle damit
@@ -410,7 +412,7 @@ function DefaultDataTable({
     ) : (
       <div className="rounded-md border overflow-x-auto">
         <table data-testid={testId} className="w-full caption-bottom text-sm">
-          {tableInner(columns, rows, onRowClick, sort, onSortChange, rowActions)}
+          {tableInner(columns, rows, onRowClick, sort, onSortChange, rowActions, rowActionMode)}
         </table>
       </div>
     );
@@ -480,6 +482,7 @@ function tableInner(
   sort?: DataTableProps["sort"],
   onSortChange?: DataTableProps["onSortChange"],
   rowActions?: DataTableProps["rowActions"],
+  rowActionMode?: DataTableProps["rowActionMode"],
 ): ReactNode {
   const hasActions = rowActions !== undefined && rowActions.length > 0;
   return (
@@ -556,7 +559,7 @@ function tableInner(
                 onClick={(e) => e.stopPropagation()}
                 onKeyDown={(e) => e.stopPropagation()}
               >
-                <RowActionsCell row={row} actions={rowActions} />
+                <RowActionsCell row={row} actions={rowActions} mode={rowActionMode} />
               </td>
             )}
           </tr>
@@ -566,20 +569,36 @@ function tableInner(
   );
 }
 
-// RowActionsCell — entscheidet zwischen Inline-Buttons (≤2 actions) und
-// Kebab-Dropdown (>2). isVisible-Filter wird hier ausgeführt; eine action
-// die für eine Row unsichtbar ist, kommt nicht in den Render. Wenn alle
-// Actions für eine Row hidden sind, bleibt die Cell leer (keine
-// Phantom-Spalte).
+// RowActionsCell — rendert die Row-Actions je nach mode:
+//   - "adaptive" (Default): ≤2 sichtbare Actions inline (rechtsbündig),
+//     >2 als Kebab-Dropdown.
+//   - "inline": IMMER Inline-Buttons, linksbündig + full-width — auch bei
+//     >2 (kein Kebab). `w-full justify-start` heftet den ersten Button an
+//     die Spalten-Linkskante, damit er über alle Rows an derselben Position
+//     steht (sonst wandert er durch unterschiedlich breite Labels).
+// isVisible-Filter wird hier ausgeführt; eine action die für eine Row
+// unsichtbar ist, kommt nicht in den Render. Sind alle Actions hidden,
+// bleibt die Cell leer (keine Phantom-Spalte).
 function RowActionsCell({
   row,
   actions,
+  mode = "adaptive",
 }: {
   readonly row: ListRowViewModel;
   readonly actions: readonly DataTableRowAction[];
+  readonly mode?: DataTableRowActionMode;
 }): ReactNode {
   const visible = actions.filter((a) => a.isVisible === undefined || a.isVisible(row));
   if (visible.length === 0) return null;
+  if (mode === "inline") {
+    return (
+      <div className="flex w-full items-center gap-1 justify-start">
+        {visible.map((a) => (
+          <RowActionButton key={a.id} row={row} action={a} />
+        ))}
+      </div>
+    );
+  }
   if (visible.length <= 2) {
     return (
       <div className="inline-flex items-center gap-1 justify-end">
