@@ -83,7 +83,10 @@ function ChangePasswordSection(): ReactNode {
 
   const submitting = status.kind === "submitting";
   return (
-    <section data-testid="profile-password" className="flex flex-col gap-4">
+    <section
+      data-testid="profile-password"
+      className="flex flex-col gap-4 rounded-lg border bg-card p-6"
+    >
       <Heading variant="section">{t("profile.password.title")}</Heading>
       <Form onSubmit={onSubmit} testId="profile-password-form">
         <Field id="profile-old-password" label={t("profile.password.old")} required>
@@ -170,7 +173,10 @@ function ChangeEmailSection({
 
   const submitting = status.kind === "submitting";
   return (
-    <section data-testid="profile-email" className="flex flex-col gap-4">
+    <section
+      data-testid="profile-email"
+      className="flex flex-col gap-4 rounded-lg border bg-card p-6"
+    >
       <Heading variant="section">{t("profile.email.title")}</Heading>
       <p className="text-sm text-muted-foreground" data-testid="profile-email-current">
         {t("profile.email.current")}: {me.email}
@@ -245,7 +251,10 @@ function DangerZoneSection({
   };
 
   return (
-    <section data-testid="profile-danger" className="flex flex-col gap-4">
+    <section
+      data-testid="profile-danger"
+      className="flex flex-col gap-4 rounded-lg border border-destructive/40 bg-card p-6"
+    >
       <Heading variant="section">{t("profile.danger.title")}</Heading>
       {deletionRequested ? (
         <>
@@ -316,7 +325,7 @@ export function ProfileScreen(): ReactNode {
   };
 
   return (
-    <div className="p-6 flex flex-col gap-10 max-w-xl" data-testid="profile-screen">
+    <div className="p-6 flex flex-col gap-6 max-w-2xl" data-testid="profile-screen">
       <Heading variant="page">{t("profile.title")}</Heading>
       <ChangeEmailSection me={me} onChanged={refetch} />
       <ChangePasswordSection />
