@@ -12,7 +12,16 @@
 //   3. Stripe-payload → SubscriptionEvent normalisieren
 //      (status-mapping, tenant-id aus metadata, price-to-tier-Lookup).
 //
-// **Invoice-event lazy-fetch (Phase 5.2b):**
+// **Runtime-keys (pre-tenant):** api-key + webhook-secret kommen NICHT
+// mehr aus einem mount-time-Closure, sondern werden zur Webhook-Zeit aus
+// dem `StripeWebhookRuntime` aufgelöst. Der foundation-webhook-handler
+// reicht einen system-scoped SecretsContext als 3. Arg durch; der runtime
+// liest beide Keys daraus (un-audited, system-internal) mit Fallback auf
+// die factory-options. Damit rotiert ein Key ohne Redeploy — und der
+// invoice-lazy-fetch (unten) nutzt denselben rotierten Client wie der
+// sig-verify, kein split-brain.
+//
+// **Invoice-event lazy-fetch:**
 // Bei `invoice.paid` und `invoice.payment_failed` enthält der webhook-
 // payload nur die subscription-id (Stripe-Webhooks expanden subscription
 // nicht automatisch). Plugin macht einen lazy-fetch via
@@ -29,50 +38,54 @@ import {
   type SubscriptionStatus,
   SubscriptionStatuses,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
+import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import type Stripe from "stripe";
 import { STRIPE_PROVIDER_NAME, StripeEventTypes } from "./constants";
+import type { StripeWebhookRuntime } from "./runtime";
 
 // =============================================================================
 // Sig-verify + parse
 // =============================================================================
 
 export type StripeWebhookOptions = {
-  /** Webhook-secret aus dem Stripe-Dashboard. **App-wide**, nicht
-   *  per-tenant. Liest aus ENV-VAR oder system-config beim Plugin-
-   *  build. */
-  readonly webhookSecret: string;
   /** Price-to-tier-Map. Plugin liest die price-id aus dem event und
-   *  mapped auf tier-name. Fehlt die price-id im Mapping → null. */
+   *  mapped auf tier-name. Fehlt die price-id im Mapping → null. App-
+   *  spezifisch, bleibt eine factory-option (kein Secret). */
   readonly priceToTier: Readonly<Record<string, string>>;
 };
 
 /**
  * Stripe-webhook-handler. Implementiert den Plugin-Contract
- * `verifyAndParseWebhook`. Closure über die `options` + den shared
- * Stripe-Client (kein ctx-arg — das ist die Pre-tenant-resolution-Phase).
- *
- * **Shared Stripe-Client:** Der Caller (feature.ts) baut EINEN Stripe-
- * Client beim mount und gibt ihn an alle vier plugin-methods weiter.
- * Konstruktor-API-version-pin ist damit zentral; verify-webhook nutzt
- * den client für `webhooks.constructEvent` (sig-verify) + lazy-fetch
- * der invoice-events.
+ * `verifyAndParseWebhook`. **Pre-tenant-resolution** — kein
+ * HandlerContext; statt eines mount-time-Clients löst der `runtime` den
+ * Stripe-Client + das webhook-secret zur Call-Zeit aus dem optionalen
+ * system-SecretsContext (3. Arg) auf.
  */
 export function verifyAndParseStripeWebhook(
-  stripe: Stripe,
+  runtime: StripeWebhookRuntime,
   options: StripeWebhookOptions,
-): (rawBody: string, headers: Record<string, string>) => Promise<SubscriptionEvent | null> {
-  return async (rawBody, headers) => {
+): (
+  rawBody: string,
+  headers: Record<string, string>,
+  systemSecrets?: SecretsContext,
+) => Promise<SubscriptionEvent | null> {
+  return async (rawBody, headers, systemSecrets) => {
     const sigHeader = headers["stripe-signature"];
     if (!sigHeader) {
       throw new Error("subscription-stripe: stripe-signature header missing");
     }
+
+    // 0. Runtime-resolve: api-key (für client + lazy-fetch) + webhook-
+    //    secret (für sig-verify) aus system-secrets, Fallback factory-
+    //    options. Wirft wenn beide unkonfiguriert.
+    const { stripe, webhookSecret } = await runtime.resolve(systemSecrets);
 
     // 1. Sig-verify. constructEvent throws bei mismatch (= invalid sig)
     //    oder timestamp-tolerance-violation (default 5min). Foundation
     //    mapped throw → HTTP 401.
     let event: Stripe.Event;
     try {
-      event = await stripe.webhooks.constructEventAsync(rawBody, sigHeader, options.webhookSecret);
+      event = await stripe.webhooks.constructEventAsync(rawBody, sigHeader, webhookSecret);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       throw new Error(`subscription-stripe: webhook signature verify failed — ${msg}`);
@@ -87,7 +100,7 @@ export function verifyAndParseStripeWebhook(
     // 3. Payload-extraction. Stripe liefert je nach event.type
     //    verschiedene data.object-shapes. Wir extrahieren die
     //    Subscription-Daten — entweder direkt (subscription-events)
-    //    oder via lazy-fetch (invoice-events, Phase 5.2b).
+    //    oder via lazy-fetch (invoice-events).
     const sub = await extractSubscriptionFromEvent(event, stripe);
     if (!sub) {
       // event-type war unter den 5 (oben gefiltert), aber payload-shape
@@ -193,8 +206,7 @@ export function mapStripeStatus(stripeStatus: Stripe.Subscription.Status): Subsc
 
 /** Holt die Subscription aus dem Event. Subscription-events haben sie
  *  direkt im data.object; invoice-events haben nur die subscription-id
- *  und brauchen einen lazy-fetch via stripe.subscriptions.retrieve
- *  (Phase 5.2b). */
+ *  und brauchen einen lazy-fetch via stripe.subscriptions.retrieve. */
 async function extractSubscriptionFromEvent(
   event: Stripe.Event,
   stripe: Stripe,

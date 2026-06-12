@@ -13,24 +13,42 @@
 // Verdrahtungs-Bugs ab.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { randomBytes } from "node:crypto";
 import {
   billingFoundationFeature,
   createSubscriptionWebhookHandler,
   type SubscriptionProviderPlugin,
   subscriptionAggregateId,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { createEncryptionProvider, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
+import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import {
   createTestUser,
   setupTestStack,
   type TestStack,
   testTenantId,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { Hono } from "hono";
 import Stripe from "stripe";
+import { configValuesTable, createConfigFeature } from "../../config";
+import { createConfigAccessorFactory } from "../../config/feature";
+import { createConfigResolver } from "../../config/resolver";
+import {
+  createSecretsContext,
+  createSecretsFeature,
+  type SecretsContext,
+  tenantSecretsTable,
+} from "../../secrets";
 import { createSubscriptionStripeFeature } from "../feature";
+
+// Qualified-names der runtime-keys (drift-pin: müssen 1:1 dem entsprechen,
+// was r.secret(...) im feature build qualifiziert — `subscription-stripe:
+// secret:<shortName>`). Scenario 5 seedet darüber + beweist die Resolution.
+const API_KEY_SECRET_QN = "subscription-stripe:secret:api-key";
+const WEBHOOK_SECRET_QN = "subscription-stripe:secret:webhook-secret";
 
 // =============================================================================
 // Setup
@@ -43,52 +61,93 @@ const PRICE_TO_TIER = { price_pro_monthly: "pro", price_business_yearly: "busine
 let stack: TestStack;
 let db: DbConnection;
 let webhookApp: Hono;
+/** Zweite webhook-app MIT system-secrets gewired — für Scenario 5
+ *  (runtime-secret-Pfad). */
+let webhookAppWithSecrets: Hono;
+let secretsCtx: SecretsContext;
 
 const stripeForFixtures = new Stripe(TEST_API_KEY, { apiVersion: "2026-04-22.dahlia" });
 
 beforeAll(async () => {
+  // subscription-stripe requires jetzt config + secrets. Scenarios 1–4
+  // nutzen den factory-fallback (kein system-secret geseedet, kein
+  // systemSecrets gewired) → resolve fällt auf die options-Keys zurück.
   const stripeFeature = createSubscriptionStripeFeature({
     webhookSecret: TEST_SECRET,
     apiKey: TEST_API_KEY,
     priceToTier: PRICE_TO_TIER,
   });
 
+  const encryption = createEncryptionProvider(randomBytes(32).toString("base64"));
+  const resolver = createConfigResolver({ encryption });
+  const masterKeyProvider = createEnvMasterKeyProvider({
+    env: {
+      KUMIKO_SECRETS_MASTER_KEY_V1: randomBytes(32).toString("base64"),
+      KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "1",
+    },
+  });
+
   stack = await setupTestStack({
-    features: [billingFoundationFeature, stripeFeature],
+    features: [
+      createConfigFeature(),
+      createSecretsFeature(),
+      billingFoundationFeature,
+      stripeFeature,
+    ],
+    masterKeyProvider,
+    extraContext: ({ db: ctxDb, registry }) => ({
+      configResolver: resolver,
+      configEncryption: encryption,
+      _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+      secrets: createSecretsContext({ db: ctxDb, masterKeyProvider }),
+    }),
   });
   db = stack.db;
   // subscriptionsProjectionTable wird von setupTestStack automatisch
-  // gepusht (r.projection mit `table`-Property → auto-push).
+  // gepusht (r.projection mit `table`-Property → auto-push). config +
+  // secrets brauchen ihre Tabellen explizit.
   await createEventsTable(db);
+  await unsafePushTables(db, { configValuesTable, tenant_secrets: tenantSecretsTable });
+  // Standalone-secrets-context (gleiche KEK) zum direkten Seeden +
+  // als systemSecrets für die zweite webhook-app.
+  secretsCtx = createSecretsContext({ db, masterKeyProvider });
 
   // Webhook-app: Hono mit der webhook-handler-Route.
   // dispatchWrite ruft `stack.http.write` mit dem System-User des
   // resolved-Tenants — das ist exakt was der App-Builder im echten
-  // bin/server.ts via extraRoutes wireup macht.
-  webhookApp = new Hono();
-  webhookApp.post(
-    "/api/subscription/webhook/:providerName",
-    createSubscriptionWebhookHandler({
-      dispatchWrite: async ({ handlerQn, payload, tenantId }) => {
-        const systemUser = createTestUser({
-          id: 1,
-          tenantId: tenantId as TenantId,
-          roles: ["SystemAdmin"],
-        });
-        const res = await stack.http.write(handlerQn, payload, systemUser);
-        const body = await res.json();
-        return body.isSuccess
-          ? { isSuccess: true, data: body.data }
-          : { isSuccess: false, error: body.error };
-      },
-      resolveProvider: (providerName) => {
-        const usage = stack.registry
-          .getExtensionUsages("subscriptionProvider")
-          .find((u) => u.entityName === providerName);
-        return usage?.options as SubscriptionProviderPlugin | undefined;
-      },
-    }),
-  );
+  // bin/server.ts via extraRoutes wireup macht. `systemSecrets` optional:
+  // ohne → factory-fallback-Pfad (Scenarios 1–4); mit → runtime-secret-
+  // Pfad (Scenario 5), exakt wie der App-Owner createSecretsContext wired.
+  const mountWebhook = (systemSecrets?: SecretsContext): Hono => {
+    const app = new Hono();
+    app.post(
+      "/api/subscription/webhook/:providerName",
+      createSubscriptionWebhookHandler({
+        dispatchWrite: async ({ handlerQn, payload, tenantId }) => {
+          const systemUser = createTestUser({
+            id: 1,
+            tenantId: tenantId as TenantId,
+            roles: ["SystemAdmin"],
+          });
+          const res = await stack.http.write(handlerQn, payload, systemUser);
+          const body = await res.json();
+          return body.isSuccess
+            ? { isSuccess: true, data: body.data }
+            : { isSuccess: false, error: body.error };
+        },
+        resolveProvider: (providerName) => {
+          const usage = stack.registry
+            .getExtensionUsages("subscriptionProvider")
+            .find((u) => u.entityName === providerName);
+          return usage?.options as SubscriptionProviderPlugin | undefined;
+        },
+        ...(systemSecrets && { systemSecrets }),
+      }),
+    );
+    return app;
+  };
+  webhookApp = mountWebhook();
+  webhookAppWithSecrets = mountWebhook(secretsCtx);
 });
 
 afterAll(async () => {
@@ -149,8 +208,8 @@ async function signEvent(payload: string, secret = TEST_SECRET): Promise<string>
   });
 }
 
-async function postStripeWebhook(payload: string, sig: string) {
-  return webhookApp.request("/api/subscription/webhook/stripe", {
+async function postStripeWebhook(payload: string, sig: string, app: Hono = webhookApp) {
+  return app.request("/api/subscription/webhook/stripe", {
     method: "POST",
     body: payload,
     headers: { "stripe-signature": sig, "content-type": "application/json" },
@@ -308,5 +367,71 @@ describe("scenario 4: ignored event-types pass through", () => {
       admin,
     )) as { rows: Array<Record<string, unknown>> };
     expect(subs.rows).toHaveLength(0);
+  });
+});
+
+// =============================================================================
+// Scenario 5: runtime-secret-Pfad — webhook verifiziert gegen ein in der DB
+// geseedetes system-secret (NICHT gegen den factory-fallback). Beweist die
+// end-to-end-Resolution + dass das system-secret den Fallback schlägt
+// (Rotation ohne Redeploy).
+// =============================================================================
+
+const SEEDED_WEBHOOK_SECRET = "whsec_runtime_seeded_distinct";
+const SEEDED_API_KEY = "sk_test_runtime_seeded";
+
+describe("scenario 5: runtime-secret resolution", () => {
+  test("seeded system-secret schlägt factory-fallback: sig gegen seeded secret → 200 + DB-row", async () => {
+    // Seed beide Keys als echte (encrypted) system-secrets unter
+    // SYSTEM_TENANT_ID — exakt was der Bridge-Seed / die Admin-UI in prod
+    // schreibt. SEEDED_WEBHOOK_SECRET ≠ TEST_SECRET (der fallback).
+    await secretsCtx.set(SYSTEM_TENANT_ID, API_KEY_SECRET_QN, SEEDED_API_KEY, {
+      updatedBy: "test",
+    });
+    await secretsCtx.set(SYSTEM_TENANT_ID, WEBHOOK_SECRET_QN, SEEDED_WEBHOOK_SECRET, {
+      updatedBy: "test",
+    });
+
+    const tenantStringId = testTenantId(4005);
+    const payload = JSON.stringify(
+      buildStripeSubscriptionEvent({
+        eventId: "evt_4005_runtime",
+        tenantId: tenantStringId,
+        subscriptionId: "sub_4005",
+        customerId: "cus_4005",
+        priceId: "price_pro_monthly",
+      }),
+    );
+    // Signiert mit dem GESEEDETEN secret — würde der webhook noch den
+    // fallback (TEST_SECRET) nutzen, schlüge die Verifikation fehl.
+    const sig = await signEvent(payload, SEEDED_WEBHOOK_SECRET);
+
+    const res = await postStripeWebhook(payload, sig, webhookAppWithSecrets);
+    expect(res.status).toBe(200);
+
+    const admin = createTestUser({
+      id: 4005,
+      tenantId: tenantStringId,
+      roles: ["TenantAdmin", "SystemAdmin"],
+    });
+    const subs = (await stack.http.queryOk(
+      "billing-foundation:query:subscription:list",
+      {},
+      admin,
+    )) as { rows: Array<Record<string, unknown>> };
+    expect(subs.rows).toHaveLength(1);
+    expect(subs.rows[0]?.["providerSubscriptionId"]).toBe("sub_4005");
+    expect(subs.rows[0]?.["tier"]).toBe("pro");
+  });
+
+  test("sig gegen den (jetzt obsoleten) fallback-secret → 401, wenn system-secret gesetzt ist", async () => {
+    // Drift-pin der Präzedenz: nachdem das system-secret gesetzt ist,
+    // darf der alte env/fallback-secret NICHT mehr verifizieren.
+    const payload = JSON.stringify(
+      buildStripeSubscriptionEvent({ eventId: "evt_4005_stale", tenantId: testTenantId(4006) }),
+    );
+    const sigWithStaleFallback = await signEvent(payload, TEST_SECRET);
+    const res = await postStripeWebhook(payload, sigWithStaleFallback, webhookAppWithSecrets);
+    expect(res.status).toBe(401);
   });
 });

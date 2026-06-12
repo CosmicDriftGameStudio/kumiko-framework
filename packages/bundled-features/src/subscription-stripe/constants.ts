@@ -6,6 +6,17 @@ export const SUBSCRIPTION_STRIPE_FEATURE = "subscription-stripe" as const;
 // `/api/subscription/webhook/stripe`.
 export const STRIPE_PROVIDER_NAME = "stripe" as const;
 
+// Stripe-API-version-pin. Zentral, damit jeder Client (egal ob mount-time-
+// fallback oder runtime-rotiert) dieselbe API-Version spricht.
+export const STRIPE_API_VERSION = "2026-04-22.dahlia" as const;
+
+// Secret- + config-key short-names. Qualified zu `subscription-stripe:<name>`
+// (secrets) bzw. `subscription-stripe:config:<name>` (config) beim
+// registry-build.
+export const STRIPE_API_KEY_SECRET = "api-key" as const;
+export const STRIPE_WEBHOOK_SECRET_SECRET = "webhook-secret" as const;
+export const STRIPE_BILLING_LIVE_CONFIG = "billingLive" as const;
+
 // =============================================================================
 // Stripe-event-types die wir auf normalisierte SubscriptionEventTypes
 // mappen. Stripe hat ~80 event-types insgesamt; wir filtern auf 5.

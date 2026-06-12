@@ -2,20 +2,42 @@
 // createPortalSession, cancelSubscription). Stripe-SDK-calls werden via
 // spyOn gemockt — wir testen unsere Mapping-Logik (Argumente die wir
 // an Stripe schicken + Antwort-Parsing), NICHT Stripe selbst.
+//
+// **Runtime-Wrapper:** die methods nehmen jetzt einen StripeCtxRuntime
+// (löst Client + billing-live aus ctx auf), nicht mehr einen rohen
+// Stripe-Client. `ctxRuntime(stripe, billingLive)` baut einen Test-runtime
+// der den gespyten Client zurückgibt — die echte Resolution-Logik testet
+// runtime.test.ts.
 
 import { describe, expect, spyOn, test } from "bun:test";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
+import { FeatureDisabledError } from "@cosmicdrift/kumiko-framework/errors";
 import Stripe from "stripe";
+import { SUBSCRIPTION_STRIPE_FEATURE } from "../constants";
 import {
   createStripeCancelSubscription,
   createStripeCheckoutSession,
   createStripePortalSession,
 } from "../plugin-methods";
+import type { StripeCtxRuntime } from "../runtime";
 
 const TEST_API_KEY = "sk_test_dummy";
 
 function buildStripe(): Stripe {
   return new Stripe(TEST_API_KEY, { apiVersion: "2026-04-22.dahlia" });
+}
+
+/** Test-runtime: gibt den gespyten Client zurück + ein billing-live-Gate
+ *  das (default) durchlässt. */
+function ctxRuntime(stripe: Stripe, billingLive = true): StripeCtxRuntime {
+  return {
+    clientForCtx: async () => stripe,
+    assertBillingLive: async () => {
+      if (!billingLive) {
+        throw new FeatureDisabledError(SUBSCRIPTION_STRIPE_FEATURE, "create-checkout-session");
+      }
+    },
+  };
 }
 
 const stubCtx = {} as HandlerContext;
@@ -31,7 +53,7 @@ describe("createStripeCheckoutSession", () => {
       // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
       .mockResolvedValue({ url: "https://checkout.stripe.com/c/pay/test" } as any);
 
-    const checkout = createStripeCheckoutSession(stripe);
+    const checkout = createStripeCheckoutSession(ctxRuntime(stripe));
     const result = await checkout(stubCtx, {
       priceId: "price_pro_monthly",
       tenantId: "tenant-001",
@@ -55,13 +77,32 @@ describe("createStripeCheckoutSession", () => {
     });
   });
 
+  test("#104-Gate: throws FeatureDisabledError + ruft Stripe NICHT wenn billing-live aus", async () => {
+    const stripe = buildStripe();
+    const createMock = spyOn(stripe.checkout.sessions, "create")
+      // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
+      .mockResolvedValue({ url: "https://x" } as any);
+
+    const checkout = createStripeCheckoutSession(ctxRuntime(stripe, false));
+    await expect(
+      checkout(stubCtx, {
+        priceId: "price_x",
+        tenantId: "t",
+        successUrl: "https://x/s",
+        cancelUrl: "https://x/c",
+      }),
+    ).rejects.toBeInstanceOf(FeatureDisabledError);
+    // Kein Stripe-Call — die Schranke greift VOR jeder Session-Erstellung.
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
   test("passes existing customer-id wenn gesetzt (Plan-Wechsel-Flow)", async () => {
     const stripe = buildStripe();
     const createMock = spyOn(stripe.checkout.sessions, "create")
       // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
       .mockResolvedValue({ url: "https://x" } as any);
 
-    const checkout = createStripeCheckoutSession(stripe);
+    const checkout = createStripeCheckoutSession(ctxRuntime(stripe));
     await checkout(stubCtx, {
       priceId: "price_x",
       tenantId: "tenant-002",
@@ -81,7 +122,7 @@ describe("createStripeCheckoutSession", () => {
       // biome-ignore lint/suspicious/noExplicitAny: SDK-Drift-Test
       .mockResolvedValue({ url: null } as any);
 
-    const checkout = createStripeCheckoutSession(stripe);
+    const checkout = createStripeCheckoutSession(ctxRuntime(stripe));
     await expect(
       checkout(stubCtx, {
         priceId: "p",
@@ -102,7 +143,7 @@ describe("createStripeCheckoutSession", () => {
       new Error("Stripe API: Internal server error"),
     );
 
-    const checkout = createStripeCheckoutSession(stripe);
+    const checkout = createStripeCheckoutSession(ctxRuntime(stripe));
     await expect(
       checkout(stubCtx, {
         priceId: "p",
@@ -125,7 +166,7 @@ describe("createStripePortalSession", () => {
       // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
       .mockResolvedValue({ url: "https://billing.stripe.com/p/session/test" } as any);
 
-    const portal = createStripePortalSession(stripe);
+    const portal = createStripePortalSession(ctxRuntime(stripe));
     const result = await portal(stubCtx, {
       providerCustomerId: "cus_001",
       returnUrl: "https://example.com/return",
@@ -151,7 +192,7 @@ describe("createStripeCancelSubscription", () => {
       // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
       .mockResolvedValue({ id: "sub_001", status: "canceled" } as any);
 
-    const cancel = createStripeCancelSubscription(stripe);
+    const cancel = createStripeCancelSubscription(ctxRuntime(stripe));
     await cancel(stubCtx, "sub_001");
 
     expect(cancelMock).toHaveBeenCalledTimes(1);

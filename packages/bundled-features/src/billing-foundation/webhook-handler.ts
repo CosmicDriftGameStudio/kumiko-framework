@@ -72,6 +72,15 @@ export type SubscriptionWebhookDeps = {
    *  Pfad und returnt den passenden Plugin (= entityName-match in
    *  registry.getExtensionUsages("subscriptionProvider")). */
   readonly resolveProvider: (providerName: string) => SubscriptionProviderPlugin | undefined;
+
+  /** Optionaler system-scoped SecretsContext, durchgereicht an
+   *  `verifyAndParseWebhook` (3. Arg). Erlaubt Plugins, ihre app-wide-
+   *  Credentials (Stripe api-key/webhook-secret) zur Laufzeit aus
+   *  secrets unter SYSTEM_TENANT_ID zu lesen statt aus einem mount-time-
+   *  Closure. Der App-Owner baut ihn via `createSecretsContext({ db,
+   *  masterKeyProvider })` aus den extraRoutes-deps. Fehlt er, fallen
+   *  Plugins auf ihren Closure-Fallback zurück. */
+  readonly systemSecrets?: import("@cosmicdrift/kumiko-framework/secrets").SecretsContext;
 };
 
 /**
@@ -124,7 +133,7 @@ export function createSubscriptionWebhookHandler(deps: SubscriptionWebhookDeps) 
     //    retry won't help, Provider stopp").
     let parsed: Awaited<ReturnType<SubscriptionProviderPlugin["verifyAndParseWebhook"]>>;
     try {
-      parsed = await plugin.verifyAndParseWebhook(rawBody, headers);
+      parsed = await plugin.verifyAndParseWebhook(rawBody, headers, deps.systemSecrets);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       return c.json(
