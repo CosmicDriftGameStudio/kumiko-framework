@@ -1,5 +1,11 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.45.1
+
+### Patch Changes
+
+- 3053ef8: `kumiko-schema apply` legt jetzt die Framework-Infra-Tabellen (event-store + pipeline-state: `kumiko_events`, `kumiko_snapshots`, `kumiko_archived_streams`, `kumiko_event_consumers`, `kumiko_projections`) idempotent mit an. Bisher erfasste `generate` nur Entity-read-Tabellen — eine Greenfield-DB (erste App ohne legacy-drizzle-Cutover) hatte daher kein `kumiko_events`, und `runProdApp` brach beim ersten event-store-Zugriff ab. Bestands-DBs sind über den `tableExists`-Gate unberührt (no-op).
+
 ## 0.45.0
 
 ## 0.44.0
