@@ -2,9 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { defineFeature } from "../../engine/define-feature";
 import { createEntity, createTextField } from "../../engine/factories";
 import { collectTableMetas } from "../collect-table-metas";
-import { integer, type SchemaTable, table, text, uuid } from "../dialect";
+import { integer, jsonb, type SchemaTable, table, text, uniqueIndex, uuid } from "../dialect";
 import { defineUnmanagedTable } from "../entity-table-meta";
-import { buildEntityTable } from "../table-builder";
+import { asEntityTableMeta } from "../query";
+import { buildBaseColumns, buildEntityTable } from "../table-builder";
 
 function exampleEntity() {
   return createEntity({
@@ -122,5 +123,62 @@ describe("collectTableMetas (#255)", () => {
     });
 
     expect(() => collectTableMetas([feature])).toThrow(/no EntityTableMeta/);
+  });
+});
+
+describe("collectTableMetas — r.entity backing table (#347)", () => {
+  const richWidgetTable = table(
+    "read_widgets",
+    {
+      ...buildBaseColumns(false, "uuid"),
+      name: text("name").notNull(),
+      tag: jsonb("tag").notNull(), // ride-along: no entity field declares this
+    },
+    (t) => [uniqueIndex("read_widgets_name_unique").on(t.name)],
+  ) as unknown as SchemaTable;
+
+  function widgetEntity() {
+    return createEntity({
+      table: "read_widgets",
+      fields: { name: createTextField({ required: true }) },
+    });
+  }
+
+  test("ride-along column + index from the backing table reach the generated meta", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity("widget", widgetEntity(), { table: richWidgetTable });
+    });
+    const meta = collectTableMetas([feature]).find((m) => m.tableName === "read_widgets");
+    expect(meta?.columns.map((c) => c.name)).toContain("tag");
+    expect(meta?.indexes.map((i) => i.name)).toContain("read_widgets_name_unique");
+  });
+
+  test("generate draws from the backing table itself — one source (the #255 invariant)", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity("widget", widgetEntity(), { table: richWidgetTable });
+    });
+    const meta = collectTableMetas([feature]).find((m) => m.tableName === "read_widgets");
+    // Identical to the table the test-stack push + executor use → they cannot drift.
+    expect(meta).toEqual(asEntityTableMeta(richWidgetTable));
+  });
+
+  test("throws when the backing table is missing a field's column (superset violated)", () => {
+    const thin = createEntity({
+      table: "read_widgets",
+      fields: { name: createTextField({ required: true }) },
+    });
+    const rich = createEntity({
+      table: "read_widgets",
+      fields: {
+        name: createTextField({ required: true }),
+        extra: createTextField({ required: true }),
+      },
+    });
+    // Backing table built from the THIN entity lacks the `extra` column.
+    const backing = buildEntityTable("widget", thin) as unknown as SchemaTable;
+    const feature = defineFeature("test", (r) => {
+      r.entity("widget", rich, { table: backing });
+    });
+    expect(() => collectTableMetas([feature])).toThrow(/missing column "extra"/);
   });
 });
