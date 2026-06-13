@@ -111,10 +111,17 @@ beweisen, dass der Boot mit `SchemaDriftError` failt (nicht mit 500).
 
 ## DoD
 
-- [ ] r.entity-backing-table-Mechanismus + Superset-Validierung; secrets verdrahtet
-- [ ] collectTableMetas + buildImplicitProjection nutzen backing-table (eine Quelle)
-- [ ] delivery: uniqueIndex via entity.indexes; Generator emittiert ihn
-- [ ] Drift Layer 3 column-diff; fehlende Spalte → SchemaDriftError beim Boot
-- [ ] Tests: generate==push-Quelle, Superset-throw, delivery-index, Layer-3-Boot-Fail — alle echt, grün
+- [x] r.entity-backing-table-Mechanismus + Superset-Validierung; secrets verdrahtet
+- [x] collectTableMetas + buildImplicitProjection nutzen backing-table (eine Quelle)
+- [x] delivery: uniqueIndex via backing-table (statt entity.indexes — eine Quelle, kein redundanter tenant_id_idx); Generator emittiert ihn
+- [x] Drift Layer 3 column-diff; fehlende Spalte → SchemaDriftError beim Boot
+- [x] Tests: generate==push-Quelle, Superset-throw, delivery-index, Layer-3-Boot-Fail — alle echt, grün
 - [ ] framework released (changeset, npm), Consumer-Bumps grün, ps#116-Migration konsistent
 - [ ] Frontmatter `status: shipped` + evidence (PR#s) + STATUS.md regen
+
+## Verifikation (2026-06-13, vor Release)
+
+- framework Unit 1349/0; FeatureDefinition-Consumer (dev-server/dispatcher-live/headless/bundled-features) 886 pass (1 fail+1 error = pre-existing renderer-Export-Drift `useExtensionFormSubmit`/`DataTableRowActionMode`, NICHT in diesem Diff — byte-identisch zu origin/main).
+- secrets+delivery Integration 57/0; Drift Layer 3 Integration 10/0; implicit-projection-equivalence + rebuild + stack 28/0; boot-seed-contract 3/0.
+- framework tsc -b clean; biome clean (13 Files); schema-check-Gate ✓ no drift; generate.ts idempotent (kein Diff — baut aus Feldern, unberührt).
+- **Pre-existing main-Drift:** root `tsc -b` + ein custom-fields/web-Test sind auf origin/main rot (renderer-Export-Rename, fremde in-flight-Arbeit). Nicht #347; ggf. CI-Vorsicht ([[ci_merge_preview_main_drift]]).
