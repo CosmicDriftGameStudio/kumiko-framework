@@ -24,6 +24,8 @@ export {
   resetPassword,
   verifyEmail,
 } from "./auth-client";
+export type { AuthShellRenderer } from "./auth-form-primitives";
+export { AuthShellProvider, useAuthShell } from "./auth-form-primitives";
 export { makeAuthGate } from "./auth-gate";
 export type {
   EmailPasswordClientFeature,

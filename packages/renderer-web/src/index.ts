@@ -87,6 +87,8 @@ export { createBrowserLocaleResolver } from "./app/browser-locale";
 export type { ClientFeatureDefinition } from "./app/client-plugin";
 export type { CreateKumikoAppOptions } from "./app/create-app";
 export { createKumikoApp } from "./app/create-app";
+export type { CreatePublicSurfaceOptions, PublicRoute } from "./app/create-public-surface";
+export { createPublicSurface } from "./app/create-public-surface";
 export type { KumikoLinkProps } from "./app/nav";
 export { KumikoLink, useBrowserNavApi } from "./app/nav";
 export type { AppLayoutProps } from "./layout/app-layout";
