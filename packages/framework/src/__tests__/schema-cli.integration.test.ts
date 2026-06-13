@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type BunTestDb, createTestDb } from "../bun-db/__tests__/bun-test-db";
+import { createDbConnection, tableExists } from "../db";
 import { runSchemaCli, type SchemaCliOut } from "../schema-cli";
 import { ensureTemporalPolyfill } from "../time/polyfill";
 
@@ -183,6 +184,33 @@ describe("runSchemaCli — DB-backed paths", () => {
     expect(statusCode).toBe(0);
     expect(statusCap.log.join("\n")).toContain("0 pending");
 
+    rmSync(appCwd, { recursive: true, force: true });
+  });
+
+  test("apply creates the framework-infra tables on a greenfield DB", async () => {
+    // Regression-pin: a brand-new app (no legacy-drizzle cutover) only had its
+    // entity-read tables after `apply`, so runProdApp's first event-store access
+    // hit "relation kumiko_events does not exist". `apply` now ensures the
+    // framework-infra tables (idempotent) so a greenfield deploy boots.
+    const appCwd = freshAppCwd();
+    writeSchemaFile(appCwd, "tbl_infra");
+    await runSchemaCli(["generate", "infra_test"], appCwd, captureOut().out);
+    await runSchemaCli(["apply"], appCwd, captureOut().out);
+
+    const { db, close } = createDbConnection(dbUrl);
+    try {
+      for (const table of [
+        "public.kumiko_events",
+        "public.kumiko_snapshots",
+        "public.kumiko_archived_streams",
+        "public.kumiko_event_consumers",
+        "public.kumiko_projections",
+      ]) {
+        expect(await tableExists(db, table)).toBe(true);
+      }
+    } finally {
+      await close();
+    }
     rmSync(appCwd, { recursive: true, force: true });
   });
 

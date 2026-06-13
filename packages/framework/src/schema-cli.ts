@@ -24,6 +24,8 @@ import {
   writeRebuildMarker,
   writeSnapshotJson,
 } from "./db";
+import { createEventsTable } from "./event-store";
+import { createEventConsumerStateTable, createProjectionStateTable } from "./pipeline";
 
 export type SchemaCliOut = {
   readonly log: (line: string) => void;
@@ -143,6 +145,14 @@ export async function runSchemaCli(
       const { db, close } = createDbConnection(dbUrl);
       try {
         const result = await runMigrationsFromDir(db, migrationsDir);
+        // Framework-Infra-Tabellen (event-store + pipeline-state) — die erfasst
+        // `generate` nicht (nur Entity-read-Tabellen). Bestehende DBs haben sie
+        // aus dem legacy-drizzle-Fundament; eine Greenfield-DB (erste App ohne
+        // Cutover) hätte sonst kein kumiko_events → runProdApp-Boot scheitert.
+        // Alle drei sind idempotent (tableExists-Gate), also no-op für Bestands-DBs.
+        await createEventsTable(db);
+        await createEventConsumerStateTable(db);
+        await createProjectionStateTable(db);
         out.log("");
         if (result.applied.length === 0) {
           out.log(`  ✓ All ${result.skipped.length} migrations already applied.`);
