@@ -27,10 +27,12 @@ export type CreateSeedMigrationContextArgs = {
  *  aufruft. Der dbRunner kann eine Top-Connection oder eine Tx sein —
  *  Read-Helpers nutzen ihn direkt, systemWriteAs delegiert an dispatcher.
  *
- *  Hinweis: dispatcher.write hat eigene tx-Logik. Wenn der Runner um die
- *  Migration eine outer-tx legt, läuft dispatcher.write als nested via
- *  postgres-savepoint. Beim Failure rollt der outer-tx auch das
- *  dispatcher-write zurück → kein partial-Apply möglich. */
+ *  Hinweis: dispatcher.write bekommt den Runner-tx NICHT durchgereicht —
+ *  runBatch öffnet eine eigene Transaktion auf context.db (eigene Pool-
+ *  Connection). Die Writes committen daher unabhängig: ein Runner-Failure
+ *  rollt NUR den Marker-Insert + dbRunner-reads zurück, die dispatcher-Writes
+ *  bleiben committed. Seeds MÜSSEN deshalb idempotent sein (verifiziert in
+ *  runner.integration.test.ts „dispatcher-writes vor throw bleiben committed"). */
 export function createSeedMigrationContext(
   args: CreateSeedMigrationContextArgs,
 ): SeedMigrationContext {
