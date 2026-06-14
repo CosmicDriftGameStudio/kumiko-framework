@@ -66,6 +66,13 @@ export type ConfigComputedFn<T extends ConfigKeyType = ConfigKeyType> = (
   ctx: ConfigComputedContext,
 ) => Promise<ConfigValue<T>>;
 
+// Storage-Backing eines provisionierten Config-Keys. "config" (Default) =
+// config_values-Projektion mit voller Cascade (user→tenant→system→app→default).
+// "secrets" = read_tenant_secrets (flach pro (tenant,key), AES-GCM-Envelope mit
+// Rotation/Audit, KEINE Cascade) — nur sinnvoll für scope:system ohne
+// Tenant-Override. Die backing×scope-Matrix erzwingt der boot-validator.
+export type ConfigBacking = "config" | "secrets";
+
 export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
   readonly type: T;
   readonly default?: ConfigValue<T>;
@@ -91,6 +98,31 @@ export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
   // config:query:readiness; keep in sync with the feature's requireNonEmpty
   // calls in its build-fn.
   readonly required?: boolean;
+
+  // --- Provisioning-Metadata (optional auf createTenant/System/UserConfig) ---
+  // ENV-Var-Name, dessen Wert beim Boot als app-override-Default dieses Keys
+  // gebrückt wird. Reiner Fallback — überschreibt keinen gesetzten Row.
+  readonly env?: string;
+  // false → der geerbte system-row-Wert wird für Tenant-Admins in cascade.query
+  // redigiert (z.B. SMTP-Creds: Tenant sieht nur "gesetzt", nicht den Wert).
+  // Default true; nur für scope:system relevant.
+  readonly inheritedToTenant?: boolean;
+  // "config" (Default, volle Cascade) oder "secrets" (flach pro (tenant,key)).
+  readonly backing?: ConfigBacking;
+  // Markiert den Key als user-facing Einstellung: der Self-Populating
+  // Settings-Hub leitet daraus automatisch Screen+Nav-Eintrag ab (kein
+  // manuelles r.screen/r.nav). Fehlt `mask`, gilt der Key als internes
+  // Plumbing (ENV-provisioniert/computed) und erscheint NICHT im Hub.
+  readonly mask?: ConfigMask;
+};
+
+// Label-Träger für den Settings-Hub. `title` ist ein i18n-Key (kein Literal —
+// Guard), `icon` ein Icon-Registry-Key für den Nav-Eintrag, `order` die
+// Sortier-Gewichtung innerhalb seiner Audience-Gruppe.
+export type ConfigMask = {
+  readonly title: string;
+  readonly icon?: string;
+  readonly order?: number;
 };
 
 export type ConfigDefinition = {

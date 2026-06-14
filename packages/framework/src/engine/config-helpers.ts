@@ -1,9 +1,11 @@
 import type { ConfigScope } from "./constants";
 import type {
+  ConfigBacking,
   ConfigBounds,
   ConfigComputedFn,
   ConfigKeyDefinition,
   ConfigKeyType,
+  ConfigMask,
   ConfigSeedDef,
   ConfigValue,
   CreateSeedOptions,
@@ -43,6 +45,18 @@ export const access = {
 // `allowPerRequest` is conditional against `text`: text keys can never
 // opt in to per-request overrides (XSS/SQL/Shell risk). For other types
 // it's a plain boolean opt-in consumed by resolveConfigOrParam.
+//
+// Provisioning metadata (optional, available on every scope so a key never
+// switches factory to gain it):
+//   `env`              binds an ENV var as the boot-time default (the
+//                      ENV→app-override bridge reads keyDef.env).
+//   `inheritedToTenant` default true; false redacts the inherited system
+//                      value from tenant-side reads (e.g. SMTP creds).
+//   `backing`          storage backing; "secrets" routes the key through the
+//                      secrets store. backing×scope rules are enforced at
+//                      boot, not by this type (secrets don't cascade).
+//   `mask`             marks the key as a user-facing setting → the
+//                      Settings-Hub derives its screen+nav. Absent = internal.
 type ConfigKeyOptions<T extends ConfigKeyType> = {
   write?: readonly string[];
   read?: readonly string[];
@@ -53,6 +67,10 @@ type ConfigKeyOptions<T extends ConfigKeyType> = {
   computed?: ConfigComputedFn<T>;
   allowPerRequest?: T extends "text" ? never : boolean;
   required?: boolean;
+  env?: string;
+  inheritedToTenant?: boolean;
+  backing?: ConfigBacking;
+  mask?: ConfigMask;
 };
 
 // --- Scope Defaults ---
@@ -85,6 +103,10 @@ function createConfigKey<T extends ConfigKeyType>(
     computed: opts.computed,
     ...(opts.allowPerRequest === true ? { allowPerRequest: true } : {}),
     ...(opts.required === true ? { required: true } : {}),
+    ...(opts.env ? { env: opts.env } : {}),
+    ...(opts.inheritedToTenant === false ? { inheritedToTenant: false } : {}),
+    ...(opts.backing === "secrets" ? { backing: "secrets" } : {}),
+    ...(opts.mask ? { mask: opts.mask } : {}),
   };
 }
 

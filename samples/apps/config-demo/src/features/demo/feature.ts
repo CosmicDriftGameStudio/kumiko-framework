@@ -1,52 +1,17 @@
 import {
   access,
-  createBooleanField,
-  createNumberField,
   createSystemConfig,
   createSystemSeed,
   createTenantConfig,
   createTenantSeed,
-  createTextField,
   createUserConfig,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { ConfigEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 
-const settingsScreen: ConfigEditScreenDefinition = {
-  id: "settings",
-  type: "configEdit",
-  scope: "tenant",
-  configKeys: {
-    siteName: "config-demo:config:site-name",
-    themeColor: "config-demo:config:theme-color",
-    maxUploadSize: "config-demo:config:max-upload-size",
-    emailNotifications: "config-demo:config:email-notifications",
-    autoApprove: "config-demo:config:auto-approve",
-  },
-  fields: {
-    siteName: createTextField({}),
-    themeColor: createTextField({}),
-    maxUploadSize: createNumberField({}),
-    emailNotifications: createBooleanField({}),
-    autoApprove: createBooleanField({}),
-  },
-  layout: {
-    sections: [
-      {
-        title: "config-demo:section.general",
-        columns: 2,
-        fields: ["siteName", "themeColor", "maxUploadSize"],
-      },
-      {
-        title: "config-demo:section.features",
-        columns: 2,
-        fields: ["emailNotifications", "autoApprove"],
-      },
-    ],
-  },
-  access: { openToAll: true },
-};
-
+// Self-Populating Settings-Hub: jeder Key mit `mask` erscheint automatisch im
+// Hub — kein r.screen/r.nav mehr. buildConfigFeatureSchema gruppiert nach Scope
+// (Plattform/Organisation/Persönlich) und leitet Felder aus dem Key-Typ ab.
+// mask.title ist der i18n-Key des Feld-Labels, mask.order die Reihenfolge.
 export const configDemoFeature = defineFeature("config-demo", (r) => {
   r.requires("config");
   r.requires("secrets");
@@ -57,27 +22,32 @@ export const configDemoFeature = defineFeature("config-demo", (r) => {
         default: "My Site",
         read: access.all,
         write: access.all,
+        mask: { title: "config-demo.site-name", order: 1 },
       }),
       themeColor: createTenantConfig("text", {
         default: "#000000",
         read: access.all,
         write: access.all,
+        mask: { title: "config-demo.theme-color", order: 2 },
       }),
       maxUploadSize: createTenantConfig("number", {
         default: 10,
         bounds: { min: 1, max: 1000 },
         read: access.all,
         write: access.all,
+        mask: { title: "config-demo.max-upload-size", order: 3 },
       }),
       emailNotifications: createUserConfig("boolean", {
         default: true,
         read: access.all,
         write: access.all,
+        mask: { title: "config-demo.email-notifications", order: 1 },
       }),
       autoApprove: createSystemConfig("boolean", {
         default: false,
         read: access.all,
         write: access.systemAdmin,
+        mask: { title: "config-demo.auto-approve", order: 1 },
       }),
     },
     seeds: {
@@ -87,7 +57,4 @@ export const configDemoFeature = defineFeature("config-demo", (r) => {
       autoApprove: createSystemSeed({ value: true }),
     },
   });
-
-  r.screen(settingsScreen);
-  r.nav({ id: "settings", label: "config-demo:nav.settings", screen: "settings", order: 10 });
 });

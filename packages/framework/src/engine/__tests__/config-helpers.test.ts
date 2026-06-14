@@ -99,6 +99,63 @@ describe("createUserConfig", () => {
   });
 });
 
+describe("config helpers — provisioning metadata (env / inheritedToTenant / backing)", () => {
+  test("env name is carried; absent → field absent", () => {
+    const bridged = createSystemConfig("text", { env: "STRIPE_SECRET_KEY" });
+    expect(bridged.env).toBe("STRIPE_SECRET_KEY");
+    expect(createSystemConfig("text").env).toBeUndefined();
+  });
+
+  test("inheritedToTenant:false attaches; default/true is omitted", () => {
+    const hidden = createSystemConfig("text", { inheritedToTenant: false });
+    expect(hidden.inheritedToTenant).toBe(false);
+
+    expect(createSystemConfig("text").inheritedToTenant).toBeUndefined();
+    expect(
+      createSystemConfig("text", { inheritedToTenant: true }).inheritedToTenant,
+    ).toBeUndefined();
+  });
+
+  test("backing:secrets is carried; default config is omitted", () => {
+    const secrets = createSystemConfig("text", { backing: "secrets" });
+    expect(secrets.backing).toBe("secrets");
+    expect(createSystemConfig("text").backing).toBeUndefined();
+    expect(createSystemConfig("text", { backing: "config" }).backing).toBeUndefined();
+  });
+
+  test("provisioning fields live on every scope factory — no factory switch to gain them", () => {
+    // The whole point of folding them in: a tenant or user key gains an env
+    // binding (or redaction) by adding a field, never by switching factory.
+    expect(createTenantConfig("text", { env: "TENANT_VAR" }).env).toBe("TENANT_VAR");
+    expect(createUserConfig("boolean", { inheritedToTenant: false }).inheritedToTenant).toBe(false);
+  });
+
+  test("Stripe-shape: system + masked + hidden-from-tenant + env + secrets in one call", () => {
+    const key = createSystemConfig("text", {
+      env: "STRIPE_SECRET_KEY",
+      encrypted: true,
+      inheritedToTenant: false,
+      backing: "secrets",
+      required: true,
+    });
+    expect(key).toMatchObject({
+      type: "text",
+      scope: "system",
+      encrypted: true,
+      inheritedToTenant: false,
+      env: "STRIPE_SECRET_KEY",
+      backing: "secrets",
+      required: true,
+    });
+  });
+
+  test("@ts-expect-error: backing only accepts the ConfigBacking union", () => {
+    // @ts-expect-error — "vault" is not a ConfigBacking ("config" | "secrets")
+    const key = createSystemConfig("text", { backing: "vault" });
+    expect(key.type).toBe("text");
+  });
+});
+
 // expectTypeOf + @ts-expect-error are the real assertions — they fail the
 // build if the helper generic widens. The expect() lines exist so the
 // fake-test guard sees runtime asserts and lint stays quiet on unused vars.

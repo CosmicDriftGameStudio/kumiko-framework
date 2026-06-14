@@ -46,7 +46,10 @@ export function computeEditViewModel<
           `computeEditViewModel: screen "${screen.id}" references unknown field "${normalized.field}" on entity "${screen.entity}"`,
         );
       }
-      const label = translate(fieldLabelKey(featureName, screen.entity, normalized.field));
+      const label = translate(
+        screen.fieldLabels?.[normalized.field] ??
+          fieldLabelKey(featureName, screen.entity, normalized.field),
+      );
       const visible = evalCondition(normalized.visible, true, values);
       // `readOnly` (camelCase) is the name on both sides: EditFieldSpec
       // in the engine, and the view-model emitted here. One convention

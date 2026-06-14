@@ -3,6 +3,12 @@
 export { hasAccess } from "./access";
 export { validateBoot } from "./boot-validator";
 export { buildAppSchema } from "./build-app-schema";
+export type { ConfigFeatureSchema } from "./build-config-feature-schema";
+export {
+  buildConfigFeatureSchema,
+  SETTINGS_HUB_FEATURE,
+  SETTINGS_HUB_WORKSPACE,
+} from "./build-config-feature-schema";
 export { buildTarget } from "./build-target";
 export {
   access,
@@ -215,6 +221,7 @@ export type {
   ConcurrencyMode,
   ConfigAccessor,
   ConfigAccessorFactory,
+  ConfigBacking,
   ConfigCascade,
   ConfigCascadeLevel,
   ConfigDefinition,
@@ -223,6 +230,7 @@ export type {
   ConfigKeyDefinition,
   ConfigKeyHandle,
   ConfigKeyType,
+  ConfigMask,
   ConfigResolver,
   ConfigScope,
   ConfigSeedDef,

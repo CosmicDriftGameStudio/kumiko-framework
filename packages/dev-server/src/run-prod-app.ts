@@ -36,7 +36,10 @@ import {
   type SeedAdminOptions,
   seedAdmin,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
-import { createConfigResolver } from "@cosmicdrift/kumiko-bundled-features/config";
+import {
+  buildEnvConfigOverrides,
+  createConfigResolver,
+} from "@cosmicdrift/kumiko-bundled-features/config";
 import { createSessionCallbacks } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { UserQueries } from "@cosmicdrift/kumiko-bundled-features/user";
@@ -668,7 +671,12 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       ? options.extraContext(deps)
       : (options.extraContext ?? {});
   const extraContext = options.auth
-    ? { configResolver: createConfigResolver(), ...resolvedExtraContext }
+    ? {
+        configResolver: createConfigResolver({
+          appOverrides: buildEnvConfigOverrides(registry, envSource),
+        }),
+        ...resolvedExtraContext,
+      }
     : resolvedExtraContext;
   const resolvedAnonymousAccess =
     typeof options.anonymousAccess === "function"
