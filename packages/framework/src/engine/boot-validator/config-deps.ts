@@ -136,6 +136,32 @@ export function validateConfigKeyAllowPerRequest(feature: FeatureDefinition): vo
   }
 }
 
+// --- Config key storage backing × scope matrix ---
+
+export function validateConfigKeyBacking(feature: FeatureDefinition): void {
+  for (const [keyName, keyDef] of Object.entries(feature.configKeys)) {
+    if (keyDef.backing !== "secrets") continue;
+
+    // secrets storage is flat per (tenant, key) with no system→tenant cascade,
+    // so a tenant- or user-scoped secret could never inherit a system default.
+    // Permanent rule: secrets-backed keys must be system-scoped.
+    if (keyDef.scope !== "system") {
+      throw new Error(
+        `[Feature ${feature.name}] Config key "${keyName}" has backing="secrets" but scope="${keyDef.scope}" — secrets storage is flat per (tenant,key) and does not cascade; backing="secrets" requires scope="system"`,
+      );
+    }
+
+    // The secrets read/write dispatch is not yet wired (framework#333). Until
+    // it lands, the value would silently persist in the config-values
+    // projection instead of the secrets store — losing the envelope-encryption,
+    // key-rotation and audit-on-read that backing="secrets" promises. Reject
+    // loudly rather than degrade to config-encrypted behind the declaration.
+    throw new Error(
+      `[Feature ${feature.name}] Config key "${keyName}" declares backing="secrets", but the secrets read/write dispatch is not yet wired (framework#333). Until then remove backing (the value would store as config-encrypted) or gate the feature behind #333.`,
+    );
+  }
+}
+
 // --- Config key cross-feature reference validation ---
 
 export function validateConfigReads(

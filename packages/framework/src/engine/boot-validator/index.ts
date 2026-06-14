@@ -3,6 +3,7 @@ import { validateApiExposureMatching, validateExtensionUsages } from "./api-ext"
 import {
   validateCircularDeps,
   validateConfigKeyAllowPerRequest,
+  validateConfigKeyBacking,
   validateConfigKeyBounds,
   validateConfigKeyComputed,
   validateConfigKeyRequired,
@@ -136,6 +137,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     validateConfigKeyRequired(feature);
     validateConfigKeyComputed(feature);
     validateConfigKeyAllowPerRequest(feature);
+    validateConfigKeyBacking(feature);
     validateOwnershipRules(feature, allClaimKeys, knownRoles);
     validateMultiStreamProjections(feature);
     validateScreens(feature, featureMap, allWriteHandlerQns, allScreenQns, allConfigKeyQns);

@@ -5,6 +5,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { requireConfigResolver } from "../feature";
+import { redactInheritedSystemCascade, shouldRedactInheritedSystem } from "../read-redaction";
 import { hasConfigAccess } from "../write-helpers";
 
 const MASKED = "••••••";
@@ -46,9 +47,15 @@ export const cascadeQuery = defineQueryHandler({
     );
 
     const result: Record<string, ConfigCascade> = {};
-    for (const [key, cascade] of cascades) {
+    for (const [key, rawCascade] of cascades) {
       const keyDef = keyDefs.get(key);
       if (!keyDef) continue;
+
+      // Redact the inherited system value BEFORE masking — masking alone
+      // leaves hasValue=true and would still leak "it is set" to a tenant.
+      const cascade = shouldRedactInheritedSystem(keyDef, query.user.roles)
+        ? redactInheritedSystemCascade(rawCascade)
+        : rawCascade;
 
       if (keyDef.encrypted) {
         const maskedLevels: ConfigCascadeLevel[] = cascade.levels.map((l) => ({
