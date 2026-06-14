@@ -833,6 +833,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       seedsDir: options.seedsDir,
       appliedBy: "boot",
       registry, // → dry-run-validator catched handler-QN-typos vor dem write
+      // @wrapper-known semantic-alias
       createContext: (dbRunner: DbRunner) =>
         createSeedMigrationContext({ dispatcher: seedDispatcher, dbRunner }),
     });

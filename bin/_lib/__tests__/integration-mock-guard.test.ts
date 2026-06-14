@@ -72,25 +72,25 @@ describe("scanForMocks — File-Walk-Integration", () => {
 
     const base = mkdtempSync(join(tmpdir(), "mock-guard-walk-"));
     try {
-      const allowlisted = "packages/framework/src/es-ops/__tests__";
+      const allowlisted = "samples/recipes/auth-claims/src/__tests__";
       mkdirSync(join(base, allowlisted), { recursive: true });
       writeFileSync(
-        join(base, allowlisted, "runner.integration.test.ts"),
-        'const d = mock(() => {});\n',
+        join(base, allowlisted, "feature.integration.test.ts"),
+        'const s = spyOn(logger, "warn");\n',
       );
 
-      mkdirSync(join(base, "packages/foo/__tests__"), { recursive: true });
+      mkdirSync(join(base, "samples/foo/__tests__"), { recursive: true });
       writeFileSync(
-        join(base, "packages/foo/__tests__/new.integration.test.ts"),
+        join(base, "samples/foo/__tests__/new.integration.test.ts"),
         'spyOn(console, "log");\n',
       );
       writeFileSync(
-        join(base, "packages/foo/__tests__/clean.integration.test.ts"),
+        join(base, "samples/foo/__tests__/clean.integration.test.ts"),
         "const x = 1;\n",
       );
 
-      const violations = scanForMocks(join(base, "packages"), base);
-      expect(violations).toEqual(["packages/foo/__tests__/new.integration.test.ts"]);
+      const violations = scanForMocks(join(base, "samples"), base);
+      expect(violations).toEqual(["samples/foo/__tests__/new.integration.test.ts"]);
     } finally {
       rmSync(base, { recursive: true, force: true });
     }

@@ -24,6 +24,7 @@ let dbInstance: { db: unknown; close: () => Promise<void> } | undefined;
 export async function getDb(): Promise<unknown> {
   return ensureDb();
 }
+// @wrapper-known test-helper
 export async function ensureDb(): Promise<unknown> {
   if (!dbInstance) {
     dbInstance = await createConnection(DATABASE_URL, { maxConnections: 4 });

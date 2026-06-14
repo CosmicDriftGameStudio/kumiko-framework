@@ -27,6 +27,7 @@ const executor = createEventStoreExecutor(
 // im Helper (db-row-boundary), nicht 4× pro Callsite.
 type PreferenceLookupRow = { readonly id: string; readonly version: number };
 
+// @wrapper-known semantic-alias
 async function lookup(
   db: TenantDb,
   tenantId: TenantId,

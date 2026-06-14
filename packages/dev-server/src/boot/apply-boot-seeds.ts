@@ -8,6 +8,7 @@ import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
 // missing call site (e.g. someone deletes the line from runDevApp)
 // surfaces as a missing-helper-use in code review rather than silently
 // shipping a server that never seeds.
+// @wrapper-known semantic-alias
 export async function applyBootSeeds(deps: {
   registry: Registry;
   db: DbConnection;

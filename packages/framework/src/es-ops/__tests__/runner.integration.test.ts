@@ -1,30 +1,96 @@
-// Integration-Test gegen echtes Postgres. Verifiziert:
+// @no-server-stack: seed-runner ist boot-time-Code — dispatcher.write läuft
+// direkt vor entrypoint.start() (run-prod-app-Pattern), kein HTTP-route nötig.
+//
+// Integration-Test gegen echtes Postgres + echten Dispatcher. Verifiziert:
 // - Marker landet in kumiko_es_operations nach Erfolg
 // - Idempotency: zweiter Boot skipped applied seeds
 // - Tx-Rollback bei Failure (kein Marker geschrieben)
-// - systemWriteAs leitet zum Dispatcher durch
-// - End-to-End mit echten findUserByEmail / findMembershipsOfUser
+// - systemWriteAs leitet zum echten Handler im SYSTEM_TENANT-Stream durch
+// - WriteResult{isSuccess:false} bricht den Run ab (kein Marker)
 //
-// Heavy lifting (mock-dispatcher, in-memory-applied-set) liegt in
-// runner.test.ts. Hier nur DB-Round-Trip-Wahrheit.
+// createDispatcher statt setupTestStack/HTTP: der seed-runner ist boot-time-
+// Code, das dispatcher.write direkt vor entrypoint.start() ruft (siehe
+// run-prod-app.ts) — kein HTTP-route. Ein echtes esopstest-Feature liefert die
+// Handler, die die Seeds adressieren; nichts wird gemockt.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
+import { z } from "zod";
+import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { asRawClient, insertOne, selectMany } from "../../db/query";
+import { buildEntityTable } from "../../db/table-builder";
+import {
+  createEntity,
+  createRegistry,
+  createTextField,
+  defineFeature,
+  SYSTEM_TENANT_ID,
+} from "../../engine";
+import { VersionConflictError } from "../../errors";
+import { createEventsTable } from "../../event-store";
+import { createDispatcher, type Dispatcher } from "../../pipeline";
+import { createTestDb, type TestDb, unsafeCreateEntityTable } from "../../stack";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { createSeedMigrationContext } from "../context";
 import { createEsOperationsTable, esOperationsTable } from "../operations-schema";
 import { runPendingSeedMigrations } from "../runner";
 
-let testDb: BunTestDb;
+// Minimal real feature whose handlers the seeds target. probe:create emits a
+// real event through the real dispatcher; probe:fail returns a failed
+// WriteResult (via a thrown VersionConflictError) so the isSuccess:false path
+// is exercised against the production write-pipeline, not a stubbed return.
+const probeEntity = createEntity({
+  table: "read_esops_probes",
+  fields: { label: createTextField({ required: true }) },
+});
+const probeTable = buildEntityTable("esops-probe", probeEntity);
+const probeExecutor = createEventStoreExecutor(probeTable, probeEntity, {
+  entityName: "esops-probe",
+});
+
+const seedTestFeature = defineFeature("esopstest", (r) => {
+  r.entity("esops-probe", probeEntity);
+  // openToAll: reachable by the seed's system user (roles ["system"]) —
+  // hasAccess has no system-bypass, so a role-gated handler would be denied.
+  r.writeHandler(
+    "probe:create",
+    z.object({ label: z.string().min(1) }),
+    async (event, ctx) => probeExecutor.create(event.payload, event.user, ctx.db),
+    { access: { openToAll: true } },
+  );
+  r.writeHandler(
+    "probe:fail",
+    z.object({ label: z.string() }),
+    async () => {
+      throw new VersionConflictError({
+        entityId: "esops-probe",
+        expectedVersion: 1,
+        currentVersion: 2,
+      });
+    },
+    { access: { openToAll: true } },
+  );
+});
+
+let testDb: TestDb;
+let dispatcher: Dispatcher;
+let registry: ReturnType<typeof createRegistry>;
 
 beforeAll(async () => {
   await ensureTemporalPolyfill();
   testDb = await createTestDb();
+  await createEventsTable(testDb.db);
   await createEsOperationsTable(testDb.db);
+  await unsafeCreateEntityTable(testDb.db, probeEntity, "esops-probe");
+  registry = createRegistry([seedTestFeature]);
+  dispatcher = createDispatcher(registry, {
+    db: testDb.db,
+    redis: undefined as never,
+    entityCache: undefined as never,
+    registry,
+  });
 });
 
 afterAll(async () => {
@@ -32,7 +98,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(testDb.db).unsafe(`TRUNCATE kumiko_es_operations RESTART IDENTITY`);
+  await asRawClient(testDb.db).unsafe(
+    `TRUNCATE kumiko_es_operations, kumiko_events, read_esops_probes RESTART IDENTITY`,
+  );
 });
 
 function makeTempSeedsDir(files: readonly { name: string; content: string }[]): string {
@@ -41,19 +109,10 @@ function makeTempSeedsDir(files: readonly { name: string; content: string }[]): 
   return dir;
 }
 
-function makeMockDispatcher() {
-  const calls: Array<{ qn: string; payload: unknown }> = [];
-  return {
-    write: mock(async (qn: string, payload: unknown) => {
-      calls.push({ qn, payload });
-      return { isSuccess: true as const, data: {} };
-    }),
-    query: mock(),
-    command: mock(),
-    batch: mock(),
-    resolveAuthClaims: mock(),
-    calls,
-  };
+async function selectEvents(): Promise<readonly { type: string; tenant_id: string }[]> {
+  return (await asRawClient(testDb.db).unsafe(
+    `SELECT type, tenant_id::text AS tenant_id FROM kumiko_events ORDER BY id`,
+  )) as unknown as readonly { type: string; tenant_id: string }[];
 }
 
 describe("runPendingSeedMigrations (integration)", () => {
@@ -70,15 +129,13 @@ describe("runPendingSeedMigrations (integration)", () => {
       },
     ]);
     try {
-      const dispatcher = makeMockDispatcher();
-
       // First run: pending → applied
       const r1 = await runPendingSeedMigrations({
         db: testDb.db,
         seedsDir: dir,
         appliedBy: "boot",
-        createContext: (dbRunner) =>
-          createSeedMigrationContext({ dispatcher: dispatcher as never, dbRunner }),
+        registry,
+        createContext: (dbRunner) => createSeedMigrationContext({ dispatcher, dbRunner }),
         logger: () => {},
       });
       expect(r1.appliedIds).toEqual(["2026-05-20-noop"]);
@@ -95,8 +152,8 @@ describe("runPendingSeedMigrations (integration)", () => {
         db: testDb.db,
         seedsDir: dir,
         appliedBy: "boot",
-        createContext: (dbRunner) =>
-          createSeedMigrationContext({ dispatcher: dispatcher as never, dbRunner }),
+        registry,
+        createContext: (dbRunner) => createSeedMigrationContext({ dispatcher, dbRunner }),
         logger: () => {},
       });
       expect(r2.appliedIds).toEqual([]);
@@ -120,14 +177,13 @@ describe("runPendingSeedMigrations (integration)", () => {
       },
     ]);
     try {
-      const dispatcher = makeMockDispatcher();
       await expect(
         runPendingSeedMigrations({
           db: testDb.db,
           seedsDir: dir,
           appliedBy: "boot",
-          createContext: (dbRunner) =>
-            createSeedMigrationContext({ dispatcher: dispatcher as never, dbRunner }),
+          registry,
+          createContext: (dbRunner) => createSeedMigrationContext({ dispatcher, dbRunner }),
           logger: () => {},
         }),
       ).rejects.toThrow(/boom/);
@@ -139,7 +195,7 @@ describe("runPendingSeedMigrations (integration)", () => {
     }
   });
 
-  test("systemWriteAs leitet zum Dispatcher mit SYSTEM_TENANT-User durch", async () => {
+  test("systemWriteAs leitet zum echten Handler im SYSTEM_TENANT-Stream durch", async () => {
     const dir = makeTempSeedsDir([
       {
         name: "2026-05-20-uses-dispatcher.ts",
@@ -147,29 +203,29 @@ describe("runPendingSeedMigrations (integration)", () => {
           export default {
             description: "calls a write-handler",
             run: async (ctx) => {
-              await ctx.systemWriteAs("some:write:handler", { foo: "bar" });
+              await ctx.systemWriteAs("esopstest:write:probe:create", { label: "bar" });
             },
           };
         `,
       },
     ]);
     try {
-      const dispatcher = makeMockDispatcher();
       await runPendingSeedMigrations({
         db: testDb.db,
         seedsDir: dir,
         appliedBy: "boot",
-        createContext: (dbRunner) =>
-          createSeedMigrationContext({ dispatcher: dispatcher as never, dbRunner }),
+        registry,
+        createContext: (dbRunner) => createSeedMigrationContext({ dispatcher, dbRunner }),
         logger: () => {},
       });
 
-      expect(dispatcher.write).toHaveBeenCalledTimes(1);
-      expect(dispatcher.write).toHaveBeenCalledWith(
-        "some:write:handler",
-        { foo: "bar" },
-        expect.objectContaining({ tenantId: expect.any(String) }),
-      );
+      // Real event landed in the SYSTEM_TENANT stream → proves the write
+      // routed through the dispatcher AND ran as the system user (no
+      // tenantIdOverride → createSystemUser(SYSTEM_TENANT_ID)).
+      const events = await selectEvents();
+      expect(events).toHaveLength(1);
+      expect(events[0]?.type).toBe("esops-probe.created");
+      expect(events[0]?.tenant_id).toBe(SYSTEM_TENANT_ID);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -186,55 +242,47 @@ describe("runPendingSeedMigrations (integration)", () => {
           export default {
             description: "tries a handler that returns isSuccess:false",
             run: async (ctx) => {
-              await ctx.systemWriteAs("some:write:handler", { foo: "bar" });
+              await ctx.systemWriteAs("esopstest:write:probe:fail", { label: "bar" });
             },
           };
         `,
       },
     ]);
     try {
-      const dispatcher = {
-        write: mock(async () => ({
-          isSuccess: false as const,
-          error: { code: "version_conflict", message: "stream changed" },
-        })),
-        query: mock(),
-        command: mock(),
-        batch: mock(),
-        resolveAuthClaims: mock(),
-      };
-
       await expect(
         runPendingSeedMigrations({
           db: testDb.db,
           seedsDir: dir,
           appliedBy: "boot",
-          createContext: (dbRunner) =>
-            createSeedMigrationContext({ dispatcher: dispatcher as never, dbRunner }),
+          registry,
+          createContext: (dbRunner) => createSeedMigrationContext({ dispatcher, dbRunner }),
           logger: () => {},
         }),
       ).rejects.toThrow(/version_conflict/);
 
-      // Kein Marker — bei nächstem Boot würde der Seed retried
+      // Kein Marker — bei nächstem Boot würde der Seed retried. Und der
+      // fehlgeschlagene Write hat kein Event hinterlassen.
       const markers = await selectMany(testDb.db, esOperationsTable);
       expect(markers).toHaveLength(0);
+      expect(await selectEvents()).toHaveLength(0);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
   });
 
   test("documented limitation: dispatcher-writes vor throw bleiben committed (idempotency-Pflicht für seeds)", async () => {
-    // Documents NICHT-Garantie aus dem README: systemWriteAs läuft durch
-    // den App-Dispatcher mit eigener tx-Verwaltung — die Runner-Tx
-    // schützt NUR den Marker-Insert + direct dbRunner-reads, NICHT die
-    // dispatcher-Writes. Daher müssen Seeds idempotent sein.
+    // Documents NICHT-Garantie aus dem README: systemWriteAs läuft durch den
+    // App-Dispatcher mit eigener tx-Verwaltung (runBatch öffnet eine eigene
+    // Transaktion auf context.db, der Runner-outer-tx wird NICHT durchgereicht)
+    // — die Runner-Tx schützt NUR den Marker-Insert + direct dbRunner-reads,
+    // NICHT die dispatcher-Writes. Daher müssen Seeds idempotent sein.
     //
-    // Test: dispatcher.write wird 1× erfolgreich aufgerufen, dann throws.
+    // Test: dispatcher.write committet 1× erfolgreich, dann throws der Seed.
     // Expectation:
-    //   - dispatcher.write was called 1x (confirms write went through)
-    //   - kein Marker (run was rolled back)
-    //   - bei "echtem" Setup wäre die Event-Row schon committed → retry
-    //     müsste idempotent sein, sonst Duplikat.
+    //   - das Event ist committed (überlebt den Runner-Rollback)
+    //   - kein Marker (run wurde zurückgerollt)
+    //   - bei retry beim nächsten Boot muss der Write idempotent sein, sonst
+    //     Duplikat — genau die dokumentierte Pflicht.
     const dir = makeTempSeedsDir([
       {
         name: "2026-05-20-write-then-throw.ts",
@@ -242,7 +290,7 @@ describe("runPendingSeedMigrations (integration)", () => {
           export default {
             description: "writes successfully then throws (idempotency test)",
             run: async (ctx) => {
-              await ctx.systemWriteAs("some:write:handler", { step: 1 });
+              await ctx.systemWriteAs("esopstest:write:probe:create", { label: "step1" });
               throw new Error("post-write failure");
             },
           };
@@ -250,22 +298,23 @@ describe("runPendingSeedMigrations (integration)", () => {
       },
     ]);
     try {
-      const dispatcher = makeMockDispatcher();
       await expect(
         runPendingSeedMigrations({
           db: testDb.db,
           seedsDir: dir,
           appliedBy: "boot",
-          createContext: (dbRunner) =>
-            createSeedMigrationContext({ dispatcher: dispatcher as never, dbRunner }),
+          registry,
+          createContext: (dbRunner) => createSeedMigrationContext({ dispatcher, dbRunner }),
           logger: () => {},
         }),
       ).rejects.toThrow(/post-write failure/);
 
-      // Write-handler WURDE aufgerufen — dispatcher-tx isoliert vom runner-tx
-      expect(dispatcher.write).toHaveBeenCalledTimes(1);
-      // Marker NICHT gesetzt — retry beim nächsten Boot wird die Migration
-      // nochmal ausführen. Wenn der Write nicht idempotent ist → Duplikat.
+      // Event blieb committed — der dispatcher-tx ist vom runner-tx isoliert.
+      const events = await selectEvents();
+      expect(events).toHaveLength(1);
+      expect(events[0]?.type).toBe("esops-probe.created");
+      // Marker NICHT gesetzt — retry beim nächsten Boot führt die Migration
+      // nochmal aus. Wenn der Write nicht idempotent ist → Duplikat.
       const markers = await selectMany(testDb.db, esOperationsTable);
       expect(markers).toHaveLength(0);
     } finally {
@@ -303,23 +352,19 @@ describe("runPendingSeedMigrations (integration)", () => {
         notes: "applied by simulated parallel-pod",
       });
 
-      const dispatcher = makeMockDispatcher();
       // Würde normalerweise als pending klassifiziert (loadAppliedIds liest
-      // BEFORE the tx) — der re-check inside tx muss das catchen.
-      // Achtung: das obere applied-set-load sieht den Marker auch schon —
-      // dieses Test ist daher eher eine Wahrscheinlichkeits-Aussage über
-      // den Race-Pfad, nicht ein deterministischer Race-Repro. Aber:
-      // wenn der re-check funktioniert, läuft `run()` nicht.
+      // BEFORE the tx) — der re-check inside tx muss das catchen. Wenn der
+      // re-check funktioniert, läuft `run()` nicht (kein Event, kein Throw).
       await runPendingSeedMigrations({
         db: testDb.db,
         seedsDir: dir,
         appliedBy: "boot",
-        createContext: (dbRunner) =>
-          createSeedMigrationContext({ dispatcher: dispatcher as never, dbRunner }),
+        registry,
+        createContext: (dbRunner) => createSeedMigrationContext({ dispatcher, dbRunner }),
         logger: () => {},
       });
 
-      expect(dispatcher.write).not.toHaveBeenCalled();
+      expect(await selectEvents()).toHaveLength(0);
       const markers = await selectMany(testDb.db, esOperationsTable);
       expect(markers).toHaveLength(1); // nur der pre-seeded
     } finally {
@@ -343,14 +388,13 @@ describe("runPendingSeedMigrations (integration)", () => {
       },
     ]);
     try {
-      const dispatcher = makeMockDispatcher();
       await expect(
         runPendingSeedMigrations({
           db: testDb.db,
           seedsDir: dir,
           appliedBy: "boot",
-          createContext: (dbRunner) =>
-            createSeedMigrationContext({ dispatcher: dispatcher as never, dbRunner }),
+          registry,
+          createContext: (dbRunner) => createSeedMigrationContext({ dispatcher, dbRunner }),
           logger: () => {},
         }),
       ).rejects.toThrow(/stop here/);

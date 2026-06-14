@@ -97,7 +97,7 @@ export const fileProviderS3Feature = defineFeature(FEATURE_NAME, (r) => {
   // Plugin-Registration. entityName "s3" ist was tenants in
   // file-foundation's `provider` config-key setzen.
   const plugin: FileProviderPlugin = {
-    build: async (ctx: FileProviderContext, tenantId: string) => buildS3Provider(ctx, tenantId),
+    build: async (ctx: FileProviderContext, tenantId: string) => buildS3Provider(ctx, tenantId), // @wrapper-known semantic-alias
   };
   r.useExtension("fileProvider", "s3", plugin);
 

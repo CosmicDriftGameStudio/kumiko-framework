@@ -15,7 +15,7 @@ function createToggleTenantHandler(enable: boolean) {
     handler: async (event, ctx) =>
       crud.update({ id: event.payload.id, changes: { isEnabled: enable } }, event.user, ctx.db, {
         skipOptimisticLock: true,
-      }),
+      }), // @wrapper-known semantic-alias
   });
 }
 

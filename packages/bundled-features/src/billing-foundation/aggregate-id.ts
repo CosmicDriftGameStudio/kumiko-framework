@@ -16,6 +16,7 @@ const SUBSCRIPTION_NAMESPACE = "5c3b2d1e-9a4f-4e8c-b7a3-1f8d6c2e9a4b";
  * Stripe→Mollie-Migration) appended einen neuen event auf denselben
  * Stream — selber Tenant, selber Aggregate-Stream.
  */
+// @wrapper-known uuid-domain
 export function subscriptionAggregateId(tenantId: string): string {
   return uuidv5(tenantId, SUBSCRIPTION_NAMESPACE);
 }
