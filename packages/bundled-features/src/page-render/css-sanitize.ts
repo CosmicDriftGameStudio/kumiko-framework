@@ -10,20 +10,26 @@
 // Scoping: every selector is prefixed with `scopeSelector`, so a tenant rule can
 // only style elements INSIDE the page-content container — never `html`/`body`/
 // `:root` (those become inert: no such element is a descendant of the scope) and
-// never another tenant's content. The container element itself is unreachable
-// (descendant combinator), so the host-emitted containment styles can't be
-// overridden by tenant CSS.
+// never another tenant's content. A segment may NOT start with a combinator
+// (`~ X`/`+ X`/`> X` would reach the scope's siblings/parent — the host chrome);
+// internal combinators stay in-scope. The container element itself is unreachable
+// (descendant combinator), so the host-emitted containment styles — including the
+// `overflow` clip and `isolation` in layout.ts — can't be overridden by tenant CSS.
 //
 // Hard rejections (no presentational CSS needs them): any `\` (escape-sequence
 // bypass), any `@`-rule (no `@media`/`@font-face`/`@import`), any function token
 // outside {rgb,rgba,hsl,hsla,calc} (closes `url`/`expression`/`var`/`image-set`),
-// any `[`/`]` (attribute selectors), `::` (pseudo-elements → `content`
-// injection/defacement), and `<`/`>`/`"`/`'`/`{`/`}`/`;`/`@` inside a value.
+// any `[`/`]` (attribute selectors), `::` AND single-colon `:before`/`:after`/
+// `:first-line`/`:first-letter` (pseudo-elements → content/defacement), `url(`/
+// `expression(` in a selector, and `<`/`>`/`"`/`'`/`{`/`}`/`;`/`@` inside a value.
 //
 // Residual (documented, tier-gated): best-effort defense-in-depth for untrusted
 // tenants. The surface is deliberately small — no at-rules, no `url()`, no
-// `var()`/custom-props, no pseudo-elements, no quotes in values. Keep CSS-inject
-// behind the operator/tier gate; this is not a hard isolation boundary.
+// `var()`/custom-props, no pseudo-elements, no quotes in values, no leading
+// combinators. A scoped element can still RESTYLE/DEFACE its own page area
+// (within the container's `overflow` clip) — that is the tenant's own content,
+// not host chrome. Keep CSS-inject behind the operator/tier gate; this is not a
+// hard isolation boundary (an iframe sandbox would be).
 
 const MAX_CSS_LENGTH = 8000;
 
@@ -128,6 +134,18 @@ const IMPORTANT_SUFFIX = /\s*!\s*important\s*$/i;
 // `:nth-child()`. No `[`/`]` (attribute selectors), no `,` (split earlier), no
 // `\`/quotes/braces/`@`/angle brackets. `::` is rejected separately.
 const SELECTOR_CHARS = /^[a-zA-Z0-9 \t.#:>+~*_()-]+$/;
+// A segment may NOT start with a combinator: `[scope] ~ X` / `[scope] + X` reach
+// the scope container's SIBLINGS (e.g. the host brand-header) and `[scope] > X`
+// its direct children-from-outside — all escape "descendants only". Internal
+// combinators (`.a > .b`, `.a ~ .b`) stay in-scope and are fine.
+const LEADING_COMBINATOR = /^[>+~]/;
+// Single-colon legacy pseudo-elements are pseudo-elements too — the `::` check
+// alone misses them. Reject both syntaxes (no pseudo-elements at all).
+const LEGACY_PSEUDO_ELEMENT = /:(?:before|after|first-line|first-letter)\b/i;
+// `url()`/`expression()` in a SELECTOR (e.g. inside `:not()`) don't fetch/execute
+// — selector context never loads resources — but reject them anyway so no such
+// token ever reaches output (defense-in-depth, avoids engine quirks).
+const SELECTOR_FUNCTION_SINK = /(?:url|expression)\s*\(/i;
 
 type RawRule = { readonly prelude: string; readonly block: string };
 
@@ -227,6 +245,9 @@ function sanitizeSelector(seg: string, scope: string): string | null {
   if (s === "") return null;
   if (s.includes("\\")) return null; // escape-sequence bypass
   if (s.includes("::")) return null; // no pseudo-elements (content/defacement)
+  if (LEGACY_PSEUDO_ELEMENT.test(s)) return null; // single-colon pseudo-elements
+  if (LEADING_COMBINATOR.test(s)) return null; // scope-escape via leading >/+/~
+  if (SELECTOR_FUNCTION_SINK.test(s)) return null; // no url()/expression() in selectors
   if (!SELECTOR_CHARS.test(s)) return null; // rejects [ ] , < > { } @ " '
   if (!parensBalanced(s)) return null;
   return `${scope} ${s}`;
@@ -315,8 +336,9 @@ export function sanitizeTenantCss(css: string, scopeSelector: string): string {
   }
   const result = out.join("\n");
 
-  // Final breakout assert — selectors/values already reject these, but fail
-  // closed on the whole output if anything slipped through reconstruction.
-  if (result.includes("<") || result.includes(">")) return "";
+  // Final breakout assert — reject any `<`, which is the only way to begin the
+  // `</style>` sequence that exits the RAWTEXT <style> element. `>` is left
+  // intact: it is a valid CSS child combinator and inert inside <style>.
+  if (result.includes("<")) return "";
   return result;
 }

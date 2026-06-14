@@ -7,6 +7,14 @@ import { sanitizeTenantCss } from "./css-sanitize";
 // can only reach descendants of the content area — never the host-emitted
 // brand-header, <head>, or html/body. Keep in sync with the <main> attribute.
 const TENANT_SCOPE = "[data-tenant-content]";
+// Host-controlled containment, prepended INSIDE the tenant <style> block and
+// thus emitted ONLY when there is tenant CSS to contain. Clips tenant paint
+// (negative margins, transform, huge shadows, absolute children) to the
+// container box so it can't overlay host chrome. Tenant rules are scoped
+// descendants (`[data-tenant-content] X`) and can't match the bare container,
+// so they cannot override this. Plain/legal pages (no tenant CSS) render
+// unclipped — normal overflow for wide tables/<pre>.
+const TENANT_CLIP = `${TENANT_SCOPE}{overflow:hidden}`;
 
 // Minimaler HTML5-Skeleton mit Inline-CSS — Default-`wrapLayout` für
 // server-gerenderte Public-Pages, damit sie auch ohne App-Layout sauber
@@ -27,12 +35,16 @@ export function wrapInLayout(opts: {
   const themeStyle = opts.branding ? brandingStyleBlock(opts.branding) : "";
   const header = opts.branding ? brandingHeaderHtml(opts.branding) : "";
   // Untrusted tenant CSS, scoped + allowlisted at the render boundary. Empty
-  // (or fully rejected) → no <style> block. The scope container below is
-  // `isolation: isolate` so a tenant z-index can't lift content above the host
-  // brand-header (which carries its own stacking context); position:fixed/sticky
-  // are dropped by the sanitizer, so absolute stays boxed by the relative scope.
+  // (or fully rejected) → no <style> block. The base container carries
+  // `position: relative` (boxes tenant `position:absolute`) + `isolation:
+  // isolate` (keeps a tenant z-index below the host brand-header's stacking
+  // context). The `overflow:hidden` clip is added HERE, only when tenant CSS is
+  // present (TENANT_CLIP), so plain/legal pages keep normal overflow.
+  // position:fixed/sticky are dropped by the sanitizer.
   const tenantCss = opts.branding ? sanitizeTenantCss(opts.branding.customCss, TENANT_SCOPE) : "";
-  const tenantStyle = tenantCss ? `\n<style data-tenant-css>${tenantCss}</style>` : "";
+  const tenantStyle = tenantCss
+    ? `\n<style data-tenant-css>${TENANT_CLIP}\n${tenantCss}</style>`
+    : "";
   // Page description wins; the tenant's branding description is the site-wide
   // fallback when a page omits its own (keeps branding-description a live key).
   const description =

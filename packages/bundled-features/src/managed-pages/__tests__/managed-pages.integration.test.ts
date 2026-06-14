@@ -295,6 +295,18 @@ describe("managed-pages :: Branding (Config + Render)", () => {
     expect(Object.keys(managed.screens)).toContain("branding-settings");
   });
 
+  test("Custom-CSS-Key NICHT registriert ohne allowCustomCss (fail-closed-by-construction)", async () => {
+    // Default `managed` stack hat allowCustomCss=false → der branding-custom-css
+    // Key existiert nicht → ein Write darauf wird abgelehnt. Sperrt die
+    // Fail-closed-Eigenschaft gegen eine künftige "Key-immer-registrieren"-Regression.
+    const error = await stack.http.writeErr(
+      "config:write:set",
+      { key: BRANDING_QN.customCss, value: ".x { color: red; }" },
+      adminA,
+    );
+    expect(error).toBeTruthy();
+  });
+
   test("valides Branding (Hex + https + Preset) wird gesetzt und im Render angewandt", async () => {
     await stack.http.writeOk(
       "config:write:set",
@@ -461,6 +473,10 @@ describe("managed-pages :: Custom CSS (gated, sanitized render)", () => {
     expect(html).toContain("[data-tenant-content] .note");
     expect(html).toContain("color: rebeccapurple");
     expect(html).toContain("<main data-tenant-content>");
+    // container containment ships ONLY in the tenant-css block (clips tenant
+    // paint off host chrome); base stays position/isolation.
+    expect(html).toContain("isolation: isolate");
+    expect(html).toContain("[data-tenant-content]{overflow:hidden}");
   });
 
   test("gespeichertes Angriffs-CSS wird am Render sanitized (Write-Gate-Bypass-Abwehr)", async () => {
@@ -491,6 +507,8 @@ describe("managed-pages :: Custom CSS (gated, sanitized render)", () => {
     const html = await (await cssStack.app.request("http://b.example.com/p/about")).text();
     expect(html).not.toContain("<style data-tenant-css>");
     expect(html).not.toContain("[data-tenant-content] .note");
+    // no tenant CSS → no clip (plain pages keep normal overflow for wide content)
+    expect(html).not.toContain("overflow:hidden");
   });
 
   test("configEdit-Screen zeigt das customCss-Feld wenn allowCustomCss", () => {

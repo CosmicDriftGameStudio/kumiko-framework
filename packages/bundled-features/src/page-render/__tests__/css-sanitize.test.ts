@@ -169,3 +169,47 @@ describe("sanitizeTenantCss — valid CSS passes, scoped", () => {
     expect(css(huge)).toBe("");
   });
 });
+
+// Regressions for bypasses surfaced by the adversarial sanitizer workflow.
+describe("sanitizeTenantCss — adversarial regressions", () => {
+  test("leading sibling/child combinator can't escape the scope to host chrome", () => {
+    expect(css("~ .brand-header { color: red; }")).toBe("");
+    expect(css("+ .brand-header { position: absolute; z-index: 999; }")).toBe("");
+    expect(css("~ * { position: absolute; top: 0; width: 100%; height: 100%; }")).toBe("");
+    expect(css("> .x { color: red; }")).toBe("");
+    // one escaping segment in a comma-list drops the whole rule
+    expect(css(".a, ~ .b { color: red; }")).toBe("");
+  });
+
+  test("internal combinators stay in-scope and survive (child works end-to-end)", () => {
+    expect(css(".a > .b { color: red; }")).toBe("[data-tenant-content] .a > .b { color: red }");
+    expect(css(".a ~ .b { color: red; }")).toBe("[data-tenant-content] .a ~ .b { color: red }");
+    expect(css(".nav:nth-child(2) { color: red; }")).toContain(
+      "[data-tenant-content] .nav:nth-child(2)",
+    );
+  });
+
+  test("single-colon pseudo-elements are rejected too (not just ::)", () => {
+    expect(css(":before { color: red; }")).toBe("");
+    expect(css(".x:before { color: red; }")).toBe("");
+    expect(css(".x:after { color: red; }")).toBe("");
+    expect(css(".x:first-line { color: red; }")).toBe("");
+    expect(css("a:hover:before { color: red; }")).toBe("");
+  });
+
+  test("url()/expression() inside a selector is rejected", () => {
+    expect(css(":not(url(x)) { color: red; }")).toBe("");
+    expect(css(":is(expression(1)) { color: red; }")).toBe("");
+  });
+
+  test("overlay attacks survive the sanitizer but are clipped by the container", () => {
+    // The sanitizer allows presentational props; geometric containment is the
+    // container's overflow:hidden (layout.ts), not the sanitizer. Here we prove
+    // the output is still SCOPED (so the clip applies) — not unscoped.
+    const out = css(
+      ".overlay { position: absolute; margin: -100vh; width: 200vw; height: 200vh; z-index: 9999; }",
+    );
+    expect(out).toContain("[data-tenant-content] .overlay");
+    expect(out).not.toMatch(/(^|\n)\s*\.overlay/); // never unscoped
+  });
+});
