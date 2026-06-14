@@ -1,3 +1,5 @@
+export { MANAGED_PAGES_CSS_FEATURE } from "./branding";
+export { createManagedPagesCssFeature } from "./css-gate";
 export {
   createManagedPagesFeature,
   type ManagedPagesOptions,

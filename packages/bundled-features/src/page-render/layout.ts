@@ -1,5 +1,12 @@
 import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
 import { type BrandingTokens, brandingHeaderHtml, brandingStyleBlock } from "./branding";
+import { sanitizeTenantCss } from "./css-sanitize";
+
+// Scope selector for tenant custom CSS. The page body lives in
+// `<main data-tenant-content>`; every tenant rule is prefixed with this so it
+// can only reach descendants of the content area — never the host-emitted
+// brand-header, <head>, or html/body. Keep in sync with the <main> attribute.
+const TENANT_SCOPE = "[data-tenant-content]";
 
 // Minimaler HTML5-Skeleton mit Inline-CSS — Default-`wrapLayout` für
 // server-gerenderte Public-Pages, damit sie auch ohne App-Layout sauber
@@ -19,6 +26,13 @@ export function wrapInLayout(opts: {
 }): string {
   const themeStyle = opts.branding ? brandingStyleBlock(opts.branding) : "";
   const header = opts.branding ? brandingHeaderHtml(opts.branding) : "";
+  // Untrusted tenant CSS, scoped + allowlisted at the render boundary. Empty
+  // (or fully rejected) → no <style> block. The scope container below is
+  // `isolation: isolate` so a tenant z-index can't lift content above the host
+  // brand-header (which carries its own stacking context); position:fixed/sticky
+  // are dropped by the sanitizer, so absolute stays boxed by the relative scope.
+  const tenantCss = opts.branding ? sanitizeTenantCss(opts.branding.customCss, TENANT_SCOPE) : "";
+  const tenantStyle = tenantCss ? `\n<style data-tenant-css>${tenantCss}</style>` : "";
   // Page description wins; the tenant's branding description is the site-wide
   // fallback when a page omits its own (keeps branding-description a live key).
   const description =
@@ -43,15 +57,17 @@ export function wrapInLayout(opts: {
   a { color: var(--accent); }
   code { background: #f4f4f4; padding: 0.1rem 0.3rem; border-radius: 3px; }
   hr { border: 0; border-top: 1px solid #ddd; margin: 2rem 0; }
-  .brand-header { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1.5rem; }
+  .brand-header { position: relative; z-index: 1; display: flex; align-items: center;
+                  gap: 0.6rem; margin-bottom: 1.5rem; }
   .brand-header a { display: flex; align-items: center; gap: 0.6rem; color: inherit; text-decoration: none; }
   .brand-logo { height: 2rem; width: auto; }
   .brand-title { font-weight: 600; font-size: 1.1rem; }
-</style>${themeStyle}
+  [data-tenant-content] { position: relative; isolation: isolate; }
+</style>${themeStyle}${tenantStyle}
 </head>
 <body>
 ${header}
-<main>
+<main data-tenant-content>
 ${opts.bodyHtml}
 </main>
 </body>

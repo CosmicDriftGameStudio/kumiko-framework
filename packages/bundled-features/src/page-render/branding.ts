@@ -14,6 +14,13 @@ export type BrandingTokens = {
   readonly accentColor: string;
   readonly logoUrl: string;
   readonly layoutPreset: string;
+  // RAW, untrusted tenant CSS — "" unless the custom-css capability is gated on
+  // (managed-pages allowCustomCss + the per-tenant toggle). It is NOT pre-
+  // sanitized here: the layer that emits it MUST run it through
+  // sanitizeTenantCss(value, scopeSelector) with its own scope (the default
+  // wrapInLayout does). Scoping is a render concern, so sanitization lives at
+  // emit, not in transport.
+  readonly customCss: string;
 };
 
 export const EMPTY_BRANDING: BrandingTokens = {
@@ -23,6 +30,7 @@ export const EMPTY_BRANDING: BrandingTokens = {
   accentColor: "",
   logoUrl: "",
   layoutPreset: "",
+  customCss: "",
 };
 
 // CSS hex color: #rgb | #rrggbb | #rrggbbaa, anchored. Contains no `;`/`}`/`<`/

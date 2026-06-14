@@ -17,41 +17,69 @@ import { BRANDING_QN, LAYOUT_PRESETS } from "../branding";
 // works in either role world (Role-Naming-Drift).
 const ADMIN_ROLES = ["TenantAdmin", "Admin", "SystemAdmin"] as const;
 
-export const brandingSettingsScreen: ConfigEditScreenDefinition = {
-  id: "branding-settings",
-  type: "configEdit",
-  scope: "tenant",
-  configKeys: {
-    title: BRANDING_QN.title,
-    description: BRANDING_QN.description,
-    siteUrl: BRANDING_QN.siteUrl,
-    accentColor: BRANDING_QN.accentColor,
-    logoUrl: BRANDING_QN.logoUrl,
-    layoutPreset: BRANDING_QN.layoutPreset,
-  },
-  fields: {
-    title: createTextField({ maxLength: 200 }),
-    description: createTextField({ maxLength: 500, multiline: { rows: 3 } }),
-    siteUrl: createTextField({ maxLength: 2000, format: "url" }),
-    accentColor: createTextField({ maxLength: 9 }),
-    logoUrl: createTextField({ maxLength: 2000, format: "url" }),
-    layoutPreset: createSelectField({ options: LAYOUT_PRESETS }),
-  },
-  layout: {
-    sections: [
-      {
-        title: "managed-pages:branding.section.identity",
-        columns: 2,
-        fields: [
-          { field: "title", span: 1 },
-          { field: "layoutPreset", span: 1 },
-          { field: "description", span: 2 },
-          { field: "siteUrl", span: 1 },
-          { field: "logoUrl", span: 1 },
-          { field: "accentColor", span: 1 },
-        ],
-      },
-    ],
-  },
-  access: { roles: ADMIN_ROLES },
-};
+// Factory so the raw-CSS field/key only exist when the app opted into
+// allowCustomCss (fail-closed: no CSS editor when the capability is off). The
+// CSS lands in `branding-custom-css` (registered conditionally by the feature);
+// the write-time pattern only caps length, the render-time sanitizer is the
+// allowlist gate.
+export function createBrandingSettingsScreen(opts: {
+  readonly allowCustomCss: boolean;
+}): ConfigEditScreenDefinition {
+  const base: ConfigEditScreenDefinition = {
+    id: "branding-settings",
+    type: "configEdit",
+    scope: "tenant",
+    configKeys: {
+      title: BRANDING_QN.title,
+      description: BRANDING_QN.description,
+      siteUrl: BRANDING_QN.siteUrl,
+      accentColor: BRANDING_QN.accentColor,
+      logoUrl: BRANDING_QN.logoUrl,
+      layoutPreset: BRANDING_QN.layoutPreset,
+    },
+    fields: {
+      title: createTextField({ maxLength: 200 }),
+      description: createTextField({ maxLength: 500, multiline: { rows: 3 } }),
+      siteUrl: createTextField({ maxLength: 2000, format: "url" }),
+      accentColor: createTextField({ maxLength: 9 }),
+      logoUrl: createTextField({ maxLength: 2000, format: "url" }),
+      layoutPreset: createSelectField({ options: LAYOUT_PRESETS }),
+    },
+    layout: {
+      sections: [
+        {
+          title: "managed-pages:branding.section.identity",
+          columns: 2,
+          fields: [
+            { field: "title", span: 1 },
+            { field: "layoutPreset", span: 1 },
+            { field: "description", span: 2 },
+            { field: "siteUrl", span: 1 },
+            { field: "logoUrl", span: 1 },
+            { field: "accentColor", span: 1 },
+          ],
+        },
+      ],
+    },
+    access: { roles: ADMIN_ROLES },
+  };
+  if (!opts.allowCustomCss) return base;
+  return {
+    ...base,
+    configKeys: { ...base.configKeys, customCss: BRANDING_QN.customCss },
+    fields: {
+      ...base.fields,
+      customCss: createTextField({ maxLength: 8000, multiline: { rows: 12 } }),
+    },
+    layout: {
+      sections: [
+        ...base.layout.sections,
+        {
+          title: "managed-pages:branding.section.custom-css",
+          columns: 1,
+          fields: [{ field: "customCss", span: 1 }],
+        },
+      ],
+    },
+  };
+}

@@ -37,8 +37,18 @@ const HEX_PATTERN = {
 const HTTPS_PATTERN = { regex: "^$|^https://[^\\s\"'<>]{1,2000}$" } as const;
 const TITLE_PATTERN = { regex: "^[\\s\\S]{0,200}$" } as const;
 const DESCRIPTION_PATTERN = { regex: "^[\\s\\S]{0,500}$" } as const;
+// Custom CSS is too complex for a regex allowlist — the write-time pattern only
+// caps length (ReDoS-safe, allow-empty); the real allowlist sanitization runs at
+// render (page-render/css-sanitize.ts). Keep this cap in sync with MAX_CSS_LENGTH
+// there.
+const CUSTOM_CSS_PATTERN = { regex: "^[\\s\\S]{0,8000}$" } as const;
 
 export const LAYOUT_PRESETS = ["minimal", "centered", "wide"] as const;
+
+// Companion toggle feature name. managed-pages reads ctx.hasFeature() against it
+// in the branding query to per-tenant-gate custom-CSS emission. Declared as a
+// `r.toggleable({default:false})` feature in css-gate.ts.
+export const MANAGED_PAGES_CSS_FEATURE = "managed-pages-css";
 
 // Short keys → qualified names via define-feature's `qn(feature, "config",
 // toKebab(key))`: e.g. `brandingSiteUrl` → `managed-pages:config:branding-
@@ -57,6 +67,14 @@ export const BRANDING_KEYS = {
   }),
 } satisfies Record<string, ConfigKeyDefinition>;
 
+// Registered ONLY when the app passes allowCustomCss:true — kept out of
+// BRANDING_KEYS so the CSS editor field + key don't exist when the capability is
+// off (fail-closed at the app level). The render-time sanitizer is the real
+// safety boundary; this is the opt-in switch + a per-tenant toggle gate.
+export const CUSTOM_CSS_KEY = {
+  brandingCustomCss: createTenantConfig("text", { default: "", pattern: CUSTOM_CSS_PATTERN }),
+} satisfies Record<string, ConfigKeyDefinition>;
+
 export const BRANDING_QN = {
   title: "managed-pages:config:branding-title",
   description: "managed-pages:config:branding-description",
@@ -64,6 +82,7 @@ export const BRANDING_QN = {
   accentColor: "managed-pages:config:branding-accent-color",
   logoUrl: "managed-pages:config:branding-logo-url",
   layoutPreset: "managed-pages:config:branding-layout-preset",
+  customCss: "managed-pages:config:branding-custom-css",
 } as const;
 
 export const BRANDING_QUERY_QN = "managed-pages:query:branding";
@@ -87,7 +106,16 @@ export async function readBranding(config: ConfigAccessor | undefined): Promise<
     readText(config, BRANDING_QN.logoUrl),
     readText(config, BRANDING_QN.layoutPreset),
   ]);
-  return { title, description, siteUrl, accentColor, logoUrl, layoutPreset };
+  // customCss stays "" here — it is gated (allowCustomCss + per-tenant toggle)
+  // and read separately by the branding query via readCustomCss.
+  return { title, description, siteUrl, accentColor, logoUrl, layoutPreset, customCss: "" };
+}
+
+// Read the raw, untrusted custom CSS for the request's tenant. The caller (the
+// branding query) only invokes this once the gate has passed; the value is
+// sanitized at render (page-render), never trusted here.
+export async function readCustomCss(config: ConfigAccessor): Promise<string> {
+  return readText(config, BRANDING_QN.customCss);
 }
 
 function stringField(source: Record<string, unknown>, key: string): string {
@@ -109,5 +137,6 @@ export function coerceBranding(value: unknown): BrandingTokens {
     accentColor: stringField(source, "accentColor"),
     logoUrl: stringField(source, "logoUrl"),
     layoutPreset: stringField(source, "layoutPreset"),
+    customCss: stringField(source, "customCss"),
   };
 }

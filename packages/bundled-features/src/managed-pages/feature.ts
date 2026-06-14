@@ -14,11 +14,11 @@ import {
   securePageHeaders,
   wrapInLayout,
 } from "../page-render";
-import { BRANDING_KEYS, BRANDING_QUERY_QN, coerceBranding } from "./branding";
-import { brandingQuery } from "./handlers/branding.query";
+import { BRANDING_KEYS, BRANDING_QUERY_QN, CUSTOM_CSS_KEY, coerceBranding } from "./branding";
+import { createBrandingQuery } from "./handlers/branding.query";
 import { bySlugQuery } from "./handlers/by-slug.query";
 import { setWrite } from "./handlers/set.write";
-import { brandingSettingsScreen } from "./screens/branding-screen";
+import { createBrandingSettingsScreen } from "./screens/branding-screen";
 import { pageEditScreen, pageListScreen } from "./screens/page-screens";
 import { pageEntity } from "./table";
 
@@ -83,6 +83,15 @@ export type ManagedPagesOptions = {
   readonly basePath?: string;
   /** Default-Sprache wenn `?lang=` fehlt. Default "en". */
   readonly defaultLang?: string;
+  /** Aktiviert die per-Tenant Custom-CSS-Capability (raw, untrusted): ein
+   *  `branding-custom-css` Config-Key + ein CSS-Feld im Branding-Editor + die
+   *  Render-Emission als scoped, allowlist-sanitized `<style data-tenant-css>`.
+   *  Default **false** (fail-closed — opt-in für untrusted-Tenant-Input). Auch
+   *  wenn true, wird die Emission zusätzlich per-Tenant über das
+   *  `managed-pages-css`-Toggle (createManagedPagesCssFeature) gegated, sobald
+   *  ein feature-toggles/tier-engine-Runtime verdrahtet ist. Der Render-time-
+   *  Sanitizer (page-render/css-sanitize) ist der Safety-Boundary. */
+  readonly allowCustomCss?: boolean;
 };
 
 // managed-pages — vom Tenant editierbare, server-gerenderte Public-Pages.
@@ -120,6 +129,7 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
       }));
   const basePath = opts.basePath ?? "/p";
   const defaultLang = opts.defaultLang ?? "en";
+  const allowCustomCss = opts.allowCustomCss ?? false;
 
   return defineFeature("managed-pages", (r) => {
     r.describe(
@@ -130,13 +140,14 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
 
     // Per-tenant branding config keys (scope: tenant). Write-validated via
     // keyDef.pattern (hex / https) — see branding.ts. read:all so the
-    // anonymous render path may resolve them.
-    r.config({ keys: BRANDING_KEYS });
+    // anonymous render path may resolve them. The raw-CSS key is added only
+    // when allowCustomCss (fail-closed: no key/editor when the capability off).
+    r.config({ keys: allowCustomCss ? { ...BRANDING_KEYS, ...CUSTOM_CSS_KEY } : BRANDING_KEYS });
 
     const handlers = { set: r.writeHandler(setWrite) };
     const queries = {
       bySlug: r.queryHandler(bySlugQuery),
-      branding: r.queryHandler(brandingQuery),
+      branding: r.queryHandler(createBrandingQuery({ allowCustomCss })),
     };
 
     // Convention-CRUD hinter den Admin-Screens: entityEdit/entityList
@@ -151,7 +162,7 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
 
     r.screen(pageListScreen);
     r.screen(pageEditScreen);
-    r.screen(brandingSettingsScreen);
+    r.screen(createBrandingSettingsScreen({ allowCustomCss }));
 
     r.httpRoute({
       method: "GET",

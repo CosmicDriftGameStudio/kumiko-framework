@@ -12,6 +12,7 @@ import { createConfigAccessorFactory, createConfigFeature } from "../../config/f
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
 import { BRANDING_QN } from "../branding";
+import { createManagedPagesCssFeature } from "../css-gate";
 import { createManagedPagesFeature } from "../feature";
 import { seedPage } from "../seeding";
 import { pageEntity } from "../table";
@@ -375,5 +376,126 @@ describe("managed-pages :: Branding (Config + Render)", () => {
     expect(htmlB).not.toContain("#ff8800");
     expect(htmlB).not.toContain("cdn-a.example.com");
     expect(htmlB).not.toContain("Acme A");
+  });
+});
+
+// Eigener Stack mit allowCustomCss:true + dem Companion-Toggle-Feature. Der
+// per-Tenant-Gate wird über `effectiveFeatures` simuliert: TENANT_A hat
+// `managed-pages-css` AN, TENANT_B AUS — gleiche App-Opt-in (allowCustomCss),
+// unterschiedlicher Operator-/Tier-Toggle. Beweist End-to-End-Render + den
+// Kill-Switch + dass der Render-Sanitizer Write-Bypass-Werte abfängt.
+describe("managed-pages :: Custom CSS (gated, sanitized render)", () => {
+  let cssStack: TestStack;
+  const cssAdminA = createTestUser({ id: 30, roles: ["TenantAdmin"], tenantId: TENANT_A });
+  const cssAdminB = createTestUser({ id: 31, roles: ["TenantAdmin"], tenantId: TENANT_B });
+
+  const managedWithCss = createManagedPagesFeature({
+    resolveApexTenant: (host) => {
+      if (host.startsWith("a.")) return TENANT_A;
+      if (host.startsWith("b.")) return TENANT_B;
+      return null;
+    },
+    allowCustomCss: true,
+  });
+  const cssGate = createManagedPagesCssFeature();
+  const cssConfigFeature = createConfigFeature();
+
+  beforeAll(async () => {
+    const resolver = createConfigResolver();
+    cssStack = await setupTestStack({
+      features: [cssConfigFeature, managedWithCss, cssGate],
+      anonymousAccess: {
+        tenantExists: async (id) => id === TENANT_A || id === TENANT_B,
+      },
+      // Per-Tenant-Toggle: A enabled, B disabled.
+      effectiveFeatures: (tid) =>
+        tid === TENANT_A
+          ? new Set(["config", "managed-pages", "managed-pages-css"])
+          : new Set(["config", "managed-pages"]),
+      extraContext: ({ registry }) => ({
+        configResolver: resolver,
+        _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+      }),
+    });
+    await unsafeCreateEntityTable(cssStack.db, pageEntity);
+    await unsafePushTables(cssStack.db, { configValuesTable });
+    await createEventsTable(cssStack.db);
+    await seedPage(cssStack.db, {
+      tenantId: TENANT_A,
+      slug: "about",
+      lang: "en",
+      title: "About A",
+      body: "# A",
+      published: true,
+    });
+    await seedPage(cssStack.db, {
+      tenantId: TENANT_B,
+      slug: "about",
+      lang: "en",
+      title: "About B",
+      body: "# B",
+      published: true,
+    });
+  });
+
+  afterAll(async () => {
+    await cssStack.cleanup();
+  });
+
+  test("custom-css Config-Key ist registriert wenn allowCustomCss (Write ok)", async () => {
+    await cssStack.http.writeOk(
+      "config:write:set",
+      { key: BRANDING_QN.customCss, value: ".note { color: red; }" },
+      cssAdminA,
+    );
+  });
+
+  test("Gate AN: Tenant-CSS gescoped in <style data-tenant-css> gerendert", async () => {
+    await cssStack.http.writeOk(
+      "config:write:set",
+      { key: BRANDING_QN.customCss, value: ".note { color: rebeccapurple; }" },
+      cssAdminA,
+    );
+    const html = await (await cssStack.app.request("http://a.example.com/p/about")).text();
+    expect(html).toContain("<style data-tenant-css>");
+    expect(html).toContain("[data-tenant-content] .note");
+    expect(html).toContain("color: rebeccapurple");
+    expect(html).toContain("<main data-tenant-content>");
+  });
+
+  test("gespeichertes Angriffs-CSS wird am Render sanitized (Write-Gate-Bypass-Abwehr)", async () => {
+    // Der Längen-Cap-Pattern lässt das speichern; der Render-Sanitizer ist der
+    // eigentliche Allowlist-Gate. Jeder Vektor einzeln exerziert.
+    const attack =
+      ".evil { position: fixed; top: 0; } .ok { color: red; } @import url('http://evil.test');";
+    await cssStack.http.writeOk(
+      "config:write:set",
+      { key: BRANDING_QN.customCss, value: attack },
+      cssAdminA,
+    );
+    const html = await (await cssStack.app.request("http://a.example.com/p/about")).text();
+    expect(html).not.toContain("position: fixed");
+    expect(html).not.toContain("@import");
+    expect(html).not.toContain("evil.test");
+    // die eine sichere Regel überlebt, gescoped
+    expect(html).toContain("[data-tenant-content] .ok");
+    expect(html).toContain("color: red");
+  });
+
+  test("Gate AUS (Toggle off für Tenant B): kein Tenant-CSS trotz gespeichertem Wert", async () => {
+    await cssStack.http.writeOk(
+      "config:write:set",
+      { key: BRANDING_QN.customCss, value: ".note { color: red; }" },
+      cssAdminB,
+    );
+    const html = await (await cssStack.app.request("http://b.example.com/p/about")).text();
+    expect(html).not.toContain("<style data-tenant-css>");
+    expect(html).not.toContain("[data-tenant-content] .note");
+  });
+
+  test("configEdit-Screen zeigt das customCss-Feld wenn allowCustomCss", () => {
+    const screen = managedWithCss.screens["branding-settings"];
+    expect(screen).toBeTruthy();
+    expect(JSON.stringify(screen)).toContain("branding-custom-css");
   });
 });
