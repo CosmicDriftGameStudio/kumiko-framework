@@ -47,6 +47,13 @@ const cascadeFeature = defineFeature("cascade-test", (r) => {
         read: access.all,
         write: access.all,
       }),
+      // User-scope key whose only stored row is a system-row (via seed).
+      // Exercises the user → tenant → SYSTEM_TENANT_ID cascade rung.
+      userInheritKey: createUserConfig("text", {
+        default: "DEFAULT_USER_INHERIT",
+        read: access.all,
+        write: access.all,
+      }),
       systemKey: createSystemConfig("text", {
         default: "DEFAULT_SYSTEM",
         read: access.systemAdmin,
@@ -73,6 +80,7 @@ const cascadeFeature = defineFeature("cascade-test", (r) => {
     seeds: {
       tenantKey: createTenantSeed({ value: "SEED_TENANT" }),
       systemKey: createSystemSeed({ value: "SEED_SYSTEM" }),
+      userInheritKey: createSystemSeed({ value: "SEED_SYSTEM_FOR_USER" }),
     },
   });
 });
@@ -81,6 +89,7 @@ const configFeature = createConfigFeature();
 
 const TENANT_KEY = "cascade-test:config:tenant-key";
 const USER_KEY = "cascade-test:config:user-key";
+const USER_INHERIT_KEY = "cascade-test:config:user-inherit-key";
 const SYSTEM_KEY = "cascade-test:config:system-key";
 const NUMBER_KEY = "cascade-test:config:number-key";
 const BOOLEAN_KEY = "cascade-test:config:boolean-key";
@@ -225,6 +234,36 @@ describe("getCascade", () => {
     expect(tenantLevel?.isActive).toBe(false);
   });
 
+  test("user-scope key falls through to system-row when no user/tenant row exists", async () => {
+    // No user-row, no tenant-row for this key — only a seeded system-row.
+    // Before the user-cascade gained a SYSTEM_TENANT_ID rung, this resolved
+    // straight to the static default, skipping the operator-set system value.
+    const keyDef = stack.registry.getConfigKey(USER_INHERIT_KEY);
+    expect(keyDef).toBeDefined();
+
+    const cascade = await resolver.getCascade(
+      USER_INHERIT_KEY,
+      keyDef!,
+      tenantAdmin.tenantId,
+      tenantAdmin.id,
+      db,
+    );
+
+    const userLevel = cascade.levels.find((l) => l.source === "user-row");
+    expect(userLevel?.hasValue).toBe(false);
+    const tenantLevel = cascade.levels.find((l) => l.source === "tenant-row");
+    expect(tenantLevel?.hasValue).toBe(false);
+
+    const systemLevel = cascade.levels.find((l) => l.source === "system-row");
+    expect(systemLevel).toBeDefined();
+    expect(systemLevel?.hasValue).toBe(true);
+    expect(systemLevel?.value).toBe("SEED_SYSTEM_FOR_USER");
+    expect(systemLevel?.isActive).toBe(true);
+
+    expect(cascade.value).toBe("SEED_SYSTEM_FOR_USER");
+    expect(cascade.source).toBe("system-row");
+  });
+
   test("system-scope key with system-row + default", async () => {
     const keyDef = stack.registry.getConfigKey(SYSTEM_KEY);
     expect(keyDef).toBeDefined();
@@ -278,6 +317,35 @@ describe("getCascadeBatch", () => {
       db,
     );
     expect(cascades.size).toBe(0);
+  });
+
+  test("user-scope key resolves its system-row via the batch preload", async () => {
+    // The batch path preloads rows with selectConfigRowsForKeys (no scope
+    // gate) and matches them per (tenantId, userId) in buildCascade. This
+    // pins that a user-scope key's system-row is preloaded AND surfaced —
+    // the single-key path proves the lookup, this proves the preload feeds it.
+    const keyDef = stack.registry.getConfigKey(USER_INHERIT_KEY);
+    expect(keyDef).toBeDefined();
+    const keyDefs = new Map<string, ConfigKeyDefinition<ConfigKeyType>>([
+      [USER_INHERIT_KEY, keyDef!],
+    ]);
+
+    const cascades = await resolver.getCascadeBatch(
+      [USER_INHERIT_KEY],
+      keyDefs,
+      tenantAdmin.tenantId,
+      tenantAdmin.id,
+      db,
+    );
+
+    const cascade = cascades.get(USER_INHERIT_KEY);
+    expect(cascade).toBeDefined();
+    const systemLevel = cascade?.levels.find((l) => l.source === "system-row");
+    expect(systemLevel?.hasValue).toBe(true);
+    expect(systemLevel?.value).toBe("SEED_SYSTEM_FOR_USER");
+    expect(systemLevel?.isActive).toBe(true);
+    expect(cascade?.value).toBe("SEED_SYSTEM_FOR_USER");
+    expect(cascade?.source).toBe("system-row");
   });
 });
 

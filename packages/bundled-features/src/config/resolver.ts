@@ -93,6 +93,12 @@ async function buildCascade(
     case "user":
       lookups.push({ tenantId, userId, source: "user-row", label: "User" });
       lookups.push({ tenantId, userId: null, source: "tenant-row", label: "Tenant" });
+      lookups.push({
+        tenantId: SYSTEM_TENANT_ID,
+        userId: null,
+        source: "system-row",
+        label: "System",
+      });
       break;
     case "tenant":
       lookups.push({ tenantId, userId: null, source: "tenant-row", label: "Tenant" });
@@ -240,7 +246,7 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
       db,
     ): Promise<ConfigValueWithSource> {
       // Resolution cascade based on scope
-      // user:   userId+tenantId → tenantId → default
+      // user:   userId+tenantId → tenantId → SYSTEM_TENANT_ID → default
       // tenant: tenantId → SYSTEM_TENANT_ID → default
       // system: SYSTEM_TENANT_ID → default
       const lookups: Array<{
@@ -253,6 +259,7 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
         case "user":
           lookups.push({ tenantId, userId, source: "user-row" });
           lookups.push({ tenantId, userId: null, source: "tenant-row" });
+          lookups.push({ tenantId: SYSTEM_TENANT_ID, userId: null, source: "system-row" });
           break;
         case "tenant":
           lookups.push({ tenantId, userId: null, source: "tenant-row" });
