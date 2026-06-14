@@ -193,7 +193,9 @@ blue-green = Folge-Issues. Hält's leichtgewichtig und de-risked den Kern.
 - [ ] framework released (changeset, npm); Consumer-Bumps grün; **studio#58-envelope-Frage geklärt** vor Bump
 - [ ] Frontmatter `status: shipped` + evidence (PR#) + STATUS.md regen
 
-**Folge-Issues:**
-- [ ] Phase 2: safe fail-loud für managed-ohne-Projektion (kein Hard-Throw)
-- [ ] Phase 3: `kumiko:projection-rebuild`-Single-Run-Job + `enqueueProjectionRebuild` + Inline-Fallback
-- [ ] blue-green/`ProjectionVersion` (zero-downtime Rebuild)
+**Folge-Issues (angelegt 2026-06-14):**
+- [ ] Phase 2: safe fail-loud für managed-ohne-Projektion (kein Hard-Throw) — #361
+- [ ] Phase 3: `kumiko:projection-rebuild`-Single-Run-Job + `enqueueProjectionRebuild` + Inline-Fallback — #362
+- [ ] blue-green/`ProjectionVersion` (zero-downtime Rebuild) — #363
+
+PR Phase 1: #360 (CI grün 2026-06-14).
