@@ -49,6 +49,14 @@ export function invalidSignupToken() {
   );
 }
 
+export function signupEmailAlreadyRegistered() {
+  return writeFailure(
+    new UnprocessableError(AuthErrors.signupEmailAlreadyRegistered, {
+      i18nKey: "auth.errors.signupEmailAlreadyRegistered",
+    }),
+  );
+}
+
 export function noMembership() {
   return writeFailure(
     new UnprocessableError(AuthErrors.noMembership, {

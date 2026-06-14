@@ -12,11 +12,15 @@
 // Damit Sample-Server und Tests keine drei sub-paths zusammensammeln
 // müssen.
 
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { ConflictError } from "@cosmicdrift/kumiko-framework/errors";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 // kumiko-lint-ignore cross-feature-import auth-tests need user+tenant seed-helpers
 import { seedTenant, seedTenantMembership } from "../tenant/seeding";
+// kumiko-lint-ignore cross-feature-import signup create-only guard reads the user projection by email
+import { userTable } from "../user/schema/user";
 // kumiko-lint-ignore cross-feature-import auth-tests need user+tenant seed-helpers
 import { seedUser } from "../user/seeding";
 import { hashPassword } from "./password-hashing";
@@ -84,10 +88,13 @@ export async function seedUserWithPassword(
  *  ein orphan-Tenant zurückbleiben (Tenant ohne User → unused row;
  *  User ohne Membership → "no_membership" beim ersten Login).
  *
- *  Nicht idempotent: ein zweiter Aufruf für dieselbe Email wirft (über
- *  seedTenant + seedUser deren idempotenz-Check sich an key/email
- *  orientiert; bei collidierenden tenantKey ist der Caller
- *  verantwortlich, einen freien zu finden — siehe generateUniqueName). */
+ *  Create-only: existiert bereits ein User mit dieser Email (Seeding oder
+ *  früherer Signup), wirft die Funktion einen ConflictError BEVOR ein Tenant
+ *  entsteht. Der Self-Signup-Pfad darf einen bestehenden User nicht still
+ *  wiederverwenden — sonst würde der Confirm-Schritt eine Session für ihn
+ *  minten (Account-Takeover, #365). `seedUser` selbst bleibt idempotent
+ *  add-only (für Bootstrap/Tests); die create-only-Garantie sitzt hier.
+ *  tenantKey-Kollisionen löst der Caller via generateUniqueName. */
 /** Default-Roles für den Self-Signup-Admin. Geteilt zwischen
  *  provisionSignupAccount (DB-write) und signup-confirm-handler
  *  (SessionUser-Konstruktion für JWT-Mint) — sonst hätten zwei
@@ -109,6 +116,14 @@ export async function provisionSignupAccount(
   db: DbConnection,
   options: ProvisionSignupAccountOptions,
 ): Promise<{ readonly userId: string; readonly tenantId: TenantId }> {
+  // Create-only-Guard VOR seedTenant: bei bereits registrierter Email hart
+  // abbrechen, sonst entstünde ein verwaister Tenant und seedUser (idempotent
+  // add-only) gäbe still die bestehende userId zurück → Confirm mintet eine
+  // Session für den fremden Account (#365).
+  const existingUser = await fetchOne(db, userTable, { email: options.email });
+  if (existingUser) {
+    throw new ConflictError({ message: "signup: email already registered" });
+  }
   await seedTenant(db, {
     id: options.tenantId,
     key: options.tenantKey,

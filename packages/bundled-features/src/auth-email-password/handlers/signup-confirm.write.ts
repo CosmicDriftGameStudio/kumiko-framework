@@ -26,13 +26,13 @@ import {
   type SessionUser,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { ConflictError, InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { generateUniqueName } from "@cosmicdrift/kumiko-framework/random";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
 // kumiko-lint-ignore cross-feature-import signup-confirm reads tenants.key for slug-uniqueness check (TOCTOU + DB-unique-index zusammen)
 import { tenantTable } from "../../tenant/schema/tenant";
-import { invalidSignupToken } from "../errors";
+import { invalidSignupToken, signupEmailAlreadyRegistered } from "../errors";
 // kumiko-lint-ignore cross-feature-import provisioning needs cross-feature seeding helpers
 import { INITIAL_SIGNUP_ROLES, provisionSignupAccount } from "../seeding";
 import {
@@ -106,16 +106,26 @@ export function createSignupConfirmHandler() {
         // den Tenant-Namen + sein eigenes displayName später ändern.
         const displayName = email.split("@")[0] ?? email;
 
-        const provisioned = await provisionSignupAccount(dbConn, {
-          email,
-          password: event.payload.password,
-          displayName,
-          tenantId,
-          tenantKey,
-          // Tenant-Display-Name als Default = Email. User wechselt das im
-          // Settings-Screen. Konzept "Tenant" leakt nicht in die Signup-UI.
-          tenantName: email,
-        });
+        let provisioned: { readonly userId: string; readonly tenantId: TenantId };
+        try {
+          provisioned = await provisionSignupAccount(dbConn, {
+            email,
+            password: event.payload.password,
+            displayName,
+            tenantId,
+            tenantKey,
+            // Tenant-Display-Name als Default = Email. User wechselt das im
+            // Settings-Screen. Konzept "Tenant" leakt nicht in die Signup-UI.
+            tenantName: email,
+          });
+        } catch (err) {
+          // Email hat bereits ein Konto — provisionSignupAccount ist create-only
+          // (#365): sauberer User-Fehler, KEINE Session für den fremden Account.
+          // committed bleibt false → der burn wird im finally released (ein
+          // Retry scheitert wieder gleich, kein stale-Marker-Block).
+          if (err instanceof ConflictError) return signupEmailAlreadyRegistered();
+          throw err;
+        }
 
         // Cleanup beider Token-Lookup-Keys. Burn-Key bleibt für die
         // restliche Burn-TTL als Replay-Schutz.
