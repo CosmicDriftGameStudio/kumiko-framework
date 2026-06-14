@@ -6,20 +6,21 @@
 //   1. Migrations applied: every `kumiko/migrations/*.sql` has a row in
 //      `_kumiko_migrations`. Applied-but-edited (checksum mismatch) is drift.
 //   2. Tables exist: every table in `kumiko/migrations/.snapshot.json` exists.
+//   3. Columns exist: every column the snapshot declares for an existing table
+//      is present in the live schema. A migrated-but-incomplete table (snapshot
+//      richer than the DB — e.g. a ride-along column the generator once missed)
+//      would otherwise surface only as a runtime-500 on the first write.
 //
 // Contract (unchanged from the legacy gate): boot VALIDATES only, never
 // applies. Apply is the deploy-step `kumiko schema apply` (runMigrationsFromDir).
-//
-// Layer 3 (column-diff against the snapshot's ColumnMeta — catches manual
-// ALTERs / stale defs) is a documented follow-up; see
-// docs/plans/migration-system-consolidation.md.
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { DbConnection } from "../db/connection";
+import type { EntityTableMeta } from "../db/entity-table-meta";
 import { loadSnapshotJson } from "../db/migrate-generator";
 import { fetchAppliedMigrations, loadMigrationsFromDir } from "../db/migrate-runner";
-import { tableExists } from "../db/schema-inspection";
+import { columnNamesOf, tableExists } from "../db/schema-inspection";
 
 const SNAPSHOT_FILENAME = ".snapshot.json";
 
@@ -29,11 +30,17 @@ export type ChecksumMismatch = {
   readonly actual: string; // checksum of the file on disk now
 };
 
+export type MissingColumns = {
+  readonly table: string;
+  readonly columns: readonly string[];
+};
+
 export type KumikoDriftReport = {
   readonly ok: boolean;
   readonly pending: readonly string[];
   readonly checksumMismatches: readonly ChecksumMismatch[];
   readonly missingTables: readonly string[];
+  readonly missingColumns: readonly MissingColumns[];
 };
 
 export class SchemaDriftError extends Error {
@@ -56,7 +63,7 @@ export async function detectKumikoDrift(
   // würde loadMigrationsFromDir → readdirSync synchron ENOENT werfen
   // (plain Error, kein SchemaDriftError) und der Boot crasht roh.
   if (!existsSync(migrationsDir)) {
-    return { ok: true, pending: [], checksumMismatches: [], missingTables: [] };
+    return { ok: true, pending: [], checksumMismatches: [], missingTables: [], missingColumns: [] };
   }
   const local = loadMigrationsFromDir(migrationsDir);
   // Frische DB ohne je gelaufenes `kumiko schema apply` → tracking-table fehlt.
@@ -82,20 +89,38 @@ export async function detectKumikoDrift(
   // layer still gates.
   const snapshot = loadSnapshotJson(join(migrationsDir, SNAPSHOT_FILENAME));
   const missingTables: string[] = [];
+  const missingColumns: MissingColumns[] = [];
   if (snapshot) {
-    const checks = await Promise.all(
-      snapshot.tables.map((t) =>
-        tableExists(db, t.tableName).then((exists) => ({ name: t.tableName, exists })),
+    const existence = await Promise.all(
+      snapshot.tables.map((t) => tableExists(db, t.tableName).then((exists) => ({ t, exists }))),
+    );
+    const present: EntityTableMeta[] = [];
+    for (const { t, exists } of existence) {
+      if (exists) present.push(t);
+      else missingTables.push(t.tableName);
+    }
+    // Layer 3 — column-diff for tables that DO exist.
+    const columnChecks = await Promise.all(
+      present.map((t) =>
+        columnNamesOf(db, t.tableName).then((live) => ({
+          table: t.tableName,
+          columns: t.columns.map((c) => c.name).filter((n) => !live.has(n)),
+        })),
       ),
     );
-    for (const c of checks) if (!c.exists) missingTables.push(c.name);
+    for (const c of columnChecks) if (c.columns.length > 0) missingColumns.push(c);
   }
 
   return {
-    ok: pending.length === 0 && checksumMismatches.length === 0 && missingTables.length === 0,
+    ok:
+      pending.length === 0 &&
+      checksumMismatches.length === 0 &&
+      missingTables.length === 0 &&
+      missingColumns.length === 0,
     pending,
     checksumMismatches,
     missingTables,
+    missingColumns,
   };
 }
 
@@ -116,6 +141,13 @@ export function formatKumikoDriftReport(report: KumikoDriftReport): string {
     lines.push(`  ${report.missingTables.length} missing table(s):`);
     for (const t of report.missingTables) lines.push(`    - ${t}`);
   }
+  if (report.missingColumns.length > 0) {
+    const count = report.missingColumns.reduce((n, m) => n + m.columns.length, 0);
+    lines.push(`  ${count} missing column(s):`);
+    for (const m of report.missingColumns) {
+      lines.push(`    - ${m.table}: ${m.columns.join(", ")}`);
+    }
+  }
   // Per-Cause Remediation — `kumiko schema apply` löst NUR pending. Checksum-
   // mismatch ist eine Sackgasse für apply (MigrationChecksumMismatchError) und
   // baseline (ON CONFLICT DO NOTHING → landet in alreadyTracked). Missing
@@ -133,6 +165,13 @@ export function formatKumikoDriftReport(report: KumikoDriftReport): string {
   if (report.missingTables.length > 0 && report.pending.length === 0) {
     lines.push("Missing table(s) without pending migration(s) — table was dropped after apply.");
     lines.push("Restore from backup, or generate a new migration that re-creates the table.");
+  }
+  if (report.missingColumns.length > 0) {
+    lines.push("Missing column(s) — the live table predates a richer snapshot (e.g. a");
+    lines.push("ride-along column the generator now emits). Run 'kumiko schema generate' to");
+    lines.push(
+      "produce an ALTER-TABLE migration for the new column(s), then 'kumiko schema apply'.",
+    );
   }
   return lines.join("\n");
 }

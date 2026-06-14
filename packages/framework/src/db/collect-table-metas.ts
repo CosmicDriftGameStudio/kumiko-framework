@@ -7,7 +7,11 @@
 // crashte (#255).
 
 import type { FeatureDefinition } from "../engine/types";
-import { buildEntityTableMeta, type EntityTableMeta } from "./entity-table-meta";
+import {
+  assertBackingTableSuperset,
+  buildEntityTableMeta,
+  type EntityTableMeta,
+} from "./entity-table-meta";
 import { enumerateFeatureTableSources } from "./feature-table-sources";
 import { asEntityTableMeta } from "./query";
 
@@ -35,7 +39,23 @@ export function collectTableMetas(
   // Verhalten (gleiche Reihenfolge, gleiche buildEntityTableMeta-Optionen).
   for (const feature of features) {
     for (const [name, ent] of Object.entries(feature.entities ?? {})) {
-      const meta = buildEntityTableMeta(name, ent, { relations: feature.relations[name] });
+      const fieldMeta = buildEntityTableMeta(name, ent, { relations: feature.relations[name] });
+      // Backing table wins: it's the physical DDL truth for ride-along columns/
+      // indexes the field-DSL can't express (secrets' envelope). Validated as a
+      // superset of the field-derived meta so a field/table disagreement throws.
+      const backing = feature.entityTables?.[name];
+      let meta = fieldMeta;
+      if (backing !== undefined) {
+        const tableMeta = asEntityTableMeta(backing);
+        if (!tableMeta) {
+          throw new Error(
+            `collectTableMetas: entity "${name}" (${feature.name}) declares a backing ` +
+              "table that carries no EntityTableMeta — build it via table() / buildEntityTable.",
+          );
+        }
+        assertBackingTableSuperset(name, fieldMeta, tableMeta);
+        meta = tableMeta;
+      }
       metas.push(meta);
       byName.set(meta.tableName, { meta, origin: `entity "${name}" (${feature.name})` });
     }

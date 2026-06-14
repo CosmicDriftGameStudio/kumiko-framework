@@ -7,7 +7,7 @@ import { listQuery } from "./handlers/list.query";
 import { rotateJob } from "./handlers/rotate.job";
 import { setWrite } from "./handlers/set.write";
 import { secretReadSchema } from "./secrets-context";
-import { tenantSecretEntity } from "./table";
+import { tenantSecretEntity, tenantSecretsTable } from "./table";
 
 /**
  * Env-vars contract for the `secrets` feature. Apps merge this via
@@ -93,7 +93,11 @@ export function createSecretsFeature(): FeatureDefinition {
     // .updated/.deleted` events land on the aggregate stream. Reads fire a
     // separate `tenantSecretRead` event per call (see secrets-context.get
     // for the one-event-per-read rationale).
-    r.entity("tenant-secret", tenantSecretEntity);
+    // Backing table: envelope/metadata/last_rotated_at + the (tenant,key)
+    // uniqueIndex are not expressible via the field-DSL (jsonb-without-default,
+    // now()-default), so the physical table is the DDL truth. Without this the
+    // generated migration omitted those columns → prod-500 (publicstatus#116).
+    r.entity("tenant-secret", tenantSecretEntity, { table: tenantSecretsTable });
 
     // Read-audit domain-event. Registered here so ops tools + MSPs can
     // discover the type; secrets-context.get parses payloads against

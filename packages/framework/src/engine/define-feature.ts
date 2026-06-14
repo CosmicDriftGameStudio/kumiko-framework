@@ -103,6 +103,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
   // Tier-2 step kinds declared via r.requires.step("webhook.send"). Q9.
   const requiredSteps = new Set<string>();
   const entities: Record<string, EntityDefinition> = {};
+  const entityTables: Record<string, unknown> = {};
   const relations: Record<string, Record<string, RelationDefinition>> = {};
   const writeHandlers: Record<string, WriteHandlerDef> = {};
   const queryHandlers: Record<string, QueryHandlerDef> = {};
@@ -223,8 +224,13 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       toggleableDefault = options.default;
     },
 
-    entity(entityName: string, definition: EntityDefinition): EntityRef {
+    entity(
+      entityName: string,
+      definition: EntityDefinition,
+      options?: { readonly table?: unknown },
+    ): EntityRef {
       entities[entityName] = definition;
+      if (options?.table !== undefined) entityTables[entityName] = options.table;
       return { name: entityName, table: definition.table ?? toTableName(entityName) };
     },
 
@@ -923,6 +929,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     requiredSteps,
     ...(toggleableDefault !== undefined && { toggleableDefault }),
     entities,
+    entityTables,
     relations,
     writeHandlers,
     queryHandlers,

@@ -10,6 +10,7 @@ import {
   deliveryAttemptsTable,
   deliveryAttemptsTableMeta,
   notificationPreferenceEntity,
+  notificationPreferencesTable,
 } from "./tables";
 
 export function createDeliveryFeature(): FeatureDefinition {
@@ -18,7 +19,12 @@ export function createDeliveryFeature(): FeatureDefinition {
       "The notification dispatch core: call `ctx.notify(notificationType, { to, route, data, priority, idempotencyKey })` from any handler to fan out a notification across all registered channels (email, in-app, push). It stores per-user channel preferences in the `notification-preference` entity, logs every attempt to `read_delivery_attempts`, and enforces idempotency and rate-limiting \u2014 add `channel-email`, `channel-in-app`, or `channel-push` on top to actually send anything.",
     );
     r.systemScope();
-    r.entity("notification-preference", notificationPreferenceEntity);
+    // Backing table: the (tenant,user,type,channel) uniqueIndex lives only on
+    // the physical table, not on the entity fields, so the generator would
+    // otherwise omit it → duplicate preference rows on concurrent upserts.
+    r.entity("notification-preference", notificationPreferenceEntity, {
+      table: notificationPreferencesTable,
+    });
     r.unmanagedTable(deliveryAttemptsTableMeta, {
       reason: "read_side.delivery_attempt_log",
     });

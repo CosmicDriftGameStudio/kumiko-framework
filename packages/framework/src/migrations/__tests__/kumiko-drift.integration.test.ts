@@ -103,6 +103,48 @@ describe("kumiko-drift boot-gate", () => {
     expect(report.missingTables).toEqual(["kdrift_widget"]);
   });
 
+  test("snapshot column missing in DB → missingColumns (Layer 3, boot-fail not 500)", async () => {
+    // The #347 class: table was migrated from a thin snapshot, the snapshot is
+    // now richer (ride-along columns the generator started emitting). The table
+    // EXISTS (Layer 2 ok) but lacks columns the code will write → without
+    // Layer 3 this surfaces as a runtime-500 on the first write. Layer 3 makes
+    // it a boot-time SchemaDriftError with a regen-hint instead.
+    await asRawClient(testDb.db).unsafe(
+      `CREATE TABLE "kdrift_widget" ("id" uuid PRIMARY KEY, "key" text)`,
+    );
+    writeMigration("0001_init.sql", `SELECT 1;`); // recorded, table pre-exists thin
+    writeFileSync(
+      join(dir, ".snapshot.json"),
+      JSON.stringify({
+        version: 1,
+        tables: [
+          {
+            tableName: "kdrift_widget",
+            columns: [
+              { name: "id", pgType: "uuid", notNull: true },
+              { name: "key", pgType: "text", notNull: true },
+              { name: "envelope", pgType: "jsonb", notNull: true },
+              { name: "metadata", pgType: "jsonb", notNull: true },
+            ],
+            indexes: [],
+            source: "managed",
+          },
+        ],
+      }),
+    );
+    await runMigrationsFromDir(testDb.db, dir);
+
+    const report = await detectKumikoDrift(testDb.db, dir);
+    expect(report.ok).toBe(false);
+    expect(report.missingTables).toEqual([]);
+    expect(report.missingColumns).toEqual([
+      { table: "kdrift_widget", columns: ["envelope", "metadata"] },
+    ]);
+    await expect(assertKumikoSchemaCurrent(testDb.db, dir)).rejects.toBeInstanceOf(
+      SchemaDriftError,
+    );
+  });
+
   test("missing migrations dir → ok (no migrations to validate)", async () => {
     // Regression für review #155 finding 1: existing-App-Upgrade ohne
     // ./kumiko/migrations darf nicht roh ENOENT werfen (würde sonst plain

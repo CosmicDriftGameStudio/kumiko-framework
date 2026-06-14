@@ -1,5 +1,10 @@
+import { asEntityTableMeta } from "../bun-db/query";
 import { applyEntityEvent } from "../db/apply-entity-event";
-import { resolveTableName } from "../db/entity-table-meta";
+import {
+  assertBackingTableSuperset,
+  buildEntityTableMeta,
+  resolveTableName,
+} from "../db/entity-table-meta";
 import { buildEntityTable } from "../db/table-builder";
 import { buildMetricName, validateMetricName } from "../observability";
 import { type QnType, qualifyEntityName } from "./qualified-name";
@@ -67,9 +72,18 @@ function buildImplicitProjection(
   entityName: string,
   entity: EntityDefinition,
   qualify: typeof qualifyEntityName,
+  backingTable?: unknown,
 ): ProjectionDefinition {
   const name = qualify(featureName, "projection", `${entityName}${IMPLICIT_PROJECTION_SUFFIX}`);
-  const drizzleTable = buildEntityTable(entityName, entity);
+  // Backing table (r.entity(name, def, { table })) is the one physical table
+  // object shared by executor-writes, rebuild-replay, test-push and
+  // collectTableMetas — restoring the #255 invariant (test-push == generate).
+  // Validated as a superset of the field-derived columns so a field/table
+  // disagreement fails at boot, not as a silent thin-vs-rich row.
+  const drizzleTable =
+    backingTable !== undefined
+      ? resolveBackingTable(entityName, entity, backingTable)
+      : buildEntityTable(entityName, entity);
   // applyEntityEvent gibt ApplyResult zurück; SingleStreamApplyFn erwartet
   // Promise<void>. Im rebuild-Pfad ist die Row irrelevant — wir discarden.
   const handler = async (
@@ -97,6 +111,27 @@ function buildImplicitProjection(
     apply,
     isImplicit: true,
   };
+}
+
+// Validates a r.entity backing table is a superset of the entity's field-
+// derived columns, then hands it back as the projection table. The cast is a
+// system-boundary reconstitution: the table is stored as `unknown` on
+// FeatureDefinition only to keep drizzle out of the plain-data shape, and
+// asEntityTableMeta confirms the kumiko-table shape at runtime.
+function resolveBackingTable(
+  entityName: string,
+  entity: EntityDefinition,
+  backingTable: unknown,
+): ProjectionDefinition["table"] {
+  const tableMeta = asEntityTableMeta(backingTable);
+  if (!tableMeta) {
+    throw new Error(
+      `r.entity("${entityName}", …, { table }): the backing table carries no ` +
+        "EntityTableMeta — build it via table() / buildEntityTable.",
+    );
+  }
+  assertBackingTableSuperset(entityName, buildEntityTableMeta(entityName, entity), tableMeta);
+  return backingTable as ProjectionDefinition["table"];
 }
 
 // This is where the magic happens. By "magic" I mean: precomputed maps.
@@ -886,7 +921,13 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // mit Entity-Name registriert.
   for (const feature of features) {
     for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
-      const def = buildImplicitProjection(feature.name, entityName, entity, qualify);
+      const def = buildImplicitProjection(
+        feature.name,
+        entityName,
+        entity,
+        qualify,
+        feature.entityTables?.[entityName],
+      );
       if (projectionMap.has(def.name)) {
         throw new Error(
           `Implicit projection "${def.name}" kollidiert mit einer explizit registrierten r.projection. ` +

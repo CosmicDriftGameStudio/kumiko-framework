@@ -406,6 +406,47 @@ function sqlExpressionText(where: unknown): string | undefined {
   return undefined;
 }
 
+// Validates that a backing Drizzle table (declared via `r.entity(name, def,
+// { table })`) is a SUPERSET of the field-derived meta: every column the
+// entity fields produce must exist on the table with the same pgType +
+// notNull. Ride-along columns/indexes the table adds on top (envelope,
+// uniqueIndex, …) are exactly the point — they pass. A field with no matching
+// physical column, or a type/nullability mismatch, is real authoring drift
+// (the table and the entity disagree on a shared column) → throw. Catches the
+// inverse of the bug this whole mechanism fixes.
+export function assertBackingTableSuperset(
+  entityName: string,
+  fieldMeta: EntityTableMeta,
+  tableMeta: EntityTableMeta,
+): void {
+  const tableCols = columnsByNameMeta(tableMeta);
+  for (const fieldCol of fieldMeta.columns) {
+    const tableCol = tableCols.get(fieldCol.name);
+    if (!tableCol) {
+      throw new Error(
+        `r.entity("${entityName}", …, { table }): the backing table ` +
+          `"${tableMeta.tableName}" is missing column "${fieldCol.name}" that the ` +
+          "entity field declares. The table must be a superset of the entity's " +
+          "fields — add the column to the table or remove the field.",
+      );
+    }
+    if (tableCol.pgType !== fieldCol.pgType || tableCol.notNull !== fieldCol.notNull) {
+      throw new Error(
+        `r.entity("${entityName}", …, { table }): column "${fieldCol.name}" ` +
+          `disagrees between entity field (${fieldCol.pgType}, ` +
+          `notNull=${fieldCol.notNull}) and backing table "${tableMeta.tableName}" ` +
+          `(${tableCol.pgType}, notNull=${tableCol.notNull}). Align them.`,
+      );
+    }
+  }
+}
+
+function columnsByNameMeta(meta: EntityTableMeta): Map<string, ColumnMeta> {
+  const m = new Map<string, ColumnMeta>();
+  for (const c of meta.columns) m.set(c.name, c);
+  return m;
+}
+
 export function defineUnmanagedTable(input: UnmanagedTableInput): EntityTableMeta {
   return {
     tableName: input.tableName,

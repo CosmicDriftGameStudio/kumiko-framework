@@ -12,6 +12,7 @@ const empty: KumikoDriftReport = {
   pending: [],
   checksumMismatches: [],
   missingTables: [],
+  missingColumns: [],
 };
 
 describe("formatKumikoDriftReport", () => {
@@ -74,6 +75,18 @@ describe("formatKumikoDriftReport", () => {
     const out = formatKumikoDriftReport(report);
     expect(out).toContain("Run 'kumiko schema apply'");
     expect(out).not.toContain("Restore from backup");
+  });
+
+  test("missing columns → lists table.columns + regen remediation", () => {
+    const report: KumikoDriftReport = {
+      ...empty,
+      ok: false,
+      missingColumns: [{ table: "read_tenant_secrets", columns: ["envelope", "metadata"] }],
+    };
+    const out = formatKumikoDriftReport(report);
+    expect(out).toContain("2 missing column(s)");
+    expect(out).toContain("read_tenant_secrets: envelope, metadata");
+    expect(out).toContain("'kumiko schema generate'");
   });
 
   test("pending + mismatch combined → both remediation lines", () => {

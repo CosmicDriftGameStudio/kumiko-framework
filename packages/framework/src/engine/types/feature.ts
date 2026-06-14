@@ -202,6 +202,13 @@ export type FeatureDefinition = {
   // (test fixtures, partial boots — see registry.test.ts "slot robustness")
   // omit them and the registry guards against that. Type follows runtime.
   readonly entities?: Readonly<Record<string, EntityDefinition>>;
+  // Optional backing Drizzle table per entity, declared via the third arg of
+  // `r.entity(name, def, { table })`. Source of truth for the physical DDL
+  // when the table carries columns/indexes the field-DSL can't express
+  // (e.g. secrets' envelope jsonb without default). `collectTableMetas` and
+  // the registry's implicit-projection use this object instead of the
+  // field-derived table, so generate + test-push + executor share ONE table.
+  readonly entityTables?: Readonly<Record<string, unknown>>;
   readonly relations: Readonly<Record<string, EntityRelations>>;
   readonly writeHandlers: Readonly<Record<string, WriteHandlerDef>>;
   readonly queryHandlers: Readonly<Record<string, QueryHandlerDef>>;
@@ -359,7 +366,11 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // bug — and one nothing catches at boot, so don't.
   toggleable(options: { default: boolean }): void;
 
-  entity(name: string, definition: EntityDefinition): EntityRef;
+  entity(
+    name: string,
+    definition: EntityDefinition,
+    options?: { readonly table?: unknown },
+  ): EntityRef;
 
   writeHandler<TName extends string, TSchema extends ZodType>(
     def: WriteHandlerDefinition<TName, TSchema>,
