@@ -19,12 +19,17 @@
    Defaults bleiben rdp's eigenes Stylesheet. */
 @import "react-day-picker/style.css";
 
-/* Tailwind v4 scannt per default vom Import-Ort aus; da das CSS
-   aus einem temp-dir kompiliert wird, findet es sonst keine
-   Source-Dateien. Explizite @source-Direktiven decken alle
-   Workspace-Sources ab — der CLI scannt dann unsere Primitives,
-   Layout-Components UND die Sample-App. */
-@source "../../renderer-web/src/**/*.{ts,tsx}";
+/* Tailwind v4 scannt per default vom Import-Ort aus; da das CSS aus
+   einem temp-dir kompiliert wird, findet es sonst keine Source-Dateien.
+   Die erste Zeile ist self-relativ (`./` = dieses src/) und MUSS es
+   bleiben: das Paket shippt `src`, also löst sie in jedem Install-Layout
+   auf — Workspace UND Standalone-Consumer (node_modules). Ein monorepo-
+   relativer Pfad fand im Standalone-Build die eigenen Shell-Klassen
+   nicht → unstyled prod, 15KB statt 48KB (#359). Die restlichen Zeilen
+   sind Monorepo-Build-Quellen (renderer hat keine eigenen Klassen,
+   samples nur für den In-Monorepo-Sample-Build) — im Consumer matchen
+   sie nichts und sind dort ein harmloser No-op. */
+@source "./**/*.{ts,tsx}";
 @source "../../renderer/src/**/*.{ts,tsx}";
 @source "../../../samples/**/src/**/*.{ts,tsx}";
 
