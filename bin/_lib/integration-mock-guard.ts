@@ -17,13 +17,9 @@ export function hasDisallowedMock(content: string): boolean {
 // .kumiko-cast-baseline.json). New files are still caught — only these exact
 // paths are exempt. Each carries a one-line reason for the debt.
 //
-//   runner/context: build a fake dispatcher (makeMockDispatcher) — pending the
-//     no-fake-dispatcher refactor onto setupTestStack.
-//   auth-claims:    spies the logger to assert a drift-warning side-channel;
+//   auth-claims: spies the logger to assert a drift-warning side-channel;
 //     the stack itself is real (setupTestStack).
 export const MOCK_GUARD_ALLOWLIST: ReadonlySet<string> = new Set([
-  "packages/framework/src/es-ops/__tests__/runner.integration.test.ts",
-  "packages/framework/src/es-ops/__tests__/context.integration.test.ts",
   "samples/recipes/auth-claims/src/__tests__/feature.integration.test.ts",
 ]);
 

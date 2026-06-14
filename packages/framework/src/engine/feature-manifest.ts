@@ -6,6 +6,7 @@
 // AST-Parser kann die imperativen Factory-Helper der bundled features nicht
 // lesen.
 
+import { compareByCodepoint } from "../utils";
 import type { Registry } from "./types/feature";
 
 export type ManifestConfigKey = {
@@ -111,8 +112,8 @@ export function buildManifestFromRegistry(
       });
     }
 
-    configKeys.sort((a, b) => a.qualifiedName.localeCompare(b.qualifiedName));
-    secrets.sort((a, b) => a.qualifiedName.localeCompare(b.qualifiedName));
+    configKeys.sort((a, b) => compareByCodepoint(a.qualifiedName, b.qualifiedName));
+    secrets.sort((a, b) => compareByCodepoint(a.qualifiedName, b.qualifiedName));
 
     manifestFeatures.push({
       name: feature.name,
@@ -133,7 +134,7 @@ export function buildManifestFromRegistry(
     });
   }
 
-  manifestFeatures.sort((a, b) => a.name.localeCompare(b.name));
+  manifestFeatures.sort((a, b) => compareByCodepoint(a.name, b.name));
 
   return {
     source: options.source,

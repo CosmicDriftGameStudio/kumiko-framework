@@ -17,6 +17,7 @@ const HASH_OPTIONS = {
   parallelism: 1,
 } as const;
 
+// @wrapper-known semantic-alias
 export async function hashPassword(password: string): Promise<string> {
   return argonHash(password, HASH_OPTIONS);
 }

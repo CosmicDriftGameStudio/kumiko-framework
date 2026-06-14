@@ -16,7 +16,33 @@
 //   parseUrlToken       — URL-Param-Helper (window.location.search).
 
 import { cn } from "@cosmicdrift/kumiko-renderer-web";
-import type { ReactNode } from "react";
+import { createContext, type ReactNode, useContext } from "react";
+
+// Wrappt die zentrierte Auth-Card in ihre Umgebung. Default = Fullscreen-
+// zentriert (Standalone-Auth-Page). Eine Apex-/Marketing-Chrome reicht über
+// AuthShellProvider eine eigene Variante rein, ohne dass `min-h-screen` die
+// Chrome übermalt.
+export type AuthShellRenderer = (card: ReactNode) => ReactNode;
+
+const defaultAuthShell: AuthShellRenderer = (card) => (
+  <div className="min-h-screen flex items-center justify-center bg-background px-4">{card}</div>
+);
+
+const AuthShellContext = createContext<AuthShellRenderer | null>(null);
+
+export function AuthShellProvider({
+  shell,
+  children,
+}: {
+  readonly shell: AuthShellRenderer;
+  readonly children: ReactNode;
+}): ReactNode {
+  return <AuthShellContext.Provider value={shell}>{children}</AuthShellContext.Provider>;
+}
+
+export function useAuthShell(): AuthShellRenderer | null {
+  return useContext(AuthShellContext);
+}
 
 export type AuthCardProps = {
   readonly title?: string;
@@ -25,21 +51,19 @@ export type AuthCardProps = {
 };
 
 export function AuthCard({ title, subtitle, children }: AuthCardProps): ReactNode {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm rounded-lg border bg-card text-card-foreground shadow-sm">
-        {(title !== undefined || subtitle !== undefined) && (
-          <div className="flex flex-col space-y-1.5 p-6 pb-4">
-            {title !== undefined && (
-              <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-            )}
-            {subtitle !== undefined && <p className="text-sm text-muted-foreground">{subtitle}</p>}
-          </div>
-        )}
-        {children}
-      </div>
+  const shell = useAuthShell() ?? defaultAuthShell;
+  const card = (
+    <div className="w-full max-w-sm rounded-lg border bg-card text-card-foreground shadow-sm">
+      {(title !== undefined || subtitle !== undefined) && (
+        <div className="flex flex-col space-y-1.5 p-6 pb-4">
+          {title !== undefined && <h1 className="text-xl font-semibold tracking-tight">{title}</h1>}
+          {subtitle !== undefined && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+        </div>
+      )}
+      {children}
     </div>
   );
+  return shell(card);
 }
 
 // Primary-button-Style für anchor-Tags die wie ein Button aussehen

@@ -1,5 +1,85 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.49.0
+
+### Minor Changes
+
+- 5d8b8ca: config-provisioning: coherent user-scope cascade, ENV→config bridge, and a self-populating Settings-Hub
+
+  Three additive, non-breaking pieces for declarative config provisioning:
+
+  - **User-scope cascade (D8):** a `user`-scope config key now falls through to the
+    system-row (`user-row → tenant-row → system-row → default`) on both the UI
+    cascade and the hot `getWithSource` path, so a system-seeded default is visible
+    to a user lookup. Previously the system-row was skipped for user-scope keys.
+
+  - **ENV→app-override bridge:** `env` on a config key binds an environment variable
+    as the app-override layer of the cascade. `buildEnvConfigOverrides(registry, env)`
+    is wired into `runProdApp`, so a key gains an ENV default by adding one field —
+    no factory switch. `env`, `inheritedToTenant`, and `backing` are optional fields
+    on the existing `createTenantConfig`/`createSystemConfig`/`createUserConfig`.
+
+  - **Self-populating Settings-Hub:** a config key with the new `mask` field
+    (`{ title, icon?, order? }`) is automatically surfaced as a settings UI — per
+    scope an audience group, per (feature × scope) a `configEdit` screen + nav,
+    derived from the key type. No manual `r.screen`/`r.nav`. `buildConfigFeatureSchema`
+    runs inside `buildAppSchema` (find-or-create `config` FeatureSchema); in
+    workspace-mode apps a synthetic `settings` workspace is appended (skipped for
+    workspace-less apps so they don't flip into nav-filter mode). Screens honor a new
+    per-field `fieldLabels` override so `mask.title` flows to the label without the
+    `__config-edit__` convention. The `config` bundled-feature ships the generic
+    `config.settings.*` audience labels via `configClient()`
+    (`@cosmicdrift/kumiko-bundled-features/config/web`).
+
+  No existing config key declares `mask`/`env`, so `buildConfigFeatureSchema` returns
+  empty and `buildAppSchema` output is unchanged for current apps.
+
+## 0.48.1
+
+### Patch Changes
+
+- ec22610: feature-manifest: sort by codepoint instead of `localeCompare` (#330)
+
+  `buildManifestFromRegistry` sorted features, config keys and secrets with
+  `String.localeCompare`, whose ordering depends on the running machine's ICU
+  locale. Since the manifest is serialized to byte-exact JSON (the
+  `use-all-bundled` and enterprise generators commit it, and docs CI byte-compares
+  it), the bytes could drift between a macOS dev box and Linux CI. The three sorts
+  now use a locale-independent codepoint comparator.
+
+  Byte-identical for all current manifests — every feature name and qualified
+  name is lowercase-kebab, for which codepoint and locale order agree. This closes
+  the latent cross-locale drift before a mixed-case or non-ASCII name ever
+  introduces it.
+
+## 0.48.0
+
+### Minor Changes
+
+- 2852197: migrate-generator: projection-aware migrations (#356)
+
+  Schema changes to a **managed** projection (`r.entity`) that cannot apply
+  in-place against existing rows — `NOT NULL` without a default, a `UNIQUE` index,
+  `SET NOT NULL`, a type change, or a dropped/renamed column — are now generated as
+  `DROP TABLE` + `CREATE TABLE` (new shape) instead of an additive `ALTER` that
+  dies on the very rows the projection rebuild discards anyway. The rebuild marker
+  refills the recreated table from the event stream. **unmanaged** tables
+  (`defineUnmanagedTable`, real non-derived data) keep additive `ALTER` plus the
+  commented `-- DESTRUCTIVE` statements, unchanged.
+
+  The split is driven by `EntityTableMeta.source`, which lives in the
+  generate-time snapshot — so it is a pure generate decision: no registry
+  awareness, no runtime DDL-from-code, the apply path stays a dumb SQL runner.
+  `rebuildTablesFromDiff` is now managed-only (unmanaged tables are never
+  event-rebuilt) and includes the recreate cases.
+
+  Caveat: DROP+CREATE empties the projection before the rebuild refills it, so it
+  is only safe for projections whose events carry every column. A managed table
+  with columns that are NOT derivable from the event stream must not rely on this
+  path — that is a data migration, not a schema change.
+
+## 0.47.0
+
 ## 0.46.0
 
 ### Minor Changes

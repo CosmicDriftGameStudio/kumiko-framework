@@ -23,7 +23,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { ConfigHandlers, ConfigQueries } from "../constants";
 import { createConfigAccessorFactory, createConfigFeature } from "../feature";
-import { type ConfigResolver, createConfigResolver } from "../resolver";
+import { buildEnvConfigOverrides, type ConfigResolver, createConfigResolver } from "../resolver";
 import { configValueEntity, configValuesTable } from "../table";
 
 let stack: TestStack;
@@ -44,6 +44,13 @@ const cascadeFeature = defineFeature("cascade-test", (r) => {
       }),
       userKey: createUserConfig("text", {
         default: "DEFAULT_USER",
+        read: access.all,
+        write: access.all,
+      }),
+      // User-scope key whose only stored row is a system-row (via seed).
+      // Exercises the user → tenant → SYSTEM_TENANT_ID cascade rung.
+      userInheritKey: createUserConfig("text", {
+        default: "DEFAULT_USER_INHERIT",
         read: access.all,
         write: access.all,
       }),
@@ -69,10 +76,20 @@ const cascadeFeature = defineFeature("cascade-test", (r) => {
         read: access.all,
         write: access.all,
       }),
+      // End-to-end seam key: a plain scope factory carrying an `env` binding
+      // so buildEnvConfigOverrides reads it off the real registry under the
+      // qualified name define-feature assigns.
+      envKey: createSystemConfig("text", {
+        env: "CASCADE_ENV_VALUE",
+        default: "DEFAULT_ENV",
+        read: access.all,
+        write: access.all,
+      }),
     },
     seeds: {
       tenantKey: createTenantSeed({ value: "SEED_TENANT" }),
       systemKey: createSystemSeed({ value: "SEED_SYSTEM" }),
+      userInheritKey: createSystemSeed({ value: "SEED_SYSTEM_FOR_USER" }),
     },
   });
 });
@@ -81,10 +98,12 @@ const configFeature = createConfigFeature();
 
 const TENANT_KEY = "cascade-test:config:tenant-key";
 const USER_KEY = "cascade-test:config:user-key";
+const USER_INHERIT_KEY = "cascade-test:config:user-inherit-key";
 const SYSTEM_KEY = "cascade-test:config:system-key";
 const NUMBER_KEY = "cascade-test:config:number-key";
 const BOOLEAN_KEY = "cascade-test:config:boolean-key";
 const COMPUTED_KEY = "cascade-test:config:computed-key";
+const ENV_KEY = "cascade-test:config:env-key";
 
 beforeAll(async () => {
   resolver = createConfigResolver();
@@ -225,6 +244,36 @@ describe("getCascade", () => {
     expect(tenantLevel?.isActive).toBe(false);
   });
 
+  test("user-scope key falls through to system-row when no user/tenant row exists", async () => {
+    // No user-row, no tenant-row for this key — only a seeded system-row.
+    // Before the user-cascade gained a SYSTEM_TENANT_ID rung, this resolved
+    // straight to the static default, skipping the operator-set system value.
+    const keyDef = stack.registry.getConfigKey(USER_INHERIT_KEY);
+    expect(keyDef).toBeDefined();
+
+    const cascade = await resolver.getCascade(
+      USER_INHERIT_KEY,
+      keyDef!,
+      tenantAdmin.tenantId,
+      tenantAdmin.id,
+      db,
+    );
+
+    const userLevel = cascade.levels.find((l) => l.source === "user-row");
+    expect(userLevel?.hasValue).toBe(false);
+    const tenantLevel = cascade.levels.find((l) => l.source === "tenant-row");
+    expect(tenantLevel?.hasValue).toBe(false);
+
+    const systemLevel = cascade.levels.find((l) => l.source === "system-row");
+    expect(systemLevel).toBeDefined();
+    expect(systemLevel?.hasValue).toBe(true);
+    expect(systemLevel?.value).toBe("SEED_SYSTEM_FOR_USER");
+    expect(systemLevel?.isActive).toBe(true);
+
+    expect(cascade.value).toBe("SEED_SYSTEM_FOR_USER");
+    expect(cascade.source).toBe("system-row");
+  });
+
   test("system-scope key with system-row + default", async () => {
     const keyDef = stack.registry.getConfigKey(SYSTEM_KEY);
     expect(keyDef).toBeDefined();
@@ -279,6 +328,35 @@ describe("getCascadeBatch", () => {
     );
     expect(cascades.size).toBe(0);
   });
+
+  test("user-scope key resolves its system-row via the batch preload", async () => {
+    // The batch path preloads rows with selectConfigRowsForKeys (no scope
+    // gate) and matches them per (tenantId, userId) in buildCascade. This
+    // pins that a user-scope key's system-row is preloaded AND surfaced —
+    // the single-key path proves the lookup, this proves the preload feeds it.
+    const keyDef = stack.registry.getConfigKey(USER_INHERIT_KEY);
+    expect(keyDef).toBeDefined();
+    const keyDefs = new Map<string, ConfigKeyDefinition<ConfigKeyType>>([
+      [USER_INHERIT_KEY, keyDef!],
+    ]);
+
+    const cascades = await resolver.getCascadeBatch(
+      [USER_INHERIT_KEY],
+      keyDefs,
+      tenantAdmin.tenantId,
+      tenantAdmin.id,
+      db,
+    );
+
+    const cascade = cascades.get(USER_INHERIT_KEY);
+    expect(cascade).toBeDefined();
+    const systemLevel = cascade?.levels.find((l) => l.source === "system-row");
+    expect(systemLevel?.hasValue).toBe(true);
+    expect(systemLevel?.value).toBe("SEED_SYSTEM_FOR_USER");
+    expect(systemLevel?.isActive).toBe(true);
+    expect(cascade?.value).toBe("SEED_SYSTEM_FOR_USER");
+    expect(cascade?.source).toBe("system-row");
+  });
 });
 
 describe("cascade levels — non-DB sources", () => {
@@ -329,6 +407,38 @@ describe("cascade levels — non-DB sources", () => {
     // System-row stays empty; tenant-row also empty → override wins.
     expect(cascade.value).toBe(true);
     expect(cascade.source).toBe("app-override");
+  });
+
+  test("end-to-end: env-declared key bridges through the real registry to the resolver", async () => {
+    // The single flow none of the per-layer tests cover: a key declared via
+    // createSystemConfig({ env }) on the REAL registry → its qualified
+    // name (define-feature-assigned) → buildEnvConfigOverrides emits exactly
+    // that key off getAllConfigKeys → resolver resolves it as app-override.
+    // A mismatch in key-qualification across registry/bridge/resolver would
+    // leave the per-layer stub/registry tests green and only break on the
+    // first real consumer. This pins the seam at a real qualified string.
+    const keyDef = stack.registry.getConfigKey(ENV_KEY);
+    expect(keyDef).toBeDefined();
+    expect(keyDef?.env).toBe("CASCADE_ENV_VALUE");
+
+    const overrides = buildEnvConfigOverrides(stack.registry, {
+      CASCADE_ENV_VALUE: "from-env",
+    });
+    expect(overrides.get(ENV_KEY)).toBe("from-env");
+
+    const envResolver = createConfigResolver({ appOverrides: overrides });
+    const result = await envResolver.getWithSource(
+      ENV_KEY,
+      keyDef!,
+      tenantAdmin.tenantId,
+      tenantAdmin.id,
+      db,
+    );
+
+    // No stored rows for this key → the env-bridged override wins over the
+    // declared default ("DEFAULT_ENV").
+    expect(result.source).toBe("app-override");
+    expect(result.value).toBe("from-env");
   });
 });
 

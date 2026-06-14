@@ -139,7 +139,8 @@ export async function buildProdBundle(options: BuildProdBundleOptions = {}): Pro
   //    der client.tsx ein "import './foo.css'" macht — den Fall lassen
   //    wir hier raus, Tailwind ist die einzige CSS-Quelle).
   if (stylesheet) {
-    const css = await runTailwindOnce(stylesheet, cwd);
+    const css = await runTailwindOnce(stylesheet.path, cwd);
+    assertRendererWebShellPresent(css, stylesheet);
     const hash = shortHash(css);
     const filename = `styles-${hash}.css`;
     await writeFile(join(assetsDir, filename), css);
@@ -284,17 +285,32 @@ export function discoverClientEntry(cwd: string): string | undefined {
   return only?.name === "client" ? only.sourceFile : undefined;
 }
 
+type ResolvedStylesheet = {
+  readonly path: string;
+  /** True nur wenn wir auf das gepackte renderer-web-styles.css zurückfallen
+   *  (App hat clientEntry + renderer-web-Dep, aber kein eigenes src/styles.css).
+   *  Steuert den Shell-Klassen-Sentinel im Build. */
+  readonly isRendererWebFallback: boolean;
+};
+
+// Äußerster Wrapper von DefaultAppShell/WorkspaceShell trägt diese Utility
+// (app-layout.tsx: "flex min-h-screen …"). Echtes Tailwind-Utility (landet
+// also im kompilierten Output) ohne CSS-Escaping → stabiler Substring-Sentinel.
+const RENDERER_WEB_SHELL_SENTINEL = "min-h-screen";
+
 function resolveStylesheetEntry(
   cwd: string,
   clientEntry: string | undefined,
   override: BuildProdBundleOptions["stylesheet"],
-): string | undefined {
+): ResolvedStylesheet | undefined {
   if (override === false) return undefined;
-  if (typeof override === "string") return resolve(cwd, override);
+  if (typeof override === "string") {
+    return { path: resolve(cwd, override), isRendererWebFallback: false };
+  }
 
   // App-eigenes styles.css schlägt den Default.
   const local = resolve(cwd, "src/styles.css");
-  if (existsSync(local)) return local;
+  if (existsSync(local)) return { path: local, isRendererWebFallback: false };
 
   // Sonst: nur wenn ein client da ist, fallback auf renderer-web/styles.css.
   // Sample-Apps und Showcases nutzen das alle — gleiche Logik wie der dev-
@@ -310,10 +326,28 @@ function resolveStylesheetEntry(
     if (!canResolveTailwindStylesheet(resolved, { bun, cwd })) {
       return undefined;
     }
-    return resolved;
+    return { path: resolved, isRendererWebFallback: true };
   } catch {
     return undefined;
   }
+}
+
+// Build-Zeit-Guard gegen unstyled prod (#359): fällt der Build auf renderer-
+// web/styles.css zurück und fehlt im kompilierten CSS die Shell-Sentinel-
+// Klasse, wurden die DefaultAppShell-Styles nicht gescannt (renderer-web
+// nicht dort installiert wo Tailwind scannt, oder ein @source-Regress).
+// Laut failen statt ein 15KB-Image zu liefern, das in prod nackt rendert.
+// @internal — exportiert nur für Unit-Tests.
+export function assertRendererWebShellPresent(css: string, stylesheet: ResolvedStylesheet): void {
+  if (!stylesheet.isRendererWebFallback) return;
+  if (css.includes(RENDERER_WEB_SHELL_SENTINEL)) return;
+  throw new Error(
+    `[kumiko build] renderer-web-Fallback-CSS ohne Shell-Klasse "${RENDERER_WEB_SHELL_SENTINEL}" — ` +
+      "die DefaultAppShell/WorkspaceShell-Styles fehlen, prod würde unstyled rendern. Meist ist " +
+      "@cosmicdrift/kumiko-renderer-web nicht dort installiert wo Tailwind seine Source scannt. " +
+      'Fix: src/styles.css anlegen mit `@import "@cosmicdrift/kumiko-renderer-web/styles.css";` ' +
+      '(+ `@source "./**/*.{ts,tsx}";` um auch eigene Komponenten zu scannen).',
+  );
 }
 
 // @internal — exported nur für Unit-Tests.
@@ -329,7 +363,8 @@ export function discoverHtmlTemplate(cwd: string): string | undefined {
 // Build steps
 // ---------------------------------------------------------------------------
 
-async function runTailwindOnce(entry: string, cwd: string): Promise<string> {
+// @internal — exportiert nur für Unit-Tests (Relocation-Test des @source-Layouts).
+export async function runTailwindOnce(entry: string, cwd: string): Promise<string> {
   if (!hasBun) {
     throw new Error(
       "[kumiko build] Tailwind one-shot requires Bun (Bun.spawn) — run via `bun run …` or `bun kumiko build`.",

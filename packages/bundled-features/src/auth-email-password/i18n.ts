@@ -37,6 +37,8 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.errors.invalidVerificationToken": "Der Bestätigungs-Link ist ungültig oder abgelaufen.",
     "auth.errors.invalidSignupToken":
       "Der Aktivierungs-Link ist ungültig oder abgelaufen. Bitte fordere einen neuen an.",
+    "auth.errors.signupEmailAlreadyRegistered":
+      "Für diese E-Mail-Adresse existiert bereits ein Konto. Bitte logge dich ein oder setze dein Passwort zurück.",
     "auth.errors.unknownError": "Etwas ist schief gegangen. Bitte erneut versuchen.",
     "auth.forgotPassword.title": "Passwort zurücksetzen",
     "auth.forgotPassword.intro":
@@ -135,6 +137,8 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.errors.invalidVerificationToken": "Verification link is invalid or expired.",
     "auth.errors.invalidSignupToken":
       "Activation link is invalid or expired. Please request a new one.",
+    "auth.errors.signupEmailAlreadyRegistered":
+      "An account already exists for this email. Please sign in or reset your password.",
     "auth.errors.unknownError": "Something went wrong. Please try again.",
     "auth.forgotPassword.title": "Reset password",
     "auth.forgotPassword.intro":

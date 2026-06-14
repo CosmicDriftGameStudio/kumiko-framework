@@ -2115,3 +2115,26 @@ describe("boot-validator", () => {
     });
   });
 });
+
+describe("boot-validator — config key backing × scope", () => {
+  test("rejects backing:secrets on a non-system scope (secrets do not cascade)", () => {
+    const feature = defineFeature("billing", (r) => {
+      r.config({ keys: { apiKey: createTenantConfig("text", { backing: "secrets" }) } });
+    });
+    expect(() => validateBoot([feature])).toThrow(/backing="secrets".*requires scope="system"/i);
+  });
+
+  test("rejects backing:secrets even system-scoped until the dispatch is wired (framework#333)", () => {
+    const feature = defineFeature("billing", (r) => {
+      r.config({ keys: { apiKey: createSystemConfig("text", { backing: "secrets" }) } });
+    });
+    expect(() => validateBoot([feature])).toThrow(/not yet wired.*333/i);
+  });
+
+  test("a config key without secrets backing boots fine", () => {
+    const feature = defineFeature("billing", (r) => {
+      r.config({ keys: { apiKey: createSystemConfig("text") } });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+});

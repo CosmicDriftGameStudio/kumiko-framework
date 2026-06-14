@@ -344,3 +344,51 @@ describe("disabled tenant", () => {
     expect(activeIds.data).toContain(testTenantId(2));
   });
 });
+
+// --- Scenario 7: memberships batch-load (#324) ---
+//
+// Die memberships-Query reichert alle Tenants in EINEM IN-Batch an statt eines
+// fetchOne pro Membership. Dieser Test deckt die zwei Dinge ab, die der
+// Batch-Refactor brechen könnte: korrektes Keying jeder Membership auf IHREN
+// Tenant (kein Kollaps/Vertauschen bei mehreren Memberships) und die Toleranz
+// gegenüber einer fehlenden Tenant-Projection-Row (Drift → Membership bleibt
+// gelistet, kein Login-Lockout). Läuft als letzter Block — eigener User, kein
+// geteilter Tenant-State.
+
+describe("memberships batch-load (#324)", () => {
+  const batchUserId = "11111111-0000-4000-8000-000000000020";
+  const driftTenantId = testTenantId(777);
+
+  test("enriches every membership from one IN-batch, keeps drift rows", async () => {
+    // tenant 1 (ACME) + tenant 2 (Beta Inc) existieren und sind enabled;
+    // driftTenant wurde nie erstellt → keine Projection-Row.
+    for (const tenantId of [testTenantId(1), testTenantId(2), driftTenantId]) {
+      const r = await writeApi(systemAdmin, TenantHandlers.addMember, {
+        userId: batchUserId,
+        tenantId,
+        roles: ["Viewer"],
+      });
+      expect(r.isSuccess).toBe(true);
+    }
+
+    const result = await queryApi(systemAdmin, TenantQueries.memberships, { userId: batchUserId });
+    const memberships: Array<Record<string, unknown>> = result.data;
+    expect(memberships.length).toBe(3);
+
+    const acme = memberships.find((m) => m["tenantId"] === testTenantId(1));
+    expect(acme?.["tenantName"]).toBe("ACME");
+    expect(acme?.["tenantKey"]).toBe("acme");
+
+    const beta = memberships.find((m) => m["tenantId"] === testTenantId(2));
+    expect(beta?.["tenantName"]).toBe("Beta Inc");
+    expect(beta?.["tenantKey"]).toBe("beta");
+
+    // Drift: Membership zeigt auf einen Tenant ohne Projection-Row → bleibt
+    // gelistet, nur ohne tenantName/tenantKey.
+    const drift = memberships.find((m) => m["tenantId"] === driftTenantId);
+    expect(drift).toBeDefined();
+    expect(drift?.["tenantName"]).toBeUndefined();
+    expect(drift?.["tenantKey"]).toBeUndefined();
+    expect(drift?.["roles"]).toEqual(["Viewer"]);
+  });
+});

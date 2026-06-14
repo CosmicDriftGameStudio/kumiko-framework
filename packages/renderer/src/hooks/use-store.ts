@@ -17,6 +17,7 @@ import { useRef, useSyncExternalStore } from "react";
 // Arg `equals` dient genau dafür: gleiche Auswahl → cached
 // Identität zurück, kein Re-Render.
 
+// @wrapper-known semantic-alias
 export function useStore<T>(store: Store<T>): T {
   return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
 }

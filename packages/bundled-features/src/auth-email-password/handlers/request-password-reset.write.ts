@@ -12,6 +12,7 @@ export type RequestPasswordResetOptions = TokenRequestOptions;
 // the dispatcher (bypassing the framework's auth-routes).
 export type RequestResetData = TokenRequestData<"reset-requested">;
 
+// @wrapper-known semantic-alias
 export function createRequestPasswordResetHandler(opts: RequestPasswordResetOptions) {
   return createTokenRequestHandler(
     {

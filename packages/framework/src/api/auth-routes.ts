@@ -552,7 +552,7 @@ export function createAuthRoutes(
       successKind: "reset-requested",
       appBaseUrl: pr.appResetUrl,
       sendEmail: ({ email, url, expiresAt }) =>
-        pr.sendResetEmail({ email, resetUrl: url, expiresAt }),
+        pr.sendResetEmail({ email, resetUrl: url, expiresAt }), // @wrapper-known semantic-alias
     });
     registerTokenConfirmRoute({
       api,
@@ -574,7 +574,7 @@ export function createAuthRoutes(
       successKind: "verification-requested",
       appBaseUrl: ev.appVerifyUrl,
       sendEmail: ({ email, url, expiresAt }) =>
-        ev.sendVerificationEmail({ email, verificationUrl: url, expiresAt }),
+        ev.sendVerificationEmail({ email, verificationUrl: url, expiresAt }), // @wrapper-known semantic-alias
     });
     registerTokenConfirmRoute({
       api,
@@ -599,7 +599,7 @@ export function createAuthRoutes(
       successKind: "signup-requested",
       appBaseUrl: sg.appActivationUrl,
       sendEmail: ({ email, url, expiresAt }) =>
-        sg.sendActivationEmail({ email, activationUrl: url, expiresAt }),
+        sg.sendActivationEmail({ email, activationUrl: url, expiresAt }), // @wrapper-known semantic-alias
     });
 
     api.post(Routes.authSignupConfirm, async (c) => {

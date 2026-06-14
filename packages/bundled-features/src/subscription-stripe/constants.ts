@@ -6,10 +6,6 @@ export const SUBSCRIPTION_STRIPE_FEATURE = "subscription-stripe" as const;
 // `/api/subscription/webhook/stripe`.
 export const STRIPE_PROVIDER_NAME = "stripe" as const;
 
-// Stripe-API-version-pin. Zentral, damit jeder Client (egal ob mount-time-
-// fallback oder runtime-rotiert) dieselbe API-Version spricht.
-export const STRIPE_API_VERSION = "2026-04-22.dahlia" as const;
-
 // Secret- + config-key short-names. Qualified zu `subscription-stripe:<name>`
 // (secrets) bzw. `subscription-stripe:config:<name>` (config) beim
 // registry-build.

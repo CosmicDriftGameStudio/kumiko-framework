@@ -75,6 +75,25 @@ describe("computeEditViewModel", () => {
     ]);
   });
 
+  test("fieldLabels override the convention key per field; absent fields fall back", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen(
+        { sections: [{ title: "Main", fields: ["customerName", "notes"] }] },
+        { fieldLabels: { customerName: "config:mask:customer-name" } },
+      ),
+      entity: orderEntity,
+      values: {},
+      translate,
+      featureName: "orders",
+    });
+
+    const fields = asFields(vm.sections[0]).fields;
+    // overridden field uses the injected i18n key (the Settings-Hub puts mask.title here)
+    expect(fields[0]?.label).toBe("config:mask:customer-name");
+    // un-overridden field stays on the `<feature>:entity:<entity>:field:<name>` convention
+    expect(fields[1]?.label).toBe("orders:entity:order:field:notes");
+  });
+
   test("section.columns override is respected; defaults to 1 when absent", () => {
     const vm = computeEditViewModel({
       screen: editScreen({

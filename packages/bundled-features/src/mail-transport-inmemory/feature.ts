@@ -87,7 +87,7 @@ export const mailTransportInMemoryFeature = defineFeature(FEATURE_NAME, (r) => {
       // Returnt den per-tenant Buffer. Identitätsstabil zwischen calls
       // damit die Demo-Inbox accumulated bleibt.
       return getOrCreateTransportForTenant(tenantId);
-    },
+    }, // @wrapper-known semantic-alias
   };
   r.useExtension("mailTransport", "inmemory", plugin);
 });

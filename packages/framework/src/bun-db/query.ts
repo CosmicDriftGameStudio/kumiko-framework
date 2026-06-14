@@ -153,6 +153,7 @@ function tenantDbDelegate(db: unknown): TenantDbDelegate | undefined {
 // passing a TenantDb here would silently run unscoped against `.raw`, bypassing
 // the tenant filter. Fail loudly so the caller picks `ctx.db.<method>` (scoped)
 // or `ctx.db.raw` (explicit cross-tenant) on purpose.
+// @wrapper-known semantic-alias
 function assertNotTenantScoped(db: unknown, fnName: string): void {
   if (tenantDbDelegate(db) !== undefined) {
     throw new Error(

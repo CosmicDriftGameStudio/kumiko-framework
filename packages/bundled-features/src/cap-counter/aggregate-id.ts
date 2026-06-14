@@ -32,6 +32,7 @@ const CAP_COUNTER_ROLLING_NAMESPACE = "8b2ad0c6-1f3e-4f7c-9b8a-3c4d5e6f7a8b";
  * vom event-store optimistic-lock serialisiert (version_conflict bei
  * Race → Caller-side Retry).
  */
+// @wrapper-known uuid-domain
 export function capCounterAggregateId(
   tenantId: string,
   capName: string,
@@ -56,6 +57,7 @@ export function capCounterAggregateId(
  * tenantId + capName auf, erzeugt Increment-Events am stream. Race-
  * frei: der event-store hängt mit auto-incrementing version an.
  */
+// @wrapper-known uuid-domain
 export function rollingCapAggregateId(tenantId: string, capName: string): string {
   return uuidv5(`${tenantId}|${capName}`, CAP_COUNTER_ROLLING_NAMESPACE);
 }

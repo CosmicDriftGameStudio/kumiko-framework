@@ -1,4 +1,6 @@
-// Feature name
+// @runtime client
+// Pure name/string constants — browser-safe, importable from web client code
+// (configClient() pins its feature name to CONFIG_FEATURE).
 export const CONFIG_FEATURE = "config" as const;
 
 // Qualified write handler names (QN format: scope:type:name)

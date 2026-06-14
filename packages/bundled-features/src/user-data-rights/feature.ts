@@ -6,6 +6,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createFileProviderForTenant } from "../file-foundation";
 import { cancelDeletionWrite } from "./handlers/cancel-deletion.write";
+import { createConfirmDeletionByTokenHandler } from "./handlers/confirm-deletion-by-token.write";
 import { downloadByJobQuery } from "./handlers/download-by-job.query";
 import { downloadByTokenQuery } from "./handlers/download-by-token.query";
 import { exportStatusQuery } from "./handlers/export-status.query";
@@ -16,6 +17,10 @@ import {
   createRequestDeletionHandler,
   type SendDeletionRequestedEmailFn,
 } from "./handlers/request-deletion.write";
+import {
+  createRequestDeletionByEmailHandler,
+  type SendDeletionVerificationEmailFn,
+} from "./handlers/request-deletion-by-email.write";
 import { requestExportWrite } from "./handlers/request-export.write";
 import { restrictAccountWrite } from "./handlers/restrict-account.write";
 import { createRunForgetCleanupHandler } from "./handlers/run-forget-cleanup.write";
@@ -80,12 +85,26 @@ export type UserDataRightsOptions = {
    *  userEmail+tenantIds PRE-tx und reicht sie ephemeral an die
    *  Callback-Implementation (siehe run-forget-cleanup.ts). */
   readonly sendDeletionExecutedEmail?: SendDeletionExecutedEmailFn;
+  /** Anonymer, email-verifizierter Apex-Deletion-Flow (Lockout-sicher).
+   *  HMAC-Secret zum Signieren des Verify-Tokens. Ohne Secret bleibt der
+   *  Flow deaktiviert (request-by-email antwortet still success, confirm-
+   *  by-token weist generisch ab). */
+  readonly deletionTokenSecret?: string;
+  /** Basis-URL des Apex-Confirm-Screens, z.B.
+   *  "https://app.example.com/delete-account/confirm". Der Handler hängt
+   *  `?token=<token>` an. Required wenn deletionTokenSecret gesetzt. */
+  readonly deletionVerifyUrl?: string;
+  /** Versand des Verify-Magic-Links (Schritt 1 des anonymen Flows).
+   *  Best-effort, app-author-wired. MUSS non-blocking sein (enqueue, z.B.
+   *  delivery.notify) — ein synchroner Send reintroduziert ein Timing-Oracle
+   *  für Account-Enumeration (siehe SendDeletionVerificationEmailFn-Doc). */
+  readonly sendDeletionVerificationEmail?: SendDeletionVerificationEmailFn;
 };
 
 export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): FeatureDefinition {
   return defineFeature("user-data-rights", (r) => {
     r.describe(
-      'Implements GDPR Art. 15 (access / `my-audit-log` query), Art. 17 (erasure / `request-deletion` + `cancel-deletion` + cron cleanup with grace period), Art. 18 (restriction / `restrict-account` + `lift-restriction`), and Art. 20 (portability / async `request-export` \u2192 ZIP via `file-foundation`, Magic-Link download) as first-class HTTP handlers and cron jobs. Each domain feature opts in by calling `r.useExtension(EXT_USER_DATA, "<entity>", { export, delete })` \u2014 the feature then orchestrates the export and forget pipelines across all registered hooks automatically. Requires `user`, `data-retention`, `compliance-profiles`, and `sessions`.',
+      'Implements GDPR Art. 15 (access / `my-audit-log` query), Art. 17 (erasure / `request-deletion` + `cancel-deletion`, plus the anonymous email-verified `request-deletion-by-email` + `confirm-deletion-by-token` flow for lockout-safe self-service, + cron cleanup with grace period), Art. 18 (restriction / `restrict-account` + `lift-restriction`), and Art. 20 (portability / async `request-export` \u2192 ZIP via `file-foundation`, Magic-Link download) as first-class HTTP handlers and cron jobs. Each domain feature opts in by calling `r.useExtension(EXT_USER_DATA, "<entity>", { export, delete })` \u2014 the feature then orchestrates the export and forget pipelines across all registered hooks automatically. Requires `user`, `data-retention`, `compliance-profiles`, and `sessions`.',
     );
     r.requires("user", "data-retention", "compliance-profiles", "sessions");
     r.usesApi("compliance.forTenant");
@@ -127,6 +146,28 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       ),
     );
     r.writeHandler(cancelDeletionWrite);
+
+    // Anonymer, email-verifizierter Apex-Deletion-Flow (Lockout-sicher):
+    // request-by-email (Schritt 1, Magic-Link) + confirm-by-token (Schritt 2,
+    // startet dieselbe Grace-Period via startDeletionGracePeriod).
+    r.writeHandler(
+      createRequestDeletionByEmailHandler({
+        ...(opts.deletionTokenSecret !== undefined && {
+          deletionTokenSecret: opts.deletionTokenSecret,
+        }),
+        ...(opts.deletionVerifyUrl !== undefined && { deletionVerifyUrl: opts.deletionVerifyUrl }),
+        ...(opts.sendDeletionVerificationEmail !== undefined && {
+          sendDeletionVerificationEmail: opts.sendDeletionVerificationEmail,
+        }),
+      }),
+    );
+    r.writeHandler(
+      createConfirmDeletionByTokenHandler(
+        opts.deletionTokenSecret !== undefined
+          ? { deletionTokenSecret: opts.deletionTokenSecret }
+          : {},
+      ),
+    );
 
     // S2.U5b — Cleanup-Runner als privileged-Handler. Atom 5b: Wenn
     // sendDeletionExecutedEmail gesetzt, reicht der Handler den Callback
@@ -244,7 +285,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           db: ctx.db as import("@cosmicdrift/kumiko-framework/db").DbConnection, // @cast-boundary db-operator
           registry: ctx.registry,
           buildStorageProvider: async (tenantId) =>
-            createFileProviderForTenant(providerCtx, tenantId, "user-data-rights:run-export-jobs"),
+            createFileProviderForTenant(providerCtx, tenantId, "user-data-rights:run-export-jobs"), // @wrapper-known semantic-alias
           now: T.Now.instant(),
           // Atom 5 — App-Author-Callbacks fuer Email-Notification.
           // Optional: wenn nicht gesetzt, kein Email; User pollt

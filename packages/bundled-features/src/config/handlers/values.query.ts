@@ -5,6 +5,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { requireConfigResolver } from "../feature";
+import { shouldRedactInheritedSystem } from "../read-redaction";
 import { deserializeValue } from "../resolver";
 import { hasConfigAccess } from "../write-helpers";
 
@@ -34,6 +35,17 @@ export const valuesQuery = defineQueryHandler({
       if (!hasConfigAccess(keyDef.access.read, query.user.roles)) continue;
 
       const stored = storedValues.get(qualifiedKey);
+
+      // Tenant-side viewers must not see an inherited system value (nor that
+      // it is set) when the key opts out of inheritance — present it as unset.
+      if (
+        stored?.source === "system-row" &&
+        shouldRedactInheritedSystem(keyDef, query.user.roles)
+      ) {
+        result[qualifiedKey] = { value: keyDef.default, scope: keyDef.scope, source: "default" };
+        continue;
+      }
+
       let value: string | number | boolean | undefined;
       const source: ConfigValueSource = stored?.source ?? "default";
 

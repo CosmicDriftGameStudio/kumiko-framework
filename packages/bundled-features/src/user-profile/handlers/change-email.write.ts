@@ -9,6 +9,7 @@ import { UserProfileErrors } from "../constants";
 // Gleiche Failure-Shape wie auth-email-password (anti-enumeration):
 // dessen errors.ts ist nicht Teil des Feature-Barrels, der Reason-Code
 // + i18nKey sind aber stabile Public-API.
+// @wrapper-known error-helper
 function invalidCredentials() {
   return writeFailure(
     new UnprocessableError(AuthErrors.invalidCredentials, {

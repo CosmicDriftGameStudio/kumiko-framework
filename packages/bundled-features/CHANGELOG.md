@@ -1,5 +1,89 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.49.0
+
+### Patch Changes
+
+- 5ffbc19: auth-email-password: self-signup rejects an already-registered email instead of logging into the existing account (#365)
+
+  `provisionSignupAccount` was silently idempotent — for an email that already
+  had a user (seeding or a prior signup) it reused the existing user and minted
+  a session for them, plus created an orphan tenant. Anyone able to receive the
+  magic link at a reachable inbox could thereby be logged into the existing
+  account (e.g. a seeded SystemAdmin). It is now create-only: it throws
+  `ConflictError` before any tenant is created, and `signup-confirm` translates
+  that into a clean `signup_email_already_registered` error without minting a
+  session. The matching JSDoc/comment drift (which claimed the throw already
+  happened) is corrected.
+
+- Updated dependencies [5d8b8ca]
+  - @cosmicdrift/kumiko-framework@0.49.0
+  - @cosmicdrift/kumiko-headless@0.49.0
+  - @cosmicdrift/kumiko-renderer@0.49.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.49.0
+  - @cosmicdrift/kumiko-renderer-web@0.49.0
+
+## 0.48.1
+
+### Patch Changes
+
+- b8207de: subscription-stripe: stop pinning a hardcoded Stripe `apiVersion` (#256)
+
+  The Stripe client was constructed with a string-literal `apiVersion`
+  (`"2026-04-22.dahlia"`). Because bundled-features ship as TS sources, every
+  consumer typechecks this file against its own resolved `stripe` SDK — and a
+  consumer on a newer SDK (e.g. `^22.2.0`) fails with
+  `TS2322: "2026-04-22.dahlia" is not assignable to "<newer>"`, since the literal
+  no longer matches the SDK's `Stripe.LatestApiVersion`.
+
+  The client is now constructed without an `apiVersion`. The SDK falls back to its
+  own `DEFAULT_API_VERSION` — the exact version its types are generated against —
+  so the wire API version and the TS types always move together when the consumer
+  bumps `stripe`. This is behaviorally identical for stripe `22.1.1` (whose default
+  _is_ `2026-04-22.dahlia`) and removes the latent typecheck break for newer SDKs.
+
+  Consumers that worked around this with `overrides.stripe = "22.1.1"` can drop
+  that pin once they upgrade.
+
+- Updated dependencies [ec22610]
+  - @cosmicdrift/kumiko-framework@0.48.1
+  - @cosmicdrift/kumiko-headless@0.48.1
+  - @cosmicdrift/kumiko-renderer@0.48.1
+  - @cosmicdrift/kumiko-dispatcher-live@0.48.1
+  - @cosmicdrift/kumiko-renderer-web@0.48.1
+
+## 0.48.0
+
+### Patch Changes
+
+- Updated dependencies [2852197]
+  - @cosmicdrift/kumiko-framework@0.48.0
+  - @cosmicdrift/kumiko-headless@0.48.0
+  - @cosmicdrift/kumiko-renderer@0.48.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.48.0
+  - @cosmicdrift/kumiko-renderer-web@0.48.0
+
+## 0.47.0
+
+### Minor Changes
+
+- f32f99d: Apex-Surface v1 — der evidente Weg für öffentlichen, schema-losen Apex-Content (Login/Register/Passwort-vergessen/Konto-löschen) in jeder Kumiko-App.
+
+  **`@cosmicdrift/kumiko-renderer-web`: `createPublicSurface`** — das öffentliche Gegenstück zu `createKumikoApp`. Schema-LOSER Mount (`injectSchema: false`, kein `__KUMIKO_SCHEMA__`, kein Topologie-Leak), Match-once-Routing, optionaler `shell`-Wrapper. Stackt von übergebenen `clientFeatures` nur `providers` + `translations` — bewusst **nicht** deren `gates` (ein AuthGate würde die öffentliche Surface hinter Login sperren).
+
+  **`@cosmicdrift/kumiko-bundled-features` (auth-email-password): `AuthShell`** — `AuthCard` rendert jetzt über einen optionalen `useAuthShell()`-Renderer. Default bleibt der Fullscreen-Wrapper (rückwärtskompatibel); `AuthShellProvider` lässt Apps die Auth-Card in ihrer Marketing-Chrome statt Fullscreen rendern.
+
+  **`@cosmicdrift/kumiko-bundled-features` (user-data-rights): anonymer, email-verifizierter Deletion-Flow** — DSGVO Art. 17 greift gerade beim Lockout (User kann sich nicht mehr einloggen). Zwei neue anonyme Handler: `request-deletion-by-email` (enumeration-safe, Magic-Link) + `confirm-deletion-by-token` (idempotent, startet dieselbe Grace-Period wie der authentifizierte Pfad via geteiltem `startDeletionGracePeriod`). HMAC-Token trägt `userId` + Expiry selbst (kein DB-Table/Redis/Migration), Purpose `"deletion-request"`. Neue Options `deletionTokenSecret` / `deletionVerifyUrl` / `sendDeletionVerificationEmail` (Callback MUSS non-blocking/enqueue sein — synchroner Send öffnet ein Timing-Oracle für Account-Enumeration).
+
+### Patch Changes
+
+- Updated dependencies [f32f99d]
+  - @cosmicdrift/kumiko-renderer-web@0.47.0
+  - @cosmicdrift/kumiko-framework@0.47.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.47.0
+  - @cosmicdrift/kumiko-headless@0.47.0
+  - @cosmicdrift/kumiko-renderer@0.47.0
+
 ## 0.46.0
 
 ### Patch Changes

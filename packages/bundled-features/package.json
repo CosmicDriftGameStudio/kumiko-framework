@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-bundled-features",
-  "version": "0.46.0",
+  "version": "0.49.0",
   "description": "Built-in features — tenant, user, auth, delivery. The stuff you'd rewrite anyway, already typed.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
@@ -21,6 +21,7 @@
     "./audit": "./src/audit/index.ts",
     "./compliance-profiles": "./src/compliance-profiles/index.ts",
     "./config": "./src/config/index.ts",
+    "./config/web": "./src/config/web/index.ts",
     "./data-retention": "./src/data-retention/index.ts",
     "./readiness": "./src/readiness/index.ts",
     "./jobs": "./src/jobs/index.ts",
@@ -40,6 +41,7 @@
     "./file-provider-inmemory": "./src/file-provider-inmemory/index.ts",
     "./files": "./src/files/index.ts",
     "./user-data-rights": "./src/user-data-rights/index.ts",
+    "./user-data-rights/web": "./src/user-data-rights/web/index.ts",
     "./user-data-rights-defaults": "./src/user-data-rights-defaults/index.ts",
     "./tenant": "./src/tenant/index.ts",
     "./tenant/constants": "./src/tenant/constants.ts",

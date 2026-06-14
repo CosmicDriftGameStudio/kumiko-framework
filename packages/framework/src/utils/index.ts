@@ -1,5 +1,6 @@
 export { assertUnreachable } from "./assert";
 export { toSnakeCase } from "./case";
+export { compareByCodepoint } from "./compare";
 export { readPositiveIntEnv } from "./env-parse";
 export { generateId } from "./ids";
 export { isPlainObject } from "./is-plain-object";

@@ -35,7 +35,7 @@ import {
 import { FeatureDisabledError, UnconfiguredError } from "@cosmicdrift/kumiko-framework/errors";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import Stripe from "stripe";
-import { STRIPE_API_VERSION, SUBSCRIPTION_STRIPE_FEATURE } from "./constants";
+import { SUBSCRIPTION_STRIPE_FEATURE } from "./constants";
 
 const API_KEY_HINT =
   "Set the system-scoped Stripe API key via secrets:write:set (or seed it from STRIPE_API_KEY during the env bridge).";
@@ -48,7 +48,9 @@ export function createStripeClientCache(): (apiKey: string) => Stripe {
   return (apiKey) => {
     const cached = cache.get(apiKey);
     if (cached) return cached;
-    const client = new Stripe(apiKey, { apiVersion: STRIPE_API_VERSION });
+    // No apiVersion pin — a string literal breaks consumers' typecheck on newer
+    // stripe SDKs (#256); the SDK's own default keeps wire-version and types aligned.
+    const client = new Stripe(apiKey);
     cache.set(apiKey, client);
     return client;
   };
@@ -126,6 +128,7 @@ export function createStripeRuntimes(deps: StripeRuntimeDeps): StripeRuntimes {
 
   return {
     ctx: {
+      // @wrapper-known semantic-alias
       clientForCtx: async (ctx) => clientFor(await ctxApiKey(ctx)),
       assertBillingLive: async (ctx) => {
         const live = ctx.config ? await ctx.config(deps.billingLiveHandle) : undefined;

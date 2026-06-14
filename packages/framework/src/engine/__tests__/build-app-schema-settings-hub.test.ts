@@ -1,0 +1,118 @@
+import { describe, expect, test } from "bun:test";
+import { buildAppSchema, findNonJsonSafePath } from "../build-app-schema";
+import { SETTINGS_HUB_FEATURE, SETTINGS_HUB_WORKSPACE } from "../build-config-feature-schema";
+import { createSystemConfig, createTenantConfig } from "../config-helpers";
+import { defineFeature } from "../define-feature";
+import { createRegistry } from "../registry";
+
+// A feature that opts a config key into the Settings-Hub via `mask`.
+const billing = defineFeature("billing", (r) => {
+  r.config({
+    keys: {
+      stripeKey: createTenantConfig("text", { mask: { title: "billing.stripe-key" } }),
+      platformFee: createSystemConfig("number", { mask: { title: "billing.platform-fee" } }),
+    },
+  });
+});
+
+// A config key WITHOUT mask — internal plumbing, must not surface a hub.
+const plain = defineFeature("plain", (r) => {
+  r.config({ keys: { secret: createSystemConfig("text", {}) } });
+});
+
+function configFeature(app: ReturnType<typeof buildAppSchema>) {
+  return app.features.filter((f) => f.featureName === SETTINGS_HUB_FEATURE);
+}
+
+describe("buildAppSchema — Settings-Hub wiring", () => {
+  test("app WITHOUT workspaces: hub screens/navs appear, app stays in no-filter mode (no flip)", () => {
+    const app = buildAppSchema(createRegistry([billing]));
+
+    // The decisive non-flip assertion: a workspace-less app must NOT gain
+    // workspaces — else the renderer flips into filter-mode and drops navs.
+    expect(app.workspaces).toBeUndefined();
+
+    const config = configFeature(app);
+    expect(config).toHaveLength(1); // exactly one FeatureSchema, no duplicate
+    const hub = config[0];
+    // billing has a tenant + a system masked key → two configEdit screens
+    expect(hub?.screens.map((s) => s.id).sort()).toEqual(["billing-system", "billing-tenant"]);
+    // audience parents (system, tenant) + the two children
+    expect(hub?.navs?.map((n) => n.id).sort()).toEqual([
+      "audience-system",
+      "audience-tenant",
+      "billing-system",
+      "billing-tenant",
+    ]);
+  });
+
+  test("app WITH workspaces: original workspaces kept + synthetic settings workspace appended", () => {
+    const shell = defineFeature("shell", (r) => {
+      r.screen({ id: "home", type: "entityList", entity: "thing", columns: ["label"] });
+      r.entity("thing", { fields: { label: { type: "text" } } });
+      r.nav({ id: "home", label: "Home", screen: "home" });
+      r.workspace({ id: "main", label: "Main", nav: ["shell:nav:home"] });
+    });
+
+    const app = buildAppSchema(createRegistry([shell, billing]));
+
+    expect(app.workspaces).toBeDefined();
+    const ids = app.workspaces?.map((w) => w.definition.id).sort();
+    expect(ids).toEqual(["main", SETTINGS_HUB_WORKSPACE]);
+
+    const settings = app.workspaces?.find((w) => w.definition.id === SETTINGS_HUB_WORKSPACE);
+    // navMembers are qualified QNs under the config namespace
+    expect(settings?.navMembers).toContain("config:nav:audience-tenant");
+    expect(settings?.navMembers).toContain("config:nav:billing-tenant");
+    // and the original workspace's members are untouched
+    const main = app.workspaces?.find((w) => w.definition.id === "main");
+    expect(main?.navMembers).toEqual(["shell:nav:home"]);
+  });
+
+  test("find-or-create: merges into an existing `config` feature instead of duplicating it", () => {
+    // Stand-in for the config bundled-feature: a real feature named "config"
+    // that already owns a screen/nav. The hub must fold INTO it.
+    const configBundled = defineFeature(SETTINGS_HUB_FEATURE, (r) => {
+      r.entity("config-value", { fields: { value: { type: "text" } } });
+      r.screen({ id: "existing", type: "entityList", entity: "config-value", columns: ["value"] });
+      r.nav({ id: "existing", label: "Existing", screen: "existing" });
+    });
+
+    const app = buildAppSchema(createRegistry([configBundled, billing]));
+
+    const config = configFeature(app);
+    expect(config).toHaveLength(1); // NOT two FeatureSchemas with name "config"
+    const hub = config[0];
+    // the pre-existing screen survives alongside the generated hub screens
+    expect(hub?.screens.map((s) => s.id)).toContain("existing");
+    expect(hub?.screens.map((s) => s.id)).toContain("billing-tenant");
+    expect(hub?.navs?.map((n) => n.id)).toContain("existing");
+    expect(hub?.navs?.map((n) => n.id)).toContain("audience-tenant");
+  });
+
+  test("non-breaking: config keys WITHOUT mask leave the schema hub-free", () => {
+    const app = buildAppSchema(createRegistry([plain]));
+    expect(app.workspaces).toBeUndefined();
+    const config = configFeature(app);
+    // the plain feature isn't named "config", so no config FeatureSchema is
+    // synthesized at all — the app is byte-identical to the pre-hub world.
+    expect(config).toHaveLength(0);
+  });
+
+  test("generated hub output stays JSON-safe (factory fields are pure literals)", () => {
+    const app = buildAppSchema(shellWith(billing));
+    expect(findNonJsonSafePath(app, "app")).toBeNull();
+  });
+});
+
+// Helper: an app that has a workspace AND the masked billing keys, so the
+// JSON-safety walk covers the synthetic workspace + configEdit screens too.
+function shellWith(masked: ReturnType<typeof defineFeature>) {
+  const shell = defineFeature("shell", (r) => {
+    r.entity("thing", { fields: { label: { type: "text" } } });
+    r.screen({ id: "home", type: "entityList", entity: "thing", columns: ["label"] });
+    r.nav({ id: "home", label: "Home", screen: "home" });
+    r.workspace({ id: "main", label: "Main", nav: ["shell:nav:home"] });
+  });
+  return createRegistry([shell, masked]);
+}

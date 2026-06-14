@@ -267,6 +267,7 @@ export async function loadAggregateAsOf(
 // the next CRUD write to fail with version_conflict. Indexed lookup on the
 // existing (aggregate_id, version) unique index. Returns 0 for empty/unknown
 // streams (matches create()'s expectedVersion=0 convention).
+// @wrapper-known semantic-alias
 export async function getStreamVersion(
   db: DbRunner,
   aggregateId: string,
@@ -276,6 +277,7 @@ export async function getStreamVersion(
 }
 
 /** MAX(version) for one aggregate — no tenant filter. Used by seed idempotency. */
+// @wrapper-known semantic-alias
 export async function getAggregateStreamMaxVersion(
   db: DbRunner,
   aggregateId: string,
@@ -301,6 +303,7 @@ export async function getAggregateStreamTenant(
 // projection/consumer lag math: lag = HWM - cursor. Single-row aggregate over
 // the bigserial PK index — sub-millisecond cost. Returns 0n on an empty log
 // (boot, fresh tenant, post-archive).
+// @wrapper-known semantic-alias
 export async function getEventsHighWaterMark(db: DbRunner): Promise<bigint> {
   return selectEventsHighWaterMark(db);
 }

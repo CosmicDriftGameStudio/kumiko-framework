@@ -32,39 +32,41 @@ async function writeConfig(
   }
 }
 
+// Der Settings-Hub gruppiert nach Scope: der Auto-generierte Tenant-Screen
+// liegt unter /config-demo-tenant (URL = lastSegment der Screen-QN
+// config:screen:config-demo-tenant), der User-/System-Screen analog unter
+// /config-demo-user bzw. /config-demo-system.
 export const SCENARIOS: readonly Scenario[] = [
   {
     name: "config-edit",
-    description: "ConfigEdit-Formular im Ausgangszustand (nur Default-Badges)",
-    url: "/settings",
+    description: "Auto-Hub Tenant-Screen im Ausgangszustand (Default-Badges)",
+    url: "/config-demo-tenant",
     waitFor: "[data-testid='render-edit-form']",
     settleMs: 500,
   },
   {
     name: "config-edit-override",
-    description: "ConfigEdit-Formular mit Tenant/User/Default-Badges (Überschreibungskaskade)",
+    description: "Auto-Hub Tenant-Screen mit Tenant/Default-Badges (Überschreibungskaskade)",
     waitFor: "[data-testid='render-edit-form']",
     settleMs: 500,
     flow: async (page) => {
       // 1. Seite laden (Auto-Mint-JWT + CSRF-Cookies setzen)
-      await page.goto("/settings");
+      await page.goto("/config-demo-tenant");
 
       // 2. Auf Formular warten
       const form = page.locator('[data-testid="render-edit-form"]');
       await form.waitFor({ state: "visible", timeout: 10_000 });
 
-      // 3. Tenant-Werte setzen → Tenant-Badge (grün)
+      // 3. Tenant-Werte setzen → Tenant-Badge (grün) auf diesem Screen
       await writeConfig(page, "config-demo:config:site-name", "Config Demo", "tenant");
       await writeConfig(page, "config-demo:config:theme-color", "#6366f1", "tenant");
       await writeConfig(page, "config-demo:config:max-upload-size", 50, "tenant");
 
-      //    User-Wert setzen → User-Badge (blau)
-      await writeConfig(page, "config-demo:config:email-notifications", true, "user");
+      //    User-/System-Keys leben auf eigenen Scope-Screens
+      //    (/config-demo-user, /config-demo-system).
 
-      //    autoApprove bleibt Default (kein Write) → Default-Badge (grau)
-
-      // 4. Neu laden — jetzt mit verschiedenen Sources
-      await page.goto("/settings");
+      // 4. Neu laden — jetzt mit Tenant-Sources
+      await page.goto("/config-demo-tenant");
     },
   },
 ];

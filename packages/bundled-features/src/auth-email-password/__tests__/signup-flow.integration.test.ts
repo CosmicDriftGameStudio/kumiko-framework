@@ -252,4 +252,55 @@ describe("POST /api/auth/signup-confirm", () => {
     }
     expect(new Set(keys).size).toBe(3);
   });
+
+  test("bereits registrierte Email → 422 signup_email_already_registered, keine Session, kein neuer Tenant/Membership, kein Account-Takeover (#365)", async () => {
+    const email = "victim@example.com";
+    const victimPassword = "victim-original-pw-1234";
+
+    // 1. Legitimer Erst-Signup: User + Tenant + Admin-Membership entstehen.
+    const firstToken = await requestSignup(email);
+    const firstRes = await postSignupConfirm(firstToken, victimPassword);
+    expect(firstRes.status).toBe(200);
+    const firstBody = (await firstRes.json()) as { user?: { id: string } };
+    const victimUserId = firstBody.user?.id ?? "";
+    expect(victimUserId).toBeTruthy();
+
+    const userBefore = await selectMany(stack.db, userTable, { email });
+    expect(userBefore).toHaveLength(1);
+    const passwordHashBefore = userBefore[0]?.["passwordHash"];
+
+    // 2. Zweiter Signup-Versuch für DIESELBE Email mit Angreifer-Passwort.
+    //    Request bleibt always-200 (Anti-Enumeration); nach dem Burn des
+    //    ersten Tokens mintet er einen frischen.
+    const attackerToken = await requestSignup(email);
+    const attackerPassword = "attacker-chosen-pw-9999";
+    const confirmRes = await postSignupConfirm(attackerToken, attackerPassword);
+
+    // 3. Sauberer Fehler, KEINE Session (kein auth-Cookie).
+    expect(confirmRes.status).toBe(422);
+    const body = (await confirmRes.json()) as { error?: { details?: { reason?: string } } };
+    expect(body.error?.details?.reason).toBe(AuthErrors.signupEmailAlreadyRegistered);
+    expect(confirmRes.headers.get("set-cookie") ?? "").not.toContain("kumiko_auth=");
+
+    // 4. Kein neuer Tenant (auch kein verwaister), keine neue Membership.
+    const allTenants = await selectMany(stack.db, tenantTable);
+    expect(allTenants).toHaveLength(1);
+    const memberships = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: victimUserId,
+    });
+    expect(memberships).toHaveLength(1);
+
+    // 5. Account nicht übernommen: ein User, Passwort-Hash unverändert (NICHT
+    //    auf das Angreifer-Passwort überschrieben).
+    const userAfter = await selectMany(stack.db, userTable, { email });
+    expect(userAfter).toHaveLength(1);
+    expect(userAfter[0]?.["passwordHash"]).toBe(passwordHashBefore);
+
+    // 6. Authority-Beweis: der bestehende Account hängt weiter am Original-
+    //    Passwort, das Angreifer-Passwort loggt nicht ein.
+    const loginVictim = await postLogin(email, victimPassword);
+    expect(loginVictim.status).toBe(200);
+    const loginAttacker = await postLogin(email, attackerPassword);
+    expect(loginAttacker.status).not.toBe(200);
+  });
 });
