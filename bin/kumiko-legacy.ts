@@ -215,30 +215,28 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
     }
   }
 
-  // 3. Guards (already cross-repo aware via roots.ts)
-  steps.push({ name: "Silent-Skip Guard", cmd: "bunx kumiko-guard-silent-skip" });
-  steps.push({ name: "Admin-API Guard", cmd: "bunx kumiko-guard-admin-api" });
-  steps.push({ name: "Unsafe-JSON-Parse Guard", cmd: "bunx kumiko-guard-unsafe-json-parse" });
+  // 3. Guards (already cross-repo aware via roots.ts).
+  //
+  // Die portierten AST-Guards laufen in EINEM Shared-Project-Prozess
+  // (infra/guards/run-guards.ts) statt als N Subprozesse à eigenes
+  // ts-morph-Project. Jeder Subprozess hielt ~1.1GB RSS; bei pool=6 waren das
+  // ~7GB gleichzeitig → Memory-Thrashing (die "96s"-Guard-Zeiten waren Swap).
+  // Der Runner baut das Project EINMAL (~6s) und lässt alle Guards seriell
+  // in-process drüber laufen (~0.1-0.5s je weiterem Guard) — 11 Guards in 11.8s
+  // statt ~308s thrash-inflationiert. Restliche Guards: Follow-up-Port.
+  steps.push({ name: "AST-Guards (shared runner)", cmd: "bunx kumiko-guards-run" });
   steps.push({ name: "No-Function-Renderer Guard", cmd: "bunx kumiko-guard-no-function-renderer" });
-  steps.push({ name: "No-Date-API Guard", cmd: "bunx kumiko-guard-no-date-api" });
-  steps.push({ name: "Pre-ES-Patterns Guard", cmd: "bunx kumiko-guard-pre-es-patterns" });
-  steps.push({ name: "Direct-Entity-Writes Guard", cmd: "bunx kumiko-guard-direct-entity-writes" });
-  steps.push({ name: "Cross-Feature-Import Guard", cmd: "bunx kumiko-guard-cross-feature-imports" });
   steps.push({ name: "Renderer-Boundaries Guard", cmd: "bunx kumiko-guard-renderer-boundaries" });
   steps.push({
     name: "Primitives-Discipline Guard",
     cmd: "bunx kumiko-guard-primitives-discipline --strict-bundled",
   });
-  steps.push({ name: "Fake-Test Guard", cmd: "bunx kumiko-guard-fake-tests" });
   steps.push({
     name: "Feature-Integration-Test Guard",
     cmd: "bunx kumiko-guard-feature-integration-tests",
   });
-  steps.push({ name: "i18n-Keys Guard", cmd: "bunx kumiko-guard-i18n-keys" });
   steps.push({ name: "Test-Stack-Drift Guard", cmd: "bunx kumiko-guard-test-stack-drift" });
   steps.push({ name: "Runtime-Isolation Guard", cmd: "bunx kumiko-check-runtime-isolation" });
-  steps.push({ name: "Error-Reasons Guard", cmd: "bunx kumiko-guard-error-reasons" });
-  steps.push({ name: "Predicate Extraction Check", cmd: "bunx kumiko-check-predicates" });
   // Action-Wiring + Doc-Status waren als bins registriert, hingen aber an
   // keinem Pipeline-Step — ein nicht-aufgerufener Guard ist ein No-op.
   steps.push({ name: "Action-Wiring Guard", cmd: "bunx kumiko-guard-action-wiring" });
