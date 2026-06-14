@@ -66,7 +66,7 @@ let webhookApp: Hono;
 let webhookAppWithSecrets: Hono;
 let secretsCtx: SecretsContext;
 
-const stripeForFixtures = new Stripe(TEST_API_KEY, { apiVersion: "2026-04-22.dahlia" });
+const stripeForFixtures = new Stripe(TEST_API_KEY);
 
 beforeAll(async () => {
   // subscription-stripe requires jetzt config + secrets. Scenarios 1–4
