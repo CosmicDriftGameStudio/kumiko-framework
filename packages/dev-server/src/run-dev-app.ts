@@ -18,7 +18,10 @@ import {
   type SeedAdminOptions,
   seedAdmin,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
-import { createConfigResolver } from "@cosmicdrift/kumiko-bundled-features/config";
+import {
+  buildEnvConfigOverrides,
+  createConfigResolver,
+} from "@cosmicdrift/kumiko-bundled-features/config";
 import {
   createSessionCallbacks,
   type SessionCallbacks,
@@ -26,9 +29,11 @@ import {
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import type { SessionMetadata } from "@cosmicdrift/kumiko-framework/api";
 import {
+  createRegistry,
   type EffectiveFeaturesResolver,
   type FeatureDefinition,
   findTierResolverUsage,
+  type Registry,
   type SessionUser,
   type TenantId,
   type TierResolverPlugin,
@@ -141,6 +146,11 @@ export type RunDevAppOptions = {
   /** Extra-AppContext-Keys. Im auth-mode wird `configResolver` automatisch
    *  hinzugefügt — kein Override durch den Caller nötig. */
   readonly extraContext?: CreateKumikoServerOptions["extraContext"];
+  /** Env-Quelle für die ENV→config-app-override-Brücke (Keys mit `env:`
+   *  bekommen ihren env-Wert als app-override-Default — symmetrisch zu
+   *  runProdApp). Default `process.env`. Injizierbar als Test-Seam, damit
+   *  Tests eigene env-Werte reichen statt `process.env` global zu mutieren. */
+  readonly envSource?: Record<string, string | undefined>;
   /** Anonymous-Access für Public-Endpoints — Requests ohne JWT laufen
    *  als Pseudo-User mit Rolle `anonymous` durch, wenn der Handler die
    *  Rolle in `access.roles` führt. */
@@ -218,9 +228,17 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // configResolver-default fürs config-feature — im auth-mode immer
   // hinzufügen, im no-auth-mode dem Caller überlassen. Factory-form
   // wird gewrap't damit der spread auf das aufgerufene Result greift,
-  // nicht auf die function selbst (no-op).
+  // nicht auf die function selbst (no-op). Die ENV→config-Brücke (Keys mit
+  // `env:` → app-override-Default) läuft symmetrisch zu runProdApp; die
+  // throwaway-Registry hier extrahiert nur die config-Keys, weil der
+  // configResolver vor dem Server-Boot konstruiert wird (stack.registry
+  // gibt's erst onAfterSetup) — createKumikoServer baut intern seine eigene.
   const extraContext = options.auth
-    ? mergeConfigResolverDefault(options.extraContext)
+    ? mergeConfigResolverDefault(
+        options.extraContext,
+        createRegistry(features),
+        options.envSource ?? process.env,
+      )
     : options.extraContext;
 
   // Sessions opt-in: Holder lebt im closure, `createSessionCallbacks`
@@ -351,10 +369,20 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   });
 }
 
-function mergeConfigResolverDefault(
+// Exported for the wiring-contract test (config-resolver-default.integration):
+// pins that the dev configResolver-default carries the ENV→app-override bridge
+// and that a caller-supplied configResolver still overrides it. Not re-exported
+// from the package barrel (index.ts lists only runDevApp).
+export function mergeConfigResolverDefault(
   ctx: CreateKumikoServerOptions["extraContext"],
+  registry: Registry,
+  envSource: Record<string, string | undefined>,
 ): CreateKumikoServerOptions["extraContext"] {
-  const defaults = { configResolver: createConfigResolver() };
+  const defaults = {
+    configResolver: createConfigResolver({
+      appOverrides: buildEnvConfigOverrides(registry, envSource),
+    }),
+  };
   if (ctx === undefined) return defaults;
   if (typeof ctx === "function") {
     return (deps) => ({ ...defaults, ...ctx(deps) });

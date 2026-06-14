@@ -171,6 +171,10 @@ describe("inheritedToTenant redaction — config:query:values", () => {
       tenantAdmin,
     );
     expect(res[SMTP_HOST]?.value).not.toBe("smtp.internal.example.com");
-    expect(res[SMTP_HOST]?.source).toBe("default");
+    // No keyDef.default on SMTP_HOST → after redaction the key is genuinely
+    // unset. values.query now resolves through the cascade (same path as
+    // config:query:cascade), so the source is "missing", matching cascade.query
+    // instead of the old values.query-only synthesized "default".
+    expect(res[SMTP_HOST]?.source).toBe("missing");
   });
 });

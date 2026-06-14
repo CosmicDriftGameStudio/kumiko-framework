@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { ConfigCascade, ConfigCascadeLevel } from "@cosmicdrift/kumiko-framework/engine";
 import {
-  mayViewInheritedSystemValue,
-  redactInheritedSystemCascade,
-  shouldRedactInheritedSystem,
+  mayViewInheritedValue,
+  redactInheritedCascade,
+  shouldRedactInherited,
 } from "../read-redaction";
 
 function level(
@@ -20,63 +20,93 @@ function cascade(levels: ConfigCascadeLevel[]): ConfigCascade {
 }
 
 describe("read-redaction — viewer predicate", () => {
-  test("only SystemAdmin may view the inherited system value", () => {
-    expect(mayViewInheritedSystemValue(["SystemAdmin"])).toBe(true);
-    expect(mayViewInheritedSystemValue(["Admin", "TenantAdmin"])).toBe(false);
-    expect(mayViewInheritedSystemValue([])).toBe(false);
+  test("only SystemAdmin may view the inherited platform value", () => {
+    expect(mayViewInheritedValue(["SystemAdmin"])).toBe(true);
+    expect(mayViewInheritedValue(["Admin", "TenantAdmin"])).toBe(false);
+    expect(mayViewInheritedValue([])).toBe(false);
   });
 
-  test("shouldRedactInheritedSystem requires inheritedToTenant:false AND a tenant-side viewer", () => {
-    expect(shouldRedactInheritedSystem({ inheritedToTenant: false }, ["Admin"])).toBe(true);
-    expect(shouldRedactInheritedSystem({ inheritedToTenant: false }, ["SystemAdmin"])).toBe(false);
-    expect(shouldRedactInheritedSystem({ inheritedToTenant: undefined }, ["Admin"])).toBe(false);
-    expect(shouldRedactInheritedSystem({ inheritedToTenant: true }, ["Admin"])).toBe(false);
+  test("shouldRedactInherited requires inheritedToTenant:false AND a tenant-side viewer", () => {
+    expect(shouldRedactInherited({ inheritedToTenant: false }, ["Admin"])).toBe(true);
+    expect(shouldRedactInherited({ inheritedToTenant: false }, ["SystemAdmin"])).toBe(false);
+    expect(shouldRedactInherited({ inheritedToTenant: undefined }, ["Admin"])).toBe(false);
+    expect(shouldRedactInherited({ inheritedToTenant: true }, ["Admin"])).toBe(false);
   });
 });
 
-describe("read-redaction — cascade redaction", () => {
-  test("strips system-row value+hasValue and falls through to missing", () => {
-    const out = redactInheritedSystemCascade(
+describe("read-redaction — cascade redaction strips every inherited platform rung", () => {
+  test("strips system-row and falls through to missing", () => {
+    const out = redactInheritedCascade(
       cascade([level("system-row", "smtp.internal", true), level("default", undefined)]),
     );
     const sys = out.levels.find((l) => l.source === "system-row");
     expect(sys?.value).toBeUndefined();
     expect(sys?.hasValue).toBe(false);
-    expect(sys?.isActive).toBe(false);
     expect(out.value).toBeUndefined();
     expect(out.source).toBe("missing");
   });
 
-  test("recomputes the winner to the next surviving level (app-override)", () => {
-    const out = redactInheritedSystemCascade(
+  test("strips the app-override rung too — the #376 leak via ENV-bridged value", () => {
+    const out = redactInheritedCascade(
       cascade([
         level("system-row", "secret", true),
         level("app-override", "from-env"),
         level("default", undefined),
       ]),
     );
-    expect(out.value).toBe("from-env");
-    expect(out.source).toBe("app-override");
-    expect(out.levels.find((l) => l.source === "system-row")?.value).toBeUndefined();
+    // The platform env value must NOT become the new winner.
+    expect(out.value).toBeUndefined();
+    expect(out.source).toBe("missing");
+    expect(out.levels.find((l) => l.source === "app-override")?.value).toBeUndefined();
+    expect(out.levels.find((l) => l.source === "app-override")?.hasValue).toBe(false);
   });
 
-  test("a tenant's own override stays the winner; only the system-row is hidden", () => {
-    const out = redactInheritedSystemCascade(
+  test("strips computed and static default rungs", () => {
+    const out = redactInheritedCascade(
+      cascade([
+        level("system-row", "sys", true),
+        level("computed", "plan-derived"),
+        level("default", "schema-default"),
+      ]),
+    );
+    expect(out.value).toBeUndefined();
+    expect(out.source).toBe("missing");
+    expect(out.levels.find((l) => l.source === "computed")?.hasValue).toBe(false);
+    expect(out.levels.find((l) => l.source === "default")?.hasValue).toBe(false);
+  });
+
+  test("a tenant's own override survives; every platform rung is hidden", () => {
+    const out = redactInheritedCascade(
       cascade([
         level("tenant-row", "tenant-value", true),
         level("system-row", "platform-default"),
-        level("default", undefined),
+        level("app-override", "from-env"),
+        level("default", "schema-default"),
       ]),
     );
     expect(out.value).toBe("tenant-value");
     expect(out.source).toBe("tenant-row");
     expect(out.levels.find((l) => l.source === "tenant-row")?.isActive).toBe(true);
-    expect(out.levels.find((l) => l.source === "system-row")?.value).toBeUndefined();
-    expect(out.levels.find((l) => l.source === "system-row")?.hasValue).toBe(false);
+    for (const source of ["system-row", "app-override", "default"] as const) {
+      expect(out.levels.find((l) => l.source === source)?.hasValue).toBe(false);
+    }
   });
 
-  test("no-op when the cascade carries no system-row value", () => {
+  test("a user's own override survives over tenant-row", () => {
+    const out = redactInheritedCascade(
+      cascade([
+        level("user-row", "user-value", true),
+        level("tenant-row", "tenant-value"),
+        level("system-row", "platform"),
+      ]),
+    );
+    expect(out.value).toBe("user-value");
+    expect(out.source).toBe("user-row");
+    expect(out.levels.find((l) => l.source === "tenant-row")?.value).toBe("tenant-value");
+  });
+
+  test("no-op when no platform rung carries a value", () => {
     const input = cascade([level("tenant-row", "x", true), level("default", undefined)]);
-    expect(redactInheritedSystemCascade(input)).toEqual(input);
+    expect(redactInheritedCascade(input)).toEqual(input);
   });
 });
