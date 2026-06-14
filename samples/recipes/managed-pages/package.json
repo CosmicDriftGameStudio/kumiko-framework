@@ -1,0 +1,9 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-managed-pages",
+  "description": "Tenant-editable, server-rendered public pages with per-tenant branding + tier-gated sanitized custom CSS — managed-pages wired up with config + anonymousAccess.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  }
+}

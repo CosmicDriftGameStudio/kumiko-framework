@@ -77,7 +77,16 @@ export type ManagedPagesOptions = {
    *  Host keinen ambient ctx.tenantId hat. */
   readonly resolveApexTenant: (host: string) => Promise<string | null> | string | null;
   /** Custom Layout-Wrapper (Branding/Chrome). Default: minimaler
-   *  page-render-Skeleton. Erhält slug + SEO-Meta zur freien Nutzung. */
+   *  page-render-Skeleton. Erhält slug + SEO-Meta zur freien Nutzung.
+   *  **`branding` ist RAW, untrusted tenant input.** `title`/`description`
+   *  sind am Write nur längen-gecappt, NICHT HTML-escaped; `customCss` ist
+   *  ungesanitet. Der Wrapper MUSS sie über die Boundary-Helper emittieren
+   *  (alle re-exported von `@cosmicdrift/kumiko-bundled-features/managed-pages`):
+   *  `brandingHeaderHtml(branding)` + `brandingStyleBlock(branding)` (escapen
+   *  Header/Theme) und — mit allowCustomCss — `tenantStyleBlock(branding.
+   *  customCss)` ins `<head>` plus `TENANT_CONTENT_ATTR` am Body-Container. Ein
+   *  Custom-Wrapper der `branding.title` selbst interpoliert ist stored XSS;
+   *  der Default-Wrapper nutzt durchweg die Helper. */
   readonly wrapLayout?: ManagedPagesWrapLayout;
   /** Basis-Pfad der Page-Routes. Default "/p" → GET /p/:slug. */
   readonly basePath?: string;

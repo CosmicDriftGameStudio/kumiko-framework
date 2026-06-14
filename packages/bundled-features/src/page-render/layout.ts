@@ -2,19 +2,39 @@ import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
 import { type BrandingTokens, brandingHeaderHtml, brandingStyleBlock } from "./branding";
 import { sanitizeTenantCss } from "./css-sanitize";
 
-// Scope selector for tenant custom CSS. The page body lives in
-// `<main data-tenant-content>`; every tenant rule is prefixed with this so it
-// can only reach descendants of the content area — never the host-emitted
-// brand-header, <head>, or html/body. Keep in sync with the <main> attribute.
-const TENANT_SCOPE = "[data-tenant-content]";
-// Host-controlled containment, prepended INSIDE the tenant <style> block and
-// thus emitted ONLY when there is tenant CSS to contain. Clips tenant paint
-// (negative margins, transform, huge shadows, absolute children) to the
-// container box so it can't overlay host chrome. Tenant rules are scoped
-// descendants (`[data-tenant-content] X`) and can't match the bare container,
-// so they cannot override this. Plain/legal pages (no tenant CSS) render
-// unclipped — normal overflow for wide tables/<pre>.
+// Attribute marking the content container. The page body lives in
+// `<main data-tenant-content>`; tenant custom CSS is scoped to its descendants
+// and host containment clips its paint to this box. A custom wrapLayout that
+// enables CSS-inject MUST put this attribute on the element wrapping the body
+// (e.g. `<main ${TENANT_CONTENT_ATTR}>`) and emit `tenantStyleBlock(branding.
+// customCss)` in <head> — otherwise tenant rules attach to nothing and the
+// containment is absent. Exported so the attr and the helper's internal scope
+// can't drift.
+export const TENANT_CONTENT_ATTR = "data-tenant-content";
+const TENANT_SCOPE = `[${TENANT_CONTENT_ATTR}]`;
+// Host-controlled containment, emitted together with (and only alongside)
+// tenant CSS. position+isolation box a tenant `position:absolute`/z-index to
+// the container; overflow:hidden clips tenant paint (negative margins,
+// transform, huge shadows, absolute children) off the host chrome. Tenant
+// rules are scoped descendants (`[data-tenant-content] X`) and can't match the
+// bare container, so they can't override either rule. No tenant CSS → neither
+// is emitted → plain/legal pages render unclipped (normal overflow for wide
+// tables/<pre>).
+const TENANT_CONTAINMENT = `${TENANT_SCOPE}{position:relative;isolation:isolate}`;
 const TENANT_CLIP = `${TENANT_SCOPE}{overflow:hidden}`;
+
+// Render the per-tenant custom-CSS <style> block — the single emission path for
+// the default skeleton below AND any custom wrapLayout. Returns "" when the
+// input is empty or fully rejected (no element). Otherwise one `<style
+// data-tenant-css>` carrying host containment + clip + the allowlist-sanitized,
+// scope-prefixed tenant rules. Bakes in the scope so a caller can't mis-scope
+// and silently lose containment; position:fixed/sticky are dropped upstream by
+// the sanitizer.
+export function tenantStyleBlock(customCss: string): string {
+  const sanitized = sanitizeTenantCss(customCss, TENANT_SCOPE);
+  if (!sanitized) return "";
+  return `\n<style data-tenant-css>${TENANT_CONTAINMENT}\n${TENANT_CLIP}\n${sanitized}</style>`;
+}
 
 // Minimaler HTML5-Skeleton mit Inline-CSS — Default-`wrapLayout` für
 // server-gerenderte Public-Pages, damit sie auch ohne App-Layout sauber
@@ -34,17 +54,11 @@ export function wrapInLayout(opts: {
 }): string {
   const themeStyle = opts.branding ? brandingStyleBlock(opts.branding) : "";
   const header = opts.branding ? brandingHeaderHtml(opts.branding) : "";
-  // Untrusted tenant CSS, scoped + allowlisted at the render boundary. Empty
-  // (or fully rejected) → no <style> block. The base container carries
-  // `position: relative` (boxes tenant `position:absolute`) + `isolation:
-  // isolate` (keeps a tenant z-index below the host brand-header's stacking
-  // context). The `overflow:hidden` clip is added HERE, only when tenant CSS is
-  // present (TENANT_CLIP), so plain/legal pages keep normal overflow.
-  // position:fixed/sticky are dropped by the sanitizer.
-  const tenantCss = opts.branding ? sanitizeTenantCss(opts.branding.customCss, TENANT_SCOPE) : "";
-  const tenantStyle = tenantCss
-    ? `\n<style data-tenant-css>${TENANT_CLIP}\n${tenantCss}</style>`
-    : "";
+  // Untrusted per-tenant CSS — scoped, allowlist-sanitized and host-contained
+  // at the render boundary by tenantStyleBlock (same helper a custom wrapLayout
+  // calls, so containment can't drift between the two paths). Empty/rejected →
+  // no block, plain/legal pages keep normal overflow.
+  const tenantStyle = tenantStyleBlock(opts.branding?.customCss ?? "");
   // Page description wins; the tenant's branding description is the site-wide
   // fallback when a page omits its own (keeps branding-description a live key).
   const description =
@@ -74,7 +88,6 @@ export function wrapInLayout(opts: {
   .brand-header a { display: flex; align-items: center; gap: 0.6rem; color: inherit; text-decoration: none; }
   .brand-logo { height: 2rem; width: auto; }
   .brand-title { font-weight: 600; font-size: 1.1rem; }
-  [data-tenant-content] { position: relative; isolation: isolate; }
 </style>${themeStyle}${tenantStyle}
 </head>
 <body>

@@ -75,6 +75,8 @@
     "./renderer-foundation": "./src/renderer-foundation/index.ts",
     "./legal-pages": "./src/legal-pages/index.ts",
     "./legal-pages/web": "./src/legal-pages/web/index.ts",
+    "./managed-pages": "./src/managed-pages/index.ts",
+    "./managed-pages/seeding": "./src/managed-pages/seeding.ts",
     "./step-dispatcher": "./src/step-dispatcher/index.ts"
   },
   "dependencies": {

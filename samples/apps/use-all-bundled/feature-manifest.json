@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled)",
-  "featureCount": 39,
+  "featureCount": 41,
   "features": [
     {
       "name": "audit",
@@ -222,6 +222,7 @@
           "computed": false,
           "options": null,
           "bounds": null,
+          "pattern": null,
           "writeRoles": [
             "TenantAdmin",
             "SystemAdmin"
@@ -285,6 +286,7 @@
           "computed": false,
           "options": null,
           "bounds": null,
+          "pattern": null,
           "writeRoles": [
             "TenantAdmin",
             "SystemAdmin"
@@ -304,6 +306,7 @@
           "computed": false,
           "options": null,
           "bounds": null,
+          "pattern": null,
           "writeRoles": [
             "TenantAdmin",
             "SystemAdmin"
@@ -323,6 +326,7 @@
           "computed": false,
           "options": null,
           "bounds": null,
+          "pattern": null,
           "writeRoles": [
             "TenantAdmin",
             "SystemAdmin"
@@ -342,6 +346,7 @@
           "computed": false,
           "options": null,
           "bounds": null,
+          "pattern": null,
           "writeRoles": [
             "TenantAdmin",
             "SystemAdmin"
@@ -360,6 +365,7 @@
           "computed": false,
           "options": null,
           "bounds": null,
+          "pattern": null,
           "writeRoles": [
             "TenantAdmin",
             "SystemAdmin"
@@ -443,6 +449,7 @@
           "computed": false,
           "options": null,
           "bounds": null,
+          "pattern": null,
           "writeRoles": [
             "TenantAdmin",
             "SystemAdmin"
@@ -506,6 +513,7 @@
           "computed": false,
           "options": null,
           "bounds": null,
+          "pattern": null,
           "writeRoles": [
             "TenantAdmin",
             "SystemAdmin"
@@ -525,6 +533,7 @@
           "computed": false,
           "options": null,
           "bounds": null,
+          "pattern": null,
           "writeRoles": [
             "TenantAdmin",
             "SystemAdmin"
@@ -544,6 +553,7 @@
           "computed": false,
           "options": null,
           "bounds": null,
+          "pattern": null,
           "writeRoles": [
             "TenantAdmin",
             "SystemAdmin"
@@ -566,6 +576,7 @@
             "min": 1,
             "max": 65535
           },
+          "pattern": null,
           "writeRoles": [
             "TenantAdmin",
             "SystemAdmin"
@@ -584,6 +595,7 @@
           "computed": false,
           "options": null,
           "bounds": null,
+          "pattern": null,
           "writeRoles": [
             "TenantAdmin",
             "SystemAdmin"
@@ -601,6 +613,193 @@
           "hint": "Login password at the SMTP server. Brevo/Postmark/SES call it 'API key' or 'SMTP credentials'."
         }
       ]
+    },
+    {
+      "name": "managed-pages",
+      "description": "Tenant-editable, server-rendered public pages with per-tenant branding. Stores one Markdown `page` per `(tenantId, slug, lang)` in the `read_pages` entity table with a `published` gate plus `description`/`ogImage` SEO meta. Registers an anonymous `GET {basePath}/:slug` route that resolves the tenant from the request Host via the app-supplied `resolveApexTenant`, serves only published pages (drafts → 404), renders Markdown through the hardened `page-render` core, and isolates per-tenant content with `Vary: Host`. Ships TenantAdmin/SystemAdmin admin screens (`entityList` + `entityEdit`) backed by convention CRUD handlers (`managed-pages:write:page:{create,update,delete}`, `managed-pages:query:page:{list,detail}`); the app wires nav/workspace onto `managed-pages:screen:page-list`. Branding (via `config`, scope tenant): `branding-{title,description,site-url,accent-color,logo-url,layout-preset}` keys with write-time validation (hex color, https URLs), a `configEdit` self-service screen (`managed-pages:screen:branding-settings`), and a `managed-pages:query:branding` read that the render path applies as scoped `:root` CSS vars + a logo/title header. Also exposes `managed-pages:write:set` (idempotent slug-keyed upsert, SystemAdmin cross-tenant via `tenantIdOverride`) as a provisioning API. Requires `config` + `anonymousAccess` wired at app bootstrap.",
+      "toggleableDefault": null,
+      "requires": [
+        "config"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [
+        {
+          "key": "branding-accent-color",
+          "qualifiedName": "managed-pages:config:branding-accent-color",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^$|^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+          },
+          "writeRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "branding-custom-css",
+          "qualifiedName": "managed-pages:config:branding-custom-css",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^[\\s\\S]{0,8000}$"
+          },
+          "writeRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "branding-description",
+          "qualifiedName": "managed-pages:config:branding-description",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^[\\s\\S]{0,500}$"
+          },
+          "writeRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "branding-layout-preset",
+          "qualifiedName": "managed-pages:config:branding-layout-preset",
+          "type": "select",
+          "scope": "tenant",
+          "default": "centered",
+          "encrypted": false,
+          "computed": false,
+          "options": [
+            "minimal",
+            "centered",
+            "wide"
+          ],
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "branding-logo-url",
+          "qualifiedName": "managed-pages:config:branding-logo-url",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^$|^https://[^\\s\"'<>]{1,2000}$"
+          },
+          "writeRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "branding-site-url",
+          "qualifiedName": "managed-pages:config:branding-site-url",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^$|^https://[^\\s\"'<>]{1,2000}$"
+          },
+          "writeRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "branding-title",
+          "qualifiedName": "managed-pages:config:branding-title",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^[\\s\\S]{0,200}$"
+          },
+          "writeRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        }
+      ],
+      "secrets": []
+    },
+    {
+      "name": "managed-pages-css",
+      "description": "Per-tenant toggle gate for the managed-pages custom-CSS (raw tenant CSS-inject) capability. Handler-less: composing it makes `managed-pages-css` a toggleable feature defaulting OFF, so an operator/tier can grant raw CSS-inject per tenant. managed-pages reads `ctx.hasFeature(\"managed-pages-css\")` in its branding query and emits tenant CSS only when this toggle is on AND the app passed `allowCustomCss: true`. The tenant CSS is allowlist-sanitized + scoped at render regardless; this gate is the commercial/operator control, not the safety boundary.",
+      "toggleableDefault": false,
+      "requires": [
+        "managed-pages"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": []
     },
     {
       "name": "rate-limiting",
@@ -757,6 +956,7 @@
           "computed": false,
           "options": null,
           "bounds": null,
+          "pattern": null,
           "writeRoles": [
             "system"
           ],
@@ -818,6 +1018,7 @@
           "computed": false,
           "options": null,
           "bounds": null,
+          "pattern": null,
           "writeRoles": [
             "TenantAdmin",
             "Admin",
@@ -842,6 +1043,7 @@
             "es"
           ],
           "bounds": null,
+          "pattern": null,
           "writeRoles": [
             "TenantAdmin",
             "Admin",
@@ -861,6 +1063,7 @@
           "computed": false,
           "options": null,
           "bounds": null,
+          "pattern": null,
           "writeRoles": [
             "system"
           ],
@@ -884,6 +1087,7 @@
             "enterprise"
           ],
           "bounds": null,
+          "pattern": null,
           "writeRoles": [
             "system"
           ],
@@ -903,6 +1107,7 @@
           "computed": false,
           "options": null,
           "bounds": null,
+          "pattern": null,
           "writeRoles": [
             "SystemAdmin"
           ],
@@ -922,6 +1127,7 @@
           "computed": false,
           "options": null,
           "bounds": null,
+          "pattern": null,
           "writeRoles": [
             "SystemAdmin"
           ],
@@ -952,6 +1158,7 @@
             "Australia/Sydney"
           ],
           "bounds": null,
+          "pattern": null,
           "writeRoles": [
             "TenantAdmin",
             "Admin",

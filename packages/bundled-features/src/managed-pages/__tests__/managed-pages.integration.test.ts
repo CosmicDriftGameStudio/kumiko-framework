@@ -473,9 +473,10 @@ describe("managed-pages :: Custom CSS (gated, sanitized render)", () => {
     expect(html).toContain("[data-tenant-content] .note");
     expect(html).toContain("color: rebeccapurple");
     expect(html).toContain("<main data-tenant-content>");
-    // container containment ships ONLY in the tenant-css block (clips tenant
-    // paint off host chrome); base stays position/isolation.
-    expect(html).toContain("isolation: isolate");
+    // full containment (position/isolation + overflow clip) ships in the
+    // tenant-css block, only alongside tenant CSS — boxes + clips tenant paint
+    // off host chrome.
+    expect(html).toContain("[data-tenant-content]{position:relative;isolation:isolate}");
     expect(html).toContain("[data-tenant-content]{overflow:hidden}");
   });
 
