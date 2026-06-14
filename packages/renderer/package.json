@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-renderer",
-  "version": "0.48.1",
+  "version": "0.49.0",
   "description": "Platform-agnostic React renderer for Kumiko screens. Contains the shared logic — primitives-contract, hooks, KumikoScreen, navigation & SSE abstractions — that any platform-specific renderer (web, native) composes. No DOM, no EventSource, no react-dom.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
