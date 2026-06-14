@@ -3,6 +3,8 @@
 export { hasAccess } from "./access";
 export { validateBoot } from "./boot-validator";
 export { buildAppSchema } from "./build-app-schema";
+export type { ConfigFeatureSchema } from "./build-config-feature-schema";
+export { buildConfigFeatureSchema } from "./build-config-feature-schema";
 export { buildTarget } from "./build-target";
 export {
   access,

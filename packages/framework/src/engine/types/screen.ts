@@ -344,6 +344,13 @@ export type EntityEditScreenDefinition = {
    *  (History-/Audit-Erhalt): unterdrückt den Löschen-Button im
    *  Update-Form. */
   readonly allowDelete?: boolean;
+  /** Optionaler per-Field-Label-i18n-Key (Field-Name → Key), überschreibt
+   *  die Default-Konvention `<feature>:entity:<entity>:field:<name>`.
+   *  Primär für configEdit: dessen Pseudo-Entity `__config-edit__` hat
+   *  keinen natürlichen Field-Namespace — der Settings-Hub injiziert hier
+   *  das `mask.title`-Label des Config-Keys. Fehlt ein Eintrag, gilt die
+   *  Konvention. */
+  readonly fieldLabels?: Readonly<Record<string, string>>;
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;
 };
@@ -470,6 +477,12 @@ export type ConfigEditScreenDefinition = {
   /** Layout: Sections mit Field-Refs. Identisch zu entityEdit/
    *  actionForm. */
   readonly layout: EditLayout;
+  /** Optionaler per-Field-Label-i18n-Key (Field-Name → Key). Der
+   *  Settings-Hub setzt hier `mask.title` des jeweiligen Config-Keys,
+   *  damit das am Key deklarierte Label am generierten Feld erscheint —
+   *  ohne es unter der `__config-edit__`-Konvention zu duplizieren.
+   *  Fehlt ein Eintrag, gilt die Konvention. */
+  readonly fieldLabels?: Readonly<Record<string, string>>;
   /** i18n-key für den Submit-Button. Default: "kumiko.actions.save". */
   readonly submitLabel?: string;
   readonly slots?: ScreenSlots;

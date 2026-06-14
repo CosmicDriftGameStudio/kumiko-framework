@@ -43,6 +43,7 @@ export function synthesizeConfigEditScreen(
     type: "entityEdit",
     entity: CONFIG_EDIT_PSEUDO_ENTITY,
     layout: screen.layout,
+    ...(screen.fieldLabels !== undefined && { fieldLabels: screen.fieldLabels }),
     ...(screen.access !== undefined && { access: screen.access }),
   };
 }
