@@ -24,6 +24,7 @@ const FIELD_DEFINITION_NAMESPACE = "f1d3b2c7-4e5a-4b9c-8d1f-2a3b4c5d6e7f";
  *   definieren (422 `fieldKey_conflict`). Verhindert Resolution-Ambiguität
  *   beim Read.
  */
+// @wrapper-known uuid-domain
 export function fieldDefinitionAggregateId(
   tenantId: string,
   entityName: string,

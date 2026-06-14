@@ -44,7 +44,7 @@ export function createFileHandle(key: string, provider: FileStorageProvider): Fi
 
 export function createFileContext(provider: FileStorageProvider): FileContext {
   return {
-    ref: (key) => createFileHandle(key, provider),
+    ref: (key) => createFileHandle(key, provider), // @wrapper-known semantic-alias
   };
 }
 

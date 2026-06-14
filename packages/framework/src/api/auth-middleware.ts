@@ -109,6 +109,7 @@ type MiddlewareRejectCode =
   | "tenant_mismatch"
   | "invalid_tenant_format";
 
+// @wrapper-known error-helper
 function middlewareReject(
   c: Context,
   opts: {

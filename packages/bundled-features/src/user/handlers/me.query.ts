@@ -11,5 +11,5 @@ export const meQuery = defineQueryHandler({
   name: "user:me",
   schema: z.object({}),
   access: { openToAll: true },
-  handler: async (query, ctx) => crud.detail({ id: query.user.id }, query.user, ctx.db),
+  handler: async (query, ctx) => crud.detail({ id: query.user.id }, query.user, ctx.db), // @wrapper-known semantic-alias
 });

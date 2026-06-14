@@ -74,9 +74,9 @@ export function createTzContext(options: TzContextOptions = {}): TzContext {
   return {
     tenant,
     user,
-    now: () => T.Now.instant(),
-    nowIn: (tz: string) => T.Now.zonedDateTimeISO(tz),
-    today: (tz: string) => T.Now.plainDateISO(tz),
+    now: () => T.Now.instant(), // @wrapper-known semantic-alias
+    nowIn: (tz: string) => T.Now.zonedDateTimeISO(tz), // @wrapper-known semantic-alias
+    today: (tz: string) => T.Now.plainDateISO(tz), // @wrapper-known semantic-alias
     todayRange: (tz: string) => {
       const today = T.Now.plainDateISO(tz);
       const startZdt = today.toZonedDateTime({ timeZone: tz });

@@ -83,12 +83,11 @@ export const mailTransportInMemoryFeature = defineFeature(FEATURE_NAME, (r) => {
   r.requires("mail-foundation");
 
   const plugin: MailTransportPlugin = {
-    // @wrapper-known semantic-alias
     build: async (_ctx: HandlerContext, tenantId: string): Promise<EmailTransport> => {
       // Returnt den per-tenant Buffer. Identitätsstabil zwischen calls
       // damit die Demo-Inbox accumulated bleibt.
       return getOrCreateTransportForTenant(tenantId);
-    },
+    }, // @wrapper-known semantic-alias
   };
   r.useExtension("mailTransport", "inmemory", plugin);
 });
