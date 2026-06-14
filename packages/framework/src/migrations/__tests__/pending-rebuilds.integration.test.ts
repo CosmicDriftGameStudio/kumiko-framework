@@ -162,6 +162,67 @@ describe("pending-rebuilds queue", () => {
 
   test("no markers, no queue → noop", async () => {
     const run = await runPendingRebuilds(testDb.db, registry);
-    expect(run).toEqual({ rebuilt: [], failed: [], unmapped: [] });
+    expect(run).toEqual({ rebuilt: [], failed: [], unmapped: [], unresolvedManaged: [] });
+  });
+
+  // #361: eine managed-Tabelle (Marker tragen nur managed), die in DIESEM Run
+  // geleert wurde, aber keine Projektion auflöst = owning-Feature fehlt in der
+  // Komposition → laut (unresolvedManaged), aber non-fatal (gedraint, kein Throw).
+  test("managed table emptied THIS run with no resolving projection → unresolvedManaged, still drained", async () => {
+    writeRebuildMarker(markerDir, "0003_orphan_managed.sql", ["read_orphan_projection"]);
+    const queued = await queueRebuildsFromMarkers(testDb.db, {
+      migrationsDir: markerDir,
+      appliedIds: ["0003_orphan_managed"],
+    });
+    expect(queued).toEqual(["read_orphan_projection"]);
+
+    const run = await runPendingRebuilds(testDb.db, registry, { thisRunTables: queued });
+    expect(run.unresolvedManaged).toEqual(["read_orphan_projection"]);
+    expect(run.unmapped).toEqual([]);
+    expect(run.rebuilt).toEqual([]);
+    expect(run.failed).toEqual([]);
+    // Trotz laut: gedraint → kein sticky-stuck Re-Apply.
+    expect(await listPendingRebuilds(testDb.db)).toEqual([]);
+  });
+
+  // #361: dieselbe unmapped-Tabelle, aber NICHT in thisRunTables (pre-existing
+  // pending aus einem früheren Run / evtl. altem unmanaged-Marker) → benign,
+  // still gedraint, NICHT als unresolvedManaged geflaggt (kein False-Positive).
+  test("pre-existing pending table not in thisRunTables → benign unmapped, not flagged", async () => {
+    writeRebuildMarker(markerDir, "0004_legacy.sql", ["read_legacy_table"]);
+    await queueRebuildsFromMarkers(testDb.db, {
+      migrationsDir: markerDir,
+      appliedIds: ["0004_legacy"],
+    });
+
+    // Re-Run ohne frisch gequeuete Tabellen (thisRunTables leer) — die Queue
+    // trägt nur den Altbestand.
+    const run = await runPendingRebuilds(testDb.db, registry, { thisRunTables: [] });
+    expect(run.unmapped).toEqual(["read_legacy_table"]);
+    expect(run.unresolvedManaged).toEqual([]);
+    expect(await listPendingRebuilds(testDb.db)).toEqual([]);
+  });
+
+  // #361: ein lauter unresolved-managed-Eintrag darf den auflösbaren Rebuild
+  // im selben Run nicht blockieren.
+  test("mixed run: resolvable projection rebuilt while an unresolved managed table is flagged", async () => {
+    await executor.create({ groupId: GROUP, name: "a" }, admin, tdb);
+    writeRebuildMarker(markerDir, "0005_mixed.sql", [
+      "read_pending_counts",
+      "read_orphan_projection",
+    ]);
+    const queued = await queueRebuildsFromMarkers(testDb.db, {
+      migrationsDir: markerDir,
+      appliedIds: ["0005_mixed"],
+    });
+
+    const run = await runPendingRebuilds(testDb.db, registry, { thisRunTables: queued });
+    expect(run.rebuilt).toEqual([
+      { projection: "pendingtest:projection:pending-counts", eventsProcessed: 1 },
+    ]);
+    expect(run.unresolvedManaged).toEqual(["read_orphan_projection"]);
+    expect(run.failed).toEqual([]);
+    expect(await listPendingRebuilds(testDb.db)).toEqual([]);
+    expect(await getCount()).toBe(1);
   });
 });

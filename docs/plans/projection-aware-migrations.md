@@ -2,7 +2,7 @@
 status: in-progress
 verified: 2026-06-14
 issue: kumiko-framework#356
-next: PR #356 (Generator-Split + Beweis) reviewen/mergen/releasen; Phase 2 (safe fail-loud) + Phase 3 (rebuild-job) als Folge-Issues; studio#58-envelope-Frage vor Consumer-Bump klären
+next: #356 released + Consumer-Bumps (studio#58-Migration regenerieren, envelope-Frage klären); Phase 2 (#361) geshippt aber DORMANT — studio-bin muss thisRunTables durchreichen + auf unresolvedManaged exiten; Phase 3 rebuild-job (#362) offen
 ---
 
 # Projection-aware migrations: managed = wegwerfbares Derivat, unmanaged = echte Daten
@@ -194,7 +194,8 @@ blue-green = Folge-Issues. Hält's leichtgewichtig und de-risked den Kern.
 - [ ] Frontmatter `status: shipped` + evidence (PR#) + STATUS.md regen
 
 **Folge-Issues (angelegt 2026-06-14):**
-- [ ] Phase 2: safe fail-loud für managed-ohne-Projektion (kein Hard-Throw) — #361
+- [x] Phase 2: safe fail-loud für managed-ohne-Projektion (kein Hard-Throw) — #361 → `runPendingRebuilds(…, {thisRunTables})` meldet in-diesem-Run via Marker geleerte managed-Tabellen ohne auflösbare Projektion als `unresolvedManaged` (error-Log, non-fatal, gedraint); pre-existing/Legacy bleibt benign `unmapped`. Integration 6/6.
+  - **Aktivierung offen (Prod-Verhalten bis dahin unverändert):** Die Framework-Capability ist opt-in über `thisRunTables`. Der einzige Prod-Caller `kumiko-studio/bin/kumiko.ts` (`rebuildPendingProjections`) ruft `runPendingRebuilds` noch OHNE die Option → `unresolvedManaged` immer leer. Zum Scharfschalten muss die studio-bin die Rückgabe von `queueRebuildsFromMarkers` als `thisRunTables` durchreichen + auf nicht-leeres `unresolvedManaged` non-zero exiten. **NICHT** von Phase 6 (#356 studio#58-Migration) gedeckt — eigener Consumer-Code-Change.
 - [ ] Phase 3: `kumiko:projection-rebuild`-Single-Run-Job + `enqueueProjectionRebuild` + Inline-Fallback — #362
 - [ ] blue-green/`ProjectionVersion` (zero-downtime Rebuild) — #363
 

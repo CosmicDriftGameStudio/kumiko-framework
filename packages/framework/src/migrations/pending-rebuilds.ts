@@ -17,6 +17,7 @@ import { deleteMany, selectMany, upsertOnConflict } from "../db/query";
 import { readRebuildMarker } from "../db/rebuild-marker";
 import { tableExists } from "../db/schema-inspection";
 import type { Registry } from "../engine/types";
+import { createFallbackLogger } from "../logging/utils";
 import { rebuildProjection } from "../pipeline";
 import { unsafePushTables } from "../stack";
 import { buildProjectionTableIndex } from "./projection-table-index";
@@ -78,37 +79,75 @@ export type PendingRebuildRun = {
   readonly rebuilt: readonly { readonly projection: string; readonly eventsProcessed: number }[];
   /** Fehlgeschlagene Projektionen — ihre Tabellen BLEIBEN pending. */
   readonly failed: readonly { readonly projection: string; readonly error: string }[];
-  /** Pending-Tabellen ohne registrierte Projektion — geräumt (kein Rebuild-Sinn). */
+  /** Pending-Tabellen ohne registrierte Projektion, die NICHT in diesem Run
+   *  frisch via Marker geleert wurden (pre-existing / Legacy-unmanaged-Marker)
+   *  — geräumt, still (nicht von echten Legacy-Tabellen unterscheidbar). */
   readonly unmapped: readonly string[];
+  /** In DIESEM Run via Marker geleerte managed-Tabellen ohne auflösbare
+   *  Projektion = das owning-Feature fehlt in der Komposition. Geräumt (kein
+   *  Stuck-Loop), aber LAUT geloggt — die Projektion ist jetzt leer. */
+  readonly unresolvedManaged: readonly string[];
+};
+
+export type RunPendingRebuildsOptions = {
+  /** Tabellen, die in DIESEM apply-Run frisch via Marker gequeued wurden
+   *  (Rückgabe von `queueRebuildsFromMarkers`). Marker tragen nur managed
+   *  Tabellen — eine davon ohne auflösbare Projektion ist ein echter Defekt
+   *  (fehlendes Feature) und wird laut gemeldet statt still geleert. Fehlt die
+   *  Option, wird jede unmapped Tabelle als pre-existing/benign behandelt
+   *  (Verhalten vor #361). */
+  readonly thisRunTables?: readonly string[];
 };
 
 /** Arbeitet die persistierte Queue ab: mappt Tabellen auf Projektionen,
  *  rebuildet jede betroffene Projektion und räumt ihre Tabellen erst nach
  *  ERFOLG aus der Queue. Fehlgeschlagene bleiben pending — der nächste
- *  apply (oder ein direkter Re-Call) holt sie nach. */
+ *  apply (oder ein direkter Re-Call) holt sie nach. Unmapped-Tabellen werden
+ *  geräumt (kein Stuck-Loop); die in diesem Run frisch geleerten managed-
+ *  Tabellen ohne Projektion zusätzlich laut gemeldet (`unresolvedManaged`). */
 export async function runPendingRebuilds(
   db: DbConnection,
   registry: Registry,
+  options: RunPendingRebuildsOptions = {},
 ): Promise<PendingRebuildRun> {
   const pending = await listPendingRebuilds(db);
-  if (pending.length === 0) return { rebuilt: [], failed: [], unmapped: [] };
+  if (pending.length === 0) {
+    return { rebuilt: [], failed: [], unmapped: [], unresolvedManaged: [] };
+  }
 
   const tableToProjection = buildProjectionTableIndex(registry);
+  const thisRun = new Set(options.thisRunTables ?? []);
   const byProjection = new Map<string, string[]>();
   const unmapped: string[] = [];
+  const unresolvedManaged: string[] = [];
   for (const tableName of pending) {
     const projection = tableToProjection.get(tableName);
     if (projection === undefined) {
-      unmapped.push(tableName);
+      // Marker tragen nur managed Tabellen (rebuild-marker.ts). Eine in DIESEM
+      // Run frisch geleerte Tabelle ohne auflösbare Projektion ist daher ein
+      // echter Defekt (owning-Feature fehlt in der Komposition) → laut. Pre-
+      // existing pending Tabellen sind nicht von alten unmanaged-Markern
+      // unterscheidbar → still drainen wie bisher (kein Hard-Throw, siehe #361).
+      if (thisRun.has(tableName)) unresolvedManaged.push(tableName);
+      else unmapped.push(tableName);
       continue;
     }
     byProjection.set(projection, [...(byProjection.get(projection) ?? []), tableName]);
   }
 
-  // Tabellen ohne Projektion: gleiche Semantik wie der bisherige Skip beim
-  // Apply — aber explizit geräumt, damit die Queue nicht ewig wächst.
-  if (unmapped.length > 0) {
-    await clearPendingRebuilds(db, unmapped);
+  // Beide Klassen räumen: die Queue darf nicht ewig wachsen, und ein Re-Apply
+  // darf nicht sticky-stuck werfen. Die Lautstärke liegt im Log + Return-Feld,
+  // nicht im Liegenlassen.
+  const drained = [...unmapped, ...unresolvedManaged];
+  if (drained.length > 0) {
+    await clearPendingRebuilds(db, drained);
+  }
+
+  if (unresolvedManaged.length > 0) {
+    createFallbackLogger("migrations:pending-rebuilds").error(
+      `${unresolvedManaged.length} managed projection table(s) emptied by a migration in this run have no registered projection — the owning feature is likely missing from the composition. They are now EMPTY and were NOT rebuilt: ${unresolvedManaged.join(", ")}. Restore the owning feature or rebuild the projection manually.`,
+      { tables: unresolvedManaged },
+    );
   }
 
   const rebuilt: { projection: string; eventsProcessed: number }[] = [];
@@ -122,5 +161,5 @@ export async function runPendingRebuilds(
       failed.push({ projection, error: e instanceof Error ? e.message : String(e) });
     }
   }
-  return { rebuilt, failed, unmapped };
+  return { rebuilt, failed, unmapped, unresolvedManaged };
 }
