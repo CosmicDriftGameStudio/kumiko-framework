@@ -1,13 +1,15 @@
 import {
+  type ConfigKeyDefinition,
   type ConfigScope,
   type ConfigValueSource,
   defineQueryHandler,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { requireConfigResolver } from "../feature";
-import { shouldRedactInheritedSystem } from "../read-redaction";
-import { deserializeValue } from "../resolver";
+import { redactInheritedCascade, shouldRedactInherited } from "../read-redaction";
 import { hasConfigAccess } from "../write-helpers";
+
+const MASKED = "••••••";
 
 export const valuesQuery = defineQueryHandler({
   name: "values",
@@ -20,7 +22,24 @@ export const valuesQuery = defineQueryHandler({
     const resolver = requireConfigResolver(ctx, "config:query:values");
 
     const allKeys = registry.getAllConfigKeys();
-    const storedValues = await resolver.getAllWithSource(query.user.tenantId, query.user.id, db);
+    const keyDefs = new Map<string, ConfigKeyDefinition>();
+    const filteredKeys: string[] = [];
+    for (const [qualifiedKey, keyDef] of allKeys) {
+      if (!hasConfigAccess(keyDef.access.read, query.user.roles)) continue;
+      keyDefs.set(qualifiedKey, keyDef);
+      filteredKeys.push(qualifiedKey);
+    }
+
+    // Resolve through the full cascade (rows → app-override → computed →
+    // default) — the same path as config:query:cascade — so the mask shows the
+    // inherited default (e.g. an ENV-bridged app-override), not only DB rows.
+    const cascades = await resolver.getCascadeBatch(
+      filteredKeys,
+      keyDefs,
+      query.user.tenantId,
+      query.user.id,
+      db,
+    );
 
     const result: Record<
       string,
@@ -31,33 +50,24 @@ export const valuesQuery = defineQueryHandler({
       }
     > = {};
 
-    for (const [qualifiedKey, keyDef] of allKeys) {
-      if (!hasConfigAccess(keyDef.access.read, query.user.roles)) continue;
+    for (const [qualifiedKey, keyDef] of keyDefs) {
+      const rawCascade = cascades.get(qualifiedKey);
+      if (!rawCascade) continue;
 
-      const stored = storedValues.get(qualifiedKey);
-
-      // Tenant-side viewers must not see an inherited system value (nor that
-      // it is set) when the key opts out of inheritance — present it as unset.
-      if (
-        stored?.source === "system-row" &&
-        shouldRedactInheritedSystem(keyDef, query.user.roles)
-      ) {
-        result[qualifiedKey] = { value: keyDef.default, scope: keyDef.scope, source: "default" };
-        continue;
-      }
+      // Redact inherited platform rungs BEFORE masking — masking alone leaves
+      // a value present and would leak "it is set" to a tenant-side viewer.
+      const cascade = shouldRedactInherited(keyDef, query.user.roles)
+        ? redactInheritedCascade(rawCascade)
+        : rawCascade;
 
       let value: string | number | boolean | undefined;
-      const source: ConfigValueSource = stored?.source ?? "default";
-
       if (keyDef.encrypted) {
-        value = stored ? "••••••" : undefined;
-      } else if (stored?.value !== null && stored?.value !== undefined) {
-        value = deserializeValue(stored.value, keyDef.type);
+        value = cascade.value !== undefined ? MASKED : undefined;
       } else {
-        value = keyDef.default;
+        value = cascade.value;
       }
 
-      result[qualifiedKey] = { value, scope: keyDef.scope, source };
+      result[qualifiedKey] = { value, scope: keyDef.scope, source: cascade.source };
     }
 
     return result;
