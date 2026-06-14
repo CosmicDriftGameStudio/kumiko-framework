@@ -17,6 +17,7 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 
+import { compareByCodepoint } from "../utils";
 import type { ColumnMeta, EntityTableMeta, IndexMeta } from "./entity-table-meta";
 import { renderTableDdl } from "./render-ddl";
 
@@ -56,8 +57,11 @@ export type SchemaDiff = {
 
 export function snapshotFromMetas(metas: readonly EntityTableMeta[]): Snapshot {
   // Stable ordering by tableName so the snapshot.json diff in PRs is
-  // meaningful (table-add isn't a noisy re-sort of everything).
-  const sorted = [...metas].sort((a, b) => a.tableName.localeCompare(b.tableName));
+  // meaningful (table-add isn't a noisy re-sort of everything). Codepoint, not
+  // localeCompare: the snapshot is serialized to byte-exact JSON and the table
+  // order carries into the generated migration SQL — locale-dependent ordering
+  // would drift between macOS-dev and Linux-CI (#367).
+  const sorted = [...metas].sort((a, b) => compareByCodepoint(a.tableName, b.tableName));
   return {
     version: SNAPSHOT_VERSION,
     generatedAt: new Date().toISOString(),

@@ -6,6 +6,7 @@
 // AST-Parser kann die imperativen Factory-Helper der bundled features nicht
 // lesen.
 
+import { compareByCodepoint } from "../utils";
 import type { Registry } from "./types/feature";
 
 export type ManifestConfigKey = {
@@ -58,13 +59,6 @@ export type FeatureManifest = {
 };
 
 const CONFIG_SEGMENT = ":config:";
-
-// Codepoint order, not localeCompare: the manifest is serialized to byte-exact
-// JSON, and localeCompare's ordering depends on the runner's ICU locale → drift
-// between macOS-dev and Linux-CI (#330).
-function compareByCodepoint(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
-}
 
 export type BuildManifestOptions = {
   /** Herkunfts-Beschreibung fürs Manifest (landet 1:1 im JSON). */

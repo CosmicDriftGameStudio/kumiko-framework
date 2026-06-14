@@ -7,6 +7,7 @@
 // crashte (#255).
 
 import type { FeatureDefinition } from "../engine/types";
+import { compareByCodepoint } from "../utils";
 import {
   assertBackingTableSuperset,
   buildEntityTableMeta,
@@ -21,7 +22,7 @@ function canonicalColumnsKey(meta: EntityTableMeta): string {
   // (buildEntityTable ohne relations) trägt legitim weniger FK-Indexes
   // als das Entity-Meta derselben Tabelle.
   return [...meta.columns]
-    .sort((a, b) => a.name.localeCompare(b.name))
+    .sort((a, b) => compareByCodepoint(a.name, b.name))
     .map(
       (c) =>
         `${c.name}|${c.pgType}|${c.notNull}|${c.defaultSql ?? ""}|${c.primaryKey ?? false}|${c.identity ?? false}|${c.bigintJsMode ?? ""}`,
