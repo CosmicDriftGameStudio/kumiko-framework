@@ -1,14 +1,20 @@
 // origin-middleware: server-side Origin-allowlist guard layered behind
 // authMiddleware. Covers the production-relevant paths: cookie + state-
-// changing (allowed/disallowed/simple-request/opaque), cookie + safe method,
-// bearer transport, and the no-Origin Sec-Fetch-Site fallback.
+// changing (allowed/disallowed/simple-request/opaque, all four methods),
+// cookie + safe method, bearer transport, the no-Origin Sec-Fetch-Site
+// fallback, and the fail-closed boot check.
 
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import { TestUsers } from "../../stack";
 import { AUTH_COOKIE_NAME, authMiddleware } from "../auth-middleware";
 import { createJwtHelper } from "../jwt";
-import { isOriginAllowed, normalizeOrigin, originMiddleware } from "../origin-middleware";
+import {
+  assertOriginGuardConfig,
+  isOriginAllowed,
+  normalizeOrigin,
+  originMiddleware,
+} from "../origin-middleware";
 
 const JWT_SECRET = "origin-middleware-test-secret-min-32-characters-long";
 const ALLOWED = "https://admin.example.eu";
@@ -42,6 +48,31 @@ describe("isOriginAllowed", () => {
   test("rejects a non-listed origin and the opaque 'null' origin", () => {
     expect(isOriginAllowed(DISALLOWED, allowlist)).toBe(false);
     expect(isOriginAllowed("null", allowlist)).toBe(false);
+  });
+});
+
+describe("assertOriginGuardConfig", () => {
+  test("throws when cookieDomain is set without allowedOrigins or opt-out", () => {
+    expect(() => assertOriginGuardConfig({ cookieDomain: "example.eu" })).toThrow(/allowedOrigins/);
+  });
+  test("throws when allowedOrigins is an empty array", () => {
+    expect(() =>
+      assertOriginGuardConfig({ cookieDomain: "example.eu", allowedOrigins: [] }),
+    ).toThrow();
+  });
+  test("passes when allowedOrigins is set", () => {
+    expect(() =>
+      assertOriginGuardConfig({ cookieDomain: "example.eu", allowedOrigins: [ALLOWED] }),
+    ).not.toThrow();
+  });
+  test("passes when explicitly opted out", () => {
+    expect(() =>
+      assertOriginGuardConfig({ cookieDomain: "example.eu", unsafeSkipOriginCheck: true }),
+    ).not.toThrow();
+  });
+  test("passes when no cookieDomain (host-only cookie) or no auth at all", () => {
+    expect(() => assertOriginGuardConfig({})).not.toThrow();
+    expect(() => assertOriginGuardConfig(undefined)).not.toThrow();
   });
 });
 
@@ -83,6 +114,24 @@ describe("originMiddleware", () => {
     expect(body.error.code).toBe("origin_not_allowed");
   });
 
+  // The guard runs as /api/* middleware before routing, so a disallowed-origin
+  // request is rejected for every state-changing method even without a route.
+  test.each([
+    "PUT",
+    "PATCH",
+    "DELETE",
+  ])("cookie transport + %s + disallowed origin → 403 (every state-changing method)", async (method) => {
+    const { app, token } = await buildApp();
+    const res = await app.request("/api/write", {
+      method,
+      headers: { Cookie: `${AUTH_COOKIE_NAME}=${token}`, Origin: DISALLOWED },
+    });
+    expect(res.status).toBe(403);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe(
+      "origin_not_allowed",
+    );
+  });
+
   test("disallowed origin is blocked even as a simple text/plain request", async () => {
     // The real vector: a `text/plain` POST skips the CORS preflight and reaches
     // the server, where only the Origin check stands between it and the handler.
@@ -113,6 +162,18 @@ describe("originMiddleware", () => {
     const res = await app.request("/api/write", {
       method: "POST",
       headers: { Cookie: `${AUTH_COOKIE_NAME}=${token}`, "Sec-Fetch-Site": "same-origin" },
+    });
+    expect(res.status).toBe(200);
+  });
+
+  // same-site is passed through by design (the CSRF token is the next layer);
+  // the realistic same-site XSS attack carries an Origin header and is rejected
+  // by the allowlist branch before this fallback is reached.
+  test("no Origin + Sec-Fetch-Site: same-site → passes (intentional, CSRF is next layer)", async () => {
+    const { app, token } = await buildApp();
+    const res = await app.request("/api/write", {
+      method: "POST",
+      headers: { Cookie: `${AUTH_COOKIE_NAME}=${token}`, "Sec-Fetch-Site": "same-site" },
     });
     expect(res.status).toBe(200);
   });

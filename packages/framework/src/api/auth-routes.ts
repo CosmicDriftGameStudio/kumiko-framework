@@ -276,6 +276,14 @@ export type AuthRoutesConfig = {
   // Empty/unset (default) disables the guard; required only when
   // `cookieDomain` widens the cookie across subdomains.
   allowedOrigins?: readonly string[];
+  // Explicit opt-out of the fail-closed Origin guard. When `cookieDomain` is
+  // set the framework REFUSES TO BOOT unless `allowedOrigins` is configured — a
+  // wide cookie without an Origin check is the unguarded-subdomain-XSS footgun.
+  // Set this true ONLY for a single-host deployment that shares no untrusted
+  // subdomains and genuinely needs the wide cookie anyway; you accept that any
+  // subdomain can then forge authenticated state-changing requests. Prefer
+  // setting `allowedOrigins`.
+  unsafeSkipOriginCheck?: boolean;
 };
 
 export type PasswordResetConfig = {

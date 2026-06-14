@@ -60,10 +60,39 @@ export function originMiddleware(allowedOrigins: readonly string[]) {
     // No Origin header — older browsers, and some same-origin POSTs in Safari.
     // Fall back to the Fetch-Metadata Sec-Fetch-Site signal: only an explicit
     // cross-site marker is blocked here (it's a relation, not an origin, so it
-    // can't be matched against the allowlist). Everything else falls through to
-    // the CSRF-token check — this guard is defense-in-depth, not a replacement.
+    // can't be matched against the allowlist). Everything else (same-site,
+    // same-origin, none, absent) falls through to the CSRF token. Note: the
+    // CSRF token alone does NOT stop a same-site subdomain XSS — it can read
+    // the wide cookie — but that attack uses fetch/XHR, which always sends an
+    // Origin header and is already rejected by the allowlist branch above. The
+    // residual is only the no-Origin-yet-Sec-Fetch-Site combo, which no current
+    // browser emits for state-changing requests.
     if (c.req.header("sec-fetch-site") === "cross-site") return rejectOrigin(c);
 
     return next();
   };
+}
+
+// Fail-closed boot check: a wide cookieDomain shares the JS-readable
+// kumiko_csrf cookie across every subdomain, so a subdomain XSS can read it and
+// defeat the double-submit CSRF check. Without an Origin allowlist there is no
+// server-side barrier left — refuse to boot in that configuration unless the
+// operator opts out explicitly. Called once from buildServer.
+export function assertOriginGuardConfig(
+  auth:
+    | { cookieDomain?: string; allowedOrigins?: readonly string[]; unsafeSkipOriginCheck?: boolean }
+    | undefined,
+): void {
+  const widensCookieAcrossSubdomains = Boolean(auth?.cookieDomain);
+  const hasAllowlist = (auth?.allowedOrigins?.length ?? 0) > 0;
+  const optedOut = auth?.unsafeSkipOriginCheck === true;
+  if (widensCookieAcrossSubdomains && !hasAllowlist && !optedOut) {
+    throw new Error(
+      "[kumiko:boot] auth.cookieDomain widens the session cookie across subdomains, but " +
+        "auth.allowedOrigins is empty — the JS-readable kumiko_csrf cookie would be reachable " +
+        "from every subdomain (e.g. tenant pages) with no server-side Origin check, defeating " +
+        "CSRF protection. Set auth.allowedOrigins to the apex + admin host, or set " +
+        "auth.unsafeSkipOriginCheck: true to accept the risk explicitly.",
+    );
+  }
 }
