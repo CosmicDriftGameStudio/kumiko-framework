@@ -25,8 +25,8 @@
 // Exits non-zero if any sample workspace produces tsc diagnostics.
 // Errors are printed per-workspace, plus a summary line with totals.
 
-import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync, unlinkSync } from "node:fs";
+import { availableParallelism } from "node:os";
 import { join, relative, resolve } from "node:path";
 import { runCodegen } from "@cosmicdrift/kumiko-dev-server";
 
@@ -130,31 +130,50 @@ function resolveTscBin(): { readonly command: string; readonly argsPrefix: reado
   return { command: "bunx", argsPrefix: ["tsc"] };
 }
 
-function checkApp(workspace: SampleWorkspace): AppResult {
+async function checkApp(workspace: SampleWorkspace): Promise<AppResult> {
   const name = relative(REPO_ROOT, workspace.root);
   runCodegen({ appRoot: workspace.root });
 
   if (workspace.ephemeralTsconfig) {
     const includeKumiko = workspaceUsesAppDefine(workspace.root);
-    Bun.write(
+    await Bun.write(
       workspace.ephemeralTsconfig,
       JSON.stringify(recipeTsconfigTemplate(includeKumiko), null, 2),
     );
   }
 
   const { command, argsPrefix } = resolveTscBin();
-  const tscArgs = [...argsPrefix, "--noEmit", "-p", workspace.tsconfig];
+  // --incremental + per-workspace tsBuildInfoFile: warme CI-Runs (der
+  // "Cache TS Build Info"-Step cached **/*.tsbuildinfo) typechecken nur
+  // geänderte Workspaces neu, statt den Framework-Typgraphen pro Sample kalt
+  // zu laden. --noEmit verlangt einen expliziten tsBuildInfoFile-Pfad.
+  const tsBuildInfoFile = join(workspace.cwd, ".check.tsbuildinfo");
+  const tscArgs = [
+    ...argsPrefix,
+    "--noEmit",
+    "--incremental",
+    "--tsBuildInfoFile",
+    tsBuildInfoFile,
+    "-p",
+    workspace.tsconfig,
+  ];
 
   try {
-    const result = spawnSync(command, tscArgs, {
+    const proc = Bun.spawn([command, ...tscArgs], {
       cwd: workspace.cwd,
-      encoding: "utf8",
+      stdout: "pipe",
+      stderr: "pipe",
     });
-    const combined = (result.stdout ?? "") + (result.stderr ?? "");
+    const [stdout, stderr, status] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ]);
+    const combined = stdout + stderr;
     const errorLines = combined.split("\n").filter((l) => / error TS\d+:/.test(l));
     return {
       name,
-      ok: result.status === 0,
+      ok: status === 0,
       errorCount: errorLines.length,
       output: errorLines.length > 0 ? errorLines.join("\n") : combined,
     };
@@ -171,12 +190,41 @@ if (apps.length === 0) {
   process.exit(0);
 }
 
-console.log(`check-app-tsc: type-checking ${apps.length} sample workspace(s)`);
+const POOL = Math.max(
+  1,
+  Number(process.env.KUMIKO_TSC_POOL) || availableParallelism() - 1,
+);
+console.log(
+  `check-app-tsc: type-checking ${apps.length} sample workspace(s) (pool=${POOL})`,
+);
+
+async function runPool<T, R>(
+  items: readonly T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  async function worker(): Promise<void> {
+    while (true) {
+      const i = next++;
+      if (i >= items.length) return;
+      results[i] = await fn(items[i]);
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, () => worker()),
+  );
+  return results;
+}
+
+// Ausgabe deterministisch: erst poolen, dann in apps-Reihenfolge (sortiert)
+// drucken — sonst interleaven die parallelen tsc-Outputs.
+const results = await runPool(apps, POOL, checkApp);
 
 let totalErrors = 0;
 const failedApps: { name: string; errorCount: number }[] = [];
-for (const app of apps) {
-  const r = checkApp(app);
+for (const r of results) {
   if (!r.ok) {
     totalErrors += r.errorCount;
     failedApps.push({ name: r.name, errorCount: r.errorCount });
