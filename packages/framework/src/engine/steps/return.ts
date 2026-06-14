@@ -23,6 +23,7 @@ defineStep<ReturnStepArgs, WriteResult<unknown>>({
   kind: "return",
   defaultFailureStrategy: "throw",
   resultKey: () => RETURN_RESULT_KEY,
+  // @wrapper-known semantic-alias
   run: (args, ctx: PipelineCtx) => resolveRequired(args.resolver, ctx),
 });
 

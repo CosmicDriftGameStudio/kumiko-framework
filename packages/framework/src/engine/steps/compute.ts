@@ -27,7 +27,7 @@ defineStep<ComputeStepArgs, unknown>({
   kind: "compute",
   defaultFailureStrategy: "throw",
   resultKey: (args) => args.name,
-  run: (args, ctx) => args.fn(ctx),
+  run: (args, ctx) => args.fn(ctx), // @wrapper-known semantic-alias
 });
 
 export function buildComputeStep<TResult>(

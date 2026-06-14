@@ -9,11 +9,21 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { availableParallelism, loadavg } from "node:os";
 import { join, resolve as resolvePath } from "node:path";
 import {
   formatCheckWorkContext,
   resolveCheckWorkContext,
 } from "./_lib/check-work-context";
+
+// Fast checks are CPU-bound (tsc, ts-morph guards). A fixed pool=6 thrashes
+// wherever spare CPU < 6 — the 1-CPU CI runner, or a loaded dev box (4 parallel
+// sessions) — inflating every step 5-6×. Size to *currently free* capacity
+// (cores − 1-min load), not raw core count, so a busy machine doesn't
+// oversubscribe. Override with KUMIKO_FAST_POOL.
+const FAST_POOL =
+  Number(process.env.KUMIKO_FAST_POOL) ||
+  Math.max(1, Math.min(availableParallelism() - 1, Math.round(availableParallelism() - loadavg()[0])));
 import {
   INTEGRATION_RUNNER,
 } from "./_lib/integration-test";
@@ -174,9 +184,13 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
 
     // 2. TypeScript Check
     if (root.kind === "framework") {
-      steps.push({ name: `TypeScript (${root.kind})`, cmd: `cd ${absPath} && ${TSC} -b .` });
+      // One `tsc -b` builds the framework packages (the root tsconfig
+      // references exactly these seven) AND type-checks every sample against
+      // the emitted .d.ts. Sole owner of packages/dist → no pool write-race,
+      // and the framework graph is parsed once instead of per-sample (was a
+      // separate `tsc -b .` + 52× `tsc --noEmit`, ~430s → ~15s cold / ~2s warm).
       steps.push({
-        name: `TypeScript (Samples)`,
+        name: `TypeScript (framework + samples)`,
         cmd: `cd ${absPath} && bun scripts/check-app-tsc.ts`,
       });
     } else if (existsSync(join(absPath, "tsconfig.json"))) {
@@ -201,30 +215,28 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
     }
   }
 
-  // 3. Guards (already cross-repo aware via roots.ts)
-  steps.push({ name: "Silent-Skip Guard", cmd: "bunx kumiko-guard-silent-skip" });
-  steps.push({ name: "Admin-API Guard", cmd: "bunx kumiko-guard-admin-api" });
-  steps.push({ name: "Unsafe-JSON-Parse Guard", cmd: "bunx kumiko-guard-unsafe-json-parse" });
+  // 3. Guards (already cross-repo aware via roots.ts).
+  //
+  // Die portierten AST-Guards laufen in EINEM Shared-Project-Prozess
+  // (infra/guards/run-guards.ts) statt als N Subprozesse à eigenes
+  // ts-morph-Project. Jeder Subprozess hielt ~1.1GB RSS; bei pool=6 waren das
+  // ~7GB gleichzeitig → Memory-Thrashing (die "96s"-Guard-Zeiten waren Swap).
+  // Der Runner baut das Project EINMAL (~6s) und lässt alle Guards seriell
+  // in-process drüber laufen (~0.1-0.5s je weiterem Guard) — 11 Guards in 11.8s
+  // statt ~308s thrash-inflationiert. Restliche Guards: Follow-up-Port.
+  steps.push({ name: "AST-Guards (shared runner)", cmd: "bunx kumiko-guards-run" });
   steps.push({ name: "No-Function-Renderer Guard", cmd: "bunx kumiko-guard-no-function-renderer" });
-  steps.push({ name: "No-Date-API Guard", cmd: "bunx kumiko-guard-no-date-api" });
-  steps.push({ name: "Pre-ES-Patterns Guard", cmd: "bunx kumiko-guard-pre-es-patterns" });
-  steps.push({ name: "Direct-Entity-Writes Guard", cmd: "bunx kumiko-guard-direct-entity-writes" });
-  steps.push({ name: "Cross-Feature-Import Guard", cmd: "bunx kumiko-guard-cross-feature-imports" });
   steps.push({ name: "Renderer-Boundaries Guard", cmd: "bunx kumiko-guard-renderer-boundaries" });
   steps.push({
     name: "Primitives-Discipline Guard",
     cmd: "bunx kumiko-guard-primitives-discipline --strict-bundled",
   });
-  steps.push({ name: "Fake-Test Guard", cmd: "bunx kumiko-guard-fake-tests" });
   steps.push({
     name: "Feature-Integration-Test Guard",
     cmd: "bunx kumiko-guard-feature-integration-tests",
   });
-  steps.push({ name: "i18n-Keys Guard", cmd: "bunx kumiko-guard-i18n-keys" });
   steps.push({ name: "Test-Stack-Drift Guard", cmd: "bunx kumiko-guard-test-stack-drift" });
   steps.push({ name: "Runtime-Isolation Guard", cmd: "bunx kumiko-check-runtime-isolation" });
-  steps.push({ name: "Error-Reasons Guard", cmd: "bunx kumiko-guard-error-reasons" });
-  steps.push({ name: "Predicate Extraction Check", cmd: "bunx kumiko-check-predicates" });
   // Action-Wiring + Doc-Status waren als bins registriert, hingen aber an
   // keinem Pipeline-Step — ein nicht-aufgerufener Guard ist ein No-op.
   steps.push({ name: "Action-Wiring Guard", cmd: "bunx kumiko-guard-action-wiring" });
@@ -530,8 +542,8 @@ const commands = {
       logBoth("Checke alles durch...\n", logPath);
       const results: Array<{ name: string; ok: boolean }> = [];
 
-      logBoth(`--- ${FAST_CHECK_STEPS.length} fast checks (parallel, pool=6) ---`, logPath);
-      const fastResults = await runPoolBuffered(FAST_CHECK_STEPS, 6, logPath);
+      logBoth(`--- ${FAST_CHECK_STEPS.length} fast checks (parallel, pool=${FAST_POOL}) ---`, logPath);
+      const fastResults = await runPoolBuffered(FAST_CHECK_STEPS, FAST_POOL, logPath);
       for (const r of fastResults) results.push(r);
       logBoth("", logPath);
 
@@ -580,10 +592,10 @@ const commands = {
       console.log("Schneller Check — Integration wird geskippt.\n");
       const results: Array<{ name: string; ok: boolean }> = [];
 
-      console.log(`--- ${FAST_CHECK_STEPS.length} fast checks (parallel, pool=6) ---`);
+      console.log(`--- ${FAST_CHECK_STEPS.length} fast checks (parallel, pool=${FAST_POOL}) ---`);
       // runPoolBuffered braucht einen logPath; wir geben /dev/null —
       // Output zeigt eh die ✓/✗-Live-Zeile pro Step plus failed-Outputs.
-      const fastResults = await runPoolBuffered(FAST_CHECK_STEPS, 6, "/dev/null");
+      const fastResults = await runPoolBuffered(FAST_CHECK_STEPS, FAST_POOL, "/dev/null");
       for (const r of fastResults) results.push(r);
       console.log();
 
@@ -622,10 +634,10 @@ const commands = {
       // doppelter Aufwand. Diese drei Namen sind die einzige Stelle
       // an der die Aufteilung manuell definiert wird; alles andere
       // wird automatisch erfasst.
-      const SPLIT_OUT = new Set(["Biome", "TypeScript", "TypeScript (Samples)"]);
+      const SPLIT_OUT = new Set(["Biome", "TypeScript", "TypeScript (framework + samples)"]);
       const guards = FAST_CHECK_STEPS.filter((s) => !SPLIT_OUT.has(s.name));
-      console.log(`--- ${guards.length} guards (parallel, pool=6) ---`);
-      const results = await runPoolBuffered(guards, 6, "/dev/null");
+      console.log(`--- ${guards.length} guards (parallel, pool=${FAST_POOL}) ---`);
+      const results = await runPoolBuffered(guards, FAST_POOL, "/dev/null");
       const allGood = results.every((r) => r.ok);
       console.log(allGood ? "\nGuards grün." : "\nGuards rot:");
       for (const r of results) {

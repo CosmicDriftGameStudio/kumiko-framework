@@ -584,6 +584,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // Auth-Pfad wie ein echter HTTP-Call).
   for (const feature of options.registry.features.values()) {
     for (const route of Object.values(feature.httpRoutes)) {
+      // @wrapper-known semantic-alias
       const honoHandler = async (c: import("hono").Context): Promise<Response> =>
         route.handler(c, { app });
       switch (route.method) {

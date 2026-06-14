@@ -267,6 +267,7 @@ export function formatServerBuildResult(
   const dim = "\x1b[2m";
   const green = "\x1b[32m";
   const reset = "\x1b[0m";
+  // @wrapper-known semantic-alias
   const mb = (bytes: number): string => (bytes / 1024 / 1024).toFixed(2);
   const lines: string[] = [];
   lines.push("");

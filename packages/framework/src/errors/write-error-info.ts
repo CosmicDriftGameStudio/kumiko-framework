@@ -37,10 +37,12 @@ export function writeFailure(err: KumikoError): WriteFailure {
 // (typed 404) and "business rule violated: REASON" (typed 422 with the reason
 // string surfaced in details.reason). Reach for the concrete classes when you
 // need richer payload — these two cover the bulk of handler code.
+// @wrapper-known error-helper
 export function failNotFound(entity: string, id?: number | string): WriteFailure {
   return writeFailure(new NotFoundError(entity, id));
 }
 
+// @wrapper-known error-helper
 export function failUnprocessable(
   reason: string,
   details?: Readonly<Record<string, unknown>>,

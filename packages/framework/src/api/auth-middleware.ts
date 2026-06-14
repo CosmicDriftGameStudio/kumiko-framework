@@ -109,6 +109,7 @@ type MiddlewareRejectCode =
   | "tenant_mismatch"
   | "invalid_tenant_format";
 
+// @wrapper-known error-helper
 function middlewareReject(
   c: Context,
   opts: {
@@ -133,6 +134,7 @@ function middlewareReject(
   );
 }
 
+// @wrapper-known error-helper
 function sessionInvalid(c: Context, reason: AuthSessionStatus | "no_sid"): Response {
   return middlewareReject(c, {
     code: "session_invalid",

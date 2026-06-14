@@ -1,3 +1,7 @@
+// @no-server-stack: testet die SeedMigrationContext-Read-Helper (nur ctx.db);
+// der feature-lose Dispatcher wird nur zum Bauen des Context gebraucht, kein
+// HTTP-Pfad.
+//
 // Integration-Tests für SeedMigrationContext-Read-Helpers + skippable-
 // integration. Verifizieren dass:
 // - findUserByEmail liest read_users korrekt (typed result-cast)
@@ -10,23 +14,40 @@
 // Feature in den Tests zu schwer wäre — wir testen nur den Read-Helper-
 // Layer, nicht die volle Event-Store-Pipeline.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { asRawClient, selectMany } from "../../db/query";
+import { createRegistry } from "../../engine";
+import { createEventsTable } from "../../event-store";
+import { createDispatcher, type Dispatcher } from "../../pipeline";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { createSeedMigrationContext } from "../context";
 import { createEsOperationsTable, esOperationsTable } from "../operations-schema";
 import { runPendingSeedMigrations } from "../runner";
 
 let testDb: BunTestDb;
+// Real (feature-less) dispatcher — these tests exercise the read-helper layer
+// (findUserByEmail/…) which only touches ctx.db; the context builder still
+// requires a dispatcher, so a real one with no handlers is wired here instead
+// of a fabricated stub. systemWriteAs is never called in this suite.
+let dispatcher: Dispatcher;
 
 beforeAll(async () => {
   await ensureTemporalPolyfill();
   testDb = await createTestDb();
+  await createEventsTable(testDb.db);
   await createEsOperationsTable(testDb.db);
+
+  const registry = createRegistry([]);
+  dispatcher = createDispatcher(registry, {
+    db: testDb.db,
+    redis: undefined as never,
+    entityCache: undefined as never,
+    registry,
+  });
 
   // Minimal-Schema-Stubs für die 3 Read-Tabellen die context.ts liest.
   // Spalten matchen production (siehe Sysadmin-Stream-Tenant-Bug Memory).
@@ -91,16 +112,6 @@ async function insertMembershipWithEvent(args: {
   );
 }
 
-function makeMockDispatcher() {
-  return {
-    write: mock(async () => ({ isSuccess: true as const, data: {} })),
-    query: mock(),
-    command: mock(),
-    batch: mock(),
-    resolveAuthClaims: mock(),
-  };
-}
-
 function makeTempSeedsDir(files: readonly { name: string; content: string }[]): string {
   const dir = mkdtempSync(join(tmpdir(), "es-ops-ctx-integ-"));
   for (const f of files) writeFileSync(join(dir, f.name), f.content);
@@ -122,7 +133,7 @@ describe("SeedMigrationContext.findUserByEmail (integration)", () => {
     );
 
     const ctx = createSeedMigrationContext({
-      dispatcher: makeMockDispatcher() as never,
+      dispatcher,
       dbRunner: testDb.db,
     });
     const found = await ctx.findUserByEmail("admin@example.com");
@@ -131,7 +142,7 @@ describe("SeedMigrationContext.findUserByEmail (integration)", () => {
 
   test("liefert null bei unknown email (kein throw)", async () => {
     const ctx = createSeedMigrationContext({
-      dispatcher: makeMockDispatcher() as never,
+      dispatcher,
       dbRunner: testDb.db,
     });
     const found = await ctx.findUserByEmail("does-not-exist@example.com");
@@ -162,7 +173,7 @@ describe("SeedMigrationContext.findMembershipsOfUser (integration)", () => {
     });
 
     const ctx = createSeedMigrationContext({
-      dispatcher: makeMockDispatcher() as never,
+      dispatcher,
       dbRunner: testDb.db,
     });
     const memberships = await ctx.findMembershipsOfUser(userId);
@@ -193,7 +204,7 @@ describe("SeedMigrationContext.findMembershipsOfUser (integration)", () => {
     });
 
     const ctx = createSeedMigrationContext({
-      dispatcher: makeMockDispatcher() as never,
+      dispatcher,
       dbRunner: testDb.db,
     });
     const [m] = await ctx.findMembershipsOfUser(userId);
@@ -219,7 +230,7 @@ describe("SeedMigrationContext.findMembershipsOfUser (integration)", () => {
       roles: "not-json",
     });
     const ctx = createSeedMigrationContext({
-      dispatcher: makeMockDispatcher() as never,
+      dispatcher,
       dbRunner: testDb.db,
     });
     const memberships = await ctx.findMembershipsOfUser(userId);
@@ -228,7 +239,7 @@ describe("SeedMigrationContext.findMembershipsOfUser (integration)", () => {
 
   test("liefert leere Liste bei userId ohne memberships", async () => {
     const ctx = createSeedMigrationContext({
-      dispatcher: makeMockDispatcher() as never,
+      dispatcher,
       dbRunner: testDb.db,
     });
     const memberships = await ctx.findMembershipsOfUser("01900000-0000-7000-8000-000000000099");
@@ -251,7 +262,7 @@ describe("SeedMigrationContext.findMembershipsOfUser (integration)", () => {
       [userId],
     );
     const ctx = createSeedMigrationContext({
-      dispatcher: makeMockDispatcher() as never,
+      dispatcher,
       dbRunner: testDb.db,
     });
     const memberships = await ctx.findMembershipsOfUser(userId);
@@ -267,7 +278,7 @@ describe("SeedMigrationContext.findTenants (integration)", () => {
         ('00000000-0000-4000-8000-000000000001'::uuid, 'Alpha', 'alpha', '2026-01-01')
     `);
     const ctx = createSeedMigrationContext({
-      dispatcher: makeMockDispatcher() as never,
+      dispatcher,
       dbRunner: testDb.db,
     });
     const tenants = await ctx.findTenants();
@@ -301,8 +312,7 @@ describe("runPendingSeedMigrations: skippable + env-flag (integration)", () => {
         db: testDb.db,
         seedsDir: dir,
         appliedBy: "boot",
-        createContext: (dbRunner) =>
-          createSeedMigrationContext({ dispatcher: makeMockDispatcher() as never, dbRunner }),
+        createContext: (dbRunner) => createSeedMigrationContext({ dispatcher, dbRunner }),
         logger: () => {},
       });
       expect(r.appliedIds).toEqual([]);
@@ -336,8 +346,7 @@ describe("runPendingSeedMigrations: skippable + env-flag (integration)", () => {
         db: testDb.db,
         seedsDir: dir,
         appliedBy: "boot",
-        createContext: (dbRunner) =>
-          createSeedMigrationContext({ dispatcher: makeMockDispatcher() as never, dbRunner }),
+        createContext: (dbRunner) => createSeedMigrationContext({ dispatcher, dbRunner }),
         logger: () => {},
       });
       expect(r.appliedIds).toEqual(["2026-05-20-skippable-but-no-flag"]);
@@ -360,7 +369,7 @@ describe("SeedMigrationContext.db (escape-hatch, integration)", () => {
         ('00000000-0000-4000-8000-000000000007'::uuid, 'Lucky', 'lucky')
     `);
     const ctx = createSeedMigrationContext({
-      dispatcher: makeMockDispatcher() as never,
+      dispatcher,
       dbRunner: testDb.db,
     });
     const rows = (await asRawClient(ctx.db).unsafe(

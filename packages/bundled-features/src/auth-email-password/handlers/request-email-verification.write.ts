@@ -10,6 +10,7 @@ export type RequestEmailVerificationOptions = TokenRequestOptions;
 
 export type RequestVerificationData = TokenRequestData<"verification-requested">;
 
+// @wrapper-known semantic-alias
 export function createRequestEmailVerificationHandler(opts: RequestEmailVerificationOptions) {
   return createTokenRequestHandler(
     {

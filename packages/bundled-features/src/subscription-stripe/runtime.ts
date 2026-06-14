@@ -128,6 +128,7 @@ export function createStripeRuntimes(deps: StripeRuntimeDeps): StripeRuntimes {
 
   return {
     ctx: {
+      // @wrapper-known semantic-alias
       clientForCtx: async (ctx) => clientFor(await ctxApiKey(ctx)),
       assertBillingLive: async (ctx) => {
         const live = ctx.config ? await ctx.config(deps.billingLiveHandle) : undefined;

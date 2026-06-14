@@ -207,6 +207,7 @@ export function mapStripeStatus(stripeStatus: Stripe.Subscription.Status): Subsc
 /** Holt die Subscription aus dem Event. Subscription-events haben sie
  *  direkt im data.object; invoice-events haben nur die subscription-id
  *  und brauchen einen lazy-fetch via stripe.subscriptions.retrieve. */
+// @wrapper-known semantic-alias
 async function extractSubscriptionFromEvent(
   event: Stripe.Event,
   stripe: Stripe,

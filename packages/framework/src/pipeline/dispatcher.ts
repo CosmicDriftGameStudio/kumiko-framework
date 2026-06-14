@@ -298,9 +298,9 @@ export function createDispatcher(
     // (e.g. system-privileged lookups that bypass field-access read filters).
     const bridgeSink = afterCommitHooks ?? [];
     const bridge = {
-      query: (targetType: string, payload: unknown) => executeQuery(targetType, payload, user, tx),
+      query: (targetType: string, payload: unknown) => executeQuery(targetType, payload, user, tx), // @wrapper-known semantic-alias
       queryAs: (asUser: SessionUser, targetType: string, payload: unknown) =>
-        executeQuery(targetType, payload, asUser, tx),
+        executeQuery(targetType, payload, asUser, tx), // @wrapper-known semantic-alias
       write: async (targetType: string, payload: unknown) => {
         const res = await executeWrite(targetType, payload, user, tx, bridgeSink);
         return res;
@@ -476,7 +476,7 @@ export function createDispatcher(
           user.tenantId,
           reducer,
           initial,
-          { upcastEvent: (event) => upcastStoredEvent(event, upcasters, upcastCtx) },
+          { upcastEvent: (event) => upcastStoredEvent(event, upcasters, upcastCtx) }, // @wrapper-known semantic-alias
         );
       },
       queryProjection: async <T = Record<string, unknown>>(
@@ -521,7 +521,7 @@ export function createDispatcher(
       // handler surface just forwards the call so both entry points (login
       // handler via ctx.resolveAuthClaims, switch-tenant route via
       // dispatcher.resolveAuthClaims) cannot drift.
-      resolveAuthClaims: (claimsUser: SessionUser) => resolveAuthClaimsFn(claimsUser),
+      resolveAuthClaims: (claimsUser: SessionUser) => resolveAuthClaimsFn(claimsUser), // @wrapper-known semantic-alias
 
       // Feature-effective check for in-handler opt-in logic. Scope:
       // **current user's tenant** — for cross-tenant lookups (rare,
@@ -1387,7 +1387,7 @@ export function createDispatcher(
     return {
       db,
       queryAs: (asUser: SessionUser, qn: string, payload: unknown) =>
-        executeQuery(qn, payload, asUser),
+        executeQuery(qn, payload, asUser), // @wrapper-known semantic-alias
       ...(configAccessor && { config: configAccessor }),
     };
   }

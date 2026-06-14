@@ -285,7 +285,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           db: ctx.db as import("@cosmicdrift/kumiko-framework/db").DbConnection, // @cast-boundary db-operator
           registry: ctx.registry,
           buildStorageProvider: async (tenantId) =>
-            createFileProviderForTenant(providerCtx, tenantId, "user-data-rights:run-export-jobs"),
+            createFileProviderForTenant(providerCtx, tenantId, "user-data-rights:run-export-jobs"), // @wrapper-known semantic-alias
           now: T.Now.instant(),
           // Atom 5 — App-Author-Callbacks fuer Email-Notification.
           // Optional: wenn nicht gesetzt, kein Email; User pollt

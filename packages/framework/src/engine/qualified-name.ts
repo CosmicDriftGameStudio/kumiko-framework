@@ -92,6 +92,7 @@ export function isValidQn(value: string): boolean {
 // True if `name` is a valid QN segment (lowercase letters, digits, dashes;
 // starts with a letter). Same rule as `QN_SEGMENT` — kept public so feature
 // registration can reject bad names at the source instead of at registry-boot.
+// @wrapper-known semantic-alias
 export function isKebabSegment(name: string): boolean {
   return QN_SEGMENT.test(name);
 }
