@@ -1,5 +1,28 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.49.0
+
+### Patch Changes
+
+- 5ffbc19: auth-email-password: self-signup rejects an already-registered email instead of logging into the existing account (#365)
+
+  `provisionSignupAccount` was silently idempotent — for an email that already
+  had a user (seeding or a prior signup) it reused the existing user and minted
+  a session for them, plus created an orphan tenant. Anyone able to receive the
+  magic link at a reachable inbox could thereby be logged into the existing
+  account (e.g. a seeded SystemAdmin). It is now create-only: it throws
+  `ConflictError` before any tenant is created, and `signup-confirm` translates
+  that into a clean `signup_email_already_registered` error without minting a
+  session. The matching JSDoc/comment drift (which claimed the throw already
+  happened) is corrected.
+
+- Updated dependencies [5d8b8ca]
+  - @cosmicdrift/kumiko-framework@0.49.0
+  - @cosmicdrift/kumiko-headless@0.49.0
+  - @cosmicdrift/kumiko-renderer@0.49.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.49.0
+  - @cosmicdrift/kumiko-renderer-web@0.49.0
+
 ## 0.48.1
 
 ### Patch Changes
