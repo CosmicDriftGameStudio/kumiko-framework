@@ -73,7 +73,7 @@ export const fileProviderInMemoryFeature = defineFeature(FEATURE_NAME, (r) => {
       // Returnt den per-tenant Storage. Identitätsstabil zwischen calls
       // damit accumulated state erhalten bleibt.
       return getOrCreateProviderForTenant(tenantId);
-    },
+    }, // @wrapper-known semantic-alias
   };
   r.useExtension("fileProvider", "inmemory", plugin);
 });

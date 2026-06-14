@@ -1,6 +1,7 @@
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { AuthErrors } from "./constants";
 
+// @wrapper-known error-helper
 export function invalidCredentials() {
   return writeFailure(
     new UnprocessableError(AuthErrors.invalidCredentials, {
@@ -9,6 +10,7 @@ export function invalidCredentials() {
   );
 }
 
+// @wrapper-known error-helper
 export function invalidInviteToken() {
   return writeFailure(
     new UnprocessableError(AuthErrors.invalidInviteToken, {
@@ -17,6 +19,7 @@ export function invalidInviteToken() {
   );
 }
 
+// @wrapper-known error-helper
 export function inviteEmailMismatch() {
   return writeFailure(
     new UnprocessableError(AuthErrors.inviteEmailMismatch, {
@@ -25,6 +28,7 @@ export function inviteEmailMismatch() {
   );
 }
 
+// @wrapper-known error-helper
 export function invalidResetToken() {
   return writeFailure(
     new UnprocessableError(AuthErrors.invalidResetToken, {
@@ -33,6 +37,7 @@ export function invalidResetToken() {
   );
 }
 
+// @wrapper-known error-helper
 export function invalidVerificationToken() {
   return writeFailure(
     new UnprocessableError(AuthErrors.invalidVerificationToken, {
@@ -41,6 +46,7 @@ export function invalidVerificationToken() {
   );
 }
 
+// @wrapper-known error-helper
 export function invalidSignupToken() {
   return writeFailure(
     new UnprocessableError(AuthErrors.invalidSignupToken, {
@@ -49,6 +55,7 @@ export function invalidSignupToken() {
   );
 }
 
+// @wrapper-known error-helper
 export function signupEmailAlreadyRegistered() {
   return writeFailure(
     new UnprocessableError(AuthErrors.signupEmailAlreadyRegistered, {
@@ -57,6 +64,7 @@ export function signupEmailAlreadyRegistered() {
   );
 }
 
+// @wrapper-known error-helper
 export function noMembership() {
   return writeFailure(
     new UnprocessableError(AuthErrors.noMembership, {
@@ -65,6 +73,7 @@ export function noMembership() {
   );
 }
 
+// @wrapper-known error-helper
 export function emailNotVerified() {
   return writeFailure(
     new UnprocessableError(AuthErrors.emailNotVerified, {
@@ -74,6 +83,7 @@ export function emailNotVerified() {
 }
 
 // retryAfterSeconds drives the login/signup UI countdown — must stay > 0.
+// @wrapper-known error-helper
 export function accountLocked(retryAfterSeconds: number) {
   return writeFailure(
     new UnprocessableError(AuthErrors.accountLocked, {
@@ -83,6 +93,7 @@ export function accountLocked(retryAfterSeconds: number) {
   );
 }
 
+// @wrapper-known error-helper
 export function accountRestricted() {
   return writeFailure(
     new UnprocessableError(AuthErrors.accountRestricted, {

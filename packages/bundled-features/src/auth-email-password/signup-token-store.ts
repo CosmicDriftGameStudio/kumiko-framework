@@ -43,6 +43,7 @@ export function normalizeEmail(email: string): string {
 function tokenKey(token: string): string {
   return `${TOKEN_KEY_PREFIX}${token}`;
 }
+// @wrapper-known semantic-alias
 function emailKey(email: string): string {
   return `${EMAIL_KEY_PREFIX}${normalizeEmail(email)}`;
 }

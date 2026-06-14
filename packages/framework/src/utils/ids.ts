@@ -11,6 +11,7 @@ import { v7 } from "uuid";
 // Do NOT use this for security tokens (CSRF, session, API keys). The
 // timestamp prefix leaks creation time and shrinks unpredictable
 // entropy from 122 to 74 bits — use `generateToken` from api/tokens.ts.
+// @wrapper-known semantic-alias
 export function generateId(): string {
   return v7();
 }

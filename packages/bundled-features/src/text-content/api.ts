@@ -36,6 +36,7 @@ export type TextContentApi = {
   }) => Promise<TextBlock | null>;
 };
 
+// @wrapper-known semantic-alias
 export function createTextContentApi(db: DbConnection): TextContentApi {
   return {
     getBlock: async ({ tenantId, slug, lang }) => {
