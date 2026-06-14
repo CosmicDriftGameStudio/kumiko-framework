@@ -14,6 +14,7 @@ export {
   type PendingRebuildRun,
   pendingRebuildsTable,
   queueRebuildsFromMarkers,
+  type RunPendingRebuildsOptions,
   runPendingRebuilds,
 } from "./pending-rebuilds";
 // tableName → projection-name, für den app-seitigen Projection-Rebuild.
