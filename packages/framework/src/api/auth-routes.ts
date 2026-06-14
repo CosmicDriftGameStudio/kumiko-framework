@@ -257,8 +257,25 @@ export type AuthRoutesConfig = {
   // live on DIFFERENT subdomains (login on apex, app on admin.) — the
   // browser then sends the session to every subdomain. Careful: that
   // includes ALL subdomains (tenant pages, previews); widen the scope
-  // only when the cross-subdomain session is actually required.
+  // only when the cross-subdomain session is actually required — and pair
+  // it with `allowedOrigins` so the server-side Origin guard stays on (a
+  // wide cookie makes the JS-readable csrf cookie reachable from every
+  // subdomain, weakening the double-submit defence).
   cookieDomain?: string;
+  // Origin-allowlist for the server-side CSRF-hardening guard (origin-
+  // middleware). When non-empty, every cookie-authenticated, state-changing
+  // /api request must carry an `Origin` header that exact-matches one of
+  // these entries (scheme+host+optional port, e.g. "https://example.eu", no
+  // trailing slash, no wildcards). Requests without an Origin fall back to
+  // Sec-Fetch-Site and then to the CSRF token — the guard is defense-in-
+  // depth, not a replacement.
+  //
+  // List ONLY the trusted entry hosts: the apex and the admin host. Do NOT
+  // list tenant/public subdomains — with a wide `cookieDomain` they share
+  // the session cookie, so an XSS there is exactly the threat this blocks.
+  // Empty/unset (default) disables the guard; required only when
+  // `cookieDomain` widens the cookie across subdomains.
+  allowedOrigins?: readonly string[];
 };
 
 export type PasswordResetConfig = {

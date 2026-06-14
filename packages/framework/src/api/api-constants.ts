@@ -53,6 +53,15 @@ export const PUBLIC_API_PATHS: ReadonlySet<string> = new Set([
   `/api${Routes.version}`,
 ]);
 
+// Methods that can mutate server state. GET/HEAD/OPTIONS are safe under
+// CORS + SameSite-cookie semantics and skip the CSRF / Origin guards entirely.
+export const STATE_CHANGING_METHODS: ReadonlySet<string> = new Set([
+  "POST",
+  "PUT",
+  "PATCH",
+  "DELETE",
+]);
+
 // Tenant transports for unauthenticated callers on public endpoints. JWT
 // users carry tenantId in the signed token; anonymous callers must declare
 // the tenant out-of-band — header for SPA/mobile, cookie for browser-direct

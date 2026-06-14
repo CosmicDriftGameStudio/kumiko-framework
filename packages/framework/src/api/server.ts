@@ -49,6 +49,7 @@ import { type AuthRoutesConfig, createAuthRoutes } from "./auth-routes";
 import { csrfMiddleware } from "./csrf-middleware";
 import { createJwtHelper, type JwtHelper } from "./jwt";
 import { observabilityMiddleware } from "./observability-middleware";
+import { originMiddleware } from "./origin-middleware";
 import { requestIdMiddleware } from "./request-id-middleware";
 import {
   DEFAULT_MAX_REQUEST_BYTES,
@@ -542,6 +543,29 @@ export function buildServer(options: ServerOptions): KumikoServer {
     if (PUBLIC_API_PATHS.has(c.req.path)) return next();
     return jwtGuard(c, next);
   });
+
+  // Origin-allowlist guard — additional CSRF-hardening for deployments that
+  // widen the auth cookie across subdomains (auth.cookieDomain). Opt-in: only
+  // wired when allowedOrigins is non-empty, so host-only-cookie apps are
+  // unaffected. Same /api/* + public-skip scope as the CSRF guard, registered
+  // BEFORE it so a disallowed cross-site POST surfaces as `origin_not_allowed`
+  // rather than `csrf_token_mismatch`. Warns when cookieDomain widens the
+  // cookie but no allowlist is set — that is the unguarded-XSS footgun.
+  const allowedOrigins = options.auth?.allowedOrigins;
+  if (allowedOrigins && allowedOrigins.length > 0) {
+    const originGuard = originMiddleware(allowedOrigins);
+    app.use("/api/*", async (c, next) => {
+      if (PUBLIC_API_PATHS.has(c.req.path)) return next();
+      return originGuard(c, next);
+    });
+  } else if (options.auth?.cookieDomain) {
+    console.warn(
+      "[kumiko:boot] auth.cookieDomain widens the session cookie across subdomains, but " +
+        "auth.allowedOrigins is empty — the JS-readable kumiko_csrf cookie is reachable from " +
+        "every subdomain (e.g. tenant pages) with no server-side Origin check. Set " +
+        "auth.allowedOrigins to the apex + admin host to enable the CSRF-hardening guard.",
+    );
+  }
 
   // Double-submit CSRF guard — runs only on cookie-authenticated,
   // state-changing requests (POST/PUT/PATCH/DELETE). The guard reads the
