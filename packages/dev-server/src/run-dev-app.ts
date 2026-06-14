@@ -32,6 +32,7 @@ import {
   type SessionUser,
   type TenantId,
   type TierResolverPlugin,
+  validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";
 import { applyBootSeeds } from "./boot/apply-boot-seeds";
@@ -158,6 +159,23 @@ export type RunDevAppOptions = {
 };
 
 export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServerHandle> {
+  // Auto-mix Standard-Features im auth-mode via composeFeatures (single
+  // source of truth — auch runProdApp und der per-app drizzle-Schema-
+  // Generator nutzen denselben Helper, damit Migration und Runtime nie
+  // auseinanderdriften können).
+  const composeAuthOptions = buildComposeAuthOptions(options.auth);
+  const features = composeFeatures(options.features, {
+    includeBundled: !!options.auth,
+    ...(composeAuthOptions && { authOptions: composeAuthOptions }),
+  });
+
+  // Boot-Validation als allererstes — vor fs-Watcher und Server. Dieselbe
+  // Fehlerklasse (unqualifizierte nav-/handler-QNs, screen-access etc.),
+  // die früher nur runProdApp fing und sonst erst den Prod-Pod im
+  // CrashLoopBackOff sterben ließ (#359). Wirft synchron, bevor ein
+  // Socket oder Watcher (codegen-Write) aufgeht.
+  validateBoot(features);
+
   // Codegen + File-Watcher — schreibt `<appRoot>/.kumiko/types.generated.d.ts`
   // + `define.ts` aus den r.defineEvent-Aufrufen der App, einmal beim
   // Boot UND danach bei jeder relevanten Änderung unter `<appRoot>/src/`.
@@ -169,16 +187,6 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // wird über das createKumikoServer-Handle implizit erledigt (Bun's
   // process-exit räumt fs.watch-handles auf).
   watchAndRegenerate({ appRoot: process.cwd() });
-
-  // Auto-mix Standard-Features im auth-mode via composeFeatures (single
-  // source of truth — auch runProdApp und der per-app drizzle-Schema-
-  // Generator nutzen denselben Helper, damit Migration und Runtime nie
-  // auseinanderdriften können).
-  const composeAuthOptions = buildComposeAuthOptions(options.auth);
-  const features = composeFeatures(options.features, {
-    includeBundled: !!options.auth,
-    ...(composeAuthOptions && { authOptions: composeAuthOptions }),
-  });
 
   // Sprint-8a Tier-Composition auto-wire: scan features for a
   // tenantTierResolver-extension. If found AND user didn't supply own
