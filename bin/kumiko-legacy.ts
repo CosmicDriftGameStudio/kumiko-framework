@@ -9,11 +9,21 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { availableParallelism, loadavg } from "node:os";
 import { join, resolve as resolvePath } from "node:path";
 import {
   formatCheckWorkContext,
   resolveCheckWorkContext,
 } from "./_lib/check-work-context";
+
+// Fast checks are CPU-bound (tsc, ts-morph guards). A fixed pool=6 thrashes
+// wherever spare CPU < 6 — the 1-CPU CI runner, or a loaded dev box (4 parallel
+// sessions) — inflating every step 5-6×. Size to *currently free* capacity
+// (cores − 1-min load), not raw core count, so a busy machine doesn't
+// oversubscribe. Override with KUMIKO_FAST_POOL.
+const FAST_POOL =
+  Number(process.env.KUMIKO_FAST_POOL) ||
+  Math.max(1, Math.min(availableParallelism() - 1, Math.round(availableParallelism() - loadavg()[0])));
 import {
   INTEGRATION_RUNNER,
 } from "./_lib/integration-test";
@@ -534,8 +544,8 @@ const commands = {
       logBoth("Checke alles durch...\n", logPath);
       const results: Array<{ name: string; ok: boolean }> = [];
 
-      logBoth(`--- ${FAST_CHECK_STEPS.length} fast checks (parallel, pool=6) ---`, logPath);
-      const fastResults = await runPoolBuffered(FAST_CHECK_STEPS, 6, logPath);
+      logBoth(`--- ${FAST_CHECK_STEPS.length} fast checks (parallel, pool=${FAST_POOL}) ---`, logPath);
+      const fastResults = await runPoolBuffered(FAST_CHECK_STEPS, FAST_POOL, logPath);
       for (const r of fastResults) results.push(r);
       logBoth("", logPath);
 
@@ -584,10 +594,10 @@ const commands = {
       console.log("Schneller Check — Integration wird geskippt.\n");
       const results: Array<{ name: string; ok: boolean }> = [];
 
-      console.log(`--- ${FAST_CHECK_STEPS.length} fast checks (parallel, pool=6) ---`);
+      console.log(`--- ${FAST_CHECK_STEPS.length} fast checks (parallel, pool=${FAST_POOL}) ---`);
       // runPoolBuffered braucht einen logPath; wir geben /dev/null —
       // Output zeigt eh die ✓/✗-Live-Zeile pro Step plus failed-Outputs.
-      const fastResults = await runPoolBuffered(FAST_CHECK_STEPS, 6, "/dev/null");
+      const fastResults = await runPoolBuffered(FAST_CHECK_STEPS, FAST_POOL, "/dev/null");
       for (const r of fastResults) results.push(r);
       console.log();
 
@@ -628,8 +638,8 @@ const commands = {
       // wird automatisch erfasst.
       const SPLIT_OUT = new Set(["Biome", "TypeScript", "TypeScript (framework + samples)"]);
       const guards = FAST_CHECK_STEPS.filter((s) => !SPLIT_OUT.has(s.name));
-      console.log(`--- ${guards.length} guards (parallel, pool=6) ---`);
-      const results = await runPoolBuffered(guards, 6, "/dev/null");
+      console.log(`--- ${guards.length} guards (parallel, pool=${FAST_POOL}) ---`);
+      const results = await runPoolBuffered(guards, FAST_POOL, "/dev/null");
       const allGood = results.every((r) => r.ok);
       console.log(allGood ? "\nGuards grün." : "\nGuards rot:");
       for (const r of results) {
