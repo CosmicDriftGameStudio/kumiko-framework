@@ -117,13 +117,13 @@ function mergeSettingsHubIntoConfigFeature(
       screens: generated.screens,
       navs: generated.navs,
     });
-    return;
+  } else {
+    features[features.indexOf(existing)] = {
+      ...existing,
+      screens: [...existing.screens, ...generated.screens],
+      navs: [...(existing.navs ?? []), ...generated.navs],
+    };
   }
-  features[features.indexOf(existing)] = {
-    ...existing,
-    screens: [...existing.screens, ...generated.screens],
-    navs: [...(existing.navs ?? []), ...generated.navs],
-  };
 }
 
 // PlatformComponent slots ({ react, native }) legitimately hold component
