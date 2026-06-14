@@ -49,6 +49,7 @@ import { type AuthRoutesConfig, createAuthRoutes } from "./auth-routes";
 import { csrfMiddleware } from "./csrf-middleware";
 import { createJwtHelper, type JwtHelper } from "./jwt";
 import { observabilityMiddleware } from "./observability-middleware";
+import { assertOriginGuardConfig, originMiddleware } from "./origin-middleware";
 import { requestIdMiddleware } from "./request-id-middleware";
 import {
   DEFAULT_MAX_REQUEST_BYTES,
@@ -542,6 +543,24 @@ export function buildServer(options: ServerOptions): KumikoServer {
     if (PUBLIC_API_PATHS.has(c.req.path)) return next();
     return jwtGuard(c, next);
   });
+
+  // Origin-allowlist guard — additional CSRF-hardening for deployments that
+  // widen the auth cookie across subdomains (auth.cookieDomain). Registered
+  // only when allowedOrigins is non-empty, with the same /api/* + public-skip
+  // scope as the CSRF guard and BEFORE it, so a disallowed cross-site POST
+  // surfaces as `origin_not_allowed` rather than `csrf_token_mismatch`. Fails
+  // closed (assertOriginGuardConfig throws) when a wide cookieDomain is set
+  // without an allowlist and without an explicit opt-out — that config is the
+  // unguarded-subdomain-XSS footgun, not a warn-and-continue case.
+  assertOriginGuardConfig(options.auth);
+  const allowedOrigins = options.auth?.allowedOrigins;
+  if (allowedOrigins && allowedOrigins.length > 0) {
+    const originGuard = originMiddleware(allowedOrigins);
+    app.use("/api/*", async (c, next) => {
+      if (PUBLIC_API_PATHS.has(c.req.path)) return next();
+      return originGuard(c, next);
+    });
+  }
 
   // Double-submit CSRF guard — runs only on cookie-authenticated,
   // state-changing requests (POST/PUT/PATCH/DELETE). The guard reads the

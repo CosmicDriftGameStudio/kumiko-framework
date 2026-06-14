@@ -1,11 +1,8 @@
 import { timingSafeEqual } from "node:crypto";
 import type { Context, Next } from "hono";
 import { getCookie } from "hono/cookie";
+import { STATE_CHANGING_METHODS } from "./api-constants";
 import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME, getAuthTransport } from "./auth-middleware";
-
-// Methods that can mutate server state. GET/HEAD/OPTIONS are safe under
-// CORS + SameSite-cookie semantics and skip the CSRF check entirely.
-const STATE_CHANGING_METHODS: ReadonlySet<string> = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 // Constant-time byte compare. `a !== b` short-circuits at the first
 // differing byte and leaks the common prefix length to anyone who can
