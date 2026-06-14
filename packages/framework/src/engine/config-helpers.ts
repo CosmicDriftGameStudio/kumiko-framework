@@ -44,6 +44,16 @@ export const access = {
 // `allowPerRequest` is conditional against `text`: text keys can never
 // opt in to per-request overrides (XSS/SQL/Shell risk). For other types
 // it's a plain boolean opt-in consumed by resolveConfigOrParam.
+//
+// Provisioning metadata (optional, available on every scope so a key never
+// switches factory to gain it):
+//   `env`              binds an ENV var as the boot-time default (the
+//                      ENV→app-override bridge reads keyDef.env).
+//   `inheritedToTenant` default true; false redacts the inherited system
+//                      value from tenant-side reads (e.g. SMTP creds).
+//   `backing`          storage backing; "secrets" routes the key through the
+//                      secrets store. backing×scope rules are enforced at
+//                      boot, not by this type (secrets don't cascade).
 type ConfigKeyOptions<T extends ConfigKeyType> = {
   write?: readonly string[];
   read?: readonly string[];
@@ -54,6 +64,9 @@ type ConfigKeyOptions<T extends ConfigKeyType> = {
   computed?: ConfigComputedFn<T>;
   allowPerRequest?: T extends "text" ? never : boolean;
   required?: boolean;
+  env?: string;
+  inheritedToTenant?: boolean;
+  backing?: ConfigBacking;
 };
 
 // --- Scope Defaults ---
@@ -86,6 +99,9 @@ function createConfigKey<T extends ConfigKeyType>(
     computed: opts.computed,
     ...(opts.allowPerRequest === true ? { allowPerRequest: true } : {}),
     ...(opts.required === true ? { required: true } : {}),
+    ...(opts.env ? { env: opts.env } : {}),
+    ...(opts.inheritedToTenant === false ? { inheritedToTenant: false } : {}),
+    ...(opts.backing === "secrets" ? { backing: "secrets" } : {}),
   };
 }
 
@@ -112,57 +128,6 @@ export function createUserConfig<T extends ConfigKeyType>(
   opts?: ConfigKeyOptions<T>,
 ): ConfigKeyDefinition<T> {
   return createConfigKey("user", type, opts);
-}
-
-// --- Boot-Configuration (provisioning bracket) ---
-//
-// type-first unification of the three scope factories, plus the provisioning
-// metadata: an ENV→default bridge (`env`), two visibility axes
-// (`visibility.masked` → encrypted, `visibility.inheritedToTenant` →
-// tenant-side redaction of the inherited system value) and the storage
-// `backing`. Returns the same ConfigKeyDefinition the scope factories produce,
-// so it slots into `r.config({ keys })` identically. The metadata fields are
-// declaration-only — the ENV bridge, redaction and backing×scope rules are
-// wired by the resolver / cascade.query / boot-validator respectively.
-type BootConfigurationOptions<T extends ConfigKeyType> = {
-  readonly scope: ConfigScope;
-  readonly env?: string;
-  readonly visibility?: {
-    readonly masked?: boolean;
-    readonly inheritedToTenant?: boolean;
-  };
-  readonly backing?: ConfigBacking;
-  readonly write?: readonly string[];
-  readonly read?: readonly string[];
-  readonly default?: ConfigValue<T>;
-  readonly options?: readonly string[];
-  readonly bounds?: T extends "number" ? ConfigBounds : never;
-  readonly computed?: ConfigComputedFn<T>;
-  readonly allowPerRequest?: T extends "text" ? never : boolean;
-  readonly required?: boolean;
-};
-
-export function createBootConfiguration<T extends ConfigKeyType>(
-  type: T,
-  opts: BootConfigurationOptions<T>,
-): ConfigKeyDefinition<T> {
-  const base = createConfigKey(opts.scope, type, {
-    write: opts.write,
-    read: opts.read,
-    default: opts.default,
-    encrypted: opts.visibility?.masked,
-    options: opts.options,
-    bounds: opts.bounds,
-    computed: opts.computed,
-    allowPerRequest: opts.allowPerRequest,
-    required: opts.required,
-  });
-  return {
-    ...base,
-    ...(opts.env ? { env: opts.env } : {}),
-    ...(opts.visibility?.inheritedToTenant === false ? { inheritedToTenant: false } : {}),
-    ...(opts.backing === "secrets" ? { backing: "secrets" } : {}),
-  };
 }
 
 // --- Seed Factories ---

@@ -515,7 +515,7 @@ export function validateAppOverrides(
 
 // --- ENV → App-Override Bridge ---
 //
-// Realises the `env` field on createBootConfiguration: at boot every config
+// Realises the `env` field of a config key: at boot every config
 // key that declares `env` reads its value from the process environment and
 // injects it as an app-override default (the cascade rung between the
 // tenant/system rows and the declared default). String env values are coerced

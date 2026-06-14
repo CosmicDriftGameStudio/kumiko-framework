@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
   type ConfigKeyDefinition,
-  createBootConfiguration,
+  createSystemConfig,
+  createTenantConfig,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { buildEnvConfigOverrides } from "../resolver";
 
@@ -18,8 +19,7 @@ function registryStub(keys: Record<string, ConfigKeyDefinition>) {
 describe("buildEnvConfigOverrides", () => {
   test("bridges a set env var into the override map (number, coerced)", () => {
     const reg = registryStub({
-      "billing:config:timeout": createBootConfiguration("number", {
-        scope: "system",
+      "billing:config:timeout": createSystemConfig("number", {
         env: "BILLING_TIMEOUT",
       }),
     });
@@ -30,7 +30,7 @@ describe("buildEnvConfigOverrides", () => {
 
   test("text value passes through verbatim", () => {
     const reg = registryStub({
-      "app:config:url": createBootConfiguration("text", { scope: "system", env: "SERVICE_URL" }),
+      "app:config:url": createSystemConfig("text", { env: "SERVICE_URL" }),
     });
     const result = buildEnvConfigOverrides(reg, { SERVICE_URL: "https://x.test" });
     expect(result.get("app:config:url")).toBe("https://x.test");
@@ -38,7 +38,7 @@ describe("buildEnvConfigOverrides", () => {
 
   test("boolean coercion accepts true/false/1/0 case-insensitively", () => {
     const reg = registryStub({
-      "a:config:flag": createBootConfiguration("boolean", { scope: "system", env: "FLAG" }),
+      "a:config:flag": createSystemConfig("boolean", { env: "FLAG" }),
     });
     expect(buildEnvConfigOverrides(reg, { FLAG: "true" }).get("a:config:flag")).toBe(true);
     expect(buildEnvConfigOverrides(reg, { FLAG: "1" }).get("a:config:flag")).toBe(true);
@@ -49,7 +49,7 @@ describe("buildEnvConfigOverrides", () => {
 
   test("boolean coercion rejects a non-boolean string (fail-fast at boot)", () => {
     const reg = registryStub({
-      "a:config:flag": createBootConfiguration("boolean", { scope: "system", env: "FLAG" }),
+      "a:config:flag": createSystemConfig("boolean", { env: "FLAG" }),
     });
     expect(() => buildEnvConfigOverrides(reg, { FLAG: "maybe" })).toThrow(
       /expects a boolean.*got "maybe"/i,
@@ -58,7 +58,7 @@ describe("buildEnvConfigOverrides", () => {
 
   test("number coercion rejects a non-numeric string", () => {
     const reg = registryStub({
-      "a:config:n": createBootConfiguration("number", { scope: "system", env: "N" }),
+      "a:config:n": createSystemConfig("number", { env: "N" }),
     });
     expect(() => buildEnvConfigOverrides(reg, { N: "abc" })).toThrow(
       /expects a number.*got "abc"/i,
@@ -67,14 +67,14 @@ describe("buildEnvConfigOverrides", () => {
 
   test("number coercion trims whitespace", () => {
     const reg = registryStub({
-      "a:config:n": createBootConfiguration("number", { scope: "system", env: "N" }),
+      "a:config:n": createSystemConfig("number", { env: "N" }),
     });
     expect(buildEnvConfigOverrides(reg, { N: "  5 " }).get("a:config:n")).toBe(5);
   });
 
   test("undefined env var → key skipped (falls through to its cascade)", () => {
     const reg = registryStub({
-      "a:config:x": createBootConfiguration("text", { scope: "system", env: "MISSING" }),
+      "a:config:x": createSystemConfig("text", { env: "MISSING" }),
     });
     const result = buildEnvConfigOverrides(reg, {});
     expect(result.size).toBe(0);
@@ -82,7 +82,7 @@ describe("buildEnvConfigOverrides", () => {
 
   test("empty-string env var → skipped (must not clobber a declared default)", () => {
     const reg = registryStub({
-      "a:config:x": createBootConfiguration("text", { scope: "system", env: "EMPTY" }),
+      "a:config:x": createSystemConfig("text", { env: "EMPTY" }),
     });
     const result = buildEnvConfigOverrides(reg, { EMPTY: "" });
     expect(result.size).toBe(0);
@@ -90,7 +90,7 @@ describe("buildEnvConfigOverrides", () => {
 
   test("keys without an env field are ignored even if a same-named var exists", () => {
     const reg = registryStub({
-      "a:config:no-env": createBootConfiguration("text", { scope: "system" }),
+      "a:config:no-env": createSystemConfig("text", {}),
     });
     // No env declared → never bridged, regardless of the environment.
     const result = buildEnvConfigOverrides(reg, {
@@ -102,8 +102,7 @@ describe("buildEnvConfigOverrides", () => {
 
   test("select value must be one of the declared options", () => {
     const reg = registryStub({
-      "a:config:theme": createBootConfiguration("select", {
-        scope: "system",
+      "a:config:theme": createSystemConfig("select", {
         env: "THEME",
         options: ["light", "dark"],
       }),
@@ -114,8 +113,7 @@ describe("buildEnvConfigOverrides", () => {
 
   test("number env value outside bounds fails (validateAppOverrides gate)", () => {
     const reg = registryStub({
-      "a:config:n": createBootConfiguration("number", {
-        scope: "system",
+      "a:config:n": createSystemConfig("number", {
         env: "N",
         bounds: { min: 1, max: 100 },
       }),
@@ -125,9 +123,9 @@ describe("buildEnvConfigOverrides", () => {
 
   test("bridges only the env-declaring keys out of a mixed registry", () => {
     const reg = registryStub({
-      "a:config:bridged": createBootConfiguration("number", { scope: "system", env: "BRIDGED" }),
-      "a:config:plain": createBootConfiguration("text", { scope: "tenant" }),
-      "a:config:unset": createBootConfiguration("text", { scope: "system", env: "UNSET" }),
+      "a:config:bridged": createSystemConfig("number", { env: "BRIDGED" }),
+      "a:config:plain": createTenantConfig("text", {}),
+      "a:config:unset": createSystemConfig("text", { env: "UNSET" }),
     });
     const result = buildEnvConfigOverrides(reg, { BRIDGED: "7" });
     expect(result.size).toBe(1);

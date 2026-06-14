@@ -99,7 +99,7 @@ export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
   // calls in its build-fn.
   readonly required?: boolean;
 
-  // --- Provisioning-Metadata (createBootConfiguration) ---
+  // --- Provisioning-Metadata (optional auf createTenant/System/UserConfig) ---
   // ENV-Var-Name, dessen Wert beim Boot als app-override-Default dieses Keys
   // gebrückt wird. Reiner Fallback — überschreibt keinen gesetzten Row.
   readonly env?: string;

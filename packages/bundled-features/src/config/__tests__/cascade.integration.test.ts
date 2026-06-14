@@ -7,7 +7,6 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   access,
-  createBootConfiguration,
   createSystemConfig,
   createSystemSeed,
   createTenantConfig,
@@ -77,11 +76,10 @@ const cascadeFeature = defineFeature("cascade-test", (r) => {
         read: access.all,
         write: access.all,
       }),
-      // End-to-end seam key: declared via the provisioning factory with an
-      // `env` binding so buildEnvConfigOverrides reads it off the real
-      // registry under the qualified name define-feature assigns.
-      envKey: createBootConfiguration("text", {
-        scope: "system",
+      // End-to-end seam key: a plain scope factory carrying an `env` binding
+      // so buildEnvConfigOverrides reads it off the real registry under the
+      // qualified name define-feature assigns.
+      envKey: createSystemConfig("text", {
         env: "CASCADE_ENV_VALUE",
         default: "DEFAULT_ENV",
         read: access.all,
@@ -413,7 +411,7 @@ describe("cascade levels — non-DB sources", () => {
 
   test("end-to-end: env-declared key bridges through the real registry to the resolver", async () => {
     // The single flow none of the per-layer tests cover: a key declared via
-    // createBootConfiguration({ env }) on the REAL registry → its qualified
+    // createSystemConfig({ env }) on the REAL registry → its qualified
     // name (define-feature-assigned) → buildEnvConfigOverrides emits exactly
     // that key off getAllConfigKeys → resolver resolves it as app-override.
     // A mismatch in key-qualification across registry/bridge/resolver would
