@@ -5,6 +5,7 @@ import type {
   ConfigComputedFn,
   ConfigKeyDefinition,
   ConfigKeyType,
+  ConfigMask,
   ConfigSeedDef,
   ConfigValue,
   CreateSeedOptions,
@@ -54,6 +55,8 @@ export const access = {
 //   `backing`          storage backing; "secrets" routes the key through the
 //                      secrets store. backing×scope rules are enforced at
 //                      boot, not by this type (secrets don't cascade).
+//   `mask`             marks the key as a user-facing setting → the
+//                      Settings-Hub derives its screen+nav. Absent = internal.
 type ConfigKeyOptions<T extends ConfigKeyType> = {
   write?: readonly string[];
   read?: readonly string[];
@@ -67,6 +70,7 @@ type ConfigKeyOptions<T extends ConfigKeyType> = {
   env?: string;
   inheritedToTenant?: boolean;
   backing?: ConfigBacking;
+  mask?: ConfigMask;
 };
 
 // --- Scope Defaults ---
@@ -102,6 +106,7 @@ function createConfigKey<T extends ConfigKeyType>(
     ...(opts.env ? { env: opts.env } : {}),
     ...(opts.inheritedToTenant === false ? { inheritedToTenant: false } : {}),
     ...(opts.backing === "secrets" ? { backing: "secrets" } : {}),
+    ...(opts.mask ? { mask: opts.mask } : {}),
   };
 }
 

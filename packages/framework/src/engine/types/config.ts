@@ -109,6 +109,20 @@ export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
   readonly inheritedToTenant?: boolean;
   // "config" (Default, volle Cascade) oder "secrets" (flach pro (tenant,key)).
   readonly backing?: ConfigBacking;
+  // Markiert den Key als user-facing Einstellung: der Self-Populating
+  // Settings-Hub leitet daraus automatisch Screen+Nav-Eintrag ab (kein
+  // manuelles r.screen/r.nav). Fehlt `mask`, gilt der Key als internes
+  // Plumbing (ENV-provisioniert/computed) und erscheint NICHT im Hub.
+  readonly mask?: ConfigMask;
+};
+
+// Label-Träger für den Settings-Hub. `title` ist ein i18n-Key (kein Literal —
+// Guard), `icon` ein Icon-Registry-Key für den Nav-Eintrag, `order` die
+// Sortier-Gewichtung innerhalb seiner Audience-Gruppe.
+export type ConfigMask = {
+  readonly title: string;
+  readonly icon?: string;
+  readonly order?: number;
 };
 
 export type ConfigDefinition = {

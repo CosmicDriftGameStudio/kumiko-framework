@@ -224,6 +224,7 @@ export type {
   ConfigKeyDefinition,
   ConfigKeyHandle,
   ConfigKeyType,
+  ConfigMask,
   ConfigResolver,
   ConfigScope,
   ConfigSeedDef,
