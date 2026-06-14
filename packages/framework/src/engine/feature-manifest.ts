@@ -59,6 +59,13 @@ export type FeatureManifest = {
 
 const CONFIG_SEGMENT = ":config:";
 
+// Codepoint order, not localeCompare: the manifest is serialized to byte-exact
+// JSON, and localeCompare's ordering depends on the runner's ICU locale → drift
+// between macOS-dev and Linux-CI (#330).
+function compareByCodepoint(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 export type BuildManifestOptions = {
   /** Herkunfts-Beschreibung fürs Manifest (landet 1:1 im JSON). */
   readonly source: string;
@@ -111,8 +118,8 @@ export function buildManifestFromRegistry(
       });
     }
 
-    configKeys.sort((a, b) => a.qualifiedName.localeCompare(b.qualifiedName));
-    secrets.sort((a, b) => a.qualifiedName.localeCompare(b.qualifiedName));
+    configKeys.sort((a, b) => compareByCodepoint(a.qualifiedName, b.qualifiedName));
+    secrets.sort((a, b) => compareByCodepoint(a.qualifiedName, b.qualifiedName));
 
     manifestFeatures.push({
       name: feature.name,
@@ -133,7 +140,7 @@ export function buildManifestFromRegistry(
     });
   }
 
-  manifestFeatures.sort((a, b) => a.name.localeCompare(b.name));
+  manifestFeatures.sort((a, b) => compareByCodepoint(a.name, b.name));
 
   return {
     source: options.source,
