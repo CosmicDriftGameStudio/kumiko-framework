@@ -56,3 +56,7 @@ playwright-report/
 
 # check-app-tsc scratch (written into recipe dirs during the check)
 .check-tsconfig.json
+
+# check-app-tsc: composite emit + generated solution (one tsc -b over all samples)
+.check-app-tsc-out/
+.check-app-tsc-solution.json

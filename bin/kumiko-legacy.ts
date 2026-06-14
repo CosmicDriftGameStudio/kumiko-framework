@@ -174,9 +174,13 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
 
     // 2. TypeScript Check
     if (root.kind === "framework") {
-      steps.push({ name: `TypeScript (${root.kind})`, cmd: `cd ${absPath} && ${TSC} -b .` });
+      // One `tsc -b` builds the framework packages (the root tsconfig
+      // references exactly these seven) AND type-checks every sample against
+      // the emitted .d.ts. Sole owner of packages/dist → no pool write-race,
+      // and the framework graph is parsed once instead of per-sample (was a
+      // separate `tsc -b .` + 52× `tsc --noEmit`, ~430s → ~15s cold / ~2s warm).
       steps.push({
-        name: `TypeScript (Samples)`,
+        name: `TypeScript (framework + samples)`,
         cmd: `cd ${absPath} && bun scripts/check-app-tsc.ts`,
       });
     } else if (existsSync(join(absPath, "tsconfig.json"))) {
@@ -622,7 +626,7 @@ const commands = {
       // doppelter Aufwand. Diese drei Namen sind die einzige Stelle
       // an der die Aufteilung manuell definiert wird; alles andere
       // wird automatisch erfasst.
-      const SPLIT_OUT = new Set(["Biome", "TypeScript", "TypeScript (Samples)"]);
+      const SPLIT_OUT = new Set(["Biome", "TypeScript", "TypeScript (framework + samples)"]);
       const guards = FAST_CHECK_STEPS.filter((s) => !SPLIT_OUT.has(s.name));
       console.log(`--- ${guards.length} guards (parallel, pool=6) ---`);
       const results = await runPoolBuffered(guards, 6, "/dev/null");
