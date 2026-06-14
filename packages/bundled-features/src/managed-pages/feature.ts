@@ -1,8 +1,22 @@
-import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineEntityCreateHandler,
+  defineEntityDeleteHandler,
+  defineEntityDetailHandler,
+  defineEntityListHandler,
+  defineEntityUpdateHandler,
+  defineFeature,
+  type FeatureDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { renderSafeMarkdown, securePageHeaders, wrapInLayout } from "../page-render";
 import { bySlugQuery } from "./handlers/by-slug.query";
 import { setWrite } from "./handlers/set.write";
+import { pageEditScreen, pageListScreen } from "./screens/page-screens";
 import { pageEntity } from "./table";
+
+// Admin-Authoring läuft als TenantAdmin (self-service) oder SystemAdmin
+// (app-weite Pages). Spiegelt set.write's ACL — Apps mit eigenem Rollen-
+// Alias (publicstatus = "Admin") müssen TenantAdmin granten/mappen.
+const ADMIN_ACCESS = { roles: ["TenantAdmin", "SystemAdmin"] } as const;
 
 // QN-Konstante als dokumentierter Public-Contract — der Render-Pfad ruft
 // die by-slug-Query via internem app.fetch (kein Code-Import des Handlers,
@@ -52,11 +66,21 @@ export type ManagedPagesOptions = {
 // einen optionalen wrapLayout in Chrome legt. Drafts → 404. Per-Tenant-
 // Content wird per `Vary: Host` cache-isoliert.
 //
+// Admin-Authoring: registriert entityList + entityEdit für `page` (TenantAdmin/
+// SystemAdmin) + die Convention-CRUD-Handler die der Renderer per Konvention
+// dispatcht. Die Screens MÜSSEN hier liegen (Boot-Validator verlangt entity-Ref
+// same-feature); Nav/Workspace bleibt App-Sache.
+//
 // Voraussetzungen am App-Bootstrap:
 //   • anonymousAccess so verdrahtet, dass der X-Tenant-Header honoriert wird
 //     — Multi-Tenant nutzt einen tenantResolver (oder keinen defaultTenantId).
 //     Ein fixer defaultTenantId lockt Single-Tenant und lehnt den per-Page
 //     gesetzten X-Tenant mit 400 tenant_mismatch ab.
+//   • Admin-UI: die App zeigt via `r.nav({ screen: "managed-pages:screen:
+//     page-list" })` + Workspace-Eintrag auf die hier deklarierten Screens
+//     (cross-feature Nav→Screen ist global-validiert) und grantet ihren Admins
+//     TenantAdmin. Ohne Nav bleiben die Screens dormant — kein Leak in
+//     flat-nav-Apps die managed-pages nur zum Public-Render nutzen.
 export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDefinition {
   const wrapLayout: ManagedPagesWrapLayout =
     opts.wrapLayout ??
@@ -66,19 +90,35 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
 
   return defineFeature("managed-pages", (r) => {
     r.describe(
-      "Tenant-editable, server-rendered public pages. Stores one Markdown `page` per `(tenantId, slug, lang)` in the `read_pages` entity table with a `published` gate plus `description`/`ogImage` SEO meta. Registers an anonymous `GET {basePath}/:slug` route that resolves the tenant from the request Host via the app-supplied `resolveApexTenant`, serves only published pages (drafts → 404), renders Markdown through the hardened `page-render` core, and isolates per-tenant content with `Vary: Host`. Write via `managed-pages:write:set` (TenantAdmin/SystemAdmin); requires `anonymousAccess` wired at app bootstrap.",
+      "Tenant-editable, server-rendered public pages. Stores one Markdown `page` per `(tenantId, slug, lang)` in the `read_pages` entity table with a `published` gate plus `description`/`ogImage` SEO meta. Registers an anonymous `GET {basePath}/:slug` route that resolves the tenant from the request Host via the app-supplied `resolveApexTenant`, serves only published pages (drafts → 404), renders Markdown through the hardened `page-render` core, and isolates per-tenant content with `Vary: Host`. Ships TenantAdmin/SystemAdmin admin screens (`entityList` + `entityEdit`) backed by convention CRUD handlers (`managed-pages:write:page:{create,update,delete}`, `managed-pages:query:page:{list,detail}`); the app wires nav/workspace onto `managed-pages:screen:page-list`. Also exposes `managed-pages:write:set` (idempotent slug-keyed upsert, SystemAdmin cross-tenant via `tenantIdOverride`) as a provisioning API. Requires `anonymousAccess` wired at app bootstrap.",
     );
     r.entity("page", pageEntity);
 
     const handlers = { set: r.writeHandler(setWrite) };
     const queries = { bySlug: r.queryHandler(bySlugQuery) };
 
+    // Convention-CRUD hinter den Admin-Screens: entityEdit/entityList
+    // dispatchen per Konvention `managed-pages:write:page:{create,update,
+    // delete}` + `managed-pages:query:page:{list,detail}`. `set` (oben)
+    // wird davon NICHT genutzt und bleibt als Provisioning-API erhalten.
+    r.writeHandler(defineEntityCreateHandler("page", pageEntity, { access: ADMIN_ACCESS }));
+    r.writeHandler(defineEntityUpdateHandler("page", pageEntity, { access: ADMIN_ACCESS }));
+    r.writeHandler(defineEntityDeleteHandler("page", pageEntity, { access: ADMIN_ACCESS }));
+    r.queryHandler(defineEntityListHandler("page", pageEntity, { access: ADMIN_ACCESS }));
+    r.queryHandler(defineEntityDetailHandler("page", pageEntity, { access: ADMIN_ACCESS }));
+
+    r.screen(pageListScreen);
+    r.screen(pageEditScreen);
+
     r.httpRoute({
       method: "GET",
       path: `${basePath}/:slug`,
       anonymous: true,
       handler: async (c, { app }) => {
+        // `param("slug")` ist string|undefined, weil `path` ein computed
+        // Template ist (Hono inferiert `:slug` nur aus String-Literalen).
         const slug = c.req.param("slug");
+        if (!slug) return c.text("not found", 404);
         const lang = c.req.query("lang") || defaultLang;
         const url = new URL(c.req.url);
         // Host-Header zuerst (prod hinter Proxy), URL-Host als Fallback.

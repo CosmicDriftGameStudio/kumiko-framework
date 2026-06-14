@@ -1,16 +1,30 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
+  createTestUser,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
 import { createManagedPagesFeature } from "../feature";
 import { seedPage } from "../seeding";
 import { pageEntity } from "../table";
 
 const TENANT_A = "11111111-1111-4111-8111-111111111111";
 const TENANT_B = "22222222-2222-4222-8222-222222222222";
+
+// Authenticated Admin-Authoring-User. `createTestUser` ohne explizite
+// tenantId teilt den Default-Tenant (nur `id` variiert die User-Id) — für
+// die Cross-Tenant-Isolation braucht `otherAdmin` daher eine EXPLIZITE,
+// distinkte tenantId.
+const tenantAdmin = createTestUser({ id: 10, roles: ["TenantAdmin"] });
+const otherAdmin = createTestUser({
+  id: 11,
+  roles: ["TenantAdmin"],
+  tenantId: "33333333-3333-4333-8333-333333333333",
+});
+const normalUser = createTestUser({ id: 12 });
 
 let stack: TestStack;
 
@@ -132,5 +146,123 @@ describe("managed-pages :: XSS-Härtung", () => {
     const html = await res.text();
     expect(html).not.toContain("<script>window.x=1</script>");
     expect(html).toContain("&lt;script&gt;");
+  });
+});
+
+describe("managed-pages :: Admin-Screens registriert", () => {
+  test("entityList + entityEdit Screens sind im Feature deklariert", () => {
+    const ids = Object.keys(managed.screens);
+    expect(ids).toContain("page-list");
+    expect(ids).toContain("page-edit");
+  });
+});
+
+describe("managed-pages :: Convention-CRUD (Admin-Authoring)", () => {
+  test("create → list → detail → update(publish) → public-read → delete", async () => {
+    await stack.http.writeOk(
+      "managed-pages:write:page:create",
+      { slug: "crud", lang: "en", title: "CRUD", body: "# Body", published: false },
+      tenantAdmin,
+    );
+
+    // id robust über die Liste holen (unabhängig von der create-Return-Shape).
+    const list = await stack.http.queryOk<{ rows: Array<{ id: string; slug: string }> }>(
+      "managed-pages:query:page:list",
+      {},
+      tenantAdmin,
+    );
+    const row = list.rows.find((r) => r.slug === "crud");
+    expect(row).toBeTruthy();
+    const id = row!.id;
+
+    const detail = await stack.http.queryOk<{ title: string; published: boolean; version: number }>(
+      "managed-pages:query:page:detail",
+      { id },
+      tenantAdmin,
+    );
+    expect(detail).toMatchObject({ title: "CRUD", published: false });
+
+    // Draft ist über die Public-Query (published-only) unsichtbar.
+    const draftRead = await stack.http.queryOk<unknown>(
+      "managed-pages:query:by-slug",
+      { slug: "crud", lang: "en" },
+      tenantAdmin,
+    );
+    expect(draftRead).toBeFalsy();
+
+    // update: publish + Title ändern.
+    await stack.http.writeOk(
+      "managed-pages:write:page:update",
+      { id, version: detail.version, changes: { published: true, title: "CRUD v2" } },
+      tenantAdmin,
+    );
+
+    // Public-Query liefert die Page jetzt (published) mit neuem Title.
+    const pubRead = await stack.http.queryOk<{ title: string }>(
+      "managed-pages:query:by-slug",
+      { slug: "crud", lang: "en" },
+      tenantAdmin,
+    );
+    expect(pubRead).toMatchObject({ title: "CRUD v2" });
+
+    // delete → detail ist weg.
+    await stack.http.writeOk("managed-pages:write:page:delete", { id }, tenantAdmin);
+    const afterDelete = await stack.http.queryOk<unknown>(
+      "managed-pages:query:page:detail",
+      { id },
+      tenantAdmin,
+    );
+    expect(afterDelete).toBeFalsy();
+  });
+
+  test("normaler User darf nicht erstellen (access_denied)", async () => {
+    const error = await stack.http.writeErr(
+      "managed-pages:write:page:create",
+      { slug: "denied", lang: "en", title: "x", body: null },
+      normalUser,
+    );
+    expectErrorIncludes(error, "access_denied");
+  });
+
+  test("Cross-Tenant-Isolation: List zeigt nur eigene Pages", async () => {
+    await stack.http.writeOk(
+      "managed-pages:write:page:create",
+      { slug: "tenant-a-only", lang: "en", title: "A only", body: "x", published: false },
+      tenantAdmin,
+    );
+    const otherList = await stack.http.queryOk<{ rows: Array<{ slug: string }> }>(
+      "managed-pages:query:page:list",
+      {},
+      otherAdmin,
+    );
+    expect(otherList.rows.some((r) => r.slug === "tenant-a-only")).toBe(false);
+  });
+});
+
+describe("managed-pages :: set (Provisioning-API)", () => {
+  test("idempotenter slug-keyed Upsert + preserve-on-omit (published)", async () => {
+    const first = await stack.http.writeOk<{ isNew: boolean }>(
+      "managed-pages:write:set",
+      { slug: "prov", lang: "en", title: "Prov v1", body: "a", published: true },
+      tenantAdmin,
+    );
+    expect(first).toMatchObject({ isNew: true });
+
+    // Zweiter Call = Update (selber slug+lang); published bei Omit erhalten.
+    const second = await stack.http.writeOk<{ isNew: boolean }>(
+      "managed-pages:write:set",
+      { slug: "prov", lang: "en", title: "Prov v2", body: "b" },
+      tenantAdmin,
+    );
+    expect(second).toMatchObject({ isNew: false });
+
+    // Beweis: published blieb true (preserve-on-omit) → Public-Query liefert
+    // die Page mit aktualisiertem Title.
+    const read = await stack.http.queryOk<{ title: string }>(
+      "managed-pages:query:by-slug",
+      { slug: "prov", lang: "en" },
+      tenantAdmin,
+    );
+    expect(read).toMatchObject({ title: "Prov v2" });
   });
 });

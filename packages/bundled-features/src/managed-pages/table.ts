@@ -14,14 +14,22 @@ import {
 export const pageEntity = createEntity({
   table: "read_pages",
   fields: {
-    slug: createTextField({ required: true }),
-    lang: createTextField({ required: true }),
-    title: createTextField({ required: true }),
+    slug: createTextField({ required: true, maxLength: 64, sortable: true, searchable: true }),
+    lang: createTextField({ required: true, maxLength: 8, sortable: true }),
+    title: createTextField({ required: true, maxLength: 200, searchable: true }),
     // Body + description sind vom Tenant-Admin authored Business-Content
-    // (Markdown), keine User-Generated-PII.
-    body: createTextField({ allowPlaintext: "is-business-data" }),
-    description: createTextField({ allowPlaintext: "is-business-data" }),
-    ogImage: createTextField({}),
+    // (Markdown), keine User-Generated-PII. `multiline` → der entityEdit-
+    // Renderer gibt ein <textarea> aus (createLongTextField hat aktuell
+    // einen Render-Gap: edit.ts/render-field.tsx gaten nur type==="text").
+    // maxLengths spiegeln die Handler-Schemas (set.write + Convention-CRUD
+    // leiten ihre zod-Caps aus diesen Field-maxLengths ab).
+    body: createTextField({
+      multiline: { rows: 16 },
+      maxLength: 100_000,
+      allowPlaintext: "is-business-data",
+    }),
+    description: createTextField({ maxLength: 500, allowPlaintext: "is-business-data" }),
+    ogImage: createTextField({ maxLength: 2000 }),
     published: createBooleanField({ default: false }),
   },
   indexes: [{ unique: true, columns: ["tenantId", "slug", "lang"], name: "read_pages_unique" }],
