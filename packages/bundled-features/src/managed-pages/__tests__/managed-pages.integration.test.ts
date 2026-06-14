@@ -5,8 +5,13 @@ import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
+import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature";
+import { createConfigResolver } from "../../config/resolver";
+import { configValuesTable } from "../../config/table";
+import { BRANDING_QN } from "../branding";
 import { createManagedPagesFeature } from "../feature";
 import { seedPage } from "../seeding";
 import { pageEntity } from "../table";
@@ -38,19 +43,31 @@ const managed = createManagedPagesFeature({
   },
 });
 
+// managed-pages declares `r.requires("config")` for the branding keys —
+// the config feature must be in the stack and `ctx.config` wired.
+const configFeature = createConfigFeature();
+
 beforeAll(async () => {
   // KEIN defaultTenantId — der lockt Single-Tenant-Modus und würde den
   // per-Page-Route gesetzten X-Tenant (≠ default) mit 400 tenant_mismatch
   // ablehnen. Multi-Tenant nutzt den X-Tenant-Header (clientTenant gewinnt),
   // tenantExists validiert ihn. Spiegelt publicstatus (host-basierter
   // tenantResolver, kein fixer default).
+  const resolver = createConfigResolver();
   stack = await setupTestStack({
-    features: [managed],
+    features: [configFeature, managed],
     anonymousAccess: {
       tenantExists: async (id) => id === TENANT_A || id === TENANT_B,
     },
+    // Wire ctx.config() so the branding query resolves the (X-Tenant) tenant's
+    // branding cascade. Branding keys are not encrypted → no encryption needed.
+    extraContext: ({ registry }) => ({
+      configResolver: resolver,
+      _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+    }),
   });
   await unsafeCreateEntityTable(stack.db, pageEntity);
+  await unsafePushTables(stack.db, { configValuesTable });
   await createEventsTable(stack.db);
 
   await seedPage(stack.db, {
@@ -264,5 +281,99 @@ describe("managed-pages :: set (Provisioning-API)", () => {
       tenantAdmin,
     );
     expect(read).toMatchObject({ title: "Prov v2" });
+  });
+});
+
+describe("managed-pages :: Branding (Config + Render)", () => {
+  // config:write:set leitet tenantId aus user.tenantId ab → tenant-spezifische
+  // Admins, damit das Branding auf TENANT_A bzw. TENANT_B landet (Host a.*/b.*).
+  const adminA = createTestUser({ id: 20, roles: ["TenantAdmin"], tenantId: TENANT_A });
+  const adminB = createTestUser({ id: 21, roles: ["TenantAdmin"], tenantId: TENANT_B });
+
+  test("configEdit-Screen branding-settings ist registriert", () => {
+    expect(Object.keys(managed.screens)).toContain("branding-settings");
+  });
+
+  test("valides Branding (Hex + https + Preset) wird gesetzt und im Render angewandt", async () => {
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: BRANDING_QN.accentColor, value: "#ff8800" },
+      adminA,
+    );
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: BRANDING_QN.logoUrl, value: "https://cdn-a.example.com/logo.png" },
+      adminA,
+    );
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: BRANDING_QN.title, value: "Acme A" },
+      adminA,
+    );
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: BRANDING_QN.layoutPreset, value: "wide" },
+      adminA,
+    );
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: BRANDING_QN.description, value: "Acme status and docs" },
+      adminA,
+    );
+
+    const html = await (await stack.app.request("http://a.example.com/p/about")).text();
+    // scoped :root-Override mit Accent + Preset-max-width
+    expect(html).toContain('<style id="tenant-theme">');
+    expect(html).toContain("--accent:#ff8800");
+    expect(html).toContain("--page-max-width:1100px");
+    // Logo + Titel im Branding-Header
+    expect(html).toContain('src="https://cdn-a.example.com/logo.png"');
+    expect(html).toContain("Acme A");
+    // branding-description als Site-Default-Meta (Seite "about" hat keine eigene)
+    expect(html).toContain('<meta name="description" content="Acme status and docs">');
+  });
+
+  test("invalide Accent-Farbe (kein Hex, CSS-Injection-Versuch) → Write abgelehnt", async () => {
+    const error = await stack.http.writeErr(
+      "config:write:set",
+      { key: BRANDING_QN.accentColor, value: "red; } body{display:none}" },
+      adminA,
+    );
+    expectErrorIncludes(error, "invalid_format");
+  });
+
+  test("non-https Logo-URL → Write abgelehnt", async () => {
+    const error = await stack.http.writeErr(
+      "config:write:set",
+      { key: BRANDING_QN.logoUrl, value: "http://insecure.example.com/logo.png" },
+      adminA,
+    );
+    expectErrorIncludes(error, "invalid_format");
+  });
+
+  test("leerer Wert (clear) ist erlaubt — Pattern allow-empty", async () => {
+    await stack.http.writeOk("config:write:set", { key: BRANDING_QN.siteUrl, value: "" }, adminA);
+  });
+
+  test("über-langer Title (>200) → Write abgelehnt (Server-Längen-Cap)", async () => {
+    const error = await stack.http.writeErr(
+      "config:write:set",
+      { key: BRANDING_QN.title, value: "x".repeat(201) },
+      adminA,
+    );
+    expectErrorIncludes(error, "invalid_format");
+  });
+
+  test("Cross-Tenant-Isolation: TENANT_A-Branding leakt nicht auf TENANT_B", async () => {
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: BRANDING_QN.accentColor, value: "#0033cc" },
+      adminB,
+    );
+    const htmlB = await (await stack.app.request("http://b.example.com/p/about")).text();
+    expect(htmlB).toContain("--accent:#0033cc");
+    expect(htmlB).not.toContain("#ff8800");
+    expect(htmlB).not.toContain("cdn-a.example.com");
+    expect(htmlB).not.toContain("Acme A");
   });
 });

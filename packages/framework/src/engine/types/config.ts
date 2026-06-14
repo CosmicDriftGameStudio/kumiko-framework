@@ -81,6 +81,15 @@ export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
   readonly encrypted?: boolean;
   readonly options?: readonly string[];
   readonly bounds?: ConfigBounds;
+  // Per-key string-pattern validation for type="text". The value must match
+  // the regex at write time — set.write hard-rejects a mismatch with
+  // ValidationError("invalid_format"), same posture as bounds. Stored as a
+  // serializable {regex, flags} pair (not a RegExp/predicate) so it survives
+  // JSON like `bounds`/`options` (feature-manifest, docgen) and compiles per
+  // write via new RegExp. Keep patterns anchored + length-bounded: the value
+  // is tenant-supplied (untrusted), an unbounded catastrophic-backtracking
+  // regex applied to it would be a ReDoS vector.
+  readonly pattern?: { readonly regex: string; readonly flags?: string };
   readonly computed?: ConfigComputedFn<T>;
   // Per-Request opt-in. Default false — resolveConfigOrParam wirft für
   // Keys ohne diese Marke, auch wenn der Caller paramValue übergibt. Das

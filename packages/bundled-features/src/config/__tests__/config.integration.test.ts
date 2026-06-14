@@ -181,6 +181,22 @@ const integrationFeature = defineFeature("integration", (r) => {
 
 const configFeature = createConfigFeature();
 
+// Pattern-validated text key (managed-cms phase 3 core change): set.write runs
+// keyDef.pattern as a hard-reject gate, same posture as bounds. The regex
+// allows empty (clear) | a CSS hex color.
+const patternFeature = defineFeature("patterned", (r) => {
+  r.requires("config");
+  r.config({
+    keys: {
+      hexColor: createTenantConfig("text", {
+        default: "",
+        write: access.roles("Admin"),
+        pattern: { regex: "^$|^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$" },
+      }),
+    },
+  });
+});
+
 // Scenario 11: Config seeding — feature with deploy-time defaults
 const seedFeature = defineFeature("seeddemo", (r) => {
   r.requires("config");
@@ -244,6 +260,7 @@ beforeAll(async () => {
       probeFeature,
       seedFeature,
       transportFeature,
+      patternFeature,
     ],
     // Wire `ctx.config()` for real handlers: pass the resolver-bound factory
     // so the dispatcher can mint a per-user accessor inside buildHandlerContext.
@@ -1458,5 +1475,48 @@ describe("scenario 11: config seeding", () => {
       db,
     );
     expect(await configFn(SEED_THEME)).toBe("red");
+  });
+});
+
+// --- Pattern validation (text keys) ---
+
+describe("pattern validation", () => {
+  const HEX_KEY = "patterned:config:hex-color";
+  const admin = createTestUser({ id: 99, roles: ["Admin"] });
+
+  test("valid value passes the regex", async () => {
+    const res = await stack.http.writeOk<{ value: string }>(
+      "config:write:set",
+      { key: HEX_KEY, value: "#abc123" },
+      admin,
+    );
+    expect(res).toMatchObject({ value: "#abc123" });
+  });
+
+  test("empty value passes (allow-empty branch)", async () => {
+    const res = await stack.http.writeOk<{ value: string }>(
+      "config:write:set",
+      { key: HEX_KEY, value: "" },
+      admin,
+    );
+    expect(res).toMatchObject({ value: "" });
+  });
+
+  test("non-matching value is hard-rejected with invalid_format", async () => {
+    const error = await stack.http.writeErr(
+      "config:write:set",
+      { key: HEX_KEY, value: "tomato" },
+      admin,
+    );
+    expectErrorIncludes(error, "invalid_format");
+  });
+
+  test("style-breakout attempt is rejected (no CSS injection survives)", async () => {
+    const error = await stack.http.writeErr(
+      "config:write:set",
+      { key: HEX_KEY, value: "#fff;}</style><script>" },
+      admin,
+    );
+    expectErrorIncludes(error, "invalid_format");
   });
 });

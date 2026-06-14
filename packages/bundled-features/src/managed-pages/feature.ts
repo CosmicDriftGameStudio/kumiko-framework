@@ -7,9 +7,18 @@ import {
   defineFeature,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { renderSafeMarkdown, securePageHeaders, wrapInLayout } from "../page-render";
+import {
+  type BrandingTokens,
+  EMPTY_BRANDING,
+  renderSafeMarkdown,
+  securePageHeaders,
+  wrapInLayout,
+} from "../page-render";
+import { BRANDING_KEYS, BRANDING_QUERY_QN, coerceBranding } from "./branding";
+import { brandingQuery } from "./handlers/branding.query";
 import { bySlugQuery } from "./handlers/by-slug.query";
 import { setWrite } from "./handlers/set.write";
+import { brandingSettingsScreen } from "./screens/branding-screen";
 import { pageEditScreen, pageListScreen } from "./screens/page-screens";
 import { pageEntity } from "./table";
 
@@ -34,6 +43,19 @@ type ByslugQueryBody = {
   } | null;
 };
 
+// Parse the branding query's `{ data }` envelope into BrandingTokens, never
+// throwing: a non-ok status or malformed body degrades to the unbranded
+// default (branding is decoration, not a hard dependency of the page render).
+async function readBrandingResponse(res: Response): Promise<BrandingTokens> {
+  if (!res.ok) return EMPTY_BRANDING;
+  try {
+    const body: { data?: unknown } = await res.json();
+    return coerceBranding(body.data);
+  } catch {
+    return EMPTY_BRANDING;
+  }
+}
+
 export type ManagedPagesWrapLayout = (opts: {
   readonly title: string;
   readonly bodyHtml: string;
@@ -41,6 +63,10 @@ export type ManagedPagesWrapLayout = (opts: {
   readonly slug: string;
   readonly description: string | null;
   readonly ogImage: string | null;
+  // Per-tenant branding tokens resolved at render time (accent color, logo,
+  // layout preset, …). A custom wrapLayout may apply them however it likes;
+  // the default skeleton emits scoped :root vars + a logo/title header.
+  readonly branding: BrandingTokens;
 }) => string;
 
 export type ManagedPagesOptions = {
@@ -84,18 +110,34 @@ export type ManagedPagesOptions = {
 export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDefinition {
   const wrapLayout: ManagedPagesWrapLayout =
     opts.wrapLayout ??
-    ((o) => wrapInLayout({ title: o.title, bodyHtml: o.bodyHtml, lang: o.lang }));
+    ((o) =>
+      wrapInLayout({
+        title: o.title,
+        bodyHtml: o.bodyHtml,
+        lang: o.lang,
+        description: o.description,
+        branding: o.branding,
+      }));
   const basePath = opts.basePath ?? "/p";
   const defaultLang = opts.defaultLang ?? "en";
 
   return defineFeature("managed-pages", (r) => {
     r.describe(
-      "Tenant-editable, server-rendered public pages. Stores one Markdown `page` per `(tenantId, slug, lang)` in the `read_pages` entity table with a `published` gate plus `description`/`ogImage` SEO meta. Registers an anonymous `GET {basePath}/:slug` route that resolves the tenant from the request Host via the app-supplied `resolveApexTenant`, serves only published pages (drafts → 404), renders Markdown through the hardened `page-render` core, and isolates per-tenant content with `Vary: Host`. Ships TenantAdmin/SystemAdmin admin screens (`entityList` + `entityEdit`) backed by convention CRUD handlers (`managed-pages:write:page:{create,update,delete}`, `managed-pages:query:page:{list,detail}`); the app wires nav/workspace onto `managed-pages:screen:page-list`. Also exposes `managed-pages:write:set` (idempotent slug-keyed upsert, SystemAdmin cross-tenant via `tenantIdOverride`) as a provisioning API. Requires `anonymousAccess` wired at app bootstrap.",
+      "Tenant-editable, server-rendered public pages with per-tenant branding. Stores one Markdown `page` per `(tenantId, slug, lang)` in the `read_pages` entity table with a `published` gate plus `description`/`ogImage` SEO meta. Registers an anonymous `GET {basePath}/:slug` route that resolves the tenant from the request Host via the app-supplied `resolveApexTenant`, serves only published pages (drafts → 404), renders Markdown through the hardened `page-render` core, and isolates per-tenant content with `Vary: Host`. Ships TenantAdmin/SystemAdmin admin screens (`entityList` + `entityEdit`) backed by convention CRUD handlers (`managed-pages:write:page:{create,update,delete}`, `managed-pages:query:page:{list,detail}`); the app wires nav/workspace onto `managed-pages:screen:page-list`. Branding (via `config`, scope tenant): `branding-{title,description,site-url,accent-color,logo-url,layout-preset}` keys with write-time validation (hex color, https URLs), a `configEdit` self-service screen (`managed-pages:screen:branding-settings`), and a `managed-pages:query:branding` read that the render path applies as scoped `:root` CSS vars + a logo/title header. Also exposes `managed-pages:write:set` (idempotent slug-keyed upsert, SystemAdmin cross-tenant via `tenantIdOverride`) as a provisioning API. Requires `config` + `anonymousAccess` wired at app bootstrap.",
     );
+    r.requires("config");
     r.entity("page", pageEntity);
 
+    // Per-tenant branding config keys (scope: tenant). Write-validated via
+    // keyDef.pattern (hex / https) — see branding.ts. read:all so the
+    // anonymous render path may resolve them.
+    r.config({ keys: BRANDING_KEYS });
+
     const handlers = { set: r.writeHandler(setWrite) };
-    const queries = { bySlug: r.queryHandler(bySlugQuery) };
+    const queries = {
+      bySlug: r.queryHandler(bySlugQuery),
+      branding: r.queryHandler(brandingQuery),
+    };
 
     // Convention-CRUD hinter den Admin-Screens: entityEdit/entityList
     // dispatchen per Konvention `managed-pages:write:page:{create,update,
@@ -109,6 +151,7 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
 
     r.screen(pageListScreen);
     r.screen(pageEditScreen);
+    r.screen(brandingSettingsScreen);
 
     r.httpRoute({
       method: "GET",
@@ -127,18 +170,31 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
         const tenantId = await opts.resolveApexTenant(host);
         if (!tenantId) return c.text("not found", 404);
 
-        const queryRes = await app.fetch(
-          new Request(`${url.origin}/api/query`, {
-            method: "POST",
-            headers: { "content-type": "application/json", "X-Tenant": tenantId },
-            body: JSON.stringify({ type: BY_SLUG_QN, payload: { slug, lang } }),
-          }),
-        );
-        if (!queryRes.ok) return c.text("page unavailable", 503);
+        const queryHeaders = { "content-type": "application/json", "X-Tenant": tenantId };
+        const queryUrl = `${url.origin}/api/query`;
+        const queryReq = (type: string, payload: unknown) =>
+          app.fetch(
+            new Request(queryUrl, {
+              method: "POST",
+              headers: queryHeaders,
+              body: JSON.stringify({ type, payload }),
+            }),
+          );
 
-        const body: ByslugQueryBody = await queryRes.json();
+        // Page + branding read in parallel (same in-process app, same
+        // X-Tenant). Branding is decoration → a failed/empty branding read
+        // degrades to the unbranded default, it never blocks the page.
+        const [pageRes, brandingRes] = await Promise.all([
+          queryReq(BY_SLUG_QN, { slug, lang }),
+          queryReq(BRANDING_QUERY_QN, {}),
+        ]);
+        if (!pageRes.ok) return c.text("page unavailable", 503);
+
+        const body: ByslugQueryBody = await pageRes.json();
         const data = body.data;
         if (!data) return c.text("not found", 404);
+
+        const branding = await readBrandingResponse(brandingRes);
 
         const html = wrapLayout({
           title: data.title,
@@ -147,6 +203,7 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
           slug,
           description: data.description,
           ogImage: data.ogImage,
+          branding,
         });
 
         // Vary: Host — per-Tenant-Content darf nicht von einem shared CDN
