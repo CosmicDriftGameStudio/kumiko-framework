@@ -15,6 +15,7 @@ import {
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { resolveNavigation } from "@cosmicdrift/kumiko-headless";
+import { qualifyScreenId } from "@cosmicdrift/kumiko-renderer";
 import { buildNavRegistrySliceForApp } from "../nav-tree";
 
 const billing = defineFeature("billing", (r) => {
@@ -71,6 +72,30 @@ function qualifiedNames(tree: ReturnType<typeof resolveNavigation>): string[] {
   return out;
 }
 
+// Mirrors the exact screen lookup KumikoScreen runs (kumiko-screen.tsx:102) —
+// the REAL qualifyScreenId against the FeatureSchema's short screen ids. Proves
+// a nav's screen-QN resolves to a renderable definition, not just that the ref
+// string matches a convention.
+function resolveScreenDef(qn: string) {
+  for (const f of app.features) {
+    const hit = f.screens.find((s) => qualifyScreenId(f.featureName, s.id) === qn);
+    if (hit !== undefined) return hit;
+  }
+  return undefined;
+}
+
+function screenRefsIn(tree: ReturnType<typeof resolveNavigation>): string[] {
+  const out: string[] = [];
+  const walk = (nodes: ReturnType<typeof resolveNavigation>): void => {
+    for (const n of nodes) {
+      if (n.screen !== undefined) out.push(n.screen);
+      walk(n.children);
+    }
+  };
+  walk(tree);
+  return out;
+}
+
 describe("Settings-Hub visibility — full boot pipeline", () => {
   test("privileged user sees the human-relevant hub; system-internal keys stay hidden", () => {
     const slice = buildNavRegistrySliceForApp(app, navMembersOf("settings"));
@@ -111,6 +136,24 @@ describe("Settings-Hub visibility — full boot pipeline", () => {
     // admin/system audiences are role-gated → hidden from anonymous
     expect(names).not.toContain("config:nav:audience-tenant");
     expect(names).not.toContain("config:nav:audience-system");
+  });
+
+  test("every visible leaf nav resolves to a real configEdit screen (nav → screen → definition)", () => {
+    const slice = buildNavRegistrySliceForApp(app, navMembersOf("settings"));
+    const tree = resolveNavigation({
+      source: slice,
+      user: { id: "u-1", roles: ["TenantAdmin", "SystemAdmin"] },
+    });
+    const refs = screenRefsIn(tree);
+    expect(refs.length).toBeGreaterThan(0); // audiences have no screen; children do
+
+    // the short screen ids in the config FeatureSchema must qualify back to the
+    // exact QN the nav carries — qualifyScreenId is NOT idempotent, so a mismatch
+    // would render "Screen not found" on every settings click.
+    for (const qn of refs) {
+      expect(resolveScreenDef(qn)?.type).toBe("configEdit");
+    }
+    expect(resolveScreenDef("config:screen:billing-tenant")?.type).toBe("configEdit");
   });
 
   test("the work workspace does NOT leak the settings hub", () => {
