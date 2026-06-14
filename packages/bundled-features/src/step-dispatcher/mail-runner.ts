@@ -27,6 +27,7 @@ export function setMailRunner(fn: (spec: MailSpec) => Promise<MailDispatchResult
   mailRunner = fn;
 }
 
+// @wrapper-known entry-point
 export async function performMailDispatch(spec: MailSpec): Promise<MailDispatchResult> {
   return mailRunner(spec);
 }

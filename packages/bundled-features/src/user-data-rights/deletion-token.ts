@@ -15,6 +15,7 @@ export type VerifyResult =
   | { readonly ok: true; readonly userId: string; readonly expiresAtMs: number }
   | { readonly ok: false; readonly reason: "malformed" | "bad_signature" | "expired" };
 
+// @wrapper-known semantic-alias
 export function signDeletionToken(
   userId: string,
   ttlMinutes: number,
@@ -24,6 +25,7 @@ export function signDeletionToken(
   return signToken(userId, DELETION_REQUEST_PURPOSE, ttlMinutes, secret, now);
 }
 
+// @wrapper-known semantic-alias
 export function verifyDeletionToken(
   token: string,
   secret: string,

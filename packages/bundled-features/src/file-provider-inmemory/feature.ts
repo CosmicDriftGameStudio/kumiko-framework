@@ -69,6 +69,7 @@ export const fileProviderInMemoryFeature = defineFeature(FEATURE_NAME, (r) => {
   r.requires("file-foundation");
 
   const plugin: FileProviderPlugin = {
+    // @wrapper-known semantic-alias
     build: async (_ctx: FileProviderContext, tenantId: string): Promise<FileStorageProvider> => {
       // Returnt den per-tenant Storage. Identitätsstabil zwischen calls
       // damit accumulated state erhalten bleibt.

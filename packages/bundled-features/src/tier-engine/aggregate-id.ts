@@ -22,6 +22,7 @@ const TIER_ASSIGNMENT_NAMESPACE = "8e91d2fc-8b7a-4d3e-9f4a-1c5d6e7f8a9b";
  * UUID via `gen_random_uuid()`. Die Funktion lebt hier als Utility-
  * Export bereit für Sprint 5.
  */
+// @wrapper-known uuid-domain
 export function tierAssignmentAggregateId(tenantId: string): string {
   return uuidv5(tenantId, TIER_ASSIGNMENT_NAMESPACE);
 }

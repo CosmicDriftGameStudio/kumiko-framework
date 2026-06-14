@@ -73,6 +73,7 @@ export function scaffoldApp(options: ScaffoldAppOptions): ScaffoldAppResult {
   return { destination, files, appName: options.name };
 }
 
+// @wrapper-known semantic-alias
 function write(path: string, content: string): void {
   writeFileSync(path, content);
 }
@@ -334,6 +335,7 @@ function deriveTenantId(name: string): string {
     state ^= ch.charCodeAt(0);
     state = Math.imul(state, 16777619) >>> 0;
   }
+  // @wrapper-known semantic-alias
   const hex = (n: number, len: number): string => n.toString(16).padStart(len, "0").slice(0, len);
   const a = hex(state, 8);
   state ^= state << 13;

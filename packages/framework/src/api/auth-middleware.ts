@@ -133,6 +133,7 @@ function middlewareReject(
   );
 }
 
+// @wrapper-known error-helper
 function sessionInvalid(c: Context, reason: AuthSessionStatus | "no_sid"): Response {
   return middlewareReject(c, {
     code: "session_invalid",
