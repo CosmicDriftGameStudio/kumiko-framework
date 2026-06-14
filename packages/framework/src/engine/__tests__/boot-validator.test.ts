@@ -1521,6 +1521,26 @@ describe("boot-validator", () => {
       ).toThrow(/Config-Key "shop:config:typo-here" ist in keiner Feature-Registry deklariert/);
     });
 
+    test("camelCase-Quelle (multi-word) → kanonische kebab-QN matched, kein Throw", () => {
+      // Regression: r.config registriert den camelCase-Objekt-Key
+      // (brandingTitle), die echte QN ist aber `shop:config:branding-title`
+      // (define-feature toKebab't beides). Ein configEdit-Screen, der die
+      // kanonische kebab-QN referenziert, darf NICHT als "unbekannt" failen —
+      // ohne qualifyEntityName im Validator stand dort die rohe camelCase-QN.
+      const feature = defineFeature("shop", (r) => {
+        r.config({ keys: { brandingTitle: createTenantConfig("text", { default: "" }) } });
+        r.screen({
+          id: "settings",
+          type: "configEdit",
+          scope: "tenant",
+          configKeys: { title: "shop:config:branding-title" },
+          fields: { title: { type: "text" } } as never,
+          layout: { sections: [{ title: "Basics", fields: ["title"] }] } as never,
+        });
+      });
+      expect(() => validateBoot([feature])).not.toThrow();
+    });
+
     test("extension section ohne component → Throw (Parität zu entityEdit)", () => {
       // synthesizeConfigEditScreen reicht die layout 1:1 an RenderEdit weiter —
       // eine Extension-Section ohne react/native-Marker rendert sonst stumm leer.
