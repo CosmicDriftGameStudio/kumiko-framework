@@ -29,6 +29,17 @@ describe("snapshotFromMetas", () => {
     expect(snap.tables.map((t) => t.tableName)).toEqual(["apples", "zebras"]);
     expect(snap.version).toBe(1);
   });
+
+  test("sorts by codepoint, not locale — deterministic across ICU locales (#367)", () => {
+    // localeCompare orders case-insensitively ("apple" < "Zebra"); codepoint
+    // puts uppercase (U+005A) before lowercase (U+0061) → "Zebra" < "apple".
+    // The snapshot JSON is byte-compared and the order carries into the
+    // generated migration SQL, so a revert to localeCompare would reorder the
+    // committed bytes depending on the runner's ICU locale. Fails the moment
+    // anyone swaps compareByCodepoint back to localeCompare.
+    const snap = snapshotFromMetas([meta("apple"), meta("Zebra")]);
+    expect(snap.tables.map((t) => t.tableName)).toEqual(["Zebra", "apple"]);
+  });
 });
 
 describe("diffSnapshots", () => {
