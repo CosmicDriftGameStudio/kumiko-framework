@@ -10,20 +10,37 @@ import { Marked } from "marked";
 // modul-level side-effect auf shared library wäre brittle bei mehreren
 // Konsumenten.
 //
-// XSS-Schutz: marked rendered tags 1:1, also kann ein böswilliger Text-
-// Editor (TenantAdmin) <script>-Tags reinschreiben. Aktuell akzeptiert
-// weil nur trusted Roles (TenantAdmin/SystemAdmin) Texte setzen können —
-// bei einem Multi-Author-Setup müsste DOMPurify oder isomorphic-dompurify
-// dazu. Dokumentiert in README, Phase-2-Hardening.
-const markdownRenderer = new Marked({
-  gfm: false,
-  breaks: false,
+// XSS-Härtung (Annahme: untrusted Tenant-Authoren): Raw-HTML-Tokens werden
+// als Text escaped (kein <script>/<img onerror>-Passthrough), und link/image-
+// hrefs auf http(s)/mailto/relativ beschränkt (kein javascript:/data:). Die
+// Markdown-Struktur (Headings, Listen, Links, Code) bleibt intakt — das
+// neutralisiert die XSS-Vektoren ohne Sanitizer-Dependency. Defense-in-Depth
+// ergänzt der server-render-Header `script-src 'none'` (feature.ts).
+const markdownRenderer = new Marked({ gfm: false, breaks: false });
+markdownRenderer.use({
+  walkTokens(token) {
+    if ((token.type === "link" || token.type === "image") && !isSafeHref(token.href)) {
+      token.href = "#";
+    }
+  },
+  renderer: {
+    html({ text }) {
+      return escapeHtml(text);
+    },
+  },
 });
 
+// http(s)/mailto oder schema-los (relativ/anchor) erlaubt; javascript:, data:,
+// vbscript: u.a. abgelehnt. Ein relativer href hat kein `scheme:`-Präfix.
+function isSafeHref(href: string): boolean {
+  const trimmed = href.trim().toLowerCase();
+  if (!/^[a-z][a-z0-9+.-]*:/.test(trimmed)) return true;
+  return /^(?:https?|mailto):/.test(trimmed);
+}
+
 export function renderMarkdownToHtml(markdown: string): string {
-  // @cast-boundary render-helper marked.parse return-type ist
-  // `string | Promise<string>` — mit `{ async: false }` runtime-garantiert
-  // sync (string). Cast nur API-Vertragsfix, kein Type-Loss.
+  // @cast-boundary marked.parse return-type ist `string | Promise<string>`;
+  // `{ async: false }` garantiert sync (string) — Cast nur API-Vertragsfix.
   return markdownRenderer.parse(markdown, { async: false }) as string;
 }
 

@@ -156,19 +156,22 @@ datenschutz-generator.de).
 
 ---
 
-## XSS — currently not secured by design
+## XSS hardening (untrusted authors)
 
-`marked` renders HTML tags 1:1, so a malicious tenant admin could in
-theory put `<script>` into the body.
+The server-render path is hardened for untrusted tenant authors —
+no DOMPurify dependency needed:
 
-Currently accepted because:
-- only `roles: ["TenantAdmin"]` may set texts
-- multi-author setups don't exist yet
-- self-hosted tier without unknown tenant admins
-
-**Phase-2 hardening:** `DOMPurify` or `isomorphic-dompurify`
-sanitization step between `marked.parse()` and the response.
-Documented when a customer with a multi-author setup shows up.
+- **Raw HTML is escaped, not passed through.** `renderMarkdownToHtml`
+  (`markdown.ts`) configures `marked` so block- and inline-level HTML
+  tokens are emitted as escaped text (`<script>` → `&lt;script&gt;`).
+  Markdown structure (headings, lists, links, code) stays intact.
+- **Link/image hrefs are scheme-restricted** to `http(s)`/`mailto`/
+  relative; `javascript:`/`data:` hrefs are neutralised to `#`.
+- **Defense-in-depth headers** on every response (`security-headers.ts`):
+  `content-security-policy: script-src 'none'; object-src 'none';
+  base-uri 'none'` (no script can run even if injection slips through),
+  plus `x-content-type-options`, `x-frame-options`, `referrer-policy`.
+  No `default-src`, so inline `<style>` layouts stay unaffected.
 
 ---
 
