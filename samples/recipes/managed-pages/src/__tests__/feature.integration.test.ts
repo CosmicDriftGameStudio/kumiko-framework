@@ -24,8 +24,10 @@ const admin = createTestUser({ id: 1, roles: ["TenantAdmin"], tenantId: SYSTEM_T
 
 let stack: TestStack;
 
-const render = (path: string): Promise<string> =>
-  stack.app.request(`http://acme.example.com${path}`).then((r) => r.text());
+const render = async (path: string): Promise<string> => {
+  const res = await stack.app.request(`http://acme.example.com${path}`);
+  return res.text();
+};
 
 beforeAll(async () => {
   const resolver = createConfigResolver();

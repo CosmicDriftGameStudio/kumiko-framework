@@ -11,7 +11,7 @@ import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
 import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
-import { BRANDING_QN } from "../branding";
+import { BRANDING_QN, BRANDING_QUERY_QN } from "../branding";
 import { createManagedPagesCssFeature } from "../css-gate";
 import { createManagedPagesFeature } from "../feature";
 import { seedPage } from "../seeding";
@@ -365,7 +365,14 @@ describe("managed-pages :: Branding (Config + Render)", () => {
   });
 
   test("leerer Wert (clear) ist erlaubt — Pattern allow-empty", async () => {
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: BRANDING_QN.siteUrl, value: "https://acme.test" },
+      adminA,
+    );
     await stack.http.writeOk("config:write:set", { key: BRANDING_QN.siteUrl, value: "" }, adminA);
+    const branding = await stack.http.queryOk<{ siteUrl: string }>(BRANDING_QUERY_QN, {}, adminA);
+    expect(branding.siteUrl).toBe("");
   });
 
   test("über-langer Title (>200) → Write abgelehnt (Server-Längen-Cap)", async () => {
@@ -460,6 +467,15 @@ describe("managed-pages :: Custom CSS (gated, sanitized render)", () => {
       { key: BRANDING_QN.customCss, value: ".note { color: red; }" },
       cssAdminA,
     );
+    // Gate AN → die branding-Query gibt den (rohen) customCss zurück; beweist
+    // dass der Key registriert ist UND der Wert persistiert (nicht nur „kein
+    // Write-Fehler").
+    const branding = await cssStack.http.queryOk<{ customCss?: string }>(
+      BRANDING_QUERY_QN,
+      {},
+      cssAdminA,
+    );
+    expect(branding.customCss).toContain(".note");
   });
 
   test("Gate AN: Tenant-CSS gescoped in <style data-tenant-css> gerendert", async () => {
