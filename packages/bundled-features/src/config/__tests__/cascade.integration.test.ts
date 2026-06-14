@@ -7,6 +7,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   access,
+  createBootConfiguration,
   createSystemConfig,
   createSystemSeed,
   createTenantConfig,
@@ -23,7 +24,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { ConfigHandlers, ConfigQueries } from "../constants";
 import { createConfigAccessorFactory, createConfigFeature } from "../feature";
-import { type ConfigResolver, createConfigResolver } from "../resolver";
+import { buildEnvConfigOverrides, type ConfigResolver, createConfigResolver } from "../resolver";
 import { configValueEntity, configValuesTable } from "../table";
 
 let stack: TestStack;
@@ -76,6 +77,16 @@ const cascadeFeature = defineFeature("cascade-test", (r) => {
         read: access.all,
         write: access.all,
       }),
+      // End-to-end seam key: declared via the provisioning factory with an
+      // `env` binding so buildEnvConfigOverrides reads it off the real
+      // registry under the qualified name define-feature assigns.
+      envKey: createBootConfiguration("text", {
+        scope: "system",
+        env: "CASCADE_ENV_VALUE",
+        default: "DEFAULT_ENV",
+        read: access.all,
+        write: access.all,
+      }),
     },
     seeds: {
       tenantKey: createTenantSeed({ value: "SEED_TENANT" }),
@@ -94,6 +105,7 @@ const SYSTEM_KEY = "cascade-test:config:system-key";
 const NUMBER_KEY = "cascade-test:config:number-key";
 const BOOLEAN_KEY = "cascade-test:config:boolean-key";
 const COMPUTED_KEY = "cascade-test:config:computed-key";
+const ENV_KEY = "cascade-test:config:env-key";
 
 beforeAll(async () => {
   resolver = createConfigResolver();
@@ -397,6 +409,38 @@ describe("cascade levels — non-DB sources", () => {
     // System-row stays empty; tenant-row also empty → override wins.
     expect(cascade.value).toBe(true);
     expect(cascade.source).toBe("app-override");
+  });
+
+  test("end-to-end: env-declared key bridges through the real registry to the resolver", async () => {
+    // The single flow none of the per-layer tests cover: a key declared via
+    // createBootConfiguration({ env }) on the REAL registry → its qualified
+    // name (define-feature-assigned) → buildEnvConfigOverrides emits exactly
+    // that key off getAllConfigKeys → resolver resolves it as app-override.
+    // A mismatch in key-qualification across registry/bridge/resolver would
+    // leave the per-layer stub/registry tests green and only break on the
+    // first real consumer. This pins the seam at a real qualified string.
+    const keyDef = stack.registry.getConfigKey(ENV_KEY);
+    expect(keyDef).toBeDefined();
+    expect(keyDef?.env).toBe("CASCADE_ENV_VALUE");
+
+    const overrides = buildEnvConfigOverrides(stack.registry, {
+      CASCADE_ENV_VALUE: "from-env",
+    });
+    expect(overrides.get(ENV_KEY)).toBe("from-env");
+
+    const envResolver = createConfigResolver({ appOverrides: overrides });
+    const result = await envResolver.getWithSource(
+      ENV_KEY,
+      keyDef!,
+      tenantAdmin.tenantId,
+      tenantAdmin.id,
+      db,
+    );
+
+    // No stored rows for this key → the env-bridged override wins over the
+    // declared default ("DEFAULT_ENV").
+    expect(result.source).toBe("app-override");
+    expect(result.value).toBe("from-env");
   });
 });
 
