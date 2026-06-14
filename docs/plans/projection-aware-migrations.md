@@ -2,7 +2,7 @@
 status: in-progress
 verified: 2026-06-14
 issue: kumiko-framework#356
-next: Phase 1 — Generator nach `source` splitten (managed → DROP+CREATE+Marker, unmanaged → additive ALTER)
+next: PR #356 (Generator-Split + Beweis) reviewen/mergen/releasen; Phase 2 (safe fail-loud) + Phase 3 (rebuild-job) als Folge-Issues; studio#58-envelope-Frage vor Consumer-Bump klären
 ---
 
 # Projection-aware migrations: managed = wegwerfbares Derivat, unmanaged = echte Daten
@@ -137,13 +137,12 @@ wie heute. Kein Eingriff in die Runner-Reinheit, kein Apply-Zeit-Truncate-Hack.
 | 5 | Changeset (minor, **nicht** breaking: bisher fehlschlagende managed-Migrations laufen jetzt). **RELEASE-FALLE:** Bot-PR close/reopen | Release-PR grün, npm live |
 | 6 | Consumer-Bumps (studio/publicstatus): studio#58-Migration regenerieren; **vorher** secret.created-envelope-Frage klären | integration grün |
 
-## Offene Entscheidungen (Review)
+## Entscheidungen (2026-06-14)
 
-- **(a)** Teil A managed-Strategie: **additiv-wenn-gefahrlos, sonst DROP+CREATE**
-  (Marten-Stil, spart Replays) — *empfohlen* — vs. uniform DROP+CREATE bei jeder
-  managed-Änderung (einfacher, aber jede Änderung = Full-Replay).
-- **(b)** blue-green/`ProjectionVersion` als **eigenes Folge-Issue** — *empfohlen* —
-  vs. hier mit drin (deutlich größer).
+- **(a) GEWÄHLT:** managed-Strategie = **additiv-wenn-gefahrlos, sonst DROP+CREATE**
+  (Marten-Stil, spart Replays). Klassifikator "in-place unsicher" = droppedColumns,
+  ADD `NOT NULL` ohne Default, neuer UNIQUE-Index, `SET NOT NULL`, Typ-Änderung.
+- **(b) GEWÄHLT:** blue-green/`ProjectionVersion` = **eigenes Folge-Issue** (nicht hier).
 
 ## Risiken / Anker
 
@@ -155,11 +154,46 @@ wie heute. Kein Eingriff in die Runner-Reinheit, kein Apply-Zeit-Truncate-Hack.
 - **fail-loud-Verschärfung** darf bestehende Apps nicht beim Apply brechen — greift nur für
   **managed** Tabellen, die DROP+CREATE'd werden und keine Projektion auflösen (echter Defekt).
 
+## Re-Scope (2026-06-14, nach Advisor-Review)
+
+Der Advisor hat zwei Risiken aufgedeckt, die Phase 2/3 aus diesem PR lösen:
+
+1. **Phase 2 fail-loud als Hard-Throw bricht heutige Deploys.** Bereits committed
+   Marker (vom alten `rebuildTablesFromDiff`, das auch unmanaged markierte) → beim
+   Apply unmapped → Throw → sticky-stuck (Migration ist getrackt, läuft nicht neu).
+   Plus Komposition-Drift (Feature aus App entfernt). → fail-loud darf **nicht**
+   hart werfen; eigenes Folge-Issue (loud-but-non-fatal, oder Throw nur für
+   *in-diesem-Run* DROP+CREATE'te Tabellen).
+2. **DROP+CREATE ist irreversibel** und gefährlicher als die alte fail-safe-ALTER,
+   wenn die Events das Feld nicht tragen → studio#58 hängt an `secret.created`-
+   envelope; vor Consumer-Bump verifizieren.
+
+→ **Dieser PR = Phase 1 (Generator-Split) + Integration-Beweis.** Phase 2 + 3 +
+blue-green = Folge-Issues. Hält's leichtgewichtig und de-risked den Kern.
+
+## Verifikation (2026-06-14)
+
+- Unit: migrate-generator + rebuild-marker 23/23 (managed DROP+CREATE für
+  NOT-NULL/rename, additiv für nullable-add, unmanaged unverändert, managed-only-Marker).
+- tsc -b EXIT=0, biome clean.
+- Integration (test-pg 15432): **managed-recreate Beweis** — generierter DROP+CREATE
+  appliziert auf befüllter 2-Row-Projektion → Tabelle neu (envelope-Spalte) + geleert.
+  Rebuild-Refill: pending-rebuilds.integration 3/3. Regression: schema-cli +
+  kumiko-drift + pending-rebuilds 27/27, keine Drift.
+- FK-Check: keine `REFERENCES read_*` in studio/publicstatus-Migrations → DROP TABLE
+  trifft keine FK-Dependents.
+
 ## DoD
 
-- [ ] Generator splittet nach `source`; managed-unsafe → DROP+CREATE+Marker, unmanaged → additive ALTER
-- [ ] managed-ohne-Projektion → fail-loud statt silent-skip
-- [ ] `kumiko:projection-rebuild`-Job + `enqueueProjectionRebuild` + Inline-Fallback
-- [ ] Tests echt: managed DROP+CREATE+Replay (add-NOT-NULL **und** rename), unmanaged unverändert, fail-loud, Job-Trigger getrackt
-- [ ] framework released (changeset, npm); Consumer-Bumps grün; studio#58-envelope-Frage geklärt
-- [ ] Frontmatter `status: shipped` + evidence (PR#s) + STATUS.md regen; Folge-Issue blue-green angelegt
+**PR #356 (dieser Branch):**
+- [x] Generator splittet nach `source`; managed-unsafe → DROP+CREATE+Marker, unmanaged → additive ALTER
+- [x] `rebuildTablesFromDiff` managed-only inkl. Recreate-Fälle
+- [x] Tests echt: managed DROP+CREATE (add-NOT-NULL **und** rename), unmanaged unverändert, managed-only-Marker, populated-table-apply-Beweis
+- [x] Changeset (minor)
+- [ ] framework released (changeset, npm); Consumer-Bumps grün; **studio#58-envelope-Frage geklärt** vor Bump
+- [ ] Frontmatter `status: shipped` + evidence (PR#) + STATUS.md regen
+
+**Folge-Issues:**
+- [ ] Phase 2: safe fail-loud für managed-ohne-Projektion (kein Hard-Throw)
+- [ ] Phase 3: `kumiko:projection-rebuild`-Single-Run-Job + `enqueueProjectionRebuild` + Inline-Fallback
+- [ ] blue-green/`ProjectionVersion` (zero-downtime Rebuild)
