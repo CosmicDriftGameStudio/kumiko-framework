@@ -15,6 +15,7 @@
 // qualifiziert die kurzen ids/refs mit "config". Daher hier durchweg KURZE
 // ids/parent/screen-Refs (buildNavRegistrySliceForApp qualifiziert selbst).
 
+import type { WorkspaceSchema } from "../ui-types";
 import type { ConfigScope } from "./constants";
 import {
   createBooleanField,
@@ -33,9 +34,24 @@ import type {
   ScreenDefinition,
 } from "./types/screen";
 
+// Namespace, unter dem buildAppSchema die generierten Screens/Navs einhängt
+// (find-or-create FeatureSchema). MUSS gleich CONFIG_FEATURE aus dem config
+// bundled-feature sein — framework kann das const nicht importieren (Richtung
+// bundled-features → framework), darum hier gepinnt + Pin-Test bundled-seitig.
+export const SETTINGS_HUB_FEATURE = "config";
+// Eigene Workspace nur für workspace-mode-Apps (siehe buildAppSchema): Settings
+// erscheinen als eigener Switcher-Eintrag, statt die kuratierten App-Workspaces
+// zu verschmutzen. Apps ohne Workspaces zeigen die Navs über den no-filter-Pfad.
+export const SETTINGS_HUB_WORKSPACE = "settings";
+
 export type ConfigFeatureSchema = {
   readonly screens: readonly ScreenDefinition[];
   readonly navs: readonly NavDefinition[];
+  // Fertige Settings-Workspace mit qualifizierten navMembers. Nur present
+  // wenn mind. ein Key opt-in via mask hat; buildAppSchema hängt sie NUR an
+  // wenn die App bereits Workspaces nutzt (sonst kippt eine workspace-lose
+  // App in den Filter-Modus und verliert alle übrigen Navs).
+  readonly workspace?: WorkspaceSchema;
 };
 
 // Audience-Reihenfolge im Sidebar: Plattform vor Tenant vor Benutzer.
@@ -83,7 +99,30 @@ export function buildConfigFeatureSchema(registry: Registry): ConfigFeatureSchem
     }
   }
 
-  return { screens, navs };
+  return { screens, navs, workspace: buildSettingsWorkspace(navs, masked) };
+}
+
+// navMembers tragen die QUALIFIZIERTEN Nav-QNs (siehe build-app-schema.test:
+// admin.navMembers === ["orders:nav:list", ...]). Die generierten Navs leben
+// unter SETTINGS_HUB_FEATURE, also `config:nav:<shortId>`. Sortiert = stabile
+// Landing-Screen-Wahl (firstNavScreenId iteriert navMembers der Reihe nach).
+function buildSettingsWorkspace(
+  navs: readonly NavDefinition[],
+  masked: readonly MaskedKey[],
+): WorkspaceSchema {
+  const navMembers = navs.map((n) => `${SETTINGS_HUB_FEATURE}:nav:${n.id}`).sort();
+  return {
+    definition: {
+      id: SETTINGS_HUB_WORKSPACE,
+      label: "config.settings.title",
+      icon: "settings",
+      order: 1000,
+      // Union der Schreib-Rollen aller Hub-Keys — sonst sieht ein
+      // unprivilegierter User einen leeren "Settings"-Switcher-Eintrag.
+      access: unionEditAccess(masked.map((k) => k.def)),
+    },
+    navMembers,
+  };
 }
 
 function buildScreen(

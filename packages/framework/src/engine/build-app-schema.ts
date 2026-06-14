@@ -26,6 +26,11 @@
 // `effectiveFeatures` Argument annehmen und über alle iterations filtern.
 
 import type { AppSchema, EntityDefinition, FeatureSchema, WorkspaceSchema } from "../ui-types";
+import {
+  buildConfigFeatureSchema,
+  type ConfigFeatureSchema,
+  SETTINGS_HUB_FEATURE,
+} from "./build-config-feature-schema";
 import type { Registry } from "./types/feature";
 import type { FieldDefinition } from "./types/fields";
 
@@ -59,6 +64,21 @@ export function buildAppSchema(registry: Registry): AppSchema {
     }
   }
 
+  // Self-Populating Settings-Hub: aus den deklarierten Config-Keys mit `mask`
+  // werden Screens/Navs (+ eine Workspace) abgeleitet und hier eingehängt —
+  // kein manuelles r.screen/r.nav am App-Author.
+  const appHadWorkspaces = workspaces.length > 0;
+  const generated = buildConfigFeatureSchema(registry);
+  if (generated.screens.length > 0) {
+    mergeSettingsHubIntoConfigFeature(features, generated);
+    // Flip-Schutz: die Workspace NUR anhängen wenn die App schon Workspaces
+    // nutzt. Bei einer workspace-losen App bleibt app.workspaces undefined →
+    // der Renderer zeigt alle Navs ungefiltert, die Hub-Navs inklusive.
+    if (appHadWorkspaces && generated.workspace !== undefined) {
+      workspaces.push(generated.workspace);
+    }
+  }
+
   const schema = {
     features,
     ...(workspaces.length > 0 && { workspaces }),
@@ -79,6 +99,31 @@ export function buildAppSchema(registry: Registry): AppSchema {
   }
 
   return schema;
+}
+
+// Hängt die generierten Hub-Screens/Navs an die config-FeatureSchema (qualified
+// dann als config:screen:* / config:nav:*). Existiert sie noch nicht (config
+// bundled-feature nicht gemountet), wird sie angelegt. find-or-create statt
+// fixem Push verhindert eine zweite FeatureSchema mit demselben featureName.
+function mergeSettingsHubIntoConfigFeature(
+  features: FeatureSchema[],
+  generated: ConfigFeatureSchema,
+): void {
+  const existing = features.find((f) => f.featureName === SETTINGS_HUB_FEATURE);
+  if (existing === undefined) {
+    features.push({
+      featureName: SETTINGS_HUB_FEATURE,
+      entities: {},
+      screens: generated.screens,
+      navs: generated.navs,
+    });
+    return;
+  }
+  features[features.indexOf(existing)] = {
+    ...existing,
+    screens: [...existing.screens, ...generated.screens],
+    navs: [...(existing.navs ?? []), ...generated.navs],
+  };
 }
 
 // PlatformComponent slots ({ react, native }) legitimately hold component

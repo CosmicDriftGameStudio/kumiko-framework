@@ -136,12 +136,39 @@ describe("buildConfigFeatureSchema — structure", () => {
     expect(configScreen("notify-user").access).toEqual({ openToAll: true });
   });
 
-  test("returns empty when no key opts into the hub via mask", () => {
+  test("returns empty (no workspace) when no key opts into the hub via mask", () => {
     const plain = defineFeature("plain", (r) => {
       r.config({ keys: { secret: createSystemConfig("text", {}) } });
     });
     const empty = buildConfigFeatureSchema(createRegistry([plain]));
     expect(empty.screens).toHaveLength(0);
     expect(empty.navs).toHaveLength(0);
+    expect(empty.workspace).toBeUndefined();
+  });
+
+  test("emits a settings workspace with qualified navMembers (config:nav:*) over every generated nav", () => {
+    const ws = schema.workspace;
+    expect(ws).toBeDefined();
+    expect(ws?.definition.id).toBe("settings");
+    expect(ws?.definition.label).toBe("config.settings.title");
+    expect(ws?.definition.default).toBeUndefined(); // never the login default
+    // every generated nav (parents + children) qualified under the config namespace
+    expect(ws?.navMembers).toEqual(schema.navs.map((n) => `config:nav:${n.id}`).sort());
+  });
+
+  test("workspace access is the union of write roles across all hub keys", () => {
+    // billing/notify tenant keys → admin write; notify-user digest → write all.
+    // Any `all`-writable key collapses the whole switcher entry to openToAll.
+    expect(schema.workspace?.definition.access).toEqual({ openToAll: true });
+  });
+
+  test("workspace access stays role-gated when no hub key is world-writable", () => {
+    const adminOnly = defineFeature("adminonly", (r) => {
+      r.config({ keys: { apiKey: createTenantConfig("text", { mask: { title: "a.key" } }) } });
+    });
+    const out = buildConfigFeatureSchema(createRegistry([adminOnly]));
+    expect(out.workspace?.definition.access).toEqual({
+      roles: ["TenantAdmin", "Admin", "SystemAdmin"],
+    });
   });
 });
