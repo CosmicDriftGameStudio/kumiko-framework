@@ -1,5 +1,6 @@
 import type { ConfigScope } from "./constants";
 import type {
+  ConfigBacking,
   ConfigBounds,
   ConfigComputedFn,
   ConfigKeyDefinition,
@@ -111,6 +112,57 @@ export function createUserConfig<T extends ConfigKeyType>(
   opts?: ConfigKeyOptions<T>,
 ): ConfigKeyDefinition<T> {
   return createConfigKey("user", type, opts);
+}
+
+// --- Boot-Configuration (provisioning bracket) ---
+//
+// type-first unification of the three scope factories, plus the provisioning
+// metadata: an ENV→default bridge (`env`), two visibility axes
+// (`visibility.masked` → encrypted, `visibility.inheritedToTenant` →
+// tenant-side redaction of the inherited system value) and the storage
+// `backing`. Returns the same ConfigKeyDefinition the scope factories produce,
+// so it slots into `r.config({ keys })` identically. The metadata fields are
+// declaration-only — the ENV bridge, redaction and backing×scope rules are
+// wired by the resolver / cascade.query / boot-validator respectively.
+type BootConfigurationOptions<T extends ConfigKeyType> = {
+  readonly scope: ConfigScope;
+  readonly env?: string;
+  readonly visibility?: {
+    readonly masked?: boolean;
+    readonly inheritedToTenant?: boolean;
+  };
+  readonly backing?: ConfigBacking;
+  readonly write?: readonly string[];
+  readonly read?: readonly string[];
+  readonly default?: ConfigValue<T>;
+  readonly options?: readonly string[];
+  readonly bounds?: T extends "number" ? ConfigBounds : never;
+  readonly computed?: ConfigComputedFn<T>;
+  readonly allowPerRequest?: T extends "text" ? never : boolean;
+  readonly required?: boolean;
+};
+
+export function createBootConfiguration<T extends ConfigKeyType>(
+  type: T,
+  opts: BootConfigurationOptions<T>,
+): ConfigKeyDefinition<T> {
+  const base = createConfigKey(opts.scope, type, {
+    write: opts.write,
+    read: opts.read,
+    default: opts.default,
+    encrypted: opts.visibility?.masked,
+    options: opts.options,
+    bounds: opts.bounds,
+    computed: opts.computed,
+    allowPerRequest: opts.allowPerRequest,
+    required: opts.required,
+  });
+  return {
+    ...base,
+    ...(opts.env ? { env: opts.env } : {}),
+    ...(opts.visibility?.inheritedToTenant === false ? { inheritedToTenant: false } : {}),
+    ...(opts.backing === "secrets" ? { backing: "secrets" } : {}),
+  };
 }
 
 // --- Seed Factories ---

@@ -12,6 +12,7 @@ export type {
 export type {
   ConfigAccessor,
   ConfigAccessorFactory,
+  ConfigBacking,
   ConfigBounds,
   ConfigCascade,
   ConfigCascadeLevel,

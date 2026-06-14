@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, test } from "bun:test";
 import {
   access,
+  createBootConfiguration,
   createSystemConfig,
   createTenantConfig,
   createUserConfig,
@@ -96,6 +97,151 @@ describe("createUserConfig", () => {
   test("with default value", () => {
     const key = createUserConfig("boolean", { default: true });
     expect(key.default).toBe(true);
+  });
+});
+
+describe("createBootConfiguration", () => {
+  test("scope maps to the same access defaults as the scope factories", () => {
+    const sys = createBootConfiguration("text", { scope: "system" });
+    expect(sys.scope).toBe("system");
+    expect(sys.access.write).toEqual(["system"]);
+    expect(sys.access.read).toEqual(["TenantAdmin", "Admin", "SystemAdmin"]);
+
+    const tenant = createBootConfiguration("text", { scope: "tenant" });
+    expect(tenant.scope).toBe("tenant");
+    expect(tenant.access.write).toEqual(["TenantAdmin", "Admin", "SystemAdmin"]);
+    expect(tenant.access.read).toEqual(["all"]);
+
+    const user = createBootConfiguration("boolean", { scope: "user" });
+    expect(user.scope).toBe("user");
+    expect(user.access.write).toEqual(["all"]);
+    expect(user.access.read).toEqual(["all"]);
+  });
+
+  test("visibility.masked → encrypted:true", () => {
+    const key = createBootConfiguration("text", {
+      scope: "system",
+      visibility: { masked: true },
+    });
+    expect(key.encrypted).toBe(true);
+  });
+
+  test("visibility.masked absent/false → encrypted field absent", () => {
+    expect(createBootConfiguration("text", { scope: "system" }).encrypted).toBeUndefined();
+    const explicitFalse = createBootConfiguration("text", {
+      scope: "system",
+      visibility: { masked: false },
+    });
+    expect(explicitFalse.encrypted).toBeUndefined();
+  });
+
+  test("visibility.inheritedToTenant:false attaches; default/true is omitted", () => {
+    const hidden = createBootConfiguration("text", {
+      scope: "system",
+      visibility: { inheritedToTenant: false },
+    });
+    expect(hidden.inheritedToTenant).toBe(false);
+
+    expect(createBootConfiguration("text", { scope: "system" }).inheritedToTenant).toBeUndefined();
+    expect(
+      createBootConfiguration("text", {
+        scope: "system",
+        visibility: { inheritedToTenant: true },
+      }).inheritedToTenant,
+    ).toBeUndefined();
+  });
+
+  test("env name is carried; absent → field absent", () => {
+    const bridged = createBootConfiguration("text", {
+      scope: "system",
+      env: "STRIPE_SECRET_KEY",
+    });
+    expect(bridged.env).toBe("STRIPE_SECRET_KEY");
+    expect(createBootConfiguration("text", { scope: "system" }).env).toBeUndefined();
+  });
+
+  test("backing:secrets is carried; default config is omitted", () => {
+    const secrets = createBootConfiguration("text", {
+      scope: "system",
+      backing: "secrets",
+    });
+    expect(secrets.backing).toBe("secrets");
+    expect(createBootConfiguration("text", { scope: "system" }).backing).toBeUndefined();
+    expect(
+      createBootConfiguration("text", { scope: "system", backing: "config" }).backing,
+    ).toBeUndefined();
+  });
+
+  test("forwards default, required, bounds, write override", () => {
+    const key = createBootConfiguration("number", {
+      scope: "tenant",
+      default: 100,
+      required: true,
+      bounds: { min: 1, max: 1000 },
+      write: access.roles("Billing"),
+    });
+    expect(key.default).toBe(100);
+    expect(key.required).toBe(true);
+    expect(key.bounds).toEqual({ min: 1, max: 1000 });
+    expect(key.access.write).toEqual(["Billing"]);
+  });
+
+  test("Stripe-shape: system + masked + hidden-from-tenant + env + secrets in one call", () => {
+    const key = createBootConfiguration("text", {
+      scope: "system",
+      env: "STRIPE_SECRET_KEY",
+      visibility: { masked: true, inheritedToTenant: false },
+      backing: "secrets",
+      required: true,
+    });
+    expect(key).toMatchObject({
+      type: "text",
+      scope: "system",
+      encrypted: true,
+      inheritedToTenant: false,
+      env: "STRIPE_SECRET_KEY",
+      backing: "secrets",
+      required: true,
+    });
+  });
+});
+
+describe("createBootConfiguration — type narrowing", () => {
+  test("returns ConfigKeyDefinition<T> with the type-tag preserved", () => {
+    const numberKey = createBootConfiguration("number", { scope: "system", default: 19 });
+    const boolKey = createBootConfiguration("boolean", { scope: "user", default: true });
+    expectTypeOf(numberKey).toEqualTypeOf<ConfigKeyDefinition<"number">>();
+    expectTypeOf(boolKey).toEqualTypeOf<ConfigKeyDefinition<"boolean">>();
+    expect(numberKey.type).toBe("number");
+    expect(boolKey.type).toBe("boolean");
+  });
+
+  test("@ts-expect-error: default must match the type-tag", () => {
+    // @ts-expect-error — number tag, string default
+    const wrong = createBootConfiguration("number", { scope: "system", default: "nope" });
+    expect(wrong.type).toBe("number");
+  });
+
+  test("@ts-expect-error: bounds only valid for number", () => {
+    // @ts-expect-error — bounds only valid for "number"
+    const textKey = createBootConfiguration("text", { scope: "system", bounds: { min: 1 } });
+    expect(textKey.type).toBe("text");
+  });
+
+  test("@ts-expect-error: allowPerRequest rejected on text", () => {
+    // @ts-expect-error — text keys can't opt in to per-request overrides
+    const textKey = createBootConfiguration("text", { scope: "tenant", allowPerRequest: true });
+    expect(textKey.type).toBe("text");
+  });
+
+  test("@ts-expect-error: scope is required", () => {
+    // Compile-time only — guarded behind a never-invoked closure so the
+    // missing-scope call never runs (createConfigKey would throw on the
+    // undefined scope lookup).
+    const make = () =>
+      // @ts-expect-error — scope is mandatory
+      createBootConfiguration("text", {});
+    expect(typeof make).toBe("function");
   });
 });
 

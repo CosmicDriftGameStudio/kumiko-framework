@@ -6,6 +6,7 @@ export { buildAppSchema } from "./build-app-schema";
 export { buildTarget } from "./build-target";
 export {
   access,
+  createBootConfiguration,
   createSeed,
   createSystemConfig,
   createSystemSeed,
@@ -215,6 +216,7 @@ export type {
   ConcurrencyMode,
   ConfigAccessor,
   ConfigAccessorFactory,
+  ConfigBacking,
   ConfigCascade,
   ConfigCascadeLevel,
   ConfigDefinition,
