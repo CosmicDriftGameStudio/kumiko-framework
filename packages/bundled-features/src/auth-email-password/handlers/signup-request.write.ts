@@ -2,9 +2,10 @@
 //
 // User gibt Email ein → wir minten einen opaken Random-Token, speichern
 // ihn bidirektional in Redis (token↔email), und der Route-Layer schickt
-// die Activation-Mail. Anders als reset/verify-Flows existiert der User
-// HIER NOCH NICHT — daher kein userId-lookup, kein HMAC-signing (wofür
-// gäbe es kein Subject), kein "skip if user already exists in DB"-pattern.
+// die Activation-Mail. Anders als reset/verify-Flows machen wir HIER keinen
+// userId-Lookup und kein HMAC-signing (es gäbe kein Subject — im Normalfall
+// existiert der User noch nicht). Ob die Email bereits ein Konto hat,
+// entscheidet bewusst der Confirm-Schritt, nicht dieser.
 //
 // Resend-Idempotenz: wenn für die Email bereits ein lebender Token in
 // Redis liegt, geben wir denselben Token zurück (und refreshen TTL auf
@@ -12,13 +13,14 @@
 // Activation-Link. Erste Mail bleibt gültig — kein "old link broken"-
 // annoyance.
 //
-// Always-200 (enumeration-safe): das Response sieht für jede Email
-// gleich aus, egal ob sie schon registriert ist oder nicht. Anders als
-// reset (das ein "no-op" zurückgibt wenn User nicht existiert) gibt's
-// hier nichts zu enumerieren — eine Email kann nicht "schon registriert
-// sein" weil bei Magic-Link der User-Row erst beim Confirm entsteht.
-// Was es geben könnte: dieselbe Email versucht es zum N-ten Mal —
-// Resend-Pfad ist by-design idempotent.
+// Always-200 (enumeration-safe): das Response sieht für jede Email gleich
+// aus, egal ob sie schon registriert ist oder nicht. Eine Email KANN bereits
+// ein Konto haben (Seeding oder früherer Signup) — die Sperre dagegen sitzt
+// bewusst im Confirm-Schritt (#365): signup-confirm lehnt eine bereits
+// registrierte Email ab statt den bestehenden User wiederzuverwenden. Hier
+// bleibt's always-200 + Resend-idempotent, damit der Request-Pfad nichts
+// leakt; ein request-seitiges Unterdrücken des Links wäre Defense-in-depth,
+// aber mit Enumeration-Risiko (separat).
 
 import { generateToken } from "@cosmicdrift/kumiko-framework/api";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";

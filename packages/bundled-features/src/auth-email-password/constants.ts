@@ -60,6 +60,12 @@ export const AuthErrors = {
   // anti-enumeration-Trade-off wie reset/verify.
   invalidSignupToken: "invalid_signup_token",
   signupNotConfigured: "signup_not_configured",
+  // Self-Signup: confirm lehnt eine bereits registrierte Email ab statt den
+  // bestehenden User wiederzuverwenden (Account-Takeover, #365). KEIN
+  // anti-enumeration-collapse wie invalidSignupToken: wer hier ankommt,
+  // kontrolliert die Inbox (hat den Magic-Link), das Reveal "Email existiert"
+  // ist also keine neue Info.
+  signupEmailAlreadyRegistered: "signup_email_already_registered",
   // Invite-Flow: alle Token-Failures collapsen auf invalidInviteToken
   // (anti-enumeration). emailMismatch wenn der invitee versucht den
   // Link mit einer anderen Email zu accepten als die eingeladene.
