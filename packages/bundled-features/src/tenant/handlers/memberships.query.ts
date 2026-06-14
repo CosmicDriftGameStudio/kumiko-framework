@@ -1,4 +1,4 @@
-import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/engine";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
@@ -13,18 +13,20 @@ export const membershipsQuery = defineQueryHandler({
   access: { roles: [SYSTEM_ROLE, "SystemAdmin"] },
   handler: async (query, ctx) => {
     const rows = await selectMany(ctx.db, tenantMembershipsTable, { userId: query.payload.userId });
+    if (rows.length === 0) return [];
 
-    // tenantName/tenantKey machen Memberships in der UI unterscheidbar
-    // (Tenant-Switcher zeigte sonst nur das UUID-Präfix — bei Seed-Tenants
-    // mit 00000000-…-Präfix sind die ununterscheidbar). Eine Handvoll
-    // Memberships pro User → Einzel-Fetches sind ok.
-    const enriched = await Promise.all(
-      rows.map(async (row) => {
-        const tenant = await fetchOne<{ name?: unknown; key?: unknown; isEnabled?: unknown }>(
-          ctx.db,
-          tenantTable,
-          { id: row["tenantId"] },
-        );
+    // tenantName/tenantKey machen Memberships im UI unterscheidbar (sonst nur
+    // das UUID-Präfix — Seed-Tenants mit 00000000-…-Präfix wären ununterscheidbar).
+    // Ein einzelner IN-Batch über alle tenantIds statt fetchOne pro Membership (#324).
+    type TenantRow = { id: unknown; name?: unknown; key?: unknown; isEnabled?: unknown };
+    const tenants = await selectMany<TenantRow>(ctx.db, tenantTable, {
+      id: rows.map((row) => row["tenantId"]),
+    });
+    const tenantById = new Map<unknown, TenantRow>(tenants.map((t) => [t.id, t]));
+
+    return rows
+      .map((row) => {
+        const tenant = tenantById.get(row["tenantId"]);
         // Disabled Tenants (tenant:write:disable) zählen nicht als Membership:
         // Login wählt sie nicht, /auth/tenants listet sie nicht, switch-tenant
         // antwortet not_a_member. Nur das explizite false filtert — eine
@@ -37,8 +39,7 @@ export const membershipsQuery = defineQueryHandler({
           ...(typeof tenant?.name === "string" && { tenantName: tenant.name }),
           ...(typeof tenant?.key === "string" && { tenantKey: tenant.key }),
         };
-      }),
-    );
-    return enriched.filter((m) => m !== null);
+      })
+      .filter((m) => m !== null);
   },
 });
