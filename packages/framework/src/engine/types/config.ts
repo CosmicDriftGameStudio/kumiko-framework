@@ -103,9 +103,12 @@ export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
   // ENV-Var-Name, dessen Wert beim Boot als app-override-Default dieses Keys
   // gebrückt wird. Reiner Fallback — überschreibt keinen gesetzten Row.
   readonly env?: string;
-  // false → der geerbte system-row-Wert wird für Tenant-Admins in cascade.query
-  // redigiert (z.B. SMTP-Creds: Tenant sieht nur "gesetzt", nicht den Wert).
-  // Default true; nur für scope:system relevant.
+  // false → der geerbte system-row-Wert wird für Tenant-Admins redigiert
+  // (cascade.query + values.query): der Tenant sieht weder den Wert noch dass
+  // er gesetzt ist, nur den eigenen Override. Greift quell-basiert auf jeden
+  // Wert aus der system-row — nicht scope-gebunden; typischer Fall ist ein
+  // scope:tenant Key, dessen Plattform-Default in der system-row liegt (SMTP-
+  // Creds). Default true = transparente Cascade.
   readonly inheritedToTenant?: boolean;
   // "config" (Default, volle Cascade) oder "secrets" (flach pro (tenant,key)).
   readonly backing?: ConfigBacking;
