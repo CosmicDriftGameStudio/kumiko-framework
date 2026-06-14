@@ -1,10 +1,8 @@
-import { fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { addDurationSpec, type DurationSpec } from "@cosmicdrift/kumiko-framework/compliance";
-import { createSystemUser, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
-import { USER_STATUS, userTable } from "../../user";
+import { USER_STATUS } from "../../user";
+import { startDeletionGracePeriod } from "./deletion-grace-period";
 
 // Atom 5b — Email-Notification beim deletion-requested-flip. Pattern:
 // password-reset-Callback aus auth-routes.ts. Best-effort — Throw beim
@@ -25,73 +23,23 @@ export type RequestDeletionOptions = {
 };
 
 // POST /api/user/request-deletion (S2.U5a) — DSGVO Art. 17 Forget-Antrag.
-// Flippt status=Active → deletionRequested, setzt gracePeriodEnd aus
-// Compliance-Profile. Account-weite Semantik (1 User-Row global), siehe
-// docs/plans/architecture/user-data-rights.md "Cross-Tenant-Semantik".
+// Flippt status=Active → deletionRequested, setzt gracePeriodEnd aus dem
+// Compliance-Profile (geteilte Logik: startDeletionGracePeriod). Account-
+// weite Semantik (1 User-Row global), siehe docs/plans/architecture/
+// user-data-rights.md "Cross-Tenant-Semantik".
 export function createRequestDeletionHandler(opts: RequestDeletionOptions = {}) {
   return defineWriteHandler({
     name: "request-deletion",
     schema: z.object({}),
     access: { openToAll: true },
     handler: async (event, ctx) => {
-      // ctx.db.raw (kein TenantDb-Wrapper) weil User-Entity tenant-agnostisch
-      // ist — siehe Plan-Doc Cross-Tenant-Section.
-      const userRow = await fetchOne<{ status: string; email: string }>(ctx.db.raw, userTable, {
-        id: event.user.id,
-      });
-
-      if (!userRow) {
-        return writeFailure(
-          new UnprocessableError("user_not_found", {
-            details: { reason: "user_not_found", userId: event.user.id },
-          }),
-        );
-      }
-
-      if (userRow["status"] !== USER_STATUS.Active) {
-        return writeFailure(
-          new UnprocessableError("user_not_in_active_state", {
-            details: {
-              reason: "user_not_in_active_state",
-              currentStatus: userRow["status"],
-            },
-          }),
-        );
-      }
-
-      // Compliance-Profile fuer gracePeriod via Cross-Feature-Query. Pattern:
-      // ctx.queryAs(user, qn, payload) — siehe auth-email-password/change-
-      // password.write.ts. @cast-boundary engine-bridge — queryAs liefert
-      // unknown, narrow auf den effektiven Profile-Shape.
-      const profile = (await ctx.queryAs(
-        createSystemUser(event.user.tenantId),
-        "compliance-profiles:query:for-tenant",
-        {},
-      )) as { profile: { userRights: { gracePeriod: DurationSpec } } }; // @cast-boundary engine-payload
-
-      // addDurationSpec deckt `{days}` und `{hours}` ab. App-Server-Clock
-      // ist authoritative — instant() customType nimmt Temporal.Instant
-      // direkt, kein SQL-interval-Bypass des Codecs.
-      const gracePeriod = profile.profile.userRights.gracePeriod;
-      const T = getTemporal();
-      const gracePeriodEnd = addDurationSpec(T.Now.instant(), gracePeriod);
-
-      await updateMany(
-        ctx.db.raw,
-        userTable,
-        {
-          status: USER_STATUS.DeletionRequested,
-          gracePeriodEnd,
-        },
-        { id: event.user.id },
-      );
+      const res = await startDeletionGracePeriod(ctx, event.user.id, event.user.tenantId);
+      if (!res.ok) return writeFailure(res.error);
+      const { gracePeriodEnd, userEmail } = res;
 
       // Best-effort Email-Notification. Send-Failure darf das Write nicht
-      // killen — siehe Type-Doc oben. console.warn ist die Operator-
-      // Sichtbarkeit; defineWriteHandler-Context fuehrt aktuell keinen
-      // structured-logger durch, Refactor-Kandidat wenn ctx.log threadet.
-      const userEmail = userRow["email"];
-      if (opts.sendDeletionRequestedEmail && userEmail && userEmail.length > 0) {
+      // killen — siehe Type-Doc oben.
+      if (opts.sendDeletionRequestedEmail && userEmail.length > 0) {
         try {
           await opts.sendDeletionRequestedEmail({
             userId: event.user.id,
@@ -108,8 +56,7 @@ export function createRequestDeletionHandler(opts: RequestDeletionOptions = {}) 
       }
 
       // Response liefert den absoluten gracePeriodEnd-Timestamp damit
-      // Frontend/Audit/Cleanup-Runner alle denselben Wert lesen — nicht
-      // den Input-`{days|hours}`, der ist Konfiguration nicht Result.
+      // Frontend/Audit/Cleanup-Runner alle denselben Wert lesen.
       return {
         isSuccess: true as const,
         data: {

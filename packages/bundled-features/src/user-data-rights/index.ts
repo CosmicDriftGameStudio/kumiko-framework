@@ -1,4 +1,5 @@
 export { createUserDataRightsFeature, type UserDataRightsOptions } from "./feature";
+export type { SendDeletionVerificationEmailFn } from "./handlers/request-deletion-by-email.write";
 export type {
   SendExportFailedEmailFn,
   SendExportReadyEmailFn,

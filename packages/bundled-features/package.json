@@ -40,6 +40,7 @@
     "./file-provider-inmemory": "./src/file-provider-inmemory/index.ts",
     "./files": "./src/files/index.ts",
     "./user-data-rights": "./src/user-data-rights/index.ts",
+    "./user-data-rights/web": "./src/user-data-rights/web/index.ts",
     "./user-data-rights-defaults": "./src/user-data-rights-defaults/index.ts",
     "./tenant": "./src/tenant/index.ts",
     "./tenant/constants": "./src/tenant/constants.ts",

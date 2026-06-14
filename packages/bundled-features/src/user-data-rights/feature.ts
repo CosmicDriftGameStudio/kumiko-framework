@@ -6,6 +6,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createFileProviderForTenant } from "../file-foundation";
 import { cancelDeletionWrite } from "./handlers/cancel-deletion.write";
+import { createConfirmDeletionByTokenHandler } from "./handlers/confirm-deletion-by-token.write";
 import { downloadByJobQuery } from "./handlers/download-by-job.query";
 import { downloadByTokenQuery } from "./handlers/download-by-token.query";
 import { exportStatusQuery } from "./handlers/export-status.query";
@@ -16,6 +17,10 @@ import {
   createRequestDeletionHandler,
   type SendDeletionRequestedEmailFn,
 } from "./handlers/request-deletion.write";
+import {
+  createRequestDeletionByEmailHandler,
+  type SendDeletionVerificationEmailFn,
+} from "./handlers/request-deletion-by-email.write";
 import { requestExportWrite } from "./handlers/request-export.write";
 import { restrictAccountWrite } from "./handlers/restrict-account.write";
 import { createRunForgetCleanupHandler } from "./handlers/run-forget-cleanup.write";
@@ -80,6 +85,20 @@ export type UserDataRightsOptions = {
    *  userEmail+tenantIds PRE-tx und reicht sie ephemeral an die
    *  Callback-Implementation (siehe run-forget-cleanup.ts). */
   readonly sendDeletionExecutedEmail?: SendDeletionExecutedEmailFn;
+  /** Anonymer, email-verifizierter Apex-Deletion-Flow (Lockout-sicher).
+   *  HMAC-Secret zum Signieren des Verify-Tokens. Ohne Secret bleibt der
+   *  Flow deaktiviert (request-by-email antwortet still success, confirm-
+   *  by-token weist generisch ab). */
+  readonly deletionTokenSecret?: string;
+  /** Basis-URL des Apex-Confirm-Screens, z.B.
+   *  "https://app.example.com/delete-account/confirm". Der Handler hängt
+   *  `?token=<token>` an. Required wenn deletionTokenSecret gesetzt. */
+  readonly deletionVerifyUrl?: string;
+  /** Versand des Verify-Magic-Links (Schritt 1 des anonymen Flows).
+   *  Best-effort, app-author-wired. MUSS non-blocking sein (enqueue, z.B.
+   *  delivery.notify) — ein synchroner Send reintroduziert ein Timing-Oracle
+   *  für Account-Enumeration (siehe SendDeletionVerificationEmailFn-Doc). */
+  readonly sendDeletionVerificationEmail?: SendDeletionVerificationEmailFn;
 };
 
 export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): FeatureDefinition {
@@ -127,6 +146,28 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       ),
     );
     r.writeHandler(cancelDeletionWrite);
+
+    // Anonymer, email-verifizierter Apex-Deletion-Flow (Lockout-sicher):
+    // request-by-email (Schritt 1, Magic-Link) + confirm-by-token (Schritt 2,
+    // startet dieselbe Grace-Period via startDeletionGracePeriod).
+    r.writeHandler(
+      createRequestDeletionByEmailHandler({
+        ...(opts.deletionTokenSecret !== undefined && {
+          deletionTokenSecret: opts.deletionTokenSecret,
+        }),
+        ...(opts.deletionVerifyUrl !== undefined && { deletionVerifyUrl: opts.deletionVerifyUrl }),
+        ...(opts.sendDeletionVerificationEmail !== undefined && {
+          sendDeletionVerificationEmail: opts.sendDeletionVerificationEmail,
+        }),
+      }),
+    );
+    r.writeHandler(
+      createConfirmDeletionByTokenHandler(
+        opts.deletionTokenSecret !== undefined
+          ? { deletionTokenSecret: opts.deletionTokenSecret }
+          : {},
+      ),
+    );
 
     // S2.U5b — Cleanup-Runner als privileged-Handler. Atom 5b: Wenn
     // sendDeletionExecutedEmail gesetzt, reicht der Handler den Callback
