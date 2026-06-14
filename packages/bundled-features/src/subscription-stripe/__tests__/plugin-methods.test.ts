@@ -24,7 +24,7 @@ import type { StripeCtxRuntime } from "../runtime";
 const TEST_API_KEY = "sk_test_dummy";
 
 function buildStripe(): Stripe {
-  return new Stripe(TEST_API_KEY, { apiVersion: "2026-04-22.dahlia" });
+  return new Stripe(TEST_API_KEY);
 }
 
 /** Test-runtime: gibt den gespyten Client zurück + ein billing-live-Gate

@@ -27,7 +27,7 @@ const TEST_API_KEY = "sk_test_dummy_apikey";
 // Test-helpers
 // =============================================================================
 
-const stripeForFixtures = new Stripe(TEST_API_KEY, { apiVersion: "2026-04-22.dahlia" });
+const stripeForFixtures = new Stripe(TEST_API_KEY);
 
 /** Test-runtime: liefert den fixture-Client + TEST_SECRET (statt sie aus
  *  system-secrets aufzulösen — die Resolution testet runtime.test.ts). */
