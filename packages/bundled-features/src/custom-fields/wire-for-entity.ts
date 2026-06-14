@@ -29,6 +29,7 @@ import { customFieldsFeature } from "./feature";
 //
 // Spec-Promise: customFields verhält sich wie Stammfelder. Default `{}`,
 // NOT NULL — analog zu embedded-Spalten.
+// @wrapper-known semantic-alias
 export function customFieldsField(): JsonbFieldDef {
   return createJsonbField();
 }

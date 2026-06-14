@@ -110,7 +110,7 @@ export const mailTransportSmtpFeature = defineFeature(FEATURE_NAME, (r) => {
   // `entityName` "smtp" is what tenants set in mail-foundation's
   // `provider` config-key to pick this transport.
   const plugin: MailTransportPlugin = {
-    build: async (ctx: HandlerContext, tenantId: string) => buildSmtpTransport(ctx, tenantId),
+    build: async (ctx: HandlerContext, tenantId: string) => buildSmtpTransport(ctx, tenantId), // @wrapper-known semantic-alias
   };
   r.useExtension("mailTransport", "smtp", plugin);
 

@@ -302,6 +302,7 @@ interface JobRow {
   readonly requestedFromTenantId: TenantId;
 }
 
+// @wrapper-known semantic-alias
 async function fetchPendingJobs(db: DbRunner): Promise<readonly JobRow[]> {
   return selectMany<JobRow>(
     db,
@@ -649,6 +650,7 @@ async function storageCleanupPass(args: {
 // Tenant-Context. system-mode TenantDb bypassed den auto-tenant-filter
 // — wir nutzen `requestedFromTenantId` als Stream-Identity damit der
 // Stream-Counter konsistent bleibt (Memory feedback_event_store_tenant_consistency).
+// @wrapper-known semantic-alias
 function systemTenantDb(db: DbConnection, tenantId: TenantId) {
   return createTenantDb(db, tenantId, "system");
 }

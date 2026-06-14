@@ -106,6 +106,7 @@ export function getDefaultValue(field: z.ZodType): unknown {
   return undefined;
 }
 
+// @wrapper-known semantic-alias
 export function getFieldDescription(field: z.ZodType): string | undefined {
   return zodDescription(field);
 }

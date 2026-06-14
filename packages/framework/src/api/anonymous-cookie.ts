@@ -55,6 +55,7 @@ export function setTenantCookie(
 // Removes the kumiko_tenant cookie. Use on switch-tenant flows or when
 // the resolver no longer recognises the visitor's tenant — leaving a
 // stale cookie behind would keep them pointed at a deleted tenant.
+// @wrapper-known semantic-alias
 export function deleteTenantCookie(c: Context): void {
   deleteCookie(c, TENANT_COOKIE_NAME, { path: "/" });
 }

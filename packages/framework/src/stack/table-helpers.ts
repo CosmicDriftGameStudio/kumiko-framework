@@ -129,6 +129,7 @@ export async function unsafePushTables(
   }
 }
 
+// @wrapper-known semantic-alias
 function renderColumnType(col: ColumnMeta): string {
   return pgTypeToSqlType(col.pgType);
 }

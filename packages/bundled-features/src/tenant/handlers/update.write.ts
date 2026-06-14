@@ -16,5 +16,5 @@ export const updateWrite = defineWriteHandler({
     changes: z.object({ name: z.string().min(1).max(200).optional() }),
   }),
   access: { roles: ["Admin", "SystemAdmin"] },
-  handler: async (event, ctx) => crud.update(event.payload, event.user, ctx.db),
+  handler: async (event, ctx) => crud.update(event.payload, event.user, ctx.db), // @wrapper-known semantic-alias
 });

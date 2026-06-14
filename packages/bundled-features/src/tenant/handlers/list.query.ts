@@ -13,5 +13,5 @@ export const listQuery = defineQueryHandler({
     search: z.string().optional(),
   }),
   access: { roles: ["SystemAdmin"] },
-  handler: async (query, ctx) => crud.list(query.payload, query.user, ctx.db),
+  handler: async (query, ctx) => crud.list(query.payload, query.user, ctx.db), // @wrapper-known semantic-alias
 });

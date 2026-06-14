@@ -80,6 +80,7 @@ export function pipeline<TPayload = unknown, TData = unknown>(
 
 // Internal: invoked by run-pipeline.ts to materialise the step list.
 // Not exported from the engine barrel — pipeline-internal plumbing.
+// @wrapper-known semantic-alias
 export function buildPipelineSteps<TPayload>(
   pipelineDef: PipelineDef<TPayload>,
   event: WriteEvent<TPayload>,

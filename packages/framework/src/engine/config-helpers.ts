@@ -120,6 +120,7 @@ function createConfigKey<T extends ConfigKeyType>(
 // Generic on the type-tag so `r.config({keys})` can propagate it into the
 // returned `ConfigKeyHandle<T>` — that's what narrows `ctx.config(handle)`.
 
+// @wrapper-known semantic-alias
 export function createTenantConfig<T extends ConfigKeyType>(
   type: T,
   opts?: ConfigKeyOptions<T>,
@@ -127,6 +128,7 @@ export function createTenantConfig<T extends ConfigKeyType>(
   return createConfigKey("tenant", type, opts);
 }
 
+// @wrapper-known semantic-alias
 export function createSystemConfig<T extends ConfigKeyType>(
   type: T,
   opts?: ConfigKeyOptions<T>,
@@ -134,6 +136,7 @@ export function createSystemConfig<T extends ConfigKeyType>(
   return createConfigKey("system", type, opts);
 }
 
+// @wrapper-known semantic-alias
 export function createUserConfig<T extends ConfigKeyType>(
   type: T,
   opts?: ConfigKeyOptions<T>,

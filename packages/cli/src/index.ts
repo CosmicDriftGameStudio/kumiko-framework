@@ -24,6 +24,7 @@ export type RunCliOptions = {
 
 const DEFAULT_OUT: Output = {
   log: (line) => console.log(line),
+  // @wrapper-known semantic-alias
   err: (line) => console.error(line),
 };
 

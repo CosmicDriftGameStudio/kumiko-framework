@@ -35,10 +35,12 @@ function readCurrentMode(): ThemeMode {
   return document.documentElement.classList.contains("dark") ? "dark" : "light";
 }
 
+// @wrapper-known semantic-alias
 function notifyThemeChange(): void {
   themeTick.setState((t) => t + 1);
 }
 
+// @wrapper-known semantic-alias
 function persistMode(mode: ThemeMode): void {
   try {
     window.localStorage.setItem(THEME_STORAGE_KEY, mode);

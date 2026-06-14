@@ -17,5 +17,5 @@
     "rootDir": "../../..",
     "types": ["bun-types"]
   },
-  "include": ["bin", "src"]
+  "include": ["bin", "src", "kumiko", "scripts"]
 }
