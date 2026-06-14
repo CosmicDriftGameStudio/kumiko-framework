@@ -21,7 +21,7 @@ export {
   collectMissingRequiredConfig,
 } from "./handlers/readiness.query";
 export type { AppConfigOverrides, ConfigResolver } from "./resolver";
-export { createConfigResolver, validateAppOverrides } from "./resolver";
+export { buildEnvConfigOverrides, createConfigResolver, validateAppOverrides } from "./resolver";
 export { configValuesTable } from "./table";
 
 // Boot helper for runDevApp / runProdApp: pulls every ConfigSeedDef from

@@ -505,3 +505,65 @@ export function validateAppOverrides(
 
   return validated;
 }
+
+// --- ENV → App-Override Bridge ---
+//
+// Realises the `env` field on createBootConfiguration: at boot every config
+// key that declares `env` reads its value from the process environment and
+// injects it as an app-override default (the cascade rung between the
+// tenant/system rows and the declared default). String env values are coerced
+// to the key's type; a mismatch fails the boot loudly rather than silently
+// resolving to the wrong value. Reuses validateAppOverrides for the
+// existence / bounds / options / computed-conflict gates.
+//
+// undefined OR empty-string env vars are skipped — an unset (or `FOO=`)
+// variable must not clobber a declared default.
+
+type EnvSource = Readonly<Record<string, string | undefined>>;
+
+type ConfigKeyRegistry = {
+  getAllConfigKeys: () => ReadonlyMap<string, ConfigKeyDefinition>;
+  getConfigKey: (key: string) => ConfigKeyDefinition | undefined;
+};
+
+function coerceEnvValue(
+  qualifiedKey: string,
+  envName: string,
+  type: ConfigKeyDefinition["type"],
+  raw: string,
+): string | number | boolean {
+  if (type === "number") {
+    const n = Number(raw.trim());
+    if (!Number.isFinite(n)) {
+      throw new Error(
+        `ENV config bridge: "${envName}" → "${qualifiedKey}" expects a number, got "${raw}".`,
+      );
+    }
+    return n;
+  }
+  if (type === "boolean") {
+    const v = raw.trim().toLowerCase();
+    if (v === "true" || v === "1") return true;
+    if (v === "false" || v === "0") return false;
+    throw new Error(
+      `ENV config bridge: "${envName}" → "${qualifiedKey}" expects a boolean (true/false/1/0), got "${raw}".`,
+    );
+  }
+  // text | select — select-option membership is validated by validateAppOverrides
+  return raw;
+}
+
+export function buildEnvConfigOverrides(
+  registry: ConfigKeyRegistry,
+  env: EnvSource,
+): AppConfigOverrides {
+  const record: Record<string, string | number | boolean> = {};
+  for (const [qualifiedKey, keyDef] of registry.getAllConfigKeys()) {
+    const envName = keyDef.env;
+    if (!envName) continue;
+    const raw = env[envName];
+    if (raw === undefined || raw === "") continue;
+    record[qualifiedKey] = coerceEnvValue(qualifiedKey, envName, keyDef.type, raw);
+  }
+  return validateAppOverrides(registry, record);
+}
