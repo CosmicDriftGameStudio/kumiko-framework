@@ -151,6 +151,31 @@ describe("anonymous deletion flow", () => {
     expect(rows[0]?.gracePeriodEnd).not.toBeNull();
   });
 
+  test("confirm-replay (anonym): zweites Confirm mit gleichem Token → 422, Status unverändert", async () => {
+    await seedAlice();
+    await stack.http.raw("POST", "/api/write", {
+      type: REQUEST_BY_EMAIL,
+      payload: { email: ALICE_EMAIL },
+    });
+    const token = tokenFromLastVerifyCall();
+
+    const first = await stack.http.raw("POST", "/api/write", {
+      type: CONFIRM_BY_TOKEN,
+      payload: { token },
+    });
+    expect(first.status).toBe(200);
+    expect(await statusOf()).toBe(USER_STATUS.DeletionRequested);
+
+    // Token ist bewusst replaybar (kein single-use); die Replay-Sicherheit kommt
+    // allein aus dem Active-State-Guard — zweites Confirm trifft non-active → 422.
+    const second = await stack.http.raw("POST", "/api/write", {
+      type: CONFIRM_BY_TOKEN,
+      payload: { token },
+    });
+    expect(second.status).toBe(422);
+    expect(await statusOf()).toBe(USER_STATUS.DeletionRequested);
+  });
+
   test("request-by-email für nicht-existente Email → success, KEINE Mail (enumeration-safe)", async () => {
     await seedAlice();
     const res = await stack.http.raw("POST", "/api/write", {
@@ -169,6 +194,7 @@ describe("anonymous deletion flow", () => {
       payload: { email: ALICE_EMAIL },
     });
     expect(res.status).toBe(200);
+    expect(((await res.json()) as { isSuccess: boolean }).isSuccess).toBe(true);
     expect(verifyCalls).toHaveLength(0);
   });
 
