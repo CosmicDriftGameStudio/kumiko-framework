@@ -10,10 +10,11 @@ function meta(
   tableName: string,
   extraColumn?: EntityTableMeta["columns"][number],
   indexes: EntityTableMeta["indexes"] = [],
+  source: EntityTableMeta["source"] = "managed",
 ): EntityTableMeta {
   return {
     tableName,
-    source: "unmanaged",
+    source,
     indexes,
     columns: [
       { name: "id", pgType: "uuid", notNull: true, primaryKey: true },
@@ -27,10 +28,10 @@ function tmpDir(): string {
 }
 
 describe("rebuildTablesFromDiff", () => {
-  test("includes new + changed tables, excludes dropped, sorted + unique", () => {
+  test("managed: new + changed tables included, dropped excluded, sorted + unique", () => {
     const prev = snapshotFromMetas([meta("read_a"), meta("read_c")]);
     const next = snapshotFromMetas([
-      meta("read_a", { name: "title", pgType: "text", notNull: true }),
+      meta("read_a", { name: "title", pgType: "text", notNull: false }),
       meta("read_b"),
     ]);
     const diff = diffSnapshots(prev, next);
@@ -42,7 +43,7 @@ describe("rebuildTablesFromDiff", () => {
     expect(rebuildTablesFromDiff(diffSnapshots(snap, snap))).toEqual([]);
   });
 
-  test("index-only change → no rebuild (ALTER bringt Tabelle alleine in Soll)", () => {
+  test("managed non-unique index-only change → no rebuild (ALTER bringt Tabelle alleine in Soll)", () => {
     const prev = snapshotFromMetas([meta("read_a")]);
     const next = snapshotFromMetas([
       meta("read_a", undefined, [{ name: "read_a_id_idx", columns: ["id"] }]),
@@ -50,20 +51,47 @@ describe("rebuildTablesFromDiff", () => {
     expect(rebuildTablesFromDiff(diffSnapshots(prev, next))).toEqual([]);
   });
 
-  test("dropped-column-only change → no rebuild", () => {
-    const prev = snapshotFromMetas([
-      meta("read_a", { name: "old", pgType: "text", notNull: false }),
-    ]);
-    const next = snapshotFromMetas([meta("read_a")]);
-    expect(rebuildTablesFromDiff(diffSnapshots(prev, next))).toEqual([]);
-  });
-
-  test("new-column change → rebuild (Backfill aus Events nötig)", () => {
+  test("managed new nullable column → rebuild (Backfill aus Events nötig)", () => {
     const prev = snapshotFromMetas([meta("read_a")]);
     const next = snapshotFromMetas([
       meta("read_a", { name: "title", pgType: "text", notNull: false }),
     ]);
     expect(rebuildTablesFromDiff(diffSnapshots(prev, next))).toEqual(["read_a"]);
+  });
+
+  test("managed dropped column → rebuild (Tabelle wird DROP+CREATE'd, neu füllen)", () => {
+    const prev = snapshotFromMetas([
+      meta("read_a", { name: "old", pgType: "text", notNull: false }),
+    ]);
+    const next = snapshotFromMetas([meta("read_a")]);
+    expect(rebuildTablesFromDiff(diffSnapshots(prev, next))).toEqual(["read_a"]);
+  });
+
+  test("managed SET NOT NULL → rebuild (recreate)", () => {
+    const prev = snapshotFromMetas([
+      meta("read_a", { name: "title", pgType: "text", notNull: false }),
+    ]);
+    const next = snapshotFromMetas([
+      meta("read_a", { name: "title", pgType: "text", notNull: true }),
+    ]);
+    expect(rebuildTablesFromDiff(diffSnapshots(prev, next))).toEqual(["read_a"]);
+  });
+
+  test("managed new UNIQUE index → rebuild (recreate, könnte an Dups scheitern)", () => {
+    const prev = snapshotFromMetas([meta("read_a")]);
+    const next = snapshotFromMetas([
+      meta("read_a", undefined, [{ name: "read_a_id_uq", columns: ["id"], unique: true }]),
+    ]);
+    expect(rebuildTablesFromDiff(diffSnapshots(prev, next))).toEqual(["read_a"]);
+  });
+
+  test("unmanaged tables are never rebuilt (echte Daten, keine Projektion)", () => {
+    const prev = snapshotFromMetas([meta("u_a", undefined, [], "unmanaged")]);
+    const next = snapshotFromMetas([
+      meta("u_a", { name: "title", pgType: "text", notNull: true }, [], "unmanaged"),
+      meta("u_new", undefined, [], "unmanaged"),
+    ]);
+    expect(rebuildTablesFromDiff(diffSnapshots(prev, next))).toEqual([]);
   });
 });
 

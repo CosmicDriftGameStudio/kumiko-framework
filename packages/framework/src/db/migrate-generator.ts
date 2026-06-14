@@ -42,6 +42,10 @@ export type TableDiff = {
   readonly changedColumns: readonly ColumnChange[];
   readonly newIndexes: readonly IndexMeta[];
   readonly droppedIndexes: readonly string[];
+  // Full target meta — carried so the renderer can emit DROP+CREATE for a
+  // managed projection whose change cannot apply in-place (see
+  // managedChangeRequiresRecreate). Source-discriminator reached via nextMeta.source.
+  readonly nextMeta: EntityTableMeta;
 };
 
 export type SchemaDiff = {
@@ -161,6 +165,7 @@ function diffOneTable(prev: EntityTableMeta, next: EntityTableMeta): TableDiff |
     changedColumns,
     newIndexes,
     droppedIndexes,
+    nextMeta: next,
   };
 }
 
@@ -190,6 +195,23 @@ export function diffSnapshots(prev: Snapshot | null, next: Snapshot): SchemaDiff
   }
 
   return { newTables, droppedTables, changedTables };
+}
+
+// A managed projection is a disposable derivative of the event stream. When a
+// schema change cannot apply in-place against existing rows — NOT NULL without
+// default, a UNIQUE index (may hit duplicates), SET NOT NULL, a type change, or
+// a dropped column (incl. the drop-half of a rename) — the additive ALTER would
+// die on the very rows the queued rebuild discards anyway. Such a change is
+// rendered as DROP+CREATE and refilled from events instead. Purely additive,
+// in-place-safe changes (nullable/defaulted ADD, non-unique index, DROP NOT
+// NULL, default-only) stay as cheap ALTERs with no forced replay.
+export function managedChangeRequiresRecreate(td: TableDiff): boolean {
+  if (td.droppedColumns.length > 0) return true;
+  if (td.newColumns.some((c) => c.notNull && c.defaultSql === undefined)) return true;
+  if (td.newIndexes.some((idx) => idx.unique === true)) return true;
+  return td.changedColumns.some(
+    (c) => c.nullabilityChanged?.to === true || c.typeChanged !== undefined,
+  );
 }
 
 // --- SQL-Render ---------------------------------------------------------
@@ -275,6 +297,13 @@ export function renderMigrationSql(
     lines.push("-- === Changed tables ===");
     for (const td of diff.changedTables) {
       lines.push(`-- ${td.tableName}`);
+      if (td.nextMeta.source === "managed" && managedChangeRequiresRecreate(td)) {
+        lines.push("-- managed projection — recreated + rebuilt from events (see .rebuild.json)");
+        lines.push(`DROP TABLE IF EXISTS ${quoteIdent(td.tableName)};`);
+        lines.push(...renderTableDdl(td.nextMeta));
+        lines.push("");
+        continue;
+      }
       for (const col of td.newColumns) {
         lines.push(renderAddColumn(td.tableName, col));
       }

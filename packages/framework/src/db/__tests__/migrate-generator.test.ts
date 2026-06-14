@@ -10,10 +10,11 @@ import {
 function meta(
   tableName: string,
   extraColumn?: EntityTableMeta["columns"][number],
+  source: EntityTableMeta["source"] = "unmanaged",
 ): EntityTableMeta {
   return {
     tableName,
-    source: "unmanaged",
+    source,
     indexes: [],
     columns: [
       { name: "id", pgType: "uuid", notNull: true, primaryKey: true },
@@ -67,5 +68,60 @@ describe("renderMigrationSql / generateMigration", () => {
     expect(out.snapshot.tables).toHaveLength(1);
     expect(out.sqlContent).toContain("0001_init");
     expect(out.filename).toBe("0001_init.sql");
+  });
+});
+
+describe("renderMigrationSql — managed recreate vs unmanaged in-place", () => {
+  test("managed: NOT NULL column without default → DROP+CREATE, no in-place ADD", () => {
+    const prev = snapshotFromMetas([meta("read_secrets", undefined, "managed")]);
+    const next = snapshotFromMetas([
+      meta("read_secrets", { name: "envelope", pgType: "jsonb", notNull: true }, "managed"),
+    ]);
+    const sql = renderMigrationSql(diffSnapshots(prev, next), {
+      name: "secrets",
+      sequenceNumber: 2,
+    });
+    expect(sql).toContain('DROP TABLE IF EXISTS "read_secrets";');
+    expect(sql).toContain('CREATE TABLE IF NOT EXISTS "read_secrets"');
+    expect(sql).not.toContain("ADD COLUMN");
+  });
+
+  test("managed: column rename (drop + add NOT NULL) → DROP+CREATE with new shape", () => {
+    const prev = snapshotFromMetas([
+      meta("read_a", { name: "old_name", pgType: "text", notNull: true }, "managed"),
+    ]);
+    const next = snapshotFromMetas([
+      meta("read_a", { name: "new_name", pgType: "text", notNull: true }, "managed"),
+    ]);
+    const sql = renderMigrationSql(diffSnapshots(prev, next), {
+      name: "rename",
+      sequenceNumber: 3,
+    });
+    expect(sql).toContain('DROP TABLE IF EXISTS "read_a";');
+    expect(sql).toContain('"new_name"');
+    expect(sql).not.toContain("DROP COLUMN");
+  });
+
+  test("managed: additive nullable column → in-place ADD COLUMN, no recreate", () => {
+    const prev = snapshotFromMetas([meta("read_a", undefined, "managed")]);
+    const next = snapshotFromMetas([
+      meta("read_a", { name: "note", pgType: "text", notNull: false }, "managed"),
+    ]);
+    const sql = renderMigrationSql(diffSnapshots(prev, next), { name: "note", sequenceNumber: 4 });
+    expect(sql).toContain('ALTER TABLE "read_a" ADD COLUMN "note"');
+    expect(sql).not.toContain("DROP TABLE");
+  });
+
+  test("unmanaged: NOT NULL column without default → in-place ADD (real data, never recreated)", () => {
+    const prev = snapshotFromMetas([meta("app_data")]);
+    const next = snapshotFromMetas([
+      meta("app_data", { name: "envelope", pgType: "jsonb", notNull: true }),
+    ]);
+    const sql = renderMigrationSql(diffSnapshots(prev, next), {
+      name: "appdata",
+      sequenceNumber: 5,
+    });
+    expect(sql).toContain('ALTER TABLE "app_data" ADD COLUMN "envelope"');
+    expect(sql).not.toContain("DROP TABLE");
   });
 });

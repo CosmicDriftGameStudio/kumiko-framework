@@ -19,7 +19,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import type { SchemaDiff } from "./migrate-generator";
+import { managedChangeRequiresRecreate, type SchemaDiff } from "./migrate-generator";
 
 const MARKER_VERSION = 1 as const;
 
@@ -32,18 +32,22 @@ function markerPathFor(migrationsDir: string, migrationId: string): string {
   return join(migrationsDir, `${migrationId}.rebuild.json`);
 }
 
-// Tabellen die nach dieser Migration einen Projection-Rebuild brauchen können:
-// neu angelegte + Tabellen mit neuer Spalte. Index-/Nullability-/Default-/
-// Drop-only-Änderungen brauchen KEINEN Rebuild — das generierte ALTER-SQL
-// bringt die Tabelle alleine in den Soll-Zustand. Über-Rebuild ist safe-but-
-// wasteful (Tabellen-Lock + Full-Replay auf grossen Streams), deshalb hier
-// konservativ einschränken. Sortiert + dedupliziert für stabilen PR-Diff.
+// Nur MANAGED Projektionen (Derivate des Event-Streams) brauchen/erlauben einen
+// Rebuild — unmanaged Tabellen tragen echte Daten und werden nie aus Events
+// rekonstruiert, dürfen also nie in den Marker. Eine managed Tabelle kommt rein,
+// wenn sie eine neue Spalte bekommt (Backfill) oder DROP+CREATE'd wird
+// (managedChangeRequiresRecreate → Tabelle geleert, muss neu gefüllt werden).
+// Reine non-unique-Index-/Default-/DROP-NOT-NULL-Änderungen brauchen keinen
+// Rebuild. Sortiert + dedupliziert für stabilen PR-Diff.
 export function rebuildTablesFromDiff(diff: SchemaDiff): readonly string[] {
   const names = new Set<string>();
   for (const t of diff.changedTables) {
-    if (t.newColumns.length > 0) names.add(t.tableName);
+    if (t.nextMeta.source !== "managed") continue;
+    if (t.newColumns.length > 0 || managedChangeRequiresRecreate(t)) names.add(t.tableName);
   }
-  for (const t of diff.newTables) names.add(t.tableName);
+  for (const t of diff.newTables) {
+    if (t.source === "managed") names.add(t.tableName);
+  }
   return [...names].sort();
 }
 
