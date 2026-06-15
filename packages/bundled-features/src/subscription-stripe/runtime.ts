@@ -5,11 +5,11 @@
 // `createSubscriptionStripeFeature({ apiKey, webhookSecret })`-mount-time.
 // Rotating a key or flipping prod live then needed a redeploy. This module
 // resolves both at CALL-time instead:
-//   - `api-key` + `webhook-secret` from the **secrets** feature, stored
-//     under SYSTEM_TENANT_ID (Stripe is app-wide, not per-tenant — secrets
-//     v1 only declares `scope:"tenant"`, so app-wide values live under the
-//     system tenant, the same convention the config-resolver uses for
-//     system-scope rows).
+//   - `api-key` + `webhook-secret` from system config keys with
+//     backing:"secrets" — the value lives in the secrets store under
+//     SYSTEM_TENANT_ID (Stripe is app-wide), JSON-serialized like any config
+//     value. Both read paths reach it via SecretsContext.get(config-QN) and
+//     parse the JSON back (parseStoredSecret).
 //   - `billing-live` from a **system config** key (default false) — the
 //     master switch that gates whether a checkout may create a live session.
 //
@@ -29,7 +29,6 @@ import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secr
 import {
   type ConfigKeyHandle,
   type HandlerContext,
-  type SecretKeyHandle,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { FeatureDisabledError, UnconfiguredError } from "@cosmicdrift/kumiko-framework/errors";
@@ -38,7 +37,7 @@ import Stripe from "stripe";
 import { SUBSCRIPTION_STRIPE_FEATURE } from "./constants";
 
 const API_KEY_HINT =
-  "Set the system-scoped Stripe API key via secrets:write:set (or seed it from STRIPE_API_KEY during the env bridge).";
+  "Set the Stripe API key via config:write:set on `subscription-stripe:config:api-key` (or seed it from STRIPE_API_KEY during the env bridge).";
 
 /** Memoize Stripe clients by api-key string — a fresh client is built only
  *  when the key actually changes (rotation), so steady-state calls reuse one
@@ -57,11 +56,23 @@ export function createStripeClientCache(): (apiKey: string) => Stripe {
 }
 
 export type StripeRuntimeDeps = {
-  readonly apiKeyHandle: SecretKeyHandle;
-  readonly webhookSecretHandle: SecretKeyHandle;
+  readonly apiKeyHandle: ConfigKeyHandle<"text">;
+  readonly webhookSecretHandle: ConfigKeyHandle<"text">;
   readonly billingLiveHandle: ConfigKeyHandle<"boolean">;
   readonly fallback: { readonly apiKey?: string; readonly webhookSecret?: string };
 };
+
+// backing:"secrets" config keys store their value JSON-serialized in the
+// secrets store (config:write:set → JSON.stringify). A raw SecretsContext.get
+// (the un-audited webhook path + the audited ctx read here) therefore returns
+// the JSON-quoted string and must parse it back. The factory fallback is a
+// plain env string and stays raw — so parsing is applied only to the store
+// read, never to the fallback.
+function parseStoredSecret(raw: string | undefined): string | undefined {
+  if (raw === undefined || raw.length === 0) return undefined;
+  const parsed: unknown = JSON.parse(raw);
+  return typeof parsed === "string" && parsed.length > 0 ? parsed : undefined;
+}
 
 /** Post-tenant runtime: used by checkout/portal/cancel which carry a full
  *  HandlerContext (audited secret reads, config-gate). */
@@ -94,9 +105,9 @@ export function createStripeRuntimes(deps: StripeRuntimeDeps): StripeRuntimes {
     if (ctx.secrets) {
       const got = await requireSecretsContext(ctx, SUBSCRIPTION_STRIPE_FEATURE).get(
         SYSTEM_TENANT_ID,
-        deps.apiKeyHandle,
+        deps.apiKeyHandle.name,
       );
-      key = got?.reveal();
+      key = parseStoredSecret(got?.reveal());
     }
     if (!key && deps.fallback.apiKey && deps.fallback.apiKey.length > 0) {
       key = deps.fallback.apiKey;
@@ -113,14 +124,14 @@ export function createStripeRuntimes(deps: StripeRuntimeDeps): StripeRuntimes {
 
   async function rawRead(
     systemSecrets: SecretsContext | undefined,
-    handle: SecretKeyHandle,
+    handle: ConfigKeyHandle<"text">,
     fallback: string | undefined,
   ): Promise<string | undefined> {
     if (systemSecrets) {
       // No auditCtx → un-audited framework-internal read (every webhook would
       // otherwise spam the audit trail). This is the sanctioned no-ctx path.
-      const got = await systemSecrets.get(SYSTEM_TENANT_ID, handle);
-      const value = got?.reveal();
+      const got = await systemSecrets.get(SYSTEM_TENANT_ID, handle.name);
+      const value = parseStoredSecret(got?.reveal());
       if (value && value.length > 0) return value;
     }
     return fallback && fallback.length > 0 ? fallback : undefined;
