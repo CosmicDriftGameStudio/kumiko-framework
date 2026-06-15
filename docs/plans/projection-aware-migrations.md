@@ -2,7 +2,7 @@
 status: in-progress
 verified: 2026-06-15
 issue: kumiko-framework#356
-next: Phase 2 (#361) + Aktivierung (studio#61) shipped; Phase 3 (#362 rebuild-job + enqueueProjectionRebuild) shipped; #363 (zero-downtime) Design-Befund festgehalten (Sektion "Phase 4 (#363)", query-routing abgelehnt, Reframe Expand/Contract, 4-Phasen-Roadmap) — Implementierung offen; offen außerdem #356-Release-Consumer-Bumps (studio#58-Migration)
+next: Phase 2 (#361) + Aktivierung (studio#61) shipped; Phase 3 (#362 rebuild-job + enqueueProjectionRebuild) shipped; #363 (zero-downtime) Phase 1 SHIPPED (Online-Rebuild via Schema-Swap, beide Rebuild-Pfade, Branch feat/projection-online-rebuild-363) — offen #363 Phase 2 (Live-Tail-Catch-up) + Phase 3 (Generator additive-prefer/Guardrail) + Phase 4 (Consumer-Wiring); offen außerdem #356-Release-Consumer-Bumps (studio#58-Migration)
 ---
 
 # Projection-aware migrations: managed = wegwerfbares Derivat, unmanaged = echte Daten
@@ -197,7 +197,7 @@ blue-green = Folge-Issues. Hält's leichtgewichtig und de-risked den Kern.
 - [x] Phase 2: safe fail-loud für managed-ohne-Projektion (kein Hard-Throw) — #361 → `runPendingRebuilds(…, {thisRunTables})` meldet in-diesem-Run via Marker geleerte managed-Tabellen ohne auflösbare Projektion als `unresolvedManaged` (error-Log, non-fatal, gedraint); pre-existing/Legacy bleibt benign `unmapped`. Integration 6/6.
   - **Aktivierung SHIPPED (2026-06-15, kumiko-studio#61):** `kumiko-studio/bin/kumiko.ts` (`rebuildPendingProjections`) reicht jetzt `queueRebuildsFromMarkers`-Rückgabe als `thisRunTables` durch + exitet non-zero bei nicht-leerem `unresolvedManaged`. In Prod scharf; #361 + studio#60 CLOSED.
 - [x] Phase 3: Single-Run-Job `jobs:job:projection-rebuild` (im `jobs`-Feature registriert, auto-verfügbar wenn jobs komponiert) + framework-Helper `enqueueProjectionRebuild` (dispatch via jobRunner ODER inline-Fallback ohne jobs) — #362. JobRunner injiziert jetzt die registry in jeden job-ctx (JobContext-Contract). Integration: inline + e2e dispatch beide grün.
-- [ ] blue-green/`ProjectionVersion` (zero-downtime Rebuild) — #363. **Design-Befund festgehalten** (s. Sektion „Phase 4 (#363)" unten, 2026-06-15): query-time-version-routing abgelehnt (Multi-Pod-Kohärenz + kein Query-Context + 14 Raw-SQL-Bypässe); Reframe = Rebuild *vermeiden* via Expand/Contract statt beschleunigen; Framework liefert Mechanismen+Guardrails, nicht End-to-End-Magie; 4-Phasen-Roadmap. Implementierung offen.
+- [~] blue-green/`ProjectionVersion` (zero-downtime Rebuild) — #363. **Design-Befund + Phase 1 SHIPPED** (s. Sektion „Phase 4 (#363)" unten): query-time-version-routing abgelehnt (Multi-Pod-Kohärenz + kein Query-Context + 14 Raw-SQL-Bypässe); Reframe = Rebuild *vermeiden* via Expand/Contract statt beschleunigen; Framework liefert Mechanismen+Guardrails, nicht End-to-End-Magie; 4-Phasen-Roadmap. **Phase 1 (Online-Rebuild via Schema-Swap) geshippt** — beide Rebuild-Pfade replayen ins `kumiko_rebuild`-Schema + atomarer `SET SCHEMA`-Swap, Live-Tabelle nicht mehr replay-lang gelockt. Phasen 2–4 offen.
 
 PR Phase 1: #360 (CI grün 2026-06-14).
 
@@ -267,9 +267,9 @@ Deploy non-destruktiv — wie gh-ost / Rails strong_migrations). Nur der irreduz
 
 **Das Framework kann End-to-End-Zero-Downtime nicht allein liefern.** Ein materieller Teil
 ist **App-Author-Disziplin** (destruktive Changes als Expand/Contract über zwei Releases
-sequenzieren) + **Consumer/Deploy-Wiring** (wie #361 → studio). Auch der Shadow+Rename-Swap
+sequenzieren) + **Consumer/Deploy-Wiring** (wie #361 → studio). Auch der Shadow-Schema-Swap
 (früher als „Kern" gedacht) gibt nur „kein leeres Read-Fenster" für Single-Version-Reads,
-**nicht** Multi-Pod-Zero-Downtime: nach dem Rename können während eines Rolling-Deploys noch
+**nicht** Multi-Pod-Zero-Downtime: nach dem Swap können während eines Rolling-Deploys noch
 laufende alte Pods die neue Shape nicht lesen. Framework liefert also **Mechanismen +
 Guardrails**, nicht Magie.
 
@@ -277,7 +277,7 @@ Guardrails**, nicht Magie.
 
 | Phase | Inhalt | Liefert | Testbar |
 |---|---|---|---|
-| 1 | **Online-Rebuild-Mechanik:** Shadow-Build (`read_foo__rebuild`, neue Shape) → Replay → atomarer `DROP read_foo; ALTER … RENAME` in einer kurzen `ACCESS EXCLUSIVE`-Tx. **Inkl. Index/Constraint-Rename** (s. Falle). | „kein leeres Fenster" für Single-Version-Reads; de-riskt den Rest; unabhängig shippbar | Real-DB, Row-Count + **zweites `generate`** (s. Falle) |
+| 1 ✅ **SHIPPED** (#363 P1, schema-swap) | **Online-Rebuild-Mechanik:** Shadow-Build im privaten `kumiko_rebuild`-Schema (kanonischer Tabellenname, `search_path`-geroutet) → Replay → atomarer `DROP public.read_foo; ALTER … SET SCHEMA public` in kurzer `ACCESS EXCLUSIVE`-Tx. **Kein** Suffix-Rename (s. „Haupt-Falle gelöst"). | „kein leeres Fenster" für Single-Version-Reads; de-riskt den Rest; unabhängig shippbar | Real-DB, Probe-Read-während-Replay + kanonische Index-Namen + Guard-Units |
 | 2 | **Live-Tail-Catch-up:** iterativer Replay ab Position X (`kumiko_events.id` bigserial PK, `events-schema.ts:41-43`; `streamAllEventsByType` `event-store.ts:378-414`; HWM `selectEventsHighWaterMark`) bis Lag≈0, dann Swap. | Shadow bleibt unter konkurrierendem Writer aktuell | In-process (`setupTestStack`+`runOnce`) |
 | 3 | **Der echte Tier-2-Kern:** Generator bevorzugt additives `ALTER` + Online-Backfill statt DROP+CREATE; Guardrail, die einen un-gesplitteten destruktiven Change flaggt/ablehnt. | Expand/Contract-Tooling | Unit + Integration |
 | 4 | **Consumer/Deploy-Wiring** (studio, wie #361). | App-seitige Aktivierung | integration grün |
@@ -292,19 +292,26 @@ Guard+Docs** ist (und damit den Aufwand). Der heutige Generator ist single-snaps
 Sequencing ist darin **nicht** repräsentiert; erste Vermutung daher: Guardrail + Doku-Pattern,
 nicht großer Generator-Umbau. **Erst-Schritt jeder Implementierung: das verifizieren.**
 
-## Die Haupt-Falle (Phase 1, advisor)
+## Die Haupt-Falle — gelöst durch Schema-Swap statt Suffix-Rename (Phase 1)
 
-Nach `ALTER TABLE read_foo__rebuild RENAME TO read_foo` behalten **Indizes/PK/Constraints
-ihre `read_foo__rebuild_*`-Namen**. Der Schema-Diff-Generator vergleicht dann live-DB
-(`…__rebuild_*`) gegen erwartet (`read_foo_*`) und emittiert bei **jedem** Folge-`generate`
-korrigierendes DDL. → Der Swap **muss jeden Index/Constraint auf den kanonischen Namen
-umbenennen**, und der Table-Builder ist auf Namens-Kollision zu prüfen, solange beide
-Tabellen transient existieren. **Verifikation = ein zweites `generate` nach dem Swap, nicht
-nur ein Row-Count-Assert.**
+Der ursprünglich geplante Weg (`read_foo__rebuild` + `ALTER … RENAME TO read_foo`) hatte
+**zwei** Probleme: (a) `apply(event, tx)` schreibt über das kanonische Table-Objekt — eine
+captured Referenz auf `read_foo`, die man nicht auf `read_foo__rebuild` umbiegen kann (das
+ist dieselbe Write-Indirektions-Wall, die schon das Query-Time-Version-Routing kippte); und
+(b) nach dem RENAME behielten Indizes/PK/Constraints ihre `read_foo__rebuild_*`-Namen, sodass
+jedes Folge-`generate` korrigierendes DDL emittiert hätte.
 
-## Offene Sub-Frage
+**Beide lösen sich durch den Shadow im eigenen Schema:** die Shadow-Tabelle trägt den
+**kanonischen** Namen `read_foo` in `kumiko_rebuild`, `SET LOCAL search_path` lenkt die
+Namensauflösung dorthin (Apply bleibt unangefasst), und Indizes entstehen mit kanonischen
+Namen — `SET SCHEMA public` verschiebt sie intakt. Kein Rename, keine Namens-Kollision.
+Verifiziert via Test „kanonische Index-Namen nach Swap" (statt nur Row-Count).
 
-`rebuildProjection` hält heute **keinen** Distributed-Lock (nur optimistisches
-`status`-Flag in `kumiko_projections`; kein `version`-Feld). Für Catch-up/Swap (Phase 1/2)
-braucht es eine Serialisierung konkurrierender Rebuilds derselben Projektion — `kumiko_projections`
-um Lock/Version erweitern oder `pipeline/distributed-lock.ts` einspannen. In Phase 1 zu klären.
+## Sub-Frage Distributed-Lock — erledigt durch bestehenden Row-Lock (Phase 1)
+
+`rebuildProjection`/`rebuildMultiStreamProjection` serialisieren konkurrierende Rebuilds
+derselben Projektion bereits über den Row-Lock auf der State-/Consumer-Row
+(`markProjectionRebuilding` = `INSERT … ON CONFLICT DO UPDATE`, bis Commit gehalten;
+`selectConsumerForUpdate` = `FOR UPDATE`) — PG-Row-Locks wirken cross-Connection, also
+cross-Pod. Das geteilte `kumiko_rebuild`-Schema kollidiert auch zwischen verschiedenen
+Projektionen nicht (distinkte Tabellennamen). Kein zusätzlicher Advisory-Lock nötig.
