@@ -352,7 +352,7 @@ describe("CustomFieldsFormSection — boolean/date-Pfade", () => {
     });
   });
 
-  test("date: Bestand erreicht den DateInput-Trigger (lokalisierte Anzeige)", () => {
+  test("date: Bestand erreicht das DateInput-Textfeld (locale-numerisch)", () => {
     mockedQueryRows = [
       {
         id: "f1",
@@ -375,12 +375,12 @@ describe("CustomFieldsFormSection — boolean/date-Pfade", () => {
       </Wrapper>,
     );
 
-    // DateInput ist ein Kalender-Trigger-Button (kein <input value>) mit
-    // lokalisierter Anzeige — der Kalender-Flow selbst ist jsdom-untauglich
-    // (Popover), hier zählt: der Bestand kommt im Trigger an, nicht "—".
-    const trigger = document.getElementById("custom-field-launchedAt") as HTMLButtonElement;
-    expect(trigger.textContent).toContain("2026");
-    expect(trigger.textContent).not.toContain("—");
+    // DateInput ist seit #369 ein tippbares Text-Input (locale-numerische
+    // Anzeige); der Kalender-Popover selbst ist jsdom-untauglich, hier zählt:
+    // der Bestand kommt als value an, nicht leer.
+    const input = document.getElementById("custom-field-launchedAt") as HTMLInputElement;
+    expect(input.value).toContain("2026");
+    expect(input.value).not.toBe("");
   });
 });
 
