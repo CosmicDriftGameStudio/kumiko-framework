@@ -6,11 +6,12 @@ export const SUBSCRIPTION_STRIPE_FEATURE = "subscription-stripe" as const;
 // `/api/subscription/webhook/stripe`.
 export const STRIPE_PROVIDER_NAME = "stripe" as const;
 
-// Secret- + config-key short-names. Qualified zu `subscription-stripe:<name>`
-// (secrets) bzw. `subscription-stripe:config:<name>` (config) beim
-// registry-build.
-export const STRIPE_API_KEY_SECRET = "api-key" as const;
-export const STRIPE_WEBHOOK_SECRET_SECRET = "webhook-secret" as const;
+// Config-key short-names, qualified to `subscription-stripe:config:<name>`
+// at registry-build. api-key + webhook-secret declare backing:"secrets"
+// (value lives envelope-encrypted in the secrets store under SYSTEM_TENANT_ID)
+// but are addressed as config keys; billingLive is a plain system config flag.
+export const STRIPE_API_KEY_CONFIG = "api-key" as const;
+export const STRIPE_WEBHOOK_SECRET_CONFIG = "webhook-secret" as const;
 export const STRIPE_BILLING_LIVE_CONFIG = "billingLive" as const;
 
 // =============================================================================

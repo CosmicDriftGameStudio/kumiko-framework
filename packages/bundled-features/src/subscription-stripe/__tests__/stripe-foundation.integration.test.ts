@@ -45,10 +45,11 @@ import {
 import { createSubscriptionStripeFeature } from "../feature";
 
 // Qualified-names der runtime-keys (drift-pin: müssen 1:1 dem entsprechen,
-// was r.secret(...) im feature build qualifiziert — `subscription-stripe:
-// secret:<shortName>`). Scenario 5 seedet darüber + beweist die Resolution.
-const API_KEY_SECRET_QN = "subscription-stripe:secret:api-key";
-const WEBHOOK_SECRET_QN = "subscription-stripe:secret:webhook-secret";
+// was r.config(...) im feature build qualifiziert — `subscription-stripe:
+// config:<shortName>`, backing:"secrets"). Scenario 5 setzt sie via
+// config:write:set + beweist die Resolution durch den Webhook.
+const API_KEY_CONFIG_QN = "subscription-stripe:config:api-key";
+const WEBHOOK_SECRET_CONFIG_QN = "subscription-stripe:config:webhook-secret";
 
 // =============================================================================
 // Setup
@@ -382,15 +383,26 @@ const SEEDED_API_KEY = "sk_test_runtime_seeded";
 
 describe("scenario 5: runtime-secret resolution", () => {
   test("seeded system-secret schlägt factory-fallback: sig gegen seeded secret → 200 + DB-row", async () => {
-    // Seed beide Keys als echte (encrypted) system-secrets unter
-    // SYSTEM_TENANT_ID — exakt was der Bridge-Seed / die Admin-UI in prod
-    // schreibt. SEEDED_WEBHOOK_SECRET ≠ TEST_SECRET (der fallback).
-    await secretsCtx.set(SYSTEM_TENANT_ID, API_KEY_SECRET_QN, SEEDED_API_KEY, {
-      updatedBy: "test",
+    // Set beide Keys via config:write:set (backing:"secrets") als SystemAdmin
+    // — exakt was der abgeleitete Sysadmin-configEdit-Screen / der Bridge-Seed
+    // in prod dispatcht. Der Wert landet JSON-serialisiert envelope-encrypted
+    // im secrets-Store; der Webhook löst ihn via parseStoredSecret wieder auf.
+    // SEEDED_WEBHOOK_SECRET ≠ TEST_SECRET (der fallback).
+    const sysAdmin = createTestUser({
+      id: 9001,
+      tenantId: SYSTEM_TENANT_ID,
+      roles: ["SystemAdmin"],
     });
-    await secretsCtx.set(SYSTEM_TENANT_ID, WEBHOOK_SECRET_QN, SEEDED_WEBHOOK_SECRET, {
-      updatedBy: "test",
-    });
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: API_KEY_CONFIG_QN, value: SEEDED_API_KEY, scope: "system" },
+      sysAdmin,
+    );
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: WEBHOOK_SECRET_CONFIG_QN, value: SEEDED_WEBHOOK_SECRET, scope: "system" },
+      sysAdmin,
+    );
 
     const tenantStringId = testTenantId(4005);
     const payload = JSON.stringify(

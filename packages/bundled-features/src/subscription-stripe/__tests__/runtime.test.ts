@@ -5,19 +5,19 @@
 // (das deckt der Integration-Test ab).
 
 import { describe, expect, test } from "bun:test";
-import type {
-  ConfigKeyHandle,
-  HandlerContext,
-  SecretKeyHandle,
-} from "@cosmicdrift/kumiko-framework/engine";
+import type { ConfigKeyHandle, HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { FeatureDisabledError, UnconfiguredError } from "@cosmicdrift/kumiko-framework/errors";
 import { createSecret, type SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import Stripe from "stripe";
 import { createStripeClientCache, createStripeRuntimes } from "../runtime";
 
-const API_KEY_HANDLE: SecretKeyHandle = { name: "subscription-stripe:secret:api-key" };
-const WEBHOOK_SECRET_HANDLE: SecretKeyHandle = {
-  name: "subscription-stripe:secret:webhook-secret",
+const API_KEY_HANDLE: ConfigKeyHandle<"text"> = {
+  name: "subscription-stripe:config:api-key",
+  type: "text",
+};
+const WEBHOOK_SECRET_HANDLE: ConfigKeyHandle<"text"> = {
+  name: "subscription-stripe:config:webhook-secret",
+  type: "text",
 };
 const BILLING_LIVE_HANDLE: ConfigKeyHandle<"boolean"> = {
   name: "subscription-stripe:config:billingLive",
@@ -25,14 +25,16 @@ const BILLING_LIVE_HANDLE: ConfigKeyHandle<"boolean"> = {
 };
 
 /** Stub-SecretsContext: liest aus einer in-memory-map, matcht per
- *  qualified-name. Ignoriert auditCtx (irrelevant für die Resolution). */
+ *  qualified-name. backing:"secrets" persistiert config-Werte JSON-
+ *  serialisiert — der Stub spiegelt das, damit der Runtime-parseStoredSecret
+ *  denselben Pfad nimmt wie gegen den echten Store. Ignoriert auditCtx. */
 function stubSecrets(values: Record<string, string>): SecretsContext {
   const nameOf = (k: string | { readonly name: string }): string =>
     typeof k === "string" ? k : k.name;
   return {
     get: async (_tenantId, key) => {
       const value = values[nameOf(key)];
-      return value === undefined ? undefined : createSecret(value);
+      return value === undefined ? undefined : createSecret(JSON.stringify(value));
     },
     has: async (_tenantId, key) => values[nameOf(key)] !== undefined,
     set: async () => undefined,

@@ -18,8 +18,9 @@ describe("createSubscriptionStripeFeature — shape", () => {
   test("requires billing-foundation + config + secrets (runtime-keys via config/secrets)", () => {
     const feature = createSubscriptionStripeFeature(OPTIONS);
     expect(feature.requires).toContain("billing-foundation");
-    // Drift-Pin (v2): api-key/webhook-secret kommen ZUR LAUFZEIT aus
-    // secrets, billing-live aus config — daher harte deps auf beide.
+    // Drift-Pin (v3): api-key/webhook-secret sind config-Keys mit
+    // backing:"secrets" (Wert im secrets-Store), billing-live plain config —
+    // daher harte deps auf config UND secrets (Store + tenant_secrets-Tabelle).
     expect(feature.requires).toContain("config");
     expect(feature.requires).toContain("secrets");
   });

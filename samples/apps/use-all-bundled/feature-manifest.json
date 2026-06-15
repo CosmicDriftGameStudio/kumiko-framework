@@ -913,7 +913,7 @@
     },
     {
       "name": "subscription-stripe",
-      "description": "Stripe payment provider plugin for `billing-foundation`. Reads its Stripe API key + webhook secret from the **secrets** feature (stored under the system tenant) and a `billingLive` **system config** flag — all at runtime, so keys rotate and prod goes live without a redeploy. Mount via `createSubscriptionStripeFeature({ priceToTier })`; the optional `apiKey`/`webhookSecret` options are env→secrets bridge fallbacks. The plugin always mounts — `createCheckoutSession` throws `feature_disabled` unless `billingLive` is true, so sk_test_ keys in prod never produce a live checkout. Implements all four provider methods (webhook verify, checkout, portal, cancel).",
+      "description": "Stripe payment provider plugin for `billing-foundation`. Reads its Stripe API key + webhook secret from system config keys with `backing:\"secrets\"` (envelope-encrypted in the secrets store under the system tenant) and a `billingLive` **system config** flag — all at runtime, so keys rotate and prod goes live without a redeploy. The `mask` on each key derives the sysadmin settings screen + nav, so no app wires a hand-written config UI. Mount via `createSubscriptionStripeFeature({ priceToTier })`; the optional `apiKey`/`webhookSecret` options are env→secrets bridge fallbacks. The plugin always mounts — `createCheckoutSession` throws `feature_disabled` unless `billingLive` is true, so sk_test_ keys in prod never produce a live checkout. Implements all four provider methods (webhook verify, checkout, portal, cancel).",
       "toggleableDefault": null,
       "requires": [
         "billing-foundation",
@@ -932,6 +932,28 @@
       ],
       "configKeys": [
         {
+          "key": "api-key",
+          "qualifiedName": "subscription-stripe:config:api-key",
+          "type": "text",
+          "scope": "system",
+          "default": null,
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^(sk|rk)_(test|live)_"
+          },
+          "writeRoles": [
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ]
+        },
+        {
           "key": "billing-live",
           "qualifiedName": "subscription-stripe:config:billing-live",
           "type": "boolean",
@@ -943,7 +965,30 @@
           "bounds": null,
           "pattern": null,
           "writeRoles": [
-            "system"
+            "system",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "webhook-secret",
+          "qualifiedName": "subscription-stripe:config:webhook-secret",
+          "type": "text",
+          "scope": "system",
+          "default": null,
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^whsec_"
+          },
+          "writeRoles": [
+            "SystemAdmin"
           ],
           "readRoles": [
             "TenantAdmin",
@@ -952,20 +997,7 @@
           ]
         }
       ],
-      "secrets": [
-        {
-          "qualifiedName": "subscription-stripe:secret:api-key",
-          "scope": "tenant",
-          "label": "Stripe API Key",
-          "hint": "Stripe secret key (`sk_live_...`). Stripe dashboard → Developers → API keys."
-        },
-        {
-          "qualifiedName": "subscription-stripe:secret:webhook-secret",
-          "scope": "tenant",
-          "label": "Stripe Webhook Secret",
-          "hint": "Webhook signing secret (`whsec_...`). Stripe dashboard → the webhook endpoint."
-        }
-      ]
+      "secrets": []
     },
     {
       "name": "template-resolver",
