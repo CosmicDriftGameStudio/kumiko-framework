@@ -1,8 +1,10 @@
 // Encrypted per-tenant config — Stripe-API-key pattern.
 //
 // Minimal-Showcase: ein dummy "billing"-feature mit einem per-tenant
-// Stripe-API-Key der via configEdit-screen gesetzt wird. charge-handler
-// liest den Key über ctx.config (entschlüsselt automatisch).
+// Stripe-API-Key. Der `mask`-Eintrag lässt den configEdit-Screen +
+// Settings-Hub-Nav automatisch entstehen (kein handgeschriebenes
+// r.screen/r.nav mehr). charge-handler liest den Key über ctx.config
+// (entschlüsselt automatisch).
 //
 // Production: nicht aufrufen — der echte Stripe-Call ist hier ein Mock.
 // Pattern in produktiven Apps: Strip-API-Key in tenantBillingConfig.key,
@@ -23,11 +25,13 @@ const FEATURE = "billing";
 
 // Config-Key-Definition: encrypted=true → ciphertext in der DB. write/
 // read: access.admin damit nur Tenant-Admin den Key setzt + reads sind
-// nur backend-side via ctx.config (frontend sieht "••••••").
+// nur backend-side via ctx.config (frontend sieht "••••••"). `mask` →
+// buildConfigFeatureSchema derivt Screen + Settings-Hub-Nav.
 const stripeApiKeyDef = createTenantConfig("text", {
   encrypted: true,
   write: access.admin,
   read: access.admin,
+  mask: { title: "billing.stripe-api-key", order: 1 },
 });
 
 const stripeApiKeyHandle: ConfigKeyHandle<"text"> = {
@@ -82,29 +86,10 @@ export const billingFeature = defineFeature(FEATURE, (r) => {
   r.requires("config");
   r.config({ keys: billingConfigKeyMap });
   r.writeHandler(chargeHandler);
-
-  // Settings-Screen: configEdit für den API-Key. Frontend pre-fillt das
-  // form aus config:query:values — wo der pass als "••••••" maskiert
-  // zurückkommt. Save dispatcht config:write:set, der dispatcher
-  // verschlüsselt vor dem write.
-  r.screen({
-    id: "billing-settings",
-    type: "configEdit",
-    scope: "tenant",
-    configKeys: { stripeApiKey: stripeApiKeyHandle.name },
-    fields: {
-      stripeApiKey: { type: "text", maxLength: 200 },
-    },
-    layout: {
-      sections: [
-        {
-          title: "billing:section.stripe",
-          fields: ["stripeApiKey"],
-        },
-      ],
-    },
-    access: { roles: ["Admin"] },
-  });
+  // Kein r.screen/r.nav: der `mask`-Eintrag auf dem Key lässt
+  // buildConfigFeatureSchema den configEdit-Screen (••••••-maskiert,
+  // config:write:set verschlüsselt vor dem write) + den Settings-Hub-Nav
+  // automatisch ableiten.
 });
 
 // Re-exports damit tests die handles ohne re-typing nutzen können.
