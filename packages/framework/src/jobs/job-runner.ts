@@ -299,6 +299,10 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     const triggerName = rawData["_triggerName"] as string | undefined; // @cast-boundary dynamic-key
     const jobContext: AppContext = {
       ...context,
+      // The runner owns the registry it resolved this job from — expose it so
+      // workers can reach projections/jobs without the app author duplicating
+      // it into `context` (the JobContext contract guarantees `registry`).
+      registry,
       systemUser: createSystemUser(tenantId),
       triggeredBy: triggeredById !== null ? { id: triggeredById, tenantId } : null,
       log: createJobLogger(logs),

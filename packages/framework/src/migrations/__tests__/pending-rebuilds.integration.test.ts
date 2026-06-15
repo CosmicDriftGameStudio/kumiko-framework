@@ -30,6 +30,7 @@ import {
   unsafePushTables,
 } from "../../stack";
 import {
+  enqueueProjectionRebuild,
   listPendingRebuilds,
   queueRebuildsFromMarkers,
   runPendingRebuilds,
@@ -224,5 +225,26 @@ describe("pending-rebuilds queue", () => {
     expect(run.failed).toEqual([]);
     expect(await listPendingRebuilds(testDb.db)).toEqual([]);
     expect(await getCount()).toBe(1);
+  });
+});
+
+// #362: der framework-Helper. Ohne jobs-Feature (kein jobRunner) rebuildet er
+// synchron inline — das heutige Verhalten, garantiert framework-pur. Der
+// dispatch-Pfad (mit jobs) lebt in jobs/__tests__/projection-rebuild-job.*.
+describe("enqueueProjectionRebuild — inline fallback (no jobs feature)", () => {
+  test("without a jobRunner, rebuilds the projection synchronously", async () => {
+    await executor.create({ groupId: GROUP, name: "a" }, admin, tdb);
+    await executor.create({ groupId: GROUP, name: "b" }, admin, tdb);
+
+    const outcome = await enqueueProjectionRebuild("pendingtest:projection:pending-counts", {
+      db: testDb.db,
+      registry,
+    });
+
+    expect(outcome.mode).toBe("inline");
+    if (outcome.mode === "inline") {
+      expect(outcome.result.eventsProcessed).toBe(2);
+    }
+    expect(await getCount()).toBe(2);
   });
 });
