@@ -44,6 +44,10 @@ export type DefaultAppShellProps = {
   /** Footer-Slot unten in der Sidebar — Profile-Row, Help-Link,
    *  Plan-Banner. Klebt am unteren Rand via `mt-auto`. */
   readonly sidebarFooter?: ReactNode;
+  /** Viewport-fit Shell — durchgereicht an AppLayout. true → fixe
+   *  Viewport-Höhe, Content scrollt innen statt der ganzen Seite.
+   *  Default false (klassischer Seiten-Scroll). Siehe AppLayout.fill. */
+  readonly fill?: boolean;
   /** Screen-Content der in `main` gerendert wird. */
   readonly children: ReactNode;
 };
@@ -54,10 +58,12 @@ export function DefaultAppShell({
   user,
   sidebarActions,
   sidebarFooter,
+  fill,
   children,
 }: DefaultAppShellProps): ReactNode {
   return (
     <AppLayout
+      {...(fill !== undefined && { fill })}
       sidebar={
         <Sidebar
           header={brand}

@@ -16,10 +16,71 @@ import type { NavNode, NavRegistrySlice } from "@cosmicdrift/kumiko-headless";
 import { resolveNavigation } from "@cosmicdrift/kumiko-headless";
 import type { AppSchema, FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import { lastSegment, toAppSchema, useNav, useTranslation } from "@cosmicdrift/kumiko-renderer";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import {
+  BarChart3,
+  Bell,
+  Calculator,
+  CalendarDays,
+  ChevronDown,
+  ChevronRight,
+  Coins,
+  CreditCard,
+  FileText,
+  Folder,
+  Gauge,
+  Home,
+  LayoutDashboard,
+  LineChart,
+  List,
+  PiggyBank,
+  Receipt,
+  Search,
+  Settings,
+  Shield,
+  Sparkles,
+  Table,
+  TrendingUp,
+  User,
+  Users,
+  Wallet,
+  Wand2,
+} from "lucide-react";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { KumikoLink } from "../app/nav";
 import { cn } from "../lib/cn";
+
+// Nav-Icon-Registry: ein Nav-Eintrag setzt `icon: "<key>"` (im r.nav-Decl),
+// der Renderer mappt den symbolischen Key auf ein lucide-Component. Unknown
+// Keys → kein Icon (sauberer Fallback auf den Dot, kein Boot-Fail). Spiegelt
+// das NODE_ICONS-Muster vom Visual-Tree. App-Authors referenzieren nur diese
+// Keys; Erweiterung = neuer Eintrag hier (eine Quelle, alle Apps).
+const NAV_ICONS: Readonly<Record<string, typeof Folder>> = {
+  dashboard: LayoutDashboard,
+  gauge: Gauge,
+  list: List,
+  table: Table,
+  calculator: Calculator,
+  wallet: Wallet,
+  coins: Coins,
+  "credit-card": CreditCard,
+  "piggy-bank": PiggyBank,
+  receipt: Receipt,
+  chart: LineChart,
+  "bar-chart": BarChart3,
+  trending: TrendingUp,
+  sparkles: Sparkles,
+  wand: Wand2,
+  calendar: CalendarDays,
+  file: FileText,
+  folder: Folder,
+  home: Home,
+  bell: Bell,
+  shield: Shield,
+  settings: Settings,
+  users: Users,
+  user: User,
+  search: Search,
+};
 
 export type NavTreeProps = {
   // Akzeptiert beide Shapes — AppSchema (multi-feature) oder
@@ -82,6 +143,7 @@ function NavNodeItem({ node, depth, collapsed, onToggle }: NavNodeItemProps): Re
   const t = useTranslation();
   const active = node.screen !== undefined && nav.route?.screenId === lastSegment(node.screen);
 
+  const NavIcon = node.icon !== undefined ? NAV_ICONS[node.icon] : undefined;
   const hasChildren = node.children.length > 0;
   const isCollapsed = collapsed.has(node.qualifiedName);
   const indent = { paddingLeft: `${0.5 + depth * 1}rem` };
@@ -156,13 +218,23 @@ function NavNodeItem({ node, depth, collapsed, onToggle }: NavNodeItemProps): Re
             )}
             {...(active && { "aria-current": "page" })}
           >
-            <span
-              aria-hidden="true"
-              className={cn(
-                "inline-block size-1.5 rounded-full",
-                active ? "bg-accent-foreground" : "bg-muted-foreground/40",
-              )}
-            />
+            {NavIcon !== undefined ? (
+              <NavIcon
+                aria-hidden="true"
+                className={cn(
+                  "size-4 shrink-0",
+                  active ? "text-foreground" : "text-muted-foreground",
+                )}
+              />
+            ) : (
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "inline-block size-1.5 rounded-full",
+                  active ? "bg-accent-foreground" : "bg-muted-foreground/40",
+                )}
+              />
+            )}
             <span className="truncate">{displayLabel}</span>
           </KumikoLink>
           {chevron !== null && <div className="pr-2">{chevron}</div>}
