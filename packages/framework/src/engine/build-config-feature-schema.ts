@@ -56,6 +56,25 @@ export type ConfigFeatureSchema = {
 
 // Audience-Reihenfolge im Sidebar: Plattform vor Tenant vor Benutzer.
 const SCOPE_ORDER: Record<ConfigScope, number> = { system: 10, tenant: 20, user: 30 };
+const SCOPES_BROAD_TO_DEEP: readonly ConfigScope[] = ["system", "tenant", "user"];
+
+// An einem Scope BREITER als der Home-Scope eines Keys darf nur eine für DIESE
+// Ebene privilegierte Rolle den (Cascade-)Default setzen — SystemAdmin auf
+// system, TenantAdmin/Admin auf tenant. Am Home-Scope gilt das volle write-Set
+// (unverändertes Verhalten). So liefert ein tenant-Home-Key wie SMTP zusätzlich
+// einen SystemAdmin-only Plattform-Screen; ein Key, dessen write-Set keine
+// dieser Rollen nennt, bekommt keinen breiteren Screen (write-Set = opt-in).
+const ELEVATED_ROLES: Record<ConfigScope, readonly string[]> = {
+  system: ["SystemAdmin"],
+  tenant: ["TenantAdmin", "Admin"],
+  user: [],
+};
+
+// Der interne Maschinen-Akteur (access.system). Ein Key, den NUR diese Rolle
+// schreiben darf, ist provisioned-not-user-facing: er gehört nicht in den
+// menschlichen Hub (sonst rendert ein Feld, das der sichtbare Mensch nicht
+// speichern kann). `as const` für Literal-Verengung am Vergleich.
+const MACHINE_WRITE_ROLE = "system" as const;
 
 type MaskedKey = {
   readonly qn: string;
@@ -64,6 +83,8 @@ type MaskedKey = {
   readonly def: ConfigKeyDefinition;
 };
 
+type ScopedKey = { readonly key: MaskedKey; readonly roles: readonly string[] };
+
 export function buildConfigFeatureSchema(registry: Registry): ConfigFeatureSchema {
   const masked = collectMaskedKeys(registry);
   if (masked.length === 0) return { screens: [], navs: [] };
@@ -71,35 +92,58 @@ export function buildConfigFeatureSchema(registry: Registry): ConfigFeatureSchem
   const screens: ScreenDefinition[] = [];
   const navs: NavDefinition[] = [];
 
-  for (const scope of scopesPresent(masked)) {
-    const scopeKeys = masked.filter((k) => k.def.scope === scope);
+  for (const scope of SCOPES_BROAD_TO_DEEP) {
+    const visible = scopedKeysAt(masked, scope);
+    if (visible.length === 0) continue;
 
     // Audience-Parent: Gruppierungs-Knoten ohne Screen.
     navs.push({
       id: `audience-${scope}`,
       label: `config.settings.${scope}`,
       order: SCOPE_ORDER[scope],
-      access: unionEditAccess(scopeKeys.map((k) => k.def)),
+      access: rolesToAccess(visible.flatMap((v) => v.roles)),
     });
 
-    for (const feature of featuresPresent(scopeKeys)) {
-      const group = scopeKeys.filter((k) => k.feature === feature);
-      const ordered = sortByMaskOrder(group);
+    for (const feature of featuresPresent(visible.map((v) => v.key))) {
+      const group = visible.filter((v) => v.key.feature === feature);
+      const ordered = sortByMaskOrder(group.map((v) => v.key));
+      const access = rolesToAccess(group.flatMap((v) => v.roles));
       const shortId = `${feature}-${scope}`;
 
-      screens.push(buildScreen(shortId, scope, feature, ordered));
+      screens.push(buildScreen(shortId, scope, feature, ordered, access));
       navs.push({
         id: shortId,
         label: `${feature}.settings`,
         parent: `audience-${scope}`,
         screen: shortId,
-        order: minMaskOrder(group),
-        access: unionEditAccess(group.map((k) => k.def)),
+        order: minMaskOrder(ordered),
+        access,
       });
     }
   }
 
+  // Alle masked Keys maschinen-only → kein menschlicher Hub, kein (leerer)
+  // Settings-Switcher.
+  if (navs.length === 0) return { screens, navs };
   return { screens, navs, workspace: buildSettingsWorkspace(navs, masked) };
+}
+
+// Keys, die an `scope` sichtbar sind, gepaart mit ihren effektiven Schreib-
+// Rollen AN diesem Scope (Home = volles write; breiter = elevated ∩ write).
+function scopedKeysAt(masked: readonly MaskedKey[], scope: ConfigScope): ScopedKey[] {
+  const out: ScopedKey[] = [];
+  for (const key of masked) {
+    const roles = effectiveWriteRoles(key.def, scope);
+    if (roles.some((r) => r !== MACHINE_WRITE_ROLE)) out.push({ key, roles });
+  }
+  return out;
+}
+
+function effectiveWriteRoles(def: ConfigKeyDefinition, scope: ConfigScope): string[] {
+  if (SCOPE_ORDER[scope] > SCOPE_ORDER[def.scope]) return [];
+  if (scope === def.scope) return [...def.access.write];
+  const elevated = ELEVATED_ROLES[scope];
+  return def.access.write.filter((r) => elevated.includes(r));
 }
 
 // navMembers tragen die QUALIFIZIERTEN Nav-QNs (siehe build-app-schema.test:
@@ -130,6 +174,7 @@ function buildScreen(
   scope: ConfigScope,
   feature: string,
   keys: readonly MaskedKey[],
+  access: AccessRule,
 ): ConfigEditScreenDefinition {
   const configKeys: Record<string, string> = {};
   const fields: Record<string, FieldDefinition> = {};
@@ -152,7 +197,7 @@ function buildScreen(
     fields,
     fieldLabels,
     layout: { sections: [section] },
-    access: unionEditAccess(keys.map((k) => k.def)),
+    access,
   };
 }
 
@@ -189,11 +234,6 @@ function collectMaskedKeys(registry: Registry): MaskedKey[] {
   return out;
 }
 
-function scopesPresent(keys: readonly MaskedKey[]): ConfigScope[] {
-  const set = new Set<ConfigScope>(keys.map((k) => k.def.scope));
-  return [...set].sort((a, b) => (SCOPE_ORDER[a] ?? 0) - (SCOPE_ORDER[b] ?? 0));
-}
-
 function featuresPresent(keys: readonly MaskedKey[]): string[] {
   return [...new Set(keys.map((k) => k.feature))].sort();
 }
@@ -219,10 +259,12 @@ function minMaskOrder(keys: readonly MaskedKey[]): number {
 // AccessRule nur als openToAll ausdrücken; der Write bleibt server-seitig
 // per Key gegated.
 function unionEditAccess(defs: readonly ConfigKeyDefinition[]): AccessRule {
-  const roles = new Set<string>();
-  for (const def of defs) {
-    for (const role of def.access.write) roles.add(role);
-  }
-  if (roles.has("all")) return { openToAll: true };
-  return { roles: [...roles] };
+  return rolesToAccess(defs.flatMap((d) => [...d.access.write]));
+}
+
+// `all` lässt sich in AccessRule nur als openToAll ausdrücken; der Write bleibt
+// server-seitig per Key gegated.
+function rolesToAccess(roles: readonly string[]): AccessRule {
+  if (roles.includes("all")) return { openToAll: true };
+  return { roles: [...new Set(roles)] };
 }

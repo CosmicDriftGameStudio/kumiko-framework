@@ -1,16 +1,21 @@
 import { describe, expect, test } from "bun:test";
 import { buildAppSchema, findNonJsonSafePath } from "../build-app-schema";
 import { SETTINGS_HUB_FEATURE, SETTINGS_HUB_WORKSPACE } from "../build-config-feature-schema";
-import { createSystemConfig, createTenantConfig } from "../config-helpers";
+import { access, createSystemConfig, createTenantConfig } from "../config-helpers";
 import { defineFeature } from "../define-feature";
 import { createRegistry } from "../registry";
 
-// A feature that opts a config key into the Settings-Hub via `mask`.
+// A feature that opts config keys into the Settings-Hub via `mask`. platformFee
+// is a system-home key with a human writer (SystemAdmin); stripeKey is tenant-
+// home but its admin write-set cascades it up to the Plattform screen too.
 const billing = defineFeature("billing", (r) => {
   r.config({
     keys: {
       stripeKey: createTenantConfig("text", { mask: { title: "billing.stripe-key" } }),
-      platformFee: createSystemConfig("number", { mask: { title: "billing.platform-fee" } }),
+      platformFee: createSystemConfig("number", {
+        write: access.systemAdmin,
+        mask: { title: "billing.platform-fee" },
+      }),
     },
   });
 });
