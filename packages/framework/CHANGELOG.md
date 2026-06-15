@@ -1,5 +1,98 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.54.0
+
+### Minor Changes
+
+- a565b61: Settings-Hub: derive one screen per scope-level a masked config key spans
+
+  The self-populating Settings-Hub (`buildConfigFeatureSchema`) now follows the
+  config cascade `env → system → tenant → user` when deriving screens. Previously
+  a masked key produced exactly one `configEdit` screen at its declared home
+  scope; now it produces a screen at **every** scope from `system` down to its
+  home, so a single declaration drives the whole per-role settings UI.
+
+  Per-level access:
+
+  - **Home scope** keeps the key's full `access.write` set (unchanged).
+  - **A broader scope** (e.g. a tenant-home key at the system level) is offered
+    only when the key's write-set names an _elevated_ role for that level —
+    `SystemAdmin` at system, `TenantAdmin`/`Admin` at tenant — and the generated
+    screen is gated to exactly that intersection.
+
+  Effect: a tenant-home key such as SMTP whose write-set is the `admin` preset
+  (`∋ SystemAdmin`) now yields a **SystemAdmin-only Plattform screen** (set the
+  platform-wide default) **plus** the existing tenant screen (the per-tenant
+  override) — the "sysadmin sets the default, tenant admin overrides" cascade is
+  now buildable purely by declaring `mask`, with no hand-written `r.screen`/`r.nav`.
+  A key whose write-set names no elevated role gets no broader screen (the
+  write-set is the opt-in).
+
+  Hardening: a masked key whose effective write-set at a scope is only the
+  internal machine actor (`access.system` = `["system"]`) no longer surfaces in
+  the human hub at all (build-time exclusion). Such a field could otherwise render
+  on a screen made visible by co-grouped human keys yet reject the viewer's write.
+
+  No app changes are required to adopt; apps that only declared `mask` on
+  tenant-home keys with the default `admin` write-set will gain the new
+  SystemAdmin platform-default screens automatically.
+
+- e7a7809: Projection rebuild: live-tail catch-up (#363 Phase 2)
+
+  Single-stream `rebuildProjection` now drains the event log with a cursor-paged
+  catch-up loop instead of a single up-front SELECT. It replays the bulk
+  lock-free (live synchronous applies keep writing to the live table; READ
+  COMMITTED makes each fresh batch see their newly-committed events), then takes a
+  brief `ACCESS EXCLUSIVE` fence on the live table and drains the final delta
+  before the swap.
+
+  Effect: events committed to the live table **during** the replay are no longer
+  lost at swap — Phase 1's single-pod write-loss window is closed. The trade is a
+  marginally longer cutover (final-drain + swap, bounded by a `lock_timeout`)
+  versus Phase 1's swap-only window.
+
+  Cutover semantics: a concurrent synchronous apply blocked on the fence is one
+  atomic append+apply transaction. The guaranteed invariant — independent of
+  Postgres version — is that the event and its projection row commit or roll back
+  **together**: no orphaned event-without-row is possible. (Observed on PostgreSQL
+  18: when the fence releases, the blocked write re-resolves to the swapped-in
+  table by name and commits rather than erroring — but don't design around
+  "blocked writes always succeed"; only the atomicity is guaranteed.)
+
+  Boundary unchanged: this is **not** multi-pod zero-downtime. During a rolling
+  deploy, old pods still running cannot read the new shape after the swap.
+  End-to-end zero-downtime additionally needs app-author expand/contract
+  discipline (see `docs/plans/projection-aware-migrations.md`). Multi-stream
+  projections are unaffected — they have no inline apply, the consumer `FOR UPDATE`
+  already fences the dispatcher, and the cursor catches the tail after the swap.
+
+  New optional `rebuildProjection` deps: `fenceLockTimeoutMs` (cutover fence
+  timeout, default 5000ms).
+
+- b2e3a56: Projection rebuild is now online (#363, Phase 1): both `rebuildProjection` and
+  `rebuildMultiStreamProjection` replay into a shadow table in a private
+  `kumiko_rebuild` schema and atomically swap it into `public` as the last step,
+  instead of holding an `ACCESS EXCLUSIVE` lock on the live table for the entire
+  replay via in-place `TRUNCATE`. The live projection table stays readable and
+  writable throughout the replay; only the final swap takes a brief lock.
+
+  Notes:
+
+  - Rebuild now requires `CREATE` privilege to provision the shared rebuild schema
+    (fails loud if missing).
+  - The shadow table is rebuilt from `EntityTableMeta`, so an index hand-added in
+    a migration but absent from meta is not reconstructed; a partial index whose
+    WHERE the renderer can't express is rejected up-front.
+  - This is not multi-pod zero-downtime on its own: events written to the live
+    table during the replay are not reflected in the shadow. Rebuild on a quiet
+    entity or during a write-pause (live-tail catch-up is a later phase).
+
+- 1135437: Date/Calendar-Inputs vereinheitlicht (#369): `date` und `timestamp` teilen jetzt
+  eine gemeinsame, tippbare Eingabe mit Jahres-/Dekaden-Dropdown im Kalender. Datümer
+  sind überall direkt tippbar (locale-aware Parse), nicht mehr nur per Klick. Neu pro
+  Feld konfigurierbar: `min`/`max` (Picker-Range + Zod-Durchsetzung beim Write) und
+  `locale` (Anzeige-/Eingabe-Format) auf `date`/`timestamp`/`locatedTimestamp`-Feldern.
+
 ## 0.53.0
 
 ## 0.52.0
