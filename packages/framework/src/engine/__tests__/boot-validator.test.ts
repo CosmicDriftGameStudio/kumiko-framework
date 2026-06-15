@@ -2144,11 +2144,11 @@ describe("boot-validator — config key backing × scope", () => {
     expect(() => validateBoot([feature])).toThrow(/backing="secrets".*requires scope="system"/i);
   });
 
-  test("rejects backing:secrets even system-scoped until the dispatch is wired (framework#333)", () => {
+  test("allows backing:secrets when system-scoped (dispatch is wired)", () => {
     const feature = defineFeature("billing", (r) => {
       r.config({ keys: { apiKey: createSystemConfig("text", { backing: "secrets" }) } });
     });
-    expect(() => validateBoot([feature])).toThrow(/not yet wired.*333/i);
+    expect(() => validateBoot([feature])).not.toThrow();
   });
 
   test("a config key without secrets backing boots fine", () => {

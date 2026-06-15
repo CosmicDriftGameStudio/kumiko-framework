@@ -151,14 +151,12 @@ export function validateConfigKeyBacking(feature: FeatureDefinition): void {
       );
     }
 
-    // The secrets read/write dispatch is not yet wired (framework#333). Until
-    // it lands, the value would silently persist in the config-values
-    // projection instead of the secrets store — losing the envelope-encryption,
-    // key-rotation and audit-on-read that backing="secrets" promises. Reject
-    // loudly rather than degrade to config-encrypted behind the declaration.
-    throw new Error(
-      `[Feature ${feature.name}] Config key "${keyName}" declares backing="secrets", but the secrets read/write dispatch is not yet wired (framework#333). Until then remove backing (the value would store as config-encrypted) or gate the feature behind #333.`,
-    );
+    // system-scoped backing="secrets" is wired end-to-end: reads dispatch
+    // through the resolver's secretsReader, writes through config:write:set/
+    // :reset into the secrets store (SYSTEM_TENANT_ID), masked in the query
+    // handlers. The runtime contract is that the app provides
+    // `extraContext.secrets` (+ a MasterKeyProvider) — a backing="secrets"
+    // read/write without it throws loud at request time, not silently.
   }
 }
 
