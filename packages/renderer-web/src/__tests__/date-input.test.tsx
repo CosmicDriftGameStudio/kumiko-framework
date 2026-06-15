@@ -95,4 +95,57 @@ describe("DateInput", () => {
     fireEvent.click(day25.querySelector("button") as HTMLButtonElement);
     expect(onChange).toHaveBeenCalledWith("2026-04-25");
   });
+
+  // Headline-Feature #369: captionLayout="dropdown" rendert Monats-/Jahres-
+  // Selects statt nur Monats-Vor/Zurück. min/max begrenzen über
+  // startMonth/endMonth den Jahres-Selector.
+  test("Kalender zeigt Jahres-Dropdown, begrenzt durch min/max", async () => {
+    const user = userEvent.setup();
+    render(
+      <DateInput
+        id="d"
+        name="d"
+        value="2023-06-15"
+        onChange={() => undefined}
+        locale="de-DE"
+        min="2020-01-01"
+        max="2026-12-31"
+      />,
+    );
+    await user.click(screen.getByRole("button"));
+    // rdp v9 rendert die Dropdowns als <select> (role=combobox). Mind. der
+    // Jahres-Selector muss da sein — sonst greift captionLayout nicht.
+    const combos = screen.getAllByRole("combobox");
+    expect(combos.length).toBeGreaterThanOrEqual(1);
+    const yearSelect = combos.find((c) =>
+      Array.from(c.querySelectorAll("option")).some((o) => o.textContent === "2023"),
+    ) as HTMLSelectElement | undefined;
+    if (!yearSelect) throw new Error("expected a year dropdown");
+    const years = Array.from(yearSelect.querySelectorAll("option")).map((o) => o.textContent);
+    expect(years).toContain("2020");
+    expect(years).toContain("2026");
+    expect(years).not.toContain("2019");
+    expect(years).not.toContain("2027");
+  });
+
+  test("min/max grauen Out-of-Range-Tage aus", async () => {
+    const user = userEvent.setup();
+    const onChange = mock();
+    // Range endet am 10. April 2026 — der 25. liegt außerhalb.
+    render(
+      <DateInput
+        id="d"
+        name="d"
+        value="2026-04-05"
+        onChange={onChange}
+        locale="en-US"
+        max="2026-04-10"
+      />,
+    );
+    await user.click(screen.getByRole("button"));
+    const day25Button = screen
+      .getByRole("gridcell", { name: /^25$/ })
+      .querySelector("button") as HTMLButtonElement;
+    expect(day25Button.disabled).toBe(true);
+  });
 });

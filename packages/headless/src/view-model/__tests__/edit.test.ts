@@ -259,3 +259,41 @@ describe("computeEditViewModel", () => {
     expect(asFields(vm.sections[0]).fields[0]?.span).toBe(2);
   });
 });
+
+describe("computeEditViewModel — date/timestamp min/max/locale (#369)", () => {
+  test("date-Field reicht min/max/locale ins ViewModel", () => {
+    const entity = {
+      fields: {
+        born: { type: "date", min: "1900-01-01", max: "2026-06-15", locale: "en-US" },
+      },
+    } as unknown as EntityDefinition;
+    const vm = computeEditViewModel({
+      screen: editScreen({ sections: [{ title: "X", fields: ["born"] }] }),
+      entity,
+      values: {},
+      translate,
+      featureName: "orders",
+    });
+    const field = asFields(vm.sections[0]).fields[0];
+    expect(field?.min).toBe("1900-01-01");
+    expect(field?.max).toBe("2026-06-15");
+    expect(field?.dateLocale).toBe("en-US");
+  });
+
+  test("date-Field ohne bounds: min/max/dateLocale bleiben weg", () => {
+    const entity = {
+      fields: { born: { type: "date" } },
+    } as unknown as EntityDefinition;
+    const vm = computeEditViewModel({
+      screen: editScreen({ sections: [{ title: "X", fields: ["born"] }] }),
+      entity,
+      values: {},
+      translate,
+      featureName: "orders",
+    });
+    const field = asFields(vm.sections[0]).fields[0];
+    expect(field?.min).toBeUndefined();
+    expect(field?.max).toBeUndefined();
+    expect(field?.dateLocale).toBeUndefined();
+  });
+});

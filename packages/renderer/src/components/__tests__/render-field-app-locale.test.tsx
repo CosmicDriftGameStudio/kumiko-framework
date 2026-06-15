@@ -97,3 +97,42 @@ describe("RenderField — App-Locale an date durchreichen", () => {
     if (captured?.kind === "date") expect(captured.locale).toBe("de-DE");
   });
 });
+
+describe("RenderField — min/max/dateLocale ans Picker-Input durchreichen (#369)", () => {
+  test("date-Feld: min/max/dateLocale landen in den InputProps", () => {
+    const field: EditFieldViewModel = {
+      ...dateField(),
+      min: "2020-01-01",
+      max: "2026-12-31",
+      dateLocale: "en-US",
+    };
+    renderUnderLocale("de-DE", field);
+    expect(captured?.kind).toBe("date");
+    if (captured?.kind === "date") {
+      expect(captured.min).toBe("2020-01-01");
+      expect(captured.max).toBe("2026-12-31");
+      // dateLocale (per-Feld) hat Vorrang vor dem App-Locale (de-DE).
+      expect(captured.locale).toBe("en-US");
+    }
+  });
+
+  test("timestamp-Feld: min/max landen in den InputProps", () => {
+    const field: EditFieldViewModel = {
+      field: "at",
+      label: "Zeitpunkt",
+      type: "timestamp",
+      value: "",
+      visible: true,
+      readOnly: false,
+      required: false,
+      min: "2026-01-01T00:00:00Z",
+      max: "2026-12-31T23:59:59Z",
+    };
+    renderUnderLocale("de-DE", field);
+    expect(captured?.kind).toBe("timestamp");
+    if (captured?.kind === "timestamp") {
+      expect(captured.min).toBe("2026-01-01T00:00:00Z");
+      expect(captured.max).toBe("2026-12-31T23:59:59Z");
+    }
+  });
+});
