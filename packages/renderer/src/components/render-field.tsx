@@ -252,7 +252,9 @@ function renderInput({
           {...common}
           value={stringValue(field.value)}
           onChange={(v) => onChange(v)}
-          locale={appLocale}
+          locale={field.dateLocale ?? appLocale}
+          {...(field.min !== undefined && { min: field.min })}
+          {...(field.max !== undefined && { max: field.max })}
         />
       );
     case "timestamp":
@@ -262,7 +264,10 @@ function renderInput({
           {...common}
           value={stringValue(field.value)}
           onChange={(v) => onChange(v)}
+          locale={field.dateLocale ?? appLocale}
           {...(field.wallClock !== undefined && { wallClock: field.wallClock })}
+          {...(field.min !== undefined && { min: field.min })}
+          {...(field.max !== undefined && { max: field.max })}
         />
       );
     case "select": {

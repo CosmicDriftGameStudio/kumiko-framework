@@ -4,8 +4,10 @@
 // Zeit ("2026-06-08T21:09") → jeder Save endete in 422 invalid_format.
 // Die Assertions laufen gegen die ECHTEN Zod-Schemas aus
 // schema-builder.ts (z.iso.datetime / z.iso.datetime({local:true})).
+
 import { describe, expect, test } from "bun:test";
 import { fireEvent } from "@testing-library/react";
+import { useState } from "react";
 import { z } from "zod";
 import { defaultPrimitives } from "../primitives";
 import { inputValueToTimestamp, timestampToInputValue } from "../primitives/timestamp-input";
@@ -48,48 +50,59 @@ describe("timestamp Konvertierung (Helpers)", () => {
 });
 
 describe("Input kind=timestamp (Primitive)", () => {
-  test("rendert UTC-Wert als valides datetime-local und emittiert Z-Instant", () => {
+  // Seit #369: getrennte Datums- (tippbar, ISO direkt akzeptiert) und
+  // Uhrzeit-Eingabe statt nativem datetime-local. inputs[0] = Datum,
+  // inputs[1] = type=time. Die Wire-Konvertierung (UTC↔Wall-Clock) ist
+  // unverändert und oben über die Helpers gepinnt. Kontrollierter Wrapper,
+  // damit `value` wie in einer echten Form zurückfließt.
+  function ControlledTimestamp({
+    wallClock,
+    onEmit,
+  }: {
+    readonly wallClock?: boolean;
+    readonly onEmit: (v: string | undefined) => void;
+  }) {
     const { Input } = defaultPrimitives;
-    const emitted: (string | undefined)[] = [];
-    const view = render(
+    const [v, setV] = useState("");
+    return (
       <Input
         kind="timestamp"
         id="ts"
         name="ts"
-        value="2026-06-08T19:09:00Z"
-        onChange={(v) => emitted.push(v)}
-      />,
+        value={v}
+        {...(wallClock === true && { wallClock: true })}
+        onChange={(nv) => {
+          onEmit(nv);
+          setV(nv ?? "");
+        }}
+      />
     );
-    const input = view.container.querySelector("input");
-    if (!input) throw new Error("expected input");
-    // datetime-local akzeptiert keine Z-Suffixe — der angezeigte Wert
-    // muss konvertiert sein, sonst zeigt der Browser ein leeres Feld.
-    expect(input.value).toMatch(DATETIME_LOCAL);
+  }
 
-    fireEvent.change(input, { target: { value: "2026-06-08T21:09" } });
-    expect(emitted).toHaveLength(1);
-    const value = emitted[0];
-    if (value === undefined) throw new Error("expected emitted value");
-    expect(utcSchema.safeParse(value).success).toBe(true);
+  test("Datum + Uhrzeit tippen → valider Z-Instant (UTC-Variante)", () => {
+    let last: string | undefined;
+    const view = render(<ControlledTimestamp onEmit={(v) => (last = v)} />);
+    const [dateInput, timeInput] = view.container.querySelectorAll("input");
+    if (!dateInput || !timeInput) throw new Error("expected date + time input");
+
+    fireEvent.change(dateInput, { target: { value: "2026-06-08" } });
+    fireEvent.change(timeInput, { target: { value: "21:09" } });
+
+    if (last === undefined) throw new Error("expected emitted value");
+    expect(last.endsWith("Z")).toBe(true);
+    expect(utcSchema.safeParse(last).success).toBe(true);
   });
 
   test("wallClock-Variante emittiert offset-lose Wall-Clock", () => {
-    const { Input } = defaultPrimitives;
-    const emitted: (string | undefined)[] = [];
-    const view = render(
-      <Input
-        kind="timestamp"
-        id="ts"
-        name="ts"
-        value=""
-        wallClock
-        onChange={(v) => emitted.push(v)}
-      />,
-    );
-    const input = view.container.querySelector("input");
-    if (!input) throw new Error("expected input");
-    fireEvent.change(input, { target: { value: "2026-06-08T10:00" } });
-    expect(emitted).toEqual(["2026-06-08T10:00"]);
-    expect(wallClockSchema.safeParse(emitted[0]).success).toBe(true);
+    let last: string | undefined;
+    const view = render(<ControlledTimestamp wallClock onEmit={(v) => (last = v)} />);
+    const [dateInput, timeInput] = view.container.querySelectorAll("input");
+    if (!dateInput || !timeInput) throw new Error("expected date + time input");
+
+    fireEvent.change(dateInput, { target: { value: "2026-06-08" } });
+    fireEvent.change(timeInput, { target: { value: "10:00" } });
+
+    expect(last).toBe("2026-06-08T10:00");
+    expect(wallClockSchema.safeParse(last).success).toBe(true);
   });
 });

@@ -148,17 +148,16 @@ describe("Input kind mapping", () => {
     expect(onChange).toHaveBeenCalledWith(true);
   });
 
-  test('kind="date": Trigger zeigt formatiertes Datum, kein nativer date-Input', () => {
-    // Default-DateInput nutzt Radix-Popover + DayPicker statt native
-    // <input type="date">. Trigger ist ein Button mit dem formatierten
-    // Datum als sichtbarem Text.
+  test('kind="date": tippbares Text-Input mit locale-Datum, kein nativer date-Input', () => {
+    // Default-DateInput nutzt seit #369 ein tippbares Text-Input +
+    // DayPicker-Popover statt native <input type="date">. Das Datum steht
+    // locale-numerisch im Eingabefeld.
     const onChange = mock();
     render(
       <Input id="i" name="i" kind="date" value="2026-04-23" onChange={onChange} locale="de-DE" />,
     );
     expect(document.querySelector('input[type="date"]')).toBeNull();
-    const trigger = screen.getByRole("button");
-    expect(trigger.textContent).toContain("23. April 2026");
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("23.04.2026");
   });
 
   test("hasError=true sets aria-invalid", () => {

@@ -1,14 +1,18 @@
-// TimestampInput — natives <input type="datetime-local"> mit
-// Wert-Konvertierung. Der Server validiert timestamp-Felder als
-// ISO-UTC mit `Z` (z.iso.datetime()) bzw. als Wall-Clock ohne Offset
-// bei locatedTimestamps (z.iso.datetime({ local: true })). Das native
-// datetime-local-Input spricht aber IMMER lokale Wall-Clock ohne
-// Offset — ohne Konvertierung ging jeder UTC-Timestamp als
-// offset-loser String raus und der Server lehnte mit invalid_format
-// ab (Bug-Bash-2, 2026-06-08).
+// TimestampInput (kind:"timestamp") — gemeinsame Datums-Eingabe (DateField,
+// Tippen + Jahres-Kalender) plus ein Uhrzeit-Input. Bis #369 war dies ein
+// natives <input type="datetime-local"> — tippbar, aber mit nicht-stylebarem
+// Browser-Picker ohne Jahres-Navigation und divergent zu DateInput.
+//
+// Die Wire-Konvertierung bleibt unverändert: der Server validiert timestamp
+// als ISO-UTC mit `Z` (z.iso.datetime()) bzw. als Wall-Clock ohne Offset bei
+// locatedTimestamps (z.iso.datetime({ local: true })). Intern rechnen wir
+// über die datetime-local-Form `yyyy-MM-ddTHH:mm`; timestampToInputValue /
+// inputValueToTimestamp kapseln die UTC↔Wall-Clock-Umrechnung (Bug-Bash-2,
+// 2026-06-08) und sind separat getestet.
 
-import type { ChangeEvent, ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { cn } from "../lib/cn";
+import { DateField } from "./date-field";
 
 const LOCAL_MINUTES = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 const HAS_OFFSET = /(?:Z|[+-]\d{2}:\d{2})$/;
@@ -53,8 +57,24 @@ export type TimestampInputProps = {
   readonly disabled?: boolean;
   readonly required?: boolean;
   readonly hasError?: boolean;
-  readonly className?: string;
+  readonly locale?: string;
+  /** Untere/obere Grenze als ISO-Datetime. Begrenzt den Kalender auf
+   *  Tages-Granularität; die exakte Uhrzeit-Grenze setzt die Zod-Validierung
+   *  durch. */
+  readonly min?: string;
+  readonly max?: string;
 };
+
+const timeInputClass =
+  "h-9 w-[7.5rem] shrink-0 rounded-md border border-input bg-transparent px-3 py-1 text-sm " +
+  "shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 " +
+  "focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
+
+function toDatePart(iso: string | undefined): string | undefined {
+  if (iso === undefined || iso === "") return undefined;
+  const v = timestampToInputValue(iso).slice(0, 10);
+  return v !== "" ? v : undefined;
+}
 
 export function TimestampInput({
   id,
@@ -65,24 +85,59 @@ export function TimestampInput({
   disabled,
   required,
   hasError,
-  className,
+  locale,
+  min,
+  max,
 }: TimestampInputProps): ReactNode {
+  const local = timestampToInputValue(value);
+  const isoDate = local !== "" ? local.slice(0, 10) : "";
+  // Uhrzeit ohne gesetztes Datum würde im Wire-Wert verschwinden — lokal
+  // halten, bis ein Datum gewählt ist. Sobald `value` ein Datum trägt, ist
+  // dessen Uhrzeit maßgeblich.
+  const [timeText, setTimeText] = useState("");
+  const effectiveTime = local !== "" ? local.slice(11, 16) : timeText;
+
+  function emit(nextIsoDate: string, nextTime: string): void {
+    if (nextIsoDate === "") {
+      onChange(undefined);
+      return;
+    }
+    const localStr = `${nextIsoDate}T${nextTime === "" ? "00:00" : nextTime}`;
+    onChange(inputValueToTimestamp(localStr, wallClock === true));
+  }
+
+  const minPart = toDatePart(min);
+  const maxPart = toDatePart(max);
+
   return (
-    <input
-      type="datetime-local"
-      id={id}
-      name={name}
-      disabled={disabled}
-      required={required}
-      aria-invalid={hasError === true ? true : undefined}
-      value={timestampToInputValue(value)}
-      onChange={(e: ChangeEvent<HTMLInputElement>) =>
-        onChange(inputValueToTimestamp(e.target.value, wallClock === true))
-      }
-      // Das `flex` der Input-Basisklasse macht die Shadow-DOM-Teile des
-      // datetime-local zu Flex-Items — der Picker-Indicator klebt dann
-      // direkt am Text statt am rechten Rand. ml-auto schiebt ihn zurück.
-      className={cn("[&::-webkit-calendar-picker-indicator]:ml-auto", className)}
-    />
+    <div className="flex items-center gap-2">
+      <DateField
+        id={id}
+        name={name}
+        value={isoDate}
+        onChange={(d) => emit(d ?? "", effectiveTime)}
+        {...(locale !== undefined && { locale })}
+        {...(minPart !== undefined && { min: minPart })}
+        {...(maxPart !== undefined && { max: maxPart })}
+        {...(disabled !== undefined && { disabled })}
+        {...(required !== undefined && { required })}
+        {...(hasError !== undefined && { hasError })}
+      />
+      <input
+        type="time"
+        aria-label="Uhrzeit"
+        disabled={disabled}
+        aria-invalid={hasError === true ? true : undefined}
+        value={effectiveTime}
+        onChange={(e) => {
+          setTimeText(e.target.value);
+          if (isoDate !== "") emit(isoDate, e.target.value);
+        }}
+        className={cn(
+          timeInputClass,
+          hasError === true && "border-destructive focus-visible:ring-destructive",
+        )}
+      />
+    </div>
   );
 }

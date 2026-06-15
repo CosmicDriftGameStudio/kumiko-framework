@@ -111,6 +111,12 @@ export type EditFieldViewModel = {
    *  existiert — Wall-Clock-Zeit ohne Offset. Der Renderer emittiert
    *  dann lokale Zeit ohne `Z` statt eines UTC-Instants. */
   readonly wallClock?: boolean;
+  /** Nur bei `type: "date" | "timestamp"` — Datumsgrenzen (ISO) und
+   *  Format/Locale-Override aus der FieldDefinition. Der Renderer begrenzt
+   *  damit den Picker; die Write-Validierung läuft separat über Zod. */
+  readonly min?: string;
+  readonly max?: string;
+  readonly dateLocale?: string;
   /** Nur bei `type: "reference"` gesetzt — Tier 2.7e-3.
    *  Die referenced Entity (kurz, ohne feature-prefix). Der Renderer
    *  baut die Query-QN als `<refFeature>:query:<refEntity>:list`. */

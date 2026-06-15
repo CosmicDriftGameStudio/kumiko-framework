@@ -270,6 +270,8 @@ function DefaultInput(props: InputProps): ReactNode {
           value={props.value}
           onChange={props.onChange}
           {...(props.locale !== undefined && { locale: props.locale })}
+          {...(props.min !== undefined && { min: props.min })}
+          {...(props.max !== undefined && { max: props.max })}
           {...(props.disabled !== undefined && { disabled: props.disabled })}
           {...(props.required !== undefined && { required: props.required })}
           {...(props.hasError !== undefined && { hasError: props.hasError })}
@@ -348,10 +350,12 @@ function DefaultInput(props: InputProps): ReactNode {
           value={props.value}
           onChange={props.onChange}
           {...(props.wallClock !== undefined && { wallClock: props.wallClock })}
+          {...(props.locale !== undefined && { locale: props.locale })}
+          {...(props.min !== undefined && { min: props.min })}
+          {...(props.max !== undefined && { max: props.max })}
           {...(props.disabled !== undefined && { disabled: props.disabled })}
           {...(props.required !== undefined && { required: props.required })}
           {...(props.hasError !== undefined && { hasError: props.hasError })}
-          className={cn(inputClassBase, errorClass)}
         />
       );
     case "textarea":

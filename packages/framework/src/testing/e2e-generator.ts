@@ -292,13 +292,14 @@ function buildEditFillOps(
         case "longText":
         case "number":
         case "date":
-        case "timestamp":
         case "tz":
+          // date: ein Text-Input, akzeptiert getippte ISO-Werte direkt.
           ops.push({ kind: "fill", field, value: String(v) });
           break;
-        // embedded/money/locatedTimestamp/file/image/files/images: keine
-        // generische Interaktion — der Test-Autor liefert später einen
-        // Hand-Override oder überspringt das Feld.
+        // embedded/money/timestamp/locatedTimestamp/file/image/files/images:
+        // keine generische Interaktion. timestamp rendert seit #369 zwei
+        // Inputs (Datum + Uhrzeit), die ein einzelnes .fill() nicht bedienen
+        // kann — der Test-Autor liefert einen Hand-Override oder überspringt.
         default:
           break;
       }

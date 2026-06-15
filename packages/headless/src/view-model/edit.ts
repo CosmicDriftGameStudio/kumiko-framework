@@ -88,6 +88,15 @@ export function computeEditViewModel<
         (fieldDef as unknown as { locatedBy?: string }).locatedBy !== undefined
           ? true
           : undefined;
+      // Datumsgrenzen + Format/Locale-Override bei date/timestamp — der
+      // Renderer begrenzt damit den Picker. Quelle: Date/TimestampFieldDef.
+      const dateBounds =
+        fieldDef.type === "date" || fieldDef.type === "timestamp"
+          ? (fieldDef as unknown as { min?: string; max?: string; locale?: string })
+          : undefined;
+      const min = dateBounds?.min;
+      const max = dateBounds?.max;
+      const dateLocale = dateBounds?.locale;
       // Tier 2.7e-3: Reference-Field — refEntity + refLabelField in
       // das ViewModel reichen damit der Renderer die Lookup-Query
       // bauen kann ohne noch an EntityDefinition zu greifen.
@@ -124,6 +133,9 @@ export function computeEditViewModel<
         ...(optionLabels !== undefined && { optionLabels }),
         ...(multiline !== undefined && { multiline }),
         ...(wallClock !== undefined && { wallClock }),
+        ...(min !== undefined && { min }),
+        ...(max !== undefined && { max }),
+        ...(dateLocale !== undefined && { dateLocale }),
         ...(refEntity !== undefined && { refEntity }),
         ...(refFeature !== undefined && { refFeature }),
         ...(refLabelField !== undefined && { refLabelField }),

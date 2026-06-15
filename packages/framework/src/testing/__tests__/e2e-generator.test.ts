@@ -2,10 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 import {
   createBooleanField,
+  createDateField,
   createEntity,
   createRegistry,
   createSelectField,
   createTextField,
+  createTimestampField,
   defineEntityCreateHandler,
   defineFeature,
 } from "../../engine";
@@ -84,6 +86,36 @@ describe("generateE2ESpec", () => {
       { kind: "select", field: "status", value: "todo" },
       { kind: "check", field: "done", value: true },
     ]);
+  });
+
+  test("date emittiert fill, timestamp wird übersprungen (zwei Inputs seit #369)", () => {
+    const entity = createEntity({
+      table: "events",
+      fields: {
+        title: createTextField({ required: true }),
+        day: createDateField(),
+        at: createTimestampField(),
+      },
+    });
+    const feature = defineFeature("events", (r) => {
+      r.systemScope();
+      r.entity("event", entity);
+      r.writeHandler(defineEntityCreateHandler("event", entity));
+      r.screen({
+        id: "event-edit",
+        type: "entityEdit",
+        entity: "event",
+        layout: { sections: [{ title: "events:section", fields: ["title", "day", "at"] }] },
+      });
+    });
+    const specs = generateE2ESpec(createRegistry([feature]));
+    const persists = specs.find((s) => s.kind === "edit-save-persists");
+    if (persists?.kind !== "edit-save-persists") throw new Error("unreachable");
+    const filledFields = persists.fills.map((f) => f.field);
+    // date: ein Text-Input, generisch füllbar. timestamp: Datum + Uhrzeit =
+    // zwei Inputs, die ein einzelnes .fill() in Playwright-strict-mode brechen.
+    expect(filledFields).toContain("day");
+    expect(filledFields).not.toContain("at");
   });
 
   test("accepts tenant-slug override", () => {

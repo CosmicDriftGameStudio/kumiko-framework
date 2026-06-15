@@ -176,10 +176,14 @@ export type InputProps =
       readonly name: string;
       readonly value: string;
       readonly onChange: (v: string | undefined) => void;
-      /** Locale für die Datum-Formatierung im Trigger. Default = Browser-
-       *  Locale via navigator.language. Apps mit eigenem LocaleResolver
-       *  können ihren current locale durchreichen. */
+      /** Locale für Anzeige UND Eingabe-Parsing. Default = Browser-Locale
+       *  via navigator.language. Apps mit eigenem LocaleResolver können
+       *  ihren current locale durchreichen. */
       readonly locale?: string;
+      /** Datumsgrenzen als ISO `yyyy-mm-dd` — begrenzen Picker (Jahres-
+       *  Dropdown-Range + ausgegraute Tage). */
+      readonly min?: string;
+      readonly max?: string;
       readonly disabled?: boolean;
       readonly required?: boolean;
       readonly hasError?: boolean;
@@ -267,13 +271,21 @@ export type InputProps =
       /** ISO-8601 Datetime-String. UTC-Instant mit `Z`
        *  ("2026-04-25T13:45:00Z") oder Wall-Clock ohne Offset
        *  ("2026-04-25T13:45", nur bei wallClock). Empty-State = `""`.
-       *  Web nutzt `<input type="datetime-local">` und konvertiert. */
+       *  Web rendert getrennte Datums- (tippbar + Kalender) und
+       *  Uhrzeit-Eingabe und konvertiert. */
       readonly value: string;
       readonly onChange: (v: string | undefined) => void;
       /** true = locatedTimestamp (Wall-Clock ohne Offset, Server
        *  validiert z.iso.datetime({local:true})). false/undefined =
        *  UTC-Instant, onChange MUSS mit `Z`-Suffix emittieren. */
       readonly wallClock?: boolean;
+      /** Locale für Anzeige UND Eingabe-Parsing des Datums-Teils.
+       *  Default = Browser-Locale. */
+      readonly locale?: string;
+      /** Datumsgrenzen als ISO-Datetime — begrenzen den Kalender auf
+       *  Tages-Granularität. */
+      readonly min?: string;
+      readonly max?: string;
       readonly disabled?: boolean;
       readonly required?: boolean;
       readonly hasError?: boolean;
