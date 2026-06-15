@@ -233,6 +233,7 @@ export type {
   ConfigMask,
   ConfigResolver,
   ConfigScope,
+  ConfigSecretsReader,
   ConfigSeedDef,
   ConfigStoredRow,
   ConfigStoredRowWithSource,

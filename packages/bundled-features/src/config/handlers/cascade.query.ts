@@ -44,6 +44,7 @@ export const cascadeQuery = defineQueryHandler({
       query.user.tenantId,
       query.user.id,
       db,
+      ctx.secrets,
     );
 
     const result: Record<string, ConfigCascade> = {};
@@ -58,7 +59,9 @@ export const cascadeQuery = defineQueryHandler({
         ? redactInheritedCascade(rawCascade)
         : rawCascade;
 
-      if (keyDef.encrypted) {
+      // backing="secrets" is masked like encrypted — the resolver revealed the
+      // plaintext for internal reads, but it must never reach the cascade UI.
+      if (keyDef.encrypted || keyDef.backing === "secrets") {
         const maskedLevels: ConfigCascadeLevel[] = cascade.levels.map((l) => ({
           ...l,
           value: l.hasValue ? MASKED : l.value,

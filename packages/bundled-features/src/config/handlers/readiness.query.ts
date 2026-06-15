@@ -98,6 +98,7 @@ export async function collectMissingRequiredConfig(
     user.tenantId,
     user.id,
     ctx.db,
+    ctx.secrets,
   );
   for (const [qualifiedKey, keyDef] of candidates) {
     const value = cascades.get(qualifiedKey)?.value;

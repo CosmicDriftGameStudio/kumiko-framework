@@ -4,6 +4,7 @@ import {
   type ConfigAccessorFactory,
   type ConfigKeyHandle,
   type ConfigKeyType,
+  type ConfigSecretsReader,
   type ConfigValue,
   defineFeature,
   type FeatureDefinition,
@@ -59,6 +60,7 @@ export function createConfigAccessor(
   tenantId: TenantId,
   userId: string,
   db: DbConnection | TenantDb,
+  secrets?: ConfigSecretsReader,
 ): ConfigAccessor {
   async function configAccessor(
     qualifiedKey: string,
@@ -72,7 +74,7 @@ export function createConfigAccessor(
     const qualifiedKey = typeof keyOrHandle === "string" ? keyOrHandle : keyOrHandle.name;
     const keyDef = registry.getConfigKey(qualifiedKey);
     if (!keyDef) return undefined;
-    return resolver.get(qualifiedKey, keyDef, tenantId, userId, db);
+    return resolver.get(qualifiedKey, keyDef, tenantId, userId, db, secrets);
   }
   return configAccessor;
 }
@@ -83,7 +85,8 @@ export function createConfigAccessorFactory(
   registry: Registry,
   resolver: ConfigResolver,
 ): ConfigAccessorFactory {
-  return ({ user, db }) => createConfigAccessor(registry, resolver, user.tenantId, user.id, db);
+  return ({ user, db, secrets }) =>
+    createConfigAccessor(registry, resolver, user.tenantId, user.id, db, secrets);
 }
 
 // Single point of truth for "this handler needs the resolver". Throws a

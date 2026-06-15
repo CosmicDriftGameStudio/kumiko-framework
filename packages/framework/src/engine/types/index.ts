@@ -25,6 +25,7 @@ export type {
   ConfigKeyType,
   ConfigMask,
   ConfigResolver,
+  ConfigSecretsReader,
   ConfigSeedDef,
   ConfigStoredRow,
   ConfigStoredRowWithSource,

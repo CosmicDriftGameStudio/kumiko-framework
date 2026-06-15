@@ -5,11 +5,13 @@ import type {
   ConfigCascadeLevel,
   ConfigKeyDefinition,
   ConfigResolver,
+  ConfigSecretsReader,
   ConfigStoredRowWithSource,
   ConfigValueSource,
   ConfigValueWithSource,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { assertUnreachable, parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import { selectConfigRowsForKeys, selectConfigRowsForScope } from "./db/queries/resolver";
 import { configValuesTable } from "./table";
@@ -65,6 +67,26 @@ export type ConfigResolverOptions = {
   appOverrides?: AppConfigOverrides;
 };
 
+// backing="secrets" keys store their value in the secrets store (flat per
+// (tenant,key) at SYSTEM_TENANT_ID), not in config_values. Both read paths
+// (getWithSource + buildCascade) route the system rung here. Missing reader =
+// the app never wired extraContext.secrets → fail loud, never silently miss.
+async function readBackingSecret(
+  secretsReader: ConfigSecretsReader | undefined,
+  qualifiedKey: string,
+): Promise<string | undefined> {
+  if (!secretsReader) {
+    throw new InternalError({
+      message:
+        `[config] backing="secrets" key "${qualifiedKey}" was read without a secrets ` +
+        `reader — wire extraContext.secrets (and a MasterKeyProvider) so the secrets ` +
+        `store is reachable at request time.`,
+    });
+  }
+  const secret = await secretsReader.get(SYSTEM_TENANT_ID, qualifiedKey);
+  return secret?.reveal();
+}
+
 // Shared cascade-builder. Single-key path passes a `findRow`-bound row
 // fetcher (one SQL per lookup); batch path passes a closure over
 // pre-loaded rows. The builder itself is unaware of which.
@@ -80,6 +102,7 @@ async function buildCascade(
   ) => Promise<ConfigRow | null> | ConfigRow | null,
   appOverrides: AppConfigOverrides | undefined,
   encryption: EncryptionProvider | undefined,
+  secretsReader: ConfigSecretsReader | undefined,
 ): Promise<ConfigCascade> {
   type Lookup = {
     tenantId: string;
@@ -125,6 +148,34 @@ async function buildCascade(
   let activeIndex = -1;
 
   for (const lookup of lookups) {
+    // backing="secrets" is system-only (boot-guard), so the single system-row
+    // rung reads from the secrets store instead of config_values. The secret
+    // value is the same JSON-serialized form a config row would hold (set.write
+    // serializes before handing it to secrets), so deserializeValue applies;
+    // no config-level decrypt — the secrets envelope already returned plaintext.
+    if (keyDef.backing === "secrets" && lookup.source === "system-row") {
+      const secret = await readBackingSecret(secretsReader, qualifiedKey);
+      if (secret !== undefined) {
+        if (activeIndex === -1) activeIndex = levels.length;
+        levels.push({
+          label: lookup.label,
+          value: deserializeValue(secret, keyDef.type),
+          source: lookup.source,
+          isActive: false,
+          hasValue: true,
+        });
+      } else {
+        levels.push({
+          label: lookup.label,
+          value: undefined,
+          source: lookup.source,
+          isActive: false,
+          hasValue: false,
+        });
+      }
+      continue;
+    }
+
     const row = await fetchRow(lookup.tenantId, lookup.userId);
     if (row?.value !== null && row?.value !== undefined) {
       let raw = row.value;
@@ -231,10 +282,17 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
   }
 
   return {
-    async get(qualifiedKey, keyDef, tenantId, userId, db) {
+    async get(qualifiedKey, keyDef, tenantId, userId, db, secretsReader) {
       // get() is a thin wrapper around getWithSource that discards the
       // source tag. Keeps the hot-path a single implementation.
-      const result = await this.getWithSource(qualifiedKey, keyDef, tenantId, userId, db);
+      const result = await this.getWithSource(
+        qualifiedKey,
+        keyDef,
+        tenantId,
+        userId,
+        db,
+        secretsReader,
+      );
       return result.value;
     },
 
@@ -244,7 +302,29 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
       tenantId,
       userId,
       db,
+      secretsReader,
     ): Promise<ConfigValueWithSource> {
+      // backing="secrets": the value lives in the secrets store at the system
+      // tenant, not config_values. Read it directly (system-only by boot-guard)
+      // and skip the config-row lookups; app-override/computed/default still
+      // form the fallback ladder when the secret is unset.
+      if (keyDef.backing === "secrets") {
+        const secret = await readBackingSecret(secretsReader, qualifiedKey);
+        if (secret !== undefined) {
+          return { value: deserializeValue(secret, keyDef.type), source: "system-row" };
+        }
+        if (appOverrides?.has(qualifiedKey)) {
+          return { value: appOverrides.get(qualifiedKey), source: "app-override" };
+        }
+        if (keyDef.computed) {
+          const value = await keyDef.computed({ tenantId, userId, db });
+          return { value, source: "computed" };
+        }
+        if (keyDef.default !== undefined) {
+          return { value: keyDef.default, source: "default" };
+        }
+        return { value: undefined, source: "missing" };
+      }
       // Resolution cascade based on scope
       // user:   userId+tenantId → tenantId → SYSTEM_TENANT_ID → default
       // tenant: tenantId → SYSTEM_TENANT_ID → default
@@ -366,7 +446,14 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
       return result;
     },
 
-    async getCascade(qualifiedKey, keyDef, tenantId, userId, db): Promise<ConfigCascade> {
+    async getCascade(
+      qualifiedKey,
+      keyDef,
+      tenantId,
+      userId,
+      db,
+      secretsReader,
+    ): Promise<ConfigCascade> {
       // Single-key path uses findRow per cascade step. The batch path
       // bulk-loads all rows up-front; both build identical levels arrays.
       return buildCascade(
@@ -378,6 +465,7 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
         (tid, uid) => findRow(qualifiedKey, tid, uid, db),
         appOverrides,
         encryption,
+        secretsReader,
       );
     },
 
@@ -387,6 +475,7 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
       tenantId,
       userId,
       db,
+      secretsReader,
     ): Promise<ReadonlyMap<string, ConfigCascade>> {
       if (keys.length === 0) return new Map();
 
@@ -418,6 +507,7 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
             keyRows.find((r) => r.tenantId === tid && (r.userId ?? null) === uid) ?? null,
           appOverrides,
           encryption,
+          secretsReader,
         );
         result.set(key, cascade);
       }

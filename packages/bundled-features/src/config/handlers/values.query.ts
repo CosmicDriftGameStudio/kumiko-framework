@@ -39,6 +39,7 @@ export const valuesQuery = defineQueryHandler({
       query.user.tenantId,
       query.user.id,
       db,
+      ctx.secrets,
     );
 
     const result: Record<
@@ -60,8 +61,11 @@ export const valuesQuery = defineQueryHandler({
         ? redactInheritedCascade(rawCascade)
         : rawCascade;
 
+      // backing="secrets" carries a credential — mask it like an encrypted
+      // key so the plaintext (which the resolver revealed for internal reads)
+      // never reaches the UI response.
       let value: string | number | boolean | undefined;
-      if (keyDef.encrypted) {
+      if (keyDef.encrypted || keyDef.backing === "secrets") {
         value = cascade.value !== undefined ? MASKED : undefined;
       } else {
         value = cascade.value;

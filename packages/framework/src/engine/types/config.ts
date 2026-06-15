@@ -73,6 +73,16 @@ export type ConfigComputedFn<T extends ConfigKeyType = ConfigKeyType> = (
 // Tenant-Override. Die backing×scope-Matrix erzwingt der boot-validator.
 export type ConfigBacking = "config" | "secrets";
 
+// Minimal read surface the config resolver needs to dispatch a
+// backing="secrets" key to the secrets store, without coupling the engine
+// types to the full SecretsContext. The app's `ctx.secrets` (a SecretsContext)
+// is structurally assignable. Threaded per-call (not at resolver construction)
+// because the resolver is framework-auto-created while `ctx.secrets` is
+// app-provided — only the request context sees both.
+export type ConfigSecretsReader = {
+  get(tenantId: TenantId, key: string): Promise<{ readonly reveal: () => string } | undefined>;
+};
+
 export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
   readonly type: T;
   readonly default?: ConfigValue<T>;
@@ -154,6 +164,10 @@ export type ConfigAccessor = {
 export type ConfigAccessorFactory = (deps: {
   readonly user: { readonly id: string; readonly tenantId: TenantId };
   readonly db: DbConnection | TenantDb;
+  // Present when the app wired `extraContext.secrets`. Lets the internal
+  // `ctx.config.get` read a backing="secrets" key transparently from the
+  // secrets store; absent → a backing="secrets" read throws loud.
+  readonly secrets?: ConfigSecretsReader;
 }) => ConfigAccessor;
 
 // Row shape returned by ConfigResolver.getAll — just enough for the
@@ -227,6 +241,7 @@ export type ConfigResolver = {
     tenantId: TenantId,
     userId: string,
     db: DbConnection | TenantDb,
+    secretsReader?: ConfigSecretsReader,
   ): Promise<string | number | boolean | undefined>;
 
   // Same cascade as get() but also reports which layer produced the value.
@@ -240,6 +255,7 @@ export type ConfigResolver = {
     tenantId: TenantId,
     userId: string,
     db: DbConnection | TenantDb,
+    secretsReader?: ConfigSecretsReader,
   ): Promise<ConfigValueWithSource>;
 
   getAll(
@@ -268,17 +284,21 @@ export type ConfigResolver = {
     tenantId: TenantId,
     userId: string,
     db: DbConnection | TenantDb,
+    secretsReader?: ConfigSecretsReader,
   ): Promise<ConfigCascade>;
 
   // Batch variant: resolves cascades for N keys in one DB round-trip.
   // keyDefs must contain definitions for every key in the keys array.
-  // Returns a map of qualifiedKey → ConfigCascade.
+  // Returns a map of qualifiedKey → ConfigCascade. backing="secrets" keys
+  // resolve their system rung from the secrets store via secretsReader
+  // (one read each — they are system-only and rare).
   getCascadeBatch(
     keys: readonly string[],
     keyDefs: ReadonlyMap<string, ConfigKeyDefinition>,
     tenantId: TenantId,
     userId: string,
     db: DbConnection | TenantDb,
+    secretsReader?: ConfigSecretsReader,
   ): Promise<ReadonlyMap<string, ConfigCascade>>;
 };
 

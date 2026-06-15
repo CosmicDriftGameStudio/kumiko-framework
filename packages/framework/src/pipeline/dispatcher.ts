@@ -278,7 +278,11 @@ export function createDispatcher(
     // Mirror notify: only built when the config feature wired its factory.
     const config =
       context._configAccessorFactory && db
-        ? context._configAccessorFactory({ user: { id: user.id, tenantId: user.tenantId }, db })
+        ? context._configAccessorFactory({
+            user: { id: user.id, tenantId: user.tenantId },
+            db,
+            secrets: context.secrets,
+          })
         : undefined;
 
     // Observability — feature-bound metrics handle, so ctx.metrics.inc("foo")
@@ -1382,7 +1386,11 @@ export function createDispatcher(
     }
     const db = createTenantDb(dbSource, user.tenantId, "tenant", context.tracer, context.meter);
     const configAccessor = context._configAccessorFactory
-      ? context._configAccessorFactory({ user: { id: user.id, tenantId: user.tenantId }, db })
+      ? context._configAccessorFactory({
+          user: { id: user.id, tenantId: user.tenantId },
+          db,
+          secrets: context.secrets,
+        })
       : undefined;
     return {
       db,

@@ -1,5 +1,10 @@
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
-import { ConfigScopes, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  ConfigScopes,
+  defineWriteHandler,
+  SYSTEM_TENANT_ID,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { configValueEntity, configValuesTable } from "../table";
 import { findConfigRow, prepareConfigWrite } from "../write-helpers";
@@ -28,7 +33,23 @@ export const resetWrite = defineWriteHandler({
       scope: event.payload.scope,
     });
     if (!prep.ok) return prep.failure;
-    const { scope, tenantId, userId } = prep;
+    const { keyDef, scope, tenantId, userId } = prep;
+
+    // backing="secrets": clear the secret from the secrets store. delete() is
+    // idempotent (returns false if absent) — mirrors the config no-op contract.
+    if (keyDef.backing === "secrets") {
+      if (!ctx.secrets) {
+        throw new InternalError({
+          message:
+            `[config:write:reset] key "${event.payload.key}" declares backing="secrets" but ` +
+            `ctx.secrets is not wired — provide extraContext.secrets (and a MasterKeyProvider).`,
+        });
+      }
+      await ctx.secrets.delete(SYSTEM_TENANT_ID, event.payload.key, {
+        deletedBy: event.user.id,
+      });
+      return { isSuccess: true, data: { key: event.payload.key, scope } };
+    }
 
     const existing = await findConfigRow(db, event.payload.key, tenantId, userId);
 

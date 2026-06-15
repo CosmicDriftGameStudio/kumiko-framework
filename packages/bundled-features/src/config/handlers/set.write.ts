@@ -1,6 +1,10 @@
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
-import { ConfigScopes, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  ConfigScopes,
+  defineWriteHandler,
+  SYSTEM_TENANT_ID,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { requireConfigEncryption } from "../feature";
 import { configValueEntity, configValuesTable } from "../table";
@@ -55,6 +59,32 @@ export const setWrite = defineWriteHandler({
 
     const patternError = validatePattern(event.payload.value, keyDef);
     if (patternError) return writeFailure(patternError);
+
+    // backing="secrets": persist into the secrets store (system tenant, own
+    // envelope encryption + audit) instead of config_values. Same JSON
+    // serialization as a config row so the read path round-trips via
+    // deserializeValue. system-scope is guaranteed by the boot-guard.
+    if (keyDef.backing === "secrets") {
+      if (!ctx.secrets) {
+        throw new InternalError({
+          message:
+            `[config:write:set] key "${event.payload.key}" declares backing="secrets" but ` +
+            `ctx.secrets is not wired — provide extraContext.secrets (and a MasterKeyProvider).`,
+        });
+      }
+      await ctx.secrets.set(
+        SYSTEM_TENANT_ID,
+        event.payload.key,
+        JSON.stringify(event.payload.value),
+        {
+          updatedBy: event.user.id,
+        },
+      );
+      return {
+        isSuccess: true,
+        data: { key: event.payload.key, value: event.payload.value, scope },
+      };
+    }
 
     let serialized = JSON.stringify(event.payload.value);
     if (keyDef.encrypted) {
