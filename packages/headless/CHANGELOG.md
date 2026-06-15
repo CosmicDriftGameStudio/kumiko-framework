@@ -1,5 +1,23 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.54.0
+
+### Minor Changes
+
+- 1135437: Date/Calendar-Inputs vereinheitlicht (#369): `date` und `timestamp` teilen jetzt
+  eine gemeinsame, tippbare Eingabe mit Jahres-/Dekaden-Dropdown im Kalender. Datümer
+  sind überall direkt tippbar (locale-aware Parse), nicht mehr nur per Klick. Neu pro
+  Feld konfigurierbar: `min`/`max` (Picker-Range + Zod-Durchsetzung beim Write) und
+  `locale` (Anzeige-/Eingabe-Format) auf `date`/`timestamp`/`locatedTimestamp`-Feldern.
+
+### Patch Changes
+
+- Updated dependencies [a565b61]
+- Updated dependencies [e7a7809]
+- Updated dependencies [b2e3a56]
+- Updated dependencies [1135437]
+  - @cosmicdrift/kumiko-framework@0.54.0
+
 ## 0.53.0
 
 ### Patch Changes
