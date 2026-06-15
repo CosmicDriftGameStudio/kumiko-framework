@@ -1,0 +1,9 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-managed-config",
+  "description": "Managed config: one declaration provisions storage + masking + settings-hub, across backings (secrets vs config) and scopes (system vs tenant).",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  }
+}
