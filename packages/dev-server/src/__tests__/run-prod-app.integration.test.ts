@@ -706,3 +706,44 @@ describe("runProdApp: lokaler Event-Dispatcher (MSP-Anwendung im Single-Containe
     expect(handle.entrypoint.eventDispatcher).toBeUndefined();
   });
 });
+
+// Origin-guard config (framework #340) flows from runProdApp's auth options
+// through to buildServer. Before the forwarding fix, RunProdAppAuthOptions had
+// no `allowedOrigins`, so a cookieDomain app could not satisfy the fail-closed
+// guard — it could only CrashLoop.
+describe("runProdApp — auth allowedOrigins forwarding", () => {
+  const ADMIN = {
+    email: "origin-guard@example.eu",
+    password: "test-pw-strong-1234",
+    displayName: "Admin",
+    memberships: [],
+  };
+
+  test("cookieDomain without allowedOrigins fails closed — guard is wired through runProdApp", async () => {
+    await expect(
+      boot(undefined, { auth: { admin: ADMIN, cookieDomain: "example.eu" } }),
+    ).rejects.toThrow(/allowedOrigins is empty/);
+  });
+
+  test("cookieDomain + allowedOrigins clears the guard — allowlist reaches buildServer", async () => {
+    // Without the forwarding fix this would ALSO throw /allowedOrigins is empty/.
+    // It may still fail later on the minimal harness (no auth tables migrated),
+    // but never on the origin guard — that is the forwarding proof.
+    let bootError: unknown;
+    try {
+      const handle = await boot(undefined, {
+        auth: {
+          admin: ADMIN,
+          cookieDomain: "example.eu",
+          allowedOrigins: ["https://app.example.eu"],
+        },
+      });
+      expect(handle).toBeDefined();
+    } catch (error) {
+      bootError = error;
+    }
+    if (bootError !== undefined) {
+      expect(String(bootError)).not.toMatch(/allowedOrigins is empty/);
+    }
+  });
+});

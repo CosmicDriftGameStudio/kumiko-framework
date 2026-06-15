@@ -280,6 +280,15 @@ export type RunProdAppAuthOptions = {
    *  AuthRoutesConfig.cookieDomain). Set to the registrable parent
    *  domain when login and app live on different subdomains. */
   readonly cookieDomain?: string;
+  /** Server-side Origin allowlist for the CSRF guard (see
+   *  AuthRoutesConfig.allowedOrigins). REQUIRED once `cookieDomain` is set —
+   *  buildServer fails closed otherwise. Apex + admin host, never tenant
+   *  subdomains. */
+  readonly allowedOrigins?: readonly string[];
+  /** Opt out of the Origin guard (see AuthRoutesConfig.unsafeSkipOriginCheck)
+   *  — accept the wide-cookie CSRF risk explicitly instead of setting
+   *  `allowedOrigins`. */
+  readonly unsafeSkipOriginCheck?: boolean;
 };
 
 /** Hook for app-specific seeding — runs after the admin (when auth is
@@ -724,6 +733,12 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
         },
         ...(options.auth.cookieDomain !== undefined && {
           cookieDomain: options.auth.cookieDomain,
+        }),
+        ...(options.auth.allowedOrigins !== undefined && {
+          allowedOrigins: options.auth.allowedOrigins,
+        }),
+        ...(options.auth.unsafeSkipOriginCheck !== undefined && {
+          unsafeSkipOriginCheck: options.auth.unsafeSkipOriginCheck,
         }),
         ...sessionAuthFragment,
         ...(options.auth.passwordReset && {
