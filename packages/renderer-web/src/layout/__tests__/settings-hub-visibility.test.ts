@@ -20,10 +20,18 @@ import { buildNavRegistrySliceForApp } from "../nav-tree";
 
 const billing = defineFeature("billing", (r) => {
   r.config({
+    // tenant-home with the admin write-set (∋ SystemAdmin): cascades up to a
+    // SystemAdmin-only Plattform default screen AND a tenant override screen.
+    keys: { stripeKey: createTenantConfig("text", { mask: { title: "billing.stripe-key" } }) },
+  });
+});
+// A masked SYSTEM key keeping the default ["system"] (internal-actor) write: no
+// human can set it, so it must NOT generate a hub nav at all — build-time
+// exclusion, not just resolve-time hiding (else it renders as an unsaveable field).
+const internal = defineFeature("internal", (r) => {
+  r.config({
     keys: {
-      stripeKey: createTenantConfig("text", { mask: { title: "billing.stripe-key" } }),
-      // system-scope default write = ["system"] (internal actor) → human-hidden
-      platformFee: createSystemConfig("number", { mask: { title: "billing.platform-fee" } }),
+      rebuildToken: createSystemConfig("text", { mask: { title: "internal.rebuild-token" } }),
     },
   });
 });
@@ -52,7 +60,7 @@ const shell = defineFeature("shell", (r) => {
   r.workspace({ id: "main", label: "Main", nav: ["shell:nav:home"] });
 });
 
-const app = buildAppSchema(createRegistry([shell, billing, notify, ops]));
+const app = buildAppSchema(createRegistry([shell, billing, internal, notify, ops]));
 
 function navMembersOf(workspaceId: string): ReadonlySet<string> {
   const ws = app.workspaces?.find((w) => w.definition.id === workspaceId);
@@ -97,7 +105,7 @@ function screenRefsIn(tree: ReturnType<typeof resolveNavigation>): string[] {
 }
 
 describe("Settings-Hub visibility — full boot pipeline", () => {
-  test("privileged user sees the human-relevant hub; system-internal keys stay hidden", () => {
+  test("privileged user sees the hub incl. cascaded Plattform defaults; machine-only keys never generate a nav", () => {
     const slice = buildNavRegistrySliceForApp(app, navMembersOf("settings"));
     const tree = resolveNavigation({
       source: slice,
@@ -107,16 +115,16 @@ describe("Settings-Hub visibility — full boot pipeline", () => {
 
     expect(names).toContain("config:nav:audience-tenant");
     expect(names).toContain("config:nav:audience-user");
-    // system audience surfaces ONLY because `ops` opted a human (SystemAdmin)
-    // into write; its child ops-system shows, billing's system-internal key
-    // (write ["system"]) stays hidden from the same admin.
+    // system audience surfaces for `ops` (human-opted system key) AND for
+    // billing's tenant key cascading up to a SystemAdmin-only Plattform default.
     expect(names).toContain("config:nav:audience-system");
     expect(names).toContain("config:nav:ops-system");
-    expect(names).not.toContain("config:nav:billing-system");
+    expect(names).toContain("config:nav:billing-system");
 
-    // schema-level completeness: the hidden key IS generated (a system actor
-    // could resolve it) — it's gated at resolve-time, not omitted at build-time.
-    expect(navMembersOf("settings").has("config:nav:billing-system")).toBe(true);
+    // the internal machine-only key (write ["system"]) generates NO nav at all —
+    // build-time exclusion, so it can never render as an unsaveable field.
+    expect(navMembersOf("settings").has("config:nav:internal-system")).toBe(false);
+    expect(names).not.toContain("config:nav:internal-system");
 
     // hierarchy: the billing-tenant screen hangs under the tenant audience
     const tenantAudience = tree.find((n) => n.qualifiedName === "config:nav:audience-tenant");
