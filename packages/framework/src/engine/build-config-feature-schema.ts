@@ -58,6 +58,17 @@ export type ConfigFeatureSchema = {
 const SCOPE_ORDER: Record<ConfigScope, number> = { system: 10, tenant: 20, user: 30 };
 const SCOPES_BROAD_TO_DEEP: readonly ConfigScope[] = ["system", "tenant", "user"];
 
+const audienceNavShortId = (scope: ConfigScope): string => `audience-${scope}`;
+
+// Die generierten Audience-Parent-Navs (qualifiziert). Eine App platziert die
+// Settings-Gruppe INLINE, indem sie einen dieser QNs in ihre `r.workspace.nav`
+// aufnimmt — buildAppSchema expandiert dann die Kinder der Audience hinein und
+// unterdrückt den Standalone-Switcher. Der Boot-Validator kennt genau diese drei
+// QNs als Ausnahme (generiert, nicht via `r.nav()` registriert).
+export const SETTINGS_HUB_AUDIENCE_NAV_QNS: readonly string[] = SCOPES_BROAD_TO_DEEP.map(
+  (scope) => `${SETTINGS_HUB_FEATURE}:nav:${audienceNavShortId(scope)}`,
+);
+
 // An einem Scope BREITER als der Home-Scope eines Keys darf nur eine für DIESE
 // Ebene privilegierte Rolle den (Cascade-)Default setzen — SystemAdmin auf
 // system, TenantAdmin/Admin auf tenant. Am Home-Scope gilt das volle write-Set
@@ -98,7 +109,7 @@ export function buildConfigFeatureSchema(registry: Registry): ConfigFeatureSchem
 
     // Audience-Parent: Gruppierungs-Knoten ohne Screen.
     navs.push({
-      id: `audience-${scope}`,
+      id: audienceNavShortId(scope),
       label: `config.settings.${scope}`,
       order: SCOPE_ORDER[scope],
       access: rolesToAccess(visible.flatMap((v) => v.roles)),
@@ -114,7 +125,7 @@ export function buildConfigFeatureSchema(registry: Registry): ConfigFeatureSchem
       navs.push({
         id: shortId,
         label: `${feature}.settings`,
-        parent: `audience-${scope}`,
+        parent: audienceNavShortId(scope),
         screen: shortId,
         order: minMaskOrder(ordered),
         access,

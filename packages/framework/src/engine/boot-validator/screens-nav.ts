@@ -1,3 +1,4 @@
+import { SETTINGS_HUB_AUDIENCE_NAV_QNS } from "../build-config-feature-schema";
 import { qualifyEntityName } from "../qualified-name";
 import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops";
 import type { FeatureDefinition, NavDefinition, WorkspaceDefinition } from "../types";
@@ -742,6 +743,12 @@ export function validateWorkspaces(
   for (const [wsId, wsDef] of Object.entries(feature.workspaces)) {
     if (wsDef.nav !== undefined) {
       for (const navQn of wsDef.nav) {
+        // Settings-Hub-Audience-Navs sind generiert (buildAppSchema, nach Boot),
+        // also nie via r.nav() registriert. Eine App platziert die Settings-
+        // Gruppe inline, indem sie genau einen dieser drei QNs referenziert —
+        // hier exempt, damit der Boot nicht fälschlich wirft. Tippfehler an
+        // anderen Hub-QNs (Kinder) fängt der Render-Slice-Filter ab.
+        if (SETTINGS_HUB_AUDIENCE_NAV_QN_SET.has(navQn)) continue;
         if (!allNavQns.has(navQn)) {
           throw new Error(
             `[Feature ${feature.name}] Workspace "${wsId}" references nav "${navQn}" ` +
@@ -753,6 +760,10 @@ export function validateWorkspaces(
     }
   }
 }
+
+const SETTINGS_HUB_AUDIENCE_NAV_QN_SET: ReadonlySet<string> = new Set(
+  SETTINGS_HUB_AUDIENCE_NAV_QNS,
+);
 
 // Single-default rule across the entire app. Mirrors how createApp validates
 // roles up front — a second `default: true` is a configuration error, not a

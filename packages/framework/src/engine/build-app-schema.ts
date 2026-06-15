@@ -53,7 +53,7 @@ export function buildAppSchema(registry: Registry): AppSchema {
   // navigate({ workspaceId })). Wir gehen direkt durch `feature.workspaces`
   // — dort sind die ids noch in der Autor-Form (short) — und ziehen die
   // pre-resolved navMembers aus der Registry.
-  const workspaces: WorkspaceSchema[] = [];
+  let workspaces: WorkspaceSchema[] = [];
   for (const [featureName, feature] of registry.features) {
     for (const [shortId, definition] of Object.entries(feature.workspaces)) {
       const qualified = `${featureName}:workspace:${shortId}`;
@@ -71,11 +71,14 @@ export function buildAppSchema(registry: Registry): AppSchema {
   const generated = buildConfigFeatureSchema(registry);
   if (generated.screens.length > 0) {
     mergeSettingsHubIntoConfigFeature(features, generated);
-    // Flip-Schutz: die Workspace NUR anhängen wenn die App schon Workspaces
-    // nutzt. Bei einer workspace-losen App bleibt app.workspaces undefined →
-    // der Renderer zeigt alle Navs ungefiltert, die Hub-Navs inklusive.
-    if (appHadWorkspaces && generated.workspace !== undefined) {
-      workspaces.push(generated.workspace);
+    // Flip-Schutz: nur für Apps die schon Workspaces nutzen. Bei einer
+    // workspace-losen App bleibt app.workspaces undefined → der Renderer zeigt
+    // alle Navs ungefiltert, die Hub-Navs inklusive.
+    if (appHadWorkspaces) {
+      const placed = placeSettingsHub(workspaces, generated);
+      workspaces = placed.workspaces;
+      if (placed.standalone !== undefined) workspaces.push(placed.standalone);
+      warnUnplacedAudiences(placed.unplaced);
     }
   }
 
@@ -124,6 +127,78 @@ function mergeSettingsHubIntoConfigFeature(
       navs: [...(existing.navs ?? []), ...generated.navs],
     };
   }
+}
+
+// Inline-Platzierung des Settings-Hubs: Referenziert eine App-Workspace einen
+// generierten Audience-Parent (`config:nav:audience-<scope>`) in ihren
+// navMembers, hängen wir die Kinder dieser Audience dort an (der Slice-Filter
+// blendet sonst Kinder aus, die nicht explizit Member sind) und zählen die
+// Audience als „platziert". Der Standalone-Switcher behält NUR un-platzierte
+// Audiences — so erscheint nichts doppelt und keine Audience verschwindet still
+// (alles platziert → kein Tab; teils platziert → Rest im Tab).
+function placeSettingsHub(
+  appWorkspaces: readonly WorkspaceSchema[],
+  generated: ConfigFeatureSchema,
+): { workspaces: WorkspaceSchema[]; standalone: WorkspaceSchema | undefined; unplaced: string[] } {
+  const prefix = `${SETTINGS_HUB_FEATURE}:nav:`;
+  const audienceShortIds = new Set<string>();
+  const childParent = new Map<string, string>();
+  const childrenByAudience = new Map<string, string[]>();
+  for (const nav of generated.navs) {
+    if (nav.parent === undefined) {
+      audienceShortIds.add(nav.id);
+    } else {
+      childParent.set(nav.id, nav.parent);
+      const list = childrenByAudience.get(nav.parent) ?? [];
+      list.push(nav.id);
+      childrenByAudience.set(nav.parent, list);
+    }
+  }
+
+  const placedAudiences = new Set<string>();
+  const workspaces = appWorkspaces.map((ws) => {
+    const additions: string[] = [];
+    for (const member of ws.navMembers) {
+      if (!member.startsWith(prefix)) continue;
+      const shortId = member.slice(prefix.length);
+      if (!audienceShortIds.has(shortId)) continue;
+      placedAudiences.add(shortId);
+      for (const child of childrenByAudience.get(shortId) ?? []) {
+        const childQn = `${prefix}${child}`;
+        if (!ws.navMembers.includes(childQn) && !additions.includes(childQn)) {
+          additions.push(childQn);
+        }
+      }
+    }
+    return additions.length > 0 ? { ...ws, navMembers: [...ws.navMembers, ...additions] } : ws;
+  });
+
+  const audienceOf = (shortId: string): string =>
+    audienceShortIds.has(shortId) ? shortId : (childParent.get(shortId) ?? shortId);
+  let standalone: WorkspaceSchema | undefined;
+  if (generated.workspace !== undefined && placedAudiences.size < audienceShortIds.size) {
+    const remaining = generated.workspace.navMembers.filter((member) => {
+      const shortId = member.startsWith(prefix) ? member.slice(prefix.length) : member;
+      return !placedAudiences.has(audienceOf(shortId));
+    });
+    if (remaining.length > 0) standalone = { ...generated.workspace, navMembers: remaining };
+  }
+
+  const unplaced =
+    placedAudiences.size > 0 ? [...audienceShortIds].filter((id) => !placedAudiences.has(id)) : [];
+  return { workspaces, standalone, unplaced };
+}
+
+function warnUnplacedAudiences(unplaced: readonly string[]): void {
+  if (unplaced.length === 0) return;
+  if (typeof process !== "undefined" && process.env.NODE_ENV === "production") return;
+  // biome-ignore lint/suspicious/noConsole: dev-only authoring hint
+  console.warn(
+    `[kumiko] Settings-Hub: ${unplaced.join(", ")} nicht in einer App-Workspace platziert — ` +
+      `erscheint im Standalone-"Einstellungen"-Tab. Referenziere ` +
+      `${unplaced.map((id) => `${SETTINGS_HUB_FEATURE}:nav:${id}`).join(", ")} ` +
+      `in einer r.workspace.nav, um die Gruppe inline zu zeigen.`,
+  );
 }
 
 // PlatformComponent slots ({ react, native }) legitimately hold component
