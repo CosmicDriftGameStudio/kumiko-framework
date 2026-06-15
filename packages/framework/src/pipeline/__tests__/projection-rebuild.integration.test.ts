@@ -175,7 +175,8 @@ describe("rebuildProjection — happy path", () => {
     });
 
     expect(result.eventsProcessed).toBe(2);
-    // Not 999+2, not 999 — TRUNCATE + replay.
+    // Not 999+2, not 999 — the shadow is built empty and swapped over the
+    // stale live table.
     expect(await getCount(group)).toBe(2);
   });
 
@@ -245,7 +246,7 @@ describe("rebuildProjection — state table lifecycle", () => {
 });
 
 describe("rebuildProjection — error path", () => {
-  test("apply throw rolls TRUNCATE + partial replay back, marks status=failed", async () => {
+  test("apply throw rolls the shadow + partial replay back, marks status=failed", async () => {
     const group = "00000000-0000-4000-8000-000000000030";
     await appendCreatedEvent(group, "keeper-1");
     await appendCreatedEvent(group, "keeper-2");
@@ -275,9 +276,9 @@ describe("rebuildProjection — error path", () => {
       rebuildProjection(brokenName, { db: testDb.db, registry: brokenRegistry }),
     ).rejects.toThrow("boom");
 
-    // Old counter rows are gone (TRUNCATE is inside the TX but this is a
-    // DIFFERENT projection). Verify our original projection's rows WERE
-    // preserved because the broken rebuild targets a different name.
+    // The broken rebuild targets a DIFFERENT projection name; its shadow
+    // rolled back and never swapped. Our original projection's rows are
+    // untouched either way.
     expect(await getCount(group)).toBe(2);
 
     // State of the broken projection is "failed" with the error message.
@@ -314,9 +315,10 @@ describe("rebuildProjection — error path", () => {
       rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry: brokenRegistry }),
     ).rejects.toThrow("poisoned");
 
-    // CRITICAL: the old counter rows survive. TRUNCATE happened INSIDE the
-    // transaction, so the rollback restored them. Without this the rebuild
-    // would be worse than not rebuilding at all.
+    // CRITICAL: the old counter rows survive. The shadow rebuild replays into
+    // a separate table and only swaps as the last step — a throw mid-replay
+    // rolls the shadow back and the live table was never touched. Without this
+    // the rebuild would be worse than not rebuilding at all.
     expect(await getCount(group)).toBe(3);
 
     // State reflects the failure.
@@ -502,7 +504,7 @@ describe("rebuildProjection — meter emission", () => {
 });
 
 describe("rebuildProjection — cancellation", () => {
-  test("pre-aborted signal: rebuild throws, TRUNCATE rolls back, projection state preserved", async () => {
+  test("pre-aborted signal: rebuild throws, shadow rolls back, projection state preserved", async () => {
     // Setup: events on the log + a clean rebuild → projection has known
     // counter state. Then call rebuildProjection with a pre-aborted
     // controller. The first throwIfAborted() inside the apply loop
@@ -544,5 +546,128 @@ describe("rebuildProjection — cancellation", () => {
 
     const after = await getCount(group);
     expect(after).toBe(before);
+  });
+});
+
+describe("rebuildProjection — online shadow-swap mechanics", () => {
+  // Self-contained fixtures: a separate projection so the count-sensitive
+  // list/progress tests above keep seeing exactly one registered projection.
+  const swapEntity = createEntity({
+    table: "read_swap_indexed",
+    fields: { label: createTextField({ required: true }) },
+  });
+  const swapTable = buildEntityTable("swap-indexed", swapEntity);
+  // Empty apply: a 0-event rebuild still builds the shadow + swaps it in, so
+  // this exercises the table-recreation + swap path without wiring events.
+  const swapProjection: ProjectionDefinition = {
+    name: "swap-indexed-proj",
+    source: "swap-indexed",
+    table: swapTable,
+    apply: {},
+  };
+  const swapFeature = defineFeature("swaptest", (r) => {
+    r.entity("swap-indexed", swapEntity);
+    r.projection(swapProjection);
+  });
+  const swapRegistry = createRegistry([swapFeature]);
+  const swapProjName = "swaptest:projection:swap-indexed-proj";
+
+  test("swap moves the shadow into public with canonical index names", async () => {
+    await unsafeCreateEntityTable(testDb.db, swapEntity, "swap-indexed");
+    await rebuildProjection(swapProjName, { db: testDb.db, registry: swapRegistry });
+
+    // The tenant_id index carries its canonical name after SET SCHEMA. Future
+    // migrations DROP/CREATE INDEX by exactly this name, so a rename here would
+    // silently break them — this is the index-rename trap the shadow-schema
+    // approach dissolves.
+    const idx = await asRawClient(testDb.db).unsafe<{ indexname: string }>(
+      `SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'read_swap_indexed' ORDER BY indexname`,
+    );
+    expect(idx.map((r) => r.indexname)).toContain("read_swap_indexed_tenant_id_idx");
+
+    // Nothing left behind in the shadow schema — the table moved out via SET SCHEMA.
+    const leftover = await asRawClient(testDb.db).unsafe<{ tablename: string }>(
+      `SELECT tablename FROM pg_tables WHERE schemaname = 'kumiko_rebuild' AND tablename = 'read_swap_indexed'`,
+    );
+    expect(leftover).toHaveLength(0);
+  });
+
+  test("cleans a stale shadow table left by a crashed rebuild", async () => {
+    await unsafeCreateEntityTable(testDb.db, swapEntity, "swap-indexed");
+    // A crashed prior rebuild leaves a shadow with the wrong shape behind.
+    await asRawClient(testDb.db).unsafe(`CREATE SCHEMA IF NOT EXISTS kumiko_rebuild`);
+    await asRawClient(testDb.db).unsafe(`DROP TABLE IF EXISTS kumiko_rebuild.read_swap_indexed`);
+    await asRawClient(testDb.db).unsafe(
+      `CREATE TABLE kumiko_rebuild.read_swap_indexed (stale int)`,
+    );
+
+    // Rebuild drops the stale shadow before building the real one — succeeds.
+    await rebuildProjection(swapProjName, { db: testDb.db, registry: swapRegistry });
+
+    const cols = await asRawClient(testDb.db).unsafe<{ column_name: string }>(
+      `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'read_swap_indexed'`,
+    );
+    const colNames = cols.map((c) => c.column_name);
+    expect(colNames).not.toContain("stale");
+    expect(colNames).toContain("tenant_id");
+  });
+
+  test("live table stays readable + intact during replay (no lock until swap)", async () => {
+    const group = "00000000-0000-4000-8000-0000000000d1";
+    await appendCreatedEvent(group, "a");
+    await appendCreatedEvent(group, "b");
+    await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry });
+    expect(await getCount(group)).toBe(2);
+
+    // A probe apply reads the LIVE table from a SEPARATE pooled connection
+    // (default search_path = public) on its first invocation, while the rebuild
+    // tx is mid-replay against its shadow. An in-place TRUNCATE would hold an
+    // ACCESS EXCLUSIVE lock and deadlock this read; the shadow swap leaves the
+    // live table unlocked, so it returns the pre-swap rows promptly.
+    let liveDuringReplay: number | undefined = -1;
+    const probeFeature = defineFeature("probetest", (r) => {
+      r.entity("rebuild-item", itemEntity);
+      r.projection({
+        ...itemsPerGroupProjection,
+        apply: {
+          "rebuild-item.created": defineApply<ItemCreated>(async (event, tx) => {
+            if (liveDuringReplay === -1) liveDuringReplay = await getCount(group);
+            await bump(tx, event.payload.groupId, event.tenantId, 1);
+          }),
+        },
+      });
+    });
+    const probeRegistry = createRegistry([probeFeature]);
+
+    await rebuildProjection("probetest:projection:items-per-group", {
+      db: testDb.db,
+      registry: probeRegistry,
+    });
+
+    expect(liveDuringReplay).toBe(2);
+    expect(await getCount(group)).toBe(2);
+  });
+
+  test("warm-pool writes succeed after the swap changes the table OID", async () => {
+    // The swap replaces the physical table (new OID) — TRUNCATE never did.
+    // A live write through the same long-lived pool AFTER the swap (the
+    // steady-state apply path, typed query API) must still resolve the
+    // swapped relation, including across a second rebuild + swap.
+    const group = "00000000-0000-4000-8000-0000000000e1";
+    await appendCreatedEvent(group, "a");
+    await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry });
+    expect(await getCount(group)).toBe(1);
+
+    const other = "00000000-0000-4000-8000-0000000000e2";
+    await insertOne(testDb.db, itemsPerGroupTable, {
+      groupId: other,
+      tenantId: admin.tenantId,
+      itemCount: 5,
+    });
+    expect(await getCount(other)).toBe(5);
+
+    await appendCreatedEvent(group, "b");
+    await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry });
+    expect(await getCount(group)).toBe(2);
   });
 });
