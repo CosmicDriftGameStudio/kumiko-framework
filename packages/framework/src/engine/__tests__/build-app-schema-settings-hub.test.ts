@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { validateBoot } from "../boot-validator";
 import { buildAppSchema, findNonJsonSafePath } from "../build-app-schema";
 import { SETTINGS_HUB_FEATURE, SETTINGS_HUB_WORKSPACE } from "../build-config-feature-schema";
 import { access, createSystemConfig, createTenantConfig } from "../config-helpers";
@@ -121,3 +122,80 @@ function shellWith(masked: ReturnType<typeof defineFeature>) {
   });
   return createRegistry([shell, masked]);
 }
+
+// A shell whose workspaces place the generated audience parents inline by
+// referencing config:nav:audience-<scope> directly (the app-driven placement
+// the renderer-side slice then expands with the audience's children).
+function placingShell(...audienceScopes: string[]) {
+  return defineFeature("shell", (r) => {
+    r.entity("thing", { fields: { label: { type: "text" } } });
+    r.screen({ id: "home", type: "entityList", entity: "thing", columns: ["label"] });
+    r.nav({ id: "home", label: "Home", screen: "home" });
+    r.workspace({
+      id: "main",
+      label: "Main",
+      nav: ["shell:nav:home", ...audienceScopes.map((s) => `config:nav:audience-${s}`)],
+    });
+  });
+}
+
+function workspaceNavs(app: ReturnType<typeof buildAppSchema>, id: string): readonly string[] {
+  const ws = app.workspaces?.find((w) => w.definition.id === id);
+  if (ws === undefined) throw new Error(`no workspace "${id}"`);
+  return ws.navMembers;
+}
+
+describe("buildAppSchema — Settings-Hub inline placement", () => {
+  test("a workspace referencing an audience parent gets that audience's children expanded in", () => {
+    const app = buildAppSchema(createRegistry([placingShell("system"), billing]));
+    const main = workspaceNavs(app, "main");
+    // the app listed only the parent; the framework expands the child screen-nav
+    // so the slice doesn't drop it.
+    expect(main).toContain("config:nav:audience-system");
+    expect(main).toContain("config:nav:billing-system");
+    // the app's own nav is untouched
+    expect(main).toContain("shell:nav:home");
+  });
+
+  test("placing every audience suppresses the standalone settings switcher entirely", () => {
+    // billing spans system + tenant → place both → no separate Einstellungen tab.
+    const app = buildAppSchema(createRegistry([placingShell("system", "tenant"), billing]));
+    expect(app.workspaces?.map((w) => w.definition.id).sort()).toEqual(["main"]);
+    const main = workspaceNavs(app, "main");
+    expect(main).toContain("config:nav:billing-system");
+    expect(main).toContain("config:nav:billing-tenant");
+  });
+
+  test("partial placement keeps un-placed audiences in the standalone tab (nothing vanishes)", () => {
+    // place only system → the tenant audience must still be reachable via the
+    // standalone settings workspace, never silently dropped.
+    const app = buildAppSchema(createRegistry([placingShell("system"), billing]));
+    const settings = workspaceNavs(app, SETTINGS_HUB_WORKSPACE);
+    expect(settings).toContain("config:nav:audience-tenant");
+    expect(settings).toContain("config:nav:billing-tenant");
+    // the placed (system) audience is NOT duplicated into the standalone tab
+    expect(settings).not.toContain("config:nav:audience-system");
+    expect(settings).not.toContain("config:nav:billing-system");
+  });
+
+  test("an app that places NO audience keeps the standalone tab whole (backward compatible)", () => {
+    const app = buildAppSchema(shellWith(billing));
+    const settings = workspaceNavs(app, SETTINGS_HUB_WORKSPACE);
+    expect(settings).toContain("config:nav:audience-system");
+    expect(settings).toContain("config:nav:audience-tenant");
+  });
+
+  test("boot validation exempts the generated audience nav QNs but still catches typos", () => {
+    const ok = defineFeature("ok", (r) => {
+      r.config({ keys: { fee: createSystemConfig("number", { mask: { title: "ok.fee" } }) } });
+      r.workspace({ id: "w", label: "W", nav: ["config:nav:audience-system"] });
+    });
+    expect(() => validateBoot([ok])).not.toThrow();
+
+    const typo = defineFeature("typo", (r) => {
+      r.config({ keys: { fee: createSystemConfig("number", { mask: { title: "t.fee" } }) } });
+      r.workspace({ id: "w", label: "W", nav: ["config:nav:audience-systemm"] });
+    });
+    expect(() => validateBoot([typo])).toThrow(/references nav "config:nav:audience-systemm"/);
+  });
+});
