@@ -10,8 +10,12 @@ export {
 // Persistente Pending-Rebuild-Queue (survives Rebuild-Failures + Crashes).
 export {
   createPendingRebuildsTable,
+  type EnqueueProjectionRebuildDeps,
+  type EnqueueProjectionRebuildResult,
+  enqueueProjectionRebuild,
   listPendingRebuilds,
   type PendingRebuildRun,
+  PROJECTION_REBUILD_JOB,
   pendingRebuildsTable,
   queueRebuildsFromMarkers,
   type RunPendingRebuildsOptions,

@@ -1,8 +1,8 @@
 ---
 status: in-progress
-verified: 2026-06-14
+verified: 2026-06-15
 issue: kumiko-framework#356
-next: #356 released + Consumer-Bumps (studio#58-Migration regenerieren, envelope-Frage klären); Phase 2 (#361) geshippt aber DORMANT — studio-bin muss thisRunTables durchreichen + auf unresolvedManaged exiten; Phase 3 rebuild-job (#362) offen
+next: Phase 2 (#361) + Aktivierung (studio#61) shipped; Phase 3 (#362 rebuild-job + enqueueProjectionRebuild) shipped; offen nur noch #356-Release-Consumer-Bumps (studio#58-Migration) + Phase blue-green/ProjectionVersion (#363)
 ---
 
 # Projection-aware migrations: managed = wegwerfbares Derivat, unmanaged = echte Daten
@@ -195,8 +195,8 @@ blue-green = Folge-Issues. Hält's leichtgewichtig und de-risked den Kern.
 
 **Folge-Issues (angelegt 2026-06-14):**
 - [x] Phase 2: safe fail-loud für managed-ohne-Projektion (kein Hard-Throw) — #361 → `runPendingRebuilds(…, {thisRunTables})` meldet in-diesem-Run via Marker geleerte managed-Tabellen ohne auflösbare Projektion als `unresolvedManaged` (error-Log, non-fatal, gedraint); pre-existing/Legacy bleibt benign `unmapped`. Integration 6/6.
-  - **Aktivierung offen (Prod-Verhalten bis dahin unverändert):** Die Framework-Capability ist opt-in über `thisRunTables`. Der einzige Prod-Caller `kumiko-studio/bin/kumiko.ts` (`rebuildPendingProjections`) ruft `runPendingRebuilds` noch OHNE die Option → `unresolvedManaged` immer leer. Zum Scharfschalten muss die studio-bin die Rückgabe von `queueRebuildsFromMarkers` als `thisRunTables` durchreichen + auf nicht-leeres `unresolvedManaged` non-zero exiten. **NICHT** von Phase 6 (#356 studio#58-Migration) gedeckt — eigener Consumer-Code-Change.
-- [ ] Phase 3: `kumiko:projection-rebuild`-Single-Run-Job + `enqueueProjectionRebuild` + Inline-Fallback — #362
+  - **Aktivierung SHIPPED (2026-06-15, kumiko-studio#61):** `kumiko-studio/bin/kumiko.ts` (`rebuildPendingProjections`) reicht jetzt `queueRebuildsFromMarkers`-Rückgabe als `thisRunTables` durch + exitet non-zero bei nicht-leerem `unresolvedManaged`. In Prod scharf; #361 + studio#60 CLOSED.
+- [x] Phase 3: Single-Run-Job `jobs:job:projection-rebuild` (im `jobs`-Feature registriert, auto-verfügbar wenn jobs komponiert) + framework-Helper `enqueueProjectionRebuild` (dispatch via jobRunner ODER inline-Fallback ohne jobs) — #362. JobRunner injiziert jetzt die registry in jeden job-ctx (JobContext-Contract). Integration: inline + e2e dispatch beide grün.
 - [ ] blue-green/`ProjectionVersion` (zero-downtime Rebuild) — #363
 
 PR Phase 1: #360 (CI grün 2026-06-14).

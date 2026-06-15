@@ -17,8 +17,9 @@ import { deleteMany, selectMany, upsertOnConflict } from "../db/query";
 import { readRebuildMarker } from "../db/rebuild-marker";
 import { tableExists } from "../db/schema-inspection";
 import type { Registry } from "../engine/types";
+import type { JobRunner } from "../jobs";
 import { createFallbackLogger } from "../logging/utils";
-import { rebuildProjection } from "../pipeline";
+import { type RebuildResult, rebuildProjection } from "../pipeline";
 import { unsafePushTables } from "../stack";
 import { buildProjectionTableIndex } from "./projection-table-index";
 
@@ -162,4 +163,38 @@ export async function runPendingRebuilds(
     }
   }
   return { rebuilt, failed, unmapped, unresolvedManaged };
+}
+
+// Qualified name of the framework-provided projection-rebuild job. Registered
+// by the `jobs` bundled-feature (createJobsFeature) → available whenever jobs
+// is composed. A jobs-less boot has no jobRunner and rebuilds inline instead.
+export const PROJECTION_REBUILD_JOB = "jobs:job:projection-rebuild";
+
+export type EnqueueProjectionRebuildResult =
+  | { readonly mode: "dispatched"; readonly bullJobId: string }
+  | { readonly mode: "inline"; readonly result: RebuildResult };
+
+export type EnqueueProjectionRebuildDeps = {
+  readonly db: DbConnection;
+  readonly registry: Registry;
+  // Present + projection-rebuild job registered (jobs composed) → tracked,
+  // retryable job (read_job_runs + read_job_run_logs). Absent → inline rebuild.
+  readonly jobRunner?: JobRunner;
+};
+
+/** Triggert einen Single-Projection-Rebuild. Mit `jobs`-Feature (jobRunner +
+ *  registriertem Job) als getrackter, retrybarer Job; ohne jobs synchron inline
+ *  (heutiges Verhalten). Capability-Detektion über `registry.getJob`, NICHT
+ *  `hasFeature` — deterministisch und ohne Toggle-Runtime-Abhängigkeit. */
+export async function enqueueProjectionRebuild(
+  projection: string,
+  deps: EnqueueProjectionRebuildDeps,
+): Promise<EnqueueProjectionRebuildResult> {
+  const { db, registry, jobRunner } = deps;
+  if (jobRunner !== undefined && registry.getJob(PROJECTION_REBUILD_JOB) !== undefined) {
+    const bullJobId = await jobRunner.dispatch(PROJECTION_REBUILD_JOB, { projection });
+    return { mode: "dispatched", bullJobId };
+  }
+  const result = await rebuildProjection(projection, { db, registry });
+  return { mode: "inline", result };
 }

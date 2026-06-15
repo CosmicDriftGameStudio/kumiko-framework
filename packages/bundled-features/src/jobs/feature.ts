@@ -12,6 +12,10 @@ import type { z } from "zod";
 import { runCompletedSchema, runFailedSchema, runStartedSchema } from "./events";
 import { detailQuery } from "./handlers/detail.query";
 import { listQuery } from "./handlers/list.query";
+import {
+  projectionRebuildJob,
+  projectionRebuildPayloadSchema,
+} from "./handlers/projection-rebuild.job";
 import { retryWrite } from "./handlers/retry.write";
 import { triggerWrite } from "./handlers/trigger.write";
 import {
@@ -148,6 +152,15 @@ export function createJobsFeature(): FeatureDefinition {
         }),
       },
     });
+
+    // Framework-provided single-run rebuild job (QN `jobs:job:projection-rebuild`).
+    // Available whenever `jobs` is composed — `enqueueProjectionRebuild` dispatches
+    // it; every run is tracked in read_job_runs + retryable via jobs:write:retry.
+    r.job(
+      "projectionRebuild",
+      { trigger: { manual: true }, schema: projectionRebuildPayloadSchema },
+      projectionRebuildJob,
+    );
 
     const handlers = {
       trigger: r.writeHandler(triggerWrite),
