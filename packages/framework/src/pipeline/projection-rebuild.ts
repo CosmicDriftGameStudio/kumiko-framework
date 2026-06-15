@@ -3,11 +3,12 @@ import {
   finalizeProjectionRebuild,
   markProjectionRebuildFailed,
   markProjectionRebuilding,
-  selectEventsForProjectionRebuild,
+  selectEventsForProjectionRebuildBatch,
 } from "../db/queries/projection-rebuild";
 import {
   buildShadowTable,
   ensureRebuildSchema,
+  fenceLiveTable,
   rebuildMetaOrThrow,
   swapShadowIntoLive,
 } from "../db/queries/shadow-swap";
@@ -19,11 +20,56 @@ import {
   type StoredEvent,
   upcastStoredEvent,
 } from "../event-store";
+import type { EventMetadata } from "../event-store/event-store";
 import { emitProjectionRebuild } from "../observability/standard-metrics";
 import type { Meter } from "../observability/types/metric";
 import { projectionStateTable } from "./projection-state";
 
-// Rebuild a projection from the event log — online, via a shadow swap.
+// Events replayed per catch-up batch. Each batch is a fresh READ COMMITTED
+// SELECT, so a batch shorter than this means the currently-committed tail is
+// drained.
+const REBUILD_BATCH_SIZE = 1000;
+
+// Cap on UNLOCKED catch-up batches before forcing the cutover fence. Bounds the
+// lock-free phase under sustained writes that never momentarily quiesce; the
+// fenced final drain then always terminates (no new event can commit once the
+// live table is held ACCESS EXCLUSIVE).
+const MAX_UNLOCKED_BATCHES = 10_000;
+
+const DEFAULT_FENCE_LOCK_TIMEOUT_MS = 5_000;
+
+type StoredEventRow = {
+  id: bigint;
+  aggregateId: string;
+  aggregateType: string;
+  tenantId: string;
+  version: number;
+  type: string;
+  eventVersion: number;
+  payload: Record<string, unknown>;
+  metadata: EventMetadata;
+  createdAt: Temporal.Instant;
+  createdBy: string;
+};
+
+function rowToStoredEvent(row: StoredEventRow): StoredEvent {
+  return {
+    id: String(row.id),
+    aggregateId: row.aggregateId,
+    aggregateType: row.aggregateType,
+    tenantId: row.tenantId,
+    version: row.version,
+    type: row.type,
+    eventVersion: row.eventVersion,
+    payload: row.payload,
+    metadata: row.metadata,
+    createdAt: row.createdAt,
+    createdBy: row.createdBy,
+  };
+}
+
+// Rebuild a projection from the event log — online, via a shadow swap with a
+// live-tail catch-up.
 //
 // Mechanics:
 //   1. Lock the projection's state row (INSERT … ON CONFLICT DO UPDATE takes
@@ -32,26 +78,35 @@ import { projectionStateTable } from "./projection-state";
 //   2. Mark status = "rebuilding".
 //   3. Build a shadow table in a private schema (see db/queries/shadow-swap),
 //      with search_path pointed there so apply-writes land in the shadow.
-//   4. Stream events in chronological order, for every apply-key match invoke
-//      apply(event, tx). Event-by-event, so the rebuilt projection stays
-//      semantically identical to the live pipeline. The LIVE table is never
-//      locked during this phase — reads and writes against it continue.
-//   5. Store the last processed event-id + mark status = "idle".
-//   6. Swap: DROP the live table + ALTER the shadow into public — one brief
-//      ACCESS EXCLUSIVE window, not the whole replay.
+//   4. Unlocked catch-up: replay events in chronological batches into the
+//      shadow until a short batch signals the currently-committed tail. Single-
+//      stream projections apply SYNCHRONOUSLY in the appending tx, so live
+//      writers keep updating public.<table> meanwhile; READ COMMITTED makes
+//      each fresh batch see their newly-committed events.
+//   5. Fence: take ACCESS EXCLUSIVE on the live table (bounded by lock_timeout),
+//      then drain the final delta. Once fenced, no new event can commit, so the
+//      shadow ends up reflecting every event the live table reflects — the
+//      writes that land DURING the replay are no longer lost.
+//   6. Store the last processed event-id + mark status = "idle".
+//   7. Swap: DROP the live table + ALTER the shadow into public.
 //
-// All of that runs in ONE transaction. If apply throws partway through,
-// Postgres rolls back everything — the shadow is discarded, the live table was
-// never touched (the swap is the last step), status is recorded "failed" via
-// the outer catch with lastError. A partial/empty projection is never
-// observable, and unlike an in-place TRUNCATE the live table is not even
-// locked on the failure path.
+// All of that runs in ONE transaction. If apply (or the fence's lock_timeout)
+// throws partway through, Postgres rolls back everything — the shadow is
+// discarded, the live table was never touched (the swap is the last step),
+// status is recorded "failed" via the outer catch with lastError. A
+// partial/empty projection is never observable.
+//
+// Cutover semantics: the fence blocks concurrent synchronous applies for the
+// final-drain + swap window only (not the whole replay). A live write blocked
+// THROUGH the swap is one atomic append+apply tx; whichever way Postgres
+// resolves the dropped-OID reference, the event INSERT and the projection row
+// commit or roll back together (no event ⟺ no row). See the cutover test for
+// the empirically-pinned behavior.
 //
 // Boundaries:
-//   - Not multi-pod zero-downtime on its own: events written to the live table
-//     DURING the replay are not reflected in the shadow and are lost at swap.
-//     Rebuild on a quiet entity or during a write-pause. (Live-tail catch-up
-//     is a later phase — see docs/plans/projection-aware-migrations.md.)
+//   - Not multi-pod zero-downtime on its own: during a rolling deploy, old pods
+//     still running cannot read the new shape after the swap. End-to-end ZD
+//     also needs app-author expand/contract discipline (see the plan doc).
 //   - The shadow is rebuilt from EntityTableMeta, so an index hand-added in a
 //     migration but absent from meta is not reconstructed.
 //   - Requires CREATE privilege to provision the shared rebuild schema.
@@ -80,6 +135,14 @@ type RebuildDeps = {
   // when a CLI/Job wraps the rebuild in its own AbortController for ops
   // timeout enforcement.
   readonly signal?: AbortSignal;
+  // Cutover fence lock_timeout (ms). The final catch-up takes ACCESS EXCLUSIVE
+  // on the live table; if a long-running writer holds it past this, the rebuild
+  // fails loud instead of hanging. Defaults to DEFAULT_FENCE_LOCK_TIMEOUT_MS.
+  readonly fenceLockTimeoutMs?: number;
+  // Test-only seam: fires once after the unlocked bulk drain and before the
+  // cutover fence. Lets a concurrency test inject a committed write into the
+  // replay window deterministically. Undefined in production.
+  readonly onBeforeFence?: () => void | Promise<void>;
 };
 
 export async function rebuildProjection(
@@ -99,9 +162,46 @@ export async function rebuildProjection(
   const meta = rebuildMetaOrThrow(projection.table, projectionName);
 
   const sources = Array.isArray(projection.source) ? projection.source : [projection.source];
+  const sourcesList = [...sources];
+  const subscribedList = Object.keys(projection.apply);
+  // Upcasters run at read time: older stored payloads get walked through the
+  // registered r.eventMigration chain until their shape matches the current
+  // event version.
+  const upcasters = registry.getEventUpcasters();
+  const eventsInfo = extractTableInfo(eventsTable);
+  const fenceLockTimeoutMs = deps.fenceLockTimeoutMs ?? DEFAULT_FENCE_LOCK_TIMEOUT_MS;
   const startedAt = Date.now();
   let eventsProcessed = 0;
   let lastProcessedEventId = 0n;
+
+  // One chronological batch of events after lastProcessedEventId, applied into
+  // the shadow. Returns the batch size so the caller can detect the tail
+  // (a short batch = no more currently-committed events).
+  const drainBatch = async (tx: DbTx): Promise<number> => {
+    const rawEvents = await selectEventsForProjectionRebuildBatch(
+      tx,
+      sourcesList,
+      subscribedList,
+      lastProcessedEventId,
+      REBUILD_BATCH_SIZE,
+    );
+    for (const r of rawEvents) {
+      deps.signal?.throwIfAborted();
+      const row = coerceRow(r, eventsInfo) as StoredEventRow;
+      const storedEvent = await upcastStoredEvent(rowToStoredEvent(row), upcasters, {
+        db: tx,
+        tenantId: row.tenantId as TenantId, // @cast-boundary db-row
+      });
+      const applyFn = projection.apply[row.type];
+      // skip: apply-key validation ensures every subscribed type has a handler;
+      //       defensive check against runtime-mutated registry
+      if (!applyFn) continue;
+      await applyFn(storedEvent, tx);
+      eventsProcessed++;
+      lastProcessedEventId = row.id;
+    }
+    return rawEvents.length;
+  };
 
   try {
     await ensureRebuildSchema(db);
@@ -109,64 +209,30 @@ export async function rebuildProjection(
       await markProjectionRebuilding(tx, projectionName);
       await buildShadowTable(tx, meta);
 
-      // Stream events in chronological order for every source. The event
-      // type filter prunes events the projection doesn't care about early.
-      const subscribed = Object.keys(projection.apply);
-      if (subscribed.length === 0) {
-        // nothing to replay, just mark idle — projection exists but doesn't
-        // subscribe to any event types on its sources yet.
-      } else {
-        type EventRow = {
-          id: bigint;
-          aggregateId: string;
-          aggregateType: string;
-          tenantId: string;
-          version: number;
-          type: string;
-          eventVersion: number;
-          payload: Record<string, unknown>;
-          metadata: import("../event-store/event-store").EventMetadata;
-          createdAt: Temporal.Instant;
-          createdBy: string;
-        };
-        const sourcesList = [...sources];
-        const subscribedList = [...subscribed];
-        const rawEvents = await selectEventsForProjectionRebuild(tx, sourcesList, subscribedList);
-        const events = rawEvents.map((r) => {
-          const info = extractTableInfo(eventsTable);
-          return coerceRow(r, info) as EventRow;
-        });
+      // A projection that subscribes to nothing has no events to replay and no
+      // live writer touching its table — skip straight to swapping the empty
+      // shadow (no fence needed).
+      if (subscribedList.length > 0) {
+        // Unlocked catch-up: drain batches until a short batch signals the
+        // currently-committed tail. Live synchronous applies keep writing to
+        // public.<table> meanwhile; READ COMMITTED makes each fresh batch see
+        // their newly-committed events. Capped so sustained writes can't keep
+        // the lock-free phase running forever.
+        for (let batches = 0; batches < MAX_UNLOCKED_BATCHES; batches++) {
+          if ((await drainBatch(tx)) < REBUILD_BATCH_SIZE) break;
+        }
 
-        // Upcasters run at read time: older stored payloads get walked
-        // through the registered r.eventMigration chain until their shape
-        // matches the current event version.
-        const upcasters = registry.getEventUpcasters();
-        for (const row of events) {
-          deps.signal?.throwIfAborted();
-          const raw: StoredEvent = {
-            id: String(row.id),
-            aggregateId: row.aggregateId,
-            aggregateType: row.aggregateType,
-            tenantId: row.tenantId,
-            version: row.version,
-            type: row.type,
-            eventVersion: row.eventVersion,
-            payload: row.payload,
-            metadata: row.metadata,
-            createdAt: row.createdAt,
-            createdBy: row.createdBy,
-          };
-          const storedEvent = await upcastStoredEvent(raw, upcasters, {
-            db: tx,
-            tenantId: row.tenantId as TenantId, // @cast-boundary db-row
-          });
-          const applyFn = projection.apply[row.type];
-          // skip: apply-key validation ensures every subscribed type has a
-          //       handler; defensive check against runtime-mutated registry
-          if (!applyFn) continue;
-          await applyFn(storedEvent, tx);
-          eventsProcessed++;
-          lastProcessedEventId = row.id;
+        // Test seam: inject a mid-replay committed write here to prove the
+        // fenced final drain catches it instead of losing it at swap.
+        await deps.onBeforeFence?.();
+
+        // Fence the live table, then drain the final delta. Once ACCESS
+        // EXCLUSIVE is held no concurrent apply can commit a new event, so this
+        // loop terminates and the shadow ends up reflecting every committed
+        // event — closing Phase 1's write-loss window for single-pod rebuilds.
+        await fenceLiveTable(tx, meta.tableName, fenceLockTimeoutMs);
+        while ((await drainBatch(tx)) === REBUILD_BATCH_SIZE) {
+          // keep draining full batches; a short batch ends the loop
         }
       }
 
