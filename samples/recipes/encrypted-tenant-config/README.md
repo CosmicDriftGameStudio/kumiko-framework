@@ -13,6 +13,7 @@ createTenantConfig("text", {
   encrypted: true,        // ← ciphertext in the DB
   write: access.admin,    // ← the tenant admin writes their own
   read: access.admin,     // ← nobody else sees it
+  mask: { title: "billing.stripe-api-key", order: 1 },  // ← derives the edit screen + nav
 });
 ```
 
@@ -20,6 +21,12 @@ The config resolver decrypts on the `ctx.config(handle)` call using
 the `EncryptionProvider` from `extraContext.configEncryption`. Anyone
 without the master key (= the `CONFIG_ENCRYPTION_KEY` env) only sees
 base64 AES ciphertext in the DB.
+
+The `mask` entry is all the UI needs: `buildConfigFeatureSchema` derives
+the `configEdit` screen (pre-filled from `config:query:values`, where the
+key comes back as `••••••`) **and** its Settings-Hub nav entry from the
+registered key — no hand-written `r.screen`/`r.nav`. `mask.title` is the
+i18n key of the field label, `mask.order` its position.
 
 ## Use cases
 
