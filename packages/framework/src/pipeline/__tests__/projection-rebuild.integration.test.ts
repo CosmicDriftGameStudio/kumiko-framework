@@ -596,10 +596,10 @@ describe("rebuildProjection — online shadow-swap mechanics", () => {
     await unsafeCreateEntityTable(testDb.db, swapEntity, "swap-indexed");
     // A crashed prior rebuild leaves a shadow with the wrong shape behind.
     await asRawClient(testDb.db).unsafe(`CREATE SCHEMA IF NOT EXISTS kumiko_rebuild`);
+    await asRawClient(testDb.db).unsafe(`DROP TABLE IF EXISTS kumiko_rebuild.read_swap_indexed`);
     await asRawClient(testDb.db).unsafe(
-      `DROP TABLE IF EXISTS kumiko_rebuild.read_swap_indexed`,
+      `CREATE TABLE kumiko_rebuild.read_swap_indexed (stale int)`,
     );
-    await asRawClient(testDb.db).unsafe(`CREATE TABLE kumiko_rebuild.read_swap_indexed (stale int)`);
 
     // Rebuild drops the stale shadow before building the real one — succeeds.
     await rebuildProjection(swapProjName, { db: testDb.db, registry: swapRegistry });
@@ -645,6 +645,29 @@ describe("rebuildProjection — online shadow-swap mechanics", () => {
     });
 
     expect(liveDuringReplay).toBe(2);
+    expect(await getCount(group)).toBe(2);
+  });
+
+  test("warm-pool writes succeed after the swap changes the table OID", async () => {
+    // The swap replaces the physical table (new OID) — TRUNCATE never did.
+    // A live write through the same long-lived pool AFTER the swap (the
+    // steady-state apply path, typed query API) must still resolve the
+    // swapped relation, including across a second rebuild + swap.
+    const group = "00000000-0000-4000-8000-0000000000e1";
+    await appendCreatedEvent(group, "a");
+    await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry });
+    expect(await getCount(group)).toBe(1);
+
+    const other = "00000000-0000-4000-8000-0000000000e2";
+    await insertOne(testDb.db, itemsPerGroupTable, {
+      groupId: other,
+      tenantId: admin.tenantId,
+      itemCount: 5,
+    });
+    expect(await getCount(other)).toBe(5);
+
+    await appendCreatedEvent(group, "b");
+    await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry });
     expect(await getCount(group)).toBe(2);
   });
 });

@@ -74,6 +74,12 @@ export function rebuildMetaOrThrow(table: unknown, projectionName: string): Enti
 // shadow table + indexes under their canonical names. renderTableDdl output and
 // apply-writes are unqualified and resolve into the shadow; kumiko_events /
 // kumiko_projections live only in public and fall through to it.
+//
+// Boundary: an apply that writes to a table OTHER than its own projection (e.g.
+// an MSP saga touching a second read-model) writes UNQUALIFIED → resolves to
+// public, i.e. the live secondary table, not a shadow of it. Online rebuild is
+// safe for self-table-only apply (the common case); a multi-table apply would
+// mutate live state during replay.
 export async function buildShadowTable(tx: AnyDb, meta: EntityTableMeta): Promise<void> {
   const raw = asRawClient(tx);
   await raw.unsafe(`SET LOCAL search_path TO ${SCHEMA_IDENT}, public`);

@@ -15,7 +15,9 @@ describe("rebuildMetaOrThrow", () => {
   });
 
   test("throws when the table object carries no resolvable EntityTableMeta", () => {
-    expect(() => rebuildMetaOrThrow({}, "feat:projection:x")).toThrow(/no resolvable EntityTableMeta/);
+    expect(() => rebuildMetaOrThrow({}, "feat:projection:x")).toThrow(
+      /no resolvable EntityTableMeta/,
+    );
   });
 
   test("rejects a meta-inexpressible partial index instead of silently dropping it", () => {
