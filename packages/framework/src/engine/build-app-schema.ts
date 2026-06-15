@@ -190,7 +190,9 @@ function placeSettingsHub(
 }
 
 function warnUnplacedAudiences(unplaced: readonly string[]): void {
+  // skip: every audience placed — nothing to warn about
   if (unplaced.length === 0) return;
+  // skip: dev-only authoring hint, never in production
   if (typeof process !== "undefined" && process.env.NODE_ENV === "production") return;
   // biome-ignore lint/suspicious/noConsole: dev-only authoring hint
   console.warn(
