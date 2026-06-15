@@ -2,7 +2,7 @@
 status: in-progress
 verified: 2026-06-15
 issue: kumiko-framework#356
-next: Phase 2 (#361) + Aktivierung (studio#61) shipped; Phase 3 (#362 rebuild-job + enqueueProjectionRebuild) shipped; offen nur noch #356-Release-Consumer-Bumps (studio#58-Migration) + Phase blue-green/ProjectionVersion (#363)
+next: Phase 2 (#361) + Aktivierung (studio#61) shipped; Phase 3 (#362 rebuild-job + enqueueProjectionRebuild) shipped; #363 (zero-downtime) Design-Befund festgehalten (Sektion "Phase 4 (#363)", query-routing abgelehnt, Reframe Expand/Contract, 4-Phasen-Roadmap) — Implementierung offen; offen außerdem #356-Release-Consumer-Bumps (studio#58-Migration)
 ---
 
 # Projection-aware migrations: managed = wegwerfbares Derivat, unmanaged = echte Daten
@@ -197,6 +197,114 @@ blue-green = Folge-Issues. Hält's leichtgewichtig und de-risked den Kern.
 - [x] Phase 2: safe fail-loud für managed-ohne-Projektion (kein Hard-Throw) — #361 → `runPendingRebuilds(…, {thisRunTables})` meldet in-diesem-Run via Marker geleerte managed-Tabellen ohne auflösbare Projektion als `unresolvedManaged` (error-Log, non-fatal, gedraint); pre-existing/Legacy bleibt benign `unmapped`. Integration 6/6.
   - **Aktivierung SHIPPED (2026-06-15, kumiko-studio#61):** `kumiko-studio/bin/kumiko.ts` (`rebuildPendingProjections`) reicht jetzt `queueRebuildsFromMarkers`-Rückgabe als `thisRunTables` durch + exitet non-zero bei nicht-leerem `unresolvedManaged`. In Prod scharf; #361 + studio#60 CLOSED.
 - [x] Phase 3: Single-Run-Job `jobs:job:projection-rebuild` (im `jobs`-Feature registriert, auto-verfügbar wenn jobs komponiert) + framework-Helper `enqueueProjectionRebuild` (dispatch via jobRunner ODER inline-Fallback ohne jobs) — #362. JobRunner injiziert jetzt die registry in jeden job-ctx (JobContext-Contract). Integration: inline + e2e dispatch beide grün.
-- [ ] blue-green/`ProjectionVersion` (zero-downtime Rebuild) — #363
+- [ ] blue-green/`ProjectionVersion` (zero-downtime Rebuild) — #363. **Design-Befund festgehalten** (s. Sektion „Phase 4 (#363)" unten, 2026-06-15): query-time-version-routing abgelehnt (Multi-Pod-Kohärenz + kein Query-Context + 14 Raw-SQL-Bypässe); Reframe = Rebuild *vermeiden* via Expand/Contract statt beschleunigen; Framework liefert Mechanismen+Guardrails, nicht End-to-End-Magie; 4-Phasen-Roadmap. Implementierung offen.
 
 PR Phase 1: #360 (CI grün 2026-06-14).
+
+---
+
+# Phase 4 (#363): Zero-Downtime Rebuild — Design & Scope-Befund (2026-06-15)
+
+**Status: Design-Referenz, kein Code.** Recherche + Architektur-Entscheidung festgehalten,
+Implementierung bewusst aufgeschoben. Die Issue-Prosa („versioned side-by-side, alte
+Version bedient Reads während die neue baut", Marten-`ProjectionVersion`) beschreibt ein
+**Ziel**, nicht den gangbaren Weg — die Recherche hat die naheliegende Realisierung
+(query-time-version-routing) als zu teuer/fragil verworfen und einen framework-nativen
+Pfad freigelegt. Diese Sektion ist die Entscheidungsgrundlage für ein späteres Implementierungs-Go.
+
+## Befund: es gibt keinen Read-Indirektions-Seam
+
+Der physische Tabellenname (`read_<name>`) wird zur **Query-Zeit statisch aus dem
+Table-Objekt** aufgelöst und ist ein **eingefrorenes Literal** — keine Indirektion:
+
+- **Einziger typisierter Chokepoint:** `extractTableInfo` (`bun-db/query.ts:223-254`) liest
+  `meta.tableName` aus dem Symbol `kumiko:schema:Meta` am Table-Objekt. **Alle** typisierten
+  Reads/Writes (`selectMany/selectOne/insertMany/insertOne/updateMany/countWhere/deleteMany`)
+  laufen hier durch.
+- **Kein Context zur Query-Zeit:** Die Query-Funktionen bekommen nur `(db, table, where)`.
+  Registry lebt im `HandlerContext`/`AppContext`, **nicht** in der Query-Signatur. Ein
+  Versions-Lookup pro Query bräuchte entweder globalen Mutable-State **oder** einen
+  DB-Roundtrip — beides scheidet aus (s.u.).
+- **14 Raw-SQL-Bypässe** mit literalem `read_*`-Namen, die jede typisierte Indirektion
+  umgehen: **4 System** (`seed-context.ts:26/45/55` read_users/tenant_memberships/tenants,
+  `user-data-rights-defaults/.../user-hook.ts:14` read_users), **10 App-Projections**
+  (`config/.../resolver.ts:21/38`, `secrets/.../read.ts:12`, `sessions/.../cleanup.ts:10/12`,
+  `feature-toggles/.../toggle-state.ts:16`, `custom-fields/.../{quota,user-data-rights,field-access}.ts`,
+  `delivery/.../preferences.ts:20`). Alle framework-eigen — also fixbar, aber zusätzlicher Surface.
+
+**Live-Pfad und Rebuild konvergieren** (relevant, weil eine Indirektion beide treffen müsste):
+beide schlagen `registry.getAllMultiStreamProjections().get(name)` nach und rufen
+`msp.apply[type](event, tx, ctx)` (Live: EventDispatcher `event-dispatcher.ts:464-501` →
+`server.ts:386-438`; Rebuild: `msp-rebuild.ts`). Beide sind **in-process testbar**
+(`setupTestStack` + `eventDispatcher.runOnce()`, bewiesen in
+`pipeline/__tests__/msp-rebuild.integration.test.ts:194-225`). → Live-Tail-Catch-up ist testbar.
+
+## Abgelehnt: query-time-version-routing
+
+Die wörtliche „side-by-side"-Umsetzung bräuchte, dass Reads zur Laufzeit eine **aktive
+Version** auflösen. Dagegen sprechen zwei harte Gründe:
+
+1. **Multi-Pod-Kohärenz:** In Prod laufen mehrere Pods. Ein Versions-Flip müsste für
+   **alle Pods atomar** sichtbar sein. Ein Prozess-globaler Mutable-State propagiert nicht;
+   ein DB-Pointer pro Query ist ein Roundtrip auf dem heißen Read-Pfad.
+2. **Kein Query-Context + Raw-SQL-Bypass:** s.o. — der Seam müsste in `extractTableInfo`
+   **plus** 14 Raw-Stellen nachgezogen werden. Hoher Blast-Radius gegen das gesamte
+   Static-Naming-Design.
+
+→ **Nicht weiterverfolgen.** (Falls je doch nötig: eigenes Architektur-Issue, kein #363-Scope.)
+
+## Reframe: den Rebuild *vermeiden*, nicht beschleunigen
+
+#363s Schmerz ist „managed Change → DROP+CREATE → O(Events)-Replay" (`migrate-generator.ts:304-309`,
+Klassifikator `managedChangeRequiresRecreate:212-219`: droppedColumns, ADD `NOT NULL` ohne
+Default, neuer UNIQUE, Typ-Änderung, `SET NOT NULL`). Der höchste Hebel ist **nicht**, den
+Replay schnell zu machen — sondern ihn gar nicht auszulösen, wo der Change additiv
+re-formulierbar ist (Expand/Contract: additives `ALTER` + Online-Backfill, jeder einzelne
+Deploy non-destruktiv — wie gh-ost / Rails strong_migrations). Nur der irreduzible Rest
+(Apply-Logik-Change, echt non-additive Shape) braucht überhaupt Shadow-Build + Rebuild.
+
+## Scope-Realität (wichtig, war im ursprünglichen Optionsmenü falsch)
+
+**Das Framework kann End-to-End-Zero-Downtime nicht allein liefern.** Ein materieller Teil
+ist **App-Author-Disziplin** (destruktive Changes als Expand/Contract über zwei Releases
+sequenzieren) + **Consumer/Deploy-Wiring** (wie #361 → studio). Auch der Shadow+Rename-Swap
+(früher als „Kern" gedacht) gibt nur „kein leeres Read-Fenster" für Single-Version-Reads,
+**nicht** Multi-Pod-Zero-Downtime: nach dem Rename können während eines Rolling-Deploys noch
+laufende alte Pods die neue Shape nicht lesen. Framework liefert also **Mechanismen +
+Guardrails**, nicht Magie.
+
+## Phasen-Zerlegung (ehrlich als 1..N benannt)
+
+| Phase | Inhalt | Liefert | Testbar |
+|---|---|---|---|
+| 1 | **Online-Rebuild-Mechanik:** Shadow-Build (`read_foo__rebuild`, neue Shape) → Replay → atomarer `DROP read_foo; ALTER … RENAME` in einer kurzen `ACCESS EXCLUSIVE`-Tx. **Inkl. Index/Constraint-Rename** (s. Falle). | „kein leeres Fenster" für Single-Version-Reads; de-riskt den Rest; unabhängig shippbar | Real-DB, Row-Count + **zweites `generate`** (s. Falle) |
+| 2 | **Live-Tail-Catch-up:** iterativer Replay ab Position X (`kumiko_events.id` bigserial PK, `events-schema.ts:41-43`; `streamAllEventsByType` `event-store.ts:378-414`; HWM `selectEventsHighWaterMark`) bis Lag≈0, dann Swap. | Shadow bleibt unter konkurrierendem Writer aktuell | In-process (`setupTestStack`+`runOnce`) |
+| 3 | **Der echte Tier-2-Kern:** Generator bevorzugt additives `ALTER` + Online-Backfill statt DROP+CREATE; Guardrail, die einen un-gesplitteten destruktiven Change flaggt/ablehnt. | Expand/Contract-Tooling | Unit + Integration |
+| 4 | **Consumer/Deploy-Wiring** (studio, wie #361). | App-seitige Aktivierung | integration grün |
+
+## Die Unbekannte, die Phase 3 sizet (vor Commit verifizieren)
+
+Kann `migrate-generator` einen **Multi-Step-Split** (additiv→destruktiv über zwei Releases)
+überhaupt ausdrücken — oder ist Expand/Contract ~90% App-Author-Disziplin + eine Guardrail?
+Diese eine Tatsache entscheidet, ob Phase 3 **echter Generator-Code** oder **primär
+Guard+Docs** ist (und damit den Aufwand). Der heutige Generator ist single-snapshot-diff
+(`Snapshot.tables`, `migrate-generator.ts:28`) — ein deploy-übergreifendes additiv→destruktiv-
+Sequencing ist darin **nicht** repräsentiert; erste Vermutung daher: Guardrail + Doku-Pattern,
+nicht großer Generator-Umbau. **Erst-Schritt jeder Implementierung: das verifizieren.**
+
+## Die Haupt-Falle (Phase 1, advisor)
+
+Nach `ALTER TABLE read_foo__rebuild RENAME TO read_foo` behalten **Indizes/PK/Constraints
+ihre `read_foo__rebuild_*`-Namen**. Der Schema-Diff-Generator vergleicht dann live-DB
+(`…__rebuild_*`) gegen erwartet (`read_foo_*`) und emittiert bei **jedem** Folge-`generate`
+korrigierendes DDL. → Der Swap **muss jeden Index/Constraint auf den kanonischen Namen
+umbenennen**, und der Table-Builder ist auf Namens-Kollision zu prüfen, solange beide
+Tabellen transient existieren. **Verifikation = ein zweites `generate` nach dem Swap, nicht
+nur ein Row-Count-Assert.**
+
+## Offene Sub-Frage
+
+`rebuildProjection` hält heute **keinen** Distributed-Lock (nur optimistisches
+`status`-Flag in `kumiko_projections`; kein `version`-Feld). Für Catch-up/Swap (Phase 1/2)
+braucht es eine Serialisierung konkurrierender Rebuilds derselben Projektion — `kumiko_projections`
+um Lock/Version erweitern oder `pipeline/distributed-lock.ts` einspannen. In Phase 1 zu klären.
