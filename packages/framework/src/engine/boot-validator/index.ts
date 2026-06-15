@@ -1,3 +1,4 @@
+import { QnTypes, qualifyEntityName } from "../qualified-name";
 import type { ClaimKeyDefinition, FeatureDefinition } from "../types";
 import { validateApiExposureMatching, validateExtensionUsages } from "./api-ext";
 import {
@@ -58,14 +59,18 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
 
   // Collect all config keys across features (for cross-feature reference validation)
   const allConfigKeys = new Set<string>();
-  // Qualified config-key set für ConfigEditScreen-Validation. Format
-  // wie in registry.ts: `<feature>:config:<short>`. allConfigKeys oben
-  // nutzt das ältere `feature.short`-Format für validateConfigReads.
+  // Qualified config-key set für ConfigEditScreen-Validation. MUSS via
+  // qualifyEntityName kanonisiert werden (toKebab auf Feature + Key) — exakt
+  // wie define-feature/registry den QN bildet. Der rohe f.configKeys-Key ist
+  // der camelCase-Objekt-Key (`brandingTitle`), die echte QN aber
+  // `…:config:branding-title`; ohne toKebab failt jeder configEdit-Screen mit
+  // multi-word Config-Key fälschlich. allConfigKeys oben nutzt das ältere
+  // `feature.short`-Format für validateConfigReads.
   const allConfigKeyQns = new Set<string>();
   for (const f of features) {
     for (const key of Object.keys(f.configKeys)) {
       allConfigKeys.add(`${f.name}.${key}`);
-      allConfigKeyQns.add(`${f.name}:config:${key}`);
+      allConfigKeyQns.add(qualifyEntityName(f.name, QnTypes.config, key));
     }
   }
 

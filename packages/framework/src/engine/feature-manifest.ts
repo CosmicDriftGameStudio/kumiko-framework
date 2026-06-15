@@ -19,6 +19,10 @@ export type ManifestConfigKey = {
   readonly computed: boolean;
   readonly options: readonly string[] | null;
   readonly bounds: { readonly min?: number; readonly max?: number } | null;
+  // Serializable write-time validator for type="text" keys (hex/https/length).
+  // Carried into the manifest as ConfigKeyDefinition.pattern's JSDoc promises
+  // (feature-manifest, docgen) — was previously dropped by this serializer.
+  readonly pattern: { readonly regex: string; readonly flags?: string } | null;
   readonly writeRoles: readonly string[];
   readonly readRoles: readonly string[];
 };
@@ -96,6 +100,7 @@ export function buildManifestFromRegistry(
         computed: def.computed !== undefined,
         options: def.options ?? null,
         bounds: def.bounds ?? null,
+        pattern: def.pattern ?? null,
         writeRoles: def.access.write,
         readRoles: def.access.read,
       });

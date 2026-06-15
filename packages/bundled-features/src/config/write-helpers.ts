@@ -16,6 +16,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   AccessDeniedError,
+  InternalError,
   type KumikoError,
   NotFoundError,
   UnprocessableError,
@@ -261,4 +262,40 @@ export function validateBounds(
   }
 
   return null;
+}
+
+// Regex enforcement for text config keys (keyDef.pattern). Hard-reject on
+// mismatch (same posture as validateBounds — never silent-coerce). The value
+// is tenant-supplied, so this is the write-side gate behind the configEdit
+// screen (which dispatches config:write:set per key). A malformed author-
+// supplied regex is surfaced as an InternalError instead of throwing
+// unhandled in the write path.
+export function validatePattern(
+  value: string | number | boolean,
+  keyDef: ConfigKeyDefinition,
+): KumikoError | null {
+  if (keyDef.type !== "text" || !keyDef.pattern) return null;
+  // skip: validateType runs first and guarantees a string for type==="text"
+  if (typeof value !== "string") return null;
+
+  let re: RegExp;
+  try {
+    re = new RegExp(keyDef.pattern.regex, keyDef.pattern.flags);
+  } catch {
+    return new InternalError({
+      message: `config key pattern is not a valid RegExp: ${keyDef.pattern.regex}`,
+    });
+  }
+  if (re.test(value)) return null;
+
+  return new ValidationError({
+    fields: [
+      {
+        path: "value",
+        code: "invalid_format",
+        i18nKey: "errors.validation.invalid_format",
+        params: { value, pattern: keyDef.pattern.regex },
+      },
+    ],
+  });
 }

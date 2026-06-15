@@ -9,6 +9,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { LEGAL_REQUIRED_BLOCKS, LEGAL_ROUTES } from "./constants";
 import { renderMarkdownToHtml, wrapInLayout } from "./markdown";
+import { securePageHeaders } from "./security-headers";
 
 // QN-Konstante als dokumentierter Public-Contract des text-content-
 // Features. Ein magic-string statt eines Code-Imports ist hier explizit
@@ -113,10 +114,14 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
             lang: route.lang,
           });
 
-          return c.body(html, 200, {
-            "content-type": "text/html; charset=utf-8",
-            "cache-control": "public, max-age=300",
-          });
+          return c.body(
+            html,
+            200,
+            securePageHeaders({
+              "content-type": "text/html; charset=utf-8",
+              "cache-control": "public, max-age=300",
+            }),
+          );
         },
       });
     }

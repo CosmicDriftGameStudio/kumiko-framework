@@ -19,6 +19,7 @@ import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { createTextContentFeature } from "@cosmicdrift/kumiko-bundled-features/text-content";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+import { createManagedPagesFeature } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import { customFieldsFeature } from "@cosmicdrift/kumiko-bundled-features/custom-fields";
 
 const _config = createConfigFeature();
@@ -35,6 +36,7 @@ const _dataRetention = createDataRetentionFeature();
 const _userDataRights = createUserDataRightsFeature();
 const _textContent = createTextContentFeature();
 const _templateResolver = createTemplateResolverFeature();
+const _managedPages = createManagedPagesFeature();
 const _customFields = customFieldsFeature;
 
 export const configValueTable = buildEntityTable("config-value", _config.entities["config-value"]!);
@@ -55,6 +57,7 @@ export const exportDownloadTokenTable = buildEntityTable("export-download-token"
 export const downloadAttemptTable = buildEntityTable("download-attempt", _userDataRights.entities["download-attempt"]!);
 export const textBlockTable = buildEntityTable("text-block", _textContent.entities["text-block"]!);
 export const templateResourceTable = buildEntityTable("template-resource", _templateResolver.entities["template-resource"]!);
+export const pageTable = buildEntityTable("page", _managedPages.entities["page"]!);
 export const fieldDefinitionTable = buildEntityTable("field-definition", _customFields.entities["field-definition"]!);
 export { deliveryAttemptsTable } from "@cosmicdrift/kumiko-bundled-features/delivery";
 export { subscriptionsProjectionTable } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";

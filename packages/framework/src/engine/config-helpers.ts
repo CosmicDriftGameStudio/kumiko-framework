@@ -64,6 +64,11 @@ type ConfigKeyOptions<T extends ConfigKeyType> = {
   encrypted?: boolean;
   options?: readonly string[]; // for select type
   bounds?: T extends "number" ? ConfigBounds : never;
+  // Regex enforced at write (set.write) — only meaningful for text keys
+  // (never for the other type-tags). Use anchored + length-bounded patterns:
+  // the value is tenant-supplied, so an unbounded backtracking regex is a
+  // ReDoS vector. See ConfigKeyDefinition.pattern.
+  pattern?: T extends "text" ? { regex: string; flags?: string } : never;
   computed?: ConfigComputedFn<T>;
   allowPerRequest?: T extends "text" ? never : boolean;
   required?: boolean;
@@ -100,6 +105,7 @@ function createConfigKey<T extends ConfigKeyType>(
     ...(opts.encrypted ? { encrypted: true } : {}),
     ...(opts.options ? { options: opts.options } : {}),
     bounds: opts.bounds as ConfigBounds | undefined, // @cast-boundary schema-walk
+    ...(opts.pattern ? { pattern: opts.pattern } : {}),
     computed: opts.computed,
     ...(opts.allowPerRequest === true ? { allowPerRequest: true } : {}),
     ...(opts.required === true ? { required: true } : {}),

@@ -141,12 +141,9 @@ describe("legal-pages :: edge-cases", () => {
     expect(body).toContain("Tenant-Admin");
   });
 
-  test("Markdown-Body mit <script> wird NICHT escaped (dokumentiertes XSS-Verhalten, siehe README)", async () => {
-    // Bewusstes Verhalten: marked.parse rendered HTML 1:1, kein
-    // DOMPurify-Layer aktuell. Dokumentiert in legal-pages/README.md
-    // ('XSS — bewusst aktuell nicht gesichert'). Test pinnt das
-    // Verhalten — wenn es sich ändert (z.B. DOMPurify dazu), schlägt
-    // dieser Test fehl und der Wechsel ist dokumentiert.
+  test("Markdown-Body mit <script> wird escaped (XSS-Härtung)", async () => {
+    // Server-Render ist gegen untrusted Tenant-Authoren gehärtet:
+    // Raw-HTML im Markdown-Body wird als Text escaped (kein Passthrough).
     await seedTextBlock(db, {
       tenantId: SYSTEM_TENANT_ID,
       slug: "imprint",
@@ -158,8 +155,8 @@ describe("legal-pages :: edge-cases", () => {
     const res = await stack.app.request("/legal/impressum");
     expect(res.status).toBe(200);
     const html = await res.text();
-    // Aktuelles Verhalten: script-tag bleibt unescaped im Output
-    expect(html).toContain("<script>window.x=1</script>");
+    expect(html).not.toContain("<script>window.x=1</script>");
+    expect(html).toContain("&lt;script&gt;");
   });
 });
 
@@ -167,6 +164,16 @@ describe("legal-pages :: cache-control", () => {
   test("sets public cache header for 5min", async () => {
     const res = await stack.app.request("/legal/impressum");
     expect(res.headers.get("cache-control")).toBe("public, max-age=300");
+  });
+});
+
+describe("legal-pages :: security headers", () => {
+  test("server-gerenderte Pages tragen CSP + Hardening-Header", async () => {
+    const res = await stack.app.request("/legal/impressum");
+    expect(res.headers.get("content-security-policy")).toContain("script-src 'none'");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(res.headers.get("x-frame-options")).toBe("SAMEORIGIN");
+    expect(res.headers.get("referrer-policy")).toBe("strict-origin-when-cross-origin");
   });
 });
 

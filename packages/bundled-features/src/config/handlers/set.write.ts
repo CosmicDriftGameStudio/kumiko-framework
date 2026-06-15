@@ -8,6 +8,7 @@ import {
   findConfigRow,
   prepareConfigWrite,
   validateBounds,
+  validatePattern,
   validateScope,
   validateType,
 } from "../write-helpers";
@@ -51,6 +52,9 @@ export const setWrite = defineWriteHandler({
     // than what was sent, which is a UX trap with no upside.
     const boundsError = validateBounds(event.payload.value, keyDef);
     if (boundsError) return writeFailure(boundsError);
+
+    const patternError = validatePattern(event.payload.value, keyDef);
+    if (patternError) return writeFailure(patternError);
 
     let serialized = JSON.stringify(event.payload.value);
     if (keyDef.encrypted) {

@@ -40,6 +40,7 @@ import { createLegalPagesFeature } from "@cosmicdrift/kumiko-bundled-features/le
 import { mailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
 import { mailTransportInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory";
 import { mailTransportSmtpFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-smtp";
+import { createManagedPagesFeature } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import { createRateLimitingFeature } from "@cosmicdrift/kumiko-bundled-features/rate-limiting";
 import { readinessFeature } from "@cosmicdrift/kumiko-bundled-features/readiness";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
@@ -150,6 +151,13 @@ export const APP_FEATURES = [
   createTemplateResolverFeature(),
   createRendererFoundationFeature(),
   createRendererSimpleFeature(),
+
+  // managed-pages: requires config (auto-bundled). Smoke resolver never serves
+  // (boot-only). allowCustomCss:true boot-validates the CSS code path + emits
+  // the branding-custom-css key into the manifest. The managed-pages-css
+  // companion toggle is handler-less, has no subpath export, and is recipe-
+  // covered — not standalone-mounted here (smoke = one mount per subpath-export).
+  createManagedPagesFeature({ resolveApexTenant: () => null, allowCustomCss: true }),
 
   // operational
   createRateLimitingFeature(),
