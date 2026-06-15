@@ -1,5 +1,32 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.50.0
+
+### Patch Changes
+
+- c5610ea: tenant: batch-load tenants in the `memberships` query (#324)
+
+  The `memberships` query enriched each membership with its tenant name/key via
+  one `fetchOne` per row — an accepted N+1, run on every login and switch-tenant.
+  The query-builder already supports `where: { id: [...] }` → `IN (...)`, so it now
+  loads all referenced tenants in a single batch and maps each membership from a
+  lookup table. Behaviour is unchanged: disabled tenants are still filtered, and a
+  membership whose tenant projection row is missing (drift) is still kept without
+  name/key (no login lockout).
+
+- Updated dependencies [f06e33a]
+- Updated dependencies [d8330bc]
+- Updated dependencies [8ca4a27]
+- Updated dependencies [0d92100]
+- Updated dependencies [d8083ae]
+- Updated dependencies [eabad73]
+- Updated dependencies [6b16dd9]
+  - @cosmicdrift/kumiko-framework@0.50.0
+  - @cosmicdrift/kumiko-renderer-web@0.50.0
+  - @cosmicdrift/kumiko-headless@0.50.0
+  - @cosmicdrift/kumiko-renderer@0.50.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.50.0
+
 ## 0.49.0
 
 ### Patch Changes
