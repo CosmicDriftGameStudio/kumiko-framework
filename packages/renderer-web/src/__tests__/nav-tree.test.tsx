@@ -179,4 +179,34 @@ describe("NavTree", () => {
     // Items selbst bleibt sichtbar
     expect(screen.getByText("Items")).toBeTruthy();
   });
+
+  test("Nav-Eintrag mit bekanntem icon rendert ein Lucide-Icon, ohne icon den Dot", () => {
+    const schema = {
+      featureName: "showcase",
+      entities: {},
+      screens: [
+        { id: "dash", type: "entityList", entity: "x", columns: [] },
+        { id: "plain", type: "entityList", entity: "x", columns: [] },
+      ],
+      navs: [
+        { id: "dash", label: "Dash", screen: "dash", order: 10, icon: "dashboard" },
+        { id: "plain", label: "Plain", screen: "plain", order: 20 },
+      ],
+    } as FeatureSchema;
+    const { container } = render(<NavTree schema={schema} />);
+    // Flache Navigation ohne Sections → keine Chevrons. Genau EIN svg:
+    // das dashboard-Icon. Das icon-lose Item rendert den Dot (span, kein svg).
+    expect(container.querySelectorAll("svg").length).toBe(1);
+  });
+
+  test("unbekannter icon-Key fällt sauber auf den Dot zurück (kein svg)", () => {
+    const schema = {
+      featureName: "showcase",
+      entities: {},
+      screens: [{ id: "x", type: "entityList", entity: "x", columns: [] }],
+      navs: [{ id: "x", label: "X", screen: "x", order: 10, icon: "does-not-exist" }],
+    } as FeatureSchema;
+    const { container } = render(<NavTree schema={schema} />);
+    expect(container.querySelectorAll("svg").length).toBe(0);
+  });
 });
