@@ -354,6 +354,14 @@ export type DateFieldDef = {
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
+  /** Erlaubte Datumsgrenzen als ISO `yyyy-mm-dd` (z.B. Geburtsdatum nicht
+   *  in der Zukunft: `max` = heute). Begrenzt den Picker und wird vom
+   *  Zod-Schema beim Write durchgesetzt. */
+  readonly min?: string;
+  readonly max?: string;
+  /** Format/Locale-Override für Anzeige und Eingabe-Parsing (z.B.
+   *  "de-DE"). Default = App-Locale. */
+  readonly locale?: string;
 } & PiiAnnotations;
 
 // UTC-Instant (Temporal.Instant). Für Ereignisse die zu einem bestimmten
@@ -382,6 +390,14 @@ export type TimestampFieldDef = {
    *   { pickupAt: { type: "timestamp", locatedBy: "pickupTz" }, pickupTz: { type: "tz" } }
    */
   readonly locatedBy?: string;
+  /** Erlaubte Grenzen als ISO-Datetime. Begrenzt den Picker auf
+   *  Tages-Granularität; die exakte Uhrzeit-Grenze setzt das Zod-Schema
+   *  beim Write durch. */
+  readonly min?: string;
+  readonly max?: string;
+  /** Format/Locale-Override für Anzeige und Eingabe-Parsing. Default =
+   *  App-Locale. */
+  readonly locale?: string;
 } & PiiAnnotations;
 
 // IANA-Zonenname (z.B. "Europe/Berlin", "America/Los_Angeles").
@@ -420,6 +436,14 @@ export type LocatedTimestampFieldDef = {
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
+  /** Erlaubte Grenzen als ISO-Datetime (Wall-Clock). Begrenzt den Picker
+   *  auf Tages-Granularität; die exakte Uhrzeit-Grenze setzt das Zod-Schema
+   *  beim Write durch. */
+  readonly min?: string;
+  readonly max?: string;
+  /** Format/Locale-Override für Anzeige und Eingabe-Parsing. Default =
+   *  App-Locale. */
+  readonly locale?: string;
 } & PiiAnnotations;
 
 export type FileFieldDef = {

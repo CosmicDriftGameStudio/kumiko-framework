@@ -3,6 +3,31 @@ import { assertUnreachable } from "../utils";
 import type { EmbeddedSubFieldDef, EntityDefinition, FieldDefinition } from "./types";
 import { DEFAULT_CURRENCIES } from "./types";
 
+// Lexikografischer ISO-Vergleich — exakt für `yyyy-mm-dd` (date) und korrekt
+// für ISO-Datetime in konsistenter Repräsentation (gleiche Offset-/Präzisions-
+// Form). Bewusst ohne Date-API (no-date-api-Guard); die Tag-genaue Grenze
+// reicht für min/max-Use-Cases (z.B. Geburtsdatum nicht in der Zukunft).
+function withDateBounds(
+  schema: z.ZodTypeAny,
+  min: string | undefined,
+  max: string | undefined,
+): z.ZodTypeAny {
+  if (min === undefined && max === undefined) return schema;
+  const message =
+    min !== undefined && max !== undefined
+      ? `must be between ${min} and ${max}`
+      : min !== undefined
+        ? `must be on or after ${min}`
+        : `must be on or before ${max}`;
+  return schema.refine(
+    (value: unknown) =>
+      typeof value === "string" &&
+      (min === undefined || value >= min) &&
+      (max === undefined || value <= max),
+    { message },
+  );
+}
+
 function embeddedSubFieldToZod(subField: EmbeddedSubFieldDef): z.ZodTypeAny {
   switch (subField.type) {
     case "text":
@@ -104,14 +129,17 @@ export function fieldToZod(field: FieldDefinition, currencies: readonly string[]
       return z.record(z.string(), z.unknown());
     }
     case "date": {
-      return z.string().date();
+      const schema = z.string().date();
+      return withDateBounds(schema, field.min, field.max);
     }
     case "timestamp": {
       // Wenn locatedBy gesetzt: Wall-Clock OHNE Offset (ISO-Datetime ohne `Z`).
       // Sonst: ISO-UTC-Datetime (mit `Z`). Beide werden über z.iso.datetime
       // gegen das ISO-8601-Schema validiert; die Präzision (mit/ohne Offset)
       // hängt von locatedBy ab.
-      return field.locatedBy !== undefined ? z.iso.datetime({ local: true }) : z.iso.datetime();
+      const schema =
+        field.locatedBy !== undefined ? z.iso.datetime({ local: true }) : z.iso.datetime();
+      return withDateBounds(schema, field.min, field.max);
     }
     case "tz": {
       // IANA-Zonenname. Validierung gegen Intl.supportedValuesOf("timeZone")
