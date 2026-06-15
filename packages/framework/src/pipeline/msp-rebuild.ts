@@ -1,4 +1,3 @@
-import { extractTableName } from "../db";
 import type { DbConnection, DbRunner, DbTx } from "../db/connection";
 import {
   markConsumerRebuildFailed,
@@ -6,7 +5,12 @@ import {
   selectConsumerForUpdate,
   updateConsumerRebuildCursor,
 } from "../db/queries/event-consumer";
-import { truncateTable } from "../db/queries/table-ops";
+import {
+  buildShadowTable,
+  ensureRebuildSchema,
+  rebuildMetaOrThrow,
+  swapShadowIntoLive,
+} from "../db/queries/shadow-swap";
 import { selectMany } from "../db/query";
 import type { Registry, TenantId } from "../engine/types";
 import { InternalError } from "../errors";
@@ -20,11 +24,12 @@ import type { MultiStreamApplyContext } from "./multi-stream-apply-context";
 import type { RebuildResult } from "./projection-rebuild";
 
 // Rebuild a multi-stream projection (MSP) from the event log. Symmetric to
-// `rebuildProjection` for single-stream projections — same single-TX
-// TRUNCATE+replay semantics — but wired against the dispatcher's consumer
-// state row (cursor, not projection-state). MSPs are async-live and
-// cursor-driven; rebuild resets the cursor to 0 and rematerializes the
-// projection table in chronological event order.
+// `rebuildProjection` for single-stream projections — same single-TX online
+// shadow-swap (build in a private schema, replay, swap into public; the live
+// table is never locked during replay, see db/queries/shadow-swap) — but wired
+// against the dispatcher's consumer state row (cursor, not projection-state).
+// MSPs are async-live and cursor-driven; rebuild resets the cursor to 0 and
+// rematerializes the projection table in chronological event order.
 //
 // Why separate from rebuildProjection:
 //   - MSP apply signature includes a 3rd ctx arg (MultiStreamApplyContext
@@ -44,9 +49,10 @@ import type { RebuildResult } from "./projection-rebuild";
 // During the rebuild TX:
 //   - FOR UPDATE lock on the consumer row blocks concurrent live passes
 //     (SKIP LOCKED from the dispatcher backs off silently).
-//   - TRUNCATE the projection table.
-//   - Stream events matching apply-keys, invoke apply(event, tx, ctx).
+//   - Build the shadow table; replay events matching apply-keys into it via
+//     apply(event, tx, ctx) with search_path pointed at the shadow schema.
 //   - Advance cursor to last processed event id, status=idle.
+//   - Swap the shadow into public (brief ACCESS EXCLUSIVE, not the replay).
 //
 // Failure: outer catch writes status="dead" + lastError so ops sees the
 // failure after the TX rolled back. Use restartConsumer to clear dead.
@@ -104,18 +110,19 @@ export async function rebuildMultiStreamProjection(
     });
   }
 
+  const meta = rebuildMetaOrThrow(msp.table, mspName);
+
   const startedAt = Date.now();
   let eventsProcessed = 0;
   let lastProcessedEventId = 0n;
 
   try {
+    await ensureRebuildSchema(db);
     await db.begin(async (tx: DbTx) => {
       await resetConsumerForMspRebuild(tx, mspName, SHARED_INSTANCE_SENTINEL);
       await selectConsumerForUpdate(tx, mspName, SHARED_INSTANCE_SENTINEL);
 
-      const mspTable = msp.table as NonNullable<typeof msp.table>;
-      const tableName = extractTableName(mspTable, "msp-rebuild");
-      await truncateTable(tx, tableName);
+      await buildShadowTable(tx, meta);
 
       const subscribedTypes = Object.keys(msp.apply);
       if (subscribedTypes.length > 0) {
@@ -173,6 +180,7 @@ export async function rebuildMultiStreamProjection(
         SHARED_INSTANCE_SENTINEL,
         lastProcessedEventId,
       );
+      await swapShadowIntoLive(tx, meta.tableName);
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

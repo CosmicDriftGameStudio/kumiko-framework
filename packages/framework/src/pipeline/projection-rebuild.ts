@@ -1,4 +1,3 @@
-import { extractTableName } from "../db";
 import type { DbConnection, DbTx } from "../db/connection";
 import {
   finalizeProjectionRebuild,
@@ -6,7 +5,12 @@ import {
   markProjectionRebuilding,
   selectEventsForProjectionRebuild,
 } from "../db/queries/projection-rebuild";
-import { truncateTable } from "../db/queries/table-ops";
+import {
+  buildShadowTable,
+  ensureRebuildSchema,
+  rebuildMetaOrThrow,
+  swapShadowIntoLive,
+} from "../db/queries/shadow-swap";
 import { coerceRow, extractTableInfo, selectMany } from "../db/query";
 import type { Registry, TenantId } from "../engine/types";
 import {
@@ -19,34 +23,38 @@ import { emitProjectionRebuild } from "../observability/standard-metrics";
 import type { Meter } from "../observability/types/metric";
 import { projectionStateTable } from "./projection-state";
 
-// Rebuild a projection from the event log.
+// Rebuild a projection from the event log — online, via a shadow swap.
 //
 // Mechanics:
-//   1. Lock the projection's state row FOR UPDATE. Concurrent rebuild
-//      attempts of the same projection block here instead of racing.
+//   1. Lock the projection's state row (INSERT … ON CONFLICT DO UPDATE takes
+//      a row lock held to commit). Concurrent rebuilds of the same projection
+//      — including across pods — block here instead of racing.
 //   2. Mark status = "rebuilding".
-//   3. TRUNCATE the projection's backing table.
-//   4. Stream events in chronological order, for every apply-key match
-//      invoke apply(event, tx). Event-by-event, so two projections of the
-//      same source stay semantically identical to the live pipeline.
+//   3. Build a shadow table in a private schema (see db/queries/shadow-swap),
+//      with search_path pointed there so apply-writes land in the shadow.
+//   4. Stream events in chronological order, for every apply-key match invoke
+//      apply(event, tx). Event-by-event, so the rebuilt projection stays
+//      semantically identical to the live pipeline. The LIVE table is never
+//      locked during this phase — reads and writes against it continue.
 //   5. Store the last processed event-id + mark status = "idle".
+//   6. Swap: DROP the live table + ALTER the shadow into public — one brief
+//      ACCESS EXCLUSIVE window, not the whole replay.
 //
 // All of that runs in ONE transaction. If apply throws partway through,
-// Postgres rolls back everything — the old projection is still there,
-// status goes back to "idle" via the outer catch, and lastError records
-// what went wrong. A partial/empty projection is never observable.
+// Postgres rolls back everything — the shadow is discarded, the live table was
+// never touched (the swap is the last step), status is recorded "failed" via
+// the outer catch with lastError. A partial/empty projection is never
+// observable, and unlike an in-place TRUNCATE the live table is not even
+// locked on the failure path.
 //
-// This is an ops-time operation. While a rebuild is in progress, live
-// writes that touch the same projection will also try to insert into the
-// TRUNCATE'd table, triggering either a serialization conflict or (for a
-// new row after TRUNCATE) a noisy conflict. Intended behaviour: rebuild
-// on a quiet entity, or during a deliberate write-pause.
-//
-// Scale limit: single-TX TRUNCATE + replay works as long as your
-// maintenance window absorbs the replay. Effective ceiling depends on
-// payload size, apply() cost, and DB load — measure before trusting it.
-// Beyond that window, plan for a shadow-swap variant. For v1 that's
-// documented as a known boundary in docs/projections.md.
+// Boundaries:
+//   - Not multi-pod zero-downtime on its own: events written to the live table
+//     DURING the replay are not reflected in the shadow and are lost at swap.
+//     Rebuild on a quiet entity or during a write-pause. (Live-tail catch-up
+//     is a later phase — see docs/plans/projection-aware-migrations.md.)
+//   - The shadow is rebuilt from EntityTableMeta, so an index hand-added in a
+//     migration but absent from meta is not reconstructed.
+//   - Requires CREATE privilege to provision the shared rebuild schema.
 
 export type RebuildResult = {
   readonly projection: string;
@@ -88,17 +96,18 @@ export async function rebuildProjection(
     );
   }
 
+  const meta = rebuildMetaOrThrow(projection.table, projectionName);
+
   const sources = Array.isArray(projection.source) ? projection.source : [projection.source];
   const startedAt = Date.now();
   let eventsProcessed = 0;
   let lastProcessedEventId = 0n;
 
   try {
+    await ensureRebuildSchema(db);
     await db.begin(async (tx: DbTx) => {
       await markProjectionRebuilding(tx, projectionName);
-
-      const tableName = extractTableName(projection.table, "projection-rebuild");
-      await truncateTable(tx, tableName);
+      await buildShadowTable(tx, meta);
 
       // Stream events in chronological order for every source. The event
       // type filter prunes events the projection doesn't care about early.
@@ -162,6 +171,7 @@ export async function rebuildProjection(
       }
 
       await finalizeProjectionRebuild(tx, projectionName, lastProcessedEventId);
+      await swapShadowIntoLive(tx, meta.tableName);
     });
   } catch (e) {
     // Outer catch: TX has been rolled back by Postgres already. Record the
