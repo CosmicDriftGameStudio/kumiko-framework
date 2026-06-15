@@ -1,5 +1,112 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.50.0
+
+### Minor Changes
+
+- 8ca4a27: api: server-side Origin-allowlist guard for CSRF hardening (#340)
+
+  Adds `AuthRoutesConfig.allowedOrigins` — an opt-in server-side Origin check on
+  cookie-authenticated, state-changing `/api/*` requests, layered on top of the
+  double-submit CSRF token. Apps that widen the auth cookie across subdomains via
+  `auth.cookieDomain` should set it to the apex + admin host (never tenant
+  subdomains): a wide cookie otherwise lets an XSS on any subdomain read the
+  JS-readable csrf cookie and forge an authenticated request. Requests without an
+  Origin header fall back to `Sec-Fetch-Site` and then to the CSRF token, so the
+  guard is defense-in-depth rather than a replacement.
+
+  Potentially breaking for consumers that set `cookieDomain`: the framework now
+  **fails closed** — `buildServer` refuses to boot when `cookieDomain` is set but
+  `allowedOrigins` is empty, because a wide cookie without an Origin check leaves
+  the JS-readable csrf cookie exploitable from any subdomain. Set `allowedOrigins`
+  (apex + admin host) in the same deploy as the upgrade, or set
+  `unsafeSkipOriginCheck: true` to opt out explicitly for a single-host deployment.
+
+- 6b16dd9: feat(migrations): fail-loud for managed projection tables emptied without a resolvable rebuild (#361)
+
+  `runPendingRebuilds` accepts an optional `thisRunTables` (the tables freshly
+  queued by `queueRebuildsFromMarkers` in this apply run). Rebuild markers only
+  ever list managed projection tables, so a table emptied **this run** that no
+  registered projection resolves means the owning feature is missing from the
+  composition — its projection is now silently empty. Such tables are reported
+  in a new `unresolvedManaged` field on `PendingRebuildRun` and logged at error
+  level, instead of being silently drained.
+
+  Non-fatal by design: the queue still drains (no sticky-stuck re-apply), and
+  pre-existing pending tables (not in `thisRunTables` — indistinguishable from
+  legacy unmanaged markers or composition drift) stay in the benign `unmapped`
+  set, so upgrades with old markers don't break. Without `thisRunTables` the
+  behavior is unchanged (every unmapped table → `unmapped`). Follow-up to #356.
+
+### Patch Changes
+
+- f06e33a: config: dev-path ENV→app-override bridge + values.query shows inherited defaults
+
+  Closes the two config-provisioning leftovers:
+
+  - **runDevApp now wires the ENV→config-app-override bridge** (keys with `env:`
+    get their env value as the app-override default), symmetric to runProdApp —
+    previously only the prod path did. The envSource is injectable (default
+    `process.env`); a caller-supplied configResolver still overrides the default.
+
+  - **config:query:values now resolves through the full cascade** (the same path
+    as config:query:cascade), so the admin mask shows an inherited default (e.g.
+    an ENV-bridged app-override) instead of falling back to keyDef.default and
+    hiding it. This unifies the two read handlers so they can no longer diverge.
+
+  - **inheritedToTenant:false redaction now strips every inherited platform rung**
+    (system-row, app-override, computed, default), not only system-row. Surfacing
+    the app-override otherwise re-opened the leak the redaction closes: a
+    tenant-side viewer would see the platform ENV value through the app-override
+    rung. Blast-radius zero — no shipped config key declares inheritedToTenant:false.
+
+- d8330bc: config: enforce inheritedToTenant redaction and guard backing:"secrets"
+
+  Completes two provisioning fields that #370 declared but left inert:
+
+  - **inheritedToTenant:false now redacts.** A tenant-side viewer (any role other
+    than SystemAdmin) no longer receives the inherited system-row value — nor the
+    fact that it is set — through `config:query:cascade` or `config:query:values`.
+    Redaction strips the system-row level (value AND hasValue), recomputes the
+    cascade winner, and runs before encrypted-masking so a masked key cannot leak
+    "is set". SystemAdmin still sees the value.
+
+  - **backing:"secrets" now fails boot instead of silently degrading.** A
+    non-system scope is rejected permanently (secrets are flat per (tenant,key),
+    no cascade); a system scope is rejected until the secrets read/write dispatch
+    is wired (framework#333). Previously the value persisted as config-encrypted
+    behind the declaration, losing envelope-encryption / rotation / audit.
+
+  Blast radius zero: no shipped config key declares either field today.
+
+- d8083ae: test(es-ops): refactor seed-migration integration tests onto a real dispatcher
+
+  The `runner`/`context` es-ops integration tests built a fake dispatcher via
+  `makeMockDispatcher` (bun:test `mock()`), violating the no-fake-dispatcher rule
+  — both were grandfathered into `MOCK_GUARD_ALLOWLIST`. They now boot a real
+  `createDispatcher` with a real feature (mirroring the boot-time seed path in
+  `run-prod-app`, which calls `dispatcher.write` directly — no HTTP route) and
+  assert against real event-store rows. The two allowlist entries are removed.
+
+  Also corrects a misleading tx-isolation comment in the seed-migration context
+  builder: `systemWriteAs` writes run in the dispatcher's own transaction on
+  `context.db` and survive a runner rollback (hence seeds must be idempotent) —
+  they are not nested as a savepoint that rolls back with the runner tx. This is
+  now verified by the `dispatcher-writes vor throw bleiben committed` test.
+
+- eabad73: migrate-generator: locale-independent table sort, shared `compareByCodepoint` (#367, follow-up to #330)
+
+  `snapshotFromMetas` sorted tables with `String.localeCompare`, whose order
+  depends on the runner's ICU locale. The snapshot is serialized to byte-exact
+  JSON and the order carries into the generated migration SQL, so the committed
+  bytes could drift between a macOS dev box and Linux CI — worse than the manifest
+  case (#330) because migrations are diffed and replayed. It now uses a codepoint
+  comparator, extracted to `utils/compareByCodepoint` and shared by feature-manifest
+  (#330's file-local copy removed) and collect-table-metas (an in-process equality
+  key, switched for consistency). A regression test feeds mixed-case table names
+  and asserts codepoint order. Byte-identical for all current artifacts (table
+  names are lowercase snake_case, for which codepoint and locale order agree).
+
 ## 0.49.0
 
 ### Minor Changes
