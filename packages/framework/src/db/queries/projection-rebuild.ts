@@ -12,17 +12,25 @@ export async function markProjectionRebuilding(db: AnyDb, projectionName: string
   );
 }
 
-export async function selectEventsForProjectionRebuild(
+// Cursor-paged read for the live-tail catch-up loop: one batch of events
+// strictly newer than `afterId`, ascending. Each call is a fresh SELECT, so
+// under READ COMMITTED it sees events committed by concurrent writers since the
+// previous batch — that is what lets the rebuild drain the tail to ~0 lag.
+export async function selectEventsForProjectionRebuildBatch(
   db: AnyDb,
   aggregateTypes: readonly string[],
   eventTypes: readonly string[],
+  afterId: bigint,
+  limit: number,
 ): Promise<ReadonlyArray<Record<string, unknown>>> {
   return (await asRawClient(db).unsafe(
     `SELECT * FROM "kumiko_events"
      WHERE "aggregate_type" = ANY($1::text[])
        AND "type" = ANY($2::text[])
-     ORDER BY "id" ASC`,
-    [aggregateTypes, eventTypes],
+       AND "id" > $3
+     ORDER BY "id" ASC
+     LIMIT $4`,
+    [aggregateTypes, eventTypes, afterId, limit],
   )) as ReadonlyArray<Record<string, unknown>>;
 }
 

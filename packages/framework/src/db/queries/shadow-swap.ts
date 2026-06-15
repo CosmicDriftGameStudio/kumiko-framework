@@ -89,6 +89,23 @@ export async function buildShadowTable(tx: AnyDb, meta: EntityTableMeta): Promis
   }
 }
 
+// Fence the live table before the cutover: take ACCESS EXCLUSIVE on
+// public.<tableName> so no concurrent synchronous projection apply (a command
+// handler's append+apply) can commit a new event-derived row past the rebuild's
+// final catch-up. Schema-qualified so the active shadow search_path can't
+// redirect it. lock_timeout (SET LOCAL → auto-reset) bounds the wait: under a
+// pathological long-running writer the fence fails loud and the rebuild rolls
+// back rather than hanging indefinitely.
+export async function fenceLiveTable(
+  tx: AnyDb,
+  tableName: string,
+  lockTimeoutMs: number,
+): Promise<void> {
+  const raw = asRawClient(tx);
+  await raw.unsafe(`SET LOCAL lock_timeout = ${Math.trunc(lockTimeoutMs)}`);
+  await raw.unsafe(`LOCK TABLE public.${quoteTableIdent(tableName)} IN ACCESS EXCLUSIVE MODE`);
+}
+
 // Atomic swap, INSIDE the rebuild tx, AFTER replay. Schema-qualified so the
 // active shadow search_path can't redirect them. DROP without CASCADE: if any
 // object depends on the live table the swap fails loud and the whole rebuild

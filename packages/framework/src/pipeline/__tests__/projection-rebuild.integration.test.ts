@@ -11,8 +11,10 @@
 //   - never-rebuilt projection has sensible default state
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import type { DbConnection, DbTx } from "../../db/connection";
 import { integer, table as pgTable, uuid } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
+import { fenceLiveTable, swapShadowIntoLive } from "../../db/queries/shadow-swap";
 import { asRawClient, insertOne, selectMany } from "../../db/query";
 import { buildEntityTable } from "../../db/table-builder";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db";
@@ -669,5 +671,116 @@ describe("rebuildProjection — online shadow-swap mechanics", () => {
     await appendCreatedEvent(group, "b");
     await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry });
     expect(await getCount(group)).toBe(2);
+  });
+});
+
+describe("rebuildProjection — live-tail catch-up (#363 Phase 2)", () => {
+  test("a write committed during the replay window survives the swap (Phase 1 lost it)", async () => {
+    const group = "00000000-0000-4000-8000-0000000000f1";
+    await appendCreatedEvent(group, "a"); // event id 1
+    await appendCreatedEvent(group, "b"); // event id 2
+
+    let injected = 0;
+    await rebuildProjection(qualifiedProjectionName, {
+      db: testDb.db,
+      registry,
+      // Fires after the unlocked bulk drain (events 1+2 applied) and before the
+      // fence. A 3rd event committed here is exactly the write Phase 1's single
+      // up-front SELECT missed — the fenced final drain must pick it up.
+      onBeforeFence: async () => {
+        injected++;
+        await appendCreatedEvent(group, "c"); // event id 3, separate connection
+      },
+    });
+
+    expect(injected).toBe(1); // seam ran exactly once
+    // 2 bulk + 1 caught-up tail. Under Phase 1's up-front SELECT this is 2.
+    expect(await getCount(group)).toBe(3);
+  });
+
+  test("the rebuild tx sees concurrently-committed rows (READ COMMITTED, not a frozen snapshot)", async () => {
+    // The catch-up loop only works if each fresh SELECT in the rebuild tx sees
+    // rows other connections committed since the previous batch. Under
+    // REPEATABLE READ the loop would be silently inert — pin the isolation.
+    const group = "00000000-0000-4000-8000-0000000000f2";
+    const db = testDb.db as DbConnection; // @cast-boundary test-harness (TestDb.db is intentionally unknown)
+    await db.begin(async (tx: DbTx) => {
+      const before = await asRawClient(tx).unsafe<{ n: number }>(
+        `SELECT count(*)::int AS n FROM "read_rebuild_items_per_group"`,
+      );
+      // Separate pooled connection commits a row mid-transaction.
+      await insertOne(testDb.db, itemsPerGroupTable, {
+        groupId: group,
+        tenantId: admin.tenantId,
+        itemCount: 1,
+      });
+      const after = await asRawClient(tx).unsafe<{ n: number }>(
+        `SELECT count(*)::int AS n FROM "read_rebuild_items_per_group"`,
+      );
+      expect(after[0]?.n ?? 0).toBe((before[0]?.n ?? 0) + 1);
+    });
+  });
+
+  test("a write blocked through the fence+swap is atomic with its partner write (cutover semantics)", async () => {
+    // Drive the cutover primitive directly (fenceLiveTable + swapShadowIntoLive):
+    // a concurrent tx does a partner write + a projection apply that BLOCKS on
+    // the fence and is carried through DROP + SET SCHEMA (the live table's OID
+    // changes). However Postgres resolves the dropped-OID write, the partner
+    // write and the apply share one tx → both commit or both roll back. The
+    // empirical outcome (errors vs. retargets) is logged for the changeset note.
+    const group = "00000000-0000-4000-8000-0000000000f3";
+    await asRawClient(testDb.db).unsafe(
+      `CREATE TABLE IF NOT EXISTS "cutover_probe" (id int primary key)`,
+    );
+    await asRawClient(testDb.db).unsafe(`DELETE FROM "cutover_probe"`);
+
+    // Pre-build a shadow under the canonical name so SET SCHEMA can move it into
+    // public — mirrors what buildShadowTable produces for a real rebuild.
+    await asRawClient(testDb.db).unsafe(`CREATE SCHEMA IF NOT EXISTS kumiko_rebuild`);
+    await asRawClient(testDb.db).unsafe(
+      `DROP TABLE IF EXISTS kumiko_rebuild."read_rebuild_items_per_group"`,
+    );
+    await asRawClient(testDb.db).unsafe(
+      `CREATE TABLE kumiko_rebuild."read_rebuild_items_per_group" (LIKE public."read_rebuild_items_per_group" INCLUDING ALL)`,
+    );
+
+    let bOutcome = "pending";
+    let bDone: Promise<void> | null = null;
+    const db = testDb.db as DbConnection; // @cast-boundary test-harness (TestDb.db is intentionally unknown)
+    await db.begin(async (atx: DbTx) => {
+      await fenceLiveTable(atx, "read_rebuild_items_per_group", 10_000);
+
+      // Connection B: partner write + a projection apply that blocks on the fence.
+      bDone = db
+        .begin(async (btx: DbTx) => {
+          await asRawClient(btx).unsafe(`INSERT INTO "cutover_probe" (id) VALUES (1)`);
+          await bump(btx, group, admin.tenantId, 1); // ROW EXCLUSIVE → blocks on the fence
+        })
+        .then(() => {
+          bOutcome = "committed";
+        })
+        .catch((e: unknown) => {
+          bOutcome = `errored: ${e instanceof Error ? e.message : String(e)}`;
+        });
+
+      // Let B reach its lock-wait before we swap the table out from under it.
+      // NOT awaiting bDone here: B can only finish once A commits (releases the
+      // fence) — awaiting it inside the tx would deadlock.
+      await new Promise((r) => setTimeout(r, 300));
+      await swapShadowIntoLive(atx, "read_rebuild_items_per_group");
+    });
+    if (bDone) await bDone; // A committed → B unblocks and resolves
+
+    console.log(`[#363 cutover] blocked writer outcome: ${bOutcome}`);
+
+    // Load-bearing invariant: partner write present ⟺ projection row present.
+    const probe = await asRawClient(testDb.db).unsafe<{ n: number }>(
+      `SELECT count(*)::int AS n FROM "cutover_probe" WHERE id = 1`,
+    );
+    const probePresent = (probe[0]?.n ?? 0) > 0;
+    const rowPresent = (await getCount(group)) !== undefined;
+    expect(probePresent).toBe(rowPresent);
+
+    await asRawClient(testDb.db).unsafe(`DROP TABLE IF EXISTS "cutover_probe"`);
   });
 });
