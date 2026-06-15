@@ -99,6 +99,12 @@ export type RunDevAppAuthOptions = {
   /** Domain attribute for both auth cookies (see
    *  AuthRoutesConfig.cookieDomain). Symmetric zu RunProdAppAuthOptions. */
   readonly cookieDomain?: string;
+  /** Server-side Origin allowlist for the CSRF guard (see
+   *  AuthRoutesConfig.allowedOrigins). Symmetric zu RunProdAppAuthOptions —
+   *  required once `cookieDomain` is set. */
+  readonly allowedOrigins?: readonly string[];
+  /** Opt out of the Origin guard. Symmetric zu RunProdAppAuthOptions. */
+  readonly unsafeSkipOriginCheck?: boolean;
 };
 
 /** Hook for app-specific seeding (demo data, fixtures). Runs after the
@@ -299,6 +305,12 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
         },
         ...(options.auth.cookieDomain !== undefined && {
           cookieDomain: options.auth.cookieDomain,
+        }),
+        ...(options.auth.allowedOrigins !== undefined && {
+          allowedOrigins: options.auth.allowedOrigins,
+        }),
+        ...(options.auth.unsafeSkipOriginCheck !== undefined && {
+          unsafeSkipOriginCheck: options.auth.unsafeSkipOriginCheck,
         }),
         ...sessionAuthFragment,
         ...(options.auth.passwordReset && {
