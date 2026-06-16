@@ -2,7 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { renderDefineFile, renderInlineSchemasFile, renderTypesAugmentation } from "../render";
+import {
+  renderDefineFile,
+  renderInlineSchemasFile,
+  renderTypesAugmentation,
+  renderWriteHandlerTypes,
+} from "../render";
 import type { ScannedEvent } from "../scan-events";
 
 describe("renderTypesAugmentation", () => {
@@ -68,5 +73,20 @@ describe("renderDefineFile", () => {
     const out = renderDefineFile();
     expect(out).toContain("defineWriteHandler");
     expect(out).toContain("types.generated.d.ts");
+  });
+
+  test("emits createTypedDispatcher when handler QNs provided", () => {
+    const out = renderDefineFile(["tenant:write:create", "tenant:write:update"]);
+    expect(out).toContain("export type TypedDispatcher");
+    expect(out).toContain("export function createTypedDispatcher");
+    expect(out).toContain('export type { WriteHandlerQn } from "./types.generated"');
+  });
+});
+
+describe("renderWriteHandlerTypes", () => {
+  test("emits union type lines", () => {
+    const out = renderWriteHandlerTypes(["tenant:write:create"]);
+    expect(out).toContain("export type WriteHandlerQn =");
+    expect(out).toContain('| "tenant:write:create"');
   });
 });

@@ -287,6 +287,37 @@ export default defineFeature("dup", (r) => {
     expect(w).toBeDefined();
   });
 
+  test("emits WriteHandlerQn union and TypedDispatcher when handlerQns passed", () => {
+    const appRoot = makeAppDir();
+    write(
+      appRoot,
+      "src/feature/events.ts",
+      `import { z } from "zod";\nexport const sSchema = z.object({ id: z.string() });\n`,
+    );
+    write(
+      appRoot,
+      "src/feature/feature.ts",
+      `import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { sSchema } from "./events";
+export default defineFeature("typed", (r) => {
+  r.defineEvent("only", sSchema);
+});
+`,
+    );
+
+    const result = runCodegen({
+      appRoot,
+      handlerQns: ["typed:write:create"],
+    });
+    expect(result.skipped).toBe(false);
+
+    const types = readFileSync(join(appRoot, ".kumiko", "types.generated.d.ts"), "utf-8");
+    expect(types).toContain('| "typed:write:create"');
+
+    const define = readFileSync(join(appRoot, ".kumiko", "define.ts"), "utf-8");
+    expect(define).toContain("createTypedDispatcher");
+  });
+
   test("idempotent — second run does not re-write files", () => {
     const appRoot = makeAppDir();
     write(

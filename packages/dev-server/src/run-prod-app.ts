@@ -47,12 +47,14 @@ import { createSseBroker, type SseBroker } from "@cosmicdrift/kumiko-framework/a
 import { createDbConnection, type DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import {
   buildAppSchema,
+  collectWriteHandlerQns,
   createRegistry,
   type EffectiveFeaturesResolver,
   type FeatureDefinition,
   findTierResolverUsage,
   type TenantId,
   type TierResolverPlugin,
+  validateAppCustomScreenWriteQns,
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -592,6 +594,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   });
 
   validateBoot(features);
+  validateAppCustomScreenWriteQns(process.cwd(), collectWriteHandlerQns(features));
   const registry = createRegistry(features);
 
   // C1 boot-mode exit: validators ran + registry built; no DB/Redis client

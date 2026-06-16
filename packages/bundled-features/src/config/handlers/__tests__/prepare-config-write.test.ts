@@ -184,6 +184,33 @@ describe("prepareConfigWrite", () => {
     expect(result.tenantId).toBe("t-99");
     expect(result.userId).toBe("u-99");
   });
+
+  test("TenantAdmin cannot write tenant-scoped key at system scope (platform default row)", () => {
+    const tenantKey = createTenantConfig("text", { write: access.admin });
+    const result = prepareConfigWrite({
+      registry: registryStub({ "ns:config:smtp-host": tenantKey }),
+      user: userStub(["TenantAdmin"]),
+      key: "ns:config:smtp-host",
+      scope: ConfigScopes.system,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("unreachable");
+    expect(result.failure.error.code).toBe("access_denied");
+    expect(result.failure.error.i18nKey).toBe("config.errors.systemScopeWriteDenied");
+  });
+
+  test("SystemAdmin can write tenant-scoped key at system scope", () => {
+    const tenantKey = createTenantConfig("text", { write: access.admin });
+    const result = prepareConfigWrite({
+      registry: registryStub({ "ns:config:smtp-host": tenantKey }),
+      user: userStub(["SystemAdmin"], SYSTEM_TENANT_ID, "sys-1"),
+      key: "ns:config:smtp-host",
+      scope: ConfigScopes.system,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("unreachable");
+    expect(result.scope).toBe(ConfigScopes.system);
+  });
 });
 
 describe("validateBounds", () => {

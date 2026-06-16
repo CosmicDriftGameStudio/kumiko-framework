@@ -22,6 +22,7 @@ export const ConfigErrors = {
   unknownKey: "unknown_config_key",
   systemOnly: "config_key_is_system_only",
   invalidScope: "invalid_scope",
+  systemScopeWriteDenied: "system_scope_write_denied",
   typeError: "type_error",
   invalidOption: "invalid_option",
 } as const;
