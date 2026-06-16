@@ -1,0 +1,26 @@
+{
+	"$schema": "Exceptions file for guards/check-security.ts. Each exception needs reason, reviewer, and expiry (max ~30 days).",
+	"exceptions": [
+		{
+			"advisory": "GHSA-gv7w-rqvm-qjhr",
+			"package": "esbuild",
+			"reason": "Transitive dev dependency via Vite/Expo tooling. esbuild binary integrity issue affects Deno module path only — Bun/npm install path unaffected. Tracked for upstream bump.",
+			"reviewedBy": "Marc, 2026-06-16",
+			"expires": "2026-07-16"
+		},
+		{
+			"advisory": "GHSA-hmw2-7cc7-3qxx",
+			"package": "form-data",
+			"reason": "Transitive dependency (axios/mail tooling). CRLF injection in multipart field names — no direct usage of affected API surface in Kumiko code paths.",
+			"reviewedBy": "Marc, 2026-06-16",
+			"expires": "2026-07-16"
+		},
+		{
+			"advisory": "GHSA-fx2h-pf6j-xcff",
+			"package": "vite",
+			"reason": "Transitive dev dependency. Windows server.fs.deny bypass — Kumiko dev servers run on macOS/Linux in CI and prod.",
+			"reviewedBy": "Marc, 2026-06-16",
+			"expires": "2026-07-16"
+		}
+	]
+}
