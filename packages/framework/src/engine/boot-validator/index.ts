@@ -39,6 +39,11 @@ import {
   validateWorkspaces,
 } from "./screens-nav";
 
+// Re-export: wird von run-dev-app.ts benötigt um Write-Handler-QNs
+// an den Codegen zu übergeben. Nicht Teil von validateBoot, aber
+// dieselbe Extraktionslogik.
+export { collectWriteHandlerQns };
+
 /**
  * Validates all feature configurations at boot time.
  * Throws on the first error found — fail fast.

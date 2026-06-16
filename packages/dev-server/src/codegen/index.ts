@@ -2,6 +2,7 @@ export {
   renderDefineFile,
   renderInlineSchemasFile,
   renderTypesAugmentation,
+  renderWriteHandlerTypes,
 } from "./render";
 export { type CodegenOptions, type CodegenResult, runCodegen } from "./run-codegen";
 export {

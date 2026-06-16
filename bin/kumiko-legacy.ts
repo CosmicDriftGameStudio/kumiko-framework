@@ -267,6 +267,8 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
         : "bunx kumiko-guard-raw-sql",
   });
   steps.push({ name: "License Check", cmd: "bunx kumiko-check-licenses" });
+  steps.push({ name: "Security Audit", cmd: "bunx kumiko-check-security" });
+  steps.push({ name: "Deprecated Deps", cmd: "bunx kumiko-check-outdated" });
 
   return steps;
 })();

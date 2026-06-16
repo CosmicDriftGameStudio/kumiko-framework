@@ -233,3 +233,21 @@ export function renderDefineFile(): string {
 
   return body;
 }
+
+/**
+ * Render `WriteHandlerQn` type lines — exports a union of all registered
+ * write handler QNs so custom-screen code can type-check dispatcher.write
+ * calls at compile time:
+ *
+ *   ```ts
+ *   import type { WriteHandlerQn } from "@app/define";
+ *   dispatcher.write<WriteHandlerQn>("tenant:write:create", payload);  // ✓
+ *   dispatcher.write<WriteHandlerQn>("tenant:write:creat", payload);   // ✗ TS error
+ *   ```
+ */
+export function renderWriteHandlerTypes(handlerQns: readonly string[]): string {
+  if (handlerQns.length === 0) return "";
+
+  const lines = handlerQns.map((qn) => `  | "${qn}"`);
+  return ["", `export type WriteHandlerQn =`, ...lines, ";", ""].join("\n");
+}

@@ -1,7 +1,7 @@
 // Public API
 
 export { hasAccess } from "./access";
-export { validateBoot } from "./boot-validator";
+export { collectWriteHandlerQns, validateBoot } from "./boot-validator";
 export { buildAppSchema } from "./build-app-schema";
 export type { ConfigFeatureSchema } from "./build-config-feature-schema";
 export {

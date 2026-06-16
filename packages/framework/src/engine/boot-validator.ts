@@ -1,1 +1,1 @@
-export { validateBoot } from "./boot-validator/index";
+export { collectWriteHandlerQns, validateBoot } from "./boot-validator/index";

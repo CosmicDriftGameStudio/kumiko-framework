@@ -7,6 +7,7 @@
 // lesen.
 
 import { compareByCodepoint } from "../utils";
+import { qualifyEntityName } from "./qualified-name";
 import type { Registry } from "./types/feature";
 
 export type ManifestConfigKey = {
@@ -51,6 +52,11 @@ export type ManifestFeature = {
   readonly extensionsUsed: readonly ManifestExtension[];
   readonly configKeys: readonly ManifestConfigKey[];
   readonly secrets: readonly ManifestSecret[];
+  /** Alle registrierten Write-Handler-QNs dieses Features
+   *  (z.B. "user:write:user:create", "auth-email-password:write:login").
+   *  Von `collectWriteHandlerQns` abgeleitet — dient als Source-of-Truth
+   *  für den Client-seitigen Typcheck von `dispatcher.write`-Calls. */
+  readonly writeHandlers: readonly string[];
   /** Optionaler Herkunfts-Tag (z.B. "enterprise") — gesetzt via Options. */
   readonly tier?: string;
 };
@@ -117,8 +123,14 @@ export function buildManifestFromRegistry(
       });
     }
 
+    const writeHandlerQns: string[] = [];
+    for (const handlerName of Object.keys(feature.writeHandlers)) {
+      writeHandlerQns.push(qualifyEntityName(feature.name, "write", handlerName));
+    }
+
     configKeys.sort((a, b) => compareByCodepoint(a.qualifiedName, b.qualifiedName));
     secrets.sort((a, b) => compareByCodepoint(a.qualifiedName, b.qualifiedName));
+    writeHandlerQns.sort(compareByCodepoint);
 
     manifestFeatures.push({
       name: feature.name,
@@ -135,6 +147,7 @@ export function buildManifestFromRegistry(
       })),
       configKeys,
       secrets,
+      writeHandlers: writeHandlerQns,
       ...(options.tier !== undefined && { tier: options.tier }),
     });
   }

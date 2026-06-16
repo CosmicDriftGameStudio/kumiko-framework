@@ -13,7 +13,8 @@
       "usesApis": [],
       "extensionsUsed": [],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "auth-email-password",
@@ -29,7 +30,12 @@
       "usesApis": [],
       "extensionsUsed": [],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": [
+        "auth-email-password:write:change-password",
+        "auth-email-password:write:login",
+        "auth-email-password:write:logout"
+      ]
     },
     {
       "name": "billing-foundation",
@@ -42,7 +48,12 @@
       "usesApis": [],
       "extensionsUsed": [],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": [
+        "billing-foundation:write:create-checkout-session",
+        "billing-foundation:write:create-portal-session",
+        "billing-foundation:write:process-event"
+      ]
     },
     {
       "name": "cap-counter",
@@ -55,7 +66,12 @@
       "usesApis": [],
       "extensionsUsed": [],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": [
+        "cap-counter:write:increment",
+        "cap-counter:write:increment-rolling",
+        "cap-counter:write:mark-soft-warned"
+      ]
     },
     {
       "name": "channel-email",
@@ -75,7 +91,8 @@
         }
       ],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "channel-in-app",
@@ -95,7 +112,11 @@
         }
       ],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": [
+        "channel-in-app:write:mark-all-read",
+        "channel-in-app:write:mark-read"
+      ]
     },
     {
       "name": "channel-push",
@@ -115,7 +136,8 @@
         }
       ],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "compliance-profiles",
@@ -130,7 +152,10 @@
       "usesApis": [],
       "extensionsUsed": [],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": [
+        "compliance-profiles:write:set-profile"
+      ]
     },
     {
       "name": "config",
@@ -143,7 +168,11 @@
       "usesApis": [],
       "extensionsUsed": [],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": [
+        "config:write:reset",
+        "config:write:set"
+      ]
     },
     {
       "name": "custom-fields",
@@ -156,7 +185,16 @@
       "usesApis": [],
       "extensionsUsed": [],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": [
+        "custom-fields:write:clear-custom-field",
+        "custom-fields:write:define-system-field",
+        "custom-fields:write:define-tenant-field",
+        "custom-fields:write:delete-system-field",
+        "custom-fields:write:delete-tenant-field",
+        "custom-fields:write:set-custom-field",
+        "custom-fields:write:update-tenant-field"
+      ]
     },
     {
       "name": "data-retention",
@@ -171,7 +209,8 @@
       "usesApis": [],
       "extensionsUsed": [],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "delivery",
@@ -184,7 +223,10 @@
       "usesApis": [],
       "extensionsUsed": [],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": [
+        "delivery:write:set-preference"
+      ]
     },
     {
       "name": "feature-toggles",
@@ -197,7 +239,10 @@
       "usesApis": [],
       "extensionsUsed": [],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": [
+        "feature-toggles:write:set"
+      ]
     },
     {
       "name": "file-foundation",
@@ -234,7 +279,8 @@
           ]
         }
       ],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "file-provider-inmemory",
@@ -254,7 +300,8 @@
         }
       ],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "file-provider-s3",
@@ -383,7 +430,8 @@
           "label": "S3 Secret Access Key",
           "hint": "Private half of the S3 key pair. Hetzner calls it 'Secret Key', AWS calls it 'Secret Access Key'."
         }
-      ]
+      ],
+      "writeHandlers": []
     },
     {
       "name": "files",
@@ -396,7 +444,8 @@
       "usesApis": [],
       "extensionsUsed": [],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "jobs",
@@ -409,7 +458,11 @@
       "usesApis": [],
       "extensionsUsed": [],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": [
+        "jobs:write:retry",
+        "jobs:write:trigger"
+      ]
     },
     {
       "name": "legal-pages",
@@ -424,7 +477,8 @@
       "usesApis": [],
       "extensionsUsed": [],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "mail-foundation",
@@ -461,7 +515,8 @@
           ]
         }
       ],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "mail-transport-inmemory",
@@ -481,7 +536,8 @@
         }
       ],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "mail-transport-smtp",
@@ -612,7 +668,8 @@
           "label": "SMTP password",
           "hint": "Login password at the SMTP server. Brevo/Postmark/SES call it 'API key' or 'SMTP credentials'."
         }
-      ]
+      ],
+      "writeHandlers": []
     },
     {
       "name": "managed-pages",
@@ -784,7 +841,13 @@
           ]
         }
       ],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": [
+        "managed-pages:write:page:create",
+        "managed-pages:write:page:delete",
+        "managed-pages:write:page:update",
+        "managed-pages:write:set"
+      ]
     },
     {
       "name": "rate-limiting",
@@ -797,7 +860,8 @@
       "usesApis": [],
       "extensionsUsed": [],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "readiness",
@@ -813,7 +877,8 @@
       "usesApis": [],
       "extensionsUsed": [],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "renderer-foundation",
@@ -828,7 +893,8 @@
       "usesApis": [],
       "extensionsUsed": [],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "renderer-simple",
@@ -848,7 +914,8 @@
         }
       ],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "secrets",
@@ -861,7 +928,11 @@
       "usesApis": [],
       "extensionsUsed": [],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": [
+        "secrets:write:delete",
+        "secrets:write:set"
+      ]
     },
     {
       "name": "sessions",
@@ -876,7 +947,12 @@
       "usesApis": [],
       "extensionsUsed": [],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": [
+        "sessions:write:user-session:revoke",
+        "sessions:write:user-session:revoke-all-for-user",
+        "sessions:write:user-session:revoke-all-others"
+      ]
     },
     {
       "name": "step-dispatcher",
@@ -889,7 +965,8 @@
       "usesApis": [],
       "extensionsUsed": [],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "subscription-mollie",
@@ -909,7 +986,8 @@
         }
       ],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "subscription-stripe",
@@ -997,7 +1075,8 @@
           ]
         }
       ],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "template-resolver",
@@ -1010,7 +1089,13 @@
       "usesApis": [],
       "extensionsUsed": [],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": [
+        "template-resolver:write:archive",
+        "template-resolver:write:publish",
+        "template-resolver:write:upsert-system",
+        "template-resolver:write:upsert-tenant"
+      ]
     },
     {
       "name": "tenant",
@@ -1186,7 +1271,17 @@
           ]
         }
       ],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": [
+        "tenant:write:add-member",
+        "tenant:write:cancel-invitation",
+        "tenant:write:create",
+        "tenant:write:disable",
+        "tenant:write:enable",
+        "tenant:write:remove-member",
+        "tenant:write:update",
+        "tenant:write:update-member-roles"
+      ]
     },
     {
       "name": "text-content",
@@ -1199,7 +1294,10 @@
       "usesApis": [],
       "extensionsUsed": [],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": [
+        "text-content:write:set"
+      ]
     },
     {
       "name": "tier-engine",
@@ -1215,7 +1313,11 @@
       "usesApis": [],
       "extensionsUsed": [],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": [
+        "tier-engine:write:tier-assignment:create",
+        "tier-engine:write:tier-assignment:update"
+      ]
     },
     {
       "name": "user",
@@ -1228,7 +1330,11 @@
       "usesApis": [],
       "extensionsUsed": [],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": [
+        "user:write:user:create",
+        "user:write:user:update"
+      ]
     },
     {
       "name": "user-data-rights",
@@ -1253,7 +1359,17 @@
       ],
       "extensionsUsed": [],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": [
+        "user-data-rights:write:cancel-deletion",
+        "user-data-rights:write:confirm-deletion-by-token",
+        "user-data-rights:write:lift-restriction",
+        "user-data-rights:write:request-deletion",
+        "user-data-rights:write:request-deletion-by-email",
+        "user-data-rights:write:request-export",
+        "user-data-rights:write:restrict-account",
+        "user-data-rights:write:run-forget-cleanup"
+      ]
     },
     {
       "name": "user-data-rights-defaults",
@@ -1279,7 +1395,8 @@
         }
       ],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "user-profile",
@@ -1296,7 +1413,10 @@
       "usesApis": [],
       "extensionsUsed": [],
       "configKeys": [],
-      "secrets": []
+      "secrets": [],
+      "writeHandlers": [
+        "user-profile:write:change-email"
+      ]
     }
   ]
 }
