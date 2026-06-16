@@ -16,12 +16,17 @@
 
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { renderDefineFile, renderInlineSchemasFile, renderTypesAugmentation } from "./render";
+import { renderDefineFile, renderInlineSchemasFile, renderTypesAugmentation, renderWriteHandlerTypes } from "./render";
 import { type ScanWarning, scanEvents } from "./scan-events";
 
 export type CodegenOptions = {
   /** App-Root — `<appRoot>/.kumiko/` ist der Output-Ordner. */
   readonly appRoot: string;
+  /** Optional: alle registrierten Write-Handler-QNs. Wenn nicht gesetzt,
+   *  versucht der Codegen `feature-manifest.json` im appRoot zu lesen.
+   *  Die Dev-Server-Integration übergibt die QNs direkt aus der gebooteten
+   *  Registry — CLI ruft sie aus dem Manifest. */
+  readonly handlerQns?: readonly string[];
 };
 
 export type CodegenResult = {
@@ -77,7 +82,15 @@ export function runCodegen(opts: CodegenOptions): CodegenResult {
   // is required — yarn classic v1 ignored deps in versionless workspaces.
   const packageJsonContent = renderKumikoPackageJson();
 
-  const didWriteTypes = writeIfChanged(typesPath, typesContent);
+  // WriteHandlerQn-Union an den types-Content anhängen (optional). Der
+  // Dev-Server übergibt handlerQns aus der lebenden Registry (genauer);
+  // der CLI-Fallback liest das feature-manifest.json falls vorhanden.
+  const handlerQns = opts.handlerQns ?? readHandlerQnsFromManifest(opts.appRoot);
+  const finalTypesContent = handlerQns.length > 0
+    ? `${typesContent}${renderWriteHandlerTypes(handlerQns)}`
+    : typesContent;
+
+  const didWriteTypes = writeIfChanged(typesPath, finalTypesContent);
   const didWriteDefine = writeIfChanged(definePath, defineContent);
   writeIfChanged(packageJsonPath, packageJsonContent);
   const didWriteSchemas =
@@ -154,4 +167,28 @@ function removeIfExists(path: string): boolean {
   if (!existsSync(path)) return false;
   rmSync(path, { force: true });
   return true;
+}
+
+/**
+ * Fallback: liest `feature-manifest.json` aus dem appRoot und extrahiert
+ * alle Write-Handler-QNs. Fehlende/stale Manifeste sind kein Fehler —
+ * dann wird schlicht keine `WriteHandlerQn`-Union generiert (CLI ohne
+ * Manifest oder CI-Setup ohne Manifest-Generator).
+ */
+function readHandlerQnsFromManifest(appRoot: string): readonly string[] {
+  try {
+    const manifestPath = join(appRoot, "feature-manifest.json");
+    const raw = readFileSync(manifestPath, "utf-8");
+    const manifest = JSON.parse(raw) as {
+      readonly features: ReadonlyArray<{ readonly writeHandlers?: readonly string[] }>;
+    };
+    const qns: string[] = [];
+    for (const f of manifest.features) {
+      if (f.writeHandlers) qns.push(...f.writeHandlers);
+    }
+    qns.sort();
+    return qns;
+  } catch {
+    return [];
+  }
 }

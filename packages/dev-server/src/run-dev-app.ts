@@ -29,6 +29,7 @@ import {
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import type { SessionMetadata } from "@cosmicdrift/kumiko-framework/api";
 import {
+  collectWriteHandlerQns,
   createRegistry,
   type EffectiveFeaturesResolver,
   type FeatureDefinition,
@@ -202,7 +203,11 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // Watcher läuft solange der Dev-Server lebt; close() bei Shutdown
   // wird über das createKumikoServer-Handle implizit erledigt (Bun's
   // process-exit räumt fs.watch-handles auf).
-  watchAndRegenerate({ appRoot: process.cwd() });
+  // Sammelt alle Write-Handler-QNs für den Codegen — damit
+  // `types.generated.d.ts` eine `WriteHandlerQn`-Union exportieren
+  // kann, die dispatcher.write-Aufrufe client-seitig typisiert.
+  const handlerQns = collectWriteHandlerQns(features);
+  watchAndRegenerate({ appRoot: process.cwd(), handlerQns: [...handlerQns] });
 
   // Sprint-8a Tier-Composition auto-wire: scan features for a
   // tenantTierResolver-extension. If found AND user didn't supply own

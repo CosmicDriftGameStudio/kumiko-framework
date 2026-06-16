@@ -21,6 +21,12 @@ import { runCodegen } from "./run-codegen";
 export type WatchOptions = {
   /** App-Wurzel — gleiche Bedeutung wie für `runCodegen`. */
   readonly appRoot: string;
+  /** Optional: alle registrierten Write-Handler-QNs. Durchgereicht an
+   *  `runCodegen` für die Generierung der `WriteHandlerQn`-Union.
+   *  Der Dev-Server extrahiert sie beim Boot aus den Features und
+   *  reicht sie hier rein — der Watcher reicht sie bei jedem Re-Run
+   *  an `runCodegen` weiter, damit der generated-Type nicht verschwindet. */
+  readonly handlerQns?: readonly string[];
   /** Wartet diese Millisekunden zusätzliche Events ab, bevor codegen
    *  einmal fährt. 50ms catched typische save-bursts (Editor-Saves
    *  feuern oft 2-3 Events: temp-file → rename → cleanup), bleibt aber
@@ -58,7 +64,10 @@ export function watchAndRegenerate(opts: WatchOptions): WatchHandle {
 
   const fire = () => {
     try {
-      const result = runCodegen({ appRoot: opts.appRoot });
+      const result = runCodegen({
+        appRoot: opts.appRoot,
+        ...(opts.handlerQns !== undefined && { handlerQns: opts.handlerQns }),
+      });
       if (opts.onResult) {
         opts.onResult(result);
       } else {
