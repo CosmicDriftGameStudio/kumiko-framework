@@ -20,7 +20,7 @@ const WEBHOOK_SECRET_HANDLE: ConfigKeyHandle<"text"> = {
   type: "text",
 };
 const BILLING_LIVE_HANDLE: ConfigKeyHandle<"boolean"> = {
-  name: "subscription-stripe:config:billingLive",
+  name: "subscription-stripe:config:billing-live",
   type: "boolean",
 };
 
