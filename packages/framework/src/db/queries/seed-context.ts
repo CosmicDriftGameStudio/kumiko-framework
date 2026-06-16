@@ -51,7 +51,7 @@ export async function selectMembershipsOfUser(
 
 export async function selectAllTenants(db: AnyDb): Promise<readonly SeedTenantDbRow[]> {
   return (await asRawClient(db).unsafe(
-    `SELECT id::text AS id, name, tenant_key
+    `SELECT id::text AS id, name, key AS tenant_key
      FROM read_tenants
      ORDER BY inserted_at`,
   )) as readonly SeedTenantDbRow[];

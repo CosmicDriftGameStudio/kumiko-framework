@@ -66,7 +66,7 @@ beforeAll(async () => {
     CREATE TABLE IF NOT EXISTS read_tenants (
       id            uuid PRIMARY KEY,
       name          text NOT NULL,
-      tenant_key    text NOT NULL,
+      key    text NOT NULL,
       inserted_at   timestamptz NOT NULL DEFAULT now()
     );
   `);
@@ -273,7 +273,7 @@ describe("SeedMigrationContext.findMembershipsOfUser (integration)", () => {
 describe("SeedMigrationContext.findTenants (integration)", () => {
   test("returnt alle Tenants sortiert nach inserted_at", async () => {
     await asRawClient(testDb.db).unsafe(`
-      INSERT INTO read_tenants (id, name, tenant_key, inserted_at) VALUES
+      INSERT INTO read_tenants (id, name, key, inserted_at) VALUES
         ('00000000-0000-4000-8000-000000000002'::uuid, 'Beta',  'beta',  '2026-01-02'),
         ('00000000-0000-4000-8000-000000000001'::uuid, 'Alpha', 'alpha', '2026-01-01')
     `);
@@ -365,7 +365,7 @@ describe("runPendingSeedMigrations: skippable + env-flag (integration)", () => {
 describe("SeedMigrationContext.db (escape-hatch, integration)", () => {
   test("ctx.db kann für eigene Lookups genutzt werden (read-only)", async () => {
     await asRawClient(testDb.db).unsafe(`
-      INSERT INTO read_tenants (id, name, tenant_key) VALUES
+      INSERT INTO read_tenants (id, name, key) VALUES
         ('00000000-0000-4000-8000-000000000007'::uuid, 'Lucky', 'lucky')
     `);
     const ctx = createSeedMigrationContext({
@@ -373,7 +373,7 @@ describe("SeedMigrationContext.db (escape-hatch, integration)", () => {
       dbRunner: testDb.db,
     });
     const rows = (await asRawClient(ctx.db).unsafe(
-      `SELECT name FROM read_tenants WHERE tenant_key = 'lucky'`,
+      `SELECT name FROM read_tenants WHERE key = 'lucky'`,
     )) as unknown as readonly { name: string }[];
     expect(rows[0]?.name).toBe("Lucky");
   });
