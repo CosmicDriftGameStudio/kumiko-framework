@@ -249,11 +249,5 @@ export function renderWriteHandlerTypes(handlerQns: readonly string[]): string {
   if (handlerQns.length === 0) return "";
 
   const lines = handlerQns.map((qn) => `  | "${qn}"`);
-  return [
-    "",
-    `export type WriteHandlerQn =`,
-    ...lines,
-    ";",
-    "",
-  ].join("\n");
+  return ["", `export type WriteHandlerQn =`, ...lines, ";", ""].join("\n");
 }

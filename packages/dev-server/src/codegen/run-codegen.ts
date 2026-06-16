@@ -16,7 +16,12 @@
 
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { renderDefineFile, renderInlineSchemasFile, renderTypesAugmentation, renderWriteHandlerTypes } from "./render";
+import {
+  renderDefineFile,
+  renderInlineSchemasFile,
+  renderTypesAugmentation,
+  renderWriteHandlerTypes,
+} from "./render";
 import { type ScanWarning, scanEvents } from "./scan-events";
 
 export type CodegenOptions = {
@@ -86,9 +91,8 @@ export function runCodegen(opts: CodegenOptions): CodegenResult {
   // Dev-Server übergibt handlerQns aus der lebenden Registry (genauer);
   // der CLI-Fallback liest das feature-manifest.json falls vorhanden.
   const handlerQns = opts.handlerQns ?? readHandlerQnsFromManifest(opts.appRoot);
-  const finalTypesContent = handlerQns.length > 0
-    ? `${typesContent}${renderWriteHandlerTypes(handlerQns)}`
-    : typesContent;
+  const finalTypesContent =
+    handlerQns.length > 0 ? `${typesContent}${renderWriteHandlerTypes(handlerQns)}` : typesContent;
 
   const didWriteTypes = writeIfChanged(typesPath, finalTypesContent);
   const didWriteDefine = writeIfChanged(definePath, defineContent);
