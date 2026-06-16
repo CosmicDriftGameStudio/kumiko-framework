@@ -117,26 +117,28 @@ export function checkWriteAccess(
   keyDef: ConfigKeyDefinition,
   userRoles: readonly string[],
 ): KumikoError | null {
-  if (keyDef.access.write.includes(SYSTEM_ROLE)) {
-    // Pre-ES the system-only block was absolute — out-of-band writes went
-    // through resolver.set, bypassing the whole access layer. Post-ES
-    // every write flows through this handler + executor, so the escape
-    // hatch becomes explicit: SYSTEM_ROLE (jobs / seeds / framework-
-    // internal work) may write; everyone else is rejected.
-    if (userRoles.includes(SYSTEM_ROLE)) return null;
+  // Direct grant first: matches SYSTEM_ROLE for the machine actor (jobs /
+  // seeds / framework-internal work) AND a human role (e.g. SystemAdmin)
+  // that the write-set lists. A privileged key (`["system", "SystemAdmin"]`)
+  // is therefore writable by BOTH — the escape hatch and the operator —
+  // which is what the derived configEdit screen (build-config-feature-schema
+  // scopedKeysAt) already assumes when it surfaces the key to a human.
+  if (hasConfigAccess(keyDef.access.write, userRoles)) return null;
+  // No direct grant. A key whose only writer is SYSTEM_ROLE is machine-only
+  // (the `access.system` preset): no human may write it, distinct error so
+  // the UI can explain "operator/job-only".
+  const humanWriters = keyDef.access.write.filter((role) => role !== SYSTEM_ROLE);
+  if (humanWriters.length === 0) {
     return new AccessDeniedError({
       message: "config key is system-only",
       i18nKey: "config.errors.systemOnly",
       details: { reason: ConfigErrors.systemOnly },
     });
   }
-  if (!hasConfigAccess(keyDef.access.write, userRoles)) {
-    return new AccessDeniedError({
-      message: "config write access denied",
-      details: { requiredRoles: keyDef.access.write },
-    });
-  }
-  return null;
+  return new AccessDeniedError({
+    message: "config write access denied",
+    details: { requiredRoles: keyDef.access.write },
+  });
 }
 
 export function validateScope(

@@ -105,6 +105,40 @@ describe("prepareConfigWrite", () => {
     expect(result.failure.error.i18nKey).toBe("config.errors.systemOnly");
   });
 
+  test("privileged key (system + SystemAdmin) is writable by a human SystemAdmin", () => {
+    // The derived configEdit screen surfaces a `access.privileged`
+    // (`["system","SystemAdmin"]`) key to a human SystemAdmin (e.g. Stripe
+    // billing-live). The write must succeed — "system in the write-set"
+    // means machine-OR-operator, not machine-only.
+    const privilegedKey = createSystemConfig("boolean", { write: access.privileged });
+    const result = prepareConfigWrite({
+      registry: registryStub({ "ns:config:billing-live": privilegedKey }),
+      user: userStub(["SystemAdmin"], SYSTEM_TENANT_ID, "sysadmin-1"),
+      key: "ns:config:billing-live",
+      scope: ConfigScopes.system,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("unreachable");
+    expect(result.keyDef).toBe(privilegedKey);
+  });
+
+  test("privileged key stays blocked for a non-SystemAdmin human (generic denied, not system-only)", () => {
+    // Security: the human half of `privileged` is SystemAdmin only — a plain
+    // Admin must NOT inherit it. And the error is the generic access-denied,
+    // not systemOnly (the key has a human writer, it just isn't this user).
+    const privilegedKey = createSystemConfig("boolean", { write: access.privileged });
+    const result = prepareConfigWrite({
+      registry: registryStub({ "ns:config:billing-live": privilegedKey }),
+      user: userStub(["Admin"]),
+      key: "ns:config:billing-live",
+      scope: ConfigScopes.system,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("unreachable");
+    expect(result.failure.error.code).toBe("access_denied");
+    expect(result.failure.error.i18nKey).not.toBe("config.errors.systemOnly");
+  });
+
   test("ok-path falls back to the key's declared scope when no scope is passed", () => {
     const result = prepareConfigWrite({
       registry: registryStub({ "ns:config:foo": TENANT_KEY_DEF }),

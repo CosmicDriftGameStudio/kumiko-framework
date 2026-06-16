@@ -175,6 +175,20 @@ const integrationFeature = defineFeature("integration", (r) => {
         default: "initial",
         write: access.roles("Admin"),
       }),
+      // Settings-Hub system-scope proxies for the derived Stripe screen: a
+      // privileged boolean (billing-live = machine OR human-SystemAdmin) and
+      // an encrypted system secret (api-key). Both are surfaced to a human
+      // SystemAdmin by build-config-feature-schema and must be SET-able by them.
+      billingLive: createSystemConfig("boolean", {
+        default: false,
+        write: access.privileged,
+        read: access.admin,
+      }),
+      systemSecret: createSystemConfig("text", {
+        write: access.systemAdmin,
+        read: access.systemAdmin,
+        encrypted: true,
+      }),
     },
   });
 });
@@ -324,6 +338,42 @@ describe("scenario 1: system-scoped service URL", () => {
         key: "app:config:service-url",
         value: "https://hacked.com",
       },
+      tenantAdmin,
+    );
+    expectErrorIncludes(error, "access_denied");
+  });
+});
+
+// Settings-Hub round-trip: a human SystemAdmin saves the system-scope keys
+// the derived configEdit screen surfaces (privileged boolean + encrypted
+// secret), then reads them back. Regression for the checkWriteAccess bug
+// that rejected the operator on a `privileged` key with config.errors.systemOnly.
+describe("Settings-Hub system-scope write by a human SystemAdmin", () => {
+  const sysAccessor = () =>
+    createConfigAccessor(stack.registry, resolver, systemAdmin.tenantId, systemAdmin.id, db);
+
+  test("saves a privileged boolean (billing-live) and reads it back", async () => {
+    await stack.http.writeOk(
+      ConfigHandlers.set,
+      { key: "integration:config:billing-live", value: true, scope: "system" },
+      systemAdmin,
+    );
+    expect(await sysAccessor()("integration:config:billing-live")).toBe(true);
+  });
+
+  test("saves an encrypted system secret (api-key) and reads it back decrypted", async () => {
+    await stack.http.writeOk(
+      ConfigHandlers.set,
+      { key: "integration:config:system-secret", value: "sk_live_roundtrip", scope: "system" },
+      systemAdmin,
+    );
+    expect(await sysAccessor()("integration:config:system-secret")).toBe("sk_live_roundtrip");
+  });
+
+  test("a plain tenant Admin is denied the privileged key (not via system-only)", async () => {
+    const error = await stack.http.writeErr(
+      ConfigHandlers.set,
+      { key: "integration:config:billing-live", value: false, scope: "system" },
       tenantAdmin,
     );
     expectErrorIncludes(error, "access_denied");
