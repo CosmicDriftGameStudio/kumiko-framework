@@ -7,6 +7,7 @@ import { createKumikoApp, DefaultAppShell } from "@cosmicdrift/kumiko-renderer-w
 import { type ReactNode, StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { ComboboxTestPage } from "./combobox-page";
+import { DateTestPage } from "./date-page";
 import { createMockDispatcher } from "./mock-dispatcher";
 import { e2eSchema } from "./schema";
 
@@ -18,6 +19,14 @@ if (path.startsWith("/combobox")) {
   createRoot(root).render(
     <StrictMode>
       <ComboboxTestPage />
+    </StrictMode>,
+  );
+} else if (path.startsWith("/date")) {
+  const root = document.getElementById("root");
+  if (root === null) throw new Error("renderer-web/e2e: #root not found");
+  createRoot(root).render(
+    <StrictMode>
+      <DateTestPage />
     </StrictMode>,
   );
 } else {
