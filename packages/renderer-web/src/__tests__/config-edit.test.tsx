@@ -219,10 +219,12 @@ describe("KumikoScreen / configEdit", () => {
     await waitFor(() =>
       expect(field.querySelectorAll('[data-testid="config-cascade"]')).toHaveLength(1),
     );
-    expect(field.querySelectorAll('[data-testid="config-source-badge"]')).toHaveLength(1);
-    // Badge inline am Label, Disclosure unter dem Input — nicht umgekehrt.
+    // Eine einzige Status-Stelle pro Feld: die Cascade-Disclosure unter dem
+    // Input trägt Quelle + Wert. Das frühere Label-Badge war redundant und
+    // wurde entfernt (User-Feedback "2× Fehlt").
+    expect(field.querySelectorAll('[data-testid="config-source-badge"]')).toHaveLength(0);
     const label = field.querySelector("label");
-    expect(label?.querySelector('[data-testid="config-source-badge"]')).toBeTruthy();
+    expect(label?.querySelector('[data-testid="config-source-badge"]')).toBeNull();
     expect(label?.querySelector('[data-testid="config-cascade"]')).toBeNull();
   });
 });

@@ -15,11 +15,17 @@ export const defaultTranslations: TranslationsByLocale = {
     "config.settings.system": "Plattform",
     "config.settings.tenant": "Organisation",
     "config.settings.user": "Persönlich",
+    "config.errors.systemOnly": "Dieser Wert kann nur vom System gesetzt werden.",
+    "config.errors.invalidScope": "Diese Ebene ist für diesen Schlüssel nicht zulässig.",
+    "config.errors.unknownKey": "Unbekannter Konfigurationsschlüssel.",
   },
   en: {
     "config.settings.title": "Settings",
     "config.settings.system": "Platform",
     "config.settings.tenant": "Organization",
     "config.settings.user": "Personal",
+    "config.errors.systemOnly": "This value can only be set by the system.",
+    "config.errors.invalidScope": "This scope is not allowed for this key.",
+    "config.errors.unknownKey": "Unknown configuration key.",
   },
 };
