@@ -1,4 +1,4 @@
-import type { ConfigCascade, ConfigValueSource } from "@cosmicdrift/kumiko-framework/engine";
+import type { ConfigCascade } from "@cosmicdrift/kumiko-framework/engine";
 import type {
   ActionFormScreenDefinition,
   ConfigEditScreenDefinition,
@@ -1032,7 +1032,7 @@ function ConfigEditBody({
   readonly screen: ConfigEditScreenDefinition;
   readonly translate?: Translate;
 }): ReactNode {
-  const { Banner, ConfigSourceBadge, ConfigCascadeView } = usePrimitives();
+  const { Banner, ConfigCascadeView } = usePrimitives();
   const dispatcher = useDispatcher();
 
   // Detail-Load: config:query:values returnt ALLE Keys des Tenants.
@@ -1080,19 +1080,6 @@ function ConfigEditBody({
     }
     return out as FormValues;
   }, [valuesQuery.data, screen.fields, screen.configKeys]);
-
-  // Sources-Lookup: qualifiedKey → ConfigValueSource für das
-  // ConfigSourceBadge. Wird via labelAppendix an RenderEdit
-  // durchgereicht.
-  const sources = useMemo<Record<string, ConfigValueSource>>(() => {
-    if (valuesQuery.data === null) return {};
-    const out: Record<string, ConfigValueSource> = {};
-    for (const [shortName, qualified] of Object.entries(screen.configKeys)) {
-      const source = valuesQuery.data[qualified]?.source as ConfigValueSource | undefined; // @cast-boundary engine-payload
-      if (source !== undefined) out[shortName] = source;
-    }
-    return out;
-  }, [valuesQuery.data, screen.configKeys]);
 
   // Cascade-Lookup: qualifiedKey → ConfigCascade für die
   // Cascade-Anzeige unter jedem Feld. Defensive `levels`-Shape-Check
@@ -1172,12 +1159,6 @@ function ConfigEditBody({
       customSubmit={customSubmit}
       {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
       {...(translate !== undefined && { translate })}
-      labelAppendix={(fieldName: string) => {
-        const source = sources[fieldName];
-        return source ? (
-          <ConfigSourceBadge source={source} screenScope={screen.scope} />
-        ) : undefined;
-      }}
       fieldAppendix={(fieldName: string) => {
         const cascade = cascades[fieldName];
         if (cascade === undefined) return undefined;

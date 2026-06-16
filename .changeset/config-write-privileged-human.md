@@ -21,3 +21,7 @@ only returns `systemOnly` for a key whose *sole* writer is `SYSTEM_ROLE`
 Also ships default German/English translations for the `config.errors.*`
 keys (`systemOnly`, `invalidScope`, `unknownKey`) via `configClient()`, so
 config write errors render as text instead of a raw i18n key.
+
+The derived configEdit screen no longer renders a source badge next to each
+field label — that duplicated the source shown by the cascade disclosure
+below the input (one "Fehlt"/"System" badge per field instead of two).
