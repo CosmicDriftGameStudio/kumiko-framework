@@ -107,15 +107,7 @@ const dropdownSelectClass =
 // Tokens überschreiben, greift diese Positionierung nicht → Label doppelt
 // (#369-Folgebug). Ein nacktes <select> ohne Begleit-Span vermeidet das
 // CSS-unabhängig — eine Quelle für den sichtbaren Wert.
-function SelectDropdown({
-  options,
-  className,
-  // components/classNames reicht rdp mit durch — keine validen <select>-
-  // Attribute, daher hier rausgezogen statt mitzuspreaden.
-  components: _components,
-  classNames: _classNames,
-  ...selectProps
-}: DropdownProps): ReactElement {
+function SelectDropdown({ options, className, ...selectProps }: DropdownProps): ReactElement {
   return (
     <select className={cn(dropdownSelectClass, className)} {...selectProps}>
       {options?.map((opt) => (

@@ -48,11 +48,11 @@ const hasBun = typeof (globalThis as { Bun?: unknown }).Bun !== "undefined";
 // and only resolve the type when Bun is actually around.
 type BunServer = typeof Bun extends undefined ? unknown : ReturnType<typeof Bun.serve>;
 
+// @wrapper-known semantic-alias
 // biome-ignore lint/suspicious/noConsole: dev-server status logging
-// @wrapper-known semantic-alias
 const logInfo = (msg: string): void => console.log(msg);
-// biome-ignore lint/suspicious/noConsole: dev-server error logging
 // @wrapper-known semantic-alias
+// biome-ignore lint/suspicious/noConsole: dev-server error logging
 const logError = (...args: unknown[]): void => console.error(...args);
 
 /** Multi-Entry-Mode für Apps die mehrere getrennte Bundles ausliefern
