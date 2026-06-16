@@ -77,7 +77,8 @@ export function runCodegen(opts: CodegenOptions): CodegenResult {
   mkdirSync(outputDir, { recursive: true });
 
   const typesContent = renderTypesAugmentation(scan.events, outputDir);
-  const defineContent = renderDefineFile();
+  const handlerQns = opts.handlerQns ?? readHandlerQnsFromManifest(opts.appRoot);
+  const defineContent = renderDefineFile(handlerQns);
   const schemasContent = renderInlineSchemasFile(scan.events, opts.appRoot);
   // package.json — turns `.kumiko/` into a real installable package
   // named `@app/define`. Apps that declare
@@ -90,7 +91,6 @@ export function runCodegen(opts: CodegenOptions): CodegenResult {
   // WriteHandlerQn-Union an den types-Content anhängen (optional). Der
   // Dev-Server übergibt handlerQns aus der lebenden Registry (genauer);
   // der CLI-Fallback liest das feature-manifest.json falls vorhanden.
-  const handlerQns = opts.handlerQns ?? readHandlerQnsFromManifest(opts.appRoot);
   const finalTypesContent =
     handlerQns.length > 0 ? `${typesContent}${renderWriteHandlerTypes(handlerQns)}` : typesContent;
 

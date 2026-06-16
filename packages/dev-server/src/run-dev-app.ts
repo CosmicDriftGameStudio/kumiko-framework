@@ -38,6 +38,7 @@ import {
   type SessionUser,
   type TenantId,
   type TierResolverPlugin,
+  validateAppCustomScreenWriteQns,
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";
@@ -192,6 +193,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // CrashLoopBackOff sterben ließ (#359). Wirft synchron, bevor ein
   // Socket oder Watcher (codegen-Write) aufgeht.
   validateBoot(features);
+  validateAppCustomScreenWriteQns(process.cwd(), collectWriteHandlerQns(features));
 
   // Codegen + File-Watcher — schreibt `<appRoot>/.kumiko/types.generated.d.ts`
   // + `define.ts` aus den r.defineEvent-Aufrufen der App, einmal beim

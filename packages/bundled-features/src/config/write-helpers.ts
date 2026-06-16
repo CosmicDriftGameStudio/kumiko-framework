@@ -101,6 +101,9 @@ export function prepareConfigWrite(args: PrepareConfigWriteArgs): PrepareConfigW
   if (writeError) return { ok: false, failure: writeFailure(writeError) };
 
   const scope = requestedScope ?? keyDef.scope;
+  const scopeWriteError = checkScopeWriteAccess(scope, user.roles);
+  if (scopeWriteError) return { ok: false, failure: writeFailure(scopeWriteError) };
+
   const { tenantId, userId } = resolveScopeIds(scope, user.tenantId, user.id);
   return { ok: true, keyDef, scope, tenantId, userId };
 }
@@ -138,6 +141,24 @@ export function checkWriteAccess(
   return new AccessDeniedError({
     message: "config write access denied",
     details: { requiredRoles: keyDef.access.write },
+  });
+}
+
+/**
+ * Level-aware write gate: writing the system-row (platform default) requires
+ * SystemAdmin even when the key's flat write-set includes TenantAdmin.
+ */
+export function checkScopeWriteAccess(
+  scope: ConfigScope,
+  userRoles: readonly string[],
+): KumikoError | null {
+  if (scope !== ConfigScopes.system) return null;
+  if (userRoles.includes(SYSTEM_ROLE)) return null;
+  if (userRoles.includes("SystemAdmin")) return null;
+  return new AccessDeniedError({
+    message: "system-scope config write requires SystemAdmin",
+    i18nKey: "config.errors.systemScopeWriteDenied",
+    details: { reason: ConfigErrors.systemScopeWriteDenied, scope },
   });
 }
 

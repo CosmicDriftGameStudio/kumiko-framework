@@ -169,7 +169,35 @@ export function renderInlineSchemasFile(
  * the import back to "@cosmicdrift/kumiko-framework/engine" and you're back on the
  * loose default. Migration is reversible, no behavioural surface change.
  */
-export function renderDefineFile(): string {
+export function renderDefineFile(handlerQns: readonly string[] = []): string {
+  const typedDispatcherBlock =
+    handlerQns.length > 0
+      ? [
+          "",
+          `import type { Dispatcher, WriteOpts, WriteResult } from "@cosmicdrift/kumiko-headless";`,
+          "",
+          `export type { WriteHandlerQn } from "./types.generated";`,
+          "",
+          `/** Dispatcher with write() narrowed to registered handler QNs. */`,
+          `export type TypedDispatcher = Omit<Dispatcher, "write"> & {`,
+          `  write<TData = unknown>(`,
+          `    type: WriteHandlerQn,`,
+          `    payload: unknown,`,
+          `    opts?: WriteOpts,`,
+          `  ): Promise<WriteResult<TData>>;`,
+          `};`,
+          "",
+          `/** Wrap any Dispatcher so write() only accepts registered QNs at compile time. */`,
+          `export function createTypedDispatcher(dispatcher: Dispatcher): TypedDispatcher {`,
+          `  return {`,
+          `    ...dispatcher,`,
+          `    write: (type, payload, opts) => dispatcher.write(type, payload, opts),`,
+          `  };`,
+          `}`,
+          "",
+        ].join("\n")
+      : "";
+
   const body = [
     HEADER,
     "",
@@ -228,7 +256,7 @@ export function renderDefineFile(): string {
     `): QueryHandlerDefinition<TName, TSchema, TResult, KumikoEventTypeMap> {`,
     `  return fwDefineQueryHandler<TName, TSchema, TResult, KumikoEventTypeMap>(def);`,
     `}`,
-    "",
+    typedDispatcherBlock,
   ].join("\n");
 
   return body;

@@ -144,6 +144,43 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
     expect(doc?.fields).toMatchObject({ title: "real-value", flatTags: "a,b" });
     expect(warnSpy).not.toHaveBeenCalled();
   });
+
+  test("collision dedup — same collision warns exactly once across calls", async () => {
+    const feature = defineFeature("test", (r) => {
+      const thing = r.entity(
+        "thing-dedup",
+        createEntity({
+          table: "things_dedup",
+          fields: { title: createTextField({ searchable: true }) },
+        }),
+      );
+      r.searchPayloadExtension(thing, () => ({ title: "from-contributor" }));
+    });
+    const registry = createRegistry([feature]);
+    await buildSearchDocument("thing-dedup", "t1", { title: "real-value" }, registry);
+    await buildSearchDocument("thing-dedup", "t1", { title: "real-value" }, registry);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("contributor-vs-contributor collision warns with the right message", async () => {
+    const feature = defineFeature("test", (r) => {
+      const thing = r.entity(
+        "thing",
+        createEntity({ table: "things", fields: { title: createTextField({ searchable: true }) } }),
+      );
+      r.searchPayloadExtension(thing, () => ({ overlap: "first" }));
+      r.searchPayloadExtension(thing, () => ({ overlap: "second" }));
+    });
+    const registry = createRegistry([feature]);
+
+    const doc = await buildSearchDocument("thing", "t1", { title: "real-value" }, registry);
+    // Stammfield title → no collision. overlap is NOT a Stammfield, so the
+    // second contributor's "overlap" collides with the first one's → "earlier contributor key".
+    expect(doc?.fields["title"]).toBe("real-value");
+    expect(doc?.fields["overlap"]).toBe("first");
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy.mock.calls[0][0]).toContain("earlier contributor key");
+  });
 });
 
 describe("Boot-Validation", () => {
