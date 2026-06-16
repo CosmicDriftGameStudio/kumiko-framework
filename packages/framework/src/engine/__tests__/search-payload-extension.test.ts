@@ -179,7 +179,7 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
     expect(doc?.fields["title"]).toBe("real-value");
     expect(doc?.fields["overlap"]).toBe("first");
     expect(warnSpy).toHaveBeenCalledTimes(1);
-    expect(warnSpy.mock.calls[0][0]).toContain("earlier contributor key");
+    expect(warnSpy.mock.calls[0]?.[0]).toContain("earlier contributor key");
   });
 });
 

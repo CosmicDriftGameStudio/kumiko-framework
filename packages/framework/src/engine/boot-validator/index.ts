@@ -39,11 +39,11 @@ import {
   validateWorkspaces,
 } from "./screens-nav";
 
+export { validateAppCustomScreenWriteQns } from "./custom-screen-write-qns";
 // Re-export: wird von run-dev-app.ts benötigt um Write-Handler-QNs
 // an den Codegen zu übergeben. Nicht Teil von validateBoot, aber
 // dieselbe Extraktionslogik.
 export { collectWriteHandlerQns } from "./screens-nav";
-export { validateAppCustomScreenWriteQns } from "./custom-screen-write-qns";
 
 /**
  * Validates all feature configurations at boot time.
