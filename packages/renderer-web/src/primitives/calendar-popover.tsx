@@ -110,10 +110,6 @@ const dropdownSelectClass =
 function SelectDropdown({
   options,
   className,
-  // components/classNames reicht rdp mit durch — keine validen <select>-
-  // Attribute, daher hier rausgezogen statt mitzuspreaden.
-  components: _components,
-  classNames: _classNames,
   ...selectProps
 }: DropdownProps): ReactElement {
   return (
