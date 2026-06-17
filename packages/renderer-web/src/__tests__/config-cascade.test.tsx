@@ -80,7 +80,11 @@ describe("ConfigCascadeView — i18n (Bug 7)", () => {
 describe("ConfigCascadeView — Scope-Filter (Bug 8)", () => {
   test("screenScope=tenant: Operator-Ebenen sind unsichtbar, EIN neutraler Standard-Fallback bleibt", async () => {
     const user = userEvent.setup();
-    const view = render(<ConfigCascadeView cascade={tenantCascade()} screenScope="tenant" />);
+    // tenant-Override → aufklappbar; das Panel muss die Operator-Ebenen
+    // trotzdem verbergen (Scope-Filter), nur Tenant + Standard zeigen.
+    const view = render(
+      <ConfigCascadeView cascade={tenantCascade({ tenantValue: "acme" })} screenScope="tenant" />,
+    );
     await user.click(screen.getByRole("button"));
 
     // Sichtbar: Tenant-Zeile + genau eine neutrale "Standard"-Zeile (Bug-Bash 3
@@ -96,20 +100,17 @@ describe("ConfigCascadeView — Scope-Filter (Bug 8)", () => {
     expect(view.container.textContent).toContain("fallback");
   });
 
-  test("screenScope=tenant mit aktivem System-Wert: Standard-Zeile zeigt den effektiven Wert, nicht die Quelle", async () => {
-    const user = userEvent.setup();
+  test("screenScope=tenant mit aktivem System-Wert: Standard-Zeile zeigt den effektiven Wert neutral, nicht aufklappbar", async () => {
     const view = render(
       <ConfigCascadeView cascade={tenantCascade({ systemActive: true })} screenScope="tenant" />,
     );
-    // Collapsed-Header leakt die Operator-Quelle nicht …
+    // Effektiver Wert sichtbar, Operator-Quelle neutral als "Standard"
+    // maskiert. Nur eine Wert-Ebene (der geerbte System-Wert) → kein
+    // Aufklappen, das Panel wäre nur eine Wiederholung.
     expect(view.container.textContent).toContain("Default");
     expect(view.container.textContent).toContain("system-smtp");
     expect(view.container.textContent).not.toContain("System");
-
-    // … und expanded genauso: effektiver Wert sichtbar, Quelle neutral.
-    await user.click(screen.getAllByRole("button")[0] as HTMLElement);
-    expect(view.container.textContent).toContain("system-smtp");
-    expect(view.container.textContent).not.toContain("System");
+    expect(view.queryByRole("button")).toBeNull();
   });
 
   test("screenScope=system: Operator sieht weiterhin die volle Cascade", async () => {
@@ -141,8 +142,7 @@ describe("ConfigCascadeView — Scope-Filter (Bug 8)", () => {
     expect(resets).toEqual([{ key: "branding.title", scope: "tenant" }]);
   });
 
-  test("ohne eigene Überschreibung: kein Reset-Button", async () => {
-    const user = userEvent.setup();
+  test("reines Default-Feld (kein Override, ein Wert): nicht aufklappbar, kein Button/Panel/Reset", async () => {
     const view = render(
       <ConfigCascadeView
         cascade={tenantCascade()}
@@ -151,7 +151,10 @@ describe("ConfigCascadeView — Scope-Filter (Bug 8)", () => {
         onReset={() => undefined}
       />,
     );
-    await user.click(screen.getByRole("button"));
+    // Nichts aufzuklappen → statische Zeile statt Aufklapp-Button.
+    expect(view.queryByRole("button")).toBeNull();
+    expect(view.container.textContent).toContain("Default");
+    expect(view.container.textContent).toContain("fallback");
     expect(view.queryByText("Reset override (Tenant)")).toBeNull();
   });
 });

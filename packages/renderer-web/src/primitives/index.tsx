@@ -149,24 +149,31 @@ function DefaultField({
   const hasError = issues !== undefined && issues.length > 0;
   return (
     <div data-testid={testId} className="flex flex-col gap-1.5">
-      <LabelPrimitive.Root
-        htmlFor={id}
-        className={cn(
-          // peer-disabled-Sentinel: shadcn-Pattern — wenn das assoziierte
-          // Input disabled ist (peer + disabled-Klasse), wird das Label
-          // mitgrayout. Funktioniert weil Radix-Label das nativ-htmlFor-
-          // verlinkte Element als Peer betrachtet.
-          "text-sm font-medium leading-none",
-          "peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
-          hasError ? "text-destructive" : "text-foreground",
-        )}
-      >
-        {label}
-        {labelAppendix !== undefined && <>{labelAppendix}</>}
-        {required === true && <span className="ml-0.5 text-destructive">*</span>}
-      </LabelPrimitive.Root>
+      <div className="flex items-center justify-between gap-2">
+        <LabelPrimitive.Root
+          htmlFor={id}
+          className={cn(
+            // peer-disabled-Sentinel: shadcn-Pattern — wenn das assoziierte
+            // Input disabled ist (peer + disabled-Klasse), wird das Label
+            // mitgrayout. Funktioniert weil Radix-Label das nativ-htmlFor-
+            // verlinkte Element als Peer betrachtet.
+            "text-sm font-medium leading-none",
+            "peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
+            hasError ? "text-destructive" : "text-foreground",
+          )}
+        >
+          {label}
+          {required === true && <span className="ml-0.5 text-destructive">*</span>}
+        </LabelPrimitive.Root>
+        {/* appendix neben dem <label>, nicht darin — interaktiver Inhalt
+            (Disclosure-Button) gehört nicht in ein label-Element. */}
+        {labelAppendix !== undefined && labelAppendix}
+      </div>
+      {/* fieldAppendix (Cascade-Detail-Panel) über dem Input — das
+          aufgeklappte Detail gehört direkt unter seinen Trigger in der
+          Label-Row, nicht durch den Input davon getrennt. */}
+      {fieldAppendix !== undefined && fieldAppendix}
       {children}
-      {fieldAppendix !== undefined && <div className="mt-1">{fieldAppendix}</div>}
       {hasError && (
         <div
           role="alert"

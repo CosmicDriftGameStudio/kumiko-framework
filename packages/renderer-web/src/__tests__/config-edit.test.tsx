@@ -227,4 +227,74 @@ describe("KumikoScreen / configEdit", () => {
     expect(label?.querySelector('[data-testid="config-source-badge"]')).toBeNull();
     expect(label?.querySelector('[data-testid="config-cascade"]')).toBeNull();
   });
+
+  // Regression #430: nach "Speichern" zeigte die Cascade-Disclosure den
+  // alten Wert bis zum Page-Reload — customSubmit rebased nur den Form-State
+  // (controller.rebase), refetchte aber values/cascade NICHT (onReset tat es).
+  // Guard: nach erfolgreichem Save MUSS jede der beiden Queries erneut laufen.
+  test("save refetcht values + cascade — Disclosure nach Speichern aktuell, nicht erst nach Reload", async () => {
+    const queryCalls: Record<string, number> = {};
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async (qn: string) => {
+        queryCalls[qn] = (queryCalls[qn] ?? 0) + 1;
+        if (qn === "config:query:cascade") {
+          return {
+            isSuccess: true,
+            data: {
+              "demo:config:site-name": {
+                value: "Acme",
+                source: "tenant-row",
+                levels: [
+                  {
+                    source: "tenant-row",
+                    label: "tenant-row",
+                    value: "Acme",
+                    isActive: true,
+                    hasValue: true,
+                  },
+                  {
+                    source: "default",
+                    label: "default",
+                    value: "fallback",
+                    isActive: false,
+                    hasValue: true,
+                  },
+                ],
+              },
+            },
+          };
+        }
+        return {
+          isSuccess: true,
+          data: {
+            "demo:config:site-name": { value: "Acme", scope: "tenant", source: "tenant-row" },
+          },
+        };
+      }) as unknown as Dispatcher["query"],
+      batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
+    });
+
+    const user = userEvent.setup();
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={schema} qn="demo:screen:settings" />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const cascadeBefore = queryCalls["config:query:cascade"] ?? 0;
+    const valuesBefore = queryCalls["config:query:values"] ?? 0;
+
+    const siteInput = screen.getByTestId("field-siteName").querySelector("input");
+    if (!siteInput) throw new Error("expected siteName input");
+    await user.clear(siteInput);
+    await user.type(siteInput, "Globex");
+    await user.click(screen.getByTestId("render-edit-submit"));
+
+    // Ohne den refetch im customSubmit bleiben beide Counts flat (rot).
+    await waitFor(() => {
+      expect(queryCalls["config:query:cascade"] ?? 0).toBeGreaterThan(cascadeBefore);
+    });
+    expect(queryCalls["config:query:values"] ?? 0).toBeGreaterThan(valuesBefore);
+  });
 });

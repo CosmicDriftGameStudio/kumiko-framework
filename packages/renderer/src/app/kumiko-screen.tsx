@@ -1124,10 +1124,27 @@ function ConfigEditBody({
       if (!result.isSuccess) {
         return { validationBlocked: false, isSuccess: false, error: result.error };
       }
+      // Cascade-Disclosure + Maskenwerte nach dem Write nachziehen, sonst
+      // bleibt die Anzeige stale bis Reload — gleiche refetch-Calls wie onReset.
+      await valuesQuery.refetch?.();
+      await cascadeQuery.refetch?.();
       return { validationBlocked: false, isSuccess: true, data: undefined };
     },
-    [dispatcher, screen.configKeys, screen.scope],
+    [dispatcher, screen.configKeys, screen.scope, valuesQuery.refetch, cascadeQuery.refetch],
   );
+
+  // Cascade-Disclosure (#429): Trigger sitzt in der Label-Row, das Panel
+  // unter dem Input — zwei getrennte Render-Slots teilen sich den
+  // expanded-State, der daher hier (pro Feld) statt in der Komponente lebt.
+  const [expandedFields, setExpandedFields] = useState<ReadonlySet<string>>(new Set());
+  const toggleExpanded = useCallback((fieldName: string) => {
+    setExpandedFields((prev) => {
+      const next = new Set(prev);
+      if (next.has(fieldName)) next.delete(fieldName);
+      else next.add(fieldName);
+      return next;
+    });
+  }, []);
 
   if (valuesQuery.loading && valuesQuery.data === null) {
     return (
@@ -1159,13 +1176,30 @@ function ConfigEditBody({
       customSubmit={customSubmit}
       {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
       {...(translate !== undefined && { translate })}
-      fieldAppendix={(fieldName: string) => {
+      labelAppendix={(fieldName: string) => {
         const cascade = cascades[fieldName];
         if (cascade === undefined) return undefined;
         return (
           <ConfigCascadeView
+            slot="trigger"
             cascade={cascade}
             screenScope={screen.scope}
+            expanded={expandedFields.has(fieldName)}
+            onToggle={() => toggleExpanded(fieldName)}
+          />
+        );
+      }}
+      fieldAppendix={(fieldName: string) => {
+        const cascade = cascades[fieldName];
+        // Panel nur rendern wenn aufgeklappt — sonst kein leerer Abstand
+        // unter dem Input.
+        if (cascade === undefined || !expandedFields.has(fieldName)) return undefined;
+        return (
+          <ConfigCascadeView
+            slot="panel"
+            cascade={cascade}
+            screenScope={screen.scope}
+            expanded
             qualifiedKey={screen.configKeys[fieldName]}
             onReset={async (key, scope) => {
               await dispatcher.write("config:write:reset", { key, scope });
