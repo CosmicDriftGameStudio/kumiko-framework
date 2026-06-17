@@ -63,6 +63,7 @@ export function validateExtensionPreSaveWiring(features: readonly FeatureDefinit
       if (def.hooks?.preSave) extensionsWithPreSave.add(extName);
     }
   }
+  // skip: no extensions declare preSave hooks — nothing to validate
   if (extensionsWithPreSave.size === 0) return;
 
   const entitiesWithMappedWrites = new Set<string>();

@@ -181,11 +181,13 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       if (entities[candidate]) {
         handlerEntityMappings[handlerName] = candidate;
       }
+      // skip: colon-prefixed handler processed (mapped or not), bare CRUD path not applicable
       return;
     }
     if (CRUD_VERBS.has(handlerName)) {
       if (entities[name]) {
         handlerEntityMappings[handlerName] = name;
+        // skip: feature-name entity match is the preferred mapping
         return;
       }
       const entityKeys = Object.keys(entities);
