@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEncryptionProvider,
   type DbConnection,
@@ -368,6 +368,61 @@ describe("Settings-Hub system-scope write by a human SystemAdmin", () => {
       systemAdmin,
     );
     expect(await sysAccessor()("integration:config:system-secret")).toBe("sk_live_roundtrip");
+  });
+
+  // Prod scenario: the value already EXISTS (Stripe screen with stored keys),
+  // SystemAdmin clicks Speichern → set.write takes the executor.update path,
+  // not create. That path was never covered → version-conflict surfaced only
+  // in prod. Three consecutive re-saves catch a stale-version regression.
+  test("re-saving an existing plain config key (update path) does not version-conflict", async () => {
+    for (const value of [false, true, false]) {
+      await stack.http.writeOk(
+        ConfigHandlers.set,
+        { key: "integration:config:billing-live", value, scope: "system" },
+        systemAdmin,
+      );
+      expect(await sysAccessor()("integration:config:billing-live")).toBe(value);
+    }
+  });
+
+  test("re-saving an existing secrets-backed key (update path) does not version-conflict", async () => {
+    for (const value of ["sk_live_v2", "sk_live_v3"]) {
+      await stack.http.writeOk(
+        ConfigHandlers.set,
+        { key: "integration:config:system-secret", value, scope: "system" },
+        systemAdmin,
+      );
+      expect(await sysAccessor()("integration:config:system-secret")).toBe(value);
+    }
+  });
+
+  test("save survives a projection/stream version desync (the prod cut-over symptom)", async () => {
+    // Reproduces admin.publicstatus.eu: a config value whose read-row version
+    // drifted from its event-stream version (migration wrote the row outside
+    // the event flow). With optimistic locking this version-conflicts on every
+    // save. The handler now skips the lock and appends at the real stream
+    // version, so the save succeeds AND the projection resyncs.
+    await stack.http.writeOk(
+      ConfigHandlers.set,
+      { key: "integration:config:billing-live", value: true, scope: "system" },
+      systemAdmin,
+    );
+    // Corrupt the projection version so it no longer matches the stream.
+    await asRawClient(db).unsafe(
+      "UPDATE read_config_values SET version = version + 5 WHERE key = 'integration:config:billing-live'",
+    );
+
+    // Two consecutive saves: the first proves the lock is bypassed, the second
+    // proves the projection actually resynced (a stale version wouldn't drift
+    // back into conflict).
+    for (const value of [false, true]) {
+      await stack.http.writeOk(
+        ConfigHandlers.set,
+        { key: "integration:config:billing-live", value, scope: "system" },
+        systemAdmin,
+      );
+      expect(await sysAccessor()("integration:config:billing-live")).toBe(value);
+    }
   });
 
   test("a plain tenant Admin is denied the privileged key (not via system-only)", async () => {
