@@ -42,4 +42,46 @@ describe("buildManifestFromRegistry — deterministic codepoint sort (#330)", ()
       "demo:config:z-flag",
     ]);
   });
+
+  test("featureNames filter — nur genannte Features im Manifest", () => {
+    const registry = createRegistry([
+      defineFeature("alpha", () => {}),
+      defineFeature("beta", () => {}),
+      defineFeature("gamma", () => {}),
+    ]);
+
+    const manifest = buildManifestFromRegistry(registry, {
+      source: "test",
+      featureNames: new Set(["alpha", "gamma"]),
+    });
+
+    expect(manifest.features.map((f) => f.name)).toEqual(["alpha", "gamma"]);
+    expect(manifest.featureCount).toBe(2);
+  });
+
+  test("tier-Tagging — per-Feature + top-level im Manifest", () => {
+    const registry = createRegistry([
+      defineFeature("pro", () => {}),
+      defineFeature("free", () => {}),
+    ]);
+
+    const manifest = buildManifestFromRegistry(registry, {
+      source: "test",
+      tier: "enterprise",
+    });
+
+    expect(manifest.tier).toBe("enterprise");
+    for (const feature of manifest.features) {
+      expect(feature.tier).toBe("enterprise");
+    }
+  });
+
+  test("tier: undefined — weder per-Feature noch top-level vorhanden", () => {
+    const registry = createRegistry([defineFeature("basic", () => {})]);
+
+    const manifest = buildManifestFromRegistry(registry, { source: "test" });
+
+    expect(manifest.tier).toBeUndefined();
+    expect(manifest.features[0]?.tier).toBeUndefined();
+  });
 });
