@@ -1,5 +1,15 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.57.1
+
+### Patch Changes
+
+- d07ef3f: Smart entity mapping for bare CRUD write handlers (`create`/`update`/`delete`):
+  maps to the matching entity when the feature name matches or the feature owns
+  exactly one entity. Boot and registry validate extension `preSave` wiring so
+  handlers like `credit:write:create` wire `credit-cap` without `entity:verb`
+  handler names or 4-segment QNs.
+
 ## 0.57.0
 
 ### Minor Changes
