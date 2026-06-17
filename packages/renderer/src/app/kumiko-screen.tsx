@@ -1124,9 +1124,13 @@ function ConfigEditBody({
       if (!result.isSuccess) {
         return { validationBlocked: false, isSuccess: false, error: result.error };
       }
+      // Cascade-Disclosure + Maskenwerte nach dem Write nachziehen, sonst
+      // bleibt die Anzeige stale bis Reload — gleiche refetch-Calls wie onReset.
+      await valuesQuery.refetch?.();
+      await cascadeQuery.refetch?.();
       return { validationBlocked: false, isSuccess: true, data: undefined };
     },
-    [dispatcher, screen.configKeys, screen.scope],
+    [dispatcher, screen.configKeys, screen.scope, valuesQuery.refetch, cascadeQuery.refetch],
   );
 
   if (valuesQuery.loading && valuesQuery.data === null) {
