@@ -3,6 +3,17 @@ import { assertUnreachable } from "../utils";
 import type { EmbeddedSubFieldDef, EntityDefinition, FieldDefinition } from "./types";
 import { DEFAULT_CURRENCIES } from "./types";
 
+// True if `n` carries at most `scale` decimal places. A relative epsilon
+// tolerates float artifacts (`0.1 + 0.2 = 0.30000000000000004` is accepted at
+// scale 2) — the exact `toFixed`-roundtrip-equality it replaces rejected such
+// computed-but-in-scale values. A genuinely over-scale value (0.305 @ scale 2)
+// scales to ~30.5, far from any integer, and is still rejected.
+export function isRepresentableAtScale(n: number, scale: number): boolean {
+  const scaled = n * 10 ** scale;
+  const tolerance = Math.abs(scaled) * 8 * Number.EPSILON + Number.EPSILON;
+  return Math.abs(scaled - Math.round(scaled)) <= tolerance;
+}
+
 // Lexikografischer ISO-Vergleich — exakt für `yyyy-mm-dd` (date) und korrekt
 // für ISO-Datetime in konsistenter Repräsentation (gleiche Offset-/Präzisions-
 // Form). Bewusst ohne Date-API (no-date-api-Guard); die Tag-genaue Grenze
@@ -94,7 +105,7 @@ export function fieldToZod(field: FieldDefinition, currencies: readonly string[]
         .number()
         .gt(-limit)
         .lt(limit)
-        .refine((n) => Number(n.toFixed(field.scale)) === n, {
+        .refine((n) => isRepresentableAtScale(n, field.scale), {
           message: `at most ${field.scale} decimal places`,
         });
       return field.default !== undefined ? schema.default(field.default) : schema;

@@ -56,6 +56,17 @@ import type { RebuildResult } from "./projection-rebuild";
 //
 // Failure: outer catch writes status="dead" + lastError so ops sees the
 // failure after the TX rolled back. Use restartConsumer to clear dead.
+//
+// PRECONDITION (online-rebuild data-safety): an MSP `apply` MUST write ONLY its
+// own primary table. Replay runs with search_path pointed at the shadow schema,
+// so writes to the primary table land in the shadow — but a write to ANY OTHER
+// table (e.g. a saga side-effect on a second read-model) falls through to
+// `public`, i.e. the LIVE table, and runs concurrently with the live pipeline's
+// incremental applies to that same table → double-write corruption. The old
+// TRUNCATE path held ACCESS EXCLUSIVE and narrowed (not closed) this window; the
+// shadow-swap removes that brake entirely. Multi-table apply is not statically
+// detectable here (apply is an opaque callback), so this is enforced by
+// contract, not by a guard. See db/queries/shadow-swap.ts "Boundary".
 
 export type MspRebuildDeps = {
   readonly db: DbConnection;

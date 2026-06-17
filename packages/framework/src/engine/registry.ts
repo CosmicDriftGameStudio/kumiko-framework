@@ -1,4 +1,4 @@
-import { asEntityTableMeta } from "../bun-db/query";
+import { asEntityTableMeta } from "../db/query";
 import { applyEntityEvent } from "../db/apply-entity-event";
 import {
   assertBackingTableSuperset,

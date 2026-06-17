@@ -35,6 +35,15 @@ export type RequestDeletionByEmailOptions = {
   readonly sendDeletionVerificationEmail?: SendDeletionVerificationEmailFn;
 };
 
+// URL-safe append: handles a base URL that already carries query params
+// (`?lang=de` → `?lang=de&token=…`) instead of producing an invalid
+// `?lang=de?token=…`. searchParams.set encodes the token.
+export function buildDeletionVerifyUrl(base: string, token: string): string {
+  const url = new URL(base);
+  url.searchParams.set("token", token);
+  return url.toString();
+}
+
 // Anonymer Apex-Flow Schritt 1: "Account-Löschung beantragen" per Email.
 // DSGVO-relevant gerade wenn der User sich NICHT mehr einloggen kann
 // (Lockout). Email → Magic-Link → confirm-deletion-by-token.
@@ -71,7 +80,7 @@ export function createRequestDeletionByEmailHandler(opts: RequestDeletionByEmail
         DELETION_VERIFY_TTL_MINUTES,
         opts.deletionTokenSecret,
       );
-      const verifyUrl = `${opts.deletionVerifyUrl}?token=${encodeURIComponent(token)}`;
+      const verifyUrl = buildDeletionVerifyUrl(opts.deletionVerifyUrl, token);
 
       if (opts.sendDeletionVerificationEmail) {
         try {

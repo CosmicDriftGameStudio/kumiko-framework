@@ -36,7 +36,7 @@ const _dataRetention = createDataRetentionFeature();
 const _userDataRights = createUserDataRightsFeature();
 const _textContent = createTextContentFeature();
 const _templateResolver = createTemplateResolverFeature();
-const _managedPages = createManagedPagesFeature();
+const _managedPages = createManagedPagesFeature({ resolveApexTenant: () => null, allowCustomCss: true });
 const _customFields = customFieldsFeature;
 
 export const configValueTable = buildEntityTable("config-value", _config.entities["config-value"]!);

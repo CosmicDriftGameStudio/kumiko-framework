@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { EntityTableMeta } from "../../entity-table-meta";
-import { rebuildMetaOrThrow } from "../shadow-swap";
+import { fenceLiveTable, rebuildMetaOrThrow } from "../shadow-swap";
 
 const cleanMeta: EntityTableMeta = {
   tableName: "read_x",
@@ -26,5 +26,18 @@ describe("rebuildMetaOrThrow", () => {
       indexes: [{ name: "read_x_active_idx", columns: ["status"], needsManualWhere: true }],
     };
     expect(() => rebuildMetaOrThrow(meta, "feat:projection:x")).toThrow(/partial index/);
+  });
+});
+
+describe("fenceLiveTable lock-timeout guard", () => {
+  // The guard rejects before any DB work, so the tx is never touched.
+  const noTx = {} as never;
+
+  test("rejects lockTimeoutMs = 0 (Postgres reads 0 as wait-forever, not fail-fast)", async () => {
+    await expect(fenceLiveTable(noTx, "read_x", 0)).rejects.toThrow(/must be > 0/);
+  });
+
+  test("rejects a negative lockTimeoutMs", async () => {
+    await expect(fenceLiveTable(noTx, "read_x", -5)).rejects.toThrow(/must be > 0/);
   });
 });
