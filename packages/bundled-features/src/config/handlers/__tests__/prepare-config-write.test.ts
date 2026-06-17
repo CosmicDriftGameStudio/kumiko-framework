@@ -211,6 +211,69 @@ describe("prepareConfigWrite", () => {
     if (!result.ok) throw new Error("unreachable");
     expect(result.scope).toBe(ConfigScopes.system);
   });
+
+  // #396: a tenant self-service key (admin-editable) that provisioning /
+  // migration must ALSO set via ctx.systemWriteAs. access.withSystem(admin)
+  // adds SYSTEM_ROLE without collapsing the key to system-only.
+  describe("access.withSystem (provisionable tenant key)", () => {
+    const provisionableKey = createTenantConfig("text", {
+      write: access.withSystem(access.admin),
+    });
+    const registry = registryStub({ "ns:config:branding-title": provisionableKey });
+
+    test("the system actor (systemWriteAs roles) may provision it", () => {
+      const result = prepareConfigWrite({
+        registry,
+        user: userStub([SYSTEM_ROLE]),
+        key: "ns:config:branding-title",
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error("unreachable");
+      expect(result.keyDef).toBe(provisionableKey);
+    });
+
+    test("a tenant admin still self-services it (NOT collapsed to system-only)", () => {
+      const result = prepareConfigWrite({
+        registry,
+        user: userStub(["TenantAdmin"]),
+        key: "ns:config:branding-title",
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error("unreachable");
+      expect(result.scope).toBe(ConfigScopes.tenant);
+    });
+
+    test("an unrelated role is still denied (generic, not system-only)", () => {
+      const result = prepareConfigWrite({
+        registry,
+        user: userStub(["ReadOnly"]),
+        key: "ns:config:branding-title",
+      });
+      expect(result.ok).toBe(false);
+      if (result.ok) throw new Error("unreachable");
+      expect(result.failure.error.code).toBe("access_denied");
+      expect(result.failure.error.i18nKey).not.toBe("config.errors.systemOnly");
+    });
+  });
+});
+
+describe("access.withSystem", () => {
+  test("prepends SYSTEM_ROLE and preserves the composed roles", () => {
+    expect(access.withSystem(access.admin)).toEqual([
+      SYSTEM_ROLE,
+      "TenantAdmin",
+      "Admin",
+      "SystemAdmin",
+    ]);
+  });
+
+  test("composes arbitrary custom roles (studio's own role lists)", () => {
+    expect(access.withSystem(access.roles("Editor", "Owner"))).toEqual([
+      SYSTEM_ROLE,
+      "Editor",
+      "Owner",
+    ]);
+  });
 });
 
 describe("validateBounds", () => {

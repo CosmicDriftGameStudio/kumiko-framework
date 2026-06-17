@@ -698,6 +698,7 @@
             "regex": "^$|^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
           },
           "writeRoles": [
+            "system",
             "TenantAdmin",
             "Admin",
             "SystemAdmin"
@@ -742,6 +743,7 @@
             "regex": "^[\\s\\S]{0,500}$"
           },
           "writeRoles": [
+            "system",
             "TenantAdmin",
             "Admin",
             "SystemAdmin"
@@ -766,6 +768,7 @@
           "bounds": null,
           "pattern": null,
           "writeRoles": [
+            "system",
             "TenantAdmin",
             "Admin",
             "SystemAdmin"
@@ -788,6 +791,7 @@
             "regex": "^$|^https://[^\\s\"'<>]{1,2000}$"
           },
           "writeRoles": [
+            "system",
             "TenantAdmin",
             "Admin",
             "SystemAdmin"
@@ -810,6 +814,7 @@
             "regex": "^$|^https://[^\\s\"'<>]{1,2000}$"
           },
           "writeRoles": [
+            "system",
             "TenantAdmin",
             "Admin",
             "SystemAdmin"
@@ -832,6 +837,7 @@
             "regex": "^[\\s\\S]{0,200}$"
           },
           "writeRoles": [
+            "system",
             "TenantAdmin",
             "Admin",
             "SystemAdmin"

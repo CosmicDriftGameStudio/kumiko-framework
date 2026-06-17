@@ -1,4 +1,5 @@
 import type { ConfigScope } from "./constants";
+import { SYSTEM_ROLE } from "./system-user";
 import type {
   ConfigBacking,
   ConfigBounds,
@@ -27,6 +28,13 @@ export const access = {
   authenticated: ["User", "Admin", "SystemAdmin"] as readonly string[], // @cast-boundary schema-walk
   anonymous: ["anonymous"] as readonly string[], // @cast-boundary schema-walk
   roles: (...roles: string[]): readonly string[] => roles,
+  // Tenant self-service roles PLUS the system actor — for tenant-scope keys a
+  // tenant edits itself (configEdit) but that provisioning/migration/jobs must
+  // also set via ctx.systemWriteAs (roles = [SYSTEM_ROLE]). Stays human-writable
+  // because checkWriteAccess only collapses to system-only when system is the
+  // SOLE writer (humanWriters empty). Composes any preset, so apps with custom
+  // roles get the same provisioning path (issue #396).
+  withSystem: (roles: readonly string[]): readonly string[] => [SYSTEM_ROLE, ...roles],
 } as const;
 
 // --- Config Key Options ---

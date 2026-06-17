@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -395,6 +396,30 @@ describe("managed-pages :: Branding (Config + Render)", () => {
     expect(htmlB).not.toContain("#ff8800");
     expect(htmlB).not.toContain("cdn-a.example.com");
     expect(htmlB).not.toContain("Acme A");
+  });
+
+  // #396 — the actual gate: a provisioning/migration seed sets a tenant
+  // branding key via the system executor. createSystemUser(tenant) is the
+  // exact identity ctx.systemWriteAs injects (roles=[SYSTEM_ROLE]); stack.
+  // dispatcher is the same command path systemWriteAs drives. Before the
+  // access.withSystem(access.admin) write-role, this returned access_denied
+  // (forcing the publicstatus migration onto raw SQL). Drives the REAL
+  // config:write:set handler end-to-end and reads the value back per tenant —
+  // a unit test on checkWriteAccess alone wouldn't prove the handler accepts it.
+  test("system executor provisions a branding key (systemWriteAs path), read back per tenant", async () => {
+    const res = await stack.dispatcher.write(
+      "config:write:set",
+      { key: BRANDING_QN.title, value: "Provisioned by system" },
+      createSystemUser(TENANT_A),
+    );
+    expect(res.isSuccess).toBe(true);
+
+    const branding = await stack.http.queryOk<{ title: string }>(BRANDING_QUERY_QN, {}, adminA);
+    expect(branding.title).toBe("Provisioned by system");
+
+    // The provisioned value lands on TENANT_A only — not leaked to TENANT_B.
+    const brandingB = await stack.http.queryOk<{ title: string }>(BRANDING_QUERY_QN, {}, adminB);
+    expect(brandingB.title).not.toBe("Provisioned by system");
   });
 });
 
