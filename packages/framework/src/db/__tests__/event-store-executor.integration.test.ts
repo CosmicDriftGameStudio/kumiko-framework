@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { asRawClient } from "../../db/query";
 import { createBooleanField, createEntity, createTextField } from "../../engine";
 import { append, createEventsTable } from "../../event-store";
+import type { EntityCache } from "../../pipeline/entity-cache";
 import {
   createTestDb,
   type TestDb,
@@ -283,5 +284,50 @@ describe("event-store-executor — detail liefert die Stream-Version", () => {
       tdb,
     );
     expect(updated.isSuccess).toBe(true);
+  });
+});
+
+describe("event-store-executor — entity cache read-through", () => {
+  // In-memory stand-in for EntityCache — no Redis needed.
+  const store = new Map<string, Record<string, unknown>>();
+  const entityCache: EntityCache = {
+    get: async (tenantId, name, id) => store.get(`${tenantId}:${name}:${id}`) ?? null,
+    mget: async () => new Map(),
+    set: async (tenantId, name, id, data) => {
+      store.set(`${tenantId}:${name}:${id}`, data);
+    },
+    mset: async (tenantId, name, entries) => {
+      for (const { id, data } of entries) store.set(`${tenantId}:${name}:${id}`, data);
+    },
+    del: async (tenantId, name, id) => {
+      store.delete(`${tenantId}:${name}:${id}`);
+    },
+  };
+  const cachedCrud = createEventStoreExecutor(table, entity, {
+    entityName: "esExecUser",
+    entityCache,
+  });
+
+  beforeEach(() => store.clear());
+
+  test("first detail populates cache; second detail is served from cache", async () => {
+    const created = await cachedCrud.create({ email: "cache@test.de" }, adminUser, tdb);
+    if (!created.isSuccess) throw new Error("create failed");
+    const id = created.data.id;
+    const storeKey = `${adminUser.tenantId}:esExecUser:${id}`;
+
+    // create() calls del() — cache must be empty after create.
+    expect(store.has(storeKey)).toBe(false);
+
+    // First detail: miss → DB → populates cache.
+    const first = await cachedCrud.detail({ id }, adminUser, tdb);
+    expect(first).not.toBeNull();
+    expect(store.has(storeKey)).toBe(true);
+
+    // Poison the cache entry — proves the second detail reads from cache, not DB.
+    store.set(storeKey, { ...store.get(storeKey)!, email: "from-cache@test.de" });
+
+    const second = await cachedCrud.detail({ id }, adminUser, tdb);
+    expect(second?.["email"]).toBe("from-cache@test.de");
   });
 });
