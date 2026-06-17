@@ -16,6 +16,7 @@ import {
   validateEncryptedFields,
   validateEntityIndexes,
   validateExtendSchemaCollisions,
+  validateExtensionPreSaveWiring,
   validateFileFields,
   validateHandlerAccess,
   validateLocatedTimestamps,
@@ -158,6 +159,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
 
   validateNavCycles(allNavQns);
   validateDefaultWorkspaceUniqueness(allWorkspaceQns);
+  validateExtensionPreSaveWiring(features);
 
   if (hasEncryptedFields && !process.env["ENCRYPTION_KEY"]) {
     throw new Error("ENCRYPTION_KEY environment variable is required (encrypted fields in use)");

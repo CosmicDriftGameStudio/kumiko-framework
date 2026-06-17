@@ -980,23 +980,20 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
   // Validate: handlers in features with field-access rules must be entity-mapped.
   // Without entity mapping, field-level access checks are silently skipped (security gap).
-  // Convention: "entityName.action" = entity-bound (must resolve), "action" = standalone (no filter).
   for (const feature of features) {
     if (!hasFieldAccessRules(feature)) continue;
 
-    // Write handlers: ALL must be entity-mapped (security-critical, writes need field-access checks)
     for (const handlerName of Object.keys(feature.writeHandlers ?? {})) {
       const qualified = qualify(feature.name, "write", handlerName);
       if (!handlerEntityMap.has(qualified)) {
         throw new Error(
           `Write handler "${qualified}" is not mapped to any entity, but feature "${feature.name}" has field-level access rules. ` +
-            `Name must follow "entity:action" convention (e.g. "user:create") so field-access checks apply.`,
+            `Name must follow "entity:verb" convention (e.g. "user:create") or use create/update/delete on a matching entity.`,
         );
       }
     }
 
-    // Query handlers: only those with a dash must resolve (typo protection).
-    // No dash = standalone query (dashboard, stats) — intentionally not entity-bound.
+    // Query handlers: only those with a colon must resolve (typo protection).
     for (const handlerName of Object.keys(feature.queryHandlers ?? {})) {
       if (!handlerName.includes(":")) continue;
       const qualified = qualify(feature.name, "query", handlerName);
@@ -1006,6 +1003,27 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
             `Either fix the entity name, or use a name without colons for standalone queries.`,
         );
       }
+    }
+  }
+
+  // Extension preSave: useExtension on an entity must have at least one mapped write handler.
+  const extensionsWithPreSave = new Set<string>();
+  for (const f of features) {
+    for (const [extName, def] of Object.entries(f.registrarExtensions ?? {})) {
+      if (def.hooks?.preSave) extensionsWithPreSave.add(extName);
+    }
+  }
+  for (const usage of extensionUsages) {
+    if (!extensionsWithPreSave.has(usage.extensionName)) continue;
+    const hasMapped = [...writeHandlerMap.keys()].some(
+      (qn) => handlerEntityMap.get(qn) === usage.entityName,
+    );
+    if (!hasMapped) {
+      throw new Error(
+        `Feature "${usage.featureName}" uses extension "${usage.extensionName}" with preSave on entity "${usage.entityName}" ` +
+          `but no write handler is entity-mapped to "${usage.entityName}". ` +
+          `Use create/update/delete on a matching entity or name the handler "entity:verb".`,
+      );
     }
   }
 

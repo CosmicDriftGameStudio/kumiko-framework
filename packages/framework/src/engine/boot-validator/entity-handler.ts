@@ -53,6 +53,41 @@ export const PII_USER_OWNED_NAME_HINTS: ReadonlySet<string> = new Set([
   "notes",
 ]);
 
+// --- Extension preSave wiring validation ---
+
+/** Extensions with preSave must target an entity that has mapped write handlers. */
+export function validateExtensionPreSaveWiring(features: readonly FeatureDefinition[]): void {
+  const extensionsWithPreSave = new Set<string>();
+  for (const f of features) {
+    for (const [extName, def] of Object.entries(f.registrarExtensions ?? {})) {
+      if (def.hooks?.preSave) extensionsWithPreSave.add(extName);
+    }
+  }
+  if (extensionsWithPreSave.size === 0) return;
+
+  const entitiesWithMappedWrites = new Set<string>();
+  for (const f of features) {
+    for (const [handlerName, entityName] of Object.entries(f.handlerEntityMappings ?? {})) {
+      if (handlerName in (f.writeHandlers ?? {})) {
+        entitiesWithMappedWrites.add(entityName);
+      }
+    }
+  }
+
+  for (const f of features) {
+    for (const usage of f.extensionUsages) {
+      if (!extensionsWithPreSave.has(usage.extensionName)) continue;
+      if (!entitiesWithMappedWrites.has(usage.entityName)) {
+        throw new Error(
+          `Feature "${f.name}" uses extension "${usage.extensionName}" with preSave on entity "${usage.entityName}" ` +
+            `but no write handler is entity-mapped to "${usage.entityName}". ` +
+            `Use create/update/delete on a matching entity or name the handler "entity:verb".`,
+        );
+      }
+    }
+  }
+}
+
 // --- Handler access validation ---
 
 // Rate-limit modes that bucket per user.id. Anonymous endpoints would put

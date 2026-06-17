@@ -361,6 +361,54 @@ describe("boot-validator", () => {
     expect(() => validateBoot(features)).not.toThrow();
   });
 
+  // --- Write-handler entity-mapping (smart tryMapEntity + extension preSave) ---
+
+  test("accepts bare CRUD write handler when feature name matches entity", () => {
+    const features = [
+      defineFeature("credit", (r) => {
+        r.entity("credit", createEntity({ table: "Credits", fields: { name: createTextField() } }));
+        r.writeHandler(
+          "create",
+          z.object({ name: z.string() }),
+          async () => ({
+            isSuccess: true as const,
+            data: { id: "1" },
+          }),
+          { access: { openToAll: true } },
+        );
+      }),
+    ];
+    expect(() => validateBoot(features)).not.toThrow();
+    expect(features[0]?.handlerEntityMappings["create"]).toBe("credit");
+  });
+
+  test("throws when extension preSave targets entity with no mapped write handlers", () => {
+    const ext = defineFeature("cap-ext", (r) => {
+      r.extendsRegistrar("credit-cap", {
+        hooks: {
+          preSave: async (changes) => changes,
+        },
+      });
+    });
+    const consumer = defineFeature("money-horse", (r) => {
+      r.requires("cap-ext");
+      r.entity("credit", createEntity({ table: "Credits", fields: { name: createTextField() } }));
+      r.writeHandler(
+        "doSomething",
+        z.object({}),
+        async () => ({
+          isSuccess: true as const,
+          data: {},
+        }),
+        { access: { openToAll: true } },
+      );
+      r.useExtension("credit-cap", "credit");
+    });
+    expect(() => validateBoot([ext, consumer])).toThrow(
+      /no write handler is entity-mapped to "credit"/i,
+    );
+  });
+
   // --- Handler access validation (default-deny) ---
 
   test("throws when a write handler has no access rule", () => {
