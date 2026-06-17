@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import type { EntityCache } from "../../pipeline/entity-cache";
 import { asRawClient } from "../../db/query";
 import { createBooleanField, createEntity, createTextField } from "../../engine";
 import { append, createEventsTable } from "../../event-store";
+import type { EntityCache } from "../../pipeline/entity-cache";
 import {
   createTestDb,
   type TestDb,
