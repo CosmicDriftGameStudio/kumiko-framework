@@ -95,6 +95,14 @@ export const setWrite = defineWriteHandler({
     const existing = await findConfigRow(db, event.payload.key, tenantId, userId);
 
     if (existing) {
+      // skipOptimisticLock: config is single-writer operator state, not a
+      // collaboratively-edited aggregate — last-write-wins is the intended
+      // semantics. More importantly, the optimistic check compares the
+      // PROJECTION version (existing.version) against the event-stream
+      // version; if those drift (a migration/seed that wrote the read-row
+      // outside the normal event flow — e.g. the Stripe config cut-over),
+      // every save would version-conflict forever. Appending at the real
+      // stream version resyncs the projection and self-heals the drift.
       const result = await executor.update(
         {
           id: existing.id,
@@ -103,6 +111,7 @@ export const setWrite = defineWriteHandler({
         },
         event.user,
         db,
+        { skipOptimisticLock: true },
       );
       if (!result.isSuccess) return result;
     } else {
