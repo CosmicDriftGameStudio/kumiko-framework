@@ -404,7 +404,7 @@ describe("createRegistry", () => {
       });
     });
 
-    expect(() => createRegistry([feature])).toThrow(/hr:write:promote.*not mapped.*entity:action/i);
+    expect(() => createRegistry([feature])).toThrow(/hr:write:promote.*not mapped.*entity:verb/i);
   });
 
   test("allows unmapped write handlers when feature has no field-access rules", () => {

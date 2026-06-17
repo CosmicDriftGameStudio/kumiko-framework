@@ -170,14 +170,30 @@ export function defineFeature<const TName extends string, TExports = undefined>(
   let envSchema: z.ZodObject<z.ZodRawShape> | undefined;
 
   // Map handler name to entity via colon convention.
-  // "task:create" → entity "task". No colon → standalone handler, no mapping.
+  // "task:create" → entity "task". Bare CRUD verbs (create/update/delete) map
+  // when feature name matches an entity or the feature owns exactly one entity.
+  const CRUD_VERBS = new Set(["create", "update", "delete"]);
+
   function tryMapEntity(handlerName: string): void {
     const colonIdx = handlerName.indexOf(":");
-    // skip: handler name is not entity-scoped (no colon), nothing to map
-    if (colonIdx < 0) return;
-    const candidate = handlerName.slice(0, colonIdx);
-    if (entities[candidate]) {
-      handlerEntityMappings[handlerName] = candidate;
+    if (colonIdx >= 0) {
+      const candidate = handlerName.slice(0, colonIdx);
+      if (entities[candidate]) {
+        handlerEntityMappings[handlerName] = candidate;
+      }
+      // skip: colon-prefixed handler processed (mapped or not), bare CRUD path not applicable
+      return;
+    }
+    if (CRUD_VERBS.has(handlerName)) {
+      if (entities[name]) {
+        handlerEntityMappings[handlerName] = name;
+        // skip: feature-name entity match is the preferred mapping
+        return;
+      }
+      const entityKeys = Object.keys(entities);
+      if (entityKeys.length === 1) {
+        handlerEntityMappings[handlerName] = entityKeys[0] as string;
+      }
     }
   }
 

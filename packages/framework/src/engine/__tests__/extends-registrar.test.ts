@@ -98,6 +98,29 @@ describe("extendsRegistrar", () => {
     expect(entity?.fields["customData"]?.type).toBe("text");
   });
 
+  test("extension preSave hooks fire for bare CRUD handler with smart entity map", () => {
+    const preSaveFn = mock(async (changes: Record<string, unknown>) => changes);
+
+    const ext = defineFeature("audit", (r) => {
+      r.extendsRegistrar("audited", {
+        hooks: { preSave: preSaveFn },
+      });
+    });
+    const consumer = defineFeature("credit", (r) => {
+      r.requires("audit");
+      r.entity("credit", createEntity({ table: "Credits", fields: { name: createTextField() } }));
+      r.writeHandler("create", z.object({ name: z.string() }), async () => ({
+        isSuccess: true as const,
+        data: { id: "c1" },
+      }));
+      r.useExtension("audited", "credit");
+    });
+
+    const registry = createRegistry([ext, consumer]);
+    const hooks = registry.getPreSaveHooks("credit:write:create");
+    expect(hooks.length).toBeGreaterThan(0);
+  });
+
   test("extension preSave hooks fire for entity-scoped handlers", () => {
     const preSaveFn = mock(async (changes: Record<string, unknown>) => changes);
 
