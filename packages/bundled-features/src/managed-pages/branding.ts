@@ -1,4 +1,5 @@
 import {
+  access,
   type ConfigAccessor,
   type ConfigKeyDefinition,
   createTenantConfig,
@@ -14,8 +15,14 @@ import { type BrandingTokens, EMPTY_BRANDING } from "../page-render";
 // Write-validated: accent-color must be a CSS hex, logo/site URLs must be
 // https. The configEdit screen dispatches `config:write:set` per key, which
 // runs the keyDef.pattern gate (set.write.ts → validatePattern). `read: all`
-// (scope default) so the anonymous public-render path can read them;
-// `write: admin` (TenantAdmin/Admin/SystemAdmin, also the scope default).
+// (scope default) so the anonymous public-render path can read them.
+//
+// `write: access.withSystem(access.admin)` — tenant admins self-service via
+// configEdit AND the system actor (ctx.systemWriteAs) may provision/migrate
+// these keys. The scope default (`access.admin`, admin-only) has no system
+// path, so a continuity migration could not set them (issue #396). Adding
+// SYSTEM_ROLE keeps the keys human-writable (checkWriteAccess collapses to
+// system-only only when system is the SOLE writer), so self-service survives.
 //
 // CONTINUITY (Phase 5 — Prod trap): these keys land under
 // `managed-pages:config:branding-*`, NOT the live `publicstatus:config:
@@ -55,15 +62,39 @@ export const MANAGED_PAGES_CSS_FEATURE = "managed-pages-css";
 // site-url`. BRANDING_QN below is the single source those QN strings are read
 // from (configEdit screen + render read); the integration test pins write-
 // target == read-source end-to-end.
+// Admin self-service + system provisioning (see write-access note above, #396).
+const BRANDING_WRITE = access.withSystem(access.admin);
+
 export const BRANDING_KEYS = {
-  brandingTitle: createTenantConfig("text", { default: "", pattern: TITLE_PATTERN }),
-  brandingDescription: createTenantConfig("text", { default: "", pattern: DESCRIPTION_PATTERN }),
-  brandingSiteUrl: createTenantConfig("text", { default: "", pattern: HTTPS_PATTERN }),
-  brandingAccentColor: createTenantConfig("text", { default: "", pattern: HEX_PATTERN }),
-  brandingLogoUrl: createTenantConfig("text", { default: "", pattern: HTTPS_PATTERN }),
+  brandingTitle: createTenantConfig("text", {
+    default: "",
+    pattern: TITLE_PATTERN,
+    write: BRANDING_WRITE,
+  }),
+  brandingDescription: createTenantConfig("text", {
+    default: "",
+    pattern: DESCRIPTION_PATTERN,
+    write: BRANDING_WRITE,
+  }),
+  brandingSiteUrl: createTenantConfig("text", {
+    default: "",
+    pattern: HTTPS_PATTERN,
+    write: BRANDING_WRITE,
+  }),
+  brandingAccentColor: createTenantConfig("text", {
+    default: "",
+    pattern: HEX_PATTERN,
+    write: BRANDING_WRITE,
+  }),
+  brandingLogoUrl: createTenantConfig("text", {
+    default: "",
+    pattern: HTTPS_PATTERN,
+    write: BRANDING_WRITE,
+  }),
   brandingLayoutPreset: createTenantConfig("select", {
     default: "centered",
     options: LAYOUT_PRESETS,
+    write: BRANDING_WRITE,
   }),
 } satisfies Record<string, ConfigKeyDefinition>;
 
