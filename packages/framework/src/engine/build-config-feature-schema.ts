@@ -60,11 +60,7 @@ const SCOPES_BROAD_TO_DEEP: readonly ConfigScope[] = ["system", "tenant", "user"
 
 const audienceNavShortId = (scope: ConfigScope): string => `audience-${scope}`;
 
-// Die generierten Audience-Parent-Navs (qualifiziert). Eine App platziert die
-// Settings-Gruppe INLINE, indem sie einen dieser QNs in ihre `r.workspace.nav`
-// aufnimmt — buildAppSchema expandiert dann die Kinder der Audience hinein und
-// unterdrückt den Standalone-Switcher. Der Boot-Validator kennt genau diese drei
-// QNs als Ausnahme (generiert, nicht via `r.nav()` registriert).
+// Generated post-boot, never via r.nav() — the boot validator exempts exactly these QNs (an app references one to place the settings group inline).
 export const SETTINGS_HUB_AUDIENCE_NAV_QNS: readonly string[] = SCOPES_BROAD_TO_DEEP.map(
   (scope) => `${SETTINGS_HUB_FEATURE}:nav:${audienceNavShortId(scope)}`,
 );

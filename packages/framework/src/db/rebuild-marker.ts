@@ -32,13 +32,7 @@ function markerPathFor(migrationsDir: string, migrationId: string): string {
   return join(migrationsDir, `${migrationId}.rebuild.json`);
 }
 
-// Nur MANAGED Projektionen (Derivate des Event-Streams) brauchen/erlauben einen
-// Rebuild — unmanaged Tabellen tragen echte Daten und werden nie aus Events
-// rekonstruiert, dürfen also nie in den Marker. Eine managed Tabelle kommt rein,
-// wenn sie eine neue Spalte bekommt (Backfill) oder DROP+CREATE'd wird
-// (managedChangeRequiresRecreate → Tabelle geleert, muss neu gefüllt werden).
-// Reine non-unique-Index-/Default-/DROP-NOT-NULL-Änderungen brauchen keinen
-// Rebuild. Sortiert + dedupliziert für stabilen PR-Diff.
+// Only managed tables (event-stream derivatives) get rebuild markers — unmanaged carry real data, never rebuilt from events; sorted+deduped for stable PR diff.
 export function rebuildTablesFromDiff(diff: SchemaDiff): readonly string[] {
   const names = new Set<string>();
   for (const t of diff.changedTables) {

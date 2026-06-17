@@ -743,11 +743,7 @@ export function validateWorkspaces(
   for (const [wsId, wsDef] of Object.entries(feature.workspaces)) {
     if (wsDef.nav !== undefined) {
       for (const navQn of wsDef.nav) {
-        // Settings-Hub-Audience-Navs sind generiert (buildAppSchema, nach Boot),
-        // also nie via r.nav() registriert. Eine App platziert die Settings-
-        // Gruppe inline, indem sie genau einen dieser drei QNs referenziert —
-        // hier exempt, damit der Boot nicht fälschlich wirft. Tippfehler an
-        // anderen Hub-QNs (Kinder) fängt der Render-Slice-Filter ab.
+        // Settings-Hub audience navs are generated post-boot (buildAppSchema), never via r.nav() — exempt so an inline-placement reference doesn't trip the boot validator.
         if (SETTINGS_HUB_AUDIENCE_NAV_QN_SET.has(navQn)) continue;
         if (!allNavQns.has(navQn)) {
           throw new Error(

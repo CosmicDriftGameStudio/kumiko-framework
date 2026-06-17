@@ -34,7 +34,15 @@
 // per-workspace with a totals summary.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { runCodegen } from "@cosmicdrift/kumiko-dev-server";
 
@@ -171,6 +179,10 @@ console.log(`check-app-tsc: type-checking ${samples.length} sample workspace(s) 
 mkdirSync(OUT_ROOT, { recursive: true });
 for (const ws of samples) runCodegen({ appRoot: ws.root });
 const projectPaths = samples.map((ws) => writeSampleTsconfig(ws));
+// .check-tsconfig.json is ephemeral per-sample scratch — remove it on any exit path so a run leaves no litter behind.
+process.on("exit", () => {
+  for (const p of projectPaths) rmSync(p, { force: true });
+});
 
 writeFileSync(
   SOLUTION,
