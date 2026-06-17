@@ -118,6 +118,14 @@ type ConfigCascadeViewProps = {
   readonly screenScope: ConfigScope;
   readonly onReset?: (key: string, scope: ConfigScope) => void;
   readonly qualifiedKey?: string;
+  // Component-Split (#429): "trigger" rendert nur die collapsed-Zeile
+  // (▶ + Quelle + Wert) für die Label-Row, "panel" nur die aufgeklappte
+  // Cascade + Reset für unter den Input. Im Split-Modus hält der Screen den
+  // expanded-State (beide Slots teilen ihn). Ohne `slot` rendert die
+  // Komponente beides mit eigenem State (Backward-Compat).
+  readonly slot?: "trigger" | "panel";
+  readonly expanded?: boolean;
+  readonly onToggle?: () => void;
 };
 
 export function ConfigCascadeView({
@@ -125,64 +133,97 @@ export function ConfigCascadeView({
   screenScope,
   onReset,
   qualifiedKey,
+  slot,
+  expanded: expandedProp,
+  onToggle,
 }: ConfigCascadeViewProps): ReactNode {
   const t = useTranslation();
-  const [expanded, setExpanded] = useState(false);
+  const [localExpanded, setLocalExpanded] = useState(false);
 
   // Safety net: callers should already filter malformed cascades, but
   // a missing levels-array (e.g. from a partial mock) shouldn't crash
   // the screen.
   if (!Array.isArray(cascade?.levels)) return null;
 
+  const expanded = slot === undefined ? localExpanded : (expandedProp ?? false);
+  const toggle = slot === undefined ? () => setLocalExpanded((v) => !v) : onToggle;
+
   const screenScopeSource = scopeToSource(screenScope);
   const displayLevels = toDisplayLevels(cascade.levels, screenScopeSource);
   const activeDisplay = displayLevels.find((d) => d.level.isActive);
   const hasOverride = activeDisplay?.level.source === screenScopeSource;
+  // Aufklappbar nur wenn das Panel echten Mehrwert bringt: ein eigener
+  // Override (→ Reset) oder mehr als eine Ebene MIT Wert. Leere Ebenen
+  // (z.B. die ungesetzte tenant-row eines reinen Default-Felds) zählen
+  // nicht — sonst wäre ein Feld, das nur seinen Standard zeigt, fälschlich
+  // aufklappbar und das Panel nur eine Wiederholung des Triggers.
+  const valuedLevels = displayLevels.filter((d) => d.level.hasValue);
+  const expandable = hasOverride || valuedLevels.length > 1;
 
+  const triggerInner = activeDisplay ? (
+    <>
+      <SourceBadge
+        source={activeDisplay.badgeSource}
+        {...(activeDisplay.badgeLabelKey !== undefined && {
+          labelKey: activeDisplay.badgeLabelKey,
+        })}
+      />
+      <span className="text-gray-400">
+        {formatValue(activeDisplay.level.value, activeDisplay.level.hasValue)}
+      </span>
+    </>
+  ) : (
+    <span className="text-gray-400">{t("kumiko.config.cascade.noValue")}</span>
+  );
+
+  const trigger = expandable ? (
+    <button
+      type="button"
+      onClick={toggle}
+      className="flex items-center gap-1 text-gray-500 hover:text-gray-700 cursor-pointer"
+    >
+      <span className="text-[10px]">{expanded ? "▼" : "▶"}</span>
+      {triggerInner}
+    </button>
+  ) : (
+    <div className="flex items-center gap-1 text-gray-500">{triggerInner}</div>
+  );
+
+  const panel =
+    expanded && expandable ? (
+      <div className="mt-1 flex flex-col gap-0.5 pl-3 border-l-2 border-gray-100">
+        {displayLevels.map((display) => (
+          <CascadeLevelRow key={display.level.source} display={display} />
+        ))}
+
+        {hasOverride && onReset && qualifiedKey ? (
+          <button
+            type="button"
+            onClick={() => onReset(qualifiedKey, screenScope)}
+            className="mt-1 self-start text-[10px] text-orange-500 hover:text-orange-700 cursor-pointer underline"
+          >
+            {t("kumiko.config.cascade.resetTo", {
+              scope: t(SOURCE_I18N_KEY[screenScopeSource]),
+            })}
+          </button>
+        ) : null}
+      </div>
+    ) : null;
+
+  if (slot === "trigger") {
+    return (
+      <div className="text-xs font-normal" data-testid="config-cascade">
+        {trigger}
+      </div>
+    );
+  }
+  if (slot === "panel") return panel;
+
+  // Backward-Compat (ungeteilt): Trigger + Panel zusammen unter dem Input.
   return (
     <div className="mt-1 text-xs" data-testid="config-cascade">
-      <button
-        type="button"
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1 text-gray-500 hover:text-gray-700 cursor-pointer"
-      >
-        <span className="text-[10px]">{expanded ? "▼" : "▶"}</span>
-        {activeDisplay ? (
-          <>
-            <SourceBadge
-              source={activeDisplay.badgeSource}
-              {...(activeDisplay.badgeLabelKey !== undefined && {
-                labelKey: activeDisplay.badgeLabelKey,
-              })}
-            />
-            <span className="text-gray-400">
-              {formatValue(activeDisplay.level.value, activeDisplay.level.hasValue)}
-            </span>
-          </>
-        ) : (
-          <span className="text-gray-400">{t("kumiko.config.cascade.noValue")}</span>
-        )}
-      </button>
-
-      {expanded ? (
-        <div className="mt-1 flex flex-col gap-0.5 pl-3 border-l-2 border-gray-100">
-          {displayLevels.map((display) => (
-            <CascadeLevelRow key={display.level.source} display={display} />
-          ))}
-
-          {hasOverride && onReset && qualifiedKey ? (
-            <button
-              type="button"
-              onClick={() => onReset(qualifiedKey, screenScope)}
-              className="mt-1 self-start text-[10px] text-orange-500 hover:text-orange-700 cursor-pointer underline"
-            >
-              {t("kumiko.config.cascade.resetTo", {
-                scope: t(SOURCE_I18N_KEY[screenScopeSource]),
-              })}
-            </button>
-          ) : null}
-        </div>
-      ) : null}
+      {trigger}
+      {panel}
     </div>
   );
 }

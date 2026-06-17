@@ -266,7 +266,9 @@ describe("KumikoScreen / configEdit", () => {
         }
         return {
           isSuccess: true,
-          data: { "demo:config:site-name": { value: "Acme", scope: "tenant", source: "tenant-row" } },
+          data: {
+            "demo:config:site-name": { value: "Acme", scope: "tenant", source: "tenant-row" },
+          },
         };
       }) as unknown as Dispatcher["query"],
       batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],

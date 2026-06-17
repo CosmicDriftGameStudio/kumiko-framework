@@ -521,14 +521,19 @@ export type ConfigSourceBadgeProps = {
   readonly screenScope?: ConfigScope;
 };
 
-/** Collapsible cascade-view that lives under a config-edit input.
- *  Shows the active level inline; click expands the full cascade and
- *  exposes a Reset-button if the active level matches `screenScope`. */
+/** Collapsible cascade-view for a config-edit field. Split into two slots
+ *  (#429): "trigger" is the collapsed ▶ + source + value line for the label
+ *  row; "panel" is the expanded cascade + reset shown below the input. In
+ *  split mode the screen owns the `expanded` state (both slots share it);
+ *  without `slot` the component renders both with its own state. */
 export type ConfigCascadeViewProps = {
   readonly cascade: ConfigCascade;
   readonly screenScope: ConfigScope;
   readonly onReset?: (key: string, scope: ConfigScope) => void;
   readonly qualifiedKey?: string;
+  readonly slot?: "trigger" | "panel";
+  readonly expanded?: boolean;
+  readonly onToggle?: () => void;
 };
 
 // ---- Core-Registry (Kumiko-eigene Primitives) ----
