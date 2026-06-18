@@ -7,9 +7,8 @@
 // vitest runs integration suites in parallel — other files hammer the same
 // Postgres at the same time, and an I/O-bound rebuild shares bandwidth.
 //
-// Threshold: 3000 events/s (median of 3 rebuilds). Picked so a ~2× regression
-// on a real bottleneck trips the test, while suite-load jitter on a shared
-// runner does not. Isolated via `bun run test:integration:perf`.
+// Threshold: 1500 events/s (median of 3 rebuilds). Catches ~3× regressions;
+// cdgs-runner under Docker-PG typically lands ~2–4k, isolated dev ~14k.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
@@ -119,7 +118,7 @@ async function seedEvents(count: number, depth: number): Promise<void> {
 }
 
 describe("rebuildProjection performance — Gate A", () => {
-  test("rebuild rate >= 3k events/sec (median of 3 runs, 10000 events)", async () => {
+  test("rebuild rate >= 1.5k events/sec (median of 3 runs, 10000 events)", async () => {
     await seedEvents(2000, 5);
 
     const rates: number[] = [];
@@ -145,6 +144,6 @@ describe("rebuildProjection performance — Gate A", () => {
       `  Rebuild median: ${Math.round(median)} events/s (samples: ${rates.map((r) => Math.round(r)).join(", ")})`,
     );
 
-    expect(median).toBeGreaterThanOrEqual(3_000);
+    expect(median).toBeGreaterThanOrEqual(1_500);
   });
 });
