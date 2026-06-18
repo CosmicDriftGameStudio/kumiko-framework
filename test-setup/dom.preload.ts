@@ -47,7 +47,9 @@ if (typeof globalThis.window === "undefined") {
 // Modul-Import. Mit static import würde screen vor happy-dom
 // evaluieren → alle screen-Queries werfen TypeError. Deshalb
 // require() erst nach der Registration oben.
-const { cleanup } = require("@testing-library/react/pure") as { cleanup: () => void };
+const { cleanup } = require("@testing-library/react/pure") as {
+  cleanup: () => void;
+};
 
 // Pointer-Capture-APIs fehlen in happy-dom genauso wie in jsdom. Radix-UI
 // (DropdownMenu/Select/Popover-Triggers) ruft die — ohne Polyfill öffnet
