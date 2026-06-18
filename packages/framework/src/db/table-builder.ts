@@ -409,6 +409,17 @@ export function buildBaseColumns(softDelete: boolean, idType: "serial" | "uuid" 
   return base;
 }
 
+const ROW_META_BASE: ReadonlySet<string> = new Set(Object.keys(buildBaseColumns(false)));
+const ROW_META_WITH_SOFT_DELETE: ReadonlySet<string> = new Set(Object.keys(buildBaseColumns(true)));
+
+// Row-meta columns exist on every row without being declared entity fields, so the
+// boot-validator must treat them as known when an action picks/maps/gates on them.
+// softDelete-only columns stay unknown for non-softDelete entities — gating on them
+// there is a real misconfiguration, not a row-meta reference.
+export function rowMetaFieldNames(softDelete: boolean): ReadonlySet<string> {
+  return softDelete ? ROW_META_WITH_SOFT_DELETE : ROW_META_BASE;
+}
+
 export type BuildEntityTableOptions = {
   readonly featureName?: string;
   // Relations declared for this entity. When present, every belongsTo

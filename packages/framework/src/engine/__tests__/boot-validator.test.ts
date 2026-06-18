@@ -2008,6 +2008,82 @@ describe("boot-validator", () => {
     });
   });
 
+  // --- row-meta allowlist: ALLE Base-Columns, nicht nur id/version (#331, #323) ---
+  // buildBaseColumns legt tenantId/insertedAt/modifiedAt/...-Spalten auf jede Row;
+  // pick/map/visible darauf ist legitim und darf den Boot nicht killen. softDelete-
+  // Spalten (isDeleted/...) existieren NUR auf softDelete-Entities — darauf zu picken
+  // ist sonst eine echte Fehlkonfiguration und muss weiter werfen.
+  describe("entityList rowAction row-meta allowlist (#331, #323)", () => {
+    function makeFeature(opts: {
+      pick?: readonly string[];
+      visibleField?: string;
+      softDelete?: boolean;
+    }) {
+      return defineFeature("shop", (r) => {
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField() },
+            softDelete: opts.softDelete ?? false,
+          }),
+        );
+        r.screen({
+          id: "product-list",
+          type: "entityList",
+          entity: "product",
+          columns: ["name"],
+          rowActions: [
+            {
+              id: "archive",
+              label: "actions.archive",
+              handler: "shop:write:archive",
+              ...(opts.pick ? { payload: { pick: [...opts.pick] } } : {}),
+              ...(opts.visibleField ? { visible: { field: opts.visibleField, eq: true } } : {}),
+            },
+          ],
+        });
+        r.writeHandler(
+          "archive",
+          z.object({}),
+          async () => ({ isSuccess: true as const, data: null }),
+          {
+            access: { roles: ["Admin"] },
+          },
+        );
+      });
+    }
+
+    test("pick mit Base-Column tenantId → kein Throw", () => {
+      expect(() => validateBoot([makeFeature({ pick: ["id", "tenantId"] })])).not.toThrow();
+    });
+
+    test("visible.field auf Row-Meta (version) → kein Throw", () => {
+      expect(() => validateBoot([makeFeature({ visibleField: "version" })])).not.toThrow();
+    });
+
+    test("visible.field auf id → kein Throw (Aggregat-id immer vorhanden)", () => {
+      expect(() => validateBoot([makeFeature({ visibleField: "id" })])).not.toThrow();
+    });
+
+    test("visible.field auf unknown Field → Throw", () => {
+      expect(() => validateBoot([makeFeature({ visibleField: "ghost" })])).toThrow(
+        /visible\.field references unknown field "ghost"/,
+      );
+    });
+
+    test("softDelete-Entity: pick isDeleted → kein Throw", () => {
+      expect(() =>
+        validateBoot([makeFeature({ pick: ["id", "isDeleted"], softDelete: true })]),
+      ).not.toThrow();
+    });
+
+    test("Nicht-softDelete-Entity: pick isDeleted → Throw (Spalte existiert nicht)", () => {
+      expect(() =>
+        validateBoot([makeFeature({ pick: ["id", "isDeleted"], softDelete: false })]),
+      ).toThrow(/references unknown field "isDeleted"/);
+    });
+  });
+
   // --- toolbarAction navigate + writeHandler Validierung (Tier 2.7e-2) ---
   describe("entityList toolbarAction navigate (Tier 2.7e-2)", () => {
     function makeFeature(targetScreen: string, withTarget: boolean) {

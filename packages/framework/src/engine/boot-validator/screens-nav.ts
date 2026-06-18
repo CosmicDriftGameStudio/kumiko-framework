@@ -1,3 +1,4 @@
+import { rowMetaFieldNames } from "../../db/table-builder";
 import { SETTINGS_HUB_AUDIENCE_NAV_QNS } from "../build-config-feature-schema";
 import { qualifyEntityName } from "../qualified-name";
 import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops";
@@ -31,6 +32,7 @@ function validateActionFieldRefs(
   actionId: string,
   action: RowAction | ToolbarAction,
   fieldNames: ReadonlySet<string>,
+  rowMeta: ReadonlySet<string>,
 ): void {
   // ToolbarAction.payload ist ein STATISCHER Record (kein Row-Context) —
   // nur echte pick/map-Extractoren werden gegen die Feldnamen geprüft.
@@ -49,9 +51,7 @@ function validateActionFieldRefs(
     }
     const sources = "pick" in extractor ? extractor.pick : Object.values(extractor.map);
     for (const source of sources) {
-      // Row-Meta ist immer da, ohne Entity-Field zu sein: id (Aggregat-Id)
-      // und version (optimistic lock — Standard-pick für Lifecycle-Writes).
-      if (source === "id" || source === "version") continue;
+      if (rowMeta.has(source)) continue;
       if (!fieldNames.has(source)) {
         throw new Error(
           `[Feature ${featureName}] Screen "${screenId}" ${actionKind} "${actionId}" ` +
@@ -62,7 +62,12 @@ function validateActionFieldRefs(
   };
   checkExtractor("payload", payload);
   checkExtractor("params", params);
-  if (visible !== undefined && typeof visible !== "boolean" && !fieldNames.has(visible.field)) {
+  if (
+    visible !== undefined &&
+    typeof visible !== "boolean" &&
+    !rowMeta.has(visible.field) &&
+    !fieldNames.has(visible.field)
+  ) {
     throw new Error(
       `[Feature ${featureName}] Screen "${screenId}" ${actionKind} "${actionId}" ` +
         `visible.field references unknown field "${visible.field}". Known fields: ${known()}.`,
@@ -304,6 +309,7 @@ export function validateScreens(
     }
 
     const fieldNames = new Set(Object.keys(entityDef.fields));
+    const rowMeta = rowMetaFieldNames(entityDef.softDelete ?? false);
     if (screen.type === "entityList") {
       // Empty column list would render as a blank table — almost always the
       // sign of an in-progress screen the author forgot to fill in. Fail
@@ -437,6 +443,7 @@ export function validateScreens(
             action.id,
             action,
             fieldNames,
+            rowMeta,
           );
         }
       }
@@ -469,6 +476,7 @@ export function validateScreens(
             action.id,
             action,
             fieldNames,
+            rowMeta,
           );
         }
       }
