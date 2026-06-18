@@ -132,7 +132,7 @@ export function buildConfigFeatureSchema(registry: Registry): ConfigFeatureSchem
   // Alle masked Keys maschinen-only → kein menschlicher Hub, kein (leerer)
   // Settings-Switcher.
   if (navs.length === 0) return { screens, navs };
-  return { screens, navs, workspace: buildSettingsWorkspace(navs, masked) };
+  return { screens, navs, workspace: buildSettingsWorkspace(navs) };
 }
 
 // Keys, die an `scope` sichtbar sind, gepaart mit ihren effektiven Schreib-
@@ -157,10 +157,7 @@ function effectiveWriteRoles(def: ConfigKeyDefinition, scope: ConfigScope): stri
 // admin.navMembers === ["orders:nav:list", ...]). Die generierten Navs leben
 // unter SETTINGS_HUB_FEATURE, also `config:nav:<shortId>`. Sortiert = stabile
 // Landing-Screen-Wahl (firstNavScreenId iteriert navMembers der Reihe nach).
-function buildSettingsWorkspace(
-  navs: readonly NavDefinition[],
-  masked: readonly MaskedKey[],
-): WorkspaceSchema {
+function buildSettingsWorkspace(navs: readonly NavDefinition[]): WorkspaceSchema {
   const navMembers = navs.map((n) => `${SETTINGS_HUB_FEATURE}:nav:${n.id}`).sort();
   return {
     definition: {
@@ -168,9 +165,12 @@ function buildSettingsWorkspace(
       label: "config.settings.title",
       icon: "settings",
       order: 1000,
-      // Union der Schreib-Rollen aller Hub-Keys — sonst sieht ein
-      // unprivilegierter User einen leeren "Settings"-Switcher-Eintrag.
-      access: unionEditAccess(masked.map((k) => k.def)),
+      // Union der Zugriffs-Regeln der bereits generierten (machine-gefilterten)
+      // Hub-Navs — sonst sieht ein unprivilegierter User einen leeren
+      // "Settings"-Switcher. Aus den Navs statt aus `masked`, damit die
+      // machine-only "system"-Rolle (die in keinem Nav steht) nicht ins
+      // Switcher-Gate leakt.
+      access: unionAccessRules(navs.map((n) => n.access)),
     },
     navMembers,
   };
@@ -265,8 +265,16 @@ function minMaskOrder(keys: readonly MaskedKey[]): number {
 // opt-int, und zeigt user-scope (write `all`) jedem. `all` lässt sich in
 // AccessRule nur als openToAll ausdrücken; der Write bleibt server-seitig
 // per Key gegated.
-function unionEditAccess(defs: readonly ConfigKeyDefinition[]): AccessRule {
-  return rolesToAccess(defs.flatMap((d) => [...d.access.write]));
+// Union der Navs-Access-Regeln: ein openToAll-Nav öffnet das ganze Gate, sonst
+// die Vereinigung der Rollen. undefined-access-Navs tragen nichts bei.
+function unionAccessRules(rules: readonly (AccessRule | undefined)[]): AccessRule {
+  const roles: string[] = [];
+  for (const rule of rules) {
+    if (rule === undefined) continue;
+    if ("openToAll" in rule) return { openToAll: true };
+    roles.push(...rule.roles);
+  }
+  return rolesToAccess(roles);
 }
 
 // `all` lässt sich in AccessRule nur als openToAll ausdrücken; der Write bleibt
