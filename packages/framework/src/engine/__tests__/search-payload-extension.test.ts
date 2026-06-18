@@ -162,6 +162,17 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
     expect(warnSpy).toHaveBeenCalledTimes(1);
   });
 
+  test("collision dedup is scoped per registry — separate registries each warn", async () => {
+    // Identical contributor-vs-base collision in two independent registries. A
+    // module-global dedup Set would warn for the first and silence the second
+    // (and leak across tests); per-registry scoping must warn once for EACH.
+    const r1 = registryWith(() => ({ title: "from-contributor" }));
+    const r2 = registryWith(() => ({ title: "from-contributor" }));
+    await buildSearchDocument("thing", "t1", { title: "real-value" }, r1);
+    await buildSearchDocument("thing", "t1", { title: "real-value" }, r2);
+    expect(warnSpy).toHaveBeenCalledTimes(2);
+  });
+
   test("contributor-vs-contributor collision warns with the right message", async () => {
     const feature = defineFeature("test", (r) => {
       const thing = r.entity(
