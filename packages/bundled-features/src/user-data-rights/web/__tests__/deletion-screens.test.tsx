@@ -18,11 +18,15 @@ const resolver = createStaticLocaleResolver({ locale: "de" });
 
 type WriteCall = { readonly type: string; readonly payload: unknown };
 
+let mockSeq = 0;
+
 function makeDispatcher(ok: boolean, calls: WriteCall[]): Dispatcher {
-  // test-stub: die Screens rufen ausschließlich dispatcher.write — der Rest
-  // des Dispatcher-Contracts wird hier nicht gebraucht.
+  const id = ++mockSeq;
+  console.log(`[DBG] makeDispatcher id=${id} ok=${ok}`);
   return {
+    __dbgId: id,
     write: async (type: string, payload: unknown) => {
+      console.log(`[DBG] write CALLED on mock id=${id} type=${type}`);
       calls.push({ type, payload });
       return ok
         ? { isSuccess: true, data: {} }
@@ -39,13 +43,6 @@ function makeThrowingDispatcher(): Dispatcher {
   } as unknown as Dispatcher;
 }
 
-// Scope every query to the rendered container (via within(...)) instead of the
-// global `screen`. bun:test runs all files in one process against a shared
-// happy-dom `document`, and a sibling file's leftover render (e.g. a createRoot
-// root that the global afterEach cleanup doesn't unmount) would otherwise be
-// matched by `screen.getByRole("button")` here — clicking the wrong button so
-// the write never fires (calls stays empty) or the banner never appears
-// (waitFor times out). within(container) makes each test see only its own DOM.
 function renderWith(ui: ReactElement, dispatcher: Dispatcher): ReturnType<typeof within> {
   const { container } = render(
     <PrimitivesProvider value={defaultPrimitives}>
@@ -63,10 +60,16 @@ function renderWith(ui: ReactElement, dispatcher: Dispatcher): ReturnType<typeof
 describe("RequestAccountDeletionScreen", () => {
   test("Submit → write(request-deletion-by-email) + enumeration-safe Success", async () => {
     const calls: WriteCall[] = [];
-    const ui = renderWith(<RequestAccountDeletionScreen />, makeDispatcher(true, calls));
+    const dispatcher = makeDispatcher(true, calls);
+    console.log(`[DBG] test-start provided-mock-id=${(dispatcher as { __dbgId?: number }).__dbgId}`);
+    const ui = renderWith(<RequestAccountDeletionScreen />, dispatcher);
 
+    console.log(`[DBG] buttons-in-doc=${document.querySelectorAll("button").length}`);
     fireEvent.change(ui.getByRole("textbox"), { target: { value: "a@b.com" } });
     fireEvent.click(ui.getByRole("button"));
+
+    await new Promise((r) => setTimeout(r, 50));
+    console.log(`[DBG] after-click calls.length=${calls.length} success-in-doc=${document.body.textContent?.includes("Mail gesendet")}`);
 
     await waitFor(() => expect(ui.getByText(/Mail gesendet/)).toBeTruthy());
     await waitFor(() => expect(calls).toHaveLength(1));
@@ -77,10 +80,8 @@ describe("RequestAccountDeletionScreen", () => {
   test("write-Failure → Error-Banner", async () => {
     const calls: WriteCall[] = [];
     const ui = renderWith(<RequestAccountDeletionScreen />, makeDispatcher(false, calls));
-
     fireEvent.change(ui.getByRole("textbox"), { target: { value: "a@b.com" } });
     fireEvent.click(ui.getByRole("button"));
-
     await waitFor(() => expect(ui.getByText(/schief gegangen/)).toBeTruthy());
     expect(ui.queryByText(/Mail gesendet/)).toBeNull();
   });
@@ -98,9 +99,7 @@ describe("ConfirmAccountDeletionScreen", () => {
     window.history.replaceState({}, "", "/delete-account/confirm?token=tok-123");
     const calls: WriteCall[] = [];
     const ui = renderWith(<ConfirmAccountDeletionScreen />, makeDispatcher(true, calls));
-
     fireEvent.click(ui.getByRole("button"));
-
     await waitFor(() => expect(ui.getByText(/vorgemerkt/)).toBeTruthy());
     await waitFor(() => expect(calls).toHaveLength(1));
     expect(calls[0]?.type).toBe("user-data-rights:write:confirm-deletion-by-token");
@@ -110,9 +109,7 @@ describe("ConfirmAccountDeletionScreen", () => {
   test("write-Failure → invalidToken-Banner, kein Success", async () => {
     window.history.replaceState({}, "", "/delete-account/confirm?token=bad");
     const ui = renderWith(<ConfirmAccountDeletionScreen />, makeDispatcher(false, []));
-
     fireEvent.click(ui.getByRole("button"));
-
     await waitFor(() => expect(ui.getByText(/ungültig oder abgelaufen/)).toBeTruthy());
     expect(ui.queryByText(/vorgemerkt/)).toBeNull();
   });
@@ -120,9 +117,7 @@ describe("ConfirmAccountDeletionScreen", () => {
   test("write wirft → generischer Error-Banner, NICHT invalidToken", async () => {
     window.history.replaceState({}, "", "/delete-account/confirm?token=tok-123");
     const ui = renderWith(<ConfirmAccountDeletionScreen />, makeThrowingDispatcher());
-
     fireEvent.click(ui.getByRole("button"));
-
     await waitFor(() => expect(ui.getByText(/schief gegangen/)).toBeTruthy());
     expect(ui.queryByText(/ungültig oder abgelaufen/)).toBeNull();
     expect(ui.queryByText(/vorgemerkt/)).toBeNull();
