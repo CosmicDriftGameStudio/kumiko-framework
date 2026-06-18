@@ -8,15 +8,7 @@ linker = "hoisted"
 # Unit-test default: polyfill-only preload (no service-URL env). Integration
 # runs pull service defaults via bunfig.integration.toml → integration.preload.ts.
 preload = ["./test-setup/base.preload.ts", "./test-setup/dom.preload.ts"]
-# 1, not 8: the CI runner is single-CPU (no real parallelism — concurrency only
-# overlaps async waits). Any file-concurrency >1 lets multiple test files render
-# into the shared happy-dom `document` at once; cleanup() runs only after each
-# test, so a coexisting file's render is visible to another file's global
-# `screen` query mid-flight → stale-DOM / waitFor-timeout flakes (deletion
-# screens finding a leftover button/banner). concurrency=2 still flaked on CI;
-# serial execution is the only value that guarantees no document coexistence,
-# at ~no throughput cost on one CPU-bound core.
-concurrency = 1
+concurrency = 8
 
 # *.spec.ts gehören zu Playwright (e2e/-Folder). bun test versucht sonst
 # sie zu loaden und crash't weil Playwright eigene test()-Globals erwartet

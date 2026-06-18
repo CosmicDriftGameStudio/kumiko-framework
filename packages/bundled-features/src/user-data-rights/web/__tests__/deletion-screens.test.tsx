@@ -8,7 +8,7 @@ import {
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, waitFor, within } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { ConfirmAccountDeletionScreen } from "../confirm-deletion-screen";
 import { defaultTranslations } from "../i18n";
@@ -39,8 +39,15 @@ function makeThrowingDispatcher(): Dispatcher {
   } as unknown as Dispatcher;
 }
 
-function renderWith(ui: ReactElement, dispatcher: Dispatcher): void {
-  render(
+// Scope every query to the rendered container (via within(...)) instead of the
+// global `screen`. bun:test runs all files in one process against a shared
+// happy-dom `document`, and a sibling file's leftover render (e.g. a createRoot
+// root that the global afterEach cleanup doesn't unmount) would otherwise be
+// matched by `screen.getByRole("button")` here — clicking the wrong button so
+// the write never fires (calls stays empty) or the banner never appears
+// (waitFor times out). within(container) makes each test see only its own DOM.
+function renderWith(ui: ReactElement, dispatcher: Dispatcher): ReturnType<typeof within> {
+  const { container } = render(
     <PrimitivesProvider value={defaultPrimitives}>
       <LocaleProvider
         resolver={resolver}
@@ -50,73 +57,74 @@ function renderWith(ui: ReactElement, dispatcher: Dispatcher): void {
       </LocaleProvider>
     </PrimitivesProvider>,
   );
+  return within(container);
 }
 
 describe("RequestAccountDeletionScreen", () => {
   test("Submit → write(request-deletion-by-email) + enumeration-safe Success", async () => {
     const calls: WriteCall[] = [];
-    renderWith(<RequestAccountDeletionScreen />, makeDispatcher(true, calls));
+    const ui = renderWith(<RequestAccountDeletionScreen />, makeDispatcher(true, calls));
 
-    fireEvent.change(screen.getByRole("textbox"), { target: { value: "a@b.com" } });
-    fireEvent.click(screen.getByRole("button"));
+    fireEvent.change(ui.getByRole("textbox"), { target: { value: "a@b.com" } });
+    fireEvent.click(ui.getByRole("button"));
 
-    await waitFor(() => expect(screen.getByText(/Mail gesendet/)).toBeTruthy());
-    expect(calls).toHaveLength(1);
+    await waitFor(() => expect(ui.getByText(/Mail gesendet/)).toBeTruthy());
+    await waitFor(() => expect(calls).toHaveLength(1));
     expect(calls[0]?.type).toBe("user-data-rights:write:request-deletion-by-email");
     expect(calls[0]?.payload).toEqual({ email: "a@b.com" });
   });
 
   test("write-Failure → Error-Banner", async () => {
     const calls: WriteCall[] = [];
-    renderWith(<RequestAccountDeletionScreen />, makeDispatcher(false, calls));
+    const ui = renderWith(<RequestAccountDeletionScreen />, makeDispatcher(false, calls));
 
-    fireEvent.change(screen.getByRole("textbox"), { target: { value: "a@b.com" } });
-    fireEvent.click(screen.getByRole("button"));
+    fireEvent.change(ui.getByRole("textbox"), { target: { value: "a@b.com" } });
+    fireEvent.click(ui.getByRole("button"));
 
-    await waitFor(() => expect(screen.getByText(/schief gegangen/)).toBeTruthy());
-    expect(screen.queryByText(/Mail gesendet/)).toBeNull();
+    await waitFor(() => expect(ui.getByText(/schief gegangen/)).toBeTruthy());
+    expect(ui.queryByText(/Mail gesendet/)).toBeNull();
   });
 });
 
 describe("ConfirmAccountDeletionScreen", () => {
   test("ohne ?token → missingToken, kein Confirm-Button", () => {
     window.history.replaceState({}, "", "/delete-account/confirm");
-    renderWith(<ConfirmAccountDeletionScreen />, makeDispatcher(true, []));
-    expect(screen.getByText(/Kein Token/)).toBeTruthy();
-    expect(screen.queryByRole("button")).toBeNull();
+    const ui = renderWith(<ConfirmAccountDeletionScreen />, makeDispatcher(true, []));
+    expect(ui.getByText(/Kein Token/)).toBeTruthy();
+    expect(ui.queryByRole("button")).toBeNull();
   });
 
   test("mit ?token → Confirm dispatcht confirm-deletion-by-token + Success", async () => {
     window.history.replaceState({}, "", "/delete-account/confirm?token=tok-123");
     const calls: WriteCall[] = [];
-    renderWith(<ConfirmAccountDeletionScreen />, makeDispatcher(true, calls));
+    const ui = renderWith(<ConfirmAccountDeletionScreen />, makeDispatcher(true, calls));
 
-    fireEvent.click(screen.getByRole("button"));
+    fireEvent.click(ui.getByRole("button"));
 
-    await waitFor(() => expect(screen.getByText(/vorgemerkt/)).toBeTruthy());
-    expect(calls).toHaveLength(1);
+    await waitFor(() => expect(ui.getByText(/vorgemerkt/)).toBeTruthy());
+    await waitFor(() => expect(calls).toHaveLength(1));
     expect(calls[0]?.type).toBe("user-data-rights:write:confirm-deletion-by-token");
     expect(calls[0]?.payload).toEqual({ token: "tok-123" });
   });
 
   test("write-Failure → invalidToken-Banner, kein Success", async () => {
     window.history.replaceState({}, "", "/delete-account/confirm?token=bad");
-    renderWith(<ConfirmAccountDeletionScreen />, makeDispatcher(false, []));
+    const ui = renderWith(<ConfirmAccountDeletionScreen />, makeDispatcher(false, []));
 
-    fireEvent.click(screen.getByRole("button"));
+    fireEvent.click(ui.getByRole("button"));
 
-    await waitFor(() => expect(screen.getByText(/ungültig oder abgelaufen/)).toBeTruthy());
-    expect(screen.queryByText(/vorgemerkt/)).toBeNull();
+    await waitFor(() => expect(ui.getByText(/ungültig oder abgelaufen/)).toBeTruthy());
+    expect(ui.queryByText(/vorgemerkt/)).toBeNull();
   });
 
   test("write wirft → generischer Error-Banner, NICHT invalidToken", async () => {
     window.history.replaceState({}, "", "/delete-account/confirm?token=tok-123");
-    renderWith(<ConfirmAccountDeletionScreen />, makeThrowingDispatcher());
+    const ui = renderWith(<ConfirmAccountDeletionScreen />, makeThrowingDispatcher());
 
-    fireEvent.click(screen.getByRole("button"));
+    fireEvent.click(ui.getByRole("button"));
 
-    await waitFor(() => expect(screen.getByText(/schief gegangen/)).toBeTruthy());
-    expect(screen.queryByText(/ungültig oder abgelaufen/)).toBeNull();
-    expect(screen.queryByText(/vorgemerkt/)).toBeNull();
+    await waitFor(() => expect(ui.getByText(/schief gegangen/)).toBeTruthy());
+    expect(ui.queryByText(/ungültig oder abgelaufen/)).toBeNull();
+    expect(ui.queryByText(/vorgemerkt/)).toBeNull();
   });
 });
