@@ -1,5 +1,28 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.58.0
+
+### Patch Changes
+
+- 9733ddc: Bump `nodemailer` 8 → 9.0.1 to clear GHSA-p6gq-j5cr-w38f (HIGH): the
+  message-level `raw` option bypassed `disableFileAccess`/`disableUrlAccess`,
+  enabling arbitrary file read and SSRF in the delivered message. The SMTP
+  transport only uses `createTransport` + `sendMail` with structured fields
+  (never `raw`), so the public API is unchanged — this is a defense-in-depth
+  upgrade. 9.0.1 also clears the 8.0.9 advisories GHSA-268h-hp4c-crq3 and
+  GHSA-wqvq-jvpq-h66f.
+- 625a4e2: Add `runTemplateConsumerConformance` harness for template-resolver consumers (closes #265).
+- Updated dependencies [9733ddc]
+- Updated dependencies [b02c52e]
+- Updated dependencies [0202d38]
+- Updated dependencies [a3dcb2c]
+- Updated dependencies [f9897cd]
+  - @cosmicdrift/kumiko-framework@0.58.0
+  - @cosmicdrift/kumiko-headless@0.58.0
+  - @cosmicdrift/kumiko-renderer@0.58.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.58.0
+  - @cosmicdrift/kumiko-renderer-web@0.58.0
+
 ## 0.57.2
 
 ### Patch Changes
