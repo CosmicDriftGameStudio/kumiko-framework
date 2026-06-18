@@ -101,6 +101,12 @@ export async function collectMissingRequiredConfig(
     ctx.secrets,
   );
   for (const [qualifiedKey, keyDef] of candidates) {
+    // Deliberately the unredacted cascade value: readiness asks "does this
+    // tenant functionally have the value?", and an inheritedToTenant:false key
+    // set only at system-level IS inherited (the resolver ignores
+    // inheritedToTenant — that flag only redacts the value queries' display).
+    // Redacting here would report a working key as missing. The is-set bit this
+    // exposes is intentional; see read-redaction.ts.
     const value = cascades.get(qualifiedKey)?.value;
     if (isUnset(value, keyDef.type)) {
       missing.push({ key: qualifiedKey, scope: keyDef.scope, type: keyDef.type });

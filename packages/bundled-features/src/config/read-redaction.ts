@@ -14,8 +14,16 @@ const OWN_SOURCES: ReadonlySet<ConfigValueSource> = new Set(["user-row", "tenant
 
 // A SystemAdmin owns the platform-level values and may always see them. Every
 // other viewer (TenantAdmin, User) is tenant-side — for an
-// inheritedToTenant:false key they must learn neither the inherited platform
-// value nor that it is set.
+// inheritedToTenant:false key the value-returning read handlers (cascade +
+// values) hide both the inherited platform value and that it is set.
+//
+// Scope note: redaction is display-only. The resolver does NOT consult
+// inheritedToTenant (zero reads in resolver.ts), so the tenant still
+// functionally inherits and uses the value, and config:query:readiness
+// deliberately reports such a key as satisfied (is-set) rather than missing —
+// flagging a working key as missing would nag tenants to set already-
+// functioning config. So "nor that it is set" holds for the value queries, not
+// for the functional readiness rollup. See readiness.query.ts.
 // Shared mask for redacted config values across the read handlers (cascade + values).
 export const MASKED = "••••••";
 

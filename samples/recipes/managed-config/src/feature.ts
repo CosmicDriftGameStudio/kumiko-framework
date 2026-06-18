@@ -37,6 +37,11 @@ export const smtpHostHandle: ConfigKeyHandle<"text"> = {
 
 export const integrationsFeature = defineFeature(FEATURE, (r) => {
   r.requires("config");
+  // backing:"secrets" stores payment-api-key in the secrets envelope, which
+  // the secrets feature provisions — declare the dependency so registry-build
+  // enforces it instead of leaving a consumer to discover the missing
+  // tenant_secrets table at runtime.
+  r.requires("secrets");
 
   r.config({
     keys: {
