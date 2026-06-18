@@ -1,0 +1,185 @@
+// Full-stack integration for the tags bundle. Drives create → assign → list →
+// remove through the real dispatcher + entity-projection + DB. Proves the
+// architecture end-to-end WITHOUT any host wiring (tags are host-agnostic — the
+// host is just the entityType/entityId strings on the assignment):
+//   - create-tag projects into read_tags
+//   - assign-tag projects a join row keyed by (entityType, entityId)
+//   - read-layer composition both directions (tags of an entity / entities of a tag)
+//   - assign + remove are idempotent (re-assign = one row, remove-missing = ok)
+//   - multi-tenant isolation
+
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import {
+  createTestUser,
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-framework/stack";
+import { TagsHandlers, TagsQueries } from "../constants";
+import { tagAssignmentEntity, tagEntity } from "../entity";
+import { createTagsFeature } from "../feature";
+
+const tagsFeature = createTagsFeature();
+
+let stack: TestStack;
+
+beforeAll(async () => {
+  stack = await setupTestStack({ features: [tagsFeature] });
+  await unsafeCreateEntityTable(stack.db, tagEntity);
+  await unsafeCreateEntityTable(stack.db, tagAssignmentEntity);
+  await createEventsTable(stack.db);
+});
+
+afterAll(async () => {
+  await stack.cleanup();
+});
+
+beforeEach(async () => {
+  await asRawClient(stack.db).unsafe("DELETE FROM kumiko_events");
+  await asRawClient(stack.db).unsafe("DELETE FROM read_tags");
+  await asRawClient(stack.db).unsafe("DELETE FROM read_tag_assignments");
+});
+
+const admin = createTestUser({ roles: ["TenantAdmin"] });
+const otherTenant = createTestUser({
+  roles: ["TenantAdmin"],
+  tenantId: "00000000-0000-4000-8000-0000000000aa",
+});
+
+async function createTag(name: string, user = admin): Promise<string> {
+  const tag = await stack.http.writeOk<{ id: string }>(TagsHandlers.createTag, { name }, user);
+  return tag.id;
+}
+
+async function assign(tagId: string, entityType: string, entityId: string, user = admin) {
+  return stack.http.writeOk(TagsHandlers.assignTag, { tagId, entityType, entityId }, user);
+}
+
+async function remove(tagId: string, entityType: string, entityId: string, user = admin) {
+  return stack.http.writeOk(TagsHandlers.removeTag, { tagId, entityType, entityId }, user);
+}
+
+async function listTags(user = admin): Promise<Array<Record<string, unknown>>> {
+  const res = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
+    TagsQueries.tagList,
+    {},
+    user,
+  );
+  return res.rows;
+}
+
+async function listAssignments(
+  filter: { field: string; op: "eq"; value: unknown } | undefined,
+  user = admin,
+): Promise<Array<Record<string, unknown>>> {
+  const res = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
+    TagsQueries.assignmentList,
+    filter ? { filter } : {},
+    user,
+  );
+  return res.rows;
+}
+
+async function countAssignments(tenantId: string): Promise<number> {
+  const rows = await asRawClient(stack.db).unsafe(
+    "SELECT count(*)::int AS n FROM read_tag_assignments WHERE tenant_id = $1",
+    [tenantId],
+  );
+  return (rows as ReadonlyArray<{ n: number }>)[0]?.n ?? 0;
+}
+
+describe("tags integration — catalog + assignment roundtrip", () => {
+  test("create-tag lands in read_tags", async () => {
+    const id = await createTag("Kunde Müller");
+    const tags = await listTags();
+    expect(tags).toHaveLength(1);
+    expect(tags[0]?.["id"]).toBe(id);
+    expect(tags[0]?.["name"]).toBe("Kunde Müller");
+  });
+
+  test("assign-tag → assignment queryable both composition directions", async () => {
+    const tagId = await createTag("VIP");
+    await assign(tagId, "credit", "credit-1");
+
+    // tags of an entity
+    const byEntity = await listAssignments({ field: "entityId", op: "eq", value: "credit-1" });
+    expect(byEntity).toHaveLength(1);
+    expect(byEntity[0]?.["tagId"]).toBe(tagId);
+    expect(byEntity[0]?.["entityType"]).toBe("credit");
+
+    // entities carrying a tag
+    const byTag = await listAssignments({ field: "tagId", op: "eq", value: tagId });
+    expect(byTag).toHaveLength(1);
+    expect(byTag[0]?.["entityId"]).toBe("credit-1");
+  });
+
+  test("remove-tag deletes the assignment", async () => {
+    const tagId = await createTag("temp");
+    await assign(tagId, "credit", "credit-2");
+    expect(await countAssignments(admin.tenantId)).toBe(1);
+
+    await remove(tagId, "credit", "credit-2");
+    expect(await countAssignments(admin.tenantId)).toBe(0);
+    const left = await listAssignments({ field: "entityId", op: "eq", value: "credit-2" });
+    expect(left).toHaveLength(0);
+  });
+});
+
+describe("tags integration — many-to-many composition", () => {
+  test("one entity carries multiple tags", async () => {
+    const a = await createTag("rot");
+    const b = await createTag("wasser");
+    await assign(a, "credit", "credit-3");
+    await assign(b, "credit", "credit-3");
+
+    const tags = await listAssignments({ field: "entityId", op: "eq", value: "credit-3" });
+    expect(tags.map((r) => r["tagId"]).sort()).toEqual([a, b].sort());
+  });
+
+  test("one tag spans multiple entities", async () => {
+    const tagId = await createTag("Mappe-2026");
+    await assign(tagId, "credit", "credit-4");
+    await assign(tagId, "credit", "credit-5");
+
+    const entities = await listAssignments({ field: "tagId", op: "eq", value: tagId });
+    expect(entities.map((r) => r["entityId"]).sort()).toEqual(["credit-4", "credit-5"]);
+  });
+});
+
+describe("tags integration — idempotency", () => {
+  test("re-assigning the same (tag, entity) keeps exactly one row", async () => {
+    const tagId = await createTag("dup");
+    await assign(tagId, "credit", "credit-6");
+    await assign(tagId, "credit", "credit-6"); // re-assign: must be a no-op success
+
+    expect(await countAssignments(admin.tenantId)).toBe(1);
+    const rows = await listAssignments({ field: "entityId", op: "eq", value: "credit-6" });
+    expect(rows).toHaveLength(1);
+  });
+
+  test("removing a never-assigned (tag, entity) succeeds (no error, no row)", async () => {
+    const tagId = await createTag("ghost");
+    // never assigned — remove must still succeed (idempotent end-state)
+    await remove(tagId, "credit", "credit-7");
+    expect(await countAssignments(admin.tenantId)).toBe(0);
+  });
+});
+
+describe("tags integration — multi-tenant isolation", () => {
+  test("tenant B sees neither tenant A's tags nor assignments", async () => {
+    const tagId = await createTag("A-only", admin);
+    await assign(tagId, "credit", "credit-8", admin);
+
+    expect(await listTags(otherTenant)).toHaveLength(0);
+    expect(
+      await listAssignments({ field: "entityId", op: "eq", value: "credit-8" }, otherTenant),
+    ).toHaveLength(0);
+
+    // tenant A still sees its own
+    expect(await listTags(admin)).toHaveLength(1);
+    expect(await countAssignments(admin.tenantId)).toBe(1);
+    expect(await countAssignments(otherTenant.tenantId)).toBe(0);
+  });
+});
