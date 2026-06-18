@@ -12,7 +12,14 @@ function resolveUnsafeClient(db: DbConnection | DbTx): UnsafeFn {
     unsafe?: UnsafeFn;
   };
   const client = dbAny.$client ?? dbAny.session?.client ?? dbAny;
-  return (client as { unsafe: UnsafeFn }).unsafe;
+  const fn = (client as { unsafe?: UnsafeFn }).unsafe;
+  if (fn === undefined) {
+    throw new Error(
+      "resolveUnsafeClient: no `.unsafe(sql, params)` fn on the db connection " +
+        "(checked $client, session.client, db itself) — schema-inspection needs the raw postgres escape hatch.",
+    );
+  }
+  return fn;
 }
 
 // True when `<fullyQualifiedName>` refers to an existing relation in the
