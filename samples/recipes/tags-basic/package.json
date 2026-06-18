@@ -1,0 +1,9 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-tags-basic",
+  "description": "Tag and group any entity without changing it — host-agnostic, event-sourced.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  }
+}
