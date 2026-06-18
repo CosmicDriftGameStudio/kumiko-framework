@@ -59,19 +59,33 @@ export async function queueRebuildsFromMarkers(
   return [...queued];
 }
 
-type PendingRebuildRow = { readonly tableName: string };
+type PendingRebuildRow = { readonly tableName: string; readonly migrationId: string };
 
-export async function listPendingRebuilds(db: DbConnection): Promise<readonly string[]> {
+export async function listPendingRebuildRows(
+  db: DbConnection,
+): Promise<readonly PendingRebuildRow[]> {
   await createPendingRebuildsTable(db);
   const rows = await selectMany<PendingRebuildRow>(db, pendingRebuildsTable, undefined, {
     orderBy: [{ col: "queuedAt" }, { col: "tableName" }],
   });
-  return rows.map((row) => row.tableName);
+  return rows.map((row) => ({ tableName: row.tableName, migrationId: row.migrationId }));
 }
 
-async function clearPendingRebuilds(db: DbConnection, tables: readonly string[]): Promise<void> {
-  for (const tableName of tables) {
-    await deleteMany(db, pendingRebuildsTable, { tableName });
+export async function listPendingRebuilds(db: DbConnection): Promise<readonly string[]> {
+  return (await listPendingRebuildRows(db)).map((row) => row.tableName);
+}
+
+// Clears against the (table_name, migration_id) snapshot the caller read, not
+// table_name alone: a concurrent queueRebuildsFromMarkers can re-queue the same
+// table for a NEWER migration (upsert bumps migration_id, keeps the slot)
+// between the read and the clear. Scoping the delete to the snapshot's
+// migration_id leaves that fresh re-queue intact instead of dropping it. (#328)
+export async function clearPendingRebuilds(
+  db: DbConnection,
+  rows: readonly PendingRebuildRow[],
+): Promise<void> {
+  for (const { tableName, migrationId } of rows) {
+    await deleteMany(db, pendingRebuildsTable, { tableName, migrationId });
   }
 }
 
@@ -111,10 +125,20 @@ export async function runPendingRebuilds(
   registry: Registry,
   options: RunPendingRebuildsOptions = {},
 ): Promise<PendingRebuildRun> {
-  const pending = await listPendingRebuilds(db);
-  if (pending.length === 0) {
+  const pendingRows = await listPendingRebuildRows(db);
+  if (pendingRows.length === 0) {
     return { rebuilt: [], failed: [], unmapped: [], unresolvedManaged: [] };
   }
+  // (table → migration) snapshot read together with the table list; the clear
+  // below scopes its DELETE to this migration_id so a concurrent re-queue for a
+  // newer migration survives instead of being dropped (#328).
+  const migrationByTable = new Map(pendingRows.map((r) => [r.tableName, r.migrationId]));
+  const snapshotRows = (tables: readonly string[]): readonly PendingRebuildRow[] =>
+    tables.flatMap((tableName) => {
+      const migrationId = migrationByTable.get(tableName);
+      return migrationId === undefined ? [] : [{ tableName, migrationId }];
+    });
+  const pending = pendingRows.map((r) => r.tableName);
 
   const tableToProjection = buildProjectionTableIndex(registry);
   const thisRun = new Set(options.thisRunTables ?? []);
@@ -141,7 +165,7 @@ export async function runPendingRebuilds(
   // nicht im Liegenlassen.
   const drained = [...unmapped, ...unresolvedManaged];
   if (drained.length > 0) {
-    await clearPendingRebuilds(db, drained);
+    await clearPendingRebuilds(db, snapshotRows(drained));
   }
 
   if (unresolvedManaged.length > 0) {
@@ -156,7 +180,7 @@ export async function runPendingRebuilds(
   for (const [projection, tables] of byProjection) {
     try {
       const result = await rebuildProjection(projection, { db, registry });
-      await clearPendingRebuilds(db, tables);
+      await clearPendingRebuilds(db, snapshotRows(tables));
       rebuilt.push({ projection, eventsProcessed: result.eventsProcessed });
     } catch (e) {
       failed.push({ projection, error: e instanceof Error ? e.message : String(e) });

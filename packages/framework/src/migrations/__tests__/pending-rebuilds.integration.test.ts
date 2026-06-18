@@ -30,7 +30,9 @@ import {
   unsafePushTables,
 } from "../../stack";
 import {
+  clearPendingRebuilds,
   enqueueProjectionRebuild,
+  listPendingRebuildRows,
   listPendingRebuilds,
   queueRebuildsFromMarkers,
   runPendingRebuilds,
@@ -158,6 +160,36 @@ describe("pending-rebuilds queue", () => {
     const run = await runPendingRebuilds(testDb.db, registry);
     expect(run.unmapped).toEqual(["read_some_plain_table"]);
     expect(run.failed).toEqual([]);
+    expect(await listPendingRebuilds(testDb.db)).toEqual([]);
+  });
+
+  test("clear is scoped to the snapshot migration_id — a concurrent re-queue survives (#328)", async () => {
+    // Snapshot read: table queued for migration 0001.
+    writeRebuildMarker(markerDir, "0001_counts.sql", ["read_pending_counts"]);
+    await queueRebuildsFromMarkers(testDb.db, {
+      migrationsDir: markerDir,
+      appliedIds: ["0001_counts"],
+    });
+    const snapshot = await listPendingRebuildRows(testDb.db);
+    expect(snapshot).toEqual([{ tableName: "read_pending_counts", migrationId: "0001_counts" }]);
+
+    // A concurrent apply re-queues the SAME table for a NEWER migration between
+    // the snapshot read and the clear (upsert bumps migration_id, keeps the slot).
+    writeRebuildMarker(markerDir, "0002_counts.sql", ["read_pending_counts"]);
+    await queueRebuildsFromMarkers(testDb.db, {
+      migrationsDir: markerDir,
+      appliedIds: ["0002_counts"],
+    });
+
+    // Clearing against the OLD snapshot must NOT drop the freshly re-queued entry.
+    await clearPendingRebuilds(testDb.db, snapshot);
+    expect(await listPendingRebuilds(testDb.db)).toEqual(["read_pending_counts"]);
+    expect(await listPendingRebuildRows(testDb.db)).toEqual([
+      { tableName: "read_pending_counts", migrationId: "0002_counts" },
+    ]);
+
+    // Clearing against the CURRENT snapshot does drain it.
+    await clearPendingRebuilds(testDb.db, await listPendingRebuildRows(testDb.db));
     expect(await listPendingRebuilds(testDb.db)).toEqual([]);
   });
 
