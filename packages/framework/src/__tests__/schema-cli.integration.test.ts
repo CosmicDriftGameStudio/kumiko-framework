@@ -3,7 +3,8 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type BunTestDb, createTestDb } from "../bun-db/__tests__/bun-test-db";
-import { createDbConnection, tableExists } from "../db";
+import { tableExists } from "../db";
+import { asRawClient } from "../db/query";
 import { runSchemaCli, type SchemaCliOut } from "../schema-cli";
 import { ensureTemporalPolyfill } from "../time/polyfill";
 
@@ -192,24 +193,34 @@ describe("runSchemaCli — DB-backed paths", () => {
     // entity-read tables after `apply`, so runProdApp's first event-store access
     // hit "relation kumiko_events does not exist". `apply` now ensures the
     // framework-infra tables (idempotent) so a greenfield deploy boots.
+    //
+    // createTestDb's beforeAll already materialized kumiko_events/_snapshots/
+    // _archived_streams via createEventsTable — without dropping all five infra
+    // tables first, 3/5 assertions would be tautological (green even if `apply`
+    // never created them). Drop → assert-absent reproduces greenfield in the
+    // shared DB; apply recreates them, so the end-state matches the other tests.
+    const infraTables = [
+      "public.kumiko_events",
+      "public.kumiko_snapshots",
+      "public.kumiko_archived_streams",
+      "public.kumiko_event_consumers",
+      "public.kumiko_projections",
+    ];
+    await asRawClient(testDb.db).unsafe(
+      `DROP TABLE IF EXISTS "kumiko_events", "kumiko_snapshots", "kumiko_archived_streams", ` +
+        `"kumiko_event_consumers", "kumiko_projections" CASCADE`,
+    );
+    for (const table of infraTables) {
+      expect(await tableExists(testDb.db, table)).toBe(false);
+    }
+
     const appCwd = freshAppCwd();
     writeSchemaFile(appCwd, "tbl_infra");
     await runSchemaCli(["generate", "infra_test"], appCwd, captureOut().out);
     await runSchemaCli(["apply"], appCwd, captureOut().out);
 
-    const { db, close } = createDbConnection(dbUrl);
-    try {
-      for (const table of [
-        "public.kumiko_events",
-        "public.kumiko_snapshots",
-        "public.kumiko_archived_streams",
-        "public.kumiko_event_consumers",
-        "public.kumiko_projections",
-      ]) {
-        expect(await tableExists(db, table)).toBe(true);
-      }
-    } finally {
-      await close();
+    for (const table of infraTables) {
+      expect(await tableExists(testDb.db, table)).toBe(true);
     }
     rmSync(appCwd, { recursive: true, force: true });
   });
