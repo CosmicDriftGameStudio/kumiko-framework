@@ -88,6 +88,27 @@ describe("buildEnvConfigOverrides", () => {
     expect(result.size).toBe(0);
   });
 
+  test("whitespace-only env var → skipped (semantically empty, must not clobber default)", () => {
+    // Number key: pre-fix `Number("   ".trim())` was 0 and finite → silently
+    // resolved to 0 instead of falling through to the declared default.
+    const reg = registryStub({
+      "a:config:n": createSystemConfig("number", { env: "N" }),
+      "a:config:x": createSystemConfig("text", { env: "X" }),
+    });
+    const result = buildEnvConfigOverrides(reg, { N: "   ", X: "\t\n" });
+    expect(result.size).toBe(0);
+  });
+
+  test("select value is trimmed before option membership (so ` dark` resolves)", () => {
+    const reg = registryStub({
+      "a:config:theme": createSystemConfig("select", {
+        env: "THEME",
+        options: ["light", "dark"],
+      }),
+    });
+    expect(buildEnvConfigOverrides(reg, { THEME: " dark " }).get("a:config:theme")).toBe("dark");
+  });
+
   test("keys without an env field are ignored even if a same-named var exists", () => {
     const reg = registryStub({
       "a:config:no-env": createSystemConfig("text", {}),

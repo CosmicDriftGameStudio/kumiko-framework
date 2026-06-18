@@ -384,6 +384,12 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
       return { value: undefined, source: "missing" };
     },
 
+    // NOTE: getAll / getAllWithSource read only config_values rows and do NOT
+    // dispatch to the secrets store (unlike get/getCascade/getWithSource). A
+    // backing="secrets" key has no config_values row, so it is simply ABSENT
+    // from the result map — never a stale/undefined value. Callers needing a
+    // secrets-backed value must use get/getCascade; these bulk readers are for
+    // the config_values-backed keys only.
     async getAll(tenantId, userId, db) {
       // Only load rows relevant to this user/tenant (system + tenant + user scope)
       const rows = await selectConfigRowsForScope(db, SYSTEM_TENANT_ID, tenantId, userId);
@@ -613,8 +619,8 @@ export function validateAppOverrides(
 // resolving to the wrong value. Reuses validateAppOverrides for the
 // existence / bounds / options / computed-conflict gates.
 //
-// undefined OR empty-string env vars are skipped — an unset (or `FOO=`)
-// variable must not clobber a declared default.
+// undefined OR blank env vars are skipped — an unset, empty (`FOO=`) or
+// whitespace-only (`FOO="   "`) variable must not clobber a declared default.
 
 type EnvSource = Readonly<Record<string, string | undefined>>;
 
@@ -646,8 +652,9 @@ function coerceEnvValue(
       `ENV config bridge: "${envName}" → "${qualifiedKey}" expects a boolean (true/false/1/0), got "${raw}".`,
     );
   }
-  // text | select — select-option membership is validated by validateAppOverrides
-  return raw;
+  // text | select — trimmed so e.g. `THEME=" dark"` resolves to a real option;
+  // select-option membership is validated by validateAppOverrides.
+  return raw.trim();
 }
 
 export function buildEnvConfigOverrides(
@@ -659,7 +666,7 @@ export function buildEnvConfigOverrides(
     const envName = keyDef.env;
     if (!envName) continue;
     const raw = env[envName];
-    if (raw === undefined || raw === "") continue;
+    if (raw === undefined || raw.trim() === "") continue;
     record[qualifiedKey] = coerceEnvValue(qualifiedKey, envName, keyDef.type, raw);
   }
   return validateAppOverrides(registry, record);

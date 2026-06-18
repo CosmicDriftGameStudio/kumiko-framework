@@ -86,6 +86,16 @@ export function assertOriginGuardConfig(
   const widensCookieAcrossSubdomains = Boolean(auth?.cookieDomain);
   const hasAllowlist = (auth?.allowedOrigins?.length ?? 0) > 0;
   const optedOut = auth?.unsafeSkipOriginCheck === true;
+  // Contradictory config: the opt-out asks to skip the Origin guard, but a
+  // non-empty allowlist still registers it in buildServer — the flag would be
+  // silently ignored. Force the operator to pick one rather than guess.
+  if (optedOut && hasAllowlist) {
+    throw new Error(
+      "[kumiko:boot] auth.unsafeSkipOriginCheck: true disables the Origin guard, but " +
+        "auth.allowedOrigins is also set — the allowlist would still be enforced, ignoring " +
+        "the opt-out. Remove one: keep allowedOrigins to enforce the guard, or drop it to skip.",
+    );
+  }
   if (widensCookieAcrossSubdomains && !hasAllowlist && !optedOut) {
     throw new Error(
       "[kumiko:boot] auth.cookieDomain widens the session cookie across subdomains, but " +

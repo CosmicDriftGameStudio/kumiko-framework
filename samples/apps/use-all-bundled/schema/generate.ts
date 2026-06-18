@@ -24,6 +24,10 @@ type FeatureImport = (
       readonly kind: "factory";
       readonly path: string;
       readonly factory: string;
+      // Literal args rendered inside the factory call, for factories with a
+      // required parameter (e.g. managed-pages' resolveApexTenant). Only the
+      // entity shape is consumed here, so a no-op stub is sufficient.
+      readonly defaultArgs?: string;
     }
   | {
       readonly kind: "named";
@@ -170,6 +174,7 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     kind: "factory",
     path: "@cosmicdrift/kumiko-bundled-features/managed-pages",
     factory: "createManagedPagesFeature",
+    defaultArgs: "{ resolveApexTenant: () => null, allowCustomCss: true }",
   },
   "template-resolver": {
     kind: "factory",
@@ -284,7 +289,7 @@ for (const feature of features) {
     featureVarNames.set(feature.name, varName);
     if (entry.kind === "factory") {
       importLines.push(`import { ${entry.factory} } from "${entry.path}";`);
-      constLines.push(`const ${varName} = ${entry.factory}();`);
+      constLines.push(`const ${varName} = ${entry.factory}(${entry.defaultArgs ?? ""});`);
     } else {
       importLines.push(`import { ${entry.exportName} } from "${entry.path}";`);
       constLines.push(`const ${varName} = ${entry.exportName};`);

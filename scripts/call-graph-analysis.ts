@@ -16,6 +16,8 @@ import {
   type FunctionDeclaration,
   type ArrowFunction,
   type FunctionExpression,
+  type MethodDeclaration,
+  type PropertyAssignment,
   type VariableDeclaration,
 } from "ts-morph";
 
@@ -96,11 +98,13 @@ function getFnName(node: FnNode): string | undefined {
   if (parent?.isKind(SyntaxKind.VariableDeclaration)) {
     return (parent as VariableDeclaration).getName();
   }
-  if (
-    parent?.isKind(SyntaxKind.PropertyAssignment) ||
-    parent?.isKind(SyntaxKind.MethodDeclaration)
-  ) {
-    return parent.getFirstChild()?.getText();
+  if (parent?.isKind(SyntaxKind.PropertyAssignment)) {
+    return (parent as PropertyAssignment).getName();
+  }
+  // getName(), NOT getFirstChild(): on a MethodDeclaration with modifiers the
+  // first child is the modifier keyword (`async`/`public`), not the name.
+  if (parent?.isKind(SyntaxKind.MethodDeclaration)) {
+    return (parent as MethodDeclaration).getName();
   }
   return undefined;
 }

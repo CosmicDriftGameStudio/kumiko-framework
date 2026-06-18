@@ -149,6 +149,22 @@ export function createDecimalField<R extends true | false = false>(
     Omit<DecimalFieldDef, "type" | "precision" | "scale" | "required">
   > & { required?: R },
 ): DecimalFieldDef & { required: R } {
+  // Fail at definition time, not at the first migration: numeric(p,s) requires
+  // integer p ≥ 1 and 0 ≤ s ≤ p (Postgres rejects e.g. numeric(2,4), and the
+  // schema-builder's `10 ** (precision - scale)` bound goes nonsensical).
+  const { precision, scale } = config;
+  if (
+    !Number.isInteger(precision) ||
+    !Number.isInteger(scale) ||
+    precision < 1 ||
+    scale < 0 ||
+    scale > precision
+  ) {
+    throw new Error(
+      `createDecimalField: precision/scale must be integers with precision ≥ 1 and ` +
+        `0 ≤ scale ≤ precision, got precision=${precision}, scale=${scale}`,
+    );
+  }
   return {
     type: "decimal",
     required: false,

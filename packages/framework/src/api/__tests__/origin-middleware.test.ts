@@ -70,6 +70,19 @@ describe("assertOriginGuardConfig", () => {
       assertOriginGuardConfig({ cookieDomain: "example.eu", unsafeSkipOriginCheck: true }),
     ).not.toThrow();
   });
+  test("throws on contradictory opt-out + non-empty allowedOrigins (flag would be ignored)", () => {
+    expect(() =>
+      assertOriginGuardConfig({ allowedOrigins: [ALLOWED], unsafeSkipOriginCheck: true }),
+    ).toThrow(/unsafeSkipOriginCheck/);
+    // also throws even without a cookieDomain — the contradiction is independent
+    expect(() =>
+      assertOriginGuardConfig({
+        cookieDomain: "example.eu",
+        allowedOrigins: [ALLOWED],
+        unsafeSkipOriginCheck: true,
+      }),
+    ).toThrow(/unsafeSkipOriginCheck/);
+  });
   test("passes when no cookieDomain (host-only cookie) or no auth at all", () => {
     expect(() => assertOriginGuardConfig({})).not.toThrow();
     expect(() => assertOriginGuardConfig(undefined)).not.toThrow();

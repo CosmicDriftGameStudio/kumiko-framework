@@ -11,6 +11,9 @@ const PUBLIC_PAGE_SECURITY_HEADERS = {
   "referrer-policy": "strict-origin-when-cross-origin",
 } as const;
 
+// Security headers spread LAST so a caller's `extra` can never override a
+// hardened default (CSP/nosniff/frame-options); extra only adds non-security
+// headers like content-type/cache-control/vary.
 export function securePageHeaders(extra: Record<string, string>): Record<string, string> {
-  return { ...PUBLIC_PAGE_SECURITY_HEADERS, ...extra };
+  return { ...extra, ...PUBLIC_PAGE_SECURITY_HEADERS };
 }
