@@ -247,6 +247,9 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   if (existsSync(join(REPO_ROOT, "kumiko-platform"))) {
     steps.push({ name: "Doc-Status Guard", cmd: "bunx kumiko-guard-doc-status" });
     steps.push({ name: "Doc-Status-Index Drift", cmd: "bunx kumiko-docs-status-index" });
+    // Braucht die legal-templates-Source (kumiko-platform/tools/legal-templates)
+    // um die eingecheckten App-JSONs gegen frische Kompilierung zu prüfen.
+    steps.push({ name: "Legal-Template-Drift Guard", cmd: "bunx kumiko-guard-legal-template-drift" });
   } else {
     console.log("Doc-Status-Steps übersprungen: kumiko-platform nicht im Workspace (CI-standalone).");
   }
