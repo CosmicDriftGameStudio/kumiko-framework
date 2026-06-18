@@ -1,5 +1,35 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.58.0
+
+### Minor Changes
+
+- f9897cd: Update-Awareness (default an): Der Prod-Build (`buildProdBundle`) schreibt eine
+  selbsttragende Build-ID — ein Hash über die content-gehashten Asset-URLs — als
+  `dist/build-info.json` und bäckt sie als `window.__KUMIKO_BUILD__` in die
+  index.html. Jede renderer-web-App mountet einen `<UpdateChecker/>`, der beim
+  Tab-Fokus (`visibilitychange`/`focus`) `build-info.json` pollt und ein
+  Reload-Banner zeigt, sobald sich die ID ändert — ein offener Tab erfährt so von
+  einem neuen Deploy, ohne Hard-Reload und ohne Service-Worker.
+
+  `builtAt` (ISO-Zeitstempel) steht auf `window.__KUMIKO_BUILD__` als lesbare
+  Anzeige-Version bereit (ersetzt rohe git-shas). Quelle ist die statische
+  build-info.json, nicht `/api/version` (live unzuverlässig). Fail-safe: ohne
+  gebackene Build-ID (Dev, altes Bundle) oder bei Fetch-Fehler kein Banner.
+
+### Patch Changes
+
+- 9733ddc: CLI command registry: add `createCommandRegistry()` and back the free
+  `defineCommand`/`getCommand`/`getCommands` with a single process-wide default
+  instance. The registry unit test now exercises a fresh isolated instance
+  instead of clearing the shared default in `afterEach` (`_resetRegistry`, now
+  removed) — that clear raced the bin/-command coverage tests that read the
+  shared registry under the concurrent test runner, intermittently failing CI
+  with "command \"status\" missing" on unrelated PRs.
+- b02c52e: Review-fix mechanical batch: register `auth.errors.originNotAllowed` i18n key (de+en) used by origin-middleware; share the config read-redaction `MASKED` constant across the cascade/values query handlers; align Dockerfile `BUN_VERSION` to CI (1.3.14); use `SYSTEM_TENANT_ID` and an `isErrorBody` type-guard instead of hardcoded UUID / unchecked casts in tests.
+- 0202d38: Pending-rebuilds: scope the queue clear to the (table_name, migration_id) snapshot the run read, so a concurrent re-queue of the same table for a newer migration is no longer dropped between the read and the clear (#328). event-store list: document that list rows carry the read-row version (display-only, never an optimistic-lock base — edits reload via detail) so the #336 version_conflict can't creep back in.
+- a3dcb2c: Projection rebuild: mark the cutover seam as `__test_onBeforeFence` so a production caller can't accidentally hold the ACCESS-EXCLUSIVE fence open (#404/5). Document a known limitation (#443) — a cross-aggregate write that commits with an event id below the rebuild cursor after the cursor passed it is dropped (bigserial assigns ids pre-commit); add a deterministic characterization test pinning the data-loss until a watermark-based fix lands.
+
 ## 0.57.2
 
 ### Patch Changes
