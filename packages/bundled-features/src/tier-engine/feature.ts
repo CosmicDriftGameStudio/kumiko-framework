@@ -52,6 +52,7 @@ import {
   defineEntityListHandler,
   defineEntityUpdateHandler,
   defineFeature,
+  defineQueryHandler,
   type FeatureDefinition,
   HookPhases,
   type SessionUser,
@@ -61,11 +62,14 @@ import {
   type TierResolverPlugin,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { getAggregateStreamMaxVersion } from "@cosmicdrift/kumiko-framework/event-store";
+import { z } from "zod";
 import { tierAssignmentAggregateId } from "./aggregate-id";
 import type { TierMap } from "./compose-app";
 import { TIER_ENGINE_FEATURE } from "./constants";
 import { tierAssignmentEntity } from "./entity";
 import { getActiveTierQuery } from "./handlers/active-tier.query";
+import { getTenantTierQuery } from "./handlers/get-tenant-tier.query";
+import { setTenantTierWrite } from "./handlers/set-tenant-tier.write";
 
 // Drizzle-table for the tier-assignment-entity. Built once at module-load
 // from the entity definition — same shape buildEntityTable would produce
@@ -168,7 +172,7 @@ export function createTierEngineFeature<
 >(opts: CreateTierEngineOptions<TCaps> = {}): FeatureDefinition {
   return defineFeature(TIER_ENGINE_FEATURE, (r) => {
     r.describe(
-      "Stores a `tier-assignment` entity per tenant (which pricing tier is active) and, when configured with a `TierMap`, registers itself as the `tenantTierResolver` extension so the dispatcher automatically gates `r.toggleable()` features per tenant based on their assigned tier. Call `createTierEngineFeature({ defaultTier, tierMap })` to get full tier composition \u2014 including an `inTransaction` entity hook that atomically writes the default tier when a new tenant is created \u2014 or use `createTierEngineFeature()` without options for storage-only mode when you manage tier assignment yourself via `composeApp`.",
+      'Stores a `tier-assignment` entity per tenant (which pricing tier is active) and, when configured with a `TierMap`, registers itself as the `tenantTierResolver` extension so the dispatcher automatically gates `r.toggleable()` features per tenant based on their assigned tier. Call `createTierEngineFeature({ defaultTier, tierMap })` to get full tier composition \u2014 including an `inTransaction` entity hook that atomically writes the default tier when a new tenant is created \u2014 or use `createTierEngineFeature()` without options for storage-only mode when you manage tier assignment yourself via `composeApp`. A SystemAdmin-only `set-tenant-tier` write plus `get-tenant-tier`/`tier-options` reads let an operator assign a tier to ANY tenant manually \u2014 without a billing purchase \u2014 stamping `source: "manual"` so a future Stripe\u2192tier sync won\'t overwrite the grant. Apps surface this via the `tier-admin` screen.',
     );
     r.requires("config");
     r.requires("tenant");
@@ -182,6 +186,20 @@ export function createTierEngineFeature<
     // Reads.
     r.queryHandler(defineEntityListHandler("tier-assignment", tierAssignmentEntity, adminAccess));
     r.queryHandler(getActiveTierQuery);
+
+    // \u2500\u2500 Manueller Tier-Grant (SystemAdmin, ohne Billing) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    // Cross-tenant set + read f\u00fcr den tier-admin-Screen. tier-options liefert
+    // dem Client die App-Tier-Namen aus der tierMap-Closure (sonst hartkodiert).
+    r.writeHandler(setTenantTierWrite);
+    r.queryHandler(getTenantTierQuery);
+    r.queryHandler(
+      defineQueryHandler({
+        name: "tier-options",
+        schema: z.object({}),
+        access: { roles: ["SystemAdmin"] },
+        handler: async () => ({ tiers: opts.tierMap ? Object.keys(opts.tierMap) : [] }),
+      }),
+    );
 
     // ───────────────────────────────────────────────────────────────────
     // Resolver-extension (only when tierMap is configured)
@@ -299,7 +317,7 @@ export function createTierEngineFeature<
           const tdb = createTenantDb(rawDb, newTenantId, "system");
 
           await tierAssignmentExecutor.create(
-            { id: aggregateId, tier: defaultTier },
+            { id: aggregateId, tier: defaultTier, source: "default" },
             systemUser,
             tdb,
           );
