@@ -1,5 +1,5 @@
-import type { DispatcherError, SubmitResult } from "@cosmicdrift/kumiko-headless";
 import { describe, expect, test } from "bun:test";
+import type { DispatcherError, SubmitResult } from "@cosmicdrift/kumiko-headless";
 import { resolveExtensionEntityId, shouldNotifyCaller } from "../render-edit-logic";
 
 const error: DispatcherError = {

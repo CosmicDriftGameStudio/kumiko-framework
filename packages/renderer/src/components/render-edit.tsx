@@ -28,8 +28,8 @@ import { extensionSectionName, useExtensionSectionComponent } from "../app/exten
 import { useForm } from "../hooks/use-form";
 import { useTranslation } from "../i18n";
 import { usePrimitives } from "../primitives";
-import { RenderField } from "./render-field";
 import { resolveExtensionEntityId, shouldNotifyCaller } from "./render-edit-logic";
+import { RenderField } from "./render-field";
 
 // End-to-end renderer für einen entityEdit screen. Rendert aus-
 // schließlich über Primitives — kein raw HTML. Ein Native-Renderer
