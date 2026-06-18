@@ -113,6 +113,7 @@ function warnOncePerKeyCollision(
     warnedKeyCollisionsByRegistry.set(registry, warned);
   }
   const dedupKey = `${entityName}:${key}`;
+  // skip: already warned for this entity:key collision — dedup the hotpath
   if (warned.has(dedupKey)) return;
   warned.add(dedupKey);
   const collidesWith = isBaseField ? `base field "${key}"` : `earlier contributor key "${key}"`;
