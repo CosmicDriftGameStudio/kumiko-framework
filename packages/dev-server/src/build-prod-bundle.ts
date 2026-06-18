@@ -71,6 +71,20 @@ export type BuildResult = {
    *    { "client.js": "/assets/client-a3f2.js",
    *      "styles.css": "/assets/styles-9b4c.css" } */
   readonly manifest: BuildManifest;
+  /** Build-Identität (Hash über die Asset-URLs) + lesbarer Zeitstempel.
+   *  undefined bei vanilla public-only-Builds (kein Bundle). */
+  readonly buildInfo?: BuildInfo;
+};
+
+/** In index.html gebacken (`window.__KUMIKO_BUILD__`) UND als
+ *  dist/build-info.json geschrieben. Der UpdateChecker pollt build-info.json
+ *  und vergleicht `id` gegen den geladenen Stand → Reload-Banner bei Drift. */
+export type BuildInfo = {
+  /** Hash über die sortierten (content-gehashten) Asset-URLs. Ändert sich
+   *  gdw. sich ein Asset ändert — selbsttragend, kein Env-Var/Dockerfile. */
+  readonly id: string;
+  /** ISO-Zeitstempel des Builds, lesbare Anzeige-Version (ersetzt den rohen sha). */
+  readonly builtAt: string;
 };
 
 // Default-HTML wird nur genutzt wenn der App-Author KEIN index.html liefert.
@@ -166,6 +180,17 @@ export async function buildProdBundle(options: BuildProdBundleOptions = {}): Pro
     await copyPublicFolder(publicDir, outDir, templateBasenames);
   }
 
+  // 5b. Build-Identität: Hash über die content-gehashten Asset-URLs +
+  //     lesbarer Zeitstempel. Wird in index.html gebacken und als
+  //     build-info.json geschrieben (Update-Awareness, default an).
+  //     ponytail: id hängt nur an Assets — ein reiner Server-Deploy ohne
+  //     Client-Bundle-Change behält die id → kein Banner (die UI ist dann
+  //     nicht stale). Bei Bedarf an Server-Versionierung koppeln.
+  const buildInfo: BuildInfo | undefined =
+    Object.keys(manifest).length > 0
+      ? { id: computeBuildId(manifest), builtAt: new Date().toISOString() }
+      : undefined;
+
   // 6. HTML pro Entry rendern. Convention: ein HTML-File pro Client-Entry,
   //    jede mit ihrem eigenen Script-Tag. Server (runProdApp.hostDispatch)
   //    serviert je nach Host das passende File.
@@ -176,16 +201,24 @@ export async function buildProdBundle(options: BuildProdBundleOptions = {}): Pro
     for (const entry of clientEntries) {
       const templatePath = resolve(cwd, entry.htmlPath);
       const templateExists = existsSync(templatePath);
-      const html = await renderHtml(templateExists ? templatePath : undefined, manifest, entry);
+      const html = await renderHtml(
+        templateExists ? templatePath : undefined,
+        manifest,
+        entry,
+        buildInfo,
+      );
       const outFile = basenameOf(entry.htmlPath);
       await writeFile(join(outDir, outFile), html);
     }
   }
 
-  // 7. Manifest.
+  // 7. Manifest + Build-Info.
   await writeFile(join(outDir, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+  if (buildInfo) {
+    await writeFile(join(outDir, "build-info.json"), `${JSON.stringify(buildInfo)}\n`);
+  }
 
-  return { outDir, manifest };
+  return { outDir, manifest, ...(buildInfo && { buildInfo }) };
 }
 
 // ---------------------------------------------------------------------------
@@ -493,6 +526,7 @@ async function renderHtml(
   templatePath: string | undefined,
   manifest: BuildManifest,
   entry: ClientEntry,
+  buildInfo: BuildInfo | undefined,
 ): Promise<string> {
   // Edge-Case: kein eigenes HTML-Template + Bun.build oder Tailwind hat
   // Output produziert. DEFAULT_HTML hat keine Placeholder (vanilla
@@ -502,7 +536,7 @@ async function renderHtml(
     throw new Error(buildMissingTemplateError(manifest, entry));
   }
   const template = templatePath ? await readFile(templatePath, "utf8") : DEFAULT_HTML;
-  return injectAssetTags(template, manifest, entry);
+  return injectAssetTags(template, manifest, entry, buildInfo);
 }
 
 function buildMissingTemplateError(manifest: BuildManifest, entry: ClientEntry): string {
@@ -545,8 +579,20 @@ function buildMissingTemplateError(manifest: BuildManifest, entry: ClientEntry):
 // Fehlt ein erwarteter Tag, wirft der Build einen Fehler mit dem exakten
 // Snippet zum Reinkopieren — kein silent injection mehr, weil das den
 // Diff zwischen Dev- und Prod-HTML unsichtbar macht.
-export function injectAssetTags(html: string, manifest: BuildManifest, entry: ClientEntry): string {
+export function injectAssetTags(
+  html: string,
+  manifest: BuildManifest,
+  entry: ClientEntry,
+  buildInfo?: BuildInfo,
+): string {
   let result = html;
+
+  // Build-Stand vor </head> backen. id/builtAt sind Hex bzw. ISO → kein
+  // </script>-Escaping nötig. Ohne </head> (z.B. Fragment) still skip.
+  if (buildInfo && result.includes("</head>")) {
+    const tag = `<script>window.__KUMIKO_BUILD__=${JSON.stringify(buildInfo)};</script>`;
+    result = result.replace("</head>", `    ${tag}\n  </head>`);
+  }
 
   const cssUrl = manifest["styles.css"];
   if (cssUrl && !result.includes(cssUrl)) {
@@ -615,6 +661,17 @@ function buildMissingTagError(args: {
 
 function shortHash(content: string | Uint8Array): string {
   return createHash("sha256").update(content).digest("hex").slice(0, 8);
+}
+
+// Build-Identität aus den content-gehashten Asset-URLs. Sortiert →
+// deterministisch (Manifest-Key-Reihenfolge egal). Identischer Source →
+// gleiche id, geändertes Asset → andere id.
+// @internal — exported nur für Unit-Tests.
+export function computeBuildId(manifest: BuildManifest): string {
+  return createHash("sha256")
+    .update(Object.values(manifest).sort().join("\n"))
+    .digest("hex")
+    .slice(0, 12);
 }
 
 // ---------------------------------------------------------------------------

@@ -4,7 +4,8 @@
 // Strategie (siehe run-prod-app.ts):
 //   /assets/*               → max-age=31536000, immutable
 //   /, /index.html          → no-cache, must-revalidate
-//   /manifest.json, /sw.js  → no-cache
+//   /manifest.json, /sw.js,
+//   /build-info.json        → no-cache
 //   alles andere            → kein expliziter Header
 
 import { describe, expect, test } from "bun:test";
@@ -49,6 +50,12 @@ describe("cacheHeadersFor", () => {
 
   test("/sw.js → no-cache", () => {
     expect(cacheHeadersFor("/sw.js")).toEqual({
+      "cache-control": "no-cache",
+    });
+  });
+
+  test("/build-info.json → no-cache (sonst pollt UpdateChecker eine veraltete id)", () => {
+    expect(cacheHeadersFor("/build-info.json")).toEqual({
       "cache-control": "no-cache",
     });
   });
