@@ -81,6 +81,28 @@ archive ───────► status: "archived"
 
 Resolver returnt **nur** Templates mit `status: "active"`. draft/archived werden ignoriert.
 
+## Consumer Conformance
+
+Plugins and features that call `resolveTemplate` can verify correct edge-case handling:
+
+```typescript
+import { describe, test } from "bun:test";
+import { runTemplateConsumerConformance } from "@cosmicdrift/kumiko-bundled-features/template-resolver/testing";
+
+describe("my-mail-renderer :: template-resolver conformance", () => {
+  runTemplateConsumerConformance(
+    test,
+    {
+      resolve: (args) => templateResolver.resolveTemplate(args),
+      resolveResources: async (template) => resolveLinkedResources(ctx, template),
+    },
+    { getDb: () => db, tenantId: ctx.user.tenantId },
+  );
+});
+```
+
+The harness checks `TemplateNotFoundError` propagation, locale-fallback, and (when `resolveResources` is provided) missing resource keys.
+
 ## Out-of-Scope
 
 - Rendering (Markdown/MJML → HTML/PDF) — siehe `renderer-foundation`
