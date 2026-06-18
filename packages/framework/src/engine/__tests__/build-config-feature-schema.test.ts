@@ -254,8 +254,31 @@ describe("buildConfigFeatureSchema — access + workspace", () => {
       r.config({ keys: { apiKey: createTenantConfig("text", { mask: { title: "a.key" } }) } });
     });
     const out = buildConfigFeatureSchema(createRegistry([adminOnly]));
-    expect(out.workspace?.definition.access).toEqual({
-      roles: ["TenantAdmin", "Admin", "SystemAdmin"],
+    const acc = out.workspace?.definition.access;
+    expect(acc && "roles" in acc ? [...acc.roles].sort() : acc).toEqual([
+      "Admin",
+      "SystemAdmin",
+      "TenantAdmin",
+    ]);
+  });
+
+  test("workspace access excludes the machine-only 'system' role when a machine key is masked", () => {
+    // A masked machine-only key (write defaults to ["system"]) is excluded from
+    // every human nav — its "system" role must not leak into the switcher gate
+    // just because it sits in the hub next to a human-writable key (#406/1).
+    const mixed = defineFeature("mixedhub", (r) => {
+      r.config({
+        keys: {
+          label: createTenantConfig("text", { mask: { title: "m.label" } }),
+          internalFlag: createSystemConfig("boolean", { mask: { title: "m.flag" } }),
+        },
+      });
     });
+    const out = buildConfigFeatureSchema(createRegistry([mixed]));
+    const acc = out.workspace?.definition.access;
+    expect(acc).toBeDefined();
+    const roles = acc && "roles" in acc ? acc.roles : [];
+    expect(roles).not.toContain("system");
+    expect([...roles].sort()).toEqual(["Admin", "SystemAdmin", "TenantAdmin"]);
   });
 });
