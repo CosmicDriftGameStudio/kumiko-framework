@@ -28,6 +28,7 @@ import { extensionSectionName, useExtensionSectionComponent } from "../app/exten
 import { useForm } from "../hooks/use-form";
 import { useTranslation } from "../i18n";
 import { usePrimitives } from "../primitives";
+import { resolveExtensionEntityId, shouldNotifyCaller } from "./render-edit-logic";
 import { RenderField } from "./render-field";
 
 // End-to-end renderer für einen entityEdit screen. Rendert aus-
@@ -40,12 +41,13 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   readonly entity: EntityDefinition;
   readonly featureName: string;
   readonly initial: TValues;
-  /** Echte entity-id für extension-section-Mounts (Set-Value-UI). Der
-   *  Update-Body kennt sie aus der Route; ohne sie fiele die Section auf
-   *  `vm.id` (= values["id"]) zurück, das im Update-Form immer fehlt
-   *  (id ist keine deklarierte Form-Field, siehe EntityEditUpdateForm) —
-   *  die Section bliebe dann fälschlich im create-mode. Weglassen
-   *  (undefined) = create-mode / kein extension-Kontext (vm.id-Fallback). */
+  /** Echte entity-id für extension-section-Mounts (Set-Value-UI). Mount UND
+   *  persistExtensions lösen sie über `resolveExtensionEntityId(entityIdProp,
+   *  vm.id)` auf — denselben Wert, damit die Section nicht editierbar gegen eine
+   *  id mountet während Persist gegen eine andere (oder gar nicht) schreibt.
+   *  Weglassen (undefined) = Fallback auf `vm.id` (= values["id"]), das das
+   *  Update-Form für die bestehende Row trägt. Explizites `null` = "keine
+   *  entity" (create-mode / keine extension-Persistenz). */
   readonly entityId?: string | null;
   /** Bereits gespeicherte Extension-Werte (z.B. `record.customFields`) für
    *  extension-section-Mounts. Erlaubt der Section, den Bestand beim Edit
@@ -245,7 +247,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // false = eine Section schlug fehl (ihr i18n-Key landet im Banner). Ohne
   // Entity-Kontext (create-mode ohne route-id) gibt es nichts zu schreiben.
   async function persistExtensions(): Promise<boolean> {
-    const entityId = entityIdProp ?? null;
+    const entityId = resolveExtensionEntityId(entityIdProp, vm.id);
     if (entityId === null) return true;
     const results = await runExtensionSubmits({ entityId });
     const failed = results.find((r) => !r.isSuccess);
@@ -304,14 +306,18 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       }
       // Form-level Errors (ohne field-level details) landen im Banner.
       // Field-Errors fließen über snapshot.errors in die einzelnen Fields.
+      let extensionsPersisted = true;
       if (result.isSuccess) {
         setFormError(null);
-        await persistExtensions();
+        extensionsPersisted = await persistExtensions();
       } else if (!result.validationBlocked) {
         const fieldIssues = result.error.details?.fields ?? [];
         setFormError(fieldIssues.length === 0 ? result.error : null);
       }
-      onSubmit?.(result);
+      // skip: on entity-success-but-extension-failure the extension-error
+      // banner is showing — don't notify (the caller navigates away on success
+      // and would unmount it before the user sees the failure).
+      if (shouldNotifyCaller(result, extensionsPersisted)) onSubmit?.(result);
     } finally {
       setIsSubmitting(false);
     }
@@ -376,7 +382,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                 key={section.title}
                 section={section}
                 entityName={vm.entityName}
-                entityId={entityIdProp !== undefined ? entityIdProp : vm.id}
+                entityId={resolveExtensionEntityId(entityIdProp, vm.id)}
                 initialValues={extensionInitialValues}
               />
             );
