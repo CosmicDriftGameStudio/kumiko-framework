@@ -20,6 +20,9 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.actions.reload": "Neu laden",
     "kumiko.actions.create": "Neu",
 
+    // Version — Update-Awareness-Banner (UpdateChecker).
+    "kumiko.version.update-available": "Eine neue Version ist verfügbar.",
+
     // List — DataTable Toolbar, Empty-State, Search.
     "kumiko.list.search-placeholder": "Suchen…",
     "kumiko.list.empty.title": "Noch keine Einträge.",
@@ -98,6 +101,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.actions.delete-confirm": "Confirm delete?",
     "kumiko.actions.reload": "Reload",
     "kumiko.actions.create": "New",
+
+    "kumiko.version.update-available": "A new version is available.",
 
     "kumiko.list.search-placeholder": "Search…",
     "kumiko.list.empty.title": "No entries yet.",

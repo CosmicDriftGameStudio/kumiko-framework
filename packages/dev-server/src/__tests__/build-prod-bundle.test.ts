@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   type ClientEntry,
+  computeBuildId,
   discoverClientEntries,
   discoverClientEntry,
   discoverHtmlTemplate,
@@ -258,5 +259,53 @@ describe("build-prod-bundle/injectAssetTags", () => {
     expect(() => injectAssetTags(html, manifest, namedEntry("admin"))).toThrow(
       /admin\.html hat keinen Entry-Tag für \/client-admin\.js/,
     );
+  });
+});
+
+describe("build-prod-bundle/computeBuildId", () => {
+  test("identisches Manifest → gleiche id", () => {
+    const manifest = {
+      "client.js": "/assets/client-abc.js",
+      "styles.css": "/assets/styles-xyz.css",
+    };
+    expect(computeBuildId(manifest)).toBe(computeBuildId({ ...manifest }));
+  });
+
+  test("Key-Reihenfolge egal — nur die URL-Werte zählen", () => {
+    const a = { "client.js": "/assets/client-abc.js", "styles.css": "/assets/styles-xyz.css" };
+    const b = { "styles.css": "/assets/styles-xyz.css", "client.js": "/assets/client-abc.js" };
+    expect(computeBuildId(a)).toBe(computeBuildId(b));
+  });
+
+  test("geändertes Asset (neuer Hash) → andere id", () => {
+    const before = { "client.js": "/assets/client-abc.js" };
+    const after = { "client.js": "/assets/client-def.js" };
+    expect(computeBuildId(before)).not.toBe(computeBuildId(after));
+  });
+
+  test("12 Hex-Zeichen", () => {
+    expect(computeBuildId({ "client.js": "/assets/client-abc.js" })).toMatch(/^[0-9a-f]{12}$/);
+  });
+});
+
+describe("build-prod-bundle/injectAssetTags build-info", () => {
+  test("bäckt window.__KUMIKO_BUILD__ vor </head> wenn buildInfo gesetzt", () => {
+    const html = `<html><head><title>x</title></head><body><script type="module" src="/client.js"></script></body></html>`;
+    const result = injectAssetTags(html, { "client.js": "/assets/client-abc.js" }, clientEntry(), {
+      id: "deadbeef0000",
+      builtAt: "2026-06-18T12:00:00.000Z",
+    });
+
+    expect(result).toContain(
+      'window.__KUMIKO_BUILD__={"id":"deadbeef0000","builtAt":"2026-06-18T12:00:00.000Z"}',
+    );
+    expect(result.indexOf("__KUMIKO_BUILD__")).toBeLessThan(result.indexOf("</head>"));
+  });
+
+  test("ohne buildInfo kein __KUMIKO_BUILD__-Script", () => {
+    const html = `<html><head></head><body><script type="module" src="/client.js"></script></body></html>`;
+    const result = injectAssetTags(html, { "client.js": "/assets/client-abc.js" }, clientEntry());
+
+    expect(result).not.toContain("__KUMIKO_BUILD__");
   });
 });

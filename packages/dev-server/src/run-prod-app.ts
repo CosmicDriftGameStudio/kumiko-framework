@@ -1161,7 +1161,14 @@ export function cacheHeadersFor(pathname: string): Record<string, string> {
   if (pathname === "/" || pathname === "/index.html") {
     return { "cache-control": "no-cache, must-revalidate" };
   }
-  if (pathname === "/manifest.json" || pathname === "/sw.js") {
+  if (
+    pathname === "/manifest.json" ||
+    pathname === "/sw.js" ||
+    // ponytail: build-info.json ist statisch — kein /api/version-Endpoint
+    // nötig, der Disk-Fallback serviert sie. no-cache, sonst pollt der
+    // UpdateChecker eine veraltete id.
+    pathname === "/build-info.json"
+  ) {
     return { "cache-control": "no-cache" };
   }
   return {};

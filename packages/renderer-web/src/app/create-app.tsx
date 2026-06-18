@@ -35,6 +35,7 @@ import { defaultPrimitives } from "../primitives";
 import { ToastProvider } from "../primitives/toast";
 import { createEventSourceLiveEvents } from "../sse/live-events";
 import { useBrowserTokensApi } from "../tokens";
+import { UpdateChecker } from "../version/update-checker";
 import { createBrowserLocaleResolver } from "./browser-locale";
 import { type ClientFeatureDefinition, stackWrappers } from "./client-plugin";
 import { useBrowserNavApi } from "./nav";
@@ -278,6 +279,7 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
                     <TreeProvidersProvider value={treeProviders} entities={treeEntities}>
                       <ResolversProvider resolvers={resolvers}>
                         <ToastProvider>
+                          <UpdateChecker />
                           {stackWrappers(providers, stackWrappers(gates, screenNode))}
                         </ToastProvider>
                       </ResolversProvider>
