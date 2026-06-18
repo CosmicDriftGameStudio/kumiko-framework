@@ -47,19 +47,9 @@ if (typeof globalThis.window === "undefined") {
 // Modul-Import. Mit static import würde screen vor happy-dom
 // evaluieren → alle screen-Queries werfen TypeError. Deshalb
 // require() erst nach der Registration oben.
-const { cleanup, configure } = require("@testing-library/react/pure") as {
+const { cleanup } = require("@testing-library/react/pure") as {
   cleanup: () => void;
-  configure: (opts: { asyncUtilTimeout?: number }) => void;
 };
-
-// The CI runner is a single, shared, oversubscribed box (multiple repos' jobs +
-// concurrency=8 on one CPU). Under load the microtask/render that a `waitFor`
-// awaits can take well over the 1000ms default, so timing-sensitive component
-// tests (e.g. deletion-screens: submit → async write → banner) flake with
-// false timeouts — but only when the runner is busy, never locally. Raise the
-// async-util timeout so waitFor tolerates starvation; it still returns as soon
-// as the condition holds, so passing tests are not slowed.
-configure({ asyncUtilTimeout: 5000 });
 
 // Pointer-Capture-APIs fehlen in happy-dom genauso wie in jsdom. Radix-UI
 // (DropdownMenu/Select/Popover-Triggers) ruft die — ohne Polyfill öffnet
