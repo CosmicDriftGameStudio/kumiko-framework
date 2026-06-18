@@ -12,7 +12,7 @@
 # Build:   docker build -f docker/Dockerfile -t my-kumiko-app .
 # Run:     docker run -p 3000:3000 --env-file .env.prod my-kumiko-app
 
-ARG BUN_VERSION=1.3.13
+ARG BUN_VERSION=1.3.14
 ARG APP_ENTRY=src/main.ts
 # APP_MODE wird nicht in den Build eingebrannt — Runtime-Env. Sinnvolle
 # Werte: "api" (HTTP-only, kein Dispatcher/Jobs), "worker" (kein HTTP,

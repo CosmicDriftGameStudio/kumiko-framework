@@ -19,7 +19,7 @@ import {
   tenantSecretsTable,
 } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import type { ConfigCascade } from "@cosmicdrift/kumiko-framework/engine";
+import { type ConfigCascade, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import {
@@ -31,7 +31,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { integrationsFeature, paymentApiKeyHandle, smtpHostHandle } from "../feature";
 
-const SYSTEM_TENANT = "00000000-0000-4000-8000-000000000000";
 const TENANT_A = testTenantId(1);
 const TENANT_B = testTenantId(2);
 
@@ -77,7 +76,7 @@ describe("managed config — backing:secrets system key", () => {
     );
 
     const secretRows = await selectMany(stack.db, tenantSecretsTable, {
-      tenantId: SYSTEM_TENANT,
+      tenantId: SYSTEM_TENANT_ID,
       key: paymentApiKeyHandle.name,
     });
     expect(secretRows).toHaveLength(1);

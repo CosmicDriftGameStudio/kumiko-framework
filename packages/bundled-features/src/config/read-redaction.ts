@@ -16,6 +16,9 @@ const OWN_SOURCES: ReadonlySet<ConfigValueSource> = new Set(["user-row", "tenant
 // other viewer (TenantAdmin, User) is tenant-side — for an
 // inheritedToTenant:false key they must learn neither the inherited platform
 // value nor that it is set.
+// Shared mask for redacted config values across the read handlers (cascade + values).
+export const MASKED = "••••••";
+
 export function mayViewInheritedValue(roles: readonly string[]): boolean {
   return roles.includes(SYSTEM_ADMIN_ROLE);
 }

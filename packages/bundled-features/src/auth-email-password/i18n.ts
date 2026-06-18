@@ -40,6 +40,7 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.errors.signupEmailAlreadyRegistered":
       "Für diese E-Mail-Adresse existiert bereits ein Konto. Bitte logge dich ein oder setze dein Passwort zurück.",
     "auth.errors.unknownError": "Etwas ist schief gegangen. Bitte erneut versuchen.",
+    "auth.errors.originNotAllowed": "Zugriff von dieser Herkunft ist nicht erlaubt.",
     "auth.forgotPassword.title": "Passwort zurücksetzen",
     "auth.forgotPassword.intro":
       "Gib deine E-Mail-Adresse ein. Falls ein Konto existiert, schicken wir dir einen Reset-Link.",
@@ -140,6 +141,7 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.errors.signupEmailAlreadyRegistered":
       "An account already exists for this email. Please sign in or reset your password.",
     "auth.errors.unknownError": "Something went wrong. Please try again.",
+    "auth.errors.originNotAllowed": "Requests from this origin are not allowed.",
     "auth.forgotPassword.title": "Reset password",
     "auth.forgotPassword.intro":
       "Enter your email. If an account exists, we'll send you a reset link.",
