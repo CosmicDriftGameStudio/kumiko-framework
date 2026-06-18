@@ -1,15 +1,17 @@
 import type { SubmitResult } from "@cosmicdrift/kumiko-headless";
 
-// Single source of truth for the extension-section entity-id. The section
-// mount and persistExtensions MUST resolve the same id — otherwise a section
-// can mount editable against one id while the persist step writes to (or skips)
-// another, silently dropping the user's input. We deliberately do NOT fall back
-// to `vm.id` (values["id"]): id is not a declared form field, so in the update
-// form vm.id is always missing, and in create mode there is no entity to write
-// to yet. Omitting `entityId` therefore means "no extension persistence",
-// matching the prop contract in RenderEditProps.
-export function resolveExtensionEntityId(entityIdProp: string | null | undefined): string | null {
-  return entityIdProp ?? null;
+// Single source of truth for the extension-section entity-id. The section mount
+// and persistExtensions MUST resolve the same id — otherwise a section mounts
+// editable against one id (vm.id) while the persist step writes to (or skips)
+// another (null), silently dropping the user's input. An explicit `null` prop
+// forces "no entity" (no extension persistence); an omitted prop (undefined)
+// falls back to vm.id (= values["id"]), which the update form carries for the
+// existing row, so editing custom fields on that row actually persists.
+export function resolveExtensionEntityId(
+  entityIdProp: string | null | undefined,
+  vmId: string | null,
+): string | null {
+  return entityIdProp !== undefined ? entityIdProp : vmId;
 }
 
 // After a submit, decide whether to invoke the caller's onSubmit. The success

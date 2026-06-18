@@ -41,14 +41,13 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   readonly entity: EntityDefinition;
   readonly featureName: string;
   readonly initial: TValues;
-  /** Echte entity-id für extension-section-Mounts (Set-Value-UI). Der
-   *  Update-Body kennt sie aus der Route. Mount UND persistExtensions lösen
-   *  sie über `resolveExtensionEntityId` (= `entityId ?? null`) auf — kein
-   *  `vm.id`-Fallback, weil id keine deklarierte Form-Field ist und im
-   *  Update-Form fehlte (die Section bliebe fälschlich im create-mode, und
-   *  Mount/Persist divergierten). Weglassen (undefined) = create-mode / kein
-   *  extension-Kontext: die Section mountet mit entityId=null und persistiert
-   *  nichts. */
+  /** Echte entity-id für extension-section-Mounts (Set-Value-UI). Mount UND
+   *  persistExtensions lösen sie über `resolveExtensionEntityId(entityIdProp,
+   *  vm.id)` auf — denselben Wert, damit die Section nicht editierbar gegen eine
+   *  id mountet während Persist gegen eine andere (oder gar nicht) schreibt.
+   *  Weglassen (undefined) = Fallback auf `vm.id` (= values["id"]), das das
+   *  Update-Form für die bestehende Row trägt. Explizites `null` = "keine
+   *  entity" (create-mode / keine extension-Persistenz). */
   readonly entityId?: string | null;
   /** Bereits gespeicherte Extension-Werte (z.B. `record.customFields`) für
    *  extension-section-Mounts. Erlaubt der Section, den Bestand beim Edit
@@ -248,7 +247,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // false = eine Section schlug fehl (ihr i18n-Key landet im Banner). Ohne
   // Entity-Kontext (create-mode ohne route-id) gibt es nichts zu schreiben.
   async function persistExtensions(): Promise<boolean> {
-    const entityId = resolveExtensionEntityId(entityIdProp);
+    const entityId = resolveExtensionEntityId(entityIdProp, vm.id);
     if (entityId === null) return true;
     const results = await runExtensionSubmits({ entityId });
     const failed = results.find((r) => !r.isSuccess);
@@ -383,7 +382,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                 key={section.title}
                 section={section}
                 entityName={vm.entityName}
-                entityId={resolveExtensionEntityId(entityIdProp)}
+                entityId={resolveExtensionEntityId(entityIdProp, vm.id)}
                 initialValues={extensionInitialValues}
               />
             );

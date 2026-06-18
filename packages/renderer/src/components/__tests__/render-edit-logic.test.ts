@@ -14,16 +14,23 @@ const writeFailure: SubmitResult<unknown> = { validationBlocked: false, isSucces
 const validationBlocked: SubmitResult<unknown> = { validationBlocked: true, isSuccess: false };
 
 describe("resolveExtensionEntityId", () => {
-  test("explicit id is used as-is (update mode)", () => {
-    expect(resolveExtensionEntityId("entity-42")).toBe("entity-42");
+  test("explicit id prop wins over vm.id", () => {
+    expect(resolveExtensionEntityId("entity-42", "row-7")).toBe("entity-42");
   });
 
-  test("undefined → null (create mode / no extension context), never a vm.id fallback", () => {
-    expect(resolveExtensionEntityId(undefined)).toBeNull();
+  // The #345/1 regression: mount fell back to vm.id but persist did not, so a
+  // custom-fields section mounted editable against the existing row yet saved
+  // to null → silent data loss. Both sites now resolve this same value.
+  test("undefined prop → vm.id fallback (update form carries the row id)", () => {
+    expect(resolveExtensionEntityId(undefined, "row-42")).toBe("row-42");
   });
 
-  test("explicit null → null", () => {
-    expect(resolveExtensionEntityId(null)).toBeNull();
+  test("undefined prop + no vm.id (create mode) → null", () => {
+    expect(resolveExtensionEntityId(undefined, null)).toBeNull();
+  });
+
+  test("explicit null prop forces null even when vm.id is present", () => {
+    expect(resolveExtensionEntityId(null, "row-42")).toBeNull();
   });
 });
 
