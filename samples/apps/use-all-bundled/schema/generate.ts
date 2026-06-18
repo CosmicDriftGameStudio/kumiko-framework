@@ -206,6 +206,11 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "@cosmicdrift/kumiko-bundled-features/custom-fields",
     exportName: "customFieldsFeature",
   },
+  tags: {
+    kind: "named",
+    path: "@cosmicdrift/kumiko-bundled-features/tags",
+    exportName: "tagsFeature",
+  },
   // M0.1 hold-back features. Meist keine eigenen entities/projection-tables
   // (generate.ts skipt sie silent in der entity-loop) — gelistet für
   // check-coverage.ts (Maintenance-Lint M5 erwartet jeden mounted

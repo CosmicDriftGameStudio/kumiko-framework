@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled)",
-  "featureCount": 40,
+  "featureCount": 41,
   "features": [
     {
       "name": "audit",
@@ -1083,6 +1083,24 @@
       ],
       "secrets": [],
       "writeHandlers": []
+    },
+    {
+      "name": "tags",
+      "description": "Generic, host-agnostic tagging for any entity. Owns two event-sourced entities — the per-tenant `tag` catalog (`read_tags`) and `tag-assignment` join rows keyed by (entityType, entityId) (`read_tag_assignments`) — so tagging adds NO column to the host entity and needs no relational pivot or JOIN. Provides write-handlers `create-tag`, `assign-tag` (idempotent), `remove-tag` (idempotent) and list queries for the catalog and the assignments. Read which tags an entity has, or which entities carry a tag, by listing `tag-assignment` filtered on `entityId` or `tagId` and composing in the read-layer. Override the default tenant roles with createTagsFeature({ roles }).",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "tags:write:assign-tag",
+        "tags:write:create-tag",
+        "tags:write:remove-tag"
+      ]
     },
     {
       "name": "template-resolver",
