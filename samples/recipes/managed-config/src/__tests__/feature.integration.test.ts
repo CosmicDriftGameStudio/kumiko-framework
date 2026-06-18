@@ -16,10 +16,15 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
   createSecretsContext,
+  createSecretsFeature,
   tenantSecretsTable,
 } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { type ConfigCascade, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type ConfigCascade,
+  createRegistry,
+  SYSTEM_TENANT_ID,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import {
@@ -51,7 +56,7 @@ beforeAll(async () => {
   });
 
   stack = await setupTestStack({
-    features: [createConfigFeature(), integrationsFeature],
+    features: [createConfigFeature(), createSecretsFeature(), integrationsFeature],
     extraContext: ({ db, registry }) => {
       const resolver = createConfigResolver();
       return {
@@ -166,5 +171,14 @@ describe("managed config — tenant cascade override", () => {
     )[smtpHostHandle.name];
     expect(globex?.value).toBe("smtp.system.example");
     expect(globex?.source).toBe("system-row");
+  });
+});
+
+describe("feature contract — backing:secrets declares the secrets dependency", () => {
+  test("registry build rejects integrationsFeature without the secrets feature", () => {
+    // r.requires("secrets") is what makes this throw: without the dependency a
+    // consumer would only discover the missing tenant_secrets table at runtime.
+    // config is registered so the failure isolates the secrets requirement.
+    expect(() => createRegistry([createConfigFeature(), integrationsFeature])).toThrow(/secrets/);
   });
 });
