@@ -19,8 +19,16 @@ function invalidToken(): UnprocessableError {
 
 // Anonymer Apex-Flow Schritt 2: Verify-Link-Target. Verifiziert das
 // HMAC-Token, extrahiert die userId und startet die Grace-Period über die
-// geteilte Logik. Idempotent: ein zweites Confirm trifft auf den bereits
-// geflippten (non-active) User → user_not_in_active_state, kein Schaden.
+// geteilte Logik.
+//
+// Idempotenz ist NUR bounded: ein zweites Confirm auf einen noch-pending
+// (DeletionRequested) User trifft non-active → cannot_process_deletion. ABER
+// nach einem cancel-deletion (status → Active, gracePeriodEnd → null) ist der
+// User wieder aktiv; ein noch-gültiges Token (TTL aus request-deletion-by-email)
+// re-armt dann eine zweite Grace-Period (replay-after-cancel). Das Risiko ist
+// durch die Token-TTL begrenzt; der vollständige Fix (requestId pro Request im
+// Token + auf der User-Row, vom cancel genullt) ist als review-finding #354/1
+// deferred — er braucht eine Migration der geteilten user-Entity.
 export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByTokenOptions = {}) {
   return defineWriteHandler({
     name: "confirm-deletion-by-token",
@@ -34,7 +42,18 @@ export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByToken
       if (!verified.ok) return writeFailure(invalidToken());
 
       const res = await startDeletionGracePeriod(ctx, verified.userId, event.user.tenantId);
-      if (!res.ok) return writeFailure(res.error);
+      if (!res.ok) {
+        // Generischer 422 statt res.error: dieser Endpoint ist anonym-öffentlich,
+        // res.error trägt den konkreten User-Status (currentStatus aus
+        // user_not_in_active_state) und würde einem Token-Inhaber das Proben des
+        // Account-Status erlauben (#354/2). Der authentifizierte request-deletion-
+        // Pfad zeigt dem User legitim seinen eigenen Status.
+        return writeFailure(
+          new UnprocessableError("cannot_process_deletion", {
+            details: { reason: "cannot_process_deletion" },
+          }),
+        );
+      }
 
       return {
         isSuccess: true as const,

@@ -174,6 +174,17 @@ describe("anonymous deletion flow", () => {
     });
     expect(second.status).toBe(422);
     expect(await statusOf()).toBe(USER_STATUS.DeletionRequested);
+
+    // #354/2: der anonyme Endpoint gibt einen generischen reason zurück und
+    // leakt NICHT den konkreten User-Status (currentStatus), den ein
+    // Token-Inhaber sonst proben könnte.
+    const body = (await second.json()) as {
+      error: { details?: { reason?: string } };
+    };
+    expect(body.error.details?.reason).toBe("cannot_process_deletion");
+    const serialized = JSON.stringify(body.error);
+    expect(serialized).not.toContain("currentStatus");
+    expect(serialized).not.toContain(USER_STATUS.DeletionRequested);
   });
 
   test("request-by-email für nicht-existente Email → success, KEINE Mail (enumeration-safe)", async () => {
