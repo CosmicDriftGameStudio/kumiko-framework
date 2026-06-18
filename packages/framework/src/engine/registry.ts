@@ -1,10 +1,10 @@
-import { asEntityTableMeta } from "../db/query";
 import { applyEntityEvent } from "../db/apply-entity-event";
 import {
   assertBackingTableSuperset,
   buildEntityTableMeta,
   resolveTableName,
 } from "../db/entity-table-meta";
+import { asEntityTableMeta } from "../db/query";
 import { buildEntityTable } from "../db/table-builder";
 import { buildMetricName, validateMetricName } from "../observability";
 import { type QnType, qualifyEntityName } from "./qualified-name";
