@@ -11,20 +11,18 @@ env:
   HUSKY: "0"
 
 on:
+  # No feature-branch push trigger: merging is PR-only, so the pull_request run
+  # is the one that gates merge. A push trigger on feat/fix/... only duplicated
+  # every run (same SHA fires push + pull_request:synchronize). Keep push for
+  # main (post-merge CI + release) and the changesets bot's version branch.
   push:
-    # Feature-branch pushes keep required checks alive when pull_request webhooks stall.
-    branches: [main, "feat/**", "fix/**", "chore/**", "docs/**", "changeset-release/**"]
+    branches: [main, "changeset-release/**"]
   pull_request:
     branches: [main, "feat/**", "fix/**", "chore/**", "docs/**"]
   workflow_dispatch:
 
-# A feature-branch push fires BOTH a `push` and a `pull_request: synchronize`
-# event for the same SHA → two runs. Keying the group on the branch name
-# (head.ref for PR events, ref_name for push events) maps both to ONE group so
-# cancel-in-progress collapses the redundant run — without dropping the push
-# trigger that keeps required checks alive when pull_request webhooks stall.
 concurrency:
-  group: ci-${{ github.event.pull_request.head.ref || github.ref_name }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
