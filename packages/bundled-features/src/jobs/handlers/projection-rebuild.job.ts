@@ -1,10 +1,4 @@
-// Single-run projection-rebuild worker (QN `jobs:job:projection-rebuild`).
-// Replays the event log into one projection via the framework's
-// `rebuildProjection`. Triggered manually — typically through
-// `enqueueProjectionRebuild` (migrations) as the self-service repair for an
-// emptied projection, a deliberate manual rebuild, or a post-upcaster refill.
-// Run-tracking (read_job_runs + read_job_run_logs) and retry come for free
-// from the jobs feature that registers this worker.
+// Single-run projection-rebuild worker (`jobs:job:projection-rebuild`); manually triggered, typically via enqueueProjectionRebuild to refill an emptied projection.
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { JobHandlerFn } from "@cosmicdrift/kumiko-framework/engine";

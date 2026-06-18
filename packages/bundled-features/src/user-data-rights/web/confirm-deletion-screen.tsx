@@ -11,7 +11,7 @@ import { type ReactNode, useState } from "react";
 
 const CONFIRM_BY_TOKEN = "user-data-rights:write:confirm-deletion-by-token";
 
-type Phase = "idle" | "submitting" | "success" | "missing" | "invalid";
+type Phase = "idle" | "submitting" | "success" | "missing" | "invalid" | "error";
 
 function readToken(): string {
   if (typeof window === "undefined") return "";
@@ -37,7 +37,7 @@ export function ConfirmAccountDeletionScreen({
       const res = await dispatcher.write(CONFIRM_BY_TOKEN, { token });
       setPhase(res.isSuccess ? "success" : "invalid");
     } catch {
-      setPhase("invalid");
+      setPhase("error");
     }
   };
 
@@ -65,6 +65,9 @@ export function ConfirmAccountDeletionScreen({
             </p>
             {phase === "invalid" && (
               <Banner variant="error">{t("userDataRights.deletion.confirm.invalidToken")}</Banner>
+            )}
+            {phase === "error" && (
+              <Banner variant="error">{t("userDataRights.deletion.confirm.error")}</Banner>
             )}
             <Button
               type="button"

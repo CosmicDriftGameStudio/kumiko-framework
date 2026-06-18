@@ -162,7 +162,8 @@ jobs:
   # Non-blocking: nicht in release.needs, nicht in Branch-Protection → der
   # required `test`-Check bleibt unberührt. Fährt die ~213
   # *.integration.test.ts via scripts/run-integration-tests.ts (dir-by-dir,
-  # concurrency=1) gegen den vollen Stack. test-setup/integration.preload.ts
+  # concurrency=1) gegen den vollen Stack. Wall-clock perf gates laufen
+  # separat via `test:integration:perf` (KUMIKO_PERF_GATE=1). test-setup/integration.preload.ts
   # setzt die localhost-Env-Defaults selbst (kein --env-file nötig).
   # cdgs-runner hat die docker-CLI aber kein compose-v2-Plugin → `docker run`
   # + user-defined Network, damit der minio-Bucket-Init minio per
@@ -234,6 +235,9 @@ jobs:
 
       - name: Run integration tests
         run: bun run test:integration
+
+      - name: Run integration perf gates
+        run: bun run test:integration:perf
 
       - name: Stop services
         if: always()

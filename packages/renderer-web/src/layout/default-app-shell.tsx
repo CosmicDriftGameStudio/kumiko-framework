@@ -63,14 +63,10 @@ export function DefaultAppShell({
 }: DefaultAppShellProps): ReactNode {
   return (
     <AppLayout
-      {...(fill !== undefined && { fill })}
+      fill={fill}
       sidebar={
-        <Sidebar
-          header={brand}
-          {...(sidebarActions !== undefined && { actions: sidebarActions })}
-          {...(sidebarFooter !== undefined && { footer: sidebarFooter })}
-        >
-          <NavTree schema={schema} {...(user !== undefined && { user })} />
+        <Sidebar header={brand} actions={sidebarActions} footer={sidebarFooter}>
+          <NavTree schema={schema} user={user} />
         </Sidebar>
       }
     >

@@ -3,6 +3,21 @@
 export const INTEGRATION_BUNFIG = "bunfig.integration.toml";
 export const INTEGRATION_GUARD = "integration.guard.js";
 export const INTEGRATION_RUNNER = "scripts/run-integration-tests.ts";
+export const INTEGRATION_PERF_ENV = "KUMIKO_PERF_GATE";
+
+export type IntegrationRunMode = "bulk" | "perf";
+
+/** Wall-clock perf gates — isolated from bulk integration via `test:integration:perf`. */
+export function isIntegrationPerfFile(filePath: string): boolean {
+  const base = filePath.split("/").pop() ?? filePath;
+  return base.includes("perf") && base.endsWith(".integration.test.ts");
+}
+
+export function integrationRunModeFromArgv(argv: readonly string[]): IntegrationRunMode {
+  if (argv.includes("--perf")) return "perf";
+  if (process.env[INTEGRATION_PERF_ENV] === "1") return "perf";
+  return "bulk";
+}
 
 export type BunTestRunTotals = {
   pass: number;

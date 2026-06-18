@@ -175,10 +175,7 @@ const integrationFeature = defineFeature("integration", (r) => {
         default: "initial",
         write: access.roles("Admin"),
       }),
-      // Settings-Hub system-scope proxies for the derived Stripe screen: a
-      // privileged boolean (billing-live = machine OR human-SystemAdmin) and
-      // an encrypted system secret (api-key). Both are surfaced to a human
-      // SystemAdmin by build-config-feature-schema and must be SET-able by them.
+      // Privileged + encrypted system keys must be SET-able by a human SystemAdmin (the derived Stripe screen surfaces both).
       billingLive: createSystemConfig("boolean", {
         default: false,
         write: access.privileged,

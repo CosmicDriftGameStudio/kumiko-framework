@@ -201,14 +201,7 @@ export function diffSnapshots(prev: Snapshot | null, next: Snapshot): SchemaDiff
   return { newTables, droppedTables, changedTables };
 }
 
-// A managed projection is a disposable derivative of the event stream. When a
-// schema change cannot apply in-place against existing rows — NOT NULL without
-// default, a UNIQUE index (may hit duplicates), SET NOT NULL, a type change, or
-// a dropped column (incl. the drop-half of a rename) — the additive ALTER would
-// die on the very rows the queued rebuild discards anyway. Such a change is
-// rendered as DROP+CREATE and refilled from events instead. Purely additive,
-// in-place-safe changes (nullable/defaulted ADD, non-unique index, DROP NOT
-// NULL, default-only) stay as cheap ALTERs with no forced replay.
+// Managed projections are event-stream derivatives: in-place-unsafe changes (NOT NULL w/o default, UNIQUE, SET NOT NULL, type change, dropped col) → DROP+CREATE + replay; additive-safe changes stay cheap ALTERs.
 export function managedChangeRequiresRecreate(td: TableDiff): boolean {
   if (td.droppedColumns.length > 0) return true;
   if (td.newColumns.some((c) => c.notNull && c.defaultSql === undefined)) return true;

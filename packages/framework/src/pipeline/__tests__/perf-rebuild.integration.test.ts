@@ -7,11 +7,9 @@
 // vitest runs integration suites in parallel — other files hammer the same
 // Postgres at the same time, and an I/O-bound rebuild shares bandwidth.
 //
-// Threshold: 5000 events/s. Picked so a 2× regression on a real bottleneck
-// (e.g. accidental N+1 in the apply-loop, missing index on events.id, a
-// stray await in the hot path) trips the test, while normal suite-load
-// jitter does not. If this ever flakes in CI, drop to 3000 — the goal is
-// "catastrophic regression detector", not "perf SLO".
+// Threshold: 3000 events/s (median of 3 rebuilds). Picked so a ~2× regression
+// on a real bottleneck trips the test, while suite-load jitter on a shared
+// runner does not. Isolated via `bun run test:integration:perf`.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
@@ -121,29 +119,32 @@ async function seedEvents(count: number, depth: number): Promise<void> {
 }
 
 describe("rebuildProjection performance — Gate A", () => {
-  test("rebuild rate >= 3k events/sec under suite-parallel-load (10000 events)", async () => {
-    // 2000 aggregates × 5 events = 10000 events
+  test("rebuild rate >= 3k events/sec (median of 3 runs, 10000 events)", async () => {
     await seedEvents(2000, 5);
 
-    const start = performance.now();
-    const result = await rebuildProjection(qualifiedProjectionName, {
-      db: testDb.db,
-      registry,
-    });
-    const durationMs = performance.now() - start;
+    const rates: number[] = [];
+    for (let run = 0; run < 3; run++) {
+      await asRawClient(testDb.db).unsafe(
+        `TRUNCATE read_perf_rebuild_task_count, kumiko_projections RESTART IDENTITY CASCADE`,
+      );
 
-    expect(result.eventsProcessed).toBe(10_000);
-    const rate = result.eventsProcessed / (durationMs / 1000);
+      const start = performance.now();
+      const result = await rebuildProjection(qualifiedProjectionName, {
+        db: testDb.db,
+        registry,
+      });
+      const durationMs = performance.now() - start;
+
+      expect(result.eventsProcessed).toBe(10_000);
+      rates.push(result.eventsProcessed / (durationMs / 1000));
+    }
+
+    rates.sort((a, b) => a - b);
+    const median = rates[Math.floor(rates.length / 2)] ?? 0;
     console.log(
-      `  Rebuild: ${result.eventsProcessed} events in ${durationMs.toFixed(1)}ms = ${Math.round(rate)} events/s`,
+      `  Rebuild median: ${Math.round(median)} events/s (samples: ${rates.map((r) => Math.round(r)).join(", ")})`,
     );
 
-    // Budget 3k events/s under suite-parallel-load. Isolated runs on dev
-    // hardware see ~14k events/s; parallel-load drops it 3-4x (Docker-PG
-    // contention, Vitest worker concurrency). The gate catches real
-    // regressions (~40% drop to <2k) without daily false positives. If
-    // you see this flake below 3k, profile `rebuildProjection` — don't
-    // just lower the budget further.
-    expect(rate).toBeGreaterThanOrEqual(3_000);
+    expect(median).toBeGreaterThanOrEqual(3_000);
   });
 });

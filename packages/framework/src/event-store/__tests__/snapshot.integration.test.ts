@@ -1,13 +1,13 @@
 // Sprint E.3 — Snapshot store.
 //
-// Pins three invariants for the framework-internal snapshot surface:
+// Pins two invariants for the framework-internal snapshot surface:
 //   1. saveSnapshot + loadLatestSnapshot round-trip a state.
 //   2. loadAggregateWithSnapshot(snapshot + deltas) yields the same final
 //      state as loadAggregate + full-replay — snapshots stay truthful to
 //      the event log they compress.
-//   3. Performance — a 1000-event aggregate with a snapshot at v900 loads
-//      in < 50ms (typical asOf/reducer rehydrate budget). Same gate the
-//      spike proved on raw SQL, now enforced on the framework path.
+//
+// Latency gates live in event-store/__tests__/perf.integration.test.ts
+// (isolated via `bun run test:integration:perf`).
 
 // Bun.SQL-only setup. KEIN postgres-js, KEIN createTestDb.
 // Event-store functions expect DbRunner (= postgres-js) but Bun.SQL
@@ -240,34 +240,5 @@ describe("snapshot-store — loadAggregateWithSnapshot", () => {
     );
     expect(archived.snapshotHit).toBe(true);
     expect(archived.state.count).toBe(10);
-  });
-
-  test("1000-event aggregate with snapshot at v900 loads in under 50ms", async () => {
-    const aggId = await seedAggregate(1000);
-    await saveSnapshot(bun.db, {
-      aggregateId: aggId,
-      tenantId: tenant,
-      aggregateType: "counter",
-      version: 900,
-      state: { count: 900, label: "snap-at-900" },
-    });
-
-    // Warm cache
-    await loadAggregateWithSnapshot<CounterState>(bun.db, aggId, tenant, reducer, initial);
-
-    const start = performance.now();
-    const snapBased = await loadAggregateWithSnapshot<CounterState>(
-      bun.db,
-      aggId,
-      tenant,
-      reducer,
-      initial,
-    );
-    const elapsedMs = performance.now() - start;
-
-    expect(snapBased.snapshotHit).toBe(true);
-    expect(snapBased.version).toBe(1000);
-    expect(snapBased.state.count).toBe(1000);
-    expect(elapsedMs).toBeLessThan(50);
   });
 });

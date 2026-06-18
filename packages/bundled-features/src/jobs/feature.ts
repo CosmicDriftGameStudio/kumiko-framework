@@ -153,9 +153,7 @@ export function createJobsFeature(): FeatureDefinition {
       },
     });
 
-    // Framework-provided single-run rebuild job (QN `jobs:job:projection-rebuild`).
-    // Available whenever `jobs` is composed — `enqueueProjectionRebuild` dispatches
-    // it; every run is tracked in read_job_runs + retryable via jobs:write:retry.
+    // Framework-provided rebuild job — available whenever `jobs` is composed; enqueueProjectionRebuild dispatches it.
     r.job(
       "projectionRebuild",
       { trigger: { manual: true }, schema: projectionRebuildPayloadSchema },

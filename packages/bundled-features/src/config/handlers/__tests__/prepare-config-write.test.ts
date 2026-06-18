@@ -106,10 +106,7 @@ describe("prepareConfigWrite", () => {
   });
 
   test("privileged key (system + SystemAdmin) is writable by a human SystemAdmin", () => {
-    // The derived configEdit screen surfaces a `access.privileged`
-    // (`["system","SystemAdmin"]`) key to a human SystemAdmin (e.g. Stripe
-    // billing-live). The write must succeed — "system in the write-set"
-    // means machine-OR-operator, not machine-only.
+    // "system" in the write-set means machine-OR-operator, not machine-only — a human SystemAdmin must still be able to write.
     const privilegedKey = createSystemConfig("boolean", { write: access.privileged });
     const result = prepareConfigWrite({
       registry: registryStub({ "ns:config:billing-live": privilegedKey }),

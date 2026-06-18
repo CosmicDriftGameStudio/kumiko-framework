@@ -129,13 +129,7 @@ function mergeSettingsHubIntoConfigFeature(
   }
 }
 
-// Inline-Platzierung des Settings-Hubs: Referenziert eine App-Workspace einen
-// generierten Audience-Parent (`config:nav:audience-<scope>`) in ihren
-// navMembers, hängen wir die Kinder dieser Audience dort an (der Slice-Filter
-// blendet sonst Kinder aus, die nicht explizit Member sind) und zählen die
-// Audience als „platziert". Der Standalone-Switcher behält NUR un-platzierte
-// Audiences — so erscheint nichts doppelt und keine Audience verschwindet still
-// (alles platziert → kein Tab; teils platziert → Rest im Tab).
+// Audience children referenced via navMembers get attached inline (slice-filter would otherwise hide non-member children); the standalone switcher keeps only unplaced audiences so nothing duplicates or silently vanishes.
 function placeSettingsHub(
   appWorkspaces: readonly WorkspaceSchema[],
   generated: ConfigFeatureSchema,

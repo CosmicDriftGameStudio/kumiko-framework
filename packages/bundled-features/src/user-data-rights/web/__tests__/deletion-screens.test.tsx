@@ -31,6 +31,14 @@ function makeDispatcher(ok: boolean, calls: WriteCall[]): Dispatcher {
   } as unknown as Dispatcher;
 }
 
+function makeThrowingDispatcher(): Dispatcher {
+  return {
+    write: async () => {
+      throw new Error("network down");
+    },
+  } as unknown as Dispatcher;
+}
+
 function renderWith(ui: ReactElement, dispatcher: Dispatcher): void {
   render(
     <PrimitivesProvider value={defaultPrimitives}>
@@ -98,6 +106,17 @@ describe("ConfirmAccountDeletionScreen", () => {
     fireEvent.click(screen.getByRole("button"));
 
     await waitFor(() => expect(screen.getByText(/ungültig oder abgelaufen/)).toBeTruthy());
+    expect(screen.queryByText(/vorgemerkt/)).toBeNull();
+  });
+
+  test("write wirft → generischer Error-Banner, NICHT invalidToken", async () => {
+    window.history.replaceState({}, "", "/delete-account/confirm?token=tok-123");
+    renderWith(<ConfirmAccountDeletionScreen />, makeThrowingDispatcher());
+
+    fireEvent.click(screen.getByRole("button"));
+
+    await waitFor(() => expect(screen.getByText(/schief gegangen/)).toBeTruthy());
+    expect(screen.queryByText(/ungültig oder abgelaufen/)).toBeNull();
     expect(screen.queryByText(/vorgemerkt/)).toBeNull();
   });
 });

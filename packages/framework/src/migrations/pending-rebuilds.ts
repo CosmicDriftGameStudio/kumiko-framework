@@ -44,7 +44,7 @@ export async function queueRebuildsFromMarkers(
   options: { readonly migrationsDir: string; readonly appliedIds: readonly string[] },
 ): Promise<readonly string[]> {
   await createPendingRebuildsTable(db);
-  const queued: string[] = [];
+  const queued = new Set<string>();
   for (const migrationId of options.appliedIds) {
     for (const tableName of readRebuildMarker(options.migrationsDir, migrationId)) {
       await upsertOnConflict(
@@ -53,10 +53,10 @@ export async function queueRebuildsFromMarkers(
         { tableName, migrationId },
         { conflictKeys: ["tableName"], update: { migrationId } },
       );
-      queued.push(tableName);
+      queued.add(tableName);
     }
   }
-  return queued;
+  return [...queued];
 }
 
 type PendingRebuildRow = { readonly tableName: string };
@@ -165,9 +165,7 @@ export async function runPendingRebuilds(
   return { rebuilt, failed, unmapped, unresolvedManaged };
 }
 
-// Qualified name of the framework-provided projection-rebuild job. Registered
-// by the `jobs` bundled-feature (createJobsFeature) → available whenever jobs
-// is composed. A jobs-less boot has no jobRunner and rebuilds inline instead.
+// Registered by the `jobs` bundled-feature; a jobs-less boot has no jobRunner and rebuilds inline instead.
 export const PROJECTION_REBUILD_JOB = "jobs:job:projection-rebuild";
 
 export type EnqueueProjectionRebuildResult =
@@ -182,10 +180,7 @@ export type EnqueueProjectionRebuildDeps = {
   readonly jobRunner?: JobRunner;
 };
 
-/** Triggert einen Single-Projection-Rebuild. Mit `jobs`-Feature (jobRunner +
- *  registriertem Job) als getrackter, retrybarer Job; ohne jobs synchron inline
- *  (heutiges Verhalten). Capability-Detektion über `registry.getJob`, NICHT
- *  `hasFeature` — deterministisch und ohne Toggle-Runtime-Abhängigkeit. */
+// Capability detection via registry.getJob (NOT hasFeature) — deterministic, no toggle-runtime dependency.
 export async function enqueueProjectionRebuild(
   projection: string,
   deps: EnqueueProjectionRebuildDeps,
