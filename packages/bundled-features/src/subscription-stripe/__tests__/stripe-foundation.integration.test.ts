@@ -447,3 +447,108 @@ describe("scenario 5: runtime-secret resolution", () => {
     expect(res.status).toBe(401);
   });
 });
+
+// =============================================================================
+// Scenario 6: billing-live-Gate (#104) durch den vollen Stack.
+//
+// Die #104-Invariante (kein Live-Checkout solange billing-live nicht true) war
+// bislang nur mit gestubbter ctx.config getestet (runtime.test.ts) — kein Test
+// fuhr die Kette factory → r.config → ctx.config(handle) real durch. Eigener
+// Stack OHNE api-key/webhook-secret-Fallback, damit das Gate-Öffnen hermetisch
+// als UnconfiguredError sichtbar wird (api-key fehlt) statt in einem echten
+// Stripe-Netzwerk-Call. Ein reiner default-off-Beweis genügt nicht: er kann
+// "korrektes Handle, Wert fehlt" nicht von "falsches Handle, immer undefined"
+// trennen (beide → feature_disabled). Erst der positive Fall (billing-live via
+// config:write:set auf dem kanonischen QN setzen → Gate öffnet) beweist die
+// Handle-Resolution real.
+// =============================================================================
+
+const BILLING_LIVE_CONFIG_QN = "subscription-stripe:config:billing-live";
+
+describe("scenario 6: billing-live gate end-to-end (#104)", () => {
+  let gateStack: TestStack;
+
+  beforeAll(async () => {
+    const stripeFeature = createSubscriptionStripeFeature({ priceToTier: PRICE_TO_TIER });
+    const encryption = createEncryptionProvider(randomBytes(32).toString("base64"));
+    const resolver = createConfigResolver({ encryption });
+    const masterKeyProvider = createEnvMasterKeyProvider({
+      env: {
+        KUMIKO_SECRETS_MASTER_KEY_V1: randomBytes(32).toString("base64"),
+        KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "1",
+      },
+    });
+    gateStack = await setupTestStack({
+      features: [
+        createConfigFeature(),
+        createSecretsFeature(),
+        billingFoundationFeature,
+        stripeFeature,
+      ],
+      masterKeyProvider,
+      extraContext: ({ db: ctxDb, registry }) => ({
+        configResolver: resolver,
+        configEncryption: encryption,
+        _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+        secrets: createSecretsContext({ db: ctxDb, masterKeyProvider }),
+      }),
+    });
+    await createEventsTable(gateStack.db);
+    await unsafePushTables(gateStack.db, {
+      configValuesTable,
+      tenant_secrets: tenantSecretsTable,
+    });
+  });
+
+  afterAll(async () => {
+    await gateStack.cleanup();
+  });
+
+  const checkoutPayload = {
+    providerName: "stripe",
+    priceId: "price_pro_monthly",
+    successUrl: "https://app.example.com/ok",
+    cancelUrl: "https://app.example.com/cancel",
+  };
+
+  test("default-off → feature_disabled; config-flip → Gate öffnet (Handle-Resolution real)", async () => {
+    const tenantAdmin = createTestUser({
+      id: 6001,
+      tenantId: testTenantId(6001),
+      roles: ["TenantAdmin"],
+    });
+
+    // billing-live ungesetzt → Gate zu, throw VOR jedem api-key/Stripe-Schritt.
+    const closed = await gateStack.http.writeErr(
+      "billing-foundation:write:create-checkout-session",
+      checkoutPayload,
+      tenantAdmin,
+    );
+    expect(closed.code).toBe("feature_disabled");
+
+    // billing-live=true auf dem kanonischen QN setzen (was der abgeleitete
+    // Sysadmin-configEdit-Screen in prod dispatcht).
+    const sysAdmin = createTestUser({
+      id: 6002,
+      tenantId: SYSTEM_TENANT_ID,
+      roles: ["SystemAdmin"],
+    });
+    await gateStack.http.writeOk(
+      "config:write:set",
+      { key: BILLING_LIVE_CONFIG_QN, value: true, scope: "system" },
+      sysAdmin,
+    );
+
+    // Gate jetzt offen: nicht mehr feature_disabled. Der nächste Schritt
+    // (api-key-Resolution) schlägt fehl, weil weder secret noch fallback
+    // gesetzt sind → unconfigured. Wäre der billing-live-Handle falsch
+    // qualifiziert, bliebe ctx.config undefined → Fehler weiter feature_disabled.
+    const opened = await gateStack.http.writeErr(
+      "billing-foundation:write:create-checkout-session",
+      checkoutPayload,
+      tenantAdmin,
+    );
+    expect(opened.code).not.toBe("feature_disabled");
+    expect(opened.code).toBe("unconfigured");
+  });
+});

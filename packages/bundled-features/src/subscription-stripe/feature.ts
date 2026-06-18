@@ -13,7 +13,8 @@
 //     wird er als config-Key. `mask` leitet den Sysadmin-configEdit-Screen
 //     + Settings-Hub-Nav ab — kein handgeschriebenes r.screen/r.nav in der
 //     App mehr (v2 hatte die Keys als `r.secret` + App-eigene Maske).
-//   - `subscription-stripe:config:billingLive` → **system config**
+//   - `subscription-stripe:config:billing-live` (shortKey `billingLive`,
+//     kebab-qualifiziert von r.config) → **system config**
 //     (boolean, default false). Der Master-Switch: ohne ihn darf kein
 //     checkout eine Stripe-Session erzeugen (#104-Invariante, write-side
 //     im createCheckoutSession-Gate durchgesetzt).
