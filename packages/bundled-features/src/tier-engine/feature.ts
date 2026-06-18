@@ -65,7 +65,7 @@ import { getAggregateStreamMaxVersion } from "@cosmicdrift/kumiko-framework/even
 import { z } from "zod";
 import { tierAssignmentAggregateId } from "./aggregate-id";
 import type { TierMap } from "./compose-app";
-import { TIER_ENGINE_FEATURE } from "./constants";
+import { TIER_ADMIN_SCREEN_ID, TIER_ENGINE_FEATURE } from "./constants";
 import { tierAssignmentEntity } from "./entity";
 import { getActiveTierQuery } from "./handlers/active-tier.query";
 import { getTenantTierQuery } from "./handlers/get-tenant-tier.query";
@@ -200,6 +200,17 @@ export function createTierEngineFeature<
         handler: async () => ({ tiers: opts.tierMap ? Object.keys(opts.tierMap) : [] }),
       }),
     );
+
+    // Custom React-Screen für den manuellen Grant. SystemAdmin-only fest
+    // verdrahtet (Platform-Admin-Hoheit, nicht App-konfigurierbar). App
+    // platziert ihn nur via r.nav("tier-engine:screen:tier-admin"); die
+    // Komponente liefert tierEngineClient() aus dem ./web-subpath.
+    r.screen({
+      id: TIER_ADMIN_SCREEN_ID,
+      type: "custom",
+      renderer: { react: { __component: "TierAdminScreen" } },
+      access: { roles: ["SystemAdmin"] },
+    });
 
     // ───────────────────────────────────────────────────────────────────
     // Resolver-extension (only when tierMap is configured)

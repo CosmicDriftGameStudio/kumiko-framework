@@ -26,6 +26,7 @@
     "./readiness": "./src/readiness/index.ts",
     "./jobs": "./src/jobs/index.ts",
     "./tier-engine": "./src/tier-engine/index.ts",
+    "./tier-engine/web": "./src/tier-engine/web/index.ts",
     "./cap-counter": "./src/cap-counter/index.ts",
     "./custom-fields": "./src/custom-fields/index.ts",
     "./custom-fields/web": "./src/custom-fields/web/index.ts",

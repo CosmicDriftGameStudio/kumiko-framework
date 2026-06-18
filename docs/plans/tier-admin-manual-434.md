@@ -1,7 +1,7 @@
 ---
 status: in-progress
 verified: 2026-06-18
-next: Phase A SERVER-Kern done (Branch feat/tier-admin-434, commit c0c84ef2) — offen Phase A REST (Integration-Test cross-tenant + TierAdminScreen + tierEngineClient + package.json-subpath + changeset), dann B-E. /compact vor dem Rest.
+next: Phase A KOMPLETT (Branch feat/tier-admin-434) — Server-Kern + TierAdminScreen + tierEngineClient + package.json-subpath + Integration-Test (16 grün, Scenario 7 cross-tenant) + changeset (minor, lockstep). Offen Phase B (npm-Release), dann C (money-horse → ab da auf cashcolt testbar), D, E.
 issue: CosmicDriftGameStudio/kumiko-framework#434
 ---
 
@@ -57,18 +57,24 @@ einmal im bundled-feature `tier-engine`; jede App schaltet mit ~3-5 Zeilen frei
 - [x] Read-Handler `tier-engine:query:get-tenant-tier` (`handlers/get-tenant-tier.query.ts`) ✅
       + `tier-options` inline in feature.ts (Closure → `opts.tierMap ? Object.keys : []`). Beide
       SystemAdmin. get-tenant-tier nutzt dasselbe system-mode-tdb-Muster für cross-tenant-Read.
-- [ ] `web/tier-admin-screen.tsx` (custom React): Tenant-Picker (`tenant:query:list`) →
+- [x] `web/tier-admin-screen.tsx` (custom React): Tenant-Picker (`tenant:query:list`) →
       aktuelles Tier (`get-tenant-tier`) → Dropdown (`tier-options`) → Speichern
-      (`set-tenant-tier`). usePrimitives/useDispatcher/useQuery. testId + i18n-Keys (de/en).
-- [ ] `r.screen({ id:"tier-admin", type:"custom", renderer:{react:{__component:"TierAdminScreen"}}, access:{roles:["SystemAdmin"]} })`
-      in `createTierEngineFeature`. KEIN `r.nav` (App-Sache).
-- [ ] `web/index.ts` + `tierEngineClient()` (components:{TierAdminScreen}, translations).
-- [ ] `bundled-features/package.json`: export `"./tier-engine/web": "./src/tier-engine/web/index.ts"`.
+      (`set-tenant-tier`). usePrimitives(Section/Field/Input select/Banner/Button/Heading) +
+      useDispatcher/useQuery/useTranslation. testId + i18n-Keys (de/en). Reset-on-Tenant-Wechsel
+      (biome-ignore useExhaustiveDependencies = gewollter Trigger).
+- [x] `r.screen({ id:"tier-admin", type:"custom", renderer:{react:{__component:"TierAdminScreen"}}, access:{roles:["SystemAdmin"]} })`
+      in `createTierEngineFeature` (VOR dem tierMap-Early-Return → Screen immer da). KEIN `r.nav`.
+- [x] `web/index.ts` + `web/client-plugin.tsx` `tierEngineClient()` (components:{[tier-admin]:TierAdminScreen}, translations).
+      Screen-Lookup per Screen-id, nicht __component-String (money-horse/web.tsx-Konvention).
+- [x] `bundled-features/package.json`: export `"./tier-engine/web"`.
 - [x] `r.describe` um Admin-Grant + `source` erweitern. ✅ c0c84ef2
 - [x] Handler in `feature.ts` registriert (setTenantTierWrite, getTenantTierQuery, tier-options). ✅ c0c84ef2 — tsc/biome grün.
-- [ ] **Integration-Test:** SystemAdmin setzt Tier eines fremden Tenants ohne Subscription;
-      Nicht-SystemAdmin → verweigert (fail-closed); `source:"manual"` gesetzt; upsert idempotent.
-- [ ] Changeset (bundled-features + framework im Gleichschritt, fixed). `tsc`/biome/tests grün.
+- [x] **Integration-Test:** Scenario 7 (4 Tests) in tier-engine.integration.test.ts: SystemAdmin
+      setzt fremden Tenant (Event im Ziel-Stream via get-active-tier AS target bewiesen, Admin-Tenant
+      bleibt null), `source:"manual"`, upsert idempotent (isNew false + tier-update), TenantAdmin +
+      User fail-closed (write + get-tenant-tier 403). 16 Integration- + 3 Drift-Tests grün (40 total).
+- [x] Drift-Pins für die 3 neuen QNs (Screen↔Handler-Contract).
+- [x] Changeset `.changeset/tier-engine-manual-grant.md` (minor, bundled-features → framework lockstep via fixed).
 
 ### B — Release
 - [ ] Publish auf npmjs (Rezept: shallow-clone→/tmp→frozen→tsc, changeset-Bot-PR
