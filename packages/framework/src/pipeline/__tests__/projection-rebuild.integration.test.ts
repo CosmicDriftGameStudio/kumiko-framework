@@ -687,7 +687,7 @@ describe("rebuildProjection — live-tail catch-up (#363 Phase 2)", () => {
       // Fires after the unlocked bulk drain (events 1+2 applied) and before the
       // fence. A 3rd event committed here is exactly the write Phase 1's single
       // up-front SELECT missed — the fenced final drain must pick it up.
-      onBeforeFence: async () => {
+      __test_onBeforeFence: async () => {
         injected++;
         await appendCreatedEvent(group, "c"); // event id 3, separate connection
       },
@@ -696,6 +696,58 @@ describe("rebuildProjection — live-tail catch-up (#363 Phase 2)", () => {
     expect(injected).toBe(1); // seam ran exactly once
     // 2 bulk + 1 caught-up tail. Under Phase 1's up-front SELECT this is 2.
     expect(await getCount(group)).toBe(3);
+  });
+
+  test("KNOWN LIMITATION (#443): a lower-id write committed late during replay is currently LOST", async () => {
+    // bigserial assigns ids at INSERT (pre-commit); a cross-aggregate write can
+    // commit an id BELOW the cursor the unlocked drain already advanced past, and
+    // the fenced final drain (`WHERE id > cursor`) never revisits it. This
+    // characterization test pins that data-loss deterministically. No clean fix
+    // preserves the online (short-fence) property — see #443. When the fix lands,
+    // flip groupX's assertion to toBe(1).
+    const db = testDb.db as DbConnection; // @cast-boundary test-harness (TestDb.db is intentionally unknown)
+    const groupX = "00000000-0000-4000-8000-000000000201";
+    const groupY = "00000000-0000-4000-8000-000000000202";
+    const aggX = "00000000-0000-4000-8000-0000000002a1";
+
+    // Connection A inserts aggregate X's event (grabs the LOW id) but holds its
+    // tx open — uncommitted, so the rebuild's READ COMMITTED scan can't see it.
+    let releaseX!: () => void;
+    const xGate = new Promise<void>((resolve) => {
+      releaseX = resolve;
+    });
+    let markXInserted!: () => void;
+    const xInserted = new Promise<void>((resolve) => {
+      markXInserted = resolve;
+    });
+    const xDone = db.begin(async (xtx: DbTx) => {
+      await asRawClient(xtx).unsafe(
+        `INSERT INTO "kumiko_events"
+           (aggregate_id, aggregate_type, tenant_id, version, type, payload, metadata, created_by)
+         VALUES ($1::uuid, 'rebuild-item', $2::uuid, 0, 'rebuild-item.created', $3::jsonb, '{}'::jsonb, 'test')`,
+        [aggX, admin.tenantId, JSON.stringify({ groupId: groupX })],
+      );
+      markXInserted();
+      await xGate;
+    });
+    await xInserted;
+
+    // Aggregate Y commits AFTER X grabbed its id → Y carries the HIGHER id.
+    await appendCreatedEvent(groupY, "y");
+
+    await rebuildProjection(qualifiedProjectionName, {
+      db: testDb.db,
+      registry,
+      __test_onBeforeFence: async () => {
+        // X commits now: its low id becomes visible, but below the cursor that
+        // already advanced past Y's higher id.
+        releaseX();
+        await xDone;
+      },
+    });
+
+    expect(await getCount(groupY)).toBe(1);
+    expect(await getCount(groupX)).toBeUndefined(); // BUG (#443): should be 1
   });
 
   test("the rebuild tx sees concurrently-committed rows (READ COMMITTED, not a frozen snapshot)", async () => {

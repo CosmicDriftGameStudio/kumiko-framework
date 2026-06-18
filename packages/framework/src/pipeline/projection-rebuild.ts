@@ -110,6 +110,10 @@ function rowToStoredEvent(row: StoredEventRow): StoredEvent {
 //   - The shadow is rebuilt from EntityTableMeta, so an index hand-added in a
 //     migration but absent from meta is not reconstructed.
 //   - Requires CREATE privilege to provision the shared rebuild schema.
+//   - A cross-aggregate write that COMMITS with an event id below the cursor
+//     after the cursor already passed it is lost from the rebuild (id-order
+//     != commit-order; bigserial assigns ids pre-commit). Only reachable
+//     during a concurrent rebuild; recovered by the next rebuild. #443.
 
 export type RebuildResult = {
   readonly projection: string;
@@ -141,8 +145,10 @@ type RebuildDeps = {
   readonly fenceLockTimeoutMs?: number;
   // Test-only seam: fires once after the unlocked bulk drain and before the
   // cutover fence. Lets a concurrency test inject a committed write into the
-  // replay window deterministically. Undefined in production.
-  readonly onBeforeFence?: () => void | Promise<void>;
+  // replay window deterministically. The `__test_` prefix marks it test-only:
+  // a production caller passing a slow callback here would hold the
+  // ACCESS-EXCLUSIVE fence for the callback's duration, blocking every writer.
+  readonly __test_onBeforeFence?: () => void | Promise<void>;
 };
 
 export async function rebuildProjection(
@@ -224,7 +230,7 @@ export async function rebuildProjection(
 
         // Test seam: inject a mid-replay committed write here to prove the
         // fenced final drain catches it instead of losing it at swap.
-        await deps.onBeforeFence?.();
+        await deps.__test_onBeforeFence?.();
 
         // Fence the live table, then drain the final delta. Once ACCESS
         // EXCLUSIVE is held no concurrent apply can commit a new event, so this
