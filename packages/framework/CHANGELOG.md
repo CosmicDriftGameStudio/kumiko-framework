@@ -1,5 +1,43 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.59.1
+
+### Patch Changes
+
+- 99b8220: Fix the boot-validator action-field allowlist so it accepts every row-meta column,
+  not just `id`/`version`. `buildBaseColumns` materializes `tenantId`, `insertedAt`,
+  `modifiedAt`, `insertedById`, `modifiedById` (plus `isDeleted`/`deletedAt`/`deletedById`
+  on softDelete entities) on every entity row, yet `validateActionFieldRefs` only
+  exempted `id`/`version` for `pick`/`map` sources and exempted nothing on `visible.field`.
+  A legitimate `pick: ["id", "version", "tenantId"]` or `visible: { field: "id" }` therefore
+  crashed the boot — the same CrashLoop class the validator is meant to fix, one meta-field
+  over. The allowlist is now derived from `buildBaseColumns` via the new
+  `rowMetaFieldNames(softDelete)` and applied to both the extractor-source and
+  `visible.field` checks; softDelete-only columns stay unknown for non-softDelete entities,
+  so picking on them there is still rejected.
+- 31d2d99: The generated config settings-workspace switcher gate computed its access union
+  from the raw masked-key list, which includes machine-only keys (write `["system"]`).
+  That leaked the `"system"` role into the workspace `access` (e.g. `["system",
+"SystemAdmin"]` instead of `["SystemAdmin"]`) whenever a machine-only key sat in the
+  hub next to a human-writable one. No human carries `"system"`, so there was no access
+  effect, but it contradicted the build-time exclusion the rest of the schema applies.
+  The workspace access is now the union of the already machine-filtered hub navs, so
+  `"system"` can no longer appear.
+- 103c5f5: `resolveUnsafeClient` (db/schema-inspection.ts) returned `client.unsafe` without
+  checking it resolved, so a db handle that exposes the raw postgres escape hatch on
+  none of `$client` / `session.client` / itself crashed `tableExists` / `columnNamesOf`
+  with an opaque `TypeError: unsafe is not a function`. It now throws a named, actionable
+  error naming the three lookup paths it checked.
+- 8a55f62: Search-index collision warnings now dedup per registry instead of in a
+  process-global Set. The previous module-global `warnedKeyCollisions` Set in
+  `buildSearchDocument` silenced the "searchPayloadExtension tried to overwrite …"
+  warning for every later app instance once any instance had hit a given
+  `entity:key` collision, and leaked dedup state across tests in the same
+  process. It is now scoped to the registry via a `WeakMap<Registry, Set>`, so
+  each app (and each test) dedups independently; the per-save dedup behaviour is
+  unchanged. The warning text also reads "base field" instead of the stray German
+  "Stammfield".
+
 ## 0.59.0
 
 ## 0.58.0

@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-dispatcher-live",
-  "version": "0.59.0",
+  "version": "0.59.1",
   "description": "HTTP-only Dispatcher for Kumiko UIs. Always-online; failures surface immediately. Default client for web admin/cockpit apps.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",

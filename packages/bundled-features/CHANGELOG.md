@@ -1,5 +1,30 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.59.1
+
+### Patch Changes
+
+- e8dacba: Clarify the `inheritedToTenant` redaction contract. The read-redaction doc
+  overstated the guarantee: it claimed a tenant-side viewer learns neither the
+  inherited platform value "nor that it is set". That holds for the value-
+  returning queries (`config:query:cascade`, `config:query:values`), which mask
+  both the value and its presence — but `config:query:readiness` deliberately
+  reports an `inheritedToTenant:false` key set only at system-level as satisfied
+  rather than missing. Redaction is display-only (the resolver never consults
+  `inheritedToTenant`), so the tenant functionally inherits the value; flagging it
+  as missing would nag tenants to set already-working config. Documented the
+  boundary in `read-redaction.ts` and `readiness.query.ts`; no behaviour change.
+- Updated dependencies [99b8220]
+- Updated dependencies [31d2d99]
+- Updated dependencies [731d87f]
+- Updated dependencies [103c5f5]
+- Updated dependencies [8a55f62]
+  - @cosmicdrift/kumiko-framework@0.59.1
+  - @cosmicdrift/kumiko-renderer@0.59.1
+  - @cosmicdrift/kumiko-headless@0.59.1
+  - @cosmicdrift/kumiko-renderer-web@0.59.1
+  - @cosmicdrift/kumiko-dispatcher-live@0.59.1
+
 ## 0.59.0
 
 ### Minor Changes
