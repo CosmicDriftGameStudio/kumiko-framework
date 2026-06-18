@@ -1,27 +1,41 @@
 import type { Command, Role } from "./types";
 
-const REGISTRY = new Map<string, Command>();
+export type CommandRegistry = {
+  /** Register a command. Called at module-import-time by each command-file. */
+  defineCommand(cmd: Command): Command;
+  /** All commands that apply to the given role, in registration-order. */
+  getCommands(role: Role): ReadonlyArray<Command>;
+  /** Lookup by id. */
+  getCommand(id: string): Command | undefined;
+};
 
-/** Register a command. Called at module-import-time by each command-file. */
-export function defineCommand(cmd: Command): Command {
-  if (REGISTRY.has(cmd.id)) {
-    throw new Error(`Command "${cmd.id}" already registered`);
-  }
-  REGISTRY.set(cmd.id, cmd);
-  return cmd;
+export function createCommandRegistry(): CommandRegistry {
+  const registry = new Map<string, Command>();
+  return {
+    defineCommand(cmd) {
+      if (registry.has(cmd.id)) {
+        throw new Error(`Command "${cmd.id}" already registered`);
+      }
+      registry.set(cmd.id, cmd);
+      return cmd;
+    },
+    getCommands(role) {
+      return [...registry.values()].filter((c) => c.roles.includes(role));
+    },
+    getCommand(id) {
+      return registry.get(id);
+    },
+  };
 }
 
-/** All commands that apply to the given role, in registration-order. */
-export function getCommands(role: Role): ReadonlyArray<Command> {
-  return [...REGISTRY.values()].filter((c) => c.roles.includes(role));
-}
+// Process-wide default registry: command-files register into it at import-time
+// via the free `defineCommand`, production reads via `getCommand`/`getCommands`.
+// The methods close over their own Map (no `this`), so the free re-exports stay
+// bound. Tests must NOT mutate this shared instance — use createCommandRegistry()
+// for an isolated one (a test clearing this raced bin/-command readers under the
+// concurrent runner).
+const defaultRegistry = createCommandRegistry();
 
-/** Lookup by id. */
-export function getCommand(id: string): Command | undefined {
-  return REGISTRY.get(id);
-}
-
-/** Test-only: clear the registry. Production code never calls this. */
-export function _resetRegistry(): void {
-  REGISTRY.clear();
-}
+export const defineCommand = defaultRegistry.defineCommand;
+export const getCommands = defaultRegistry.getCommands;
+export const getCommand = defaultRegistry.getCommand;
