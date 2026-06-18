@@ -49,6 +49,7 @@
     "test": "bun test",
     "test:run": "bun test",
     "test:integration": "bun scripts/run-integration-tests.ts",
+    "test:integration:perf": "KUMIKO_PERF_GATE=1 bun scripts/run-integration-tests.ts --perf",
     "typecheck": "tsc --build",
     "build:apps": "bun run scripts/build-apps.ts",
     "build": "echo 'kumiko-framework: TypeScript source is published as-is (Bun resolver), no transpile step.'",

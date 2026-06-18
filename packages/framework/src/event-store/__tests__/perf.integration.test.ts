@@ -11,6 +11,8 @@
 // Workload is sequential against local Docker Postgres — no network
 // latency, single-node PG. Production deploys are slower; these numbers
 // are the ceiling. Red test = framework regression, no slack tolerated.
+//
+// Isolated from bulk integration via `bun run test:integration:perf`.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
@@ -244,23 +246,29 @@ describe("event-store performance — Gate A", () => {
       version: 0,
     });
 
-    const start = performance.now();
-    const result = await loadAggregateWithSnapshot<TaskState>(
-      testDb.db,
-      aggregateId,
-      tenantId,
-      reducer,
-      { title: "", version: 0 },
-    );
-    const durationMs = performance.now() - start;
+    const samples: number[] = [];
+    for (let i = 0; i < 10; i++) {
+      const start = performance.now();
+      const result = await loadAggregateWithSnapshot<TaskState>(
+        testDb.db,
+        aggregateId,
+        tenantId,
+        reducer,
+        { title: "", version: 0 },
+      );
+      samples.push(performance.now() - start);
+      expect(result.snapshotHit).toBe(true);
+      expect(result.version).toBe(1000);
+      expect(result.state.title).toBe("v1000");
+    }
 
-    expect(result.snapshotHit).toBe(true);
-    expect(result.version).toBe(1000);
-    expect(result.state.title).toBe("v1000");
+    samples.sort((a, b) => a - b);
+    const medianMs = samples[Math.floor(samples.length / 2)] ?? 0;
+    const p95Ms = samples[Math.floor(samples.length * 0.95)] ?? medianMs;
     console.log(
-      `  Snapshot-load (1000-event aggregate, 100 delta events): ${durationMs.toFixed(1)}ms`,
+      `  Snapshot-load (1000-event aggregate, 100 delta events): median=${medianMs.toFixed(1)}ms p95=${p95Ms.toFixed(1)}ms`,
     );
 
-    expect(durationMs).toBeLessThan(50);
+    expect(medianMs).toBeLessThan(50);
   });
 });

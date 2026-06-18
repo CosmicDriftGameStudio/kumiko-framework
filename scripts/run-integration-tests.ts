@@ -2,13 +2,16 @@
 /** Runs all `*.integration.test.ts` files with integration preload + env defaults. */
 
 import { readdirSync } from "node:fs";
-import { dirname, relative } from "node:path";
+import { basename, dirname, relative } from "node:path";
 import { Glob } from "bun";
 import {
   INTEGRATION_BUNFIG,
   INTEGRATION_GUARD,
-  parseBunTestRunOutput,
   type IntegrationDiscovery,
+  type IntegrationRunMode,
+  integrationRunModeFromArgv,
+  isIntegrationPerfFile,
+  parseBunTestRunOutput,
 } from "../bin/_lib/integration-test";
 
 function unitTestIgnorePatterns(dir: string): string[] {
@@ -25,16 +28,28 @@ function unitTestIgnorePatterns(dir: string): string[] {
   return patterns;
 }
 
-async function discoverIntegrationTargets(): Promise<IntegrationDiscovery> {
+async function discoverAllIntegrationFiles(): Promise<string[]> {
   const includedFiles: string[] = [];
-  const dirSet = new Set<string>();
-
   for await (const file of new Glob("{packages,samples}/**/*.integration.test.ts").scan(".")) {
     includedFiles.push(file);
+  }
+  includedFiles.sort();
+  return includedFiles;
+}
+
+async function discoverIntegrationTargets(
+  mode: IntegrationRunMode = "bulk",
+): Promise<IntegrationDiscovery> {
+  const allFiles = await discoverAllIntegrationFiles();
+  const includedFiles =
+    mode === "perf"
+      ? allFiles.filter(isIntegrationPerfFile)
+      : allFiles.filter((file) => !isIntegrationPerfFile(file));
+
+  const dirSet = new Set<string>();
+  for (const file of includedFiles) {
     dirSet.add(dirname(file));
   }
-
-  includedFiles.sort();
 
   return {
     includedFiles,
@@ -49,6 +64,7 @@ type DirRunResult =
 function printIntegrationSummary(
   discovery: IntegrationDiscovery,
   dirResults: DirRunResult[],
+  mode: IntegrationRunMode,
 ): { exitCode: number } {
   const ran = dirResults.filter((r): r is Extract<DirRunResult, { kind: "ran" }> => r.kind === "ran");
   const skipped = dirResults.filter(
@@ -70,7 +86,8 @@ function printIntegrationSummary(
   const filesOk = totals.files === expectedFiles;
   const dirsOk = ran.length === expectedDirs && skipped.length === 0;
 
-  console.log("\n=== Integration summary ===");
+  const label = mode === "perf" ? "Integration perf summary" : "Integration summary";
+  console.log(`\n=== ${label} ===`);
   console.log(`  Files: ${totals.files}/${expectedFiles} executed` + (filesOk ? "" : "  ← MISMATCH"));
   console.log(
     `  Dirs:  ${ran.length}/${expectedDirs} executed` +
@@ -104,17 +121,25 @@ function printIntegrationSummary(
   return { exitCode };
 }
 
-async function runIntegrationTests(): Promise<number> {
-  const discovery = await discoverIntegrationTargets();
-
-  if (discovery.includedDirs.length === 0) {
-    console.error("No integration test files found");
-    return 1;
+async function runIntegrationTests(mode: IntegrationRunMode = "bulk"): Promise<number> {
+  const discovery = await discoverIntegrationTargets(mode);
+  const allFiles = await discoverAllIntegrationFiles();
+  const perfFiles = allFiles.filter(isIntegrationPerfFile);
+  const filesByDir = new Map<string, string[]>();
+  for (const file of discovery.includedFiles) {
+    const dir = dirname(file);
+    const list = filesByDir.get(dir) ?? [];
+    list.push(file);
+    filesByDir.set(dir, list);
   }
 
-  const dirs = new Map<string, string[]>();
-  for (const dir of discovery.includedDirs) {
-    dirs.set(dir, unitTestIgnorePatterns(dir));
+  if (discovery.includedDirs.length === 0) {
+    if (mode === "perf") {
+      console.log("No integration perf gate files found — nothing to run.");
+      return 0;
+    }
+    console.error("No integration test files found");
+    return 1;
   }
 
   let lastCode = 0;
@@ -123,12 +148,24 @@ async function runIntegrationTests(): Promise<number> {
   for (const dir of discovery.includedDirs) {
     const relDir = `./${relative(process.cwd(), dir)}`;
     const args = ["test", `--config=${INTEGRATION_BUNFIG}`];
-    for (const pattern of dirs.get(dir) ?? []) {
-      args.push("--path-ignore-patterns", pattern);
-    }
-    args.push(relDir);
 
-    console.log(`\n=== Integration: ${relDir} ===`);
+    if (mode === "perf") {
+      for (const file of filesByDir.get(dir) ?? []) {
+        args.push(`./${relative(process.cwd(), file)}`);
+      }
+    } else {
+      for (const pattern of unitTestIgnorePatterns(dir)) {
+        args.push("--path-ignore-patterns", pattern);
+      }
+      for (const perfFile of perfFiles) {
+        if (dirname(perfFile) !== dir) continue;
+        args.push("--path-ignore-patterns", `**/${basename(perfFile)}`);
+      }
+      args.push(relDir);
+    }
+
+    const sectionLabel = mode === "perf" ? "Integration perf" : "Integration";
+    console.log(`\n=== ${sectionLabel}: ${relDir} ===`);
     const proc = Bun.spawn(["bun", ...args], {
       stdout: "pipe",
       stderr: "pipe",
@@ -162,7 +199,7 @@ async function runIntegrationTests(): Promise<number> {
     if (code !== 0) lastCode = code;
   }
 
-  const { exitCode: summaryCode } = printIntegrationSummary(discovery, dirResults);
+  const { exitCode: summaryCode } = printIntegrationSummary(discovery, dirResults, mode);
   return summaryCode !== 0 ? summaryCode : lastCode;
 }
 
@@ -173,7 +210,8 @@ if (import.meta.main) {
   });
   if (guard.exitCode !== 0) process.exit(guard.exitCode ?? 1);
 
-  const code = await runIntegrationTests();
+  const mode = integrationRunModeFromArgv(process.argv);
+  const code = await runIntegrationTests(mode);
   process.exit(code);
 }
 

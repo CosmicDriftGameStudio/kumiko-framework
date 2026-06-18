@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseBunTestRunOutput } from "../integration-test";
+import { parseBunTestRunOutput, isIntegrationPerfFile, integrationRunModeFromArgv } from "../integration-test";
 import { printIntegrationSummary } from "../../../scripts/run-integration-tests";
 
 describe("parseBunTestRunOutput", () => {
@@ -42,6 +42,30 @@ describe("parseBunTestRunOutput", () => {
   });
 });
 
+describe("isIntegrationPerfFile", () => {
+  test("matches perf gate filenames", () => {
+    expect(isIntegrationPerfFile("packages/framework/src/pipeline/__tests__/perf-rebuild.integration.test.ts")).toBe(
+      true,
+    );
+    expect(
+      isIntegrationPerfFile("packages/framework/src/event-store/__tests__/get-stream-version-perf.integration.test.ts"),
+    ).toBe(true);
+    expect(isIntegrationPerfFile("packages/framework/src/event-store/__tests__/snapshot.integration.test.ts")).toBe(
+      false,
+    );
+  });
+});
+
+describe("integrationRunModeFromArgv", () => {
+  test("defaults to bulk", () => {
+    expect(integrationRunModeFromArgv([])).toBe("bulk");
+  });
+
+  test("selects perf from --perf flag", () => {
+    expect(integrationRunModeFromArgv(["--perf"])).toBe("perf");
+  });
+});
+
 describe("printIntegrationSummary", () => {
   test("flags file/dir mismatches and failing dirs", () => {
     const logs: string[] = [];
@@ -64,6 +88,7 @@ describe("printIntegrationSummary", () => {
           },
           { kind: "skipped", dir: "./packages/b/__tests__", reason: "no discoverable tests" },
         ],
+        "bulk",
       );
 
       expect(exitCode).toBe(1);
