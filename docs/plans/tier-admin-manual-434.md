@@ -1,7 +1,7 @@
 ---
 status: in-progress
 verified: 2026-06-18
-next: Phase A starten (Framework-Kern) — nach /compact, eigene frische Session
+next: Phase A SERVER-Kern done (Branch feat/tier-admin-434, commit c0c84ef2) — offen Phase A REST (Integration-Test cross-tenant + TierAdminScreen + tierEngineClient + package.json-subpath + changeset), dann B-E. /compact vor dem Rest.
 issue: CosmicDriftGameStudio/kumiko-framework#434
 ---
 
@@ -41,16 +41,22 @@ einmal im bundled-feature `tier-engine`; jede App schaltet mit ~3-5 Zeilen frei
 ## Phasen
 
 ### A — Framework-Kern (eigener Branch, lokal committen)
-- [ ] `entity.ts`: Feld `source: createTextField({ required:false, maxLength:20 })`
-      (Werte `"manual"|"stripe"|"default"`). Drift-Pin-/Entity-Test ggf. anpassen.
-- [ ] auto-default-Hook (`feature.ts:301`): `create({ id, tier, source:"default" })`.
-- [ ] Neuer Write-Handler `tier-engine:write:set-tenant-tier` — Payload `{ tenantId, tier }`,
-      SystemAdmin-only, **cross-tenant via Executor-Muster** (s.o.), `source:"manual"`,
-      **upsert**: `getAggregateStreamMaxVersion(rawDb, aggId) > 0 ? executor.update : .create`.
-      `aggId = tierAssignmentAggregateId(tenantId)`.
-- [ ] Neuer Read-Handler `tier-engine:query:get-tenant-tier` — `{ tenantId }`, SystemAdmin,
-      cross-tenant (selectMany/queryProjection auf Ziel-Tenant). Plus `tier-options`
-      (Closure → `Object.keys(tierMap)`, SystemAdmin).
+- [x] `entity.ts`: Feld `source: createTextField({ required:false, maxLength:20 })` ✅ c0c84ef2
+      (Werte `"manual"|"stripe"|"default"`). TODO: prüfen ob ein Entity-/Drift-Pin-Test im
+      tier-engine das Feld kennen muss (feature.test.ts pinnt die aggregate-id-Konstante, nicht die Felder).
+- [x] auto-default-Hook: `create({ id, tier, source:"default" })`. ✅ c0c84ef2
+- [x] Write-Handler `tier-engine:write:set-tenant-tier` (`handlers/set-tenant-tier.write.ts`) ✅ c0c84ef2.
+      **VERIFIZIERTE cross-tenant-Mechanik (kritisch für Test/Screen):** das set.write-
+      "override-user"-Muster (ctx.db + executorUser.tenantId=override) trägt NUR für
+      `SYSTEM_TENANT_ID` (immer im Tenant-IN-Filter, executor-list.ts:41-44 greift nur bei
+      `db.mode==="tenant"`). Für BELIEBIGE Tenants braucht es: `rawDb = ctx.db.raw` →
+      `createTenantDb(rawDb, target, "system")` (mode≠tenant ⇒ kein Filter, tenant-db.ts:141/162)
+      → `executor.create/update(..., systemUser{tenantId:target}, tdb)`. Upsert via
+      `fetchOne(tdb, table, {tenantId})` → vorhanden? update(existing.id, existing.version) :
+      create(id: `tierAssignmentAggregateId(target)`). `source:"manual"`.
+- [x] Read-Handler `tier-engine:query:get-tenant-tier` (`handlers/get-tenant-tier.query.ts`) ✅
+      + `tier-options` inline in feature.ts (Closure → `opts.tierMap ? Object.keys : []`). Beide
+      SystemAdmin. get-tenant-tier nutzt dasselbe system-mode-tdb-Muster für cross-tenant-Read.
 - [ ] `web/tier-admin-screen.tsx` (custom React): Tenant-Picker (`tenant:query:list`) →
       aktuelles Tier (`get-tenant-tier`) → Dropdown (`tier-options`) → Speichern
       (`set-tenant-tier`). usePrimitives/useDispatcher/useQuery. testId + i18n-Keys (de/en).
@@ -58,7 +64,8 @@ einmal im bundled-feature `tier-engine`; jede App schaltet mit ~3-5 Zeilen frei
       in `createTierEngineFeature`. KEIN `r.nav` (App-Sache).
 - [ ] `web/index.ts` + `tierEngineClient()` (components:{TierAdminScreen}, translations).
 - [ ] `bundled-features/package.json`: export `"./tier-engine/web": "./src/tier-engine/web/index.ts"`.
-- [ ] `r.describe` um Admin-Grant + `source` erweitern.
+- [x] `r.describe` um Admin-Grant + `source` erweitern. ✅ c0c84ef2
+- [x] Handler in `feature.ts` registriert (setTenantTierWrite, getTenantTierQuery, tier-options). ✅ c0c84ef2 — tsc/biome grün.
 - [ ] **Integration-Test:** SystemAdmin setzt Tier eines fremden Tenants ohne Subscription;
       Nicht-SystemAdmin → verweigert (fail-closed); `source:"manual"` gesetzt; upsert idempotent.
 - [ ] Changeset (bundled-features + framework im Gleichschritt, fixed). `tsc`/biome/tests grün.
