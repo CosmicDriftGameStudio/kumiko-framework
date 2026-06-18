@@ -352,6 +352,18 @@ function ListHeaderSlotMount({
   const header = screen.slots?.header;
   const name = header !== undefined ? extensionSectionName(header) : undefined;
   const Component = useExtensionSectionComponent(name);
+  // A declared-but-unregistered header slot renders nothing; warn so the author
+  // finds the typo / missing clientFeatures.extensionSectionComponents entry,
+  // mirroring the diagnostic banner in render-edit's ExtensionSectionMount
+  // (the toolbar has no room for a banner, so a dev-warn it is).
+  useEffect(() => {
+    if (name !== undefined && Component === undefined) {
+      // biome-ignore lint/suspicious/noConsole: dev-warning für Setup-Fehler
+      console.warn(
+        `[kumiko] List header slot component "${name}" on screen "${screen.id}" is not registered in clientFeatures.extensionSectionComponents — the header slot renders nothing.`,
+      );
+    }
+  }, [name, Component, screen.id]);
   if (Component === undefined) return null;
   return <Component entityName={screen.entity} entityId={null} />;
 }
