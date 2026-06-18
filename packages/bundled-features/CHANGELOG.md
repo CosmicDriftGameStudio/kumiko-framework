@@ -1,5 +1,27 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.57.2
+
+### Patch Changes
+
+- ea2d54d: ConfirmAccountDeletionScreen now distinguishes a failed request (network/server error → generic "something went wrong" message) from an invalid-or-expired token, instead of always showing the invalid-token banner on any failure.
+- 99d4489: Correctness fixes from PR review:
+
+  - `securePageHeaders` now spreads hardened security headers LAST so a caller's `extra` can never override CSP/nosniff/frame-options.
+  - `assertOriginGuardConfig` throws on the contradictory `unsafeSkipOriginCheck: true` + non-empty `allowedOrigins` combo instead of silently keeping the guard.
+  - Decimal write-schema scale check is now float-robust (`isRepresentableAtScale`): a computed-but-in-scale value like `0.1 + 0.2` is accepted at scale 2 instead of being falsely rejected.
+  - `createDecimalField` validates `precision`/`scale` at definition time (integer, `precision ≥ 1`, `0 ≤ scale ≤ precision`) instead of failing at migration time.
+  - ENV config bridge skips whitespace-only values and trims `select`/`text` values before option matching.
+  - `fenceLiveTable` rejects `lockTimeoutMs <= 0` (Postgres treats `lock_timeout = 0` as wait-forever, the opposite of fail-fast).
+  - Deletion verify-URL is built via `URL`/`searchParams` so a base URL with existing query params no longer produces an invalid `?a=b?token=`.
+
+- Updated dependencies [99d4489]
+  - @cosmicdrift/kumiko-framework@0.57.2
+  - @cosmicdrift/kumiko-headless@0.57.2
+  - @cosmicdrift/kumiko-renderer@0.57.2
+  - @cosmicdrift/kumiko-dispatcher-live@0.57.2
+  - @cosmicdrift/kumiko-renderer-web@0.57.2
+
 ## 0.57.1
 
 ### Patch Changes
