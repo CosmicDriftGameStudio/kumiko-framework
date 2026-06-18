@@ -18,8 +18,13 @@ on:
     branches: [main, "feat/**", "fix/**", "chore/**", "docs/**"]
   workflow_dispatch:
 
+# A feature-branch push fires BOTH a `push` and a `pull_request: synchronize`
+# event for the same SHA → two runs. Keying the group on the branch name
+# (head.ref for PR events, ref_name for push events) maps both to ONE group so
+# cancel-in-progress collapses the redundant run — without dropping the push
+# trigger that keeps required checks alive when pull_request webhooks stall.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
