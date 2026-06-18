@@ -6,10 +6,8 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { requireConfigResolver } from "../feature";
-import { redactInheritedCascade, shouldRedactInherited } from "../read-redaction";
+import { MASKED, redactInheritedCascade, shouldRedactInherited } from "../read-redaction";
 import { hasConfigAccess } from "../write-helpers";
-
-const MASKED = "••••••";
 
 export const valuesQuery = defineQueryHandler({
   name: "values",

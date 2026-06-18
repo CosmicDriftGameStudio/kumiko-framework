@@ -16,6 +16,21 @@ import {
   originMiddleware,
 } from "../origin-middleware";
 
+function isErrorBody(v: unknown): v is { error: { code: string } } {
+  if (typeof v !== "object" || v === null || !("error" in v)) return false;
+  const err = (v as { error: unknown }).error;
+  return (
+    typeof err === "object" && err !== null && typeof (err as { code: unknown }).code === "string"
+  );
+}
+
+async function readErrorCode(res: Response): Promise<string> {
+  const body: unknown = await res.json();
+  if (!isErrorBody(body))
+    throw new Error(`expected { error: { code } }, got ${JSON.stringify(body)}`);
+  return body.error.code;
+}
+
 const JWT_SECRET = "origin-middleware-test-secret-min-32-characters-long";
 const ALLOWED = "https://admin.example.eu";
 const DISALLOWED = "https://tenant.example.eu";
@@ -123,8 +138,7 @@ describe("originMiddleware", () => {
       headers: { Cookie: `${AUTH_COOKIE_NAME}=${token}`, Origin: DISALLOWED },
     });
     expect(res.status).toBe(403);
-    const body = (await res.json()) as { error: { code: string } };
-    expect(body.error.code).toBe("origin_not_allowed");
+    expect(await readErrorCode(res)).toBe("origin_not_allowed");
   });
 
   // The guard runs as /api/* middleware before routing, so a disallowed-origin
@@ -140,9 +154,7 @@ describe("originMiddleware", () => {
       headers: { Cookie: `${AUTH_COOKIE_NAME}=${token}`, Origin: DISALLOWED },
     });
     expect(res.status).toBe(403);
-    expect(((await res.json()) as { error: { code: string } }).error.code).toBe(
-      "origin_not_allowed",
-    );
+    expect(await readErrorCode(res)).toBe("origin_not_allowed");
   });
 
   test("disallowed origin is blocked even as a simple text/plain request", async () => {
@@ -198,7 +210,6 @@ describe("originMiddleware", () => {
       headers: { Cookie: `${AUTH_COOKIE_NAME}=${token}`, "Sec-Fetch-Site": "cross-site" },
     });
     expect(res.status).toBe(403);
-    const body = (await res.json()) as { error: { code: string } };
-    expect(body.error.code).toBe("origin_not_allowed");
+    expect(await readErrorCode(res)).toBe("origin_not_allowed");
   });
 });
