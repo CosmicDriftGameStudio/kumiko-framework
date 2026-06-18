@@ -69,7 +69,7 @@ import { TIER_ADMIN_SCREEN_ID, TIER_ENGINE_FEATURE } from "./constants";
 import { tierAssignmentEntity } from "./entity";
 import { getActiveTierQuery } from "./handlers/active-tier.query";
 import { getTenantTierQuery } from "./handlers/get-tenant-tier.query";
-import { setTenantTierWrite } from "./handlers/set-tenant-tier.write";
+import { createSetTenantTierWrite } from "./handlers/set-tenant-tier.write";
 
 // Drizzle-table for the tier-assignment-entity. Built once at module-load
 // from the entity definition — same shape buildEntityTable would produce
@@ -190,7 +190,17 @@ export function createTierEngineFeature<
     // \u2500\u2500 Manueller Tier-Grant (SystemAdmin, ohne Billing) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
     // Cross-tenant set + read f\u00fcr den tier-admin-Screen. tier-options liefert
     // dem Client die App-Tier-Namen aus der tierMap-Closure (sonst hartkodiert).
-    r.writeHandler(setTenantTierWrite);
+    //
+    // onAssigned h\u00e4lt den Resolver-Cache nach einem direkten Executor-Write
+    // warm (der den postSave-Hook NICHT feuert). Late-bind via Holder: ohne
+    // tierMap bleibt es no-op (kein Resolver), im tierMap-Block unten wird
+    // die echte Cache-Update-Funktion eingeh\u00e4ngt \u2014 analog alwaysOnHolder.
+    const onTierAssigned: { fn: (tenantId: TenantId, tier: string) => void } = { fn: () => {} };
+    r.writeHandler(
+      createSetTenantTierWrite({
+        onAssigned: (tenantId, tier) => onTierAssigned.fn(tenantId, tier),
+      }),
+    );
     r.queryHandler(getTenantTierQuery);
     r.queryHandler(
       defineQueryHandler({
@@ -231,6 +241,15 @@ export function createTierEngineFeature<
     // mergeAlwaysOn-calls — Late-bind via mutable holder, gefüllt vor allen
     // Requests (build läuft pre-listen via runDevApp/runProdApp-pickup).
     const alwaysOnHolder: { set: ReadonlySet<string> } = { set: new Set() };
+
+    // set-tenant-tier schreibt direkt über den Executor → der postSave-Hook
+    // unten feuert dabei NICHT. Diese Funktion repliziert den Cache-Update
+    // des Hooks, damit ein manueller Grant das effektive Feature-Set sofort
+    // ändert (nicht nur die Projektion). Selber Cache, selbe mergeAlwaysOn-
+    // Semantik wie der Hook.
+    onTierAssigned.fn = (tenantId, tier) => {
+      cache.set(tenantId, mergeAlwaysOn(alwaysOnHolder.set, featuresForTier(tierMap, tier)));
+    };
 
     // Invalidation: tier-assignment events update the cache.
     r.entityHook("postSave", "tier-assignment", async (result) => {

@@ -39,6 +39,9 @@ export function TierAdminScreen(): ReactNode {
   const { Section, Field, Input, Button, Banner, Heading } = usePrimitives();
   const dispatcher = useDispatcher();
 
+  // ponytail: nur die erste Seite (default-limit, nextCursor ignoriert) —
+  // reicht für Apps mit wenigen Tenants (cashcolt). Pagination/Suche
+  // nachrüsten, wenn ein Operator mit vielen Tenants nicht alle sieht.
   const tenantsQuery = useQuery<TenantListResponse | null>(TENANT_LIST_QUERY, {});
   const tierOptionsQuery = useQuery<TierOptionsResponse | null>(TierEngineQueries.tierOptions, {});
 

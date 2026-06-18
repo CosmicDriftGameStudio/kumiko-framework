@@ -75,6 +75,15 @@ einmal im bundled-feature `tier-engine`; jede App schaltet mit ~3-5 Zeilen frei
       User fail-closed (write + get-tenant-tier 403). 16 Integration- + 3 Drift-Tests grün (40 total).
 - [x] Drift-Pins für die 3 neuen QNs (Screen↔Handler-Contract).
 - [x] Changeset `.changeset/tier-engine-manual-grant.md` (minor, bundled-features → framework lockstep via fixed).
+- [x] **Effective-Set-Fix (Advisor-Finding):** Feature-Gate liest den Resolver-Cache, nicht die
+      Projektion. set-tenant-tier schreibt direkt über den Executor → postSave-Hook feuert NICHT →
+      Grant hätte nur die Projektion geändert, nicht das effektive Set (kosmetisch bis Prozess-Neustart).
+      40 grüne Tests hatten das verfehlt (alle prüften stored, nicht effective). Fix: Write-Handler =
+      Factory `createSetTenantTierWrite({ onAssigned })`, feature.ts hängt im tierMap-Block denselben
+      Cache-Update wie der Hook ein (storage-only = no-op). Diskriminierender Test resolver.integration
+      (4): stale-Upgrade free→pro via set-tenant-tier → resolver(A).has("feat-pro") muss true werden.
+      Cache-miss-Fallback rettet nur cache-MISS (neuer Tenant), nicht stale (Upgrade). Multi-Pod-
+      Invalidation bleibt vorbestehende tier-engine-Grenze (single-pod cashcolt ok).
 
 ### B — Release
 - [ ] Publish auf npmjs (Rezept: shallow-clone→/tmp→frozen→tsc, changeset-Bot-PR

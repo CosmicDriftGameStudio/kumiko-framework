@@ -167,6 +167,36 @@ describe("createTierEngineFeature — per-tenant resolver", () => {
     expect(resolver(tenantA).has("feat-pro")).toBe(true);
   });
 
+  test("(4) set-tenant-tier reflects in resolver — effective gating, not just projection", async () => {
+    // Kern-Zweck von #434: ein manueller Grant muss das EFFEKTIVE Feature-Set
+    // ändern (Resolver-Cache), nicht nur die Projektion. set-tenant-tier
+    // schreibt direkt über den Executor — feuert das den postSave-Hook, der
+    // den Cache aktualisiert? Stale-Upgrade free→pro deckt den Fall ab, den
+    // der cache-miss-Fallback NICHT rettet.
+    const usage = findTierResolverUsage(features);
+    if (!usage) throw new Error("setup failure");
+    const plugin = usage.options as TierResolverPlugin;
+
+    const sysA = createTestUser({
+      id: "sys-4",
+      tenantId: tenantA,
+      roles: ["SystemAdmin", "TenantAdmin"],
+    });
+    await stack.http.writeOk("tier-engine:write:tier-assignment:create", { tier: "free" }, sysA);
+
+    const resolver = await plugin.build({ db: stack.db, registry: stack.registry });
+    expect(resolver(tenantA).has("feat-pro")).toBe(false);
+
+    // Manueller Grant via set-tenant-tier (cross-tenant-fähig, hier eigener Tenant).
+    await stack.http.writeOk(
+      "tier-engine:write:set-tenant-tier",
+      { tenantId: tenantA, tier: "pro" },
+      sysA,
+    );
+
+    expect(resolver(tenantA).has("feat-pro")).toBe(true);
+  });
+
   test("(3) SYSTEM_TENANT_ID returns union of all tier-features", async () => {
     const usage = findTierResolverUsage(features);
     if (!usage) throw new Error("setup failure");

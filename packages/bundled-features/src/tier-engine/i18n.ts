@@ -11,11 +11,9 @@ export const defaultTranslations: TranslationsByLocale = {
     "tier-admin.explainer":
       "Weise einem Tenant ein Tier ohne Kauf zu. Der Grant wird als „manuell“ markiert und von einem späteren Billing-Sync nicht überschrieben.",
     "tier-admin.tenant.label": "Tenant",
-    "tier-admin.tenant.placeholder": "Tenant wählen…",
     "tier-admin.current.label": "Aktuelles Tier",
     "tier-admin.current.none": "— noch keins —",
     "tier-admin.tier.label": "Neues Tier",
-    "tier-admin.tier.placeholder": "Tier wählen…",
     "tier-admin.submit": "Tier zuweisen",
     "tier-admin.success": "Tier „{tier}“ zugewiesen.",
     "tier-admin.error.generic": "Konnte das Tier nicht zuweisen.",
@@ -28,11 +26,9 @@ export const defaultTranslations: TranslationsByLocale = {
     "tier-admin.explainer":
       "Grant a tenant a tier without a purchase. The grant is marked as “manual” and a later billing sync won't overwrite it.",
     "tier-admin.tenant.label": "Tenant",
-    "tier-admin.tenant.placeholder": "Pick a tenant…",
     "tier-admin.current.label": "Current tier",
     "tier-admin.current.none": "— none yet —",
     "tier-admin.tier.label": "New tier",
-    "tier-admin.tier.placeholder": "Pick a tier…",
     "tier-admin.submit": "Assign tier",
     "tier-admin.success": "Assigned tier “{tier}”.",
     "tier-admin.error.generic": "Could not assign the tier.",

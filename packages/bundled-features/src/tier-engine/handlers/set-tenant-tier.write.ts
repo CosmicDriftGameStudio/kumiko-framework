@@ -24,6 +24,15 @@ import { tierAssignmentEntity } from "../entity";
 //
 // `source: "manual"` markiert den Grant, damit ein späterer Stripe→Tier-Sync ihn
 // nicht plättet. Upsert: ein Aggregat pro Tenant (deterministische aggregate-id).
+//
+// **Effective-Set-Invalidation (kritisch):** der Executor-Write feuert NICHT
+// den `tier-assignment:postSave`-entityHook (Hooks laufen nur im Entity-
+// Handler-Pfad, nicht bei direktem executor.create/update). Ohne Cache-Update
+// bliebe das Feature-Gate auf dem alten Tier hängen — die Projektion zeigt
+// "pro", das Gate verhält sich weiter wie "free", bis der Prozess neu startet.
+// Daher ruft der Handler nach erfolgreichem Write `opts.onAssigned(tenantId,
+// tier)`; feature.ts verdrahtet das auf denselben Cache-Update wie der Hook
+// (storage-only ohne tierMap = no-op).
 
 const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
 const executor = createEventStoreExecutor(tierAssignmentTable, tierAssignmentEntity, {
@@ -38,49 +47,53 @@ type TierAssignmentRow = {
   readonly tenantId: string;
 };
 
-export const setTenantTierWrite = defineWriteHandler({
-  name: "set-tenant-tier",
-  schema: z.object({
-    tenantId: z.string().min(1),
-    tier: z.string().min(1).max(50),
-  }),
-  access: { roles: ["SystemAdmin"] },
-  handler: async (event, ctx) => {
-    const tenantId = event.payload.tenantId as TenantId; // @cast-boundary engine-bridge
-    const rawDb = ctx.db.raw as DbConnection; // @cast-boundary db-runner
-    const tdb = createTenantDb(rawDb, tenantId, "system");
-    const systemUser = { ...event.user, tenantId };
+export type SetTenantTierOptions = {
+  /** Nach erfolgreichem Write aufgerufen, damit feature.ts den Resolver-
+   *  Cache aktualisieren kann (der Executor-Write feuert den postSave-Hook
+   *  nicht). Ohne tierMap kein Resolver → no-op. */
+  readonly onAssigned?: (tenantId: TenantId, tier: string) => void;
+};
 
-    const existing = await fetchOne<TierAssignmentRow>(tdb, tierAssignmentTable, { tenantId });
+export function createSetTenantTierWrite(opts: SetTenantTierOptions = {}) {
+  return defineWriteHandler({
+    name: "set-tenant-tier",
+    schema: z.object({
+      tenantId: z.string().min(1),
+      tier: z.string().min(1).max(50),
+    }),
+    access: { roles: ["SystemAdmin"] },
+    handler: async (event, ctx) => {
+      const tenantId = event.payload.tenantId as TenantId; // @cast-boundary engine-bridge
+      const rawDb = ctx.db.raw as DbConnection; // @cast-boundary db-runner
+      const tdb = createTenantDb(rawDb, tenantId, "system");
+      const systemUser = { ...event.user, tenantId };
+      const tier = event.payload.tier;
 
-    if (existing) {
-      const result = await executor.update(
-        {
-          id: existing.id,
-          version: existing.version,
-          changes: { tier: event.payload.tier, source: "manual" },
-        },
+      const existing = await fetchOne<TierAssignmentRow>(tdb, tierAssignmentTable, { tenantId });
+
+      if (existing) {
+        const result = await executor.update(
+          {
+            id: existing.id,
+            version: existing.version,
+            changes: { tier, source: "manual" },
+          },
+          systemUser,
+          tdb,
+        );
+        if (!result.isSuccess) return result;
+        opts.onAssigned?.(tenantId, tier);
+        return { isSuccess: true as const, data: { tenantId, tier, isNew: false } };
+      }
+
+      const result = await executor.create(
+        { id: tierAssignmentAggregateId(tenantId), tier, source: "manual", tenantId },
         systemUser,
         tdb,
       );
       if (!result.isSuccess) return result;
-      return {
-        isSuccess: true as const,
-        data: { tenantId, tier: event.payload.tier, isNew: false },
-      };
-    }
-
-    const result = await executor.create(
-      {
-        id: tierAssignmentAggregateId(tenantId),
-        tier: event.payload.tier,
-        source: "manual",
-        tenantId,
-      },
-      systemUser,
-      tdb,
-    );
-    if (!result.isSuccess) return result;
-    return { isSuccess: true as const, data: { tenantId, tier: event.payload.tier, isNew: true } };
-  },
-});
+      opts.onAssigned?.(tenantId, tier);
+      return { isSuccess: true as const, data: { tenantId, tier, isNew: true } };
+    },
+  });
+}

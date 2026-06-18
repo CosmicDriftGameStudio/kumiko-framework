@@ -11,7 +11,10 @@ piece for testing and operating `>Free` features before Stripe is wired.
   `TenantDb` on the **target** tenant so the event lands in the target's
   stream (the `set.write` override-user pattern only reaches
   `SYSTEM_TENANT_ID`). Stamps `source: "manual"` so a future Stripe→tier sync
-  won't overwrite the grant.
+  won't overwrite the grant. Updates the resolver cache synchronously after
+  the write so the grant changes the tenant's **effective** feature set, not
+  just the projection (a direct executor write doesn't fire the `postSave`
+  hook the entity-handler path relies on).
 - `tier-engine:query:get-tenant-tier` — cross-tenant read of any tenant's
   assignment (SystemAdmin-only).
 - `tier-engine:query:tier-options` — exposes the configured `TierMap`'s tier
