@@ -239,7 +239,11 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   steps.push({ name: "Runtime-Isolation Guard", cmd: "bunx kumiko-check-runtime-isolation" });
   // Action-Wiring + Doc-Status waren als bins registriert, hingen aber an
   // keinem Pipeline-Step — ein nicht-aufgerufener Guard ist ein No-op.
-  steps.push({ name: "Action-Wiring Guard", cmd: "bunx kumiko-guard-action-wiring" });
+  // --strict: ohne das Flag bleibt process.exit(1) hinter `if (strict)` aus
+  // (guard-action-wiring.ts), der Step druckt Verstöße nur nach stderr und
+  // endet 0 → er kann die Pipeline nie rot machen (aufgerufener No-op). Alle
+  // anderen Steps gaten per Exit-Code; das hier war der einzige Ausreißer.
+  steps.push({ name: "Action-Wiring Guard", cmd: "bunx kumiko-guard-action-wiring --strict" });
   // Doc-Status braucht das Multi-Repo-Parent (STATUS.md lebt in
   // kumiko-platform) — im standalone CI-Checkout existiert das nicht.
   // LAUT überspringen statt silent-skip; der Drift-Check läuft im lokalen
