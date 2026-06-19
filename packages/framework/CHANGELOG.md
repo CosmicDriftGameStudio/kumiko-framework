@@ -1,5 +1,68 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.60.0
+
+### Patch Changes
+
+- 95a4a6c: Fix `managed-pages:write:set` with `tenantIdOverride` so the SystemAdmin
+  cross-tenant write is actually idempotent. The handler's `ctx.db` is tenant-
+  scoped to the _executing_ user (createTenantDb "tenant" mode), which was wrong on
+  both halves of the upsert for an override target: the existing-check
+  (`fetchOne`) was blind to the target tenant's projection row, so a re-provision
+  retried as a create and failed with `unique_violation`; and the event-store
+  executor's stream reads (`getStreamVersion`/`loadAggregate`) ran against the
+  executor's tenant, so even reaching the update path failed with
+  `not_found`/`version_conflict`. The fix re-scopes a `TenantDb` to the resolved
+  target tenant for the existing-check and the executor when an override is set
+  (SystemAdmin-gated). Covered by three new integration tests (#382/2): override
+  lands the row under the target tenant, a non-SystemAdmin override is denied, and
+  an override on an existing page updates it without conflict.
+- 16e1457: Three config-feature test-coverage gaps from review, all behaviour-discriminating
+  (no fake/existence tests):
+
+  - inherited-redaction: the inheritance control test only seeded a `default`, so
+    it proved default-fallback visibility — not that a SET system-row value is
+    inherited by tenants (the actual non-redacted invariant). Added a control key
+    whose seeded system-row value (42) differs from its default (5), asserting the
+    tenant receives 42 (#376/2).
+  - app-override-visibility: the leak-guard test only asserted the value/source
+    were `not` the leaked override, which stays green if the key drops out for
+    another reason (e.g. access-deny). Added a positive `source === "missing"`
+    anchor (#383/1).
+  - backing-secrets: the PR's central "throws loud, never silently degrades"
+    promise for `backing="secrets"` keys had no test. Added one that wires the
+    feature WITHOUT `ctx.secrets` and asserts `config:write:set` fails with
+    `internal_error`/500 and writes no config_values fallback row (#387/2).
+
+- 22c1ba2: Cover the untested `enqueueProjectionRebuild` branch where a `jobRunner` is
+  present but the `projection-rebuild` job is not registered (a caller that wired a
+  jobRunner but forgot to compose `createJobsFeature()`) (#391/2). The
+  `registry.getJob` capability guard must fall to the inline rebuild rather than
+  dispatch onto a runner whose queue has no handler for the job — a silent no-op
+  otherwise. The new test asserts `mode: "inline"`, that the projection is actually
+  rebuilt, and that `dispatch` is never called.
+- 34cb6e7: Add the missing `runDevApp` origin-guard forwarding test (#399/1). `runDevApp`
+  forwards `allowedOrigins`/`unsafeSkipOriginCheck` to the server exactly like
+  `runProdApp`, but only the prod path had a test — a typo or wrong spread-key on
+  the dev path would silently drop the fail-closed CSRF guard and let dev/prod
+  diverge. The new `run-dev-app.integration.test.ts` mirrors the prod pair:
+  `cookieDomain` alone rejects with `allowedOrigins is empty`, and
+  `cookieDomain + allowedOrigins` boots cleanly past the guard. It is an
+  integration test because the guard fires during server build, after the
+  ephemeral test DB is up.
+- 141d29b: Two missing-test coverage gaps from review (test-only):
+
+  - subscription-stripe `parseStoredSecret`: the error path was untested — the test
+    stub always JSON-encoded its values, so a malformed (raw, non-JSON) stored
+    credential never exercised `parseJsonOrThrow`. Added a raw-secret stub and a
+    test asserting `clientForCtx` throws `Invalid JSON in subscription-stripe
+credential` rather than silently degrading (#393/2).
+  - encrypted-tenant-config recipe: the recipe's headline claim — that a `mask`
+    entry alone makes `buildConfigFeatureSchema` derive the configEdit screen (no
+    hand-written `r.screen`/`r.nav`) — was unverified. Added a test asserting the
+    `billing-tenant` screen carries `configKeys["stripe-api-key"]` (qualified) and
+    the `mask.title` field label (#392/1).
+
 ## 0.59.2
 
 ### Patch Changes
