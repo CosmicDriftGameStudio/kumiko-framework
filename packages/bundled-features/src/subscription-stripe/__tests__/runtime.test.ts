@@ -5,22 +5,40 @@
 // (das deckt der Integration-Test ab).
 
 import { describe, expect, test } from "bun:test";
-import type { ConfigKeyHandle, HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type ConfigKeyHandle,
+  type HandlerContext,
+  qn,
+  toKebab,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { FeatureDisabledError, UnconfiguredError } from "@cosmicdrift/kumiko-framework/errors";
 import { createSecret, type SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import Stripe from "stripe";
+import {
+  STRIPE_API_KEY_CONFIG,
+  STRIPE_BILLING_LIVE_CONFIG,
+  STRIPE_WEBHOOK_SECRET_CONFIG,
+  SUBSCRIPTION_STRIPE_FEATURE,
+} from "../constants";
 import { createStripeClientCache, createStripeRuntimes } from "../runtime";
 
+// Handle-Namen aus den kanonischen Konstanten + demselben Qualifier ableiten,
+// den r.config zur Build-Zeit anwendet (define-feature.ts: qn(toKebab(feature),
+// "config", toKebab(shortKey))). Eine hand-redeklarierte Fixture konnte still
+// von der Produktion driften (#421/2) — diese Ableitung macht das unmöglich.
+const configHandleName = (shortKey: string): string =>
+  qn(toKebab(SUBSCRIPTION_STRIPE_FEATURE), "config", toKebab(shortKey));
+
 const API_KEY_HANDLE: ConfigKeyHandle<"text"> = {
-  name: "subscription-stripe:config:api-key",
+  name: configHandleName(STRIPE_API_KEY_CONFIG),
   type: "text",
 };
 const WEBHOOK_SECRET_HANDLE: ConfigKeyHandle<"text"> = {
-  name: "subscription-stripe:config:webhook-secret",
+  name: configHandleName(STRIPE_WEBHOOK_SECRET_CONFIG),
   type: "text",
 };
 const BILLING_LIVE_HANDLE: ConfigKeyHandle<"boolean"> = {
-  name: "subscription-stripe:config:billing-live",
+  name: configHandleName(STRIPE_BILLING_LIVE_CONFIG),
   type: "boolean",
 };
 
@@ -48,7 +66,11 @@ function stubCtx(opts: { secrets?: SecretsContext; billingLive?: boolean }): Han
   return {
     secrets: opts.secrets,
     _userId: "tester",
-    config: async () => opts.billingLive,
+    // Key-aware: antwortet NUR auf das billing-live-Handle. Liest
+    // assertBillingLive versehentlich einen anderen Config-Key, kommt undefined
+    // zurück → Gate schließt → der "passes when true"-Test schlägt fehl (#421/3).
+    config: async (handle: ConfigKeyHandle<"boolean">) =>
+      handle.name === BILLING_LIVE_HANDLE.name ? opts.billingLive : undefined,
   } as unknown as HandlerContext; // @cast-boundary test-stub — partial ctx
 }
 
