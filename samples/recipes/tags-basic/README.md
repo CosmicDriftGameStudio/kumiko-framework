@@ -23,6 +23,33 @@ row stays exactly `{ id, title }`.
   `tag-assignment` filtered by `entityId`; "notes with a tag" filters by
   `tagId`. The app composes the two reads; there is no relational pivot.
 
+## Using it — the tag flow
+
+You use the bundle by dispatching its handlers; nothing is wired into the
+tagged entity. `dispatch`/`query` below is your app's client (or a test
+harness) — every call is exercised by this recipe's integration test.
+
+```ts illustration
+// 1. Create a tag in the tenant catalog → returns its id
+const { id: tagId } = await dispatch("tags:write:create-tag", { name: "important" })
+
+// 2. Attach it to ANY entity by (type, id) — no column on that entity
+await dispatch("tags:write:assign-tag", { tagId, entityType: "note", entityId: noteId })
+
+// 3a. "Which tags does this note have?" — filter assignments by entityId
+const { rows: ofNote } = await query("tags:query:tag-assignment:list", {
+  filter: { field: "entityId", op: "eq", value: noteId },
+}) // ofNote[].tagId
+
+// 3b. "Which notes carry this tag?" — filter by tagId (no JOIN)
+const { rows: withTag } = await query("tags:query:tag-assignment:list", {
+  filter: { field: "tagId", op: "eq", value: tagId },
+}) // withTag[].entityId
+
+// 4. Detach it again (idempotent — removing a missing link still succeeds)
+await dispatch("tags:write:remove-tag", { tagId, entityType: "note", entityId: noteId })
+```
+
 ## Feature composition
 
 ```
