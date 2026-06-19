@@ -183,3 +183,64 @@ describe("tags integration — multi-tenant isolation", () => {
     expect(await countAssignments(otherTenant.tenantId)).toBe(0);
   });
 });
+
+// The access option must reach the runtime, not just the handler shape: a host
+// that mounts tags with openToAll lets a user WITHOUT any default tag role tag
+// freely (the exact failure that bit money-horse, whose signup users carry
+// "Admin", not "TenantAdmin"). Default-mounted tags deny that same user.
+describe("tags integration — openToAll access model", () => {
+  let openStack: TestStack;
+  // role deliberately not in DEFAULT_TAG_ROLES nor "Admin" — proves openToAll,
+  // not an accidental role match.
+  const unprivileged = createTestUser({ roles: ["Viewer"] });
+
+  beforeAll(async () => {
+    openStack = await setupTestStack({
+      features: [createTagsFeature({ access: { openToAll: true } })],
+    });
+    await unsafeCreateEntityTable(openStack.db, tagEntity);
+    await unsafeCreateEntityTable(openStack.db, tagAssignmentEntity);
+    await createEventsTable(openStack.db);
+  });
+
+  afterAll(async () => {
+    await openStack.cleanup();
+  });
+
+  test("a non-tag-role user can create, assign, list and remove", async () => {
+    const tag = await openStack.http.writeOk<{ id: string }>(
+      TagsHandlers.createTag,
+      { name: "Paket A" },
+      unprivileged,
+    );
+    await openStack.http.writeOk(
+      TagsHandlers.assignTag,
+      { tagId: tag.id, entityType: "credit", entityId: "c-1" },
+      unprivileged,
+    );
+
+    const tags = await openStack.http.queryOk<{ rows: unknown[] }>(
+      TagsQueries.tagList,
+      {},
+      unprivileged,
+    );
+    expect(tags.rows).toHaveLength(1);
+
+    const assigned = await openStack.http.queryOk<{ rows: unknown[] }>(
+      TagsQueries.assignmentList,
+      { filter: { field: "entityId", op: "eq", value: "c-1" } },
+      unprivileged,
+    );
+    expect(assigned.rows).toHaveLength(1);
+
+    await openStack.http.writeOk(
+      TagsHandlers.removeTag,
+      { tagId: tag.id, entityType: "credit", entityId: "c-1" },
+      unprivileged,
+    );
+  });
+
+  test("the SAME user is denied on a default-role-mounted feature", async () => {
+    await stack.http.writeErr(TagsHandlers.createTag, { name: "nope" }, unprivileged);
+  });
+});

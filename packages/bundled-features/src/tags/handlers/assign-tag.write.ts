@@ -1,6 +1,6 @@
-import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { tagAssignmentAggregateId } from "../aggregate-id";
-import { DEFAULT_TAG_ROLES } from "../constants";
+import { DEFAULT_TAG_ACCESS } from "../constants";
 import { tagAssignmentExecutor } from "../executor";
 import { type AssignTagPayload, assignTagPayloadSchema } from "../schemas";
 
@@ -12,13 +12,11 @@ import { type AssignTagPayload, assignTagPayloadSchema } from "../schemas";
 // success when the assignment is already present (the requested end state). A
 // concurrent first-time race still version_conflicts (409); acceptable, since
 // assigning is a low-frequency UI action.
-export function createAssignTagHandler(
-  roles: readonly string[] = DEFAULT_TAG_ROLES,
-): WriteHandlerDef {
+export function createAssignTagHandler(access: AccessRule = DEFAULT_TAG_ACCESS): WriteHandlerDef {
   return {
     name: "assign-tag",
     schema: assignTagPayloadSchema,
-    access: { roles },
+    access,
     handler: async (event, ctx) => {
       const payload = event.payload as AssignTagPayload; // @cast-boundary engine-payload
       const id = tagAssignmentAggregateId(

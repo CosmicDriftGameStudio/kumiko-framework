@@ -17,54 +17,59 @@
 // (`wireTagsFor`), search indexing, user-data-rights anonymization.
 
 import {
+  type AccessRule,
   defineEntityListHandler,
   defineFeature,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { DEFAULT_TAG_ROLES, TAGS_FEATURE_NAME } from "./constants";
+import { DEFAULT_TAG_ACCESS, TAGS_FEATURE_NAME } from "./constants";
 import { tagAssignmentEntity, tagEntity } from "./entity";
 import { createAssignTagHandler } from "./handlers/assign-tag.write";
 import { createCreateTagHandler } from "./handlers/create-tag.write";
 import { createRemoveTagHandler } from "./handlers/remove-tag.write";
 
-function registerTags(
-  r: FeatureRegistrar<typeof TAGS_FEATURE_NAME>,
-  roles: readonly string[],
-): void {
+function registerTags(r: FeatureRegistrar<typeof TAGS_FEATURE_NAME>, access: AccessRule): void {
   r.describe(
-    "Generic, host-agnostic tagging for any entity. Owns two event-sourced entities — the per-tenant `tag` catalog (`read_tags`) and `tag-assignment` join rows keyed by (entityType, entityId) (`read_tag_assignments`) — so tagging adds NO column to the host entity and needs no relational pivot or JOIN. Provides write-handlers `create-tag`, `assign-tag` (idempotent), `remove-tag` (idempotent) and list queries for the catalog and the assignments. Read which tags an entity has, or which entities carry a tag, by listing `tag-assignment` filtered on `entityId` or `tagId` and composing in the read-layer. Override the default tenant roles with createTagsFeature({ roles }).",
+    "Generic, host-agnostic tagging for any entity. Owns two event-sourced entities — the per-tenant `tag` catalog (`read_tags`) and `tag-assignment` join rows keyed by (entityType, entityId) (`read_tag_assignments`) — so tagging adds NO column to the host entity and needs no relational pivot or JOIN. Provides write-handlers `create-tag`, `assign-tag` (idempotent), `remove-tag` (idempotent) and list queries for the catalog and the assignments. Read which tags an entity has, or which entities carry a tag, by listing `tag-assignment` filtered on `entityId` or `tagId` and composing in the read-layer. Every path uses one access rule — adopt the host's model with createTagsFeature({ access: { openToAll: true } }) or pin roles with createTagsFeature({ roles }).",
   );
 
   r.entity("tag", tagEntity);
   r.entity("tag-assignment", tagAssignmentEntity);
 
-  r.writeHandler(createCreateTagHandler(roles));
-  r.writeHandler(createAssignTagHandler(roles));
-  r.writeHandler(createRemoveTagHandler(roles));
+  r.writeHandler(createCreateTagHandler(access));
+  r.writeHandler(createAssignTagHandler(access));
+  r.writeHandler(createRemoveTagHandler(access));
 
-  r.queryHandler(defineEntityListHandler("tag", tagEntity, { access: { roles } }));
-  r.queryHandler(
-    defineEntityListHandler("tag-assignment", tagAssignmentEntity, { access: { roles } }),
-  );
+  r.queryHandler(defineEntityListHandler("tag", tagEntity, { access }));
+  r.queryHandler(defineEntityListHandler("tag-assignment", tagAssignmentEntity, { access }));
 }
 
 export const tagsFeature = defineFeature(TAGS_FEATURE_NAME, (r) =>
-  registerTags(r, DEFAULT_TAG_ROLES),
+  registerTags(r, DEFAULT_TAG_ACCESS),
 );
 
 export type TagsFeatureOptions = {
-  /** RBAC roles for all tag write/read paths. Default ["TenantAdmin","TenantMember"].
-   *  Apps with their own role vocabulary (e.g. ["Admin","Editor"]) MUST set this,
-   *  else the hard-wired tag QNs are access_denied for their users. */
+  /** Access rule for all tag write/read paths. Default { roles: ["TenantAdmin","TenantMember"] }.
+   *  Adopt the host's model — e.g. { openToAll: true } when the host lets any
+   *  authenticated tenant user tag (like the rest of its handlers), or
+   *  { roles: ["Admin"] } for a custom role vocabulary. Takes precedence over `roles`. */
+  readonly access?: AccessRule;
+  /** Shorthand for { access: { roles } }. Ignored when `access` is set. */
   readonly roles?: readonly string[];
 };
 
+function resolveAccess(opts: TagsFeatureOptions): AccessRule {
+  if (opts.access !== undefined) return opts.access;
+  if (opts.roles !== undefined) return { roles: opts.roles };
+  return DEFAULT_TAG_ACCESS;
+}
+
 // Backwards-compat / options wrapper. Without options returns the module-level
-// singleton (no rebuild). A custom roles list builds a fresh feature-definition.
+// singleton (no rebuild). access/roles build a fresh feature-definition.
 export function createTagsFeature(opts: TagsFeatureOptions = {}): typeof tagsFeature {
-  if (opts.roles === undefined) {
+  if (opts.access === undefined && opts.roles === undefined) {
     return tagsFeature;
   }
-  const roles = opts.roles;
-  return defineFeature(TAGS_FEATURE_NAME, (r) => registerTags(r, roles));
+  const access = resolveAccess(opts);
+  return defineFeature(TAGS_FEATURE_NAME, (r) => registerTags(r, access));
 }

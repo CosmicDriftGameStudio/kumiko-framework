@@ -1,5 +1,6 @@
 export { tagAssignmentAggregateId } from "./aggregate-id";
 export {
+  DEFAULT_TAG_ACCESS,
   DEFAULT_TAG_ROLES,
   TAGS_FEATURE_NAME,
   TagsHandlers,
