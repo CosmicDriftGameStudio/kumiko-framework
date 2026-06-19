@@ -87,6 +87,8 @@ beforeAll(async () => {
   registry = createRegistry([seedTestFeature]);
   dispatcher = createDispatcher(registry, {
     db: testDb.db,
+    // Der seed-migration-Pfad nutzt weder redis noch entityCache — undefined
+    // ist hier safe, der `as never`-Cast unterdrückt nur die required-Typen.
     redis: undefined as never,
     entityCache: undefined as never,
     registry,

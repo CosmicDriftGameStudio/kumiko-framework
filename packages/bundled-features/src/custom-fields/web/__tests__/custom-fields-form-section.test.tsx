@@ -6,7 +6,7 @@ import {
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { CustomFieldsFormSection } from "../custom-fields-form-section";
 import { defaultTranslations } from "../i18n";
@@ -98,11 +98,10 @@ describe("CustomFieldsFormSection", () => {
 
     const saveBtn = screen.getByTestId("custom-fields-form-save");
     fireEvent.click(saveBtn);
-    // Wait one microtask for the async handleSave loop.
-    await Promise.resolve();
-    await Promise.resolve();
+    // waitFor statt fester Promise.resolve()-Ticks — robust gegen zusätzliche
+    // Microtasks im async handleSave-Loop (z.B. ein neuer dispatch-Wrapper).
+    await waitFor(() => expect(dispatchSpy).toHaveBeenCalledTimes(1));
 
-    expect(dispatchSpy).toHaveBeenCalledTimes(1);
     expect(dispatchSpy).toHaveBeenCalledWith("custom-fields:write:set-custom-field", {
       entityName: "component",
       entityId: "row-42",
