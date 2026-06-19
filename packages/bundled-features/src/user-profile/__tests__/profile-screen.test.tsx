@@ -3,7 +3,7 @@
 // Wrapper analog renderer-web/test-utils, hier lokal weil die
 // Dependency-Richtung renderer-web → bundled-features verbietet.
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { createStore, type Dispatcher, type DispatcherStatus } from "@cosmicdrift/kumiko-headless";
 import {
   createStaticLocaleResolver,
@@ -16,10 +16,10 @@ import {
   TokensProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer-web";
-import { render, waitFor } from "@testing-library/react";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { defaultTranslations } from "../i18n";
-import { ProfileScreen } from "../web/profile-screen";
+import { formatDeletionDate, ProfileScreen } from "../web/profile-screen";
 
 const stubLiveEvents: LiveEventSubscriber = () => () => {};
 const stubTokens = {
@@ -94,8 +94,66 @@ describe("ProfileScreen", () => {
     const banner = view.getByTestId("profile-danger-requested");
     expect(banner.textContent).toContain("2026-07-11");
     expect(banner.textContent).not.toContain("{date}");
+    // #322/2: nur der Datums-Teil, kein roher ISO-Zeitstempel mehr.
+    expect(banner.textContent).not.toContain("T00:00");
+    expect(banner.textContent).not.toContain(":00:00");
     expect(view.queryByTestId("profile-danger-delete")).toBeNull();
     expect(view.getByTestId("profile-danger-cancel")).toBeTruthy();
     expect(view.container.textContent).not.toContain("profile.");
+  });
+
+  // #322/3: nach erfolgreichem Email-Wechsel triggert der Screen den
+  // Verification-Versand. Schlägt der fehl, darf der Erfolg nicht umkehren —
+  // aber der Fehler wird nicht mehr stumm verschluckt (sonst wartet der User
+  // auf eine Mail, die nie kommt) und die Success-Message verspricht keinen
+  // Versand mehr.
+  test("email change: verification-send failure is surfaced (not swallowed), change still succeeds", async () => {
+    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+    const fetchSpy = spyOn(globalThis, "fetch").mockRejectedValue(new Error("no network in test"));
+    try {
+      const view = renderProfile(activeMe);
+      await waitFor(() => {
+        if (view.queryByTestId("profile-email-form") === null) throw new Error("not mounted yet");
+      });
+
+      const emailInput = view.container.querySelector<HTMLInputElement>("#profile-new-email");
+      const pwInput = view.container.querySelector<HTMLInputElement>("#profile-email-password");
+      if (!emailInput || !pwInput) throw new Error("email form inputs not found");
+      fireEvent.change(emailInput, { target: { value: "new@example.com" } });
+      fireEvent.change(pwInput, { target: { value: "current-pw" } });
+      fireEvent.submit(view.getByTestId("profile-email-form"));
+
+      // De-Swallow: der fehlgeschlagene Verification-Versand wird geloggt.
+      await waitFor(() => {
+        const warned = warnSpy.mock.calls.some((c) => String(c[0]).includes("[user-profile]"));
+        if (!warned) throw new Error("verification-send failure not surfaced");
+      });
+      // Wechsel bleibt erfolgreich: das Eingabefeld wird zurückgesetzt.
+      await waitFor(() => {
+        if (emailInput.value !== "") throw new Error("email input not cleared after success");
+      });
+      // Die Success-Message verspricht keinen Link-Versand mehr.
+      expect(view.container.textContent).not.toContain("verification link");
+      expect(view.container.textContent).not.toContain("Bestätigungslink");
+    } finally {
+      warnSpy.mockRestore();
+      fetchSpy.mockRestore();
+    }
+  });
+});
+
+describe("formatDeletionDate", () => {
+  test("ISO instant → date part only (strips time + Z)", () => {
+    expect(formatDeletionDate("2026-07-11T00:00:00.000Z")).toBe("2026-07-11");
+  });
+
+  test("null / undefined / empty → em dash", () => {
+    expect(formatDeletionDate(null)).toBe("—");
+    expect(formatDeletionDate(undefined)).toBe("—");
+    expect(formatDeletionDate("")).toBe("—");
+  });
+
+  test("date-only string without time → returned as-is", () => {
+    expect(formatDeletionDate("2026-07-11")).toBe("2026-07-11");
   });
 });
