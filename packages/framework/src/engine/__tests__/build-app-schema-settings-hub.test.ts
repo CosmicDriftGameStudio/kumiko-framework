@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { validateBoot } from "../boot-validator";
 import { buildAppSchema, findNonJsonSafePath } from "../build-app-schema";
 import { SETTINGS_HUB_FEATURE, SETTINGS_HUB_WORKSPACE } from "../build-config-feature-schema";
@@ -197,5 +197,53 @@ describe("buildAppSchema — Settings-Hub inline placement", () => {
       r.workspace({ id: "w", label: "W", nav: ["config:nav:audience-systemm"] });
     });
     expect(() => validateBoot([typo])).toThrow(/references nav "config:nav:audience-systemm"/);
+  });
+});
+
+describe("buildAppSchema — dangling audience-ref dev-warning (#408/3)", () => {
+  // billing registriert nur system+tenant-Keys → audience-user wird NIE
+  // generiert. Eine Workspace, die config:nav:audience-user referenziert, boot't
+  // (Boot-Validator exempt't die Audience-QNs), aber der Eintrag rendert
+  // unsichtbar — der Dev muss eine Warnung sehen, nicht still nichts.
+  function warnsFor(scopes: string[]): string[] {
+    const prevEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "development";
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      buildAppSchema(createRegistry([placingShell(...scopes), billing]));
+      return warn.mock.calls.map((c) => String(c[0]));
+    } finally {
+      warn.mockRestore();
+      if (prevEnv === undefined) {
+        delete process.env.NODE_ENV;
+      } else {
+        process.env.NODE_ENV = prevEnv;
+      }
+    }
+  }
+
+  test("referencing a never-generated audience warns (dangling-ref)", () => {
+    const messages = warnsFor(["user"]);
+    expect(
+      messages.some((m) => m.includes("config:nav:audience-user") && m.includes("nie generiert")),
+    ).toBe(true);
+  });
+
+  test("referencing a generated audience does NOT trigger the dangling warning", () => {
+    // audience-tenant IS generated (billing has tenant keys) → kein dangling.
+    const messages = warnsFor(["tenant"]);
+    expect(messages.some((m) => m.includes("nie generiert"))).toBe(false);
+  });
+
+  test("authoring warnings are suppressed under NODE_ENV=test — no CI-log noise (#408/1)", () => {
+    // bun:test setzt NODE_ENV=test; eine un-platzierte Audience (tenant bleibt
+    // bei placingShell("system") übrig) darf KEIN console.warn ins Log spülen.
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      buildAppSchema(createRegistry([placingShell("system"), billing]));
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

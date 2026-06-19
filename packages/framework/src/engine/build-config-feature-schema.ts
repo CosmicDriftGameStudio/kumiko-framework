@@ -141,7 +141,11 @@ function scopedKeysAt(masked: readonly MaskedKey[], scope: ConfigScope): ScopedK
   const out: ScopedKey[] = [];
   for (const key of masked) {
     const roles = effectiveWriteRoles(key.def, scope);
-    if (roles.some((r) => r !== MACHINE_WRITE_ROLE)) out.push({ key, roles });
+    // MACHINE_WRITE_ROLE aus den Screen-Rollen strippen: ein gemischter
+    // write-Set (z.B. ["system", "SystemAdmin"]) darf "system" nicht ins
+    // Screen-Access-Gate leaken — analog zum machine-gefilterten Workspace-Gate.
+    const humanRoles = roles.filter((r) => r !== MACHINE_WRITE_ROLE);
+    if (humanRoles.length > 0) out.push({ key, roles: humanRoles });
   }
   return out;
 }
