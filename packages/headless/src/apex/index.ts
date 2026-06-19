@@ -171,7 +171,8 @@ function renderSectionHead(s: {
   readonly sub?: string;
 }): string {
   if (s.eyebrow === undefined && s.heading === undefined && s.sub === undefined) return "";
-  const eyebrow = s.eyebrow !== undefined ? `<span class="eyebrow">${escapeHtml(s.eyebrow)}</span>` : "";
+  const eyebrow =
+    s.eyebrow !== undefined ? `<span class="eyebrow">${escapeHtml(s.eyebrow)}</span>` : "";
   const heading = s.heading !== undefined ? `<h2>${escapeHtml(s.heading)}</h2>` : "";
   const sub = s.sub !== undefined ? `<p>${escapeHtml(s.sub)}</p>` : "";
   return `<div class="section-head">${eyebrow}${heading}${sub}</div>`;
@@ -228,13 +229,21 @@ function renderFeatureGrid(s: ApexFeatureGridSection): string {
 
 function renderPricingCard(t: ApexPricingTier): string {
   const featured = t.featured === true;
-  const badge = t.badge !== undefined ? `<span class="price-badge">${escapeHtml(t.badge)}</span>` : "";
-  const cap = t.capLine !== undefined ? [`<li class="price-cap">${escapeHtml(t.capLine)}</li>`] : [];
+  const badge =
+    t.badge !== undefined ? `<span class="price-badge">${escapeHtml(t.badge)}</span>` : "";
+  const cap =
+    t.capLine !== undefined ? [`<li class="price-cap">${escapeHtml(t.capLine)}</li>`] : [];
   const benefits = t.benefits.map((b) => `<li>${escapeHtml(b)}</li>`);
   const items = [...cap, ...benefits].join("\n            ");
   const per = t.priceSuffix !== undefined ? `<span>${escapeHtml(t.priceSuffix)}</span>` : "";
-  const cls = t.cta.variant !== undefined ? `btn btn-${t.cta.variant}` : featured ? "btn btn-primary" : "btn btn-secondary";
-  const tagline = t.tagline !== undefined ? `<p class="price-tagline">${escapeHtml(t.tagline)}</p>` : "";
+  const cls =
+    t.cta.variant !== undefined
+      ? `btn btn-${t.cta.variant}`
+      : featured
+        ? "btn btn-primary"
+        : "btn btn-secondary";
+  const tagline =
+    t.tagline !== undefined ? `<p class="price-tagline">${escapeHtml(t.tagline)}</p>` : "";
   return `<article class="price-card${featured ? " price-card--featured" : ""}">
           ${badge}<h3>${escapeHtml(t.name)}</h3>
           ${tagline}<div class="price-amount">${escapeHtml(t.amount)}${per}</div>
@@ -309,7 +318,8 @@ function renderSection(s: ApexSection): string {
 }
 
 function renderHeader(h: ApexHeader): string {
-  const logo = h.brand.logoSrc !== undefined ? `<img src="${escapeHtml(h.brand.logoSrc)}" alt="" /> ` : "";
+  const logo =
+    h.brand.logoSrc !== undefined ? `<img src="${escapeHtml(h.brand.logoSrc)}" alt="" /> ` : "";
   const navLinks = (h.navLinks ?? [])
     .map((l) => `<a href="${escapeHtml(l.href)}">${escapeHtml(l.label)}</a>`)
     .join("\n      ");
@@ -325,7 +335,8 @@ function renderHeader(h: ApexHeader): string {
 
 function renderFooter(f: ApexFooter): string {
   const cols = f.columns ?? [];
-  const logo = f.brand.logoSrc !== undefined ? `<img src="${escapeHtml(f.brand.logoSrc)}" alt="" /> ` : "";
+  const logo =
+    f.brand.logoSrc !== undefined ? `<img src="${escapeHtml(f.brand.logoSrc)}" alt="" /> ` : "";
   const colHtml = cols
     .map(
       (c) => `<div class="footer-col">
@@ -360,12 +371,27 @@ export function renderApexPage(page: ApexPage): string {
   const theme = page.theme ?? "light";
   const css = (brand.fontFaceCss ?? "") + brand.tokensCss + APEX_STRUCTURAL_CSS;
   const sections = page.sections.map(renderSection).join("\n\n    ");
-  const ogUrl = head.canonicalUrl !== undefined ? `\n    <meta property="og:url" content="${escapeHtml(head.canonicalUrl)}" />` : "";
-  const ogImage = head.ogImage !== undefined ? `\n    <meta property="og:image" content="${escapeHtml(head.ogImage)}" />` : "";
-  const favicon = head.faviconHref !== undefined ? `\n    <link rel="icon" href="${escapeHtml(head.faviconHref)}" />` : "";
-  const canonical = head.canonicalUrl !== undefined ? `\n    <link rel="canonical" href="${escapeHtml(head.canonicalUrl)}" />` : "";
+  const ogUrl =
+    head.canonicalUrl !== undefined
+      ? `\n    <meta property="og:url" content="${escapeHtml(head.canonicalUrl)}" />`
+      : "";
+  const ogImage =
+    head.ogImage !== undefined
+      ? `\n    <meta property="og:image" content="${escapeHtml(head.ogImage)}" />`
+      : "";
+  const favicon =
+    head.faviconHref !== undefined
+      ? `\n    <link rel="icon" href="${escapeHtml(head.faviconHref)}" />`
+      : "";
+  const canonical =
+    head.canonicalUrl !== undefined
+      ? `\n    <link rel="canonical" href="${escapeHtml(head.canonicalUrl)}" />`
+      : "";
   const alternates = (head.alternates ?? [])
-    .map((a) => `\n    <link rel="alternate" hreflang="${escapeHtml(a.hreflang)}" href="${escapeHtml(a.href)}" />`)
+    .map(
+      (a) =>
+        `\n    <link rel="alternate" hreflang="${escapeHtml(a.hreflang)}" href="${escapeHtml(a.href)}" />`,
+    )
     .join("");
   return `<!doctype html>
 <html lang="${escapeHtml(head.lang)}">

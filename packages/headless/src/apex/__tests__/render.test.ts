@@ -40,7 +40,11 @@ describe("renderApexPage", () => {
       page({
         sections: [
           { kind: "hero", title: "h", tagline: "t", metaHtml: "<strong>ok</strong>" },
-          { kind: "feature-grid", heading: "F", items: [{ icon: "<rect/>", title: "x", desc: "d" }] },
+          {
+            kind: "feature-grid",
+            heading: "F",
+            items: [{ icon: "<rect/>", title: "x", desc: "d" }],
+          },
         ],
       }),
     );
@@ -119,7 +123,13 @@ describe("renderApexPage", () => {
         sections: [
           { kind: "hero", title: "h", tagline: "t" },
           { kind: "feature-grid", heading: "F", items: [{ title: "x", desc: "d" }] },
-          { kind: "pricing-grid", heading: "P", tiers: [{ name: "Free", amount: "0 €", benefits: ["b"], cta: { label: "g", href: "/s" } }] },
+          {
+            kind: "pricing-grid",
+            heading: "P",
+            tiers: [
+              { name: "Free", amount: "0 €", benefits: ["b"], cta: { label: "g", href: "/s" } },
+            ],
+          },
           { kind: "info-grid", items: [{ title: "t", desc: "d" }] },
           { kind: "final-cta", heading: "c", cta: { label: "g", href: "/s" } },
           { kind: "html", html: "<div id='raw'></div>" },
