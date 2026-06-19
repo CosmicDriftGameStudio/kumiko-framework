@@ -61,7 +61,7 @@ function navById(id: string): NavDefinition | undefined {
 }
 function configScreen(id: string): ConfigEditScreenDefinition {
   const s: ScreenDefinition | undefined = schema.screens.find((x) => x.id === id);
-  if (!s || s.type !== "configEdit") throw new Error(`no configEdit screen "${id}"`);
+  if (s?.type !== "configEdit") throw new Error(`no configEdit screen "${id}"`);
   return s;
 }
 

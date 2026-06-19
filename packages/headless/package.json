@@ -25,6 +25,10 @@
     "./dispatcher": {
       "types": "./src/dispatcher/index.ts",
       "default": "./src/dispatcher/index.ts"
+    },
+    "./apex": {
+      "types": "./src/apex/index.ts",
+      "default": "./src/apex/index.ts"
     }
   },
   "dependencies": {

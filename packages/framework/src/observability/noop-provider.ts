@@ -107,7 +107,7 @@ class NoopMeter implements Meter {
 
   counter(name: string): Counter {
     const def = this.defs.get(name);
-    if (!def || def.type !== "counter") {
+    if (def?.type !== "counter") {
       throw new Error(`[Kumiko Observability] Counter "${name}" not registered or wrong type.`);
     }
     return this.counterInstance;
@@ -115,7 +115,7 @@ class NoopMeter implements Meter {
 
   histogram(name: string): Histogram {
     const def = this.defs.get(name);
-    if (!def || def.type !== "histogram") {
+    if (def?.type !== "histogram") {
       throw new Error(`[Kumiko Observability] Histogram "${name}" not registered or wrong type.`);
     }
     return this.histogramInstance;
@@ -123,7 +123,7 @@ class NoopMeter implements Meter {
 
   gauge(name: string): Gauge {
     const def = this.defs.get(name);
-    if (!def || def.type !== "gauge") {
+    if (def?.type !== "gauge") {
       throw new Error(`[Kumiko Observability] Gauge "${name}" not registered or wrong type.`);
     }
     return this.gaugeInstance;

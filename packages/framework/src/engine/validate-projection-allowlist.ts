@@ -129,7 +129,7 @@ export function validateProjectionAllowlist(features: readonly FeatureDefinition
   for (const f of features) {
     for (const [handlerName, handler] of Object.entries(f.writeHandlers)) {
       const perform = (handler as { readonly perform?: PipelineDef }).perform;
-      if (!perform || perform.__kind !== "pipeline") continue;
+      if (perform?.__kind !== "pipeline") continue;
 
       let steps: readonly StepInstance[];
       try {
