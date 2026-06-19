@@ -17,7 +17,7 @@ import { BRANDING_QN, BRANDING_QUERY_QN } from "../branding";
 import { createManagedPagesCssFeature } from "../css-gate";
 import { createManagedPagesFeature } from "../feature";
 import { seedPage } from "../seeding";
-import { pageEntity, type PageRow, pagesTable } from "../table";
+import { type PageRow, pageEntity, pagesTable } from "../table";
 
 const TENANT_A = "11111111-1111-4111-8111-111111111111";
 const TENANT_B = "22222222-2222-4222-8222-222222222222";
