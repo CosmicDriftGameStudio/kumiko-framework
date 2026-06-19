@@ -7,8 +7,14 @@ linker = "hoisted"
 [test]
 # Unit-test default: polyfill-only preload (no service-URL env). Integration
 # runs pull service defaults via bunfig.integration.toml → integration.preload.ts.
-preload = ["./test-setup/base.preload.ts", "./test-setup/dom.preload.ts"]
-concurrency = 8
+# CI: concurrency=1 — single-CPU cdgs-runner; shared happy-dom under concurrency>1
+# collides and inflates RAM. Local dev keeps concurrency=8 in bunfig.toml.
+preload = [
+  "./test-setup/ci-log.preload.ts",
+  "./test-setup/base.preload.ts",
+  "./test-setup/dom.preload.ts",
+]
+concurrency = 1
 
 # *.spec.ts gehören zu Playwright (e2e/-Folder). bun test versucht sonst
 # sie zu loaden und crash't weil Playwright eigene test()-Globals erwartet
