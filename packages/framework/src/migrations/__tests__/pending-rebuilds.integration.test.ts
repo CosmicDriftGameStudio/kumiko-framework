@@ -21,6 +21,7 @@ import {
   type ProjectionDefinition,
 } from "../../engine";
 import { createEventsTable } from "../../event-store";
+import type { JobRunner } from "../../jobs/job-runner";
 import { createProjectionStateTable } from "../../pipeline";
 import {
   createTestDb,
@@ -29,7 +30,6 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "../../stack";
-import type { JobRunner } from "../../jobs/job-runner";
 import {
   clearPendingRebuilds,
   enqueueProjectionRebuild,
