@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { fieldDefinitionAggregateId } from "../aggregate-id";
 import { SUPPORTED_FIELD_TYPES } from "../constants";
-import { createCustomFieldsFeature } from "../feature";
+import { createCustomFieldsFeature, resolveFieldDefinitionListRoles } from "../feature";
 import { defineFieldPayloadSchema, deleteFieldPayloadSchema } from "../schemas";
 
 // B1 unit-tests: feature-shape, schema-validation, aggregate-id determinism.
@@ -156,14 +156,67 @@ describe("createCustomFieldsFeature access-options", () => {
     expect(writeAccess(feature, "define-tenant-field")).toEqual(["TenantAdmin"]);
   });
 
-  test("fieldDefinitionListRoles überschreibt den List-Query (FormSection-Lade-Pfad)", () => {
-    const feature = createCustomFieldsFeature({ fieldDefinitionListRoles: ["Admin", "Editor"] });
+  function listAccess(feature: ReturnType<typeof createCustomFieldsFeature>): readonly string[] {
     const entry = Object.entries(feature.queryHandlers).find(([qn]) =>
       qn.includes("field-definition:list"),
     );
     if (!entry) throw new Error("field-definition:list not registered");
     const access = entry[1].access;
     if (!access || !("roles" in access)) throw new Error("list-query has no roles");
-    expect(access.roles).toEqual(["Admin", "Editor"]);
+    return access.roles;
+  }
+
+  test("fieldDefinitionListRoles überschreibt den List-Query (FormSection-Lade-Pfad)", () => {
+    const feature = createCustomFieldsFeature({ fieldDefinitionListRoles: ["Admin", "Editor"] });
+    expect(listAccess(feature)).toEqual(["Admin", "Editor"]);
+  });
+
+  // #334/2: valueWriteRoles ohne fieldDefinitionListRoles brach asymmetrisch —
+  // Save offen für App-Rollen, aber der List-Lade-Pfad blieb ["TenantAdmin"] →
+  // App-User bekamen access_denied, die FormSection lud nie. Die Value-Rollen
+  // erben jetzt in den List-Default (Union mit dem Default).
+  test("valueWriteRoles erbt in den List-Default wenn fieldDefinitionListRoles fehlt", () => {
+    const feature = createCustomFieldsFeature({ valueWriteRoles: ["Admin", "Editor"] });
+    const roles = listAccess(feature);
+    // Value-Writer können laden …
+    expect(roles).toContain("Admin");
+    expect(roles).toContain("Editor");
+    // … und Admins behalten den List-Zugriff.
+    expect(roles).toContain("TenantAdmin");
+  });
+
+  test("explizite fieldDefinitionListRoles gewinnen über die valueWriteRoles-Vererbung", () => {
+    const feature = createCustomFieldsFeature({
+      valueWriteRoles: ["Admin", "Editor"],
+      fieldDefinitionListRoles: ["Viewer"],
+    });
+    expect(listAccess(feature)).toEqual(["Viewer"]);
+  });
+});
+
+describe("resolveFieldDefinitionListRoles", () => {
+  test("nichts gesetzt → reiner Default", () => {
+    expect(resolveFieldDefinitionListRoles({})).toEqual(["TenantAdmin"]);
+  });
+
+  test("valueWriteRoles gesetzt, list ungesetzt → Union mit Default, dedupliziert", () => {
+    expect(resolveFieldDefinitionListRoles({ valueWriteRoles: ["Admin", "Editor"] })).toEqual([
+      "Admin",
+      "Editor",
+      "TenantAdmin",
+    ]);
+    // TenantAdmin schon in valueWriteRoles → keine Dublette.
+    expect(resolveFieldDefinitionListRoles({ valueWriteRoles: ["TenantAdmin", "Editor"] })).toEqual(
+      ["TenantAdmin", "Editor"],
+    );
+  });
+
+  test("explizite list-Rollen gewinnen immer (auch über valueWriteRoles)", () => {
+    expect(
+      resolveFieldDefinitionListRoles({
+        valueWriteRoles: ["Admin"],
+        fieldDefinitionListRoles: ["Viewer"],
+      }),
+    ).toEqual(["Viewer"]);
   });
 });
