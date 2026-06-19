@@ -95,7 +95,7 @@ describe("locatedTimestamp(name) Helper", () => {
     for (const name of ["a", "x_y", "long_field_name"]) {
       const fields = locatedTimestamp(name);
       const at = fields[`${name}At`];
-      if (!at || at.type !== "timestamp") throw new Error("at field missing");
+      if (at?.type !== "timestamp") throw new Error("at field missing");
       expect(at.locatedBy).toBe(`${name}Tz`);
     }
   });
