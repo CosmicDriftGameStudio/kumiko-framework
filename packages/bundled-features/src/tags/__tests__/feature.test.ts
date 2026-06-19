@@ -29,6 +29,18 @@ function queryAccess(
   return access.roles;
 }
 
+function rawWriteAccess(feature: ReturnType<typeof createTagsFeature>, nameMatch: string): unknown {
+  const entry = Object.entries(feature.writeHandlers).find(([qn]) => qn.includes(nameMatch));
+  if (!entry) throw new Error(`handler ${nameMatch} not registered`);
+  return entry[1].access;
+}
+
+function rawQueryAccess(feature: ReturnType<typeof createTagsFeature>, nameMatch: string): unknown {
+  const entry = Object.entries(feature.queryHandlers).find(([qn]) => qn.includes(nameMatch));
+  if (!entry) throw new Error(`query ${nameMatch} not registered`);
+  return entry[1].access;
+}
+
 describe("createTagsFeature shape", () => {
   test("registers tag + tag-assignment entities, 3 write-handlers, 2 query-handlers", () => {
     const feature = createTagsFeature();
@@ -74,6 +86,28 @@ describe("createTagsFeature access-options", () => {
     expect(writeAccess(feature, "remove-tag")).toEqual(["Admin", "Editor"]);
     expect(queryAccess(feature, "tag:list")).toEqual(["Admin", "Editor"]);
     expect(queryAccess(feature, "tag-assignment:list")).toEqual(["Admin", "Editor"]);
+  });
+
+  test("access:{openToAll} applies to every write- and query-path", () => {
+    const feature = createTagsFeature({ access: { openToAll: true } });
+    for (const path of ["create-tag", "assign-tag", "remove-tag"]) {
+      expect(rawWriteAccess(feature, path)).toEqual({ openToAll: true });
+    }
+    for (const query of ["tag:list", "tag-assignment:list"]) {
+      expect(rawQueryAccess(feature, query)).toEqual({ openToAll: true });
+    }
+  });
+
+  test("access takes precedence over the roles shorthand", () => {
+    const feature = createTagsFeature({ access: { openToAll: true }, roles: ["Admin"] });
+    expect(rawWriteAccess(feature, "create-tag")).toEqual({ openToAll: true });
+    expect(rawQueryAccess(feature, "tag:list")).toEqual({ openToAll: true });
+  });
+
+  test("access:{roles} threads through like the roles shorthand", () => {
+    const feature = createTagsFeature({ access: { roles: ["Owner"] } });
+    expect(writeAccess(feature, "remove-tag")).toEqual(["Owner"]);
+    expect(queryAccess(feature, "tag-assignment:list")).toEqual(["Owner"]);
   });
 });
 
