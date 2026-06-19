@@ -29,11 +29,13 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "../../stack";
+import type { JobRunner } from "../../jobs/job-runner";
 import {
   clearPendingRebuilds,
   enqueueProjectionRebuild,
   listPendingRebuildRows,
   listPendingRebuilds,
+  PROJECTION_REBUILD_JOB,
   queueRebuildsFromMarkers,
   runPendingRebuilds,
 } from "../pending-rebuilds";
@@ -278,5 +280,44 @@ describe("enqueueProjectionRebuild — inline fallback (no jobs feature)", () =>
       expect(outcome.result.eventsProcessed).toBe(2);
     }
     expect(await getCount()).toBe(2);
+  });
+});
+
+// #391/2: jobRunner present but the projection-rebuild job not registered (a
+// caller that wired a jobRunner yet forgot to compose createJobsFeature()). The
+// getJob-capability guard must still fall to the inline rebuild — NOT dispatch
+// onto a runner whose queue has no handler for the job (silent no-op forever).
+describe("enqueueProjectionRebuild — inline fallback (jobRunner without the job)", () => {
+  test("jobRunner present but job unregistered → inline, dispatch never called", async () => {
+    await executor.create({ groupId: GROUP, name: "a" }, admin, tdb);
+    await executor.create({ groupId: GROUP, name: "b" }, admin, tdb);
+    await executor.create({ groupId: GROUP, name: "c" }, admin, tdb);
+
+    // Sanity: this registry has no projection-rebuild job (no jobs feature).
+    expect(registry.getJob(PROJECTION_REBUILD_JOB)).toBeUndefined();
+
+    let dispatchCalls = 0;
+    const stubJobRunner: JobRunner = {
+      start: async () => {},
+      stop: async () => {},
+      handleEvent: async () => {},
+      dispatch: async () => {
+        dispatchCalls++;
+        return "should-not-happen";
+      },
+    };
+
+    const outcome = await enqueueProjectionRebuild("pendingtest:projection:pending-counts", {
+      db: testDb.db,
+      registry,
+      jobRunner: stubJobRunner,
+    });
+
+    expect(outcome.mode).toBe("inline");
+    if (outcome.mode === "inline") {
+      expect(outcome.result.eventsProcessed).toBe(3);
+    }
+    expect(dispatchCalls).toBe(0); // routed to inline, not to a handler-less queue
+    expect(await getCount()).toBe(3);
   });
 });
