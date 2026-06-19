@@ -60,6 +60,25 @@ function stubSecrets(values: Record<string, string>): SecretsContext {
   };
 }
 
+/** Wie stubSecrets, aber speichert den Wert ROH (kein JSON.stringify) — um
+ *  parseStoredSecret's Fehlerpfad zu treffen: ein Credential, das der Store
+ *  un-JSON-kodiert zurückgibt (Korruption oder ein außerhalb des
+ *  backing:"secrets"-Roundtrips geschriebener Wert) muss laut failen, nicht
+ *  still Müll liefern. */
+function rawSecretsStub(values: Record<string, string>): SecretsContext {
+  const nameOf = (k: string | { readonly name: string }): string =>
+    typeof k === "string" ? k : k.name;
+  return {
+    get: async (_tenantId, key) => {
+      const value = values[nameOf(key)];
+      return value === undefined ? undefined : createSecret(value); // RAW, not JSON
+    },
+    has: async (_tenantId, key) => values[nameOf(key)] !== undefined,
+    set: async () => undefined,
+    delete: async () => false,
+  };
+}
+
 /** Minimaler HandlerContext-Stub mit nur den Feldern, die die ctx-
  *  Resolution liest (secrets, _userId für audit, config). */
 function stubCtx(opts: { secrets?: SecretsContext; billingLive?: boolean }): HandlerContext {
@@ -137,6 +156,19 @@ describe("StripeCtxRuntime.clientForCtx", () => {
     const rt = makeRuntimes();
     const ctx = stubCtx({ secrets: stubSecrets({}) });
     await expect(rt.ctx.clientForCtx(ctx)).rejects.toBeInstanceOf(UnconfiguredError);
+  });
+
+  test("throws loudly on a malformed (non-JSON) stored credential (#393/2)", async () => {
+    // The store round-trips backing:"secrets" values JSON-encoded; a raw,
+    // un-quoted value reaching parseStoredSecret means corruption — it must
+    // throw, not silently fall through to undefined/fallback.
+    const rt = makeRuntimes({ apiKey: "sk_test_fallback" });
+    const ctx = stubCtx({
+      secrets: rawSecretsStub({ [API_KEY_HANDLE.name]: "sk_test_raw_unquoted" }),
+    });
+    await expect(rt.ctx.clientForCtx(ctx)).rejects.toThrow(
+      /Invalid JSON in subscription-stripe credential/,
+    );
   });
 });
 
