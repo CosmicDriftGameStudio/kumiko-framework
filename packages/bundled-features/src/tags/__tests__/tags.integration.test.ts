@@ -241,6 +241,7 @@ describe("tags integration — openToAll access model", () => {
   });
 
   test("the SAME user is denied on a default-role-mounted feature", async () => {
-    await stack.http.writeErr(TagsHandlers.createTag, { name: "nope" }, unprivileged);
+    const denied = await stack.http.writeErr(TagsHandlers.createTag, { name: "nope" }, unprivileged);
+    expect(denied.httpStatus).toBe(403);
   });
 });
