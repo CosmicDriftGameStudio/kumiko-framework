@@ -1,5 +1,24 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.61.0
+
+### Minor Changes
+
+- 6b624d5: tags: `createTagsFeature` accepts a `toggleable` option so the whole feature can
+  be tier-gated through the framework's own machinery — no host-side entity hook.
+  Pass `createTagsFeature({ toggleable: { default: false } })` and list the feature
+  name (`tags`) in the entitling tiers' `TierMap`; the tier-engine + feature-toggles
+  then enable/disable every tag write/read path per tenant (fail-closed below the
+  tier). Omitting `toggleable` keeps tags always-on (unchanged default).
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.61.0
+- @cosmicdrift/kumiko-dispatcher-live@0.61.0
+- @cosmicdrift/kumiko-headless@0.61.0
+- @cosmicdrift/kumiko-renderer@0.61.0
+- @cosmicdrift/kumiko-renderer-web@0.61.0
+
 ## 0.60.4
 
 ### Patch Changes
