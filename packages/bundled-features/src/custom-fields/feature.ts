@@ -171,10 +171,26 @@ export type CustomFieldsFeatureOptions = {
    *  das setzen, sonst ist der Value-Save für jeden App-User
    *  access_denied (Role-Naming-Drift). */
   readonly valueWriteRoles?: readonly string[];
-  /** Rollen für custom-fields:query:field-definition:list — der
-   *  Lade-Pfad der CustomFieldsFormSection. Default ["TenantAdmin"]. */
+  /** Rollen für custom-fields:query:field-definition:list — der Lade-Pfad
+   *  der CustomFieldsFormSection. Default ["TenantAdmin"]. Wird valueWriteRoles
+   *  gesetzt, dies aber NICHT, erben die Value-Rollen hier hinein (Union mit
+   *  dem Default, damit Admins den List-Zugriff behalten) — sonst lädt die
+   *  FormSection für Value-Writer nie (access_denied), während der Save-Pfad
+   *  offen wäre (#334/2, asymmetrischer Bruch). */
   readonly fieldDefinitionListRoles?: readonly string[];
 };
+
+// Der List-Pfad muss jeden abdecken, der Values schreiben darf — sonst lädt die
+// FormSection nie. Explizite fieldDefinitionListRoles gewinnen; sonst: gesetzte
+// valueWriteRoles erben in den List-Default (Union mit dem Default), ungesetzte
+// → reiner Default.
+export function resolveFieldDefinitionListRoles(
+  opts: Pick<CustomFieldsFeatureOptions, "valueWriteRoles" | "fieldDefinitionListRoles">,
+): readonly string[] {
+  if (opts.fieldDefinitionListRoles !== undefined) return opts.fieldDefinitionListRoles;
+  if (opts.valueWriteRoles === undefined) return DEFAULT_FIELD_DEFINITION_LIST_ROLES;
+  return [...new Set([...opts.valueWriteRoles, ...DEFAULT_FIELD_DEFINITION_LIST_ROLES])];
+}
 
 // Backwards-compat-wrapper. Bestehende Caller (z.B. integration-tests,
 // host-apps) nutzen weiterhin `createCustomFieldsFeature()`. Returnt den
@@ -200,8 +216,7 @@ export function createCustomFieldsFeature(
           : defineTenantFieldHandler,
       setHandler: createSetCustomFieldHandler(opts.valueWriteRoles),
       clearHandler: createClearCustomFieldHandler(opts.valueWriteRoles),
-      fieldDefinitionListRoles:
-        opts.fieldDefinitionListRoles ?? DEFAULT_FIELD_DEFINITION_LIST_ROLES,
+      fieldDefinitionListRoles: resolveFieldDefinitionListRoles(opts),
     }),
   );
 }
