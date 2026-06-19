@@ -111,6 +111,32 @@ describe("createTagsFeature access-options", () => {
   });
 });
 
+describe("createTagsFeature toggleable-option (tier-gating)", () => {
+  test("without toggleable: feature is always-on (toggleableDefault undefined)", () => {
+    expect(createTagsFeature().toggleableDefault).toBeUndefined();
+    expect(createTagsFeature({ access: { openToAll: true } }).toggleableDefault).toBeUndefined();
+  });
+
+  test("toggleable:{default:false} makes the feature tier-gatable, fail-closed", () => {
+    const feature = createTagsFeature({
+      access: { openToAll: true },
+      toggleable: { default: false },
+    });
+    expect(feature.toggleableDefault).toBe(false);
+  });
+
+  test("toggleable:{default:true} declares toggleable, enabled-by-default", () => {
+    expect(createTagsFeature({ toggleable: { default: true } }).toggleableDefault).toBe(true);
+  });
+
+  test("toggleable alone (no access/roles) builds a fresh, non-singleton feature", () => {
+    const feature = createTagsFeature({ toggleable: { default: false } });
+    expect(feature).not.toBe(createTagsFeature());
+    // access still defaults when only toggleable is set
+    expect(writeAccess(feature, "create-tag")).toEqual([...DEFAULT_TAG_ROLES]);
+  });
+});
+
 describe("createTagPayloadSchema", () => {
   test("accepts name only", () => {
     expect(createTagPayloadSchema.safeParse({ name: "Kunde Müller" }).success).toBe(true);
