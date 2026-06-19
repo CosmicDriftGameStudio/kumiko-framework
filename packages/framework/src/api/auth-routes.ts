@@ -56,6 +56,16 @@ function setAuthCookies(
     ...(opts.domain !== undefined && { domain: opts.domain }),
   } as const;
 
+  // Bei gesetzter Domain zuerst die host-only-Variante invalidieren (analog
+  // clearAuthCookies): sonst koexistiert nach einem Deploy mit neuem
+  // cookieDomain das alte host-only-Cookie mit dem neuen Domain-Cookie
+  // (RFC 6265: name+domain ist distinct) und der Server bindet
+  // umgebungsabhängig potenziell ans veraltete host-only-Token.
+  if (opts.domain !== undefined) {
+    deleteCookie(c, AUTH_COOKIE_NAME, { path: "/" });
+    deleteCookie(c, CSRF_COOKIE_NAME, { path: "/" });
+  }
+
   setCookie(c, AUTH_COOKIE_NAME, opts.token, { ...common, httpOnly: true });
   // Intentionally NOT HttpOnly — the web client has to read this from
   // document.cookie to include it in the X-CSRF-Token request header.
