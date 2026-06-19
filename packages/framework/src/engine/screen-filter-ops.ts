@@ -6,8 +6,8 @@
 //     compare nutzt der Author selten bewusst); Author kann den
 //     Filter dann einfach nicht setzen.
 //   - boolean: eq, ne (in/lt/gt sinnlos für 2-Werte-Type).
-//   - number/money/date/timestamp/locatedTimestamp: alle 5 Ops —
-//     die Felder sind natürlich vergleichbar.
+//   - number/money/decimal/date/timestamp/locatedTimestamp: alle 5
+//     Ops — die Felder sind natürlich vergleichbar.
 //
 // Boot-Validator nutzt diese Map um Author-Fehler früh zu fangen
 // ("filter mit op:lt auf einem text-Feld" → Boot-Fail). Erweitert sich
@@ -30,6 +30,7 @@ export function getAllowedFilterOps(field: FieldDefinition): readonly ScreenFilt
       return BOOL_OPS;
     case "number":
     case "money":
+    case "decimal":
     case "date":
     case "timestamp":
     case "locatedTimestamp":

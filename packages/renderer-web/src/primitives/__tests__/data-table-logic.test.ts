@@ -131,7 +131,11 @@ describe("applyFormatSpec", () => {
       expect(warn.mock.calls[0]?.[0]).toContain("custom-app-format");
     } finally {
       warn.mockRestore();
-      process.env.NODE_ENV = prevNodeEnv;
+      if (prevNodeEnv === undefined) {
+        delete process.env.NODE_ENV;
+      } else {
+        process.env.NODE_ENV = prevNodeEnv;
+      }
     }
   });
 });
