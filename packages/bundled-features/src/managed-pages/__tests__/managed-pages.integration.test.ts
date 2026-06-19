@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -16,7 +17,7 @@ import { BRANDING_QN, BRANDING_QUERY_QN } from "../branding";
 import { createManagedPagesCssFeature } from "../css-gate";
 import { createManagedPagesFeature } from "../feature";
 import { seedPage } from "../seeding";
-import { pageEntity } from "../table";
+import { pageEntity, type PageRow, pagesTable } from "../table";
 
 const TENANT_A = "11111111-1111-4111-8111-111111111111";
 const TENANT_B = "22222222-2222-4222-8222-222222222222";
@@ -283,6 +284,96 @@ describe("managed-pages :: set (Provisioning-API)", () => {
       tenantAdmin,
     );
     expect(read).toMatchObject({ title: "Prov v2" });
+  });
+});
+
+// The SystemAdmin-only `tenantIdOverride` cross-tenant write path had zero
+// coverage (#382/2): not the happy path, not the access guard, not the
+// documented `executorUser`-rebase fix (the override must rebase the executor's
+// tenant or getStreamVersion runs against the wrong tenant → version_conflict
+// on the second write).
+describe("managed-pages :: set with tenantIdOverride (cross-tenant, SystemAdmin)", () => {
+  const sysAdmin = createTestUser({ id: 40, roles: ["SystemAdmin"] }); // distinct tenant
+
+  test("(a) SystemAdmin override writes the row under the TARGET tenant", async () => {
+    const res = await stack.http.writeOk<{ isNew: boolean }>(
+      "managed-pages:write:set",
+      {
+        slug: "sys-cross",
+        lang: "en",
+        title: "Cross-tenant by system",
+        body: "x",
+        published: true,
+        tenantIdOverride: TENANT_A,
+      },
+      sysAdmin,
+    );
+    expect(res).toMatchObject({ isNew: true });
+
+    // The persisted row carries TENANT_A — not the SystemAdmin's own tenant.
+    const row = await fetchOne<PageRow>(stack.db, pagesTable, {
+      tenantId: TENANT_A,
+      slug: "sys-cross",
+      lang: "en",
+    });
+    expect(row?.tenantId).toBe(TENANT_A);
+    expect(row?.title).toBe("Cross-tenant by system");
+
+    // End-to-end: it renders under a.* (TENANT_A) and is absent under b.*.
+    const aHtml = await (await stack.app.request("http://a.example.com/p/sys-cross")).text();
+    expect(aHtml).toContain("Cross-tenant by system");
+    const bRes = await stack.app.request("http://b.example.com/p/sys-cross");
+    expect(bRes.status).toBe(404);
+  });
+
+  test("(b) non-SystemAdmin with tenantIdOverride → access_denied", async () => {
+    const error = await stack.http.writeErr(
+      "managed-pages:write:set",
+      { slug: "sneak", lang: "en", title: "x", body: "y", tenantIdOverride: TENANT_B },
+      tenantAdmin, // TenantAdmin, NOT SystemAdmin
+    );
+    expectErrorIncludes(error, "access_denied");
+    expect(JSON.stringify(error)).toContain("tenant_override_requires_system_admin");
+
+    // The write was rejected — no row leaked into TENANT_B.
+    const leaked = await fetchOne<PageRow>(stack.db, pagesTable, {
+      tenantId: TENANT_B,
+      slug: "sneak",
+      lang: "en",
+    });
+    expect(leaked).toBeFalsy();
+  });
+
+  test("(c) SystemAdmin override on an EXISTING page updates it — no version_conflict", async () => {
+    // First override-write creates the row under TENANT_A.
+    await stack.http.writeOk(
+      "managed-pages:write:set",
+      {
+        slug: "sys-rebase",
+        lang: "en",
+        title: "v1",
+        body: "a",
+        published: true,
+        tenantIdOverride: TENANT_A,
+      },
+      sysAdmin,
+    );
+
+    // Second override-write must hit the UPDATE path. Two prior bugs broke this:
+    // (1) the existing-check used the tenant-scoped ctx.db → blind to the target
+    // tenant's row → create → unique_violation; (2) even reaching update,
+    // getStreamVersion ran against the executor's tenant → version_conflict.
+    // The fix reads the existing row through the unscoped runner AND rebases the
+    // executor user to the override tenant.
+    const second = await stack.http.writeOk<{ isNew: boolean }>(
+      "managed-pages:write:set",
+      { slug: "sys-rebase", lang: "en", title: "v2", body: "b", tenantIdOverride: TENANT_A },
+      sysAdmin,
+    );
+    expect(second).toMatchObject({ isNew: false });
+
+    const html = await (await stack.app.request("http://a.example.com/p/sys-rebase")).text();
+    expect(html).toContain("v2");
   });
 });
 
