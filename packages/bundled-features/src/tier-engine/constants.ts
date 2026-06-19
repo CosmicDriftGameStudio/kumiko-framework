@@ -1,3 +1,9 @@
+// @runtime client
+// Pure string-literal QNs/ids — von Server (feature.ts) UND Client
+// (web/tier-admin-screen, client-plugin) importiert. Als `client` markiert,
+// die im kumiko-Isolation-Modell permissivste Kategorie (runtime darf
+// client importieren, client nur client) — sonst wirft der Runtime-
+// Isolation-Guard auf den Client-Imports. Muster wie text-content/constants.
 // Feature name
 export const TIER_ENGINE_FEATURE = "tier-engine" as const;
 
