@@ -1,6 +1,6 @@
 #!/bin/sh
-# Wrap a CI command with periodic memory snapshots (Linux /proc/meminfo + bun RSS).
-# POSIX sh — the build container has no bash.
+# Wrap a CI command with periodic memory snapshots (Linux /proc).
+# POSIX sh — the build container has no bash and procps `ps -C` is unavailable.
 set -eu
 
 if [ "$#" -lt 1 ]; then
@@ -22,33 +22,62 @@ mem_available_kb() {
   awk '/MemAvailable:/ { print $2 }' /proc/meminfo
 }
 
-bun_rss_kb() {
-  ps -o rss= -C bun 2>/dev/null | awk '{ s += $1 } END { print s + 0 }'
+mem_used_kb() {
+  awk '/MemTotal:|MemAvailable:/ {
+    if ($1 == "MemTotal:") total = $2
+    if ($1 == "MemAvailable:") avail = $2
+  } END { print total - avail }' /proc/meminfo
+}
+
+# Sum VmRSS for kumiko-check toolchain processes via /proc (portable).
+check_rss_kb() {
+  total=0
+  for status in /proc/[0-9]*/status; do
+    [ -r "$status" ] || continue
+    name=$(awk '/^Name:/ { print $2; exit }' "$status")
+    case $name in
+      bun | node | biome | tsc | esbuild)
+        rss=$(awk '/^VmRSS:/ { print $2; exit }' "$status")
+        total=$((total + ${rss:-0}))
+        ;;
+    esac
+  done
+  echo "$total"
 }
 
 log_snapshot() {
   phase="$1"
+  used_kb="$(mem_used_kb)"
+  check_kb="$(check_rss_kb)"
   avail_kb="$(mem_available_kb)"
-  bun_rss_kb="$(bun_rss_kb)"
-  printf '[kumiko-mem] %-8s avail=%4sMiB bun_rss=%4sMiB %s\n' \
-    "$phase" "$((avail_kb / 1024))" "$((bun_rss_kb / 1024))" "$(date -u +%H:%M:%SZ)"
+  printf '[kumiko-mem] %-8s used=%4sMiB check_rss=%4sMiB avail=%4sMiB %s\n' \
+    "$phase" \
+    "$((used_kb / 1024))" \
+    "$((check_kb / 1024))" \
+    "$((avail_kb / 1024))" \
+    "$(date -u +%H:%M:%SZ)"
 }
 
 init_avail="$(mem_available_kb)"
-echo "0 ${init_avail}" >"$PEAK_FILE"
+init_used="$(mem_used_kb)"
+echo "0 0 ${init_avail}" >"$PEAK_FILE"
 
 sampler() {
   while true; do
+    used_kb="$(mem_used_kb)"
+    check_kb="$(check_rss_kb)"
     avail_kb="$(mem_available_kb)"
-    bun_rss_kb="$(bun_rss_kb)"
-    read -r max_bun min_avail <"$PEAK_FILE"
-    if [ "$bun_rss_kb" -gt "$max_bun" ]; then
-      max_bun=$bun_rss_kb
+    read -r max_check max_used min_avail <"$PEAK_FILE"
+    if [ "$check_kb" -gt "$max_check" ]; then
+      max_check=$check_kb
+    fi
+    if [ "$used_kb" -gt "$max_used" ]; then
+      max_used=$used_kb
     fi
     if [ "$avail_kb" -lt "$min_avail" ]; then
       min_avail=$avail_kb
     fi
-    echo "${max_bun} ${min_avail}" >"$PEAK_FILE"
+    echo "${max_check} ${max_used} ${min_avail}" >"$PEAK_FILE"
     log_snapshot "sample"
     sleep "$INTERVAL"
   done
@@ -64,9 +93,9 @@ cleanup() {
   code=$?
   kill "$SAMPLER_PID" 2>/dev/null || true
   wait "$SAMPLER_PID" 2>/dev/null || true
-  read -r max_bun min_avail <"$PEAK_FILE"
+  read -r max_check max_used min_avail <"$PEAK_FILE"
   log_snapshot "end"
-  echo "[kumiko-mem] === ${LABEL} summary: min_avail=$((min_avail / 1024))MiB peak_bun_rss=$((max_bun / 1024))MiB exit=${code} ==="
+  echo "[kumiko-mem] === ${LABEL} summary: peak_used=$((max_used / 1024))MiB peak_check_rss=$((max_check / 1024))MiB min_avail=$((min_avail / 1024))MiB exit=${code} ==="
   exit "$code"
 }
 trap cleanup EXIT
