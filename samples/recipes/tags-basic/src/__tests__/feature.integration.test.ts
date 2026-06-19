@@ -25,8 +25,15 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { noteEntity, noteFeature } from "../feature";
+import { type TagClient, tagFlow } from "../usage";
 
 const admin = createTestUser({ roles: ["TenantAdmin"] });
+
+// Adapt the test stack to the host-facing TagClient the docs embed uses.
+const tagClient: TagClient = {
+  write: <T>(type: string, payload: unknown) => stack.http.writeOk<T>(type, payload, admin),
+  query: <T>(type: string, payload: unknown) => stack.http.queryOk<T>(type, payload, admin),
+};
 const tags = createTagsFeature();
 
 let stack: TestStack;
@@ -79,6 +86,19 @@ async function tagIdsOfNote(entityId: string): Promise<string[]> {
 }
 
 describe("tags-basic recipe — assign + compose", () => {
+  // Exercises the exact code embedded on the docs page (usage.ts → tagFlow).
+  test("the documented tagFlow runs create → assign → compose → remove", async () => {
+    const noteId = "55555555-5555-4000-8000-000000000005";
+    await createNote(noteId, "Documented flow");
+
+    const result = await tagFlow(tagClient, noteId);
+
+    expect(result.tagsOfNote).toEqual([result.tagId]);
+    expect(result.notesWithTag).toEqual([noteId]);
+    // tagFlow detaches at the end → the note carries no tags afterwards.
+    expect(await tagIdsOfNote(noteId)).toEqual([]);
+  });
+
   test("a note carries a tag without any tag-column on the note", async () => {
     const noteId = "11111111-1111-4000-8000-000000000001";
     await createNote(noteId, "Quarterly review");
