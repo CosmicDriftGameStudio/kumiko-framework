@@ -34,6 +34,7 @@ const tenantAdmin = createTestUser({ id: 2 }); // roles ["Admin"], same tenant
 const SMTP_HOST = "platform:config:smtp-host";
 const SMTP_PASS = "platform:config:smtp-pass";
 const LIST_HITS = "platform:config:list-hits";
+const LIST_CAP = "platform:config:list-cap";
 
 const configFeature = createConfigFeature();
 
@@ -57,6 +58,16 @@ const platformFeature = defineFeature("platform", (r) => {
       // Control: default inheritance — a tenant sees the platform value.
       listHits: createSystemConfig("number", {
         default: 10,
+        write: access.systemAdmin,
+        read: access.admin,
+      }),
+      // Control: default inheritance WITH a set system-row value — proves a
+      // tenant receives the inherited system-row value (not just the
+      // keyDef.default fallback). The default (5) differs from the seeded
+      // system-row (42) so a broken pass-through can't masquerade as the
+      // default.
+      listCap: createSystemConfig("number", {
+        default: 5,
         write: access.systemAdmin,
         read: access.admin,
       }),
@@ -88,6 +99,11 @@ beforeAll(async () => {
   await stack.http.writeOk(
     ConfigHandlers.set,
     { key: SMTP_PASS, value: "s3cr3t-password", scope: "system" },
+    systemAdmin,
+  );
+  await stack.http.writeOk(
+    ConfigHandlers.set,
+    { key: LIST_CAP, value: 42, scope: "system" },
     systemAdmin,
   );
 });
@@ -151,6 +167,19 @@ describe("inheritedToTenant redaction — config:query:cascade", () => {
       tenantAdmin,
     );
     expect(res[LIST_HITS]?.value).toBe(10);
+  });
+
+  test("control: a SET system-row value is inherited by tenants (not the default)", async () => {
+    const res = await stack.http.queryOk<Cascades>(
+      ConfigQueries.cascade,
+      { keys: [LIST_CAP] },
+      tenantAdmin,
+    );
+    // 42 = seeded system-row value; would be 5 (keyDef.default) if pass-through
+    // for non-redacted keys were broken.
+    expect(res[LIST_CAP]?.value).toBe(42);
+    expect(systemLevel(res, LIST_CAP)?.value).toBe(42);
+    expect(systemLevel(res, LIST_CAP)?.hasValue).toBe(true);
   });
 });
 
