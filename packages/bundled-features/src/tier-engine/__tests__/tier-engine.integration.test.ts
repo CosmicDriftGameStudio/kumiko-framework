@@ -279,6 +279,7 @@ describe("scenario 6: access control", () => {
   });
 
   test("query handlers carry the admin-only access rule (config-level check)", () => {
+    // (siehe Scenario 7 für die set-tenant-tier/get-tenant-tier Reads)
     // Read-access is enforced by the same role-rule set on the query handler.
     // We assert the rule is registered correctly — covers regression when
     // someone changes adminAccess to openToAll without noticing.
@@ -292,5 +293,122 @@ describe("scenario 6: access control", () => {
     expect(JSON.stringify(listRule)).toMatch(/SystemAdmin/);
     expect(JSON.stringify(activeTierRule)).toMatch(/TenantAdmin/);
     expect(JSON.stringify(activeTierRule)).toMatch(/SystemAdmin/);
+  });
+});
+
+// --- Scenario 7: manueller cross-tenant Tier-Grant (set-tenant-tier) ---
+//
+// Kern-Sicherheitsgrenze von #434: ein SystemAdmin sitzt in seinem eigenen
+// Tenant, setzt aber das Tier eines FREMDEN Tenants — ohne Billing-Kauf.
+// Der Event muss im Stream des Ziel-Tenants landen (nicht im Admin-Tenant),
+// `source: "manual"` tragen und nur für SystemAdmin erreichbar sein.
+
+type SetTenantTierResult = { tenantId: string; tier: string; isNew: boolean };
+
+describe("scenario 7: cross-tenant manual grant", () => {
+  test("SystemAdmin sets a FOREIGN tenant's tier — lands in the target stream, source=manual", async () => {
+    const adminTenant = testTenantId(401);
+    const targetTenant = testTenantId(402);
+    const sysadmin = createTestUser({ id: 401, tenantId: adminTenant, roles: ["SystemAdmin"] });
+
+    const result = await stack.http.writeOk<SetTenantTierResult>(
+      TierEngineHandlers.setTenantTier,
+      { tenantId: targetTenant, tier: "pro" },
+      sysadmin,
+    );
+    expect(result.tenantId).toBe(targetTenant);
+    expect(result.tier).toBe("pro");
+    expect(result.isNew).toBe(true);
+
+    // Beweis, dass der Event im Ziel-Stream liegt: ein Admin IM Ziel-Tenant
+    // liest sein eigenes get-active-tier (own-tenant-scoped) und sieht "pro".
+    const targetAdmin = createTestUser({ id: 402, tenantId: targetTenant, roles: ["TenantAdmin"] });
+    const seenByTarget = await stack.http.queryOk<Record<string, unknown> | null>(
+      TierEngineQueries.getActiveTier,
+      {},
+      targetAdmin,
+    );
+    expect(seenByTarget!["tier"]).toBe("pro");
+
+    // get-tenant-tier (cross-tenant Read, SystemAdmin) liefert source=manual.
+    const grant = await stack.http.queryOk<Record<string, unknown> | null>(
+      TierEngineQueries.getTenantTier,
+      { tenantId: targetTenant },
+      sysadmin,
+    );
+    expect(grant!["tier"]).toBe("pro");
+    expect(grant!["source"]).toBe("manual");
+
+    // Der Admin-eigene Tenant bleibt unberührt — kein Tier dort geleakt.
+    const seenByAdmin = await stack.http.queryOk<Record<string, unknown> | null>(
+      TierEngineQueries.getActiveTier,
+      {},
+      sysadmin,
+    );
+    expect(seenByAdmin).toBeNull();
+  });
+
+  test("upsert is idempotent — second set updates the same aggregate (isNew:false)", async () => {
+    const sysadmin = createTestUser({
+      id: 410,
+      tenantId: testTenantId(410),
+      roles: ["SystemAdmin"],
+    });
+    const target = testTenantId(411);
+
+    const first = await stack.http.writeOk<SetTenantTierResult>(
+      TierEngineHandlers.setTenantTier,
+      { tenantId: target, tier: "pro" },
+      sysadmin,
+    );
+    expect(first.isNew).toBe(true);
+
+    const second = await stack.http.writeOk<SetTenantTierResult>(
+      TierEngineHandlers.setTenantTier,
+      { tenantId: target, tier: "business" },
+      sysadmin,
+    );
+    expect(second.isNew).toBe(false);
+    expect(second.tier).toBe("business");
+
+    const grant = await stack.http.queryOk<Record<string, unknown> | null>(
+      TierEngineQueries.getTenantTier,
+      { tenantId: target },
+      sysadmin,
+    );
+    expect(grant!["tier"]).toBe("business");
+  });
+
+  test("TenantAdmin cannot set a foreign tenant's tier — fail-closed", async () => {
+    const tenantAdmin = createTestUser({
+      id: 420,
+      tenantId: testTenantId(420),
+      roles: ["TenantAdmin"],
+    });
+
+    const error = await stack.http.writeErr(
+      TierEngineHandlers.setTenantTier,
+      { tenantId: testTenantId(421), tier: "pro" },
+      tenantAdmin,
+    );
+    expectErrorIncludes(error, "access_denied");
+  });
+
+  test("normal User cannot set a tier and cannot read get-tenant-tier", async () => {
+    const normalUser = TestUsers.user;
+
+    const writeError = await stack.http.writeErr(
+      TierEngineHandlers.setTenantTier,
+      { tenantId: testTenantId(431), tier: "pro" },
+      normalUser,
+    );
+    expectErrorIncludes(writeError, "access_denied");
+
+    const res = await stack.http.query(
+      TierEngineQueries.getTenantTier,
+      { tenantId: testTenantId(431) },
+      normalUser,
+    );
+    expect(res.status).toBe(403);
   });
 });

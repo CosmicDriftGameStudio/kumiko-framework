@@ -18,6 +18,10 @@ describe("tier-engine drift pins", () => {
     expect(TierEngineHandlers.update).toBe("tier-engine:write:tier-assignment:update");
     expect(TierEngineQueries.list).toBe("tier-engine:query:tier-assignment:list");
     expect(TierEngineQueries.getActiveTier).toBe("tier-engine:query:get-active-tier");
+    // Screen↔Handler-Contract: der TierAdminScreen dispatcht exakt diese QNs.
+    expect(TierEngineHandlers.setTenantTier).toBe("tier-engine:write:set-tenant-tier");
+    expect(TierEngineQueries.getTenantTier).toBe("tier-engine:query:get-tenant-tier");
+    expect(TierEngineQueries.tierOptions).toBe("tier-engine:query:tier-options");
 
     // Every QN must start with the feature-name as scope.
     for (const qn of [...Object.values(TierEngineHandlers), ...Object.values(TierEngineQueries)]) {

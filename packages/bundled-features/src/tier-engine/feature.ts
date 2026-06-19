@@ -52,6 +52,7 @@ import {
   defineEntityListHandler,
   defineEntityUpdateHandler,
   defineFeature,
+  defineQueryHandler,
   type FeatureDefinition,
   HookPhases,
   type SessionUser,
@@ -61,11 +62,14 @@ import {
   type TierResolverPlugin,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { getAggregateStreamMaxVersion } from "@cosmicdrift/kumiko-framework/event-store";
+import { z } from "zod";
 import { tierAssignmentAggregateId } from "./aggregate-id";
 import type { TierMap } from "./compose-app";
-import { TIER_ENGINE_FEATURE } from "./constants";
+import { TIER_ADMIN_SCREEN_ID, TIER_ENGINE_FEATURE } from "./constants";
 import { tierAssignmentEntity } from "./entity";
 import { getActiveTierQuery } from "./handlers/active-tier.query";
+import { getTenantTierQuery } from "./handlers/get-tenant-tier.query";
+import { createSetTenantTierWrite } from "./handlers/set-tenant-tier.write";
 
 // Drizzle-table for the tier-assignment-entity. Built once at module-load
 // from the entity definition — same shape buildEntityTable would produce
@@ -168,7 +172,7 @@ export function createTierEngineFeature<
 >(opts: CreateTierEngineOptions<TCaps> = {}): FeatureDefinition {
   return defineFeature(TIER_ENGINE_FEATURE, (r) => {
     r.describe(
-      "Stores a `tier-assignment` entity per tenant (which pricing tier is active) and, when configured with a `TierMap`, registers itself as the `tenantTierResolver` extension so the dispatcher automatically gates `r.toggleable()` features per tenant based on their assigned tier. Call `createTierEngineFeature({ defaultTier, tierMap })` to get full tier composition \u2014 including an `inTransaction` entity hook that atomically writes the default tier when a new tenant is created \u2014 or use `createTierEngineFeature()` without options for storage-only mode when you manage tier assignment yourself via `composeApp`.",
+      'Stores a `tier-assignment` entity per tenant (which pricing tier is active) and, when configured with a `TierMap`, registers itself as the `tenantTierResolver` extension so the dispatcher automatically gates `r.toggleable()` features per tenant based on their assigned tier. Call `createTierEngineFeature({ defaultTier, tierMap })` to get full tier composition \u2014 including an `inTransaction` entity hook that atomically writes the default tier when a new tenant is created \u2014 or use `createTierEngineFeature()` without options for storage-only mode when you manage tier assignment yourself via `composeApp`. A SystemAdmin-only `set-tenant-tier` write plus `get-tenant-tier`/`tier-options` reads let an operator assign a tier to ANY tenant manually \u2014 without a billing purchase \u2014 stamping `source: "manual"` so a future Stripe\u2192tier sync won\'t overwrite the grant. Apps surface this via the `tier-admin` screen.',
     );
     r.requires("config");
     r.requires("tenant");
@@ -182,6 +186,41 @@ export function createTierEngineFeature<
     // Reads.
     r.queryHandler(defineEntityListHandler("tier-assignment", tierAssignmentEntity, adminAccess));
     r.queryHandler(getActiveTierQuery);
+
+    // \u2500\u2500 Manueller Tier-Grant (SystemAdmin, ohne Billing) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    // Cross-tenant set + read f\u00fcr den tier-admin-Screen. tier-options liefert
+    // dem Client die App-Tier-Namen aus der tierMap-Closure (sonst hartkodiert).
+    //
+    // onAssigned h\u00e4lt den Resolver-Cache nach einem direkten Executor-Write
+    // warm (der den postSave-Hook NICHT feuert). Late-bind via Holder: ohne
+    // tierMap bleibt es no-op (kein Resolver), im tierMap-Block unten wird
+    // die echte Cache-Update-Funktion eingeh\u00e4ngt \u2014 analog alwaysOnHolder.
+    const onTierAssigned: { fn: (tenantId: TenantId, tier: string) => void } = { fn: () => {} };
+    r.writeHandler(
+      createSetTenantTierWrite({
+        onAssigned: (tenantId, tier) => onTierAssigned.fn(tenantId, tier),
+      }),
+    );
+    r.queryHandler(getTenantTierQuery);
+    r.queryHandler(
+      defineQueryHandler({
+        name: "tier-options",
+        schema: z.object({}),
+        access: { roles: ["SystemAdmin"] },
+        handler: async () => ({ tiers: opts.tierMap ? Object.keys(opts.tierMap) : [] }),
+      }),
+    );
+
+    // Custom React-Screen für den manuellen Grant. SystemAdmin-only fest
+    // verdrahtet (Platform-Admin-Hoheit, nicht App-konfigurierbar). App
+    // platziert ihn nur via r.nav("tier-engine:screen:tier-admin"); die
+    // Komponente liefert tierEngineClient() aus dem ./web-subpath.
+    r.screen({
+      id: TIER_ADMIN_SCREEN_ID,
+      type: "custom",
+      renderer: { react: { __component: "TierAdminScreen" } },
+      access: { roles: ["SystemAdmin"] },
+    });
 
     // ───────────────────────────────────────────────────────────────────
     // Resolver-extension (only when tierMap is configured)
@@ -202,6 +241,15 @@ export function createTierEngineFeature<
     // mergeAlwaysOn-calls — Late-bind via mutable holder, gefüllt vor allen
     // Requests (build läuft pre-listen via runDevApp/runProdApp-pickup).
     const alwaysOnHolder: { set: ReadonlySet<string> } = { set: new Set() };
+
+    // set-tenant-tier schreibt direkt über den Executor → der postSave-Hook
+    // unten feuert dabei NICHT. Diese Funktion repliziert den Cache-Update
+    // des Hooks, damit ein manueller Grant das effektive Feature-Set sofort
+    // ändert (nicht nur die Projektion). Selber Cache, selbe mergeAlwaysOn-
+    // Semantik wie der Hook.
+    onTierAssigned.fn = (tenantId, tier) => {
+      cache.set(tenantId, mergeAlwaysOn(alwaysOnHolder.set, featuresForTier(tierMap, tier)));
+    };
 
     // Invalidation: tier-assignment events update the cache.
     r.entityHook("postSave", "tier-assignment", async (result) => {
@@ -299,7 +347,7 @@ export function createTierEngineFeature<
           const tdb = createTenantDb(rawDb, newTenantId, "system");
 
           await tierAssignmentExecutor.create(
-            { id: aggregateId, tier: defaultTier },
+            { id: aggregateId, tier: defaultTier, source: "default" },
             systemUser,
             tdb,
           );

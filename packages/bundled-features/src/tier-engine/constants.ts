@@ -1,3 +1,9 @@
+// @runtime client
+// Pure string-literal QNs/ids — von Server (feature.ts) UND Client
+// (web/tier-admin-screen, client-plugin) importiert. Als `client` markiert,
+// die im kumiko-Isolation-Modell permissivste Kategorie (runtime darf
+// client importieren, client nur client) — sonst wirft der Runtime-
+// Isolation-Guard auf den Client-Imports. Muster wie text-content/constants.
 // Feature name
 export const TIER_ENGINE_FEATURE = "tier-engine" as const;
 
@@ -6,10 +12,17 @@ export const TIER_ENGINE_FEATURE = "tier-engine" as const;
 export const TierEngineHandlers = {
   create: "tier-engine:write:tier-assignment:create",
   update: "tier-engine:write:tier-assignment:update",
+  setTenantTier: "tier-engine:write:set-tenant-tier",
 } as const;
 
 // Qualified query handler names.
 export const TierEngineQueries = {
   list: "tier-engine:query:tier-assignment:list",
   getActiveTier: "tier-engine:query:get-active-tier",
+  getTenantTier: "tier-engine:query:get-tenant-tier",
+  tierOptions: "tier-engine:query:tier-options",
 } as const;
+
+// Screen-id für den manuellen Tier-Grant-Screen. Apps referenzieren ihn
+// qualifiziert in r.nav: `tier-engine:screen:tier-admin`.
+export const TIER_ADMIN_SCREEN_ID = "tier-admin" as const;

@@ -26,5 +26,10 @@ export const tierAssignmentEntity = createEntity({
   table: "read_tier_assignments",
   fields: {
     tier: createTextField({ required: true, maxLength: 50 }),
+    // Woher das Assignment stammt: "manual" (Admin-Grant via tier-admin-Screen),
+    // "stripe" (future Billing-Sync), "default" (auto-default-on-signup-Hook).
+    // Optional für Back-Compat zu bestehenden Rows ohne source. Schützt manuelle
+    // Grants davor, von einem späteren Stripe→Tier-Sync geplättet zu werden.
+    source: createTextField({ required: false, maxLength: 20 }),
   },
 });
