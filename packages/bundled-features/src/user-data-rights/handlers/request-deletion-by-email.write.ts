@@ -1,8 +1,9 @@
-import { fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { USER_STATUS, userTable } from "../../user";
 import { signDeletionToken } from "../deletion-token";
+import { updateUserLifecycle } from "../lib/update-user-lifecycle";
 
 // TTL des Verify-Links. 60 min — lang genug für einen Mail-Roundtrip,
 // kurz genug dass ein abgefangener Link nicht ewig gültig ist.
@@ -79,12 +80,9 @@ export function createRequestDeletionByEmailHandler(opts: RequestDeletionByEmail
       // user-Row landet und in die Token-HMAC-Purpose gefaltet wird. cancel
       // nullt sie → ein nach Cancel nachgespieltes Token verifiziert nicht mehr.
       const requestId = crypto.randomUUID();
-      await updateMany(
-        ctx.db.raw,
-        userTable,
-        { pendingDeletionRequestId: requestId },
-        { id: userRow["id"] },
-      );
+      await updateUserLifecycle(ctx.db.raw, userRow["id"], {
+        pendingDeletionRequestId: requestId,
+      });
 
       const { token, expiresAt } = signDeletionToken(
         userRow["id"],

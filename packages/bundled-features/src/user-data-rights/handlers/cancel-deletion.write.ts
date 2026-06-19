@@ -1,8 +1,9 @@
-import { fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { USER_STATUS, userTable } from "../../user";
+import { updateUserLifecycle } from "../lib/update-user-lifecycle";
 
 // POST /api/user/cancel-deletion (S2.U5).
 //
@@ -61,19 +62,14 @@ export const cancelDeletionWrite = defineWriteHandler({
       );
     }
 
-    await updateMany(
-      ctx.db.raw,
-      userTable,
-      {
-        status: USER_STATUS.Active,
-        gracePeriodEnd: null,
-        // #354/1: schließt das replay-after-cancel-Fenster — ein noch
-        // TTL-gültiges email-Token verifiziert gegen die genullte requestId
-        // nicht mehr und kann keine zweite Grace-Period armen.
-        pendingDeletionRequestId: null,
-      },
-      { id: event.user.id },
-    );
+    await updateUserLifecycle(ctx.db.raw, event.user.id, {
+      status: USER_STATUS.Active,
+      gracePeriodEnd: null,
+      // #354/1: schließt das replay-after-cancel-Fenster — ein noch
+      // TTL-gültiges email-Token verifiziert gegen die genullte requestId
+      // nicht mehr und kann keine zweite Grace-Period armen.
+      pendingDeletionRequestId: null,
+    });
 
     // gracePeriodEnd=null im Response symmetrisch zu request-deletion's
     // ISO-Timestamp — Frontend kann beide Endpoints uniform behandeln.

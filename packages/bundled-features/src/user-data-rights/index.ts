@@ -1,5 +1,8 @@
 export { createUserDataRightsFeature, type UserDataRightsOptions } from "./feature";
 export type { SendDeletionVerificationEmailFn } from "./handlers/request-deletion-by-email.write";
+// #494 Bestandsdaten-Reconcile — Apps rufen das einmalig vor dem Re-Enable
+// von read_users-Rebuilds (siehe lib-Doc).
+export { backfillUserLifecycleEvents } from "./lib/update-user-lifecycle";
 export type {
   SendExportFailedEmailFn,
   SendExportReadyEmailFn,

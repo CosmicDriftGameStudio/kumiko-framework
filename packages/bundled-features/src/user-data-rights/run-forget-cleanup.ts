@@ -32,7 +32,7 @@
 // gefailten Hooks bleibt im DeletionRequested-Status (next Lauf
 // retried automatisch).
 
-import { fetchOne, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import {
   EXT_USER_DATA,
@@ -47,6 +47,7 @@ import { resolveRetentionPolicyForTenant } from "../data-retention";
 import { tenantMembershipsTable } from "../tenant";
 import { USER_STATUS, userTable } from "../user";
 import { selectUsersDueForForgetCleanup } from "./db/queries/forget-cleanup";
+import { updateUserLifecycle } from "./lib/update-user-lifecycle";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 
@@ -281,7 +282,7 @@ async function processUser(args: {
       // geworfen hat, kommen wir hier nicht an — die Tx rollback'd
       // alles, der User bleibt im DeletionRequested-Status, naechster
       // Run retried.
-      await updateMany(tx, userTable, { status: USER_STATUS.Deleted }, { id: userId });
+      await updateUserLifecycle(tx, userId, { status: USER_STATUS.Deleted });
       txSucceeded = true;
     });
   } catch (e) {
