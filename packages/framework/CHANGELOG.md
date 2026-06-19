@@ -1,5 +1,96 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.59.2
+
+### Patch Changes
+
+- c6018f4: `kumiko check`: the Action-Wiring guard step now runs with `--strict`. Without
+  the flag the guard's `process.exit(1)` stays behind `if (strict)`, so violations
+  were only printed to stderr and the step exited 0 — an invoked but never-failing
+  no-op that could not gate the pipeline. Every other guard step already fails by
+  exit code; this was the sole outlier. Verified safe: the guard currently scans
+  154 files across the consuming repos with zero violations, so enabling the gate
+  does not retroactively break the build.
+- d57b42f: Two `kumiko check` pipeline fixes from review:
+
+  - The `kumiko-guard-thin-wrappers` guard was published as a bin but wired into
+    no pipeline step, so it never ran (silent coverage gap). It now runs as a
+    warning-only step (exit 0, non-gating) in the check pipeline, matching the
+    behaviour the docs describe. It cannot join the shared AST-guard runner — it
+    builds its own ts-morph project and exports no `AstGuard`.
+  - `check-app-tsc` printed a misleading "0 error(s) across 0 workspace(s)" and
+    exited 1 when `tsc -b` failed without producing a line matching
+    `error TSxxxx:` (a spawn failure, a config-load error, or a `TS6053`-style
+    message) — CI red with no visible cause. It now surfaces the raw tsc output,
+    spawn error and exit status instead (`describeUnparseableTscFailure`).
+
+- fe4dd50: `custom-fields`: setting `valueWriteRoles` without `fieldDefinitionListRoles` no
+  longer breaks asymmetrically. The save path ran with the app roles but the
+  `field-definition:list` load path stayed on the default `["TenantAdmin"]`, so
+  app-role users got `access_denied` and the CustomFieldsFormSection never loaded.
+  When `valueWriteRoles` is set and `fieldDefinitionListRoles` is not, the value
+  roles now inherit into the list default (unioned with the default so admins keep
+  list access). Explicit `fieldDefinitionListRoles` still wins.
+- 29aae4d: `user-data-rights`: the anonymous `confirm-deletion-by-token` endpoint no longer
+  leaks the caller's account status. On a non-active user it previously returned
+  `startDeletionGracePeriod`'s error verbatim, whose `details.currentStatus`
+  exposed the live user status to anyone holding a valid token. It now returns a
+  generic `cannot_process_deletion` reason at the public boundary; the
+  authenticated `request-deletion` path still shows the user their own status.
+
+  Also corrects the (now load-bearing) comments on the deletion token: the
+  grace-period replay is idempotent only while no `cancel-deletion` intervenes —
+  after a cancel a still-valid token can re-arm a second grace period, bounded by
+  the token TTL. The full fix (per-request `requestId` bound into the token and
+  the user row) is tracked separately as it requires a shared user-entity
+  migration.
+
+- 6c7262f: `user-profile` ProfileScreen fixes from review:
+
+  - The deletion-grace banner injected `gracePeriodEnd` as a raw ISO instant, so
+    users saw "…deleted on 2026-07-11T00:00:00.000Z". It now shows the date part
+    only (`formatDeletionDate`, a pure string slice — no Date API, universal for
+    RN+Web).
+  - After an email change the screen fired `requestEmailVerification` with the
+    result swallowed (`.catch(() => undefined)`) while unconditionally showing
+    "we sent a verification link". A failed send is no longer silent (logged via
+    `console.warn`) and the success message no longer promises delivery
+    ("Please confirm your new address." / "Bitte bestätige deine neue Adresse.").
+    The change itself stays successful regardless, since it is already persisted.
+
+- a6c5bf5: Harden the `files-provider-s3` test coverage flagged in review. The
+  `virtualHostedStyle` value `createS3Provider` passes to `Bun.S3Client` is the
+  inverse of the (already tested) `resolveForcePathStyle` — the lone untested
+  `!` seam that silently picks the wrong URL style for Minio/R2 if it drifts. It
+  is now extracted as the exported `resolveVirtualHostedStyle` and covered by a
+  truth-table test asserting it stays the strict inverse. A second test proves
+  `getSignedUrl` actually signs `contentDisposition` into the presigned URL as the
+  `response-content-disposition` query param (presign is a local HMAC op, so this
+  is hermetic) — otherwise downloads would silently serve the UUID key instead of
+  the file name. Test-only plus the small extraction.
+- f7e9666: Harden the subscription-stripe billing-live (`#104`) test coverage. The
+  invariant "no live checkout while `billing-live` is not true" was only ever
+  exercised with a stubbed `ctx.config` — no test drove the real
+  factory → `r.config` → `ctx.config(handle)` chain. A reviewer also flagged the
+  `runtime.test.ts` fixture for hand-redeclaring the config handles (which could
+  silently drift from production) and for a key-agnostic `config` mock that hid a
+  wrong handle name.
+
+  - Integration scenario 6 mounts subscription-stripe **without** the api-key
+    fallback and proves the gate end-to-end: `billing-live` unset → checkout
+    fails `feature_disabled`; setting `billing-live=true` on the canonical config
+    QN flips the gate (the failure moves to `unconfigured` at api-key resolution).
+    The positive case is what actually proves handle-resolution — a wrong handle
+    name would keep `ctx.config` `undefined` and the error would stay
+    `feature_disabled`.
+  - `runtime.test.ts` now derives the config handle names from the canonical
+    constants via the same `qn`/`toKebab` qualifier `r.config` applies, so the
+    fixture cannot drift, and its `config` mock answers only for the billing-live
+    handle so a misread key is caught.
+
+  Test-only plus a corrected doc comment (the billing-live key qualifies to
+  `subscription-stripe:config:billing-live`, not `…:billingLive`).
+
 ## 0.59.1
 
 ### Patch Changes
