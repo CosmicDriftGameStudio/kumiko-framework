@@ -1,5 +1,5 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
@@ -57,7 +57,17 @@ export const setWrite = defineWriteHandler({
     const executorUser =
       override !== undefined ? { ...event.user, tenantId: override as TenantId } : event.user; // @cast-boundary engine-bridge
 
-    const existing = await fetchOne<PageRow>(db, pagesTable, {
+    // ctx.db is tenant-scoped to the EXECUTING user (createTenantDb "tenant"
+    // mode). For a cross-tenant override that scope is wrong on BOTH the
+    // existing-check (blind to the target tenant's projection row → every
+    // re-provision retries as a create → unique_violation) AND the executor's
+    // stream reads (getStreamVersion/loadAggregate filtered to the executor's
+    // tenant → not_found/version_conflict). Re-scope a TenantDb to the resolved
+    // target tenant so reads and writes both land there. Safe: the override
+    // branch is SystemAdmin-gated above.
+    const scopedDb =
+      override !== undefined ? createTenantDb(db.raw, override as TenantId, "tenant") : db; // @cast-boundary engine-bridge
+    const existing = await fetchOne<PageRow>(scopedDb, pagesTable, {
       tenantId,
       slug: event.payload.slug,
       lang: event.payload.lang,
@@ -81,7 +91,7 @@ export const setWrite = defineWriteHandler({
           },
         },
         executorUser,
-        db,
+        scopedDb,
       );
       if (!result.isSuccess) return result;
       return {
@@ -102,7 +112,7 @@ export const setWrite = defineWriteHandler({
         tenantId,
       },
       executorUser,
-      db,
+      scopedDb,
     );
     if (!result.isSuccess) return result;
     return {
