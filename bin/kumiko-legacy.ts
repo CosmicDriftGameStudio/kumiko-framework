@@ -237,6 +237,11 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   });
   steps.push({ name: "Test-Stack-Drift Guard", cmd: "bunx kumiko-guard-test-stack-drift" });
   steps.push({ name: "Runtime-Isolation Guard", cmd: "bunx kumiko-check-runtime-isolation" });
+  // Als bin registriert (infra/guards/package.json), hing aber an keinem Step
+  // → nie ausgeführt (#99/1). Eigenes ts-morph-Project (tsConfig-typed),
+  // exportiert keinen AstGuard → läuft NICHT im shared runner. Gatet per
+  // Exit-Code: blockt loadAllEventsByType() im Prod-Code (OOM-Cliff).
+  steps.push({ name: "LoadAll-Events Guard", cmd: "bunx kumiko-guard-loadall-events" });
   // Action-Wiring + Doc-Status waren als bins registriert, hingen aber an
   // keinem Pipeline-Step — ein nicht-aufgerufener Guard ist ein No-op.
   // --strict: ohne das Flag bleibt process.exit(1) hinter `if (strict)` aus
