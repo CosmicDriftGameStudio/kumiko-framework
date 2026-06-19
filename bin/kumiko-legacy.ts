@@ -244,6 +244,12 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   // endet 0 → er kann die Pipeline nie rot machen (aufgerufener No-op). Alle
   // anderen Steps gaten per Exit-Code; das hier war der einzige Ausreißer.
   steps.push({ name: "Action-Wiring Guard", cmd: "bunx kumiko-guard-action-wiring --strict" });
+  // Thin-Wrappers war als bin publiziert (kumiko-guard-thin-wrappers), hing aber
+  // an keinem Step → nie ausgeführt (#384/1). Warning-only (exit 0, kein Gate):
+  // hält die Liste unmarkierter Thin-Wrapper sichtbar, wie CLAUDE.md es für
+  // `kumiko check` dokumentiert. Läuft NICHT im shared runner — baut ein eigenes
+  // ts-morph-Project, exportiert keinen AstGuard.
+  steps.push({ name: "Thin-Wrappers Guard", cmd: "bunx kumiko-guard-thin-wrappers" });
   // Doc-Status braucht das Multi-Repo-Parent (STATUS.md lebt in
   // kumiko-platform) — im standalone CI-Checkout existiert das nicht.
   // LAUT überspringen statt silent-skip; der Drift-Check läuft im lokalen
