@@ -141,6 +141,17 @@ export const userEntity = createEntity({
     gracePeriodEnd: createTimestampField({
       access: { write: access.privileged },
     }),
+
+    // Replay-Schutz für den anonymen email-Token-Deletion-Flow (#354/1).
+    // Gesetzt von request-deletion-by-email (eine UUID pro Mail-Antrag),
+    // genullt von cancel-deletion. confirm-deletion-by-token faltet diese ID
+    // in die HMAC-Purpose des Tokens — ein nach einem Cancel nachgespieltes
+    // (noch TTL-gültiges) Token verifiziert gegen die genullte/erneuerte ID
+    // nicht mehr. NULL solange kein email-Antrag offen ist.
+    pendingDeletionRequestId: createTextField({
+      maxLength: 36,
+      access: { write: access.privileged },
+    }),
   },
 });
 

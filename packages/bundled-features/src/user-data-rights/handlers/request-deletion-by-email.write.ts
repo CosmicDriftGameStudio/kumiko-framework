@@ -1,4 +1,4 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { USER_STATUS, userTable } from "../../user";
@@ -75,8 +75,20 @@ export function createRequestDeletionByEmailHandler(opts: RequestDeletionByEmail
         return success;
       }
 
+      // Replay-Schutz (#354/1): pro Antrag eine frische requestId, die auf der
+      // user-Row landet und in die Token-HMAC-Purpose gefaltet wird. cancel
+      // nullt sie → ein nach Cancel nachgespieltes Token verifiziert nicht mehr.
+      const requestId = crypto.randomUUID();
+      await updateMany(
+        ctx.db.raw,
+        userTable,
+        { pendingDeletionRequestId: requestId },
+        { id: userRow["id"] },
+      );
+
       const { token, expiresAt } = signDeletionToken(
         userRow["id"],
+        requestId,
         DELETION_VERIFY_TTL_MINUTES,
         opts.deletionTokenSecret,
       );

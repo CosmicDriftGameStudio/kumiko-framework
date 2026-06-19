@@ -31,6 +31,7 @@ import type { SendDeletionVerificationEmailFn } from "../handlers/request-deleti
 
 const REQUEST_BY_EMAIL = "user-data-rights:write:request-deletion-by-email";
 const CONFIRM_BY_TOKEN = "user-data-rights:write:confirm-deletion-by-token";
+const CANCEL_DELETION = "user-data-rights:write:cancel-deletion";
 const DELETION_SECRET = "test-deletion-secret-0123456789abcdef";
 const VERIFY_URL = "https://app.example.test/delete-account/confirm";
 
@@ -166,8 +167,9 @@ describe("anonymous deletion flow", () => {
     expect(first.status).toBe(200);
     expect(await statusOf()).toBe(USER_STATUS.DeletionRequested);
 
-    // Token ist bewusst replaybar (kein single-use); die Replay-Sicherheit kommt
-    // allein aus dem Active-State-Guard — zweites Confirm trifft non-active → 422.
+    // Pre-cancel-Replay: zweites Confirm trifft den noch-pending User
+    // (DeletionRequested) → der Active-State-Guard schlägt zu → 422. (Den
+    // post-cancel-Replay deckt der requestId-Test darunter ab.)
     const second = await stack.http.raw("POST", "/api/write", {
       type: CONFIRM_BY_TOKEN,
       payload: { token },
@@ -185,6 +187,82 @@ describe("anonymous deletion flow", () => {
     const serialized = JSON.stringify(body.error);
     expect(serialized).not.toContain("currentStatus");
     expect(serialized).not.toContain(USER_STATUS.DeletionRequested);
+  });
+
+  test("replay-after-cancel (#354/1): Token nach cancel-deletion re-armt NICHT → 422, bleibt Active", async () => {
+    await seedAlice();
+    await stack.http.raw("POST", "/api/write", {
+      type: REQUEST_BY_EMAIL,
+      payload: { email: ALICE_EMAIL },
+    });
+    const token = tokenFromLastVerifyCall();
+
+    // 1. Confirm armt die Grace-Period.
+    expect(
+      (await stack.http.raw("POST", "/api/write", { type: CONFIRM_BY_TOKEN, payload: { token } }))
+        .status,
+    ).toBe(200);
+    expect(await statusOf()).toBe(USER_STATUS.DeletionRequested);
+
+    // 2. User loggt sich (innerhalb der Grace) ein und bricht ab → Active,
+    //    pendingDeletionRequestId genullt.
+    await stack.http.writeOk(CANCEL_DELETION, {}, aliceUser);
+    expect(await statusOf()).toBe(USER_STATUS.Active);
+
+    // 3. Dasselbe, noch TTL-gültige Token nachspielen → die genullte requestId
+    //    lässt die HMAC-Purpose nicht mehr aufgehen → 422, kein re-arm.
+    const replay = await stack.http.raw("POST", "/api/write", {
+      type: CONFIRM_BY_TOKEN,
+      payload: { token },
+    });
+    expect(replay.status).toBe(422);
+    expect(await statusOf()).toBe(USER_STATUS.Active);
+  });
+
+  test("supersede (#354/1): altes Token re-armt NICHT, nachdem ein zweiter Antrag eine neue requestId setzt", async () => {
+    // Der diskriminierende Fall gegen einen presence-only-Check: nach cancel
+    // macht ein FRISCHER Antrag den marker wieder non-null (neue requestId).
+    // Ein presence-only-Guard würde das alte Token jetzt fälschlich akzeptieren;
+    // der requestId-Match lehnt es ab (token1 trägt R1, Row hält R2).
+    await seedAlice();
+
+    await stack.http.raw("POST", "/api/write", {
+      type: REQUEST_BY_EMAIL,
+      payload: { email: ALICE_EMAIL },
+    });
+    const token1 = tokenFromLastVerifyCall();
+
+    await stack.http.raw("POST", "/api/write", {
+      type: CONFIRM_BY_TOKEN,
+      payload: { token: token1 },
+    });
+    await stack.http.writeOk(CANCEL_DELETION, {}, aliceUser);
+    expect(await statusOf()).toBe(USER_STATUS.Active);
+
+    // Zweiter Antrag → neue requestId R2 auf der Row + token2.
+    verifyCalls.length = 0;
+    await stack.http.raw("POST", "/api/write", {
+      type: REQUEST_BY_EMAIL,
+      payload: { email: ALICE_EMAIL },
+    });
+    const token2 = tokenFromLastVerifyCall();
+    expect(token2).not.toBe(token1);
+
+    // Altes token1 (R1) gegen Row mit R2 → bad_signature → 422, kein re-arm.
+    const replayOld = await stack.http.raw("POST", "/api/write", {
+      type: CONFIRM_BY_TOKEN,
+      payload: { token: token1 },
+    });
+    expect(replayOld.status).toBe(422);
+    expect(await statusOf()).toBe(USER_STATUS.Active);
+
+    // Gegenprobe: das aktuelle token2 (R2) armt regulär.
+    const confirmNew = await stack.http.raw("POST", "/api/write", {
+      type: CONFIRM_BY_TOKEN,
+      payload: { token: token2 },
+    });
+    expect(confirmNew.status).toBe(200);
+    expect(await statusOf()).toBe(USER_STATUS.DeletionRequested);
   });
 
   test("request-by-email für nicht-existente Email → success, KEINE Mail (enumeration-safe)", async () => {
@@ -221,7 +299,19 @@ describe("anonymous deletion flow", () => {
 
   test("confirm mit falsch-signiertem Token → 422", async () => {
     await seedAlice();
-    const { token } = signDeletionToken(aliceUser.id, 60, "the-wrong-secret-totally-different");
+    // Erst einen echten Antrag stellen, damit eine requestId auf der Row liegt
+    // — sonst greift schon der no-outstanding-request-Guard und der Bad-
+    // Signature-Pfad würde nie erreicht.
+    await stack.http.raw("POST", "/api/write", {
+      type: REQUEST_BY_EMAIL,
+      payload: { email: ALICE_EMAIL },
+    });
+    const { token } = signDeletionToken(
+      aliceUser.id,
+      "forged-request-id",
+      60,
+      "the-wrong-secret-totally-different",
+    );
     const res = await stack.http.raw("POST", "/api/write", {
       type: CONFIRM_BY_TOKEN,
       payload: { token },
@@ -282,7 +372,7 @@ describe("anonymous deletion flow — not configured (kein Secret)", () => {
   });
 
   test("confirm ohne Secret → 422", async () => {
-    const { token } = signDeletionToken(aliceUser.id, 60, DELETION_SECRET);
+    const { token } = signDeletionToken(aliceUser.id, "req-id", 60, DELETION_SECRET);
     const res = await bareStack.http.raw("POST", "/api/write", {
       type: CONFIRM_BY_TOKEN,
       payload: { token },

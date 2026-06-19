@@ -67,6 +67,10 @@ export const cancelDeletionWrite = defineWriteHandler({
       {
         status: USER_STATUS.Active,
         gracePeriodEnd: null,
+        // #354/1: schließt das replay-after-cancel-Fenster — ein noch
+        // TTL-gültiges email-Token verifiziert gegen die genullte requestId
+        // nicht mehr und kann keine zweite Grace-Period armen.
+        pendingDeletionRequestId: null,
       },
       { id: event.user.id },
     );
