@@ -17,8 +17,7 @@ export const defaultTranslations: TranslationsByLocale = {
     "profile.email.new": "Neue E-Mail",
     "profile.email.currentPassword": "Aktuelles Passwort",
     "profile.email.submit": "E-Mail ändern",
-    "profile.email.success":
-      "E-Mail geändert. Wir haben einen Bestätigungslink an die neue Adresse geschickt.",
+    "profile.email.success": "E-Mail geändert. Bitte bestätige deine neue Adresse.",
 
     "profile.password.title": "Passwort",
     "profile.password.old": "Aktuelles Passwort",
@@ -53,7 +52,7 @@ export const defaultTranslations: TranslationsByLocale = {
     "profile.email.new": "New email",
     "profile.email.currentPassword": "Current password",
     "profile.email.submit": "Change email",
-    "profile.email.success": "Email changed. We sent a verification link to the new address.",
+    "profile.email.success": "Email changed. Please confirm your new address.",
 
     "profile.password.title": "Password",
     "profile.password.old": "Current password",

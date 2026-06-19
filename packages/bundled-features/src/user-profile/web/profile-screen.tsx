@@ -37,6 +37,16 @@ function failureKey(error: unknown): string {
   return typeof key === "string" ? key : "profile.errors.generic";
 }
 
+// gracePeriodEnd ist ein roher ISO-Instant ("2026-07-11T00:00:00.000Z"); nur
+// der Datums-Teil ist für den User relevant, die Uhrzeit/Z wäre Rauschen
+// ("…am 2026-07-11T00:00:00.000Z gelöscht"). Reiner String-Slice — kein
+// Date-API (no-date-api-Guard) und universell (RN+Web). Leer/null → "—".
+export function formatDeletionDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const tIndex = iso.indexOf("T");
+  return tIndex > 0 ? iso.slice(0, tIndex) : iso;
+}
+
 function StatusBanner({ status }: { readonly status: SectionStatus }): ReactNode {
   const t = useTranslation();
   const { Banner } = usePrimitives();
@@ -160,10 +170,24 @@ function ChangeEmailSection({
         setStatus({ kind: "error", messageKey: failureKey(res.error) });
         return;
       }
-      // Verification-Mail an die neue Adresse — silent-success wie beim
-      // Login-Resend; ein Fehler hier darf den Email-Wechsel nicht als
-      // gescheitert anzeigen (der Wechsel ist bereits persistiert).
-      await requestEmailVerification(newEmail).catch(() => undefined);
+      // Verification-Mail an die neue Adresse. Der Wechsel ist bereits
+      // persistiert → ein Versand-Fehler darf den Erfolg nicht umkehren, wird
+      // aber NICHT verschluckt (sonst wartet der User auf eine Mail, die nie
+      // kommt). Die Success-Message verspricht entsprechend keinen Versand.
+      try {
+        const verification = await requestEmailVerification(newEmail);
+        if (!verification.ok) {
+          // biome-ignore lint/suspicious/noConsole: operator-visibility for verification-send-failure
+          console.warn(
+            "[user-profile] email changed but the verification email could not be sent to the new address.",
+          );
+        }
+      } catch (err) {
+        // biome-ignore lint/suspicious/noConsole: operator-visibility for verification-send-failure
+        console.warn(
+          `[user-profile] email changed but the verification email send threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
       setNewEmail("");
       setCurrentPassword("");
       setStatus({ kind: "success", messageKey: "profile.email.success" });
@@ -260,7 +284,7 @@ function DangerZoneSection({
         <>
           <Banner variant="error" testId="profile-danger-requested">
             {t("profile.danger.requested", {
-              date: me.gracePeriodEnd ?? "—",
+              date: formatDeletionDate(me.gracePeriodEnd),
             })}
           </Banner>
           <StatusBanner status={status} />
