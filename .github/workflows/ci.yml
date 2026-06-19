@@ -27,26 +27,20 @@ concurrency:
 
 jobs:
   test:
-    runs-on: cdgs-runner
+    # GitHub-hosted: public repo → gratis + 4 Cores (statt 1-CPU cdgs-runner).
+    # Kein Cluster-Zugriff nötig (pure typecheck/lint/test).
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
       packages: read
-    container:
-      # Prebuild-Image: bun + node + git vorinstalliert → kein setup-bun nötig.
-      # debian/glibc, damit GitHub-JS-Actions (checkout/cache) auf arm64 laufen.
-      # Privates Image → credentials (wie kumiko-enterprise integration-job).
-      image: ghcr.io/cosmicdriftgamestudio/build:bun-1.3.14
-      # Recursive fs.watch (codegen watch-tests) öffnet viele inotify-FDs; das
-      # ulimit -n des Job-Containers liegt unter dem des bare-Runners → EMFILE →
-      # Watcher degradiert → watch-tests timeouten. Auf Runner-Niveau heben.
-      options: --ulimit nofile=65536:65536
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
 
     steps:
       - uses: actions/checkout@v6
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
 
       - name: Cache Bun
         uses: actions/cache@v5
@@ -72,7 +66,11 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Run tests
-        run: sh scripts/ci-memlog-run.sh bun kumiko check
+        run: |
+          # watch-tests öffnen viele inotify-FDs; ohne Job-Container das
+          # nofile-Limit selbst heben (kam vorher aus container.options).
+          ulimit -n 65536 || true
+          sh scripts/ci-memlog-run.sh bun kumiko check
 
   use-all-bundled-smoke:
     # C1 Sprint 9.8 Phase C, M4: canonical smoke-gate. Bootet
@@ -81,20 +79,17 @@ jobs:
     # Bugs (Object.entries(undefined), self-extension, missing-requires,
     # …) bevor sie publish + downstream-apps treffen.
     # Plan: kumiko-platform/docs/plans/features/use-all-features-smoke.md
-    runs-on: cdgs-runner
+    runs-on: ubuntu-latest
     needs: test
     timeout-minutes: 10
     permissions:
       contents: read
       packages: read
-    container:
-      image: ghcr.io/cosmicdriftgamestudio/build:bun-1.3.14
-      options: --ulimit nofile=65536:65536
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
       - name: Cache Bun
         uses: actions/cache@v5
         with:
@@ -173,7 +168,8 @@ jobs:
   # Container-Name erreicht (wie es docker-compose.yml tat). Ersetzt den 2026
   # entfernten postgres-smoke-Job (war flaky vor dem bun-db-Cutover).
   integration:
-    runs-on: cdgs-runner
+    # GitHub-hosted: Services laufen via `docker run` (unten) → nativ auf ubuntu.
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
@@ -256,9 +252,9 @@ jobs:
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [test, use-all-bundled-smoke]
-    # github-hosted, NICHT cdgs-runner: npm akzeptiert sigstore-provenance-
-    # attestations nur von github-hosted runners (HTTP 422 sonst). Public
-    # Repo → github-hosted free. Test-Job bleibt auf cdgs-runner (resources).
+    # github-hosted: npm akzeptiert sigstore-provenance-attestations nur von
+    # github-hosted runners (HTTP 422 sonst). Public Repo → alle Jobs github-
+    # hosted (gratis); cdgs-runner wird hier nicht mehr genutzt.
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
