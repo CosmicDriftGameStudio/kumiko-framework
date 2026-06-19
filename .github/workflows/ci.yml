@@ -72,7 +72,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Run tests
-        run: bun kumiko check
+        run: bash scripts/ci-memlog-run.sh bun kumiko check
 
   use-all-bundled-smoke:
     # C1 Sprint 9.8 Phase C, M4: canonical smoke-gate. Bootet
