@@ -167,6 +167,44 @@ describe("config backing=secrets — read dispatch", () => {
   });
 });
 
+describe("config backing=secrets — fail-loud when secrets unwired", () => {
+  // The PR's central safety promise: a backing="secrets" key throws loudly at
+  // request time when ctx.secrets is absent — it never silently degrades into
+  // a config_values write. One write exercises the set.write throw site; the
+  // resolver and reset.write guards share the identical `!ctx.secrets` shape.
+  test("set on a backing=secrets key throws internal_error when ctx.secrets is absent", async () => {
+    const unwired = await setupTestStack({
+      features: [createConfigFeature(), billingFeature],
+      extraContext: ({ registry }) => {
+        const resolver = createConfigResolver();
+        return {
+          configResolver: resolver,
+          _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+          // No `secrets` — the backing="secrets" path must fail loudly.
+        };
+      },
+    });
+    await unsafePushTables(unwired.db, { configValuesTable, tenantSecretsTable });
+    await createEventsTable(unwired.db);
+
+    try {
+      const err = await unwired.http.writeErr(
+        ConfigHandlers.set,
+        { key: API_KEY, value: "sk-live-should-not-persist", scope: "system" },
+        systemAdmin,
+      );
+      expect(err.code).toBe("internal_error");
+      expect(err.httpStatus).toBe(500);
+
+      // It must NOT have silently fallen back to a config_values row.
+      const configRows = await selectMany(unwired.db, configValuesTable, { key: API_KEY });
+      expect(configRows).toHaveLength(0);
+    } finally {
+      await unwired.cleanup();
+    }
+  });
+});
+
 describe("config backing=secrets — reset dispatch", () => {
   test("reset clears the secret; the key falls back to unset", async () => {
     await stack.http.writeOk(ConfigHandlers.reset, { key: API_KEY, scope: "system" }, systemAdmin);

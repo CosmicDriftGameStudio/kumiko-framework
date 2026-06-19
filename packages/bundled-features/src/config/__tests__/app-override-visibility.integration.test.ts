@@ -100,8 +100,14 @@ describe("ENV→app-override bridge — config:query:values", () => {
 
   test("leak guard: inheritedToTenant:false hides the ENV app-override from a tenant", async () => {
     const res = await stack.http.queryOk<Values>(ConfigQueries.values, {}, tenantAdmin);
+    expect(res[API_BASE]).toBeDefined();
     expect(res[API_BASE]?.value).not.toBe("https://internal.example.com");
     expect(res[API_BASE]?.source).not.toBe("app-override");
+    // Positive anchor: API_BASE has no keyDef.default → after redaction the key
+    // resolves as genuinely unset ("missing"), NOT absent for some other reason
+    // (e.g. an access-deny would drop the key entirely and leave the negative
+    // asserts above vacuously green).
+    expect(res[API_BASE]?.source).toBe("missing");
   });
 });
 
