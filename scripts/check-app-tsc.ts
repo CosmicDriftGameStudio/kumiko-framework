@@ -168,67 +168,92 @@ function resolveTscBin(): { readonly command: string; readonly argsPrefix: reado
   return { command: "bunx", argsPrefix: ["tsc"] };
 }
 
-const samples = findSampleWorkspaces();
-if (samples.length === 0) {
-  console.log("check-app-tsc: no sample workspaces found — nothing to check.");
-  process.exit(0);
+// tsc -b kann mit exit≠0 enden OHNE eine Zeile die auf `/ error TS\d+:/` matcht
+// (Spawn-Fehler, Config-Load-Fehler, `error TS6053:` ohne führendes Space).
+// Ohne expliziten Hinweis druckt der Runner sonst "0 error(s) across 0
+// workspace(s)" und exitet 1 → CI rot, Ursache unsichtbar (#386/1).
+export function describeUnparseableTscFailure(
+  result: { readonly status: number | null; readonly error?: Error },
+  combined: string,
+): string {
+  const lines = [
+    "check-app-tsc: tsc -b exited non-zero but produced no parseable `error TSxxxx:` diagnostics.",
+  ];
+  if (result.error) lines.push(`  spawn error: ${result.error.message}`);
+  lines.push(`  exit status: ${String(result.status)}`);
+  const raw = combined.trim();
+  lines.push(raw.length > 0 ? `  raw tsc output:\n${combined}` : "  (no stdout/stderr captured)");
+  return lines.join("\n");
 }
 
-console.log(`check-app-tsc: type-checking ${samples.length} sample workspace(s) via tsc -b`);
-
-mkdirSync(OUT_ROOT, { recursive: true });
-for (const ws of samples) runCodegen({ appRoot: ws.root });
-const projectPaths = samples.map((ws) => writeSampleTsconfig(ws));
-// .check-tsconfig.json is ephemeral per-sample scratch — remove it on any exit path so a run leaves no litter behind.
-process.on("exit", () => {
-  for (const p of projectPaths) rmSync(p, { force: true });
-});
-
-writeFileSync(
-  SOLUTION,
-  JSON.stringify(
-    { files: [], references: projectPaths.map((p) => ({ path: relative(REPO_ROOT, p) })) },
-    null,
-    2,
-  ),
-);
-
-const { command, argsPrefix } = resolveTscBin();
-const result = spawnSync(command, [...argsPrefix, "-b", relative(REPO_ROOT, SOLUTION)], {
-  cwd: REPO_ROOT,
-  encoding: "utf8",
-});
-const combined = (result.stdout ?? "") + (result.stderr ?? "");
-const errorLines = combined.split("\n").filter((l) => / error TS\d+:/.test(l));
-
-if (errorLines.length === 0 && result.status === 0) {
-  console.log(`\nAll ${samples.length} sample workspace(s) compile cleanly.`);
-  process.exit(0);
-}
-
-// Group diagnostics by the sample whose path prefixes the error file.
-const byWorkspace = new Map<string, string[]>();
-const other: string[] = [];
-for (const line of errorLines) {
-  const ws = samples.find((s) => line.startsWith(`${relative(REPO_ROOT, s.root)}/`));
-  if (ws) {
-    const key = relative(REPO_ROOT, ws.root);
-    (byWorkspace.get(key) ?? byWorkspace.set(key, []).get(key)!).push(line);
-  } else {
-    other.push(line);
+if (import.meta.main) {
+  const samples = findSampleWorkspaces();
+  if (samples.length === 0) {
+    console.log("check-app-tsc: no sample workspaces found — nothing to check.");
+    process.exit(0);
   }
-}
 
-for (const [name, lines] of [...byWorkspace.entries()].sort()) {
-  console.log(`\n--- ${name} (${lines.length} errors) ---`);
-  console.log(lines.join("\n"));
-}
-if (other.length > 0) {
-  console.log(`\n--- other / package build (${other.length} errors) ---`);
-  console.log(other.join("\n"));
-}
+  console.log(`check-app-tsc: type-checking ${samples.length} sample workspace(s) via tsc -b`);
 
-console.log(
-  `\n${errorLines.length} error(s) across ${byWorkspace.size} workspace(s).`,
-);
-process.exit(1);
+  mkdirSync(OUT_ROOT, { recursive: true });
+  for (const ws of samples) runCodegen({ appRoot: ws.root });
+  const projectPaths = samples.map((ws) => writeSampleTsconfig(ws));
+  // .check-tsconfig.json is ephemeral per-sample scratch — remove it on any exit path so a run leaves no litter behind.
+  process.on("exit", () => {
+    for (const p of projectPaths) rmSync(p, { force: true });
+  });
+
+  writeFileSync(
+    SOLUTION,
+    JSON.stringify(
+      { files: [], references: projectPaths.map((p) => ({ path: relative(REPO_ROOT, p) })) },
+      null,
+      2,
+    ),
+  );
+
+  const { command, argsPrefix } = resolveTscBin();
+  const result = spawnSync(command, [...argsPrefix, "-b", relative(REPO_ROOT, SOLUTION)], {
+    cwd: REPO_ROOT,
+    encoding: "utf8",
+  });
+  const combined = (result.stdout ?? "") + (result.stderr ?? "");
+  const errorLines = combined.split("\n").filter((l) => / error TS\d+:/.test(l));
+
+  if (errorLines.length === 0 && result.status === 0) {
+    console.log(`\nAll ${samples.length} sample workspace(s) compile cleanly.`);
+    process.exit(0);
+  }
+
+  // tsc failed but nothing matched the diagnostic shape — surface the raw output
+  // instead of the misleading "0 error(s)" message (#386/1).
+  if (errorLines.length === 0) {
+    console.error(`\n${describeUnparseableTscFailure(result, combined)}`);
+    process.exit(1);
+  }
+
+  // Group diagnostics by the sample whose path prefixes the error file.
+  const byWorkspace = new Map<string, string[]>();
+  const other: string[] = [];
+  for (const line of errorLines) {
+    const ws = samples.find((s) => line.startsWith(`${relative(REPO_ROOT, s.root)}/`));
+    if (ws) {
+      const key = relative(REPO_ROOT, ws.root);
+      (byWorkspace.get(key) ?? byWorkspace.set(key, []).get(key)!).push(line);
+    } else {
+      other.push(line);
+    }
+  }
+
+  for (const [name, lines] of [...byWorkspace.entries()].sort()) {
+    console.log(`\n--- ${name} (${lines.length} errors) ---`);
+    console.log(lines.join("\n"));
+  }
+  if (other.length > 0) {
+    console.log(`\n--- other / package build (${other.length} errors) ---`);
+    console.log(other.join("\n"));
+  }
+
+  console.log(`\n${errorLines.length} error(s) across ${byWorkspace.size} workspace(s).`);
+  process.exit(1);
+}
