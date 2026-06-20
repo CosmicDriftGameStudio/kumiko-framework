@@ -54,6 +54,7 @@ export {
   extractEnvSchema,
   extractExposesApi,
   extractExtendsRegistrar,
+  extractUnmanagedTable,
   extractUsesApi,
 } from "./round5";
 export {

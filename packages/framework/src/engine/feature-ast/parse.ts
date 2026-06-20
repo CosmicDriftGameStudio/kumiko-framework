@@ -58,6 +58,7 @@ import {
   extractTranslations,
   extractTree,
   extractTreeActions,
+  extractUnmanagedTable,
   extractUseExtension,
   extractUsesApi,
   extractWorkspace,
@@ -358,6 +359,8 @@ function dispatchExtractor(
       return extractUsesApi(call, sourceFile);
     case "exposesApi":
       return extractExposesApi(call, sourceFile);
+    case "unmanagedTable":
+      return extractUnmanagedTable(call, sourceFile);
     // Round 6 — Visual-Tree patterns
     case "treeActions":
       return extractTreeActions(call, sourceFile);

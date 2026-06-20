@@ -1,9 +1,17 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, insertOne, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  asRawClient,
+  insertOne,
+  selectMany,
+  updateMany,
+} from "@cosmicdrift/kumiko-framework/bun-db";
 import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { createProjectionStateTable, rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
+import {
+  createProjectionStateTable,
+  rebuildProjection,
+} from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   createTestDb,
   type TestDb,
