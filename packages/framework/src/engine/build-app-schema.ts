@@ -200,9 +200,9 @@ function placeSettingsHub(
 function warnUnplacedAudiences(unplaced: readonly string[]): void {
   // skip: every audience placed — nothing to warn about
   if (unplaced.length === 0) return;
-  // skip: dev-only authoring hint — never in production, and not in tests
-  // (bun:test setzt NODE_ENV=test) wo es nur CI-Logs verrauscht.
   const env = typeof process !== "undefined" ? process.env.NODE_ENV : undefined;
+  // skip: dev-only authoring hint — silent in production and in tests
+  // (bun:test sets NODE_ENV=test) where it would only noise up CI logs.
   if (env === "production" || env === "test") return;
   // biome-ignore lint/suspicious/noConsole: dev-only authoring hint
   console.warn(
@@ -214,8 +214,10 @@ function warnUnplacedAudiences(unplaced: readonly string[]): void {
 }
 
 function warnDanglingAudienceRefs(dangling: readonly string[]): void {
+  // skip: no dangling refs — nothing to warn about
   if (dangling.length === 0) return;
   const env = typeof process !== "undefined" ? process.env.NODE_ENV : undefined;
+  // skip: dev-only authoring hint — silent in production and in tests
   if (env === "production" || env === "test") return;
   // biome-ignore lint/suspicious/noConsole: dev-only authoring hint
   console.warn(
