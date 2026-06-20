@@ -21,11 +21,19 @@ export const tagEntity = createEntity({
 // (tenantId, tagId, entityType, entityId) — see aggregate-id.ts — so there is
 // exactly one row per (tag, entity) and assign is idempotent.
 //
+// softDelete is required, NOT cosmetic: the aggregate-id is deterministic, so
+// removing a tag leaves a (created+deleted) event stream behind under that id.
+// A hard delete would force the next assign to create() at version 0 onto that
+// existing stream → version_conflict (the same tag could never be re-attached).
+// With softDelete the assign handler resurrects the stream via restore(); the
+// list query filters isDeleted, so removed assignments stay hidden.
+//
 // Cross-entity views compose in the read-layer (no JOIN):
 //   - tags of an entity   → list assignments filter { field: "entityId", op: "eq" }
 //   - entities with a tag  → list assignments filter { field: "tagId",   op: "eq" }
 export const tagAssignmentEntity = createEntity({
   table: "read_tag_assignments",
+  softDelete: true,
   fields: {
     tagId: createTextField({ required: true, maxLength: 64 }),
     entityType: createTextField({ required: true, maxLength: 64 }),

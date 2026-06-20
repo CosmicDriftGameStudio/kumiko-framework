@@ -82,9 +82,11 @@ async function listAssignments(
   return res.rows;
 }
 
+// Active assignments only — remove soft-deletes (the stream is kept so a
+// re-assign can restore it), so isDeleted=true rows must not count as assigned.
 async function countAssignments(tenantId: string): Promise<number> {
   const rows = await asRawClient(stack.db).unsafe(
-    "SELECT count(*)::int AS n FROM read_tag_assignments WHERE tenant_id = $1",
+    "SELECT count(*)::int AS n FROM read_tag_assignments WHERE tenant_id = $1 AND is_deleted = FALSE",
     [tenantId],
   );
   return (rows as ReadonlyArray<{ n: number }>)[0]?.n ?? 0;
@@ -163,6 +165,33 @@ describe("tags integration — idempotency", () => {
     const tagId = await createTag("ghost");
     // never assigned — remove must still succeed (idempotent end-state)
     await remove(tagId, "credit", "credit-7");
+    expect(await countAssignments(admin.tenantId)).toBe(0);
+  });
+
+  test("assign → remove → assign-again resurrects the same deterministic stream", async () => {
+    const tagId = await createTag("recurring");
+    await assign(tagId, "credit", "credit-r");
+    await remove(tagId, "credit", "credit-r");
+    expect(await countAssignments(admin.tenantId)).toBe(0);
+
+    // Re-attaching the same (tag, entity) must succeed (restore), not 409 — the
+    // deterministic aggregate-id reuses the removed stream.
+    await assign(tagId, "credit", "credit-r");
+    expect(await countAssignments(admin.tenantId)).toBe(1);
+    const rows = await listAssignments({ field: "entityId", op: "eq", value: "credit-r" });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.["tagId"]).toBe(tagId);
+  });
+});
+
+describe("tags integration — referential integrity", () => {
+  test("assigning an unknown tagId is rejected (no dangling assignment)", async () => {
+    const err = await stack.http.writeErr(
+      TagsHandlers.assignTag,
+      { tagId: "00000000-0000-4000-8000-00000000dead", entityType: "credit", entityId: "credit-x" },
+      admin,
+    );
+    expect(err.httpStatus).toBe(404);
     expect(await countAssignments(admin.tenantId)).toBe(0);
   });
 });

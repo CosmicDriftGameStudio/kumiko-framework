@@ -1,9 +1,9 @@
 // @runtime client
-// TagSection — drop-in tag manager for ANY entity. Given an entityName +
-// entityId it shows the entity's current tags and lets the user attach an
-// existing tag, create-and-attach a new one, or detach a tag. Tag writes are
-// immediate (assign/remove are idempotent), so the section owns its own state
-// and refetches after each action — it is NOT part of a host form's save.
+// TagSection — drop-in tag manager for ANY entity, GitLab-labels style: one
+// searchable multi-combobox showing the entity's tags as chips, with a compact
+// row below to create-and-attach a brand-new tag. Tag writes are immediate
+// (assign/remove are idempotent), so the section owns its state and refetches
+// after each action — it is NOT part of a host form's save.
 //
 // Two ways to mount (both need tagsClient() registered once, for i18n):
 //   - standalone:   <TagSection entityName="note" entityId={noteId} />
@@ -29,12 +29,20 @@ type AssignmentRow = {
 type TagListResponse = { readonly rows: readonly TagRow[] };
 type AssignmentListResponse = { readonly rows: readonly AssignmentRow[] };
 
-// Structural shape of a dispatcher write result for the generic action wrapper.
-// The real WriteResult (a discriminated union) is assignable to this; narrowing
-// on `isSuccess` reaches `error.i18nKey` without importing server-side types.
-type ActionResult =
-  | { readonly isSuccess: true }
-  | { readonly isSuccess: false; readonly error: { readonly i18nKey: string } };
+// What changed between the entity's current tags and the combobox's new
+// selection. A single combobox toggle yields one add or one remove; the diff
+// stays correct for a batch selection too.
+export function tagSelectionDelta(
+  prev: readonly string[],
+  next: readonly string[],
+): { readonly added: readonly string[]; readonly removed: readonly string[] } {
+  const prevSet = new Set(prev);
+  const nextSet = new Set(next);
+  return {
+    added: next.filter((id) => !prevSet.has(id)),
+    removed: prev.filter((id) => !nextSet.has(id)),
+  };
+}
 
 export function TagSection({
   entityName,
@@ -84,98 +92,101 @@ export function TagSection({
   }
 
   const catalogTags = catalog.data?.rows ?? [];
-  const byId = new Map(catalogTags.map((tg) => [tg.id, tg]));
-  const assignedRows = (assignments.data?.rows ?? []).filter((r) => r.entityType === entityName);
-  const assignedIds = new Set(assignedRows.map((r) => r.tagId));
-  const assignedTags = assignedRows.map((r) => byId.get(r.tagId) ?? { id: r.tagId, name: r.tagId });
-  const available = catalogTags.filter((tg) => !assignedIds.has(tg.id));
+  const assignedIds = (assignments.data?.rows ?? [])
+    .filter((r) => r.entityType === entityName)
+    .map((r) => r.tagId);
+  // Catalog drives the options; an assigned tag missing from the catalog (none
+  // in v1 — no delete-tag yet) is appended so it stays removable.
+  const nameById = new Map(catalogTags.map((tg) => [tg.id, tg.name]));
+  const options = [...new Set([...catalogTags.map((tg) => tg.id), ...assignedIds])].map((id) => ({
+    value: id,
+    label: nameById.get(id) ?? id,
+  }));
 
   const refetch = async (): Promise<void> => {
     await Promise.all([catalog.refetch(), assignments.refetch()]);
   };
 
-  const run = async (action: () => Promise<ActionResult>): Promise<void> => {
+  // Runs a write-sequence (each step returns false + sets errorKey on failure,
+  // stopping the sequence) and refetches to server-truth when it completes.
+  const apply = async (writes: () => Promise<boolean>): Promise<void> => {
     setBusy(true);
     setErrorKey(null);
     try {
-      const result = await action();
-      if (!result.isSuccess) {
-        setErrorKey(result.error.i18nKey);
-        return;
-      }
-      await refetch();
+      if (await writes()) await refetch();
     } finally {
       setBusy(false);
     }
   };
 
-  const assign = (tagId: string): Promise<void> =>
-    run(() =>
-      dispatcher.write(TagsHandlers.assignTag, { tagId, entityType: entityName, entityId }),
-    );
+  const writeOk = async (type: string, payload: Record<string, unknown>): Promise<boolean> => {
+    const result = await dispatcher.write(type, payload);
+    if (!result.isSuccess) {
+      setErrorKey(result.error.i18nKey);
+      return false;
+    }
+    return true;
+  };
 
-  const detach = (tagId: string): Promise<void> =>
-    run(() =>
-      dispatcher.write(TagsHandlers.removeTag, { tagId, entityType: entityName, entityId }),
-    );
+  const onSelectionChange = (next: readonly string[]): void => {
+    const { added, removed } = tagSelectionDelta(assignedIds, next);
+    if (added.length === 0 && removed.length === 0) return;
+    void apply(async () => {
+      for (const tagId of added) {
+        if (!(await writeOk(TagsHandlers.assignTag, { tagId, entityType: entityName, entityId })))
+          return false;
+      }
+      for (const tagId of removed) {
+        if (!(await writeOk(TagsHandlers.removeTag, { tagId, entityType: entityName, entityId })))
+          return false;
+      }
+      return true;
+    });
+  };
 
-  const createAndAssign = async (): Promise<void> => {
+  const createAndAssign = (): void => {
     const name = newName.trim();
     if (name === "") return;
-    setBusy(true);
-    setErrorKey(null);
-    try {
+    void apply(async () => {
       const created = await dispatcher.write<{ id: string }>(TagsHandlers.createTag, { name });
       if (!created.isSuccess) {
         setErrorKey(created.error.i18nKey);
-        return;
+        return false;
       }
-      const assigned = await dispatcher.write(TagsHandlers.assignTag, {
-        tagId: created.data.id,
-        entityType: entityName,
-        entityId,
-      });
-      if (!assigned.isSuccess) {
-        setErrorKey(assigned.error.i18nKey);
-        return;
+      if (
+        !(await writeOk(TagsHandlers.assignTag, {
+          tagId: created.data.id,
+          entityType: entityName,
+          entityId,
+        }))
+      ) {
+        return false;
       }
       setNewName("");
-      await refetch();
-    } finally {
-      setBusy(false);
-    }
+      return true;
+    });
   };
 
   return (
     <div data-testid="tags-section">
-      {assignedTags.length === 0 ? (
-        <Text>{t("tags.section.none")}</Text>
-      ) : (
-        assignedTags.map((tg) => (
-          <Button
-            key={tg.id}
-            variant="secondary"
-            disabled={busy}
-            onClick={() => void detach(tg.id)}
-            testId={`tags-section-remove-${tg.id}`}
-          >
-            {`${tg.name} ✕`}
-          </Button>
-        ))
-      )}
-
-      {available.map((tg) => (
-        <Button
-          key={tg.id}
-          variant="secondary"
+      <Field id="tags-section-select" label={t("tags.section.label")}>
+        <Input
+          kind="combobox"
+          multiple
+          id="tags-section-select"
+          name="tags"
+          options={options}
+          value={assignedIds}
+          onChange={onSelectionChange}
           disabled={busy}
-          onClick={() => void assign(tg.id)}
-          testId={`tags-section-assign-${tg.id}`}
-        >
-          {`+ ${tg.name}`}
-        </Button>
-      ))}
+          placeholder={t("tags.section.placeholder")}
+          emptyText={t("tags.section.empty")}
+        />
+      </Field>
 
+      {/* ponytail: separate create row — the shared combobox has no create-on-type
+          affordance. Fold create into the dropdown's Command.Empty if/when the
+          renderer-web combobox grows a freeSolo/onCreate prop. */}
       <Field id="tags-section-new" label={t("tags.section.newLabel")}>
         <Input
           kind="text"
@@ -186,9 +197,9 @@ export function TagSection({
         />
       </Field>
       <Button
-        variant="primary"
+        variant="secondary"
         disabled={busy || newName.trim() === ""}
-        onClick={() => void createAndAssign()}
+        onClick={() => createAndAssign()}
         testId="tags-section-create"
       >
         {busy ? t("tags.section.working") : t("tags.section.create")}
