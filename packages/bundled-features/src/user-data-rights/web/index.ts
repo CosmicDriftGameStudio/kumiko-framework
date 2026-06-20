@@ -5,8 +5,10 @@
 // Seite (defineFeature, Handler) lebt unter `.../user-data-rights` und hat
 // keine React-/DOM-Deps.
 
+export { type UserDataRightsClientOptions, userDataRightsClient } from "./client-plugin";
 export type { ConfirmAccountDeletionScreenProps } from "./confirm-deletion-screen";
 export { ConfirmAccountDeletionScreen } from "./confirm-deletion-screen";
 export { defaultTranslations } from "./i18n";
+export { formatDate, PrivacyCenterScreen } from "./privacy-center-screen";
 export type { RequestAccountDeletionScreenProps } from "./request-deletion-screen";
 export { RequestAccountDeletionScreen } from "./request-deletion-screen";
