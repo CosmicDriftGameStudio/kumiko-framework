@@ -24,6 +24,8 @@ import {
   writeRebuildMarker,
   writeSnapshotJson,
 } from "./db";
+import { validateBoot } from "./engine/boot-validator";
+import type { FeatureDefinition } from "./engine/types/feature";
 import { createEventsTable } from "./event-store";
 import { createEventConsumerStateTable, createProjectionStateTable } from "./pipeline";
 
@@ -130,6 +132,77 @@ export async function runSchemaCli(
       out.log("  Review + ggf. hand-edit + git add + commit. Apply via: schema apply");
       out.log("");
       return 0;
+    }
+
+    case "validate": {
+      // Static, DB-free boot-blocking checks for CI — catches "this won't boot"
+      // before deploy. Two layers, no database:
+      //   1. schema drift: would `generate` write a migration? (= an entity was
+      //      added/changed but never generated → missing table → prod 500)
+      //   2. boot validity: validateBoot over the composed FEATURES (QN/screen/
+      //      nav/role refs). Runs only if kumiko/schema.ts exports FEATURES.
+      // The DB-level gate (assertKumikoSchemaCurrent) stays at boot/deploy.
+      if (!existsSync(schemaFile)) {
+        out.err(`  ${schemaFile} fehlt.`);
+        out.err("  App-Convention: kumiko/schema.ts mit");
+        out.err("    export const ENTITY_METAS: EntityTableMeta[] = [...]");
+        return 1;
+      }
+      const mod = (await import(schemaFile)) as {
+        ENTITY_METAS?: unknown;
+        FEATURES?: unknown;
+      };
+      if (!Array.isArray(mod.ENTITY_METAS)) {
+        out.err(
+          `  Schema file ${schemaFile} muss \`export const ENTITY_METAS: EntityTableMeta[]\` haben.`,
+        );
+        return 1;
+      }
+      let ok = true;
+
+      // 1. Schema drift — compute the diff, never write.
+      const metas = mod.ENTITY_METAS as Parameters<typeof renderTablesDdl>[0];
+      const snapshotPath = join(migrationsDir, SNAPSHOT_FILENAME);
+      const prevSnapshot = existsSync(snapshotPath) ? loadSnapshotJson(snapshotPath) : null;
+      const drift = generateMigration({
+        metas,
+        prevSnapshot,
+        name: "validate",
+        sequenceNumber: nextSequenceNumber(migrationsDir),
+      });
+      const pendingTables = [
+        ...drift.diff.newTables.map((t) => t.tableName),
+        ...drift.diff.changedTables.map((t) => t.tableName),
+        ...drift.diff.droppedTables,
+      ];
+      if (pendingTables.length === 0) {
+        out.log("  ✓ schema: migrations match the entity definitions");
+      } else {
+        ok = false;
+        out.err("  ✗ schema drift: entity definitions are ahead of kumiko/migrations.");
+        out.err(
+          `    pending — new: ${drift.diff.newTables.length}, changed: ${drift.diff.changedTables.length}, dropped: ${drift.diff.droppedTables.length}`,
+        );
+        out.err(`    tables: ${pendingTables.join(", ")}`);
+        out.err("    Fix: `kumiko-schema generate <name>`, then commit the migration.");
+      }
+
+      // 2. Boot validity — needs the composed feature set.
+      if (Array.isArray(mod.FEATURES)) {
+        try {
+          validateBoot(mod.FEATURES as readonly FeatureDefinition[]);
+          out.log("  ✓ boot: feature configuration is valid");
+        } catch (e) {
+          ok = false;
+          out.err(`  ✗ boot: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      } else {
+        out.log(
+          "  · boot: skipped — add `export const FEATURES = composeFeatures(APP_FEATURES, { includeBundled: true })` to kumiko/schema.ts to enable validateBoot.",
+        );
+      }
+
+      return ok ? 0 : 1;
     }
 
     case "apply": {
@@ -243,6 +316,7 @@ export async function runSchemaCli(
       out.log("");
       out.log("  Subcommands:");
       out.log("    generate <name>   Schreibe neue Migration aus EntityTableMeta-Diff");
+      out.log("    validate          Static CI-Gate (kein DB): schema-drift + validateBoot");
       out.log("    apply             Applied pending checked-in SQL-Files");
       out.log("    baseline          Markiere checked-in Migrations als applied (kein SQL-Run)");
       out.log("    status            Liste applied vs pending");

@@ -147,6 +147,65 @@ describe("runSchemaCli — no-DB paths", () => {
   });
 });
 
+describe("runSchemaCli — validate (static CI gate, no DB)", () => {
+  let appCwd: string;
+  beforeEach(() => {
+    appCwd = freshAppCwd();
+  });
+
+  test("missing schema.ts exits 1", async () => {
+    const cap = captureOut();
+    const code = await runSchemaCli(["validate"], appCwd, cap.out);
+    expect(code).toBe(1);
+    expect(cap.err.join("\n")).toContain("kumiko/schema.ts");
+  });
+
+  test("entity with no generated migration → schema drift, exit 1 (the tags-class bug)", async () => {
+    writeSchemaFile(appCwd, "read_widgets");
+    const cap = captureOut();
+    const code = await runSchemaCli(["validate"], appCwd, cap.out);
+    expect(code).toBe(1);
+    expect(cap.err.join("\n")).toContain("schema drift");
+    expect(cap.err.join("\n")).toContain("read_widgets");
+    expect(cap.err.join("\n")).toContain("kumiko-schema generate");
+  });
+
+  test("after generate (in sync) → exit 0, reports migrations match", async () => {
+    writeSchemaFile(appCwd, "read_widgets");
+    await runSchemaCli(["generate", "init"], appCwd, captureOut().out);
+    const cap = captureOut();
+    const code = await runSchemaCli(["validate"], appCwd, cap.out);
+    expect(code).toBe(0);
+    expect(cap.log.join("\n")).toContain("migrations match");
+  });
+
+  test("no FEATURES export → validateBoot skipped (drift still checked)", async () => {
+    writeSchemaFile(appCwd, "read_widgets");
+    await runSchemaCli(["generate", "init"], appCwd, captureOut().out);
+    const cap = captureOut();
+    const code = await runSchemaCli(["validate"], appCwd, cap.out);
+    expect(code).toBe(0);
+    expect(cap.log.join("\n")).toContain("boot: skipped");
+  });
+
+  test("FEATURES present (empty) → validateBoot runs and passes", async () => {
+    writeFileSync(
+      join(appCwd, "kumiko/schema.ts"),
+      `export const ENTITY_METAS = [
+  { tableName: "read_widgets", source: "unmanaged", indexes: [],
+    columns: [{ name: "id", pgType: "uuid", notNull: true, primaryKey: true, defaultSql: "gen_random_uuid()" }] },
+];
+export const FEATURES = [];
+`,
+    );
+    await runSchemaCli(["generate", "init"], appCwd, captureOut().out);
+    const cap = captureOut();
+    const code = await runSchemaCli(["validate"], appCwd, cap.out);
+    expect(code).toBe(0);
+    expect(cap.log.join("\n")).toContain("feature configuration is valid");
+  });
+});
+
 describe("runSchemaCli — DB-backed paths", () => {
   let testDb: BunTestDb;
   let dbUrl: string;
