@@ -1,3 +1,4 @@
+import { buildEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { cleanupJob } from "./handlers/cleanup.job";
 import { listQuery } from "./handlers/list.query";
@@ -22,8 +23,9 @@ export type SessionsFeatureOptions = {
   readonly autoRevokeOnPasswordChange?: SessionMassRevoker;
 };
 
-// The sessions feature registers the userSession entity and the three user-
-// facing handlers (mine/revoke/revoke-all-others). It intentionally does NOT
+// The sessions feature registers the read_user_sessions table (as an
+// unmanaged direct-write store, NOT an r.entity — see below) and the three
+// user-facing handlers (mine/revoke/revoke-all-others). It intentionally does NOT
 // export a sessionCreator/sessionRevoker here — those are produced by
 // `createSessionCallbacks()` at app-setup time and wired into
 // `buildServer({ auth: { ... } })`.
@@ -41,7 +43,18 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
     r.describe(
       "Tracks signed-in clients in the `read_user_sessions` table (one row per JWT, keyed by the `sid`/`jti` claim) and exposes handlers for `mine` (list your sessions), `revoke`, and `revokeAllOthers`. Session creation and revocation on the hot auth path are handled by `createSessionCallbacks()`, wired into `buildServer({ auth: { ... } })` outside the dispatcher; the feature also ships a manual-trigger cleanup job for pruning expired rows and an optional `autoRevokeOnPasswordChange` hook that mass-revokes all sessions for a user whenever their `passwordHash` changes.",
     );
-    r.entity("user-session", userSessionEntity);
+    // read_user_sessions is a hot-path direct-write store: sessionCreator
+    // inserts and the revoke handlers update rows WITHOUT emitting lifecycle
+    // events (the row columns ARE the audit trail). Registering it as
+    // r.entity would make it a rebuildable implicit projection whose replay
+    // finds zero session events and swaps an empty shadow over the live
+    // table — wiping every active session on the next projection rebuild
+    // (#498/#494). r.unmanagedTable keeps the migration DDL but opts the
+    // table out of implicit rebuild, like jobs/channel-in-app/feature-toggles
+    // which are direct-write stores too.
+    r.unmanagedTable(buildEntityTableMeta("user-session", userSessionEntity), {
+      reason: "read_side.user_sessions_direct_write",
+    });
 
     const handlers = {
       revoke: r.writeHandler(revokeWrite),

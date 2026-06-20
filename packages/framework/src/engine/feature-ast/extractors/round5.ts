@@ -94,3 +94,18 @@ export function extractExposesApi(
     apiName: arg.getLiteralValue(),
   });
 }
+
+export function extractUnmanagedTable(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<never> {
+  // The meta argument is always a factory call (defineUnmanagedTable /
+  // buildEntityTableMeta) or a captured identifier — never an inline literal,
+  // so there is nothing to extract statically. A clean ParseError (not
+  // UnknownPattern) marks it design-time-unreadable, like entity-by-identifier.
+  return fail(
+    "unmanagedTable",
+    sourceLocationFromNode(call, sourceFile),
+    "unmanagedTable meta is a factory/identifier argument, not a static literal",
+  );
+}
