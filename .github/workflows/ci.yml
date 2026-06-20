@@ -294,11 +294,15 @@ jobs:
       # workspaces, ruft `npm publish --provenance --access public`.
       - uses: changesets/action@v1
         with:
-          # `bun install` after the bump refreshes bun.lock's recorded workspace
-          # versions so the version-PR commits a lock in sync with package.json.
-          # publish-with-oidc.sh's `bun pm pack` substitutes workspace:* from the
-          # lock — a stale lock ships lagging internal @cosmicdrift/* pins (#410).
-          version: bunx changeset version && bun install
+          # changesets/action runs `version:` as a split argv (no shell), so an
+          # inline `&& bun install` is passed as extra args to changeset and
+          # fails ("Too many arguments"). The wrapper runs both in a real shell.
+          # The `bun install` after the bump refreshes bun.lock's recorded
+          # workspace versions so the version-PR commits a lock in sync with
+          # package.json — publish-with-oidc.sh's `bun pm pack` substitutes
+          # workspace:* from the lock, and a stale lock ships lagging internal
+          # @cosmicdrift/* pins (#410, #520).
+          version: bash scripts/changeset-version.sh
           publish: bash scripts/publish-with-oidc.sh
           commit: "chore: version packages"
           title: "chore: version packages"
