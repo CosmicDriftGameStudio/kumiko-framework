@@ -234,18 +234,28 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   const finalEffectiveFeatures: EffectiveFeaturesResolver | undefined =
     options.effectiveFeatures ??
     (tierResolverUsage
-      ? (tenantId: TenantId) => {
-          // Defensive: Server starts AFTER onAfterSetup completes, so the
-          // resolver is filled before any request comes in. Throwing here
-          // means a programming error (boot order) rather than silent
-          // "all-features-on" misbehavior.
-          if (!tierResolverHolder.resolver) {
-            throw new Error(
-              "tier-resolver: extension found but resolver not yet built — boot order issue?",
-            );
-          }
-          return tierResolverHolder.resolver(tenantId);
-        }
+      ? Object.assign(
+          (tenantId: TenantId) => {
+            // Defensive: Server starts AFTER onAfterSetup completes, so the
+            // resolver is filled before any request comes in. Throwing here
+            // means a programming error (boot order) rather than silent
+            // "all-features-on" misbehavior.
+            if (!tierResolverHolder.resolver) {
+              throw new Error(
+                "tier-resolver: extension found but resolver not yet built — boot order issue?",
+              );
+            }
+            return tierResolverHolder.resolver(tenantId);
+          },
+          {
+            // Late-bind: der echte trialGate hängt erst nach plugin.build() am
+            // holder.resolver. Delegieren (nicht kopieren), weil dieses
+            // Wrapper-Closure vor build() konstruiert wird. Kein Trial → false.
+            trialGate: (tenantId: TenantId, featureName: string): Promise<boolean> =>
+              tierResolverHolder.resolver?.trialGate?.(tenantId, featureName) ??
+              Promise.resolve(false),
+          },
+        )
       : undefined);
 
   // configResolver-default fürs config-feature — im auth-mode immer

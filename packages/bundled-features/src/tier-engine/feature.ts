@@ -40,7 +40,7 @@
 //
 // **Boot-Dependencies:** config + tenant.
 
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   buildEntityTable,
   createEventStoreExecutor,
@@ -60,10 +60,12 @@ import {
   TENANT_TIER_RESOLVER_EXT,
   type TenantId,
   type TierResolverPlugin,
+  type TrialGate,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { getAggregateStreamMaxVersion } from "@cosmicdrift/kumiko-framework/event-store";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
+import { tenantTable } from "../tenant";
 import { tierAssignmentAggregateId } from "./aggregate-id";
 import type { TierMap } from "./compose-app";
 import { TIER_ADMIN_SCREEN_ID, TIER_ENGINE_FEATURE } from "./constants";
@@ -253,12 +255,13 @@ export function createTierEngineFeature<
     // Requests (build läuft pre-listen via runDevApp/runProdApp-pickup).
     const alwaysOnHolder: { set: ReadonlySet<string> } = { set: new Set() };
 
-    // Trial-State: tenantId → inserted_at als epochMilliseconds (Anlage-Datum
-    // der Assignment ≈ Signup, rebuild-stabil). Trial wird at-resolve-time aus
-    // (jetzt vs startedAt + durationHours) berechnet, NICHT gecacht — anders als
-    // das Feature-Set ändert sich der Trial-Status mit der Zeit. trialFeatures
-    // ist die fixe Feature-Menge des Trial-Tiers (einmal aufgelöst).
-    const trialClock = new Map<TenantId, number>();
+    // Trial: zeit-abgeleitet aus tenant.inserted_at (≈ Signup), live am
+    // Feature-Gate geprüft — NICHT im Resolver-Cache. Der Resolver ist
+    // boot-cached + synchron und sieht weder frische Signups noch den
+    // Zeitablauf; der Trial-Status ändert sich aber mit der Zeit und gilt ab
+    // Sekunde 1 nach Signup. Darum lebt er als async trialGate (unten, am
+    // build-Ende angehängt), den der dispatcher nur auf dem disabled-Pfad
+    // konsultiert. trialFeatures = fixe Feature-Menge des Trial-Tiers.
     const trialFeatures: ReadonlySet<string> = opts.trial
       ? featuresForTier(tierMap, opts.trial.tier)
       : new Set();
@@ -271,9 +274,6 @@ export function createTierEngineFeature<
     // Semantik wie der Hook.
     onTierAssigned.fn = (tenantId, tier) => {
       cache.set(tenantId, mergeAlwaysOn(alwaysOnHolder.set, featuresForTier(tierMap, tier)));
-      // Trial-Uhr nur setzen, wenn unbekannt: ein manueller Grant ändert nicht
-      // das Signup-Datum eines bestehenden Tenants (build() hat es bereits).
-      if (!trialClock.has(tenantId)) trialClock.set(tenantId, nowMs());
     };
 
     // Invalidation: tier-assignment events update the cache.
@@ -288,10 +288,6 @@ export function createTierEngineFeature<
       if (typeof data.tenantId !== "string" || typeof data.tier !== "string") return;
       const tenantId = data.tenantId as TenantId;
       cache.set(tenantId, mergeAlwaysOn(alwaysOnHolder.set, featuresForTier(tierMap, data.tier)));
-      // Erstes Assignment eines Tenants = Signup → Trial-Uhr startet jetzt
-      // (inserted_at der frisch erzeugten Row ≈ now). Spätere Tier-Wechsel
-      // lassen die Uhr unberührt, sonst würde ein Upgrade das Fenster verlängern.
-      if (!trialClock.has(tenantId)) trialClock.set(tenantId, nowMs());
     });
     r.entityHook("postDelete", "tier-assignment", async (payload) => {
       const data = payload.data as { tenantId?: unknown }; // @cast-boundary engine-payload
@@ -412,20 +408,17 @@ export function createTierEngineFeature<
         // typischerweise <100k tenants — single-pass scan akzeptabel.
         // Skalierungs-Pfad (lazy-load + LRU) ist Sprint-8b wenn echtes
         // Bedürfnis entsteht.
-        type AssignmentRow = { tenantId: string; tier: string; insertedAt: Temporal.Instant };
+        type AssignmentRow = { tenantId: string; tier: string };
         const rows = await selectMany<AssignmentRow>(deps.db, tierAssignmentTable);
         for (const row of rows) {
           cache.set(
             row.tenantId as TenantId,
             mergeAlwaysOn(computedAlwaysOn, featuresForTier(tierMap, row.tier)),
           );
-          trialClock.set(row.tenantId as TenantId, row.insertedAt.epochMilliseconds);
         }
 
-        const trial = opts.trial;
-
         // Synchronous resolver-callback for dispatcher hot-path.
-        return (tenantId: TenantId): ReadonlySet<string> => {
+        const resolver = (tenantId: TenantId): ReadonlySet<string> => {
           // Operator-tooling + async-event-dispatch convention: SYSTEM_TENANT_ID
           // gets the union of all tier-features (siehe DispatcherOptions doc).
           if (tenantId === SYSTEM_TENANT_ID) {
@@ -434,23 +427,43 @@ export function createTierEngineFeature<
           // Cache-miss: tenant ist noch nicht im cache (z.B. brandneu nach
           // boot, oder defaultTier-hook hat noch nicht gefired). Default-Set
           // ist least-privileged — typisch Free-Tier-features. Memory
-          // `feedback_security_default_on`: secure-by-default.
+          // `feedback_security_default_on`: secure-by-default. Der Trial wird
+          // hier NICHT addiert (sync/boot-cached sieht den Zeitablauf nicht) —
+          // das macht der trialGate unten am disabled-Gate-Pfad.
           const fallbackTier = opts.defaultTier;
-          const base =
+          return (
             cache.get(tenantId) ??
             (fallbackTier === undefined
               ? computedAlwaysOn
-              : mergeAlwaysOn(computedAlwaysOn, featuresForTier(tierMap, fallbackTier)));
-          // Trial: innerhalb des Fensters ab Signup zusätzlich die Trial-Tier-
-          // Features. Zeit-abgeleitet → pro Request geprüft, nie gecacht.
-          if (trial !== undefined) {
-            const startedMs = trialClock.get(tenantId);
-            if (startedMs !== undefined && isTrialActive(startedMs, nowMs(), trial.durationHours)) {
-              return mergeAlwaysOn(base, trialFeatures);
-            }
-          }
-          return base;
+              : mergeAlwaysOn(computedAlwaysOn, featuresForTier(tierMap, fallbackTier)))
+          );
         };
+
+        const trial = opts.trial;
+        if (trial === undefined) return resolver;
+
+        // Live-Trial-Gate: liest tenant.inserted_at (≈ Signup, existiert für
+        // JEDEN Tenant inkl. auth-signup via seedTenant — anders als die
+        // tier-assignment-Row, die der seed-Pfad nicht anlegt) und prüft das
+        // Fenster gegen die aktuelle Zeit. Nur auf dem disabled-Gate-Pfad
+        // konsultiert. inserted_at ist immutable → pro Tenant einmal lesen.
+        const startedMemo = new Map<TenantId, number>();
+        const trialGate: TrialGate = async (tenantId, featureName) => {
+          if (!trialFeatures.has(featureName)) return false;
+          let startedMs = startedMemo.get(tenantId);
+          if (startedMs === undefined) {
+            const row = await fetchOne<{ insertedAt?: Temporal.Instant }>(deps.db, tenantTable, {
+              id: tenantId,
+            });
+            // Tenant-Row noch nicht projiziert (Replay-Race) → keinen Miss
+            // memoizen, beim nächsten Request neu lesen.
+            if (row?.insertedAt === undefined) return false;
+            startedMs = row.insertedAt.epochMilliseconds;
+            startedMemo.set(tenantId, startedMs);
+          }
+          return isTrialActive(startedMs, nowMs(), trial.durationHours);
+        };
+        return Object.assign(resolver, { trialGate });
       },
     };
     // biome-ignore lint/correctness/useHookAtTopLevel: r.useExtension is a framework registrar method, not a React hook.

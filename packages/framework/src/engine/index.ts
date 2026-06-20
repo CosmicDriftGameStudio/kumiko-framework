@@ -204,6 +204,7 @@ export {
   findTierResolverUsage,
   TENANT_TIER_RESOLVER_EXT,
   type TierResolverPlugin,
+  type TrialGate,
 } from "./tier-resolver-extension";
 // Types
 export type {
