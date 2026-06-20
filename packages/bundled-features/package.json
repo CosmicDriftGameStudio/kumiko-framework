@@ -31,6 +31,7 @@
     "./custom-fields": "./src/custom-fields/index.ts",
     "./custom-fields/web": "./src/custom-fields/web/index.ts",
     "./tags": "./src/tags/index.ts",
+    "./tags/web": "./src/tags/web/index.ts",
     "./billing-foundation": "./src/billing-foundation/index.ts",
     "./subscription-stripe": "./src/subscription-stripe/index.ts",
     "./subscription-mollie": "./src/subscription-mollie/index.ts",

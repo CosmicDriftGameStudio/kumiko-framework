@@ -34,6 +34,33 @@ test (`the documented tagFlow runs …`):
 ```ts file=<rootDir>/_samples/recipes-tags-basic/src/usage.ts
 ```
 
+## Web UI — the drop-in `<TagSection>`
+
+You don't have to hand-build a tag UI. The feature ships one from its client
+subpath `@cosmicdrift/kumiko-bundled-features/tags/web`: `<TagSection>` takes an
+`entityName` + `entityId`, shows that entity's tags, and lets the user attach an
+existing tag, create-and-attach a new one, or detach — calling the same handlers
+as above. Register `tagsClient()` once (for its component + i18n), then mount it
+either way:
+
+```tsx illustration
+import { createKumikoApp } from "@cosmicdrift/kumiko-renderer-web";
+import { tagsClient, TagSection, TAGS_SECTION_EXTENSION_NAME } from "@cosmicdrift/kumiko-bundled-features/tags/web";
+
+// once, at app boot — required even for standalone use (registers i18n):
+createKumikoApp({ clientFeatures: [tagsClient()] });
+
+// standalone — drop it into any screen, no entityEdit screen needed:
+<TagSection entityName="note" entityId={noteId} />
+
+// or as an extension section in an entityEdit screen schema:
+{ kind: "extension", title: "Tags", component: { react: { __component: TAGS_SECTION_EXTENSION_NAME } } }
+```
+
+The component itself is `tags/web/tag-section.tsx`
+([source](https://github.com/CosmicDriftGameStudio/kumiko-framework/blob/main/packages/bundled-features/src/tags/web/tag-section.tsx))
+and is covered by a unit test that asserts the exact handlers it dispatches.
+
 ## Feature composition
 
 ```

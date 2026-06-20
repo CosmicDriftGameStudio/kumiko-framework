@@ -8,6 +8,12 @@ import type { AccessRule } from "@cosmicdrift/kumiko-framework/engine";
 
 export const TAGS_FEATURE_NAME = "tags";
 
+// Registry name for the drop-in <TagSection> component. Apps reference it in a
+// screen schema via `component: { react: { __component: TAGS_SECTION_EXTENSION_NAME } }`
+// after mounting tagsClient(); the component is also importable directly for
+// standalone use from `@cosmicdrift/kumiko-bundled-features/tags/web`.
+export const TAGS_SECTION_EXTENSION_NAME = "TagSection";
+
 // Qualified handler names (QN format: scope:type:name). Clients reference the
 // object instead of magic strings (mirror custom-fields' Handlers/Queries).
 export const TagsHandlers = {
