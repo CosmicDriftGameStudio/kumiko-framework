@@ -1,4 +1,5 @@
 import { createKumikoApp } from "@cosmicdrift/kumiko-renderer-web";
+import { contentClient } from "../features/content/web";
 import { styleguideClient } from "../features/demo/web";
 import { examplesClient } from "../features/examples/web";
 import { galleryClient } from "../features/gallery/web";
@@ -9,5 +10,5 @@ import { AppShell } from "./shell";
 // examplesClient die Config-Stresstest-Screens (Shipping etc.).
 createKumikoApp({
   shell: AppShell,
-  clientFeatures: [styleguideClient, galleryClient, examplesClient],
+  clientFeatures: [styleguideClient, galleryClient, examplesClient, contentClient()],
 });

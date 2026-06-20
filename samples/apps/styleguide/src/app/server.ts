@@ -6,13 +6,14 @@
 
 import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
 import { createInMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
+import { contentFeature } from "../features/content/feature";
 import { demoFeature } from "../features/demo/feature";
 import { examplesFeature } from "../features/examples/feature";
 import { galleryFeature } from "../features/gallery/feature";
 import { seedStyleguideItems } from "./seed";
 
 await runDevApp({
-  features: [demoFeature, galleryFeature, examplesFeature],
+  features: [demoFeature, galleryFeature, examplesFeature, contentFeature],
   // Aktiviert die Upload-Routes (/api/files) + ctx.files für den Avatar-
   // Stresstest. In-Memory reicht für die Demo (nicht-persistent).
   files: { storageProvider: createInMemoryFileProvider() },
