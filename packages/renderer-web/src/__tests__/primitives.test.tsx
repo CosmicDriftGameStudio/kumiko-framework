@@ -783,7 +783,7 @@ describe("Form", () => {
     expect(submitEvent.defaultPrevented).toBe(true);
   });
 
-  test("title slot rendert in der Action-Bar links neben den Actions", () => {
+  test("title rendert als Heading oben, Actions als Footer am Ende", () => {
     render(
       <Form
         onSubmit={() => undefined}
@@ -794,9 +794,11 @@ describe("Form", () => {
         <div>content</div>
       </Form>,
     );
-    const actionsBar = screen.getByTestId("form-actions");
-    expect(actionsBar.textContent).toContain("Eintrag bearbeiten");
-    expect(actionsBar.textContent).toContain("Save");
+    expect(screen.getByTestId("form-title").textContent).toContain("Eintrag bearbeiten");
+    const actionsFooter = screen.getByTestId("form-actions");
+    expect(actionsFooter.textContent).toContain("Save");
+    // Titel ist NICHT mehr in der Action-Leiste (raus aus dem Header).
+    expect(actionsFooter.textContent).not.toContain("Eintrag bearbeiten");
   });
 
   test("ohne title und actions: keine Action-Bar gerendert", () => {
@@ -856,7 +858,7 @@ describe("Heading variants", () => {
 });
 
 describe("DataTable toolbar slots", () => {
-  test("toolbarTitle + toolbarStart + toolbarEnd rendern in einer Zeile", () => {
+  test("toolbarStart + toolbarEnd rendern in einer Zeile; Titel wird NICHT gerendert (steht im Breadcrumb)", () => {
     render(
       <DataTable
         columns={[]}
@@ -872,7 +874,8 @@ describe("DataTable toolbar slots", () => {
       />,
     );
     const toolbar = screen.getByTestId("dt-toolbar");
-    expect(toolbar.textContent).toContain("Items");
+    // Der Screen-Titel lebt im Shell-Breadcrumb, nicht mehr in der Toolbar.
+    expect(toolbar.textContent).not.toContain("Items");
     expect(toolbar.querySelector('[data-testid="search"]')).not.toBeNull();
     expect(toolbar.querySelector('[data-testid="create"]')).not.toBeNull();
   });

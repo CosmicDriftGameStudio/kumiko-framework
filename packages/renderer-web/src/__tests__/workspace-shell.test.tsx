@@ -772,16 +772,15 @@ describe("WorkspaceShell — AppSchema (multi-feature)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// navigation-Mode-Switch — Phase 0 Schicht 3 / V.1.
-// Workspace mit `navigation: "tree"` mountet den Visual-Tree-Stub statt
-// NavTree. Default (kein navigation oder navigation="nav") hält das
-// existing NavTree-Verhalten — kein Breaking-Change für Apps die Visual-
-// Tree nicht aktivieren. Echte Tree-Component kommt in V.1.1.
-// Siehe docs/plans/architecture/visual-tree.md A1.
+// EINE Nav (Visual-Tree-Merge). Der frühere navigation:"tree"/VisualTree-
+// Zweig ist gefaltet: WorkspaceShell rendert IMMER NavTree. Die
+// navigation-Property ist seitdem ein No-op (deferred removal aus
+// WorkspaceDefinition). Im Content-Bereich ersetzt ein aktives target
+// (aus den nav.searchParams) den RoutedScreen durch den EditorPanel.
 // ---------------------------------------------------------------------------
 
-describe("WorkspaceShell — navigation-Mode (Visual-Tree opt-in)", () => {
-  test('navigation: "tree" mountet den Visual-Tree-Stub statt NavTree', () => {
+describe("WorkspaceShell — EINE Nav (Visual-Tree gefaltet)", () => {
+  test('navigation: "tree" rendert NavTree (Tree-Stub ist gefaltet, kein Switch mehr)', () => {
     const schema = {
       featureName: "demo",
       entities: {},
@@ -803,48 +802,19 @@ describe("WorkspaceShell — navigation-Mode (Visual-Tree opt-in)", () => {
         <div>content</div>
       </WorkspaceShell>,
     );
-    // Stub-Marker rendert
-    expect(screen.getByLabelText("Visual Tree (no providers)")).toBeTruthy();
-    // NavTree wäre durch das nav-Item "List" sichtbar — darf hier NICHT
-    // rendern (Tree-Mode ersetzt NavTree komplett)
-    expect(screen.queryByText("List")).toBeNull();
-  });
-
-  test('navigation: "nav" mountet NavTree (default-äquivalent)', () => {
-    const schema = {
-      featureName: "demo",
-      entities: {},
-      screens: [],
-      navs: [{ id: "list", label: "List" }],
-      workspaces: [
-        ws("admin", {
-          label: "Admin",
-          openToAll: true,
-          isDefault: true,
-          navigation: "nav",
-          navMembers: ["demo:nav:list"],
-        }),
-      ],
-    } as const;
-
-    renderShell(
-      <WorkspaceShell brand={<div>Brand</div>} schema={schema} user={{ id: "u1", roles: [] }}>
-        <div>content</div>
-      </WorkspaceShell>,
-    );
+    // NavTree rendert das nav-Item — auch bei navigation:"tree" (No-op).
     expect(screen.getByText("List")).toBeTruthy();
+    // Der alte VisualTree-Stub existiert nicht mehr.
     expect(screen.queryByLabelText("Visual Tree (no providers)")).toBeNull();
   });
 
-  test("workspace ohne navigation-Property defaultet zu NavTree (Backwards-Compat)", () => {
+  test("workspace ohne navigation-Property rendert NavTree (Backwards-Compat)", () => {
     const schema = {
       featureName: "demo",
       entities: {},
       screens: [],
       navs: [{ id: "list", label: "List" }],
       workspaces: [
-        // Keine `navigation`-Property → existing Apps müssen exakt so
-        // weiter laufen wie vor V.1
         ws("admin", {
           label: "Admin",
           openToAll: true,
@@ -860,14 +830,15 @@ describe("WorkspaceShell — navigation-Mode (Visual-Tree opt-in)", () => {
       </WorkspaceShell>,
     );
     expect(screen.getByText("List")).toBeTruthy();
-    expect(screen.queryByLabelText("Visual Tree (no providers)")).toBeNull();
   });
 
-  test("Switcher-Toggle re-rendert Sidebar zwischen NavTree und Stub", () => {
-    // Multi-Workspace-Setup: beide accessible, einer nav, einer tree.
-    // Single-mount-Tests können nicht beweisen dass der conditional
-    // render bei prop-change sauber re-rendert — das ist die echte UX
-    // (User klickt im Switcher zwischen Modi). Dieser Test pinnt das.
+  test("aktives target in der URL rendert EditorPanel statt der screen-children", () => {
+    // Klick auf einen target-Knoten persistiert das target in den
+    // searchParams (?t=feat:action&a_*=...). WorkspaceShell rendert dann
+    // den EditorPanel statt des RoutedScreen. Voller workspace+screen-Pfad,
+    // damit der default-fill-Effect nicht replaced (sonst Verlust der
+    // searchParams). Kein Resolver registriert → EditorPanel-Fallback.
+    window.history.replaceState(null, "", "/admin/x?t=demo:edit&a_id=1");
     const schema = {
       featureName: "demo",
       entities: {},
@@ -878,13 +849,7 @@ describe("WorkspaceShell — navigation-Mode (Visual-Tree opt-in)", () => {
           label: "Admin",
           openToAll: true,
           isDefault: true,
-          navigation: "nav",
           navMembers: ["demo:nav:list"],
-        }),
-        ws("visual", {
-          label: "Visual",
-          openToAll: true,
-          navigation: "tree",
         }),
       ],
     } as const;
@@ -894,19 +859,9 @@ describe("WorkspaceShell — navigation-Mode (Visual-Tree opt-in)", () => {
         <div>content</div>
       </WorkspaceShell>,
     );
-
-    // Initial: admin-Workspace (default) aktiv → NavTree sichtbar, kein Stub
-    expect(screen.getByText("List")).toBeTruthy();
-    expect(screen.queryByLabelText("Visual Tree (no providers)")).toBeNull();
-
-    // Switch zu visual-Workspace via Switcher-Click
-    fireEvent.click(screen.getByTestId("workspace-tab-visual"));
-    expect(screen.getByLabelText("Visual Tree (no providers)")).toBeTruthy();
-    expect(screen.queryByText("List")).toBeNull();
-
-    // Zurück zu admin → NavTree wieder, Stub weg
-    fireEvent.click(screen.getByTestId("workspace-tab-admin"));
-    expect(screen.getByText("List")).toBeTruthy();
-    expect(screen.queryByLabelText("Visual Tree (no providers)")).toBeNull();
+    // EditorPanel-Fallback (kein Resolver für demo:edit) — beweist target→Editor.
+    expect(screen.getByRole("heading", { name: "Editor" })).toBeTruthy();
+    // Die screen-children sind ersetzt, nicht zusätzlich gerendert.
+    expect(screen.queryByText("content")).toBeNull();
   });
 });

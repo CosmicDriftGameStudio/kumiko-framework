@@ -4,10 +4,11 @@
 // nicht über dieselben Query-Keys streiten.
 //
 // Param-Schema pro Liste:
-//   <screenId>.sort  — field name (string)
-//   <screenId>.dir   — "asc" | "desc"
-//   <screenId>.q     — search term (URL-encoded)
-//   <screenId>.page  — 1-based page number (nur bei pagination="pages")
+//   <screenId>.sort     — field name (string)
+//   <screenId>.dir      — "asc" | "desc"
+//   <screenId>.q        — search term (URL-encoded)
+//   <screenId>.page     — 1-based page number (nur bei pagination="pages")
+//   <screenId>.f.<field> — Faceted-Filter: comma-joined selected values
 //
 // Schreibt mit setSearchParams (replaceState — kein push), damit
 // Sort/Filter-Toggles nicht die Browser-History fluten.
@@ -29,6 +30,9 @@ export type ListUrlState = {
   /** 1-basierte Page-Nummer. Bei pagination="infinite" oder false ist
    *  der Wert ignoriert; Caller liest ihn nur wenn relevant. */
   readonly page: number;
+  /** Aktive Faceted-Filter: field → ausgewählte Werte (Strings; Caller
+   *  coerced pro Field-Type). Leer wenn kein Filter gesetzt. */
+  readonly filters: Readonly<Record<string, readonly string[]>>;
 };
 
 export type ListUrlStateApi = ListUrlState & {
@@ -39,6 +43,11 @@ export type ListUrlStateApi = ListUrlState & {
   readonly setQ: (next: string) => void;
   /** Setzt die Page. 1 oder kleiner löscht den Key (Default-Page). */
   readonly setPage: (next: number) => void;
+  /** Setzt die ausgewählten Werte eines Facet-Felds. Leeres Array löscht
+   *  den Key. Resettet die Page (wie sort/search). */
+  readonly setFilter: (field: string, values: readonly string[]) => void;
+  /** Löscht alle aktiven Faceted-Filter (Reset-Button). */
+  readonly clearFilters: () => void;
 };
 
 // `.` als Trenner: lesbar (`?orders.sort=name`), kollidiert nicht mit
@@ -71,6 +80,20 @@ export function useListUrlState(screenId: string): ListUrlStateApi {
 
   const q = params[key(screenId, "q")] ?? "";
   const page = parsePage(params[key(screenId, "page")]);
+
+  const filterPrefix = `${screenId}.f.`;
+  const filters = useMemo<Readonly<Record<string, readonly string[]>>>(() => {
+    const out: Record<string, readonly string[]> = {};
+    for (const [k, v] of Object.entries(params)) {
+      if (!k.startsWith(filterPrefix) || v === "") continue;
+      const field = k.slice(filterPrefix.length);
+      if (field === "") continue;
+      // ponytail: comma-join — Facet-Werte sind select-Options/booleans
+      // ohne Komma; upgrade auf repeated-keys falls je Komma-Werte nötig.
+      out[field] = v.split(",").filter((s) => s !== "");
+    }
+    return out;
+  }, [params, filterPrefix]);
 
   const setSort = useCallback(
     (next: ListSort | null) => {
@@ -109,5 +132,21 @@ export function useListUrlState(screenId: string): ListUrlStateApi {
     [nav, screenId],
   );
 
-  return { sort, q, page, setSort, setQ, setPage };
+  const setFilter = useCallback(
+    (field: string, values: readonly string[]) => {
+      nav.setSearchParams({
+        [key(screenId, `f.${field}`)]: values.length === 0 ? null : values.join(","),
+        [key(screenId, "page")]: null,
+      });
+    },
+    [nav, screenId],
+  );
+
+  const clearFilters = useCallback(() => {
+    const updates: Record<string, string | null> = { [key(screenId, "page")]: null };
+    for (const field of Object.keys(filters)) updates[key(screenId, `f.${field}`)] = null;
+    nav.setSearchParams(updates);
+  }, [nav, screenId, filters]);
+
+  return { sort, q, page, filters, setSort, setQ, setPage, setFilter, clearFilters };
 }

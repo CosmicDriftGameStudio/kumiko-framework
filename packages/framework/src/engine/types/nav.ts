@@ -1,4 +1,6 @@
 import type { AccessRule } from "./handlers";
+import type { TargetRef } from "./target-ref";
+import type { TreeAction } from "./tree-node";
 
 // Nav entry declaration. Every feature that wants to appear in the app's
 // navigation tree registers one or more entries via r.nav(). The engine
@@ -34,6 +36,21 @@ export type NavDefinition = {
   // ("<feature>:screen:<id>"). Omit for pure grouping entries (a parent-only
   // nav node that renders a sub-tree but has no target screen itself).
   readonly screen?: string;
+  // Polymorphes Klick-Ziel (öffnet die EditorPanel-Maske via Target-
+  // Resolver) — Alternative zu `screen`. Ein Knoten trägt screen XOR
+  // target; der Renderer dispatcht das target statt einen Route-Link zu
+  // rendern. Gespiegelt aus dem alten Visual-Tree (TreeNode.target).
+  readonly target?: TargetRef;
+  // Hover-Actions rechts in der Zeile (VS-Code-Pattern) — erst bei Hover
+  // sichtbar. Reihenfolge wie deklariert.
+  readonly actions?: readonly TreeAction[];
+  // „+"-Affordance am Knoten. Klick dispatcht createAction.target; der
+  // Provider weiß was „leer befüllen" für ihn heißt (neuer Page-Slug etc.).
+  readonly createAction?: TreeAction;
+  // Children kommen zur Laufzeit aus einem registrierten nav-provider
+  // (lazy beim Ausklappen, SSE-live via treeEntities), keyed auf diese
+  // Nav-QN. Macht den Knoten expandable auch ohne statische children.
+  readonly provider?: boolean;
   // Role / openToAll gate. The nav resolver hides entries the user can't
   // reach; leave unset to always show (engine stays un-opinionated about
   // who sees what — apps that need default-deny can set { roles: [] }).

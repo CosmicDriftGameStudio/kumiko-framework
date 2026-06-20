@@ -256,6 +256,71 @@ describe("event-store-executor.list — filter (Tier 2.7c)", () => {
     expect(res.rows).toHaveLength(4);
     expect(res.total).toBe(4);
   });
+
+  test("filters[] AND: zwei dynamische Filter werden mit AND verknüpft", async () => {
+    await seed(10);
+    const res = await exec.list(
+      {
+        limit: 50,
+        sort: "rank",
+        sortDirection: "asc",
+        filters: [
+          { field: "rank", op: "gt", value: 2 },
+          { field: "rank", op: "lt", value: 6 },
+        ],
+      },
+      admin,
+      tdb,
+    );
+    expect(res.rows.map((r) => r["rank"])).toEqual([3, 4, 5]);
+  });
+
+  test("filters[] in: Faceted-Multi-Select rank in [2,4,8]", async () => {
+    await seed(10);
+    const res = await exec.list(
+      {
+        limit: 50,
+        sort: "rank",
+        sortDirection: "asc",
+        filters: [{ field: "rank", op: "in", value: [2, 4, 8] }],
+      },
+      admin,
+      tdb,
+    );
+    expect(res.rows.map((r) => r["rank"])).toEqual([2, 4, 8]);
+  });
+
+  test("statischer filter + dynamische filters[] kombinieren mit AND", async () => {
+    await seed(10);
+    const res = await exec.list(
+      {
+        limit: 50,
+        sort: "rank",
+        sortDirection: "asc",
+        filter: { field: "rank", op: "gt", value: 2 },
+        filters: [{ field: "rank", op: "in", value: [1, 3, 5, 9] }],
+      },
+      admin,
+      tdb,
+    );
+    // gt:2 AND in[1,3,5,9] → 3,5,9 (1 fällt durch gt:2 raus)
+    expect(res.rows.map((r) => r["rank"])).toEqual([3, 5, 9]);
+  });
+
+  test("filters[] mit leerem in-Array: leeres Resultat (kein Match-All)", async () => {
+    await seed(5);
+    const res = await exec.list(
+      {
+        limit: 50,
+        sort: "rank",
+        sortDirection: "asc",
+        filters: [{ field: "rank", op: "in", value: [] }],
+      },
+      admin,
+      tdb,
+    );
+    expect(res.rows).toHaveLength(0);
+  });
 });
 
 describe("event-store-executor.list — runtime SearchAdapter (Tier 2.7e Audit-Fix #1)", () => {

@@ -63,20 +63,19 @@ const treeProvider: TreeChildrenSubscribe = () => (emit) => {
     });
   }
 
-  emit([
-    {
-      label: "Legal",
-      icon: "folder",
-      state: "filled",
-      children: slugFolders,
-    },
-  ]);
+  // Der App-seitige r.nav-Knoten IST der "Legal"-Container → der Provider
+  // emittiert die slug-Folder direkt darunter.
+  emit(slugFolders);
   return () => {};
 };
 
-export function legalPagesClient(): ClientFeatureDefinition {
+// `navId` = QN des r.nav({ provider: true })-Knotens den die App registriert.
+// Statisch (kein Fetch, keine Entities) → kein SSE-Refresh nötig. Ohne navId:
+// kein Sidebar-Knoten (server-only-Consumer leaken nichts).
+export function legalPagesClient(opts?: { readonly navId?: string }): ClientFeatureDefinition {
+  const navId = opts?.navId;
   return {
     name: "legal-pages",
-    treeProvider,
+    ...(navId !== undefined && { navProviders: { [navId]: treeProvider } }),
   };
 }

@@ -119,6 +119,12 @@ export function computeEditViewModel<
         fieldDef.type === "reference"
           ? ((fieldDef as unknown as { multiple?: boolean }).multiple ?? false)
           : undefined;
+      // file/image: accept/maxSize ins ViewModel + entityType/fieldName für
+      // den Upload-POST (Endpoint validiert gegen die richtige Field-Def).
+      const isFileType = fieldDef.type === "file" || fieldDef.type === "image";
+      const fileDef = isFileType
+        ? (fieldDef as unknown as { accept?: readonly string[]; maxSize?: string })
+        : undefined;
       const view: EditFieldViewModel = {
         field: normalized.field,
         label,
@@ -140,12 +146,16 @@ export function computeEditViewModel<
         ...(refFeature !== undefined && { refFeature }),
         ...(refLabelField !== undefined && { refLabelField }),
         ...(refMultiple !== undefined && { refMultiple }),
+        ...(fileDef?.accept !== undefined && { accept: fileDef.accept }),
+        ...(fileDef?.maxSize !== undefined && { maxSize: fileDef.maxSize }),
+        ...(isFileType && { entityType: screen.entity, fieldName: normalized.field }),
       };
       return view;
     });
     return {
       kind: "fields" as const,
-      title: translate(sectionSpec.title),
+      // Titellose Section (flache Form) → kein h3; nur übersetzen wenn gesetzt.
+      ...(sectionSpec.title !== undefined && { title: translate(sectionSpec.title) }),
       columns: sectionSpec.columns ?? 1,
       fields,
     };

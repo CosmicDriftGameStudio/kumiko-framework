@@ -34,12 +34,13 @@ import type { AppSchema, FeatureSchema, WorkspaceSchema } from "@cosmicdrift/kum
 import { qualifyNavId, toAppSchema, useNav } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useCallback, useLayoutEffect, useMemo } from "react";
 import { useResolvers } from "../app/resolvers-context";
+import { SidebarProvider } from "../ui/sidebar";
 import { AppLayout } from "./app-layout";
 import { EditorPanel } from "./editor-panel";
 import { lastSegment, NavTree } from "./nav-tree";
 import { Sidebar } from "./sidebar";
+import { parseTargetFromSearchParams } from "./target-url";
 import { Topbar } from "./topbar";
-import { VisualTree } from "./visual-tree";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
 export type WorkspaceShellUser = {
@@ -185,43 +186,40 @@ export function WorkspaceShell({
     <WorkspaceSwitcher workspaces={visible} activeId={activeId} onSelect={handleSelect} />
   );
 
-  // Sidebar-Content-Switch: workspace mit `navigation: "tree"` (opt-in)
-  // mountet die VisualTree-Component statt NavTree. Default (kein
-  // navigation gesetzt oder navigation="nav") behält das existing
-  // NavTree-Verhalten — kein Breaking-Change für Apps die Visual-Tree
-  // nicht aktivieren.
-  //
-  // VisualTree konsumiert TreeProviders via Context (siehe
-  // app/tree-providers-context.tsx) — App-Author registriert seine
-  // clientFeatures.treeProvider via createKumikoApp, kein zusätzlicher
-  // Prop hier nötig. Workspace-ID wird durchgereicht für die
-  // localStorage-Persistenz des expanded-Set.
-  // Siehe docs/plans/architecture/visual-tree.md A1 + V.1.1-A.
+  // EINE Nav: immer NavTree. Dynamische Knoten (r.nav({ provider: true }))
+  // ziehen ihre Children client-seitig aus den registrierten navProviders —
+  // der frühere navigation:"tree"/VisualTree-Zweig ist hier eingefaltet.
+  // Content-Bereich: ein aktives target (aus den nav.searchParams, gesetzt
+  // beim Klick auf einen target-Knoten) rendert den EditorPanel statt des
+  // RoutedScreen — sonst die normalen screen-children.
+  // (WorkspaceDefinition.navigation ist seitdem ein No-op; deferred removal.)
   const resolvers = useResolvers();
-  const isTreeMode = activeWorkspace?.definition.navigation === "tree";
+  const activeTarget = parseTargetFromSearchParams(nav.searchParams);
 
-  const sidebarContent =
-    activeWorkspace?.definition.navigation === "tree" ? (
-      <VisualTree workspaceId={activeWorkspace.definition.id} />
-    ) : (
-      <NavTree
-        schema={app}
-        {...(user !== undefined && { user })}
-        {...(allowedNavQns !== undefined && { allowedNavQns })}
-      />
-    );
+  const sidebarContent = (
+    <NavTree
+      schema={app}
+      {...(user !== undefined && { user })}
+      {...(allowedNavQns !== undefined && { allowedNavQns })}
+    />
+  );
 
+  // SidebarProvider: NavTree rendert vendored shadcn-SidebarMenuButtons, die
+  // useSidebar() rufen. WorkspaceShell behält sein eigenes Topbar-Layout
+  // (AppLayout + Sidebar), braucht aber den Context-Wrapper drumherum.
   return (
-    <AppLayout
-      topbar={<Topbar start={brand} center={switcher || undefined} end={topbarActions} />}
-      sidebar={
-        <Sidebar {...(sidebarFooter !== undefined && { footer: sidebarFooter })}>
-          {sidebarContent}
-        </Sidebar>
-      }
-    >
-      {isTreeMode ? <EditorPanel resolvers={resolvers} /> : children}
-    </AppLayout>
+    <SidebarProvider>
+      <AppLayout
+        topbar={<Topbar start={brand} center={switcher || undefined} end={topbarActions} />}
+        sidebar={
+          <Sidebar {...(sidebarFooter !== undefined && { footer: sidebarFooter })}>
+            {sidebarContent}
+          </Sidebar>
+        }
+      >
+        {activeTarget !== undefined ? <EditorPanel resolvers={resolvers} /> : children}
+      </AppLayout>
+    </SidebarProvider>
   );
 }
 

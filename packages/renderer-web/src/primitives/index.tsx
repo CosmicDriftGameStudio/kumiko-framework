@@ -20,6 +20,7 @@ import {
   type BannerProps,
   type ButtonProps,
   type CorePrimitives,
+  type DataTableFacet,
   type DataTableProps,
   type FieldProps,
   type FormProps,
@@ -33,50 +34,60 @@ import {
   useTranslation,
   WriteFailedError,
 } from "@cosmicdrift/kumiko-renderer";
-import * as LabelPrimitive from "@radix-ui/react-label";
-import { cva } from "class-variance-authority";
 import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Loader2,
   MoreHorizontal,
+  X,
 } from "lucide-react";
-import { type ChangeEvent, type ReactNode, useEffect, useRef, useState } from "react";
+import {
+  type ChangeEvent,
+  createContext,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { cn } from "../lib/cn";
+import { Badge } from "../ui/badge";
+import { Button as UiButton } from "../ui/button";
+import { Card, CardContent, CardHeader } from "../ui/card";
+import { Checkbox } from "../ui/checkbox";
+import { Input as UiInput } from "../ui/input";
+import { Label as UiLabel } from "../ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
+import { Textarea } from "../ui/textarea";
 import { ComboboxInput } from "./combobox";
 import { DateInput } from "./date-input";
 import { DefaultDialog } from "./dialog";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./dropdown-menu";
+import { FileUploadInput } from "./file-upload";
 import { MoneyInput } from "./money-input";
 import { TimestampInput } from "./timestamp-input";
 import { useToast } from "./toast";
 
-// ---- Button ----
+// ---- Button (vendored shadcn ui/button) ----
 
-const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors " +
-    "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
-    "disabled:pointer-events-none disabled:opacity-50",
-  {
-    variants: {
-      variant: {
-        primary: "bg-primary text-primary-foreground shadow hover:bg-primary/90",
-        secondary:
-          "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground",
-        danger: "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
-      },
-    },
-    defaultVariants: { variant: "primary" },
-  },
-);
+// Contract-Variant → shadcn-Variant: secondary war schon immer der
+// bordered-bg-background-Look = shadcns `outline`. primary→default,
+// danger→destructive.
+const BUTTON_VARIANT = {
+  primary: "default",
+  secondary: "outline",
+  danger: "destructive",
+} as const;
 
 function DefaultButton({
   type = "button",
@@ -88,16 +99,16 @@ function DefaultButton({
   testId,
 }: ButtonProps): ReactNode {
   return (
-    <button
+    <UiButton
       type={type}
       onClick={onClick}
       disabled={disabled === true || loading === true}
       data-testid={testId}
       data-loading={loading === true ? "true" : undefined}
-      className={cn(buttonVariants({ variant }), "h-9 px-4 py-2")}
+      variant={BUTTON_VARIANT[variant]}
     >
       {loading === true ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : children}
-    </button>
+    </UiButton>
   );
 }
 
@@ -143,28 +154,47 @@ function DefaultField({
   labelAppendix,
   fieldAppendix,
   children,
+  layout,
   testId,
 }: FieldProps): ReactNode {
   const t = useTranslation();
   const hasError = issues !== undefined && issues.length > 0;
+  const labelEl = (
+    <UiLabel htmlFor={id} className={hasError ? "text-destructive" : "text-foreground"}>
+      {label}
+      {required === true && <span className="ml-0.5 text-destructive">*</span>}
+    </UiLabel>
+  );
+  const errorsEl = hasError ? (
+    <div
+      role="alert"
+      data-testid={testId !== undefined ? `${testId}-errors` : undefined}
+      className="text-xs text-destructive"
+    >
+      {issues.map((issue) => (
+        <div key={`${issue.path}:${issue.code}`}>{t(issue.i18nKey, issue.params)}</div>
+      ))}
+    </div>
+  ) : null;
+
+  // Inline (boolean/checkbox): Control links, Label rechts — shadcn-Muster.
+  if (layout === "inline") {
+    return (
+      <div data-testid={testId} className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-2">
+          {children}
+          {labelEl}
+          {labelAppendix !== undefined && labelAppendix}
+        </div>
+        {errorsEl}
+      </div>
+    );
+  }
+
   return (
     <div data-testid={testId} className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between gap-2">
-        <LabelPrimitive.Root
-          htmlFor={id}
-          className={cn(
-            // peer-disabled-Sentinel: shadcn-Pattern — wenn das assoziierte
-            // Input disabled ist (peer + disabled-Klasse), wird das Label
-            // mitgrayout. Funktioniert weil Radix-Label das nativ-htmlFor-
-            // verlinkte Element als Peer betrachtet.
-            "text-sm font-medium leading-none",
-            "peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
-            hasError ? "text-destructive" : "text-foreground",
-          )}
-        >
-          {label}
-          {required === true && <span className="ml-0.5 text-destructive">*</span>}
-        </LabelPrimitive.Root>
+        {labelEl}
         {/* appendix neben dem <label>, nicht darin — interaktiver Inhalt
             (Disclosure-Button) gehört nicht in ein label-Element. */}
         {labelAppendix !== undefined && labelAppendix}
@@ -174,32 +204,16 @@ function DefaultField({
           Label-Row, nicht durch den Input davon getrennt. */}
       {fieldAppendix !== undefined && fieldAppendix}
       {children}
-      {hasError && (
-        <div
-          role="alert"
-          data-testid={testId !== undefined ? `${testId}-errors` : undefined}
-          className="text-xs text-destructive"
-        >
-          {issues.map((issue) => (
-            <div key={`${issue.path}:${issue.code}`}>{t(issue.i18nKey, issue.params)}</div>
-          ))}
-        </div>
-      )}
+      {errorsEl}
     </div>
   );
 }
 
 // ---- Input ----
 
-const inputClassBase =
-  "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm " +
-  "transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium " +
-  "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
-  "disabled:cursor-not-allowed disabled:opacity-50";
-
 function DefaultInput(props: InputProps): ReactNode {
-  const errorClass =
-    props.hasError === true ? "border-destructive focus-visible:ring-destructive" : "";
+  // Vendored ui/input + ui/checkbox stylen Fehler über `aria-invalid`
+  // selbst — kein manuelles border-destructive mehr nötig.
   const common = {
     id: props.id,
     name: props.name,
@@ -210,42 +224,39 @@ function DefaultInput(props: InputProps): ReactNode {
   switch (props.kind) {
     case "text":
       return (
-        <input
+        <UiInput
           type="text"
           {...common}
           value={props.value}
           onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.value)}
           {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
           {...(props.autoComplete !== undefined && { autoComplete: props.autoComplete })}
-          className={cn(inputClassBase, errorClass)}
         />
       );
     case "email":
       return (
-        <input
+        <UiInput
           type="email"
           {...common}
           value={props.value}
           onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.value)}
           {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
           autoComplete={props.autoComplete ?? "email"}
-          className={cn(inputClassBase, errorClass)}
         />
       );
     case "password":
       return (
-        <input
+        <UiInput
           type="password"
           {...common}
           value={props.value}
           onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.value)}
           autoComplete={props.autoComplete ?? "current-password"}
-          className={cn(inputClassBase, errorClass)}
         />
       );
     case "number":
       return (
-        <input
+        <UiInput
           type="number"
           {...common}
           value={props.value}
@@ -253,20 +264,33 @@ function DefaultInput(props: InputProps): ReactNode {
             const v = e.target.value;
             props.onChange(v === "" ? undefined : Number(v));
           }}
-          className={cn(inputClassBase, "text-right tabular-nums", errorClass)}
+          className="text-right tabular-nums"
         />
       );
     case "boolean":
       return (
-        <input
-          type="checkbox"
-          {...common}
+        <Checkbox
+          id={props.id}
+          name={props.name}
+          disabled={props.disabled}
+          aria-required={props.required}
+          aria-invalid={props.hasError === true ? true : undefined}
           checked={props.value}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.checked)}
-          className={cn(
-            "h-4 w-4 rounded-sm border border-input accent-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-            errorClass,
-          )}
+          onCheckedChange={(checked) => props.onChange(checked === true)}
+        />
+      );
+    case "file":
+    case "image":
+      return (
+        <FileUploadInput
+          kind={props.kind}
+          id={props.id}
+          value={props.value}
+          onChange={props.onChange}
+          {...(props.accept !== undefined && { accept: props.accept })}
+          {...(props.disabled !== undefined && { disabled: props.disabled })}
+          {...(props.entityType !== undefined && { entityType: props.entityType })}
+          {...(props.fieldName !== undefined && { fieldName: props.fieldName })}
         />
       );
     case "date":
@@ -366,29 +390,64 @@ function DefaultInput(props: InputProps): ReactNode {
         />
       );
     case "textarea":
-      // Default 4 Zeilen — vertikal-resize via resize-y. min-h damit
-      // ein bewusstes rows={2} nicht unter eine sinnvolle Mindesthöhe
-      // schrumpft. Field-Klasse wird leicht angepasst (kein h-9 weil
-      // multiline).
       return (
-        <textarea
+        <Textarea
           {...common}
           value={props.value}
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => props.onChange(e.target.value)}
           rows={props.rows ?? 4}
-          className={cn(
-            "flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm",
-            "transition-colors placeholder:text-muted-foreground focus-visible:outline-none",
-            "focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
-            "resize-y min-h-[80px]",
-            errorClass,
-          )}
+          className="resize-y"
         />
       );
   }
 }
 
 // ---- DataTable (shadcn: Table) ----
+
+// Faceted-Filter-Dropdown: Outline-Button (wie shadcns "Columns"-Toggle) +
+// Multi-Select-Checkboxen. Aktive Auswahl → Count-Badge am Button.
+function FacetFilter({
+  facet,
+  selected,
+  onChange,
+}: {
+  facet: DataTableFacet;
+  selected: readonly string[];
+  onChange: (field: string, values: readonly string[]) => void;
+}): ReactNode {
+  const toggle = (value: string, checked: boolean): void => {
+    const next = checked ? [...selected, value] : selected.filter((v) => v !== value);
+    onChange(facet.field, next);
+  };
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <UiButton variant="outline" size="sm" className="h-9" data-testid={`facet-${facet.field}`}>
+          {facet.label}
+          {selected.length > 0 && (
+            <Badge variant="secondary" className="ml-1 rounded-sm px-1 font-normal tabular-nums">
+              {selected.length}
+            </Badge>
+          )}
+          <ChevronDown className="text-muted-foreground" />
+        </UiButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-44">
+        {facet.options.map((opt) => (
+          <DropdownMenuCheckboxItem
+            key={opt.value}
+            checked={selected.includes(opt.value)}
+            onCheckedChange={(checked: boolean) => toggle(opt.value, checked)}
+            onSelect={(e: Event) => e.preventDefault()}
+            data-testid={`facet-${facet.field}-${opt.value}`}
+          >
+            {opt.label}
+          </DropdownMenuCheckboxItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 function DefaultDataTable({
   columns,
@@ -397,7 +456,6 @@ function DefaultDataTable({
   sort,
   onSortChange,
   emptyState,
-  toolbarTitle,
   toolbarStart,
   toolbarEnd,
   pager,
@@ -406,6 +464,10 @@ function DefaultDataTable({
   hasMore,
   rowActions,
   rowActionMode,
+  filterFacets,
+  filterValues,
+  onFilterChange,
+  onFilterReset,
   testId,
 }: DataTableProps): ReactNode {
   // Toolbar-Wrapper: gemeinsamer Container für Toolbar+Tabelle damit
@@ -421,10 +483,12 @@ function DefaultDataTable({
         {emptyState ?? <span>No entries.</span>}
       </div>
     ) : (
-      <div className="rounded-md border overflow-x-auto">
-        <table data-testid={testId} className="w-full caption-bottom text-sm">
+      // dashboard-01-Muster: schlichter `rounded-lg border`-Rahmen (kein
+      // bg-card/shadow), die Header-Zeile trägt den bg-muted-Grauton.
+      <div className="overflow-hidden rounded-lg border">
+        <Table data-testid={testId}>
           {tableInner(columns, rows, onRowClick, sort, onSortChange, rowActions, rowActionMode)}
-        </table>
+        </Table>
       </div>
     );
 
@@ -459,29 +523,56 @@ function DefaultDataTable({
       tableContent
     );
 
-  const hasToolbar =
-    toolbarTitle !== undefined || toolbarStart !== undefined || toolbarEnd !== undefined;
-  if (!hasToolbar) return <div className="p-6">{content}</div>;
+  const hasFacets =
+    filterFacets !== undefined && filterFacets.length > 0 && onFilterChange !== undefined;
+  const hasActiveFilters =
+    filterValues !== undefined && Object.values(filterValues).some((v) => v.length > 0);
+  const facetCluster = hasFacets ? (
+    <div className="flex items-center gap-2">
+      {filterFacets.map((facet) => (
+        <FacetFilter
+          key={facet.field}
+          facet={facet}
+          selected={filterValues?.[facet.field] ?? []}
+          onChange={onFilterChange}
+        />
+      ))}
+      {hasActiveFilters && onFilterReset !== undefined && (
+        <UiButton
+          variant="ghost"
+          size="sm"
+          className="h-9 px-2"
+          onClick={onFilterReset}
+          data-testid="facet-reset"
+        >
+          Reset
+          <X />
+        </UiButton>
+      )}
+    </div>
+  ) : undefined;
 
-  // Toolbar als full-width Bar (Main hat kein Padding, also nimmt die
-  // Bar von alleine die volle Breite). bg-muted/30 + border-b geben
-  // die visuelle Distinction zum Content. Content darunter bekommt
-  // eigenes p-6 damit Tabelle/Empty-State nicht an die Edges kleben.
+  const hasToolbar =
+    toolbarStart !== undefined || toolbarEnd !== undefined || facetCluster !== undefined;
+
+  // dashboard-01-Muster: die Toolbar (Search + Facets + "+ Neu") sitzt ÜBER
+  // der Tabelle im selben Padding-Block — kein separater bg-Bar, kein Screen-
+  // Titel (der steht im Breadcrumb der Shell).
   return (
-    <div className="flex flex-col w-full">
-      <div
-        data-testid={testId !== undefined ? `${testId}-toolbar` : "render-list-toolbar"}
-        className="h-12 px-6 bg-muted/30 border-b flex items-center gap-3"
-      >
-        {toolbarTitle !== undefined && (
-          <div className="text-lg font-semibold tracking-tight truncate">{toolbarTitle}</div>
-        )}
-        {toolbarStart !== undefined && <div className="flex-1 max-w-sm">{toolbarStart}</div>}
-        {toolbarEnd !== undefined && (
-          <div className="flex items-center gap-2 ml-auto">{toolbarEnd}</div>
-        )}
-      </div>
-      <div className="p-6">{content}</div>
+    <div className="flex flex-col gap-4 p-6 w-full">
+      {hasToolbar && (
+        <div
+          data-testid={testId !== undefined ? `${testId}-toolbar` : "render-list-toolbar"}
+          className="flex items-center gap-3"
+        >
+          {toolbarStart !== undefined && <div className="flex-1 max-w-sm">{toolbarStart}</div>}
+          {facetCluster}
+          {toolbarEnd !== undefined && (
+            <div className="flex items-center gap-2 ml-auto">{toolbarEnd}</div>
+          )}
+        </div>
+      )}
+      {content}
     </div>
   );
 }
@@ -498,8 +589,8 @@ function tableInner(
   const hasActions = rowActions !== undefined && rowActions.length > 0;
   return (
     <>
-      <thead className="[&_tr]:border-b">
-        <tr className="border-b transition-colors hover:bg-muted/50">
+      <TableHeader className="bg-muted">
+        <TableRow className="hover:bg-transparent">
           {columns.map((col) => (
             <SortableHeader
               key={col.field}
@@ -511,39 +602,34 @@ function tableInner(
             />
           ))}
           {hasActions && (
-            <th
+            <TableHead
               data-testid="column-actions"
-              // sticky right-0 + bg-background damit die Action-Spalte
-              // beim horizontalen Scroll am rechten Rand bleibt und
-              // nicht vom Inhalt überdeckt wird (Linear-Pattern).
-              className="h-10 px-4 text-right align-middle font-medium text-muted-foreground w-px whitespace-nowrap sticky right-0 bg-background z-10 border-l"
+              // sticky right-0 + bg-muted (= Header-Ton) damit die Action-
+              // Spalte beim horizontalen Scroll am rechten Rand bleibt.
+              className="sticky right-0 z-10 w-px border-l bg-muted text-right text-muted-foreground"
               aria-label="Actions"
             />
           )}
-        </tr>
-      </thead>
-      <tbody className="[&_tr:last-child]:border-0">
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {rows.map((row) => (
-          <tr
+          <TableRow
             key={row.id}
             data-testid={`row-${row.id}`}
             onClick={onRowClick !== undefined ? () => onRowClick(row) : undefined}
-            className={cn(
-              "border-b transition-colors hover:bg-muted/50",
-              onRowClick !== undefined && "cursor-pointer",
-            )}
+            className={cn(onRowClick !== undefined && "cursor-pointer")}
           >
             {columns.map((col) => (
-              <td
+              <TableCell
                 key={col.field}
                 data-testid={`cell-${row.id}-${col.field}`}
                 // Cells truncaten lange Werte mit ellipsis statt umzu-
                 // brechen — Lists bleiben einzeilig + scannbar (Linear-
                 // Pattern). max-w-xs gibt eine vernünftige Default-
-                // Obergrenze; die <table>-Wrapper hat overflow-x für
-                // horizontalen Scroll falls die Summe der Spalten zu
-                // breit wird.
-                className="p-4 align-middle max-w-xs truncate"
+                // Obergrenze; der Table-Container scrollt horizontal
+                // falls die Summe der Spalten zu breit wird.
+                className="max-w-xs truncate"
                 title={cellTitle(row.values[col.field])}
               >
                 <DataTableCell
@@ -554,15 +640,15 @@ function tableInner(
                   renderer={col.renderer}
                   {...(col.optionLabels !== undefined && { optionLabels: col.optionLabels })}
                 />
-              </td>
+              </TableCell>
             ))}
             {hasActions && (
-              <td
+              <TableCell
                 data-testid={`cell-${row.id}-actions`}
                 // Sticky-right damit beim horizontalen Scroll die Actions
                 // am rechten Rand sichtbar bleiben. bg-background +
                 // border-l für den visuellen Abschluss.
-                className="p-2 align-middle text-right whitespace-nowrap sticky right-0 bg-background z-10 border-l"
+                className="sticky right-0 z-10 border-l bg-background text-right"
                 // Action-Cell-Events dürfen nicht den Row-Click/Activation
                 // triggern (typisch "Open Detail" — der User wollte ja die
                 // Action, nicht navigieren). Wir stopPropagation für Mouse
@@ -571,11 +657,11 @@ function tableInner(
                 onKeyDown={(e) => e.stopPropagation()}
               >
                 <RowActionsCell row={row} actions={rowActions} mode={rowActionMode} />
-              </td>
+              </TableCell>
             )}
-          </tr>
+          </TableRow>
         ))}
-      </tbody>
+      </TableBody>
     </>
   );
 }
@@ -1031,13 +1117,13 @@ function SortableHeader({
 
   if (!sortable || onSortChange === undefined) {
     return (
-      <th
+      <TableHead
         data-testid={`column-${field}`}
         data-sortable={sortable === true ? true : undefined}
-        className="h-10 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap"
+        className="px-4 text-muted-foreground"
       >
         {label}
-      </th>
+      </TableHead>
     );
   }
 
@@ -1045,11 +1131,11 @@ function SortableHeader({
   const next = nextSortState(active?.dir, field);
 
   return (
-    <th
+    <TableHead
       data-testid={`column-${field}`}
       data-sortable="true"
       aria-sort={ariaSort}
-      className="h-10 px-4 text-left align-middle font-medium text-muted-foreground"
+      className="px-4 text-muted-foreground"
     >
       <button
         type="button"
@@ -1064,7 +1150,7 @@ function SortableHeader({
         <span>{label}</span>
         <Icon className={cn("size-3.5", active === undefined && "opacity-40")} aria-hidden="true" />
       </button>
-    </th>
+    </TableHead>
   );
 }
 
@@ -1185,18 +1271,40 @@ function DataTableCell({
     // biome-ignore lint/suspicious/noConsole: dev-warning für Schema-Konflikte
     console.warn(`[kumiko] columnRenderer "${componentRef.name}" not registered`);
   }
+  // select-Werte als neutrale Badge-Pill (shadcn secondary) statt Plain-Text.
+  // Farbige Status-Semantik (grün/amber) bleibt App-Sache via columnRenderer.
+  if (type === "select" && value !== null && value !== undefined && value !== "") {
+    // dashboard-01-Muster: outline-Badge + muted statt gefülltem secondary.
+    return (
+      <Badge variant="outline" className="px-1.5 text-muted-foreground">
+        {defaultCellRender(value, type, optionLabels)}
+      </Badge>
+    );
+  }
   return defaultCellRender(value, type, optionLabels);
 }
 
 // ---- Form + Section + Grid + Text ----
 
-function DefaultForm({ onSubmit, children, title, actions, testId }: FormProps): ReactNode {
-  // Form ist full-width — main hat kein Padding, also fügen wir's hier
-  // pro Bereich hinzu. Action-Bar bekommt h-12 + horizontal-px-6 und
-  // klebt sticky am main-Top (ohne Negative-Margin-Tricks). Content
-  // unten kriegt eigenes p-6 + max-w-2xl — schmaler als die volle
-  // Sidebar-flankierte Breite, damit Zeilen nicht reißen und der
-  // Single-Column-Linear-Look erhalten bleibt.
+// Setzt DefaultSection in den Inner-Region-Modus: das ganze Form ist EINE
+// Card, Sections sind divider-getrennte Abschnitte darin (shadcn-Muster wie
+// Shipping/Invoice/Profile). Standalone (außerhalb Form) bleibt Section eine
+// eigene Card.
+const InsideFormContext = createContext(false);
+
+function DefaultForm({
+  onSubmit,
+  children,
+  title,
+  subtitle,
+  actions,
+  testId,
+}: FormProps): ReactNode {
+  // shadcn-Form-Muster: das Formular ist EINE Card — Titel als Card-Header
+  // OHNE Trennlinie darunter (Titel fließt in die erste Section). Sections
+  // sind divide-y-getrennt (Linien nur ZWISCHEN ihnen). Action-Footer mit
+  // bg-muted/30 als Farb-Trenner statt harter Linie. main hat kein Padding;
+  // der max-w-3xl-Body rahmt die Card.
   return (
     <form
       onSubmit={(e) => {
@@ -1206,43 +1314,74 @@ function DefaultForm({ onSubmit, children, title, actions, testId }: FormProps):
       data-testid={testId}
       className="flex flex-col w-full"
     >
-      {(title !== undefined || actions !== undefined) && (
-        <div
-          data-testid={testId !== undefined ? `${testId}-actions` : undefined}
-          className="sticky top-0 z-10 h-12 bg-muted/30 border-b"
-        >
-          {/* Bar-Hintergrund spannt die volle Breite, der Inhalt aligned
-              aber mit dem max-w-2xl-Form-Body — sonst kleben die Buttons
-              am Fensterrand, optisch abgekoppelt vom Formular. */}
-          <div className="h-full px-6 max-w-2xl w-full flex items-center gap-3">
-            {title !== undefined && (
-              <div className="text-lg font-semibold tracking-tight truncate">{title}</div>
-            )}
-            {actions !== undefined && (
-              <div className="flex items-center gap-2 ml-auto">{actions}</div>
-            )}
+      <div className="px-6 pt-6 pb-12 max-w-3xl w-full">
+        <div className="bg-card overflow-hidden rounded-xl border shadow-sm">
+          {(title !== undefined || subtitle !== undefined) && (
+            <div className="px-6 pb-2 pt-5">
+              {title !== undefined && (
+                <h2
+                  data-testid={testId !== undefined ? `${testId}-title` : undefined}
+                  className="text-lg font-semibold tracking-tight"
+                >
+                  {title}
+                </h2>
+              )}
+              {subtitle !== undefined && (
+                <p
+                  data-testid={testId !== undefined ? `${testId}-subtitle` : undefined}
+                  className="mt-1 text-sm text-muted-foreground"
+                >
+                  {subtitle}
+                </p>
+              )}
+            </div>
+          )}
+          <div className="divide-y">
+            <InsideFormContext.Provider value={true}>{children}</InsideFormContext.Provider>
           </div>
+          {actions !== undefined && (
+            <div
+              data-testid={testId !== undefined ? `${testId}-actions` : undefined}
+              className="flex items-center justify-end gap-2 border-t bg-muted/30 px-6 py-4"
+            >
+              {actions}
+            </div>
+          )}
         </div>
-      )}
-      <div className="px-6 pt-6 pb-12 max-w-2xl w-full flex flex-col gap-8">{children}</div>
+      </div>
     </form>
   );
 }
 
 function DefaultSection({ title, children, testId }: SectionProps): ReactNode {
-  // Linear-Pattern: keine Card-Box, nur ein dezenter Section-Header
-  // (uppercase, klein, muted) als Trennung. Sections fließen vertikal
-  // im Form-Container; Visualität entsteht aus Whitespace + Typo, nicht
-  // aus Border + Shadow. Spart Chrome und sieht weniger "boxy" aus.
+  const insideForm = useContext(InsideFormContext);
+
+  // Innerhalb eines Forms: divider-loser Abschnitt OHNE eigene Card-Fläche.
+  // Die Trennlinien ZWISCHEN Sections macht der divide-y-Wrapper im Form —
+  // keine Linie unter dem Titel, keine vor dem Footer.
+  if (insideForm) {
+    return (
+      <section data-testid={testId} className="flex flex-col gap-4 px-6 py-6">
+        {title !== undefined && (
+          <h3 className="text-base font-semibold leading-none tracking-tight">{title}</h3>
+        )}
+        {children}
+      </section>
+    );
+  }
+
+  // Standalone: eigene Card (abgesetzter border-b-Header + gap-4-Body).
   return (
-    <section data-testid={testId} className="flex flex-col gap-4">
+    <Card data-testid={testId} className="gap-0 rounded-lg py-0">
       {title !== undefined && (
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          {title}
-        </h3>
+        <CardHeader className="border-b px-6 py-4">
+          {/* h3 statt CardTitle (= div): erhält die Heading-Semantik für
+              Screenreader-Navigation. Klassen = CardTitle-Default. */}
+          <h3 className="text-base font-semibold leading-none tracking-tight">{title}</h3>
+        </CardHeader>
       )}
-      <div className="flex flex-col gap-4">{children}</div>
-    </section>
+      <CardContent className="flex flex-col gap-4 px-6 py-6">{children}</CardContent>
+    </Card>
   );
 }
 

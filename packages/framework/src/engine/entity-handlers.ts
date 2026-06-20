@@ -95,6 +95,17 @@ const listSchema = z.object({
       value: z.unknown(),
     })
     .optional(),
+  // User-gewählte Faceted-Filter (dynamisch). Additiv zum statischen
+  // `filter` — executor.list verknüpft alle mit AND.
+  filters: z
+    .array(
+      z.object({
+        field: z.string(),
+        op: z.enum(["eq", "ne", "lt", "gt", "in"]),
+        value: z.unknown(),
+      }),
+    )
+    .optional(),
 });
 
 function parseHandlerName<TVerb extends string>(

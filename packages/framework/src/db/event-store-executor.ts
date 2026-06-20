@@ -200,6 +200,15 @@ export type EventStoreExecutor = {
             readonly value: unknown;
           }
         | undefined;
+      // User-gewählte Faceted-Filter (dynamisch, additiv zum statischen
+      // `filter`). Alle werden mit AND verknüpft.
+      filters?:
+        | ReadonlyArray<{
+            readonly field: string;
+            readonly op: "eq" | "ne" | "lt" | "gt" | "in";
+            readonly value: unknown;
+          }>
+        | undefined;
     },
     user: SessionUser,
     db: TenantDb,
@@ -875,45 +884,49 @@ export function createEventStoreExecutor(
         whereSql.push(shifted.sqlText);
         for (const p of shifted.params) params.push(p);
       }
-      if (payload.filter !== undefined) {
-        const col = table[payload.filter.field];
-        if (col !== undefined) {
-          const screen = buildFilterWhere(
-            payload.filter.field,
-            payload.filter.op,
-            payload.filter.value,
-          );
-          if (screen === null) {
-            whereSql.push("FALSE");
-          } else {
-            for (const [field, value] of Object.entries(screen)) {
-              if (Array.isArray(value)) {
-                const placeholders = value.map((v) => {
-                  params.push(v);
-                  return `$${params.length}`;
-                });
-                whereSql.push(`${colSql(field)} IN (${placeholders.join(", ")})`);
-              } else if (typeof value === "object" && value !== null) {
-                const opMap: Record<string, string> = {
-                  gt: ">",
-                  gte: ">=",
-                  lt: "<",
-                  lte: "<=",
-                  ne: "<>",
-                };
-                for (const [opKey, opSym] of Object.entries(opMap)) {
-                  if (!(opKey in value)) continue;
-                  params.push((value as Record<string, unknown>)[opKey]);
-                  whereSql.push(`${colSql(field)} ${opSym} $${params.length}`);
-                }
-              } else {
-                params.push(value);
-                whereSql.push(`${colSql(field)} = $${params.length}`);
-              }
+      const applyFilter = (f: {
+        readonly field: string;
+        readonly op: "eq" | "ne" | "lt" | "gt" | "in";
+        readonly value: unknown;
+      }): void => {
+        if (table[f.field] === undefined) {
+          // skip: unknown field — not a real column, drop the filter (injection guard)
+          return;
+        }
+        const screen = buildFilterWhere(f.field, f.op, f.value);
+        if (screen === null) {
+          whereSql.push("FALSE");
+          // skip: filter is unsatisfiable → emit FALSE, no params to bind
+          return;
+        }
+        for (const [field, value] of Object.entries(screen)) {
+          if (Array.isArray(value)) {
+            const placeholders = value.map((v) => {
+              params.push(v);
+              return `$${params.length}`;
+            });
+            whereSql.push(`${colSql(field)} IN (${placeholders.join(", ")})`);
+          } else if (typeof value === "object" && value !== null) {
+            const opMap: Record<string, string> = {
+              gt: ">",
+              gte: ">=",
+              lt: "<",
+              lte: "<=",
+              ne: "<>",
+            };
+            for (const [opKey, opSym] of Object.entries(opMap)) {
+              if (!(opKey in value)) continue;
+              params.push((value as Record<string, unknown>)[opKey]);
+              whereSql.push(`${colSql(field)} ${opSym} $${params.length}`);
             }
+          } else {
+            params.push(value);
+            whereSql.push(`${colSql(field)} = $${params.length}`);
           }
         }
-      }
+      };
+      if (payload.filter !== undefined) applyFilter(payload.filter);
+      if (payload.filters !== undefined) for (const f of payload.filters) applyFilter(f);
 
       const orderByClause =
         payload.sort && table[payload.sort]

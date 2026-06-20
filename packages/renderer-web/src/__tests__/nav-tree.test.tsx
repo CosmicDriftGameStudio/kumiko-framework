@@ -5,10 +5,20 @@
 //   2. Active-State greift auf node mit screen wenn nav.route's
 //      screenId matcht (Standard-Sidebar-Verhalten).
 
-import { describe, expect, test } from "bun:test";
-import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
+import { afterEach, describe, expect, test } from "bun:test";
+import type {
+  TargetRef,
+  TreeChildrenSubscribe,
+  TreeNode,
+} from "@cosmicdrift/kumiko-framework/engine";
+import type { FeatureSchema, LiveEventSubscriber } from "@cosmicdrift/kumiko-renderer";
+import { LiveEventsProvider } from "@cosmicdrift/kumiko-renderer";
+import { act } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { NavProvidersProvider } from "../app/nav-providers-context";
 import { NavTree } from "../layout/nav-tree";
-import { fireEvent, render, screen } from "./test-utils";
+import { setDispatchListener } from "../layout/target-resolver-stub";
+import { fireEvent, renderWithSidebar as render, screen } from "./test-utils";
 
 function makeSchema(): FeatureSchema {
   return {
@@ -129,13 +139,13 @@ describe("NavTree role-gating", () => {
 });
 
 describe("NavTree", () => {
-  test("Section-Header (parent ohne screen) rendert children eingerückt — default expanded", () => {
+  test("Section-Header (parent ohne screen) ist statisches Label, children sichtbar", () => {
     render(<NavTree schema={makeSchema()} testId="tree" />);
 
-    // Section "Data" ist als Toggle-Button gerendert (uppercase).
-    const dataHeader = screen.getByText("Data").closest("button") as HTMLButtonElement;
-    expect(dataHeader).not.toBeNull();
-    expect(dataHeader.getAttribute("aria-expanded")).toBe("true");
+    // Section "Data" ist eine STATISCHE Überschrift (sidebar-07-Muster), kein
+    // Toggle-Button — Collapse gehört auf Items mit children, nicht die Section.
+    expect(screen.getByText("Data")).toBeTruthy();
+    expect(screen.getByText("Data").closest("button")).toBeNull();
 
     // Children sind sichtbar im DOM.
     expect(screen.getByText("Items")).toBeTruthy();
@@ -143,16 +153,14 @@ describe("NavTree", () => {
     expect(screen.getByText("Backlog")).toBeTruthy();
   });
 
-  test("Click auf Section-Header toggled aria-expanded — children verschwinden", () => {
+  test("Section-Header collapst NICHT — children bleiben sichtbar", () => {
     render(<NavTree schema={makeSchema()} testId="tree" />);
 
-    const dataHeader = screen.getByText("Data").closest("button") as HTMLButtonElement;
-    fireEvent.click(dataHeader);
-
-    expect(dataHeader.getAttribute("aria-expanded")).toBe("false");
-    // Items ist child von Data → nach Collapse nicht mehr im DOM
-    expect(screen.queryByText("Items")).toBeNull();
-    expect(screen.queryByText("Active")).toBeNull();
+    // Kein Section-Toggle: "Data" sitzt nicht in einem Button, es gibt nichts
+    // zu klicken. Die Items bleiben dauerhaft sichtbar.
+    expect(screen.getByText("Data").closest("button")).toBeNull();
+    expect(screen.getByText("Items")).toBeTruthy();
+    expect(screen.getByText("Active")).toBeTruthy();
   });
 
   test("Parent mit Screen + children — Chevron-Click toggled, ohne Navigation", () => {
@@ -208,5 +216,231 @@ describe("NavTree", () => {
     } as FeatureSchema;
     const { container } = render(<NavTree schema={schema} />);
     expect(container.querySelectorAll("svg").length).toBe(0);
+  });
+});
+
+// ── Visual-Tree-Merge: dynamische Knoten in der EINEN Nav ──────────────
+//
+// Beweist die vier Caps die NavTree aus dem alten VisualTree übernimmt:
+// target-Dispatch, lazy Provider-Children, createAction (+), und — der
+// kritische Pfad — der SSE-treeEntities-Refresh, der neue Knoten LIVE in
+// die Nav bringt (sonst lädt der Tree einmal und „+pricing" erscheint nie).
+
+type LiveCb = Parameters<LiveEventSubscriber>[1];
+
+function controllableLiveEvents(): {
+  readonly subscribe: LiveEventSubscriber;
+  fire(entity: string): void;
+} {
+  const listeners = new Map<string, Set<LiveCb>>();
+  const subscribe: LiveEventSubscriber = (entity, cb) => {
+    const set = listeners.get(entity) ?? new Set<LiveCb>();
+    set.add(cb);
+    listeners.set(entity, set);
+    return () => {
+      set.delete(cb);
+    };
+  };
+  return {
+    subscribe,
+    fire(entity) {
+      // Die Consumer-cbs (NavTree, prod) ignorieren das Event-Arg → zero-arg
+      // call genügt; Cast überbrückt nur die Param-Signatur.
+      for (const cb of listeners.get(entity) ?? []) (cb as () => void)();
+    },
+  };
+}
+
+function pageLeaf(slug: string): TreeNode {
+  return { label: slug, target: { featureId: "cms", action: "edit", args: { slug } } };
+}
+
+// Provider mit `provider: true`-Knoten "Content" + „+"-createAction. QN =
+// "cms:nav:content" (featureName:nav:id). Der Provider liefert die Children.
+function dynamicSchema(): FeatureSchema {
+  return {
+    featureName: "cms",
+    entities: {},
+    screens: [],
+    navs: [
+      {
+        id: "content",
+        label: "Content",
+        order: 10,
+        provider: true,
+        createAction: {
+          icon: "plus",
+          label: "New page",
+          target: { featureId: "cms", action: "create", args: { folder: "" } },
+        },
+      },
+    ],
+  } as FeatureSchema;
+}
+
+function renderDynamic(args: {
+  readonly schema: FeatureSchema;
+  readonly providers: ReadonlyMap<string, TreeChildrenSubscribe>;
+  readonly entities?: ReadonlyMap<string, readonly string[]>;
+  readonly live?: LiveEventSubscriber;
+}): ReturnType<typeof render> {
+  const inner: ReactNode = (
+    <NavProvidersProvider
+      value={args.providers}
+      {...(args.entities && { entities: args.entities })}
+    >
+      <NavTree schema={args.schema} />
+    </NavProvidersProvider>
+  );
+  // Eigene (kontrollierbare) LiveEventsProvider überschreibt den No-op aus
+  // den DefaultProviders (nächster Provider gewinnt).
+  return render(
+    args.live !== undefined ? (
+      <LiveEventsProvider value={args.live}>{inner}</LiveEventsProvider>
+    ) : (
+      inner
+    ),
+  );
+}
+
+describe("NavTree dynamic provider nodes", () => {
+  let restoreDispatch: (() => void) | undefined;
+  afterEach(() => {
+    restoreDispatch?.();
+    restoreDispatch = undefined;
+  });
+
+  test("provider:true-Knoten lädt seine Children lazy + rendert sie (default-expanded)", async () => {
+    const provider: TreeChildrenSubscribe = () => (emit) => {
+      emit([pageLeaf("apex"), pageLeaf("hero")]);
+      return () => {};
+    };
+    const providers = new Map([["cms:nav:content", provider]]);
+    await act(async () => {
+      renderDynamic({ schema: dynamicSchema(), providers });
+    });
+
+    expect(screen.getByText("Content")).toBeTruthy();
+    expect(screen.getByText("apex")).toBeTruthy();
+    expect(screen.getByText("hero")).toBeTruthy();
+  });
+
+  test("createAction rendert ein Plus-Button der sein target dispatcht", async () => {
+    let dispatched: TargetRef | undefined;
+    restoreDispatch = setDispatchListener((t) => {
+      dispatched = t;
+    });
+    const provider: TreeChildrenSubscribe = () => (emit) => {
+      emit([pageLeaf("apex")]);
+      return () => {};
+    };
+    await act(async () => {
+      renderDynamic({
+        schema: dynamicSchema(),
+        providers: new Map([["cms:nav:content", provider]]),
+      });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "New page" }));
+    expect(dispatched).toEqual({ featureId: "cms", action: "create", args: { folder: "" } });
+  });
+
+  test("target-Knoten dispatcht beim Klick (statt Route-Link)", async () => {
+    let dispatched: TargetRef | undefined;
+    restoreDispatch = setDispatchListener((t) => {
+      dispatched = t;
+    });
+    const schema = {
+      featureName: "cms",
+      entities: {},
+      screens: [],
+      navs: [
+        {
+          id: "hero",
+          label: "Hero",
+          order: 10,
+          target: { featureId: "cms", action: "edit", args: { slug: "hero" } },
+        },
+      ],
+    } as FeatureSchema;
+    await act(async () => {
+      renderDynamic({ schema, providers: new Map() });
+    });
+
+    fireEvent.click(screen.getByText("Hero"));
+    expect(dispatched).toEqual({ featureId: "cms", action: "edit", args: { slug: "hero" } });
+  });
+
+  test("SSE-treeEntities-Refresh bringt neu erstellte Knoten LIVE in die Nav", async () => {
+    // Der eigentliche Kern: ein text-block-Event re-fired den Provider →
+    // die frisch erstellte Seite („pricing") erscheint, ohne Re-Mount.
+    let pages = ["apex", "hero"];
+    const provider: TreeChildrenSubscribe = () => (emit) => {
+      emit(pages.map(pageLeaf));
+      return () => {};
+    };
+    const live = controllableLiveEvents();
+    await act(async () => {
+      renderDynamic({
+        schema: dynamicSchema(),
+        providers: new Map([["cms:nav:content", provider]]),
+        entities: new Map([["cms:nav:content", ["text-block"]]]),
+        live: live.subscribe,
+      });
+    });
+
+    expect(screen.getByText("apex")).toBeTruthy();
+    expect(screen.queryByText("pricing")).toBeNull();
+
+    // Neue Seite angelegt → text-block-Event feuert → Provider re-fired.
+    pages = ["apex", "hero", "pricing"];
+    await act(async () => {
+      live.fire("text-block");
+    });
+
+    expect(screen.getByText("pricing")).toBeTruthy();
+  });
+
+  test("Provider-Subscription wird beim Re-Fire + Unmount sauber abgebaut (kein Leak)", async () => {
+    // Jeder subscribe() liefert eine cleanup-Funktion. Invariante: zu jedem
+    // Zeitpunkt darf höchstens EINE Subscription aktiv sein. Beim SSE-Re-Fire
+    // muss die vorherige abgebaut werden BEVOR neu subscribed wird (sonst
+    // akkumulieren sie = Leak); beim Unmount läuft die letzte cleanup. Heute
+    // liefern alle Provider no-op-cleanup — dieser Test schützt den ersten
+    // mit echtem Teardown. (active() statt fixer Counts → robust gegen
+    // StrictMode-Doppel-Mount: net bleibt eine aktive Subscription.)
+    let subscribes = 0;
+    let unsubscribes = 0;
+    const active = (): number => subscribes - unsubscribes;
+    const provider: TreeChildrenSubscribe = () => (emit) => {
+      subscribes += 1;
+      emit([pageLeaf("apex")]);
+      return () => {
+        unsubscribes += 1;
+      };
+    };
+    const live = controllableLiveEvents();
+    let r: ReturnType<typeof render> | undefined;
+    await act(async () => {
+      r = renderDynamic({
+        schema: dynamicSchema(),
+        providers: new Map([["cms:nav:content", provider]]),
+        entities: new Map([["cms:nav:content", ["text-block"]]]),
+        live: live.subscribe,
+      });
+    });
+    expect(active()).toBe(1); // genau eine aktive Subscription nach Mount
+
+    const before = subscribes;
+    await act(async () => {
+      live.fire("text-block");
+    });
+    expect(subscribes).toBeGreaterThan(before); // Re-Fire hat neu subscribed
+    expect(active()).toBe(1); // …aber die alte vorher abgebaut → weiterhin eine
+
+    await act(async () => {
+      r?.unmount();
+    });
+    expect(active()).toBe(0); // Unmount baut alles ab → kein Leak
   });
 });

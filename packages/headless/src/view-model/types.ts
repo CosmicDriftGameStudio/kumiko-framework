@@ -132,6 +132,17 @@ export type EditFieldViewModel = {
   /** Nur bei `type: "reference"` — Multi-Mode (Tier 2.7e-Multi):
    *  Wert ist UUID-Array, Renderer mountet Multi-Combobox mit Tags. */
   readonly refMultiple?: boolean;
+  /** Nur bei `type: "file" | "image"` — erlaubte Extensions/MIME (z.B.
+   *  ["jpg","png"]) + Max-Größe ("5mb"). Der Renderer setzt das `accept`-
+   *  Attribut + zeigt die Grenze; die Validierung läuft serverseitig im
+   *  Upload-Endpoint gegen die Field-Def. */
+  readonly accept?: readonly string[];
+  readonly maxSize?: string;
+  /** Nur bei `type: "file" | "image"` — Entity-Name + Field-Name für den
+   *  Upload-POST (`/api/files`), damit der Endpoint maxSize/accept gegen
+   *  die richtige Field-Def prüfen kann. */
+  readonly entityType?: string;
+  readonly fieldName?: string;
 };
 
 // Discriminated by `kind` — mirrors EditSectionSpec on the engine side.
@@ -141,7 +152,8 @@ export type EditSectionViewModel = EditFieldsSectionViewModel | EditExtensionSec
 
 export type EditFieldsSectionViewModel = {
   readonly kind: "fields";
-  readonly title: string;
+  /** Optional — eine titellose Section rendert nur ihre Felder (flache Form). */
+  readonly title?: string;
   readonly columns: number;
   readonly fields: readonly EditFieldViewModel[];
 };

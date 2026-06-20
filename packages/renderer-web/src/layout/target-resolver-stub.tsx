@@ -12,11 +12,9 @@
 //      (damit unhandled Klicks sichtbar bleiben).
 //
 // **useDispatchTarget (V.1.4b)** ist der empfohlene Production-Pfad.
-// TreeNodeRenderer ruft den Hook in seinem Click-Handler — er schreibt
-// URL via nav.setSearchParams UND ruft den globalen dispatchTarget für
+// NavTree ruft den Hook im Click-Handler eines target-Knotens — er schreibt
+// die URL via nav.setSearchParams UND ruft den globalen dispatchTarget für
 // Test-Listener-Kompatibilität.
-//
-// Siehe visual-tree.md V.1.2 + V.1.4b.
 
 import type { TargetRef } from "@cosmicdrift/kumiko-framework/engine";
 import { useNav } from "@cosmicdrift/kumiko-renderer";
@@ -40,7 +38,7 @@ export function dispatchTarget(target: TargetRef): void {
     return;
   }
   // biome-ignore lint/suspicious/noConsole: fallback wenn kein Subscriber registered
-  console.debug("[VisualTree] target dispatched (unhandled)", target);
+  console.debug("[NavTree] target dispatched (unhandled)", target);
 }
 
 /** Test-Hook: Exklusiver Spy. Returnt cleanup. */

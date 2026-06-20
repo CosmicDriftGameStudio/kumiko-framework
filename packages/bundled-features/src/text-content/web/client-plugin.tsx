@@ -157,8 +157,10 @@ const treeProvider: TreeChildrenSubscribe = () => (emit, emitError) => {
       return r.json();
     })
     .then((data: ByTenantResponse) => {
-      const nodes = groupBlocksByFolder(data.data.blocks);
-      emit(nodes);
+      // Der App-seitige r.nav-Knoten IST der "Content"-Container → die
+      // Provider-Kinder sind die Folder/Leaves darunter, nicht der Wrapper.
+      const content = groupBlocksByFolder(data.data.blocks)[0];
+      emit(content !== undefined && Array.isArray(content.children) ? content.children : []);
     })
     .catch((e) => {
       // V.1.4: explicit error-Signal via emitError. ProviderBranch zeigt
@@ -346,19 +348,20 @@ function TextContentEditor({
   );
 }
 
-export function textContentClient(): ClientFeatureDefinition {
+// `navId` = die QN des r.nav({ provider: true })-Knotens, den die App für den
+// Content-Tree registriert (z.B. "publicstatus:nav:content"). Die App besitzt
+// Label/Icon/Access des Knotens (managed-pages-Konvention) — das Feature
+// liefert nur die Kinder + den Editor. Ohne navId: nur der Resolver, kein
+// Sidebar-Knoten (server-only-Consumer wie money-horse leaken nichts).
+export function textContentClient(opts?: { readonly navId?: string }): ClientFeatureDefinition {
+  const navId = opts?.navId;
   return {
     name: "text-content",
-    treeProvider,
-    // V.1.5b: SSE-driven Tree-Refresh. Bei jedem text-block-Event
-    // (created/updated/deleted) ruft ProviderBranch den treeProvider
-    // neu auf → Tree-State spiegelt save sofort wider (Stale-Tree-Fix).
-    treeEntities: ["text-block"],
-    treeActions: {
-      edit: { args: { slug: "" as string, lang: "" as string } },
-      list: {},
-      create: { args: { folder: "" as string } },
-    },
+    ...(navId !== undefined && {
+      navProviders: { [navId]: treeProvider },
+      // SSE-Refresh: jedes text-block-Event re-fired den Provider → Tree live.
+      navEntities: { [navId]: ["text-block"] },
+    }),
     resolvers: {
       "text-content:edit": TextContentEditor,
     },

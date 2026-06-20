@@ -16,7 +16,7 @@ import { extensionSectionName, useExtensionSectionComponent } from "../app/exten
 import type { ListSort } from "../hooks/use-list-url-state";
 import { type ReferenceLookupMap, useReferenceLookup } from "../hooks/use-reference-lookup";
 import { useTranslation } from "../i18n";
-import { type DataTableRowAction, usePrimitives } from "../primitives";
+import { type DataTableFacet, type DataTableRowAction, usePrimitives } from "../primitives";
 
 // RenderList — präsentationaler View für entityList-Screens.
 //
@@ -90,6 +90,15 @@ export type RenderListProps = {
    *  → useNav, handler-QN → dispatcher-Call). RenderList rendert die
    *  Buttons rechts in der Toolbar, vor "+ Neu". */
   readonly toolbarActions?: readonly ToolbarActionButton[];
+  /** Faceted-Filter-Dropdowns — KumikoScreen baut sie aus den filterable
+   *  select/boolean-Feldern; RenderList reicht sie an die DataTable durch. */
+  readonly filterFacets?: readonly DataTableFacet[];
+  /** Aktuell gewählte Facet-Werte je Feld (vom URL-State). */
+  readonly filterValues?: Readonly<Record<string, readonly string[]>>;
+  /** Toggle eines Facet-Werts (URL-State setzen + refetch). */
+  readonly onFilterChange?: (field: string, values: readonly string[]) => void;
+  /** Reset aller aktiven Facets. */
+  readonly onFilterReset?: () => void;
 };
 
 // Resolved-Form einer Toolbar-Action: KumikoScreen baut das aus dem
@@ -130,6 +139,10 @@ export function RenderList(props: RenderListProps): ReactNode {
     hasMore,
     rowActions,
     toolbarActions,
+    filterFacets,
+    filterValues,
+    onFilterChange,
+    onFilterReset,
   } = props;
   // Wie RenderEdit: Translate-Fallback aus dem i18next-Context, sonst
   // wären Column-Header raw i18n-Keys.
@@ -331,6 +344,10 @@ export function RenderList(props: RenderListProps): ReactNode {
         {...(loadingMore !== undefined && { loadingMore })}
         {...(hasMore !== undefined && { hasMore })}
         {...(rowActions !== undefined && { rowActions })}
+        {...(filterFacets !== undefined && { filterFacets })}
+        {...(filterValues !== undefined && { filterValues })}
+        {...(onFilterChange !== undefined && { onFilterChange })}
+        {...(onFilterReset !== undefined && { onFilterReset })}
         testId="render-list-table"
       />
     </>

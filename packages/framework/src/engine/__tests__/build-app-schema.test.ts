@@ -134,6 +134,27 @@ describe("buildAppSchema", () => {
     expect(fields["label"]?.["default"]).toBe("");
   });
 
+  test("filterable kommt ins Client-Schema (steuert die Faceted-Filter)", () => {
+    const entity = {
+      fields: {
+        status: { type: "select", options: ["draft", "published"], filterable: true },
+        name: { type: "text" },
+      },
+    } as unknown as EntityDefinition;
+    const f = defineFeature("ent", (r) => {
+      r.entity("thing", entity);
+    });
+    const app = buildAppSchema(createRegistry([f]));
+    const fields = (
+      app.features[0]?.entities["thing"] as unknown as {
+        fields: Record<string, Record<string, unknown>>;
+      }
+    ).fields;
+    expect(fields["status"]?.["filterable"]).toBe(true);
+    // Felder ohne filterable tragen den Key nicht (kein false-Müll).
+    expect(fields["name"]?.["filterable"]).toBeUndefined();
+  });
+
   test("AppSchema ist via JSON.stringify roundtrip-sicher", () => {
     // Echter Smoke-Test des Vertrags — wenn jemand in den project-
     // Helper eine Function reinschmuggelt, würde das hier brennen.

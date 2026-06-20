@@ -42,13 +42,20 @@ export function AppLayout({
       data-kumiko-layout="app"
       {...(fill === true && { "data-kumiko-fill": "true" })}
       className={cn(
-        "flex flex-row bg-background text-foreground",
+        // new-york inset-Frame: gedämpfter Rail-Background, die Sidebar sitzt
+        // transparent darauf, der Main-Bereich schwebt als eigenes Panel.
+        "flex flex-row bg-muted/40 text-foreground",
         fill === true ? "h-screen" : "min-h-screen",
         className,
       )}
     >
       {sidebar}
-      <div className={cn("flex flex-1 min-w-0 flex-col", fill === true && "min-h-0")}>
+      <div
+        className={cn(
+          "flex flex-1 min-w-0 flex-col overflow-hidden rounded-xl border bg-background shadow-sm m-2 md:ml-0",
+          fill === true && "min-h-0",
+        )}
+      >
         {topbar}
         {/* main hat KEIN Padding — Screens (Form, Liste, Demo-Pages)
              managen ihr Padding selber, damit Action-Bars edge-to-edge

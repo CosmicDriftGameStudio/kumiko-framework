@@ -31,6 +31,10 @@ export function resolveNavigation(options: ResolveNavigationOptions): NavTree {
       children,
       ...(entry.icon !== undefined && { icon: entry.icon }),
       ...(entry.screen !== undefined && { screen: entry.screen }),
+      ...(entry.target !== undefined && { target: entry.target }),
+      ...(entry.actions !== undefined && { actions: entry.actions }),
+      ...(entry.createAction !== undefined && { createAction: entry.createAction }),
+      ...(entry.provider !== undefined && { provider: entry.provider }),
     };
   }
 

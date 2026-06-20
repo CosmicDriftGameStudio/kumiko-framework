@@ -311,6 +311,9 @@ function projectField(fieldDef: FieldDefinition): FieldDefinition {
   if (typeof def["type"] === "string") out["type"] = def["type"];
   if (typeof def["required"] === "boolean") out["required"] = def["required"];
   if (typeof def["sortable"] === "boolean") out["sortable"] = def["sortable"];
+  // filterable steuert die Faceted-Filter-Dropdowns im Renderer (select/
+  // boolean) — muss daher ins Client-Schema.
+  if (typeof def["filterable"] === "boolean") out["filterable"] = def["filterable"];
   if (isLiteral(def["default"])) out["default"] = def["default"];
   // Select: options-Liste ist plain JSON, durchschicken.
   if (Array.isArray(def["options"])) out["options"] = def["options"];

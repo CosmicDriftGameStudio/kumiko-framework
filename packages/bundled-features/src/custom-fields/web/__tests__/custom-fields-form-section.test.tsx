@@ -334,11 +334,13 @@ describe("CustomFieldsFormSection — boolean/date-Pfade", () => {
       </Wrapper>,
     );
 
-    // boolean rendert als Checkbox — Bestand steckt in checked, nicht value.
-    const input = document.getElementById("custom-field-active") as HTMLInputElement;
-    expect(input.checked).toBe(true);
+    // boolean = vendored Radix-Checkbox → button[role=checkbox], Bestand steckt
+    // in aria-checked (kein natives .checked).
+    const checkbox = document.getElementById("custom-field-active");
+    if (checkbox === null) throw new Error("boolean checkbox not rendered");
+    expect(checkbox.getAttribute("aria-checked")).toBe("true");
 
-    fireEvent.click(input);
+    fireEvent.click(checkbox);
     fireEvent.click(screen.getByTestId("custom-fields-form-save"));
     await Promise.resolve();
     await Promise.resolve();

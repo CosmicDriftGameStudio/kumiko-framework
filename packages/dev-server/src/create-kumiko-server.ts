@@ -173,6 +173,11 @@ export type CreateKumikoServerOptions = {
    *  Handler `roles: ["anonymous"]` deklariert. Tenant-Resolution per
    *  Header/Cookie/Default; siehe AnonymousAccessConfig. */
   readonly anonymousAccess?: TestStackOptions["anonymousAccess"];
+  /** File-Storage-Provider — durchgereicht an setupTestStack. Wenn gesetzt,
+   *  mountet der Stack die Upload-Routes (POST/GET/DELETE /api/files) +
+   *  `ctx.files` und legt die file_refs-Tabelle an. Für Demos:
+   *  `{ storageProvider: createInMemoryFileProvider() }`. */
+  readonly files?: TestStackOptions["files"];
   /** Feature-toggle resolver — durchgereicht an setupTestStack. Wenn
    *  gesetzt, konsultiert der dispatcher-feature-gate, hook-filter, MSP-
    *  filter den callback; absent = alle features always-on. Erforderlich
@@ -660,6 +665,7 @@ export async function createKumikoServer(
     ...(options.auth !== undefined && { authConfig: options.auth }),
     ...(options.extraContext !== undefined && { extraContext: options.extraContext }),
     ...(options.anonymousAccess !== undefined && { anonymousAccess: options.anonymousAccess }),
+    ...(options.files !== undefined && { files: options.files }),
     ...(options.effectiveFeatures !== undefined && {
       effectiveFeatures: options.effectiveFeatures,
     }),

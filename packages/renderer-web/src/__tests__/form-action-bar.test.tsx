@@ -1,9 +1,7 @@
-// F2.4 (Bug-Bash-2): Die Sticky-Action-Bar spannte die volle Breite,
-// während der Form-Body auf max-w-2xl begrenzt ist — die Buttons
-// klebten am Fensterrand, optisch abgekoppelt vom Formular. Außerdem
-// wiederholte der Section-Header bei Single-Section-ActionForms den
-// Screen-Titel 1:1. Strukturelle Assertions (Klassen/DOM) — der
-// visuelle Beweis läuft über die publicstatus-Screens nach dem Bump.
+// shadcn-Form-Muster: die Action-Buttons sitzen als Footer am ENDE des
+// Formulars (border-t-getrennt, rechtsbündig, im max-w-Body), NICHT mehr
+// als Sticky-Bar im Header. Der Titel ist ein Heading oben. Strukturelle
+// Assertions (Klassen/DOM) — der visuelle Beweis läuft über den Runner.
 
 import { describe, expect, test } from "bun:test";
 import type {
@@ -16,20 +14,21 @@ import { createMockDispatcher, render, screen } from "./test-utils";
 
 const { Form, Section, Button } = defaultPrimitives;
 
-describe("DefaultForm Action-Bar", () => {
-  test("Bar-Inhalt aligned mit dem Form-Body (max-w-Container in der Bar)", () => {
+describe("DefaultForm Action-Footer", () => {
+  test("Actions sitzen rechtsbündig am Form-Ende (border-t), Titel ist Heading", () => {
     render(
       <Form onSubmit={() => {}} title="Titel" actions={<Button>Save</Button>} testId="f">
         <div>body</div>
       </Form>,
     );
-    const bar = screen.getByTestId("f-actions");
-    const inner = bar.firstElementChild;
-    expect(inner).toBeTruthy();
-    // Gleiche Breiten-Constraint wie der Body (max-w-2xl + px-6) — die
-    // Buttons enden damit an derselben Linie wie die Formularfelder.
-    expect(inner?.className).toContain("max-w-2xl");
-    expect(inner?.className).toContain("px-6");
+    const actions = screen.getByTestId("f-actions");
+    expect(actions.className).toContain("justify-end");
+    expect(actions.className).toContain("border-t");
+    // Footer liegt im max-w-3xl-Form-Body (Buttons enden an der Feld-Linie).
+    expect(actions.closest(".max-w-3xl")).toBeTruthy();
+    // Titel ist ein eigenes Heading oben, NICHT mehr in der Action-Bar.
+    expect(actions.textContent).not.toContain("Titel");
+    expect(screen.getByTestId("f-title").textContent).toBe("Titel");
   });
 });
 
@@ -41,6 +40,42 @@ describe("DefaultSection ohne Titel", () => {
       </Section>,
     );
     expect(screen.getByTestId("s").querySelector("h3")).toBeNull();
+  });
+});
+
+describe("Form = eine Card, Sections als innere Abschnitte", () => {
+  test("Section im Form trägt keine eigene Card-Fläche, Titel+Footer leben in derselben Card", () => {
+    render(
+      <Form onSubmit={() => {}} title="Titel" actions={<Button>Save</Button>} testId="f">
+        <Section testId="s1">
+          <div>a</div>
+        </Section>
+        <Section testId="s2">
+          <div>b</div>
+        </Section>
+      </Form>,
+    );
+    // Inner-Region: keine eigene bg-card; die Divider zwischen Sections
+    // macht der divide-y-Wrapper, nicht die Section selbst.
+    const s1 = screen.getByTestId("s1");
+    expect(s1.className).not.toContain("bg-card");
+    expect(s1.closest(".divide-y")).toBeTruthy();
+    // Das Form wrappt alles in GENAU eine Card-Fläche.
+    const card = screen.getByTestId("f").querySelector(".bg-card");
+    expect(card).toBeTruthy();
+    expect(card?.querySelectorAll(".bg-card").length).toBe(0);
+    // Titel + Action-Footer sitzen in dieser Card.
+    expect(card?.querySelector("[data-testid='f-title']")).toBeTruthy();
+    expect(card?.querySelector("[data-testid='f-actions']")).toBeTruthy();
+  });
+
+  test("Section standalone (außerhalb Form) bleibt eine eigene Card", () => {
+    render(
+      <Section testId="solo" title="Solo">
+        <div>x</div>
+      </Section>,
+    );
+    expect(screen.getByTestId("solo").className).toContain("bg-card");
   });
 });
 
