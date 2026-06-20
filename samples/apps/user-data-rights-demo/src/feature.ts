@@ -27,6 +27,7 @@
 
 import {
   buildEntityTable,
+  buildEntityTableMeta,
   deleteMany,
   insertOne,
   selectMany,
@@ -97,7 +98,16 @@ const listTodosHandler = defineQueryHandler({
 export const todosFeature = defineFeature(FEATURE_NAME, (r) => {
   r.requires("user-data-rights");
 
-  r.entity("todo", todoEntity);
+  // read_todos is a direct-write store: the create handler `insertOne`s and
+  // the forget hook `updateMany`/`deleteMany`s rows WITHOUT emitting lifecycle
+  // events. Registering it as r.entity would make it a rebuildable implicit
+  // projection whose replay finds zero todo events and swaps an empty shadow
+  // over the live table — wiping every todo (and silently un-forgetting
+  // anonymized rows) on the next projection rebuild (#498). r.unmanagedTable
+  // keeps the migration DDL but opts the table out of implicit rebuild.
+  r.unmanagedTable(buildEntityTableMeta("todo", todoEntity), {
+    reason: "read_side.todos_direct_write",
+  });
   r.writeHandler(createTodoHandler);
   r.queryHandler(listTodosHandler);
 
