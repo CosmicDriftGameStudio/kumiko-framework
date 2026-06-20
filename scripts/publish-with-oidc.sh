@@ -43,6 +43,12 @@ skipped=0
 failed=()
 published_json="[]"
 
+# @cosmicdrift/* package → its release version (this run's package.json set). The
+# pin-drift guard validates each internal pin against the ACTUAL version of that
+# dependency, not the depending package's own version: cli runs an independent
+# version line (0.2.x) yet correctly pins dev-server@0.67.x.
+workspace_versions="$(jq -s 'map({(.name): .version}) | add' packages/*/package.json)"
+
 for pkg_json in packages/*/package.json; do
   pkg_dir="$(dirname "$pkg_json")"
   name="$(jq -r .name "$pkg_json")"
@@ -84,24 +90,21 @@ for pkg_json in packages/*/package.json; do
   if TARBALL="$(cd "$pkg_dir" && bun pm pack --quiet | grep -E '\.tgz$' | tail -n1)" \
      && [ -n "$TARBALL" ]; then
     # Guard (#410): the packed manifest must pin every internal @cosmicdrift/*
-    # dependency to the release version. workspace:* is substituted from bun.lock
-    # at pack time — a lock left stale by `changeset version` ships a lagging pin
-    # (e.g. renderer@0.64 → framework@0.57) that breaks consumers without full
-    # `overrides`. Refuse to publish on drift rather than ship a broken tree.
+    # dependency to that dependency's release version. workspace:* is substituted
+    # from bun.lock at pack time — a lock left stale by `changeset version` ships a
+    # lagging pin (e.g. renderer@0.64 → framework@0.57) that breaks consumers
+    # without full `overrides`. Each pin is checked against the dependency's actual
+    # version ($workspace_versions), not $version — cli has an independent 0.2.x
+    # line but pins dev-server@0.67.x correctly. Refuse to publish on drift.
     pin_drift="$(tar -xzOf "$pkg_dir/$TARBALL" package/package.json \
-      | jq -r --arg v "$version" '
-          ((.dependencies // {}) + (.peerDependencies // {}))
-          | to_entries
-          | map(select((.key | startswith("@cosmicdrift/")) and .value != $v)
-                | "\(.key)@\(.value)")
-          | join(", ")')"
+      | jq -r --argjson expected "$workspace_versions" -f "$REPO_ROOT/scripts/pin-drift.jq")"
   fi
 
   if [ -z "$TARBALL" ]; then
     echo "[fail] $name@$version: pack produced no tarball" >&2
     failed+=("$name@$version")
   elif [ -n "$pin_drift" ]; then
-    echo "[fail] $name@$version: internal pin(s) lag the release version — got $pin_drift (expected $version)." >&2
+    echo "[fail] $name@$version: internal pin(s) drift from the release version — $pin_drift." >&2
     echo "[fail] bun.lock is stale; the version step must run 'changeset version && bun install'." >&2
     failed+=("$name@$version (pin drift)")
   elif npm publish "$pkg_dir/$TARBALL" --provenance --access public >&2; then
