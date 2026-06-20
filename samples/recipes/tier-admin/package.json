@@ -1,0 +1,9 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-tier-admin",
+  "description": "Manually grant a tier to a tenant without a billing purchase — the SystemAdmin operator flow and how the resolver cache stays in sync.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  }
+}
