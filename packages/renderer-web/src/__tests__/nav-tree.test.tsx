@@ -400,4 +400,47 @@ describe("NavTree dynamic provider nodes", () => {
 
     expect(screen.getByText("pricing")).toBeTruthy();
   });
+
+  test("Provider-Subscription wird beim Re-Fire + Unmount sauber abgebaut (kein Leak)", async () => {
+    // Jeder subscribe() liefert eine cleanup-Funktion. Invariante: zu jedem
+    // Zeitpunkt darf höchstens EINE Subscription aktiv sein. Beim SSE-Re-Fire
+    // muss die vorherige abgebaut werden BEVOR neu subscribed wird (sonst
+    // akkumulieren sie = Leak); beim Unmount läuft die letzte cleanup. Heute
+    // liefern alle Provider no-op-cleanup — dieser Test schützt den ersten
+    // mit echtem Teardown. (active() statt fixer Counts → robust gegen
+    // StrictMode-Doppel-Mount: net bleibt eine aktive Subscription.)
+    let subscribes = 0;
+    let unsubscribes = 0;
+    const active = (): number => subscribes - unsubscribes;
+    const provider: TreeChildrenSubscribe = () => (emit) => {
+      subscribes += 1;
+      emit([pageLeaf("apex")]);
+      return () => {
+        unsubscribes += 1;
+      };
+    };
+    const live = controllableLiveEvents();
+    let r: ReturnType<typeof render> | undefined;
+    await act(async () => {
+      r = renderDynamic({
+        schema: dynamicSchema(),
+        providers: new Map([["cms:nav:content", provider]]),
+        entities: new Map([["cms:nav:content", ["text-block"]]]),
+        live: live.subscribe,
+      });
+    });
+    expect(active()).toBe(1); // genau eine aktive Subscription nach Mount
+
+    const before = subscribes;
+    await act(async () => {
+      live.fire("text-block");
+    });
+    expect(subscribes).toBeGreaterThan(before); // Re-Fire hat neu subscribed
+    expect(active()).toBe(1); // …aber die alte vorher abgebaut → weiterhin eine
+
+    await act(async () => {
+      r?.unmount();
+    });
+    expect(active()).toBe(0); // Unmount baut alles ab → kein Leak
+  });
 });

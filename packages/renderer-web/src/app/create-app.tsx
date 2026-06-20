@@ -41,7 +41,6 @@ import { type ClientFeatureDefinition, stackWrappers } from "./client-plugin";
 import { useBrowserNavApi } from "./nav";
 import { NavProvidersProvider } from "./nav-providers-context";
 import { type ResolverComponent, ResolversProvider } from "./resolvers-context";
-import { TreeProvidersProvider } from "./tree-providers-context";
 
 // Web-Bootstrap. Mounted den ganzen Kumiko-Render-Stack im Browser:
 // Tokens (class-based light/dark via <html>), Primitives (HTML),
@@ -215,32 +214,11 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
     }
   }
 
-  // Tree-Provider-Map aggregieren — keyed by clientFeature.name (matches
-  // server-side FeatureDefinition.name). Mehrere clientFeatures mit
-  // gleichem name + treeProvider sind ein Author-Bug (würde stillschweigend
-  // den Provider eines Features durch den eines anderen überschreiben);
-  // wir warnen einmal pro Kollision. Visual-Tree.md V.1.1-Distribution.
-  const treeProviders = new Map<string, TreeChildrenSubscribe>();
-  const treeEntities = new Map<string, readonly string[]>();
-  for (const f of clientFeatures) {
-    if (f.treeProvider === undefined) continue;
-    if (treeProviders.has(f.name)) {
-      // biome-ignore lint/suspicious/noConsole: dev-warning für Schema-Konflikte
-      console.warn(
-        `[kumiko] treeProvider for "${f.name}" defined by multiple clientFeatures — last definition wins.`,
-      );
-    }
-    treeProviders.set(f.name, f.treeProvider);
-    if (f.treeEntities !== undefined && f.treeEntities.length > 0) {
-      treeEntities.set(f.name, f.treeEntities);
-    }
-  }
-
-  // Nav-Provider-Map (Tree→Nav-Merge) — keyed auf die Nav-QN. Anders als
-  // treeProviders (featureName-keyed, ein Branch pro Feature) hängt ein
-  // navProvider an einen konkreten r.nav({provider:true})-Knoten. Lokale
-  // nav-ids werden wie in r.nav mit dem Feature-Namen qualifiziert;
-  // bereits qualifizierte QNs (cross-feature) gehen unverändert durch.
+  // Nav-Provider-Map: ein navProvider hängt dynamische Children an einen
+  // konkreten r.nav({provider:true})-Knoten (per QN). Lokale nav-ids werden
+  // wie in r.nav mit dem Feature-Namen qualifiziert; bereits qualifizierte
+  // QNs (cross-feature, z.B. App registriert Nav für ein bundled-feature)
+  // gehen unverändert durch.
   const navProviders = new Map<string, TreeChildrenSubscribe>();
   const navEntities = new Map<string, readonly string[]>();
   const qualifyNav = (feature: string, id: string): string =>
@@ -302,16 +280,14 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
               <CustomScreensProvider value={customScreens}>
                 <ColumnRenderersProvider value={columnRenderers}>
                   <ExtensionSectionsProvider value={extensionSectionComponents}>
-                    <TreeProvidersProvider value={treeProviders} entities={treeEntities}>
-                      <NavProvidersProvider value={navProviders} entities={navEntities}>
-                        <ResolversProvider resolvers={resolvers}>
-                          <ToastProvider>
-                            <UpdateChecker />
-                            {stackWrappers(providers, stackWrappers(gates, screenNode))}
-                          </ToastProvider>
-                        </ResolversProvider>
-                      </NavProvidersProvider>
-                    </TreeProvidersProvider>
+                    <NavProvidersProvider value={navProviders} entities={navEntities}>
+                      <ResolversProvider resolvers={resolvers}>
+                        <ToastProvider>
+                          <UpdateChecker />
+                          {stackWrappers(providers, stackWrappers(gates, screenNode))}
+                        </ToastProvider>
+                      </ResolversProvider>
+                    </NavProvidersProvider>
                   </ExtensionSectionsProvider>
                 </ColumnRenderersProvider>
               </CustomScreensProvider>

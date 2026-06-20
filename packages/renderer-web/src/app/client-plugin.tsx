@@ -9,11 +9,7 @@
 // ganz außen gestackt, dann alle Gates nach innen. So hat jeder Gate
 // Zugriff auf jeden Provider, egal welches Feature ihn gebracht hat.
 
-import type {
-  TargetRef,
-  TreeActionDef,
-  TreeChildrenSubscribe,
-} from "@cosmicdrift/kumiko-framework/engine";
+import type { TargetRef, TreeChildrenSubscribe } from "@cosmicdrift/kumiko-framework/engine";
 import type {
   ColumnRendererComponent,
   ExtensionSectionComponent,
@@ -61,29 +57,6 @@ export type ClientFeatureDefinition = {
    *  `{ entityName, entityId }`. Pattern wie columnRenderers — Last-Wins
    *  bei Key-Kollision über mehrere Features. */
   readonly extensionSectionComponents?: Readonly<Record<string, ExtensionSectionComponent>>;
-  /** Tree-Provider für `r.workspace({ navigation: "tree" })`-Workspaces
-   *  (Visual-Tree). Wird beim Mount des Tree-Workspaces mit ctx aufgerufen,
-   *  emittiert TreeNode[] die in der Sidebar gerendert werden. Closure-
-   *  Distribution gleicher Mechanismus wie `columnRenderers` — Server-
-   *  Registry kennt nur „dass es das gibt", echte Function lebt
-   *  client-side. Spiegelt das server-side `r.tree(provider)` aus dem
-   *  Feature; bundled-features liefern beide Seiten konsistent.
-   *  Siehe visual-tree.md V.1.1-Distribution. */
-  readonly treeProvider?: TreeChildrenSubscribe;
-  /** Tree-Actions-Schema — die Action-Map die `buildTarget` compile-time
-   *  validiert. Erased-Runtime-Surface; typed Handle wandert separat
-   *  via Server-Feature setup-export (FeatureDefinition.exports.handle).
-   *  Identisch zur server-side `r.treeActions(...)`-Map; bundled-
-   *  features liefern beide Seiten konsistent. */
-  readonly treeActions?: Readonly<Record<string, TreeActionDef>>;
-
-  /** V.1.5b SSE-Tree-Refresh: Liste der Entity-Namen die der Provider
-   *  abdeckt. Bei Live-Events für eine dieser Entities (created/updated/
-   *  deleted/restored) wird der Provider neu aufgerufen → Tree refresht.
-   *  Optional + leer/undefined → kein SSE-Refresh (static Provider, z.B.
-   *  legal-pages). Beispiel text-content: `["text-block"]`. */
-  readonly treeEntities?: readonly string[];
-
   /** Nav-Provider für die EINE Nav (Visual-Tree-Merge): hängt dynamische
    *  Children an einen statischen `r.nav({ provider: true })`-Knoten. Keyed
    *  auf die LOKALE nav-id (create-app qualifiziert zu `<feature>:nav:<id>`;
