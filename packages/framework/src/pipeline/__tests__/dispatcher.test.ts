@@ -376,6 +376,38 @@ describe("dispatcher feature-gate", () => {
     });
   });
 
+  test("trialGate: disabled feature is allowed on the gate's cold path when trialGate returns true", async () => {
+    // Beweist die Live-Trial-Mechanik: der sync resolver hat das Feature NICHT
+    // im Set (alles disabled), aber checkFeatureEnabled konsultiert den async
+    // trialGate auf dem disabled-Pfad. Deckt beide Aufrufstellen ab (query =
+    // ensureFeatureEnabled, write = checkFeatureEnabled).
+    const registry = createRegistry([toggled()]);
+    let trialOpen = false;
+    const effectiveFeatures = Object.assign(() => new Set<string>(), {
+      trialGate: async (_tenantId: TenantId, feature: string) =>
+        trialOpen && feature === "toggled",
+    });
+    const dispatcher = createDispatcher(registry, {}, { effectiveFeatures });
+
+    // Trial zu → 403 (resolver-Set leer, Gate verweigert).
+    await expect(dispatcher.query("toggled:query:widget:list", {}, user)).rejects.toThrow(
+      /feature toggled is disabled/,
+    );
+    const writeClosed = await dispatcher.write("toggled:write:widget:create", { name: "x" }, user);
+    expect(writeClosed.isSuccess).toBe(false);
+    if (!writeClosed.isSuccess) expect(writeClosed.error.code).toBe("feature_disabled");
+
+    // Trial offen → Gate lässt durch, obwohl der Resolver das Feature nicht
+    // führt. Query passiert; Write passiert das Gate (scheitert ggf. später an
+    // fehlender DB, aber NICHT mehr an feature_disabled).
+    trialOpen = true;
+    await expect(dispatcher.query("toggled:query:widget:list", {}, user)).resolves.toEqual({
+      items: [],
+    });
+    const writeOpen = await dispatcher.write("toggled:write:widget:create", { name: "x" }, user);
+    if (!writeOpen.isSuccess) expect(writeOpen.error.code).not.toBe("feature_disabled");
+  });
+
   test("Sprint 8a: per-tenant gating — Tenant A passes, Tenant B gets feature_disabled", async () => {
     // Beweist die Phase-1-Architektur: dispatcher ruft effectiveFeatures
     // mit user.tenantId, resolver kann pro Tenant unterschiedliche Sets

@@ -41,12 +41,29 @@ export const TENANT_TIER_RESOLVER_EXT = "tenantTierResolver";
  * **System-context convention:** call mit SYSTEM_TENANT_ID erwartet die union
  * aller tier-features (siehe DispatcherOptions.effectiveFeatures doc-block).
  */
-export type EffectiveFeaturesResolver = (tenantId: TenantId) => ReadonlySet<string>;
+export type EffectiveFeaturesResolver = ((tenantId: TenantId) => ReadonlySet<string>) & {
+  /**
+   * Optionaler Live-Trial-Gate, vom dispatcher-feature-gate NUR konsultiert
+   * wenn der synchrone Resolver ein Feature als disabled meldet. Liest das
+   * Signup-Datum des Tenants live (tenant.inserted_at) und returnt true wenn
+   * der Tenant im Trial-Fenster ist UND das Feature zum Trial-Tier gehört.
+   * Async + nicht im Boot-Cache, weil der Trial zeit-abgeleitet ist (ändert
+   * sich zwischen Requests). Nur die 2 Gate-Aufrufstellen awaiten ihn; der
+   * synchrone Hot-Path (ctx.hasFeature, Feature-Set) bleibt unberührt.
+   */
+  readonly trialGate?: TrialGate;
+};
+
+/**
+ * Live-Trial-Gate-Shape. Siehe EffectiveFeaturesResolver.trialGate.
+ */
+export type TrialGate = (tenantId: TenantId, featureName: string) => Promise<boolean>;
 
 /**
  * Plugin-shape für tier-resolver-extension. Plugins implementieren `build`
  * als boot-time factory: kriegen `db` + `registry` (post-stack-setup),
- * laden initial cache aus DB, returnen den synchronen resolver-callback.
+ * laden initial cache aus DB, returnen den synchronen resolver-callback
+ * (optional mit angehängtem `trialGate`).
  */
 export type TierResolverPlugin = {
   readonly build: (deps: {

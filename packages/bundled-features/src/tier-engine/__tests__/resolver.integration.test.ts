@@ -18,6 +18,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { configValuesTable } from "@cosmicdrift/kumiko-bundled-features/config";
 import { tenantSecretsTable } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { tenantMembershipsTable, tenantTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
+import { seedTenant } from "@cosmicdrift/kumiko-bundled-features/tenant/seeding";
 import { userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
@@ -112,7 +113,7 @@ afterAll(async () => stack?.cleanup());
 
 beforeEach(async () => {
   await asRawClient(stack.db).unsafe(
-    `TRUNCATE read_tier_assignments, kumiko_events RESTART IDENTITY CASCADE`,
+    `TRUNCATE read_tier_assignments, read_tenants, kumiko_events RESTART IDENTITY CASCADE`,
   );
 });
 
@@ -227,55 +228,53 @@ describe("createTierEngineFeature — per-tenant resolver", () => {
   });
 });
 
-describe("createTierEngineFeature — Trial-Phase (zeit-abgeleitet)", () => {
-  function sysUser(tenantId: TenantId, id: string) {
-    return createTestUser({ id, tenantId, roles: ["SystemAdmin", "TenantAdmin"] });
+describe("createTierEngineFeature — Trial-Phase (zeit-abgeleitet, Live-Gate)", () => {
+  // Der Trial lebt NICHT mehr im Resolver-Feature-Set (sync/boot-cached sieht
+  // weder frische Signups noch den Zeitablauf), sondern als async trialGate,
+  // der tenant.inserted_at LIVE liest. Diese Tenants entstehen über den ECHTEN
+  // seedTenant-Pfad (= auth-signup) — OHNE tier-assignment-Row. Genau dieser
+  // Pfad war der Prod-Bug: die alte gecachte Trial-Uhr sah seedTenant-Signups
+  // nie (seedTenant umgeht den dispatcher-postSave-Hook).
+  async function seedSignup(tenantId: TenantId, key: string) {
+    await seedTenant(stack.db, { id: tenantId, key, name: key });
   }
 
-  test("neuer 'free'-Tenant sieht im Fenster die Trial-Features (feat-pro)", async () => {
+  test("seedTenant-Signup ohne tier-assignment: trialGate schaltet feat-pro im Fenster frei", async () => {
     const usage = findTierResolverUsage(featuresWithTrial);
     if (!usage) throw new Error("setup failure: no trial resolver");
     const plugin = usage.options as TierResolverPlugin;
 
-    // Gespeicherter Tier ist free (keine feat-pro), inserted_at = jetzt → Trial aktiv.
-    await stack.http.writeOk(
-      "tier-engine:write:tier-assignment:create",
-      { tier: "free" },
-      sysUser(tenantA, "trial-sys-1"),
-    );
+    await seedSignup(tenantA, "trial-a");
     const resolver = await plugin.build({ db: stack.db, registry: stack.registry });
-    expect(resolver(tenantA).has("feat-pro")).toBe(true);
+
+    // Trial sitzt am Gate, nicht im Resolver-Feature-Set.
+    expect(resolver(tenantA).has("feat-pro")).toBe(false);
+    expect(resolver.trialGate).toBeDefined();
+    expect(await resolver.trialGate?.(tenantA, "feat-pro")).toBe(true);
+    // Feature außerhalb des Trial-Tiers ("business") bleibt zu.
+    expect(await resolver.trialGate?.(tenantA, "feat-business")).toBe(false);
   });
 
-  test("Tenant außerhalb des Fensters (inserted_at > 30 Tage) fällt auf free zurück", async () => {
+  test("inserted_at > 30 Tage: trialGate schließt", async () => {
     const usage = findTierResolverUsage(featuresWithTrial);
     if (!usage) throw new Error("setup failure: no trial resolver");
     const plugin = usage.options as TierResolverPlugin;
 
-    await stack.http.writeOk(
-      "tier-engine:write:tier-assignment:create",
-      { tier: "free" },
-      sysUser(tenantB, "trial-sys-2"),
-    );
+    await seedSignup(tenantB, "trial-b");
     // Anlage-Datum künstlich 31 Tage zurückdrehen → Trial abgelaufen. tenantB ist
     // eine fixe Test-UUID (kein User-Input) → inline-Interpolation unkritisch.
     await asRawClient(stack.db).unsafe(
-      `UPDATE read_tier_assignments SET inserted_at = now() - interval '31 days' WHERE tenant_id = '${tenantB}'::uuid`,
+      `UPDATE read_tenants SET inserted_at = now() - interval '31 days' WHERE id = '${tenantB}'::uuid`,
     );
     const resolver = await plugin.build({ db: stack.db, registry: stack.registry });
-    expect(resolver(tenantB).has("feat-pro")).toBe(false);
+    expect(await resolver.trialGate?.(tenantB, "feat-pro")).toBe(false);
   });
 
-  test("ohne Trial-Option ist der Resolver unverändert (free = keine feat-pro)", async () => {
+  test("ohne Trial-Option gibt es keinen trialGate", async () => {
     const usage = findTierResolverUsage(features);
     if (!usage) throw new Error("setup failure");
     const plugin = usage.options as TierResolverPlugin;
-    await stack.http.writeOk(
-      "tier-engine:write:tier-assignment:create",
-      { tier: "free" },
-      sysUser(tenantA, "no-trial-sys"),
-    );
     const resolver = await plugin.build({ db: stack.db, registry: stack.registry });
-    expect(resolver(tenantA).has("feat-pro")).toBe(false);
+    expect(resolver.trialGate).toBeUndefined();
   });
 });

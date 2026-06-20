@@ -659,10 +659,10 @@ export function createDispatcher(
   // When `effectiveFeatures` is not wired (tests, apps without feature-toggles
   // loaded), every handler is treated as enabled — the gate is a pure
   // pass-through in that common case.
-  function checkFeatureEnabled(
+  async function checkFeatureEnabled(
     qualifiedHandler: string,
     tenantId: TenantId,
-  ): import("../errors").FeatureDisabledError | undefined {
+  ): Promise<import("../errors").FeatureDisabledError | undefined> {
     if (!effectiveFeatures) return undefined;
     const owner = registry.getHandlerFeature(qualifiedHandler);
     // skip: handler without an owning feature cannot be toggled — shouldn't
@@ -671,11 +671,18 @@ export function createDispatcher(
     if (!owner) return undefined;
     const set = effectiveFeatures(tenantId);
     if (set.has(owner)) return undefined;
+    // Feature is off for the stored tier — give the live trial-gate a last
+    // chance. Time-derived (tenant.inserted_at + window), so it can't live in
+    // the boot-cached sync resolver; consulted only on this already-disabled
+    // cold path, never on the hot enabled path.
+    if (effectiveFeatures.trialGate && (await effectiveFeatures.trialGate(tenantId, owner))) {
+      return undefined;
+    }
     return new FeatureDisabledError(owner, qualifiedHandler);
   }
 
-  function ensureFeatureEnabled(qualifiedHandler: string, tenantId: TenantId): void {
-    const err = checkFeatureEnabled(qualifiedHandler, tenantId);
+  async function ensureFeatureEnabled(qualifiedHandler: string, tenantId: TenantId): Promise<void> {
+    const err = await checkFeatureEnabled(qualifiedHandler, tenantId);
     if (err) throw err;
   }
 
@@ -737,7 +744,7 @@ export function createDispatcher(
     // disabled feature must not consume the rate-limit quota — the call
     // never happened from the feature's perspective. Order is: lookup →
     // feature-gate → rate-limit → access → validation → handler.
-    ensureFeatureEnabled(type, user.tenantId);
+    await ensureFeatureEnabled(type, user.tenantId);
 
     // Rate-limit gate runs BEFORE access-check on purpose: anonymous /
     // unauthorized callers must hit the cap too (otherwise the limit
@@ -1028,7 +1035,7 @@ export function createDispatcher(
 
     // Feature-toggle gate: disabled handlers must short-circuit before any
     // rate-limit/access/validation work — see executeQueryInner comment.
-    const disabledErr = checkFeatureEnabled(type, user.tenantId);
+    const disabledErr = await checkFeatureEnabled(type, user.tenantId);
     if (disabledErr) return writeFailure(disabledErr);
 
     // Rate-limit gate before access (same reasoning as in executeQueryInner).
