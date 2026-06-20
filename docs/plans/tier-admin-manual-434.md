@@ -1,7 +1,7 @@
 ---
 status: in-progress
 verified: 2026-06-18
-next: Phase A KOMPLETT (Branch feat/tier-admin-434) — Server-Kern + TierAdminScreen + tierEngineClient + package.json-subpath + Integration-Test (16 grün, Scenario 7 cross-tenant) + changeset (minor, lockstep). Offen Phase B (npm-Release), dann C (money-horse → ab da auf cashcolt testbar), D, E.
+next: Siehe CosmicDriftGameStudio/kumiko-framework#434 — Phase A KOMPLETT (Branch feat/tier-admin-434) — Server-Kern + TierAdminScreen + …
 issue: CosmicDriftGameStudio/kumiko-framework#434
 ---
 

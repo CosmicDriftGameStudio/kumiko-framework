@@ -1,9 +1,9 @@
 ---
-status: parked
-verified: 2026-06-07
-evidence: framework#235 #237 #238 #240 #241 #244 #246 (Phase 1)
-next: Phase 2+3 bewusst zurückgestellt (diminishing returns)
+status: superseded
+verified: 2026-06-20
+superseded-by: kumiko-framework#540
 ---
+
 
 # Test-Lücken schließen — Integration & Unit
 
