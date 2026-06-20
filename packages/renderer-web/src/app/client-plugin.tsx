@@ -84,6 +84,18 @@ export type ClientFeatureDefinition = {
    *  legal-pages). Beispiel text-content: `["text-block"]`. */
   readonly treeEntities?: readonly string[];
 
+  /** Nav-Provider für die EINE Nav (Visual-Tree-Merge): hängt dynamische
+   *  Children an einen statischen `r.nav({ provider: true })`-Knoten. Keyed
+   *  auf die LOKALE nav-id (create-app qualifiziert zu `<feature>:nav:<id>`;
+   *  bereits qualifizierte QNs gehen durch). Anders als `treeProvider` (ein
+   *  Top-Level-Branch pro Feature) attacht ein navProvider an einen konkreten
+   *  Nav-Knoten — der idiomatic Weg seit dem Tree→Nav-Merge. */
+  readonly navProviders?: Readonly<Record<string, TreeChildrenSubscribe>>;
+  /** SSE-Entity-Listen pro nav-id für den Live-Refresh der navProviders
+   *  (analog `treeEntities`). Live-Event für eine Entity → Provider des
+   *  Knotens wird neu aufgerufen → neue Kinder erscheinen live. */
+  readonly navEntities?: Readonly<Record<string, readonly string[]>>;
+
   /** Editor-Resolver-Komponenten pro featureId:action-Key. Wenn ein
    *  TreeNode mit target angeklickt wird, schlägt der EditorPanel das
    *  Component hier nach und rendert es. Komponenten erhalten target

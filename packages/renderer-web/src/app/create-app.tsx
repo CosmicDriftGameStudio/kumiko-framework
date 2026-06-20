@@ -39,6 +39,7 @@ import { UpdateChecker } from "../version/update-checker";
 import { createBrowserLocaleResolver } from "./browser-locale";
 import { type ClientFeatureDefinition, stackWrappers } from "./client-plugin";
 import { useBrowserNavApi } from "./nav";
+import { NavProvidersProvider } from "./nav-providers-context";
 import { type ResolverComponent, ResolversProvider } from "./resolvers-context";
 import { TreeProvidersProvider } from "./tree-providers-context";
 
@@ -235,6 +236,31 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
     }
   }
 
+  // Nav-Provider-Map (Tree→Nav-Merge) — keyed auf die Nav-QN. Anders als
+  // treeProviders (featureName-keyed, ein Branch pro Feature) hängt ein
+  // navProvider an einen konkreten r.nav({provider:true})-Knoten. Lokale
+  // nav-ids werden wie in r.nav mit dem Feature-Namen qualifiziert;
+  // bereits qualifizierte QNs (cross-feature) gehen unverändert durch.
+  const navProviders = new Map<string, TreeChildrenSubscribe>();
+  const navEntities = new Map<string, readonly string[]>();
+  const qualifyNav = (feature: string, id: string): string =>
+    id.includes(":nav:") ? id : `${feature}:nav:${id}`;
+  for (const f of clientFeatures) {
+    for (const [navId, provider] of Object.entries(f.navProviders ?? {})) {
+      const qn = qualifyNav(f.name, navId);
+      if (navProviders.has(qn)) {
+        // biome-ignore lint/suspicious/noConsole: dev-warning für Schema-Konflikte
+        console.warn(
+          `[kumiko] navProvider for "${qn}" defined by multiple clientFeatures — last wins.`,
+        );
+      }
+      navProviders.set(qn, provider);
+    }
+    for (const [navId, entities] of Object.entries(f.navEntities ?? {})) {
+      if (entities.length > 0) navEntities.set(qualifyNav(f.name, navId), entities);
+    }
+  }
+
   // Editor-Resolver aggregieren — keyed by "featureId:action". Gleiche
   // Last-Wins-Semantik wie columnRenderers. Warnung bei Kollision.
   const resolvers = new Map<string, ResolverComponent>();
@@ -277,12 +303,14 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
                 <ColumnRenderersProvider value={columnRenderers}>
                   <ExtensionSectionsProvider value={extensionSectionComponents}>
                     <TreeProvidersProvider value={treeProviders} entities={treeEntities}>
-                      <ResolversProvider resolvers={resolvers}>
-                        <ToastProvider>
-                          <UpdateChecker />
-                          {stackWrappers(providers, stackWrappers(gates, screenNode))}
-                        </ToastProvider>
-                      </ResolversProvider>
+                      <NavProvidersProvider value={navProviders} entities={navEntities}>
+                        <ResolversProvider resolvers={resolvers}>
+                          <ToastProvider>
+                            <UpdateChecker />
+                            {stackWrappers(providers, stackWrappers(gates, screenNode))}
+                          </ToastProvider>
+                        </ResolversProvider>
+                      </NavProvidersProvider>
                     </TreeProvidersProvider>
                   </ExtensionSectionsProvider>
                 </ColumnRenderersProvider>
