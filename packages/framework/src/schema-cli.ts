@@ -13,10 +13,12 @@ import { join, resolve as resolvePath } from "node:path";
 import {
   baselineMigrations,
   createDbConnection,
+  type DbConnection,
   fetchAppliedMigrations,
   generateMigration,
   loadMigrationsFromDir,
   loadSnapshotJson,
+  readRebuildMarker,
   rebuildTablesFromDiff,
   type renderTablesDdl,
   runMigrationsFromDir,
@@ -25,9 +27,15 @@ import {
   writeSnapshotJson,
 } from "./db";
 import { validateBoot } from "./engine/boot-validator";
+import { createRegistry } from "./engine/registry";
 import type { FeatureDefinition } from "./engine/types/feature";
 import { createEventsTable } from "./event-store";
-import { createEventConsumerStateTable, createProjectionStateTable } from "./pipeline";
+import { buildProjectionTableIndex } from "./migrations";
+import {
+  createEventConsumerStateTable,
+  createProjectionStateTable,
+  rebuildProjection,
+} from "./pipeline";
 
 export type SchemaCliOut = {
   readonly log: (line: string) => void;
@@ -63,6 +71,40 @@ function nextSequenceNumber(migrationsDir: string): number {
   return max + 1;
 }
 
+// Maps changed tables to their projections (via the app registry) and replays
+// the events. Tables without a registered projection are skipped.
+async function rebuildAffectedProjections(
+  db: DbConnection,
+  changedTables: readonly string[],
+  features: readonly FeatureDefinition[],
+  out: SchemaCliOut,
+): Promise<void> {
+  const registry = createRegistry(features);
+  const tableToProjection = buildProjectionTableIndex(registry);
+
+  const projections = new Set<string>();
+  for (const table of changedTables) {
+    const name = tableToProjection.get(table);
+    if (name) projections.add(name);
+  }
+  // skip: no changed table maps to a registered projection — nothing to rebuild.
+  if (projections.size === 0) return;
+
+  out.log(`  Rebuild ${projections.size} Projection(s)…`);
+  for (const name of projections) {
+    const r = await rebuildProjection(name, { db, registry });
+    out.log(`    ↻ ${name} (${r.eventsProcessed} events, ${r.durationMs}ms)`);
+  }
+  out.log("");
+}
+
+export type RunSchemaCliOptions = {
+  /** Composed app features. When given, `apply` rebuilds the projections whose
+   *  tables a freshly applied migration changed (via its `.rebuild.json`
+   *  marker). Omitted (dev `kumiko schema`) → no rebuild, migrations only. */
+  readonly features?: readonly FeatureDefinition[];
+};
+
 /**
  * Runs a schema-CLI subcommand. `appCwd` is the app workspace root (where
  * `kumiko/schema.ts` + `kumiko/migrations/` live). Returns a process exit code.
@@ -71,6 +113,7 @@ export async function runSchemaCli(
   argv: readonly string[],
   appCwd: string,
   out: SchemaCliOut,
+  options: RunSchemaCliOptions = {},
 ): Promise<number> {
   const sub = argv[0];
   const schemaFile = resolvePath(appCwd, "kumiko/schema.ts");
@@ -235,6 +278,21 @@ export async function runSchemaCli(
           if (result.skipped.length > 0) out.log(`  (${result.skipped.length} already applied)`);
         }
         out.log("");
+
+        // Projection-rebuild for tables a freshly applied migration changed
+        // (marker NNNN_<name>.rebuild.json from `generate`). Without it read_*
+        // projections stay stale after a schema change. Needs the composed
+        // feature set → only when the caller passed `features` (the app bin);
+        // the dev CLI omits it and applies migrations only.
+        if (options.features && result.applied.length > 0) {
+          const changedTables = new Set<string>();
+          for (const id of result.applied) {
+            for (const table of readRebuildMarker(migrationsDir, id)) changedTables.add(table);
+          }
+          if (changedTables.size > 0) {
+            await rebuildAffectedProjections(db, [...changedTables], options.features, out);
+          }
+        }
         return 0;
       } catch (e) {
         out.err("");
