@@ -11,11 +11,18 @@
 // auf/zu. State lebt lokal im NavTree (useState); Default expanded
 // für alles, Caller kann später localStorage-Persistenz drüberlegen.
 
+import type { TargetRef, TreeAction, TreeNode } from "@cosmicdrift/kumiko-framework/engine";
 import type { NavDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { NavNode, NavRegistrySlice } from "@cosmicdrift/kumiko-headless";
 import { resolveNavigation } from "@cosmicdrift/kumiko-headless";
 import type { AppSchema, FeatureSchema } from "@cosmicdrift/kumiko-renderer";
-import { lastSegment, toAppSchema, useNav, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import {
+  lastSegment,
+  toAppSchema,
+  useLiveEvents,
+  useNav,
+  useTranslation,
+} from "@cosmicdrift/kumiko-renderer";
 import {
   BarChart3,
   Bell,
@@ -33,6 +40,7 @@ import {
   LineChart,
   List,
   PiggyBank,
+  Plus,
   Receipt,
   Search,
   Settings,
@@ -45,8 +53,9 @@ import {
   Wallet,
   Wand2,
 } from "lucide-react";
-import { type ReactNode, useCallback, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { KumikoLink } from "../app/nav";
+import { useNavEntities, useNavProviders } from "../app/nav-providers-context";
 import { cn } from "../lib/cn";
 import {
   SidebarGroup,
@@ -60,6 +69,8 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "../ui/sidebar";
+import { useDispatchTarget } from "./target-resolver-stub";
+import { parseTargetFromSearchParams } from "./target-url";
 
 // Nav-Icon-Registry: ein Nav-Eintrag setzt `icon: "<key>"` (im r.nav-Decl),
 // der Renderer mappt den symbolischen Key auf ein lucide-Component. Unknown
@@ -153,7 +164,13 @@ export function NavTree({ schema, user, testId, allowedNavQns }: NavTreeProps): 
 // togglebarem GroupLabel; ein Node mit Screen (auch wenn er children hat)
 // ist dagegen ein klickbarer Menu-Eintrag.
 function isPureSection(node: NavNode): boolean {
-  return node.screen === undefined && node.children.length > 0;
+  return (
+    node.screen === undefined &&
+    node.target === undefined &&
+    node.provider !== true &&
+    node.createAction === undefined &&
+    node.children.length > 0
+  );
 }
 
 type NavSubProps = {
@@ -186,6 +203,230 @@ function NavLeadingIcon({ node, active }: { node: NavNode; active: boolean }): R
   );
 }
 
+// Stable-reference empty-list — sonst destabilisiert ein neues `[]` pro
+// Render die useEffect-deps der SSE-Subscription.
+const EMPTY_ENTITY_LIST: readonly string[] = [];
+
+// Active-Target-Vergleich: featureId + action exakt, args shallow-equal
+// (heute nur primitives). Gespiegelt aus dem alten TreeNodeRenderer.
+function targetsEqual(a: TargetRef, b: TargetRef | undefined): boolean {
+  if (b === undefined) return false;
+  if (a.featureId !== b.featureId || a.action !== b.action) return false;
+  const aKeys = a.args ? Object.keys(a.args) : [];
+  const bKeys = b.args ? Object.keys(b.args) : [];
+  if (aKeys.length !== bKeys.length) return false;
+  for (const k of aKeys) {
+    if (a.args?.[k] !== b.args?.[k]) return false;
+  }
+  return true;
+}
+
+// Adapter: provider-emittierte TreeNodes → renderbare NavNodes. Synthetische
+// QN aus parent-QN + idx-label (stabil über Emit-Order). Statische children
+// rekursiv. ponytail: eine TreeChildrenSubscribe-Function als children wird
+// als Leaf behandelt — nested-dynamic-Provider nutzt heute kein Consumer;
+// upgrade-path = synthetische QN registrieren wenn einer sie emittet.
+function treeNodeToNavNode(tn: TreeNode, parentQn: string, idx: number): NavNode {
+  const qualifiedName = `${parentQn}/${idx}-${tn.label}`;
+  const children = Array.isArray(tn.children)
+    ? tn.children.map((c, i) => treeNodeToNavNode(c, qualifiedName, i))
+    : [];
+  return {
+    qualifiedName,
+    label: tn.label,
+    order: idx,
+    children,
+    ...(tn.icon !== undefined && { icon: tn.icon }),
+    ...(tn.target !== undefined && { target: tn.target }),
+    ...(tn.actions !== undefined && { actions: tn.actions }),
+    ...(tn.createAction !== undefined && { createAction: tn.createAction }),
+  };
+}
+
+// Lazy provider-children + SSE-Live-Refresh für einen `provider: true`-Knoten.
+// Subscribe läuft erst wenn der Knoten ausgeklappt ist (enabled); die
+// treeEntities-Liste (per QN) re-fired den Provider bei Entity-Events → neu
+// erstellte Knoten erscheinen live. Logik gespiegelt aus VisualTree.ProviderBranch.
+function useNavProviderChildren(
+  qn: string,
+  enabled: boolean,
+): { readonly nodes: readonly NavNode[] | null; readonly error: string | null } {
+  const providers = useNavProviders();
+  const entitiesMap = useNavEntities();
+  const subscribeLive = useLiveEvents();
+  const provider = providers.get(qn);
+  const entities = entitiesMap.get(qn) ?? EMPTY_ENTITY_LIST;
+  const [raw, setRaw] = useState<readonly TreeNode[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    if (!enabled || entities.length === 0) return;
+    const unsubs = entities.map((e) => subscribeLive(e, () => setAttempt((n) => n + 1)));
+    return () => {
+      for (const u of unsubs) u();
+    };
+  }, [enabled, entities, subscribeLive]);
+
+  // `attempt` triggert SSE-Refresh + erneutes Subscribe — Biome sieht es
+  // nicht im body, semantisch ist es der re-fire-Trigger.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: attempt = re-fire trigger
+  useEffect(() => {
+    if (!enabled) {
+      setRaw(null);
+      setError(null);
+      return;
+    }
+    if (provider === undefined) {
+      setError("Kein nav-provider registriert.");
+      return;
+    }
+    setError(null);
+    setRaw(null);
+    try {
+      const subscribe = provider();
+      try {
+        return subscribe(setRaw, (e) => setError(e instanceof Error ? e.message : String(e)));
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Subscribe fehlgeschlagen.");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Provider-Init fehlgeschlagen.");
+    }
+    return undefined;
+  }, [enabled, provider, attempt]);
+
+  const nodes = useMemo(
+    () => (raw === null ? null : raw.map((tn, i) => treeNodeToNavNode(tn, qn, i))),
+    [raw, qn],
+  );
+  return { nodes, error };
+}
+
+type NavNodeState = {
+  readonly displayLabel: string;
+  readonly isCollapsed: boolean;
+  readonly expandable: boolean;
+  readonly isExpanded: boolean;
+  readonly active: boolean;
+  readonly childNodes: readonly NavNode[];
+  readonly providerLoading: boolean;
+  readonly providerError: string | null;
+  readonly workspaceId: string | undefined;
+};
+
+// Geteilte Knoten-Logik für Top-Level- (NavMenuNode) und Sub-Knoten
+// (NavSubNode): Label, Expand/Collapse, active-State (screen ODER target),
+// und die lazy Provider-Children. Die zwei Renderer unterscheiden sich nur
+// in den shadcn-Primitives, nicht in dieser Logik.
+function useNavNodeState(node: NavNode, collapsed: ReadonlySet<string>): NavNodeState {
+  const nav = useNav();
+  const displayLabel = useLabel(node);
+  const isCollapsed = collapsed.has(node.qualifiedName);
+  const expandable = node.children.length > 0 || node.provider === true;
+  const isExpanded = expandable && !isCollapsed;
+  const { nodes: providerChildren, error: providerError } = useNavProviderChildren(
+    node.qualifiedName,
+    node.provider === true && isExpanded,
+  );
+  const activeTarget = useMemo(
+    () => parseTargetFromSearchParams(nav.searchParams),
+    [nav.searchParams],
+  );
+  const screenActive =
+    node.screen !== undefined && nav.route?.screenId === lastSegment(node.screen);
+  const targetActive = node.target !== undefined && targetsEqual(node.target, activeTarget);
+  const childNodes = node.provider === true ? (providerChildren ?? []) : node.children;
+  return {
+    displayLabel,
+    isCollapsed,
+    expandable,
+    isExpanded,
+    active: screenActive || targetActive,
+    childNodes,
+    providerLoading: node.provider === true && isExpanded && providerChildren === null,
+    providerError,
+    workspaceId: nav.route?.workspaceId,
+  };
+}
+
+// Action-Icon-Lookup: bekannter NAV_ICONS-Key → Lucide, sonst der rohe
+// String als Text (Provider-Konvention, kein Boot-Fail bei unknown).
+function ActionGlyph({ icon }: { readonly icon: string }): ReactNode {
+  const Icon = NAV_ICONS[icon];
+  if (Icon !== undefined) return <Icon aria-hidden className="size-3.5" />;
+  return (
+    <span aria-hidden className="text-xs">
+      {icon}
+    </span>
+  );
+}
+
+// Hover-Actions + „+"-Affordance, absolut rechts (links vom Chevron via
+// right-7). createAction ist persistent (User-sichtbares „+"), übrige
+// Actions erst bei Hover. stopPropagation, damit der Row-Click (toggle/
+// dispatch) nicht zusätzlich feuert.
+function NodeActions({ node }: { node: NavNode }): ReactNode {
+  const dispatch = useDispatchTarget();
+  const t = useTranslation();
+  const create = node.createAction;
+  const actions = node.actions ?? [];
+  if (create === undefined && actions.length === 0) return null;
+  const label = (s: string): string => (s.includes(".") ? t(s) : s);
+  const btn =
+    "flex size-5 items-center justify-center rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground";
+  const hover =
+    "opacity-0 group-hover/menu-item:opacity-100 group-hover/menu-sub-item:opacity-100 group-focus-within/menu-item:opacity-100";
+  return (
+    <div className="absolute top-1 right-7 flex items-center gap-0.5">
+      {create !== undefined && (
+        <button
+          type="button"
+          aria-label={label(create.label)}
+          className={btn}
+          onClick={(e) => {
+            e.stopPropagation();
+            dispatch(create.target);
+          }}
+        >
+          <Plus className="size-3.5" />
+        </button>
+      )}
+      {actions.map((a: TreeAction) => (
+        <button
+          key={a.label}
+          type="button"
+          aria-label={label(a.label)}
+          className={cn(btn, hover)}
+          onClick={(e) => {
+            e.stopPropagation();
+            dispatch(a.target);
+          }}
+        >
+          <ActionGlyph icon={a.icon} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Status-Zeilen innerhalb einer Provider-Sub-Liste (lazy-loading / error).
+function ProviderStatus({
+  loading,
+  error,
+}: {
+  readonly loading: boolean;
+  readonly error: string | null;
+}): ReactNode {
+  if (error !== null) {
+    return <li className="px-2 py-1 text-xs text-destructive">{error}</li>;
+  }
+  if (loading) {
+    return <li className="px-2 py-1 text-xs text-sidebar-foreground/60 italic">Lädt …</li>;
+  }
+  return null;
+}
+
 // Top-Level-Section: SidebarGroup mit STATISCHEM Label (sidebar-07-Muster —
 // "Platform"/"Projects" sind feste Überschriften, keine Toggles). Collapse
 // gehört auf Items MIT children, nicht auf die Section selbst.
@@ -210,132 +451,196 @@ function NavSection({ node, collapsed, onToggle }: NavSubProps): ReactNode {
   );
 }
 
-// Ein Menu-Eintrag (Top-Level-Item oder Section-Child). Hat er einen Screen,
-// rendert ein SidebarMenuButton-Link; hat er zusätzlich children, sitzt der
-// Collapse-Chevron als SidebarMenuAction daneben (separater Button, sonst
-// <button> im <a> = invalides HTML). Ohne Screen aber mit children ist es
-// eine verschachtelte Section als klickbare Zeile.
+// Ein Menu-Eintrag (Top-Level-Item oder Section-Child). Drei Klick-Modi am
+// EINEN Knoten: `screen` → Route-Link (KumikoLink), `target` → EditorPanel-
+// Dispatch (useDispatchTarget), keins → Container/Provider-Knoten der nur
+// auf-/zuklappt. Provider-Knoten laden ihre Children lazy + SSE-live. Der
+// Collapse-Chevron sitzt als SidebarMenuAction daneben (separater Button,
+// sonst <button> im <a> = invalides HTML); createAction/actions als
+// absolute NodeActions links davon.
 function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
-  const nav = useNav();
   const t = useTranslation();
-  const active = node.screen !== undefined && nav.route?.screenId === lastSegment(node.screen);
-  const hasChildren = node.children.length > 0;
-  const isCollapsed = collapsed.has(node.qualifiedName);
-  const displayLabel = useLabel(node);
-  const workspaceId = nav.route?.workspaceId;
+  const dispatch = useDispatchTarget();
+  const s = useNavNodeState(node, collapsed);
 
-  const sub =
-    hasChildren && !isCollapsed ? (
-      <SidebarMenuSub>
-        {node.children.map((child) => (
-          <NavSubNode
-            key={child.qualifiedName}
-            node={child}
-            collapsed={collapsed}
-            onToggle={onToggle}
-          />
-        ))}
-      </SidebarMenuSub>
-    ) : null;
+  const sub = s.isExpanded ? (
+    <SidebarMenuSub>
+      <ProviderStatus loading={s.providerLoading} error={s.providerError} />
+      {s.childNodes.map((child) => (
+        <NavSubNode
+          key={child.qualifiedName}
+          node={child}
+          collapsed={collapsed}
+          onToggle={onToggle}
+        />
+      ))}
+    </SidebarMenuSub>
+  ) : null;
 
-  if (node.screen === undefined) {
+  const chevron = s.expandable ? (
+    <SidebarMenuAction
+      aria-label={t(s.isCollapsed ? "kumiko.nav.expand" : "kumiko.nav.collapse")}
+      aria-expanded={!s.isCollapsed}
+      onClick={() => onToggle(node.qualifiedName)}
+    >
+      {s.isCollapsed ? <ChevronRight /> : <ChevronDown />}
+    </SidebarMenuAction>
+  ) : null;
+
+  if (node.screen !== undefined) {
+    const screenId = lastSegment(node.screen);
     return (
       <SidebarMenuItem>
-        <SidebarMenuButton
-          onClick={() => onToggle(node.qualifiedName)}
-          aria-expanded={!isCollapsed}
-        >
-          <NavLeadingIcon node={node} active={false} />
-          <span className="truncate">{displayLabel}</span>
-          {hasChildren &&
-            (isCollapsed ? (
-              <ChevronRight className="ml-auto" />
-            ) : (
-              <ChevronDown className="ml-auto" />
-            ))}
+        {/* tooltip = Label, das shadcn nur im collapsed-Icon-State einblendet. */}
+        <SidebarMenuButton asChild isActive={s.active} tooltip={s.displayLabel}>
+          <KumikoLink
+            to={{ ...(s.workspaceId !== undefined && { workspaceId: s.workspaceId }), screenId }}
+            {...(s.active && { "aria-current": "page" })}
+          >
+            <NavLeadingIcon node={node} active={s.active} />
+            <span className="truncate">{s.displayLabel}</span>
+          </KumikoLink>
         </SidebarMenuButton>
+        <NodeActions node={node} />
+        {chevron}
         {sub}
       </SidebarMenuItem>
     );
   }
 
-  const screenId = lastSegment(node.screen);
+  if (node.target !== undefined) {
+    const target = node.target;
+    return (
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          isActive={s.active}
+          tooltip={s.displayLabel}
+          onClick={() => dispatch(target)}
+        >
+          <NavLeadingIcon node={node} active={s.active} />
+          <span className="truncate">{s.displayLabel}</span>
+        </SidebarMenuButton>
+        <NodeActions node={node} />
+        {chevron}
+        {sub}
+      </SidebarMenuItem>
+    );
+  }
+
   return (
     <SidebarMenuItem>
-      {/* tooltip = Label, das shadcn nur im collapsed-Icon-State einblendet. */}
-      <SidebarMenuButton asChild isActive={active} tooltip={displayLabel}>
-        <KumikoLink
-          to={{ ...(workspaceId !== undefined && { workspaceId }), screenId }}
-          {...(active && { "aria-current": "page" })}
-        >
-          <NavLeadingIcon node={node} active={active} />
-          <span className="truncate">{displayLabel}</span>
-        </KumikoLink>
+      <SidebarMenuButton
+        onClick={() => {
+          if (s.expandable) onToggle(node.qualifiedName);
+        }}
+        {...(s.expandable && { "aria-expanded": !s.isCollapsed })}
+      >
+        <NavLeadingIcon node={node} active={false} />
+        <span className="truncate">{s.displayLabel}</span>
+        {s.expandable &&
+          (s.isCollapsed ? (
+            <ChevronRight className="ml-auto" />
+          ) : (
+            <ChevronDown className="ml-auto" />
+          ))}
       </SidebarMenuButton>
-      {hasChildren && (
-        <SidebarMenuAction
-          aria-label={t(isCollapsed ? "kumiko.nav.expand" : "kumiko.nav.collapse")}
-          aria-expanded={!isCollapsed}
-          onClick={() => onToggle(node.qualifiedName)}
-        >
-          {isCollapsed ? <ChevronRight /> : <ChevronDown />}
-        </SidebarMenuAction>
-      )}
+      <NodeActions node={node} />
       {sub}
     </SidebarMenuItem>
   );
 }
 
-// Verschachtelte Einträge (innerhalb SidebarMenuSub). Leaves rendern als
-// SidebarMenuSubButton-Link; tiefer verschachtelte Sections degradieren auf
-// eine flache rekursive Liste (2 Ebenen sind die Norm).
+// Verschachtelte Einträge (innerhalb SidebarMenuSub). Gleiche drei Klick-Modi
+// wie NavMenuNode, nur mit den Sub-Primitives. Folder-/Container-Knoten (kein
+// screen/target) klappen auf — Provider-Children + tiefere Statics rekursiv.
+// Non-Link-Klickziele brauchen asChild+<button> (SidebarMenuSubButton ist ein
+// <a>); der Chevron sitzt als eigener absoluter Button (kein Button-im-<a>).
 function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
-  const nav = useNav();
-  const active = node.screen !== undefined && nav.route?.screenId === lastSegment(node.screen);
-  const hasChildren = node.children.length > 0;
-  const isCollapsed = collapsed.has(node.qualifiedName);
-  const displayLabel = useLabel(node);
-  const workspaceId = nav.route?.workspaceId;
+  const t = useTranslation();
+  const dispatch = useDispatchTarget();
+  const s = useNavNodeState(node, collapsed);
 
-  const deeper =
-    hasChildren && !isCollapsed
-      ? node.children.map((child) => (
-          <NavSubNode
-            key={child.qualifiedName}
-            node={child}
-            collapsed={collapsed}
-            onToggle={onToggle}
-          />
-        ))
-      : null;
+  const deeper = s.isExpanded ? (
+    <>
+      <ProviderStatus loading={s.providerLoading} error={s.providerError} />
+      {s.childNodes.map((child) => (
+        <NavSubNode
+          key={child.qualifiedName}
+          node={child}
+          collapsed={collapsed}
+          onToggle={onToggle}
+        />
+      ))}
+    </>
+  ) : null;
 
-  if (node.screen === undefined) {
+  const chevron = s.expandable ? (
+    <button
+      type="button"
+      aria-label={t(s.isCollapsed ? "kumiko.nav.expand" : "kumiko.nav.collapse")}
+      aria-expanded={!s.isCollapsed}
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle(node.qualifiedName);
+      }}
+      className="absolute top-1 right-1 flex size-5 items-center justify-center rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+    >
+      {s.isCollapsed ? <ChevronRight className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+    </button>
+  ) : null;
+
+  if (node.screen !== undefined) {
+    const screenId = lastSegment(node.screen);
     return (
       <SidebarMenuSubItem>
-        <button
-          type="button"
-          onClick={() => onToggle(node.qualifiedName)}
-          aria-expanded={!isCollapsed}
-          className="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-xs font-medium uppercase tracking-wider text-sidebar-foreground/70"
-        >
-          <span className="truncate">{displayLabel}</span>
-        </button>
+        <SidebarMenuSubButton asChild isActive={s.active}>
+          <KumikoLink
+            to={{ ...(s.workspaceId !== undefined && { workspaceId: s.workspaceId }), screenId }}
+            {...(s.active && { "aria-current": "page" })}
+          >
+            <NavLeadingIcon node={node} active={s.active} />
+            <span className="truncate">{s.displayLabel}</span>
+          </KumikoLink>
+        </SidebarMenuSubButton>
+        <NodeActions node={node} />
+        {chevron}
         {deeper}
       </SidebarMenuSubItem>
     );
   }
 
-  const screenId = lastSegment(node.screen);
+  if (node.target !== undefined) {
+    const target = node.target;
+    return (
+      <SidebarMenuSubItem>
+        <SidebarMenuSubButton asChild isActive={s.active}>
+          <button type="button" onClick={() => dispatch(target)}>
+            <NavLeadingIcon node={node} active={s.active} />
+            <span className="truncate">{s.displayLabel}</span>
+          </button>
+        </SidebarMenuSubButton>
+        <NodeActions node={node} />
+        {chevron}
+        {deeper}
+      </SidebarMenuSubItem>
+    );
+  }
+
   return (
     <SidebarMenuSubItem>
-      <SidebarMenuSubButton asChild isActive={active}>
-        <KumikoLink
-          to={{ ...(workspaceId !== undefined && { workspaceId }), screenId }}
-          {...(active && { "aria-current": "page" })}
+      <SidebarMenuSubButton asChild>
+        <button
+          type="button"
+          onClick={() => {
+            if (s.expandable) onToggle(node.qualifiedName);
+          }}
         >
-          <span className="truncate">{displayLabel}</span>
-        </KumikoLink>
+          <NavLeadingIcon node={node} active={false} />
+          <span className="truncate">{s.displayLabel}</span>
+        </button>
       </SidebarMenuSubButton>
+      <NodeActions node={node} />
+      {chevron}
       {deeper}
     </SidebarMenuSubItem>
   );

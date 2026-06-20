@@ -5,9 +5,19 @@
 //   2. Active-State greift auf node mit screen wenn nav.route's
 //      screenId matcht (Standard-Sidebar-Verhalten).
 
-import { describe, expect, test } from "bun:test";
-import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
+import { afterEach, describe, expect, test } from "bun:test";
+import type {
+  TargetRef,
+  TreeChildrenSubscribe,
+  TreeNode,
+} from "@cosmicdrift/kumiko-framework/engine";
+import type { FeatureSchema, LiveEventSubscriber } from "@cosmicdrift/kumiko-renderer";
+import { LiveEventsProvider } from "@cosmicdrift/kumiko-renderer";
+import { act } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { NavProvidersProvider } from "../app/nav-providers-context";
 import { NavTree } from "../layout/nav-tree";
+import { setDispatchListener } from "../layout/target-resolver-stub";
 import { fireEvent, renderWithSidebar as render, screen } from "./test-utils";
 
 function makeSchema(): FeatureSchema {
@@ -206,5 +216,188 @@ describe("NavTree", () => {
     } as FeatureSchema;
     const { container } = render(<NavTree schema={schema} />);
     expect(container.querySelectorAll("svg").length).toBe(0);
+  });
+});
+
+// ── Visual-Tree-Merge: dynamische Knoten in der EINEN Nav ──────────────
+//
+// Beweist die vier Caps die NavTree aus dem alten VisualTree übernimmt:
+// target-Dispatch, lazy Provider-Children, createAction (+), und — der
+// kritische Pfad — der SSE-treeEntities-Refresh, der neue Knoten LIVE in
+// die Nav bringt (sonst lädt der Tree einmal und „+pricing" erscheint nie).
+
+type LiveCb = Parameters<LiveEventSubscriber>[1];
+
+function controllableLiveEvents(): {
+  readonly subscribe: LiveEventSubscriber;
+  fire(entity: string): void;
+} {
+  const listeners = new Map<string, Set<LiveCb>>();
+  const subscribe: LiveEventSubscriber = (entity, cb) => {
+    const set = listeners.get(entity) ?? new Set<LiveCb>();
+    set.add(cb);
+    listeners.set(entity, set);
+    return () => {
+      set.delete(cb);
+    };
+  };
+  return {
+    subscribe,
+    fire(entity) {
+      // Die Consumer-cbs (NavTree, prod) ignorieren das Event-Arg → zero-arg
+      // call genügt; Cast überbrückt nur die Param-Signatur.
+      for (const cb of listeners.get(entity) ?? []) (cb as () => void)();
+    },
+  };
+}
+
+function pageLeaf(slug: string): TreeNode {
+  return { label: slug, target: { featureId: "cms", action: "edit", args: { slug } } };
+}
+
+// Provider mit `provider: true`-Knoten "Content" + „+"-createAction. QN =
+// "cms:nav:content" (featureName:nav:id). Der Provider liefert die Children.
+function dynamicSchema(): FeatureSchema {
+  return {
+    featureName: "cms",
+    entities: {},
+    screens: [],
+    navs: [
+      {
+        id: "content",
+        label: "Content",
+        order: 10,
+        provider: true,
+        createAction: {
+          icon: "plus",
+          label: "New page",
+          target: { featureId: "cms", action: "create", args: { folder: "" } },
+        },
+      },
+    ],
+  } as FeatureSchema;
+}
+
+function renderDynamic(args: {
+  readonly schema: FeatureSchema;
+  readonly providers: ReadonlyMap<string, TreeChildrenSubscribe>;
+  readonly entities?: ReadonlyMap<string, readonly string[]>;
+  readonly live?: LiveEventSubscriber;
+}): ReturnType<typeof render> {
+  const inner: ReactNode = (
+    <NavProvidersProvider
+      value={args.providers}
+      {...(args.entities && { entities: args.entities })}
+    >
+      <NavTree schema={args.schema} />
+    </NavProvidersProvider>
+  );
+  // Eigene (kontrollierbare) LiveEventsProvider überschreibt den No-op aus
+  // den DefaultProviders (nächster Provider gewinnt).
+  return render(
+    args.live !== undefined ? (
+      <LiveEventsProvider value={args.live}>{inner}</LiveEventsProvider>
+    ) : (
+      inner
+    ),
+  );
+}
+
+describe("NavTree dynamic provider nodes", () => {
+  let restoreDispatch: (() => void) | undefined;
+  afterEach(() => {
+    restoreDispatch?.();
+    restoreDispatch = undefined;
+  });
+
+  test("provider:true-Knoten lädt seine Children lazy + rendert sie (default-expanded)", async () => {
+    const provider: TreeChildrenSubscribe = () => (emit) => {
+      emit([pageLeaf("apex"), pageLeaf("hero")]);
+      return () => {};
+    };
+    const providers = new Map([["cms:nav:content", provider]]);
+    await act(async () => {
+      renderDynamic({ schema: dynamicSchema(), providers });
+    });
+
+    expect(screen.getByText("Content")).toBeTruthy();
+    expect(screen.getByText("apex")).toBeTruthy();
+    expect(screen.getByText("hero")).toBeTruthy();
+  });
+
+  test("createAction rendert ein Plus-Button der sein target dispatcht", async () => {
+    let dispatched: TargetRef | undefined;
+    restoreDispatch = setDispatchListener((t) => {
+      dispatched = t;
+    });
+    const provider: TreeChildrenSubscribe = () => (emit) => {
+      emit([pageLeaf("apex")]);
+      return () => {};
+    };
+    await act(async () => {
+      renderDynamic({
+        schema: dynamicSchema(),
+        providers: new Map([["cms:nav:content", provider]]),
+      });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "New page" }));
+    expect(dispatched).toEqual({ featureId: "cms", action: "create", args: { folder: "" } });
+  });
+
+  test("target-Knoten dispatcht beim Klick (statt Route-Link)", async () => {
+    let dispatched: TargetRef | undefined;
+    restoreDispatch = setDispatchListener((t) => {
+      dispatched = t;
+    });
+    const schema = {
+      featureName: "cms",
+      entities: {},
+      screens: [],
+      navs: [
+        {
+          id: "hero",
+          label: "Hero",
+          order: 10,
+          target: { featureId: "cms", action: "edit", args: { slug: "hero" } },
+        },
+      ],
+    } as FeatureSchema;
+    await act(async () => {
+      renderDynamic({ schema, providers: new Map() });
+    });
+
+    fireEvent.click(screen.getByText("Hero"));
+    expect(dispatched).toEqual({ featureId: "cms", action: "edit", args: { slug: "hero" } });
+  });
+
+  test("SSE-treeEntities-Refresh bringt neu erstellte Knoten LIVE in die Nav", async () => {
+    // Der eigentliche Kern: ein text-block-Event re-fired den Provider →
+    // die frisch erstellte Seite („pricing") erscheint, ohne Re-Mount.
+    let pages = ["apex", "hero"];
+    const provider: TreeChildrenSubscribe = () => (emit) => {
+      emit(pages.map(pageLeaf));
+      return () => {};
+    };
+    const live = controllableLiveEvents();
+    await act(async () => {
+      renderDynamic({
+        schema: dynamicSchema(),
+        providers: new Map([["cms:nav:content", provider]]),
+        entities: new Map([["cms:nav:content", ["text-block"]]]),
+        live: live.subscribe,
+      });
+    });
+
+    expect(screen.getByText("apex")).toBeTruthy();
+    expect(screen.queryByText("pricing")).toBeNull();
+
+    // Neue Seite angelegt → text-block-Event feuert → Provider re-fired.
+    pages = ["apex", "hero", "pricing"];
+    await act(async () => {
+      live.fire("text-block");
+    });
+
+    expect(screen.getByText("pricing")).toBeTruthy();
   });
 });
