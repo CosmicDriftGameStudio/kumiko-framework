@@ -1,8 +1,9 @@
 // @runtime client
-// UserMenu — Avatar-Dropdown in der Topbar/Sidebar. Zeigt Name/Email
-// des aktuellen Users + Logout-Button. Auf Radix-DropdownMenu, damit
-// Click-outside, Escape, Focus-Management, Keyboard-Nav (↑↓/Home/End)
-// und ARIA-Roles aus der Kiste funktionieren.
+// UserMenu — Avatar-Dropdown für die Topbar (variant="pill", Default) oder den
+// Sidebar-Footer (variant="sidebar" = die sidebar-07-NavUser-Row). Zeigt
+// Name/Email + Logout. Auf Radix-DropdownMenu, damit Click-outside, Escape,
+// Focus-Management, Keyboard-Nav (↑↓/Home/End) und ARIA-Roles aus der Kiste
+// funktionieren.
 //
 // Rendert NICHTS wenn kein User eingeloggt ist — Hosts dürfen das
 // Component außerhalb des AuthGate einhängen ohne dass ein harter
@@ -17,15 +18,23 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
 } from "@cosmicdrift/kumiko-renderer-web";
-import { ChevronDown, LogOut } from "lucide-react";
+import { ChevronDown, ChevronsUpDown, LogOut } from "lucide-react";
 import type { ReactNode } from "react";
 import { useSession } from "./session";
+
+export type UserMenuVariant = "pill" | "sidebar";
 
 export type UserMenuProps = {
   /** Zusätzliche Menu-Items über dem Logout. Per-item class/behaviour
    *  controlliert der Caller — wir packen nur den Frame drumrum. */
   readonly children?: ReactNode;
+  /** "pill" (Default) = kompakter Topbar-Trigger; "sidebar" = volle NavUser-
+   *  Row (Avatar + Name + Email) für den `sidebarFooter`-Slot der App-Shell. */
+  readonly variant?: UserMenuVariant;
 };
 
 function initials(value: string): string {
@@ -41,14 +50,62 @@ function initials(value: string): string {
   return trimmed.slice(0, 2).toUpperCase();
 }
 
-export function UserMenu({ children }: UserMenuProps): ReactNode {
+export function UserMenu({ children, variant = "pill" }: UserMenuProps): ReactNode {
   const t = useTranslation();
   const { user, logout } = useSession();
 
   if (user === null) return null;
 
-  const displayName = user.displayName.length > 0 ? user.displayName : user.email;
+  const hasName = user.displayName.length > 0;
+  const displayName = hasName ? user.displayName : user.email;
   const avatarText = initials(displayName);
+
+  const content = (
+    <DropdownMenuContent align="end" aria-label={t("auth.user.menu.label")}>
+      <DropdownMenuLabel className="text-xs">
+        <div className="font-medium text-foreground truncate">{displayName}</div>
+        <div className="truncate">{user.email}</div>
+      </DropdownMenuLabel>
+      <DropdownMenuSeparator />
+      {children}
+      <DropdownMenuItem onSelect={() => void logout()}>
+        <LogOut className="h-4 w-4" />
+        <span>{t("auth.user.menu.logout")}</span>
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  );
+
+  // Sidebar-Footer: volle NavUser-Row (sidebar-07) als Dropdown-Trigger —
+  // gleiche Optik wie SidebarUser, aber klickbar mit Logout/Profil.
+  if (variant === "sidebar") {
+    return (
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <SidebarMenuButton
+                size="lg"
+                className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              >
+                <span
+                  aria-hidden="true"
+                  className="flex aspect-square size-8 items-center justify-center rounded-lg bg-muted text-xs font-medium text-muted-foreground"
+                >
+                  {avatarText}
+                </span>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-semibold">{displayName}</span>
+                  {hasName && <span className="truncate text-xs">{user.email}</span>}
+                </div>
+                <ChevronsUpDown className="ml-auto size-4" />
+              </SidebarMenuButton>
+            </DropdownMenuTrigger>
+            {content}
+          </DropdownMenu>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    );
+  }
 
   return (
     <DropdownMenu>
@@ -72,18 +129,7 @@ export function UserMenu({ children }: UserMenuProps): ReactNode {
           <ChevronDown className="h-3 w-3 text-muted-foreground" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" aria-label={t("auth.user.menu.label")}>
-        <DropdownMenuLabel className="text-xs">
-          <div className="font-medium text-foreground truncate">{displayName}</div>
-          <div className="truncate">{user.email}</div>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {children}
-        <DropdownMenuItem onSelect={() => void logout()}>
-          <LogOut className="h-4 w-4" />
-          <span>{t("auth.user.menu.logout")}</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
+      {content}
     </DropdownMenu>
   );
 }

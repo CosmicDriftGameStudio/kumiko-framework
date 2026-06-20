@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { SidebarProvider } from "@cosmicdrift/kumiko-renderer-web";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { UserMenu } from "../user-menu";
@@ -45,5 +46,22 @@ describe("UserMenu", () => {
     await user.click(screen.getByRole("button", { name: /Test User/ }));
     await user.click(screen.getByText("Abmelden"));
     expect(session.logout).toHaveBeenCalledTimes(1);
+  });
+  test("sidebar variant: NavUser-Row zeigt Name + Email, Dropdown trägt Logout", async () => {
+    const user = userEvent.setup();
+    const session = makeSessionApi({
+      user: { id: "u1", email: "alice@example.com", displayName: "Alice Wonder", globalRoles: [] },
+    });
+    renderWithProviders(
+      <SidebarProvider>
+        <UserMenu variant="sidebar" />
+      </SidebarProvider>,
+      { session },
+    );
+    // Anders als die Pill: die Row zeigt Name UND Email direkt.
+    expect(screen.getByText("Alice Wonder")).toBeTruthy();
+    expect(screen.getByText("alice@example.com")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: /Alice Wonder/ }));
+    expect(screen.getByText("Abmelden")).toBeTruthy();
   });
 });

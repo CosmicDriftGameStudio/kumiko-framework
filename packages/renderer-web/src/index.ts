@@ -145,3 +145,4 @@ export {
   lightTokens,
   useBrowserTokensApi,
 } from "./tokens";
+export { SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider } from "./ui/sidebar";
