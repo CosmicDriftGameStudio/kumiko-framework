@@ -1,8 +1,8 @@
 ---
-status: in-progress
-verified: 2026-06-13
+status: shipped
+verified: 2026-06-20
+evidence: "#347 closed COMPLETED; PR #350 (migrate-generator ride-along columns + Drift Layer 3) auf framework main"
 issue: kumiko-framework#347
-next: Part 1 (backing-table-Mechanismus) implementieren, dann Layer 3 + Tests + Release
 ---
 
 # migrate-generator: Ride-along-Spalten unsichtbar → prod-500

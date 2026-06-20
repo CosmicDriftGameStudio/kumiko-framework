@@ -1,11 +1,15 @@
 ---
-status: in-progress
-verified: 2026-06-18
-next: Siehe CosmicDriftGameStudio/kumiko-framework#434 — Phase A KOMPLETT (Branch feat/tier-admin-434) — Server-Kern + TierAdminScreen + …
+status: shipped
+verified: 2026-06-20
+evidence: "#434 closed; A+B framework #465 (published in 0.67.0, exports ./tier-engine/web), C money-horse #60, D publicstatus #155 + studio #72, E docs platform #221 (guides/assign-tier-manually.md + feature-reference/tier-engine.mdx + samples/recipes-tier-admin.md, recipe #518)"
 issue: CosmicDriftGameStudio/kumiko-framework#434
 ---
 
 # tier-engine: manuelles Tier-Zuweisen (Admin-UI ohne Billing) — #434
+
+> ✅ **Shipped 2026-06-20** — Phasen A–E live über money-horse/publicstatus/studio,
+> Issue #434 geschlossen, Doku publiziert. Belege im `evidence`-Frontmatter. Die
+> Phasen-Checkboxen unten sind historische Arbeitsnotizen.
 
 Ein SystemAdmin weist einem Tenant über die UI ein Tier zu, **ohne Stripe-Kauf**,
 **general für alle Apps** (money-horse, publicstatus, studio). Logik + UI leben

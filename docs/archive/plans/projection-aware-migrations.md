@@ -1,8 +1,8 @@
 ---
-status: in-progress
-verified: 2026-06-15
+status: shipped
+verified: 2026-06-20
+evidence: "#356 closed COMPLETED; alle 3 Phasen auf framework main — #360 (managed projections recreate statt in-place ALTER), #385 (#361 fail-loud bei geleerter managed projection), #391 (#362 single-run rebuild-job + enqueueProjectionRebuild)"
 issue: kumiko-framework#356
-next: Siehe kumiko-framework#356 — Phase 2 (#361) + Aktivierung (studio#61) shipped; Phase 3 (#362 rebuild-job + en…
 ---
 
 # Projection-aware migrations: managed = wegwerfbares Derivat, unmanaged = echte Daten
