@@ -1,5 +1,19 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.63.0
+
+### Minor Changes
+
+- 9e33766: tags: ship a drop-in web UI. New client subpath `@cosmicdrift/kumiko-bundled-features/tags/web` exports `<TagSection entityName entityId />` (a self-contained tag manager: shows an entity's tags, attach existing / create-and-attach / detach, all via the existing tag handlers) plus `tagsClient()` to register it (component + default i18n). Mount standalone in any screen, or as a `kind: "extension"` section. Server feature unchanged — purely additive client code.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.63.0
+- @cosmicdrift/kumiko-dispatcher-live@0.63.0
+- @cosmicdrift/kumiko-headless@0.63.0
+- @cosmicdrift/kumiko-renderer@0.63.0
+- @cosmicdrift/kumiko-renderer-web@0.63.0
+
 ## 0.62.0
 
 ### Patch Changes
