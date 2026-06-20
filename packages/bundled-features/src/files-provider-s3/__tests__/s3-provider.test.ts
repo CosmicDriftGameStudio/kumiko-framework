@@ -35,9 +35,9 @@ describe("resolveForcePathStyle", () => {
   });
 });
 
-// virtualHostedStyle ist die Inversion, die createS3Provider an Bun.S3Client
-// durchreicht (#175/2). Der `!` ist die stille Drift-Stelle: kippt er, picken
-// Minio/R2 die falsche URL-Form ohne Compile- oder Runtime-Fehler.
+// virtualHostedStyle is the inversion createS3Provider hands to Bun.S3Client.
+// The `!` is the silent drift point: flip it and Minio/R2 pick the wrong URL
+// form with no compile or runtime error.
 describe("resolveVirtualHostedStyle (inverse of forcePathStyle)", () => {
   const cases: ReadonlyArray<{ name: string; config: S3ProviderConfig }> = [
     { name: "no endpoint + no override", config: baseConfig },
@@ -66,11 +66,10 @@ describe("resolveVirtualHostedStyle (inverse of forcePathStyle)", () => {
   });
 });
 
-// presign ist eine reine lokale Signier-Operation (HMAC, kein Netzwerk) →
-// hermetisch testbar mit Dummy-Credentials. Beweist, dass Bun das
-// contentDisposition-Feld tatsächlich als response-content-disposition-Query-
-// Param signiert (#175/3) — sonst lieferte ein Download den UUID-Key statt des
-// Dateinamens, lautlos.
+// presign is a pure local signing operation (HMAC, no network), so it tests
+// hermetically with dummy credentials. Proves Bun actually signs contentDisposition
+// as the response-content-disposition query param — otherwise a download would
+// silently return the UUID key instead of the filename.
 describe("getSignedUrl contentDisposition", () => {
   const provider = createS3Provider({
     bucket: "b",

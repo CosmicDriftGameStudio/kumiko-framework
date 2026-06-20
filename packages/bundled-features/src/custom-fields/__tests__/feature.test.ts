@@ -171,10 +171,7 @@ describe("createCustomFieldsFeature access-options", () => {
     expect(listAccess(feature)).toEqual(["Admin", "Editor"]);
   });
 
-  // #334/2: valueWriteRoles ohne fieldDefinitionListRoles brach asymmetrisch —
-  // Save offen für App-Rollen, aber der List-Lade-Pfad blieb ["TenantAdmin"] →
-  // App-User bekamen access_denied, die FormSection lud nie. Die Value-Rollen
-  // erben jetzt in den List-Default (Union mit dem Default).
+  // valueWriteRoles without fieldDefinitionListRoles broke asymmetrically (save open, list closed) — value roles now inherit into the list default.
   test("valueWriteRoles erbt in den List-Default wenn fieldDefinitionListRoles fehlt", () => {
     const feature = createCustomFieldsFeature({ valueWriteRoles: ["Admin", "Editor"] });
     const roles = listAccess(feature);

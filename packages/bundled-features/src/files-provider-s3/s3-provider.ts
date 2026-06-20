@@ -54,10 +54,8 @@ export function resolveForcePathStyle(config: S3ProviderConfig): boolean {
   return config.forcePathStyle ?? config.endpoint !== undefined;
 }
 
-// Bun's `virtualHostedStyle` is the inverse of the AWS-SDK `forcePathStyle`
-// knob this config exposes: path-style ⇔ virtualHostedStyle=false. Exported +
-// tested alongside resolveForcePathStyle because the inversion is exactly the
-// seam that silently breaks Minio/R2 if the `!` ever drifts.
+// Bun's `virtualHostedStyle` is the strict inverse of the `forcePathStyle` knob
+// this config exposes — the seam that silently breaks Minio/R2 if the `!` drifts.
 export function resolveVirtualHostedStyle(config: S3ProviderConfig): boolean {
   return !resolveForcePathStyle(config);
 }

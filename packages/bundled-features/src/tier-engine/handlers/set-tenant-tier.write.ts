@@ -8,7 +8,7 @@ import {
 import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { tierAssignmentAggregateId } from "../aggregate-id";
-import { tierAssignmentEntity } from "../entity";
+import { type TierAssignmentRow, tierAssignmentEntity } from "../entity";
 
 // SystemAdmin setzt das Tier eines BELIEBIGEN Tenants — manueller Grant ohne
 // Billing. Cross-tenant, daher SystemAdmin-only (kein TenantAdmin: sonst
@@ -38,14 +38,6 @@ const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEn
 const executor = createEventStoreExecutor(tierAssignmentTable, tierAssignmentEntity, {
   entityName: "tier-assignment",
 });
-
-type TierAssignmentRow = {
-  readonly id: string;
-  readonly version: number;
-  readonly tier: string;
-  readonly source: string | null;
-  readonly tenantId: string;
-};
 
 export type SetTenantTierOptions = {
   /** Nach erfolgreichem Write aufgerufen, damit feature.ts den Resolver-

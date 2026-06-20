@@ -176,14 +176,10 @@ export type CustomFieldsFeatureOptions = {
    *  gesetzt, dies aber NICHT, erben die Value-Rollen hier hinein (Union mit
    *  dem Default, damit Admins den List-Zugriff behalten) — sonst lädt die
    *  FormSection für Value-Writer nie (access_denied), während der Save-Pfad
-   *  offen wäre (#334/2, asymmetrischer Bruch). */
+   *  offen wäre (asymmetrischer Bruch). */
   readonly fieldDefinitionListRoles?: readonly string[];
 };
 
-// Der List-Pfad muss jeden abdecken, der Values schreiben darf — sonst lädt die
-// FormSection nie. Explizite fieldDefinitionListRoles gewinnen; sonst: gesetzte
-// valueWriteRoles erben in den List-Default (Union mit dem Default), ungesetzte
-// → reiner Default.
 export function resolveFieldDefinitionListRoles(
   opts: Pick<CustomFieldsFeatureOptions, "valueWriteRoles" | "fieldDefinitionListRoles">,
 ): readonly string[] {

@@ -930,12 +930,8 @@ export function createEventStoreExecutor(
       const tableInfo = extractTableInfo(table);
       const rows = rawRows.map((r) => coerceRow(rehydrateCompoundTypes(r, entity), tableInfo));
 
-      // list rows (and their cache entries) carry the READ-ROW version, not the
-      // authoritative stream version detail() applies. That is intentional —
-      // it's display-only and must never be used as an optimistic-lock base;
-      // edit flows reload via detail(), which reconciles the stream version.
-      // Sourcing a lock base from a list row would reintroduce the #336
-      // version_conflict. (#336)
+      // list rows carry the READ-ROW version (display-only), never an optimistic-lock
+      // base — edit flows reload via detail(), which reconciles the stream version.
       if (entityCache && entityName && rows.length > 0) {
         await entityCache.mset(
           user.tenantId,

@@ -146,8 +146,8 @@ type RebuildDeps = {
   // Test-only seam: fires once after the unlocked bulk drain and before the
   // cutover fence. Lets a concurrency test inject a committed write into the
   // replay window deterministically. The `__test_` prefix marks it test-only:
-  // a production caller passing a slow callback here would hold the
-  // ACCESS-EXCLUSIVE fence for the callback's duration, blocking every writer.
+  // a slow callback here delays the cutover fence acquisition, widening the
+  // window in which concurrent writers can still commit below the cursor.
   readonly __test_onBeforeFence?: () => void | Promise<void>;
 };
 

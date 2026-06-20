@@ -57,10 +57,7 @@ test.describe("DateInput calendar (#369) im echten Browser", () => {
     await yearSelect.selectOption("2030");
     await expect(yearSelect).toHaveValue("2030");
 
-    // Navigation explizit pinnen, nicht nur den select-DOM-Wert: die Tages-
-    // Buttons im Grid tragen das Zieljahr in ihrem Accessible-Name. Feuert der
-    // select-onChange nicht (uncontrolled select), bleibt das Grid im aktuellen
-    // Jahr → kein Button mit 2030 → genau dieser Assert fängt die Regression.
+    // Grid navigation check: day buttons carry the year — a non-firing select-onChange would leave no 2030 button.
     await expect(page.getByRole("button", { name: /2030/ }).first()).toBeVisible();
   });
 });

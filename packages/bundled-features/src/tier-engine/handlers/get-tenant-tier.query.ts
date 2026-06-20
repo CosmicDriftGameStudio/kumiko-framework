@@ -6,7 +6,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
-import { tierAssignmentEntity } from "../entity";
+import { type TierAssignmentRow, tierAssignmentEntity } from "../entity";
 
 // Liest das Tier-Assignment eines BELIEBIGEN Tenants (cross-tenant) für den
 // tier-admin-Screen. SystemAdmin-only. get-active-tier liest nur den eigenen
@@ -14,14 +14,6 @@ import { tierAssignmentEntity } from "../entity";
 // damit der Admin das Tier fremder Tenants sehen kann. null wenn noch keins.
 
 const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
-
-type TierAssignmentRow = {
-  readonly id: string;
-  readonly version: number;
-  readonly tier: string;
-  readonly source: string | null;
-  readonly tenantId: string;
-};
 
 export const getTenantTierQuery = defineQueryHandler({
   name: "get-tenant-tier",
