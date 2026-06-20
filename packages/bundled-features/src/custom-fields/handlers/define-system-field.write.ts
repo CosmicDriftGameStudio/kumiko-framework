@@ -1,6 +1,6 @@
 import { SYSTEM_TENANT_ID, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { fieldDefinitionAggregateId } from "../aggregate-id";
-import { fieldDefinitionExecutor } from "../executor";
+import { defineOrResurrectFieldDefinition } from "../lib/define-or-resurrect";
 import { buildFieldDefinitionColumns } from "../lib/field-definition-row";
 import { type DefineFieldPayload, defineFieldPayloadSchema } from "../schemas";
 
@@ -33,8 +33,9 @@ export const defineSystemFieldHandler: WriteHandlerDef = {
     // — the row lives in the system-scope-stream.
     const systemUser = { ...event.user, tenantId: SYSTEM_TENANT_ID };
 
-    return fieldDefinitionExecutor.create(
-      { id: aggregateId, ...buildFieldDefinitionColumns(payload) },
+    return defineOrResurrectFieldDefinition(
+      aggregateId,
+      buildFieldDefinitionColumns(payload),
       systemUser,
       ctx.db,
     );

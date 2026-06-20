@@ -1,7 +1,7 @@
 import { isSystemTenant, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import { fieldDefinitionAggregateId } from "../aggregate-id";
-import { fieldDefinitionExecutor } from "../executor";
+import { defineOrResurrectFieldDefinition } from "../lib/define-or-resurrect";
 import { buildFieldDefinitionColumns } from "../lib/field-definition-row";
 import { countTenantFieldDefinitions } from "../lib/quota";
 import { type DefineFieldPayload, defineFieldPayloadSchema } from "../schemas";
@@ -75,8 +75,9 @@ export function createDefineTenantFieldHandler(
         payload.fieldKey,
       );
 
-      return fieldDefinitionExecutor.create(
-        { id: aggregateId, ...buildFieldDefinitionColumns(payload) },
+      return defineOrResurrectFieldDefinition(
+        aggregateId,
+        buildFieldDefinitionColumns(payload),
         event.user,
         ctx.db,
       );

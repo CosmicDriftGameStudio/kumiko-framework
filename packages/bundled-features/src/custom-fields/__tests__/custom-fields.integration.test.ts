@@ -105,9 +105,11 @@ beforeEach(async () => {
 const admin = createTestUser({ roles: ["TenantAdmin"] });
 const systemAdmin = createTestUser({ roles: ["SystemAdmin"] });
 
+// Active definitions only — delete soft-deletes (the deterministic stream is
+// kept so a re-define can restore it), so isDeleted rows must not count.
 async function countDefinitions(tenantId: string, fieldKey: string): Promise<number> {
   const rows = await asRawClient(stack.db).unsafe(
-    "SELECT count(*)::int AS n FROM read_custom_field_definitions WHERE tenant_id = $1 AND field_key = $2",
+    "SELECT count(*)::int AS n FROM read_custom_field_definitions WHERE tenant_id = $1 AND field_key = $2 AND is_deleted = FALSE",
     [tenantId, fieldKey],
   );
   return (rows as ReadonlyArray<{ n: number }>)[0]?.n ?? 0;
@@ -122,6 +124,22 @@ async function fetchDefinitionRow(
     [tenantId, fieldKey],
   );
   return (rows as ReadonlyArray<Record<string, unknown>>)[0];
+}
+
+// The persisted customField.set event payload for a (host aggregate, fieldKey),
+// or undefined if none. Used to assert what did / didn't land in kumiko_events.
+async function fetchSetEventPayload(
+  aggregateId: string,
+  fieldKey: string,
+): Promise<Record<string, unknown> | undefined> {
+  const rows = await asRawClient(stack.db).unsafe(
+    "SELECT payload FROM kumiko_events WHERE aggregate_id = $1",
+    [aggregateId],
+  );
+  const payloads = (rows as ReadonlyArray<{ payload: unknown }>).map((r) =>
+    typeof r.payload === "string" ? JSON.parse(r.payload) : r.payload,
+  ) as Array<Record<string, unknown>>;
+  return payloads.find((p) => p?.["fieldKey"] === fieldKey);
 }
 
 async function defineField(entityName: string, fieldKey: string, type = "text") {
@@ -356,6 +374,182 @@ describe("custom-fields integration — define/delete handler coverage (B1)", ()
       systemAdmin,
     );
     expect(await countDefinitions(SYSTEM_TENANT_ID, "vendorTag")).toBe(0);
+  });
+});
+
+describe("custom-fields integration — define resurrection (B1)", () => {
+  test("tenant: define → delete → re-define same fieldKey succeeds with the new payload", async () => {
+    await defineField("property", "recur", "text");
+    expect(await countDefinitions(admin.tenantId, "recur")).toBe(1);
+
+    await stack.http.writeOk(
+      "custom-fields:write:delete-tenant-field",
+      { entityName: "property", fieldKey: "recur" },
+      admin,
+    );
+    expect(await countDefinitions(admin.tenantId, "recur")).toBe(0);
+
+    // Re-defining the same (entity, fieldKey) — deterministic id, the stream was
+    // deleted — must succeed (resurrect) AND reflect the new definition payload.
+    await stack.http.writeOk(
+      "custom-fields:write:define-tenant-field",
+      {
+        entityName: "property",
+        fieldKey: "recur",
+        serializedField: { type: "number" },
+        required: false,
+        searchable: false,
+        displayOrder: 0,
+      },
+      admin,
+    );
+    expect(await countDefinitions(admin.tenantId, "recur")).toBe(1);
+    const row = await fetchDefinitionRow(admin.tenantId, "recur");
+    expect(row?.["type"]).toBe("number");
+  });
+
+  test("system: define → delete → re-define same fieldKey succeeds", async () => {
+    const def = {
+      entityName: "property",
+      fieldKey: "vendorRecur",
+      serializedField: { type: "text" },
+      required: false,
+      searchable: false,
+      displayOrder: 0,
+    };
+    await stack.http.writeOk("custom-fields:write:define-system-field", def, systemAdmin);
+    await stack.http.writeOk(
+      "custom-fields:write:delete-system-field",
+      { entityName: "property", fieldKey: "vendorRecur" },
+      systemAdmin,
+    );
+    expect(await countDefinitions(SYSTEM_TENANT_ID, "vendorRecur")).toBe(0);
+
+    await stack.http.writeOk("custom-fields:write:define-system-field", def, systemAdmin);
+    expect(await countDefinitions(SYSTEM_TENANT_ID, "vendorRecur")).toBe(1);
+  });
+});
+
+describe("custom-fields integration — sensitive value self-projected, kept out of the event log (#2)", () => {
+  test("sensitive field: value reaches the projection but NOT kumiko_events", async () => {
+    await stack.http.writeOk(
+      "custom-fields:write:define-tenant-field",
+      {
+        entityName: "property",
+        fieldKey: "taxId",
+        serializedField: { type: "text", sensitive: true },
+        required: false,
+        searchable: false,
+        displayOrder: 0,
+      },
+      admin,
+    );
+    const propId = "aaaaaaaa-aaaa-4000-8000-0000000000a1";
+    await createProperty(propId, "Sensitive Prop");
+    await setCustomField("property", propId, "taxId", "DE-TAX-999");
+
+    // Read model HAS the value — self-projected directly into the host row.
+    const props = await listProperties();
+    const row = props.rows.find((r) => r["id"] === propId);
+    expect(row?.["taxId"]).toBe("DE-TAX-999");
+
+    // The immutable event log does NOT carry the value (erasable by design).
+    const payload = await fetchSetEventPayload(propId, "taxId");
+    expect(payload).toBeDefined();
+    expect(payload?.["fieldKey"]).toBe("taxId");
+    expect(payload && "value" in payload).toBe(false);
+  });
+
+  test("non-sensitive field: value IS in the event log (control)", async () => {
+    const propId = "aaaaaaaa-aaaa-4000-8000-0000000000a2";
+    await defineField("property", "publicNote", "text");
+    await createProperty(propId, "Public Prop");
+    await setCustomField("property", propId, "publicNote", "visible");
+
+    const payload = await fetchSetEventPayload(propId, "publicNote");
+    expect(payload?.["value"]).toBe("visible");
+  });
+
+  test("rebuild replay: re-applying logged events restores non-sensitive, not sensitive", async () => {
+    await defineField("property", "publicTag", "text");
+    await stack.http.writeOk(
+      "custom-fields:write:define-tenant-field",
+      {
+        entityName: "property",
+        fieldKey: "secret",
+        serializedField: { type: "text", sensitive: true },
+        required: false,
+        searchable: false,
+        displayOrder: 0,
+      },
+      admin,
+    );
+    const propId = "aaaaaaaa-aaaa-4000-8000-0000000000a3";
+    await createProperty(propId, "Rebuild Prop");
+    await setCustomField("property", propId, "publicTag", "keepme");
+    await setCustomField("property", propId, "secret", "DE-TAX-777");
+    await stack.eventDispatcher?.runOnce();
+
+    // Wipe the read model, then replay the logged events through the REAL MSP
+    // apply fn — exactly the derivation a rebuild performs — without mutating
+    // consumer state (which would pollute the shared stack).
+    await asRawClient(stack.db).unsafe(
+      "UPDATE read_t1_properties SET custom_fields = '{}'::jsonb WHERE id = $1",
+      [propId],
+    );
+    const mspEntry = [...stack.registry.getAllMultiStreamProjections().entries()].find(([name]) =>
+      name.includes("property"),
+    );
+    expect(mspEntry).toBeDefined();
+    const apply = mspEntry?.[1].apply ?? {};
+    const events = (await asRawClient(stack.db).unsafe(
+      "SELECT type, payload FROM kumiko_events WHERE aggregate_id = $1 ORDER BY id ASC",
+      [propId],
+    )) as ReadonlyArray<{ type: string; payload: unknown }>;
+    // The MSP apply value-type declares a 3rd rebuild-context arg; custom-fields'
+    // apply only reads (event, tx), so narrow the call to those two for replay.
+    type ReplayApplyFn = (event: Record<string, unknown>, tx: unknown) => Promise<void>;
+    for (const e of events) {
+      const fn = apply[e.type] as ReplayApplyFn | undefined;
+      if (!fn) continue;
+      const payload = typeof e.payload === "string" ? JSON.parse(e.payload) : e.payload;
+      await fn(
+        {
+          type: e.type,
+          payload,
+          aggregateId: propId,
+          aggregateType: "property",
+          tenantId: admin.tenantId,
+        },
+        asRawClient(stack.db),
+      );
+    }
+
+    const row = (await listProperties()).rows.find((r) => r["id"] === propId);
+    // Non-sensitive: restored from its value-bearing event.
+    expect(row?.["publicTag"]).toBe("keepme");
+    // Sensitive: the logged event carried no value → gone. The accepted, DURABLE
+    // rebuild-loss — and why a forget can't be undone by a rebuild.
+    expect(row?.["secret"]).toBeUndefined();
+  });
+
+  test("update-tenant-field rejects flipping `sensitive` (would orphan logged PII)", async () => {
+    await defineField("property", "maybePii", "text"); // non-sensitive at definition
+    const err = await stack.http.writeErr(
+      "custom-fields:write:update-tenant-field",
+      {
+        entityName: "property",
+        fieldKey: "maybePii",
+        serializedField: { type: "text", sensitive: true }, // attempt the flip
+        required: false,
+        searchable: false,
+        displayOrder: 0,
+      },
+      admin,
+    );
+    expect(err.httpStatus).toBe(422);
+    expect(err.code).toBe("unprocessable");
+    expect(err.details).toMatchObject({ reason: "field_sensitive_immutable" });
   });
 });
 

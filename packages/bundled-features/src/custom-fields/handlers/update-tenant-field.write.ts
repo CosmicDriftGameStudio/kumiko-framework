@@ -3,6 +3,7 @@ import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/e
 import { fieldDefinitionAggregateId } from "../aggregate-id";
 import { fieldDefinitionExecutor } from "../executor";
 import { buildFieldDefinitionColumns } from "../lib/field-definition-row";
+import { parseSerializedField } from "../lib/parse-serialized-field";
 import { type UpdateFieldPayload, updateFieldPayloadSchema } from "../schemas";
 
 // update-tenant-field — TenantAdmin ersetzt den Stand einer bestehenden
@@ -56,6 +57,22 @@ export const updateTenantFieldHandler: WriteHandlerDef = {
         fieldKey: payload.fieldKey,
         currentType: existing["type"],
         requestedType: payload.serializedField.type,
+      });
+    }
+
+    // `sensitive` is immutable. Flipping it on an existing field would leave a
+    // GDPR hole: a non-sensitive→sensitive switch can't retroactively erase the
+    // values already written to host rows by past sets (set-custom-field only
+    // routes the PII-safe path at write time). To change sensitivity, delete +
+    // re-define (the honest cut — same rationale as the type guard above).
+    const currentSensitive = parseSerializedField(existing["serializedField"])?.sensitive === true;
+    const requestedSensitive = payload.serializedField.sensitive === true;
+    if (currentSensitive !== requestedSensitive) {
+      return failUnprocessable("field_sensitive_immutable", {
+        entityName: payload.entityName,
+        fieldKey: payload.fieldKey,
+        currentSensitive,
+        requestedSensitive,
       });
     }
 

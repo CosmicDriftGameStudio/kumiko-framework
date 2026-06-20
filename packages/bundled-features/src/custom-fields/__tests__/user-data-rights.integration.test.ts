@@ -355,6 +355,23 @@ describe("T1.5c: custom-fields user-data-rights through the real runners", () =>
     expect(customFields).toBeDefined();
     expect(customFields).not.toHaveProperty("email");
     expect(customFields).toMatchObject({ vipFlag: true });
+
+    // The other half of erasure: the sensitive value was self-projected and the
+    // customField.set event was persisted value-less — so PII never entered the
+    // immutable log. Without this, the strip above would be undone by a rebuild.
+    const eventRows = await asRawClient(stack.db).unsafe(
+      "SELECT payload FROM kumiko_events WHERE aggregate_id = $1",
+      [propertyId],
+    );
+    const setPayloads = (eventRows as ReadonlyArray<{ payload: unknown }>).map((r) =>
+      typeof r.payload === "string" ? JSON.parse(r.payload) : r.payload,
+    ) as Array<Record<string, unknown>>;
+    const emailSet = setPayloads.find((p) => p?.["fieldKey"] === "email");
+    expect(emailSet).toBeDefined();
+    expect(emailSet && "value" in emailSet).toBe(false);
+    // Control: the non-sensitive value DID go through the log (normal path).
+    const vipSet = setPayloads.find((p) => p?.["fieldKey"] === "vipFlag");
+    expect(vipSet?.["value"]).toBe(true);
   });
 
   test("forget delete (no override → strategy delete): host removes the row, strip is a no-op", async () => {
