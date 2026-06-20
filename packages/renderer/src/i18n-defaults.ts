@@ -23,6 +23,13 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     // Version — Update-Awareness-Banner (UpdateChecker).
     "kumiko.version.update-available": "Eine neue Version ist verfügbar.",
 
+    // Toast — Self-service Docs-Link-Default (useToast docsLinkLabel).
+    "kumiko.toast.learn-more": "Mehr erfahren",
+
+    // Field — aria-Labels der Date/Timestamp-Primitives.
+    "kumiko.field.open-calendar": "Kalender öffnen",
+    "kumiko.field.time": "Uhrzeit",
+
     // List — DataTable Toolbar, Empty-State, Search.
     "kumiko.list.search-placeholder": "Suchen…",
     "kumiko.list.empty.title": "Noch keine Einträge.",
@@ -103,6 +110,11 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.actions.create": "New",
 
     "kumiko.version.update-available": "A new version is available.",
+
+    "kumiko.toast.learn-more": "Learn more",
+
+    "kumiko.field.open-calendar": "Open calendar",
+    "kumiko.field.time": "Time",
 
     "kumiko.list.search-placeholder": "Search…",
     "kumiko.list.empty.title": "No entries yet.",

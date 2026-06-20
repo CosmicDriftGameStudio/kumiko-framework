@@ -7,6 +7,7 @@
 // Auto-dismiss nach 5s, manuell schließbar via X-Button. Der ARIA-
 // Live-Region-Setup kommt komplett aus Radix.
 
+import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import * as Primitive from "@radix-ui/react-toast";
 import { X } from "lucide-react";
 import {
@@ -29,7 +30,8 @@ export type ToastOptions = {
   readonly variant?: ToastVariant;
   // Self-service deep-link (z.B. KumikoError.docsUrl). Wenn gesetzt
   // rendert der Toast einen "Mehr erfahren →" Link der in neuem Tab
-  // öffnet. Label override via `docsLinkLabel` (Default: deutsch).
+  // öffnet. Label override via `docsLinkLabel` (Default: i18n
+  // kumiko.toast.learn-more).
   readonly docsUrl?: string;
   readonly docsLinkLabel?: string;
 };
@@ -116,6 +118,8 @@ function ToastItem({
   readonly entry: ToastEntry;
   readonly onClose: () => void;
 }): ReactNode {
+  const t = useTranslation();
+  const learnMore = entry.docsLinkLabel ?? t("kumiko.toast.learn-more");
   const variantClass =
     entry.variant === "destructive"
       ? "destructive group border-destructive bg-destructive text-destructive-foreground"
@@ -135,7 +139,7 @@ function ToastItem({
           </Primitive.Description>
         )}
         {entry.docsUrl !== undefined && (
-          <Primitive.Action altText={entry.docsLinkLabel ?? "Mehr erfahren"} asChild>
+          <Primitive.Action altText={learnMore} asChild>
             <a
               href={entry.docsUrl}
               target="_blank"
@@ -145,7 +149,7 @@ function ToastItem({
                 "focus:outline-none focus:ring-1 focus:ring-current rounded",
               )}
             >
-              {entry.docsLinkLabel ?? "Mehr erfahren"} →
+              {learnMore} →
             </a>
           </Primitive.Action>
         )}
@@ -157,7 +161,7 @@ function ToastItem({
           "group-hover:opacity-100",
           "group-[.destructive]:text-red-300 group-[.destructive]:hover:text-red-50",
         )}
-        aria-label="Close"
+        aria-label={t("kumiko.dialog.close")}
       >
         <X className="h-4 w-4" />
       </Primitive.Close>
