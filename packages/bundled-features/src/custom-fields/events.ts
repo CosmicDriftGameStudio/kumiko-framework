@@ -11,7 +11,10 @@ import { z } from "zod";
 
 export const customFieldSetSchema = z.object({
   fieldKey: z.string().min(1).max(64),
-  value: z.unknown(),
+  // Optional: a `sensitive`-field set persists a VALUE-LESS event — the value is
+  // self-projected into the host row by the write handler and must never enter
+  // the immutable log. Non-sensitive sets always carry the value.
+  value: z.unknown().optional(),
 });
 export type CustomFieldSetPayload = z.infer<typeof customFieldSetSchema>;
 

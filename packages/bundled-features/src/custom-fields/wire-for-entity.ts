@@ -97,6 +97,13 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
         if (event.aggregateType !== entityName) return;
         const payload = event.payload as CustomFieldSetPayload; // @cast-boundary engine-payload
 
+        // Sensitive fields self-project in the write handler (see
+        // set-custom-field) and persist a value-less event so PII never enters
+        // the log. Such events arrive here with value === undefined — skip them,
+        // both live (the handler already wrote the row) and on replay (the value
+        // is intentionally gone, the accepted rebuild-loss for sensitive data).
+        if (payload.value === undefined) return;
+
         // jsonb_set: setze key auf value. Wenn key noch nicht existiert →
         // wird angelegt (create_missing=true ist default). value muss als
         // jsonb-literal kommen.

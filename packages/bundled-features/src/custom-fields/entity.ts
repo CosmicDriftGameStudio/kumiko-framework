@@ -36,11 +36,18 @@ import {
 //     columns + events.
 export const fieldDefinitionEntity = createEntity({
   table: "read_custom_field_definitions",
+  // softDelete is required, NOT cosmetic: the aggregate-id is deterministic
+  // (uuidv5(tenantId|entityName|fieldKey)), so deleting a definition leaves a
+  // (created+deleted) event stream under that id. A hard delete would force the
+  // next define to create() at version 0 onto that stream → version_conflict —
+  // a deleted (entity, fieldKey) could never be re-defined. With softDelete the
+  // define handlers resurrect via restore()+update() (see define-or-resurrect).
+  // NB: `retention.strategy` below is the data-retention purge policy, a
+  // SEPARATE knob from this executor flag — it does not drive executor.delete.
+  softDelete: true,
   // B1.5 retention-policy — fieldDefinitions sind tenant-Schema-Metadaten,
   // keine PII-Daten. Lange Retention für Audit (Compliance kann "wann hat
-  // Tenant das Feld definiert / geändert / gelöscht" fragen). Strategy
-  // softDelete: row bleibt als marker, value-cleanup (in B2's MSP) macht
-  // die eigentliche Anonymisierung wenn customFields PII enthielten.
+  // Tenant das Feld definiert / geändert / gelöscht" fragen).
   //
   // 10-Jahre keepFor ist konservativer Default; per-Tenant kann via
   // tenantRetentionOverride für eigene Edge-Cases gesetzt werden
