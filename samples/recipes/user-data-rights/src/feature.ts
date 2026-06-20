@@ -17,7 +17,7 @@
 //   - Compliance-Profile-Wiring + Cron-Scheduling
 
 import { deleteMany, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable, buildEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -41,7 +41,14 @@ export const notesTable = buildEntityTable("note", noteEntity);
 
 export const notesFeature = defineFeature("notes", (r) => {
   r.requires("user-data-rights");
-  r.entity("note", noteEntity);
+  // read_notes is a direct-write store: the forget hook below `updateMany`/
+  // `deleteMany`s rows WITHOUT emitting lifecycle events. r.entity would make
+  // it a rebuildable implicit projection whose replay finds zero note events
+  // and wipes the table (or un-forgets anonymized rows) on the next rebuild
+  // (#498). r.unmanagedTable keeps the DDL, opts out of implicit rebuild.
+  r.unmanagedTable(buildEntityTableMeta("note", noteEntity), {
+    reason: "read_side.notes_direct_write",
+  });
 
   const exportNotes: UserDataExportHook = async (ctx) => {
     const rows = await selectMany(ctx.db, notesTable, {
