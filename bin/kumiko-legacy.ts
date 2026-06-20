@@ -237,23 +237,14 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   });
   steps.push({ name: "Test-Stack-Drift Guard", cmd: "bunx kumiko-guard-test-stack-drift" });
   steps.push({ name: "Runtime-Isolation Guard", cmd: "bunx kumiko-check-runtime-isolation" });
-  // Als bin registriert (infra/guards/package.json), hing aber an keinem Step
-  // → nie ausgeführt (#99/1). Eigenes ts-morph-Project (tsConfig-typed),
-  // exportiert keinen AstGuard → läuft NICHT im shared runner. Gatet per
-  // Exit-Code: blockt loadAllEventsByType() im Prod-Code (OOM-Cliff).
+  // Registered as a bin but wired to no step, so it never ran. Builds its own
+  // ts-morph project and exports no AstGuard → stays out of the shared runner;
+  // gates by exit code, blocking loadAllEventsByType() in prod (OOM cliff).
   steps.push({ name: "LoadAll-Events Guard", cmd: "bunx kumiko-guard-loadall-events" });
-  // Action-Wiring + Doc-Status waren als bins registriert, hingen aber an
-  // keinem Pipeline-Step — ein nicht-aufgerufener Guard ist ein No-op.
-  // --strict: ohne das Flag bleibt process.exit(1) hinter `if (strict)` aus
-  // (guard-action-wiring.ts), der Step druckt Verstöße nur nach stderr und
-  // endet 0 → er kann die Pipeline nie rot machen (aufgerufener No-op). Alle
-  // anderen Steps gaten per Exit-Code; das hier war der einzige Ausreißer.
+  // --strict: without it guard-action-wiring.ts only prints violations to stderr and exits 0, never gating.
   steps.push({ name: "Action-Wiring Guard", cmd: "bunx kumiko-guard-action-wiring --strict" });
-  // Thin-Wrappers war als bin publiziert (kumiko-guard-thin-wrappers), hing aber
-  // an keinem Step → nie ausgeführt (#384/1). Warning-only (exit 0, kein Gate):
-  // hält die Liste unmarkierter Thin-Wrapper sichtbar, wie CLAUDE.md es für
-  // `kumiko check` dokumentiert. Läuft NICHT im shared runner — baut ein eigenes
-  // ts-morph-Project, exportiert keinen AstGuard.
+  // Warning-only (exit 0, no gate): keeps unmarked thin-wrappers visible per CLAUDE.md.
+  // Builds its own ts-morph project and exports no AstGuard, so it stays out of the shared runner.
   steps.push({ name: "Thin-Wrappers Guard", cmd: "bunx kumiko-guard-thin-wrappers" });
   // Doc-Status braucht das Multi-Repo-Parent (STATUS.md lebt in
   // kumiko-platform) — im standalone CI-Checkout existiert das nicht.
@@ -262,8 +253,8 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   if (existsSync(join(REPO_ROOT, "kumiko-platform"))) {
     steps.push({ name: "Doc-Status Guard", cmd: "bunx kumiko-guard-doc-status" });
     steps.push({ name: "Doc-Status-Index Drift", cmd: "bunx kumiko-docs-status-index" });
-    // Braucht die legal-templates-Source (kumiko-platform/tools/legal-templates)
-    // um die eingecheckten App-JSONs gegen frische Kompilierung zu prüfen.
+    // Needs the legal-templates source (kumiko-platform/tools/legal-templates)
+    // to verify committed app JSONs against a fresh compilation.
     steps.push({ name: "Legal-Template-Drift Guard", cmd: "bunx kumiko-guard-legal-template-drift" });
   } else {
     console.log("Doc-Status-Steps übersprungen: kumiko-platform nicht im Workspace (CI-standalone).");

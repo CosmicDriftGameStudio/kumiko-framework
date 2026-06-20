@@ -24,7 +24,6 @@ const OWN_SOURCES: ReadonlySet<ConfigValueSource> = new Set(["user-row", "tenant
 // flagging a working key as missing would nag tenants to set already-
 // functioning config. So "nor that it is set" holds for the value queries, not
 // for the functional readiness rollup. See readiness.query.ts.
-// Shared mask for redacted config values across the read handlers (cascade + values).
 export const MASKED = "••••••";
 
 export function mayViewInheritedValue(roles: readonly string[]): boolean {

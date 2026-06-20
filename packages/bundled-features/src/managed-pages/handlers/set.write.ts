@@ -51,20 +51,13 @@ export const setWrite = defineWriteHandler({
       );
     }
     const tenantId = override ?? event.user.tenantId;
-    // Bei Override muss der executor-user-Context auf den ziel-tenant
-    // umgestellt werden, sonst läuft getStreamVersion gegen user.tenantId
-    // statt tenantId → version_conflict trotz vorhandener projection-row.
+    // override: point the executor context at the target tenant, else getStreamVersion runs against user.tenantId → version_conflict.
     const executorUser =
       override !== undefined ? { ...event.user, tenantId: override as TenantId } : event.user; // @cast-boundary engine-bridge
 
-    // ctx.db is tenant-scoped to the EXECUTING user (createTenantDb "tenant"
-    // mode). For a cross-tenant override that scope is wrong on BOTH the
-    // existing-check (blind to the target tenant's projection row → every
-    // re-provision retries as a create → unique_violation) AND the executor's
-    // stream reads (getStreamVersion/loadAggregate filtered to the executor's
-    // tenant → not_found/version_conflict). Re-scope a TenantDb to the resolved
-    // target tenant so reads and writes both land there. Safe: the override
-    // branch is SystemAdmin-gated above.
+    // ctx.db is scoped to the executing user's tenant, wrong for a cross-tenant override
+    // on both the existing-check and the executor's stream reads; re-scope to the target.
+    // Safe: the override branch is SystemAdmin-gated above.
     const scopedDb =
       override !== undefined ? createTenantDb(db.raw, override as TenantId, "tenant") : db; // @cast-boundary engine-bridge
     const existing = await fetchOne<PageRow>(scopedDb, pagesTable, {

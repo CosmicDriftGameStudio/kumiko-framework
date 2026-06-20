@@ -33,3 +33,11 @@ export const tierAssignmentEntity = createEntity({
     source: createTextField({ required: false, maxLength: 20 }),
   },
 });
+
+export type TierAssignmentRow = {
+  readonly id: string;
+  readonly version: number;
+  readonly tier: string;
+  readonly source: string | null;
+  readonly tenantId: string;
+};
