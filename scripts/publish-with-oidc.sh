@@ -80,9 +80,31 @@ for pkg_json in packages/*/package.json; do
   # Substitution bleibt in der if-Condition, damit `set -e` einen Pack-Fehler
   # nicht zum Script-Abbruch macht (er soll nur dieses Paket als failed zählen).
   TARBALL=""
+  pin_drift=""
   if TARBALL="$(cd "$pkg_dir" && bun pm pack --quiet | grep -E '\.tgz$' | tail -n1)" \
-     && [ -n "$TARBALL" ] \
-     && npm publish "$pkg_dir/$TARBALL" --provenance --access public >&2; then
+     && [ -n "$TARBALL" ]; then
+    # Guard (#410): the packed manifest must pin every internal @cosmicdrift/*
+    # dependency to the release version. workspace:* is substituted from bun.lock
+    # at pack time — a lock left stale by `changeset version` ships a lagging pin
+    # (e.g. renderer@0.64 → framework@0.57) that breaks consumers without full
+    # `overrides`. Refuse to publish on drift rather than ship a broken tree.
+    pin_drift="$(tar -xzOf "$pkg_dir/$TARBALL" package/package.json \
+      | jq -r --arg v "$version" '
+          ((.dependencies // {}) + (.peerDependencies // {}))
+          | to_entries
+          | map(select((.key | startswith("@cosmicdrift/")) and .value != $v)
+                | "\(.key)@\(.value)")
+          | join(", ")')"
+  fi
+
+  if [ -z "$TARBALL" ]; then
+    echo "[fail] $name@$version: pack produced no tarball" >&2
+    failed+=("$name@$version")
+  elif [ -n "$pin_drift" ]; then
+    echo "[fail] $name@$version: internal pin(s) lag the release version — got $pin_drift (expected $version)." >&2
+    echo "[fail] bun.lock is stale; the version step must run 'changeset version && bun install'." >&2
+    failed+=("$name@$version (pin drift)")
+  elif npm publish "$pkg_dir/$TARBALL" --provenance --access public >&2; then
     published=$((published + 1))
     published_json="$(jq -c \
       --arg name "$name" --arg version "$version" \
