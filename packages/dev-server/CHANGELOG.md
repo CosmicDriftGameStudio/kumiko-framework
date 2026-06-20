@@ -1,5 +1,24 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.65.0
+
+### Minor Changes
+
+- dcdfe3f: dev-server: `runSchemaApply` / `runStandaloneSchemaCli` als Export unter `@cosmicdrift/kumiko-dev-server/schema-apply`. Apps delegieren ihr `bin/kumiko.ts` (`kumiko schema apply`) auf ~5 Zeilen statt ~100 Zeilen identisches Boilerplate (DATABASE_URL-Check, Migrations, Projection-Rebuild) pro App zu duplizieren. Der Greenfield-Infra-Bootstrap (event-store + pipeline-state-Tabellen, idempotent vor den App-Migrations) ist eingefaltet, sodass leere DBs (CNPG) und Bestands-DBs über denselben Code laufen — keine per-App-Divergenz mehr.
+
+### Patch Changes
+
+- Updated dependencies [09ff47e]
+- Updated dependencies [6ac4ff6]
+- Updated dependencies [773b368]
+- Updated dependencies [6a200dd]
+- Updated dependencies [1586c8c]
+- Updated dependencies [0550ca4]
+- Updated dependencies [8678242]
+- Updated dependencies [8de0b3b]
+  - @cosmicdrift/kumiko-bundled-features@0.65.0
+  - @cosmicdrift/kumiko-framework@0.65.0
+
 ## 0.64.0
 
 ### Patch Changes

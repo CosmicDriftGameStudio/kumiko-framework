@@ -1,5 +1,47 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.65.0
+
+### Minor Changes
+
+- 6a200dd: feat(user-data-rights): Privacy-Center self-service UI (Art. 15/17/18/20)
+
+  Adds `userDataRightsClient()` and a dormant `privacy-center` custom screen that
+  wires data export (Art. 20), the activity log (Art. 15), processing restriction
+  (Art. 18), and account deletion (Art. 17) to the existing server handlers. Apps
+  mount the client factory in `createKumikoApp({ clientFeatures: [userDataRightsClient()] })`
+  and place the screen via `r.nav` in their authenticated area — no per-app UI to
+  build. Art. 18 lift stays out of the screen by design (a restricted account is
+  login-blocked and cannot reach it; lifting runs via support / magic-link).
+
+- 8de0b3b: tier-engine: optionale Trial-Phase. `createTierEngineFeature({ trial: { tier, durationHours } })` schaltet jedem Tenant für `durationHours` ab seinem Anlage-Datum (`inserted_at` der tier-assignment-Row, rebuild-stabil aus dem Create-Event) zusätzlich die Features von `trial.tier` frei — danach fällt er automatisch auf sein gespeichertes Tier zurück. Rein zeit-abgeleitet (at-resolve-time im tenantTierResolver berechnet, nie gecacht): kein Stored-Flag, kein Scheduler, automatischer Ablauf. Ohne `trial`-Option ist der Resolver byte-identisch zu vorher. Neuer Export `isTrialActive` + Typ `TrialPolicy`.
+
+### Patch Changes
+
+- 09ff47e: custom-fields: fix two event-sourcing correctness gaps.
+
+  1. **Resurrection** — `define → delete → re-define` of the same `(entity, fieldKey)` failed with `version_conflict` (409) permanently: the deterministic aggregate-id left a `created+deleted` stream and the next `create()` collided at version 0, so a deleted custom field could never be re-defined (and its delete-cascade had already wiped the values). `fieldDefinition` is now `softDelete`, and the define handlers resurrect via `restore()` + `update()` (overwriting with the new definition). Quota counts only active definitions.
+
+  2. **PII in the event log** — a custom field marked `sensitive: true` had its value written into the `customField.set` event (via `unsafeAppendEvent`), so a user-forget that strips the projection still left the value in `kumiko_events` (an Art. 17 gap, also undone by a projection rebuild). Sensitive values are now **self-projected** into the host row directly by the write handler — exactly like the entity executor handles `sensitive` entity fields — and the persisted event omits the value. PII never enters the immutable log; the existing forget-strip erases it durably. A projection rebuild loses the value, which is intentional (identical to a `sensitive` entity field).
+
+  Also: `update-tenant-field` now rejects flipping a field's `sensitive` flag (immutable, like `type`) — a non-sensitive→sensitive switch can't retroactively erase already-logged values, so changing sensitivity requires delete + re-define.
+
+  Note: change 1 adds an `is_deleted` column to `read_custom_field_definitions` (entity is now soft-delete) — additive migration required on existing deployments (`kumiko schema` generates the `ALTER TABLE ADD COLUMN`); the quota query and executor depend on it.
+
+- 0550ca4: sessions: `read_user_sessions` nicht mehr als rebuildbare Implicit-Projection registrieren
+
+  Die Tabelle ist ein Hot-Path-Direct-Write-Store — `sessionCreator` legt Rows per `insertOne` an und die Revoke-Handler updaten sie, beides **ohne** Lifecycle-Event. Als `r.entity` registriert wurde sie zur rebuildbaren Implicit-Projection, deren Replay null `user-session.*`-Events findet und einen leeren Shadow über die Live-Tabelle swappt — jeder Projection-Rebuild (Deploy / `schema apply`) löschte still **alle aktiven Sessions** (Mass-Logout, revoked-State weg). Fix: `r.unmanagedTable(buildEntityTableMeta(...))` behält die Migration-DDL, nimmt die Tabelle aber aus dem Implicit-Rebuild — analog zu `jobs`/`channel-in-app`/`feature-toggles`, die ebenfalls Direct-Write-Stores sind. (#498/#494)
+
+- 8678242: tags: rebuild `<TagSection>` as one GitLab-style multi-combobox (chips + searchable dropdown + toggle) instead of a button wall, and fix re-assign after remove. The assignment aggregate-id is deterministic, so removing a tag used to leave a `created+deleted` stream that the next assign hit with `create()` at version 0 → `version_conflict` (409); a removed `(tag, entity)` pair could never be re-attached. `tag-assignment` is now `softDelete: true` and the assign handler restores the stream (detail → restore → create), with the list query filtering removed rows.
+- Updated dependencies [6ac4ff6]
+- Updated dependencies [773b368]
+- Updated dependencies [1586c8c]
+  - @cosmicdrift/kumiko-framework@0.65.0
+  - @cosmicdrift/kumiko-headless@0.65.0
+  - @cosmicdrift/kumiko-renderer@0.65.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.65.0
+  - @cosmicdrift/kumiko-renderer-web@0.65.0
+
 ## 0.64.0
 
 ### Patch Changes
