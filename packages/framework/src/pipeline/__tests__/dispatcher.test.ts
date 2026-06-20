@@ -384,8 +384,7 @@ describe("dispatcher feature-gate", () => {
     const registry = createRegistry([toggled()]);
     let trialOpen = false;
     const effectiveFeatures = Object.assign(() => new Set<string>(), {
-      trialGate: async (_tenantId: TenantId, feature: string) =>
-        trialOpen && feature === "toggled",
+      trialGate: async (_tenantId: TenantId, feature: string) => trialOpen && feature === "toggled",
     });
     const dispatcher = createDispatcher(registry, {}, { effectiveFeatures });
 

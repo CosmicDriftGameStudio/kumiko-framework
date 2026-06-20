@@ -65,7 +65,7 @@ import {
 import { getAggregateStreamMaxVersion } from "@cosmicdrift/kumiko-framework/event-store";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
-import { tenantTable } from "../tenant/schema/tenant";
+import { tenantTable } from "../tenant";
 import { tierAssignmentAggregateId } from "./aggregate-id";
 import type { TierMap } from "./compose-app";
 import { TIER_ADMIN_SCREEN_ID, TIER_ENGINE_FEATURE } from "./constants";
