@@ -1,6 +1,6 @@
 # Seed-Migration
 
-File-based migrations for Event-Sourcing operations — the drizzle-migrate equivalent for aggregate-state-changes after the initial seed.
+File-based migrations for Event-Sourcing operations — like `kumiko schema apply`, but for aggregate-state-changes after the initial seed.
 
 ## What it shows
 
@@ -8,7 +8,7 @@ File-based migrations for Event-Sourcing operations — the drizzle-migrate equi
 - **`SeedMigration`-Interface** — default-Export einer seed-File mit `description` + `run(ctx)`. ctx liefert `systemWriteAs` (System-User bypassed Access-Check) + Read-Helpers (`findUserByEmail`, `findMembershipsOfUser`, `findTenants`).
 - **Idempotency** — Marker landet nach Erfolg in der Tracking-Tabelle, zweiter Boot skipped applied Seeds.
 - **Tx-Atomicity** — Jede Migration läuft in eigener Transaction; Failure rollt zurück + bricht Boot ab (kein Partial-Apply).
-- **Chronologische File-IDs** — Filename `<date>-<slug>.ts` (z.B. `2026-05-20-fix-admin-roles.ts`) ist die ID. Drizzle-Style.
+- **Chronologische File-IDs** — Filename `<date>-<slug>.ts` (z.B. `2026-05-20-fix-admin-roles.ts`) ist die ID.
 
 ### Phase 1.5 hinzugefügt
 
@@ -44,8 +44,7 @@ Seed-Migrations sind der saubere Fix: ein File schreibt das gewünschte Update e
 ## Don't reach for it when
 
 - **Initial Seeding** (erste Daten beim leeren Stack). Dafür gibt es `r.config({seeds})` + `options.seeds`-Array — idempotent-by-design durch deterministische Aggregate-IDs.
-- **Schema-Migrations**. Dafür gibt es `kumiko schema generate` (neu) bzw.
-  `kumiko migrate generate` (Legacy-Apps mit `drizzle/`). Seed-migrations sind
+- **Schema-Migrations**. Dafür gibt es `kumiko schema generate`. Seed-migrations sind
   Data-Layer, nicht Schema-Layer.
 - **Read-only Operationen / Reports**. Dafür gibt es App-spezifische Routes / Queries.
 
