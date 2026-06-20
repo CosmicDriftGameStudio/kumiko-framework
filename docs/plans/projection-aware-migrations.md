@@ -2,7 +2,7 @@
 status: in-progress
 verified: 2026-06-15
 issue: kumiko-framework#356
-next: Phase 2 (#361) + Aktivierung (studio#61) shipped; Phase 3 (#362 rebuild-job + enqueueProjectionRebuild) shipped; #363 (zero-downtime) Phase 1 SHIPPED (Online-Rebuild via Schema-Swap) + Phase 2 SHIPPED (Live-Tail-Catch-up, single-stream, Branch feat/projection-live-tail-363) — offen #363 Phase 3 (Generator additive-prefer/Guardrail) + Phase 4 (Consumer-Wiring); offen außerdem #356-Release-Consumer-Bumps (studio#58-Migration)
+next: Siehe kumiko-framework#356 — Phase 2 (#361) + Aktivierung (studio#61) shipped; Phase 3 (#362 rebuild-job + en…
 ---
 
 # Projection-aware migrations: managed = wegwerfbares Derivat, unmanaged = echte Daten
