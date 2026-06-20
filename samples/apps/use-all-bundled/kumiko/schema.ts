@@ -1,18 +1,23 @@
 // @runtime dev
-// App-Schema für `kumiko schema generate`. Sammelt alle EntityDefinitions
-// + Unmanaged-Tables die in der App laufen, gibt sie als EntityTableMeta[]
-// zurück. CLI importiert ENTITY_METAS via dynamic-import.
+// App-Schema für die `kumiko-schema`-CLI (generate | validate). Komponiert die
+// App-Features einmal und leitet beide CLI-Inputs ab. CLI importiert via
+// dynamic-import.
 //
-// **Convention:** dieses File muss `export const ENTITY_METAS:
-// readonly EntityTableMeta[]` haben. CLI ruft via dynamic-import auf.
+// **Convention:** dieses File exportiert
+//   - `ENTITY_METAS: readonly EntityTableMeta[]`  (Pflicht — generate + validate)
+//   - `FEATURES: readonly FeatureDefinition[]`    (optional — aktiviert
+//     `kumiko-schema validate`s validateBoot-Layer; ohne wird er übersprungen)
 
 import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features";
 import { collectTableMetas, type EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
+import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { APP_FEATURES } from "../src/run-config";
+
+export const FEATURES: readonly FeatureDefinition[] = composeFeatures(APP_FEATURES, {
+  includeBundled: true,
+});
 
 // collectTableMetas erfasst neben entities + unmanagedTables auch
 // r.projection/r.multiStreamProjection/r.rawTable-Tabellen — dieselben
 // Quellen wie der setupTestStack-auto-push (#255).
-export const ENTITY_METAS: readonly EntityTableMeta[] = collectTableMetas(
-  composeFeatures(APP_FEATURES, { includeBundled: true }),
-);
+export const ENTITY_METAS: readonly EntityTableMeta[] = collectTableMetas(FEATURES);
