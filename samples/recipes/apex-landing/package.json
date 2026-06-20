@@ -1,0 +1,15 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-apex-landing",
+  "description": "Apex landing page composed from other features — hero copy from text-content, prices and caps from tier-engine — rendered to one static HTML string.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "screenshot": "bun x playwright test --config=playwright.config.ts"
+  },
+  "dependencies": {
+    "@cosmicdrift/kumiko-headless": "workspace:*"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}
