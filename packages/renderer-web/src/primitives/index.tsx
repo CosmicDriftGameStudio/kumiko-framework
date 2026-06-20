@@ -153,17 +153,47 @@ function DefaultField({
   labelAppendix,
   fieldAppendix,
   children,
+  layout,
   testId,
 }: FieldProps): ReactNode {
   const t = useTranslation();
   const hasError = issues !== undefined && issues.length > 0;
+  const labelEl = (
+    <UiLabel htmlFor={id} className={hasError ? "text-destructive" : "text-foreground"}>
+      {label}
+      {required === true && <span className="ml-0.5 text-destructive">*</span>}
+    </UiLabel>
+  );
+  const errorsEl = hasError ? (
+    <div
+      role="alert"
+      data-testid={testId !== undefined ? `${testId}-errors` : undefined}
+      className="text-xs text-destructive"
+    >
+      {issues.map((issue) => (
+        <div key={`${issue.path}:${issue.code}`}>{t(issue.i18nKey, issue.params)}</div>
+      ))}
+    </div>
+  ) : null;
+
+  // Inline (boolean/checkbox): Control links, Label rechts — shadcn-Muster.
+  if (layout === "inline") {
+    return (
+      <div data-testid={testId} className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-2">
+          {children}
+          {labelEl}
+          {labelAppendix !== undefined && labelAppendix}
+        </div>
+        {errorsEl}
+      </div>
+    );
+  }
+
   return (
     <div data-testid={testId} className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between gap-2">
-        <UiLabel htmlFor={id} className={hasError ? "text-destructive" : "text-foreground"}>
-          {label}
-          {required === true && <span className="ml-0.5 text-destructive">*</span>}
-        </UiLabel>
+        {labelEl}
         {/* appendix neben dem <label>, nicht darin — interaktiver Inhalt
             (Disclosure-Button) gehört nicht in ein label-Element. */}
         {labelAppendix !== undefined && labelAppendix}
@@ -173,17 +203,7 @@ function DefaultField({
           Label-Row, nicht durch den Input davon getrennt. */}
       {fieldAppendix !== undefined && fieldAppendix}
       {children}
-      {hasError && (
-        <div
-          role="alert"
-          data-testid={testId !== undefined ? `${testId}-errors` : undefined}
-          className="text-xs text-destructive"
-        >
-          {issues.map((issue) => (
-            <div key={`${issue.path}:${issue.code}`}>{t(issue.i18nKey, issue.params)}</div>
-          ))}
-        </div>
-      )}
+      {errorsEl}
     </div>
   );
 }

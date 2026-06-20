@@ -73,6 +73,7 @@ export function RenderField({
       {...(issues !== undefined && { issues })}
       {...(labelAppendix !== undefined && { labelAppendix })}
       {...(fieldAppendix !== undefined && { fieldAppendix })}
+      {...(field.type === "boolean" && { layout: "inline" as const })}
       testId={`field-${field.field}`}
     >
       {control}

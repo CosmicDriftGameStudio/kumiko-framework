@@ -99,6 +99,10 @@ export type FieldProps = {
   readonly labelAppendix?: ReactNode;
   readonly fieldAppendix?: ReactNode;
   readonly children: ReactNode;
+  /** Label-Layout. `stacked` (Default): Label über dem Control. `inline`:
+   *  Control + Label nebeneinander (Box links, Label rechts) — für
+   *  Checkbox/Switch-Felder (boolean), wie das shadcn-Muster. */
+  readonly layout?: "stacked" | "inline";
   readonly testId?: string;
 };
 
