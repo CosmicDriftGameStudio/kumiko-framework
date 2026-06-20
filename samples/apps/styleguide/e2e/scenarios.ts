@@ -40,4 +40,12 @@ export const SCENARIOS: readonly Scenario[] = [
     settleMs: 400,
     fullPage: true,
   },
+  {
+    name: "shipping",
+    description: "Config-Stresstest: shadcn Shipping-Address aus dem Schema (flache Form)",
+    url: "/shipping-edit",
+    waitFor: "text=Shipping Address",
+    settleMs: 400,
+    fullPage: true,
+  },
 ];

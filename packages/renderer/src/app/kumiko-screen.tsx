@@ -328,6 +328,7 @@ function EntityEditCreateBody({
       writeCommand={writeCommand}
       onSubmit={handleSubmitted}
       onCancel={navigateToList}
+      {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
       {...(translate !== undefined && { translate })}
     />
   );
@@ -486,6 +487,7 @@ function EntityEditUpdateForm({
       {...(screen.allowDelete !== false && { onDelete: handleDelete })}
       onCancel={navigateToList}
       onReload={() => void onReload()}
+      {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
       {...(translate !== undefined && { translate })}
     />
   );

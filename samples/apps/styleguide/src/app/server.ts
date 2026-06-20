@@ -6,11 +6,12 @@
 
 import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
 import { demoFeature } from "../features/demo/feature";
+import { examplesFeature } from "../features/examples/feature";
 import { galleryFeature } from "../features/gallery/feature";
 import { seedStyleguideItems } from "./seed";
 
 await runDevApp({
-  features: [demoFeature, galleryFeature],
+  features: [demoFeature, galleryFeature, examplesFeature],
   port: Number.parseInt(process.env["PORT"] ?? "4180", 10),
   clientEntry: "./src/app/client.tsx",
   htmlPath: "./public/index.html",

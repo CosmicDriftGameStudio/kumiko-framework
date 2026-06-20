@@ -309,7 +309,10 @@ export type EditSectionSpec = EditFieldsSection | EditExtensionSection;
 
 export type EditFieldsSection = {
   readonly kind?: "fields";
-  readonly title: string;
+  /** Optional. Ohne Titel rendert die Section nur ihre Felder (keine h3-
+   *  Überschrift) — für flache Forms (Card-Titel + Felder direkt, ein
+   *  einzelner Abschnitt) wie bei den meisten shadcn-Form-Mustern. */
+  readonly title?: string;
   readonly columns?: number;
   readonly fields: readonly EditFieldSpec[];
 };
@@ -333,6 +336,10 @@ export type EntityEditScreenDefinition = {
   readonly type: "entityEdit";
   readonly entity: string;
   readonly layout: EditLayout;
+  /** Optionaler i18n-Key (oder Roh-String) für den Submit-Button. Default
+   *  `kumiko.actions.save`. Lässt den Auto-Edit-Screen domain-spezifische
+   *  CTAs zeigen ("Save Address", "Create item") statt generisch "Speichern". */
+  readonly submitLabel?: string;
   /** Default true. `false` für Entities deren Create über einen eigenen
    *  Lifecycle-Write läuft (z.B. incident:open mit Event-Stream + Joins)
    *  statt über `<entity>:create`: unterdrückt den automatischen

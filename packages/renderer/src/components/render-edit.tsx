@@ -392,7 +392,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         actions={formActions}
         testId="render-edit-form"
       >
-        {vm.sections.map((section: EditSectionViewModel) => {
+        {vm.sections.map((section: EditSectionViewModel, sectionIndex: number) => {
           if (section.kind === "extension") {
             return (
               <ExtensionSectionMount
@@ -408,11 +408,13 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           // Action-Bar 1:1 wiederholen würde (typisch bei Single-Section-
           // ActionForms, deren Section-Label = Screen-Titel ist).
           const sectionTitle = section.title === formTitle ? undefined : section.title;
+          // Titellose Sections kollidieren sonst auf key/testId — Index-Fallback.
+          const sectionKey = section.title ?? `section-${sectionIndex}`;
           return (
             <Section
-              key={section.title}
+              key={sectionKey}
               {...(sectionTitle !== undefined && { title: sectionTitle })}
-              testId={`section-${section.title}`}
+              testId={`section-${sectionKey}`}
             >
               <Grid columns={section.columns}>
                 {section.fields.map((field: EditFieldViewModel) => (

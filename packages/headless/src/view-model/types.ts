@@ -141,7 +141,8 @@ export type EditSectionViewModel = EditFieldsSectionViewModel | EditExtensionSec
 
 export type EditFieldsSectionViewModel = {
   readonly kind: "fields";
-  readonly title: string;
+  /** Optional — eine titellose Section rendert nur ihre Felder (flache Form). */
+  readonly title?: string;
   readonly columns: number;
   readonly fields: readonly EditFieldViewModel[];
 };

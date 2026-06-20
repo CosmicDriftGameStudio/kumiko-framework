@@ -145,7 +145,8 @@ export function computeEditViewModel<
     });
     return {
       kind: "fields" as const,
-      title: translate(sectionSpec.title),
+      // Titellose Section (flache Form) → kein h3; nur übersetzen wenn gesetzt.
+      ...(sectionSpec.title !== undefined && { title: translate(sectionSpec.title) }),
       columns: sectionSpec.columns ?? 1,
       fields,
     };
