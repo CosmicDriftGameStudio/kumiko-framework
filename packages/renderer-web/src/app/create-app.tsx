@@ -42,6 +42,16 @@ import { useBrowserNavApi } from "./nav";
 import { NavProvidersProvider } from "./nav-providers-context";
 import { type ResolverComponent, ResolversProvider } from "./resolvers-context";
 
+// Qualifiziert den Key eines navProviders auf seine Nav-QN. Lokale ids
+// (z.B. "content") werden wie in r.nav mit dem Feature-Namen qualifiziert;
+// bereits qualifizierte QNs (App registriert die Nav für ein bundled-feature
+// und gibt die QN als navId rein, z.B. "publicstatus:nav:content") gehen
+// unverändert durch. MUSS konsistent zu qualifyNavId bleiben, sonst findet
+// der NavTree-Knoten (Schema-Seite) seinen Provider nicht.
+export function qualifyNavProviderKey(feature: string, id: string): string {
+  return id.includes(":nav:") ? id : `${feature}:nav:${id}`;
+}
+
 // Web-Bootstrap. Mounted den ganzen Kumiko-Render-Stack im Browser:
 // Tokens (class-based light/dark via <html>), Primitives (HTML),
 // Navigation (window.history), LiveEvents (EventSource), Dispatcher
@@ -221,11 +231,9 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
   // gehen unverändert durch.
   const navProviders = new Map<string, TreeChildrenSubscribe>();
   const navEntities = new Map<string, readonly string[]>();
-  const qualifyNav = (feature: string, id: string): string =>
-    id.includes(":nav:") ? id : `${feature}:nav:${id}`;
   for (const f of clientFeatures) {
     for (const [navId, provider] of Object.entries(f.navProviders ?? {})) {
-      const qn = qualifyNav(f.name, navId);
+      const qn = qualifyNavProviderKey(f.name, navId);
       if (navProviders.has(qn)) {
         // biome-ignore lint/suspicious/noConsole: dev-warning für Schema-Konflikte
         console.warn(
@@ -235,7 +243,7 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
       navProviders.set(qn, provider);
     }
     for (const [navId, entities] of Object.entries(f.navEntities ?? {})) {
-      if (entities.length > 0) navEntities.set(qualifyNav(f.name, navId), entities);
+      if (entities.length > 0) navEntities.set(qualifyNavProviderKey(f.name, navId), entities);
     }
   }
 
