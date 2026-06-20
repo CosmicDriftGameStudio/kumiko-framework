@@ -207,6 +207,23 @@ describe("NavTree", () => {
     expect(container.querySelectorAll("svg").length).toBe(1);
   });
 
+  test("layers + building (money-horse Kredit-Gruppen/Mandanten) lösen auf ein Icon auf", () => {
+    const schema = {
+      featureName: "showcase",
+      entities: {},
+      screens: [
+        { id: "groups", type: "entityList", entity: "x", columns: [] },
+        { id: "tenants", type: "entityList", entity: "x", columns: [] },
+      ],
+      navs: [
+        { id: "groups", label: "Gruppen", screen: "groups", order: 10, icon: "layers" },
+        { id: "tenants", label: "Mandanten", screen: "tenants", order: 20, icon: "building" },
+      ],
+    } as FeatureSchema;
+    const { container } = render(<NavTree schema={schema} />);
+    expect(container.querySelectorAll("svg").length).toBe(2);
+  });
+
   test("unbekannter icon-Key fällt sauber auf den Dot zurück (kein svg)", () => {
     const schema = {
       featureName: "showcase",

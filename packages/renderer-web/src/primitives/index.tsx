@@ -1292,6 +1292,16 @@ function DataTableCell({
 // eigene Card.
 const InsideFormContext = createContext(false);
 
+// Eingebettete Forms (z.B. im AuthCard) tragen ihre Card-Fläche schon vom
+// Container — der self-cardende DefaultForm würde sonst eine Card-in-Card
+// erzeugen. BareFormProvider schaltet DefaultForm auf ein nacktes <form>
+// (gestapelte Felder, kein eigener Rahmen/max-width).
+const BareFormContext = createContext(false);
+
+export function BareFormProvider({ children }: { children: ReactNode }): ReactNode {
+  return <BareFormContext.Provider value={true}>{children}</BareFormContext.Provider>;
+}
+
 function DefaultForm({
   onSubmit,
   children,
@@ -1300,6 +1310,26 @@ function DefaultForm({
   actions,
   testId,
 }: FormProps): ReactNode {
+  // Eingebettet (AuthCard etc.): nacktes <form>, gestapelte Felder mit gap —
+  // der Container trägt Card/Titel selbst, sonst Card-in-Card.
+  if (useContext(BareFormContext)) {
+    return (
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSubmit(e);
+        }}
+        data-testid={testId}
+        className="flex flex-col gap-4"
+      >
+        <InsideFormContext.Provider value={true}>{children}</InsideFormContext.Provider>
+        {actions !== undefined && (
+          <div className="flex items-center justify-end gap-2">{actions}</div>
+        )}
+      </form>
+    );
+  }
+
   // shadcn-Form-Muster: das Formular ist EINE Card — Titel als Card-Header
   // OHNE Trennlinie darunter (Titel fließt in die erste Section). Sections
   // sind divide-y-getrennt (Linien nur ZWISCHEN ihnen). Action-Footer mit
@@ -1336,7 +1366,17 @@ function DefaultForm({
               )}
             </div>
           )}
-          <div className="divide-y">
+          <div
+            className={cn(
+              "flex flex-col",
+              // Section-Children (Auto-UI-Edit) trennt eine Linie ZWISCHEN
+              // ihnen — sie padden sich selbst. Flache Felder (Custom-Screens)
+              // kriegen Padding + Rhythmus, keine Linie zwischen jedem Feld.
+              "[&>section:not(:first-child)]:border-t",
+              "[&>:not(section)]:px-6 [&>:not(section)]:py-3",
+              "[&>:not(section):first-child]:pt-6 [&>:not(section):last-child]:pb-6",
+            )}
+          >
             <InsideFormContext.Provider value={true}>{children}</InsideFormContext.Provider>
           </div>
           {actions !== undefined && (

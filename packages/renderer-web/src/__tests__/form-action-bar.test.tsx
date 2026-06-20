@@ -9,7 +9,7 @@ import type {
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { DispatcherProvider, RenderEdit } from "@cosmicdrift/kumiko-renderer";
-import { defaultPrimitives } from "../primitives";
+import { BareFormProvider, defaultPrimitives } from "../primitives";
 import { createMockDispatcher, render, screen } from "./test-utils";
 
 const { Form, Section, Button } = defaultPrimitives;
@@ -55,11 +55,12 @@ describe("Form = eine Card, Sections als innere Abschnitte", () => {
         </Section>
       </Form>,
     );
-    // Inner-Region: keine eigene bg-card; die Divider zwischen Sections
-    // macht der divide-y-Wrapper, nicht die Section selbst.
+    // Inner-Region: keine eigene bg-card; beide Sections sind Geschwister im
+    // selben Body-Wrapper (der die Trennlinie ZWISCHEN ihnen per CSS macht).
     const s1 = screen.getByTestId("s1");
+    const s2 = screen.getByTestId("s2");
     expect(s1.className).not.toContain("bg-card");
-    expect(s1.closest(".divide-y")).toBeTruthy();
+    expect(s1.parentElement).toBe(s2.parentElement);
     // Das Form wrappt alles in GENAU eine Card-Fläche.
     const card = screen.getByTestId("f").querySelector(".bg-card");
     expect(card).toBeTruthy();
@@ -67,6 +68,21 @@ describe("Form = eine Card, Sections als innere Abschnitte", () => {
     // Titel + Action-Footer sitzen in dieser Card.
     expect(card?.querySelector("[data-testid='f-title']")).toBeTruthy();
     expect(card?.querySelector("[data-testid='f-actions']")).toBeTruthy();
+  });
+
+  test("BareFormProvider: Form rendert nackt (keine eigene Card) — gegen Card-in-Card im AuthCard", () => {
+    render(
+      <BareFormProvider>
+        <Form onSubmit={() => {}} testId="bare">
+          <div>a</div>
+        </Form>
+      </BareFormProvider>,
+    );
+    const form = screen.getByTestId("bare");
+    expect(form.tagName).toBe("FORM");
+    expect(form.className).not.toContain("max-w-3xl");
+    expect(form.querySelector(".bg-card")).toBeNull();
+    expect(form.className).toContain("gap-4");
   });
 
   test("Section standalone (außerhalb Form) bleibt eine eigene Card", () => {
