@@ -53,7 +53,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
     // table out of implicit rebuild, like jobs/channel-in-app/feature-toggles
     // which are direct-write stores too.
     r.unmanagedTable(buildEntityTableMeta("user-session", userSessionEntity), {
-      reason: "read_side.user_sessions direct-write hot-path store (no lifecycle events)",
+      reason: "read_side.user_sessions_direct_write",
     });
 
     const handlers = {
