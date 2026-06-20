@@ -538,6 +538,14 @@
     "samples/recipes/tenant-isolation": {
       "name": "@cosmicdrift/kumiko-sample-tenant-isolation",
       "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+    },
+    "samples/recipes/tier-admin": {
+      "name": "@cosmicdrift/kumiko-sample-tier-admin",
+      "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
     },
@@ -756,6 +764,8 @@
     "@cosmicdrift/kumiko-sample-tags-basic": ["@cosmicdrift/kumiko-sample-tags-basic@workspace:samples/recipes/tags-basic"],
 
     "@cosmicdrift/kumiko-sample-tenant-isolation": ["@cosmicdrift/kumiko-sample-tenant-isolation@workspace:samples/recipes/tenant-isolation"],
+
+    "@cosmicdrift/kumiko-sample-tier-admin": ["@cosmicdrift/kumiko-sample-tier-admin@workspace:samples/recipes/tier-admin"],
 
     "@cosmicdrift/kumiko-sample-ui-walkthrough": ["@cosmicdrift/kumiko-sample-ui-walkthrough@workspace:samples/apps/ui-walkthrough"],
 
