@@ -75,7 +75,6 @@ export function FileUploadInput({
     <div className="flex items-center gap-4">
       {kind === "image" &&
         (value !== null ? (
-          // biome-ignore lint/a11y/useAltText: Avatar-Preview, das Label trägt der Field-Wrapper
           <img
             src={`/api/files/${value}`}
             alt=""
