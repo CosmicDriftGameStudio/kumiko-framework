@@ -7,6 +7,7 @@
 // Datums-Teil neben dem Uhrzeit-Input. So teilen `date` und `timestamp`
 // dieselbe Tipp-/Navigations-UX statt zweier divergenter Primitives (#369).
 
+import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
 import { cn } from "../lib/cn";
 import { CalendarPopover } from "./calendar-popover";
@@ -47,6 +48,7 @@ export function DateField({
   min,
   max,
 }: DateFieldProps): ReactNode {
+  const t = useTranslation();
   const resolvedLocale = locale ?? guessLocale();
   const selected = parseIso(value);
 
@@ -101,7 +103,7 @@ export function DateField({
         {...(maxDate !== undefined && { max: maxDate })}
         {...(disabled !== undefined && { disabled })}
         {...(hasError !== undefined && { hasError })}
-        triggerLabel="Kalender öffnen"
+        triggerLabel={t("kumiko.field.open-calendar")}
       />
     </div>
   );

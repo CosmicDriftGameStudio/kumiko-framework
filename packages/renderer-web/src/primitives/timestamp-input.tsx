@@ -10,6 +10,7 @@
 // inputValueToTimestamp kapseln die UTC↔Wall-Clock-Umrechnung (Bug-Bash-2,
 // 2026-06-08) und sind separat getestet.
 
+import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
 import { cn } from "../lib/cn";
 import { DateField } from "./date-field";
@@ -89,6 +90,7 @@ export function TimestampInput({
   min,
   max,
 }: TimestampInputProps): ReactNode {
+  const t = useTranslation();
   const local = timestampToInputValue(value);
   const isoDate = local !== "" ? local.slice(0, 10) : "";
   // Uhrzeit ohne gesetztes Datum würde im Wire-Wert verschwinden — lokal
@@ -125,7 +127,7 @@ export function TimestampInput({
       />
       <input
         type="time"
-        aria-label="Uhrzeit"
+        aria-label={t("kumiko.field.time")}
         disabled={disabled}
         aria-invalid={hasError === true ? true : undefined}
         value={effectiveTime}

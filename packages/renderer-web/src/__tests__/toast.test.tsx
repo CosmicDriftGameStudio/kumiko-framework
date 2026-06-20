@@ -6,9 +6,10 @@
 // Tick (Counter-Race-Bug).
 
 import { describe, expect, test } from "bun:test";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, screen } from "@testing-library/react";
 import { type ReactNode, useEffect } from "react";
 import { type ToastOptions, ToastProvider, useToast } from "../primitives/toast";
+import { render } from "./test-utils";
 
 // Trigger-Component die im Mount toast() aufruft. So testen wir den
 // Hook ohne userEvent-Klick-Pfad und ohne fragile timer.
@@ -41,7 +42,7 @@ describe("ToastProvider + useToast", () => {
     expect(screen.getByText("Copied")).toBeTruthy();
   });
 
-  test("docsUrl: rendert 'Mehr erfahren →' Link mit target=_blank", () => {
+  test("docsUrl: rendert Learn-more-Link (i18n-Default) mit target=_blank", () => {
     render(
       <ToastProvider>
         <ToastTrigger
@@ -55,7 +56,7 @@ describe("ToastProvider + useToast", () => {
         />
       </ToastProvider>,
     );
-    const link = screen.getByRole("link", { name: /Mehr erfahren/i });
+    const link = screen.getByRole("link", { name: /Learn more/i });
     expect(link.getAttribute("href")).toBe("https://docs.kumiko.rocks/errors/stale_state");
     expect(link.getAttribute("target")).toBe("_blank");
     expect(link.getAttribute("rel")).toBe("noopener noreferrer");

@@ -6,9 +6,10 @@
 // nach Timezone den Vortag.
 
 import { describe, expect, mock, test } from "bun:test";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DateInput } from "../primitives/date-input";
+import { render } from "./test-utils";
 
 describe("DateInput", () => {
   test("Eingabefeld zeigt locale-numerisches Datum (de-DE)", () => {
