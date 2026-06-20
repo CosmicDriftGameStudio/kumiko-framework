@@ -1,4 +1,4 @@
-import type { NavDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { NavDefinition, TargetRef, TreeAction } from "@cosmicdrift/kumiko-framework/ui-types";
 
 // A single resolved nav entry as the renderer consumes it. Labels are NOT
 // translated yet — nav can be used in SSR contexts where the locale isn't
@@ -13,6 +13,15 @@ export type NavNode = {
   readonly label: string;
   readonly icon?: string;
   readonly screen?: string;
+  // Polymorphes Klick-Ziel (EditorPanel via dispatch) — Alternative zu
+  // `screen`. Knoten trägt screen XOR target.
+  readonly target?: TargetRef;
+  // Hover-Actions + „+"-Affordance, durchgereicht aus der NavDefinition.
+  readonly actions?: readonly TreeAction[];
+  readonly createAction?: TreeAction;
+  // true → Children kommen zur Laufzeit aus einem nav-provider (lazy +
+  // SSE-live), nicht aus `children`. Renderer macht den Knoten expandable.
+  readonly provider?: boolean;
   readonly order: number;
   readonly children: readonly NavNode[];
 };

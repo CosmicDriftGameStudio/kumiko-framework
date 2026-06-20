@@ -199,4 +199,47 @@ describe("resolveNavigation", () => {
     expect(tree[0]?.children[0]?.qualifiedName).toBe("a:nav:mid");
     expect(tree[0]?.children[0]?.children[0]?.qualifiedName).toBe("a:nav:leaf");
   });
+
+  // Visual-Tree-Merge: die polymorphen Felder (target/actions/createAction/
+  // provider) müssen durch resolveNavigation durchgereicht werden, sonst
+  // kann der eine Renderer dynamische/dispatch-Knoten nicht bauen.
+  test("polymorphic fields pass through: target, actions, createAction, provider", () => {
+    const editTarget = { featureId: "text-content", action: "edit", args: { slug: "hero" } };
+    const createTarget = { featureId: "text-content", action: "create", args: { folder: "page" } };
+    const source = buildSource([
+      {
+        id: "tc:nav:content",
+        label: "Content",
+        provider: true,
+        createAction: { icon: "plus", label: "New page", target: createTarget },
+      },
+      {
+        id: "tc:nav:hero",
+        label: "Hero",
+        parent: "tc:nav:content",
+        target: editTarget,
+        actions: [{ icon: "trash", label: "Delete", target: editTarget }],
+      },
+    ]);
+
+    const tree = resolveNavigation({ source });
+    const content = tree[0];
+    expect(content?.provider).toBe(true);
+    expect(content?.createAction?.target).toEqual(createTarget);
+    const hero = content?.children[0];
+    expect(hero?.target).toEqual(editTarget);
+    expect(hero?.screen).toBeUndefined();
+    expect(hero?.actions).toHaveLength(1);
+  });
+
+  // Knoten ohne die neuen Felder dürfen sie NICHT als undefined-Keys tragen
+  // (conditional-spread): hält die resolved Node sauber + Snapshot-stabil.
+  test("absent polymorphic fields are omitted, not set to undefined", () => {
+    const source = buildSource([{ id: "a:nav:plain", label: "Plain", screen: "a:screen:x" }]);
+    const node = resolveNavigation({ source })[0];
+    expect(node).not.toBeUndefined();
+    expect("target" in (node ?? {})).toBe(false);
+    expect("provider" in (node ?? {})).toBe(false);
+    expect("actions" in (node ?? {})).toBe(false);
+  });
 });
