@@ -163,6 +163,9 @@ export type RunDevAppOptions = {
    *  als Pseudo-User mit Rolle `anonymous` durch, wenn der Handler die
    *  Rolle in `access.roles` führt. */
   readonly anonymousAccess?: CreateKumikoServerOptions["anonymousAccess"];
+  /** File-Storage-Provider — aktiviert die Upload-Routes (/api/files) +
+   *  `ctx.files`. Demos: `{ storageProvider: createInMemoryFileProvider() }`. */
+  readonly files?: CreateKumikoServerOptions["files"];
   /** App-eigene HTTP-Routes (z.B. /feed.xml, /sitemap.xml) — wird ans
    *  Hono-app gehängt, läuft VOR dem static-asset-Pfad. Symmetrisch zur
    *  gleichnamigen Option in runProdApp. */
@@ -186,6 +189,13 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     includeBundled: !!options.auth,
     ...(composeAuthOptions && { authOptions: composeAuthOptions }),
   });
+
+  // Ein explizit gewireter File-Provider (options.files) erfüllt das
+  // FILE_STORAGE_PROVIDER-Boot-Gate — der Provider IST konfiguriert, nur
+  // nicht über die env-Bridge. Setzen bevor validateBoot greift.
+  if (options.files !== undefined && process.env["FILE_STORAGE_PROVIDER"] === undefined) {
+    process.env["FILE_STORAGE_PROVIDER"] = "configured";
+  }
 
   // Boot-Validation als allererstes — vor fs-Watcher und Server. Dieselbe
   // Fehlerklasse (unqualifizierte nav-/handler-QNs, screen-access etc.),
@@ -298,6 +308,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     }),
     ...(extraContext !== undefined && { extraContext }),
     ...(options.anonymousAccess !== undefined && { anonymousAccess: options.anonymousAccess }),
+    ...(options.files !== undefined && { files: options.files }),
     ...(options.extraRoutes !== undefined && { extraRoutes: options.extraRoutes }),
     ...(finalEffectiveFeatures !== undefined && {
       effectiveFeatures: finalEffectiveFeatures,

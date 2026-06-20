@@ -293,6 +293,23 @@ function renderInput({
         />
       );
     }
+    case "file":
+    case "image": {
+      const kind = field.type === "image" ? ("image" as const) : ("file" as const);
+      const fileId = typeof field.value === "string" && field.value !== "" ? field.value : null;
+      return (
+        <Input
+          kind={kind}
+          {...common}
+          value={fileId}
+          onChange={(v) => onChange(v)}
+          {...(field.accept !== undefined && { accept: field.accept })}
+          {...(field.maxSize !== undefined && { maxSize: field.maxSize })}
+          {...(field.entityType !== undefined && { entityType: field.entityType })}
+          {...(field.fieldName !== undefined && { fieldName: field.fieldName })}
+        />
+      );
+    }
     default: {
       // text + unknown → text input. Wenn TextFieldDef.multiline gesetzt
       // ist (das ViewModel hält's), wechselt der Renderer auf textarea.

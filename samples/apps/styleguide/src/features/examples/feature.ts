@@ -6,6 +6,7 @@
 import {
   createBooleanField,
   createEntity,
+  createImageField,
   createSelectField,
   createTextField,
   defineEntityCreateHandler,
@@ -29,6 +30,19 @@ export const shippingEntity = createEntity({
       default: "United States",
     }),
     saveAsDefault: createBooleanField({ default: false }),
+  },
+});
+
+// Profile — testet das Avatar-Image-Upload-Feld (createImageField) in der
+// Auto-Form: runde Preview + "Change"-Button, Upload an /api/files.
+export const profileEntity = createEntity({
+  table: "read_examples_profile",
+  fields: {
+    avatar: createImageField({ maxSize: "5mb", accept: ["jpg", "jpeg", "png"] }),
+    fullName: createTextField({ required: true }),
+    // Demo-Daten, kein echtes PII-Encryption-Setup → Plaintext bewusst erlaubt.
+    email: createTextField({ required: true, allowPlaintext: "is-business-data" }),
+    bio: createTextField({ multiline: { rows: 3 } }),
   },
 });
 
@@ -67,6 +81,26 @@ export const examplesFeature = defineFeature("examples", (r) => {
     },
   });
 
+  r.entity("profile", profileEntity);
+  r.writeHandler(defineEntityCreateHandler("profile", profileEntity, open));
+  r.writeHandler(defineEntityUpdateHandler("profile", profileEntity, open));
+  r.queryHandler(defineEntityDetailHandler("profile", profileEntity, open));
+
+  r.screen({
+    id: "profile-edit",
+    type: "entityEdit",
+    entity: "profile",
+    submitLabel: "examples:profile:submit",
+    layout: {
+      sections: [
+        {
+          columns: 2,
+          fields: [{ field: "avatar", span: 2 }, "fullName", "email", { field: "bio", span: 2 }],
+        },
+      ],
+    },
+  });
+
   r.nav({ id: "examples", label: "Examples", order: 30 });
   r.nav({
     id: "shipping",
@@ -75,5 +109,13 @@ export const examplesFeature = defineFeature("examples", (r) => {
     screen: "examples:screen:shipping-edit",
     icon: "file",
     order: 10,
+  });
+  r.nav({
+    id: "profile",
+    label: "Profile",
+    parent: "examples:nav:examples",
+    screen: "examples:screen:profile-edit",
+    icon: "file",
+    order: 20,
   });
 });

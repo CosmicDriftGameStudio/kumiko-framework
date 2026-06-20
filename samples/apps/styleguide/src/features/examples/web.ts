@@ -16,6 +16,15 @@ const labels: Record<string, string> = {
   "examples:entity:shipping:field:zip": "ZIP Code",
   "examples:entity:shipping:field:country": "Country",
   "examples:entity:shipping:field:saveAsDefault": "Save as default address",
+  "screen:profile-edit.create.title": "Profile",
+  "screen:profile-edit.create.subtitle": "Update your personal information and how others see you.",
+  "screen:profile-edit.edit.title": "Profile",
+  "screen:profile-edit.edit.subtitle": "Update your personal information and how others see you.",
+  "examples:profile:submit": "Save changes",
+  "examples:entity:profile:field:avatar": "Avatar",
+  "examples:entity:profile:field:fullName": "Full name",
+  "examples:entity:profile:field:email": "Email",
+  "examples:entity:profile:field:bio": "Bio",
 };
 
 const translations: TranslationsByLocale = { en: labels, de: labels };

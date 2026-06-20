@@ -73,6 +73,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./dropdown-menu";
+import { FileUploadInput } from "./file-upload";
 import { MoneyInput } from "./money-input";
 import { TimestampInput } from "./timestamp-input";
 import { useToast } from "./toast";
@@ -276,6 +277,20 @@ function DefaultInput(props: InputProps): ReactNode {
           aria-invalid={props.hasError === true ? true : undefined}
           checked={props.value}
           onCheckedChange={(checked) => props.onChange(checked === true)}
+        />
+      );
+    case "file":
+    case "image":
+      return (
+        <FileUploadInput
+          kind={props.kind}
+          id={props.id}
+          value={props.value}
+          onChange={props.onChange}
+          {...(props.accept !== undefined && { accept: props.accept })}
+          {...(props.disabled !== undefined && { disabled: props.disabled })}
+          {...(props.entityType !== undefined && { entityType: props.entityType })}
+          {...(props.fieldName !== undefined && { fieldName: props.fieldName })}
         />
       );
     case "date":

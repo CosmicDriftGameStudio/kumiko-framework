@@ -48,4 +48,12 @@ export const SCENARIOS: readonly Scenario[] = [
     settleMs: 400,
     fullPage: true,
   },
+  {
+    name: "profile",
+    description: "Config-Stresstest: Profile mit Avatar-Image-Upload-Feld",
+    url: "/profile-edit",
+    waitFor: "text=Full name",
+    settleMs: 400,
+    fullPage: true,
+  },
 ];

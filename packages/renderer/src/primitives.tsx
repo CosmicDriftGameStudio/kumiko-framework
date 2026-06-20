@@ -175,6 +175,24 @@ export type InputProps =
       readonly hasError?: boolean;
     }
   | {
+      readonly kind: "file" | "image";
+      readonly id: string;
+      readonly name: string;
+      /** FileRef-UUID (gespeicherte Datei) oder null (kein Upload). */
+      readonly value: string | null;
+      readonly onChange: (fileId: string | null) => void;
+      readonly disabled?: boolean;
+      readonly required?: boolean;
+      readonly hasError?: boolean;
+      /** Erlaubte Extensions/MIME (z.B. ["jpg","png"]) → `accept`-Attribut. */
+      readonly accept?: readonly string[];
+      readonly maxSize?: string;
+      /** Für den Upload-POST `/api/files` — der Endpoint prüft maxSize/accept
+       *  gegen die Field-Def von (entityType, fieldName). */
+      readonly entityType?: string;
+      readonly fieldName?: string;
+    }
+  | {
       readonly kind: "date";
       readonly id: string;
       readonly name: string;
