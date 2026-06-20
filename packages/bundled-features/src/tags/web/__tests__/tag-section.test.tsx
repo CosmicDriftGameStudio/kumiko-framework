@@ -9,7 +9,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { TagsHandlers, TagsQueries } from "../../constants";
 import { defaultTranslations } from "../i18n";
-import { TagSection } from "../tag-section";
+import { TagSection, tagSelectionDelta } from "../tag-section";
 
 type TagRow = { id: string; name: string };
 type AssignmentRow = { tagId: string; entityType: string; entityId: string };
@@ -17,14 +17,12 @@ type AssignmentRow = { tagId: string; entityType: string; entityId: string };
 let catalogRows: readonly TagRow[] = [];
 let assignmentRows: readonly AssignmentRow[] = [];
 
-// createTag returns the new id; assign/remove return data-less success.
 const dispatchSpy = mock(async (type: string) =>
   type === TagsHandlers.createTag
     ? { isSuccess: true, data: { id: "tag-new" } }
     : { isSuccess: true, data: undefined },
 );
 
-// useQuery is called twice (catalog + assignments) — branch on the QN.
 const useQuerySpy = mock((type: string) => ({
   data: type === TagsQueries.tagList ? { rows: catalogRows } : { rows: assignmentRows },
   loading: false,
@@ -47,14 +45,33 @@ function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
   );
 }
 
+// The combobox's assign/remove toggle drives onChange with the full new
+// selection; the component diffs it against the current tags via this helper.
+// Popover interaction itself (cmdk + Radix in jsdom) is covered by the
+// combobox primitive's own tests + e2e — here we pin the diff that turns a
+// selection into assign/remove calls.
+describe("tagSelectionDelta", () => {
+  test("addition only", () => {
+    expect(tagSelectionDelta(["a"], ["a", "b"])).toEqual({ added: ["b"], removed: [] });
+  });
+  test("removal only", () => {
+    expect(tagSelectionDelta(["a", "b"], ["a"])).toEqual({ added: [], removed: ["b"] });
+  });
+  test("simultaneous add + remove", () => {
+    expect(tagSelectionDelta(["a"], ["b"])).toEqual({ added: ["b"], removed: ["a"] });
+  });
+  test("no change", () => {
+    expect(tagSelectionDelta(["a", "b"], ["b", "a"])).toEqual({ added: [], removed: [] });
+  });
+});
+
 describe("TagSection", () => {
-  test("shows assigned + available tags and dispatches assign/remove with the right QN + payload", async () => {
+  test("renders assigned tags as combobox chips", () => {
     catalogRows = [
       { id: "t1", name: "important" },
       { id: "t2", name: "project-x" },
     ];
     assignmentRows = [{ tagId: "t1", entityType: "note", entityId: "note-1" }];
-    dispatchSpy.mockClear();
 
     render(
       <Wrapper>
@@ -62,28 +79,10 @@ describe("TagSection", () => {
       </Wrapper>,
     );
 
-    // Assigned tag → remove button; unassigned catalog tag → assign button.
-    expect(screen.getByTestId("tags-section-remove-t1")).toBeTruthy();
-    expect(screen.getByTestId("tags-section-assign-t2")).toBeTruthy();
-    expect(screen.queryByTestId("tags-section-assign-t1")).toBeNull();
-
-    fireEvent.click(screen.getByTestId("tags-section-assign-t2"));
-    await waitFor(() =>
-      expect(dispatchSpy).toHaveBeenCalledWith(TagsHandlers.assignTag, {
-        tagId: "t2",
-        entityType: "note",
-        entityId: "note-1",
-      }),
-    );
-
-    fireEvent.click(screen.getByTestId("tags-section-remove-t1"));
-    await waitFor(() =>
-      expect(dispatchSpy).toHaveBeenCalledWith(TagsHandlers.removeTag, {
-        tagId: "t1",
-        entityType: "note",
-        entityId: "note-1",
-      }),
-    );
+    expect(screen.getByTestId("combobox-tags-section-select")).toBeTruthy();
+    // assigned → chip shown in the trigger; unassigned t2 lives in the (closed) dropdown
+    expect(screen.getByText("important")).toBeTruthy();
+    expect(screen.queryByText("project-x")).toBeNull();
   });
 
   test("create-and-attach dispatches create-tag, then assign-tag with the new id", async () => {

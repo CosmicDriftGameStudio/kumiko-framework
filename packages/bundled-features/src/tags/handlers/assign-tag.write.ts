@@ -7,10 +7,13 @@ import { type AssignTagPayload, assignTagPayloadSchema } from "../schemas";
 // assign-tag — links a tag to a host entity by (entityType, entityId). The
 // assignment id is deterministic, so the row is unique per (tag, entity).
 //
-// Idempotency: a re-assign hits the existing stream and would version_conflict,
-// which leaves the transaction aborted — so we pre-check existence and return
-// success when the assignment is already present (the requested end state). A
-// concurrent first-time race still version_conflicts (409); acceptable, since
+// Idempotency over the full lifecycle (assign → remove → assign):
+//   - already active        → return success (requested end state).
+//   - removed (soft-deleted) → restore() the existing stream. create() would
+//     append at version 0 onto the created+deleted stream and version_conflict;
+//     the deterministic id means that stream is permanent.
+//   - never assigned         → create() (restore reports not_found).
+// A concurrent first-time race still version_conflicts (409); acceptable, since
 // assigning is a low-frequency UI action.
 export function createAssignTagHandler(access: AccessRule = DEFAULT_TAG_ACCESS): WriteHandlerDef {
   return {
@@ -30,6 +33,10 @@ export function createAssignTagHandler(access: AccessRule = DEFAULT_TAG_ACCESS):
       if (existing) {
         return { isSuccess: true as const, data: { id } };
       }
+
+      const restored = await tagAssignmentExecutor.restore({ id }, event.user, ctx.db);
+      if (restored.isSuccess) return restored;
+      if (restored.error.code !== "not_found") return restored;
 
       return tagAssignmentExecutor.create(
         {
