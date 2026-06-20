@@ -39,7 +39,9 @@ export async function defineOrResurrectFieldDefinition(
     // exists, so skip the optimistic-lock version match (we'd otherwise have to
     // thread the post-restore stream version through). Overwrite with the new
     // definition payload — the caller is defining the field afresh.
-    return fieldDefinitionExecutor.update({ id: aggregateId, changes: columns }, user, db, {
+    // Spread to a mutable copy: `changes` is Record<string, unknown> and the
+    // readonly FieldDefinitionColumns isn't assignable to it.
+    return fieldDefinitionExecutor.update({ id: aggregateId, changes: { ...columns } }, user, db, {
       skipOptimisticLock: true,
     });
   }

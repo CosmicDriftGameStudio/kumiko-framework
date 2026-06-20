@@ -506,8 +506,11 @@ describe("custom-fields integration — sensitive value self-projected, kept out
       "SELECT type, payload FROM kumiko_events WHERE aggregate_id = $1 ORDER BY id ASC",
       [propId],
     )) as ReadonlyArray<{ type: string; payload: unknown }>;
+    // The MSP apply value-type declares a 3rd rebuild-context arg; custom-fields'
+    // apply only reads (event, tx), so narrow the call to those two for replay.
+    type ReplayApplyFn = (event: Record<string, unknown>, tx: unknown) => Promise<void>;
     for (const e of events) {
-      const fn = apply[e.type];
+      const fn = apply[e.type] as ReplayApplyFn | undefined;
       if (!fn) continue;
       const payload = typeof e.payload === "string" ? JSON.parse(e.payload) : e.payload;
       await fn(
