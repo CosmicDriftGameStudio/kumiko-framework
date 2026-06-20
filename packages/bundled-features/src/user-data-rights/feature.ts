@@ -5,6 +5,7 @@ import {
   SYSTEM_USER_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createFileProviderForTenant } from "../file-foundation";
+import { PRIVACY_CENTER_SCREEN_ID } from "./constants";
 import { cancelDeletionWrite } from "./handlers/cancel-deletion.write";
 import { createConfirmDeletionByTokenHandler } from "./handlers/confirm-deletion-by-token.write";
 import { downloadByJobQuery } from "./handlers/download-by-job.query";
@@ -198,6 +199,20 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     // invalid Download-Attempts (DPO).
     r.queryHandler(myAuditLogQuery);
     r.queryHandler(listDownloadAttemptsQuery);
+
+    // Dormant Self-Service-Screen (Art. 15/17/18/20): Export, Aktivitäts-
+    // protokoll, Einschränkung, Löschung in einem Screen. Kein r.nav — die
+    // App platziert ihn im eingeloggten Bereich. Die React-Component kommt
+    // client-seitig aus userDataRightsClient() (web/). access openToAll, weil
+    // kein App-Rollenname portabel ist; die per-User-Handler erzwingen Auth
+    // server-seitig, und der Screen ist ohne r.nav nirgends sichtbar bis die
+    // App ihn aktiv im authed-Bereich verlinkt.
+    r.screen({
+      id: PRIVACY_CENTER_SCREEN_ID,
+      type: "custom",
+      renderer: { react: { __component: "PrivacyCenterScreen" } },
+      access: { openToAll: true },
+    });
 
     // r.httpRoute-Wrapper: Magic-Link-Pfad (anonymous) + UI-Klick-Pfad.
     //
