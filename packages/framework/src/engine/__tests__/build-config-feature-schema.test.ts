@@ -211,6 +211,25 @@ describe("buildConfigFeatureSchema — access + workspace", () => {
     expect(configScreen("notify-user").access).toEqual({ openToAll: true });
   });
 
+  test("a screen mixing an openToAll key with role-restricted keys collapses to openToAll", () => {
+    // unionAccessRules short-circuits: one openToAll writer opens the whole gate,
+    // even next to role-restricted keys — the mixed case the all-or-nothing tests miss.
+    const mixedWrite = defineFeature("mixedwrite", (r) => {
+      r.config({
+        keys: {
+          open: createTenantConfig("text", { write: access.all, mask: { title: "mw.open" } }),
+          gated: createTenantConfig("text", { mask: { title: "mw.gated" } }), // default admin write
+        },
+      });
+    });
+    const out = buildConfigFeatureSchema(createRegistry([mixedWrite]));
+    const screen = out.screens.find((s) => s.id === "mixedwrite-tenant");
+    if (screen?.type !== "configEdit")
+      throw new Error('expected configEdit screen "mixedwrite-tenant"');
+    expect(screen.access).toEqual({ openToAll: true });
+    expect(out.navs.find((n) => n.id === "audience-tenant")?.access).toEqual({ openToAll: true });
+  });
+
   test("returns empty (no workspace) when no key opts into the hub via mask", () => {
     const plain = defineFeature("plain", (r) => {
       r.config({ keys: { secret: createSystemConfig("text", {}) } });
