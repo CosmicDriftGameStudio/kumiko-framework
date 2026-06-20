@@ -889,10 +889,14 @@ export function createEventStoreExecutor(
         readonly op: "eq" | "ne" | "lt" | "gt" | "in";
         readonly value: unknown;
       }): void => {
-        if (table[f.field] === undefined) return;
+        if (table[f.field] === undefined) {
+          // skip: unknown field — not a real column, drop the filter (injection guard)
+          return;
+        }
         const screen = buildFilterWhere(f.field, f.op, f.value);
         if (screen === null) {
           whereSql.push("FALSE");
+          // skip: filter is unsatisfiable → emit FALSE, no params to bind
           return;
         }
         for (const [field, value] of Object.entries(screen)) {

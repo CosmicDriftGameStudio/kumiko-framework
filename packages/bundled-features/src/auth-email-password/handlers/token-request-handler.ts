@@ -98,6 +98,7 @@ export function createTokenRequestHandler<TName extends string, TSuccessKind ext
       // client can observe it through the HTTP surface.
       if (!user || user.isDeleted || !user.email || spec.extraSilentSkip(user)) {
         const data: TokenRequestData<TSuccessKind> = { kind: "no-op" };
+        // skip: silent no-op — uniform response prevents user-enumeration probing
         return { isSuccess: true, data };
       }
 

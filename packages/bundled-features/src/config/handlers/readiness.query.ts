@@ -87,6 +87,7 @@ export async function collectMissingRequiredConfig(
     if (keyDef.required !== true) continue;
     if (!effectiveGate(qualifiedKey)) continue;
     if (options?.skipAccessFilter !== true && !hasConfigAccess(keyDef.access.read, user.roles)) {
+      // skip: key not visible to this user's roles (access-filtered listing)
       continue;
     }
     candidates.set(qualifiedKey, keyDef);
