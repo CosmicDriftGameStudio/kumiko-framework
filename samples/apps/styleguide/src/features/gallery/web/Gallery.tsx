@@ -1,4 +1,4 @@
-import { usePrimitives } from "@cosmicdrift/kumiko-renderer-web";
+import { BareFormProvider, usePrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { Check, ChevronDown, Search, X } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -169,7 +169,7 @@ function SelectStub({ value }: { value: string }): ReactNode {
 }
 
 export function Gallery(): ReactNode {
-  const { Button, Field, Input } = usePrimitives();
+  const { Button, Field, Form, Input, Section } = usePrimitives();
   const noop = (): void => {};
 
   return (
@@ -267,6 +267,58 @@ export function Gallery(): ReactNode {
             />
           </Field>
         </div>
+      </Block>
+
+      <Block id="form-flat" title="Form — flache Felder (Custom-Screen)">
+        {/* Custom-Screen-Muster (money-horse credit-calc): flache <Field> direkt
+            im <Form>, KEINE Sections. Erwartung: eine Card, Felder gepaddet +
+            gestapelt, KEINE Trennlinie zwischen jedem Feld. */}
+        <Form
+          title="Kredit anlegen"
+          onSubmit={noop}
+          actions={
+            <>
+              <Button variant="primary">Speichern</Button>
+              <Button variant="secondary">Neu</Button>
+            </>
+          }
+        >
+          <Field id="cf-name" label="Bezeichnung" required>
+            <Input kind="text" id="cf-name" name="cf-name" value="" onChange={noop} />
+          </Field>
+          <Field id="cf-sum" label="Darlehenssumme" required>
+            <Input kind="number" id="cf-sum" name="cf-sum" value="" onChange={noop} />
+          </Field>
+          <Field id="cf-interest" label="Sollzins %" required>
+            <Input kind="number" id="cf-interest" name="cf-interest" value="" onChange={noop} />
+          </Field>
+          <p className="text-muted-foreground text-sm">
+            Hinweis: bei Volltilgung wird die Tilgung aus der Laufzeit abgeleitet.
+          </p>
+          <Field id="cf-start" label="Beginn" required>
+            <Input kind="text" id="cf-start" name="cf-start" value="" onChange={noop} />
+          </Field>
+        </Form>
+      </Block>
+
+      <Block id="form-sectioned" title="Form — Sections (Auto-UI-Edit, Gate)">
+        {/* Auto-UI-Edit-Muster: <Section>-Children, getrennt durch EINE Linie
+            zwischen den Sections. Darf durch den flat-Fix NICHT brechen. */}
+        <Form title="Eintrag bearbeiten" onSubmit={noop} actions={<Button>Speichern</Button>}>
+          <Section title="Stammdaten">
+            <Field id="sf-name" label="Name">
+              <Input kind="text" id="sf-name" name="sf-name" value="" onChange={noop} />
+            </Field>
+            <Field id="sf-email" label="E-Mail">
+              <Input kind="text" id="sf-email" name="sf-email" value="" onChange={noop} />
+            </Field>
+          </Section>
+          <Section title="Adresse">
+            <Field id="sf-city" label="Ort">
+              <Input kind="text" id="sf-city" name="sf-city" value="" onChange={noop} />
+            </Field>
+          </Section>
+        </Form>
       </Block>
 
       <Block id="filter" title="Filter & Search">
@@ -370,6 +422,37 @@ export function Gallery(): ReactNode {
               Don&apos;t have an account?{" "}
               <span className="text-foreground underline underline-offset-4">Sign up</span>
             </p>
+          </div>
+        </div>
+      </Block>
+
+      <Block id="login-real" title="Login — echtes AuthCard (BareFormProvider → Form)">
+        {/* Reproduziert den AuthCard-Pfad: max-w-sm-Card + BareFormProvider um
+            den <Form>. Erwartung: KEINE Card-in-Card, Felder gestapelt mit gap. */}
+        <div className="bg-muted/30 flex justify-center rounded-lg border border-dashed p-8">
+          <div className="bg-card w-full max-w-sm rounded-lg border p-6 shadow-sm">
+            <div className="flex flex-col gap-1 pb-4">
+              <h3 className="text-xl font-semibold tracking-tight">Login to your account</h3>
+              <p className="text-muted-foreground text-sm">Enter your email below to login</p>
+            </div>
+            <BareFormProvider>
+              <Form onSubmit={noop}>
+                <Field id="lr-email" label="Email" required>
+                  <Input
+                    kind="email"
+                    id="lr-email"
+                    name="lr-email"
+                    value=""
+                    onChange={noop}
+                    placeholder="m@example.com"
+                  />
+                </Field>
+                <Field id="lr-pass" label="Password" required>
+                  <Input kind="password" id="lr-pass" name="lr-pass" value="" onChange={noop} />
+                </Field>
+                <Button variant="primary">Login</Button>
+              </Form>
+            </BareFormProvider>
           </div>
         </div>
       </Block>

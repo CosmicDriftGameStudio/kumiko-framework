@@ -15,7 +15,7 @@
 //   authMutedLinkClass  — Subtle-Link-Style.
 //   parseUrlToken       — URL-Param-Helper (window.location.search).
 
-import { cn } from "@cosmicdrift/kumiko-renderer-web";
+import { BareFormProvider, cn } from "@cosmicdrift/kumiko-renderer-web";
 import { createContext, type ReactNode, useContext } from "react";
 
 // Wrappt die zentrierte Auth-Card in ihre Umgebung. Default = Fullscreen-
@@ -60,7 +60,7 @@ export function AuthCard({ title, subtitle, children }: AuthCardProps): ReactNod
           {subtitle !== undefined && <p className="text-sm text-muted-foreground">{subtitle}</p>}
         </div>
       )}
-      {children}
+      <BareFormProvider>{children}</BareFormProvider>
     </div>
   );
   return shell(card);
