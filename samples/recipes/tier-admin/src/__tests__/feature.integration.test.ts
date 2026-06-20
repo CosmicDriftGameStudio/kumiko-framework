@@ -11,11 +11,12 @@
 
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
-import { createConfigResolver } from "@cosmicdrift/kumiko-bundled-features/config";
-import { configValuesTable } from "@cosmicdrift/kumiko-bundled-features/config";
-import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
-import { tenantEntity } from "@cosmicdrift/kumiko-bundled-features/tenant";
+import {
+  configValuesTable,
+  createConfigFeature,
+  createConfigResolver,
+} from "@cosmicdrift/kumiko-bundled-features/config";
+import { createTenantFeature, tenantEntity } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import {
   TierEngineHandlers,
   TierEngineQueries,

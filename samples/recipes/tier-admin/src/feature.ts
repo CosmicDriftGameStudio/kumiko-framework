@@ -7,7 +7,10 @@
 // (set-tenant-tier), the read-back (get-tenant-tier returning
 // source:"manual"), and the option-list (tier-options) end-to-end.
 
-import { createTierEngineFeature, type TierMap } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
+import {
+  createTierEngineFeature,
+  type TierMap,
+} from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 
 // --- App caps ---
 //
