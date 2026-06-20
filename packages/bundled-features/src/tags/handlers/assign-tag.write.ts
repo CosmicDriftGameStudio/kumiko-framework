@@ -1,7 +1,8 @@
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { tagAssignmentAggregateId } from "../aggregate-id";
 import { DEFAULT_TAG_ACCESS } from "../constants";
-import { tagAssignmentExecutor } from "../executor";
+import { tagAssignmentExecutor, tagExecutor } from "../executor";
 import { type AssignTagPayload, assignTagPayloadSchema } from "../schemas";
 
 // assign-tag — links a tag to a host entity by (entityType, entityId). The
@@ -15,6 +16,10 @@ import { type AssignTagPayload, assignTagPayloadSchema } from "../schemas";
 //   - never assigned         → create() (restore reports not_found).
 // A concurrent first-time race still version_conflicts (409); acceptable, since
 // assigning is a low-frequency UI action.
+//
+// Referential integrity: there is no FK (event-sourced, no JOIN), so before a
+// first-time create we verify the tag exists in the catalog — a malformed call
+// with an unknown tagId would otherwise project a dangling assignment.
 export function createAssignTagHandler(access: AccessRule = DEFAULT_TAG_ACCESS): WriteHandlerDef {
   return {
     name: "assign-tag",
@@ -37,6 +42,9 @@ export function createAssignTagHandler(access: AccessRule = DEFAULT_TAG_ACCESS):
       const restored = await tagAssignmentExecutor.restore({ id }, event.user, ctx.db);
       if (restored.isSuccess) return restored;
       if (restored.error.code !== "not_found") return restored;
+
+      const tag = await tagExecutor.detail({ id: payload.tagId }, event.user, ctx.db);
+      if (!tag) return writeFailure(new NotFoundError("tag", payload.tagId));
 
       return tagAssignmentExecutor.create(
         {

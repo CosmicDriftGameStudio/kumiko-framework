@@ -184,6 +184,18 @@ describe("tags integration — idempotency", () => {
   });
 });
 
+describe("tags integration — referential integrity", () => {
+  test("assigning an unknown tagId is rejected (no dangling assignment)", async () => {
+    const err = await stack.http.writeErr(
+      TagsHandlers.assignTag,
+      { tagId: "00000000-0000-4000-8000-00000000dead", entityType: "credit", entityId: "credit-x" },
+      admin,
+    );
+    expect(err.httpStatus).toBe(404);
+    expect(await countAssignments(admin.tenantId)).toBe(0);
+  });
+});
+
 describe("tags integration — multi-tenant isolation", () => {
   test("tenant B sees neither tenant A's tags nor assignments", async () => {
     const tagId = await createTag("A-only", admin);
