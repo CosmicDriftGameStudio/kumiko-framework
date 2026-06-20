@@ -1,9 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { type BunTestDb, createTestDb } from "../bun-db/__tests__/bun-test-db";
-import { integer, table as pgTable, serial, text } from "../db/dialect";
+import { integer, table as pgTable, serial, text, timestamp } from "../db/dialect";
 import { selectMany } from "../db/query";
 import { seedReferenceData } from "../db/reference-data";
 import type { ReferenceDataDef } from "../engine/types";
+import { SYSTEM_TENANT_ID } from "../engine/types";
 import { unsafePushTables } from "../stack";
 import { ensureTemporalPolyfill } from "../time/polyfill";
 
@@ -22,6 +23,14 @@ const statusTable = pgTable("ref_statuses", {
   sortOrder: integer("sort_order").default(0),
 });
 
+const scopedTable = pgTable("ref_scoped", {
+  key: text("key").primaryKey(),
+  label: text("label").notNull(),
+  tenantId: text("tenant_id"),
+  version: integer("version"),
+  insertedAt: timestamp("inserted_at"),
+});
+
 // --- Test state ---
 
 let testDb: BunTestDb;
@@ -29,7 +38,7 @@ let testDb: BunTestDb;
 beforeAll(async () => {
   await ensureTemporalPolyfill();
   testDb = await createTestDb();
-  await unsafePushTables(testDb.db, { countryTable, statusTable });
+  await unsafePushTables(testDb.db, { countryTable, statusTable, scopedTable });
 });
 
 afterAll(async () => {
@@ -48,9 +57,10 @@ async function readStatuses() {
 }
 
 describe("seedReferenceData", () => {
-  const tables = new Map<string, typeof countryTable | typeof statusTable>([
+  const tables = new Map<string, typeof countryTable | typeof statusTable | typeof scopedTable>([
     ["country", countryTable],
     ["status", statusTable],
+    ["scoped", scopedTable],
   ]);
 
   test("inserts initial reference data", async () => {
@@ -195,6 +205,28 @@ describe("seedReferenceData", () => {
 
     const result = await seedReferenceData(defs, tables, testDb.db);
     expect(result).toEqual({ inserted: 0, updated: 0 });
+  });
+
+  test("stamps framework columns (tenantId/version/insertedAt) on insert when the table has them", async () => {
+    const defs: ReferenceDataDef[] = [
+      {
+        entityName: "scoped",
+        data: [{ key: "k1", label: "One" }],
+      },
+    ];
+
+    const result = await seedReferenceData(defs, tables, testDb.db);
+    expect(result).toEqual({ inserted: 1, updated: 0 });
+
+    const rows = await selectMany(testDb.db, scopedTable);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      key: "k1",
+      label: "One",
+      tenantId: SYSTEM_TENANT_ID,
+      version: 1,
+    });
+    expect(rows[0]?.insertedAt).toBeTruthy();
   });
 
   test("skips empty data arrays", async () => {
