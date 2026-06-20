@@ -8,4 +8,6 @@ custom-fields: fix two event-sourcing correctness gaps.
 
 2. **PII in the event log** — a custom field marked `sensitive: true` had its value written into the `customField.set` event (via `unsafeAppendEvent`), so a user-forget that strips the projection still left the value in `kumiko_events` (an Art. 17 gap, also undone by a projection rebuild). Sensitive values are now **self-projected** into the host row directly by the write handler — exactly like the entity executor handles `sensitive` entity fields — and the persisted event omits the value. PII never enters the immutable log; the existing forget-strip erases it durably. A projection rebuild loses the value, which is intentional (identical to a `sensitive` entity field).
 
-Note: change 1 adds an `is_deleted` column to `read_custom_field_definitions` (entity is now soft-delete) — additive migration on existing deployments.
+Also: `update-tenant-field` now rejects flipping a field's `sensitive` flag (immutable, like `type`) — a non-sensitive→sensitive switch can't retroactively erase already-logged values, so changing sensitivity requires delete + re-define.
+
+Note: change 1 adds an `is_deleted` column to `read_custom_field_definitions` (entity is now soft-delete) — additive migration required on existing deployments (`kumiko schema` generates the `ALTER TABLE ADD COLUMN`); the quota query and executor depend on it.

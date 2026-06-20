@@ -107,6 +107,10 @@ export const setCustomFieldHandler: WriteHandlerDef = {
           entityName: payload.entityName,
         });
       }
+      // Resolves the same canonical table name the MSP/postQuery use (the table
+      // NAME, not the drizzle object). Holds unless a host entity is wired with
+      // a custom backing table whose name diverges from its definition — rare,
+      // and the MSP path makes the same assumption.
       const tableName = extractTableName(
         buildEntityTable(payload.entityName, entity),
         "custom-fields/set-custom-field",

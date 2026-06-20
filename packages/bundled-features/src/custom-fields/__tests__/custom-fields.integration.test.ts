@@ -469,6 +469,85 @@ describe("custom-fields integration — sensitive value self-projected, kept out
     const payload = await fetchSetEventPayload(propId, "publicNote");
     expect(payload?.["value"]).toBe("visible");
   });
+
+  test("rebuild replay: re-applying logged events restores non-sensitive, not sensitive", async () => {
+    await defineField("property", "publicTag", "text");
+    await stack.http.writeOk(
+      "custom-fields:write:define-tenant-field",
+      {
+        entityName: "property",
+        fieldKey: "secret",
+        serializedField: { type: "text", sensitive: true },
+        required: false,
+        searchable: false,
+        displayOrder: 0,
+      },
+      admin,
+    );
+    const propId = "aaaaaaaa-aaaa-4000-8000-0000000000a3";
+    await createProperty(propId, "Rebuild Prop");
+    await setCustomField("property", propId, "publicTag", "keepme");
+    await setCustomField("property", propId, "secret", "DE-TAX-777");
+    await stack.eventDispatcher?.runOnce();
+
+    // Wipe the read model, then replay the logged events through the REAL MSP
+    // apply fn — exactly the derivation a rebuild performs — without mutating
+    // consumer state (which would pollute the shared stack).
+    await asRawClient(stack.db).unsafe(
+      "UPDATE read_t1_properties SET custom_fields = '{}'::jsonb WHERE id = $1",
+      [propId],
+    );
+    const mspEntry = [...stack.registry.getAllMultiStreamProjections().entries()].find(([name]) =>
+      name.includes("property"),
+    );
+    expect(mspEntry).toBeDefined();
+    const apply = mspEntry?.[1].apply ?? {};
+    const events = (await asRawClient(stack.db).unsafe(
+      "SELECT type, payload FROM kumiko_events WHERE aggregate_id = $1 ORDER BY id ASC",
+      [propId],
+    )) as ReadonlyArray<{ type: string; payload: unknown }>;
+    for (const e of events) {
+      const fn = apply[e.type];
+      if (!fn) continue;
+      const payload = typeof e.payload === "string" ? JSON.parse(e.payload) : e.payload;
+      await fn(
+        {
+          type: e.type,
+          payload,
+          aggregateId: propId,
+          aggregateType: "property",
+          tenantId: admin.tenantId,
+        },
+        asRawClient(stack.db),
+      );
+    }
+
+    const row = (await listProperties()).rows.find((r) => r["id"] === propId);
+    // Non-sensitive: restored from its value-bearing event.
+    expect(row?.["publicTag"]).toBe("keepme");
+    // Sensitive: the logged event carried no value → gone. The accepted, DURABLE
+    // rebuild-loss — and why a forget can't be undone by a rebuild.
+    expect(row?.["secret"]).toBeUndefined();
+  });
+
+  test("update-tenant-field rejects flipping `sensitive` (would orphan logged PII)", async () => {
+    await defineField("property", "maybePii", "text"); // non-sensitive at definition
+    const err = await stack.http.writeErr(
+      "custom-fields:write:update-tenant-field",
+      {
+        entityName: "property",
+        fieldKey: "maybePii",
+        serializedField: { type: "text", sensitive: true }, // attempt the flip
+        required: false,
+        searchable: false,
+        displayOrder: 0,
+      },
+      admin,
+    );
+    expect(err.httpStatus).toBe(422);
+    expect(err.code).toBe("unprocessable");
+    expect(err.details).toMatchObject({ reason: "field_sensitive_immutable" });
+  });
 });
 
 describe("custom-fields integration — value validation (Builder-Reuse)", () => {
