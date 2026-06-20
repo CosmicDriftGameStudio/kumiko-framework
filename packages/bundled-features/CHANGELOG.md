@@ -1,5 +1,32 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.67.0
+
+### Minor Changes
+
+- d732bde: tier-engine: derive the trial from `tenant.inserted_at` and enforce it as a live gate
+
+  Real auth-signups create the tenant via `seedTenant` (event-store executor), which
+  bypasses the dispatcher `postSave` hook — so the auto-default `tier-assignment` row was
+  never written and the cached trial-clock never warmed. A freshly signed-up tenant got
+  neither a tier-assignment nor the 30-day trial on the server side.
+
+  The trial is now derived from `tenant.inserted_at` (which always exists for every tenant)
+  and checked live at the dispatcher feature-gate via a new optional `trialGate` on
+  `EffectiveFeaturesResolver`, consulted only on the already-disabled cold path. The sync
+  boot-cached resolver hot path is unchanged; `checkFeatureEnabled`/`ensureFeatureEnabled`
+  become async (both call sites were already async). Removes the cached `trialClock` and the
+  resolver trial-union. New exported type: `TrialGate`.
+
+### Patch Changes
+
+- Updated dependencies [d732bde]
+  - @cosmicdrift/kumiko-framework@0.67.0
+  - @cosmicdrift/kumiko-headless@0.67.0
+  - @cosmicdrift/kumiko-renderer@0.67.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.67.0
+  - @cosmicdrift/kumiko-renderer-web@0.67.0
+
 ## 0.66.0
 
 ### Minor Changes
