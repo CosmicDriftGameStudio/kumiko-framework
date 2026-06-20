@@ -259,6 +259,10 @@ describe("auth-routes cookieDomain", () => {
     });
     expect(res.status).toBe(200);
     expect(getSetCookieRaw(res, AUTH_COOKIE_NAME)).toMatch(/Domain=example\.eu/i);
+    // Das CSRF-Cookie wird via denselben common-Optionen rotiert wie das Auth-
+    // Cookie. Ohne Domain-Attribut bliebe es host-only neben dem Domain-Auth-
+    // Cookie → der Double-Submit-Check läse umgebungsabhängig das falsche.
+    expect(getSetCookieRaw(res, CSRF_COOKIE_NAME)).toMatch(/Domain=example\.eu/i);
   });
 
   test("logout löscht beide Varianten: mit Domain UND host-only", async () => {
