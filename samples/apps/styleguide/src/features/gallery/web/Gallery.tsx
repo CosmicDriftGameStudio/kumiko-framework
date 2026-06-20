@@ -321,6 +321,31 @@ export function Gallery(): ReactNode {
         </Form>
       </Block>
 
+      <Block id="card-standard" title="Card-Standard — Section (standalone)">
+        {/* Standalone <Section> (außerhalb Form) = der Calculator-Result-Card-
+            Standard. title-only = Bestands-Consumer (publicstatus/tier-admin),
+            darf durch den border-b-Removal NICHT schlechter werden; subtitle +
+            actions-Footer = neu. Kein Divider unterm Titel (shadcn-Muster). */}
+        <div className="flex max-w-md flex-col gap-6">
+          <Section title="Tragbare Rate / Monat">
+            <div className="text-2xl font-semibold tabular-nums">2.500,00 €</div>
+          </Section>
+          <Section
+            title="Ergebnis"
+            subtitle="Aus deinem Budget die größtmögliche Kreditsumme."
+            actions={<Button variant="primary">In Finanzierung übernehmen</Button>}
+          >
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Maximalkredit</span>
+              <span className="font-semibold tabular-nums">545.455,00 €</span>
+            </div>
+            <p className="text-muted-foreground text-sm">
+              Faustregel: die Rate sollte etwa 35 % des Haushaltsnettos nicht übersteigen.
+            </p>
+          </Section>
+        </div>
+      </Block>
+
       <Block id="filter" title="Filter & Search">
         {/* Holdings-Muster: Such-Pill (rounded-full, muted) links + Toggle-
             Group-Pills rechts; Rows mit Ticker-Kachel, Meta, Type-Badge, Value. */}

@@ -485,7 +485,14 @@ export type SectionProps = {
    *  (kein Header). RenderEdit lässt ihn weg, wenn er den Screen-Titel
    *  der Action-Bar 1:1 wiederholen würde. */
   readonly title?: string;
+  /** Optionaler muted Untertitel unter dem Titel — gibt der Section
+   *  Kontext statt nur ein Label (analog FormProps.subtitle). */
+  readonly subtitle?: ReactNode;
   readonly children: ReactNode;
+  /** Optionaler Aktions-Slot am Fuß der Section (z.B. „In Finanzierung
+   *  übernehmen"). Web rendert standalone eine abgehobene Footer-Row
+   *  (border-t), innerhalb eines Forms eine rechtsbündige Button-Reihe. */
+  readonly actions?: ReactNode;
   readonly testId?: string;
 };
 

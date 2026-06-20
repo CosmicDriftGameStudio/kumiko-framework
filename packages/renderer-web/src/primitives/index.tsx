@@ -57,7 +57,7 @@ import {
 import { cn } from "../lib/cn";
 import { Badge } from "../ui/badge";
 import { Button as UiButton } from "../ui/button";
-import { Card, CardContent, CardHeader } from "../ui/card";
+import { Card, CardContent } from "../ui/card";
 import { Checkbox } from "../ui/checkbox";
 import { Input as UiInput } from "../ui/input";
 import { Label as UiLabel } from "../ui/label";
@@ -1393,34 +1393,70 @@ function DefaultForm({
   );
 }
 
-function DefaultSection({ title, children, testId }: SectionProps): ReactNode {
+function DefaultSection({ title, subtitle, children, actions, testId }: SectionProps): ReactNode {
   const insideForm = useContext(InsideFormContext);
 
+  // h3 statt CardTitle (= div): erhält die Heading-Semantik für
+  // Screenreader-Navigation. Subtitle fließt darunter (kein Divider —
+  // shadcn CardTitle+CardDescription-Muster).
+  const header =
+    title !== undefined || subtitle !== undefined ? (
+      <div className="flex flex-col gap-1">
+        {title !== undefined && (
+          <h3
+            data-testid={testId !== undefined ? `${testId}-title` : undefined}
+            className="text-base font-semibold leading-none tracking-tight"
+          >
+            {title}
+          </h3>
+        )}
+        {subtitle !== undefined && (
+          <p
+            data-testid={testId !== undefined ? `${testId}-subtitle` : undefined}
+            className="text-sm text-muted-foreground"
+          >
+            {subtitle}
+          </p>
+        )}
+      </div>
+    ) : null;
+
   // Innerhalb eines Forms: divider-loser Abschnitt OHNE eigene Card-Fläche.
-  // Die Trennlinien ZWISCHEN Sections macht der divide-y-Wrapper im Form —
-  // keine Linie unter dem Titel, keine vor dem Footer.
+  // Die Trennlinien ZWISCHEN Sections macht der divide-y-Wrapper im Form.
+  // actions hier = rechtsbündige Reihe (das Form trägt den eigenen Footer).
   if (insideForm) {
     return (
       <section data-testid={testId} className="flex flex-col gap-4 px-6 py-6">
-        {title !== undefined && (
-          <h3 className="text-base font-semibold leading-none tracking-tight">{title}</h3>
-        )}
+        {header}
         {children}
+        {actions !== undefined && (
+          <div
+            data-testid={testId !== undefined ? `${testId}-actions` : undefined}
+            className="flex items-center justify-end gap-2"
+          >
+            {actions}
+          </div>
+        )}
       </section>
     );
   }
 
-  // Standalone: eigene Card (abgesetzter border-b-Header + gap-4-Body).
+  // Standalone: eigene Card, Header fließt in den Body (kein Divider).
+  // actions = abgehobene Footer-Row (border-t bg-muted/30, wie DefaultForm).
   return (
-    <Card data-testid={testId} className="gap-0 rounded-lg py-0">
-      {title !== undefined && (
-        <CardHeader className="border-b px-6 py-4">
-          {/* h3 statt CardTitle (= div): erhält die Heading-Semantik für
-              Screenreader-Navigation. Klassen = CardTitle-Default. */}
-          <h3 className="text-base font-semibold leading-none tracking-tight">{title}</h3>
-        </CardHeader>
+    <Card data-testid={testId} className="gap-0 overflow-hidden rounded-lg py-0">
+      <CardContent className="flex flex-col gap-4 px-6 py-6">
+        {header}
+        {children}
+      </CardContent>
+      {actions !== undefined && (
+        <div
+          data-testid={testId !== undefined ? `${testId}-actions` : undefined}
+          className="flex items-center justify-end gap-2 border-t bg-muted/30 px-6 py-4"
+        >
+          {actions}
+        </div>
       )}
-      <CardContent className="flex flex-col gap-4 px-6 py-6">{children}</CardContent>
     </Card>
   );
 }
