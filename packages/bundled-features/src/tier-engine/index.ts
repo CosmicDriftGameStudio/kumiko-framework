@@ -24,3 +24,4 @@ export {
   createTierEngineFeature,
   tierEngineFeature,
 } from "./feature";
+export { isTrialActive, type TrialPolicy } from "./trial";

@@ -62,6 +62,7 @@ import {
   type TierResolverPlugin,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { getAggregateStreamMaxVersion } from "@cosmicdrift/kumiko-framework/event-store";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
 import { tierAssignmentAggregateId } from "./aggregate-id";
 import type { TierMap } from "./compose-app";
@@ -70,6 +71,7 @@ import { tierAssignmentEntity } from "./entity";
 import { getActiveTierQuery } from "./handlers/active-tier.query";
 import { getTenantTierQuery } from "./handlers/get-tenant-tier.query";
 import { createSetTenantTierWrite } from "./handlers/set-tenant-tier.write";
+import { isTrialActive, type TrialPolicy } from "./trial";
 
 // Drizzle-table for the tier-assignment-entity. Built once at module-load
 // from the entity definition — same shape buildEntityTable would produce
@@ -115,6 +117,15 @@ export type CreateTierEngineOptions<TCaps extends Readonly<Record<string, unknow
    * oder eigene resolution-logic nutzen (legacy-pattern).
    */
   readonly tierMap?: TierMap<TCaps>;
+
+  /**
+   * Optionale Trial-Phase: jeder Tenant bekommt für `durationHours` ab seinem
+   * Anlage-Datum zusätzlich die Features von `trial.tier` freigeschaltet,
+   * danach fällt er automatisch auf sein gespeichertes Tier zurück. Erfordert
+   * `tierMap` (der Trial-Tier muss ein Key sein). Zeit-abgeleitet aus
+   * inserted_at — kein Stored-Flag, kein Scheduler.
+   */
+  readonly trial?: TrialPolicy;
 };
 
 /**
@@ -242,6 +253,17 @@ export function createTierEngineFeature<
     // Requests (build läuft pre-listen via runDevApp/runProdApp-pickup).
     const alwaysOnHolder: { set: ReadonlySet<string> } = { set: new Set() };
 
+    // Trial-State: tenantId → inserted_at als epochMilliseconds (Anlage-Datum
+    // der Assignment ≈ Signup, rebuild-stabil). Trial wird at-resolve-time aus
+    // (jetzt vs startedAt + durationHours) berechnet, NICHT gecacht — anders als
+    // das Feature-Set ändert sich der Trial-Status mit der Zeit. trialFeatures
+    // ist die fixe Feature-Menge des Trial-Tiers (einmal aufgelöst).
+    const trialClock = new Map<TenantId, number>();
+    const trialFeatures: ReadonlySet<string> = opts.trial
+      ? featuresForTier(tierMap, opts.trial.tier)
+      : new Set();
+    const nowMs = (): number => getTemporal().Now.instant().epochMilliseconds;
+
     // set-tenant-tier schreibt direkt über den Executor → der postSave-Hook
     // unten feuert dabei NICHT. Diese Funktion repliziert den Cache-Update
     // des Hooks, damit ein manueller Grant das effektive Feature-Set sofort
@@ -249,6 +271,9 @@ export function createTierEngineFeature<
     // Semantik wie der Hook.
     onTierAssigned.fn = (tenantId, tier) => {
       cache.set(tenantId, mergeAlwaysOn(alwaysOnHolder.set, featuresForTier(tierMap, tier)));
+      // Trial-Uhr nur setzen, wenn unbekannt: ein manueller Grant ändert nicht
+      // das Signup-Datum eines bestehenden Tenants (build() hat es bereits).
+      if (!trialClock.has(tenantId)) trialClock.set(tenantId, nowMs());
     };
 
     // Invalidation: tier-assignment events update the cache.
@@ -261,10 +286,12 @@ export function createTierEngineFeature<
       // throwing — der lifecycle-pipeline darf nicht durch hook-fehler
       // blocken (afterCommit-pattern, side-effect-best-effort).
       if (typeof data.tenantId !== "string" || typeof data.tier !== "string") return;
-      cache.set(
-        data.tenantId as TenantId,
-        mergeAlwaysOn(alwaysOnHolder.set, featuresForTier(tierMap, data.tier)),
-      );
+      const tenantId = data.tenantId as TenantId;
+      cache.set(tenantId, mergeAlwaysOn(alwaysOnHolder.set, featuresForTier(tierMap, data.tier)));
+      // Erstes Assignment eines Tenants = Signup → Trial-Uhr startet jetzt
+      // (inserted_at der frisch erzeugten Row ≈ now). Spätere Tier-Wechsel
+      // lassen die Uhr unberührt, sonst würde ein Upgrade das Fenster verlängern.
+      if (!trialClock.has(tenantId)) trialClock.set(tenantId, nowMs());
     });
     r.entityHook("postDelete", "tier-assignment", async (payload) => {
       const data = payload.data as { tenantId?: unknown }; // @cast-boundary engine-payload
@@ -385,14 +412,17 @@ export function createTierEngineFeature<
         // typischerweise <100k tenants — single-pass scan akzeptabel.
         // Skalierungs-Pfad (lazy-load + LRU) ist Sprint-8b wenn echtes
         // Bedürfnis entsteht.
-        type AssignmentRow = { tenantId: string; tier: string };
+        type AssignmentRow = { tenantId: string; tier: string; insertedAt: Temporal.Instant };
         const rows = await selectMany<AssignmentRow>(deps.db, tierAssignmentTable);
         for (const row of rows) {
           cache.set(
             row.tenantId as TenantId,
             mergeAlwaysOn(computedAlwaysOn, featuresForTier(tierMap, row.tier)),
           );
+          trialClock.set(row.tenantId as TenantId, row.insertedAt.epochMilliseconds);
         }
+
+        const trial = opts.trial;
 
         // Synchronous resolver-callback for dispatcher hot-path.
         return (tenantId: TenantId): ReadonlySet<string> => {
@@ -401,15 +431,25 @@ export function createTierEngineFeature<
           if (tenantId === SYSTEM_TENANT_ID) {
             return mergeAlwaysOn(computedAlwaysOn, unionAllTierFeatures(tierMap));
           }
-          const cached = cache.get(tenantId);
-          if (cached !== undefined) return cached;
           // Cache-miss: tenant ist noch nicht im cache (z.B. brandneu nach
           // boot, oder defaultTier-hook hat noch nicht gefired). Default-Set
           // ist least-privileged — typisch Free-Tier-features. Memory
           // `feedback_security_default_on`: secure-by-default.
           const fallbackTier = opts.defaultTier;
-          if (fallbackTier === undefined) return computedAlwaysOn;
-          return mergeAlwaysOn(computedAlwaysOn, featuresForTier(tierMap, fallbackTier));
+          const base =
+            cache.get(tenantId) ??
+            (fallbackTier === undefined
+              ? computedAlwaysOn
+              : mergeAlwaysOn(computedAlwaysOn, featuresForTier(tierMap, fallbackTier)));
+          // Trial: innerhalb des Fensters ab Signup zusätzlich die Trial-Tier-
+          // Features. Zeit-abgeleitet → pro Request geprüft, nie gecacht.
+          if (trial !== undefined) {
+            const startedMs = trialClock.get(tenantId);
+            if (startedMs !== undefined && isTrialActive(startedMs, nowMs(), trial.durationHours)) {
+              return mergeAlwaysOn(base, trialFeatures);
+            }
+          }
+          return base;
         };
       },
     };

@@ -71,6 +71,20 @@ const features = composeFeatures(
   { includeBundled: true },
 );
 
+// Zweite Komposition MIT Trial-Option: jeder Tenant bekommt 30 Tage ab
+// inserted_at die "pro"-Features (feat-pro), unabhängig vom gespeicherten Tier.
+const TRIAL_HOURS = 30 * 24;
+const featuresWithTrial = composeFeatures(
+  [
+    createTierEngineFeature({
+      tierMap: TEST_TIER_MAP,
+      trial: { tier: "pro", durationHours: TRIAL_HOURS },
+    }),
+    featProFeature,
+  ],
+  { includeBundled: true },
+);
+
 let stack: TestStack;
 const tenantA = "00000000-0000-4000-8000-0000000000a1" as TenantId;
 const tenantB = "00000000-0000-4000-8000-0000000000b2" as TenantId;
@@ -210,5 +224,58 @@ describe("createTierEngineFeature — per-tenant resolver", () => {
     expect(systemSet.has("feat-business")).toBe(true);
     // SYSTEM tenant also receives always-on non-toggleable features from includeBundled.
     expect(systemSet.size).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("createTierEngineFeature — Trial-Phase (zeit-abgeleitet)", () => {
+  function sysUser(tenantId: TenantId, id: string) {
+    return createTestUser({ id, tenantId, roles: ["SystemAdmin", "TenantAdmin"] });
+  }
+
+  test("neuer 'free'-Tenant sieht im Fenster die Trial-Features (feat-pro)", async () => {
+    const usage = findTierResolverUsage(featuresWithTrial);
+    if (!usage) throw new Error("setup failure: no trial resolver");
+    const plugin = usage.options as TierResolverPlugin;
+
+    // Gespeicherter Tier ist free (keine feat-pro), inserted_at = jetzt → Trial aktiv.
+    await stack.http.writeOk(
+      "tier-engine:write:tier-assignment:create",
+      { tier: "free" },
+      sysUser(tenantA, "trial-sys-1"),
+    );
+    const resolver = await plugin.build({ db: stack.db, registry: stack.registry });
+    expect(resolver(tenantA).has("feat-pro")).toBe(true);
+  });
+
+  test("Tenant außerhalb des Fensters (inserted_at > 30 Tage) fällt auf free zurück", async () => {
+    const usage = findTierResolverUsage(featuresWithTrial);
+    if (!usage) throw new Error("setup failure: no trial resolver");
+    const plugin = usage.options as TierResolverPlugin;
+
+    await stack.http.writeOk(
+      "tier-engine:write:tier-assignment:create",
+      { tier: "free" },
+      sysUser(tenantB, "trial-sys-2"),
+    );
+    // Anlage-Datum künstlich 31 Tage zurückdrehen → Trial abgelaufen. tenantB ist
+    // eine fixe Test-UUID (kein User-Input) → inline-Interpolation unkritisch.
+    await asRawClient(stack.db).unsafe(
+      `UPDATE read_tier_assignments SET inserted_at = now() - interval '31 days' WHERE tenant_id = '${tenantB}'::uuid`,
+    );
+    const resolver = await plugin.build({ db: stack.db, registry: stack.registry });
+    expect(resolver(tenantB).has("feat-pro")).toBe(false);
+  });
+
+  test("ohne Trial-Option ist der Resolver unverändert (free = keine feat-pro)", async () => {
+    const usage = findTierResolverUsage(features);
+    if (!usage) throw new Error("setup failure");
+    const plugin = usage.options as TierResolverPlugin;
+    await stack.http.writeOk(
+      "tier-engine:write:tier-assignment:create",
+      { tier: "free" },
+      sysUser(tenantA, "no-trial-sys"),
+    );
+    const resolver = await plugin.build({ db: stack.db, registry: stack.registry });
+    expect(resolver(tenantA).has("feat-pro")).toBe(false);
   });
 });
