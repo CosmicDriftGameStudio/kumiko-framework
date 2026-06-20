@@ -201,6 +201,33 @@ describe("buildConfigFeatureSchema — per-role cascade (system > tenant > user)
   });
 });
 
+describe("buildConfigFeatureSchema — machine-role does not leak into screen access (#406/2)", () => {
+  // Ein gemischter write-Set (machine "system" + human "SystemAdmin") entsteht
+  // nur über ein explizites write:-Override (kein Preset erzeugt den Mix). Der
+  // Screen darf trotzdem NUR die Human-Rolle gaten — "system" trägt kein User,
+  // ein Leak macht das Gate inkonsistent zum Hardening-Ziel.
+  const mixedWrite = defineFeature("mixed", (r) => {
+    r.config({
+      keys: {
+        apiKey: createSystemConfig("text", {
+          write: [...access.system, ...access.systemAdmin],
+          mask: { title: "mixed.api-key" },
+        }),
+      },
+    });
+  });
+
+  test("a key with write ['system','SystemAdmin'] yields a SystemAdmin-only screen (no 'system')", () => {
+    const s = buildConfigFeatureSchema(createRegistry([mixedWrite]));
+    const screen = s.screens.find((x) => x.id === "mixed-system");
+    if (!screen || screen.type !== "configEdit")
+      throw new Error("no mixed-system configEdit screen");
+    expect(screen.access).toEqual({ roles: ["SystemAdmin"] });
+    const roles = screen.access && "roles" in screen.access ? screen.access.roles : [];
+    expect(roles).not.toContain("system");
+  });
+});
+
 describe("buildConfigFeatureSchema — access + workspace", () => {
   test("home-scope screens union write (edit) roles; an `all`-writable group collapses to openToAll", () => {
     // billing tenant keys are createTenantConfig → write = admin roles

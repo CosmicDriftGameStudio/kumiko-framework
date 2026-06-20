@@ -79,6 +79,7 @@ export function buildAppSchema(registry: Registry): AppSchema {
       workspaces = placed.workspaces;
       if (placed.standalone !== undefined) workspaces.push(placed.standalone);
       warnUnplacedAudiences(placed.unplaced);
+      warnDanglingAudienceRefs(placed.danglingRefs);
     }
   }
 
@@ -133,7 +134,12 @@ function mergeSettingsHubIntoConfigFeature(
 function placeSettingsHub(
   appWorkspaces: readonly WorkspaceSchema[],
   generated: ConfigFeatureSchema,
-): { workspaces: WorkspaceSchema[]; standalone: WorkspaceSchema | undefined; unplaced: string[] } {
+): {
+  workspaces: WorkspaceSchema[];
+  standalone: WorkspaceSchema | undefined;
+  unplaced: string[];
+  danglingRefs: string[];
+} {
   const prefix = `${SETTINGS_HUB_FEATURE}:nav:`;
   const audienceShortIds = new Set<string>();
   const childParent = new Map<string, string>();
@@ -150,12 +156,20 @@ function placeSettingsHub(
   }
 
   const placedAudiences = new Set<string>();
+  // Config-Hub-Navs, die eine Workspace referenziert, die aber nie generiert
+  // wurden (weder Audience noch bekanntes Kind) — z.B. `config:nav:audience-user`
+  // ohne registrierte User-Scope-Config-Keys. Sonst verschwindet die Referenz
+  // lautlos (silent-skip).
+  const danglingRefs = new Set<string>();
   const workspaces = appWorkspaces.map((ws) => {
     const additions: string[] = [];
     for (const member of ws.navMembers) {
       if (!member.startsWith(prefix)) continue;
       const shortId = member.slice(prefix.length);
-      if (!audienceShortIds.has(shortId)) continue;
+      if (!audienceShortIds.has(shortId)) {
+        if (!childParent.has(shortId)) danglingRefs.add(shortId);
+        continue;
+      }
       placedAudiences.add(shortId);
       for (const child of childrenByAudience.get(shortId) ?? []) {
         const childQn = `${prefix}${child}`;
@@ -180,20 +194,38 @@ function placeSettingsHub(
 
   const unplaced =
     placedAudiences.size > 0 ? [...audienceShortIds].filter((id) => !placedAudiences.has(id)) : [];
-  return { workspaces, standalone, unplaced };
+  return { workspaces, standalone, unplaced, danglingRefs: [...danglingRefs] };
 }
 
 function warnUnplacedAudiences(unplaced: readonly string[]): void {
   // skip: every audience placed — nothing to warn about
   if (unplaced.length === 0) return;
-  // skip: dev-only authoring hint, never in production
-  if (typeof process !== "undefined" && process.env.NODE_ENV === "production") return;
+  const env = typeof process !== "undefined" ? process.env.NODE_ENV : undefined;
+  // skip: dev-only authoring hint — silent in production and in tests
+  // (bun:test sets NODE_ENV=test) where it would only noise up CI logs.
+  if (env === "production" || env === "test") return;
   // biome-ignore lint/suspicious/noConsole: dev-only authoring hint
   console.warn(
     `[kumiko] Settings-Hub: ${unplaced.join(", ")} nicht in einer App-Workspace platziert — ` +
       `erscheint im Standalone-"Einstellungen"-Tab. Referenziere ` +
       `${unplaced.map((id) => `${SETTINGS_HUB_FEATURE}:nav:${id}`).join(", ")} ` +
       `in einer r.workspace.nav, um die Gruppe inline zu zeigen.`,
+  );
+}
+
+function warnDanglingAudienceRefs(dangling: readonly string[]): void {
+  // skip: no dangling refs — nothing to warn about
+  if (dangling.length === 0) return;
+  const env = typeof process !== "undefined" ? process.env.NODE_ENV : undefined;
+  // skip: dev-only authoring hint — silent in production and in tests
+  if (env === "production" || env === "test") return;
+  // biome-ignore lint/suspicious/noConsole: dev-only authoring hint
+  console.warn(
+    `[kumiko] Settings-Hub: ${dangling
+      .map((id) => `${SETTINGS_HUB_FEATURE}:nav:${id}`)
+      .join(", ")} in einer Workspace referenziert, aber nie generiert — ` +
+      `keine Config-Keys für diesen Scope registriert. Tippfehler oder ` +
+      `vorzeitige Referenz? Der Eintrag rendert sonst unsichtbar.`,
   );
 }
 
