@@ -1,8 +1,9 @@
-import { fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { USER_STATUS, userTable } from "../../user";
+import { updateUserLifecycle } from "../lib/update-user-lifecycle";
 
 // POST /api/user/lift-restriction (S2.U6) — DSGVO Art. 18 Reverse.
 //
@@ -50,7 +51,7 @@ export const liftRestrictionWrite = defineWriteHandler({
       );
     }
 
-    await updateMany(ctx.db.raw, userTable, { status: USER_STATUS.Active }, { id: event.user.id });
+    await updateUserLifecycle(ctx.db.raw, event.user.id, { status: USER_STATUS.Active });
 
     return {
       isSuccess: true as const,

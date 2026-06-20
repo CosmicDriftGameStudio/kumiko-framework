@@ -1,9 +1,10 @@
-import { fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { addDurationSpec, type DurationSpec } from "@cosmicdrift/kumiko-framework/compliance";
 import { createSystemUser, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { USER_STATUS, userTable } from "../../user";
+import { updateUserLifecycle } from "../lib/update-user-lifecycle";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 
@@ -57,12 +58,10 @@ export async function startDeletionGracePeriod(
   const T = getTemporal();
   const gracePeriodEnd = addDurationSpec(T.Now.instant(), gracePeriod);
 
-  await updateMany(
-    ctx.db.raw,
-    userTable,
-    { status: USER_STATUS.DeletionRequested, gracePeriodEnd },
-    { id: userId },
-  );
+  await updateUserLifecycle(ctx.db.raw, userId, {
+    status: USER_STATUS.DeletionRequested,
+    gracePeriodEnd,
+  });
 
   return { ok: true, gracePeriodEnd, userEmail: userRow["email"] ?? "" };
 }
