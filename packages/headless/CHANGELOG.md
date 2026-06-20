@@ -1,5 +1,63 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.66.0
+
+### Minor Changes
+
+- 77ed9c1: Let the config-generated entity-edit form express the common shadcn form
+  shapes (title + subtitle, flat single-section layout, domain-specific submit
+  CTA). Driven by rebuilding real shadcn reference designs purely from the schema
+  to find what the auto-UI couldn't yet do:
+
+  - **Optional section title**: `EditFieldsSection.title` is now optional. A
+    title-less section renders just its fields (no `h3`), so a form can be a flat
+    "card title + fields directly" layout instead of being forced into a labelled
+    sub-section. The whole-form card title/subtitle carries the context.
+  - **entityEdit submit label**: `EntityEditScreenDefinition.submitLabel` (i18n key
+    or raw string) overrides the generic "Save" — e.g. "Save Address", "Create
+    item". Wired through `KumikoScreen` (create + update branches) into the
+    existing `RenderEdit` `submitLabel` prop.
+  - **Form subtitle**: `FormProps.subtitle` renders a muted line under the form
+    title. `RenderEdit` resolves title + subtitle create/edit-aware via
+    `screen:<id>.<create|edit>.title` / `.subtitle` (falling back to
+    `screen:<id>.title`/`.subtitle`, then the screen id), so a create screen reads
+    "Create item / Add a new item to your catalog" and the edit screen differs.
+
+  No breaking changes — existing titled sections and the default save label are
+  unaffected. A new `styleguide` "Examples" feature rebuilds the shadcn Shipping
+  Address design from a schema as the first config stress-test.
+
+- 7eacfcb: The config-generated edit form now renders `file` / `image` fields as a real
+  upload widget — image fields show a round avatar preview + Upload/Change/Remove
+  buttons, file fields show an attach control. The file storage backend (POST/GET
+  `/api/files`, `FileStorageProvider`, `fileRef` entity) already existed; this
+  wires it through to the auto-UI, discovered by rebuilding the shadcn Profile
+  design purely from a schema.
+
+  - **Renderer**: `InputProps` gains a `file | image` kind; `RenderField` maps
+    `createImageField()`/`createFileField()` to it and threads `accept`, `maxSize`,
+    `entityType`, `fieldName`.
+  - **Headless**: `EditFieldViewModel` carries those file-field metadata and
+    `computeEditViewModel` copies them from the field def.
+  - **renderer-web**: a `FileUploadInput` widget POSTs the picked file (multipart,
+    with the `X-CSRF-Token` double-submit header) to `/api/files`, stores the
+    returned FileRef id as the field value, and previews images via
+    `GET /api/files/:id`.
+  - **dev-server**: `runDevApp` / `createKumikoServer` gain a `files` option
+    (`{ storageProvider }`) threaded to `setupTestStack` (which mounts the upload
+    routes + `ctx.files`); an explicitly-wired provider now satisfies the
+    `FILE_STORAGE_PROVIDER` boot gate so demos don't need the env bridge.
+
+  The `styleguide` "Examples" feature adds a Profile screen with
+  `avatar: createImageField()`; an e2e test proves the upload round-trip
+  (pick → POST → preview).
+
+### Patch Changes
+
+- Updated dependencies [77ed9c1]
+- Updated dependencies [15b06c1]
+  - @cosmicdrift/kumiko-framework@0.66.0
+
 ## 0.65.0
 
 ### Patch Changes
