@@ -34,6 +34,7 @@ import { render as _render, type RenderOptions, type RenderResult } from "@testi
 import type { ReactElement, ReactNode } from "react";
 import { defaultPrimitives } from "../primitives";
 import { defaultTokens } from "../tokens";
+import { SidebarProvider } from "../ui/sidebar";
 
 // jsdom hat keinen ResizeObserver — cmdk (Combobox-Library) braucht
 // das im Setup. Stub reicht für unsere Tests; wir messen keine
@@ -86,8 +87,28 @@ function DefaultProviders({ children }: { readonly children: ReactNode }): React
   );
 }
 
+// DefaultProviders + SidebarProvider. Nur für Tests die vendored shadcn-
+// Sidebar-Teile (NavTree → SidebarMenuButton ruft useSidebar()) ISOLIERT
+// rendern. Nicht der Default: SidebarProvider zieht TooltipProvider +
+// keydown/matchMedia-Listener ein — global gewrappt verlangsamt/leakt das
+// auf single-CPU-CI (Banner-Timeouts). Shells stellen ihren Provider selbst.
+function SidebarProviders({ children }: { readonly children: ReactNode }): ReactNode {
+  return (
+    <DefaultProviders>
+      <SidebarProvider>{children}</SidebarProvider>
+    </DefaultProviders>
+  );
+}
+
 export function render(ui: ReactElement, options?: Omit<RenderOptions, "wrapper">): RenderResult {
   return _render(ui, { wrapper: DefaultProviders, ...options });
+}
+
+export function renderWithSidebar(
+  ui: ReactElement,
+  options?: Omit<RenderOptions, "wrapper">,
+): RenderResult {
+  return _render(ui, { wrapper: SidebarProviders, ...options });
 }
 
 // ---------------------------------------------------------------------------

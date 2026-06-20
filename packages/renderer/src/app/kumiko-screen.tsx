@@ -20,6 +20,7 @@ import type {
   SubmitResult,
   Translate,
 } from "@cosmicdrift/kumiko-headless";
+import { fieldLabelKey } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RenderEdit } from "../components/render-edit";
 import { RenderList, type ToolbarActionButton } from "../components/render-list";
@@ -27,7 +28,7 @@ import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-cont
 import { useListUrlState } from "../hooks/use-list-url-state";
 import { useQuery } from "../hooks/use-query";
 import { useTranslation } from "../i18n";
-import { type DataTableRowAction, usePrimitives } from "../primitives";
+import { type DataTableFacet, type DataTableRowAction, usePrimitives } from "../primitives";
 import { synthesizeActionFormEntity, synthesizeActionFormScreen } from "./action-form-shim";
 import { synthesizeConfigEditEntity, synthesizeConfigEditScreen } from "./config-edit-shim";
 import { useCustomScreenComponent } from "./custom-screens";
@@ -594,6 +595,23 @@ function EntityListBody({
     setHasMore(true);
   }, [useInfinite, sortQKey]);
 
+  // User-gewählte Faceted-Filter aus dem URL-State → payload.filters.
+  // Boolean-Felder: "true"/"false"-Strings zu echten Booleans coercen
+  // (DB-Spalte ist boolean). Alles als op:"in" (Multi-Select-Semantik).
+  const filterPayload = useMemo(() => {
+    const out: { field: string; op: "in"; value: unknown }[] = [];
+    for (const [field, values] of Object.entries(urlState.filters)) {
+      if (values.length === 0) continue;
+      // entity.fields ist am Renderer-Layer schwach getypt (vom Schema
+      // deserialisiert) — Boundary-Cast wie buildInitialValues.
+      const def = entity.fields[field] as { type?: string } | undefined;
+      if (def === undefined) continue;
+      const value = def.type === "boolean" ? values.map((v) => v === "true") : values;
+      out.push({ field, op: "in", value });
+    }
+    return out;
+  }, [urlState.filters, entity.fields]);
+
   // Payload für den Server-Query-Handler (LIST_PAYLOAD_SCHEMA):
   // search/sort/sortDirection/limit + offset/totalCount für Pager-Mode
   // ODER cursor für Infinite-Scroll.
@@ -610,6 +628,9 @@ function EntityListBody({
     // bei gleichem Query-Handler.
     if (screen.filter !== undefined) {
       payload["filter"] = screen.filter;
+    }
+    if (filterPayload.length > 0) {
+      payload["filters"] = filterPayload;
     }
     if (usePager) {
       // page=1 → offset=0, page=2 → offset=limit, etc. Server
@@ -629,6 +650,7 @@ function EntityListBody({
     urlState.q,
     effectiveSort,
     screen.filter,
+    filterPayload,
     usePager,
     urlState.page,
     useInfinite,
@@ -678,6 +700,48 @@ function EntityListBody({
   // sonst kollidieren die Hook-Slots zwischen Renders.
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
+
+  // Faceted-Filter: ein Dropdown pro filterable select/boolean-Feld.
+  // Labels + select-Option-Labels über dieselbe i18n-Konvention wie die
+  // Spalten-Header (fieldLabelKey / :option:<value>).
+  const filterFacets = useMemo<DataTableFacet[]>(() => {
+    const out: DataTableFacet[] = [];
+    for (const [field, rawDef] of Object.entries(entity.fields)) {
+      // entity.fields ist am Renderer-Layer schwach getypt (Record<string,
+      // unknown>, vom Schema deserialisiert) — Boundary-Cast wie buildInitialValues.
+      const def = rawDef as {
+        type?: string;
+        filterable?: boolean;
+        options?: readonly string[];
+      };
+      if (def.filterable !== true) continue;
+      const label = effectiveTranslate(fieldLabelKey(featureName, screen.entity, field));
+      if (def.type === "select" && Array.isArray(def.options)) {
+        out.push({
+          field,
+          label,
+          options: def.options.map((value) => ({
+            value,
+            label: effectiveTranslate(
+              `${featureName}:entity:${screen.entity}:field:${field}:option:${value}`,
+            ),
+          })),
+        });
+      } else if (def.type === "boolean") {
+        out.push({
+          field,
+          label,
+          // ponytail: Yes/No literal — boolean-Facet-Labels i18n'en wenn eine App es braucht
+          options: [
+            { value: "true", label: "Yes" },
+            { value: "false", label: "No" },
+          ],
+        });
+      }
+    }
+    return out;
+  }, [entity.fields, featureName, screen.entity, effectiveTranslate]);
+
   // Soft-Dispatcher: in Tests die ohne DispatcherProvider mounten,
   // bleibt rowActions undefined statt zu crashen. Echte Apps haben
   // den Provider via createKumikoApp — wenn nicht, ist es vermutlich
@@ -909,6 +973,12 @@ function EntityListBody({
       {...(onCreate !== undefined && { onCreate })}
       {...(translate !== undefined && { translate })}
       {...(wrappedOnRowClick !== undefined && { onRowClick: wrappedOnRowClick })}
+      {...(filterFacets.length > 0 && {
+        filterFacets,
+        filterValues: urlState.filters,
+        onFilterChange: urlState.setFilter,
+        onFilterReset: urlState.clearFilters,
+      })}
     />
   );
 }

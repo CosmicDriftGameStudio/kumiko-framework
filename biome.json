@@ -15,7 +15,8 @@
       "!**/dist",
       "!**/dist-server",
       "!**/.kumiko",
-      "!**/feature-manifest.json"
+      "!**/feature-manifest.json",
+      "!**/renderer-web/src/ui"
     ]
   },
   "assist": {
@@ -98,7 +99,8 @@
       "includes": [
         "packages/framework/src/api/**",
         "packages/framework/src/pipeline/**",
-        "packages/framework/src/db/**"
+        "packages/framework/src/db/**",
+        "**/scripts/**"
       ],
       "linter": {
         "rules": {

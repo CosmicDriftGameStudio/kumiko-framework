@@ -48,6 +48,18 @@ import {
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { KumikoLink } from "../app/nav";
 import { cn } from "../lib/cn";
+import {
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuAction,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+} from "../ui/sidebar";
 
 // Nav-Icon-Registry: ein Nav-Eintrag setzt `icon: "<key>"` (im r.nav-Decl),
 // der Renderer mappt den symbolischen Key auf ein lucide-Component. Unknown
@@ -117,166 +129,215 @@ export function NavTree({ schema, user, testId, allowedNavQns }: NavTreeProps): 
   }, []);
 
   return (
-    <div data-testid={testId} data-kumiko-layout="nav-tree" className="flex flex-col gap-0.5">
-      {tree.map((node) => (
-        <NavNodeItem
-          key={node.qualifiedName}
-          node={node}
-          depth={0}
-          collapsed={collapsed}
-          onToggle={onToggle}
-        />
-      ))}
+    <div data-testid={testId} data-kumiko-layout="nav-tree" className="flex w-full flex-col">
+      {tree.map((node) =>
+        isPureSection(node) ? (
+          <NavSection
+            key={node.qualifiedName}
+            node={node}
+            collapsed={collapsed}
+            onToggle={onToggle}
+          />
+        ) : (
+          <SidebarMenu key={node.qualifiedName} className="px-2 py-1">
+            <NavMenuNode node={node} collapsed={collapsed} onToggle={onToggle} />
+          </SidebarMenu>
+        ),
+      )}
     </div>
   );
 }
 
-type NavNodeItemProps = {
+// Pure section = ein Gruppen-Header ohne eigenen Screen, der nur seine
+// children gruppiert. Auf Top-Level wird daraus eine SidebarGroup mit
+// togglebarem GroupLabel; ein Node mit Screen (auch wenn er children hat)
+// ist dagegen ein klickbarer Menu-Eintrag.
+function isPureSection(node: NavNode): boolean {
+  return node.screen === undefined && node.children.length > 0;
+}
+
+type NavSubProps = {
   readonly node: NavNode;
-  readonly depth: number;
   readonly collapsed: ReadonlySet<string>;
   readonly onToggle: (qn: string) => void;
 };
 
-function NavNodeItem({ node, depth, collapsed, onToggle }: NavNodeItemProps): ReactNode {
+// i18n-Key Konvention: enthält das label einen Punkt, durchs t() laufen
+// lassen (Bundle kennt den Key → übersetzt, sonst bleibt der Key sichtbar
+// = vergessene Übersetzung). Reine String-Labels bleiben unangetastet.
+function useLabel(node: NavNode): string {
+  const t = useTranslation();
+  return node.label.includes(".") ? t(node.label) : node.label;
+}
+
+// Icon-or-Dot: bekannter icon-Key → Lucide-Icon, sonst ein dezenter Dot.
+// Aktiv = accent-foreground, inaktiv = gedimmt.
+function NavLeadingIcon({ node, active }: { node: NavNode; active: boolean }): ReactNode {
+  const NavIcon = node.icon !== undefined ? NAV_ICONS[node.icon] : undefined;
+  if (NavIcon !== undefined) return <NavIcon aria-hidden="true" className="shrink-0" />;
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "inline-block size-1.5 rounded-full",
+        active ? "bg-sidebar-accent-foreground" : "bg-sidebar-foreground/40",
+      )}
+    />
+  );
+}
+
+// Top-Level-Section: SidebarGroup mit STATISCHEM Label (sidebar-07-Muster —
+// "Platform"/"Projects" sind feste Überschriften, keine Toggles). Collapse
+// gehört auf Items MIT children, nicht auf die Section selbst.
+function NavSection({ node, collapsed, onToggle }: NavSubProps): ReactNode {
+  const displayLabel = useLabel(node);
+  return (
+    <SidebarGroup className="py-1">
+      <SidebarGroupLabel>{displayLabel}</SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          {node.children.map((child) => (
+            <NavMenuNode
+              key={child.qualifiedName}
+              node={child}
+              collapsed={collapsed}
+              onToggle={onToggle}
+            />
+          ))}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+}
+
+// Ein Menu-Eintrag (Top-Level-Item oder Section-Child). Hat er einen Screen,
+// rendert ein SidebarMenuButton-Link; hat er zusätzlich children, sitzt der
+// Collapse-Chevron als SidebarMenuAction daneben (separater Button, sonst
+// <button> im <a> = invalides HTML). Ohne Screen aber mit children ist es
+// eine verschachtelte Section als klickbare Zeile.
+function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
   const nav = useNav();
   const t = useTranslation();
   const active = node.screen !== undefined && nav.route?.screenId === lastSegment(node.screen);
-
-  const NavIcon = node.icon !== undefined ? NAV_ICONS[node.icon] : undefined;
   const hasChildren = node.children.length > 0;
   const isCollapsed = collapsed.has(node.qualifiedName);
-  const indent = { paddingLeft: `${0.5 + depth * 1}rem` };
-
-  // i18n-Key Konvention: wenn label einen Punkt enthält, durchs t()
-  // laufen lassen — wenn Bundle den Key kennt, wird übersetzt, sonst
-  // bleibt der key selbst stehen (und der App-Dev sieht dass er eine
-  // Übersetzung vergessen hat). Reine String-Labels ("Dashboard")
-  // bleiben unangetastet durch das Mapping.
-  const displayLabel = node.label.includes(".") ? t(node.label) : node.label;
-
-  // In workspace mode the URL is /<ws>/<screen> — sidebar links must
-  // carry the active workspaceId, otherwise navigate({ screenId }) would
-  // produce /<screen> and the parser would interpret <screen> as a
-  // workspace id. Pulled from useNav().route so the link tracks switches.
+  const displayLabel = useLabel(node);
   const workspaceId = nav.route?.workspaceId;
 
-  // Chevron-Icon — nur wenn Node children hat. Rechts neben dem Label
-  // angeordnet; ein Click auf den Chevron alleine toggled die Section
-  // ohne zu navigieren (stopPropagation auf dem KumikoLink-Wrapper).
-  const chevron = hasChildren ? (
-    <button
-      type="button"
-      aria-label={t(isCollapsed ? "kumiko.nav.expand" : "kumiko.nav.collapse")}
-      aria-expanded={!isCollapsed}
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        onToggle(node.qualifiedName);
-      }}
-      className="ml-auto flex size-4 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-    >
-      {isCollapsed ? <ChevronRight className="size-3" /> : <ChevronDown className="size-3" />}
-    </button>
-  ) : null;
-
-  const children =
-    hasChildren && !isCollapsed
-      ? node.children.map((child) => (
-          <NavNodeItem
+  const sub =
+    hasChildren && !isCollapsed ? (
+      <SidebarMenuSub>
+        {node.children.map((child) => (
+          <NavSubNode
             key={child.qualifiedName}
             node={child}
-            depth={depth + 1}
+            collapsed={collapsed}
+            onToggle={onToggle}
+          />
+        ))}
+      </SidebarMenuSub>
+    ) : null;
+
+  if (node.screen === undefined) {
+    return (
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          onClick={() => onToggle(node.qualifiedName)}
+          aria-expanded={!isCollapsed}
+        >
+          <NavLeadingIcon node={node} active={false} />
+          <span className="truncate">{displayLabel}</span>
+          {hasChildren &&
+            (isCollapsed ? (
+              <ChevronRight className="ml-auto" />
+            ) : (
+              <ChevronDown className="ml-auto" />
+            ))}
+        </SidebarMenuButton>
+        {sub}
+      </SidebarMenuItem>
+    );
+  }
+
+  const screenId = lastSegment(node.screen);
+  return (
+    <SidebarMenuItem>
+      {/* tooltip = Label, das shadcn nur im collapsed-Icon-State einblendet. */}
+      <SidebarMenuButton asChild isActive={active} tooltip={displayLabel}>
+        <KumikoLink
+          to={{ ...(workspaceId !== undefined && { workspaceId }), screenId }}
+          {...(active && { "aria-current": "page" })}
+        >
+          <NavLeadingIcon node={node} active={active} />
+          <span className="truncate">{displayLabel}</span>
+        </KumikoLink>
+      </SidebarMenuButton>
+      {hasChildren && (
+        <SidebarMenuAction
+          aria-label={t(isCollapsed ? "kumiko.nav.expand" : "kumiko.nav.collapse")}
+          aria-expanded={!isCollapsed}
+          onClick={() => onToggle(node.qualifiedName)}
+        >
+          {isCollapsed ? <ChevronRight /> : <ChevronDown />}
+        </SidebarMenuAction>
+      )}
+      {sub}
+    </SidebarMenuItem>
+  );
+}
+
+// Verschachtelte Einträge (innerhalb SidebarMenuSub). Leaves rendern als
+// SidebarMenuSubButton-Link; tiefer verschachtelte Sections degradieren auf
+// eine flache rekursive Liste (2 Ebenen sind die Norm).
+function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
+  const nav = useNav();
+  const active = node.screen !== undefined && nav.route?.screenId === lastSegment(node.screen);
+  const hasChildren = node.children.length > 0;
+  const isCollapsed = collapsed.has(node.qualifiedName);
+  const displayLabel = useLabel(node);
+  const workspaceId = nav.route?.workspaceId;
+
+  const deeper =
+    hasChildren && !isCollapsed
+      ? node.children.map((child) => (
+          <NavSubNode
+            key={child.qualifiedName}
+            node={child}
             collapsed={collapsed}
             onToggle={onToggle}
           />
         ))
       : null;
 
-  // Variante 1: Node hat einen Screen → KumikoLink. Wenn das Item auch
-  // children hat, sitzt der Chevron als Geschwister rechts NEBEN dem
-  // Link (nicht IM Link) — sonst würde ein <button> im <a> für invalid
-  // HTML sorgen. Wrapper-Div bekommt das hover/active-Styling, Link
-  // selbst ist nur die Klick-Fläche.
-  if (node.screen !== undefined) {
-    const screenId = lastSegment(node.screen);
-    const rowClass = cn(
-      "flex h-7 items-center gap-2 rounded-md text-[13px] transition-colors",
-      "hover:bg-accent/60 hover:text-foreground",
-      active
-        ? "bg-accent text-foreground font-medium"
-        : "text-muted-foreground hover:text-foreground",
-    );
+  if (node.screen === undefined) {
     return (
-      <>
-        <div style={indent} className={rowClass}>
-          <KumikoLink
-            to={{ ...(workspaceId !== undefined && { workspaceId }), screenId }}
-            className={cn(
-              "flex flex-1 min-w-0 items-center gap-2 px-2 h-full",
-              hasChildren && "pr-0",
-            )}
-            {...(active && { "aria-current": "page" })}
-          >
-            {NavIcon !== undefined ? (
-              <NavIcon
-                aria-hidden="true"
-                className={cn(
-                  "size-4 shrink-0",
-                  active ? "text-foreground" : "text-muted-foreground",
-                )}
-              />
-            ) : (
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "inline-block size-1.5 rounded-full",
-                  active ? "bg-accent-foreground" : "bg-muted-foreground/40",
-                )}
-              />
-            )}
-            <span className="truncate">{displayLabel}</span>
-          </KumikoLink>
-          {chevron !== null && <div className="pr-2">{chevron}</div>}
-        </div>
-        {children}
-      </>
-    );
-  }
-
-  // Variante 2: Node ist ein Section-Header (kein Screen). Mit children
-  // wird das Label zum Toggle-Button — Click klappt die ganze Section
-  // auf/zu. Chevron rendert hier als Span (kein nested button), weil
-  // der äußere Button schon das Toggle-Target ist. Ohne children
-  // rendert ein dezenter Section-Header (uppercase).
-  const chevronSpan = hasChildren ? (
-    <span aria-hidden="true" className="ml-auto flex size-4 items-center justify-center">
-      {isCollapsed ? <ChevronRight className="size-3" /> : <ChevronDown className="size-3" />}
-    </span>
-  ) : null;
-  return (
-    <>
-      {hasChildren ? (
+      <SidebarMenuSubItem>
         <button
           type="button"
           onClick={() => onToggle(node.qualifiedName)}
           aria-expanded={!isCollapsed}
-          style={indent}
-          className="flex h-7 items-center gap-2 rounded-md px-2 pt-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70 hover:text-foreground transition-colors text-left"
+          className="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-xs font-medium uppercase tracking-wider text-sidebar-foreground/70"
         >
           <span className="truncate">{displayLabel}</span>
-          {chevronSpan}
         </button>
-      ) : (
-        <div
-          style={indent}
-          className="px-2 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70"
+        {deeper}
+      </SidebarMenuSubItem>
+    );
+  }
+
+  const screenId = lastSegment(node.screen);
+  return (
+    <SidebarMenuSubItem>
+      <SidebarMenuSubButton asChild isActive={active}>
+        <KumikoLink
+          to={{ ...(workspaceId !== undefined && { workspaceId }), screenId }}
+          {...(active && { "aria-current": "page" })}
         >
-          {displayLabel}
-        </div>
-      )}
-      {children}
-    </>
+          <span className="truncate">{displayLabel}</span>
+        </KumikoLink>
+      </SidebarMenuSubButton>
+      {deeper}
+    </SidebarMenuSubItem>
   );
 }
 

@@ -118,10 +118,10 @@ describe("RenderEdit", () => {
     );
 
     expect(screen.queryByTestId("field-notes")).toBeNull();
-    const urgentCheckbox = screen
-      .getByTestId("field-isUrgent")
-      .querySelector("input[type=checkbox]");
-    fireEvent.click(urgentCheckbox as HTMLInputElement);
+    // boolean-Feld = vendored Radix-Checkbox → button[role=checkbox], kein
+    // native input[type=checkbox] mehr.
+    const urgentCheckbox = screen.getByTestId("field-isUrgent").querySelector('[role="checkbox"]');
+    fireEvent.click(urgentCheckbox as HTMLElement);
     expect(screen.queryByTestId("field-notes")).toBeTruthy();
   });
 
@@ -178,8 +178,8 @@ describe("RenderEdit", () => {
     // Default-Translate (Test-Setup hat keinen Bundle für screen:*.title)
     // → i18n returnt den Key selber, RenderEdit detected das + zeigt
     // den screenId. Beweist die Convention: kein Hardcoded "Untitled".
-    const actionsBar = screen.getByTestId("render-edit-form-actions");
-    expect(actionsBar.textContent).toContain("orders:screen:order-edit");
+    const formTitle = screen.getByTestId("render-edit-form-title");
+    expect(formTitle.textContent).toContain("orders:screen:order-edit");
   });
 
   test("extension section renders the registered Component with entityName + entityId", () => {

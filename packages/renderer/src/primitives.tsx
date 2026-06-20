@@ -344,6 +344,19 @@ export type DataTableRowAction = {
   readonly isVisible?: (row: ListRowViewModel) => boolean;
 };
 
+// Ein Faceted-Filter-Slot in der Toolbar: ein Outline-Dropdown-Button
+// (wie shadcns "Columns"-Toggle) mit Multi-Select-Checkboxen. KumikoScreen
+// baut das aus den filterable select/boolean-Feldern des Entity.
+export type DataTableFacet = {
+  /** Entity-Feldname (= URL-State-Key + payload.filters[].field). */
+  readonly field: string;
+  /** Translated Button-Label ("Status", "Active"). */
+  readonly label: string;
+  /** Auswählbare Werte mit Anzeige-Label. value = roher Filterwert
+   *  (select-option / "true"|"false"), als String transportiert. */
+  readonly options: readonly { readonly value: string; readonly label: string }[];
+};
+
 export type DataTableProps = {
   readonly columns: readonly ListColumnViewModel[];
   readonly rows: readonly ListRowViewModel[];
@@ -384,6 +397,16 @@ export type DataTableProps = {
   /** Toolbar-Slot rechts (typisch + Neu Button, Filter, View-Switch).
    *  Web zieht den Cluster mit ml-auto an die rechte Kante. */
   readonly toolbarEnd?: ReactNode;
+  /** Faceted-Filter-Dropdowns (select/boolean-Felder) — der Renderer
+   *  setzt sie neben das Search-Input. Leer/undefined → keine Filter. */
+  readonly filterFacets?: readonly DataTableFacet[];
+  /** Aktuell ausgewählte Werte je Facet-Feld (vom URL-State). */
+  readonly filterValues?: Readonly<Record<string, readonly string[]>>;
+  /** Toggle eines Facet-Werts → Caller schreibt URL-State + refetch. */
+  readonly onFilterChange?: (field: string, values: readonly string[]) => void;
+  /** Reset-Button: löscht alle aktiven Facets. Renderer zeigt ihn nur
+   *  wenn mindestens ein Facet aktiv ist. */
+  readonly onFilterReset?: () => void;
   /** Pagination-State + Callback. Wenn gesetzt, rendert der Renderer
    *  einen Pager unter der Tabelle (Web: Footer-Bar mit ← 1 ... N →).
    *  total/limit/page sind 1-basiert für die UI; Server-Translation
@@ -425,6 +448,9 @@ export type FormProps = {
   readonly onSubmit: (e?: FormEvent) => void;
   readonly children: ReactNode;
   readonly title?: ReactNode;
+  /** Optionaler muted Untertitel unter dem Titel (z.B. "Add a new item to
+   *  your catalog") — gibt dem Form-Header Kontext statt nur ein Label. */
+  readonly subtitle?: ReactNode;
   readonly actions?: ReactNode;
   readonly testId?: string;
 };

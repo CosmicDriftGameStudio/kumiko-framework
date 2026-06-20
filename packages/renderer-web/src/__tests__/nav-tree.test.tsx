@@ -8,7 +8,7 @@
 import { describe, expect, test } from "bun:test";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import { NavTree } from "../layout/nav-tree";
-import { fireEvent, render, screen } from "./test-utils";
+import { fireEvent, renderWithSidebar as render, screen } from "./test-utils";
 
 function makeSchema(): FeatureSchema {
   return {
@@ -129,13 +129,13 @@ describe("NavTree role-gating", () => {
 });
 
 describe("NavTree", () => {
-  test("Section-Header (parent ohne screen) rendert children eingerückt — default expanded", () => {
+  test("Section-Header (parent ohne screen) ist statisches Label, children sichtbar", () => {
     render(<NavTree schema={makeSchema()} testId="tree" />);
 
-    // Section "Data" ist als Toggle-Button gerendert (uppercase).
-    const dataHeader = screen.getByText("Data").closest("button") as HTMLButtonElement;
-    expect(dataHeader).not.toBeNull();
-    expect(dataHeader.getAttribute("aria-expanded")).toBe("true");
+    // Section "Data" ist eine STATISCHE Überschrift (sidebar-07-Muster), kein
+    // Toggle-Button — Collapse gehört auf Items mit children, nicht die Section.
+    expect(screen.getByText("Data")).toBeTruthy();
+    expect(screen.getByText("Data").closest("button")).toBeNull();
 
     // Children sind sichtbar im DOM.
     expect(screen.getByText("Items")).toBeTruthy();
@@ -143,16 +143,14 @@ describe("NavTree", () => {
     expect(screen.getByText("Backlog")).toBeTruthy();
   });
 
-  test("Click auf Section-Header toggled aria-expanded — children verschwinden", () => {
+  test("Section-Header collapst NICHT — children bleiben sichtbar", () => {
     render(<NavTree schema={makeSchema()} testId="tree" />);
 
-    const dataHeader = screen.getByText("Data").closest("button") as HTMLButtonElement;
-    fireEvent.click(dataHeader);
-
-    expect(dataHeader.getAttribute("aria-expanded")).toBe("false");
-    // Items ist child von Data → nach Collapse nicht mehr im DOM
-    expect(screen.queryByText("Items")).toBeNull();
-    expect(screen.queryByText("Active")).toBeNull();
+    // Kein Section-Toggle: "Data" sitzt nicht in einem Button, es gibt nichts
+    // zu klicken. Die Items bleiben dauerhaft sichtbar.
+    expect(screen.getByText("Data").closest("button")).toBeNull();
+    expect(screen.getByText("Items")).toBeTruthy();
+    expect(screen.getByText("Active")).toBeTruthy();
   });
 
   test("Parent mit Screen + children — Chevron-Click toggled, ohne Navigation", () => {

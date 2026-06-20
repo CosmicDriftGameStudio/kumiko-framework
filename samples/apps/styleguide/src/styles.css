@@ -1,0 +1,8 @@
+/* Styleguide zeigt bewusst den NACKTEN renderer-web-Default — kein
+   App-@theme-Override. So ist der Screenshot der Framework-Standard.
+   Das Brand-Theme der Doku injiziert der Screenshot-Runner zur Laufzeit
+   (e2e/themes.ts), nicht die App. */
+
+@import "@cosmicdrift/kumiko-renderer-web/styles.css";
+
+@source "./**/*.{ts,tsx}";

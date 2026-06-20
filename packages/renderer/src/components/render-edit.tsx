@@ -361,17 +361,34 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     </>
   );
 
-  // Title-Resolution analog zu RenderList: i18n-Key `screen:<id>.title`,
-  // mit screenId als Fallback wenn das Bundle den Key nicht kennt.
-  const titleKey = `screen:${screen.id}.title`;
-  const resolvedTitle = translate(titleKey);
-  const formTitle = resolvedTitle === titleKey ? screen.id : resolvedTitle;
+  // Title + Subtitle, create/edit-bewusst. i18n-Keys (mode = "create"|"edit"):
+  //   screen:<id>.<mode>.title / .<mode>.subtitle
+  // Fallback-Kette: mode-spezifisch → generisch (screen:<id>.title/.subtitle).
+  // title fällt zuletzt auf screenId, subtitle auf undefined (kein Untertitel).
+  const isCreate = (() => {
+    const id = resolveExtensionEntityId(entityIdProp, vm.id);
+    return id == null || id === "";
+  })();
+  const formMode = isCreate ? "create" : "edit";
+  const resolveScreenText = (suffix: string): string | undefined => {
+    for (const key of [
+      `screen:${screen.id}.${formMode}.${suffix}`,
+      `screen:${screen.id}.${suffix}`,
+    ]) {
+      const value = translate(key);
+      if (value !== key) return value;
+    }
+    return undefined;
+  };
+  const formTitle = resolveScreenText("title") ?? screen.id;
+  const formSubtitle = resolveScreenText("subtitle");
 
   return (
     <ExtensionFormRegistryProvider value={extensionFormRegistry}>
       <Form
         onSubmit={() => void handleSubmit()}
         title={formTitle}
+        {...(formSubtitle !== undefined && { subtitle: formSubtitle })}
         actions={formActions}
         testId="render-edit-form"
       >

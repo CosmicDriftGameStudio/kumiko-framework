@@ -1,0 +1,20 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-styleguide",
+  "dependencies": {
+    "@cosmicdrift/kumiko-dev-server": "workspace:*",
+    "@cosmicdrift/kumiko-dispatcher-live": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*",
+    "@cosmicdrift/kumiko-headless": "workspace:*",
+    "@cosmicdrift/kumiko-renderer-web": "workspace:*",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
+  },
+  "description": "Styleguide-Gallery: rendert die Auto-UI-Bausteine, Screenshot-Runner schießt sie in 3 Themes für die Doku",
+  "private": true,
+  "scripts": {
+    "dev": "PORT=4180 bun --env-file=../../../.env run kumiko-dev src/app/server.ts",
+    "build": "bun kumiko-build",
+    "screenshots": "bun x playwright test --config=playwright.config.ts"
+  },
+  "type": "module"
+}

@@ -34,6 +34,7 @@ import type { AppSchema, FeatureSchema, WorkspaceSchema } from "@cosmicdrift/kum
 import { qualifyNavId, toAppSchema, useNav } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useCallback, useLayoutEffect, useMemo } from "react";
 import { useResolvers } from "../app/resolvers-context";
+import { SidebarProvider } from "../ui/sidebar";
 import { AppLayout } from "./app-layout";
 import { EditorPanel } from "./editor-panel";
 import { lastSegment, NavTree } from "./nav-tree";
@@ -211,17 +212,22 @@ export function WorkspaceShell({
       />
     );
 
+  // SidebarProvider: NavTree rendert vendored shadcn-SidebarMenuButtons, die
+  // useSidebar() rufen. WorkspaceShell behält sein eigenes Topbar-Layout
+  // (AppLayout + Sidebar), braucht aber den Context-Wrapper drumherum.
   return (
-    <AppLayout
-      topbar={<Topbar start={brand} center={switcher || undefined} end={topbarActions} />}
-      sidebar={
-        <Sidebar {...(sidebarFooter !== undefined && { footer: sidebarFooter })}>
-          {sidebarContent}
-        </Sidebar>
-      }
-    >
-      {isTreeMode ? <EditorPanel resolvers={resolvers} /> : children}
-    </AppLayout>
+    <SidebarProvider>
+      <AppLayout
+        topbar={<Topbar start={brand} center={switcher || undefined} end={topbarActions} />}
+        sidebar={
+          <Sidebar {...(sidebarFooter !== undefined && { footer: sidebarFooter })}>
+            {sidebarContent}
+          </Sidebar>
+        }
+      >
+        {isTreeMode ? <EditorPanel resolvers={resolvers} /> : children}
+      </AppLayout>
+    </SidebarProvider>
   );
 }
 

@@ -38,36 +38,48 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  /* Dark-Mode (Default) — Linear-Style: blau-graues Background statt
-     pures Schwarz. background <-> card haben minimal-Distinction
-     (1-2% lightness shift) damit Cards subtle "schweben" ohne harte
-     Borders. Primary ist das Linear-Brand-Purple (~#5e6ad2). */
-  --color-background: hsl(220 13% 9%);
-  --color-foreground: hsl(220 14% 96%);
-  --color-card: hsl(220 13% 11%);
-  --color-card-foreground: hsl(220 14% 96%);
-  --color-popover: hsl(220 13% 11%);
-  --color-popover-foreground: hsl(220 14% 96%);
-  --color-primary: hsl(232 60% 64%);
-  --color-primary-foreground: hsl(0 0% 100%);
-  --color-secondary: hsl(220 13% 16%);
-  --color-secondary-foreground: hsl(220 14% 96%);
-  --color-muted: hsl(220 13% 14%);
-  --color-muted-foreground: hsl(220 8% 56%);
-  --color-accent: hsl(220 13% 16%);
-  --color-accent-foreground: hsl(220 14% 96%);
-  --color-destructive: hsl(0 75% 58%);
-  --color-destructive-foreground: hsl(0 0% 100%);
-  --color-border: hsl(220 13% 18%);
-  --color-input: hsl(220 13% 16%);
-  --color-ring: hsl(232 60% 64%);
+  /* Dark-Mode (Default) — shadcn-Preset „Rhea"/Neutral (hue 0, reines Grau —
+     kein zinc-Blaustich). background == card; Cards trennen über Border +
+     Shadow. Primary near-white, Apps überschreiben mit ihrer Brand. */
+  --color-background: hsl(0 0% 3.9%);
+  --color-foreground: hsl(0 0% 98%);
+  --color-card: hsl(0 0% 3.9%);
+  --color-card-foreground: hsl(0 0% 98%);
+  --color-popover: hsl(0 0% 3.9%);
+  --color-popover-foreground: hsl(0 0% 98%);
+  --color-primary: hsl(0 0% 98%);
+  --color-primary-foreground: hsl(0 0% 9%);
+  --color-secondary: hsl(0 0% 14.9%);
+  --color-secondary-foreground: hsl(0 0% 98%);
+  --color-muted: hsl(0 0% 14.9%);
+  --color-muted-foreground: hsl(0 0% 63.9%);
+  --color-accent: hsl(0 0% 14.9%);
+  --color-accent-foreground: hsl(0 0% 98%);
+  --color-destructive: hsl(0 62.8% 30.6%);
+  --color-destructive-foreground: hsl(0 0% 98%);
+  --color-border: hsl(0 0% 14.9%);
+  --color-input: hsl(0 0% 14.9%);
+  --color-ring: hsl(0 0% 83.1%);
 
-  /* Radius-Skala: Linear hat größere Radii — Cards/Modals 10-12px,
-     Buttons/Inputs 6-8px, Pills voll. */
-  --radius-sm: 0.25rem;
-  --radius-md: 0.375rem;
-  --radius-lg: 0.5rem;
-  --radius-xl: 0.75rem;
+  /* Sidebar-Familie Dark (Neutral). Eigene Werte (KEIN Alias auf background) —
+     Rail braucht Kontrast zum Content. Hierarchie: background 3.9% < rail 10% <
+     aktiv 20%. */
+  --color-sidebar: hsl(0 0% 10%);
+  --color-sidebar-foreground: hsl(0 0% 95.9%);
+  --color-sidebar-primary: hsl(0 0% 98%);
+  --color-sidebar-primary-foreground: hsl(0 0% 9%);
+  --color-sidebar-accent: hsl(0 0% 20%);
+  --color-sidebar-accent-foreground: hsl(0 0% 98%);
+  --color-sidebar-border: hsl(0 0% 14.9%);
+  --color-sidebar-ring: hsl(0 0% 83.1%);
+
+  /* Radius — shadcn-Default 0.625rem (runder als new-yorks 0.5rem). Skala
+     wird per calc vom Basiswert abgeleitet (shadcn-Konvention). */
+  --radius: 0.625rem;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
 /* Light-Mode-Overrides — aktiv wenn `<html>` KEINE `.dark` Klasse
@@ -75,29 +87,40 @@
    auf light, greifen diese Werte. */
 @layer base {
   :root:not(.dark) {
-    /* Light-Mode — Linear-Style: warmes weiß-grau Background, Cards
-       leicht heller. Primary bleibt Brand-Purple (gleicher hue wie
-       dark, höhere saturation für Kontrast auf weiß). Borders sehr
-       dezent (rgba-style alpha statt full grey-200). */
+    /* Light-Mode — Neutral (hue 0, reines Grau). Weißes Background, Cards ==
+       weiß, trennen über Border + Shadow. Primary near-black; Apps überschreiben
+       mit Brand. Werte = shadcn-Preset (aus dem Live-Preview verifiziert). */
     --color-background: hsl(0 0% 100%);
-    --color-foreground: hsl(220 14% 14%);
+    --color-foreground: hsl(0 0% 3.9%);
     --color-card: hsl(0 0% 100%);
-    --color-card-foreground: hsl(220 14% 14%);
+    --color-card-foreground: hsl(0 0% 3.9%);
     --color-popover: hsl(0 0% 100%);
-    --color-popover-foreground: hsl(220 14% 14%);
-    --color-primary: hsl(232 60% 58%);
-    --color-primary-foreground: hsl(0 0% 100%);
-    --color-secondary: hsl(220 14% 96%);
-    --color-secondary-foreground: hsl(220 14% 14%);
-    --color-muted: hsl(220 14% 97%);
-    --color-muted-foreground: hsl(220 8% 46%);
-    --color-accent: hsl(220 14% 96%);
-    --color-accent-foreground: hsl(220 14% 14%);
-    --color-destructive: hsl(0 72% 51%);
-    --color-destructive-foreground: hsl(0 0% 100%);
-    --color-border: hsl(220 14% 92%);
-    --color-input: hsl(220 14% 92%);
-    --color-ring: hsl(232 60% 58%);
+    --color-popover-foreground: hsl(0 0% 3.9%);
+    --color-primary: hsl(0 0% 9%);
+    --color-primary-foreground: hsl(0 0% 98%);
+    --color-secondary: hsl(0 0% 96.1%);
+    --color-secondary-foreground: hsl(0 0% 9%);
+    --color-muted: hsl(0 0% 96.1%);
+    --color-muted-foreground: hsl(0 0% 45.1%);
+    --color-accent: hsl(0 0% 96.1%);
+    --color-accent-foreground: hsl(0 0% 9%);
+    --color-destructive: hsl(0 84.2% 60.2%);
+    --color-destructive-foreground: hsl(0 0% 98%);
+    --color-border: hsl(0 0% 89.8%);
+    --color-input: hsl(0 0% 89.8%);
+    --color-ring: hsl(0 0% 63%);
+
+    /* Sidebar-Familie Light (Neutral) = shadcn-Werte: Rail 98%, aktiv 96.1%,
+       Border 89.8%. Inset-Panel (100%) schwebt via Shadow + Rounded auf dem
+       Rail; der Kontrast ist bewusst subtil (wie im Original). */
+    --color-sidebar: hsl(0 0% 98%);
+    --color-sidebar-foreground: hsl(0 0% 26.1%);
+    --color-sidebar-primary: hsl(0 0% 9%);
+    --color-sidebar-primary-foreground: hsl(0 0% 98%);
+    --color-sidebar-accent: hsl(0 0% 96.1%);
+    --color-sidebar-accent-foreground: hsl(0 0% 9%);
+    --color-sidebar-border: hsl(0 0% 89.8%);
+    --color-sidebar-ring: hsl(0 0% 63%);
   }
 
   * {
@@ -107,8 +130,11 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    /* shadcn-Preset-Font: Inter (Heading + Body). Apps laden Inter selbst
+       (z.B. Google Fonts / self-hosted); ohne geladene Inter greift der
+       System-Fallback. */
     font-family:
-      -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     font-size: 14px;
     line-height: 1.5;
     margin: 0;

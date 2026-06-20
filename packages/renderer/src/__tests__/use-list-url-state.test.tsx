@@ -145,4 +145,57 @@ describe("useListUrlState", () => {
     const { result } = renderHook(() => useListUrlState("orders"), { wrapper: wrapper(nav) });
     expect(result.current.page).toBe(1);
   });
+
+  test("liest Faceted-Filter aus .f.<field>-Keys (comma-split), namespaced", () => {
+    const nav = makeNav({
+      "orders.f.status": "draft,published",
+      "orders.f.active": "true",
+      "incidents.f.status": "open", // andere Liste → ignoriert
+    });
+    const { result } = renderHook(() => useListUrlState("orders"), { wrapper: wrapper(nav) });
+    expect(result.current.filters).toEqual({
+      status: ["draft", "published"],
+      active: ["true"],
+    });
+  });
+
+  test("setFilter schreibt comma-joined Werte + resettet page", () => {
+    const nav = makeNav({ "orders.page": "4" });
+    const { result } = renderHook(() => useListUrlState("orders"), { wrapper: wrapper(nav) });
+    act(() => {
+      result.current.setFilter("status", ["draft", "review"]);
+    });
+    expect(nav.captures[0]).toEqual({
+      "orders.f.status": "draft,review",
+      "orders.page": null,
+    });
+  });
+
+  test("setFilter mit leerem Array löscht den Facet-Key", () => {
+    const nav = makeNav({ "orders.f.status": "draft" });
+    const { result } = renderHook(() => useListUrlState("orders"), { wrapper: wrapper(nav) });
+    act(() => {
+      result.current.setFilter("status", []);
+    });
+    expect(nav.captures[0]).toEqual({
+      "orders.f.status": null,
+      "orders.page": null,
+    });
+  });
+
+  test("clearFilters löscht alle aktiven .f.<field>-Keys", () => {
+    const nav = makeNav({
+      "orders.f.status": "draft",
+      "orders.f.active": "true",
+    });
+    const { result } = renderHook(() => useListUrlState("orders"), { wrapper: wrapper(nav) });
+    act(() => {
+      result.current.clearFilters();
+    });
+    expect(nav.captures[0]).toEqual({
+      "orders.page": null,
+      "orders.f.status": null,
+      "orders.f.active": null,
+    });
+  });
 });

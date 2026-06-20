@@ -92,6 +92,7 @@ export type {
   BannerProps,
   ButtonProps,
   CorePrimitives,
+  DataTableFacet,
   DataTableProps,
   DataTableRowAction,
   DataTableRowActionMode,

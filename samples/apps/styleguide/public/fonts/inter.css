@@ -1,0 +1,9 @@
+/* Self-hosted Inter Variable (latin) — kein externer Font-CDN.
+   Quelle: @fontsource-variable/inter, woff2 nach public/fonts/ kopiert. */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("/fonts/inter-var.woff2") format("woff2");
+}
