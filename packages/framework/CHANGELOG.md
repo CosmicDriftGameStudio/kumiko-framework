@@ -1,5 +1,61 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.66.0
+
+### Minor Changes
+
+- 77ed9c1: Let the config-generated entity-edit form express the common shadcn form
+  shapes (title + subtitle, flat single-section layout, domain-specific submit
+  CTA). Driven by rebuilding real shadcn reference designs purely from the schema
+  to find what the auto-UI couldn't yet do:
+
+  - **Optional section title**: `EditFieldsSection.title` is now optional. A
+    title-less section renders just its fields (no `h3`), so a form can be a flat
+    "card title + fields directly" layout instead of being forced into a labelled
+    sub-section. The whole-form card title/subtitle carries the context.
+  - **entityEdit submit label**: `EntityEditScreenDefinition.submitLabel` (i18n key
+    or raw string) overrides the generic "Save" — e.g. "Save Address", "Create
+    item". Wired through `KumikoScreen` (create + update branches) into the
+    existing `RenderEdit` `submitLabel` prop.
+  - **Form subtitle**: `FormProps.subtitle` renders a muted line under the form
+    title. `RenderEdit` resolves title + subtitle create/edit-aware via
+    `screen:<id>.<create|edit>.title` / `.subtitle` (falling back to
+    `screen:<id>.title`/`.subtitle`, then the screen id), so a create screen reads
+    "Create item / Add a new item to your catalog" and the edit screen differs.
+
+  No breaking changes — existing titled sections and the default save label are
+  unaffected. A new `styleguide` "Examples" feature rebuilds the shadcn Shipping
+  Address design from a schema as the first config stress-test.
+
+- 15b06c1: Add interactive faceted filters to the auto-generated entity list — the shadcn
+  data-table pattern (outline dropdown buttons with multi-select checkboxes, like
+  the "Columns" toggle). Each `filterable: true` **select** or **boolean** field
+  becomes a facet dropdown in the list toolbar; selecting values filters the list
+  server-side and a "Reset" clears all active facets.
+
+  Wiring across the layers:
+
+  - **Query schema** (`defineEntityListHandler`): a new `filters?: Filter[]`
+    field next to the existing static `filter?` — additive, no contract break.
+    `executor.list` applies the static filter and every dynamic filter with AND
+    (the `op:"in"` array path already produced correct `IN (...)` SQL).
+  - **Client schema** (`buildAppSchema`): the field-level `filterable` flag is now
+    serialized so the renderer knows which fields can be faceted.
+  - **URL state** (`useListUrlState`): facet selections live under
+    `?<screenId>.f.<field>=v1,v2` keys, page-resetting on change, with
+    `setFilter` / `clearFilters`.
+  - **Renderer**: `KumikoScreen` derives the facets from the entity's filterable
+    select/boolean fields (labels via the existing `field` / `:option:` i18n
+    convention) and builds `payload.filters` (booleans coerced from the URL
+    strings). New `DataTableFacet` type + `filterFacets` / `filterValues` /
+    `onFilterChange` / `onFilterReset` props on `DataTableProps`.
+  - **renderer-web**: `DefaultDataTable` renders each facet as a vendored shadcn
+    `DropdownMenu` of `DropdownMenuCheckboxItem`s with an active-count badge — no
+    new registry primitive.
+
+  Range filters (number/date `lt`/`gt`) are intentionally out of scope; only
+  equality facets (select/boolean) are rendered.
+
 ## 0.65.0
 
 ### Minor Changes
