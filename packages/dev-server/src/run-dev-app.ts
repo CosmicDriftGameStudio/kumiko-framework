@@ -69,6 +69,7 @@ import type {
   PasswordResetSetup,
   SignupSetup,
 } from "./run-prod-app";
+import { addConfigAccessorFactory } from "./run-prod-app";
 
 export type RunDevAppAuthOptions = {
   /** Admin user to seed at boot. Idempotent — re-runs in persistent-DB
@@ -451,9 +452,13 @@ export function mergeConfigResolverDefault(
       appOverrides: buildEnvConfigOverrides(registry, envSource),
     }),
   };
-  if (ctx === undefined) return defaults;
+  // ctx.config wird per-Request aus _configAccessorFactory geminted (siehe
+  // addConfigAccessorFactory) — sonst bleibt ctx.config undefined und Handler
+  // die es lesen (createFileProviderForTenant) werfen. Aus dem EFFEKTIVEN
+  // Resolver (Caller-Override gewinnt) gebaut, symmetrisch zu runProdApp.
+  if (ctx === undefined) return addConfigAccessorFactory(defaults, registry);
   if (typeof ctx === "function") {
-    return (deps) => ({ ...defaults, ...ctx(deps) });
+    return (deps) => addConfigAccessorFactory({ ...defaults, ...ctx(deps) }, registry);
   }
-  return { ...defaults, ...ctx };
+  return addConfigAccessorFactory({ ...defaults, ...ctx }, registry);
 }

@@ -94,4 +94,38 @@ describe("runDevApp configResolver-default — ENV→app-override bridge", () =>
     }) as ExtraObj;
     expect(extra.configResolver).toBe(custom);
   });
+
+  // Regression: the GDPR export download threw errors.internal in prod because
+  // boot only wired `configResolver`, never `_configAccessorFactory` — so the
+  // dispatcher left ctx.config undefined and createFileProviderForTenant threw
+  // "ctx.config is missing". The boot now mints the factory.
+  test("boot wiring mints _configAccessorFactory so handlers get ctx.config", () => {
+    const extra = mergeConfigResolverDefault(undefined, stack.registry, {}) as ExtraObj & {
+      readonly _configAccessorFactory?: unknown;
+    };
+    expect(typeof extra._configAccessorFactory).toBe("function");
+  });
+
+  test("_configAccessorFactory uses the EFFECTIVE resolver (caller override wins over env-bridge)", async () => {
+    // money-horse pins `file-foundation:config:provider` = "s3-env" via an
+    // appOverride on its own configResolver; ctx.config MUST read that override,
+    // not the boot default — else the download resolves no provider.
+    const override = createConfigResolver({ appOverrides: new Map([[PAGE_SIZE, "99"]]) });
+    const extra = mergeConfigResolverDefault({ configResolver: override }, stack.registry, {
+      DEVCFG_PAGE_SIZE: "25", // env-bridge default would be 25 — the override must win
+    }) as ExtraObj & {
+      readonly _configAccessorFactory: (deps: {
+        readonly user: { readonly id: string; readonly tenantId: string };
+        readonly db: typeof stack.db;
+      }) => (key: string) => Promise<unknown>;
+    };
+    const accessor = extra._configAccessorFactory({
+      user: { id: TestUsers.systemAdmin.id, tenantId: TestUsers.systemAdmin.tenantId },
+      db: stack.db,
+    });
+    // appOverride values come through raw (string) — what matters is it's the
+    // override's "99", NOT the env-bridge default ("25"): proves the factory
+    // was built from the caller's resolver, exactly like money-horse's "s3-env".
+    expect(await accessor(PAGE_SIZE)).toBe("99");
+  });
 });

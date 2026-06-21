@@ -38,6 +38,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
 import {
   buildEnvConfigOverrides,
+  createConfigAccessorFactory,
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import { createSessionCallbacks } from "@cosmicdrift/kumiko-bundled-features/sessions";
@@ -47,11 +48,13 @@ import { createSseBroker, type SseBroker } from "@cosmicdrift/kumiko-framework/a
 import { createDbConnection, type DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import {
   buildAppSchema,
+  type ConfigResolver,
   collectWriteHandlerQns,
   createRegistry,
   type EffectiveFeaturesResolver,
   type FeatureDefinition,
   findTierResolverUsage,
+  type Registry,
   type TenantId,
   type TierResolverPlugin,
   validateAppCustomScreenWriteQns,
@@ -517,6 +520,25 @@ export type ProdAppHandle = {
   readonly stop: () => Promise<void>;
 };
 
+// Mint `ctx.config` per request: the dispatcher only builds a per-user
+// ConfigAccessor when `_configAccessorFactory` is on the AppContext
+// (pipeline/dispatcher.ts). Without it `ctx.config` stays undefined and any
+// handler reading it — e.g. createFileProviderForTenant for the GDPR export
+// download — throws "ctx.config is missing". Built from the EFFECTIVE resolver
+// so an app-supplied configResolver override (its appOverrides) is the one
+// ctx.config reads. Shared with runDevApp (mergeConfigResolverDefault) for
+// dev/prod parity.
+export function addConfigAccessorFactory<T extends { readonly configResolver?: ConfigResolver }>(
+  resolved: T,
+  registry: Registry,
+): T {
+  if (!resolved.configResolver) return resolved;
+  return {
+    ...resolved,
+    _configAccessorFactory: createConfigAccessorFactory(registry, resolved.configResolver),
+  };
+}
+
 export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHandle> {
   // 0. Env-Schema validation + dry-run modes. Runs FIRST so:
   //    - operators can introspect env-requirements without a real boot
@@ -688,14 +710,17 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     typeof options.extraContext === "function"
       ? options.extraContext(deps)
       : (options.extraContext ?? {});
-  const extraContext = options.auth
-    ? {
-        configResolver: createConfigResolver({
-          appOverrides: buildEnvConfigOverrides(registry, envSource),
-        }),
-        ...resolvedExtraContext,
-      }
-    : resolvedExtraContext;
+  const extraContext = addConfigAccessorFactory(
+    options.auth
+      ? {
+          configResolver: createConfigResolver({
+            appOverrides: buildEnvConfigOverrides(registry, envSource),
+          }),
+          ...resolvedExtraContext,
+        }
+      : resolvedExtraContext,
+    registry,
+  );
   const resolvedAnonymousAccess =
     typeof options.anonymousAccess === "function"
       ? options.anonymousAccess(deps)
