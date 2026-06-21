@@ -605,8 +605,10 @@ function tableInner(
             <TableHead
               data-testid="column-actions"
               // sticky right-0 + bg-muted (= Header-Ton) damit die Action-
-              // Spalte beim horizontalen Scroll am rechten Rand bleibt.
-              className="sticky right-0 z-10 w-px border-l bg-muted text-right text-muted-foreground"
+              // Spalte beim horizontalen Scroll am rechten Rand bleibt. Kein
+              // border-l: der ständige Trenner wirkt schwer; die sticky-bg
+              // grenzt die Spalte beim Scroll ohnehin ab.
+              className="sticky right-0 z-10 w-px bg-muted text-right text-muted-foreground"
               aria-label="Actions"
             />
           )}
@@ -646,9 +648,9 @@ function tableInner(
               <TableCell
                 data-testid={`cell-${row.id}-actions`}
                 // Sticky-right damit beim horizontalen Scroll die Actions
-                // am rechten Rand sichtbar bleiben. bg-background +
-                // border-l für den visuellen Abschluss.
-                className="sticky right-0 z-10 border-l bg-background text-right"
+                // am rechten Rand sichtbar bleiben. bg-background grenzt die
+                // Spalte beim Scroll ab — kein border-l (Trenner zu schwer).
+                className="sticky right-0 z-10 bg-background text-right"
                 // Action-Cell-Events dürfen nicht den Row-Click/Activation
                 // triggern (typisch "Open Detail" — der User wollte ja die
                 // Action, nicht navigieren). Wir stopPropagation für Mouse

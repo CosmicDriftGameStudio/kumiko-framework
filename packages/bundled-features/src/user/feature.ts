@@ -6,6 +6,7 @@ import { listQuery } from "./handlers/list.query";
 import { meQuery } from "./handlers/me.query";
 import { updateWrite } from "./handlers/update.write";
 import { userEntity } from "./schema/user";
+import { userEditScreen, userListScreen } from "./screens";
 
 // The user feature holds the cross-tenant user identity. `systemScope()` means
 // queries and writes bypass the tenant filter — a user exists above any tenant.
@@ -29,6 +30,13 @@ export function createUserFeature(): FeatureDefinition {
       list: r.queryHandler(listQuery),
       findForAuth: r.queryHandler(findForAuthQuery),
     };
+
+    // Cross-tenant SystemAdmin platform screens. Inert until an app navs them;
+    // list/detail/create/update handlers above already sit on the QNs that
+    // entityList/entityEdit resolve by convention (user:query:user:{list,detail},
+    // user:write:user:{create,update}).
+    r.screen(userListScreen);
+    r.screen(userEditScreen);
 
     return { handlers, queries };
   });
