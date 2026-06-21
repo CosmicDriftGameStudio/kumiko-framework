@@ -44,6 +44,11 @@ function registerTags(
   r.describe(
     "Generic, host-agnostic tagging for any entity. Owns two event-sourced entities — the per-tenant `tag` catalog (`read_tags`) and `tag-assignment` join rows keyed by (entityType, entityId) (`read_tag_assignments`) — so tagging adds NO column to the host entity and needs no relational pivot or JOIN. Provides write-handlers `create-tag`, `assign-tag` (idempotent), `remove-tag` (idempotent) and list queries for the catalog and the assignments. Read which tags an entity has, or which entities carry a tag, by listing `tag-assignment` filtered on `entityId` or `tagId` and composing in the read-layer. Every path uses one access rule — adopt the host's model with createTagsFeature({ access: { openToAll: true } }) or pin roles with createTagsFeature({ roles }). Pass { toggleable: { default: false } } to make the whole feature tier-gatable via the tier-engine (no host hook).",
   );
+  r.uiHints({
+    displayLabel: "Tags",
+    category: "data",
+    recommended: false,
+  });
 
   // Tier-gating is a framework concern, not a per-app hook: declaring the
   // feature toggleable lets tier-engine/feature-toggles cut it per tenant.

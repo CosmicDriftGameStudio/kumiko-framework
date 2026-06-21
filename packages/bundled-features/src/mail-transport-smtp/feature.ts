@@ -53,6 +53,11 @@ export const mailTransportSmtpFeature = defineFeature(FEATURE_NAME, (r) => {
   r.describe(
     'Registers itself as the `"smtp"` provider for `mail-foundation` and owns the per-tenant config keys (`host`, `port`, `secure`, `from`, `authUser`) and the encrypted `smtp.password` secret. Tenants set `mail-foundation`\'s `provider` config key to `"smtp"` to activate it; set the SMTP credentials via the admin UI or a seed handler before sending the first mail.',
   );
+  r.uiHints({
+    displayLabel: "Mail Transport · SMTP",
+    category: "notifications",
+    recommended: false,
+  });
   r.requires("config");
   r.requires("secrets");
   r.requires("mail-foundation");

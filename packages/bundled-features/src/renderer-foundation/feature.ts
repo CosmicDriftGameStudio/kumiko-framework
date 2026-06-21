@@ -14,6 +14,11 @@ export function createRendererFoundationFeature() {
     r.describe(
       'Plugin registry for content rendering (notification HTML, mail HTML, PDF, images): call `foundation.createRendererForTenant({ tenantId, kind })` at render time to get the right renderer plugin selected by kind, with tenant-level overrides via the `rendererPluginByKind` config key. Requires `template-resolver` (declared via `r.requires`). Low-level building block \u2014 add `renderer-simple` (or write a custom plugin via `r.useExtension("renderer", name, { kinds, render })`) rather than using this feature alone.',
     );
+    r.uiHints({
+      displayLabel: "Renderer Foundation",
+      category: "notifications",
+      recommended: false,
+    });
     r.requires("template-resolver");
 
     r.extendsRegistrar("renderer", {

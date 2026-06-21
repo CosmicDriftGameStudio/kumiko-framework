@@ -87,6 +87,11 @@ export function createSecretsFeature(): FeatureDefinition {
     r.describe(
       "Stores arbitrary per-tenant secrets (API keys, tokens, credentials) encrypted at rest using AES-256 with a KEK loaded from `KUMIKO_SECRETS_MASTER_KEY_V1` (and successive versions for rotation). Read a secret in handlers via `ctx.secrets.get(tenantId, handle)`, which automatically appends a `tenantSecretRead` audit event so every access is traceable. A `rotate` job re-encrypts all envelopes after a KEK version bump.",
     );
+    r.uiHints({
+      displayLabel: "Tenant Secrets",
+      category: "infrastructure",
+      recommended: true,
+    });
     r.envSchema(secretsEnvSchema);
 
     // ES entity: set/delete go through the executor, `tenantSecret.created/

@@ -10,6 +10,11 @@ export function createChannelInAppFeature(): FeatureDefinition {
     r.describe(
       "Persists notifications to an in-app inbox table so users can retrieve them via `handlers.inbox` and track unread state with `handlers.markRead` / `handlers.markAllRead` and `queries.unreadCount`. Requires `delivery`; no external service needed \u2014 messages are stored in the app's own database.",
     );
+    r.uiHints({
+      displayLabel: "In-App Inbox",
+      category: "notifications",
+      recommended: false,
+    });
     r.requires("delivery");
 
     // Register as delivery channel via extension system

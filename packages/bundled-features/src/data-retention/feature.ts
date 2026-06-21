@@ -47,6 +47,11 @@ export function createDataRetentionFeature(): FeatureDefinition {
     r.describe(
       "Resolves the effective retention policy for any entity using a 3-layer stack: entity-level default \u2192 tenant preset (`dsgvo-basic`, `dsgvo-hgb`, `swiss-dsg`) \u2192 per-tenant override stored in `tenantRetentionOverride`. Other features query the resolved policy via the `retention.policyFor` cross-feature API \u2014 most notably `user-data-rights`, which uses it to decide whether to anonymize instead of hard-delete a record that is still within a mandatory retention window.",
     );
+    r.uiHints({
+      displayLabel: "Data Retention Policy",
+      category: "compliance",
+      recommended: false,
+    });
     r.entity("tenant-retention-override", tenantRetentionOverrideEntity);
 
     // S2.D3: Cross-Feature-API fuer Forget-Flow + Cleanup-Job

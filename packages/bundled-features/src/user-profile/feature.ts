@@ -13,6 +13,11 @@ export function createUserProfileFeature(): FeatureDefinition {
         '`type: "custom"` with `__component: "UserProfileScreen"`. Requires `user`, ' +
         "`auth-email-password`, and `user-data-rights`.",
     );
+    r.uiHints({
+      displayLabel: "User Profile · Self-Service",
+      category: "identity",
+      recommended: true,
+    });
     r.requires("user");
     r.requires("auth-email-password");
     r.requires("user-data-rights");
