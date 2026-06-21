@@ -54,9 +54,13 @@ for pkg_json in packages/*/package.json; do
   name="$(jq -r .name "$pkg_json")"
   version="$(jq -r .version "$pkg_json")"
 
-  # Nur eigene Scope-Pakete — fremde Workspaces (falls vorhanden) skippen.
+  # Publishable: own scope OR the explicit unscoped bun-create wrapper(s).
+  # `bun create kumiko-app` resolves to bunx create-kumiko-app, which forces
+  # an unscoped npm name (create-kumiko-app); the @cosmicdrift/* allowlist
+  # alone would silently skip it. Fallback name `create-kumiko` is included
+  # so the rename path stays one bash edit, not a re-publish-script ripple.
   case "$name" in
-    @cosmicdrift/*) ;;
+    @cosmicdrift/* | create-kumiko-app | create-kumiko) ;;
     *) echo "[skip] $name (foreign scope)" >&2; continue ;;
   esac
 
