@@ -27,7 +27,7 @@ export function ConfirmAccountDeletionScreen({
 }: ConfirmAccountDeletionScreenProps): ReactNode {
   const t = useTranslation();
   const dispatcher = useDispatcher();
-  const { Button, Banner } = usePrimitives();
+  const { Button, Banner, Card } = usePrimitives();
   const [token] = useState(readToken);
   const [phase, setPhase] = useState<Phase>(token.length > 0 ? "idle" : "missing");
 
@@ -42,12 +42,19 @@ export function ConfirmAccountDeletionScreen({
   };
 
   return (
-    <div className="w-full max-w-sm mx-auto rounded-lg border bg-card text-card-foreground shadow-sm">
-      <div className="flex flex-col space-y-1.5 p-6 pb-4">
-        <h1 className="text-xl font-semibold tracking-tight">
-          {title ?? t("userDataRights.deletion.confirm.title")}
-        </h1>
-      </div>
+    <Card
+      className="w-full max-w-sm mx-auto"
+      options={{ padded: false }}
+      slots={{
+        header: (
+          <div className="flex flex-col space-y-1.5 p-6 pb-4">
+            <h1 className="text-xl font-semibold tracking-tight">
+              {title ?? t("userDataRights.deletion.confirm.title")}
+            </h1>
+          </div>
+        ),
+      }}
+    >
       <div className="p-6 pt-0 flex flex-col gap-4">
         {phase === "success" ? (
           <Banner variant="info">
@@ -83,6 +90,6 @@ export function ConfirmAccountDeletionScreen({
           </>
         )}
       </div>
-    </div>
+    </Card>
   );
 }

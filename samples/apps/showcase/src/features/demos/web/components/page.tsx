@@ -29,7 +29,8 @@ export function DemoPage({
   );
 }
 
-// Section innerhalb einer Demo-Page: Heading-Primitive + Inhalt-Box.
+// Section innerhalb einer Demo-Page: Card-Primitive (Standard-Chrome). Samples
+// sind Copy-Vorlage für Agenten → dieselbe Card wie überall, kein Sonder-Layout.
 export function DemoSection({
   title,
   children,
@@ -37,11 +38,10 @@ export function DemoSection({
   readonly title: string;
   readonly children: ReactNode;
 }): ReactNode {
-  const { Heading } = usePrimitives();
+  const { Card } = usePrimitives();
   return (
-    <section className="flex flex-col gap-3">
-      <Heading variant="section">{title}</Heading>
-      <div className="flex flex-col gap-3 rounded-md border p-4">{children}</div>
-    </section>
+    <Card slots={{ title }}>
+      <div className="flex flex-col gap-3">{children}</div>
+    </Card>
   );
 }

@@ -19,6 +19,7 @@ import type {
 import {
   type BannerProps,
   type ButtonProps,
+  type CardProps,
   type CorePrimitives,
   type DataTableFacet,
   type DataTableProps,
@@ -57,7 +58,6 @@ import {
 import { cn } from "../lib/cn";
 import { Badge } from "../ui/badge";
 import { Button as UiButton } from "../ui/button";
-import { Card, CardContent } from "../ui/card";
 import { Checkbox } from "../ui/checkbox";
 import { Input as UiInput } from "../ui/input";
 import { Label as UiLabel } from "../ui/label";
@@ -1337,6 +1337,11 @@ function DefaultForm({
   // sind divide-y-getrennt (Linien nur ZWISCHEN ihnen). Action-Footer mit
   // bg-muted/30 als Farb-Trenner statt harter Linie. main hat kein Padding;
   // der max-w-3xl-Body rahmt die Card.
+  // Das Formular IST eine Card — via Card-Primitive (eine Chrome-Quelle). Header
+  // bleibt h2 (text-lg) mit den -title/-subtitle-testIds (custom header-Slot, da
+  // die Card-Default-Header keine testIds tragen). Body = divide-y-Sections,
+  // randlos (padded:false), self-padding wie bisher. actions in den Footer-Slot;
+  // der -actions-testId reitet auf einem display:contents-Wrapper mit.
   return (
     <form
       onSubmit={(e) => {
@@ -1347,27 +1352,41 @@ function DefaultForm({
       className="flex flex-col w-full"
     >
       <div className="px-6 pt-6 pb-12 max-w-3xl w-full">
-        <div className="bg-card overflow-hidden rounded-xl border shadow-sm">
-          {(title !== undefined || subtitle !== undefined) && (
-            <div className="px-6 pb-2 pt-5">
-              {title !== undefined && (
-                <h2
-                  data-testid={testId !== undefined ? `${testId}-title` : undefined}
-                  className="text-lg font-semibold tracking-tight"
+        <DefaultCard
+          options={{ padded: false }}
+          slots={{
+            header:
+              title !== undefined || subtitle !== undefined ? (
+                <div className="px-6 pb-2 pt-5">
+                  {title !== undefined && (
+                    <h2
+                      data-testid={testId !== undefined ? `${testId}-title` : undefined}
+                      className="text-lg font-semibold tracking-tight"
+                    >
+                      {title}
+                    </h2>
+                  )}
+                  {subtitle !== undefined && (
+                    <p
+                      data-testid={testId !== undefined ? `${testId}-subtitle` : undefined}
+                      className="mt-1 text-sm text-muted-foreground"
+                    >
+                      {subtitle}
+                    </p>
+                  )}
+                </div>
+              ) : undefined,
+            footer:
+              actions !== undefined ? (
+                <div
+                  data-testid={testId !== undefined ? `${testId}-actions` : undefined}
+                  className="contents"
                 >
-                  {title}
-                </h2>
-              )}
-              {subtitle !== undefined && (
-                <p
-                  data-testid={testId !== undefined ? `${testId}-subtitle` : undefined}
-                  className="mt-1 text-sm text-muted-foreground"
-                >
-                  {subtitle}
-                </p>
-              )}
-            </div>
-          )}
+                  {actions}
+                </div>
+              ) : undefined,
+          }}
+        >
           <div
             className={cn(
               "flex flex-col",
@@ -1381,15 +1400,7 @@ function DefaultForm({
           >
             <InsideFormContext.Provider value={true}>{children}</InsideFormContext.Provider>
           </div>
-          {actions !== undefined && (
-            <div
-              data-testid={testId !== undefined ? `${testId}-actions` : undefined}
-              className="flex items-center justify-end gap-2 border-t bg-muted/30 px-6 py-4"
-            >
-              {actions}
-            </div>
-          )}
-        </div>
+        </DefaultCard>
       </div>
     </form>
   );
@@ -1443,23 +1454,13 @@ function DefaultSection({ title, subtitle, children, actions, testId }: SectionP
     );
   }
 
-  // Standalone: eigene Card, Header fließt in den Body (kein Divider).
-  // actions = abgehobene Footer-Row (border-t bg-muted/30, wie DefaultForm).
+  // Standalone: via Card-Primitive (eine Chrome-Quelle, rounded-xl). title/
+  // subtitle als Default-Header, actions als abgehobener Footer. section-Root-
+  // testId bleibt am Card-Wrapper.
   return (
-    <Card data-testid={testId} className="gap-0 overflow-hidden rounded-lg py-0">
-      <CardContent className="flex flex-col gap-4 px-6 py-6">
-        {header}
-        {children}
-      </CardContent>
-      {actions !== undefined && (
-        <div
-          data-testid={testId !== undefined ? `${testId}-actions` : undefined}
-          className="flex items-center justify-end gap-2 border-t bg-muted/30 px-6 py-4"
-        >
-          {actions}
-        </div>
-      )}
-    </Card>
+    <DefaultCard testId={testId} slots={{ title, subtitle, footer: actions }}>
+      <div className="flex flex-col gap-4">{children}</div>
+    </DefaultCard>
   );
 }
 
@@ -1538,6 +1539,56 @@ function DefaultHeading({ variant = "page", children, testId }: HeadingProps): R
 import { ConfigCascadeView as DefaultConfigCascadeView } from "../components/config-cascade";
 import { ConfigSourceBadge as DefaultConfigSourceBadge } from "../components/config-source-badge";
 
+// Generische Card-Chrome (rounded-xl wie die Entity-Card) — slot- + options-
+// basiert, damit der Contract additiv wächst und Consumer nie migriert werden.
+function DefaultCard({ slots, options, className, testId, children }: CardProps): ReactNode {
+  const padded = options?.padded ?? true;
+  const radius = options?.radius ?? "xl";
+  const footerBordered = options?.footerBordered ?? true;
+  const s = slots ?? {};
+  const defaultHeader =
+    s.title !== undefined || s.subtitle !== undefined || s.headerActions !== undefined ? (
+      <div className="flex flex-wrap items-start justify-between gap-3 px-6 pt-6 pb-4">
+        <div className="flex flex-col gap-1">
+          {s.title !== undefined && (
+            <h3 className="text-base font-semibold leading-none tracking-tight">{s.title}</h3>
+          )}
+          {s.subtitle !== undefined && (
+            <p className="text-sm text-muted-foreground">{s.subtitle}</p>
+          )}
+        </div>
+        {s.headerActions}
+      </div>
+    ) : null;
+  const header = s.header ?? defaultHeader;
+  const hasHeader = header !== null && header !== undefined;
+  return (
+    <div
+      data-testid={testId}
+      className={cn(
+        "flex flex-col overflow-hidden border bg-card text-card-foreground shadow-sm",
+        radius === "xl" ? "rounded-xl" : "rounded-lg",
+        className,
+      )}
+    >
+      {header}
+      {children !== undefined && (
+        <div className={cn("grow", padded && (hasHeader ? "px-6 pb-6" : "p-6"))}>{children}</div>
+      )}
+      {s.footer !== undefined && (
+        <div
+          className={cn(
+            "flex items-center justify-end gap-2 px-6 py-4",
+            footerBordered && "border-t bg-muted/30",
+          )}
+        >
+          {s.footer}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export const defaultPrimitives: CorePrimitives = {
   Button: DefaultButton,
   Banner: DefaultBanner,
@@ -1546,6 +1597,7 @@ export const defaultPrimitives: CorePrimitives = {
   DataTable: DefaultDataTable,
   Form: DefaultForm,
   Section: DefaultSection,
+  Card: DefaultCard,
   Grid: DefaultGrid,
   GridCell: DefaultGridCell,
   Text: DefaultText,
