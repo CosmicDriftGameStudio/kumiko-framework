@@ -55,7 +55,15 @@ import {
   Wallet,
   Wand2,
 } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { KumikoLink } from "../app/nav";
 import { useNavEntities, useNavProviders } from "../app/nav-providers-context";
 import { cn } from "../lib/cn";
@@ -121,9 +129,23 @@ export type NavTreeProps = {
   // workspace's `navMembers` list. Undefined = no filter (legacy / non-
   // workspace apps render every nav).
   readonly allowedNavQns?: ReadonlySet<string>;
+  // Runtime-Badges pro Nav-Item, gekeyt auf die BARE nav-id (lastSegment der
+  // qualifiedName, also `"tarif"` nicht `"app:nav:tarif"`). Wert ist frei —
+  // die App liefert Text UND Farbe (`<Badge className="bg-amber-…">Pro</Badge>`).
+  // Für dynamische Zustände (Tier-Badge), die nicht ins statische Schema gehören.
+  readonly navBadges?: ReadonlyMap<string, ReactNode>;
 };
 
-export function NavTree({ schema, user, testId, allowedNavQns }: NavTreeProps): ReactNode {
+const EMPTY_BADGES: ReadonlyMap<string, ReactNode> = new Map();
+const NavBadgesContext = createContext<ReadonlyMap<string, ReactNode>>(EMPTY_BADGES);
+
+export function NavTree({
+  schema,
+  user,
+  testId,
+  allowedNavQns,
+  navBadges,
+}: NavTreeProps): ReactNode {
   const app = useMemo(() => toAppSchema(schema), [schema]);
   const tree = useMemo(() => {
     const source = buildNavRegistrySliceForApp(app, allowedNavQns);
@@ -144,23 +166,37 @@ export function NavTree({ schema, user, testId, allowedNavQns }: NavTreeProps): 
   }, []);
 
   return (
-    <div data-testid={testId} data-kumiko-layout="nav-tree" className="flex w-full flex-col">
-      {tree.map((node) =>
-        isPureSection(node) ? (
-          <NavSection
-            key={node.qualifiedName}
-            node={node}
-            collapsed={collapsed}
-            onToggle={onToggle}
-          />
-        ) : (
-          <SidebarMenu key={node.qualifiedName} className="px-2 py-1">
-            <NavMenuNode node={node} collapsed={collapsed} onToggle={onToggle} />
-          </SidebarMenu>
-        ),
-      )}
-    </div>
+    <NavBadgesContext.Provider value={navBadges ?? EMPTY_BADGES}>
+      <div data-testid={testId} data-kumiko-layout="nav-tree" className="flex w-full flex-col">
+        {tree.map((node) =>
+          isPureSection(node) ? (
+            <NavSection
+              key={node.qualifiedName}
+              node={node}
+              collapsed={collapsed}
+              onToggle={onToggle}
+            />
+          ) : (
+            <SidebarMenu key={node.qualifiedName} className="px-2 py-1">
+              <NavMenuNode node={node} collapsed={collapsed} onToggle={onToggle} />
+            </SidebarMenu>
+          ),
+        )}
+      </div>
+    </NavBadgesContext.Provider>
   );
+}
+
+// Runtime-Badge-Slot rechts am Label, gekeyt auf die bare nav-id. Kein
+// Eintrag → nichts (silent, kein Layout-Shift). shrink-0 + die ml-auto
+// schiebt ihn ans rechte Ende; das truncate-Label gibt nach.
+// ponytail: nur an screen/target-Leaves verdrahtet, nicht an Container-
+// Knoten (die tragen den ml-auto-Chevron) — Tier-Badge ist ein Leaf.
+function NavBadge({ node }: { readonly node: NavNode }): ReactNode {
+  const badges = useContext(NavBadgesContext);
+  const badge = badges.get(lastSegment(node.qualifiedName));
+  if (badge === undefined) return null;
+  return <span className="ml-auto shrink-0">{badge}</span>;
 }
 
 // Pure section = ein Gruppen-Header ohne eigenen Screen, der nur seine
@@ -502,7 +538,8 @@ function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
             {...(s.active && { "aria-current": "page" })}
           >
             <NavLeadingIcon node={node} active={s.active} />
-            <span className="truncate">{s.displayLabel}</span>
+            <span className="min-w-0 truncate">{s.displayLabel}</span>
+            <NavBadge node={node} />
           </KumikoLink>
         </SidebarMenuButton>
         <NodeActions node={node} />
@@ -522,7 +559,8 @@ function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
           onClick={() => dispatch(target)}
         >
           <NavLeadingIcon node={node} active={s.active} />
-          <span className="truncate">{s.displayLabel}</span>
+          <span className="min-w-0 truncate">{s.displayLabel}</span>
+          <NavBadge node={node} />
         </SidebarMenuButton>
         <NodeActions node={node} />
         {chevron}
@@ -603,7 +641,8 @@ function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
             {...(s.active && { "aria-current": "page" })}
           >
             <NavLeadingIcon node={node} active={s.active} />
-            <span className="truncate">{s.displayLabel}</span>
+            <span className="min-w-0 truncate">{s.displayLabel}</span>
+            <NavBadge node={node} />
           </KumikoLink>
         </SidebarMenuSubButton>
         <NodeActions node={node} />
@@ -620,7 +659,8 @@ function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
         <SidebarMenuSubButton asChild isActive={s.active}>
           <button type="button" onClick={() => dispatch(target)}>
             <NavLeadingIcon node={node} active={s.active} />
-            <span className="truncate">{s.displayLabel}</span>
+            <span className="min-w-0 truncate">{s.displayLabel}</span>
+            <NavBadge node={node} />
           </button>
         </SidebarMenuSubButton>
         <NodeActions node={node} />

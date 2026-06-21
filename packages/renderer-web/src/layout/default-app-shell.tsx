@@ -55,6 +55,10 @@ export type DefaultAppShellProps = {
   /** Icon-Row zwischen Brand und NavTree — typisch Search-Trigger,
    *  ThemeToggle, TenantSwitcher. */
   readonly sidebarActions?: ReactNode;
+  /** Runtime-Badges pro Nav-Item (bare nav-id → ReactNode), an NavTree
+   *  durchgereicht. Für Tier-/Status-Badges, die die App pro User liefert
+   *  (Wert + Farbe), statt sie ins statische Schema zu backen. */
+  readonly navBadges?: ReadonlyMap<string, ReactNode>;
   /** Rechtsbündiger Slot in der Topbar (neben dem Breadcrumb) — für
    *  ThemeToggle, globale Actions o.ä. Spart die eigene sidebarActions-
    *  Zeile in der Sidebar. */
@@ -75,6 +79,7 @@ export function DefaultAppShell({
   user,
   sidebarActions,
   headerActions,
+  navBadges,
   sidebarFooter,
   fill,
   children,
@@ -94,7 +99,11 @@ export function DefaultAppShell({
           </SidebarGroup>
         )}
         <SidebarContent data-kumiko-layout="sidebar-nav">
-          <NavTree schema={schema} {...(user !== undefined && { user })} />
+          <NavTree
+            schema={schema}
+            {...(user !== undefined && { user })}
+            {...(navBadges !== undefined && { navBadges })}
+          />
         </SidebarContent>
         {sidebarFooter !== undefined && (
           <SidebarFooter data-kumiko-layout="sidebar-footer">{sidebarFooter}</SidebarFooter>

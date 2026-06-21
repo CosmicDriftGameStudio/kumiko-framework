@@ -236,6 +236,51 @@ describe("NavTree", () => {
   });
 });
 
+describe("NavTree navBadges (Runtime-Badge-Slot)", () => {
+  // Tier-Badge & Co: die App liefert per bare nav-id einen ReactNode (Wert
+  // UND Farbe). Gekeyt auf lastSegment(qualifiedName) → die App schreibt
+  // "tarif", nicht "showcase:nav:tarif".
+  function flatSchema(): FeatureSchema {
+    return {
+      featureName: "showcase",
+      entities: {},
+      screens: [
+        { id: "tarif", type: "entityList", entity: "x", columns: [] },
+        { id: "plain", type: "entityList", entity: "x", columns: [] },
+      ],
+      navs: [
+        { id: "tarif", label: "Tarif & Limits", screen: "tarif", order: 10 },
+        { id: "plain", label: "Plain", screen: "plain", order: 20 },
+      ],
+    } as FeatureSchema;
+  }
+
+  test("Badge gekeyt auf bare nav-id sitzt im passenden Item, nicht in anderen", () => {
+    render(<NavTree schema={flatSchema()} navBadges={new Map([["tarif", <span>Pro</span>]])} />);
+    const badge = screen.getByText("Pro");
+    expect(screen.getByText("Tarif & Limits").closest("li")?.textContent).toContain("Pro");
+    expect(screen.getByText("Plain").closest("li")?.textContent).not.toContain("Pro");
+    // Slot-Wrapper schiebt rechts (ml-auto), Badge selbst shrinkt nicht weg.
+    expect(badge.parentElement?.className).toContain("ml-auto");
+  });
+
+  test("ohne navBadges → kein Badge-Slot", () => {
+    render(<NavTree schema={flatSchema()} />);
+    expect(screen.queryByText("Pro")).toBeNull();
+  });
+
+  test("Key ohne passendes Item → nichts (silent), übrige Items rendern normal", () => {
+    render(
+      <NavTree
+        schema={flatSchema()}
+        navBadges={new Map([["does-not-exist", <span>Ghost</span>]])}
+      />,
+    );
+    expect(screen.queryByText("Ghost")).toBeNull();
+    expect(screen.getByText("Tarif & Limits")).toBeTruthy();
+  });
+});
+
 // ── Visual-Tree-Merge: dynamische Knoten in der EINEN Nav ──────────────
 //
 // Beweist die vier Caps die NavTree aus dem alten VisualTree übernimmt:
