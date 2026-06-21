@@ -58,8 +58,9 @@ import {
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
+  type AllInOneEntrypoint,
   type ApiEntrypoint,
-  type ApiEntrypointOptions,
+  createAllInOneEntrypoint,
   createApiEntrypoint,
 } from "@cosmicdrift/kumiko-framework/entrypoint";
 import {
@@ -416,17 +417,21 @@ export type RunProdAppOptions = {
    *  weiterhin automatisch ergänzt; Factory-Result + auto-resolver
    *  werden gemerged (Factory-Werte überschreiben). */
   readonly extraContext?: ExtraContextOption;
-  /** Job-Block. Wenn das Feature `r.job(...)` registriert, MUSS dieser
-   *  Block gesetzt sein — sonst wirft createApiEntrypoint mit dem
-   *  expliziten "registry declares N job(s)..."-Fehler. Default-Pattern
-   *  für Single-Container-Deployments (publicstatus, kleine SaaS):
-   *  `{ runLocalJobs: true }` — der API-Process consumiert auch die
-   *  Worker-Lane, kein separates worker-Image nötig. Für skalierende
-   *  Setups (mehrere API-Replicas + dezidierte Worker): runLocalJobs
-   *  weglassen + workers via separatem `runWorkerApp` (kommt Phase 4). */
+  /** Deploy-Topologie. Default `true` (Single-Container): dieser Prozess
+   *  fährt HTTP + BEIDE Job-Lanes (api + worker) + den Event-Dispatcher
+   *  (MSP-Anwendung) inline — via `createAllInOneEntrypoint`. Damit laufen
+   *  worker-Lane-Crons (z.B. der Daten-Export `run-export-jobs`, default
+   *  `runIn:"worker"`) und r.multiStreamProjection ohne separaten Worker.
+   *
+   *  `false` NUR mit einem dezidierten Worker-Deployment setzen: dann fährt
+   *  dieser Prozess API-only (`createApiEntrypoint`), und worker-Lane-Jobs
+   *  + MSPs werden NICHT mehr lokal angewandt — der Worker muss sie
+   *  übernehmen, sonst bleiben Export-Jobs pending und die Read-Side leer
+   *  (2026-06-11-Incident-Klasse). */
+  readonly runSingleInstance?: boolean;
+  /** Job-Block. Wenn das Feature `r.job(...)` registriert, wird er
+   *  automatisch verdrahtet (siehe runSingleInstance). */
   readonly jobs?: {
-    /** Default true (Single-Container). */
-    readonly runLocalJobs?: boolean;
     /** BullMQ-Queue-Prefix (default "kumiko"). */
     readonly queueNamePrefix?: string;
   };
@@ -495,11 +500,12 @@ export type RunProdAppOptions = {
 };
 
 export type ProdAppHandle = {
-  /** The composed ApiEntrypoint. In KUMIKO_DRY_RUN_ENV mode WITH
+  /** The composed entrypoint — AllInOne (runSingleInstance, default) or
+   *  Api-only (runSingleInstance:false). In KUMIKO_DRY_RUN_ENV mode WITH
    *  `envSource` injected (test path), no boot ran and this slot is an
    *  undefined-cast — do not access. Production dry-run hits
    *  `process.exit(0)` before returning a handle. */
-  readonly entrypoint: ApiEntrypoint;
+  readonly entrypoint: ApiEntrypoint | AllInOneEntrypoint;
   /** The fetch-handler — wired into Bun.serve in production, called
    *  directly in tests. Composes Hono + static-fallback. */
   readonly fetch: (req: Request) => Promise<Response> | Response;
@@ -707,7 +713,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     ? buildProdSessionAuth(db, options.auth.sessions)
     : undefined;
 
-  const entrypoint = createApiEntrypoint({
+  const baseEntrypointOptions = {
     registry,
     context: {
       db,
@@ -780,32 +786,48 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       },
     }),
     ...(resolvedAnonymousAccess && { anonymousAccess: resolvedAnonymousAccess }),
-    // Auto-Pass-Through für r.job-Wiring: wenn das Registry Jobs
-    // deklariert, MUSS der jobs-Block gesetzt sein — sonst stoppt
-    // createApiEntrypoint mit explizitem Fehler. Default für Single-
-    // Container-Deployments: runLocalJobs=true (API-Process consumiert
-    // auch worker-Lane). Caller kann override'n via options.jobs.
-    ...(registry.getAllJobs().size > 0 && {
-      jobs: {
+  };
+
+  // Deploy-Topologie. Default (Single-Container): createAllInOneEntrypoint
+  // fährt HTTP + BEIDE Job-Lanes (zwei Runner, jeder schedult seine eigene
+  // Lane-Crons → kein Double-Fire) + Event-Dispatcher inline. So laufen
+  // worker-Lane-Crons (run-export-jobs default runIn:"worker") UND MSPs ohne
+  // separaten Worker-Process — die Asymmetrie, an der der Daten-Export hing.
+  // runSingleInstance:false → API-only; ein dezidierter Worker MUSS dann die
+  // worker-Lane + MSPs übernehmen (api-Lane-Jobs laufen weiter lokal).
+  // Default single-instance. eventDispatcher.disabled ist die Alt-Art, MSPs
+  // diesem Prozess wegzunehmen (dezidierter Worker) — als runSingleInstance:
+  // false honorieren (api-only, kein lokaler Dispatcher), damit der explizite
+  // Flag Vorrang behält aber Bestands-Caller nicht brechen.
+  const runSingleInstance = options.runSingleInstance ?? options.eventDispatcher?.disabled !== true;
+  const hasJobs = registry.getAllJobs().size > 0;
+  const queueNamePrefix = options.jobs?.queueNamePrefix;
+  const dispatcherTunables =
+    options.eventDispatcher?.pollIntervalMs !== undefined
+      ? { pollIntervalMs: options.eventDispatcher.pollIntervalMs }
+      : {};
+
+  const entrypoint: ApiEntrypoint | AllInOneEntrypoint = runSingleInstance
+    ? createAllInOneEntrypoint({
+        ...baseEntrypointOptions,
+        // Worker-Seite liest die JobsBlock TOP-LEVEL (nicht nested `jobs` wie
+        // die api-Seite); beide Lane-Runner ziehen redisUrl/prefix von hier.
         redisUrl,
-        runLocalJobs: options.jobs?.runLocalJobs ?? true,
-        ...(options.jobs?.queueNamePrefix !== undefined && {
-          queueNamePrefix: options.jobs.queueNamePrefix,
+        ...(queueNamePrefix !== undefined && { queueNamePrefix }),
+        ...(!options.eventDispatcher?.disabled && { eventDispatcher: dispatcherTunables }),
+      })
+    : createApiEntrypoint({
+        ...baseEntrypointOptions,
+        // API-only: api-Lane-Jobs laufen lokal, ein dezidierter Worker fährt
+        // worker-Lane + MSPs. createApiEntrypoint liest den nested `jobs`-Block.
+        ...(hasJobs && {
+          jobs: {
+            redisUrl,
+            runLocalJobs: true,
+            ...(queueNamePrefix !== undefined && { queueNamePrefix }),
+          },
         }),
-      },
-    }),
-    // Single-Container: MSPs laufen im API-Process (Default an, analog
-    // runLocalJobs). Ohne lokalen Dispatcher würden r.multiStreamProjection-
-    // Projektionen nie anwenden — es gibt hier keinen Worker-Process.
-    ...(!options.eventDispatcher?.disabled && {
-      eventDispatcher: {
-        runLocal: true,
-        ...(options.eventDispatcher?.pollIntervalMs !== undefined && {
-          pollIntervalMs: options.eventDispatcher.pollIntervalMs,
-        }),
-      },
-    }),
-  } satisfies ApiEntrypointOptions);
+      });
 
   // 8. Build the AppSchema once + serialize. Wird beim Static-Fallback
   //    in die index.html injiziert damit createKumikoApp() im Browser
