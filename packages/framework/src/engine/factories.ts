@@ -363,6 +363,9 @@ export function createEntity<F>(def: {
   readonly table?: string;
   readonly fields: F;
   readonly softDelete?: boolean;
+  /** Event stream lives on SYSTEM_TENANT_ID (tenant-independent aggregate, e.g.
+   *  user) instead of the creator's tenant. See EntityDefinition.systemStream. */
+  readonly systemStream?: boolean;
   readonly searchWeight?: number;
   readonly defaultCurrency?: string;
   readonly transitions?: Readonly<Record<string, Readonly<Record<string, readonly string[]>>>>;

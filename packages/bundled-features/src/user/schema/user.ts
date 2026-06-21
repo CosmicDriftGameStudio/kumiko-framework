@@ -56,6 +56,9 @@ const USER_STATUS_OPTIONS = [
 export const userEntity = createEntity({
   table: "read_users",
   softDelete: true,
+  // Tenant-independent identity aggregate — its event stream lives on
+  // SYSTEM_TENANT_ID instead of whichever tenant happened to create it (#497).
+  systemStream: true,
   fields: {
     // Identity — anyone who can see the user can read the email, but only
     // privileged roles (SYSTEM auth code, SystemAdmin) may change it.

@@ -561,6 +561,11 @@ export type EntityDefinition<F extends FieldsMap = FieldsMap> = {
   readonly table?: string;
   readonly fields: F;
   readonly softDelete?: boolean;
+  /** This aggregate's event stream lives on SYSTEM_TENANT_ID rather than the
+   *  creator's tenant. Opt-in per entity (NOT inherited from r.systemScope()):
+   *  only for genuinely tenant-independent aggregates like `user`. The first
+   *  event (create) is what's routed; updates resolve the stream tenant upstream. */
+  readonly systemStream?: boolean;
   readonly searchWeight?: number;
   readonly defaultCurrency?: string;
   /** Allowed state transitions per field. Boot validates against select options. */

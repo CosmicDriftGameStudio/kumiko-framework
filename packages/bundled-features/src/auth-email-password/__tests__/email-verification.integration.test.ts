@@ -7,7 +7,7 @@ import {
   updateMany,
 } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
   type TestStack,
@@ -250,7 +250,7 @@ describe("POST /auth/verify-email", () => {
       `SELECT "tenant_id" FROM "kumiko_events" WHERE "aggregate_id" = $1 AND "aggregate_type" = 'user' ORDER BY "version" LIMIT 1`,
       [seed.id],
     )) as ReadonlyArray<{ tenant_id: string }>;
-    expect(streamRows[0]?.tenant_id).toBe(systemAdmin.tenantId);
+    expect(streamRows[0]?.tenant_id).toBe(SYSTEM_TENANT_ID);
 
     const { token } = signVerificationToken(seed.id, 60, verifySecret);
     const res = await post("/api/auth/verify-email", { token });
@@ -407,7 +407,7 @@ describe("verify-email — aggregate stream in a non-membership tenant (sysadmin
       [seed.id],
     )) as ReadonlyArray<{ tenant_id: string; aggregate_type: string }>;
     expect(streamRows[0]?.aggregate_type).toBe("user");
-    expect(streamRows[0]?.tenant_id).toBe(systemAdmin.tenantId);
+    expect(streamRows[0]?.tenant_id).toBe(SYSTEM_TENANT_ID);
     expect(streamRows[0]?.tenant_id).not.toBe(membershipTenant);
 
     const { token } = signVerificationToken(seed.id, 60, verifySecret);
