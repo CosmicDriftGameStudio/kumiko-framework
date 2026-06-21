@@ -202,10 +202,10 @@ describe("buildConfigFeatureSchema — per-role cascade (system > tenant > user)
 });
 
 describe("buildConfigFeatureSchema — machine-role does not leak into screen access (#406/2)", () => {
-  // Ein gemischter write-Set (machine "system" + human "SystemAdmin") entsteht
-  // nur über ein explizites write:-Override (kein Preset erzeugt den Mix). Der
-  // Screen darf trotzdem NUR die Human-Rolle gaten — "system" trägt kein User,
-  // ein Leak macht das Gate inkonsistent zum Hardening-Ziel.
+  // A mixed write-set (machine "system" + human "SystemAdmin") only arises via
+  // an explicit write:-override (no preset produces the mix). The screen must
+  // gate on the human role only — "system" is not carried by a real user and
+  // leaking it makes the gate inconsistent with the hardening goal.
   const mixedWrite = defineFeature("mixed", (r) => {
     r.config({
       keys: {

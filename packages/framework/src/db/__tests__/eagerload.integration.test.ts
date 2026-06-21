@@ -53,7 +53,6 @@ let dbA: ReturnType<typeof createTenantDb>;
 beforeAll(async () => {
   stack = await setupTestStack({ features: [] });
   await unsafeCreateEntityTable(stack.db, authorEntity);
-  await unsafeCreateEntityTable(stack.db, postEntity);
   dbA = createTenantDb(stack.db, tenantA, "tenant");
 
   await insertMany(stack.db, authorTable, [

@@ -16,7 +16,6 @@ fi
 LABEL="${KUMIKO_MEMLOG_LABEL:-ci}"
 INTERVAL="${KUMIKO_MEMLOG_INTERVAL_SEC:-5}"
 PEAK_FILE="$(mktemp)"
-trap 'rm -f "$PEAK_FILE"' EXIT
 
 mem_available_kb() {
   awk '/MemAvailable:/ { print $2 }' /proc/meminfo
