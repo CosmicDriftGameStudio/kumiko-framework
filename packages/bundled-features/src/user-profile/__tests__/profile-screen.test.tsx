@@ -80,6 +80,10 @@ describe("ProfileScreen", () => {
     expect(view.getByTestId("profile-danger-delete")).toBeTruthy();
     // Echte i18n: kein einziger roher Key im sichtbaren Text.
     expect(view.container.textContent).not.toContain("profile.");
+    // Card-Standard: jede Konto-Section ist GENAU eine Card — nicht mehr das
+    // alte <section bg-card> um ein <Form> (das selbst eine Card ist) = doppelt.
+    expect(view.getByTestId("profile-email").querySelectorAll(".bg-card").length).toBe(1);
+    expect(view.getByTestId("profile-password").querySelectorAll(".bg-card").length).toBe(1);
   });
 
   test("deletionRequested: Frist-Banner + Abbrechen statt Lösch-Button", async () => {
@@ -113,7 +117,7 @@ describe("ProfileScreen", () => {
     try {
       const view = renderProfile(activeMe);
       await waitFor(() => {
-        if (view.queryByTestId("profile-email-form") === null) throw new Error("not mounted yet");
+        if (view.queryByTestId("profile-email") === null) throw new Error("not mounted yet");
       });
 
       const emailInput = view.container.querySelector<HTMLInputElement>("#profile-new-email");
@@ -121,7 +125,7 @@ describe("ProfileScreen", () => {
       if (!emailInput || !pwInput) throw new Error("email form inputs not found");
       fireEvent.change(emailInput, { target: { value: "new@example.com" } });
       fireEvent.change(pwInput, { target: { value: "current-pw" } });
-      fireEvent.submit(view.getByTestId("profile-email-form"));
+      fireEvent.submit(view.getByTestId("profile-email"));
 
       // De-Swallow: der fehlgeschlagene Verification-Versand wird geloggt.
       await waitFor(() => {

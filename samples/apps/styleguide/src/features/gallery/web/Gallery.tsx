@@ -747,6 +747,40 @@ export function Gallery(): ReactNode {
         </div>
       </Block>
 
+      <Block id="tags" title="Tags — bundled-feature layout">
+        {/* ponytail: faithful Layout-Nachbau des TagSection (tags/web) mit den
+            echten Primitiven + statischen Daten — die Live-Version hängt am
+            Dispatcher. Verifiziert die Inline-Create-Row (Input wächst,
+            Add-Button bündig daneben). */}
+        <div className="flex max-w-md flex-col gap-4">
+          <Field id="tg-select" label="Tags">
+            <Input
+              kind="combobox"
+              multiple
+              id="tg-select"
+              name="tg"
+              options={[
+                { value: "important", label: "important" },
+                { value: "project-x", label: "project-x" },
+                { value: "urgent", label: "urgent" },
+              ]}
+              value={["important", "project-x"]}
+              onChange={() => {}}
+              placeholder="Tags auswählen…"
+              emptyText="Keine Tags"
+            />
+          </Field>
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <Field id="tg-new" label="Neuen Tag erstellen">
+                <Input kind="text" id="tg-new" name="tg-new" value="" onChange={() => {}} />
+              </Field>
+            </div>
+            <Button variant="secondary">Erstellen</Button>
+          </div>
+        </div>
+      </Block>
+
       <Block id="nav" title="Navigation">
         {/* ponytail: statischer Nachbau des Nav-Standards — die LIVE-Nav ist
             die Sidebar links (NavTree), hier isoliert für die Doku. */}
