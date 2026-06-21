@@ -40,6 +40,16 @@ describe("create-kumiko-app CLI", () => {
     expect(cfg).toContain("createDeliveryFeature");
     // mail-transport-smtp is opt-in (not recommended, no transitive require) — should NOT auto-mount.
     expect(cfg).not.toContain("mailTransportSmtpFeature");
+
+    // UX-polish: Next-steps points at `bun dev` (the primary dev path since
+    // PR #583 introduced bin/dev.ts), not the CI-only `bun run boot` smoke.
+    const out = logs.join("\n");
+    expect(out).toContain("bun dev");
+    expect(out).toContain("docker compose up -d");
+    expect(out).not.toContain("bun run boot");
+
+    // Setup-impact preview lands before the scaffold actually runs.
+    expect(out).toMatch(/→ Scaffolding \d+ features? into \.\/demo-app\//);
   });
 
   test("--print-manifest emits JSON, no name needed", async () => {

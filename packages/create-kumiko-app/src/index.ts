@@ -57,6 +57,10 @@ export async function runCreate(args: CliArgs): Promise<number> {
   if (reportableAutoAdds.length > 0) {
     log(`Auto-included via requires: ${reportableAutoAdds.join(", ")}`);
   }
+  log("");
+  log(
+    `→ Scaffolding ${features.length} feature${features.length === 1 ? "" : "s"} into ./${args.name}/ …`,
+  );
 
   const result = scaffoldApp({
     name: args.name,
@@ -70,8 +74,9 @@ export async function runCreate(args: CliArgs): Promise<number> {
   log("Nächste Schritte:");
   log(`  cd ${args.name}`);
   log("  bun install");
-  log("  cp .env.example .env  # edit JWT_SECRET + KUMIKO_SECRETS_MASTER_KEY_V1");
-  log("  bun run boot");
+  log("  cp .env.example .env  # JWT_SECRET + KUMIKO_SECRETS_MASTER_KEY_V1 setzen");
+  log("  docker compose up -d   # wenn noch kein PG + Redis läuft");
+  log("  bun dev                # startet den Dev-Server + zeigt URL/Login");
   return 0;
 }
 
