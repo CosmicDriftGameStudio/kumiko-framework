@@ -21,7 +21,10 @@ const S3_ENV_REQUIRED = ["S3_BUCKET", "S3_REGION", "S3_ACCESS_KEY", "S3_SECRET_K
 // is caught, and this is a WARN, not a hard gate.
 export function validateGdprStoragePersistence(features: readonly FeatureDefinition[]): void {
   const featureNames = new Set(features.map((f) => f.name));
-  if (!featureNames.has("user-data-rights")) return;
+  if (!featureNames.has("user-data-rights")) {
+    // skip: this guard only applies to apps that mount user-data-rights
+    return;
+  }
 
   const registeredProviders = new Set<string>();
   for (const f of features) {
@@ -37,6 +40,7 @@ export function validateGdprStoragePersistence(features: readonly FeatureDefinit
     console.warn(
       "[kumiko:boot] user-data-rights is mounted but no persistent file provider is — GDPR exports use an ephemeral/in-memory store and are LOST on restart (the download then 500s). Mount file-provider-s3 or file-provider-s3-env and select it via the file-foundation provider config.",
     );
+    // skip: ephemeral store already warned; the s3-env env-var check below is moot
     return;
   }
 
