@@ -173,4 +173,19 @@ describe("runSchemaCli apply — projection rebuild", () => {
     expect(cap.log.join("\n")).not.toContain("Rebuild");
     expect(await counterFor(group)).toBeUndefined();
   });
+
+  // Marker zeigt auf eine Tabelle die KEINE registrierte Projektion hat →
+  // projections.size === 0 → Early-Return vor dem Rebuild-Schritt (kein Throw,
+  // exit 0). Bisher nur "kein Marker" und "keine Features" getestet.
+  test("with features: marker for a table with no registered projection → no rebuild, exit 0", async () => {
+    await executor.create({ groupId: group, name: "x" }, admin, tdb);
+
+    const appCwd = writeMigration("0004_unknown_table", ["read_nonexistent_table"]);
+    const cap = captureOut();
+    const code = await runSchemaCli(["apply"], appCwd, cap.out, { features: [feature] });
+
+    expect(code).toBe(0);
+    expect(cap.log.join("\n")).not.toContain("Rebuild");
+    expect(await counterFor(group)).toBeUndefined();
+  });
 });

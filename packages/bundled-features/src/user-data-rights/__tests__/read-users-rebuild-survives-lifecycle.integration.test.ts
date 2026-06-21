@@ -188,12 +188,13 @@ describe("#494 :: read_users-Rebuild bewahrt Lifecycle-State", () => {
 
     const after = (await selectMany(stack.db, userTable, { id: created.id })) as Array<{
       status: string;
-      gracePeriodEnd: unknown;
+      gracePeriodEnd: typeof gracePeriodEnd | null;
     }>;
     expect(after[0]?.status).toBe(USER_STATUS.DeletionRequested);
-    // gracePeriodEnd ueberlebt — nicht null nach Replay.
-    expect(after[0]?.gracePeriodEnd).not.toBeNull();
-    expect(after[0]?.gracePeriodEnd).toBeDefined();
+    // gracePeriodEnd ueberlebt den Replay WERT-genau, nicht nur non-null: ein
+    // Timezone-/Roundtrip-Fehler liefert non-null aber den falschen Instant.
+    // epoch-ms toleriert die DB-Präzision (µs) ohne sub-ms-Drift zu prüfen.
+    expect(after[0]?.gracePeriodEnd?.epochMilliseconds).toBe(gracePeriodEnd.epochMilliseconds);
   });
 
   // Ehrlicher Spiegel zum Forward-Test: Bestandsdaten, deren Status der ALTE
