@@ -1,5 +1,22 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.71.0
+
+### Minor Changes
+
+- 0be304e: Block locked accounts at the session layer (defense-in-depth)
+
+  The session checker now reads the user's lifecycle status on every authenticated request and refuses a live session whose user is `restricted` or `deleted`, returning the new `"blocked"` `AuthSessionStatus` (401). This is a second layer on top of session revocation: a missed revoke can no longer keep a locked account authenticated. `active` and `deletionRequested` users are unaffected (the latter keeps its session so it can still cancel a pending deletion). The check fails open on a user-row miss so a lookup issue degrades to "revocation still protects" rather than a global lockout. The `sessions` feature now declares `r.requires("user")`.
+
+- 7b8d405: Complete soft-delete: auto cleanup cron, configurable grace period, and trash queries.
+
+  When any entity opts into `softDelete`, the framework now auto-wires:
+
+  - a `soft-delete:job:cleanup` cron (perTenant, nightly at 03:00) that hard-deletes rows soft-deleted longer than the grace period — bounding unbounded growth of soft-deleted rows;
+  - a `soft-delete:config:grace-days` tenant config key (number, default 30) controlling that window.
+
+  Query handlers can now request soft-deleted rows via `ctx.includeDeleted` (the entity-list query accepts an `includeDeleted` flag). Tenant and ownership filters still apply, so a trash query never widens what a user may see beyond the live list. The event stream is untouched — cleanup only purges the read-model rows.
+
 ## 0.70.0
 
 ### Minor Changes

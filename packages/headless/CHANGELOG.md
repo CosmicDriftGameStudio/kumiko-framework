@@ -1,5 +1,13 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.71.0
+
+### Patch Changes
+
+- Updated dependencies [0be304e]
+- Updated dependencies [7b8d405]
+  - @cosmicdrift/kumiko-framework@0.71.0
+
 ## 0.70.0
 
 ### Patch Changes
