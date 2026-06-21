@@ -218,7 +218,14 @@ export type EventStoreExecutor = {
      *  hier zur Runtime einen aus ctx.searchAdapter durchreichen.
      *  options.searchAdapter (build-time) gewinnt — runtime-Override
      *  ist Fallback für die default-Wrapper. */
-    runtimeOptions?: { readonly searchAdapter?: SearchAdapter },
+    runtimeOptions?: {
+      readonly searchAdapter?: SearchAdapter;
+      // Trash query: skip the implicit `isDeleted = FALSE` filter so soft-
+      // deleted rows are returned too. Tenant + ownership clauses still apply
+      // — includeDeleted only relaxes the soft-delete predicate, never the
+      // visibility ones, so it can ride untrusted query input safely.
+      readonly includeDeleted?: boolean;
+    },
   ) => Promise<CursorResult<Record<string, unknown>>>;
 
   detail: (
@@ -862,7 +869,7 @@ export function createEventStoreExecutor(
         params.push(db.tenantId, SYSTEM_TENANT_ID);
         whereSql.push(`${colSql("tenantId")} IN ($${params.length - 1}, $${params.length})`);
       }
-      if (softDelete && table["isDeleted"]) {
+      if (softDelete && table["isDeleted"] && runtimeOptions?.includeDeleted !== true) {
         whereSql.push(`${colSql("isDeleted")} = FALSE`);
       }
       if (payload.cursor) {

@@ -85,6 +85,10 @@ const listSchema = z.object({
   sortDirection: z.enum(["asc", "desc"]).optional(),
   offset: z.number().int().nonnegative().optional(),
   totalCount: z.boolean().optional(),
+  // Trash query: include soft-deleted rows. Honoured only for softDelete
+  // entities; the dispatcher mirrors it onto ctx.includeDeleted. Tenant +
+  // ownership filters still apply.
+  includeDeleted: z.boolean().optional(),
   filter: z
     .object({
       field: z.string(),
@@ -219,6 +223,7 @@ export function defineEntityQueryHandler(
         const listPayload = query.payload as ListPayload; // @cast-boundary engine-payload
         const result = await executor.list(listPayload, query.user, ctx.db, {
           ...(ctx.searchAdapter !== undefined && { searchAdapter: ctx.searchAdapter }),
+          ...(ctx.includeDeleted === true && { includeDeleted: true }),
         });
         if (!hasRefFields) return result;
         const enrichedRows = await enrichWithReferences(

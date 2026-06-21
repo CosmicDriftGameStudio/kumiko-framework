@@ -8,6 +8,12 @@ import { asEntityTableMeta } from "../db/query";
 import { buildEntityTable } from "../db/table-builder";
 import { buildMetricName, validateMetricName } from "../observability";
 import { type QnType, qualifyEntityName } from "./qualified-name";
+import {
+  buildSoftDeleteCleanupJob,
+  SOFT_DELETE_CLEANUP_JOB,
+  SOFT_DELETE_GRACE_DAYS_KEY,
+  softDeleteGraceDaysConfig,
+} from "./soft-delete-cleanup";
 import type {
   AuthClaimsHookDef,
   ClaimKeyDefinition,
@@ -1319,6 +1325,20 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     for (const h of queryHandlerMap.values()) if (h.rateLimit !== undefined) return true;
     return false;
   })();
+
+  // Auto-wire the soft-delete cleanup cron + its grace-days config key when ANY
+  // entity opts into softDelete — the framework owns this machinery, no feature
+  // declares it (mirrors the auto restore-handler). Job-runner reads getAllJobs
+  // ungated; config-resolver reads getConfigKey → default. Reserved owner
+  // segment, guarded against a real-feature collision.
+  if ([...entityMap.values()].some((e) => e.softDelete)) {
+    if (!jobMap.has(SOFT_DELETE_CLEANUP_JOB)) {
+      jobMap.set(SOFT_DELETE_CLEANUP_JOB, buildSoftDeleteCleanupJob());
+    }
+    if (!configKeyMap.has(SOFT_DELETE_GRACE_DAYS_KEY)) {
+      configKeyMap.set(SOFT_DELETE_GRACE_DAYS_KEY, softDeleteGraceDaysConfig);
+    }
+  }
 
   return {
     features: featureMap,

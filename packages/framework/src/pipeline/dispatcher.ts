@@ -247,6 +247,7 @@ export function createDispatcher(
     user: SessionUser,
     tx?: DbTx,
     afterCommitHooks?: AfterCommitHook[],
+    includeDeleted?: boolean,
   ): HandlerContext {
     const isSystem = registry.isHandlerSystemScoped(type);
     // The outer dispatcher receives a DbConnection from the server/stack;
@@ -573,6 +574,7 @@ export function createDispatcher(
       _userId: user.id,
       _tenantId: user.tenantId,
       _handlerType: type,
+      ...(includeDeleted && { includeDeleted: true }),
       ...bridge,
     } as HandlerContext; // @cast-boundary engine-bridge
   }
@@ -773,7 +775,15 @@ export function createDispatcher(
       throw validationErrorFromZod(parsed.error);
     }
 
-    const handlerContext = buildHandlerContext(type, user, tx);
+    // Trash opt-in rides the validated query payload: only the entity-list
+    // schema (and custom query schemas that opt in) carries `includeDeleted`,
+    // so other handlers never see the flag. Visibility filters still apply
+    // downstream (see HandlerContext.includeDeleted) — safe from raw input.
+    const includeDeleted =
+      typeof parsed.data === "object" &&
+      parsed.data !== null &&
+      (parsed.data as Record<string, unknown>)["includeDeleted"] === true; // @cast-boundary validated-payload
+    const handlerContext = buildHandlerContext(type, user, tx, undefined, includeDeleted);
     let result = await handler.handler({ type, payload: parsed.data, user }, handlerContext);
 
     // postQuery-Hooks: fire BEFORE field-access-filter so hooks see raw data
