@@ -1,5 +1,26 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.72.0
+
+### Minor Changes
+
+- a6d3b3b: Add `r.uiHints({...})` for picker/scaffolder metadata
+
+  Features can now declare optional UI metadata via `r.uiHints({ displayLabel, category, recommended, configurableOptions })`. The hints flow through `defineFeature` into `FeatureDefinition.uiHints` and into `feature-manifest.json` under `feature.uiHints`. Pure manifest-side info — the framework runtime does not read it. Consumers (the upcoming `bun create kumiko-app` picker, the docs feature-reference) treat absent hints as "no special treatment" and fall back to `name` + `description`. Eight picker-MVP bundled features carry hints out of the box (`auth-email-password`, `tenant`, `user`, `sessions`, `delivery`, `files`, `billing-foundation`, `feature-toggles`); the remaining bundled features remain unannotated and will be filled in alongside the picker work. Additive — no breaking changes.
+
+- 40c229f: user-data-rights: `userDataRightsClient({ publicDeletion })` mounts the anonymous account-deletion flow as gates
+
+  The login-free deletion screens (`RequestAccountDeletionScreen` + `ConfirmAccountDeletionScreen`) previously had to be wired by each app via a hand-rolled `createPublicSurface`/path-gate. `userDataRightsClient` now accepts an optional `publicDeletion: { requestPath, confirmPath, shell? }`: when set, it registers a `makePublicDeletionGate(...)` that matches `window.location.pathname` and renders the request screen on `requestPath`, the token-confirm screen on `confirmPath`, else passes through. Apps list the client before their auth client (so an anonymous visitor reaches the deletion mask, not the login mask), configure the matching server opts (`deletionTokenSecret`, `deletionVerifyUrl`, `sendDeletionVerificationEmail`), and add the navigation — no per-app deletion screen. `makePublicDeletionGate` + `PublicDeletionRoutes` are exported from `.../user-data-rights/web`. Additive — omitting `publicDeletion` keeps the prior behaviour (privacy-center screen only).
+
+### Patch Changes
+
+- Updated dependencies [a6d3b3b]
+  - @cosmicdrift/kumiko-framework@0.72.0
+  - @cosmicdrift/kumiko-headless@0.72.0
+  - @cosmicdrift/kumiko-renderer@0.72.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.72.0
+  - @cosmicdrift/kumiko-renderer-web@0.72.0
+
 ## 0.71.0
 
 ### Minor Changes
