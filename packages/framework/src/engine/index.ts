@@ -86,6 +86,7 @@ export type {
   UserDataExportSnippet,
   UserDataExtensionHooks,
   UserDataHookCtx,
+  UserDataStorageProvider,
 } from "./extensions/user-data";
 export {
   createBigIntField,

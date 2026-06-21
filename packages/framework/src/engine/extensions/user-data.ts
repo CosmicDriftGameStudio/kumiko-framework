@@ -43,10 +43,33 @@ export type UserDataDeleteStrategy = "delete" | "anonymize";
  * raw-DB-Operationen machen funktionieren auf beiden Shapes via
  * Drizzle's polymorphem select/insert/update/delete-Chain.
  */
+/**
+ * Minimal storage surface a file-aware forget hook needs to erase binaries.
+ * Structural on purpose — the engine stays free of a dependency on the files
+ * package; `FileStorageProvider` is assignable here. The forget/export
+ * orchestrator resolves the concrete provider per tenant from the mounted
+ * file-foundation and injects it via `UserDataHookCtx.buildStorageProvider`.
+ */
+export interface UserDataStorageProvider {
+  delete(storageKey: string): Promise<void>;
+}
+
 export interface UserDataHookCtx {
   readonly db: DbRunner;
   readonly tenantId: TenantId;
   readonly userId: UserId;
+  /**
+   * Per-tenant storage-provider resolver, injected by the forget orchestrator
+   * from the mounted file-foundation — so a hook deletes binaries from the
+   * SAME store the upload/export path uses (delete-target == upload-target by
+   * construction). Undefined when no file provider is resolvable; file-aware
+   * hooks then skip binary cleanup (row-only delete) and warn. Resolution
+   * failures (provider not configured) should be caught by the hook so a
+   * misconfigured store never permanently blocks the user's erasure.
+   */
+  readonly buildStorageProvider?: (
+    tenantId: TenantId,
+  ) => Promise<UserDataStorageProvider | undefined>;
 }
 
 /**

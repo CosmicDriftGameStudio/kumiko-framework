@@ -41,6 +41,7 @@ import {
   type TenantId,
   type UserDataDeleteHook,
   type UserDataDeleteStrategy,
+  type UserDataStorageProvider,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resolveRetentionPolicyForTenant } from "../data-retention";
@@ -85,6 +86,16 @@ export interface RunForgetCleanupArgs {
    *  ohne Callback laeuft Worker still (User hatte schon
    *  request-deletion-Email + grace-period-Erinnerung). */
   readonly sendDeletionExecutedEmail?: SendDeletionExecutedEmailFn;
+
+  /**
+   * Per-tenant file-storage-provider resolver (the forget cron builds it from
+   * the mounted file-foundation, mirroring the export cron). Threaded into
+   * every delete-hook's ctx so file-aware hooks erase binaries from the same
+   * store the upload/export path uses. Omitted → hooks skip binary cleanup.
+   */
+  readonly buildStorageProvider?: (
+    tenantId: TenantId,
+  ) => Promise<UserDataStorageProvider | undefined>;
 }
 
 export interface ForgetCleanupError {
@@ -119,7 +130,7 @@ const HOOK_ORDER_DEFAULT = EXT_USER_DATA_ORDER.DEFAULT;
 export async function runForgetCleanup(
   args: RunForgetCleanupArgs,
 ): Promise<RunForgetCleanupResult> {
-  const { db, registry, now, sendDeletionExecutedEmail } = args;
+  const { db, registry, now, sendDeletionExecutedEmail, buildStorageProvider } = args;
 
   // Step 1: Find users with expired grace period.
   const dueUsers = await selectUsersDueForForgetCleanup(
@@ -161,6 +172,7 @@ export async function runForgetCleanup(
       registry,
       userId: user.id,
       hookEntries,
+      buildStorageProvider,
     });
     hookCallsAttempted += userResult.hookCallsAttempted;
     errors.push(...userResult.errors);
@@ -216,8 +228,9 @@ async function processUser(args: {
   registry: Registry;
   userId: string;
   hookEntries: readonly HookEntry[];
+  buildStorageProvider?: (tenantId: TenantId) => Promise<UserDataStorageProvider | undefined>;
 }): Promise<ProcessUserResult> {
-  const { db, registry, userId, hookEntries } = args;
+  const { db, registry, userId, hookEntries, buildStorageProvider } = args;
   const errors: ForgetCleanupError[] = [];
   let hookCallsAttempted = 0;
 
@@ -274,7 +287,7 @@ async function processUser(args: {
           const strategy = policyToStrategy(policy.policy?.strategy ?? null);
 
           hookCallsAttempted++;
-          await entry.deleteHook({ db: tx, tenantId, userId }, strategy);
+          await entry.deleteHook({ db: tx, tenantId, userId, buildStorageProvider }, strategy);
         }
       }
 

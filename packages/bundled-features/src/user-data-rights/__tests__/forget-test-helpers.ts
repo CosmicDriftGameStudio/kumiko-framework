@@ -6,10 +6,26 @@
 
 import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { USER_STATUS, userTable } from "../../user";
 
 export const TENANT_SYSTEM = "00000000-0000-4000-8000-000000000001";
+
+// Test file-provider plugin: registers `provider` under the file-foundation
+// `fileProvider` extension point so the forget pipeline resolves THIS instance
+// through createFileProviderForTenant — the same path production uses. Set
+// `file-foundation:config:provider` to `name` to select it.
+export function createTestFileProviderFeature(
+  provider: FileStorageProvider,
+  name = "test",
+): FeatureDefinition {
+  return defineFeature(`test-file-provider-${name}`, (r) => {
+    r.requires("file-foundation");
+    r.useExtension("fileProvider", name, { build: async () => provider });
+  });
+}
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 export const nowInstant = (): Instant => getTemporal().Now.instant();

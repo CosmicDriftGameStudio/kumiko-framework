@@ -4,8 +4,6 @@ import {
   type FeatureDefinition,
   SYSTEM_USER_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createConfigAccessor } from "../config";
-import { createFileProviderForTenant } from "../file-foundation";
 import { PRIVACY_CENTER_SCREEN_ID } from "./constants";
 import { cancelDeletionWrite } from "./handlers/cancel-deletion.write";
 import { createConfirmDeletionByTokenHandler } from "./handlers/confirm-deletion-by-token.write";
@@ -26,6 +24,7 @@ import {
 import { requestExportWrite } from "./handlers/request-export.write";
 import { restrictAccountWrite } from "./handlers/restrict-account.write";
 import { createRunForgetCleanupHandler } from "./handlers/run-forget-cleanup.write";
+import { makeTenantStorageProviderResolver } from "./lib/storage-provider-resolver";
 import {
   runExportJobs,
   type SendExportFailedEmailFn,
@@ -276,29 +275,18 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
         await runExportJobs({
           db: exportDb,
           registry: exportRegistry,
-          buildStorageProvider: async (tenantId) => {
-            // ctx.config (per-request ConfigAccessor) existiert nur im HTTP-
-            // Dispatcher; der Cron-Job-Kontext trägt ctx.configResolver. Den
-            // per-Tenant-Accessor daraus bauen (wie der HTTP-Pfad via
-            // _configAccessorFactory) — sonst wirft createFileProviderForTenant
-            // "ctx.config is missing" und jeder Export landet auf failed.
-            const config =
-              ctx.config ??
-              (ctx.configResolver
-                ? createConfigAccessor(
-                    exportRegistry,
-                    ctx.configResolver,
-                    tenantId as Parameters<typeof createConfigAccessor>[2],
-                    exportUserId,
-                    exportDb,
-                  )
-                : undefined);
-            return createFileProviderForTenant(
-              { config, registry: exportRegistry, secrets: ctx.secrets, _userId: exportUserId },
-              tenantId,
-              "user-data-rights:run-export-jobs",
-            );
-          },
+          // Per-tenant provider from the mounted file-foundation. The cron
+          // context carries configResolver (not the per-request ConfigAccessor),
+          // so the resolver builds a per-tenant accessor from it — otherwise
+          // createFileProviderForTenant throws and every export lands on failed.
+          buildStorageProvider: makeTenantStorageProviderResolver({
+            registry: exportRegistry,
+            configResolver: ctx.configResolver,
+            secrets: ctx.secrets,
+            db: exportDb,
+            userId: exportUserId,
+            handlerName: "user-data-rights:run-export-jobs",
+          }),
           now: T.Now.instant(),
           // Atom 5 — App-Author-Callbacks fuer Email-Notification.
           // Optional: wenn nicht gesetzt, kein Email; User pollt
@@ -331,10 +319,22 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           );
         }
         const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
+        const forgetUserId = ctx._userId ?? SYSTEM_USER_ID;
+        const forgetDb = ctx.db as import("@cosmicdrift/kumiko-framework/db").DbConnection; // @cast-boundary db-operator
         await runForgetCleanup({
-          db: ctx.db as import("@cosmicdrift/kumiko-framework/db").DbConnection, // @cast-boundary db-operator
+          db: forgetDb,
           registry: ctx.registry,
           now: T.Now.instant(),
+          // Same per-tenant provider resolution as the export cron — forget
+          // deletes binaries from the store upload + export use.
+          buildStorageProvider: makeTenantStorageProviderResolver({
+            registry: ctx.registry,
+            configResolver: ctx.configResolver,
+            secrets: ctx.secrets,
+            db: forgetDb,
+            userId: forgetUserId,
+            handlerName: "user-data-rights:run-forget-cleanup",
+          }),
           ...(opts.sendDeletionExecutedEmail && {
             sendDeletionExecutedEmail: opts.sendDeletionExecutedEmail,
           }),

@@ -8,8 +8,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createInMemoryFileProvider,
+  type FileStorageProvider,
   fileRefsTable,
   type InMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
@@ -21,24 +23,36 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
+import { createConfigFeature } from "../../config";
+import { createConfigAccessorFactory } from "../../config/feature";
+import { createConfigResolver } from "../../config/resolver";
+import { configValuesTable } from "../../config/table";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
+import { fileFoundationFeature } from "../../file-foundation";
 import { createFilesFeature } from "../../files";
 import { createSessionsFeature } from "../../sessions";
 import { createUserFeature, userEntity, userTable } from "../../user";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults";
 import { createUserDataRightsFeature } from "../feature";
+import { makeTenantStorageProviderResolver } from "../lib/storage-provider-resolver";
 import { runForgetCleanup } from "../run-forget-cleanup";
 import {
   createForgetSeeders,
+  createTestFileProviderFeature,
   type ForgetSeeders,
   nowInstant,
   READ_TENANT_MEMBERSHIPS_DDL,
 } from "./forget-test-helpers";
 
+const FILE_PROVIDER_CONFIG_KEY = "file-foundation:config:provider";
+
 let stack: TestStack;
 let db: DbConnection;
 let provider: InMemoryFileProvider;
 let seed: ForgetSeeders;
+// Per-tenant resolver the forget pipeline uses — built from the stack's
+// configResolver, resolves "test" → the test provider plugin → `provider`.
+let buildStorageProvider: (tenantId: string) => Promise<FileStorageProvider>;
 
 const TENANT = "00000000-0000-4000-8000-00000000000c";
 
@@ -48,24 +62,44 @@ function uuid(suffix: number): string {
 
 beforeAll(async () => {
   provider = createInMemoryFileProvider();
+  // Forget resolves the binary store through file-foundation (the production
+  // path) — mount it + a test plugin returning THIS provider, selected app-wide
+  // via a config app-override (no admin write needed).
+  const appOverrides = new Map<string, string>([[FILE_PROVIDER_CONFIG_KEY, "test"]]);
+  const resolver = createConfigResolver({ appOverrides });
   stack = await setupTestStack({
     features: [
+      createConfigFeature(),
       createUserFeature(),
       createFilesFeature(),
+      fileFoundationFeature,
+      createTestFileProviderFeature(provider, "test"),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
       createSessionsFeature(),
       createUserDataRightsFeature(),
-      createUserDataRightsDefaultsFeature({ storageProvider: provider }),
+      createUserDataRightsDefaultsFeature(),
     ],
     files: { storageProvider: provider },
+    extraContext: ({ registry }) => ({
+      configResolver: resolver,
+      _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+    }),
   });
   db = stack.db;
   seed = createForgetSeeders(db, provider);
+  buildStorageProvider = makeTenantStorageProviderResolver({
+    registry: stack.registry,
+    configResolver: resolver,
+    secrets: undefined,
+    db,
+    userId: SYSTEM_USER_ID,
+    handlerName: "test-forget-cleanup",
+  });
 
   await unsafeCreateEntityTable(db, userEntity);
   await unsafeCreateEntityTable(db, tenantRetentionOverrideEntity);
-  await unsafePushTables(db, { fileRefsTable });
+  await unsafePushTables(db, { fileRefsTable, configValuesTable });
   await asRawClient(db).unsafe(READ_TENANT_MEMBERSHIPS_DDL);
 });
 
@@ -86,7 +120,12 @@ describe("forget-binary-cleanup :: storage.delete fires before row hard-delete",
     const key = await seed.seedFile(uuid(101), TENANT, userId);
     expect(await provider.exists(key)).toBe(true);
 
-    const result = await runForgetCleanup({ db, registry: stack.registry, now: nowInstant() });
+    const result = await runForgetCleanup({
+      db,
+      registry: stack.registry,
+      now: nowInstant(),
+      buildStorageProvider,
+    });
 
     expect(result.processedUserIds).toContain(userId);
     expect(await provider.exists(key)).toBe(false);
@@ -104,7 +143,12 @@ describe("forget-binary-cleanup :: storage.delete fires before row hard-delete",
     ]);
     expect(provider.keys()).toHaveLength(3);
 
-    await runForgetCleanup({ db, registry: stack.registry, now: nowInstant() });
+    await runForgetCleanup({
+      db,
+      registry: stack.registry,
+      now: nowInstant(),
+      buildStorageProvider,
+    });
 
     for (const key of keys) {
       expect(await provider.exists(key)).toBe(false);
@@ -122,7 +166,12 @@ describe("forget-binary-cleanup :: storage.delete fires before row hard-delete",
     // The other-tenant file is owned by a different user; the forget run for
     // userId must NOT touch it.
 
-    await runForgetCleanup({ db, registry: stack.registry, now: nowInstant() });
+    await runForgetCleanup({
+      db,
+      registry: stack.registry,
+      now: nowInstant(),
+      buildStorageProvider,
+    });
 
     expect(await provider.exists(myKey)).toBe(false);
     expect(await provider.exists(otherKey)).toBe(true);
