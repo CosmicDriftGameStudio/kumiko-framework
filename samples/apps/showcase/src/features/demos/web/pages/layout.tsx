@@ -31,7 +31,7 @@ function Slot({
   readonly className?: string;
 }): ReactNode {
   const toneClass =
-    tone === "muted" ? "bg-muted/40" : tone === "actionBar" ? "bg-muted/30" : "bg-card";
+    tone === "muted" ? "bg-muted/40" : tone === "actionBar" ? "bg-muted/30" : "bg-card"; // kumiko-lint-ignore primitives-discipline layout-tone helper (Default-Tone, kein Card-Panel)
   return (
     <div
       className={`flex flex-col items-start justify-center px-3 py-2 ${toneClass} ${className ?? ""}`}

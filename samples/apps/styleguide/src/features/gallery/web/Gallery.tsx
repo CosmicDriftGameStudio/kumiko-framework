@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 const SWATCHES: ReadonlyArray<readonly [string, string]> = [
   ["background", "bg-background"],
   ["foreground", "bg-foreground"],
-  ["card", "bg-card"],
+  ["card", "bg-card"], // kumiko-lint-ignore primitives-discipline foundation-token swatch (zeigt das bg-card-Token selbst)
   ["primary", "bg-primary"],
   ["secondary", "bg-secondary"],
   ["muted", "bg-muted"],
@@ -169,7 +169,7 @@ function SelectStub({ value }: { value: string }): ReactNode {
 }
 
 export function Gallery(): ReactNode {
-  const { Button, Field, Form, Input, Section } = usePrimitives();
+  const { Button, Card, Field, Form, Input, Section } = usePrimitives();
   const noop = (): void => {};
 
   return (
@@ -349,7 +349,7 @@ export function Gallery(): ReactNode {
       <Block id="filter" title="Filter & Search">
         {/* Holdings-Muster: Such-Pill (rounded-full, muted) links + Toggle-
             Group-Pills rechts; Rows mit Ticker-Kachel, Meta, Type-Badge, Value. */}
-        <div className="bg-card rounded-xl border p-2 shadow-sm">
+        <Card className="p-2" options={{ padded: false }}>
           <div className="flex items-center gap-3 p-2">
             <div className="relative min-w-0 flex-1">
               <Search className="text-muted-foreground absolute left-3 top-1/2 size-4 -translate-y-1/2" />
@@ -399,12 +399,12 @@ export function Gallery(): ReactNode {
               </div>
             ))}
           </div>
-        </div>
+        </Card>
       </Block>
 
       <Block id="login" title="Login">
         <div className="bg-muted/30 flex justify-center rounded-lg border border-dashed p-8">
-          <div className="bg-card w-full max-w-sm rounded-xl border p-6 shadow-sm">
+          <Card className="w-full max-w-sm p-6" options={{ padded: false }}>
             <div className="flex flex-col gap-1 text-center">
               <h3 className="text-xl font-semibold">Login to your account</h3>
               <p className="text-muted-foreground text-sm">
@@ -447,7 +447,7 @@ export function Gallery(): ReactNode {
               Don&apos;t have an account?{" "}
               <span className="text-foreground underline underline-offset-4">Sign up</span>
             </p>
-          </div>
+          </Card>
         </div>
       </Block>
 
@@ -455,7 +455,7 @@ export function Gallery(): ReactNode {
         {/* Reproduziert den AuthCard-Pfad: max-w-sm-Card + BareFormProvider um
             den <Form>. Erwartung: KEINE Card-in-Card, Felder gestapelt mit gap. */}
         <div className="bg-muted/30 flex justify-center rounded-lg border border-dashed p-8">
-          <div className="bg-card w-full max-w-sm rounded-lg border p-6 shadow-sm">
+          <Card className="w-full max-w-sm p-6" options={{ padded: false }}>
             <div className="flex flex-col gap-1 pb-4">
               <h3 className="text-xl font-semibold tracking-tight">Login to your account</h3>
               <p className="text-muted-foreground text-sm">Enter your email below to login</p>
@@ -478,12 +478,12 @@ export function Gallery(): ReactNode {
                 <Button variant="primary">Login</Button>
               </Form>
             </BareFormProvider>
-          </div>
+          </Card>
         </div>
       </Block>
 
       <Block id="invoice" title="Invoice">
-        <div className="bg-card max-w-xl rounded-xl border shadow-sm">
+        <Card className="max-w-xl" options={{ padded: false }}>
           <div className="flex items-start justify-between border-b px-6 py-4">
             <div>
               <h3 className="font-semibold">Invoice #INV-2847</h3>
@@ -535,11 +535,11 @@ export function Gallery(): ReactNode {
             <Button variant="secondary">Download PDF</Button>
             <Button variant="primary">Pay Now</Button>
           </div>
-        </div>
+        </Card>
       </Block>
 
       <Block id="shipping" title="Shipping Address">
-        <div className="bg-card max-w-xl rounded-xl border shadow-sm">
+        <Card className="max-w-xl" options={{ padded: false }}>
           <div className="border-b px-6 py-4">
             <h3 className="font-semibold">Shipping Address</h3>
             <p className="text-muted-foreground text-sm">Where should we deliver?</p>
@@ -608,11 +608,11 @@ export function Gallery(): ReactNode {
             <Button variant="secondary">Cancel</Button>
             <Button variant="primary">Save Address</Button>
           </div>
-        </div>
+        </Card>
       </Block>
 
       <Block id="profile" title="Profile">
-        <div className="bg-card max-w-xl rounded-xl border shadow-sm">
+        <Card className="max-w-xl" options={{ padded: false }}>
           <div className="border-b px-6 py-4">
             <h3 className="font-semibold">Profile</h3>
             <p className="text-muted-foreground text-sm">
@@ -654,11 +654,11 @@ export function Gallery(): ReactNode {
             <Button variant="secondary">Cancel</Button>
             <Button variant="primary">Save changes</Button>
           </div>
-        </div>
+        </Card>
       </Block>
 
       <Block id="dividends" title="Dividends">
-        <div className="bg-card max-w-xl rounded-xl border p-6 shadow-sm">
+        <Card className="max-w-xl p-6" options={{ padded: false }}>
           <div className="flex items-start justify-between">
             <div>
               <h3 className="font-semibold">Q2 Dividend Income</h3>
@@ -693,11 +693,11 @@ export function Gallery(): ReactNode {
               </div>
             ))}
           </div>
-        </div>
+        </Card>
       </Block>
 
       <Block id="savings" title="Savings Targets">
-        <div className="bg-card max-w-xl rounded-xl border p-6 shadow-sm">
+        <Card className="max-w-xl p-6" options={{ padded: false }}>
           <div className="flex items-start justify-between">
             <div>
               <h3 className="font-semibold">Savings Targets</h3>
@@ -725,25 +725,31 @@ export function Gallery(): ReactNode {
           <p className="text-muted-foreground mt-4 text-sm">
             You have not met your targets for this year.
           </p>
-        </div>
+        </Card>
       </Block>
 
       <Block id="cards" title="Cards">
+        {/* Kanonischer Card-Showcase: das Card-Primitive (usePrimitives().Card),
+            slot- + options-basiert. So bauen Consumer Cards — NICHT roh. */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="border-border bg-card rounded-lg border p-6 shadow-sm">
-            <h3 className="font-semibold">Plain card</h3>
+          <Card slots={{ title: "Plain card" }}>
             <p className="text-muted-foreground text-sm">
-              bg-card · border · rounded-lg · shadow-sm · p-6
+              Card-Primitive · slots + options · rounded-xl Standard-Chrome
             </p>
-          </div>
-          <div className="border-border bg-card rounded-lg border shadow-sm">
-            <div className="border-border border-b px-6 py-3 font-semibold">Card header</div>
-            <div className="text-muted-foreground px-6 py-4 text-sm">Body content sits here.</div>
-            <div className="border-border flex justify-end gap-2 border-t px-6 py-3">
-              <Button variant="secondary">Cancel</Button>
-              <Button variant="primary">Save</Button>
-            </div>
-          </div>
+          </Card>
+          <Card
+            slots={{
+              title: "Card header",
+              footer: (
+                <>
+                  <Button variant="secondary">Cancel</Button>
+                  <Button variant="primary">Save</Button>
+                </>
+              ),
+            }}
+          >
+            <p className="text-muted-foreground text-sm">Body content sits here.</p>
+          </Card>
         </div>
       </Block>
 
@@ -784,6 +790,7 @@ export function Gallery(): ReactNode {
       <Block id="nav" title="Navigation">
         {/* ponytail: statischer Nachbau des Nav-Standards — die LIVE-Nav ist
             die Sidebar links (NavTree), hier isoliert für die Doku. */}
+        {/* kumiko-lint-ignore primitives-discipline nav-surface demo (Navigations-Fläche, kein Card) */}
         <div className="bg-card w-60 rounded-lg border p-3 text-sm shadow-sm">
           <div className="text-muted-foreground/70 px-2 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wider">
             Workspace
@@ -818,6 +825,7 @@ export function Gallery(): ReactNode {
         <div className="flex flex-wrap items-end gap-6">
           {SHADOWS.map(([name, cls]) => (
             <div key={name} className="flex flex-col items-center gap-2">
+              {/* kumiko-lint-ignore primitives-discipline elevation-swatch (Foundation-Token-Demo, kein Card) */}
               <div className={`bg-card size-16 rounded-lg ${cls}`} />
               <span className="text-muted-foreground text-xs">{name}</span>
             </div>

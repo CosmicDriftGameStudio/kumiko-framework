@@ -591,6 +591,42 @@ export type ConfigCascadeViewProps = {
   readonly onToggle?: () => void;
 };
 
+/** Card-Slots — benannte Inhalts-Regionen, alle optional. Neue Slots später =
+ *  rein additiv → Consumer müssen NIE migriert werden. `header` ist der Escape-
+ *  Hatch: ein roher Knoten ersetzt den Default-Header (title/subtitle/
+ *  headerActions) komplett, wenn die Convenience-Slots nicht reichen. */
+export type CardSlots = {
+  readonly header?: ReactNode;
+  readonly title?: ReactNode;
+  readonly subtitle?: ReactNode;
+  /** Rechtsbündiger Header-Slot (Range-Umschalter, Filter, Badge …). */
+  readonly headerActions?: ReactNode;
+  /** Footer-Inhalt, abgehoben (border-t). Default rechtsbündig. */
+  readonly footer?: ReactNode;
+};
+
+/** Card-Options — Verhalten/Optik, ebenfalls additiv erweiterbar. */
+export type CardOptions = {
+  /** Body-Padding (px-6 py-6). false = randlos (Tabelle/eigene Tiles). Default true. */
+  readonly padded?: boolean;
+  /** Eckenradius. Default "xl" (= Entity-Card). */
+  readonly radius?: "lg" | "xl";
+  /** Footer abgehoben mit border-t + bg-muted/30. Default true. */
+  readonly footerBordered?: boolean;
+};
+
+/** Generische Card-Chrome (border/bg/radius/shadow + Header/Body/Footer) als
+ *  Primitive — eine Quelle für alle Card-Flächen, statt pro App nachgebaut.
+ *  Slot- + Options-basiert, damit der Contract stabil bleibt. */
+export type CardProps = {
+  readonly slots?: CardSlots;
+  readonly options?: CardOptions;
+  /** Body-Inhalt (Normalfall; Header/Footer kommen über slots). */
+  readonly children?: ReactNode;
+  readonly className?: string;
+  readonly testId?: string;
+};
+
 // ---- Core-Registry (Kumiko-eigene Primitives) ----
 
 export type CorePrimitives = {
@@ -601,6 +637,7 @@ export type CorePrimitives = {
   readonly DataTable: ComponentType<DataTableProps>;
   readonly Form: ComponentType<FormProps>;
   readonly Section: ComponentType<SectionProps>;
+  readonly Card: ComponentType<CardProps>;
   readonly Grid: ComponentType<GridProps>;
   readonly GridCell: ComponentType<GridCellProps>;
   readonly Text: ComponentType<TextProps>;

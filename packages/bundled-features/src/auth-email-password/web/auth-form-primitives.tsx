@@ -15,6 +15,7 @@
 //   authMutedLinkClass  — Subtle-Link-Style.
 //   parseUrlToken       — URL-Param-Helper (window.location.search).
 
+import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
 import { BareFormProvider, cn } from "@cosmicdrift/kumiko-renderer-web";
 import { createContext, type ReactNode, useContext } from "react";
 
@@ -51,17 +52,30 @@ export type AuthCardProps = {
 };
 
 export function AuthCard({ title, subtitle, children }: AuthCardProps): ReactNode {
+  const { Card } = usePrimitives();
   const shell = useAuthShell() ?? defaultAuthShell;
+  // h1 (Seiten-Hauptüberschrift) via Header-Slot erhalten — die Card-Default-
+  // Header wäre h3. padded:false = Form sitzt randlos wie bisher (bare form).
   const card = (
-    <div className="w-full max-w-sm rounded-lg border bg-card text-card-foreground shadow-sm">
-      {(title !== undefined || subtitle !== undefined) && (
-        <div className="flex flex-col space-y-1.5 p-6 pb-4">
-          {title !== undefined && <h1 className="text-xl font-semibold tracking-tight">{title}</h1>}
-          {subtitle !== undefined && <p className="text-sm text-muted-foreground">{subtitle}</p>}
-        </div>
-      )}
+    <Card
+      className="w-full max-w-sm"
+      options={{ padded: false }}
+      slots={{
+        header:
+          title !== undefined || subtitle !== undefined ? (
+            <div className="flex flex-col space-y-1.5 p-6 pb-4">
+              {title !== undefined && (
+                <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+              )}
+              {subtitle !== undefined && (
+                <p className="text-sm text-muted-foreground">{subtitle}</p>
+              )}
+            </div>
+          ) : undefined,
+      }}
+    >
       <BareFormProvider>{children}</BareFormProvider>
-    </div>
+    </Card>
   );
   return shell(card);
 }

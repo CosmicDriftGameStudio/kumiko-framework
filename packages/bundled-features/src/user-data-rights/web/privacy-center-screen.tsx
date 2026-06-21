@@ -130,7 +130,26 @@ function ExportSection(): ReactNode {
   }, [inProgress, refetch]);
 
   return (
-    <Section title={t("userDataRights.privacyCenter.export.title")} testId="privacy-export">
+    <Section
+      title={t("userDataRights.privacyCenter.export.title")}
+      testId="privacy-export"
+      actions={
+        !inProgress ? (
+          <Button
+            onClick={() => void request()}
+            disabled={submitting}
+            loading={submitting}
+            testId="privacy-export-request"
+          >
+            {done
+              ? t("userDataRights.privacyCenter.export.requestNew")
+              : submitting
+                ? t("userDataRights.privacyCenter.export.requesting")
+                : t("userDataRights.privacyCenter.export.request")}
+          </Button>
+        ) : undefined
+      }
+    >
       <p className="text-sm text-muted-foreground">
         {t("userDataRights.privacyCenter.export.intro")}
       </p>
@@ -171,20 +190,6 @@ function ExportSection(): ReactNode {
         </Banner>
       )}
       <StatusBanner status={status} />
-      {!inProgress && (
-        <Button
-          onClick={() => void request()}
-          disabled={submitting}
-          loading={submitting}
-          testId="privacy-export-request"
-        >
-          {done
-            ? t("userDataRights.privacyCenter.export.requestNew")
-            : submitting
-              ? t("userDataRights.privacyCenter.export.requesting")
-              : t("userDataRights.privacyCenter.export.request")}
-        </Button>
-      )}
     </Section>
   );
 }
@@ -219,6 +224,17 @@ function RestrictionSection({
     <Section
       title={t("userDataRights.privacyCenter.restriction.title")}
       testId="privacy-restriction"
+      actions={
+        restricted ? undefined : (
+          <Button
+            variant="danger"
+            onClick={() => setDialogOpen(true)}
+            testId="privacy-restriction-restrict"
+          >
+            {t("userDataRights.privacyCenter.restriction.restrict")}
+          </Button>
+        )
+      }
     >
       {restricted ? (
         <Banner variant="error" testId="privacy-restriction-active">
@@ -230,13 +246,6 @@ function RestrictionSection({
             {t("userDataRights.privacyCenter.restriction.explainer")}
           </p>
           <StatusBanner status={status} />
-          <Button
-            variant="danger"
-            onClick={() => setDialogOpen(true)}
-            testId="privacy-restriction-restrict"
-          >
-            {t("userDataRights.privacyCenter.restriction.restrict")}
-          </Button>
           <Dialog
             open={dialogOpen}
             onOpenChange={setDialogOpen}
@@ -291,7 +300,29 @@ function DeletionSection({
   };
 
   return (
-    <Section title={t("userDataRights.privacyCenter.deletion.title")} testId="privacy-deletion">
+    <Section
+      title={t("userDataRights.privacyCenter.deletion.title")}
+      testId="privacy-deletion"
+      actions={
+        deletionRequested ? (
+          <Button
+            variant="secondary"
+            onClick={() => void cancelDeletion()}
+            testId="privacy-deletion-cancel"
+          >
+            {t("userDataRights.privacyCenter.deletion.cancel")}
+          </Button>
+        ) : (
+          <Button
+            variant="danger"
+            onClick={() => setDialogOpen(true)}
+            testId="privacy-deletion-delete"
+          >
+            {t("userDataRights.privacyCenter.deletion.delete")}
+          </Button>
+        )
+      }
+    >
       {deletionRequested ? (
         <>
           <Banner variant="error" testId="privacy-deletion-requested">
@@ -300,13 +331,6 @@ function DeletionSection({
             })}
           </Banner>
           <StatusBanner status={status} />
-          <Button
-            variant="secondary"
-            onClick={() => void cancelDeletion()}
-            testId="privacy-deletion-cancel"
-          >
-            {t("userDataRights.privacyCenter.deletion.cancel")}
-          </Button>
         </>
       ) : (
         <>
@@ -314,13 +338,6 @@ function DeletionSection({
             {t("userDataRights.privacyCenter.deletion.explainer")}
           </p>
           <StatusBanner status={status} />
-          <Button
-            variant="danger"
-            onClick={() => setDialogOpen(true)}
-            testId="privacy-deletion-delete"
-          >
-            {t("userDataRights.privacyCenter.deletion.delete")}
-          </Button>
           <Dialog
             open={dialogOpen}
             onOpenChange={setDialogOpen}

@@ -19,6 +19,7 @@ import type {
 import {
   type BannerProps,
   type ButtonProps,
+  type CardProps,
   type CorePrimitives,
   type DataTableFacet,
   type DataTableProps,
@@ -1538,6 +1539,56 @@ function DefaultHeading({ variant = "page", children, testId }: HeadingProps): R
 import { ConfigCascadeView as DefaultConfigCascadeView } from "../components/config-cascade";
 import { ConfigSourceBadge as DefaultConfigSourceBadge } from "../components/config-source-badge";
 
+// Generische Card-Chrome (rounded-xl wie die Entity-Card) — slot- + options-
+// basiert, damit der Contract additiv wächst und Consumer nie migriert werden.
+function DefaultCard({ slots, options, className, testId, children }: CardProps): ReactNode {
+  const padded = options?.padded ?? true;
+  const radius = options?.radius ?? "xl";
+  const footerBordered = options?.footerBordered ?? true;
+  const s = slots ?? {};
+  const defaultHeader =
+    s.title !== undefined || s.subtitle !== undefined || s.headerActions !== undefined ? (
+      <div className="flex flex-wrap items-start justify-between gap-3 px-6 pt-6 pb-4">
+        <div className="flex flex-col gap-1">
+          {s.title !== undefined && (
+            <h3 className="text-base font-semibold leading-none tracking-tight">{s.title}</h3>
+          )}
+          {s.subtitle !== undefined && (
+            <p className="text-sm text-muted-foreground">{s.subtitle}</p>
+          )}
+        </div>
+        {s.headerActions}
+      </div>
+    ) : null;
+  const header = s.header ?? defaultHeader;
+  const hasHeader = header !== null && header !== undefined;
+  return (
+    <div
+      data-testid={testId}
+      className={cn(
+        "flex flex-col overflow-hidden border bg-card text-card-foreground shadow-sm",
+        radius === "xl" ? "rounded-xl" : "rounded-lg",
+        className,
+      )}
+    >
+      {header}
+      {children !== undefined && (
+        <div className={cn("grow", padded && (hasHeader ? "px-6 pb-6" : "p-6"))}>{children}</div>
+      )}
+      {s.footer !== undefined && (
+        <div
+          className={cn(
+            "flex items-center justify-end gap-2 px-6 py-4",
+            footerBordered && "border-t bg-muted/30",
+          )}
+        >
+          {s.footer}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export const defaultPrimitives: CorePrimitives = {
   Button: DefaultButton,
   Banner: DefaultBanner,
@@ -1546,6 +1597,7 @@ export const defaultPrimitives: CorePrimitives = {
   DataTable: DefaultDataTable,
   Form: DefaultForm,
   Section: DefaultSection,
+  Card: DefaultCard,
   Grid: DefaultGrid,
   GridCell: DefaultGridCell,
   Text: DefaultText,

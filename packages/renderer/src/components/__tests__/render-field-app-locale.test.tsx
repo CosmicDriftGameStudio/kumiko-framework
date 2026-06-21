@@ -31,6 +31,7 @@ const testPrimitives: CorePrimitives = {
   DataTable: noop,
   Form: noop,
   Section: noop,
+  Card: noop,
   Grid: noop,
   GridCell: noop,
   Text: noop,

@@ -21,7 +21,7 @@ export function RequestAccountDeletionScreen({
 }: RequestAccountDeletionScreenProps): ReactNode {
   const t = useTranslation();
   const dispatcher = useDispatcher();
-  const { Form, Field, Input, Button, Banner } = usePrimitives();
+  const { Form, Field, Input, Button, Banner, Card } = usePrimitives();
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
@@ -50,12 +50,19 @@ export function RequestAccountDeletionScreen({
   };
 
   return (
-    <div className="w-full max-w-sm mx-auto rounded-lg border bg-card text-card-foreground shadow-sm">
-      <div className="flex flex-col space-y-1.5 p-6 pb-4">
-        <h1 className="text-xl font-semibold tracking-tight">
-          {title ?? t("userDataRights.deletion.request.title")}
-        </h1>
-      </div>
+    <Card
+      className="w-full max-w-sm mx-auto"
+      options={{ padded: false }}
+      slots={{
+        header: (
+          <div className="flex flex-col space-y-1.5 p-6 pb-4">
+            <h1 className="text-xl font-semibold tracking-tight">
+              {title ?? t("userDataRights.deletion.request.title")}
+            </h1>
+          </div>
+        ),
+      }}
+    >
       {done ? (
         <div className="p-6 pt-0">
           <Banner variant="info">
@@ -91,6 +98,6 @@ export function RequestAccountDeletionScreen({
           </Form>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

@@ -243,7 +243,7 @@ function DangerZoneSection({
   readonly onChanged: () => void;
 }): ReactNode {
   const t = useTranslation();
-  const { Button, Banner, Dialog, Heading } = usePrimitives();
+  const { Button, Banner, Dialog, Card } = usePrimitives();
   const dispatcher = useDispatcher();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [status, setStatus] = useState<SectionStatus>({ kind: "idle" });
@@ -270,52 +270,54 @@ function DangerZoneSection({
     onChanged();
   };
 
-  return (
-    <section
-      data-testid="profile-danger"
-      className="flex flex-col gap-4 rounded-lg border border-destructive/40 bg-card p-6"
+  const footer = deletionRequested ? (
+    <Button
+      variant="secondary"
+      onClick={() => void cancelDeletion()}
+      testId="profile-danger-cancel"
     >
-      <Heading variant="section">{t("profile.danger.title")}</Heading>
-      {deletionRequested ? (
-        <>
-          <Banner variant="error" testId="profile-danger-requested">
-            {t("profile.danger.requested", {
-              date: formatDeletionDate(me.gracePeriodEnd),
-            })}
-          </Banner>
-          <StatusBanner status={status} />
-          <Button
-            variant="secondary"
-            onClick={() => void cancelDeletion()}
-            testId="profile-danger-cancel"
-          >
-            {t("profile.danger.cancelDeletion")}
-          </Button>
-        </>
-      ) : (
-        <>
-          <p className="text-sm text-muted-foreground">{t("profile.danger.explainer")}</p>
-          <StatusBanner status={status} />
-          <Button
-            variant="danger"
-            onClick={() => setDialogOpen(true)}
-            testId="profile-danger-delete"
-          >
-            {t("profile.danger.delete")}
-          </Button>
-          <Dialog
-            open={dialogOpen}
-            onOpenChange={setDialogOpen}
-            title={t("profile.danger.dialogTitle")}
-            description={t("profile.danger.dialogDescription")}
-            variant="danger"
-            confirmLabel={t("profile.danger.delete")}
-            onConfirm={requestDeletion}
-            testId="profile-danger-dialog"
-          />
-        </>
-      )}
-    </section>
+      {t("profile.danger.cancelDeletion")}
+    </Button>
+  ) : (
+    <Button variant="danger" onClick={() => setDialogOpen(true)} testId="profile-danger-delete">
+      {t("profile.danger.delete")}
+    </Button>
+  );
+
+  return (
+    <Card
+      testId="profile-danger"
+      className="border-destructive/40"
+      slots={{ title: t("profile.danger.title"), footer }}
+    >
+      <div className="flex flex-col gap-4">
+        {deletionRequested ? (
+          <>
+            <Banner variant="error" testId="profile-danger-requested">
+              {t("profile.danger.requested", {
+                date: formatDeletionDate(me.gracePeriodEnd),
+              })}
+            </Banner>
+            <StatusBanner status={status} />
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-muted-foreground">{t("profile.danger.explainer")}</p>
+            <StatusBanner status={status} />
+            <Dialog
+              open={dialogOpen}
+              onOpenChange={setDialogOpen}
+              title={t("profile.danger.dialogTitle")}
+              description={t("profile.danger.dialogDescription")}
+              variant="danger"
+              confirmLabel={t("profile.danger.delete")}
+              onConfirm={requestDeletion}
+              testId="profile-danger-dialog"
+            />
+          </>
+        )}
+      </div>
+    </Card>
   );
 }
 
