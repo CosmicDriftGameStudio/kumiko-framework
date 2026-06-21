@@ -241,9 +241,7 @@ function formatBootError(errors: readonly EnvError[]): string {
     }
   }
   lines.push("");
-  lines.push(
-    "See: kumiko-platform/docs/runbooks/standard-deploy-app.md#step-1-boot-dry-run-lokal",
-  );
+  lines.push("See: kumiko-platform/docs/runbooks/standard-deploy-app.md#step-1-boot-dry-run-lokal");
   return lines.join("\n");
 }
 
