@@ -1,4 +1,3 @@
-// kumiko-feature-version: 1
 // Tags Basic — using the bundle.
 //
 // The tags feature is driven entirely by dispatching its handlers; nothing is
