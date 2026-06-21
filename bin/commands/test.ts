@@ -17,7 +17,7 @@ export const testCommand = defineCommand({
     if (scope === "all") {
       ctx.out.log("Full broadside — unit + integration...");
       ctx.out.log("");
-      const unit = await runStreaming("bun", ["test"], ctx.out, { cwd: ctx.cwd });
+      const unit = await runStreaming("bun", ["test", "--dots"], ctx.out, { cwd: ctx.cwd });
       if (unit !== 0) return unit;
       return await runStreaming("bun", [INTEGRATION_RUNNER], ctx.out, { cwd: ctx.cwd });
     }
@@ -59,8 +59,8 @@ export const testCommand = defineCommand({
       return lastCode;
     }
     if (scope) {
-      return await runStreaming("bun", ["test", scope], ctx.out, { cwd: ctx.cwd });
+      return await runStreaming("bun", ["test", "--dots", scope], ctx.out, { cwd: ctx.cwd });
     }
-    return await runStreaming("bun", ["test"], ctx.out, { cwd: ctx.cwd });
+    return await runStreaming("bun", ["test", "--dots"], ctx.out, { cwd: ctx.cwd });
   },
 });

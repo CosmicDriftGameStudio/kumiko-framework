@@ -46,8 +46,9 @@
   },
   "scripts": {
     "kumiko": "bun run bin/kumiko.ts",
-    "test": "bun test",
-    "test:run": "bun test",
+    "test": "bun test --dots",
+    "test:run": "bun test --dots",
+    "test:verbose": "bun test",
     "test:integration": "bun scripts/run-integration-tests.ts",
     "test:integration:perf": "KUMIKO_PERF_GATE=1 bun scripts/run-integration-tests.ts --perf",
     "typecheck": "tsc --build",

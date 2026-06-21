@@ -108,5 +108,8 @@
     "src",
     "README.md",
     "LICENSE"
-  ]
+  ],
+  "devDependencies": {
+    "@testing-library/user-event": "^14.6.1"
+  }
 }

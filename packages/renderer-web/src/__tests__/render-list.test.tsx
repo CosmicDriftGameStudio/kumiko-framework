@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from "bun:test";
+import { describe, expect, mock, spyOn, test } from "bun:test";
 import type {
   EntityDefinition,
   EntityListScreenDefinition,
@@ -184,11 +184,13 @@ describe("RenderList — slots.header", () => {
   });
 
   test("slots.header gesetzt, aber Component nicht registriert → kein Crash, kein Header", () => {
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
     render(
       <ExtensionSectionsProvider value={{}}>
         <RenderList screen={screenWithHeader} entity={taskEntity} rows={[]} featureName="tasks" />
       </ExtensionSectionsProvider>,
     );
     expect(screen.queryByTestId("list-header-slot")).toBeNull();
+    warn.mockRestore();
   });
 });

@@ -483,7 +483,7 @@ const commands = {
       const scope = Bun.argv[3];
       if (scope === "all") {
         console.log("Volle Breitseite — Unit + Integration...\n");
-        await $`bun test`;
+        await $`bun test --dots`;
         await $`bun ${INTEGRATION_RUNNER}`;
       } else if (scope === "integration") {
         console.log("Integration Tests (Docker muss laufen)...\n");
@@ -523,9 +523,9 @@ const commands = {
           await $`${playwrightBin} test`.cwd(`${target.root}/${target.name}`);
         }
       } else if (scope) {
-        await $`bun test ${scope}`;
+        await $`bun test --dots ${scope}`;
       } else {
-        await $`bun test`;
+        await $`bun test --dots`;
       }
     },
   },
@@ -613,7 +613,7 @@ const commands = {
       console.log();
 
       console.log("--- Unit Tests (nur --changed) ---");
-      const proc = Bun.spawn(["sh", "-c", "KUMIKO_CHECK=1 bun test --changed"], {
+      const proc = Bun.spawn(["sh", "-c", "KUMIKO_CHECK=1 bun test --dots --changed"], {
         stdout: "inherit",
         stderr: "inherit",
         env: process.env,

@@ -147,7 +147,7 @@ async function runIntegrationTests(mode: IntegrationRunMode = "bulk"): Promise<n
 
   for (const dir of discovery.includedDirs) {
     const relDir = `./${relative(process.cwd(), dir)}`;
-    const args = ["test", `--config=${INTEGRATION_BUNFIG}`];
+    const args = ["test", "--dots", `--config=${INTEGRATION_BUNFIG}`];
 
     if (mode === "perf") {
       for (const file of filesByDir.get(dir) ?? []) {
@@ -177,8 +177,19 @@ async function runIntegrationTests(mode: IntegrationRunMode = "bulk"): Promise<n
     ]);
     const code = await proc.exited;
     const output = stdout + stderr;
-    process.stdout.write(stdout);
-    process.stderr.write(stderr);
+    const totals = parseBunTestRunOutput(output);
+    const dumpOutput = code !== 0 || totals === null || totals.fail > 0;
+    if (dumpOutput) {
+      process.stdout.write(stdout);
+      process.stderr.write(stderr);
+    } else {
+      const summaryLine = output
+        .split("\n")
+        .find((line) => line.startsWith("Ran ") && line.includes(" tests"));
+      if (summaryLine !== undefined) {
+        console.log(`  ${summaryLine.trim()}`);
+      }
+    }
 
     if (output.includes("The following filters did not match any test files")) {
       console.warn(`  (skip — no discoverable tests in ${relDir})`);
@@ -187,7 +198,6 @@ async function runIntegrationTests(mode: IntegrationRunMode = "bulk"): Promise<n
       continue;
     }
 
-    const totals = parseBunTestRunOutput(output);
     if (!totals) {
       console.warn(`  (skip — no bun test summary in ${relDir})`);
       dirResults.push({ kind: "skipped", dir: relDir, reason: "missing bun test summary" });
