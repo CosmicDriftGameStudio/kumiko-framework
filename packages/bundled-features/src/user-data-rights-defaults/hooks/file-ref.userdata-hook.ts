@@ -1,6 +1,11 @@
 import { deleteMany, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
-import { type FileStorageProvider, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import type {
+  UserDataDeleteHook,
+  UserDataExportHook,
+  UserDataHookCtx,
+  UserDataStorageProvider,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 
 // userData-Hook fuer fileRef-entity (S2.H2).
 //
@@ -9,29 +14,32 @@ import { type FileStorageProvider, fileRefsTable } from "@cosmicdrift/kumiko-fra
 // NICHT direkt — sie werden via signed-Download-URLs separat ins ZIP
 // gepackt (S2.U3 Export-Job-Pipeline orchestriert das).
 //
-// Delete-Hook entfernt FileRef-Zeile via factory
-// `createFileRefDeleteHook(storageProvider)`:
+// Delete-Hook entfernt FileRef-Zeile + Binary:
 //   "delete":    storageProvider.delete() pro File + Row hard-delete
 //   "anonymize": insertedById=null, Row + binary bleiben (FK-Refs
 //                koennen weiter zeigen; Personenbezug raus)
 //
-// Delete-Pfad ist FAIL-CLOSED, sobald ein Provider gewired ist: schlaegt ein
-// binary-delete fehl, wirft der Hook
-// NACH dem Loop — die per-User-Sub-Tx von runForgetCleanup rollt zurueck, der
-// User bleibt DeletionRequested, der naechste Run retried (storageProvider.delete
-// ist idempotent, schon-geloeschte Keys sind no-op). Den Fehler zu schlucken und
-// die Row trotzdem hard-zu-loeschen wuerde Art.-17-Erasure als "done" markieren
-// waehrend die Bytes auf Disk bleiben — eine falsche Compliance-Aussage. Das
-// "KEIN globaler Rollback" der Sprint-2-Atomicity-Decision bleibt gewahrt: nur
-// DIESE User-Sub-Tx rollt zurueck (= der Retry-Mechanismus), andere User des
-// Laufs committen. Der anonymize-Pfad behaelt Row+binary bewusst, hat also
-// nichts zu schlucken.
+// **Provider-Resolution:** der Provider kommt zur Lauf-Zeit aus
+// `ctx.buildStorageProvider(ctx.tenantId)` — der Forget-Orchestrator
+// (run-forget-cleanup) baut ihn aus dem gemounteten file-foundation, also aus
+// DEMSELBEN Store den Upload + Export nutzen (delete-target == upload-target by
+// construction). Kein bei-Mount captured Provider mehr.
 //
-// `storageProvider` ist optional. App-Author wired es beim
-// Feature-Mount rein (`createUserDataRightsDefaultsFeature({
-// storageProvider })`). Ohne Provider macht der Hook row-only-delete,
-// die Bytes leaken — der Caller bekommt EINEN Warn beim ersten Lauf
-// pro Process, damit die Konfiguration sichtbar fehlerhaft ist.
+// **Zwei Fehlerklassen, bewusst verschieden behandelt:**
+//   1. Resolution schlaegt fehl (kein Provider konfiguriert / configResolver
+//      fehlt) → NICHT fail-closed: EIN Warn pro Process + row-only-delete. Ein
+//      fehlkonfigurierter Store darf die Art.-17-Loeschung nicht DAUERHAFT
+//      blockieren (sonst haengt jeder User fuer immer in DeletionRequested);
+//      der Boot-Guard macht die Fehlkonfiguration sichtbar, Binaries werden
+//      nachgeholt sobald ein Provider existiert.
+//   2. Binary-DELETE schlaegt fehl, OBWOHL ein Provider da ist → FAIL-CLOSED:
+//      der Hook wirft NACH dem Loop, die per-User-Sub-Tx von runForgetCleanup
+//      rollt zurueck, der User bleibt DeletionRequested, der naechste Run
+//      retried (delete ist idempotent → konvergiert). Den Fehler zu schlucken +
+//      die Row trotzdem zu loeschen wuerde Erasure als "done" markieren waehrend
+//      die Bytes liegen bleiben — falsche Compliance-Aussage. Das "KEIN globaler
+//      Rollback" der Sprint-2-Atomicity bleibt gewahrt: nur DIESE Sub-Tx rollt
+//      zurueck. Der anonymize-Pfad behaelt Row+binary, hat nichts zu schlucken.
 //
 // Caveat: hard-delete via deleteMany emittiert KEIN fileRef.deleted —
 // die storage-tracking-MSP dekrementiert nicht. Wenn die zu loeschenden
@@ -88,61 +96,69 @@ export const fileRefExportHook: UserDataExportHook = async (ctx) => {
 
 let missingStorageWarned = false;
 
-export function createFileRefDeleteHook(
-  storageProvider: FileStorageProvider | undefined,
-): UserDataDeleteHook {
-  return async (ctx, strategy) => {
-    if (strategy === "delete") {
-      if (storageProvider) {
-        const rows = await selectMany(ctx.db, fileRefsTable, {
-          tenantId: ctx.tenantId,
-          insertedById: ctx.userId,
-        });
-        const failedKeys: string[] = [];
-        for (const row of rows) {
-          const key = (row as Record<string, unknown>)["storageKey"]; // @cast-boundary db-row
-          if (typeof key !== "string" || key.length === 0) continue;
-          try {
-            await storageProvider.delete(key);
-          } catch (err) {
-            // biome-ignore lint/suspicious/noConsole: operator-visibility for binary-cleanup-failure
-            console.warn(
-              `[user-data-rights-defaults:fileRef] storage delete failed key=${key} err=${err instanceof Error ? err.message : String(err)}`,
-            );
-            failedKeys.push(key);
-          }
-        }
-        // Fail-closed: abort before the row hard-delete so the sub-tx rolls back
-        // and the next forget run retries (delete is idempotent → converges).
-        if (failedKeys.length > 0) {
-          throw new Error(
-            `[user-data-rights-defaults:fileRef] ${failedKeys.length} binary delete(s) failed — aborting forget so the rows are retried next run (keys: ${failedKeys.join(", ")})`,
-          );
-        }
-      } else if (!missingStorageWarned) {
-        missingStorageWarned = true;
-        // biome-ignore lint/suspicious/noConsole: misconfiguration visibility — disk-leak in forget-flow
-        console.warn(
-          "[user-data-rights-defaults:fileRef] no storageProvider configured — file binaries are NOT deleted on forget. Pass createUserDataRightsDefaultsFeature({ storageProvider }) to fix.",
-        );
-      }
-      await deleteMany(ctx.db, fileRefsTable, { tenantId: ctx.tenantId, insertedById: ctx.userId });
-    } else {
-      // anonymize: insertedById=null, FileRef + binary bleiben.
-      // Use-case: shared chat-Attachment in einem Multi-User-Channel —
-      // Author-Identifikation raus, Datei bleibt fuer andere User
-      // sichtbar.
-      await updateMany(
-        ctx.db,
-        fileRefsTable,
-        { insertedById: null },
-        { tenantId: ctx.tenantId, insertedById: ctx.userId },
-      );
-    }
-  };
+// Resolve the per-tenant provider the forget orchestrator injected. A
+// resolution failure (no provider configured / configResolver absent) collapses
+// to `undefined` so the hook degrades to a row-only delete instead of throwing —
+// see error-class 1 in the header. A working-provider binary-delete failure is
+// handled separately (fail-closed) below.
+async function resolveProvider(ctx: UserDataHookCtx): Promise<UserDataStorageProvider | undefined> {
+  if (!ctx.buildStorageProvider) return undefined;
+  try {
+    return await ctx.buildStorageProvider(ctx.tenantId);
+  } catch {
+    // skip: provider unresolvable (not configured) → fall through to row-only
+    // delete; warn-once below gives operator visibility, boot guard catches it.
+    return undefined;
+  }
 }
 
-// Legacy export: storage-less hook for callers that haven't migrated.
-// Binaries are NOT cleaned up — disk leak. Migrate to
-// createUserDataRightsDefaultsFeature({ storageProvider }).
-export const fileRefDeleteHook: UserDataDeleteHook = createFileRefDeleteHook(undefined);
+export const fileRefDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
+  if (strategy === "delete") {
+    const storageProvider = await resolveProvider(ctx);
+    if (storageProvider) {
+      const rows = await selectMany(ctx.db, fileRefsTable, {
+        tenantId: ctx.tenantId,
+        insertedById: ctx.userId,
+      });
+      const failedKeys: string[] = [];
+      for (const row of rows) {
+        const key = (row as Record<string, unknown>)["storageKey"]; // @cast-boundary db-row
+        if (typeof key !== "string" || key.length === 0) continue;
+        try {
+          await storageProvider.delete(key);
+        } catch (err) {
+          // biome-ignore lint/suspicious/noConsole: operator-visibility for binary-cleanup-failure
+          console.warn(
+            `[user-data-rights-defaults:fileRef] storage delete failed key=${key} err=${err instanceof Error ? err.message : String(err)}`,
+          );
+          failedKeys.push(key);
+        }
+      }
+      // Fail-closed: abort before the row hard-delete so the sub-tx rolls back
+      // and the next forget run retries (delete is idempotent → converges).
+      if (failedKeys.length > 0) {
+        throw new Error(
+          `[user-data-rights-defaults:fileRef] ${failedKeys.length} binary delete(s) failed — aborting forget so the rows are retried next run (keys: ${failedKeys.join(", ")})`,
+        );
+      }
+    } else if (!missingStorageWarned) {
+      missingStorageWarned = true;
+      // biome-ignore lint/suspicious/noConsole: misconfiguration visibility — disk-leak in forget-flow
+      console.warn(
+        "[user-data-rights-defaults:fileRef] no file provider resolvable from ctx.buildStorageProvider — file binaries are NOT deleted on forget (row-only delete). Mount file-foundation + a file-provider-* feature and set the provider config so erasure can reach the binaries.",
+      );
+    }
+    await deleteMany(ctx.db, fileRefsTable, { tenantId: ctx.tenantId, insertedById: ctx.userId });
+  } else {
+    // anonymize: insertedById=null, FileRef + binary bleiben.
+    // Use-case: shared chat-Attachment in einem Multi-User-Channel —
+    // Author-Identifikation raus, Datei bleibt fuer andere User
+    // sichtbar.
+    await updateMany(
+      ctx.db,
+      fileRefsTable,
+      { insertedById: null },
+      { tenantId: ctx.tenantId, insertedById: ctx.userId },
+    );
+  }
+};

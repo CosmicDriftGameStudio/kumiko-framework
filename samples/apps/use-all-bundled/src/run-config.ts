@@ -34,6 +34,7 @@ import { createFeatureTogglesFeature } from "@cosmicdrift/kumiko-bundled-feature
 import { fileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
 import { fileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-inmemory";
 import { fileProviderS3Feature } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3";
+import { fileProviderS3EnvFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3-env";
 import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
 import { createJobsFeature } from "@cosmicdrift/kumiko-bundled-features/jobs";
 import { createLegalPagesFeature } from "@cosmicdrift/kumiko-bundled-features/legal-pages";
@@ -103,6 +104,7 @@ export const APP_FEATURES = [
   fileFoundationFeature,
   fileProviderInMemoryFeature,
   fileProviderS3Feature,
+  fileProviderS3EnvFeature,
   createFilesFeature(),
 
   // billing + providers

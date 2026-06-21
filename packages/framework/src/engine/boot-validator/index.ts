@@ -25,6 +25,7 @@ import {
   validateReferenceFields,
   validateTransitions,
 } from "./entity-handler";
+import { validateGdprStoragePersistence } from "./gdpr-storage";
 import { validateOwnershipRules } from "./ownership";
 import { validatePiiAndRetention } from "./pii-retention";
 import {
@@ -160,6 +161,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
   validateNavCycles(allNavQns);
   validateDefaultWorkspaceUniqueness(allWorkspaceQns);
   validateExtensionPreSaveWiring(features);
+  validateGdprStoragePersistence(features);
 
   if (hasEncryptedFields && !process.env["ENCRYPTION_KEY"]) {
     throw new Error("ENCRYPTION_KEY environment variable is required (encrypted fields in use)");
