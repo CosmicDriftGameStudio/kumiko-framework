@@ -23,6 +23,10 @@ import {
   tierAssignmentEntity,
 } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import { asRawClient, createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
+import {
+  findTierResolverUsage,
+  type TierResolverPlugin,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -32,21 +36,22 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { appTierMap, tierEngineForApp } from "../feature";
+import { appTierMap, NOTES_EXPORT_FEATURE, notesExportFeature, tierEngineForApp } from "../feature";
 
 const encryptionKey = randomBytes(32).toString("base64");
 const configFeature = createConfigFeature();
 const tenantFeature = createTenantFeature();
+const recipeFeatures = [configFeature, tenantFeature, tierEngineForApp, notesExportFeature];
 
 let stack: TestStack;
 
 beforeAll(async () => {
   const encryption = createEncryptionProvider(encryptionKey);
-  const resolver = createConfigResolver({ encryption });
+  const configResolver = createConfigResolver({ encryption });
 
   stack = await setupTestStack({
-    features: [configFeature, tenantFeature, tierEngineForApp],
-    extraContext: { configResolver: resolver, configEncryption: encryption },
+    features: recipeFeatures,
+    extraContext: { configResolver, configEncryption: encryption },
   });
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, tierAssignmentEntity);
@@ -146,4 +151,36 @@ test("TenantAdmin without SystemAdmin role cannot grant a foreign tenant a tier"
     tenantAdmin,
   );
   expect(res.status).toBe(403);
+});
+
+test("set-tenant-tier lights up the tenant's toggleable feature in the resolver — same request, not a projection re-read", async () => {
+  const adminTenant = testTenantId(8);
+  const targetTenant = testTenantId(9);
+  const sysadmin = createTestUser({ id: 5, tenantId: adminTenant, roles: ["SystemAdmin"] });
+
+  // Build the resolver BEFORE the grant, so its in-memory cache is warm with
+  // the pre-grant state. The only path for notes-export to appear afterwards
+  // is the synchronous onAssigned cache update inside set-tenant-tier — not a
+  // fresh projection read at build time.
+  const usage = findTierResolverUsage(recipeFeatures);
+  if (!usage) throw new Error("setup failure: no tier-resolver plugin registered");
+  const resolver = await (usage.options as TierResolverPlugin).build({
+    db: stack.db,
+    registry: stack.registry,
+  });
+  expect(resolver(targetTenant).has(NOTES_EXPORT_FEATURE)).toBe(false);
+
+  // SystemAdmin grants "pro" cross-tenant. set-tenant-tier writes through the
+  // event-store executor, which skips the postSave hook that would otherwise
+  // invalidate the cache — so the write calls onAssigned explicitly.
+  await stack.http.writeOk(
+    TierEngineHandlers.setTenantTier,
+    { tenantId: targetTenant, tier: "pro" },
+    sysadmin,
+  );
+
+  // Same process, no rebuild / replay / restart: the resolver already sees
+  // the pro features. Drop onAssigned from createSetTenantTierWrite and this
+  // assertion stays false — the projection updates, the cache does not.
+  expect(resolver(targetTenant).has(NOTES_EXPORT_FEATURE)).toBe(true);
 });

@@ -15,10 +15,15 @@ toggleable features unlock in the same request.
   tier a tenant is on plus its source (`"manual"` vs `"billing"`).
 - **`tier-engine:query:tier-options`** — lists the configured tier names
   so the admin UI doesn't have to hard-code them.
+- **`notes-export`** — a `r.toggleable()` feature the `pro` tier unlocks.
+  It appears in a tenant's effective-features set only when its tier lists
+  it (`pro` does, `free` does not).
 - **Cache-sync invariant** — the manual grant updates the resolver cache
-  the same request, not just the projection. A `r.toggleable()` feature
-  that depends on the granted tier is reachable immediately after the
-  set call, before any cache refresh, replay, or restart.
+  the same request, not just the projection. `notes-export` is in the
+  tenant's effective set immediately after the set call — same request,
+  before any cache refresh, replay, or restart. The integration test builds
+  the resolver, grants `pro`, and asserts the resolver reports `notes-export`
+  for that tenant without a rebuild.
 
 ## Why the cache invariant matters
 
