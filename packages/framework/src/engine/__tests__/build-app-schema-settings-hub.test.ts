@@ -236,8 +236,8 @@ describe("buildAppSchema — dangling audience-ref dev-warning (#408/3)", () => 
   });
 
   test("authoring warnings are suppressed under NODE_ENV=test — no CI-log noise (#408/1)", () => {
-    // bun:test setzt NODE_ENV=test; eine un-platzierte Audience (tenant bleibt
-    // bei placingShell("system") übrig) darf KEIN console.warn ins Log spülen.
+    // bun:test sets NODE_ENV=test; an unplaced audience (tenant left over by
+    // placingShell("system")) must NOT emit a console.warn into CI logs.
     const warn = spyOn(console, "warn").mockImplementation(() => {});
     try {
       buildAppSchema(createRegistry([placingShell("system"), billing]));
