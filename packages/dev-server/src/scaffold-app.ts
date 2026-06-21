@@ -80,7 +80,10 @@ export function scaffoldApp(options: ScaffoldAppOptions): ScaffoldAppResult {
   write(join(destination, "bin", "main.ts"), renderMain(options.name));
   files.push("bin/main.ts");
 
-  write(join(destination, ".env.example"), renderEnvExample());
+  write(join(destination, "bin", "dev.ts"), renderDev(options.name));
+  files.push("bin/dev.ts");
+
+  write(join(destination, ".env.example"), renderEnvExample(options.name));
   files.push(".env.example");
 
   write(join(destination, "README.md"), renderReadme(options.name));
@@ -102,6 +105,7 @@ function renderPackageJson(name: string, version: string): string {
       private: true,
       type: "module",
       scripts: {
+        dev: "bun --watch bin/dev.ts",
         boot: "KUMIKO_DRY_RUN_ENV=boot bun bin/main.ts",
         check: "tsc --noEmit",
       },
@@ -313,7 +317,81 @@ function renderMain(appName: string): string {
   return sf.getFullText();
 }
 
-function renderEnvExample(): string {
+function renderDev(appName: string): string {
+  const tenantId = deriveTenantId(appName);
+  const project = newTsProject();
+  const sf = project.createSourceFile("dev.ts", "");
+
+  sf.addImportDeclaration({
+    moduleSpecifier: "@cosmicdrift/kumiko-dev-server",
+    namedImports: ["runDevApp"],
+  });
+  sf.addImportDeclaration({
+    moduleSpecifier: "@cosmicdrift/kumiko-framework/engine",
+    isTypeOnly: true,
+    namedImports: ["TenantId"],
+  });
+  sf.addImportDeclaration({
+    moduleSpecifier: "../src/run-config",
+    namedImports: ["APP_FEATURES"],
+  });
+
+  sf.addVariableStatement({
+    declarationKind: VariableDeclarationKind.Const,
+    declarations: [
+      {
+        name: "DEFAULT_TENANT_ID",
+        initializer: `"${tenantId}" as TenantId`,
+      },
+    ],
+  });
+
+  sf.addStatements((writer) => {
+    writer
+      .write("await runDevApp(")
+      .inlineBlock(() => {
+        writer.writeLine("features: APP_FEATURES,");
+        writer.writeLine("welcomeBanner: true,");
+        writer.write("auth: ").inlineBlock(() => {
+          writer.write("admin: ").inlineBlock(() => {
+            writer.writeLine(`email: "admin@${appName}.local",`);
+            writer.writeLine(`password: "changeme",`);
+            writer.writeLine(`displayName: "Admin",`);
+            writer.write("memberships: [");
+            writer.indent(() => {
+              writer.inlineBlock(() => {
+                writer.writeLine("tenantId: DEFAULT_TENANT_ID,");
+                writer.writeLine(`tenantKey: "${appName}",`);
+                writer.writeLine(`tenantName: "${appName}",`);
+                writer.writeLine(`roles: ["TenantAdmin"],`);
+              });
+              writer.write(",");
+            });
+            writer.write("],");
+          });
+        });
+      })
+      .write(");");
+  });
+
+  sf.insertText(
+    0,
+    [
+      "// Dev-bootstrap. `bun --watch bin/dev.ts` (siehe package.json scripts.dev)",
+      "// startet einen full-featured Dev-Server mit Auto-Reload bei Code-Änderungen.",
+      "// setupTestStack legt fehlende Entity-Tabellen automatisch an — neues",
+      "// r.entity(...) in einem Feature führt beim nächsten Reboot zu CREATE TABLE,",
+      "// kein manuelles `kumiko schema apply` nötig (das gilt nur für Prod).",
+      "// Persistent-DB via KUMIKO_DEV_DB_NAME (.env) damit Admin + Daten Reboots überleben.",
+      "",
+      "",
+    ].join("\n"),
+  );
+
+  return sf.getFullText();
+}
+
+function renderEnvExample(appName: string): string {
   return `# Required env-vars für boot-mode + dev. Production: über Pulumi/k8s-Secrets.
 DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/app
 REDIS_URL=redis://127.0.0.1:6379
@@ -324,37 +402,49 @@ JWT_SECRET=change-me-min-32-chars-change-me-min-32
 # KUMIKO_SECRETS_MASTER_KEY_V1: base64-encoded 32 bytes (AES-256 KEK).
 # Generate with: openssl rand -base64 32
 KUMIKO_SECRETS_MASTER_KEY_V1=
+
+# Dev-only: persistente DB für \`bun dev\`. Ohne diesen Var startet jeder Reboot
+# eine frische kumiko_test_<random>-DB → Admin-Login + Daten weg bei jedem Edit.
+# Mit Var bleibt die DB zwischen Reboots erhalten (Schema-Pushes sind idempotent).
+KUMIKO_DEV_DB_NAME=${appName.replace(/-/g, "_")}_dev
 `;
 }
 
 function renderReadme(appName: string): string {
   return `# ${appName}
 
-Scaffolded by \`kumiko new app\`. Boots out-of-the-box with secrets + sessions
-mounted (foundation set). Add features with \`bunx @cosmicdrift/kumiko-cli add feature <name>\`.
+Scaffolded by \`bun create kumiko-app\`. Boots out-of-the-box with the picked
+feature stack mounted. Add features by editing \`src/run-config.ts\` or via
+\`bunx @cosmicdrift/kumiko-cli add feature <name>\`.
 
-## First boot
+## First run
 
 \`\`\`sh
 bun install
 cp .env.example .env
-# edit .env — set JWT_SECRET + KUMIKO_SECRETS_MASTER_KEY_V1
+# edit .env — set JWT_SECRET + KUMIKO_SECRETS_MASTER_KEY_V1, point DATABASE_URL/REDIS_URL at a real PG+Redis
+docker compose up -d   # if you don't have PG+Redis running already
+bun dev
+\`\`\`
+
+The dev-server prints a welcome banner with the URL + admin login when ready.
+Edits to \`src/features/**\` trigger a process restart (\`bun --watch\`); new
+\`r.entity(...)\` calls auto-create tables on reboot — no manual migration.
+
+## Boot-only smoke (no DB needed)
+
+\`\`\`sh
 bun run boot
 \`\`\`
 
-Expected: \`[runProdApp] boot validation OK (… features, … registry entries)\` + exit 0.
-
-## Adding features
-
-\`\`\`sh
-bunx @cosmicdrift/kumiko-cli add feature my-domain
-# → editiert src/run-config.ts automatisch + scaffolded src/features/my-domain/
-\`\`\`
+Runs \`KUMIKO_DRY_RUN_ENV=boot bun bin/main.ts\` — validates feature composition
++ env schema, exits 0 without touching DB/Redis. Useful in CI.
 
 ## Architecture
 
 - \`src/run-config.ts\` — single source of truth: which features your app mounts.
-- \`bin/main.ts\` — production-bootstrap. Reads env, mounts features, starts server.
+- \`bin/dev.ts\` — dev-server entry (\`bun dev\`).
+- \`bin/main.ts\` — production-bootstrap (\`bun run boot\` smoke + production deploy).
 
 For full docs see https://docs.kumiko.rocks.
 `;

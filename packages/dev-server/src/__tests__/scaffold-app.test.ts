@@ -15,7 +15,7 @@ describe("scaffoldApp", () => {
     rmSync(tmp, { recursive: true, force: true });
   });
 
-  test("scaffolds 6 files into <cwd>/<name>", () => {
+  test("scaffolds the expected files into <cwd>/<name>", () => {
     const dest = join(tmp, "my-shop");
     const result = scaffoldApp({ name: "my-shop", destination: dest });
 
@@ -26,6 +26,7 @@ describe("scaffoldApp", () => {
       "tsconfig.json",
       "src/run-config.ts",
       "bin/main.ts",
+      "bin/dev.ts",
       ".env.example",
       "README.md",
     ]);
@@ -48,6 +49,26 @@ describe("scaffoldApp", () => {
     expect(pkg.dependencies["@cosmicdrift/kumiko-dev-server"]).toBe("^0.13.0");
     expect(pkg.dependencies["@cosmicdrift/kumiko-framework"]).toBe("^0.13.0");
     expect(pkg.scripts["boot"]).toContain("KUMIKO_DRY_RUN_ENV=boot");
+    expect(pkg.scripts["dev"]).toBe("bun --watch bin/dev.ts");
+  });
+
+  test("bin/dev.ts contains runDevApp + welcomeBanner + admin login", () => {
+    const dest = join(tmp, "my-shop");
+    scaffoldApp({ name: "my-shop", destination: dest });
+
+    const dev = readFileSync(join(dest, "bin/dev.ts"), "utf-8");
+    expect(dev).toContain("runDevApp");
+    expect(dev).toContain("welcomeBanner: true");
+    expect(dev).toContain("admin@my-shop.local");
+    expect(dev).toContain(`password: "changeme"`);
+  });
+
+  test(".env.example carries KUMIKO_DEV_DB_NAME default so reboots are persistent", () => {
+    const dest = join(tmp, "my-shop");
+    scaffoldApp({ name: "my-shop", destination: dest });
+
+    const env = readFileSync(join(dest, ".env.example"), "utf-8");
+    expect(env).toContain("KUMIKO_DEV_DB_NAME=my_shop_dev");
   });
 
   test("bin/main.ts contains runProdApp + auth.admin stub", () => {
