@@ -64,6 +64,11 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
     r.describe(
       "Opt-in wrapper around `text-content` that registers four public HTML routes (`/legal/impressum`, `/legal/datenschutz`, `/legal/imprint`, `/legal/privacy`) with Markdown-to-HTML rendering and a boot-time job that hard-fails in production when the required DE blocks (`imprint/de`, `privacy/de`) are not seeded in `SYSTEM_TENANT`. Requires `anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID }` and `extraContext.textContent` to be wired at app bootstrap; for per-tenant imprints or a custom layout call `text-content:query:by-slug` directly.",
     );
+    r.uiHints({
+      displayLabel: "Legal Pages",
+      category: "content",
+      recommended: false,
+    });
     r.requires("text-content");
 
     // 4 Public-HTML-Routes

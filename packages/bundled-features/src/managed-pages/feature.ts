@@ -144,6 +144,11 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
     r.describe(
       "Tenant-editable, server-rendered public pages with per-tenant branding. Stores one Markdown `page` per `(tenantId, slug, lang)` in the `read_pages` entity table with a `published` gate plus `description`/`ogImage` SEO meta. Registers an anonymous `GET {basePath}/:slug` route that resolves the tenant from the request Host via the app-supplied `resolveApexTenant`, serves only published pages (drafts → 404), renders Markdown through the hardened `page-render` core, and isolates per-tenant content with `Vary: Host`. Ships TenantAdmin/SystemAdmin admin screens (`entityList` + `entityEdit`) backed by convention CRUD handlers (`managed-pages:write:page:{create,update,delete}`, `managed-pages:query:page:{list,detail}`); the app wires nav/workspace onto `managed-pages:screen:page-list`. Branding (via `config`, scope tenant): `branding-{title,description,site-url,accent-color,logo-url,layout-preset}` keys with write-time validation (hex color, https URLs), a `configEdit` self-service screen (`managed-pages:screen:branding-settings`), and a `managed-pages:query:branding` read that the render path applies as scoped `:root` CSS vars + a logo/title header. Also exposes `managed-pages:write:set` (idempotent slug-keyed upsert, SystemAdmin cross-tenant via `tenantIdOverride`) as a provisioning API. Requires `config` + `anonymousAccess` wired at app bootstrap.",
     );
+    r.uiHints({
+      displayLabel: "Managed Pages · Public CMS",
+      category: "content",
+      recommended: false,
+    });
     r.requires("config");
     r.entity("page", pageEntity);
 

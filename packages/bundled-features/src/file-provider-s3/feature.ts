@@ -42,6 +42,11 @@ export const fileProviderS3Feature = defineFeature(FEATURE_NAME, (r) => {
   r.describe(
     'Registers itself as the `"s3"` provider for `file-foundation` and owns the per-tenant config keys (`bucket`, `region`, `endpoint`, `forcePathStyle`, `accessKeyId`) and the encrypted `s3.secretAccessKey` secret. Compatible with any S3-compatible object store (AWS S3, Hetzner Object Storage); set credentials via the admin UI or a seed handler before the first file operation.',
   );
+  r.uiHints({
+    displayLabel: "File Provider · S3",
+    category: "storage",
+    recommended: false,
+  });
   r.requires("config");
   r.requires("secrets");
   r.requires("file-foundation");

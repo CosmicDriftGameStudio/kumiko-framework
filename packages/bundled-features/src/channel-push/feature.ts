@@ -8,6 +8,11 @@ export function createChannelPushFeature(options: PushChannelOptions): FeatureDe
     r.describe(
       "Delivers push notifications through a `PushTransport` (bring your own FCM/APNs adapter or use `createInMemoryPushTransport()` for tests) registered as the `push` channel in the delivery system. Requires `delivery`; supply a `PushChannelOptions` with a transport and a resolver that maps a user ID to their device token.",
     );
+    r.uiHints({
+      displayLabel: "Push Channel",
+      category: "notifications",
+      recommended: false,
+    });
     r.requires("delivery");
 
     r.useExtension("deliveryChannel", "push", {

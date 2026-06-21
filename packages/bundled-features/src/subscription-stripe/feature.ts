@@ -111,6 +111,11 @@ export function createSubscriptionStripeFeature(
     r.describe(
       'Stripe payment provider plugin for `billing-foundation`. Reads its Stripe API key + webhook secret from system config keys with `backing:"secrets"` (envelope-encrypted in the secrets store under the system tenant) and a `billingLive` **system config** flag — all at runtime, so keys rotate and prod goes live without a redeploy. The `mask` on each key derives the sysadmin settings screen + nav, so no app wires a hand-written config UI. Mount via `createSubscriptionStripeFeature({ priceToTier })`; the optional `apiKey`/`webhookSecret` options are env→secrets bridge fallbacks. The plugin always mounts — `createCheckoutSession` throws `feature_disabled` unless `billingLive` is true, so sk_test_ keys in prod never produce a live checkout. Implements all four provider methods (webhook verify, checkout, portal, cancel).',
     );
+    r.uiHints({
+      displayLabel: "Billing · Stripe",
+      category: "billing",
+      recommended: false,
+    });
     // Hard-deps: billing-foundation (plugin-host) + config (billing-live +
     // backing:"secrets" credentials) + secrets (the store the backing:secrets
     // dispatch reads/writes + its tenant_secrets table).

@@ -14,7 +14,12 @@
       "extensionsUsed": [],
       "configKeys": [],
       "secrets": [],
-      "writeHandlers": []
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Audit Log",
+        "category": "compliance",
+        "recommended": false
+      }
     },
     {
       "name": "auth-email-password",
@@ -107,7 +112,12 @@
         "cap-counter:write:increment",
         "cap-counter:write:increment-rolling",
         "cap-counter:write:mark-soft-warned"
-      ]
+      ],
+      "uiHints": {
+        "displayLabel": "Cap Counter · Usage Limits",
+        "category": "operations",
+        "recommended": false
+      }
     },
     {
       "name": "channel-email",
@@ -128,7 +138,12 @@
       ],
       "configKeys": [],
       "secrets": [],
-      "writeHandlers": []
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Email Channel",
+        "category": "notifications",
+        "recommended": false
+      }
     },
     {
       "name": "channel-in-app",
@@ -152,7 +167,12 @@
       "writeHandlers": [
         "channel-in-app:write:mark-all-read",
         "channel-in-app:write:mark-read"
-      ]
+      ],
+      "uiHints": {
+        "displayLabel": "In-App Inbox",
+        "category": "notifications",
+        "recommended": false
+      }
     },
     {
       "name": "channel-push",
@@ -173,7 +193,12 @@
       ],
       "configKeys": [],
       "secrets": [],
-      "writeHandlers": []
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Push Channel",
+        "category": "notifications",
+        "recommended": false
+      }
     },
     {
       "name": "compliance-profiles",
@@ -191,7 +216,12 @@
       "secrets": [],
       "writeHandlers": [
         "compliance-profiles:write:set-profile"
-      ]
+      ],
+      "uiHints": {
+        "displayLabel": "Compliance Profiles",
+        "category": "compliance",
+        "recommended": false
+      }
     },
     {
       "name": "config",
@@ -208,7 +238,12 @@
       "writeHandlers": [
         "config:write:reset",
         "config:write:set"
-      ]
+      ],
+      "uiHints": {
+        "displayLabel": "Tenant Config Store",
+        "category": "infrastructure",
+        "recommended": true
+      }
     },
     {
       "name": "custom-fields",
@@ -230,7 +265,12 @@
         "custom-fields:write:delete-tenant-field",
         "custom-fields:write:set-custom-field",
         "custom-fields:write:update-tenant-field"
-      ]
+      ],
+      "uiHints": {
+        "displayLabel": "Custom Fields",
+        "category": "data",
+        "recommended": false
+      }
     },
     {
       "name": "data-retention",
@@ -246,7 +286,12 @@
       "extensionsUsed": [],
       "configKeys": [],
       "secrets": [],
-      "writeHandlers": []
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Data Retention Policy",
+        "category": "compliance",
+        "recommended": false
+      }
     },
     {
       "name": "delivery",
@@ -326,7 +371,12 @@
         }
       ],
       "secrets": [],
-      "writeHandlers": []
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "File Provider Foundation",
+        "category": "storage",
+        "recommended": false
+      }
     },
     {
       "name": "file-provider-inmemory",
@@ -347,7 +397,12 @@
       ],
       "configKeys": [],
       "secrets": [],
-      "writeHandlers": []
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "File Provider · In-Memory",
+        "category": "storage",
+        "recommended": false
+      }
     },
     {
       "name": "file-provider-s3",
@@ -477,7 +532,12 @@
           "hint": "Private half of the S3 key pair. Hetzner calls it 'Secret Key', AWS calls it 'Secret Access Key'."
         }
       ],
-      "writeHandlers": []
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "File Provider · S3",
+        "category": "storage",
+        "recommended": false
+      }
     },
     {
       "name": "files",
@@ -513,7 +573,12 @@
       "writeHandlers": [
         "jobs:write:retry",
         "jobs:write:trigger"
-      ]
+      ],
+      "uiHints": {
+        "displayLabel": "Jobs · Audit & Operator UI",
+        "category": "operations",
+        "recommended": false
+      }
     },
     {
       "name": "legal-pages",
@@ -529,7 +594,12 @@
       "extensionsUsed": [],
       "configKeys": [],
       "secrets": [],
-      "writeHandlers": []
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Legal Pages",
+        "category": "content",
+        "recommended": false
+      }
     },
     {
       "name": "mail-foundation",
@@ -567,7 +637,12 @@
         }
       ],
       "secrets": [],
-      "writeHandlers": []
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Mail Transport Foundation",
+        "category": "notifications",
+        "recommended": false
+      }
     },
     {
       "name": "mail-transport-inmemory",
@@ -720,7 +795,12 @@
           "hint": "Login password at the SMTP server. Brevo/Postmark/SES call it 'API key' or 'SMTP credentials'."
         }
       ],
-      "writeHandlers": []
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Mail Transport · SMTP",
+        "category": "notifications",
+        "recommended": false
+      }
     },
     {
       "name": "managed-pages",
@@ -904,7 +984,12 @@
         "managed-pages:write:page:delete",
         "managed-pages:write:page:update",
         "managed-pages:write:set"
-      ]
+      ],
+      "uiHints": {
+        "displayLabel": "Managed Pages · Public CMS",
+        "category": "content",
+        "recommended": false
+      }
     },
     {
       "name": "rate-limiting",
@@ -918,7 +1003,12 @@
       "extensionsUsed": [],
       "configKeys": [],
       "secrets": [],
-      "writeHandlers": []
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Rate Limiting · Ops Query",
+        "category": "operations",
+        "recommended": false
+      }
     },
     {
       "name": "readiness",
@@ -935,7 +1025,12 @@
       "extensionsUsed": [],
       "configKeys": [],
       "secrets": [],
-      "writeHandlers": []
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Readiness · Onboarding Probe",
+        "category": "operations",
+        "recommended": false
+      }
     },
     {
       "name": "renderer-foundation",
@@ -951,7 +1046,12 @@
       "extensionsUsed": [],
       "configKeys": [],
       "secrets": [],
-      "writeHandlers": []
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Renderer Foundation",
+        "category": "notifications",
+        "recommended": false
+      }
     },
     {
       "name": "renderer-simple",
@@ -972,7 +1072,12 @@
       ],
       "configKeys": [],
       "secrets": [],
-      "writeHandlers": []
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Renderer · Simple",
+        "category": "notifications",
+        "recommended": false
+      }
     },
     {
       "name": "secrets",
@@ -989,7 +1094,12 @@
       "writeHandlers": [
         "secrets:write:delete",
         "secrets:write:set"
-      ]
+      ],
+      "uiHints": {
+        "displayLabel": "Tenant Secrets",
+        "category": "infrastructure",
+        "recommended": true
+      }
     },
     {
       "name": "sessions",
@@ -1030,7 +1140,12 @@
       "extensionsUsed": [],
       "configKeys": [],
       "secrets": [],
-      "writeHandlers": []
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Step Dispatcher · Deferred Side-Effects",
+        "category": "infrastructure",
+        "recommended": false
+      }
     },
     {
       "name": "subscription-mollie",
@@ -1051,7 +1166,12 @@
       ],
       "configKeys": [],
       "secrets": [],
-      "writeHandlers": []
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Billing · Mollie",
+        "category": "billing",
+        "recommended": false
+      }
     },
     {
       "name": "subscription-stripe",
@@ -1140,7 +1260,12 @@
         }
       ],
       "secrets": [],
-      "writeHandlers": []
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Billing · Stripe",
+        "category": "billing",
+        "recommended": false
+      }
     },
     {
       "name": "tags",
@@ -1158,7 +1283,12 @@
         "tags:write:assign-tag",
         "tags:write:create-tag",
         "tags:write:remove-tag"
-      ]
+      ],
+      "uiHints": {
+        "displayLabel": "Tags",
+        "category": "data",
+        "recommended": false
+      }
     },
     {
       "name": "template-resolver",
@@ -1177,7 +1307,12 @@
         "template-resolver:write:publish",
         "template-resolver:write:upsert-system",
         "template-resolver:write:upsert-tenant"
-      ]
+      ],
+      "uiHints": {
+        "displayLabel": "Template Resolver",
+        "category": "notifications",
+        "recommended": false
+      }
     },
     {
       "name": "tenant",
@@ -1385,7 +1520,12 @@
       "secrets": [],
       "writeHandlers": [
         "text-content:write:set"
-      ]
+      ],
+      "uiHints": {
+        "displayLabel": "Text Content · Markdown Store",
+        "category": "content",
+        "recommended": false
+      }
     },
     {
       "name": "tier-engine",
@@ -1406,7 +1546,12 @@
         "tier-engine:write:set-tenant-tier",
         "tier-engine:write:tier-assignment:create",
         "tier-engine:write:tier-assignment:update"
-      ]
+      ],
+      "uiHints": {
+        "displayLabel": "Tier Engine · Plan Composition",
+        "category": "billing",
+        "recommended": false
+      }
     },
     {
       "name": "user",
@@ -1463,7 +1608,12 @@
         "user-data-rights:write:request-export",
         "user-data-rights:write:restrict-account",
         "user-data-rights:write:run-forget-cleanup"
-      ]
+      ],
+      "uiHints": {
+        "displayLabel": "User Data Rights · GDPR",
+        "category": "compliance",
+        "recommended": false
+      }
     },
     {
       "name": "user-data-rights-defaults",
@@ -1490,7 +1640,12 @@
       ],
       "configKeys": [],
       "secrets": [],
-      "writeHandlers": []
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "User Data Rights · Default Hooks",
+        "category": "compliance",
+        "recommended": false
+      }
     },
     {
       "name": "user-profile",
@@ -1510,7 +1665,12 @@
       "secrets": [],
       "writeHandlers": [
         "user-profile:write:change-email"
-      ]
+      ],
+      "uiHints": {
+        "displayLabel": "User Profile · Self-Service",
+        "category": "identity",
+        "recommended": true
+      }
     }
   ]
 }

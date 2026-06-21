@@ -63,6 +63,11 @@ export const fileProviderInMemoryFeature = defineFeature(FEATURE_NAME, (r) => {
   r.describe(
     'Registers an in-process `"inmemory"` provider for `file-foundation` that stores file bytes per tenant in a module-level Map. Use `listKeys(tenantId)` and `clearStorage(tenantId)` in demo apps and tests; not for production (data is lost on restart and grows without bound).',
   );
+  r.uiHints({
+    displayLabel: "File Provider · In-Memory",
+    category: "storage",
+    recommended: false,
+  });
   // Kein r.requires("config") + kein r.requires("secrets") — der
   // In-Memory-Provider hat keine Config + kein Secret. Nur die
   // file-foundation muss da sein (Plugin-extension-point).

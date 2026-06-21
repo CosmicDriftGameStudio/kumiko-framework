@@ -38,8 +38,8 @@ describe("create-kumiko-app CLI", () => {
     expect(cfg).toContain("createUserFeature");
     expect(cfg).toContain("createTenantFeature");
     expect(cfg).toContain("createDeliveryFeature");
-    // Foundation (secrets/sessions) was NOT auto-added when caller passed features.
-    expect(cfg).not.toContain("createSecretsFeature");
+    // mail-transport-smtp is opt-in (not recommended, no transitive require) — should NOT auto-mount.
+    expect(cfg).not.toContain("mailTransportSmtpFeature");
   });
 
   test("--print-manifest emits JSON, no name needed", async () => {

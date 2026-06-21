@@ -30,6 +30,11 @@ export function createComplianceProfilesFeature(): FeatureDefinition {
     r.describe(
       "Lets each tenant select a compliance regime (e.g. `eu-dsgvo`, `swiss-dsg`, `de-hr-dsgvo-hgb`) that bundles user-rights grace periods, breach-disclosure deadlines, sub-processor requirements, and audit-retention rules into a single named profile. Tenant admins call `compliance-profiles:write:set-profile` to choose a profile (with optional JSON override for edge cases); other features resolve the effective profile via the `compliance.forTenant` cross-feature API. Required by `user-data-rights` \u2014 mount this feature before it.",
     );
+    r.uiHints({
+      displayLabel: "Compliance Profiles",
+      category: "compliance",
+      recommended: false,
+    });
     // Standalone — kein r.requires noetig: tenantId kommt aus dem User-
     // Context, Profile-Selection ist eigene Entity, sub-processor-Liste
     // sind Constants. Wenn S1.4+ Cross-Feature-Reads dazukommen, kommt
