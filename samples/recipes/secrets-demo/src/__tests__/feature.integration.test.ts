@@ -55,9 +55,11 @@ function keyringEnv(current: number, withV2 = false): Record<string, string> {
   return env;
 }
 
-// Buggy handler for the response-guard test. Deliberately returns a
-// Secret<> branded value in its data payload. The dispatcher must
-// intercept this before the response leaves the wire.
+// Buggy handler for the response-guard test. Deliberately returns a Secret<>
+// branded value in its data payload. The R6 compile-time guard now makes that a
+// type error, so `as unknown as string` deliberately erodes the type — the
+// `any`-hole R6 cannot see — to prove the RUNTIME guard is the backstop that
+// still intercepts the leak before the response leaves the wire.
 const leakyFeature = defineFeature("leaky", (r) => {
   r.writeHandler(
     defineWriteHandler({
@@ -66,7 +68,7 @@ const leakyFeature = defineFeature("leaky", (r) => {
       access: { roles: ["TenantAdmin"] },
       handler: async () => ({
         isSuccess: true,
-        data: { apiKey: createSecret("would-have-been-leaked") },
+        data: { apiKey: createSecret("would-have-been-leaked") as unknown as string },
       }),
     }),
   );

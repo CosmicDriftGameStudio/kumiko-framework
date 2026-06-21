@@ -8,6 +8,7 @@ export { decryptValue, encryptValue } from "./envelope";
 export { assertNoSecretLeak } from "./leak-guard";
 export { rewrapDek } from "./rotation";
 export {
+  type ContainsSecret,
   createSecret,
   type Envelope,
   isSecret,

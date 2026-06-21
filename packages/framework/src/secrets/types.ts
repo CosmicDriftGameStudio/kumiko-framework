@@ -34,6 +34,58 @@ export function isSecret(v: unknown): v is Secret<unknown> {
   return typeof v === "object" && v !== null && SecretBrand in v;
 }
 
+// --- Compile-time response guard (R6) --------------------------------------
+//
+// ContainsSecret<T> is `true` only when a Secret<> is DEFINITELY present
+// somewhere in T. The handler-registration guard (defineWriteHandler/
+// defineQueryHandler) turns a `true` into a compile error — the static twin of
+// assertNoSecretLeak's runtime walk.
+//
+// Biased to `false`: anything it cannot inspect — a bare generic type param (a
+// handler generic over its response), `unknown`/`any`, `never` — resolves to
+// `false` = allowed, with the runtime guard as the backstop. The alternative
+// (default-to-leak) false-flags every legitimate generic-over-response handler.
+//
+// Branch order is load-bearing: never/unknown/any first (uninspectable), then
+// Secret, then primitives (covers branded primitives like TenantId without
+// enumerating them), then the SafeLeaf allowlist (opaque class instances that
+// blind `{ [K in keyof T] }` recursion would mangle — the type-level mirror of
+// leak-guard.ts skipping non-plain objects), then arrays, then a "does any
+// field contain a secret" fold over plain objects.
+type Primitive = string | number | boolean | bigint | symbol | null | undefined;
+
+// Opaque built-in leaves a response legitimately carries; never recurse into
+// them. Extend when the bundled-features tsc sweep surfaces a real leaf type.
+type SafeLeaf =
+  | Date
+  | RegExp
+  | Temporal.Instant
+  | Temporal.ZonedDateTime
+  | Temporal.PlainDate
+  | Temporal.PlainDateTime
+  | Temporal.PlainTime
+  | Temporal.PlainYearMonth
+  | Temporal.PlainMonthDay
+  | Temporal.Duration;
+
+export type ContainsSecret<T> = [T] extends [never]
+  ? false
+  : unknown extends T
+    ? false
+    : T extends Secret<unknown>
+      ? true
+      : T extends Primitive
+        ? false
+        : T extends SafeLeaf
+          ? false
+          : T extends readonly (infer U)[]
+            ? ContainsSecret<U>
+            : T extends object
+              ? true extends { [K in keyof T]-?: ContainsSecret<T[K]> }[keyof T]
+                ? true
+                : false
+              : false;
+
 // Per-read audit context. Populated by requireSecretsContext() wrapper so
 // handlers don't need to pass userId/handlerName manually on every call.
 // Undefined for framework-internal reads (rotation job, tests) — the audit
