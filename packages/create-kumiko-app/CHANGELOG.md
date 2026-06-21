@@ -1,5 +1,16 @@
 # create-kumiko-app
 
+## 0.3.2
+
+### Patch Changes
+
+- 7b03587: Release-script (`scripts/publish-with-oidc.sh`) allowlist now permits unscoped
+  `create-kumiko-app` (and the `create-kumiko` fallback per Plan-Doc D1).
+  Previously the case-statement allowed only `@cosmicdrift/*` workspaces, so
+  every release silently skipped the bun-create wrapper — `npm view
+create-kumiko-app` 404'd and `https://kumiko.rocks/install.sh`
+  (Phase 2b) had nothing to install.
+
 ## 0.3.1
 
 ### Patch Changes
