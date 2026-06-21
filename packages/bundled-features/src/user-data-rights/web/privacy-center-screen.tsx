@@ -19,6 +19,7 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
+import { postWithDownload } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useEffect, useState } from "react";
 import {
   EXPORT_JOB_STATUS,
@@ -26,7 +27,6 @@ import {
   USER_ME_QUERY,
   UserDataRightsHandlers,
   UserDataRightsQueries,
-  userExportByJobPath,
 } from "../constants";
 
 const STATUS_DELETION_REQUESTED = "deletionRequested";
@@ -104,6 +104,15 @@ function ExportSection(): ReactNode {
     void statusQuery.refetch?.();
   };
 
+  // Download laeuft ueber den Dispatcher (traegt X-CSRF-Token) statt ueber
+  // eine <a>-Navigation: download-by-job liefert eine signed URL zurueck, auf
+  // die postWithDownload den Browser navigiert (content-disposition:
+  // attachment → laedt herunter).
+  const downloadExport = async (jobId: string): Promise<void> => {
+    const err = await postWithDownload(dispatcher, UserDataRightsQueries.downloadByJob, { jobId });
+    if (err) setStatus({ kind: "error", messageKey: failureKey(err) });
+  };
+
   const result = statusQuery.data;
   const job = result && result.hasJob ? result.job : null;
   const submitting = status.kind === "submitting";
@@ -150,13 +159,15 @@ function ExportSection(): ReactNode {
               })}
             </p>
           )}
-          <a
-            href={userExportByJobPath(job.id)}
-            data-testid="privacy-export-download"
-            className="mt-2 inline-block font-medium underline"
-          >
-            {t("userDataRights.privacyCenter.export.download")}
-          </a>
+          <div className="mt-2">
+            <Button
+              variant="secondary"
+              onClick={() => void downloadExport(job.id)}
+              testId="privacy-export-download"
+            >
+              {t("userDataRights.privacyCenter.export.download")}
+            </Button>
+          </div>
         </Banner>
       )}
       <StatusBanner status={status} />

@@ -13,6 +13,7 @@ export const PRIVACY_CENTER_SCREEN_ID = "privacy-center" as const;
 export const UserDataRightsQueries = {
   exportStatus: "user-data-rights:query:export-status",
   myAuditLog: "user-data-rights:query:my-audit-log",
+  downloadByJob: "user-data-rights:query:download-by-job",
 } as const;
 
 export const UserDataRightsHandlers = {
@@ -27,13 +28,6 @@ export const UserDataRightsHandlers = {
 // importieren (Runtime-Isolation, wie user-profile). Drift-Schutz: der
 // Screen-Test vergleicht gegen UserQueries.me.
 export const USER_ME_QUERY = "user:query:user:me" as const;
-
-// Download-Pfad des fertigen Export-Bundles: der dokumentierte UI-Klick-Pfad
-// (r.httpRoute in feature.ts), der per 302 auf die signed Storage-URL
-// weiterleitet. Anchor-navigierbar (Cookie-Auth wird mitgesendet).
-export function userExportByJobPath(jobId: string): string {
-  return `/user-export/by-job/${jobId}`;
-}
 
 // Client-safe Mirror von EXPORT_JOB_STATUS (schema/export-job.ts ist
 // server-only via Drizzle-Import). Drift-Schutz: der Screen-Test vergleicht

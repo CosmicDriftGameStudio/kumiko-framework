@@ -23,6 +23,7 @@
 //   6. Audit-Update: useCount + 1, IP, UA, lastUsedAt (best-effort)
 //   7. Return {url, expiresAt}
 
+import { requestContext } from "@cosmicdrift/kumiko-framework/api";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
@@ -54,12 +55,6 @@ export const downloadByJobQuery = defineQueryHandler({
   name: "download-by-job",
   schema: z.object({
     jobId: z.string().min(1, "jobId required"),
-    auditMeta: z
-      .object({
-        ip: z.string().nullable(),
-        userAgent: z.string().nullable(),
-      })
-      .optional(),
   }),
   access: { openToAll: true }, // openToAll = auth-required, kein anonymous
   handler: async (query, ctx) => {
@@ -68,8 +63,13 @@ export const downloadByJobQuery = defineQueryHandler({
     const userId = query.user.id;
     const jobId = query.payload.jobId;
     const tenantId = query.user.tenantId;
-    const auditIp = query.payload.auditMeta?.ip ?? null;
-    const auditUa = query.payload.auditMeta?.userAgent ?? null;
+    // IP aus dem request-scoped Kontext (von requestIdMiddleware aus
+    // x-forwarded-for befuellt) — server-trusted, anders als ein vom Client
+    // mitgeschickter Wert. UA steht nicht im RequestContext; der Audit-Row
+    // laesst sie null (best-effort, via requestId in den Server-Logs
+    // cross-referenzierbar).
+    const auditIp = requestContext.get()?.ip ?? null;
+    const auditUa: string | null = null;
 
     // Step 1-2: job-lookup + cross-user-isolation
     // ctx.db.raw weil tenant-agnostisch — Alice in Tenant B sucht den
@@ -179,8 +179,8 @@ export const downloadByJobQuery = defineQueryHandler({
         tokenUseCount: tokenRow.useCount ?? 0,
         tenantId: jobRow.requestedFromTenantId,
         now,
-        ip: query.payload.auditMeta?.ip ?? null,
-        userAgent: query.payload.auditMeta?.userAgent ?? null,
+        ip: auditIp,
+        userAgent: auditUa,
       });
     }
     // Wenn tokenRow fehlt (sollte nicht passieren wenn Atom 4a sauber
