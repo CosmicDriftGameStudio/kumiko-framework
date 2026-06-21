@@ -11,11 +11,12 @@ produces a split-screen GIF + captions JSON for the marketing site.
   (the hero demo), and a dry-run validator (`__tests__/dry-run.test.ts`)
   that asserts every demo file parses, has plausible selectors, and ships
   non-empty German + English captions ≤ 60 chars.
-- **Iter 2 (not yet)** — `scripts/record-demo.ts`: tmux 2-pane layout +
-  Playwright headed chromium + `ffmpeg -f avfoundation` → GIF. macOS-only
-  capture pipeline (Plan-Doc D8). Captions get rendered as an HTML layer
-  next to the GIF on the marketing site (`HeroDemo.astro` in the
-  kumiko-platform repo), not burned into the pixels.
+- **Iter 2 (shipped)** — `scripts/record-demo.ts` orchestrates tmux
+  2-pane layout + Playwright headed chromium + `ffmpeg -f avfoundation`
+  → GIF. macOS-only capture pipeline (Plan-Doc D8). Captions get rendered
+  as an HTML layer next to the GIF on the marketing site
+  (`HeroDemo.astro` in the kumiko-platform repo), not burned into the
+  pixels. See [`./RECORDING.md`](./RECORDING.md) for setup + run.
 
 ## Adding a demo
 
