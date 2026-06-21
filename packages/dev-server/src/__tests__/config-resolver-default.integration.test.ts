@@ -123,6 +123,9 @@ describe("runDevApp configResolver-default — ENV→app-override bridge", () =>
       user: { id: TestUsers.systemAdmin.id, tenantId: TestUsers.systemAdmin.tenantId },
       db: stack.db,
     });
-    expect(await accessor(PAGE_SIZE)).toBe(99);
+    // appOverride values come through raw (string) — what matters is it's the
+    // override's "99", NOT the env-bridge default ("25"): proves the factory
+    // was built from the caller's resolver, exactly like money-horse's "s3-env".
+    expect(await accessor(PAGE_SIZE)).toBe("99");
   });
 });
