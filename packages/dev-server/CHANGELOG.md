@@ -1,5 +1,13 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.81.1
+
+### Patch Changes
+
+- 9a798c5: Fix: any API handler reading `ctx.config` threw `errors.internal` in prod (first hit: the GDPR data-export download via `createFileProviderForTenant`). `runProdApp`/`runDevApp` wired `configResolver` into the AppContext but never `_configAccessorFactory`, so the dispatcher left `ctx.config` undefined. Boot now mints the factory from the **effective** resolver (an app-supplied configResolver override wins), restoring `ctx.config` for all handlers with dev/prod parity.
+  - @cosmicdrift/kumiko-framework@0.81.1
+  - @cosmicdrift/kumiko-bundled-features@0.81.1
+
 ## 0.81.0
 
 ### Patch Changes
