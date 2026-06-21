@@ -29,7 +29,9 @@ function listDemoFiles(): readonly string[] {
 }
 
 function isPlausibleSelector(s: string): boolean {
-  return /^\[data-test=|^#|^\.|^[a-z][a-z0-9]*[ >+~]?/.test(s);
+  // [data-test=…] / [data-sidebar=…] / [data-kumiko-layout=…] etc. —
+  // any data-* attribute selector counts as a stable landmark.
+  return /^\[data-[a-z-]+=|^#|^\.|^[a-z][a-z0-9]*[ >+~[]?/.test(s);
 }
 
 function isInsideAppTree(path: string): boolean {
@@ -38,6 +40,7 @@ function isInsideAppTree(path: string): boolean {
   return (
     path.startsWith("src/") ||
     path.startsWith("bin/") ||
+    path === ".env" ||
     /^(package|tsconfig|biome|bunfig|docker-compose)\b/.test(path)
   );
 }
