@@ -13,6 +13,11 @@ import { composeFeatures } from "../compose-features";
 
 const noopFeature = defineFeature("noop-app", () => {});
 
+// Mirrors what the create-kumiko-app picker hands back when the user
+// ticks an auto-mounted feature: a stub with the same name as a bundled
+// one. The dedupe path drops it and warns.
+const pickerAuthDupe = defineFeature("auth-email-password", () => {});
+
 const HMAC_SECRET = "test-secret-with-at-least-32-bytes-aaa";
 
 describe("composeFeatures", () => {
@@ -77,5 +82,30 @@ describe("composeFeatures", () => {
     // aber immer da sein — das ist der core-flow.
     expect(handlerNames).toContain("login");
     expect(handlerNames).toContain("logout");
+  });
+
+  test("app feature duplicating a bundled name is dropped (no createRegistry crash)", () => {
+    // Bug discovered during Phase 3 recording: create-kumiko-app's picker
+    // hands back createAuthEmailPasswordFeature() because the user ticked
+    // it in the recommended set; runDevApp then adds its OWN bundled
+    // copy via includeBundled:true, and createRegistry throws "Duplicate
+    // feature: auth-email-password". The dedupe path keeps the bundled
+    // instance (it carries authOptions wiring) and drops the app stub.
+    const features = composeFeatures([pickerAuthDupe, noopFeature], {
+      includeBundled: true,
+    });
+    expect(features.map((f) => f.name)).toEqual([
+      "config",
+      "user",
+      "tenant",
+      "auth-email-password",
+      "noop-app",
+    ]);
+    // The kept instance is the bundled one — confirmed by the presence of
+    // login/logout handlers (the picker stub has none).
+    const auth = features.find((f) => f.name === "auth-email-password");
+    expect(auth).toBeDefined();
+    if (!auth) return;
+    expect(Object.keys(auth.writeHandlers)).toContain("login");
   });
 });

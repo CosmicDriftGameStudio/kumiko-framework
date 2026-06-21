@@ -41,15 +41,33 @@ export function composeFeatures(
   appFeatures: readonly FeatureDefinition[],
   options: ComposeFeaturesOptions,
 ): FeatureDefinition[] {
-  return options.includeBundled
-    ? [
-        createConfigFeature(),
-        createUserFeature(),
-        createTenantFeature(),
-        createAuthEmailPasswordFeature(options.authOptions ?? {}),
-        ...appFeatures,
-      ]
-    : [...appFeatures];
+  if (!options.includeBundled) return [...appFeatures];
+
+  // Bundled foundation goes first so its instances carry the runDevApp /
+  // runProdApp `authOptions` (passwordReset wiring etc.). App-features that
+  // ALSO declare one of these names — e.g. the create-kumiko-app picker
+  // hands back `createAuthEmailPasswordFeature()` because the user ticked
+  // it — would otherwise crash createRegistry with "Duplicate feature".
+  // Drop the app-side duplicates and warn so the user can clean run-config.
+  const bundled = [
+    createConfigFeature(),
+    createUserFeature(),
+    createTenantFeature(),
+    createAuthEmailPasswordFeature(options.authOptions ?? {}),
+  ];
+  const bundledNames = new Set(bundled.map((f) => f.name));
+  const filteredApp: FeatureDefinition[] = [];
+  for (const f of appFeatures) {
+    if (bundledNames.has(f.name)) {
+      // biome-ignore lint/suspicious/noConsole: boot-time UX warning
+      console.warn(
+        `[composeFeatures] "${f.name}" already auto-mounted via includeBundled — dropping the explicit copy from APP_FEATURES. Remove it from run-config.ts to silence this warning.`,
+      );
+      continue;
+    }
+    filteredApp.push(f);
+  }
+  return [...bundled, ...filteredApp];
 }
 
 /** Shape eines beliebigen run{Prod,Dev}App-Auth-Blocks der eine
