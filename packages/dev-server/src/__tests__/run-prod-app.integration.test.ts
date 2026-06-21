@@ -30,6 +30,7 @@ import {
   createProjectionStateTable,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import { unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-framework/stack";
+import { Queue } from "bullmq";
 import postgres from "postgres";
 import { z } from "zod";
 import { type ProdAppHandle, runProdApp } from "../run-prod-app";
@@ -117,6 +118,29 @@ const widgetFeature = defineFeature("prod-probe", (r) => {
     },
   });
 });
+
+// Worker-lane cron — the lane the data-export job (run-export-jobs) lives on.
+// runProdApp must schedule it (single-instance runs both lanes); on the old
+// createApiEntrypoint path it was silently never registered → exports hung.
+const cronProbeFeature = defineFeature("cron-probe", (r) => {
+  r.job("worker-lane-cron", { trigger: { cron: "0 0 1 1 *" }, runIn: "worker" }, async () => {});
+});
+
+async function workerLaneSchedulers(prefix: string): Promise<{ name?: string; key?: string }[]> {
+  const url = new URL(process.env["REDIS_URL"] ?? "redis://localhost:16379");
+  const queue = new Queue(`${prefix}-worker`, {
+    connection: { host: url.hostname, port: Number(url.port) },
+  });
+  // Read-only: do NOT obliterate — the running all-in-one worker consumes this
+  // same queue, and deleting its keys mid-flight aborts the worker's blocking
+  // Redis read with "Connection is closed". The unique prefix isolates the
+  // leftover scheduler; the test Redis is ephemeral.
+  try {
+    return await queue.getJobSchedulers();
+  } finally {
+    await queue.close();
+  }
+}
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001";
 
@@ -745,5 +769,35 @@ describe("runProdApp — auth allowedOrigins forwarding", () => {
     if (bootError !== undefined) {
       expect(String(bootError)).not.toMatch(/allowedOrigins is empty/);
     }
+  });
+});
+
+describe("runProdApp job-lane wiring (runSingleInstance)", () => {
+  // Red-then-green for the export bug: on createApiEntrypoint (old default) the
+  // worker-lane cron was never registered. createAllInOneEntrypoint (new
+  // single-instance default) runs two runners, so it IS registered.
+  test("default single-instance schedules the WORKER-lane cron", async () => {
+    const prefix = `test-rsi-${Date.now().toString(36)}`;
+    const handle = await boot(undefined, {
+      features: [cronProbeFeature],
+      jobs: { queueNamePrefix: prefix },
+    });
+    expect(handle.entrypoint.mode).toBe("all-in-one");
+    const schedulers = await workerLaneSchedulers(prefix);
+    expect(schedulers.some((s) => (s.name ?? s.key ?? "").includes("worker-lane-cron"))).toBe(true);
+  });
+
+  test("runSingleInstance:false → api-only, worker lane left to a dedicated worker", async () => {
+    const prefix = `test-rsi-api-${Date.now().toString(36)}`;
+    const handle = await boot(undefined, {
+      features: [cronProbeFeature],
+      jobs: { queueNamePrefix: prefix },
+      runSingleInstance: false,
+    });
+    expect(handle.entrypoint.mode).toBe("api");
+    const schedulers = await workerLaneSchedulers(prefix);
+    expect(schedulers.some((s) => (s.name ?? s.key ?? "").includes("worker-lane-cron"))).toBe(
+      false,
+    );
   });
 });
