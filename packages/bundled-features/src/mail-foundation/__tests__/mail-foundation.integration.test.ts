@@ -32,6 +32,7 @@ import { ConfigHandlers } from "../../config/constants";
 import { createConfigAccessorFactory } from "../../config/feature";
 import { type ConfigResolver, createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
+import { clearInbox, getInbox, mailTransportInMemoryFeature } from "../../mail-transport-inmemory";
 import { mailTransportSmtpFeature, SMTP_PASSWORD } from "../../mail-transport-smtp";
 import { createSecretsContext, createSecretsFeature, tenantSecretsTable } from "../../secrets";
 import { createTenantFeature } from "../../tenant/feature";
@@ -55,6 +56,22 @@ const testProbeFeature = defineFeature("mail-test", (r) => {
           isSuccess: true,
           data: { hasSend: typeof transport.send === "function" },
         };
+      },
+    }),
+  );
+  r.writeHandler(
+    defineWriteHandler({
+      name: "send",
+      schema: z.object({ to: z.string(), subject: z.string(), html: z.string() }),
+      access: { roles: ["TenantAdmin", "SystemAdmin"] },
+      handler: async (event, ctx) => {
+        const transport = await createTransportForTenant(
+          ctx,
+          event.user.tenantId,
+          "mail-test:write:send",
+        );
+        await transport.send(event.payload);
+        return { isSuccess: true, data: {} };
       },
     }),
   );
@@ -91,6 +108,7 @@ beforeAll(async () => {
       createSecretsFeature(),
       mailFoundationFeature,
       mailTransportSmtpFeature,
+      mailTransportInMemoryFeature,
       testProbeFeature,
     ],
     masterKeyProvider: providerRef,
@@ -249,5 +267,20 @@ describe("scenario 3: tenant isolation", () => {
     const b = (await stack.http.writeOk(TEST_HANDLER_QN, {}, adminB)) as Record<string, unknown>;
     expect(a["hasSend"]).toBe(true);
     expect(b["hasSend"]).toBe(true);
+  });
+});
+
+// --- Scenario 4: the in-memory transport plugin actually delivers ---
+
+describe("scenario 4: in-memory transport dispatch", () => {
+  test("provider=inmemory → a sent mail lands in that tenant's inbox", async () => {
+    const admin = adminFor(406);
+    clearInbox(admin.tenantId);
+    await setConfig(admin, "mail-foundation:config:provider", "inmemory");
+
+    const message = { to: "user@acme.test", subject: "Hi", html: "<p>hello</p>" };
+    await stack.http.writeOk("mail-test:write:send", message, admin);
+
+    expect(getInbox(admin.tenantId)).toEqual([message]);
   });
 });

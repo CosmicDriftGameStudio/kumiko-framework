@@ -200,3 +200,28 @@ describe("tenant-storage-usage MSP", () => {
     ).toBeGreaterThanOrEqual(0);
   });
 });
+
+// The MSP tests above prove upload *accounting*; nothing asserts the file
+// actually comes back. This pins the full HTTP read path (GET /files/:id →
+// provider readStream → response body) — the user-facing roundtrip.
+describe("file download roundtrip (GET /files/:id)", () => {
+  async function download(user: SessionUser, id: string): Promise<Response> {
+    const token = await stack.jwt.sign(user);
+    return stack.app.request(`/api/files/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  }
+
+  test("returns the exact bytes that were uploaded", async () => {
+    const id = await upload(admin, "roundtrip.png", LARGE);
+    const res = await download(admin, id);
+    expect(res.status).toBe(200);
+    expect(new Uint8Array(await res.arrayBuffer())).toEqual(LARGE);
+  });
+
+  test("a deleted file is no longer downloadable", async () => {
+    const id = await upload(admin, "gone.png", SMALL);
+    await deleteFile(admin, id);
+    expect((await download(admin, id)).status).toBe(404);
+  });
+});
