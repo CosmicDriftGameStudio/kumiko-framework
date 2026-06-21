@@ -15,6 +15,8 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import { createUserFeature } from "../../user/feature";
+import { userEntity } from "../../user/schema/user";
 import { createSessionsFeature } from "../feature";
 import { cleanupJob } from "../handlers/cleanup.job";
 import { userSessionEntity, userSessionTable } from "../schema/user-session";
@@ -38,9 +40,10 @@ let stack: TestStack;
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [createSessionsFeature()],
+    features: [createSessionsFeature(), createUserFeature()],
   });
   await unsafeCreateEntityTable(stack.db, userSessionEntity);
+  await unsafeCreateEntityTable(stack.db, userEntity);
 });
 
 afterAll(async () => {

@@ -113,15 +113,16 @@ export const userEntity = createEntity({
 
     // S2.U1: User-Lifecycle-Status für user-data-rights (Sprint 2).
     //   - "active":            Normaler State, alle Operationen erlaubt
-    //   - "restricted":        Art. 18 Restriction — Auth-Middleware blockiert
-    //                          Schreib-Endpoints, Read bleibt erlaubt damit
-    //                          User das Banner sieht + lift-restriction klicken kann
-    //   - "deletionRequested": delete-account aufgerufen, gracePeriodEnd
-    //                          gesetzt, User kann via cancel-deletion zurueck
-    //                          auf "active". Auth-Middleware blockiert wie
-    //                          "restricted".
+    //   - "restricted":        Art. 18 Restriction — Login blockiert + jede
+    //                          Live-Session wird vom sessionChecker abgewiesen
+    //                          ("blocked"). Recovery via lift-restriction
+    //                          (openToAll, session-unabhängig).
+    //   - "deletionRequested": delete-account aufgerufen, gracePeriodEnd gesetzt,
+    //                          Login blockiert. Bestehende Session bleibt LIVE
+    //                          (reversibel) — User kann via cancel-deletion
+    //                          zurück auf "active".
     //   - "deleted":           Forget executed nach Grace, Row anonymisiert via
-    //                          softDelete. Auth-Middleware blockt Login.
+    //                          softDelete. Login blockiert + Session "blocked".
     //
     // Schreibrecht privileged: nur die request-deletion / restrict / lift /
     // execute-forget-Handler (alle SYSTEM-context) duerfen status flippen.

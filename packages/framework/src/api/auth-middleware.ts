@@ -24,8 +24,10 @@ export type AuthTransport = "cookie" | "bearer";
 
 // Status of a sid from the server's perspective. The sessions feature owns
 // the DB-backed implementation; middleware just consults whatever function
-// the app wires in.
-export type AuthSessionStatus = "live" | "revoked" | "expired" | "missing";
+// the app wires in. "blocked" = sid is live but the user it belongs to is
+// locked (restricted/deleted) — defense-in-depth so a missed session-revoke
+// can't keep a locked account authenticated.
+export type AuthSessionStatus = "live" | "revoked" | "expired" | "missing" | "blocked";
 
 // Called by the middleware after JWT-verify. Gets the sid AND the expected
 // userId from the JWT's `sub` — the checker MUST confirm the session row
