@@ -1361,6 +1361,7 @@
         "tenant:write:disable",
         "tenant:write:enable",
         "tenant:write:remove-member",
+        "tenant:write:tenant:update",
         "tenant:write:update",
         "tenant:write:update-member-roles"
       ],

@@ -1,7 +1,7 @@
 // SidebarBrand — der TeamSwitcher-Header aus shadcns sidebar-07: Logo-Kachel +
-// Name + Plan/Tagline + ChevronsUpDown. App-Author reicht ihn als `brand` an
-// DefaultAppShell. Reiner Look (kein Team-Switch-Dropdown) — eine App hat
-// meist EINE Identität; wer wechseln will, baut den Dropdown selbst drumrum.
+// Name + Plan/Tagline. App-Author reicht ihn als `brand` an DefaultAppShell.
+// Reiner Look (kein Team-Switch-Dropdown) — eine App hat meist EINE Identität;
+// wer wechseln will, baut den Dropdown selbst drumrum und setzt `collapsible`.
 
 import { ChevronsUpDown } from "lucide-react";
 import type { ReactNode } from "react";
@@ -15,9 +15,18 @@ export type SidebarBrandProps = {
   /** Logo in der Kachel — typisch ein Lucide-Icon. Fehlt es, steht der
    *  erste Buchstabe des Namens. */
   readonly logo?: ReactNode;
+  /** Zeigt das ChevronsUpDown-Icon (Aufklapp-Affordance) nur wenn die App den
+   *  Brand tatsächlich in ein Dropdown wrappt. Default false: ohne Dropdown
+   *  ist das Chevron irreführend (suggeriert ein Menü, das nicht aufgeht). */
+  readonly collapsible?: boolean;
 };
 
-export function SidebarBrand({ name, plan, logo }: SidebarBrandProps): ReactNode {
+export function SidebarBrand({
+  name,
+  plan,
+  logo,
+  collapsible = false,
+}: SidebarBrandProps): ReactNode {
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -32,7 +41,7 @@ export function SidebarBrand({ name, plan, logo }: SidebarBrandProps): ReactNode
             <span className="truncate font-semibold">{name}</span>
             {plan !== undefined && <span className="truncate text-xs">{plan}</span>}
           </div>
-          <ChevronsUpDown className="ml-auto" />
+          {collapsible && <ChevronsUpDown className="ml-auto" />}
         </SidebarMenuButton>
       </SidebarMenuItem>
     </SidebarMenu>

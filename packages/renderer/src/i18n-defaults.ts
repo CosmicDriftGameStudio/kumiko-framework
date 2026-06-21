@@ -19,6 +19,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.actions.delete-confirm": "Wirklich löschen?",
     "kumiko.actions.reload": "Neu laden",
     "kumiko.actions.create": "Neu",
+    "kumiko.actions.edit": "Bearbeiten",
 
     // Version — Update-Awareness-Banner (UpdateChecker).
     "kumiko.version.update-available": "Eine neue Version ist verfügbar.",
@@ -108,6 +109,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.actions.delete-confirm": "Confirm delete?",
     "kumiko.actions.reload": "Reload",
     "kumiko.actions.create": "New",
+    "kumiko.actions.edit": "Edit",
 
     "kumiko.version.update-available": "A new version is available.",
 

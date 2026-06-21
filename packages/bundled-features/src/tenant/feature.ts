@@ -2,6 +2,9 @@ import {
   access,
   createSystemConfig,
   createTenantConfig,
+  defineEntityDetailHandler,
+  defineEntityListHandler,
+  defineEntityUpdateHandler,
   defineFeature,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -22,6 +25,7 @@ import { updateMemberRolesWrite } from "./handlers/update-member-roles.write";
 import { tenantInvitationEntity } from "./invitation-table";
 import { tenantMembershipEntity } from "./membership-table";
 import { tenantEntity } from "./schema/tenant";
+import { tenantEditScreen, tenantListScreen } from "./screens";
 
 export { tenantEntity, tenantTable } from "./schema/tenant";
 
@@ -112,6 +116,24 @@ export function createTenantFeature(): FeatureDefinition {
       resolveUserIds: r.queryHandler(resolveUserIdsQuery),
       invitations: r.queryHandler(invitationsQuery),
     };
+
+    // Entity-convention handlers for the SystemAdmin entityList/entityEdit
+    // screens. The feature's original handlers predate the `<entity>:<verb>`
+    // naming (they sit on tenant:query:list / tenant:write:update); entityList/
+    // entityEdit resolve tenant:query:tenant:{list,detail} + tenant:write:tenant:
+    // update by convention, so these are added alongside (no rename = no break
+    // for existing callers). Cross-tenant because the feature is systemScope.
+    r.queryHandler(
+      defineEntityListHandler("tenant", tenantEntity, { access: { roles: ["SystemAdmin"] } }),
+    );
+    r.queryHandler(
+      defineEntityDetailHandler("tenant", tenantEntity, { access: { roles: ["SystemAdmin"] } }),
+    );
+    r.writeHandler(
+      defineEntityUpdateHandler("tenant", tenantEntity, { access: { roles: ["SystemAdmin"] } }),
+    );
+    r.screen(tenantListScreen);
+    r.screen(tenantEditScreen);
 
     return { handlers, queries };
   });

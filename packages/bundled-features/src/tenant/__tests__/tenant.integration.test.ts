@@ -368,3 +368,68 @@ describe("scenario 7: access rules on handlers", () => {
     });
   });
 });
+
+// --- Scenario 8: entityList/entityEdit convention QNs ---
+//
+// The SystemAdmin tenant-list/tenant-edit screens resolve data through the
+// entity-suffixed convention QNs (tenant:query:tenant:{list,detail},
+// tenant:write:tenant:update), which were added alongside the legacy
+// tenant:query:list / tenant:write:update handlers. The boot-validator does NOT
+// check that an entityEdit has a matching update/detail handler, so this is the
+// only thing that proves the screens have a live data path. Literal QNs on
+// purpose — they ARE the wire contract the renderer computes.
+
+describe("scenario 8: entityList/entityEdit convention QNs", () => {
+  test("tenant:query:tenant:list returns all tenants for SystemAdmin (systemScope)", async () => {
+    const result = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
+      "tenant:query:tenant:list",
+      {},
+      systemAdmin,
+    );
+    // acme + beta exist from earlier scenarios — systemScope yields all tenants.
+    expect(result.rows.length).toBeGreaterThanOrEqual(2);
+    expect(result.rows.map((r) => r["key"])).toEqual(expect.arrayContaining(["acme", "beta"]));
+  });
+
+  test("tenant:query:tenant:detail + tenant:write:tenant:update round-trip (entityEdit save persists)", async () => {
+    const created = await stack.http.writeOk(
+      "tenant:write:create",
+      { key: "delta", name: "Delta" },
+      systemAdmin,
+    );
+    const id = (created!["data"] as Record<string, unknown>)["id"] as string;
+
+    // entityEdit loads the row via the detail QN, edits, then saves via update.
+    const loaded = await stack.http.queryOk<Record<string, unknown>>(
+      "tenant:query:tenant:detail",
+      { id },
+      systemAdmin,
+    );
+    expect(loaded["name"]).toBe("Delta");
+
+    await stack.http.writeOk(
+      "tenant:write:tenant:update",
+      { id, version: loaded["version"], changes: { name: "Delta GmbH" } },
+      systemAdmin,
+    );
+
+    const reloaded = await stack.http.queryOk<Record<string, unknown>>(
+      "tenant:query:tenant:detail",
+      { id },
+      systemAdmin,
+    );
+    expect(reloaded["name"]).toBe("Delta GmbH");
+  });
+
+  test("the convention handlers are SystemAdmin-gated", () => {
+    expect(rolesOf(stack.registry.getQueryHandler("tenant:query:tenant:list")?.access)).toEqual([
+      "SystemAdmin",
+    ]);
+    expect(rolesOf(stack.registry.getQueryHandler("tenant:query:tenant:detail")?.access)).toEqual([
+      "SystemAdmin",
+    ]);
+    expect(rolesOf(stack.registry.getWriteHandler("tenant:write:tenant:update")?.access)).toEqual([
+      "SystemAdmin",
+    ]);
+  });
+});
