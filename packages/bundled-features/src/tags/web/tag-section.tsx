@@ -168,7 +168,7 @@ export function TagSection({
   };
 
   return (
-    <div data-testid="tags-section">
+    <div data-testid="tags-section" className="flex flex-col gap-4">
       <Field id="tags-section-select" label={t("tags.section.label")}>
         <Input
           kind="combobox"
@@ -184,26 +184,32 @@ export function TagSection({
         />
       </Field>
 
-      {/* ponytail: separate create row — the shared combobox has no create-on-type
-          affordance. Fold create into the dropdown's Command.Empty if/when the
-          renderer-web combobox grows a freeSolo/onCreate prop. */}
-      <Field id="tags-section-new" label={t("tags.section.newLabel")}>
-        <Input
-          kind="text"
-          id="tags-section-new"
-          name="newTag"
-          value={newName}
-          onChange={setNewName}
-        />
-      </Field>
-      <Button
-        variant="secondary"
-        disabled={busy || newName.trim() === ""}
-        onClick={() => createAndAssign()}
-        testId="tags-section-create"
-      >
-        {busy ? t("tags.section.working") : t("tags.section.create")}
-      </Button>
+      {/* Inline create-row: das Label-Input wächst, der Add-Button sitzt
+          rechts daneben (items-end → bündig zur Input-Unterkante).
+          ponytail: separate row, weil die Combobox keine create-on-type-
+          Affordance hat. Fold-in, wenn der renderer-web-Combobox ein
+          freeSolo/onCreate-Prop bekommt. */}
+      <div className="flex items-end gap-2">
+        <div className="flex-1">
+          <Field id="tags-section-new" label={t("tags.section.newLabel")}>
+            <Input
+              kind="text"
+              id="tags-section-new"
+              name="newTag"
+              value={newName}
+              onChange={setNewName}
+            />
+          </Field>
+        </div>
+        <Button
+          variant="secondary"
+          disabled={busy || newName.trim() === ""}
+          onClick={() => createAndAssign()}
+          testId="tags-section-create"
+        >
+          {busy ? t("tags.section.working") : t("tags.section.create")}
+        </Button>
+      </div>
 
       {errorKey !== null && (
         <Banner variant="error" testId="tags-section-action-error">

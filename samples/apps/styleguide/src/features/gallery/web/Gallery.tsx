@@ -321,6 +321,31 @@ export function Gallery(): ReactNode {
         </Form>
       </Block>
 
+      <Block id="card-standard" title="Card-Standard — Section (standalone)">
+        {/* Standalone <Section> (außerhalb Form) = der Calculator-Result-Card-
+            Standard. title-only = Bestands-Consumer (publicstatus/tier-admin),
+            darf durch den border-b-Removal NICHT schlechter werden; subtitle +
+            actions-Footer = neu. Kein Divider unterm Titel (shadcn-Muster). */}
+        <div className="flex max-w-md flex-col gap-6">
+          <Section title="Tragbare Rate / Monat">
+            <div className="text-2xl font-semibold tabular-nums">2.500,00 €</div>
+          </Section>
+          <Section
+            title="Ergebnis"
+            subtitle="Aus deinem Budget die größtmögliche Kreditsumme."
+            actions={<Button variant="primary">In Finanzierung übernehmen</Button>}
+          >
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Maximalkredit</span>
+              <span className="font-semibold tabular-nums">545.455,00 €</span>
+            </div>
+            <p className="text-muted-foreground text-sm">
+              Faustregel: die Rate sollte etwa 35 % des Haushaltsnettos nicht übersteigen.
+            </p>
+          </Section>
+        </div>
+      </Block>
+
       <Block id="filter" title="Filter & Search">
         {/* Holdings-Muster: Such-Pill (rounded-full, muted) links + Toggle-
             Group-Pills rechts; Rows mit Ticker-Kachel, Meta, Type-Badge, Value. */}
@@ -718,6 +743,40 @@ export function Gallery(): ReactNode {
               <Button variant="secondary">Cancel</Button>
               <Button variant="primary">Save</Button>
             </div>
+          </div>
+        </div>
+      </Block>
+
+      <Block id="tags" title="Tags — bundled-feature layout">
+        {/* ponytail: faithful Layout-Nachbau des TagSection (tags/web) mit den
+            echten Primitiven + statischen Daten — die Live-Version hängt am
+            Dispatcher. Verifiziert die Inline-Create-Row (Input wächst,
+            Add-Button bündig daneben). */}
+        <div className="flex max-w-md flex-col gap-4">
+          <Field id="tg-select" label="Tags">
+            <Input
+              kind="combobox"
+              multiple
+              id="tg-select"
+              name="tg"
+              options={[
+                { value: "important", label: "important" },
+                { value: "project-x", label: "project-x" },
+                { value: "urgent", label: "urgent" },
+              ]}
+              value={["important", "project-x"]}
+              onChange={() => {}}
+              placeholder="Tags auswählen…"
+              emptyText="Keine Tags"
+            />
+          </Field>
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <Field id="tg-new" label="Neuen Tag erstellen">
+                <Input kind="text" id="tg-new" name="tg-new" value="" onChange={() => {}} />
+              </Field>
+            </div>
+            <Button variant="secondary">Erstellen</Button>
           </div>
         </div>
       </Block>

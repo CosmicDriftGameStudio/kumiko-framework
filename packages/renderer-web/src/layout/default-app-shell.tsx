@@ -8,6 +8,8 @@
 //   2. sidebarActions — Icon-Row (Search/Theme/Tenant-Switch)
 //   3. NavTree        — automatisch aus dem Schema
 //   4. sidebarFooter  — Bottom-Slot für Profile/Help/Plan-Banner
+// Topbar-Slot:
+//   headerActions     — rechtsbündig neben dem Breadcrumb (ThemeToggle etc.)
 //
 // Apps die feingranulare Kontrolle wollen, gehen direkt auf die ui/-Teile.
 // Wer ein Topbar mit Workspace-Switcher braucht, nutzt <WorkspaceShell>.
@@ -53,6 +55,14 @@ export type DefaultAppShellProps = {
   /** Icon-Row zwischen Brand und NavTree — typisch Search-Trigger,
    *  ThemeToggle, TenantSwitcher. */
   readonly sidebarActions?: ReactNode;
+  /** Runtime-Badges pro Nav-Item (bare nav-id → ReactNode), an NavTree
+   *  durchgereicht. Für Tier-/Status-Badges, die die App pro User liefert
+   *  (Wert + Farbe), statt sie ins statische Schema zu backen. */
+  readonly navBadges?: ReadonlyMap<string, ReactNode>;
+  /** Rechtsbündiger Slot in der Topbar (neben dem Breadcrumb) — für
+   *  ThemeToggle, globale Actions o.ä. Spart die eigene sidebarActions-
+   *  Zeile in der Sidebar. */
+  readonly headerActions?: ReactNode;
   /** Footer-Slot unten in der Sidebar — Profile-Row, Help-Link,
    *  Plan-Banner. */
   readonly sidebarFooter?: ReactNode;
@@ -68,6 +78,8 @@ export function DefaultAppShell({
   schema,
   user,
   sidebarActions,
+  headerActions,
+  navBadges,
   sidebarFooter,
   fill,
   children,
@@ -87,7 +99,11 @@ export function DefaultAppShell({
           </SidebarGroup>
         )}
         <SidebarContent data-kumiko-layout="sidebar-nav">
-          <NavTree schema={schema} {...(user !== undefined && { user })} />
+          <NavTree
+            schema={schema}
+            {...(user !== undefined && { user })}
+            {...(navBadges !== undefined && { navBadges })}
+          />
         </SidebarContent>
         {sidebarFooter !== undefined && (
           <SidebarFooter data-kumiko-layout="sidebar-footer">{sidebarFooter}</SidebarFooter>
@@ -95,7 +111,11 @@ export function DefaultAppShell({
         <SidebarRail />
       </Sidebar>
       <SidebarInset className={fill === true ? "min-h-0" : undefined}>
-        <ShellHeader schema={schema} {...(user !== undefined && { user })} />
+        <ShellHeader
+          schema={schema}
+          {...(user !== undefined && { user })}
+          {...(headerActions !== undefined && { headerActions })}
+        />
         <main className={fill === true ? "min-h-0 flex-1 overflow-auto" : "flex-1 overflow-auto"}>
           {children}
         </main>
@@ -110,9 +130,11 @@ export function DefaultAppShell({
 function ShellHeader({
   schema,
   user,
+  headerActions,
 }: {
   readonly schema: AppSchema | FeatureSchema;
   readonly user?: DefaultAppShellUser;
+  readonly headerActions?: ReactNode;
 }): ReactNode {
   const nav = useNav();
   const t = useTranslation();
@@ -139,6 +161,11 @@ function ShellHeader({
           </Breadcrumb>
         )}
       </div>
+      {headerActions !== undefined && (
+        <div data-kumiko-layout="header-actions" className="ml-auto flex items-center gap-2 px-4">
+          {headerActions}
+        </div>
+      )}
     </header>
   );
 }

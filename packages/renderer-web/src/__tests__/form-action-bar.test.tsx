@@ -95,6 +95,54 @@ describe("Form = eine Card, Sections als innere Abschnitte", () => {
   });
 });
 
+describe("DefaultSection Card-Standard (subtitle + actions-Footer)", () => {
+  test("standalone: subtitle rendert muted, KEIN Divider unterm Titel", () => {
+    render(
+      <Section testId="sc" title="Ergebnis" subtitle="Kontext-Zeile">
+        <div>x</div>
+      </Section>,
+    );
+    expect(screen.getByTestId("sc-subtitle").textContent).toBe("Kontext-Zeile");
+    expect(screen.getByTestId("sc-subtitle").className).toContain("text-muted-foreground");
+    // border-b-Header (alt) ist weg — Titel fließt in den Body (shadcn-Muster).
+    expect(screen.getByTestId("sc").querySelector(".border-b")).toBeNull();
+  });
+
+  test("standalone: actions = abgehobene Footer-Row (border-t)", () => {
+    render(
+      <Section testId="sc" title="Ergebnis" actions={<Button>Übernehmen</Button>}>
+        <div>x</div>
+      </Section>,
+    );
+    const actions = screen.getByTestId("sc-actions");
+    expect(actions.className).toContain("border-t");
+    expect(actions.className).toContain("justify-end");
+    expect(actions.textContent).toContain("Übernehmen");
+  });
+
+  test("title-only standalone (Bestands-Consumer) hat keinen Divider mehr", () => {
+    render(
+      <Section testId="legacy" title="Stammdaten">
+        <div>x</div>
+      </Section>,
+    );
+    expect(screen.getByTestId("legacy").querySelector(".border-b")).toBeNull();
+  });
+
+  test("im Form: actions sind rechtsbündig OHNE border-t (das Form trägt den Footer)", () => {
+    render(
+      <Form onSubmit={() => {}} testId="f">
+        <Section testId="inner" actions={<Button>X</Button>}>
+          <div>x</div>
+        </Section>
+      </Form>,
+    );
+    const actions = screen.getByTestId("inner-actions");
+    expect(actions.className).toContain("justify-end");
+    expect(actions.className).not.toContain("border-t");
+  });
+});
+
 const orderEntity = {
   fields: { title: { type: "text", required: true } },
 } as unknown as EntityDefinition; // @cast-boundary test-fixture

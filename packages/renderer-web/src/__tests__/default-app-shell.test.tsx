@@ -57,3 +57,30 @@ describe("DefaultAppShell user-prop forwarding", () => {
     expect(screen.getByText("Sysadmin")).toBeTruthy();
   });
 });
+
+describe("DefaultAppShell headerActions-Slot (Topbar rechts)", () => {
+  test("headerActions rendern rechtsbündig im Topbar-Header", () => {
+    render(
+      <DefaultAppShell
+        brand={<span>Brand</span>}
+        schema={makeSchema()}
+        headerActions={<button type="button">Theme</button>}
+      >
+        <div>content</div>
+      </DefaultAppShell>,
+    );
+    const slot = document.querySelector("[data-kumiko-layout='header-actions']");
+    expect(slot).toBeTruthy();
+    expect(slot?.className).toContain("ml-auto");
+    expect(slot?.textContent).toBe("Theme");
+  });
+
+  test("ohne headerActions → kein Slot (keine leere Zelle)", () => {
+    render(
+      <DefaultAppShell brand={<span>Brand</span>} schema={makeSchema()}>
+        <div>content</div>
+      </DefaultAppShell>,
+    );
+    expect(document.querySelector("[data-kumiko-layout='header-actions']")).toBeNull();
+  });
+});

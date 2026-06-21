@@ -12,7 +12,7 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
-import { type FormEvent, type ReactNode, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { AuthHandlers } from "../../auth-email-password/constants";
 import { requestEmailVerification } from "../../auth-email-password/web";
 import { UserDataRightsHandlers, UserProfileHandlers, UserProfileQueries } from "../constants";
@@ -61,15 +61,14 @@ function StatusBanner({ status }: { readonly status: SectionStatus }): ReactNode
 
 function ChangePasswordSection(): ReactNode {
   const t = useTranslation();
-  const { Form, Field, Input, Button, Heading } = usePrimitives();
+  const { Section, Field, Input, Button } = usePrimitives();
   const dispatcher = useDispatcher();
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [status, setStatus] = useState<SectionStatus>({ kind: "idle" });
 
-  const onSubmit = (e?: FormEvent): void => {
-    e?.preventDefault();
+  const onSubmit = (): void => {
     void (async () => {
       if (newPassword !== confirm) {
         setStatus({ kind: "error", messageKey: "profile.password.mismatch" });
@@ -93,54 +92,53 @@ function ChangePasswordSection(): ReactNode {
 
   const submitting = status.kind === "submitting";
   return (
-    <section
-      data-testid="profile-password"
-      className="flex flex-col gap-4 rounded-lg border bg-card p-6"
-    >
-      <Heading variant="section">{t("profile.password.title")}</Heading>
-      <Form onSubmit={onSubmit} testId="profile-password-form">
-        <Field id="profile-old-password" label={t("profile.password.old")} required>
-          <Input
-            kind="password"
-            id="profile-old-password"
-            name="profile-old-password"
-            value={oldPassword}
-            onChange={setOldPassword}
-            disabled={submitting}
-            required
-            autoComplete="current-password"
-          />
-        </Field>
-        <Field id="profile-new-password" label={t("profile.password.new")} required>
-          <Input
-            kind="password"
-            id="profile-new-password"
-            name="profile-new-password"
-            value={newPassword}
-            onChange={setNewPassword}
-            disabled={submitting}
-            required
-            autoComplete="new-password"
-          />
-        </Field>
-        <Field id="profile-confirm-password" label={t("profile.password.confirm")} required>
-          <Input
-            kind="password"
-            id="profile-confirm-password"
-            name="profile-confirm-password"
-            value={confirm}
-            onChange={setConfirm}
-            disabled={submitting}
-            required
-            autoComplete="new-password"
-          />
-        </Field>
-        <StatusBanner status={status} />
-        <Button type="submit" disabled={submitting} testId="profile-password-submit">
+    <Section
+      testId="profile-password"
+      title={t("profile.password.title")}
+      actions={
+        <Button onClick={() => onSubmit()} disabled={submitting} testId="profile-password-submit">
           {t("profile.password.submit")}
         </Button>
-      </Form>
-    </section>
+      }
+    >
+      <Field id="profile-old-password" label={t("profile.password.old")} required>
+        <Input
+          kind="password"
+          id="profile-old-password"
+          name="profile-old-password"
+          value={oldPassword}
+          onChange={setOldPassword}
+          disabled={submitting}
+          required
+          autoComplete="current-password"
+        />
+      </Field>
+      <Field id="profile-new-password" label={t("profile.password.new")} required>
+        <Input
+          kind="password"
+          id="profile-new-password"
+          name="profile-new-password"
+          value={newPassword}
+          onChange={setNewPassword}
+          disabled={submitting}
+          required
+          autoComplete="new-password"
+        />
+      </Field>
+      <Field id="profile-confirm-password" label={t("profile.password.confirm")} required>
+        <Input
+          kind="password"
+          id="profile-confirm-password"
+          name="profile-confirm-password"
+          value={confirm}
+          onChange={setConfirm}
+          disabled={submitting}
+          required
+          autoComplete="new-password"
+        />
+      </Field>
+      <StatusBanner status={status} />
+    </Section>
   );
 }
 
@@ -152,14 +150,13 @@ function ChangeEmailSection({
   readonly onChanged: () => void;
 }): ReactNode {
   const t = useTranslation();
-  const { Form, Field, Input, Button, Heading } = usePrimitives();
+  const { Section, Field, Input, Button } = usePrimitives();
   const dispatcher = useDispatcher();
   const [newEmail, setNewEmail] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [status, setStatus] = useState<SectionStatus>({ kind: "idle" });
 
-  const onSubmit = (e?: FormEvent): void => {
-    e?.preventDefault();
+  const onSubmit = (): void => {
     void (async () => {
       setStatus({ kind: "submitting" });
       const res = await dispatcher.write(UserProfileHandlers.changeEmail, {
@@ -197,45 +194,46 @@ function ChangeEmailSection({
 
   const submitting = status.kind === "submitting";
   return (
-    <section
-      data-testid="profile-email"
-      className="flex flex-col gap-4 rounded-lg border bg-card p-6"
-    >
-      <Heading variant="section">{t("profile.email.title")}</Heading>
-      <p className="text-sm text-muted-foreground" data-testid="profile-email-current">
-        {t("profile.email.current")}: {me.email}
-      </p>
-      <Form onSubmit={onSubmit} testId="profile-email-form">
-        <Field id="profile-new-email" label={t("profile.email.new")} required>
-          <Input
-            kind="email"
-            id="profile-new-email"
-            name="profile-new-email"
-            value={newEmail}
-            onChange={setNewEmail}
-            disabled={submitting}
-            required
-            autoComplete="email"
-          />
-        </Field>
-        <Field id="profile-email-password" label={t("profile.email.currentPassword")} required>
-          <Input
-            kind="password"
-            id="profile-email-password"
-            name="profile-email-password"
-            value={currentPassword}
-            onChange={setCurrentPassword}
-            disabled={submitting}
-            required
-            autoComplete="current-password"
-          />
-        </Field>
-        <StatusBanner status={status} />
-        <Button type="submit" disabled={submitting} testId="profile-email-submit">
+    <Section
+      testId="profile-email"
+      title={t("profile.email.title")}
+      subtitle={
+        <span data-testid="profile-email-current">
+          {t("profile.email.current")}: {me.email}
+        </span>
+      }
+      actions={
+        <Button onClick={() => onSubmit()} disabled={submitting} testId="profile-email-submit">
           {t("profile.email.submit")}
         </Button>
-      </Form>
-    </section>
+      }
+    >
+      <Field id="profile-new-email" label={t("profile.email.new")} required>
+        <Input
+          kind="email"
+          id="profile-new-email"
+          name="profile-new-email"
+          value={newEmail}
+          onChange={setNewEmail}
+          disabled={submitting}
+          required
+          autoComplete="email"
+        />
+      </Field>
+      <Field id="profile-email-password" label={t("profile.email.currentPassword")} required>
+        <Input
+          kind="password"
+          id="profile-email-password"
+          name="profile-email-password"
+          value={currentPassword}
+          onChange={setCurrentPassword}
+          disabled={submitting}
+          required
+          autoComplete="current-password"
+        />
+      </Field>
+      <StatusBanner status={status} />
+    </Section>
   );
 }
 
@@ -349,10 +347,14 @@ export function ProfileScreen(): ReactNode {
   };
 
   return (
-    <div className="p-6 flex flex-col gap-6 max-w-2xl" data-testid="profile-screen">
+    <div className="flex max-w-5xl flex-col gap-6 p-6" data-testid="profile-screen">
       <Heading variant="page">{t("profile.title")}</Heading>
-      <ChangeEmailSection me={me} onChanged={refetch} />
-      <ChangePasswordSection />
+      {/* Die zwei kurzen Konto-Forms teilen sich eine Reihe (md+); die
+          Danger-Zone bleibt volle Breite darunter. */}
+      <div className="grid items-start gap-6 md:grid-cols-2">
+        <ChangeEmailSection me={me} onChanged={refetch} />
+        <ChangePasswordSection />
+      </div>
       <DangerZoneSection me={me} onChanged={refetch} />
     </div>
   );
