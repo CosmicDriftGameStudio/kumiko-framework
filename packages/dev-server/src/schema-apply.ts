@@ -82,7 +82,7 @@ export async function runSchemaApply(opts: SchemaApplyOptions): Promise<number> 
 
     return 0;
   } catch (e) {
-    console.error(`\n  ✗ ${e instanceof Error ? e.message : String(e)}\n`);
+    console.error(`\n  ✗ ${e instanceof Error ? (e.stack ?? e.message) : String(e)}\n`);
     return 1;
   } finally {
     await close();

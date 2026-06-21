@@ -9,6 +9,7 @@ import { createTemplateResolverApi, TemplateNotFoundError } from "../api";
 import { createTemplateResolverFeature } from "../feature";
 import { templateResourceEntity } from "../table";
 import {
+  assertConsumerHandlesMissingResourceKeys,
   assertConsumerHandlesNotFound,
   runTemplateConsumerConformance,
   type TemplateConsumer,
@@ -60,6 +61,24 @@ describe("template-resolver :: conformance harness", () => {
     await expect(
       assertConsumerHandlesNotFound(badConsumer, { getDb: () => db, tenantId: TENANT_A }),
     ).rejects.toThrow("expected TemplateNotFoundError, received Error");
+  });
+
+  // 446#1: a consumer whose resolveResources throws a non-TypeError used to
+  // fall through the catch and pass — the assertion was effectively a no-op.
+  test("harness detects a consumer that throws (non-TypeError) on missing resource keys", async () => {
+    const badConsumer: TemplateConsumer = {
+      resolve: (args) => createTemplateResolverApi(db).resolveTemplate(args),
+      resolveResources: async () => {
+        throw new Error("blew up on a missing key instead of degrading");
+      },
+    };
+
+    await expect(
+      assertConsumerHandlesMissingResourceKeys(badConsumer, {
+        getDb: () => db,
+        tenantId: TENANT_A,
+      }),
+    ).rejects.toThrow("threw unexpectedly");
   });
 
   test("conformant consumer propagates TemplateNotFoundError", async () => {

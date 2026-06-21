@@ -44,7 +44,7 @@ test("leaves a dependency reference line untouched — only the metadata pair is
 });
 
 test("reports no changes when the lock already matches package.json", () => {
-  const { lock, changed } = syncLockVersions(
+  const { lock, changed, unmatched } = syncLockVersions(
     STALE_LOCK,
     new Map([
       ["@cosmicdrift/kumiko-framework", "0.67.0"],
@@ -52,5 +52,18 @@ test("reports no changes when the lock already matches package.json", () => {
     ]),
   );
   expect(changed).toEqual([]);
+  expect(unmatched).toEqual([]);
   expect(lock).toBe(STALE_LOCK);
+});
+
+// 538#2: `changed.length === 0` conflated "already in sync" with "the regex
+// matched nothing because the lock format drifted" — the latter is how stale
+// internal pins shipped silently. `unmatched` separates the two.
+test("flags a workspace package the lock doesn't carry — the silent format-drift guard", () => {
+  const { changed, unmatched } = syncLockVersions(
+    STALE_LOCK,
+    new Map([["@cosmicdrift/kumiko-studio", "0.68.0"]]),
+  );
+  expect(changed).toEqual([]);
+  expect(unmatched).toEqual(["@cosmicdrift/kumiko-studio"]);
 });

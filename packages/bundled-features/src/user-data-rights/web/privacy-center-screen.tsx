@@ -121,6 +121,9 @@ function ExportSection(): ReactNode {
       <p className="text-sm text-muted-foreground">
         {t("userDataRights.privacyCenter.export.intro")}
       </p>
+      {statusQuery.error && (
+        <Banner variant="error">{t("userDataRights.privacyCenter.errors.generic")}</Banner>
+      )}
       {inProgress && (
         <Banner variant="info" testId="privacy-export-pending">
           {t("userDataRights.privacyCenter.export.pending")}
@@ -189,7 +192,7 @@ function AuditSection(): ReactNode {
       {logQuery.error && (
         <Banner variant="error">{t("userDataRights.privacyCenter.errors.generic")}</Banner>
       )}
-      {rows.length === 0 ? (
+      {logQuery.error ? null : rows.length === 0 ? (
         <p className="text-sm text-muted-foreground" data-testid="privacy-audit-empty">
           {t("userDataRights.privacyCenter.audit.empty")}
         </p>

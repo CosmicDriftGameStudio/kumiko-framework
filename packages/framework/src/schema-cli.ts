@@ -296,7 +296,7 @@ export async function runSchemaCli(
         return 0;
       } catch (e) {
         out.err("");
-        out.err(`  ✗ ${e instanceof Error ? e.message : String(e)}`);
+        out.err(`  ✗ ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`);
         out.err("");
         return 1;
       } finally {

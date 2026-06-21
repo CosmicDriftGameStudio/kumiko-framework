@@ -22,22 +22,26 @@ const LOCK_PATH = "bun.lock";
 export function syncLockVersions(
   lock: string,
   nameToVersion: ReadonlyMap<string, string>,
-): { lock: string; changed: string[] } {
+): { lock: string; changed: string[]; unmatched: string[] } {
   const changed: string[] = [];
+  const unmatched: string[] = [];
   for (const [name, version] of nameToVersion) {
     const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     // Workspace entries are `"name": "<pkg>",` immediately followed by
     // `"version": "<v>",` (registry deps use a different array form, so this
     // pair only matches workspace blocks).
     const re = new RegExp(`("name": "${escaped}",\\s*\\n\\s*"version": ")([^"]*)(")`);
+    let matched = false;
     lock = lock.replace(re, (_m: string, pre: string, current: string, post: string) => {
+      matched = true;
       if (current !== version) {
         changed.push(`${name}: ${current} → ${version}`);
       }
       return `${pre}${version}${post}`;
     });
+    if (!matched) unmatched.push(name);
   }
-  return { lock, changed };
+  return { lock, changed, unmatched };
 }
 
 if (import.meta.main) {
@@ -49,7 +53,19 @@ if (import.meta.main) {
     }
   }
 
-  const { lock, changed } = syncLockVersions(await Bun.file(LOCK_PATH).text(), nameToVersion);
+  const { lock, changed, unmatched } = syncLockVersions(
+    await Bun.file(LOCK_PATH).text(),
+    nameToVersion,
+  );
+  // A workspace package the regex never matched = the lock's name/version block
+  // format drifted. Silently exiting 0 here is exactly how stale internal pins
+  // shipped before (the 0.67.0 break): no sync, no warning. Fail loud instead.
+  if (unmatched.length > 0) {
+    console.error(
+      `[sync-lock] FATAL: ${unmatched.length} workspace package(s) not found in ${LOCK_PATH} — lock format may have drifted:\n  ${unmatched.join("\n  ")}`,
+    );
+    process.exit(1);
+  }
   if (changed.length > 0) {
     await Bun.write(LOCK_PATH, lock);
   }

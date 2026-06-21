@@ -220,8 +220,9 @@ describe("#494 :: read_users-Rebuild bewahrt Lifecycle-State", () => {
     // Bestand wieder in den divergenten Live-State bringen (der Rebuild hat ihn
     // auf Active gesetzt) und den Reconcile laufen lassen.
     await updateMany(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: created.id });
-    const backfilled = await backfillUserLifecycleEvents(stack.db);
+    const { backfilled, failed } = await backfillUserLifecycleEvents(stack.db);
     expect(backfilled).toBeGreaterThanOrEqual(1);
+    expect(failed).toEqual([]);
 
     // Jetzt traegt das Event-Log den State -> Rebuild bewahrt ihn.
     await rebuildProjection(USER_PROJECTION, { db: stack.db, registry });
