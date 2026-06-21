@@ -257,6 +257,20 @@ describe("parseEnv", () => {
       expect(boot.format()).toContain("✗ JWT_SECRET (auth-email-password, required, missing)");
     }
   });
+
+  it("error.message carries the per-var details (uncaught Bun prints message, not format())", () => {
+    // Without this, `bun run boot` against a misconfigured app shows only
+    // "Boot failed: 1 env-var problem" + the EnvError[] collapsed to
+    // "[Object ...]". The user can't tell which var is the problem.
+    const schema = z.object({ JWT_SECRET: z.string().min(32) });
+    try {
+      parseEnv(schema, {}, { sources: { JWT_SECRET: "auth-email-password" } });
+    } catch (err) {
+      const boot = err as KumikoBootError;
+      expect(boot.message).toContain("Boot failed: 1 env-var problem");
+      expect(boot.message).toContain("✗ JWT_SECRET (auth-email-password, required, missing)");
+    }
+  });
 });
 
 describe("pulumiConfigKey + camelCase", () => {
