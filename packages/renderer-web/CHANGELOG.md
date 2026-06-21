@@ -1,5 +1,20 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.80.0
+
+### Minor Changes
+
+- 407ed37: Add a single `Card` primitive (slot- + options-based) and route all card chrome through it.
+
+  `usePrimitives().Card` takes `slots` (`header`/`title`/`subtitle`/`headerActions`/`footer`) and `options` (`padded`/`radius`/`footerBordered`). `DefaultForm` and `DefaultSection` now render through `DefaultCard`, so every consumer gets one consistent chrome (border, radius, shadow, footer row) without re-migrating. `AuthCard` and the `user-data-rights` / `user-profile` self-service screens use it; action buttons live in the card footer. testIds are preserved.
+
+### Patch Changes
+
+- Updated dependencies [407ed37]
+  - @cosmicdrift/kumiko-renderer@0.80.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.80.0
+  - @cosmicdrift/kumiko-headless@0.80.0
+
 ## 0.79.3
 
 ### Patch Changes
