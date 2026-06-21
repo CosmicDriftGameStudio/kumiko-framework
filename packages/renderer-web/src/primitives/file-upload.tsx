@@ -66,6 +66,9 @@ export function FileUploadInput({
       setError("upload_failed");
     } finally {
       setUploading(false);
+      // Clear the input so re-picking the SAME file still fires change — the
+      // browser suppresses the event otherwise (no-op in jsdom, real-browser).
+      if (inputRef.current) inputRef.current.value = "";
     }
   }
 

@@ -40,7 +40,7 @@ export function createAssignTagHandler(access: AccessRule = DEFAULT_TAG_ACCESS):
       }
 
       const restored = await tagAssignmentExecutor.restore({ id }, event.user, ctx.db);
-      if (restored.isSuccess) return restored;
+      if (restored.isSuccess) return { isSuccess: true as const, data: { id } };
       if (restored.error.code !== "not_found") return restored;
 
       const tag = await tagExecutor.detail({ id: payload.tagId }, event.user, ctx.db);

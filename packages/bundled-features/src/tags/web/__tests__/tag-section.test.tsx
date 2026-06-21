@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from "bun:test";
+import { beforeEach, describe, expect, mock, test } from "bun:test";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
@@ -16,6 +16,13 @@ type AssignmentRow = { tagId: string; entityType: string; entityId: string };
 
 let catalogRows: readonly TagRow[] = [];
 let assignmentRows: readonly AssignmentRow[] = [];
+
+// Each test sets its own rows; reset so a forgotten setup can't inherit the
+// previous test's data (order-dependent shared state).
+beforeEach(() => {
+  catalogRows = [];
+  assignmentRows = [];
+});
 
 const dispatchSpy = mock(async (type: string) =>
   type === TagsHandlers.createTag
