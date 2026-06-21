@@ -14,39 +14,48 @@ import { Glob } from "bun";
 
 const LOCK_PATH = "bun.lock";
 
-const nameToVersion = new Map<string, string>();
-for await (const path of new Glob("packages/*/package.json").scan(".")) {
-  const pkg = await Bun.file(path).json();
-  if (typeof pkg.name === "string" && typeof pkg.version === "string") {
-    nameToVersion.set(pkg.name, pkg.version);
+/**
+ * Rewrites each workspace `"version"` field in a bun.lock to match its
+ * package.json. Pure — no IO — so the regex/format contract is unit-testable.
+ * Returns the patched lock plus a human-readable list of the changes made.
+ */
+export function syncLockVersions(
+  lock: string,
+  nameToVersion: ReadonlyMap<string, string>,
+): { lock: string; changed: string[] } {
+  const changed: string[] = [];
+  for (const [name, version] of nameToVersion) {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // Workspace entries are `"name": "<pkg>",` immediately followed by
+    // `"version": "<v>",` (registry deps use a different array form, so this
+    // pair only matches workspace blocks).
+    const re = new RegExp(`("name": "${escaped}",\\s*\\n\\s*"version": ")([^"]*)(")`);
+    lock = lock.replace(re, (_m: string, pre: string, current: string, post: string) => {
+      if (current !== version) {
+        changed.push(`${name}: ${current} → ${version}`);
+      }
+      return `${pre}${version}${post}`;
+    });
   }
+  return { lock, changed };
 }
 
-let lock = await Bun.file(LOCK_PATH).text();
-let changed = 0;
-const stale: string[] = [];
-
-for (const [name, version] of nameToVersion) {
-  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  // Workspace entries are `"name": "<pkg>",` immediately followed by
-  // `"version": "<v>",` (registry deps use a different array form, so this
-  // pair only matches workspace blocks).
-  const re = new RegExp(`("name": "${escaped}",\\s*\\n\\s*"version": ")([^"]*)(")`);
-  const next = lock.replace(re, (_m: string, pre: string, current: string, post: string) => {
-    if (current !== version) {
-      changed++;
-      stale.push(`${name}: ${current} → ${version}`);
+if (import.meta.main) {
+  const nameToVersion = new Map<string, string>();
+  for await (const path of new Glob("packages/*/package.json").scan(".")) {
+    const pkg = await Bun.file(path).json();
+    if (typeof pkg.name === "string" && typeof pkg.version === "string") {
+      nameToVersion.set(pkg.name, pkg.version);
     }
-    return `${pre}${version}${post}`;
-  });
-  lock = next;
-}
+  }
 
-if (changed > 0) {
-  await Bun.write(LOCK_PATH, lock);
+  const { lock, changed } = syncLockVersions(await Bun.file(LOCK_PATH).text(), nameToVersion);
+  if (changed.length > 0) {
+    await Bun.write(LOCK_PATH, lock);
+  }
+  console.log(
+    changed.length > 0
+      ? `[sync-lock] synced ${changed.length} workspace version(s):\n  ${changed.join("\n  ")}`
+      : "[sync-lock] bun.lock workspace versions already match package.json",
+  );
 }
-console.log(
-  changed > 0
-    ? `[sync-lock] synced ${changed} workspace version(s):\n  ${stale.join("\n  ")}`
-    : "[sync-lock] bun.lock workspace versions already match package.json",
-);
