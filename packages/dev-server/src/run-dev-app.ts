@@ -51,6 +51,7 @@ import {
   createKumikoServer,
   type KumikoServerHandle,
 } from "./create-kumiko-server";
+import { renderWelcomeBanner } from "./welcome-banner";
 
 // Re-export der shared Auth-Setup-Types damit Apps nur einen Import-Pfad
 // brauchen. PasswordResetSetup / EmailVerificationSetup leben in
@@ -177,6 +178,13 @@ export type RunDevAppOptions = {
    *  in einem seed-fn, weil die runtime stack.db braucht und die seed-
    *  Funktionen nach setupTestStack laufen. */
   readonly effectiveFeatures?: CreateKumikoServerOptions["effectiveFeatures"];
+  /** Print a first-run banner after the server starts (URL, admin login,
+   *  hot-reload hint, docs link). Default: off — apps that already log
+   *  their own startup shouldn't get double-printed. The scaffold template
+   *  (create-kumiko-app) flips this on so the first `bun dev` ends on
+   *  something the user can click. Pass an object to override the
+   *  features-dir hint or the docs URL. */
+  readonly welcomeBanner?: boolean | { readonly featuresDir?: string; readonly docsUrl?: string };
 };
 
 export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServerHandle> {
@@ -304,7 +312,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
         }
       : {};
 
-  return createKumikoServer({
+  const handle = await createKumikoServer({
     features,
     ...(options.clientEntry !== undefined && { clientEntry: options.clientEntry }),
     ...(options.clientEntries !== undefined && { clientEntries: options.clientEntries }),
@@ -407,6 +415,26 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
       }
     },
   });
+
+  if (options.welcomeBanner) {
+    const overrides = typeof options.welcomeBanner === "object" ? options.welcomeBanner : {};
+    const port = handle.server?.port ?? options.port ?? 3000;
+    const banner = renderWelcomeBanner({
+      url: `http://localhost:${port}`,
+      ...(options.auth?.admin && {
+        admin: {
+          email: options.auth.admin.email,
+          password: options.auth.admin.password,
+        },
+      }),
+      ...(overrides.featuresDir !== undefined && { featuresDir: overrides.featuresDir }),
+      ...(overrides.docsUrl !== undefined && { docsUrl: overrides.docsUrl }),
+    });
+    // biome-ignore lint/suspicious/noConsole: boot-time UX print, opt-in via welcomeBanner.
+    console.log(`\n${banner}\n`);
+  }
+
+  return handle;
 }
 
 // Exported for the wiring-contract test (config-resolver-default.integration):

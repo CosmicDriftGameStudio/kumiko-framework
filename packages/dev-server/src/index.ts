@@ -69,3 +69,4 @@ export type {
 export { scaffoldDeploy } from "./scaffold-deploy";
 export type { ScaffoldFeatureOptions, ScaffoldFeatureResult } from "./scaffold-feature";
 export { scaffoldFeature } from "./scaffold-feature";
+export { renderWelcomeBanner, type WelcomeBannerInput } from "./welcome-banner";
