@@ -1,4 +1,5 @@
 import type { ZodType, z } from "zod";
+import type { ContainsSecret } from "../secrets/types";
 import { runPipeline } from "./run-pipeline";
 import type {
   AccessRule,
@@ -83,6 +84,17 @@ export function defineWriteHandler<
   TMap extends object = KumikoEventTypeMap,
 >(
   def: WriteHandlerInput<TName, TSchema, TData, TMap>,
+  // R6: a phantom rest-param. When the inferred response `TData` carries a
+  // Secret<> anywhere, ContainsSecret<TData> is `true` and this resolves to a
+  // 1-tuple the caller can't supply → compile error at the leak site. Clean
+  // responses get `[]`, so existing call-sites are unaffected. Checking it in a
+  // parameter post-inference (not as a `TData extends …` constraint, which TS
+  // rejects as circular, TS2313) is what makes inference survive.
+  ..._noSecretInResponse: ContainsSecret<TData> extends true
+    ? [
+        secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field.",
+      ]
+    : []
 ): WriteHandlerDefinition<TName, TSchema, TData, TMap> {
   // Runtime-guard against accidentally setting BOTH handler+perform.
   // The discriminated-union type-error
@@ -160,6 +172,13 @@ export function defineQueryHandler<
   TMap extends object = KumikoEventTypeMap,
 >(
   def: QueryHandlerDefinition<TName, TSchema, TResult, TMap>,
+  // R6: phantom rest-param — see defineWriteHandler. Forbids a Secret<> in the
+  // inferred query response `TResult` at compile time; `[]` for clean responses.
+  ..._noSecretInResponse: ContainsSecret<TResult> extends true
+    ? [
+        secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field.",
+      ]
+    : []
 ): QueryHandlerDefinition<TName, TSchema, TResult, TMap> {
   return def;
 }
