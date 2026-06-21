@@ -45,6 +45,9 @@
         "stripe": "^22.1.1",
         "tailwind-merge": "^3.6.0",
       },
+      "devDependencies": {
+        "@testing-library/user-event": "^14.6.1",
+      },
     },
     "packages/cli": {
       "name": "@cosmicdrift/kumiko-cli",

@@ -6,7 +6,8 @@ import {
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { CustomFieldsFormSection } from "../custom-fields-form-section";
 import { defaultTranslations } from "../i18n";
@@ -51,6 +52,7 @@ function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
 
 describe("CustomFieldsFormSection", () => {
   test("renders an input per matching fieldDefinition and dispatches set-custom-field on save", async () => {
+    const user = userEvent.setup();
     mockedQueryRows = [
       {
         id: "f1",
@@ -94,10 +96,10 @@ describe("CustomFieldsFormSection", () => {
     expect(document.getElementById("custom-field-rootCause")).toBeNull();
 
     // Type in vendor; tier left empty (should be skipped on save).
-    fireEvent.change(vendorInput, { target: { value: "Hetzner" } });
+    await user.type(vendorInput, "Hetzner");
 
     const saveBtn = screen.getByTestId("custom-fields-form-save");
-    fireEvent.click(saveBtn);
+    await user.click(saveBtn);
     // waitFor statt fester Promise.resolve()-Ticks — robust gegen zusätzliche
     // Microtasks im async handleSave-Loop (z.B. ein neuer dispatch-Wrapper).
     await waitFor(() => expect(dispatchSpy).toHaveBeenCalledTimes(1));
@@ -111,6 +113,7 @@ describe("CustomFieldsFormSection", () => {
   });
 
   test("pre-fills inputs from initialValues (Edit zeigt den Bestand, nicht write-only)", async () => {
+    const user = userEvent.setup();
     mockedQueryRows = [
       {
         id: "f1",
@@ -153,12 +156,11 @@ describe("CustomFieldsFormSection", () => {
     expect(saveBtn.disabled).toBe(true);
 
     // Nur das geänderte Feld wird geschrieben, nicht der unveränderte Bestand.
-    fireEvent.change(vendorInput, { target: { value: "Netcup" } });
+    await user.clear(vendorInput);
+    await user.type(vendorInput, "Netcup");
     expect(saveBtn.disabled).toBe(false);
-    fireEvent.click(saveBtn);
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(dispatchSpy).toHaveBeenCalledTimes(1);
+    await user.click(saveBtn);
+    await waitFor(() => expect(dispatchSpy).toHaveBeenCalledTimes(1));
     expect(dispatchSpy).toHaveBeenCalledWith("custom-fields:write:set-custom-field", {
       entityName: "component",
       entityId: "row-42",
@@ -237,6 +239,7 @@ describe("CustomFieldsFormSection", () => {
 
 describe("CustomFieldsFormSection — clear-Pfad", () => {
   test("Leeren eines gespeicherten Werts dispatched clear-custom-field (nicht skip)", async () => {
+    const user = userEvent.setup();
     mockedQueryRows = [
       {
         id: "f1",
@@ -262,12 +265,9 @@ describe("CustomFieldsFormSection — clear-Pfad", () => {
     const vendorInput = document.getElementById("custom-field-vendor") as HTMLInputElement;
     expect(vendorInput.value).toBe("Hetzner");
 
-    fireEvent.change(vendorInput, { target: { value: "" } });
-    fireEvent.click(screen.getByTestId("custom-fields-form-save"));
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(dispatchSpy).toHaveBeenCalledTimes(1);
+    await user.clear(vendorInput);
+    await user.click(screen.getByTestId("custom-fields-form-save"));
+    await waitFor(() => expect(dispatchSpy).toHaveBeenCalledTimes(1));
     expect(dispatchSpy).toHaveBeenCalledWith("custom-fields:write:clear-custom-field", {
       entityName: "component",
       entityId: "row-42",
@@ -276,6 +276,7 @@ describe("CustomFieldsFormSection — clear-Pfad", () => {
   });
 
   test("unveränderter Bestandswert wird beim Save NICHT erneut geschrieben", async () => {
+    const user = userEvent.setup();
     mockedQueryRows = [
       {
         id: "f1",
@@ -300,18 +301,16 @@ describe("CustomFieldsFormSection — clear-Pfad", () => {
 
     const vendorInput = document.getElementById("custom-field-vendor") as HTMLInputElement;
     // Tippen + zurück auf den Bestandswert → nicht dirty, kein Write.
-    fireEvent.change(vendorInput, { target: { value: "Hetzner2" } });
-    fireEvent.change(vendorInput, { target: { value: "Hetzner" } });
-    fireEvent.click(screen.getByTestId("custom-fields-form-save"));
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(dispatchSpy).not.toHaveBeenCalled();
+    await user.type(vendorInput, "2");
+    await user.type(vendorInput, "{Backspace}");
+    await user.click(screen.getByTestId("custom-fields-form-save"));
+    await waitFor(() => expect(dispatchSpy).not.toHaveBeenCalled());
   });
 });
 
 describe("CustomFieldsFormSection — boolean/date-Pfade", () => {
   test("boolean: Bestand wird als true/false-String angezeigt, Save coerced zu boolean", async () => {
+    const user = userEvent.setup();
     mockedQueryRows = [
       {
         id: "f1",
@@ -340,17 +339,16 @@ describe("CustomFieldsFormSection — boolean/date-Pfade", () => {
     if (checkbox === null) throw new Error("boolean checkbox not rendered");
     expect(checkbox.getAttribute("aria-checked")).toBe("true");
 
-    fireEvent.click(checkbox);
-    fireEvent.click(screen.getByTestId("custom-fields-form-save"));
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(dispatchSpy).toHaveBeenCalledWith("custom-fields:write:set-custom-field", {
-      entityName: "component",
-      entityId: "row-42",
-      fieldKey: "active",
-      value: false,
-    });
+    await user.click(checkbox);
+    await user.click(screen.getByTestId("custom-fields-form-save"));
+    await waitFor(() =>
+      expect(dispatchSpy).toHaveBeenCalledWith("custom-fields:write:set-custom-field", {
+        entityName: "component",
+        entityId: "row-42",
+        fieldKey: "active",
+        value: false,
+      }),
+    );
   });
 
   test("date: Bestand erreicht das DateInput-Textfeld (locale-numerisch)", () => {
