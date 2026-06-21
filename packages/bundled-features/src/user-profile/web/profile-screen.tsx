@@ -37,10 +37,8 @@ function failureKey(error: unknown): string {
   return typeof key === "string" ? key : "profile.errors.generic";
 }
 
-// gracePeriodEnd ist ein roher ISO-Instant ("2026-07-11T00:00:00.000Z"); nur
-// der Datums-Teil ist für den User relevant, die Uhrzeit/Z wäre Rauschen
-// ("…am 2026-07-11T00:00:00.000Z gelöscht"). Reiner String-Slice — kein
-// Date-API (no-date-api-Guard) und universell (RN+Web). Leer/null → "—".
+// Date-only slice of the raw ISO instant — the time/Z part is noise to the user.
+// Pure string-slice: no Date API (no-date-api guard), universal (RN+Web). Empty → "—".
 export function formatDeletionDate(iso: string | null | undefined): string {
   if (!iso) return "—";
   const tIndex = iso.indexOf("T");

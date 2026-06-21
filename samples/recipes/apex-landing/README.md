@@ -19,8 +19,8 @@ title: block(input.blocks, "index:hero.title", "Ship your roadmap, …"),
 tiers: input.plans.map(toPricingTier),
 ```
 
-`block(slug, fallback)` reads the `text-content` projection; omit a slug and
-the fallback renders, so the page is complete before anything is seeded.
+`block(blocks, slug, fallback)` reads the `text-content` projection; an unseeded
+slug falls back, so the page is complete before anything is seeded.
 `toPricingTier(plan)` maps a `tier-engine` plan (price, cap, benefits) onto an
 `ApexPricingTier`. See `src/feature.ts` for the full assembly.
 
