@@ -65,7 +65,7 @@ describe("kumiko cli", () => {
     expect(captured.errs.join("\n")).toContain("unknown command");
   });
 
-  test("new app <name> scaffolds the 6 walkthrough files", async () => {
+  test("new app <name> scaffolds the walkthrough files", async () => {
     const { out, captured } = capture();
     const code = await runCli({ argv: ["new", "app", "my-notes"], cwd: tmp, out });
     expect(code).toBe(0);
@@ -75,6 +75,7 @@ describe("kumiko cli", () => {
       "tsconfig.json",
       "src/run-config.ts",
       "bin/main.ts",
+      "bin/dev.ts",
       ".env.example",
       "README.md",
     ]) {
