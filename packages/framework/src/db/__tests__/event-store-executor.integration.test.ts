@@ -104,6 +104,20 @@ describe("event-store-executor", () => {
     const detail = await crud.detail({ id: created.data.id }, adminUser, tdb);
     expect(detail).toBeNull();
   });
+
+  test("list hides soft-deleted rows; includeDeleted returns them (trash query)", async () => {
+    const created = await crud.create({ email: "trash@test.de" }, adminUser, tdb);
+    if (!created.isSuccess) throw new Error("setup failed");
+    await crud.delete({ id: created.data.id }, adminUser, tdb);
+
+    const live = await crud.list({}, adminUser, tdb);
+    expect(live.rows.find((r) => r["id"] === created.data.id)).toBeUndefined();
+
+    const trash = await crud.list({}, adminUser, tdb, { includeDeleted: true });
+    const row = trash.rows.find((r) => r["id"] === created.data.id);
+    expect(row).toBeDefined();
+    expect(row?.["isDeleted"]).toBe(true);
+  });
 });
 
 // Sensitive-field stripping: passwords/tokens/IBANs stay in the entity row
