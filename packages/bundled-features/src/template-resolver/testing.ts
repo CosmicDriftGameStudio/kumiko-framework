@@ -169,6 +169,12 @@ export async function assertConsumerHandlesMissingResourceKeys(
         `resolveResources threw TypeError (unhandled missing key?): ${err.message}`,
       );
     }
+    // Any other throw means the consumer did not handle missing keys
+    // gracefully. Falling through here silently passed the assertion — a
+    // broken consumer looked conformant.
+    throw new ConformanceAssertionError(
+      `resolveResources threw unexpectedly (should handle missing keys gracefully): ${err.message}`,
+    );
   }
 }
 

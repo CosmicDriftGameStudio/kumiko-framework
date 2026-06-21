@@ -1198,8 +1198,9 @@ function ConfigEditBody({
       }
       // Cascade-Disclosure + Maskenwerte nach dem Write nachziehen, sonst
       // bleibt die Anzeige stale bis Reload — gleiche refetch-Calls wie onReset.
-      await valuesQuery.refetch?.();
-      await cascadeQuery.refetch?.();
+      // allSettled: der Write ist schon committed, ein gescheitertes Refetch
+      // (stale Anzeige) darf das Erfolgsergebnis nicht in einen Fehler kippen.
+      await Promise.allSettled([valuesQuery.refetch?.(), cascadeQuery.refetch?.()]);
       return { validationBlocked: false, isSuccess: true, data: undefined };
     },
     [dispatcher, screen.configKeys, screen.scope, valuesQuery.refetch, cascadeQuery.refetch],
@@ -1275,8 +1276,7 @@ function ConfigEditBody({
             qualifiedKey={screen.configKeys[fieldName]}
             onReset={async (key, scope) => {
               await dispatcher.write("config:write:reset", { key, scope });
-              await valuesQuery.refetch?.();
-              await cascadeQuery.refetch?.();
+              await Promise.allSettled([valuesQuery.refetch?.(), cascadeQuery.refetch?.()]);
             }}
           />
         );

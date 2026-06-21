@@ -73,7 +73,12 @@ export async function updateUserLifecycle(
 // user.updated an — harmlos, last-write-wins beim Replay).
 // ponytail: full read_users-Scan, in JS gefiltert — einmalige Migration, kein
 // Index/Streaming noetig. Bei Millionen-Rows: batchen.
-export async function backfillUserLifecycleEvents(conn: DbRunner): Promise<number> {
+export type BackfillResult = {
+  readonly backfilled: number;
+  readonly failed: ReadonlyArray<{ readonly id: string; readonly error: string }>;
+};
+
+export async function backfillUserLifecycleEvents(conn: DbRunner): Promise<BackfillResult> {
   const rows = (await selectMany(conn, userTable, {})) as Array<{
     id: string;
     status: string;
@@ -82,6 +87,7 @@ export async function backfillUserLifecycleEvents(conn: DbRunner): Promise<numbe
   }>;
 
   let backfilled = 0;
+  const failed: Array<{ id: string; error: string }> = [];
   for (const row of rows) {
     const divergent =
       row.status !== USER_STATUS.Active ||
@@ -89,12 +95,19 @@ export async function backfillUserLifecycleEvents(conn: DbRunner): Promise<numbe
       row.pendingDeletionRequestId != null;
     if (!divergent) continue;
 
-    await updateUserLifecycle(conn, row.id, {
-      status: row.status,
-      gracePeriodEnd: row.gracePeriodEnd,
-      pendingDeletionRequestId: row.pendingDeletionRequestId,
-    });
-    backfilled++;
+    // One bad row must not abort the run: the rows after it would then never
+    // get their user.updated event and stay vulnerable to the rebuild wipe
+    // (DSGVO-Datenverlust). Collect failures, finish the estate, report them.
+    try {
+      await updateUserLifecycle(conn, row.id, {
+        status: row.status,
+        gracePeriodEnd: row.gracePeriodEnd,
+        pendingDeletionRequestId: row.pendingDeletionRequestId,
+      });
+      backfilled++;
+    } catch (e) {
+      failed.push({ id: row.id, error: e instanceof Error ? e.message : String(e) });
+    }
   }
-  return backfilled;
+  return { backfilled, failed };
 }
