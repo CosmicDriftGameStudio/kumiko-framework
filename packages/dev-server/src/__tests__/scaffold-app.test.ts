@@ -71,6 +71,33 @@ describe("scaffoldApp", () => {
     expect(env).toContain("KUMIKO_DEV_DB_NAME=my_shop_dev");
   });
 
+  test("README lists the mounted features dynamically", () => {
+    const dest = join(tmp, "my-shop");
+    scaffoldApp({
+      name: "my-shop",
+      destination: dest,
+      features: [
+        {
+          name: "tenant",
+          importPath: "@cosmicdrift/kumiko-bundled-features/tenant",
+          exportName: "createTenantFeature",
+          callExpression: "createTenantFeature()",
+        },
+        {
+          name: "delivery",
+          importPath: "@cosmicdrift/kumiko-bundled-features/delivery",
+          exportName: "createDeliveryFeature",
+          callExpression: "createDeliveryFeature()",
+        },
+      ],
+    });
+
+    const readme = readFileSync(join(dest, "README.md"), "utf-8");
+    expect(readme).toContain("## Mounted features");
+    expect(readme).toContain("- `tenant`");
+    expect(readme).toContain("- `delivery`");
+  });
+
   test("bin/main.ts contains runProdApp + auth.admin stub", () => {
     const dest = join(tmp, "my-shop");
     scaffoldApp({ name: "my-shop", destination: dest });

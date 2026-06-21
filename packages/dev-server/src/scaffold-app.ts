@@ -86,7 +86,7 @@ export function scaffoldApp(options: ScaffoldAppOptions): ScaffoldAppResult {
   write(join(destination, ".env.example"), renderEnvExample(options.name));
   files.push(".env.example");
 
-  write(join(destination, "README.md"), renderReadme(options.name));
+  write(join(destination, "README.md"), renderReadme(options.name, options.features));
   files.push("README.md");
 
   return { destination, files, appName: options.name };
@@ -410,12 +410,25 @@ KUMIKO_DEV_DB_NAME=${appName.replace(/-/g, "_")}_dev
 `;
 }
 
-function renderReadme(appName: string): string {
+function renderReadme(
+  appName: string,
+  features: ReadonlyArray<ScaffoldFeatureEntry> | undefined,
+): string {
+  const featureList =
+    features && features.length > 0
+      ? features.map((f) => `- \`${f.name}\``).join("\n")
+      : "- `secrets` (foundation)\n- `sessions` (foundation)";
   return `# ${appName}
 
 Scaffolded by \`bun create kumiko-app\`. Boots out-of-the-box with the picked
 feature stack mounted. Add features by editing \`src/run-config.ts\` or via
 \`bunx @cosmicdrift/kumiko-cli add feature <name>\`.
+
+## Mounted features
+
+${featureList}
+
+Edit \`src/run-config.ts\` to add or remove.
 
 ## First run
 
