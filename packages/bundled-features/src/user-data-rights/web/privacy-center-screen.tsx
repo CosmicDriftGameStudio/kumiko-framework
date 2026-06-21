@@ -1,13 +1,17 @@
 // @runtime client
 // PrivacyCenterScreen — eingeloggte DSGVO-Self-Service-Seite: Datenexport
-// (Art. 20), Aktivitätsprotokoll (Art. 15), Verarbeitung einschränken
-// (Art. 18) und Konto löschen (Art. 17) in einem Screen. Das Feature
-// registriert ihn dormant als custom-Screen (r.screen, kein r.nav); die App
-// platziert ihn via r.nav im eingeloggten Bereich.
+// (Art. 20), Verarbeitung einschränken (Art. 18) und Konto löschen (Art. 17)
+// in einem Screen. Das Feature registriert ihn dormant als custom-Screen
+// (r.screen, kein r.nav); die App platziert ihn via r.nav im eingeloggten
+// Bereich.
 //
-// Art. 18 Lift ist hier bewusst NICHT actionbar: ein eingeschränktes Konto
-// ist vom Login geblockt und erreicht diesen Screen gar nicht erst — das
-// Aufheben läuft über Support / Magic-Link, nicht über die Self-Service-UI.
+// `showDeletion=false` blendet die Lösch-Sektion aus — für Apps, die die
+// Konto-Löschung bereits an anderer Stelle anbieten (z.B. Profil-DangerZone),
+// damit sie nicht doppelt erscheint.
+//
+// Art. 18 Lift ist hier bewusst NICHT actionbar: ein eingeschränktes Konto ist
+// vom Login geblockt und erreicht diesen Screen gar nicht erst — das Aufheben
+// läuft über Support / Magic-Link, nicht über die Self-Service-UI.
 
 import {
   useDispatcher,
@@ -15,7 +19,7 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import {
   EXPORT_JOB_STATUS,
   type ExportJobStatus,
@@ -27,6 +31,10 @@ import {
 
 const STATUS_DELETION_REQUESTED = "deletionRequested";
 const STATUS_RESTRICTED = "restricted";
+// Export-Job läuft async (worker-Lane-Cron, ~1 Min). Solange er pending/running
+// ist, pollt der Screen den Status, damit der Download ohne manuellen Reload
+// erscheint.
+const EXPORT_POLL_MS = 4000;
 
 type MeRow = {
   readonly id: string;
@@ -44,14 +52,6 @@ type ExportJob = {
 type ExportStatusResult =
   | { readonly hasJob: false }
   | { readonly hasJob: true; readonly job: ExportJob };
-
-type AuditRow = {
-  readonly id: string;
-  readonly type: string;
-  readonly aggregateType: string;
-  readonly createdAt: string;
-};
-type AuditLogResult = { readonly rows: readonly AuditRow[] };
 
 type SectionStatus =
   | { kind: "idle" }
@@ -88,7 +88,7 @@ function StatusBanner({ status }: { readonly status: SectionStatus }): ReactNode
 
 function ExportSection(): ReactNode {
   const t = useTranslation();
-  const { Button, Banner, Heading } = usePrimitives();
+  const { Section, Button, Banner } = usePrimitives();
   const dispatcher = useDispatcher();
   const statusQuery = useQuery<ExportStatusResult | null>(UserDataRightsQueries.exportStatus, {});
   const [status, setStatus] = useState<SectionStatus>({ kind: "idle" });
@@ -112,12 +112,16 @@ function ExportSection(): ReactNode {
   const done = job?.status === EXPORT_JOB_STATUS.Done;
   const failed = job?.status === EXPORT_JOB_STATUS.Failed;
 
+  // Solange der Job läuft: pollen bis Done/Failed, dann auto-Stop.
+  const refetch = statusQuery.refetch;
+  useEffect(() => {
+    if (!inProgress || !refetch) return;
+    const id = setInterval(() => void refetch(), EXPORT_POLL_MS);
+    return () => clearInterval(id);
+  }, [inProgress, refetch]);
+
   return (
-    <section
-      data-testid="privacy-export"
-      className="flex flex-col gap-4 rounded-lg border bg-card p-6"
-    >
-      <Heading variant="section">{t("userDataRights.privacyCenter.export.title")}</Heading>
+    <Section title={t("userDataRights.privacyCenter.export.title")} testId="privacy-export">
       <p className="text-sm text-muted-foreground">
         {t("userDataRights.privacyCenter.export.intro")}
       </p>
@@ -170,48 +174,7 @@ function ExportSection(): ReactNode {
               : t("userDataRights.privacyCenter.export.request")}
         </Button>
       )}
-    </section>
-  );
-}
-
-function AuditSection(): ReactNode {
-  const t = useTranslation();
-  const { Banner, Heading } = usePrimitives();
-  const logQuery = useQuery<AuditLogResult | null>(UserDataRightsQueries.myAuditLog, {});
-  const rows = logQuery.data?.rows ?? [];
-
-  return (
-    <section
-      data-testid="privacy-audit"
-      className="flex flex-col gap-4 rounded-lg border bg-card p-6"
-    >
-      <Heading variant="section">{t("userDataRights.privacyCenter.audit.title")}</Heading>
-      <p className="text-sm text-muted-foreground">
-        {t("userDataRights.privacyCenter.audit.intro")}
-      </p>
-      {logQuery.error && (
-        <Banner variant="error">{t("userDataRights.privacyCenter.errors.generic")}</Banner>
-      )}
-      {logQuery.error ? null : rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground" data-testid="privacy-audit-empty">
-          {t("userDataRights.privacyCenter.audit.empty")}
-        </p>
-      ) : (
-        <ul className="flex flex-col divide-y text-sm" data-testid="privacy-audit-list">
-          {rows.map((row) => (
-            <li
-              key={row.id}
-              data-testid="privacy-audit-row"
-              className="flex items-center justify-between gap-4 py-2"
-            >
-              <span className="font-medium">{row.type}</span>
-              <span className="text-muted-foreground">{row.aggregateType}</span>
-              <span className="text-muted-foreground">{formatDate(row.createdAt)}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+    </Section>
   );
 }
 
@@ -223,7 +186,7 @@ function RestrictionSection({
   readonly onChanged: () => void;
 }): ReactNode {
   const t = useTranslation();
-  const { Button, Banner, Dialog, Heading } = usePrimitives();
+  const { Section, Button, Banner, Dialog } = usePrimitives();
   const dispatcher = useDispatcher();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [status, setStatus] = useState<SectionStatus>({ kind: "idle" });
@@ -242,11 +205,10 @@ function RestrictionSection({
   };
 
   return (
-    <section
-      data-testid="privacy-restriction"
-      className="flex flex-col gap-4 rounded-lg border border-destructive/40 bg-card p-6"
+    <Section
+      title={t("userDataRights.privacyCenter.restriction.title")}
+      testId="privacy-restriction"
     >
-      <Heading variant="section">{t("userDataRights.privacyCenter.restriction.title")}</Heading>
       {restricted ? (
         <Banner variant="error" testId="privacy-restriction-active">
           {t("userDataRights.privacyCenter.restriction.restricted")}
@@ -276,7 +238,7 @@ function RestrictionSection({
           />
         </>
       )}
-    </section>
+    </Section>
   );
 }
 
@@ -288,7 +250,7 @@ function DeletionSection({
   readonly onChanged: () => void;
 }): ReactNode {
   const t = useTranslation();
-  const { Button, Banner, Dialog, Heading } = usePrimitives();
+  const { Section, Button, Banner, Dialog } = usePrimitives();
   const dispatcher = useDispatcher();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [status, setStatus] = useState<SectionStatus>({ kind: "idle" });
@@ -318,11 +280,7 @@ function DeletionSection({
   };
 
   return (
-    <section
-      data-testid="privacy-deletion"
-      className="flex flex-col gap-4 rounded-lg border border-destructive/40 bg-card p-6"
-    >
-      <Heading variant="section">{t("userDataRights.privacyCenter.deletion.title")}</Heading>
+    <Section title={t("userDataRights.privacyCenter.deletion.title")} testId="privacy-deletion">
       {deletionRequested ? (
         <>
           <Banner variant="error" testId="privacy-deletion-requested">
@@ -364,11 +322,15 @@ function DeletionSection({
           />
         </>
       )}
-    </section>
+    </Section>
   );
 }
 
-export function PrivacyCenterScreen(): ReactNode {
+export function PrivacyCenterScreen({
+  showDeletion = true,
+}: {
+  readonly showDeletion?: boolean;
+} = {}): ReactNode {
   const t = useTranslation();
   const { Banner, Heading } = usePrimitives();
   const meQuery = useQuery<MeRow | null>(USER_ME_QUERY, {});
@@ -398,9 +360,8 @@ export function PrivacyCenterScreen(): ReactNode {
       <Heading variant="page">{t("userDataRights.privacyCenter.title")}</Heading>
       <p className="text-sm text-muted-foreground">{t("userDataRights.privacyCenter.intro")}</p>
       <ExportSection />
-      <AuditSection />
       <RestrictionSection me={me} onChanged={refetch} />
-      <DeletionSection me={me} onChanged={refetch} />
+      {showDeletion && <DeletionSection me={me} onChanged={refetch} />}
     </div>
   );
 }
