@@ -10,5 +10,6 @@ export type { ConfirmAccountDeletionScreenProps } from "./confirm-deletion-scree
 export { ConfirmAccountDeletionScreen } from "./confirm-deletion-screen";
 export { defaultTranslations } from "./i18n";
 export { formatDate, PrivacyCenterScreen } from "./privacy-center-screen";
+export { makePublicDeletionGate, type PublicDeletionRoutes } from "./public-deletion-gate";
 export type { RequestAccountDeletionScreenProps } from "./request-deletion-screen";
 export { RequestAccountDeletionScreen } from "./request-deletion-screen";
