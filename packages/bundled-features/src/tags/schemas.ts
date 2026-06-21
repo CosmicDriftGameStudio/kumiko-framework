@@ -6,6 +6,15 @@ export const createTagPayloadSchema = z.object({
 });
 export type CreateTagPayload = z.infer<typeof createTagPayloadSchema>;
 
+// rename-tag — id + the version the client read (optimistic lock, mirrors
+// tenant:update) + the new name. The executor merges shallowly, so color stays.
+export const renameTagPayloadSchema = z.object({
+  id: z.string().min(1),
+  version: z.number().int().nonnegative(),
+  name: z.string().min(1).max(64),
+});
+export type RenameTagPayload = z.infer<typeof renameTagPayloadSchema>;
+
 // assign + remove share the (tag, entity) reference shape.
 const entityTagRef = {
   tagId: z.string().min(1).max(64),

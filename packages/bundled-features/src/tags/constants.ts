@@ -18,6 +18,7 @@ export const TAGS_SECTION_EXTENSION_NAME = "TagSection";
 // object instead of magic strings (mirror custom-fields' Handlers/Queries).
 export const TagsHandlers = {
   createTag: "tags:write:create-tag",
+  renameTag: "tags:write:rename-tag",
   assignTag: "tags:write:assign-tag",
   removeTag: "tags:write:remove-tag",
 } as const;

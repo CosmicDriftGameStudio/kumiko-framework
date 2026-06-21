@@ -21,10 +21,16 @@ export {
   removeTagHandler,
 } from "./handlers/remove-tag.write";
 export {
+  createRenameTagHandler,
+  renameTagHandler,
+} from "./handlers/rename-tag.write";
+export {
   type AssignTagPayload,
   assignTagPayloadSchema,
   type CreateTagPayload,
   createTagPayloadSchema,
   type RemoveTagPayload,
+  type RenameTagPayload,
   removeTagPayloadSchema,
+  renameTagPayloadSchema,
 } from "./schemas";

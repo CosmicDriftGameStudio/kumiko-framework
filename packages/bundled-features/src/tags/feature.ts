@@ -12,8 +12,8 @@
 // tag-assignments filtered on entityId (tags of an entity) or tagId (entities
 // with a tag). See entity.ts.
 //
-// v1 scope: create-tag, assign-tag, remove-tag, list tags, list assignments.
-// Deferred: rename/delete-tag, optional host-projection decoration
+// Scope: create-tag, rename-tag, assign-tag, remove-tag, list tags, list assignments.
+// Deferred: delete-tag, optional host-projection decoration
 // (`wireTagsFor`), search indexing, user-data-rights anonymization.
 
 import {
@@ -27,6 +27,7 @@ import { tagAssignmentEntity, tagEntity } from "./entity";
 import { createAssignTagHandler } from "./handlers/assign-tag.write";
 import { createCreateTagHandler } from "./handlers/create-tag.write";
 import { createRemoveTagHandler } from "./handlers/remove-tag.write";
+import { createRenameTagHandler } from "./handlers/rename-tag.write";
 
 // Opt-in tier-gating: when set, the feature declares itself r.toggleable so the
 // dispatcher gate + feature-toggles + tier-engine can switch the WHOLE feature
@@ -42,7 +43,7 @@ function registerTags(
   toggleable: TagsToggleable | undefined,
 ): void {
   r.describe(
-    "Generic, host-agnostic tagging for any entity. Owns two event-sourced entities — the per-tenant `tag` catalog (`read_tags`) and `tag-assignment` join rows keyed by (entityType, entityId) (`read_tag_assignments`) — so tagging adds NO column to the host entity and needs no relational pivot or JOIN. Provides write-handlers `create-tag`, `assign-tag` (idempotent), `remove-tag` (idempotent) and list queries for the catalog and the assignments. Read which tags an entity has, or which entities carry a tag, by listing `tag-assignment` filtered on `entityId` or `tagId` and composing in the read-layer. Every path uses one access rule — adopt the host's model with createTagsFeature({ access: { openToAll: true } }) or pin roles with createTagsFeature({ roles }). Pass { toggleable: { default: false } } to make the whole feature tier-gatable via the tier-engine (no host hook).",
+    "Generic, host-agnostic tagging for any entity. Owns two event-sourced entities — the per-tenant `tag` catalog (`read_tags`) and `tag-assignment` join rows keyed by (entityType, entityId) (`read_tag_assignments`) — so tagging adds NO column to the host entity and needs no relational pivot or JOIN. Provides write-handlers `create-tag`, `rename-tag` (optimistic-locked), `assign-tag` (idempotent), `remove-tag` (idempotent) and list queries for the catalog and the assignments. Read which tags an entity has, or which entities carry a tag, by listing `tag-assignment` filtered on `entityId` or `tagId` and composing in the read-layer. Every path uses one access rule — adopt the host's model with createTagsFeature({ access: { openToAll: true } }) or pin roles with createTagsFeature({ roles }). Pass { toggleable: { default: false } } to make the whole feature tier-gatable via the tier-engine (no host hook).",
   );
   r.uiHints({
     displayLabel: "Tags",
@@ -58,6 +59,7 @@ function registerTags(
   r.entity("tag-assignment", tagAssignmentEntity);
 
   r.writeHandler(createCreateTagHandler(access));
+  r.writeHandler(createRenameTagHandler(access));
   r.writeHandler(createAssignTagHandler(access));
   r.writeHandler(createRemoveTagHandler(access));
 

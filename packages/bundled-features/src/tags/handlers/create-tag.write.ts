@@ -6,8 +6,7 @@ import { type CreateTagPayload, createTagPayloadSchema } from "../schemas";
 // create-tag — adds a tag to the tenant's catalog. The framework mints a fresh
 // UUIDv7 id (no explicit id passed). Tag names are not unique by design: the
 // catalog is a free list and dedup is a UI concern (autocomplete from existing
-// tags). Rename/delete are deferred to a later iteration (v1 scope: create,
-// assign, remove, list).
+// tags). Rename is rename-tag.write.ts; delete is still deferred.
 export function createCreateTagHandler(access: AccessRule = DEFAULT_TAG_ACCESS): WriteHandlerDef {
   return {
     name: "create-tag",
