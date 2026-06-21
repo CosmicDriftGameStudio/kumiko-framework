@@ -4,7 +4,7 @@
 // docs without an actual `bunx … && bun install && bun run boot` CI run.
 //
 // What this test pins:
-//   - scaffoldApp produces the 6 files the walkthrough lists
+//   - scaffoldApp produces the files the walkthrough lists
 //   - scaffoldAppFeature scaffolds + auto-mounts (the diff-block shown)
 //   - composeFeatures(includeBundled:true) yields the exact feature-count
 //     the walkthrough advertises in "Expected output"
@@ -32,13 +32,14 @@ describe("walkthrough — DX-3.1 snapshot", () => {
     rmSync(tmp, { recursive: true, force: true });
   });
 
-  test("Step 1 (kumiko new app) — produces walkthrough's 6 files", () => {
+  test("Step 1 (kumiko new app) — produces walkthrough's scaffold files", () => {
     const result = scaffoldApp({ name: "my-notes", destination: appRoot });
     expect(result.files).toEqual([
       "package.json",
       "tsconfig.json",
       "src/run-config.ts",
       "bin/main.ts",
+      "bin/dev.ts",
       ".env.example",
       "README.md",
     ]);
