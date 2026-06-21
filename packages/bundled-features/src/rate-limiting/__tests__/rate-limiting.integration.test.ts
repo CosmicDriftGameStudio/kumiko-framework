@@ -71,6 +71,17 @@ describe("rate-limiting feature — status query", () => {
     expect(status.remaining).toBe(2);
   });
 
+  test("blocks with 429 once the bucket is drained", async () => {
+    // The status query only *reports* state; this proves enforcement —
+    // the L3 hook actually rejects traffic over the limit, not just counts.
+    for (let i = 0; i < 5; i++) {
+      const ok = await stack.http.query("rl-probe:query:ping", {}, admin);
+      expect(ok.status).toBe(200);
+    }
+    const blocked = await stack.http.query("rl-probe:query:ping", {}, admin);
+    expect(blocked.status).toBe(429);
+  });
+
   test("status access requires Admin/SystemAdmin", async () => {
     const guest = TestUsers.user;
     const res = await stack.http.query(
