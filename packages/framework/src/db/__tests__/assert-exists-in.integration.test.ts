@@ -66,6 +66,16 @@ describe("assertExistsIn — DbConnection + explizite tenantId", () => {
     });
     expect(r).toBeInstanceOf(NotFoundError);
   });
+
+  test("zusätzliches where matcht → null (existiert)", async () => {
+    const r = await assertExistsIn(stack.db, orderTable, {
+      field: "id",
+      value: ID_A,
+      tenantId: tenantA,
+      where: { name: "A-Order" },
+    });
+    expect(r).toBeNull();
+  });
 });
 
 describe("assertExistsIn — TenantDb auto-filter", () => {
@@ -77,6 +87,12 @@ describe("assertExistsIn — TenantDb auto-filter", () => {
   test("ISOLATION: fremde Row via TenantDb → NotFoundError", async () => {
     const dbA = createTenantDb(stack.db, tenantA, "tenant");
     const r = await assertExistsIn(dbA, orderTable, { field: "id", value: ID_B });
+    expect(r).toBeInstanceOf(NotFoundError);
+  });
+
+  test("fehlende Row via TenantDb → NotFoundError", async () => {
+    const dbA = createTenantDb(stack.db, tenantA, "tenant");
+    const r = await assertExistsIn(dbA, orderTable, { field: "id", value: MISSING });
     expect(r).toBeInstanceOf(NotFoundError);
   });
 });

@@ -56,4 +56,20 @@ describe("runDevApp — auth allowedOrigins forwarding (#399/1)", () => {
     // proof — the allowlist reached the server build.
     expect(handle).toBeDefined();
   });
+
+  test("cookieDomain + unsafeSkipOriginCheck clears the guard without an allowlist", async () => {
+    // The escape hatch must also forward: cookieDomain alone fails closed
+    // (first test), but unsafeSkipOriginCheck=true bypasses it. A dropped/
+    // mis-spread key would let the guard fire → /allowedOrigins is empty/.
+    handle = await runDevApp({
+      features: [validFeature()],
+      port: 0,
+      auth: {
+        admin: ADMIN,
+        cookieDomain: "example.eu",
+        unsafeSkipOriginCheck: true,
+      },
+    });
+    expect(handle).toBeDefined();
+  });
 });

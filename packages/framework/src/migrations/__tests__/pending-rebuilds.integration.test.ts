@@ -200,6 +200,19 @@ describe("pending-rebuilds queue", () => {
     expect(run).toEqual({ rebuilt: [], failed: [], unmapped: [], unresolvedManaged: [] });
   });
 
+  // Zwei applied-Migrations, die dieselbe Tabelle anfassen, dürfen sie nur
+  // EINMAL queuen (interner Set) — sonst rebuildet ein Run dieselbe Projektion
+  // doppelt.
+  test("two applied migrations touching the same table → deduplicated to one entry", async () => {
+    writeRebuildMarker(markerDir, "0006_a.sql", ["read_pending_counts"]);
+    writeRebuildMarker(markerDir, "0006_b.sql", ["read_pending_counts"]);
+    const queued = await queueRebuildsFromMarkers(testDb.db, {
+      migrationsDir: markerDir,
+      appliedIds: ["0006_a", "0006_b"],
+    });
+    expect(queued).toEqual(["read_pending_counts"]);
+  });
+
   // #361: eine managed-Tabelle (Marker tragen nur managed), die in DIESEM Run
   // geleert wurde, aber keine Projektion auflöst = owning-Feature fehlt in der
   // Komposition → laut (unresolvedManaged), aber non-fatal (gedraint, kein Throw).

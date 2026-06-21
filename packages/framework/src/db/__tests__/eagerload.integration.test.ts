@@ -109,6 +109,23 @@ describe("enrichWithReferences", () => {
     expect(single(row, "author")).toBeUndefined();
   });
 
+  // multiple-ref-Contract: IMMER ein Array (gefiltert), nie undefined — anders
+  // als single (oben). Ein Renderer kann auf .map() vertrauen ohne null-Check.
+  test("multiple-ref filtert cross-tenant raus, behält den Rest als Array", async () => {
+    const row = await enrichA({ id: "p1", tags: [A1, BX] });
+    expect(many(row, "tags")?.map((t) => t["name"])).toEqual(["Ada"]);
+  });
+
+  test("multiple-ref nur cross-tenant → [] (leeres Array, NICHT undefined)", async () => {
+    const row = await enrichA({ id: "p1", tags: [BX] });
+    expect(many(row, "tags")).toEqual([]);
+  });
+
+  test("multiple-ref null → [] (leeres Array, NICHT undefined)", async () => {
+    const row = await enrichA({ id: "p1", tags: null });
+    expect(many(row, "tags")).toEqual([]);
+  });
+
   test("TENANT-ISOLATION: cross-tenant-ref wird NICHT aufgelöst", async () => {
     // bx gehört tenantB; dbA ist auf tenantA gescoped → der Lookup filtert
     // ihn raus, _refs bleibt undefined (Renderer fällt auf die UUID zurück).
