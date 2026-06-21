@@ -74,6 +74,8 @@ export type {
   SecretKeyDefinition,
   SecretKeyHandle,
   SecretOptions,
+  UiHintOption,
+  UiHints,
   UnmanagedTableDef,
   UnmanagedTableEntry,
 } from "./feature";

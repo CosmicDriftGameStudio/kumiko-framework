@@ -171,6 +171,51 @@ export type UnmanagedTableDef = UnmanagedTableEntry & {
   readonly featureName: string;
 };
 
+// --- UI-Hints (manifest-only, picker/scaffolder metadata) ---
+
+// Optional, declarative UI metadata declared via `r.uiHints({...})`. Surfaces
+// in feature-manifest.json under `feature.uiHints`. Consumers (the picker in
+// `create-kumiko-app`, the docs feature-reference) treat absent hints as
+// "no special treatment" — bare feature.name + feature.description still work.
+//
+// Keep this list lean. Anything that already has a home on the feature
+// (configKeys.scope/default/encrypted, secretKeys, requires, etc.) lives there.
+// Only add fields here that are genuinely UI-only.
+export type UiHintOption =
+  | {
+      readonly key: string;
+      readonly label: string;
+      readonly type: "boolean";
+      readonly default: boolean;
+    }
+  | {
+      readonly key: string;
+      readonly label: string;
+      readonly type: "select";
+      readonly options: readonly string[];
+      readonly default: string;
+    }
+  | {
+      readonly key: string;
+      readonly label: string;
+      readonly type: "text";
+      readonly default?: string;
+    };
+
+export type UiHints = {
+  // Picker-facing label ("Auth · Email + Password" instead of the bare
+  // feature-name "auth-email-password").
+  readonly displayLabel?: string;
+  // Grouping for the picker. Free-form string; the picker sorts/groups by it.
+  readonly category?: string;
+  // Pre-checked in the picker when the user runs `bun create kumiko-app`.
+  readonly recommended?: boolean;
+  // Sub-options the picker asks about per-feature (e.g. "Password-Reset-Flow
+  // on/off"). The scaffolder maps each key to a generator decision; the
+  // framework doesn't act on them at runtime.
+  readonly configurableOptions?: readonly UiHintOption[];
+};
+
 // --- Feature Definition (output of defineFeature) ---
 
 export type FeatureDefinition = {
@@ -197,6 +242,9 @@ export type FeatureDefinition = {
   // means the feature is always-on (e.g. auth, tenant, user — core infra
   // that would brick the system if switchable).
   readonly toggleableDefault?: boolean;
+  // Declarative UI metadata for picker/scaffolder tooling. Set via r.uiHints().
+  // Pure manifest-side info — the framework runtime doesn't read it.
+  readonly uiHints?: UiHints;
   // entities/hooks/entityHooks are optional: defineFeature always
   // materializes them, but hand-built definitions at system boundaries
   // (test fixtures, partial boots — see registry.test.ts "slot robustness")
@@ -365,6 +413,8 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // feature; calling on an always-on feature (e.g. auth/tenant/user) is a
   // bug — and one nothing catches at boot, so don't.
   toggleable(options: { default: boolean }): void;
+  // Picker/scaffolder metadata — see UiHints. At most once per feature.
+  uiHints(hints: UiHints): void;
 
   entity(
     name: string,

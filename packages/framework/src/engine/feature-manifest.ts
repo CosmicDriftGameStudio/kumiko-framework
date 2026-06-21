@@ -8,7 +8,7 @@
 
 import { compareByCodepoint } from "../utils";
 import { qualifyEntityName } from "./qualified-name";
-import type { Registry } from "./types/feature";
+import type { Registry, UiHints } from "./types/feature";
 
 export type ManifestConfigKey = {
   readonly key: string;
@@ -57,6 +57,10 @@ export type ManifestFeature = {
    *  Von `collectWriteHandlerQns` abgeleitet — dient als Source-of-Truth
    *  für den Client-seitigen Typcheck von `dispatcher.write`-Calls. */
   readonly writeHandlers: readonly string[];
+  /** Picker/scaffolder UI metadata declared via r.uiHints(). Optional —
+   *  absent for features that haven't been annotated yet (the picker falls
+   *  back to feature.name + feature.description). */
+  readonly uiHints?: UiHints;
   /** Optionaler Herkunfts-Tag (z.B. "enterprise") — gesetzt via Options. */
   readonly tier?: string;
 };
@@ -148,6 +152,7 @@ export function buildManifestFromRegistry(
       configKeys,
       secrets,
       writeHandlers: writeHandlerQns,
+      ...(feature.uiHints !== undefined && { uiHints: feature.uiHints }),
       ...(options.tier !== undefined && { tier: options.tier }),
     });
   }

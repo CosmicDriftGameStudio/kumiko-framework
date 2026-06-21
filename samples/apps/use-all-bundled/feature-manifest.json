@@ -35,7 +35,38 @@
         "auth-email-password:write:change-password",
         "auth-email-password:write:login",
         "auth-email-password:write:logout"
-      ]
+      ],
+      "uiHints": {
+        "displayLabel": "Auth · Email + Password",
+        "category": "identity",
+        "recommended": true,
+        "configurableOptions": [
+          {
+            "key": "passwordReset",
+            "label": "Password-Reset-Flow",
+            "type": "boolean",
+            "default": true
+          },
+          {
+            "key": "emailVerification",
+            "label": "Email-Verification-Flow",
+            "type": "boolean",
+            "default": true
+          },
+          {
+            "key": "signup",
+            "label": "Self-Signup-Flow",
+            "type": "boolean",
+            "default": false
+          },
+          {
+            "key": "invite",
+            "label": "Tenant-Invite-Flow",
+            "type": "boolean",
+            "default": false
+          }
+        ]
+      }
     },
     {
       "name": "billing-foundation",
@@ -53,7 +84,12 @@
         "billing-foundation:write:create-checkout-session",
         "billing-foundation:write:create-portal-session",
         "billing-foundation:write:process-event"
-      ]
+      ],
+      "uiHints": {
+        "displayLabel": "Billing · Foundation",
+        "category": "billing",
+        "recommended": false
+      }
     },
     {
       "name": "cap-counter",
@@ -226,7 +262,12 @@
       "secrets": [],
       "writeHandlers": [
         "delivery:write:set-preference"
-      ]
+      ],
+      "uiHints": {
+        "displayLabel": "Notifications · Dispatch Core",
+        "category": "notifications",
+        "recommended": true
+      }
     },
     {
       "name": "feature-toggles",
@@ -242,7 +283,12 @@
       "secrets": [],
       "writeHandlers": [
         "feature-toggles:write:set"
-      ]
+      ],
+      "uiHints": {
+        "displayLabel": "Feature Toggles · Operator Switches",
+        "category": "operations",
+        "recommended": false
+      }
     },
     {
       "name": "file-foundation",
@@ -445,7 +491,12 @@
       "extensionsUsed": [],
       "configKeys": [],
       "secrets": [],
-      "writeHandlers": []
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Files · Metadata",
+        "category": "storage",
+        "recommended": false
+      }
     },
     {
       "name": "jobs",
@@ -960,7 +1011,12 @@
         "sessions:write:user-session:revoke",
         "sessions:write:user-session:revoke-all-for-user",
         "sessions:write:user-session:revoke-all-others"
-      ]
+      ],
+      "uiHints": {
+        "displayLabel": "Sessions · Server-side Logout",
+        "category": "identity",
+        "recommended": false
+      }
     },
     {
       "name": "step-dispatcher",
@@ -1307,7 +1363,12 @@
         "tenant:write:remove-member",
         "tenant:write:update",
         "tenant:write:update-member-roles"
-      ]
+      ],
+      "uiHints": {
+        "displayLabel": "Multi-Tenant Core",
+        "category": "identity",
+        "recommended": true
+      }
     },
     {
       "name": "text-content",
@@ -1361,7 +1422,12 @@
       "writeHandlers": [
         "user:write:user:create",
         "user:write:user:update"
-      ]
+      ],
+      "uiHints": {
+        "displayLabel": "User Identity",
+        "category": "identity",
+        "recommended": true
+      }
     },
     {
       "name": "user-data-rights",
