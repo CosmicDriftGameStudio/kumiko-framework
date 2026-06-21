@@ -329,6 +329,12 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   readonly triggeredBy?: { readonly id: string; readonly tenantId: TenantId } | null;
   readonly _userId?: string | undefined;
   readonly _handlerType?: string | undefined;
+  // Trash query opt-in (soft-delete). When true, the auto entity-list handler
+  // asks the executor to include soft-deleted rows; a custom query handler can
+  // read it to branch its own logic. Set by the dispatcher from the query
+  // payload's `includeDeleted` field — visibility (tenant/ownership) filters
+  // still apply, so this never widens what a user may see beyond the live list.
+  readonly includeDeleted?: boolean;
 
   readonly query: (qn: string, payload: unknown) => Promise<unknown>;
   readonly queryAs: (user: SessionUser, qn: string, payload: unknown) => Promise<unknown>;
