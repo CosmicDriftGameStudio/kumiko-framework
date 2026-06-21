@@ -240,7 +240,7 @@ describe("buildConfigFeatureSchema — access + workspace", () => {
 
   test("a screen mixing an openToAll key with role-restricted keys collapses to openToAll", () => {
     // unionAccessRules short-circuits: one openToAll writer opens the whole gate,
-    // even next to role-restricted keys — the mixed case the all-or-nothing tests miss.
+    // even next to role-restricted keys.
     const mixedWrite = defineFeature("mixedwrite", (r) => {
       r.config({
         keys: {

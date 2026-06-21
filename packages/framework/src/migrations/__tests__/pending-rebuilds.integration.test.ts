@@ -296,7 +296,7 @@ describe("enqueueProjectionRebuild — inline fallback (no jobs feature)", () =>
   });
 });
 
-// #391/2: jobRunner present but the projection-rebuild job not registered (a
+// jobRunner present but the projection-rebuild job not registered (a
 // caller that wired a jobRunner yet forgot to compose createJobsFeature()). The
 // getJob-capability guard must still fall to the inline rebuild — NOT dispatch
 // onto a runner whose queue has no handler for the job (silent no-op forever).

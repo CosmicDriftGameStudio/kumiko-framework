@@ -135,15 +135,15 @@ export function buildConfigFeatureSchema(registry: Registry): ConfigFeatureSchem
   return { screens, navs, workspace: buildSettingsWorkspace(navs) };
 }
 
-// Keys, die an `scope` sichtbar sind, gepaart mit ihren effektiven Schreib-
-// Rollen AN diesem Scope (Home = volles write; breiter = elevated ∩ write).
+// Keys visible at `scope`, paired with their effective write roles AT that
+// scope (Home = full write; broader = elevated ∩ write).
 function scopedKeysAt(masked: readonly MaskedKey[], scope: ConfigScope): ScopedKey[] {
   const out: ScopedKey[] = [];
   for (const key of masked) {
     const roles = effectiveWriteRoles(key.def, scope);
-    // MACHINE_WRITE_ROLE aus den Screen-Rollen strippen: ein gemischter
-    // write-Set (z.B. ["system", "SystemAdmin"]) darf "system" nicht ins
-    // Screen-Access-Gate leaken — analog zum machine-gefilterten Workspace-Gate.
+    // Strip MACHINE_WRITE_ROLE from the screen roles: a mixed write set
+    // (e.g. ["system", "SystemAdmin"]) must not leak "system" into the
+    // screen access gate — mirrors the machine-filtered workspace gate.
     const humanRoles = roles.filter((r) => r !== MACHINE_WRITE_ROLE);
     if (humanRoles.length > 0) out.push({ key, roles: humanRoles });
   }

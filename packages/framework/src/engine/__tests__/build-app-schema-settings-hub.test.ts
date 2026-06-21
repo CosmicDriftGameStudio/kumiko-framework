@@ -201,10 +201,10 @@ describe("buildAppSchema — Settings-Hub inline placement", () => {
 });
 
 describe("buildAppSchema — dangling audience-ref dev-warning (#408/3)", () => {
-  // billing registriert nur system+tenant-Keys → audience-user wird NIE
-  // generiert. Eine Workspace, die config:nav:audience-user referenziert, boot't
-  // (Boot-Validator exempt't die Audience-QNs), aber der Eintrag rendert
-  // unsichtbar — der Dev muss eine Warnung sehen, nicht still nichts.
+  // billing registers only system+tenant keys → audience-user is NEVER
+  // generated. A workspace referencing config:nav:audience-user still boots
+  // (the boot-validator exempts the audience QNs), but the entry renders
+  // invisibly — the dev must see a warning, not silently nothing.
   function warnsFor(scopes: string[]): string[] {
     const prevEnv = process.env.NODE_ENV;
     process.env.NODE_ENV = "development";

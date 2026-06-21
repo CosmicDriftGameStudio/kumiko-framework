@@ -156,10 +156,10 @@ function placeSettingsHub(
   }
 
   const placedAudiences = new Set<string>();
-  // Config-Hub-Navs, die eine Workspace referenziert, die aber nie generiert
-  // wurden (weder Audience noch bekanntes Kind) — z.B. `config:nav:audience-user`
-  // ohne registrierte User-Scope-Config-Keys. Sonst verschwindet die Referenz
-  // lautlos (silent-skip).
+  // Config-hub navs a workspace references but that were never generated (no
+  // audience and no known child) — e.g. `config:nav:audience-user` without any
+  // registered user-scope config keys. Otherwise the reference vanishes
+  // silently (silent-skip).
   const danglingRefs = new Set<string>();
   const workspaces = appWorkspaces.map((ws) => {
     const additions: string[] = [];
