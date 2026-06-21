@@ -374,19 +374,22 @@ describe("download-by-token :: error paths", () => {
 });
 
 describe("download-by-job :: happy path", () => {
-  test("session-auth: Job-Owner → returns signed URL + audit", async () => {
+  test("session-auth: Job-Owner → returns signed URL + audit (IP aus X-Forwarded-For)", async () => {
     const { jobId } = await seedDoneJobWithToken();
 
-    const result = await stack.http.queryOk<{ url: string }>(
+    // Der UI-Klick laeuft als direkter download-by-job-Query (Client traegt
+    // X-CSRF-Token). Die Audit-IP kommt server-trusted aus dem RequestContext
+    // (X-Forwarded-For, erster Hop), nicht aus einem vom Client mitgeschickten
+    // Feld.
+    const res = await stack.http.queryWithHeaders(
       "user-data-rights:query:download-by-job",
-      {
-        jobId,
-        auditMeta: { ip: "10.0.0.5", userAgent: "Mozilla/5.0" },
-      },
+      { jobId },
       aliceUser,
+      { "x-forwarded-for": "10.0.0.5, 10.0.0.1" },
     );
-
-    expect(result.url).toMatch(/^memory:\/\//);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: { url: string } };
+    expect(body.data.url).toMatch(/^memory:\/\//);
 
     // UI-Klick zaehlt auch als Use → audit-row updated
     const [row] = (await selectMany(stack.db, exportDownloadTokensTable, { jobId })) as Array<{

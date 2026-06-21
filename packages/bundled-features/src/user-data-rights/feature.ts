@@ -220,17 +220,18 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       access: { openToAll: true },
     });
 
-    // r.httpRoute-Wrapper: Magic-Link-Pfad (anonymous) + UI-Klick-Pfad.
+    // Magic-Link-Pfad (anonymous): GET /user-export/by-token?token=<plain>.
+    // Ruft via app.fetch /api/query → success: 302-Redirect zur signed-URL →
+    // Browser folgt → Download startet beim Object-Store. Bei error:
+    // passthrough (404/410/501) als JSON.
     //
-    // Beide rufen via app.fetch /api/query → wenn success: 302-Redirect
-    // zur signed-URL → Browser folgt → Download startet beim Object-Store.
-    // Bei error: passthrough (404/410/501) als JSON.
+    // Path liegt AUSSERHALB /api/* weil r.httpRoute den /api-namespace nicht
+    // claimen darf (reserved fuer write/query/batch/auth/sse-dispatcher).
     //
-    // **Token-Pfad (anonymous):** GET /user-export/by-token?token=<plain>
-    //
-    // Path liegt AUSSERHALB /api/* weil r.httpRoute den /api-namespace
-    // nicht claimen darf (reserved fuer write/query/batch/auth/sse-
-    // dispatcher).
+    // Der Session-Pfad (eingeloggter Download) braucht KEINEN httpRoute-
+    // Wrapper: der Client ruft download-by-job direkt via Dispatcher (traegt
+    // X-CSRF-Token mit) und navigiert auf die zurueckgegebene signed-URL —
+    // siehe postWithDownload im privacy-center-screen.
     r.httpRoute({
       method: "GET",
       path: "/user-export/by-token",
@@ -248,33 +249,6 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
             body: JSON.stringify({
               type: "user-data-rights:query:download-by-token",
               payload: { token, auditMeta: extractAuditMeta(c.req.raw.headers) },
-            }),
-          }),
-        );
-        return mapQueryResponseToRedirect(c, queryRes);
-      },
-    });
-
-    // **Session-Pfad (auth):** GET /user-export/by-job/:jobId
-    r.httpRoute({
-      method: "GET",
-      path: "/user-export/by-job/:jobId",
-      handler: async (c, { app }) => {
-        const url = new URL(c.req.url);
-        const jobId = c.req.param("jobId");
-        if (!jobId) {
-          return c.json({ error: "missing_job_id" }, 400);
-        }
-        const queryRes = await app.fetch(
-          new Request(`${url.origin}/api/query`, {
-            method: "POST",
-            headers: {
-              "content-type": "application/json",
-              ...forwardAuthHeaders(c.req.raw.headers),
-            },
-            body: JSON.stringify({
-              type: "user-data-rights:query:download-by-job",
-              payload: { jobId, auditMeta: extractAuditMeta(c.req.raw.headers) },
             }),
           }),
         );
@@ -361,15 +335,6 @@ async function mapQueryResponseToRedirect(
     return c.json({ error: "download_resolution_failed" }, 500);
   }
   return c.redirect(body.data.url, 302);
-}
-
-function forwardAuthHeaders(headers: Headers): Record<string, string> {
-  const out: Record<string, string> = {};
-  const auth = headers.get("authorization");
-  if (auth) out["authorization"] = auth;
-  const cookie = headers.get("cookie");
-  if (cookie) out["cookie"] = cookie;
-  return out;
 }
 
 // Extract Audit-Meta (IP + UA) aus den HTTP-Headers + steck es in die

@@ -139,7 +139,7 @@ describe.skip("PrivacyCenterScreen", () => {
     expect(view.container.textContent).not.toContain("userDataRights.privacyCenter");
   });
 
-  test("export done: Download-Link auf den by-job-Pfad + Verfügbar-bis-Datum", async () => {
+  test("export done: Download-Button + Verfügbar-bis-Datum", async () => {
     const { view } = renderCenter({
       me: activeMe,
       exportStatus: {
@@ -148,8 +148,7 @@ describe.skip("PrivacyCenterScreen", () => {
       },
     });
     await waitForMount(view);
-    const link = view.getByTestId("privacy-export-download") as HTMLAnchorElement;
-    expect(link.getAttribute("href")).toBe("/user-export/by-job/job-123");
+    expect(view.getByTestId("privacy-export-download")).toBeTruthy();
     const ready = view.getByTestId("privacy-export-ready");
     expect(ready.textContent).toContain("2026-07-11");
     expect(ready.textContent).not.toContain("T00:00");

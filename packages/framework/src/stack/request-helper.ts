@@ -88,6 +88,14 @@ export type RequestHelper = {
     user: SessionUser,
     extraHeaders: Record<string, string>,
   ) => Promise<Response>;
+  /** query + additional HTTP headers (e.g. X-Forwarded-For). Returns the raw
+   *  Response so callers can assert on status + headers + body as needed. */
+  queryWithHeaders: (
+    type: string,
+    payload: unknown,
+    user: SessionUser,
+    extraHeaders: Record<string, string>,
+  ) => Promise<Response>;
 };
 
 export function createRequestHelper(app: Hono, jwt: JwtHelper): RequestHelper {
@@ -202,6 +210,11 @@ export function createRequestHelper(app: Hono, jwt: JwtHelper): RequestHelper {
     async writeWithHeaders(type, payload, user, extraHeaders) {
       const authHeaders = await authHeader(user);
       return req("POST", "/api/write", { type, payload }, { ...authHeaders, ...extraHeaders });
+    },
+
+    async queryWithHeaders(type, payload, user, extraHeaders) {
+      const authHeaders = await authHeader(user);
+      return req("POST", "/api/query", { type, payload }, { ...authHeaders, ...extraHeaders });
     },
   };
 }
