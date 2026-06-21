@@ -146,6 +146,44 @@ describe("ProfileScreen", () => {
       fetchSpy.mockRestore();
     }
   });
+
+  // #472/1: der Server antwortet auf den Verification-Versand mit ok:false
+  // (z.B. 4xx) OHNE zu werfen. Das ist ein anderer Zweig als das catch oben —
+  // er muss eigenständig geloggt werden, der Wechsel bleibt erfolgreich.
+  test("email change: verification-send rejected by server (ok:false) is surfaced", async () => {
+    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+    const fetchSpy = spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("{}", { status: 400 }),
+    );
+    try {
+      const view = renderProfile(activeMe);
+      await waitFor(() => {
+        if (view.queryByTestId("profile-email") === null) throw new Error("not mounted yet");
+      });
+
+      const emailInput = view.container.querySelector<HTMLInputElement>("#profile-new-email");
+      const pwInput = view.container.querySelector<HTMLInputElement>("#profile-email-password");
+      if (!emailInput || !pwInput) throw new Error("email form inputs not found");
+      fireEvent.change(emailInput, { target: { value: "new@example.com" } });
+      fireEvent.change(pwInput, { target: { value: "current-pw" } });
+      fireEvent.click(view.getByTestId("profile-email-submit"));
+
+      // Der ok:false-Zweig loggt SEINE Message ("could not be sent"),
+      // nicht die des catch-Zweigs ("send threw").
+      await waitFor(() => {
+        const hit = warnSpy.mock.calls.some((c) => String(c[0]).includes("could not be sent"));
+        if (!hit) throw new Error("ok:false verification failure not surfaced");
+      });
+      expect(warnSpy.mock.calls.some((c) => String(c[0]).includes("send threw"))).toBe(false);
+      // Wechsel bleibt erfolgreich: das Eingabefeld wird zurückgesetzt.
+      await waitFor(() => {
+        if (emailInput.value !== "") throw new Error("email input not cleared after success");
+      });
+    } finally {
+      warnSpy.mockRestore();
+      fetchSpy.mockRestore();
+    }
+  });
 });
 
 describe("formatDeletionDate", () => {

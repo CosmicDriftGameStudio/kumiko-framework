@@ -52,6 +52,46 @@ function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
   );
 }
 
+// The real combobox is cmdk + Radix — its popover is e2e/primitive-test
+// territory (see note above). To pin the onSelectionChange → assign/remove
+// wiring we swap in a headless stub that renders one toggle button per option
+// and fires onChange with the toggled selection — same contract, no popover.
+const StubInput: typeof defaultPrimitives.Input = (props) => {
+  if (props.kind === "combobox" && props.multiple === true) {
+    const value = props.value;
+    return (
+      <div data-testid="stub-combobox">
+        {props.options.map((o) => {
+          const selected = value.includes(o.value);
+          return (
+            <button
+              key={o.value}
+              type="button"
+              data-testid={`tag-opt-${o.value}`}
+              onClick={() =>
+                props.onChange(selected ? value.filter((v) => v !== o.value) : [...value, o.value])
+              }
+            >
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+  return <input data-testid={`stub-${props.id}`} />;
+};
+
+function StubComboboxWrapper({ children }: { readonly children: ReactNode }): ReactNode {
+  return (
+    <LocaleProvider resolver={createStaticLocaleResolver()} fallbackBundles={[defaultTranslations]}>
+      <PrimitivesProvider value={{ ...defaultPrimitives, Input: StubInput }}>
+        {children}
+      </PrimitivesProvider>
+    </LocaleProvider>
+  );
+}
+
 // The combobox's assign/remove toggle drives onChange with the full new
 // selection; the component diffs it against the current tags via this helper.
 // Popover interaction itself (cmdk + Radix in jsdom) is covered by the
@@ -116,6 +156,41 @@ describe("TagSection", () => {
         tagId: "tag-new",
         entityType: "note",
         entityId: "note-9",
+      }),
+    );
+  });
+
+  test("#524/3: selection change dispatches assign for additions, remove for removals", async () => {
+    catalogRows = [
+      { id: "t1", name: "important" },
+      { id: "t2", name: "project-x" },
+    ];
+    assignmentRows = [{ tagId: "t1", entityType: "note", entityId: "note-1" }];
+    dispatchSpy.mockClear();
+
+    render(
+      <StubComboboxWrapper>
+        <TagSection entityName="note" entityId="note-1" />
+      </StubComboboxWrapper>,
+    );
+
+    // t2 is unselected → toggling it on adds it → assign-tag with t2
+    fireEvent.click(screen.getByTestId("tag-opt-t2"));
+    await waitFor(() =>
+      expect(dispatchSpy).toHaveBeenCalledWith(TagsHandlers.assignTag, {
+        tagId: "t2",
+        entityType: "note",
+        entityId: "note-1",
+      }),
+    );
+
+    // t1 is selected → toggling it off removes it → remove-tag with t1
+    fireEvent.click(screen.getByTestId("tag-opt-t1"));
+    await waitFor(() =>
+      expect(dispatchSpy).toHaveBeenCalledWith(TagsHandlers.removeTag, {
+        tagId: "t1",
+        entityType: "note",
+        entityId: "note-1",
       }),
     );
   });
