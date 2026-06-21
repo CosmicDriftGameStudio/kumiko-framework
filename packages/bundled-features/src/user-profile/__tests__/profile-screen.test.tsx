@@ -119,7 +119,7 @@ describe("ProfileScreen", () => {
     try {
       const view = renderProfile(activeMe);
       await waitFor(() => {
-        if (view.queryByTestId("profile-email-form") === null) throw new Error("not mounted yet");
+        if (view.queryByTestId("profile-email") === null) throw new Error("not mounted yet");
       });
 
       const emailInput = view.container.querySelector<HTMLInputElement>("#profile-new-email");
@@ -127,7 +127,7 @@ describe("ProfileScreen", () => {
       if (!emailInput || !pwInput) throw new Error("email form inputs not found");
       fireEvent.change(emailInput, { target: { value: "new@example.com" } });
       fireEvent.change(pwInput, { target: { value: "current-pw" } });
-      fireEvent.submit(view.getByTestId("profile-email-form"));
+      fireEvent.click(view.getByTestId("profile-email-submit"));
 
       // De-Swallow: der fehlgeschlagene Verification-Versand wird geloggt.
       await waitFor(() => {
