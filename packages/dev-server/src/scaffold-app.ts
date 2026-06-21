@@ -83,6 +83,9 @@ export function scaffoldApp(options: ScaffoldAppOptions): ScaffoldAppResult {
   write(join(destination, "bin", "dev.ts"), renderDev(options.name));
   files.push("bin/dev.ts");
 
+  write(join(destination, "src", "client.tsx"), renderClient());
+  files.push("src/client.tsx");
+
   write(join(destination, ".env.example"), renderEnvExample(options.name));
   files.push(".env.example");
 
@@ -113,6 +116,7 @@ function renderPackageJson(name: string, version: string): string {
         "@cosmicdrift/kumiko-bundled-features": version,
         "@cosmicdrift/kumiko-dev-server": version,
         "@cosmicdrift/kumiko-framework": version,
+        "@cosmicdrift/kumiko-renderer-web": version,
         zod: "^4.4.3",
       },
     },
@@ -168,11 +172,20 @@ const FOUNDATION_FEATURES: ReadonlyArray<ScaffoldFeatureEntry> = [
   },
 ];
 
+// composeFeatures({ includeBundled: true }) auto-mountet diese 4 Foundation-
+// Features. Sie hier nochmal in APP_FEATURES zu schreiben löste den dedupe-
+// warn-Spam im scaffolded `bun dev` aus (PR #599 hat den createRegistry-
+// Crash gefangen, der Spam blieb bis hier). Filter wirkt defensiv: auch wenn
+// jemand scaffoldApp() direkt mit allen Bundled-Feature-Entries aufruft
+// rutschen die 4 nicht in run-config.ts.
+const COMPOSE_AUTO_MOUNTED_NAMES = new Set(["config", "user", "tenant", "auth-email-password"]);
+
 function renderRunConfig(features?: ReadonlyArray<ScaffoldFeatureEntry>): string {
   const project = newTsProject();
   const sf = project.createSourceFile("run-config.ts", "");
 
-  const effective = features && features.length > 0 ? features : FOUNDATION_FEATURES;
+  const filtered = (features ?? []).filter((f) => !COMPOSE_AUTO_MOUNTED_NAMES.has(f.name));
+  const effective = filtered.length > 0 ? filtered : FOUNDATION_FEATURES;
   const grouped = new Map<string, string[]>();
   for (const entry of effective) {
     const existing = grouped.get(entry.importPath) ?? [];
@@ -352,6 +365,7 @@ function renderDev(appName: string): string {
       .inlineBlock(() => {
         writer.writeLine("features: APP_FEATURES,");
         writer.writeLine("welcomeBanner: true,");
+        writer.writeLine(`clientEntry: "./src/client.tsx",`);
         writer.write("auth: ").inlineBlock(() => {
           writer.write("admin: ").inlineBlock(() => {
             writer.writeLine(`email: "admin@${appName}.local",`);
@@ -391,8 +405,39 @@ function renderDev(appName: string): string {
   return sf.getFullText();
 }
 
+function renderClient(): string {
+  return [
+    "// Browser-Entry. runDevApp's clientEntry-Option bundlet diese Datei zu",
+    "// /client.js und das Default-HTML lädt sie. createKumikoApp liest das",
+    "// Schema aus dem window-globalen (das injectSchema im dev-server setzt)",
+    "// und mountet die Routen.",
+    "//",
+    "// DefaultAppShell liefert die Sidebar + Topbar — ohne `shell` rendert",
+    "// createKumikoApp das aktive Screen ohne Layout-Wrapper (= nach Login",
+    "// nur ein nackter Banner statt der App). emailPasswordClient() bringt",
+    "// Login-Screen + Session-Provider — ohne ihn bliebe /login leer.",
+    "//",
+    "// Neue Client-Plugins (z.B. notificationsClient()) hier in clientFeatures",
+    "// hinzu — symmetrisch zu APP_FEATURES auf der Server-Seite.",
+    "",
+    'import { emailPasswordClient } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";',
+    'import { createKumikoApp, DefaultAppShell } from "@cosmicdrift/kumiko-renderer-web";',
+    "",
+    "createKumikoApp({",
+    "  shell: DefaultAppShell,",
+    "  clientFeatures: [emailPasswordClient()],",
+    "});",
+    "",
+  ].join("\n");
+}
+
 function renderEnvExample(appName: string): string {
-  return `# Required env-vars für boot-mode + dev. Production: über Pulumi/k8s-Secrets.
+  const devDb = `${appName.replace(/-/g, "_")}_dev`;
+  return `# bun dev (runDevApp → setupTestStack) braucht TEST_DATABASE_URL.
+# Production (bun bin/main.ts → runProdApp) braucht DATABASE_URL.
+# Beide zeigen im Default auf denselben lokalen Postgres — runDevApp legt
+# darunter eine eigene "<KUMIKO_DEV_DB_NAME>"-Datenbank an.
+TEST_DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres
 DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/app
 REDIS_URL=redis://127.0.0.1:6379
 
@@ -406,7 +451,7 @@ KUMIKO_SECRETS_MASTER_KEY_V1=
 # Dev-only: persistente DB für \`bun dev\`. Ohne diesen Var startet jeder Reboot
 # eine frische kumiko_test_<random>-DB → Admin-Login + Daten weg bei jedem Edit.
 # Mit Var bleibt die DB zwischen Reboots erhalten (Schema-Pushes sind idempotent).
-KUMIKO_DEV_DB_NAME=${appName.replace(/-/g, "_")}_dev
+KUMIKO_DEV_DB_NAME=${devDb}
 `;
 }
 
