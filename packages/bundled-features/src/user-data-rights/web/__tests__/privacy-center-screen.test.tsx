@@ -127,15 +127,13 @@ async function waitForMount(view: ReturnType<typeof render>): Promise<void> {
 // sobald das framework-weite Test-Isolation-Problem (#457) gelöst ist. Die
 // QN-Drift-Pins + formatDate unten decken die CI-stabile Verdrahtungs-Korrektheit ab.
 describe.skip("PrivacyCenterScreen", () => {
-  test("aktiver User: alle vier Sektionen, Texte übersetzt (keine rohen Keys)", async () => {
+  test("aktiver User: Export/Einschränken/Löschen-Sektionen, Texte übersetzt (keine rohen Keys)", async () => {
     const { view } = renderCenter({ me: activeMe });
     await waitForMount(view);
     expect(view.getByTestId("privacy-export")).toBeTruthy();
-    expect(view.getByTestId("privacy-audit")).toBeTruthy();
     expect(view.getByTestId("privacy-restriction")).toBeTruthy();
     expect(view.getByTestId("privacy-deletion")).toBeTruthy();
     expect(view.getByTestId("privacy-export-request")).toBeTruthy();
-    expect(view.getByTestId("privacy-audit-empty")).toBeTruthy();
     expect(view.getByTestId("privacy-restriction-restrict")).toBeTruthy();
     expect(view.getByTestId("privacy-deletion-delete")).toBeTruthy();
     expect(view.container.textContent).not.toContain("userDataRights.privacyCenter");
@@ -175,27 +173,6 @@ describe.skip("PrivacyCenterScreen", () => {
     await waitForMount(view);
     expect(view.getByTestId("privacy-export-pending")).toBeTruthy();
     expect(view.queryByTestId("privacy-export-request")).toBeNull();
-  });
-
-  test("audit rows rendern mit type + datum", async () => {
-    const { view } = renderCenter({
-      me: activeMe,
-      auditLog: {
-        rows: [
-          {
-            id: "ev-1",
-            type: "user.created",
-            aggregateType: "user",
-            createdAt: "2026-06-01T08:00:00Z",
-          },
-        ],
-      },
-    });
-    await waitForMount(view);
-    const rows = view.getAllByTestId("privacy-audit-row");
-    expect(rows.length).toBe(1);
-    expect(rows[0]?.textContent).toContain("user.created");
-    expect(rows[0]?.textContent).toContain("2026-06-01");
   });
 
   test("deletionRequested: Frist-Banner + Abbrechen statt Lösch-Button", async () => {

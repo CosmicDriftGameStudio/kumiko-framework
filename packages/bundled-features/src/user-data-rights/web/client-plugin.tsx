@@ -21,16 +21,27 @@ export type UserDataRightsClientOptions = {
    *  privacy-center-Screen. Den Client VOR dem Auth-Client listen, sonst
    *  landet der anonyme Besucher auf der Login-Maske. */
   readonly publicDeletion?: PublicDeletionRoutes;
+  /** Konfiguration des eingeloggten privacy-center-Screens. */
+  readonly privacyCenter?: {
+    /** `false` blendet die Konto-Lösch-Sektion aus — für Apps, die die Löschung
+     *  schon woanders anbieten (z.B. Profil-DangerZone), gegen Doppelung.
+     *  Default `true`. */
+    readonly showDeletion?: boolean;
+  };
 };
 
 export function userDataRightsClient(
   options?: UserDataRightsClientOptions,
 ): ClientFeatureDefinition {
+  const showDeletion = options?.privacyCenter?.showDeletion ?? true;
+  const privacyCenter = showDeletion
+    ? PrivacyCenterScreen
+    : () => <PrivacyCenterScreen showDeletion={false} />;
   const base: ClientFeatureDefinition = {
     name: USER_DATA_RIGHTS_FEATURE,
     translations: mergeTranslations(defaultTranslations, options?.translations ?? {}),
     components: {
-      [PRIVACY_CENTER_SCREEN_ID]: PrivacyCenterScreen,
+      [PRIVACY_CENTER_SCREEN_ID]: privacyCenter,
     },
   };
   if (options?.publicDeletion === undefined) return base;
