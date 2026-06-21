@@ -203,6 +203,16 @@ export type DescribePattern = {
   readonly text: string;
 };
 
+// `r.uiHints({ displayLabel, category, recommended, configurableOptions })` —
+// picker/scaffolder UI metadata that flows into feature-manifest.json under
+// `feature.uiHints`. Tracked as opaque here (no structured re-parse): the
+// picker reads the manifest, not the AST. The pattern exists so the
+// UnknownPattern dispatcher doesn't trip on a new r.* call.
+export type UiHintsPattern = {
+  readonly kind: "uiHints";
+  readonly source: SourceLocation;
+};
+
 // `r.metric(shortName, options)` — declares a metric under its short name
 // (without the `kumiko_<feature>_` prefix; the framework qualifies it at
 // boot and validates snake_case + type suffix). Runtime usage:
@@ -590,6 +600,7 @@ export type FeaturePattern =
   | SystemScopePattern
   | ToggleablePattern
   | DescribePattern
+  | UiHintsPattern
   | MetricPattern
   | SecretPattern
   | ClaimKeyPattern
@@ -675,6 +686,7 @@ export function getEditability(pattern: FeaturePattern): Editability {
     case "extendsRegistrar":
     case "tree":
     case "envSchema":
+    case "uiHints":
     case "unknown":
       return "opaque";
     default: {

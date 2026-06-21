@@ -6,6 +6,7 @@ import type {
   RequiresPattern,
   SystemScopePattern,
   ToggleablePattern,
+  UiHintsPattern,
 } from "../patterns";
 import { sourceLocationFromNode } from "../source-location";
 import {
@@ -80,6 +81,16 @@ export function extractSystemScope(
 ): ExtractOutput<SystemScopePattern> {
   return ok({
     kind: "systemScope",
+    source: sourceLocationFromNode(call, sourceFile),
+  });
+}
+
+export function extractUiHints(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<UiHintsPattern> {
+  return ok({
+    kind: "uiHints",
     source: sourceLocationFromNode(call, sourceFile),
   });
 }

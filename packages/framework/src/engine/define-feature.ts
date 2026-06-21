@@ -63,6 +63,7 @@ import type {
   TreeActionDef,
   TreeActionsHandle,
   TreeChildrenSubscribe,
+  UiHints,
   UnmanagedTableEntry,
   ValidationHookFn,
   WriteHandlerDef,
@@ -157,6 +158,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
   let isSystemScoped = false;
   let toggleableDefault: boolean | undefined;
   let description: string | undefined;
+  let uiHints: UiHints | undefined;
   // Visual-Tree-Slots — at-most-one per feature, only-once-guard im
   // registrar (siehe r.treeActions / r.tree). Undefined wenn das Feature
   // keinen Visual-Tree-Beitrag liefert (Zero-Whitelist-Filter).
@@ -238,6 +240,13 @@ export function defineFeature<const TName extends string, TExports = undefined>(
         );
       }
       toggleableDefault = options.default;
+    },
+
+    uiHints(hints: UiHints): void {
+      if (uiHints !== undefined) {
+        throw new Error(`[Feature ${name}] r.uiHints() called twice — UI hints are declared once`);
+      }
+      uiHints = hints;
     },
 
     entity(
@@ -944,6 +953,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     requiredProjections,
     requiredSteps,
     ...(toggleableDefault !== undefined && { toggleableDefault }),
+    ...(uiHints !== undefined && { uiHints }),
     entities,
     entityTables,
     relations,

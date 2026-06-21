@@ -241,6 +241,39 @@ describe("defineFeature", () => {
 
     expect(rolesOf(feature.writeHandlers["user:invite"]?.access)).toEqual(["Admin", "SystemAdmin"]);
   });
+
+  test("r.uiHints() flows into the definition", () => {
+    const feature = defineFeature("test", (r) => {
+      r.uiHints({
+        displayLabel: "Test Feature",
+        category: "demo",
+        recommended: true,
+        configurableOptions: [
+          { key: "fancy", label: "Fancy mode", type: "boolean", default: false },
+        ],
+      });
+    });
+    expect(feature.uiHints?.displayLabel).toBe("Test Feature");
+    expect(feature.uiHints?.category).toBe("demo");
+    expect(feature.uiHints?.recommended).toBe(true);
+    expect(feature.uiHints?.configurableOptions).toEqual([
+      { key: "fancy", label: "Fancy mode", type: "boolean", default: false },
+    ]);
+  });
+
+  test("uiHints is absent when r.uiHints() is not called", () => {
+    const feature = defineFeature("test", () => {});
+    expect("uiHints" in feature).toBe(false);
+  });
+
+  test("r.uiHints() throws when called twice", () => {
+    expect(() =>
+      defineFeature("test", (r) => {
+        r.uiHints({ displayLabel: "A" });
+        r.uiHints({ displayLabel: "B" });
+      }),
+    ).toThrow(/r\.uiHints\(\) called twice/);
+  });
 });
 
 // --- Field Factories ---

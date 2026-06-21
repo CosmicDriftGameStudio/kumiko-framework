@@ -50,6 +50,7 @@ import type {
   TranslationsPattern,
   TreeActionsPattern,
   TreePattern,
+  UiHintsPattern,
   UnknownPattern,
   UseExtensionPattern,
   UsesApiPattern,
@@ -80,6 +81,8 @@ export function renderPattern(pattern: FeaturePattern): string {
       return renderToggleable(pattern);
     case "describe":
       return renderDescribe(pattern);
+    case "uiHints":
+      return renderUiHints(pattern);
     case "entity":
       return renderEntity(pattern);
     case "relation":
@@ -515,6 +518,10 @@ function renderUsesApi(p: UsesApiPattern): string {
 
 function renderExposesApi(p: ExposesApiPattern): string {
   return `r.exposesApi(${JSON.stringify(p.apiName)});`;
+}
+
+function renderUiHints(p: UiHintsPattern): string {
+  return p.source.raw;
 }
 
 function renderUnknown(p: UnknownPattern): string {

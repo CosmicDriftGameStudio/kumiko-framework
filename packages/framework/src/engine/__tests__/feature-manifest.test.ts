@@ -84,4 +84,24 @@ describe("buildManifestFromRegistry — deterministic codepoint sort (#330)", ()
     expect(manifest.tier).toBeUndefined();
     expect(manifest.features[0]?.tier).toBeUndefined();
   });
+
+  test("uiHints flow through to the manifest when set", () => {
+    const registry = createRegistry([
+      defineFeature("with-hints", (r) => {
+        r.uiHints({ displayLabel: "With Hints", category: "demo", recommended: true });
+      }),
+      defineFeature("no-hints", () => {}),
+    ]);
+
+    const manifest = buildManifestFromRegistry(registry, { source: "test" });
+    const withHints = manifest.features.find((f) => f.name === "with-hints");
+    const noHints = manifest.features.find((f) => f.name === "no-hints");
+
+    expect(withHints?.uiHints).toEqual({
+      displayLabel: "With Hints",
+      category: "demo",
+      recommended: true,
+    });
+    expect(noHints && "uiHints" in noHints).toBe(false);
+  });
 });

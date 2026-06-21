@@ -194,6 +194,16 @@ const describeSchema: PatternFormSchema = {
   ],
 };
 
+const uiHintsSchema: PatternFormSchema = {
+  kind: "uiHints",
+  label: { en: "UI hints", de: "UI-Hinweise" },
+  summary: { en: "Picker/scaffolder metadata. Opaque to the Designer; rendered as raw TS source." },
+  category: "meta",
+  editability: "opaque",
+  singleton: true,
+  fields: [],
+};
+
 const entitySchema: PatternFormSchema = {
   kind: "entity",
   label: { en: "Entity", de: "Entität" },
@@ -1161,6 +1171,7 @@ export const PATTERN_LIBRARY: Readonly<Record<FeaturePatternKind, PatternFormSch
   systemScope: systemScopeSchema,
   toggleable: toggleableSchema,
   describe: describeSchema,
+  uiHints: uiHintsSchema,
   entity: entitySchema,
   relation: relationSchema,
   nav: navSchema,

@@ -43,6 +43,11 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
     r.describe(
       "Tracks signed-in clients in the `read_user_sessions` table (one row per JWT, keyed by the `sid`/`jti` claim) and exposes handlers for `mine` (list your sessions), `revoke`, and `revokeAllOthers`. Session creation and revocation on the hot auth path are handled by `createSessionCallbacks()`, wired into `buildServer({ auth: { ... } })` outside the dispatcher; the feature also ships a manual-trigger cleanup job for pruning expired rows and an optional `autoRevokeOnPasswordChange` hook that mass-revokes all sessions for a user whenever their `passwordHash` changes.",
     );
+    r.uiHints({
+      displayLabel: "Sessions · Server-side Logout",
+      category: "identity",
+      recommended: false,
+    });
     // sessionChecker reads read_users on every authenticated request (status
     // gate for locked accounts) — make that a boot-time dependency so a
     // sessions-without-user wiring fails validateBoot instead of 500ing live.
