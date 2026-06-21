@@ -40,6 +40,7 @@ describe("walkthrough — DX-3.1 snapshot", () => {
       "src/run-config.ts",
       "bin/main.ts",
       "bin/dev.ts",
+      "src/client.tsx",
       ".env.example",
       "README.md",
     ]);
