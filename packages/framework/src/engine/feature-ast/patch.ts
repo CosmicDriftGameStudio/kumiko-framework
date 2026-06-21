@@ -80,6 +80,7 @@ export type PatternId =
   | { readonly kind: "systemScope" }
   | { readonly kind: "toggleable" }
   | { readonly kind: "describe" }
+  | { readonly kind: "uiHints" }
   | { readonly kind: "config" }
   | { readonly kind: "translations" }
   | { readonly kind: "authClaims" }
@@ -272,6 +273,7 @@ export const SINGLETON_KINDS: ReadonlySet<PatternId["kind"]> = new Set([
   "systemScope",
   "toggleable",
   "describe",
+  "uiHints",
   "config",
   "translations",
   "authClaims",
@@ -329,6 +331,7 @@ function callMatchesId(call: CallExpression, id: PatternId): boolean {
     case "systemScope":
     case "toggleable":
     case "describe":
+    case "uiHints":
     case "config":
     case "translations":
     case "authClaims":

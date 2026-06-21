@@ -5,6 +5,7 @@ export {
   extractRequires,
   extractSystemScope,
   extractToggleable,
+  extractUiHints,
 } from "./round1";
 export {
   extractEntity,

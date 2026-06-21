@@ -31,6 +31,7 @@ const ALL_KINDS: FeaturePatternKind[] = [
   "systemScope",
   "toggleable",
   "describe",
+  "uiHints",
   "entity",
   "relation",
   "nav",
@@ -200,6 +201,8 @@ function makePlaceholderPattern(kind: FeaturePatternKind): FeaturePattern {
       return { kind, source: PLACEHOLDER_LOC, default: false };
     case "describe":
       return { kind, source: PLACEHOLDER_LOC, text: "x" };
+    case "uiHints":
+      return { kind, source: PLACEHOLDER_LOC };
     case "entity":
       return { kind, source: PLACEHOLDER_LOC, entityName: "x", definition: { fields: {} } };
     case "relation":

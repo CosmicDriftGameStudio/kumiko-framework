@@ -58,6 +58,7 @@ import {
   extractTranslations,
   extractTree,
   extractTreeActions,
+  extractUiHints,
   extractUnmanagedTable,
   extractUseExtension,
   extractUsesApi,
@@ -301,6 +302,8 @@ function dispatchExtractor(
       return extractToggleable(call, sourceFile);
     case "describe":
       return extractDescribe(call, sourceFile);
+    case "uiHints":
+      return extractUiHints(call, sourceFile);
     // Round 2 — object-literal-based static patterns
     case "entity":
       return extractEntity(call, sourceFile);
