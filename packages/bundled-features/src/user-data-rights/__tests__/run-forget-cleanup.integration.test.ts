@@ -269,6 +269,35 @@ describe("runForgetCleanup :: happy path (Cross-Tenant Account-Deletion)", () =>
   });
 });
 
+describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
+  // Beweist C1: der Forget-Cleanup ist als autonomer Cron registriert, nicht
+  // nur als manueller runForget-API. Ohne die r.job-Registrierung liefert
+  // getJob undefined und die Loeschung laeuft nach Grace-Ablauf NIE. Wir
+  // treiben den ECHTEN registrierten Job durch den echten JobContext (db +
+  // registry, kein config) — nicht den inneren runForgetCleanup-Helper.
+  test("registered job exists + erases through the real JobContext", async () => {
+    const job = stack.registry.getJob("user-data-rights:job:run-forget-cleanup");
+    expect(job).toBeTruthy();
+
+    const CRON_USER = uuid(7);
+    await seedUser(CRON_USER, {
+      status: USER_STATUS.DeletionRequested,
+      gracePeriodEnd: instantFromOffsetMs(-60 * 1000),
+      email: "cron-delete@example.com",
+      displayName: "CronDelete",
+    });
+    await seedMembership(CRON_USER, TENANT_A);
+
+    const jobCtx = { db: stack.db, registry: stack.registry };
+    await job?.handler({}, jobCtx as never);
+
+    const row = await fetchUser(CRON_USER);
+    expect(row?.status).toBe(USER_STATUS.Deleted);
+    expect(row?.email).not.toContain("cron-delete@example.com");
+    expect(row?.email).toContain("anonymized.invalid");
+  });
+});
+
 describe("runForgetCleanup :: time-window guards", () => {
   test("Future-grace User wird NICHT bearbeitet", async () => {
     await seedUser(FUTURE_USER_ID, {

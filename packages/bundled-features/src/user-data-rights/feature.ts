@@ -31,7 +31,7 @@ import {
   type SendExportFailedEmailFn,
   type SendExportReadyEmailFn,
 } from "./run-export-jobs";
-import type { SendDeletionExecutedEmailFn } from "./run-forget-cleanup";
+import { runForgetCleanup, type SendDeletionExecutedEmailFn } from "./run-forget-cleanup";
 import { downloadAttemptEntity } from "./schema/download-attempt";
 import { exportDownloadTokenEntity } from "./schema/download-token";
 import { exportJobEntity } from "./schema/export-job";
@@ -311,6 +311,32 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           }),
           ...(opts.appExportDownloadUrl !== undefined && {
             appExportDownloadUrl: opts.appExportDownloadUrl,
+          }),
+        });
+      },
+    );
+
+    // Autonomer Art.17-Forget-Cron. Spiegelt run-export-jobs: nach Ablauf der
+    // Grace-Period laeuft runForgetCleanup unbeaufsichtigt (der manuelle
+    // userDataRights.runForget-API bleibt fuer Operator-Runs). Ohne diesen
+    // Cron bleibt jeder Loesch-Antrag fuer immer in DeletionRequested haengen
+    // — Art.17 wuerde nie ausgefuehrt.
+    r.job(
+      "run-forget-cleanup",
+      { trigger: { cron: "0 * * * * *" }, concurrency: "skip" },
+      async (_payload, ctx) => {
+        if (!ctx.db || !ctx.registry) {
+          throw new Error(
+            "run-forget-cleanup: ctx.db + ctx.registry required (JobContext incomplete)",
+          );
+        }
+        const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
+        await runForgetCleanup({
+          db: ctx.db as import("@cosmicdrift/kumiko-framework/db").DbConnection, // @cast-boundary db-operator
+          registry: ctx.registry,
+          now: T.Now.instant(),
+          ...(opts.sendDeletionExecutedEmail && {
+            sendDeletionExecutedEmail: opts.sendDeletionExecutedEmail,
           }),
         });
       },
