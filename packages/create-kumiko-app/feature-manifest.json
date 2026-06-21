@@ -1,0 +1,1516 @@
+{
+  "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled)",
+  "featureCount": 41,
+  "features": [
+    {
+      "name": "audit",
+      "description": "Exposes the framework's event store as a paginated, filterable audit log via the `audit:query:list` handler (accessible to `Admin` and `SystemAdmin` roles). No separate table or projection — the event store is the audit trail by construction: every entity write already records who, when, what entity, and the event payload with PII stripped. Filter by `aggregateType`, `aggregateId`, `eventType`, `userId`, or time range.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": []
+    },
+    {
+      "name": "auth-email-password",
+      "description": "Provides email+password authentication: the always-on handlers are `login`, `changePassword`, and `logout`; optional flows — password reset, email verification, magic-link self-signup, and tenant invite — are registered only when you pass their respective option objects (`passwordReset`, `emailVerification`, `signup`, `invite`) to `createAuthEmailPasswordFeature(opts)`. Each opt-in flow uses HMAC-signed or opaque-random tokens delivered via callback (e.g. `sendResetEmail`) so the feature stays transport-agnostic. Requires the `user` and `tenant` features, and declares `JWT_SECRET` (≥ 32 chars) in `authEmailPasswordEnvSchema` so a missing secret surfaces at boot validation rather than on the first login attempt.",
+      "toggleableDefault": null,
+      "requires": [
+        "user",
+        "tenant"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "auth-email-password:write:change-password",
+        "auth-email-password:write:login",
+        "auth-email-password:write:logout"
+      ],
+      "uiHints": {
+        "displayLabel": "Auth · Email + Password",
+        "category": "identity",
+        "recommended": true,
+        "configurableOptions": [
+          {
+            "key": "passwordReset",
+            "label": "Password-Reset-Flow",
+            "type": "boolean",
+            "default": true
+          },
+          {
+            "key": "emailVerification",
+            "label": "Email-Verification-Flow",
+            "type": "boolean",
+            "default": true
+          },
+          {
+            "key": "signup",
+            "label": "Self-Signup-Flow",
+            "type": "boolean",
+            "default": false
+          },
+          {
+            "key": "invite",
+            "label": "Tenant-Invite-Flow",
+            "type": "boolean",
+            "default": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "billing-foundation",
+      "description": "Plugin host for subscription billing — manages the `read_subscriptions` projection table and exposes 5 domain events (subscription created/updated/canceled, invoice paid/failed) appended by the foundation's own `billing-foundation:write:process-event` write-handler after provider plugins verify and normalize each webhook. Also ships `billing-foundation:write:create-checkout-session` and `billing-foundation:write:create-portal-session` write-handlers, a `billing-foundation:query:subscription:list` query handler, and a `createSubscriptionWebhookHandler` factory for the `/api/subscription/webhook/:providerName` route. Low-level building block — use `subscription-stripe` or `subscription-mollie` unless you are writing a new payment provider.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "billing-foundation:write:create-checkout-session",
+        "billing-foundation:write:create-portal-session",
+        "billing-foundation:write:process-event"
+      ],
+      "uiHints": {
+        "displayLabel": "Billing · Foundation",
+        "category": "billing",
+        "recommended": false
+      }
+    },
+    {
+      "name": "cap-counter",
+      "description": "Tracks per-tenant usage against configurable limits using two complementary storage models: calendar-period counters (one projection row per tenant/capName/period, reset implicitly by period rollover) and rolling-window counters (append-only event stream, no projection). Use `enforceCap` / `enforceRollingCap` (or the `withCapEnforcement` / `withRollingCapEnforcement` handler wrappers) in your write-handlers to check limits with soft-warn and hard-block tolerances; call `enforceCapAndMaybeNotify` when you also want to trigger a delivery notification on soft-threshold hits.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "cap-counter:write:increment",
+        "cap-counter:write:increment-rolling",
+        "cap-counter:write:mark-soft-warned"
+      ]
+    },
+    {
+      "name": "channel-email",
+      "description": "Wires an `EmailTransport` (typically `mail-transport-smtp` in production, `createInMemoryTransport()` in tests) into the delivery system as the `email` channel. Requires `delivery`; pass an `EmailChannelOptions` with a `transport`, a `renderer: NotificationRenderer` (e.g. backed by `renderer-simple`), and a `resolveEmail` function that maps a user ID to their email address.",
+      "toggleableDefault": null,
+      "requires": [
+        "delivery"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "deliveryChannel",
+          "entityName": "email"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": []
+    },
+    {
+      "name": "channel-in-app",
+      "description": "Persists notifications to an in-app inbox table so users can retrieve them via `handlers.inbox` and track unread state with `handlers.markRead` / `handlers.markAllRead` and `queries.unreadCount`. Requires `delivery`; no external service needed — messages are stored in the app's own database.",
+      "toggleableDefault": null,
+      "requires": [
+        "delivery"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "deliveryChannel",
+          "entityName": "inApp"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "channel-in-app:write:mark-all-read",
+        "channel-in-app:write:mark-read"
+      ]
+    },
+    {
+      "name": "channel-push",
+      "description": "Delivers push notifications through a `PushTransport` (bring your own FCM/APNs adapter or use `createInMemoryPushTransport()` for tests) registered as the `push` channel in the delivery system. Requires `delivery`; supply a `PushChannelOptions` with a transport and a resolver that maps a user ID to their device token.",
+      "toggleableDefault": null,
+      "requires": [
+        "delivery"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "deliveryChannel",
+          "entityName": "push"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": []
+    },
+    {
+      "name": "compliance-profiles",
+      "description": "Lets each tenant select a compliance regime (e.g. `eu-dsgvo`, `swiss-dsg`, `de-hr-dsgvo-hgb`) that bundles user-rights grace periods, breach-disclosure deadlines, sub-processor requirements, and audit-retention rules into a single named profile. Tenant admins call `compliance-profiles:write:set-profile` to choose a profile (with optional JSON override for edge cases); other features resolve the effective profile via the `compliance.forTenant` cross-feature API. Required by `user-data-rights` — mount this feature before it.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [
+        "compliance.forTenant"
+      ],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "compliance-profiles:write:set-profile"
+      ]
+    },
+    {
+      "name": "config",
+      "description": "Stores per-tenant (and optionally per-user) configuration values with a multi-layer cascade: user-row → tenant-row → system-row → app-override (deploy-time `AppConfigOverrides`) → computed → feature default. Access a value in handlers via `ctx.config(handle)`, declare keys with `r.config({ keys: { ... } })` inside a feature's registry callback, and optionally mark them `encrypted: true` to route storage through an `EncryptionProvider`. Use this feature whenever a tenant admin needs to customise behaviour at runtime without a code deploy.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "config:write:reset",
+        "config:write:set"
+      ]
+    },
+    {
+      "name": "custom-fields",
+      "description": "Tenant- and system-scoped custom field definitions with generic value storage on any host entity. Registers the `field-definition` entity (event-sourced CRUD via `define-tenant-field`, `define-system-field`, `update-tenant-field`, `delete-tenant-field`, `delete-system-field`) and two value write-handlers (`set-custom-field`, `clear-custom-field`) that emit `custom-fields:event:custom-field-set` / `custom-fields:event:custom-field-cleared` events on the host aggregate's stream. To attach custom fields to your own entity, call `wireCustomFieldsFor(r, entityName, entityTable)` in the host feature — this wires the JSONB projection, `postQuery` flattening hook, and search-payload extension. The host entity must declare a `customFieldsField()` JSONB column.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "custom-fields:write:clear-custom-field",
+        "custom-fields:write:define-system-field",
+        "custom-fields:write:define-tenant-field",
+        "custom-fields:write:delete-system-field",
+        "custom-fields:write:delete-tenant-field",
+        "custom-fields:write:set-custom-field",
+        "custom-fields:write:update-tenant-field"
+      ]
+    },
+    {
+      "name": "data-retention",
+      "description": "Resolves the effective retention policy for any entity using a 3-layer stack: entity-level default → tenant preset (`dsgvo-basic`, `dsgvo-hgb`, `swiss-dsg`) → per-tenant override stored in `tenantRetentionOverride`. Other features query the resolved policy via the `retention.policyFor` cross-feature API — most notably `user-data-rights`, which uses it to decide whether to anonymize instead of hard-delete a record that is still within a mandatory retention window.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [
+        "retention.policyFor"
+      ],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": []
+    },
+    {
+      "name": "delivery",
+      "description": "The notification dispatch core: call `ctx.notify(notificationType, { to, route, data, priority, idempotencyKey })` from any handler to fan out a notification across all registered channels (email, in-app, push). It stores per-user channel preferences in the `notification-preference` entity, logs every attempt to `read_delivery_attempts`, and enforces idempotency and rate-limiting — add `channel-email`, `channel-in-app`, or `channel-push` on top to actually send anything.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "delivery:write:set-preference"
+      ],
+      "uiHints": {
+        "displayLabel": "Notifications · Dispatch Core",
+        "category": "notifications",
+        "recommended": true
+      }
+    },
+    {
+      "name": "feature-toggles",
+      "description": "Persists per-feature enabled/disabled state in the `read_global_feature_state` table and exposes a `set` write-handler plus `list`/`registered` query-handlers so operators can flip features at runtime without redeploying. Each API instance keeps an in-memory `GlobalFeatureToggleRuntime` snapshot (initialize it via `createFeatureToggleRuntime`, pass a `() => runtime` accessor to `createFeatureTogglesFeature`) that the dispatcher gate reads on every request; a `toggle-cache-sync` multi-stream projection with `delivery: \"per-instance\"` syncs the snapshot across instances whenever a `toggle-set` event is appended.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "feature-toggles:write:set"
+      ],
+      "uiHints": {
+        "displayLabel": "Feature Toggles · Operator Switches",
+        "category": "operations",
+        "recommended": false
+      }
+    },
+    {
+      "name": "file-foundation",
+      "description": "Defines the `fileProvider` extension point and a per-tenant `provider` config key that selects which registered storage plugin to use at runtime. Call `createFileProviderForTenant(ctx, tenantId)` to get a `FileStorageProvider` — use this feature together with at least one `file-provider-*` feature; the `files` feature builds on top of it for tracked `FileRef` entities with GDPR hooks.",
+      "toggleableDefault": null,
+      "requires": [
+        "config"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [
+        {
+          "key": "provider",
+          "qualifiedName": "file-foundation:config:provider",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "SystemAdmin",
+            "User"
+          ]
+        }
+      ],
+      "secrets": [],
+      "writeHandlers": []
+    },
+    {
+      "name": "file-provider-inmemory",
+      "description": "Registers an in-process `\"inmemory\"` provider for `file-foundation` that stores file bytes per tenant in a module-level Map. Use `listKeys(tenantId)` and `clearStorage(tenantId)` in demo apps and tests; not for production (data is lost on restart and grows without bound).",
+      "toggleableDefault": null,
+      "requires": [
+        "file-foundation"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "fileProvider",
+          "entityName": "inmemory"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": []
+    },
+    {
+      "name": "file-provider-s3",
+      "description": "Registers itself as the `\"s3\"` provider for `file-foundation` and owns the per-tenant config keys (`bucket`, `region`, `endpoint`, `forcePathStyle`, `accessKeyId`) and the encrypted `s3.secretAccessKey` secret. Compatible with any S3-compatible object store (AWS S3, Hetzner Object Storage); set credentials via the admin UI or a seed handler before the first file operation.",
+      "toggleableDefault": null,
+      "requires": [
+        "config",
+        "secrets",
+        "file-foundation"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "fileProvider",
+          "entityName": "s3"
+        }
+      ],
+      "configKeys": [
+        {
+          "key": "access-key-id",
+          "qualifiedName": "file-provider-s3:config:access-key-id",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "bucket",
+          "qualifiedName": "file-provider-s3:config:bucket",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "endpoint",
+          "qualifiedName": "file-provider-s3:config:endpoint",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "force-path-style",
+          "qualifiedName": "file-provider-s3:config:force-path-style",
+          "type": "boolean",
+          "scope": "tenant",
+          "default": false,
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "region",
+          "qualifiedName": "file-provider-s3:config:region",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ]
+        }
+      ],
+      "secrets": [
+        {
+          "qualifiedName": "file-provider-s3:secret:s3-secret-access-key",
+          "scope": "tenant",
+          "label": "S3 Secret Access Key",
+          "hint": "Private half of the S3 key pair. Hetzner calls it 'Secret Key', AWS calls it 'Secret Access Key'."
+        }
+      ],
+      "writeHandlers": []
+    },
+    {
+      "name": "files",
+      "description": "Exposes the `fileRef` entity and `createFilesFeature` from the framework core so that uploaded files — tracked in the `file_refs` table by `createFileRoutes` — participate in cross-feature hooks: `user-data-rights-defaults` automatically includes file blobs in GDPR exports and forget flows, and future tenant-lifecycle cleanup will delete all refs on tenant destroy. This feature does not add upload or download routes; those remain in the server bootstrap via the `options.files` parameter.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Files · Metadata",
+        "category": "storage",
+        "recommended": false
+      }
+    },
+    {
+      "name": "jobs",
+      "description": "Persistence and operator tooling for background jobs registered via `r.job(...)`. Every job execution appends `run-started`, `run-completed`, and `run-failed` events to the `jobRun` aggregate stream, which two inline projections materialize into `read_job_runs` (current status + duration) and `read_job_run_logs` (per-line log rows). Exposes `jobs:write:trigger` (manual run) and `jobs:write:retry` (operator retry of a failed run), plus `jobs:query:list` and `jobs:query:details` for the operator UI.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "jobs:write:retry",
+        "jobs:write:trigger"
+      ]
+    },
+    {
+      "name": "legal-pages",
+      "description": "Opt-in wrapper around `text-content` that registers four public HTML routes (`/legal/impressum`, `/legal/datenschutz`, `/legal/imprint`, `/legal/privacy`) with Markdown-to-HTML rendering and a boot-time job that hard-fails in production when the required DE blocks (`imprint/de`, `privacy/de`) are not seeded in `SYSTEM_TENANT`. Requires `anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID }` and `extraContext.textContent` to be wired at app bootstrap; for per-tenant imprints or a custom layout call `text-content:query:by-slug` directly.",
+      "toggleableDefault": null,
+      "requires": [
+        "text-content"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": []
+    },
+    {
+      "name": "mail-foundation",
+      "description": "Defines the `mailTransport` extension point and a per-tenant `provider` config key that selects which registered transport plugin to use at runtime. Call `createTransportForTenant(ctx, tenantId)` to get an `EmailTransport` ready for sending — use this feature together with at least one `mail-transport-*` feature; use `delivery` + `channel-email` instead when you need the full notification pipeline with delivery attempts and user preferences.",
+      "toggleableDefault": null,
+      "requires": [
+        "config"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [
+        {
+          "key": "provider",
+          "qualifiedName": "mail-foundation:config:provider",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "SystemAdmin",
+            "User"
+          ]
+        }
+      ],
+      "secrets": [],
+      "writeHandlers": []
+    },
+    {
+      "name": "mail-transport-inmemory",
+      "description": "Registers an in-process `\"inmemory\"` provider for `mail-foundation` that buffers sent mails per tenant instead of contacting an SMTP server. Use `getInbox(tenantId)` and `clearInbox(tenantId)` in demo apps and tests; not for production (buffer is process-memory, lost on restart).",
+      "toggleableDefault": null,
+      "requires": [
+        "mail-foundation"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "mailTransport",
+          "entityName": "inmemory"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": []
+    },
+    {
+      "name": "mail-transport-smtp",
+      "description": "Registers itself as the `\"smtp\"` provider for `mail-foundation` and owns the per-tenant config keys (`host`, `port`, `secure`, `from`, `authUser`) and the encrypted `smtp.password` secret. Tenants set `mail-foundation`'s `provider` config key to `\"smtp\"` to activate it; set the SMTP credentials via the admin UI or a seed handler before sending the first mail.",
+      "toggleableDefault": null,
+      "requires": [
+        "config",
+        "secrets",
+        "mail-foundation"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "mailTransport",
+          "entityName": "smtp"
+        }
+      ],
+      "configKeys": [
+        {
+          "key": "auth-user",
+          "qualifiedName": "mail-transport-smtp:config:auth-user",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "from",
+          "qualifiedName": "mail-transport-smtp:config:from",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "host",
+          "qualifiedName": "mail-transport-smtp:config:host",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "port",
+          "qualifiedName": "mail-transport-smtp:config:port",
+          "type": "number",
+          "scope": "tenant",
+          "default": 587,
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": {
+            "min": 1,
+            "max": 65535
+          },
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "secure",
+          "qualifiedName": "mail-transport-smtp:config:secure",
+          "type": "boolean",
+          "scope": "tenant",
+          "default": false,
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        }
+      ],
+      "secrets": [
+        {
+          "qualifiedName": "mail-transport-smtp:secret:smtp-password",
+          "scope": "tenant",
+          "label": "SMTP password",
+          "hint": "Login password at the SMTP server. Brevo/Postmark/SES call it 'API key' or 'SMTP credentials'."
+        }
+      ],
+      "writeHandlers": []
+    },
+    {
+      "name": "managed-pages",
+      "description": "Tenant-editable, server-rendered public pages with per-tenant branding. Stores one Markdown `page` per `(tenantId, slug, lang)` in the `read_pages` entity table with a `published` gate plus `description`/`ogImage` SEO meta. Registers an anonymous `GET {basePath}/:slug` route that resolves the tenant from the request Host via the app-supplied `resolveApexTenant`, serves only published pages (drafts → 404), renders Markdown through the hardened `page-render` core, and isolates per-tenant content with `Vary: Host`. Ships TenantAdmin/SystemAdmin admin screens (`entityList` + `entityEdit`) backed by convention CRUD handlers (`managed-pages:write:page:{create,update,delete}`, `managed-pages:query:page:{list,detail}`); the app wires nav/workspace onto `managed-pages:screen:page-list`. Branding (via `config`, scope tenant): `branding-{title,description,site-url,accent-color,logo-url,layout-preset}` keys with write-time validation (hex color, https URLs), a `configEdit` self-service screen (`managed-pages:screen:branding-settings`), and a `managed-pages:query:branding` read that the render path applies as scoped `:root` CSS vars + a logo/title header. Also exposes `managed-pages:write:set` (idempotent slug-keyed upsert, SystemAdmin cross-tenant via `tenantIdOverride`) as a provisioning API. Requires `config` + `anonymousAccess` wired at app bootstrap.",
+      "toggleableDefault": null,
+      "requires": [
+        "config"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [
+        {
+          "key": "branding-accent-color",
+          "qualifiedName": "managed-pages:config:branding-accent-color",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^$|^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+          },
+          "writeRoles": [
+            "system",
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "branding-custom-css",
+          "qualifiedName": "managed-pages:config:branding-custom-css",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^[\\s\\S]{0,8000}$"
+          },
+          "writeRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "branding-description",
+          "qualifiedName": "managed-pages:config:branding-description",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^[\\s\\S]{0,500}$"
+          },
+          "writeRoles": [
+            "system",
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "branding-layout-preset",
+          "qualifiedName": "managed-pages:config:branding-layout-preset",
+          "type": "select",
+          "scope": "tenant",
+          "default": "centered",
+          "encrypted": false,
+          "computed": false,
+          "options": [
+            "minimal",
+            "centered",
+            "wide"
+          ],
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "system",
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "branding-logo-url",
+          "qualifiedName": "managed-pages:config:branding-logo-url",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^$|^https://[^\\s\"'<>]{1,2000}$"
+          },
+          "writeRoles": [
+            "system",
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "branding-site-url",
+          "qualifiedName": "managed-pages:config:branding-site-url",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^$|^https://[^\\s\"'<>]{1,2000}$"
+          },
+          "writeRoles": [
+            "system",
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "branding-title",
+          "qualifiedName": "managed-pages:config:branding-title",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^[\\s\\S]{0,200}$"
+          },
+          "writeRoles": [
+            "system",
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        }
+      ],
+      "secrets": [],
+      "writeHandlers": [
+        "managed-pages:write:page:create",
+        "managed-pages:write:page:delete",
+        "managed-pages:write:page:update",
+        "managed-pages:write:set"
+      ]
+    },
+    {
+      "name": "rate-limiting",
+      "description": "Adds an ops-side `rate-limiting:query:status` query handler for inspecting current bucket state; the actual request throttling is wired automatically by the dispatcher when any handler declares a `rateLimit` option (e.g. `{ per: 'user', limit: 3, windowSeconds: 60 }`) or when you pass `context.rateLimit` to `buildServer`. Loading this feature is optional if you only need L3 per-handler rate limits and have no need for ops introspection.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": []
+    },
+    {
+      "name": "readiness",
+      "description": "One-call tenant-onboarding probe: `readiness:query:status` rolls up every config key and secret declared `required: true` across all mounted features and reports which still lack a usable value for the calling tenant, plus a single `ready` boolean. Provider-features under an `r.extensionSelector`-declared extension point count only while their provider is the selected one — a tenant on the inmemory mail transport is not blocked by unset SMTP keys. Mount it (together with `config` and `secrets`) when an admin UI needs a settings checklist before the first mail-send or file-write; the per-concern lists stay available via `config:query:readiness` and `secrets:query:list`.",
+      "toggleableDefault": null,
+      "requires": [
+        "config",
+        "secrets"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": []
+    },
+    {
+      "name": "renderer-foundation",
+      "description": "Plugin registry for content rendering (notification HTML, mail HTML, PDF, images): call `foundation.createRendererForTenant({ tenantId, kind })` at render time to get the right renderer plugin selected by kind, with tenant-level overrides via the `rendererPluginByKind` config key. Requires `template-resolver` (declared via `r.requires`). Low-level building block — add `renderer-simple` (or write a custom plugin via `r.useExtension(\"renderer\", name, { kinds, render })`) rather than using this feature alone.",
+      "toggleableDefault": null,
+      "requires": [
+        "template-resolver"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": []
+    },
+    {
+      "name": "renderer-simple",
+      "description": "Default renderer plugin for `kind=\"notification\"`: takes a structured `EmailTemplateData` variable map (with `header`, `sections[]` of text/button objects, and optional `footer`; falls back to `title`/`body` if no structured fields are present) and returns rendered HTML with inline CSS. Requires `renderer-foundation`; sufficient for plain notification emails — swap it for `renderer-mail-html` if you need MJML/Markdown layouts.",
+      "toggleableDefault": null,
+      "requires": [
+        "renderer-foundation"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "renderer",
+          "entityName": "simple"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": []
+    },
+    {
+      "name": "secrets",
+      "description": "Stores arbitrary per-tenant secrets (API keys, tokens, credentials) encrypted at rest using AES-256 with a KEK loaded from `KUMIKO_SECRETS_MASTER_KEY_V1` (and successive versions for rotation). Read a secret in handlers via `ctx.secrets.get(tenantId, handle)`, which automatically appends a `tenantSecretRead` audit event so every access is traceable. A `rotate` job re-encrypts all envelopes after a KEK version bump.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "secrets:write:delete",
+        "secrets:write:set"
+      ]
+    },
+    {
+      "name": "sessions",
+      "description": "Tracks signed-in clients in the `read_user_sessions` table (one row per JWT, keyed by the `sid`/`jti` claim) and exposes handlers for `mine` (list your sessions), `revoke`, and `revokeAllOthers`. Session creation and revocation on the hot auth path are handled by `createSessionCallbacks()`, wired into `buildServer({ auth: { ... } })` outside the dispatcher; the feature also ships a manual-trigger cleanup job for pruning expired rows and an optional `autoRevokeOnPasswordChange` hook that mass-revokes all sessions for a user whenever their `passwordHash` changes.",
+      "toggleableDefault": null,
+      "requires": [
+        "user"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [
+        "sessions.revokeAllForUser"
+      ],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "sessions:write:user-session:revoke",
+        "sessions:write:user-session:revoke-all-for-user",
+        "sessions:write:user-session:revoke-all-others"
+      ],
+      "uiHints": {
+        "displayLabel": "Sessions · Server-side Logout",
+        "category": "identity",
+        "recommended": false
+      }
+    },
+    {
+      "name": "step-dispatcher",
+      "description": "Internal system feature that drains deferred Tier-2 side-effects (currently `webhook.send` and `mail.send`) after their originating transaction commits. Listens via `r.multiStreamProjection` on the `kumiko:system:step.dispatch-requested` system event, performs the actual HTTP or mail delivery, then appends `kumiko:system:step.dispatched` or `kumiko:system:step.dispatch-failed` back onto the same stream so the outcome is recorded in the event log without a separate status table. Mount this feature explicitly via `createStepDispatcherFeature()` in your app's feature list alongside any features that use `r.step.webhook.send` or `r.step.mail.send`.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": []
+    },
+    {
+      "name": "subscription-mollie",
+      "description": "Mollie payment provider plugin for `billing-foundation`, covering the DACH/EU mid-market use case. Mount via `createSubscriptionMollieFeature({ apiKey, webhookUrl, priceToTier, priceToConfig })` — the factory validates that `priceToTier` and `priceToConfig` keys are identical at boot time. Implements `verifyAndParseWebhook` (lazy Mollie-API fetch + heuristic event-type mapping) and `createCheckoutSession` (customer + first-payment with `sequenceType=\"first\"`); `createPortalSession` and `cancelSubscription` are not available because Mollie has no customer portal and requires a `customerId` that the plugin contract does not carry.",
+      "toggleableDefault": null,
+      "requires": [
+        "billing-foundation"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "subscriptionProvider",
+          "entityName": "mollie"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": []
+    },
+    {
+      "name": "subscription-stripe",
+      "description": "Stripe payment provider plugin for `billing-foundation`. Reads its Stripe API key + webhook secret from system config keys with `backing:\"secrets\"` (envelope-encrypted in the secrets store under the system tenant) and a `billingLive` **system config** flag — all at runtime, so keys rotate and prod goes live without a redeploy. The `mask` on each key derives the sysadmin settings screen + nav, so no app wires a hand-written config UI. Mount via `createSubscriptionStripeFeature({ priceToTier })`; the optional `apiKey`/`webhookSecret` options are env→secrets bridge fallbacks. The plugin always mounts — `createCheckoutSession` throws `feature_disabled` unless `billingLive` is true, so sk_test_ keys in prod never produce a live checkout. Implements all four provider methods (webhook verify, checkout, portal, cancel).",
+      "toggleableDefault": null,
+      "requires": [
+        "billing-foundation",
+        "config",
+        "secrets"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "subscriptionProvider",
+          "entityName": "stripe"
+        }
+      ],
+      "configKeys": [
+        {
+          "key": "api-key",
+          "qualifiedName": "subscription-stripe:config:api-key",
+          "type": "text",
+          "scope": "system",
+          "default": null,
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^(sk|rk)_(test|live)_"
+          },
+          "writeRoles": [
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "billing-live",
+          "qualifiedName": "subscription-stripe:config:billing-live",
+          "type": "boolean",
+          "scope": "system",
+          "default": false,
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "system",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "webhook-secret",
+          "qualifiedName": "subscription-stripe:config:webhook-secret",
+          "type": "text",
+          "scope": "system",
+          "default": null,
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^whsec_"
+          },
+          "writeRoles": [
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ]
+        }
+      ],
+      "secrets": [],
+      "writeHandlers": []
+    },
+    {
+      "name": "tags",
+      "description": "Generic, host-agnostic tagging for any entity. Owns two event-sourced entities — the per-tenant `tag` catalog (`read_tags`) and `tag-assignment` join rows keyed by (entityType, entityId) (`read_tag_assignments`) — so tagging adds NO column to the host entity and needs no relational pivot or JOIN. Provides write-handlers `create-tag`, `assign-tag` (idempotent), `remove-tag` (idempotent) and list queries for the catalog and the assignments. Read which tags an entity has, or which entities carry a tag, by listing `tag-assignment` filtered on `entityId` or `tagId` and composing in the read-layer. Every path uses one access rule — adopt the host's model with createTagsFeature({ access: { openToAll: true } }) or pin roles with createTagsFeature({ roles }). Pass { toggleable: { default: false } } to make the whole feature tier-gatable via the tier-engine (no host hook).",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "tags:write:assign-tag",
+        "tags:write:create-tag",
+        "tags:write:remove-tag"
+      ]
+    },
+    {
+      "name": "template-resolver",
+      "description": "Stores notification and mail templates in the database with a 4-level fallback: tenant+locale → system+locale → tenant+fallback-locale → system+fallback-locale. Call `ctx.templateResolver.resolveTemplate({ tenantId, slug, kind, locale })` at render time; manage templates via the `upsertSystem`, `upsertTenant`, `publish`, and `archive` write handlers. Tenants can override system-default templates without touching application code.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "template-resolver:write:archive",
+        "template-resolver:write:publish",
+        "template-resolver:write:upsert-system",
+        "template-resolver:write:upsert-tenant"
+      ]
+    },
+    {
+      "name": "tenant",
+      "description": "Registers the three core multi-tenancy entities — `tenant`, `tenant-membership`, and `tenant-invitation` (DB tables `read_tenants`, `read_tenant_memberships`, and `read_tenant_invitations`) — along with write handlers for create/update/disable/enable/addMember/removeMember/updateMemberRoles and the matching queries. It also declares a set of per-tenant config keys (companyName, timezone, locale, SMTP credentials) and system-only keys (priceModel, maxUsers) via `r.config({ keys: { ... } })`. Use this feature in every multi-tenant app; membership resolution and invitation flows depend on it, and `auth-email-password` requires it.",
+      "toggleableDefault": null,
+      "requires": [
+        "config"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [
+        {
+          "key": "company-name",
+          "qualifiedName": "tenant:config:company-name",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "locale",
+          "qualifiedName": "tenant:config:locale",
+          "type": "select",
+          "scope": "tenant",
+          "default": "de",
+          "encrypted": false,
+          "computed": false,
+          "options": [
+            "de",
+            "en",
+            "fr",
+            "es"
+          ],
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "max-users",
+          "qualifiedName": "tenant:config:max-users",
+          "type": "number",
+          "scope": "system",
+          "default": 50,
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "system"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "price-model",
+          "qualifiedName": "tenant:config:price-model",
+          "type": "select",
+          "scope": "system",
+          "default": "basic",
+          "encrypted": false,
+          "computed": false,
+          "options": [
+            "basic",
+            "pro",
+            "enterprise"
+          ],
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "system"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "smtp-host",
+          "qualifiedName": "tenant:config:smtp-host",
+          "type": "text",
+          "scope": "tenant",
+          "default": null,
+          "encrypted": false,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "smtp-pass",
+          "qualifiedName": "tenant:config:smtp-pass",
+          "type": "text",
+          "scope": "tenant",
+          "default": null,
+          "encrypted": true,
+          "computed": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "SystemAdmin"
+          ]
+        },
+        {
+          "key": "timezone",
+          "qualifiedName": "tenant:config:timezone",
+          "type": "select",
+          "scope": "tenant",
+          "default": "Europe/Berlin",
+          "encrypted": false,
+          "computed": false,
+          "options": [
+            "UTC",
+            "Europe/Berlin",
+            "Europe/London",
+            "Europe/Paris",
+            "Europe/Madrid",
+            "Europe/Rome",
+            "America/New_York",
+            "America/Los_Angeles",
+            "America/Sao_Paulo",
+            "Asia/Tokyo",
+            "Asia/Singapore",
+            "Australia/Sydney"
+          ],
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        }
+      ],
+      "secrets": [],
+      "writeHandlers": [
+        "tenant:write:add-member",
+        "tenant:write:cancel-invitation",
+        "tenant:write:create",
+        "tenant:write:disable",
+        "tenant:write:enable",
+        "tenant:write:remove-member",
+        "tenant:write:tenant:update",
+        "tenant:write:update",
+        "tenant:write:update-member-roles"
+      ],
+      "uiHints": {
+        "displayLabel": "Multi-Tenant Core",
+        "category": "identity",
+        "recommended": true
+      }
+    },
+    {
+      "name": "text-content",
+      "description": "Generic Markdown text store keyed by `(tenantId, slug, lang)` — one row per combination in the `read_text_blocks` entity table. Provides `text-content:write:set` (TenantAdmin upsert) and `text-content:query:by-slug` (anonymous-capable read); use `SYSTEM_TENANT_ID` as the tenant for app-wide texts such as imprint, privacy policy, or FAQ. Other features (e.g. `legal-pages`) read blocks without a direct code import via the `createTextContentApi` / `requireTextContent` extraContext pattern.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "text-content:write:set"
+      ]
+    },
+    {
+      "name": "tier-engine",
+      "description": "Stores a `tier-assignment` entity per tenant (which pricing tier is active) and, when configured with a `TierMap`, registers itself as the `tenantTierResolver` extension so the dispatcher automatically gates `r.toggleable()` features per tenant based on their assigned tier. Call `createTierEngineFeature({ defaultTier, tierMap })` to get full tier composition — including an `inTransaction` entity hook that atomically writes the default tier when a new tenant is created — or use `createTierEngineFeature()` without options for storage-only mode when you manage tier assignment yourself via `composeApp`. A SystemAdmin-only `set-tenant-tier` write plus `get-tenant-tier`/`tier-options` reads let an operator assign a tier to ANY tenant manually — without a billing purchase — stamping `source: \"manual\"` so a future Stripe→tier sync won't overwrite the grant. Apps surface this via the `tier-admin` screen.",
+      "toggleableDefault": null,
+      "requires": [
+        "config",
+        "tenant"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "tier-engine:write:set-tenant-tier",
+        "tier-engine:write:tier-assignment:create",
+        "tier-engine:write:tier-assignment:update"
+      ]
+    },
+    {
+      "name": "user",
+      "description": "Manages the cross-tenant user identity: the `read_users` table holds each user's email, `displayName`, global `roles`, `emailVerified` flag, and lifecycle `status` (active / restricted / deletionRequested / deleted). Because users exist above any individual tenant, the feature runs with `r.systemScope()` — membership and tenant-specific roles live in the `tenant` feature instead. Add this feature whenever your app needs a persistent, tenant-agnostic user record that auth and GDPR pipelines can reference.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "user:write:user:create",
+        "user:write:user:update"
+      ],
+      "uiHints": {
+        "displayLabel": "User Identity",
+        "category": "identity",
+        "recommended": true
+      }
+    },
+    {
+      "name": "user-data-rights",
+      "description": "Implements GDPR Art. 15 (access / `my-audit-log` query), Art. 17 (erasure / `request-deletion` + `cancel-deletion`, plus the anonymous email-verified `request-deletion-by-email` + `confirm-deletion-by-token` flow for lockout-safe self-service, + cron cleanup with grace period), Art. 18 (restriction / `restrict-account` + `lift-restriction`), and Art. 20 (portability / async `request-export` → ZIP via `file-foundation`, Magic-Link download) as first-class HTTP handlers and cron jobs. Each domain feature opts in by calling `r.useExtension(EXT_USER_DATA, \"<entity>\", { export, delete })` — the feature then orchestrates the export and forget pipelines across all registered hooks automatically. Requires `user`, `data-retention`, `compliance-profiles`, and `sessions`.",
+      "toggleableDefault": null,
+      "requires": [
+        "user",
+        "data-retention",
+        "compliance-profiles",
+        "sessions"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [
+        "userDataRights.runForget",
+        "userDataRights.runExport"
+      ],
+      "usesApis": [
+        "compliance.forTenant",
+        "retention.policyFor",
+        "sessions.revokeAllForUser"
+      ],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "user-data-rights:write:cancel-deletion",
+        "user-data-rights:write:confirm-deletion-by-token",
+        "user-data-rights:write:lift-restriction",
+        "user-data-rights:write:request-deletion",
+        "user-data-rights:write:request-deletion-by-email",
+        "user-data-rights:write:request-export",
+        "user-data-rights:write:restrict-account",
+        "user-data-rights:write:run-forget-cleanup"
+      ]
+    },
+    {
+      "name": "user-data-rights-defaults",
+      "description": "Registers ready-made `EXT_USER_DATA` export and delete hooks for the two core entities: `user` (delete strategy sets email to `deleted-<id>@anonymized.invalid`, nulls `passwordHash`, sets status to `Deleted`; anonymize strategy sets email to `anonymized-<id>@anonymized.invalid` without touching `passwordHash`) and `fileRef` (delete removes both the DB row and the storage binary). Mount this alongside `user-data-rights` for standard GDPR compliance; omit it only if your app needs custom anonymization logic for these entities.",
+      "toggleableDefault": null,
+      "requires": [
+        "user",
+        "files",
+        "user-data-rights"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "userData",
+          "entityName": "user"
+        },
+        {
+          "extensionName": "userData",
+          "entityName": "fileRef"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": []
+    },
+    {
+      "name": "user-profile",
+      "description": "Self-service account page building blocks: a `change-email` write handler (re-auth via current password, uniqueness check, resets emailVerified and expects the app to trigger the verification flow) plus the ProfileScreen web component that composes change-password (auth-email-password), change-email and account deletion (user-data-rights request/cancel with grace period) into one screen. Apps register the screen as `type: \"custom\"` with `__component: \"UserProfileScreen\"`. Requires `user`, `auth-email-password`, and `user-data-rights`.",
+      "toggleableDefault": null,
+      "requires": [
+        "user",
+        "auth-email-password",
+        "user-data-rights"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "user-profile:write:change-email"
+      ]
+    }
+  ]
+}

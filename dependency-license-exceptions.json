@@ -58,6 +58,14 @@
       "expires": "2030-05-06"
     },
     {
+      "package": "create-kumiko-app",
+      "version": "*",
+      "license": "BUSL-1.1",
+      "reason": "Unscoped Workspace-Paket — `bun create kumiko-app` resolved zu `bunx create-kumiko-app`, daher KEIN @cosmicdrift/-Scope möglich. Analog zur @cosmicdrift/*-Exception unser eigener Lizenz-Choice; eigene Eintrag weil Wildcard-Pattern unscoped Pakete nicht matched.",
+      "reviewedBy": "Marc, 2026-06-21",
+      "expires": "2030-06-21"
+    },
+    {
       "package": "@kumiko-platform/*",
       "version": "*",
       "license": "UNLICENSED",

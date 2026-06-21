@@ -119,6 +119,43 @@ describe("scaffoldApp", () => {
     expect(() => scaffoldApp({ name: "existing", destination: dest })).toThrow(/already exists/);
   });
 
+  test("features-param: custom selection lands in run-config.ts imports + APP_FEATURES", () => {
+    const dest = join(tmp, "custom-features");
+    scaffoldApp({
+      name: "custom-features",
+      destination: dest,
+      features: [
+        {
+          name: "tenant",
+          importPath: "@cosmicdrift/kumiko-bundled-features/tenant",
+          exportName: "createTenantFeature",
+          callExpression: "createTenantFeature()",
+        },
+        {
+          name: "billing-foundation",
+          importPath: "@cosmicdrift/kumiko-bundled-features/billing-foundation",
+          exportName: "billingFoundationFeature",
+          callExpression: "billingFoundationFeature",
+        },
+      ],
+    });
+    const cfg = readFileSync(join(dest, "src/run-config.ts"), "utf-8");
+    expect(cfg).toContain('from "@cosmicdrift/kumiko-bundled-features/tenant"');
+    expect(cfg).toContain('from "@cosmicdrift/kumiko-bundled-features/billing-foundation"');
+    expect(cfg).toContain("createTenantFeature()");
+    expect(cfg).toContain("billingFoundationFeature");
+    expect(cfg).not.toContain("createSecretsFeature");
+    expect(cfg).not.toContain("createSessionsFeature");
+  });
+
+  test("features-param: empty array falls back to foundation (backwards-compat)", () => {
+    const dest = join(tmp, "empty-features");
+    scaffoldApp({ name: "empty-features", destination: dest, features: [] });
+    const cfg = readFileSync(join(dest, "src/run-config.ts"), "utf-8");
+    expect(cfg).toContain("createSecretsFeature()");
+    expect(cfg).toContain("createSessionsFeature()");
+  });
+
   test("deterministic tenantId for same name (reproducible boots)", () => {
     const a = join(tmp, "a");
     const b = join(tmp, "b");

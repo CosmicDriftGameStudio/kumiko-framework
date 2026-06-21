@@ -29,6 +29,7 @@
     "packages/framework",
     "packages/bundled-features",
     "packages/cli",
+    "packages/create-kumiko-app",
     "packages/dev-server",
     "packages/headless",
     "packages/dispatcher-live",
