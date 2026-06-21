@@ -4,6 +4,7 @@ import {
   type FeatureDefinition,
   SYSTEM_USER_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createConfigAccessor } from "../config";
 import { createFileProviderForTenant } from "../file-foundation";
 import { PRIVACY_CENTER_SCREEN_ID } from "./constants";
 import { cancelDeletionWrite } from "./handlers/cancel-deletion.write";
@@ -295,17 +296,35 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
         // SYSTEM_USER_ID ist die framework-weite Konvention. Der job-
         // Discriminator wird via handlerName="user-data-rights:run-export-
         // jobs" im Secret-Read-Audit erfasst.
-        const providerCtx = {
-          config: ctx.config,
-          registry: ctx.registry,
-          secrets: ctx.secrets,
-          _userId: ctx._userId ?? SYSTEM_USER_ID,
-        };
+        const exportUserId = ctx._userId ?? SYSTEM_USER_ID;
+        const exportDb = ctx.db as import("@cosmicdrift/kumiko-framework/db").DbConnection; // @cast-boundary db-operator
+        const exportRegistry = ctx.registry;
         await runExportJobs({
-          db: ctx.db as import("@cosmicdrift/kumiko-framework/db").DbConnection, // @cast-boundary db-operator
-          registry: ctx.registry,
-          buildStorageProvider: async (tenantId) =>
-            createFileProviderForTenant(providerCtx, tenantId, "user-data-rights:run-export-jobs"), // @wrapper-known semantic-alias
+          db: exportDb,
+          registry: exportRegistry,
+          buildStorageProvider: async (tenantId) => {
+            // ctx.config (per-request ConfigAccessor) existiert nur im HTTP-
+            // Dispatcher; der Cron-Job-Kontext trägt ctx.configResolver. Den
+            // per-Tenant-Accessor daraus bauen (wie der HTTP-Pfad via
+            // _configAccessorFactory) — sonst wirft createFileProviderForTenant
+            // "ctx.config is missing" und jeder Export landet auf failed.
+            const config =
+              ctx.config ??
+              (ctx.configResolver
+                ? createConfigAccessor(
+                    exportRegistry,
+                    ctx.configResolver,
+                    tenantId as Parameters<typeof createConfigAccessor>[2],
+                    exportUserId,
+                    exportDb,
+                  )
+                : undefined);
+            return createFileProviderForTenant(
+              { config, registry: exportRegistry, secrets: ctx.secrets, _userId: exportUserId },
+              tenantId,
+              "user-data-rights:run-export-jobs",
+            );
+          },
           now: T.Now.instant(),
           // Atom 5 — App-Author-Callbacks fuer Email-Notification.
           // Optional: wenn nicht gesetzt, kein Email; User pollt
