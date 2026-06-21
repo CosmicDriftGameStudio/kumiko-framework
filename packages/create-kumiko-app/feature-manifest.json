@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled)",
-  "featureCount": 41,
+  "featureCount": 42,
   "features": [
     {
       "name": "audit",
@@ -535,6 +535,32 @@
       "writeHandlers": [],
       "uiHints": {
         "displayLabel": "File Provider · S3",
+        "category": "storage",
+        "recommended": false
+      }
+    },
+    {
+      "name": "file-provider-s3-env",
+      "description": "Registers an `\"s3-env\"` provider for `file-foundation` that reads one S3 credential set from `process.env` (`S3_BUCKET`/`S3_REGION`/`S3_ACCESS_KEY`/`S3_SECRET_KEY`, optional `S3_ENDPOINT`/`S3_FORCE_PATH_STYLE`) and serves every tenant from one shared bucket — no per-tenant config or secret seeding. Use this for single-bucket S3-compatible deploys (e.g. Hetzner Object Storage); use `file-provider-s3` instead when each tenant needs its own bucket/credentials.",
+      "toggleableDefault": null,
+      "requires": [
+        "file-foundation"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "fileProvider",
+          "entityName": "s3-env"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "File Provider · S3 (env)",
         "category": "storage",
         "recommended": false
       }

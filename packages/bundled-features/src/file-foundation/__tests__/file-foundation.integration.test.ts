@@ -27,6 +27,7 @@ import { createConfigAccessorFactory } from "../../config/feature";
 import { type ConfigResolver, createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
 import { fileProviderS3Feature, S3_SECRET_ACCESS_KEY } from "../../file-provider-s3";
+import { fileProviderS3EnvFeature } from "../../file-provider-s3-env";
 import { createSecretsContext, createSecretsFeature, tenantSecretsTable } from "../../secrets";
 import { createTenantFeature } from "../../tenant/feature";
 import { tenantEntity } from "../../tenant/schema/tenant";
@@ -90,6 +91,7 @@ beforeAll(async () => {
       createSecretsFeature(),
       fileFoundationFeature,
       fileProviderS3Feature,
+      fileProviderS3EnvFeature,
       testProbeFeature,
     ],
     masterKeyProvider: providerRef,
@@ -241,5 +243,42 @@ describe("scenario 3: tenant isolation", () => {
     const b = (await stack.http.writeOk(TEST_HANDLER_QN, {}, adminB)) as Record<string, unknown>;
     expect(a["hasWrite"]).toBe(true);
     expect(b["hasWrite"]).toBe(true);
+  });
+});
+
+// --- Scenario 4: s3-env provider builds from env, NO per-tenant secret ---
+//
+// The "wire-into-any-app" proof for file-provider-s3-env: select the
+// "s3-env" provider, set the S3_* env vars, and the factory builds a working
+// provider WITHOUT any secrets:write:set call. This is the single-bucket /
+// Hetzner deploy path — no admin seeding, no secrets store.
+
+const S3_ENV_KEYS = ["S3_BUCKET", "S3_REGION", "S3_ACCESS_KEY", "S3_SECRET_KEY"] as const;
+
+describe("scenario 4: s3-env provider (app-wide env, no secrets)", () => {
+  test("env vars set + provider=s3-env → factory builds provider without a per-tenant secret", async () => {
+    const admin = adminFor(504);
+    const saved = S3_ENV_KEYS.map((k) => [k, process.env[k]] as const);
+    Object.assign(process.env, {
+      S3_BUCKET: "shared-bucket",
+      S3_REGION: "fsn1",
+      S3_ACCESS_KEY: "AKIAENV",
+      S3_SECRET_KEY: "env-secret-not-real",
+    });
+    try {
+      await setConfig(admin, "file-foundation:config:provider", "s3-env");
+      const result = (await stack.http.writeOk(TEST_HANDLER_QN, {}, admin)) as Record<
+        string,
+        unknown
+      >;
+      expect(result["hasWrite"]).toBe(true);
+      expect(result["hasRead"]).toBe(true);
+      expect(result["hasDelete"]).toBe(true);
+    } finally {
+      for (const [k, v] of saved) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
+    }
   });
 });
