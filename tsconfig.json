@@ -48,6 +48,9 @@
     },
     {
       "path": "packages/dev-server"
+    },
+    {
+      "path": "packages/create-kumiko-app"
     }
   ],
   "files": []

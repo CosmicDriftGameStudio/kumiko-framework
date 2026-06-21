@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist",
+    "noEmit": false,
+    "lib": ["ESNext"],
+    "composite": true,
+    "resolveJsonModule": true
+  },
+  "references": [{ "path": "../dev-server" }, { "path": "../framework" }],
+  "include": ["src", "bin"]
+}

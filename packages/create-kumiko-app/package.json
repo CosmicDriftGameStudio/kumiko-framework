@@ -1,0 +1,48 @@
+{
+  "name": "create-kumiko-app",
+  "version": "0.1.0",
+  "description": "`bun create kumiko-app <name>` — scaffold a new Kumiko app with an interactive feature picker.",
+  "license": "BUSL-1.1",
+  "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CosmicDriftGameStudio/kumiko-framework.git",
+    "directory": "packages/create-kumiko-app"
+  },
+  "bugs": {
+    "url": "https://github.com/CosmicDriftGameStudio/kumiko-framework/issues"
+  },
+  "homepage": "https://kumiko.rocks",
+  "type": "module",
+  "kumiko": {
+    "runtime": "dev"
+  },
+  "bin": {
+    "create-kumiko-app": "./bin/cli.ts"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "vendor:manifest": "bun run scripts/vendor-manifest.ts"
+  },
+  "dependencies": {
+    "@cosmicdrift/kumiko-dev-server": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*",
+    "@inquirer/prompts": "^7.4.0"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
+  },
+  "files": [
+    "bin",
+    "src",
+    "feature-manifest.json",
+    "README.md",
+    "LICENSE"
+  ]
+}

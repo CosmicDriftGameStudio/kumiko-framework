@@ -16,6 +16,18 @@ import { join, resolve } from "node:path";
 import { IndentationText, Project, VariableDeclarationKind } from "ts-morph";
 import { isKebabSegment } from "./kebab";
 
+// Single bundled-feature entry the scaffolder mounts into run-config.ts.
+// importPath is the from-spec ("@cosmicdrift/kumiko-bundled-features/files"),
+// exportName the named import, callExpression the form that lands in the
+// APP_FEATURES array literal — typically `${exportName}()` for factory-style
+// features and just `${exportName}` for object-style ones (e.g. billingFoundationFeature).
+export type ScaffoldFeatureEntry = {
+  readonly name: string;
+  readonly importPath: string;
+  readonly exportName: string;
+  readonly callExpression: string;
+};
+
 export type ScaffoldAppOptions = {
   /** kebab-case app name (e.g. "my-shop"). Becomes package-name + folder. */
   readonly name: string;
@@ -28,6 +40,10 @@ export type ScaffoldAppOptions = {
   readonly cwd?: string;
   /** npm-version-pin for @cosmicdrift/* deps. Default "*" for latest. */
   readonly frameworkVersion?: string;
+  /** Bundled-features to mount in run-config.ts. Default: secrets + sessions
+   *  (the historical foundation). create-kumiko-app passes the picker output
+   *  here so the generated APP_FEATURES reflects the user's selection. */
+  readonly features?: ReadonlyArray<ScaffoldFeatureEntry>;
 };
 
 export type ScaffoldAppResult = {
@@ -58,7 +74,7 @@ export function scaffoldApp(options: ScaffoldAppOptions): ScaffoldAppResult {
   write(join(destination, "tsconfig.json"), renderTsconfig());
   files.push("tsconfig.json");
 
-  write(join(destination, "src", "run-config.ts"), renderRunConfig());
+  write(join(destination, "src", "run-config.ts"), renderRunConfig(options.features));
   files.push("src/run-config.ts");
 
   write(join(destination, "bin", "main.ts"), renderMain(options.name));
@@ -133,26 +149,44 @@ function newTsProject(): Project {
   });
 }
 
-function renderRunConfig(): string {
+const FOUNDATION_FEATURES: ReadonlyArray<ScaffoldFeatureEntry> = [
+  {
+    name: "secrets",
+    importPath: "@cosmicdrift/kumiko-bundled-features/secrets",
+    exportName: "createSecretsFeature",
+    callExpression: "createSecretsFeature()",
+  },
+  {
+    name: "sessions",
+    importPath: "@cosmicdrift/kumiko-bundled-features/sessions",
+    exportName: "createSessionsFeature",
+    callExpression: "createSessionsFeature()",
+  },
+];
+
+function renderRunConfig(features?: ReadonlyArray<ScaffoldFeatureEntry>): string {
   const project = newTsProject();
   const sf = project.createSourceFile("run-config.ts", "");
 
-  sf.addImportDeclaration({
-    moduleSpecifier: "@cosmicdrift/kumiko-bundled-features/secrets",
-    namedImports: ["createSecretsFeature"],
-  });
-  sf.addImportDeclaration({
-    moduleSpecifier: "@cosmicdrift/kumiko-bundled-features/sessions",
-    namedImports: ["createSessionsFeature"],
-  });
+  const effective = features && features.length > 0 ? features : FOUNDATION_FEATURES;
+  const grouped = new Map<string, string[]>();
+  for (const entry of effective) {
+    const existing = grouped.get(entry.importPath) ?? [];
+    if (!existing.includes(entry.exportName)) existing.push(entry.exportName);
+    grouped.set(entry.importPath, existing);
+  }
+  for (const [importPath, namedImports] of grouped) {
+    sf.addImportDeclaration({ moduleSpecifier: importPath, namedImports });
+  }
 
+  const callList = effective.map((f) => f.callExpression).join(", ");
   sf.addVariableStatement({
     declarationKind: VariableDeclarationKind.Const,
     isExported: true,
     declarations: [
       {
         name: "APP_FEATURES",
-        initializer: "[createSecretsFeature(), createSessionsFeature()] as const",
+        initializer: `[${callList}] as const`,
       },
     ],
   });
@@ -161,9 +195,9 @@ function renderRunConfig(): string {
     0,
     [
       "// Single source of truth für die Feature-Komposition deiner App.",
-      "// Bundled-Foundation: secrets + sessions. config/user/tenant/auth-email-password",
-      "// werden via composeFeatures(includeBundled:true) automatisch ergänzt",
-      "// wenn runProdApp mit `auth: {…}` aufgerufen wird (siehe bin/main.ts).",
+      "// config/user/tenant/auth-email-password werden via",
+      "// composeFeatures(includeBundled:true) automatisch ergänzt wenn",
+      "// runProdApp mit `auth: {…}` aufgerufen wird (siehe bin/main.ts).",
       "//",
       "// Neue features hinzufügen:",
       "//   - bunx @cosmicdrift/kumiko-cli add feature <name>  (DX-2, automatisch)",
