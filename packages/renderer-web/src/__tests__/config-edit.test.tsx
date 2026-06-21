@@ -297,4 +297,76 @@ describe("KumikoScreen / configEdit", () => {
     });
     expect(queryCalls["config:query:values"] ?? 0).toBeGreaterThan(valuesBefore);
   });
+
+  // #432/1: der #429 Slot-Split rendert die Cascade in zwei Slots — den
+  // Trigger (Toggle) im labelAppendix, das Panel im fieldAppendix, beide über
+  // einen geteilten expandedFields-State. Der open/close-Zyklus war nur
+  // indirekt (Render-Snapshot) gedeckt; hier wird er als Interaktion gepinnt.
+  test("#432/1: cascade trigger toggles the panel slot open and closed", async () => {
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async (qn: string) => {
+        if (qn === "config:query:cascade") {
+          return {
+            isSuccess: true,
+            data: {
+              "demo:config:site-name": {
+                value: "Acme",
+                source: "tenant-row",
+                levels: [
+                  {
+                    source: "tenant-row",
+                    label: "tenant-row",
+                    value: "Acme",
+                    isActive: true,
+                    hasValue: true,
+                  },
+                  {
+                    source: "default",
+                    label: "default",
+                    value: "fallback",
+                    isActive: false,
+                    hasValue: true,
+                  },
+                ],
+              },
+            },
+          };
+        }
+        return {
+          isSuccess: true,
+          data: {
+            "demo:config:site-name": { value: "Acme", scope: "tenant", source: "tenant-row" },
+          },
+        };
+      }) as unknown as Dispatcher["query"],
+    });
+
+    const user = userEvent.setup();
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={schema} qn="demo:screen:settings" />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const field = screen.getByTestId("field-siteName");
+    await waitFor(() =>
+      expect(field.querySelector('[data-testid="config-cascade"]')).not.toBeNull(),
+    );
+
+    // collapsed: panel slot is absent → the inactive default level ("fallback")
+    // is not in the DOM (the trigger only shows the active value "Acme").
+    expect(screen.queryByText("fallback")).toBeNull();
+
+    const toggle = field.querySelector('[data-testid="config-cascade"]')?.querySelector("button");
+    if (!toggle) throw new Error("cascade trigger toggle not found");
+
+    // open → panel slot renders all levels incl. the inactive default value
+    await user.click(toggle);
+    await waitFor(() => expect(screen.getByText("fallback")).toBeTruthy());
+
+    // close → panel slot gone again (shared expandedFields state cleared)
+    await user.click(toggle);
+    await waitFor(() => expect(screen.queryByText("fallback")).toBeNull());
+  });
 });

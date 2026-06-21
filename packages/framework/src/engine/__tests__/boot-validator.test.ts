@@ -2016,6 +2016,7 @@ describe("boot-validator", () => {
   describe("entityList rowAction row-meta allowlist (#331, #323)", () => {
     function makeFeature(opts: {
       pick?: readonly string[];
+      map?: Record<string, string>;
       visibleField?: string;
       softDelete?: boolean;
     }) {
@@ -2038,6 +2039,7 @@ describe("boot-validator", () => {
               label: "actions.archive",
               handler: "shop:write:archive",
               ...(opts.pick ? { payload: { pick: [...opts.pick] } } : {}),
+              ...(opts.map ? { payload: { map: { ...opts.map } } } : {}),
               ...(opts.visibleField ? { visible: { field: opts.visibleField, eq: true } } : {}),
             },
           ],
@@ -2068,6 +2070,16 @@ describe("boot-validator", () => {
     test("visible.field auf unknown Field → Throw", () => {
       expect(() => validateBoot([makeFeature({ visibleField: "ghost" })])).toThrow(
         /visible\.field references unknown field "ghost"/,
+      );
+    });
+
+    test("map-Extractor mit Base-Column tenantId → kein Throw", () => {
+      expect(() => validateBoot([makeFeature({ map: { target: "tenantId" } })])).not.toThrow();
+    });
+
+    test("map-Extractor mit unknown Field → Throw", () => {
+      expect(() => validateBoot([makeFeature({ map: { target: "ghost" } })])).toThrow(
+        /payload references unknown field "ghost"/,
       );
     });
 

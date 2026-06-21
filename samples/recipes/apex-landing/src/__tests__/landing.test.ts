@@ -40,6 +40,7 @@ describe("apex-landing: tier-engine seam", () => {
     const ent = pricing.tiers.find((t) => t.name === "Enterprise");
     expect(free?.priceSuffix).toBeUndefined();
     expect(ent?.priceSuffix).toBeUndefined();
+    expect(free?.amount).toBe("0 €");
     expect(ent?.amount).toBe("Let's talk");
   });
 
