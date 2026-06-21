@@ -226,34 +226,36 @@ export type EnvError = {
   readonly suggestion?: string;
 };
 
+function formatBootError(errors: readonly EnvError[]): string {
+  const lines: string[] = [
+    `Boot failed: ${errors.length} env-var problem${errors.length === 1 ? "" : "s"}`,
+    "",
+  ];
+  for (const err of errors) {
+    const tag = err.kind === "missing" ? "required, missing" : "invalid";
+    const sourceTag = err.source ? `${err.source}, ${tag}` : tag;
+    lines.push(`  ✗ ${err.name} (${sourceTag})`);
+    lines.push(`    ${err.message}`);
+    if (err.suggestion) {
+      lines.push(`    ${err.suggestion}`);
+    }
+  }
+  lines.push("");
+  lines.push("See: kumiko-platform/docs/runbooks/standard-deploy-app.md#step-1-boot-dry-run-lokal");
+  return lines.join("\n");
+}
+
 export class KumikoBootError extends Error {
   readonly errors: readonly EnvError[];
 
   constructor(errors: readonly EnvError[]) {
-    super(`Boot failed: ${errors.length} env-var problem${errors.length === 1 ? "" : "s"}`);
+    super(formatBootError(errors));
     this.name = "KumikoBootError";
     this.errors = errors;
   }
 
   format(): string {
-    const lines: string[] = [
-      `Boot failed: ${this.errors.length} env-var problem${this.errors.length === 1 ? "" : "s"}`,
-      "",
-    ];
-    for (const err of this.errors) {
-      const tag = err.kind === "missing" ? "required, missing" : "invalid";
-      const sourceTag = err.source ? `${err.source}, ${tag}` : tag;
-      lines.push(`  ✗ ${err.name} (${sourceTag})`);
-      lines.push(`    ${err.message}`);
-      if (err.suggestion) {
-        lines.push(`    ${err.suggestion}`);
-      }
-    }
-    lines.push("");
-    lines.push(
-      "See: kumiko-platform/docs/runbooks/standard-deploy-app.md#step-1-boot-dry-run-lokal",
-    );
-    return lines.join("\n");
+    return formatBootError(this.errors);
   }
 }
 
