@@ -21,7 +21,7 @@ import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/schema/tenant";
 import { createUserFeature } from "../../user/feature";
-import { userEntity, userTable } from "../../user/schema/user";
+import { USER_STATUS, userEntity, userTable } from "../../user/schema/user";
 import { SessionHandlers, SessionQueries } from "../constants";
 import { createSessionsFeature } from "../feature";
 import { userSessionEntity, userSessionTable } from "../schema/user-session";
@@ -453,5 +453,67 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     // last login; aliceAsAdmin.sid leads the list. Pinning guards against
     // silent orderBy removal.
     expect(body.data[0]?.id).toBe(aliceAsAdmin.sid);
+  });
+});
+
+// Defense-in-depth: the sessionChecker refuses a live sid once the user it
+// belongs to is locked, independent of whether session-revoke ran. Each case
+// logs in WHILE active (login itself blocks locked users) and then flips the
+// status, mirroring "user got restricted while a session was open".
+describe("sessions feature — locked accounts blocked on a live session", () => {
+  test("active user passes — the gate leaves the happy path untouched", async () => {
+    await h.seedUser("active@example.com", "pw-long-enough");
+    const { token } = await h.login("active@example.com", "pw-long-enough");
+
+    const res = await h.authedPost("/api/query", token, {
+      type: "user:query:user:me",
+      payload: {},
+    });
+    expect(res.status).toBe(200);
+  });
+
+  test("restricted after login → 401 reason=blocked", async () => {
+    const { userId } = await h.seedUser("restrict@example.com", "pw-long-enough");
+    const { token } = await h.login("restrict@example.com", "pw-long-enough");
+    await updateMany(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: userId });
+
+    const res = await h.authedPost("/api/query", token, {
+      type: "user:query:user:me",
+      payload: {},
+    });
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error?: { details?: { reason?: string } } };
+    expect(body.error?.details?.reason).toBe("blocked");
+  });
+
+  test("deleted after login → 401 reason=blocked", async () => {
+    const { userId } = await h.seedUser("gone@example.com", "pw-long-enough");
+    const { token } = await h.login("gone@example.com", "pw-long-enough");
+    await updateMany(stack.db, userTable, { status: USER_STATUS.Deleted }, { id: userId });
+
+    const res = await h.authedPost("/api/query", token, {
+      type: "user:query:user:me",
+      payload: {},
+    });
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error?: { details?: { reason?: string } } };
+    expect(body.error?.details?.reason).toBe("blocked");
+  });
+
+  test("deletionRequested keeps its session live — reversible grace period", async () => {
+    const { userId } = await h.seedUser("leaving@example.com", "pw-long-enough");
+    const { token } = await h.login("leaving@example.com", "pw-long-enough");
+    await updateMany(
+      stack.db,
+      userTable,
+      { status: USER_STATUS.DeletionRequested },
+      { id: userId },
+    );
+
+    const res = await h.authedPost("/api/query", token, {
+      type: "user:query:user:me",
+      payload: {},
+    });
+    expect(res.status).toBe(200);
   });
 });

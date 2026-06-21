@@ -19,6 +19,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { Temporal } from "temporal-polyfill";
+import { createUserFeature } from "../../user/feature";
 import { createSessionsFeature } from "../feature";
 import { userSessionEntity, userSessionTable } from "../schema/user-session";
 
@@ -75,14 +76,14 @@ async function insertRevokedSession(db: DbConnection): Promise<void> {
 
 describe("sessions / read_user_sessions survives projection rebuild", () => {
   test("is NOT registered as a rebuildable implicit projection", () => {
-    const registry = createRegistry([createSessionsFeature()]);
+    const registry = createRegistry([createSessionsFeature(), createUserFeature()]);
     expect(registry.getAllProjections().has(IMPLICIT_PROJECTION)).toBe(false);
   });
 
   test("direct-written rows (incl. revoked state) survive a rebuild", async () => {
     await insertRevokedSession(createTenantDb(testDb.db, TENANT));
 
-    const registry = createRegistry([createSessionsFeature()]);
+    const registry = createRegistry([createSessionsFeature(), createUserFeature()]);
     // Pre-fix: the implicit projection exists → rebuild swaps an empty shadow
     // → rows wiped. Post-fix: absent → no rebuild → rows untouched. Either way
     // a regression (re-adding r.entity) makes this fail.
