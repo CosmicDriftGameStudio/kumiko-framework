@@ -61,7 +61,7 @@ function StatusBanner({ status }: { readonly status: SectionStatus }): ReactNode
 
 function ChangePasswordSection(): ReactNode {
   const t = useTranslation();
-  const { Form, Field, Input, Button } = usePrimitives();
+  const { Section, Field, Input, Button } = usePrimitives();
   const dispatcher = useDispatcher();
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -93,54 +93,55 @@ function ChangePasswordSection(): ReactNode {
 
   const submitting = status.kind === "submitting";
   return (
-    <Form
-      onSubmit={onSubmit}
-      testId="profile-password"
-      title={t("profile.password.title")}
-      actions={
-        <Button type="submit" disabled={submitting} testId="profile-password-submit">
-          {t("profile.password.submit")}
-        </Button>
-      }
-    >
-      <Field id="profile-old-password" label={t("profile.password.old")} required>
-        <Input
-          kind="password"
-          id="profile-old-password"
-          name="profile-old-password"
-          value={oldPassword}
-          onChange={setOldPassword}
-          disabled={submitting}
-          required
-          autoComplete="current-password"
-        />
-      </Field>
-      <Field id="profile-new-password" label={t("profile.password.new")} required>
-        <Input
-          kind="password"
-          id="profile-new-password"
-          name="profile-new-password"
-          value={newPassword}
-          onChange={setNewPassword}
-          disabled={submitting}
-          required
-          autoComplete="new-password"
-        />
-      </Field>
-      <Field id="profile-confirm-password" label={t("profile.password.confirm")} required>
-        <Input
-          kind="password"
-          id="profile-confirm-password"
-          name="profile-confirm-password"
-          value={confirm}
-          onChange={setConfirm}
-          disabled={submitting}
-          required
-          autoComplete="new-password"
-        />
-      </Field>
-      <StatusBanner status={status} />
-    </Form>
+    <form onSubmit={onSubmit} data-testid="profile-password-form">
+      <Section
+        testId="profile-password"
+        title={t("profile.password.title")}
+        actions={
+          <Button type="submit" disabled={submitting} testId="profile-password-submit">
+            {t("profile.password.submit")}
+          </Button>
+        }
+      >
+        <Field id="profile-old-password" label={t("profile.password.old")} required>
+          <Input
+            kind="password"
+            id="profile-old-password"
+            name="profile-old-password"
+            value={oldPassword}
+            onChange={setOldPassword}
+            disabled={submitting}
+            required
+            autoComplete="current-password"
+          />
+        </Field>
+        <Field id="profile-new-password" label={t("profile.password.new")} required>
+          <Input
+            kind="password"
+            id="profile-new-password"
+            name="profile-new-password"
+            value={newPassword}
+            onChange={setNewPassword}
+            disabled={submitting}
+            required
+            autoComplete="new-password"
+          />
+        </Field>
+        <Field id="profile-confirm-password" label={t("profile.password.confirm")} required>
+          <Input
+            kind="password"
+            id="profile-confirm-password"
+            name="profile-confirm-password"
+            value={confirm}
+            onChange={setConfirm}
+            disabled={submitting}
+            required
+            autoComplete="new-password"
+          />
+        </Field>
+        <StatusBanner status={status} />
+      </Section>
+    </form>
   );
 }
 
@@ -152,7 +153,7 @@ function ChangeEmailSection({
   readonly onChanged: () => void;
 }): ReactNode {
   const t = useTranslation();
-  const { Form, Field, Input, Button } = usePrimitives();
+  const { Section, Field, Input, Button } = usePrimitives();
   const dispatcher = useDispatcher();
   const [newEmail, setNewEmail] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -197,47 +198,48 @@ function ChangeEmailSection({
 
   const submitting = status.kind === "submitting";
   return (
-    <Form
-      onSubmit={onSubmit}
-      testId="profile-email"
-      title={t("profile.email.title")}
-      subtitle={
-        <span data-testid="profile-email-current">
-          {t("profile.email.current")}: {me.email}
-        </span>
-      }
-      actions={
-        <Button type="submit" disabled={submitting} testId="profile-email-submit">
-          {t("profile.email.submit")}
-        </Button>
-      }
-    >
-      <Field id="profile-new-email" label={t("profile.email.new")} required>
-        <Input
-          kind="email"
-          id="profile-new-email"
-          name="profile-new-email"
-          value={newEmail}
-          onChange={setNewEmail}
-          disabled={submitting}
-          required
-          autoComplete="email"
-        />
-      </Field>
-      <Field id="profile-email-password" label={t("profile.email.currentPassword")} required>
-        <Input
-          kind="password"
-          id="profile-email-password"
-          name="profile-email-password"
-          value={currentPassword}
-          onChange={setCurrentPassword}
-          disabled={submitting}
-          required
-          autoComplete="current-password"
-        />
-      </Field>
-      <StatusBanner status={status} />
-    </Form>
+    <form onSubmit={onSubmit} data-testid="profile-email-form">
+      <Section
+        testId="profile-email"
+        title={t("profile.email.title")}
+        subtitle={
+          <span data-testid="profile-email-current">
+            {t("profile.email.current")}: {me.email}
+          </span>
+        }
+        actions={
+          <Button type="submit" disabled={submitting} testId="profile-email-submit">
+            {t("profile.email.submit")}
+          </Button>
+        }
+      >
+        <Field id="profile-new-email" label={t("profile.email.new")} required>
+          <Input
+            kind="email"
+            id="profile-new-email"
+            name="profile-new-email"
+            value={newEmail}
+            onChange={setNewEmail}
+            disabled={submitting}
+            required
+            autoComplete="email"
+          />
+        </Field>
+        <Field id="profile-email-password" label={t("profile.email.currentPassword")} required>
+          <Input
+            kind="password"
+            id="profile-email-password"
+            name="profile-email-password"
+            value={currentPassword}
+            onChange={setCurrentPassword}
+            disabled={submitting}
+            required
+            autoComplete="current-password"
+          />
+        </Field>
+        <StatusBanner status={status} />
+      </Section>
+    </form>
   );
 }
 
