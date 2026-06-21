@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { randomBytes } from "node:crypto";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createTestUser,
   setupTestStack,
@@ -255,7 +255,7 @@ describe("scenario 5b: change-password when the aggregate stream tenant != sessi
       `SELECT "tenant_id" AS t FROM "kumiko_events" WHERE "aggregate_id" = $1 AND "aggregate_type" = $2 ORDER BY "version" LIMIT 1`,
       [seed.id, "user"],
     )) as ReadonlyArray<{ t: string }>;
-    expect(streamRows[0]?.t).toBe(systemAdmin.tenantId);
+    expect(streamRows[0]?.t).toBe(SYSTEM_TENANT_ID);
     expect(streamRows[0]?.t).not.toBe(membershipTenant);
 
     const signedIn = createTestUser({ id: seed.id, tenantId: seed.tenantId, roles: ["User"] });

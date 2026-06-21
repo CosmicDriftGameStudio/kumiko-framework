@@ -243,6 +243,13 @@ export function createEventStoreExecutor(
   const { searchAdapter, entityName, entityCache } = options;
   const softDelete = entity.softDelete ?? false;
 
+  // Stream-tenant choke-point. A systemStream entity (tenant-independent, e.g.
+  // user) lives on SYSTEM_TENANT_ID deterministically — every op addresses it
+  // there. Everything else stays on the caller's tenant (byte-identical to the
+  // old hardcoded user.tenantId). Single source of truth for the stream key.
+  const streamTenantFor = (user: SessionUser): TenantId =>
+    entity.systemStream ? SYSTEM_TENANT_ID : user.tenantId;
+
   // idType default (undefined) is now "uuid" — the ES-pivot made UUID the
   // only valid aggregate-id type. Explicit `idType: "serial"` is the only
   // shape that's incompatible with the event-store and still rejected.
@@ -433,7 +440,7 @@ export function createEventStoreExecutor(
         event = await append(db.raw, {
           aggregateId,
           aggregateType: entityName,
-          tenantId: user.tenantId,
+          tenantId: streamTenantFor(user),
           expectedVersion: 0,
           type: entityEventName(entityName, "created"),
           payload: stripSensitive(flatData),
@@ -451,7 +458,7 @@ export function createEventStoreExecutor(
           // is recoverable client-side via a fresh detail-query if needed.
           let currentVersion = -1;
           try {
-            currentVersion = await getStreamVersion(db.raw, aggregateId, user.tenantId);
+            currentVersion = await getStreamVersion(db.raw, aggregateId, streamTenantFor(user));
           } catch {
             // Aborted TX or any lookup failure — keep the sentinel.
           }
@@ -560,14 +567,18 @@ export function createEventStoreExecutor(
         );
       }
 
-      await assertStreamWritable(db, payload.id, user.tenantId);
+      await assertStreamWritable(db, payload.id, streamTenantFor(user));
 
       // Stream-version is authoritative, not row.version. `ctx.appendEvent`
       // can bump the stream between CRUD writes (domain event on the same
       // aggregate); a stale row.version here would make the next CRUD write
       // trip `events_aggregate_version_uq` (tenant_id, aggregate_id, version)
       // with version_conflict.
-      const currentVersion = await getStreamVersion(db.raw, String(payload.id), user.tenantId);
+      const currentVersion = await getStreamVersion(
+        db.raw,
+        String(payload.id),
+        streamTenantFor(user),
+      );
       if (!updateOptions?.skipOptimisticLock) {
         if (payload.version === undefined) {
           return writeFailure(
@@ -603,7 +614,7 @@ export function createEventStoreExecutor(
         const event = await append(db.raw, {
           aggregateId: String(payload.id),
           aggregateType: entityName,
-          tenantId: user.tenantId,
+          tenantId: streamTenantFor(user),
           expectedVersion: currentVersion,
           type: entityEventName(entityName, "updated"),
           payload: {
@@ -696,10 +707,14 @@ export function createEventStoreExecutor(
         );
       }
 
-      await assertStreamWritable(db, payload.id, user.tenantId);
+      await assertStreamWritable(db, payload.id, streamTenantFor(user));
 
       // Stream-version authoritative (see update() for rationale).
-      const currentVersion = await getStreamVersion(db.raw, String(payload.id), user.tenantId);
+      const currentVersion = await getStreamVersion(
+        db.raw,
+        String(payload.id),
+        streamTenantFor(user),
+      );
 
       // Deletes carry the full pre-delete row as `previous`. That's what
       // projections and downstream consumers need to reverse any aggregates —
@@ -708,7 +723,7 @@ export function createEventStoreExecutor(
       const event = await append(db.raw, {
         aggregateId: String(payload.id),
         aggregateType: entityName,
-        tenantId: user.tenantId,
+        tenantId: streamTenantFor(user),
         expectedVersion: currentVersion,
         type: entityEventName(entityName, "deleted"),
         payload: { previous: stripSensitive(existing) },
@@ -773,10 +788,14 @@ export function createEventStoreExecutor(
         );
       }
 
-      await assertStreamWritable(db, payload.id, user.tenantId);
+      await assertStreamWritable(db, payload.id, streamTenantFor(user));
 
       // Stream-version authoritative (see update() for rationale).
-      const currentVersion = await getStreamVersion(db.raw, String(payload.id), user.tenantId);
+      const currentVersion = await getStreamVersion(
+        db.raw,
+        String(payload.id),
+        streamTenantFor(user),
+      );
       // Restore carries the soft-deleted snapshot as `previous` — mirror of
       // delete for symmetry. Projections that decremented on delete use
       // `previous` to re-increment on restore without re-querying the entity
@@ -784,7 +803,7 @@ export function createEventStoreExecutor(
       const event = await append(db.raw, {
         aggregateId: String(payload.id),
         aggregateType: entityName,
-        tenantId: user.tenantId,
+        tenantId: streamTenantFor(user),
         expectedVersion: currentVersion,
         type: entityEventName(entityName, "restored"),
         payload: { previous: stripSensitive(data) },
@@ -1000,7 +1019,11 @@ export function createEventStoreExecutor(
       const withStreamVersion = async (
         row: Record<string, unknown>,
       ): Promise<Record<string, unknown>> => {
-        const streamVersion = await getStreamVersion(db.raw, String(payload.id), user.tenantId);
+        const streamVersion = await getStreamVersion(
+          db.raw,
+          String(payload.id),
+          streamTenantFor(user),
+        );
         return streamVersion > 0 ? { ...row, version: streamVersion } : row;
       };
 

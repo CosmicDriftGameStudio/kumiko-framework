@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { randomBytes } from "node:crypto";
 import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
   type TestStack,
@@ -308,7 +308,7 @@ describe("POST /auth/reset-password", () => {
       `SELECT "tenant_id" FROM "kumiko_events" WHERE "aggregate_id" = $1 AND "aggregate_type" = 'user' ORDER BY "version" LIMIT 1`,
       [seed.id],
     )) as ReadonlyArray<{ tenant_id: string }>;
-    expect(streamRows[0]?.tenant_id).toBe(systemAdmin.tenantId);
+    expect(streamRows[0]?.tenant_id).toBe(SYSTEM_TENANT_ID);
 
     const { token } = signResetToken(seed.id, 15, resetSecret);
     const res = await post("/api/auth/reset-password", {
@@ -390,7 +390,7 @@ describe("POST /auth/reset-password", () => {
       [seed.id],
     )) as ReadonlyArray<{ tenant_id: string; aggregate_type: string }>;
     expect(streamRows[0]?.aggregate_type).toBe("user");
-    expect(streamRows[0]?.tenant_id).toBe(systemAdmin.tenantId);
+    expect(streamRows[0]?.tenant_id).toBe(SYSTEM_TENANT_ID);
     expect(streamRows[0]?.tenant_id).not.toBe(membershipTenant);
 
     const { token } = signResetToken(seed.id, 15, resetSecret);
