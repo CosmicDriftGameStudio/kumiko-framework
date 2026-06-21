@@ -28,6 +28,7 @@ import {
   runUserExport,
 } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { extractTableName } from "@cosmicdrift/kumiko-framework/db";
 import { EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefEntity } from "@cosmicdrift/kumiko-framework/files";
 import {
@@ -234,5 +235,20 @@ describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {
     expect(todoRows).toHaveLength(1);
     expect(todoRows[0]?.title).toBe("anonymize-me");
     expect(todoRows[0]?.author_id).toBeNull();
+  });
+
+  // #498/#525: read_todos ist ein Direct-Write-Store (der create-Handler
+  // insertOne't ohne Lifecycle-Event). Als r.entity registriert wäre es eine
+  // rebuildbare implizite Projektion, deren Replay null todo-Events findet und
+  // eine leere Shadow-Tabelle drüber swappt → jeder Todo (und un-forget der
+  // anonymisierten Rows) wäre beim nächsten Projection-Rebuild weg. Die
+  // r.unmanagedTable-Registrierung hält read_todos AUS dem Rebuild-Set raus —
+  // hier strukturell gepinnt: ein Revert zu r.entity ließe read_todos als
+  // rebuildbare Projektion auftauchen und failte diesen Test.
+  test("#498: read_todos is not a rebuildable projection (r.unmanagedTable guard)", () => {
+    const rebuildable = [...stack.registry.getAllProjections().values()].some(
+      (p) => extractTableName(p.table) === "read_todos",
+    );
+    expect(rebuildable).toBe(false);
   });
 });
