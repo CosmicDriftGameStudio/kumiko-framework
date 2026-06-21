@@ -21,30 +21,62 @@ export type Caption = {
 // `editor` — the recorder swaps the left pane to an editor view and types the
 //            given source code into the file at `file` (path relative to the
 //            scaffolded app dir).
-export type Step =
-  | { readonly kind: "cli"; readonly type: string; readonly caption?: Caption }
-  | {
-      readonly kind: "browser";
-      readonly navigate?: string;
-      readonly click?: string;
-      readonly waitFor?: string;
-      readonly caption?: Caption;
-    }
-  | {
-      readonly kind: "editor";
-      readonly file: string;
-      readonly write: string;
-      readonly caption?: Caption;
-    };
+/** Steps marked `recordingOnly: true` show in the GIF but the E2E runner
+ *  skips them. Use for actions that only make sense in front of a viewer
+ *  (typing a new feature file when the scaffold can't yet auto-mount it,
+ *  showing intermediate states the test doesn't need to verify). */
+export type StepCommon = {
+  readonly recordingOnly?: boolean;
+};
 
-type CliInput = { readonly type: string; readonly caption?: Caption };
-type BrowserInput = {
+export type Step = StepCommon &
+  (
+    | {
+        readonly kind: "cli";
+        readonly type: string;
+        readonly caption?: Caption;
+        /** Sleep AFTER the command lands (ms). Default 2500. Use longer
+         *  values for installs (~30s for bun install). */
+        readonly waitMs?: number;
+        /** If set, after typing the command wait for this localhost TCP port
+         *  to accept connections before moving on. Better than a fixed sleep
+         *  for `bun dev` / `docker compose up -d`. */
+        readonly waitForPort?: number;
+      }
+    | {
+        readonly kind: "browser";
+        readonly navigate?: string;
+        readonly click?: string;
+        readonly waitFor?: string;
+        /** Type into a selector. Recorder shows the typing visually; the
+         *  E2E runner page.fill()s it. Keys are selectors (`#login-email`),
+         *  values are the text to enter (demo credentials are OK in source
+         *  — admin@<app>.local / changeme is the scaffold default). */
+        readonly fill?: Readonly<Record<string, string>>;
+        readonly caption?: Caption;
+      }
+    | {
+        readonly kind: "editor";
+        readonly file: string;
+        readonly write: string;
+        readonly caption?: Caption;
+      }
+  );
+
+type CliInput = StepCommon & {
+  readonly type: string;
+  readonly caption?: Caption;
+  readonly waitMs?: number;
+  readonly waitForPort?: number;
+};
+type BrowserInput = StepCommon & {
   readonly navigate?: string;
   readonly click?: string;
   readonly waitFor?: string;
+  readonly fill?: Readonly<Record<string, string>>;
   readonly caption?: Caption;
 };
-type EditorInput = {
+type EditorInput = StepCommon & {
   readonly file: string;
   readonly write: string;
   readonly caption?: Caption;
@@ -53,8 +85,8 @@ type EditorInput = {
 export const step = {
   cli: (input: CliInput): Step => ({ kind: "cli", ...input }),
   browser: (input: BrowserInput): Step => {
-    if (!input.navigate && !input.click && !input.waitFor) {
-      throw new Error("step.browser: at least one of navigate/click/waitFor required");
+    if (!input.navigate && !input.click && !input.waitFor && !input.fill) {
+      throw new Error("step.browser: at least one of navigate/click/waitFor/fill required");
     }
     return { kind: "browser", ...input };
   },

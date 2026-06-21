@@ -33,10 +33,14 @@ describe("create-kumiko-app CLI", () => {
     expect(existsSync(join(dest, "bin/main.ts"))).toBe(true);
 
     const cfg = readFileSync(join(dest, "src/run-config.ts"), "utf-8");
-    // Picker-MVP recommended features land in run-config.
-    expect(cfg).toContain("createAuthEmailPasswordFeature");
-    expect(cfg).toContain("createUserFeature");
-    expect(cfg).toContain("createTenantFeature");
+    // Picker-MVP recommended features land in run-config — except the four
+    // composeFeatures({ includeBundled: true }) auto-mounts (config, user,
+    // tenant, auth-email-password), which scaffold-app filters out so they
+    // don't trigger dedupe-warn spam on every dev boot.
+    expect(cfg).not.toContain("createAuthEmailPasswordFeature");
+    expect(cfg).not.toContain("createUserFeature");
+    expect(cfg).not.toContain("createTenantFeature");
+    expect(cfg).not.toContain("createConfigFeature");
     expect(cfg).toContain("createDeliveryFeature");
     // mail-transport-smtp is opt-in (not recommended, no transitive require) — should NOT auto-mount.
     expect(cfg).not.toContain("mailTransportSmtpFeature");

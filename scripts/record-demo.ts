@@ -20,6 +20,7 @@
 // permission setup.
 
 import { execFileSync, spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { connect } from "node:net";
 import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -145,13 +146,29 @@ function positionWindows(): void {
 // ─── ffmpeg capture ──────────────────────────────────────────────────────────
 let ffmpegProc: ChildProcess | undefined;
 
+function detectScreenIndex(): string {
+  // avfoundation indices shift between Macs (cameras, Desk View, externals).
+  // Parse `-list_devices` output, match the line that says "Capture screen 0"
+  // and return its bracketed index. Falls back to "1" with a warning.
+  const r = spawnSync("ffmpeg", ["-f", "avfoundation", "-list_devices", "true", "-i", ""], {
+    encoding: "utf8",
+  });
+  const out = `${r.stdout}\n${r.stderr}`;
+  const m = out.match(/\[(\d+)\]\s*Capture screen 0/);
+  if (m?.[1]) return m[1];
+  // biome-ignore lint/suspicious/noConsole: preflight warning
+  console.warn('[record-demo] could not detect "Capture screen 0" index, falling back to 1');
+  return "1";
+}
+
 function startCapture(): void {
   mkdirSync(OUTPUT_DIR, { recursive: true });
-  // -f avfoundation -i "1:none" → screen index 1, no audio. (Index 1 is the
-  // first display on most Macs; "0" is iSight camera. Adjust if recording
-  // fails with "Selected device is not capable".)
+  const screenIdx = detectScreenIndex();
+  // -f avfoundation -i "<idx>:none" → screen index, no audio. Index is
+  // auto-detected from avfoundation's device list — typically 2 on Mac
+  // laptops (after the cameras) but varies with attached displays / iPhones.
   // -filter:v crop=W:H:X:Y crops to the combined two-pane rectangle.
-  // -pix_fmt yuv420p + -movflags +faststart for broad mp4 compatibility.
+  // -pix_fmt yuv420p for broad mp4 compatibility.
   const args = [
     "-f",
     "avfoundation",
@@ -160,7 +177,7 @@ function startCapture(): void {
     "-capture_cursor",
     "1",
     "-i",
-    "1:none",
+    `${screenIdx}:none`,
     "-vf",
     `crop=${PANE_W * 2}:${PANE_H}:0:0`,
     "-pix_fmt",
@@ -243,6 +260,26 @@ async function launchBrowser(): Promise<void> {
   page = await ctx.newPage();
 }
 
+async function waitForPort(port: number, timeoutMs: number): Promise<void> {
+  const deadline = performance.now() + timeoutMs;
+  while (performance.now() < deadline) {
+    const ok = await new Promise<boolean>((resolve) => {
+      const sock = connect({ host: "localhost", port }, () => {
+        sock.destroy();
+        resolve(true);
+      });
+      sock.on("error", () => resolve(false));
+      sock.setTimeout(500, () => {
+        sock.destroy();
+        resolve(false);
+      });
+    });
+    if (ok) return;
+    await sleep(500);
+  }
+  throw new Error(`waitForPort: localhost:${port} did not accept connections within ${timeoutMs}ms`);
+}
+
 async function closeBrowser(): Promise<void> {
   await page?.close();
   await browser?.close();
@@ -263,12 +300,19 @@ async function execute(demo: DemoDef): Promise<readonly StepTiming[]> {
     if (step.kind === "cli") {
       await tmuxType(step.type);
       tmuxEnter();
-      // Heuristic wait: long commands need time to produce output before the
-      // next step lands on top of them. Captions also need a beat to be read.
-      await sleep(2500);
+      if (step.waitForPort !== undefined) {
+        await waitForPort(step.waitForPort, 60_000);
+      } else {
+        await sleep(step.waitMs ?? 2500);
+      }
     } else if (step.kind === "browser") {
       if (!page) throw new Error("browser step before launchBrowser()");
       if (step.navigate) await page.goto(step.navigate);
+      if (step.fill) {
+        for (const [sel, val] of Object.entries(step.fill)) {
+          await page.fill(sel, val);
+        }
+      }
       if (step.click) await page.click(step.click);
       if (step.waitFor) await page.waitForSelector(step.waitFor);
       await sleep(1500);
