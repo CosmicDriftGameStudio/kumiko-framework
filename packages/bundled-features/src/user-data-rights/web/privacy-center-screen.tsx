@@ -114,7 +114,7 @@ function ExportSection(): ReactNode {
   };
 
   const result = statusQuery.data;
-  const job = result && result.hasJob ? result.job : null;
+  const job = result?.hasJob ? result.job : null;
   const submitting = status.kind === "submitting";
   const inProgress =
     job?.status === EXPORT_JOB_STATUS.Pending || job?.status === EXPORT_JOB_STATUS.Running;

@@ -220,8 +220,7 @@ describe("buildConfigFeatureSchema — machine-role does not leak into screen ac
   test("a key with write ['system','SystemAdmin'] yields a SystemAdmin-only screen (no 'system')", () => {
     const s = buildConfigFeatureSchema(createRegistry([mixedWrite]));
     const screen = s.screens.find((x) => x.id === "mixed-system");
-    if (!screen || screen.type !== "configEdit")
-      throw new Error("no mixed-system configEdit screen");
+    if (screen?.type !== "configEdit") throw new Error("no mixed-system configEdit screen");
     expect(screen.access).toEqual({ roles: ["SystemAdmin"] });
     const roles = screen.access && "roles" in screen.access ? screen.access.roles : [];
     expect(roles).not.toContain("system");

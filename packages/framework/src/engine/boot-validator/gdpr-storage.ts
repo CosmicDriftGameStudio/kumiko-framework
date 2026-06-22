@@ -57,3 +57,23 @@ export function validateGdprStoragePersistence(features: readonly FeatureDefinit
     }
   }
 }
+
+// V2: export-without-erase guard. A feature that registers an EXT_USER_DATA
+// export hook without a matching delete hook exports data under Art.20 but
+// never erases it on forget — an Art.17 violation. Registry-level signal only;
+// runtime no-ops (a delete hook that silently skips) are not detectable here.
+export function validateGdprHookCompleteness(features: readonly FeatureDefinition[]): void {
+  for (const feature of features) {
+    for (const usage of feature.extensionUsages) {
+      if (usage.extensionName !== "userData") continue;
+      const hasExport = typeof usage.options?.["export"] === "function";
+      const hasDelete = typeof usage.options?.["delete"] === "function";
+      if (hasExport && !hasDelete) {
+        // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
+        console.warn(
+          `[kumiko:boot] Feature "${feature.name}" exports entity "${usage.entityName}" via EXT_USER_DATA but registers no delete hook — data is included in Art.20 exports but never erased on forget (Art.17 risk). Add a delete hook, or a no-op with a comment explaining why erasure is intentionally skipped.`,
+        );
+      }
+    }
+  }
+}
