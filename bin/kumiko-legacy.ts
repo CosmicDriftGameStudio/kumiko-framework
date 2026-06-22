@@ -255,7 +255,11 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
     steps.push({ name: "Doc-Status-Index Drift", cmd: "bunx kumiko-docs-status-index" });
     // Needs the legal-templates source (kumiko-platform/tools/legal-templates)
     // to verify committed app JSONs against a fresh compilation.
-    steps.push({ name: "Legal-Template-Drift Guard", cmd: "bunx kumiko-guard-legal-template-drift" });
+    const legalTemplateGuard = join(REPO_ROOT, "infra/guards/guard-legal-template-drift.ts");
+    steps.push({
+      name: "Legal-Template-Drift Guard",
+      cmd: existsSync(legalTemplateGuard) ? `bun ${legalTemplateGuard}` : "bunx kumiko-guard-legal-template-drift",
+    });
   } else {
     console.log("Doc-Status-Steps übersprungen: kumiko-platform nicht im Workspace (CI-standalone).");
   }
