@@ -1624,7 +1624,31 @@
         "sessions.revokeAllForUser"
       ],
       "extensionsUsed": [],
-      "configKeys": [],
+      "configKeys": [
+        {
+          "key": "tenant-model",
+          "qualifiedName": "user-data-rights:config:tenant-model",
+          "type": "select",
+          "scope": "system",
+          "default": "multi-user",
+          "encrypted": false,
+          "computed": false,
+          "options": [
+            "single-user",
+            "multi-user"
+          ],
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "system"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ]
+        }
+      ],
       "secrets": [],
       "writeHandlers": [
         "user-data-rights:write:cancel-deletion",

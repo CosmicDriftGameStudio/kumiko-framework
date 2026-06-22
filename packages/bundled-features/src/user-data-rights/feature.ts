@@ -1,4 +1,5 @@
 import {
+  createSystemConfig,
   defineFeature,
   EXT_USER_DATA,
   type FeatureDefinition,
@@ -24,6 +25,7 @@ import {
 import { requestExportWrite } from "./handlers/request-export.write";
 import { restrictAccountWrite } from "./handlers/restrict-account.write";
 import { createRunForgetCleanupHandler } from "./handlers/run-forget-cleanup.write";
+import { resolveAppTenantModel } from "./lib/resolve-tenant-model";
 import { makeTenantStorageProviderResolver } from "./lib/storage-provider-resolver";
 import {
   runExportJobs,
@@ -125,6 +127,21 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     // (kein Export) muessen file-foundation nicht mounten.
 
     r.extendsRegistrar(EXT_USER_DATA, {});
+
+    // App-level tenant-occupancy model. Default "multi-user" → tenant-scoped
+    // contributors (e.g. credit) NEVER erase tenant data on a per-user forget
+    // (would harm co-members). An app with one user per tenant sets this to
+    // "single-user" via appOverrides (TENANT_MODEL_CONFIG_KEY) so the forget
+    // pipeline may erase the tenant's data as that user's personal data — still
+    // gated by a runtime sole-member check in run-forget-cleanup.
+    r.config({
+      keys: {
+        tenantModel: createSystemConfig("select", {
+          default: "multi-user",
+          options: ["single-user", "multi-user"],
+        }),
+      },
+    });
 
     // S2.U3 Atom 1b — ExportJob-Lifecycle-Entity.
     r.entity("export-job", exportJobEntity);
@@ -321,10 +338,17 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
         const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
         const forgetUserId = ctx._userId ?? SYSTEM_USER_ID;
         const forgetDb = ctx.db as import("@cosmicdrift/kumiko-framework/db").DbConnection; // @cast-boundary db-operator
+        const tenantModel = await resolveAppTenantModel({
+          registry: ctx.registry,
+          configResolver: ctx.configResolver,
+          db: forgetDb,
+          userId: forgetUserId,
+        });
         await runForgetCleanup({
           db: forgetDb,
           registry: ctx.registry,
           now: T.Now.instant(),
+          tenantModel,
           // Same per-tenant provider resolution as the export cron — forget
           // deletes binaries from the store upload + export use.
           buildStorageProvider: makeTenantStorageProviderResolver({

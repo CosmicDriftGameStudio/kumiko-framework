@@ -15,6 +15,7 @@ import { access, defineWriteHandler, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
+import { resolveAppTenantModel } from "../lib/resolve-tenant-model";
 import { makeTenantStorageProviderResolver } from "../lib/storage-provider-resolver";
 import { runForgetCleanup, type SendDeletionExecutedEmailFn } from "../run-forget-cleanup";
 
@@ -45,10 +46,17 @@ export function createRunForgetCleanupHandler(opts: RunForgetCleanupOptions = {}
       // them, so a row-only delete here would permanently leak the binaries.
       // Resolve through the same file-foundation path the cron uses.
       const forgetDb = ctx.db.raw as DbConnection; // @cast-boundary db-operator: config reads tolerate the outer tx
+      const tenantModel = await resolveAppTenantModel({
+        registry: ctx.registry,
+        configResolver: ctx.configResolver,
+        db: forgetDb,
+        userId: ctx._userId ?? SYSTEM_USER_ID,
+      });
       const result = await runForgetCleanup({
         db: ctx.db.raw,
         registry: ctx.registry,
         now: T.Now.instant(),
+        tenantModel,
         buildStorageProvider: makeTenantStorageProviderResolver({
           registry: ctx.registry,
           configResolver: ctx.configResolver,

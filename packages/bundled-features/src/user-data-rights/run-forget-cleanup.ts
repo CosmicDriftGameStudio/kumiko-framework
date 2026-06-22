@@ -39,6 +39,7 @@ import {
   EXT_USER_DATA_ORDER,
   type Registry,
   type TenantId,
+  type TenantUserModel,
   type UserDataDeleteHook,
   type UserDataDeleteStrategy,
   type UserDataStorageProvider,
@@ -96,6 +97,15 @@ export interface RunForgetCleanupArgs {
   readonly buildStorageProvider?: (
     tenantId: TenantId,
   ) => Promise<UserDataStorageProvider | undefined>;
+
+  /**
+   * App-level tenant-occupancy model (resolved from the `tenantModel` config by
+   * the cron/handler). The pipeline refines it PER TENANT with a sole-member
+   * check before handing `tenantModel` to each delete-hook, so tenant-scoped
+   * erasure only happens where it's actually safe. Omitted → `"multi-user"`
+   * (no tenant-scoped erasure).
+   */
+  readonly tenantModel?: TenantUserModel;
 }
 
 export interface ForgetCleanupError {
@@ -131,6 +141,7 @@ export async function runForgetCleanup(
   args: RunForgetCleanupArgs,
 ): Promise<RunForgetCleanupResult> {
   const { db, registry, now, sendDeletionExecutedEmail, buildStorageProvider } = args;
+  const appTenantModel: TenantUserModel = args.tenantModel ?? "multi-user";
 
   // Step 1: Find users with expired grace period.
   const dueUsers = await selectUsersDueForForgetCleanup(
@@ -173,6 +184,7 @@ export async function runForgetCleanup(
       userId: user.id,
       hookEntries,
       buildStorageProvider,
+      appTenantModel,
     });
     hookCallsAttempted += userResult.hookCallsAttempted;
     errors.push(...userResult.errors);
@@ -229,8 +241,9 @@ async function processUser(args: {
   userId: string;
   hookEntries: readonly HookEntry[];
   buildStorageProvider?: (tenantId: TenantId) => Promise<UserDataStorageProvider | undefined>;
+  appTenantModel: TenantUserModel;
 }): Promise<ProcessUserResult> {
-  const { db, registry, userId, hookEntries, buildStorageProvider } = args;
+  const { db, registry, userId, hookEntries, buildStorageProvider, appTenantModel } = args;
   const errors: ForgetCleanupError[] = [];
   let hookCallsAttempted = 0;
 
@@ -276,6 +289,10 @@ async function processUser(args: {
     await runInSubTransaction(db, async (tx) => {
       for (const tenantId of tenantList) {
         currentTenantId = tenantId;
+        // Refine the app-level model to THIS tenant: "single-user" only if the
+        // tenant truly has one member, so a stray invite can't let a per-user
+        // forget erase a co-member's tenant-scoped data (money-path safety).
+        const tenantModel = await resolveEffectiveTenantModel(tx, tenantId, appTenantModel);
         for (const entry of hookEntries) {
           currentEntityName = entry.entityName;
           const policy = await resolveRetentionPolicyForTenant({
@@ -287,7 +304,10 @@ async function processUser(args: {
           const strategy = policyToStrategy(policy.policy?.strategy ?? null);
 
           hookCallsAttempted++;
-          await entry.deleteHook({ db: tx, tenantId, userId, buildStorageProvider }, strategy);
+          await entry.deleteHook(
+            { db: tx, tenantId, userId, buildStorageProvider, tenantModel },
+            strategy,
+          );
         }
       }
 
@@ -361,6 +381,21 @@ async function runInSubTransaction(
 // tenant-agnostische Hooks (z.B. user) operieren auf der globalen
 // User-Row und ignorieren tenantId.
 const SYSTEM_TENANT_ID_FOR_ORPHANS = "00000000-0000-0000-0000-000000000000" as TenantId;
+
+// "single-user" requires BOTH the app config AND a runtime sole-member check —
+// the config asserts the deployment model, the count guards against a stray
+// invite that would make a per-user forget delete a co-member's tenant-scoped
+// data. Only queried when the app opted into "single-user" (multi-user apps
+// never reach the destructive path, so no extra query for them).
+async function resolveEffectiveTenantModel(
+  db: DbRunner,
+  tenantId: TenantId,
+  appTenantModel: TenantUserModel,
+): Promise<TenantUserModel> {
+  if (appTenantModel !== "single-user") return "multi-user";
+  const members = await selectMany<{ userId: string }>(db, tenantMembershipsTable, { tenantId });
+  return members.length === 1 ? "single-user" : "multi-user";
+}
 
 // Mapping retention.strategy → user-data-rights.UserDataDeleteStrategy.
 //   - "anonymize" / "blockDelete" → "anonymize" (Aufbewahrungs-Pflicht

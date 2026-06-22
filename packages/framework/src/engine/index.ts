@@ -80,6 +80,7 @@ export {
   EXT_USER_DATA_ORDER,
 } from "./extension-names";
 export type {
+  TenantUserModel,
   UserDataDeleteHook,
   UserDataDeleteStrategy,
   UserDataExportHook,

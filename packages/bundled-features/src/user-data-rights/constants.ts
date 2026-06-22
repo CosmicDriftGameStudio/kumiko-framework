@@ -16,6 +16,13 @@ export const UserDataRightsQueries = {
   downloadByJob: "user-data-rights:query:download-by-job",
 } as const;
 
+// App-level config: tenant-occupancy model. "single-user" tells the forget
+// pipeline that each tenant has exactly one user, so tenant-scoped contributors
+// (e.g. credit) may erase the tenant's data as that user's personal data.
+// Default "multi-user" (declared in feature.ts). Apps set it via appOverrides:
+// `overrides.set(TENANT_MODEL_CONFIG_KEY, "single-user")`.
+export const TENANT_MODEL_CONFIG_KEY = "user-data-rights:config:tenant-model" as const;
+
 export const UserDataRightsHandlers = {
   requestExport: "user-data-rights:write:request-export",
   requestDeletion: "user-data-rights:write:request-deletion",
