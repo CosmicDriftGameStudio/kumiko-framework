@@ -1,5 +1,11 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.86.0
+
+### Minor Changes
+
+- 0a80617: boot(gdpr): V2 export-without-erase guard — warns at boot when a feature registers an EXT_USER_DATA export hook but no delete hook (Art.17 risk)
+
 ## 0.85.0
 
 ## 0.84.0

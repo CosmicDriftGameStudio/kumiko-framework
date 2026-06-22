@@ -1,5 +1,14 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.86.0
+
+### Patch Changes
+
+- e9feadd: fix(build): pino als RUNTIME_EXTERNAL — landet seit 0.83.0 (5xx-Logging) im Bundle und muss im Runtime-Container installiert sein
+- Updated dependencies [0a80617]
+  - @cosmicdrift/kumiko-framework@0.86.0
+  - @cosmicdrift/kumiko-bundled-features@0.86.0
+
 ## 0.85.0
 
 ### Patch Changes
