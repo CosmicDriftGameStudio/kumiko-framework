@@ -101,6 +101,23 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "errors.validation.out_of_bounds": "Wert außerhalb des erlaubten Bereichs.",
     "errors.validation.invalid_option": "Ungültige Auswahl.",
     "errors.validation.failed": "Validierung fehlgeschlagen.",
+
+    // errors.* — Top-Level-Error-Codes (eine pro httpStatus-Klasse). Letzter
+    // Fallback wenn eine App keine eigene Übersetzung liefert; bewusst
+    // generisch (keine technischen Entity-/Feature-/Key-Namen an End-User —
+    // die stecken in `details` für Devs). Apps überschreiben pro Key.
+    "errors.feature.disabled": "Diese Funktion ist derzeit nicht verfügbar.",
+    "errors.access.denied": "Dazu hast du keine Berechtigung.",
+    "errors.notFound": "Nicht gefunden.",
+    "errors.conflict": "Konflikt — der Vorgang konnte nicht abgeschlossen werden.",
+    "errors.versionConflict":
+      "Der Datensatz wurde zwischenzeitlich geändert. Lade neu und versuche es erneut.",
+    "errors.uniqueViolation": "Dieser Eintrag existiert bereits.",
+    "errors.unprocessable": "Die Anfrage konnte nicht verarbeitet werden.",
+    "errors.unconfigured": "Diese Funktion ist noch nicht konfiguriert.",
+    "errors.internal": "Etwas ist schiefgegangen. Bitte versuche es später erneut.",
+    "errors.rate_limited": "Zu viele Anfragen. Bitte versuche es in Kürze erneut.",
+    "errors.download.urlMissing": "Download nicht verfügbar — bitte versuche es erneut.",
   },
   en: {
     "kumiko.actions.save": "Save",
@@ -174,5 +191,17 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "errors.validation.out_of_bounds": "Value out of allowed range.",
     "errors.validation.invalid_option": "Invalid choice.",
     "errors.validation.failed": "Validation failed.",
+
+    "errors.feature.disabled": "This feature is currently unavailable.",
+    "errors.access.denied": "You don't have permission to do this.",
+    "errors.notFound": "Not found.",
+    "errors.conflict": "Conflict — the operation could not be completed.",
+    "errors.versionConflict": "The record was modified in the meantime. Reload and try again.",
+    "errors.uniqueViolation": "This entry already exists.",
+    "errors.unprocessable": "The request could not be processed.",
+    "errors.unconfigured": "This feature isn't configured yet.",
+    "errors.internal": "Something went wrong. Please try again later.",
+    "errors.rate_limited": "Too many requests. Please try again shortly.",
+    "errors.download.urlMissing": "Download unavailable — please try again.",
   },
 };
