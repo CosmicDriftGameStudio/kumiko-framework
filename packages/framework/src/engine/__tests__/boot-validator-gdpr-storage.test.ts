@@ -5,7 +5,10 @@
 // hook but no delete hook (Art.17 violation).
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import { validateGdprHookCompleteness, validateGdprStoragePersistence } from "../boot-validator/gdpr-storage";
+import {
+  validateGdprHookCompleteness,
+  validateGdprStoragePersistence,
+} from "../boot-validator/gdpr-storage";
 import { defineFeature } from "../define-feature";
 
 const udr = () => defineFeature("user-data-rights", () => {});
