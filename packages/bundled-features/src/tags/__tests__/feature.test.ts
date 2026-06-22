@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULT_TAG_ROLES } from "../constants";
 import { createTagsFeature } from "../feature";
-import { assignTagPayloadSchema, createTagPayloadSchema, removeTagPayloadSchema } from "../schemas";
+import {
+  assignTagPayloadSchema,
+  createTagPayloadSchema,
+  removeTagPayloadSchema,
+  renameTagPayloadSchema,
+} from "../schemas";
 
 // Unit tests: feature-shape, role-options, schema-validation. The ES-loop
 // behaviour (idempotent assign/remove, projection, tenant-isolation, read
@@ -42,7 +47,7 @@ function rawQueryAccess(feature: ReturnType<typeof createTagsFeature>, nameMatch
 }
 
 describe("createTagsFeature shape", () => {
-  test("registers tag + tag-assignment entities, 3 write-handlers, 2 query-handlers", () => {
+  test("registers tag + tag-assignment entities, 4 write-handlers, 2 query-handlers", () => {
     const feature = createTagsFeature();
 
     expect(Object.keys(feature.entities ?? {})).toEqual(
@@ -52,11 +57,12 @@ describe("createTagsFeature shape", () => {
     expect(Object.keys(feature.writeHandlers)).toEqual(
       expect.arrayContaining([
         expect.stringMatching(/create-tag/),
+        expect.stringMatching(/rename-tag/),
         expect.stringMatching(/assign-tag/),
         expect.stringMatching(/remove-tag/),
       ]),
     );
-    expect(Object.keys(feature.writeHandlers)).toHaveLength(3);
+    expect(Object.keys(feature.writeHandlers)).toHaveLength(4);
 
     expect(Object.keys(feature.queryHandlers)).toEqual(
       expect.arrayContaining([
@@ -73,6 +79,7 @@ describe("createTagsFeature access-options", () => {
     const feature = createTagsFeature();
     expect(feature).toBe(createTagsFeature());
     expect(writeAccess(feature, "create-tag")).toEqual([...DEFAULT_TAG_ROLES]);
+    expect(writeAccess(feature, "rename-tag")).toEqual([...DEFAULT_TAG_ROLES]);
     expect(writeAccess(feature, "assign-tag")).toEqual([...DEFAULT_TAG_ROLES]);
     expect(writeAccess(feature, "remove-tag")).toEqual([...DEFAULT_TAG_ROLES]);
     expect(queryAccess(feature, "tag:list")).toEqual([...DEFAULT_TAG_ROLES]);
@@ -82,6 +89,7 @@ describe("createTagsFeature access-options", () => {
   test("roles option overrides every write- and query-path", () => {
     const feature = createTagsFeature({ roles: ["Admin", "Editor"] });
     expect(writeAccess(feature, "create-tag")).toEqual(["Admin", "Editor"]);
+    expect(writeAccess(feature, "rename-tag")).toEqual(["Admin", "Editor"]);
     expect(writeAccess(feature, "assign-tag")).toEqual(["Admin", "Editor"]);
     expect(writeAccess(feature, "remove-tag")).toEqual(["Admin", "Editor"]);
     expect(queryAccess(feature, "tag:list")).toEqual(["Admin", "Editor"]);
@@ -90,7 +98,7 @@ describe("createTagsFeature access-options", () => {
 
   test("access:{openToAll} applies to every write- and query-path", () => {
     const feature = createTagsFeature({ access: { openToAll: true } });
-    for (const path of ["create-tag", "assign-tag", "remove-tag"]) {
+    for (const path of ["create-tag", "rename-tag", "assign-tag", "remove-tag"]) {
       expect(rawWriteAccess(feature, path)).toEqual({ openToAll: true });
     }
     for (const query of ["tag:list", "tag-assignment:list"]) {
@@ -152,6 +160,28 @@ describe("createTagPayloadSchema", () => {
 
   test("rejects name over 64 chars", () => {
     expect(createTagPayloadSchema.safeParse({ name: "x".repeat(65) }).success).toBe(false);
+  });
+});
+
+describe("renameTagPayloadSchema", () => {
+  const valid = { id: "tag-1", version: 0, name: "Neu" };
+
+  test("accepts id + version + name", () => {
+    expect(renameTagPayloadSchema.safeParse(valid).success).toBe(true);
+  });
+
+  test("rejects a missing version (optimistic lock is mandatory)", () => {
+    expect(renameTagPayloadSchema.safeParse({ id: "tag-1", name: "Neu" }).success).toBe(false);
+  });
+
+  test("rejects an empty name", () => {
+    expect(renameTagPayloadSchema.safeParse({ ...valid, name: "" }).success).toBe(false);
+  });
+
+  test("rejects a name over 64 chars", () => {
+    expect(renameTagPayloadSchema.safeParse({ ...valid, name: "x".repeat(65) }).success).toBe(
+      false,
+    );
   });
 });
 

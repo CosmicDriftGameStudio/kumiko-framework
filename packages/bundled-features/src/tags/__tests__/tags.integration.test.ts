@@ -61,6 +61,10 @@ async function remove(tagId: string, entityType: string, entityId: string, user 
   return stack.http.writeOk(TagsHandlers.removeTag, { tagId, entityType, entityId }, user);
 }
 
+async function tagById(id: string, user = admin): Promise<Record<string, unknown> | undefined> {
+  return (await listTags(user)).find((t) => t["id"] === id);
+}
+
 async function listTags(user = admin): Promise<Array<Record<string, unknown>>> {
   const res = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
     TagsQueries.tagList,
@@ -126,6 +130,64 @@ describe("tags integration — catalog + assignment roundtrip", () => {
     expect(await countAssignments(admin.tenantId)).toBe(0);
     const left = await listAssignments({ field: "entityId", op: "eq", value: "credit-2" });
     expect(left).toHaveLength(0);
+  });
+});
+
+describe("tags integration — rename", () => {
+  test("rename-tag updates name, preserves color, bumps version", async () => {
+    const { id } = await stack.http.writeOk<{ id: string }>(
+      TagsHandlers.createTag,
+      { name: "Mandant Alt", color: "#abc" },
+      admin,
+    );
+    const before = await tagById(id);
+    expect(before?.["name"]).toBe("Mandant Alt");
+    // The rename UI passes the list-row version as the optimistic-lock base —
+    // assert it's actually there (tags are CRUD-only, so it's authoritative).
+    expect(typeof before?.["version"]).toBe("number");
+    const version = before?.["version"] as number;
+
+    await stack.http.writeOk(TagsHandlers.renameTag, { id, version, name: "Mandant Neu" }, admin);
+
+    const after = await tagById(id);
+    expect(after?.["name"]).toBe("Mandant Neu");
+    expect(after?.["color"]).toBe("#abc"); // shallow merge keeps non-renamed fields
+    expect(after?.["version"]).toBe(version + 1);
+  });
+
+  test("rename-tag with a stale version is rejected (409), name unchanged", async () => {
+    const { id } = await stack.http.writeOk<{ id: string }>(
+      TagsHandlers.createTag,
+      { name: "Konflikt" },
+      admin,
+    );
+    const stale = (await tagById(id))?.["version"] as number;
+    await stack.http.writeOk(TagsHandlers.renameTag, { id, version: stale, name: "Erster" }, admin);
+
+    const err = await stack.http.writeErr(
+      TagsHandlers.renameTag,
+      { id, version: stale, name: "Zweiter" }, // stale: the row already moved to stale+1
+      admin,
+    );
+    expect(err.httpStatus).toBe(409);
+    expect((await tagById(id))?.["name"]).toBe("Erster");
+  });
+
+  test("tenant B cannot rename tenant A's tag (404, A untouched)", async () => {
+    const { id } = await stack.http.writeOk<{ id: string }>(
+      TagsHandlers.createTag,
+      { name: "A privat" },
+      admin,
+    );
+    const version = (await tagById(id, admin))?.["version"] as number;
+
+    const err = await stack.http.writeErr(
+      TagsHandlers.renameTag,
+      { id, version, name: "B-Übernahme" },
+      otherTenant,
+    );
+    expect(err.httpStatus).toBe(404);
+    expect((await tagById(id, admin))?.["name"]).toBe("A privat");
   });
 });
 
