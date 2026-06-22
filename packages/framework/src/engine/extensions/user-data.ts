@@ -35,6 +35,20 @@ type UserId = string;
 export type UserDataDeleteStrategy = "delete" | "anonymize";
 
 /**
+ * Effective tenant-occupancy model for THIS tenant during a forget run, set by
+ * the forget orchestrator. `"single-user"` means the tenant has exactly one
+ * member (the user being forgotten) — so a tenant-scoped contributor MAY erase
+ * the tenant's data as that user's personal data. `"multi-user"` (the safe
+ * default) means tenant-scoped rows are shared and must NOT be erased per-user.
+ *
+ * The orchestrator derives this from the app-level `tenantModel` config AND a
+ * runtime sole-member check, so a stray invite that makes the config's
+ * `"single-user"` claim false at runtime never causes a co-member's data to be
+ * deleted. Absent → treat as `"multi-user"`.
+ */
+export type TenantUserModel = "single-user" | "multi-user";
+
+/**
  * Context-Snapshot der dem Hook übergeben wird. Sprint 2 erweitert
  * das ggf. um cancel-/timeout-Marker; aktuell minimaler Schnitt.
  *
@@ -70,6 +84,12 @@ export interface UserDataHookCtx {
   readonly buildStorageProvider?: (
     tenantId: TenantId,
   ) => Promise<UserDataStorageProvider | undefined>;
+  /**
+   * Effective tenant-occupancy model for this tenant — see {@link TenantUserModel}.
+   * A tenant-scoped contributor reads this to decide whether per-user erasure may
+   * touch tenant-scoped rows. Absent → treat as `"multi-user"` (no erasure).
+   */
+  readonly tenantModel?: TenantUserModel;
 }
 
 /**
