@@ -190,7 +190,7 @@ describe("renderApexPage", () => {
       }),
     );
     expect(html).not.toContain("twitter:card");
-    expect(html).toContain('twitter:site');
+    expect(html).toContain("twitter:site");
   });
 
   test("renders preconnect links", () => {

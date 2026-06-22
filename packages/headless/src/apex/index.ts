@@ -418,15 +418,15 @@ export function renderApexPage(page: ApexPage): string {
       ? `\n    <meta property="og:locale" content="${escapeHtml(head.locale)}" />`
       : "";
   const twitterCard =
-    head.ogImage !== undefined ? `\n    <meta name="twitter:card" content="summary_large_image" />` : "";
+    head.ogImage !== undefined
+      ? `\n    <meta name="twitter:card" content="summary_large_image" />`
+      : "";
   const twitterSite =
     head.twitterSite !== undefined
       ? `\n    <meta name="twitter:site" content="${escapeHtml(head.twitterSite)}" />`
       : "";
   const preconnects = (head.preconnects ?? [])
-    .map(
-      (url) => `\n    <link rel="preconnect" href="${escapeHtml(url)}" />`,
-    )
+    .map((url) => `\n    <link rel="preconnect" href="${escapeHtml(url)}" />`)
     .join("");
   const schema =
     head.schemaJson !== undefined
