@@ -1,5 +1,17 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.85.0
+
+### Minor Changes
+
+- 2cdfe9d: Apex: add SEO fields to `<head>` — `robots`, `og:site_name`, `og:locale`, `twitter:card`, `preconnect`, and JSON-LD.
+
+  All new fields on `ApexHead` are optional; existing callers need no changes.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.85.0
+
 ## 0.84.0
 
 ### Patch Changes
