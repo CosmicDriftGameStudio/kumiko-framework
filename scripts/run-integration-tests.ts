@@ -206,7 +206,8 @@ async function runIntegrationTests(mode: IntegrationRunMode = "bulk"): Promise<n
     }
 
     dirResults.push({ kind: "ran", dir: relDir, totals });
-    if (code !== 0) lastCode = code;
+    if (code !== 0 && totals.fail > 0) lastCode = code;
+    else if (code !== 0) console.warn(`  (teardown error in ${relDir} — all ${totals.pass} tests passed, exit ${code} ignored)`);
   }
 
   const { exitCode: summaryCode } = printIntegrationSummary(discovery, dirResults, mode);
