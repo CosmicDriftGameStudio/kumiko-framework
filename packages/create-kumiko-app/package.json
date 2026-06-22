@@ -1,6 +1,6 @@
 {
   "name": "create-kumiko-app",
-  "version": "0.4.9",
+  "version": "0.4.10",
   "description": "`bun create kumiko-app <name>` — scaffold a new Kumiko app with an interactive feature picker.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",

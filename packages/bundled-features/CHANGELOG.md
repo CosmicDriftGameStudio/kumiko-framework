@@ -1,5 +1,26 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.82.0
+
+### Minor Changes
+
+- 505f67c: tags: add a `rename-tag` write-handler so tag catalogs are editable.
+
+  `tags:write:rename-tag` takes `{ id, version, name }` and renames a tag in the
+  tenant's catalog. It is optimistic-locked (the client sends the `version` it
+  read, mirroring `tenant:update`) and merges shallowly, so `color` is preserved.
+  Stale version → `version_conflict` (409); cross-tenant → `not_found` (404).
+  Exposed as `TagsHandlers.renameTag` + `renameTagPayloadSchema`. Delete-tag stays
+  deferred.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.82.0
+- @cosmicdrift/kumiko-dispatcher-live@0.82.0
+- @cosmicdrift/kumiko-headless@0.82.0
+- @cosmicdrift/kumiko-renderer@0.82.0
+- @cosmicdrift/kumiko-renderer-web@0.82.0
+
 ## 0.81.1
 
 ### Patch Changes
