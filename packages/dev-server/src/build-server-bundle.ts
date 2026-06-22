@@ -52,6 +52,8 @@ const RUNTIME_EXTERNALS = [
   "ioredis",
   "postgres",
   "temporal-polyfill",
+  "pino",
+  "pino-pretty",
 ] as const;
 
 // Pakete die nur im Build-Stack erscheinen (transitive Imports im Framework),
@@ -61,8 +63,6 @@ const RUNTIME_EXTERNALS = [
 // runtime-deps.
 const BUILD_ONLY_EXTERNALS = [
   "meilisearch",
-  "pino",
-  "pino-pretty",
   "@planetscale/database",
   "@libsql/client",
   "better-sqlite3",
