@@ -141,4 +141,86 @@ describe("renderApexPage", () => {
     expect(html).toContain("id='raw'");
     expect(html).toContain("trust-item");
   });
+
+  test("renders robots meta when set, absent when omitted", () => {
+    const without = renderApexPage(page());
+    expect(without).not.toContain("robots");
+    const withRobots = renderApexPage(
+      page({ head: { lang: "de", title: "T", description: "D", robots: "noindex, nofollow" } }),
+    );
+    expect(withRobots).toContain('<meta name="robots" content="noindex, nofollow" />');
+  });
+
+  test("renders og:site_name and og:locale", () => {
+    const html = renderApexPage(
+      page({
+        head: {
+          lang: "de",
+          title: "T",
+          description: "D",
+          siteName: "Acme",
+          locale: "de_DE",
+        },
+      }),
+    );
+    expect(html).toContain('<meta property="og:site_name" content="Acme" />');
+    expect(html).toContain('<meta property="og:locale" content="de_DE" />');
+  });
+
+  test("renders twitter:card when ogImage is set, plus twitter:site", () => {
+    const html = renderApexPage(
+      page({
+        head: {
+          lang: "de",
+          title: "T",
+          description: "D",
+          ogImage: "https://example.com/image.png",
+          twitterSite: "@acme",
+        },
+      }),
+    );
+    expect(html).toContain('<meta name="twitter:card" content="summary_large_image" />');
+    expect(html).toContain('<meta name="twitter:site" content="@acme" />');
+  });
+
+  test("does not render twitter:card without ogImage", () => {
+    const html = renderApexPage(
+      page({
+        head: { lang: "de", title: "T", description: "D", twitterSite: "@acme" },
+      }),
+    );
+    expect(html).not.toContain("twitter:card");
+    expect(html).toContain('twitter:site');
+  });
+
+  test("renders preconnect links", () => {
+    const html = renderApexPage(
+      page({
+        head: {
+          lang: "de",
+          title: "T",
+          description: "D",
+          preconnects: ["https://fonts.example.com", "https://api.example.com"],
+        },
+      }),
+    );
+    expect(html).toContain('<link rel="preconnect" href="https://fonts.example.com" />');
+    expect(html).toContain('<link rel="preconnect" href="https://api.example.com" />');
+  });
+
+  test("renders schemaJson as json-ld script tag", () => {
+    const html = renderApexPage(
+      page({
+        head: {
+          lang: "de",
+          title: "T",
+          description: "D",
+          schemaJson: { "@context": "https://schema.org", "@type": "WebSite", name: "Acme" },
+        },
+      }),
+    );
+    expect(html).toContain('<script type="application/ld+json">');
+    expect(html).toContain('{"@context":"https://schema.org","@type":"WebSite","name":"Acme"}');
+    expect(html).toContain("</script>");
+  });
 });

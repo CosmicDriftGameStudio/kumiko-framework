@@ -140,6 +140,18 @@ export type ApexHead = {
   readonly ogImage?: string;
   /** hreflang alternates for multilingual SEO (e.g. the other language's URL). */
   readonly alternates?: readonly { readonly hreflang: string; readonly href: string }[];
+  /** Robots meta content (e.g. "index, follow", "noindex, nofollow"). Omit = no tag. */
+  readonly robots?: string;
+  /** og:site_name — brand name for social shares. */
+  readonly siteName?: string;
+  /** og:locale — e.g. "de_DE", "en_US". */
+  readonly locale?: string;
+  /** twitter:site — @handle for X/Twitter card. */
+  readonly twitterSite?: string;
+  /** URLs for <link rel="preconnect"> hints (Core Web Vitals). */
+  readonly preconnects?: readonly string[];
+  /** Arbitrary JSON-LD structured data (Schema.org). Rendered as-is into <script type="application/ld+json">. */
+  readonly schemaJson?: Record<string, unknown>;
 };
 
 export type ApexPage = {
@@ -393,6 +405,33 @@ export function renderApexPage(page: ApexPage): string {
         `\n    <link rel="alternate" hreflang="${escapeHtml(a.hreflang)}" href="${escapeHtml(a.href)}" />`,
     )
     .join("");
+  const robots =
+    head.robots !== undefined
+      ? `\n    <meta name="robots" content="${escapeHtml(head.robots)}" />`
+      : "";
+  const siteName =
+    head.siteName !== undefined
+      ? `\n    <meta property="og:site_name" content="${escapeHtml(head.siteName)}" />`
+      : "";
+  const locale =
+    head.locale !== undefined
+      ? `\n    <meta property="og:locale" content="${escapeHtml(head.locale)}" />`
+      : "";
+  const twitterCard =
+    head.ogImage !== undefined ? `\n    <meta name="twitter:card" content="summary_large_image" />` : "";
+  const twitterSite =
+    head.twitterSite !== undefined
+      ? `\n    <meta name="twitter:site" content="${escapeHtml(head.twitterSite)}" />`
+      : "";
+  const preconnects = (head.preconnects ?? [])
+    .map(
+      (url) => `\n    <link rel="preconnect" href="${escapeHtml(url)}" />`,
+    )
+    .join("");
+  const schema =
+    head.schemaJson !== undefined
+      ? `\n    <script type="application/ld+json">${JSON.stringify(head.schemaJson)}</script>`
+      : "";
   return `<!doctype html>
 <html lang="${escapeHtml(head.lang)}">
   <head>
@@ -402,7 +441,7 @@ export function renderApexPage(page: ApexPage): string {
     <meta name="description" content="${escapeHtml(head.description)}" />
     <meta property="og:title" content="${escapeHtml(head.title)}" />
     <meta property="og:description" content="${escapeHtml(head.description)}" />
-    <meta property="og:type" content="website" />${ogUrl}${ogImage}${favicon}${canonical}${alternates}
+    <meta property="og:type" content="website" />${ogUrl}${ogImage}${siteName}${locale}${twitterCard}${twitterSite}${favicon}${canonical}${alternates}${robots}${preconnects}${schema}
     <style>${css}</style>
   </head>
   <body${theme === "dark" ? ` class="apex-dark"` : ""}>
