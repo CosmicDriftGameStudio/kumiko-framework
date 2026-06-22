@@ -65,9 +65,9 @@ dispatcher + DB and walks through:
 - `runUserExport` returns a bundle with user + todo entries (todos appear
   because `todosFeature` registered the `EXT_USER_DATA` hook)
 - `request-deletion` flips the user to `DeletionRequested`
-- After grace expires, `runForgetCleanup` deletes the todos and
-  anonymizes the user — _the framework never had to know about todos
-  specifically_
+- After grace expires, the registered `run-forget-cleanup` cron deletes
+  the todos and anonymizes the user — _the framework never had to know
+  about todos specifically_
 
 Read the test top-to-bottom — it's written as a living doc.
 

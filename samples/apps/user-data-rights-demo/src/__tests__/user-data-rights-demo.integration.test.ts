@@ -8,7 +8,9 @@
 //   - Schritt 1: User legt Todos an (todos:write:create)
 //   - Schritt 2: User listet eigene Todos (todos:query:list)
 //   - Schritt 3: runUserExport → Bundle hat user + todo entries
-//   - Schritt 4: runForgetCleanup nach grace → todos weg, user anonymisiert
+//   - Schritt 4: der registrierte run-forget-cleanup-Cron läuft nach grace
+//     → todos weg, user anonymisiert (der echte autonome Pfad, nicht der
+//     manuelle Helper — so feuert er auch in prod)
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthEmailPasswordFeature } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
@@ -23,10 +25,7 @@ import {
   userEntity,
   userTable,
 } from "@cosmicdrift/kumiko-bundled-features/user";
-import {
-  runForgetCleanup,
-  runUserExport,
-} from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
+import { runUserExport } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { extractTableName } from "@cosmicdrift/kumiko-framework/db";
 import { EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
@@ -166,7 +165,7 @@ describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {
     expect(titles).toContain("Auto-Inspektion");
   });
 
-  test("Schritt 4+5: request-deletion → Forget-Cleanup → todos weg, user anonymisiert", async () => {
+  test("Schritt 4+5: request-deletion → run-forget-cleanup-Cron → todos weg, user anonymisiert", async () => {
     await seedAlice();
     await stack.http.writeOk(
       TODO_CREATE_QN,
@@ -182,13 +181,14 @@ describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {
       [USER_STATUS.DeletionRequested, PAST().toString(), alice.id],
     );
 
-    const result = await runForgetCleanup({
-      db: stack.db,
-      registry: stack.registry,
-      now: NOW(),
-    });
-    expect(result.processedUserIds).toContain(alice.id);
-    expect(result.errors).toHaveLength(0);
+    // Der ECHTE registrierte Cron, nicht der innere runForgetCleanup-Helper:
+    // ein Consumer kopiert dieses Muster und fährt damit denselben Pfad, der
+    // in prod nach Grace-Ablauf unbeaufsichtigt feuert. Den Helper von Hand
+    // aufzurufen würde die Job-Kontext-Verdrahtung umgehen (genau die Naht,
+    // an der ein cron-only-Bug unentdeckt durchrutscht).
+    const forgetCron = stack.registry.getJob("user-data-rights:job:run-forget-cleanup");
+    expect(forgetCron).toBeTruthy();
+    await forgetCron?.handler({}, { db: stack.db, registry: stack.registry } as never);
 
     const remaining = (await asRawClient(stack.db).unsafe(
       `SELECT id FROM read_todos WHERE author_id = $1`,
