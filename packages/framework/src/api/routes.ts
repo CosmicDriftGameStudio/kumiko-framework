@@ -7,6 +7,7 @@ import {
   toKumikoError,
   ValidationError,
 } from "../errors";
+import { createFallbackLogger } from "../logging";
 import type { Dispatcher } from "../pipeline/dispatcher";
 import { stringifyJson } from "../utils/safe-json";
 import { Routes } from "./api-constants";
@@ -23,11 +24,11 @@ export function createApiRoutes(dispatcher: Dispatcher) {
     try {
       const result = await dispatcher.write(body.type, body.payload, user, body.requestId);
       if (!result.isSuccess) {
-        return writeErrorResponse(c, reraiseAsKumikoError(result.error));
+        return writeErrorResponse(c, reraiseAsKumikoError(result.error), body.type);
       }
       return jsonResponse(c, result);
     } catch (e) {
-      return writeErrorResponse(c, toKumiko(e));
+      return writeErrorResponse(c, toKumiko(e), body.type);
     }
   });
 
@@ -62,6 +63,9 @@ export function createApiRoutes(dispatcher: Dispatcher) {
       if (!result.isSuccess) {
         const err = reraiseAsKumikoError(result.error);
         const requestId = requestContext.get()?.requestId;
+        const failedType =
+          result.failedIndex != null ? body.commands[result.failedIndex]?.type : undefined;
+        logServerFault(err, requestId, failedType);
         const { error } = serializeError(err, requestId);
         // Keep failedIndex + results alongside the error envelope so callers
         // can tell which command in the batch failed and inspect the partial
@@ -91,7 +95,7 @@ export function createApiRoutes(dispatcher: Dispatcher) {
       const result = await dispatcher.query(body.type, body.payload, user);
       return jsonResponse(c, { data: result });
     } catch (e) {
-      return queryErrorResponse(c, toKumiko(e));
+      return queryErrorResponse(c, toKumiko(e), body.type);
     }
   });
 
@@ -103,7 +107,7 @@ export function createApiRoutes(dispatcher: Dispatcher) {
       await dispatcher.command(body.type, body.payload, user);
       return c.json({ ok: true }, 202);
     } catch (e) {
-      return queryErrorResponse(c, toKumiko(e));
+      return queryErrorResponse(c, toKumiko(e), body.type);
     }
   });
 
@@ -116,21 +120,43 @@ function jsonResponse(c: Context, body: unknown, status: ContentfulStatusCode = 
 
 const toKumiko = toKumikoError;
 
+// Unexpected server faults (5xx) carry their diagnostic stack only on the
+// in-process error — serializeError strips cause/details from the wire body.
+// Without this a wrapped throw (InternalError{cause}) returns a 500 with zero
+// log lines, leaving ops nothing to debug (the bug this guards). 4xx are
+// expected client outcomes and stay unlogged. `type` is the only handler
+// discriminator — every request hits the same /api/{query,command} path.
+function logServerFault(err: KumikoError, requestId: string | undefined, type?: string): void {
+  if (err.httpStatus < 500) {
+    // skip: 4xx are expected client outcomes (not-found, validation, denied) — logging them is noise
+    return;
+  }
+  const cause = err.cause;
+  createFallbackLogger("api").error("handler failed", {
+    requestId,
+    type,
+    code: err.code,
+    message: err.message,
+    cause: cause instanceof Error ? cause.message : cause,
+    stack: cause instanceof Error ? cause.stack : err.stack,
+  });
+}
+
 // For /write + /batch: keep the isSuccess flag so clients can flip on a single
 // boolean (mirrors the success shape). The actual error body is the
 // error-contract payload nested under .error.
-function writeErrorResponse(c: Context, err: KumikoError, statusOverride?: number) {
+function writeErrorResponse(c: Context, err: KumikoError, type?: string) {
   const requestId = requestContext.get()?.requestId;
+  logServerFault(err, requestId, type);
   const { error } = serializeError(err, requestId);
-  const status = (statusOverride ?? err.httpStatus) as ContentfulStatusCode; // @cast-boundary engine-payload
-  return c.json({ isSuccess: false, error }, status);
+  return c.json({ isSuccess: false, error }, err.httpStatus as ContentfulStatusCode); // @cast-boundary engine-payload
 }
 
 // For /query + /command: no isSuccess on success (just { data } / {ok}), so we
 // keep the same lean shape on failure — only the `error` key.
-function queryErrorResponse(c: Context, err: KumikoError, statusOverride?: number) {
+function queryErrorResponse(c: Context, err: KumikoError, type?: string) {
   const requestId = requestContext.get()?.requestId;
+  logServerFault(err, requestId, type);
   const body = serializeError(err, requestId);
-  const status = (statusOverride ?? err.httpStatus) as ContentfulStatusCode; // @cast-boundary engine-payload
-  return c.json(body, status);
+  return c.json(body, err.httpStatus as ContentfulStatusCode); // @cast-boundary engine-payload
 }

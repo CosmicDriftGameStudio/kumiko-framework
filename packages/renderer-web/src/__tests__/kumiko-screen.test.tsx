@@ -11,6 +11,7 @@ import {
   DispatcherProvider,
   ExtensionSectionsProvider,
   KumikoScreen,
+  kumikoDefaultTranslations,
 } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
 import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils";
@@ -352,10 +353,13 @@ describe("KumikoScreen", () => {
     fireEvent.change(titleInput, { target: { value: "edited" } });
     fireEvent.click(screen.getByTestId("render-edit-submit"));
 
-    // Banner muss den i18nKey zeigen und einen Reload-Button anbieten.
+    // Banner zeigt die ÜBERSETZTE version-conflict-Message (kein roher i18nKey)
+    // und bietet einen Reload-Button. Gegen das Default-Bundle assertet, damit
+    // die Verdrahtung i18nKey → translate → Banner geprüft wird, ohne am
+    // konkreten Wording festzukleben.
     await waitFor(() => expect(screen.queryByTestId("render-edit-form-error")).toBeTruthy());
     expect(screen.getByTestId("render-edit-form-error-key").textContent).toBe(
-      "errors.versionConflict",
+      kumikoDefaultTranslations["en"]?.["errors.versionConflict"] ?? "",
     );
 
     expect(detailCalls).toBe(1);
