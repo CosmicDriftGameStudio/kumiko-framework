@@ -1,9 +1,11 @@
 // V1 — GDPR storage-persistence boot guard. Catches the prod failure class:
 // user-data-rights mounted but exports land in an ephemeral / missing store,
 // and s3-env selected as the GDPR store without its env vars set.
+// V2 — export-without-erase guard. Catches features that register an export
+// hook but no delete hook (Art.17 violation).
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import { validateGdprStoragePersistence } from "../boot-validator/gdpr-storage";
+import { validateGdprHookCompleteness, validateGdprStoragePersistence } from "../boot-validator/gdpr-storage";
 import { defineFeature } from "../define-feature";
 
 const udr = () => defineFeature("user-data-rights", () => {});
@@ -70,5 +72,68 @@ describe("validateGdprStoragePersistence (V1)", () => {
   test("user-data-rights + s3 AND s3-env (use-all-bundled shape) → no warn even with env unset", () => {
     validateGdprStoragePersistence([udr(), fileProvider("s3"), fileProvider("s3-env")]);
     expect(warnSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("validateGdprHookCompleteness (V2)", () => {
+  let warnSpy: ReturnType<typeof spyOn>;
+
+  beforeEach(() => {
+    warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  const exportFn = async () => null;
+  const deleteFn = async () => {};
+
+  test("export + delete hooks → no warn", () => {
+    const f = defineFeature("my-feature", (r) => {
+      r.useExtension("userData", "myEntity", { export: exportFn, delete: deleteFn });
+    });
+    validateGdprHookCompleteness([f]);
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  test("export hook without delete hook → Art.17 warn", () => {
+    const f = defineFeature("my-feature", (r) => {
+      r.useExtension("userData", "myEntity", { export: exportFn });
+    });
+    validateGdprHookCompleteness([f]);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    const msg = String(warnSpy.mock.calls[0]?.[0]);
+    expect(msg).toContain("my-feature");
+    expect(msg).toContain("myEntity");
+    expect(msg).toContain("Art.17");
+  });
+
+  test("delete hook only (no export) → no warn", () => {
+    const f = defineFeature("my-feature", (r) => {
+      r.useExtension("userData", "myEntity", { delete: deleteFn });
+    });
+    validateGdprHookCompleteness([f]);
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  test("no EXT_USER_DATA hooks at all → no warn", () => {
+    const f = defineFeature("my-feature", (r) => {
+      r.useExtension("fileProvider", "s3");
+    });
+    validateGdprHookCompleteness([f]);
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  test("multiple features, one missing delete → one warn per missing hook", () => {
+    const good = defineFeature("good", (r) => {
+      r.useExtension("userData", "entityA", { export: exportFn, delete: deleteFn });
+    });
+    const bad = defineFeature("bad", (r) => {
+      r.useExtension("userData", "entityB", { export: exportFn });
+    });
+    validateGdprHookCompleteness([good, bad]);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(String(warnSpy.mock.calls[0]?.[0])).toContain("entityB");
   });
 });
