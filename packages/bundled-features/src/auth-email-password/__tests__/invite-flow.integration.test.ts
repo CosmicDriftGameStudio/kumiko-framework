@@ -429,3 +429,38 @@ describe("invitations-query (pending list)", () => {
     expect(list[0]?.status).toBe("pending");
   });
 });
+
+// Privilege-escalation regression: a Tenant-Admin must not be able to seed a
+// platform-global/reserved role (SystemAdmin, system, all, anonymous) into a
+// tenant membership via the invite flow — once it lands in membership.roles it
+// merges flat into the session and unlocks the SystemAdmin-gated cross-tenant
+// handler surface (hasAccess can't tell membership roles from global ones).
+describe("privilege escalation via invite role", () => {
+  // Each forbidden value is a platform-global/reserved role that must never
+  // reach a tenant membership. Proven exploitable before the fix: inviting
+  // "SystemAdmin" gave the invitee a JWT carrying SystemAdmin flat, which
+  // passed every SystemAdmin gate cross-tenant.
+  const FORBIDDEN_ROLES = ["SystemAdmin", "system", "all", "anonymous"];
+
+  test("invite-create rejects reserved/global roles — no invitation persisted", async () => {
+    for (const role of FORBIDDEN_ROLES) {
+      const err = await stack.http.writeErr(
+        AuthHandlers.inviteCreate,
+        { email: CAROL_EMAIL, role },
+        aliceSession(),
+      );
+      expect(err.code).toBe("access_denied");
+      const rows = await selectMany(stack.db, tenantInvitationsTable, { email: CAROL_EMAIL });
+      expect(rows).toHaveLength(0);
+    }
+  });
+
+  test("legitimate tenant role still issues an invitation", async () => {
+    const result = (await stack.http.writeOk(
+      AuthHandlers.inviteCreate,
+      { email: CAROL_EMAIL, role: "Editor" },
+      aliceSession(),
+    )) as { role: string };
+    expect(result.role).toBe("Editor");
+  });
+});

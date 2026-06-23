@@ -38,6 +38,7 @@ export {
 } from "./constants";
 export type { App, AppConfig } from "./create-app";
 export { createApp } from "./create-app";
+export { crossTenantOverrideDenied } from "./cross-tenant";
 export { defineFeature } from "./define-feature";
 export type {
   QueryHandlerDefinition,

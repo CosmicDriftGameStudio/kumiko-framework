@@ -1,7 +1,11 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
-import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { AccessDeniedError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  crossTenantOverrideDenied,
+  defineWriteHandler,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { type TextBlockRow, textBlockEntity, textBlocksTable } from "../table";
 
@@ -68,14 +72,12 @@ export const setWrite = defineWriteHandler({
   handler: async (event, ctx) => {
     const db = ctx.db;
     const override = event.payload.tenantIdOverride;
-    if (override !== undefined && !event.user.roles.includes("SystemAdmin")) {
-      return writeFailure(
-        new AccessDeniedError({
-          i18nKey: "textContent.errors.tenantOverrideRequiresSystemAdmin",
-          details: { reason: "tenant_override_requires_system_admin" },
-        }),
-      );
-    }
+    const overrideDenied = crossTenantOverrideDenied(
+      event.user,
+      override,
+      "textContent.errors.tenantOverrideRequiresSystemAdmin",
+    );
+    if (overrideDenied) return writeFailure(overrideDenied);
     const tenantId = override ?? event.user.tenantId;
     // Bei tenantIdOverride muss auch der user-context auf den ziel-tenant
     // umgestellt werden, sonst läuft der event-store-Lookup

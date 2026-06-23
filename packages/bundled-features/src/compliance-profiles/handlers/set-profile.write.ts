@@ -5,9 +5,12 @@ import {
   SELECTABLE_PROFILE_KEYS,
 } from "@cosmicdrift/kumiko-framework/compliance";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
-import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
-  AccessDeniedError,
+  crossTenantOverrideDenied,
+  defineWriteHandler,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
+import {
   UnprocessableError,
   validationErrorFromZod,
   writeFailure,
@@ -58,14 +61,12 @@ export const setProfileWrite = defineWriteHandler({
   access: { roles: [ROLES.TenantAdmin, ROLES.SystemAdmin] },
   handler: async (event, ctx) => {
     const tenantOverride = event.payload.tenantIdOverride;
-    if (tenantOverride !== undefined && !event.user.roles.includes(ROLES.SystemAdmin)) {
-      return writeFailure(
-        new AccessDeniedError({
-          i18nKey: "complianceProfiles.errors.tenantOverrideRequiresSystemAdmin",
-          details: { reason: "tenant_override_requires_system_admin" },
-        }),
-      );
-    }
+    const overrideDenied = crossTenantOverrideDenied(
+      event.user,
+      tenantOverride,
+      "complianceProfiles.errors.tenantOverrideRequiresSystemAdmin",
+    );
+    if (overrideDenied) return writeFailure(overrideDenied);
     const tenantId = (tenantOverride ?? event.user.tenantId) as TenantId; // @cast-boundary engine-payload
     const executorUser = tenantOverride !== undefined ? { ...event.user, tenantId } : event.user;
 

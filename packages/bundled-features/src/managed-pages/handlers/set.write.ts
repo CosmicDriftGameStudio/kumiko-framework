@@ -1,7 +1,11 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
-import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { AccessDeniedError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  crossTenantOverrideDenied,
+  defineWriteHandler,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { type PageRow, pageEntity, pagesTable } from "../table";
 
@@ -42,14 +46,12 @@ export const setWrite = defineWriteHandler({
   handler: async (event, ctx) => {
     const db = ctx.db;
     const override = event.payload.tenantIdOverride;
-    if (override !== undefined && !event.user.roles.includes("SystemAdmin")) {
-      return writeFailure(
-        new AccessDeniedError({
-          i18nKey: "managedPages.errors.tenantOverrideRequiresSystemAdmin",
-          details: { reason: "tenant_override_requires_system_admin" },
-        }),
-      );
-    }
+    const overrideDenied = crossTenantOverrideDenied(
+      event.user,
+      override,
+      "managedPages.errors.tenantOverrideRequiresSystemAdmin",
+    );
+    if (overrideDenied) return writeFailure(overrideDenied);
     const tenantId = override ?? event.user.tenantId;
     // override: point the executor context at the target tenant, else getStreamVersion runs against user.tenantId → version_conflict.
     const executorUser =

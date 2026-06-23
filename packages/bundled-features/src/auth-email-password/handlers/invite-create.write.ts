@@ -27,6 +27,11 @@ import {
   tenantInvitationEntity,
   tenantInvitationsTable,
 } from "../../tenant/invitation-table";
+// kumiko-lint-ignore cross-feature-import membership-role validation owned by tenant-feature
+import {
+  findForbiddenMembershipRole,
+  reservedMembershipRoleError,
+} from "../../tenant/membership-roles";
 import { AUTH_INVITE_DEFAULT_TTL_MINUTES } from "../constants";
 import { getTokenForInvitation, storeInviteToken } from "../invite-token-store";
 
@@ -67,6 +72,11 @@ export function createInviteCreateHandler(opts: InviteCreateOptions = {}) {
         return writeFailure(
           new InternalError({ message: "invite-create requires ctx.redis for token store" }),
         );
+      }
+
+      const forbiddenRole = findForbiddenMembershipRole([event.payload.role]);
+      if (forbiddenRole !== undefined) {
+        return writeFailure(reservedMembershipRoleError(forbiddenRole));
       }
 
       const email = event.payload.email.toLowerCase();

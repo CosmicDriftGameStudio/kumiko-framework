@@ -3,6 +3,7 @@ import { createEventStoreExecutor, type DbRow } from "@cosmicdrift/kumiko-framew
 import { defineWriteHandler, withResponseData } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
+import { findForbiddenMembershipRole, reservedMembershipRoleError } from "../membership-roles";
 import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-table";
 
 const executor = createEventStoreExecutor(tenantMembershipsTable, tenantMembershipEntity, {
@@ -23,6 +24,8 @@ export const updateMemberRolesWrite = defineWriteHandler({
   access: { roles: ["system", "SystemAdmin"] },
   handler: async (event, ctx) => {
     const db = ctx.db;
+    const forbidden = findForbiddenMembershipRole(event.payload.roles);
+    if (forbidden !== undefined) return writeFailure(reservedMembershipRoleError(forbidden));
     const existing = await fetchOne(db, tenantMembershipsTable, {
       userId: event.payload.userId,
       tenantId: event.payload.tenantId,
