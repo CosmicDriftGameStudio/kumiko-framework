@@ -1,5 +1,6 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
+  crossTenantOverrideDenied,
   defineWriteHandler,
   SYSTEM_TENANT_ID,
   type TenantId,
@@ -25,14 +26,12 @@ export const upsertTenantWrite = defineWriteHandler({
   handler: async (event, ctx) => {
     const db = ctx.db;
     const override = event.payload.tenantIdOverride;
-    if (override !== undefined && !event.user.roles.includes("SystemAdmin")) {
-      return writeFailure(
-        new AccessDeniedError({
-          i18nKey: "templateResolver.errors.tenantOverrideRequiresSystemAdmin",
-          details: { reason: "tenant_override_requires_system_admin" },
-        }),
-      );
-    }
+    const overrideDenied = crossTenantOverrideDenied(
+      event.user,
+      override,
+      "templateResolver.errors.tenantOverrideRequiresSystemAdmin",
+    );
+    if (overrideDenied) return writeFailure(overrideDenied);
     // upsertTenant erzeugt scope='tenant'. SYSTEM_TENANT_ID-Override würde
     // scope='tenant' unter SYSTEM_TENANT_ID schreiben → inkonsistenter Zustand
     // (Resolver-Logik trennt sauber zwischen system+tenant). SystemAdmin muss

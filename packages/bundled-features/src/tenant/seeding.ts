@@ -37,6 +37,7 @@ import {
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { getAggregateStreamMaxVersion } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import { assertAssignableMembershipRoles } from "./membership-roles";
 import { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table";
 import { tenantEntity, tenantTable } from "./schema/tenant";
 
@@ -127,6 +128,9 @@ export async function seedTenantMembership(
   db: DbRunner,
   options: SeedTenantMembershipOptions,
 ): Promise<{ id: string }> {
+  // Chokepoint: invite-accept (×3) + seedAdmin/provisionSignup all flow
+  // through here — reject reserved/global roles before they ever persist.
+  assertAssignableMembershipRoles(options.roles);
   const by = options.by ?? TestUsers.systemAdmin;
   // Wrap into a system-scoped TenantDb so the insert respects the tenant-
   // override (we write into options.tenantId, which may differ from by.tenantId).

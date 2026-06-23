@@ -1,7 +1,9 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { castTenantRows } from "@cosmicdrift/kumiko-framework/db";
-import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  crossTenantOverrideDenied,
+  defineQueryHandler,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { type TextBlockRow, textBlocksTable } from "../table";
 
@@ -34,12 +36,12 @@ export const byTenantQuery = defineQueryHandler({
   access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"] },
   handler: async (query, ctx) => {
     const override = query.payload.tenantIdOverride;
-    if (override !== undefined && !query.user.roles.includes("SystemAdmin")) {
-      throw new AccessDeniedError({
-        i18nKey: "textContent.errors.tenantOverrideRequiresSystemAdmin",
-        details: { reason: "tenant_override_requires_system_admin" },
-      });
-    }
+    const overrideDenied = crossTenantOverrideDenied(
+      query.user,
+      override,
+      "textContent.errors.tenantOverrideRequiresSystemAdmin",
+    );
+    if (overrideDenied) throw overrideDenied;
     const tenantId = override ?? query.user.tenantId;
     const rows = castTenantRows<TextBlockRow>(
       await selectMany(ctx.db, textBlocksTable, { tenantId: tenantId }),

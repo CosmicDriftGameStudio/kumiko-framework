@@ -433,3 +433,34 @@ describe("scenario 8: entityList/entityEdit convention QNs", () => {
     ]);
   });
 });
+
+// Privilege-escalation guard: platform-global/reserved roles must never be
+// writable into a tenant membership, not even by a SystemAdmin — once present
+// they merge flat into the session and grant cross-tenant authority. The
+// forbidden-role check runs before any DB access, so these reject without the
+// memberships table being mounted in this stack.
+describe("scenario 9: membership role escalation guard", () => {
+  const FORBIDDEN_ROLES = ["SystemAdmin", "system", "all", "anonymous"];
+
+  test("add-member rejects reserved/global roles even for SystemAdmin", async () => {
+    for (const role of FORBIDDEN_ROLES) {
+      const err = await stack.http.writeErr(
+        TenantHandlers.addMember,
+        { userId: systemAdmin.id, tenantId: systemAdmin.tenantId, roles: [role] },
+        systemAdmin,
+      );
+      expectErrorIncludes(err, "access_denied");
+    }
+  });
+
+  test("update-member-roles rejects reserved/global roles even for SystemAdmin", async () => {
+    for (const role of FORBIDDEN_ROLES) {
+      const err = await stack.http.writeErr(
+        TenantHandlers.updateMemberRoles,
+        { userId: systemAdmin.id, tenantId: systemAdmin.tenantId, roles: [role] },
+        systemAdmin,
+      );
+      expectErrorIncludes(err, "access_denied");
+    }
+  });
+});
