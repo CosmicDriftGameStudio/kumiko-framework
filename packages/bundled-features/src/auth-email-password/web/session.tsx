@@ -9,6 +9,7 @@
 // unter `<SessionProvider>`; der `useSession()`-Hook liefert den State
 // und die Transitions.
 
+import { readCsrfToken } from "@cosmicdrift/kumiko-dispatcher-live";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react";
 import {
   type CurrentUserProfile,
@@ -43,6 +44,14 @@ export type SessionApi = SessionState & {
   readonly switchTenant: (tenantId: string) => Promise<void>;
 };
 
+const UNAUTHENTICATED: SessionState = {
+  status: "unauthenticated",
+  user: null,
+  activeTenantId: null,
+  tenants: [],
+  roles: [],
+};
+
 const INITIAL: SessionState = {
   status: "loading",
   user: null,
@@ -50,6 +59,11 @@ const INITIAL: SessionState = {
   tenants: [],
   roles: [],
 };
+
+// kumiko_auth ist HttpOnly — kumiko_csrf wird beim Login gemeinsam gesetzt.
+export function hasLikelyAuthSession(cookieSource?: string): boolean {
+  return readCsrfToken(cookieSource) !== undefined;
+}
 
 // Exported damit tests den merge-pfad direkt pinnen können — der hier
 // muss byte-identisch zum server-side merge in auth-routes.ts +
@@ -76,27 +90,18 @@ export function computeActiveRoles(
 export const SessionContext = createContext<SessionApi | undefined>(undefined);
 
 // Eine Refresh-Runde: /auth/tenants → wenn 401 nicht-eingeloggt, sonst
-// parallel /user:me. Beides zusammen ergibt den vollen SessionState.
+// /user:me. Beides zusammen ergibt den vollen SessionState.
 async function refresh(): Promise<SessionState> {
+  if (!hasLikelyAuthSession()) {
+    return UNAUTHENTICATED;
+  }
   const tenants = await fetchTenants();
   if (tenants === null) {
-    return {
-      status: "unauthenticated",
-      user: null,
-      activeTenantId: null,
-      tenants: [],
-      roles: [],
-    };
+    return UNAUTHENTICATED;
   }
   const user = await fetchCurrentUser();
   if (user === null) {
-    return {
-      status: "unauthenticated",
-      user: null,
-      activeTenantId: null,
-      tenants: [],
-      roles: [],
-    };
+    return UNAUTHENTICATED;
   }
   return {
     status: "authenticated",
@@ -131,13 +136,7 @@ export function SessionProvider({ children }: { readonly children: ReactNode }):
 
   const logout = useCallback<SessionApi["logout"]>(async () => {
     await logoutApi();
-    setState({
-      status: "unauthenticated",
-      user: null,
-      activeTenantId: null,
-      tenants: [],
-      roles: [],
-    });
+    setState(UNAUTHENTICATED);
     // Hard-Reload: React-Tree, dispatcher-live-Caches, EventSource —
     // alles fliegt auf Null. Nach Logout ist das der billigste Weg zu
     // sauberer Ausgangslage, ohne dass wir jeden einzelnen Consumer

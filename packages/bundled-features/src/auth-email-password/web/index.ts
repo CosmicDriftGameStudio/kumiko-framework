@@ -26,7 +26,7 @@ export {
 } from "./auth-client";
 export type { AuthShellRenderer } from "./auth-form-primitives";
 export { AuthShellProvider, useAuthShell } from "./auth-form-primitives";
-export { makeAuthGate } from "./auth-gate";
+export { makeAuthGate, makeSessionAuthGate } from "./auth-gate";
 export type {
   EmailPasswordClientFeature,
   EmailPasswordClientOptions,
@@ -43,7 +43,7 @@ export { LoginScreen } from "./login-screen";
 export type { ResetPasswordScreenProps } from "./reset-password-screen";
 export { ResetPasswordScreen } from "./reset-password-screen";
 export type { SessionApi, SessionState, SessionStatus } from "./session";
-export { SessionContext, SessionProvider, useSession } from "./session";
+export { hasLikelyAuthSession, SessionContext, SessionProvider, useSession } from "./session";
 export type { SignupCompleteScreenProps } from "./signup-complete-screen";
 export { SignupCompleteScreen } from "./signup-complete-screen";
 export type { SignupScreenProps } from "./signup-screen";

@@ -8,9 +8,8 @@
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ComponentType, ReactNode } from "react";
 import { defaultTranslations, mergeTranslations } from "../i18n";
-import { makeAuthGate } from "./auth-gate";
+import { makeSessionAuthGate } from "./auth-gate";
 import type { LoginScreenProps } from "./login-screen";
-import { SessionProvider } from "./session";
 
 export type EmailPasswordClientOptions = {
   /** Eigener Login-Screen. Default: der shadcn-stylte LoginScreen
@@ -41,8 +40,8 @@ export function emailPasswordClient(
   const translations = mergeTranslations(defaultTranslations, options.translations ?? {});
   return {
     name: "auth-email-password",
-    providers: [SessionProvider],
-    gates: [makeAuthGate(options.loginScreen, options.loginScreenProps)],
+    providers: [],
+    gates: [makeSessionAuthGate(options.loginScreen, options.loginScreenProps)],
     translations,
   };
 }

@@ -11,7 +11,7 @@
 
 import type { ComponentType, ReactNode } from "react";
 import { LoginScreen, type LoginScreenProps } from "./login-screen";
-import { useSession } from "./session";
+import { SessionProvider, useSession } from "./session";
 
 export function makeAuthGate(
   LoginComponent: ComponentType<LoginScreenProps> = LoginScreen,
@@ -30,4 +30,23 @@ export function makeAuthGate(
     return <>{children}</>;
   }
   return AuthGate;
+}
+
+/** SessionProvider + AuthGate als ein Gate — damit öffentliche Gates davor
+ *  (z.B. /rechner) den Session-Bootstrap nicht mounten. createKumikoApp
+ *  stackt providers außerhalb aller gates; SessionProvider darf deshalb
+ *  kein provider mehr sein. */
+export function makeSessionAuthGate(
+  LoginComponent: ComponentType<LoginScreenProps> = LoginScreen,
+  loginProps?: LoginScreenProps,
+): ComponentType<{ children: ReactNode }> {
+  const AuthGate = makeAuthGate(LoginComponent, loginProps);
+  function SessionAuthGate({ children }: { readonly children: ReactNode }): ReactNode {
+    return (
+      <SessionProvider>
+        <AuthGate>{children}</AuthGate>
+      </SessionProvider>
+    );
+  }
+  return SessionAuthGate;
 }
