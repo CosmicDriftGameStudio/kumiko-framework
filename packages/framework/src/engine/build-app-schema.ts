@@ -34,7 +34,13 @@ import {
 import type { Registry } from "./types/feature";
 import type { FieldDefinition } from "./types/fields";
 
-export function buildAppSchema(registry: Registry): AppSchema {
+export type BuildAppSchemaOptions = {
+  /** Dev-server authoring hints (Settings-Hub placement). Default off — only
+   *  `createKumikoServer` opts in; prod boot + unit tests stay silent. */
+  readonly authoringWarnings?: boolean;
+};
+
+export function buildAppSchema(registry: Registry, options: BuildAppSchemaOptions = {}): AppSchema {
   const features: FeatureSchema[] = [];
   for (const [featureName, feature] of registry.features) {
     const navs = Object.values(feature.navs);
@@ -78,8 +84,10 @@ export function buildAppSchema(registry: Registry): AppSchema {
       const placed = placeSettingsHub(workspaces, generated);
       workspaces = placed.workspaces;
       if (placed.standalone !== undefined) workspaces.push(placed.standalone);
-      warnUnplacedAudiences(placed.unplaced);
-      warnDanglingAudienceRefs(placed.danglingRefs);
+      if (options.authoringWarnings === true) {
+        warnUnplacedAudiences(placed.unplaced);
+        warnDanglingAudienceRefs(placed.danglingRefs);
+      }
     }
   }
 
@@ -200,10 +208,6 @@ function placeSettingsHub(
 function warnUnplacedAudiences(unplaced: readonly string[]): void {
   // skip: every audience placed — nothing to warn about
   if (unplaced.length === 0) return;
-  const env = typeof process !== "undefined" ? process.env.NODE_ENV : undefined;
-  // skip: dev-only authoring hint — silent in production and in tests
-  // (bun:test sets NODE_ENV=test) where it would only noise up CI logs.
-  if (env === "production" || env === "test") return;
   // biome-ignore lint/suspicious/noConsole: dev-only authoring hint
   console.warn(
     `[kumiko] Settings-Hub: ${unplaced.join(", ")} nicht in einer App-Workspace platziert — ` +
@@ -216,9 +220,6 @@ function warnUnplacedAudiences(unplaced: readonly string[]): void {
 function warnDanglingAudienceRefs(dangling: readonly string[]): void {
   // skip: no dangling refs — nothing to warn about
   if (dangling.length === 0) return;
-  const env = typeof process !== "undefined" ? process.env.NODE_ENV : undefined;
-  // skip: dev-only authoring hint — silent in production and in tests
-  if (env === "production" || env === "test") return;
   // biome-ignore lint/suspicious/noConsole: dev-only authoring hint
   console.warn(
     `[kumiko] Settings-Hub: ${dangling

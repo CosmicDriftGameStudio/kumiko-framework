@@ -206,19 +206,14 @@ describe("buildAppSchema — dangling audience-ref dev-warning (#408/3)", () => 
   // (the boot-validator exempts the audience QNs), but the entry renders
   // invisibly — the dev must see a warning, not silently nothing.
   function warnsFor(scopes: string[]): string[] {
-    const prevEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = "development";
     const warn = spyOn(console, "warn").mockImplementation(() => {});
     try {
-      buildAppSchema(createRegistry([placingShell(...scopes), billing]));
+      buildAppSchema(createRegistry([placingShell(...scopes), billing]), {
+        authoringWarnings: true,
+      });
       return warn.mock.calls.map((c) => String(c[0]));
     } finally {
       warn.mockRestore();
-      if (prevEnv === undefined) {
-        delete process.env.NODE_ENV;
-      } else {
-        process.env.NODE_ENV = prevEnv;
-      }
     }
   }
 
@@ -235,9 +230,7 @@ describe("buildAppSchema — dangling audience-ref dev-warning (#408/3)", () => 
     expect(messages.some((m) => m.includes("nie generiert"))).toBe(false);
   });
 
-  test("authoring warnings are suppressed under NODE_ENV=test — no CI-log noise (#408/1)", () => {
-    // bun:test sets NODE_ENV=test; an unplaced audience (tenant left over by
-    // placingShell("system")) must NOT emit a console.warn into CI logs.
+  test("authoring warnings are off by default — tests/prod boot stay silent", () => {
     const warn = spyOn(console, "warn").mockImplementation(() => {});
     try {
       buildAppSchema(createRegistry([placingShell("system"), billing]));
