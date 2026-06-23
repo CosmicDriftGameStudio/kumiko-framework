@@ -1,5 +1,11 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.87.1
+
+### Patch Changes
+
+- cb2abcd: Session bootstrap only mounts behind SessionAuthGate so public SPA gates (e.g. `/rechner`) no longer call `/api/auth/tenants`. Skip refresh when no `kumiko_csrf` cookie is present.
+
 ## 0.87.0
 
 ### Minor Changes
