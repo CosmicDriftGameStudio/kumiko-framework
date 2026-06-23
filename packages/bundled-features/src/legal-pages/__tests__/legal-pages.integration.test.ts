@@ -161,9 +161,20 @@ describe("legal-pages :: edge-cases", () => {
 });
 
 describe("legal-pages :: cache-control", () => {
-  test("sets public cache header for 5min", async () => {
+  test("sets revalidate cache header + etag", async () => {
     const res = await stack.app.request("/legal/impressum");
-    expect(res.headers.get("cache-control")).toBe("public, max-age=300");
+    expect(res.headers.get("cache-control")).toBe("public, max-age=0, must-revalidate");
+    expect(res.headers.get("etag")).toBeTruthy();
+  });
+
+  test("If-None-Match → 304 when content unchanged", async () => {
+    const first = await stack.app.request("/legal/impressum");
+    const etag = first.headers.get("etag");
+    expect(etag).toBeTruthy();
+    const second = await stack.app.request("/legal/impressum", {
+      headers: { "if-none-match": etag ?? "" },
+    });
+    expect(second.status).toBe(304);
   });
 });
 

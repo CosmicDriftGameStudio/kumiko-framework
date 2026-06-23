@@ -361,6 +361,43 @@ describe("runProdApp", () => {
     const res = await handle.fetch(new Request("http://test/robots.txt"));
     expect(res.status).toBe(200);
     expect(await res.text()).toContain("User-agent: *");
+    expect(res.headers.get("etag")).toBeTruthy();
+  });
+
+  test("static-fallback: If-None-Match → 304 on disk file", async () => {
+    const tmpStaticDir = await createTempStaticDir({
+      "robots.txt": "User-agent: *\nAllow: /",
+      "index.html": "<html>SPA shell</html>",
+    });
+
+    const handle = await boot(undefined, { staticDir: tmpStaticDir });
+    const first = await handle.fetch(new Request("http://test/robots.txt"));
+    const etag = first.headers.get("etag");
+    expect(etag).toBeTruthy();
+
+    const second = await handle.fetch(
+      new Request("http://test/robots.txt", { headers: { "if-none-match": etag ?? "" } }),
+    );
+    expect(second.status).toBe(304);
+    expect(await second.text()).toBe("");
+  });
+
+  test("static-fallback: If-None-Match → 304 on SPA index.html", async () => {
+    const tmpStaticDir = await createTempStaticDir({
+      "index.html": "<html>SPA shell</html>",
+    });
+
+    const handle = await boot(undefined, { staticDir: tmpStaticDir });
+    const first = await handle.fetch(new Request("http://test/some/spa/route"));
+    const etag = first.headers.get("etag");
+    expect(etag).toBeTruthy();
+
+    const second = await handle.fetch(
+      new Request("http://test/some/spa/route", {
+        headers: { "if-none-match": etag ?? "" },
+      }),
+    );
+    expect(second.status).toBe(304);
   });
 
   test("static-fallback: unknown path → SPA-fallback to index.html", async () => {

@@ -30,6 +30,8 @@ export const bySlugQuery = defineQueryHandler({
       body: row.body,
       description: row.description,
       ogImage: row.ogImage,
+      version: row.version,
+      updatedAt: row.updatedAt,
     };
   },
 });

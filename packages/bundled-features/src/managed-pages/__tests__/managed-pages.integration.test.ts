@@ -142,12 +142,23 @@ describe("managed-pages :: Cross-Tenant-Isolation", () => {
 });
 
 describe("managed-pages :: Cache + Security-Header", () => {
-  test("Vary: Host + CSP/Hardening-Header", async () => {
+  test("Vary: Host + CSP/Hardening-Header + revalidate cache", async () => {
     const res = await stack.app.request("http://a.example.com/p/about");
     expect(res.headers.get("vary")).toBe("Host");
-    expect(res.headers.get("cache-control")).toBe("public, max-age=300");
+    expect(res.headers.get("cache-control")).toBe("public, max-age=0, must-revalidate");
+    expect(res.headers.get("etag")).toBeTruthy();
     expect(res.headers.get("content-security-policy")).toContain("script-src 'none'");
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+  });
+
+  test("If-None-Match → 304 when page unchanged", async () => {
+    const first = await stack.app.request("http://a.example.com/p/about");
+    const etag = first.headers.get("etag");
+    expect(etag).toBeTruthy();
+    const second = await stack.app.request("http://a.example.com/p/about", {
+      headers: { "if-none-match": etag ?? "" },
+    });
+    expect(second.status).toBe(304);
   });
 });
 

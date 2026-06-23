@@ -44,7 +44,14 @@ import {
 import { createSessionCallbacks } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { UserQueries } from "@cosmicdrift/kumiko-bundled-features/user";
-import { createSseBroker, type SseBroker } from "@cosmicdrift/kumiko-framework/api";
+import {
+  type CachePolicy,
+  cachedResponse,
+  computeStrongEtag,
+  computeWeakEtag,
+  createSseBroker,
+  type SseBroker,
+} from "@cosmicdrift/kumiko-framework/api";
 import { createDbConnection, type DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import {
   buildAppSchema,
@@ -1022,15 +1029,36 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
 // ~1 MB.
 async function readStaticFile(
   filePath: string,
-): Promise<{ readonly bytes: Uint8Array; readonly mime: string } | undefined> {
+): Promise<
+  { readonly bytes: Uint8Array; readonly mime: string; readonly mtimeMs: number } | undefined
+> {
   try {
-    const { readFile } = await import("node:fs/promises");
-    const bytes = await readFile(filePath);
-    return { bytes, mime: mimeTypeFor(filePath) };
+    const { readFile, stat } = await import("node:fs/promises");
+    const [bytes, fileStat] = await Promise.all([readFile(filePath), stat(filePath)]);
+    return { bytes, mime: mimeTypeFor(filePath), mtimeMs: fileStat.mtimeMs };
   } catch (err) {
     if ((err as { code?: string }).code === "ENOENT") return undefined;
     throw err;
   }
+}
+
+function serveDiskFile(
+  req: Request,
+  pathname: string,
+  file: {
+    readonly bytes: Uint8Array;
+    readonly mime: string;
+    readonly mtimeMs: number;
+  },
+): Response {
+  return cachedResponse(req, {
+    // @cast-boundary bun-types — Response BodyInit narrowing
+    body: file.bytes as unknown as BodyInit,
+    etag: computeWeakEtag(file.mtimeMs, file.bytes.byteLength),
+    cache: staticCachePolicy(pathname),
+    headers: { "content-type": file.mime },
+    lastModified: new Date(file.mtimeMs),
+  });
 }
 
 // Minimal-Mime-Map — deckt die Files ab die kumiko-build und typische
@@ -1085,7 +1113,7 @@ function buildStaticFallback(
   async function readHtmlFile(
     path: string,
     injectSchemaInto: boolean,
-  ): Promise<{ bytes: ArrayBuffer; mime: string } | null> {
+  ): Promise<{ bytes: ArrayBuffer; mime: string; etag: string; mtimeMs: number } | null> {
     const file = await readStaticFile(path);
     if (!file) return null;
     if (!injectSchemaInto) {
@@ -1095,11 +1123,34 @@ function buildStaticFallback(
           file.bytes.byteOffset + file.bytes.byteLength,
         ) as ArrayBuffer,
         mime: file.mime,
+        etag: computeWeakEtag(file.mtimeMs, file.bytes.byteLength),
+        mtimeMs: file.mtimeMs,
       };
     }
     const text = new TextDecoder().decode(file.bytes);
     const injected = injectSchema(text, appSchemaJson);
-    return { bytes: new TextEncoder().encode(injected).buffer as ArrayBuffer, mime: file.mime };
+    const bytes = new TextEncoder().encode(injected).buffer as ArrayBuffer;
+    return {
+      bytes,
+      mime: file.mime,
+      etag: computeStrongEtag(new Uint8Array(bytes)),
+      mtimeMs: file.mtimeMs,
+    };
+  }
+
+  function serveHtmlFile(
+    req: Request,
+    pathname: string,
+    html: { bytes: ArrayBuffer; mime: string; etag: string; mtimeMs: number },
+    extraHeaders?: Record<string, string>,
+  ): Response {
+    return cachedResponse(req, {
+      body: html.bytes,
+      etag: html.etag,
+      cache: staticCachePolicy(pathname),
+      headers: { "content-type": html.mime, ...extraHeaders },
+      lastModified: new Date(html.mtimeMs),
+    });
   }
 
   // hostDispatch konsultieren wenn gesetzt UND der Request auf den
@@ -1128,12 +1179,9 @@ function buildStaticFallback(
       // Liefer 500 statt silent-404 damit der Bug schnell auffällt.
       return new Response(`hostDispatch: file not found: ${result.file}`, { status: 500 });
     }
-    const headers: Record<string, string> = {
-      ...cacheHeadersFor("/index.html"),
-      "content-type": html.mime,
-    };
-    if (result.csp) headers["content-security-policy"] = result.csp;
-    return new Response(html.bytes, { headers });
+    const extraHeaders: Record<string, string> = {};
+    if (result.csp) extraHeaders["content-security-policy"] = result.csp;
+    return serveHtmlFile(req, "/index.html", html, extraHeaders);
   }
 
   return async (req: Request): Promise<Response> => {
@@ -1171,10 +1219,7 @@ function buildStaticFallback(
       const filePath = `${staticDir}/${relPath}`;
       const file = await readStaticFile(filePath);
       if (file) {
-        // @cast-boundary bun-types — Response BodyInit narrowing
-        return new Response(file.bytes as unknown as BodyInit, {
-          headers: { ...cacheHeadersFor(url.pathname), "content-type": file.mime },
-        });
+        return serveDiskFile(req, url.pathname, file);
       }
     }
 
@@ -1186,9 +1231,7 @@ function buildStaticFallback(
     // Default Single-App-Pfad: index.html, schema injected.
     const index = await readHtmlFile(indexHtml, true);
     if (index) {
-      return new Response(index.bytes, {
-        headers: { ...cacheHeadersFor("/index.html"), "content-type": index.mime },
-      });
+      return serveHtmlFile(req, "/index.html", index);
     }
 
     // Kein Hono-Match, keine Disk-Datei, kein index.html → liefer den
@@ -1197,16 +1240,16 @@ function buildStaticFallback(
   };
 }
 
-// Map URL-Pfad → Cache-Control. Hashed-Asset-Pfade (/assets/*) sind
-// unveränderlich, der Rest bleibt no-cache damit Updates ohne Hard-
-// Reload greifen. Exported für Unit-Tests; Konsumenten gehen via
+// Map URL-Pfad → Cache-Policy. Hashed-Asset-Pfade (/assets/*) sind
+// unveränderlich, der Rest bleibt revalidate/no-cache damit Updates ohne
+// Hard-Reload greifen. Exported für Unit-Tests; Konsumenten gehen via
 // runProdApp.
-export function cacheHeadersFor(pathname: string): Record<string, string> {
+export function staticCachePolicy(pathname: string): CachePolicy {
   if (pathname.startsWith(`/${ASSETS_DIR}/`)) {
-    return { "cache-control": "public, max-age=31536000, immutable" };
+    return { kind: "immutable" };
   }
   if (pathname === "/" || pathname === "/index.html") {
-    return { "cache-control": "no-cache, must-revalidate" };
+    return { kind: "revalidate" };
   }
   if (
     pathname === "/manifest.json" ||
@@ -1216,9 +1259,9 @@ export function cacheHeadersFor(pathname: string): Record<string, string> {
     // UpdateChecker eine veraltete id.
     pathname === "/build-info.json"
   ) {
-    return { "cache-control": "no-cache" };
+    return { kind: "no-cache" };
   }
-  return {};
+  return { kind: "none" };
 }
 
 function buildProdSessionAuth(

@@ -2,14 +2,15 @@ import {
   requireTextContent,
   type TextContentApi,
 } from "@cosmicdrift/kumiko-bundled-features/text-content";
+import { computeRevisionEtag } from "@cosmicdrift/kumiko-framework/api";
 import {
   defineFeature,
   type FeatureDefinition,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { cachedSecurePageResponse } from "../page-render";
 import { LEGAL_REQUIRED_BLOCKS, LEGAL_ROUTES } from "./constants";
 import { renderMarkdownToHtml, wrapInLayout } from "./markdown";
-import { securePageHeaders } from "./security-headers";
 
 // QN-Konstante als dokumentierter Public-Contract des text-content-
 // Features. Ein magic-string statt eines Code-Imports ist hier explizit
@@ -22,7 +23,7 @@ const TEXT_CONTENT_BY_SLUG_QN = "text-content:query:by-slug";
 
 // Wire-Body-Shape von /api/query — das, was bySlugQuery returnt.
 type ByslugQueryBody = {
-  data: { title: string; body: string | null } | null;
+  data: { title: string; body: string | null; updatedAt: string } | null;
 };
 
 // legal-pages — Opt-in-Wrapper um text-content für DACH-Compliance.
@@ -113,20 +114,32 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
             );
           }
 
+          const etag = computeRevisionEtag([
+            SYSTEM_TENANT_ID,
+            route.slug,
+            route.lang,
+            data.updatedAt,
+          ]);
+          const notModified = cachedSecurePageResponse(c.req.raw, {
+            body: null,
+            etag,
+            cache: { kind: "revalidate" },
+            extra: { "content-type": "text/html; charset=utf-8" },
+          });
+          if (notModified.status === 304) return notModified;
+
           const html = wrapLayout({
             title: data.title || route.titleFallback,
             bodyHtml: renderMarkdownToHtml(data.body),
             lang: route.lang,
           });
 
-          return c.body(
-            html,
-            200,
-            securePageHeaders({
-              "content-type": "text/html; charset=utf-8",
-              "cache-control": "public, max-age=300",
-            }),
-          );
+          return cachedSecurePageResponse(c.req.raw, {
+            body: html,
+            etag,
+            cache: { kind: "revalidate" },
+            extra: { "content-type": "text/html; charset=utf-8" },
+          });
         },
       });
     }
