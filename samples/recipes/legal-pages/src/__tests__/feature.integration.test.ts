@@ -115,6 +115,6 @@ describe("legal-pages sample", () => {
 
   test("Cache-Header zeigt 5min public-cache", async () => {
     const res = await stack.app.request("/legal/impressum");
-    expect(res.headers.get("cache-control")).toBe("public, max-age=300");
+    expect(res.headers.get("cache-control")).toBe("public, max-age=0, must-revalidate");
   });
 });

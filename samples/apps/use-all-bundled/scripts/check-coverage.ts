@@ -36,6 +36,7 @@ const EXPECTED_HELD_BACK = new Set([
   "auth-email-password", // auto-mounted via composeFeatures(authOptions)
   "files-provider-s3", // utility (createS3Provider helpers), kein defineFeature
   "foundation-shared", // utilities (requireDefined/requireNonEmpty), kein feature
+  "page-render", // shared HTML render/cache helpers (legal/managed-pages), kein defineFeature
 ]);
 
 // Sub-paths in bundled-features's package.json exports (./tenant/seeding,

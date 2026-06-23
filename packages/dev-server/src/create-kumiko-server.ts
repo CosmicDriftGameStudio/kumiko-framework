@@ -719,7 +719,7 @@ export async function createKumikoServer(
   // dev-server injiziert das in jede HTML-Response. Re-build NICHT
   // bei Hot-Reload weil sich Feature-Defs nur über einen restart
   // ändern.
-  const appSchemaJson = JSON.stringify(buildAppSchema(stack.registry));
+  const appSchemaJson = JSON.stringify(buildAppSchema(stack.registry, { authoringWarnings: true }));
 
   // --- SSE reload ---
   // bootId identifiziert diese spezifische Server-Process-Instanz. Wird

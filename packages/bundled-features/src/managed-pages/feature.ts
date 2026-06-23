@@ -1,3 +1,4 @@
+import { computeRevisionEtag } from "@cosmicdrift/kumiko-framework/api";
 import {
   defineEntityCreateHandler,
   defineEntityDeleteHandler,
@@ -9,9 +10,9 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   type BrandingTokens,
+  cachedSecurePageResponse,
   EMPTY_BRANDING,
   renderSafeMarkdown,
-  securePageHeaders,
   wrapInLayout,
 } from "../page-render";
 import { BRANDING_KEYS, BRANDING_QUERY_QN, CUSTOM_CSS_KEY, coerceBranding } from "./branding";
@@ -40,8 +41,22 @@ type ByslugQueryBody = {
     lang: string;
     description: string | null;
     ogImage: string | null;
+    version: number;
+    updatedAt: string;
   } | null;
 };
+
+function brandingRevisionSeed(branding: BrandingTokens): string {
+  return JSON.stringify([
+    branding.title,
+    branding.description,
+    branding.siteUrl,
+    branding.accentColor,
+    branding.logoUrl,
+    branding.layoutPreset,
+    branding.customCss,
+  ]);
+}
 
 // Parse the branding query's `{ data }` envelope into BrandingTokens, never
 // throwing: a non-ok status or malformed body degrades to the unbranded
@@ -221,6 +236,26 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
 
         const branding = await readBrandingResponse(brandingRes);
 
+        const etag = computeRevisionEtag([
+          tenantId,
+          slug,
+          lang,
+          String(data.version),
+          data.updatedAt,
+          brandingRevisionSeed(branding),
+        ]);
+        const pageHeaders = {
+          "content-type": "text/html; charset=utf-8",
+          vary: "Host",
+        } as const;
+        const notModified = cachedSecurePageResponse(c.req.raw, {
+          body: null,
+          etag,
+          cache: { kind: "revalidate" },
+          extra: pageHeaders,
+        });
+        if (notModified.status === 304) return notModified;
+
         const html = wrapLayout({
           title: data.title,
           bodyHtml: renderSafeMarkdown(data.body),
@@ -231,18 +266,12 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
           branding,
         });
 
-        // Vary: Host — per-Tenant-Content darf nicht von einem shared CDN
-        // nur unter dem Pfad gecached werden (sonst Tenant A's Page auf
-        // Tenant B's Domain). Cache keyed mit auf den Host.
-        return c.body(
-          html,
-          200,
-          securePageHeaders({
-            "content-type": "text/html; charset=utf-8",
-            "cache-control": "public, max-age=300",
-            vary: "Host",
-          }),
-        );
+        return cachedSecurePageResponse(c.req.raw, {
+          body: html,
+          etag,
+          cache: { kind: "revalidate" },
+          extra: pageHeaders,
+        });
       },
     });
 
