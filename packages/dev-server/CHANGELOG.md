@@ -1,5 +1,17 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.87.0
+
+### Minor Changes
+
+- c0cbfb5: Add HTTP cache helpers (`cachedResponse`, ETag computation, `CachePolicy`) to `@cosmicdrift/kumiko-framework/api` and wire them into prod static-fallback plus `legal-pages` / `managed-pages` public HTML routes.
+
+### Patch Changes
+
+- Updated dependencies [c0cbfb5]
+  - @cosmicdrift/kumiko-framework@0.87.0
+  - @cosmicdrift/kumiko-bundled-features@0.87.0
+
 ## 0.86.0
 
 ### Patch Changes
