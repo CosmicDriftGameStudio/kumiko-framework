@@ -27,6 +27,7 @@ import {
   createSystemUser,
   defineWriteHandler,
   type SessionUser,
+  stripForbiddenMembershipRoles,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
@@ -160,7 +161,7 @@ export function createInviteSignupCompleteHandler() {
         const session: SessionUser = {
           id: userId,
           tenantId: invitationTenantId,
-          roles: [invitationRole],
+          roles: stripForbiddenMembershipRoles([invitationRole]),
         };
 
         committed = true;

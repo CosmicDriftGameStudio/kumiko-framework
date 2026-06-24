@@ -251,3 +251,46 @@ describe("multi-roles: switch-tenant erhält globale rollen", () => {
     expect(switchBody.roles).toEqual(["User"]);
   });
 });
+
+// Read-time backstop (engine/membership-roles): the write paths reject reserved
+// roles at command time, but a projection rebuild replays stored membership
+// events through the apply path, bypassing that check. addMembership inserts
+// straight into the projection table — the same shape a rebuild would produce —
+// so a forbidden role lands in the membership without going through a handler.
+// Every JWT mint must strip it; globalRoles must survive untouched.
+describe("multi-roles: reserved membership role stripped at the mint", () => {
+  test("login: resurrected ['SystemAdmin'] in membership → stripped, ['Admin'] survives", async () => {
+    const userId = await seedUser("resurrect@example.com", "pw-long-enough");
+    await addMembership(userId, tenantA, ["SystemAdmin", "Admin"]);
+
+    const { user } = await login("resurrect@example.com", "pw-long-enough");
+    expect(user.roles).toEqual(["Admin"]);
+    expect(user.roles).not.toContain("SystemAdmin");
+  });
+
+  test("login: global SystemAdmin survives even when membership repeats it", async () => {
+    const userId = await seedUser("realadmin@example.com", "pw-long-enough", ["SystemAdmin"]);
+    await addMembership(userId, tenantA, ["SystemAdmin", "Admin"]);
+
+    const { user } = await login("realadmin@example.com", "pw-long-enough");
+    expect(user.roles.sort()).toEqual(["Admin", "SystemAdmin"]);
+  });
+
+  test("switch-tenant: resurrected ['SystemAdmin'] on target tenant → stripped", async () => {
+    const userId = await seedUser("resurrect2@example.com", "pw-long-enough");
+    await addMembership(userId, tenantA, ["Admin"]);
+    await addMembership(userId, tenantB, ["SystemAdmin", "User"]);
+
+    const { token } = await login("resurrect2@example.com", "pw-long-enough");
+    const switchRes = await stack.http.raw(
+      "POST",
+      "/api/auth/switch-tenant",
+      { tenantId: tenantB },
+      { authorization: `Bearer ${token}` },
+    );
+    expect(switchRes.status).toBe(200);
+    const switchBody = (await switchRes.json()) as { roles: string[] };
+    expect(switchBody.roles).toEqual(["User"]);
+    expect(switchBody.roles).not.toContain("SystemAdmin");
+  });
+});
