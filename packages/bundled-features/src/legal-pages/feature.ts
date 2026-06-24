@@ -26,6 +26,11 @@ type ByslugQueryBody = {
   data: { title: string; body: string | null; updatedAt: string } | null;
 };
 
+// Legal-Content ändert sich selten — ein 60s-Shared-Cache-Fenster spart den
+// Origin-Revalidate-Roundtrip (jeder 304 re-runt sonst die Content-Query),
+// ohne dass Edits spürbar stale wirken.
+const PUBLIC_PAGE_CACHE = { kind: "revalidate", maxAgeSeconds: 60 } as const;
+
 // legal-pages — Opt-in-Wrapper um text-content für DACH-Compliance.
 // Liefert vier feste Public-HTML-Routes (/legal/impressum,
 // /legal/datenschutz, /legal/imprint, /legal/privacy) mit
@@ -123,7 +128,7 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
           const notModified = cachedSecurePageResponse(c.req.raw, {
             body: null,
             etag,
-            cache: { kind: "revalidate" },
+            cache: PUBLIC_PAGE_CACHE,
             extra: { "content-type": "text/html; charset=utf-8" },
           });
           if (notModified.status === 304) return notModified;
@@ -137,7 +142,7 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
           return cachedSecurePageResponse(c.req.raw, {
             body: html,
             etag,
-            cache: { kind: "revalidate" },
+            cache: PUBLIC_PAGE_CACHE,
             extra: { "content-type": "text/html; charset=utf-8" },
           });
         },

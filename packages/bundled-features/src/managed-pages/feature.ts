@@ -28,6 +28,11 @@ import { pageEntity } from "./table";
 // Alias (publicstatus = "Admin") müssen TenantAdmin granten/mappen.
 const ADMIN_ACCESS = { roles: ["TenantAdmin", "SystemAdmin"] } as const;
 
+// Published CMS-Content ändert sich selten — ein 60s-Shared-Cache-Fenster
+// spart den Origin-Revalidate-Roundtrip (jeder 304 re-runt sonst Page- +
+// Branding-Query), Edits sind nach spätestens 60s live.
+const PUBLIC_PAGE_CACHE = { kind: "revalidate", maxAgeSeconds: 60 } as const;
+
 // QN-Konstante als dokumentierter Public-Contract — der Render-Pfad ruft
 // die by-slug-Query via internem app.fetch (kein Code-Import des Handlers,
 // symmetrisch zum legal-pages-Muster).
@@ -251,7 +256,7 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
         const notModified = cachedSecurePageResponse(c.req.raw, {
           body: null,
           etag,
-          cache: { kind: "revalidate" },
+          cache: PUBLIC_PAGE_CACHE,
           extra: pageHeaders,
         });
         if (notModified.status === 304) return notModified;
@@ -269,7 +274,7 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
         return cachedSecurePageResponse(c.req.raw, {
           body: html,
           etag,
-          cache: { kind: "revalidate" },
+          cache: PUBLIC_PAGE_CACHE,
           extra: pageHeaders,
         });
       },

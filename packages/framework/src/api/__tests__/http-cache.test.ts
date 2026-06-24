@@ -41,6 +41,12 @@ describe("cacheControlHeader", () => {
     expect(cacheControlHeader({ kind: "revalidate" })).toBe("public, max-age=0, must-revalidate");
   });
 
+  test("revalidate with explicit max-age window", () => {
+    expect(cacheControlHeader({ kind: "revalidate", maxAgeSeconds: 60 })).toBe(
+      "public, max-age=60, must-revalidate",
+    );
+  });
+
   test("no-cache", () => {
     expect(cacheControlHeader({ kind: "no-cache" })).toBe("no-cache");
   });
@@ -146,5 +152,22 @@ describe("cachedResponse", () => {
       lastModified,
     });
     expect(res.status).toBe(304);
+  });
+
+  test("mismatching If-None-Match ignores If-Modified-Since (RFC 7232 §3.3)", () => {
+    const lastModified = new Date("2026-06-01T12:00:00.000Z");
+    const req = new Request("https://example.test/", {
+      headers: {
+        "if-none-match": '"stale"',
+        "if-modified-since": lastModified.toUTCString(),
+      },
+    });
+    const res = cachedResponse(req, {
+      body: "hello",
+      etag,
+      cache: { kind: "revalidate" },
+      lastModified,
+    });
+    expect(res.status).toBe(200);
   });
 });

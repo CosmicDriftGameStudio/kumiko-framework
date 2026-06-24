@@ -163,7 +163,7 @@ describe("legal-pages :: edge-cases", () => {
 describe("legal-pages :: cache-control", () => {
   test("sets revalidate cache header + etag", async () => {
     const res = await stack.app.request("/legal/impressum");
-    expect(res.headers.get("cache-control")).toBe("public, max-age=0, must-revalidate");
+    expect(res.headers.get("cache-control")).toBe("public, max-age=60, must-revalidate");
     expect(res.headers.get("etag")).toBeTruthy();
   });
 

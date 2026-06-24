@@ -1179,7 +1179,9 @@ function buildStaticFallback(
       // Liefer 500 statt silent-404 damit der Bug schnell auffällt.
       return new Response(`hostDispatch: file not found: ${result.file}`, { status: 500 });
     }
-    const extraHeaders: Record<string, string> = {};
+    // Per-Host-Body (hostDispatch wählt die Datei nach Host) → Vary: Host,
+    // sonst darf ein Shared-Cache Tenant-As Schema an Tenant B liefern.
+    const extraHeaders: Record<string, string> = { vary: "Host" };
     if (result.csp) extraHeaders["content-security-policy"] = result.csp;
     return serveHtmlFile(req, "/index.html", html, extraHeaders);
   }
