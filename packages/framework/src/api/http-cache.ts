@@ -104,10 +104,12 @@ function buildResponseHeaders(init: CachedResponseInit): Record<string, string> 
 export function cachedResponse(req: Request, init: CachedResponseInit): Response {
   const headers = buildResponseHeaders(init);
   const ifNoneMatch = req.headers.get("if-none-match");
-  if (etagMatches(ifNoneMatch, init.etag)) {
-    return new Response(null, { status: 304, headers });
-  }
-  if (init.lastModified !== undefined) {
+  // RFC 7232 §3.3: If-None-Match present → it alone decides; ignore If-Modified-Since.
+  if (ifNoneMatch !== null) {
+    if (etagMatches(ifNoneMatch, init.etag)) {
+      return new Response(null, { status: 304, headers });
+    }
+  } else if (init.lastModified !== undefined) {
     const ifModifiedSince = req.headers.get("if-modified-since");
     if (ifModifiedSince !== null && isNotModifiedSince(ifModifiedSince, init.lastModified)) {
       return new Response(null, { status: 304, headers });

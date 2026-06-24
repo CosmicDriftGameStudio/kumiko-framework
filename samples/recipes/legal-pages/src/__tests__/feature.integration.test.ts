@@ -113,8 +113,8 @@ describe("legal-pages sample", () => {
     expect(body).toContain("<strong>Marc Frost</strong>");
   });
 
-  test("Cache-Header zeigt 5min public-cache", async () => {
+  test("Cache-Header zeigt 60s public-cache", async () => {
     const res = await stack.app.request("/legal/impressum");
-    expect(res.headers.get("cache-control")).toBe("public, max-age=0, must-revalidate");
+    expect(res.headers.get("cache-control")).toBe("public, max-age=60, must-revalidate");
   });
 });

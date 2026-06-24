@@ -1,4 +1,4 @@
-import { computeRevisionEtag } from "@cosmicdrift/kumiko-framework/api";
+import { computeRevisionEtag, etagMatches } from "@cosmicdrift/kumiko-framework/api";
 import {
   defineEntityCreateHandler,
   defineEntityDeleteHandler,
@@ -27,6 +27,11 @@ import { pageEntity } from "./table";
 // (app-weite Pages). Spiegelt set.write's ACL — Apps mit eigenem Rollen-
 // Alias (publicstatus = "Admin") müssen TenantAdmin granten/mappen.
 const ADMIN_ACCESS = { roles: ["TenantAdmin", "SystemAdmin"] } as const;
+
+// Published CMS-Content ändert sich selten — ein 60s-Shared-Cache-Fenster
+// spart den Origin-Revalidate-Roundtrip (jeder 304 re-runt sonst Page- +
+// Branding-Query), Edits sind nach spätestens 60s live.
+const PUBLIC_PAGE_CACHE = { kind: "revalidate", maxAgeSeconds: 60 } as const;
 
 // QN-Konstante als dokumentierter Public-Contract — der Render-Pfad ruft
 // die by-slug-Query via internem app.fetch (kein Code-Import des Handlers,
@@ -248,13 +253,16 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
           "content-type": "text/html; charset=utf-8",
           vary: "Host",
         } as const;
-        const notModified = cachedSecurePageResponse(c.req.raw, {
-          body: null,
-          etag,
-          cache: { kind: "revalidate" },
-          extra: pageHeaders,
-        });
-        if (notModified.status === 304) return notModified;
+        // 304 (Revision unverändert) und HEAD überspringen beide das
+        // Markdown-Rendern — der Body wird ohnehin verworfen.
+        if (etagMatches(c.req.raw.headers.get("if-none-match"), etag) || c.req.method === "HEAD") {
+          return cachedSecurePageResponse(c.req.raw, {
+            body: null,
+            etag,
+            cache: PUBLIC_PAGE_CACHE,
+            extra: pageHeaders,
+          });
+        }
 
         const html = wrapLayout({
           title: data.title,
@@ -269,7 +277,7 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
         return cachedSecurePageResponse(c.req.raw, {
           body: html,
           etag,
-          cache: { kind: "revalidate" },
+          cache: PUBLIC_PAGE_CACHE,
           extra: pageHeaders,
         });
       },

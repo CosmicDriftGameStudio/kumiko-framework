@@ -2,7 +2,7 @@ import {
   requireTextContent,
   type TextContentApi,
 } from "@cosmicdrift/kumiko-bundled-features/text-content";
-import { computeRevisionEtag } from "@cosmicdrift/kumiko-framework/api";
+import { computeRevisionEtag, etagMatches } from "@cosmicdrift/kumiko-framework/api";
 import {
   defineFeature,
   type FeatureDefinition,
@@ -25,6 +25,11 @@ const TEXT_CONTENT_BY_SLUG_QN = "text-content:query:by-slug";
 type ByslugQueryBody = {
   data: { title: string; body: string | null; updatedAt: string } | null;
 };
+
+// Legal-Content ändert sich selten — ein 60s-Shared-Cache-Fenster spart den
+// Origin-Revalidate-Roundtrip (jeder 304 re-runt sonst die Content-Query),
+// ohne dass Edits spürbar stale wirken.
+const PUBLIC_PAGE_CACHE = { kind: "revalidate", maxAgeSeconds: 60 } as const;
 
 // legal-pages — Opt-in-Wrapper um text-content für DACH-Compliance.
 // Liefert vier feste Public-HTML-Routes (/legal/impressum,
@@ -120,13 +125,20 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
             route.lang,
             data.updatedAt,
           ]);
-          const notModified = cachedSecurePageResponse(c.req.raw, {
-            body: null,
-            etag,
-            cache: { kind: "revalidate" },
-            extra: { "content-type": "text/html; charset=utf-8" },
-          });
-          if (notModified.status === 304) return notModified;
+          const extra = { "content-type": "text/html; charset=utf-8" };
+          // 304 (Revision unverändert) und HEAD überspringen beide das
+          // Markdown-Rendern — der Body wird ohnehin verworfen.
+          if (
+            etagMatches(c.req.raw.headers.get("if-none-match"), etag) ||
+            c.req.method === "HEAD"
+          ) {
+            return cachedSecurePageResponse(c.req.raw, {
+              body: null,
+              etag,
+              cache: PUBLIC_PAGE_CACHE,
+              extra,
+            });
+          }
 
           const html = wrapLayout({
             title: data.title || route.titleFallback,
@@ -137,8 +149,8 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
           return cachedSecurePageResponse(c.req.raw, {
             body: html,
             etag,
-            cache: { kind: "revalidate" },
-            extra: { "content-type": "text/html; charset=utf-8" },
+            cache: PUBLIC_PAGE_CACHE,
+            extra,
           });
         },
       });
