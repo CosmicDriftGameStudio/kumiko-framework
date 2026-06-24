@@ -27,6 +27,7 @@ const SUMMARY_SECTION_RE =
 export type SampleIndexOverride = {
   readonly primarySample: string;
   readonly whenToUse: string;
+  readonly sampleBlurb: string;
   readonly screenshot?: string | null;
 };
 
@@ -38,6 +39,7 @@ export type SampleIndexFeature = {
   readonly readmeSummary?: string;
   readonly primarySample?: string;
   readonly whenToUse?: string;
+  readonly sampleBlurb?: string;
   readonly screenshot?: string | null;
 };
 
@@ -53,6 +55,7 @@ type MutableFeatureRow = {
   readmeSummary?: string;
   primarySample?: string;
   whenToUse?: string;
+  sampleBlurb?: string;
   screenshot?: string | null;
 };
 
@@ -236,6 +239,7 @@ export function buildSampleIndex(): SampleIndex {
       ...(readmeSummary ? { readmeSummary } : {}),
       ...(override?.primarySample ? { primarySample: override.primarySample } : {}),
       ...(override?.whenToUse ? { whenToUse: override.whenToUse } : {}),
+      ...(override?.sampleBlurb ? { sampleBlurb: override.sampleBlurb } : {}),
       ...(override && "screenshot" in override ? { screenshot: override.screenshot ?? null } : {}),
     };
   }
