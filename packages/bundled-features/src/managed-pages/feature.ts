@@ -256,7 +256,12 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
         // 304 (Revision unverändert) und HEAD überspringen beide das
         // Markdown-Rendern — der Body wird ohnehin verworfen.
         if (etagMatches(c.req.raw.headers.get("if-none-match"), etag) || c.req.method === "HEAD") {
-          return cachedSecurePageResponse(c.req.raw, { body: null, etag, cache: PUBLIC_PAGE_CACHE, extra: pageHeaders });
+          return cachedSecurePageResponse(c.req.raw, {
+            body: null,
+            etag,
+            cache: PUBLIC_PAGE_CACHE,
+            extra: pageHeaders,
+          });
         }
 
         const html = wrapLayout({
@@ -269,7 +274,12 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
           branding,
         });
 
-        return cachedSecurePageResponse(c.req.raw, { body: html, etag, cache: PUBLIC_PAGE_CACHE, extra: pageHeaders });
+        return cachedSecurePageResponse(c.req.raw, {
+          body: html,
+          etag,
+          cache: PUBLIC_PAGE_CACHE,
+          extra: pageHeaders,
+        });
       },
     });
 
