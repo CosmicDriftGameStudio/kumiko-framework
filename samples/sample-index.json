@@ -18,21 +18,30 @@
         "apps-cap-billing-demo"
       ],
       "hasVisualOutput": false,
-      "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block."
+      "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block.",
+      "primarySample": "apps-cap-billing-demo",
+      "whenToUse": "Subscriptions run through Stripe or Mollie — billing-foundation hosts the provider plugins, normalizes webhook events, and writes tier state your app reads via tier-engine.",
+      "screenshot": null
     },
     "cap-counter": {
       "samples": [
         "apps-cap-billing-demo"
       ],
       "hasVisualOutput": false,
-      "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block."
+      "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block.",
+      "primarySample": "apps-cap-billing-demo",
+      "whenToUse": "Usage must be metered per tenant and plan — wrap handlers with withCapEnforcement to soft-warn admins and hard-block overages against calendar-period counters.",
+      "screenshot": null
     },
     "channel-email": {
       "samples": [
         "apps-cap-billing-demo"
       ],
       "hasVisualOutput": false,
-      "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block."
+      "readmeSummary": "Declarative notifications:: r.notification() fires automatically after a CRUD handler — the feature author writes zero ctx.notify() calls.",
+      "primarySample": "recipes-delivery-notifications",
+      "whenToUse": "Email is a delivery channel for ctx.notify — mount channel-email on delivery with per-channel templates and a mail transport (SMTP or in-memory in tests).",
+      "screenshot": null
     },
     "compliance-profiles": {
       "samples": [
@@ -68,7 +77,10 @@
         "recipes-custom-fields-basic"
       ],
       "hasVisualOutput": false,
-      "readmeSummary": "customFieldsField(): — a jsonb column factory that holds the"
+      "readmeSummary": "customFieldsField(): — a jsonb column factory that holds the",
+      "primarySample": "recipes-custom-fields-basic",
+      "whenToUse": "Entities need tenant-defined extra columns without schema migrations — customFieldsField() stores typed extensions in jsonb with validation and CRUD wiring.",
+      "screenshot": null
     },
     "data-retention": {
       "samples": [
@@ -77,7 +89,10 @@
         "recipes-user-profile"
       ],
       "hasVisualOutput": false,
-      "readmeSummary": "Sample app showing how a Kumiko app wires **user-data-rights** (DSGVO Art. 15+17+18+20) into a custom domain — here a tiny todo-list. The domain feature only registers an `EXT_USER_DATA` hook per entity; export bundling, forget cleanup, restriction and audit-log come from `user-data-rights` itself."
+      "readmeSummary": "Sample app showing how a Kumiko app wires **user-data-rights** (DSGVO Art. 15+17+18+20) into a custom domain — here a tiny todo-list. The domain feature only registers an `EXT_USER_DATA` hook per entity; export bundling, forget cleanup, restriction and audit-log come from `user-data-rights` itself.",
+      "primarySample": "apps-user-data-rights-demo",
+      "whenToUse": "Compliance profiles require automatic expiry of old rows — data-retention runs scheduled cleanup jobs per tenant profile without hand-rolled cron in your app.",
+      "screenshot": null
     },
     "delivery": {
       "samples": [
@@ -94,21 +109,30 @@
         "apps-user-data-rights-demo"
       ],
       "hasVisualOutput": false,
-      "readmeSummary": "Sample app showing how a Kumiko app wires **user-data-rights** (DSGVO Art. 15+17+18+20) into a custom domain — here a tiny todo-list. The domain feature only registers an `EXT_USER_DATA` hook per entity; export bundling, forget cleanup, restriction and audit-log come from `user-data-rights` itself."
+      "readmeSummary": "Sample app showing how a Kumiko app wires **user-data-rights** (DSGVO Art. 15+17+18+20) into a custom domain — here a tiny todo-list. The domain feature only registers an `EXT_USER_DATA` hook per entity; export bundling, forget cleanup, restriction and audit-log come from `user-data-rights` itself.",
+      "primarySample": "apps-user-data-rights-demo",
+      "whenToUse": "File storage is pluggable (S3, in-memory, local) — file-foundation defines the provider extension point your files feature and upload handlers build on.",
+      "screenshot": null
     },
     "file-provider-inmemory": {
       "samples": [
         "apps-user-data-rights-demo"
       ],
       "hasVisualOutput": false,
-      "readmeSummary": "Sample app showing how a Kumiko app wires **user-data-rights** (DSGVO Art. 15+17+18+20) into a custom domain — here a tiny todo-list. The domain feature only registers an `EXT_USER_DATA` hook per entity; export bundling, forget cleanup, restriction and audit-log come from `user-data-rights` itself."
+      "readmeSummary": "Sample app showing how a Kumiko app wires **user-data-rights** (DSGVO Art. 15+17+18+20) into a custom domain — here a tiny todo-list. The domain feature only registers an `EXT_USER_DATA` hook per entity; export bundling, forget cleanup, restriction and audit-log come from `user-data-rights` itself.",
+      "primarySample": "apps-user-data-rights-demo",
+      "whenToUse": "Tests and local dev need file upload without S3 — in-memory provider implements the file-foundation API for integration tests and demos.",
+      "screenshot": null
     },
     "files": {
       "samples": [
         "apps-user-data-rights-demo"
       ],
       "hasVisualOutput": false,
-      "readmeSummary": "Sample app showing how a Kumiko app wires **user-data-rights** (DSGVO Art. 15+17+18+20) into a custom domain — here a tiny todo-list. The domain feature only registers an `EXT_USER_DATA` hook per entity; export bundling, forget cleanup, restriction and audit-log come from `user-data-rights` itself."
+      "readmeSummary": "Sample app showing how a Kumiko app wires **user-data-rights** (DSGVO Art. 15+17+18+20) into a custom domain — here a tiny todo-list. The domain feature only registers an `EXT_USER_DATA` hook per entity; export bundling, forget cleanup, restriction and audit-log come from `user-data-rights` itself.",
+      "primarySample": "apps-user-data-rights-demo",
+      "whenToUse": "Domain entities reference uploaded blobs via FileRef — the files feature handles metadata, signed URLs, and provider routing per tenant.",
+      "screenshot": null
     },
     "legal-pages": {
       "samples": [
@@ -125,14 +149,20 @@
         "apps-cap-billing-demo"
       ],
       "hasVisualOutput": false,
-      "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block."
+      "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block.",
+      "primarySample": "apps-cap-billing-demo",
+      "whenToUse": "Your app sends email through a pluggable transport — mail-foundation selects SMTP, in-memory, or a custom plugin per tenant via config without rewriting domain handlers.",
+      "screenshot": null
     },
     "mail-transport-inmemory": {
       "samples": [
         "apps-cap-billing-demo"
       ],
       "hasVisualOutput": false,
-      "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block."
+      "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block.",
+      "primarySample": "apps-cap-billing-demo",
+      "whenToUse": "Tests and demos need outbound mail without SMTP — in-memory transport captures messages per tenant so integration tests assert subject/body without Mailpit.",
+      "screenshot": null
     },
     "managed-pages": {
       "samples": [
@@ -152,7 +182,10 @@
         "recipes-secrets-demo"
       ],
       "hasVisualOutput": true,
-      "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block."
+      "readmeSummary": "**What this shows:** how one declarative config surface provisions everything a key needs — storage, masking, cascade, and a settings-hub entry — across two backings and two scopes, without a hand-written screen, nav, or env-wiring map.",
+      "primarySample": "recipes-managed-config",
+      "whenToUse": "API keys and tokens must live encrypted per tenant, not in env vars — secrets stores values in the DB with master-key encryption and config-gated reads.",
+      "screenshot": null
     },
     "sessions": {
       "samples": [
@@ -171,7 +204,10 @@
         "recipes-tags-basic"
       ],
       "hasVisualOutput": false,
-      "readmeSummary": "Zero host changes: — note has no tag column, no wireTagsFor, no"
+      "readmeSummary": "Zero host changes: — note has no tag column, no wireTagsFor, no",
+      "primarySample": "recipes-tags-basic",
+      "whenToUse": "Users label records with a shared tag vocabulary — mount tags once and attach tag sets to any entity without a custom join table per feature.",
+      "screenshot": null
     },
     "tenant": {
       "samples": [
@@ -234,7 +270,10 @@
         "apps-user-data-rights-demo"
       ],
       "hasVisualOutput": false,
-      "readmeSummary": "Sample app showing how a Kumiko app wires **user-data-rights** (DSGVO Art. 15+17+18+20) into a custom domain — here a tiny todo-list. The domain feature only registers an `EXT_USER_DATA` hook per entity; export bundling, forget cleanup, restriction and audit-log come from `user-data-rights` itself."
+      "readmeSummary": "Sample app showing how a Kumiko app wires **user-data-rights** (DSGVO Art. 15+17+18+20) into a custom domain — here a tiny todo-list. The domain feature only registers an `EXT_USER_DATA` hook per entity; export bundling, forget cleanup, restriction and audit-log come from `user-data-rights` itself.",
+      "primarySample": "apps-user-data-rights-demo",
+      "whenToUse": "Every app needs sensible GDPR defaults — this feature ships stock export/forget handlers and profile screens you extend with domain-specific EXT_USER_DATA hooks.",
+      "screenshot": null
     },
     "user-profile": {
       "samples": [

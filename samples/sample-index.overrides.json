@@ -4,6 +4,21 @@
     "whenToUse": "Users sign in with email and password — login, signup, verification, and password reset on your apex surface or behind AuthGate in the admin app.",
     "screenshot": "/screenshots/features/auth-login.png"
   },
+  "billing-foundation": {
+    "primarySample": "apps-cap-billing-demo",
+    "whenToUse": "Subscriptions run through Stripe or Mollie — billing-foundation hosts the provider plugins, normalizes webhook events, and writes tier state your app reads via tier-engine.",
+    "screenshot": null
+  },
+  "cap-counter": {
+    "primarySample": "apps-cap-billing-demo",
+    "whenToUse": "Usage must be metered per tenant and plan — wrap handlers with withCapEnforcement to soft-warn admins and hard-block overages against calendar-period counters.",
+    "screenshot": null
+  },
+  "channel-email": {
+    "primarySample": "recipes-delivery-notifications",
+    "whenToUse": "Email is a delivery channel for ctx.notify — mount channel-email on delivery with per-channel templates and a mail transport (SMTP or in-memory in tests).",
+    "screenshot": null
+  },
   "compliance-profiles": {
     "primarySample": "recipes-compliance-profiles-demo",
     "whenToUse": "Each tenant follows a different regulatory regime (EU, CH, HR) without forking app code — profiles drive retention, grace periods, and audit obligations.",
@@ -14,9 +29,34 @@
     "whenToUse": "Tenants need runtime-editable settings (API keys, branding, limits) with typed keys, role-gated writes, and optional encryption at rest.",
     "screenshot": "/screenshots/features/config.png"
   },
+  "custom-fields": {
+    "primarySample": "recipes-custom-fields-basic",
+    "whenToUse": "Entities need tenant-defined extra columns without schema migrations — customFieldsField() stores typed extensions in jsonb with validation and CRUD wiring.",
+    "screenshot": null
+  },
+  "data-retention": {
+    "primarySample": "apps-user-data-rights-demo",
+    "whenToUse": "Compliance profiles require automatic expiry of old rows — data-retention runs scheduled cleanup jobs per tenant profile without hand-rolled cron in your app.",
+    "screenshot": null
+  },
   "delivery": {
     "primarySample": "recipes-delivery-notifications",
     "whenToUse": "You need to notify users across email, in-app, and push from domain handlers without wiring each channel yourself — mount delivery plus the channel features and declare templates.",
+    "screenshot": null
+  },
+  "file-foundation": {
+    "primarySample": "apps-user-data-rights-demo",
+    "whenToUse": "File storage is pluggable (S3, in-memory, local) — file-foundation defines the provider extension point your files feature and upload handlers build on.",
+    "screenshot": null
+  },
+  "file-provider-inmemory": {
+    "primarySample": "apps-user-data-rights-demo",
+    "whenToUse": "Tests and local dev need file upload without S3 — in-memory provider implements the file-foundation API for integration tests and demos.",
+    "screenshot": null
+  },
+  "files": {
+    "primarySample": "apps-user-data-rights-demo",
+    "whenToUse": "Domain entities reference uploaded blobs via FileRef — the files feature handles metadata, signed URLs, and provider routing per tenant.",
     "screenshot": null
   },
   "legal-pages": {
@@ -24,14 +64,34 @@
     "whenToUse": "You ship a DACH-facing product and need Imprint and Privacy Policy as public HTML routes with a production boot check when required blocks are missing.",
     "screenshot": "/screenshots/features/legal-pages.png"
   },
+  "mail-foundation": {
+    "primarySample": "apps-cap-billing-demo",
+    "whenToUse": "Your app sends email through a pluggable transport — mail-foundation selects SMTP, in-memory, or a custom plugin per tenant via config without rewriting domain handlers.",
+    "screenshot": null
+  },
+  "mail-transport-inmemory": {
+    "primarySample": "apps-cap-billing-demo",
+    "whenToUse": "Tests and demos need outbound mail without SMTP — in-memory transport captures messages per tenant so integration tests assert subject/body without Mailpit.",
+    "screenshot": null
+  },
   "managed-pages": {
     "primarySample": "recipes-managed-pages",
     "whenToUse": "Tenants need their own public marketing or help pages with branding, Markdown bodies, and optional tier-gated custom CSS.",
     "screenshot": "/screenshots/features/managed-pages.png"
   },
+  "secrets": {
+    "primarySample": "recipes-managed-config",
+    "whenToUse": "API keys and tokens must live encrypted per tenant, not in env vars — secrets stores values in the DB with master-key encryption and config-gated reads.",
+    "screenshot": null
+  },
   "sessions": {
     "primarySample": "recipes-session-revocation",
     "whenToUse": "Logins must be revocable server-side — logout, password change, or admin force-logout should invalidate outstanding JWTs before they expire.",
+    "screenshot": null
+  },
+  "tags": {
+    "primarySample": "recipes-tags-basic",
+    "whenToUse": "Users label records with a shared tag vocabulary — mount tags once and attach tag sets to any entity without a custom join table per feature.",
     "screenshot": null
   },
   "tenant": {
@@ -58,6 +118,11 @@
     "primarySample": "recipes-user-data-rights",
     "whenToUse": "GDPR export, deletion, and restriction must work for your domain entities — register hooks once, the framework runs ZIP export and forget cleanup.",
     "screenshot": "/screenshots/features/user-data-rights.png"
+  },
+  "user-data-rights-defaults": {
+    "primarySample": "apps-user-data-rights-demo",
+    "whenToUse": "Every app needs sensible GDPR defaults — this feature ships stock export/forget handlers and profile screens you extend with domain-specific EXT_USER_DATA hooks.",
+    "screenshot": null
   },
   "user-profile": {
     "primarySample": "recipes-user-profile",
