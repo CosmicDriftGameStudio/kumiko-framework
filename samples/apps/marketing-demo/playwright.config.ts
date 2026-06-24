@@ -3,6 +3,12 @@
 // kumiko-platform/apps/marketing/public/screenshots/.
 
 import { defineConfig, devices } from "@playwright/test";
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { samplesEnvFileArg } from "../../e2e/resolve-env-file";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const ENV_ARG = samplesEnvFileArg(HERE);
 
 const PORT = 4179;
 const BASE_URL = `http://localhost:${PORT}`;
@@ -19,6 +25,7 @@ export default defineConfig({
 
   use: {
     baseURL: BASE_URL,
+    locale: "en-US",
     trace: "retain-on-failure",
     actionTimeout: 5_000,
     navigationTimeout: 15_000,
@@ -29,7 +36,7 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
 
   webServer: {
-    command: "bun --env-file=../../../.env run src/app/server.ts",
+    command: `bun ${ENV_ARG} run src/app/server.ts`.replace(/\s+/g, " ").trim(),
     url: BASE_URL,
     env: {
       PORT: String(PORT),

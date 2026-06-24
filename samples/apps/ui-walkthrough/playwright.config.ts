@@ -7,6 +7,12 @@
 // deshalb braucht's keine DB-Reset-Logik hier.
 
 import { defineConfig, devices } from "@playwright/test";
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { samplesEnvFileArg } from "../../e2e/resolve-env-file";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const ENV_ARG = samplesEnvFileArg(HERE);
 
 const PORT = 4174;
 const BASE_URL = `http://localhost:${PORT}`;
@@ -37,6 +43,7 @@ export default defineConfig({
 
   use: {
     baseURL: BASE_URL,
+    locale: "en-US",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     // Action-Timeout (click, fill etc.) — 5s ist großzügig für UI,
@@ -53,7 +60,7 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: "bun --env-file=../../../.env run src/app/server.ts",
+    command: `bun ${ENV_ARG} run src/app/server.ts`.replace(/\s+/g, " ").trim(),
     url: BASE_URL,
     // KUMIKO_DEV_DB_NAME="" zwingt setupTestStack in den ephemeral-
     // Mode (fresh kumiko_test_<random> DB pro Playwright-Run, im

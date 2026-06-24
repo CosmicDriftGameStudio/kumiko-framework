@@ -55,6 +55,8 @@
     "typecheck": "tsc --build",
     "build:apps": "bun run scripts/build-apps.ts",
     "build": "echo 'kumiko-framework: TypeScript source is published as-is (Bun resolver), no transpile step.'",
+    "gen:sample-index": "bun run samples/scripts/gen-sample-index.ts",
+    "gen:feature-screenshots": "bun run samples/scripts/gen-feature-screenshots.ts",
     "postinstall": "bun run scripts/codegen-samples.ts",
     "prepare": "husky"
   },

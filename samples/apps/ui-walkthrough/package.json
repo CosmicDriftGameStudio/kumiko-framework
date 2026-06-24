@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "PORT=4173 bun --env-file=../../../.env run kumiko-dev src/app/server.ts"
+    "dev": "PORT=4173 bun --env-file=../../../.env run kumiko-dev src/app/server.ts",
+    "screenshots": "bun x playwright test e2e/screenshots.spec.ts --config=playwright.config.ts"
   },
   "dependencies": {
     "@cosmicdrift/kumiko-bundled-features": "workspace:*",
