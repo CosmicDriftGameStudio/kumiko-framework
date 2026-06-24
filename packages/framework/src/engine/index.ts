@@ -167,6 +167,12 @@ export {
   checkWriteFieldRoles,
   filterReadFields,
 } from "./field-access";
+export {
+  FORBIDDEN_MEMBERSHIP_ROLES,
+  findForbiddenMembershipRole,
+  isForbiddenMembershipRole,
+  stripForbiddenMembershipRoles,
+} from "./membership-roles";
 export type { OwnershipClause, OwnershipMap, OwnershipRef, OwnershipRule } from "./ownership";
 export { from } from "./ownership";
 export { buildPipelineSteps, pipeline } from "./pipeline";

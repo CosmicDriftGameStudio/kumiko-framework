@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 import { deleteCookie, setCookie } from "hono/cookie";
 import { z } from "zod";
+import { stripForbiddenMembershipRoles } from "../engine/membership-roles";
 import { createSystemUser } from "../engine/system-user";
 import { type SessionUser, SYSTEM_TENANT_ID, type TenantId } from "../engine/types";
 import { NotFoundError } from "../errors";
@@ -902,7 +903,13 @@ export function createAuthRoutes(
     // tenant A accidentally surviving into tenant B's session). The
     // resolver runs each feature's r.authClaims() hook under the new
     // TenantDb scope.
-    const mergedRoles = Array.from(new Set([...globalRoles, ...membership.roles]));
+    // Strip reserved roles from the membership portion only — globalRoles
+    // (where SystemAdmin legitimately lives) is never filtered. Backstop for a
+    // membership role that a projection rebuild resurrected past command-time
+    // validation (see engine/membership-roles).
+    const mergedRoles = Array.from(
+      new Set([...globalRoles, ...stripForbiddenMembershipRoles(membership.roles)]),
+    );
     const targetSession: SessionUser = {
       id: user.id,
       tenantId: targetTenantId,
