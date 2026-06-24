@@ -1,5 +1,19 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.88.0
+
+### Minor Changes
+
+- 3ccc55e: Add read-only operator inspector screens to the `user-data-rights` feature: SystemAdmin-gated `entityList` + read-only `entityEdit` screens over the GDPR `export-job` (list + detail) and `download-attempt` (list) read-models, plus the convention `:list`/`:detail` query handlers so they resolve by QN. The screens are inert until an app navs them (opt-in at wire time). Because both entities are event-sourced `r.entity` rows, binding `entityList` is rebuild-safe — direct-write read-models like `jobs`/`sessions` still need a separate query-bound primitive (follow-up).
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.88.0
+- @cosmicdrift/kumiko-dispatcher-live@0.88.0
+- @cosmicdrift/kumiko-headless@0.88.0
+- @cosmicdrift/kumiko-renderer@0.88.0
+- @cosmicdrift/kumiko-renderer-web@0.88.0
+
 ## 0.87.3
 
 ### Patch Changes
