@@ -5,16 +5,17 @@
 // Scans samples/ for bundled-feature references and merges curated overrides.
 // docs.kumiko.rocks feature-reference reads the output (sample-index.json).
 //
-// Usage: bun run samples/scripts/gen-sample-index.ts
+// Usage: bun run scripts/gen-sample-index.ts
 
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SAMPLES_ROOT = resolve(HERE, "..");
+const APP_ROOT = resolve(HERE, "..");
+const SAMPLES_ROOT = resolve(APP_ROOT, "../..");
 const REPO_ROOT = resolve(SAMPLES_ROOT, "..");
-const MANIFEST_PATH = resolve(SAMPLES_ROOT, "apps/use-all-bundled/feature-manifest.json");
+const MANIFEST_PATH = resolve(APP_ROOT, "feature-manifest.json");
 const OVERRIDES_PATH = resolve(SAMPLES_ROOT, "sample-index.overrides.json");
 export const INDEX_PATH = resolve(SAMPLES_ROOT, "sample-index.json");
 
@@ -72,13 +73,16 @@ function sampleDirFromSlug(slug: string): string {
 function extractFeaturesFromText(text: string): Set<string> {
   const feats = new Set<string>();
   for (const m of text.matchAll(/kumiko-bundled-features\/([a-z0-9-]+)/g)) {
-    feats.add(m[1]);
+    const name = m[1];
+    if (name) feats.add(name);
   }
   for (const m of text.matchAll(/r\.requires\(\s*["']([a-z0-9-]+)["']/g)) {
-    feats.add(m[1]);
+    const name = m[1];
+    if (name) feats.add(name);
   }
   for (const m of text.matchAll(/r\.optionalRequires\(\s*["']([a-z0-9-]+)["']/g)) {
-    feats.add(m[1]);
+    const name = m[1];
+    if (name) feats.add(name);
   }
   return feats;
 }
@@ -237,7 +241,8 @@ export function buildSampleIndex(): SampleIndex {
   }
 
   return {
-    source: "samples/scripts/gen-sample-index.ts + sample-index.overrides.json",
+    source:
+      "samples/apps/use-all-bundled/scripts/gen-sample-index.ts + sample-index.overrides.json",
     featureCount: Object.keys(features).length,
     features,
   };

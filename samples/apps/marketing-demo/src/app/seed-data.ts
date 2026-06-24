@@ -373,7 +373,11 @@ export const TICKET_TEMPLATES: ReadonlyArray<TicketTemplate> = [
     category: "account",
     department: "engineering",
   },
-  { title: "Projector in conference room 3 shows red pixels", category: "hardware", department: "it" },
+  {
+    title: "Projector in conference room 3 shows red pixels",
+    category: "hardware",
+    department: "it",
+  },
   { title: "File server disk almost full", category: "hardware", department: "it" },
   { title: "AD login suddenly takes 30 seconds", category: "account", department: "it" },
   {

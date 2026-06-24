@@ -5,7 +5,7 @@ import {
   extractReadmeSummary,
   INDEX_PATH,
   serializeSampleIndex,
-} from "../../../../scripts/gen-sample-index";
+} from "../../scripts/gen-sample-index";
 
 describe("sample-index", () => {
   test("committed sample-index.json is up to date", () => {
@@ -16,13 +16,13 @@ describe("sample-index", () => {
 
   test("pilot overrides are present for docgen", () => {
     const index = buildSampleIndex();
-    const delivery = index.features.delivery;
+    const delivery = index.features["delivery"];
     expect(delivery?.primarySample).toBe("recipes-delivery-notifications");
     expect(delivery?.whenToUse).toContain("notify");
     expect(delivery?.screenshot).toBeNull();
     expect(delivery?.readmeSummary).toBeDefined();
 
-    const config = index.features.config;
+    const config = index.features["config"];
     expect(config?.primarySample).toBe("recipes-encrypted-tenant-config");
     expect(config?.hasVisualOutput).toBe(true);
   });

@@ -1,7 +1,4 @@
-import {
-  renderSafeMarkdown,
-  wrapInLayout,
-} from "@cosmicdrift/kumiko-bundled-features/page-render";
+import { renderSafeMarkdown, wrapInLayout } from "@cosmicdrift/kumiko-bundled-features/page-render";
 
 const HELP_ARTICLE = [
   "# Getting started with your tenant",

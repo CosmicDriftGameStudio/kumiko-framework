@@ -4,9 +4,9 @@
 // walkthrough-Sample — wenn das Pattern nochmal gebraucht wird, lohnt
 // sich eine Extraktion.
 
-import { defineConfig, devices } from "@playwright/test";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { defineConfig, devices } from "@playwright/test";
 import { samplesEnvFileArg } from "../../e2e/resolve-env-file";
 
 const HERE = dirname(fileURLToPath(import.meta.url));

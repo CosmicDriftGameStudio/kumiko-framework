@@ -1,12 +1,9 @@
 {
-  "source": "samples/scripts/gen-sample-index.ts + sample-index.overrides.json",
+  "source": "samples/apps/use-all-bundled/scripts/gen-sample-index.ts + sample-index.overrides.json",
   "featureCount": 26,
   "features": {
     "auth-email-password": {
-      "samples": [
-        "recipes-apex-surface-auth",
-        "recipes-user-profile"
-      ],
+      "samples": ["recipes-apex-surface-auth", "recipes-user-profile"],
       "hasVisualOutput": false,
       "readmeSummary": "Der **evidente Weg für öffentlichen Apex-Content**: die 4 Account-Flows (Login, Register, Passwort-vergessen, Konto-löschen) in der öffentlichen Apex-Präsenz einer Kumiko-App — schema-los, anonym erreichbar, ohne Admin-Nav/Topologie-Leak.",
       "primarySample": "recipes-apex-surface-auth",
@@ -14,23 +11,17 @@
       "screenshot": "/screenshots/features/auth-login.png"
     },
     "billing-foundation": {
-      "samples": [
-        "apps-cap-billing-demo"
-      ],
+      "samples": ["apps-cap-billing-demo"],
       "hasVisualOutput": false,
       "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block."
     },
     "cap-counter": {
-      "samples": [
-        "apps-cap-billing-demo"
-      ],
+      "samples": ["apps-cap-billing-demo"],
       "hasVisualOutput": false,
       "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block."
     },
     "channel-email": {
-      "samples": [
-        "apps-cap-billing-demo"
-      ],
+      "samples": ["apps-cap-billing-demo"],
       "hasVisualOutput": false,
       "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block."
     },
@@ -64,9 +55,7 @@
       "screenshot": "/screenshots/features/config.png"
     },
     "custom-fields": {
-      "samples": [
-        "recipes-custom-fields-basic"
-      ],
+      "samples": ["recipes-custom-fields-basic"],
       "hasVisualOutput": false,
       "readmeSummary": "customFieldsField(): — a jsonb column factory that holds the"
     },
@@ -80,9 +69,7 @@
       "readmeSummary": "Sample app showing how a Kumiko app wires **user-data-rights** (DSGVO Art. 15+17+18+20) into a custom domain — here a tiny todo-list. The domain feature only registers an `EXT_USER_DATA` hook per entity; export bundling, forget cleanup, restriction and audit-log come from `user-data-rights` itself."
     },
     "delivery": {
-      "samples": [
-        "recipes-delivery-notifications"
-      ],
+      "samples": ["recipes-delivery-notifications"],
       "hasVisualOutput": false,
       "readmeSummary": "Declarative notifications:: r.notification() fires automatically after a CRUD handler — the feature author writes zero ctx.notify() calls.",
       "primarySample": "recipes-delivery-notifications",
@@ -90,30 +77,22 @@
       "screenshot": null
     },
     "file-foundation": {
-      "samples": [
-        "apps-user-data-rights-demo"
-      ],
+      "samples": ["apps-user-data-rights-demo"],
       "hasVisualOutput": false,
       "readmeSummary": "Sample app showing how a Kumiko app wires **user-data-rights** (DSGVO Art. 15+17+18+20) into a custom domain — here a tiny todo-list. The domain feature only registers an `EXT_USER_DATA` hook per entity; export bundling, forget cleanup, restriction and audit-log come from `user-data-rights` itself."
     },
     "file-provider-inmemory": {
-      "samples": [
-        "apps-user-data-rights-demo"
-      ],
+      "samples": ["apps-user-data-rights-demo"],
       "hasVisualOutput": false,
       "readmeSummary": "Sample app showing how a Kumiko app wires **user-data-rights** (DSGVO Art. 15+17+18+20) into a custom domain — here a tiny todo-list. The domain feature only registers an `EXT_USER_DATA` hook per entity; export bundling, forget cleanup, restriction and audit-log come from `user-data-rights` itself."
     },
     "files": {
-      "samples": [
-        "apps-user-data-rights-demo"
-      ],
+      "samples": ["apps-user-data-rights-demo"],
       "hasVisualOutput": false,
       "readmeSummary": "Sample app showing how a Kumiko app wires **user-data-rights** (DSGVO Art. 15+17+18+20) into a custom domain — here a tiny todo-list. The domain feature only registers an `EXT_USER_DATA` hook per entity; export bundling, forget cleanup, restriction and audit-log come from `user-data-rights` itself."
     },
     "legal-pages": {
-      "samples": [
-        "recipes-legal-pages"
-      ],
+      "samples": ["recipes-legal-pages"],
       "hasVisualOutput": false,
       "readmeSummary": "DACH compliance stack: two opt-in bundled features wired up to auto-rendered Imprint + Privacy-Policy pages, with Markdown authoring and a boot check for required content.",
       "primarySample": "recipes-legal-pages",
@@ -121,23 +100,17 @@
       "screenshot": "/screenshots/features/legal-pages.png"
     },
     "mail-foundation": {
-      "samples": [
-        "apps-cap-billing-demo"
-      ],
+      "samples": ["apps-cap-billing-demo"],
       "hasVisualOutput": false,
       "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block."
     },
     "mail-transport-inmemory": {
-      "samples": [
-        "apps-cap-billing-demo"
-      ],
+      "samples": ["apps-cap-billing-demo"],
       "hasVisualOutput": false,
       "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block."
     },
     "managed-pages": {
-      "samples": [
-        "recipes-managed-pages"
-      ],
+      "samples": ["recipes-managed-pages"],
       "hasVisualOutput": false,
       "readmeSummary": "Tenant-editable, server-rendered public pages with per-tenant branding and opt-in, tier-gated **custom CSS** — the framework generalization of the `legal-pages`/`wrapLayout` render pattern, hardened for untrusted tenant input.",
       "primarySample": "recipes-managed-pages",
@@ -166,17 +139,12 @@
       "screenshot": null
     },
     "tags": {
-      "samples": [
-        "recipes-tags-basic"
-      ],
+      "samples": ["recipes-tags-basic"],
       "hasVisualOutput": false,
       "readmeSummary": "Zero host changes: — note has no tag column, no wireTagsFor, no"
     },
     "tenant": {
-      "samples": [
-        "recipes-apex-surface-auth",
-        "recipes-user-profile"
-      ],
+      "samples": ["recipes-apex-surface-auth", "recipes-user-profile"],
       "hasVisualOutput": false,
       "readmeSummary": "Self-Service-Kontoseite als bundled feature: Passwort ändern (`auth-email-password:write:change-password`), E-Mail ändern mit Re-Auth + Verification-Reset (`user-profile:write:change-email`), Konto löschen / Löschung abbrechen (`user-data-rights` mit Grace-Period).",
       "primarySample": "recipes-user-profile",
@@ -184,9 +152,7 @@
       "screenshot": "/screenshots/features/tenant.png"
     },
     "text-content": {
-      "samples": [
-        "recipes-legal-pages"
-      ],
+      "samples": ["recipes-legal-pages"],
       "hasVisualOutput": false,
       "readmeSummary": "DACH compliance stack: two opt-in bundled features wired up to auto-rendered Imprint + Privacy-Policy pages, with Markdown authoring and a boot check for required content.",
       "primarySample": "recipes-legal-pages",
@@ -194,9 +160,7 @@
       "screenshot": "/screenshots/features/text-content.png"
     },
     "tier-engine": {
-      "samples": [
-        "recipes-tier-admin"
-      ],
+      "samples": ["recipes-tier-admin"],
       "hasVisualOutput": false,
       "readmeSummary": "tier-engine:write:set-tenant-tier: — a SystemAdmin assigns a tier",
       "primarySample": "recipes-tier-admin",
@@ -229,16 +193,12 @@
       "screenshot": "/screenshots/features/user-data-rights.png"
     },
     "user-data-rights-defaults": {
-      "samples": [
-        "apps-user-data-rights-demo"
-      ],
+      "samples": ["apps-user-data-rights-demo"],
       "hasVisualOutput": false,
       "readmeSummary": "Sample app showing how a Kumiko app wires **user-data-rights** (DSGVO Art. 15+17+18+20) into a custom domain — here a tiny todo-list. The domain feature only registers an `EXT_USER_DATA` hook per entity; export bundling, forget cleanup, restriction and audit-log come from `user-data-rights` itself."
     },
     "user-profile": {
-      "samples": [
-        "recipes-user-profile"
-      ],
+      "samples": ["recipes-user-profile"],
       "hasVisualOutput": false,
       "readmeSummary": "Self-Service-Kontoseite als bundled feature: Passwort ändern (`auth-email-password:write:change-password`), E-Mail ändern mit Re-Auth + Verification-Reset (`user-profile:write:change-email`), Konto löschen / Löschung abbrechen (`user-data-rights` mit Grace-Period).",
       "primarySample": "recipes-user-profile",

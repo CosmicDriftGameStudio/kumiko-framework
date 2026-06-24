@@ -25,7 +25,12 @@ export const helpdeskFeature = defineFeature("helpdesk", (r) => {
   r.screen(ticketEditScreen);
   r.screen(ticketListScreen);
 
-  r.nav({ id: "helpdesk", label: "helpdesk:nav.list", order: 20, screen: "helpdesk:screen:ticket-list" });
+  r.nav({
+    id: "helpdesk",
+    label: "helpdesk:nav.list",
+    order: 20,
+    screen: "helpdesk:screen:ticket-list",
+  });
   r.nav({
     id: "ticket-new",
     label: "helpdesk:nav.new",

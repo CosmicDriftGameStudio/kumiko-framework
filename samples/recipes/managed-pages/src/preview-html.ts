@@ -1,8 +1,5 @@
 import type { BrandingTokens } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
-import {
-  renderSafeMarkdown,
-  wrapInLayout,
-} from "@cosmicdrift/kumiko-bundled-features/page-render";
+import { renderSafeMarkdown, wrapInLayout } from "@cosmicdrift/kumiko-bundled-features/page-render";
 
 const ABOUT_MARKDOWN = [
   "# About Acme Inc",

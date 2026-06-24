@@ -7,7 +7,8 @@
     "boot": "KUMIKO_DRY_RUN_ENV=boot bun bin/main.ts",
     "build": "kumiko-build",
     "boot:bundled": "KUMIKO_DRY_RUN_ENV=boot bun dist-server/server.js",
-    "gen:manifest": "bun run scripts/gen-feature-manifest.ts"
+    "gen:manifest": "bun run scripts/gen-feature-manifest.ts",
+    "gen:sample-index": "bun run scripts/gen-sample-index.ts"
   },
   "dependencies": {
     "@cosmicdrift/kumiko-bundled-features": "workspace:*",

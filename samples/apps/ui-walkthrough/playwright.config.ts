@@ -6,9 +6,9 @@
 // setupTestStack-Default ist ephemeral (fresh kumiko_test_<random> DB),
 // deshalb braucht's keine DB-Reset-Logik hier.
 
-import { defineConfig, devices } from "@playwright/test";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { defineConfig, devices } from "@playwright/test";
 import { samplesEnvFileArg } from "../../e2e/resolve-env-file";
 
 const HERE = dirname(fileURLToPath(import.meta.url));

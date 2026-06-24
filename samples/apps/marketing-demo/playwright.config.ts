@@ -2,9 +2,9 @@
 // echten gerenderten Pages (Asset-Tracker + Helpdesk) → cross-repo nach
 // kumiko-platform/apps/marketing/public/screenshots/.
 
-import { defineConfig, devices } from "@playwright/test";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { defineConfig, devices } from "@playwright/test";
 import { samplesEnvFileArg } from "../../e2e/resolve-env-file";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
