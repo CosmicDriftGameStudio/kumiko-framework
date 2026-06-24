@@ -34,18 +34,18 @@ export const RETENTION_PRESETS: Readonly<Record<RetentionPresetKey, RetentionPre
 
   // DSGVO Basic — Datenminimierung ohne Buchhaltungspflichten.
   "dsgvo-basic": {
-    auditLog: { keepFor: "1y", strategy: "hardDelete", reference: "createdAt" },
+    "audit-log": { keepFor: "1y", strategy: "hardDelete", reference: "createdAt" },
     session: { keepFor: "30d", strategy: "hardDelete", reference: "lastSeenAt" },
-    httpLog: { keepFor: "90d", strategy: "hardDelete", reference: "createdAt" },
+    "http-log": { keepFor: "90d", strategy: "hardDelete", reference: "createdAt" },
   },
 
   // DSGVO + HGB — deutsche Aufbewahrungspflichten überlagert. Order
   // wird anonymisiert (PII raus, Geschäftsdaten bleiben), Invoice +
   // Booking sind blockDelete bis 10 Jahre, dann Anonymize.
   "dsgvo-hgb": {
-    auditLog: { keepFor: "1y", strategy: "hardDelete", reference: "createdAt" },
+    "audit-log": { keepFor: "1y", strategy: "hardDelete", reference: "createdAt" },
     session: { keepFor: "30d", strategy: "hardDelete", reference: "lastSeenAt" },
-    httpLog: { keepFor: "90d", strategy: "hardDelete", reference: "createdAt" },
+    "http-log": { keepFor: "90d", strategy: "hardDelete", reference: "createdAt" },
     invoice: { keepFor: "10y", strategy: "blockDelete", reference: "createdAt" },
     booking: { keepFor: "10y", strategy: "blockDelete", reference: "createdAt" },
     contract: { keepFor: "6y", strategy: "blockDelete", reference: "createdAt" },
@@ -54,7 +54,7 @@ export const RETENTION_PRESETS: Readonly<Record<RetentionPresetKey, RetentionPre
 
   // Schweizer DSG — ähnlich DSGVO mit OR Art. 958f Aufbewahrung.
   "swiss-dsg": {
-    auditLog: { keepFor: "1y", strategy: "hardDelete", reference: "createdAt" },
+    "audit-log": { keepFor: "1y", strategy: "hardDelete", reference: "createdAt" },
     session: { keepFor: "30d", strategy: "hardDelete", reference: "lastSeenAt" },
     invoice: { keepFor: "10y", strategy: "blockDelete", reference: "createdAt" },
   },

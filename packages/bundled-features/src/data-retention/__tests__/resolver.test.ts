@@ -188,13 +188,13 @@ describe("resolveRetentionPolicy — Edge-Cases", () => {
 
   test("Preset hat eintrag, override hat anderen entityName → override greift NUR für seinen entityName", () => {
     const result = resolveRetentionPolicy({
-      entityName: "auditLog",
+      entityName: "audit-log",
       entityDef: null,
       tenantPreset: "dsgvo-hgb",
-      tenantOverride: null, // kein override für auditLog
+      tenantOverride: null, // kein override für audit-log
     });
 
-    // dsgvo-hgb.auditLog = 1y / hardDelete
+    // dsgvo-hgb["audit-log"] = 1y / hardDelete
     expect(result.source).toBe("preset");
     expect(result.policy?.keepFor).toBe("1y");
   });
