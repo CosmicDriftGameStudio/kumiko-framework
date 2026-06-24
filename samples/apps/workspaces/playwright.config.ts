@@ -4,7 +4,13 @@
 // walkthrough-Sample — wenn das Pattern nochmal gebraucht wird, lohnt
 // sich eine Extraktion.
 
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
+import { samplesEnvFileArg } from "../../e2e/resolve-env-file";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const ENV_ARG = samplesEnvFileArg(HERE);
 
 const PORT = 4175;
 const BASE_URL = `http://localhost:${PORT}`;
@@ -23,6 +29,7 @@ export default defineConfig({
 
   use: {
     baseURL: BASE_URL,
+    locale: "en-US",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     actionTimeout: 5_000,
@@ -37,7 +44,7 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: "bun --env-file=../../../.env run src/app/server.ts",
+    command: `bun ${ENV_ARG} run src/app/server.ts`.replace(/\s+/g, " ").trim(),
     url: BASE_URL,
     // KUMIKO_DEV_DB_NAME="" → ephemeral DB pro Playwright-Run.
     env: { PORT: String(PORT), KUMIKO_DEV_DB_NAME: "" },

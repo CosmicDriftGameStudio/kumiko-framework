@@ -33,6 +33,6 @@ export const taskFeature = defineFeature("tasks", (r) => {
   // Navs auf der Server-Seite registriert damit buildAppSchema sie ins
   // injected window.__KUMIKO_SCHEMA__ packt. NavTree resolved die i18n-
   // Keys über das clientFeature (siehe client.tsx → translations).
-  r.nav({ id: "task-list", label: "tasks.nav.list", screen: "task-list", order: 10 });
-  r.nav({ id: "task-new", label: "tasks.nav.new", screen: "task-edit", order: 20 });
+  r.nav({ id: "task-list", label: "tasks.nav.list", screen: "tasks:screen:task-list", order: 10 });
+  r.nav({ id: "task-new", label: "tasks.nav.new", screen: "tasks:screen:task-edit", order: 20 });
 });

@@ -16,6 +16,7 @@
       "!**/dist-server",
       "!**/.kumiko",
       "!**/feature-manifest.json",
+      "!**/sample-index.json",
       "!**/renderer-web/src/ui"
     ]
   },

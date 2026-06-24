@@ -8,6 +8,7 @@
 import { mkdirSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
+import { pinEnglishLocale } from "../../../e2e/pin-english-locale";
 import { SCENARIOS } from "./scenarios";
 
 const SCREENSHOT_DIR =
@@ -18,6 +19,7 @@ mkdirSync(SCREENSHOT_DIR, { recursive: true });
 
 for (const s of SCENARIOS) {
   test(`${s.name} — ${s.description}`, async ({ page }) => {
+    await pinEnglishLocale(page);
     if (s.viewport) await page.setViewportSize(s.viewport);
 
     if (s.flow) {

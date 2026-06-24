@@ -60,7 +60,7 @@ export const seedMarketingDemo: SeedFn = async (stack) => {
       for (let i = 0; i < copies; i++) {
         const status = pick(ASSET_STATUSES, r, "available");
         const owner = status === "lent" ? OWNERS[1 + Math.floor(r() * (OWNERS.length - 1))] : "";
-        const location = pick(LOCATIONS, r, "Büro Berlin 2.OG");
+        const location = pick(LOCATIONS, r, "Berlin office 2F");
         const purchaseYear = 2023 + Math.floor(r() * 3);
         // Temporal-month ist 1..12, day 1..28 ist beidseitig safe.
         const purchaseDate = formatPlainDate(

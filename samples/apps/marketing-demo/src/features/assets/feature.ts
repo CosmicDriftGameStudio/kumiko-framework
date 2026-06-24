@@ -27,12 +27,12 @@ export const assetsFeature = defineFeature("assets", (r) => {
   r.screen(assetListScreen);
 
   // Sidebar-Nav — Labels via i18n-key, Bundle in features/assets/i18n.ts.
-  r.nav({ id: "assets", label: "assets:nav.list", order: 10, screen: "asset-list" });
+  r.nav({ id: "assets", label: "assets:nav.list", order: 10, screen: "assets:screen:asset-list" });
   r.nav({
     id: "asset-new",
     label: "assets:nav.new",
-    parent: "assets",
-    screen: "asset-edit",
+    parent: "assets:nav:assets",
+    screen: "assets:screen:asset-edit",
     order: 10,
   });
 });
