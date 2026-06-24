@@ -147,6 +147,25 @@ export const todosFeature = defineFeature(FEATURE_NAME, (r) => {
     export: exportTodos,
     delete: deleteTodos,
   });
+
+  // Wire-proof for the read-only GDPR inspector screens: an app opts in by
+  // navigating the (otherwise inert) bundled screens. SystemAdmin-gated, so
+  // they surface only for platform operators. This nav is the ONLY wiring an
+  // app needs — the screens and convention handlers live in user-data-rights.
+  r.nav({
+    id: "gdpr-export-jobs",
+    label: "GDPR · Export Jobs",
+    screen: "user-data-rights:screen:export-job-list",
+    access: { roles: ["SystemAdmin"] },
+    order: 90,
+  });
+  r.nav({
+    id: "gdpr-download-attempts",
+    label: "GDPR · Download Attempts",
+    screen: "user-data-rights:screen:download-attempt-list",
+    access: { roles: ["SystemAdmin"] },
+    order: 91,
+  });
 });
 
 export const TODO_CREATE_QN = "todos:write:create";
