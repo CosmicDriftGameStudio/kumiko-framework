@@ -48,9 +48,9 @@ describe("user-data-rights read-only inspector screens", () => {
       expect(edit.allowDelete).toBe(false);
       const fields = edit.layout.sections.flatMap((s) => ("fields" in s ? s.fields : []));
       expect(fields.length).toBeGreaterThan(0);
-      expect(
-        fields.every((field) => typeof field === "object" && field.readOnly === true),
-      ).toBe(true);
+      expect(fields.every((field) => typeof field === "object" && field.readOnly === true)).toBe(
+        true,
+      );
     }
   });
 
