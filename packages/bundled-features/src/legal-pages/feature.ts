@@ -2,7 +2,7 @@ import {
   requireTextContent,
   type TextContentApi,
 } from "@cosmicdrift/kumiko-bundled-features/text-content";
-import { computeRevisionEtag } from "@cosmicdrift/kumiko-framework/api";
+import { computeRevisionEtag, etagMatches } from "@cosmicdrift/kumiko-framework/api";
 import {
   defineFeature,
   type FeatureDefinition,
@@ -125,13 +125,12 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
             route.lang,
             data.updatedAt,
           ]);
-          const notModified = cachedSecurePageResponse(c.req.raw, {
-            body: null,
-            etag,
-            cache: PUBLIC_PAGE_CACHE,
-            extra: { "content-type": "text/html; charset=utf-8" },
-          });
-          if (notModified.status === 304) return notModified;
+          const extra = { "content-type": "text/html; charset=utf-8" };
+          // 304 (Revision unverändert) und HEAD überspringen beide das
+          // Markdown-Rendern — der Body wird ohnehin verworfen.
+          if (etagMatches(c.req.raw.headers.get("if-none-match"), etag) || c.req.method === "HEAD") {
+            return cachedSecurePageResponse(c.req.raw, { body: null, etag, cache: PUBLIC_PAGE_CACHE, extra });
+          }
 
           const html = wrapLayout({
             title: data.title || route.titleFallback,
@@ -139,12 +138,7 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
             lang: route.lang,
           });
 
-          return cachedSecurePageResponse(c.req.raw, {
-            body: html,
-            etag,
-            cache: PUBLIC_PAGE_CACHE,
-            extra: { "content-type": "text/html; charset=utf-8" },
-          });
+          return cachedSecurePageResponse(c.req.raw, { body: html, etag, cache: PUBLIC_PAGE_CACHE, extra });
         },
       });
     }

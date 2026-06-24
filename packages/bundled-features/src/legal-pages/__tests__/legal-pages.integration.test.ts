@@ -176,6 +176,13 @@ describe("legal-pages :: cache-control", () => {
     });
     expect(second.status).toBe(304);
   });
+
+  test("HEAD → 200 without body, etag present", async () => {
+    const res = await stack.app.request("/legal/impressum", { method: "HEAD" });
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("");
+    expect(res.headers.get("etag")).toBeTruthy();
+  });
 });
 
 describe("legal-pages :: security headers", () => {

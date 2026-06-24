@@ -1,4 +1,4 @@
-import { computeRevisionEtag } from "@cosmicdrift/kumiko-framework/api";
+import { computeRevisionEtag, etagMatches } from "@cosmicdrift/kumiko-framework/api";
 import {
   defineEntityCreateHandler,
   defineEntityDeleteHandler,
@@ -253,13 +253,11 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
           "content-type": "text/html; charset=utf-8",
           vary: "Host",
         } as const;
-        const notModified = cachedSecurePageResponse(c.req.raw, {
-          body: null,
-          etag,
-          cache: PUBLIC_PAGE_CACHE,
-          extra: pageHeaders,
-        });
-        if (notModified.status === 304) return notModified;
+        // 304 (Revision unverändert) und HEAD überspringen beide das
+        // Markdown-Rendern — der Body wird ohnehin verworfen.
+        if (etagMatches(c.req.raw.headers.get("if-none-match"), etag) || c.req.method === "HEAD") {
+          return cachedSecurePageResponse(c.req.raw, { body: null, etag, cache: PUBLIC_PAGE_CACHE, extra: pageHeaders });
+        }
 
         const html = wrapLayout({
           title: data.title,
@@ -271,12 +269,7 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
           branding,
         });
 
-        return cachedSecurePageResponse(c.req.raw, {
-          body: html,
-          etag,
-          cache: PUBLIC_PAGE_CACHE,
-          extra: pageHeaders,
-        });
+        return cachedSecurePageResponse(c.req.raw, { body: html, etag, cache: PUBLIC_PAGE_CACHE, extra: pageHeaders });
       },
     });
 
