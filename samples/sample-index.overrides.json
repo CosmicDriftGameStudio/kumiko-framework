@@ -4,6 +4,21 @@
     "whenToUse": "Users sign in with email and password — login, signup, verification, and password reset on your apex surface or behind AuthGate in the admin app.",
     "screenshot": "/screenshots/features/auth-login.png"
   },
+  "billing-foundation": {
+    "primarySample": "apps-cap-billing-demo",
+    "whenToUse": "Subscriptions run through Stripe or Mollie — billing-foundation hosts the provider plugins, normalizes webhook events, and writes tier state your app reads via tier-engine.",
+    "screenshot": null
+  },
+  "cap-counter": {
+    "primarySample": "apps-cap-billing-demo",
+    "whenToUse": "Usage must be metered per tenant and plan — wrap handlers with withCapEnforcement to soft-warn admins and hard-block overages against calendar-period counters.",
+    "screenshot": null
+  },
+  "channel-email": {
+    "primarySample": "recipes-delivery-notifications",
+    "whenToUse": "Email is a delivery channel for ctx.notify — mount channel-email on delivery with per-channel templates and a mail transport (SMTP or in-memory in tests).",
+    "screenshot": null
+  },
   "compliance-profiles": {
     "primarySample": "recipes-compliance-profiles-demo",
     "whenToUse": "Each tenant follows a different regulatory regime (EU, CH, HR) without forking app code — profiles drive retention, grace periods, and audit obligations.",
@@ -23,6 +38,16 @@
     "primarySample": "recipes-legal-pages",
     "whenToUse": "You ship a DACH-facing product and need Imprint and Privacy Policy as public HTML routes with a production boot check when required blocks are missing.",
     "screenshot": "/screenshots/features/legal-pages.png"
+  },
+  "mail-foundation": {
+    "primarySample": "apps-cap-billing-demo",
+    "whenToUse": "Your app sends email through a pluggable transport — mail-foundation selects SMTP, in-memory, or a custom plugin per tenant via config without rewriting domain handlers.",
+    "screenshot": null
+  },
+  "mail-transport-inmemory": {
+    "primarySample": "apps-cap-billing-demo",
+    "whenToUse": "Tests and demos need outbound mail without SMTP — in-memory transport captures messages per tenant so integration tests assert subject/body without Mailpit.",
+    "screenshot": null
   },
   "managed-pages": {
     "primarySample": "recipes-managed-pages",

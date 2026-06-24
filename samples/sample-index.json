@@ -18,21 +18,30 @@
         "apps-cap-billing-demo"
       ],
       "hasVisualOutput": false,
-      "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block."
+      "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block.",
+      "primarySample": "apps-cap-billing-demo",
+      "whenToUse": "Subscriptions run through Stripe or Mollie — billing-foundation hosts the provider plugins, normalizes webhook events, and writes tier state your app reads via tier-engine.",
+      "screenshot": null
     },
     "cap-counter": {
       "samples": [
         "apps-cap-billing-demo"
       ],
       "hasVisualOutput": false,
-      "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block."
+      "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block.",
+      "primarySample": "apps-cap-billing-demo",
+      "whenToUse": "Usage must be metered per tenant and plan — wrap handlers with withCapEnforcement to soft-warn admins and hard-block overages against calendar-period counters.",
+      "screenshot": null
     },
     "channel-email": {
       "samples": [
         "apps-cap-billing-demo"
       ],
       "hasVisualOutput": false,
-      "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block."
+      "readmeSummary": "Declarative notifications:: r.notification() fires automatically after a CRUD handler — the feature author writes zero ctx.notify() calls.",
+      "primarySample": "recipes-delivery-notifications",
+      "whenToUse": "Email is a delivery channel for ctx.notify — mount channel-email on delivery with per-channel templates and a mail transport (SMTP or in-memory in tests).",
+      "screenshot": null
     },
     "compliance-profiles": {
       "samples": [
@@ -125,14 +134,20 @@
         "apps-cap-billing-demo"
       ],
       "hasVisualOutput": false,
-      "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block."
+      "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block.",
+      "primarySample": "apps-cap-billing-demo",
+      "whenToUse": "Your app sends email through a pluggable transport — mail-foundation selects SMTP, in-memory, or a custom plugin per tenant via config without rewriting domain handlers.",
+      "screenshot": null
     },
     "mail-transport-inmemory": {
       "samples": [
         "apps-cap-billing-demo"
       ],
       "hasVisualOutput": false,
-      "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block."
+      "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block.",
+      "primarySample": "apps-cap-billing-demo",
+      "whenToUse": "Tests and demos need outbound mail without SMTP — in-memory transport captures messages per tenant so integration tests assert subject/body without Mailpit.",
+      "screenshot": null
     },
     "managed-pages": {
       "samples": [
