@@ -161,6 +161,7 @@
         "recipes-user-profile"
       ],
       "hasVisualOutput": false,
+      "readmeSummary": "**I want JWTs to be revocable server-side — logout, password change, or admin force-logout should invalidate outstanding tokens before they expire.**",
       "primarySample": "recipes-session-revocation",
       "whenToUse": "Logins must be revocable server-side — logout, password change, or admin force-logout should invalidate outstanding JWTs before they expire.",
       "screenshot": null
