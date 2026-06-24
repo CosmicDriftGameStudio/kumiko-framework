@@ -8,8 +8,11 @@ import {
 import { PRIVACY_CENTER_SCREEN_ID } from "./constants";
 import { cancelDeletionWrite } from "./handlers/cancel-deletion.write";
 import { createConfirmDeletionByTokenHandler } from "./handlers/confirm-deletion-by-token.write";
+import { downloadAttemptListQuery } from "./handlers/download-attempt-list.query";
 import { downloadByJobQuery } from "./handlers/download-by-job.query";
 import { downloadByTokenQuery } from "./handlers/download-by-token.query";
+import { exportJobDetailQuery } from "./handlers/export-job-detail.query";
+import { exportJobListQuery } from "./handlers/export-job-list.query";
 import { exportStatusQuery } from "./handlers/export-status.query";
 import { liftRestrictionWrite } from "./handlers/lift-restriction.write";
 import { listDownloadAttemptsQuery } from "./handlers/list-download-attempts.query";
@@ -36,6 +39,7 @@ import { runForgetCleanup, type SendDeletionExecutedEmailFn } from "./run-forget
 import { downloadAttemptEntity } from "./schema/download-attempt";
 import { exportDownloadTokenEntity } from "./schema/download-token";
 import { exportJobEntity } from "./schema/export-job";
+import { downloadAttemptListScreen, exportJobDetailScreen, exportJobListScreen } from "./screens";
 
 // user-data-rights — DSGVO Art. 15 (Auskunft) + Art. 17 (Löschung) +
 // Art. 18 (Restriction) + Art. 20 (Portabilität) als Core-Feature.
@@ -221,6 +225,16 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     // invalid Download-Attempts (DPO).
     r.queryHandler(myAuditLogQuery);
     r.queryHandler(listDownloadAttemptsQuery);
+
+    // Read-only operator inspector over the GDPR read-models (SystemAdmin).
+    // Convention list/detail handlers so entityList/entityEdit resolve by QN;
+    // the screens stay inert until an app navs them (opt-in at wire time).
+    r.queryHandler(exportJobListQuery);
+    r.queryHandler(exportJobDetailQuery);
+    r.queryHandler(downloadAttemptListQuery);
+    r.screen(exportJobListScreen);
+    r.screen(exportJobDetailScreen);
+    r.screen(downloadAttemptListScreen);
 
     // Dormant Self-Service-Screen (Art. 15/17/18/20): Export, Aktivitäts-
     // protokoll, Einschränkung, Löschung in einem Screen. Kein r.nav — die
