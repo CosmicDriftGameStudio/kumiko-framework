@@ -1,7 +1,13 @@
+import { createTransportForTenant } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { USER_STATUS } from "../../user";
+import {
+  type GdprMailDefaults,
+  isMailTransportAvailable,
+  makeDefaultDeletionRequestedEmail,
+} from "../lib/default-mailers";
 import { startDeletionGracePeriod } from "./deletion-grace-period";
 
 // Atom 5b — Email-Notification beim deletion-requested-flip. Pattern:
@@ -14,12 +20,18 @@ import { startDeletionGracePeriod } from "./deletion-grace-period";
 export type SendDeletionRequestedEmailFn = (args: {
   readonly userId: string;
   readonly userEmail: string;
+  /** Stored user.locale (free-form) — lets the default mailer render in the
+   *  recipient's language. */
+  readonly userLocale: string | null;
   readonly tenantId: string;
   readonly gracePeriodEnd: string;
 }) => Promise<void>;
 
 export type RequestDeletionOptions = {
   readonly sendDeletionRequestedEmail?: SendDeletionRequestedEmailFn;
+  /** Branding fuer die Default-Mail wenn kein sendDeletionRequestedEmail
+   *  gesetzt ist + mail-foundation gemountet ist. */
+  readonly mailDefaults?: GdprMailDefaults;
 };
 
 // POST /api/user/request-deletion (S2.U5a) — DSGVO Art. 17 Forget-Antrag.
@@ -35,15 +47,29 @@ export function createRequestDeletionHandler(opts: RequestDeletionOptions = {}) 
     handler: async (event, ctx) => {
       const res = await startDeletionGracePeriod(ctx, event.user.id, event.user.tenantId);
       if (!res.ok) return writeFailure(res.error);
-      const { gracePeriodEnd, userEmail } = res;
+      const { gracePeriodEnd, userEmail, userLocale } = res;
+
+      // App-Callback hat Vorrang; sonst greift die mail-foundation-Default-Mail
+      // (Request-Lane → ctx.config vorhanden, createTransportForTenant direkt).
+      // Ohne gemounteten mail-transport bleibt send undefined → keine Mail.
+      const send =
+        opts.sendDeletionRequestedEmail ??
+        (isMailTransportAvailable(ctx.registry)
+          ? makeDefaultDeletionRequestedEmail(
+              (tenantId) =>
+                createTransportForTenant(ctx, tenantId, "user-data-rights:request-deletion"),
+              opts.mailDefaults,
+            )
+          : undefined);
 
       // Best-effort Email-Notification. Send-Failure darf das Write nicht
       // killen — siehe Type-Doc oben.
-      if (opts.sendDeletionRequestedEmail && userEmail.length > 0) {
+      if (send && userEmail.length > 0) {
         try {
-          await opts.sendDeletionRequestedEmail({
+          await send({
             userId: event.user.id,
             userEmail,
+            userLocale,
             tenantId: event.user.tenantId,
             gracePeriodEnd: gracePeriodEnd.toString(),
           });

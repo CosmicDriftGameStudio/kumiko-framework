@@ -28,6 +28,8 @@ import { configValuesTable, createConfigFeature, createConfigResolver } from "..
 import { createDataRetentionFeature } from "../../data-retention";
 import { fileFoundationFeature } from "../../file-foundation";
 import { fileProviderInMemoryFeature } from "../../file-provider-inmemory";
+import { mailFoundationFeature } from "../../mail-foundation";
+import { clearInbox, getInbox, mailTransportInMemoryFeature } from "../../mail-transport-inmemory";
 import { createSessionsFeature } from "../../sessions";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserDataRightsFeature } from "../feature";
@@ -41,8 +43,13 @@ const JOB_QN = "user-data-rights:job:run-export-jobs";
 // App-weiter Override wie money-horse's cashColtConfigResolver — provider=inmemory
 // ohne per-Tenant-config-Row. Der Job-Kontext trägt DIESEN resolver, kein config.
 const configResolver = createConfigResolver({
-  appOverrides: new Map([["file-foundation:config:provider", "inmemory"]]),
+  appOverrides: new Map([
+    ["file-foundation:config:provider", "inmemory"],
+    ["mail-foundation:config:provider", "inmemory"],
+  ]),
 });
+
+const EXPORT_DOWNLOAD_URL = "https://app.test/user-export/by-token";
 
 let stack: TestStack;
 
@@ -55,8 +62,12 @@ beforeAll(async () => {
       createComplianceProfilesFeature(),
       fileFoundationFeature,
       fileProviderInMemoryFeature,
+      mailFoundationFeature,
+      mailTransportInMemoryFeature,
       createSessionsFeature(),
-      createUserDataRightsFeature(),
+      // appExportDownloadUrl set → the default export-ready mail is enabled, so
+      // this also proves the export cron's mail bridge end-to-end (C6).
+      createUserDataRightsFeature({ appExportDownloadUrl: EXPORT_DOWNLOAD_URL }),
     ],
   });
   await createEventsTable(stack.db);
@@ -107,6 +118,7 @@ beforeEach(async () => {
   await raw.unsafe(
     `INSERT INTO read_tenant_memberships (tenant_id, user_id, roles) VALUES ('${TENANT}', '${USER_ID}', '["Member"]')`,
   );
+  clearInbox(TENANT);
 });
 
 // Seedet einen pending Export-Job über den echten request-export-Handler.
@@ -144,5 +156,14 @@ describe("run-export-jobs cron-context", () => {
     expect(row?.errorMessage).toBeNull();
     expect(row?.status).toBe(EXPORT_JOB_STATUS.Done);
     expect(row?.bytesWritten ?? 0).toBeGreaterThan(0);
+
+    // C6 — der echte Export-Cron versendet die Default-Export-ready-Mail ueber
+    // den aus configResolver gebauten inmemory-Transport (kein App-Callback).
+    // user.locale="de" → deutsches Subject; downloadUrl traegt den Magic-Link.
+    const inbox = getInbox(TENANT);
+    expect(inbox).toHaveLength(1);
+    expect(inbox[0]?.to).toBe("export-cron@example.test");
+    expect(inbox[0]?.subject).toContain("Dein Datenexport ist bereit");
+    expect(inbox[0]?.html).toContain(EXPORT_DOWNLOAD_URL);
   });
 });

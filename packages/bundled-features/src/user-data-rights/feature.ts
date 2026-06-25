@@ -28,6 +28,14 @@ import {
 import { requestExportWrite } from "./handlers/request-export.write";
 import { restrictAccountWrite } from "./handlers/restrict-account.write";
 import { createRunForgetCleanupHandler } from "./handlers/run-forget-cleanup.write";
+import {
+  type GdprMailDefaults,
+  isMailTransportAvailable,
+  makeDefaultDeletionExecutedEmail,
+  makeDefaultExportFailedEmail,
+  makeDefaultExportReadyEmail,
+} from "./lib/default-mailers";
+import { makeTenantMailTransportResolver } from "./lib/mail-transport-resolver";
 import { resolveAppTenantModel } from "./lib/resolve-tenant-model";
 import { makeTenantStorageProviderResolver } from "./lib/storage-provider-resolver";
 import {
@@ -104,11 +112,25 @@ export type UserDataRightsOptions = {
   /** Versand des Verify-Magic-Links (Schritt 1 des anonymen Flows).
    *  Best-effort, app-author-wired. MUSS non-blocking sein (enqueue, z.B.
    *  delivery.notify) — ein synchroner Send reintroduziert ein Timing-Oracle
-   *  für Account-Enumeration (siehe SendDeletionVerificationEmailFn-Doc). */
+   *  für Account-Enumeration (siehe SendDeletionVerificationEmailFn-Doc).
+   *  Bewusst KEINE mail-foundation-Default: ein synchroner Default-Send
+   *  brächte genau dieses Enumeration-Oracle zurück, deshalb app-wired. */
   readonly sendDeletionVerificationEmail?: SendDeletionVerificationEmailFn;
+  /** C6 — Zero-Callback-GDPR-Mails: ist mail-foundation + ein mail-transport-*
+   *  gemountet, versendet user-data-rights die Export-/Loesch-Notifications
+   *  selbst (Export-ready/-failed, Deletion-requested/-executed) ueber die
+   *  Default-Templates (email-templates.ts) — die App schreibt keinen Callback.
+   *  `mailDefaults` brandet diese Default-Mails (Locale + App-Name). Greift NUR
+   *  wenn der jeweilige send*Email-Opt NICHT gesetzt ist; Export-ready braucht
+   *  zusaetzlich appExportDownloadUrl. */
+  readonly mailDefaults?: GdprMailDefaults;
 };
 
 export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): FeatureDefinition {
+  // One-shot operator warning (the export cron fires every minute — warn once
+  // per process, not every run). Lives in the factory scope so the cron closure
+  // shares it across runs.
+  let warnedMissingExportUrl = false;
   return defineFeature("user-data-rights", (r) => {
     r.describe(
       'Implements GDPR Art. 15 (access / `my-audit-log` query), Art. 17 (erasure / `request-deletion` + `cancel-deletion`, plus the anonymous email-verified `request-deletion-by-email` + `confirm-deletion-by-token` flow for lockout-safe self-service, + cron cleanup with grace period), Art. 18 (restriction / `restrict-account` + `lift-restriction`), and Art. 20 (portability / async `request-export` \u2192 ZIP via `file-foundation`, Magic-Link download) as first-class HTTP handlers and cron jobs. Each domain feature opts in by calling `r.useExtension(EXT_USER_DATA, "<entity>", { export, delete })` \u2014 the feature then orchestrates the export and forget pipelines across all registered hooks automatically. Requires `user`, `data-retention`, `compliance-profiles`, and `sessions`.',
@@ -166,11 +188,12 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
 
     // S2.U5a — Endpoints fuer DSGVO Art. 17 Forget-Pfad mit Grace.
     r.writeHandler(
-      createRequestDeletionHandler(
-        opts.sendDeletionRequestedEmail
-          ? { sendDeletionRequestedEmail: opts.sendDeletionRequestedEmail }
-          : {},
-      ),
+      createRequestDeletionHandler({
+        ...(opts.sendDeletionRequestedEmail && {
+          sendDeletionRequestedEmail: opts.sendDeletionRequestedEmail,
+        }),
+        ...(opts.mailDefaults && { mailDefaults: opts.mailDefaults }),
+      }),
     );
     r.writeHandler(cancelDeletionWrite);
 
@@ -303,6 +326,44 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
         const exportUserId = ctx._userId ?? SYSTEM_USER_ID;
         const exportDb = ctx.db as import("@cosmicdrift/kumiko-framework/db").DbConnection; // @cast-boundary db-operator
         const exportRegistry = ctx.registry;
+
+        // C6 — ohne eigene send*Email-Opts aber mit gemountetem mail-transport
+        // versendet der Cron die Export-Notifications selbst (Default-Templates).
+        // Der Resolver baut den per-Tenant-Transport aus configResolver — gleiche
+        // Bruecke wie buildStorageProvider.
+        const exportMailResolver = isMailTransportAvailable(exportRegistry)
+          ? makeTenantMailTransportResolver({
+              registry: exportRegistry,
+              configResolver: ctx.configResolver,
+              secrets: ctx.secrets,
+              db: exportDb,
+              userId: exportUserId,
+              handlerName: "user-data-rights:run-export-jobs",
+            })
+          : undefined;
+        const sendExportReadyEmail =
+          opts.sendExportReadyEmail ??
+          (exportMailResolver && opts.appExportDownloadUrl !== undefined
+            ? makeDefaultExportReadyEmail(exportMailResolver, opts.mailDefaults)
+            : undefined);
+        const sendExportFailedEmail =
+          opts.sendExportFailedEmail ??
+          (exportMailResolver
+            ? makeDefaultExportFailedEmail(exportMailResolver, opts.mailDefaults)
+            : undefined);
+        if (
+          exportMailResolver &&
+          !opts.sendExportReadyEmail &&
+          opts.appExportDownloadUrl === undefined &&
+          !warnedMissingExportUrl
+        ) {
+          warnedMissingExportUrl = true;
+          // biome-ignore lint/suspicious/noConsole: one-shot operator visibility for misconfig
+          console.warn(
+            "[user-data-rights:run-export-jobs] mail transport mounted but appExportDownloadUrl unset — default export-ready emails disabled (export-failed + deletion mails still send)",
+          );
+        }
+
         await runExportJobs({
           db: exportDb,
           registry: exportRegistry,
@@ -319,15 +380,11 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
             handlerName: "user-data-rights:run-export-jobs",
           }),
           now: T.Now.instant(),
-          // Atom 5 — App-Author-Callbacks fuer Email-Notification.
-          // Optional: wenn nicht gesetzt, kein Email; User pollt
-          // export-status.query + UI-Klick.
-          ...(opts.sendExportReadyEmail && {
-            sendExportReadyEmail: opts.sendExportReadyEmail,
-          }),
-          ...(opts.sendExportFailedEmail && {
-            sendExportFailedEmail: opts.sendExportFailedEmail,
-          }),
+          // App-Author-Callbacks haben Vorrang; sonst greift die mail-foundation-
+          // Default oben. Beide optional: ohne mail-transport + ohne Callback
+          // bleibt es bei Polling via export-status.query.
+          ...(sendExportReadyEmail && { sendExportReadyEmail }),
+          ...(sendExportFailedEmail && { sendExportFailedEmail }),
           ...(opts.appExportDownloadUrl !== undefined && {
             appExportDownloadUrl: opts.appExportDownloadUrl,
           }),
@@ -352,30 +409,48 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
         const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
         const forgetUserId = ctx._userId ?? SYSTEM_USER_ID;
         const forgetDb = ctx.db as import("@cosmicdrift/kumiko-framework/db").DbConnection; // @cast-boundary db-operator
+        const forgetRegistry = ctx.registry;
         const tenantModel = await resolveAppTenantModel({
-          registry: ctx.registry,
+          registry: forgetRegistry,
           configResolver: ctx.configResolver,
           db: forgetDb,
           userId: forgetUserId,
         });
+
+        // C6 — Default-Mail beim delete-flip wenn kein Callback gesetzt + ein
+        // mail-transport gemountet ist (gleiche per-Tenant-Bruecke wie Export).
+        const forgetMailResolver = isMailTransportAvailable(forgetRegistry)
+          ? makeTenantMailTransportResolver({
+              registry: forgetRegistry,
+              configResolver: ctx.configResolver,
+              secrets: ctx.secrets,
+              db: forgetDb,
+              userId: forgetUserId,
+              handlerName: "user-data-rights:run-forget-cleanup",
+            })
+          : undefined;
+        const sendDeletionExecutedEmail =
+          opts.sendDeletionExecutedEmail ??
+          (forgetMailResolver
+            ? makeDefaultDeletionExecutedEmail(forgetMailResolver, opts.mailDefaults)
+            : undefined);
+
         await runForgetCleanup({
           db: forgetDb,
-          registry: ctx.registry,
+          registry: forgetRegistry,
           now: T.Now.instant(),
           tenantModel,
           // Same per-tenant provider resolution as the export cron — forget
           // deletes binaries from the store upload + export use.
           buildStorageProvider: makeTenantStorageProviderResolver({
-            registry: ctx.registry,
+            registry: forgetRegistry,
             configResolver: ctx.configResolver,
             secrets: ctx.secrets,
             db: forgetDb,
             userId: forgetUserId,
             handlerName: "user-data-rights:run-forget-cleanup",
           }),
-          ...(opts.sendDeletionExecutedEmail && {
-            sendDeletionExecutedEmail: opts.sendDeletionExecutedEmail,
-          }),
+          ...(sendDeletionExecutedEmail && { sendDeletionExecutedEmail }),
         });
       },
     );

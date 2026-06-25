@@ -9,7 +9,12 @@ import { updateUserLifecycle } from "../lib/update-user-lifecycle";
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 
 export type StartGracePeriodResult =
-  | { readonly ok: true; readonly gracePeriodEnd: Instant; readonly userEmail: string }
+  | {
+      readonly ok: true;
+      readonly gracePeriodEnd: Instant;
+      readonly userEmail: string;
+      readonly userLocale: string | null;
+    }
   | { readonly ok: false; readonly error: UnprocessableError };
 
 // Flippt einen aktiven User auf DeletionRequested + setzt gracePeriodEnd aus
@@ -26,9 +31,11 @@ export async function startDeletionGracePeriod(
   userId: string,
   complianceTenantId: string,
 ): Promise<StartGracePeriodResult> {
-  const userRow = await fetchOne<{ status: string; email: string }>(ctx.db.raw, userTable, {
-    id: userId,
-  });
+  const userRow = await fetchOne<{ status: string; email: string; locale: string | null }>(
+    ctx.db.raw,
+    userTable,
+    { id: userId },
+  );
   if (!userRow) {
     return {
       ok: false,
@@ -63,5 +70,10 @@ export async function startDeletionGracePeriod(
     gracePeriodEnd,
   });
 
-  return { ok: true, gracePeriodEnd, userEmail: userRow["email"] ?? "" };
+  return {
+    ok: true,
+    gracePeriodEnd,
+    userEmail: userRow["email"] ?? "",
+    userLocale: userRow["locale"] ?? null,
+  };
 }
