@@ -611,7 +611,7 @@
     },
     {
       "name": "folders-user-data",
-      "description": null,
+      "description": "GDPR (Art. 20 export / Art. 17 erasure) coverage for the `folders` feature's `folder` + `folder-assignment` entities. Mounts the EXT_USER_DATA export + delete hooks so a tenant's folder tree and its entity-to-folder assignments are included in the user-data export bundle and erased on a tenant-scoped forget (single-user tenants only; multi-user + anonymize are no-ops since folder rows carry no per-user PII). Kept separate from `folders` so folder consumers without the user-data-rights pipeline don't pull a hard dependency — requires `user-data-rights`, optionalRequires `folders`.",
       "toggleableDefault": null,
       "requires": [
         "user-data-rights"

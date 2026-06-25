@@ -13,6 +13,9 @@ import {
 } from "./hooks";
 
 export const foldersUserDataFeature = defineFeature("folders-user-data", (r) => {
+  r.describe(
+    "GDPR (Art. 20 export / Art. 17 erasure) coverage for the `folders` feature's `folder` + `folder-assignment` entities. Mounts the EXT_USER_DATA export + delete hooks so a tenant's folder tree and its entity-to-folder assignments are included in the user-data export bundle and erased on a tenant-scoped forget (single-user tenants only; multi-user + anonymize are no-ops since folder rows carry no per-user PII). Kept separate from `folders` so folder consumers without the user-data-rights pipeline don't pull a hard dependency — requires `user-data-rights`, optionalRequires `folders`.",
+  );
   // user-data-rights ist die harte Abhängigkeit (EXT_USER_DATA-Host). `folders` ist
   // OPTIONAL: ist es toggleable(default=false) gemountet (z.B. per-Tenant via Tier),
   // würde ein hartes r.requires eine „effectively disabled"-Boot-Warnung werfen,
