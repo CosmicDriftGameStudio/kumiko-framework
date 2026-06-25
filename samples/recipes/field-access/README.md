@@ -22,6 +22,23 @@ never sees a forbidden field on input, never produces one on output.
 - **No handler-level branching** — the same `r.queryHandler` body
   serves all three roles; the framework filters output per call.
 
+## Feature composition
+
+```
+hr → employee entity with field-level access on salary + internalNotes
+```
+
+Single feature, no bundled dependencies — field access is declared on
+the field factories inside `createEntity`.
+
+## Flow
+
+1. Admin creates an employee with all fields populated.
+2. Accounting reads detail → sees `salary`, not `internalNotes`.
+3. Employee reads detail → sees `name`/`email` only.
+4. Accounting tries to write `salary` → `field_access_denied` (read-only).
+5. Employee updates `name` → succeeds (unrestricted field).
+
 ## When to reach for it
 
 Sensitive columns that a feature still needs to expose — phone numbers,
@@ -29,12 +46,24 @@ salary figures, internal compliance notes. The whole row stays usable
 for everyone; specific fields disappear for callers without the
 right role.
 
-## Source
-
-The whole feature lives in `src/feature.ts` (~40 lines). Integration
-tests cover all three roles reading + writing the entity, including the
-expected `field_access_denied` response shape.
+## Tests
 
 ```bash
 bun kumiko test integration samples/field-access
 ```
+
+Or from the recipe directory:
+
+```bash
+bun test src/__tests__/feature.integration.test.ts
+```
+
+Covers all three roles reading and writing, including the expected
+`field_access_denied` response shape.
+
+## Related samples
+
+- [basic-entity](/en/samples/recipes-basic-entity/) — start here if you
+  need standard CRUD before adding field rules.
+- [custom-handlers](/en/samples/recipes-custom-handlers/) — explicit
+  handlers when generated CRUD is not enough.

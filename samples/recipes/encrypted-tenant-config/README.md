@@ -67,14 +67,43 @@ await runProdApp({
 });
 ```
 
+## Flow
+
+1. Tenant admin sets `stripe-api-key` via `config:write:set` (scope tenant).
+2. DB row holds AES ciphertext only — backups and `SELECT` leak nothing.
+3. `config:query:values` returns `••••••` for the encrypted key in the UI.
+4. Domain handler calls `ctx.config(handle)` → decrypted value in-process.
+5. Tenant B cannot charge with Tenant A's key — per-tenant config row isolation.
+
 ## Security guarantees
 
 1. **DB plaintext-free:** `SELECT value FROM config_values WHERE key = 'stripe-api-key'` returns ONLY ciphertext. Backup files, DB dumps, postgres eavesdropping → no plaintext leak.
 2. **UI mask:** `config:query:values` returns `"••••••"` for encrypted keys. Even the admin allowed to SET the value doesn't see it back. (If you need the value, go through `ctx.config(handle)` in the backend, not through the UI.)
 3. **Tenant isolation:** every tenant has its own entry — `(key, tenantId)` is unique in the config feature. Customer A NEVER sees Customer B's API key.
 
+## Tests
+
+```bash
+bun test src/__tests__/feature.integration.test.ts
+```
+
+Proves:
+
+- DB stores ciphertext, not plaintext
+- UI query masks encrypted values
+- Charge handler reads decrypted key and succeeds only when set
+- Tenant A's key does not leak to Tenant B
+- `mask` derives the `configEdit` screen without hand-written `r.screen`
+
 ## What's not in this recipe
 
 - **Key rotation:** the `CONFIG_ENCRYPTION_KEY` is app-global, rotation requires decrypt-old + encrypt-new per entry. Non-trivial. If you need it: `samples/recipes/secrets-demo` shows envelope encryption with KEK rotation for app-global secrets.
 - **Audit trail:** secrets-demo tracks every secret read as an event. Not here — config keys are meant as "settings" (read frequent, audit overkill).
 - **Backup encryption:** `CONFIG_ENCRYPTION_KEY` must be backed up alongside every backup, otherwise the DB is worthless after restore. Operator's job.
+
+## Related samples
+
+- [managed-config](/en/samples/recipes-managed-config/) — `backing: "secrets"`
+  for platform-owned keys + tenant cascade for SMTP defaults.
+- [apps-cap-billing-demo](/en/samples/apps-cap-billing-demo/) — billing
+  handlers that read per-tenant Stripe keys.

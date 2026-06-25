@@ -95,6 +95,28 @@ the config backing only needs the `ctx.secrets` context shown above.
 *and* the config feature's declarative surface (masking, settings hub, the same
 `config:write:set` write path).
 
+## Flow
+
+1. SystemAdmin sets `payment-api-key` (`backing: "secrets"`) → value lands in
+   the secrets envelope, masked in every query.
+2. Owning feature reads plaintext via `ctx.config` — audit-on-read from secrets.
+3. SystemAdmin sets platform `smtp-host` default (system scope).
+4. Tenant A overrides `smtp-host` → cascade resolves tenant-row for A only.
+5. Tenant B still sees the system default — no cross-tenant leak.
+
+## Tests
+
+```bash
+bun test src/__tests__/feature.integration.test.ts
+```
+
+Proves:
+
+- `backing: "secrets"` routes to secrets store, not `config_values`
+- Owning feature reads revealed plaintext; cascade queries stay masked
+- Tenant SMTP override wins locally and never leaks to another tenant
+- Boot rejects `integrationsFeature` without the `secrets` feature mounted
+
 ## What's not in this recipe
 
 - **Tenant-scoped secrets** — forbidden by declaration. `backing: "secrets"` +
@@ -103,3 +125,10 @@ the config backing only needs the `ctx.secrets` context shown above.
 - **The env→default bridge at runtime** — `env:` is wired by `runProdApp`, not
   by `setupTestStack`, so the integration test sets the platform default
   explicitly via a `scope: "system"` write rather than through the env var.
+
+## Related samples
+
+- [encrypted-tenant-config](/en/samples/recipes-encrypted-tenant-config/) —
+  per-tenant customer secrets with `encrypted: true` on config keys.
+- [apps-cap-billing-demo](/en/samples/apps-cap-billing-demo/) — mail transport
+  selected per tenant via config.
