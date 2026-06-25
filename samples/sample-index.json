@@ -8,7 +8,7 @@
         "recipes-user-profile"
       ],
       "hasVisualOutput": false,
-      "readmeSummary": "Der **evidente Weg für öffentlichen Apex-Content**: die 4 Account-Flows (Login, Register, Passwort-vergessen, Konto-löschen) in der öffentlichen Apex-Präsenz einer Kumiko-App — schema-los, anonym erreichbar, ohne Admin-Nav/Topologie-Leak.",
+      "readmeSummary": "Four public routes: — /login, /signup, /forgot-password,",
       "primarySample": "recipes-apex-surface-auth",
       "whenToUse": "Users sign in with email and password — login, signup, verification, and password reset on your apex surface or behind AuthGate in the admin app.",
       "sampleBlurb": "Walks through login, signup, password reset, and email verification on the public apex surface — copy the AuthGate mount and handler wiring into your app.",
@@ -55,7 +55,7 @@
         "recipes-user-profile"
       ],
       "hasVisualOutput": false,
-      "readmeSummary": "Sample-Recipe: gleicher App-Code, drei Tenants, drei DSGVO-Profile.",
+      "readmeSummary": "How a multi-tenant platform uses compliance-profiles to deliver different",
       "primarySample": "recipes-compliance-profiles-demo",
       "whenToUse": "Each tenant follows a different regulatory regime (EU, CH, HR) without forking app code — profiles drive retention, grace periods, and audit obligations.",
       "sampleBlurb": "Tenant picks EU, CH, or HR profile — retention rules and audit obligations follow the profile without branching your app code.",
@@ -234,7 +234,7 @@
         "recipes-user-profile"
       ],
       "hasVisualOutput": false,
-      "readmeSummary": "Self-Service-Kontoseite als bundled feature: Passwort ändern (`auth-email-password:write:change-password`), E-Mail ändern mit Re-Auth + Verification-Reset (`user-profile:write:change-email`), Konto löschen / Löschung abbrechen (`user-data-rights` mit Grace-Period).",
+      "readmeSummary": "user-profile:write:change-email: — re-authenticated email change;",
       "primarySample": "recipes-user-profile",
       "whenToUse": "Your app serves multiple organizations — tenants, memberships, and roles scope every query and write.",
       "sampleBlurb": "Multi-tenant memberships and roles — profile screen switches tenant context and scopes queries to the active membership.",
@@ -269,7 +269,7 @@
         "recipes-user-profile"
       ],
       "hasVisualOutput": false,
-      "readmeSummary": "Self-Service-Kontoseite als bundled feature: Passwort ändern (`auth-email-password:write:change-password`), E-Mail ändern mit Re-Auth + Verification-Reset (`user-profile:write:change-email`), Konto löschen / Löschung abbrechen (`user-data-rights` mit Grace-Period).",
+      "readmeSummary": "user-profile:write:change-email: — re-authenticated email change;",
       "primarySample": "recipes-user-profile",
       "whenToUse": "One person can belong to multiple tenants with different roles — the user feature holds the cross-tenant identity.",
       "sampleBlurb": "Cross-tenant user identity above memberships — email, roles, and verification flags shared across organizations.",
@@ -283,7 +283,7 @@
         "recipes-user-profile"
       ],
       "hasVisualOutput": false,
-      "readmeSummary": "DSGVO-compliant in 5 LOC: `r.useExtension(EXT_USER_DATA, ...)` hängt eine beliebige Domain-Entity an Forget-Cron + Export-ZIP + Magic-Link-Pipeline. App-Author schreibt nur die zwei Hooks pro Entity — der Rest passiert automatisch.",
+      "readmeSummary": "A minimal notes domain with GDPR Art. 15+17+20 integrated without hand-written",
       "primarySample": "recipes-user-data-rights",
       "whenToUse": "GDPR export, deletion, and restriction must work for your domain entities — register hooks once, the framework runs ZIP export and forget cleanup.",
       "sampleBlurb": "Register export and forget hooks on your entities — framework runs ZIP export and deletion pipeline with audit trail.",
@@ -305,7 +305,7 @@
         "recipes-user-profile"
       ],
       "hasVisualOutput": false,
-      "readmeSummary": "Self-Service-Kontoseite als bundled feature: Passwort ändern (`auth-email-password:write:change-password`), E-Mail ändern mit Re-Auth + Verification-Reset (`user-profile:write:change-email`), Konto löschen / Löschung abbrechen (`user-data-rights` mit Grace-Period).",
+      "readmeSummary": "user-profile:write:change-email: — re-authenticated email change;",
       "primarySample": "recipes-user-profile",
       "whenToUse": "Logged-in users change password, email, or schedule account deletion from a bundled self-service profile screen.",
       "sampleBlurb": "Self-service password, email change, and account deletion screen — bundled client route you mount in the admin app.",
