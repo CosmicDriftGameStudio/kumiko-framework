@@ -21,9 +21,28 @@ toggleable features unlock in the same request.
 - **Cache-sync invariant** — the manual grant updates the resolver cache
   the same request, not just the projection. `notes-export` is in the
   tenant's effective set immediately after the set call — same request,
-  before any cache refresh, replay, or restart. The integration test builds
-  the resolver, grants `pro`, and asserts the resolver reports `notes-export`
-  for that tenant without a rebuild.
+  before any cache refresh, replay, or restart.
+
+## Feature composition
+
+```
+config       → tenant config (tier-engine dependency)
+tenant       → tenant records for cross-tenant grants
+tier-engine  → set-tenant-tier, get-tenant-tier, tier-options
+notes-export → r.toggleable() domain feature unlocked by pro tier
+```
+
+## Flow
+
+1. SystemAdmin calls `set-tenant-tier` for a **foreign** tenant with
+   `tier: "pro"` → event lands in the target tenant's stream,
+   `source: "manual"`.
+2. `get-tenant-tier` read-back confirms tier + source (billing sync must
+   not overwrite manual grants).
+3. `tier-options` returns keys from your static `TierMap` — no hard-coded
+   tier list in the UI.
+4. Resolver built **before** the grant now reports `notes-export` in the
+   tenant's effective set — same process, no rebuild (cache-sync proof).
 
 ## Why the cache invariant matters
 
@@ -35,11 +54,25 @@ cache update the grant would persist (next request would see it) but
 just clicked "set tier to pro".
 
 The feature wires `onAssigned` into `createSetTenantTierWrite` for
-exactly this reason; the integration test below exercises the full flow
-end-to-end so the invariant has runnable evidence.
+exactly this reason.
 
-## Run
+## Tests
 
 ```bash
 bun test src/__tests__/feature.integration.test.ts
 ```
+
+Integration test proves:
+
+- Cross-tenant grant + read-back with `source: "manual"`
+- `tier-options` matches `TierMap` keys
+- Idempotent re-grant updates the same aggregate
+- TenantAdmin without SystemAdmin → 403
+- Resolver sees `notes-export` immediately after grant (cache-sync)
+
+## Related samples
+
+- [apps-cap-billing-demo](/en/samples/apps-cap-billing-demo/) — tier from
+  billing webhooks + cap enforcement.
+- [recipes-encrypted-tenant-config](/en/samples/recipes-encrypted-tenant-config/) —
+  per-tenant config keys gated by tier.
