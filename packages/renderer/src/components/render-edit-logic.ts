@@ -1,4 +1,12 @@
-import type { SubmitResult } from "@cosmicdrift/kumiko-headless";
+import type { EditSectionViewModel, SubmitResult } from "@cosmicdrift/kumiko-headless";
+
+// A read-only inspector form — every field readOnly, no editable section — has
+// nothing to submit, so the renderer drops the Save button rather than show a
+// dead disabled one. An extension section carries its own dirty/save, so it
+// counts as editable.
+export function hasEditableSection(sections: readonly EditSectionViewModel[]): boolean {
+  return sections.some((s) => s.kind !== "fields" || s.fields.some((f) => !f.readOnly));
+}
 
 // Single source of truth for the extension-section entity-id. The section mount
 // and persistExtensions MUST resolve the same id — otherwise a section mounts

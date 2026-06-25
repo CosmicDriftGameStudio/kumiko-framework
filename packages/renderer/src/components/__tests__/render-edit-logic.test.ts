@@ -1,6 +1,15 @@
 import { describe, expect, test } from "bun:test";
-import type { DispatcherError, SubmitResult } from "@cosmicdrift/kumiko-headless";
-import { resolveExtensionEntityId, shouldNotifyCaller } from "../render-edit-logic";
+import type {
+  DispatcherError,
+  EditFieldViewModel,
+  EditSectionViewModel,
+  SubmitResult,
+} from "@cosmicdrift/kumiko-headless";
+import {
+  hasEditableSection,
+  resolveExtensionEntityId,
+  shouldNotifyCaller,
+} from "../render-edit-logic";
 
 const error: DispatcherError = {
   code: "internal_error",
@@ -56,5 +65,50 @@ describe("shouldNotifyCaller", () => {
 
   test("validation blocked → notify", () => {
     expect(shouldNotifyCaller(validationBlocked, true)).toBe(true);
+  });
+});
+
+const field = (readOnly: boolean): EditFieldViewModel => ({
+  field: "f",
+  label: "F",
+  type: "text",
+  value: "",
+  visible: true,
+  readOnly,
+  required: false,
+});
+const fieldsSection = (...readOnly: boolean[]): EditSectionViewModel => ({
+  kind: "fields",
+  columns: 1,
+  fields: readOnly.map(field),
+});
+const extensionSection: EditSectionViewModel = {
+  kind: "extension",
+  title: "Custom",
+  component: {},
+};
+
+describe("hasEditableSection", () => {
+  // A read-only inspector detail (export-job/download-attempt) marks every field
+  // readOnly + has no create/delete — there is nothing to submit, so the Save
+  // button must not render at all (a disabled one reads as a broken control).
+  test("every field readOnly → false (no Save button)", () => {
+    expect(hasEditableSection([fieldsSection(true, true, true)])).toBe(false);
+  });
+
+  test("one editable field → true", () => {
+    expect(hasEditableSection([fieldsSection(true, false)])).toBe(true);
+  });
+
+  test("editable field in a later section → true", () => {
+    expect(hasEditableSection([fieldsSection(true), fieldsSection(false)])).toBe(true);
+  });
+
+  test("extension section counts as editable (carries its own save)", () => {
+    expect(hasEditableSection([extensionSection])).toBe(true);
+  });
+
+  test("no sections → false", () => {
+    expect(hasEditableSection([])).toBe(false);
   });
 });
