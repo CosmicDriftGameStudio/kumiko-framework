@@ -19,12 +19,23 @@ describe("sample-index", () => {
     const delivery = index.features["delivery"];
     expect(delivery?.primarySample).toBe("recipes-delivery-notifications");
     expect(delivery?.whenToUse).toContain("notify");
+    expect(delivery?.sampleBlurb).toContain("r.notification");
     expect(delivery?.screenshot).toBeNull();
     expect(delivery?.readmeSummary).toBeDefined();
 
     const config = index.features["config"];
     expect(config?.primarySample).toBe("recipes-encrypted-tenant-config");
     expect(config?.hasVisualOutput).toBe(true);
+  });
+
+  test("every override entry has sampleBlurb", () => {
+    const overrides = JSON.parse(
+      readFileSync(`${import.meta.dir}/../../../../sample-index.overrides.json`, "utf-8"),
+    ) as Record<string, { sampleBlurb?: string }>;
+    for (const [name, row] of Object.entries(overrides)) {
+      expect(row.sampleBlurb?.length).toBeGreaterThan(20);
+      expect(buildSampleIndex().features[name]?.sampleBlurb).toBe(row.sampleBlurb);
+    }
   });
 
   test("extractReadmeSummary reads delivery-notifications intro", () => {
