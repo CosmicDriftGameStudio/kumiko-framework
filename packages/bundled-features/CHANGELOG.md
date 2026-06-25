@@ -1,5 +1,93 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.89.0
+
+### Minor Changes
+
+- be41f4d: feat(user-data-rights): zero-callback GDPR emails via mail-foundation (C6)
+
+  `user-data-rights` now ships default `send*Email` implementations + email
+  templates for the four GDPR notifications (export-ready, export-failed,
+  deletion-requested, deletion-executed). Mount `mail-foundation` + any
+  `mail-transport-*` (e.g. `mail-transport-smtp`) and the feature sends these
+  mails itself — no app callback code. An app that passes its own `send*Email`
+  opt keeps full control (the default only fills the gap). The default mails
+  render in the recipient's own `user.locale` (de/en); `mailDefaults`
+  (`{ locale, appName }`) brands them and supplies the locale fallback for
+  unknown/unsupported values. Export-ready additionally needs
+  `appExportDownloadUrl` (a one-shot operator warning fires if a transport is
+  mounted but the URL is unset).
+
+  The four `send*Email` callback args gain a `userLocale` field (additive — apps
+  with their own callbacks may ignore it).
+
+  The job-lane crons (export/forget) reach the per-tenant transport through a new
+  `makeTenantMailTransportResolver`, mirroring the file-provider resolver: the
+  cron ctx carries `configResolver` (the per-request `ConfigAccessor` exists only
+  in the HTTP dispatcher), so the resolver builds a per-tenant accessor from it.
+  The deletion-requested mail runs in the request lane and uses the request ctx
+  directly. The anonymous-flow verification mail stays app-wired by design — a
+  synchronous default would reintroduce an account-enumeration timing oracle.
+
+  **Plugin-author-facing change:** `MailTransportPlugin.build(ctx, tenantId)` and
+  `createTransportForTenant(ctx, tenantId)` now take a narrow `MailTransportContext`
+  (`{ config?, registry?, secrets?, _userId? }`) instead of the full
+  `HandlerContext`, mirroring file-foundation's `FileProviderContext`. The full
+  `HandlerContext` from the request lane is still assignable, so request-path
+  callers are unaffected; custom `mail-transport-*` plugins that annotated
+  `build(ctx: HandlerContext)` should switch to `MailTransportContext`. This also
+  fixes a latent worker-lane crash: the previous `HandlerContext` typing invited a
+  synthetic-ctx cast that would have read request-only fields absent in the cron
+  lane.
+
+- 8ae9ca3: feat(data-retention): autonomous retention-cleanup cron (GDPR C7)
+
+  `data-retention` now registers a `retention-cleanup` cron (perTenant fan-out,
+  daily) that autonomously enforces configured retention policies — previously
+  rules were resolved but never executed. For each implicit entity projection it
+  resolves the effective policy (entity-default → compliance-profile-derived
+  preset → per-tenant override) and applies the strategy to rows past their
+  `keepFor` cutoff:
+
+  - **hardDelete** — batched delete (`deleteManyBatched`, no full-table scans)
+  - **softDelete** — `isDeleted`/`deletedAt`, only on not-yet-deleted rows
+  - **blockDelete** — ignored by design (the user-forget flow anonymizes instead)
+  - **anonymize** — deferred (needs an idempotency marker; no bundled entity uses
+    time-driven anonymize, and the forget flow covers userId-keyed anonymize)
+
+  The Layer-2 preset is derived from the tenant's compliance profile when
+  `compliance-profiles` is mounted (soft-dependency, no `r.requires`), so mounting
+  both features cleans data with no app code.
+
+  Two latent silent-no-op bugs surfaced and fixed as the first real consumer of
+  `retention.reference`:
+
+  - The boot-validator allows `createdAt`/`updatedAt` as retention references, but
+    the physical columns are `inserted_at`/`modified_at`. The cleanup runner now
+    maps these framework-timestamp aliases to the real columns.
+  - The `dsgvo-*` presets keyed entities `auditLog`/`httpLog` (camelCase) against
+    the file's own kebab-case convention; renamed to `audit-log`/`http-log`.
+
+  A missing reference column is skipped (not mass-deleted) and reported for
+  operator visibility.
+
+### Patch Changes
+
+- ca33c52: HTTP-cache hardening + load reduction for the public-page caches (follow-up to the cache helpers in #630).
+
+  - **`cachedResponse`: `If-None-Match` now decides alone.** Per RFC 7232 §3.3 a present `If-None-Match` makes `If-Modified-Since` irrelevant. Previously a mismatching ETag fell through to the `If-Modified-Since` branch and could still return a stale `304`. Benign in the current call sites (static ETags are mtime+size based, revision routes carry no `last-modified`), but now correct: ETag present → ETag alone.
+  - **Multi-tenant `index.html` is served with `Vary: Host`.** `runProdApp`'s `hostDispatch` path picks the HTML file per Host and serves it `public`. Without `Vary: Host` a shared cache could key only on the URL; only the `max-age=0, must-revalidate` + per-Host ETag kept it from leaking one tenant's schema-injected shell to another. `Vary: Host` makes the isolation explicit instead of incidental, matching `managed-pages`.
+  - **`legal-pages` / `managed-pages` cache for 60s.** Both served `public, max-age=0, must-revalidate`, so every request hit the origin to revalidate — and each `304` re-ran the content (and branding) query just to recompute the revision ETag. They now use `public, max-age=60, must-revalidate`: CDN/browser serve fresh for 60s without an origin round-trip, edits go live within 60s.
+
+- Updated dependencies [ca33c52]
+- Updated dependencies [dbc2c2d]
+- Updated dependencies [4722d4e]
+  - @cosmicdrift/kumiko-framework@0.89.0
+  - @cosmicdrift/kumiko-renderer@0.89.0
+  - @cosmicdrift/kumiko-headless@0.89.0
+  - @cosmicdrift/kumiko-renderer-web@0.89.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.89.0
+
 ## 0.88.0
 
 ### Minor Changes
