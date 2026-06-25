@@ -698,13 +698,13 @@ describe("rebuildProjection — live-tail catch-up (#363 Phase 2)", () => {
     expect(await getCount(group)).toBe(3);
   });
 
-  test("KNOWN LIMITATION (#443): a lower-id write committed late during replay is currently LOST", async () => {
+  test("(#443) a lower-id write committed late during replay is recovered under the fence", async () => {
     // bigserial assigns ids at INSERT (pre-commit); a cross-aggregate write can
     // commit an id BELOW the cursor the unlocked drain already advanced past, and
-    // the fenced final drain (`WHERE id > cursor`) never revisits it. This
-    // characterization test pins that data-loss deterministically. No clean fix
-    // preserves the online (short-fence) property — see #443. When the fix lands,
-    // flip groupX's assertion to toBe(1).
+    // the fenced final drain (`WHERE id > cursor`) never revisits it. Under the
+    // fence the subscribed-event set is final, so a count re-check detects the
+    // shortfall and re-replays the full log into a fresh shadow — groupX, whose
+    // low-id event committed late, is no longer lost. See #443.
     const db = testDb.db as DbConnection; // @cast-boundary test-harness (TestDb.db is intentionally unknown)
     const groupX = "00000000-0000-4000-8000-000000000201";
     const groupY = "00000000-0000-4000-8000-000000000202";
@@ -747,7 +747,7 @@ describe("rebuildProjection — live-tail catch-up (#363 Phase 2)", () => {
     });
 
     expect(await getCount(groupY)).toBe(1);
-    expect(await getCount(groupX)).toBeUndefined(); // BUG (#443): should be 1
+    expect(await getCount(groupX)).toBe(1); // #443 fixed: fenced count re-check re-replayed the missed low-id event
   });
 
   test("the rebuild tx sees concurrently-committed rows (READ COMMITTED, not a frozen snapshot)", async () => {
