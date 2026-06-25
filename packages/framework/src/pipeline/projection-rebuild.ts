@@ -1,5 +1,6 @@
 import type { DbConnection, DbTx } from "../db/connection";
 import {
+  countSubscribedEvents,
   finalizeProjectionRebuild,
   markProjectionRebuildFailed,
   markProjectionRebuilding,
@@ -110,10 +111,11 @@ function rowToStoredEvent(row: StoredEventRow): StoredEvent {
 //   - The shadow is rebuilt from EntityTableMeta, so an index hand-added in a
 //     migration but absent from meta is not reconstructed.
 //   - Requires CREATE privilege to provision the shared rebuild schema.
-//   - A cross-aggregate write that COMMITS with an event id below the cursor
-//     after the cursor already passed it is lost from the rebuild (id-order
-//     != commit-order; bigserial assigns ids pre-commit). Only reachable
-//     during a concurrent rebuild; recovered by the next rebuild. #443.
+//   - id-order != commit-order (bigserial assigns ids pre-commit), so a
+//     cross-aggregate write can COMMIT an event id BELOW the cursor after the
+//     unlocked drain already passed it. Caught under the fence: a count
+//     re-check against the (now final) event set detects the shortfall and
+//     re-replays the full log into a fresh shadow. #443.
 
 export type RebuildResult = {
   readonly projection: string;
@@ -239,6 +241,23 @@ export async function rebuildProjection(
         await fenceLiveTable(tx, meta.tableName, fenceLockTimeoutMs);
         while ((await drainBatch(tx)) === REBUILD_BATCH_SIZE) {
           // keep draining full batches; a short batch ends the loop
+        }
+
+        // Fenced → the subscribed-event set is final (every live apply blocks
+        // on the live-table lock). If fewer events were applied than exist, a
+        // lower-id event committed late during the unlocked phase and the
+        // id-cursor leapt past it (#443). Rebuild the shadow from scratch and
+        // replay the whole log under the fence: a fresh shadow means no
+        // double-apply (the rejected "re-drain into a populated shadow" hazard),
+        // and the full-replay cost is paid only on this rare detected path.
+        const expectedEvents = await countSubscribedEvents(tx, sourcesList, subscribedList);
+        if (expectedEvents > BigInt(eventsProcessed)) {
+          await buildShadowTable(tx, meta);
+          lastProcessedEventId = 0n;
+          eventsProcessed = 0;
+          while ((await drainBatch(tx)) === REBUILD_BATCH_SIZE) {
+            // re-replay the full log into the fresh shadow
+          }
         }
       }
 

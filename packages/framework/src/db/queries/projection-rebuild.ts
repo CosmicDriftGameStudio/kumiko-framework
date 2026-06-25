@@ -34,6 +34,27 @@ export async function selectEventsForProjectionRebuildBatch(
   )) as ReadonlyArray<Record<string, unknown>>;
 }
 
+// Total subscribed events in the log — same source/type filter as
+// selectEventsForProjectionRebuildBatch, no id cursor. Under the cutover fence
+// this is the ground-truth count the rebuild must have applied; a shortfall
+// means a lower-id event committed late and the id-cursor leapt past it (#443).
+export async function countSubscribedEvents(
+  db: AnyDb,
+  aggregateTypes: readonly string[],
+  eventTypes: readonly string[],
+): Promise<bigint> {
+  const rows = (await asRawClient(db).unsafe(
+    `SELECT count(*)::bigint AS n FROM "kumiko_events"
+     WHERE "aggregate_type" = ANY($1::text[])
+       AND "type" = ANY($2::text[])`,
+    [aggregateTypes, eventTypes],
+  )) as ReadonlyArray<{ n: bigint | string | number | null }>;
+  const raw = rows[0]?.n;
+  if (typeof raw === "bigint") return raw;
+  if (raw === null || raw === undefined) return 0n;
+  return BigInt(raw);
+}
+
 export async function finalizeProjectionRebuild(
   db: AnyDb,
   projectionName: string,
