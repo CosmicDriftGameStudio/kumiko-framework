@@ -110,6 +110,9 @@ export const tokenCrud = createEventStoreExecutor(
 export type SendExportReadyEmailFn = (args: {
   readonly userId: string;
   readonly userEmail: string;
+  /** Stored user.locale (free-form, e.g. "de"/"en"/"de-DE"/null) — lets the
+   *  default mailer render in the recipient's language. */
+  readonly userLocale: string | null;
   readonly tenantId: TenantId;
   readonly jobId: string;
   readonly downloadUrl: string;
@@ -120,6 +123,7 @@ export type SendExportReadyEmailFn = (args: {
 export type SendExportFailedEmailFn = (args: {
   readonly userId: string;
   readonly userEmail: string;
+  readonly userLocale: string | null;
   readonly tenantId: TenantId;
   readonly jobId: string;
   readonly errorMessage: string;
@@ -753,12 +757,17 @@ function countingStream(source: AsyncIterable<Uint8Array>): {
 // (Alice in Tenant A+B) hat trotzdem nur 1 user-Row mit ihrer
 // Heim-Tenant als tenantId. Lookup ohne tenantId-filter findet sie
 // aus jedem Worker-Tenant-Context.
-async function lookupUserEmail(db: DbConnection, userId: string): Promise<string | null> {
+async function lookupUserContact(
+  db: DbConnection,
+  userId: string,
+): Promise<{ email: string; locale: string | null } | null> {
   // @cast-boundary db-row.
   const row = (await fetchOne(db, userTable, { id: userId })) as {
     email: string | null;
+    locale: string | null;
   } | null;
-  return row?.email ?? null;
+  if (!row?.email) return null;
+  return { email: row.email, locale: row.locale ?? null };
 }
 
 // Atom 5 — Email-Notification beim done-flip. Best-effort:
@@ -776,8 +785,8 @@ async function fireExportReadyCallback(args: {
   readonly appExportDownloadUrl: string | undefined;
   readonly send: SendExportReadyEmailFn;
 }): Promise<void> {
-  const userEmail = await lookupUserEmail(args.db, args.job.userId);
-  if (!userEmail) {
+  const contact = await lookupUserContact(args.db, args.job.userId);
+  if (!contact) {
     // User-Row fehlt (z.B. forget-Pfad mid-export). Skip-Notification mit
     // Operator-Alert via job-run-Log statt Throw — Job bleibt done, User
     // hat ja seinen Token via export-status.query erreichbar (UI-Pfad).
@@ -802,7 +811,8 @@ async function fireExportReadyCallback(args: {
   const downloadUrl = `${baseUrl}?token=${encodeURIComponent(args.plainToken)}`;
   await args.send({
     userId: args.job.userId,
-    userEmail,
+    userEmail: contact.email,
+    userLocale: contact.locale,
     tenantId: args.job.requestedFromTenantId,
     jobId: args.job.id,
     downloadUrl,
@@ -818,8 +828,8 @@ async function fireExportFailedCallback(args: {
   readonly errorMessage: string;
   readonly send: SendExportFailedEmailFn;
 }): Promise<void> {
-  const userEmail = await lookupUserEmail(args.db, args.job.userId);
-  if (!userEmail) {
+  const contact = await lookupUserContact(args.db, args.job.userId);
+  if (!contact) {
     // biome-ignore lint/suspicious/noConsole: operator-visibility
     console.warn(
       `[user-data-rights:run-export-jobs] userId=${args.job.userId} hat kein userEmail — sendExportFailedEmail skipped`,
@@ -829,7 +839,8 @@ async function fireExportFailedCallback(args: {
   }
   await args.send({
     userId: args.job.userId,
-    userEmail,
+    userEmail: contact.email,
+    userLocale: contact.locale,
     tenantId: args.job.requestedFromTenantId,
     jobId: args.job.id,
     errorMessage: args.errorMessage,

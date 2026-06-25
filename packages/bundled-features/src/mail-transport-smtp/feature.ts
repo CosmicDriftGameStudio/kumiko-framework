@@ -34,14 +34,12 @@ import {
   requireNonEmpty,
   requireSecretSet,
 } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
-import type { MailTransportPlugin } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
+import type {
+  MailTransportContext,
+  MailTransportPlugin,
+} from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
-import {
-  access,
-  createTenantConfig,
-  defineFeature,
-  type HandlerContext,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { access, createTenantConfig, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 const FEATURE_NAME = "mail-transport-smtp";
 
@@ -115,7 +113,7 @@ export const mailTransportSmtpFeature = defineFeature(FEATURE_NAME, (r) => {
   // `entityName` "smtp" is what tenants set in mail-foundation's
   // `provider` config-key to pick this transport.
   const plugin: MailTransportPlugin = {
-    build: async (ctx: HandlerContext, tenantId: string) => buildSmtpTransport(ctx, tenantId), // @wrapper-known semantic-alias
+    build: async (ctx: MailTransportContext, tenantId: string) => buildSmtpTransport(ctx, tenantId), // @wrapper-known semantic-alias
   };
   r.useExtension("mailTransport", "smtp", plugin);
 
@@ -136,7 +134,10 @@ export const SMTP_PASSWORD = mailTransportSmtpFeature.exports.password;
 // Internal: build the EmailTransport from tenant config + secret
 // =============================================================================
 
-async function buildSmtpTransport(ctx: HandlerContext, tenantId: string): Promise<EmailTransport> {
+async function buildSmtpTransport(
+  ctx: MailTransportContext,
+  tenantId: string,
+): Promise<EmailTransport> {
   const ctxConfig = ctx.config;
   if (!ctxConfig) {
     throw new Error(
@@ -185,7 +186,7 @@ async function buildSmtpTransport(ctx: HandlerContext, tenantId: string): Promis
   });
 }
 
-async function readPassword(ctx: HandlerContext, tenantId: string): Promise<string> {
+async function readPassword(ctx: MailTransportContext, tenantId: string): Promise<string> {
   const secrets = requireSecretsContext(ctx, FEATURE_NAME);
   const branded = await secrets.get(tenantId, SMTP_PASSWORD);
   return requireSecretSet(branded, FEATURE_NAME, SMTP_PASSWORD.name).reveal();

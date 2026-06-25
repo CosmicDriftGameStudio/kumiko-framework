@@ -9,6 +9,8 @@
 
 export {
   createTransportForTenant,
+  isMailTransportPlugin,
+  type MailTransportContext,
   type MailTransportPlugin,
   mailFoundationFeature,
 } from "./feature";

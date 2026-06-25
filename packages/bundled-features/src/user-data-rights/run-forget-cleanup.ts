@@ -70,6 +70,9 @@ type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 export type SendDeletionExecutedEmailFn = (args: {
   readonly userId: string;
   readonly userEmail: string;
+  /** Stored user.locale (free-form, cached PRE-tx alongside the email) — lets
+   *  the default mailer render in the recipient's language. */
+  readonly userLocale: string | null;
   readonly tenantIds: readonly TenantId[];
   readonly executedAt: string;
 }) => Promise<void>;
@@ -207,6 +210,7 @@ export async function runForgetCleanup(
           await sendDeletionExecutedEmail({
             userId: user.id,
             userEmail: userResult.userEmailBeforeDelete,
+            userLocale: userResult.userLocaleBeforeDelete,
             tenantIds: userResult.tenantIdsBeforeDelete,
             executedAt: now.toString(),
           });
@@ -231,6 +235,8 @@ interface ProcessUserResult {
    *  null wenn user-Row beim Pre-Tx-Lookup nicht (mehr) existiert oder
    *  email leer ist. */
   readonly userEmailBeforeDelete: string | null;
+  /** user.locale VOR Tx gecacht — Default-Mailer rendert in Empfaenger-Sprache. */
+  readonly userLocaleBeforeDelete: string | null;
   /** Tenant-Memberships VOR Tx — Email-Template kann das nutzen. */
   readonly tenantIdsBeforeDelete: readonly TenantId[];
 }
@@ -252,9 +258,12 @@ async function processUser(args: {
   // Nach der Tx ist email = "deleted-{id}@{tenant}.example" oder NULL.
   // Memory-cache laesst Atom-5b-Callback nach success-flip den
   // ORIGINAL-email an App-Author-Callback geben.
-  const userPreTx = await fetchOne<{ email: string | null }>(db, userTable, { id: userId });
+  const userPreTx = await fetchOne<{ email: string | null; locale: string | null }>(db, userTable, {
+    id: userId,
+  });
   const userEmailBeforeDelete =
     userPreTx?.email && userPreTx.email.length > 0 ? userPreTx.email : null;
+  const userLocaleBeforeDelete = userPreTx?.locale ?? null;
 
   // Memberships fuer diesen User holen — alle Tenants in denen er Mitglied ist.
   const memberships = await selectMany<{ tenantId: TenantId }>(db, tenantMembershipsTable, {
@@ -335,6 +344,7 @@ async function processUser(args: {
     hookCallsAttempted,
     errors,
     userEmailBeforeDelete,
+    userLocaleBeforeDelete,
     tenantIdsBeforeDelete,
   };
 }

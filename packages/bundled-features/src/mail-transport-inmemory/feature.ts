@@ -26,8 +26,11 @@ import type {
   EmailTransport,
 } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import { createInMemoryTransport } from "@cosmicdrift/kumiko-bundled-features/channel-email";
-import type { MailTransportPlugin } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
-import { defineFeature, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
+import type {
+  MailTransportContext,
+  MailTransportPlugin,
+} from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 const FEATURE_NAME = "mail-transport-inmemory";
 
@@ -83,7 +86,7 @@ export const mailTransportInMemoryFeature = defineFeature(FEATURE_NAME, (r) => {
   r.requires("mail-foundation");
 
   const plugin: MailTransportPlugin = {
-    build: async (_ctx: HandlerContext, tenantId: string): Promise<EmailTransport> => {
+    build: async (_ctx: MailTransportContext, tenantId: string): Promise<EmailTransport> => {
       // Returnt den per-tenant Buffer. Identitätsstabil zwischen calls
       // damit die Demo-Inbox accumulated bleibt.
       return getOrCreateTransportForTenant(tenantId);
