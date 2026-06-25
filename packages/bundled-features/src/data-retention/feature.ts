@@ -1,5 +1,7 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { policyForQuery } from "./handlers/policy-for.query";
+import { resolveTenantRetentionPreset } from "./resolve-tenant-preset";
+import { runRetentionCleanup } from "./run-retention-cleanup";
 import { tenantRetentionOverrideEntity } from "./schema/tenant-retention-override";
 
 export { retentionOverrideSchema } from "./override-schema";
@@ -14,11 +16,21 @@ export {
   resolveRetentionPolicyForTenant,
 } from "./resolve-for-tenant";
 export {
+  type ResolveTenantPresetArgs,
+  resolveTenantRetentionPreset,
+} from "./resolve-tenant-preset";
+export {
   type EffectiveRetentionPolicy,
   type ResolveRetentionPolicyArgs,
   type RetentionOverride,
   resolveRetentionPolicy,
 } from "./resolver";
+export {
+  type RetentionCleanupSkip,
+  type RunRetentionCleanupArgs,
+  type RunRetentionCleanupResult,
+  runRetentionCleanup,
+} from "./run-retention-cleanup";
 export {
   tenantRetentionOverrideEntity,
   tenantRetentionOverrideTable,
@@ -31,11 +43,12 @@ export {
 //   - Retention-Presets (dsgvo-basic, dsgvo-hgb, swiss-dsg, default)
 //   - tenantRetentionOverride-Entity für per-Tenant Edge-Cases
 //
-// Sprint 2.D2 (kommt):
-//   - Cleanup-Job mit Batch-Logik
-//   - Anonymize-Strategy + blockDelete-Frist-Check
+// Sprint 2.D2b (this commit):
+//   - retention-cleanup-Cron (perTenant) — hardDelete (batched) + softDelete
+//   - Layer-2-Preset aus dem Compliance-Profile abgeleitet (soft-dep)
+//   - anonymize deferred (Idempotenz-Marker, siehe run-retention-cleanup.ts)
 //
-// Sprint 2.D3 (kommt):
+// Sprint 2.D3 (done):
 //   - r.exposesApi("retention.policyFor") für user-data-rights
 //
 // Cross-Feature-Hinweis: Plan-Roadmap docs/plans/datenschutz/
@@ -58,8 +71,46 @@ export function createDataRetentionFeature(): FeatureDefinition {
     r.exposesApi("retention.policyFor");
     r.queryHandler(policyForQuery);
 
-    // S2.D2b wird hier den Cleanup-Job registrieren:
-    //   r.job("retention-cleanup", { trigger: { cron: "0 3 * * *" } }, ...)
-    // + tenant-config-key fuer Preset-Auswahl.
+    // S2.D2b — autonomer Retention-Cleanup. perTenant-Fan-out (ein Run pro
+    // aktivem Tenant, wie soft-delete-cleanup): die job-DB ist NICHT
+    // tenant-scoped, deshalb scoped der Runner jeden Delete explizit per
+    // tenantId. Ohne diesen Cron werden Retention-Regeln zwar konfiguriert,
+    // aber nie ausgefuehrt.
+    r.job(
+      "retention-cleanup",
+      { trigger: { cron: "0 3 * * *" }, perTenant: true, concurrency: "skip" },
+      async (_payload, ctx) => {
+        if (!ctx.db || !ctx.registry) {
+          throw new Error(
+            "retention-cleanup: ctx.db + ctx.registry required (JobContext incomplete)",
+          );
+        }
+        const tenantId = ctx.systemUser?.tenantId ?? ctx._tenantId;
+        if (tenantId === undefined) {
+          // skip: cron fired without a perTenant fan-out tenant — nothing scoped
+          return;
+        }
+        const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
+        const cleanupDb = ctx.db as import("@cosmicdrift/kumiko-framework/db").DbConnection; // @cast-boundary db-operator
+        const tenantPreset = await resolveTenantRetentionPreset({
+          db: cleanupDb,
+          registry: ctx.registry,
+          tenantId,
+        });
+        const result = await runRetentionCleanup({
+          db: cleanupDb,
+          registry: ctx.registry,
+          tenantId,
+          tenantPreset,
+          now: T.Now.instant(),
+        });
+        if (result.anonymizeDeferred.length > 0 || result.skipped.length > 0) {
+          // biome-ignore lint/suspicious/noConsole: operator-visibility for deferred/skipped entities
+          console.warn(
+            `[data-retention:retention-cleanup] tenant=${tenantId} anonymizeDeferred=${result.anonymizeDeferred.join(",") || "-"} skipped=${result.skipped.map((s) => `${s.entityName}:${s.reason}`).join(",") || "-"}`,
+          );
+        }
+      },
+    );
   });
 }
