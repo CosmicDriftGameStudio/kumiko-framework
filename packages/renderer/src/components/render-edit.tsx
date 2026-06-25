@@ -28,7 +28,11 @@ import { extensionSectionName, useExtensionSectionComponent } from "../app/exten
 import { useForm } from "../hooks/use-form";
 import { useTranslation } from "../i18n";
 import { usePrimitives } from "../primitives";
-import { resolveExtensionEntityId, shouldNotifyCaller } from "./render-edit-logic";
+import {
+  hasEditableSection,
+  resolveExtensionEntityId,
+  shouldNotifyCaller,
+} from "./render-edit-logic";
 import { RenderField } from "./render-field";
 
 // End-to-end renderer für einen entityEdit screen. Rendert aus-
@@ -243,6 +247,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     [screen, entity, snapshot.values, translate, featureName],
   );
 
+  const hasEditableField = hasEditableSection(vm.sections);
+
   // Persistiert alle composed Extension-Sections mit der aufgelösten entityId.
   // false = eine Section schlug fehl (ihr i18n-Key landet im Banner). Ohne
   // Entity-Kontext (create-mode ohne route-id) gibt es nichts zu schreiben.
@@ -349,15 +355,17 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           {translate("kumiko.actions.cancel")}
         </Button>
       )}
-      <Button
-        type="submit"
-        disabled={(snapshot.isUnchanged && !extensionDirty) || isSubmitting}
-        loading={isSubmitting}
-        variant="primary"
-        testId="render-edit-submit"
-      >
-        {translate(submitLabel ?? "kumiko.actions.save")}
-      </Button>
+      {hasEditableField && (
+        <Button
+          type="submit"
+          disabled={(snapshot.isUnchanged && !extensionDirty) || isSubmitting}
+          loading={isSubmitting}
+          variant="primary"
+          testId="render-edit-submit"
+        >
+          {translate(submitLabel ?? "kumiko.actions.save")}
+        </Button>
+      )}
     </>
   );
 
