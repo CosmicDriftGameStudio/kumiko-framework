@@ -23,7 +23,9 @@ import { type SetFolderPayload, setFolderPayloadSchema } from "../schemas";
 // Referential integrity: there is no FK (event-sourced, no JOIN), so we verify
 // the target folder exists before writing — a malformed call with an unknown
 // folderId would otherwise point an entity at a phantom folder.
-export function createSetFolderHandler(access: AccessRule = DEFAULT_FOLDER_ACCESS): WriteHandlerDef {
+export function createSetFolderHandler(
+  access: AccessRule = DEFAULT_FOLDER_ACCESS,
+): WriteHandlerDef {
   return {
     name: "set-folder",
     schema: setFolderPayloadSchema,

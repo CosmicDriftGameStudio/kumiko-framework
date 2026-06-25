@@ -174,6 +174,7 @@ export function FolderManager({
     onClick: () => void,
     danger?: boolean,
   ): ReactNode => (
+    // kumiko-lint-ignore primitives-discipline: compact icon action for the Finder-style tree row; the full Button primitive would break the dense single-row layout
     <button
       type="button"
       disabled={busy}
@@ -224,6 +225,7 @@ export function FolderManager({
       <div key={node.id} data-testid={`folder-node-${node.id}`} className={rowClass(stripe)}>
         {rails(depth)}
         {hasChildren ? (
+          // kumiko-lint-ignore primitives-discipline: compact disclosure chevron, not a form button
           <button
             type="button"
             className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-background hover:text-foreground"

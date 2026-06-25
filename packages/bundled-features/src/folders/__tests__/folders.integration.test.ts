@@ -68,11 +68,7 @@ async function setFolder(folderId: string, entityId: string, user = admin) {
 }
 
 async function clearFolder(entityId: string, user = admin) {
-  return stack.http.writeOk(
-    FoldersHandlers.clearFolder,
-    { entityType: "credit", entityId },
-    user,
-  );
+  return stack.http.writeOk(FoldersHandlers.clearFolder, { entityType: "credit", entityId }, user);
 }
 
 async function listFolders(user = admin): Promise<Array<Record<string, unknown>>> {
@@ -84,7 +80,10 @@ async function listFolders(user = admin): Promise<Array<Record<string, unknown>>
   return res.rows;
 }
 
-async function assignmentsOf(entityId: string, user = admin): Promise<Array<Record<string, unknown>>> {
+async function assignmentsOf(
+  entityId: string,
+  user = admin,
+): Promise<Array<Record<string, unknown>>> {
   const res = await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
     FoldersQueries.assignmentList,
     { filter: { field: "entityId", op: "eq", value: entityId } },

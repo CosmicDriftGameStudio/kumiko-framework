@@ -10,7 +10,7 @@ import {
   type UserDataDeleteHook,
   type UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { folderAssignmentEntity, folderEntity } from "../folders/entity";
+import { folderAssignmentEntity, folderEntity } from "../folders";
 
 const { table: folderTable } = createEntityExecutor("folder", folderEntity);
 const { table: folderAssignmentTable } = createEntityExecutor(
@@ -45,7 +45,9 @@ export const folderAssignmentExportHook: UserDataExportHook = async (ctx) => {
 // retention hold simply keeps them.
 function tenantScopedDelete(table: typeof folderTable): UserDataDeleteHook {
   return async (ctx, strategy) => {
+    // skip: multi-user tenant — a tenant-wide delete would destroy co-members' folders
     if (ctx.tenantModel !== "single-user") return;
+    // skip: anonymize is a no-op — folder rows carry no per-user PII to strip
     if (strategy === "anonymize") return;
     await deleteMany(ctx.db, table, { tenantId: ctx.tenantId });
   };

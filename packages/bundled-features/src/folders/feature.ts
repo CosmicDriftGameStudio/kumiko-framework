@@ -67,9 +67,7 @@ function registerFolders(
   // Single-membership assignment — hand-written (deterministic id + move/restore).
   r.writeHandler(createSetFolderHandler(access));
   r.writeHandler(createClearFolderHandler(access));
-  r.queryHandler(
-    defineEntityListHandler("folder-assignment", folderAssignmentEntity, { access }),
-  );
+  r.queryHandler(defineEntityListHandler("folder-assignment", folderAssignmentEntity, { access }));
 }
 
 export const foldersFeature = defineFeature(FOLDERS_FEATURE_NAME, (r) =>

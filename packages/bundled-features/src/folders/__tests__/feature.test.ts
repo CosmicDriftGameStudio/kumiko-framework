@@ -72,7 +72,13 @@ describe("createFoldersFeature access-options", () => {
   test("without options: singleton with default roles on every path", () => {
     const feature = createFoldersFeature();
     expect(feature).toBe(createFoldersFeature());
-    for (const path of ["folder:create", "folder:update", "folder:delete", "set-folder", "clear-folder"]) {
+    for (const path of [
+      "folder:create",
+      "folder:update",
+      "folder:delete",
+      "set-folder",
+      "clear-folder",
+    ]) {
       expect(writeAccess(feature, path)).toEqual([...DEFAULT_FOLDER_ROLES]);
     }
     expect(queryAccess(feature, "folder:list")).toEqual([...DEFAULT_FOLDER_ROLES]);
@@ -88,7 +94,13 @@ describe("createFoldersFeature access-options", () => {
 
   test("access:{openToAll} applies to every write- and query-path", () => {
     const feature = createFoldersFeature({ access: { openToAll: true } });
-    for (const path of ["folder:create", "folder:update", "folder:delete", "set-folder", "clear-folder"]) {
+    for (const path of [
+      "folder:create",
+      "folder:update",
+      "folder:delete",
+      "set-folder",
+      "clear-folder",
+    ]) {
       expect(rawWriteAccess(feature, path)).toEqual({ openToAll: true });
     }
   });
@@ -145,9 +157,9 @@ describe("setFolderPayloadSchema", () => {
 
 describe("clearFolderPayloadSchema", () => {
   test("accepts an entity reference (no folderId)", () => {
-    expect(clearFolderPayloadSchema.safeParse({ entityType: "credit", entityId: "c-1" }).success).toBe(
-      true,
-    );
+    expect(
+      clearFolderPayloadSchema.safeParse({ entityType: "credit", entityId: "c-1" }).success,
+    ).toBe(true);
   });
 
   test("rejects missing entityId", () => {
