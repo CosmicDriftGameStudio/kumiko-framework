@@ -101,6 +101,23 @@ For request-deletion, set the user's `grace_period_end` to the past in
 the DB (or wait the configured grace period) and run the
 `run-forget-cleanup` cron job.
 
+## Going to production (persistent storage)
+
+The demo mounts `file-provider-inmemory` so it runs without S3 credentials —
+but exports live in process memory and are **lost on restart** (the download
+then 500s). For a real deploy, swap to the persistent provider in
+`src/run-config.ts`:
+
+```ts illustration
+// import { fileProviderS3EnvFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3-env";
+// APP_FEATURES: fileProviderInMemoryFeature -> fileProviderS3EnvFeature
+```
+
+Then set `S3_BUCKET` / `S3_REGION` / `S3_ACCESS_KEY` / `S3_SECRET_KEY` (plus
+optional `S3_ENDPOINT` for Hetzner/S3-compatible stores) and the app override
+`file-foundation:config:provider = "s3-env"`. Full wiring + prod-verify steps:
+the **`wire-gdpr-data-rights`** runbook in `kumiko-platform/docs/runbooks/`.
+
 ## Adding your own domain
 
 To add another DSGVO-compliant entity to the demo:
