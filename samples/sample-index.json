@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled/scripts/gen-sample-index.ts + sample-index.overrides.json",
-  "featureCount": 26,
+  "featureCount": 27,
   "features": {
     "auth-email-password": {
       "samples": [
@@ -134,6 +134,13 @@
       "whenToUse": "Tests and local dev need file upload without S3 — in-memory provider implements the file-foundation API for integration tests and demos.",
       "sampleBlurb": "In-memory file provider for integration tests — upload, signed URL, and download without external storage.",
       "screenshot": null
+    },
+    "file-provider-s3-env": {
+      "samples": [
+        "apps-user-data-rights-demo"
+      ],
+      "hasVisualOutput": false,
+      "readmeSummary": "Sample app showing how a Kumiko app wires **user-data-rights** (DSGVO Art. 15+17+18+20) into a custom domain — here a tiny todo-list. The domain feature only registers an `EXT_USER_DATA` hook per entity; export bundling, forget cleanup, restriction and audit-log come from `user-data-rights` itself."
     },
     "files": {
       "samples": [
