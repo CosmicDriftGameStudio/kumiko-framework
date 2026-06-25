@@ -59,7 +59,7 @@ export interface RunRetentionCleanupArgs {
 
 export interface RetentionCleanupSkip {
   readonly entityName: string;
-  readonly reason: "missing-reference-column" | "missing-softdelete-columns";
+  readonly reason: "missing_reference_column" | "missing_softdelete_columns";
 }
 
 export interface RunRetentionCleanupResult {
@@ -103,7 +103,7 @@ export async function runRetentionCleanup(
     const referenceField = FRAMEWORK_REFERENCE_ALIAS[declaredReference] ?? declaredReference;
 
     if (table[referenceField] === undefined) {
-      skipped.push({ entityName, reason: "missing-reference-column" });
+      skipped.push({ entityName, reason: "missing_reference_column" });
       continue;
     }
 
@@ -124,7 +124,7 @@ export async function runRetentionCleanup(
       }
       case "softDelete": {
         if (table["isDeleted"] === undefined || table["deletedAt"] === undefined) {
-          skipped.push({ entityName, reason: "missing-softdelete-columns" });
+          skipped.push({ entityName, reason: "missing_softdelete_columns" });
           break;
         }
         const updated = await updateMany(

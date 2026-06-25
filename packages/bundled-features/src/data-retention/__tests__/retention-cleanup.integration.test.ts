@@ -181,7 +181,7 @@ describe("runRetentionCleanup :: real postgres", () => {
     expect(await labels("read_c7_stale", T1)).toEqual(["should-survive"]);
     expect(result.skipped).toContainEqual({
       entityName: "c7-stale",
-      reason: "missing-reference-column",
+      reason: "missing_reference_column",
     });
     expect(result.hardDeleted).toBe(0);
   });
