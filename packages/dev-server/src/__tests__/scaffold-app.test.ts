@@ -29,6 +29,7 @@ describe("scaffoldApp", () => {
       "bin/dev.ts",
       "src/client.tsx",
       ".env.example",
+      "docker-compose.yml",
       "README.md",
     ]);
     for (const f of result.files) {
@@ -102,6 +103,27 @@ describe("scaffoldApp", () => {
     // with "Missing required env var: TEST_DATABASE_URL".
     expect(env).toContain("TEST_DATABASE_URL=");
     expect(env).toContain("DATABASE_URL=");
+  });
+
+  test("docker-compose.yml ports + credentials match the .env.example *_URL defaults", () => {
+    const dest = join(tmp, "my-shop");
+    scaffoldApp({ name: "my-shop", destination: dest });
+
+    const compose = readFileSync(join(dest, "docker-compose.yml"), "utf-8");
+    const env = readFileSync(join(dest, ".env.example"), "utf-8");
+    // README tells the user to run `docker compose up -d`; that only works if
+    // the compose service matches what the generated .env points its *_URLs at.
+    expect(env).toContain("127.0.0.1:5432");
+    expect(env).toContain("127.0.0.1:6379");
+    // Ports bind to loopback only — weak dev creds / auth-less Redis must not
+    // be reachable from the LAN (security review of the scaffold).
+    expect(compose).toContain('"127.0.0.1:5432:5432"');
+    expect(compose).toContain('"127.0.0.1:6379:6379"');
+    expect(compose).not.toContain('"5432:5432"');
+    expect(compose).not.toContain('"6379:6379"');
+    expect(compose).toContain("POSTGRES_PASSWORD: postgres");
+    expect(compose).toContain("image: postgres:");
+    expect(compose).toContain("image: redis:");
   });
 
   test("README lists the mounted features dynamically", () => {

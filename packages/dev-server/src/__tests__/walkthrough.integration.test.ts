@@ -42,6 +42,7 @@ describe("walkthrough — DX-3.1 snapshot", () => {
       "bin/dev.ts",
       "src/client.tsx",
       ".env.example",
+      "docker-compose.yml",
       "README.md",
     ]);
   });
