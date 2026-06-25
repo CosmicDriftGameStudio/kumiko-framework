@@ -1,27 +1,27 @@
 # compliance-profiles-demo
 
-Sample-Recipe: gleicher App-Code, drei Tenants, drei DSGVO-Profile.
+Same app code, three tenants, three regulatory profiles — no `if (region)`
+branches in your domain handlers.
 
-## Was es zeigt
+## What it shows
 
-Wie ein Multi-Tenant-Plattform-Setup mit `compliance-profiles` ohne
-Code-Branches unterschiedliches regulatorisches Verhalten pro Tenant
-liefert:
+How a multi-tenant platform uses `compliance-profiles` to deliver different
+regulatory behaviour per tenant:
 
-| Tenant | Profile | Aufsicht | Sprachen | Tenant-Destroy-Grace |
+| Tenant | Profile | Supervisory authority | Languages | Tenant-destroy grace |
 |---|---|---|---|---|
-| **A** (DACH) | `eu-dsgvo` | BlnBDI Berlin | de / en | 30 Tage |
-| **B** (Schweiz) | `swiss-dsg` | EDÖB Bern | de / fr / it / en | 30 Tage |
-| **C** (DACH-HR) | `de-hr-dsgvo-hgb` | Landes-Datenschutzbehörde | de | 60 Tage (HR-Override) |
+| **A** (DACH) | `eu-dsgvo` | BlnBDI Berlin | de / en | 30 days |
+| **B** (Switzerland) | `swiss-dsg` | EDÖB Bern | de / fr / it / en | 30 days |
+| **C** (DACH-HR) | `de-hr-dsgvo-hgb` | State DPA | de | 60 days (HR override) |
 
-Plus dass Tenant B mit einem Override (`gracePeriod: { days: 90 }`)
-seine User-Rights-Grace verlängern kann ohne andere Profil-Felder zu
-verlieren — Deep-Merge auf Base-Profile, atomic-paths ersetzen, Rest
-geerbt aus `swiss-dsg` (das selbst extends auf `eu-dsgvo`).
+Plus tenant B with an override (`gracePeriod: { days: 90 }`) extending
+user-rights grace without losing other profile fields — deep-merge on the
+base profile; atomic paths replace, the rest inherits from `swiss-dsg` (which
+itself extends `eu-dsgvo`).
 
-## Architektur-Demo
+## Feature composition
 
-Das Sample importiert nur ein Feature:
+The sample imports one feature:
 
 ```ts illustration
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
@@ -29,35 +29,38 @@ import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-fea
 export const features = [createComplianceProfilesFeature()];
 ```
 
-Das Feature exposed `r.exposesApi("compliance.forTenant")` — andere
-Features (Sprint 2 `user-data-rights`, Sprint 5 `tenant-lifecycle`)
-nutzen den Resolver via QN-Pattern (siehe legal-pages →
-text-content für Cross-Feature-Aufruf-Beispiel).
+The feature exposes `compliance.forTenant` — other features (`user-data-rights`,
+`data-retention`, tenant lifecycle) resolve the effective profile via this API
+instead of hard-coding region rules.
 
-## Tests laufen
+## Flow
+
+1. Operator assigns a profile to each tenant (`eu-dsgvo`, `swiss-dsg`, …).
+2. Tenant B adds a partial override (longer grace) — merged atomically.
+3. `compliance.forTenant(tenantId)` returns resolved fields (languages,
+   supervisory authority, grace periods, retention presets).
+4. Downstream features read the resolver — forget grace, retention policy, and
+   audit obligations follow the profile without app-level branching.
+
+## Tests
 
 ```bash
-# Aus dem framework-Repo-Root (kumiko-framework):
-bun test
-  samples/recipes/compliance-profiles-demo/src/__tests__/feature.integration.test.ts
-
-# Alle Integration-Tests (incl. dieses Sample):
-bun test
+# From kumiko-framework repo root:
+bun test samples/recipes/compliance-profiles-demo/src/__tests__/feature.integration.test.ts
 ```
 
-5 Tests, alle full-stack via `setupTestStack` + echte HTTP-Calls.
+Five full-stack tests via `setupTestStack` + real HTTP — profile assignment,
+override merge, and cross-tenant isolation.
 
-## Local-Dev-Setup (manueller Test)
+## Local dev
 
-Das Sample ist ein Recipe ohne eigenen Server-Bootstrap — die Tests
-fahren `setupTestStack` und sind self-contained. Wer das interaktiv
-ausprobieren will, bindet `complianceProfilesDemoFeatures` in seine
-eigene `runDevApp`-Konfiguration ein.
+This recipe has no standalone server bootstrap — tests are self-contained. To
+try interactively, mount `complianceProfilesDemoFeatures` in your own
+`runDevApp` config.
 
-## Nächste Schritte (Sprint 2+)
+## Related samples
 
-- Sprint 2 `user-data-rights` ruft `compliance.forTenant` für Forget-
-  Grace-Period (eu-dsgvo: 30d, ca-quebec-l25: 30d, hipaa: 30d, …)
-- Sprint 5 `tenant-lifecycle` ruft es für `tenantDestroyGracePeriod`
-- Sprint 9 `compliance-as-product` Generator nutzt das Profile für
-  Verarbeitungsverzeichnis (Art. 30) + TOMs (Art. 32)
+- [user-data-rights](/en/samples/recipes-user-data-rights/) — forget grace from
+  `compliance.forTenant` drives deletion timing.
+- [apps-user-data-rights-demo](/en/samples/apps-user-data-rights-demo/) — full
+  GDPR app with `eu-dsgvo` profile wired.

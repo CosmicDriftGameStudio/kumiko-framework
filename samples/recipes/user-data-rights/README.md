@@ -1,14 +1,13 @@
 # user-data-rights
 
-DSGVO-compliant in 5 LOC: `r.useExtension(EXT_USER_DATA, ...)` hängt eine
-beliebige Domain-Entity an Forget-Cron + Export-ZIP + Magic-Link-Pipeline.
-App-Author schreibt nur die zwei Hooks pro Entity — der Rest passiert
-automatisch.
+GDPR-compliant domain wiring in ~5 lines: `r.useExtension(EXT_USER_DATA, …)`
+hooks any entity into the forget cron, export ZIP, and magic-link pipeline.
+You write two hooks per entity — the framework runs the rest.
 
-## Was es zeigt
+## What it shows
 
-Eine minimale Notes-Domain, die DSGVO Art. 15+17+20 vollständig integriert,
-ohne Forget-Logik selbst zu schreiben:
+A minimal notes domain with GDPR Art. 15+17+20 integrated without hand-written
+forget logic:
 
 ```ts illustration
 defineFeature("notes", (r) => {
@@ -35,50 +34,55 @@ defineFeature("notes", (r) => {
 });
 ```
 
-## Was automatisch wird
+## What runs automatically
 
-| Artikel | Was läuft | Wer triggert |
-|---------|-----------|---------------|
-| Art. 15 + 20 | Notes-Snippet landet im Export-ZIP, Magic-Link an User-Email | `runUserExport` (Cron via `request-export`-Endpoint) |
-| Art. 17 | Notes werden gelöscht oder anonymisiert nach Grace-Period | `runForgetCleanup` (Cron) |
-| Art. 18 | Restriction blockt User-Login solange aktiv | `auth-middleware` (alle Login-Pfade) |
-| Operator | Brute-Force-Detection auf Magic-Link-Endpoint | Edge-Rate-Limit + 90d Audit-Log |
+| Article | What happens | Trigger |
+|---|---|---|
+| Art. 15 + 20 | Notes snippet in export ZIP + magic-link email | `runUserExport` (via `request-export`) |
+| Art. 17 | Notes deleted or anonymized after grace | `runForgetCleanup` cron |
+| Art. 18 | Restriction blocks login while active | Auth middleware |
+| Operator | Brute-force detection on magic-link endpoint | Edge rate-limit + audit log |
 
 ## Strategy-aware delete
 
-`retention.policyFor("note")` resolved pro Entity die Strategy:
+`retention.policyFor("note")` resolves per entity:
 
-| Profile | Strategy | Effekt |
-|---------|----------|--------|
-| `eu-dsgvo` (Default) | `delete` | Notes hard-delete |
-| `de-hr-dsgvo-hgb` | `anonymize` für HR-Entities | `authorId=null`, Row bleibt — wichtig für Multi-User-Refs (Chat, Comment-Threads) |
+| Profile | Strategy | Effect |
+|---|---|---|
+| `eu-dsgvo` (default) | `delete` | Notes hard-deleted |
+| `de-hr-dsgvo-hgb` | `anonymize` for HR entities | `authorId=null`, row kept for multi-user refs |
 
-Der Test-File pinst beide Pfade.
+The integration test pins both paths.
 
-## Demo-Szenario im Test
+## Flow
+
+1. User creates notes → rows stored with `authorId`.
+2. `request-export` queues job → `runUserExport` bundles user + note rows.
+3. `request-deletion` → grace period from compliance profile.
+4. `runForgetCleanup` calls your `delete` hook with resolved strategy.
+
+## Tests
 
 ```bash
-bun test
+bun test src/__tests__/feature.integration.test.ts
 ```
 
-`src/__tests__/feature.integration.test.ts` beweist Schritt für Schritt:
+Step-by-step proof:
 
-1. Alice legt 2 Notes an → `runUserExport` returned Bundle mit Note-Snippet
-2. Alice triggered Deletion + Grace abgelaufen → `runForgetCleanup` löscht alle Notes
-3. Strategy=anonymize → `authorId=null`, Note-Row bleibt mit Title+Body
+1. Alice creates 2 notes → export bundle includes note snippet
+2. Deletion + expired grace → `runForgetCleanup` removes all notes
+3. Strategy `anonymize` → `authorId=null`, title/body remain
 
-## Das volle Bild
+## Full app vs this recipe
 
-Recipe = 1 Hook-Pattern, fokussiert auf das Wesentliche.
-
-- Vollständige runnable App: [`samples/apps/user-data-rights-demo`](../../apps/user-data-rights-demo)
-- Cross-Data-Matrix-Test (3 Provider gleichzeitig): [`packages/bundled-features/src/user-data-rights/__tests__/cross-data-matrix.integration.test.ts`](../../../packages/bundled-features/src/user-data-rights/__tests__/cross-data-matrix.integration.test.ts)
-- Operator-Guide für Verarbeitungsverzeichnis + AVV: [`packages/bundled-features/src/user-data-rights/COMPLIANCE.md`](../../../packages/bundled-features/src/user-data-rights/COMPLIANCE.md)
+| | This recipe | [user-data-rights-demo](/en/samples/apps-user-data-rights-demo/) |
+|---|---|---|
+| Scope | One hook pattern | Runnable app + todos + files |
+| Boot | Integration test only | `bun dev` on port 4291 |
 
 ## Dependencies
 
 ```ts illustration
-// In deiner App's run-config:
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
 import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
@@ -88,7 +92,7 @@ export const features = [
   createDataRetentionFeature(),
   createComplianceProfilesFeature(),
   createUserDataRightsFeature(),
-  createUserDataRightsDefaultsFeature(), // Default-Hooks für user + fileRef
-  notesFeature,                            // deine Domain
+  createUserDataRightsDefaultsFeature(),
+  notesFeature,
 ];
 ```
