@@ -1,5 +1,23 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.90.2
+
+### Patch Changes
+
+- 5f623a9: docs(user-data-rights): note the zero-callback mail defaults in the feature description
+
+  `user-data-rights`'s `r.describe()` now states that, with `mail-foundation` + a
+  `mail-transport-*` mounted, the feature sends the four GDPR notifications itself
+  (no app callback code, rendered in the recipient's locale) — so the generated
+  feature-reference page reflects the C6 mail defaults. `feature-manifest.json`
+  regenerated accordingly.
+
+  - @cosmicdrift/kumiko-framework@0.90.2
+  - @cosmicdrift/kumiko-dispatcher-live@0.90.2
+  - @cosmicdrift/kumiko-headless@0.90.2
+  - @cosmicdrift/kumiko-renderer@0.90.2
+  - @cosmicdrift/kumiko-renderer-web@0.90.2
+
 ## 0.90.1
 
 ### Patch Changes
