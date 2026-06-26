@@ -89,6 +89,9 @@ export function scaffoldApp(options: ScaffoldAppOptions): ScaffoldAppResult {
   write(join(destination, ".env.example"), renderEnvExample(options.name));
   files.push(".env.example");
 
+  write(join(destination, "docker-compose.yml"), renderDockerCompose());
+  files.push("docker-compose.yml");
+
   write(join(destination, "README.md"), renderReadme(options.name, options.features));
   files.push("README.md");
 
@@ -455,6 +458,35 @@ KUMIKO_DEV_DB_NAME=${devDb}
 `;
 }
 
+// Local Postgres + Redis for `bun dev`. Ports + credentials match the *_URL
+// defaults in renderEnvExample, so `docker compose up -d` (referenced by the
+// README) just works with the generated .env. Named pg volume so dev data
+// survives `docker compose down` (pairs with KUMIKO_DEV_DB_NAME persistence).
+// Ports bind to 127.0.0.1 only: the dev DB (postgres/postgres) and auth-less
+// Redis must not be reachable from the LAN on a machine without a firewall.
+function renderDockerCompose(): string {
+  return `# Local Postgres + Redis for \`bun dev\`. Matches the *_URL defaults in .env.example.
+# Start: docker compose up -d   ·   Stop: docker compose down   ·   Reset: docker compose down -v
+# Ports bind to 127.0.0.1 only — weak dev credentials must not be exposed on the LAN.
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - kumiko-pg:/var/lib/postgresql/data
+  redis:
+    image: redis:7
+    ports:
+      - "127.0.0.1:6379:6379"
+volumes:
+  kumiko-pg:
+`;
+}
+
 function renderReadme(
   appName: string,
   features: ReadonlyArray<ScaffoldFeatureEntry> | undefined,
@@ -503,6 +535,7 @@ Runs \`KUMIKO_DRY_RUN_ENV=boot bun bin/main.ts\` — validates feature compositi
 - \`src/run-config.ts\` — single source of truth: which features your app mounts.
 - \`bin/dev.ts\` — dev-server entry (\`bun dev\`).
 - \`bin/main.ts\` — production-bootstrap (\`bun run boot\` smoke + production deploy).
+- \`docker-compose.yml\` — local Postgres + Redis for \`bun dev\`.
 
 For full docs see https://docs.kumiko.rocks.
 `;
