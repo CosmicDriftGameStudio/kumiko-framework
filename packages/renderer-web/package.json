@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-renderer-web",
-  "version": "0.89.0",
+  "version": "0.90.0",
   "description": "Web-platform bindings for @cosmicdrift/kumiko-renderer. HTML default-primitives, browser history-based navigation, EventSource-backed live events, and a one-call createKumikoApp that mounts the whole stack via react-dom.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
