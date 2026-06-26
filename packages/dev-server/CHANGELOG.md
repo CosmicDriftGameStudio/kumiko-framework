@@ -1,5 +1,13 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.90.3
+
+### Patch Changes
+
+- 9a90672: scaffold: generated `docker-compose.yml` now uses `postgres:18` (the project standard) instead of `postgres:17`.
+  - @cosmicdrift/kumiko-framework@0.90.3
+  - @cosmicdrift/kumiko-bundled-features@0.90.3
+
 ## 0.90.2
 
 ### Patch Changes
