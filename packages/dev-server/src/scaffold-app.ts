@@ -470,7 +470,7 @@ function renderDockerCompose(): string {
 # Ports bind to 127.0.0.1 only — weak dev credentials must not be exposed on the LAN.
 services:
   postgres:
-    image: postgres:17
+    image: postgres:18
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
