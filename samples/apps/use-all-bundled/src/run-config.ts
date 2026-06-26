@@ -36,6 +36,8 @@ import { fileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-feature
 import { fileProviderS3Feature } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3";
 import { fileProviderS3EnvFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3-env";
 import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
+import { foldersFeature } from "@cosmicdrift/kumiko-bundled-features/folders";
+import { foldersUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/folders-user-data";
 import { createJobsFeature } from "@cosmicdrift/kumiko-bundled-features/jobs";
 import { createLegalPagesFeature } from "@cosmicdrift/kumiko-bundled-features/legal-pages";
 import { mailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
@@ -169,4 +171,8 @@ export const APP_FEATURES = [
   // app-author-grade
   customFieldsFeature,
   tagsFeature,
+  foldersFeature,
+  // folders-user-data: GDPR-Hooks für folder-Entities. Hängt (optional) an folders
+  // + (hart) an user-data-rights — beide oben gemountet.
+  foldersUserDataFeature,
 ] as const;

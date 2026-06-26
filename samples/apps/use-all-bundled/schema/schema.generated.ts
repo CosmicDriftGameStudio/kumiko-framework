@@ -21,6 +21,7 @@ import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-featu
 import { createManagedPagesFeature } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import { customFieldsFeature } from "@cosmicdrift/kumiko-bundled-features/custom-fields";
 import { tagsFeature } from "@cosmicdrift/kumiko-bundled-features/tags";
+import { foldersFeature } from "@cosmicdrift/kumiko-bundled-features/folders";
 
 const _config = createConfigFeature();
 const _user = createUserFeature();
@@ -38,6 +39,7 @@ const _templateResolver = createTemplateResolverFeature();
 const _managedPages = createManagedPagesFeature({ resolveApexTenant: () => null, allowCustomCss: true });
 const _customFields = customFieldsFeature;
 const _tags = tagsFeature;
+const _folders = foldersFeature;
 
 export const configValueTable = buildEntityTable("config-value", _config.entities["config-value"]!);
 export const userTable = buildEntityTable("user", _user.entities["user"]!);
@@ -60,6 +62,8 @@ export const pageTable = buildEntityTable("page", _managedPages.entities["page"]
 export const fieldDefinitionTable = buildEntityTable("field-definition", _customFields.entities["field-definition"]!);
 export const tagTable = buildEntityTable("tag", _tags.entities["tag"]!);
 export const tagAssignmentTable = buildEntityTable("tag-assignment", _tags.entities["tag-assignment"]!);
+export const folderTable = buildEntityTable("folder", _folders.entities["folder"]!);
+export const folderAssignmentTable = buildEntityTable("folder-assignment", _folders.entities["folder-assignment"]!);
 export { deliveryAttemptsTable } from "@cosmicdrift/kumiko-bundled-features/delivery";
 export { subscriptionsProjectionTable } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 export { globalFeatureStateTable } from "@cosmicdrift/kumiko-bundled-features/feature-toggles";
