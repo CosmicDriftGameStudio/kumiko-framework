@@ -3,6 +3,7 @@ import type {
   BooleanFieldDef,
   DateFieldDef,
   DecimalFieldDef,
+  DerivedFieldDef,
   EmbeddedFieldDef,
   EntityDefinition,
   EntityIndexDef,
@@ -54,6 +55,17 @@ export function createTextField<R extends true | false = false>(
  * Setze einen explicit `maxLength` wenn du ein verirrtes Browser-Paste
  * früh ablehnen willst (z.B. 1_000_000 = 1 MB).
  */
+/**
+ * Read-time computed field for `EntityDefinition.derivedFields` (NOT `fields`).
+ * The value is derived per row from the stored columns + the clock at query
+ * time, never persisted. Display only — server-side sort/filter/search don't
+ * apply and there's no client-side sort path (see DerivedFieldDef). `derive`
+ * must take its clock from `ctx.asOf`, never `Temporal.Now`/`Date`.
+ */
+export function createDerivedField(spec: DerivedFieldDef): DerivedFieldDef {
+  return { ...spec };
+}
+
 export function createLongTextField<R extends true | false = false>(
   overrides?: Partial<Omit<LongTextFieldDef, "type" | "required">> & { required?: R },
 ): LongTextFieldDef & { required: R } {
@@ -373,6 +385,7 @@ export function createEntity<F>(def: {
   readonly idType?: "serial" | "uuid";
   readonly access?: EntityDefinition["access"];
   readonly retention?: RetentionDef;
+  readonly derivedFields?: EntityDefinition["derivedFields"];
 }): F extends FieldsMap ? EntityDefinition<F> : never {
   return {
     softDelete: false,

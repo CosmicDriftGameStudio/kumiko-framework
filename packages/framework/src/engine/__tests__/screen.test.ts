@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { validateBoot } from "../boot-validator";
 import { defineFeature } from "../define-feature";
-import { createEntity, createTextField } from "../factories";
+import { createDerivedField, createEntity, createTextField } from "../factories";
 import { createRegistry } from "../registry";
 import type { ScreenDefinition } from "../types/screen";
 
@@ -11,6 +11,21 @@ function productEntity() {
     fields: {
       name: createTextField(),
       sku: createTextField(),
+    },
+  });
+}
+
+function derivedProductEntity() {
+  return createEntity({
+    table: "derived_products",
+    fields: {
+      name: createTextField(),
+    },
+    derivedFields: {
+      summary: createDerivedField({
+        valueType: "text",
+        derive: (row) => String(row["name"]),
+      }),
     },
   });
 }
@@ -277,6 +292,33 @@ describe("validateBoot — screen validation", () => {
       });
     });
     expect(() => validateBoot([feature])).toThrow(/field "nonexistent"/);
+  });
+
+  test("entityList with a derived-field column boots (derived is a valid column)", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.entity("product", derivedProductEntity());
+      r.screen({
+        id: "list",
+        type: "entityList",
+        entity: "product",
+        columns: ["name", "summary"],
+      });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("entityList defaultSort on a derived field fails boot (server sort can't apply)", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.entity("product", derivedProductEntity());
+      r.screen({
+        id: "list",
+        type: "entityList",
+        entity: "product",
+        columns: ["name", "summary"],
+        defaultSort: { field: "summary", dir: "asc" },
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(/defaultSort references unknown field "summary"/);
   });
 
   test("entityEdit with unknown field (string form in sections) fails boot", () => {

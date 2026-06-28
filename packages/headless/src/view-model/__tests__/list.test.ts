@@ -15,6 +15,13 @@ const taskEntity = {
     done: { type: "boolean" },
     priority: { type: "number", sortable: true },
   },
+  derivedFields: {
+    // Read-time computed (value appended by the list-query handler). The
+    // view-model only reads valueType; the derive body never runs here, so a
+    // no-op stand-in is enough.
+    statusLabel: { valueType: "text", derive: () => "" },
+    ageDays: { valueType: "number", derive: () => 0 },
+  },
 } as unknown as EntityDefinition;
 
 function listScreen(columns: EntityListScreenDefinition["columns"]): EntityListScreenDefinition {
@@ -123,6 +130,56 @@ describe("computeListViewModel", () => {
 
     expect(spy).toHaveBeenCalledWith("tasks:entity:task:field:title");
     expect(spy).toHaveBeenCalledWith("tasks:entity:task:field:priority");
+  });
+
+  test("derived-field column carries its valueType, is display-only (never sortable), no stored-field metadata", () => {
+    const vm = computeListViewModel({
+      screen: listScreen(["statusLabel", "ageDays"]),
+      entity: taskEntity,
+      rows: [],
+      translate,
+      featureName: "tasks",
+    });
+
+    expect(vm.columns).toEqual([
+      {
+        field: "statusLabel",
+        label: "tasks:entity:task:field:statusLabel",
+        type: "text",
+        sortable: false,
+      },
+      {
+        field: "ageDays",
+        label: "tasks:entity:task:field:ageDays",
+        type: "number",
+        sortable: false,
+      },
+    ]);
+  });
+
+  test("derived column value passes through from the row (handler already appended it)", () => {
+    const vm = computeListViewModel({
+      screen: listScreen(["title", "statusLabel"]),
+      entity: taskEntity,
+      rows: [{ id: "t-1", title: "first", statusLabel: "overdue" }],
+      translate,
+      featureName: "tasks",
+    });
+
+    expect(vm.rows[0]?.values).toEqual({ id: "t-1", title: "first", statusLabel: "overdue" });
+  });
+
+  test("derived columns accept an object-form renderer like stored columns", () => {
+    const fmt = { format: "currency" as const, symbol: "€" };
+    const vm = computeListViewModel({
+      screen: listScreen([{ field: "ageDays", renderer: fmt }]),
+      entity: taskEntity,
+      rows: [],
+      translate,
+      featureName: "tasks",
+    });
+
+    expect(vm.columns[0]?.renderer).toEqual(fmt);
   });
 
   test("slots pass through unchanged for the renderer to mount", () => {
