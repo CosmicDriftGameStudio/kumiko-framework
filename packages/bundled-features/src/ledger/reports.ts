@@ -1,3 +1,4 @@
+import { parseJsonSafe } from "@cosmicdrift/kumiko-framework/utils";
 import type { AccountType } from "./constants";
 import type { Posting } from "./schemas";
 
@@ -33,7 +34,7 @@ function naturalBalance(type: AccountType, raw: number): number {
 // jsonb lines surface as a parsed array or a JSON string depending on the driver
 // path — normalise so the pure fns always get Posting[].
 export function normalizeLines(raw: unknown): Posting[] {
-  const value = typeof raw === "string" ? JSON.parse(raw) : raw;
+  const value = typeof raw === "string" ? parseJsonSafe<unknown>(raw, null) : raw;
   return Array.isArray(value) ? (value as Posting[]) : []; // @cast-boundary db-row
 }
 

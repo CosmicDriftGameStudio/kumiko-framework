@@ -38,8 +38,8 @@ import { fileProviderS3EnvFeature } from "@cosmicdrift/kumiko-bundled-features/f
 import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
 import { foldersFeature } from "@cosmicdrift/kumiko-bundled-features/folders";
 import { foldersUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/folders-user-data";
-import { ledgerFeature } from "@cosmicdrift/kumiko-bundled-features/ledger";
 import { createJobsFeature } from "@cosmicdrift/kumiko-bundled-features/jobs";
+import { ledgerFeature } from "@cosmicdrift/kumiko-bundled-features/ledger";
 import { createLegalPagesFeature } from "@cosmicdrift/kumiko-bundled-features/legal-pages";
 import { mailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
 import { mailTransportInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory";
