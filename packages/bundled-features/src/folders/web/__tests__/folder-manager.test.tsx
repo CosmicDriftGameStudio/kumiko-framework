@@ -133,4 +133,36 @@ describe("FolderManager filing mode", () => {
     expect(screen.queryByTestId("folder-node-unfiled")).toBeNull();
     expect(screen.queryByTestId("folder-leaf-c-1")).toBeNull();
   });
+
+  test("delete is confirm-gated; confirming dispatches delete-folder", async () => {
+    folderRows = [{ id: "f1", name: "A", parentId: null, version: 1 }];
+    render(
+      <Wrapper>
+        <FolderManager />
+      </Wrapper>,
+    );
+    fireEvent.click(screen.getByTestId("folder-delete-f1"));
+    expect(dispatchSpy).not.toHaveBeenCalled(); // no write before confirm
+    fireEvent.click(await screen.findByTestId("folder-manager-delete-dialog-confirm"));
+    await waitFor(() =>
+      expect(dispatchSpy).toHaveBeenCalledWith(FoldersHandlers.deleteFolder, { id: "f1" }),
+    );
+  });
+
+  test("the in-tree new-folder row opens a draft; submitting (Enter) creates a root folder", async () => {
+    folderRows = [];
+    render(
+      <Wrapper>
+        <FolderManager />
+      </Wrapper>,
+    );
+    fireEvent.click(screen.getByTestId("folder-manager-new-root"));
+    fireEvent.change(document.getElementById("folder-manager-draft") as HTMLInputElement, {
+      target: { value: "Inbox" },
+    });
+    fireEvent.submit(screen.getByTestId("folder-manager-draft"));
+    await waitFor(() =>
+      expect(dispatchSpy).toHaveBeenCalledWith(FoldersHandlers.createFolder, { name: "Inbox" }),
+    );
+  });
 });

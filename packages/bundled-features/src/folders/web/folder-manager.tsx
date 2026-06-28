@@ -18,18 +18,14 @@
 // Finder/Explorer-style: the tree is flattened to its visible rows in DFS order
 // and rendered as full-width rows with (a) alternating zebra striping, (b) one
 // vertical guide line per ancestor depth, and (c) a disclosure chevron + folder
-// icon. Icons are lucide-react (the same set the nav's NAV_ICONS uses), so they
-// match the rest of the app. Actions are compact always-visible icon buttons (NOT
-// hover-only — static screenshots can't hover). Flattening (vs nested divs) is
-// what lets the zebra + guide lines run edge-to-edge and stay aligned regardless
-// of depth.
+// icon. The chevron+name toggle a node; expansion state persists in localStorage
+// so a reload doesn't re-expand everything. Create/rename happen inline (Enter
+// saves); delete asks for confirmation; root folders are added via the in-tree
+// "+ new folder" row (no floating toolbar button). Icons are lucide-react.
 //
 // NOTE on Tailwind: a host's Tailwind v4 build must `@source`-scan this package's
 // src (node_modules is ignored by default) or these classes never compile. money-
 // horse already does; that scan is a real shipping requirement for any host.
-//
-// Folder writes are immediate; the manager owns its catalog query and refetches
-// after each action.
 
 import {
   useDispatcher,
@@ -37,17 +33,8 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
-import {
-  ChevronDown,
-  ChevronRight,
-  File,
-  Folder,
-  type LucideIcon,
-  Pencil,
-  Plus,
-  Trash2,
-} from "lucide-react";
-import { type DragEvent, type ReactNode, useState } from "react";
+import { ChevronRight, File, Folder, type LucideIcon, Pencil, Plus, Trash2 } from "lucide-react";
+import { type DragEvent, type ReactNode, useEffect, useState } from "react";
 import { FoldersHandlers, FoldersQueries } from "../constants";
 import { buildFolderTree, type FolderNode, type FolderRow } from "./tree";
 
@@ -77,6 +64,19 @@ export type FolderFiling = {
 
 const UNFILED = "__unfiled__";
 const DRAG_MIME = "text/plain";
+// ponytail: one global key — folder expansion is low-stakes UI state shared
+// across every folder tree in the app; a per-host key only if trees ever diverge.
+const COLLAPSED_KEY = "kumiko:folders:collapsed";
+
+const loadCollapsed = (): ReadonlySet<string> => {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = window.localStorage.getItem(COLLAPSED_KEY);
+    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+  } catch {
+    return new Set();
+  }
+};
 
 type Pending =
   | { readonly mode: "create"; readonly parentId: string | null }
@@ -93,16 +93,27 @@ export function FolderManager({
   // Optional filing mode: interleave the host's draggable entities + DnD.
   readonly filing?: FolderFiling;
 }): ReactNode {
-  const { Banner, Button, Input, Text } = usePrimitives();
+  const { Banner, Button, Dialog, Input, Text } = usePrimitives();
   const t = useTranslation();
   const dispatcher = useDispatcher();
   const catalog = useQuery<FolderListResponse>(FoldersQueries.folderList, {});
   const [pending, setPending] = useState<Pending>(null);
   const [draftName, setDraftName] = useState("");
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(loadCollapsed);
   const [busy, setBusy] = useState(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<FolderNode | null>(null);
+
+  // Persist expand/collapse so a reload (F5) doesn't re-expand everything.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...collapsed]));
+    } catch {
+      // storage unavailable (private mode / quota) — expansion just won't persist
+    }
+  }, [collapsed]);
 
   if (catalog.loading && catalog.data === null) {
     return (
@@ -192,12 +203,22 @@ export function FolderManager({
     );
   };
 
-  const deleteFolder = (node: FolderNode): void => {
+  // Delete goes through a confirm dialog — a folder can hold filed entries that
+  // fall back to "unfiled" when it's gone. Child folders still block outright.
+  const requestDelete = (node: FolderNode): void => {
     if (node.children.length > 0) {
       setErrorKey("folders.manager.deleteBlocked");
       return;
     }
-    void apply(() => writeOk(FoldersHandlers.deleteFolder, { id: node.id }));
+    setErrorKey(null);
+    setPendingDelete(node);
+  };
+
+  const confirmDelete = async (): Promise<void> => {
+    const node = pendingDelete;
+    setPendingDelete(null);
+    if (node === null) return;
+    await apply(() => writeOk(FoldersHandlers.deleteFolder, { id: node.id }));
   };
 
   // Drop a leaf into a folder (set-folder) or the unfiled bucket (clear-folder).
@@ -272,7 +293,7 @@ export function FolderManager({
       aria-label={label}
       title={label}
       data-testid={testId}
-      className={`rounded p-1 text-muted-foreground transition-colors hover:bg-background disabled:opacity-40 ${
+      className={`cursor-pointer rounded p-1 text-muted-foreground transition-colors hover:bg-background disabled:opacity-40 ${
         danger ? "hover:text-destructive" : "hover:text-foreground"
       }`}
     >
@@ -280,8 +301,52 @@ export function FolderManager({
     </button>
   );
 
+  // Chevron + folder icon + name = one click target that toggles (cursor-pointer).
+  // A non-expandable folder renders the same layout without the toggle affordance.
+  const toggleArea = (
+    id: string,
+    label: string,
+    expanded: boolean,
+    expandable: boolean,
+  ): ReactNode =>
+    expandable ? (
+      // kumiko-lint-ignore primitives-discipline: dense Finder-row toggle (chevron + name); the Button primitive would break the single-row layout
+      <button
+        type="button"
+        aria-expanded={expanded}
+        onClick={() => toggleCollapse(id)}
+        data-testid={`folder-toggle-${id}`}
+        className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 text-left"
+      >
+        <ChevronRight
+          size={16}
+          aria-hidden="true"
+          className={`shrink-0 text-muted-foreground transition-transform ${
+            expanded ? "rotate-90" : ""
+          }`}
+        />
+        <Folder size={16} aria-hidden="true" className="shrink-0 text-muted-foreground" />
+        <span className="flex-1 truncate font-medium">{label}</span>
+      </button>
+    ) : (
+      <div className="flex min-w-0 flex-1 items-center gap-1.5">
+        <span className="w-4 shrink-0" />
+        <Folder size={16} aria-hidden="true" className="shrink-0 text-muted-foreground" />
+        <span className="flex-1 truncate font-medium">{label}</span>
+      </div>
+    );
+
   const draftRow = (depth: number, key: string, stripe: boolean): ReactNode => (
-    <div key={key} className={rowClass(stripe, false)} data-testid="folder-manager-draft">
+    // kumiko-lint-ignore primitives-discipline: native form only to capture Enter-to-submit on the inline draft field
+    <form
+      key={key}
+      className={rowClass(stripe, false)}
+      data-testid="folder-manager-draft"
+      onSubmit={(e) => {
+        e.preventDefault();
+        saveDraft();
+      }}
+    >
       {rails(depth)}
       <Folder size={16} aria-hidden="true" className="shrink-0 text-muted-foreground/50" />
       <div className="flex-1">
@@ -305,7 +370,7 @@ export function FolderManager({
       <Button variant="secondary" disabled={busy} onClick={() => setPending(null)}>
         {t("folders.manager.cancel")}
       </Button>
-    </div>
+    </form>
   );
 
   const leafRow = (leaf: FolderLeaf, depth: number, stripe: boolean): ReactNode => {
@@ -333,23 +398,6 @@ export function FolderManager({
     );
   };
 
-  const disclosure = (id: string, expanded: boolean): ReactNode => (
-    // kumiko-lint-ignore primitives-discipline: compact disclosure chevron, not a form button
-    <button
-      type="button"
-      className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
-      aria-expanded={expanded}
-      onClick={() => toggleCollapse(id)}
-      data-testid={`folder-toggle-${id}`}
-    >
-      {expanded ? (
-        <ChevronDown size={16} aria-hidden="true" />
-      ) : (
-        <ChevronRight size={16} aria-hidden="true" />
-      )}
-    </button>
-  );
-
   const folderRow = (node: FolderNode, depth: number, stripe: boolean): ReactNode => {
     const leaves = filing?.leavesByFolder.get(node.id) ?? [];
     const expandable = node.children.length > 0 || leaves.length > 0;
@@ -362,9 +410,7 @@ export function FolderManager({
         {...dropProps(node.id, node.id)}
       >
         {rails(depth)}
-        {expandable ? disclosure(node.id, expanded) : <span className="w-5 shrink-0" />}
-        <Folder size={16} aria-hidden="true" className="shrink-0 text-muted-foreground" />
-        <span className="flex-1 truncate font-medium">{node.name}</span>
+        {toggleArea(node.id, node.name, expanded, expandable)}
         {renderMeta?.(node)}
         <div className="flex items-center gap-0.5">
           {actionButton(t("folders.manager.addChild"), `folder-add-child-${node.id}`, Plus, () =>
@@ -377,7 +423,7 @@ export function FolderManager({
             t("folders.manager.delete"),
             `folder-delete-${node.id}`,
             Trash2,
-            () => deleteFolder(node),
+            () => requestDelete(node),
             true,
           )}
         </div>
@@ -395,13 +441,28 @@ export function FolderManager({
         className={rowClass(stripe, dragOverKey === UNFILED)}
         {...dropProps(UNFILED, null)}
       >
-        {disclosure(UNFILED, expanded)}
-        <Folder size={16} aria-hidden="true" className="shrink-0 text-muted-foreground" />
-        <span className="flex-1 truncate font-medium">{filing.unfiledLabel}</span>
+        {toggleArea(UNFILED, filing.unfiledLabel, expanded, true)}
         {filing.unfiledMeta}
       </div>
     );
   };
+
+  // Subtle in-tree row to add a root folder (replaces the old floating toolbar
+  // button, which caused an ugly header jump in hosts with their own actions).
+  const newRootRow = (): ReactNode => (
+    // kumiko-lint-ignore primitives-discipline: dense Finder-row action (add root folder); the Button primitive would break the row layout
+    <button
+      type="button"
+      disabled={busy}
+      onClick={() => openCreate(null)}
+      data-testid="folder-manager-new-root"
+      className="flex min-h-9 w-full cursor-pointer items-center gap-1.5 px-2 text-left text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground disabled:opacity-40"
+    >
+      <span className="w-5 shrink-0" />
+      <Plus size={16} aria-hidden="true" className="shrink-0" />
+      <span className="font-medium">{t("folders.manager.newRoot")}</span>
+    </button>
+  );
 
   // Flatten the visible tree (DFS) into ordered rows so the zebra index + guide
   // rails stay correct across depth. A pending rename swaps a node's row in place;
@@ -446,30 +507,30 @@ export function FolderManager({
 
   return (
     <div data-testid="folder-manager" className="flex flex-col gap-2">
-      <div className="flex justify-end">
-        <Button
-          variant="primary"
-          disabled={busy || creatingRoot}
-          onClick={() => openCreate(null)}
-          testId="folder-manager-new-root"
-        >
-          {t("folders.manager.newRoot")}
-        </Button>
+      <div className="overflow-hidden rounded-md border">
+        {out}
+        {!creatingRoot && newRootRow()}
       </div>
-
-      {tree.length === 0 && !creatingRoot && !hasUnfiled ? (
-        <Banner variant="info" testId="folder-manager-empty">
-          <Text>{t("folders.manager.empty")}</Text>
-        </Banner>
-      ) : (
-        <div className="overflow-hidden rounded-md border">{out}</div>
-      )}
 
       {errorKey !== null && (
         <Banner variant="error" testId="folder-manager-action-error">
           <Text>{t(errorKey)}</Text>
         </Banner>
       )}
+
+      <Dialog
+        open={pendingDelete !== null}
+        onOpenChange={(o) => {
+          if (!o) setPendingDelete(null);
+        }}
+        title={t("folders.manager.deleteConfirmTitle")}
+        description={t("folders.manager.deleteConfirmBody")}
+        confirmLabel={t("folders.manager.delete")}
+        cancelLabel={t("folders.manager.cancel")}
+        variant="danger"
+        onConfirm={confirmDelete}
+        testId="folder-manager-delete-dialog"
+      />
     </div>
   );
 }
