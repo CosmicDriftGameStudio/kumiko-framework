@@ -91,7 +91,9 @@ export function computeEditViewModel<
       // Datumsgrenzen + Format/Locale-Override bei date/timestamp — der
       // Renderer begrenzt damit den Picker. Quelle: Date/TimestampFieldDef.
       const dateBounds =
-        fieldDef.type === "date" || fieldDef.type === "timestamp"
+        fieldDef.type === "date" ||
+        fieldDef.type === "timestamp" ||
+        fieldDef.type === "locatedTimestamp"
           ? (fieldDef as unknown as { min?: string; max?: string; locale?: string })
           : undefined;
       const min = dateBounds?.min;

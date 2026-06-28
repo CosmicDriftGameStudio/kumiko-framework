@@ -85,6 +85,47 @@ describe("RenderEdit", () => {
     expect(screen.queryByTestId("field-notes")).toBeNull();
   });
 
+  // End-to-end-Routing: ein `type:"locatedTimestamp"`-Entity-Feld muss durch
+  // computeEditViewModel → render-field → DefaultInput auf den Located-Picker
+  // laufen (Datum + Uhrzeit + Zone), NICHT auf den Klartext-Fallthrough. Vor
+  // Item 10 fehlte der `case "locatedTimestamp"` → das Feld rendrte als Text.
+  test("locatedTimestamp field renders the located picker (date + time + zone), not plain text", () => {
+    const entity = {
+      fields: { pickup: { type: "locatedTimestamp", required: true } },
+    } as unknown as EntityDefinition;
+    const screenDef: EntityEditScreenDefinition = {
+      id: "orders:screen:order-edit",
+      type: "entityEdit",
+      entity: "order",
+      layout: { sections: [{ title: "When", columns: 1, fields: ["pickup"] }] },
+    };
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit
+          screen={screenDef}
+          entity={entity}
+          featureName="orders"
+          initial={
+            {
+              pickup: {
+                at: "2026-04-03T10:00:00",
+                tz: "Europe/Lisbon",
+                utc: "2026-04-03T09:00:00Z",
+              },
+            } as never
+          }
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    const fieldEl = screen.getByTestId("field-pickup");
+    const timeInput = fieldEl.querySelector<HTMLInputElement>('input[type="time"]');
+    expect(timeInput).toBeTruthy();
+    expect(timeInput?.value).toBe("10:00");
+    expect(fieldEl.textContent ?? "").toMatch(/lokal|local/i);
+  });
+
   test("typing in an input updates the form snapshot (controller + view-model round-trip)", () => {
     render(
       <DispatcherProvider dispatcher={makeDispatcher()}>

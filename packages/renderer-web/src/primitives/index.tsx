@@ -75,6 +75,7 @@ import {
   DropdownMenuTrigger,
 } from "./dropdown-menu";
 import { FileUploadInput } from "./file-upload";
+import { LocatedTimestampInput } from "./located-timestamp-input";
 import { MoneyInput } from "./money-input";
 import { TimestampInput } from "./timestamp-input";
 import { useToast } from "./toast";
@@ -382,6 +383,21 @@ function DefaultInput(props: InputProps): ReactNode {
           value={props.value}
           onChange={props.onChange}
           {...(props.wallClock !== undefined && { wallClock: props.wallClock })}
+          {...(props.locale !== undefined && { locale: props.locale })}
+          {...(props.min !== undefined && { min: props.min })}
+          {...(props.max !== undefined && { max: props.max })}
+          {...(props.disabled !== undefined && { disabled: props.disabled })}
+          {...(props.required !== undefined && { required: props.required })}
+          {...(props.hasError !== undefined && { hasError: props.hasError })}
+        />
+      );
+    case "locatedTimestamp":
+      return (
+        <LocatedTimestampInput
+          id={props.id}
+          name={props.name}
+          value={props.value}
+          onChange={props.onChange}
           {...(props.locale !== undefined && { locale: props.locale })}
           {...(props.min !== undefined && { min: props.min })}
           {...(props.max !== undefined && { max: props.max })}
