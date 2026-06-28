@@ -35,6 +35,7 @@
     "./folders": "./src/folders/index.ts",
     "./folders/web": "./src/folders/web/index.ts",
     "./folders-user-data": "./src/folders-user-data/index.ts",
+    "./ledger": "./src/ledger/index.ts",
     "./billing-foundation": "./src/billing-foundation/index.ts",
     "./subscription-stripe": "./src/subscription-stripe/index.ts",
     "./subscription-mollie": "./src/subscription-mollie/index.ts",

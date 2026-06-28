@@ -22,6 +22,7 @@ import { createManagedPagesFeature } from "@cosmicdrift/kumiko-bundled-features/
 import { customFieldsFeature } from "@cosmicdrift/kumiko-bundled-features/custom-fields";
 import { tagsFeature } from "@cosmicdrift/kumiko-bundled-features/tags";
 import { foldersFeature } from "@cosmicdrift/kumiko-bundled-features/folders";
+import { ledgerFeature } from "@cosmicdrift/kumiko-bundled-features/ledger";
 
 const _config = createConfigFeature();
 const _user = createUserFeature();
@@ -40,6 +41,7 @@ const _managedPages = createManagedPagesFeature({ resolveApexTenant: () => null,
 const _customFields = customFieldsFeature;
 const _tags = tagsFeature;
 const _folders = foldersFeature;
+const _ledger = ledgerFeature;
 
 export const configValueTable = buildEntityTable("config-value", _config.entities["config-value"]!);
 export const userTable = buildEntityTable("user", _user.entities["user"]!);
@@ -64,6 +66,8 @@ export const tagTable = buildEntityTable("tag", _tags.entities["tag"]!);
 export const tagAssignmentTable = buildEntityTable("tag-assignment", _tags.entities["tag-assignment"]!);
 export const folderTable = buildEntityTable("folder", _folders.entities["folder"]!);
 export const folderAssignmentTable = buildEntityTable("folder-assignment", _folders.entities["folder-assignment"]!);
+export const accountTable = buildEntityTable("account", _ledger.entities["account"]!);
+export const transactionTable = buildEntityTable("transaction", _ledger.entities["transaction"]!);
 export { deliveryAttemptsTable } from "@cosmicdrift/kumiko-bundled-features/delivery";
 export { subscriptionsProjectionTable } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 export { globalFeatureStateTable } from "@cosmicdrift/kumiko-bundled-features/feature-toggles";
