@@ -5,12 +5,14 @@
 //   - getTemporal: type-safer Zugriff auf globalThis.Temporal
 //   - createTzContext: ctx.tz Factory mit now/today/parse/toLocatedJson/...
 //   - LocatedTimestampJson: API-Boundary-Form { at, tz }
+//   - isValidIanaTimeZone: IANA-Zonennamen-Validierung (type:"tz"-Felder)
+//   - warnIfNonUtcServerTimeZone: Boot-Warnung bei nicht-UTC Prozess-TZ
 //
 // Kommt:
-//   - DB-Wrapper (Wall-Clock+tz ↔ UTC transparent in Drizzle-Layer)
-//   - Lint-Regel "kein new Date() im Feature-Code"
 //   - UI-Komponenten <DateTimeInput>, <LocatedDateTimePicker>, <DateInput>
 
+export { warnIfNonUtcServerTimeZone } from "./boot-tz-warning";
+export { isValidIanaTimeZone } from "./iana";
 export { ensureTemporalPolyfill, getTemporal } from "./polyfill";
 export {
   createTzContext,

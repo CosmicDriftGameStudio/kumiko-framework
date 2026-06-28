@@ -94,6 +94,7 @@ import {
   createEventDedup,
   createIdempotencyGuard,
 } from "@cosmicdrift/kumiko-framework/pipeline";
+import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import Redis from "ioredis";
 import { applyBootSeeds } from "./boot/apply-boot-seeds";
 import { ASSETS_DIR } from "./build-prod-bundle";
@@ -629,6 +630,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   });
 
   validateBoot(features);
+  warnIfNonUtcServerTimeZone();
   validateAppCustomScreenWriteQns(process.cwd(), collectWriteHandlerQns(features));
   const registry = createRegistry(features);
 

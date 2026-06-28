@@ -42,6 +42,7 @@ import {
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";
+import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { applyBootSeeds } from "./boot/apply-boot-seeds";
 
 import { watchAndRegenerate } from "./codegen";
@@ -212,6 +213,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // CrashLoopBackOff sterben ließ (#359). Wirft synchron, bevor ein
   // Socket oder Watcher (codegen-Write) aufgeht.
   validateBoot(features);
+  warnIfNonUtcServerTimeZone();
   validateAppCustomScreenWriteQns(process.cwd(), collectWriteHandlerQns(features));
 
   // Codegen + File-Watcher — schreibt `<appRoot>/.kumiko/types.generated.d.ts`
