@@ -28,6 +28,9 @@ export const defaultTranslations: TranslationsByLocale = {
     "folders.manager.cancel": "Abbrechen",
     "folders.manager.working": "Speichert…",
     "folders.manager.deleteBlocked": "Erst Unterordner entfernen.",
+    "folders.manager.deleteConfirmTitle": "Ordner löschen?",
+    "folders.manager.deleteConfirmBody":
+      "Der Ordner wird entfernt. Abgelegte Einträge wandern zurück zu „Ohne Ordner“.",
   },
   en: {
     "folders.section.createMode": "Save the entity first to pick a folder.",
@@ -51,5 +54,8 @@ export const defaultTranslations: TranslationsByLocale = {
     "folders.manager.cancel": "Cancel",
     "folders.manager.working": "Saving…",
     "folders.manager.deleteBlocked": "Remove subfolders first.",
+    "folders.manager.deleteConfirmTitle": "Delete folder?",
+    "folders.manager.deleteConfirmBody":
+      "The folder will be removed. Filed entries move back to Unfiled.",
   },
 };
