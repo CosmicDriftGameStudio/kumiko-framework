@@ -1,59 +1,72 @@
-// Schießt jeden Block in 3 Themes (Desktop) UND eine Responsive-Reihe
-// (default-light bei Tablet + Mobile) → screenshots/<theme>/<block>.png bzw.
-// screenshots/responsive/<viewport>/<block>.png. SCREENSHOT_ONLY=<block>
-// filtert auf einen Block für schnelles Re-Shoot.
+// Matrix-Runner: schießt jedes Szenario über Locale × Theme × Viewport in EINEM
+// Lauf nach <dir>/<name>/<locale>/<theme>/<viewport>.png. Die Achsen sind per Env
+// einengbar (Default = alle): SCREENSHOT_LOCALES, SCREENSHOT_THEMES,
+// SCREENSHOT_VIEWPORTS, SCREENSHOT_ONLY=<name>. Das Naming-Schema bedient den
+// Preview-Switcher 1:1 (er tauscht img.src nach denselben Achsen).
+//
+// Hebel: Locale via localStorage["kumiko:locale"] VOR Boot (renderer-web
+// detectInitialLocale) → addInitScript + goto. Theme live nach Mount via
+// applyTheme (.dark-Klasse + Brand-Token-Injektion). Viewport nativ.
 
 import { mkdirSync, statSync } from "node:fs";
 import { resolve } from "node:path";
-import { expect, type Page, test } from "@playwright/test";
-import type { Scenario } from "./scenarios";
+import { expect, test } from "@playwright/test";
 import { SCENARIOS } from "./scenarios";
 import { applyTheme, THEMES, type ThemeId } from "./themes";
 
 const BASE_DIR = process.env["SCREENSHOT_DIR"] ?? resolve(import.meta.dirname, "../screenshots");
-const ONLY = process.env["SCREENSHOT_ONLY"];
 
-const DESKTOP = { width: 1280, height: 900 };
-const VIEWPORTS = [
-  { name: "tablet", size: { width: 834, height: 1112 } },
-  { name: "mobile", size: { width: 390, height: 844 } },
-] as const;
+const VIEWPORTS = {
+  desktop: { width: 1280, height: 900 },
+  tablet: { width: 834, height: 1112 },
+  mobile: { width: 390, height: 844 },
+} as const;
+type ViewportId = keyof typeof VIEWPORTS;
+
+function axis<T extends string>(env: string | undefined, all: readonly T[]): readonly T[] {
+  const picked = env
+    ?.split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return picked && picked.length > 0 ? (picked as T[]) : all;
+}
+
+const LOCALES = axis(process.env["SCREENSHOT_LOCALES"], ["en", "de"] as const);
+const THEME_IDS = axis(process.env["SCREENSHOT_THEMES"], THEMES) as readonly ThemeId[];
+const VIEWPORT_IDS = axis(
+  process.env["SCREENSHOT_VIEWPORTS"],
+  Object.keys(VIEWPORTS) as ViewportId[],
+);
+const ONLY = process.env["SCREENSHOT_ONLY"];
 
 test.describe.configure({ mode: "serial" });
 
-test.beforeEach(async ({ page }) => {
-  // App liest beim Boot localStorage("kumiko:theme") → löschen, damit der
-  // Runner den Mode allein über applyTheme steuert.
-  await page.addInitScript(() => localStorage.removeItem("kumiko:theme"));
-});
-
-async function shoot(page: Page, s: Scenario, theme: ThemeId, dir: string): Promise<void> {
-  mkdirSync(dir, { recursive: true });
-  await page.goto(s.url);
-  await expect(page.locator(s.waitFor).first()).toBeVisible({ timeout: 10_000 });
-  await applyTheme(page, theme);
-  if (s.settleMs) await page.waitForTimeout(s.settleMs);
-  const path = `${dir}/${s.name}.png`;
-  await page.screenshot({ path, fullPage: s.fullPage ?? false });
-  expect.soft(statSync(path).size).toBeGreaterThan(5 * 1024);
-}
-
-for (const theme of THEMES) {
+for (const locale of LOCALES) {
   for (const s of SCENARIOS) {
     if (ONLY !== undefined && ONLY !== s.name) continue;
-    test(`${theme} — ${s.name}`, async ({ page }) => {
-      await page.setViewportSize(DESKTOP);
-      await shoot(page, s, theme, `${BASE_DIR}/${theme}`);
-    });
-  }
-}
+    test(`${locale} — ${s.name}`, async ({ page }) => {
+      // kumiko:locale steuert die Boot-Sprache; kumiko:theme löschen, damit der
+      // Runner den Mode allein über applyTheme bestimmt.
+      await page.addInitScript((lng) => {
+        localStorage.setItem("kumiko:locale", lng);
+        localStorage.removeItem("kumiko:theme");
+      }, locale);
+      await page.goto(s.url);
+      await expect(page.locator(s.waitFor).first()).toBeVisible({ timeout: 10_000 });
+      if (s.settleMs) await page.waitForTimeout(s.settleMs);
 
-for (const vp of VIEWPORTS) {
-  for (const s of SCENARIOS) {
-    if (ONLY !== undefined && ONLY !== s.name) continue;
-    test(`responsive ${vp.name} — ${s.name}`, async ({ page }) => {
-      await page.setViewportSize(vp.size);
-      await shoot(page, s, "default-light", `${BASE_DIR}/responsive/${vp.name}`);
+      for (const theme of THEME_IDS) {
+        await applyTheme(page, theme);
+        for (const vp of VIEWPORT_IDS) {
+          await page.setViewportSize(VIEWPORTS[vp]);
+          await page.waitForTimeout(150); // Reflow nach Viewport-Wechsel
+          const dir = `${BASE_DIR}/${s.name}/${locale}/${theme}`;
+          mkdirSync(dir, { recursive: true });
+          const path = `${dir}/${vp}.png`;
+          await page.screenshot({ path, fullPage: s.fullPage ?? false });
+          expect.soft(statSync(path).size).toBeGreaterThan(5 * 1024);
+        }
+      }
     });
   }
 }
