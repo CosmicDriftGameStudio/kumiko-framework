@@ -159,7 +159,11 @@
         "recipes-ledger-invoicing"
       ],
       "hasVisualOutput": false,
-      "readmeSummary": "A transfer moves money between two bank accounts as a single balanced transaction, and every balance is a pure query over the postings rather than a stored field you keep in sync."
+      "readmeSummary": "A transfer moves money between two bank accounts as a single balanced transaction, and every balance is a pure query over the postings rather than a stored field you keep in sync.",
+      "primarySample": "recipes-ledger-banking",
+      "whenToUse": "You keep books — bank balances, invoices, rent cashflow, credits — and every figure must derive from balanced, auditable transactions instead of mutable counters you reconcile by hand.",
+      "sampleBlurb": "Open accounts and post a balanced transfer, then read balances as a pure query — the trial balance proves the books never lose a cent.",
+      "screenshot": null
     },
     "legal-pages": {
       "samples": [
