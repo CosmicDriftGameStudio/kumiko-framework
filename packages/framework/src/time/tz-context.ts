@@ -14,6 +14,7 @@
 // Stand: beide default auf "UTC" — sobald tenant.timezone +
 // user.timezone Felder existieren, lese ich sie aus dem Request-Context.
 
+import type { GeoAddress, GeoCoordinates, GeoTzProvider } from "./geo-tz";
 import { ensureTemporalPolyfill, getTemporal } from "./polyfill";
 
 // JSON-Form für Wall-Clock+TZ — siehe locatedTimestamp(name) Helper in
@@ -52,6 +53,14 @@ export type TzContext = {
 
   /** JSON-Pair { at, tz } → ZonedDateTime (Wall-Clock + IANA). */
   fromLocatedJson(obj: LocatedTimestampJson): Temporal.ZonedDateTime;
+
+  /** Geo-Koordinaten → IANA-Zone via konfiguriertem GeoTzProvider.
+   *  Wirft wenn kein Provider konfiguriert ist (v1-Default). */
+  fromCoordinates(coords: GeoCoordinates): Promise<string>;
+  /** Postadresse → IANA-Zone via GeoTzProvider. Wirft wenn kein Provider
+   *  konfiguriert ist ODER der Provider kein fromAddress unterstützt (der
+   *  Offline-lat/lng-Provider tut das nicht). */
+  fromAddress(address: GeoAddress): Promise<string>;
 };
 
 export type TzContextOptions = {
@@ -59,6 +68,9 @@ export type TzContextOptions = {
   readonly tenant?: string;
   /** User-Override. Default = tenant. */
   readonly user?: string;
+  /** Optionaler Geo→Zone-Adapter für ctx.tz.fromCoordinates / fromAddress.
+   *  Ohne Provider werfen diese Methoden. */
+  readonly geoTz?: GeoTzProvider;
 };
 
 /**
@@ -70,6 +82,7 @@ export function createTzContext(options: TzContextOptions = {}): TzContext {
   const T = getTemporal();
   const tenant = options.tenant ?? "UTC";
   const user = options.user ?? tenant;
+  const geoTz = options.geoTz;
 
   return {
     tenant,
@@ -93,6 +106,22 @@ export function createTzContext(options: TzContextOptions = {}): TzContext {
       tz: zdt.timeZoneId,
     }),
     fromLocatedJson: (obj) => T.PlainDateTime.from(obj.at).toZonedDateTime(obj.tz),
+    fromCoordinates: async (coords) => {
+      if (geoTz === undefined) {
+        throw new Error(
+          "ctx.tz.fromCoordinates requires a GeoTzProvider — inject one via the app context (e.g. buildServer({ context: { geoTzProvider } }) or runProdApp({ extraContext: { geoTzProvider } })) or install a provider package.",
+        );
+      }
+      return geoTz.fromCoordinates(coords);
+    },
+    fromAddress: async (address) => {
+      if (geoTz?.fromAddress === undefined) {
+        throw new Error(
+          "ctx.tz.fromAddress requires a GeoTzProvider that implements fromAddress (geocoding). Offline lat/lng providers only support fromCoordinates.",
+        );
+      }
+      return geoTz.fromAddress(address);
+    },
   };
 }
 

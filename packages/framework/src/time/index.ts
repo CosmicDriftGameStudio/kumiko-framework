@@ -7,11 +7,10 @@
 //   - LocatedTimestampJson: API-Boundary-Form { at, tz }
 //   - isValidIanaTimeZone: IANA-Zonennamen-Validierung (type:"tz"-Felder)
 //   - warnIfNonUtcServerTimeZone: Boot-Warnung bei nicht-UTC Prozess-TZ
-//
-// Kommt:
-//   - UI-Komponenten <DateTimeInput>, <LocatedDateTimePicker>, <DateInput>
+//   - GeoTzProvider: optionaler Geo→Zone-Adapter (ctx.tz.fromCoordinates/fromAddress)
 
 export { warnIfNonUtcServerTimeZone } from "./boot-tz-warning";
+export type { GeoAddress, GeoCoordinates, GeoTzProvider } from "./geo-tz";
 export { isValidIanaTimeZone } from "./iana";
 export { ensureTemporalPolyfill, getTemporal } from "./polyfill";
 export {
