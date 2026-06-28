@@ -58,12 +58,12 @@ export function createTextField<R extends true | false = false>(
 /**
  * Read-time computed field for `EntityDefinition.derivedFields` (NOT `fields`).
  * The value is derived per row from the stored columns + the clock at query
- * time, never persisted. Display + client-side sort only — server-side sort/
- * filter/search don't apply (see DerivedFieldDef). `derive` must take its clock
- * from `ctx.asOf`, never `Temporal.Now`/`Date`.
+ * time, never persisted. Display only — server-side sort/filter/search don't
+ * apply and there's no client-side sort path (see DerivedFieldDef). `derive`
+ * must take its clock from `ctx.asOf`, never `Temporal.Now`/`Date`.
  */
 export function createDerivedField(spec: DerivedFieldDef): DerivedFieldDef {
-  return { ...spec, sortable: spec.sortable ?? false };
+  return { ...spec };
 }
 
 export function createLongTextField<R extends true | false = false>(

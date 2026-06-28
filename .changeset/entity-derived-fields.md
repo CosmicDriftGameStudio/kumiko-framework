@@ -11,7 +11,7 @@ any other; the list-query handler appends the computed value to each row. This
 removes the need to fork a whole custom screen just because one column is
 live-computed.
 
-Author with `createDerivedField({ valueType, derive, sortable? })`; `derive`
-takes its clock from `ctx.asOf` (no-date-api safe, unit-testable). Derived
-columns are display + client-side sort only — server-side sort/filter/search
-apply to stored columns, so for those, materialize the value as a real field.
+Author with `createDerivedField({ valueType, derive })`; `derive` takes its
+clock from `ctx.asOf` (no-date-api safe, unit-testable). Derived columns are
+display only — a declarative list sorts/searches server-side over real columns,
+so for a sortable/searchable derived value, materialize it as a stored field.

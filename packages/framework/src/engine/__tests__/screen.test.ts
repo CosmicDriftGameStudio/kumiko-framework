@@ -25,7 +25,6 @@ function derivedProductEntity() {
       summary: createDerivedField({
         valueType: "text",
         derive: (row) => String(row["name"]),
-        sortable: true,
       }),
     },
   });

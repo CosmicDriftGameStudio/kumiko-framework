@@ -525,23 +525,20 @@ export function isFileField(field: FieldDefinition | undefined): field is AnyFil
 // of an entityEdit. A declarative `entityList` can name it like any column and
 // the view-model renders the appended value.
 //
-// LIMIT: derived columns are display + client-side sort only. `executor.list`
-// sorts/filters/searches over real SQL columns, so server-side sort/filter/
-// search on a derived field is a silent no-op. Need that? Materialize the value
-// as a stored field — it then rides the existing `searchable`/`sortable`
-// machinery. Time-dependent values (as-of-today) can't be materialized without
-// a daily re-index anyway.
+// LIMIT: derived columns are DISPLAY ONLY. A declarative `entityList` loads its
+// rows server-side and a column-header sort round-trips to the server, where
+// `executor.list` sorts/filters/searches over real SQL columns — so a derived
+// field (no column) silently no-ops. There is no client-side sort path. Need a
+// derived value sortable/searchable? Materialize it as a stored field; it then
+// rides the existing `searchable`/`sortable` machinery. Time-dependent values
+// (as-of-today) can't be materialized without a daily re-index anyway.
 
 /** Display type a derived value formats as — drives the column's renderer
- *  choice in the view-model, parallel to FieldDefinition["type"]. */
-export type DerivedValueType =
-  | "text"
-  | "number"
-  | "decimal"
-  | "money"
-  | "boolean"
-  | "date"
-  | "timestamp";
+ *  choice in the view-model, parallel to FieldDefinition["type"]. Single-column
+ *  types only: `money` is excluded because it needs a `<name>Currency`
+ *  companion column a derived field has no place to put — use `number`/
+ *  `decimal` plus a `{ format: "currency" }` column renderer instead. */
+export type DerivedValueType = "text" | "number" | "decimal" | "boolean" | "date" | "timestamp";
 
 /** Clock injected into `derive` — never read `Temporal.Now`/`Date` inside a
  *  derive body (no-date-api guard + testability). The list-query handler passes
@@ -553,11 +550,9 @@ export type DeriveContext = {
 export type DerivedFieldDef = {
   readonly valueType: DerivedValueType;
   /** Pure function of the stored row + clock. Returns the JSON-safe display
-   *  value (e.g. integer minor units for `money`, ISO string for `date`). */
+   *  value (e.g. integer minor units for a currency column, ISO string for a
+   *  `date`). */
   readonly derive: (row: Readonly<Record<string, unknown>>, ctx: DeriveContext) => unknown;
-  /** Allow the column header to sort — client-side, within the loaded page.
-   *  Off by default; server-side sort never applies (see LIMIT above). */
-  readonly sortable?: boolean;
 };
 
 export type DerivedFieldsMap = Readonly<Record<string, DerivedFieldDef>>;

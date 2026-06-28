@@ -17,9 +17,9 @@ const taskEntity = {
   },
   derivedFields: {
     // Read-time computed (value appended by the list-query handler). The
-    // view-model only reads valueType + sortable; the derive body never runs
-    // here, so a no-op stand-in is enough.
-    statusLabel: { valueType: "text", derive: () => "", sortable: true },
+    // view-model only reads valueType; the derive body never runs here, so a
+    // no-op stand-in is enough.
+    statusLabel: { valueType: "text", derive: () => "" },
     ageDays: { valueType: "number", derive: () => 0 },
   },
 } as unknown as EntityDefinition;
@@ -132,7 +132,7 @@ describe("computeListViewModel", () => {
     expect(spy).toHaveBeenCalledWith("tasks:entity:task:field:priority");
   });
 
-  test("derived-field column carries its valueType + sortable flag, no stored-field metadata", () => {
+  test("derived-field column carries its valueType, is display-only (never sortable), no stored-field metadata", () => {
     const vm = computeListViewModel({
       screen: listScreen(["statusLabel", "ageDays"]),
       entity: taskEntity,
@@ -146,7 +146,7 @@ describe("computeListViewModel", () => {
         field: "statusLabel",
         label: "tasks:entity:task:field:statusLabel",
         type: "text",
-        sortable: true,
+        sortable: false,
       },
       {
         field: "ageDays",

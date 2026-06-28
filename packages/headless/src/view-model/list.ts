@@ -55,7 +55,9 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
         field: normalized.field,
         label: translate(fieldLabelKey(featureName, screen.entity, normalized.field)),
         type: derivedDef.valueType,
-        sortable: derivedDef.sortable === true,
+        // Display-only: a header sort would round-trip to the server, which has
+        // no column to sort by (see DerivedFieldDef). Never offer the affordance.
+        sortable: false,
         ...(normalized.renderer !== undefined && { renderer: normalized.renderer }),
       });
       continue;

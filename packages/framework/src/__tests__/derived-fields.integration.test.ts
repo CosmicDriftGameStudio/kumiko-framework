@@ -29,13 +29,12 @@ const gadgetEntity = createEntity({
   derivedFields: {
     // Pure row→value: the canonical "one live-computed column" case.
     grossCents: createDerivedField({
-      valueType: "money",
+      valueType: "number",
       derive: (row) => Math.round(Number(row["priceCents"]) * 1.19),
     }),
     label: createDerivedField({
       valueType: "text",
       derive: (row) => `${String(row["name"])} (${String(row["priceCents"])})`,
-      sortable: true,
     }),
     // Proves the clock is injected — never reads Temporal.Now itself.
     asOfStamp: createDerivedField({
