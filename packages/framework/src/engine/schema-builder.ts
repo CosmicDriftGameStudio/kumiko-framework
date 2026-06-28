@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isValidIanaTimeZone } from "../time";
 import { assertUnreachable } from "../utils";
 import type { EmbeddedSubFieldDef, EntityDefinition, FieldDefinition } from "./types";
 import { DEFAULT_CURRENCIES } from "./types";
@@ -153,11 +154,10 @@ export function fieldToZod(field: FieldDefinition, currencies: readonly string[]
       return withDateBounds(schema, field.min, field.max);
     }
     case "tz": {
-      // IANA-Zonenname. Validierung gegen Intl.supportedValuesOf("timeZone")
-      // ist genau aber teuer (~600 Strings) — wir akzeptieren den freien
-      // String und prüfen via try/catch im Boot-Validator (kommt in
-      // späterer Iteration).
-      return z.string().min(1);
+      // IANA-Zonenname, validiert gegen die Runtime-Zonenliste
+      // (isValidIanaTimeZone). Ein ungültiger Name failt hier am
+      // Write-Boundary statt erst später in ctx.tz.parse / Temporal.
+      return z.string().refine(isValidIanaTimeZone, { message: "invalid IANA time zone" });
     }
     case "locatedTimestamp": {
       // Combined Wall-Clock+TZ Object. Beim Write akzeptieren wir entweder
@@ -167,7 +167,7 @@ export function fieldToZod(field: FieldDefinition, currencies: readonly string[]
       //
       // Hier nur die Schema-Garantie: mindestens tz + (at ODER utc).
       const at = z.iso.datetime({ local: true });
-      const tz = z.string().min(1);
+      const tz = z.string().refine(isValidIanaTimeZone, { message: "invalid IANA time zone" });
       const utc = z.iso.datetime();
       return z.union([
         z.object({ at, tz, utc: utc.optional() }),

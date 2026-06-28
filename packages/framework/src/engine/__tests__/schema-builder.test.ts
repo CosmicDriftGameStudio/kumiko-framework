@@ -8,6 +8,7 @@ import {
   createFilesField,
   createImageField,
   createImagesField,
+  createLocatedTimestampField,
   createMoneyField,
   createMultiSelectField,
   createNumberField,
@@ -338,6 +339,32 @@ describe("buildInsertSchema", () => {
     });
     const schema = buildInsertSchema(entity);
     expect(schema.safeParse({}).success).toBe(false);
+  });
+
+  test("tz field validates against the IANA zone list", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: { zone: { type: "tz", required: true } },
+    });
+    const schema = buildInsertSchema(entity);
+    expect(schema.safeParse({ zone: "Europe/Berlin" }).success).toBe(true);
+    expect(schema.safeParse({ zone: "UTC" }).success).toBe(true);
+    expect(schema.safeParse({ zone: "Mars/Phobos" }).success).toBe(false);
+    expect(schema.safeParse({ zone: "" }).success).toBe(false);
+  });
+
+  test("locatedTimestamp validates its tz against the IANA zone list", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: { pickup: createLocatedTimestampField({ required: true }) },
+    });
+    const schema = buildInsertSchema(entity);
+    expect(
+      schema.safeParse({ pickup: { at: "2026-04-03T10:00:00", tz: "Europe/Lisbon" } }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({ pickup: { at: "2026-04-03T10:00:00", tz: "Mars/Phobos" } }).success,
+    ).toBe(false);
   });
 });
 
