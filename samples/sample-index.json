@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled/scripts/gen-sample-index.ts + sample-index.overrides.json",
-  "featureCount": 27,
+  "featureCount": 28,
   "features": {
     "auth-email-password": {
       "samples": [
@@ -152,6 +152,14 @@
       "whenToUse": "Domain entities reference uploaded blobs via FileRef — the files feature handles metadata, signed URLs, and provider routing per tenant.",
       "sampleBlurb": "FileRef entities on domain records in the user-data-rights demo — metadata, signed URLs, and GDPR export inclusion.",
       "screenshot": null
+    },
+    "ledger": {
+      "samples": [
+        "recipes-ledger-banking",
+        "recipes-ledger-invoicing"
+      ],
+      "hasVisualOutput": false,
+      "readmeSummary": "A transfer moves money between two bank accounts as a single balanced transaction, and every balance is a pure query over the postings rather than a stored field you keep in sync."
     },
     "legal-pages": {
       "samples": [

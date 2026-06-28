@@ -1,0 +1,9 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-ledger-invoicing",
+  "description": "Accrual invoicing on the ledger primitive — revenue at invoice time, VAT as a liability, receivable cleared on payment.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  }
+}
