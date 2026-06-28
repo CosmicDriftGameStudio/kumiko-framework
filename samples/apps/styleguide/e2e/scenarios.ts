@@ -1,19 +1,9 @@
-import type { Page } from "@playwright/test";
+import type { Scenario } from "../../../e2e/screenshots";
 
-// Ein Eintrag = ein Styleguide-Block = ein Screenshot (×3 Themes). Baseline:
-// die zwei realen Auto-UI-Screens (Edit-Form-in-Card + Liste mit Toolbar/
-// Pagination), beide zeigen Shell + Sidebar-Nav mit. Foundations-Swatches +
-// apex_shell kommen als eigene Blöcke dazu, sobald die Pipeline steht.
-
-export interface Scenario {
-  readonly name: string;
-  readonly description: string;
-  readonly url: string;
-  readonly waitFor: string;
-  readonly settleMs?: number;
-  readonly fullPage?: boolean;
-  readonly flow?: (page: Page) => Promise<void>;
-}
+// Ein Eintrag = ein Styleguide-Block = ein Screenshot (×Locale×Theme×Viewport).
+// Baseline: die zwei realen Auto-UI-Screens (Edit-Form-in-Card + Liste mit
+// Toolbar/Pagination), beide zeigen Shell + Sidebar-Nav mit. Foundations-
+// Swatches + apex_shell kommen als eigene Blöcke dazu, sobald die Pipeline steht.
 
 export const SCENARIOS: readonly Scenario[] = [
   {
