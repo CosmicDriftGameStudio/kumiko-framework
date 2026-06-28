@@ -37,14 +37,28 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
     const normalized = normalizeListColumn(spec);
     const fieldDef = entity.fields[normalized.field];
     if (!fieldDef) {
-      // Screen references a field that's not on the entity. Fail loud —
-      // the boot-validator (r.screen) should catch this, but a stale
-      // field-rename would leave the screen referring to a ghost column
-      // until ops re-runs boot. We throw so the renderer sees the error
-      // instead of drawing an empty column.
-      throw new Error(
-        `computeListViewModel: screen "${screen.id}" references unknown field "${normalized.field}" on entity "${screen.entity}"`,
-      );
+      // Not a stored field — may be a read-time derived field (value appended
+      // by the list-query handler). Render it as its display valueType; derived
+      // columns carry no reference/select metadata and never server-sort.
+      const derivedDef = entity.derivedFields?.[normalized.field];
+      if (!derivedDef) {
+        // Screen references a field that's neither stored nor derived. Fail
+        // loud — the boot-validator (r.screen) should catch this, but a stale
+        // field-rename would leave the screen referring to a ghost column
+        // until ops re-runs boot. We throw so the renderer sees the error
+        // instead of drawing an empty column.
+        throw new Error(
+          `computeListViewModel: screen "${screen.id}" references unknown field "${normalized.field}" on entity "${screen.entity}"`,
+        );
+      }
+      columns.push({
+        field: normalized.field,
+        label: translate(fieldLabelKey(featureName, screen.entity, normalized.field)),
+        type: derivedDef.valueType,
+        sortable: derivedDef.sortable === true,
+        ...(normalized.renderer !== undefined && { renderer: normalized.renderer }),
+      });
+      continue;
     }
     const label = translate(fieldLabelKey(featureName, screen.entity, normalized.field));
     // Tier 2.7e-3 + Cross-Feature: Reference-Field — entity-String

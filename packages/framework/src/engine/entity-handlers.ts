@@ -10,7 +10,13 @@ import { createEventStoreExecutor, type EventStoreExecutor } from "../db/event-s
 import { buildEntityTable } from "../db/table-builder";
 import { assertUnreachable } from "../utils";
 import { buildInsertSchema, buildUpdateSchema } from "./schema-builder";
-import type { AccessRule, EntityDefinition, QueryHandlerDef, WriteHandlerDef } from "./types";
+import type {
+  AccessRule,
+  DeriveContext,
+  EntityDefinition,
+  QueryHandlerDef,
+  WriteHandlerDef,
+} from "./types";
 
 // Convention-based handler factories for event-sourced aggregates.
 //
@@ -190,6 +196,29 @@ export function defineEntityWriteHandler(
   };
 }
 
+// Append read-time derived-field values (EntityDefinition.derivedFields) to
+// each row, after the SQL fetch + reference eagerload — i.e. on the row shape
+// the view-model will see. The clock is the read instant; derive bodies must
+// read it from ctx.asOf, never their own Date/Temporal.Now. No-op (returns the
+// rows untouched) when the entity declares no derived fields.
+function augmentDerivedFields(
+  rows: readonly Record<string, unknown>[],
+  entity: EntityDefinition,
+): readonly Record<string, unknown>[] {
+  const derived = entity.derivedFields;
+  if (derived === undefined) return rows;
+  const entries = Object.entries(derived);
+  if (entries.length === 0) return rows;
+  const ctx: DeriveContext = { asOf: Temporal.Now.instant() };
+  return rows.map((row) => {
+    const out: Record<string, unknown> = { ...row };
+    for (const [fieldName, def] of entries) {
+      out[fieldName] = def.derive(row, ctx);
+    }
+    return out;
+  });
+}
+
 export function defineEntityQueryHandler(
   name: string,
   entity: EntityDefinition,
@@ -225,14 +254,15 @@ export function defineEntityQueryHandler(
           ...(ctx.searchAdapter !== undefined && { searchAdapter: ctx.searchAdapter }),
           ...(ctx.includeDeleted === true && { includeDeleted: true }),
         });
-        if (!hasRefFields) return result;
-        const enrichedRows = await enrichWithReferences(
-          result.rows,
-          entity,
-          (name) => ctx.registry.getEntity(name),
-          ctx.db,
-        );
-        return { ...result, rows: enrichedRows };
+        const enrichedRows = hasRefFields
+          ? await enrichWithReferences(
+              result.rows,
+              entity,
+              (name) => ctx.registry.getEntity(name),
+              ctx.db,
+            )
+          : result.rows;
+        return { ...result, rows: augmentDerivedFields(enrichedRows, entity) };
       };
       break;
     case "detail":

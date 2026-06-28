@@ -309,6 +309,14 @@ export function validateScreens(
     }
 
     const fieldNames = new Set(Object.keys(entityDef.fields));
+    // List columns may also name a read-time derived field (not a stored
+    // column). Allowed for display; deliberately NOT added to `fieldNames`, so
+    // defaultSort/filter on a derived field still fails — server-side sort over
+    // a non-column is a silent no-op (see DerivedFieldDef).
+    const columnFieldNames =
+      entityDef.derivedFields !== undefined
+        ? new Set([...fieldNames, ...Object.keys(entityDef.derivedFields)])
+        : fieldNames;
     const rowMeta = rowMetaFieldNames(entityDef.softDelete ?? false);
     if (screen.type === "entityList") {
       // Empty column list would render as a blank table — almost always the
@@ -323,14 +331,14 @@ export function validateScreens(
       }
       for (const col of screen.columns) {
         const normalized = normalizeListColumn(col);
-        if (!fieldNames.has(normalized.field)) {
+        if (!columnFieldNames.has(normalized.field)) {
           throw new Error(
             buildUnknownFieldMessage(
               feature.name,
               screenId,
               normalized.field,
               screen.entity,
-              fieldNames,
+              columnFieldNames,
             ),
           );
         }
