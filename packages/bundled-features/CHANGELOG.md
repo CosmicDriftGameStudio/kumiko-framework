@@ -1,5 +1,27 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.91.0
+
+### Minor Changes
+
+- 30d03de: feat(ledger): double-entry bookkeeping primitive
+
+  New `ledger` bundled feature — a host-agnostic double-entry primitive. Owns the
+  per-tenant `account` chart of accounts and immutable `transaction` journal
+  entries (balanced posting lines, Σ = 0, signed integer minor units; corrections
+  via reverse-transaction Storno, no update/delete). Account balances, P&L, and
+  balance sheet derive as pure queries over the postings. Mount with
+  `createLedgerFeature({ roles | access, toggleable })`. Ships `ledger-banking`
+  and `ledger-invoicing` sample recipes.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.91.0
+- @cosmicdrift/kumiko-dispatcher-live@0.91.0
+- @cosmicdrift/kumiko-headless@0.91.0
+- @cosmicdrift/kumiko-renderer@0.91.0
+- @cosmicdrift/kumiko-renderer-web@0.91.0
+
 ## 0.90.3
 
 ### Patch Changes
