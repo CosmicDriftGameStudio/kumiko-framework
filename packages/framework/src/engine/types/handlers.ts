@@ -7,7 +7,7 @@ import type { Logger } from "../../logging/types";
 import type { Meter, MetricsHandle, Tracer } from "../../observability/types";
 import type { EntityCache } from "../../pipeline/entity-cache";
 import type { SearchAdapter } from "../../search/types";
-import type { TzContext } from "../../time";
+import type { GeoTzProvider, TzContext } from "../../time";
 import type { ConfigAccessor, ConfigAccessorFactory, ConfigResolver } from "./config";
 import type { KumikoEventTypeMap } from "./event-type-map";
 
@@ -288,6 +288,10 @@ export type AppContext = SharedContextFields & {
   readonly triggerName?: string;
   readonly _userId?: string | undefined;
   readonly _handlerType?: string | undefined;
+  /** Optionaler Geo→Zone-Adapter. Wenn gesetzt (via buildServer-context oder
+   *  runProdApp/runDevApp extraContext), reicht der Dispatcher ihn an
+   *  ctx.tz.fromCoordinates / fromAddress weiter. Ohne Provider werfen diese. */
+  readonly geoTzProvider?: GeoTzProvider;
   /** Tenant des aktuellen Pipeline-Calls. Wird vom Dispatcher beim Bauen
    *  des HandlerContext aus `user.tenantId` gespiegelt, damit lifecycle-
    *  pipeline + system-hooks den Wert ohne Zugriff auf user-Object haben.

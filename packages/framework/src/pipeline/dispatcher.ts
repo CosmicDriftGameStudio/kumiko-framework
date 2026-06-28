@@ -544,8 +544,12 @@ export function createDispatcher(
     // `context` can be overridden, but we want the authoritative registry
     // from the dispatcher's own closure to win.
     // ctx.tz ist immer da. Tenant + User-Defaults kommen aus dem
-    // SessionUser sobald die Felder existieren — bis dahin "UTC".
-    const tz = createTzContext();
+    // SessionUser sobald die Felder existieren — bis dahin "UTC". Ein
+    // app-injizierter GeoTzProvider (context.geoTzProvider) speist
+    // ctx.tz.fromCoordinates / fromAddress.
+    const tz = createTzContext(
+      context.geoTzProvider !== undefined ? { geoTz: context.geoTzProvider } : {},
+    );
 
     return {
       ...context,
