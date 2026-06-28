@@ -30,6 +30,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     // Field — aria-Labels der Date/Timestamp-Primitives.
     "kumiko.field.open-calendar": "Kalender öffnen",
     "kumiko.field.time": "Uhrzeit",
+    "kumiko.field.timezone": "Zeitzone",
+    "kumiko.field.locatedTzHint": "Zeit lokal am angegebenen Ort",
 
     // List — DataTable Toolbar, Empty-State, Search.
     "kumiko.list.search-placeholder": "Suchen…",
@@ -134,6 +136,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
 
     "kumiko.field.open-calendar": "Open calendar",
     "kumiko.field.time": "Time",
+    "kumiko.field.timezone": "Time zone",
+    "kumiko.field.locatedTzHint": "Time local to the given location",
 
     "kumiko.list.search-placeholder": "Search…",
     "kumiko.list.empty.title": "No entries yet.",

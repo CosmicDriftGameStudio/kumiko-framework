@@ -313,6 +313,24 @@ export type InputProps =
       readonly hasError?: boolean;
     }
   | {
+      readonly kind: "locatedTimestamp";
+      readonly id: string;
+      readonly name: string;
+      /** Located-Timestamp-Wert: Wall-Clock `at` (ohne Offset) + IANA-`tz`.
+       *  `utc` ist beim Read da (server-berechnet) und wird beim Write
+       *  ignoriert. Empty-State = `""`. onChange emittiert `{ at, tz }`. */
+      readonly value: { readonly at: string; readonly tz: string; readonly utc?: string } | "";
+      readonly onChange: (v: { readonly at: string; readonly tz: string } | undefined) => void;
+      /** Locale für den Datums-Teil. Default = Browser-Locale. */
+      readonly locale?: string;
+      /** Datumsgrenzen als ISO-Datetime — begrenzen den Kalender. */
+      readonly min?: string;
+      readonly max?: string;
+      readonly disabled?: boolean;
+      readonly required?: boolean;
+      readonly hasError?: boolean;
+    }
+  | {
       readonly kind: "textarea";
       readonly id: string;
       readonly name: string;

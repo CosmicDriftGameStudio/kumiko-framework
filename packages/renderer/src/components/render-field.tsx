@@ -271,6 +271,18 @@ function renderInput({
           {...(field.max !== undefined && { max: field.max })}
         />
       );
+    case "locatedTimestamp":
+      return (
+        <Input
+          kind="locatedTimestamp"
+          {...common}
+          value={locatedValue(field.value)}
+          onChange={(v) => onChange(v)}
+          locale={field.dateLocale ?? appLocale}
+          {...(field.min !== undefined && { min: field.min })}
+          {...(field.max !== undefined && { max: field.max })}
+        />
+      );
     case "select": {
       // Translated Option-Labels kommen aus dem ViewModel-Builder
       // (computeEditViewModel, Convention-Key
@@ -345,4 +357,18 @@ function stringValue(v: unknown): string {
 function numberValue(v: unknown): number | "" {
   if (v === undefined || v === null || v === "") return "";
   return typeof v === "number" ? v : Number(v);
+}
+
+// locatedTimestamp-Feldwert: das Read-Wrapper liefert `{ at, tz, utc }`; leer
+// (noch nicht gesetzt) → "" als Empty-Sentinel, analog money/timestamp.
+function locatedValue(v: unknown): { at: string; tz: string; utc?: string } | "" {
+  if (v !== null && typeof v === "object" && "at" in v && "tz" in v) {
+    const o = v as { at?: unknown; tz?: unknown; utc?: unknown };
+    return {
+      at: typeof o.at === "string" ? o.at : "",
+      tz: typeof o.tz === "string" ? o.tz : "",
+      ...(typeof o.utc === "string" && { utc: o.utc }),
+    };
+  }
+  return "";
 }
