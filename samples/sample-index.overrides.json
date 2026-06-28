@@ -27,7 +27,7 @@
     "primarySample": "recipes-compliance-profiles-demo",
     "whenToUse": "Each tenant follows a different regulatory regime (EU, CH, HR) without forking app code — profiles drive retention, grace periods, and audit obligations.",
     "sampleBlurb": "Tenant picks EU, CH, or HR profile — retention rules and audit obligations follow the profile without branching your app code.",
-    "screenshot": "/screenshots/features/compliance-profiles.png"
+    "screenshot": null
   },
   "config": {
     "primarySample": "recipes-encrypted-tenant-config",
@@ -129,7 +129,7 @@
     "primarySample": "recipes-legal-pages",
     "whenToUse": "Marketing copy, help articles, and legal text should be editable per tenant without redeploying — keyed by slug and language.",
     "sampleBlurb": "Keyed marketing and help strings per tenant and language — same recipe as legal-pages shows CMS-light editing.",
-    "screenshot": "/screenshots/features/text-content.png"
+    "screenshot": null
   },
   "tier-engine": {
     "primarySample": "recipes-tier-admin",

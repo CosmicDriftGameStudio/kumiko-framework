@@ -4,31 +4,20 @@
 //
 // Generates feature-reference + sample preview PNGs.
 // Usage: bun run gen:feature-screenshots
+//
+// Feature-reference previews are REAL renders: the `use-all-bundled` sample
+// mounts every bundled feature and captures one representative screen per
+// feature via the shared matrix runner (theme × viewport) into
+// <out>/<feature>/<locale>/<theme>/<viewport>.png — the ScreenshotPreview
+// switcher consumes that layout 1:1. Sample-app previews come from the per-app
+// runners under <out>/apps/. config is copied from the config-demo asset.
+//
+// Requires Postgres + Redis + a samples .env (the runners boot the real dev
+// server); set SKIP_APP_SCREENSHOTS=1 to skip the live captures.
 
-import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { chromium } from "@playwright/test";
-import {
-  getAuthDeleteAccountHtml,
-  getAuthForgotPasswordHtml,
-  getAuthLoginHtml,
-  getAuthSignupHtml,
-} from "../preview-html/auth-surfaces";
-import {
-  getComplianceProfilesPreviewHtml,
-  getTenantPreviewHtml,
-  getUserDataRightsPreviewHtml,
-  getUserPreviewHtml,
-  getUserProfilePreviewHtml,
-} from "../preview-html/identity-gdpr";
-import { getTextContentHelpHtml } from "../preview-html/text-content";
-import { renderLandingPreview } from "../recipes/apex-landing/src/preview-html";
-import {
-  getLegalImpressumHtml,
-  getLegalPrivacyHtml,
-} from "../recipes/legal-pages/src/preview-html";
-import { getManagedAboutHtml } from "../recipes/managed-pages/src/preview-html";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SAMPLES_ROOT = resolve(HERE, "..");
@@ -39,85 +28,66 @@ const DEFAULT_OUT = resolve(
 
 const OUT_DIR = process.env["SCREENSHOT_DIR"] ?? DEFAULT_OUT;
 const APPS_OUT = `${OUT_DIR}/apps`;
-const MIN_BYTES = 5 * 1024;
 
-type HtmlShot = { readonly name: string; readonly html: string };
-
-type AppRunner = {
+type Runner = {
   readonly id: string;
   readonly cwd: string;
   readonly command: readonly string[];
+  readonly out: string;
 };
 
-const APP_RUNNERS: readonly AppRunner[] = [
+const SCREENSHOTS_CMD = [
+  "bun",
+  "x",
+  "playwright",
+  "test",
+  "e2e/screenshots.spec.ts",
+  "--config=playwright.config.ts",
+] as const;
+
+// use-all-bundled rendert die Feature-Reference-Screens direkt nach OUT_DIR
+// (<feature>/<locale>/<theme>/<viewport>.png) — eine App, jedes bundled-feature.
+const FEATURE_RUNNER: Runner = {
+  id: "use-all-bundled",
+  cwd: resolve(SAMPLES_ROOT, "apps/use-all-bundled"),
+  command: SCREENSHOTS_CMD,
+  out: OUT_DIR,
+};
+
+// Sample-Apps rendern ihre eigene UI nach OUT_DIR/apps/<app>/.
+const APP_RUNNERS: readonly Runner[] = [
   {
     id: "marketing-demo",
     cwd: resolve(SAMPLES_ROOT, "apps/marketing-demo"),
     command: ["bun", "run", "screenshots"],
+    out: `${APPS_OUT}/marketing-demo`,
   },
   {
     id: "ui-walkthrough",
     cwd: resolve(SAMPLES_ROOT, "apps/ui-walkthrough"),
-    command: [
-      "bun",
-      "x",
-      "playwright",
-      "test",
-      "e2e/screenshots.spec.ts",
-      "--config=playwright.config.ts",
-    ],
+    command: SCREENSHOTS_CMD,
+    out: `${APPS_OUT}/ui-walkthrough`,
   },
   {
     id: "workspaces",
     cwd: resolve(SAMPLES_ROOT, "apps/workspaces"),
-    command: [
-      "bun",
-      "x",
-      "playwright",
-      "test",
-      "e2e/screenshots.spec.ts",
-      "--config=playwright.config.ts",
-    ],
+    command: SCREENSHOTS_CMD,
+    out: `${APPS_OUT}/workspaces`,
   },
 ];
 
-function buildStaticShots(): readonly HtmlShot[] {
-  return [
-    { name: "tier-engine", html: renderLandingPreview() },
-    { name: "text-content", html: getTextContentHelpHtml() },
-    { name: "legal-pages", html: getLegalImpressumHtml() },
-    { name: "legal-privacy", html: getLegalPrivacyHtml() },
-    { name: "managed-pages", html: getManagedAboutHtml() },
-    { name: "auth-login", html: getAuthLoginHtml() },
-    { name: "auth-signup", html: getAuthSignupHtml() },
-    { name: "auth-forgot-password", html: getAuthForgotPasswordHtml() },
-    { name: "auth-delete-account", html: getAuthDeleteAccountHtml() },
-    { name: "tenant", html: getTenantPreviewHtml() },
-    { name: "user", html: getUserPreviewHtml() },
-    { name: "user-profile", html: getUserProfilePreviewHtml() },
-    { name: "compliance-profiles", html: getComplianceProfilesPreviewHtml() },
-    { name: "user-data-rights", html: getUserDataRightsPreviewHtml() },
-  ];
-}
-
-async function screenshotHtml(shots: readonly HtmlShot[]): Promise<void> {
-  mkdirSync(OUT_DIR, { recursive: true });
-  const browser = await chromium.launch();
-  const page = await browser.newPage({
-    viewport: { width: 1280, height: 900 },
-    deviceScaleFactor: 2,
+async function runRunner(r: Runner): Promise<void> {
+  mkdirSync(r.out, { recursive: true });
+  console.log(`\n→ ${r.id} …`);
+  const proc = Bun.spawn([...r.command], {
+    cwd: r.cwd,
+    env: { ...process.env, SCREENSHOT_DIR: r.out, CI: "1" },
+    stdout: "inherit",
+    stderr: "inherit",
   });
-  try {
-    for (const shot of shots) {
-      await page.setContent(shot.html, { waitUntil: "networkidle" });
-      const path = `${OUT_DIR}/${shot.name}.png`;
-      await page.screenshot({ path, fullPage: true });
-      const size = statSync(path).size;
-      if (size < MIN_BYTES) throw new Error(`${path} too small (${size} bytes)`);
-      console.log(`wrote ${path} (${size} bytes)`);
-    }
-  } finally {
-    await browser.close();
+  const code = await proc.exited;
+  if (code !== 0) {
+    console.warn(`warn: ${r.id} screenshots failed (exit ${code}) — need .env + Postgres?`);
   }
 }
 
@@ -159,27 +129,13 @@ function copyMarketingFallback(): void {
     console.log(`copied ${copied} marketing-demo PNGs from kumiko-platform marketing assets`);
 }
 
-async function runAppScreenshots(): Promise<void> {
+async function runAllScreenshots(): Promise<void> {
   if (process.env["SKIP_APP_SCREENSHOTS"] === "1") {
-    console.log("SKIP_APP_SCREENSHOTS=1 — skipping live app captures");
+    console.log("SKIP_APP_SCREENSHOTS=1 — skipping live captures");
     return;
   }
-
-  for (const app of APP_RUNNERS) {
-    const out = `${APPS_OUT}/${app.id}`;
-    mkdirSync(out, { recursive: true });
-    console.log(`\n→ ${app.id} …`);
-    const proc = Bun.spawn([...app.command], {
-      cwd: app.cwd,
-      env: { ...process.env, SCREENSHOT_DIR: out, CI: "1" },
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-    const code = await proc.exited;
-    if (code !== 0) {
-      console.warn(`warn: ${app.id} screenshots failed (exit ${code}) — need .env + Postgres?`);
-    }
-  }
+  await runRunner(FEATURE_RUNNER);
+  for (const app of APP_RUNNERS) await runRunner(app);
   if (!dirHasPng(`${APPS_OUT}/marketing-demo`)) {
     copyMarketingFallback();
   }
@@ -223,7 +179,7 @@ function writePreviewIndex(): void {
 <body>
   <h1>Feature &amp; sample screenshot preview</h1>
   <p>Regenerate: <code>bun run gen:feature-screenshots</code> in kumiko-framework.</p>
-  ${section("Bundled features (static render)", featurePngs)}
+  ${section("Bundled features (live UI)", featurePngs)}
   ${section("Sample apps (live UI)", appPngs)}
 </body>
 </html>
@@ -235,10 +191,8 @@ function writePreviewIndex(): void {
 
 async function main(): Promise<void> {
   console.log(`screenshot dir: ${OUT_DIR}`);
-
-  await screenshotHtml(buildStaticShots());
+  await runAllScreenshots();
   copyConfigScreenshot();
-  await runAppScreenshots();
   writePreviewIndex();
 }
 
