@@ -1,15 +1,5 @@
 import type { Page } from "@playwright/test";
-
-export interface Scenario {
-  readonly name: string;
-  readonly description: string;
-  readonly url?: string;
-  readonly flow?: (page: Page) => Promise<void>;
-  readonly waitFor?: string;
-  readonly settleMs?: number;
-  readonly fullPage?: boolean;
-  readonly viewport?: { readonly width: number; readonly height: number };
-}
+import type { Scenario } from "../../../e2e/screenshots";
 
 async function writeConfig(
   page: Page,
