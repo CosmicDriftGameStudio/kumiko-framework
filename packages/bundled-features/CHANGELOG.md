@@ -1,5 +1,28 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.92.0
+
+### Minor Changes
+
+- 6514695: feat(folders): drag-and-drop filing in FolderManager
+
+  `FolderManager` gains an opt-in `filing` mode: a host hands in its entities
+  (grouped by folder + an unfiled bucket via `FolderLeaf`/`FolderFiling`) and the
+  manager interleaves them as draggable leaf rows. Drag a leaf onto a folder to
+  file it (set-folder), onto the unfiled bucket to unfile it (clear-folder); the
+  manager owns the reassignment writes + its catalog refetch and calls the host's
+  `onReassigned` to refresh assignment-derived data. Without `filing` the manager
+  renders exactly as before (folder management only). Guide rails are now gapless
+  (padding-free `min-h-9` rows) for every host.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.92.0
+- @cosmicdrift/kumiko-dispatcher-live@0.92.0
+- @cosmicdrift/kumiko-headless@0.92.0
+- @cosmicdrift/kumiko-renderer@0.92.0
+- @cosmicdrift/kumiko-renderer-web@0.92.0
+
 ## 0.91.0
 
 ### Minor Changes
