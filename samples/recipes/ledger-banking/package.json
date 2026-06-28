@@ -1,0 +1,9 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-ledger-banking",
+  "description": "Bank accounts + transfers on the ledger primitive — balances are pure queries, never stored.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  }
+}

@@ -92,7 +92,9 @@ function extractFeaturesFromText(text: string): Set<string> {
 
 function collectSourceFiles(sampleDir: string): readonly string[] {
   const files: string[] = [];
-  for (const rel of ["src/feature.ts", "src/run-config.ts", "bin/main.ts"]) {
+  // usage.ts covers self-hosting recipes (e.g. ledger) that mount a bundled
+  // feature directly and carry no host src/feature.ts.
+  for (const rel of ["src/feature.ts", "src/run-config.ts", "src/usage.ts", "bin/main.ts"]) {
     const p = join(sampleDir, rel);
     if (existsSync(p)) files.push(p);
   }

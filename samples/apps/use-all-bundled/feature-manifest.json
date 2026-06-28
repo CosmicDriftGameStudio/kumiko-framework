@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled)",
-  "featureCount": 44,
+  "featureCount": 45,
   "features": [
     {
       "name": "audit",
@@ -655,6 +655,30 @@
       "uiHints": {
         "displayLabel": "Jobs · Audit & Operator UI",
         "category": "operations",
+        "recommended": false
+      }
+    },
+    {
+      "name": "ledger",
+      "description": "Double-entry bookkeeping primitive. Owns two event-sourced entities — the per-tenant `account` chart of accounts (`read_ledger_accounts`, self-referential via parentId, typed asset/liability/equity/income/expense) and immutable `transaction` journal entries (`read_ledger_transactions`) whose balanced posting lines are embedded as jsonb (Σ amount = 0, signed integer minor units). The account catalog uses the generic entity handlers (create, update, list, detail); create-transaction books a balanced entry (Σ=0 and ≥2 distinct accounts enforced at the command boundary, referential integrity against accounts checked) and reverse-transaction books its Storno mirror — there is deliberately NO transaction update/delete, so a posted entry is an immutable fact and the audit trail stays intact. Balances and reports (balance sheet, P&L, cashflow) derive as pure queries over the postings. Everything financial — banking, accounting, rent cashflow, credits, invoices — models as accounts + balanced transactions on top. Pin roles with createLedgerFeature({ roles }) or adopt the host model with { access }; pass { toggleable: { default: false } } to tier-gate the whole feature.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "ledger:write:account:create",
+        "ledger:write:account:update",
+        "ledger:write:create-transaction",
+        "ledger:write:reverse-transaction"
+      ],
+      "uiHints": {
+        "displayLabel": "Ledger",
+        "category": "data",
         "recommended": false
       }
     },

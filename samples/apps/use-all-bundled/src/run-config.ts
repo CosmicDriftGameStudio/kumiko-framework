@@ -39,6 +39,7 @@ import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
 import { foldersFeature } from "@cosmicdrift/kumiko-bundled-features/folders";
 import { foldersUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/folders-user-data";
 import { createJobsFeature } from "@cosmicdrift/kumiko-bundled-features/jobs";
+import { ledgerFeature } from "@cosmicdrift/kumiko-bundled-features/ledger";
 import { createLegalPagesFeature } from "@cosmicdrift/kumiko-bundled-features/legal-pages";
 import { mailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
 import { mailTransportInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory";
@@ -175,4 +176,6 @@ export const APP_FEATURES = [
   // folders-user-data: GDPR-Hooks für folder-Entities. Hängt (optional) an folders
   // + (hart) an user-data-rights — beide oben gemountet.
   foldersUserDataFeature,
+  // ledger: double-entry bookkeeping primitive (account + immutable transaction).
+  ledgerFeature,
 ] as const;

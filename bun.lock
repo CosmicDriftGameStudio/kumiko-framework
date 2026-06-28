@@ -453,6 +453,20 @@
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
     },
+    "samples/recipes/ledger-banking": {
+      "name": "@cosmicdrift/kumiko-sample-ledger-banking",
+      "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+    },
+    "samples/recipes/ledger-invoicing": {
+      "name": "@cosmicdrift/kumiko-sample-ledger-invoicing",
+      "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+    },
     "samples/recipes/legal-pages": {
       "name": "@cosmicdrift/kumiko-sample-legal-pages",
       "dependencies": {
@@ -754,6 +768,10 @@
     "@cosmicdrift/kumiko-sample-idempotency": ["@cosmicdrift/kumiko-sample-idempotency@workspace:samples/recipes/idempotency"],
 
     "@cosmicdrift/kumiko-sample-lane-routing": ["@cosmicdrift/kumiko-sample-lane-routing@workspace:samples/recipes/lane-routing"],
+
+    "@cosmicdrift/kumiko-sample-ledger-banking": ["@cosmicdrift/kumiko-sample-ledger-banking@workspace:samples/recipes/ledger-banking"],
+
+    "@cosmicdrift/kumiko-sample-ledger-invoicing": ["@cosmicdrift/kumiko-sample-ledger-invoicing@workspace:samples/recipes/ledger-invoicing"],
 
     "@cosmicdrift/kumiko-sample-legal-pages": ["@cosmicdrift/kumiko-sample-legal-pages@workspace:samples/recipes/legal-pages"],
 
