@@ -72,6 +72,51 @@ jobs:
           ulimit -n 65536 || true
           sh scripts/ci-memlog-run.sh bun kumiko check
 
+  tz-matrix:
+    # Timezones epic (kumiko-framework#268), item 12. Runs the TZ-sensitive
+    # tests under several non-UTC process zones, so a future process-TZ-dependent
+    # regression (e.g. a stray `new Date(wallClock)`) fails HERE even though it
+    # would pass in the UTC-based `test` job. Scoped to the time + DB-conversion
+    # tests — that's where TZ bugs hide — so each leg is seconds, not the full
+    # `kumiko check`. UTC itself is already covered by the `test` job.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        tz:
+          - America/Los_Angeles
+          - Europe/Berlin
+          - Asia/Tokyo
+          - Pacific/Apia # UTC+13/+14, date-line edge
+    env:
+      TZ: ${{ matrix.tz }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+
+      - name: Cache Bun
+        uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+
+      - name: Install
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
+        run: bun install --frozen-lockfile
+
+      - name: Run TZ-sensitive tests
+        run: bun test packages/framework/src/time/ packages/framework/src/db/__tests__/
+
   use-all-bundled-smoke:
     # C1 Sprint 9.8 Phase C, M4: canonical smoke-gate. Bootet
     # samples/apps/use-all-bundled mit KUMIKO_DRY_RUN_ENV=boot — alle
