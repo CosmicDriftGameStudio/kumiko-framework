@@ -41,8 +41,13 @@ import {
   createConfigAccessorFactory,
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
+import {
+  createSecretsContext,
+  SECRETS_FEATURE_NAME,
+} from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { createSessionCallbacks } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
+import { createTextContentApi } from "@cosmicdrift/kumiko-bundled-features/text-content";
 import { UserQueries } from "@cosmicdrift/kumiko-bundled-features/user";
 import {
   type CachePolicy,
@@ -52,7 +57,11 @@ import {
   createSseBroker,
   type SseBroker,
 } from "@cosmicdrift/kumiko-framework/api";
-import { createDbConnection, type DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createDbConnection,
+  type DbConnection,
+  type DbRunner,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   buildAppSchema,
   type ConfigResolver,
@@ -88,6 +97,10 @@ import {
   assertKumikoSchemaCurrent,
   SchemaDriftError,
 } from "@cosmicdrift/kumiko-framework/migrations";
+import {
+  createEnvMasterKeyProvider,
+  type MasterKeyProvider,
+} from "@cosmicdrift/kumiko-framework/secrets";
 import {
   createDispatcher,
   createEntityCache,
@@ -421,13 +434,22 @@ export type RunProdAppOptions = {
    *  Setups die ihren eigenen Schema-Check fahren (z.B. bring-your-own-
    *  ORM). Standard-Apps lassen das default. */
   readonly migrations?: { readonly dir: string } | false;
-  /** Extra AppContext keys. configResolver is auto-set in auth-mode.
-   *  Akzeptiert entweder einen statischen Object ODER eine Factory
+  /** Extra AppContext keys. Framework-Defaults werden zur Boot-Zeit
+   *  unter den Factory-Werten ergänzt, App-Werte gewinnen immer:
+   *    - `textContent` (createTextContentApi(db)) — immer
+   *    - `secrets` (createSecretsContext) — nur wenn das `secrets`-Feature
+   *      gemountet ist (sonst kein KEK-env-Zwang für Apps ohne secrets)
+   *    - `configResolver` — im Auth-Mode (env-config-overrides)
+   *  Akzeptiert einen statischen Object ODER eine Factory
    *  `({db, redis, registry}) => Record<string, unknown>` — gleiches
-   *  Pattern wie `anonymousAccess`. Im Auth-Mode wird `configResolver`
-   *  weiterhin automatisch ergänzt; Factory-Result + auto-resolver
-   *  werden gemerged (Factory-Werte überschreiben). */
+   *  Pattern wie `anonymousAccess`. Eine App die einen dieser Keys selbst
+   *  setzt (z.B. eigener configResolver) überschreibt den Default. */
   readonly extraContext?: ExtraContextOption;
+  /** MasterKeyProvider für die auto-verdrahtete `ctx.secrets`. Default:
+   *  `createEnvMasterKeyProvider` (KEK aus `KUMIKO_SECRETS_MASTER_KEY_V<n>`).
+   *  Override für KMS-Backends (AWS/GCP/Azure) statt env-KEK. Nur relevant
+   *  wenn das `secrets`-Feature gemountet ist. */
+  readonly masterKey?: MasterKeyProvider;
   /** Deploy-Topologie. Default `true` (Single-Container): dieser Prozess
    *  fährt HTTP + BEIDE Job-Lanes (api + worker) + den Event-Dispatcher
    *  (MSP-Anwendung) inline — via `createAllInOneEntrypoint`. Damit laufen
@@ -544,6 +566,50 @@ export function addConfigAccessorFactory<T extends { readonly configResolver?: C
   return {
     ...resolved,
     _configAccessorFactory: createConfigAccessorFactory(registry, resolved.configResolver),
+  };
+}
+
+// Framework-Default-Provider für den AppContext — gleicher Mechanismus wie
+// der tenantTierResolver-Autowire (findTierResolverUsage): deklarierter
+// Bedarf (Feature gemountet) → Default aus db/env, App überschreibt nur die
+// Ausnahme. textContent ist unbedingt (createTextContentApi wirft nie, baut
+// nur einen db-gebundenen Accessor); secrets ist feature-gegated, weil
+// createEnvMasterKeyProvider ohne KEK-env wirft — eine App ohne secrets-
+// Feature soll nicht in eine KEK-Pflicht gezwungen werden. configResolver
+// nur im Auth-Mode (env-config-overrides). Exportiert + pure für Unit-Tests;
+// der merge mit den App-Werten passiert beim Caller (App gewinnt).
+export function buildBootExtraContext(opts: {
+  readonly db: DbConnection;
+  readonly features: readonly FeatureDefinition[];
+  readonly envSource: Record<string, string | undefined>;
+  readonly registry: Registry;
+  readonly hasAuth: boolean;
+  readonly masterKey?: MasterKeyProvider;
+}): Record<string, unknown> {
+  const hasSecretsFeature = opts.features.some((f) => f.name === SECRETS_FEATURE_NAME);
+  return {
+    textContent: createTextContentApi(opts.db),
+    ...(hasSecretsFeature && {
+      secrets: createSecretsContext({
+        db: opts.db,
+        masterKeyProvider:
+          opts.masterKey ??
+          createEnvMasterKeyProvider({
+            // CURRENT_VERSION default "1" spiegelt secretsEnvSchema — ohne
+            // ihn wirft der raw-env-Provider, obwohl V1 gesetzt ist.
+            env: {
+              ...opts.envSource,
+              KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION:
+                opts.envSource["KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION"] ?? "1",
+            },
+          }),
+      }),
+    }),
+    ...(opts.hasAuth && {
+      configResolver: createConfigResolver({
+        appOverrides: buildEnvConfigOverrides(opts.registry, opts.envSource),
+      }),
+    }),
   };
 }
 
@@ -719,15 +785,19 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     typeof options.extraContext === "function"
       ? options.extraContext(deps)
       : (options.extraContext ?? {});
+
+  // Framework-Default-Provider zuerst, App-Werte (resolvedExtraContext)
+  // gewinnen immer (z.B. money-horse's eigener configResolver).
+  const autoExtraContext = buildBootExtraContext({
+    db,
+    features,
+    envSource,
+    registry,
+    hasAuth: !!options.auth,
+    ...(options.masterKey && { masterKey: options.masterKey }),
+  });
   const extraContext = addConfigAccessorFactory(
-    options.auth
-      ? {
-          configResolver: createConfigResolver({
-            appOverrides: buildEnvConfigOverrides(registry, envSource),
-          }),
-          ...resolvedExtraContext,
-        }
-      : resolvedExtraContext,
+    { ...autoExtraContext, ...resolvedExtraContext },
     registry,
   );
   const resolvedAnonymousAccess =

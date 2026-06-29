@@ -20,6 +20,8 @@ import { tenantSecretEntity, tenantSecretsTable } from "./table";
  * and picks the highest as the active KEK unless
  * `KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION` pins one explicitly.
  */
+export const SECRETS_FEATURE_NAME = "secrets";
+
 export const secretsEnvSchema = z.object({
   KUMIKO_SECRETS_MASTER_KEY_V1: z
     .string()
@@ -83,7 +85,7 @@ export function requireSecretsContext(
 }
 
 export function createSecretsFeature(): FeatureDefinition {
-  return defineFeature("secrets", (r) => {
+  return defineFeature(SECRETS_FEATURE_NAME, (r) => {
     r.describe(
       "Stores arbitrary per-tenant secrets (API keys, tokens, credentials) encrypted at rest using AES-256 with a KEK loaded from `KUMIKO_SECRETS_MASTER_KEY_V1` (and successive versions for rotation). Read a secret in handlers via `ctx.secrets.get(tenantId, handle)`, which automatically appends a `tenantSecretRead` audit event so every access is traceable. A `rotate` job re-encrypts all envelopes after a KEK version bump.",
     );
