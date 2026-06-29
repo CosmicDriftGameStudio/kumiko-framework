@@ -192,7 +192,7 @@ export type {
 } from "./http-route";
 // Domain-identifier type aliases — see identifiers.ts for rationale.
 export type { EntityId, TenantId } from "./identifiers";
-export { isSystemTenant, SYSTEM_TENANT_ID } from "./identifiers";
+export { isSystemTenant, parseTenantId, SYSTEM_TENANT_ID } from "./identifiers";
 export type { NavDefinition } from "./nav";
 export type {
   MspErrorMode,
