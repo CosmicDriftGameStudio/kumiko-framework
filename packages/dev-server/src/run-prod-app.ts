@@ -620,11 +620,22 @@ export function addConfigAccessorFactory<T extends { readonly configResolver?: C
 // der tenantTierResolver-Autowire (findTierResolverUsage): deklarierter
 // Bedarf (Feature gemountet) → Default aus db/env, App überschreibt nur die
 // Ausnahme. textContent ist unbedingt (createTextContentApi wirft nie, baut
-// nur einen db-gebundenen Accessor); secrets ist feature-gegated, weil
-// createEnvMasterKeyProvider ohne KEK-env wirft — eine App ohne secrets-
-// Feature soll nicht in eine KEK-Pflicht gezwungen werden. configResolver
-// nur im Auth-Mode (env-config-overrides). Exportiert + pure für Unit-Tests;
-// der merge mit den App-Werten passiert beim Caller (App gewinnt).
+// nur einen db-gebundenen Accessor). secrets wird nur auto-verdrahtet wenn
+// das secrets-Feature gemountet ist UND ein KEK tatsächlich verfügbar ist
+// (masterKey-Override ODER env-KEK present) — sonst skip, damit der eager
+// createEnvMasterKeyProvider nicht wirft. Das deckt zwei Fälle: (a) App ohne
+// secrets → kein KEK-Zwang; (b) dev mit App-eigenem DEV-KEK in extraContext
+// (kein env-KEK) → kein Boot-Crash, die App-explizite secrets-Wiring gewinnt.
+// Prod-Misconfig (secrets gemountet, kein KEK) fängt schon secretsEnvSchema
+// beim Boot; fehlt der env-Schema-Pfad, wirft requireSecretsContext beim
+// ersten ctx.secrets-Zugriff mit Wiring-Hinweis. configResolver nur im
+// Auth-Mode. Exportiert + pure für Unit-Tests; der merge mit App-Werten
+// passiert beim Caller (App gewinnt).
+const MASTER_KEK_VAR = /^KUMIKO_SECRETS_MASTER_KEY_V\d+$/;
+function envHasMasterKek(env: Record<string, string | undefined>): boolean {
+  return Object.entries(env).some(([k, v]) => MASTER_KEK_VAR.test(k) && !!v);
+}
+
 export function buildBootExtraContext(opts: {
   readonly db: DbConnection;
   readonly features: readonly FeatureDefinition[];
@@ -634,9 +645,11 @@ export function buildBootExtraContext(opts: {
   readonly masterKey?: MasterKeyProvider;
 }): Record<string, unknown> {
   const hasSecretsFeature = opts.features.some((f) => f.name === SECRETS_FEATURE_NAME);
+  const wireSecrets =
+    hasSecretsFeature && (opts.masterKey !== undefined || envHasMasterKek(opts.envSource));
   return {
     textContent: createTextContentApi(opts.db),
-    ...(hasSecretsFeature && {
+    ...(wireSecrets && {
       secrets: createSecretsContext({
         db: opts.db,
         masterKeyProvider:
