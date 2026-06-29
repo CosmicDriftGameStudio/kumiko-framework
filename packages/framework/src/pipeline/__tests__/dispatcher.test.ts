@@ -85,11 +85,18 @@ describe("dispatcher.write", () => {
         "item:create",
         z.object({ name: z.string() }),
         async (event) => ({ isSuccess: true, data: { name: event.payload.name } }),
-        { access: { openToAll: true }, rateLimit: { per: "ip+handler", limit: 3, windowSeconds: 60 } },
+        {
+          access: { openToAll: true },
+          rateLimit: { per: "ip+handler", limit: 3, windowSeconds: 60 },
+        },
       );
     });
     const dispatcher = createDispatcher(createRegistry([rlFeature]), {});
-    const result = await dispatcher.write("rl:write:item:create", { name: "seeded" }, createTestUser());
+    const result = await dispatcher.write(
+      "rl:write:item:create",
+      { name: "seeded" },
+      createTestUser(),
+    );
     expect(result.isSuccess).toBe(true);
   });
 
