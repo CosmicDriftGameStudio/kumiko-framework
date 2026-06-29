@@ -41,6 +41,7 @@ import {
   validateAppCustomScreenWriteQns,
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";
 import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { applyBootSeeds } from "./boot/apply-boot-seeds";
@@ -58,6 +59,7 @@ import { renderWelcomeBanner } from "./welcome-banner";
 // brauchen. PasswordResetSetup / EmailVerificationSetup leben in
 // run-prod-app.ts (single source of truth) — hier nur durchgereicht.
 export type {
+  AuthMailOptions,
   EmailVerificationSetup,
   InviteSetup,
   PasswordResetSetup,
@@ -65,12 +67,13 @@ export type {
 } from "./run-prod-app";
 
 import type {
+  AuthMailOptions,
   EmailVerificationSetup,
   InviteSetup,
   PasswordResetSetup,
   SignupSetup,
 } from "./run-prod-app";
-import { addConfigAccessorFactory } from "./run-prod-app";
+import { addConfigAccessorFactory, buildBootExtraContext, resolveAuthMail } from "./run-prod-app";
 
 export type RunDevAppAuthOptions = {
   /** Admin user to seed at boot. Idempotent — re-runs in persistent-DB
@@ -90,6 +93,12 @@ export type RunDevAppAuthOptions = {
   readonly sessions?: {
     readonly expiresInMs?: number;
   };
+  /** Auth-Mail-Convenience — symmetrisch zu RunProdAppAuthOptions.mail.
+   *  Verdrahtet alle 4 Mail-Flows aus env-SMTP + Standard-Templates;
+   *  hmacSecret = `JWT_SECRET`-env (Dev-Fallback wenn ungesetzt). Ohne
+   *  `SMTP_HOST`-env bleiben die Flows unverdrahtet (Null-Transport-Guard).
+   *  Explizite Flow-Setups gewinnen über den mail-Default. */
+  readonly mail?: AuthMailOptions;
   /** Password-reset flow. Wenn gesetzt werden /api/auth/request-password-
    *  reset + /api/auth/reset-password als Public-Routes gemounted UND
    *  der request/confirm-Handler im auth-email-password-Feature wird
@@ -154,9 +163,14 @@ export type RunDevAppOptions = {
   /** Eigene Seed-Funktionen, laufen nach dem Admin (wenn auth) in
    *  Array-Reihenfolge. */
   readonly seeds?: readonly SeedFn[];
-  /** Extra-AppContext-Keys. Im auth-mode wird `configResolver` automatisch
-   *  hinzugefügt — kein Override durch den Caller nötig. */
+  /** Extra-AppContext-Keys. `textContent` (immer) + `secrets` (wenn das
+   *  secrets-Feature gemountet ist) + `configResolver` (auth-mode) werden
+   *  automatisch ergänzt — App-Werte gewinnen. Symmetrisch zu runProdApp. */
   readonly extraContext?: CreateKumikoServerOptions["extraContext"];
+  /** MasterKeyProvider für die auto-verdrahtete `ctx.secrets`. Default:
+   *  `createEnvMasterKeyProvider`. Override für KMS-Backends. Nur relevant
+   *  wenn das secrets-Feature gemountet ist. Symmetrisch zu runProdApp. */
+  readonly masterKey?: MasterKeyProvider;
   /** Env-Quelle für die ENV→config-app-override-Brücke (Keys mit `env:`
    *  bekommen ihren env-Wert als app-override-Default — symmetrisch zu
    *  runProdApp). Default `process.env`. Injizierbar als Test-Seam, damit
@@ -194,9 +208,21 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // source of truth — auch runProdApp und der per-app drizzle-Schema-
   // Generator nutzen denselben Helper, damit Migration und Runtime nie
   // auseinanderdriften können).
-  const composeAuthOptions = buildComposeAuthOptions(options.auth);
+  const envSource = options.envSource ?? process.env;
+  // auth.mail → normalisiert in die expliziten Flow-Felder (symmetrisch zu
+  // runProdApp). hmacSecret = JWT_SECRET-env mit Dev-Fallback (der Dev-Server
+  // mintet JWTs selbst; der Reset-Token-HMAC teilt denselben Key wie in den
+  // Apps). Ab hier IMMER effectiveAuth statt options.auth.
+  const effectiveAuth = options.auth
+    ? resolveAuthMail(
+        options.auth,
+        envSource["JWT_SECRET"] ?? "kumiko-dev-auth-mail-hmac-fallback-secret",
+        envSource,
+      )
+    : undefined;
+  const composeAuthOptions = buildComposeAuthOptions(effectiveAuth);
   const features = composeFeatures(options.features, {
-    includeBundled: !!options.auth,
+    includeBundled: !!effectiveAuth,
     ...(composeAuthOptions && { authOptions: composeAuthOptions }),
   });
 
@@ -277,13 +303,26 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // throwaway-Registry hier extrahiert nur die config-Keys, weil der
   // configResolver vor dem Server-Boot konstruiert wird (stack.registry
   // gibt's erst onAfterSetup) — createKumikoServer baut intern seine eigene.
-  const extraContext = options.auth
-    ? mergeConfigResolverDefault(
-        options.extraContext,
-        createRegistry(features),
-        options.envSource ?? process.env,
-      )
+  const cfgExtra = effectiveAuth
+    ? mergeConfigResolverDefault(options.extraContext, createRegistry(features), envSource)
     : options.extraContext;
+  // Auto-wire textContent (immer) + secrets (feature-gated), symmetrisch zu
+  // runProdApp. Anders als prod existiert die db hier erst im Factory-deps
+  // (createKumikoServer baut den Stack), darum als Factory: buildBootExtraContext
+  // mit hasAuth:false (configResolver kommt schon aus cfgExtra), App-Werte
+  // (cfgExtra) gewinnen über die Boot-Defaults.
+  const extraContext: CreateKumikoServerOptions["extraContext"] = (deps) => {
+    const boot = buildBootExtraContext({
+      db: deps.db,
+      features,
+      envSource,
+      registry: deps.registry,
+      hasAuth: false,
+      ...(options.masterKey && { masterKey: options.masterKey }),
+    });
+    const base = typeof cfgExtra === "function" ? cfgExtra(deps) : (cfgExtra ?? {});
+    return { ...boot, ...base };
+  };
 
   // Sessions opt-in: Holder lebt im closure, `createSessionCallbacks`
   // kennt erst nach setupTestStack die echte db-connection. Inline
@@ -300,7 +339,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     return sessionCallbacks;
   };
   const sessionAuthFragment =
-    options.auth?.sessions !== undefined
+    effectiveAuth?.sessions !== undefined
       ? {
           sessionCreator: (user: SessionUser, meta: SessionMetadata) =>
             requireSessions().sessionCreator(user, meta),
@@ -334,55 +373,55 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     ...(finalEffectiveFeatures !== undefined && {
       effectiveFeatures: finalEffectiveFeatures,
     }),
-    ...(options.auth && {
+    ...(effectiveAuth && {
       auth: {
         membershipQuery: TenantQueries.memberships,
         loginHandler: AuthHandlers.login,
-        loginErrorStatusMap: options.auth.loginErrorStatusMap ?? {
+        loginErrorStatusMap: effectiveAuth.loginErrorStatusMap ?? {
           [AuthErrors.invalidCredentials]: 401,
           [AuthErrors.noMembership]: 403,
         },
-        ...(options.auth.cookieDomain !== undefined && {
-          cookieDomain: options.auth.cookieDomain,
+        ...(effectiveAuth.cookieDomain !== undefined && {
+          cookieDomain: effectiveAuth.cookieDomain,
         }),
-        ...(options.auth.allowedOrigins !== undefined && {
-          allowedOrigins: options.auth.allowedOrigins,
+        ...(effectiveAuth.allowedOrigins !== undefined && {
+          allowedOrigins: effectiveAuth.allowedOrigins,
         }),
-        ...(options.auth.unsafeSkipOriginCheck !== undefined && {
-          unsafeSkipOriginCheck: options.auth.unsafeSkipOriginCheck,
+        ...(effectiveAuth.unsafeSkipOriginCheck !== undefined && {
+          unsafeSkipOriginCheck: effectiveAuth.unsafeSkipOriginCheck,
         }),
         ...sessionAuthFragment,
-        ...(options.auth.passwordReset && {
+        ...(effectiveAuth.passwordReset && {
           passwordReset: {
             requestHandler: AuthHandlers.requestPasswordReset,
             confirmHandler: AuthHandlers.resetPassword,
-            sendResetEmail: options.auth.passwordReset.sendResetEmail,
-            appResetUrl: options.auth.passwordReset.appResetUrl,
+            sendResetEmail: effectiveAuth.passwordReset.sendResetEmail,
+            appResetUrl: effectiveAuth.passwordReset.appResetUrl,
           },
         }),
-        ...(options.auth.emailVerification && {
+        ...(effectiveAuth.emailVerification && {
           emailVerification: {
             requestHandler: AuthHandlers.requestEmailVerification,
             confirmHandler: AuthHandlers.verifyEmail,
-            sendVerificationEmail: options.auth.emailVerification.sendVerificationEmail,
-            appVerifyUrl: options.auth.emailVerification.appVerifyUrl,
+            sendVerificationEmail: effectiveAuth.emailVerification.sendVerificationEmail,
+            appVerifyUrl: effectiveAuth.emailVerification.appVerifyUrl,
           },
         }),
-        ...(options.auth.signup && {
+        ...(effectiveAuth.signup && {
           signup: {
             requestHandler: AuthHandlers.signupRequest,
             confirmHandler: AuthHandlers.signupConfirm,
-            sendActivationEmail: options.auth.signup.sendActivationEmail,
-            appActivationUrl: options.auth.signup.appActivationUrl,
+            sendActivationEmail: effectiveAuth.signup.sendActivationEmail,
+            appActivationUrl: effectiveAuth.signup.appActivationUrl,
           },
         }),
-        ...(options.auth.invite && {
+        ...(effectiveAuth.invite && {
           invite: {
             acceptHandler: AuthHandlers.inviteAccept,
             acceptWithLoginHandler: AuthHandlers.inviteAcceptWithLogin,
             signupCompleteHandler: AuthHandlers.inviteSignupComplete,
-            sendInviteEmail: options.auth.invite.sendInviteEmail,
-            appAcceptUrl: options.auth.invite.appAcceptUrl,
+            sendInviteEmail: effectiveAuth.invite.sendInviteEmail,
+            appAcceptUrl: effectiveAuth.invite.appAcceptUrl,
           },
         }),
       },
@@ -398,15 +437,15 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
           registry: stack.registry,
         });
       }
-      if (options.auth?.sessions !== undefined) {
-        const expiresInMs = options.auth.sessions.expiresInMs;
+      if (effectiveAuth?.sessions !== undefined) {
+        const expiresInMs = effectiveAuth.sessions.expiresInMs;
         sessionCallbacks = createSessionCallbacks({
           db: stack.db,
           ...(expiresInMs !== undefined && { expiresInMs }),
         });
       }
-      if (options.auth) {
-        await seedAdmin(stack.db, options.auth.admin);
+      if (effectiveAuth) {
+        await seedAdmin(stack.db, effectiveAuth.admin);
       }
       // Apply r.config({ seeds }) declared by any registered feature.
       // Runs before user-supplied seed callbacks so those can read /
@@ -424,10 +463,10 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     const port = handle.server?.port ?? options.port ?? 3000;
     const banner = renderWelcomeBanner({
       url: `http://localhost:${port}`,
-      ...(options.auth?.admin && {
+      ...(effectiveAuth?.admin && {
         admin: {
-          email: options.auth.admin.email,
-          password: options.auth.admin.password,
+          email: effectiveAuth.admin.email,
+          password: effectiveAuth.admin.password,
         },
       }),
       ...(overrides.featuresDir !== undefined && { featuresDir: overrides.featuresDir }),

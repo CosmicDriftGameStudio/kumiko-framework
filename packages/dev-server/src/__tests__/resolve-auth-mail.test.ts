@@ -20,7 +20,8 @@ const withMail: RunProdAppAuthOptions = {
 
 describe("resolveAuthMail", () => {
   test("no mail block → auth returned unchanged", () => {
-    const out = resolveAuthMail({ admin }, "secret", { SMTP_HOST: "localhost" });
+    const noMail: RunProdAppAuthOptions = { admin };
+    const out = resolveAuthMail(noMail, "secret", { SMTP_HOST: "localhost" });
     expect(out.passwordReset).toBeUndefined();
     expect(out.signup).toBeUndefined();
   });
@@ -56,11 +57,11 @@ describe("resolveAuthMail", () => {
   });
 
   test("paths override only affects the named path", () => {
-    const out = resolveAuthMail(
-      { admin, mail: { baseUrl: "https://app.example.com", paths: { resetPassword: "/pw" } } },
-      "secret",
-      { SMTP_HOST: "localhost" },
-    );
+    const pathsOverride: RunProdAppAuthOptions = {
+      admin,
+      mail: { baseUrl: "https://app.example.com", paths: { resetPassword: "/pw" } },
+    };
+    const out = resolveAuthMail(pathsOverride, "secret", { SMTP_HOST: "localhost" });
     expect(out.passwordReset?.appResetUrl).toBe("https://app.example.com/pw");
     expect(out.emailVerification?.appVerifyUrl).toBe("https://app.example.com/verify-email");
   });
