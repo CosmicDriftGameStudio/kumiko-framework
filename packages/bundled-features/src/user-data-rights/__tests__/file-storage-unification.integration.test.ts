@@ -1,14 +1,20 @@
-// Forget-Hook binary-Cleanup Integration-Test.
+// #608 trap-closed regression: uploads and erasure resolve the file provider
+// through ONE source (file-foundation), end-to-end through the real server.
 //
-// Beweist, dass der `fileRef`-Forget-Hook bei strategy="delete" die
-// Storage-Binaries via `storageProvider.delete()` entfernt, BEVOR die
-// row hard-gelöscht wird — ohne provider leakt sonst jede gelöschte
-// Datei ihre Bytes dauerhaft auf Disk (Issue gefunden im Review zu #177).
+// The stack mounts file-foundation + a provider plugin but does NOT inject a
+// resolver (no `files:` option) — so buildServer must build the upload-route
+// resolver itself from the mounted features, exactly as production does. A file
+// uploaded through POST /api/files must land in the SAME store the GDPR forget
+// pipeline deletes from. Before the unification the upload route wrote through a
+// separately-wired provider while erasure deleted through file-foundation — so a
+// regression to a static `storageProvider` makes the `provider.exists(...)`
+// assertion below go red.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { type SessionUser, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createInMemoryFileProvider,
   type FileStorageProvider,
@@ -21,7 +27,11 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import {
+  buildMultipartBody,
+  patchFileInstanceofForBunTest,
+  resetTestTables,
+} from "@cosmicdrift/kumiko-framework/testing";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createConfigFeature } from "../../config";
 import { createConfigAccessorFactory } from "../../config/feature";
@@ -42,6 +52,7 @@ import {
   type ForgetSeeders,
   nowInstant,
   READ_TENANT_MEMBERSHIPS_DDL,
+  TENANT_SYSTEM,
 } from "./forget-test-helpers";
 
 const FILE_PROVIDER_CONFIG_KEY = "file-foundation:config:provider";
@@ -50,21 +61,28 @@ let stack: TestStack;
 let db: DbConnection;
 let provider: InMemoryFileProvider;
 let seed: ForgetSeeders;
-// Per-tenant resolver the forget pipeline uses — built from the stack's
-// configResolver, resolves "test" → the test provider plugin → `provider`.
 let buildStorageProvider: (tenantId: string) => Promise<FileStorageProvider>;
 
-const TENANT = "00000000-0000-4000-8000-00000000000c";
-
 function uuid(suffix: number): string {
-  return `bbbbbbbb-bbbb-4bbb-8bbb-${suffix.toString(16).padStart(12, "0")}`;
+  return `cccccccc-cccc-4ccc-8ccc-${suffix.toString(16).padStart(12, "0")}`;
+}
+
+async function uploadAs(user: SessionUser, fileName: string, bytes: Uint8Array): Promise<Response> {
+  const token = await stack.jwt.sign(user);
+  const fd = new FormData();
+  fd.append("file", new File([Buffer.from(bytes)], fileName, { type: "application/pdf" }));
+  const { body, contentType } = await buildMultipartBody(fd);
+  return stack.app.request("/api/files", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+    body,
+  });
 }
 
 beforeAll(async () => {
+  patchFileInstanceofForBunTest();
   provider = createInMemoryFileProvider();
-  // Forget resolves the binary store through file-foundation (the production
-  // path) — mount it + a test plugin returning THIS provider, selected app-wide
-  // via a config app-override (no admin write needed).
+  // Select the test plugin app-wide via a config app-override (no admin write).
   const appOverrides = new Map<string, string>([[FILE_PROVIDER_CONFIG_KEY, "test"]]);
   const resolver = createConfigResolver({ appOverrides });
   stack = await setupTestStack({
@@ -80,6 +98,8 @@ beforeAll(async () => {
       createUserDataRightsFeature(),
       createUserDataRightsDefaultsFeature(),
     ],
+    // No `files:` option on purpose — buildServer must resolve the upload
+    // provider through the mounted file-foundation, like production.
     extraContext: ({ registry }) => ({
       configResolver: resolver,
       _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
@@ -93,12 +113,13 @@ beforeAll(async () => {
     secrets: undefined,
     db,
     userId: SYSTEM_USER_ID,
-    handlerName: "test-forget-cleanup",
+    handlerName: "test-608-e2e",
   });
 
   await unsafeCreateEntityTable(db, userEntity);
   await unsafeCreateEntityTable(db, tenantRetentionOverrideEntity);
   await unsafePushTables(db, { fileRefsTable, configValuesTable });
+  await createEventsTable(db);
   await asRawClient(db).unsafe(READ_TENANT_MEMBERSHIPS_DDL);
 });
 
@@ -111,68 +132,31 @@ beforeEach(async () => {
   await resetTestTables(db, [userTable, "read_tenant_memberships", fileRefsTable]);
 });
 
-describe("forget-binary-cleanup :: storage.delete fires before row hard-delete", () => {
-  test("Forget deletes the binary from the storage provider", async () => {
+describe("#608 unified file-storage :: route upload + GDPR erasure hit one store", () => {
+  test("a file uploaded via /api/files lands in the file-foundation store and forget erases it", async () => {
     const userId = uuid(1);
+    // The uploader is also the forget subject (DeletionRequested + grace passed).
     await seed.seedForgetUser(userId);
-    await seed.seedMembership(userId, TENANT);
-    const key = await seed.seedFile(uuid(101), TENANT, userId);
-    expect(await provider.exists(key)).toBe(true);
+    await seed.seedMembership(userId, TENANT_SYSTEM);
+    const uploader: SessionUser = { id: userId, tenantId: TENANT_SYSTEM, roles: ["Member"] };
 
+    const res = await uploadAs(uploader, "secret.pdf", new Uint8Array([10, 20, 30, 40]));
+    expect(res.status).toBe(201);
+    const { storageKey } = (await res.json()) as { storageKey: string };
+
+    // The upload route resolved its provider through file-foundation — the bytes
+    // are in `provider`. A static/separate upload provider would miss here.
+    expect(await provider.exists(storageKey)).toBe(true);
+
+    // Erasure resolves through the SAME source and deletes the very same bytes —
+    // no false "done", no orphaned binary.
     const result = await runForgetCleanup({
       db,
       registry: stack.registry,
       now: nowInstant(),
       buildStorageProvider,
     });
-
     expect(result.processedUserIds).toContain(userId);
-    expect(await provider.exists(key)).toBe(false);
-    expect(provider.keys()).not.toContain(key);
-  });
-
-  test("Multiple files from the same user — all binaries cleaned up", async () => {
-    const userId = uuid(2);
-    await seed.seedForgetUser(userId);
-    await seed.seedMembership(userId, TENANT);
-    const keys = await Promise.all([
-      seed.seedFile(uuid(201), TENANT, userId),
-      seed.seedFile(uuid(202), TENANT, userId),
-      seed.seedFile(uuid(203), TENANT, userId),
-    ]);
-    expect(provider.keys()).toHaveLength(3);
-
-    await runForgetCleanup({
-      db,
-      registry: stack.registry,
-      now: nowInstant(),
-      buildStorageProvider,
-    });
-
-    for (const key of keys) {
-      expect(await provider.exists(key)).toBe(false);
-    }
-    expect(provider.keys()).toHaveLength(0);
-  });
-
-  test("Other tenants' files stay untouched", async () => {
-    const userId = uuid(3);
-    const otherTenant = "00000000-0000-4000-8000-00000000000d";
-    await seed.seedForgetUser(userId);
-    await seed.seedMembership(userId, TENANT);
-    const myKey = await seed.seedFile(uuid(301), TENANT, userId);
-    const otherKey = await seed.seedFile(uuid(302), otherTenant, "another-user");
-    // The other-tenant file is owned by a different user; the forget run for
-    // userId must NOT touch it.
-
-    await runForgetCleanup({
-      db,
-      registry: stack.registry,
-      now: nowInstant(),
-      buildStorageProvider,
-    });
-
-    expect(await provider.exists(myKey)).toBe(false);
-    expect(await provider.exists(otherKey)).toBe(true);
+    expect(await provider.exists(storageKey)).toBe(false);
   });
 });

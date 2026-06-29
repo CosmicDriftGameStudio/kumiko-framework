@@ -23,15 +23,15 @@ import {
   EXT_FILE_PROVIDER,
 } from "@cosmicdrift/kumiko-framework/engine";
 
+export type {
+  FileProviderContext,
+  FileProviderPlugin,
+} from "@cosmicdrift/kumiko-framework/files";
 // Moved into the framework — re-exported here so `@cosmicdrift/kumiko-bundled-
 // features/file-foundation` consumers (user-data-rights, app code) keep working.
 export {
   createFileProviderForTenant,
   isFileProviderPlugin,
-} from "@cosmicdrift/kumiko-framework/files";
-export type {
-  FileProviderContext,
-  FileProviderPlugin,
 } from "@cosmicdrift/kumiko-framework/files";
 
 const FEATURE_NAME = "file-foundation";

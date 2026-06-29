@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import type { DbConnection, PgClient } from "../db/connection";
 import { createTenantDb } from "../db/tenant-db";
-import { runsInLane } from "../engine/run-in";
 import { EXT_FILE_PROVIDER } from "../engine/extension-names";
+import { runsInLane } from "../engine/run-in";
 import {
   type AppContext,
   isFileField,
@@ -607,11 +607,13 @@ export function buildServer(options: ServerOptions): KumikoServer {
   app.route("/api", createApiRoutes(dispatcher));
   app.route("/api", createSseRoute(sseBroker));
 
-  // Mount upload/download routes when the app declares file/image fields. They
-  // resolve the provider per-tenant through file-foundation (boot-checked above
-  // to have a provider plugin) — no `files` option. Route policy comes from
-  // createFilesFeature(opts?).
-  if (registryDeclaresFileFields(options.registry) && fileProviderResolver) {
+  // Mount upload/download routes whenever a file provider is resolvable (a
+  // file-provider plugin is mounted, or a resolver was injected). They resolve
+  // the provider per-tenant through file-foundation — no `files` option; route
+  // policy comes from createFilesFeature(opts?). Gating on the resolver (not on
+  // declared file fields) keeps unattached uploads working and matches the old
+  // "files option present → routes" behavior.
+  if (fileProviderResolver) {
     const fileDb = options.context.db as FileRoutesOptions["db"]; // @cast-boundary engine-bridge
     if (!fileDb) throw new Error("file routes require db in context");
     const routeOptions = readFilesRouteOptions(options.registry);

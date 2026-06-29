@@ -5,7 +5,6 @@ import { selectMany, transaction } from "../db/query";
 import { buildEntityTable, toSnakeCase } from "../db/table-builder";
 import { createTenantDb } from "../db/tenant-db";
 import { hasAccess } from "../engine/access";
-import { createFileContext } from "../files/file-handle";
 import { checkWriteFieldRoles, filterReadFields } from "../engine/field-access";
 import { defineTransitions, guardTransition } from "../engine/state-machine";
 import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension";
@@ -26,6 +25,7 @@ import type {
 } from "../engine/types";
 import { HookPhases } from "../engine/types";
 import type { TenantId } from "../engine/types/identifiers";
+import { createFileContext } from "../files/file-handle";
 import { createFallbackLogger } from "../logging/utils";
 
 // Re-export for callers that reach for dispatcher-adjacent types (tests,
