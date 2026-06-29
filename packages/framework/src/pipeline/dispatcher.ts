@@ -701,21 +701,24 @@ export function createDispatcher(
     //       handler.rateLimit !== undefined, so this branch only fires
     //       if a future caller forgets the inline check.
     if (!rateLimit) return;
-    if (!context.rateLimit) {
-      throw new InternalError({
-        message: `Handler "${handlerName}" declares rateLimit but no RateLimitResolver is configured. Load the rate-limiting feature or remove the option.`,
-      });
-    }
     const reqCtx = requestContext.get();
     const bucket = buildBucketKey(rateLimit, {
       handlerName,
       user,
       ip: reqCtx?.ip,
     });
-    // skip: ip-bucketed handler called from a non-HTTP entry point
-    //       (job, MSP-apply) — no client IP to bucket on. Pass through;
-    //       L1/L2 middleware handle the HTTP-side ip caps.
+    // skip: ip-bucketed handler called from a non-HTTP entry point (job, seed,
+    //       MSP-apply) — no client IP to bucket on, nothing to enforce. Pass
+    //       through BEFORE requiring a resolver, so system/seed writes through
+    //       such a handler don't need a RateLimitResolver wired (the es-ops
+    //       seed dispatcher has none). L1/L2 middleware handle the HTTP-side
+    //       ip caps.
     if (bucket.kind === "skip") return;
+    if (!context.rateLimit) {
+      throw new InternalError({
+        message: `Handler "${handlerName}" declares rateLimit but no RateLimitResolver is configured. Load the rate-limiting feature or remove the option.`,
+      });
+    }
     await context.rateLimit.enforce(bucket.key, {
       limit: rateLimit.limit,
       windowSeconds: rateLimit.windowSeconds,

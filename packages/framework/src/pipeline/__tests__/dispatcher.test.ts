@@ -74,6 +74,25 @@ describe("dispatcher.write", () => {
     }
   });
 
+  test("ip-bucketed handler with no IP + no resolver skips rate-limit (es-ops seed/job path)", async () => {
+    // Regression: the es-ops seed/job dispatcher has no RateLimitResolver. An
+    // ip-bucketed handler invoked from there has no client IP to bucket on, so
+    // it must SKIP the rate-limit — not throw "no RateLimitResolver is
+    // configured". (The HTTP path still has the resolver for real anon writes.)
+    const rlFeature = defineFeature("rl", (r) => {
+      r.entity("item", createEntity({ table: "Items", fields: { name: createTextField() } }));
+      r.writeHandler(
+        "item:create",
+        z.object({ name: z.string() }),
+        async (event) => ({ isSuccess: true, data: { name: event.payload.name } }),
+        { access: { openToAll: true }, rateLimit: { per: "ip+handler", limit: 3, windowSeconds: 60 } },
+      );
+    });
+    const dispatcher = createDispatcher(createRegistry([rlFeature]), {});
+    const result = await dispatcher.write("rl:write:item:create", { name: "seeded" }, createTestUser());
+    expect(result.isSuccess).toBe(true);
+  });
+
   test("ctx.user ist Convenience-Alias auf event.user (gleicher Wert)", async () => {
     // Pinst dass der Handler auf ctx.user zugreifen kann ohne den
     // typo-resistenten event.user-Pfad zu nutzen. Identitätsprüfung
