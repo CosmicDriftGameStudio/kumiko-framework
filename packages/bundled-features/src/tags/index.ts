@@ -2,6 +2,7 @@ export { tagAssignmentAggregateId } from "./aggregate-id";
 export {
   DEFAULT_TAG_ACCESS,
   DEFAULT_TAG_ROLES,
+  TAGS_COLUMN_RENDERER_NAME,
   TAGS_FEATURE_NAME,
   TAGS_FILTER_EXTENSION_NAME,
   TAGS_SCREEN_ID,

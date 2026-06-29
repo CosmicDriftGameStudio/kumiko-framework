@@ -118,6 +118,41 @@ describe("computeListViewModel", () => {
     ).toThrow(/unknown field "doesNotExist"/);
   });
 
+  test("labeled column with no matching field → virtual presentational column (no throw)", () => {
+    const vm = computeListViewModel({
+      screen: listScreen([
+        "title",
+        { field: "tags", label: "Tags", renderer: { react: { __component: "TagsCell" } } },
+      ]),
+      entity: taskEntity,
+      rows: [],
+      translate,
+      featureName: "tasks",
+    });
+    // `field` becomes the column key; label is taken verbatim (translate is
+    // identity here), type defaults to text, never server-sortable.
+    expect(vm.columns[1]).toEqual({
+      field: "tags",
+      label: "Tags",
+      type: "text",
+      sortable: false,
+      renderer: { react: { __component: "TagsCell" } },
+    });
+  });
+
+  test("label overrides the field-convention header on a real field", () => {
+    const vm = computeListViewModel({
+      screen: listScreen([{ field: "title", label: "custom.header" }]),
+      entity: taskEntity,
+      rows: [],
+      translate,
+      featureName: "tasks",
+    });
+    // label goes through translate (identity here) instead of the
+    // tasks:entity:task:field:title convention key.
+    expect(vm.columns[0]?.label).toBe("custom.header");
+  });
+
   test("translate is called with the expected i18n-key per field", () => {
     const spy = mock((key: string) => `T:${key}`);
     computeListViewModel({

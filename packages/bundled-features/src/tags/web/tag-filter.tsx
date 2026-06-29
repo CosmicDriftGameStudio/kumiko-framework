@@ -1,10 +1,13 @@
 // @runtime client
 // TagFilter — a drop-in tag filter for ANY entityList toolbar. Register it as
-// the list's header slot (`screen.slots.header`) and mark `id` filterable is NOT
-// needed — the renderer passes this control the list's screenId, and picking
-// tags resolves the matching row ids and narrows the list via an id-set URL
-// filter (`<screenId>.f.id=…`, applied as `{ field: "id", op: "in" }`). No host
-// schema change: any list gets tag-filtering by mounting this in its header.
+// the list's header slot (`screen.slots.header`); the renderer passes it the
+// list's screenId, and picking tags resolves the matching row ids and narrows
+// the list via an id-set URL filter (`<screenId>.f.id=…`, applied as
+// `{ field: "id", op: "in" }`). No host schema change: any list gets
+// tag-filtering by mounting this in its header.
+//
+// The active selection is shown inline as colored chips next to the button, with
+// a clear affordance — so the filter is visible, not hidden behind a count.
 //
 // ponytail: resolves ids from the assignment list (first 500 rows) + an id-IN
 // URL filter — fine for typical tag volumes. For huge assignment sets add a
@@ -18,6 +21,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
 import { TagsQueries } from "../constants";
+import { TagChip } from "./tag-chip";
 import { TagPicker } from "./tag-picker";
 
 // Tags chosen but zero matching entities → filter to a value that matches no row
@@ -29,6 +33,7 @@ type AssignmentRow = {
   readonly entityType: string;
   readonly entityId: string;
 };
+type TagRow = { readonly id: string; readonly name: string; readonly color?: string | null };
 
 export function TagFilter({
   entityName,
@@ -42,6 +47,7 @@ export function TagFilter({
   const t = useTranslation();
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<readonly string[]>([]);
+  const catalog = useQuery<{ rows: readonly TagRow[] }>(TagsQueries.tagList, {});
   const assignments = useQuery<{ rows: readonly AssignmentRow[] }>(TagsQueries.assignmentList, {
     limit: 500,
   });
@@ -66,16 +72,22 @@ export function TagFilter({
     urlState.setFilter("id", ids.length > 0 ? ids : [NO_MATCH]);
   };
 
-  const label =
-    selected.length > 0
-      ? t("tags.filter.active", { count: selected.length })
-      : t("tags.filter.label");
+  const byId = new Map((catalog.data?.rows ?? []).map((tg) => [tg.id, tg]));
 
   return (
-    <>
+    <div className="flex flex-wrap items-center gap-1">
       <Button variant="secondary" onClick={() => setOpen(true)} testId="tag-filter-open">
-        {label}
+        {t("tags.filter.label")}
       </Button>
+      {selected.map((id) => {
+        const tag = byId.get(id);
+        return <TagChip key={id} name={tag?.name ?? id} color={tag?.color} />;
+      })}
+      {selected.length > 0 && (
+        <Button variant="secondary" onClick={() => applyFilter([])} testId="tag-filter-clear">
+          {t("tags.filter.clear")}
+        </Button>
+      )}
       <TagPicker
         entityType={entityName}
         value={selected}
@@ -83,6 +95,6 @@ export function TagFilter({
         open={open}
         onOpenChange={setOpen}
       />
-    </>
+    </div>
   );
 }

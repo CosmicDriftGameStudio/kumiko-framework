@@ -338,7 +338,11 @@ export function validateScreens(
       }
       for (const col of screen.columns) {
         const normalized = normalizeListColumn(col);
-        if (!columnFieldNames.has(normalized.field)) {
+        // A labeled column whose field is not an entity field is a *virtual*
+        // presentational column (drawn by a columnRenderer component from the
+        // row, e.g. tag chips) — its `field` is just a column key. Only an
+        // unlabeled unknown field is an author typo worth failing the boot.
+        if (!columnFieldNames.has(normalized.field) && normalized.label === undefined) {
           throw new Error(
             buildUnknownFieldMessage(
               feature.name,

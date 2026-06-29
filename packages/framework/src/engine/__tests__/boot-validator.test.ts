@@ -1158,6 +1158,45 @@ describe("boot-validator", () => {
     });
   });
 
+  // --- entityList virtual (labeled) columns ---
+  // A column whose `field` is not an entity field is allowed IF it carries a
+  // `label` — a presentational column drawn by a columnRenderer component (e.g.
+  // tag chips). Without a label an unknown field stays a boot error (typo guard).
+  describe("entityList virtual labeled column", () => {
+    function noteFeature(column: unknown) {
+      return defineFeature("notes", (r) => {
+        r.entity("note", createEntity({ fields: { title: createTextField() } }));
+        r.screen({
+          id: "note-list",
+          type: "entityList",
+          entity: "note",
+          // kumiko-lint-ignore as-cast test fixture pins valid + invalid column forms
+          columns: ["title", column as never],
+        });
+      });
+    }
+
+    test("labeled component column on a non-field → kein Throw", () => {
+      expect(() =>
+        validateBoot([
+          noteFeature({
+            field: "tags",
+            label: "Tags",
+            renderer: { react: { __component: "TagsCell" } },
+          }),
+        ]),
+      ).not.toThrow();
+    });
+
+    test("unlabeled column on a non-field → Throw (unknown field)", () => {
+      expect(() =>
+        validateBoot([
+          noteFeature({ field: "tags", renderer: { react: { __component: "TagsCell" } } }),
+        ]),
+      ).toThrow(/tags/);
+    });
+  });
+
   // --- entityList: pagination + sort validation ---
   // Author-Fehler vor Production fangen, damit "Screen lädt nichts /
   // sortiert falsch / crasht beim Pager-Klick" nicht erst zur Laufzeit

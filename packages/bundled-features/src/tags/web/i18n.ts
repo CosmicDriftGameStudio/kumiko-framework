@@ -30,7 +30,7 @@ export const defaultTranslations: TranslationsByLocale = {
     "tags.picker.title": "Tags",
     "tags.picker.done": "Fertig",
     "tags.filter.label": "Nach Tag filtern",
-    "tags.filter.active": "Tags: {count}",
+    "tags.filter.clear": "Filter zurücksetzen",
   },
   en: {
     "tags.section.createMode": "Save the entity first to add tags.",
@@ -55,6 +55,6 @@ export const defaultTranslations: TranslationsByLocale = {
     "tags.picker.title": "Tags",
     "tags.picker.done": "Done",
     "tags.filter.label": "Filter by tag",
-    "tags.filter.active": "Tags: {count}",
+    "tags.filter.clear": "Clear",
   },
 };

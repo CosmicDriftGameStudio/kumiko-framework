@@ -78,6 +78,16 @@ export type ListColumnSpec =
   | {
       readonly field: string;
       readonly renderer?: FieldRenderer;
+      /** Optional header, overriding the default
+       *  `<feature>:entity:<entity>:field:<field>` i18n convention. Resolved
+       *  through `translate` like any header — an i18n key, or a plain literal
+       *  shown verbatim if it isn't a key. Also the way to declare a *virtual*
+       *  column whose `field` is NOT an entity field — a presentational column
+       *  drawn entirely by a `columnRenderer` component that reads the `row`
+       *  (e.g. a tag-chips cell), not a stored value. Such a column needs a
+       *  label; without one it is rejected at boot as an unknown field. `field`
+       *  is then just a stable column key (pick any unique slug). */
+      readonly label?: string;
     };
 
 // Pagination-Modi für entityList:
