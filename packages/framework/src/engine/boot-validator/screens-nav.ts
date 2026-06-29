@@ -88,6 +88,13 @@ export function validateScreens(
   allScreenQns: ReadonlySet<string>,
   allConfigKeyQns: ReadonlySet<string>,
 ): void {
+  // navigate-Targets (rowAction/toolbarAction) dürfen cross-feature zeigen —
+  // der Runtime-Router (create-app) löst eine bare screenId app-weit über ALLE
+  // Features auf (eine deklarative Liste im owning-Feature der Entity navigiert
+  // so zu den Custom-Editoren der Consumer-App). Der Validator spiegelt das:
+  // same-feature ODER irgendein Feature. (redirect/cancelTarget bleiben bewusst
+  // same-feature: deren Router baut die URL direkt aus der kurzen id.)
+  const navTargetShortIds = screenShortIdsFrom(allScreenQns);
   for (const [screenId, screen] of Object.entries(feature.screens)) {
     if (screen.type === "custom") {
       if (!screen.renderer.react && !screen.renderer.native) {
@@ -429,10 +436,10 @@ export function validateScreens(
         for (const action of screen.rowActions) {
           if (action.kind === "navigate") {
             const candidateQn = qualifyEntityName(feature.name, "screen", action.screen);
-            if (!allScreenQns.has(candidateQn)) {
+            if (!allScreenQns.has(candidateQn) && !navTargetShortIds.has(action.screen)) {
               throw new Error(
                 `[Feature ${feature.name}] Screen "${screenId}" (entityList) rowAction "${action.id}" ` +
-                  `navigate-target "${action.screen}" does not resolve to a registered screen in this feature.`,
+                  `navigate-target "${action.screen}" does not resolve to a registered screen in any feature.`,
               );
             }
           } else {
@@ -462,10 +469,10 @@ export function validateScreens(
         for (const action of screen.toolbarActions) {
           if (action.kind === "navigate") {
             const candidateQn = qualifyEntityName(feature.name, "screen", action.screen);
-            if (!allScreenQns.has(candidateQn)) {
+            if (!allScreenQns.has(candidateQn) && !navTargetShortIds.has(action.screen)) {
               throw new Error(
                 `[Feature ${feature.name}] Screen "${screenId}" (entityList) toolbarAction "${action.id}" ` +
-                  `navigate-target "${action.screen}" does not resolve to a registered screen in this feature.`,
+                  `navigate-target "${action.screen}" does not resolve to a registered screen in any feature.`,
               );
             }
           } else {
@@ -611,6 +618,19 @@ export function collectScreenQns(features: readonly FeatureDefinition[]): Set<st
     for (const screenId of Object.keys(f.screens)) {
       set.add(qualifyEntityName(f.name, "screen", screenId));
     }
+  }
+  return set;
+}
+
+// Bare Screen-ids (ohne `<feature>:screen:`-Prefix) aus den qualifizierten
+// QNs — für die app-weite Auflösung von navigate-Targets (s. validateScreens).
+// Spiegelt den Runtime-Router, der bare ids feature-übergreifend matcht.
+export function screenShortIdsFrom(allScreenQns: ReadonlySet<string>): Set<string> {
+  const marker = ":screen:";
+  const set = new Set<string>();
+  for (const qn of allScreenQns) {
+    const at = qn.indexOf(marker);
+    if (at !== -1) set.add(qn.slice(at + marker.length));
   }
   return set;
 }
