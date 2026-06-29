@@ -16,6 +16,7 @@ export function createChannelPushFeature(options: PushChannelOptions): FeatureDe
     r.requires("delivery");
 
     r.useExtension("deliveryChannel", "push", {
+      mode: channel.mode,
       resolve: channel.resolve,
       send: channel.send,
     });

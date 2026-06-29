@@ -10,6 +10,7 @@ import {
   type NotifyFn,
   qn,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import {
   createTestUser,
   setupTestStack,
@@ -35,9 +36,10 @@ import { TenantQueries } from "../../tenant/constants";
 import { createTenantFeature } from "../../tenant/feature";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/schema/tenant";
-import { DeliveryHandlers, DeliveryQueries } from "../constants";
+import { DeliveryHandlers, DeliveryJobs, DeliveryQueries } from "../constants";
 import { collectChannels, createDeliveryService } from "../delivery-service";
 import { createDeliveryFeature } from "../feature";
+import { deliveryRenderJob } from "../jobs";
 import { deliveryAttemptsTable, notificationPreferencesTable } from "../tables";
 import { createDeliveryTestContext } from "../testing";
 import type { DeliveryService } from "../types";
@@ -1317,5 +1319,249 @@ describe("flow 16: repeated unsubscribe clicks are idempotent", () => {
     });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["enabled"]).toBe(false);
+  });
+});
+
+// --- Flow 17: async delivery via delivery.render → delivery.send jobs ---
+
+// Dedicated recipient id, untouched by earlier tests, so no stale preference
+// or unsubscribe row disables a channel under us. String id — notify() treats a
+// non-string `to` as a broadcast target ("tenant" in to).
+const asyncRecipient = "7";
+
+async function waitFor(check: () => Promise<void>, timeoutMs = 10000): Promise<void> {
+  const start = Date.now();
+  let lastErr: unknown;
+  for (;;) {
+    try {
+      await check();
+      return;
+    } catch (err) {
+      lastErr = err;
+      if (Date.now() - start > timeoutMs) throw lastErr;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  }
+}
+
+function makeStubRunner(): {
+  runner: JobRunner;
+  dispatched: Array<{
+    name: string;
+    payload: Record<string, unknown>;
+    meta?: Record<string, unknown>;
+  }>;
+} {
+  const dispatched: Array<{
+    name: string;
+    payload: Record<string, unknown>;
+    meta?: Record<string, unknown>;
+  }> = [];
+  const runner = {
+    async start() {},
+    async stop() {},
+    async dispatch(
+      name: string,
+      payload?: Record<string, unknown>,
+      meta?: Record<string, unknown>,
+    ) {
+      dispatched.push({ name, payload: payload ?? {}, ...(meta !== undefined && { meta }) });
+      return "stub-job-id";
+    },
+    async handleEvent() {},
+  } as unknown as JobRunner;
+  return { runner, dispatched };
+}
+
+describe("flow 17: async render→send pipeline", () => {
+  test("with a real job runner, email + push deliver via delivery.render → delivery.send", async () => {
+    const redisUrl = process.env["REDIS_URL"];
+    if (!redisUrl) throw new Error("REDIS_URL required for the async delivery e2e test");
+    const queueNamePrefix = `kumiko-delivery-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const jobRunner = createJobRunner({
+      registry: stack.registry,
+      context: { db },
+      redisUrl,
+      consumerLane: "worker",
+      queueNamePrefix,
+    });
+    await jobRunner.start();
+    try {
+      const asyncService = createDeliveryService({
+        db,
+        registry: stack.registry,
+        channels: collectChannels(stack.registry),
+        tenantUserIdsQuery: TenantQueries.resolveUserIds,
+        jobRunner,
+      });
+
+      await asyncService.notify(
+        "app:notify:async-e2e",
+        {
+          to: asyncRecipient,
+          data: { title: "Async", body: "delivered via jobs", subject: "Async Subject" },
+        },
+        admin,
+        admin.tenantId,
+      );
+
+      // Email: queued → render job → send job → sent. Proves the framework
+      // jobRunner-into-job-ctx injection (render dispatches send) end-to-end.
+      await waitFor(async () => {
+        const rows = await selectMany(db, deliveryAttemptsTable, {
+          notificationType: "app:notify:async-e2e",
+          channel: "email",
+        });
+        expect(rows.some((r) => r["status"] === "sent")).toBe(true);
+      });
+      const email = emailTransport.sent.find((m) => m.to === testEmail(asyncRecipient));
+      expect(email).toBeDefined();
+      expect(email?.subject).toBe("Async Subject");
+      expect(email?.html).toContain("delivered via jobs");
+      expect(email?.html).toContain("<!DOCTYPE html>");
+
+      // Push: no render step → dispatched straight to delivery.send.
+      await waitFor(async () => {
+        const rows = await selectMany(db, deliveryAttemptsTable, {
+          notificationType: "app:notify:async-e2e",
+          channel: "push",
+        });
+        expect(rows.some((r) => r["status"] === "sent")).toBe(true);
+      });
+      expect(
+        pushTransport.sent.find((m) => m.token === testPushToken(asyncRecipient)),
+      ).toBeDefined();
+    } finally {
+      await jobRunner.stop();
+    }
+  }, 20000);
+
+  test("queued channels dispatch jobs instead of sending inline; inApp stays inline", async () => {
+    const { runner, dispatched } = makeStubRunner();
+    const asyncService = createDeliveryService({
+      db,
+      registry: stack.registry,
+      channels: collectChannels(stack.registry),
+      tenantUserIdsQuery: TenantQueries.resolveUserIds,
+      jobRunner: runner,
+    });
+
+    await asyncService.notify(
+      "app:notify:queued-dispatch",
+      { to: asyncRecipient, data: { title: "Q", body: "Q", subject: "Q" } },
+      admin,
+      admin.tenantId,
+    );
+
+    // email has a render step → delivery.render; push has none → delivery.send.
+    const renderDispatch = dispatched.find((d) => d.name === DeliveryJobs.render);
+    expect(renderDispatch?.payload["channelName"]).toBe("email");
+    expect(renderDispatch?.payload["deliveryAttemptId"]).toBeDefined();
+    expect(
+      dispatched.some((d) => d.name === DeliveryJobs.send && d.payload["channelName"] === "push"),
+    ).toBe(true);
+
+    // email is NOT sent inline — it waits for the job.
+    expect(emailTransport.sent.find((m) => m.to === testEmail(asyncRecipient))).toBeUndefined();
+
+    // email attempt row exists as "queued"; inApp was delivered inline ("sent").
+    const emailRows = await selectMany(db, deliveryAttemptsTable, {
+      notificationType: "app:notify:queued-dispatch",
+      channel: "email",
+    });
+    expect(emailRows.some((r) => r["status"] === "queued")).toBe(true);
+    const inAppRows = await selectMany(db, deliveryAttemptsTable, {
+      notificationType: "app:notify:queued-dispatch",
+      channel: "inApp",
+    });
+    expect(inAppRows.some((r) => r["status"] === "sent")).toBe(true);
+  });
+
+  test("without a job runner, queued channels fall back to synchronous inline send", async () => {
+    const inlineService = createDeliveryService({
+      db,
+      registry: stack.registry,
+      channels: collectChannels(stack.registry),
+      tenantUserIdsQuery: TenantQueries.resolveUserIds,
+    });
+
+    await inlineService.notify(
+      "app:notify:inline-fallback",
+      { to: asyncRecipient, data: { title: "Inline", body: "sent inline", subject: "Inline" } },
+      admin,
+      admin.tenantId,
+    );
+
+    // Sent synchronously during notify() — no job runner, no waiting.
+    expect(emailTransport.sent.find((m) => m.to === testEmail(asyncRecipient))).toBeDefined();
+    const emailRows = await selectMany(db, deliveryAttemptsTable, {
+      notificationType: "app:notify:inline-fallback",
+      channel: "email",
+    });
+    expect(emailRows.some((r) => r["status"] === "sent")).toBe(true);
+  });
+
+  test("delivery.render on a channel without a render step records failed and does not dispatch send", async () => {
+    const { runner, dispatched } = makeStubRunner();
+    const attemptId = "00000000-0000-4000-8000-0000000000aa";
+    await expect(
+      deliveryRenderJob(
+        {
+          channelName: "push", // push has no render() — render job must not be used for it
+          address: testPushToken(asyncRecipient),
+          tenantId: admin.tenantId,
+          recipientId: String(asyncRecipient),
+          notificationType: "app:notify:render-isolation",
+          deliveryAttemptId: attemptId,
+          priority: "normal",
+          message: { notificationType: "app:notify:render-isolation", title: "X" },
+        },
+        { db, registry: stack.registry, jobRunner: runner },
+      ),
+    ).rejects.toThrow(/no render step/);
+
+    // No send dispatched, and the attempt is recorded as failed (not stuck queued).
+    expect(dispatched).toHaveLength(0);
+    const rows = await selectMany(db, deliveryAttemptsTable, {
+      notificationType: "app:notify:render-isolation",
+    });
+    expect(rows.some((r) => r["status"] === "failed")).toBe(true);
+  });
+});
+
+// --- Flow 18: priority maps onto the BullMQ job priority ---
+
+describe("flow 18: priority → job priority mapping", () => {
+  test("critical/normal/low map to ascending BullMQ priorities on dispatch", async () => {
+    const send = async (notificationType: string, priority: "critical" | "normal" | "low") => {
+      const { runner, dispatched } = makeStubRunner();
+      const asyncService = createDeliveryService({
+        db,
+        registry: stack.registry,
+        channels: collectChannels(stack.registry),
+        tenantUserIdsQuery: TenantQueries.resolveUserIds,
+        jobRunner: runner,
+      });
+      await asyncService.notify(
+        notificationType,
+        { to: asyncRecipient, data: { title: "P", body: "P" }, priority },
+        admin,
+        admin.tenantId,
+      );
+      // email → delivery.render carries the priority meta.
+      const render = dispatched.find((d) => d.name === DeliveryJobs.render);
+      return render?.meta?.["priority"];
+    };
+
+    const critical = await send("app:notify:prio-critical", "critical");
+    const normal = await send("app:notify:prio-normal", "normal");
+    const low = await send("app:notify:prio-low", "low");
+
+    expect(critical).toBe(1);
+    expect(normal).toBe(2);
+    expect(low).toBe(3);
+    // Lower number = higher priority: critical jumps ahead of normal ahead of low.
+    expect(critical as number).toBeLessThan(normal as number);
+    expect(normal as number).toBeLessThan(low as number);
   });
 });

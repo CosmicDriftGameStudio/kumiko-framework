@@ -61,6 +61,10 @@ export type JobMeta = {
   // the run-started event so audit queries can distinguish "fresh run" vs.
   // "nth retry" without joining back to BullMQ-internals.
   attempt?: number | undefined;
+  // BullMQ job priority (lower = processed first). Set per-dispatch so the same
+  // job definition can be enqueued at different urgencies (e.g. delivery maps
+  // critical/normal/low onto it).
+  priority?: number | undefined;
 };
 
 export type JobRunner = {
@@ -177,6 +181,11 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     worker: new Queue(queueNameFor(queueNamePrefix, "worker"), { connection: redisOpts }),
   };
   let worker: Worker | null = null;
+  // Forward reference to the runner's own API, exposed on the job-handler ctx
+  // so a handler can dispatch a follow-up job (job→job chaining, e.g.
+  // delivery.render → delivery.send). Assigned just before return; reads happen
+  // at job-execution time (after start()), so it is always defined by then.
+  let selfRunner: JobRunner | undefined;
 
   // Counts active + waiting jobs with this name for this tenant across
   // BOTH lane queues. Jobs with the same name should only live in one
@@ -303,6 +312,9 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       // workers can reach projections/jobs without the app author duplicating
       // it into `context` (the JobContext contract guarantees `registry`).
       registry,
+      // Expose the runner so handlers can chain a follow-up job. Symmetric with
+      // how the command-dispatcher hands write-handlers their jobRunner.
+      ...(selfRunner !== undefined && { jobRunner: selfRunner }),
       systemUser: createSystemUser(tenantId),
       triggeredBy: triggeredById !== null ? { id: triggeredById, tenantId } : null,
       log: createJobLogger(logs),
@@ -379,7 +391,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     }
   }
 
-  return {
+  const runnerApi: JobRunner = {
     async start(): Promise<void> {
       // skip: enqueuer-only runner — no BullMQ worker, no cron schedules,
       // no boot jobs. The API-process (runLocalJobs=false) lands here; it
@@ -510,6 +522,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       if (jobDef.retries !== undefined) bullOpts["attempts"] = jobDef.retries + 1;
       if (jobDef.backoff) bullOpts["backoff"] = { type: jobDef.backoff };
       if (jobDef.timeout) bullOpts["timeout"] = jobDef.timeout;
+      if (meta?.priority !== undefined) bullOpts["priority"] = meta.priority;
 
       // Pack meta into job data with _ prefix
       const data: Record<string, unknown> = { ...payload };
@@ -575,4 +588,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       }
     },
   };
+
+  selfRunner = runnerApi;
+  return runnerApi;
 }

@@ -19,6 +19,7 @@ export function createChannelInAppFeature(): FeatureDefinition {
 
     // Register as delivery channel via extension system
     r.useExtension("deliveryChannel", "inApp", {
+      mode: inAppChannel.mode,
       resolve: inAppChannel.resolve,
       send: inAppChannel.send,
     });

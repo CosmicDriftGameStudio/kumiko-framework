@@ -16,7 +16,9 @@ export function createChannelEmailFeature(options: EmailChannelOptions): Feature
     r.requires("delivery");
 
     r.useExtension("deliveryChannel", "email", {
+      mode: channel.mode,
       resolve: channel.resolve,
+      render: channel.render,
       send: channel.send,
     });
   });

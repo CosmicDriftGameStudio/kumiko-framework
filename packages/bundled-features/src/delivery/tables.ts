@@ -36,8 +36,11 @@ export const deliveryAttemptsTable = pgTable("read_delivery_attempts", {
   // User-IDs as UUID-strings post-ES migration.
   recipientId: text("recipient_id"),
   recipientAddress: text("recipient_address"),
-  status: text("status").notNull().$type<"sent" | "failed" | "skipped">(),
+  status: text("status").notNull().$type<"queued" | "sent" | "failed" | "skipped">(),
   error: text("error"),
+  // Default covers rows that predate the column; new rows always carry the
+  // notify() priority from the event payload.
+  priority: text("priority").notNull().default("normal").$type<"critical" | "normal" | "low">(),
   createdAt: instant("created_at").default(sql`now()`).notNull(),
 });
 
@@ -60,6 +63,7 @@ export const deliveryAttemptsTableMeta: EntityTableMeta = defineUnmanagedTable({
     { name: "recipient_address", pgType: "text", notNull: false },
     { name: "status", pgType: "text", notNull: true },
     { name: "error", pgType: "text", notNull: false },
+    { name: "priority", pgType: "text", notNull: true, defaultSql: "'normal'" },
     { name: "created_at", pgType: "timestamptz", notNull: true, defaultSql: "now()" },
   ],
 });

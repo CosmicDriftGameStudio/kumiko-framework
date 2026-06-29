@@ -3,14 +3,14 @@ import type { DbConnection, DbRow } from "@cosmicdrift/kumiko-framework/db";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { NotifyPriority, Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
-import { append } from "@cosmicdrift/kumiko-framework/event-store";
-import { runProjectionsForEvent } from "@cosmicdrift/kumiko-framework/pipeline";
+import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing/handler-context";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import type { Redis } from "ioredis";
-import { DELIVERY_ATTEMPT_EVENT } from "./constants";
+import { appendAttemptEvent, logAttempt } from "./attempt-log";
+import { buildChannelContext } from "./channel-context";
+import { DeliveryJobs, deliveryPriorityRank } from "./constants";
 import { selectNotificationPreferences } from "./db/queries/preferences";
-import { deliveryAttemptSchema } from "./events";
 import type {
   ChannelContext,
   ChannelMessage,
@@ -39,6 +39,10 @@ export type DeliveryServiceOptions = {
   // Must be present whenever callers rely on idempotencyKey, otherwise notify()
   // throws at the callsite (silent no-op would be a correctness bug).
   readonly idempotencyRedis?: Redis;
+  // Job runner for async (queued-mode) channels: email/push render+send run in
+  // the delivery.render → delivery.send jobs. When absent, queued channels fall
+  // back to synchronous inline delivery (job-less setups, unit tests).
+  readonly jobRunner?: JobRunner;
 };
 
 // Build channel list from registry extension usages
@@ -47,10 +51,18 @@ export function collectChannels(registry: Registry): DeliveryChannel[] {
   return usages.map((usage) => {
     // @cast-boundary engine-payload — extension-usage carries unknown options
     const opts = usage.options as {
+      mode: DeliveryChannel["mode"];
       resolve: DeliveryChannel["resolve"];
+      render?: DeliveryChannel["render"];
       send: DeliveryChannel["send"];
     };
-    return { name: usage.entityName, resolve: opts.resolve, send: opts.send };
+    return {
+      name: usage.entityName,
+      mode: opts.mode,
+      resolve: opts.resolve,
+      render: opts.render,
+      send: opts.send,
+    };
   });
 }
 
@@ -69,6 +81,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     rateLimit,
     isChannelKilled,
     idempotencyRedis,
+    jobRunner,
   } = options;
   const idemRedis = idempotencyRedis ?? rateLimit?.redis;
 
@@ -152,34 +165,83 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     )) as readonly string[];
   }
 
-  function buildChannelContext(tenantId: TenantId): ChannelContext {
-    return { db: createTenantDb(db, tenantId), registry, sseBroker, tenantId };
+  // Single-shot terminal log (inline channels, skips, idempotency dups). Async
+  // attempts instead append a queued event up front and a terminal event from
+  // the send job — see deliverViaChannel + jobs.ts.
+  async function logDelivery(entry: DeliveryLogEntry): Promise<void> {
+    await logAttempt(db, registry, entry);
   }
 
-  async function logDelivery(entry: DeliveryLogEntry): Promise<void> {
-    // Post-ES: each delivery attempt is a standalone event on its own
-    // aggregate stream (fresh UUID per attempt). The `delivery-log` inline
-    // projection materialises the same row shape into deliveryAttemptsTable.
-    // Low-level append() does NOT auto-fire inline projections (only the
-    // dispatcher / executor / ctx.appendEvent paths do), so we invoke
-    // runProjectionsForEvent manually to keep the write synchronous with
-    // the projection update — same TX, read-your-own-write semantics.
-    const attemptId = generateId();
-    const { tenantId, ...rest } = entry;
-    // Schema-parse to match ctx.appendEvent's guarantee: a payload drift
-    // between service + feature-registration fails loudly here instead of
-    // landing on the events-table and crashing a consumer later.
-    const payload = deliveryAttemptSchema.parse(rest);
-    const stored = await append(db, {
-      aggregateId: attemptId,
-      aggregateType: "deliveryAttempt",
+  // Deliver one resolved (channel, address) pair. Inline channels (inApp) and
+  // the no-job-runner fallback render + send synchronously and log the terminal
+  // status. Queued channels (email/push) record a `queued` attempt up front and
+  // hand off to the delivery.render (or delivery.send) job, which appends the
+  // terminal event on the same attempt stream.
+  async function deliverViaChannel(args: {
+    channel: DeliveryChannel;
+    address: string;
+    message: ChannelMessage;
+    channelCtx: ChannelContext;
+    tenantId: TenantId;
+    recipientId: string | null;
+    notificationType: string;
+    priority: NotifyPriority;
+  }): Promise<void> {
+    const {
+      channel,
+      address,
+      message,
+      channelCtx,
       tenantId,
-      expectedVersion: 0,
-      type: DELIVERY_ATTEMPT_EVENT,
-      payload,
-      metadata: { userId: "system" },
-    });
-    await runProjectionsForEvent(stored, registry, db);
+      recipientId,
+      notificationType,
+      priority,
+    } = args;
+
+    if (channel.mode === "queued" && jobRunner) {
+      // Async hand-off: record the attempt as queued, then dispatch the
+      // render/send job — the terminal sent/failed event is appended by the
+      // job, not here.
+      const deliveryAttemptId = generateId();
+      await appendAttemptEvent(db, registry, deliveryAttemptId, {
+        tenantId,
+        notificationType,
+        channel: channel.name,
+        recipientId,
+        recipientAddress: address,
+        status: "queued",
+        error: null,
+        priority,
+      });
+      await jobRunner.dispatch(
+        channel.render ? DeliveryJobs.render : DeliveryJobs.send,
+        {
+          channelName: channel.name,
+          address,
+          tenantId,
+          recipientId,
+          notificationType,
+          deliveryAttemptId,
+          priority,
+          message,
+        },
+        { priority: deliveryPriorityRank[priority] },
+      );
+    } else {
+      // Inline (inApp) or no-job-runner fallback: render + send synchronously.
+      const rendered = channel.render ? await channel.render(message, channelCtx) : undefined;
+      const result = await channel.send(address, message, channelCtx, rendered);
+      await logDelivery({
+        tenantId,
+        notificationType,
+        channel: channel.name,
+        recipientId,
+        recipientAddress: result.address ?? address,
+        status: result.status,
+        error: result.error ?? null,
+        priority,
+      });
+    }
   }
 
   function buildMessage(
@@ -254,7 +316,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     tenantId: TenantId,
     priority: NotifyPriority,
   ): Promise<void> {
-    const channelCtx = buildChannelContext(tenantId);
+    const channelCtx = buildChannelContext(db, registry, sseBroker, tenantId);
 
     for (const channel of channels) {
       const message = buildMessage(notificationType, data, channel.name);
@@ -271,6 +333,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
             recipientAddress: null,
             status: "skipped",
             error: "channel_disabled",
+            priority,
           });
           continue;
         }
@@ -288,6 +351,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
             recipientAddress: null,
             status: "skipped",
             error: "preference_disabled",
+            priority,
           });
           continue;
         }
@@ -305,6 +369,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
             recipientAddress: null,
             status: "skipped",
             error: "rate_limited",
+            priority,
           });
           continue;
         }
@@ -321,19 +386,20 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
             recipientAddress: null,
             status: "skipped",
             error: "no_address",
+            priority,
           });
           continue;
         }
 
-        const result = await channel.send(address, message, channelCtx);
-        await logDelivery({
+        await deliverViaChannel({
+          channel,
+          address,
+          message,
+          channelCtx,
           tenantId,
-          notificationType,
-          channel: channel.name,
           recipientId: userId,
-          recipientAddress: result.address ?? address,
-          status: result.status,
-          error: result.error ?? null,
+          notificationType,
+          priority,
         });
       } catch (err) {
         await logDelivery({
@@ -344,6 +410,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           recipientAddress: null,
           status: "failed",
           error: err instanceof Error ? err.message : String(err),
+          priority,
         });
       }
     }
@@ -354,8 +421,9 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     notificationType: string,
     data: Readonly<Record<string, unknown>> | undefined,
     tenantId: TenantId,
+    priority: NotifyPriority,
   ): Promise<void> {
-    const channelCtx = buildChannelContext(tenantId);
+    const channelCtx = buildChannelContext(db, registry, sseBroker, tenantId);
 
     // Direct routing skips preferences (no user account) but NOT rate limit
     // — direct sends can still be abused (webhook replays, test harnesses).
@@ -375,21 +443,22 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
             recipientAddress: address,
             status: "skipped",
             error: "rate_limited",
+            priority,
           });
           continue;
         }
       }
 
       try {
-        const result = await channel.send(address, message, channelCtx);
-        await logDelivery({
+        await deliverViaChannel({
+          channel,
+          address,
+          message,
+          channelCtx,
           tenantId,
-          notificationType,
-          channel: channel.name,
           recipientId: null,
-          recipientAddress: result.address ?? address,
-          status: result.status,
-          error: result.error ?? null,
+          notificationType,
+          priority,
         });
       } catch (err) {
         await logDelivery({
@@ -400,6 +469,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           recipientAddress: address,
           status: "failed",
           error: err instanceof Error ? err.message : String(err),
+          priority,
         });
       }
     }
@@ -421,6 +491,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
             recipientAddress: null,
             status: "skipped",
             error: "duplicate_idempotency_key",
+            priority,
           });
           // skip: duplicate send deduped via idempotency key, logged above
           return;
@@ -428,7 +499,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       }
 
       if (route) {
-        await deliverDirect(route, notificationType, data, tenantId);
+        await deliverDirect(route, notificationType, data, tenantId, priority);
         // skip: direct route delivered, no recipient resolution needed
         return;
       }
