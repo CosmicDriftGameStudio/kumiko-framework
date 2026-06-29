@@ -22,5 +22,9 @@ pathIgnorePatterns = [
   # ohne Exclude scant bun test BEIDE Kopien (duplicates kämpfen um
   # ephemerale DBs, sieht aus wie flaky-Tests).
   "**/dist/**",
+  # #457: DOM screen tests that corrupt under the shared single-process happy-dom.
+  # Run them isolated via `bun test --config=bunfig.ci-dom.toml ./<file>` instead.
+  "**/user-data-rights/web/__tests__/deletion-screens.test.tsx",
+  "**/user-data-rights/web/__tests__/privacy-center-screen.test.tsx",
 ]
 
