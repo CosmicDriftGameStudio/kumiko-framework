@@ -1,5 +1,15 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.102.1
+
+### Patch Changes
+
+- e0b88c7: Fix the apex dropdown nav menu (`kind: "menu"`) in the dark theme: panel titles and the
+  footer link inherited the dark-chrome nav-link color (white) and became invisible on the
+  light popover. They are now pinned to readable colors (`--fg` / `--primary`) with matching
+  specificity, so the panel stays legible in both themes.
+  - @cosmicdrift/kumiko-framework@0.102.1
+
 ## 0.102.0
 
 ### Minor Changes
