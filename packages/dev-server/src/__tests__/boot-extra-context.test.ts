@@ -27,9 +27,9 @@ describe("buildBootExtraContext — framework-default provider autowire", () => 
       registry,
       hasAuth: false,
     });
-    expect(typeof (ctx.textContent as { getBlock?: unknown }).getBlock).toBe("function");
-    expect(ctx.secrets).toBeUndefined();
-    expect(ctx.configResolver).toBeUndefined();
+    expect(typeof (ctx["textContent"] as { getBlock?: unknown }).getBlock).toBe("function");
+    expect(ctx["secrets"]).toBeUndefined();
+    expect(ctx["configResolver"]).toBeUndefined();
   });
 
   test("secrets feature mounted + valid KEK env → ctx.secrets wired", () => {
@@ -40,7 +40,7 @@ describe("buildBootExtraContext — framework-default provider autowire", () => 
       registry,
       hasAuth: false,
     });
-    const secrets = ctx.secrets as { get?: unknown; set?: unknown; has?: unknown; delete?: unknown };
+    const secrets = ctx["secrets"] as { get?: unknown; set?: unknown; has?: unknown; delete?: unknown };
     expect(typeof secrets.get).toBe("function");
     expect(typeof secrets.set).toBe("function");
   });
@@ -77,7 +77,7 @@ describe("buildBootExtraContext — framework-default provider autowire", () => 
       registry,
       hasAuth: false,
     });
-    expect(ctx.secrets).toBeUndefined();
+    expect(ctx["secrets"]).toBeUndefined();
   });
 
   test("masterKey override is used verbatim — no env-provider built", () => {
@@ -97,6 +97,6 @@ describe("buildBootExtraContext — framework-default provider autowire", () => 
       hasAuth: false,
       masterKey: override,
     });
-    expect(ctx.secrets).toBeDefined();
+    expect(ctx["secrets"]).toBeDefined();
   });
 });

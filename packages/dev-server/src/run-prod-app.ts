@@ -25,13 +25,19 @@
 //   KUMIKO_INSTANCE_ID=<stable per replica>
 
 import {
+  type AuthMailerConfig,
+  type AuthMailLocale,
   AuthErrors,
   AuthHandlers,
+  type AuthPaths,
+  createAuthMailerConfig,
   type EmailVerificationOptions,
   type InviteOptions,
+  makeAuthPaths,
   type PasswordResetOptions,
   type SignupOptions,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
+import { createSmtpTransportFromEnv } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import {
   type SeedAdminOptions,
   seedAdmin,
@@ -287,10 +293,34 @@ export type RunProdAppAuthOptions = {
   readonly sessions?: {
     readonly expiresInMs?: number;
   };
+  /** Auth-Mail-Convenience: verdrahtet alle 4 Mail-Flows (passwordReset,
+   *  emailVerification, signup, invite) aus einem SMTP-Transport-aus-env +
+   *  Standard-Templates. Ersetzt das per-App hand-gerollte
+   *  `createSmtpTransportFromEnv` + `createAuthMailerConfig`-Wrapper-Trio.
+   *
+   *  Null-Transport-Guard: ohne `SMTP_HOST`-env wird KEIN Mail-Flow
+   *  verdrahtet (Routes blieben sonst 500). Eine App die einen einzelnen
+   *  Flow custom braucht, setzt `passwordReset`/`signup`/… explizit —
+   *  der explizite Block gewinnt über den mail-Default. */
+  readonly mail?: {
+    /** App-Basis-URL inkl. Schema (z.B. "https://app.example.com"). */
+    readonly baseUrl: string;
+    /** App-Name für Mail-Subject + Body. Default "Account". */
+    readonly appName?: string;
+    /** Locale für die Mail-Templates. Default "de". */
+    readonly locale?: AuthMailLocale;
+    /** "strict" blockt Login bis emailVerified; "off" mountet ohne Gate. */
+    readonly emailVerificationMode?: "strict" | "off";
+    /** Fallback-From-Adresse wenn `SMTP_FROM`-env fehlt (env gewinnt). */
+    readonly from?: string;
+    /** Einzelne Auth-Pfade überschreiben (Default DEFAULT_AUTH_PATHS). */
+    readonly paths?: Partial<AuthPaths>;
+  };
   /** Password-reset flow. When set, /api/auth/request-password-reset +
    *  /api/auth/reset-password are mounted as public routes UND der
    *  request/confirm-Handler im auth-email-password-Feature wird
-   *  registriert (sonst dispatchen die Routes ins Leere → 500). */
+   *  registriert (sonst dispatchen die Routes ins Leere → 500).
+   *  Überschreibt den `mail`-Default für genau diesen Flow. */
   readonly passwordReset?: PasswordResetSetup;
   /** Email-verification flow. Symmetric to passwordReset. */
   readonly emailVerification?: EmailVerificationSetup;
@@ -613,6 +643,42 @@ export function buildBootExtraContext(opts: {
   };
 }
 
+// auth.mail-Convenience → normalisiert in die expliziten passwordReset/
+// emailVerification/signup/invite-Felder, BEVOR buildComposeAuthOptions
+// (Feature-Side: hmacSecret/mode) und das auth-routes-Fragment sie lesen —
+// so speist EIN mail-Block beide Pfade. App-explizite Flows gewinnen über
+// den Default. Null-Transport-Guard: ohne SMTP_HOST-env bleibt alles
+// unverdrahtet (sonst lieferten die reset/verify-Routes 500).
+export function resolveAuthMail(
+  auth: RunProdAppAuthOptions,
+  hmacSecret: string,
+  envSource: Record<string, string | undefined>,
+): RunProdAppAuthOptions {
+  if (!auth.mail) return auth;
+  const mailSender = createSmtpTransportFromEnv(envSource, {
+    fallbackFrom: auth.mail.from ?? "noreply@localhost",
+  });
+  if (!mailSender) return auth;
+  const mc: AuthMailerConfig = createAuthMailerConfig({
+    mailSender,
+    hmacSecret,
+    baseUrl: auth.mail.baseUrl,
+    paths: makeAuthPaths(auth.mail.paths),
+    ...(auth.mail.appName !== undefined && { appName: auth.mail.appName }),
+    ...(auth.mail.locale !== undefined && { locale: auth.mail.locale }),
+    ...(auth.mail.emailVerificationMode !== undefined && {
+      emailVerificationMode: auth.mail.emailVerificationMode,
+    }),
+  });
+  return {
+    ...auth,
+    passwordReset: auth.passwordReset ?? mc.passwordReset,
+    emailVerification: auth.emailVerification ?? mc.emailVerification,
+    signup: auth.signup ?? mc.signup,
+    invite: auth.invite ?? mc.invite,
+  };
+}
+
 export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHandle> {
   // 0. Env-Schema validation + dry-run modes. Runs FIRST so:
   //    - operators can introspect env-requirements without a real boot
@@ -684,14 +750,21 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // biome-ignore lint/suspicious/noConsole: boot-time progress hint, no logger configured this early
   console.log(`[runProdApp] booting Kumiko stack on port ${port}…`);
 
+  // auth.mail → expandiert in die expliziten Flow-Felder, bevor sie sowohl
+  // die Feature-Side (buildComposeAuthOptions) als auch das Routes-Fragment
+  // unten speisen. Ab hier IMMER effectiveAuth statt options.auth lesen.
+  const effectiveAuth = options.auth
+    ? resolveAuthMail(options.auth, jwtSecret, envSource)
+    : undefined;
+
   // 3. Feature registry. Auth-mode auto-mixes config/user/tenant/auth-email-
   //    password via composeFeatures — same source-of-truth as runDevApp
   //    AND the per-app drizzle-Schema-Generator, so Migration und Runtime
   //    sehen exakt dieselbe Liste. Built BEFORE any connection so boot-mode
   //    can validate wiring and exit without opening a Postgres/Redis socket.
-  const composeAuthOptions = buildComposeAuthOptions(options.auth);
+  const composeAuthOptions = buildComposeAuthOptions(effectiveAuth);
   const features = composeFeatures(options.features, {
-    includeBundled: !!options.auth,
+    includeBundled: !!effectiveAuth,
     ...(composeAuthOptions && { authOptions: composeAuthOptions }),
   });
 
@@ -793,7 +866,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     features,
     envSource,
     registry,
-    hasAuth: !!options.auth,
+    hasAuth: !!effectiveAuth,
     ...(options.masterKey && { masterKey: options.masterKey }),
   });
   const extraContext = addConfigAccessorFactory(
@@ -813,8 +886,8 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // AuthRoutesConfig-Surface — der wird vom sessions-Feature selbst über
   // die `autoRevokeOnPasswordChange`-Option konsumiert, nicht über die
   // auth-routes.
-  const sessionAuthFragment = options.auth?.sessions
-    ? buildProdSessionAuth(db, options.auth.sessions)
+  const sessionAuthFragment = effectiveAuth?.sessions
+    ? buildProdSessionAuth(db, effectiveAuth.sessions)
     : undefined;
 
   const baseEntrypointOptions = {
@@ -835,56 +908,56 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       ...(resolvedEffectiveFeatures && { effectiveFeatures: resolvedEffectiveFeatures }),
     },
     eventDedup,
-    ...(options.auth && {
+    ...(effectiveAuth && {
       auth: {
         membershipQuery: TenantQueries.memberships,
         userQuery: UserQueries.findForAuth,
         loginHandler: AuthHandlers.login,
-        loginErrorStatusMap: options.auth.loginErrorStatusMap ?? {
+        loginErrorStatusMap: effectiveAuth.loginErrorStatusMap ?? {
           [AuthErrors.invalidCredentials]: 401,
           [AuthErrors.noMembership]: 403,
         },
-        ...(options.auth.cookieDomain !== undefined && {
-          cookieDomain: options.auth.cookieDomain,
+        ...(effectiveAuth.cookieDomain !== undefined && {
+          cookieDomain: effectiveAuth.cookieDomain,
         }),
-        ...(options.auth.allowedOrigins !== undefined && {
-          allowedOrigins: options.auth.allowedOrigins,
+        ...(effectiveAuth.allowedOrigins !== undefined && {
+          allowedOrigins: effectiveAuth.allowedOrigins,
         }),
-        ...(options.auth.unsafeSkipOriginCheck !== undefined && {
-          unsafeSkipOriginCheck: options.auth.unsafeSkipOriginCheck,
+        ...(effectiveAuth.unsafeSkipOriginCheck !== undefined && {
+          unsafeSkipOriginCheck: effectiveAuth.unsafeSkipOriginCheck,
         }),
         ...sessionAuthFragment,
-        ...(options.auth.passwordReset && {
+        ...(effectiveAuth.passwordReset && {
           passwordReset: {
             requestHandler: AuthHandlers.requestPasswordReset,
             confirmHandler: AuthHandlers.resetPassword,
-            sendResetEmail: options.auth.passwordReset.sendResetEmail,
-            appResetUrl: options.auth.passwordReset.appResetUrl,
+            sendResetEmail: effectiveAuth.passwordReset.sendResetEmail,
+            appResetUrl: effectiveAuth.passwordReset.appResetUrl,
           },
         }),
-        ...(options.auth.emailVerification && {
+        ...(effectiveAuth.emailVerification && {
           emailVerification: {
             requestHandler: AuthHandlers.requestEmailVerification,
             confirmHandler: AuthHandlers.verifyEmail,
-            sendVerificationEmail: options.auth.emailVerification.sendVerificationEmail,
-            appVerifyUrl: options.auth.emailVerification.appVerifyUrl,
+            sendVerificationEmail: effectiveAuth.emailVerification.sendVerificationEmail,
+            appVerifyUrl: effectiveAuth.emailVerification.appVerifyUrl,
           },
         }),
-        ...(options.auth.signup && {
+        ...(effectiveAuth.signup && {
           signup: {
             requestHandler: AuthHandlers.signupRequest,
             confirmHandler: AuthHandlers.signupConfirm,
-            sendActivationEmail: options.auth.signup.sendActivationEmail,
-            appActivationUrl: options.auth.signup.appActivationUrl,
+            sendActivationEmail: effectiveAuth.signup.sendActivationEmail,
+            appActivationUrl: effectiveAuth.signup.appActivationUrl,
           },
         }),
-        ...(options.auth.invite && {
+        ...(effectiveAuth.invite && {
           invite: {
             acceptHandler: AuthHandlers.inviteAccept,
             acceptWithLoginHandler: AuthHandlers.inviteAcceptWithLogin,
             signupCompleteHandler: AuthHandlers.inviteSignupComplete,
-            sendInviteEmail: options.auth.invite.sendInviteEmail,
-            appAcceptUrl: options.auth.invite.appAcceptUrl,
+            sendInviteEmail: effectiveAuth.invite.sendInviteEmail,
+            appAcceptUrl: effectiveAuth.invite.appAcceptUrl,
           },
         }),
       },
@@ -950,8 +1023,8 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   //    "first boot" via flag, every seed-step checks its own
   //    preconditions. Config-seeds rely on a deterministic
   //    aggregate-id so re-boot becomes a version_conflict skip.
-  if (options.auth) {
-    await seedAdmin(db, options.auth.admin);
+  if (effectiveAuth) {
+    await seedAdmin(db, effectiveAuth.admin);
   }
   await applyBootSeeds({ registry, db });
   for (const seed of options.seeds ?? []) {
