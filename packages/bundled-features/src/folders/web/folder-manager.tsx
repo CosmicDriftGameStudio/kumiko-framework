@@ -47,6 +47,10 @@ export type FolderLeaf = {
   readonly label: string;
   readonly trailing?: ReactNode;
   readonly onOpen?: () => void;
+  // Overrides filing.entityType for this leaf — lets one filing tree hold leaves
+  // of mixed entity types (e.g. credits + Bausparverträge), each filed/cleared
+  // under its own type. Omit for single-type trees.
+  readonly entityType?: string;
 };
 
 // Opt-in filing binding. Host computes the grouping (it already holds the
@@ -133,12 +137,21 @@ export function FolderManager({
   const rows = catalog.data?.rows ?? [];
   const tree = buildFolderTree(rows);
 
-  // entityId → current folder (null = unfiled) for the drop no-op guard.
+  // entityId → current folder (null = unfiled) for the drop no-op guard, and
+  // entityId → entityType so a mixed-type tree files each leaf under its own type.
   const currentFolderByEntity = new Map<string, string | null>();
+  const typeByEntity = new Map<string, string>();
   if (filing !== undefined) {
+    const typeOf = (leaf: FolderLeaf): string => leaf.entityType ?? filing.entityType;
     for (const [folderId, leaves] of filing.leavesByFolder)
-      for (const leaf of leaves) currentFolderByEntity.set(leaf.id, folderId);
-    for (const leaf of filing.unfiled) currentFolderByEntity.set(leaf.id, null);
+      for (const leaf of leaves) {
+        currentFolderByEntity.set(leaf.id, folderId);
+        typeByEntity.set(leaf.id, typeOf(leaf));
+      }
+    for (const leaf of filing.unfiled) {
+      currentFolderByEntity.set(leaf.id, null);
+      typeByEntity.set(leaf.id, typeOf(leaf));
+    }
   }
 
   const toggleCollapse = (id: string): void =>
@@ -228,12 +241,13 @@ export function FolderManager({
     if (filing === undefined) return;
     if ((currentFolderByEntity.get(entityId) ?? null) === folderId) return;
     setErrorKey(null);
+    const entityType = typeByEntity.get(entityId) ?? filing.entityType;
     const ok =
       folderId === null
-        ? await writeOk(FoldersHandlers.clearFolder, { entityType: filing.entityType, entityId })
+        ? await writeOk(FoldersHandlers.clearFolder, { entityType, entityId })
         : await writeOk(FoldersHandlers.setFolder, {
             folderId,
-            entityType: filing.entityType,
+            entityType,
             entityId,
           });
     if (ok) {
