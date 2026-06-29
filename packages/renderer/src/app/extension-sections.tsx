@@ -34,6 +34,11 @@ export type ExtensionSectionProps = {
    *  Host-Screen keine Werte liefert. Erlaubt der Section, den Bestand
    *  beim Edit anzuzeigen statt write-only zu sein. */
   readonly initialValues?: Readonly<Record<string, unknown>>;
+  /** Nur im List-Header-Slot gesetzt (entityId ist dort null): die screen.id
+   *  der Liste, damit ein Header-Control den per-Screen URL-Filter-State
+   *  (useListUrlState) ansprechen kann — z.B. ein Tag-Filter der die Liste auf
+   *  eine id-Menge narrowed. In entityEdit-Sections undefined. */
+  readonly screenId?: string;
 };
 
 export type ExtensionSectionComponent = ComponentType<ExtensionSectionProps>;

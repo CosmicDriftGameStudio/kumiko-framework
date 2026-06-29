@@ -54,7 +54,7 @@ import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sess
 import { createStepDispatcherFeature } from "@cosmicdrift/kumiko-bundled-features/step-dispatcher";
 import { createSubscriptionMollieFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-mollie";
 import { createSubscriptionStripeFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-stripe";
-import { tagsFeature } from "@cosmicdrift/kumiko-bundled-features/tags";
+import { createTagsFeature } from "@cosmicdrift/kumiko-bundled-features/tags";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { createTextContentFeature } from "@cosmicdrift/kumiko-bundled-features/text-content";
 import { tierEngineFeature } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
@@ -171,7 +171,10 @@ export const APP_FEATURES = [
 
   // app-author-grade
   customFieldsFeature,
-  tagsFeature,
+  // The default tag roles are TenantAdmin/TenantMember; this app's operator is a
+  // global SystemAdmin (see server.ts admin), so add SystemAdmin or every tag
+  // query/screen is access_denied — exactly what the constants doc warns about.
+  createTagsFeature({ roles: ["TenantAdmin", "TenantMember", "SystemAdmin"] }),
   foldersFeature,
   // folders-user-data: GDPR-Hooks für folder-Entities. Hängt (optional) an folders
   // + (hart) an user-data-rights — beide oben gemountet.

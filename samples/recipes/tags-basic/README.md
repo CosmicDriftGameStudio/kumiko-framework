@@ -15,7 +15,11 @@ row stays exactly `{ id, title }`.
   tag awareness. Tagging works anyway, because the tags feature owns its
   own tables.
 - **`tags:write:create-tag`** — adds a tag to the tenant's catalog
-  (`read_tags`). Returns the tag's id.
+  (`read_tags`). Takes an optional `color` (rendered as a colored chip by
+  the web UI) and an optional `scope` (empty = global, or an entity type to
+  restrict it to). Returns the tag's id.
+- **`tags:write:update-tag` / `delete-tag`** — rename / recolor / re-scope a
+  tag (optimistic-locked), or delete it (cascades over its assignments).
 - **`tags:write:assign-tag` / `remove-tag`** — link/unlink a tag and an
   entity by `{ tagId, entityType, entityId }`. Both are idempotent:
   re-assigning is a no-op, removing a non-existent link still succeeds.
@@ -60,6 +64,12 @@ createKumikoApp({ clientFeatures: [tagsClient()] });
 The component itself is `tags/web/tag-section.tsx`
 ([source](https://github.com/CosmicDriftGameStudio/kumiko-framework/blob/main/packages/bundled-features/src/tags/web/tag-section.tsx))
 and is covered by a unit test that asserts the exact handlers it dispatches.
+
+`tagsClient()` also ships the rest of the GitLab-style surface: a standalone
+`tag-list` **management screen** (`TagManager` — the whole catalog with colors,
+scopes, and usage counts), a `<TagFilter>` header-slot control that filters any
+`entityList` by tag, and a read-only `<EntityTags>` chip row for cards/detail.
+See the [tags feature reference](/en/bundled-features/tags/) for the full set.
 
 ## Feature composition
 

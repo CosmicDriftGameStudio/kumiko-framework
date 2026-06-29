@@ -3,6 +3,9 @@ export {
   DEFAULT_TAG_ACCESS,
   DEFAULT_TAG_ROLES,
   TAGS_FEATURE_NAME,
+  TAGS_FILTER_EXTENSION_NAME,
+  TAGS_SCREEN_ID,
+  TAGS_SECTION_EXTENSION_NAME,
   TagsHandlers,
   TagsQueries,
 } from "./constants";
@@ -17,20 +20,26 @@ export {
   createTagHandler,
 } from "./handlers/create-tag.write";
 export {
+  createDeleteTagHandler,
+  deleteTagHandler,
+} from "./handlers/delete-tag.write";
+export {
   createRemoveTagHandler,
   removeTagHandler,
 } from "./handlers/remove-tag.write";
 export {
-  createRenameTagHandler,
-  renameTagHandler,
-} from "./handlers/rename-tag.write";
+  createUpdateTagHandler,
+  updateTagHandler,
+} from "./handlers/update-tag.write";
 export {
   type AssignTagPayload,
   assignTagPayloadSchema,
   type CreateTagPayload,
   createTagPayloadSchema,
+  type DeleteTagPayload,
+  deleteTagPayloadSchema,
   type RemoveTagPayload,
-  type RenameTagPayload,
   removeTagPayloadSchema,
-  renameTagPayloadSchema,
+  type UpdateTagPayload,
+  updateTagPayloadSchema,
 } from "./schemas";

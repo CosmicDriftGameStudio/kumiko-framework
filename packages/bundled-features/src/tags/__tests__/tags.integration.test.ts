@@ -61,6 +61,10 @@ async function remove(tagId: string, entityType: string, entityId: string, user 
   return stack.http.writeOk(TagsHandlers.removeTag, { tagId, entityType, entityId }, user);
 }
 
+async function deleteTag(id: string, user = admin) {
+  return stack.http.writeOk(TagsHandlers.deleteTag, { id }, user);
+}
+
 async function tagById(id: string, user = admin): Promise<Record<string, unknown> | undefined> {
   return (await listTags(user)).find((t) => t["id"] === id);
 }
@@ -147,7 +151,7 @@ describe("tags integration — rename", () => {
     expect(typeof before?.["version"]).toBe("number");
     const version = before?.["version"] as number;
 
-    await stack.http.writeOk(TagsHandlers.renameTag, { id, version, name: "Mandant Neu" }, admin);
+    await stack.http.writeOk(TagsHandlers.updateTag, { id, version, name: "Mandant Neu" }, admin);
 
     const after = await tagById(id);
     expect(after?.["name"]).toBe("Mandant Neu");
@@ -162,10 +166,10 @@ describe("tags integration — rename", () => {
       admin,
     );
     const stale = (await tagById(id))?.["version"] as number;
-    await stack.http.writeOk(TagsHandlers.renameTag, { id, version: stale, name: "Erster" }, admin);
+    await stack.http.writeOk(TagsHandlers.updateTag, { id, version: stale, name: "Erster" }, admin);
 
     const err = await stack.http.writeErr(
-      TagsHandlers.renameTag,
+      TagsHandlers.updateTag,
       { id, version: stale, name: "Zweiter" }, // stale: the row already moved to stale+1
       admin,
     );
@@ -182,12 +186,70 @@ describe("tags integration — rename", () => {
     const version = (await tagById(id, admin))?.["version"] as number;
 
     const err = await stack.http.writeErr(
-      TagsHandlers.renameTag,
+      TagsHandlers.updateTag,
       { id, version, name: "B-Übernahme" },
       otherTenant,
     );
     expect(err.httpStatus).toBe(404);
     expect((await tagById(id, admin))?.["name"]).toBe("A privat");
+  });
+});
+
+describe("tags integration — update (recolor / re-scope)", () => {
+  test("update-tag changes color + scope, preserves the untouched name", async () => {
+    const { id } = await stack.http.writeOk<{ id: string }>(
+      TagsHandlers.createTag,
+      { name: "Projekt", color: "#111111" },
+      admin,
+    );
+    const version = (await tagById(id))?.["version"] as number;
+    await stack.http.writeOk(
+      TagsHandlers.updateTag,
+      { id, version, color: "#22cc88", scope: "note" },
+      admin,
+    );
+    const after = await tagById(id);
+    expect(after?.["name"]).toBe("Projekt");
+    expect(after?.["color"]).toBe("#22cc88");
+    expect(after?.["scope"]).toBe("note");
+  });
+
+  test("update-tag with empty color clears it", async () => {
+    const { id } = await stack.http.writeOk<{ id: string }>(
+      TagsHandlers.createTag,
+      { name: "Farbe", color: "#abcdef" },
+      admin,
+    );
+    const version = (await tagById(id))?.["version"] as number;
+    await stack.http.writeOk(TagsHandlers.updateTag, { id, version, color: "" }, admin);
+    expect((await tagById(id))?.["color"]).toBe("");
+  });
+});
+
+describe("tags integration — delete-tag cascade", () => {
+  test("deletes the tag and detaches it from every entity (multiple types)", async () => {
+    const target = await createTag("Sammelmappe");
+    const other = await createTag("bleibt");
+    // target spans two entityTypes; other tag stays attached to prove scoping
+    await assign(target, "credit", "credit-d1");
+    await assign(target, "note", "note-d1");
+    await assign(other, "credit", "credit-d1");
+    expect(await countAssignments(admin.tenantId)).toBe(3);
+
+    await deleteTag(target);
+
+    expect(await tagById(target)).toBeUndefined();
+    expect(await tagById(other)).toBeDefined();
+    expect(await countAssignments(admin.tenantId)).toBe(1);
+    expect(await listAssignments({ field: "tagId", op: "eq", value: target })).toHaveLength(0);
+    expect(await listAssignments({ field: "tagId", op: "eq", value: other })).toHaveLength(1);
+  });
+
+  test("deleting an already-gone tag is idempotent success", async () => {
+    const id = await createTag("einmalig");
+    await deleteTag(id);
+    await deleteTag(id); // second call must not error
+    expect(await tagById(id)).toBeUndefined();
   });
 });
 

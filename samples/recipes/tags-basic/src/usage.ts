@@ -14,9 +14,14 @@ export type TagClient = {
 
 // Create a tag, attach it to a note, read it from both directions, detach it.
 export async function tagFlow(client: TagClient, noteId: string) {
-  // 1. Create a tag in the tenant catalog → returns its id
+  // 1. Create a tag in the tenant catalog → returns its id. A tag carries a
+  //    `color` (rendered as a colored chip by the web UI) and an optional
+  //    `scope`: empty = global (offer on every entity), or an entity type to
+  //    restrict it — here "note", so the picker only suggests it on notes.
   const { id: tagId } = await client.write<{ id: string }>("tags:write:create-tag", {
     name: "important",
+    color: "#2563eb",
+    scope: "note",
   });
 
   // 2. Attach it to ANY entity by (type, id) — no column on that entity
