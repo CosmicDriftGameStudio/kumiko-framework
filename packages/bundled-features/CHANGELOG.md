@@ -1,5 +1,19 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.96.0
+
+### Minor Changes
+
+- 38ed5f4: ledger: add a client-safe `@cosmicdrift/kumiko-bundled-features/ledger/web` entry exporting the QN constants (`LedgerHandlers`/`LedgerQueries`) plus the pure recurring helpers (`projectSchedule`, `mergeScheduleActuals`, `scheduleReference`) and types. The main `/ledger` entry re-exports the feature/handlers/executor (which pull bun-db/postgres), so a browser bundle that imported from there failed on Node builtins. Client screens (e.g. a rent-cashflow view) import the dispatch QNs + forecast/merge from `/ledger/web` and dispatch via the renderer — mirrors `/folders/web`.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.96.0
+- @cosmicdrift/kumiko-dispatcher-live@0.96.0
+- @cosmicdrift/kumiko-headless@0.96.0
+- @cosmicdrift/kumiko-renderer@0.96.0
+- @cosmicdrift/kumiko-renderer-web@0.96.0
+
 ## 0.95.0
 
 ### Minor Changes
