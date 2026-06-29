@@ -1,5 +1,22 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.95.0
+
+### Minor Changes
+
+- 23527e4: FolderManager: per-leaf `entityType` override so a single filing tree can hold leaves of mixed entity types (e.g. credits + Bausparverträge), each filed/cleared under its own type. `FolderLeaf.entityType` is optional and defaults to `filing.entityType`, so existing single-type callers are unaffected.
+- a236ed7: ledger: recurring schedules (Dauerauftrag) layered on the double-entry primitive. A `schedule` entity (debit/credit accounts, amount, monthly interval) yields the Soll as a pure projection (`projectSchedule`) that needs no bookings, while `confirm-schedule-period` materialises one period as an idempotent, reversal-aware balanced entry referencing `scheduleReference(id, period)`. `mergeScheduleActuals` merges Soll vs. Ist (posted | open | forecast), with a stornoed month dropping back to open + re-confirmable. Forecast without booking every month; only confirming writes.
+
+### Patch Changes
+
+- Updated dependencies [387f259]
+- Updated dependencies [da32b71]
+  - @cosmicdrift/kumiko-framework@0.95.0
+  - @cosmicdrift/kumiko-headless@0.95.0
+  - @cosmicdrift/kumiko-renderer@0.95.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.95.0
+  - @cosmicdrift/kumiko-renderer-web@0.95.0
+
 ## 0.94.0
 
 ### Patch Changes
