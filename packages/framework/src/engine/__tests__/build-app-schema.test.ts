@@ -255,6 +255,41 @@ describe("buildAppSchema", () => {
     });
     expect(actions?.find((a) => a.id === "always")?.visible).toBe(true);
   });
+
+  test("derivedFields werden ins Client-Schema projiziert (valueType, ohne derive-fn)", () => {
+    // Regression: projectEntity ließ derivedFields ganz weg → der Client kannte
+    // sie nicht, computeListViewModel warf "references unknown field" für jede
+    // derived entityList-Spalte (z.B. bauspar `phase`). Der executor hängt den
+    // Wert server-seitig an die Row; der Client braucht nur den valueType.
+    const contractEntity = {
+      table: "contracts",
+      fields: { name: { type: "text" } },
+      derivedFields: {
+        phase: { valueType: "text", derive: () => "saving" },
+        balance: { valueType: "decimal", derive: () => 0 },
+      },
+    } as unknown as EntityDefinition;
+
+    const f = defineFeature("credit", (r) => {
+      r.entity("contract", contractEntity);
+      r.screen({
+        id: "list",
+        type: "entityList",
+        entity: "contract",
+        columns: ["name", "phase", "balance"],
+      });
+    });
+
+    const app = buildAppSchema(createRegistry([f]));
+    const entity = app.features.find((feat) => feat.featureName === "credit")?.entities["contract"];
+
+    expect(entity?.derivedFields?.["phase"]?.valueType).toBe("text");
+    expect(entity?.derivedFields?.["balance"]?.valueType).toBe("decimal");
+    // derive-fn ist Server-only — darf NICHT durchkommen (sonst Funktions-Leak
+    // im Browser-Bundle, den die JSON-Safety-Guard fängt).
+    expect(entity?.derivedFields?.["phase"]).not.toHaveProperty("derive");
+    expect(findNonJsonSafePath(app, "schema")).toBeNull();
+  });
 });
 
 describe("findNonJsonSafePath", () => {

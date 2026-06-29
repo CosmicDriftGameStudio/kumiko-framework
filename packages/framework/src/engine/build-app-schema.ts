@@ -32,7 +32,7 @@ import {
   SETTINGS_HUB_FEATURE,
 } from "./build-config-feature-schema";
 import type { Registry } from "./types/feature";
-import type { FieldDefinition } from "./types/fields";
+import type { DerivedFieldDef, FieldDefinition } from "./types/fields";
 
 export type BuildAppSchemaOptions = {
   /** Dev-server authoring hints (Settings-Hub placement). Default off — only
@@ -285,14 +285,31 @@ function projectEntity(entity: EntityDefinition): EntityDefinition {
   for (const [fieldName, fieldDef] of Object.entries(entity.fields)) {
     fieldsOut[fieldName] = projectField(fieldDef);
   }
+  // derivedFields MÜSSEN mit ins Client-Schema (nur die Metadaten, nicht die
+  // derive-fn): computeListViewModel löst eine entityList-Spalte über
+  // `entity.derivedFields[field].valueType` auf — fehlt der Eintrag, wirft es
+  // "references unknown field". Der executor hat den Wert server-seitig schon
+  // an die Row gehängt; der Client braucht nur den valueType für den Renderer.
+  const derivedOut: Record<string, DerivedFieldDef> = {};
+  for (const [name, derivedDef] of Object.entries(entity.derivedFields ?? {})) {
+    derivedOut[name] = projectDerivedField(derivedDef);
+  }
   // EntityDefinition akzeptiert idType/access/searchWeight als optional —
   // wir lassen die weg weil der Browser-Renderer sie nicht liest. `table`
   // schicken wir mit, falls Apps `entity.table` direkt referenzieren.
   // Kein Cast nötig: alle weggelassenen Felder sind `?`-optional.
   return {
     fields: fieldsOut,
+    ...(Object.keys(derivedOut).length > 0 && { derivedFields: derivedOut }),
     ...(typeof entity.table === "string" && { table: entity.table }),
   };
+}
+
+// Nur valueType durch — die derive-fn ist Server-only und NICHT JSON-safe
+// (würde sonst die Output-Walk-Guard triggern). Der Cast bridged die
+// fn-lose Projektion auf DerivedFieldDef (Client liest nur valueType).
+function projectDerivedField(derivedDef: DerivedFieldDef): DerivedFieldDef {
+  return { valueType: derivedDef.valueType } as DerivedFieldDef; // @cast-boundary schema-walk
 }
 
 // Whitelist pro Field. `default` darf nur durch wenn Literal (string/
