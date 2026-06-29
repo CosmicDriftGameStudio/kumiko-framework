@@ -5,10 +5,14 @@
 
 import {
   createBooleanField,
+  createDateField,
   createEntity,
   createImageField,
+  createLocatedTimestampField,
   createSelectField,
   createTextField,
+  createTimestampField,
+  createTzField,
   defineEntityCreateHandler,
   defineEntityDetailHandler,
   defineEntityUpdateHandler,
@@ -43,6 +47,22 @@ export const profileEntity = createEntity({
     // Demo-Daten, kein echtes PII-Encryption-Setup → Plaintext bewusst erlaubt.
     email: createTextField({ required: true, allowPlaintext: "is-business-data" }),
     bio: createTextField({ multiline: { rows: 3 } }),
+  },
+});
+
+// Delivery — der locatedTimestamp-Picker (Wall-Clock + IANA-Zone, item 10) in
+// der Auto-Form. Spiegelt die timezones-Recipe-Entity 1:1 (pickup/dropoffOn/
+// bookedAt/homeZone), damit der Docs-Screenshot den eingebetteten Recipe-Code
+// zeigt. `pickup` rendert als kombinierter Date-Time + Zone-Picker, die andern
+// drei Zeit-Feldtypen als ihre jeweilige Auto-UI-Kontrolle.
+export const deliveryEntity = createEntity({
+  table: "read_examples_delivery",
+  fields: {
+    label: createTextField({ required: true }),
+    pickup: createLocatedTimestampField({ required: true }),
+    dropoffOn: createDateField(),
+    bookedAt: createTimestampField(),
+    homeZone: createTzField(),
   },
 });
 
@@ -101,6 +121,32 @@ export const examplesFeature = defineFeature("examples", (r) => {
     },
   });
 
+  r.entity("delivery", deliveryEntity);
+  r.writeHandler(defineEntityCreateHandler("delivery", deliveryEntity, open));
+  r.writeHandler(defineEntityUpdateHandler("delivery", deliveryEntity, open));
+  r.queryHandler(defineEntityDetailHandler("delivery", deliveryEntity, open));
+
+  r.screen({
+    id: "delivery-edit",
+    type: "entityEdit",
+    entity: "delivery",
+    submitLabel: "examples:delivery:submit",
+    layout: {
+      sections: [
+        {
+          columns: 2,
+          fields: [
+            { field: "label", span: 2 },
+            { field: "pickup", span: 2 },
+            "dropoffOn",
+            "homeZone",
+            { field: "bookedAt", span: 2 },
+          ],
+        },
+      ],
+    },
+  });
+
   r.nav({ id: "examples", label: "Examples", order: 30 });
   r.nav({
     id: "shipping",
@@ -117,5 +163,13 @@ export const examplesFeature = defineFeature("examples", (r) => {
     screen: "examples:screen:profile-edit",
     icon: "file",
     order: 20,
+  });
+  r.nav({
+    id: "delivery",
+    label: "Located date-time",
+    parent: "examples:nav:examples",
+    screen: "examples:screen:delivery-edit",
+    icon: "file",
+    order: 30,
   });
 });

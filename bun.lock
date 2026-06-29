@@ -596,6 +596,12 @@
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
     },
+    "samples/recipes/timezones": {
+      "name": "@cosmicdrift/kumiko-sample-timezones",
+      "dependencies": {
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+    },
     "samples/recipes/user-data-rights": {
       "name": "@cosmicdrift/kumiko-sample-user-data-rights",
       "dependencies": {
@@ -819,6 +825,8 @@
     "@cosmicdrift/kumiko-sample-tenant-isolation": ["@cosmicdrift/kumiko-sample-tenant-isolation@workspace:samples/recipes/tenant-isolation"],
 
     "@cosmicdrift/kumiko-sample-tier-admin": ["@cosmicdrift/kumiko-sample-tier-admin@workspace:samples/recipes/tier-admin"],
+
+    "@cosmicdrift/kumiko-sample-timezones": ["@cosmicdrift/kumiko-sample-timezones@workspace:samples/recipes/timezones"],
 
     "@cosmicdrift/kumiko-sample-ui-walkthrough": ["@cosmicdrift/kumiko-sample-ui-walkthrough@workspace:samples/apps/ui-walkthrough"],
 

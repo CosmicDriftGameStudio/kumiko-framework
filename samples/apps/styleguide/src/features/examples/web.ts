@@ -25,6 +25,18 @@ const labels: Record<string, string> = {
   "examples:entity:profile:field:fullName": "Full name",
   "examples:entity:profile:field:email": "Email",
   "examples:entity:profile:field:bio": "Bio",
+  "screen:delivery-edit.create.title": "Located date-time",
+  "screen:delivery-edit.create.subtitle":
+    "A wall-clock time plus its IANA zone, alongside a calendar date, a UTC instant, and a bare zone.",
+  "screen:delivery-edit.edit.title": "Located date-time",
+  "screen:delivery-edit.edit.subtitle":
+    "A wall-clock time plus its IANA zone, alongside a calendar date, a UTC instant, and a bare zone.",
+  "examples:delivery:submit": "Save delivery",
+  "examples:entity:delivery:field:label": "Label",
+  "examples:entity:delivery:field:pickup": "Pickup (wall-clock + zone)",
+  "examples:entity:delivery:field:dropoffOn": "Drop-off date",
+  "examples:entity:delivery:field:bookedAt": "Booked at (UTC instant)",
+  "examples:entity:delivery:field:homeZone": "Courier home zone",
 };
 
 const translations: TranslationsByLocale = { en: labels, de: labels };
