@@ -25,10 +25,10 @@
 //   KUMIKO_INSTANCE_ID=<stable per replica>
 
 import {
-  type AuthMailerConfig,
-  type AuthMailLocale,
   AuthErrors,
   AuthHandlers,
+  type AuthMailerConfig,
+  type AuthMailLocale,
   type AuthPaths,
   createAuthMailerConfig,
   type EmailVerificationOptions,
@@ -37,11 +37,11 @@ import {
   type PasswordResetOptions,
   type SignupOptions,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
-import { createSmtpTransportFromEnv } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import {
   type SeedAdminOptions,
   seedAdmin,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
+import { createSmtpTransportFromEnv } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import {
   buildEnvConfigOverrides,
   createConfigAccessorFactory,
@@ -104,15 +104,15 @@ import {
   SchemaDriftError,
 } from "@cosmicdrift/kumiko-framework/migrations";
 import {
-  createEnvMasterKeyProvider,
-  type MasterKeyProvider,
-} from "@cosmicdrift/kumiko-framework/secrets";
-import {
   createDispatcher,
   createEntityCache,
   createEventDedup,
   createIdempotencyGuard,
 } from "@cosmicdrift/kumiko-framework/pipeline";
+import {
+  createEnvMasterKeyProvider,
+  type MasterKeyProvider,
+} from "@cosmicdrift/kumiko-framework/secrets";
 import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import Redis from "ioredis";
 import { applyBootSeeds } from "./boot/apply-boot-seeds";

@@ -36,11 +36,19 @@ describe("buildBootExtraContext — framework-default provider autowire", () => 
     const ctx = buildBootExtraContext({
       db: fakeDb,
       features: [createSecretsFeature()],
-      envSource: { KUMIKO_SECRETS_MASTER_KEY_V1: KEK, KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "1" },
+      envSource: {
+        KUMIKO_SECRETS_MASTER_KEY_V1: KEK,
+        KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "1",
+      },
       registry,
       hasAuth: false,
     });
-    const secrets = ctx["secrets"] as { get?: unknown; set?: unknown; has?: unknown; delete?: unknown };
+    const secrets = ctx["secrets"] as {
+      get?: unknown;
+      set?: unknown;
+      has?: unknown;
+      delete?: unknown;
+    };
     expect(typeof secrets.get).toBe("function");
     expect(typeof secrets.set).toBe("function");
   });

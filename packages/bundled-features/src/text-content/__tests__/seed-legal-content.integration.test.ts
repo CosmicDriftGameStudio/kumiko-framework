@@ -2,7 +2,11 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { type DbConnection, fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { setupTestStack, type TestStack, unsafeCreateEntityTable } from "@cosmicdrift/kumiko-framework/stack";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-framework/stack";
 import { createTextContentFeature } from "../feature";
 import { type LegalContentBlock, seedLegalContentFromJson } from "../seeding";
 import { type TextBlockRow, textBlockEntity, textBlocksTable } from "../table";
@@ -42,7 +46,9 @@ describe("seedLegalContentFromJson", () => {
   });
 
   test("re-seed lifts an existing block to the new template state (ifExists:update)", async () => {
-    const v1: LegalContentBlock[] = [{ slug: "privacy", lang: "de", title: "Datenschutz", body: "v1" }];
+    const v1: LegalContentBlock[] = [
+      { slug: "privacy", lang: "de", title: "Datenschutz", body: "v1" },
+    ];
     await seedLegalContentFromJson(db, v1);
     expect(await read("privacy", "de")).toMatchObject({ body: "v1" });
 
