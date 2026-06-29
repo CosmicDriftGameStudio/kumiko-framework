@@ -1920,6 +1920,28 @@ describe("boot-validator", () => {
         /rowAction "edit" navigate-target "ghost-screen" does not resolve/,
       );
     });
+
+    test("navigate-target → screen in ANOTHER feature → kein Throw (cross-feature)", () => {
+      // Eine deklarative Liste im owning-Feature der Entity navigiert zum
+      // Custom-Editor der Consumer-App (anderes Feature). Runtime löst die bare
+      // id app-weit auf → der Validator muss das erlauben.
+      const list = defineFeature("shop", (r) => {
+        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.screen({
+          id: "product-list",
+          type: "entityList",
+          entity: "product",
+          columns: ["name"],
+          rowActions: [
+            { kind: "navigate", id: "edit", label: "actions.edit", screen: "product-editor" },
+          ],
+        });
+      });
+      const consumer = defineFeature("app", (r) => {
+        r.screen({ id: "product-editor", type: "custom", renderer: { react: "stub" } });
+      });
+      expect(() => validateBoot([list, consumer])).not.toThrow();
+    });
   });
 
   // --- rowAction kind="writeHandler" handler-QN-Validierung (Tier 2.7e-1 erw.) ---
@@ -2124,6 +2146,25 @@ describe("boot-validator", () => {
       expect(() => validateBoot([makeFeature("ghost-form", false)])).toThrow(
         /toolbarAction "open-form" navigate-target "ghost-form" does not resolve/,
       );
+    });
+
+    test("navigate-target → screen in ANOTHER feature → kein Throw (cross-feature)", () => {
+      const list = defineFeature("shop", (r) => {
+        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.screen({
+          id: "product-list",
+          type: "entityList",
+          entity: "product",
+          columns: ["name"],
+          toolbarActions: [
+            { kind: "navigate", id: "new", label: "actions.new", screen: "product-editor" },
+          ],
+        });
+      });
+      const consumer = defineFeature("app", (r) => {
+        r.screen({ id: "product-editor", type: "custom", renderer: { react: "stub" } });
+      });
+      expect(() => validateBoot([list, consumer])).not.toThrow();
     });
   });
 
