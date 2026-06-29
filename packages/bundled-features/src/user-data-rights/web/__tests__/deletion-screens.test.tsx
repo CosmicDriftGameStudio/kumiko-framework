@@ -51,12 +51,12 @@ function renderWith(ui: ReactElement, dispatcher: Dispatcher): ReturnType<typeof
   return within(container);
 }
 
-// SKIPPED — CI-only flake (#457): on the shared single-process happy-dom runner
-// the click never reaches React's submit handler after ~30 prior DOM test files
-// have mounted/unmounted (write is never invoked, calls stays empty). Green
-// locally and on main; not a timing issue. Un-skip once the global afterEach
-// teardown / per-file DOM isolation fix lands.
-describe.skip("RequestAccountDeletionScreen", () => {
+// CI runs this file in its own `bun test` process (own ci.yml step), NOT in the
+// shared `kumiko check` run — see bunfig.ci.toml pathIgnorePatterns. The shared
+// single-process happy-dom corrupts React event delegation after ~30 prior DOM
+// test files mount/unmount, so the click never reached the submit handler here
+// (#457). A fresh process has no such accumulation.
+describe("RequestAccountDeletionScreen", () => {
   test("Submit → write(request-deletion-by-email) + enumeration-safe Success", async () => {
     const calls: WriteCall[] = [];
     const ui = renderWith(<RequestAccountDeletionScreen />, makeDispatcher(true, calls));
@@ -78,7 +78,7 @@ describe.skip("RequestAccountDeletionScreen", () => {
   });
 });
 
-describe.skip("ConfirmAccountDeletionScreen", () => {
+describe("ConfirmAccountDeletionScreen", () => {
   test("ohne ?token → missingToken, kein Confirm-Button", () => {
     window.history.replaceState({}, "", "/delete-account/confirm");
     const ui = renderWith(<ConfirmAccountDeletionScreen />, makeDispatcher(true, []));

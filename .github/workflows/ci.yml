@@ -72,6 +72,17 @@ jobs:
           ulimit -n 65536 || true
           sh scripts/ci-memlog-run.sh bun kumiko check
 
+      - name: Run isolated DOM screen tests (#457)
+        # These render tests corrupt under the shared single-process happy-dom
+        # after ~30 prior DOM test files mount/unmount — React event delegation
+        # stops firing (#457). They are excluded from `kumiko check` above via
+        # bunfig.ci.toml pathIgnorePatterns and run here, each in its own fresh
+        # `bun test` process via bunfig.ci-dom.toml (which does NOT ignore them).
+        run: |
+          ulimit -n 65536 || true
+          bun test --config=bunfig.ci-dom.toml ./packages/bundled-features/src/user-data-rights/web/__tests__/deletion-screens.test.tsx
+          bun test --config=bunfig.ci-dom.toml ./packages/bundled-features/src/user-data-rights/web/__tests__/privacy-center-screen.test.tsx
+
   tz-matrix:
     # Timezones epic (kumiko-framework#268), item 12. Runs the TZ-sensitive
     # tests under several non-UTC process zones, so a future process-TZ-dependent

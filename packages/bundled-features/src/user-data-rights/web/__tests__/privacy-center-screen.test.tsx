@@ -114,19 +114,13 @@ async function waitForMount(view: ReturnType<typeof render>): Promise<void> {
   });
 }
 
-// QUARANTINED (#457-Klasse): diese Render-Tests laufen lokal grün (13/13 isoliert,
-// 82/88 mit allen bundled-features-web-Tests parallel), failen aber auf CI-Linux
-// unter bun-`concurrency=8`. Diagnose aus dem CI-Log: parallele Test-FILES teilen
-// sich das eine globale happy-dom `document`; der globale `afterEach` aus
-// `test-setup/dom.preload.ts` (`cleanup()` + `document.body.replaceChildren()`)
-// eines parallel laufenden Tests wischt die in-flight gerenderte DOM eines anderen
-// weg → die `await`-Assertions hier finden den Screen-Stand eines Nachbar-Tests
-// (sichtbar: alle Fails zeigen denselben active-state Screen statt der eigenen
-// Test-Daten). Nicht aus diesem File fixbar — gleiche Architektur-Flake, wegen der
-// `deletion-screens.test.tsx` im selben Verzeichnis quarantäniert ist. Un-skip,
-// sobald das framework-weite Test-Isolation-Problem (#457) gelöst ist. Die
-// QN-Drift-Pins + formatDate unten decken die CI-stabile Verdrahtungs-Korrektheit ab.
-describe.skip("PrivacyCenterScreen", () => {
+// CI runs this file in its own `bun test` process (own ci.yml step), NOT in the
+// shared `kumiko check` run — see bunfig.ci.toml pathIgnorePatterns. In the shared
+// single-process happy-dom, the global `afterEach` from `test-setup/dom.preload.ts`
+// plus accumulated global DOM/event state across ~30 prior DOM test files corrupts
+// these in-flight renders (#457-class). A fresh process has no such accumulation.
+// The QN-Drift-Pins + formatDate describes below are pure-logic and CI-stable.
+describe("PrivacyCenterScreen", () => {
   test("aktiver User: Export/Einschränken/Löschen-Sektionen, Texte übersetzt (keine rohen Keys)", async () => {
     const { view } = renderCenter({ me: activeMe });
     await waitForMount(view);

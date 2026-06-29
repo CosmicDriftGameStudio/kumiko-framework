@@ -281,6 +281,14 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   });
   steps.push({ name: "License Check", cmd: "bunx kumiko-check-licenses" });
   steps.push({ name: "Security Audit", cmd: "bunx kumiko-check-security" });
+  // Cross-repo scan: gates on the guard file (parent workspace) and LAUT-skips
+  // standalone — no bunx fallback, the pinned guards version doesn't ship this bin.
+  const secretLiteralGuard = join(REPO_ROOT, "infra/guards/check-secret-literals.ts");
+  if (existsSync(secretLiteralGuard)) {
+    steps.push({ name: "Secret-Literal Guard", cmd: `bun ${secretLiteralGuard}` });
+  } else {
+    console.log("Secret-Literal Guard übersprungen: infra/guards nicht im Workspace (CI-standalone).");
+  }
   steps.push({ name: "Deprecated Deps", cmd: "bunx kumiko-check-outdated" });
 
   return steps;
