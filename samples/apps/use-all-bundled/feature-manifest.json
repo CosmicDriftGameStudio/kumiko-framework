@@ -660,7 +660,7 @@
     },
     {
       "name": "ledger",
-      "description": "Double-entry bookkeeping primitive. Owns two event-sourced entities — the per-tenant `account` chart of accounts (`read_ledger_accounts`, self-referential via parentId, typed asset/liability/equity/income/expense) and immutable `transaction` journal entries (`read_ledger_transactions`) whose balanced posting lines are embedded as jsonb (Σ amount = 0, signed integer minor units). The account catalog uses the generic entity handlers (create, update, list, detail); create-transaction books a balanced entry (Σ=0 and ≥2 distinct accounts enforced at the command boundary, referential integrity against accounts checked) and reverse-transaction books its Storno mirror — there is deliberately NO transaction update/delete, so a posted entry is an immutable fact and the audit trail stays intact. Balances and reports (balance sheet, P&L, cashflow) derive as pure queries over the postings. Everything financial — banking, accounting, rent cashflow, credits, invoices — models as accounts + balanced transactions on top. Pin roles with createLedgerFeature({ roles }) or adopt the host model with { access }; pass { toggleable: { default: false } } to tier-gate the whole feature.",
+      "description": "Double-entry bookkeeping primitive. Owns two event-sourced entities — the per-tenant `account` chart of accounts (`read_ledger_accounts`, self-referential via parentId, typed asset/liability/equity/income/expense) and immutable `transaction` journal entries (`read_ledger_transactions`) whose balanced posting lines are embedded as jsonb (Σ amount = 0, signed integer minor units). The account catalog uses the generic entity handlers (create, update, list, detail); create-transaction books a balanced entry (Σ=0 and ≥2 distinct accounts enforced at the command boundary, referential integrity against accounts checked) and reverse-transaction books its Storno mirror — there is deliberately NO transaction update/delete, so a posted entry is an immutable fact and the audit trail stays intact. Recurring schedules (`read_ledger_schedules`) layer Dauerauftrag templates on top — a schedule names debit/credit accounts, an amount and a monthly interval, from which the Soll (forecast) is a pure projection (projectSchedule) needing no bookings, and confirm-schedule-period materialises one period as an idempotent, reversal-aware balanced entry referencing scheduleReference(id, period); only confirming writes. Balances and reports (balance sheet, P&L, cashflow) derive as pure queries over the postings. Everything financial — banking, accounting, rent cashflow, credits, invoices — models as accounts + balanced transactions on top. Pin roles with createLedgerFeature({ roles }) or adopt the host model with { access }; pass { toggleable: { default: false } } to tier-gate the whole feature.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -673,8 +673,11 @@
       "writeHandlers": [
         "ledger:write:account:create",
         "ledger:write:account:update",
+        "ledger:write:confirm-schedule-period",
         "ledger:write:create-transaction",
-        "ledger:write:reverse-transaction"
+        "ledger:write:reverse-transaction",
+        "ledger:write:schedule:create",
+        "ledger:write:schedule:update"
       ],
       "uiHints": {
         "displayLabel": "Ledger",

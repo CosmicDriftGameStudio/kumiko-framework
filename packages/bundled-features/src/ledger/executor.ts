@@ -1,5 +1,5 @@
 import { createEntityExecutor } from "@cosmicdrift/kumiko-framework/engine";
-import { accountEntity, transactionEntity } from "./entity";
+import { accountEntity, scheduleEntity, transactionEntity } from "./entity";
 
 // Shared tables + executors for the account + transaction handlers. Built once
 // (side-effect-free). The tables back the report query-handlers (selectMany over
@@ -11,4 +11,8 @@ export const { table: accountTable, executor: accountExecutor } = createEntityEx
 export const { table: transactionTable, executor: transactionExecutor } = createEntityExecutor(
   "transaction",
   transactionEntity,
+);
+export const { table: scheduleTable, executor: scheduleExecutor } = createEntityExecutor(
+  "schedule",
+  scheduleEntity,
 );

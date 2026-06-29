@@ -17,6 +17,11 @@ export const LedgerHandlers = {
   updateAccount: "ledger:write:account:update",
   createTransaction: "ledger:write:create-transaction",
   reverseTransaction: "ledger:write:reverse-transaction",
+  // Recurring schedules — the catalog's CRUD verbs plus the confirm verb that
+  // books one projected period as a balanced, idempotent entry.
+  createSchedule: "ledger:write:schedule:create",
+  updateSchedule: "ledger:write:schedule:update",
+  confirmSchedulePeriod: "ledger:write:confirm-schedule-period",
 } as const;
 
 export const LedgerQueries = {
@@ -24,6 +29,8 @@ export const LedgerQueries = {
   accountDetail: "ledger:query:account:detail",
   transactionList: "ledger:query:transaction:list",
   transactionDetail: "ledger:query:transaction:detail",
+  scheduleList: "ledger:query:schedule:list",
+  scheduleDetail: "ledger:query:schedule:detail",
   // Reports — pure aggregations over the posted entries (Phase 1).
   reportBalances: "ledger:query:report:balances",
   reportIncomeStatement: "ledger:query:report:income-statement",
@@ -38,6 +45,12 @@ export type AccountType = (typeof ACCOUNT_TYPES)[number];
 
 export const TRANSACTION_STATUS = ["draft", "posted"] as const;
 export type TransactionStatus = (typeof TRANSACTION_STATUS)[number];
+
+// Recurrence steps a schedule can project. Monthly is the only step v1 needs
+// (rent, loan rate, salary); weekly/quarterly/yearly add to projectSchedule when
+// a schedule actually requires them.
+export const SCHEDULE_INTERVALS = ["monthly"] as const;
+export type ScheduleInterval = (typeof SCHEDULE_INTERVALS)[number];
 
 // Default RBAC for every ledger path. A ledger is sensitive (it's the books), but
 // like folders it adopts the host's model — apps pin roles via

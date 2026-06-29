@@ -6,15 +6,21 @@ export {
   LEDGER_FEATURE_NAME,
   LedgerHandlers,
   LedgerQueries,
+  SCHEDULE_INTERVALS,
+  type ScheduleInterval,
   TRANSACTION_STATUS,
   type TransactionStatus,
 } from "./constants";
-export { accountEntity, transactionEntity } from "./entity";
+export { accountEntity, scheduleEntity, transactionEntity } from "./entity";
 export {
   createLedgerFeature,
   type LedgerFeatureOptions,
   ledgerFeature,
 } from "./feature";
+export {
+  confirmSchedulePeriodHandler,
+  createConfirmSchedulePeriodHandler,
+} from "./handlers/confirm-schedule-period.write";
 export {
   createCreateTransactionHandler,
   createTransactionHandler,
@@ -28,6 +34,16 @@ export {
   createReverseTransactionHandler,
   reverseTransactionHandler,
 } from "./handlers/reverse-transaction.write";
+export {
+  type LedgerTxRow,
+  mergeScheduleActuals,
+  type ProjectedPeriod,
+  projectSchedule,
+  type ScheduleDef,
+  type ScheduleMonth,
+  type ScheduleMonthStatus,
+  scheduleReference,
+} from "./recurring";
 export {
   type AccountBalance,
   accountBalances,
@@ -43,7 +59,9 @@ export {
 } from "./reports";
 export {
   accountTypeSchema,
+  type ConfirmSchedulePeriodPayload,
   type CreateTransactionPayload,
+  confirmSchedulePeriodPayloadSchema,
   createTransactionPayloadSchema,
   type Posting,
   postingSchema,

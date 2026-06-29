@@ -19,8 +19,9 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { type AccountType, LedgerHandlers, LedgerQueries } from "../constants";
-import { accountEntity, transactionEntity } from "../entity";
+import { accountEntity, scheduleEntity, transactionEntity } from "../entity";
 import { createLedgerFeature } from "../feature";
+import { scheduleReference } from "../recurring";
 import type { Posting } from "../schemas";
 
 const ledgerFeature = createLedgerFeature();
@@ -31,6 +32,7 @@ beforeAll(async () => {
   stack = await setupTestStack({ features: [ledgerFeature] });
   await unsafeCreateEntityTable(stack.db, accountEntity);
   await unsafeCreateEntityTable(stack.db, transactionEntity);
+  await unsafeCreateEntityTable(stack.db, scheduleEntity);
   await createEventsTable(stack.db);
 });
 
@@ -42,6 +44,7 @@ beforeEach(async () => {
   await asRawClient(stack.db).unsafe("DELETE FROM kumiko_events");
   await asRawClient(stack.db).unsafe("DELETE FROM read_ledger_accounts");
   await asRawClient(stack.db).unsafe("DELETE FROM read_ledger_transactions");
+  await asRawClient(stack.db).unsafe("DELETE FROM read_ledger_schedules");
 });
 
 const admin = createTestUser({ roles: ["TenantAdmin"] });
@@ -296,5 +299,113 @@ describe("ledger integration — reports (end-to-end)", () => {
     expect(r.currentResult).toBe(70000);
     expect(r.equity).toBe(570000);
     expect(r.balances).toBe(true);
+  });
+});
+
+describe("ledger integration — confirm-schedule-period (recurring)", () => {
+  async function createSchedule(
+    debitAccountId: string,
+    creditAccountId: string,
+    over: { amount?: number; description?: string; startDate?: string } = {},
+  ): Promise<string> {
+    const s = await stack.http.writeOk<{ id: string }>(
+      LedgerHandlers.createSchedule,
+      {
+        description: over.description ?? "Miete WE1",
+        startDate: over.startDate ?? "2026-01-01",
+        interval: "monthly",
+        amount: over.amount ?? 50000,
+        debitAccountId,
+        creditAccountId,
+      },
+      admin,
+    );
+    return s.id;
+  }
+
+  async function confirm(
+    scheduleId: string,
+    period: string,
+    amount?: number,
+  ): Promise<{ id: string }> {
+    return stack.http.writeOk<{ id: string }>(
+      LedgerHandlers.confirmSchedulePeriod,
+      amount === undefined ? { scheduleId, period } : { scheduleId, period, amount },
+      admin,
+    );
+  }
+
+  test("confirm books a balanced entry tagged with the schedule reference", async () => {
+    const bank = await createAccount("Bank", "asset");
+    const rent = await createAccount("Mieterträge", "income");
+    const scheduleId = await createSchedule(bank, rent);
+
+    await confirm(scheduleId, "2026-01");
+
+    const rows = await listTransactions();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.["reference"]).toBe(scheduleReference(scheduleId, "2026-01"));
+    expect(rows[0]?.["description"]).toBe("Miete WE1");
+    const lines = linesOf(rows[0] as Record<string, unknown>);
+    expect(lines.find((l) => l.accountId === bank)?.amount).toBe(50000);
+    expect(lines.find((l) => l.accountId === rent)?.amount).toBe(-50000);
+    expect(trialBalance(rows)).toBe(0);
+  });
+
+  test("re-confirming the same period is an idempotent no-op (no second booking)", async () => {
+    const bank = await createAccount("Bank", "asset");
+    const rent = await createAccount("Mieterträge", "income");
+    const scheduleId = await createSchedule(bank, rent);
+
+    const first = await confirm(scheduleId, "2026-01");
+    const second = await confirm(scheduleId, "2026-01");
+
+    expect(second.id).toBe(first.id);
+    expect(await listTransactions()).toHaveLength(1);
+  });
+
+  test("amount override books the actual received amount", async () => {
+    const bank = await createAccount("Bank", "asset");
+    const rent = await createAccount("Mieterträge", "income");
+    const scheduleId = await createSchedule(bank, rent, { amount: 50000 });
+
+    await confirm(scheduleId, "2026-02", 48000);
+
+    const rows = await listTransactions();
+    expect(
+      linesOf(rows[0] as Record<string, unknown>).find((l) => l.accountId === bank)?.amount,
+    ).toBe(48000);
+  });
+
+  test("confirm fails (404) when the schedule names a non-existent account", async () => {
+    const bank = await createAccount("Bank", "asset");
+    const scheduleId = await createSchedule(bank, "00000000-0000-4000-8000-00000000dead");
+
+    const err = await stack.http.writeErr(
+      LedgerHandlers.confirmSchedulePeriod,
+      { scheduleId, period: "2026-01" },
+      admin,
+    );
+    expect(err.httpStatus).toBe(404);
+    expect(await listTransactions()).toHaveLength(0);
+  });
+
+  test("a stornoed period is re-confirmable → a fresh booking is written", async () => {
+    const bank = await createAccount("Bank", "asset");
+    const rent = await createAccount("Mieterträge", "income");
+    const scheduleId = await createSchedule(bank, rent);
+
+    const booked = await confirm(scheduleId, "2026-01");
+    await stack.http.writeOk(LedgerHandlers.reverseTransaction, { id: booked.id }, admin);
+
+    // Original + Storno present; the period now reads as un-booked → re-confirm books anew.
+    expect(await listTransactions()).toHaveLength(2);
+    const reconfirmed = await confirm(scheduleId, "2026-01", 48000);
+    expect(reconfirmed.id).not.toBe(booked.id);
+
+    const rows = await listTransactions();
+    expect(rows).toHaveLength(3);
+    // Books net to zero (original cancels Storno) plus the fresh 48000 confirmation.
+    expect(trialBalance(rows)).toBe(0);
   });
 });

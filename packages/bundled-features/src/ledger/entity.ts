@@ -2,10 +2,11 @@ import {
   createDateField,
   createEntity,
   createJsonbField,
+  createNumberField,
   createSelectField,
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { ACCOUNT_TYPES, TRANSACTION_STATUS } from "./constants";
+import { ACCOUNT_TYPES, SCHEDULE_INTERVALS, TRANSACTION_STATUS } from "./constants";
 
 // account — a node in the chart of accounts. Event-sourced (create/update/list/
 // detail via the standard handlers); the framework projects `read_ledger_accounts`
@@ -50,5 +51,30 @@ export const transactionEntity = createEntity({
     reference: createTextField({ maxLength: 120 }),
     status: createSelectField({ options: TRANSACTION_STATUS, required: true }),
     lines: createJsonbField(),
+  },
+});
+
+// schedule — a recurring booking template (Dauerauftrag): "book `amount` from
+// debitAccount to creditAccount every period from startDate". Event-sourced CRUD
+// (create/update/list/detail); the framework projects `read_ledger_schedules`. It
+// holds NO bookings — the Soll (forecast) is a pure projection (projectSchedule)
+// and the Ist is materialised one period at a time by confirm-schedule-period,
+// which books a balanced transaction referencing scheduleReference(id, period).
+// amount is stored positive (minor units); the confirm handler assigns the signs.
+export const scheduleEntity = createEntity({
+  table: "read_ledger_schedules",
+  fields: {
+    description: createTextField({
+      required: true,
+      maxLength: 200,
+      allowPlaintext: "is-business-data",
+    }),
+    startDate: createDateField({ required: true }),
+    // Absent → open-ended (projects to the window's end).
+    endDate: createDateField(),
+    interval: createSelectField({ options: SCHEDULE_INTERVALS, required: true }),
+    amount: createNumberField({ required: true }),
+    debitAccountId: createTextField({ required: true, maxLength: 64 }),
+    creditAccountId: createTextField({ required: true, maxLength: 64 }),
   },
 });
