@@ -42,18 +42,31 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
       // columns carry no reference/select metadata and never server-sort.
       const derivedDef = entity.derivedFields?.[normalized.field];
       if (!derivedDef) {
-        // Screen references a field that's neither stored nor derived. Fail
-        // loud — the boot-validator (r.screen) should catch this, but a stale
-        // field-rename would leave the screen referring to a ghost column
-        // until ops re-runs boot. We throw so the renderer sees the error
-        // instead of drawing an empty column.
+        // A labeled column with no matching stored/derived field is a *virtual*
+        // presentational column — drawn entirely by a columnRenderer component
+        // from the row (e.g. tag chips); value is undefined and it never
+        // server-sorts. `field` is just the column key. Without a label it's an
+        // author typo (or a stale field-rename) → fail loud so the renderer
+        // doesn't silently draw an empty column.
+        if (normalized.label !== undefined) {
+          columns.push({
+            field: normalized.field,
+            label: translate(normalized.label),
+            type: "text",
+            sortable: false,
+            ...(normalized.renderer !== undefined && { renderer: normalized.renderer }),
+          });
+          continue;
+        }
         throw new Error(
           `computeListViewModel: screen "${screen.id}" references unknown field "${normalized.field}" on entity "${screen.entity}"`,
         );
       }
       columns.push({
         field: normalized.field,
-        label: translate(fieldLabelKey(featureName, screen.entity, normalized.field)),
+        label: translate(
+          normalized.label ?? fieldLabelKey(featureName, screen.entity, normalized.field),
+        ),
         type: derivedDef.valueType,
         // Display-only: a header sort would round-trip to the server, which has
         // no column to sort by (see DerivedFieldDef). Never offer the affordance.
@@ -62,7 +75,9 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
       });
       continue;
     }
-    const label = translate(fieldLabelKey(featureName, screen.entity, normalized.field));
+    const label = translate(
+      normalized.label ?? fieldLabelKey(featureName, screen.entity, normalized.field),
+    );
     // Tier 2.7e-3 + Cross-Feature: Reference-Field — entity-String
     // kann same-feature ("user") oder cross-feature ("users:user")
     // sein. parseRefTarget gibt (featureName, entityName), der

@@ -12,6 +12,7 @@
 // DB. Nothing here ships to prod / the schema pipeline.
 
 import {
+  TAGS_COLUMN_RENDERER_NAME,
   TAGS_FILTER_EXTENSION_NAME,
   TAGS_SECTION_EXTENSION_NAME,
 } from "@cosmicdrift/kumiko-bundled-features/tags";
@@ -43,7 +44,16 @@ const noteListScreen: EntityListScreenDefinition = {
   id: "note-list",
   type: "entityList",
   entity: "note",
-  columns: ["title"],
+  // "tags" is a virtual column (not a note field): the drop-in TagsCell renderer
+  // draws the row's tag chips inline. Reusable on any entityList, zero host schema.
+  columns: [
+    "title",
+    {
+      field: "tags",
+      label: "Tags",
+      renderer: { react: { __component: TAGS_COLUMN_RENDERER_NAME } },
+    },
+  ],
   searchable: true,
   // The drop-in tag filter — narrows THIS list to the notes carrying the picked
   // tags, via the renderer's id-set url-filter. Zero host-schema change.

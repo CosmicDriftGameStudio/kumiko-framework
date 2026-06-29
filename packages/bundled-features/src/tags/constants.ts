@@ -19,6 +19,12 @@ export const TAGS_SECTION_EXTENSION_NAME = "TagSection";
 // after mounting tagsClient(); the renderer passes it the list's screenId.
 export const TAGS_FILTER_EXTENSION_NAME = "TagFilter";
 
+// Registry name for the <TagsCell> column renderer. A host entityList shows an
+// entity's tags inline by declaring a labeled virtual column:
+// `{ field: "tags", label: "Tags", renderer: { react: { __component: TAGS_COLUMN_RENDERER_NAME } } }`
+// after mounting tagsClient() (which registers it under clientFeatures.columnRenderers).
+export const TAGS_COLUMN_RENDERER_NAME = "TagsCell";
+
 // Screen-id of the standalone Tags management screen (custom screen rendering
 // TagManager). Qualified = "tags:screen:tag-list"; the app places it via r.nav.
 export const TAGS_SCREEN_ID = "tag-list";
