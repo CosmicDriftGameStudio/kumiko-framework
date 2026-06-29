@@ -1,5 +1,12 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.102.2
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-bundled-features@0.102.2
+- @cosmicdrift/kumiko-framework@0.102.2
+
 ## 0.102.1
 
 ### Patch Changes

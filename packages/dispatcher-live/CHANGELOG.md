@@ -1,5 +1,12 @@
 # @cosmicdrift/kumiko-dispatcher-live
 
+## 0.102.2
+
+### Patch Changes
+
+- Updated dependencies [cfc5895]
+  - @cosmicdrift/kumiko-headless@0.102.2
+
 ## 0.102.1
 
 ### Patch Changes
