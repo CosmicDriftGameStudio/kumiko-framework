@@ -1,0 +1,8 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-timezones",
+  "description": "Every time-aware field type on one entity, plus the ctx.tz handler API.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  }
+}
