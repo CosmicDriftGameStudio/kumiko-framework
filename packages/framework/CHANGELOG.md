@@ -1,5 +1,23 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.95.0
+
+### Minor Changes
+
+- 387f259: Timezones (#268, item 13): `GeoTzProvider` interface + injection seam.
+
+  `ctx.tz` gains `fromCoordinates(coords)` and `fromAddress(address)` — both delegate to an optional `GeoTzProvider` injected via the app context (`buildServer({ context: { geoTzProvider } })` or `runProdApp`/`runDevApp({ extraContext: { geoTzProvider } })`). With no provider configured they throw a clear, actionable error (v1 ships no auto-lookup).
+
+  `fromCoordinates` is the primary method — offline geo-tz libraries resolve lat/lng → zone (they don't take postal addresses); `fromAddress` is optional, for geocoding-API providers. New exports from `@cosmicdrift/kumiko-framework/time`: `GeoTzProvider`, `GeoCoordinates`, `GeoAddress`.
+
+  Interface + seam only — a concrete provider (e.g. an offline geo-tz package) ships separately.
+
+- da32b71: Timezones (#268, item 10): render `locatedTimestamp` fields as a proper located date-time picker.
+
+  A `{ type: "locatedTimestamp" }` entity field now renders a wall-clock date + time input plus an IANA time-zone selector (new `LocatedTimestampInput`, `Input` kind `"locatedTimestamp"`) instead of falling through to a plain text input. The picker is pure wall-clock — no UTC conversion and no `new Date()` in the UI; it emits `{ at, tz }` and the server computes `utc`. New default i18n keys `kumiko.field.timezone` + `kumiko.field.locatedTzHint`.
+
+  Apps that replace the default web primitives should add a `case "locatedTimestamp"` to their `Input` implementation; `DefaultInput` handles it out of the box.
+
 ## 0.94.0
 
 ### Minor Changes
