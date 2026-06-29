@@ -189,6 +189,45 @@ const RESPONSIVE = `
   }
 `;
 
+// Dropdown nav entry (kind:"menu"): CSS-only, reveals on hover AND keyboard
+// focus-within (the trigger is a real <button>, panel items are <a>). The panel
+// is a light popover in BOTH themes — only the trigger color tracks the
+// surrounding nav. Nav is hidden < 640px (CHROME_*), so this is desktop-only.
+// Exported standalone so a consumer rendering its own header chrome (not the
+// full apex page) can include just this, without duplicating the rules.
+export const APEX_NAV_MENU_CSS = `
+  .nav-menu { position: relative; display: inline-flex; }
+  .nav-menu__trigger { display: inline-flex; align-items: center; gap: 0.3rem;
+    font: inherit; font-size: 0.9375rem; color: var(--fg-muted);
+    background: none; border: 0; padding: 0; cursor: pointer; }
+  .nav-menu__trigger:hover { color: var(--fg); }
+  .nav-menu__chev { font-size: 0.7em; transition: transform 0.15s; }
+  .nav-menu:hover .nav-menu__chev, .nav-menu:focus-within .nav-menu__chev { transform: rotate(180deg); }
+  .nav-menu__panel { position: absolute; top: calc(100% + 0.5rem); left: 0; z-index: 20;
+    min-width: 21rem; padding: 0.5rem; background: var(--bg-card); color: var(--fg);
+    border: 1px solid var(--border); border-radius: 0.75rem; box-shadow: var(--shadow);
+    display: flex; flex-direction: column; gap: 0.125rem;
+    opacity: 0; visibility: hidden; transform: translateY(0.375rem);
+    transition: opacity 0.15s, transform 0.15s, visibility 0.15s; }
+  .nav-menu:hover .nav-menu__panel, .nav-menu:focus-within .nav-menu__panel {
+    opacity: 1; visibility: visible; transform: translateY(0); }
+  .nav-menu__item { display: flex; gap: 0.75rem; align-items: flex-start;
+    padding: 0.6rem 0.7rem; border-radius: 0.5rem; color: var(--fg); }
+  .nav-menu__item:hover { background: var(--bg-muted); color: var(--fg); }
+  .nav-menu__icon { flex: none; display: inline-flex; align-items: center; justify-content: center;
+    width: 2rem; height: 2rem; border-radius: 0.5rem;
+    background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); }
+  .nav-menu__icon svg { width: 1.1rem; height: 1.1rem; }
+  .nav-menu__text { display: flex; flex-direction: column; gap: 0.1rem; }
+  .nav-menu__title { font-weight: 600; font-size: 0.9rem; line-height: 1.2; }
+  .nav-menu__desc { font-size: 0.8rem; color: var(--fg-muted); line-height: 1.35; }
+  .nav-menu__sep { height: 1px; background: var(--border); margin: 0.375rem 0.3rem; }
+  .nav-menu__more { display: inline-flex; padding: 0.4rem 0.7rem; font-size: 0.85rem; font-weight: 600; color: var(--primary); }
+  .nav-menu__more:hover { color: var(--primary-hover); }
+  .apex-dark .nav-menu__trigger { color: var(--on-dark-muted); }
+  .apex-dark .nav-menu__trigger:hover { color: var(--on-dark); }
+`;
+
 export const APEX_STRUCTURAL_CSS =
   BASE_LAYOUT +
   HERO +
@@ -198,4 +237,5 @@ export const APEX_STRUCTURAL_CSS =
   FINAL_CTA +
   CHROME_LIGHT +
   CHROME_DARK +
+  APEX_NAV_MENU_CSS +
   RESPONSIVE;

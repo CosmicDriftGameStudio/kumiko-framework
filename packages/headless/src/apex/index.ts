@@ -7,6 +7,8 @@
 import { escapeHtml } from "../format";
 import { APEX_STRUCTURAL_CSS } from "./css";
 
+export { APEX_NAV_MENU_CSS, APEX_STRUCTURAL_CSS } from "./css";
+
 export type ApexTheme = "light" | "dark";
 
 /** Brand is raw CSS the app owns: the :root token block and optional @font-face.
@@ -28,6 +30,28 @@ export type ApexCta = {
 };
 
 export type ApexLink = { readonly label: string; readonly href: string };
+
+/** One entry inside a dropdown nav menu: icon + title + optional description. */
+export type ApexNavMenuItem = {
+  /** Inner SVG markup (paths), wrapped by the standard 24px icon <svg>. Trusted. */
+  readonly icon?: string;
+  readonly title: string;
+  readonly desc?: string;
+  readonly href: string;
+};
+
+/** A header nav entry that opens a dropdown (icon/title/desc rows) instead of
+ *  navigating. CSS-only: reveals on hover + keyboard focus. */
+export type ApexNavMenu = {
+  readonly kind: "menu";
+  readonly label: string;
+  readonly items: readonly ApexNavMenuItem[];
+  /** Optional link under a divider at the foot of the panel (e.g. "See all →"). */
+  readonly footer?: ApexLink;
+};
+
+/** A header nav entry: a plain link, or a dropdown menu. */
+export type ApexNavEntry = ApexLink | ApexNavMenu;
 export type ApexImage = {
   readonly src: string;
   readonly alt: string;
@@ -37,7 +61,8 @@ export type ApexImage = {
 
 export type ApexHeader = {
   readonly brand: { readonly href: string; readonly label: string; readonly logoSrc?: string };
-  readonly navLinks?: readonly ApexLink[];
+  /** Plain links and/or dropdown menus, in order. */
+  readonly navLinks?: readonly ApexNavEntry[];
   readonly actions?: readonly ApexCta[];
 };
 
@@ -329,12 +354,37 @@ function renderSection(s: ApexSection): string {
   }
 }
 
-function renderHeader(h: ApexHeader): string {
+function renderNavMenu(m: ApexNavMenu): string {
+  const items = m.items
+    .map(
+      (it) =>
+        `<a class="nav-menu__item" href="${escapeHtml(it.href)}">${
+          it.icon !== undefined ? `<span class="nav-menu__icon">${svgIcon(it.icon)}</span>` : ""
+        }<span class="nav-menu__text"><span class="nav-menu__title">${escapeHtml(it.title)}</span>${
+          it.desc !== undefined ? `<span class="nav-menu__desc">${escapeHtml(it.desc)}</span>` : ""
+        }</span></a>`,
+    )
+    .join("");
+  const footer =
+    m.footer !== undefined
+      ? `<div class="nav-menu__sep"></div><a class="nav-menu__more" href="${escapeHtml(m.footer.href)}">${escapeHtml(m.footer.label)}</a>`
+      : "";
+  return `<div class="nav-menu"><button type="button" class="nav-menu__trigger" aria-haspopup="true">${escapeHtml(m.label)}<span class="nav-menu__chev" aria-hidden="true">▾</span></button><div class="nav-menu__panel">${items}${footer}</div></div>`;
+}
+
+function renderNavEntry(entry: ApexNavEntry): string {
+  return "items" in entry
+    ? renderNavMenu(entry)
+    : `<a href="${escapeHtml(entry.href)}">${escapeHtml(entry.label)}</a>`;
+}
+
+/** Render just the apex header chrome (brand + nav + actions). Exported so a
+ *  consumer that composes its own page shell (not a full apex page) can reuse
+ *  the identical header — markup stays single-source. */
+export function renderApexHeader(h: ApexHeader): string {
   const logo =
     h.brand.logoSrc !== undefined ? `<img src="${escapeHtml(h.brand.logoSrc)}" alt="" /> ` : "";
-  const navLinks = (h.navLinks ?? [])
-    .map((l) => `<a href="${escapeHtml(l.href)}">${escapeHtml(l.label)}</a>`)
-    .join("\n      ");
+  const navLinks = (h.navLinks ?? []).map(renderNavEntry).join("\n      ");
   const actions = (h.actions ?? []).map(renderCta);
   return `<header>
     <div class="container nav">
@@ -445,7 +495,7 @@ export function renderApexPage(page: ApexPage): string {
     <style>${css}</style>
   </head>
   <body${theme === "dark" ? ` class="apex-dark"` : ""}>
-    ${renderHeader(page.header)}
+    ${renderApexHeader(page.header)}
 
     ${sections}
 
