@@ -9,6 +9,10 @@ export const tagEntity = createEntity({
     name: createTextField({ required: true, maxLength: 64 }),
     // Optional UI hint (hex or token). No enforcement — purely for rendering.
     color: createTextField({ maxLength: 32 }),
+    // Optional entity-type scope (GitLab project-vs-group labels): empty = global
+    // (offered on every entity); a value like "note" restricts the tag to that
+    // entityType in the picker. No enforcement on assign — purely a picker hint.
+    scope: createTextField({ maxLength: 64 }),
   },
 });
 

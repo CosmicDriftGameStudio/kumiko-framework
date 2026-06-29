@@ -382,7 +382,9 @@ function ListHeaderSlotMount({
     }
   }, [name, Component, screen.id]);
   if (Component === undefined) return null;
-  return <Component entityName={screen.entity} entityId={null} />;
+  // screenId lets a header control drive this list's URL-filter state
+  // (useListUrlState) — e.g. a tag filter narrowing the list to an id-set.
+  return <Component entityName={screen.entity} entityId={null} screenId={screen.id} />;
 }
 
 // Tier 2.7e-4: Bridge-Component pro reference-Spalte. Mounted für jede

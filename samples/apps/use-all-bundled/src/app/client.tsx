@@ -11,6 +11,7 @@
 // der App (siehe user/screens.ts). use-all-bundled IST diese App.
 
 import { emailPasswordClient } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
+import { tagsClient } from "@cosmicdrift/kumiko-bundled-features/tags/web";
 import { tierEngineClient } from "@cosmicdrift/kumiko-bundled-features/tier-engine/web";
 import { userDataRightsClient } from "@cosmicdrift/kumiko-bundled-features/user-data-rights/web";
 import {
@@ -36,6 +37,14 @@ const APP_TRANSLATIONS: TranslationsByLocale = {
     "managed-pages:entity:page:field:published": "Published",
     "managed-pages:actions.edit": "Edit",
     "managed-pages:actions.delete": "Delete",
+    "notes-demo:entity:note:field:title": "Title",
+    "notes-demo:section.note": "Note",
+    "notes-demo:section.tags": "Tags",
+    "notes-demo:actions.edit": "Edit",
+    "notes-demo:actions.delete": "Delete",
+    "notes-demo:confirms.note-delete": "Delete this note?",
+    "screen:note-list.title": "Notes",
+    "screen:note-edit.title": "Note",
   },
   de: {
     "tenant:entity:tenant:field:key": "Schlüssel",
@@ -51,6 +60,14 @@ const APP_TRANSLATIONS: TranslationsByLocale = {
     "managed-pages:entity:page:field:published": "Veröffentlicht",
     "managed-pages:actions.edit": "Bearbeiten",
     "managed-pages:actions.delete": "Löschen",
+    "notes-demo:entity:note:field:title": "Titel",
+    "notes-demo:section.note": "Notiz",
+    "notes-demo:section.tags": "Tags",
+    "notes-demo:actions.edit": "Bearbeiten",
+    "notes-demo:actions.delete": "Löschen",
+    "notes-demo:confirms.note-delete": "Diese Notiz löschen?",
+    "screen:note-list.title": "Notizen",
+    "screen:note-edit.title": "Notiz",
   },
 };
 
@@ -67,6 +84,9 @@ createKumikoApp({
     tierEngineClient(),
     userProfileClient(),
     userDataRightsClient(),
+    // tag-list management screen (TagManager) + TagSection/TagFilter extension
+    // slots + tag i18n. Required for the dev-only notesFeature host to render.
+    tagsClient(),
     appScreens,
   ],
 });

@@ -12,9 +12,9 @@
 // tag-assignments filtered on entityId (tags of an entity) or tagId (entities
 // with a tag). See entity.ts.
 //
-// Scope: create-tag, rename-tag, assign-tag, remove-tag, list tags, list assignments.
-// Deferred: delete-tag, optional host-projection decoration
-// (`wireTagsFor`), search indexing, user-data-rights anonymization.
+// Handlers: create-tag, update-tag (rename/recolor/re-scope), delete-tag
+// (cascades over assignments), assign-tag, remove-tag, list tags, list assignments.
+// Deferred: optional host-projection decoration (`wireTagsFor`), search indexing.
 
 import {
   type AccessRule,
@@ -22,12 +22,13 @@ import {
   defineFeature,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { DEFAULT_TAG_ACCESS, TAGS_FEATURE_NAME } from "./constants";
+import { DEFAULT_TAG_ACCESS, TAGS_FEATURE_NAME, TAGS_SCREEN_ID } from "./constants";
 import { tagAssignmentEntity, tagEntity } from "./entity";
 import { createAssignTagHandler } from "./handlers/assign-tag.write";
 import { createCreateTagHandler } from "./handlers/create-tag.write";
+import { createDeleteTagHandler } from "./handlers/delete-tag.write";
 import { createRemoveTagHandler } from "./handlers/remove-tag.write";
-import { createRenameTagHandler } from "./handlers/rename-tag.write";
+import { createUpdateTagHandler } from "./handlers/update-tag.write";
 
 // Opt-in tier-gating: when set, the feature declares itself r.toggleable so the
 // dispatcher gate + feature-toggles + tier-engine can switch the WHOLE feature
@@ -43,7 +44,7 @@ function registerTags(
   toggleable: TagsToggleable | undefined,
 ): void {
   r.describe(
-    "Generic, host-agnostic tagging for any entity. Owns two event-sourced entities — the per-tenant `tag` catalog (`read_tags`) and `tag-assignment` join rows keyed by (entityType, entityId) (`read_tag_assignments`) — so tagging adds NO column to the host entity and needs no relational pivot or JOIN. Provides write-handlers `create-tag`, `rename-tag` (optimistic-locked), `assign-tag` (idempotent), `remove-tag` (idempotent) and list queries for the catalog and the assignments. Read which tags an entity has, or which entities carry a tag, by listing `tag-assignment` filtered on `entityId` or `tagId` and composing in the read-layer. Every path uses one access rule — adopt the host's model with createTagsFeature({ access: { openToAll: true } }) or pin roles with createTagsFeature({ roles }). Pass { toggleable: { default: false } } to make the whole feature tier-gatable via the tier-engine (no host hook).",
+    "Generic, host-agnostic tagging for any entity. Owns two event-sourced entities — the per-tenant `tag` catalog (`read_tags`, with optional `color` and `scope`) and `tag-assignment` join rows keyed by (entityType, entityId) (`read_tag_assignments`) — so tagging adds NO column to the host entity and needs no relational pivot or JOIN. Provides write-handlers `create-tag`, `update-tag` (optimistic-locked rename/recolor/re-scope), `delete-tag` (cascades over assignments), `assign-tag` (idempotent), `remove-tag` (idempotent) and list queries for the catalog and the assignments. Read which tags an entity has, or which entities carry a tag, by listing `tag-assignment` filtered on `entityId` or `tagId` and composing in the read-layer. A tag with empty `scope` is global; a `scope` of an entityType restricts it to that type in the picker. Every path uses one access rule — adopt the host's model with createTagsFeature({ access: { openToAll: true } }) or pin roles with createTagsFeature({ roles }). Pass { toggleable: { default: false } } to make the whole feature tier-gatable via the tier-engine (no host hook).",
   );
   r.uiHints({
     displayLabel: "Tags",
@@ -59,12 +60,22 @@ function registerTags(
   r.entity("tag-assignment", tagAssignmentEntity);
 
   r.writeHandler(createCreateTagHandler(access));
-  r.writeHandler(createRenameTagHandler(access));
+  r.writeHandler(createUpdateTagHandler(access));
+  r.writeHandler(createDeleteTagHandler(access));
   r.writeHandler(createAssignTagHandler(access));
   r.writeHandler(createRemoveTagHandler(access));
 
   r.queryHandler(defineEntityListHandler("tag", tagEntity, { access }));
   r.queryHandler(defineEntityListHandler("tag-assignment", tagAssignmentEntity, { access }));
+
+  // Standalone Tags management screen (custom React: TagManager). The app places
+  // it in nav via r.nav("tags:screen:tag-list"); tagsClient() maps the component.
+  r.screen({
+    id: TAGS_SCREEN_ID,
+    type: "custom",
+    renderer: { react: { __component: "TagsScreen" } },
+    access,
+  });
 }
 
 export const tagsFeature = defineFeature(TAGS_FEATURE_NAME, (r) =>

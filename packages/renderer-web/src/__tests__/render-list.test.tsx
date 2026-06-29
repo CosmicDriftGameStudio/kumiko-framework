@@ -153,7 +153,8 @@ describe("RenderList", () => {
 describe("RenderList — slots.header", () => {
   const ListHeader = (props: ExtensionSectionProps) => (
     <div data-testid="list-header-slot">
-      header for {props.entityName} (id={String(props.entityId)})
+      header for {props.entityName} (id={String(props.entityId)}) (screen=
+      {String(props.screenId)})
     </div>
   );
   const screenWithHeader: EntityListScreenDefinition = {
@@ -171,6 +172,9 @@ describe("RenderList — slots.header", () => {
     expect(header.textContent).toContain("header for task");
     // Listen-Kontext → keine Row → entityId null.
     expect(header.textContent).toContain("id=null");
+    // Core edit: the header slot gets THIS list's screenId so a control like
+    // the tags TagFilter can drive its url-filter state (useListUrlState).
+    expect(header.textContent).toContain(`screen=${screenWithHeader.id}`);
     // Placement-Regression (Bug-Bash 3 #12): der Header-Slot lebt IM
     // Toolbar-Container (toolbarEnd), NICHT als loser Node über dem
     // Screen-Titel.

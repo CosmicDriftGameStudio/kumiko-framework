@@ -245,7 +245,7 @@
       "primarySample": "recipes-tags-basic",
       "whenToUse": "Users label records with a shared tag vocabulary — mount tags once and attach tag sets to any entity without a custom join table per feature.",
       "sampleBlurb": "Tag a plain note entity with zero host changes — assign/remove handlers, read-layer composition, and optional TagSection UI.",
-      "screenshot": null
+      "screenshot": "/screenshots/features/tags.png"
     },
     "tenant": {
       "samples": [

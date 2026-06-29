@@ -7,6 +7,7 @@
 import { resolve } from "node:path";
 import type { Page } from "@playwright/test";
 import { runMatrix, type Scenario } from "../../../e2e/screenshots";
+import { DEMO_NOTE_ID } from "../src/app/auth-constants";
 import { loginAsAdmin } from "./_helpers/login";
 
 const BASE_DIR =
@@ -45,6 +46,12 @@ const SCENARIOS: readonly Scenario[] = [
   { name: "user-data-rights", flow: admin("/privacy-center"), settleMs: 1000 },
   // managed-pages — TenantAdmin entity-list (about + pricing seeded).
   { name: "managed-pages", flow: admin("/page-list"), settleMs: 1000 },
+  // tags — GitLab-style label management screen (catalog, colors, usage counts).
+  { name: "tags", flow: admin("/tag-list"), settleMs: 1000 },
+  // tags — a host list (notes) with the drop-in TagFilter in its toolbar header.
+  { name: "tags-filter", flow: admin("/note-list"), settleMs: 1000 },
+  // tags — a note's edit screen with the drop-in TagSection (assigned colored chips).
+  { name: "tags-section", flow: admin(`/note-edit/${DEMO_NOTE_ID}`), settleMs: 1000 },
   // legal-pages — öffentliche, server-gerenderte Route (kein Login).
   { name: "legal-pages", url: "/legal/privacy", settleMs: 600 },
 ];

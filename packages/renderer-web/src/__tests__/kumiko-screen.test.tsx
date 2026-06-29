@@ -6,12 +6,13 @@ import type {
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
-import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
+import type { FeatureSchema, NavApi } from "@cosmicdrift/kumiko-renderer";
 import {
   DispatcherProvider,
   ExtensionSectionsProvider,
   KumikoScreen,
   kumikoDefaultTranslations,
+  NavProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
 import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils";
@@ -1053,6 +1054,42 @@ describe("KumikoScreen", () => {
     expect(firstCall?.type).toBe("tasks:query:task:list");
     const payload = firstCall?.payload as { filter?: unknown };
     expect(payload.filter).toEqual({ field: "status", op: "eq", value: "scheduled" });
+  });
+
+  // TagFilter drop-in (core edit): a faceted filter on `id` — a base column NOT
+  // in entity.fields — must still pass through as an op:"in" id-set so a header-
+  // slot control can narrow ANY list to a resolved set of row ids. Before the
+  // edit, `id` was silently dropped (only entity.fields facets survived).
+  test("entityList faceted id-filter → payload.filters carries an op:'in' id-set", async () => {
+    const queryCalls: { type: string; payload: unknown }[] = [];
+    const dispatcher = makeDispatcher({
+      query: (async (type: string, payload: unknown) => {
+        queryCalls.push({ type, payload });
+        return { isSuccess: true, data: { rows: [], nextCursor: null } };
+      }) as unknown as Dispatcher["query"],
+    });
+    // useListUrlState reads `<screenId>.f.<field>` (comma-joined) from nav —
+    // listScreen.id is "task-list", so this seeds an id-facet of two row ids.
+    const navWithIdFilter: NavApi = {
+      route: undefined,
+      navigate: () => {},
+      replace: () => {},
+      hrefFor: (t) => `/${t.screenId}`,
+      searchParams: { "task-list.f.id": "r1,r2" },
+      setSearchParams: () => {},
+    };
+
+    render(
+      <NavProvider value={navWithIdFilter}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen schema={schema} qn="tasks:screen:task-list" />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+    await waitFor(() => expect(queryCalls.length).toBeGreaterThan(0));
+
+    const payload = queryCalls[0]?.payload as { filters?: unknown };
+    expect(payload.filters).toEqual([{ field: "id", op: "in", value: ["r1", "r2"] }]);
   });
 
   // Regression-Guard: Default-Pfad (kein screen.filter) darf KEIN

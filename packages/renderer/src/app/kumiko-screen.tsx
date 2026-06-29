@@ -604,6 +604,13 @@ function EntityListBody({
     const out: { field: string; op: "in"; value: unknown }[] = [];
     for (const [field, values] of Object.entries(urlState.filters)) {
       if (values.length === 0) continue;
+      // `id` is a base column (not in entity.fields), allowed as an id-set
+      // filter so a header-slot control — e.g. the tags TagFilter — can narrow
+      // ANY list to a resolved set of row ids without the host declaring a facet.
+      if (field === "id") {
+        out.push({ field, op: "in", value: values });
+        continue;
+      }
       // entity.fields ist am Renderer-Layer schwach getypt (vom Schema
       // deserialisiert) — Boundary-Cast wie buildInitialValues.
       const def = entity.fields[field] as { type?: string } | undefined;

@@ -14,11 +14,21 @@ export const TAGS_FEATURE_NAME = "tags";
 // standalone use from `@cosmicdrift/kumiko-bundled-features/tags/web`.
 export const TAGS_SECTION_EXTENSION_NAME = "TagSection";
 
+// Registry name for the <TagFilter> header-slot control. A host entityList wires
+// it via `slots: { header: { react: { __component: TAGS_FILTER_EXTENSION_NAME } } }`
+// after mounting tagsClient(); the renderer passes it the list's screenId.
+export const TAGS_FILTER_EXTENSION_NAME = "TagFilter";
+
+// Screen-id of the standalone Tags management screen (custom screen rendering
+// TagManager). Qualified = "tags:screen:tag-list"; the app places it via r.nav.
+export const TAGS_SCREEN_ID = "tag-list";
+
 // Qualified handler names (QN format: scope:type:name). Clients reference the
 // object instead of magic strings (mirror custom-fields' Handlers/Queries).
 export const TagsHandlers = {
   createTag: "tags:write:create-tag",
-  renameTag: "tags:write:rename-tag",
+  updateTag: "tags:write:update-tag",
+  deleteTag: "tags:write:delete-tag",
   assignTag: "tags:write:assign-tag",
   removeTag: "tags:write:remove-tag",
 } as const;

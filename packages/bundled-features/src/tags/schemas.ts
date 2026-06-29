@@ -3,17 +3,36 @@ import { z } from "zod";
 export const createTagPayloadSchema = z.object({
   name: z.string().min(1).max(64),
   color: z.string().max(32).optional(),
+  scope: z.string().max(64).optional(),
 });
 export type CreateTagPayload = z.infer<typeof createTagPayloadSchema>;
 
-// rename-tag — id + the version the client read (optimistic lock, mirrors
-// tenant:update) + the new name. The executor merges shallowly, so color stays.
-export const renameTagPayloadSchema = z.object({
+// update-tag — id + the version the client read (optimistic lock, mirrors
+// tenant:update) + the fields to change. name/color/scope are each optional so
+// the management UI can rename, recolor or re-scope independently; the executor
+// shallow-merges, so any field left undefined is preserved. color/scope accept ""
+// to clear them. At least one mutable field must be present (no-op guard).
+export const updateTagPayloadSchema = z
+  .object({
+    id: z.string().min(1),
+    version: z.number().int().nonnegative(),
+    name: z.string().min(1).max(64).optional(),
+    color: z.string().max(32).optional(),
+    scope: z.string().max(64).optional(),
+  })
+  .refine((p) => p.name !== undefined || p.color !== undefined || p.scope !== undefined, {
+    message: "update-tag needs at least one of name, color or scope",
+  });
+export type UpdateTagPayload = z.infer<typeof updateTagPayloadSchema>;
+
+// delete-tag — hard-deletes the catalog tag AND cascades a soft-delete over
+// every assignment carrying it (no FK, so the handler does the cascade). No
+// version: deleting a label is a destructive "make it gone" intent — last writer
+// wins toward deletion rather than 409-ing on a concurrent rename. Idempotent.
+export const deleteTagPayloadSchema = z.object({
   id: z.string().min(1),
-  version: z.number().int().nonnegative(),
-  name: z.string().min(1).max(64),
 });
-export type RenameTagPayload = z.infer<typeof renameTagPayloadSchema>;
+export type DeleteTagPayload = z.infer<typeof deleteTagPayloadSchema>;
 
 // assign + remove share the (tag, entity) reference shape.
 const entityTagRef = {

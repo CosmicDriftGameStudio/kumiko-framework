@@ -11,7 +11,7 @@ import { TagsHandlers, TagsQueries } from "../../constants";
 import { defaultTranslations } from "../i18n";
 import { TagSection, tagSelectionDelta } from "../tag-section";
 
-type TagRow = { id: string; name: string };
+type TagRow = { id: string; name: string; color?: string };
 type AssignmentRow = { tagId: string; entityType: string; entityId: string };
 
 let catalogRows: readonly TagRow[] = [];
@@ -44,6 +44,36 @@ mock.module("@cosmicdrift/kumiko-renderer", () => ({
   useQuery: useQuerySpy,
 }));
 
+// The real picker is a Dialog wrapping TagManager (cmdk/Radix popovers) — its
+// interaction is the picker's own test + e2e territory. Here we swap a headless
+// stub that just exposes the onChange contract via two buttons, so we can pin
+// what TagSection does with a new selection (the assign/remove diff) without
+// driving a modal. Same contract as the real picker's onChange.
+const StubPicker = ({
+  value,
+  onChange,
+}: {
+  readonly value: readonly string[];
+  readonly onChange: (next: readonly string[]) => void;
+  readonly entityType: string;
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+}): ReactNode => (
+  <div data-testid="stub-picker">
+    <button type="button" data-testid="picker-add-t2" onClick={() => onChange([...value, "t2"])}>
+      add t2
+    </button>
+    <button
+      type="button"
+      data-testid="picker-remove-t1"
+      onClick={() => onChange(value.filter((v) => v !== "t1"))}
+    >
+      remove t1
+    </button>
+  </div>
+);
+mock.module("../tag-picker", () => ({ TagPicker: StubPicker }));
+
 function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
   return (
     <LocaleProvider resolver={createStaticLocaleResolver()} fallbackBundles={[defaultTranslations]}>
@@ -52,51 +82,8 @@ function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
   );
 }
 
-// The real combobox is cmdk + Radix — its popover is e2e/primitive-test
-// territory (see note above). To pin the onSelectionChange → assign/remove
-// wiring we swap in a headless stub that renders one toggle button per option
-// and fires onChange with the toggled selection — same contract, no popover.
-const StubInput: typeof defaultPrimitives.Input = (props) => {
-  if (props.kind === "combobox" && props.multiple === true) {
-    const value = props.value;
-    return (
-      <div data-testid="stub-combobox">
-        {props.options.map((o) => {
-          const selected = value.includes(o.value);
-          return (
-            <button
-              key={o.value}
-              type="button"
-              data-testid={`tag-opt-${o.value}`}
-              onClick={() =>
-                props.onChange(selected ? value.filter((v) => v !== o.value) : [...value, o.value])
-              }
-            >
-              {o.label}
-            </button>
-          );
-        })}
-      </div>
-    );
-  }
-  return <input data-testid={`stub-${props.id}`} />;
-};
-
-function StubComboboxWrapper({ children }: { readonly children: ReactNode }): ReactNode {
-  return (
-    <LocaleProvider resolver={createStaticLocaleResolver()} fallbackBundles={[defaultTranslations]}>
-      <PrimitivesProvider value={{ ...defaultPrimitives, Input: StubInput }}>
-        {children}
-      </PrimitivesProvider>
-    </LocaleProvider>
-  );
-}
-
-// The combobox's assign/remove toggle drives onChange with the full new
-// selection; the component diffs it against the current tags via this helper.
-// Popover interaction itself (cmdk + Radix in jsdom) is covered by the
-// combobox primitive's own tests + e2e — here we pin the diff that turns a
-// selection into assign/remove calls.
+// The picker's onChange drives the full new selection; the section diffs it
+// against the current assignments via this helper to decide assign vs remove.
 describe("tagSelectionDelta", () => {
   test("addition only", () => {
     expect(tagSelectionDelta(["a"], ["a", "b"])).toEqual({ added: ["b"], removed: [] });
@@ -113,9 +100,9 @@ describe("tagSelectionDelta", () => {
 });
 
 describe("TagSection", () => {
-  test("renders assigned tags as combobox chips", () => {
+  test("renders assigned tags as colored chips + an Edit-tags button", () => {
     catalogRows = [
-      { id: "t1", name: "important" },
+      { id: "t1", name: "important", color: "#ef4444" },
       { id: "t2", name: "project-x" },
     ];
     assignmentRows = [{ tagId: "t1", entityType: "note", entityId: "note-1" }];
@@ -126,41 +113,28 @@ describe("TagSection", () => {
       </Wrapper>,
     );
 
-    expect(screen.getByTestId("combobox-tags-section-select")).toBeTruthy();
-    // assigned → chip shown in the trigger; unassigned t2 lives in the (closed) dropdown
+    expect(screen.getByTestId("tags-section")).toBeTruthy();
+    // assigned → chip shown; unassigned t2 is not rendered (it lives in the picker)
     expect(screen.getByText("important")).toBeTruthy();
     expect(screen.queryByText("project-x")).toBeNull();
+    expect(screen.getByTestId("tags-section-edit")).toBeTruthy();
   });
 
-  test("create-and-attach dispatches create-tag, then assign-tag with the new id", async () => {
-    catalogRows = [];
+  test("no assigned tags → renders no chips, just the Edit-tags button", () => {
+    catalogRows = [{ id: "t1", name: "important" }];
     assignmentRows = [];
-    dispatchSpy.mockClear();
 
     render(
       <Wrapper>
-        <TagSection entityName="note" entityId="note-9" />
+        <TagSection entityName="note" entityId="note-1" />
       </Wrapper>,
     );
 
-    fireEvent.change(document.getElementById("tags-section-new") as HTMLInputElement, {
-      target: { value: "urgent" },
-    });
-    fireEvent.click(screen.getByTestId("tags-section-create"));
-
-    await waitFor(() =>
-      expect(dispatchSpy).toHaveBeenCalledWith(TagsHandlers.createTag, { name: "urgent" }),
-    );
-    await waitFor(() =>
-      expect(dispatchSpy).toHaveBeenCalledWith(TagsHandlers.assignTag, {
-        tagId: "tag-new",
-        entityType: "note",
-        entityId: "note-9",
-      }),
-    );
+    expect(screen.queryByTestId("tag-chip")).toBeNull();
+    expect(screen.getByTestId("tags-section-edit")).toBeTruthy();
   });
 
-  test("#524/3: selection change dispatches assign for additions, remove for removals", async () => {
+  test("picker selection dispatches assign for additions, remove for removals", async () => {
     catalogRows = [
       { id: "t1", name: "important" },
       { id: "t2", name: "project-x" },
@@ -169,13 +143,13 @@ describe("TagSection", () => {
     dispatchSpy.mockClear();
 
     render(
-      <StubComboboxWrapper>
+      <Wrapper>
         <TagSection entityName="note" entityId="note-1" />
-      </StubComboboxWrapper>,
+      </Wrapper>,
     );
 
-    // t2 is unselected → toggling it on adds it → assign-tag with t2
-    fireEvent.click(screen.getByTestId("tag-opt-t2"));
+    // t1 assigned → picking [t1, t2] adds t2 → assign-tag
+    fireEvent.click(screen.getByTestId("picker-add-t2"));
     await waitFor(() =>
       expect(dispatchSpy).toHaveBeenCalledWith(TagsHandlers.assignTag, {
         tagId: "t2",
@@ -184,8 +158,8 @@ describe("TagSection", () => {
       }),
     );
 
-    // t1 is selected → toggling it off removes it → remove-tag with t1
-    fireEvent.click(screen.getByTestId("tag-opt-t1"));
+    // t1 assigned → picking [] removes t1 → remove-tag
+    fireEvent.click(screen.getByTestId("picker-remove-t1"));
     await waitFor(() =>
       expect(dispatchSpy).toHaveBeenCalledWith(TagsHandlers.removeTag, {
         tagId: "t1",
@@ -195,7 +169,7 @@ describe("TagSection", () => {
     );
   });
 
-  test("create-mode (no entityId yet) shows the save-first hint instead of the manager", () => {
+  test("create-mode (no entityId yet) shows the save-first hint instead of the section", () => {
     render(
       <Wrapper>
         <TagSection entityName="note" entityId={null} />

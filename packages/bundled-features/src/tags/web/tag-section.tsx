@@ -1,9 +1,10 @@
 // @runtime client
-// TagSection — drop-in tag manager for ANY entity, GitLab-labels style: one
-// searchable multi-combobox showing the entity's tags as chips, with a compact
-// row below to create-and-attach a brand-new tag. Tag writes are immediate
-// (assign/remove are idempotent), so the section owns its state and refetches
-// after each action — it is NOT part of a host form's save.
+// TagSection — drop-in tag editor for ANY entity, GitLab-labels style. Shows the
+// entity's tags as colored chips plus an "Edit tags" button that opens the
+// shared TagPicker modal (pick + manage). Applying the picker diffs the
+// selection against the current assignments and runs idempotent assign/remove
+// writes — so the section owns its state and refetches after each change; it is
+// NOT part of a host form's save.
 //
 // Two ways to mount (both need tagsClient() registered once, for i18n):
 //   - standalone:   <TagSection entityName="note" entityId={noteId} />
@@ -19,6 +20,8 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
 import { TagsHandlers, TagsQueries } from "../constants";
+import { TagChip } from "./tag-chip";
+import { TagPicker } from "./tag-picker";
 
 type TagRow = { readonly id: string; readonly name: string; readonly color?: string | null };
 type AssignmentRow = {
@@ -29,9 +32,7 @@ type AssignmentRow = {
 type TagListResponse = { readonly rows: readonly TagRow[] };
 type AssignmentListResponse = { readonly rows: readonly AssignmentRow[] };
 
-// What changed between the entity's current tags and the combobox's new
-// selection. A single combobox toggle yields one add or one remove; the diff
-// stays correct for a batch selection too.
+// What changed between the entity's current tags and the picker's new selection.
 export function tagSelectionDelta(
   prev: readonly string[],
   next: readonly string[],
@@ -51,7 +52,7 @@ export function TagSection({
   readonly entityName: string;
   readonly entityId: string | null;
 }): ReactNode {
-  const { Banner, Button, Field, Input, Text } = usePrimitives();
+  const { Banner, Button, Text } = usePrimitives();
   const t = useTranslation();
   const dispatcher = useDispatcher();
   const enabled = entityId !== null;
@@ -61,7 +62,7 @@ export function TagSection({
     { filter: { field: "entityId", op: "eq", value: entityId } },
     { enabled },
   );
-  const [newName, setNewName] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
 
@@ -91,32 +92,13 @@ export function TagSection({
     );
   }
 
-  const catalogTags = catalog.data?.rows ?? [];
+  const byId = new Map((catalog.data?.rows ?? []).map((tg) => [tg.id, tg]));
   const assignedIds = (assignments.data?.rows ?? [])
     .filter((r) => r.entityType === entityName)
     .map((r) => r.tagId);
-  // Catalog drives the options; an assigned tag missing from the catalog (none
-  // in v1 — no delete-tag yet) is appended so it stays removable.
-  const nameById = new Map(catalogTags.map((tg) => [tg.id, tg.name]));
-  const options = [...new Set([...catalogTags.map((tg) => tg.id), ...assignedIds])].map((id) => ({
-    value: id,
-    label: nameById.get(id) ?? id,
-  }));
 
   const refetch = async (): Promise<void> => {
     await Promise.all([catalog.refetch(), assignments.refetch()]);
-  };
-
-  // Runs a write-sequence (each step returns false + sets errorKey on failure,
-  // stopping the sequence) and refetches to server-truth when it completes.
-  const apply = async (writes: () => Promise<boolean>): Promise<void> => {
-    setBusy(true);
-    setErrorKey(null);
-    try {
-      if (await writes()) await refetch();
-    } finally {
-      setBusy(false);
-    }
   };
 
   const writeOk = async (type: string, payload: Record<string, unknown>): Promise<boolean> => {
@@ -128,88 +110,56 @@ export function TagSection({
     return true;
   };
 
-  const onSelectionChange = (next: readonly string[]): void => {
+  const onPicked = (next: readonly string[]): void => {
     const { added, removed } = tagSelectionDelta(assignedIds, next);
     if (added.length === 0 && removed.length === 0) return;
-    void apply(async () => {
-      for (const tagId of added) {
-        if (!(await writeOk(TagsHandlers.assignTag, { tagId, entityType: entityName, entityId })))
-          return false;
+    setBusy(true);
+    setErrorKey(null);
+    void (async () => {
+      try {
+        for (const tagId of added) {
+          if (!(await writeOk(TagsHandlers.assignTag, { tagId, entityType: entityName, entityId })))
+            return;
+        }
+        for (const tagId of removed) {
+          if (!(await writeOk(TagsHandlers.removeTag, { tagId, entityType: entityName, entityId })))
+            return;
+        }
+        await refetch();
+      } finally {
+        setBusy(false);
       }
-      for (const tagId of removed) {
-        if (!(await writeOk(TagsHandlers.removeTag, { tagId, entityType: entityName, entityId })))
-          return false;
-      }
-      return true;
-    });
-  };
-
-  const createAndAssign = (): void => {
-    const name = newName.trim();
-    if (name === "") return;
-    void apply(async () => {
-      const created = await dispatcher.write<{ id: string }>(TagsHandlers.createTag, { name });
-      if (!created.isSuccess) {
-        setErrorKey(created.error.i18nKey);
-        return false;
-      }
-      if (
-        !(await writeOk(TagsHandlers.assignTag, {
-          tagId: created.data.id,
-          entityType: entityName,
-          entityId,
-        }))
-      ) {
-        return false;
-      }
-      setNewName("");
-      return true;
-    });
+    })();
   };
 
   return (
-    <div data-testid="tags-section" className="flex flex-col gap-4">
-      <Field id="tags-section-select" label={t("tags.section.label")}>
-        <Input
-          kind="combobox"
-          multiple
-          id="tags-section-select"
-          name="tags"
-          options={options}
-          value={assignedIds}
-          onChange={onSelectionChange}
-          disabled={busy}
-          placeholder={t("tags.section.placeholder")}
-          emptyText={t("tags.section.empty")}
-        />
-      </Field>
-
-      {/* Inline create-row: das Label-Input wächst, der Add-Button sitzt
-          rechts daneben (items-end → bündig zur Input-Unterkante).
-          ponytail: separate row, weil die Combobox keine create-on-type-
-          Affordance hat. Fold-in, wenn der renderer-web-Combobox ein
-          freeSolo/onCreate-Prop bekommt. */}
-      <div className="flex items-end gap-2">
-        <div className="flex-1">
-          <Field id="tags-section-new" label={t("tags.section.newLabel")}>
-            <Input
-              kind="text"
-              id="tags-section-new"
-              name="newTag"
-              value={newName}
-              onChange={setNewName}
-            />
-          </Field>
-        </div>
+    <div data-testid="tags-section" className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-1">
+        {assignedIds.length === 0 ? (
+          <Text variant="small">{t("tags.section.none")}</Text>
+        ) : (
+          assignedIds.map((id) => {
+            const tag = byId.get(id);
+            return <TagChip key={id} name={tag?.name ?? id} color={tag?.color} />;
+          })
+        )}
         <Button
           variant="secondary"
-          disabled={busy || newName.trim() === ""}
-          onClick={() => createAndAssign()}
-          testId="tags-section-create"
+          disabled={busy}
+          onClick={() => setPickerOpen(true)}
+          testId="tags-section-edit"
         >
-          {busy ? t("tags.section.working") : t("tags.section.create")}
+          {busy ? t("tags.section.working") : t("tags.section.edit")}
         </Button>
       </div>
+
+      <TagPicker
+        entityType={entityName}
+        value={assignedIds}
+        onChange={onPicked}
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+      />
 
       {errorKey !== null && (
         <Banner variant="error" testId="tags-section-action-error">
