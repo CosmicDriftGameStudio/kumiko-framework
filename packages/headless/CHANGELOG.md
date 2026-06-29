@@ -1,5 +1,22 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.102.0
+
+### Minor Changes
+
+- 4659e52: Apex header nav now supports dropdown menus. A nav entry can be a plain link **or**
+  `{ kind: "menu", label, items: [{ icon?, title, desc?, href }], footer? }` — the renderer
+  emits a CSS-only mega-menu (reveals on hover + keyboard focus; the panel is a light popover
+  in both themes). Plain links and menus mix freely in `header.navLinks`. The dropdown styling
+  ships in `APEX_STRUCTURAL_CSS` (and is exported standalone as `APEX_NAV_MENU_CSS`).
+  `renderApexHeader(header)` is now exported so a consumer composing its own page shell can
+  reuse the identical header chrome.
+
+### Patch Changes
+
+- Updated dependencies [020d5e8]
+  - @cosmicdrift/kumiko-framework@0.102.0
+
 ## 0.101.0
 
 ### Patch Changes
