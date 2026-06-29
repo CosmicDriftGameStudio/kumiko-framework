@@ -1,5 +1,42 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.101.0
+
+### Minor Changes
+
+- a32f591: App-shell hoist (boot-wiring + presets): less per-app bootstrap duplication
+
+  `runProdApp` now provides framework defaults that apps override only for the exception:
+
+  - Auto-wires `textContent` (always) and `secrets` (when the `secrets` feature is mounted) into the AppContext — apps drop their hand-rolled extraContext factory. New optional `masterKey?` override for KMS backends instead of the env KEK provider.
+  - New `auth.mail` block builds all four auth-mail flows (password-reset, email-verification, signup, invite) from an env-derived SMTP transport + standard templates, replacing the per-app SMTP block + `createAuthMailerConfig` wrapper + `AUTH_PATHS` plucking. Null-transport guard preserved (no `SMTP_HOST` → flows stay unwired); explicit per-flow setups still win.
+
+  New helpers:
+
+  - `createSmtpTransportFromEnv(env, { fallbackFrom })` (channel-email).
+  - `seedLegalContentFromJson(db, blocks)` (text-content) — centralises the legal-block seed loop with the load-bearing `ifExists: "update"`.
+  - `dsgvoSelfServiceFeatures(opts?)` (new `presets` entry) — the five-feature DSGVO + account-self-service chain in dependency order.
+  - `DEFAULT_AUTH_PATHS` + `makeAuthPaths()`; `createAuthMailerConfig`'s `paths` argument is now optional (defaults to `DEFAULT_AUTH_PATHS`).
+  - `SECRETS_FEATURE_NAME` constant.
+
+  Additive and backward-compatible — existing apps that pass explicit wiring keep working unchanged.
+
+- ab82597: runDevApp parity with runProdApp's app-shell hoist
+
+  `runDevApp` now supports the same `auth.mail` convenience block and auto-wires `textContent` (always) + `secrets` (feature-gated) into the dev AppContext, plus a `masterKey?` override — so an app's `bin/server.ts` drops the same SMTP block, auth-mailer wrapper, and provider wiring as its `bin/main.ts`. `resolveAuthMail` is now generic over the prod/dev auth-option types, and the shared `AuthMailOptions` type is exported. Additive and backward-compatible.
+
+### Patch Changes
+
+- a9f5b75: `runProdApp` now wires sessions **secure-by-default**: mounting `createSessionsFeature()`
+  turns on server-side session revocation + `sessionStrictMode` automatically, instead of
+  _also_ requiring an explicit `auth.sessions`. Apps that mounted the sessions feature but
+  never set `auth.sessions` — so their logout / password-reset never actually revoked any
+  JWT — are now correct without a code change. `auth.sessions` still overrides the config,
+  and the new `auth.sessions: false` is the explicit opt-out (back to stateless JWTs).
+- Updated dependencies [a32f591]
+  - @cosmicdrift/kumiko-bundled-features@0.101.0
+  - @cosmicdrift/kumiko-framework@0.101.0
+
 ## 0.100.0
 
 ### Patch Changes
