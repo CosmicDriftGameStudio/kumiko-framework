@@ -25,26 +25,43 @@ export type FileHandle = {
 };
 
 // The `ctx.files` service — a factory that materialises a FileHandle for a
-// storage key. One per app, wrapped around whichever FileStorageProvider the
-// app boot registered.
+// storage key. One per request/event, bound to a single tenant: the provider
+// is resolved per-tenant through file-foundation, so uploads, ctx.files and the
+// GDPR jobs all hit the same store by construction.
 export type FileContext = {
   ref(key: string): FileHandle;
 };
 
-export function createFileHandle(key: string, provider: FileStorageProvider): FileHandle {
+// `getProvider` is a lazily-resolved, memoized accessor — the provider is
+// resolved (config + s3.secretAccessKey secret read) only when a handle method
+// actually does I/O, never on every request that merely builds a ctx.
+export function createFileHandle(
+  key: string,
+  getProvider: () => Promise<FileStorageProvider>,
+): FileHandle {
   return {
     key,
-    read: () => provider.read(key),
-    write: (data, mimeType) => provider.write(key, data, mimeType),
-    delete: () => provider.delete(key),
-    exists: () => provider.exists(key),
-    derive: (suffix) => createFileHandle(deriveKey(key, suffix), provider),
+    read: async () => (await getProvider()).read(key),
+    write: async (data, mimeType) => (await getProvider()).write(key, data, mimeType),
+    delete: async () => (await getProvider()).delete(key),
+    exists: async () => (await getProvider()).exists(key),
+    derive: (suffix) => createFileHandle(deriveKey(key, suffix), getProvider),
   };
 }
 
-export function createFileContext(provider: FileStorageProvider): FileContext {
+// `resolve` is a tenant-bound thunk (the caller binds the tenant). The result
+// is memoized for this FileContext's lifetime and shared across every handle it
+// produces — never a process-global cache, since each FileContext is bound to a
+// single request/event tenant; sharing would leak one tenant's provider (and
+// its bucket/credentials) to another.
+export function createFileContext(resolve: () => Promise<FileStorageProvider>): FileContext {
+  let cached: Promise<FileStorageProvider> | undefined;
+  const getProvider = () => {
+    cached ??= resolve();
+    return cached;
+  };
   return {
-    ref: (key) => createFileHandle(key, provider), // @wrapper-known semantic-alias
+    ref: (key) => createFileHandle(key, getProvider),
   };
 }
 

@@ -38,7 +38,6 @@ import { buildServer } from "../api/server";
 import type { SseBroker } from "../api/sse-broker";
 import type { PgClient } from "../db/connection";
 import type { AppContext, JobRunIn, Registry, RunIn } from "../engine/types";
-import type { FileRoutesOptions } from "../files/file-routes";
 import type { JobRunner, JobRunnerOptions } from "../jobs/job-runner";
 import { createJobRunner } from "../jobs/job-runner";
 import type { Lifecycle } from "../lifecycle";
@@ -81,7 +80,6 @@ export type ApiEntrypointOptions = BaseEntrypointOptions & {
   readonly auth?: AuthRoutesConfig;
   readonly anonymousAccess?: ServerOptions["anonymousAccess"];
   readonly sseBroker?: SseBroker;
-  readonly files?: Omit<FileRoutesOptions, "db"> & { db?: FileRoutesOptions["db"] };
   readonly rateLimit?: ServerOptions["rateLimit"];
   readonly maxRequestBytes?: ServerOptions["maxRequestBytes"];
   readonly readiness?: ServerOptions["readiness"];
@@ -201,7 +199,6 @@ function buildApiServer(
     jwtIssuer: opts.jwtIssuer,
     auth: opts.auth,
     anonymousAccess: opts.anonymousAccess,
-    files: opts.files,
     sseBroker: opts.sseBroker,
     rateLimit: opts.rateLimit,
     maxRequestBytes: opts.maxRequestBytes,

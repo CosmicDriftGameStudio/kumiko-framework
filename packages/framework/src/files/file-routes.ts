@@ -9,7 +9,7 @@ import { generateId } from "../utils";
 import { buildContentDispositionHeader } from "./content-disposition";
 import { fileRefEntity } from "./file-ref-entity";
 import { fileRefsTable } from "./file-ref-table";
-import type { FileStorageProvider } from "./types";
+import type { FileProviderResolver } from "./provider-resolver";
 import { buildStorageKey, validateFile } from "./types";
 
 // Decision returned by a FileAccessGuard — distinct from boolean so callers
@@ -47,7 +47,11 @@ export type FileAccessGuard = (args: {
 
 export type FileRoutesOptions = {
   readonly db: DbConnection;
-  readonly storageProvider: FileStorageProvider;
+  // Per-tenant provider resolver — resolves through file-foundation so uploads,
+  // ctx.files and the GDPR jobs all hit the same store. Resolution runs under
+  // system identity for the secret-read; request-user authorization is the
+  // accessGuard's job below.
+  readonly resolveProvider: FileProviderResolver;
   readonly registry?: Registry;
   readonly maxUploadSize?: string; // global default, e.g. "10mb"
   // Roles that bypass the default owner-check on entity-attached files.
@@ -80,7 +84,7 @@ function createDefaultGuard(privilegedRoles: readonly string[]): FileAccessGuard
 }
 
 export function createFileRoutes(options: FileRoutesOptions): Hono {
-  const { db, storageProvider } = options;
+  const { db } = options;
   const privilegedRoles = options.privilegedRoles ?? DEFAULT_PRIVILEGED_ROLES;
   const guard: FileAccessGuard = options.accessGuard ?? createDefaultGuard(privilegedRoles);
   // Standard entity executor for fileRef — self-contained (table + entity),
@@ -147,6 +151,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     // row on append-failure is acceptable; corrupting a committed row with a
     // missing binary is not.
     const data = new Uint8Array(await file.arrayBuffer());
+    const storageProvider = await options.resolveProvider(user.tenantId);
     await storageProvider.write(storageKey, data, file.type);
 
     // Create via the standard entity executor: emits fileRef.created +
@@ -206,6 +211,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       return c.json({ error: "not_found" }, 404);
     }
 
+    const storageProvider = await options.resolveProvider(user.tenantId);
     const data = await storageProvider.read(fileRef.storageKey);
     return new Response(Buffer.from(data), {
       headers: {
@@ -261,6 +267,17 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   // 501 when the wired provider doesn't support signed URLs (filesystem
   // dev providers). Clients should fall back to the streaming endpoint.
   api.get("/files/:id/download-url", async (c) => {
+    const user = getUser(c);
+    const id = c.req.param("id");
+    const fileRef = await loadFileForTenant(id, user.tenantId);
+    if (!fileRef) return c.json({ error: "not_found" }, 404);
+
+    const decision = await guard({ fileRef, user, operation: "read" });
+    if (decision === "deny") return c.json({ error: "not_found" }, 404);
+
+    // Resolve after access-check: tenant-scoped provider, and capability
+    // disclosure (501) stays behind the auth+guard gate.
+    const storageProvider = await options.resolveProvider(user.tenantId);
     if (!storageProvider.getSignedUrl) {
       return c.json(
         {
@@ -270,14 +287,6 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
         501,
       );
     }
-
-    const user = getUser(c);
-    const id = c.req.param("id");
-    const fileRef = await loadFileForTenant(id, user.tenantId);
-    if (!fileRef) return c.json({ error: "not_found" }, 404);
-
-    const decision = await guard({ fileRef, user, operation: "read" });
-    if (decision === "deny") return c.json({ error: "not_found" }, 404);
 
     const expiresInSeconds = SIGNED_URL_DEFAULT_EXPIRY_SECONDS;
     const url = await storageProvider.getSignedUrl(fileRef.storageKey, expiresInSeconds, {

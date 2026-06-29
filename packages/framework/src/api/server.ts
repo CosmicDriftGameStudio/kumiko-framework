@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { DbConnection, PgClient } from "../db/connection";
 import { createTenantDb } from "../db/tenant-db";
 import { runsInLane } from "../engine/run-in";
+import { EXT_FILE_PROVIDER } from "../engine/extension-names";
 import {
   type AppContext,
   isFileField,
@@ -12,6 +13,7 @@ import {
 import { createFileContext } from "../files/file-handle";
 import type { FileRoutesOptions } from "../files/file-routes";
 import { createFileRoutes } from "../files/file-routes";
+import { makeFileProviderResolver } from "../files/provider-resolver";
 import type { Lifecycle } from "../lifecycle";
 import {
   createNoopProvider,
@@ -72,7 +74,11 @@ export type ServerOptions = {
   eventDedup?: EventDedup;
   sseBroker?: SseBroker;
   auth?: AuthRoutesConfig;
-  files?: Omit<FileRoutesOptions, "db"> & { db?: FileRoutesOptions["db"] };
+  // No `files` option: file-storage is wired by mounting `file-foundation` +
+  // a `file-provider-*` feature. Upload routes, ctx.files and the GDPR jobs
+  // resolve the provider per-tenant through that single source (issue #608).
+  // Upload-route policy (accessGuard/privilegedRoles/maxUploadSize) lives on
+  // `createFilesFeature(opts?)`.
   // Async event-dispatcher config. The dispatcher is created automatically
   // when (a) context.db is a DbConnection AND (b) at least one consumer is
   // wired — SSE (iff sseBroker), Search (iff context.searchAdapter), or
@@ -211,14 +217,22 @@ export type KumikoServer = {
 };
 
 export function buildServer(options: ServerOptions): KumikoServer {
-  // Hard-fail when the registry declares file/image fields but no storage
-  // provider is wired. Boot-validator checks the env shape; here we prove the
-  // runtime actually has somewhere to put the bytes. Without this, uploads
-  // would fail at the first request instead of at boot.
-  if (!options.files?.storageProvider && registryDeclaresFileFields(options.registry)) {
+  // File-storage is resolved per-tenant through file-foundation: a mounted
+  // `file-provider-*` plugin (inmemory/s3/s3-env) is the single source for
+  // uploads, ctx.files and the GDPR jobs.
+  const hasFileProvider = options.registry.getExtensionUsages(EXT_FILE_PROVIDER).length > 0;
+  // A test/advanced caller may inject the resolver directly on the context
+  // (e.g. a static in-memory provider) instead of mounting a provider plugin.
+  const hasInjectedResolver = options.context._fileProviderResolver !== undefined;
+  // Hard-fail when the registry declares file/image fields but no provider
+  // plugin is mounted — uploads would otherwise fail at the first request
+  // instead of at boot. Proves a plugin is mounted, not that each tenant
+  // selected one; per-tenant misconfig surfaces via createFileProviderForTenant.
+  if (registryDeclaresFileFields(options.registry) && !hasFileProvider && !hasInjectedResolver) {
     throw new Error(
-      "Features declare file/image fields but no storageProvider was registered — " +
-        "pass `files: { storageProvider, db }` to buildServer().",
+      "Features declare file/image fields but no file-storage provider is mounted — " +
+        "mount `file-foundation` + a `file-provider-*` feature (inmemory/s3/s3-env) and " +
+        "select one per tenant via the 'file-foundation:config:provider' config-key.",
     );
   }
 
@@ -288,12 +302,20 @@ export function buildServer(options: ServerOptions): KumikoServer {
     shouldWrapRedis && redisCtx ? wrapRedisClient(redisCtx, observability.tracer) : redisCtx;
 
   // Inject tracer + meter into the AppContext so the dispatcher can propagate
-  // them into every HandlerContext it builds. If a file storage provider was
-  // registered, wrap it in a FileContext so handlers/hooks can resolve
-  // `ctx.files.ref(key)` without reaching for the raw provider.
-  const fileCtx = options.files?.storageProvider
-    ? createFileContext(options.files.storageProvider)
-    : undefined;
+  // them into every HandlerContext it builds. Build the per-tenant file-provider
+  // resolver once (when a provider plugin is mounted) — the dispatcher uses it
+  // to materialise `ctx.files`, the upload routes + MSP-applies share it. The
+  // resolver reads config + the s3.secretAccessKey secret under SYSTEM identity.
+  const fileProviderResolver =
+    options.context._fileProviderResolver ??
+    (hasFileProvider
+      ? makeFileProviderResolver({
+          registry: options.registry,
+          _configAccessorFactory: options.context._configAccessorFactory,
+          secrets: options.context.secrets,
+          db: options.context.db,
+        })
+      : undefined);
   // Auto-wire the rate-limit resolver, but ONLY when at least one
   // handler actually declared a rateLimit option. Apps that don't use
   // L3 pay zero cost: no resolver instance, no Lua-script registration
@@ -313,7 +335,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   const contextWithObservability: AppContext = {
     ...options.context,
     ...(wrappedRedis ? { redis: wrappedRedis } : {}),
-    ...(fileCtx ? { files: fileCtx } : {}),
+    ...(fileProviderResolver ? { _fileProviderResolver: fileProviderResolver } : {}),
     ...(rateLimitResolver ? { rateLimit: rateLimitResolver } : {}),
     // Propagate the feature-toggle resolver to the context so the event-
     // dispatcher (and any future context-reading consumer) sees the same
@@ -429,7 +451,9 @@ export function buildServer(options: ServerOptions): KumikoServer {
         tenantId: event.tenantId,
         userId: event.metadata.userId,
         ...(mspOwner && { callerFeature: mspOwner }),
-        ...(fileCtx && { files: fileCtx }),
+        ...(fileProviderResolver && {
+          files: createFileContext(() => fileProviderResolver(event.tenantId)),
+        }),
       });
       await applyFn(event, rawRunner, applyCtx);
       // Keep ctx reachable to satisfy the EventConsumerHandler signature.
@@ -583,15 +607,23 @@ export function buildServer(options: ServerOptions): KumikoServer {
   app.route("/api", createApiRoutes(dispatcher));
   app.route("/api", createSseRoute(sseBroker));
 
-  if (options.files) {
-    const fileDb = options.files.db ?? (options.context.db as FileRoutesOptions["db"]); // @cast-boundary engine-bridge
-    if (!fileDb) throw new Error("files option requires db in context or files.db");
+  // Mount upload/download routes when the app declares file/image fields. They
+  // resolve the provider per-tenant through file-foundation (boot-checked above
+  // to have a provider plugin) — no `files` option. Route policy comes from
+  // createFilesFeature(opts?).
+  if (registryDeclaresFileFields(options.registry) && fileProviderResolver) {
+    const fileDb = options.context.db as FileRoutesOptions["db"]; // @cast-boundary engine-bridge
+    if (!fileDb) throw new Error("file routes require db in context");
+    const routeOptions = readFilesRouteOptions(options.registry);
     app.route(
       "/api",
       createFileRoutes({
-        ...options.files,
         db: fileDb,
         registry: options.registry,
+        resolveProvider: fileProviderResolver,
+        ...(routeOptions.accessGuard ? { accessGuard: routeOptions.accessGuard } : {}),
+        ...(routeOptions.privilegedRoles ? { privilegedRoles: routeOptions.privilegedRoles } : {}),
+        ...(routeOptions.maxUploadSize ? { maxUploadSize: routeOptions.maxUploadSize } : {}),
       }),
     );
   }
@@ -662,4 +694,21 @@ function registryDeclaresFileFields(registry: Registry): boolean {
     }
   }
   return false;
+}
+
+// Upload-route policy carried by createFilesFeature(opts?) — read from the
+// feature's exports so buildServer applies it without a parallel ServerOptions
+// surface. Absent feature / opts → defaults in createFileRoutes.
+function readFilesRouteOptions(
+  registry: Registry,
+): Pick<FileRoutesOptions, "accessGuard" | "privilegedRoles" | "maxUploadSize"> {
+  const exp = registry.features.get("files")?.exports;
+  if (exp && typeof exp === "object" && "routeOptions" in exp) {
+    const ro = (exp as { routeOptions?: unknown }).routeOptions;
+    if (ro && typeof ro === "object") {
+      // @cast-boundary feature-exports: engine-payload (unknown) → known shape
+      return ro as Pick<FileRoutesOptions, "accessGuard" | "privilegedRoles" | "maxUploadSize">;
+    }
+  }
+  return {};
 }

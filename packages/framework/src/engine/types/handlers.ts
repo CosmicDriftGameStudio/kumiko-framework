@@ -3,6 +3,7 @@ import type { ZodType } from "zod";
 import type { DbConnection } from "../../db/connection";
 import type { TenantDb } from "../../db/tenant-db";
 import type { FileContext } from "../../files/file-handle";
+import type { FileProviderResolver } from "../../files/provider-resolver";
 import type { Logger } from "../../logging/types";
 import type { Meter, MetricsHandle, Tracer } from "../../observability/types";
 import type { EntityCache } from "../../pipeline/entity-cache";
@@ -230,11 +231,16 @@ type SharedContextFields = {
   // rejected at boot to surface the misconfig early.
   readonly rateLimit?: import("../../rate-limit").RateLimitResolver;
   readonly searchAdapter?: SearchAdapter;
-  // Binary storage, wrapped around the registered FileStorageProvider.
-  // Optional at the AppContext level — present when the app booted with
-  // `files.storageProvider`. Hooks/handlers use ctx.files.ref(key) instead
-  // of receiving binaries in payloads.
+  // Binary storage. The dispatcher builds this per-call, bound to the caller's
+  // tenant, from `_fileProviderResolver` (below) — so uploads, ctx.files and the
+  // GDPR jobs all resolve through the same file-foundation provider. Hooks/
+  // handlers use ctx.files.ref(key) instead of receiving binaries in payloads.
   readonly files?: FileContext;
+  // Boot-built, per-tenant file-provider resolver. Set by buildServer when a
+  // `file-provider-*` plugin is mounted; the dispatcher reads it to materialise
+  // ctx.files (and the upload routes + MSP-applies use the same resolver).
+  // Resolution runs under system identity for the s3.secretAccessKey read.
+  readonly _fileProviderResolver?: FileProviderResolver;
   readonly entityCache?: EntityCache;
   readonly notify?: NotifyFn;
   readonly _notifyFactory?: NotifyFactory;

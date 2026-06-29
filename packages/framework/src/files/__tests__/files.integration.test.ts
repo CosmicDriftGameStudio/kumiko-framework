@@ -27,6 +27,7 @@ import {
   expectErrorIncludes,
   patchFileInstanceofForBunTest,
 } from "../../testing";
+import { createFilesFeature } from "../feature";
 import { fileRefsTable } from "../file-ref-table";
 import type { FileRoutesOptions } from "../file-routes";
 import { createInMemoryFileProvider } from "../in-memory-provider";
@@ -83,9 +84,8 @@ beforeAll(async () => {
 
   const server = buildServer({
     registry,
-    context: { db: testDb.db },
+    context: { db: testDb.db, _fileProviderResolver: () => Promise.resolve(storageProvider) },
     jwtSecret: JWT_SECRET,
-    files: { db: testDb.db, storageProvider },
   });
   app = server.app;
   jwt = server.jwt;
@@ -397,7 +397,7 @@ describe("custom file access guard", () => {
   // body inside try/finally so the DB and tmpdir are cleaned up even if
   // assertions fail.
   async function withIsolatedFileServer(
-    options: Omit<FileRoutesOptions, "db" | "storageProvider"> & {
+    options: Omit<FileRoutesOptions, "db" | "resolveProvider"> & {
       // Overrides the default local-filesystem provider. Needed for tests
       // that exercise optional provider methods (e.g. getSignedUrl) which
       // the local provider deliberately doesn't implement.
@@ -416,12 +416,13 @@ describe("custom file access guard", () => {
     await unsafeCreateEntityTable(isolatedDb.db, testTenantEntity);
     const storagePath = await mkdtemp(join(tmpdir(), "kumiko-files-custom-"));
     const provider = providerOverride ?? createLocalProvider(storagePath);
-    const isolatedRegistry = createRegistry([tenantFeature]);
+    // Route policy (accessGuard/privilegedRoles/maxUploadSize) now rides on the
+    // files feature; the provider is injected as the per-tenant resolver.
+    const isolatedRegistry = createRegistry([tenantFeature, createFilesFeature(routeOptions)]);
     const isolatedServer = buildServer({
       registry: isolatedRegistry,
-      context: { db: isolatedDb.db },
+      context: { db: isolatedDb.db, _fileProviderResolver: () => Promise.resolve(provider) },
       jwtSecret: JWT_SECRET,
-      files: { db: isolatedDb.db, storageProvider: provider, ...routeOptions },
     });
 
     try {
@@ -736,9 +737,8 @@ describe("download-url endpoint", () => {
     const isolatedRegistry = createRegistry([tenantFeature]);
     const isolatedServer = buildServer({
       registry: isolatedRegistry,
-      context: { db: isolatedDb.db },
+      context: { db: isolatedDb.db, _fileProviderResolver: () => Promise.resolve(storageProvider) },
       jwtSecret: JWT_SECRET,
-      files: { db: isolatedDb.db, storageProvider },
     });
 
     try {

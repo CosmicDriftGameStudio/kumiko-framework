@@ -258,6 +258,15 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   const eventDedup = createEventDedup(testRedis.redis, { ttlSeconds: 60 });
   const entityCache = createEntityCache(testRedis.redis, { ttlSeconds: 60 });
 
+  // A static `files.storageProvider` is wired as the per-tenant resolver — the
+  // framework test seam that doesn't require mounting config + file-foundation.
+  // (Bundled GDPR tests mount the real provider features instead.)
+  let fileProviderResolver: import("../files").FileProviderResolver | undefined;
+  if (options.files) {
+    const provider = options.files.storageProvider;
+    fileProviderResolver = () => Promise.resolve(provider);
+  }
+
   const server = buildServer({
     registry,
     context: {
@@ -267,6 +276,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       entityCache,
       registry,
       ...(options.masterKeyProvider ? { masterKeyProvider: options.masterKeyProvider } : {}),
+      ...(fileProviderResolver ? { _fileProviderResolver: fileProviderResolver } : {}),
       ...(typeof options.extraContext === "function"
         ? options.extraContext({ registry, db: testDb.db, sseBroker, redis: testRedis.redis })
         : options.extraContext),
@@ -317,11 +327,6 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
                 })
               : options.anonymousAccess,
         }
-      : {}),
-    // Wire the upload routes + ctx.files only when the caller registered a
-    // provider. Tests that don't touch files skip both without extra setup.
-    ...(options.files
-      ? { files: { db: testDb.db, storageProvider: options.files.storageProvider } }
       : {}),
   });
 

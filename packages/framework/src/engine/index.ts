@@ -73,12 +73,14 @@ export { emitEvent, typedPayload } from "./event-helpers";
 export type { KumikoExtensionName } from "./extension-names";
 export {
   EXT_EXTERNAL_RESOURCE,
+  EXT_FILE_PROVIDER,
   EXT_INFRA_RESOURCE,
   EXT_SEARCH_ADAPTER,
   EXT_STORAGE_PROVIDER,
   EXT_TENANT_DATA,
   EXT_USER_DATA,
   EXT_USER_DATA_ORDER,
+  FILE_PROVIDER_CONFIG_KEY,
 } from "./extension-names";
 export type {
   TenantUserModel,

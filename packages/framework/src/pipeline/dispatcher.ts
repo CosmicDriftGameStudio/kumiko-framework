@@ -5,6 +5,7 @@ import { selectMany, transaction } from "../db/query";
 import { buildEntityTable, toSnakeCase } from "../db/table-builder";
 import { createTenantDb } from "../db/tenant-db";
 import { hasAccess } from "../engine/access";
+import { createFileContext } from "../files/file-handle";
 import { checkWriteFieldRoles, filterReadFields } from "../engine/field-access";
 import { defineTransitions, guardTransition } from "../engine/state-machine";
 import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension";
@@ -285,6 +286,14 @@ export function createDispatcher(
             secrets: context.secrets,
           })
         : undefined;
+    // ctx.files resolved per-tenant through file-foundation (lazy — the
+    // provider is only resolved when a handle actually does I/O). Boot wires
+    // _fileProviderResolver when a file-provider plugin is mounted; falls back
+    // to a statically-injected context.files (tests).
+    const fileResolver = context._fileProviderResolver;
+    const files = fileResolver
+      ? createFileContext(() => fileResolver(user.tenantId))
+      : context.files;
 
     // Observability — feature-bound metrics handle, so ctx.metrics.inc("foo")
     // resolves to kumiko_<feature>_foo. Unknown feature falls back to noop
@@ -558,6 +567,7 @@ export function createDispatcher(
       log,
       notify,
       ...(config && { config }),
+      ...(files && { files }),
       tracer,
       metrics,
       tz,
