@@ -53,28 +53,32 @@ describe("buildBootExtraContext — framework-default provider autowire", () => 
     expect(typeof secrets.set).toBe("function");
   });
 
-  test("secrets feature mounted, only V1 set (no CURRENT_VERSION) → no throw (default '1')", () => {
-    expect(() =>
-      buildBootExtraContext({
-        db: fakeDb,
-        features: [createSecretsFeature()],
-        envSource: { KUMIKO_SECRETS_MASTER_KEY_V1: KEK },
-        registry,
-        hasAuth: false,
-      }),
-    ).not.toThrow();
+  test("secrets feature mounted, only V1 set (no CURRENT_VERSION) → wired (default '1')", () => {
+    const ctx = buildBootExtraContext({
+      db: fakeDb,
+      features: [createSecretsFeature()],
+      envSource: { KUMIKO_SECRETS_MASTER_KEY_V1: KEK },
+      registry,
+      hasAuth: false,
+    });
+    expect(ctx["secrets"]).toBeDefined();
   });
 
-  test("secrets feature mounted but NO KEK env → clear boot error (fail-fast)", () => {
-    expect(() =>
-      buildBootExtraContext({
+  test("secrets feature mounted but NO KEK + no override → skipped, no throw (dev DEV_KEY path)", () => {
+    // dev wires its own DEV_KEY secrets explicitly; the auto-wire must not
+    // eagerly construct an env-provider and crash the boot when no env KEK
+    // exists. ctx.secrets stays unset so the app's explicit wiring wins.
+    let ctx: Record<string, unknown> | undefined;
+    expect(() => {
+      ctx = buildBootExtraContext({
         db: fakeDb,
         features: [createSecretsFeature()],
         envSource: {},
         registry,
         hasAuth: false,
-      }),
-    ).toThrow(/KEK|KUMIKO_SECRETS_MASTER_KEY/);
+      });
+    }).not.toThrow();
+    expect(ctx?.["secrets"]).toBeUndefined();
   });
 
   test("no secrets feature → no KEK ever read, boots green (money-horse regression)", () => {
