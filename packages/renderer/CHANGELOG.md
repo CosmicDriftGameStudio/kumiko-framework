@@ -1,5 +1,13 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.102.2
+
+### Patch Changes
+
+- Updated dependencies [cfc5895]
+  - @cosmicdrift/kumiko-headless@0.102.2
+  - @cosmicdrift/kumiko-framework@0.102.2
+
 ## 0.102.1
 
 ### Patch Changes

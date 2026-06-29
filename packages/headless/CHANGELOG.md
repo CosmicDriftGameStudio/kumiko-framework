@@ -1,5 +1,14 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.102.2
+
+### Patch Changes
+
+- cfc5895: Apex dropdown nav menu: the trigger chevron is now an inline SVG caret (`svgIcon`)
+  instead of the `▾` unicode glyph, which rendered too small and faint to read as a
+  "this opens a menu" affordance.
+  - @cosmicdrift/kumiko-framework@0.102.2
+
 ## 0.102.1
 
 ### Patch Changes
