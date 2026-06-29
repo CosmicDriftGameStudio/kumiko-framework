@@ -1,5 +1,15 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.99.0
+
+### Minor Changes
+
+- 8146e5b: tags + renderer: inline tag chips on list rows, via a reusable component column
+
+  - **renderer**: an `entityList` column can now be a _virtual labeled column_ — a presentational column drawn entirely by a `columnRenderer` component from the row, not tied to an entity field. Declare `{ field, label, renderer: { react: { __component } } }`; the new `label` also overrides any column's header (i18n key or literal). Any feature can now build component columns — tag chips, status badges, avatars — not just string formatters.
+  - **tags**: new `TagsCell` column renderer (registered via `tagsClient().columnRenderers`) shows an entity's tags as colored chips inline in any list row. Drop `{ field: "tags", label: "Tags", renderer: { react: { __component: TAGS_COLUMN_RENDERER_NAME } } }` into any `entityList` — no host-schema change.
+  - **tags**: `TagFilter` now shows the active selection as colored chips with a clear button, instead of just a count, so the active filter is visible.
+
 ## 0.98.0
 
 ## 0.97.1
