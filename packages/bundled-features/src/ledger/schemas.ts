@@ -47,5 +47,19 @@ export const reverseTransactionPayloadSchema = z.object({
 });
 export type ReverseTransactionPayload = z.infer<typeof reverseTransactionPayloadSchema>;
 
+// confirm-schedule-period — materialise ONE projected period of a schedule as a
+// posted, balanced entry. `amount` overrides the schedule's amount for that period
+// (e.g. rent came in short); `date` overrides the booking date (default: 1st of
+// the period). Idempotent + reversal-aware in the handler via the schedule
+// reference, so re-confirming a booked month is a no-op and a stornoed month can
+// be re-confirmed.
+export const confirmSchedulePeriodPayloadSchema = z.object({
+  scheduleId: z.string().min(1).max(64),
+  period: z.string().regex(/^\d{4}-\d{2}$/, "period must be YYYY-MM"),
+  amount: z.number().int().positive().optional(),
+  date: z.string().min(1).max(32).optional(),
+});
+export type ConfirmSchedulePeriodPayload = z.infer<typeof confirmSchedulePeriodPayloadSchema>;
+
 // Re-export so callers building accounts have the type vocabulary in one place.
 export const accountTypeSchema = z.enum(ACCOUNT_TYPES);

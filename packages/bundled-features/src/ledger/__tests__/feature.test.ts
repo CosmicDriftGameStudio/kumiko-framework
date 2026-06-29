@@ -20,11 +20,11 @@ function writeAccess(
 }
 
 describe("createLedgerFeature shape", () => {
-  test("registers account + transaction entities, 4 write-handlers, 4 query-handlers", () => {
+  test("registers account + transaction + schedule entities, 7 write-handlers, 9 query-handlers", () => {
     const feature = createLedgerFeature();
 
     expect(Object.keys(feature.entities ?? {})).toEqual(
-      expect.arrayContaining(["account", "transaction"]),
+      expect.arrayContaining(["account", "transaction", "schedule"]),
     );
 
     expect(Object.keys(feature.writeHandlers)).toEqual(
@@ -33,9 +33,12 @@ describe("createLedgerFeature shape", () => {
         expect.stringMatching(/account:update/),
         expect.stringMatching(/create-transaction/),
         expect.stringMatching(/reverse-transaction/),
+        expect.stringMatching(/schedule:create/),
+        expect.stringMatching(/schedule:update/),
+        expect.stringMatching(/confirm-schedule-period/),
       ]),
     );
-    expect(Object.keys(feature.writeHandlers)).toHaveLength(4);
+    expect(Object.keys(feature.writeHandlers)).toHaveLength(7);
 
     expect(Object.keys(feature.queryHandlers)).toEqual(
       expect.arrayContaining([
@@ -43,12 +46,14 @@ describe("createLedgerFeature shape", () => {
         expect.stringMatching(/account:detail/),
         expect.stringMatching(/transaction:list/),
         expect.stringMatching(/transaction:detail/),
+        expect.stringMatching(/schedule:list/),
+        expect.stringMatching(/schedule:detail/),
         expect.stringMatching(/report:balances/),
         expect.stringMatching(/report:income-statement/),
         expect.stringMatching(/report:balance-sheet/),
       ]),
     );
-    expect(Object.keys(feature.queryHandlers)).toHaveLength(7);
+    expect(Object.keys(feature.queryHandlers)).toHaveLength(9);
   });
 
   test("transaction is immutable: NO update/delete handler is registered", () => {
