@@ -226,6 +226,14 @@ export const APEX_NAV_MENU_CSS = `
   .nav-menu__more:hover { color: var(--primary-hover); }
   .apex-dark .nav-menu__trigger { color: var(--on-dark-muted); }
   .apex-dark .nav-menu__trigger:hover { color: var(--on-dark); }
+  /* The panel is a light popover; its links must NOT inherit the dark-chrome
+     nav-link color (.apex-dark .nav-links a, specificity 0,2,1) or a consumer's
+     own .nav-links a. Pin both link types with matching specificity (0,2,1) so
+     titles + the footer link stay readable in the dark theme. */
+  .nav-menu__panel a.nav-menu__item { color: var(--fg); }
+  .nav-menu__panel a.nav-menu__item:hover { color: var(--fg); }
+  .nav-menu__panel a.nav-menu__more { color: var(--primary); }
+  .nav-menu__panel a.nav-menu__more:hover { color: var(--primary-hover); }
 `;
 
 export const APEX_STRUCTURAL_CSS =
