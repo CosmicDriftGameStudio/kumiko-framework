@@ -68,6 +68,7 @@ export const folderTable = buildEntityTable("folder", _folders.entities["folder"
 export const folderAssignmentTable = buildEntityTable("folder-assignment", _folders.entities["folder-assignment"]!);
 export const accountTable = buildEntityTable("account", _ledger.entities["account"]!);
 export const transactionTable = buildEntityTable("transaction", _ledger.entities["transaction"]!);
+export const scheduleTable = buildEntityTable("schedule", _ledger.entities["schedule"]!);
 export { deliveryAttemptsTable } from "@cosmicdrift/kumiko-bundled-features/delivery";
 export { subscriptionsProjectionTable } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 export { globalFeatureStateTable } from "@cosmicdrift/kumiko-bundled-features/feature-toggles";
