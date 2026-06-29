@@ -201,7 +201,8 @@ export const APEX_NAV_MENU_CSS = `
     font: inherit; font-size: 0.9375rem; color: var(--fg-muted);
     background: none; border: 0; padding: 0; cursor: pointer; }
   .nav-menu__trigger:hover { color: var(--fg); }
-  .nav-menu__chev { font-size: 0.7em; transition: transform 0.15s; }
+  .nav-menu__chev { display: inline-flex; transition: transform 0.15s; opacity: 0.7; }
+  .nav-menu__chev svg { width: 0.95em; height: 0.95em; }
   .nav-menu:hover .nav-menu__chev, .nav-menu:focus-within .nav-menu__chev { transform: rotate(180deg); }
   .nav-menu__panel { position: absolute; top: calc(100% + 0.5rem); left: 0; z-index: 20;
     min-width: 21rem; padding: 0.5rem; background: var(--bg-card); color: var(--fg);

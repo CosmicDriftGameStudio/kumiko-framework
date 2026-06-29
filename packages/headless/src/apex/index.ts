@@ -369,7 +369,7 @@ function renderNavMenu(m: ApexNavMenu): string {
     m.footer !== undefined
       ? `<div class="nav-menu__sep"></div><a class="nav-menu__more" href="${escapeHtml(m.footer.href)}">${escapeHtml(m.footer.label)}</a>`
       : "";
-  return `<div class="nav-menu"><button type="button" class="nav-menu__trigger" aria-haspopup="true">${escapeHtml(m.label)}<span class="nav-menu__chev" aria-hidden="true">▾</span></button><div class="nav-menu__panel">${items}${footer}</div></div>`;
+  return `<div class="nav-menu"><button type="button" class="nav-menu__trigger" aria-haspopup="true">${escapeHtml(m.label)}<span class="nav-menu__chev" aria-hidden="true">${svgIcon('<path d="m6 9 6 6 6-6"/>')}</span></button><div class="nav-menu__panel">${items}${footer}</div></div>`;
 }
 
 function renderNavEntry(entry: ApexNavEntry): string {
