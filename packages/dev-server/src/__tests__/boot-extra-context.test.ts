@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
@@ -6,8 +7,10 @@ import type { MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { buildBootExtraContext } from "../run-prod-app";
 
 // Pins runProdApp's framework-default-provider autowire (buildBootExtraContext):
-// textContent unconditional, secrets feature-gated, KEK-env trap avoided, and
-// the money-horse regression (no secrets feature → no forced KEK → no throw).
+// textContent unconditional, secrets feature-gated, KEK-env trap avoided, the
+// money-horse regression (no secrets feature → no forced KEK → no throw), and
+// the delivery _notifyFactory wiring that makes ctx.notify work in prod (only
+// test-wired before — runProdApp/runDevApp call THIS, not createDeliveryTestContext).
 
 // db is never touched at construction time — createTextContentApi /
 // createSecretsContext only store the handle and query lazily. A bare stub
@@ -30,6 +33,29 @@ describe("buildBootExtraContext — framework-default provider autowire", () => 
     expect(typeof (ctx["textContent"] as { getBlock?: unknown }).getBlock).toBe("function");
     expect(ctx["secrets"]).toBeUndefined();
     expect(ctx["configResolver"]).toBeUndefined();
+    expect(ctx["_notifyFactory"]).toBeUndefined();
+  });
+
+  test("delivery feature mounted → _notifyFactory wired (ctx.notify works in prod)", () => {
+    const ctx = buildBootExtraContext({
+      db: fakeDb,
+      features: [createDeliveryFeature()],
+      envSource: {},
+      registry,
+      hasAuth: false,
+    });
+    expect(typeof ctx["_notifyFactory"]).toBe("function");
+  });
+
+  test("no delivery feature → _notifyFactory not wired", () => {
+    const ctx = buildBootExtraContext({
+      db: fakeDb,
+      features: [otherFeature],
+      envSource: {},
+      registry,
+      hasAuth: false,
+    });
+    expect(ctx["_notifyFactory"]).toBeUndefined();
   });
 
   test("secrets feature mounted + valid KEK env → ctx.secrets wired", () => {

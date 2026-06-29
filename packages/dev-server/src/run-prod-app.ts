@@ -48,6 +48,11 @@ import {
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
+  collectChannels,
+  createDeliveryService,
+  DELIVERY_FEATURE,
+} from "@cosmicdrift/kumiko-bundled-features/delivery";
+import {
   createSecretsContext,
   SECRETS_FEATURE_NAME,
 } from "@cosmicdrift/kumiko-bundled-features/secrets";
@@ -79,6 +84,7 @@ import {
   type EffectiveFeaturesResolver,
   type FeatureDefinition,
   findTierResolverUsage,
+  type NotifyFactory,
   type Registry,
   type TenantId,
   type TierResolverPlugin,
@@ -636,6 +642,25 @@ function envHasMasterKek(env: Record<string, string | undefined>): boolean {
   return Object.entries(env).some(([k, v]) => MASTER_KEK_VAR.test(k) && !!v);
 }
 
+// Prod/dev parity for ctx.notify: without this `_notifyFactory` is only wired
+// in tests (createDeliveryTestContext), so ctx.notify is undefined at runtime
+// and every notification silently skips. sseBroker optional (email/push don't
+// need it, in-app SSE does); no jobRunner → queued channels send inline.
+function buildDeliveryNotifyFactory(opts: {
+  readonly db: DbConnection;
+  readonly registry: Registry;
+  readonly sseBroker?: SseBroker;
+}): NotifyFactory {
+  const deliveryService = createDeliveryService({
+    db: opts.db,
+    registry: opts.registry,
+    channels: collectChannels(opts.registry),
+    ...(opts.sseBroker && { sseBroker: opts.sseBroker }),
+  });
+  return (user, tenantId) => (notificationType, options) =>
+    deliveryService.notify(notificationType, options, user, tenantId);
+}
+
 export function buildBootExtraContext(opts: {
   readonly db: DbConnection;
   readonly features: readonly FeatureDefinition[];
@@ -643,12 +668,21 @@ export function buildBootExtraContext(opts: {
   readonly registry: Registry;
   readonly hasAuth: boolean;
   readonly masterKey?: MasterKeyProvider;
+  readonly sseBroker?: SseBroker;
 }): Record<string, unknown> {
   const hasSecretsFeature = opts.features.some((f) => f.name === SECRETS_FEATURE_NAME);
   const wireSecrets =
     hasSecretsFeature && (opts.masterKey !== undefined || envHasMasterKek(opts.envSource));
+  const hasDeliveryFeature = opts.features.some((f) => f.name === DELIVERY_FEATURE);
   return {
     textContent: createTextContentApi(opts.db),
+    ...(hasDeliveryFeature && {
+      _notifyFactory: buildDeliveryNotifyFactory({
+        db: opts.db,
+        registry: opts.registry,
+        ...(opts.sseBroker && { sseBroker: opts.sseBroker }),
+      }),
+    }),
     ...(wireSecrets && {
       secrets: createSecretsContext({
         db: opts.db,
@@ -907,6 +941,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     envSource,
     registry,
     hasAuth: !!effectiveAuth,
+    sseBroker,
     ...(options.masterKey && { masterKey: options.masterKey }),
   });
   const extraContext = addConfigAccessorFactory(

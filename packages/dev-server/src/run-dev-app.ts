@@ -318,6 +318,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
       envSource,
       registry: deps.registry,
       hasAuth: false,
+      sseBroker: deps.sseBroker,
       ...(options.masterKey && { masterKey: options.masterKey }),
     });
     const base = typeof cfgExtra === "function" ? cfgExtra(deps) : (cfgExtra ?? {});
