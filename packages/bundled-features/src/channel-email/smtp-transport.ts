@@ -63,3 +63,40 @@ export function createSmtpTransport(options: SmtpTransportOptions): EmailTranspo
     },
   };
 }
+
+/** Env-Felder die `createSmtpTransportFromEnv` liest. Apps die SMTP
+ *  nutzen extenden ihr env-Schema um genau diese Keys. */
+export type SmtpEnv = {
+  readonly SMTP_HOST?: string;
+  readonly SMTP_PORT?: string;
+  readonly SMTP_SECURE?: string;
+  readonly SMTP_USER?: string;
+  readonly SMTP_PASS?: string;
+  readonly SMTP_FROM?: string;
+};
+
+/**
+ * Boot-Time-Transport aus env. Ohne `SMTP_HOST` → `null` (Caller behandelt
+ * das als "kein Mail-Versand", statt zu crashen). Port wird zu Number
+ * gecoerced (default 587), `secure` ist `SMTP_SECURE === "true"`, auth nur
+ * wenn user UND pass gesetzt sind.
+ *
+ * Ersetzt den identischen `env.SMTP_HOST ? createSmtpTransport({...}) : null`
+ * Block den jede App in bin/main.ts + bin/server.ts hand-rollte — nur die
+ * From-Default (`fallbackFrom`) variiert pro App.
+ */
+export function createSmtpTransportFromEnv(
+  env: SmtpEnv,
+  opts: { readonly fallbackFrom: string },
+): EmailTransport | null {
+  if (!env.SMTP_HOST) return null;
+  return createSmtpTransport({
+    host: env.SMTP_HOST,
+    port: env.SMTP_PORT ? Number(env.SMTP_PORT) : 587,
+    secure: env.SMTP_SECURE === "true",
+    ...(env.SMTP_USER && env.SMTP_PASS
+      ? { auth: { user: env.SMTP_USER, pass: env.SMTP_PASS } }
+      : {}),
+    from: env.SMTP_FROM ?? opts.fallbackFrom,
+  });
+}

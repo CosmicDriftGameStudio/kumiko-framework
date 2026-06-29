@@ -73,6 +73,7 @@
     "./renderer-simple": "./src/renderer-simple/index.ts",
     "./files-provider-s3": "./src/files-provider-s3/index.ts",
     "./rate-limiting": "./src/rate-limiting/index.ts",
+    "./presets": "./src/presets/index.ts",
     "./secrets": "./src/secrets/index.ts",
     "./sessions": "./src/sessions/index.ts",
     "./sessions/testing": "./src/sessions/testing.ts",

@@ -9,7 +9,11 @@ import {
   createTenantDb,
   type DbConnection,
 } from "@cosmicdrift/kumiko-framework/db";
-import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type SessionUser,
+  SYSTEM_TENANT_ID,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { runEventStoreSeed, type SeedIfExists } from "@cosmicdrift/kumiko-framework/seeding";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { type TextBlockRow, textBlockEntity, textBlocksTable } from "./table";
@@ -100,4 +104,34 @@ export async function seedTextBlock(
       return { id: row.id };
     },
   });
+}
+
+export type LegalContentBlock = {
+  readonly slug: string;
+  readonly lang: string;
+  readonly title: string;
+  readonly body: string;
+};
+
+// Boot-Seed für Legal-/Marketing-Texte aus einer JSON-Vorlage. `ifExists:
+// "update"` ist load-bearing: die Vorlage ist autoritativ, jeder Boot hebt
+// bestehende Blöcke auf den kompilierten Stand — sonst erreichen gesetzlich
+// vorgeschriebene Zusätze (z.B. Sub-Processor-Tabelle) bereits geseedete
+// Prod-Records nie. Genau diese Entscheidung soll keine App selbst treffen.
+export async function seedLegalContentFromJson(
+  db: DbConnection,
+  blocks: readonly LegalContentBlock[],
+  opts: { readonly tenantId?: TenantId } = {},
+): Promise<void> {
+  const tenantId = opts.tenantId ?? SYSTEM_TENANT_ID;
+  for (const block of blocks) {
+    await seedTextBlock(db, {
+      tenantId,
+      slug: block.slug,
+      lang: block.lang,
+      title: block.title,
+      body: block.body,
+      ifExists: "update",
+    });
+  }
 }

@@ -4,8 +4,11 @@
 // und solon (jede App hatte identische send*Email-Wrapper kopiert).
 export {
   type AuthMailerConfig,
+  type AuthPaths,
   type CreateAuthMailerConfigArgs,
   createAuthMailerConfig,
+  DEFAULT_AUTH_PATHS,
+  makeAuthPaths,
 } from "./auth-mailer";
 export { AUTH_EMAIL_PASSWORD_FEATURE, AuthErrors, AuthHandlers } from "./constants";
 // Default-HTML-Renderer für die Reset-Password + Verify-Email Mails.

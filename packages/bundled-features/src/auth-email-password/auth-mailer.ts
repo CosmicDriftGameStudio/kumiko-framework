@@ -56,20 +56,35 @@ export type AuthMailerConfig = {
   };
 };
 
+/** Pfad-Konstanten der 4 Auth-Seiten (relativ zur App-baseUrl). */
+export type AuthPaths = {
+  readonly resetPassword: string;
+  readonly verifyEmail: string;
+  readonly signupComplete: string;
+  readonly inviteAccept: string;
+};
+
+/** Konventions-Pfade — alle Kumiko-Apps nutzen dieselben. Apps überschreiben
+ *  nur die Ausnahme via `makeAuthPaths({ ... })`. */
+export const DEFAULT_AUTH_PATHS: AuthPaths = {
+  resetPassword: "/reset-password",
+  verifyEmail: "/verify-email",
+  signupComplete: "/signup/complete",
+  inviteAccept: "/invite/accept",
+};
+
+export function makeAuthPaths(overrides: Partial<AuthPaths> = {}): AuthPaths {
+  return { ...DEFAULT_AUTH_PATHS, ...overrides };
+}
+
 export type CreateAuthMailerConfigArgs = {
   readonly mailSender: EmailTransport;
   readonly hmacSecret: string;
   /** Basis-URL der App inkl. Schema (z.B. "https://admin.example.com").
    *  Die factory hängt paths.resetPassword etc. an. */
   readonly baseUrl: string;
-  /** Pfad-Konstanten für die Auth-Seiten — jede App hat ihre eigenen
-   *  in `./auth-paths.ts`. */
-  readonly paths: {
-    readonly resetPassword: string;
-    readonly verifyEmail: string;
-    readonly signupComplete: string;
-    readonly inviteAccept: string;
-  };
+  /** Pfad-Konstanten für die Auth-Seiten. Default: DEFAULT_AUTH_PATHS. */
+  readonly paths?: AuthPaths;
   /** App-Name für Mail-Subject + Body. Default "Account". */
   readonly appName?: string;
   /** Locale für die Mail-Templates. Default "de". */
@@ -91,10 +106,11 @@ export type CreateAuthMailerConfigArgs = {
 export function createAuthMailerConfig(args: CreateAuthMailerConfigArgs): AuthMailerConfig {
   const appName = args.appName ?? "Account";
   const locale = args.locale ?? "de";
+  const paths = args.paths ?? DEFAULT_AUTH_PATHS;
   return {
     passwordReset: {
       hmacSecret: args.hmacSecret,
-      appResetUrl: `${args.baseUrl}${args.paths.resetPassword}`,
+      appResetUrl: `${args.baseUrl}${paths.resetPassword}`,
       sendResetEmail: async ({ email, resetUrl, expiresAt }) => {
         await args.mailSender.send({
           to: email,
@@ -107,7 +123,7 @@ export function createAuthMailerConfig(args: CreateAuthMailerConfigArgs): AuthMa
       ...(args.emailVerificationMode !== undefined && {
         mode: args.emailVerificationMode,
       }),
-      appVerifyUrl: `${args.baseUrl}${args.paths.verifyEmail}`,
+      appVerifyUrl: `${args.baseUrl}${paths.verifyEmail}`,
       sendVerificationEmail: async ({ email, verificationUrl, expiresAt }) => {
         await args.mailSender.send({
           to: email,
@@ -116,7 +132,7 @@ export function createAuthMailerConfig(args: CreateAuthMailerConfigArgs): AuthMa
       },
     },
     signup: {
-      appActivationUrl: `${args.baseUrl}${args.paths.signupComplete}`,
+      appActivationUrl: `${args.baseUrl}${paths.signupComplete}`,
       sendActivationEmail: async ({ email, activationUrl, expiresAt }) => {
         await args.mailSender.send({
           to: email,
@@ -125,7 +141,7 @@ export function createAuthMailerConfig(args: CreateAuthMailerConfigArgs): AuthMa
       },
     },
     invite: {
-      appAcceptUrl: `${args.baseUrl}${args.paths.inviteAccept}`,
+      appAcceptUrl: `${args.baseUrl}${paths.inviteAccept}`,
       sendInviteEmail: async ({ email, inviteUrl, expiresAt, role }) => {
         await args.mailSender.send({
           to: email,

@@ -27,8 +27,13 @@
 import {
   AuthErrors,
   AuthHandlers,
+  type AuthMailerConfig,
+  type AuthMailLocale,
+  type AuthPaths,
+  createAuthMailerConfig,
   type EmailVerificationOptions,
   type InviteOptions,
+  makeAuthPaths,
   type PasswordResetOptions,
   type SignupOptions,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
@@ -36,16 +41,22 @@ import {
   type SeedAdminOptions,
   seedAdmin,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
+import { createSmtpTransportFromEnv } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import {
   buildEnvConfigOverrides,
   createConfigAccessorFactory,
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
+  createSecretsContext,
+  SECRETS_FEATURE_NAME,
+} from "@cosmicdrift/kumiko-bundled-features/secrets";
+import {
   createSessionCallbacks,
   SESSIONS_FEATURE,
 } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
+import { createTextContentApi } from "@cosmicdrift/kumiko-bundled-features/text-content";
 import { UserQueries } from "@cosmicdrift/kumiko-bundled-features/user";
 import {
   type CachePolicy,
@@ -55,7 +66,11 @@ import {
   createSseBroker,
   type SseBroker,
 } from "@cosmicdrift/kumiko-framework/api";
-import { createDbConnection, type DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createDbConnection,
+  type DbConnection,
+  type DbRunner,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   buildAppSchema,
   type ConfigResolver,
@@ -97,6 +112,10 @@ import {
   createEventDedup,
   createIdempotencyGuard,
 } from "@cosmicdrift/kumiko-framework/pipeline";
+import {
+  createEnvMasterKeyProvider,
+  type MasterKeyProvider,
+} from "@cosmicdrift/kumiko-framework/secrets";
 import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import Redis from "ioredis";
 import { applyBootSeeds } from "./boot/apply-boot-seeds";
@@ -281,10 +300,39 @@ export type RunProdAppAuthOptions = {
    *  Standardverhalten ohne diese Option: stateless JWTs ohne sid
    *  (legacy-Verhalten, Karten­haus existing-Apps unangefasst). */
   readonly sessions?: ProdSessionsOption;
+  /** Auth-Mail-Convenience: verdrahtet alle 4 Mail-Flows (passwordReset,
+   *  emailVerification, signup, invite) aus einem SMTP-Transport-aus-env +
+   *  Standard-Templates. Ersetzt das per-App hand-gerollte
+   *  `createSmtpTransportFromEnv` + `createAuthMailerConfig`-Wrapper-Trio.
+   *
+   *  Null-Transport-Guard: ohne `SMTP_HOST`-env wird KEIN Mail-Flow
+   *  verdrahtet (Routes blieben sonst 500). Eine App die einen einzelnen
+   *  Flow custom braucht, setzt `passwordReset`/`signup`/… explizit —
+   *  der explizite Block gewinnt über den mail-Default.
+   *
+   *  Bewusste Entscheidung: `mail` mountet ALLE 4 Flows inkl. signup +
+   *  invite (Self-Registration on). Wer nur reset+verify will, lässt `mail`
+   *  weg und setzt die gewünschten Flows explizit — kein impliziter
+   *  Self-Signup. */
+  readonly mail?: {
+    /** App-Basis-URL inkl. Schema (z.B. "https://app.example.com"). */
+    readonly baseUrl: string;
+    /** App-Name für Mail-Subject + Body. Default "Account". */
+    readonly appName?: string;
+    /** Locale für die Mail-Templates. Default "de". */
+    readonly locale?: AuthMailLocale;
+    /** "strict" blockt Login bis emailVerified; "off" mountet ohne Gate. */
+    readonly emailVerificationMode?: "strict" | "off";
+    /** Fallback-From-Adresse wenn `SMTP_FROM`-env fehlt (env gewinnt). */
+    readonly from?: string;
+    /** Einzelne Auth-Pfade überschreiben (Default DEFAULT_AUTH_PATHS). */
+    readonly paths?: Partial<AuthPaths>;
+  };
   /** Password-reset flow. When set, /api/auth/request-password-reset +
    *  /api/auth/reset-password are mounted as public routes UND der
    *  request/confirm-Handler im auth-email-password-Feature wird
-   *  registriert (sonst dispatchen die Routes ins Leere → 500). */
+   *  registriert (sonst dispatchen die Routes ins Leere → 500).
+   *  Überschreibt den `mail`-Default für genau diesen Flow. */
   readonly passwordReset?: PasswordResetSetup;
   /** Email-verification flow. Symmetric to passwordReset. */
   readonly emailVerification?: EmailVerificationSetup;
@@ -428,13 +476,22 @@ export type RunProdAppOptions = {
    *  Setups die ihren eigenen Schema-Check fahren (z.B. bring-your-own-
    *  ORM). Standard-Apps lassen das default. */
   readonly migrations?: { readonly dir: string } | false;
-  /** Extra AppContext keys. configResolver is auto-set in auth-mode.
-   *  Akzeptiert entweder einen statischen Object ODER eine Factory
+  /** Extra AppContext keys. Framework-Defaults werden zur Boot-Zeit
+   *  unter den Factory-Werten ergänzt, App-Werte gewinnen immer:
+   *    - `textContent` (createTextContentApi(db)) — immer
+   *    - `secrets` (createSecretsContext) — nur wenn das `secrets`-Feature
+   *      gemountet ist (sonst kein KEK-env-Zwang für Apps ohne secrets)
+   *    - `configResolver` — im Auth-Mode (env-config-overrides)
+   *  Akzeptiert einen statischen Object ODER eine Factory
    *  `({db, redis, registry}) => Record<string, unknown>` — gleiches
-   *  Pattern wie `anonymousAccess`. Im Auth-Mode wird `configResolver`
-   *  weiterhin automatisch ergänzt; Factory-Result + auto-resolver
-   *  werden gemerged (Factory-Werte überschreiben). */
+   *  Pattern wie `anonymousAccess`. Eine App die einen dieser Keys selbst
+   *  setzt (z.B. eigener configResolver) überschreibt den Default. */
   readonly extraContext?: ExtraContextOption;
+  /** MasterKeyProvider für die auto-verdrahtete `ctx.secrets`. Default:
+   *  `createEnvMasterKeyProvider` (KEK aus `KUMIKO_SECRETS_MASTER_KEY_V<n>`).
+   *  Override für KMS-Backends (AWS/GCP/Azure) statt env-KEK. Nur relevant
+   *  wenn das `secrets`-Feature gemountet ist. */
+  readonly masterKey?: MasterKeyProvider;
   /** Deploy-Topologie. Default `true` (Single-Container): dieser Prozess
    *  fährt HTTP + BEIDE Job-Lanes (api + worker) + den Event-Dispatcher
    *  (MSP-Anwendung) inline — via `createAllInOneEntrypoint`. Damit laufen
@@ -554,6 +611,86 @@ export function addConfigAccessorFactory<T extends { readonly configResolver?: C
   };
 }
 
+// Framework-Default-Provider für den AppContext — gleicher Mechanismus wie
+// der tenantTierResolver-Autowire (findTierResolverUsage): deklarierter
+// Bedarf (Feature gemountet) → Default aus db/env, App überschreibt nur die
+// Ausnahme. textContent ist unbedingt (createTextContentApi wirft nie, baut
+// nur einen db-gebundenen Accessor); secrets ist feature-gegated, weil
+// createEnvMasterKeyProvider ohne KEK-env wirft — eine App ohne secrets-
+// Feature soll nicht in eine KEK-Pflicht gezwungen werden. configResolver
+// nur im Auth-Mode (env-config-overrides). Exportiert + pure für Unit-Tests;
+// der merge mit den App-Werten passiert beim Caller (App gewinnt).
+export function buildBootExtraContext(opts: {
+  readonly db: DbConnection;
+  readonly features: readonly FeatureDefinition[];
+  readonly envSource: Record<string, string | undefined>;
+  readonly registry: Registry;
+  readonly hasAuth: boolean;
+  readonly masterKey?: MasterKeyProvider;
+}): Record<string, unknown> {
+  const hasSecretsFeature = opts.features.some((f) => f.name === SECRETS_FEATURE_NAME);
+  return {
+    textContent: createTextContentApi(opts.db),
+    ...(hasSecretsFeature && {
+      secrets: createSecretsContext({
+        db: opts.db,
+        masterKeyProvider:
+          opts.masterKey ??
+          createEnvMasterKeyProvider({
+            // CURRENT_VERSION default "1" spiegelt secretsEnvSchema — ohne
+            // ihn wirft der raw-env-Provider, obwohl V1 gesetzt ist.
+            env: {
+              ...opts.envSource,
+              KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION:
+                opts.envSource["KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION"] ?? "1",
+            },
+          }),
+      }),
+    }),
+    ...(opts.hasAuth && {
+      configResolver: createConfigResolver({
+        appOverrides: buildEnvConfigOverrides(opts.registry, opts.envSource),
+      }),
+    }),
+  };
+}
+
+// auth.mail-Convenience → normalisiert in die expliziten passwordReset/
+// emailVerification/signup/invite-Felder, BEVOR buildComposeAuthOptions
+// (Feature-Side: hmacSecret/mode) und das auth-routes-Fragment sie lesen —
+// so speist EIN mail-Block beide Pfade. App-explizite Flows gewinnen über
+// den Default. Null-Transport-Guard: ohne SMTP_HOST-env bleibt alles
+// unverdrahtet (sonst lieferten die reset/verify-Routes 500).
+export function resolveAuthMail(
+  auth: RunProdAppAuthOptions,
+  hmacSecret: string,
+  envSource: Record<string, string | undefined>,
+): RunProdAppAuthOptions {
+  if (!auth.mail) return auth;
+  const mailSender = createSmtpTransportFromEnv(envSource, {
+    fallbackFrom: auth.mail.from ?? "noreply@localhost",
+  });
+  if (!mailSender) return auth;
+  const mc: AuthMailerConfig = createAuthMailerConfig({
+    mailSender,
+    hmacSecret,
+    baseUrl: auth.mail.baseUrl,
+    paths: makeAuthPaths(auth.mail.paths),
+    ...(auth.mail.appName !== undefined && { appName: auth.mail.appName }),
+    ...(auth.mail.locale !== undefined && { locale: auth.mail.locale }),
+    ...(auth.mail.emailVerificationMode !== undefined && {
+      emailVerificationMode: auth.mail.emailVerificationMode,
+    }),
+  });
+  return {
+    ...auth,
+    passwordReset: auth.passwordReset ?? mc.passwordReset,
+    emailVerification: auth.emailVerification ?? mc.emailVerification,
+    signup: auth.signup ?? mc.signup,
+    invite: auth.invite ?? mc.invite,
+  };
+}
+
 export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHandle> {
   // 0. Env-Schema validation + dry-run modes. Runs FIRST so:
   //    - operators can introspect env-requirements without a real boot
@@ -625,14 +762,21 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // biome-ignore lint/suspicious/noConsole: boot-time progress hint, no logger configured this early
   console.log(`[runProdApp] booting Kumiko stack on port ${port}…`);
 
+  // auth.mail → expandiert in die expliziten Flow-Felder, bevor sie sowohl
+  // die Feature-Side (buildComposeAuthOptions) als auch das Routes-Fragment
+  // unten speisen. Ab hier IMMER effectiveAuth statt options.auth lesen.
+  const effectiveAuth = options.auth
+    ? resolveAuthMail(options.auth, jwtSecret, envSource)
+    : undefined;
+
   // 3. Feature registry. Auth-mode auto-mixes config/user/tenant/auth-email-
   //    password via composeFeatures — same source-of-truth as runDevApp
   //    AND the per-app drizzle-Schema-Generator, so Migration und Runtime
   //    sehen exakt dieselbe Liste. Built BEFORE any connection so boot-mode
   //    can validate wiring and exit without opening a Postgres/Redis socket.
-  const composeAuthOptions = buildComposeAuthOptions(options.auth);
+  const composeAuthOptions = buildComposeAuthOptions(effectiveAuth);
   const features = composeFeatures(options.features, {
-    includeBundled: !!options.auth,
+    includeBundled: !!effectiveAuth,
     ...(composeAuthOptions && { authOptions: composeAuthOptions }),
   });
 
@@ -726,15 +870,19 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     typeof options.extraContext === "function"
       ? options.extraContext(deps)
       : (options.extraContext ?? {});
+
+  // Framework-Default-Provider zuerst, App-Werte (resolvedExtraContext)
+  // gewinnen immer (z.B. money-horse's eigener configResolver).
+  const autoExtraContext = buildBootExtraContext({
+    db,
+    features,
+    envSource,
+    registry,
+    hasAuth: !!effectiveAuth,
+    ...(options.masterKey && { masterKey: options.masterKey }),
+  });
   const extraContext = addConfigAccessorFactory(
-    options.auth
-      ? {
-          configResolver: createConfigResolver({
-            appOverrides: buildEnvConfigOverrides(registry, envSource),
-          }),
-          ...resolvedExtraContext,
-        }
-      : resolvedExtraContext,
+    { ...autoExtraContext, ...resolvedExtraContext },
     registry,
   );
   const resolvedAnonymousAccess =
@@ -755,11 +903,11 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // and `auth.sessions: false` is the explicit opt-out (back to stateless JWTs).
   const sessionsFeatureMounted = features.some((f) => f.name === SESSIONS_FEATURE);
   const sessionAuthFragment = shouldWireProdSessions(
-    Boolean(options.auth),
+    Boolean(effectiveAuth),
     sessionsFeatureMounted,
-    options.auth?.sessions,
+    effectiveAuth?.sessions,
   )
-    ? buildProdSessionAuth(db, resolveProdSessionsConfig(options.auth?.sessions))
+    ? buildProdSessionAuth(db, resolveProdSessionsConfig(effectiveAuth?.sessions))
     : undefined;
 
   const baseEntrypointOptions = {
@@ -780,56 +928,56 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       ...(resolvedEffectiveFeatures && { effectiveFeatures: resolvedEffectiveFeatures }),
     },
     eventDedup,
-    ...(options.auth && {
+    ...(effectiveAuth && {
       auth: {
         membershipQuery: TenantQueries.memberships,
         userQuery: UserQueries.findForAuth,
         loginHandler: AuthHandlers.login,
-        loginErrorStatusMap: options.auth.loginErrorStatusMap ?? {
+        loginErrorStatusMap: effectiveAuth.loginErrorStatusMap ?? {
           [AuthErrors.invalidCredentials]: 401,
           [AuthErrors.noMembership]: 403,
         },
-        ...(options.auth.cookieDomain !== undefined && {
-          cookieDomain: options.auth.cookieDomain,
+        ...(effectiveAuth.cookieDomain !== undefined && {
+          cookieDomain: effectiveAuth.cookieDomain,
         }),
-        ...(options.auth.allowedOrigins !== undefined && {
-          allowedOrigins: options.auth.allowedOrigins,
+        ...(effectiveAuth.allowedOrigins !== undefined && {
+          allowedOrigins: effectiveAuth.allowedOrigins,
         }),
-        ...(options.auth.unsafeSkipOriginCheck !== undefined && {
-          unsafeSkipOriginCheck: options.auth.unsafeSkipOriginCheck,
+        ...(effectiveAuth.unsafeSkipOriginCheck !== undefined && {
+          unsafeSkipOriginCheck: effectiveAuth.unsafeSkipOriginCheck,
         }),
         ...sessionAuthFragment,
-        ...(options.auth.passwordReset && {
+        ...(effectiveAuth.passwordReset && {
           passwordReset: {
             requestHandler: AuthHandlers.requestPasswordReset,
             confirmHandler: AuthHandlers.resetPassword,
-            sendResetEmail: options.auth.passwordReset.sendResetEmail,
-            appResetUrl: options.auth.passwordReset.appResetUrl,
+            sendResetEmail: effectiveAuth.passwordReset.sendResetEmail,
+            appResetUrl: effectiveAuth.passwordReset.appResetUrl,
           },
         }),
-        ...(options.auth.emailVerification && {
+        ...(effectiveAuth.emailVerification && {
           emailVerification: {
             requestHandler: AuthHandlers.requestEmailVerification,
             confirmHandler: AuthHandlers.verifyEmail,
-            sendVerificationEmail: options.auth.emailVerification.sendVerificationEmail,
-            appVerifyUrl: options.auth.emailVerification.appVerifyUrl,
+            sendVerificationEmail: effectiveAuth.emailVerification.sendVerificationEmail,
+            appVerifyUrl: effectiveAuth.emailVerification.appVerifyUrl,
           },
         }),
-        ...(options.auth.signup && {
+        ...(effectiveAuth.signup && {
           signup: {
             requestHandler: AuthHandlers.signupRequest,
             confirmHandler: AuthHandlers.signupConfirm,
-            sendActivationEmail: options.auth.signup.sendActivationEmail,
-            appActivationUrl: options.auth.signup.appActivationUrl,
+            sendActivationEmail: effectiveAuth.signup.sendActivationEmail,
+            appActivationUrl: effectiveAuth.signup.appActivationUrl,
           },
         }),
-        ...(options.auth.invite && {
+        ...(effectiveAuth.invite && {
           invite: {
             acceptHandler: AuthHandlers.inviteAccept,
             acceptWithLoginHandler: AuthHandlers.inviteAcceptWithLogin,
             signupCompleteHandler: AuthHandlers.inviteSignupComplete,
-            sendInviteEmail: options.auth.invite.sendInviteEmail,
-            appAcceptUrl: options.auth.invite.appAcceptUrl,
+            sendInviteEmail: effectiveAuth.invite.sendInviteEmail,
+            appAcceptUrl: effectiveAuth.invite.appAcceptUrl,
           },
         }),
       },
@@ -895,8 +1043,8 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   //    "first boot" via flag, every seed-step checks its own
   //    preconditions. Config-seeds rely on a deterministic
   //    aggregate-id so re-boot becomes a version_conflict skip.
-  if (options.auth) {
-    await seedAdmin(db, options.auth.admin);
+  if (effectiveAuth) {
+    await seedAdmin(db, effectiveAuth.admin);
   }
   await applyBootSeeds({ registry, db });
   for (const seed of options.seeds ?? []) {
