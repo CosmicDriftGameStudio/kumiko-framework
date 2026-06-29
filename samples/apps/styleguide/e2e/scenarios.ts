@@ -46,4 +46,13 @@ export const SCENARIOS: readonly Scenario[] = [
     settleMs: 400,
     fullPage: true,
   },
+  {
+    name: "located-timestamp",
+    description:
+      "Timezones-Recipe: locatedTimestamp-Picker (Wall-Clock + IANA-Zone) + date/timestamp/tz",
+    url: "/delivery-edit",
+    waitFor: "text=Located date-time",
+    settleMs: 400,
+    fullPage: true,
+  },
 ];
