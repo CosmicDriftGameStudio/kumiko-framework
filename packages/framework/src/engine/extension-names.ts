@@ -67,6 +67,27 @@ export const EXT_TENANT_DATA = "tenantData" as const;
 export const EXT_STORAGE_PROVIDER = "storageProvider" as const;
 
 /**
+ * `fileProvider` — File-Storage-Provider-Plugin-Selection (file-foundation).
+ *
+ * Provider-Features (file-provider-s3, -inmemory, -s3-env) registrieren eine
+ * Implementierung via `r.useExtension(EXT_FILE_PROVIDER, "<name>", { build })`;
+ * der per-Tenant Config-Key `provider` waehlt zur Runtime eine aus. Der
+ * Framework-Resolver (`createFileProviderForTenant`) liest das, damit Upload-
+ * Routes, `ctx.files` UND die DSGVO-Jobs denselben Store treffen.
+ *
+ * Framework-seitig besessen, damit kein String-Drift entsteht — file-
+ * foundation MUSS Extension-Point + Config-Key unter genau diesen Namen
+ * registrieren.
+ */
+export const EXT_FILE_PROVIDER = "fileProvider" as const;
+
+// Qualifizierter Config-Key, den das file-foundation-Feature registriert
+// (Format `<feature>:config:<key>`). Akzeptierte Kopplung: der Framework-
+// Resolver liegt UNTER dem Feature und liest den Key per String. Umbenennen
+// des file-foundation-Features MUSS diese Konstante mitziehen.
+export const FILE_PROVIDER_CONFIG_KEY = "file-foundation:config:provider" as const;
+
+/**
  * `searchAdapter` — Search-Adapter-Forget-Hooks (Meilisearch-Index-Cleanup
  * bei User-Forget oder Tenant-Destroy).
  *

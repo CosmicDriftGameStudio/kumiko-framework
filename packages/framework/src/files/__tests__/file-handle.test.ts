@@ -27,7 +27,7 @@ describe("deriveKey", () => {
 describe("FileHandle", () => {
   test("read/write round-trip through the provider", async () => {
     const provider = createInMemoryFileProvider();
-    const handle = createFileHandle("tenant/x.jpg", provider);
+    const handle = createFileHandle("tenant/x.jpg", () => Promise.resolve(provider));
 
     const payload = new Uint8Array([1, 2, 3, 4]);
     await handle.write(payload, "image/jpeg");
@@ -38,7 +38,7 @@ describe("FileHandle", () => {
 
   test("exists reflects write/delete state", async () => {
     const provider = createInMemoryFileProvider();
-    const handle = createFileHandle("tenant/x.jpg", provider);
+    const handle = createFileHandle("tenant/x.jpg", () => Promise.resolve(provider));
 
     expect(await handle.exists()).toBe(false);
     await handle.write(new Uint8Array([9]));
@@ -49,7 +49,7 @@ describe("FileHandle", () => {
 
   test("derive produces an independent handle at the derived key", async () => {
     const provider = createInMemoryFileProvider();
-    const original = createFileHandle("tenant/photo.jpg", provider);
+    const original = createFileHandle("tenant/photo.jpg", () => Promise.resolve(provider));
     const thumb = original.derive("thumb");
 
     expect(thumb.key).toBe("tenant/photo.thumb.jpg");
@@ -66,7 +66,7 @@ describe("FileHandle", () => {
 
   test("writes copy the buffer — caller mutations don't corrupt stored data", async () => {
     const provider = createInMemoryFileProvider();
-    const handle = createFileHandle("tenant/x.bin", provider);
+    const handle = createFileHandle("tenant/x.bin", () => Promise.resolve(provider));
 
     const buf = new Uint8Array([1, 2, 3]);
     await handle.write(buf);
@@ -80,7 +80,7 @@ describe("FileHandle", () => {
 describe("createFileContext", () => {
   test("ref returns a handle bound to the given key", async () => {
     const provider = createInMemoryFileProvider();
-    const files = createFileContext(provider);
+    const files = createFileContext(() => Promise.resolve(provider));
 
     const h = files.ref("tenant/foo.pdf");
     expect(h.key).toBe("tenant/foo.pdf");

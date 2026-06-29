@@ -15,6 +15,17 @@ export { createFileRoutes } from "./file-routes";
 export type { InMemoryFileProvider } from "./in-memory-provider";
 export { createInMemoryFileProvider } from "./in-memory-provider";
 export { createLocalProvider } from "./local-provider";
+export type {
+  FileProviderContext,
+  FileProviderPlugin,
+  FileProviderResolver,
+  FileProviderResolverDeps,
+} from "./provider-resolver";
+export {
+  createFileProviderForTenant,
+  isFileProviderPlugin,
+  makeFileProviderResolver,
+} from "./provider-resolver";
 export { filesStorageTrackingFeature, tenantStorageUsageTable } from "./storage-tracking";
 export type {
   FileMetadata,

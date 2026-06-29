@@ -90,7 +90,6 @@ beforeAll(async () => {
       createUserDataRightsFeature(),
       createUserDataRightsDefaultsFeature(),
     ],
-    files: { storageProvider: flakyProvider },
     extraContext: ({ registry }) => ({
       configResolver: resolver,
       _configAccessorFactory: createConfigAccessorFactory(registry, resolver),

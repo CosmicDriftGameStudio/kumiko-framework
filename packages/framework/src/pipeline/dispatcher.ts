@@ -25,6 +25,7 @@ import type {
 } from "../engine/types";
 import { HookPhases } from "../engine/types";
 import type { TenantId } from "../engine/types/identifiers";
+import { createFileContext } from "../files/file-handle";
 import { createFallbackLogger } from "../logging/utils";
 
 // Re-export for callers that reach for dispatcher-adjacent types (tests,
@@ -285,6 +286,14 @@ export function createDispatcher(
             secrets: context.secrets,
           })
         : undefined;
+    // ctx.files resolved per-tenant through file-foundation (lazy — the
+    // provider is only resolved when a handle actually does I/O). Boot wires
+    // _fileProviderResolver when a file-provider plugin is mounted; falls back
+    // to a statically-injected context.files (tests).
+    const fileResolver = context._fileProviderResolver;
+    const files = fileResolver
+      ? createFileContext(() => fileResolver(user.tenantId))
+      : context.files;
 
     // Observability — feature-bound metrics handle, so ctx.metrics.inc("foo")
     // resolves to kumiko_<feature>_foo. Unknown feature falls back to noop
@@ -558,6 +567,7 @@ export function createDispatcher(
       log,
       notify,
       ...(config && { config }),
+      ...(files && { files }),
       tracer,
       metrics,
       tz,
