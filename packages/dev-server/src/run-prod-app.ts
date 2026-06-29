@@ -301,7 +301,12 @@ export type RunProdAppAuthOptions = {
    *  Null-Transport-Guard: ohne `SMTP_HOST`-env wird KEIN Mail-Flow
    *  verdrahtet (Routes blieben sonst 500). Eine App die einen einzelnen
    *  Flow custom braucht, setzt `passwordReset`/`signup`/… explizit —
-   *  der explizite Block gewinnt über den mail-Default. */
+   *  der explizite Block gewinnt über den mail-Default.
+   *
+   *  Bewusste Entscheidung: `mail` mountet ALLE 4 Flows inkl. signup +
+   *  invite (Self-Registration on). Wer nur reset+verify will, lässt `mail`
+   *  weg und setzt die gewünschten Flows explizit — kein impliziter
+   *  Self-Signup. */
   readonly mail?: {
     /** App-Basis-URL inkl. Schema (z.B. "https://app.example.com"). */
     readonly baseUrl: string;
