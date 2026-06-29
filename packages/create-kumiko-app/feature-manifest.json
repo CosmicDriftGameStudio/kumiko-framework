@@ -567,7 +567,7 @@
     },
     {
       "name": "files",
-      "description": "Exposes the `fileRef` entity and `createFilesFeature` from the framework core so that uploaded files — tracked in the `file_refs` table by `createFileRoutes` — participate in cross-feature hooks: `user-data-rights-defaults` automatically includes file blobs in GDPR exports and forget flows, and future tenant-lifecycle cleanup will delete all refs on tenant destroy. This feature does not add upload or download routes; those remain in the server bootstrap via the `options.files` parameter.",
+      "description": "Exposes the `fileRef` entity from the framework core so that uploaded files — tracked in the `file_refs` table by `createFileRoutes` — participate in cross-feature hooks: `user-data-rights-defaults` automatically includes file blobs in GDPR exports and forget flows, and tenant-lifecycle cleanup deletes all refs on tenant destroy. Upload/download routes are registered by the server bootstrap when a `file-provider-*` feature is mounted; this feature carries their access/size policy via `createFilesFeature(opts?)`.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
