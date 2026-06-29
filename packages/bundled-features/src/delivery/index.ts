@@ -3,6 +3,7 @@ export {
   DELIVERY_FEATURE,
   DeliveryErrors,
   DeliveryHandlers,
+  DeliveryJobs,
   DeliveryQueries,
   DeliveryStatus,
 } from "./constants";
@@ -21,9 +22,11 @@ export type {
   ChannelMessage,
   ChannelResult,
   DeliveryChannel,
+  DeliveryChannelMode,
   DeliveryLogEntry,
   DeliveryService,
   NotificationRenderer,
+  RenderedMessage,
   RendererInput,
 } from "./types";
 export {

@@ -4,6 +4,7 @@ import { inAppMessagesTable } from "./tables";
 
 export const inAppChannel: DeliveryChannel = {
   name: "inApp",
+  mode: "inline",
 
   async resolve(userId) {
     // InApp always resolves — the userId IS the address

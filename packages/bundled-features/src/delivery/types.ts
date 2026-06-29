@@ -2,6 +2,7 @@ import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type {
   NotifyOptions,
+  NotifyPriority,
   Registry,
   SessionUser,
   TenantId,
@@ -29,10 +30,31 @@ export type ChannelResult = {
   readonly address?: string;
 };
 
+// Output of a channel's render step, passed into send(). Only channels that
+// declare render() (email) produce one; inline channels (inApp) and channels
+// without an expensive render step (push) receive `undefined`.
+export type RenderedMessage = {
+  readonly html: string;
+  readonly subject: string;
+};
+
+// `mode` decides how the delivery-service dispatches a channel:
+//   inline — sent synchronously inside notify() (inApp: DB insert + SSE).
+//   queued — sent asynchronously via the delivery.send job; channels with a
+//            render() additionally run through delivery.render first.
+export type DeliveryChannelMode = "inline" | "queued";
+
 export type DeliveryChannel = {
   readonly name: string;
+  readonly mode: DeliveryChannelMode;
   resolve(userId: string, ctx: ChannelContext): Promise<string | null>;
-  send(address: string, message: ChannelMessage, ctx: ChannelContext): Promise<ChannelResult>;
+  render?(message: ChannelMessage, ctx: ChannelContext): Promise<RenderedMessage>;
+  send(
+    address: string,
+    message: ChannelMessage,
+    ctx: ChannelContext,
+    rendered?: RenderedMessage,
+  ): Promise<ChannelResult>;
 };
 
 // --- Notification Renderer ---
@@ -55,8 +77,9 @@ export type DeliveryLogEntry = {
   readonly channel: string;
   readonly recipientId: string | null;
   readonly recipientAddress: string | null;
-  readonly status: "sent" | "failed" | "skipped";
+  readonly status: "queued" | "sent" | "failed" | "skipped";
   readonly error: string | null;
+  readonly priority: NotifyPriority;
 };
 
 // --- Delivery Service ---

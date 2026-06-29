@@ -1,11 +1,12 @@
-import { insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { upsertByPk } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import type { z } from "zod";
-import { DELIVERY_ATTEMPT_EVENT } from "./constants";
+import { DELIVERY_ATTEMPT_EVENT, DeliveryJobNames } from "./constants";
 import { deliveryAttemptSchema } from "./events";
 import { logQuery } from "./handlers/log.query";
 import { preferencesQuery } from "./handlers/preferences.query";
 import { setPreferenceWrite } from "./handlers/set-preference.write";
+import { deliveryRenderJob, deliverySendJob } from "./jobs";
 import {
   deliveryAttemptsTable,
   deliveryAttemptsTableMeta,
@@ -54,18 +55,26 @@ export function createDeliveryFeature(): FeatureDefinition {
       apply: {
         [DELIVERY_ATTEMPT_EVENT]: async (event, tx) => {
           const p = event.payload as z.infer<typeof deliveryAttemptSchema>; // @cast-boundary engine-payload
-          // PK = aggregateId — replaying the same event twice conflicts on
-          // the PK rather than silently duplicating the log row.
-          await insertOne(tx, deliveryAttemptsTable, {
-            id: event.aggregateId,
-            tenantId: event.tenantId,
-            notificationType: p.notificationType,
-            channel: p.channel,
-            recipientId: p.recipientId,
-            recipientAddress: p.recipientAddress,
-            status: p.status,
-            error: p.error,
-          });
+          // PK = aggregateId. An async attempt accrues multiple events on one
+          // stream (queued → sent/failed): the first INSERTs, later events
+          // UPDATE the same row. Events arrive in version order, so the last
+          // status wins; replays stay idempotent (same row, same values).
+          await upsertByPk(
+            tx,
+            deliveryAttemptsTable,
+            {
+              id: event.aggregateId,
+              tenantId: event.tenantId,
+              notificationType: p.notificationType,
+              channel: p.channel,
+              recipientId: p.recipientId,
+              recipientAddress: p.recipientAddress,
+              status: p.status,
+              error: p.error,
+              priority: p.priority,
+            },
+            { status: p.status, error: p.error, recipientAddress: p.recipientAddress },
+          );
         },
       },
     });
@@ -79,6 +88,21 @@ export function createDeliveryFeature(): FeatureDefinition {
     r.extendsRegistrar("deliveryChannel", {
       onRegister: () => {},
     });
+
+    // Async delivery pipeline for queued-mode channels. render decouples the
+    // expensive template step (own worker, own retry) and dispatches send;
+    // channels without a render() go straight to send. Dispatched explicitly
+    // from the delivery-service, hence manual trigger.
+    r.job(
+      DeliveryJobNames.render,
+      { trigger: { manual: true }, retries: 3, backoff: "exponential" },
+      deliveryRenderJob,
+    );
+    r.job(
+      DeliveryJobNames.send,
+      { trigger: { manual: true }, retries: 3, backoff: "exponential" },
+      deliverySendJob,
+    );
 
     const handlers = {
       setPreference: r.writeHandler(setPreferenceWrite),

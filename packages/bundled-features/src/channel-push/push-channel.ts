@@ -15,6 +15,7 @@ export function createPushChannel(options: PushChannelOptions): DeliveryChannel 
 
   return {
     name: "push",
+    mode: "queued",
 
     async resolve(userId, ctx) {
       return resolveToken(userId, ctx);
