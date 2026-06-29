@@ -199,6 +199,9 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     } = args;
 
     if (channel.mode === "queued" && jobRunner) {
+      // Async hand-off: record the attempt as queued, then dispatch the
+      // render/send job — the terminal sent/failed event is appended by the
+      // job, not here.
       const deliveryAttemptId = generateId();
       await appendAttemptEvent(db, registry, deliveryAttemptId, {
         tenantId,
@@ -224,21 +227,21 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
         },
         { priority: deliveryPriorityRank[priority] },
       );
-      return;
+    } else {
+      // Inline (inApp) or no-job-runner fallback: render + send synchronously.
+      const rendered = channel.render ? await channel.render(message, channelCtx) : undefined;
+      const result = await channel.send(address, message, channelCtx, rendered);
+      await logDelivery({
+        tenantId,
+        notificationType,
+        channel: channel.name,
+        recipientId,
+        recipientAddress: result.address ?? address,
+        status: result.status,
+        error: result.error ?? null,
+        priority,
+      });
     }
-
-    const rendered = channel.render ? await channel.render(message, channelCtx) : undefined;
-    const result = await channel.send(address, message, channelCtx, rendered);
-    await logDelivery({
-      tenantId,
-      notificationType,
-      channel: channel.name,
-      recipientId,
-      recipientAddress: result.address ?? address,
-      status: result.status,
-      error: result.error ?? null,
-      priority,
-    });
   }
 
   function buildMessage(
