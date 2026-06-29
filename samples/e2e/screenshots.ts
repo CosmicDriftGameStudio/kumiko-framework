@@ -106,6 +106,15 @@ export function runMatrix<T extends string>(
         }, locale);
         await openScenario(page, s);
 
+        // Theme/viewport swaps must capture the SETTLED frame, not a
+        // mid-transition one: a heavy screen (e.g. a 400-entry zone combobox)
+        // can leave a colour transition unfinished at capture time, so the
+        // dark-theme cell shows a half-light card. Killing transitions makes
+        // every theme swap snap instantly.
+        await page.addStyleTag({
+          content: "*,*::before,*::after{transition:none!important;animation:none!important;}",
+        });
+
         for (const theme of themes) {
           await opts.applyTheme(page, theme);
           for (const vp of viewports) {
