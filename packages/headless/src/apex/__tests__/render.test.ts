@@ -53,6 +53,45 @@ describe("renderApexPage", () => {
     expect(html).toContain("<rect/>");
   });
 
+  test("nav menu entry renders a dropdown; plain links stay anchors", () => {
+    const html = renderApexPage(
+      page({
+        header: {
+          brand: { href: "/", label: "Acme" },
+          navLinks: [
+            {
+              kind: "menu",
+              label: "Product",
+              items: [
+                { icon: "<rect/>", title: "Planner", desc: "Plan it", href: "/p" },
+                { title: "<b>Reports</b>", href: "/r" },
+              ],
+              footer: { label: "See all", href: "/all" },
+            },
+            { label: "Pricing", href: "#pricing" },
+          ],
+        },
+      }),
+    );
+    // Menu chrome + trigger label.
+    expect(html).toContain('class="nav-menu"');
+    expect(html).toContain('class="nav-menu__trigger"');
+    expect(html).toContain("Product");
+    // Items: title, description, wrapped icon; missing desc/icon simply omitted.
+    expect(html).toContain('class="nav-menu__item" href="/p"');
+    expect(html).toContain("Planner");
+    expect(html).toContain("Plan it");
+    expect(html).toContain("<rect/>");
+    // Footer link under the divider.
+    expect(html).toContain('class="nav-menu__more" href="/all"');
+    expect(html).toContain("See all");
+    // Item titles are escaped (app-data, not trusted HTML).
+    expect(html).toContain("&lt;b&gt;Reports&lt;/b&gt;");
+    expect(html).not.toContain("<b>Reports</b>");
+    // The sibling plain link still renders as a normal anchor.
+    expect(html).toContain('<a href="#pricing">Pricing</a>');
+  });
+
   test("pricing: featured card gets badge + featured class, cap line precedes benefits", () => {
     const html = renderApexPage(
       page({

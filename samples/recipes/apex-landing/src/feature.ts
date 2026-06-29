@@ -123,8 +123,35 @@ export function buildLandingPage(input: LandingInput): ApexPage {
     },
     header: {
       brand: { href: "/", label: "Tasklane" },
+      // A dropdown nav entry (kind:"menu") renders an icon/title/desc panel on
+      // hover + keyboard focus; plain links sit beside it. One typed shape, no
+      // app CSS — the renderer ships the dropdown styling.
       navLinks: [
-        { label: "Features", href: "#features" },
+        {
+          kind: "menu",
+          label: "Product",
+          items: [
+            {
+              icon: FEATURE_ICON.bolt,
+              title: "Live planning",
+              desc: "Reorder, estimate and assign as you type.",
+              href: "#features",
+            },
+            {
+              icon: FEATURE_ICON.layers,
+              title: "Portfolio view",
+              desc: "Every project on one screen, at a glance.",
+              href: "#features",
+            },
+            {
+              icon: FEATURE_ICON.shield,
+              title: "Your data, yours",
+              desc: "EU-hosted, no tracking, export any time.",
+              href: "#features",
+            },
+          ],
+          footer: { label: "See all features", href: "#features" },
+        },
         { label: "Pricing", href: "#pricing" },
       ],
       actions: [{ label: "Sign in", href: "/login", variant: "link" }],
