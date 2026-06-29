@@ -165,4 +165,43 @@ describe("FolderManager filing mode", () => {
       expect(dispatchSpy).toHaveBeenCalledWith(FoldersHandlers.createFolder, { name: "Inbox" }),
     );
   });
+
+  test("a mixed-type tree files each leaf under its own entityType (per-leaf override + fallback)", async () => {
+    folderRows = [
+      { id: "f1", name: "A", parentId: null, version: 1 },
+      { id: "f2", name: "B", parentId: null, version: 1 },
+    ];
+    const mixed: FolderFiling = {
+      entityType: "credit", // tree default
+      leavesByFolder: new Map([["f1", [{ id: "b-1", label: "Bauspar 1", entityType: "bauspar" }]]]),
+      unfiled: [{ id: "c-1", label: "Credit 1" }], // no override → inherits "credit"
+      unfiledLabel: "Unfiled",
+      onReassigned: () => {},
+    };
+    render(
+      <Wrapper>
+        <FolderManager filing={mixed} />
+      </Wrapper>,
+    );
+
+    // The bauspar leaf carries its own entityType into the set-folder write…
+    dropLeaf("folder-node-f2", "b-1");
+    await waitFor(() =>
+      expect(dispatchSpy).toHaveBeenCalledWith(FoldersHandlers.setFolder, {
+        folderId: "f2",
+        entityType: "bauspar",
+        entityId: "b-1",
+      }),
+    );
+
+    // …while a leaf without an override still falls back to filing.entityType.
+    dropLeaf("folder-node-f1", "c-1");
+    await waitFor(() =>
+      expect(dispatchSpy).toHaveBeenCalledWith(FoldersHandlers.setFolder, {
+        folderId: "f1",
+        entityType: "credit",
+        entityId: "c-1",
+      }),
+    );
+  });
 });
