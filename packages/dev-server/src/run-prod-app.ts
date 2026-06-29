@@ -286,6 +286,24 @@ export type InviteSetup = InviteOptions & {
   readonly appAcceptUrl: string;
 };
 
+/** Auth-Mail-Convenience-Optionen — shared zwischen runProdApp + runDevApp.
+ *  Verdrahtet alle 4 Mail-Flows aus einem env-SMTP-Transport + Standard-
+ *  Templates (siehe `auth.mail` + resolveAuthMail). */
+export type AuthMailOptions = {
+  /** App-Basis-URL inkl. Schema (z.B. "https://app.example.com"). */
+  readonly baseUrl: string;
+  /** App-Name für Mail-Subject + Body. Default "Account". */
+  readonly appName?: string;
+  /** Locale für die Mail-Templates. Default "de". */
+  readonly locale?: AuthMailLocale;
+  /** "strict" blockt Login bis emailVerified; "off" mountet ohne Gate. */
+  readonly emailVerificationMode?: "strict" | "off";
+  /** Fallback-From-Adresse wenn `SMTP_FROM`-env fehlt (env gewinnt). */
+  readonly from?: string;
+  /** Einzelne Auth-Pfade überschreiben (Default DEFAULT_AUTH_PATHS). */
+  readonly paths?: Partial<AuthPaths>;
+};
+
 export type RunProdAppAuthOptions = {
   /** Initial admin user. Seeded once (idempotent — re-boots check first
    *  whether the email is already in the users table). */
@@ -314,20 +332,7 @@ export type RunProdAppAuthOptions = {
    *  invite (Self-Registration on). Wer nur reset+verify will, lässt `mail`
    *  weg und setzt die gewünschten Flows explizit — kein impliziter
    *  Self-Signup. */
-  readonly mail?: {
-    /** App-Basis-URL inkl. Schema (z.B. "https://app.example.com"). */
-    readonly baseUrl: string;
-    /** App-Name für Mail-Subject + Body. Default "Account". */
-    readonly appName?: string;
-    /** Locale für die Mail-Templates. Default "de". */
-    readonly locale?: AuthMailLocale;
-    /** "strict" blockt Login bis emailVerified; "off" mountet ohne Gate. */
-    readonly emailVerificationMode?: "strict" | "off";
-    /** Fallback-From-Adresse wenn `SMTP_FROM`-env fehlt (env gewinnt). */
-    readonly from?: string;
-    /** Einzelne Auth-Pfade überschreiben (Default DEFAULT_AUTH_PATHS). */
-    readonly paths?: Partial<AuthPaths>;
-  };
+  readonly mail?: AuthMailOptions;
   /** Password-reset flow. When set, /api/auth/request-password-reset +
    *  /api/auth/reset-password are mounted as public routes UND der
    *  request/confirm-Handler im auth-email-password-Feature wird
@@ -661,11 +666,21 @@ export function buildBootExtraContext(opts: {
 // so speist EIN mail-Block beide Pfade. App-explizite Flows gewinnen über
 // den Default. Null-Transport-Guard: ohne SMTP_HOST-env bleibt alles
 // unverdrahtet (sonst lieferten die reset/verify-Routes 500).
-export function resolveAuthMail(
-  auth: RunProdAppAuthOptions,
+/** Die Auth-Felder die resolveAuthMail liest/normalisiert — beide
+ *  App-Auth-Typen (prod + dev) erfüllen das strukturell. */
+type AuthMailNormalizable = {
+  readonly mail?: AuthMailOptions;
+  readonly passwordReset?: PasswordResetSetup;
+  readonly emailVerification?: EmailVerificationSetup;
+  readonly signup?: SignupSetup;
+  readonly invite?: InviteSetup;
+};
+
+export function resolveAuthMail<T extends AuthMailNormalizable>(
+  auth: T,
   hmacSecret: string,
   envSource: Record<string, string | undefined>,
-): RunProdAppAuthOptions {
+): T {
   if (!auth.mail) return auth;
   const mailSender = createSmtpTransportFromEnv(envSource, {
     fallbackFrom: auth.mail.from ?? "noreply@localhost",
