@@ -41,7 +41,10 @@ import {
   createConfigAccessorFactory,
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
-import { createSessionCallbacks } from "@cosmicdrift/kumiko-bundled-features/sessions";
+import {
+  createSessionCallbacks,
+  SESSIONS_FEATURE,
+} from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { UserQueries } from "@cosmicdrift/kumiko-bundled-features/user";
 import {
@@ -101,6 +104,12 @@ import { ASSETS_DIR } from "./build-prod-bundle";
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features";
 import { type ExtraRoutesSystemDeps, makeDispatchSystemWrite } from "./extra-routes-deps";
 import { injectSchema } from "./inject-schema";
+import {
+  type ProdSessionsConfig,
+  type ProdSessionsOption,
+  resolveProdSessionsConfig,
+  shouldWireProdSessions,
+} from "./session-wiring";
 import { tryHonoFirst } from "./try-hono-first";
 
 /**
@@ -271,9 +280,7 @@ export type RunProdAppAuthOptions = {
    *
    *  Standardverhalten ohne diese Option: stateless JWTs ohne sid
    *  (legacy-Verhalten, Karten­haus existing-Apps unangefasst). */
-  readonly sessions?: {
-    readonly expiresInMs?: number;
-  };
+  readonly sessions?: ProdSessionsOption;
   /** Password-reset flow. When set, /api/auth/request-password-reset +
    *  /api/auth/reset-password are mounted as public routes UND der
    *  request/confirm-Handler im auth-email-password-Feature wird
@@ -743,8 +750,16 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // AuthRoutesConfig-Surface — der wird vom sessions-Feature selbst über
   // die `autoRevokeOnPasswordChange`-Option konsumiert, nicht über die
   // auth-routes.
-  const sessionAuthFragment = options.auth?.sessions
-    ? buildProdSessionAuth(db, options.auth.sessions)
+  // Secure-by-default: if the sessions feature is mounted, server-side revocation +
+  // sessionStrictMode are wired automatically; `auth.sessions` only overrides the config,
+  // and `auth.sessions: false` is the explicit opt-out (back to stateless JWTs).
+  const sessionsFeatureMounted = features.some((f) => f.name === SESSIONS_FEATURE);
+  const sessionAuthFragment = shouldWireProdSessions(
+    Boolean(options.auth),
+    sessionsFeatureMounted,
+    options.auth?.sessions,
+  )
+    ? buildProdSessionAuth(db, resolveProdSessionsConfig(options.auth?.sessions))
     : undefined;
 
   const baseEntrypointOptions = {
@@ -1270,7 +1285,7 @@ export function staticCachePolicy(pathname: string): CachePolicy {
 
 function buildProdSessionAuth(
   db: import("@cosmicdrift/kumiko-framework/db").DbConnection,
-  opts: NonNullable<RunProdAppAuthOptions["sessions"]>,
+  opts: ProdSessionsConfig,
 ): {
   readonly sessionCreator: ReturnType<typeof createSessionCallbacks>["sessionCreator"];
   readonly sessionRevoker: ReturnType<typeof createSessionCallbacks>["sessionRevoker"];
