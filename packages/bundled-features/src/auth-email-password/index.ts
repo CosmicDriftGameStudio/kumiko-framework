@@ -1,24 +1,14 @@
-// Factory für die app-spezifische invite-Mail-Config (reset/verify/signup
-// laufen über delivery). Baut das invite-Setup gegen mailSender + Render-
-// Funktion — eliminiert Duplikate zwischen kumiko-studio, publicstatus und
-// solon (jede App hatte identische sendInviteEmail-Wrapper kopiert).
-export {
-  type AuthMailerConfig,
-  type AuthPaths,
-  type CreateAuthMailerConfigArgs,
-  createAuthMailerConfig,
-  DEFAULT_AUTH_PATHS,
-  makeAuthPaths,
-} from "./auth-mailer";
+// Convention paths for the auth pages (reset/verify/signup/invite); apps build
+// their magic-link appUrls from these. All mail now goes through delivery.
+export { type AuthPaths, DEFAULT_AUTH_PATHS, makeAuthPaths } from "./auth-paths";
 export { AUTH_EMAIL_PASSWORD_FEATURE, AuthErrors, AuthHandlers } from "./constants";
-// Renderers for the auth mails. The magic-link flows (reset, verify, signup-
-// activation) emit structured AuthMailContent through delivery (ctx.notify);
-// invite still returns RenderedEmail via the app-callback path.
+// Renderers for the auth mails. All four magic-link flows (reset, verify,
+// signup-activation, invite) emit structured AuthMailContent through delivery
+// (ctx.notify).
 export type {
   AuthMailContent,
   AuthMailLocale,
   AuthMailSection,
-  RenderedEmail,
   RenderInviteEmailArgs,
   RenderTokenContentArgs,
 } from "./email-templates";

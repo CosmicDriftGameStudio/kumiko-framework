@@ -138,7 +138,7 @@ export function createAuthEmailPasswordFeature(
 
   return defineFeature("auth-email-password", (r) => {
     r.describe(
-      "Provides email+password authentication: the always-on handlers are `login`, `changePassword`, and `logout`; optional flows \u2014 password reset, email verification, magic-link self-signup, and tenant invite \u2014 are registered only when you pass their respective option objects (`passwordReset`, `emailVerification`, `signup`, `invite`) to `createAuthEmailPasswordFeature(opts)`. The magic-link flows (reset, verification, signup activation) dispatch their mail through the `delivery` feature via `ctx.notify` \u2014 mounting any of them additionally requires `delivery` \u2014 while tenant invite still delivers via an app callback. Tokens are HMAC-signed (reset/verify) or opaque-random in Redis (signup/invite). Requires the `user` and `tenant` features, and declares `JWT_SECRET` (\u2265 32 chars) in `authEmailPasswordEnvSchema` so a missing secret surfaces at boot validation rather than on the first login attempt.",
+      "Provides email+password authentication: the always-on handlers are `login`, `changePassword`, and `logout`; optional flows \u2014 password reset, email verification, magic-link self-signup, and tenant invite \u2014 are registered only when you pass their respective option objects (`passwordReset`, `emailVerification`, `signup`, `invite`) to `createAuthEmailPasswordFeature(opts)`. All four magic-link flows (reset, verification, signup activation, tenant invite) dispatch their mail through the `delivery` feature via `ctx.notify`, so mounting any of them additionally requires `delivery`. Tokens are HMAC-signed (reset/verify) or opaque-random in Redis (signup/invite). Requires the `user` and `tenant` features, and declares `JWT_SECRET` (\u2265 32 chars) in `authEmailPasswordEnvSchema` so a missing secret surfaces at boot validation rather than on the first login attempt.",
     );
     r.uiHints({
       displayLabel: "Auth \u00b7 Email + Password",
@@ -158,10 +158,10 @@ export function createAuthEmailPasswordFeature(
     });
     r.requires("user");
     r.requires("tenant");
-    // reset + verify + signup dispatch their magic-link via ctx.notify →
-    // delivery must be mounted. Fail closed at boot instead of silently
-    // dropping the mail.
-    if (opts.passwordReset || opts.emailVerification || opts.signup) {
+    // All four magic-link flows (reset/verify/signup/invite) dispatch via
+    // ctx.notify → delivery must be mounted. Fail closed at boot instead of
+    // silently dropping the mail.
+    if (opts.passwordReset || opts.emailVerification || opts.signup || opts.invite) {
       r.requires("delivery");
     }
     r.envSchema(authEmailPasswordEnvSchema);

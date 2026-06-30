@@ -28,12 +28,12 @@ describe("resolveAuthMail", () => {
 
   test("mail + SMTP_HOST → all four flows wired from DEFAULT_AUTH_PATHS", () => {
     const out = resolveAuthMail(withMail, "secret", { SMTP_HOST: "localhost" });
-    // reset/verify/signup carry appUrl as feature options (handler mails via
-    // delivery); invite keeps the callback-side appAcceptUrl.
+    // All four flows carry appUrl as feature options — each handler mails via
+    // delivery (ctx.notify); no callback wiring remains.
     expect(out.passwordReset?.appUrl).toBe("https://app.example.com/reset-password");
     expect(out.emailVerification?.appUrl).toBe("https://app.example.com/verify-email");
     expect(out.signup?.appUrl).toBe("https://app.example.com/signup/complete");
-    expect(out.invite?.appAcceptUrl).toBe("https://app.example.com/invite/accept");
+    expect(out.invite?.appUrl).toBe("https://app.example.com/invite/accept");
     expect(out.passwordReset?.hmacSecret).toBe("secret");
   });
 

@@ -95,76 +95,49 @@ export type AuthOptionsCarrier = {
  *  gesetzt sind (composeFeatures default-deny: KEINE handler in der
  *  Registry registriert, /api/auth/request-password-reset etc. bleiben
  *  401/404). */
+type MailFlowFields = {
+  readonly appUrl: string;
+  readonly tokenTtlMinutes?: number;
+  readonly appName?: string;
+  readonly locale?: AuthMailLocale;
+};
+
+// The magic-link mail fields shared by all four flows. Conditional spreads omit
+// undefined keys (exactOptionalPropertyTypes) and avoid the property-write that
+// trips noPropertyAccessFromIndexSignature on the type-aliased option shapes.
+// reset/verify layer hmacSecret (+ mode) on top.
+function pickMailFields(src: MailFlowFields): MailFlowFields {
+  return {
+    appUrl: src.appUrl,
+    ...(src.tokenTtlMinutes !== undefined && { tokenTtlMinutes: src.tokenTtlMinutes }),
+    ...(src.appName !== undefined && { appName: src.appName }),
+    ...(src.locale !== undefined && { locale: src.locale }),
+  };
+}
+
 export function buildComposeAuthOptions(
   auth: AuthOptionsCarrier | undefined,
 ): AuthEmailPasswordOptions | undefined {
   if (!auth) return undefined;
   const opts: { -readonly [K in keyof AuthEmailPasswordOptions]: AuthEmailPasswordOptions[K] } = {};
   if (auth.passwordReset) {
-    const reset: { -readonly [K in keyof PasswordResetOptions]: PasswordResetOptions[K] } = {
+    opts.passwordReset = {
       hmacSecret: auth.passwordReset.hmacSecret,
-      appUrl: auth.passwordReset.appUrl,
+      ...pickMailFields(auth.passwordReset),
     };
-    if (auth.passwordReset.tokenTtlMinutes !== undefined) {
-      reset.tokenTtlMinutes = auth.passwordReset.tokenTtlMinutes;
-    }
-    if (auth.passwordReset.appName !== undefined) {
-      reset.appName = auth.passwordReset.appName;
-    }
-    if (auth.passwordReset.locale !== undefined) {
-      reset.locale = auth.passwordReset.locale;
-    }
-    opts.passwordReset = reset;
   }
   if (auth.emailVerification) {
-    const verify: { -readonly [K in keyof EmailVerificationOptions]: EmailVerificationOptions[K] } =
-      {
-        hmacSecret: auth.emailVerification.hmacSecret,
-        appUrl: auth.emailVerification.appUrl,
-      };
-    if (auth.emailVerification.tokenTtlMinutes !== undefined) {
-      verify.tokenTtlMinutes = auth.emailVerification.tokenTtlMinutes;
-    }
-    if (auth.emailVerification.mode !== undefined) {
-      verify.mode = auth.emailVerification.mode;
-    }
-    if (auth.emailVerification.appName !== undefined) {
-      verify.appName = auth.emailVerification.appName;
-    }
-    if (auth.emailVerification.locale !== undefined) {
-      verify.locale = auth.emailVerification.locale;
-    }
-    opts.emailVerification = verify;
+    opts.emailVerification = {
+      hmacSecret: auth.emailVerification.hmacSecret,
+      ...pickMailFields(auth.emailVerification),
+      ...(auth.emailVerification.mode !== undefined && { mode: auth.emailVerification.mode }),
+    };
   }
   if (auth.signup) {
-    // Plain object statt mapped-type — SignupOptions ist type-alias auf
-    // SignupRequestOptions, der TS-mapped-type-Pfad löst's als
-    // index-signature auf (TS noPropertyAccessFromIndexSignature klagt
-    // dann beim Property-write). Plain shape ist klar UND funktioniert.
-    const signup: {
-      appUrl: string;
-      tokenTtlMinutes?: number;
-      appName?: string;
-      locale?: AuthMailLocale;
-    } = { appUrl: auth.signup.appUrl };
-    if (auth.signup.tokenTtlMinutes !== undefined) {
-      signup.tokenTtlMinutes = auth.signup.tokenTtlMinutes;
-    }
-    if (auth.signup.appName !== undefined) {
-      signup.appName = auth.signup.appName;
-    }
-    if (auth.signup.locale !== undefined) {
-      signup.locale = auth.signup.locale;
-    }
-    opts.signup = signup;
+    opts.signup = pickMailFields(auth.signup);
   }
   if (auth.invite) {
-    // Plain object analog signup (gleicher type-alias-issue).
-    const invite: { tokenTtlMinutes?: number } = {};
-    if (auth.invite.tokenTtlMinutes !== undefined) {
-      invite.tokenTtlMinutes = auth.invite.tokenTtlMinutes;
-    }
-    opts.invite = invite;
+    opts.invite = pickMailFields(auth.invite);
   }
   return opts.passwordReset || opts.emailVerification || opts.signup || opts.invite
     ? opts

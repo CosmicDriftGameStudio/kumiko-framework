@@ -1,14 +1,12 @@
-// Default renderers for the transactional auth mails. The magic-link flows
-// (password-reset, email-verification, signup-activation) emit structured
-// AuthMailContent that the handler hands to delivery (ctx.notify) — renderer-
-// simple turns it into HTML. Invite still returns pre-rendered RenderedEmail
-// for the app-callback path (auth-mailer). Apps wanting their own branding
-// swap the renderer; these templates are deliberately plain so the renderer
-// (and the operator reading the mailer log) can rely on them.
+// Default renderers for the transactional auth mails. All four magic-link flows
+// (password-reset, email-verification, signup-activation, invite) emit
+// structured AuthMailContent that the handler hands to delivery (ctx.notify) —
+// renderer-simple turns it into HTML. Apps wanting their own branding swap the
+// renderer; these templates are deliberately plain so the renderer (and the
+// operator reading the mailer log) can rely on them.
 //
 // Locale: de + en. Apps with other languages render themselves.
 
-import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
 import { Temporal } from "temporal-polyfill";
 
 export type AuthMailLocale = "de" | "en";
@@ -23,26 +21,15 @@ export type RenderTokenContentArgs = {
   readonly appName?: string;
 };
 
-export type RenderInviteEmailArgs = {
-  readonly inviteUrl: string;
-  readonly expiresAt: string;
-  readonly role: string;
-  readonly locale?: AuthMailLocale;
-  readonly appName?: string;
-};
-
-// Pre-rendered HTML mail — still used by the activation + invite flows, which
-// run through the app-callback path (auth-mailer) rather than delivery.
-export type RenderedEmail = {
-  readonly subject: string;
-  readonly html: string;
-};
+// Invite adds the role to the unified token-content args; `url` is the fully-
+// built magic-link (the handler already appended ?token=).
+export type RenderInviteEmailArgs = RenderTokenContentArgs & { readonly role: string };
 
 export type AuthMailSection =
   | { readonly text: string }
   | { readonly button: { readonly label: string; readonly url: string } };
 
-// Structured content the reset + verify handlers pass as the delivery `data`
+// Structured content the magic-link handlers pass as the delivery `data`
 // payload: renderer-simple turns header/sections/footer into HTML, the
 // email-channel reads `subject`. No pre-rendered HTML — the renderer owns layout.
 export type AuthMailContent = {
@@ -86,7 +73,6 @@ const STRINGS = {
     inviteExpiry: (when: string) => `Der Link läuft am ${when} ab.`,
     inviteIgnore:
       "Falls du diese Einladung nicht erwartet hast, kannst du diese E-Mail ignorieren.",
-    fallbackUrl: "Falls der Button nicht funktioniert, kopiere diesen Link in den Browser:",
   },
   en: {
     resetSubject: (app: string) => `${app} — Reset your password`,
@@ -119,72 +105,8 @@ const STRINGS = {
     inviteButton: "Accept invitation",
     inviteExpiry: (when: string) => `The link expires on ${when}.`,
     inviteIgnore: "If you weren't expecting this invitation, you can ignore this email.",
-    fallbackUrl: "If the button doesn't work, copy this link into your browser:",
   },
 } as const;
-
-// Shared shape für beide Token-Mails — heading/intro/button/expiry/ignore
-// + button-Url + fallback-Url. renderResetPasswordEmail und renderVerifyEmail
-// bauen den Spec aus den lokalisierten STRINGS und delegieren ans
-// renderTokenEmail. Damit ist die Layout-Logik genau einmal definiert.
-type TokenEmailSpec = {
-  readonly subject: string;
-  readonly greeting: string;
-  readonly intro: string;
-  readonly buttonLabel: string;
-  readonly buttonUrl: string;
-  readonly expiry: string;
-  readonly ignore: string;
-  readonly fallbackUrlLabel: string;
-};
-
-function renderTokenEmail(spec: TokenEmailSpec): RenderedEmail {
-  const bodyHtml = `
-    <tr><td>
-      <p style="margin: 0 0 16px; font-size: 16px;">${escapeHtml(spec.greeting)}</p>
-      <p style="margin: 0 0 24px; font-size: 14px; line-height: 1.5;">${escapeHtml(spec.intro)}</p>
-      <p style="margin: 0 0 24px;">${renderButton({ url: spec.buttonUrl, label: spec.buttonLabel })}</p>
-      <p style="margin: 0 0 8px; font-size: 13px; color: #555;">${escapeHtml(spec.expiry)}</p>
-      <p style="margin: 0; font-size: 13px; color: #555;">${escapeHtml(spec.ignore)}</p>
-      ${renderFallbackUrl({ url: spec.buttonUrl, label: spec.fallbackUrlLabel })}
-    </td></tr>`;
-  return { subject: spec.subject, html: renderShell({ title: spec.subject, bodyHtml }) };
-}
-
-// Plain inline-styled HTML — funktioniert in Gmail/Outlook/Apple-Mail
-// ohne dass wir Tailwind oder eine HTML-mail-Lib reinziehen müssen.
-// guard:dup-ok — Email-HTML (table-layout, inline CSS) ≠ Web-HTML (legal-pages/markdown.ts)
-function renderShell(args: { title: string; bodyHtml: string }): string {
-  return `<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${escapeHtml(args.title)}</title>
-  </head>
-  <body style="margin: 0; padding: 0; background: #f7f7f7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a;">
-    <table width="100%" cellpadding="0" cellspacing="0" style="padding: 24px 0;">
-      <tr>
-        <td align="center">
-          <table width="560" cellpadding="0" cellspacing="0" style="max-width: 560px; background: #ffffff; border-radius: 8px; padding: 32px;">
-            ${args.bodyHtml}
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>`;
-}
-
-// guard:dup-ok — Email-HTML-Helper; selbe normalisierte AST-Form wie wrapInLayout (legal-pages), verschiedene Semantik
-function renderButton(args: { url: string; label: string }): string {
-  return `<a href="${escapeHtmlAttr(args.url)}" style="display: inline-block; background: #1a1a1a; color: #ffffff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">${escapeHtml(args.label)}</a>`;
-}
-
-// guard:dup-ok — Email-HTML-Helper; selbe normalisierte AST-Form wie wrapInLayout (legal-pages), verschiedene Semantik
-function renderFallbackUrl(args: { url: string; label: string }): string {
-  return `<p style="margin: 24px 0 0; font-size: 12px; color: #666;">${escapeHtml(args.label)}<br /><a href="${escapeHtmlAttr(args.url)}" style="color: #1a1a1a; word-break: break-all;">${escapeHtml(args.url)}</a></p>`;
-}
 
 // Structured content for the delivery path. header = action title (CTA label),
 // sections = greeting/intro/button/expiry, footer = the "ignore if not you"
@@ -261,19 +183,19 @@ export function renderActivationEmail(args: RenderTokenContentArgs): AuthMailCon
   });
 }
 
-export function renderInviteEmail(args: RenderInviteEmailArgs): RenderedEmail {
+export function renderInviteEmail(args: RenderInviteEmailArgs): AuthMailContent {
   const locale = args.locale ?? "en";
-  const appName = args.appName ?? (locale === "de" ? "Workspace" : "Workspace");
+  const appName = args.appName ?? "Workspace";
   const t = STRINGS[locale];
-  return renderTokenEmail({
+  return tokenMailContent({
     subject: t.inviteSubject(appName),
+    header: t.inviteButton,
     greeting: t.inviteGreeting,
     intro: t.inviteIntro(appName, args.role),
     buttonLabel: t.inviteButton,
-    buttonUrl: args.inviteUrl,
+    buttonUrl: args.url,
     expiry: t.inviteExpiry(formatExpiry(args.expiresAt)),
     ignore: t.inviteIgnore,
-    fallbackUrlLabel: t.fallbackUrl,
   });
 }
 

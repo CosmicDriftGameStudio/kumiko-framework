@@ -318,21 +318,11 @@ export type EmailVerificationConfig = {
 //   - signupCompleteHandler: anon User mit neuer email (Branch 3)
 // Branch 2+3 minten JWT analog signup-confirm.
 export type InviteConfig = {
-  // Qualified handler names
+  // Qualified handler names. invite-create dispatches the invite mail itself
+  // via delivery (ctx.notify); the route layer only wires the accept branches.
   readonly acceptHandler: string;
   readonly acceptWithLoginHandler: string;
   readonly signupCompleteHandler: string;
-  // Mail-Callback. Token-URL wird von der App-Page (z.B. /invite/accept)
-  // an den User geschickt; der Frontend leitet je nach User-State (eingeloggt
-  // / anon mit existing-email / anon mit neuer email) auf den passenden
-  // Branch-Endpoint.
-  readonly sendInviteEmail: (args: {
-    email: string;
-    inviteUrl: string;
-    expiresAt: string;
-    role: string;
-  }) => Promise<void>;
-  readonly appAcceptUrl: string;
 };
 
 // Magic-Link Self-Signup. Anders als reset/verify NICHT HMAC-signed —

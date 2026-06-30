@@ -9,8 +9,8 @@
 //
 // Flow pro Test:
 //   1. Admin invitet email → invite-create (Admin-Auth)
-//   2. Mail captured durch sendInviteEmail-callback
-//   3. Token aus Activation-URL extrahieren
+//   2. Invite-Mail via delivery (in-memory transport) an den Invitee
+//   3. Token aus dem Mail-HTML extrahieren (NICHT aus dem Admin-Result)
 //   4. Branch-spezifischer Accept-Endpoint
 //   5. DB-State + Membership + Cookies/JWT verifizieren
 
@@ -28,9 +28,15 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
+import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery";
+import { notificationPreferencesTable } from "../../delivery/tables";
+import { createRendererFoundationFeature } from "../../renderer-foundation/feature";
+import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple";
+import { createTemplateResolverFeature } from "../../template-resolver/feature";
 import { createTenantFeature } from "../../tenant";
 import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant/invitation-table";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
@@ -50,12 +56,10 @@ const CAROL_EMAIL = "carol@example.com";
 const BOB_PASSWORD = "bob-existing-pw-1234";
 const CAROL_PASSWORD = "carol-new-pw-1234";
 
-const capturedInviteEmails: Array<{
-  email: string;
-  inviteUrl: string;
-  expiresAt: string;
-  role: string;
-}> = [];
+// Invite mails now go through delivery (ctx.notify → channel-email). The
+// in-memory transport captures what would be sent; route:{email} delivers
+// directly (no jobRunner in the test stack → inline send).
+const emailTransport = createInMemoryTransport();
 
 let stack: TestStack;
 let aliceId: string;
@@ -77,17 +81,37 @@ const GUEST: SessionUser = {
   roles: ["all"],
 };
 
+function extractTokenFromMail(html: string): string {
+  const match = html.match(/[?&]token=([^&"'<\s]+)/);
+  if (!match?.[1]) throw new Error(`No token in invite mail html: ${html.slice(0, 200)}`);
+  return decodeURIComponent(match[1]);
+}
+
 beforeAll(async () => {
   stack = await setupTestStack({
     features: [
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
+      createTemplateResolverFeature(),
+      createRendererFoundationFeature(),
+      createDeliveryFeature(),
+      createRendererSimpleFeature(),
+      createChannelEmailFeature({
+        transport: emailTransport,
+        renderer: simpleRenderer,
+        // route:{email} delivers directly — resolveEmail (userId→address) is
+        // never hit by the invite flow, but the channel requires it.
+        resolveEmail: async () => "unused@test.local",
+      }),
       createAuthEmailPasswordFeature({
-        invite: { tokenTtlMinutes: 60 },
+        invite: { tokenTtlMinutes: 60, appUrl: APP_ACCEPT_URL },
       }),
     ],
-    extraContext: { configResolver: createConfigResolver() },
+    extraContext: (deps) => ({
+      ...createDeliveryTestContext(deps),
+      configResolver: createConfigResolver(),
+    }),
     authConfig: {
       membershipQuery: "tenant:query:memberships",
       loginHandler: AuthHandlers.login,
@@ -95,10 +119,6 @@ beforeAll(async () => {
         acceptHandler: AuthHandlers.inviteAccept,
         acceptWithLoginHandler: AuthHandlers.inviteAcceptWithLogin,
         signupCompleteHandler: AuthHandlers.inviteSignupComplete,
-        appAcceptUrl: APP_ACCEPT_URL,
-        sendInviteEmail: async (args) => {
-          capturedInviteEmails.push(args);
-        },
       },
     },
   });
@@ -106,7 +126,11 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, tenantInvitationEntity);
-  await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
+  await unsafePushTables(stack.db, {
+    configValuesTable,
+    tenantMembershipsTable,
+    notificationPreferencesTable,
+  });
 });
 
 afterAll(async () => {
@@ -118,7 +142,7 @@ beforeEach(async () => {
   await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
   await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantInvitationsTable.tableName}"`);
   await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantTable.tableName}"`);
-  capturedInviteEmails.length = 0;
+  emailTransport.sent.length = 0;
   const allKeys = await stack.redis.redis.keys("invite:*");
   if (allKeys.length > 0) await stack.redis.redis.del(...allKeys);
 
@@ -183,31 +207,35 @@ async function authedRaw(
 }
 
 async function inviteEmail(email: string, role: string): Promise<string> {
-  // invite-create geht via /api/write (Admin-Auth via JWT). Token kommt
-  // direkt aus dem handler-result; sendInviteEmail-callback ist die
-  // optionale Mail-Side, die in production-Setups separat von der
-  // Sample-App aufgerufen wird (NICHT framework-route — invite-create
-  // ist Admin-only und somit kein Magic-Link-Pattern wie signup-request).
-  const result = (await stack.http.writeOk(
-    AuthHandlers.inviteCreate,
-    { email, role },
-    aliceSession(),
-  )) as { token: string };
-  return result.token;
+  // invite-create geht via /api/write (Admin-Auth via JWT). Der Handler
+  // dispatcht die Invite-Mail via delivery; der Token erreicht den Invitee
+  // NUR über die Mail (das Admin-Result enthält ihn nicht mehr).
+  await stack.http.writeOk(AuthHandlers.inviteCreate, { email, role }, aliceSession());
+  const sent = emailTransport.sent.at(-1);
+  if (!sent) throw new Error("invite-create didn't send a mail");
+  return extractTokenFromMail(sent.html);
 }
 
 describe("invite-create", () => {
-  test("Admin invitet → invitation row + token in result", async () => {
+  test("Admin invitet → invitation row + delivery sends mail with token URL", async () => {
     const result = (await stack.http.writeOk(
       AuthHandlers.inviteCreate,
       { email: BOB_EMAIL, role: "Admin" },
       aliceSession(),
-    )) as { invitationId: string; email: string; role: string; token: string };
+    )) as { invitationId: string; email: string; role: string };
 
     expect(result.email).toBe(BOB_EMAIL);
     expect(result.role).toBe("Admin");
-    expect(result.token).toBeTruthy();
-    expect(result.token.length).toBeGreaterThanOrEqual(16);
+    // Der Token geht NICHT an den Admin zurück (er soll die Annahme nicht
+    // impersonieren können) — nur an den Invitee per Mail.
+    expect((result as { token?: string }).token).toBeUndefined();
+
+    expect(emailTransport.sent).toHaveLength(1);
+    const sent = emailTransport.sent[0];
+    if (!sent) throw new Error("no mail sent");
+    expect(sent.to).toBe(BOB_EMAIL);
+    expect(sent.html).toContain(`${APP_ACCEPT_URL}?token=`);
+    expect(sent.html).toContain("Admin");
 
     const rows = await selectMany(stack.db, tenantInvitationsTable, { email: BOB_EMAIL });
     expect(rows).toHaveLength(1);
@@ -442,7 +470,7 @@ describe("privilege escalation via invite role", () => {
   // passed every SystemAdmin gate cross-tenant.
   const FORBIDDEN_ROLES = ["SystemAdmin", "system", "all", "anonymous"];
 
-  test("invite-create rejects reserved/global roles — no invitation persisted", async () => {
+  test("invite-create rejects reserved/global roles — no invitation persisted, no mail", async () => {
     for (const role of FORBIDDEN_ROLES) {
       const err = await stack.http.writeErr(
         AuthHandlers.inviteCreate,
@@ -453,6 +481,8 @@ describe("privilege escalation via invite role", () => {
       const rows = await selectMany(stack.db, tenantInvitationsTable, { email: CAROL_EMAIL });
       expect(rows).toHaveLength(0);
     }
+    // The forbidden-role check fires before the mail dispatch.
+    expect(emailTransport.sent).toHaveLength(0);
   });
 
   test("legitimate tenant role still issues an invitation", async () => {

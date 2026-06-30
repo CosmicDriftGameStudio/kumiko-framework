@@ -1,8 +1,10 @@
 // Tenant-Invite Step 1 (create).
 //
 // Admin invitet email → DB-Row entsteht via event-store-executor (oder
-// wird re-used bei Re-Invite), Random-Token in Redis bidirektional,
-// Route-Layer schickt Mail mit Activation-URL.
+// wird re-used bei Re-Invite), Random-Token in Redis bidirektional, und der
+// Handler schickt die Invite-Mail an den Invitee via delivery (ctx.notify) —
+// wie reset/verify/signup. Der Token geht NICHT an den Admin zurück (er soll
+// die Annahme nicht impersonieren können).
 //
 // Resend-Idempotenz: Re-Invite für gleiche (tenantId, email) während
 // pending → existing row + token re-genutzt + TTL refresh + zweite Mail
@@ -33,7 +35,12 @@ import {
   reservedMembershipRoleError,
 } from "../../tenant/membership-roles";
 import { AUTH_INVITE_DEFAULT_TTL_MINUTES } from "../constants";
+import type { AuthMailLocale } from "../email-templates";
+import { renderInviteEmail } from "../email-templates";
 import { getTokenForInvitation, storeInviteToken } from "../invite-token-store";
+import { dispatchMagicLinkMail } from "../magic-link-mail";
+
+const INVITE_NOTIFICATION_TYPE = "auth-email-password:invite";
 
 const InviteCreateSchema = z.object({
   email: z.email(),
@@ -46,20 +53,24 @@ export type InviteCreateData = {
   readonly tenantId: string;
   readonly email: string;
   readonly role: string;
-  readonly token: string;
   readonly expiresAt: string;
 };
 
 export type InviteCreateOptions = {
   /** TTL für den Activation-Token. Default 7 Tage. */
   readonly tokenTtlMinutes?: number;
+  /** App page that receives the magic-link; the handler appends `?token=…`
+   *  and dispatches the invite mail via delivery (ctx.notify). */
+  readonly appUrl: string;
+  readonly appName?: string;
+  readonly locale?: AuthMailLocale;
 };
 
 const executor = createEventStoreExecutor(tenantInvitationsTable, tenantInvitationEntity, {
   entityName: "tenant-invitation",
 });
 
-export function createInviteCreateHandler(opts: InviteCreateOptions = {}) {
+export function createInviteCreateHandler(opts: InviteCreateOptions) {
   const ttlMinutes = opts.tokenTtlMinutes ?? AUTH_INVITE_DEFAULT_TTL_MINUTES;
   const ttlSeconds = ttlMinutes * 60;
 
@@ -133,6 +144,24 @@ export function createInviteCreateHandler(opts: InviteCreateOptions = {}) {
 
       await storeInviteToken(ctx.redis, { invitationId, token, ttlSeconds });
 
+      await dispatchMagicLinkMail(
+        ctx.notify,
+        {
+          handlerName: "invite-create",
+          notificationType: INVITE_NOTIFICATION_TYPE,
+          renderContent: (renderArgs) =>
+            renderInviteEmail({ ...renderArgs, role: event.payload.role }),
+        },
+        {
+          email,
+          appUrl: opts.appUrl,
+          token,
+          expiresAt: expiresAt.toString(),
+          ...(opts.appName !== undefined && { appName: opts.appName }),
+          ...(opts.locale !== undefined && { locale: opts.locale }),
+        },
+      );
+
       return {
         isSuccess: true,
         data: {
@@ -141,7 +170,6 @@ export function createInviteCreateHandler(opts: InviteCreateOptions = {}) {
           tenantId,
           email,
           role: event.payload.role,
-          token,
           expiresAt: expiresAt.toString(),
         },
       };

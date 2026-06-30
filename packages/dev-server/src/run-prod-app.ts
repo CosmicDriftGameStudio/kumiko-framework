@@ -27,10 +27,8 @@
 import {
   AuthErrors,
   AuthHandlers,
-  type AuthMailerConfig,
   type AuthMailLocale,
   type AuthPaths,
-  createAuthMailerConfig,
   type EmailVerificationOptions,
   type InviteOptions,
   makeAuthPaths,
@@ -251,19 +249,11 @@ export type EmailVerificationSetup = EmailVerificationOptions;
  *  Redis, nicht HMAC-signed. */
 export type SignupSetup = SignupOptions;
 
-/** Wrapper-API für Tenant-Invite Magic-Link. Drei accept-Branches im
- *  framework, der Wrapper reicht NUR die Mail-Side + appAcceptUrl
- *  durch — handler-names sind hardcoded in run-prod-app aus
+/** Wrapper-API für Tenant-Invite Magic-Link. = InviteOptions (appUrl, die
+ *  Invite-Mail geht via delivery wie reset/verify/signup). Drei accept-
+ *  Branches im framework; handler-names sind hardcoded in run-prod-app aus
  *  AuthHandlers (analog signup). */
-export type InviteSetup = InviteOptions & {
-  readonly sendInviteEmail: (args: {
-    email: string;
-    inviteUrl: string;
-    expiresAt: string;
-    role: string;
-  }) => Promise<void>;
-  readonly appAcceptUrl: string;
-};
+export type InviteSetup = InviteOptions;
 
 /** Auth-Mail-Convenience-Optionen — shared zwischen runProdApp + runDevApp.
  *  Verdrahtet alle 4 Mail-Flows aus einem env-SMTP-Transport + Standard-
@@ -298,9 +288,9 @@ export type RunProdAppAuthOptions = {
    *  (legacy-Verhalten, Karten­haus existing-Apps unangefasst). */
   readonly sessions?: ProdSessionsOption;
   /** Auth-Mail-Convenience: verdrahtet alle 4 Mail-Flows (passwordReset,
-   *  emailVerification, signup, invite) aus einem SMTP-Transport-aus-env +
-   *  Standard-Templates. Ersetzt das per-App hand-gerollte
-   *  `createSmtpTransportFromEnv` + `createAuthMailerConfig`-Wrapper-Trio.
+   *  emailVerification, signup, invite) aus `auth.mail.baseUrl` + Standard-
+   *  Pfaden. Alle vier mailen via delivery (ctx.notify) — ersetzt das per-App
+   *  hand-gerollte `send*Email`-Callback-Wiring.
    *
    *  Null-Transport-Guard: ohne `SMTP_HOST`-env wird KEIN Mail-Flow
    *  verdrahtet (Routes blieben sonst 500). Eine App die einen einzelnen
@@ -702,23 +692,21 @@ export function resolveAuthMail<T extends AuthMailNormalizable>(
   envSource: Record<string, string | undefined>,
 ): T {
   if (!auth.mail) return auth;
-  const mailSender = createSmtpTransportFromEnv(envSource, {
-    fallbackFrom: auth.mail.from ?? "noreply@localhost",
-  });
-  if (!mailSender) return auth;
+  // SMTP-presence gate: ohne SMTP_HOST-env wird KEIN Flow verdrahtet (Routes
+  // blieben sonst 500). Der eigentliche Mail-Versand läuft über delivery
+  // (channel-email), nicht über diesen Transport — er ist nur der Detektor
+  // "ist Mail konfiguriert?".
+  if (
+    !createSmtpTransportFromEnv(envSource, { fallbackFrom: auth.mail.from ?? "noreply@localhost" })
+  ) {
+    return auth;
+  }
   const paths = makeAuthPaths(auth.mail.paths);
-  // appName/locale fließen in beide Pfade: die delivery-Flows (reset/verify/
-  // signup als Feature-Options) und den callback-Flow (invite via mc).
+  // appName/locale fließen in alle vier Flow-Options (alle mailen via delivery).
   const mailPresentation = {
     ...(auth.mail.appName !== undefined && { appName: auth.mail.appName }),
     ...(auth.mail.locale !== undefined && { locale: auth.mail.locale }),
   };
-  const mc: AuthMailerConfig = createAuthMailerConfig({
-    mailSender,
-    baseUrl: auth.mail.baseUrl,
-    paths,
-    ...mailPresentation,
-  });
   return {
     ...auth,
     passwordReset: auth.passwordReset ?? {
@@ -738,7 +726,10 @@ export function resolveAuthMail<T extends AuthMailNormalizable>(
       appUrl: `${auth.mail.baseUrl}${paths.signupComplete}`,
       ...mailPresentation,
     },
-    invite: auth.invite ?? mc.invite,
+    invite: auth.invite ?? {
+      appUrl: `${auth.mail.baseUrl}${paths.inviteAccept}`,
+      ...mailPresentation,
+    },
   };
 }
 
@@ -1022,8 +1013,6 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
             acceptHandler: AuthHandlers.inviteAccept,
             acceptWithLoginHandler: AuthHandlers.inviteAcceptWithLogin,
             signupCompleteHandler: AuthHandlers.inviteSignupComplete,
-            sendInviteEmail: effectiveAuth.invite.sendInviteEmail,
-            appAcceptUrl: effectiveAuth.invite.appAcceptUrl,
           },
         }),
       },

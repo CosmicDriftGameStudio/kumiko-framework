@@ -415,8 +415,6 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
             acceptHandler: AuthHandlers.inviteAccept,
             acceptWithLoginHandler: AuthHandlers.inviteAcceptWithLogin,
             signupCompleteHandler: AuthHandlers.inviteSignupComplete,
-            sendInviteEmail: effectiveAuth.invite.sendInviteEmail,
-            appAcceptUrl: effectiveAuth.invite.appAcceptUrl,
           },
         }),
       },
