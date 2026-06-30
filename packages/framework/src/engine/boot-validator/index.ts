@@ -26,6 +26,7 @@ import {
   validateTransitions,
 } from "./entity-handler";
 import { validateGdprHookCompleteness, validateGdprStoragePersistence } from "./gdpr-storage";
+import { validateI18nSurfaceKeys } from "./i18n-keys";
 import { validateOwnershipRules } from "./ownership";
 import { validatePiiAndRetention } from "./pii-retention";
 import {
@@ -160,6 +161,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
 
   validateNavCycles(allNavQns);
   validateDefaultWorkspaceUniqueness(allWorkspaceQns);
+  validateI18nSurfaceKeys(features);
   validateExtensionPreSaveWiring(features);
   validateGdprStoragePersistence(features);
   validateGdprHookCompleteness(features);
@@ -177,3 +179,5 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
   validateConfigReads(features, allConfigKeys);
   warnOnToggleableDependencies(features, featureMap);
 }
+
+
