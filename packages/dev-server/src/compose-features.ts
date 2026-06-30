@@ -13,6 +13,7 @@
 
 import {
   type AuthEmailPasswordOptions,
+  type AuthMailLocale,
   createAuthEmailPasswordFeature,
   type EmailVerificationOptions,
   type InviteOptions,
@@ -140,9 +141,20 @@ export function buildComposeAuthOptions(
     // SignupRequestOptions, der TS-mapped-type-Pfad löst's als
     // index-signature auf (TS noPropertyAccessFromIndexSignature klagt
     // dann beim Property-write). Plain shape ist klar UND funktioniert.
-    const signup: { tokenTtlMinutes?: number } = {};
+    const signup: {
+      appUrl: string;
+      tokenTtlMinutes?: number;
+      appName?: string;
+      locale?: AuthMailLocale;
+    } = { appUrl: auth.signup.appUrl };
     if (auth.signup.tokenTtlMinutes !== undefined) {
       signup.tokenTtlMinutes = auth.signup.tokenTtlMinutes;
+    }
+    if (auth.signup.appName !== undefined) {
+      signup.appName = auth.signup.appName;
+    }
+    if (auth.signup.locale !== undefined) {
+      signup.locale = auth.signup.locale;
     }
     opts.signup = signup;
   }

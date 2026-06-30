@@ -336,10 +336,12 @@ export type InviteConfig = {
 };
 
 // Magic-Link Self-Signup. Anders als reset/verify NICHT HMAC-signed —
-// der Token ist opaque random, Redis ist Source of Truth. Confirm
-// returnt `{ kind: "auth-session", session, tenantKey }` analog zu
-// loginHandler, sodass die Route JWT minten + Cookies setzen kann
-// (Auto-Login direkt nach Activation, kein zweiter login-Roundtrip).
+// der Token ist opaque random, Redis ist Source of Truth. The request
+// handler dispatches the activation mail via delivery (ctx.notify); the
+// route only forwards the dispatch. Confirm returnt
+// `{ kind: "auth-session", session, tenantKey }` analog zu loginHandler,
+// sodass die Route JWT minten + Cookies setzen kann (Auto-Login direkt
+// nach Activation, kein zweiter login-Roundtrip).
 export type SignupConfig = {
   // Qualified name of the request handler (typisch
   // AuthHandlers.signupRequest).
@@ -348,16 +350,6 @@ export type SignupConfig = {
   // AuthHandlers.signupConfirm). Returnt SessionUser-Shape — die
   // Route wickelt das wie einen erfolgreichen login.
   confirmHandler: string;
-  // Mail-Callback. Token-URL wird als `${appActivationUrl}?token=…`
-  // an die App-Page geleitet.
-  sendActivationEmail: (args: {
-    email: string;
-    activationUrl: string;
-    expiresAt: string;
-  }) => Promise<void>;
-  // Base URL of the app page that receives the `?token=…` parameter
-  // (typisch /signup/complete). KEIN trailing `?` oder `#`.
-  appActivationUrl: string;
 };
 
 // Extract `ip` and `user-agent` for the sessionCreator.
@@ -544,7 +536,6 @@ export function createAuthRoutes(
       dispatcher,
       path: Routes.authRequestPasswordReset,
       requestHandler: pr.requestHandler,
-      successKind: "reset-requested",
     });
     registerTokenConfirmRoute({
       api,
@@ -563,7 +554,6 @@ export function createAuthRoutes(
       dispatcher,
       path: Routes.authRequestEmailVerification,
       requestHandler: ev.requestHandler,
-      successKind: "verification-requested",
     });
     registerTokenConfirmRoute({
       api,
@@ -585,10 +575,6 @@ export function createAuthRoutes(
       dispatcher,
       path: Routes.authSignupRequest,
       requestHandler: sg.requestHandler,
-      successKind: "signup-requested",
-      appBaseUrl: sg.appActivationUrl,
-      sendEmail: ({ email, url, expiresAt }) =>
-        sg.sendActivationEmail({ email, activationUrl: url, expiresAt }), // @wrapper-known semantic-alias
     });
 
     api.post(Routes.authSignupConfirm, async (c) => {
@@ -933,37 +919,19 @@ export function createAuthRoutes(
 }
 
 // --- shared route builders for token flows ---------------------------------
-// Password-reset and email-verification share the exact same HTTP-shape:
-// request-route emits a token → optional sendEmail callback → silent-success,
-// confirm-route validates token + does the state change → typed failure or
-// 200. Before this extraction both flows carried ~45 LOC of nearly-identical
-// body-parse / dispatch / url-build / response plumbing. The helpers keep
-// the public-facing silent-success invariant in one place — changing how
-// the framework handles "invalid_body" on a public token endpoint is now
-// one edit, not two.
-
-type TokenRequestData = {
-  kind: string;
-  email: string;
-  token: string;
-  expiresAt: string;
-};
-
-type TokenNoOp = { kind: "no-op" };
+// Password-reset, email-verification and signup share the exact same request
+// HTTP-shape: parse body → dispatch the request handler → always-200 (no
+// enumeration). The handler mints the token AND dispatches the magic-link mail
+// via delivery (ctx.notify); the route never sees the token. confirm-route
+// validates the token + does the state change → typed failure or 200. Keeping
+// the silent-success invariant in one place means changing how the framework
+// handles "invalid_body" on a public token endpoint is one edit, not three.
 
 function registerTokenRequestRoute(opts: {
   api: Hono;
   dispatcher: Dispatcher;
   path: string;
   requestHandler: string;
-  // Discriminator the feature handler emits when it actually minted a token
-  // (vs. the silent no-op for unknown/already-handled users).
-  successKind: string;
-  // Legacy mail path (signup): the route builds `${appBaseUrl}?token=…` and
-  // hands it to sendEmail. Omitted for the migrated flows (reset/verify) whose
-  // handler sends via delivery — the route then only dispatches.
-  appBaseUrl?: string;
-  sendEmail?: (args: { email: string; url: string; expiresAt: string }) => Promise<void>;
 }): void {
   const body = RequestTokenBody;
   opts.api.post(opts.path, async (c) => {
@@ -973,32 +941,11 @@ function registerTokenRequestRoute(opts: {
     // anything from the shape of their input.
     if (!parsed.success) return c.json({ isSuccess: true });
 
-    const result = await opts.dispatcher.write(
-      opts.requestHandler,
-      { email: parsed.data.email },
-      GUEST_USER,
-    );
-
+    // The handler dispatches the magic-link mail via delivery before returning.
     // Handler-level failures (only legitimate reason: misconfiguration) are
-    // silently swallowed — observability logs capture them for ops.
-    // Migrated flows (reset/verify) send via delivery inside the handler, so
-    // appBaseUrl/sendEmail are absent here and the route just dispatches.
-    if (result.isSuccess && opts.appBaseUrl && opts.sendEmail) {
-      // @cast-boundary engine-payload — generic dispatcher.write result narrowed by handler-emitted kind
-      const data = result.data as TokenRequestData | TokenNoOp;
-      if (data.kind === opts.successKind) {
-        // TS narrowt nicht durch generic successKind (string, kein literal) —
-        // die kind-Gleichheit garantiert den TokenRequestData-Branch hier.
-        const requested = data as TokenRequestData; // @cast-boundary engine-payload
-        const sep = opts.appBaseUrl.includes("?") ? "&" : "?";
-        const url = `${opts.appBaseUrl}${sep}token=${encodeURIComponent(requested.token)}`;
-        await opts.sendEmail({
-          email: requested.email,
-          url,
-          expiresAt: requested.expiresAt,
-        });
-      }
-    }
+    // silently swallowed — observability logs capture them for ops — so the
+    // response shape stays uniform for unknown vs. known emails.
+    await opts.dispatcher.write(opts.requestHandler, { email: parsed.data.email }, GUEST_USER);
 
     return c.json({ isSuccess: true });
   });

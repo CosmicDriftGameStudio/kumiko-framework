@@ -28,11 +28,11 @@ describe("resolveAuthMail", () => {
 
   test("mail + SMTP_HOST → all four flows wired from DEFAULT_AUTH_PATHS", () => {
     const out = resolveAuthMail(withMail, "secret", { SMTP_HOST: "localhost" });
-    // reset/verify carry appUrl as feature options (handler mails via delivery);
-    // signup/invite keep the callback-side appActivationUrl/appAcceptUrl.
+    // reset/verify/signup carry appUrl as feature options (handler mails via
+    // delivery); invite keeps the callback-side appAcceptUrl.
     expect(out.passwordReset?.appUrl).toBe("https://app.example.com/reset-password");
     expect(out.emailVerification?.appUrl).toBe("https://app.example.com/verify-email");
-    expect(out.signup?.appActivationUrl).toBe("https://app.example.com/signup/complete");
+    expect(out.signup?.appUrl).toBe("https://app.example.com/signup/complete");
     expect(out.invite?.appAcceptUrl).toBe("https://app.example.com/invite/accept");
     expect(out.passwordReset?.hmacSecret).toBe("secret");
   });
@@ -54,7 +54,7 @@ describe("resolveAuthMail", () => {
     const out = resolveAuthMail(explicit, "secret", { SMTP_HOST: "localhost" });
     expect(out.passwordReset?.appUrl).toBe("https://custom.example.com/pw");
     // other flows still come from the mail default
-    expect(out.signup?.appActivationUrl).toBe("https://app.example.com/signup/complete");
+    expect(out.signup?.appUrl).toBe("https://app.example.com/signup/complete");
   });
 
   test("paths override only affects the named path", () => {

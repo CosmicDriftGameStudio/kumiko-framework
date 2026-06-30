@@ -1,24 +1,16 @@
 import type { EmailTransport } from "../channel-email";
 import type { AuthMailLocale } from "./email-templates";
-import { renderActivationEmail, renderInviteEmail } from "./email-templates";
-import type { InviteOptions, SignupOptions } from "./feature";
+import { renderInviteEmail } from "./email-templates";
+import type { InviteOptions } from "./feature";
 
 /**
- * Mail-callback config for the signup + invite flows.
+ * Mail-callback config for the invite flow.
  *
- * Reset + verify migrated to delivery (ctx.notify) — their callbacks are gone.
- * Strukturell kompatibel mit `SignupSetup` / `InviteSetup` aus
- * `@cosmicdrift/kumiko-dev-server`.
+ * Reset, verify and signup migrated to delivery (ctx.notify) — their callbacks
+ * are gone; only invite still delivers via an app callback. Strukturell
+ * kompatibel mit `InviteSetup` aus `@cosmicdrift/kumiko-dev-server`.
  */
 export type AuthMailerConfig = {
-  readonly signup: SignupOptions & {
-    readonly appActivationUrl: string;
-    readonly sendActivationEmail: (args: {
-      email: string;
-      activationUrl: string;
-      expiresAt: string;
-    }) => Promise<void>;
-  };
   readonly invite: InviteOptions & {
     readonly appAcceptUrl: string;
     readonly sendInviteEmail: (args: {
@@ -65,8 +57,8 @@ export type CreateAuthMailerConfigArgs = {
 };
 
 /**
- * Factory für `AuthMailerConfig` — baut die signup + invite Mail-Setups
- * inklusive `send*Email`-Wrapper + URL-Konstruktion. (Reset + verify laufen
+ * Factory für `AuthMailerConfig` — baut das invite Mail-Setup inklusive
+ * `sendInviteEmail`-Wrapper + URL-Konstruktion. (Reset, verify + signup laufen
  * über delivery, nicht mehr über Callbacks.)
  *
  * Jede App ruft das einmal auf und spreadet das Resultat in die
@@ -77,15 +69,6 @@ export function createAuthMailerConfig(args: CreateAuthMailerConfigArgs): AuthMa
   const locale = args.locale ?? "de";
   const paths = args.paths ?? DEFAULT_AUTH_PATHS;
   return {
-    signup: {
-      appActivationUrl: `${args.baseUrl}${paths.signupComplete}`,
-      sendActivationEmail: async ({ email, activationUrl, expiresAt }) => {
-        await args.mailSender.send({
-          to: email,
-          ...renderActivationEmail({ activationUrl, expiresAt, locale, appName }),
-        });
-      },
-    },
     invite: {
       appAcceptUrl: `${args.baseUrl}${paths.inviteAccept}`,
       sendInviteEmail: async ({ email, inviteUrl, expiresAt, role }) => {

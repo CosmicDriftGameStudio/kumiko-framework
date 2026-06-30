@@ -12,16 +12,13 @@
 // spec rather than duplicated across two near-identical handler bodies.
 
 import { createSystemUser, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  InternalError,
-  UnprocessableError,
-  writeFailure,
-} from "@cosmicdrift/kumiko-framework/errors";
+import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import type { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { UserQueries } from "../../user";
 import { type AuthUserRow, parseAuthUserRow } from "../auth-user-row";
 import type { AuthMailContent, AuthMailLocale, RenderTokenContentArgs } from "../email-templates";
+import { dispatchMagicLinkMail } from "../magic-link-mail";
 
 const RequestTokenSchema = z.object({
   email: z.email(),
@@ -79,11 +76,6 @@ export type TokenRequestOptions = {
   readonly locale?: AuthMailLocale;
 };
 
-function appendToken(appUrl: string, token: string): string {
-  const sep = appUrl.includes("?") ? "&" : "?";
-  return `${appUrl}${sep}token=${encodeURIComponent(token)}`;
-}
-
 export function createTokenRequestHandler<TName extends string, TSuccessKind extends string>(
   spec: TokenRequestSpec<TName, TSuccessKind>,
   opts: TokenRequestOptions,
@@ -125,25 +117,22 @@ export function createTokenRequestHandler<TName extends string, TSuccessKind ext
 
       const { token, expiresAt } = spec.sign(user.id, ttl, opts.hmacSecret);
 
-      // delivery is a hard requirement when this flow is mounted (see
-      // feature.ts r.requires), so _notifyFactory is always wired — this guard
-      // is a defensive boot-invariant, not a runtime branch.
-      if (!ctx.notify) {
-        throw new InternalError({
-          message: `${spec.handlerName}: ctx.notify unavailable — the delivery feature must be mounted`,
-        });
-      }
-      const content = spec.renderContent({
-        url: appendToken(opts.appUrl, token),
-        expiresAt: expiresAt.toString(),
-        ...(opts.locale !== undefined && { locale: opts.locale }),
-        ...(opts.appName !== undefined && { appName: opts.appName }),
-      });
-      await ctx.notify(spec.notificationType, {
-        route: { email: user.email },
-        data: content,
-        priority: "critical",
-      });
+      await dispatchMagicLinkMail(
+        ctx.notify,
+        {
+          handlerName: spec.handlerName,
+          notificationType: spec.notificationType,
+          renderContent: spec.renderContent,
+        },
+        {
+          email: user.email,
+          appUrl: opts.appUrl,
+          token,
+          expiresAt: expiresAt.toString(),
+          ...(opts.appName !== undefined && { appName: opts.appName }),
+          ...(opts.locale !== undefined && { locale: opts.locale }),
+        },
+      );
 
       const data: TokenRequestData<TSuccessKind> = {
         kind: spec.successKind,
