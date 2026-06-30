@@ -27,8 +27,8 @@ describe("entity-field-encryption", () => {
   test("encrypt on write / decrypt on read round-trip", () => {
     const plain = { email: "a@b.de", secretNote: "top secret" };
     const stored = encryptEntityFieldValues(plain, encryptedFields, encryption);
-    expect(stored.email).toBe(plain.email);
-    expect(stored.secretNote).not.toBe("top secret");
+    expect(stored["email"]).toBe(plain.email);
+    expect(stored["secretNote"]).not.toBe("top secret");
 
     const read = decryptEntityFieldValues(stored, encryptedFields, encryption);
     expect(read).toEqual(plain);
@@ -43,4 +43,5 @@ describe("entity-field-encryption", () => {
     expect(stored["secretNote"]).not.toBe("note");
   });
 });
+
 

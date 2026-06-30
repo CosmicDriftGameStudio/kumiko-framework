@@ -45,6 +45,13 @@ import { flattenCompoundTypes, rehydrateCompoundTypes } from "./compound-types";
 import type { DbRow } from "./connection";
 import { decodeCursor, encodeCursor } from "./cursor";
 import type { TableColumns } from "./dialect";
+import type { EncryptionProvider } from "./encryption";
+import {
+  collectEncryptedFieldNames,
+  decryptEntityFieldValues,
+  encryptEntityFieldValues,
+  resolveEntityFieldEncryption,
+} from "./entity-field-encryption";
 import type { CursorResult } from "./index";
 import { constraintOf, isUniqueViolation } from "./pg-error";
 import { toSnakeCase } from "./table-builder";
@@ -112,6 +119,8 @@ export type EventStoreExecutorOptions = {
   searchAdapter?: SearchAdapter;
   entityName: string; // required — the aggregateType marker on every event
   entityCache?: EntityCache;
+  /** Override ENCRYPTION_KEY for entity fields marked `encrypted: true`. */
+  encryption?: EncryptionProvider;
 };
 
 // F8 helper: PG-23505 (unique-violation) catched aus applyEntityEvent
@@ -1080,5 +1089,7 @@ export function createEventStoreExecutor(
     },
   };
 }
+
+
 
 
