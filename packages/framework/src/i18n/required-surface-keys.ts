@@ -10,10 +10,7 @@ import type {
   ToolbarAction,
   WorkspaceDefinition,
 } from "../engine/types";
-import {
-  isExtensionEditSection,
-  normalizeListColumn,
-} from "../engine/types/screen";
+import { isExtensionEditSection, normalizeListColumn } from "../engine/types/screen";
 
 /** Pseudo-entity for actionForm field labels (renderer action-form-shim). */
 export const ACTION_FORM_ENTITY = "__action-form__";
@@ -21,11 +18,7 @@ export const ACTION_FORM_ENTITY = "__action-form__";
 /** Pseudo-entity for configEdit field labels (renderer config-edit-shim). */
 export const CONFIG_EDIT_ENTITY = "__config-edit__";
 
-export function fieldLabelKey(
-  featureName: string,
-  entityName: string,
-  fieldName: string,
-): string {
+export function fieldLabelKey(featureName: string, entityName: string, fieldName: string): string {
   return `${featureName}:entity:${entityName}:field:${fieldName}`;
 }
 
@@ -182,9 +175,7 @@ export function requiredKeysFromFeature(feature: FeatureDefinition): readonly st
 }
 
 /** Effective lookup keys — mirrors registry merge (`feature:localKey` + raw full keys). */
-export function buildEffectiveTranslationKeys(
-  features: readonly FeatureDefinition[],
-): Set<string> {
+export function buildEffectiveTranslationKeys(features: readonly FeatureDefinition[]): Set<string> {
   const out = new Set<string>();
   for (const feature of features) {
     for (const key of Object.keys(feature.translations ?? {})) {
@@ -209,9 +200,7 @@ export function findTranslationLocaleGaps(
   const gaps: TranslationLocaleGap[] = [];
   for (const feature of features) {
     for (const [localKey, entry] of Object.entries(feature.translations ?? {})) {
-      const missing = REQUIRED_LOCALES.filter(
-        (locale) => (entry[locale] ?? "").length === 0,
-      );
+      const missing = REQUIRED_LOCALES.filter((locale) => (entry[locale] ?? "").length === 0);
       if (missing.length > 0) {
         gaps.push({
           featureName: feature.name,

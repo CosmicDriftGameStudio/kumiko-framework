@@ -38,7 +38,9 @@ describe("validateBoot — i18n surface keys", () => {
         },
       });
     });
-    expect(() => validateBoot([feature])).toThrow(/required translation key missing: "screen:item-list.title"/);
+    expect(() => validateBoot([feature])).toThrow(
+      /required translation key missing: "screen:item-list.title"/,
+    );
   });
 
   test("skips features with no r.translations", () => {
@@ -66,8 +68,3 @@ describe("validateBoot — i18n surface keys", () => {
     expect(() => validateBoot([feature])).toThrow(/missing locale\(s\): en/);
   });
 });
-
-
-
-
-

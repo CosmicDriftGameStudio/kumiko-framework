@@ -28,4 +28,3 @@ export function validateI18nSurfaceKeys(features: readonly FeatureDefinition[]):
     );
   }
 }
-
