@@ -1,24 +1,12 @@
-// Default-HTML-Renderer für die transactional Auth-Mails (Reset-Password
-// + Verify-Email). Apps wiren die `sendResetEmail` / `sendVerificationEmail`
-// callbacks im framework-config (siehe PasswordResetConfig im
-// auth-routes.ts). Statt jede App selbst HTML zu schreiben, kann sie diese
-// Renderer als one-liner nutzen:
+// Default renderers for the transactional auth mails. The magic-link flows
+// (password-reset, email-verification, signup-activation) emit structured
+// AuthMailContent that the handler hands to delivery (ctx.notify) — renderer-
+// simple turns it into HTML. Invite still returns pre-rendered RenderedEmail
+// for the app-callback path (auth-mailer). Apps wanting their own branding
+// swap the renderer; these templates are deliberately plain so the renderer
+// (and the operator reading the mailer log) can rely on them.
 //
-//   passwordReset: {
-//     sendResetEmail: ({ email, resetUrl, expiresAt }) =>
-//       mailSender.send({
-//         to: email,
-//         ...renderResetPasswordEmail({ resetUrl, expiresAt, locale: "de" }),
-//       }),
-//   }
-//
-// Apps die ihr eigenes Branding wollen, schreiben einen eigenen Renderer
-// und mischen ihn in. Die Templates hier sind bewusst plain HTML mit
-// inline-styling — kein CSS-Framework, kein bild-asset. Mail-Clients
-// rendern das verlässlich, und der Operator kann das HTML im Mailer-Log
-// problemlos lesen.
-//
-// Locale: de + en. Apps mit anderen Sprachen rendern selbst.
+// Locale: de + en. Apps with other languages render themselves.
 
 import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
 import { Temporal } from "temporal-polyfill";
@@ -32,13 +20,6 @@ export type RenderTokenContentArgs = {
   readonly expiresAt: string;
   readonly locale?: AuthMailLocale;
   /** Optional: App-Name fürs Subject + Header. Default "Account". */
-  readonly appName?: string;
-};
-
-export type RenderActivationEmailArgs = {
-  readonly activationUrl: string;
-  readonly expiresAt: string;
-  readonly locale?: AuthMailLocale;
   readonly appName?: string;
 };
 
@@ -264,19 +245,19 @@ export function renderVerifyEmail(args: RenderTokenContentArgs): AuthMailContent
   });
 }
 
-export function renderActivationEmail(args: RenderActivationEmailArgs): RenderedEmail {
+export function renderActivationEmail(args: RenderTokenContentArgs): AuthMailContent {
   const locale = args.locale ?? "en";
   const appName = args.appName ?? (locale === "de" ? "Konto" : "Account");
   const t = STRINGS[locale];
-  return renderTokenEmail({
+  return tokenMailContent({
     subject: t.activationSubject(appName),
+    header: t.activationButton,
     greeting: t.activationGreeting,
     intro: t.activationIntro(appName),
     buttonLabel: t.activationButton,
-    buttonUrl: args.activationUrl,
+    buttonUrl: args.url,
     expiry: t.activationExpiry(formatExpiry(args.expiresAt)),
     ignore: t.activationIgnore,
-    fallbackUrlLabel: t.fallbackUrl,
   });
 }
 

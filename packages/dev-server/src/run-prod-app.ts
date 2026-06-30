@@ -245,19 +245,11 @@ export type PasswordResetSetup = PasswordResetOptions;
  *  PasswordResetSetup — = EmailVerificationOptions (appUrl via delivery). */
 export type EmailVerificationSetup = EmailVerificationOptions;
 
-/** Wrapper-API für Magic-Link Self-Signup. Mirror der existing
- *  PasswordResetSetup-Struktur — Feature-Options (tokenTtlMinutes,
- *  tokenLength) plus die Mail-Side die der Wrapper an die auth-routes-
- *  config durchreicht. Anders als reset/verify gibt's KEIN hmacSecret —
- *  Signup-Tokens sind opaque random in Redis, nicht HMAC-signed. */
-export type SignupSetup = SignupOptions & {
-  readonly sendActivationEmail: (args: {
-    email: string;
-    activationUrl: string;
-    expiresAt: string;
-  }) => Promise<void>;
-  readonly appActivationUrl: string;
-};
+/** Wrapper-API für Magic-Link Self-Signup. = SignupOptions (appUrl, die
+ *  Mail geht via delivery/ctx.notify wie reset/verify). Anders als reset/
+ *  verify gibt's KEIN hmacSecret — Signup-Tokens sind opaque random in
+ *  Redis, nicht HMAC-signed. */
+export type SignupSetup = SignupOptions;
 
 /** Wrapper-API für Tenant-Invite Magic-Link. Drei accept-Branches im
  *  framework, der Wrapper reicht NUR die Mail-Side + appAcceptUrl
@@ -715,8 +707,8 @@ export function resolveAuthMail<T extends AuthMailNormalizable>(
   });
   if (!mailSender) return auth;
   const paths = makeAuthPaths(auth.mail.paths);
-  // appName/locale fließen in beide Pfade: die delivery-Flows (reset/verify
-  // als Feature-Options) und die callback-Flows (signup/invite via mc).
+  // appName/locale fließen in beide Pfade: die delivery-Flows (reset/verify/
+  // signup als Feature-Options) und den callback-Flow (invite via mc).
   const mailPresentation = {
     ...(auth.mail.appName !== undefined && { appName: auth.mail.appName }),
     ...(auth.mail.locale !== undefined && { locale: auth.mail.locale }),
@@ -742,7 +734,10 @@ export function resolveAuthMail<T extends AuthMailNormalizable>(
       }),
       ...mailPresentation,
     },
-    signup: auth.signup ?? mc.signup,
+    signup: auth.signup ?? {
+      appUrl: `${auth.mail.baseUrl}${paths.signupComplete}`,
+      ...mailPresentation,
+    },
     invite: auth.invite ?? mc.invite,
   };
 }
@@ -1020,8 +1015,6 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
           signup: {
             requestHandler: AuthHandlers.signupRequest,
             confirmHandler: AuthHandlers.signupConfirm,
-            sendActivationEmail: effectiveAuth.signup.sendActivationEmail,
-            appActivationUrl: effectiveAuth.signup.appActivationUrl,
           },
         }),
         ...(effectiveAuth.invite && {

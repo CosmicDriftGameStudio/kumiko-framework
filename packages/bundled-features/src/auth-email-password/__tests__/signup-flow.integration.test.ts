@@ -4,8 +4,8 @@
 // reale User-Pfad sind.
 //
 // Pinst:
-//   1. POST signup-request mit valid email → 200, Mail captured durch
-//      sendActivationEmail-callback (echte route + signup-feature).
+//   1. POST signup-request mit valid email → 200, Activation-Mail via
+//      delivery (channel-email in-memory transport) mit Token-URL.
 //   2. Resend-Idempotenz: zweiter Request für selbe email → gleicher
 //      Token in Mail (existing token in Redis wird re-genutzt).
 //   3. POST signup-confirm mit captured Token + Password → 200, Cookies
@@ -32,9 +32,15 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
+import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery";
+import { notificationPreferencesTable } from "../../delivery/tables";
+import { createRendererFoundationFeature } from "../../renderer-foundation/feature";
+import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple";
+import { createTemplateResolverFeature } from "../../template-resolver/feature";
 import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant";
@@ -44,11 +50,11 @@ import { AuthErrors, AuthHandlers } from "../constants";
 import { createAuthEmailPasswordFeature } from "../feature";
 
 const APP_ACTIVATION_URL = "https://app.example.com/signup/complete";
-const capturedActivationEmails: Array<{
-  email: string;
-  activationUrl: string;
-  expiresAt: string;
-}> = [];
+
+// Activation mails now go through delivery (ctx.notify → channel-email). The
+// in-memory transport captures what would be sent; route:{email} delivers
+// directly (no jobRunner in the test stack → inline send).
+const emailTransport = createInMemoryTransport();
 
 let stack: TestStack;
 
@@ -58,21 +64,31 @@ beforeAll(async () => {
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
+      createTemplateResolverFeature(),
+      createRendererFoundationFeature(),
+      createDeliveryFeature(),
+      createRendererSimpleFeature(),
+      createChannelEmailFeature({
+        transport: emailTransport,
+        renderer: simpleRenderer,
+        // route:{email} delivers directly — resolveEmail (userId→address) is
+        // never hit by the signup flow, but the channel requires it.
+        resolveEmail: async () => "unused@test.local",
+      }),
       createAuthEmailPasswordFeature({
-        signup: { tokenTtlMinutes: 60 },
+        signup: { tokenTtlMinutes: 60, appUrl: APP_ACTIVATION_URL },
       }),
     ],
-    extraContext: { configResolver: createConfigResolver() },
+    extraContext: (deps) => ({
+      ...createDeliveryTestContext(deps),
+      configResolver: createConfigResolver(),
+    }),
     authConfig: {
       membershipQuery: "tenant:query:memberships",
       loginHandler: AuthHandlers.login,
       signup: {
         requestHandler: AuthHandlers.signupRequest,
         confirmHandler: AuthHandlers.signupConfirm,
-        appActivationUrl: APP_ACTIVATION_URL,
-        sendActivationEmail: async (args) => {
-          capturedActivationEmails.push(args);
-        },
       },
     },
   });
@@ -82,7 +98,11 @@ beforeAll(async () => {
   // tenant.schema.indexes). unsafeCreateEntityTable baut das via
   // buildEntityTable nach — pinst den TOCTOU-Schutz für signup-confirm.
   await unsafeCreateEntityTable(stack.db, tenantEntity);
-  await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
+  await unsafePushTables(stack.db, {
+    configValuesTable,
+    tenantMembershipsTable,
+    notificationPreferencesTable,
+  });
 });
 
 afterAll(async () => {
@@ -93,7 +113,7 @@ beforeEach(async () => {
   await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
   await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
   await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantTable.tableName}"`);
-  capturedActivationEmails.length = 0;
+  emailTransport.sent.length = 0;
   // Redis-cleanup damit Resend-Tests keine state-leaks haben.
   const allKeys = await stack.redis.redis.keys("signup:*");
   if (allKeys.length > 0) await stack.redis.redis.del(...allKeys);
@@ -111,52 +131,49 @@ async function postLogin(email: string, password: string): Promise<Response> {
   return stack.http.raw("POST", "/api/auth/login", { email, password });
 }
 
-function extractTokenFromUrl(url: string): string {
-  const match = url.match(/[?&]token=([^&]+)/);
-  if (!match?.[1]) throw new Error(`No token in url: ${url}`);
+function extractTokenFromMail(html: string): string {
+  const match = html.match(/[?&]token=([^&"'<\s]+)/);
+  if (!match?.[1]) throw new Error(`No token in mail html: ${html.slice(0, 200)}`);
   return decodeURIComponent(match[1]);
 }
 
 describe("POST /api/auth/signup-request", () => {
-  test("known email → 200, mail captured mit activation-url", async () => {
+  test("known email → 200, delivery sends activation mail with token URL", async () => {
     const res = await postSignupRequest("alice@example.com");
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ isSuccess: true });
-    expect(capturedActivationEmails).toHaveLength(1);
-    const [captured] = capturedActivationEmails;
-    if (!captured) throw new Error("no captured email");
-    expect(captured.email).toBe("alice@example.com");
-    expect(captured.activationUrl.startsWith(`${APP_ACTIVATION_URL}?token=`)).toBe(true);
-    expect(typeof captured.expiresAt).toBe("string");
+    expect(emailTransport.sent).toHaveLength(1);
+    const sent = emailTransport.sent[0];
+    if (!sent) throw new Error("no mail sent");
+    expect(sent.to).toBe("alice@example.com");
+    expect(sent.html).toContain(`${APP_ACTIVATION_URL}?token=`);
   });
 
   test("Resend: zweiter Request für selbe email → gleicher token in Mail", async () => {
     await postSignupRequest("resend@example.com");
     await postSignupRequest("resend@example.com");
 
-    expect(capturedActivationEmails).toHaveLength(2);
-    const [first, second] = capturedActivationEmails;
-    if (!first || !second) throw new Error("missing emails");
-    expect(extractTokenFromUrl(second.activationUrl)).toBe(
-      extractTokenFromUrl(first.activationUrl),
-    );
+    expect(emailTransport.sent).toHaveLength(2);
+    const [first, second] = emailTransport.sent;
+    if (!first || !second) throw new Error("missing mails");
+    expect(extractTokenFromMail(second.html)).toBe(extractTokenFromMail(first.html));
   });
 
   test("malformed body → 200 (silent success, anti-enumeration)", async () => {
     const res = await stack.http.raw("POST", "/api/auth/signup-request", { wrong: "shape" });
     expect(res.status).toBe(200);
-    expect(capturedActivationEmails).toHaveLength(0);
+    expect(emailTransport.sent).toHaveLength(0);
   });
 });
 
 describe("POST /api/auth/signup-confirm", () => {
   async function requestSignup(email: string): Promise<string> {
-    capturedActivationEmails.length = 0;
+    emailTransport.sent.length = 0;
     const res = await postSignupRequest(email);
     expect(res.status).toBe(200);
-    const captured = capturedActivationEmails[0];
-    if (!captured) throw new Error("signup-request fixture didn't capture mail");
-    return extractTokenFromUrl(captured.activationUrl);
+    const sent = emailTransport.sent[0];
+    if (!sent) throw new Error("signup-request fixture didn't send mail");
+    return extractTokenFromMail(sent.html);
   }
 
   test("voller Roundtrip: confirm legt user + tenant + Admin-Membership an, Cookies + Login funktioniert", async () => {

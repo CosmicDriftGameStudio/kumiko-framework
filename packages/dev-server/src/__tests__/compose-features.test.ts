@@ -63,6 +63,19 @@ describe("composeFeatures", () => {
     expect(handlerNames).toContain("verify-email");
   });
 
+  test("authOptions.signup → signup-request + signup-confirm handlers registriert", () => {
+    const features = composeFeatures([noopFeature], {
+      includeBundled: true,
+      authOptions: { signup: { appUrl: "https://app/signup/complete" } },
+    });
+    const auth = features.find((f) => f.name === "auth-email-password");
+    expect(auth).toBeDefined();
+    if (!auth) return;
+    const handlerNames = Array.from(Object.keys(auth.writeHandlers));
+    expect(handlerNames).toContain("signup-request");
+    expect(handlerNames).toContain("signup-confirm");
+  });
+
   test("OHNE authOptions → KEINE reset/verify-handlers (anti-default-deploy-bug)", () => {
     // Genau der Bug der vom Review-Agent gefangen wurde: composeFeatures
     // ohne authOptions registriert die handler nicht. Wenn jemand das

@@ -408,8 +408,6 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
           signup: {
             requestHandler: AuthHandlers.signupRequest,
             confirmHandler: AuthHandlers.signupConfirm,
-            sendActivationEmail: effectiveAuth.signup.sendActivationEmail,
-            appActivationUrl: effectiveAuth.signup.appActivationUrl,
           },
         }),
         ...(effectiveAuth.invite && {

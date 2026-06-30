@@ -1,8 +1,8 @@
 // Magic-Link-Signup, Step 1 (request).
 //
 // User gibt Email ein → wir minten einen opaken Random-Token, speichern
-// ihn bidirektional in Redis (token↔email), und der Route-Layer schickt
-// die Activation-Mail. Anders als reset/verify-Flows machen wir HIER keinen
+// ihn bidirektional in Redis (token↔email), und schicken die Activation-Mail
+// via delivery (ctx.notify) — wie reset/verify. Anders als die: HIER kein
 // userId-Lookup und kein HMAC-signing (es gäbe kein Subject — im Normalfall
 // existiert der User noch nicht). Ob die Email bereits ein Konto hat,
 // entscheidet bewusst der Confirm-Schritt, nicht dieser.
@@ -28,7 +28,12 @@ import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/error
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { AUTH_SIGNUP_DEFAULT_TTL_MINUTES } from "../constants";
+import type { AuthMailLocale } from "../email-templates";
+import { renderActivationEmail } from "../email-templates";
+import { dispatchMagicLinkMail } from "../magic-link-mail";
 import { getTokenForSignupEmail, normalizeEmail, storeSignupToken } from "../signup-token-store";
+
+const SIGNUP_NOTIFICATION_TYPE = "auth-email-password:signup-activation";
 
 const SignupRequestSchema = z.object({
   email: z.email(),
@@ -47,9 +52,14 @@ export type SignupRequestOptions = {
   /** TTL für den Activation-Token. Default 24 h — lang genug damit User
    *  "morgen aktivieren" können ohne Resend-Spam. */
   readonly tokenTtlMinutes?: number;
+  /** App page that receives the magic-link; the handler appends `?token=…`
+   *  and dispatches the activation mail via delivery (ctx.notify). */
+  readonly appUrl: string;
+  readonly appName?: string;
+  readonly locale?: AuthMailLocale;
 };
 
-export function createSignupRequestHandler(opts: SignupRequestOptions = {}) {
+export function createSignupRequestHandler(opts: SignupRequestOptions) {
   const ttlMinutes = opts.tokenTtlMinutes ?? AUTH_SIGNUP_DEFAULT_TTL_MINUTES;
   const ttlSeconds = ttlMinutes * 60;
 
@@ -86,19 +96,39 @@ export function createSignupRequestHandler(opts: SignupRequestOptions = {}) {
       const token = existingToken ?? generateToken();
 
       const expiresAt = Temporal.Now.instant().add({ seconds: ttlSeconds });
+      const expiresAtIso = expiresAt.toString();
 
       await storeSignupToken(ctx.redis, { email, token, ttlSeconds });
+
+      // normalizeEmail aus dem Store — eine Quelle für die Normalisierungs-
+      // Verantwortung; delivery-Empfänger + Lookup-Pfad kriegen konsistent
+      // das gleiche Format.
+      const normalizedEmail = normalizeEmail(email);
+
+      await dispatchMagicLinkMail(
+        ctx.notify,
+        {
+          handlerName: "signup-request",
+          notificationType: SIGNUP_NOTIFICATION_TYPE,
+          renderContent: renderActivationEmail,
+        },
+        {
+          email: normalizedEmail,
+          appUrl: opts.appUrl,
+          token,
+          expiresAt: expiresAtIso,
+          ...(opts.appName !== undefined && { appName: opts.appName }),
+          ...(opts.locale !== undefined && { locale: opts.locale }),
+        },
+      );
 
       return {
         isSuccess: true,
         data: {
           kind: "signup-requested",
-          // normalizeEmail aus dem Store — eine Quelle für die
-          // Normalisierungs-Verantwortung; Mail-Callback kriegt
-          // konsistent das gleiche Format wie der Lookup-Pfad.
-          email: normalizeEmail(email),
+          email: normalizedEmail,
           token,
-          expiresAt: expiresAt.toString(),
+          expiresAt: expiresAtIso,
         },
       };
     },
