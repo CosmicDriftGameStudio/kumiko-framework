@@ -1,0 +1,214 @@
+import type {
+  ActionFormScreenDefinition,
+  ConfigEditScreenDefinition,
+  EntityEditScreenDefinition,
+  EntityListScreenDefinition,
+  FeatureDefinition,
+  NavDefinition,
+  RowAction,
+  ScreenDefinition,
+  ToolbarAction,
+  WorkspaceDefinition,
+} from "../engine/types";
+import { isExtensionEditSection, normalizeListColumn } from "../engine/types/screen";
+
+/** Pseudo-entity for actionForm field labels (renderer action-form-shim). */
+export const ACTION_FORM_ENTITY = "__action-form__";
+
+/** Pseudo-entity for configEdit field labels (renderer config-edit-shim). */
+export const CONFIG_EDIT_ENTITY = "__config-edit__";
+
+export function fieldLabelKey(featureName: string, entityName: string, fieldName: string): string {
+  return `${featureName}:entity:${entityName}:field:${fieldName}`;
+}
+
+export function screenTitleKey(screenId: string): string {
+  return `screen:${screenId}.title`;
+}
+
+function isI18nKey(value: string): boolean {
+  return value.includes(":");
+}
+
+function pushKey(out: Set<string>, value: string | undefined): void {
+  if (value !== undefined && isI18nKey(value)) out.add(value);
+}
+
+function editFieldName(f: string | { readonly field: string }): string {
+  return typeof f === "string" ? f : f.field;
+}
+
+function pushRowActionKeys(out: Set<string>, action: RowAction): void {
+  pushKey(out, action.label);
+  if (action.kind === "writeHandler" || action.kind === undefined) {
+    pushKey(out, action.confirm);
+    pushKey(out, action.confirmLabel);
+  }
+}
+
+function pushToolbarActionKeys(out: Set<string>, action: ToolbarAction): void {
+  pushKey(out, action.label);
+  if (action.kind === "writeHandler") {
+    pushKey(out, action.confirm);
+    pushKey(out, action.confirmLabel);
+  }
+}
+
+export function requiredKeysFromScreen(
+  featureName: string,
+  screen: ScreenDefinition,
+): readonly string[] {
+  const out = new Set<string>();
+  pushKey(out, screenTitleKey(screen.id));
+
+  switch (screen.type) {
+    case "entityList": {
+      const list = screen as EntityListScreenDefinition;
+      for (const col of list.columns) {
+        const normalized = normalizeListColumn(col);
+        if (normalized.label !== undefined) {
+          pushKey(out, normalized.label);
+        } else {
+          out.add(fieldLabelKey(featureName, list.entity, normalized.field));
+        }
+      }
+      for (const action of list.rowActions ?? []) pushRowActionKeys(out, action);
+      for (const action of list.toolbarActions ?? []) pushToolbarActionKeys(out, action);
+      break;
+    }
+    case "entityEdit": {
+      const edit = screen as EntityEditScreenDefinition;
+      pushKey(out, edit.submitLabel);
+      for (const section of edit.layout.sections) {
+        if (isExtensionEditSection(section)) {
+          pushKey(out, section.title);
+          continue;
+        }
+        pushKey(out, section.title);
+        for (const f of section.fields) {
+          const fieldName = editFieldName(f);
+          const override = edit.fieldLabels?.[fieldName];
+          if (override !== undefined) pushKey(out, override);
+          else out.add(fieldLabelKey(featureName, edit.entity, fieldName));
+        }
+      }
+      break;
+    }
+    case "actionForm": {
+      const form = screen as ActionFormScreenDefinition;
+      pushKey(out, form.submitLabel);
+      for (const fieldName of Object.keys(form.fields)) {
+        out.add(fieldLabelKey(featureName, ACTION_FORM_ENTITY, fieldName));
+      }
+      for (const section of form.layout.sections) {
+        if (isExtensionEditSection(section)) {
+          pushKey(out, section.title);
+          continue;
+        }
+        pushKey(out, section.title);
+        for (const f of section.fields) {
+          const fieldName = editFieldName(f);
+          out.add(fieldLabelKey(featureName, ACTION_FORM_ENTITY, fieldName));
+        }
+      }
+      break;
+    }
+    case "configEdit": {
+      const config = screen as ConfigEditScreenDefinition;
+      pushKey(out, config.submitLabel);
+      for (const fieldName of Object.keys(config.fields)) {
+        const override = config.fieldLabels?.[fieldName];
+        if (override !== undefined) pushKey(out, override);
+        else out.add(fieldLabelKey(featureName, CONFIG_EDIT_ENTITY, fieldName));
+      }
+      for (const section of config.layout.sections) {
+        if (isExtensionEditSection(section)) {
+          pushKey(out, section.title);
+          continue;
+        }
+        pushKey(out, section.title);
+        for (const f of section.fields) {
+          const fieldName = editFieldName(f);
+          const override = config.fieldLabels?.[fieldName];
+          if (override !== undefined) pushKey(out, override);
+          else out.add(fieldLabelKey(featureName, CONFIG_EDIT_ENTITY, fieldName));
+        }
+      }
+      break;
+    }
+    case "custom":
+      break;
+  }
+
+  return [...out];
+}
+
+export function requiredKeysFromNav(nav: NavDefinition): readonly string[] {
+  const out = new Set<string>();
+  pushKey(out, nav.label);
+  return [...out];
+}
+
+export function requiredKeysFromWorkspace(ws: WorkspaceDefinition): readonly string[] {
+  const out = new Set<string>();
+  pushKey(out, ws.label);
+  return [...out];
+}
+
+export function requiredKeysFromFeature(feature: FeatureDefinition): readonly string[] {
+  const out = new Set<string>();
+
+  for (const screen of Object.values(feature.screens)) {
+    for (const key of requiredKeysFromScreen(feature.name, screen)) out.add(key);
+  }
+  for (const nav of Object.values(feature.navs)) {
+    for (const key of requiredKeysFromNav(nav)) out.add(key);
+  }
+  for (const ws of Object.values(feature.workspaces)) {
+    for (const key of requiredKeysFromWorkspace(ws)) out.add(key);
+  }
+  for (const def of Object.values(feature.configKeys)) {
+    pushKey(out, def.mask?.title);
+  }
+
+  return [...out];
+}
+
+/** Effective lookup keys — mirrors registry merge (`feature:localKey` + raw full keys). */
+export function buildEffectiveTranslationKeys(features: readonly FeatureDefinition[]): Set<string> {
+  const out = new Set<string>();
+  for (const feature of features) {
+    for (const key of Object.keys(feature.translations ?? {})) {
+      out.add(`${feature.name}:${key}`);
+      if (key.includes(":")) out.add(key);
+    }
+  }
+  return out;
+}
+
+export type TranslationLocaleGap = {
+  readonly featureName: string;
+  readonly key: string;
+  readonly missingLocales: readonly string[];
+};
+
+const REQUIRED_LOCALES = ["de", "en"] as const;
+
+export function findTranslationLocaleGaps(
+  features: readonly FeatureDefinition[],
+): readonly TranslationLocaleGap[] {
+  const gaps: TranslationLocaleGap[] = [];
+  for (const feature of features) {
+    for (const [localKey, entry] of Object.entries(feature.translations ?? {})) {
+      const missing = REQUIRED_LOCALES.filter((locale) => (entry[locale] ?? "").length === 0);
+      if (missing.length > 0) {
+        gaps.push({
+          featureName: feature.name,
+          key: localKey,
+          missingLocales: missing,
+        });
+      }
+    }
+  }
+  return gaps;
+}
