@@ -10,6 +10,8 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "../../stack";
+import { createEncryptionProvider } from "../encryption";
+import { resetEntityFieldEncryptionCacheForTests } from "../entity-field-encryption";
 import { createEventStoreExecutor } from "../event-store-executor";
 import { buildEntityTable } from "../table-builder";
 import { createTenantDb, type TenantDb } from "../tenant-db";
@@ -298,6 +300,77 @@ describe("event-store-executor — detail liefert die Stream-Version", () => {
       tdb,
     );
     expect(updated.isSuccess).toBe(true);
+  });
+});
+
+const ENCRYPTION_TEST_KEY = Buffer.from("a]bJm#kP9xQ2@wN!vL$hR5yT8eU0iO3f").toString("base64");
+const encryptedEntity = createEntity({
+  table: "read_es_exec_encrypted",
+  fields: {
+    email: createTextField({ required: true }),
+    secretNote: createTextField({ encrypted: true }),
+  },
+});
+const encryptedTable = buildEntityTable("esExecEncrypted", encryptedEntity);
+
+describe("event-store-executor — encrypted fields", () => {
+  const encryption = createEncryptionProvider(ENCRYPTION_TEST_KEY);
+  const crud = createEventStoreExecutor(encryptedTable, encryptedEntity, {
+    entityName: "esExecEncrypted",
+    encryption,
+  });
+
+  beforeAll(async () => {
+    process.env["ENCRYPTION_KEY"] = ENCRYPTION_TEST_KEY;
+    resetEntityFieldEncryptionCacheForTests();
+    await unsafeCreateEntityTable(testDb.db, encryptedEntity, "esExecEncrypted");
+  });
+
+  beforeEach(async () => {
+    await asRawClient(testDb.db).unsafe(
+      `TRUNCATE kumiko_events, read_es_exec_encrypted RESTART IDENTITY CASCADE`,
+    );
+  });
+
+  test("stores ciphertext in DB and returns plaintext on read", async () => {
+    const plaintext = "super-secret-note";
+    const result = await crud.create(
+      { email: "enc@test.de", secretNote: plaintext },
+      adminUser,
+      tdb,
+    );
+    if (!result.isSuccess) throw new Error("create failed");
+    expect(result.data.data["secretNote"]).toBe(plaintext);
+
+    const rawRows = (await asRawClient(testDb.db).unsafe(
+      `SELECT secret_note FROM read_es_exec_encrypted WHERE email = 'enc@test.de' LIMIT 1`,
+    )) as Array<{ secret_note: string }>;
+    expect(rawRows[0]?.secret_note).toBeDefined();
+    expect(rawRows[0]!.secret_note).not.toBe(plaintext);
+
+    const detail = await crud.detail({ id: result.data.id }, adminUser, tdb);
+    expect(detail?.["secretNote"]).toBe(plaintext);
+  });
+
+  test("update encrypts changed encrypted field", async () => {
+    const created = await crud.create(
+      { email: "upd-enc@test.de", secretNote: "old-note" },
+      adminUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+
+    const updated = await crud.update(
+      {
+        id: created.data.id,
+        version: 1,
+        changes: { secretNote: "new-note" },
+      },
+      adminUser,
+      tdb,
+    );
+    if (!updated.isSuccess) throw new Error("update failed");
+    expect(updated.data.data["secretNote"]).toBe("new-note");
   });
 });
 

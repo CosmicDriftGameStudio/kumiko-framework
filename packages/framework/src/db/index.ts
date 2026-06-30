@@ -36,6 +36,11 @@ export {
 } from "./eagerload";
 export type { EncryptionProvider } from "./encryption";
 export { createEncryptionProvider } from "./encryption";
+export {
+  collectEncryptedFieldNames,
+  decryptEntityFieldValues,
+  encryptEntityFieldValues,
+} from "./entity-field-encryption";
 export type {
   BuildEntityTableMetaOptions,
   ColumnMeta,
