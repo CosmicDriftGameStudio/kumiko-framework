@@ -235,34 +235,15 @@ function makeDryRunHandle(): ProdAppHandle {
 
 /** Wrapper-API für den Password-Reset-Flow.
  *
- *  Setup = Feature-Options (PasswordResetOptions = hmacSecret +
- *  tokenTtlMinutes) PLUS die Mail-Side die der Wrapper an die
- *  auth-routes-config durchreicht (sendResetEmail-callback +
- *  appResetUrl). Apps geben EINEN Block; run{Prod,Dev}App splittet
- *  intern auf composeFeatures(authOptions) für die Feature-Options
- *  und auth-routes-config für die Mail-Side. extends-Beziehung
- *  pinst die Synchronität: jede Feature-Option ist auch Wrapper-Option. */
-export type PasswordResetSetup = PasswordResetOptions & {
-  readonly sendResetEmail: (args: {
-    email: string;
-    resetUrl: string;
-    expiresAt: string;
-  }) => Promise<void>;
-  /** App-URL des ResetPasswordScreen. Framework appended `?token=…`;
-   *  KEIN trailing `?` oder `#`. Beispiel: "https://admin.example.com/reset-password" */
-  readonly appResetUrl: string;
-};
+ *  Seit der delivery-Migration trägt PasswordResetOptions selbst `appUrl`
+ *  (+ appName/locale) und der Handler mailt via ctx.notify — kein
+ *  sendResetEmail-Callback mehr. Apps geben `auth.mail` (Convenience,
+ *  resolveAuthMail baut die appUrl) ODER einen expliziten Block. */
+export type PasswordResetSetup = PasswordResetOptions;
 
 /** Wrapper-API für den Email-Verification-Flow. Symmetrisch zu
- *  PasswordResetSetup — extends EmailVerificationOptions + Mail-Side. */
-export type EmailVerificationSetup = EmailVerificationOptions & {
-  readonly sendVerificationEmail: (args: {
-    email: string;
-    verificationUrl: string;
-    expiresAt: string;
-  }) => Promise<void>;
-  readonly appVerifyUrl: string;
-};
+ *  PasswordResetSetup — = EmailVerificationOptions (appUrl via delivery). */
+export type EmailVerificationSetup = EmailVerificationOptions;
 
 /** Wrapper-API für Magic-Link Self-Signup. Mirror der existing
  *  PasswordResetSetup-Struktur — Feature-Options (tokenTtlMinutes,
@@ -733,21 +714,34 @@ export function resolveAuthMail<T extends AuthMailNormalizable>(
     fallbackFrom: auth.mail.from ?? "noreply@localhost",
   });
   if (!mailSender) return auth;
-  const mc: AuthMailerConfig = createAuthMailerConfig({
-    mailSender,
-    hmacSecret,
-    baseUrl: auth.mail.baseUrl,
-    paths: makeAuthPaths(auth.mail.paths),
+  const paths = makeAuthPaths(auth.mail.paths);
+  // appName/locale fließen in beide Pfade: die delivery-Flows (reset/verify
+  // als Feature-Options) und die callback-Flows (signup/invite via mc).
+  const mailPresentation = {
     ...(auth.mail.appName !== undefined && { appName: auth.mail.appName }),
     ...(auth.mail.locale !== undefined && { locale: auth.mail.locale }),
-    ...(auth.mail.emailVerificationMode !== undefined && {
-      emailVerificationMode: auth.mail.emailVerificationMode,
-    }),
+  };
+  const mc: AuthMailerConfig = createAuthMailerConfig({
+    mailSender,
+    baseUrl: auth.mail.baseUrl,
+    paths,
+    ...mailPresentation,
   });
   return {
     ...auth,
-    passwordReset: auth.passwordReset ?? mc.passwordReset,
-    emailVerification: auth.emailVerification ?? mc.emailVerification,
+    passwordReset: auth.passwordReset ?? {
+      hmacSecret,
+      appUrl: `${auth.mail.baseUrl}${paths.resetPassword}`,
+      ...mailPresentation,
+    },
+    emailVerification: auth.emailVerification ?? {
+      hmacSecret,
+      appUrl: `${auth.mail.baseUrl}${paths.verifyEmail}`,
+      ...(auth.mail.emailVerificationMode !== undefined && {
+        mode: auth.mail.emailVerificationMode,
+      }),
+      ...mailPresentation,
+    },
     signup: auth.signup ?? mc.signup,
     invite: auth.invite ?? mc.invite,
   };
@@ -1014,16 +1008,12 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
           passwordReset: {
             requestHandler: AuthHandlers.requestPasswordReset,
             confirmHandler: AuthHandlers.resetPassword,
-            sendResetEmail: effectiveAuth.passwordReset.sendResetEmail,
-            appResetUrl: effectiveAuth.passwordReset.appResetUrl,
           },
         }),
         ...(effectiveAuth.emailVerification && {
           emailVerification: {
             requestHandler: AuthHandlers.requestEmailVerification,
             confirmHandler: AuthHandlers.verifyEmail,
-            sendVerificationEmail: effectiveAuth.emailVerification.sendVerificationEmail,
-            appVerifyUrl: effectiveAuth.emailVerification.appVerifyUrl,
           },
         }),
         ...(effectiveAuth.signup && {

@@ -11,10 +11,16 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { Temporal } from "temporal-polyfill";
+import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
+import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery";
+import { notificationPreferencesTable } from "../../delivery/tables";
+import { createRendererFoundationFeature } from "../../renderer-foundation/feature";
+import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple";
 import { createSessionsFeature, userSessionTable } from "../../sessions";
+import { createTemplateResolverFeature } from "../../template-resolver/feature";
 import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/schema/tenant";
@@ -27,9 +33,10 @@ import { createAuthEmailPasswordFeature } from "../feature";
 import { hashPassword, verifyPassword } from "../password-hashing";
 import { signResetToken } from "../reset-token";
 
-// Signed tokens are forwarded out-of-band (email). In the test we grab them
-// from the sendResetEmail callback instead.
-const capturedEmails: Array<{ email: string; resetUrl: string; expiresAt: string }> = [];
+// Reset mails now go through delivery (ctx.notify → channel-email). The
+// in-memory transport captures what would be sent; route:{email} delivers
+// directly (no jobRunner in the test stack → inline send).
+const emailTransport = createInMemoryTransport();
 
 // Records the userId every time the sessions feature's auto-revoke hook
 // fires after a password change. The session-revoke tests assert on this
@@ -51,8 +58,19 @@ beforeAll(async () => {
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
+      createTemplateResolverFeature(),
+      createRendererFoundationFeature(),
+      createDeliveryFeature(),
+      createRendererSimpleFeature(),
+      createChannelEmailFeature({
+        transport: emailTransport,
+        renderer: simpleRenderer,
+        // route:{email} delivers directly — resolveEmail (userId→address) is
+        // never hit by the reset flow, but the channel requires it.
+        resolveEmail: async () => "unused@test.local",
+      }),
       createAuthEmailPasswordFeature({
-        passwordReset: { hmacSecret: resetSecret, tokenTtlMinutes: 15 },
+        passwordReset: { hmacSecret: resetSecret, tokenTtlMinutes: 15, appUrl: appResetUrl },
       }),
       // Sessions feature wires the cross-feature entityHook on
       // "user.postSave" that triggers autoRevokeOnPasswordChange whenever
@@ -65,17 +83,17 @@ beforeAll(async () => {
         },
       }),
     ],
-    extraContext: { configResolver: resolver, configEncryption: encryption },
+    extraContext: (deps) => ({
+      ...createDeliveryTestContext(deps),
+      configResolver: resolver,
+      configEncryption: encryption,
+    }),
     authConfig: {
       membershipQuery: "tenant:query:memberships",
       loginHandler: AuthHandlers.login,
       passwordReset: {
         requestHandler: AuthHandlers.requestPasswordReset,
         confirmHandler: AuthHandlers.resetPassword,
-        appResetUrl,
-        sendResetEmail: async (args) => {
-          capturedEmails.push(args);
-        },
       },
     },
   });
@@ -86,6 +104,7 @@ beforeAll(async () => {
     configValuesTable,
     tenantMembershipsTable,
     userSessionTable,
+    notificationPreferencesTable,
   });
 });
 
@@ -97,7 +116,7 @@ beforeEach(async () => {
   await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
   await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
   await asRawClient(stack.db).unsafe(`DELETE FROM "${userSessionTable.tableName}"`);
-  capturedEmails.length = 0;
+  emailTransport.sent.length = 0;
   autoRevokeCalls.length = 0;
 });
 
@@ -132,34 +151,34 @@ async function post(path: string, body: unknown): Promise<Response> {
 // --- request-password-reset -----------------------------------------------
 
 describe("POST /auth/request-password-reset", () => {
-  test("known email → 200, email callback invoked with reset URL", async () => {
+  test("known email → 200, delivery sends mail with reset URL", async () => {
     await seedUser({ email: "alice@example.com", password: "initial-pw!" });
 
     const res = await post("/api/auth/request-password-reset", { email: "alice@example.com" });
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ isSuccess: true });
-    expect(capturedEmails).toHaveLength(1);
-    const [captured] = capturedEmails;
-    if (!captured) throw new Error("no email captured");
-    expect(captured.email).toBe("alice@example.com");
-    expect(captured.resetUrl.startsWith(`${appResetUrl}?token=`)).toBe(true);
-    expect(typeof captured.expiresAt).toBe("string");
+    expect(emailTransport.sent).toHaveLength(1);
+    const sent = emailTransport.sent[0];
+    if (!sent) throw new Error("no email sent");
+    expect(sent.to).toBe("alice@example.com");
+    expect(sent.subject).toContain("Reset");
+    expect(sent.html).toContain(`${appResetUrl}?token=`);
   });
 
-  test("unknown email → 200 with NO sendResetEmail side-effect (enumeration-safe)", async () => {
+  test("unknown email → 200 with NO mail sent (enumeration-safe)", async () => {
     const res = await post("/api/auth/request-password-reset", { email: "ghost@example.com" });
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ isSuccess: true });
-    expect(capturedEmails).toHaveLength(0);
+    expect(emailTransport.sent).toHaveLength(0);
   });
 
   test("malformed body → 200 (silent success, no enumeration via error shape)", async () => {
     const res = await post("/api/auth/request-password-reset", { wrong: "shape" });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ isSuccess: true });
-    expect(capturedEmails).toHaveLength(0);
+    expect(emailTransport.sent).toHaveLength(0);
   });
 });
 

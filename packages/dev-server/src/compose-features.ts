@@ -102,9 +102,16 @@ export function buildComposeAuthOptions(
   if (auth.passwordReset) {
     const reset: { -readonly [K in keyof PasswordResetOptions]: PasswordResetOptions[K] } = {
       hmacSecret: auth.passwordReset.hmacSecret,
+      appUrl: auth.passwordReset.appUrl,
     };
     if (auth.passwordReset.tokenTtlMinutes !== undefined) {
       reset.tokenTtlMinutes = auth.passwordReset.tokenTtlMinutes;
+    }
+    if (auth.passwordReset.appName !== undefined) {
+      reset.appName = auth.passwordReset.appName;
+    }
+    if (auth.passwordReset.locale !== undefined) {
+      reset.locale = auth.passwordReset.locale;
     }
     opts.passwordReset = reset;
   }
@@ -112,12 +119,19 @@ export function buildComposeAuthOptions(
     const verify: { -readonly [K in keyof EmailVerificationOptions]: EmailVerificationOptions[K] } =
       {
         hmacSecret: auth.emailVerification.hmacSecret,
+        appUrl: auth.emailVerification.appUrl,
       };
     if (auth.emailVerification.tokenTtlMinutes !== undefined) {
       verify.tokenTtlMinutes = auth.emailVerification.tokenTtlMinutes;
     }
     if (auth.emailVerification.mode !== undefined) {
       verify.mode = auth.emailVerification.mode;
+    }
+    if (auth.emailVerification.appName !== undefined) {
+      verify.appName = auth.emailVerification.appName;
+    }
+    if (auth.emailVerification.locale !== undefined) {
+      verify.locale = auth.emailVerification.locale;
     }
     opts.emailVerification = verify;
   }

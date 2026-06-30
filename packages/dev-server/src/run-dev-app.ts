@@ -396,16 +396,12 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
           passwordReset: {
             requestHandler: AuthHandlers.requestPasswordReset,
             confirmHandler: AuthHandlers.resetPassword,
-            sendResetEmail: effectiveAuth.passwordReset.sendResetEmail,
-            appResetUrl: effectiveAuth.passwordReset.appResetUrl,
           },
         }),
         ...(effectiveAuth.emailVerification && {
           emailVerification: {
             requestHandler: AuthHandlers.requestEmailVerification,
             confirmHandler: AuthHandlers.verifyEmail,
-            sendVerificationEmail: effectiveAuth.emailVerification.sendVerificationEmail,
-            appVerifyUrl: effectiveAuth.emailVerification.appVerifyUrl,
           },
         }),
         ...(effectiveAuth.signup && {

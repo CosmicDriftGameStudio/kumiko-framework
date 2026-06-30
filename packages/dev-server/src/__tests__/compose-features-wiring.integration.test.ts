@@ -16,10 +16,10 @@
 // Test fährt den vollen HTTP-Roundtrip und kann den dispatch-error nicht
 // übersehen.
 //
-// Kein Mocking: setupTestStack bootet echte DB + Redis. Die
-// sendResetEmail-callback (analog runProdApp's createAuthMailerConfig)
-// schreibt in ein lokales Array — gewollter Capture-Spy ohne vitest-
-// Mock-API (CLAUDE.md "Kein Mock in *.integration.ts").
+// Kein Mocking: setupTestStack bootet echte DB + Redis. reset/verify mailen
+// via delivery (ctx.notify → channel-email); der In-Memory-Transport fängt
+// die echte Mail ab — gewollter Capture ohne Mock-API (CLAUDE.md "Kein Mock
+// in *.integration.ts").
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
@@ -29,9 +29,24 @@ import {
   hashPassword,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
 import {
+  createChannelEmailFeature,
+  createInMemoryTransport,
+} from "@cosmicdrift/kumiko-bundled-features/channel-email";
+import {
   configValuesTable,
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
+import {
+  createDeliveryFeature,
+  createDeliveryTestContext,
+  notificationPreferencesTable,
+} from "@cosmicdrift/kumiko-bundled-features/delivery";
+import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+import {
+  createRendererSimpleFeature,
+  simpleRenderer,
+} from "@cosmicdrift/kumiko-bundled-features/renderer-simple";
+import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { tenantEntity, tenantMembershipsTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { seedTenantMembership } from "@cosmicdrift/kumiko-bundled-features/tenant/testing";
 import { UserHandlers, userEntity, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
@@ -53,38 +68,59 @@ const APP_VERIFY_URL = "https://app.example.com/verify-email";
 const TEST_TENANT_ID: TenantId = "00000000-0000-4000-8000-000000000001" as TenantId;
 const systemAdmin = TestUsers.systemAdmin;
 
-type CapturedReset = { email: string; resetUrl: string; expiresAt: string };
-type CapturedVerify = { email: string; verificationUrl: string; expiresAt: string };
+// Pulls the magic-link out of the rendered mail HTML — the renderer-simple
+// button carries it as the only href. Replaces the old callback-captured
+// resetUrl now that reset/verify mail via delivery.
+function tokenUrlFromHtml(html: string): URL {
+  const match = html.match(/href="([^"]*\?token=[^"]*)"/);
+  if (!match?.[1]) throw new Error("no magic-link href in mail html");
+  return new URL(match[1]);
+}
 
 async function bootStack(
   authOptionsKind: "with-both" | "with-reset-only" | "without-auth-options",
-): Promise<{
-  stack: TestStack;
-  resetEmails: CapturedReset[];
-  verifyEmails: CapturedVerify[];
-}> {
-  const resetEmails: CapturedReset[] = [];
-  const verifyEmails: CapturedVerify[] = [];
+): Promise<{ stack: TestStack; emailTransport: ReturnType<typeof createInMemoryTransport> }> {
+  const emailTransport = createInMemoryTransport();
 
   // Genau das was runProdApp/runDevApp machen würde — composeFeatures als
-  // single-source der Feature-Liste, je nach authOptionsKind variiert die
-  // Konfiguration. Dieser Test cared explizit um die DURCHREICHE — also
-  // dass das Wrapper-API-Object an createAuthEmailPasswordFeature ankommt.
-  const features = composeFeatures([], {
-    includeBundled: true,
-    ...(authOptionsKind !== "without-auth-options" && {
-      authOptions: {
-        passwordReset: { hmacSecret: RESET_HMAC, tokenTtlMinutes: 15 },
-        ...(authOptionsKind === "with-both" && {
-          emailVerification: { hmacSecret: VERIFY_HMAC, tokenTtlMinutes: 60, mode: "off" },
-        }),
-      },
-    }),
-  });
+  // single-source der Feature-Liste. delivery + channel-email kommen als
+  // App-Features dazu, weil reset/verify ihre Mail via ctx.notify schicken.
+  const features = composeFeatures(
+    [
+      createTemplateResolverFeature(),
+      createRendererFoundationFeature(),
+      createDeliveryFeature(),
+      createRendererSimpleFeature(),
+      createChannelEmailFeature({
+        transport: emailTransport,
+        renderer: simpleRenderer,
+        resolveEmail: async () => "unused@test.local",
+      }),
+    ],
+    {
+      includeBundled: true,
+      ...(authOptionsKind !== "without-auth-options" && {
+        authOptions: {
+          passwordReset: { hmacSecret: RESET_HMAC, tokenTtlMinutes: 15, appUrl: APP_RESET_URL },
+          ...(authOptionsKind === "with-both" && {
+            emailVerification: {
+              hmacSecret: VERIFY_HMAC,
+              tokenTtlMinutes: 60,
+              mode: "off",
+              appUrl: APP_VERIFY_URL,
+            },
+          }),
+        },
+      }),
+    },
+  );
 
   const stack = await setupTestStack({
     features,
-    extraContext: { configResolver: createConfigResolver() },
+    extraContext: (deps) => ({
+      ...createDeliveryTestContext(deps),
+      configResolver: createConfigResolver(),
+    }),
     authConfig: {
       membershipQuery: "tenant:query:memberships",
       loginHandler: AuthHandlers.login,
@@ -93,19 +129,11 @@ async function bootStack(
       passwordReset: {
         requestHandler: AuthHandlers.requestPasswordReset,
         confirmHandler: AuthHandlers.resetPassword,
-        appResetUrl: APP_RESET_URL,
-        sendResetEmail: async (args) => {
-          resetEmails.push(args);
-        },
       },
       ...(authOptionsKind === "with-both" && {
         emailVerification: {
           requestHandler: AuthHandlers.requestEmailVerification,
           confirmHandler: AuthHandlers.verifyEmail,
-          appVerifyUrl: APP_VERIFY_URL,
-          sendVerificationEmail: async (args) => {
-            verifyEmails.push(args);
-          },
         },
       }),
     },
@@ -113,9 +141,13 @@ async function bootStack(
 
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);
-  await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
+  await unsafePushTables(stack.db, {
+    configValuesTable,
+    tenantMembershipsTable,
+    notificationPreferencesTable,
+  });
 
-  return { stack, resetEmails, verifyEmails };
+  return { stack, emailTransport };
 }
 
 async function seedUser(
@@ -154,8 +186,7 @@ describe("composeFeatures wiring — passwordReset", () => {
   beforeEach(async () => {
     await deleteMany(suite.stack.db, userTable, {});
     await deleteMany(suite.stack.db, tenantMembershipsTable, {});
-    suite.resetEmails.length = 0;
-    suite.verifyEmails.length = 0;
+    suite.emailTransport.sent.length = 0;
   });
 
   test("full reset roundtrip: request → email → reset → login with new password", async () => {
@@ -170,15 +201,15 @@ describe("composeFeatures wiring — passwordReset", () => {
       email: "alice@example.com",
     });
     expect(requestRes.status).toBe(200);
-    expect(suite.resetEmails).toHaveLength(1);
-    const captured = suite.resetEmails[0];
-    if (!captured) throw new Error("no email captured");
-    expect(captured.email).toBe("alice@example.com");
+    expect(suite.emailTransport.sent).toHaveLength(1);
+    const sent = suite.emailTransport.sent[0];
+    if (!sent) throw new Error("no email sent");
+    expect(sent.to).toBe("alice@example.com");
 
-    // Token aus URL extrahieren — wie der echte User es täte (Mail klicken,
-    // Browser parsed query-string). Das macht dieser Test "echter" als ein
-    // signResetToken-Bypass: er pinst den vollen URL-zu-Handler-Roundtrip.
-    const resetUrl = new URL(captured.resetUrl);
+    // Token aus der Mail-URL extrahieren — wie der echte User es täte (Mail
+    // klicken, Browser parsed query-string). Das pinst den vollen
+    // URL-zu-Handler-Roundtrip über delivery.
+    const resetUrl = tokenUrlFromHtml(sent.html);
     expect(`${resetUrl.origin}${resetUrl.pathname}`).toBe(APP_RESET_URL);
     const token = resetUrl.searchParams.get("token");
     expect(token).toBeTruthy();
@@ -228,8 +259,7 @@ describe("composeFeatures wiring — emailVerification", () => {
   beforeEach(async () => {
     await deleteMany(suite.stack.db, userTable, {});
     await deleteMany(suite.stack.db, tenantMembershipsTable, {});
-    suite.resetEmails.length = 0;
-    suite.verifyEmails.length = 0;
+    suite.emailTransport.sent.length = 0;
   });
 
   test("emailVerification authOption durchgereicht → request handler dispatched", async () => {
@@ -242,11 +272,11 @@ describe("composeFeatures wiring — emailVerification", () => {
       email: "bob@example.com",
     });
     expect(res.status).toBe(200);
-    expect(suite.verifyEmails).toHaveLength(1);
-    const captured = suite.verifyEmails[0];
-    if (!captured) throw new Error("no verification email captured");
-    expect(captured.email).toBe("bob@example.com");
-    const verifyUrl = new URL(captured.verificationUrl);
+    expect(suite.emailTransport.sent).toHaveLength(1);
+    const sent = suite.emailTransport.sent[0];
+    if (!sent) throw new Error("no verification email sent");
+    expect(sent.to).toBe("bob@example.com");
+    const verifyUrl = tokenUrlFromHtml(sent.html);
     expect(`${verifyUrl.origin}${verifyUrl.pathname}`).toBe(APP_VERIFY_URL);
     expect(verifyUrl.searchParams.get("token")).toBeTruthy();
   });
@@ -274,8 +304,7 @@ describe("composeFeatures wiring — asymmetric activation", () => {
   beforeEach(async () => {
     await deleteMany(suite.stack.db, userTable, {});
     await deleteMany(suite.stack.db, tenantMembershipsTable, {});
-    suite.resetEmails.length = 0;
-    suite.verifyEmails.length = 0;
+    suite.emailTransport.sent.length = 0;
   });
 
   test("nur passwordReset gesetzt → reset-flow live, verify-flow fail-closed", async () => {
@@ -286,17 +315,17 @@ describe("composeFeatures wiring — asymmetric activation", () => {
       email: "alice@example.com",
     });
     expect(resetRes.status).toBe(200);
-    expect(suite.resetEmails).toHaveLength(1);
+    expect(suite.emailTransport.sent).toHaveLength(1);
 
     // Verify-Routes sind in dieser bootStack-Variante NICHT gemounted
     // (authConfig.emailVerification fehlt). Der Endpoint existiert also
     // gar nicht — Hono returnt 404. Unterscheidet sich vom 200-silent-
-    // success-Pfad: hier ist die ROUTE selbst nicht da.
+    // success-Pfad: hier ist die ROUTE selbst nicht da. Kein zweites Mail.
     const verifyRes = await suite.stack.http.raw("POST", "/api/auth/request-email-verification", {
       email: "alice@example.com",
     });
     expect(verifyRes.status).toBe(404);
-    expect(suite.verifyEmails).toHaveLength(0);
+    expect(suite.emailTransport.sent).toHaveLength(1);
   });
 });
 
@@ -328,7 +357,7 @@ describe("composeFeatures wiring — fail-closed ohne authOptions", () => {
   afterEach(async () => {
     await deleteMany(suite.stack.db, userTable, {});
     await deleteMany(suite.stack.db, tenantMembershipsTable, {});
-    suite.resetEmails.length = 0;
+    suite.emailTransport.sent.length = 0;
   });
 
   test("authOptions fehlt → POST returnt enumeration-safe 200, ABER NULL Mails (der echte Bug-Beweis)", async () => {
@@ -348,6 +377,6 @@ describe("composeFeatures wiring — fail-closed ohne authOptions", () => {
     // Bug. Diese Asymmetrie zwischen den beiden describe-Blöcken IST
     // der Test.
     expect(res.status).toBe(200);
-    expect(suite.resetEmails).toHaveLength(0);
+    expect(suite.emailTransport.sent).toHaveLength(0);
   });
 });

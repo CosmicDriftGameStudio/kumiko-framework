@@ -12,16 +12,16 @@ export {
 } from "./auth-mailer";
 export { AUTH_EMAIL_PASSWORD_FEATURE, AuthErrors, AuthHandlers } from "./constants";
 // Default-HTML-Renderer für die Reset-Password + Verify-Email Mails.
-// Apps wiren die `sendResetEmail` / `sendVerificationEmail` callbacks
-// im framework-config — diese Renderer können als one-liner genutzt
-// werden, oder die App schreibt einen eigenen Renderer für Branding.
+// Reset + verify emit structured AuthMailContent through delivery (ctx.notify);
+// activation + invite still return RenderedEmail via the app-callback path.
 export type {
+  AuthMailContent,
   AuthMailLocale,
+  AuthMailSection,
   RenderActivationEmailArgs,
   RenderedEmail,
   RenderInviteEmailArgs,
-  RenderResetPasswordEmailArgs,
-  RenderVerifyEmailArgs,
+  RenderTokenContentArgs,
 } from "./email-templates";
 export {
   renderActivationEmail,
