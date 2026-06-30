@@ -39,7 +39,8 @@ describe("entity-field-encryption", () => {
     const stored = encryptEntityFieldValues(row, encryptedFields, encryption, {
       onlyKeys: ["secretNote"],
     });
-    expect(stored.email).toBe("a@b.de");
-    expect(stored.secretNote).not.toBe("note");
+    expect(stored["email"]).toBe("a@b.de");
+    expect(stored["secretNote"]).not.toBe("note");
   });
 });
+

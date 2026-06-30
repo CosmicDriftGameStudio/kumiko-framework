@@ -285,6 +285,29 @@ export function createEventStoreExecutor(
     }
   }
 
+  const encryptedFields = collectEncryptedFieldNames(entity);
+  const hasEncryptedFields = encryptedFields.size > 0;
+
+  function encryptionProvider(): EncryptionProvider {
+    if (options.encryption) return options.encryption;
+    return resolveEntityFieldEncryption();
+  }
+
+  function encryptForStorage(
+    row: Record<string, unknown>,
+    onlyKeys?: Iterable<string>,
+  ): Record<string, unknown> {
+    if (!hasEncryptedFields) return row;
+    return encryptEntityFieldValues(row, encryptedFields, encryptionProvider(), {
+      ...(onlyKeys !== undefined && { onlyKeys }),
+    });
+  }
+
+  function decryptForRead(row: Record<string, unknown>): Record<string, unknown> {
+    if (!hasEncryptedFields) return row;
+    return decryptEntityFieldValues(row, encryptedFields, encryptionProvider());
+  }
+
   function applyDefaults(payload: Record<string, unknown>): Record<string, unknown> {
     if (Object.keys(fieldDefaults).length === 0) return payload;
     const result: Record<string, unknown> = { ...payload };
@@ -967,7 +990,9 @@ export function createEventStoreExecutor(
       const rawRows = await executeRawQuery<Record<string, unknown>>(db.raw, listSql, params);
       // Read-Side rehydrate pro Row + snake→camel coercion für driver-agnostic Feldnamen
       const tableInfo = extractTableInfo(table);
-      const rows = rawRows.map((r) => coerceRow(rehydrateCompoundTypes(r, entity), tableInfo));
+      const rows = rawRows.map((r) =>
+        coerceRow(decryptForRead(rehydrateCompoundTypes(r, entity)), tableInfo),
+      );
 
       // list rows carry the READ-ROW version (display-only), never an optimistic-lock
       // base — edit flows reload via detail(), which reconciles the stream version.
@@ -1055,3 +1080,5 @@ export function createEventStoreExecutor(
     },
   };
 }
+
+
