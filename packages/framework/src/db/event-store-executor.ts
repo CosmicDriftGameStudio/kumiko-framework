@@ -314,7 +314,7 @@ export function createEventStoreExecutor(
   async function loadById(id: EntityId, db: TenantDb): Promise<Record<string, unknown> | null> {
     const row = await db.fetchOne(table, idFilter(id));
     if (!row) return null;
-    return rehydrateCompoundTypes(row as DbRow, entity);
+    return decryptForRead(rehydrateCompoundTypes(row as DbRow, entity));
   }
 
   // Archive guard for the CRUD write paths. Archived streams are read-only —
@@ -499,7 +499,7 @@ export function createEventStoreExecutor(
       const row = result.row;
       // Read-Side Auto-Convert: DB-Form → API-combined-Form für alle
       // Compound-Types in einem Pass.
-      const projection = rehydrateCompoundTypes(row as DbRow, entity) as DbRow;
+      const projection = decryptForRead(rehydrateCompoundTypes(row as DbRow, entity) as DbRow);
 
       if (entityCache && entityName) {
         await entityCache.del(user.tenantId, entityName, aggregateId);
@@ -1043,7 +1043,7 @@ export function createEventStoreExecutor(
       const rows = await loadWithOwnership(db, idWhere, ownership);
       const raw = rows[0];
       if (!raw) return null;
-      const row = rehydrateCompoundTypes(raw, entity);
+      const row = decryptForRead(rehydrateCompoundTypes(raw, entity));
       const rowInfo = extractTableInfo(table);
       const coerced = coerceRow(row, rowInfo);
 
