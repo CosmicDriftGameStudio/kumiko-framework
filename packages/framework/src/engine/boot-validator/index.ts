@@ -179,5 +179,3 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
   validateConfigReads(features, allConfigKeys);
   warnOnToggleableDependencies(features, featureMap);
 }
-
-
