@@ -43,5 +43,3 @@ describe("entity-field-encryption", () => {
     expect(stored["secretNote"]).not.toBe("note");
   });
 });
-
-
