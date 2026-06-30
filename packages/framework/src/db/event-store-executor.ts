@@ -455,7 +455,7 @@ export function createEventStoreExecutor(
       // Alle Compound-Types (locatedTimestamp, money, ...) gehen durch
       // dieselbe Pipeline. Caller schickt combined API-Form, Framework
       // speichert flat DB-Form. Siehe db/compound-types.ts.
-      const flatData = flattenCompoundTypes(data, entity);
+      const flatData = encryptForStorage(flattenCompoundTypes(data, entity));
 
       // 1. Append event (same TX as the projection write — both must succeed
       //    or both roll back; the dispatcher wraps both in one transaction).
@@ -634,7 +634,10 @@ export function createEventStoreExecutor(
 
       try {
         // Compound-Types Auto-Convert (alle in einem Pass).
-        const flatChanges = flattenCompoundTypes(payload.changes, entity);
+        const flatChanges = encryptForStorage(
+          flattenCompoundTypes(payload.changes, entity),
+          Object.keys(payload.changes),
+        );
 
         // The event payload carries BOTH `changes` (what the user asked for) AND
         // `previous` (the pre-update row). Cross-aggregate projections need the
@@ -679,7 +682,7 @@ export function createEventStoreExecutor(
           return writeFailure(new InternalError({ message: "projection update returned no row" }));
         }
         const row = result.row;
-        const data = rehydrateCompoundTypes(row as DbRow, entity) as DbRow;
+        const data = decryptForRead(rehydrateCompoundTypes(row as DbRow, entity) as DbRow);
 
         if (entityCache && entityName) {
           await entityCache.del(user.tenantId, entityName, payload.id);
@@ -1089,7 +1092,3 @@ export function createEventStoreExecutor(
     },
   };
 }
-
-
-
-
