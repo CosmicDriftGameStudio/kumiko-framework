@@ -25,18 +25,13 @@ import { Temporal } from "temporal-polyfill";
 
 export type AuthMailLocale = "de" | "en";
 
-export type RenderResetPasswordEmailArgs = {
-  readonly resetUrl: string;
+// Unified args for the structured token-mail renderers (reset + verify).
+// `url` is the fully-built magic-link — the handler already appended ?token=.
+export type RenderTokenContentArgs = {
+  readonly url: string;
   readonly expiresAt: string;
   readonly locale?: AuthMailLocale;
   /** Optional: App-Name fürs Subject + Header. Default "Account". */
-  readonly appName?: string;
-};
-
-export type RenderVerifyEmailArgs = {
-  readonly verificationUrl: string;
-  readonly expiresAt: string;
-  readonly locale?: AuthMailLocale;
   readonly appName?: string;
 };
 
@@ -55,9 +50,25 @@ export type RenderInviteEmailArgs = {
   readonly appName?: string;
 };
 
+// Pre-rendered HTML mail — still used by the activation + invite flows, which
+// run through the app-callback path (auth-mailer) rather than delivery.
 export type RenderedEmail = {
   readonly subject: string;
   readonly html: string;
+};
+
+export type AuthMailSection =
+  | { readonly text: string }
+  | { readonly button: { readonly label: string; readonly url: string } };
+
+// Structured content the reset + verify handlers pass as the delivery `data`
+// payload: renderer-simple turns header/sections/footer into HTML, the
+// email-channel reads `subject`. No pre-rendered HTML — the renderer owns layout.
+export type AuthMailContent = {
+  readonly subject: string;
+  readonly header: string;
+  readonly sections: readonly AuthMailSection[];
+  readonly footer: string;
 };
 
 const STRINGS = {
@@ -194,35 +205,62 @@ function renderFallbackUrl(args: { url: string; label: string }): string {
   return `<p style="margin: 24px 0 0; font-size: 12px; color: #666;">${escapeHtml(args.label)}<br /><a href="${escapeHtmlAttr(args.url)}" style="color: #1a1a1a; word-break: break-all;">${escapeHtml(args.url)}</a></p>`;
 }
 
-export function renderResetPasswordEmail(args: RenderResetPasswordEmailArgs): RenderedEmail {
+// Structured content for the delivery path. header = action title (CTA label),
+// sections = greeting/intro/button/expiry, footer = the "ignore if not you"
+// reassurance. The old plain-text fallback-URL link drops out — renderer-simple
+// has no link-text section and the button carries the URL.
+function tokenMailContent(spec: {
+  readonly subject: string;
+  readonly header: string;
+  readonly greeting: string;
+  readonly intro: string;
+  readonly buttonLabel: string;
+  readonly buttonUrl: string;
+  readonly expiry: string;
+  readonly ignore: string;
+}): AuthMailContent {
+  return {
+    subject: spec.subject,
+    header: spec.header,
+    sections: [
+      { text: spec.greeting },
+      { text: spec.intro },
+      { button: { label: spec.buttonLabel, url: spec.buttonUrl } },
+      { text: spec.expiry },
+    ],
+    footer: spec.ignore,
+  };
+}
+
+export function renderResetPasswordEmail(args: RenderTokenContentArgs): AuthMailContent {
   const locale = args.locale ?? "en";
   const appName = args.appName ?? (locale === "de" ? "Konto" : "Account");
   const t = STRINGS[locale];
-  return renderTokenEmail({
+  return tokenMailContent({
     subject: t.resetSubject(appName),
+    header: t.resetButton,
     greeting: t.resetGreeting,
     intro: t.resetIntro(appName),
     buttonLabel: t.resetButton,
-    buttonUrl: args.resetUrl,
+    buttonUrl: args.url,
     expiry: t.resetExpiry(formatExpiry(args.expiresAt)),
     ignore: t.resetIgnore,
-    fallbackUrlLabel: t.fallbackUrl,
   });
 }
 
-export function renderVerifyEmail(args: RenderVerifyEmailArgs): RenderedEmail {
+export function renderVerifyEmail(args: RenderTokenContentArgs): AuthMailContent {
   const locale = args.locale ?? "en";
   const appName = args.appName ?? (locale === "de" ? "Konto" : "Account");
   const t = STRINGS[locale];
-  return renderTokenEmail({
+  return tokenMailContent({
     subject: t.verifySubject(appName),
+    header: t.verifyButton,
     greeting: t.verifyGreeting,
     intro: t.verifyIntro(appName),
     buttonLabel: t.verifyButton,
-    buttonUrl: args.verificationUrl,
+    buttonUrl: args.url,
     expiry: t.verifyExpiry(formatExpiry(args.expiresAt)),
     ignore: t.verifyIgnore,
-    fallbackUrlLabel: t.fallbackUrl,
   });
 }
 

@@ -14,9 +14,15 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
+import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery";
+import { notificationPreferencesTable } from "../../delivery/tables";
+import { createRendererFoundationFeature } from "../../renderer-foundation/feature";
+import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple";
+import { createTemplateResolverFeature } from "../../template-resolver/feature";
 import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/schema/tenant";
@@ -26,6 +32,9 @@ import { AuthHandlers } from "../constants";
 import { createAuthEmailPasswordFeature } from "../feature";
 
 let stack: TestStack;
+// delivery is a hard dep of the reset/verify flows now; mount it so boot
+// passes. These tests hit unknown emails → no-op → no mail is actually sent.
+const emailTransport = createInMemoryTransport();
 const encryptionKey = randomBytes(32).toString("base64");
 const resetSecret = randomBytes(32).toString("base64");
 const verifySecret = randomBytes(32).toString("base64");
@@ -39,26 +48,44 @@ beforeAll(async () => {
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
+      createTemplateResolverFeature(),
+      createRendererFoundationFeature(),
+      createDeliveryFeature(),
+      createRendererSimpleFeature(),
+      createChannelEmailFeature({
+        transport: emailTransport,
+        renderer: simpleRenderer,
+        resolveEmail: async () => "unused@test.local",
+      }),
       createAuthEmailPasswordFeature({
-        passwordReset: { hmacSecret: resetSecret, tokenTtlMinutes: 15 },
-        emailVerification: { hmacSecret: verifySecret, tokenTtlMinutes: 60, mode: "strict" },
+        passwordReset: {
+          hmacSecret: resetSecret,
+          tokenTtlMinutes: 15,
+          appUrl: "https://app.example.com/reset",
+        },
+        emailVerification: {
+          hmacSecret: verifySecret,
+          tokenTtlMinutes: 60,
+          mode: "strict",
+          appUrl: "https://app.example.com/verify",
+        },
       }),
     ],
-    extraContext: { configResolver: resolver, configEncryption: encryption },
+    extraContext: (deps) => ({
+      ...createDeliveryTestContext(deps),
+      configResolver: resolver,
+      configEncryption: encryption,
+    }),
     authConfig: {
       membershipQuery: "tenant:query:memberships",
       loginHandler: AuthHandlers.login,
       passwordReset: {
         requestHandler: AuthHandlers.requestPasswordReset,
         confirmHandler: AuthHandlers.resetPassword,
-        appResetUrl: "https://app.example.com/reset",
-        sendResetEmail: async () => {},
       },
       emailVerification: {
         requestHandler: AuthHandlers.requestEmailVerification,
         confirmHandler: AuthHandlers.verifyEmail,
-        appVerifyUrl: "https://app.example.com/verify",
-        sendVerificationEmail: async () => {},
       },
     },
     // Tight limit so the test trips it with a small number of requests,
@@ -70,7 +97,11 @@ beforeAll(async () => {
 
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);
-  await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
+  await unsafePushTables(stack.db, {
+    configValuesTable,
+    tenantMembershipsTable,
+    notificationPreferencesTable,
+  });
 });
 
 afterAll(async () => {

@@ -318,6 +318,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
       envSource,
       registry: deps.registry,
       hasAuth: false,
+      sseBroker: deps.sseBroker,
       ...(options.masterKey && { masterKey: options.masterKey }),
     });
     const base = typeof cfgExtra === "function" ? cfgExtra(deps) : (cfgExtra ?? {});
@@ -395,16 +396,12 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
           passwordReset: {
             requestHandler: AuthHandlers.requestPasswordReset,
             confirmHandler: AuthHandlers.resetPassword,
-            sendResetEmail: effectiveAuth.passwordReset.sendResetEmail,
-            appResetUrl: effectiveAuth.passwordReset.appResetUrl,
           },
         }),
         ...(effectiveAuth.emailVerification && {
           emailVerification: {
             requestHandler: AuthHandlers.requestEmailVerification,
             confirmHandler: AuthHandlers.verifyEmail,
-            sendVerificationEmail: effectiveAuth.emailVerification.sendVerificationEmail,
-            appVerifyUrl: effectiveAuth.emailVerification.appVerifyUrl,
           },
         }),
         ...(effectiveAuth.signup && {

@@ -40,7 +40,7 @@ describe("composeFeatures", () => {
   test("authOptions.passwordReset → request-password-reset + reset-password handlers registriert", () => {
     const features = composeFeatures([noopFeature], {
       includeBundled: true,
-      authOptions: { passwordReset: { hmacSecret: HMAC_SECRET } },
+      authOptions: { passwordReset: { hmacSecret: HMAC_SECRET, appUrl: "https://app/reset" } },
     });
     const auth = features.find((f) => f.name === "auth-email-password");
     expect(auth).toBeDefined();
@@ -53,7 +53,7 @@ describe("composeFeatures", () => {
   test("authOptions.emailVerification → request-email-verification + verify-email handlers registriert", () => {
     const features = composeFeatures([noopFeature], {
       includeBundled: true,
-      authOptions: { emailVerification: { hmacSecret: HMAC_SECRET } },
+      authOptions: { emailVerification: { hmacSecret: HMAC_SECRET, appUrl: "https://app/verify" } },
     });
     const auth = features.find((f) => f.name === "auth-email-password");
     expect(auth).toBeDefined();

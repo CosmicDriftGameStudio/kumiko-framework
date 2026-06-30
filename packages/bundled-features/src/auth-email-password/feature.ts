@@ -1,5 +1,6 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
+import type { AuthMailLocale } from "./email-templates";
 import { changePasswordWrite } from "./handlers/change-password.write";
 import { createInviteAcceptHandler } from "./handlers/invite-accept.write";
 import { createInviteAcceptWithLoginHandler } from "./handlers/invite-accept-with-login.write";
@@ -54,6 +55,12 @@ export const authEmailPasswordEnvSchema = z.object({
 export type PasswordResetOptions = {
   readonly hmacSecret: string;
   readonly tokenTtlMinutes?: number;
+  // App page that receives the magic-link; the handler appends `?token=…` and
+  // sends the mail via delivery (ctx.notify). No sendResetEmail callback — the
+  // app mounts `delivery` + a mail channel instead.
+  readonly appUrl: string;
+  readonly appName?: string;
+  readonly locale?: AuthMailLocale;
 };
 
 // Opt-in configuration for the email-verification flow. mode="strict"
@@ -65,6 +72,11 @@ export type EmailVerificationOptions = {
   readonly hmacSecret: string;
   readonly tokenTtlMinutes?: number;
   readonly mode?: "strict" | "off";
+  // App page that receives the magic-link; the handler appends `?token=…` and
+  // sends via delivery (ctx.notify). No sendVerificationEmail callback.
+  readonly appUrl: string;
+  readonly appName?: string;
+  readonly locale?: AuthMailLocale;
 };
 
 // Brute-force protection on the login handler. Omit for the defaults
@@ -146,6 +158,11 @@ export function createAuthEmailPasswordFeature(
     });
     r.requires("user");
     r.requires("tenant");
+    // reset + verify dispatch their magic-link via ctx.notify → delivery must
+    // be mounted. Fail closed at boot instead of silently dropping the mail.
+    if (opts.passwordReset || opts.emailVerification) {
+      r.requires("delivery");
+    }
     r.envSchema(authEmailPasswordEnvSchema);
 
     const handlers = {

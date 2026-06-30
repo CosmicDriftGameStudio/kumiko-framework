@@ -16,9 +16,15 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { Temporal } from "temporal-polyfill";
+import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
+import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery";
+import { notificationPreferencesTable } from "../../delivery/tables";
+import { createRendererFoundationFeature } from "../../renderer-foundation/feature";
+import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple";
+import { createTemplateResolverFeature } from "../../template-resolver/feature";
 import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/schema/tenant";
@@ -32,7 +38,9 @@ import { hashPassword } from "../password-hashing";
 import { signResetToken } from "../reset-token";
 import { signVerificationToken } from "../verification-token";
 
-const capturedEmails: Array<{ email: string; verificationUrl: string; expiresAt: string }> = [];
+// Verify mails now go through delivery (ctx.notify → channel-email); the
+// in-memory transport captures what would be sent.
+const emailTransport = createInMemoryTransport();
 
 let stack: TestStack;
 const systemAdmin = TestUsers.systemAdmin;
@@ -54,16 +62,30 @@ beforeAll(async () => {
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
+      createTemplateResolverFeature(),
+      createRendererFoundationFeature(),
+      createDeliveryFeature(),
+      createRendererSimpleFeature(),
+      createChannelEmailFeature({
+        transport: emailTransport,
+        renderer: simpleRenderer,
+        resolveEmail: async () => "unused@test.local",
+      }),
       createAuthEmailPasswordFeature({
         emailVerification: {
           hmacSecret: verifySecret,
           tokenTtlMinutes: 60,
           mode: "strict",
+          appUrl: appVerifyUrl,
         },
-        passwordReset: { hmacSecret: resetSecret, tokenTtlMinutes: 15 },
+        passwordReset: { hmacSecret: resetSecret, tokenTtlMinutes: 15, appUrl: appResetUrl },
       }),
     ],
-    extraContext: { configResolver: resolver, configEncryption: encryption },
+    extraContext: (deps) => ({
+      ...createDeliveryTestContext(deps),
+      configResolver: resolver,
+      configEncryption: encryption,
+    }),
     authConfig: {
       membershipQuery: "tenant:query:memberships",
       loginHandler: AuthHandlers.login,
@@ -75,23 +97,21 @@ beforeAll(async () => {
       emailVerification: {
         requestHandler: AuthHandlers.requestEmailVerification,
         confirmHandler: AuthHandlers.verifyEmail,
-        appVerifyUrl,
-        sendVerificationEmail: async (args) => {
-          capturedEmails.push(args);
-        },
       },
       passwordReset: {
         requestHandler: AuthHandlers.requestPasswordReset,
         confirmHandler: AuthHandlers.resetPassword,
-        appResetUrl,
-        sendResetEmail: async () => {},
       },
     },
   });
 
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);
-  await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
+  await unsafePushTables(stack.db, {
+    configValuesTable,
+    tenantMembershipsTable,
+    notificationPreferencesTable,
+  });
 });
 
 afterAll(async () => {
@@ -101,7 +121,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
   await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
-  capturedEmails.length = 0;
+  emailTransport.sent.length = 0;
 });
 
 async function seedUser(opts: {
@@ -144,7 +164,7 @@ async function post(path: string, body: unknown): Promise<Response> {
 // --- request-email-verification -------------------------------------------
 
 describe("POST /auth/request-email-verification", () => {
-  test("unverified user → 200, email callback invoked with verification URL", async () => {
+  test("unverified user → 200, delivery sends mail with verification URL", async () => {
     await seedUser({ email: "fresh@example.com", password: "pw-initial-1234" });
 
     const res = await post("/api/auth/request-email-verification", {
@@ -152,14 +172,14 @@ describe("POST /auth/request-email-verification", () => {
     });
 
     expect(res.status).toBe(200);
-    expect(capturedEmails).toHaveLength(1);
-    const [captured] = capturedEmails;
-    if (!captured) throw new Error("no email captured");
-    expect(captured.email).toBe("fresh@example.com");
-    expect(captured.verificationUrl.startsWith(`${appVerifyUrl}?token=`)).toBe(true);
+    expect(emailTransport.sent).toHaveLength(1);
+    const sent = emailTransport.sent[0];
+    if (!sent) throw new Error("no email sent");
+    expect(sent.to).toBe("fresh@example.com");
+    expect(sent.html).toContain(`${appVerifyUrl}?token=`);
   });
 
-  test("already-verified user → 200, NO callback (enumeration-safe)", async () => {
+  test("already-verified user → 200, NO mail (enumeration-safe)", async () => {
     await seedUser({
       email: "done@example.com",
       password: "pw-already-1234",
@@ -171,15 +191,15 @@ describe("POST /auth/request-email-verification", () => {
     });
 
     expect(res.status).toBe(200);
-    expect(capturedEmails).toHaveLength(0);
+    expect(emailTransport.sent).toHaveLength(0);
   });
 
-  test("unknown email → 200, NO callback (enumeration-safe)", async () => {
+  test("unknown email → 200, NO mail (enumeration-safe)", async () => {
     const res = await post("/api/auth/request-email-verification", {
       email: "ghost@example.com",
     });
     expect(res.status).toBe(200);
-    expect(capturedEmails).toHaveLength(0);
+    expect(emailTransport.sent).toHaveLength(0);
   });
 });
 

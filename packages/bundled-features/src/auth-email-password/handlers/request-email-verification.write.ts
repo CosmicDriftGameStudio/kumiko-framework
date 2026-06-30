@@ -1,10 +1,13 @@
 import { AUTH_VERIFY_DEFAULT_TTL_MINUTES, AuthErrors } from "../constants";
+import { renderVerifyEmail } from "../email-templates";
 import { signVerificationToken } from "../verification-token";
 import {
   createTokenRequestHandler,
   type TokenRequestData,
   type TokenRequestOptions,
 } from "./token-request-handler";
+
+const VERIFY_NOTIFICATION_TYPE = "auth-email-password:email-verification";
 
 export type RequestEmailVerificationOptions = TokenRequestOptions;
 
@@ -24,6 +27,8 @@ export function createRequestEmailVerificationHandler(opts: RequestEmailVerifica
       // unknown/deleted to keep the enumeration surface symmetric — the
       // caller sees the same 200 regardless of whether a token was minted.
       extraSilentSkip: (user) => user.emailVerified === true,
+      notificationType: VERIFY_NOTIFICATION_TYPE,
+      renderContent: renderVerifyEmail,
     },
     opts,
   );

@@ -12,11 +12,16 @@
 // spec rather than duplicated across two near-identical handler bodies.
 
 import { createSystemUser, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  InternalError,
+  UnprocessableError,
+  writeFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
 import type { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { UserQueries } from "../../user";
 import { type AuthUserRow, parseAuthUserRow } from "../auth-user-row";
+import type { AuthMailContent, AuthMailLocale, RenderTokenContentArgs } from "../email-templates";
 
 const RequestTokenSchema = z.object({
   email: z.email(),
@@ -56,12 +61,28 @@ export type TokenRequestSpec<TName extends string, TSuccessKind extends string> 
   // soft-deleted". Verification skips when emailVerified is already true;
   // password-reset has no extra condition (returns false).
   readonly extraSilentSkip: (user: AuthUserRow) => boolean;
+  // Notification type dispatched via ctx.notify on success. No r.notification
+  // is declared (the recipient is an anonymous email, not a userId) — the
+  // route:{email} path delivers directly and buildMessage falls back to data.
+  readonly notificationType: string;
+  // Builds the structured mail body from the magic-link + expiry. Per-flow
+  // (renderResetPasswordEmail / renderVerifyEmail).
+  readonly renderContent: (args: RenderTokenContentArgs) => AuthMailContent;
 };
 
 export type TokenRequestOptions = {
   readonly hmacSecret: string;
   readonly tokenTtlMinutes?: number;
+  // App page that receives the magic-link; the handler appends `?token=…`.
+  readonly appUrl: string;
+  readonly appName?: string;
+  readonly locale?: AuthMailLocale;
 };
+
+function appendToken(appUrl: string, token: string): string {
+  const sep = appUrl.includes("?") ? "&" : "?";
+  return `${appUrl}${sep}token=${encodeURIComponent(token)}`;
+}
 
 export function createTokenRequestHandler<TName extends string, TSuccessKind extends string>(
   spec: TokenRequestSpec<TName, TSuccessKind>,
@@ -103,6 +124,27 @@ export function createTokenRequestHandler<TName extends string, TSuccessKind ext
       }
 
       const { token, expiresAt } = spec.sign(user.id, ttl, opts.hmacSecret);
+
+      // delivery is a hard requirement when this flow is mounted (see
+      // feature.ts r.requires), so _notifyFactory is always wired — this guard
+      // is a defensive boot-invariant, not a runtime branch.
+      if (!ctx.notify) {
+        throw new InternalError({
+          message: `${spec.handlerName}: ctx.notify unavailable — the delivery feature must be mounted`,
+        });
+      }
+      const content = spec.renderContent({
+        url: appendToken(opts.appUrl, token),
+        expiresAt: expiresAt.toString(),
+        ...(opts.locale !== undefined && { locale: opts.locale }),
+        ...(opts.appName !== undefined && { appName: opts.appName }),
+      });
+      await ctx.notify(spec.notificationType, {
+        route: { email: user.email },
+        data: content,
+        priority: "critical",
+      });
+
       const data: TokenRequestData<TSuccessKind> = {
         kind: spec.successKind,
         email: user.email,

@@ -299,33 +299,17 @@ export type AuthRoutesConfig = {
 
 export type PasswordResetConfig = {
   // Qualified name of the request handler (the one that emits either
-  // { kind: "reset-requested", ... } or { kind: "no-op" }).
+  // { kind: "reset-requested", ... } or { kind: "no-op" }). The handler
+  // builds the magic-link and sends the mail via delivery (ctx.notify) — the
+  // route only dispatches and returns the silent-success envelope.
   requestHandler: string;
   // Qualified name of the confirm handler (token + newPassword → set).
   confirmHandler: string;
-  // Invoked only when the request handler returns kind=reset-requested.
-  // Given the signed token + target email, the callback builds the URL
-  // into the caller's app and hands it to whatever delivery channel the
-  // app wires up. Errors bubble as 5xx so silent drop-on-send can't hide
-  // an outgoing-mail outage behind a green response.
-  sendResetEmail: (args: { email: string; resetUrl: string; expiresAt: string }) => Promise<void>;
-  // Base URL of the app that hosts the reset form. The route appends
-  // `?token=…` so you should NOT include a trailing `?` or `#`. Example:
-  //   "https://app.example.com/reset-password"
-  appResetUrl: string;
 };
 
 export type EmailVerificationConfig = {
   requestHandler: string;
   confirmHandler: string;
-  sendVerificationEmail: (args: {
-    email: string;
-    verificationUrl: string;
-    expiresAt: string;
-  }) => Promise<void>;
-  // URL of the app page that receives the `?token=…` parameter and POSTs
-  // it to /auth/verify-email on submit.
-  appVerifyUrl: string;
 };
 
 // Tenant-Invite Magic-Link. Drei Accept-Branches für klare Separation:
@@ -561,9 +545,6 @@ export function createAuthRoutes(
       path: Routes.authRequestPasswordReset,
       requestHandler: pr.requestHandler,
       successKind: "reset-requested",
-      appBaseUrl: pr.appResetUrl,
-      sendEmail: ({ email, url, expiresAt }) =>
-        pr.sendResetEmail({ email, resetUrl: url, expiresAt }), // @wrapper-known semantic-alias
     });
     registerTokenConfirmRoute({
       api,
@@ -583,9 +564,6 @@ export function createAuthRoutes(
       path: Routes.authRequestEmailVerification,
       requestHandler: ev.requestHandler,
       successKind: "verification-requested",
-      appBaseUrl: ev.appVerifyUrl,
-      sendEmail: ({ email, url, expiresAt }) =>
-        ev.sendVerificationEmail({ email, verificationUrl: url, expiresAt }), // @wrapper-known semantic-alias
     });
     registerTokenConfirmRoute({
       api,
@@ -981,11 +959,11 @@ function registerTokenRequestRoute(opts: {
   // Discriminator the feature handler emits when it actually minted a token
   // (vs. the silent no-op for unknown/already-handled users).
   successKind: string;
-  // Base URL of the receiving app page. `?token=…` is appended with proper
-  // separator handling so the caller's URL may or may not carry existing
-  // query params.
-  appBaseUrl: string;
-  sendEmail: (args: { email: string; url: string; expiresAt: string }) => Promise<void>;
+  // Legacy mail path (signup): the route builds `${appBaseUrl}?token=…` and
+  // hands it to sendEmail. Omitted for the migrated flows (reset/verify) whose
+  // handler sends via delivery — the route then only dispatches.
+  appBaseUrl?: string;
+  sendEmail?: (args: { email: string; url: string; expiresAt: string }) => Promise<void>;
 }): void {
   const body = RequestTokenBody;
   opts.api.post(opts.path, async (c) => {
@@ -1003,7 +981,9 @@ function registerTokenRequestRoute(opts: {
 
     // Handler-level failures (only legitimate reason: misconfiguration) are
     // silently swallowed — observability logs capture them for ops.
-    if (result.isSuccess) {
+    // Migrated flows (reset/verify) send via delivery inside the handler, so
+    // appBaseUrl/sendEmail are absent here and the route just dispatches.
+    if (result.isSuccess && opts.appBaseUrl && opts.sendEmail) {
       // @cast-boundary engine-payload — generic dispatcher.write result narrowed by handler-emitted kind
       const data = result.data as TokenRequestData | TokenNoOp;
       if (data.kind === opts.successKind) {

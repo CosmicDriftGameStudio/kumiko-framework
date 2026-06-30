@@ -48,6 +48,11 @@ import {
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
+  collectChannels,
+  createDeliveryService,
+  DELIVERY_FEATURE,
+} from "@cosmicdrift/kumiko-bundled-features/delivery";
+import {
   createSecretsContext,
   SECRETS_FEATURE_NAME,
 } from "@cosmicdrift/kumiko-bundled-features/secrets";
@@ -79,6 +84,7 @@ import {
   type EffectiveFeaturesResolver,
   type FeatureDefinition,
   findTierResolverUsage,
+  type NotifyFactory,
   type Registry,
   type TenantId,
   type TierResolverPlugin,
@@ -229,34 +235,15 @@ function makeDryRunHandle(): ProdAppHandle {
 
 /** Wrapper-API für den Password-Reset-Flow.
  *
- *  Setup = Feature-Options (PasswordResetOptions = hmacSecret +
- *  tokenTtlMinutes) PLUS die Mail-Side die der Wrapper an die
- *  auth-routes-config durchreicht (sendResetEmail-callback +
- *  appResetUrl). Apps geben EINEN Block; run{Prod,Dev}App splittet
- *  intern auf composeFeatures(authOptions) für die Feature-Options
- *  und auth-routes-config für die Mail-Side. extends-Beziehung
- *  pinst die Synchronität: jede Feature-Option ist auch Wrapper-Option. */
-export type PasswordResetSetup = PasswordResetOptions & {
-  readonly sendResetEmail: (args: {
-    email: string;
-    resetUrl: string;
-    expiresAt: string;
-  }) => Promise<void>;
-  /** App-URL des ResetPasswordScreen. Framework appended `?token=…`;
-   *  KEIN trailing `?` oder `#`. Beispiel: "https://admin.example.com/reset-password" */
-  readonly appResetUrl: string;
-};
+ *  Seit der delivery-Migration trägt PasswordResetOptions selbst `appUrl`
+ *  (+ appName/locale) und der Handler mailt via ctx.notify — kein
+ *  sendResetEmail-Callback mehr. Apps geben `auth.mail` (Convenience,
+ *  resolveAuthMail baut die appUrl) ODER einen expliziten Block. */
+export type PasswordResetSetup = PasswordResetOptions;
 
 /** Wrapper-API für den Email-Verification-Flow. Symmetrisch zu
- *  PasswordResetSetup — extends EmailVerificationOptions + Mail-Side. */
-export type EmailVerificationSetup = EmailVerificationOptions & {
-  readonly sendVerificationEmail: (args: {
-    email: string;
-    verificationUrl: string;
-    expiresAt: string;
-  }) => Promise<void>;
-  readonly appVerifyUrl: string;
-};
+ *  PasswordResetSetup — = EmailVerificationOptions (appUrl via delivery). */
+export type EmailVerificationSetup = EmailVerificationOptions;
 
 /** Wrapper-API für Magic-Link Self-Signup. Mirror der existing
  *  PasswordResetSetup-Struktur — Feature-Options (tokenTtlMinutes,
@@ -636,6 +623,25 @@ function envHasMasterKek(env: Record<string, string | undefined>): boolean {
   return Object.entries(env).some(([k, v]) => MASTER_KEK_VAR.test(k) && !!v);
 }
 
+// Prod/dev parity for ctx.notify: without this `_notifyFactory` is only wired
+// in tests (createDeliveryTestContext), so ctx.notify is undefined at runtime
+// and every notification silently skips. sseBroker optional (email/push don't
+// need it, in-app SSE does); no jobRunner → queued channels send inline.
+function buildDeliveryNotifyFactory(opts: {
+  readonly db: DbConnection;
+  readonly registry: Registry;
+  readonly sseBroker?: SseBroker;
+}): NotifyFactory {
+  const deliveryService = createDeliveryService({
+    db: opts.db,
+    registry: opts.registry,
+    channels: collectChannels(opts.registry),
+    ...(opts.sseBroker && { sseBroker: opts.sseBroker }),
+  });
+  return (user, tenantId) => (notificationType, options) =>
+    deliveryService.notify(notificationType, options, user, tenantId);
+}
+
 export function buildBootExtraContext(opts: {
   readonly db: DbConnection;
   readonly features: readonly FeatureDefinition[];
@@ -643,12 +649,21 @@ export function buildBootExtraContext(opts: {
   readonly registry: Registry;
   readonly hasAuth: boolean;
   readonly masterKey?: MasterKeyProvider;
+  readonly sseBroker?: SseBroker;
 }): Record<string, unknown> {
   const hasSecretsFeature = opts.features.some((f) => f.name === SECRETS_FEATURE_NAME);
   const wireSecrets =
     hasSecretsFeature && (opts.masterKey !== undefined || envHasMasterKek(opts.envSource));
+  const hasDeliveryFeature = opts.features.some((f) => f.name === DELIVERY_FEATURE);
   return {
     textContent: createTextContentApi(opts.db),
+    ...(hasDeliveryFeature && {
+      _notifyFactory: buildDeliveryNotifyFactory({
+        db: opts.db,
+        registry: opts.registry,
+        ...(opts.sseBroker && { sseBroker: opts.sseBroker }),
+      }),
+    }),
     ...(wireSecrets && {
       secrets: createSecretsContext({
         db: opts.db,
@@ -699,21 +714,34 @@ export function resolveAuthMail<T extends AuthMailNormalizable>(
     fallbackFrom: auth.mail.from ?? "noreply@localhost",
   });
   if (!mailSender) return auth;
-  const mc: AuthMailerConfig = createAuthMailerConfig({
-    mailSender,
-    hmacSecret,
-    baseUrl: auth.mail.baseUrl,
-    paths: makeAuthPaths(auth.mail.paths),
+  const paths = makeAuthPaths(auth.mail.paths);
+  // appName/locale fließen in beide Pfade: die delivery-Flows (reset/verify
+  // als Feature-Options) und die callback-Flows (signup/invite via mc).
+  const mailPresentation = {
     ...(auth.mail.appName !== undefined && { appName: auth.mail.appName }),
     ...(auth.mail.locale !== undefined && { locale: auth.mail.locale }),
-    ...(auth.mail.emailVerificationMode !== undefined && {
-      emailVerificationMode: auth.mail.emailVerificationMode,
-    }),
+  };
+  const mc: AuthMailerConfig = createAuthMailerConfig({
+    mailSender,
+    baseUrl: auth.mail.baseUrl,
+    paths,
+    ...mailPresentation,
   });
   return {
     ...auth,
-    passwordReset: auth.passwordReset ?? mc.passwordReset,
-    emailVerification: auth.emailVerification ?? mc.emailVerification,
+    passwordReset: auth.passwordReset ?? {
+      hmacSecret,
+      appUrl: `${auth.mail.baseUrl}${paths.resetPassword}`,
+      ...mailPresentation,
+    },
+    emailVerification: auth.emailVerification ?? {
+      hmacSecret,
+      appUrl: `${auth.mail.baseUrl}${paths.verifyEmail}`,
+      ...(auth.mail.emailVerificationMode !== undefined && {
+        mode: auth.mail.emailVerificationMode,
+      }),
+      ...mailPresentation,
+    },
     signup: auth.signup ?? mc.signup,
     invite: auth.invite ?? mc.invite,
   };
@@ -907,6 +935,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     envSource,
     registry,
     hasAuth: !!effectiveAuth,
+    sseBroker,
     ...(options.masterKey && { masterKey: options.masterKey }),
   });
   const extraContext = addConfigAccessorFactory(
@@ -979,16 +1008,12 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
           passwordReset: {
             requestHandler: AuthHandlers.requestPasswordReset,
             confirmHandler: AuthHandlers.resetPassword,
-            sendResetEmail: effectiveAuth.passwordReset.sendResetEmail,
-            appResetUrl: effectiveAuth.passwordReset.appResetUrl,
           },
         }),
         ...(effectiveAuth.emailVerification && {
           emailVerification: {
             requestHandler: AuthHandlers.requestEmailVerification,
             confirmHandler: AuthHandlers.verifyEmail,
-            sendVerificationEmail: effectiveAuth.emailVerification.sendVerificationEmail,
-            appVerifyUrl: effectiveAuth.emailVerification.appVerifyUrl,
           },
         }),
         ...(effectiveAuth.signup && {
