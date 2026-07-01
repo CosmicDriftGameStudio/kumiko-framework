@@ -73,7 +73,12 @@ import type {
   PasswordResetSetup,
   SignupSetup,
 } from "./run-prod-app";
-import { addConfigAccessorFactory, buildBootExtraContext, requireEnv, resolveAuthMail } from "./run-prod-app";
+import {
+  addConfigAccessorFactory,
+  buildBootExtraContext,
+  requireEnv,
+  resolveAuthMail,
+} from "./run-prod-app";
 
 export type RunDevAppAuthOptions = {
   /** Admin user to seed at boot. Idempotent — re-runs in persistent-DB
@@ -213,11 +218,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // runProdApp). hmacSecret = JWT_SECRET-env (fail-fast, symmetrisch zu
   // runProdApp). Ab hier IMMER effectiveAuth statt options.auth.
   const effectiveAuth = options.auth
-    ? resolveAuthMail(
-        options.auth,
-        requireEnv("JWT_SECRET", envSource, "runDevApp"),
-        envSource,
-      )
+    ? resolveAuthMail(options.auth, requireEnv("JWT_SECRET", envSource, "runDevApp"), envSource)
     : undefined;
   const composeAuthOptions = buildComposeAuthOptions(effectiveAuth);
   const features = composeFeatures(options.features, {
@@ -495,5 +496,3 @@ export function mergeConfigResolverDefault(
   }
   return addConfigAccessorFactory({ ...defaults, ...ctx }, registry);
 }
-
-

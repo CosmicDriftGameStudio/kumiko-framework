@@ -80,6 +80,3 @@ describe("runDevApp — auth allowedOrigins forwarding (#399/1)", () => {
     expect(handle).toBeDefined();
   });
 });
-
-
-
