@@ -5,13 +5,19 @@ import {
   createConfigFeature,
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
-import { access, createTenantConfig, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  access,
+  createTenantConfig,
+  defineFeature,
+  defineQueryHandler,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
   type TestStack,
   TestUsers,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { z } from "zod";
 import { mergeConfigResolverDefault } from "../run-dev-app";
 
 // Pins runDevApp's ENV→config-app-override wiring: mergeConfigResolverDefault
@@ -21,6 +27,18 @@ import { mergeConfigResolverDefault } from "../run-dev-app";
 // caller-supplied configResolver still overrides the default.
 
 const PAGE_SIZE = "devcfg:config:page-size";
+
+// Reads ctx.config directly — the exact consumption seam mergeConfigResolverDefault
+// wires the dispatcher through. Every other test in this file inspects the returned
+// {configResolver, _configAccessorFactory} object without ever dispatching a handler
+// that actually reads ctx.config; a "Boot writes field A, dispatcher expects field B"
+// drift (the original #359-adjacent bug class) would be invisible to all of them.
+const readPageSizeQuery = defineQueryHandler({
+  name: "read-page-size",
+  schema: z.object({}),
+  access: { openToAll: true },
+  handler: async (_query, ctx) => ({ pageSize: await ctx.config?.(PAGE_SIZE) }),
+});
 
 const devcfgFeature = defineFeature("devcfg", (r) => {
   r.requires("config");
@@ -34,6 +52,7 @@ const devcfgFeature = defineFeature("devcfg", (r) => {
       }),
     },
   });
+  r.queryHandler(readPageSizeQuery);
 });
 
 // ctx=undefined → object form, configResolver is the only key (test boundary).
@@ -127,5 +146,20 @@ describe("runDevApp configResolver-default — ENV→app-override bridge", () =>
     // override's "99", NOT the env-bridge default ("25"): proves the factory
     // was built from the caller's resolver, exactly like money-horse's "s3-env".
     expect(await accessor(PAGE_SIZE)).toBe("99");
+  });
+
+  test("a real dispatch through stack.http resolves ctx.config end-to-end (not the factory called directly)", async () => {
+    // Every test above calls mergeConfigResolverDefault()/_configAccessorFactory
+    // directly — none go through an actual dispatched request. The original bug
+    // this feature guards against ("boot writes configResolver, dispatcher reads
+    // a different field") only manifests on a REAL dispatch, where the
+    // dispatcher's own wiring (not test code) builds ctx.config from
+    // _configAccessorFactory. This is that missing end-to-end proof.
+    const res = await stack.http.queryOk<{ pageSize: number | undefined }>(
+      "devcfg:query:read-page-size",
+      {},
+      TestUsers.systemAdmin,
+    );
+    expect(res.pageSize).toBe(10); // keyDef.default — no env override wired on this stack
   });
 });
