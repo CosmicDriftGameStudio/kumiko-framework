@@ -1,5 +1,18 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.105.2
+
+### Patch Changes
+
+- a305251: Export `template-resolver/seeding` (`seedSystemTemplate`) for app boot seeds.
+- a305251: Add `userEmailBeforeDelete` to `UserDataHookCtx` so forget delete-hooks can match user-owned rows across every tenant pass before the user row is anonymized.
+- Updated dependencies [a305251]
+  - @cosmicdrift/kumiko-framework@0.105.2
+  - @cosmicdrift/kumiko-headless@0.105.2
+  - @cosmicdrift/kumiko-renderer@0.105.2
+  - @cosmicdrift/kumiko-dispatcher-live@0.105.2
+  - @cosmicdrift/kumiko-renderer-web@0.105.2
+
 ## 0.105.1
 
 ### Patch Changes
