@@ -500,6 +500,22 @@ describe("sessions feature — locked accounts blocked on a live session", () =>
     expect(body.error?.details?.reason).toBe("blocked");
   });
 
+  test("fail-open invariant: read_users row hard-gone (not soft-deleted) → session stays live", async () => {
+    // The defense-in-depth read_users lookup must fail OPEN on a miss —
+    // revocation is the primary control. If `if (user && ...)` ever regressed
+    // to `if (!user || ...)`, a missing user row would turn this second layer
+    // into a global lockout for every affected session instead of a no-op.
+    const { userId } = await h.seedUser("hardgone@example.com", "pw-long-enough");
+    const { token } = await h.login("hardgone@example.com", "pw-long-enough");
+    await deleteMany(stack.db, userTable, { id: userId });
+
+    const res = await h.authedPost("/api/query", token, {
+      type: "user:query:user:me",
+      payload: {},
+    });
+    expect(res.status).toBe(200);
+  });
+
   test("deletionRequested keeps its session live — reversible grace period", async () => {
     const { userId } = await h.seedUser("leaving@example.com", "pw-long-enough");
     const { token } = await h.login("leaving@example.com", "pw-long-enough");
