@@ -37,6 +37,24 @@ afterEach(async () => {
   else process.env["JWT_SECRET"] = savedJwtSecret;
 });
 
+describe("runDevApp — auth.mail fail-fast on missing JWT_SECRET", () => {
+  test("options.auth set but JWT_SECRET missing → throws, no dev-fallback", async () => {
+    // beforeEach sets JWT_SECRET unconditionally for every OTHER test in this
+    // file — none of them ever exercise the missing-secret path, so it's
+    // unclear whether the fail-closed guard (requireEnv, not the old dev-
+    // fallback) actually fires or was silently dropped. Pass a custom
+    // envSource without JWT_SECRET instead of touching process.env.
+    const { JWT_SECRET: _drop, ...envWithoutJwtSecret } = process.env;
+    await expect(
+      runDevApp({
+        features: [validFeature()],
+        auth: { admin: ADMIN, cookieDomain: "example.eu", allowedOrigins: ["https://example.eu"] },
+        envSource: envWithoutJwtSecret,
+      }),
+    ).rejects.toThrow(/JWT_SECRET/);
+  });
+});
+
 describe("runDevApp — auth allowedOrigins forwarding (#399/1)", () => {
   test("cookieDomain without allowedOrigins fails closed — guard is wired through runDevApp", async () => {
     await expect(
