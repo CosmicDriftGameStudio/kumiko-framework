@@ -57,6 +57,7 @@ import {
 import {
   createPatResolver,
   PAT_FEATURE,
+  patRateLimitFromFeature,
   patScopesFromFeature,
 } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import {
@@ -71,6 +72,7 @@ import {
   cachedResponse,
   computeStrongEtag,
   computeWeakEtag,
+  createInMemoryLoginRateLimiter,
   createSseBroker,
   type SseBroker,
 } from "@cosmicdrift/kumiko-framework/api";
@@ -966,10 +968,14 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // resolver (bearer PATs → SessionUser, before jwt.verify). Scopes come from
   // the feature's exports — the same declaration its handlers use.
   const patFeature = features.find((f) => f.name === PAT_FEATURE);
-  const patAuthFragment =
-    effectiveAuth && patFeature
-      ? { patResolver: createPatResolver({ db, scopes: patScopesFromFeature(patFeature) }) }
-      : undefined;
+  let patAuthFragment: { patResolver: ReturnType<typeof createPatResolver>; patRateLimiter: ReturnType<typeof createInMemoryLoginRateLimiter> } | undefined;
+  if (effectiveAuth && patFeature) {
+    const rl = patRateLimitFromFeature(patFeature);
+    patAuthFragment = {
+      patResolver: createPatResolver({ db, scopes: patScopesFromFeature(patFeature) }),
+      patRateLimiter: createInMemoryLoginRateLimiter(rl.maxRequests, rl.windowMs),
+    };
+  }
 
   const baseEntrypointOptions = {
     registry,

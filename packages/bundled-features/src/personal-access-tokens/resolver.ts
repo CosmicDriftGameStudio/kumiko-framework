@@ -20,6 +20,7 @@ export function createPatResolver(opts: {
   const { db, scopes } = opts;
   return async (rawToken: string): Promise<SessionUser | null> => {
     const row = await fetchOne<{
+      id: string;
       userId: string;
       tenantId: string;
       scopes: string;
@@ -39,7 +40,7 @@ export function createPatResolver(opts: {
       // @cast-boundary db-row → branded id: stored from a valid SessionUser.tenantId at create
       tenantId: row.tenantId as TenantId,
       roles,
-      pat: { scopes: granted, allowedQns: expandScopes(scopes, granted) },
+      pat: { tokenId: row.id, scopes: granted, allowedQns: expandScopes(scopes, granted) },
     };
   };
 }

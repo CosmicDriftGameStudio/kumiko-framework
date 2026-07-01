@@ -1,6 +1,6 @@
 import { buildEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { PAT_FEATURE } from "./constants";
+import { PAT_DEFAULT_RATE_LIMIT, PAT_FEATURE, type PatRateLimit } from "./constants";
 import { buildAvailableScopesQuery } from "./handlers/available-scopes.query";
 import { createPatWrite } from "./handlers/create.write";
 import { listPatQuery } from "./handlers/list.query";
@@ -14,10 +14,14 @@ export type PersonalAccessTokensOptions = {
   // (UI list) and exported so run-prod-app can build the resolver from the same
   // single source.
   readonly scopes: PatScopeConfig;
+  // Per-token request rate limit for PAT-authenticated calls. Defaults to
+  // PAT_DEFAULT_RATE_LIMIT (120/60s). run-prod-app builds the limiter from this.
+  readonly rateLimit?: PatRateLimit;
 };
 
 export type PatFeatureExports = {
   readonly scopes: PatScopeConfig;
+  readonly rateLimit: PatRateLimit;
 };
 
 // Personal Access Tokens — long-lived, revocable bearer credentials for the
@@ -53,8 +57,13 @@ export function createPersonalAccessTokensFeature(
       availableScopes: r.queryHandler(buildAvailableScopesQuery(scopes)),
     };
 
-    // scopes flow into feature.exports so run-prod-app builds the resolver from
-    // the same declaration the handlers use — single source of truth.
-    return { handlers, queries, scopes } satisfies { handlers: unknown; queries: unknown } & PatFeatureExports;
+    // scopes + rateLimit flow into feature.exports so run-prod-app builds the
+    // resolver + limiter from the same declaration — single source of truth.
+    return {
+      handlers,
+      queries,
+      scopes,
+      rateLimit: options.rateLimit ?? PAT_DEFAULT_RATE_LIMIT,
+    } satisfies { handlers: unknown; queries: unknown } & PatFeatureExports;
   });
 }

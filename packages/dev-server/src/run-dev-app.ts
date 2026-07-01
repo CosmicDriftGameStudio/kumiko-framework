@@ -25,6 +25,7 @@ import {
 import {
   createPatResolver,
   PAT_FEATURE,
+  patRateLimitFromFeature,
   patScopesFromFeature,
 } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import {
@@ -32,6 +33,7 @@ import {
   type SessionCallbacks,
 } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
+import { createInMemoryLoginRateLimiter } from "@cosmicdrift/kumiko-framework/api";
 import type { PatResolver, SessionMetadata } from "@cosmicdrift/kumiko-framework/api";
 import {
   collectWriteHandlerQns,
@@ -357,6 +359,10 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
           }
           return patResolver(rawToken);
         },
+        patRateLimiter: (() => {
+          const rl = patRateLimitFromFeature(patFeature);
+          return createInMemoryLoginRateLimiter(rl.maxRequests, rl.windowMs);
+        })(),
       }
     : {};
 

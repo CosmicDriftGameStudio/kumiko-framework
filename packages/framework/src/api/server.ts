@@ -46,7 +46,7 @@ import {
 import type { SearchAdapter } from "../search/types";
 import { assertUnreachable, generateId } from "../utils";
 import { PUBLIC_API_PATHS } from "./api-constants";
-import { type AnonymousAccessConfig, authMiddleware } from "./auth-middleware";
+import { type AnonymousAccessConfig, authMiddleware, getUser } from "./auth-middleware";
 import { type AuthRoutesConfig, createAuthRoutes } from "./auth-routes";
 import { csrfMiddleware } from "./csrf-middleware";
 import { createJwtHelper, type JwtHelper } from "./jwt";
@@ -568,6 +568,33 @@ export function buildServer(options: ServerOptions): KumikoServer {
     if (PUBLIC_API_PATHS.has(c.req.path)) return next();
     return jwtGuard(c, next);
   });
+
+  // PAT rate limiting — runs AFTER the auth guard so the resolved principal is
+  // available. Only PAT-authenticated requests are counted (keyed by token id);
+  // cookie/JWT users pass through untouched. In-memory limiter is per-instance
+  // (see run-prod-app) — a multi-node deployment wanting a shared counter swaps
+  // in a Redis-backed LoginRateLimiter.
+  const patRateLimiter = options.auth?.patRateLimiter;
+  if (patRateLimiter) {
+    app.use("/api/*", async (c, next) => {
+      if (PUBLIC_API_PATHS.has(c.req.path)) return next();
+      const pat = getUser(c)?.pat;
+      if (pat && !(await patRateLimiter.check(pat.tokenId))) {
+        return c.json(
+          {
+            error: {
+              code: "pat_rate_limited",
+              httpStatus: 429,
+              message: "personal access token rate limit exceeded",
+              i18nKey: "auth.errors.patRateLimited",
+            },
+          },
+          429,
+        );
+      }
+      return next();
+    });
+  }
 
   // Origin-allowlist guard — additional CSRF-hardening for deployments that
   // widen the auth cookie across subdomains (auth.cookieDomain). Registered

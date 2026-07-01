@@ -30,7 +30,7 @@ import { createPersonalAccessTokensFeature } from "../feature";
 import { createPatResolver } from "../resolver";
 import { apiTokenEntity, apiTokenTable } from "../schema/api-token";
 import type { PatScopeConfig } from "../scopes";
-import type { PatResolver } from "@cosmicdrift/kumiko-framework/api";
+import { createInMemoryLoginRateLimiter, type PatResolver } from "@cosmicdrift/kumiko-framework/api";
 
 // Full loop, no mocks: mint a PAT via the create handler → use it as a bearer
 // token over real HTTP. The resolver hashes it, resolves live roles, and the
@@ -84,6 +84,9 @@ beforeAll(async () => {
         if (!patResolver) throw new Error("resolver not set");
         return patResolver(raw);
       },
+      // Low per-token cap so the rate-limit test can exhaust it. Other tests do
+      // ≤2 requests per (distinct) token, so this ceiling never trips them.
+      patRateLimiter: createInMemoryLoginRateLimiter(3, 60_000),
     },
   });
   patResolver = createPatResolver({ db: stack.db, scopes: SCOPES });
@@ -159,6 +162,17 @@ describe("PAT auth", () => {
     await updateMany(stack.db, apiTokenTable, { expiresAt: past }, { id: rows[0]?.id });
     const res = await h.authedPost("/api/query", token, { type: PatQueries.mine, payload: {} });
     expect(res.status).toBe(401);
+  });
+
+  test("per-token rate limit → 429 once the cap is exceeded", async () => {
+    const actor = await actorFor("ratelimit@example.com");
+    const token = await mintToken(actor);
+    for (let i = 0; i < 3; i++) {
+      const ok = await h.authedPost("/api/query", token, { type: PatQueries.mine, payload: {} });
+      expect(ok.status).toBe(200);
+    }
+    const limited = await h.authedPost("/api/query", token, { type: PatQueries.mine, payload: {} });
+    expect(limited.status).toBe(429);
   });
 
   test("membership removed → 401 (live roles, no snapshot)", async () => {

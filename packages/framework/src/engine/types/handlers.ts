@@ -47,6 +47,9 @@ export type SessionUser = {
   // matched by one of them (fail-closed). `scopes` are the granted scope
   // names, kept for audit/display only.
   readonly pat?: {
+    // The token row id — the per-token key for PAT rate limiting. Not the
+    // secret; safe to carry on the principal.
+    readonly tokenId: string;
     readonly scopes: readonly string[];
     readonly allowedQns: readonly string[];
   };
