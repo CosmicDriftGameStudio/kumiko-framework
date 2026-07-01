@@ -289,6 +289,14 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   } else {
     console.log("Secret-Literal Guard übersprungen: infra/guards nicht im Workspace (CI-standalone).");
   }
+  const processEnvGuard = join(REPO_ROOT, "infra/guards/guard-no-direct-process-env.ts");
+  if (existsSync(processEnvGuard)) {
+    steps.push({ name: "No-Direct-Process-Env Guard", cmd: `bun ${processEnvGuard}` });
+  } else {
+    console.log(
+      "No-Direct-Process-Env Guard übersprungen: infra/guards nicht im Workspace (CI-standalone).",
+    );
+  }
   steps.push({ name: "Deprecated Deps", cmd: "bunx kumiko-check-outdated" });
 
   return steps;
@@ -1539,3 +1547,4 @@ if (!command) {
     await handler.run();
   }
 }
+
