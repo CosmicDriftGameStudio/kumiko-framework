@@ -7,7 +7,7 @@
 // aber die Handler fehlen → POST /api/auth/request-password-reset
 // dispatched ins Leere → 500.
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { composeFeatures } from "../compose-features";
 
@@ -104,9 +104,14 @@ describe("composeFeatures", () => {
     // copy via includeBundled:true, and createRegistry throws "Duplicate
     // feature: auth-email-password". The dedupe path keeps the bundled
     // instance (it carries authOptions wiring) and drops the app stub.
+    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
     const features = composeFeatures([pickerAuthDupe, noopFeature], {
       includeBundled: true,
     });
+    // The warn is part of the fix contract (changeset: "warn so the user can
+    // remove the line") — without this assertion the warn is removable with no RED.
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("auth-email-password"));
+    warnSpy.mockRestore();
     expect(features.map((f) => f.name)).toEqual([
       "config",
       "user",
