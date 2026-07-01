@@ -12,9 +12,17 @@
 // Static files (package.json, tsconfig, .env, README) stay text-based.
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
+import {
+  collectTableMetas,
+  generateMigration,
+  writeSnapshotJson,
+} from "@cosmicdrift/kumiko-framework/db";
+import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { IndentationText, Project, VariableDeclarationKind } from "ts-morph";
+import { composeFeatures } from "./compose-features";
 import { isKebabSegment } from "./kebab";
+import { scaffoldDeploy } from "./scaffold-deploy";
 
 // Single bundled-feature entry the scaffolder mounts into run-config.ts.
 // importPath is the from-spec ("@cosmicdrift/kumiko-bundled-features/files"),
@@ -52,7 +60,7 @@ export type ScaffoldAppResult = {
   readonly appName: string;
 };
 
-export function scaffoldApp(options: ScaffoldAppOptions): ScaffoldAppResult {
+export async function scaffoldApp(options: ScaffoldAppOptions): Promise<ScaffoldAppResult> {
   if (!isKebabSegment(options.name)) {
     throw new Error(`scaffoldApp: name must be kebab-case (a-z, 0-9, -); got "${options.name}"`);
   }
@@ -65,6 +73,7 @@ export function scaffoldApp(options: ScaffoldAppOptions): ScaffoldAppResult {
 
   mkdirSync(join(destination, "bin"), { recursive: true });
   mkdirSync(join(destination, "src"), { recursive: true });
+  mkdirSync(join(destination, "kumiko"), { recursive: true });
 
   const files: string[] = [];
 
@@ -74,8 +83,20 @@ export function scaffoldApp(options: ScaffoldAppOptions): ScaffoldAppResult {
   write(join(destination, "tsconfig.json"), renderTsconfig());
   files.push("tsconfig.json");
 
+  write(join(destination, "biome.json"), renderBiomeJson());
+  files.push("biome.json");
+
+  write(join(destination, "bunfig.toml"), renderBunfigToml());
+  files.push("bunfig.toml");
+
+  write(join(destination, "bunfig.ci.toml"), renderBunfigCiToml());
+  files.push("bunfig.ci.toml");
+
   write(join(destination, "src", "run-config.ts"), renderRunConfig(options.features));
   files.push("src/run-config.ts");
+
+  write(join(destination, "kumiko", "schema.ts"), renderKumikoSchema());
+  files.push("kumiko/schema.ts");
 
   write(join(destination, "bin", "main.ts"), renderMain(options.name));
   files.push("bin/main.ts");
@@ -83,14 +104,30 @@ export function scaffoldApp(options: ScaffoldAppOptions): ScaffoldAppResult {
   write(join(destination, "bin", "dev.ts"), renderDev(options.name));
   files.push("bin/dev.ts");
 
+  write(join(destination, "bin", "kumiko.ts"), renderBinKumiko());
+  files.push("bin/kumiko.ts");
+
   write(join(destination, "src", "client.tsx"), renderClient());
   files.push("src/client.tsx");
+
+  write(join(destination, "src", "styles.css"), renderStylesCss());
+  files.push("src/styles.css");
 
   write(join(destination, ".env.example"), renderEnvExample(options.name));
   files.push(".env.example");
 
   write(join(destination, "docker-compose.yml"), renderDockerCompose());
   files.push("docker-compose.yml");
+
+  await writeInitMigration(destination, options.features);
+  files.push("kumiko/migrations/0001_init.sql", "kumiko/migrations/.snapshot.json");
+
+  const deploy = scaffoldDeploy({ appName: options.name, destination });
+  for (const f of deploy.files) {
+    if (f.written) {
+      files.push(relative(destination, f.path));
+    }
+  }
 
   write(join(destination, "README.md"), renderReadme(options.name, options.features));
   files.push("README.md");
@@ -112,15 +149,30 @@ function renderPackageJson(name: string, version: string): string {
       type: "module",
       scripts: {
         dev: "bun --watch bin/dev.ts",
+        build: "bun kumiko-build",
+        start: "bun run bin/main.ts",
         boot: "KUMIKO_DRY_RUN_ENV=boot bun bin/main.ts",
-        check: "tsc --noEmit",
+        typecheck: "tsc --noEmit",
+        lint: "biome check .",
+        test: "bun --config=bunfig.ci.toml test --dots",
+        "schema:apply": "bun kumiko-schema apply",
+        "schema:generate": "bun kumiko-schema generate",
       },
       dependencies: {
         "@cosmicdrift/kumiko-bundled-features": version,
         "@cosmicdrift/kumiko-dev-server": version,
         "@cosmicdrift/kumiko-framework": version,
         "@cosmicdrift/kumiko-renderer-web": version,
+        react: "^19.2.6",
+        "react-dom": "^19.2.6",
         zod: "^4.4.3",
+      },
+      devDependencies: {
+        "@biomejs/biome": "^2.4.15",
+        "@tailwindcss/cli": "^4.3.0",
+        "bun-types": "^1.3.14",
+        tailwindcss: "^4.3.0",
+        typescript: "^6.0.3",
       },
     },
     null,
@@ -141,15 +193,105 @@ function renderTsconfig(): string {
         moduleResolution: "bundler",
         esModuleInterop: true,
         skipLibCheck: true,
-        lib: ["ESNext"],
+        lib: ["ESNext", "DOM"],
         types: ["bun-types"],
+        jsx: "react-jsx",
         noEmit: true,
       },
-      include: ["bin", "src"],
+      include: ["bin", "src", "kumiko"],
     },
     null,
     2,
   )}\n`;
+}
+
+function renderBiomeJson(): string {
+  return `${JSON.stringify(
+    {
+      $schema: "https://biomejs.dev/schemas/2.4.15/schema.json",
+      vcs: {
+        enabled: true,
+        clientKind: "git",
+        useIgnoreFile: true,
+        defaultBranch: "main",
+      },
+      files: {
+        includes: ["src/**", "bin/**", "kumiko/**", "!**/dist", "!kumiko/migrations"],
+      },
+      formatter: {
+        enabled: true,
+        indentStyle: "space",
+        indentWidth: 2,
+        lineWidth: 100,
+        lineEnding: "lf",
+      },
+      css: {
+        parser: { cssModules: false, tailwindDirectives: true },
+      },
+      javascript: {
+        formatter: {
+          quoteStyle: "double",
+          jsxQuoteStyle: "double",
+          semicolons: "always",
+          trailingCommas: "all",
+          arrowParentheses: "always",
+        },
+      },
+      json: { formatter: { indentWidth: 2, lineWidth: 80 } },
+      linter: {
+        enabled: true,
+        rules: {
+          recommended: true,
+          correctness: { noUnusedVariables: "error", noUnusedImports: "error" },
+          suspicious: { noExplicitAny: "error", noDebugger: "error", noConsole: "warn" },
+          complexity: { useLiteralKeys: "off" },
+          style: { useConst: "error" },
+          nursery: { noFloatingPromises: "error" },
+        },
+      },
+      overrides: [
+        {
+          includes: ["**/*.test.ts", "**/*.spec.ts", "**/*.integration.ts", "**/*.e2e.ts"],
+          linter: {
+            rules: {
+              suspicious: { noConsole: "off" },
+              style: { noNonNullAssertion: "off" },
+            },
+          },
+        },
+      ],
+    },
+    null,
+    2,
+  )}\n`;
+}
+
+function renderBunfigToml(): string {
+  return `[install]
+linker = "hoisted"
+
+[test]
+concurrency = 8
+pathIgnorePatterns = [
+  "**/e2e/**",
+  "**/*.spec.ts",
+  "**/dist/**",
+]
+`;
+}
+
+function renderBunfigCiToml(): string {
+  return `[install]
+linker = "hoisted"
+
+[test]
+concurrency = 8
+pathIgnorePatterns = [
+  "**/e2e/**",
+  "**/*.spec.ts",
+  "**/dist/**",
+]
+`;
 }
 
 function newTsProject(): Project {
@@ -216,6 +358,12 @@ function renderRunConfig(features?: ReadonlyArray<ScaffoldFeatureEntry>): string
     ],
   });
 
+  sf.addVariableStatement({
+    declarationKind: VariableDeclarationKind.Const,
+    isExported: true,
+    declarations: [{ name: "HAS_AUTH", initializer: "true" }],
+  });
+
   sf.insertText(
     0,
     [
@@ -255,7 +403,7 @@ function renderMain(appName: string): string {
   });
   sf.addImportDeclaration({
     moduleSpecifier: "../src/run-config",
-    namedImports: ["APP_FEATURES"],
+    namedImports: ["APP_FEATURES", "HAS_AUTH"],
   });
 
   sf.addVariableStatement({
@@ -270,7 +418,7 @@ function renderMain(appName: string): string {
 
   // The envSchema must cover the SAME features runProdApp mounts at boot.
   // `auth: { admin: … }` below makes runProdApp auto-mix config/user/tenant/
-  // auth-email-password via composeFeatures(includeBundled:true); compose the
+  // auth-email-password via composeFeatures(includeBundled:HAS_AUTH); compose the
   // identical set here so the auth feature's JWT_SECRET (min-32) declaration
   // is part of the boot-gate — otherwise a too-short JWT_SECRET slips through.
   sf.addVariableStatement({
@@ -278,7 +426,7 @@ function renderMain(appName: string): string {
     declarations: [
       {
         name: "bootFeatures",
-        initializer: "composeFeatures(APP_FEATURES, { includeBundled: true })",
+        initializer: "composeFeatures(APP_FEATURES, { includeBundled: HAS_AUTH })",
       },
     ],
   });
@@ -299,7 +447,7 @@ function renderMain(appName: string): string {
       .inlineBlock(() => {
         writer.writeLine("features: APP_FEATURES,");
         writer.writeLine("envSchema,");
-        writer.writeLine("migrations: false,");
+        writer.writeLine('staticDir: "./dist",');
         writer.write("auth: ").inlineBlock(() => {
           writer.write("admin: ").inlineBlock(() => {
             writer.writeLine(`email: "admin@${appName}.local",`);
@@ -535,15 +683,138 @@ bun run boot
 Runs \`KUMIKO_DRY_RUN_ENV=boot bun bin/main.ts\` — validates feature composition
 + env schema, exits 0 without touching DB/Redis. Useful in CI.
 
+## Production build + schema
+
+\`\`\`sh
+bun run build          # kumiko-build → dist/ + dist-server/
+bun run schema:apply   # apply checked-in kumiko/migrations (needs DATABASE_URL)
+bun run start          # runProdApp against dist/
+\`\`\`
+
+After adding entities/features, regenerate migrations:
+
+\`\`\`sh
+bun run schema:generate <name>
+\`\`\`
+
+## Deploy
+
+\`deploy/Dockerfile\` + \`deploy/migrate-step.sh\` are scaffolded for container
+deploys. Build context = app repo root; migrations ship in \`kumiko/migrations/\`.
+
 ## Architecture
 
-- \`src/run-config.ts\` — single source of truth: which features your app mounts.
+- \`src/run-config.ts\` — single source of truth: which features your app mounts (\`APP_FEATURES\`, \`HAS_AUTH\`).
+- \`kumiko/schema.ts\` — same feature set → \`ENTITY_METAS\` for \`kumiko schema\`.
 - \`bin/dev.ts\` — dev-server entry (\`bun dev\`).
-- \`bin/main.ts\` — production-bootstrap (\`bun run boot\` smoke + production deploy).
+- \`bin/main.ts\` — production-bootstrap (\`bun run start\`).
+- \`bin/kumiko.ts\` — schema-CLI bundled into \`dist-server/kumiko.js\`.
 - \`docker-compose.yml\` — local Postgres + Redis for \`bun dev\`.
 
 For full docs see https://docs.kumiko.rocks.
 `;
+}
+
+function renderStylesCss(): string {
+  return [
+    '@import "@cosmicdrift/kumiko-renderer-web/styles.css";',
+    "",
+    '@source "./**/*.{ts,tsx}";',
+    "",
+  ].join("\n");
+}
+
+function renderKumikoSchema(): string {
+  return [
+    "// Live ENTITY_METAS source for `kumiko schema generate|apply|status`.",
+    "//",
+    "// Computes table-metas from the SAME composeFeatures(APP_FEATURES) the",
+    "// runtime sees (runProdApp/runDevApp) — migration and runtime cannot drift.",
+    "",
+    'import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features";',
+    'import { collectTableMetas, type EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";',
+    'import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";',
+    'import { APP_FEATURES, HAS_AUTH } from "../src/run-config";',
+    "",
+    "export const FEATURES: readonly FeatureDefinition[] = composeFeatures([...APP_FEATURES], {",
+    "  includeBundled: HAS_AUTH,",
+    "});",
+    "",
+    "export const ENTITY_METAS: readonly EntityTableMeta[] = collectTableMetas(FEATURES);",
+    "",
+  ].join("\n");
+}
+
+function renderBinKumiko(): string {
+  return [
+    "#!/usr/bin/env bun",
+    "",
+    "// Standalone kumiko schema-CLI for the production bundle. The deploy",
+    "// migrate-step runs `bun /app/kumiko.js schema apply`; kumiko-build bundles",
+    "// this file to dist-server/kumiko.js.",
+    "",
+    'import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features";',
+    'import { runSchemaCli } from "@cosmicdrift/kumiko-framework/schema-cli";',
+    'import { APP_FEATURES, HAS_AUTH } from "../src/run-config";',
+    "",
+    "const [, , cmd, ...rest] = Bun.argv;",
+    'if (cmd !== "schema") {',
+    "  // biome-ignore lint/suspicious/noConsole: CLI output is the feature.",
+    '  console.error("\\n  Unbekannt: kumiko " + (cmd ?? "") + " — nur \'kumiko schema <sub>\' im Standalone-Bundle.\\n");',
+    "  process.exit(1);",
+    "}",
+    "",
+    "const features = composeFeatures([...APP_FEATURES], { includeBundled: HAS_AUTH });",
+    "// biome-ignore lint/suspicious/noConsole: CLI output is the feature.",
+    "const out = { log: (l: string) => console.log(l), err: (l: string) => console.error(l) };",
+    "process.exit(await runSchemaCli(rest, process.env.INIT_CWD ?? process.cwd(), out, { features }));",
+    "",
+  ].join("\n");
+}
+
+async function instantiateScaffoldFeatures(
+  features?: ReadonlyArray<ScaffoldFeatureEntry>,
+): Promise<readonly FeatureDefinition[]> {
+  const base = features?.length ? features : FOUNDATION_FEATURES;
+  const effective = base.filter((f) => !COMPOSE_AUTO_MOUNTED_NAMES.has(f.name));
+  const instances: FeatureDefinition[] = [];
+  for (const entry of effective) {
+    const mod = (await import(entry.importPath)) as Record<string, unknown>;
+    const exp = mod[entry.exportName];
+    if (exp === undefined) {
+      throw new Error(
+        `scaffoldApp: ${entry.importPath} missing export ${entry.exportName} for ${entry.callExpression}`,
+      );
+    }
+    if (entry.callExpression.endsWith("()")) {
+      if (typeof exp !== "function") {
+        throw new Error(`scaffoldApp: ${entry.exportName} is not callable (${entry.importPath})`);
+      }
+      instances.push((exp as () => FeatureDefinition)());
+    } else {
+      instances.push(exp as FeatureDefinition);
+    }
+  }
+  return instances;
+}
+
+async function writeInitMigration(
+  destination: string,
+  features?: ReadonlyArray<ScaffoldFeatureEntry>,
+): Promise<void> {
+  const instances = await instantiateScaffoldFeatures(features);
+  const composed = composeFeatures(instances, { includeBundled: true });
+  const metas = collectTableMetas(composed);
+  const result = generateMigration({
+    metas,
+    prevSnapshot: null,
+    name: "init",
+    sequenceNumber: 1,
+  });
+  const migrationsDir = join(destination, "kumiko", "migrations");
+  mkdirSync(migrationsDir, { recursive: true });
+  writeFileSync(join(migrationsDir, result.filename), result.sqlContent);
+  writeSnapshotJson(join(migrationsDir, ".snapshot.json"), result.snapshot);
 }
 
 // Deterministic tenant-ID from app-name. Format: UUID-v4 with the
