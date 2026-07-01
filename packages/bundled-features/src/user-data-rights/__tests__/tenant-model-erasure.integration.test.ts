@@ -23,7 +23,6 @@ import {
   SYSTEM_USER_ID,
   type UserDataDeleteHook,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   resetEventStore,
@@ -31,6 +30,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";

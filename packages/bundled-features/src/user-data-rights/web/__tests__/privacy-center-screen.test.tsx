@@ -102,7 +102,9 @@ function renderCenter(
       </LocaleProvider>
     </TokensProvider>
   );
-  const view = render(<PrivacyCenterScreen showDeletion={opts.showDeletion ?? true} />, { wrapper });
+  const view = render(<PrivacyCenterScreen showDeletion={opts.showDeletion ?? true} />, {
+    wrapper,
+  });
   return { view, writes, queries };
 }
 

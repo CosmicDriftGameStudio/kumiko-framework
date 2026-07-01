@@ -38,10 +38,13 @@ import { createRendererFoundationFeature } from "../../renderer-foundation/featu
 import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple";
 import { createTemplateResolverFeature } from "../../template-resolver/feature";
 import { createTenantFeature } from "../../tenant";
-import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant/invitation-table";
+import {
+  INVITATION_STATUS,
+  tenantInvitationEntity,
+  tenantInvitationsTable,
+} from "../../tenant/invitation-table";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant";
-import { INVITATION_STATUS } from "../../tenant/invitation-table";
 import { seedTenant, seedTenantMembership } from "../../tenant/seeding";
 import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/schema/user";
@@ -428,7 +431,11 @@ describe("invite-accept defense-in-depth (assertAssignableMembershipRoles)", () 
       expiresAt: "2030-01-01T00:00:00Z",
     });
     const token = crypto.randomUUID();
-    await storeInviteToken(stack.redis.redis, { invitationId: fakeInvitationId, token, ttlSeconds: 3600 });
+    await storeInviteToken(stack.redis.redis, {
+      invitationId: fakeInvitationId,
+      token,
+      ttlSeconds: 3600,
+    });
 
     const res = await authedRaw("POST", "/api/auth/invite-accept", { token }, bobSession());
     expect(res.status).toBe(403);

@@ -13,15 +13,15 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../feature";
 import { runRetentionCleanup } from "../run-retention-cleanup";
 

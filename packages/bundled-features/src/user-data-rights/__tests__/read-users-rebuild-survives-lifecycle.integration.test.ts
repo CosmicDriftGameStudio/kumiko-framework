@@ -13,7 +13,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { asRawClient, insertOne, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import {
   createRegistry,
@@ -21,7 +21,11 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { archiveStream, createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import {
+  archiveStream,
+  createEventsTable,
+  eventsTable,
+} from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createProjectionStateTable,
   rebuildProjection,
