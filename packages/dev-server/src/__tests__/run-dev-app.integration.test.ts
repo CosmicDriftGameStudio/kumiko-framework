@@ -6,7 +6,18 @@
 // path would silently drop the fail-closed guard and dev/prod would diverge.
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  requireTextContent,
+  type TextContentApi,
+} from "@cosmicdrift/kumiko-bundled-features/text-content";
+import {
+  createEntity,
+  createTextField,
+  defineFeature,
+  defineQueryHandler,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import { z } from "zod";
 import type { KumikoServerHandle } from "../create-kumiko-server";
 import { runDevApp } from "../run-dev-app";
 
@@ -96,5 +107,50 @@ describe("runDevApp — auth allowedOrigins forwarding (#399/1)", () => {
       },
     });
     expect(handle).toBeDefined();
+  });
+});
+
+describe("runDevApp — extraContext merge order: app values win over boot defaults (707/1)", () => {
+  test("a caller-supplied extraContext.textContent wins over the auto-wired boot default", async () => {
+    // runDevApp's extraContext factory does `{ ...boot, ...base }` — boot's
+    // auto-wired textContent must lose to a caller-supplied override, exactly
+    // the "app values win" parity claim this PR made against runProdApp. Every
+    // OTHER test in this file only checks that runDevApp boots without
+    // throwing; none dispatch a request that actually reads the merged value.
+    const sentinel: TextContentApi = {
+      getBlock: async () => ({
+        slug: "sentinel",
+        lang: "en",
+        title: "from caller extraContext",
+        body: null,
+        updatedAt: new Date(0),
+      }),
+    };
+    const readBlockQuery = defineQueryHandler({
+      name: "read-block",
+      schema: z.object({}),
+      access: { openToAll: true },
+      handler: async (_query, ctx) => {
+        const api = requireTextContent(ctx, "textcheck:query:read-block");
+        return api.getBlock({ tenantId: TestUsers.systemAdmin.tenantId, slug: "x", lang: "en" });
+      },
+    });
+    const textcheckFeature = defineFeature("textcheck", (r) => {
+      r.queryHandler(readBlockQuery);
+    });
+
+    handle = await runDevApp({
+      features: [validFeature(), textcheckFeature],
+      port: 0,
+      extraContext: { textContent: sentinel },
+    });
+
+    const res = await handle.stack.http.queryOk<{ title: string } | null>(
+      "textcheck:query:read-block",
+      {},
+      TestUsers.systemAdmin,
+    );
+
+    expect(res?.title).toBe("from caller extraContext");
   });
 });

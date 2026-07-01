@@ -197,3 +197,39 @@ describe("scenario 4: detail + list access", () => {
     expect(res.status).toBe(403);
   });
 });
+
+// --- Scenario 8 (575/1): entityEdit round-trip via convention QNs ---
+//
+// The boot-validator does not check that an entityEdit has a matching
+// update/detail handler — the tenant feature closes this gap with its own
+// scenario 8 (create -> detail -> update -> reload -> assert); user had no
+// equivalent. Scenarios 3/4 exercise update and detail separately (update
+// verified via the `me` query, detail verified as a read-only fetch) but
+// never chain detail -> update -> detail the way the entityEdit screen
+// actually drives its data — this is that missing round-trip proof.
+
+describe("scenario 8: entityEdit round-trip via convention QNs", () => {
+  test("user:query:user:detail + user:write:user:update round-trip (entityEdit save persists)", async () => {
+    const created = await seedUser({ email: "roundtrip@example.com", displayName: "Before" });
+
+    const loaded = await stack.http.queryOk<Record<string, unknown>>(
+      UserQueries.detail,
+      { id: created.id },
+      systemAdmin,
+    );
+    expect(loaded["displayName"]).toBe("Before");
+
+    await stack.http.writeOk(
+      UserHandlers.update,
+      { id: created.id, changes: { displayName: "After" }, version: loaded["version"] },
+      systemAdmin,
+    );
+
+    const reloaded = await stack.http.queryOk<Record<string, unknown>>(
+      UserQueries.detail,
+      { id: created.id },
+      systemAdmin,
+    );
+    expect(reloaded["displayName"]).toBe("After");
+  });
+});

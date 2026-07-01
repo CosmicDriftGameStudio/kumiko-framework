@@ -547,6 +547,49 @@ describe("write-handler shape guard", () => {
   });
 });
 
+// --- Dispatch: geoTzProvider seam ---
+
+describe("dispatcher context.geoTzProvider (680/1)", () => {
+  test("ctx.tz.fromCoordinates reaches the app-injected geoTzProvider through a real dispatch", async () => {
+    // All geo-tz.test.ts coverage calls createTzContext({ geoTz }) directly —
+    // none go through the dispatcher or read context.geoTzProvider. A typo in
+    // the property forwarding at dispatcher.ts would make the injection a
+    // silent no-op (provider configured, ctx.tz.fromCoordinates still throws).
+    const geoFeature = defineFeature("geo", (r) => {
+      r.queryHandler(
+        "resolve-zone",
+        z.object({ latitude: z.number(), longitude: z.number() }),
+        async (query, ctx) => ({
+          zone: await ctx.tz.fromCoordinates({
+            latitude: query.payload.latitude,
+            longitude: query.payload.longitude,
+          }),
+        }),
+        { access: { openToAll: true } },
+      );
+    });
+    const registry = createRegistry([geoFeature]);
+    const calls: Array<{ latitude: number; longitude: number }> = [];
+    const dispatcher = createDispatcher(registry, {
+      geoTzProvider: {
+        fromCoordinates: ({ latitude, longitude }) => {
+          calls.push({ latitude, longitude });
+          return "Europe/Berlin";
+        },
+      },
+    });
+
+    const result = await dispatcher.query(
+      "geo:query:resolve-zone",
+      { latitude: 52.52, longitude: 13.405 },
+      createTestUser(),
+    );
+
+    expect(result).toEqual({ zone: "Europe/Berlin" });
+    expect(calls).toEqual([{ latitude: 52.52, longitude: 13.405 }]);
+  });
+});
+
 // --- Mock helpers ---
 
 function createMockIdempotencyGuard() {
