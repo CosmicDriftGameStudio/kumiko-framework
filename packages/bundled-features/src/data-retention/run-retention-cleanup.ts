@@ -6,9 +6,15 @@
 // Strategy auf Rows an deren reference-Timestamp aelter als der keepFor-Cutoff
 // ist:
 //
-//   - hardDelete  → deleteManyBatched (selbst-begrenzt, kein Full-Table-Scan)
-//   - softDelete  → isDeleted=true/deletedAt=now, nur auf noch-nicht-geloeschte
+//   - hardDelete  → executor.forget pro Row (Event → rebuild-safe hard purge)
+//   - softDelete  → executor.delete pro Row (Event → rebuild-safe soft-delete),
+//                   nur auf noch-nicht-geloeschte (isDeleted:false-Filter)
 //   - anonymize   → DEFERRED (siehe unten)
+//
+// Über den Executor statt Batch-deleteMany/updateMany: ein eventloser Batch-Write
+// auf die (erased) Projektions-Tabelle wird beim Projection-Rebuild
+// gewischt/resurrektiert — das #648-Loch. Kosten: N Events pro Cleanup statt ein
+// Batch-Statement (per-Row-Ceiling, Batch-Event-Variante als Follow-up).
 //   - blockDelete → ignoriert (Aufbewahrungs-Pflicht; user-forget loest anonymize)
 //
 // **Schaerfer als soft-delete-cleanup:** dieser Cron hardDeleted LIVE Rows
@@ -24,9 +30,19 @@
 // zeitgesteuertes anonymize; der user-forget-Flow (run-forget-cleanup) deckt
 // anonymize keyed auf userId ab. Follow-up fuer den Marker.
 
-import { deleteManyBatched, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import type { DbRunner, WhereObject } from "@cosmicdrift/kumiko-framework/db";
-import type { Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  createEventStoreExecutor,
+  createTenantDb,
+  type DbRunner,
+  type WhereObject,
+} from "@cosmicdrift/kumiko-framework/db";
+import {
+  createSystemUser,
+  type EntityId,
+  type Registry,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { computeCutoff, type Instant } from "./keep-for";
 import type { RetentionPresetKey } from "./presets";
 import { resolveRetentionPolicyForTenant } from "./resolve-for-tenant";
@@ -71,6 +87,24 @@ export interface RunRetentionCleanupResult {
   readonly skipped: readonly RetentionCleanupSkip[];
 }
 
+// Select one batchLimit-sized page of matching rows and run the executor op per
+// row (event → rebuild-safe). Returns the count of successful ops.
+async function purgeMatchingRows(
+  db: DbRunner,
+  table: Parameters<typeof selectMany>[1],
+  where: WhereObject,
+  batchLimit: number,
+  op: (id: EntityId) => Promise<{ readonly isSuccess: boolean }>,
+): Promise<number> {
+  const rows = await selectMany<{ id: EntityId }>(db, table, where, { limit: batchLimit });
+  let count = 0;
+  for (const row of rows) {
+    const res = await op(row.id);
+    if (res.isSuccess) count++;
+  }
+  return count;
+}
+
 export async function runRetentionCleanup(
   args: RunRetentionCleanupArgs,
 ): Promise<RunRetentionCleanupResult> {
@@ -81,6 +115,17 @@ export async function runRetentionCleanup(
   let softDeleted = 0;
   const anonymizeDeferred: string[] = [];
   const skipped: RetentionCleanupSkip[] = [];
+
+  // Retention writes go through the executor (events) so a projection rebuild
+  // replays the cleanup — a batch deleteMany/updateMany on the (erased)
+  // projection table is eventless and gets wiped/resurrected on rebuild (the
+  // #648 hole this closes). The cron acts as the system actor; the WHERE already
+  // tenant-scopes, so a system-mode TenantDb (no extra filter) is correct.
+  // ponytail: per-row events, one batchLimit-sized page per entity per run —
+  // the daily cron converges (hardDelete removes rows, softDelete's isDeleted
+  // filter shrinks the set). A single batched forget/delete event is a follow-up.
+  const systemUser = createSystemUser(tenantId);
+  const tdb = createTenantDb(db, tenantId, "system");
 
   for (const proj of registry.getAllProjections().values()) {
     // Nur implicit-Entity-Projektionen mit Tabelle — wie soft-delete-cleanup.
@@ -97,6 +142,8 @@ export async function runRetentionCleanup(
     });
     const policy = resolved.policy;
     if (!policy) continue;
+    const entity = registry.getEntity(entityName);
+    if (!entity) continue;
 
     const table = proj.table as Record<string, unknown>; // @cast-boundary column-presence probe
     const declaredReference = policy.reference ?? DEFAULT_REFERENCE_FIELD;
@@ -118,8 +165,10 @@ export async function runRetentionCleanup(
 
     switch (policy.strategy) {
       case "hardDelete": {
-        const res = await deleteManyBatched(db, proj.table, where, { limit: batchLimit });
-        hardDeleted += res.deleted;
+        const executor = createEventStoreExecutor(proj.table, entity, { entityName });
+        hardDeleted += await purgeMatchingRows(db, proj.table, where, batchLimit, (id) =>
+          executor.forget({ id }, systemUser, tdb),
+        );
         break;
       }
       case "softDelete": {
@@ -127,13 +176,14 @@ export async function runRetentionCleanup(
           skipped.push({ entityName, reason: "missing_softdelete_columns" });
           break;
         }
-        const updated = await updateMany(
+        const executor = createEventStoreExecutor(proj.table, entity, { entityName });
+        softDeleted += await purgeMatchingRows(
           db,
           proj.table,
-          { isDeleted: true, deletedAt: now },
           { ...where, isDeleted: false },
+          batchLimit,
+          (id) => executor.delete({ id }, systemUser, tdb),
         );
-        softDeleted += updated.length;
         break;
       }
       case "anonymize": {
