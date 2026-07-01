@@ -42,7 +42,27 @@ export interface FlatOptions {
   readonly pinLocale?: boolean;
 }
 
+// Fail at registration time, not mid-run: a url-only scenario with no
+// waitFor races the page's own render (screenshot fires before content
+// settles); a scenario with neither url nor flow throws inside openScenario
+// anyway, but only once Playwright actually runs that test — catching it
+// here surfaces every broken scenario in one pass instead of one per run.
+export function validateScenarios(scenarios: readonly Scenario[]): void {
+  for (const s of scenarios) {
+    if (s.flow === undefined && s.url === undefined) {
+      throw new Error(`Scenario "${s.name}" needs either url or flow`);
+    }
+    if (s.flow === undefined && s.waitFor === undefined) {
+      throw new Error(
+        `Scenario "${s.name}" uses url without waitFor — the screenshot would race the page's ` +
+          `own render. Set waitFor to a selector that's only present once the page is ready.`,
+      );
+    }
+  }
+}
+
 export function runScreenshots(scenarios: readonly Scenario[], opts: FlatOptions): void {
+  validateScenarios(scenarios);
   mkdirSync(opts.outDir, { recursive: true });
   for (const s of scenarios) {
     test(s.description ? `${s.name} — ${s.description}` : s.name, async ({ page }) => {
@@ -89,6 +109,8 @@ export function runMatrix<T extends string>(
   scenarios: readonly Scenario[],
   opts: MatrixOptions<T>,
 ): void {
+  validateScenarios(scenarios);
+
   const locales = axis(process.env["SCREENSHOT_LOCALES"], opts.locales ?? ["en", "de"]);
   const themes = axis(process.env["SCREENSHOT_THEMES"], opts.themes);
   const viewports = axis(

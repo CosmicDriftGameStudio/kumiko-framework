@@ -12,15 +12,13 @@ import { DELIVERY_ATTEMPT_EVENT } from "./constants";
 import { deliveryAttemptSchema } from "./events";
 import type { DeliveryLogEntry } from "./types";
 
-// Append one delivery-attempt event to `attemptId`'s stream and run the inline
-// `delivery-log` projection in the same write (low-level append() does not
-// auto-fire projections — only the dispatcher/executor paths do). getStreamVersion
-// returns 0 for a fresh stream, so the same call serves both the first event
-// (queued, or a single-shot terminal) and follow-ups (queued → sent/failed).
-export async function appendAttemptEvent(
+// Shared append + inline-projection write (low-level append() does not
+// auto-fire projections — only the dispatcher/executor paths do).
+async function writeAttemptEvent(
   db: DbConnection,
   registry: Registry,
   attemptId: string,
+  expectedVersion: number,
   entry: DeliveryLogEntry,
 ): Promise<void> {
   const { tenantId, ...rest } = entry;
@@ -28,7 +26,6 @@ export async function appendAttemptEvent(
   // service/job + feature-registration fails loudly here instead of landing on
   // the events-table and crashing a consumer later.
   const payload = deliveryAttemptSchema.parse(rest);
-  const expectedVersion = await getStreamVersion(db, attemptId, tenantId);
   const stored = await append(db, {
     aggregateId: attemptId,
     aggregateType: "deliveryAttempt",
@@ -41,14 +38,29 @@ export async function appendAttemptEvent(
   await runProjectionsForEvent(stored, registry, db);
 }
 
-// Single-shot terminal log (inline channels, skips, idempotency dups): fresh
-// aggregate id, one event.
+// Append one delivery-attempt event to `attemptId`'s stream — for the
+// MULTI-EVENT path (queued → sent/failed follow-ups), where the stream may
+// already carry the "queued" event and the real current version must be
+// looked up.
+export async function appendAttemptEvent(
+  db: DbConnection,
+  registry: Registry,
+  attemptId: string,
+  entry: DeliveryLogEntry,
+): Promise<void> {
+  const expectedVersion = await getStreamVersion(db, attemptId, entry.tenantId);
+  await writeAttemptEvent(db, registry, attemptId, expectedVersion, entry);
+}
+
+// Single-shot terminal log (inline channels, skips, idempotency dups): a
+// FRESH aggregate id is guaranteed version 0 — skip the getStreamVersion
+// round-trip that appendAttemptEvent needs for its follow-up-event case.
 export async function logAttempt(
   db: DbConnection,
   registry: Registry,
   entry: DeliveryLogEntry,
 ): Promise<string> {
   const attemptId = generateId();
-  await appendAttemptEvent(db, registry, attemptId, entry);
+  await writeAttemptEvent(db, registry, attemptId, 0, entry);
   return attemptId;
 }

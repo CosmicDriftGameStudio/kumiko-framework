@@ -308,6 +308,53 @@ describe("scaffoldApp", () => {
     expect(cfg).toContain("createDeliveryFeature()");
   });
 
+  test("features-param: ONLY auto-mounted names → empty effective set, no fallback to foundation (604/1)", () => {
+    // Regression: filtering happened AFTER the fallback decision, so an
+    // all-auto-mounted-names selection (features.length > 0) filtered down
+    // to [] but the fallback check ran on the PRE-filter array, silently
+    // substituting FOUNDATION_FEATURES (secrets+sessions) instead of
+    // honouring the caller's actual (now-empty) intent.
+    const dest = join(tmp, "only-auto-mounted");
+    scaffoldApp({
+      name: "only-auto-mounted",
+      destination: dest,
+      features: [
+        {
+          name: "config",
+          importPath: "@cosmicdrift/kumiko-bundled-features/config",
+          exportName: "createConfigFeature",
+          callExpression: "createConfigFeature()",
+        },
+        {
+          name: "user",
+          importPath: "@cosmicdrift/kumiko-bundled-features/user",
+          exportName: "createUserFeature",
+          callExpression: "createUserFeature()",
+        },
+        {
+          name: "tenant",
+          importPath: "@cosmicdrift/kumiko-bundled-features/tenant",
+          exportName: "createTenantFeature",
+          callExpression: "createTenantFeature()",
+        },
+        {
+          name: "auth-email-password",
+          importPath: "@cosmicdrift/kumiko-bundled-features/auth-email-password",
+          exportName: "createAuthEmailPasswordFeature",
+          callExpression: "createAuthEmailPasswordFeature()",
+        },
+      ],
+    });
+    const cfg = readFileSync(join(dest, "src/run-config.ts"), "utf-8");
+    expect(cfg).not.toContain("createConfigFeature");
+    expect(cfg).not.toContain("createUserFeature");
+    expect(cfg).not.toContain("createTenantFeature");
+    expect(cfg).not.toContain("createAuthEmailPasswordFeature");
+    // Must NOT silently fall back to the foundation defaults either.
+    expect(cfg).not.toContain("createSecretsFeature");
+    expect(cfg).not.toContain("createSessionsFeature");
+  });
+
   test("deterministic tenantId for same name (reproducible boots)", () => {
     const a = join(tmp, "a");
     const b = join(tmp, "b");

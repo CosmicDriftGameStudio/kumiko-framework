@@ -9,6 +9,13 @@ describe("warnIfNonUtcServerTimeZone", () => {
     expect(messages).toHaveLength(0);
   });
 
+  test.each(["GMT", "Etc/UTC"])("warnt nicht bei UTC-äquivalenter Zone %s", (zone) => {
+    const messages: string[] = [];
+    const warned = warnIfNonUtcServerTimeZone(zone, (m) => messages.push(m));
+    expect(warned).toBe(false);
+    expect(messages).toHaveLength(0);
+  });
+
   test("warnt bei nicht-UTC Zone, nennt Zone + UTC-Hinweis", () => {
     const messages: string[] = [];
     const warned = warnIfNonUtcServerTimeZone("Europe/Berlin", (m) => messages.push(m));

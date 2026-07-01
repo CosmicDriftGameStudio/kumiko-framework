@@ -8,12 +8,14 @@ import {
 } from "../db/eagerload";
 import { createEventStoreExecutor, type EventStoreExecutor } from "../db/event-store-executor";
 import { buildEntityTable } from "../db/table-builder";
+import { createTenantDb, type TenantDb } from "../db/tenant-db";
 import { assertUnreachable } from "../utils";
 import { buildInsertSchema, buildUpdateSchema } from "./schema-builder";
 import type {
   AccessRule,
   DeriveContext,
   EntityDefinition,
+  HandlerContext,
   QueryHandlerDef,
   WriteHandlerDef,
 } from "./types";
@@ -222,7 +224,7 @@ function augmentDerivedFields(
 export function defineEntityQueryHandler(
   name: string,
   entity: EntityDefinition,
-  options?: { access?: AccessRule },
+  options?: { access?: AccessRule; crossTenant?: boolean },
 ): QueryHandlerDef {
   const { entityName, verb } = parseHandlerName(name, QUERY_VERBS);
 
@@ -240,6 +242,17 @@ export function defineEntityQueryHandler(
   // Wrapper zu nutzen).
   const hasRefFields = collectReferenceFields(entity).length > 0;
 
+  // crossTenant: this ONE handler reads across every tenant (e.g. a
+  // SystemAdmin-only operator inspector) without making the whole feature
+  // r.systemScope() — that would drop tenant isolation from every OTHER
+  // handler the feature registers too. The executor's list()/detail() only
+  // add a tenant filter when db.mode === "tenant" (see event-store-executor
+  // .ts), so handing them a "system"-mode TenantDb built from the same raw
+  // connection is enough to skip it — access-control (who may call this
+  // handler at all) is unaffected, still gated by `options.access`.
+  const dbFor = (ctx: HandlerContext): TenantDb =>
+    options?.crossTenant ? createTenantDb(ctx.db.raw, ctx.db.tenantId, "system") : ctx.db;
+
   switch (verb) {
     case "list":
       schema = listSchema;
@@ -250,7 +263,8 @@ export function defineEntityQueryHandler(
         // Definition-Time gebaut, kennt den Adapter also nicht —
         // Runtime-Override holt das.
         const listPayload = query.payload as ListPayload; // @cast-boundary engine-payload
-        const result = await executor.list(listPayload, query.user, ctx.db, {
+        const db = dbFor(ctx);
+        const result = await executor.list(listPayload, query.user, db, {
           ...(ctx.searchAdapter !== undefined && { searchAdapter: ctx.searchAdapter }),
           ...(ctx.includeDeleted === true && { includeDeleted: true }),
         });
@@ -259,7 +273,7 @@ export function defineEntityQueryHandler(
               result.rows,
               entity,
               (name) => ctx.registry.getEntity(name),
-              ctx.db,
+              db,
             )
           : result.rows;
         return { ...result, rows: augmentDerivedFields(enrichedRows, entity) };
@@ -268,9 +282,10 @@ export function defineEntityQueryHandler(
     case "detail":
       schema = idSchema;
       handler = async (query, ctx) => {
-        const row = await executor.detail(query.payload as IdPayload, query.user, ctx.db); // @cast-boundary engine-payload
+        const db = dbFor(ctx);
+        const row = await executor.detail(query.payload as IdPayload, query.user, db); // @cast-boundary engine-payload
         if (row === null || !hasRefFields) return row;
-        return enrichRowWithReferences(row, entity, (name) => ctx.registry.getEntity(name), ctx.db);
+        return enrichRowWithReferences(row, entity, (name) => ctx.registry.getEntity(name), db);
       };
       break;
     default:
@@ -306,6 +321,14 @@ export function defineEntityQueryHandler(
 // — feasible but not yet wired; the runtime guard catches misuse.
 
 type EntityHandlerOptions = { readonly access?: AccessRule };
+type EntityQueryHandlerOptions = EntityHandlerOptions & {
+  /** Reads across every tenant instead of the caller's own — for a
+   *  SystemAdmin-only operator inspector over an otherwise tenant-scoped
+   *  entity. Scope this to the ONE handler that needs it rather than making
+   *  the whole feature r.systemScope(), which would drop tenant isolation
+   *  from every other handler the feature registers too. */
+  readonly crossTenant?: boolean;
+};
 
 // @wrapper-known semantic-alias
 export function defineEntityCreateHandler(
@@ -347,7 +370,7 @@ export function defineEntityRestoreHandler(
 export function defineEntityListHandler(
   entityName: string,
   entity: EntityDefinition,
-  options?: EntityHandlerOptions,
+  options?: EntityQueryHandlerOptions,
 ): QueryHandlerDef {
   return defineEntityQueryHandler(`${entityName}:list`, entity, options);
 }
@@ -356,7 +379,7 @@ export function defineEntityListHandler(
 export function defineEntityDetailHandler(
   entityName: string,
   entity: EntityDefinition,
-  options?: EntityHandlerOptions,
+  options?: EntityQueryHandlerOptions,
 ): QueryHandlerDef {
   return defineEntityQueryHandler(`${entityName}:detail`, entity, options);
 }

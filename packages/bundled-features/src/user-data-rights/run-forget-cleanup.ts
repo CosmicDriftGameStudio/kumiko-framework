@@ -410,7 +410,14 @@ async function resolveEffectiveTenantModel(
   appTenantModel: TenantUserModel,
 ): Promise<TenantUserModel> {
   if (appTenantModel !== "single-user") return "multi-user";
-  const members = await selectMany<{ userId: string }>(db, tenantMembershipsTable, { tenantId });
+  // Only "exactly one member vs. more than one" matters here — a LIMIT 2
+  // read answers that without pulling every historical membership row.
+  const members = await selectMany<{ userId: string }>(
+    db,
+    tenantMembershipsTable,
+    { tenantId },
+    { limit: 2 },
+  );
   return members.length === 1 ? "single-user" : "multi-user";
 }
 

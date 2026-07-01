@@ -1286,6 +1286,13 @@ describe("boot-validator", () => {
         ]),
       ).toThrow(/tags/);
     });
+
+    test("labeled column on a non-field WITHOUT a renderer → Throw (label alone isn't enough)", () => {
+      // Regression (697/1): renderer is what actually draws a virtual column —
+      // a label with no renderer would push an empty, unrendered column into
+      // the view model instead of a real typo-guard.
+      expect(() => validateBoot([noteFeature({ field: "tags", label: "Tags" })])).toThrow(/tags/);
+    });
   });
 
   // --- entityList: pagination + sort validation ---
@@ -2071,6 +2078,118 @@ describe("boot-validator", () => {
         r.screen({ id: "product-editor", type: "custom", renderer: { react: "stub" } });
       });
       expect(() => validateBoot([list, consumer])).not.toThrow();
+    });
+
+    test("cross-feature navigate to an entityEdit screen WITHOUT entityId → Throw", () => {
+      // Regression: the renderer's same-feature row["id"] fallback never
+      // fires for a cross-feature target, so the edit screen would silently
+      // open with no entity context at runtime. The validator must catch it
+      // at boot instead.
+      const list = defineFeature("shop", (r) => {
+        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.screen({
+          id: "product-list",
+          type: "entityList",
+          entity: "product",
+          columns: ["name"],
+          rowActions: [
+            { kind: "navigate", id: "edit", label: "actions.edit", screen: "invoice-edit" },
+          ],
+        });
+      });
+      const consumer = defineFeature("billing", (r) => {
+        r.entity("invoice", createEntity({ fields: { name: createTextField() } }));
+        r.screen({
+          id: "invoice-edit",
+          type: "entityEdit",
+          entity: "invoice",
+          layout: { sections: [{ columns: 1, fields: ["name"] }] },
+        });
+      });
+      expect(() => validateBoot([list, consumer])).toThrow(
+        /rowAction "edit".*cross-feature to entityEdit screen "invoice-edit".*without an explicit entityId/,
+      );
+    });
+
+    test("cross-feature navigate to an entityEdit screen WITH entityId → kein Throw", () => {
+      const list = defineFeature("shop", (r) => {
+        r.entity(
+          "product",
+          createEntity({ fields: { name: createTextField(), invoiceId: createTextField() } }),
+        );
+        r.screen({
+          id: "product-list",
+          type: "entityList",
+          entity: "product",
+          columns: ["name"],
+          rowActions: [
+            {
+              kind: "navigate",
+              id: "edit",
+              label: "actions.edit",
+              screen: "invoice-edit",
+              entityId: "invoiceId",
+            },
+          ],
+        });
+      });
+      const consumer = defineFeature("billing", (r) => {
+        r.entity("invoice", createEntity({ fields: { name: createTextField() } }));
+        r.screen({
+          id: "invoice-edit",
+          type: "entityEdit",
+          entity: "invoice",
+          layout: { sections: [{ columns: 1, fields: ["name"] }] },
+        });
+      });
+      expect(() => validateBoot([list, consumer])).not.toThrow();
+    });
+
+    test("same-feature navigate to entityEdit WITHOUT entityId → kein Throw (same-feature fallback applies)", () => {
+      const feature = defineFeature("shop", (r) => {
+        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.screen({
+          id: "product-list",
+          type: "entityList",
+          entity: "product",
+          columns: ["name"],
+          rowActions: [
+            { kind: "navigate", id: "edit", label: "actions.edit", screen: "product-edit" },
+          ],
+        });
+        r.screen({
+          id: "product-edit",
+          type: "entityEdit",
+          entity: "product",
+          layout: { sections: [{ columns: 1, fields: ["name"] }] },
+        });
+      });
+      expect(() => validateBoot([feature])).not.toThrow();
+    });
+  });
+
+  // --- Screen short-id collision across features ---
+  describe("screen short-id collisions across features", () => {
+    test("two features registering the same short screen-id → Throw", () => {
+      const a = defineFeature("shop", (r) => {
+        r.screen({ id: "settings", type: "custom", renderer: { react: "stub" } });
+      });
+      const b = defineFeature("billing", (r) => {
+        r.screen({ id: "settings", type: "custom", renderer: { react: "stub" } });
+      });
+      expect(() => validateBoot([a, b])).toThrow(
+        /Screen short-id "settings" is registered by 2 features \(shop, billing\)/,
+      );
+    });
+
+    test("distinct short-ids across features → kein Throw", () => {
+      const a = defineFeature("shop", (r) => {
+        r.screen({ id: "shop-settings", type: "custom", renderer: { react: "stub" } });
+      });
+      const b = defineFeature("billing", (r) => {
+        r.screen({ id: "billing-settings", type: "custom", renderer: { react: "stub" } });
+      });
+      expect(() => validateBoot([a, b])).not.toThrow();
     });
   });
 

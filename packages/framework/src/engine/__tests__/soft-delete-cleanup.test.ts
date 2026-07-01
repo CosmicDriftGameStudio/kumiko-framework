@@ -4,8 +4,10 @@ import { createRegistry } from "../registry";
 import {
   DEFAULT_GRACE_DAYS,
   SOFT_DELETE_CLEANUP_JOB,
+  SOFT_DELETE_CLEANUP_SYSTEM_JOB,
   SOFT_DELETE_GRACE_DAYS_KEY,
   softDeleteCleanupJob,
+  softDeleteCleanupSystemJob,
 } from "../soft-delete-cleanup";
 import type { AppContext } from "../types/handlers";
 
@@ -31,9 +33,17 @@ describe("registry soft-delete auto-wiring", () => {
     expect(key?.default).toBe(DEFAULT_GRACE_DAYS);
   });
 
+  test("also injects the system-scope cleanup job (not perTenant)", () => {
+    const registry = createRegistry([featureWith(true)]);
+    expect(registry.getAllJobs().has(SOFT_DELETE_CLEANUP_SYSTEM_JOB)).toBe(true);
+    const job = registry.getJob(SOFT_DELETE_CLEANUP_SYSTEM_JOB);
+    expect(job?.perTenant).toBeUndefined();
+  });
+
   test("does NOT inject when no entity uses softDelete", () => {
     const registry = createRegistry([featureWith(false)]);
     expect(registry.getAllJobs().has(SOFT_DELETE_CLEANUP_JOB)).toBe(false);
+    expect(registry.getAllJobs().has(SOFT_DELETE_CLEANUP_SYSTEM_JOB)).toBe(false);
     expect(registry.getAllConfigKeys().has(SOFT_DELETE_GRACE_DAYS_KEY)).toBe(false);
   });
 });
@@ -87,22 +97,21 @@ function makeCtx(opts: { graceDays?: number; calls: DeleteCall[] }): AppContext 
 }
 
 describe("softDeleteCleanupJob handler", () => {
-  test("hard-deletes only softDelete implicit projections, tenant-scoped where the table has tenantId", async () => {
+  test("hard-deletes only tenant-scoped softDelete implicit projections; system-global entities are skipped", async () => {
+    // Regression (565/1): sysThing (no tenantId column) must NOT be touched
+    // here — this handler is perTenant-fanned-out, so sweeping a system-
+    // global entity with THIS tenant's grace value would purge it using
+    // whichever tenant has the shortest grace period, for every tenant.
+    // softDeleteCleanupSystemJob (below) owns sysThing instead.
     const calls: DeleteCall[] = [];
     await softDeleteCleanupJob({}, makeCtx({ calls }));
 
-    // thing + sysThing deleted; auditEntry (softDelete:false) + custom (explicit) skipped
-    expect(calls).toHaveLength(2);
-
-    const tenantScoped = calls.filter((c) => c.where["tenantId"] === "t1");
-    const systemScoped = calls.filter((c) => c.where["tenantId"] === undefined);
-    expect(tenantScoped).toHaveLength(1);
-    expect(systemScoped).toHaveLength(1);
-
-    for (const c of calls) {
-      expect(c.where["isDeleted"]).toBe(true);
-      expect(c.where["deletedAt"]).toBeDefined();
-    }
+    // thing deleted; sysThing (no tenantId), auditEntry (softDelete:false)
+    // and custom (explicit) all skipped.
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.where["tenantId"]).toBe("t1");
+    expect(calls[0]?.where["isDeleted"]).toBe(true);
+    expect(calls[0]?.where["deletedAt"]).toBeDefined();
   });
 
   test("cutoff defaults to DEFAULT_GRACE_DAYS when no config resolver", async () => {
@@ -123,6 +132,33 @@ describe("softDeleteCleanupJob handler", () => {
 
   test("throws when the job context is missing db/registry", async () => {
     await expect(softDeleteCleanupJob({}, {} as AppContext)).rejects.toThrow(
+      /ctx.db \+ ctx.registry/,
+    );
+  });
+});
+
+describe("softDeleteCleanupSystemJob handler", () => {
+  test("hard-deletes only system-global (no tenantId) softDelete implicit projections", async () => {
+    const calls: DeleteCall[] = [];
+    await softDeleteCleanupSystemJob({}, makeCtx({ calls }));
+
+    // sysThing deleted; thing (has tenantId), auditEntry (softDelete:false)
+    // and custom (explicit) all skipped.
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.where["tenantId"]).toBeUndefined();
+    expect(calls[0]?.where["isDeleted"]).toBe(true);
+  });
+
+  test("cutoff is DEFAULT_GRACE_DAYS — no per-tenant config to read", async () => {
+    const calls: DeleteCall[] = [];
+    await softDeleteCleanupSystemJob({}, makeCtx({ calls }));
+    const cutoff = (calls[0]?.where["deletedAt"] as { lt: Temporal.Instant }).lt;
+    const expected = Temporal.Now.instant().subtract({ hours: DEFAULT_GRACE_DAYS * 24 });
+    expect(Math.abs(cutoff.epochMilliseconds - expected.epochMilliseconds)).toBeLessThan(10_000);
+  });
+
+  test("throws when the job context is missing db/registry", async () => {
+    await expect(softDeleteCleanupSystemJob({}, {} as AppContext)).rejects.toThrow(
       /ctx.db \+ ctx.registry/,
     );
   });

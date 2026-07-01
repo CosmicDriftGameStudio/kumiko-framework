@@ -115,7 +115,12 @@ export function createTzContext(options: TzContextOptions = {}): TzContext {
       return geoTz.fromCoordinates(coords);
     },
     fromAddress: async (address) => {
-      if (geoTz?.fromAddress === undefined) {
+      if (geoTz === undefined) {
+        throw new Error(
+          "ctx.tz.fromAddress requires a GeoTzProvider — inject one via the app context (e.g. buildServer({ context: { geoTzProvider } }) or runProdApp({ extraContext: { geoTzProvider } })) or install a provider package.",
+        );
+      }
+      if (geoTz.fromAddress === undefined) {
         throw new Error(
           "ctx.tz.fromAddress requires a GeoTzProvider that implements fromAddress (geocoding). Offline lat/lng providers only support fromCoordinates.",
         );

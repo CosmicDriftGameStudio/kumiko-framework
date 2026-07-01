@@ -187,8 +187,13 @@ function renderRunConfig(features?: ReadonlyArray<ScaffoldFeatureEntry>): string
   const project = newTsProject();
   const sf = project.createSourceFile("run-config.ts", "");
 
-  const filtered = (features ?? []).filter((f) => !COMPOSE_AUTO_MOUNTED_NAMES.has(f.name));
-  const effective = filtered.length > 0 ? filtered : FOUNDATION_FEATURES;
+  // Fallback decided BEFORE filtering: if the caller passed features (even
+  // if every one of them is an auto-mounted name), an all-filtered-out empty
+  // result is the correct outcome — falling back to FOUNDATION_FEATURES here
+  // would silently substitute a different feature set than the caller asked
+  // for.
+  const base = features?.length ? features : FOUNDATION_FEATURES;
+  const effective = base.filter((f) => !COMPOSE_AUTO_MOUNTED_NAMES.has(f.name));
   const grouped = new Map<string, string[]>();
   for (const entry of effective) {
     const existing = grouped.get(entry.importPath) ?? [];

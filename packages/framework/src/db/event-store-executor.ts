@@ -645,7 +645,10 @@ export function createEventStoreExecutor(
         // you'd have to snapshot-and-diff on every apply, and replays would
         // break. Storage cost is acceptable (rows are bounded), correctness is
         // not negotiable. Sensitive fields are stripped from BOTH halves so
-        // they never reach the immutable event log.
+        // they never reach the immutable event log. `previous` came from
+        // loadById(), which decrypts — re-encrypt it before it's persisted so
+        // an `encrypted` field's plaintext doesn't land in the immutable log
+        // (flatChanges is already ciphertext from encryptForStorage above).
         const event = await append(db.raw, {
           aggregateId: String(payload.id),
           aggregateType: entityName,
@@ -654,7 +657,7 @@ export function createEventStoreExecutor(
           type: entityEventName(entityName, "updated"),
           payload: {
             changes: stripSensitive(flatChanges),
-            previous: stripSensitive(previous),
+            previous: stripSensitive(encryptForStorage(previous)),
           },
           metadata: buildEventMetadata(user),
         });
@@ -755,13 +758,16 @@ export function createEventStoreExecutor(
       // projections and downstream consumers need to reverse any aggregates —
       // a `{}`-payload delete would make cross-aggregate projections impossible
       // to rebuild from the event log alone. Sensitive fields are stripped.
+      // `existing` came from loadById(), which decrypts — re-encrypt before
+      // persisting so an `encrypted` field's plaintext doesn't land in the
+      // immutable log.
       const event = await append(db.raw, {
         aggregateId: String(payload.id),
         aggregateType: entityName,
         tenantId: streamTenantFor(user),
         expectedVersion: currentVersion,
         type: entityEventName(entityName, "deleted"),
-        payload: { previous: stripSensitive(existing) },
+        payload: { previous: stripSensitive(encryptForStorage(existing)) },
         metadata: buildEventMetadata(user),
       });
 
@@ -1073,7 +1079,10 @@ export function createEventStoreExecutor(
             const checkRows = await loadWithOwnership(db, idWhere, ownership);
             if (checkRows.length === 0) return null;
           }
-          return withStreamVersion(cached);
+          // Cached rows are stored re-encrypted (see the `set` below) so an
+          // `encrypted` field's plaintext never sits in a second at-rest
+          // store (Redis) the field-encryption feature doesn't cover.
+          return withStreamVersion(decryptForRead(cached));
         }
       }
 
@@ -1085,7 +1094,7 @@ export function createEventStoreExecutor(
       const coerced = coerceRow(row, rowInfo);
 
       if (entityCache && entityName) {
-        await entityCache.set(user.tenantId, entityName, payload.id, coerced);
+        await entityCache.set(user.tenantId, entityName, payload.id, encryptForStorage(coerced));
       }
 
       return withStreamVersion(coerced);

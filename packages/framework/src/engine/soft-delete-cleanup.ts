@@ -20,6 +20,7 @@ import type { ConfigKeyDefinition, JobDefinition, JobHandlerFn } from "./types/c
 // them. The job-runner keys cron scheduling off the name, the config-resolver
 // off the key.
 export const SOFT_DELETE_CLEANUP_JOB = "soft-delete:job:cleanup";
+export const SOFT_DELETE_CLEANUP_SYSTEM_JOB = "soft-delete:job:cleanup-system";
 export const SOFT_DELETE_GRACE_DAYS_KEY = "soft-delete:config:grace-days";
 export const DEFAULT_GRACE_DAYS = 30;
 
@@ -62,13 +63,39 @@ export const softDeleteCleanupJob: JobHandlerFn = async (_payload, ctx) => {
     if (proj.isImplicit !== true || typeof proj.source !== "string" || !proj.table) continue;
     const entity = registry.getEntity(proj.source);
     if (!entity?.softDelete) continue;
-    const where: WhereObject = { isDeleted: true, deletedAt: { lt: cutoff } };
     // @cast-boundary column-presence probe — identical access the executor's
     // list() does on table["tenantId"] to decide tenant-scoping.
-    if ((proj.table as Record<string, unknown>)["tenantId"] !== undefined) {
-      where["tenantId"] = tenantId;
-    }
+    const hasTenantColumn = (proj.table as Record<string, unknown>)["tenantId"] !== undefined;
+    // System-global entities (no tenantId column, e.g. `user`) are NOT swept
+    // here: this handler runs once PER TENANT, so a tenant-scoped grace value
+    // would purge every OTHER tenant's still-within-grace rows too (effective
+    // grace = min() across all tenants). softDeleteCleanupSystemJob handles
+    // these separately, once, with a fixed grace period.
+    if (!hasTenantColumn) continue;
+    const where: WhereObject = { isDeleted: true, deletedAt: { lt: cutoff }, tenantId };
     await deleteMany(db, proj.table, where);
+  }
+};
+
+// System-global soft-deleted entities (no tenantId column) can't take a
+// per-tenant grace period — there's no "this tenant's view" of a row that
+// isn't scoped to any tenant. Runs once (not perTenant) with a fixed grace
+// period; a future system-scope config key could make this configurable
+// without reintroducing the per-tenant-fanout bug.
+export const softDeleteCleanupSystemJob: JobHandlerFn = async (_payload, ctx) => {
+  const { db, registry } = ctx;
+  if (!db || !registry) {
+    throw new Error(
+      "soft-delete system cleanup: ctx.db + ctx.registry required (JobContext incomplete)",
+    );
+  }
+  const cutoff = Temporal.Now.instant().subtract({ hours: DEFAULT_GRACE_DAYS * 24 });
+  for (const proj of registry.getAllProjections().values()) {
+    if (proj.isImplicit !== true || typeof proj.source !== "string" || !proj.table) continue;
+    const entity = registry.getEntity(proj.source);
+    if (!entity?.softDelete) continue;
+    if ((proj.table as Record<string, unknown>)["tenantId"] !== undefined) continue;
+    await deleteMany(db, proj.table, { isDeleted: true, deletedAt: { lt: cutoff } });
   }
 };
 
@@ -78,6 +105,16 @@ export function buildSoftDeleteCleanupJob(): JobDefinition {
     handler: softDeleteCleanupJob,
     trigger: { cron: "0 3 * * *" },
     perTenant: true,
+    concurrency: "skip",
+    runIn: "worker",
+  };
+}
+
+export function buildSoftDeleteCleanupSystemJob(): JobDefinition {
+  return {
+    name: SOFT_DELETE_CLEANUP_SYSTEM_JOB,
+    handler: softDeleteCleanupSystemJob,
+    trigger: { cron: "15 3 * * *" },
     concurrency: "skip",
     runIn: "worker",
   };
