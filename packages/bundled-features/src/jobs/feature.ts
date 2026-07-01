@@ -93,23 +93,25 @@ export function createJobsFeature(): FeatureDefinition {
             );
           },
         ),
-        [JOB_RUN_FAILED_EVENT]: defineApply<z.infer<typeof runFailedSchema>>(async (event, tx, table) => {
-          const p = event.payload;
-          await updateMany(
-            tx,
-            table,
-            {
-              status: "failed",
-              error: p.error,
-              duration: p.duration,
-              finishedAt: Temporal.Instant.from(p.finishedAt),
-              version: event.version,
-              modifiedAt: event.createdAt,
-              modifiedById: event.metadata?.userId ?? "system",
-            },
-            { id: event.aggregateId },
-          );
-        }),
+        [JOB_RUN_FAILED_EVENT]: defineApply<z.infer<typeof runFailedSchema>>(
+          async (event, tx, table) => {
+            const p = event.payload;
+            await updateMany(
+              tx,
+              table,
+              {
+                status: "failed",
+                error: p.error,
+                duration: p.duration,
+                finishedAt: Temporal.Instant.from(p.finishedAt),
+                version: event.version,
+                modifiedAt: event.createdAt,
+                modifiedById: event.metadata?.userId ?? "system",
+              },
+              { id: event.aggregateId },
+            );
+          },
+        ),
       },
     });
 
