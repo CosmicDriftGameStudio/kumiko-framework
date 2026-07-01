@@ -465,6 +465,15 @@ export function validateScreens(
             rowMeta,
           );
         }
+        const rowClickActions = screen.rowActions.filter(
+          (a) => a.kind === "navigate" && a.rowClick === true,
+        );
+        if (rowClickActions.length > 1) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (entityList) has ${rowClickActions.length} ` +
+              "rowActions marked rowClick:true — at most one may fire on a row-body click.",
+          );
+        }
       }
       // Tier 2.7e-2: toolbarActions — analog zu rowActions, aber bisher
       // ohne Validator. Typo'd navigate-targets und unregistrierte
