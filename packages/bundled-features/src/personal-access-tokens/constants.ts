@@ -1,4 +1,12 @@
+// @runtime client
+// Pure constants — client-marked so the web screen (web/) may import screen-id
+// and QN names without pulling the feature's server runtime barrel.
 export const PAT_FEATURE = "personal-access-tokens";
+
+// Snake_case reason strings (Error-Reasons guard: no colons/dashes).
+export const PatErrors = {
+  ownershipDenied: "ownership_denied",
+} as const;
 
 // Dormant custom-screen id (r.screen) — the app places it via r.nav. The client
 // maps it to the PatTokensScreen component.

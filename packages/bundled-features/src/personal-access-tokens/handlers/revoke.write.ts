@@ -3,6 +3,7 @@ import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
+import { PatErrors } from "../constants";
 import { apiTokenTable } from "../schema/api-token";
 
 // Revoke one of the caller's own tokens. Ownership is enforced in the WHERE
@@ -22,7 +23,7 @@ export const revokePatWrite = defineWriteHandler({
     );
     if (updated.length > 0) return { isSuccess: true, data: { id: event.payload.id } };
     return writeFailure(
-      new UnprocessableError("api-token:ownership_denied", {
+      new UnprocessableError(PatErrors.ownershipDenied, {
         i18nKey: "errors.ownershipDenied",
         details: {
           scope: "entity",

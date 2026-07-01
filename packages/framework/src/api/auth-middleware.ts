@@ -336,6 +336,8 @@ async function handlePat(
   c.set(USER_KEY, patUser);
   c.set(AUTH_TRANSPORT_KEY, "bearer");
   await next();
+  // skip: PAT path completed — next() ran; explicit return keeps the
+  // Response|undefined union honest (same as handleAnonymous).
   return;
 }
 
