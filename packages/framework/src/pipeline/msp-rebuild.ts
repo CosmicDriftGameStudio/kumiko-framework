@@ -11,11 +11,16 @@ import {
   rebuildMetaOrThrow,
   swapShadowIntoLive,
 } from "../db/queries/shadow-swap";
-import { selectMany } from "../db/query";
+import { runInSavepoint, selectMany } from "../db/query";
 import type { Registry, TenantId } from "../engine/types";
 import { InternalError } from "../errors";
 import { eventsTable, type StoredEvent, upcastStoredEvent } from "../event-store";
 import { loadAggregate, loadAggregateAsOf } from "../event-store/event-store";
+import {
+  createRebuildDeadLetterTable,
+  recordRebuildDeadLetters,
+  type SkippedApply,
+} from "../event-store/rebuild-dead-letter";
 import { upcastStoredEvents } from "../event-store/upcaster";
 import { emitProjectionRebuild } from "../observability/standard-metrics";
 import type { Meter } from "../observability/types/metric";
@@ -123,12 +128,21 @@ export async function rebuildMultiStreamProjection(
 
   const meta = rebuildMetaOrThrow(msp.table, mspName);
 
+  // Declared per-projection (MspErrorMode): the rebuild policy falls back to
+  // continuous when omitted — previously declared but never honored here.
+  const skipApplyErrors =
+    (msp.errorMode?.rebuild ?? msp.errorMode?.continuous)?.skipApplyErrors === true;
+
   const startedAt = Date.now();
   let eventsProcessed = 0;
   let lastProcessedEventId = 0n;
+  const skipped: SkippedApply[] = [];
 
   try {
     await ensureRebuildSchema(db);
+    // Outside the rebuild tx, like the schema: idempotent DDL colliding
+    // inside the tx would roll the whole replay back.
+    if (skipApplyErrors) await createRebuildDeadLetterTable(db);
     await db.begin(async (tx: DbTx) => {
       await resetConsumerForMspRebuild(tx, mspName, SHARED_INSTANCE_SENTINEL);
       await selectConsumerForUpdate(tx, mspName, SHARED_INSTANCE_SENTINEL);
@@ -178,13 +192,31 @@ export async function rebuildMultiStreamProjection(
           });
           const applyFn = msp.apply[row.type];
           if (!applyFn) continue;
-          const rebuildCtx = createRebuildCtx(registry, tx, row.tenantId);
-          await applyFn(storedEvent, tx, rebuildCtx);
+          if (skipApplyErrors) {
+            // Driver-native savepoint: a throwing SQL statement would
+            // otherwise poison the rebuild tx (25P02) AND make the driver
+            // reject the whole begin() even after a caught error. Apply +
+            // ctx run on the savepoint-scoped handle.
+            try {
+              await runInSavepoint(tx, async (sp) => {
+                const rebuildCtx = createRebuildCtx(registry, sp as DbRunner, row.tenantId);
+                await applyFn(storedEvent, sp as DbRunner, rebuildCtx);
+              });
+            } catch (e) {
+              skipped.push({ event: storedEvent, error: e });
+            }
+          } else {
+            const rebuildCtx = createRebuildCtx(registry, tx, row.tenantId);
+            await applyFn(storedEvent, tx, rebuildCtx);
+          }
           eventsProcessed++;
           lastProcessedEventId = row.id;
         }
       }
 
+      if (skipped.length > 0) {
+        await recordRebuildDeadLetters(tx, mspName, skipped);
+      }
       await updateConsumerRebuildCursor(
         tx,
         mspName,
@@ -210,6 +242,7 @@ export async function rebuildMultiStreamProjection(
   const result: RebuildResult = {
     projection: mspName,
     eventsProcessed,
+    eventsSkipped: skipped.length,
     lastProcessedEventId,
     durationMs: Date.now() - startedAt,
   };

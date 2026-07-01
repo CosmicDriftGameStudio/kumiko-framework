@@ -109,6 +109,23 @@ export function asRawClient(db: unknown): RawClient {
   );
 }
 
+// postgres.js / Bun.SQL reject the WHOLE begin() when any statement inside
+// it errored — even if the JS error was caught (the driver tracks per-block
+// query failures). Error confinement therefore must go through the driver's
+// own savepoint(), not manual SAVEPOINT statements. The callback receives
+// the savepoint-scoped tx; run every confined statement on THAT handle.
+export async function runInSavepoint<T>(tx: unknown, fn: (sp: unknown) => Promise<T>): Promise<T> {
+  const raw = asRawClient(tx) as unknown as {
+    savepoint?: <TR>(cb: (sp: unknown) => Promise<TR>) => Promise<TR>;
+  };
+  if (typeof raw.savepoint !== "function") {
+    throw new Error(
+      "runInSavepoint: transaction handle has no savepoint() — pass the driver tx (postgres.js TransactionSql / Bun.SQL).",
+    );
+  }
+  return raw.savepoint(fn);
+}
+
 /**
  * When handlers call `selectMany(ctx.db, …)` instead of `ctx.db.selectMany(…)`,
  * unwrap via asRawClient would bypass TenantDb scoping. Duck-type TenantDb and

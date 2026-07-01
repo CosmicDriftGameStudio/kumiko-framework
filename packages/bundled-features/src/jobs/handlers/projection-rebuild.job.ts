@@ -6,10 +6,15 @@ import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import { z } from "zod";
 
-export const projectionRebuildPayloadSchema = z.object({ projection: z.string().min(1) });
+export const projectionRebuildPayloadSchema = z.object({
+  projection: z.string().min(1),
+  // Quarantine mode (#760): skip + dead-letter poison events instead of
+  // failing the whole rebuild. Operator opt-in per run.
+  skipApplyErrors: z.boolean().optional(),
+});
 
 export const projectionRebuildJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> => {
-  const { projection } = projectionRebuildPayloadSchema.parse(rawPayload);
+  const { projection, skipApplyErrors } = projectionRebuildPayloadSchema.parse(rawPayload);
   if (!ctx.db) {
     throw new InternalError({
       message:
@@ -23,8 +28,13 @@ export const projectionRebuildJob: JobHandlerFn = async (rawPayload, ctx): Promi
     });
   }
   const db = ctx.db as DbConnection; // @cast-boundary db-operator
-  const result = await rebuildProjection(projection, { db, registry: ctx.registry });
+  const result = await rebuildProjection(projection, {
+    db,
+    registry: ctx.registry,
+    ...(skipApplyErrors === true && { errorPolicy: { skipApplyErrors: true } }),
+  });
   ctx.log?.info?.(
-    `[jobs:projection-rebuild] rebuilt ${projection}: ${result.eventsProcessed} events in ${result.durationMs}ms`,
+    `[jobs:projection-rebuild] rebuilt ${projection}: ${result.eventsProcessed} events` +
+      `${result.eventsSkipped > 0 ? ` (${result.eventsSkipped} quarantined)` : ""} in ${result.durationMs}ms`,
   );
 };

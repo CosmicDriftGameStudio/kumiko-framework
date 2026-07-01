@@ -24,6 +24,14 @@ export {
   streamAllEventsByType,
 } from "./event-store";
 export { createEventsTable, eventsTable } from "./events-schema";
+export {
+  createRebuildDeadLetterTable,
+  listRebuildDeadLetters,
+  type RebuildDeadLetterRow,
+  rebuildDeadLetterTable,
+  recordRebuildDeadLetters,
+  type SkippedApply,
+} from "./rebuild-dead-letter";
 export { toStoredEvent } from "./row-to-stored-event";
 export {
   createSnapshotsTable,
