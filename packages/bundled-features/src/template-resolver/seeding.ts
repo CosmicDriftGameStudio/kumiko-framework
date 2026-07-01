@@ -43,12 +43,12 @@ export async function seedSystemTemplate(
   const by = opts.by ?? createSystemUser(tenantId);
   const tdb = createTenantDb(db, tenantId, "system");
 
-  const existing = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
+  const existing = (await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
     tenantId,
     slug: opts.slug,
     kind: opts.kind,
     locale: opts.locale,
-  });
+  })) as { id: string; version: number } | null;
 
   const variableSchema = JSON.stringify(opts.variableSchema ?? {});
   const linkedResources = JSON.stringify(opts.linkedResources ?? {});
@@ -94,3 +94,4 @@ export async function seedSystemTemplate(
     },
   });
 }
+
