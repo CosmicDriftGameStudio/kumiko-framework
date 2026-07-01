@@ -448,6 +448,71 @@ describe("invite-accept defense-in-depth (assertAssignableMembershipRoles)", () 
   });
 });
 
+describe("invite-accept-with-login/signup-complete defense-in-depth (637/1)", () => {
+  // Branch 1 (invite-accept, logged-in) and Branch 3 (invite-signup-complete)
+  // both route every new membership through seedTenantMembership, which
+  // calls assertAssignableMembershipRoles unconditionally (tenant/seeding.ts)
+  // — a forbidden invitation role is rejected outright, 403, before it ever
+  // reaches stripForbiddenMembershipRoles. Branch 2 (invite-accept-with-login)
+  // is different: it skips seedTenantMembership entirely when the user is
+  // ALREADY a member of the invited tenant (idempotent-accept path) — for
+  // that one case, stripForbiddenMembershipRoles at the session mint is the
+  // ONLY protection. Removing that call would silently mint a
+  // SystemAdmin-carrying session with no other test catching it.
+  test("invite-accept-with-login: already-member path strips a forbidden invitation role (seedTenantMembership's guard is skipped here)", async () => {
+    // Bob already has a (legitimate) membership in TENANT_A_ID — the
+    // handler's alreadyMember check short-circuits before seedTenantMembership,
+    // so assertAssignableMembershipRoles never runs for this accept.
+    await seedTenantMembership(stack.db, {
+      userId: bobId,
+      tenantId: TENANT_A_ID,
+      roles: ["User"],
+    });
+
+    // Create through the real command (valid role → real stream + version),
+    // then corrupt the row directly — the migration/DB-surgery scenario this
+    // depth-layer guards against, same framing as the Branch-1 test above.
+    const token = await inviteEmail(BOB_EMAIL, "Admin");
+    await asRawClient(stack.db).unsafe(
+      `UPDATE "${tenantInvitationsTable.tableName}" SET "role" = 'SystemAdmin' WHERE "email" = $1`,
+      [BOB_EMAIL],
+    );
+
+    const res = await stack.http.raw("POST", "/api/auth/invite-accept-with-login", {
+      token,
+      email: BOB_EMAIL,
+      password: BOB_PASSWORD,
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { user: { roles: string[] } };
+    expect(body.user.roles).toEqual([]);
+  });
+
+  test("invite-signup-complete: a brand-new user always hits seedTenantMembership's guard — forbidden role rejected, not silently stripped", async () => {
+    // Unlike Branch 2, a brand-new user can never be "already a member" —
+    // seedTenantMembership (and its assertAssignableMembershipRoles guard)
+    // runs unconditionally. Pins that this branch is NOT exposed to the
+    // Branch-2 gap, so a future refactor that adds an alreadyMember-style
+    // skip here would be caught immediately.
+    const daveEmail = "dave@example.com";
+    const token = await inviteEmail(daveEmail, "Admin");
+    await asRawClient(stack.db).unsafe(
+      `UPDATE "${tenantInvitationsTable.tableName}" SET "role" = 'SystemAdmin' WHERE "email" = $1`,
+      [daveEmail],
+    );
+
+    const res = await stack.http.raw("POST", "/api/auth/invite-signup-complete", {
+      token,
+      password: "dave-new-pw-1234",
+    });
+    expect(res.status).toBe(403);
+
+    // No user or membership was created — the whole write rolled back.
+    const daveRows = await selectMany(stack.db, userTable, { email: daveEmail });
+    expect(daveRows).toHaveLength(0);
+  });
+});
+
 describe("Single-Use-Burn (alle Branches)", () => {
   test("Branch 1: zweiter accept mit gleichem Token → invalid", async () => {
     const token = await inviteEmail(BOB_EMAIL, "Admin");
