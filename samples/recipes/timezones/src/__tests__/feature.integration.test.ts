@@ -91,9 +91,9 @@ describe("field types", () => {
 
     // A `date` field carries a calendar day; the read serializes it as an ISO
     // instant at UTC midnight ("2026-04-20T00:00:00Z").
-    expect(String(detail["dropoffOn"])).toContain("2026-04-20");
+    expect(detail["dropoffOn"]).toBe("2026-04-20T00:00:00Z");
     expect(detail["homeZone"]).toBe("Europe/Berlin");
-    expect(String(detail["bookedAt"])).toContain("2026-04-15T08:30");
+    expect(detail["bookedAt"]).toBe("2026-04-15T08:30:00Z");
   });
 });
 
