@@ -46,7 +46,10 @@ describe("createLiveDispatcher", () => {
     expect(headers["Content-Type"]).toBe("application/json");
     expect(headers["X-CSRF-Token"]).toBe("csrf-abc");
     const body = JSON.parse(call?.init.body as string);
-    expect(body).toEqual({ type: "app:write:task:create", payload: { title: "hello" } });
+    expect(body).toMatchObject({ type: "app:write:task:create", payload: { title: "hello" } });
+    // Auto-generated idempotency key (#761) — always present.
+    expect(typeof body.requestId).toBe("string");
+    expect(body.requestId.length).toBeGreaterThan(8);
   });
 
   test("write: propagates requestId into body when provided", async () => {
@@ -57,6 +60,43 @@ describe("createLiveDispatcher", () => {
 
     const body = JSON.parse(calls[0]?.init.body as string);
     expect(body.requestId).toBe("idem-99");
+  });
+
+  test("write: generates a fresh requestId per invocation when none provided (#761)", async () => {
+    const { fetch, calls } = makeFetch({ body: { isSuccess: true, data: {} } });
+    const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
+
+    await disp.write("app:write:x:create", { a: 1 });
+    await disp.write("app:write:x:create", { a: 1 });
+
+    const first = JSON.parse(calls[0]?.init.body as string).requestId;
+    const second = JSON.parse(calls[1]?.init.body as string).requestId;
+    expect(typeof first).toBe("string");
+    expect(typeof second).toBe("string");
+    expect(first).not.toBe(second);
+  });
+
+  test("batch: generates one requestId for the whole batch when none provided (#761)", async () => {
+    const { fetch, calls } = makeFetch({ body: { isSuccess: true, results: [] } });
+    const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
+
+    await disp.batch([
+      { type: "a", payload: {} },
+      { type: "b", payload: {} },
+    ]);
+
+    const body = JSON.parse(calls[0]?.init.body as string);
+    expect(typeof body.requestId).toBe("string");
+  });
+
+  test("batch: propagates an explicit requestId (#761)", async () => {
+    const { fetch, calls } = makeFetch({ body: { isSuccess: true, results: [] } });
+    const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
+
+    await disp.batch([{ type: "a", payload: {} }], { requestId: "batch-7" });
+
+    const body = JSON.parse(calls[0]?.init.body as string);
+    expect(body.requestId).toBe("batch-7");
   });
 
   test("write: no CSRF token → header omitted, request still fires (server will 401/csrf-mismatch)", async () => {
