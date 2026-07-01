@@ -13,10 +13,15 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, insertOne, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
-import { createRegistry, type Registry, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import {
+  createRegistry,
+  type Registry,
+  SYSTEM_TENANT_ID,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { archiveStream, createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createProjectionStateTable,
   rebuildProjection,
@@ -231,5 +236,55 @@ describe("#494 :: read_users-Rebuild bewahrt Lifecycle-State", () => {
       status: string;
     }>;
     expect(survived[0]?.status).toBe(USER_STATUS.Restricted);
+  });
+
+  test("a corrupt row (stream archived out from under it) is reported in `failed` — the rest of the estate still backfills", async () => {
+    // Real-world corruption: a stale tenant-lifecycle cleanup or an operator
+    // mistake archives a user's event stream while the read_users row still
+    // physically exists. This must land in `failed`, not abort the whole run
+    // — everything after it in the estate scan would otherwise silently miss
+    // its user.updated backfill (DSGVO data-loss on an unrelated row).
+    const hash = await hashPassword(ALICE_PW);
+    const goodRow = await stack.http.writeOk<{ id: string }>(
+      UserHandlers.create,
+      { email: "healthy.rebuild@example.com", passwordHash: hash, displayName: "Healthy" },
+      TestUsers.systemAdmin,
+    );
+    await updateMany(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: goodRow.id });
+
+    const badRow = await stack.http.writeOk<{ id: string }>(
+      UserHandlers.create,
+      { email: "corrupt.rebuild@example.com", passwordHash: hash, displayName: "Corrupt" },
+      TestUsers.systemAdmin,
+    );
+    await updateMany(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: badRow.id });
+    // userEntity is systemStream:true (schema/user.ts) — its event stream
+    // lives on SYSTEM_TENANT_ID regardless of the creating tenant. Archiving
+    // under any other tenant would be a silent no-op against assertStreamWritable.
+    await archiveStream(stack.db, {
+      tenantId: SYSTEM_TENANT_ID,
+      aggregateId: badRow.id,
+      aggregateType: "user",
+      archivedBy: "test-corruption",
+    });
+
+    const { backfilled, failed } = await backfillUserLifecycleEvents(stack.db);
+
+    expect(failed).toHaveLength(1);
+    expect(failed[0]?.id).toBe(badRow.id);
+    expect(backfilled).toBeGreaterThanOrEqual(1);
+
+    // Proof the loop didn't abort at the corrupt row: rebuild the projection —
+    // goodRow got its user.updated event (survives), badRow never did (wiped
+    // back to Active, exactly the data-loss this backfill exists to prevent).
+    await rebuildProjection(USER_PROJECTION, { db: stack.db, registry });
+    const rows = (await selectMany(stack.db, userTable, {})) as Array<{
+      id: string;
+      status: string;
+    }>;
+    const good = rows.find((r) => r.id === goodRow.id);
+    const bad = rows.find((r) => r.id === badRow.id);
+    expect(good?.status).toBe(USER_STATUS.Restricted);
+    expect(bad?.status).toBe(USER_STATUS.Active);
   });
 });
