@@ -205,6 +205,7 @@ describe("buildAppSchema", () => {
             id: "open",
             label: "Öffnen",
             screen: "detail",
+            rowClick: true,
             visible: { field: "status", ne: "archived" },
           },
           {
@@ -244,7 +245,11 @@ describe("buildAppSchema", () => {
     });
 
     // Explizit: FieldCondition-Varianten (eq, ne, boolean) landen unverändert an
-    const actions = screen?.rowActions as Array<{ id: string; visible?: unknown }>;
+    const actions = screen?.rowActions as Array<{
+      id: string;
+      visible?: unknown;
+      rowClick?: unknown;
+    }>;
     expect(actions?.find((a) => a.id === "open")?.visible).toEqual({
       field: "status",
       ne: "archived",
@@ -254,6 +259,9 @@ describe("buildAppSchema", () => {
       eq: "open",
     });
     expect(actions?.find((a) => a.id === "always")?.visible).toBe(true);
+
+    // rowClick (skalares Flag) überlebt die JSON-Projektion — nicht gedroppt.
+    expect(actions?.find((a) => a.id === "open")?.rowClick).toBe(true);
   });
 
   test("derivedFields werden ins Client-Schema projiziert (valueType, ohne derive-fn)", () => {

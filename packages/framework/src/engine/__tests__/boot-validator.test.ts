@@ -1983,6 +1983,39 @@ describe("boot-validator", () => {
     });
   });
 
+  // --- Tier 2.7e: rowAction rowClick (Row-Body-Klick) ---
+  describe("entityList rowAction rowClick", () => {
+    function makeFeature(rowClickCount: number) {
+      return defineFeature("shop", (r) => {
+        r.entity("product", createEntity({ fields: { name: createTextField() } }));
+        r.screen({ id: "product-editor", type: "custom", renderer: { react: "stub" } });
+        r.screen({
+          id: "product-list",
+          type: "entityList",
+          entity: "product",
+          columns: ["name"],
+          rowActions: Array.from({ length: rowClickCount }, (_, i) => ({
+            kind: "navigate" as const,
+            id: `open-${i}`,
+            label: "actions.edit",
+            screen: "product-editor",
+            rowClick: true,
+          })),
+        });
+      });
+    }
+
+    test("one rowClick navigate action passes boot", () => {
+      expect(() => validateBoot([makeFeature(1)])).not.toThrow();
+    });
+
+    test("more than one rowClick action per list is rejected", () => {
+      expect(() => validateBoot([makeFeature(2)])).toThrow(
+        /at most one may fire on a row-body click/i,
+      );
+    });
+  });
+
   // --- rowAction kind="writeHandler" handler-QN-Validierung (Tier 2.7e-1 erw.) ---
   describe("entityList rowAction kind=writeHandler handler-QN", () => {
     function makeFeature(handlerQn: string, register: boolean) {

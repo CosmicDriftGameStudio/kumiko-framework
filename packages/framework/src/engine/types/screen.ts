@@ -219,6 +219,11 @@ export type RowActionNavigate = {
   /** Conditional Visibility pro Row. */
   readonly visible?: FieldCondition;
   readonly style?: "primary" | "secondary";
+  /** Wenn true, löst ein Klick auf die ganze Zeile (nicht nur das Aktionsmenü)
+   *  diese navigate-Action aus. Max. eine pro Liste (Boot-Validator prüft). Nur
+   *  auf navigate — ein Row-Klick darf keinen (evtl. destruktiven, unbestätigten)
+   *  Write auslösen, daher nicht auf writeHandler-Actions. */
+  readonly rowClick?: boolean;
 };
 
 // ToolbarAction — Button im List-Header. Zwei Varianten: navigate auf

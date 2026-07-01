@@ -6,6 +6,7 @@ import type {
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
   RowAction,
+  RowActionNavigate,
   RowActionWriteHandler,
   RowFieldExtractor,
   ScreenDefinition,
@@ -770,6 +771,45 @@ function EntityListBody({
   // Discriminated Union: writeHandler (default) dispatched einen Server-
   // Handler, navigate ruft nav.navigate() ggf. mit URL-Search-Params aus
   // params(row). nav lebt schon weiter unten in EntityListBody-Scope.
+  // Gemeinsame navigate-Ausführung: sowohl das "…"-Aktionsmenü (rowActions) als
+  // auch der Row-Body-Klick (rowClick) laufen hierdurch — ein Pfad, damit beide
+  // nicht auseinanderdriften.
+  const runNavigate = useCallback(
+    (action: RowActionNavigate, row: ListRowViewModel) => {
+      // Default entityId für entityEdit-Targets: row["id"] wenn kein expliziter
+      // entityId-Feldname gesetzt ist. Nur für Targets DERSELBEN Entity — sonst
+      // bekäme ein Cross-Entity-Edit-Screen die falsche row.id injiziert.
+      const targetIsEntityEdit = schema.screens.some(
+        (s) =>
+          s.type === "entityEdit" &&
+          s.entity === screen.entity &&
+          lastSegment(s.id) === action.screen,
+      );
+      const explicit =
+        action.entityId !== undefined ? String(row.values[action.entityId] ?? "") : undefined;
+      const fallback = targetIsEntityEdit ? String(row.values["id"] ?? "") : undefined;
+      const entityId = explicit ?? fallback;
+      nav.navigate({
+        screenId: action.screen,
+        ...(entityId !== undefined && entityId !== "" && { entityId }),
+      });
+      const params =
+        action.params !== undefined ? evalRowExtractor(action.params, row.values) : undefined;
+      if (params !== undefined) {
+        // setSearchParams nimmt string|null — komplexe Werte zu String (der Reader
+        // kennt via URL nur Strings). Known-edge: zielt die Action auf den
+        // AKTUELLEN pathname, mergen die Params auf den alten ?-String (für
+        // Row-Actions praktisch nicht erreichbar, Pfad differiert).
+        const stringified: Record<string, string | null> = {};
+        for (const [k, v] of Object.entries(params)) {
+          stringified[k] = v === null || v === undefined ? null : String(v);
+        }
+        nav.setSearchParams(stringified);
+      }
+    },
+    [nav, schema.screens, screen.entity],
+  );
+
   const rowActions = useMemo(() => {
     if (screen.rowActions === undefined) return undefined;
     return screen.rowActions
@@ -777,58 +817,13 @@ function EntityListBody({
         // navigate-Variante braucht keinen Dispatcher; nav ist
         // immer da (Provider von createKumikoApp).
         if (action.kind === "navigate") {
-          // Default entityId für entityEdit-Targets: row["id"] wenn
-          // kein expliziter entityId-Feldname gesetzt ist. Nur für Targets
-          // DERSELBEN Entity — ein Cross-Entity-Edit-Screen bekäme sonst die
-          // falsche row.id injiziert, und "Duplicate → Create"-Patterns
-          // würden in den Update-Mode gezwungen. Cross-Entity-Navigation
-          // setzt action.entityId explizit.
-          const targetIsEntityEdit = schema.screens.some(
-            (s) =>
-              s.type === "entityEdit" &&
-              s.entity === screen.entity &&
-              lastSegment(s.id) === action.screen,
-          );
+          const navigateAction = action;
           const actionVisible = action.visible;
           return {
             id: action.id,
             label: effectiveTranslate(action.label),
             ...(action.style !== undefined && { style: action.style }),
-            onTrigger: (row: ListRowViewModel) => {
-              const explicit =
-                action.entityId !== undefined
-                  ? String(row.values[action.entityId] ?? "")
-                  : undefined;
-              const fallback = targetIsEntityEdit ? String(row.values["id"] ?? "") : undefined;
-              const entityId = explicit ?? fallback;
-              nav.navigate({
-                screenId: action.screen,
-                ...(entityId !== undefined && entityId !== "" && { entityId }),
-              });
-              const params =
-                action.params !== undefined
-                  ? evalRowExtractor(action.params, row.values)
-                  : undefined;
-              if (params !== undefined) {
-                // setSearchParams nimmt string|null. Komplexe Werte
-                // (number/boolean) wandeln wir zu String — der Reader
-                // (use-list-url-state / actionForm-init) kennt nur
-                // Strings via URL.
-                const stringified: Record<string, string | null> = {};
-                for (const [k, v] of Object.entries(params)) {
-                  stringified[k] = v === null || v === undefined ? null : String(v);
-                }
-                // NACH navigate: pushState trägt keine Query — Params die
-                // vor dem Push gesetzt werden, kleben an der ALTEN URL und
-                // sind auf dem Ziel-Screen weg (actionForm-Prefill leer).
-                // Bekannte Kante (bewusst offen): zielt die Action auf den
-                // AKTUELLEN pathname, short-circuit't pushPath ohne die Query
-                // zu leeren — die neuen Params mergen dann auf den alten
-                // ?-String. Für Row-Actions praktisch nicht erreichbar
-                // (Pfad differiert über entityId/screen).
-                nav.setSearchParams(stringified);
-              }
-            },
+            onTrigger: (row: ListRowViewModel) => runNavigate(navigateAction, row),
             ...(actionVisible !== undefined && {
               isVisible: (row: ListRowViewModel) => evalFieldCondition(actionVisible, row.values),
             }),
@@ -872,7 +867,7 @@ function EntityListBody({
         };
       })
       .filter((a: DataTableRowAction | null): a is DataTableRowAction => a !== null);
-  }, [screen.rowActions, screen.entity, effectiveTranslate, dispatcher, nav, schema.screens]);
+  }, [screen.rowActions, effectiveTranslate, dispatcher, runNavigate]);
 
   // ToolbarActions: Schema → Resolved-Form (analog rowActions).
   // navigate-kind → useNav().navigate({ screenId }), writeHandler-kind
@@ -930,8 +925,16 @@ function EntityListBody({
   // 2-arg shape (row, entityName) is the public surface — thread the
   // screen's entity through here so callers don't have to re-derive
   // it.
-  const wrappedOnRowClick =
-    onRowClick !== undefined
+  // Row-Body-Klick: eine explizit als rowClick markierte navigate-rowAction
+  // gewinnt (deklarierte Author-Absicht "Klick auf die Zeile tut X"). Ohne Flag
+  // bleibt der Pfad unverändert — create-app's entityEdit-Default bzw. ein vom
+  // App-Author gesetztes onRowClick.
+  const rowClickAction = screen.rowActions?.find(
+    (a): a is RowActionNavigate => a.kind === "navigate" && a.rowClick === true,
+  );
+  const wrappedOnRowClick = rowClickAction
+    ? (row: ListRowViewModel) => runNavigate(rowClickAction, row)
+    : onRowClick !== undefined
       ? (row: ListRowViewModel) => onRowClick(row, screen.entity)
       : undefined;
 
