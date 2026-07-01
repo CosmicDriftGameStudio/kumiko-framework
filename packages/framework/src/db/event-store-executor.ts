@@ -865,7 +865,13 @@ export function createEventStoreExecutor(
       }
 
       // Read-Side Auto-Convert für Compound-Types (parallel zu update/list).
-      const restoredHydrated = rehydrateCompoundTypes(restored as DbRow, entity) as DbRow;
+      // decryptForRead matches create/update/list/detail: the caller-facing
+      // row and `previous` snapshot must be plaintext for `encrypted` fields,
+      // same as every other executor method — `data`/`restored` are raw rows
+      // (selectMany / applyEntityEvent), never decrypted before this point.
+      const restoredHydrated = decryptForRead(
+        rehydrateCompoundTypes(restored as DbRow, entity) as DbRow,
+      );
 
       return {
         isSuccess: true,
@@ -874,7 +880,7 @@ export function createEventStoreExecutor(
           id: payload.id,
           data: restoredHydrated,
           changes: { isDeleted: false },
-          previous: data,
+          previous: decryptForRead(data),
           isNew: false,
           entityName,
           event,
