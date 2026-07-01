@@ -1,5 +1,11 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.105.2
+
+### Patch Changes
+
+- a305251: Add `userEmailBeforeDelete` to `UserDataHookCtx` so forget delete-hooks can match user-owned rows across every tenant pass before the user row is anonymized.
+
 ## 0.105.1
 
 ## 0.105.0
