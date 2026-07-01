@@ -106,15 +106,6 @@ export function runMatrix<T extends string>(
         }, locale);
         await openScenario(page, s);
 
-        // Theme/viewport swaps must capture the SETTLED frame, not a
-        // mid-transition one: a heavy screen (e.g. a 400-entry zone combobox)
-        // can leave a colour transition unfinished at capture time, so the
-        // dark-theme cell shows a half-light card. Killing transitions makes
-        // every theme swap snap instantly.
-        await page.addStyleTag({
-          content: "*,*::before,*::after{transition:none!important;animation:none!important;}",
-        });
-
         for (const theme of themes) {
           await opts.applyTheme(page, theme);
           for (const vp of viewports) {
@@ -123,7 +114,10 @@ export function runMatrix<T extends string>(
             const dir = `${opts.baseDir}/${s.name}/${locale}/${theme}`;
             mkdirSync(dir, { recursive: true });
             const path = `${dir}/${vp}.png`;
-            await page.screenshot({ path, fullPage: s.fullPage ?? false });
+            // animations: "disabled" wirkt auf Engine-Ebene (springt laufende
+            // Transitions/Animationen sofort auf den Endstate) — immun gegen
+            // CSS-Spezifität, anders als eine addStyleTag-Injektion.
+            await page.screenshot({ path, fullPage: s.fullPage ?? false, animations: "disabled" });
             expect.soft(statSync(path).size).toBeGreaterThan(MIN_BYTES);
           }
         }

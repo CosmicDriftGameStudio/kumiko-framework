@@ -300,11 +300,17 @@ describe("CustomFieldsFormSection — clear-Pfad", () => {
     );
 
     const vendorInput = document.getElementById("custom-field-vendor") as HTMLInputElement;
+    const saveBtn = screen.getByTestId("custom-fields-form-save") as HTMLButtonElement;
     // Tippen + zurück auf den Bestandswert → nicht dirty, kein Write.
     await user.type(vendorInput, "2");
     await user.type(vendorInput, "{Backspace}");
-    await user.click(screen.getByTestId("custom-fields-form-save"));
-    await waitFor(() => expect(dispatchSpy).not.toHaveBeenCalled());
+    // Positiver Anker: erst abwarten, dass der Save-Button wieder disabled ist
+    // (beweist, dass die dirty-Neuberechnung durchgelaufen ist), statt direkt
+    // eine negative Assertion in waitFor zu pollen (die beim ersten Tick
+    // trivial besteht und keine ausstehenden Async-Effekte abwartet).
+    await waitFor(() => expect(saveBtn.disabled).toBe(true));
+    await user.click(saveBtn);
+    expect(dispatchSpy).not.toHaveBeenCalled();
   });
 });
 

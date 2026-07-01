@@ -19,6 +19,7 @@ import {
   defineEntityUpdateHandler,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
 
 // One delivery, four kinds of time:
@@ -65,7 +66,9 @@ export const timezonesFeature = defineFeature("timezones", (r) => {
   // delivery read, so it returns its own shape unfiltered.
   r.queryHandler(
     "day-window",
-    z.object({ zone: z.string() }),
+    z.object({
+      zone: z.string().refine(isValidIanaTimeZone, { message: "Invalid IANA timezone" }),
+    }),
     async (query, ctx) => {
       const { start, end } = ctx.tz.todayRange(query.payload.zone);
       return {

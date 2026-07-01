@@ -141,6 +141,17 @@ describe("day-window query (todayRange)", () => {
     // Tokyo has no DST, so today's window is exactly 24 hours.
     expect(Date.parse(window.end) - Date.parse(window.start)).toBe(24 * 60 * 60 * 1000);
   });
+
+  test("invalid zone is rejected with validation_error, not a raw RangeError", async () => {
+    const res = await stack.http.query(
+      "timezones:query:day-window",
+      { zone: "Nowhere/Nope" },
+      admin,
+    );
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("validation_error");
+  });
 });
 
 // --- ctx.tz.fromCoordinates — GeoTzProvider seam ---

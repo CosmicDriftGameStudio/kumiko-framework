@@ -150,8 +150,8 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     // are orphaned in the provider; cleanup-jobs sweep those later. Losing a
     // row on append-failure is acceptable; corrupting a committed row with a
     // missing binary is not.
-    const data = new Uint8Array(await file.arrayBuffer());
     const storageProvider = await options.resolveProvider(user.tenantId);
+    const data = new Uint8Array(await file.arrayBuffer());
     await storageProvider.write(storageKey, data, file.type);
 
     // Create via the standard entity executor: emits fileRef.created +

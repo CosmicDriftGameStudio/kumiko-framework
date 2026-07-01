@@ -1,6 +1,7 @@
-import type {
-  EntityEditScreenDefinition,
-  EntityListScreenDefinition,
+import {
+  access,
+  type EntityEditScreenDefinition,
+  type EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 
 // Read-only operator inspector for the GDPR data-rights read-models. All
@@ -28,7 +29,7 @@ export const exportJobListScreen: EntityListScreenDefinition = {
     },
   ],
   searchable: false,
-  access: { roles: ["SystemAdmin"] },
+  access: { roles: access.systemAdmin },
 };
 
 export const exportJobDetailScreen: EntityEditScreenDefinition = {
@@ -58,7 +59,7 @@ export const exportJobDetailScreen: EntityEditScreenDefinition = {
   // exists, and the export lifecycle is driven by the worker, not an operator.
   allowCreate: false,
   allowDelete: false,
-  access: { roles: ["SystemAdmin"] },
+  access: { roles: access.systemAdmin },
 };
 
 export const downloadAttemptListScreen: EntityListScreenDefinition = {
@@ -67,5 +68,5 @@ export const downloadAttemptListScreen: EntityListScreenDefinition = {
   entity: "download-attempt",
   columns: ["attemptedAt", "result", "via", "ip", "attemptedByUserId", "jobId"],
   searchable: false,
-  access: { roles: ["SystemAdmin"] },
+  access: { roles: access.systemAdmin },
 };

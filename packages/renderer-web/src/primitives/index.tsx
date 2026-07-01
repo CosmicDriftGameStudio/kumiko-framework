@@ -1431,12 +1431,12 @@ function DefaultSection({ title, subtitle, children, actions, testId }: SectionP
           </h3>
         )}
         {subtitle !== undefined && (
-          <p
+          <div
             data-testid={testId !== undefined ? `${testId}-subtitle` : undefined}
             className="text-sm text-muted-foreground"
           >
             {subtitle}
-          </p>
+          </div>
         )}
       </div>
     ) : null;
