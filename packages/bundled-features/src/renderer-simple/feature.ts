@@ -1,5 +1,11 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { RendererError, type RenderRequest, type RenderResponse } from "../renderer-foundation";
+import {
+  type RendererContext,
+  RendererError,
+  type RenderRequest,
+  type RenderResponse,
+} from "../renderer-foundation";
+import { resolveNotificationVariables } from "./resolve-variables";
 import { simpleRenderer } from "./simple-renderer";
 
 // Adapter: simpleRenderer.render hat `Promise<string>`-Signatur (Legacy
@@ -9,7 +15,10 @@ import { simpleRenderer } from "./simple-renderer";
 // Inline-CSS) und packt sie in den RendererPlugin-Contract.
 //
 // Exported damit der Adapter-Pfad direkt testbar ist (unit-test).
-export async function adaptToFoundation(req: RenderRequest): Promise<RenderResponse> {
+export async function adaptToFoundation(
+  req: RenderRequest,
+  ctx: RendererContext,
+): Promise<RenderResponse> {
   if (req.kind !== "notification") {
     // Defensiver Guard — Foundation wählt Plugins nur für matching kinds,
     // dieser Pfad sollte unter normalen Umständen nie erreicht werden.
@@ -18,9 +27,10 @@ export async function adaptToFoundation(req: RenderRequest): Promise<RenderRespo
       "invalid_payload",
     );
   }
+  const variables = await resolveNotificationVariables(req, ctx);
   const html = await simpleRenderer.render({
     template: req.payload.template ?? "",
-    variables: req.payload.variables ?? {},
+    variables,
   });
   return { kind: "notification", html };
 }
@@ -36,6 +46,7 @@ export function createRendererSimpleFeature(): FeatureDefinition {
       recommended: false,
     });
     r.requires("renderer-foundation");
+    r.optionalRequires("template-resolver");
 
     r.useExtension("renderer", "simple", {
       kinds: ["notification"] as const,
