@@ -48,9 +48,11 @@ type QueryResponses = {
 function makeDispatcher(
   responses: QueryResponses,
   writes: Array<{ type: string; payload: unknown }>,
+  queries: Array<{ type: string; payload: unknown }> = [],
 ): Dispatcher {
   const statusStore = createStore<DispatcherStatus>("online");
-  const query = (async (type: string) => {
+  const query = (async (type: string, payload: unknown) => {
+    queries.push({ type, payload });
     if (type === USER_ME_QUERY) return { isSuccess: true, data: responses.me };
     if (type === UserDataRightsQueries.exportStatus) {
       return { isSuccess: true, data: responses.exportStatus ?? { hasJob: false } };
@@ -74,11 +76,16 @@ function makeDispatcher(
   } as unknown as Dispatcher; // @cast-boundary test-stub
 }
 
-function renderCenter(responses: QueryResponses): {
+function renderCenter(
+  responses: QueryResponses,
+  opts: { readonly showDeletion?: boolean } = {},
+): {
   view: ReturnType<typeof render>;
   writes: Array<{ type: string; payload: unknown }>;
+  queries: Array<{ type: string; payload: unknown }>;
 } {
   const writes: Array<{ type: string; payload: unknown }> = [];
+  const queries: Array<{ type: string; payload: unknown }> = [];
   const wrapper = ({ children }: { readonly children: ReactNode }): ReactNode => (
     <TokensProvider value={stubTokens}>
       <LocaleProvider
@@ -87,7 +94,7 @@ function renderCenter(responses: QueryResponses): {
       >
         <PrimitivesProvider value={defaultPrimitives}>
           <LiveEventsProvider value={stubLiveEvents}>
-            <DispatcherProvider dispatcher={makeDispatcher(responses, writes)}>
+            <DispatcherProvider dispatcher={makeDispatcher(responses, writes, queries)}>
               {children}
             </DispatcherProvider>
           </LiveEventsProvider>
@@ -95,8 +102,10 @@ function renderCenter(responses: QueryResponses): {
       </LocaleProvider>
     </TokensProvider>
   );
-  const view = render(<PrivacyCenterScreen />, { wrapper });
-  return { view, writes };
+  const view = render(<PrivacyCenterScreen showDeletion={opts.showDeletion ?? true} />, {
+    wrapper,
+  });
+  return { view, writes, queries };
 }
 
 const activeMe = {
@@ -196,6 +205,32 @@ describe("PrivacyCenterScreen", () => {
       if (writes.length === 0) throw new Error("no write dispatched");
     });
     expect(writes[0]?.type).toBe(UserDataRightsHandlers.requestExport);
+  });
+
+  test("showDeletion=false: keine Lösch-Sektion", async () => {
+    const { view } = renderCenter({ me: activeMe }, { showDeletion: false });
+    await waitForMount(view);
+    expect(view.queryByTestId("privacy-deletion")).toBeNull();
+    expect(view.queryByTestId("privacy-deletion-delete")).toBeNull();
+  });
+
+  test("Download-Button dispatcht downloadByJob mit der korrekten jobId", async () => {
+    const { view, queries } = renderCenter({
+      me: activeMe,
+      exportStatus: {
+        hasJob: true,
+        job: { id: "job-123", status: EXPORT_JOB_STATUS.Done, expiresAt: "2026-07-11T00:00:00Z" },
+      },
+    });
+    await waitForMount(view);
+    fireEvent.click(view.getByTestId("privacy-export-download"));
+    await waitFor(() => {
+      if (!queries.some((q) => q.type === UserDataRightsQueries.downloadByJob)) {
+        throw new Error("no downloadByJob query dispatched");
+      }
+    });
+    const download = queries.find((q) => q.type === UserDataRightsQueries.downloadByJob);
+    expect(download?.payload).toEqual({ jobId: "job-123" });
   });
 });
 

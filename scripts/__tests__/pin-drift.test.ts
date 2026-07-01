@@ -20,6 +20,12 @@ function hasJq(): boolean {
   }
 }
 
+// This suite guards the pin-drift check itself — a silent skip when `jq` is
+// missing would look green while providing zero protection. Fail loudly instead.
+if (!hasJq()) {
+  throw new Error("pin-drift.jq guard test requires `jq` on PATH (CI images ship it; `brew install jq` locally)");
+}
+
 const EXPECTED = {
   "@cosmicdrift/kumiko-dev-server": "0.67.0",
   "@cosmicdrift/kumiko-framework": "0.67.0",
@@ -33,7 +39,7 @@ function runGuard(manifest: Record<string, unknown>): string {
   ).trim();
 }
 
-describe.skipIf(!hasJq())("pin-drift.jq guard", () => {
+describe("pin-drift.jq guard", () => {
   test("independent version line (cli pins dev-server@0.67) passes clean", () => {
     expect(runGuard({ dependencies: { "@cosmicdrift/kumiko-dev-server": "0.67.0" } })).toBe("");
   });
@@ -68,6 +74,12 @@ describe.skipIf(!hasJq())("pin-drift.jq guard", () => {
   test("peerDependency drift is reported", () => {
     expect(runGuard({ peerDependencies: { "@cosmicdrift/kumiko-dev-server": "0.66.0" } })).toBe(
       "@cosmicdrift/kumiko-dev-server@0.66.0 (expected 0.67.0)",
+    );
+  });
+
+  test("optionalDependency drift is reported (same treatment as dependencies/peerDependencies)", () => {
+    expect(runGuard({ optionalDependencies: { "@cosmicdrift/kumiko-framework": "0.60.0" } })).toBe(
+      "@cosmicdrift/kumiko-framework@0.60.0 (expected 0.67.0)",
     );
   });
 });

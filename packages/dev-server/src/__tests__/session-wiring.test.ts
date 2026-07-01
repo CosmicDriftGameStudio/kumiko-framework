@@ -1,4 +1,8 @@
 import { describe, expect, it } from "bun:test";
+import {
+  createSessionsFeature,
+  SESSIONS_FEATURE,
+} from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { resolveProdSessionsConfig, shouldWireProdSessions } from "../session-wiring";
 
 describe("shouldWireProdSessions — secure-by-default with opt-out (KF-1)", () => {
@@ -22,6 +26,16 @@ describe("shouldWireProdSessions — secure-by-default with opt-out (KF-1)", () 
 
   it("does not wire when the app has no auth at all", () => {
     expect(shouldWireProdSessions(false, true, undefined)).toBe(false);
+  });
+});
+
+describe("SESSIONS_FEATURE constant matches the real feature name", () => {
+  it("createSessionsFeature()'s name equals SESSIONS_FEATURE", () => {
+    // shouldWireProdSessions's own arm only tests the pure boolean helper —
+    // the actual run-prod-app.ts integration seam
+    // (`features.some((f) => f.name === SESSIONS_FEATURE)`) drifts silently
+    // if the feature is ever renamed without updating this constant.
+    expect(createSessionsFeature().name).toBe(SESSIONS_FEATURE);
   });
 });
 

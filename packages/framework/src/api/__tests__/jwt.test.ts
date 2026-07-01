@@ -26,6 +26,17 @@ function forge(claims: Record<string, unknown>): Promise<string> {
     .sign(new TextEncoder().encode(SECRET));
 }
 
+// Same as forge(), but never calls .setSubject() — the only way to produce a
+// validly-signed token with no `sub` claim at all (forge() always sets one).
+function forgeNoSub(claims: Record<string, unknown>): Promise<string> {
+  return new jose.SignJWT(claims)
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuer(ISSUER)
+    .setIssuedAt()
+    .setExpirationTime("1h")
+    .sign(new TextEncoder().encode(SECRET));
+}
+
 describe("createJwtHelper.verify — payload validation (KF-2)", () => {
   const jwt = createJwtHelper(SECRET);
 
@@ -54,5 +65,21 @@ describe("createJwtHelper.verify — payload validation (KF-2)", () => {
   it("rejects a token whose roles array contains a non-string", async () => {
     const token = await forge({ tenantId: TENANT, roles: ["ok", 7] });
     await expect(jwt.verify(token)).rejects.toThrow(/roles/);
+  });
+
+  it("rejects a validly-signed token with no sub claim", async () => {
+    const token = await forgeNoSub({ tenantId: TENANT, roles: ["TenantAdmin"] });
+    await expect(jwt.verify(token)).rejects.toThrow(/sub/);
+  });
+
+  it("rejects a token whose sub claim is an empty string", async () => {
+    const token = await new jose.SignJWT({ tenantId: TENANT, roles: ["TenantAdmin"] })
+      .setProtectedHeader({ alg: "HS256" })
+      .setSubject("")
+      .setIssuer(ISSUER)
+      .setIssuedAt()
+      .setExpirationTime("1h")
+      .sign(new TextEncoder().encode(SECRET));
+    await expect(jwt.verify(token)).rejects.toThrow(/sub/);
   });
 });

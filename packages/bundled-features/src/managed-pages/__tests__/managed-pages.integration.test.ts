@@ -160,6 +160,16 @@ describe("managed-pages :: Cache + Security-Header", () => {
     });
     expect(second.status).toBe(304);
   });
+
+  test("HEAD → 200 without body, etag present", async () => {
+    // legal-pages got this HEAD-early-exit test alongside its identical
+    // Cache/Header pattern; managed-pages received the same HEAD codepath
+    // in the same PR but not the test.
+    const res = await stack.app.request("http://a.example.com/p/about", { method: "HEAD" });
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("");
+    expect(res.headers.get("etag")).toBeTruthy();
+  });
 });
 
 describe("managed-pages :: XSS-Härtung", () => {

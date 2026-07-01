@@ -8,7 +8,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { type JobContext, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createInMemoryFileProvider,
   type FileStorageProvider,
@@ -21,7 +21,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import { bridgeStub, resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createConfigFeature } from "../../config";
 import { createConfigAccessorFactory } from "../../config/feature";
@@ -53,6 +53,7 @@ let seed: ForgetSeeders;
 // Per-tenant resolver the forget pipeline uses — built from the stack's
 // configResolver, resolves "test" → the test provider plugin → `provider`.
 let buildStorageProvider: (tenantId: string) => Promise<FileStorageProvider>;
+let configResolverForJobCtx: ReturnType<typeof createConfigResolver>;
 
 const TENANT = "00000000-0000-4000-8000-00000000000c";
 
@@ -67,6 +68,7 @@ beforeAll(async () => {
   // via a config app-override (no admin write needed).
   const appOverrides = new Map<string, string>([[FILE_PROVIDER_CONFIG_KEY, "test"]]);
   const resolver = createConfigResolver({ appOverrides });
+  configResolverForJobCtx = resolver;
   stack = await setupTestStack({
     features: [
       createConfigFeature(),
@@ -174,5 +176,45 @@ describe("forget-binary-cleanup :: storage.delete fires before row hard-delete",
 
     expect(await provider.exists(myKey)).toBe(false);
     expect(await provider.exists(otherKey)).toBe(true);
+  });
+});
+
+describe("run-forget-cleanup :: registered cron actually erases binaries (not just row-only)", () => {
+  test("the registered job — via a real configResolver + file-provider — deletes the binary", async () => {
+    // The dedicated cron-registration test (run-forget-cleanup.integration.test.ts)
+    // drives the job with `{ db, registry }` only — no configResolver, no file
+    // provider registered. `resolveProvider` throws internally, `resolveProvider`
+    // failure is caught and the hook does a row-only delete. So the cron proves
+    // status-flip + PII-anonymize but NEVER the actual Art.17 binary-erasure path.
+    const userId = uuid(4);
+    await seed.seedForgetUser(userId);
+    await seed.seedMembership(userId, TENANT);
+    const key = await seed.seedFile(uuid(401), TENANT, userId);
+    expect(await provider.exists(key)).toBe(true);
+
+    const job = stack.registry.getJob("user-data-rights:job:run-forget-cleanup");
+    expect(job).toBeDefined();
+    if (!job) return;
+
+    const ctx: JobContext = {
+      db,
+      registry: stack.registry,
+      configResolver: configResolverForJobCtx,
+      systemUser: { id: SYSTEM_USER_ID, tenantId: TENANT, roles: ["all"] },
+      log: {
+        info() {},
+        warn() {},
+        error() {},
+        debug() {},
+        child(): JobContext["log"] {
+          return this;
+        },
+      },
+      triggeredBy: null,
+      ...bridgeStub(),
+    };
+    await job.handler({}, ctx);
+
+    expect(await provider.exists(key)).toBe(false);
   });
 });

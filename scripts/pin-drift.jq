@@ -6,7 +6,7 @@
 # Compares each pin against the DEPENDENCY's version, not the depending package's:
 # cli runs an independent version line (0.2.x) yet correctly pins dev-server@0.67.x.
 # Deps outside the workspace ($expected[.key] == null) are external pins → skipped.
-((.dependencies // {}) + (.peerDependencies // {}))
+((.dependencies // {}) + (.peerDependencies // {}) + (.optionalDependencies // {}))
 | to_entries
 | map(
     select(
