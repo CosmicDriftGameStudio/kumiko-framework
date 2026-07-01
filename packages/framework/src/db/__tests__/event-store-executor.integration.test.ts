@@ -313,6 +313,16 @@ const encryptedEntity = createEntity({
 });
 const encryptedTable = buildEntityTable("esExecEncrypted", encryptedEntity);
 
+const encryptedSoftDeleteEntity = createEntity({
+  table: "read_es_exec_enc_soft",
+  fields: {
+    email: createTextField({ required: true }),
+    secretNote: createTextField({ encrypted: true }),
+  },
+  softDelete: true,
+});
+const encryptedSoftDeleteTable = buildEntityTable("esExecEncSoft", encryptedSoftDeleteEntity);
+
 describe("event-store-executor — encrypted fields", () => {
   const encryption = createEncryptionProvider(ENCRYPTION_TEST_KEY);
   const crud = createEventStoreExecutor(encryptedTable, encryptedEntity, {
@@ -320,15 +330,22 @@ describe("event-store-executor — encrypted fields", () => {
     encryption,
   });
 
+  const softDeleteCrud = createEventStoreExecutor(
+    encryptedSoftDeleteTable,
+    encryptedSoftDeleteEntity,
+    { entityName: "esExecEncSoft", encryption },
+  );
+
   beforeAll(async () => {
     process.env["ENCRYPTION_KEY"] = ENCRYPTION_TEST_KEY;
     resetEntityFieldEncryptionCacheForTests();
     await unsafeCreateEntityTable(testDb.db, encryptedEntity, "esExecEncrypted");
+    await unsafeCreateEntityTable(testDb.db, encryptedSoftDeleteEntity, "esExecEncSoft");
   });
 
   beforeEach(async () => {
     await asRawClient(testDb.db).unsafe(
-      `TRUNCATE kumiko_events, read_es_exec_encrypted RESTART IDENTITY CASCADE`,
+      `TRUNCATE kumiko_events, read_es_exec_encrypted, read_es_exec_enc_soft RESTART IDENTITY CASCADE`,
     );
   });
 
@@ -419,6 +436,28 @@ describe("event-store-executor — encrypted fields", () => {
     const storedPrevious = rows[0]?.payload.previous?.secretNote;
     expect(storedPrevious).toBeDefined();
     expect(storedPrevious).not.toBe("delete-plaintext-note");
+  });
+
+  test("restore returns plaintext (data + previous) for an encrypted field, not ciphertext (725/2)", async () => {
+    // Regression: restore() read `restored`/`data` straight from
+    // applyEntityEvent/selectMany (both ciphertext for an `encrypted` field)
+    // and returned them without decryptForRead — unlike create/update/list/
+    // detail, which all decrypt before handing the row to the caller.
+    const created = await softDeleteCrud.create(
+      { email: "restore-enc@test.de", secretNote: "restore-plaintext-note" },
+      adminUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+
+    const deleted = await softDeleteCrud.delete({ id: created.data.id }, adminUser, tdb);
+    if (!deleted.isSuccess) throw new Error("delete failed");
+
+    const restored = await softDeleteCrud.restore({ id: created.data.id }, adminUser, tdb);
+    if (!restored.isSuccess) throw new Error("restore failed");
+
+    expect(restored.data.data["secretNote"]).toBe("restore-plaintext-note");
+    expect(restored.data.previous?.["secretNote"]).toBe("restore-plaintext-note");
   });
 });
 
