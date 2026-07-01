@@ -13,7 +13,7 @@ import {
   transactionExecutor,
   transactionTable,
 } from "../executor";
-import { isoMonth, scheduleReference } from "../recurring";
+import { findReversedIds, isoMonth, scheduleReference } from "../recurring";
 import { type ConfirmSchedulePeriodPayload, confirmSchedulePeriodPayloadSchema } from "../schemas";
 
 // confirm-schedule-period — turn ONE projected period of a schedule into a posted,
@@ -78,8 +78,13 @@ export function createConfirmSchedulePeriodHandler(
               reference: { in: candidateIds },
             })
           : [];
-      const reversedCandidateIds = new Set(stornos.map((r) => String(r["reference"])));
-      const active = candidates.find((r) => !reversedCandidateIds.has(String(r["id"])));
+      const reversedIds = findReversedIds(
+        [...candidates, ...stornos].map((r) => ({
+          id: String(r["id"]),
+          reference: r["reference"] === null ? null : String(r["reference"]),
+        })),
+      );
+      const active = candidates.find((r) => !reversedIds.has(String(r["id"])));
       if (active) {
         const ok: WriteResult<{ id: string; alreadyBooked: true }> = {
           isSuccess: true,

@@ -1,9 +1,7 @@
 import type { EditSectionViewModel, SubmitResult } from "@cosmicdrift/kumiko-headless";
 
-// A read-only inspector form — every field readOnly, no editable section — has
-// nothing to submit, so the renderer drops the Save button rather than show a
-// dead disabled one. An extension section carries its own dirty/save, so it
-// counts as editable.
+// Hides the Save button when no field is editable and no extension section
+// exists (extension carries its own dirty/save; a purely read-only form has nothing to submit).
 export function hasEditableSection(sections: readonly EditSectionViewModel[]): boolean {
   return sections.some((s) => s.kind !== "fields" || s.fields.some((f) => !f.readOnly));
 }

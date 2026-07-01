@@ -44,34 +44,24 @@ const BILLING_LIVE_HANDLE: ConfigKeyHandle<"boolean"> = {
 
 /** Stub-SecretsContext: liest aus einer in-memory-map, matcht per
  *  qualified-name. backing:"secrets" persistiert config-Werte JSON-
- *  serialisiert — der Stub spiegelt das, damit der Runtime-parseStoredSecret
- *  denselben Pfad nimmt wie gegen den echten Store. Ignoriert auditCtx. */
-function stubSecrets(values: Record<string, string>): SecretsContext {
+ *  serialisiert — der Stub spiegelt das per Default, damit der Runtime-
+ *  parseStoredSecret denselben Pfad nimmt wie gegen den echten Store.
+ *  `raw: true` speichert UN-serialisiert (482/1) — um parseStoredSecret's
+ *  Fehlerpfad zu treffen: ein Credential, das der Store un-JSON-kodiert
+ *  zurückgibt (Korruption oder außerhalb des backing:"secrets"-Roundtrips
+ *  geschrieben) muss laut failen, nicht still Müll liefern. Ignoriert
+ *  auditCtx. */
+function stubSecrets(
+  values: Record<string, string>,
+  opts?: { readonly raw?: boolean },
+): SecretsContext {
   const nameOf = (k: string | { readonly name: string }): string =>
     typeof k === "string" ? k : k.name;
   return {
     get: async (_tenantId, key) => {
       const value = values[nameOf(key)];
-      return value === undefined ? undefined : createSecret(JSON.stringify(value));
-    },
-    has: async (_tenantId, key) => values[nameOf(key)] !== undefined,
-    set: async () => undefined,
-    delete: async () => false,
-  };
-}
-
-/** Wie stubSecrets, aber speichert den Wert ROH (kein JSON.stringify) — um
- *  parseStoredSecret's Fehlerpfad zu treffen: ein Credential, das der Store
- *  un-JSON-kodiert zurückgibt (Korruption oder ein außerhalb des
- *  backing:"secrets"-Roundtrips geschriebener Wert) muss laut failen, nicht
- *  still Müll liefern. */
-function rawSecretsStub(values: Record<string, string>): SecretsContext {
-  const nameOf = (k: string | { readonly name: string }): string =>
-    typeof k === "string" ? k : k.name;
-  return {
-    get: async (_tenantId, key) => {
-      const value = values[nameOf(key)];
-      return value === undefined ? undefined : createSecret(value); // RAW, not JSON
+      if (value === undefined) return undefined;
+      return createSecret(opts?.raw ? value : JSON.stringify(value));
     },
     has: async (_tenantId, key) => values[nameOf(key)] !== undefined,
     set: async () => undefined,
@@ -164,7 +154,7 @@ describe("StripeCtxRuntime.clientForCtx", () => {
     // throw, not silently fall through to undefined/fallback.
     const rt = makeRuntimes({ apiKey: "sk_test_fallback" });
     const ctx = stubCtx({
-      secrets: rawSecretsStub({ [API_KEY_HANDLE.name]: "sk_test_raw_unquoted" }),
+      secrets: stubSecrets({ [API_KEY_HANDLE.name]: "sk_test_raw_unquoted" }, { raw: true }),
     });
     await expect(rt.ctx.clientForCtx(ctx)).rejects.toThrow(
       /Invalid JSON in subscription-stripe credential/,

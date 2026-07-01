@@ -141,9 +141,7 @@ export function runMatrix<T extends string>(
             const dir = `${opts.baseDir}/${s.name}/${locale}/${theme}`;
             mkdirSync(dir, { recursive: true });
             const path = `${dir}/${vp}.png`;
-            // animations: "disabled" wirkt auf Engine-Ebene (springt laufende
-            // Transitions/Animationen sofort auf den Endstate) — immun gegen
-            // CSS-Spezifität, anders als eine addStyleTag-Injektion.
+            // animations: "disabled" jumps to end-state at the engine level — immune to CSS specificity, unlike an addStyleTag injection.
             await page.screenshot({ path, fullPage: s.fullPage ?? false, animations: "disabled" });
             expect.soft(statSync(path).size).toBeGreaterThan(MIN_BYTES);
           }

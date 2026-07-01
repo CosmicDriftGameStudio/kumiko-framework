@@ -611,12 +611,11 @@ KUMIKO_DEV_DB_NAME=${devDb}
 `;
 }
 
-// Local Postgres + Redis for `bun dev`. Ports + credentials match the *_URL
-// defaults in renderEnvExample, so `docker compose up -d` (referenced by the
-// README) just works with the generated .env. Named pg volume so dev data
-// survives `docker compose down` (pairs with KUMIKO_DEV_DB_NAME persistence).
-// Ports bind to 127.0.0.1 only: the dev DB (postgres/postgres) and auth-less
-// Redis must not be reachable from the LAN on a machine without a firewall.
+// Ports + credentials match the *_URL defaults in renderEnvExample, so
+// `docker compose up -d` just works with the generated .env. Named pg volume
+// so dev data survives `docker compose down` (pairs with KUMIKO_DEV_DB_NAME
+// persistence) — the loopback-binding rationale is in the generated file's
+// own comment (657/1), no need to duplicate it here.
 function renderDockerCompose(): string {
   return `# Local Postgres + Redis for \`bun dev\`. Matches the *_URL defaults in .env.example.
 # Start: docker compose up -d   ·   Stop: docker compose down   ·   Reset: docker compose down -v

@@ -717,12 +717,8 @@ export function createDispatcher(
       user,
       ip: reqCtx?.ip,
     });
-    // skip: ip-bucketed handler called from a non-HTTP entry point (job, seed,
-    //       MSP-apply) — no client IP to bucket on, nothing to enforce. Pass
-    //       through BEFORE requiring a resolver, so system/seed writes through
-    //       such a handler don't need a RateLimitResolver wired (the es-ops
-    //       seed dispatcher has none). L1/L2 middleware handle the HTTP-side
-    //       ip caps.
+    // skip: ip-bucket + no IP (non-HTTP entry point) — pass through before
+    // requiring a resolver; HTTP path always has an IP + L1/L2 middleware.
     if (bucket.kind === "skip") return;
     if (!context.rateLimit) {
       throw new InternalError({

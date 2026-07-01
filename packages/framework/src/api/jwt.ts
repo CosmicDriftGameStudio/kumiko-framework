@@ -50,10 +50,7 @@ export function createJwtHelper(secret: string, issuer = "kumiko"): JwtHelper {
     async verify(token) {
       const { payload } = await jose.jwtVerify(token, encodedSecret, { issuer });
 
-      // Defence in depth: a valid signature does not guarantee well-formed claims. A
-      // leaked secret, key confusion, or a hand-crafted token can still carry junk —
-      // validate the claim shape and reject (verify() throws → 401 in auth-middleware)
-      // instead of casting blindly.
+      // defence-in-depth: valid sig ≠ well-formed claims; malformed payload → throw → 401
       const tenantId = parseTenantId(payload["tenantId"]);
       if (tenantId === null) {
         throw new Error("JWT payload validation failed: tenantId claim is missing or malformed");

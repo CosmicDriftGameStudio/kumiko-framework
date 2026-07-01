@@ -74,7 +74,6 @@ export const defaultTranslations: TranslationsByLocale = {
     "userDataRights.privacyCenter.deletion.dialogTitle": "Konto wirklich löschen?",
     "userDataRights.privacyCenter.deletion.dialogDescription":
       "Mit dem Bestätigen startet die Lösch-Frist. Du kannst die Löschung bis zu ihrem Ablauf wieder abbrechen.",
-
   },
   en: {
     "userDataRights.deletion.request.title": "Request account deletion",
@@ -142,6 +141,5 @@ export const defaultTranslations: TranslationsByLocale = {
     "userDataRights.privacyCenter.deletion.dialogTitle": "Delete your account?",
     "userDataRights.privacyCenter.deletion.dialogDescription":
       "Confirming starts the deletion grace period. You can cancel the deletion until it ends.",
-
   },
 };
