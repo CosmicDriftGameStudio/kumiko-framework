@@ -20,6 +20,9 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
+import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../feature";
 import { runRetentionCleanup } from "../run-retention-cleanup";
 
@@ -52,11 +55,25 @@ const staleEntity = createEntity({
   retention: { keepFor: "30d", strategy: "hardDelete", reference: "lastSeenAt" },
 });
 
+// blockDelete = Aufbewahrungspflicht (HGB/DSGVO-Presets: invoice/booking/
+// contract). Der Cleanup-Job muss diese Rows IGNORIEREN — nur user-forget
+// darf sie anonymisieren. Ein Regress im switch-Default oder im blockDelete-
+// Case, der sie trotzdem löscht, wäre schwerwiegender als ein verpasstes
+// hardDelete (Aufbewahrungspflicht-Verletzung statt nur "zu spät aufgeräumt").
+const retainedEntity = createEntity({
+  table: "read_c7_retained",
+  fields: {
+    label: createTextField({ required: true, anonymize: () => "[ANONYMIZED]" }),
+  },
+  retention: { keepFor: "30d", strategy: "blockDelete" },
+});
+
 const c7Feature = defineFeature("c7-retention-fixtures", (r) => {
   r.entity("c7-widget", widgetEntity);
   r.entity("c7-gadget", gadgetEntity);
   r.entity("c7-plain", plainEntity);
   r.entity("c7-stale", staleEntity);
+  r.entity("c7-retained", retainedEntity);
 });
 
 const T1 = "11111111-1111-1111-1111-111111111111";
@@ -75,6 +92,7 @@ beforeAll(async () => {
     gadgetEntity,
     plainEntity,
     staleEntity,
+    retainedEntity,
   ]) {
     await unsafeCreateEntityTable(stack.db, e);
   }
@@ -111,7 +129,13 @@ async function liveGadgetLabels(tenantId: string): Promise<string[]> {
 }
 
 beforeEach(async () => {
-  for (const t of ["read_c7_widget", "read_c7_gadget", "read_c7_plain", "read_c7_stale"]) {
+  for (const t of [
+    "read_c7_widget",
+    "read_c7_gadget",
+    "read_c7_plain",
+    "read_c7_stale",
+    "read_c7_retained",
+  ]) {
     await asRawClient(stack.db).unsafe(`DELETE FROM ${t}`);
   }
 });
@@ -184,5 +208,47 @@ describe("runRetentionCleanup :: real postgres", () => {
       reason: "missing_reference_column",
     });
     expect(result.hardDeleted).toBe(0);
+  });
+
+  test("the registered job handler resolves ctx.systemUser.tenantId and actually cleans up (not runRetentionCleanup called directly)", async () => {
+    // cleanup-cron-registration.test.ts only pins job metadata; runRetentionCleanup
+    // tests above call it directly, bypassing the handler body entirely — a bug in
+    // the ctx.systemUser?.tenantId ?? ctx._tenantId resolution or the throw-guard
+    // would be invisible to both. Invoke the ACTUAL registered handler.
+    await seed("read_c7_widget", T1, "expired-via-handler", pastIso);
+    await seed("read_c7_widget", T1, "fresh-via-handler", withinIso);
+
+    const job = stack.registry.getJob("data-retention:job:retention-cleanup");
+    expect(job).toBeDefined();
+    if (!job) return;
+
+    const ctx: JobContext = {
+      db: stack.db,
+      registry: stack.registry,
+      systemUser: { id: "system", tenantId: T1, roles: ["all"] },
+      log: createFallbackLogger(),
+      triggeredBy: null,
+      ...bridgeStub(),
+    };
+    await job.handler({}, ctx);
+
+    expect(await labels("read_c7_widget", T1)).toEqual(["fresh-via-handler"]);
+  });
+
+  test("blockDelete: past-cutoff rows are never touched by the cleanup job", async () => {
+    await seed("read_c7_retained", T1, "should-survive", pastIso);
+
+    const result = await runRetentionCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      tenantId: T1,
+      tenantPreset: null,
+      now,
+    });
+
+    expect(await labels("read_c7_retained", T1)).toEqual(["should-survive"]);
+    expect(result.hardDeleted).toBe(0);
+    expect(result.softDeleted).toBe(0);
+    expect(result.anonymizeDeferred).not.toContain("c7-retained");
   });
 });
