@@ -5,7 +5,7 @@
 // so the "copy this" guarantee stays valid.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -15,6 +15,7 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { updateRows } from "@cosmicdrift/kumiko-framework/testing";
 import { OrdersLiteReasons, orderEntity, ordersLiteFeature } from "../feature";
 
 let stack: TestStack;
@@ -119,7 +120,7 @@ describe("ConflictError → 409", () => {
     // doesn't expose a "place" action, so we can't walk the state machine —
     // the point of this test is ConflictError semantics, not the transition
     // path itself.
-    await updateMany(stack.db, orderTable, { status: "paid" }, { id: order.id });
+    await updateRows(stack.db, orderTable, { status: "paid" }, { id: order.id });
 
     const error = await stack.http.writeErr(
       "orders-lite:write:order:cancel",
