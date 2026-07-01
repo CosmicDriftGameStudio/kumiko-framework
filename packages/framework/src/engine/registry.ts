@@ -22,6 +22,7 @@ import type {
   ConfigKeyDefinition,
   ConfigSeedDef,
   EntityDefinition,
+  EntityProjectionExtension,
   EntityRelations,
   EventDef,
   EventUpcastFn,
@@ -81,6 +82,7 @@ function buildImplicitProjection(
   entity: EntityDefinition,
   qualify: typeof qualifyEntityName,
   backingTable?: unknown,
+  extensions: readonly EntityProjectionExtension[] = [],
 ): ProjectionDefinition {
   const name = qualify(featureName, "projection", `${entityName}${IMPLICIT_PROJECTION_SUFFIX}`);
   // Backing table (r.entity(name, def, { table })) is the one physical table
@@ -115,9 +117,28 @@ function buildImplicitProjection(
   if (entity.softDelete) {
     apply[`${entityName}.restored`] = handler;
   }
+  // r.extendEntityProjection: merge extension applies into the rebuild
+  // replay. Collisions with lifecycle applies (or another extension) are
+  // authoring bugs — fail at boot, not by silently overwriting a handler.
+  const extraSources: string[] = [];
+  for (const ext of extensions) {
+    for (const [eventType, fn] of Object.entries(ext.apply)) {
+      if (apply[eventType]) {
+        throw new Error(
+          `Implicit projection "${name}": extendEntityProjection apply-key "${eventType}" ` +
+            `collides with an existing handler (entity lifecycle apply or another extension).`,
+        );
+      }
+      apply[eventType] = fn;
+    }
+    for (const s of ext.sources ?? []) {
+      if (s !== entityName && !extraSources.includes(s)) extraSources.push(s);
+    }
+  }
   return {
     name,
     source: entityName,
+    ...(extraSources.length > 0 && { extraSources }),
     table: drizzleTable,
     apply,
     isImplicit: true,
@@ -931,6 +952,18 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // vermeidet Kollisionen wenn jemand z.B. eine Cross-Aggregate-Projection
   // mit Entity-Name registriert.
   for (const feature of features) {
+    // extendEntityProjection targets must exist as r.entity in the SAME
+    // feature — a typo'd entity name would otherwise vanish silently and the
+    // extension's events would still be wiped on rebuild.
+    for (const extEntity of Object.keys(feature.entityProjectionExtensions ?? {})) {
+      if (!feature.entities?.[extEntity]) {
+        throw new Error(
+          `[Feature ${feature.name}] extendEntityProjection("${extEntity}"): no r.entity ` +
+            `with that name in this feature. Declare the entity first — the extension ` +
+            `merges into its implicit projection.`,
+        );
+      }
+    }
     for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
       const def = buildImplicitProjection(
         feature.name,
@@ -938,6 +971,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
         entity,
         qualify,
         feature.entityTables?.[entityName],
+        feature.entityProjectionExtensions?.[entityName] ?? [],
       );
       if (projectionMap.has(def.name)) {
         throw new Error(
@@ -1121,6 +1155,9 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   const allDomainEventNames = new Set(eventMap.keys());
   for (const [projName, projDef] of projectionMap) {
     const sources = Array.isArray(projDef.source) ? projDef.source : [projDef.source];
+    // extraSources (r.extendEntityProjection) sit in the rebuild filter, so
+    // their auto-verbs are legitimately observable apply-keys too.
+    const rebuildSources = [...sources, ...(projDef.extraSources ?? [])];
     const validEventTypes = new Set<string>();
     // Two source-modes are legal:
     //
@@ -1138,7 +1175,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     //      or `jobRun` (BullMQ-callback-driven lifecycle, no executor).
     //      A "Shape-Anchor"-entity is no longer needed for this case.
     const isEventsOnlySource = !sources.every((src) => entityMap.has(src));
-    for (const src of sources) {
+    for (const src of rebuildSources) {
       if (entityMap.has(src)) {
         for (const verb of AUTO_EVENT_VERBS) validEventTypes.add(`${src}.${verb}`);
       }

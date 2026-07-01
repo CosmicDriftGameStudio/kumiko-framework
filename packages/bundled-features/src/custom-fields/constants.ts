@@ -31,6 +31,7 @@ export const CUSTOM_FIELDS_FORM_EXTENSION_NAME = "CustomFieldsFormSection";
 // Entity-CRUD auto-events for the `field-definition` entity. registry.ts emits
 // these as `${entityName}.created`/`.updated` (dot form) — they do NOT run
 // through r.defineEvent/toKebab, so the dot MUST stay.
+export const FIELD_DEFINITION_AGGREGATE_TYPE = "field-definition";
 export const FIELD_DEFINITION_CREATED_EVENT = "field-definition.created";
 export const FIELD_DEFINITION_UPDATED_EVENT = "field-definition.updated";
 // Qualified at registration via r.defineEvent — final name is

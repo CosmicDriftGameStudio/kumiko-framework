@@ -1,5 +1,6 @@
 import { SYSTEM_TENANT_ID, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { fieldDefinitionAggregateId } from "../aggregate-id";
+import { FIELD_DEFINITION_AGGREGATE_TYPE } from "../constants";
 import { fieldDefinitionExecutor } from "../executor";
 import { customFieldsFeature } from "../feature";
 import { type DeleteFieldPayload, deleteFieldPayloadSchema } from "../schemas";
@@ -30,7 +31,7 @@ export const deleteSystemFieldHandler: WriteHandlerDef = {
     if (result.isSuccess) {
       await ctx.unsafeAppendEvent({
         aggregateId,
-        aggregateType: "field-definition",
+        aggregateType: FIELD_DEFINITION_AGGREGATE_TYPE,
         type: customFieldsFeature.exports.fieldDefinitionDeletedEvent.name,
         payload: {
           entityName: payload.entityName,

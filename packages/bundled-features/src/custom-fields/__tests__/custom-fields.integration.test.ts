@@ -23,6 +23,10 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
+  createProjectionStateTable,
+  rebuildProjection,
+} from "@cosmicdrift/kumiko-framework/pipeline";
+import {
   createTestUser,
   setupTestStack,
   type TestStack,
@@ -84,6 +88,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, fieldDefinitionEntity);
   await unsafeCreateEntityTable(stack.db, propertyEntity);
   await createEventsTable(stack.db);
+  await createProjectionStateTable(stack.db);
 });
 
 afterAll(async () => {
@@ -917,5 +922,65 @@ describe("custom-fields integration — update-tenant-field (Bug-Bash D2)", () =
     expect(err.httpStatus).toBe(500);
     const causeMessage = (err.details as { causeMessage?: string } | undefined)?.causeMessage ?? "";
     expect(causeMessage).toContain("update-tenant-field");
+  });
+});
+
+describe("custom-fields integration — official host-entity rebuild (#759)", () => {
+  test("rebuildProjection replays customField.set/cleared + fieldDefinition.deleted", async () => {
+    await defineField("property", "color", "text");
+    await defineField("property", "doomed", "text");
+    const propId = "dddddddd-dddd-4000-8000-00000000000d";
+    await createProperty(propId, "RebuildOfficial");
+    await setCustomField("property", propId, "color", "blue");
+    await setCustomField("property", propId, "doomed", "bye");
+    // fieldDef-delete cascade removes the key — the rebuild must preserve the
+    // removal (fieldDefinition.deleted rides the extra "field-definition" source).
+    await stack.http.writeOk(
+      "custom-fields:write:delete-tenant-field",
+      { entityName: "property", fieldKey: "doomed" },
+      admin,
+    );
+    await stack.eventDispatcher?.runOnce();
+
+    let row = (await listProperties()).rows.find((r) => r["id"] === propId);
+    expect(row?.["color"]).toBe("blue");
+    expect(row?.["doomed"]).toBeUndefined();
+
+    // The routine schema-migration path: full official rebuild of the host
+    // entity's implicit projection. Pre-#759 this reset every custom_fields
+    // jsonb to its default '{}' with no recovery path.
+    const result = await rebuildProjection("property-test:projection:property-entity", {
+      db: stack.db,
+      registry: stack.registry,
+    });
+    expect(result.eventsProcessed).toBeGreaterThan(0);
+
+    row = (await listProperties()).rows.find((r) => r["id"] === propId);
+    expect(row?.["name"]).toBe("RebuildOfficial");
+    expect(row?.["color"]).toBe("blue");
+    expect(row?.["doomed"]).toBeUndefined();
+  });
+
+  test("clear-custom-field removal survives the official rebuild", async () => {
+    await defineField("property", "flag", "text");
+    await defineField("property", "keep", "text");
+    const propId = "eeeeeeee-eeee-4000-8000-00000000000e";
+    await createProperty(propId, "ClearSurvives");
+    await setCustomField("property", propId, "flag", "on");
+    await setCustomField("property", propId, "keep", "yes");
+    await clearCustomField("property", propId, "flag");
+    await stack.eventDispatcher?.runOnce();
+
+    await rebuildProjection("property-test:projection:property-entity", {
+      db: stack.db,
+      registry: stack.registry,
+    });
+
+    const row = (await listProperties()).rows.find((r) => r["id"] === propId);
+    // Kontrollfeld beweist dass der Rebuild die set-Events real replayt hat —
+    // ein leeres {} wuerde "flag undefined" trivial erfuellen.
+    expect(row?.["keep"]).toBe("yes");
+    expect(row?.["flag"]).toBeUndefined();
+    expect(row?.["name"]).toBe("ClearSurvives");
   });
 });
