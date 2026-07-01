@@ -25,6 +25,15 @@ describe("isValidIanaTimeZone", () => {
     expect(isValidIanaTimeZone(value)).toBe(false);
   });
 
+  // Intl.supportedValuesOf("timeZone") listet nur kanonische Namen — gültige
+  // IANA-Aliase fehlen darin, obwohl Intl.DateTimeFormat/Temporal/ctx.tz.parse
+  // sie klaglos akzeptieren. Ein valider Alias darf hier nicht als "invalid"
+  // rejected werden (stiller Breaking-Change für Consumer, die Alias-Zonen
+  // speichern).
+  test.each(["US/Pacific", "GMT", "Etc/UTC"])("akzeptiert gültigen IANA-Alias %s", (zone) => {
+    expect(isValidIanaTimeZone(zone)).toBe(true);
+  });
+
   test("liefert über mehrere Aufrufe konsistent (lazy Set gecacht)", () => {
     expect(isValidIanaTimeZone("Europe/Berlin")).toBe(true);
     expect(isValidIanaTimeZone("Europe/Berlin")).toBe(true);

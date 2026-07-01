@@ -32,11 +32,19 @@ export type ApexCta = {
   readonly variant?: ApexCtaVariant;
 };
 
-export type ApexLink = { readonly label: string; readonly href: string };
+// `kind` is optional here (footer links / ApexNavMenu.footer don't need it) —
+// it exists so ApexNavEntry (ApexLink | ApexNavMenu) is a real discriminated
+// union: TS narrows on `entry.kind === "menu"` without a structural
+// `"items" in entry` check or an `as` cast.
+export type ApexLink = { readonly kind?: "link"; readonly label: string; readonly href: string };
 
 /** One entry inside a dropdown nav menu: icon + title + optional description. */
 export type ApexNavMenuItem = {
-  /** Inner SVG markup (paths), wrapped by the standard 24px icon <svg>. Trusted. */
+  /** Inner SVG markup (paths), wrapped by the standard 24px icon <svg>.
+   *  ponytail: rendered verbatim, no sanitizer — trusted because it's
+   *  app-authored at deploy time, same trust boundary as ApexCta.href. If an
+   *  app ever sources this from tenant/user content, sanitize at that
+   *  construction boundary before it reaches here. */
   readonly icon?: string;
   readonly title: string;
   readonly desc?: string;
@@ -91,7 +99,11 @@ export type ApexHeroSection = {
 };
 
 export type ApexFeature = {
-  /** Inner SVG markup (paths), wrapped by the standard 24px icon <svg>. Trusted. */
+  /** Inner SVG markup (paths), wrapped by the standard 24px icon <svg>.
+   *  ponytail: rendered verbatim, no sanitizer — trusted because it's
+   *  app-authored at deploy time, same trust boundary as ApexCta.href. If an
+   *  app ever sources this from tenant/user content, sanitize at that
+   *  construction boundary before it reaches here. */
   readonly icon?: string;
   readonly title: string;
   readonly desc: string;
@@ -376,7 +388,7 @@ function renderNavMenu(m: ApexNavMenu): string {
 }
 
 function renderNavEntry(entry: ApexNavEntry): string {
-  return "items" in entry
+  return entry.kind === "menu"
     ? renderNavMenu(entry)
     : `<a href="${escapeHtml(entry.href)}">${escapeHtml(entry.label)}</a>`;
 }

@@ -3,7 +3,13 @@ import { SETTINGS_HUB_AUDIENCE_NAV_QNS } from "../build-config-feature-schema";
 import { qualifyEntityName } from "../qualified-name";
 import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops";
 import type { FeatureDefinition, NavDefinition, WorkspaceDefinition } from "../types";
-import type { FieldCondition, RowAction, RowFieldExtractor, ToolbarAction } from "../types/screen";
+import type {
+  FieldCondition,
+  RowAction,
+  RowFieldExtractor,
+  ScreenDefinition,
+  ToolbarAction,
+} from "../types/screen";
 import { isExtensionEditSection, normalizeEditField, normalizeListColumn } from "../types/screen";
 
 // --- Screen validation ---
@@ -81,12 +87,41 @@ function validateActionFieldRefs(
   }
 }
 
+// Two features registering the same short screen-id is a silent routing
+// footgun: create-app.tsx's runtime router resolves a bare navigate-target
+// id by scanning features[] and taking the first match — the collision
+// never surfaces as an error, the second feature's screen is just
+// unreachable by that id (and always the same one that loses, in whatever
+// order the app composed its features).
+export function validateScreenShortIdCollisions(
+  screensByShortId: ReadonlyMap<
+    string,
+    ReadonlyArray<{ readonly featureName: string; readonly screen: ScreenDefinition }>
+  >,
+): void {
+  for (const [shortId, entries] of screensByShortId) {
+    const featureNames = new Set(entries.map((e) => e.featureName));
+    if (featureNames.size > 1) {
+      throw new Error(
+        `Screen short-id "${shortId}" is registered by ${featureNames.size} features ` +
+          `(${[...featureNames].join(", ")}) — the runtime router resolves a bare navigate-target ` +
+          `id by taking the first match, so all but one of these screens would be unreachable by ` +
+          `that id. Give each screen a distinct id.`,
+      );
+    }
+  }
+}
+
 export function validateScreens(
   feature: FeatureDefinition,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
   allWriteHandlerQns: ReadonlySet<string>,
   allScreenQns: ReadonlySet<string>,
   allConfigKeyQns: ReadonlySet<string>,
+  screensByShortId: ReadonlyMap<
+    string,
+    ReadonlyArray<{ readonly featureName: string; readonly screen: ScreenDefinition }>
+  >,
 ): void {
   // navigate-Targets (rowAction/toolbarAction) dürfen cross-feature zeigen —
   // der Runtime-Router (create-app) löst eine bare screenId app-weit über ALLE
@@ -338,11 +373,16 @@ export function validateScreens(
       }
       for (const col of screen.columns) {
         const normalized = normalizeListColumn(col);
-        // A labeled column whose field is not an entity field is a *virtual*
-        // presentational column (drawn by a columnRenderer component from the
-        // row, e.g. tag chips) — its `field` is just a column key. Only an
-        // unlabeled unknown field is an author typo worth failing the boot.
-        if (!columnFieldNames.has(normalized.field) && normalized.label === undefined) {
+        // A virtual presentational column (drawn by a columnRenderer component
+        // from the row, e.g. tag chips) needs BOTH a label AND a renderer —
+        // renderer is what actually makes it "virtual" (label alone still
+        // needs list.ts's virtual-branch to have something to draw; without
+        // a renderer the column would render nothing). A column with neither
+        // matching a real field NOR a renderer is a typo worth failing the boot.
+        if (
+          !columnFieldNames.has(normalized.field) &&
+          !(normalized.label !== undefined && normalized.renderer !== undefined)
+        ) {
           throw new Error(
             buildUnknownFieldMessage(
               feature.name,
@@ -444,6 +484,26 @@ export function validateScreens(
               throw new Error(
                 `[Feature ${feature.name}] Screen "${screenId}" (entityList) rowAction "${action.id}" ` +
                   `navigate-target "${action.screen}" does not resolve to a registered screen in any feature.`,
+              );
+            }
+            // The renderer's default-entityId fallback (row["id"]) only fires
+            // for a same-feature entityEdit target — it can't safely guess
+            // the id for a screen owned by a different feature. Cross-feature
+            // + entityEdit therefore MUST set an explicit entityId, or the
+            // edit screen silently opens with no entity context at runtime.
+            const target = screensByShortId.get(action.screen)?.[0];
+            if (
+              target !== undefined &&
+              target.featureName !== feature.name &&
+              target.screen.type === "entityEdit" &&
+              action.entityId === undefined
+            ) {
+              throw new Error(
+                `[Feature ${feature.name}] Screen "${screenId}" (entityList) rowAction "${action.id}" ` +
+                  `navigates cross-feature to entityEdit screen "${action.screen}" (feature ` +
+                  `"${target.featureName}") without an explicit entityId field — the renderer's ` +
+                  `same-feature row["id"] fallback does not apply across features. Set entityId to ` +
+                  `the row field that names the target entity's id.`,
               );
             }
           } else {
@@ -646,6 +706,30 @@ export function screenShortIdsFrom(allScreenQns: ReadonlySet<string>): Set<strin
     if (at !== -1) set.add(qn.slice(at + marker.length));
   }
   return set;
+}
+
+// Short screen-id → every {featureName, screen} that registers it. The
+// runtime router (create-app.tsx) resolves a bare navigate-target short-id by
+// scanning ALL features and taking the first match — so two features
+// registering the same short-id is a silent routing footgun (whichever
+// feature comes first in the app's features[] array always wins, the other
+// is unreachable by that id) and a prerequisite for the entityId-check below
+// (which target screen it resolves to must be unambiguous).
+export function collectScreensByShortId(
+  features: readonly FeatureDefinition[],
+): Map<string, ReadonlyArray<{ readonly featureName: string; readonly screen: ScreenDefinition }>> {
+  const map = new Map<
+    string,
+    Array<{ readonly featureName: string; readonly screen: ScreenDefinition }>
+  >();
+  for (const f of features) {
+    for (const [screenId, screen] of Object.entries(f.screens)) {
+      const entries = map.get(screenId) ?? [];
+      entries.push({ featureName: f.name, screen });
+      map.set(screenId, entries);
+    }
+  }
+  return map;
 }
 
 // Sammelt alle qualifizierten Write-Handler-QNs (`<feature>:write:<short>`).

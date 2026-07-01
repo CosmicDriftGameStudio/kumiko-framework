@@ -53,7 +53,7 @@ const SCENARIOS: readonly Scenario[] = [
   // tags — a note's edit screen with the drop-in TagSection (assigned colored chips).
   { name: "tags-section", flow: admin(`/note-edit/${DEMO_NOTE_ID}`), settleMs: 1000 },
   // legal-pages — öffentliche, server-gerenderte Route (kein Login).
-  { name: "legal-pages", url: "/legal/privacy", settleMs: 600 },
+  { name: "legal-pages", url: "/legal/privacy", waitFor: "[data-tenant-content]" },
 ];
 
 runMatrix(SCENARIOS, { baseDir: BASE_DIR, themes: THEMES, applyTheme, locales: ["en"] });

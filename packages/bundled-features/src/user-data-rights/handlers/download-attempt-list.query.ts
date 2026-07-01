@@ -7,5 +7,5 @@ import { downloadAttemptEntity } from "../schema/download-attempt";
 export const downloadAttemptListQuery = defineEntityListHandler(
   "download-attempt",
   downloadAttemptEntity,
-  { access: { roles: access.systemAdmin } },
+  { access: { roles: access.systemAdmin }, crossTenant: true },
 );

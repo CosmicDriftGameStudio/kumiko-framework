@@ -5,4 +5,5 @@ import { exportJobEntity } from "../schema/export-job";
 // rows are created by the user's request-export flow, never through this handler.
 export const exportJobListQuery = defineEntityListHandler("export-job", exportJobEntity, {
   access: { roles: access.systemAdmin },
+  crossTenant: true,
 });

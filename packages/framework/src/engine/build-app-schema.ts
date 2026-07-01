@@ -32,7 +32,7 @@ import {
   SETTINGS_HUB_FEATURE,
 } from "./build-config-feature-schema";
 import type { Registry } from "./types/feature";
-import type { DerivedFieldDef, FieldDefinition } from "./types/fields";
+import type { ClientDerivedFieldDef, DerivedFieldDef, FieldDefinition } from "./types/fields";
 
 export type BuildAppSchemaOptions = {
   /** Dev-server authoring hints (Settings-Hub placement). Default off — only
@@ -290,7 +290,7 @@ function projectEntity(entity: EntityDefinition): EntityDefinition {
   // `entity.derivedFields[field].valueType` auf — fehlt der Eintrag, wirft es
   // "references unknown field". Der executor hat den Wert server-seitig schon
   // an die Row gehängt; der Client braucht nur den valueType für den Renderer.
-  const derivedOut: Record<string, DerivedFieldDef> = {};
+  const derivedOut: Record<string, ClientDerivedFieldDef> = {};
   for (const [name, derivedDef] of Object.entries(entity.derivedFields ?? {})) {
     derivedOut[name] = projectDerivedField(derivedDef);
   }
@@ -300,16 +300,24 @@ function projectEntity(entity: EntityDefinition): EntityDefinition {
   // Kein Cast nötig: alle weggelassenen Felder sind `?`-optional.
   return {
     fields: fieldsOut,
-    ...(Object.keys(derivedOut).length > 0 && { derivedFields: derivedOut }),
+    // @cast-boundary schema-walk: EntityDefinition.derivedFields is typed for
+    // the SERVER (derive required); this is the one place a client schema
+    // narrows it to ClientDerivedFieldDef (valueType only) — the cast lives
+    // at the actual server/client type boundary instead of inside
+    // projectDerivedField, which now honestly returns the narrower type.
+    ...(Object.keys(derivedOut).length > 0 && {
+      derivedFields: derivedOut as unknown as Record<string, DerivedFieldDef>,
+    }),
     ...(typeof entity.table === "string" && { table: entity.table }),
   };
 }
 
 // Nur valueType durch — die derive-fn ist Server-only und NICHT JSON-safe
-// (würde sonst die Output-Walk-Guard triggern). Der Cast bridged die
-// fn-lose Projektion auf DerivedFieldDef (Client liest nur valueType).
-function projectDerivedField(derivedDef: DerivedFieldDef): DerivedFieldDef {
-  return { valueType: derivedDef.valueType } as DerivedFieldDef; // @cast-boundary schema-walk
+// (würde sonst die Output-Walk-Guard triggern). Gibt ehrlich
+// ClientDerivedFieldDef zurück statt eine DerivedFieldDef vorzutäuschen,
+// die keine derive-fn hat.
+function projectDerivedField(derivedDef: DerivedFieldDef): ClientDerivedFieldDef {
+  return { valueType: derivedDef.valueType };
 }
 
 // Whitelist pro Field. `default` darf nur durch wenn Literal (string/

@@ -10,14 +10,14 @@ import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
-import { USER_STATUS, userTable } from "../user";
+import { USER_STATUS, type UserStatus, userTable } from "../user";
 import { DEFAULT_SESSION_EXPIRY_MS } from "./constants";
 import { userSessionTable } from "./schema/user-session";
 
 // Locked accounts whose live sessions must be refused. deletionRequested is
 // intentionally absent — it's a reversible grace period and the user needs
 // their session to reach cancel-deletion.
-const BLOCKED_STATUSES: ReadonlySet<string> = new Set([
+const BLOCKED_STATUSES: ReadonlySet<UserStatus> = new Set([
   USER_STATUS.Restricted,
   USER_STATUS.Deleted,
 ]);
@@ -108,9 +108,9 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
       // Fail-open covers a THROW too, not just a null-miss: this read sits on
       // the hot path of every authenticated request, so a DB timeout / lock
       // contention / pool exhaustion here must not turn into a global lockout.
-      const user = await fetchOne<{ status: string }>(db, userTable, { id: expectedUserId }).catch(
-        () => null,
-      );
+      const user = await fetchOne<{ status: UserStatus }>(db, userTable, {
+        id: expectedUserId,
+      }).catch(() => null);
       if (user && BLOCKED_STATUSES.has(user.status)) return "blocked";
       return "live";
     },

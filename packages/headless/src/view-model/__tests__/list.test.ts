@@ -140,6 +140,21 @@ describe("computeListViewModel", () => {
     });
   });
 
+  test("labeled column with no matching field AND no renderer → throws (label alone isn't enough)", () => {
+    // Regression (697/1): renderer is what actually draws a virtual column —
+    // a label with no renderer would otherwise push an empty, unrendered
+    // column into the view model instead of catching the author typo.
+    expect(() =>
+      computeListViewModel({
+        screen: listScreen(["title", { field: "tags", label: "Tags" }]),
+        entity: taskEntity,
+        rows: [],
+        translate,
+        featureName: "tasks",
+      }),
+    ).toThrow(/unknown field "tags"/);
+  });
+
   test("label overrides the field-convention header on a real field", () => {
     const vm = computeListViewModel({
       screen: listScreen([{ field: "title", label: "custom.header" }]),

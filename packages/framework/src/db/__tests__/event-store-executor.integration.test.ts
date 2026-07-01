@@ -372,6 +372,54 @@ describe("event-store-executor — encrypted fields", () => {
     if (!updated.isSuccess) throw new Error("update failed");
     expect(updated.data.data["secretNote"]).toBe("new-note");
   });
+
+  test("update's persisted event carries ciphertext (not plaintext) for an encrypted field in `previous`", async () => {
+    // Regression: `previous` in the STORED event came from loadById(), which
+    // decrypts — appending it unchanged would put the plaintext of an
+    // `encrypted` field into the immutable kumiko_events log even though the
+    // row itself is stored as ciphertext.
+    const created = await crud.create(
+      { email: "prev-enc@test.de", secretNote: "old-plaintext-note" },
+      adminUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+
+    // Change an UNRELATED field — `secretNote` still rides along in `previous`
+    // unchanged, at its pre-update (decrypted) value.
+    const updated = await crud.update(
+      { id: created.data.id, version: 1, changes: { email: "prev-enc-2@test.de" } },
+      adminUser,
+      tdb,
+    );
+    if (!updated.isSuccess) throw new Error("update failed");
+
+    const rows = (await asRawClient(testDb.db).unsafe(
+      `SELECT payload FROM kumiko_events WHERE type = 'esExecEncrypted.updated' ORDER BY id DESC LIMIT 1`,
+    )) as Array<{ payload: { previous?: { secretNote?: string } } }>;
+    const storedPrevious = rows[0]?.payload.previous?.secretNote;
+    expect(storedPrevious).toBeDefined();
+    expect(storedPrevious).not.toBe("old-plaintext-note");
+  });
+
+  test("delete's persisted event carries ciphertext (not plaintext) for an encrypted field in `previous`", async () => {
+    const created = await crud.create(
+      { email: "del-enc@test.de", secretNote: "delete-plaintext-note" },
+      adminUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+
+    const deleted = await crud.delete({ id: created.data.id }, adminUser, tdb);
+    if (!deleted.isSuccess) throw new Error("delete failed");
+
+    const rows = (await asRawClient(testDb.db).unsafe(
+      `SELECT payload FROM kumiko_events WHERE type = 'esExecEncrypted.deleted' ORDER BY id DESC LIMIT 1`,
+    )) as Array<{ payload: { previous?: { secretNote?: string } } }>;
+    const storedPrevious = rows[0]?.payload.previous?.secretNote;
+    expect(storedPrevious).toBeDefined();
+    expect(storedPrevious).not.toBe("delete-plaintext-note");
+  });
 });
 
 describe("event-store-executor — entity cache read-through", () => {
@@ -416,5 +464,55 @@ describe("event-store-executor — entity cache read-through", () => {
 
     const second = await cachedCrud.detail({ id }, adminUser, tdb);
     expect(second?.["email"]).toBe("from-cache@test.de");
+  });
+});
+
+describe("event-store-executor — entity cache + encrypted fields", () => {
+  // Regression: detail() cached the already-decrypted row verbatim, so an
+  // `encrypted` field's plaintext ended up in a second at-rest store (Redis)
+  // the field-encryption feature doesn't cover.
+  const store = new Map<string, Record<string, unknown>>();
+  const entityCache: EntityCache = {
+    get: async (tenantId, name, id) => store.get(`${tenantId}:${name}:${id}`) ?? null,
+    mget: async () => new Map(),
+    set: async (tenantId, name, id, data) => {
+      store.set(`${tenantId}:${name}:${id}`, data);
+    },
+    mset: async (tenantId, name, entries) => {
+      for (const { id, data } of entries) store.set(`${tenantId}:${name}:${id}`, data);
+    },
+    del: async (tenantId, name, id) => {
+      store.delete(`${tenantId}:${name}:${id}`);
+    },
+  };
+  const encryption = createEncryptionProvider(ENCRYPTION_TEST_KEY);
+  const cachedEncryptedCrud = createEventStoreExecutor(encryptedTable, encryptedEntity, {
+    entityName: "esExecEncrypted",
+    entityCache,
+    encryption,
+  });
+
+  beforeEach(() => store.clear());
+
+  test("cached row is ciphertext at rest; detail() still returns plaintext to the caller", async () => {
+    const created = await cachedEncryptedCrud.create(
+      { email: "cache-enc@test.de", secretNote: "cache-plaintext-note" },
+      adminUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+    const id = created.data.id;
+    const storeKey = `${adminUser.tenantId}:esExecEncrypted:${id}`;
+
+    const first = await cachedEncryptedCrud.detail({ id }, adminUser, tdb);
+    expect(first?.["secretNote"]).toBe("cache-plaintext-note");
+
+    const cachedRaw = store.get(storeKey);
+    expect(cachedRaw?.["secretNote"]).toBeDefined();
+    expect(cachedRaw?.["secretNote"]).not.toBe("cache-plaintext-note");
+
+    // Second read (cache hit) must still decrypt back to the real plaintext.
+    const second = await cachedEncryptedCrud.detail({ id }, adminUser, tdb);
+    expect(second?.["secretNote"]).toBe("cache-plaintext-note");
   });
 });

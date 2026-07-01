@@ -83,6 +83,7 @@ export type {
   AnyFileFieldDef,
   BigIntFieldDef,
   BooleanFieldDef,
+  ClientDerivedFieldDef,
   DateFieldDef,
   DecimalFieldDef,
   DefaultCurrency,

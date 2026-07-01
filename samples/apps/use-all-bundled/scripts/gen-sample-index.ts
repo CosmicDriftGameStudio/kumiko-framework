@@ -141,12 +141,24 @@ export function extractReadmeSummary(readmePath: string): string | undefined {
 
   const sectionMatch = SUMMARY_SECTION_RE.exec(body);
   if (sectionMatch?.[1]) {
+    // Accumulate consecutive lines of the FIRST paragraph/bullet in the
+    // section (stop at a blank line, a table row, or a code fence) — a
+    // single-line return truncated any summary that wrapped onto a second
+    // physical line in the source README.
+    const collected: string[] = [];
     for (const line of sectionMatch[1].split("\n")) {
       const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith("```") || trimmed.startsWith("|")) continue;
-      if (trimmed.startsWith("- ")) return cleanMarkdownLine(trimmed.slice(2));
-      if (!trimmed.startsWith("#")) return cleanMarkdownLine(trimmed);
+      if (trimmed.startsWith("```") || trimmed.startsWith("|")) break;
+      if (trimmed === "") {
+        if (collected.length > 0) break;
+        continue;
+      }
+      if (trimmed.startsWith("#")) continue;
+      collected.push(
+        collected.length === 0 && trimmed.startsWith("- ") ? trimmed.slice(2) : trimmed,
+      );
     }
+    if (collected.length > 0) return cleanMarkdownLine(collected.join(" "));
   }
 
   const para: string[] = [];
@@ -241,7 +253,7 @@ export function buildSampleIndex(): SampleIndex {
       ...(readmeSummary ? { readmeSummary } : {}),
       ...(override?.primarySample ? { primarySample: override.primarySample } : {}),
       ...(override?.whenToUse ? { whenToUse: override.whenToUse } : {}),
-      ...(override?.sampleBlurb ? { sampleBlurb: override.sampleBlurb } : {}),
+      ...(override?.sampleBlurb != null ? { sampleBlurb: override.sampleBlurb } : {}),
       ...(override && "screenshot" in override ? { screenshot: override.screenshot ?? null } : {}),
     };
   }

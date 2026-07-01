@@ -30,8 +30,12 @@ export const folderExportHook: UserDataExportHook = async (ctx) => {
 };
 
 export const folderAssignmentExportHook: UserDataExportHook = async (ctx) => {
+  // folderAssignmentEntity is softDelete: true — a cleared assignment
+  // (isDeleted: true) is a removed folder membership, not something the GDPR
+  // export should still surface as current data.
   const rows = await selectMany<Record<string, unknown>>(ctx.db, folderAssignmentTable, {
     tenantId: ctx.tenantId,
+    isDeleted: false,
   });
   if (rows.length === 0) return null;
   return { entity: "folder-assignment", rows };
