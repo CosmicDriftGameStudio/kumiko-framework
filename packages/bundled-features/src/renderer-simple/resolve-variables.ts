@@ -1,6 +1,9 @@
 import type { RendererContext, RenderRequest } from "../renderer-foundation";
-import { createTemplateResolverApi, TemplateNotFoundError } from "../template-resolver/api";
-import { FALLBACK_LOCALE } from "../template-resolver/constants";
+import {
+  createTemplateResolverApi,
+  FALLBACK_LOCALE,
+  TemplateNotFoundError,
+} from "../template-resolver";
 
 type NotificationRequest = Extract<RenderRequest, { kind: "notification" }>;
 
@@ -50,3 +53,4 @@ function parsePlainTemplateContent(content: string): Record<string, unknown> {
   }
   return { body: content };
 }
+
