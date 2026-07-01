@@ -20,7 +20,7 @@
 //     reference, NICHT als runtime-API-call)
 
 import type { EntityTableMeta } from "../db/entity-table-meta";
-import { toSnakeCase } from "../db/table-builder";
+import { type NotExecutorOnly, toSnakeCase } from "../db/table-builder";
 import { camelCase as envCamelCase } from "../env";
 import { parseJsonSafe } from "../utils/safe-json";
 
@@ -203,6 +203,16 @@ export type SelectOptions = {
 // Akzeptiert EITHER. Beide haben einen tableName und field→column-mapping.
 // biome-ignore lint/suspicious/noExplicitAny: legacy drizzle pgTable surface
 type TableLike = EntityTableMeta | any;
+
+// Write-Param: alles was TableLike akzeptiert AUSSER einer gebrandeten
+// EntityTable (managed projection). Ein direkter Write auf eine Entity ist ein
+// Compile-Fehler — der einzige Schreibweg ist der Executor (Event ->
+// rebuild-safe). Unmanaged EntityTableMeta + die am Executor-Seam auf
+// TableColumns<any> eraste Table tragen den Brand nicht -> erlaubt. Test-Seeds
+// gehen über den sanktionierten testing-Seam (seedRow/…), der den Brand strippt.
+// Method-form writes (ctx.db.insertOne/…) keep an erased param and are covered
+// by the guard-direct-entity-writes AST guard instead (see tenant-db.ts).
+type WritableTable = EntityTableMeta & NotExecutorOnly;
 
 export type TableInfo = {
   readonly name: string;
@@ -566,7 +576,7 @@ export async function fetchOne<TRow = any>(
 // biome-ignore lint/suspicious/noExplicitAny: see selectMany default
 export async function insertMany<TRow = any>(
   db: AnyDb,
-  table: TableLike,
+  table: WritableTable,
   rows: ReadonlyArray<Record<string, unknown>>,
 ): Promise<readonly TRow[]> {
   if (rows.length === 0) return [];
@@ -604,7 +614,7 @@ export async function insertMany<TRow = any>(
 // biome-ignore lint/suspicious/noExplicitAny: see selectMany default
 export async function insertOne<TRow = any>(
   db: AnyDb,
-  table: TableLike,
+  table: WritableTable,
   values: Record<string, unknown>,
 ): Promise<TRow | undefined> {
   const scoped = tenantDbDelegate(db);
@@ -642,7 +652,7 @@ export async function insertOne<TRow = any>(
 // biome-ignore lint/suspicious/noExplicitAny: see selectMany default
 export async function updateMany<TRow = any>(
   db: AnyDb,
-  table: TableLike,
+  table: WritableTable,
   set: Record<string, unknown>,
   where: WhereObject,
 ): Promise<readonly TRow[]> {
@@ -679,7 +689,11 @@ export async function updateMany<TRow = any>(
   return coerceRows(raw, info) as readonly TRow[];
 }
 
-export async function deleteMany(db: AnyDb, table: TableLike, where: WhereObject): Promise<void> {
+export async function deleteMany(
+  db: AnyDb,
+  table: WritableTable,
+  where: WhereObject,
+): Promise<void> {
   const scoped = tenantDbDelegate(db);
   if (scoped) {
     return scoped.deleteMany(table, where);
@@ -783,7 +797,7 @@ export async function countWhere(
 // biome-ignore lint/suspicious/noExplicitAny: see selectMany default
 export async function upsertOnConflict<TRow = any>(
   db: AnyDb,
-  table: TableLike,
+  table: WritableTable,
   values: Record<string, unknown>,
   options: UpsertOnConflictOptions,
 ): Promise<TRow | undefined> {
@@ -833,7 +847,7 @@ export async function upsertOnConflict<TRow = any>(
 // biome-ignore lint/suspicious/noExplicitAny: see selectMany default
 export async function upsertByPk<TRow = any>(
   db: AnyDb,
-  table: TableLike,
+  table: WritableTable,
   values: Record<string, unknown>,
   updateOnConflict?: Record<string, unknown>,
 ): Promise<TRow | undefined> {
@@ -855,7 +869,7 @@ export type IncrementCounterOptions = {
 // biome-ignore lint/suspicious/noExplicitAny: see selectMany default
 export async function incrementCounter<TRow = any>(
   db: AnyDb,
-  table: TableLike,
+  table: WritableTable,
   values: Record<string, unknown>,
   increments: Record<string, number>,
   options: IncrementCounterOptions = {},
@@ -914,7 +928,7 @@ export async function incrementCounter<TRow = any>(
 
 export async function deleteManyBatched(
   db: AnyDb,
-  table: TableLike,
+  table: WritableTable,
   where: WhereObject,
   options: DeleteManyBatchedOptions,
 ): Promise<DeleteManyBatchedResult> {
