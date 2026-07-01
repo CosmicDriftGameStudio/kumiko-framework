@@ -21,6 +21,17 @@ parallel (workspaces=4174, showcase=4175). Use
 `KUMIKO_DEV_DB_NAME=tasks_demo bun dev` for a persistent DB (data
 survives restarts).
 
+## Schema
+
+`src/run-config.ts` holds `APP_FEATURES` + `HAS_AUTH`. `kumiko/schema.ts`
+derives `ENTITY_METAS` from the same compose path as the dev server — the
+pattern used by `kumiko new app` and production apps like publicstatus.
+
+```bash
+# From this directory — static schema/boot alignment check (no DB)
+bun test src/__tests__/schema-alignment.test.ts
+```
+
 ## Login
 
 ```
@@ -66,3 +77,4 @@ bun kumiko test e2e samples/apps/ui-walkthrough
 
 Six Playwright specs: smoke + create flow + update flow + 4 generated
 specs (from the registry-driven E2E generator).
+
