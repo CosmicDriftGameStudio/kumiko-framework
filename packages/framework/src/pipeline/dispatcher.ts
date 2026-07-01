@@ -1,7 +1,7 @@
 import { requestContext } from "../api/request-context";
 import type { DbConnection, DbRow, DbTx } from "../db/connection";
 import { selectRowForUpdateById } from "../db/queries/entity-read";
-import { selectMany, transaction } from "../db/query";
+import { asEntityTableMeta, selectMany, transaction } from "../db/query";
 import { buildEntityTable, toSnakeCase } from "../db/table-builder";
 import { createTenantDb } from "../db/tenant-db";
 import { hasAccess } from "../engine/access";
@@ -1162,9 +1162,7 @@ export function createDispatcher(
           // can false-pass; optimistic locking would catch it later, but with
           // a less specific error. Falls back to a plain SELECT if no tx is
           // active (tests without a DB connection).
-          const tableName = String(
-            (table as { [key: symbol]: unknown })[Symbol.for("kumiko:schema:Name")],
-          );
+          const tableName = asEntityTableMeta(table)?.tableName ?? "";
           const rows = tx
             ? await selectRowForUpdateById(handlerContext.db, tableName, id)
             : await selectMany(handlerContext.db, table, { id });
