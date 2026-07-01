@@ -15,5 +15,6 @@
     "types": ["bun-types"],
     "noEmit": true
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "kumiko/**/*"]
 }
+

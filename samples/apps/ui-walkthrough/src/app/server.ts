@@ -22,7 +22,7 @@ import { seedTasks } from "./seed";
 // bleibt framework-frei für den E2E-Helper-Pfad).
 
 await runDevApp({
-  features: [taskFeature],
+  features: [...APP_FEATURES],
   seeds: [seedTasks],
   // PORT env-var override für Playwright-e2e-Runs (config zeigt auf 4174);
   // sonst lokal-Default 4173.
@@ -52,3 +52,4 @@ await runDevApp({
     },
   },
 });
+
