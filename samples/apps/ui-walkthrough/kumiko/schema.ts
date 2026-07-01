@@ -1,3 +1,4 @@
+// @runtime dev
 // App schema for `kumiko-schema` (validate | generate). Same compose path as
 // runtime boot — see src/run-config.ts.
 
@@ -11,3 +12,4 @@ export const FEATURES: readonly FeatureDefinition[] = composeFeatures([...APP_FE
 });
 
 export const ENTITY_METAS: readonly EntityTableMeta[] = collectTableMetas(FEATURES);
+

@@ -11,7 +11,7 @@
 
 import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { taskFeature } from "../features/tasks";
+import { APP_FEATURES } from "../run-config";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, BETA_TENANT_ID, DEV_TENANT_ID } from "./auth-constants";
 import { seedTasks } from "./seed";
 
@@ -52,4 +52,5 @@ await runDevApp({
     },
   },
 });
+
 
