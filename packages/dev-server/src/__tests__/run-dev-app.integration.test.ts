@@ -5,7 +5,7 @@
 // run-prod-app forwarding pair. Without it a typo or wrong spread-key on the dev
 // path would silently drop the fail-closed guard and dev/prod would diverge.
 
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import type { KumikoServerHandle } from "../create-kumiko-server";
 import { runDevApp } from "../run-dev-app";
@@ -24,10 +24,17 @@ const ADMIN = {
 };
 
 let handle: KumikoServerHandle | undefined;
+const savedJwtSecret = process.env["JWT_SECRET"];
+
+beforeEach(() => {
+  process.env["JWT_SECRET"] = "test-rundev-secret-32-chars-min!!!!";
+});
 
 afterEach(async () => {
   await handle?.stop();
   handle = undefined;
+  if (savedJwtSecret === undefined) delete process.env["JWT_SECRET"];
+  else process.env["JWT_SECRET"] = savedJwtSecret;
 });
 
 describe("runDevApp — auth allowedOrigins forwarding (#399/1)", () => {

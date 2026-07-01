@@ -163,11 +163,15 @@ export function buildBunServeOptions(
 // `src` defaults to process.env but is threaded from the caller's envSource
 // so the boot-path reads the SAME env-quelle that was validated above —
 // injected dummies in test-mode must not silently fall back to process.env.
-function requireEnv(name: string, src: Record<string, string | undefined> = process.env): string {
+export function requireEnv(
+  name: string,
+  src: Record<string, string | undefined> = process.env,
+  context = "runProdApp",
+): string {
   const value = src[name];
   if (value === undefined || value === "") {
     throw new Error(
-      `runProdApp: required env var "${name}" is missing or empty. ` +
+      `${context}: required env var "${name}" is missing or empty. ` +
         `Set it in your container env / .env.production / Coolify secrets.`,
     );
   }
