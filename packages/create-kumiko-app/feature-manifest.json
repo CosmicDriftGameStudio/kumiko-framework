@@ -1165,7 +1165,9 @@
       "requires": [
         "renderer-foundation"
       ],
-      "optionalRequires": [],
+      "optionalRequires": [
+        "template-resolver"
+      ],
       "configReads": [],
       "exposesApis": [],
       "usesApis": [],
