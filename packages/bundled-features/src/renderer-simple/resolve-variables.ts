@@ -53,4 +53,3 @@ function parsePlainTemplateContent(content: string): Record<string, unknown> {
   }
   return { body: content };
 }
-
