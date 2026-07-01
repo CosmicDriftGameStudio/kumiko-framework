@@ -1,17 +1,20 @@
 import { type Context, Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import {
+  AccessDeniedError,
   type KumikoError,
   reraiseAsKumikoError,
   serializeError,
   toKumikoError,
   ValidationError,
 } from "../errors";
+import type { SessionUser } from "../engine/types/handlers";
 import { createFallbackLogger } from "../logging";
 import type { Dispatcher } from "../pipeline/dispatcher";
 import { stringifyJson } from "../utils/safe-json";
 import { Routes } from "./api-constants";
 import { getUser } from "./auth-middleware";
+import { patAllows } from "./pat-scope";
 import { requestContext } from "./request-context";
 
 export function createApiRoutes(dispatcher: Dispatcher) {
@@ -22,6 +25,7 @@ export function createApiRoutes(dispatcher: Dispatcher) {
     const body = await c.req.json<{ type: string; payload: unknown; requestId?: string }>();
 
     try {
+      assertPatAllowed(user, body.type);
       const result = await dispatcher.write(body.type, body.payload, user, body.requestId);
       if (!result.isSuccess) {
         return writeErrorResponse(c, reraiseAsKumikoError(result.error), body.type);
@@ -59,6 +63,9 @@ export function createApiRoutes(dispatcher: Dispatcher) {
     }
 
     try {
+      if (user.pat) {
+        for (const cmd of body.commands) assertPatAllowed(user, cmd.type);
+      }
       const result = await dispatcher.batch(body.commands, user, body.requestId);
       if (!result.isSuccess) {
         const err = reraiseAsKumikoError(result.error);
@@ -92,6 +99,7 @@ export function createApiRoutes(dispatcher: Dispatcher) {
     const body = await c.req.json<{ type: string; payload: unknown }>();
 
     try {
+      assertPatAllowed(user, body.type);
       const result = await dispatcher.query(body.type, body.payload, user);
       return jsonResponse(c, { data: result });
     } catch (e) {
@@ -104,6 +112,7 @@ export function createApiRoutes(dispatcher: Dispatcher) {
     const body = await c.req.json<{ type: string; payload: unknown }>();
 
     try {
+      assertPatAllowed(user, body.type);
       await dispatcher.command(body.type, body.payload, user);
       return c.json({ ok: true }, 202);
     } catch (e) {
@@ -119,6 +128,19 @@ function jsonResponse(c: Context, body: unknown, status: ContentfulStatusCode = 
 }
 
 const toKumiko = toKumikoError;
+
+// PAT scope enforcement at the API boundary. No-op for cookie/JWT users
+// (user.pat undefined → unrestricted). For a PAT-authenticated request the
+// dispatch type must match one of the token's granted-scope QN globs, else
+// 403 — fail-closed, thrown so each route's existing catch shapes the body.
+function assertPatAllowed(user: SessionUser, type: string): void {
+  if (user.pat && !patAllows(user.pat.allowedQns, type)) {
+    throw new AccessDeniedError({
+      message: `personal access token scope does not permit ${type}`,
+      details: { handler: type, scopes: user.pat.scopes },
+    });
+  }
+}
 
 // Unexpected server faults (5xx) carry their diagnostic stack only on the
 // in-process error — serializeError strips cause/details from the wire body.

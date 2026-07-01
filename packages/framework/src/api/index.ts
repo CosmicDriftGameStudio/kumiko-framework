@@ -5,10 +5,12 @@ export type {
   AuthMiddlewareOptions,
   AuthSessionChecker,
   AuthSessionStatus,
+  PatResolver,
   TenantExists,
   TenantResolver,
 } from "./auth-middleware";
-export { authMiddleware, getUser } from "./auth-middleware";
+export { authMiddleware, getUser, PAT_TOKEN_PREFIX } from "./auth-middleware";
+export { patAllows, qnMatches } from "./pat-scope";
 export type {
   AuthRoutesConfig,
   LoginRateLimiter,

@@ -16,6 +16,12 @@ export const AUTH_COOKIE_NAME = "kumiko_auth";
 export const CSRF_COOKIE_NAME = "kumiko_csrf";
 export const CSRF_HEADER_NAME = "X-CSRF-Token";
 
+// Prefix that marks a bearer token as a long-lived Personal Access Token
+// rather than a JWT session. The PAT feature mints tokens with this prefix;
+// the middleware uses it to route to patResolver instead of jwt.verify. Kept
+// here so both sides import the same literal.
+export const PAT_TOKEN_PREFIX = "kpat_";
+
 // Which wire the current request authenticated over. Downstream
 // csrf-middleware reads this: cookie-auth gets a CSRF-token check, bearer
 // does not (headers aren't set cross-origin by browsers, so there is no
@@ -41,11 +47,23 @@ export type AuthSessionChecker = (
   expectedUserId: string,
 ) => Promise<AuthSessionStatus>;
 
+// Resolves a raw Personal Access Token (bearer, prefixed PAT_TOKEN_PREFIX)
+// into a SessionUser, or null when the token is unknown/revoked/expired. The
+// PAT feature owns the DB-backed implementation: hash the token, look up the
+// row, resolve the user's CURRENT roles live (not a snapshot), and expand the
+// token's granted scopes into `pat.allowedQns`. Middleware just consults it
+// and short-circuits the JWT path on a hit.
+export type PatResolver = (rawToken: string) => Promise<SessionUser | null>;
+
 export type AuthMiddlewareOptions = {
   // Called after JWT-verify when the token carries a sid. If the checker
   // reports anything other than "live", the request is rejected with 401.
   // Omit to run in stateless-JWT mode (any valid JWT is accepted).
   readonly sessionChecker?: AuthSessionChecker;
+  // Called for bearer tokens carrying the PAT prefix, BEFORE jwt.verify. On a
+  // hit the middleware sets the returned SessionUser and skips the JWT path
+  // entirely. Omit to disable PAT auth (bearer PATs then fail jwt.verify → 401).
+  readonly patResolver?: PatResolver;
   // When true, a JWT WITHOUT a sid is rejected. Leave false during rollout
   // so already-issued stateless JWTs keep working until they expire; flip
   // to true once the server has been emitting sid for longer than the JWT
@@ -169,7 +187,7 @@ function extractToken(
 }
 
 export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = {}) {
-  const { sessionChecker, strictMode = false, anonymousAccess } = options;
+  const { sessionChecker, strictMode = false, anonymousAccess, patResolver } = options;
 
   return async (c: Context, next: Next) => {
     const extracted = extractToken(c);
@@ -211,6 +229,13 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
       });
     }
     const { token, transport } = extracted;
+
+    // PAT path: a bearer token carrying the PAT prefix is a long-lived
+    // Personal Access Token, not a JWT. Short-circuit the JWT path entirely.
+    // Cookie transport is never a PAT (the browser holds the JWT).
+    if (patResolver && transport === "bearer" && token.startsWith(PAT_TOKEN_PREFIX)) {
+      return await handlePat(c, patResolver, token, next);
+    }
 
     let payload: Awaited<ReturnType<JwtHelper["verify"]>>;
     try {
@@ -275,6 +300,43 @@ export function getUser(c: Context): SessionUser {
 export function getAuthTransport(c: Context): AuthTransport | undefined {
   // @cast-boundary engine-bridge — Hono context.get returns unknown
   return c.get(AUTH_TRANSPORT_KEY) as AuthTransport | undefined;
+}
+
+// PAT request flow. Resolve the hashed token → SessionUser (live roles +
+// granted scopes), then apply the same X-Tenant-mismatch guard as the JWT
+// path before continuing. A null resolve is an invalid/revoked/expired token
+// → 401. Structured like handleAnonymous so authMiddleware stays flat.
+async function handlePat(
+  c: Context,
+  patResolver: PatResolver,
+  token: string,
+  next: Next,
+): Promise<Response | undefined> {
+  const patUser = await patResolver(token);
+  if (!patUser) {
+    return middlewareReject(c, {
+      code: "invalid_token",
+      status: 401,
+      message: "personal access token invalid, revoked or expired",
+      i18nKey: "auth.errors.invalidToken",
+    });
+  }
+  // The PAT carries its own tenant; an X-Tenant header pointing elsewhere is a
+  // confused client — reject loudly, same stance as the JWT path.
+  const headerTenant = c.req.header(TENANT_HEADER_NAME);
+  if (headerTenant !== undefined && headerTenant !== patUser.tenantId) {
+    return middlewareReject(c, {
+      code: "tenant_mismatch",
+      status: 400,
+      message: "PAT tenantId and X-Tenant header disagree",
+      i18nKey: "auth.errors.tenantMismatch",
+      details: { patTenantId: patUser.tenantId, headerTenantId: headerTenant },
+    });
+  }
+  c.set(USER_KEY, patUser);
+  c.set(AUTH_TRANSPORT_KEY, "bearer");
+  await next();
+  return;
 }
 
 // Anonymous request flow. Steps:

@@ -561,6 +561,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   const jwtGuard = authMiddleware(jwt, {
     ...(options.auth?.sessionChecker ? { sessionChecker: options.auth.sessionChecker } : {}),
     ...(options.auth?.sessionStrictMode ? { strictMode: options.auth.sessionStrictMode } : {}),
+    ...(options.auth?.patResolver ? { patResolver: options.auth.patResolver } : {}),
     ...(options.anonymousAccess ? { anonymousAccess: options.anonymousAccess } : {}),
   });
   app.use("/api/*", async (c, next) => {
