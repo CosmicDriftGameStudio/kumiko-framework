@@ -113,7 +113,3 @@ describe("walkthrough — DX-3.1 snapshot", () => {
     expect(main).toContain("runProdApp");
   });
 });
-
-
-
-

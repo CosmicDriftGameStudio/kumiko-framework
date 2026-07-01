@@ -95,4 +95,3 @@ export function parseArgv(argv: readonly string[]): CliArgs {
   }
   return out;
 }
-

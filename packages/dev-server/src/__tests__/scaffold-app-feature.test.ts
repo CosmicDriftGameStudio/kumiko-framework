@@ -161,4 +161,3 @@ describe("scaffoldAppFeature", () => {
     expect(result.autoMounted).toBe(false);
   });
 });
-

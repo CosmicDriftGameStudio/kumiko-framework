@@ -116,5 +116,3 @@ function printHelp(out: Output): void {
   out.log("");
   out.log("Docs: https://docs.kumiko.rocks");
 }
-
-
