@@ -10,7 +10,6 @@ export type {
   TenantResolver,
 } from "./auth-middleware";
 export { authMiddleware, getUser, PAT_TOKEN_PREFIX } from "./auth-middleware";
-export { patAllows, qnMatches } from "./pat-scope";
 export type {
   AuthRoutesConfig,
   LoginRateLimiter,
@@ -32,6 +31,7 @@ export {
 } from "./http-cache";
 export type { JwtHelper, JwtPayload } from "./jwt";
 export { createJwtHelper } from "./jwt";
+export { patAllows, qnMatches } from "./pat-scope";
 export { type RequestContextData, requestContext } from "./request-context";
 export { requestIdMiddleware } from "./request-id-middleware";
 export { createApiRoutes } from "./routes";

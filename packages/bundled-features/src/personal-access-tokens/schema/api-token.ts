@@ -19,7 +19,11 @@ export const apiTokenEntity = createEntity({
   // we keep revoked rows for the "your tokens" audit list.
   softDelete: false,
   fields: {
-    userId: createTextField({ required: true, maxLength: 36, access: { write: access.privileged } }),
+    userId: createTextField({
+      required: true,
+      maxLength: 36,
+      access: { write: access.privileged },
+    }),
     tenantId: createTextField({
       required: true,
       maxLength: 36,
@@ -31,7 +35,11 @@ export const apiTokenEntity = createEntity({
       maxLength: 64,
       access: { write: access.privileged },
     }),
-    prefix: createTextField({ required: true, maxLength: 16, access: { write: access.privileged } }),
+    prefix: createTextField({
+      required: true,
+      maxLength: 16,
+      access: { write: access.privileged },
+    }),
     // JSON-encoded string[] of granted scope names — mirrors the roles-column
     // convention (parseRoles-style text); the resolver JSON.parses it.
     scopes: createTextField({ required: true, access: { write: access.privileged } }),

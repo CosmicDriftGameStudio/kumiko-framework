@@ -1,5 +1,6 @@
 import { type Context, Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
+import type { SessionUser } from "../engine/types/handlers";
 import {
   AccessDeniedError,
   type KumikoError,
@@ -8,7 +9,6 @@ import {
   toKumikoError,
   ValidationError,
 } from "../errors";
-import type { SessionUser } from "../engine/types/handlers";
 import { createFallbackLogger } from "../logging";
 import type { Dispatcher } from "../pipeline/dispatcher";
 import { stringifyJson } from "../utils/safe-json";

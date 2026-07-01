@@ -4,7 +4,12 @@
 // revoke them. The feature registers it dormant (r.screen); the app places it
 // via r.nav. Imports only from ../constants (pure) — no server pull-in.
 
-import { useDispatcher, usePrimitives, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import {
+  useDispatcher,
+  usePrimitives,
+  useQuery,
+  useTranslation,
+} from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
 import { PatHandlers, PatQueries } from "../constants";
 

@@ -1,5 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
+import {
+  createInMemoryLoginRateLimiter,
+  type PatResolver,
+} from "@cosmicdrift/kumiko-framework/api";
 import { deleteMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
@@ -16,21 +20,20 @@ import { createAuthEmailPasswordFeature } from "../../auth-email-password/featur
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
+import { makeSessionHelpers } from "../../sessions/__tests__/test-helpers";
+import { SessionQueries } from "../../sessions/constants";
 import { createSessionsFeature } from "../../sessions/feature";
 import { userSessionEntity } from "../../sessions/schema/user-session";
-import { SessionQueries } from "../../sessions/constants";
 import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/schema/tenant";
 import { createUserFeature } from "../../user/feature";
 import { userEntity } from "../../user/schema/user";
-import { makeSessionHelpers } from "../../sessions/__tests__/test-helpers";
 import { PatHandlers, PatQueries } from "../constants";
 import { createPersonalAccessTokensFeature } from "../feature";
 import { createPatResolver } from "../resolver";
 import { apiTokenEntity, apiTokenTable } from "../schema/api-token";
 import type { PatScopeConfig } from "../scopes";
-import { createInMemoryLoginRateLimiter, type PatResolver } from "@cosmicdrift/kumiko-framework/api";
 
 // Full loop, no mocks: mint a PAT via the create handler → use it as a bearer
 // token over real HTTP. The resolver hashes it, resolves live roles, and the
@@ -57,7 +60,11 @@ async function mintToken(
 ): Promise<string> {
   const res = await stack.http.writeOk<{ id: string; token: string }>(
     PatHandlers.create,
-    { name: "test", scopes: opts?.scopes ?? ["tokens"], ...(opts?.expiresInDays ? { expiresInDays: opts.expiresInDays } : {}) },
+    {
+      name: "test",
+      scopes: opts?.scopes ?? ["tokens"],
+      ...(opts?.expiresInDays ? { expiresInDays: opts.expiresInDays } : {}),
+    },
     actor,
   );
   return res.token;
@@ -134,12 +141,18 @@ describe("PAT auth", () => {
     expect(denied.status).toBe(403);
 
     const jwt = await loginToken("scope@example.com");
-    const allowed = await h.authedPost("/api/query", jwt, { type: SessionQueries.mine, payload: {} });
+    const allowed = await h.authedPost("/api/query", jwt, {
+      type: SessionQueries.mine,
+      payload: {},
+    });
     expect(allowed.status).toBe(200);
   });
 
   test("unknown token → 401", async () => {
-    const res = await h.authedPost("/api/query", "kpat_deadbeef", { type: PatQueries.mine, payload: {} });
+    const res = await h.authedPost("/api/query", "kpat_deadbeef", {
+      type: PatQueries.mine,
+      payload: {},
+    });
     expect(res.status).toBe(401);
   });
 
@@ -158,7 +171,8 @@ describe("PAT auth", () => {
     const actor = await actorFor("expired@example.com");
     const token = await mintToken(actor);
     const past = Temporal.Now.instant().subtract({ hours: 1 });
-    const rows = (await stack.http.queryOk<Array<{ id: string }>>(PatQueries.mine, {}, actor)) ?? [];
+    const rows =
+      (await stack.http.queryOk<Array<{ id: string }>>(PatQueries.mine, {}, actor)) ?? [];
     await updateMany(stack.db, apiTokenTable, { expiresAt: past }, { id: rows[0]?.id });
     const res = await h.authedPost("/api/query", token, { type: PatQueries.mine, payload: {} });
     expect(res.status).toBe(401);

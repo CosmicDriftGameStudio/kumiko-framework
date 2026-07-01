@@ -10,7 +10,6 @@ export function buildAvailableScopesQuery(scopes: PatScopeConfig) {
     name: "available-scopes",
     schema: z.object({}),
     access: { openToAll: true },
-    handler: async () =>
-      Object.entries(scopes).map(([name, def]) => ({ name, label: def.label })),
+    handler: async () => Object.entries(scopes).map(([name, def]) => ({ name, label: def.label })),
   });
 }

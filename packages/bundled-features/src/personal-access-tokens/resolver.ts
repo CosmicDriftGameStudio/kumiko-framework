@@ -29,7 +29,10 @@ export function createPatResolver(opts: {
     }>(db, apiTokenTable, { tokenHash: hashPatToken(rawToken) });
     if (!row) return null;
     if (row.revokedAt !== null) return null;
-    if (row.expiresAt && row.expiresAt.epochMilliseconds <= Temporal.Now.instant().epochMilliseconds) {
+    if (
+      row.expiresAt &&
+      row.expiresAt.epochMilliseconds <= Temporal.Now.instant().epochMilliseconds
+    ) {
       return null;
     }
     const roles = await resolvePatRoles(db, row.userId, row.tenantId);

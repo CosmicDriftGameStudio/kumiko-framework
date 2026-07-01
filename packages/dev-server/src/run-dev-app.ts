@@ -33,8 +33,8 @@ import {
   type SessionCallbacks,
 } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
-import { createInMemoryLoginRateLimiter } from "@cosmicdrift/kumiko-framework/api";
 import type { PatResolver, SessionMetadata } from "@cosmicdrift/kumiko-framework/api";
+import { createInMemoryLoginRateLimiter } from "@cosmicdrift/kumiko-framework/api";
 import {
   collectWriteHandlerQns,
   createRegistry,
