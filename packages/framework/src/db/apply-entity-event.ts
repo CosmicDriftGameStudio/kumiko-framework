@@ -33,12 +33,14 @@
 //   <entity>.updated   → UPDATE WHERE id=aggregateId
 //   <entity>.deleted   → soft-delete-UPDATE wenn entity.softDelete, sonst hard-DELETE
 //   <entity>.restored  → undelete-UPDATE (nur bei softDelete sinnvoll)
+//   <entity>.forgotten → hard-DELETE immer (Art.17-Purge, auch bei softDelete);
+//                        via executor.forget(). Rebuild replayt created→forgotten
+//                        → Row weg, rebuild-safe (was ein direktes deleteMany nicht ist).
 //
 // Domain-Events (r.defineEvent) auf demselben Aggregate werden hier NICHT
 // behandelt — die liefen im Live-Pfad nie durch den Executor und müssen
 // von expliziten r.projection-apply-Handlern oder r.multiStreamProjection
-// behandelt werden. ImplicitProjection registriert daher nur die 4
-// Auto-Verben.
+// behandelt werden. ImplicitProjection registriert die Auto-Verben.
 //
 // Return-Shape: ApplyResult mit `kind` + optionaler `row`.
 //   - "applied" → Schreibung lief durch. `row` enthält die geschriebene
@@ -57,22 +59,22 @@ import type { TableColumns } from "./dialect";
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle-Tabellen sind generisch typed; framework code erasiert die Spalten-Union absichtlich.
 type Table = TableColumns<any>;
 
-export type AutoVerb = "created" | "updated" | "deleted" | "restored";
+export type AutoVerb = "created" | "updated" | "deleted" | "restored" | "forgotten";
+
+const AUTO_VERBS: readonly AutoVerb[] = ["created", "updated", "deleted", "restored", "forgotten"];
 
 export type ApplyResult =
   | { readonly kind: "applied"; readonly verb: AutoVerb; readonly row: DbRow | null }
   | { readonly kind: "skipped" };
 
-/** Parsed event.type → AutoVerb wenn das Event eines der 4 Auto-Verben
+/** Parsed event.type → AutoVerb wenn das Event eines der Auto-Verben
  *  auf dem gegebenen Aggregate ist. null sonst (Domain-Event). */
 export function parseAutoVerb(event: StoredEvent): AutoVerb | null {
   const prefix = `${event.aggregateType}.`;
   if (!event.type.startsWith(prefix)) return null;
   const verb = event.type.slice(prefix.length);
-  if (verb === "created" || verb === "updated" || verb === "deleted" || verb === "restored") {
-    return verb;
-  }
-  return null;
+  // @cast-boundary: verb is validated against the AutoVerb list before the cast.
+  return (AUTO_VERBS as readonly string[]).includes(verb) ? (verb as AutoVerb) : null;
 }
 
 /** Idempotente Anwendung eines Auto-Events auf die Entity-Tabelle.
@@ -192,6 +194,15 @@ export async function applyEntityEvent(
         { id: event.aggregateId },
       );
       return { kind: "applied", verb, row: rows[0] ?? null };
+    }
+
+    case "forgotten": {
+      // Hard-delete regardless of softDelete: forget/purge (Art. 17) removes the
+      // row entirely. On rebuild the aggregate replays created → forgotten, so
+      // the row ends up gone — the rebuild-safe erasure the soft-delete verb
+      // (which only flips isDeleted) cannot provide.
+      await deleteMany(tx, table, { id: event.aggregateId });
+      return { kind: "applied", verb, row: null };
     }
   }
 }

@@ -26,7 +26,7 @@ import {
   userTable,
 } from "@cosmicdrift/kumiko-bundled-features/user";
 import { runUserExport } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
-import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { extractTableName } from "@cosmicdrift/kumiko-framework/db";
 import { EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefEntity } from "@cosmicdrift/kumiko-framework/files";
@@ -37,6 +37,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { TODO_CREATE_QN, TODO_LIST_QN, todoEntity } from "../feature";
 import { APP_FEATURES } from "../run-config";
@@ -104,7 +105,7 @@ beforeEach(async () => {
 });
 
 async function seedAlice(): Promise<void> {
-  await insertOne(stack.db, userTable, {
+  await seedRow(stack.db, userTable, {
     id: alice.id,
     tenantId: alice.tenantId,
     email: "alice@demo.local",

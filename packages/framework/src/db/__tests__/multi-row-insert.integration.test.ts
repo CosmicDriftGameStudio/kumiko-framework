@@ -8,7 +8,8 @@
 // cause.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { insertOne, selectMany } from "../../db/query";
+import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
+import { selectMany } from "../../db/query";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField } from "../../engine";
 import { setupTestStack, type TestStack, unsafeCreateEntityTable } from "../../stack";
@@ -51,7 +52,7 @@ describe("instant() customType is forgiving with ISO strings", () => {
     // would call .toString() on a string and produce a malformed driver
     // value that PG rejects.
     const isoString = "2026-01-15T12:00:00Z";
-    await insertOne(stack.db, tsTable, {
+    await seedRow(stack.db, tsTable, {
       name: "x",
       tenantId: "00000000-0000-4000-8000-000000000001",
       insertedAt: isoString as unknown as Temporal.Instant,
@@ -64,12 +65,12 @@ describe("instant() customType is forgiving with ISO strings", () => {
 
 describe("multi-row INSERT", () => {
   test("two rows with no id supplied → both rows persist (PG gen_random_uuid per row)", async () => {
-    await insertOne(stack.db, linkTable, {
+    await seedRow(stack.db, linkTable, {
       leftId: "L1",
       rightId: "R1",
       tenantId: "00000000-0000-4000-8000-000000000001",
     });
-    await insertOne(stack.db, linkTable, {
+    await seedRow(stack.db, linkTable, {
       leftId: "L2",
       rightId: "R2",
       tenantId: "00000000-0000-4000-8000-000000000001",

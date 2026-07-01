@@ -10,7 +10,7 @@
 // #624: "App mountet mail-foundation+transport → GDPR-Mails ohne Callback-Code".
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
   setupTestStack,
@@ -18,7 +18,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { configValuesTable, createConfigFeature, createConfigResolver } from "../../config";
@@ -99,7 +99,7 @@ beforeEach(async () => {
 
 describe("C6 default mail bridge :: forget cron sends deletion-executed without app callback", () => {
   test("registered cron + configResolver(provider=inmemory) → user deleted + mail in inbox", async () => {
-    await insertOne(stack.db, userTable, {
+    await seedRow(stack.db, userTable, {
       id: USER_ID,
       tenantId: TENANT_SYSTEM,
       email: ORIGINAL_EMAIL,

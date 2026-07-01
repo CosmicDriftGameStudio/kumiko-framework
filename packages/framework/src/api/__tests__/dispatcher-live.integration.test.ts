@@ -1,9 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
+import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { z } from "zod";
 import { generateToken } from "../../api/tokens";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { asRawClient, insertOne, selectMany } from "../../db/query";
+import { asRawClient, selectMany } from "../../db/query";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
@@ -159,7 +160,7 @@ describe("dispatcher-live (integration) — full path against Kumiko server", ()
 
   test("query: dispatches GET-style-POST (Kumiko uses POST for query too), returns data", async () => {
     // Seed a row first.
-    await insertOne(stack.db, itemTable, {
+    await seedRow(stack.db, itemTable, {
       id: generateId(),
       tenantId: admin.tenantId,
       name: "seed",

@@ -9,7 +9,7 @@
 // (nur tenant-membership-roles in der Session).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
@@ -19,6 +19,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
@@ -102,7 +103,7 @@ async function addMembership(
   tenantId: TenantId,
   roles: readonly string[],
 ): Promise<void> {
-  await insertOne(stack.db, tenantMembershipsTable, {
+  await seedRow(stack.db, tenantMembershipsTable, {
     userId,
     tenantId,
     roles: JSON.stringify(roles),

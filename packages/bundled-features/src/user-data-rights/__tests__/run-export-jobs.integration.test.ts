@@ -17,12 +17,7 @@ import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  asRawClient,
-  insertOne,
-  selectMany,
-  updateMany,
-} from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createInMemoryFileProvider,
@@ -35,7 +30,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import { resetTestTables, seedRow, updateRows } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   createComplianceProfilesFeature,
@@ -112,7 +107,7 @@ beforeEach(async () => {
 
   // Atom 5: aliceUser-Row mit email seeden — Worker-Notification-Callback
   // schaut email via lookupUserEmail an.
-  await insertOne(stack.db, userTable, {
+  await seedRow(stack.db, userTable, {
     id: String(aliceUser.id),
     tenantId: tenantA,
     email: "alice@example.com",
@@ -222,7 +217,7 @@ describe("runExportJobs :: stale-detection", () => {
     const jobId = await seedPendingJob();
     const T = getTemporal();
     const twoHoursAgo = T.Instant.fromEpochMilliseconds(Date.now() - 2 * 60 * 60 * 1000);
-    await updateMany(
+    await updateRows(
       stack.db,
       exportJobsTable,
       { status: EXPORT_JOB_STATUS.Running, startedAt: twoHoursAgo },
@@ -250,7 +245,7 @@ describe("runExportJobs :: stale-detection", () => {
     const jobId = await seedPendingJob();
     const T = getTemporal();
     const justNow = T.Instant.fromEpochMilliseconds(Date.now() - 60 * 1000); // 1min ago
-    await updateMany(
+    await updateRows(
       stack.db,
       exportJobsTable,
       { status: EXPORT_JOB_STATUS.Running, startedAt: justNow },
@@ -285,7 +280,7 @@ describe("runExportJobs :: stale-detection", () => {
     // gesetzt + ZIP geschrieben. Worker dann gecrashed (kein done-flip).
     const provider = await buildProvider(tenantA);
     await provider.write(storageKey, new Uint8Array([1, 2, 3]));
-    await updateMany(
+    await updateRows(
       stack.db,
       exportJobsTable,
       {
@@ -327,7 +322,7 @@ describe("runExportJobs :: storage-cleanup", () => {
     const provider = await buildProvider(tenantA);
     await provider.write(storageKey, new Uint8Array([1, 2, 3]));
 
-    await updateMany(
+    await updateRows(
       stack.db,
       exportJobsTable,
       {
@@ -366,7 +361,7 @@ describe("runExportJobs :: storage-cleanup", () => {
     const provider = await buildProvider(tenantA);
     await provider.write(storageKey, new Uint8Array([4, 5, 6]));
 
-    await updateMany(
+    await updateRows(
       stack.db,
       exportJobsTable,
       {
@@ -470,7 +465,7 @@ describe("runExportJobs :: stale-detection profile-driven cutoff", () => {
     const jobId = await seedPendingJob();
     const T = getTemporal();
     const fortyFiveMinAgo = T.Instant.fromEpochMilliseconds(Date.now() - 45 * 60 * 1000);
-    await updateMany(
+    await updateRows(
       stack.db,
       exportJobsTable,
       { status: EXPORT_JOB_STATUS.Running, startedAt: fortyFiveMinAgo },
@@ -661,7 +656,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     // (simuliert orphan-state nach Worker-crash).
     const provider = await buildProvider(tenantA);
     await provider.write(storageKey, new Uint8Array([99, 99, 99]));
-    await updateMany(
+    await updateRows(
       stack.db,
       exportJobsTable,
       {
@@ -1046,7 +1041,7 @@ describe("runExportJobs :: Atom 5 notification-callbacks", () => {
     // User-Row mit email=null seeden (override). Worker logged warn,
     // Callback wird NICHT gerufen, Worker-Run bleibt successful.
     await resetTestTables(stack.db, [userTable]);
-    await insertOne(stack.db, userTable, {
+    await seedRow(stack.db, userTable, {
       id: String(aliceUser.id),
       tenantId: tenantA,
       email: "" as string, // empty string — lookupUserEmail returnt null
@@ -1092,7 +1087,7 @@ describe("runExportJobs :: Atom 5 notification-callbacks", () => {
       tenantId: tenantA,
       roles: ["Member"],
     });
-    await insertOne(stack.db, userTable, {
+    await seedRow(stack.db, userTable, {
       id: String(bobUser.id),
       tenantId: tenantA,
       email: "bob@example.com",

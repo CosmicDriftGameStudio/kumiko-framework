@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { deleteMany, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -10,7 +10,12 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createLateBoundHolder, resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import {
+  createLateBoundHolder,
+  deleteRows,
+  resetTestTables,
+  updateRows,
+} from "@cosmicdrift/kumiko-framework/testing";
 import { Temporal } from "temporal-polyfill";
 import { AuthHandlers } from "../../auth-email-password/constants";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
@@ -367,7 +372,7 @@ describe("sessions feature — login → check → revoke → rejected", () => {
 
     // Hard-delete the session row so it's gone from the store (as opposed to
     // soft-revoked). The JWT stays syntactically valid.
-    await deleteMany(stack.db, userSessionTable, { id: sid });
+    await deleteRows(stack.db, userSessionTable, { id: sid });
 
     const res = await h.authedPost("/api/query", token, {
       type: "user:query:user:me",
@@ -384,7 +389,7 @@ describe("sessions feature — login → check → revoke → rejected", () => {
 
     // Back-date expiresAt so the row is still present + not revoked, just
     // past its window. Simulates what a long-lived JWT would hit.
-    await updateMany(
+    await updateRows(
       stack.db,
       userSessionTable,
       { expiresAt: Temporal.Instant.from("2020-01-01T00:00:00Z") },
@@ -422,7 +427,7 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     // so she gets a fresh JWT with the new role in its claims. This is the
     // actual production path — roles are tenant-membership data, not JWT
     // metadata we can fiddle with directly.
-    await updateMany(
+    await updateRows(
       stack.db,
       tenantMembershipsTable,
       { roles: JSON.stringify(["Admin"]) },
@@ -475,7 +480,7 @@ describe("sessions feature — locked accounts blocked on a live session", () =>
   test("restricted after login → 401 reason=blocked", async () => {
     const { userId } = await h.seedUser("restrict@example.com", "pw-long-enough");
     const { token } = await h.login("restrict@example.com", "pw-long-enough");
-    await updateMany(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: userId });
+    await updateRows(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: userId });
 
     const res = await h.authedPost("/api/query", token, {
       type: "user:query:user:me",
@@ -489,7 +494,7 @@ describe("sessions feature — locked accounts blocked on a live session", () =>
   test("deleted after login → 401 reason=blocked", async () => {
     const { userId } = await h.seedUser("gone@example.com", "pw-long-enough");
     const { token } = await h.login("gone@example.com", "pw-long-enough");
-    await updateMany(stack.db, userTable, { status: USER_STATUS.Deleted }, { id: userId });
+    await updateRows(stack.db, userTable, { status: USER_STATUS.Deleted }, { id: userId });
 
     const res = await h.authedPost("/api/query", token, {
       type: "user:query:user:me",
@@ -507,7 +512,7 @@ describe("sessions feature — locked accounts blocked on a live session", () =>
     // into a global lockout for every affected session instead of a no-op.
     const { userId } = await h.seedUser("hardgone@example.com", "pw-long-enough");
     const { token } = await h.login("hardgone@example.com", "pw-long-enough");
-    await deleteMany(stack.db, userTable, { id: userId });
+    await deleteRows(stack.db, userTable, { id: userId });
 
     const res = await h.authedPost("/api/query", token, {
       type: "user:query:user:me",
@@ -519,7 +524,7 @@ describe("sessions feature — locked accounts blocked on a live session", () =>
   test("deletionRequested keeps its session live — reversible grace period", async () => {
     const { userId } = await h.seedUser("leaving@example.com", "pw-long-enough");
     const { token } = await h.login("leaving@example.com", "pw-long-enough");
-    await updateMany(
+    await updateRows(
       stack.db,
       userTable,
       { status: USER_STATUS.DeletionRequested },

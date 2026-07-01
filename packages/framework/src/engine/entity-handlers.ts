@@ -1,13 +1,12 @@
 import { type ZodType, z } from "zod";
 import type { DbRow } from "../db/connection";
-import type { TableColumns } from "../db/dialect";
 import {
   collectReferenceFields,
   enrichRowWithReferences,
   enrichWithReferences,
 } from "../db/eagerload";
 import { createEventStoreExecutor, type EventStoreExecutor } from "../db/event-store-executor";
-import { buildEntityTable } from "../db/table-builder";
+import { buildEntityTable, type EntityTable } from "../db/table-builder";
 import { createTenantDb, type TenantDb } from "../db/tenant-db";
 import { assertUnreachable } from "../utils";
 import { buildInsertSchema, buildUpdateSchema } from "./schema-builder";
@@ -384,9 +383,6 @@ export function defineEntityDetailHandler(
   return defineEntityQueryHandler(`${entityName}:detail`, entity, options);
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic table — erased on purpose, same as db/event-store-executor.ts does.
-type AnyTable = TableColumns<any>;
-
 // Bundle the two calls every custom write-handler opens with: build the
 // Drizzle table from the entity, then wire an event-store executor onto it.
 // The pair is identical in every sample that hand-writes handlers, so the
@@ -400,7 +396,7 @@ type AnyTable = TableColumns<any>;
 export function createEntityExecutor(
   entityName: string,
   entity: EntityDefinition,
-): { readonly table: AnyTable; readonly executor: EventStoreExecutor } {
+): { readonly table: EntityTable; readonly executor: EventStoreExecutor } {
   const table = buildEntityTable(entityName, entity);
   const executor = createEventStoreExecutor(table, entity, { entityName });
   return { table, executor };

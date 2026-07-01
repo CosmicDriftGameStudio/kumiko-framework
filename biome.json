@@ -101,6 +101,8 @@
         "packages/framework/src/api/**",
         "packages/framework/src/pipeline/**",
         "packages/framework/src/db/**",
+        "packages/create-kumiko-app/**",
+        "packages/dev-server/src/schema-apply.ts",
         "**/scripts/**"
       ],
       "linter": {

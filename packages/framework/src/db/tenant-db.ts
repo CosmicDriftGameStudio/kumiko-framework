@@ -53,6 +53,12 @@ export type TenantDb = {
     set: Record<string, unknown>,
     where: WhereObject,
   ): Promise<readonly T[]>;
+  // Method-form writes (ctx.db.insertOne/updateMany/deleteMany) keep the erased
+  // Table param: the executor-only brand is enforced on the free-function
+  // helpers (the reflexive path all production writes take), while method-form
+  // on a branded table is covered by the guard-direct-entity-writes AST guard
+  // (P5) — branding it here would force every push+write test into casts for
+  // zero production benefit (no prod code writes a projection via method-form).
   deleteMany(table: Table, where: WhereObject): Promise<void>;
 };
 

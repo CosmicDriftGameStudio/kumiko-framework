@@ -10,7 +10,7 @@
 // hier; der Frist-Ablauf-Cleanup folgt mit S2.U5b.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -20,7 +20,7 @@ import {
   testUserId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   createComplianceProfilesFeature,
@@ -92,7 +92,7 @@ async function seedAlice(
     gracePeriodEnd: Instant | null;
   }> = {},
 ): Promise<void> {
-  await insertOne(stack.db, userTable, {
+  await seedRow(stack.db, userTable, {
     id: aliceUser.id,
     tenantId: tenantA,
     email: "alice@example.com",
@@ -345,7 +345,7 @@ describe("Cross-User-Isolation", () => {
       tenantId: tenantA,
       roles: ["Member"],
     });
-    await insertOne(stack.db, userTable, {
+    await seedRow(stack.db, userTable, {
       id: testUserId(43),
       tenantId: tenantA,
       email: "bob@example.com",

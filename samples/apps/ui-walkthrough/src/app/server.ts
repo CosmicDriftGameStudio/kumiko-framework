@@ -11,7 +11,7 @@
 
 import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { taskFeature } from "../features/tasks";
+import { APP_FEATURES } from "../run-config";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, BETA_TENANT_ID, DEV_TENANT_ID } from "./auth-constants";
 import { seedTasks } from "./seed";
 
@@ -22,7 +22,7 @@ import { seedTasks } from "./seed";
 // bleibt framework-frei für den E2E-Helper-Pfad).
 
 await runDevApp({
-  features: [taskFeature],
+  features: [...APP_FEATURES],
   seeds: [seedTasks],
   // PORT env-var override für Playwright-e2e-Runs (config zeigt auf 4174);
   // sonst lokal-Default 4173.

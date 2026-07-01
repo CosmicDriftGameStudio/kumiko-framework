@@ -14,17 +14,23 @@ import type { RunIn } from "./config";
 export type ProjectionTable = TableColumns<any>;
 
 // Single-stream projection apply: runs inline in the write-TX of the event
-// it projects. Gets the event + TX-scoped DbRunner — that's it. Inline
-// projections must not spawn further events (no ctx) because they run
-// inside the command's transaction and the framework guarantees a single
-// commit boundary per command.
+// it projects. Gets the event, the TX-scoped DbRunner, and the projection's
+// own `table` (already erased to ProjectionTable). Write through THAT table —
+// it is the only ES-blessed write into a managed projection outside the
+// executor, and it is reachable only here (an arbitrary handler has no such
+// arg), so the write-brand cannot be bypassed by closing over the branded
+// table constant. Inline projections must not spawn further events (no ctx)
+// because they run inside the command's transaction and the framework
+// guarantees a single commit boundary per command.
 //
 // Generic über payload-shape. Default = Record<string, unknown> behält
 // rückwärtskompatibles Verhalten; Konkrete Apply-Handler annotieren
-// `SingleStreamApplyFn<MyPayload>` für typed event.payload-Access.
+// `SingleStreamApplyFn<MyPayload>` für typed event.payload-Access. Der
+// `table`-Param ist additiv — 2-arg-Applies (event, tx) bleiben gültig.
 export type SingleStreamApplyFn<TPayload = Record<string, unknown>> = (
   event: StoredEvent<TPayload>,
   tx: DbRunner,
+  table: ProjectionTable,
 ) => Promise<void>;
 
 // Multi-stream projection apply: runs asynchronously via the event-dispatcher

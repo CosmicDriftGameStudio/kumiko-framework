@@ -10,7 +10,7 @@
 // jeden Export auf "failed" setzte).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { type JobContext, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -19,6 +19,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   createComplianceProfilesFeature,
@@ -104,7 +105,7 @@ beforeEach(async () => {
   await raw.unsafe("DELETE FROM read_export_jobs");
   await raw.unsafe("DELETE FROM read_users");
   await raw.unsafe("DELETE FROM read_tenant_memberships");
-  await insertOne(stack.db, userTable, {
+  await seedRow(stack.db, userTable, {
     id: USER_ID,
     tenantId: TENANT,
     email: "export-cron@example.test",

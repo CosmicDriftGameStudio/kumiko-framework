@@ -4,7 +4,7 @@
 // eine dangling/cross-tenant Reference. Schwerpunkt: Tenant-Isolation.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { insertMany } from "../../bun-db";
+import { seedRows } from "@cosmicdrift/kumiko-framework/testing";
 import { createEntity, createTextField } from "../../engine";
 import { NotFoundError } from "../../errors";
 import { setupTestStack, type TestStack, testTenantId, unsafeCreateEntityTable } from "../../stack";
@@ -29,7 +29,7 @@ let stack: TestStack;
 beforeAll(async () => {
   stack = await setupTestStack({ features: [] });
   await unsafeCreateEntityTable(stack.db, orderEntity);
-  await insertMany(stack.db, orderTable, [
+  await seedRows(stack.db, orderTable, [
     { id: ID_A, tenantId: tenantA, name: "A-Order" },
     { id: ID_B, tenantId: tenantB, name: "B-Order" },
   ]);

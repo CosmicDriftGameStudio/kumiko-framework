@@ -5,8 +5,9 @@
 // bleibt als Schnell-Pin bestehen).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { updateRows } from "@cosmicdrift/kumiko-framework/testing";
 import { z } from "zod";
-import { selectMany, updateMany } from "../../bun-db";
+import { selectMany } from "../../bun-db";
 import {
   createEntity,
   createTextField,
@@ -53,7 +54,7 @@ const probeFeature = defineFeature("where-merge-probe", (r) => {
     schema: z.object({ tenantId: z.string(), title: z.string() }),
     access: { roles: ["User"] },
     handler: async (event, ctx) => {
-      const count = await updateMany(
+      const count = await updateRows(
         ctx.db,
         noteTable,
         { tenantId: event.payload.tenantId },

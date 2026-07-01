@@ -76,7 +76,7 @@ export const newCommand = defineCommand({
     const frameworkVersion = resolveFrameworkVersion();
     const { scaffoldApp } = await import("@cosmicdrift/kumiko-dev-server");
     try {
-      const result = scaffoldApp({
+      const result = await scaffoldApp({
         name,
         cwd: ctx.cwd,
         ...(destination !== undefined && { destination }),
@@ -106,3 +106,4 @@ export const newCommand = defineCommand({
     }
   },
 });
+

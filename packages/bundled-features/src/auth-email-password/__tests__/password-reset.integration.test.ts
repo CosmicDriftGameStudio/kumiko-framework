@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -10,6 +10,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { Temporal } from "temporal-polyfill";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email";
 import { createConfigFeature } from "../../config";
@@ -302,7 +303,7 @@ describe("POST /auth/reset-password", () => {
 
     // Re-insert the captured row verbatim. Same userId, same version, same
     // token still valid.
-    await insertOne(stack.db, userTable, userRow);
+    await seedRow(stack.db, userTable, userRow);
 
     const secondAttempt = await post("/api/auth/reset-password", {
       token,
@@ -357,7 +358,7 @@ describe("POST /auth/reset-password", () => {
     await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
 
     const orphanId = "00000000-0000-4000-8000-0000000000ff";
-    await insertOne(stack.db, userTable, {
+    await seedRow(stack.db, userTable, {
       ...donorRow,
       id: orphanId,
       email: "orphan@example.com",

@@ -9,10 +9,10 @@
 // Bun.SQL-only setup. KEIN postgres-js, KEIN setupTestStack.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { z } from "zod";
 import type { DbConnection, DbTx } from "../../db/connection";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { insertOne } from "../../db/query";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import { append, loadAggregate as loadAggregateRaw } from "../../event-store";
@@ -219,7 +219,7 @@ describe("ctx.loadAggregate via queryHandler — Marten AggregateStreamAsync equ
     // produce garbage.
     const invoiceId = "00000000-0000-4000-8000-000000000042";
     await (stack.db as DbConnection).begin(async (tx: DbTx) => {
-      await insertOne(tx, invoiceTable, {
+      await seedRow(tx, invoiceTable, {
         id: invoiceId,
         tenantId: admin.tenantId,
         customer: "LegacyCo",

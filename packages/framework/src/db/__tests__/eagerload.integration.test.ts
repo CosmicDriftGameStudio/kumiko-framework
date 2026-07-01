@@ -3,7 +3,7 @@
 // werden (TenantDb filtert), sonst leakt eagerload fremde Rows nach _refs.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { insertMany } from "../../bun-db";
+import { seedRows } from "@cosmicdrift/kumiko-framework/testing";
 import { createEntity, createTextField } from "../../engine";
 import type { EntityDefinition } from "../../engine/types";
 import { setupTestStack, type TestStack, testTenantId, unsafeCreateEntityTable } from "../../stack";
@@ -55,7 +55,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, authorEntity);
   dbA = createTenantDb(stack.db, tenantA, "tenant");
 
-  await insertMany(stack.db, authorTable, [
+  await seedRows(stack.db, authorTable, [
     { id: A1, tenantId: tenantA, name: "Ada" },
     { id: A2, tenantId: tenantA, name: "Linus" },
     { id: BX, tenantId: tenantB, name: "Foreign" },

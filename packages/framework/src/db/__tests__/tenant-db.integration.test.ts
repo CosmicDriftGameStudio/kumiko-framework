@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient, insertOne, selectMany } from "../../db/query";
+import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
+import { asRawClient, selectMany } from "../../db/query";
 import { createBooleanField, createEntity, createTextField } from "../../engine";
 import {
   createTestDb,
@@ -197,7 +198,7 @@ describe("scoped mode (default)", () => {
   describe("reference data (tenantId = 0)", () => {
     test("scoped select includes rows with tenantId = 0", async () => {
       // Seed reference data with tenantId = 0 (like seedReferenceData does)
-      await insertOne(testDb.db, table, {
+      await seedRow(testDb.db, table, {
         name: "GlobalRef",
         status: "ref",
         tenantId: "00000000-0000-4000-8000-000000000000",
@@ -217,7 +218,7 @@ describe("scoped mode (default)", () => {
     });
 
     test("scoped update does NOT affect tenantId = 0 rows", async () => {
-      await insertOne(testDb.db, table, {
+      await seedRow(testDb.db, table, {
         name: "RefNoUpdate",
         status: "ref",
         tenantId: "00000000-0000-4000-8000-000000000000",
@@ -238,7 +239,7 @@ describe("scoped mode (default)", () => {
     });
 
     test("scoped delete does NOT affect tenantId = 0 rows", async () => {
-      await insertOne(testDb.db, table, {
+      await seedRow(testDb.db, table, {
         name: "RefNoDelete",
         status: "ref",
         tenantId: "00000000-0000-4000-8000-000000000000",
@@ -350,8 +351,8 @@ describe("system mode (r.systemScope())", () => {
 describe("tables without tenantId column", () => {
   test("select returns all rows (no tenant filter)", async () => {
     // Insert two rows via raw db
-    await insertOne(testDb.db, systemTable, { label: "System-A" });
-    await insertOne(testDb.db, systemTable, { label: "System-B" });
+    await seedRow(testDb.db, systemTable, { label: "System-A" });
+    await seedRow(testDb.db, systemTable, { label: "System-B" });
 
     const tdb = createTenantDb(testDb.db, tenant1.tenantId);
     const rows = await tdb.selectMany(systemTable);

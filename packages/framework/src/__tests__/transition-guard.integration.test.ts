@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { updateRows } from "@cosmicdrift/kumiko-framework/testing";
 import { z } from "zod";
 import { createEventStoreExecutor } from "../db/event-store-executor";
-import { updateMany } from "../db/query";
 import { buildEntityTable } from "../db/table-builder";
 import {
   createBooleanField,
@@ -268,7 +268,7 @@ describe("auto transition guard: per-entity transition map (cache key includes e
     // Raw-DB-mark-deleted — we need a soft-deleted row whose status is a
     // terminal state. If the guard fired, any status write would throw
     // "Invalid transition: closed → <x>". We want it silently skipped.
-    await updateMany(
+    await updateRows(
       stack.db,
       ticketTable,
       { status: "closed", isDeleted: true },

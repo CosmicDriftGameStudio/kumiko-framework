@@ -108,9 +108,9 @@ export const inventoryFeature = defineFeature("inventory", (r) => {
     source: "product",
     table: productTable,
     apply: {
-      [stockAdjusted.name]: async (event, tx) => {
+      [stockAdjusted.name]: async (event, tx, table) => {
         const p = event.payload as { newStock: number };
-        await updateMany(tx, productTable, { currentStock: p.newStock }, { id: event.aggregateId });
+        await updateMany(tx, table, { currentStock: p.newStock }, { id: event.aggregateId });
       },
     },
   });

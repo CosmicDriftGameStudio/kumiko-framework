@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   buildEntityTable,
   createEventStoreExecutor,
@@ -25,7 +25,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createLateBoundHolder } from "@cosmicdrift/kumiko-framework/testing";
+import { createLateBoundHolder, seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
@@ -93,7 +93,7 @@ function widgetAuditFeature(): FeatureDefinition {
       if (!ctx.db) return;
       const name = result.changes!["name"] as string | undefined;
       if (!name) return;
-      await insertOne(ctx.db, widgetAuditTable, {
+      await seedRow(ctx.db, widgetAuditTable, {
         id: generateId(),
         widgetName: name,
         version: 1,
@@ -253,7 +253,7 @@ describe("feature-toggles runtime cache", () => {
   });
 
   test("refresh() re-reads the DB snapshot", async () => {
-    await insertOne(stack.db, globalFeatureStateTable, {
+    await seedRow(stack.db, globalFeatureStateTable, {
       featureName: "widget",
       enabled: false,
       version: 1,

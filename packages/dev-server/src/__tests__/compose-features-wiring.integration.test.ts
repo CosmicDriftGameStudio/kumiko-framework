@@ -50,7 +50,6 @@ import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-featu
 import { tenantEntity, tenantMembershipsTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { seedTenantMembership } from "@cosmicdrift/kumiko-bundled-features/tenant/testing";
 import { UserHandlers, userEntity, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
-import { deleteMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
@@ -59,6 +58,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { deleteRows } from "@cosmicdrift/kumiko-framework/testing";
 import { composeFeatures } from "../compose-features";
 
 const RESET_HMAC = randomBytes(32).toString("base64");
@@ -184,8 +184,8 @@ describe("composeFeatures wiring — passwordReset", () => {
   });
 
   beforeEach(async () => {
-    await deleteMany(suite.stack.db, userTable, {});
-    await deleteMany(suite.stack.db, tenantMembershipsTable, {});
+    await deleteRows(suite.stack.db, userTable, {});
+    await deleteRows(suite.stack.db, tenantMembershipsTable, {});
     suite.emailTransport.sent.length = 0;
   });
 
@@ -257,8 +257,8 @@ describe("composeFeatures wiring — emailVerification", () => {
   });
 
   beforeEach(async () => {
-    await deleteMany(suite.stack.db, userTable, {});
-    await deleteMany(suite.stack.db, tenantMembershipsTable, {});
+    await deleteRows(suite.stack.db, userTable, {});
+    await deleteRows(suite.stack.db, tenantMembershipsTable, {});
     suite.emailTransport.sent.length = 0;
   });
 
@@ -302,8 +302,8 @@ describe("composeFeatures wiring — asymmetric activation", () => {
   });
 
   beforeEach(async () => {
-    await deleteMany(suite.stack.db, userTable, {});
-    await deleteMany(suite.stack.db, tenantMembershipsTable, {});
+    await deleteRows(suite.stack.db, userTable, {});
+    await deleteRows(suite.stack.db, tenantMembershipsTable, {});
     suite.emailTransport.sent.length = 0;
   });
 
@@ -355,8 +355,8 @@ describe("composeFeatures wiring — fail-closed ohne authOptions", () => {
   });
 
   afterEach(async () => {
-    await deleteMany(suite.stack.db, userTable, {});
-    await deleteMany(suite.stack.db, tenantMembershipsTable, {});
+    await deleteRows(suite.stack.db, userTable, {});
+    await deleteRows(suite.stack.db, tenantMembershipsTable, {});
     suite.emailTransport.sent.length = 0;
   });
 
