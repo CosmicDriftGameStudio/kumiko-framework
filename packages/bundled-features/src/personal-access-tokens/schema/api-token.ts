@@ -1,4 +1,4 @@
-import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createEntity,
@@ -50,4 +50,7 @@ export const apiTokenEntity = createEntity({
   indexes: [{ unique: true, columns: ["tokenHash"], name: "read_api_tokens_hash_unique" }],
 });
 
-export const apiTokenTable = buildEntityTable("api-token", apiTokenEntity);
+// buildEntityTableMeta (not buildEntityTable): this is a direct-write store, so
+// the table must be a WritableTable (post ES-write-brand #742) — same as
+// sessions' userSessionTable. buildEntityTable is branded executor-only.
+export const apiTokenTable = buildEntityTableMeta("api-token", apiTokenEntity);

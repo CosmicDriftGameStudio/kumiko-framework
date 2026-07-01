@@ -4,7 +4,8 @@ import {
   createInMemoryLoginRateLimiter,
   type PatResolver,
 } from "@cosmicdrift/kumiko-framework/api";
-import { deleteMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { deleteRows } from "@cosmicdrift/kumiko-framework/testing";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -194,7 +195,9 @@ describe("PAT auth", () => {
     const token = await mintToken(actor);
     const ok = await h.authedPost("/api/query", token, { type: PatQueries.mine, payload: {} });
     expect(ok.status).toBe(200);
-    await deleteMany(stack.db, tenantMembershipsTable, { userId: actor.id });
+    // tenantMembershipsTable is ES-managed (executor-only branded); deleteRows
+    // is the test-side escape for out-of-band row removal.
+    await deleteRows(stack.db, tenantMembershipsTable, { userId: actor.id });
     const res = await h.authedPost("/api/query", token, { type: PatQueries.mine, payload: {} });
     expect(res.status).toBe(401);
   });
