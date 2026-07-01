@@ -21,6 +21,7 @@ import {
 import { FoldersHandlers, FoldersQueries } from "../constants";
 import { folderAssignmentEntity, folderEntity } from "../entity";
 import { createFoldersFeature } from "../feature";
+import { folderAssignmentDeleteHook, folderDeleteHook } from "../../folders-user-data/hooks";
 
 const foldersFeature = createFoldersFeature();
 
@@ -286,5 +287,44 @@ describe("folders integration — openToAll access model", () => {
       unprivileged,
     );
     expect(denied.httpStatus).toBe(403);
+  });
+});
+
+// GDPR Art. 17 forget: the folder tables are tenant-scoped (no per-user owner
+// column), so per-user erasure via these hooks is only safe when the tenant
+// is effectively single-user. A wrong/missing guard here would delete
+// co-members' folders on a shared tenant — exercise the hooks directly
+// (not a synthetic stand-in) against real seeded rows.
+describe("folders-user-data — tenantScopedDelete hooks", () => {
+  async function seedOneFolderWithAssignment(): Promise<void> {
+    const f = await createFolder("to-be-erased");
+    await setFolder(f, "credit-erase");
+  }
+
+  test("multi-user tenant: no-op, rows survive", async () => {
+    await seedOneFolderWithAssignment();
+    const ctx = { db: stack.db, tenantId: admin.tenantId, userId: admin.id, tenantModel: "multi-user" as const };
+    await folderDeleteHook(ctx, "hardDelete");
+    await folderAssignmentDeleteHook(ctx, "hardDelete");
+    expect(await listFolders()).toHaveLength(1);
+    expect(await countAssignments(admin.tenantId)).toBe(1);
+  });
+
+  test("anonymize strategy: no-op even on a single-user tenant", async () => {
+    await seedOneFolderWithAssignment();
+    const ctx = { db: stack.db, tenantId: admin.tenantId, userId: admin.id, tenantModel: "single-user" as const };
+    await folderDeleteHook(ctx, "anonymize");
+    await folderAssignmentDeleteHook(ctx, "anonymize");
+    expect(await listFolders()).toHaveLength(1);
+    expect(await countAssignments(admin.tenantId)).toBe(1);
+  });
+
+  test("single-user tenant + hardDelete: rows are purged", async () => {
+    await seedOneFolderWithAssignment();
+    const ctx = { db: stack.db, tenantId: admin.tenantId, userId: admin.id, tenantModel: "single-user" as const };
+    await folderDeleteHook(ctx, "hardDelete");
+    await folderAssignmentDeleteHook(ctx, "hardDelete");
+    expect(await listFolders()).toHaveLength(0);
+    expect(await countAssignments(admin.tenantId)).toBe(0);
   });
 });
