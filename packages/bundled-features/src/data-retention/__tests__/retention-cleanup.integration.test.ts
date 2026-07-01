@@ -21,7 +21,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
-import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../feature";
 import { runRetentionCleanup } from "../run-retention-cleanup";
@@ -75,6 +74,16 @@ const c7Feature = defineFeature("c7-retention-fixtures", (r) => {
   r.entity("c7-stale", staleEntity);
   r.entity("c7-retained", retainedEntity);
 });
+
+const noopLogger: JobContext["log"] = {
+  info() {},
+  warn() {},
+  error() {},
+  debug() {},
+  child() {
+    return noopLogger;
+  },
+};
 
 const T1 = "11111111-1111-1111-1111-111111111111";
 const T2 = "22222222-2222-2222-2222-222222222222";
@@ -226,7 +235,7 @@ describe("runRetentionCleanup :: real postgres", () => {
       db: stack.db,
       registry: stack.registry,
       systemUser: { id: "system", tenantId: T1, roles: ["all"] },
-      log: createFallbackLogger(),
+      log: noopLogger,
       triggeredBy: null,
       ...bridgeStub(),
     };
