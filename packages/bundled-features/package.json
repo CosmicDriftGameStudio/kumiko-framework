@@ -78,6 +78,7 @@
     "./sessions": "./src/sessions/index.ts",
     "./sessions/testing": "./src/sessions/testing.ts",
     "./personal-access-tokens": "./src/personal-access-tokens/index.ts",
+    "./personal-access-tokens/web": "./src/personal-access-tokens/web/index.ts",
     "./feature-toggles": "./src/feature-toggles/index.ts",
     "./text-content": "./src/text-content/index.ts",
     "./text-content/seeding": "./src/text-content/seeding.ts",

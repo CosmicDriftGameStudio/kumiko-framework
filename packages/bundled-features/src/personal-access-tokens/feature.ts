@@ -1,6 +1,6 @@
 import { buildEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { PAT_DEFAULT_RATE_LIMIT, PAT_FEATURE, type PatRateLimit } from "./constants";
+import { PAT_DEFAULT_RATE_LIMIT, PAT_FEATURE, PAT_SCREEN_ID, type PatRateLimit } from "./constants";
 import { buildAvailableScopesQuery } from "./handlers/available-scopes.query";
 import { createPatWrite } from "./handlers/create.write";
 import { listPatQuery } from "./handlers/list.query";
@@ -56,6 +56,15 @@ export function createPersonalAccessTokensFeature(
       mine: r.queryHandler(listPatQuery),
       availableScopes: r.queryHandler(buildAvailableScopesQuery(scopes)),
     };
+
+    // Dormant custom-screen — the client maps PAT_SCREEN_ID to PatTokensScreen;
+    // the app places it via r.nav in its logged-in settings area.
+    r.screen({
+      id: PAT_SCREEN_ID,
+      type: "custom",
+      renderer: { react: { __component: "PatTokensScreen" } },
+      access: { openToAll: true },
+    });
 
     // scopes + rateLimit flow into feature.exports so run-prod-app builds the
     // resolver + limiter from the same declaration — single source of truth.

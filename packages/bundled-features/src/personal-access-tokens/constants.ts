@@ -1,5 +1,9 @@
 export const PAT_FEATURE = "personal-access-tokens";
 
+// Dormant custom-screen id (r.screen) — the app places it via r.nav. The client
+// maps it to the PatTokensScreen component.
+export const PAT_SCREEN_ID = "api-tokens";
+
 export const PatHandlers = {
   create: "personal-access-tokens:write:create",
   revoke: "personal-access-tokens:write:revoke",
