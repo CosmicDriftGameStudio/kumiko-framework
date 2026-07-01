@@ -1,8 +1,11 @@
 import { z } from "zod";
 
 export const createTagPayloadSchema = z.object({
-  name: z.string().min(1).max(64),
-  color: z.string().max(32).optional(),
+  name: z.string().trim().min(1).max(64),
+  color: z
+    .string()
+    .regex(/^(#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}))?$/, "color must be a hex code (#rgb or #rrggbb)")
+    .optional(),
   scope: z.string().max(64).optional(),
 });
 export type CreateTagPayload = z.infer<typeof createTagPayloadSchema>;
@@ -16,8 +19,11 @@ export const updateTagPayloadSchema = z
   .object({
     id: z.string().min(1),
     version: z.number().int().nonnegative(),
-    name: z.string().min(1).max(64).optional(),
-    color: z.string().max(32).optional(),
+    name: z.string().trim().min(1).max(64).optional(),
+    color: z
+      .string()
+      .regex(/^(#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}))?$/, "color must be a hex code (#rgb or #rrggbb)")
+      .optional(),
     scope: z.string().max(64).optional(),
   })
   .refine((p) => p.name !== undefined || p.color !== undefined || p.scope !== undefined, {

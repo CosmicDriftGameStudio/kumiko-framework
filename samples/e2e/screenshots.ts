@@ -63,14 +63,19 @@ export const VIEWPORTS = {
 } as const;
 export type ViewportId = keyof typeof VIEWPORTS;
 
-// Achse aus Env einengen (CSV) oder Default nehmen. Der `as T[]`-Cast trägt nur
-// die System-Grenze Env-String → bekannte Union (wie zuvor inline in styleguide).
+// Achse aus Env einengen (CSV) oder Default nehmen. Filtert statt zu casten:
+// ein Tippfehler in der Env-Var (z.B. SCREENSHOT_VIEWPORTS=typo) würde sonst
+// entweder zur Laufzeit crashen (page.setViewportSize(undefined)) oder,
+// schlimmer, lautlos falsche Screenshots erzeugen (applyTheme mit unbekanntem
+// Theme-Wert togglet einfach nichts).
 function axis<T extends string>(env: string | undefined, all: readonly T[]): readonly T[] {
   const picked = env
     ?.split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  return picked && picked.length > 0 ? (picked as T[]) : all;
+  if (!picked || picked.length === 0) return all;
+  // ponytail: filter-instead-of-cast — unbekannte Werte werden still ignoriert
+  return picked.filter((p): p is T => (all as readonly string[]).includes(p));
 }
 
 export interface MatrixOptions<T extends string> {

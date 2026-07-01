@@ -94,7 +94,9 @@ export function fieldToZod(field: FieldDefinition, currencies: readonly string[]
       return field.default !== undefined ? schema.default([...field.default]) : schema;
     }
     case "number": {
-      const schema = z.number();
+      let schema = z.number();
+      if (field.integer) schema = schema.int();
+      if (field.min !== undefined) schema = schema.min(field.min);
       return field.default !== undefined ? schema.default(field.default) : schema;
     }
     case "decimal": {

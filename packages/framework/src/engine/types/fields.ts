@@ -199,6 +199,11 @@ export type NumberFieldDef = {
   readonly sensitive?: boolean;
   readonly default?: number;
   readonly access?: FieldAccess;
+  // Write-boundary constraints (Zod-level, no migration/storage impact — the
+  // Postgres column stays a plain numeric). Opt-in, so existing entities are
+  // unaffected.
+  readonly min?: number;
+  readonly integer?: boolean;
 } & PiiAnnotations;
 
 /**

@@ -270,6 +270,20 @@ export function validateEntityIndexes(feature: FeatureDefinition): void {
             `buildEntityTable always creates one automatically. Remove this entry.`,
         );
       }
+      // AES-GCM's random-IV ciphertext is never equal to itself across two
+      // writes of the same plaintext, so a unique index on an encrypted
+      // column can never detect a real duplicate.
+      if (def.unique) {
+        for (const col of def.columns) {
+          const field = entity.fields[col];
+          if (field && (field.type === "text" || field.type === "longText") && field.encrypted) {
+            throw new Error(
+              `${where}: column "${col}" is encrypted — a unique index on it can never detect ` +
+                `duplicates (non-deterministic ciphertext). Remove \`unique\` or \`encrypted\`.`,
+            );
+          }
+        }
+      }
     }
   }
 }
@@ -296,6 +310,15 @@ export function validateEncryptedFields(feature: FeatureDefinition): boolean {
         if (field.sortable) {
           throw new Error(
             `Field "${fieldName}" on entity "${entityName}" cannot be both encrypted and sortable`,
+          );
+        }
+        // AES-GCM draws a fresh random IV per call, so the ciphertext is
+        // non-deterministic — an equality filter on it never matches, even
+        // against the identical plaintext.
+        if (field.filterable) {
+          throw new Error(
+            `Field "${fieldName}" on entity "${entityName}" cannot be both encrypted and filterable ` +
+              `— non-deterministic ciphertext never matches an equality filter.`,
           );
         }
       }
@@ -503,6 +526,28 @@ export function validateExtendSchemaCollisions(feature: FeatureDefinition): void
             `extendSchema column "${fieldName}" conflicts with existing field on entity "${entityName}"`,
           );
         }
+      }
+    }
+  }
+}
+
+// --- derivedFields / fields collision detection ---
+//
+// augmentDerivedFields (entity-handlers.ts) does `{...row}` then
+// `out[fieldName] = def.derive(row, ctx)` — a derivedFields key that matches a
+// stored field name silently overwrites the real, persisted value with the
+// derived one on every read, without a boot or runtime error. Reject it here,
+// analogous to the extendSchema collision check above.
+export function validateDerivedFieldCollisions(feature: FeatureDefinition): void {
+  for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
+    if (!entity.derivedFields) continue;
+    const fieldNames = new Set(Object.keys(entity.fields));
+    for (const derivedName of Object.keys(entity.derivedFields)) {
+      if (fieldNames.has(derivedName)) {
+        throw new Error(
+          `Entity "${entityName}": derivedFields key "${derivedName}" conflicts with a stored ` +
+            `field of the same name — the derived value would silently overwrite the real one on every read.`,
+        );
       }
     }
   }

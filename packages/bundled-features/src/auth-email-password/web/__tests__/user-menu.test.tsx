@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { SidebarProvider } from "@cosmicdrift/kumiko-renderer-web";
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { UserMenu } from "../user-menu";
 import { makeSessionApi, renderWithProviders } from "./test-utils";
@@ -30,6 +30,19 @@ describe("UserMenu", () => {
     renderWithProviders(<UserMenu />, { session });
     // Trim "" → leerer displayName → fallback auf email → erste 2 Chars
     expect(screen.getByText("BO")).toBeTruthy();
+  });
+  test("no displayName → dropdown label shows the email exactly once (not duplicated)", async () => {
+    const user = userEvent.setup();
+    const session = makeSessionApi({
+      user: { id: "u1", email: "bob@example.com", displayName: "", globalRoles: [] },
+    });
+    renderWithProviders(<UserMenu />, { session });
+    await user.click(screen.getByRole("button", { name: /bob@example.com/ }));
+    const menu = within(screen.getByRole("menu"));
+    // getByText throws if the email appears more than once inside the
+    // dropdown panel — displayName falls back to the email, so without the
+    // hasName guard the second (redundant) email line would duplicate it.
+    expect(menu.getByText("bob@example.com")).toBeTruthy();
   });
   test("opens dropdown on click and shows logout button", async () => {
     const user = userEvent.setup();

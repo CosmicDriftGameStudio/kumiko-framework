@@ -13,7 +13,7 @@ import {
   transactionExecutor,
   transactionTable,
 } from "../executor";
-import { scheduleReference } from "../recurring";
+import { isoMonth, scheduleReference } from "../recurring";
 import { type ConfirmSchedulePeriodPayload, confirmSchedulePeriodPayloadSchema } from "../schemas";
 
 // confirm-schedule-period — turn ONE projected period of a schedule into a posted,
@@ -41,6 +41,13 @@ export function createConfirmSchedulePeriodHandler(
         ctx.db,
       );
       if (!schedule) return writeFailure(new NotFoundError("schedule", payload.scheduleId));
+
+      if (
+        payload.period < isoMonth(String(schedule["startDate"])) ||
+        (schedule["endDate"] != null && payload.period > isoMonth(String(schedule["endDate"])))
+      ) {
+        return writeFailure(new NotFoundError("schedule-period", payload.period));
+      }
 
       const debitAccountId = String(schedule["debitAccountId"]);
       const creditAccountId = String(schedule["creditAccountId"]);

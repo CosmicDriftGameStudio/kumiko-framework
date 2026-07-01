@@ -37,13 +37,23 @@ export function shouldShowUpdate(
   return server.id !== loadedId;
 }
 
+export function isKumikoBuild(v: unknown): v is Pick<KumikoBuild, "id"> {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    typeof (v as Record<string, unknown>)["id"] === "string" &&
+    (v as Record<string, unknown>)["id"] !== ""
+  );
+}
+
 async function fetchServerBuild(): Promise<KumikoBuild | null> {
   try {
     const res = await fetch("/build-info.json", { cache: "no-store" });
     if (!res.ok) return null;
-    const info = (await res.json()) as Partial<KumikoBuild>;
-    if (typeof info.id !== "string" || info.id.length === 0) return null;
-    return { id: info.id, builtAt: typeof info.builtAt === "string" ? info.builtAt : "" };
+    const raw: unknown = await res.json();
+    if (!isKumikoBuild(raw)) return null;
+    const builtAt = (raw as Partial<KumikoBuild>).builtAt;
+    return { id: raw.id, builtAt: typeof builtAt === "string" ? builtAt : "" };
   } catch {
     // Netzwerkfehler / kaputtes JSON → kein Banner. Nie ein Fake-Update zeigen.
     return null;
@@ -60,10 +70,17 @@ export function UpdateChecker(): ReactNode {
     if (!loadedId) return; // Dev / altes Bundle → keine Awareness.
 
     let cancelled = false;
+    const checking = { current: false };
     const check = async (): Promise<void> => {
       if (document.visibilityState !== "visible") return;
-      const server = await fetchServerBuild();
-      if (!cancelled && shouldShowUpdate(loadedId, server)) setHasUpdate(true);
+      if (checking.current) return; // visibilitychange + focus fire together on tab-return
+      checking.current = true;
+      try {
+        const server = await fetchServerBuild();
+        if (!cancelled && shouldShowUpdate(loadedId, server)) setHasUpdate(true);
+      } finally {
+        checking.current = false;
+      }
     };
 
     document.addEventListener("visibilitychange", check);

@@ -1491,6 +1491,7 @@ function DefaultGrid({ columns, children, testId }: GridProps): ReactNode {
     <div
       data-testid={testId}
       className="grid gap-4 grid-cols-1 sm:[grid-template-columns:var(--grid-cols)]"
+      // workaround: duplicate @types/react instances break direct CSSProperties cast
       style={{ "--grid-cols": `repeat(${columns}, minmax(0, 1fr))` } as unknown as CSSProperties}
     >
       {children}
@@ -1589,7 +1590,9 @@ function DefaultCard({ slots, options, className, testId, children }: CardProps)
       )}
     >
       {header}
-      {children !== undefined && (
+      {/* != null covers undefined AND explicit null; a `false` child (from
+          `cond && <El/>`) still renders no visible content either way. */}
+      {children != null && (
         <div className={cn("grow", padded && (hasHeader ? "px-6 pb-6" : "p-6"))}>{children}</div>
       )}
       {s.footer !== undefined && (

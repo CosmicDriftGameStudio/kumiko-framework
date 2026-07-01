@@ -104,7 +104,13 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
       // a stale sid. Fail-OPEN on a lookup miss — this is the second layer,
       // revocation is primary; never turn a user-row miss into a global
       // lockout. (+1 PK read on read_users per authenticated request.)
-      const user = await fetchOne<{ status: string }>(db, userTable, { id: expectedUserId });
+      //
+      // Fail-open covers a THROW too, not just a null-miss: this read sits on
+      // the hot path of every authenticated request, so a DB timeout / lock
+      // contention / pool exhaustion here must not turn into a global lockout.
+      const user = await fetchOne<{ status: string }>(db, userTable, { id: expectedUserId }).catch(
+        () => null,
+      );
       if (user && BLOCKED_STATUSES.has(user.status)) return "blocked";
       return "live";
     },

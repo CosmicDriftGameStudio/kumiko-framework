@@ -73,7 +73,7 @@ export const scheduleEntity = createEntity({
     // Absent → open-ended (projects to the window's end).
     endDate: createDateField(),
     interval: createSelectField({ options: SCHEDULE_INTERVALS, required: true }),
-    amount: createNumberField({ required: true }),
+    amount: createNumberField({ required: true, min: 1, integer: true }),
     debitAccountId: createTextField({ required: true, maxLength: 64 }),
     creditAccountId: createTextField({ required: true, maxLength: 64 }),
   },

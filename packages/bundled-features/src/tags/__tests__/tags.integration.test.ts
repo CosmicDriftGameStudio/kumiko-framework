@@ -306,6 +306,21 @@ describe("tags integration — idempotency", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["tagId"]).toBe(tagId);
   });
+
+  test("two concurrent first-time assigns of the same (tag, entity) both succeed — one row", async () => {
+    // Both requests read `existing === null` before either write lands, so
+    // both fall through to create(); the loser's create() version_conflicts.
+    // The handler must converge that into success instead of surfacing a 409
+    // for what is, from the caller's perspective, an idempotent operation.
+    const tagId = await createTag("racy");
+    const [a, b] = await Promise.all([
+      assign(tagId, "credit", "credit-race"),
+      assign(tagId, "credit", "credit-race"),
+    ]);
+    expect(a).toBeDefined();
+    expect(b).toBeDefined();
+    expect(await countAssignments(admin.tenantId)).toBe(1);
+  });
 });
 
 describe("tags integration — referential integrity", () => {

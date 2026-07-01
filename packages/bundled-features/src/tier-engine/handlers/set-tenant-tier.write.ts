@@ -44,6 +44,12 @@ export type SetTenantTierOptions = {
    *  Cache aktualisieren kann (der Executor-Write feuert den postSave-Hook
    *  nicht). Ohne tierMap kein Resolver → no-op. */
   readonly onAssigned?: (tenantId: TenantId, tier: string) => void;
+  /** Tier-Namen aus der tierMap-Closure — ohne sie (storage-only-Mode) bleibt
+   *  `tier` unvalidiert außer Length/Non-Empty. Mit ihr rejected der Handler
+   *  einen unbekannten Tier-Namen statt ihn stillschweigend durchzuschreiben
+   *  (featuresForTier gibt für unbekannte Namen defensiv ein leeres Set
+   *  zurück — der Tenant verliert sonst lautlos alle Tier-Gates). */
+  readonly validTiers?: ReadonlySet<string>;
 };
 
 export function createSetTenantTierWrite(opts: SetTenantTierOptions = {}) {
@@ -51,7 +57,11 @@ export function createSetTenantTierWrite(opts: SetTenantTierOptions = {}) {
     name: "set-tenant-tier",
     schema: z.object({
       tenantId: z.string().min(1),
-      tier: z.string().min(1).max(50),
+      tier: z
+        .string()
+        .min(1)
+        .max(50)
+        .refine((t) => !opts.validTiers || opts.validTiers.has(t), { message: "unknown tier" }),
     }),
     access: { roles: ["SystemAdmin"] },
     handler: async (event, ctx) => {

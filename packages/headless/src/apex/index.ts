@@ -24,6 +24,9 @@ export type ApexBrand = {
 export type ApexCtaVariant = "primary" | "secondary" | "link";
 export type ApexCta = {
   readonly label: string;
+  /** App-authored only, no user input — escapeHtml encodes entities but does
+   *  NOT sanitize the URL scheme (a `javascript:`/`data:` URI survives it
+   *  unchanged). Trust boundary is the deploy-time apex config, not runtime. */
   readonly href: string;
   /** "link" renders a plain anchor (no .btn). Default "primary". */
   readonly variant?: ApexCtaVariant;

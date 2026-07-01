@@ -64,7 +64,7 @@ export function UserMenu({ children, variant = "pill" }: UserMenuProps): ReactNo
     <DropdownMenuContent align="end" aria-label={t("auth.user.menu.label")}>
       <DropdownMenuLabel className="text-xs">
         <div className="font-medium text-foreground truncate">{displayName}</div>
-        <div className="truncate">{user.email}</div>
+        {hasName && <div className="truncate">{user.email}</div>}
       </DropdownMenuLabel>
       <DropdownMenuSeparator />
       {children}

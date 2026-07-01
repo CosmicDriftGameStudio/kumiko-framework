@@ -23,10 +23,7 @@ import {
   tierAssignmentEntity,
 } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import { asRawClient, createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
-import {
-  findTierResolverUsage,
-  type TierResolverPlugin,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { findTierResolverUsage, isTierResolverPlugin } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -164,7 +161,10 @@ test("set-tenant-tier lights up the tenant's toggleable feature in the resolver 
   // fresh projection read at build time.
   const usage = findTierResolverUsage(recipeFeatures);
   if (!usage) throw new Error("setup failure: no tier-resolver plugin registered");
-  const resolver = await (usage.options as TierResolverPlugin).build({
+  if (!isTierResolverPlugin(usage.options)) {
+    throw new Error("setup failure: tier-resolver registration has no build() plugin");
+  }
+  const resolver = await usage.options.build({
     db: stack.db,
     registry: stack.registry,
   });

@@ -217,6 +217,7 @@ export function createTierEngineFeature<
     r.writeHandler(
       createSetTenantTierWrite({
         onAssigned: (tenantId, tier) => onTierAssigned.fn(tenantId, tier),
+        validTiers: opts.tierMap ? new Set(Object.keys(opts.tierMap)) : undefined,
       }),
     );
     r.queryHandler(getTenantTierQuery);
@@ -452,19 +453,30 @@ export function createTierEngineFeature<
         // tier-assignment-Row, die der seed-Pfad nicht anlegt) und prüft das
         // Fenster gegen die aktuelle Zeit. Nur auf dem disabled-Gate-Pfad
         // konsultiert. inserted_at ist immutable → pro Tenant einmal lesen.
-        const startedMemo = new Map<TenantId, number>();
+        // Promise-memo (not a plain value cache): N concurrent requests for the
+        // same fresh tenant must await the SAME in-flight fetchOne, not each
+        // fire their own — a plain `Map<TenantId, number>` set AFTER the await
+        // lets every concurrent caller miss the cache and issue a redundant
+        // read (benign but wasteful on a signup burst).
+        const startedMemo = new Map<TenantId, Promise<number | undefined>>();
         const trialGate: TrialGate = async (tenantId, featureName) => {
           if (!trialFeatures.has(featureName)) return false;
-          let startedMs = startedMemo.get(tenantId);
-          if (startedMs === undefined) {
-            const row = await fetchOne<{ insertedAt?: Temporal.Instant }>(deps.db, tenantTable, {
+          let startedMsPromise = startedMemo.get(tenantId);
+          if (startedMsPromise === undefined) {
+            startedMsPromise = fetchOne<{ insertedAt?: Temporal.Instant }>(deps.db, tenantTable, {
               id: tenantId,
-            });
-            // Tenant-Row noch nicht projiziert (Replay-Race) → keinen Miss
-            // memoizen, beim nächsten Request neu lesen.
-            if (row?.insertedAt === undefined) return false;
-            startedMs = row.insertedAt.epochMilliseconds;
-            startedMemo.set(tenantId, startedMs);
+            }).then((row) => row?.insertedAt?.epochMilliseconds);
+            // Evict on rejection too — a transient DB error must not poison
+            // every future call for this tenant with the same cached rejection.
+            startedMsPromise.catch(() => startedMemo.delete(tenantId));
+            startedMemo.set(tenantId, startedMsPromise);
+          }
+          const startedMs = await startedMsPromise;
+          // Tenant-Row noch nicht projiziert (Replay-Race) → keinen Miss
+          // memoizen, beim nächsten Request neu lesen.
+          if (startedMs === undefined) {
+            startedMemo.delete(tenantId);
+            return false;
           }
           return isTrialActive(startedMs, nowMs(), trial.durationHours);
         };

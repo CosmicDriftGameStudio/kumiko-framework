@@ -1043,4 +1043,13 @@ describe("Card", () => {
     expect(screen.getByTestId("c").querySelectorAll("div").length).toBeGreaterThan(0);
     expect(screen.getByTestId("c").innerHTML).not.toContain("grow");
   });
+
+  test("children=null (explicit, e.g. `cond ? <X/> : null`) → no body wrapper rendered either", () => {
+    render(
+      <Card testId="c" slots={{ title: "Only header" }}>
+        {null}
+      </Card>,
+    );
+    expect(screen.getByTestId("c").innerHTML).not.toContain("grow");
+  });
 });

@@ -248,6 +248,30 @@ describe("FolderManager filing mode", () => {
     expect(row.className).not.toContain("ring-primary/40");
   });
 
+  test("a second drop while a reassign is still in flight is ignored (busy guard)", async () => {
+    folderRows = [
+      { id: "f1", name: "A", parentId: null, version: 1 },
+      { id: "f2", name: "B", parentId: null, version: 1 },
+    ];
+    let resolveWrite: (v: { isSuccess: true; data: undefined }) => void = () => {};
+    dispatchSpy.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveWrite = resolve;
+        }),
+    );
+    render(
+      <Wrapper>
+        <FolderManager filing={filingWith(() => {})} />
+      </Wrapper>,
+    );
+    dropLeaf("folder-node-f2", "c-1");
+    // Second drop lands WHILE the first write is still pending.
+    dropLeaf("folder-node-f2", "c-1");
+    resolveWrite({ isSuccess: true, data: undefined });
+    await waitFor(() => expect(dispatchSpy).toHaveBeenCalledTimes(1));
+  });
+
   test("the unfiled bucket stays a drop target even when nothing is currently unfiled", () => {
     folderRows = [{ id: "f1", name: "A", parentId: null, version: 1 }];
     const allFiled: FolderFiling = {

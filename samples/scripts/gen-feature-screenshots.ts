@@ -34,6 +34,10 @@ type Runner = {
   readonly cwd: string;
   readonly command: readonly string[];
   readonly out: string;
+  // FEATURE_RUNNER is the feature-reference source of truth for the docs —
+  // an empty/missing output there must fail the step loudly. APP_RUNNERS are
+  // demo-app screenshots (soft-fail: missing .env/Postgres locally is fine).
+  readonly required?: boolean;
 };
 
 const SCREENSHOTS_CMD = [
@@ -52,6 +56,7 @@ const FEATURE_RUNNER: Runner = {
   cwd: resolve(SAMPLES_ROOT, "apps/use-all-bundled"),
   command: SCREENSHOTS_CMD,
   out: OUT_DIR,
+  required: true,
 };
 
 // Sample-Apps rendern ihre eigene UI nach OUT_DIR/apps/<app>/.
@@ -87,6 +92,9 @@ async function runRunner(r: Runner): Promise<void> {
   });
   const code = await proc.exited;
   if (code !== 0) {
+    if (r.required) {
+      throw new Error(`${r.id} screenshots failed (exit ${code}) — required runner, aborting`);
+    }
     console.warn(`warn: ${r.id} screenshots failed (exit ${code}) — need .env + Postgres?`);
   }
 }
