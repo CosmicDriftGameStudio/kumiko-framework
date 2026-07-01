@@ -1,5 +1,5 @@
-import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   type UserDataDeleteHook,
@@ -75,12 +75,19 @@ export const userDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
 
   // System actor + skipOptimisticLock: the forget pipeline has no read
   // version and writes privileged identity columns ("system" is privileged).
+  // The executor needs a TenantDb (loadById → db.fetchOne); ctx.db is a raw
+  // runner, so wrap it. "system" mode = no tenant filter — user is a systemStream
+  // entity (tenant-agnostic) and forget must reach the row in any tenant.
   const systemUser = createSystemUser(ctx.tenantId);
+  const tdb = createTenantDb(ctx.db, ctx.tenantId, "system");
 
   if (strategy === "delete") {
-    // PII raus + status=deleted (Login geblockt), dann softDelete — beides
-    // als Events, damit ein Rebuild den Forget mitspielt. Row bleibt fuer
-    // Audit/FK-Refs erhalten (softDelete, kein hard-delete).
+    // PII raus + status=deleted (Login geblockt) via Event → Rebuild spielt den
+    // Forget mit. KEIN softDelete: user ist systemStream (eine tenant-agnostische
+    // Row), der Forget laeuft pro Tenant — wuerde isDeleted gesetzt, faende der
+    // loadById (isDeleted:false) die Row beim zweiten Tenant nicht mehr
+    // (not_found). status=Deleted blockt Login; die Row bleibt findbar +
+    // idempotent ueber mehrere Tenant-Durchlaeufe (wie der alte raw UPDATE).
     await crud.update(
       {
         id: ctx.userId,
@@ -89,13 +96,15 @@ export const userDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
           displayName: USER_DELETED_DISPLAY_NAME,
           passwordHash: null,
           status: USER_STATUS.Deleted,
+          // deleted_at as an audit timestamp only — NOT isDeleted (see above).
+          // Frozen into the event payload, so a rebuild replays the same value.
+          deletedAt: Temporal.Now.instant(),
         },
       },
       systemUser,
-      ctx.db,
+      tdb,
       { skipOptimisticLock: true },
     );
-    await crud.delete({ id: ctx.userId }, systemUser, ctx.db);
   } else {
     // anonymize: PII raus, aber Row bleibt active (damit FK-References
     // weiter aufloesbar sind). Account ist effektiv weiter nutzbar
@@ -111,7 +120,7 @@ export const userDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
         },
       },
       systemUser,
-      ctx.db,
+      tdb,
       { skipOptimisticLock: true },
     );
   }

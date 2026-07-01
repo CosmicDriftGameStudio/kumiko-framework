@@ -1,5 +1,9 @@
-import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  createEventStoreExecutor,
+  createTenantDb,
+  type TenantDb,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   type SessionUser,
@@ -144,15 +148,17 @@ async function deleteBinaries(
 }
 
 // Null the person-link on every row via the executor (event → rebuild-safe).
+// tdb: the executor needs a TenantDb (loadById → db.fetchOne), not the raw
+// ctx.db runner.
 async function severPersonLink(
-  ctx: UserDataHookCtx,
+  tdb: TenantDb,
   systemUser: SessionUser,
   rows: readonly Record<string, unknown>[],
 ): Promise<void> {
   for (const row of rows) {
     const id = row["id"]; // @cast-boundary db-row
     if (typeof id !== "string") continue;
-    await crud.update({ id, changes: { insertedById: null } }, systemUser, ctx.db, {
+    await crud.update({ id, changes: { insertedById: null } }, systemUser, tdb, {
       skipOptimisticLock: true,
     });
   }
@@ -160,6 +166,7 @@ async function severPersonLink(
 
 export const fileRefDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
   const systemUser = createSystemUser(ctx.tenantId);
+  const tdb = createTenantDb(ctx.db, ctx.tenantId, "system");
   const rows = await selectMany<Record<string, unknown>>(ctx.db, fileRefsTable, {
     tenantId: ctx.tenantId,
     insertedById: ctx.userId,
@@ -168,7 +175,7 @@ export const fileRefDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
   if (strategy !== "delete") {
     // anonymize: insertedById=null, FileRef + binary bleiben. Use-case: shared
     // chat-Attachment im Multi-User-Channel — Author-ID raus, Datei bleibt sichtbar.
-    await severPersonLink(ctx, systemUser, rows);
+    await severPersonLink(tdb, systemUser, rows);
     return;
   }
 
@@ -195,10 +202,10 @@ export const fileRefDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
   // the erasure (the old hard deleteMany was resurrected on rebuild).
   // ponytail: residual metadata (fileName) stays in the hidden soft-deleted row;
   // a full purge waits for the executor.purge-API + trashed-files-GC.
-  await severPersonLink(ctx, systemUser, rows);
+  await severPersonLink(tdb, systemUser, rows);
   for (const row of rows) {
     const id = row["id"]; // @cast-boundary db-row
     if (typeof id !== "string") continue;
-    await crud.delete({ id }, systemUser, ctx.db);
+    await crud.delete({ id }, systemUser, tdb);
   }
 };
