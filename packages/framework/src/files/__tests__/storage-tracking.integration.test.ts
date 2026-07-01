@@ -224,4 +224,12 @@ describe("file download roundtrip (GET /files/:id)", () => {
     await deleteFile(admin, id);
     expect((await download(admin, id)).status).toBe(404);
   });
+
+  test("a cross-tenant download is rejected (404, no existence oracle)", async () => {
+    const id = await upload(admin, "tenant-a-only.png", SMALL);
+    const res = await download(otherAdmin, id);
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error?: string };
+    expect(body.error).toBe("not_found");
+  });
 });
