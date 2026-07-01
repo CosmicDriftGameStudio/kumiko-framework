@@ -18,7 +18,6 @@ export const defaultTranslations: TranslationsByLocale = {
     "folders.section.working": "Speichert…",
 
     "folders.manager.loading": "Lädt…",
-    "folders.manager.empty": "Noch keine Ordner.",
     "folders.manager.newRoot": "Neuer Ordner",
     "folders.manager.add": "Anlegen",
     "folders.manager.addChild": "Unterordner",
@@ -44,7 +43,6 @@ export const defaultTranslations: TranslationsByLocale = {
     "folders.section.working": "Saving…",
 
     "folders.manager.loading": "Loading…",
-    "folders.manager.empty": "No folders yet.",
     "folders.manager.newRoot": "New folder",
     "folders.manager.add": "Create",
     "folders.manager.addChild": "Subfolder",

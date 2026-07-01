@@ -56,6 +56,11 @@ type Primitive = string | number | boolean | bigint | symbol | null | undefined;
 
 // Opaque built-in leaves a response legitimately carries; never recurse into
 // them. Extend when the bundled-features tsc sweep surfaces a real leaf type.
+// Map/Set (556/2): `keyof Map<K,V>` yields method names, not V, so these
+// already fell through to `false` via the object-mapped-type branch — listed
+// explicitly here so the compile-time treatment matches leak-guard.ts's
+// runtime `instanceof Map`/`instanceof Set` branch (walk entries separately)
+// instead of looking like an oversight.
 type SafeLeaf =
   | Date
   | RegExp
@@ -66,7 +71,9 @@ type SafeLeaf =
   | Temporal.PlainTime
   | Temporal.PlainYearMonth
   | Temporal.PlainMonthDay
-  | Temporal.Duration;
+  | Temporal.Duration
+  | Map<unknown, unknown>
+  | Set<unknown>;
 
 export type ContainsSecret<T> = [T] extends [never]
   ? false

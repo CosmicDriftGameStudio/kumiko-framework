@@ -14,7 +14,6 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = resolve(HERE, "..");
 const SAMPLES_ROOT = resolve(APP_ROOT, "../..");
-const REPO_ROOT = resolve(SAMPLES_ROOT, "..");
 const MANIFEST_PATH = resolve(APP_ROOT, "feature-manifest.json");
 const OVERRIDES_PATH = resolve(SAMPLES_ROOT, "sample-index.overrides.json");
 export const INDEX_PATH = resolve(SAMPLES_ROOT, "sample-index.json");
@@ -274,5 +273,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const index = buildSampleIndex();
   writeFileSync(INDEX_PATH, serializeSampleIndex(index), "utf-8");
   console.log(`sample-index.json: ${index.featureCount} features → ${INDEX_PATH}`);
-  void REPO_ROOT;
 }

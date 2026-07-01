@@ -76,12 +76,12 @@ export function runScreenshots(scenarios: readonly Scenario[], opts: FlatOptions
   }
 }
 
-export const VIEWPORTS = {
+const VIEWPORTS = {
   desktop: { width: 1280, height: 900 },
   tablet: { width: 834, height: 1112 },
   mobile: { width: 390, height: 844 },
 } as const;
-export type ViewportId = keyof typeof VIEWPORTS;
+type ViewportId = keyof typeof VIEWPORTS;
 
 // Achse aus Env einengen (CSV) oder Default nehmen. Filtert statt zu casten:
 // ein Tippfehler in der Env-Var (z.B. SCREENSHOT_VIEWPORTS=typo) würde sonst

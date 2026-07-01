@@ -75,10 +75,6 @@ export const defaultTranslations: TranslationsByLocale = {
     "userDataRights.privacyCenter.deletion.dialogDescription":
       "Mit dem Bestätigen startet die Lösch-Frist. Du kannst die Löschung bis zu ihrem Ablauf wieder abbrechen.",
 
-    "userDataRights.privacyCenter.audit.title": "Aktivitätsprotokoll (Art. 15)",
-    "userDataRights.privacyCenter.audit.intro":
-      "Die letzten Ereignisse zu deinem Konto über alle Tenants hinweg.",
-    "userDataRights.privacyCenter.audit.empty": "Noch keine Ereignisse.",
   },
   en: {
     "userDataRights.deletion.request.title": "Request account deletion",
@@ -147,9 +143,5 @@ export const defaultTranslations: TranslationsByLocale = {
     "userDataRights.privacyCenter.deletion.dialogDescription":
       "Confirming starts the deletion grace period. You can cancel the deletion until it ends.",
 
-    "userDataRights.privacyCenter.audit.title": "Activity log (Art. 15)",
-    "userDataRights.privacyCenter.audit.intro":
-      "The most recent events on your account across all tenants.",
-    "userDataRights.privacyCenter.audit.empty": "No events yet.",
   },
 };

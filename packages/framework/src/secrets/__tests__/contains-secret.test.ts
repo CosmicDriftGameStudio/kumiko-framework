@@ -32,6 +32,18 @@ export type _R6TypeAssertions = [
   // the backstop. This is what keeps generic-over-response handlers compiling.
   Expect<Equal<ContainsSecret<unknown>, false>>,
   Expect<Equal<ContainsSecret<never>, false>>,
+  // 556/3: ContainsSecret<A | B> distributes over the union (naked type
+  // param) to `ContainsSecret<A> | ContainsSecret<B>` = `boolean`, not the
+  // literal `true` — pinned here so a future change to this predicate can't
+  // silently regress it. The actual leak-guard in define-handler.ts compares
+  // via `true extends ContainsSecret<TData>` (556/1) instead of `ContainsSecret<
+  // TData> extends true`, which is fail-closed for `boolean` either way.
+  Expect<Equal<ContainsSecret<{ ok: true } | { s: Secret<string> }>, boolean>>,
+  // 556/2: Map/Set are explicit SafeLeaf members now — pins that the runtime
+  // guard's "walk Map/Set entries separately" intent is mirrored, not an
+  // accidental compile-time blind spot.
+  Expect<Equal<ContainsSecret<Map<string, Secret<string>>>, false>>,
+  Expect<Equal<ContainsSecret<Set<Secret<string>>>, false>>,
 ];
 
 const schema = z.object({ q: z.string() });
@@ -56,6 +68,28 @@ function genericResponseHandler<K extends string>(kind: K) {
   });
 }
 void genericResponseHandler;
+
+// 556/1: ContainsSecret<A | B> distributes over the union (naked type param
+// in the condition) to `ContainsSecret<A> | ContainsSecret<B>` = `boolean`,
+// not the literal `true` — a check written as `ContainsSecret<TData> extends
+// true` silently passes a union with a leak hidden in ONE branch. Both
+// assertions below must hold: the guard rejects the leaking union AND still
+// accepts the clean one, proving the fix (membership form on the phantom
+// param) is fail-closed for unions, not just for a bare Secret<>.
+declare const leakingUnion: { ok: true } | { apiKey: Secret<string> };
+// @ts-expect-error — R6: a Secret<> hidden in one union branch must still leak-guard
+defineQueryHandler({
+  name: "t:query:union-leak",
+  schema,
+  handler: async () => leakingUnion,
+});
+
+declare const cleanUnion: { ok: true } | { id: string };
+defineQueryHandler({
+  name: "t:query:union-clean",
+  schema,
+  handler: async () => cleanUnion,
+});
 
 describe("R6 ContainsSecret", () => {
   test("a clean query handler still builds — the guard param is invisible", () => {

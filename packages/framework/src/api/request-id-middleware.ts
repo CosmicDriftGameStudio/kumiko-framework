@@ -37,12 +37,14 @@ export function requestIdMiddleware() {
     // than fabricate one.
     const xff = c.req.header("x-forwarded-for");
     const ip = xff?.split(",")[0]?.trim();
+    const userAgent = c.req.header("user-agent");
     await requestContext.run(
       {
         requestId,
         correlationId,
         ...(signal ? { signal } : {}),
         ...(ip && ip.length > 0 ? { ip } : {}),
+        ...(userAgent !== undefined ? { userAgent } : {}),
       },
       () => next(),
     );

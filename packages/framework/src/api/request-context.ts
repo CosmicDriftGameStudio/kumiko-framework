@@ -30,6 +30,9 @@ export type RequestContextData = {
   // Populated by requestIdMiddleware from x-forwarded-for or the
   // socket address. Undefined for non-HTTP entry points (jobs, MSP).
   readonly ip?: string;
+  // Raw User-Agent header — audit trails (download tokens, GDPR export
+  // access) want it alongside `ip`. Undefined for non-HTTP entry points.
+  readonly userAgent?: string;
 };
 
 const storage = new AsyncLocalStorage<RequestContextData>();

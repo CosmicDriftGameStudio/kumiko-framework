@@ -623,7 +623,9 @@ function renderDockerCompose(): string {
 # Ports bind to 127.0.0.1 only — weak dev credentials must not be exposed on the LAN.
 services:
   postgres:
-    image: postgres:18
+    # Pinned to the project's own compose-file tag (663/1) — Alpine variant
+    # (~90MB vs ~400MB) and a reproducible patch version, bump on PG18 minors.
+    image: postgres:18.3-alpine
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres

@@ -44,17 +44,28 @@ export type SchemaCliOut = {
 
 const SNAPSHOT_FILENAME = ".snapshot.json";
 
-async function loadEntityMetasFromApp(
-  schemaFile: string,
-): Promise<Parameters<typeof renderTablesDdl>[0]> {
+type SchemaMod = {
+  readonly entityMetas: Parameters<typeof renderTablesDdl>[0];
+  readonly features?: unknown;
+};
+
+// Single load-path for kumiko/schema.ts (512/3) — `generate` and `validate`
+// both need ENTITY_METAS (and validate additionally wants FEATURES); this is
+// the one place that enforces "ENTITY_METAS must be an array" so the two
+// commands can't drift on the check or its wording. Throws — callers that
+// want a graceful exit code (validate) catch it themselves.
+async function loadSchemaModFromApp(schemaFile: string): Promise<SchemaMod> {
   // bun imports TS directly — no spawn needed.
-  const mod = (await import(schemaFile)) as { ENTITY_METAS?: unknown };
+  const mod = (await import(schemaFile)) as { ENTITY_METAS?: unknown; FEATURES?: unknown };
   if (!Array.isArray(mod.ENTITY_METAS)) {
     throw new Error(
       `Schema file ${schemaFile} muss \`export const ENTITY_METAS: EntityTableMeta[]\` haben.`,
     );
   }
-  return mod.ENTITY_METAS as Parameters<typeof renderTablesDdl>[0];
+  return {
+    entityMetas: mod.ENTITY_METAS as Parameters<typeof renderTablesDdl>[0],
+    features: mod.FEATURES,
+  };
 }
 
 function nextSequenceNumber(migrationsDir: string): number {
@@ -132,7 +143,7 @@ export async function runSchemaCli(
         out.err("    export const ENTITY_METAS: EntityTableMeta[] = [...]");
         return 1;
       }
-      const metas = await loadEntityMetasFromApp(schemaFile);
+      const { entityMetas: metas } = await loadSchemaModFromApp(schemaFile);
       const snapshotPath = join(migrationsDir, SNAPSHOT_FILENAME);
       const prevSnapshot = existsSync(snapshotPath) ? loadSnapshotJson(snapshotPath) : null;
       const result = generateMigration({
@@ -191,20 +202,18 @@ export async function runSchemaCli(
         out.err("    export const ENTITY_METAS: EntityTableMeta[] = [...]");
         return 1;
       }
-      const mod = (await import(schemaFile)) as {
-        ENTITY_METAS?: unknown;
-        FEATURES?: unknown;
-      };
-      if (!Array.isArray(mod.ENTITY_METAS)) {
-        out.err(
-          `  Schema file ${schemaFile} muss \`export const ENTITY_METAS: EntityTableMeta[]\` haben.`,
-        );
+      let schemaMod: SchemaMod;
+      try {
+        schemaMod = await loadSchemaModFromApp(schemaFile);
+      } catch (e) {
+        out.err(`  ${e instanceof Error ? e.message : String(e)}`);
         return 1;
       }
+      const mod = { FEATURES: schemaMod.features };
       let ok = true;
 
       // 1. Schema drift — compute the diff, never write.
-      const metas = mod.ENTITY_METAS as Parameters<typeof renderTablesDdl>[0];
+      const metas = schemaMod.entityMetas;
       const snapshotPath = join(migrationsDir, SNAPSHOT_FILENAME);
       const prevSnapshot = existsSync(snapshotPath) ? loadSnapshotJson(snapshotPath) : null;
       const drift = generateMigration({
