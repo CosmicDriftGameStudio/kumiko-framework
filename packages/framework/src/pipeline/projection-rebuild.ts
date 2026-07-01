@@ -151,6 +151,10 @@ type RebuildDeps = {
   // a slow callback here delays the cutover fence acquisition, widening the
   // window in which concurrent writers can still commit below the cursor.
   readonly __test_onBeforeFence?: () => void | Promise<void>;
+  // Test-only seam: fires each time the shadow table is (re)built. The #443
+  // recompute is idempotent on final values, so only a call-count seam like
+  // this can prove it didn't fire on a clean, non-concurrent rebuild.
+  readonly __test_onBuildShadowTable?: () => void;
 };
 
 export async function rebuildProjection(
@@ -216,6 +220,7 @@ export async function rebuildProjection(
     await db.begin(async (tx: DbTx) => {
       await markProjectionRebuilding(tx, projectionName);
       await buildShadowTable(tx, meta);
+      deps.__test_onBuildShadowTable?.();
 
       // A projection that subscribes to nothing has no events to replay and no
       // live writer touching its table — skip straight to swapping the empty
@@ -253,6 +258,7 @@ export async function rebuildProjection(
         const expectedEvents = await countSubscribedEvents(tx, sourcesList, subscribedList);
         if (expectedEvents > BigInt(eventsProcessed)) {
           await buildShadowTable(tx, meta);
+          deps.__test_onBuildShadowTable?.();
           lastProcessedEventId = 0n;
           eventsProcessed = 0;
           while ((await drainBatch(tx)) === REBUILD_BATCH_SIZE) {

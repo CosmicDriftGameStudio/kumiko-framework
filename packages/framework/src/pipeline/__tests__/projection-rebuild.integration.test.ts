@@ -750,6 +750,30 @@ describe("rebuildProjection — live-tail catch-up (#363 Phase 2)", () => {
     expect(await getCount(groupX)).toBe(1); // #443 fixed: fenced count re-check re-replayed the missed low-id event
   });
 
+  test("(656/1) a clean rebuild with no concurrency does not trigger the #443 recompute", async () => {
+    // The #443 shortfall-recompute rebuilds the shadow a 2nd time and re-replays
+    // the whole log — correct on the rare path it guards, but a silent perf
+    // regression if it fired on every rebuild. Its final values are identical
+    // either way (full re-replay is idempotent), so only a call-count seam can
+    // prove it stayed off the happy path.
+    const group = "00000000-0000-4000-8000-000000000203";
+    await appendCreatedEvent(group, "a");
+    await appendCreatedEvent(group, "b");
+
+    let shadowBuilds = 0;
+    const result = await rebuildProjection(qualifiedProjectionName, {
+      db: testDb.db,
+      registry,
+      __test_onBuildShadowTable: () => {
+        shadowBuilds++;
+      },
+    });
+
+    expect(shadowBuilds).toBe(1);
+    expect(result.eventsProcessed).toBe(2);
+    expect(await getCount(group)).toBe(2);
+  });
+
   test("the rebuild tx sees concurrently-committed rows (READ COMMITTED, not a frozen snapshot)", async () => {
     // The catch-up loop only works if each fresh SELECT in the rebuild tx sees
     // rows other connections committed since the previous batch. Under
