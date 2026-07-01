@@ -51,6 +51,12 @@ import {
   DELIVERY_FEATURE,
 } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import {
+  createPatResolver,
+  PAT_FEATURE,
+  patRateLimitFromFeature,
+  patScopesFromFeature,
+} from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
+import {
   createSecretsContext,
   SECRETS_FEATURE_NAME,
 } from "@cosmicdrift/kumiko-bundled-features/secrets";
@@ -66,6 +72,7 @@ import {
   cachedResponse,
   computeStrongEtag,
   computeWeakEtag,
+  createInMemoryLoginRateLimiter,
   createSseBroker,
   type SseBroker,
 } from "@cosmicdrift/kumiko-framework/api";
@@ -957,6 +964,24 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     ? buildProdSessionAuth(db, resolveProdSessionsConfig(effectiveAuth?.sessions))
     : undefined;
 
+  // PAT opt-in: if the personal-access-tokens feature is mounted, wire its
+  // resolver (bearer PATs → SessionUser, before jwt.verify). Scopes come from
+  // the feature's exports — the same declaration its handlers use.
+  const patFeature = features.find((f) => f.name === PAT_FEATURE);
+  let patAuthFragment:
+    | {
+        patResolver: ReturnType<typeof createPatResolver>;
+        patRateLimiter: ReturnType<typeof createInMemoryLoginRateLimiter>;
+      }
+    | undefined;
+  if (effectiveAuth && patFeature) {
+    const rl = patRateLimitFromFeature(patFeature);
+    patAuthFragment = {
+      patResolver: createPatResolver({ db, scopes: patScopesFromFeature(patFeature) }),
+      patRateLimiter: createInMemoryLoginRateLimiter(rl.maxRequests, rl.windowMs),
+    };
+  }
+
   const baseEntrypointOptions = {
     registry,
     context: {
@@ -994,6 +1019,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
           unsafeSkipOriginCheck: effectiveAuth.unsafeSkipOriginCheck,
         }),
         ...sessionAuthFragment,
+        ...patAuthFragment,
         ...(effectiveAuth.passwordReset && {
           passwordReset: {
             requestHandler: AuthHandlers.requestPasswordReset,

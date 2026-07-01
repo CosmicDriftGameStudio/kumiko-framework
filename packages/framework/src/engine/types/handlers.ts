@@ -40,6 +40,19 @@ export type SessionUser = {
   // When present, middleware can validate that the sid is still alive before
   // accepting the request (session revocation).
   readonly sid?: string;
+  // Set ONLY when the request authenticated via a Personal Access Token
+  // (bearer, PAT_TOKEN_PREFIX). Absent for cookie/JWT logins, which stay
+  // unrestricted. `allowedQns` are the QN globs the token's granted scopes
+  // expand to; the API boundary (routes.ts) rejects any dispatch type not
+  // matched by one of them (fail-closed). `scopes` are the granted scope
+  // names, kept for audit/display only.
+  readonly pat?: {
+    // The token row id — the per-token key for PAT rate limiting. Not the
+    // secret; safe to carry on the principal.
+    readonly tokenId: string;
+    readonly scopes: readonly string[];
+    readonly allowedQns: readonly string[];
+  };
 };
 
 // --- Claim Keys (r.claimKey declarations) ---

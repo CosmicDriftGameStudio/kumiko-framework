@@ -38,6 +38,7 @@ const EXPECTED_HELD_BACK = new Set([
   "foundation-shared", // utilities (requireDefined/requireNonEmpty), kein feature
   "page-render", // shared HTML render/cache helpers (legal/managed-pages), kein defineFeature
   "presets", // feature-bundle helpers (dsgvoSelfServiceFeatures), kein defineFeature
+  "personal-access-tokens", // feature complete + tested; sample mount + read_api_tokens migration pending (kf#745)
 ]);
 
 // Sub-paths in bundled-features's package.json exports (./tenant/seeding,

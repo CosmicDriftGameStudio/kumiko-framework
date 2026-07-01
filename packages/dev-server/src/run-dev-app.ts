@@ -23,11 +23,18 @@ import {
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
+  createPatResolver,
+  PAT_FEATURE,
+  patRateLimitFromFeature,
+  patScopesFromFeature,
+} from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
+import {
   createSessionCallbacks,
   type SessionCallbacks,
 } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
-import type { SessionMetadata } from "@cosmicdrift/kumiko-framework/api";
+import type { PatResolver, SessionMetadata } from "@cosmicdrift/kumiko-framework/api";
+import { createInMemoryLoginRateLimiter } from "@cosmicdrift/kumiko-framework/api";
 import {
   collectWriteHandlerQns,
   createRegistry,
@@ -339,6 +346,26 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     }
     return sessionCallbacks;
   };
+  // PAT opt-in: same late-bound holder pattern — the resolver needs the real
+  // db (only concrete after setupTestStack). Wired when the feature is mounted;
+  // scopes come from the feature's exports (single source with its handlers).
+  let patResolver: PatResolver | undefined;
+  const patFeature = features.find((f) => f.name === PAT_FEATURE);
+  const patAuthFragment = patFeature
+    ? {
+        patResolver: (rawToken: string) => {
+          if (!patResolver) {
+            throw new Error("[runDevApp] pat-resolver accessed before onAfterSetup");
+          }
+          return patResolver(rawToken);
+        },
+        patRateLimiter: (() => {
+          const rl = patRateLimitFromFeature(patFeature);
+          return createInMemoryLoginRateLimiter(rl.maxRequests, rl.windowMs);
+        })(),
+      }
+    : {};
+
   const sessionAuthFragment =
     effectiveAuth?.sessions !== undefined
       ? {
@@ -392,6 +419,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
           unsafeSkipOriginCheck: effectiveAuth.unsafeSkipOriginCheck,
         }),
         ...sessionAuthFragment,
+        ...patAuthFragment,
         ...(effectiveAuth.passwordReset && {
           passwordReset: {
             requestHandler: AuthHandlers.requestPasswordReset,
@@ -436,6 +464,9 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
           db: stack.db,
           ...(expiresInMs !== undefined && { expiresInMs }),
         });
+      }
+      if (patFeature) {
+        patResolver = createPatResolver({ db: stack.db, scopes: patScopesFromFeature(patFeature) });
       }
       if (effectiveAuth) {
         await seedAdmin(stack.db, effectiveAuth.admin);
