@@ -55,6 +55,11 @@ import {
   SECRETS_FEATURE_NAME,
 } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import {
+  createPatResolver,
+  PAT_FEATURE,
+  patScopesFromFeature,
+} from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
+import {
   createSessionCallbacks,
   SESSIONS_FEATURE,
 } from "@cosmicdrift/kumiko-bundled-features/sessions";
@@ -957,6 +962,15 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     ? buildProdSessionAuth(db, resolveProdSessionsConfig(effectiveAuth?.sessions))
     : undefined;
 
+  // PAT opt-in: if the personal-access-tokens feature is mounted, wire its
+  // resolver (bearer PATs → SessionUser, before jwt.verify). Scopes come from
+  // the feature's exports — the same declaration its handlers use.
+  const patFeature = features.find((f) => f.name === PAT_FEATURE);
+  const patAuthFragment =
+    effectiveAuth && patFeature
+      ? { patResolver: createPatResolver({ db, scopes: patScopesFromFeature(patFeature) }) }
+      : undefined;
+
   const baseEntrypointOptions = {
     registry,
     context: {
@@ -994,6 +1008,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
           unsafeSkipOriginCheck: effectiveAuth.unsafeSkipOriginCheck,
         }),
         ...sessionAuthFragment,
+        ...patAuthFragment,
         ...(effectiveAuth.passwordReset && {
           passwordReset: {
             requestHandler: AuthHandlers.requestPasswordReset,
