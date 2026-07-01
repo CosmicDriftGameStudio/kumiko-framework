@@ -82,6 +82,7 @@
     "./text-content/seeding": "./src/text-content/seeding.ts",
     "./text-content/web": "./src/text-content/web/index.ts",
     "./template-resolver": "./src/template-resolver/index.ts",
+    "./template-resolver/seeding": "./src/template-resolver/seeding.ts",
     "./template-resolver/testing": "./src/template-resolver/testing.ts",
     "./renderer-foundation": "./src/renderer-foundation/index.ts",
     "./legal-pages": "./src/legal-pages/index.ts",

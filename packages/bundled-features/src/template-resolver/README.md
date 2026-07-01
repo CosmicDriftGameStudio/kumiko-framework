@@ -55,6 +55,23 @@ async function someHandler(ctx) {
 
 Wenn nichts gefunden → `TemplateNotFoundError`.
 
+## Boot-Seeding (System-Templates)
+
+```typescript
+import { seedSystemTemplate } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
+
+// runProdApp seeds — idempotent, default skip if slug exists
+await seedSystemTemplate(db, {
+  slug: "welcome-email",
+  kind: "notification",
+  locale: "de",
+  content: JSON.stringify({ header: "Willkommen", sections: [{ text: "…" }] }),
+  contentFormat: "plain",
+});
+```
+
+`ifExists: "update"` für autoritative Re-Seeds (z.B. nach Template-Content-Release).
+
 ## Admin-Workflows (Write-Handlers + Queries)
 
 | Handler | QN | Wer | Was |
@@ -66,7 +83,7 @@ Wenn nichts gefunden → `TemplateNotFoundError`.
 | `TemplateResolverQueries.findById` | `template-resolver:query:find-by-id` | TenantAdmin + User (eigener Tenant + system-templates sichtbar) | Raw-Lookup für Edit-UI |
 | `TemplateResolverQueries.list` | `template-resolver:query:list` | gleich | Filter nach kind/locale/status, optional includeSystem |
 
-**SystemAdmin-Cross-Tenant für publish/archive/findById:** aktuell nicht implementiert. `ctx.db` ist tenant-scoped (createTenantDb in dispatcher), SystemAdmin sieht ohne explicit `tenantIdOverride` keine fremden Tenants. Wenn Admin-UI das fordert: Schema-Erweiterung in einer M2-Iteration.
+**SystemAdmin-Cross-Tenant für publish/archive/findById:** deferred (Task 8) — `upsertTenant` hat `tenantIdOverride` bereits; publish/archive brauchen das erst wenn ein Sysadmin-Panel fremde Tenant-Templates kuratiert. `ctx.db` ist tenant-scoped, fremde IDs → NotFound ohne Override.
 
 ## Status-Lifecycle
 
@@ -109,3 +126,5 @@ The harness checks `TemplateNotFoundError` propagation, locale-fallback, and (wh
 - Resource-URL-Substitution (signed-URL vs. data-URI) — Caller-Verantwortung je nach kind
 - Visual Template-Editor — `designer`-Bundle (geplant)
 - A/B-Testing — eigenes Bundle wenn Bedarf real
+
+
