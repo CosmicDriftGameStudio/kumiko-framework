@@ -15,7 +15,7 @@
 //     ueber Pseudo-Tenant.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
   setupTestStack,
@@ -23,7 +23,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
@@ -99,7 +99,7 @@ async function seedUser(
   id: string,
   overrides: { email?: string; displayName?: string; roles?: string } = {},
 ): Promise<void> {
-  await insertOne(stack.db, userTable, {
+  await seedRow(stack.db, userTable, {
     id,
     tenantId: TENANT_SYSTEM,
     email: overrides.email ?? `user-${id}@example.com`,

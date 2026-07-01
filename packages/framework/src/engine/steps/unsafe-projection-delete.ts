@@ -16,6 +16,7 @@
 // must commit in the same TX as the aggregate-mutation that triggered
 // it (stronger consistency than an async projection). Reviewer judges.
 
+import type { EntityTableMeta } from "../../db/entity-table-meta";
 import { deleteMany, type WhereObject } from "../../db/query";
 import { defineStep } from "../define-step";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
@@ -36,7 +37,10 @@ defineStep<UnsafeProjectionDeleteArgs, void>({
   defaultFailureStrategy: "throw",
   run: async (args, ctx: PipelineCtx) => {
     const where = resolveRequired(args.where, ctx);
-    await deleteMany(ctx.db.raw, args.table, where);
+    // The `unsafe*`-step IS the sanctioned direct projection write — it exists
+    // to bypass the executor deliberately (boot-validated allowlist + reviewer
+    // gate). The brand-strip cast makes that explicit at the one blessed seam.
+    await deleteMany(ctx.db.raw, args.table as EntityTableMeta, where);
   },
 });
 

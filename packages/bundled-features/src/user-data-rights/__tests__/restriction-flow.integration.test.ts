@@ -12,7 +12,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -24,7 +24,11 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createLateBoundHolder, resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import {
+  createLateBoundHolder,
+  resetTestTables,
+  updateRows,
+} from "@cosmicdrift/kumiko-framework/testing";
 import { AuthErrors, AuthHandlers } from "../../auth-email-password/constants";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
 import { hashPassword } from "../../auth-email-password/password-hashing";
@@ -117,7 +121,7 @@ async function seedAliceWithMembership(
     TestUsers.systemAdmin,
   );
   if (status !== USER_STATUS.Active) {
-    await updateMany(stack.db, userTable, { status }, { id: created.id });
+    await updateRows(stack.db, userTable, { status }, { id: created.id });
   }
   await seedTenantMembership(stack.db, {
     userId: created.id,

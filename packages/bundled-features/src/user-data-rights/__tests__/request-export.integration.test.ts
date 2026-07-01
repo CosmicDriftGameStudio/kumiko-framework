@@ -18,12 +18,7 @@
 //     hasJob=false wenn nichts da
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import {
-  asRawClient,
-  insertOne,
-  selectMany,
-  updateMany,
-} from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -32,7 +27,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import { resetTestTables, seedRow, updateRows } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
@@ -136,7 +131,7 @@ describe("request-export :: App-side-Idempotency (primaerer Pfad)", () => {
   test("Klick nach done-Job ist NEUER Job (Audit-Historie wird nicht blockiert)", async () => {
     const first = await stack.http.writeOk<RequestExportResponse>(REQUEST_EXPORT, {}, aliceUser);
     // Worker-Simulation: status auf done flippen (direct-update OK in Test)
-    await updateMany(
+    await updateRows(
       stack.db,
       exportJobsTable,
       { status: EXPORT_JOB_STATUS.Done },
@@ -251,7 +246,7 @@ describe("export-status :: User-Polling", () => {
     const T = getTemporal();
     // 1. Job done in der Vergangenheit
     const oldJobId = "11111111-1111-4111-8111-111111111111";
-    await insertOne(stack.db, exportJobsTable, {
+    await seedRow(stack.db, exportJobsTable, {
       id: oldJobId,
       tenantId: tenantA,
       userId: aliceUser.id,

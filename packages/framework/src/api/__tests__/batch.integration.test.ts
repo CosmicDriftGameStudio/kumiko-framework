@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { z } from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { asRawClient, insertOne, selectMany } from "../../db/query";
+import { asRawClient, selectMany } from "../../db/query";
 import { buildEntityTable } from "../../db/table-builder";
 import {
   createEntity,
@@ -217,7 +218,7 @@ describe("POST /api/batch", () => {
 
   test("mid-batch failure: all writes roll back, afterCommit hooks do NOT fire", async () => {
     // Seed with one existing item so we can verify the batch didn't persist anything
-    await insertOne(stack.db, itemTable, {
+    await seedRow(stack.db, itemTable, {
       name: "seed",
       counter: 0,
       tenantId: "00000000-0000-4000-8000-000000000001",

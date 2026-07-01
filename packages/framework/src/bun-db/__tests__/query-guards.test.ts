@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
+import type { EntityTableMeta } from "../../db/entity-table-meta";
 import { incrementCounter, selectMany } from "../query";
 
-const meta = {
-  source: "unmanaged" as const,
+const meta: EntityTableMeta = {
+  source: "unmanaged",
   tableName: "read_items",
   indexes: [],
   columns: [

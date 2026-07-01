@@ -5,7 +5,7 @@
 // expired/revoked rows go, live rows stay, batching + signal work.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { sql } from "@cosmicdrift/kumiko-framework/db";
 import type { AppContext } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -14,7 +14,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { createUserFeature } from "../../user/feature";
 import { userEntity } from "../../user/schema/user";
 import { createSessionsFeature } from "../feature";
@@ -79,7 +79,7 @@ async function seedSession(opts: {
   const past = sql`now() - ${sql.raw(`interval '${opts.ageDays} days'`)}`;
   const future = sql`now() + ${sql.raw(`interval '30 days'`)}`;
 
-  await insertOne(stack.db, userSessionTable, {
+  await seedRow(stack.db, userSessionTable, {
     id: opts.id,
     tenantId: TENANT,
     userId: opts.userId,

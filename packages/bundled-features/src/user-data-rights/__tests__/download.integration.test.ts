@@ -9,7 +9,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { asRawClient, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -25,7 +25,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import { resetTestTables, updateRows } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   createComplianceProfilesFeature,
@@ -302,7 +302,7 @@ describe("download-by-token :: error paths", () => {
     const longAgo = getTemporal().Instant.fromEpochMilliseconds(
       Date.now() - 365 * 24 * 60 * 60 * 1000,
     );
-    await updateMany(stack.db, exportDownloadTokensTable, { expiresAt: longAgo }, { jobId });
+    await updateRows(stack.db, exportDownloadTokensTable, { expiresAt: longAgo }, { jobId });
 
     const res = await stack.http.query(
       "user-data-rights:query:download-by-token",
@@ -316,7 +316,7 @@ describe("download-by-token :: error paths", () => {
 
   test("failed Job → 404 download.unavailable", async () => {
     const { jobId, plainToken } = await seedDoneJobWithToken();
-    await updateMany(stack.db, exportJobsTable, { status: "failed" }, { id: jobId });
+    await updateRows(stack.db, exportJobsTable, { status: "failed" }, { id: jobId });
 
     const res = await stack.http.query(
       "user-data-rights:query:download-by-token",
@@ -330,7 +330,7 @@ describe("download-by-token :: error paths", () => {
 
   test("storage cleared → 404 download.expired", async () => {
     const { jobId, plainToken } = await seedDoneJobWithToken();
-    await updateMany(stack.db, exportJobsTable, { downloadStorageKey: null }, { id: jobId });
+    await updateRows(stack.db, exportJobsTable, { downloadStorageKey: null }, { id: jobId });
 
     const res = await stack.http.query(
       "user-data-rights:query:download-by-token",
@@ -404,7 +404,7 @@ describe("download-by-job :: happy path", () => {
     // Symmetrisch zum token-Test: gleicher Code-Pfad muss auch im job-
     // handler 404 + unavailable raus, nicht 500.
     const { jobId } = await seedDoneJobWithToken();
-    await updateMany(stack.db, exportJobsTable, { status: "failed" }, { id: jobId });
+    await updateRows(stack.db, exportJobsTable, { status: "failed" }, { id: jobId });
 
     const res = await stack.http.query(
       "user-data-rights:query:download-by-job",
@@ -418,7 +418,7 @@ describe("download-by-job :: happy path", () => {
 
   test("storage cleared (downloadStorageKey null) → 404 download.expired (job-Pfad)", async () => {
     const { jobId } = await seedDoneJobWithToken();
-    await updateMany(stack.db, exportJobsTable, { downloadStorageKey: null }, { id: jobId });
+    await updateRows(stack.db, exportJobsTable, { downloadStorageKey: null }, { id: jobId });
 
     const res = await stack.http.query(
       "user-data-rights:query:download-by-job",

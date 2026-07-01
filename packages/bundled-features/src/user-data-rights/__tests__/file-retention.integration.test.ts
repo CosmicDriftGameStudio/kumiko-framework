@@ -16,7 +16,7 @@
 //      die Policy entscheidet pro Tenant.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEventStoreExecutor,
   createTenantDb,
@@ -30,7 +30,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
@@ -117,7 +117,7 @@ beforeEach(async () => {
 });
 
 async function seedForgetUser(id: string): Promise<void> {
-  await insertOne(db, userTable, {
+  await seedRow(db, userTable, {
     id,
     tenantId: TENANT_SYSTEM,
     email: `user-${id}@example.com`,

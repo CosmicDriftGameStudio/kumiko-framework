@@ -16,7 +16,7 @@
 // der end-to-end-Default-Pfad (delete).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
@@ -25,7 +25,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
@@ -124,7 +124,7 @@ async function seedUser(
     displayName?: string;
   } = {},
 ): Promise<void> {
-  await insertOne(stack.db, userTable, {
+  await seedRow(stack.db, userTable, {
     id,
     tenantId: TENANT_SYSTEM,
     email: overrides.email ?? `user-${id}@example.com`,
@@ -620,7 +620,7 @@ describe("runForgetCleanup :: sendDeletionExecutedEmail callback (Atom 5b)", () 
     // einem vorigen Run schon anonymisiert hat aber status haengen blieb,
     // oder durch external Migration). Skip schuetzt vor crashing-callback
     // mit invaliden Args.
-    await insertOne(stack.db, userTable, {
+    await seedRow(stack.db, userTable, {
       id: ALICE_ID,
       tenantId: TENANT_SYSTEM,
       email: "",

@@ -1,10 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import {
-  asRawClient,
-  insertOne,
-  selectMany,
-  updateMany,
-} from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -18,6 +13,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { seedRow, updateRows } from "@cosmicdrift/kumiko-framework/testing";
 import { Temporal } from "temporal-polyfill";
 import { createUserFeature } from "../../user/feature";
 import { createSessionsFeature } from "../feature";
@@ -62,7 +58,7 @@ const SID = "00000000-0000-0000-0000-000000000001";
 
 async function insertRevokedSession(db: DbConnection): Promise<void> {
   const now = Temporal.Now.instant();
-  await insertOne(db, userSessionTable, {
+  await seedRow(db, userSessionTable, {
     id: SID,
     tenantId: TENANT,
     userId: "user-1",
@@ -71,7 +67,7 @@ async function insertRevokedSession(db: DbConnection): Promise<void> {
     ip: "1.2.3.4",
     userAgent: "test-agent",
   });
-  await updateMany(db, userSessionTable, { revokedAt: now }, { id: SID, revokedAt: null });
+  await updateRows(db, userSessionTable, { revokedAt: now }, { id: SID, revokedAt: null });
 }
 
 describe("sessions / read_user_sessions survives projection rebuild", () => {
