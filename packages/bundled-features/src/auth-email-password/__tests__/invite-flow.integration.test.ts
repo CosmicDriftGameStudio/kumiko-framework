@@ -15,7 +15,7 @@
 //   5. DB-State + Membership + Cookies/JWT verifizieren
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createSystemUser,
   type SessionUser,
@@ -41,11 +41,13 @@ import { createTenantFeature } from "../../tenant";
 import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant/invitation-table";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant";
+import { INVITATION_STATUS } from "../../tenant/invitation-table";
 import { seedTenant, seedTenantMembership } from "../../tenant/seeding";
 import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/schema/user";
 import { AuthErrors, AuthHandlers } from "../constants";
 import { createAuthEmailPasswordFeature } from "../feature";
+import { storeInviteToken } from "../invite-token-store";
 import { hashPassword } from "../password-hashing";
 import { seedUser } from "../seeding";
 
@@ -254,6 +256,12 @@ describe("invite-create", () => {
     const rows = await selectMany(stack.db, tenantInvitationsTable, { email: BOB_EMAIL });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["role"]).toBe("Editor");
+
+    // inviteEmail() only reads emailTransport.sent.at(-1) — a silent second-
+    // dispatch failure would still leave sent.length===1 and .at(-1) pointing
+    // at the FIRST mail, making secondToken===firstToken pass for the wrong
+    // reason. Assert an actual second dispatch happened.
+    expect(emailTransport.sent).toHaveLength(2);
   });
 });
 
@@ -400,6 +408,36 @@ describe("invite-signup-complete (Branch 3: anon + new email)", () => {
     const memberships = await selectMany(stack.db, tenantMembershipsTable, { userId: bobId });
     expect(memberships).toHaveLength(1);
     void GUEST;
+  });
+});
+
+describe("invite-accept defense-in-depth (assertAssignableMembershipRoles)", () => {
+  test("a forbidden role planted directly on the invitation row (bug/migration) is rejected, not silently granted", async () => {
+    // Simulates the ONE scenario this depth-layer exists for: a forbidden role
+    // reaching the invitation row through some path OTHER than invite-create
+    // (which already validates at request time — see "privilege escalation"
+    // below). A DB migration or direct write is the only realistic vector.
+    const fakeInvitationId = crypto.randomUUID();
+    await insertOne(stack.db, tenantInvitationsTable, {
+      id: fakeInvitationId,
+      tenantId: TENANT_A_ID,
+      email: BOB_EMAIL,
+      role: "SystemAdmin",
+      status: INVITATION_STATUS.pending,
+      invitedBy: aliceId,
+      expiresAt: "2030-01-01T00:00:00Z",
+    });
+    const token = crypto.randomUUID();
+    await storeInviteToken(stack.redis.redis, { invitationId: fakeInvitationId, token, ttlSeconds: 3600 });
+
+    const res = await authedRaw("POST", "/api/auth/invite-accept", { token }, bobSession());
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error?: { code?: string } };
+    expect(body.error?.code).toBe("access_denied");
+
+    // No membership was granted.
+    const memberships = await selectMany(stack.db, tenantMembershipsTable, { userId: bobId });
+    expect(memberships).toHaveLength(1); // only the seeded Tenant-B membership
   });
 });
 
