@@ -70,8 +70,9 @@ export function createJwtHelper(secret: string, issuer = "kumiko"): JwtHelper {
         roles.push(role);
       }
 
+
       const result: JwtPayload = {
-        sub: String(payload.sub),
+        sub: payload.sub,
         tenantId,
         roles,
       };
