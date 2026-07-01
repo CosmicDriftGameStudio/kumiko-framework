@@ -61,26 +61,20 @@ type Table = TableColumns<any>;
 
 export type AutoVerb = "created" | "updated" | "deleted" | "restored" | "forgotten";
 
+const AUTO_VERBS: readonly AutoVerb[] = ["created", "updated", "deleted", "restored", "forgotten"];
+
 export type ApplyResult =
   | { readonly kind: "applied"; readonly verb: AutoVerb; readonly row: DbRow | null }
   | { readonly kind: "skipped" };
 
-/** Parsed event.type → AutoVerb wenn das Event eines der 4 Auto-Verben
+/** Parsed event.type → AutoVerb wenn das Event eines der Auto-Verben
  *  auf dem gegebenen Aggregate ist. null sonst (Domain-Event). */
 export function parseAutoVerb(event: StoredEvent): AutoVerb | null {
   const prefix = `${event.aggregateType}.`;
   if (!event.type.startsWith(prefix)) return null;
   const verb = event.type.slice(prefix.length);
-  if (
-    verb === "created" ||
-    verb === "updated" ||
-    verb === "deleted" ||
-    verb === "restored" ||
-    verb === "forgotten"
-  ) {
-    return verb;
-  }
-  return null;
+  // @cast-boundary: verb is validated against the AutoVerb list before the cast.
+  return (AUTO_VERBS as readonly string[]).includes(verb) ? (verb as AutoVerb) : null;
 }
 
 /** Idempotente Anwendung eines Auto-Events auf die Entity-Tabelle.
