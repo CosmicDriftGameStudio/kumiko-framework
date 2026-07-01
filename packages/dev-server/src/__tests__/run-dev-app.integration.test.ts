@@ -6,7 +6,10 @@
 // path would silently drop the fail-closed guard and dev/prod would diverge.
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { requireTextContent, type TextContentApi } from "@cosmicdrift/kumiko-bundled-features/text-content";
+import {
+  requireTextContent,
+  type TextContentApi,
+} from "@cosmicdrift/kumiko-bundled-features/text-content";
 import {
   createEntity,
   createTextField,
