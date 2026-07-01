@@ -1,5 +1,54 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.106.0
+
+### Minor Changes
+
+- d6fbd00: Personal Access Tokens: long-lived, revocable bearer credentials for headless HTTP-API access.
+
+  - New `personal-access-tokens` bundled-feature: `read_api_tokens` direct-write store, SHA-256 token hashing, show-once mint, `create`/`revoke`/`mine`/`available-scopes` handlers, and a mountable `PatTokensScreen` web UI (`personalAccessTokensClient()`).
+  - Framework auth seam: bearer tokens prefixed `kpat_` resolve via a new `patResolver` (before jwt.verify) into a `SessionUser`; roles are resolved live per request (not snapshotted). Config-driven scopes (app declares named QN-glob bundles) are enforced fail-closed at the API boundary. Optional per-token rate limiting.
+  - `runProdApp`/`runDevApp` auto-wire the resolver + rate limiter when the feature is mounted. All new `AuthRoutesConfig`/`SessionUser` fields are optional — no change for apps that don't mount it.
+
+### Patch Changes
+
+- 7944923: Make direct writes on event-sourced projections a compile error.
+
+  `EntityTable` is now branded (a phantom `unique symbol`), and the write helpers
+  `insertOne` / `insertMany` / `updateMany` / `deleteMany` / `deleteManyBatched` /
+  `upsertOnConflict` / `upsertByPk` / `incrementCounter` reject it: a managed
+  projection is writable only through the executor (event → rebuild-safe). Reads
+  are unchanged.
+
+  **Breaking:** any call that wrote a managed projection directly (e.g.
+  `deleteMany(ctx.db, myEntityTable, …)`) is now a type error. Migrate it to the
+  entity executor (`createEventStoreExecutor(...).update/.delete`), or — for a
+  table that is deliberately not event-sourced — declare it via `r.unmanagedTable`
+  so it is a plain `EntityTableMeta` (unbranded).
+
+  New: custom projection applies (`r.projection` / `defineApply`) receive the
+  projection table as a third argument — write through it instead of a closed-over
+  constant. Existing 2-arg applies keep working. Tests seed projection state via
+  the new `@cosmicdrift/kumiko-framework/testing` seam
+  (`seedRow`/`seedRows`/`updateRows`/`deleteRows`).
+
+  New: `EventStoreExecutor.forget(id, user, db)` — a rebuild-safe hard-purge
+  (Art. 17). It emits a 5th lifecycle verb `<entity>.forgotten` that hard-deletes
+  the row even for `softDelete` entities; because the implicit projection replays
+  it, the erasure survives a projection rebuild (a direct `deleteMany` did not).
+
+  bundled-features: the user / fileRef / folder GDPR-forget hooks and the
+  user-session store now write rebuild-safely (executor events / unmanaged table)
+  — a projection rebuild no longer resurrects erased PII.
+
+- Updated dependencies [7944923]
+- Updated dependencies [d6fbd00]
+  - @cosmicdrift/kumiko-framework@0.106.0
+  - @cosmicdrift/kumiko-headless@0.106.0
+  - @cosmicdrift/kumiko-renderer@0.106.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.106.0
+  - @cosmicdrift/kumiko-renderer-web@0.106.0
+
 ## 0.105.2
 
 ### Patch Changes
