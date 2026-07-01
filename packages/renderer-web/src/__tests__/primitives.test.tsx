@@ -12,7 +12,8 @@ import userEvent from "@testing-library/user-event";
 import { defaultPrimitives } from "../primitives";
 import { fireEvent, render, screen } from "./test-utils";
 
-const { Button, Banner, Field, Input, DataTable, Form, Text, Heading, Dialog, Card } = defaultPrimitives;
+const { Button, Banner, Field, Input, DataTable, Form, Text, Heading, Dialog, Card } =
+  defaultPrimitives;
 
 describe("Button", () => {
   test("disabled: attribute gesetzt + Tailwind-Klassen für pointer-events/opacity", () => {
@@ -971,7 +972,6 @@ describe("Text variants", () => {
   });
 });
 
-
 describe("Card", () => {
   test("padded=true (default) adds body padding", () => {
     render(
@@ -1016,7 +1016,13 @@ describe("Card", () => {
   });
 
   test("footerBordered=false drops the border", () => {
-    render(<Card testId="c" slots={{ footer: <span>Footer</span> }} options={{ footerBordered: false }} />);
+    render(
+      <Card
+        testId="c"
+        slots={{ footer: <span>Footer</span> }}
+        options={{ footerBordered: false }}
+      />,
+    );
     const footer = screen.getByText("Footer").parentElement;
     expect(footer?.className.includes("border-t")).toBe(false);
   });

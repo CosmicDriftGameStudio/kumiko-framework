@@ -51,9 +51,7 @@ describe("requiredKeysFromScreen", () => {
       submitLabel: "publicstatus:actions.saveComponent",
       fieldLabels: { name: "publicstatus:override.name" },
       layout: {
-        sections: [
-          { title: "publicstatus:section.basics", fields: ["name", "status"] },
-        ],
+        sections: [{ title: "publicstatus:section.basics", fields: ["name", "status"] }],
       },
     };
     const keys = requiredKeysFromScreen("publicstatus", screen);
@@ -72,7 +70,11 @@ describe("requiredKeysFromScreen", () => {
       entity: "component",
       layout: {
         sections: [
-          { kind: "extension", title: "publicstatus:section.customFields", component: "custom-fields-panel" },
+          {
+            kind: "extension",
+            title: "publicstatus:section.customFields",
+            component: { react: {} },
+          },
         ],
       },
     };
@@ -112,7 +114,7 @@ describe("requiredKeysFromScreen", () => {
     const keys = requiredKeysFromScreen("publicstatus", {
       id: "dashboard",
       type: "custom",
-      component: "dashboard-panel",
+      renderer: { react: {} },
     });
     expect(keys).toEqual([screenTitleKey("dashboard")]);
   });
@@ -162,9 +164,8 @@ describe("requiredKeysFromNav / requiredKeysFromWorkspace", () => {
   });
 
   test("workspace label is a required key", () => {
-    expect(requiredKeysFromWorkspace({ id: "disposition", label: "bmc:workspace.disposition" })).toEqual(
-      ["bmc:workspace.disposition"],
-    );
+    expect(
+      requiredKeysFromWorkspace({ id: "disposition", label: "bmc:workspace.disposition" }),
+    ).toEqual(["bmc:workspace.disposition"]);
   });
 });
-

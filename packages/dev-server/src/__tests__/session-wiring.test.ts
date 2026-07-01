@@ -1,5 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import { createSessionsFeature, SESSIONS_FEATURE } from "@cosmicdrift/kumiko-bundled-features/sessions";
+import {
+  createSessionsFeature,
+  SESSIONS_FEATURE,
+} from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { resolveProdSessionsConfig, shouldWireProdSessions } from "../session-wiring";
 
 describe("shouldWireProdSessions — secure-by-default with opt-out (KF-1)", () => {

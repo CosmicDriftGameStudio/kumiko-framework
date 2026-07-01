@@ -89,21 +89,20 @@ describe("Input kind=locatedTimestamp", () => {
   });
 
   test("Datum + Uhrzeit wieder leeren (Zone nie gesetzt) → onChange(undefined)", () => {
-    let last: { at: string; tz: string } | undefined | "sentinel" = "sentinel";
-    const view = render(<ControlledLocated initial="" onEmit={(v) => (last = v)} />);
+    const seen: Array<{ at: string; tz: string } | undefined> = [];
+    const view = render(<ControlledLocated initial="" onEmit={(v) => seen.push(v)} />);
     const { date, time } = inputs(view.container);
 
     fireEvent.change(date, { target: { value: "2026-04-03" } });
     fireEvent.change(time, { target: { value: "10:00" } });
-    if (last === "sentinel" || last === undefined) throw new Error("expected a partial value");
-    expect(last.at).toBe("2026-04-03T10:00");
+    expect(seen.at(-1)?.at).toBe("2026-04-03T10:00");
 
     // Both fields cleared again — the emit() undefined-branch (`nextAt === ""
     // && nextTz === ""`) has zero coverage otherwise; the test above only
     // checks that NO change fires before any input, not the clear-after-fill path.
     fireEvent.change(date, { target: { value: "" } });
     fireEvent.change(time, { target: { value: "" } });
-    expect(last).toBeUndefined();
+    expect(seen.at(-1)).toBeUndefined();
   });
 
   test("sichtbarer Zonen-Hinweis", () => {
