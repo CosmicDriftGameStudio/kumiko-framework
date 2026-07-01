@@ -36,7 +36,7 @@ export function createReverseTransactionHandler(
       // phantom balance with no corresponding original.
       if (original["status"] !== "posted") {
         return writeFailure(
-          new UnprocessableError("only posted transactions can be reversed", {
+          new UnprocessableError("transaction_not_posted", {
             details: { transactionId: payload.id, status: original["status"] },
           }),
         );
