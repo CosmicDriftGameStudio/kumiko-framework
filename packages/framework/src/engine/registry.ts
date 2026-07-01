@@ -102,6 +102,9 @@ function buildImplicitProjection(
     [`${entityName}.created`]: handler,
     [`${entityName}.updated`]: handler,
     [`${entityName}.deleted`]: handler,
+    // forget/purge (Art. 17): hard-deletes the row even for softDelete entities.
+    // Registered for every entity so the erasure replays on rebuild.
+    [`${entityName}.forgotten`]: handler,
   };
   // Restore-Verb existiert nur für softDelete-Entities. Hard-Delete-
   // Entities sollten keine restored-Events produzieren — würden sie es
@@ -1112,7 +1115,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // CRUD types per source entity PLUS every domain event registered via
   // r.defineEvent — an apply-handler for a domain event is how a projection
   // reacts to ctx.appendEvent writes on the same aggregate stream.
-  const AUTO_EVENT_VERBS = ["created", "updated", "deleted", "restored"] as const;
+  const AUTO_EVENT_VERBS = ["created", "updated", "deleted", "restored", "forgotten"] as const;
   const allDomainEventNames = new Set(eventMap.keys());
   for (const [projName, projDef] of projectionMap) {
     const sources = Array.isArray(projDef.source) ? projDef.source : [projDef.source];

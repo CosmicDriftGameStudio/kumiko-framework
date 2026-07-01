@@ -198,14 +198,14 @@ export const fileRefDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
       "[user-data-rights-defaults:fileRef] no file provider resolvable from ctx.buildStorageProvider — file binaries are NOT deleted on forget (row-only delete). Mount file-foundation + a file-provider-* feature and set the provider config so erasure can reach the binaries.",
     );
   }
-  // Sever the person-link then soft-delete — both as events so a rebuild replays
-  // the erasure (the old hard deleteMany was resurrected on rebuild).
-  // ponytail: residual metadata (fileName) stays in the hidden soft-deleted row;
-  // a full purge waits for the executor.purge-API + trashed-files-GC.
-  await severPersonLink(tdb, systemUser, rows);
+  // Hard-purge each row via the executor forget-verb: emits fileRef.forgotten,
+  // which hard-deletes the row even though fileRef is softDelete — and, being an
+  // auto-verb, the erasure replays on rebuild (created → forgotten → row gone).
+  // The old hard deleteMany was resurrected on rebuild; this closes that Art.17
+  // hole without a direct write.
   for (const row of rows) {
     const id = row["id"]; // @cast-boundary db-row
     if (typeof id !== "string") continue;
-    await crud.delete({ id }, systemUser, tdb);
+    await crud.forget({ id }, systemUser, tdb);
   }
 };
