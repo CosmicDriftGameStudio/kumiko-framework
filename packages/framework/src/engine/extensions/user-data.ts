@@ -90,6 +90,12 @@ export interface UserDataHookCtx {
    * touch tenant-scoped rows. Absent → treat as `"multi-user"` (no erasure).
    */
   readonly tenantModel?: TenantUserModel;
+  /**
+   * Original user email captured before the forget transaction anonymizes it.
+   * Set on delete hooks during `runForgetCleanup` so matchers (e.g. email
+   * subscriptions) work in every tenant pass. Absent on export hooks.
+   */
+  readonly userEmailBeforeDelete?: string | null;
 }
 
 /**
