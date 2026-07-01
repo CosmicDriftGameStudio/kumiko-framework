@@ -12,7 +12,7 @@ import userEvent from "@testing-library/user-event";
 import { defaultPrimitives } from "../primitives";
 import { fireEvent, render, screen } from "./test-utils";
 
-const { Button, Banner, Field, Input, DataTable, Form, Text, Heading, Dialog } = defaultPrimitives;
+const { Button, Banner, Field, Input, DataTable, Form, Text, Heading, Dialog, Card } = defaultPrimitives;
 
 describe("Button", () => {
   test("disabled: attribute gesetzt + Tailwind-Klassen für pointer-events/opacity", () => {
@@ -968,5 +968,73 @@ describe("Text variants", () => {
     const el = screen.getByTestId("t");
     expect(el.tagName).toBe("SPAN");
     expect(el.hasAttribute("data-required")).toBe(true);
+  });
+});
+
+
+describe("Card", () => {
+  test("padded=true (default) adds body padding", () => {
+    render(
+      <Card testId="c">
+        <span>body</span>
+      </Card>,
+    );
+    expect(screen.getByTestId("c").innerHTML).toContain("p-6");
+  });
+
+  test("padded=false renders body without padding classes", () => {
+    render(
+      <Card testId="c" options={{ padded: false }}>
+        <span>body</span>
+      </Card>,
+    );
+    const bodyWrapper = screen.getByText("body").parentElement;
+    expect(bodyWrapper?.className.includes("p-6")).toBe(false);
+    expect(bodyWrapper?.className.includes("px-6")).toBe(false);
+  });
+
+  test("slots.title/subtitle render a default header", () => {
+    render(<Card testId="c" slots={{ title: "Title", subtitle: "Subtitle" }} />);
+    expect(screen.getByText("Title")).toBeTruthy();
+    expect(screen.getByText("Subtitle")).toBeTruthy();
+  });
+
+  test("no header slots → no header row rendered", () => {
+    render(
+      <Card testId="c">
+        <span>only body</span>
+      </Card>,
+    );
+    // Header row carries "items-start justify-between" — absent means no header.
+    expect(screen.getByTestId("c").innerHTML).not.toContain("justify-between");
+  });
+
+  test("slots.footer renders bordered by default", () => {
+    render(<Card testId="c" slots={{ footer: <span>Footer</span> }} />);
+    const footer = screen.getByText("Footer").parentElement;
+    expect(footer?.className.includes("border-t")).toBe(true);
+  });
+
+  test("footerBordered=false drops the border", () => {
+    render(<Card testId="c" slots={{ footer: <span>Footer</span> }} options={{ footerBordered: false }} />);
+    const footer = screen.getByText("Footer").parentElement;
+    expect(footer?.className.includes("border-t")).toBe(false);
+  });
+
+  test('radius="lg" uses rounded-lg instead of rounded-xl', () => {
+    render(
+      <Card testId="c" options={{ radius: "lg" }}>
+        x
+      </Card>,
+    );
+    const el = screen.getByTestId("c");
+    expect(el.className.includes("rounded-lg")).toBe(true);
+    expect(el.className.includes("rounded-xl")).toBe(false);
+  });
+
+  test("children=undefined → no body wrapper rendered", () => {
+    render(<Card testId="c" slots={{ title: "Only header" }} />);
+    expect(screen.getByTestId("c").querySelectorAll("div").length).toBeGreaterThan(0);
+    expect(screen.getByTestId("c").innerHTML).not.toContain("grow");
   });
 });
