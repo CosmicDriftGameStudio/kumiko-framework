@@ -65,6 +65,12 @@
     "sampleBlurb": "In-memory file provider for integration tests — upload, signed URL, and download without external storage.",
     "screenshot": null
   },
+  "file-provider-s3-env": {
+    "primarySample": "apps-user-data-rights-demo",
+    "whenToUse": "Single-bucket S3-compatible deploys (e.g. Hetzner Object Storage) need one shared credential set — file-provider-s3-env reads S3_BUCKET/S3_REGION/S3_ACCESS_KEY/S3_SECRET_KEY from process.env instead of per-tenant config.",
+    "sampleBlurb": "Env-configured S3 file provider — one shared bucket for every tenant, no per-tenant config or secret seeding.",
+    "screenshot": null
+  },
   "files": {
     "primarySample": "apps-user-data-rights-demo",
     "whenToUse": "Domain entities reference uploaded blobs via FileRef — the files feature handles metadata, signed URLs, and provider routing per tenant.",

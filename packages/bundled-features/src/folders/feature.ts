@@ -18,7 +18,6 @@
 import {
   type AccessRule,
   defineEntityCreateHandler,
-  defineEntityDeleteHandler,
   defineEntityDetailHandler,
   defineEntityListHandler,
   defineEntityUpdateHandler,
@@ -28,6 +27,7 @@ import {
 import { DEFAULT_FOLDER_ACCESS, FOLDERS_FEATURE_NAME } from "./constants";
 import { folderAssignmentEntity, folderEntity } from "./entity";
 import { createClearFolderHandler } from "./handlers/clear-folder.write";
+import { createDeleteFolderHandler } from "./handlers/delete-folder.write";
 import { createSetFolderHandler } from "./handlers/set-folder.write";
 
 // Opt-in tier-gating: when set, the feature declares itself r.toggleable so the
@@ -60,7 +60,9 @@ function registerFolders(
   // later stage, reparent: it accepts changes.parentId, optimistic-locked).
   r.writeHandler(defineEntityCreateHandler("folder", folderEntity, { access }));
   r.writeHandler(defineEntityUpdateHandler("folder", folderEntity, { access }));
-  r.writeHandler(defineEntityDeleteHandler("folder", folderEntity, { access }));
+  // Custom, not defineEntityDeleteHandler: blocks the delete when folder-
+  // assignments still point at this folder (658/1) — see delete-folder.write.ts.
+  r.writeHandler(createDeleteFolderHandler(access));
   r.queryHandler(defineEntityListHandler("folder", folderEntity, { access }));
   r.queryHandler(defineEntityDetailHandler("folder", folderEntity, { access }));
 

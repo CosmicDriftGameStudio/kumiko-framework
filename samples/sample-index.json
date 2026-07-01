@@ -140,7 +140,11 @@
         "apps-user-data-rights-demo"
       ],
       "hasVisualOutput": true,
-      "readmeSummary": "Sample app showing how a Kumiko app wires **user-data-rights** (DSGVO Art. 15+17+18+20) into a custom domain — here a tiny todo-list. The domain feature only registers an `EXT_USER_DATA` hook per entity; export bundling, forget cleanup, restriction and audit-log come from `user-data-rights` itself."
+      "readmeSummary": "Sample app showing how a Kumiko app wires **user-data-rights** (DSGVO Art. 15+17+18+20) into a custom domain — here a tiny todo-list. The domain feature only registers an `EXT_USER_DATA` hook per entity; export bundling, forget cleanup, restriction and audit-log come from `user-data-rights` itself.",
+      "primarySample": "apps-user-data-rights-demo",
+      "whenToUse": "Single-bucket S3-compatible deploys (e.g. Hetzner Object Storage) need one shared credential set — file-provider-s3-env reads S3_BUCKET/S3_REGION/S3_ACCESS_KEY/S3_SECRET_KEY from process.env instead of per-tenant config.",
+      "sampleBlurb": "Env-configured S3 file provider — one shared bucket for every tenant, no per-tenant config or secret seeding.",
+      "screenshot": null
     },
     "files": {
       "samples": [
