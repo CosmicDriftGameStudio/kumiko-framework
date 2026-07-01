@@ -39,6 +39,26 @@ describe("sample-index", () => {
     }
   });
 
+  test("every enriched feature entry traces back to sample-index.overrides.json (655/1)", () => {
+    // Regression (655/1): file-provider-s3-env was hand-edited straight into
+    // the GENERATED sample-index.json (whenToUse/sampleBlurb/primarySample)
+    // without a matching sample-index.overrides.json entry. The next
+    // `gen-sample-index` run silently wiped the hand-edit, because those
+    // enrichment fields come ONLY from overrides.json. Every enriched entry
+    // in the committed index must have a source-of-truth override.
+    const overrides = JSON.parse(
+      readFileSync(`${import.meta.dir}/../../../../sample-index.overrides.json`, "utf-8"),
+    ) as Record<string, unknown>;
+    const committed = JSON.parse(readFileSync(INDEX_PATH, "utf-8")) as {
+      features: Record<string, { whenToUse?: string; sampleBlurb?: string }>;
+    };
+    for (const [name, row] of Object.entries(committed.features)) {
+      if (row.whenToUse !== undefined || row.sampleBlurb !== undefined) {
+        expect(Object.hasOwn(overrides, name)).toBe(true);
+      }
+    }
+  });
+
   test("extractReadmeSummary reads delivery-notifications intro", () => {
     const summary = extractReadmeSummary(
       `${import.meta.dir}/../../../../recipes/delivery-notifications/README.md`,

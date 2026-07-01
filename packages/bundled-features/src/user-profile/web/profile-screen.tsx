@@ -59,7 +59,7 @@ function StatusBanner({ status }: { readonly status: SectionStatus }): ReactNode
 
 function ChangePasswordSection(): ReactNode {
   const t = useTranslation();
-  const { Section, Field, Input, Button } = usePrimitives();
+  const { Form, Field, Input, Button } = usePrimitives();
   const dispatcher = useDispatcher();
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -90,11 +90,12 @@ function ChangePasswordSection(): ReactNode {
 
   const submitting = status.kind === "submitting";
   return (
-    <Section
+    <Form
       testId="profile-password"
       title={t("profile.password.title")}
+      onSubmit={onSubmit}
       actions={
-        <Button onClick={() => onSubmit()} disabled={submitting} testId="profile-password-submit">
+        <Button type="submit" disabled={submitting} testId="profile-password-submit">
           {t("profile.password.submit")}
         </Button>
       }
@@ -136,7 +137,7 @@ function ChangePasswordSection(): ReactNode {
         />
       </Field>
       <StatusBanner status={status} />
-    </Section>
+    </Form>
   );
 }
 
@@ -148,7 +149,7 @@ function ChangeEmailSection({
   readonly onChanged: () => void;
 }): ReactNode {
   const t = useTranslation();
-  const { Section, Field, Input, Button } = usePrimitives();
+  const { Form, Field, Input, Button } = usePrimitives();
   const dispatcher = useDispatcher();
   const [newEmail, setNewEmail] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -192,16 +193,17 @@ function ChangeEmailSection({
 
   const submitting = status.kind === "submitting";
   return (
-    <Section
+    <Form
       testId="profile-email"
       title={t("profile.email.title")}
+      onSubmit={onSubmit}
       subtitle={
         <span data-testid="profile-email-current">
           {t("profile.email.current")}: {me.email}
         </span>
       }
       actions={
-        <Button onClick={() => onSubmit()} disabled={submitting} testId="profile-email-submit">
+        <Button type="submit" disabled={submitting} testId="profile-email-submit">
           {t("profile.email.submit")}
         </Button>
       }
@@ -231,7 +233,7 @@ function ChangeEmailSection({
         />
       </Field>
       <StatusBanner status={status} />
-    </Section>
+    </Form>
   );
 }
 

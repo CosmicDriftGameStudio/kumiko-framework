@@ -88,6 +88,15 @@ describe("ProfileScreen", () => {
     expect(cardCount(view.getByTestId("profile-password"))).toBe(1);
   });
 
+  test("Passwort- und Email-Section rendern auf einem echten <form> (Enter-to-submit, Password-Manager-Boundary) (555/1)", async () => {
+    const view = renderProfile(activeMe);
+    await waitFor(() => {
+      if (view.queryByTestId("profile-screen") === null) throw new Error("not mounted yet");
+    });
+    expect(view.getByTestId("profile-password").tagName).toBe("FORM");
+    expect(view.getByTestId("profile-email").tagName).toBe("FORM");
+  });
+
   test("deletionRequested: Frist-Banner + Abbrechen statt Lösch-Button", async () => {
     const view = renderProfile({
       ...activeMe,

@@ -17,10 +17,10 @@
 // auch zu loggedInHref damit der invitee in seinem neuen Tenant landet.
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
-import { type FormEvent, type ReactNode, useState } from "react";
+import { type FormEvent, type ReactNode, useContext, useState } from "react";
 import { csrfHeader } from "./auth-client";
 import { AuthCard, authMutedLinkClass, parseUrlToken } from "./auth-form-primitives";
-import { useSession } from "./session";
+import { SessionContext, UNAUTHENTICATED } from "./session";
 
 export type InviteAcceptScreenProps = {
   readonly title?: string;
@@ -42,7 +42,11 @@ export function InviteAcceptScreen({
 }: InviteAcceptScreenProps): ReactNode {
   const t = useTranslation();
   const { Form, Field, Input, Button, Banner } = usePrimitives();
-  const session = useSession();
+  // NOT useSession(): InviteAcceptScreen is a public route (anon invite-links
+  // are the documented use case) — useSession() throws without a
+  // <SessionProvider> ancestor. Read the context directly and fall back to
+  // the anonymous state when no provider wraps this screen (632/1).
+  const session = useContext(SessionContext) ?? UNAUTHENTICATED;
   const [token] = useState(() => tokenProp ?? parseUrlToken());
   const [mode, setMode] = useState<Mode>(() =>
     session.status === "authenticated" ? "loggedin" : "anon-existing",
