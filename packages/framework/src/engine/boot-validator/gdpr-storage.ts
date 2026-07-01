@@ -1,3 +1,4 @@
+import { EXT_USER_DATA } from "../extension-names";
 import type { FeatureDefinition } from "../types";
 
 // Providers whose bytes do not survive a process restart. Only "inmemory"
@@ -65,7 +66,7 @@ export function validateGdprStoragePersistence(features: readonly FeatureDefinit
 export function validateGdprHookCompleteness(features: readonly FeatureDefinition[]): void {
   for (const feature of features) {
     for (const usage of feature.extensionUsages) {
-      if (usage.extensionName !== "userData") continue;
+      if (usage.extensionName !== EXT_USER_DATA) continue;
       const hasExport = typeof usage.options?.["export"] === "function";
       const hasDelete = typeof usage.options?.["delete"] === "function";
       if (hasExport && !hasDelete) {

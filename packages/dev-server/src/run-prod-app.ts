@@ -577,14 +577,7 @@ export type ProdAppHandle = {
   readonly stop: () => Promise<void>;
 };
 
-// Mint `ctx.config` per request: the dispatcher only builds a per-user
-// ConfigAccessor when `_configAccessorFactory` is on the AppContext
-// (pipeline/dispatcher.ts). Without it `ctx.config` stays undefined and any
-// handler reading it — e.g. createFileProviderForTenant for the GDPR export
-// download — throws "ctx.config is missing". Built from the EFFECTIVE resolver
-// so an app-supplied configResolver override (its appOverrides) is the one
-// ctx.config reads. Shared with runDevApp (mergeConfigResolverDefault) for
-// dev/prod parity.
+// Shared with runDevApp (mergeConfigResolverDefault) for dev/prod parity.
 export function addConfigAccessorFactory<T extends { readonly configResolver?: ConfigResolver }>(
   resolved: T,
   registry: Registry,

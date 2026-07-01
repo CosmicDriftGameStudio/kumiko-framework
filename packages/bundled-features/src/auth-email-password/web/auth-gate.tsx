@@ -32,10 +32,9 @@ export function makeAuthGate(
   return AuthGate;
 }
 
-/** SessionProvider + AuthGate als ein Gate — damit öffentliche Gates davor
- *  (z.B. /rechner) den Session-Bootstrap nicht mounten. createKumikoApp
- *  stackt providers außerhalb aller gates; SessionProvider darf deshalb
- *  kein provider mehr sein. */
+// SessionProvider + AuthGate as one gate, so a public gate in front (e.g.
+// /calculator) doesn't mount the session bootstrap — createKumikoApp stacks
+// providers outside all gates, so SessionProvider can't be a provider anymore.
 export function makeSessionAuthGate(
   LoginComponent: ComponentType<LoginScreenProps> = LoginScreen,
   loginProps?: LoginScreenProps,

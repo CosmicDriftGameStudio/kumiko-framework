@@ -204,6 +204,35 @@ export const FEATURES = [];
     expect(code).toBe(0);
     expect(cap.log.join("\n")).toContain("feature configuration is valid");
   });
+
+  test("FEATURES with a bad nav→screen ref → validateBoot fails, exit 1 (512/1)", async () => {
+    // Absolute file import (not the package name): appCwd is a bare tmpdir
+    // with no node_modules of its own — a real app resolves
+    // "@cosmicdrift/kumiko-framework/engine" via its own install, but this
+    // synthetic fixture needs a resolvable path regardless of cwd.
+    const engineSrc = join(import.meta.dir, "../engine/index.ts");
+    writeFileSync(
+      join(appCwd, "kumiko/schema.ts"),
+      `import { defineFeature } from "${engineSrc}";
+export const ENTITY_METAS = [
+  { tableName: "read_widgets", source: "unmanaged", indexes: [],
+    columns: [{ name: "id", pgType: "uuid", notNull: true, primaryKey: true, defaultSql: "gen_random_uuid()" }] },
+];
+export const FEATURES = [
+  defineFeature("probe", (r) => {
+    r.nav({ id: "nav-ghost", label: "Ghost", screen: "probe:screen:ghost" });
+  }),
+];
+`,
+    );
+    await runSchemaCli(["generate", "init"], appCwd, captureOut().out);
+    const cap = captureOut();
+    const code = await runSchemaCli(["validate"], appCwd, cap.out);
+    expect(code).toBe(1);
+    expect(cap.err.join("\n")).toContain("boot:");
+    expect(cap.err.join("\n")).toContain("probe:screen:ghost");
+    expect(cap.err.join("\n")).toContain("is not registered");
+  });
 });
 
 describe("runSchemaCli — DB-backed paths", () => {

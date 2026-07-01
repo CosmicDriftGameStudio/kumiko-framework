@@ -1,5 +1,13 @@
-import { describe, expect, spyOn, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { parseRetentionOverrideOrNull } from "../_internal/parse-override";
+
+// A mid-test assertion throw skips the trailing `warn.mockRestore()` in that
+// test, leaving the spy live for every test after it (551/1) — this backstop
+// restores unconditionally regardless of how the test exited.
+afterEach(() => {
+  const warn = console.warn as unknown as { mockRestore?: () => void };
+  warn.mockRestore?.();
+});
 
 // parseRetentionOverrideOrNull is the read boundary for a tenant's stored
 // data-retention override (DSGVO-relevant policy in a config column). It must
@@ -31,19 +39,17 @@ describe("parseRetentionOverrideOrNull", () => {
   });
 
   test("corrupt JSON returns null without throwing", () => {
-    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    spyOn(console, "warn").mockImplementation(() => {});
     expect(() => parse("{not json")).not.toThrow();
     expect(parse("{not json")).toBeNull();
-    warn.mockRestore();
   });
 
   test("JSON that parses but violates the schema is dropped to null — never leaked through", () => {
-    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    spyOn(console, "warn").mockImplementation(() => {});
     expect(parse('{"strategy":"delete"}')).toBeNull(); // enum drift
     expect(parse('{"keepFor":"30days"}')).toBeNull(); // keepFor format drift
     expect(parse('{"keepFor":42}')).toBeNull(); // wrong type
     expect(parse('{"unknownKey":1}')).toBeNull(); // strict() rejects extra keys
-    warn.mockRestore();
   });
 
   test("each dropped value surfaces exactly one operator warning", () => {
@@ -51,6 +57,5 @@ describe("parseRetentionOverrideOrNull", () => {
     parse("{not json");
     parse('{"strategy":"delete"}');
     expect(warn).toHaveBeenCalledTimes(2);
-    warn.mockRestore();
   });
 });

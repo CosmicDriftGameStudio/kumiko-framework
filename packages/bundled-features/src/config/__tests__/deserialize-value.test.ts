@@ -1,12 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { deserializeValue } from "../resolver";
 
-// deserializeValue is the read boundary for every config value: the DB stores
-// the JSON-encoded raw string, this turns it back into a typed primitive per the
-// key's declared `type`. The coercion has non-obvious paths worth pinning so a
-// refactor can't quietly change them: a stored value whose JSON type disagrees
-// with the declared type is NOT rejected — it is coerced (number via Number(),
-// boolean only via literal true / the string "true", text via String()).
+// Type mismatches are coerced, not rejected (number via Number(), boolean
+// only via literal true/"true", text via String()) — pinned so a refactor
+// can't quietly change that.
 
 describe("deserializeValue", () => {
   test("null raw short-circuits to undefined before any parse", () => {

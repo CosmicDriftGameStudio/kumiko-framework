@@ -233,9 +233,8 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     ...(composeAuthOptions && { authOptions: composeAuthOptions }),
   });
 
-  // Ein explizit gewireter File-Provider (options.files) erfüllt das
-  // FILE_STORAGE_PROVIDER-Boot-Gate — der Provider IST konfiguriert, nur
-  // nicht über die env-Bridge. Setzen bevor validateBoot greift.
+  // An explicitly wired file provider (options.files) satisfies the
+  // FILE_STORAGE_PROVIDER boot gate — set it before validateBoot runs.
   if (options.files !== undefined && process.env["FILE_STORAGE_PROVIDER"] === undefined) {
     process.env["FILE_STORAGE_PROVIDER"] = "configured";
   }

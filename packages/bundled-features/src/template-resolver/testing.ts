@@ -74,10 +74,11 @@ export async function assertConsumerHandlesNotFound(
   const { tenantId } = opts;
   let rejected = false;
   let err: unknown;
+  const slug = `conformance-not-found-${crypto.randomUUID()}`;
   try {
     await consumer.resolve({
       tenantId,
-      slug: "conformance-not-found-slug",
+      slug,
       kind: "mail-html",
       locale: "de",
     });

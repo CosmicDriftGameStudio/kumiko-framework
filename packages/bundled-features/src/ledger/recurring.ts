@@ -53,6 +53,22 @@ export function scheduleReference(scheduleId: string, period: string): string {
   return `schedule:${scheduleId}:${period}`;
 }
 
+// A Storno mirror carries reference = the reversed tx's id, so any tx whose
+// reference names another tx in the set marks that other tx reversed. Shared
+// by mergeScheduleActuals (below) and confirm-schedule-period.write.ts's
+// idempotency check (684/4) — same detection, kept in one place so a fix
+// can't land in one call-site and drift from the other.
+export function findReversedIds(
+  rows: readonly { readonly id: string; readonly reference: string | null }[],
+): Set<string> {
+  const ids = new Set(rows.map((r) => r.id));
+  return new Set(
+    rows
+      .filter((r) => r.reference !== null && ids.has(r.reference))
+      .map((r) => r.reference as string),
+  );
+}
+
 // "YYYY-MM" ⇄ a month index (year*12 + monthOfYear), so window math is pure
 // integer arithmetic — no Date object (no-date-api guard) and no DST/timezone
 // drift. isoMonth tolerates a full ISO date ("2026-01-15" → "2026-01").
@@ -105,14 +121,7 @@ export function mergeScheduleActuals(
   transactions: readonly LedgerTxRow[],
   asOf: string,
 ): ScheduleMonth[] {
-  const txIds = new Set(transactions.map((t) => t.id));
-  // A Storno mirror carries reference = the reversed tx's id, so any tx whose
-  // reference names another tx marks that other tx reversed.
-  const reversedTxIds = new Set(
-    transactions
-      .filter((t) => t.reference != null && txIds.has(t.reference))
-      .map((t) => t.reference as string),
-  );
+  const reversedTxIds = findReversedIds(transactions);
   const asOfIndex = monthIndex(isoMonth(asOf));
 
   return projection.map((projected) => {

@@ -2,12 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { type BrandingTokens, EMPTY_BRANDING } from "../../page-render";
 import { coerceBranding } from "../branding";
 
-// coerceBranding is the IO boundary for the branding query's wire response:
-// untrusted `unknown` → BrandingTokens with no `as` cast. Every missing or
-// non-string field must collapse to "" so a malformed/empty response renders
-// the unbranded default rather than throwing — and an attacker-controlled
-// non-string (e.g. a logoUrl object) can never leak through as a live render
-// token. Exercised only indirectly by the integration path before this.
+// IO-boundary coercion: untrusted `unknown` → BrandingTokens, no `as` cast —
+// every missing/non-string field collapses to "" instead of throwing.
 
 describe("coerceBranding", () => {
   const FULL: BrandingTokens = {

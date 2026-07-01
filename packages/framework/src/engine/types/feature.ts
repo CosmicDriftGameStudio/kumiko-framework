@@ -185,26 +185,15 @@ export type UnmanagedTableDef = UnmanagedTableEntry & {
 // Keep this list lean. Anything that already has a home on the feature
 // (configKeys.scope/default/encrypted, secretKeys, requires, etc.) lives there.
 // Only add fields here that are genuinely UI-only.
-export type UiHintOption =
-  | {
-      readonly key: string;
-      readonly label: string;
-      readonly type: "boolean";
-      readonly default: boolean;
-    }
-  | {
-      readonly key: string;
-      readonly label: string;
-      readonly type: "select";
-      readonly options: readonly string[];
-      readonly default: string;
-    }
-  | {
-      readonly key: string;
-      readonly label: string;
-      readonly type: "text";
-      readonly default?: string;
-    };
+// "select"/"text" variants dropped (569/1) — no bundled feature uses anything
+// but "boolean" yet and the picker doesn't render them either; re-add once a
+// real feature needs them.
+export type UiHintOption = {
+  readonly key: string;
+  readonly label: string;
+  readonly type: "boolean";
+  readonly default: boolean;
+};
 
 export type UiHints = {
   // Picker-facing label ("Auth · Email + Password" instead of the bare

@@ -256,6 +256,27 @@ describe("buildConfigFeatureSchema — access + workspace", () => {
     expect(out.navs.find((n) => n.id === "audience-tenant")?.access).toEqual({ openToAll: true });
   });
 
+  test("openToAll collapse holds regardless of key declaration order (516/2)", () => {
+    // The test above only ever puts the openToAll key first, so
+    // unionAccessRules's short-circuit (`if ("openToAll" in rule) return`)
+    // never actually has to walk past a role-restricted rule to prove it —
+    // `gated` here comes FIRST so a hypothetical short-circuit-on-first-only
+    // implementation would fail this one even though it passed the other.
+    const mixedWriteReversed = defineFeature("mixedwritereversed", (r) => {
+      r.config({
+        keys: {
+          gated: createTenantConfig("text", { mask: { title: "mwr.gated" } }), // default admin write
+          open: createTenantConfig("text", { write: access.all, mask: { title: "mwr.open" } }),
+        },
+      });
+    });
+    const out = buildConfigFeatureSchema(createRegistry([mixedWriteReversed]));
+    const screen = out.screens.find((s) => s.id === "mixedwritereversed-tenant");
+    if (screen?.type !== "configEdit")
+      throw new Error('expected configEdit screen "mixedwritereversed-tenant"');
+    expect(screen.access).toEqual({ openToAll: true });
+  });
+
   test("returns empty (no workspace) when no key opts into the hub via mask", () => {
     const plain = defineFeature("plain", (r) => {
       r.config({ keys: { secret: createSystemConfig("text", {}) } });

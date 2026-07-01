@@ -29,8 +29,14 @@ describe("defineFeature — bare CRUD verb → entity mapping", () => {
   });
 
   test("feature-name match wins (the fallback is the secondary path)", () => {
+    // Two entities (516/1): with only "note" registered, this would also
+    // pass via the single-entity fallback, proving nothing about the
+    // name-match branch specifically. A second entity ("tag") disables the
+    // fallback (entityKeys.length !== 1), so success here can only come
+    // from entities[name] matching — the branch this test claims to cover.
     const f = defineFeature("note", (r) => {
       r.entity("note", noteEntity);
+      r.entity("tag", tagEntity);
       r.writeHandler(bareCreate);
     });
     expect(f.handlerEntityMappings?.["create"]).toBe("note");

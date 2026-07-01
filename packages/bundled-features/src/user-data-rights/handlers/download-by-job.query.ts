@@ -63,13 +63,11 @@ export const downloadByJobQuery = defineQueryHandler({
     const userId = query.user.id;
     const jobId = query.payload.jobId;
     const tenantId = query.user.tenantId;
-    // IP aus dem request-scoped Kontext (von requestIdMiddleware aus
-    // x-forwarded-for befuellt) — server-trusted, anders als ein vom Client
-    // mitgeschickter Wert. UA steht nicht im RequestContext; der Audit-Row
-    // laesst sie null (best-effort, via requestId in den Server-Logs
-    // cross-referenzierbar).
+    // IP + UA aus dem request-scoped Kontext (von requestIdMiddleware
+    // befuellt) — server-trusted, anders als ein vom Client mitgeschickter
+    // Wert (603/2).
     const auditIp = requestContext.get()?.ip ?? null;
-    const auditUa: string | null = null;
+    const auditUa = requestContext.get()?.userAgent ?? null;
 
     // Step 1-2: job-lookup + cross-user-isolation
     // ctx.db.raw weil tenant-agnostisch — Alice in Tenant B sucht den

@@ -5,7 +5,7 @@
 // Provider-Wrapper lokal (Dependency-Richtung renderer-web → bundled-features
 // verbietet test-utils-Import).
 
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import {
   createStaticLocaleResolver,
@@ -26,6 +26,12 @@ const stubDispatcher = {
 } as unknown as Dispatcher;
 
 const ROUTES = { requestPath: "/account/delete", confirmPath: "/account/delete/confirm" };
+
+// renderGate mutates the shared happy-dom document's history (570/1) — reset
+// so a later, unrelated test file doesn't inherit this suite's last path.
+afterEach(() => {
+  window.history.replaceState({}, "", "/");
+});
 
 function renderGate(path: string, gate: ReactNode): ReturnType<typeof within> {
   window.history.replaceState({}, "", path);

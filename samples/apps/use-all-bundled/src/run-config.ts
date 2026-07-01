@@ -3,15 +3,14 @@
 // 12 bugs of Sprint 9.8 surfaced because 27 of 30 bundled-features had
 // zero integration-coverage from any real app. This sample is the gate.
 //
-// config + user + tenant + auth-email-password werden via
-// composeFeatures(includeBundled:true) automatisch geprepended — exakt
-// das Pattern, das runProdApp's `auth: {…}`-Option auto-mountet. Sie
-// hier zu listen würde sie doppelt instanziieren und der drizzle-
-// Schema-Generator produziert dann duplicate-table-exports.
+// config + user + tenant + auth-email-password get auto-prepended via
+// composeFeatures(includeBundled:true) — exactly the pattern runProdApp's
+// `auth: {…}` option auto-mounts. Listing them here would instantiate them
+// twice, and the schema generator would then produce duplicate-table-exports.
 //
-// M0.1 mountet auch die hold-back features mit minimal-stub options
-// (subscription-stripe, channel-email, …). Diese stubs sind nur für
-// boot-validation — kein realer transport/provider-call passiert.
+// M0.1 also mounts the hold-back features with minimal-stub options
+// (subscription-stripe, channel-email, …). Those stubs are only for
+// boot-validation — no real transport/provider call happens.
 
 import { createAuditFeature } from "@cosmicdrift/kumiko-bundled-features/audit";
 import { billingFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
@@ -176,8 +175,8 @@ export const APP_FEATURES = [
   // query/screen is access_denied — exactly what the constants doc warns about.
   createTagsFeature({ roles: ["TenantAdmin", "TenantMember", "SystemAdmin"] }),
   foldersFeature,
-  // folders-user-data: GDPR-Hooks für folder-Entities. Hängt (optional) an folders
-  // + (hart) an user-data-rights — beide oben gemountet.
+  // folders-user-data: GDPR hooks for folder entities. Depends (optionally)
+  // on folders + (hard) on user-data-rights — both mounted above.
   foldersUserDataFeature,
   // ledger: double-entry bookkeeping primitive (account + immutable transaction).
   ledgerFeature,

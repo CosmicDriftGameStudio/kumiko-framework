@@ -90,7 +90,20 @@ export function defineWriteHandler<
   // responses get `[]`, so existing call-sites are unaffected. Checking it in a
   // parameter post-inference (not as a `TData extends …` constraint, which TS
   // rejects as circular, TS2313) is what makes inference survive.
-  ..._noSecretInResponse: ContainsSecret<TData> extends true
+  //
+  // Membership form `true extends ContainsSecret<TData>` (556/1), not
+  // `ContainsSecret<TData> extends true`: when TData is a union like
+  // `{ok:true} | {s:Secret<string>}`, the naked-type-parameter conditional in
+  // ContainsSecret DISTRIBUTES over the union, so the result is
+  // `false | true` = `boolean`, not the literal `true` — `ContainsSecret<
+  // TData> extends true` is then false (boolean isn't assignable to the
+  // literal true) and the old check silently fell through to `[]` even with
+  // a real leak in one branch. Putting the naked `true` on the LEFT instead
+  // keeps the check fail-closed for the union case (`true extends boolean`
+  // is true) without eagerly normalizing ContainsSecret<TData> against a
+  // literal — which is what blew up TS's instantiation depth on generic
+  // call-sites (createTokenRequestHandler's still-unresolved TSuccessKind).
+  ..._noSecretInResponse: true extends ContainsSecret<TData>
     ? [
         secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field.",
       ]
@@ -174,7 +187,8 @@ export function defineQueryHandler<
   def: QueryHandlerDefinition<TName, TSchema, TResult, TMap>,
   // R6: phantom rest-param — see defineWriteHandler. Forbids a Secret<> in the
   // inferred query response `TResult` at compile time; `[]` for clean responses.
-  ..._noSecretInResponse: ContainsSecret<TResult> extends true
+  // Membership form (556/1) — see defineWriteHandler's comment for why.
+  ..._noSecretInResponse: true extends ContainsSecret<TResult>
     ? [
         secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field.",
       ]

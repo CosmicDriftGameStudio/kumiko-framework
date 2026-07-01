@@ -10,6 +10,7 @@ import {
   validateGdprStoragePersistence,
 } from "../boot-validator/gdpr-storage";
 import { defineFeature } from "../define-feature";
+import { EXT_USER_DATA } from "../extension-names";
 
 const udr = () => defineFeature("user-data-rights", () => {});
 const fileProvider = (name: string) =>
@@ -94,7 +95,7 @@ describe("validateGdprHookCompleteness (V2)", () => {
 
   test("export + delete hooks → no warn", () => {
     const f = defineFeature("my-feature", (r) => {
-      r.useExtension("userData", "myEntity", { export: exportFn, delete: deleteFn });
+      r.useExtension(EXT_USER_DATA, "myEntity", { export: exportFn, delete: deleteFn });
     });
     validateGdprHookCompleteness([f]);
     expect(warnSpy).not.toHaveBeenCalled();
@@ -102,7 +103,7 @@ describe("validateGdprHookCompleteness (V2)", () => {
 
   test("export hook without delete hook → Art.17 warn", () => {
     const f = defineFeature("my-feature", (r) => {
-      r.useExtension("userData", "myEntity", { export: exportFn });
+      r.useExtension(EXT_USER_DATA, "myEntity", { export: exportFn });
     });
     validateGdprHookCompleteness([f]);
     expect(warnSpy).toHaveBeenCalledTimes(1);
@@ -114,7 +115,7 @@ describe("validateGdprHookCompleteness (V2)", () => {
 
   test("delete hook only (no export) → no warn", () => {
     const f = defineFeature("my-feature", (r) => {
-      r.useExtension("userData", "myEntity", { delete: deleteFn });
+      r.useExtension(EXT_USER_DATA, "myEntity", { delete: deleteFn });
     });
     validateGdprHookCompleteness([f]);
     expect(warnSpy).not.toHaveBeenCalled();
@@ -130,10 +131,10 @@ describe("validateGdprHookCompleteness (V2)", () => {
 
   test("multiple features, one missing delete → one warn per missing hook", () => {
     const good = defineFeature("good", (r) => {
-      r.useExtension("userData", "entityA", { export: exportFn, delete: deleteFn });
+      r.useExtension(EXT_USER_DATA, "entityA", { export: exportFn, delete: deleteFn });
     });
     const bad = defineFeature("bad", (r) => {
-      r.useExtension("userData", "entityB", { export: exportFn });
+      r.useExtension(EXT_USER_DATA, "entityB", { export: exportFn });
     });
     validateGdprHookCompleteness([good, bad]);
     expect(warnSpy).toHaveBeenCalledTimes(1);
