@@ -51,6 +51,6 @@ export async function runProjectionsForEvent(
     const applyFn = proj.apply[event.type];
     // skip: this projection doesn't care about this event type
     if (!applyFn) continue;
-    await applyFn(event, tx);
+    await applyFn(event, tx, proj.table);
   }
 }

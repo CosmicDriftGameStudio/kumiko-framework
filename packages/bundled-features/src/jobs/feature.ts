@@ -57,9 +57,9 @@ export function createJobsFeature(): FeatureDefinition {
       table: jobRunsTable,
       apply: {
         [JOB_RUN_STARTED_EVENT]: defineApply<z.infer<typeof runStartedSchema>>(
-          async (event, tx) => {
+          async (event, tx, table) => {
             const p = event.payload;
-            await insertOne(tx, jobRunsTable, {
+            await insertOne(tx, table, {
               id: event.aggregateId,
               tenantId: event.tenantId,
               version: event.version,
@@ -76,11 +76,11 @@ export function createJobsFeature(): FeatureDefinition {
           },
         ),
         [JOB_RUN_COMPLETED_EVENT]: defineApply<z.infer<typeof runCompletedSchema>>(
-          async (event, tx) => {
+          async (event, tx, table) => {
             const p = event.payload;
             await updateMany(
               tx,
-              jobRunsTable,
+              table,
               {
                 status: "completed",
                 duration: p.duration,
@@ -93,11 +93,11 @@ export function createJobsFeature(): FeatureDefinition {
             );
           },
         ),
-        [JOB_RUN_FAILED_EVENT]: defineApply<z.infer<typeof runFailedSchema>>(async (event, tx) => {
+        [JOB_RUN_FAILED_EVENT]: defineApply<z.infer<typeof runFailedSchema>>(async (event, tx, table) => {
           const p = event.payload;
           await updateMany(
             tx,
-            jobRunsTable,
+            table,
             {
               status: "failed",
               error: p.error,

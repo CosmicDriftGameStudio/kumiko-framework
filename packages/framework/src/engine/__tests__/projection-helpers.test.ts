@@ -50,7 +50,7 @@ describe("setFields", () => {
   test("returns an apply fn that UPDATEs the passed fields WHERE id = aggregateId", async () => {
     const apply = setFields(fakeTable, { status: "sent" });
     const { fakeTx, unsafe } = makeFakeTx();
-    await apply(makeFakeEvent(), fakeTx);
+    await apply(makeFakeEvent(), fakeTx, fakeTable);
     expect(unsafe).toHaveBeenCalledTimes(1);
     const [sqlText, params] = unsafe.mock.calls[0]!;
     expect(sqlText).toMatch(/UPDATE "fake_table" SET "status" = \$1.*WHERE "id" = \$2/);
@@ -62,7 +62,7 @@ describe("setFields", () => {
       status: (event.payload as { newStatus: string }).newStatus,
     }));
     const { fakeTx, unsafe } = makeFakeTx();
-    await apply(makeFakeEvent({ payload: { newStatus: "cancelled" } }), fakeTx);
+    await apply(makeFakeEvent({ payload: { newStatus: "cancelled" } }), fakeTx, fakeTable);
     expect(unsafe).toHaveBeenCalledTimes(1);
     const [, params] = unsafe.mock.calls[0]!;
     expect(params).toEqual(["cancelled", "agg-42"]);

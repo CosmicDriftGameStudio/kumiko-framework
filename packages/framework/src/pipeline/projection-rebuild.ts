@@ -208,7 +208,7 @@ export async function rebuildProjection(
       // skip: apply-key validation ensures every subscribed type has a handler;
       //       defensive check against runtime-mutated registry
       if (!applyFn) continue;
-      await applyFn(storedEvent, tx);
+      await applyFn(storedEvent, tx, projection.table);
       eventsProcessed++;
       lastProcessedEventId = row.id;
     }

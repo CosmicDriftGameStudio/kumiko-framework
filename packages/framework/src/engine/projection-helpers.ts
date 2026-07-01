@@ -2,7 +2,11 @@ import type { DbRunner } from "../db/connection";
 import { updateMany } from "../db/query";
 import type { StoredEvent } from "../event-store/event-store";
 import type { MultiStreamApplyContext } from "../pipeline/multi-stream-apply-context";
-import type { MultiStreamApplyFn, ProjectionTable, SingleStreamApplyFn } from "./types/projection";
+import type {
+  MultiStreamApplyFn,
+  ProjectionTable,
+  SingleStreamApplyFn,
+} from "./types/projection";
 
 // Typed-Apply-Helper für r.projection.apply: erlaubt per-event-type
 // typed event.payload-Access ohne SingleStreamApplyFn-Generic durch die
@@ -11,16 +15,19 @@ import type { MultiStreamApplyFn, ProjectionTable, SingleStreamApplyFn } from ".
 // Der Helper ist ein purer Type-Vehikel — zur Laufzeit identitäts-fn:
 //
 //   apply: {
-//     "user.created": defineApply<UserCreatedPayload>(async (event, tx) => {
-//       // event.payload ist UserCreatedPayload, nicht Record<string, unknown>
-//       await tx.insert(usersTable).values({ id: event.aggregateId, ...event.payload });
+//     "user.created": defineApply<UserCreatedPayload>(async (event, tx, table) => {
+//       // event.payload ist UserCreatedPayload, nicht Record<string, unknown>.
+//       // Write through the passed `table` (ES-blessed inside apply), not a
+//       // closed-over branded constant.
+//       await insertOne(tx, table, { id: event.aggregateId, ...event.payload });
 //     }),
 //   }
 //
 // Default-Generic = Record<string, unknown> behält rückwärtskompatibles
-// Verhalten für Apply-Handler die ohne Type-Argument geschrieben sind.
+// Verhalten für Apply-Handler die ohne Type-Argument geschrieben sind. Der
+// `table`-Param ist optional zu nutzen — 2-arg-Applies bleiben gültig.
 export function defineApply<TPayload = Record<string, unknown>>(
-  fn: (event: StoredEvent<TPayload>, tx: DbRunner) => Promise<void>,
+  fn: (event: StoredEvent<TPayload>, tx: DbRunner, table: ProjectionTable) => Promise<void>,
 ): SingleStreamApplyFn {
   // @cast-boundary engine-bridge — typed user-fn → erased internal storage
   return fn as SingleStreamApplyFn;
