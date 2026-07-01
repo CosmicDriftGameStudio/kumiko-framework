@@ -12,4 +12,3 @@ export const FEATURES: readonly FeatureDefinition[] = composeFeatures([...APP_FE
 });
 
 export const ENTITY_METAS: readonly EntityTableMeta[] = collectTableMetas(FEATURES);
-

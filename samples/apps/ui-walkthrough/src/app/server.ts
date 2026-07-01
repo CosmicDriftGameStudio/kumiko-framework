@@ -52,5 +52,3 @@ await runDevApp({
     },
   },
 });
-
-
