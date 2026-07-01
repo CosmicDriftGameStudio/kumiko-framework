@@ -69,7 +69,9 @@ export function createJwtHelper(secret: string, issuer = "kumiko"): JwtHelper {
         }
         roles.push(role);
       }
-
+      if (typeof payload.sub !== "string" || payload.sub === "") {
+        throw new Error("JWT payload validation failed: sub claim is missing or malformed");
+      }
 
       const result: JwtPayload = {
         sub: payload.sub,
