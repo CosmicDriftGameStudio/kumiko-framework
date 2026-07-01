@@ -314,7 +314,14 @@ async function processUser(args: {
 
           hookCallsAttempted++;
           await entry.deleteHook(
-            { db: tx, tenantId, userId, buildStorageProvider, tenantModel },
+            {
+              db: tx,
+              tenantId,
+              userId,
+              buildStorageProvider,
+              tenantModel,
+              userEmailBeforeDelete,
+            },
             strategy,
           );
         }
