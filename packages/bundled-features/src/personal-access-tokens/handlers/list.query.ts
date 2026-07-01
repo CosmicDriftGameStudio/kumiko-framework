@@ -7,7 +7,7 @@ import { apiTokenTable } from "../schema/api-token";
 // Includes revoked/expired rows so the UI can show history; `prefix` is the
 // only fragment of the secret ever exposed.
 export const listPatQuery = defineQueryHandler({
-  name: "api-token:mine",
+  name: "mine",
   schema: z.object({}),
   access: { openToAll: true },
   handler: async (query, ctx) => {

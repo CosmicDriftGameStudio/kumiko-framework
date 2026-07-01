@@ -10,7 +10,7 @@ import { apiTokenTable } from "../schema/api-token";
 // is a uniform ownership error with no existence oracle. isNull(revokedAt)
 // keeps a double-revoke from overwriting the original timestamp.
 export const revokePatWrite = defineWriteHandler({
-  name: "api-token:revoke",
+  name: "revoke",
   schema: z.object({ id: z.uuid() }),
   access: { openToAll: true },
   handler: async (event, ctx) => {

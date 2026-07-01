@@ -1,7 +1,7 @@
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import type { PatScopeConfig } from "./scopes";
 
-export { PAT_FEATURE } from "./constants";
+export { PAT_FEATURE, PatHandlers, PatQueries } from "./constants";
 export { hashPatToken, mintPatToken } from "./hash";
 export { createPersonalAccessTokensFeature } from "./feature";
 export type { PersonalAccessTokensOptions } from "./feature";

@@ -11,7 +11,7 @@ import { apiTokenTable } from "../schema/api-token";
 // `scopes` are granted scope names; unknown names simply grant nothing at
 // resolve time (fail-closed), so no cross-check against the app config here.
 export const createPatWrite = defineWriteHandler({
-  name: "api-token:create",
+  name: "create",
   schema: z.object({
     name: z.string().min(1).max(120),
     scopes: z.array(z.string().min(1)).min(1),

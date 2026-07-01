@@ -7,7 +7,7 @@ import type { PatScopeConfig } from "../scopes";
 // list is static per deployment, not per user.
 export function buildAvailableScopesQuery(scopes: PatScopeConfig) {
   return defineQueryHandler({
-    name: "api-token:available-scopes",
+    name: "available-scopes",
     schema: z.object({}),
     access: { openToAll: true },
     handler: async () =>
