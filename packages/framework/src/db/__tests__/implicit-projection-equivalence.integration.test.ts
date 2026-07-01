@@ -190,10 +190,11 @@ describe("implicit-projection / Live==Rebuild equivalence", () => {
     const projection = registry.getAllProjections().get("implicittest:projection:user-entity");
     expect(projection).toBeDefined();
     if (!projection) return;
-    // 4 Auto-Verben weil softDelete=true → restored kommt dazu
+    // Auto-Verben: created/updated/deleted/forgotten immer, restored nur bei softDelete=true
     expect(Object.keys(projection.apply).sort()).toEqual([
       "user.created",
       "user.deleted",
+      "user.forgotten",
       "user.restored",
       "user.updated",
     ]);
@@ -215,6 +216,7 @@ describe("implicit-projection / Live==Rebuild equivalence", () => {
     expect(Object.keys(projection.apply).sort()).toEqual([
       "widget.created",
       "widget.deleted",
+      "widget.forgotten",
       "widget.updated",
     ]);
   });
