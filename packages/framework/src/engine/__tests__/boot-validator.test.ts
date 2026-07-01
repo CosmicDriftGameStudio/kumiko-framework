@@ -5,6 +5,7 @@ import { table, text } from "../../db/dialect";
 import { validateBoot } from "../boot-validator";
 import { createSystemConfig, createTenantConfig } from "../config-helpers";
 import {
+  createDerivedField,
   createEntity,
   createMultiSelectField,
   createTextField,
@@ -168,6 +169,56 @@ describe("boot-validator", () => {
     expect(() => validateBoot(features)).toThrow(/ENCRYPTION_KEY.*required/i);
   });
 
+  test("rejects encrypted text field that is also filterable", () => {
+    // AES-GCM draws a random IV per call, so the ciphertext is non-
+    // deterministic — an equality filter on it would never match, even
+    // against the identical plaintext.
+    process.env["ENCRYPTION_KEY"] = "test-key";
+    try {
+      const features = [
+        defineFeature("a", (r) => {
+          r.entity(
+            "doc",
+            createEntity({
+              table: "Docs",
+              fields: {
+                secret: { type: "text", encrypted: true, filterable: true },
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/secret.*encrypted and filterable/i);
+    } finally {
+      delete process.env["ENCRYPTION_KEY"];
+    }
+  });
+
+  test("rejects a unique index on an encrypted column", () => {
+    // Same non-determinism as the filterable case: a unique index can never
+    // detect a real duplicate plaintext behind two different ciphertexts.
+    process.env["ENCRYPTION_KEY"] = "test-key";
+    try {
+      const features = [
+        defineFeature("a", (r) => {
+          r.entity(
+            "doc",
+            createEntity({
+              table: "Docs",
+              fields: {
+                secret: { type: "text", encrypted: true },
+              },
+              indexes: [{ columns: ["secret"], unique: true }],
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/secret.*encrypted.*unique index/i);
+    } finally {
+      delete process.env["ENCRYPTION_KEY"];
+    }
+  });
+
   // --- index-validator longText block ---
 
   test("rejects longText field in entity.indexes (longText is not indexable)", () => {
@@ -307,6 +358,46 @@ describe("boot-validator", () => {
     expect(() => validateBoot(features)).toThrow(
       /extendSchema column "name" conflicts.*entity "item"/i,
     );
+  });
+
+  // --- derivedFields / fields collision ---
+
+  test("throws when a derivedFields key conflicts with a stored field", () => {
+    const features = [
+      defineFeature("a", (r) => {
+        r.entity(
+          "item",
+          createEntity({
+            table: "Items",
+            fields: { status: createTextField() },
+            derivedFields: {
+              status: createDerivedField({ valueType: "text", derive: () => "computed" }),
+            },
+          }),
+        );
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(
+      /entity "item".*derivedFields key "status".*conflicts/i,
+    );
+  });
+
+  test("passes when derivedFields keys don't conflict with stored fields", () => {
+    const features = [
+      defineFeature("a", (r) => {
+        r.entity(
+          "item",
+          createEntity({
+            table: "Items",
+            fields: { status: createTextField() },
+            derivedFields: {
+              statusLabel: createDerivedField({ valueType: "text", derive: () => "computed" }),
+            },
+          }),
+        );
+      }),
+    ];
+    expect(() => validateBoot(features)).not.toThrow();
   });
 
   // --- Config key cross-feature references ---

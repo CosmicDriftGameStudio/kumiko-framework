@@ -57,7 +57,10 @@ export const confirmSchedulePeriodPayloadSchema = z.object({
   scheduleId: z.string().min(1).max(64),
   period: z.string().regex(/^\d{4}-\d{2}$/, "period must be YYYY-MM"),
   amount: z.number().int().positive().optional(),
-  date: z.string().min(1).max(32).optional(),
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "date must be YYYY-MM-DD")
+    .optional(),
 });
 export type ConfirmSchedulePeriodPayload = z.infer<typeof confirmSchedulePeriodPayloadSchema>;
 

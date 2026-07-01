@@ -17,6 +17,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
   setupTestStack,
@@ -289,7 +290,10 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
     await seedMembership(CRON_USER, TENANT_A);
 
     const jobCtx = { db: stack.db, registry: stack.registry };
-    await job?.handler({}, jobCtx as never);
+    // jobCtx is a deliberately minimal prod-context replica (missing
+    // systemUser/log/triggeredBy) — double-cast at this test boundary since
+    // the handler under test never touches those fields.
+    await job?.handler({}, jobCtx as unknown as JobContext);
 
     const row = await fetchUser(CRON_USER);
     expect(row?.status).toBe(USER_STATUS.Deleted);

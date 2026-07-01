@@ -12,6 +12,7 @@ import {
   warnOnToggleableDependencies,
 } from "./config-deps";
 import {
+  validateDerivedFieldCollisions,
   validateEmbeddedFields,
   validateEncryptedFields,
   validateEntityIndexes,
@@ -144,6 +145,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     validateTransitions(feature);
     validateExtensionUsages(feature, extensionProviders);
     validateExtendSchemaCollisions(feature);
+    validateDerivedFieldCollisions(feature);
     validateHandlerAccess(feature);
     validateLocatedTimestamps(feature);
     validateEntityIndexes(feature);

@@ -6,6 +6,11 @@
 //     config:write:set Call mit dem qualifizierten Key + scope
 //   - Save-Button Greying via controller.rebase nach Success
 //   - Loading-State während config:query:values noch läuft
+//
+// `as unknown as Dispatcher["query"/"batch"]` throughout: each inline mock
+// lambda only implements the one overload a given test exercises, never the
+// full overloaded Dispatcher signature — the missing overloads are never
+// called at runtime.
 
 import { describe, expect, mock, test } from "bun:test";
 import type { ConfigEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";

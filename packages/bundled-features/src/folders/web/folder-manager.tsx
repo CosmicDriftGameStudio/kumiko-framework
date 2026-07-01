@@ -238,21 +238,26 @@ export function FolderManager({
   // No-op if it already lives there (both handlers are idempotent, but a re-set
   // would burn a redundant event).
   const reassign = async (entityId: string, folderId: string | null): Promise<void> => {
-    if (filing === undefined) return;
+    if (filing === undefined || busy) return;
     if ((currentFolderByEntity.get(entityId) ?? null) === folderId) return;
+    setBusy(true);
     setErrorKey(null);
-    const entityType = typeByEntity.get(entityId) ?? filing.entityType;
-    const ok =
-      folderId === null
-        ? await writeOk(FoldersHandlers.clearFolder, { entityType, entityId })
-        : await writeOk(FoldersHandlers.setFolder, {
-            folderId,
-            entityType,
-            entityId,
-          });
-    if (ok) {
-      await catalog.refetch();
-      await filing.onReassigned();
+    try {
+      const entityType = typeByEntity.get(entityId) ?? filing.entityType;
+      const ok =
+        folderId === null
+          ? await writeOk(FoldersHandlers.clearFolder, { entityType, entityId })
+          : await writeOk(FoldersHandlers.setFolder, {
+              folderId,
+              entityType,
+              entityId,
+            });
+      if (ok) {
+        await catalog.refetch();
+        await filing.onReassigned();
+      }
+    } finally {
+      setBusy(false);
     }
   };
 

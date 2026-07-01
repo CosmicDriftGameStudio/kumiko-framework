@@ -56,7 +56,7 @@ export function scheduleReference(scheduleId: string, period: string): string {
 // "YYYY-MM" ⇄ a month index (year*12 + monthOfYear), so window math is pure
 // integer arithmetic — no Date object (no-date-api guard) and no DST/timezone
 // drift. isoMonth tolerates a full ISO date ("2026-01-15" → "2026-01").
-function isoMonth(iso: string): string {
+export function isoMonth(iso: string): string {
   return iso.slice(0, 7);
 }
 

@@ -214,6 +214,7 @@ export {
 export {
   type EffectiveFeaturesResolver,
   findTierResolverUsage,
+  isTierResolverPlugin,
   TENANT_TIER_RESOLVER_EXT,
   type TierResolverPlugin,
   type TrialGate,

@@ -27,7 +27,7 @@ import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 //
 // **Zwei Fehlerklassen, bewusst verschieden behandelt:**
 //   1. Resolution schlaegt fehl (kein Provider konfiguriert / configResolver
-//      fehlt) → NICHT fail-closed: EIN Warn pro Process + row-only-delete. Ein
+//      fehlt) → NICHT fail-closed: Warn pro Aufruf + row-only-delete. Ein
 //      fehlkonfigurierter Store darf die Art.-17-Loeschung nicht DAUERHAFT
 //      blockieren (sonst haengt jeder User fuer immer in DeletionRequested);
 //      der Boot-Guard macht die Fehlkonfiguration sichtbar, Binaries werden
@@ -94,8 +94,6 @@ export const fileRefExportHook: UserDataExportHook = async (ctx) => {
   };
 };
 
-let missingStorageWarned = false;
-
 // Resolve the per-tenant provider the forget orchestrator injected. A
 // resolution failure (no provider configured / configResolver absent) collapses
 // to `undefined` so the hook degrades to a row-only delete instead of throwing —
@@ -107,7 +105,7 @@ async function resolveProvider(ctx: UserDataHookCtx): Promise<UserDataStoragePro
     return await ctx.buildStorageProvider(ctx.tenantId);
   } catch {
     // skip: provider unresolvable (not configured) → fall through to row-only
-    // delete; warn-once below gives operator visibility, boot guard catches it.
+    // delete; the warn below gives operator visibility, boot guard catches it.
     return undefined;
   }
 }
@@ -141,8 +139,13 @@ export const fileRefDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
           `[user-data-rights-defaults:fileRef] ${failedKeys.length} binary delete(s) failed — aborting forget so the rows are retried next run (keys: ${failedKeys.join(", ")})`,
         );
       }
-    } else if (!missingStorageWarned) {
-      missingStorageWarned = true;
+    } else {
+      // No warn-once guard: a forget-cleanup cron runs rarely enough (not a
+      // hot path) that logging every occurrence is fine, and it means an
+      // operator who fixes the provider config mid-process-lifetime sees the
+      // warning stop on the very next run — a module-level "warned once"
+      // flag would otherwise silence this for the rest of the process even
+      // after the misconfiguration is corrected.
       // biome-ignore lint/suspicious/noConsole: misconfiguration visibility — disk-leak in forget-flow
       console.warn(
         "[user-data-rights-defaults:fileRef] no file provider resolvable from ctx.buildStorageProvider — file binaries are NOT deleted on forget (row-only delete). Mount file-foundation + a file-provider-* feature and set the provider config so erasure can reach the binaries.",

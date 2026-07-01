@@ -5,6 +5,7 @@ import {
   incomeStatement,
   type LedgerAccount,
   type LedgerEntry,
+  normalizeLines,
 } from "../reports";
 
 // Pure report math — no DB. A small but complete set of books:
@@ -49,6 +50,25 @@ const posted: LedgerEntry[] = [
 function balanceOf(report: ReturnType<typeof accountBalances>, id: string): number {
   return report.accounts.find((a) => a.id === id)?.balance ?? Number.NaN;
 }
+
+describe("normalizeLines — jsonb array-or-string driver surfacing", () => {
+  test("passes an already-parsed array through unchanged", () => {
+    const lines = [{ accountId: "bank", amount: 100 }];
+    expect(normalizeLines(lines)).toEqual(lines);
+  });
+
+  test("parses a JSON-string-encoded array (the other driver path)", () => {
+    const lines = [{ accountId: "bank", amount: 100 }];
+    expect(normalizeLines(JSON.stringify(lines))).toEqual(lines);
+  });
+
+  test("falls back to [] for malformed JSON or a non-array value", () => {
+    expect(normalizeLines("not json")).toEqual([]);
+    expect(normalizeLines(null)).toEqual([]);
+    expect(normalizeLines(undefined)).toEqual([]);
+    expect(normalizeLines(42)).toEqual([]);
+  });
+});
 
 describe("accountBalances — natural balances + trial balance", () => {
   test("natural balances are sign-corrected by account type", () => {

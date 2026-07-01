@@ -104,7 +104,7 @@ export async function fenceLiveTable(
   // Postgres treats lock_timeout = 0 as "no timeout" (wait forever) — the
   // opposite of fail-fast. Reject it so a 0/negative value can't silently
   // turn the fence into an unbounded wait.
-  if (lockTimeoutMs <= 0) {
+  if (Math.trunc(lockTimeoutMs) <= 0) {
     throw new Error(`fenceLockTimeoutMs must be > 0, got ${lockTimeoutMs}`);
   }
   const raw = asRawClient(tx);

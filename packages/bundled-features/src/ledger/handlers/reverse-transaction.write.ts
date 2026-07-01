@@ -3,7 +3,7 @@ import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/error
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { DEFAULT_LEDGER_ACCESS } from "../constants";
 import { transactionExecutor } from "../executor";
-import type { Posting } from "../schemas";
+import { normalizeLines } from "../reports";
 import { type ReverseTransactionPayload, reverseTransactionPayloadSchema } from "../schemas";
 
 // reverse-transaction (Storno) — the ONLY correction path for a posted entry.
@@ -24,8 +24,12 @@ export function createReverseTransactionHandler(
       const original = await transactionExecutor.detail({ id: payload.id }, event.user, ctx.db);
       if (!original) return writeFailure(new NotFoundError("transaction", payload.id));
 
-      const originalLines = original["lines"] as readonly Posting[]; // @cast-boundary db-row
-      const lines = originalLines.map((l) => ({ accountId: l.accountId, amount: -l.amount }));
+      // jsonb `lines` may surface as a parsed array or a JSON string depending
+      // on the driver path — normalizeLines handles both (see reports.ts).
+      const lines = normalizeLines(original["lines"]).map((l) => ({
+        accountId: l.accountId,
+        amount: -l.amount,
+      }));
 
       return transactionExecutor.create(
         {

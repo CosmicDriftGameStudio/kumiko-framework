@@ -3,7 +3,7 @@
 // Invariante — hier die vier Fälle direkt geprüft.
 
 import { describe, expect, test } from "bun:test";
-import { shouldShowUpdate } from "../update-checker";
+import { isKumikoBuild, shouldShowUpdate } from "../update-checker";
 
 describe("shouldShowUpdate", () => {
   test("andere Server-id als geladen → Banner", () => {
@@ -21,5 +21,22 @@ describe("shouldShowUpdate", () => {
   test("kein geladener Stand (Dev/altes Bundle) → kein Banner, auch bei Server-Drift", () => {
     expect(shouldShowUpdate(undefined, { id: "bbb", builtAt: "2026-06-18T00:00:00Z" })).toBe(false);
     expect(shouldShowUpdate("", { id: "bbb", builtAt: "2026-06-18T00:00:00Z" })).toBe(false);
+  });
+});
+
+describe("isKumikoBuild", () => {
+  test("accepts a build-info shape with a non-empty id", () => {
+    expect(isKumikoBuild({ id: "abc" })).toBe(true);
+    expect(isKumikoBuild({ id: "abc", builtAt: "2026-06-18T00:00:00Z" })).toBe(true);
+  });
+
+  test("rejects an empty/missing/wrong-typed id, and non-object payloads", () => {
+    expect(isKumikoBuild({ id: "" })).toBe(false);
+    expect(isKumikoBuild({})).toBe(false);
+    expect(isKumikoBuild({ id: 123 })).toBe(false);
+    expect(isKumikoBuild(null)).toBe(false);
+    expect(isKumikoBuild(undefined)).toBe(false);
+    expect(isKumikoBuild("abc")).toBe(false);
+    expect(isKumikoBuild([])).toBe(false);
   });
 });

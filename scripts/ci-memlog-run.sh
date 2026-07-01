@@ -92,7 +92,14 @@ cleanup() {
   code=$?
   kill "$SAMPLER_PID" 2>/dev/null || true
   wait "$SAMPLER_PID" 2>/dev/null || true
-  read -r max_check max_used min_avail <"$PEAK_FILE"
+  # kill+wait above can race the sampler's own truncate-then-write of
+  # PEAK_FILE (SIGTERM landing between the two) — an empty file here would
+  # make `read` fail under `set -e` and clobber $code with read's exit
+  # status instead of the wrapped command's real one.
+  read -r max_check max_used min_avail <"$PEAK_FILE" || true
+  max_check=${max_check:-0}
+  max_used=${max_used:-0}
+  min_avail=${min_avail:-0}
   log_snapshot "end"
   echo "[kumiko-mem] === ${LABEL} summary: peak_used=$((max_used / 1024))MiB peak_check_rss=$((max_check / 1024))MiB min_avail=$((min_avail / 1024))MiB exit=${code} ==="
   exit "$code"

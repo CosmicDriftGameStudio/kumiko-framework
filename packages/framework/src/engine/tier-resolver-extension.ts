@@ -81,6 +81,17 @@ export type TierResolverPlugin = {
  * Geteilter helper für runDevApp + runProdApp damit der Pickup-Pfad
  * bit-identisch ist (drift-resistent).
  */
+/** Narrows a registration's untyped `options` bag to the tier-resolver
+ *  plugin shape — the only thing every implementation must provide is the
+ *  `build` factory. */
+export function isTierResolverPlugin(v: unknown): v is TierResolverPlugin {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    typeof (v as Record<string, unknown>)["build"] === "function"
+  );
+}
+
 export function findTierResolverUsage(
   features: readonly FeatureDefinition[],
 ): RegistrarExtensionRegistration | undefined {

@@ -62,7 +62,7 @@ export async function runDemo(
         continue;
       }
       console.log(`[run-demo] cli: ${cmd}`);
-      execFileSync("bash", ["-lc", cmd], { cwd: appDir, stdio: "inherit" });
+      execFileSync("bash", ["-c", cmd], { cwd: appDir, stdio: "inherit" });
     } else if (step.kind === "editor") {
       const target = resolve(appDir, step.file);
       console.log(`[run-demo] editor: writing ${step.file}`);

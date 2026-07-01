@@ -14,8 +14,9 @@ import { type AssignTagPayload, assignTagPayloadSchema } from "../schemas";
 //     append at version 0 onto the created+deleted stream and version_conflict;
 //     the deterministic id means that stream is permanent.
 //   - never assigned         → create() (restore reports not_found).
-// A concurrent first-time race still version_conflicts (409); acceptable, since
-// assigning is a low-frequency UI action.
+// A concurrent first-time race converges: both callers fall through to
+// create(), the loser's create() version_conflicts, and the handler treats
+// that as success since the winner already wrote the desired end state.
 //
 // Referential integrity: there is no FK (event-sourced, no JOIN), so before a
 // first-time create we verify the tag exists in the catalog — a malformed call
@@ -46,7 +47,7 @@ export function createAssignTagHandler(access: AccessRule = DEFAULT_TAG_ACCESS):
       const tag = await tagExecutor.detail({ id: payload.tagId }, event.user, ctx.db);
       if (!tag) return writeFailure(new NotFoundError("tag", payload.tagId));
 
-      return tagAssignmentExecutor.create(
+      const created = await tagAssignmentExecutor.create(
         {
           id,
           tagId: payload.tagId,
@@ -56,6 +57,15 @@ export function createAssignTagHandler(access: AccessRule = DEFAULT_TAG_ACCESS):
         event.user,
         ctx.db,
       );
+      if (created.isSuccess) return created;
+      // A concurrent first-time assign of the same (tag, entity) races here —
+      // both callers' `existing` read above saw null, so both fall through to
+      // create(). The loser's create() version_conflicts (409), but the
+      // desired end state (the assignment exists) is already true — the
+      // winner just wrote it. Converge instead of surfacing a spurious 409
+      // for an idempotent operation.
+      if (created.error.code !== "version_conflict") return created;
+      return { isSuccess: true as const, data: { id } };
     },
   };
 }
