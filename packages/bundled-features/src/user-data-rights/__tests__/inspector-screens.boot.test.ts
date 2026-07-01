@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import { access, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/feature";
 import { createConfigFeature } from "../../config/feature";
 import { createDataRetentionFeature } from "../../data-retention/feature";
@@ -36,7 +36,7 @@ describe("user-data-rights read-only inspector screens", () => {
     );
     const list = f.screens["export-job-list"];
     expect(list?.type).toBe("entityList");
-    expect(list?.access).toEqual({ roles: ["SystemAdmin"] });
+    expect(list?.access).toEqual({ roles: access.systemAdmin });
   });
 
   test("export-job detail is strictly read-only (no create/delete, every field readOnly)", () => {

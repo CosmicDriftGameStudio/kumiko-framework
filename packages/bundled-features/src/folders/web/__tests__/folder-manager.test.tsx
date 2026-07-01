@@ -216,6 +216,38 @@ describe("FolderManager filing mode", () => {
     );
   });
 
+  test("dragLeave onto a child element keeps the highlight; leaving the row entirely clears it", () => {
+    folderRows = [{ id: "f1", name: "A", parentId: null, version: 1 }];
+    render(
+      <Wrapper>
+        <FolderManager filing={filingWith(() => {})} />
+      </Wrapper>,
+    );
+    const row = screen.getByTestId("folder-node-f1");
+    const childButton = screen.getByTestId("folder-delete-f1");
+
+    fireEvent.dragOver(row, { dataTransfer: {} });
+    expect(row.className).toContain("ring-primary/40");
+
+    // jsdom/happy-dom's DragEvent constructor ignores `relatedTarget` in the
+    // init dict (unlike real browsers), so it has to be forced on via
+    // defineProperty rather than passed through fireEvent.dragLeave(el, init).
+    const leaveTo = (relatedTarget: Element): void => {
+      const evt = new DragEvent("dragleave", { bubbles: true, cancelable: true });
+      Object.defineProperty(evt, "relatedTarget", { value: relatedTarget, configurable: true });
+      fireEvent(row, evt);
+    };
+
+    // Regression #671/3: bubbling from a child (chevron/icon/label) must NOT
+    // clear the highlight — onDragOver re-sets it a micro-task later anyway,
+    // so an unconditional clear here just flickers.
+    leaveTo(childButton);
+    expect(row.className).toContain("ring-primary/40");
+
+    leaveTo(document.body);
+    expect(row.className).not.toContain("ring-primary/40");
+  });
+
   test("the unfiled bucket stays a drop target even when nothing is currently unfiled", () => {
     folderRows = [{ id: "f1", name: "A", parentId: null, version: 1 }];
     const allFiled: FolderFiling = {

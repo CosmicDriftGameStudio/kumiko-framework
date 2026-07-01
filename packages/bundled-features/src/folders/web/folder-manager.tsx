@@ -267,7 +267,10 @@ export function FolderManager({
             e.dataTransfer.dropEffect = "move";
             setDragOverKey(key);
           },
-          onDragLeave: () => setDragOverKey((cur) => (cur === key ? null : cur)),
+          onDragLeave: (e: DragEvent<HTMLDivElement>) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node))
+              setDragOverKey((cur) => (cur === key ? null : cur));
+          },
           onDrop: (e: DragEvent<HTMLDivElement>) => {
             e.preventDefault();
             setDragOverKey(null);
