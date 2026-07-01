@@ -62,7 +62,11 @@ import type {
 } from "./hooks";
 import type { HttpRouteDefinition } from "./http-route";
 import type { NavDefinition } from "./nav";
-import type { MultiStreamProjectionDefinition, ProjectionDefinition } from "./projection";
+import type {
+  EntityProjectionExtension,
+  MultiStreamProjectionDefinition,
+  ProjectionDefinition,
+} from "./projection";
 import type { EntityRelations, RelationDefinition } from "./relations";
 import type { ScreenDefinition } from "./screen";
 import type { TreeActionDef, TreeActionsHandle, TreeChildrenSubscribe } from "./tree-node";
@@ -310,6 +314,12 @@ export type FeatureDefinition = {
   // Projections declared via r.projection(). Keyed by projection name; executor
   // looks them up by source-entity at write-time.
   readonly projections: Readonly<Record<string, ProjectionDefinition>>;
+  // Implicit-projection extensions declared via r.extendEntityProjection().
+  // Keyed by entity name; merged into that entity's implicit projection at
+  // registry build so rebuildProjection replays the extension's events.
+  readonly entityProjectionExtensions?: Readonly<
+    Record<string, readonly EntityProjectionExtension[]>
+  >;
   // Multi-stream projections — cross-aggregate async read-models. Keyed by
   // short name; the dispatcher wraps each into an EventConsumer with its
   // own cursor.
@@ -623,6 +633,15 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // external-system sync) — the dispatcher still delivers at-least-once with
   // per-consumer ordering and dead-letter behaviour.
   multiStreamProjection(definition: MultiStreamProjectionDefinition): void;
+
+  // Merge extra apply handlers (+ extra event sources) into an entity's
+  // implicit projection so rebuildProjection replays event types a bundled
+  // extension materializes into the HOST entity's table (custom-fields
+  // pattern). Rebuild-only: the inline runner skips implicit projections —
+  // live delivery stays with the extension's own MSP. The entity must be
+  // declared via r.entity in the SAME feature; unknown entities and
+  // apply-key collisions fail at registry build.
+  extendEntityProjection(entityName: string, extension: EntityProjectionExtension): void;
 
   // Register a function that contributes claims into SessionUser.claims at
   // login time. Multiple features (and multiple calls within one feature)

@@ -174,7 +174,7 @@ export async function rebuildProjection(
   const meta = rebuildMetaOrThrow(projection.table, projectionName);
 
   const sources = Array.isArray(projection.source) ? projection.source : [projection.source];
-  const sourcesList = [...sources];
+  const sourcesList = [...sources, ...(projection.extraSources ?? [])];
   const subscribedList = Object.keys(projection.apply);
   // Upcasters run at read time: older stored payloads get walked through the
   // registered r.eventMigration chain until their shape matches the current

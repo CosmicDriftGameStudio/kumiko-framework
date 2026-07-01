@@ -51,6 +51,11 @@ export type ProjectionDefinition = {
   // index projections so the executor doesn't scan all projections on every
   // write.
   readonly source: string | readonly string[];
+  // Additional aggregate-types whose events the rebuild replay must include
+  // beyond `source`. Fed by r.extendEntityProjection — an extension can react
+  // to events on foreign streams (e.g. "field-definition") while `source`
+  // keeps meaning "the owning entity" for consumers like soft-delete-cleanup.
+  readonly extraSources?: readonly string[];
   // Drizzle-table the projection materializes into. User owns the schema —
   // framework just guarantees the TX and event delivery.
   readonly table: ProjectionTable;
@@ -65,6 +70,23 @@ export type ProjectionDefinition = {
   // skips entries with this flag; rebuildProjection treats them
   // identically to explicit projections.
   readonly isImplicit?: boolean;
+};
+
+// Extension merged into an entity's implicit projection at registry build.
+// Lets a bundled feature that writes into the HOST entity's table via events
+// (custom-fields pattern) hook those event types into the entity's rebuild
+// replay — without it, a rebuild resets everything the extension wrote.
+// Live delivery stays with the extension's own MSP: implicit projections are
+// skipped by the inline runner, so the apply here runs ONLY during rebuild.
+export type EntityProjectionExtension = {
+  // Aggregate-types beyond the entity's own stream whose events the rebuild
+  // must scan (e.g. "field-definition"). Omit when all extension events are
+  // appended on the host entity's stream.
+  readonly sources?: readonly string[];
+  // Keyed by fully-qualified event type. Must not collide with the entity's
+  // built-in lifecycle applies (<entity>.created/updated/...) or another
+  // extension — collisions fail at boot.
+  readonly apply: Readonly<Record<string, SingleStreamApplyFn>>;
 };
 
 // Per-lifecycle error policy for a MultiStreamProjection. Mirrors Marten's

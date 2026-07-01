@@ -15,6 +15,7 @@ import type {
   ConfigKeyType,
   ConfigSeedDef,
   EntityDefinition,
+  EntityProjectionExtension,
   EntityRef,
   EventDef,
   EventMigrationDef,
@@ -141,6 +142,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
   const secretKeys: Record<string, SecretKeyDefinition> = {};
   const projections: Record<string, ProjectionDefinition> = {};
   const multiStreamProjections: Record<string, MultiStreamProjectionDefinition> = {};
+  const entityProjectionExtensions: Record<string, EntityProjectionExtension[]> = {};
   const rawTables: Record<string, RawTableEntry> = {};
   const unmanagedTables: Record<string, UnmanagedTableEntry> = {};
   const authClaimsHooks: AuthClaimsFn[] = [];
@@ -727,6 +729,20 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       multiStreamProjections[definition.name] = definition;
     },
 
+    extendEntityProjection(entityName: string, extension: EntityProjectionExtension): void {
+      if (Object.keys(extension.apply).length === 0) {
+        throw new Error(
+          `[Feature ${name}] extendEntityProjection("${entityName}") has no apply handlers. ` +
+            `Declare at least one event type, otherwise the rebuild replay has nothing to do.`,
+        );
+      }
+      // Entity existence + apply-key collisions are validated at registry
+      // build — r.entity may legally be called after this in the same feature.
+      const list = entityProjectionExtensions[entityName] ?? [];
+      list.push(extension);
+      entityProjectionExtensions[entityName] = list;
+    },
+
     authClaims(fn: AuthClaimsFn): void {
       authClaimsHooks.push(fn);
     },
@@ -997,6 +1013,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     metrics,
     secretKeys,
     projections,
+    entityProjectionExtensions,
     multiStreamProjections,
     authClaimsHooks,
     claimKeys,

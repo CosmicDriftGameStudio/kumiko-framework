@@ -1,4 +1,4 @@
-import { extractTableName } from "@cosmicdrift/kumiko-framework/db";
+import { type DbRunner, extractTableName } from "@cosmicdrift/kumiko-framework/db";
 import {
   createJsonbField,
   type FeatureRegistrar,
@@ -6,7 +6,8 @@ import {
   type JsonbFieldDef,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { CUSTOM_FIELDS_EXTENSION } from "./constants";
+import type { StoredEvent } from "@cosmicdrift/kumiko-framework/event-store";
+import { CUSTOM_FIELDS_EXTENSION, FIELD_DEFINITION_AGGREGATE_TYPE } from "./constants";
 import {
   clearCustomFieldKey,
   removeCustomFieldKeyForTenant,
@@ -36,8 +37,9 @@ export function customFieldsField(): JsonbFieldDef {
 
 // Vollständige integration der custom-fields-Bundle für eine spezifische
 // host-entity. Eine einzige Aufruf-Stelle pro consumer registriert ALLE
-// wiring-Aspekte: extension-tracking, MSP für value-projection, postQuery-
-// hook für API-flatten, search-payload-extension für indexable customFields.
+// wiring-Aspekte: extension-tracking, MSP für value-projection, rebuild-
+// replay via extendEntityProjection, postQuery-hook für API-flatten,
+// search-payload-extension für indexable customFields.
 //
 // Consumer-side:
 //
@@ -61,15 +63,20 @@ export function customFieldsField(): JsonbFieldDef {
 //      emittiert haben. Updated entityTable.customFields jsonb über
 //      jsonb_set / jsonb-key-removal.
 //
-//   3. r.entityHook("postQuery", entity, flatten-fn) — bei JEDEM Read auf
+//   3. r.extendEntityProjection — hängt dieselben apply-Handler in die
+//      implicit projection der host-entity, damit rebuildProjection die
+//      customField-Events mit-replayt. Ohne das fällt customFields bei
+//      jedem Entity-Rebuild (Schema-Migration!) auf `{}` zurück (#759).
+//
+//   4. r.entityHook("postQuery", entity, flatten-fn) — bei JEDEM Read auf
 //      diese entity wird `row.customFields` jsonb auf root-level expanded
 //      damit die API-response wie Stammfelder aussieht.
 //
-//   4. r.searchPayloadExtension(entity, contributor) — searchable
+//   5. r.searchPayloadExtension(entity, contributor) — searchable
 //      customFields-keys werden flach ins Meilisearch-Index-Doc beigetragen
 //      (F3-wiring).
 //
-//   5. fieldDefinition.deleted-Event-Handler im selben MSP — bei delete
+//   6. fieldDefinition.deleted-Event-Handler im selben MSP — bei delete
 //      einer fieldDefinition werden orphan values aus allen entity-rows
 //      entfernt (key-removal pro fieldKey).
 export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
@@ -87,80 +94,100 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
   const clearedEventType = customFieldsFeature.exports.clearedEvent.name;
   const fieldDefDeletedType = customFieldsFeature.exports.fieldDefinitionDeletedEvent.name;
 
+  // Geteilte apply-Bodies: die MSP liefert sie live (async cursor), die
+  // entity-projection-extension replayt sie in rebuildProjection — gleiche
+  // SQL-Helper, beide idempotent. 2-Param-Signatur ist die gemeinsame
+  // Teilmenge von MultiStreamApplyFn und SingleStreamApplyFn.
+  const applyCustomFieldSet = async (event: StoredEvent, tx: DbRunner): Promise<void> => {
+    // skip: feuert für ALLE aggregate-types die customField.set emittieren —
+    // wir wollen nur die unserer wired host-entity. Andere consumers haben
+    // eigene Wirings für ihre Entities.
+    if (event.aggregateType !== entityName) return;
+    const payload = event.payload as CustomFieldSetPayload; // @cast-boundary engine-payload
+
+    // skip: sensitive fields self-project in the write handler (see
+    // set-custom-field) and persist a value-less event so PII never enters
+    // the log. Such events arrive here with value === undefined — skipping
+    // is correct both live (the handler already wrote the row) and on replay
+    // (the value is intentionally gone, the accepted rebuild-loss).
+    if (payload.value === undefined) return;
+
+    // jsonb_set: setze key auf value. Wenn key noch nicht existiert →
+    // wird angelegt (create_missing=true ist default). value muss als
+    // jsonb-literal kommen.
+    const tableName = extractTableName(entityTable, "custom-fields/wire-for-entity");
+    await setCustomFieldValue(
+      tx,
+      tableName,
+      payload.fieldKey,
+      payload.value,
+      event.aggregateId,
+      event.tenantId,
+    );
+  };
+
+  const applyCustomFieldCleared = async (event: StoredEvent, tx: DbRunner): Promise<void> => {
+    // skip: feuert für alle aggregate-types — nur unsere host-entity
+    // verarbeiten.
+    if (event.aggregateType !== entityName) return;
+    const payload = event.payload as CustomFieldClearedPayload; // @cast-boundary engine-payload
+
+    // jsonb minus operator (`-`) entfernt key aus jsonb-object.
+    const tableName = extractTableName(entityTable, "custom-fields/wire-for-entity");
+    await clearCustomFieldKey(tx, tableName, payload.fieldKey, event.aggregateId, event.tenantId);
+  };
+
+  const applyFieldDefinitionDeleted = async (event: StoredEvent, tx: DbRunner): Promise<void> => {
+    // fieldDefinition.deleted fires nur einmal pro fieldDef-delete
+    // (NICHT per-entity). Wir entfernen den key aus ALLEN rows der host-
+    // entity falls die deleted-fieldDef für diese entity galt.
+    const payload = event.payload as {
+      entityName: string;
+      fieldKey: string;
+      tenantId?: TenantId;
+    }; // @cast-boundary engine-payload
+    // skip: fieldDefinition.deleted feuert für ALLE fieldDefs cross-entity;
+    // nur wenn die deleted-fieldDef diese host-entity betraf, cleanen wir
+    // ihre Rows.
+    if (payload.entityName !== entityName) return;
+
+    const tableName = extractTableName(entityTable, "custom-fields/wire-for-entity");
+    // Scope cleanup to the deleted definition's owning tenant. System-scope
+    // definitions apply to every tenant → cascade across all rows; tenant-
+    // scope deletions must only touch that tenant's rows, else deleting one
+    // tenant's field strips the same kebab key from every tenant (data loss).
+    // Fallback to the event's stream tenantId for events appended before the
+    // payload carried tenantId.
+    const defTenantId = payload.tenantId ?? event.tenantId;
+    if (isSystemTenant(defTenantId)) {
+      await removeCustomFieldKeyFromAllTenants(tx, tableName, payload.fieldKey);
+    } else {
+      await removeCustomFieldKeyForTenant(tx, tableName, payload.fieldKey, defTenantId);
+    }
+  };
+
   r.multiStreamProjection({
     name: `custom-fields-${entityName}-projection`,
     apply: {
-      [setEventType]: async (event, tx) => {
-        // skip: MSP feuert für ALLE aggregate-types die customField.set
-        // emittieren — wir wollen nur die unserer wired host-entity.
-        // Andere consumers haben eigene MSPs für ihre Entities.
-        if (event.aggregateType !== entityName) return;
-        const payload = event.payload as CustomFieldSetPayload; // @cast-boundary engine-payload
+      [setEventType]: applyCustomFieldSet,
+      [clearedEventType]: applyCustomFieldCleared,
+      [fieldDefDeletedType]: applyFieldDefinitionDeleted,
+    },
+  });
 
-        // skip: sensitive fields self-project in the write handler (see
-        // set-custom-field) and persist a value-less event so PII never enters
-        // the log. Such events arrive here with value === undefined — skipping
-        // is correct both live (the handler already wrote the row) and on replay
-        // (the value is intentionally gone, the accepted rebuild-loss).
-        if (payload.value === undefined) return;
-
-        // jsonb_set: setze key auf value. Wenn key noch nicht existiert →
-        // wird angelegt (create_missing=true ist default). value muss als
-        // jsonb-literal kommen.
-        const tableName = extractTableName(entityTable, "custom-fields/wire-for-entity");
-        await setCustomFieldValue(
-          tx,
-          tableName,
-          payload.fieldKey,
-          payload.value,
-          event.aggregateId,
-          event.tenantId,
-        );
-      },
-      [clearedEventType]: async (event, tx) => {
-        // skip: MSP feuert für alle aggregate-types — nur unsere host-entity
-        // verarbeiten.
-        if (event.aggregateType !== entityName) return;
-        const payload = event.payload as CustomFieldClearedPayload; // @cast-boundary engine-payload
-
-        // jsonb minus operator (`-`) entfernt key aus jsonb-object.
-        const tableName = extractTableName(entityTable, "custom-fields/wire-for-entity");
-        await clearCustomFieldKey(
-          tx,
-          tableName,
-          payload.fieldKey,
-          event.aggregateId,
-          event.tenantId,
-        );
-      },
-      [fieldDefDeletedType]: async (event, tx) => {
-        // fieldDefinition.deleted fires nur einmal pro fieldDef-delete
-        // (NICHT per-entity). Wir entfernen den key aus ALLEN rows der host-
-        // entity falls die deleted-fieldDef für diese entity galt.
-        const payload = event.payload as {
-          entityName: string;
-          fieldKey: string;
-          tenantId?: TenantId;
-        }; // @cast-boundary engine-payload
-        // skip: fieldDefinition.deleted feuert für ALLE fieldDefs cross-entity;
-        // nur wenn die deleted-fieldDef diese host-entity betraf, cleanen wir
-        // ihre Rows.
-        if (payload.entityName !== entityName) return;
-
-        const tableName = extractTableName(entityTable, "custom-fields/wire-for-entity");
-        // Scope cleanup to the deleted definition's owning tenant. System-scope
-        // definitions apply to every tenant → cascade across all rows; tenant-
-        // scope deletions must only touch that tenant's rows, else deleting one
-        // tenant's field strips the same kebab key from every tenant (data loss).
-        // Fallback to the event's stream tenantId for events appended before the
-        // payload carried tenantId.
-        const defTenantId = payload.tenantId ?? event.tenantId;
-        if (isSystemTenant(defTenantId)) {
-          await removeCustomFieldKeyFromAllTenants(tx, tableName, payload.fieldKey);
-        } else {
-          await removeCustomFieldKeyForTenant(tx, tableName, payload.fieldKey, defTenantId);
-        }
-      },
+  // Rebuild-wiring (#759): ohne das replayt rebuildProjection nur die
+  // entity-lifecycle-Events und resettet jede customFields-jsonb auf ihr
+  // Default `{}` — die Werte existieren ausschließlich als customField.set/
+  // .cleared-Events. set/cleared reiten auf dem HOST-entity-Stream
+  // (aggregateType = entityName, von source schon abgedeckt);
+  // fieldDefinition.deleted lebt auf dem "field-definition"-Stream und
+  // kommt deshalb als extra source dazu.
+  r.extendEntityProjection(entityName, {
+    sources: [FIELD_DEFINITION_AGGREGATE_TYPE],
+    apply: {
+      [setEventType]: applyCustomFieldSet,
+      [clearedEventType]: applyCustomFieldCleared,
+      [fieldDefDeletedType]: applyFieldDefinitionDeleted,
     },
   });
 
