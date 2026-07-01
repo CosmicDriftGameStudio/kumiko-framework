@@ -46,6 +46,7 @@ import {
 import { computeCutoff, type Instant } from "./keep-for";
 import type { RetentionPresetKey } from "./presets";
 import { resolveRetentionPolicyForTenant } from "./resolve-for-tenant";
+import { tenantRetentionOverrideTable } from "./schema/tenant-retention-override";
 
 const DEFAULT_BATCH_LIMIT = 1000;
 const DEFAULT_REFERENCE_FIELD = "createdAt";
@@ -127,6 +128,16 @@ export async function runRetentionCleanup(
   const systemUser = createSystemUser(tenantId);
   const tdb = createTenantDb(db, tenantId, "system");
 
+  // Pre-load every override row for this tenant ONCE — N entities × M
+  // tenants would otherwise mean one fetchOne per entity per tenant, even
+  // though the whole set for a tenant is a single small, indexed read.
+  const overrideRows = await selectMany<{ entityName: string; config: string | null }>(
+    db,
+    tenantRetentionOverrideTable,
+    { tenantId },
+  );
+  const overrideByEntity = new Map(overrideRows.map((r) => [r.entityName, { config: r.config }]));
+
   for (const proj of registry.getAllProjections().values()) {
     // Nur implicit-Entity-Projektionen mit Tabelle — wie soft-delete-cleanup.
     // Custom-Projektionen + unmanaged-Tables (z.B. sessions) sind kein Target.
@@ -139,6 +150,7 @@ export async function runRetentionCleanup(
       tenantId,
       entityName,
       tenantPreset,
+      preloadedOverride: overrideByEntity.get(entityName) ?? null,
     });
     const policy = resolved.policy;
     if (!policy) continue;

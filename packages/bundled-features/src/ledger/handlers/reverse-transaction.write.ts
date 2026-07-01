@@ -1,8 +1,14 @@
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  ConflictError,
+  NotFoundError,
+  UnprocessableError,
+  writeFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { DEFAULT_LEDGER_ACCESS } from "../constants";
-import { transactionExecutor } from "../executor";
+import { transactionExecutor, transactionTable } from "../executor";
 import { normalizeLines } from "../reports";
 import { type ReverseTransactionPayload, reverseTransactionPayloadSchema } from "../schemas";
 
@@ -23,6 +29,35 @@ export function createReverseTransactionHandler(
 
       const original = await transactionExecutor.detail({ id: payload.id }, event.user, ctx.db);
       if (!original) return writeFailure(new NotFoundError("transaction", payload.id));
+
+      // Only a posted entry contributes to the books (rawBalances skips
+      // anything else) — reversing a draft would book a real, balanced
+      // Storno entry against a booking that was never counted, creating a
+      // phantom balance with no corresponding original.
+      if (original["status"] !== "posted") {
+        return writeFailure(
+          new UnprocessableError("transaction_not_posted", {
+            details: { transactionId: payload.id, status: original["status"] },
+          }),
+        );
+      }
+
+      // Dedup guard: two reverse() calls on the same original would each book
+      // an independently-balanced Storno (the global trial balance stays 0
+      // either way, masking the bug), doubling the per-account effect. The
+      // reference column ties a Storno back to its original 1:1.
+      const alreadyReversed = await selectMany(ctx.db.raw, transactionTable, {
+        tenantId: event.user.tenantId,
+        reference: payload.id,
+      });
+      if (alreadyReversed.length > 0) {
+        return writeFailure(
+          new ConflictError({
+            message: "transaction already reversed",
+            details: { transactionId: payload.id },
+          }),
+        );
+      }
 
       // jsonb `lines` may surface as a parsed array or a JSON string depending
       // on the driver path — normalizeLines handles both (see reports.ts).

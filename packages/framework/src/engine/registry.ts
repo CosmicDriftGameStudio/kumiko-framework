@@ -10,7 +10,9 @@ import { buildMetricName, validateMetricName } from "../observability";
 import { type QnType, qualifyEntityName } from "./qualified-name";
 import {
   buildSoftDeleteCleanupJob,
+  buildSoftDeleteCleanupSystemJob,
   SOFT_DELETE_CLEANUP_JOB,
+  SOFT_DELETE_CLEANUP_SYSTEM_JOB,
   SOFT_DELETE_GRACE_DAYS_KEY,
   softDeleteGraceDaysConfig,
 } from "./soft-delete-cleanup";
@@ -1337,6 +1339,9 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   if ([...entityMap.values()].some((e) => e.softDelete)) {
     if (!jobMap.has(SOFT_DELETE_CLEANUP_JOB)) {
       jobMap.set(SOFT_DELETE_CLEANUP_JOB, buildSoftDeleteCleanupJob());
+    }
+    if (!jobMap.has(SOFT_DELETE_CLEANUP_SYSTEM_JOB)) {
+      jobMap.set(SOFT_DELETE_CLEANUP_SYSTEM_JOB, buildSoftDeleteCleanupSystemJob());
     }
     if (!configKeyMap.has(SOFT_DELETE_GRACE_DAYS_KEY)) {
       configKeyMap.set(SOFT_DELETE_GRACE_DAYS_KEY, softDeleteGraceDaysConfig);

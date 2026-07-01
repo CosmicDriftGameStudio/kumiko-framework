@@ -55,11 +55,17 @@ describe("ctx.tz — GeoTzProvider seam", () => {
   test("fromAddress wirft wenn der Provider kein fromAddress hat (offline lat/lng)", async () => {
     const provider: GeoTzProvider = { fromCoordinates: () => "UTC" };
     const tz = createTzContext({ geoTz: provider });
-    await expect(tz.fromAddress({ country: "PT" })).rejects.toThrow(/fromAddress/);
+    // Regression (680/2): this message must say the PROVIDER lacks
+    // fromAddress, not the misleading "no provider configured" message.
+    await expect(tz.fromAddress({ country: "PT" })).rejects.toThrow(
+      /GeoTzProvider that implements fromAddress/,
+    );
   });
 
-  test("fromAddress wirft ohne Provider", async () => {
+  test("fromAddress wirft ohne Provider — eigene Message, nicht die Provider-ohne-fromAddress-Message", async () => {
     const tz = createTzContext();
-    await expect(tz.fromAddress({ country: "PT" })).rejects.toThrow(/GeoTzProvider/);
+    await expect(tz.fromAddress({ country: "PT" })).rejects.toThrow(
+      /requires a GeoTzProvider — inject one/,
+    );
   });
 });

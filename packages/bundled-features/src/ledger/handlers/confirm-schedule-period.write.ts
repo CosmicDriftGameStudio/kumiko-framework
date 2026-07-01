@@ -58,24 +58,28 @@ export function createConfirmSchedulePeriodHandler(
 
       const reference = scheduleReference(payload.scheduleId, payload.period);
 
-      // Scan this tenant's transactions (same full-tenant read the reports do) to
-      // find an active booking for this reference. A tx is reversed when another
-      // tx's reference names its id (the Storno mirror).
+      // Two targeted reads instead of a full-tenant transaction scan: (1) any
+      // booking that already carries this exact schedule-period reference —
+      // normally 0 or 1 row, never O(tenant's-full-history); (2) any Storno
+      // that mirrors one of those candidates (a tx is reversed when ANOTHER
+      // tx's `reference` names its id).
       // ponytail: read-then-write, so two confirms racing the same period could
       // double-book; add a unique index on (tenantId, reference) when concurrent
       // confirms become real.
-      const txRows = await selectMany(ctx.db.raw, transactionTable, {
+      const candidates = await selectMany(ctx.db.raw, transactionTable, {
         tenantId: event.user.tenantId,
+        reference,
       });
-      const txIds = new Set(txRows.map((r) => String(r["id"])));
-      const reversedTxIds = new Set(
-        txRows
-          .filter((r) => r["reference"] != null && txIds.has(String(r["reference"])))
-          .map((r) => String(r["reference"])),
-      );
-      const active = txRows.find(
-        (r) => r["reference"] === reference && !reversedTxIds.has(String(r["id"])),
-      );
+      const candidateIds = candidates.map((r) => String(r["id"]));
+      const stornos =
+        candidateIds.length > 0
+          ? await selectMany(ctx.db.raw, transactionTable, {
+              tenantId: event.user.tenantId,
+              reference: { in: candidateIds },
+            })
+          : [];
+      const reversedCandidateIds = new Set(stornos.map((r) => String(r["reference"])));
+      const active = candidates.find((r) => !reversedCandidateIds.has(String(r["id"])));
       if (active) {
         const ok: WriteResult<{ id: string; alreadyBooked: true }> = {
           isSuccess: true,

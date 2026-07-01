@@ -17,7 +17,11 @@ export function warnIfNonUtcServerTimeZone(
   // biome-ignore lint/suspicious/noConsole: boot-time warning, no logger wired this early
   warn: (message: string) => void = console.warn,
 ): boolean {
-  if (resolvedTimeZone === "UTC") return false;
+  // GMT and Etc/UTC are UTC-equivalent (no offset, no DST) — TZ=GMT is a
+  // legitimate way to pin a process to UTC and must not trip this warning.
+  if (resolvedTimeZone === "UTC" || resolvedTimeZone === "GMT" || resolvedTimeZone === "Etc/UTC") {
+    return false;
+  }
   warn(
     `[kumiko] Server time zone is "${resolvedTimeZone}" — the framework assumes UTC. ` +
       "Set TZ=UTC for the server process to avoid time-zone-dependent bugs.",

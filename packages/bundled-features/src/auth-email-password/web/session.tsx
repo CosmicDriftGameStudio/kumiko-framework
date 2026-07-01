@@ -44,7 +44,11 @@ export type SessionApi = SessionState & {
   readonly switchTenant: (tenantId: string) => Promise<void>;
 };
 
-const UNAUTHENTICATED: SessionState = {
+// Exported so screens that render on BOTH authenticated and anonymous public
+// routes (e.g. InviteAcceptScreen) can read `.status` without requiring a
+// <SessionProvider> ancestor — see useContext(SessionContext) ?? UNAUTHENTICATED
+// in invite-accept-screen.tsx (632/1).
+export const UNAUTHENTICATED: SessionState = {
   status: "unauthenticated",
   user: null,
   activeTenantId: null,

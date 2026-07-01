@@ -21,4 +21,10 @@ describe("parseRoles", () => {
     expect(parseRoles(42)).toEqual([]);
     expect(parseRoles({ roles: ["Admin"] })).toEqual([]);
   });
+
+  test("filters out non-string entries instead of returning a type-lying array (517/1)", () => {
+    expect(parseRoles([42, "Admin", true, null])).toEqual(["Admin"]);
+    expect(parseRoles("[42, true]")).toEqual([]);
+    expect(parseRoles('[42, "Admin"]')).toEqual(["Admin"]);
+  });
 });

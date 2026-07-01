@@ -42,19 +42,20 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
       // columns carry no reference/select metadata and never server-sort.
       const derivedDef = entity.derivedFields?.[normalized.field];
       if (!derivedDef) {
-        // A labeled column with no matching stored/derived field is a *virtual*
-        // presentational column — drawn entirely by a columnRenderer component
-        // from the row (e.g. tag chips); value is undefined and it never
-        // server-sorts. `field` is just the column key. Without a label it's an
-        // author typo (or a stale field-rename) → fail loud so the renderer
-        // doesn't silently draw an empty column.
-        if (normalized.label !== undefined) {
+        // A virtual presentational column — drawn entirely by a columnRenderer
+        // component from the row (e.g. tag chips); value is undefined and it
+        // never server-sorts. `field` is just the column key. It needs BOTH a
+        // label AND a renderer — renderer is what actually draws it; a label
+        // alone with no renderer would push an empty, unrendered column into
+        // the view model. Missing either is an author typo (or a stale
+        // field-rename) → fail loud instead of silently drawing nothing.
+        if (normalized.label !== undefined && normalized.renderer !== undefined) {
           columns.push({
             field: normalized.field,
             label: translate(normalized.label),
             type: "text",
             sortable: false,
-            ...(normalized.renderer !== undefined && { renderer: normalized.renderer }),
+            renderer: normalized.renderer,
           });
           continue;
         }

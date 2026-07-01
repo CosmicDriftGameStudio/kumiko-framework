@@ -192,6 +192,32 @@ describe("folders integration — single-membership set / move / clear", () => {
   });
 });
 
+describe("folders integration — delete blocks on live assignments (658/1)", () => {
+  test("deleting a folder that still holds an assignment is rejected, row survives", async () => {
+    const f = await createFolder("occupied");
+    await setFolder(f, "credit-occupied");
+
+    const err = await stack.http.writeErr(FoldersHandlers.deleteFolder, { id: f }, admin);
+    expect(err.httpStatus).toBe(422);
+    expect((await listFolders()).some((row) => row["id"] === f)).toBe(true);
+  });
+
+  test("deleting an empty folder succeeds", async () => {
+    const f = await createFolder("empty");
+    await stack.http.writeOk(FoldersHandlers.deleteFolder, { id: f }, admin);
+    expect((await listFolders()).some((row) => row["id"] === f)).toBe(false);
+  });
+
+  test("clearing the assignment first unblocks the delete", async () => {
+    const f = await createFolder("occupied-then-cleared");
+    await setFolder(f, "credit-occupied-2");
+    await clearFolder("credit-occupied-2");
+
+    await stack.http.writeOk(FoldersHandlers.deleteFolder, { id: f }, admin);
+    expect((await listFolders()).some((row) => row["id"] === f)).toBe(false);
+  });
+});
+
 describe("folders integration — rename via folder:update", () => {
   test("update renames, optimistic-locked, bumps version", async () => {
     const id = await createFolder("Alt");

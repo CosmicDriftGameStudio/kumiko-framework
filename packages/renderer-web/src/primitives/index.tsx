@@ -1463,6 +1463,11 @@ function DefaultSection({ title, subtitle, children, actions, testId }: SectionP
 
   // Standalone: eigene Card, Header fließt in den Body (kein Divider).
   // actions = abgehobene Footer-Row (border-t bg-muted/30, wie DefaultForm).
+  // overflow-hidden clips the footer-corner radius correctly for portaled
+  // overlays (Combobox/Select/Tooltip escape to document.body, unaffected).
+  // A non-portaled overlay (e.g. a custom dropdown built directly into
+  // `children`) WOULD get silently clipped — verify this against any new
+  // standalone-section content that renders its own non-portaled overlay.
   return (
     <Card data-testid={testId} className="gap-0 overflow-hidden rounded-lg py-0">
       <CardContent className="flex flex-col gap-4 px-6 py-6">

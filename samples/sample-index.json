@@ -8,7 +8,7 @@
         "recipes-user-profile"
       ],
       "hasVisualOutput": false,
-      "readmeSummary": "Four public routes: — /login, /signup, /forgot-password,",
+      "readmeSummary": "Four public routes: — /login, /signup, /forgot-password, /delete-account (+ confirm) using bundled auth screens. - **createPublicSurface** — stacks clientFeatures providers and i18n only, **not** their gates (an AuthGate would lock the public surface). - **AuthShellProvider** — auth card inside marketing chrome instead of fullscreen (optional; default fullscreen still works). - **composeApexAccountApp()** — server feature list for all four flows. - **Anonymous deletion** — email-verified magic-link flow when the user cannot log in (GDPR Art. 17 lockout case). - **anonymousAccess** — lets unauthenticated /api/write hit anonymous handlers on the apex host tenant.",
       "primarySample": "recipes-apex-surface-auth",
       "whenToUse": "Users sign in with email and password — login, signup, verification, and password reset on your apex surface or behind AuthGate in the admin app.",
       "sampleBlurb": "Walks through login, signup, password reset, and email verification on the public apex surface — copy the AuthGate mount and handler wiring into your app.",
@@ -55,7 +55,7 @@
         "recipes-user-profile"
       ],
       "hasVisualOutput": true,
-      "readmeSummary": "How a multi-tenant platform uses compliance-profiles to deliver different",
+      "readmeSummary": "How a multi-tenant platform uses compliance-profiles to deliver different regulatory behaviour per tenant:",
       "primarySample": "recipes-compliance-profiles-demo",
       "whenToUse": "Each tenant follows a different regulatory regime (EU, CH, HR) without forking app code — profiles drive retention, grace periods, and audit obligations.",
       "sampleBlurb": "Tenant picks EU, CH, or HR profile — retention rules and audit obligations follow the profile without branching your app code.",
@@ -83,7 +83,7 @@
         "recipes-custom-fields-basic"
       ],
       "hasVisualOutput": true,
-      "readmeSummary": "customFieldsField(): — a jsonb column factory that holds the",
+      "readmeSummary": "customFieldsField(): — a jsonb column factory that holds the per-row custom field values. Add it to any entity you want custom-field-capable. - **wireCustomFieldsFor(r, entityName, table)** — wires the bundle's projection: a multi-stream projection consumes customField.set / .cleared events and writes them into the jsonb column, and an entity-postQuery hook flattens the jsonb onto the row at read-time. - **No migrations at runtime** — the schema for custom fields lives in two bundled tables (field-definition for the spec, jsonb on the host row for the values). Defining a field is a write, not a DDL. - **Stammfeld-look on the response** — reads return { id, name, internalNumber: \"X-2042\" }. The consumer can't tell which fields are first-class and which are custom.",
       "primarySample": "recipes-custom-fields-basic",
       "whenToUse": "Entities need tenant-defined extra columns without schema migrations — customFieldsField() stores typed extensions in jsonb with validation and CRUD wiring.",
       "sampleBlurb": "Full define → set → read roundtrip on a property entity via wireCustomFieldsFor — tenants add fields without a migration.",
@@ -140,7 +140,11 @@
         "apps-user-data-rights-demo"
       ],
       "hasVisualOutput": true,
-      "readmeSummary": "Sample app showing how a Kumiko app wires **user-data-rights** (DSGVO Art. 15+17+18+20) into a custom domain — here a tiny todo-list. The domain feature only registers an `EXT_USER_DATA` hook per entity; export bundling, forget cleanup, restriction and audit-log come from `user-data-rights` itself."
+      "readmeSummary": "Sample app showing how a Kumiko app wires **user-data-rights** (DSGVO Art. 15+17+18+20) into a custom domain — here a tiny todo-list. The domain feature only registers an `EXT_USER_DATA` hook per entity; export bundling, forget cleanup, restriction and audit-log come from `user-data-rights` itself.",
+      "primarySample": "apps-user-data-rights-demo",
+      "whenToUse": "Single-bucket S3-compatible deploys (e.g. Hetzner Object Storage) need one shared credential set — file-provider-s3-env reads S3_BUCKET/S3_REGION/S3_ACCESS_KEY/S3_SECRET_KEY from process.env instead of per-tenant config.",
+      "sampleBlurb": "Env-configured S3 file provider — one shared bucket for every tenant, no per-tenant config or secret seeding.",
+      "screenshot": null
     },
     "files": {
       "samples": [
@@ -241,7 +245,7 @@
         "recipes-tags-basic"
       ],
       "hasVisualOutput": true,
-      "readmeSummary": "Zero host changes: — note has no tag column, no wireTagsFor, no",
+      "readmeSummary": "Zero host changes: — note has no tag column, no wireTagsFor, no tag awareness. Tagging works anyway, because the tags feature owns its own tables. - **tags:write:create-tag** — adds a tag to the tenant's catalog (read_tags). Takes an optional color (rendered as a colored chip by the web UI) and an optional scope (empty = global, or an entity type to restrict it to). Returns the tag's id. - **tags:write:update-tag / delete-tag** — rename / recolor / re-scope a tag (optimistic-locked), or delete it (cascades over its assignments). - **tags:write:assign-tag / remove-tag** — link/unlink a tag and an entity by { tagId, entityType, entityId }. Both are idempotent: re-assigning is a no-op, removing a non-existent link still succeeds. - **Read-layer composition, no JOIN** — \"tags of a note\" lists tag-assignment filtered by entityId; \"notes with a tag\" filters by tagId. The app composes the two reads; there is no relational pivot.",
       "primarySample": "recipes-tags-basic",
       "whenToUse": "Users label records with a shared tag vocabulary — mount tags once and attach tag sets to any entity without a custom join table per feature.",
       "sampleBlurb": "Tag a plain note entity with zero host changes — assign/remove handlers, read-layer composition, and optional TagSection UI.",
@@ -253,7 +257,7 @@
         "recipes-user-profile"
       ],
       "hasVisualOutput": false,
-      "readmeSummary": "user-profile:write:change-email: — re-authenticated email change;",
+      "readmeSummary": "user-profile:write:change-email: — re-authenticated email change; resets emailVerified until the user confirms the new address. - **auth-email-password:write:change-password** — used from the same screen; lives on auth-email-password, not duplicated in user-profile. - **Account deletion** — user-data-rights handlers for request / cancel deletion; grace period comes from the tenant's compliance profile. - **App-side screen declaration** — r.screen({ type: \"custom\", renderer: { react: { __component: \"UserProfileScreen\" } } }) plus matching components map on the client. - **Full require chain** — user → tenant → auth-email-password → user-data-rights (which pulls data-retention, compliance-profiles, sessions). composeAccountApp() mounts everything boot needs.",
       "primarySample": "recipes-user-profile",
       "whenToUse": "Your app serves multiple organizations — tenants, memberships, and roles scope every query and write.",
       "sampleBlurb": "Multi-tenant memberships and roles — profile screen switches tenant context and scopes queries to the active membership.",
@@ -275,7 +279,7 @@
         "recipes-tier-admin"
       ],
       "hasVisualOutput": true,
-      "readmeSummary": "tier-engine:write:set-tenant-tier: — a SystemAdmin assigns a tier",
+      "readmeSummary": "tier-engine:write:set-tenant-tier: — a SystemAdmin assigns a tier to *any* tenant, cross-tenant. Stamps source: \"manual\" so a future Stripe → tier sync won't overwrite the grant. - **tier-engine:query:get-tenant-tier** — SystemAdmin reads back which tier a tenant is on plus its source (\"manual\" vs \"billing\"). - **tier-engine:query:tier-options** — lists the configured tier names so the admin UI doesn't have to hard-code them. - **notes-export** — a r.toggleable() feature the pro tier unlocks. It appears in a tenant's effective-features set only when its tier lists it (pro does, free does not). - **Cache-sync invariant** — the manual grant updates the resolver cache the same request, not just the projection. notes-export is in the tenant's effective set immediately after the set call — same request, before any cache refresh, replay, or restart.",
       "primarySample": "recipes-tier-admin",
       "whenToUse": "Plans, caps, and paid feature toggles must follow a tenant's tier — including manual operator grants without a billing webhook.",
       "sampleBlurb": "Manual tier grants and feature toggles per plan — admin handlers and UI without waiting for a billing webhook.",
@@ -288,7 +292,7 @@
         "recipes-user-profile"
       ],
       "hasVisualOutput": false,
-      "readmeSummary": "user-profile:write:change-email: — re-authenticated email change;",
+      "readmeSummary": "user-profile:write:change-email: — re-authenticated email change; resets emailVerified until the user confirms the new address. - **auth-email-password:write:change-password** — used from the same screen; lives on auth-email-password, not duplicated in user-profile. - **Account deletion** — user-data-rights handlers for request / cancel deletion; grace period comes from the tenant's compliance profile. - **App-side screen declaration** — r.screen({ type: \"custom\", renderer: { react: { __component: \"UserProfileScreen\" } } }) plus matching components map on the client. - **Full require chain** — user → tenant → auth-email-password → user-data-rights (which pulls data-retention, compliance-profiles, sessions). composeAccountApp() mounts everything boot needs.",
       "primarySample": "recipes-user-profile",
       "whenToUse": "One person can belong to multiple tenants with different roles — the user feature holds the cross-tenant identity.",
       "sampleBlurb": "Cross-tenant user identity above memberships — email, roles, and verification flags shared across organizations.",
@@ -302,7 +306,7 @@
         "recipes-user-profile"
       ],
       "hasVisualOutput": true,
-      "readmeSummary": "A minimal notes domain with GDPR Art. 15+17+20 integrated without hand-written",
+      "readmeSummary": "A minimal notes domain with GDPR Art. 15+17+20 integrated without hand-written forget logic:",
       "primarySample": "recipes-user-data-rights",
       "whenToUse": "GDPR export, deletion, and restriction must work for your domain entities — register hooks once, the framework runs ZIP export and forget cleanup.",
       "sampleBlurb": "Register export and forget hooks on your entities — framework runs ZIP export and deletion pipeline with audit trail.",
@@ -324,7 +328,7 @@
         "recipes-user-profile"
       ],
       "hasVisualOutput": true,
-      "readmeSummary": "user-profile:write:change-email: — re-authenticated email change;",
+      "readmeSummary": "user-profile:write:change-email: — re-authenticated email change; resets emailVerified until the user confirms the new address. - **auth-email-password:write:change-password** — used from the same screen; lives on auth-email-password, not duplicated in user-profile. - **Account deletion** — user-data-rights handlers for request / cancel deletion; grace period comes from the tenant's compliance profile. - **App-side screen declaration** — r.screen({ type: \"custom\", renderer: { react: { __component: \"UserProfileScreen\" } } }) plus matching components map on the client. - **Full require chain** — user → tenant → auth-email-password → user-data-rights (which pulls data-retention, compliance-profiles, sessions). composeAccountApp() mounts everything boot needs.",
       "primarySample": "recipes-user-profile",
       "whenToUse": "Logged-in users change password, email, or schedule account deletion from a bundled self-service profile screen.",
       "sampleBlurb": "Self-service password, email change, and account deletion screen — bundled client route you mount in the admin app.",

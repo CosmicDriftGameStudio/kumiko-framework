@@ -34,11 +34,13 @@ import {
   collectKnownRoles,
   collectNavQns,
   collectScreenQns,
+  collectScreensByShortId,
   collectWorkspaceQns,
   collectWriteHandlerQns,
   validateDefaultWorkspaceUniqueness,
   validateNavCycles,
   validateNavs,
+  validateScreenShortIdCollisions,
   validateScreens,
   validateWorkspaces,
 } from "./screens-nav";
@@ -111,6 +113,8 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
   const allNavQns = collectNavQns(features);
   const allWorkspaceQns = collectWorkspaceQns(features);
   const allWriteHandlerQns = collectWriteHandlerQns(features);
+  const screensByShortId = collectScreensByShortId(features);
+  validateScreenShortIdCollisions(screensByShortId);
 
   // Cross-feature API exposure-map — jedes Feature deklariert Marker via
   // r.exposesApi(name). Per-feature validateApiExposureMatching walkt
@@ -156,7 +160,14 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     validateConfigKeyBacking(feature);
     validateOwnershipRules(feature, allClaimKeys, knownRoles);
     validateMultiStreamProjections(feature);
-    validateScreens(feature, featureMap, allWriteHandlerQns, allScreenQns, allConfigKeyQns);
+    validateScreens(
+      feature,
+      featureMap,
+      allWriteHandlerQns,
+      allScreenQns,
+      allConfigKeyQns,
+      screensByShortId,
+    );
     validateNavs(feature, allScreenQns, allNavQns, allWorkspaceQns);
     validateWorkspaces(feature, allNavQns);
   }

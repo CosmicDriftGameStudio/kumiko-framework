@@ -562,6 +562,13 @@ export type DerivedFieldDef = {
 
 export type DerivedFieldsMap = Readonly<Record<string, DerivedFieldDef>>;
 
+/** Client-facing projection of DerivedFieldDef — `derive` is server-only and
+ *  not JSON-safe (would trip the output-walk guard), so the browser schema
+ *  only ever carries `valueType`. A real `Pick`, not a same-shape cast: TS
+ *  itself proves `derive` isn't there instead of a `{ valueType } as
+ *  DerivedFieldDef` cast lying about a field that's actually missing. */
+export type ClientDerivedFieldDef = Pick<DerivedFieldDef, "valueType">;
+
 // --- Entity ---
 
 // --- State Transitions ---

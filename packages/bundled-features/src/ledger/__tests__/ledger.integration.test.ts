@@ -188,6 +188,50 @@ describe("ledger integration — reverse-transaction (Storno)", () => {
     // Original + Storno cancel → books net to zero.
     expect(trialBalance(rows)).toBe(0);
   });
+
+  test("reversing a draft transaction is rejected (only posted entries count)", async () => {
+    const bank = await createAccount("Bank Draft", "asset");
+    const rent = await createAccount("Draft Income", "income");
+    const draft = await stack.http.writeOk<{ id: string }>(
+      LedgerHandlers.createTransaction,
+      {
+        date: "2026-01-15",
+        description: "Draft entry",
+        status: "draft",
+        lines: [
+          { accountId: bank, amount: 5000 },
+          { accountId: rent, amount: -5000 },
+        ],
+      },
+      admin,
+    );
+
+    const err = await stack.http.writeErr(
+      LedgerHandlers.reverseTransaction,
+      { id: draft.id },
+      admin,
+    );
+    expect(err.code).toBe("unprocessable");
+
+    // No Storno booked — the draft is the only row.
+    expect(await listTransactions()).toHaveLength(1);
+  });
+
+  test("reversing the same transaction twice is rejected on the second call", async () => {
+    const bank = await createAccount("Bank Dup", "asset");
+    const rent = await createAccount("Dup Income", "income");
+    const tx = await createTransaction([
+      { accountId: bank, amount: 20000 },
+      { accountId: rent, amount: -20000 },
+    ]);
+
+    await stack.http.writeOk(LedgerHandlers.reverseTransaction, { id: tx.id }, admin);
+    const err = await stack.http.writeErr(LedgerHandlers.reverseTransaction, { id: tx.id }, admin);
+    expect(err.code).toBe("conflict");
+
+    // Original + exactly ONE Storno — a second reverse must not book again.
+    expect(await listTransactions()).toHaveLength(2);
+  });
 });
 
 describe("ledger integration — trial balance (golden invariant)", () => {

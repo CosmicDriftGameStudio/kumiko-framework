@@ -84,7 +84,6 @@ import {
   findTierResolverUsage,
   type NotifyFactory,
   type Registry,
-  type TenantId,
   type TierResolverPlugin,
   validateAppCustomScreenWriteQns,
   validateBoot,
@@ -170,10 +169,11 @@ export function requireEnv(
 ): string {
   const value = src[name];
   if (value === undefined || value === "") {
-    throw new Error(
-      `${context}: required env var "${name}" is missing or empty. ` +
-        `Set it in your container env / .env.production / Coolify secrets.`,
-    );
+    const advice =
+      context === "runProdApp"
+        ? "Set it in your container env / .env.production / Coolify secrets."
+        : "Set it in your .env / shell before running the dev server.";
+    throw new Error(`${context}: required env var "${name}" is missing or empty. ${advice}`);
   }
   return value;
 }
@@ -523,7 +523,7 @@ export type RunProdAppOptions = {
    *  liche features aktiv via globalFeatureToggleRuntime. Pattern:
    *  createLateBoundHolder + post-boot runtime.initialize in einem
    *  seed-fn (db ist erst nach migrations + features ready). */
-  readonly effectiveFeatures?: (tenantId: TenantId) => ReadonlySet<string>;
+  readonly effectiveFeatures?: EffectiveFeaturesResolver;
   /** Composed Zod-schema for env-validation (from `composeEnvSchema({
    *  features, extend })` in @cosmicdrift/kumiko-framework/env). When set:
    *  - `process.env` is parsed against it BEFORE any boot work; missing
