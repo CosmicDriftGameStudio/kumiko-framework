@@ -1,10 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import type { EntityTableMeta } from "../../db/entity-table-meta";
 import { deleteManyBatched } from "../query";
 
 describe("deleteManyBatched (mock)", () => {
   test("requires non-empty where", async () => {
-    const meta = {
-      source: "unmanaged" as const,
+    const meta: EntityTableMeta = {
+      source: "unmanaged",
       tableName: "read_items",
       indexes: [],
       columns: [

@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { updateRows } from "@cosmicdrift/kumiko-framework/testing";
 import { z } from "zod";
 import { createEventStoreExecutor } from "../db/event-store-executor";
-import { selectMany, updateMany } from "../db/query";
+import { selectMany } from "../db/query";
 import { defineFeature, type EntityId, type HandlerContext, type SaveContext } from "../engine";
 import { UnprocessableError, writeFailure } from "../errors";
 import { eventsTable } from "../event-store";
@@ -715,7 +716,7 @@ describe("full stack: entity cache", () => {
     await stack.http.queryOk("users:query:user:detail", { id }, adminUser);
 
     // Raw DB update — bypasses cache invalidation
-    await updateMany(stack.db, userTable, { firstName: "RawDbChange" }, { id: id });
+    await updateRows(stack.db, userTable, { firstName: "RawDbChange" }, { id: id });
 
     // Detail still returns cached (old) value
     const stale = await stack.http.queryOk<Record<string, unknown>>(

@@ -11,7 +11,7 @@
 //     fileRef-Forget beruehrt Tenant B's Files nicht)
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
   setupTestStack,
@@ -19,6 +19,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createFilesFeature } from "../../files";
@@ -80,7 +81,7 @@ async function seedUser(id: string, overrides: Record<string, unknown> = {}): Pr
   // Schema hat tenant_id-Spalte automatisch (Framework-Default).
   // Pragmatisch: SYSTEM_TENANT_ID fuer User-Rows in Tests.
   const SYSTEM_TENANT = "00000000-0000-4000-8000-000000000001";
-  await insertOne(stack.db, userTable, {
+  await seedRow(stack.db, userTable, {
     id,
     tenantId: SYSTEM_TENANT,
     email: `user-${id}@example.com`,

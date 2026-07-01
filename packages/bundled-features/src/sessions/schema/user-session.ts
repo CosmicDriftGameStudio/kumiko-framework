@@ -1,4 +1,4 @@
-import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createEntity,
@@ -64,4 +64,10 @@ export const userSessionEntity = createEntity({
   },
 });
 
-export const userSessionTable = buildEntityTable("user_session", userSessionEntity);
+// Plain EntityTableMeta, NOT a branded EntityTable: user-session is an
+// unmanaged direct-write store (r.unmanagedTable in feature.ts, no event
+// stream — revocation is a column write, not an aggregate). The feature's
+// handlers write it directly via ctx.db; the meta carries no executor-only
+// brand so those writes stay legal. See feature.ts for the rebuild-exclusion
+// rationale (#494/#498).
+export const userSessionTable = buildEntityTableMeta("user-session", userSessionEntity);

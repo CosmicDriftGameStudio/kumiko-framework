@@ -26,7 +26,6 @@
 //   4. user wird anonymisiert (display_name="(deleted)", email=null)
 
 import {
-  buildEntityTable,
   buildEntityTableMeta,
   deleteMany,
   insertOne,
@@ -59,7 +58,10 @@ export const todoEntity = createEntity({
   },
 });
 
-export const todosTable = buildEntityTable("todo", todoEntity);
+// Plain EntityTableMeta, NOT a branded EntityTable: read_todos is a deliberate
+// unmanaged direct-write store (r.unmanagedTable below), so the create handler +
+// forget hook write it directly — the meta carries no executor-only brand.
+export const todosTable = buildEntityTableMeta("todo", todoEntity);
 
 const createSchema = z.object({
   title: z.string().min(1).max(200),

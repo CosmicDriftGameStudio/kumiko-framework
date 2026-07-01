@@ -31,6 +31,7 @@ export {
   createRecordingProvider,
   type RecordingProvider,
 } from "./observability-recorder";
+export { deleteRows, seedRow, seedRows, updateRows } from "./seed";
 export {
   sharedItemEntity,
   sharedItemTable,

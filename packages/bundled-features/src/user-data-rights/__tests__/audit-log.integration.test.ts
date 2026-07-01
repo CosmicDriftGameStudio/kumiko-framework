@@ -1,7 +1,7 @@
 // S2.U7 — my-audit-log + invalid-attempt-audit + list-download-attempts.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, insertMany, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -10,7 +10,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import { resetTestTables, seedRow, seedRows } from "@cosmicdrift/kumiko-framework/testing";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
@@ -64,7 +64,7 @@ beforeEach(async () => {
 });
 
 async function seedUser(u: typeof alice, email: string): Promise<void> {
-  await insertOne(stack.db, userTable, {
+  await seedRow(stack.db, userTable, {
     id: u.id,
     tenantId: u.tenantId,
     email,
@@ -180,7 +180,7 @@ describe("list-download-attempts (DPO operator-query)", () => {
     // Direct-INSERT in attempts (simuliert was die download-handler schreiben).
     const T = await import("@cosmicdrift/kumiko-framework/time");
     const now = T.getTemporal().Now.instant();
-    await insertMany(stack.db, downloadAttemptsTable, [
+    await seedRows(stack.db, downloadAttemptsTable, [
       {
         id: "11111111-1111-4111-8111-111111111111",
         tenantId: tenantA,

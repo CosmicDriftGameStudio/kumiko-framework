@@ -32,7 +32,10 @@ function resolveClearableTable(table: ClearableTable): unknown {
 /** Delete all rows from each table (order preserved — FK-sensitive callers order explicitly). */
 export async function clearTables(db: AnyDb, tables: readonly ClearableTable[]): Promise<void> {
   for (const table of tables) {
-    await deleteMany(db, resolveClearableTable(table), {});
+    // Test-teardown truncate: resolveClearableTable returns `unknown` (string
+    // name or table object). The brand-strip cast is the sanctioned bypass —
+    // clearing a managed projection between tests is not a production write.
+    await deleteMany(db, resolveClearableTable(table) as EntityTableMeta, {});
   }
 }
 

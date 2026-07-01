@@ -57,9 +57,9 @@ export function createJobsFeature(): FeatureDefinition {
       table: jobRunsTable,
       apply: {
         [JOB_RUN_STARTED_EVENT]: defineApply<z.infer<typeof runStartedSchema>>(
-          async (event, tx) => {
+          async (event, tx, table) => {
             const p = event.payload;
-            await insertOne(tx, jobRunsTable, {
+            await insertOne(tx, table, {
               id: event.aggregateId,
               tenantId: event.tenantId,
               version: event.version,
@@ -76,11 +76,11 @@ export function createJobsFeature(): FeatureDefinition {
           },
         ),
         [JOB_RUN_COMPLETED_EVENT]: defineApply<z.infer<typeof runCompletedSchema>>(
-          async (event, tx) => {
+          async (event, tx, table) => {
             const p = event.payload;
             await updateMany(
               tx,
-              jobRunsTable,
+              table,
               {
                 status: "completed",
                 duration: p.duration,
@@ -93,23 +93,25 @@ export function createJobsFeature(): FeatureDefinition {
             );
           },
         ),
-        [JOB_RUN_FAILED_EVENT]: defineApply<z.infer<typeof runFailedSchema>>(async (event, tx) => {
-          const p = event.payload;
-          await updateMany(
-            tx,
-            jobRunsTable,
-            {
-              status: "failed",
-              error: p.error,
-              duration: p.duration,
-              finishedAt: Temporal.Instant.from(p.finishedAt),
-              version: event.version,
-              modifiedAt: event.createdAt,
-              modifiedById: event.metadata?.userId ?? "system",
-            },
-            { id: event.aggregateId },
-          );
-        }),
+        [JOB_RUN_FAILED_EVENT]: defineApply<z.infer<typeof runFailedSchema>>(
+          async (event, tx, table) => {
+            const p = event.payload;
+            await updateMany(
+              tx,
+              table,
+              {
+                status: "failed",
+                error: p.error,
+                duration: p.duration,
+                finishedAt: Temporal.Instant.from(p.finishedAt),
+                version: event.version,
+                modifiedAt: event.createdAt,
+                modifiedById: event.metadata?.userId ?? "system",
+              },
+              { id: event.aggregateId },
+            );
+          },
+        ),
       },
     });
 

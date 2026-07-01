@@ -2,8 +2,8 @@
 // `@cosmicdrift/kumiko-bundled-features/template-resolver/testing`.
 // No bun:test here — callers register cases with their own test runner.
 
-import { insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import type { ResolveRequest, TemplateResource } from "./api";
 import { TemplateNotFoundError } from "./api";
 import {
@@ -50,7 +50,7 @@ type SeedTemplateArgs = {
 };
 
 async function seedTemplate(db: DbConnection, args: SeedTemplateArgs): Promise<void> {
-  await insertOne(db, templateResourcesTable, {
+  await seedRow(db, templateResourcesTable, {
     tenantId: args.tenantId,
     slug: args.slug,
     kind: args.kind,

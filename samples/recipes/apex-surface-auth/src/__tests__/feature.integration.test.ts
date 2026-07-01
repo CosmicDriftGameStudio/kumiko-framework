@@ -9,7 +9,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { USER_STATUS, userEntity, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import type { SendDeletionVerificationEmailFn } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
-import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -18,7 +18,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { composeApexAccountApp } from "../feature";
 
 const REQUEST_BY_EMAIL = "user-data-rights:write:request-deletion-by-email";
@@ -58,7 +58,7 @@ afterAll(async () => {
 beforeEach(async () => {
   verifyCalls.length = 0;
   await resetTestTables(stack.db, [userTable, tenantComplianceProfileTable, eventsTable]);
-  await insertOne(stack.db, userTable, {
+  await seedRow(stack.db, userTable, {
     id: user.id,
     tenantId: tenant,
     email: EMAIL,

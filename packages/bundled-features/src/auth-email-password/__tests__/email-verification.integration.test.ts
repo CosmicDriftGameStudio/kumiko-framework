@@ -1,11 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import {
-  asRawClient,
-  insertOne,
-  selectMany,
-  updateMany,
-} from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -15,6 +10,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { seedRow, updateRows } from "@cosmicdrift/kumiko-framework/testing";
 import { Temporal } from "temporal-polyfill";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email";
 import { createConfigFeature } from "../../config";
@@ -146,7 +142,7 @@ async function seedUser(opts: {
   // it directly via SQL after create. Row.version is left at 1; no
   // subsequent event-store writes happen on this row in these tests.
   if (opts.emailVerified === true) {
-    await updateMany(stack.db, userTable, { emailVerified: true }, { id: created.id });
+    await updateRows(stack.db, userTable, { emailVerified: true }, { id: created.id });
   }
   const tenantId = opts.tenantId ?? "00000000-0000-4000-8000-000000000001";
   await seedTenantMembership(stack.db, {
@@ -252,7 +248,7 @@ describe("POST /auth/verify-email", () => {
     const firstAttempt = await post("/api/auth/verify-email", { token });
     expect(firstAttempt.status).toBe(422);
 
-    await insertOne(stack.db, userTable, userRow);
+    await seedRow(stack.db, userTable, userRow);
 
     const secondAttempt = await post("/api/auth/verify-email", { token });
     expect(secondAttempt.status).toBe(200);
@@ -296,7 +292,7 @@ describe("POST /auth/verify-email", () => {
     await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
 
     const orphanId = "00000000-0000-4000-8000-0000000000ff";
-    await insertOne(stack.db, userTable, {
+    await seedRow(stack.db, userTable, {
       ...donorRow,
       id: orphanId,
       email: "orphan@example.com",

@@ -12,7 +12,8 @@
 // integration proof the unit test cannot give.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { insertOne, selectMany } from "../../db/query";
+import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
+import { selectMany } from "../../db/query";
 import { buildEntityTable } from "../../db/table-builder";
 import { createEntity, createTextField } from "../../engine";
 import { setupTestStack, type TestStack, unsafeCreateEntityTable } from "../../stack";
@@ -40,7 +41,7 @@ describe("entity with a `source` field — create-path is shadow-proof", () => {
     // Passing a real Temporal.Instant exercises the timestamptz serializer
     // path that the shadow used to bypass. Pre-fix this threw "Cannot use
     // valueOf"; post-fix the row persists and round-trips as a Temporal.Instant.
-    await insertOne(stack.db, sourceTable, {
+    await seedRow(stack.db, sourceTable, {
       source: "import",
       tenantId: "00000000-0000-4000-8000-000000000001",
       insertedAt: Temporal.Instant.from("2026-01-15T12:00:00Z"),

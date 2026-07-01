@@ -13,7 +13,7 @@
 //     Alices Forget; Bobs Daten landen NICHT in Alices Export-Bundle.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, deleteMany, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineUnmanagedTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineFeature,
@@ -28,7 +28,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import { deleteRows, resetTestTables, seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   createComplianceProfilesFeature,
@@ -98,7 +98,7 @@ const exportNotes: UserDataExportHook = async (ctx) => {
 };
 
 const deleteNotes: UserDataDeleteHook = async (ctx, _strategy) => {
-  await deleteMany(ctx.db, testNotesTable, {
+  await deleteRows(ctx.db, testNotesTable, {
     tenantId: ctx.tenantId,
     authorId: ctx.userId,
   });
@@ -182,7 +182,7 @@ async function seedUser(
     displayName?: string;
   } = {},
 ): Promise<void> {
-  await insertOne(stack.db, userTable, {
+  await seedRow(stack.db, userTable, {
     id,
     tenantId: TENANT_SYSTEM,
     email: overrides.email ?? `user-${id}@example.com`,

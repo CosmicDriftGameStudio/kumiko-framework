@@ -13,7 +13,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import {
   createRegistry,
@@ -38,7 +38,11 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createLateBoundHolder, resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import {
+  createLateBoundHolder,
+  resetTestTables,
+  updateRows,
+} from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { AuthHandlers } from "../../auth-email-password/constants";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
@@ -218,7 +222,7 @@ describe("#494 :: read_users-Rebuild bewahrt Lifecycle-State", () => {
     );
 
     // Prae-Fix-Zustand simulieren: roher Write OHNE Event.
-    await updateMany(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: created.id });
+    await updateRows(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: created.id });
 
     // Ohne Backfill replayt der Rebuild nur user.created -> Status weggewischt.
     await rebuildProjection(USER_PROJECTION, { db: stack.db, registry });
@@ -229,7 +233,7 @@ describe("#494 :: read_users-Rebuild bewahrt Lifecycle-State", () => {
 
     // Bestand wieder in den divergenten Live-State bringen (der Rebuild hat ihn
     // auf Active gesetzt) und den Reconcile laufen lassen.
-    await updateMany(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: created.id });
+    await updateRows(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: created.id });
     const { backfilled, failed } = await backfillUserLifecycleEvents(stack.db);
     expect(backfilled).toBeGreaterThanOrEqual(1);
     expect(failed).toEqual([]);
@@ -254,14 +258,14 @@ describe("#494 :: read_users-Rebuild bewahrt Lifecycle-State", () => {
       { email: "healthy.rebuild@example.com", passwordHash: hash, displayName: "Healthy" },
       TestUsers.systemAdmin,
     );
-    await updateMany(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: goodRow.id });
+    await updateRows(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: goodRow.id });
 
     const badRow = await stack.http.writeOk<{ id: string }>(
       UserHandlers.create,
       { email: "corrupt.rebuild@example.com", passwordHash: hash, displayName: "Corrupt" },
       TestUsers.systemAdmin,
     );
-    await updateMany(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: badRow.id });
+    await updateRows(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: badRow.id });
     // userEntity is systemStream:true (schema/user.ts) — its event stream
     // lives on SYSTEM_TENANT_ID regardless of the creating tenant. Archiving
     // under any other tenant would be a silent no-op against assertStreamWritable.

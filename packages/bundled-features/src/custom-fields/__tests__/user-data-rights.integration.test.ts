@@ -22,7 +22,7 @@
 //     (strip runs, host nulls the owner).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   buildEntityTable,
   createEventStoreExecutor,
@@ -46,6 +46,7 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
@@ -241,7 +242,7 @@ async function readRow(id: string): Promise<Record<string, unknown> | undefined>
 // the export runner iterates their data. Status active = NOT picked up by
 // runForgetCleanup.
 async function seedActiveUserWithMembership(): Promise<void> {
-  await insertOne(stack.db, userTable, {
+  await seedRow(stack.db, userTable, {
     id: admin.id,
     tenantId: TENANT,
     email: `admin@example.com`,
@@ -258,7 +259,7 @@ async function seedActiveUserWithMembership(): Promise<void> {
 // Seed the acting admin as DeletionRequested + grace expired so
 // runForgetCleanup picks them up, with a membership in TENANT.
 async function seedForgetUserWithMembership(): Promise<void> {
-  await insertOne(stack.db, userTable, {
+  await seedRow(stack.db, userTable, {
     id: admin.id,
     tenantId: TENANT,
     email: `admin@example.com`,

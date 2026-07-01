@@ -1,5 +1,10 @@
-import { fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createSystemUser,
+  type UserDataDeleteHook,
+  type UserDataExportHook,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   USER_ANONYMIZED_DISPLAY_NAME,
   USER_ANONYMIZED_EMAIL_DOMAIN,
@@ -7,9 +12,14 @@ import {
   USER_DELETED_DISPLAY_NAME,
   USER_DELETED_EMAIL_PREFIX,
   USER_STATUS,
+  userEntity,
   userTable,
 } from "../../user";
-import { anonymizeDeletedUser } from "../db/queries/user-hook";
+
+// Forget writes go through the executor (events), not a raw UPDATE: a
+// projection rebuild replays the events, so the anonymization survives it.
+// A direct write would be wiped on rebuild — the Art.17 hole this fixes.
+const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
 
 // userData-Hook fuer user-entity (S2.H1).
 //
@@ -63,27 +73,55 @@ export const userDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
   // korrelieren — user.id ist tenant-agnostic (User kann in mehreren
   // Tenants Member sein), kein tenantId-Filter noetig.
 
+  // System actor + skipOptimisticLock: the forget pipeline has no read
+  // version and writes privileged identity columns ("system" is privileged).
+  // The executor needs a TenantDb (loadById → db.fetchOne); ctx.db is a raw
+  // runner, so wrap it. "system" mode = no tenant filter — user is a systemStream
+  // entity (tenant-agnostic) and forget must reach the row in any tenant.
+  const systemUser = createSystemUser(ctx.tenantId);
+  const tdb = createTenantDb(ctx.db, ctx.tenantId, "system");
+
   if (strategy === "delete") {
-    await anonymizeDeletedUser(ctx.db, {
-      email: `${USER_DELETED_EMAIL_PREFIX}-${ctx.userId}@${USER_ANONYMIZED_EMAIL_DOMAIN}`,
-      displayName: USER_DELETED_DISPLAY_NAME,
-      status: USER_STATUS.Deleted,
-      userId: ctx.userId,
-    });
+    // PII raus + status=deleted (Login geblockt) via Event → Rebuild spielt den
+    // Forget mit. KEIN softDelete: user ist systemStream (eine tenant-agnostische
+    // Row), der Forget laeuft pro Tenant — wuerde isDeleted gesetzt, faende der
+    // loadById (isDeleted:false) die Row beim zweiten Tenant nicht mehr
+    // (not_found). status=Deleted blockt Login; die Row bleibt findbar +
+    // idempotent ueber mehrere Tenant-Durchlaeufe (wie der alte raw UPDATE).
+    await crud.update(
+      {
+        id: ctx.userId,
+        changes: {
+          email: `${USER_DELETED_EMAIL_PREFIX}-${ctx.userId}@${USER_ANONYMIZED_EMAIL_DOMAIN}`,
+          displayName: USER_DELETED_DISPLAY_NAME,
+          passwordHash: null,
+          status: USER_STATUS.Deleted,
+          // deleted_at as an audit timestamp only — NOT isDeleted (see above).
+          // Frozen into the event payload, so a rebuild replays the same value.
+          deletedAt: Temporal.Now.instant(),
+        },
+      },
+      systemUser,
+      tdb,
+      { skipOptimisticLock: true },
+    );
   } else {
     // anonymize: PII raus, aber Row bleibt active (damit FK-References
     // weiter aufloesbar sind). Account ist effektiv weiter nutzbar
     // wenn der User sich neu authentifiziert — pragmatisch akzeptabel
     // weil "anonymize" auf user-entity ein seltener Edge-Case ist
     // (typisch hard-delete fuer User).
-    await updateMany(
-      ctx.db,
-      userTable,
+    await crud.update(
       {
-        email: `${USER_ANONYMIZED_EMAIL_PREFIX}-${ctx.userId}@${USER_ANONYMIZED_EMAIL_DOMAIN}`,
-        displayName: USER_ANONYMIZED_DISPLAY_NAME,
+        id: ctx.userId,
+        changes: {
+          email: `${USER_ANONYMIZED_EMAIL_PREFIX}-${ctx.userId}@${USER_ANONYMIZED_EMAIL_DOMAIN}`,
+          displayName: USER_ANONYMIZED_DISPLAY_NAME,
+        },
       },
-      { id: ctx.userId },
+      systemUser,
+      tdb,
+      { skipOptimisticLock: true },
     );
   }
 };

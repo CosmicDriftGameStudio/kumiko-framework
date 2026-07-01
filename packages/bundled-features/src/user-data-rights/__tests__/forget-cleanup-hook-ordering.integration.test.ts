@@ -15,7 +15,7 @@
 // (getExtensionUsages + direct call) and is structurally blind to ordering.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
@@ -32,6 +32,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { seedRow as seedProjectionRow } from "@cosmicdrift/kumiko-framework/testing";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { fieldDefinitionEntity } from "../../custom-fields/entity";
 import { createCustomFieldsFeature } from "../../custom-fields/feature";
@@ -181,7 +182,7 @@ async function defineSensitiveField(entityName: string, fieldKey: string, sensit
 }
 
 async function seedAnonymizeOverride(entityName: string) {
-  await insertOne(stack.db, tenantRetentionOverrideTable, {
+  await seedProjectionRow(stack.db, tenantRetentionOverrideTable, {
     entityName,
     config: JSON.stringify({ keepFor: "0d", strategy: "anonymize" }),
     reason: "test: force anonymize strategy",

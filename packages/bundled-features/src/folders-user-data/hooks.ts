@@ -4,16 +4,21 @@
 // Mirrors credit-user-data — standard tenant-scoped pattern, no name-stripping
 // (a folder name is tenant data, not per-user PII).
 
-import { deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { createTenantDb, type EventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntityExecutor,
+  createSystemUser,
   type UserDataDeleteHook,
   type UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { folderAssignmentEntity, folderEntity } from "../folders";
 
-const { table: folderTable } = createEntityExecutor("folder", folderEntity);
-const { table: folderAssignmentTable } = createEntityExecutor(
+const { table: folderTable, executor: folderExecutor } = createEntityExecutor(
+  "folder",
+  folderEntity,
+);
+const { table: folderAssignmentTable, executor: folderAssignmentExecutor } = createEntityExecutor(
   "folder-assignment",
   folderAssignmentEntity,
 );
@@ -47,16 +52,30 @@ export const folderAssignmentExportHook: UserDataExportHook = async (ctx) => {
 // tenant would destroy co-members' folders. anonymize is also a no-op — folder
 // rows carry no person-link to strip (name is tenant data, not PII), so a
 // retention hold simply keeps them.
-function tenantScopedDelete(table: typeof folderTable): UserDataDeleteHook {
+function tenantScopedDelete(
+  table: typeof folderTable,
+  executor: EventStoreExecutor,
+): UserDataDeleteHook {
   return async (ctx, strategy) => {
     // skip: multi-user tenant — a tenant-wide delete would destroy co-members' folders
     if (ctx.tenantModel !== "single-user") return;
     // skip: anonymize is a no-op — folder rows carry no per-user PII to strip
     if (strategy === "anonymize") return;
-    await deleteMany(ctx.db, table, { tenantId: ctx.tenantId });
+    // Per-row via the executor (event -> rebuild-safe): a bulk deleteMany is
+    // eventless, so a projection rebuild resurrects the rows. Bounded — forget
+    // only fires for single-user tenants.
+    const systemUser = createSystemUser(ctx.tenantId);
+    // The executor needs a TenantDb (loadById → db.fetchOne), not the raw ctx.db.
+    const tdb = createTenantDb(ctx.db, ctx.tenantId, "system");
+    const rows = await selectMany<{ id: string }>(ctx.db, table, { tenantId: ctx.tenantId });
+    for (const row of rows) {
+      await executor.delete({ id: row.id }, systemUser, tdb);
+    }
   };
 }
 
-export const folderDeleteHook: UserDataDeleteHook = tenantScopedDelete(folderTable);
-export const folderAssignmentDeleteHook: UserDataDeleteHook =
-  tenantScopedDelete(folderAssignmentTable);
+export const folderDeleteHook: UserDataDeleteHook = tenantScopedDelete(folderTable, folderExecutor);
+export const folderAssignmentDeleteHook: UserDataDeleteHook = tenantScopedDelete(
+  folderAssignmentTable,
+  folderAssignmentExecutor,
+);

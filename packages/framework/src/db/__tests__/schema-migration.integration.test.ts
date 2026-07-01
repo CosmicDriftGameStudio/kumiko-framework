@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
-import { asRawClient, insertOne, selectMany } from "../../db/query";
+import { asRawClient, selectMany } from "../../db/query";
 import {
   createBooleanField,
   createDateField,
@@ -172,7 +173,7 @@ describe("schema migration workflows", () => {
     await unsafePushTables(testDb.db, { project: initialTable });
 
     // Insert a row first (to prove ADD COLUMN with default doesn't break existing rows)
-    await insertOne(testDb.db, initialTable, {
+    await seedRow(testDb.db, initialTable, {
       tenantId: "00000000-0000-4000-8000-000000000001",
       name: "Test Project",
     });
@@ -205,7 +206,7 @@ describe("schema migration workflows", () => {
     const initialTable = buildEntityTable("user", initialEntity);
     await unsafePushTables(testDb.db, { user: initialTable });
 
-    await insertOne(testDb.db, initialTable, {
+    await seedRow(testDb.db, initialTable, {
       tenantId: "00000000-0000-4000-8000-000000000001",
       email: "x@y.z",
     });

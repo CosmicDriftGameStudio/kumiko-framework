@@ -1,5 +1,4 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -7,6 +6,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import type { RendererContext } from "../../renderer-foundation";
 import { SYSTEM_TENANT_ID } from "../../template-resolver/constants";
 import { createTemplateResolverFeature } from "../../template-resolver/feature";
@@ -35,7 +35,7 @@ function rendererCtx(): RendererContext {
 }
 
 async function seedPlainNotificationTemplate(content: string): Promise<void> {
-  await insertOne(db, templateResourcesTable, {
+  await seedRow(db, templateResourcesTable, {
     tenantId: SYSTEM_TENANT_ID,
     slug: "welcome-mail",
     kind: "notification",

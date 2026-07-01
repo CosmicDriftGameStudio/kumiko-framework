@@ -4,10 +4,11 @@
 // DDL and seed logic in one place so a file_refs/user-schema change updates
 // both at once instead of drifting.
 
-import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
+import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { USER_STATUS, userTable } from "../../user";
 
@@ -66,7 +67,7 @@ export interface ForgetSeeders {
 export function createForgetSeeders(db: DbConnection, writer: FileWriter): ForgetSeeders {
   return {
     async seedForgetUser(id) {
-      await insertOne(db, userTable, {
+      await seedRow(db, userTable, {
         id,
         tenantId: TENANT_SYSTEM,
         email: `user-${id}@example.com`,

@@ -15,7 +15,7 @@
 //   5. DB-State + Membership + Cookies/JWT verifizieren
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createSystemUser,
   type SessionUser,
@@ -28,6 +28,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
@@ -421,7 +422,7 @@ describe("invite-accept defense-in-depth (assertAssignableMembershipRoles)", () 
     // (which already validates at request time — see "privilege escalation"
     // below). A DB migration or direct write is the only realistic vector.
     const fakeInvitationId = crypto.randomUUID();
-    await insertOne(stack.db, tenantInvitationsTable, {
+    await seedRow(stack.db, tenantInvitationsTable, {
       id: fakeInvitationId,
       tenantId: TENANT_A_ID,
       email: BOB_EMAIL,

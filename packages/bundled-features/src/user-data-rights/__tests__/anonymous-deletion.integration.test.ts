@@ -6,7 +6,7 @@
 // Beweist end-to-end via echte /api/write-Calls OHNE Auth (anonymousAccess).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -15,7 +15,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
@@ -77,7 +77,7 @@ beforeEach(async () => {
 });
 
 async function seedAlice(status: string = USER_STATUS.Active, email: string = ALICE_EMAIL) {
-  await insertOne(stack.db, userTable, {
+  await seedRow(stack.db, userTable, {
     id: aliceUser.id,
     tenantId: tenantA,
     email,
@@ -343,7 +343,7 @@ describe("anonymous deletion flow — not configured (kein Secret)", () => {
     await unsafeCreateEntityTable(bareStack.db, userEntity);
     await unsafeCreateEntityTable(bareStack.db, tenantComplianceProfileEntity);
     await createEventsTable(bareStack.db);
-    await insertOne(bareStack.db, userTable, {
+    await seedRow(bareStack.db, userTable, {
       id: aliceUser.id,
       tenantId: tenantA,
       email: ALICE_EMAIL,

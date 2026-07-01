@@ -10,19 +10,14 @@
 // reale Postgres + Drizzle-customType-Codec-Path braucht.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import {
-  asRawClient,
-  insertOne,
-  selectMany,
-  updateMany,
-} from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { extractPgError } from "@cosmicdrift/kumiko-framework/db";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import { resetTestTables, seedRow, updateRows } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
@@ -108,7 +103,7 @@ async function insertJob(
   if (overrides.bytesWritten !== undefined) {
     values["bytesWritten"] = overrides.bytesWritten;
   }
-  await insertOne(stack.db, exportJobsTable, values);
+  await seedRow(stack.db, exportJobsTable, values);
   return id;
 }
 
@@ -178,7 +173,7 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
     // Alice pending insert
     const aliceJobId = await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Pending);
     // Worker pickt auf — Status flip
-    await updateMany(
+    await updateRows(
       stack.db,
       exportJobsTable,
       { status: EXPORT_JOB_STATUS.Running },
@@ -193,7 +188,7 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
     );
 
     // Aber wenn der running-Job fertig wird (done), darf User wieder pending starten
-    await updateMany(
+    await updateRows(
       stack.db,
       exportJobsTable,
       { status: EXPORT_JOB_STATUS.Done },

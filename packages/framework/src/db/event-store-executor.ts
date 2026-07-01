@@ -109,7 +109,7 @@ function scalarDefault(field: FieldDefinition): unknown {
 // to entity creates/updates/etc should reference this helper instead of
 // hardcoding the string — a future rename in the executor then surfaces
 // as a type error at every call site rather than a silent miss.
-export type EntityLifecycleVerb = "created" | "updated" | "deleted" | "restored";
+export type EntityLifecycleVerb = "created" | "updated" | "deleted" | "restored" | "forgotten";
 
 export function entityEventName(entityName: string, verb: EntityLifecycleVerb): string {
   return `${entityName}.${verb}`;
@@ -182,6 +182,16 @@ export type EventStoreExecutor = {
   ) => Promise<WriteResult<SaveContext>>;
 
   delete: (
+    payload: { id: EntityId },
+    user: SessionUser,
+    db: TenantDb,
+  ) => Promise<WriteResult<DeleteContext>>;
+
+  // Hard-purge (Art. 17 erasure). Like delete, but emits `<entity>.forgotten`
+  // which hard-deletes the row even for softDelete entities — and, being an
+  // auto-verb replayed by the implicit projection, the erasure survives a
+  // rebuild (created → forgotten → row gone). Reaches soft-deleted rows too.
+  forget: (
     payload: { id: EntityId },
     user: SessionUser,
     db: TenantDb,
@@ -780,6 +790,64 @@ export function createEventStoreExecutor(
       if (deleteResult.kind !== "applied") {
         return writeFailure(
           new InternalError({ message: "projection delete: applyEntityEvent skipped" }),
+        );
+      }
+
+      if (entityCache && entityName) {
+        await entityCache.del(user.tenantId, entityName, payload.id);
+      }
+
+      return {
+        isSuccess: true,
+        data: { kind: "delete", id: payload.id, data: existing, entityName, event },
+      };
+    },
+
+    // Hard-purge (Art. 17). Same shape as delete(), but emits `forgotten` which
+    // hard-deletes the row regardless of softDelete — and, being an auto-verb,
+    // the erasure replays on rebuild (created → forgotten → row gone). Loads
+    // without the isDeleted filter so trashed (soft-deleted) rows are erased too.
+    async forget(payload, user, db) {
+      const raw = await db.fetchOne<Record<string, unknown>>(table, { id: payload.id });
+      if (!raw) return writeFailure(new NotFoundError(entityName, payload.id));
+      const existing = decryptForRead(rehydrateCompoundTypes(raw as DbRow, entity) as DbRow);
+
+      if (!userCanWriteFieldRow(user, entity.access?.write, existing, existing)) {
+        return writeFailure(
+          new UnprocessableError("ownership_denied", {
+            i18nKey: "errors.ownershipDenied",
+            details: {
+              scope: "entity",
+              entityName,
+              action: "delete",
+              userId: user.id,
+              entityId: payload.id,
+            },
+          }),
+        );
+      }
+
+      await assertStreamWritable(db, payload.id, streamTenantFor(user));
+      const currentVersion = await getStreamVersion(
+        db.raw,
+        String(payload.id),
+        streamTenantFor(user),
+      );
+
+      const event = await append(db.raw, {
+        aggregateId: String(payload.id),
+        aggregateType: entityName,
+        tenantId: streamTenantFor(user),
+        expectedVersion: currentVersion,
+        type: entityEventName(entityName, "forgotten"),
+        payload: { previous: stripSensitive(existing) },
+        metadata: buildEventMetadata(user),
+      });
+
+      const forgetResult = await applyEntityEvent(event, table, entity, db.raw);
+      if (forgetResult.kind !== "applied") {
+        return writeFailure(
+          new InternalError({ message: "projection forget: applyEntityEvent skipped" }),
         );
       }
 

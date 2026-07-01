@@ -36,6 +36,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { noteEntity, notesFeature, notesTable } from "../feature";
 
@@ -94,7 +95,7 @@ beforeEach(async () => {
 });
 
 async function seedAlice(opts: { gracePeriodEnd?: Instant; status?: string } = {}): Promise<void> {
-  await insertOne(stack.db, userTable, {
+  await seedRow(stack.db, userTable, {
     id: ALICE_ID,
     tenantId: TENANT_SYSTEM,
     email: "alice@recipe.test",
