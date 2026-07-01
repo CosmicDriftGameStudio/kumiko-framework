@@ -203,5 +203,35 @@ describe("FolderManager filing mode", () => {
         entityId: "c-1",
       }),
     );
+
+    // Dropping the per-leaf-override entity onto the unfiled bucket clears it
+    // with ITS OWN entityType, not the tree default — same override/fallback
+    // resolution the folder-drop above proved, now exercised on clearFolder.
+    dropLeaf("folder-node-unfiled", "b-1");
+    await waitFor(() =>
+      expect(dispatchSpy).toHaveBeenCalledWith(FoldersHandlers.clearFolder, {
+        entityType: "bauspar",
+        entityId: "b-1",
+      }),
+    );
+  });
+
+  test("the unfiled bucket stays a drop target even when nothing is currently unfiled", () => {
+    folderRows = [{ id: "f1", name: "A", parentId: null, version: 1 }];
+    const allFiled: FolderFiling = {
+      entityType: "credit",
+      leavesByFolder: new Map([["f1", [{ id: "c-1", label: "Credit 1" }]]]),
+      unfiled: [],
+      unfiledLabel: "Unfiled",
+      onReassigned: () => {},
+    };
+    render(
+      <Wrapper>
+        <FolderManager filing={allFiled} />
+      </Wrapper>,
+    );
+    // Regression #671/5: an empty `unfiled` array must not remove the bucket —
+    // it's the only drop target to un-file a leaf back out of its folder.
+    expect(screen.getByTestId("folder-node-unfiled")).toBeTruthy();
   });
 });
