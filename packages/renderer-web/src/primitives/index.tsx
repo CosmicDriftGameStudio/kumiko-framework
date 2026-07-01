@@ -48,6 +48,7 @@ import {
 } from "lucide-react";
 import {
   type ChangeEvent,
+  type CSSProperties,
   createContext,
   type ReactNode,
   useContext,
@@ -1490,7 +1491,7 @@ function DefaultGrid({ columns, children, testId }: GridProps): ReactNode {
     <div
       data-testid={testId}
       className="grid gap-4 grid-cols-1 sm:[grid-template-columns:var(--grid-cols)]"
-      style={{ "--grid-cols": `repeat(${columns}, minmax(0, 1fr))` } as React.CSSProperties}
+      style={{ "--grid-cols": `repeat(${columns}, minmax(0, 1fr))` } as unknown as CSSProperties}
     >
       {children}
     </div>

@@ -210,18 +210,16 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // auseinanderdriften können).
   const envSource = options.envSource ?? process.env;
   // auth.mail → normalisiert in die expliziten Flow-Felder (symmetrisch zu
-  // runProdApp). hmacSecret = JWT_SECRET-env (Dev-Fallback in bin/server.ts).
-  // Ab hier IMMER effectiveAuth statt options.auth.
-  const jwtSecret = envSource["JWT_SECRET"];
-  if (options.auth && !jwtSecret) {
-    throw new Error(
-      "JWT_SECRET is required when `auth` is passed to runDevApp — set it in .env or assign a dev fallback in bin/server.ts before calling runDevApp.",
-    );
-  }
-  const effectiveAuth =
-    options.auth && jwtSecret
-      ? resolveAuthMail(options.auth, jwtSecret, envSource)
-      : undefined;
+  // runProdApp). hmacSecret = JWT_SECRET-env mit Dev-Fallback (der Dev-Server
+  // mintet JWTs selbst; der Reset-Token-HMAC teilt denselben Key wie in den
+  // Apps). Ab hier IMMER effectiveAuth statt options.auth.
+  const effectiveAuth = options.auth
+    ? resolveAuthMail(
+        options.auth,
+        envSource["JWT_SECRET"] ?? "kumiko-dev-auth-mail-hmac-fallback-secret",
+        envSource,
+      )
+    : undefined;
   const composeAuthOptions = buildComposeAuthOptions(effectiveAuth);
   const features = composeFeatures(options.features, {
     includeBundled: !!effectiveAuth,
@@ -498,6 +496,3 @@ export function mergeConfigResolverDefault(
   }
   return addConfigAccessorFactory({ ...defaults, ...ctx }, registry);
 }
-
-
-
