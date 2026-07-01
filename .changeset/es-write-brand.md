@@ -23,6 +23,11 @@ constant. Existing 2-arg applies keep working. Tests seed projection state via
 the new `@cosmicdrift/kumiko-framework/testing` seam
 (`seedRow`/`seedRows`/`updateRows`/`deleteRows`).
 
+New: `EventStoreExecutor.forget(id, user, db)` — a rebuild-safe hard-purge
+(Art. 17). It emits a 5th lifecycle verb `<entity>.forgotten` that hard-deletes
+the row even for `softDelete` entities; because the implicit projection replays
+it, the erasure survives a projection rebuild (a direct `deleteMany` did not).
+
 bundled-features: the user / fileRef / folder GDPR-forget hooks and the
 user-session store now write rebuild-safely (executor events / unmanaged table)
 — a projection rebuild no longer resurrects erased PII.
