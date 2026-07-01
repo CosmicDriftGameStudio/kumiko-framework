@@ -45,14 +45,14 @@ export async function runCli(options: RunCliOptions): Promise<number> {
     return 0;
   }
 
-  if (first === "new") return runNew(argv.slice(1), out, cwd);
+  if (first === "new") return await runNew(argv.slice(1), out, cwd);
   if (first === "add") return runAdd(argv.slice(1), out, cwd);
 
   out.err(`kumiko: unknown command "${first}". Run \`kumiko --help\` for usage.`);
   return 1;
 }
 
-function runNew(args: readonly string[], out: Output, cwd: string): number {
+async function runNew(args: readonly string[], out: Output, cwd: string): Promise<number> {
   const [subject, name] = args;
   if (subject !== "app") {
     out.err(`kumiko new: only "new app <name>" is supported. Got "${subject ?? "(nothing)"}".`);
@@ -63,7 +63,7 @@ function runNew(args: readonly string[], out: Output, cwd: string): number {
     return 1;
   }
   try {
-    const result = scaffoldApp({ name, destination: `${cwd}/${name}` });
+    const result = await scaffoldApp({ name, destination: `${cwd}/${name}` });
     out.log(`✓ Scaffolded ${result.appName} → ${result.destination}`);
     out.log("");
     for (const f of result.files) out.log(`  ${f}`);
@@ -116,3 +116,5 @@ function printHelp(out: Output): void {
   out.log("");
   out.log("Docs: https://docs.kumiko.rocks");
 }
+
+

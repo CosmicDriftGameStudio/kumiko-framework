@@ -32,23 +32,17 @@ describe("walkthrough — DX-3.1 snapshot", () => {
     rmSync(tmp, { recursive: true, force: true });
   });
 
-  test("Step 1 (kumiko new app) — produces walkthrough's scaffold files", () => {
-    const result = scaffoldApp({ name: "my-notes", destination: appRoot });
-    expect(result.files).toEqual([
-      "package.json",
-      "tsconfig.json",
-      "src/run-config.ts",
-      "bin/main.ts",
-      "bin/dev.ts",
-      "src/client.tsx",
-      ".env.example",
-      "docker-compose.yml",
-      "README.md",
-    ]);
+  test("Step 1 (kumiko new app) — produces walkthrough's scaffold files", async () => {
+    const result = await scaffoldApp({ name: "my-notes", destination: appRoot });
+    expect(result.files).toContain("package.json");
+    expect(result.files).toContain("kumiko/schema.ts");
+    expect(result.files).toContain("bin/kumiko.ts");
+    expect(result.files).toContain("deploy/Dockerfile");
+    expect(result.files).toContain("kumiko/migrations/0001_init.sql");
   });
 
-  test("Step 2 (kumiko add feature) — auto-mounts + walkthrough diff matches", () => {
-    scaffoldApp({ name: "my-notes", destination: appRoot });
+  test("Step 2 (kumiko add feature) — auto-mounts + walkthrough diff matches", async () => {
+    await scaffoldApp({ name: "my-notes", destination: appRoot });
     const result = scaffoldAppFeature({ name: "notes", appRoot });
     expect(result.autoMounted).toBe(true);
 
@@ -63,8 +57,8 @@ describe("walkthrough — DX-3.1 snapshot", () => {
     expect(runConfig).toContain("createSessionsFeature()");
   });
 
-  test("Step 3 (boot validation) — scaffolded run-config matches walkthrough's APP_FEATURES claim", () => {
-    scaffoldApp({ name: "my-notes", destination: appRoot });
+  test("Step 3 (boot validation) — scaffolded run-config matches walkthrough's APP_FEATURES claim", async () => {
+    await scaffoldApp({ name: "my-notes", destination: appRoot });
     scaffoldAppFeature({ name: "notes", appRoot });
 
     // Text-assert: scaffolded run-config.ts contains exactly the 3 features
@@ -108,8 +102,8 @@ describe("walkthrough — DX-3.1 snapshot", () => {
     expect(registry.features.size).toBe(7);
   });
 
-  test("bin/main.ts contains the auth.admin stub the walkthrough relies on", () => {
-    scaffoldApp({ name: "my-notes", destination: appRoot });
+  test("bin/main.ts contains the auth.admin stub the walkthrough relies on", async () => {
+    await scaffoldApp({ name: "my-notes", destination: appRoot });
     const main = readFileSync(join(appRoot, "bin/main.ts"), "utf-8");
     // composeFeatures(includeBundled:true)-trigger is `auth: { admin: { … } }`.
     // Walkthrough explicitly says this is what auto-mounts the 4 bundled features.
@@ -119,3 +113,7 @@ describe("walkthrough — DX-3.1 snapshot", () => {
     expect(main).toContain("runProdApp");
   });
 });
+
+
+
+

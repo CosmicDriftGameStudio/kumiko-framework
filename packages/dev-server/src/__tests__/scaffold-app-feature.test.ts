@@ -10,10 +10,10 @@ import { scaffoldAppFeature } from "../scaffold-app-feature";
 describe("scaffoldAppFeature", () => {
   let tmp: string;
   let appRoot: string;
-  beforeEach(() => {
+  beforeEach(async () => {
     tmp = mkdtempSync(join(tmpdir(), "scaffold-app-feature-"));
     appRoot = join(tmp, "my-shop");
-    scaffoldApp({ name: "my-shop", destination: appRoot });
+    await scaffoldApp({ name: "my-shop", destination: appRoot });
   });
   afterEach(() => {
     rmSync(tmp, { recursive: true, force: true });
@@ -161,3 +161,4 @@ describe("scaffoldAppFeature", () => {
     expect(result.autoMounted).toBe(false);
   });
 });
+

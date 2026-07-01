@@ -62,7 +62,7 @@ export async function runCreate(args: CliArgs): Promise<number> {
     `→ Scaffolding ${features.length} feature${features.length === 1 ? "" : "s"} into ./${args.name}/ …`,
   );
 
-  const result = scaffoldApp({
+  const result = await scaffoldApp({
     name: args.name,
     cwd: args.cwd,
     features,
@@ -95,3 +95,4 @@ export function parseArgv(argv: readonly string[]): CliArgs {
   }
   return out;
 }
+
