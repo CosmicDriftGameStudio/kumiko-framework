@@ -176,6 +176,7 @@ export const fileRefDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
     // anonymize: insertedById=null, FileRef + binary bleiben. Use-case: shared
     // chat-Attachment im Multi-User-Channel — Author-ID raus, Datei bleibt sichtbar.
     await severPersonLink(tdb, systemUser, rows);
+    // skip: anonymize is complete — the hard-delete path below runs only for strategy "delete".
     return;
   }
 
