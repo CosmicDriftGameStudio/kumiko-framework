@@ -19,9 +19,11 @@ import {
   createTextField,
   defineFeature,
   EXT_USER_DATA,
+  type JobContext,
   SYSTEM_USER_ID,
   type UserDataDeleteHook,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   resetEventStore,
@@ -197,5 +199,45 @@ describe("forget pipeline honours the effective tenant model", () => {
 
     expect(result.errors).toHaveLength(0);
     expect(await rowCount()).toBe(1);
+  });
+});
+
+describe("run-forget-cleanup job — real glue-code, not a hand-set tenantModel", () => {
+  test("the registered job resolves tenantModel via resolveAppTenantModel and actually erases", async () => {
+    // Every test above passes tenantModel as a literal string straight into
+    // runForgetCleanup — none exercise the job's OWN glue (feature.ts:
+    // resolveAppTenantModel(...) → runForgetCleanup({..., tenantModel})). A
+    // key-mismatch, forgotten argument, or wrong db-handle at either call site
+    // would pass every test above and still be broken in production.
+    await seedScopedRow("dddddddd-dddd-4ddd-8ddd-0000000000c4");
+    await seed(stack.db).seedForgetUser(FORGET_USER);
+    await seed(stack.db).seedMembership(FORGET_USER, TENANT);
+
+    const job = stack.registry.getJob("user-data-rights:job:run-forget-cleanup");
+    expect(job).toBeDefined();
+    if (!job) return;
+
+    const ctx: JobContext = {
+      db: stack.db,
+      registry: stack.registry,
+      configResolver: createConfigResolver({
+        appOverrides: new Map([[TENANT_MODEL_CONFIG_KEY, "single-user"]]),
+      }),
+      systemUser: { id: SYSTEM_USER_ID, tenantId: TENANT, roles: ["all"] },
+      log: {
+        info() {},
+        warn() {},
+        error() {},
+        debug() {},
+        child(): JobContext["log"] {
+          return this;
+        },
+      },
+      triggeredBy: null,
+      ...bridgeStub(),
+    };
+    await job.handler({}, ctx);
+
+    expect(await rowCount()).toBe(0);
   });
 });
