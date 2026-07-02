@@ -111,7 +111,18 @@ for pkg_json in packages/*/package.json; do
     echo "[fail] $name@$version: internal pin(s) drift from the release version — $pin_drift." >&2
     echo "[fail] bun.lock is stale; the version step must run 'changeset version && bun install'." >&2
     failed+=("$name@$version (pin drift)")
-  elif npm publish "$pkg_dir/$TARBALL" --provenance --access public >&2; then
+  # npm refuses to IMPLICITLY move the `latest` dist-tag backward when a higher
+  # version already sits on the registry (the accidental 1.0.0 misfire is stranded
+  # above the 0.10x line until the real 1.0.1 milestone ships — publishing 0.10x
+  # then errors "Cannot implicitly apply the latest tag ..."). Publishing under a
+  # throwaway tag never trips that guard; we then force `latest` to this release
+  # via dist-tag (a manual dist-tag moves latest to ANY published version, unlike
+  # the implicit path). For a normal monotonic release the end state is identical:
+  # latest = the just-published version, throwaway tag removed. dist-tag auths via
+  # NODE_AUTH_TOKEN (set in the release job).
+  elif npm publish "$pkg_dir/$TARBALL" --provenance --access public --tag kumiko-tmp >&2 \
+       && npm dist-tag add "$name@$version" latest >&2; then
+    npm dist-tag rm "$name" kumiko-tmp >&2 2>/dev/null || true
     published=$((published + 1))
     published_json="$(jq -c \
       --arg name "$name" --arg version "$version" \
