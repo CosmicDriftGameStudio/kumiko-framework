@@ -64,6 +64,12 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "@cosmicdrift/kumiko-bundled-features/sessions",
     factory: "createSessionsFeature",
   },
+  "personal-access-tokens": {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-bundled-features/personal-access-tokens",
+    factory: "createPersonalAccessTokensFeature",
+    defaultArgs: "{ scopes: {} }",
+  },
   // auth-email-password auto-mounted via composeFeatures(includeBundled:true).
   // Kein r.entity → generate.ts skipt silent. Listed für schema-check ↔
   // mounted-set Konsistenz.
