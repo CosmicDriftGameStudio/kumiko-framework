@@ -1,5 +1,16 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.113.1
+
+### Patch Changes
+
+- 25b7e6e: Fix: `projectionList` screens now render their `toolbarActions`.
+
+  The `projectionList` screen-type declared `toolbarActions` in its schema, but `ProjectionListBody` never resolved or passed them to `RenderList` — so a declared toolbar button (e.g. a "New …" navigate action) silently didn't render. Now resolved analogous to `rowActions` (navigate-kind in v1) and passed through, matching `entityList` behaviour.
+
+  - @cosmicdrift/kumiko-framework@0.113.1
+  - @cosmicdrift/kumiko-headless@0.113.1
+
 ## 0.113.0
 
 ### Minor Changes
