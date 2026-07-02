@@ -54,6 +54,8 @@ const SCENARIOS: readonly Scenario[] = [
   { name: "tags-section", flow: admin(`/note-edit/${DEMO_NOTE_ID}`), settleMs: 1000 },
   // legal-pages — öffentliche, server-gerenderte Route (kein Login).
   { name: "legal-pages", url: "/legal/privacy", waitFor: "[data-tenant-content]" },
+  // personal-access-tokens — logged-in self-service: mint (scope toggles) + list.
+  { name: "personal-access-tokens", flow: admin("/api-tokens"), settleMs: 1000 },
 ];
 
 runMatrix(SCENARIOS, { baseDir: BASE_DIR, themes: THEMES, applyTheme, locales: ["en"] });
