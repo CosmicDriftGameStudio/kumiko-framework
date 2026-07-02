@@ -1074,6 +1074,23 @@ function ProjectionListBody({
     return out.length > 0 ? out : undefined;
   }, [screen.rowActions, effectiveTranslate, runNavigate]);
 
+  const toolbarActions = useMemo((): readonly ToolbarActionButton[] | undefined => {
+    if (screen.toolbarActions === undefined) return undefined;
+    const out: ToolbarActionButton[] = [];
+    for (const action of screen.toolbarActions) {
+      // v1: nur navigate (writeHandler-Toolbar bräuchte den Dispatcher-Pfad).
+      if (action.kind !== "navigate") continue;
+      const target = action.screen;
+      out.push({
+        id: action.id,
+        label: effectiveTranslate(action.label),
+        ...(action.style !== undefined && { style: action.style }),
+        onTrigger: () => nav.navigate({ screenId: target }),
+      });
+    }
+    return out.length > 0 ? out : undefined;
+  }, [screen.toolbarActions, effectiveTranslate, nav]);
+
   if (rowsQuery.loading && rowsQuery.data === null) {
     return (
       <Banner padded variant="loading" testId="kumiko-screen-loading">
@@ -1107,6 +1124,7 @@ function ProjectionListBody({
       searchable={screen.searchable ?? false}
       sort={screen.defaultSort ?? null}
       {...(rowActions !== undefined && { rowActions })}
+      {...(toolbarActions !== undefined && { toolbarActions })}
       {...(translate !== undefined && { translate })}
       {...(wrappedOnRowClick !== undefined && { onRowClick: wrappedOnRowClick })}
     />
