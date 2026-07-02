@@ -107,6 +107,12 @@
     "sampleBlurb": "Tenant-branded public pages with Markdown body and optional tier-gated CSS — from route mount to rendered HTML.",
     "screenshot": "/screenshots/features/managed-pages.png"
   },
+  "personal-access-tokens": {
+    "primarySample": "apps-use-all-bundled",
+    "whenToUse": "A headless client (CI, a script, a customer ERP, Zapier) must call your HTTP API without a browser login — a long-lived, revocable `kpat_` bearer token carries the user's live roles and a scoped subset of handlers.",
+    "sampleBlurb": "use-all-bundled mounts the feature with per-domain read/write scopes (pages, tags, ledger); the integration test mints a token, calls the API with the Bearer header, and asserts fail-closed scope enforcement and revocation.",
+    "screenshot": null
+  },
   "secrets": {
     "primarySample": "recipes-managed-config",
     "whenToUse": "API keys and tokens must live encrypted per tenant, not in env vars — secrets stores values in the DB with master-key encryption and config-gated reads.",
