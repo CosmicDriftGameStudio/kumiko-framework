@@ -49,10 +49,11 @@ let patResolver: PatResolver | undefined;
 const encryptionKey = randomBytes(32).toString("base64");
 const TENANT: TenantId = testTenantId(1);
 
-// One scope "tokens" grants exactly the two PAT queries — deliberately NOT
-// sessions:query:user-session:mine, so that QN is the out-of-scope probe.
+// One domain "tokens" whose read set is exactly the two PAT queries —
+// deliberately NOT sessions:query:user-session:mine, so that QN is the
+// out-of-scope probe. Granted as "tokens:read".
 const SCOPES: PatScopeConfig = {
-  tokens: { label: "Tokens", qns: [PatQueries.mine, PatQueries.availableScopes] },
+  tokens: { label: "Tokens", read: [PatQueries.mine, PatQueries.availableScopes] },
 };
 
 async function mintToken(
@@ -63,7 +64,7 @@ async function mintToken(
     PatHandlers.create,
     {
       name: "test",
-      scopes: opts?.scopes ?? ["tokens"],
+      scopes: opts?.scopes ?? ["tokens:read"],
       ...(opts?.expiresInDays ? { expiresInDays: opts.expiresInDays } : {}),
     },
     actor,

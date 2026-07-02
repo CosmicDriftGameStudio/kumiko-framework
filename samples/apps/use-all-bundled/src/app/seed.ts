@@ -7,12 +7,18 @@
 
 import { seedPage } from "@cosmicdrift/kumiko-bundled-features/managed-pages/seeding";
 import {
+  apiTokenEntity,
+  apiTokenTable,
+} from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
+import {
   tagAssignmentAggregateId,
   tagAssignmentEntity,
   tagEntity,
 } from "@cosmicdrift/kumiko-bundled-features/tags";
 import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/text-content/seeding";
+import { userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
+import { fetchOne, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntityExecutor,
@@ -20,8 +26,10 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
-import { DEMO_NOTE_ID, DEV_TENANT_ID } from "./auth-constants";
+import { TestUsers, unsafeCreateEntityTable } from "@cosmicdrift/kumiko-framework/stack";
+import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+import { Temporal } from "temporal-polyfill";
+import { ADMIN_EMAIL, DEMO_NOTE_ID, DEV_TENANT_ID } from "./auth-constants";
 import { noteEntity } from "./notes-feature";
 
 // Event-store executors mirror the real handlers (createEntityExecutor pairs the
@@ -103,6 +111,35 @@ async function seedTagsAndNotes(db: DbConnection, tenantId: TenantId): Promise<v
   }
 }
 
+// personal-access-tokens — the read_api_tokens store is a direct-write table
+// that the ephemeral screenshot DB doesn't auto-create (unmanagedTable). Create
+// it and seed two demo tokens for the logged-in admin so the "your tokens" list
+// renders populated. Screenshot-only: hashes/prefixes are fake, never resolved.
+async function seedApiTokens(db: DbConnection, tenantId: TenantId): Promise<void> {
+  await unsafeCreateEntityTable(db, apiTokenEntity);
+  const admin = await fetchOne<{ id: string }>(db, userTable, { email: ADMIN_EMAIL });
+  if (!admin) return;
+  const now = Temporal.Now.instant();
+  const demo: ReadonlyArray<{ name: string; scopes: string[]; expiresInDays?: number }> = [
+    { name: "CI deploy", scopes: ["pages:write", "tags:read"], expiresInDays: 90 },
+    { name: "Ledger sync", scopes: ["ledger:read"] },
+  ];
+  for (const t of demo) {
+    await insertOne(db, apiTokenTable, {
+      id: generateId(),
+      userId: admin.id,
+      tenantId,
+      name: t.name,
+      tokenHash: `demo_${generateId()}`,
+      prefix: `kpat_${generateId().slice(0, 6)}`,
+      scopes: JSON.stringify(t.scopes),
+      createdAt: now,
+      expiresAt: t.expiresInDays ? now.add({ hours: 24 * t.expiresInDays }) : null,
+      revokedAt: null,
+    });
+  }
+}
+
 const PRIVACY_BODY = [
   "## 1. Controller",
   "",
@@ -150,4 +187,7 @@ export const seedScreenshotData: SeedFn = async (stack) => {
 
   // tags + notes + assignments in the dev tenant for the tags screenshots.
   await seedTagsAndNotes(stack.db, devTenant);
+
+  // personal-access-tokens list for the admin (active tenant = dev).
+  await seedApiTokens(stack.db, devTenant);
 };

@@ -44,6 +44,7 @@ import { mailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/mail
 import { mailTransportInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory";
 import { mailTransportSmtpFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-smtp";
 import { createManagedPagesFeature } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
+import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import { createRateLimitingFeature } from "@cosmicdrift/kumiko-bundled-features/rate-limiting";
 import { readinessFeature } from "@cosmicdrift/kumiko-bundled-features/readiness";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
@@ -82,6 +83,20 @@ export const APP_FEATURES = [
   // foundations not in the auto-mounted bundled-set
   createSecretsFeature(),
   createSessionsFeature(),
+  // Per-domain scopes (like cashcolt's credit/bauspar/miete): the token picks
+  // WHICH API × the permission LEVEL (read vs read+write). Each domain declares
+  // its read + write QN globs.
+  createPersonalAccessTokensFeature({
+    scopes: {
+      pages: {
+        label: "Pages",
+        read: ["managed-pages:query:*"],
+        write: ["managed-pages:write:*"],
+      },
+      tags: { label: "Tags", read: ["tags:query:*"], write: ["tags:write:*"] },
+      ledger: { label: "Ledger", read: ["ledger:query:*"], write: ["ledger:write:*"] },
+    },
+  }),
   readinessFeature,
 
   // delivery + channels
