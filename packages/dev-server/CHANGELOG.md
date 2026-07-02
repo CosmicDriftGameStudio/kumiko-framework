@@ -1,5 +1,13 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.109.0
+
+### Patch Changes
+
+- Updated dependencies [b127293]
+  - @cosmicdrift/kumiko-bundled-features@0.109.0
+  - @cosmicdrift/kumiko-framework@0.109.0
+
 ## 0.108.0
 
 ### Patch Changes
