@@ -331,6 +331,7 @@ describe("folders-user-data — tenantScopedDelete hooks", () => {
     await seedOneFolderWithAssignment();
     const ctx = {
       db: stack.db,
+      registry: stack.registry,
       tenantId: admin.tenantId,
       userId: admin.id,
       tenantModel: "multi-user" as const,
@@ -345,6 +346,7 @@ describe("folders-user-data — tenantScopedDelete hooks", () => {
     await seedOneFolderWithAssignment();
     const ctx = {
       db: stack.db,
+      registry: stack.registry,
       tenantId: admin.tenantId,
       userId: admin.id,
       tenantModel: "single-user" as const,
@@ -359,6 +361,7 @@ describe("folders-user-data — tenantScopedDelete hooks", () => {
     await seedOneFolderWithAssignment();
     const ctx = {
       db: stack.db,
+      registry: stack.registry,
       tenantId: admin.tenantId,
       userId: admin.id,
       tenantModel: "single-user" as const,
