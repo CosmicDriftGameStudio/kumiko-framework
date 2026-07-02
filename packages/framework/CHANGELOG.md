@@ -1,5 +1,23 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.107.0
+
+### Minor Changes
+
+- 64ff082: Custom-field values now survive a host-entity projection rebuild (#759).
+
+  - New registrar API `r.extendEntityProjection(entityName, { sources?, apply })`: merges extra apply handlers (+ extra event sources) into the entity's implicit projection so `rebuildProjection` replays event types that a bundled extension materializes into the host entity's table. Rebuild-only — the inline runner keeps skipping implicit projections, live delivery stays with the extension's MSP.
+  - `ProjectionDefinition.extraSources`: additional aggregate-types included in the rebuild event filter while `source` keeps meaning "the owning entity" (soft-delete-cleanup et al. unchanged).
+  - `wireCustomFieldsFor` registers its `customField.set`/`.cleared`/`fieldDefinition.deleted` applies through the new API. Previously a schema-migration rebuild reset every `customFields` jsonb to `{}` with no recovery path; the table-less custom-fields MSP was categorically excluded from `rebuildMultiStreamProjection`.
+
+- 3ff6025: Poison-event quarantine for projection rebuilds (#760).
+
+  - A single historical event whose apply handler throws no longer has to permanently block a rebuild. Opt-in quarantine mode confines each apply to a driver-native savepoint: the poison event is rolled back, recorded into the new `kumiko_rebuild_dead_letters` table, and the replay completes. `RebuildResult.eventsSkipped` reports the count.
+  - Single-stream: `RebuildDeps.errorPolicy.skipApplyErrors` (per run). Default stays strict — first throwing apply aborts the rebuild.
+  - MSP: `MspErrorMode.rebuild.skipApplyErrors` (falling back to `continuous`) is now honored by `rebuildMultiStreamProjection` — the option was declared but previously never implemented for rebuilds.
+  - New ops surface: `listRebuildDeadLetters(db, { projectionName })`, `runInSavepoint(tx, fn)` (bun-db).
+  - The `jobs:job:projection-rebuild` payload accepts `skipApplyErrors: true` for operator-triggered quarantine runs.
+
 ## 0.106.0
 
 ### Minor Changes
