@@ -43,7 +43,8 @@ describe("sessions auto-revoke binding", () => {
   test("unbound hook is a silent no-op", async () => {
     const feature = createSessionsFeature();
     // must resolve without throwing — stateless-JWT deployments have no revoker
-    await userPostSaveHook(feature)(passwordChange);
+    const result = await userPostSaveHook(feature)(passwordChange);
+    expect(result).toBeUndefined();
   });
 
   test("skips isNew and non-passwordHash changes", async () => {
