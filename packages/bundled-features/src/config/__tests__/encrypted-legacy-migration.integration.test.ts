@@ -161,9 +161,9 @@ describe("config:reencrypt job", () => {
     const registryCheck = createRegistry([createConfigFeature(), encMigFeature]);
     expect(registryCheck.getConfigKey(KEY)?.encrypted).toBe(true);
 
-    const events = await asRawClient(stack.db).unsafe<
-      { payload: { changes?: { value?: string } } }[]
-    >(
+    const events = await asRawClient(stack.db).unsafe<{
+      payload: { changes?: { value?: string } };
+    }>(
       `SELECT payload FROM kumiko_events WHERE aggregate_type = 'config-value' AND type LIKE '%.updated' ORDER BY created_at DESC LIMIT 1`,
     );
     const lastValue = events[0]?.payload?.changes?.value;

@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
@@ -12,6 +11,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import {
   createLateBoundHolder,
+  createTestEnvelopeCipher,
   deleteRows,
   resetTestTables,
   updateRows,

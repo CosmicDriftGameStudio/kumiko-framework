@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
@@ -10,7 +9,10 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createLateBoundHolder } from "@cosmicdrift/kumiko-framework/testing";
+import {
+  createLateBoundHolder,
+  createTestEnvelopeCipher,
+} from "@cosmicdrift/kumiko-framework/testing";
 import { AuthHandlers } from "../../auth-email-password/constants";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
 import { createConfigFeature } from "../../config";

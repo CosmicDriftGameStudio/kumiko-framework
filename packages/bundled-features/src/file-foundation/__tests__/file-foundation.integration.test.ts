@@ -4,8 +4,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { type DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
@@ -19,6 +18,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import {
   createMutableMasterKeyProvider,
+  createTestEnvelopeCipher,
   type MutableMasterKeyProvider,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { z } from "zod";

@@ -78,6 +78,7 @@ import {
   type SseBroker,
 } from "@cosmicdrift/kumiko-framework/api";
 import {
+  configureEntityFieldEncryption,
   createDbConnection,
   type DbConnection,
   type DbRunner,
@@ -918,6 +919,9 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // Framework-Default-Provider zuerst, App-Werte (resolvedExtraContext)
   // gewinnen immer (z.B. money-horse's eigener configResolver).
   const bootCrypto = resolveBootCrypto(envSource, options.masterKey);
+  // App-wide cipher for `encrypted: true` entity fields — executors resolve
+  // it lazily, entities without encrypted fields never touch it.
+  configureEntityFieldEncryption(bootCrypto.entityFieldCipher);
   const autoExtraContext = buildBootExtraContext({
     db,
     features,

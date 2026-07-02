@@ -10,11 +10,11 @@ import {
   SYSTEM_TENANT_ID,
 } from "../../engine";
 import type { ConfigSeedDef, Registry } from "../../engine/types";
+import { createEnvMasterKeyProvider } from "../../secrets/env-master-key-provider";
+import { createEnvelopeCipher } from "../../secrets/envelope-cipher";
 import { unsafeCreateEntityTable } from "../../stack";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { seedConfigValues } from "../config-seed";
-import { createEnvMasterKeyProvider } from "../../secrets/env-master-key-provider";
-import { createEnvelopeCipher } from "../../secrets/envelope-cipher";
 import { buildEntityTable } from "../table-builder";
 
 // --- Test Entity ---

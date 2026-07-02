@@ -37,6 +37,7 @@ import {
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import type { PatResolver, SessionMetadata } from "@cosmicdrift/kumiko-framework/api";
 import { createInMemoryLoginRateLimiter } from "@cosmicdrift/kumiko-framework/api";
+import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import {
   collectWriteHandlerQns,
   createRegistry,
@@ -313,6 +314,9 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // configResolver vor dem Server-Boot konstruiert wird (stack.registry
   // gibt's erst onAfterSetup) — createKumikoServer baut intern seine eigene.
   const bootCrypto = resolveBootCrypto(envSource, options.masterKey);
+  // App-wide cipher for `encrypted: true` entity fields (symmetrisch zu
+  // runProdApp) — executors resolve it lazily.
+  configureEntityFieldEncryption(bootCrypto.entityFieldCipher);
   const cfgExtra = effectiveAuth
     ? mergeConfigResolverDefault(
         options.extraContext,

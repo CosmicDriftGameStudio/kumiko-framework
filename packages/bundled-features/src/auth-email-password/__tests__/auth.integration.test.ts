@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
 import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createTestUser,
@@ -13,6 +12,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import {
+  createTestEnvelopeCipher,
   expectErrorIncludes,
   getSetCookieRaw,
   getSetCookieValue,

@@ -26,10 +26,14 @@ export function envHasMasterKek(env: Record<string, string | undefined>): boolea
 
 export type BootCrypto = {
   readonly masterKeyProvider?: MasterKeyProvider;
-  // Cipher for encrypted config keys (and entity fields). Present exactly
-  // when a master key is available. Decrypts legacy CONFIG_ENCRYPTION_KEY
-  // values as fallback until the config re-encrypt job migrated them.
+  // Cipher for encrypted config keys. Present exactly when a master key is
+  // available. Decrypts legacy CONFIG_ENCRYPTION_KEY values as fallback
+  // until the config re-encrypt job migrated them.
   readonly configCipher?: EnvelopeCipher;
+  // Cipher for `encrypted: true` entity fields — same master key, but the
+  // legacy fallback reads the pre-envelope ENCRYPTION_KEY format. Identical
+  // to configCipher when no ENCRYPTION_KEY is set.
+  readonly entityFieldCipher?: EnvelopeCipher;
   readonly dekCache: DekCache;
 };
 
@@ -52,17 +56,27 @@ export function resolveBootCrypto(
       : undefined);
 
   const dekCache = createDekCache();
-  const legacyKey = envSource["CONFIG_ENCRYPTION_KEY"];
+  const legacyConfigKey = envSource["CONFIG_ENCRYPTION_KEY"];
   const configCipher = masterKeyProvider
     ? createEnvelopeCipher(masterKeyProvider, {
         dekCache,
-        ...(legacyKey ? { legacy: createEncryptionProvider(legacyKey) } : {}),
+        ...(legacyConfigKey ? { legacy: createEncryptionProvider(legacyConfigKey) } : {}),
       })
     : undefined;
+
+  const legacyEntityKey = envSource["ENCRYPTION_KEY"];
+  const entityFieldCipher =
+    masterKeyProvider && legacyEntityKey
+      ? createEnvelopeCipher(masterKeyProvider, {
+          dekCache,
+          legacy: createEncryptionProvider(legacyEntityKey),
+        })
+      : configCipher;
 
   return {
     ...(masterKeyProvider && { masterKeyProvider }),
     ...(configCipher && { configCipher }),
+    ...(entityFieldCipher && { entityFieldCipher }),
     dekCache,
   };
 }

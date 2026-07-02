@@ -24,8 +24,8 @@ import { append, type EventMetadata } from "@cosmicdrift/kumiko-framework/event-
 import {
   createDekCache,
   createSecret,
-  decodeStoredEnvelope,
   type DekCache,
+  decodeStoredEnvelope,
   decryptValue,
   encodeStoredEnvelope,
   encryptValue,

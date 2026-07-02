@@ -20,8 +20,7 @@ import {
   type SubscriptionProviderPlugin,
   subscriptionAggregateId,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
-import { type DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
@@ -32,6 +31,7 @@ import {
   testTenantId,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
 import { Hono } from "hono";
 import Stripe from "stripe";
 import { configValuesTable, createConfigFeature } from "../../config";

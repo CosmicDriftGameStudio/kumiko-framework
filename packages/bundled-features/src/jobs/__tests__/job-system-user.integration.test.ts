@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
 import {
   access,
   createRegistry,
@@ -23,7 +22,7 @@ import {
   TestUsers,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { bridgeStub, sleep } from "@cosmicdrift/kumiko-framework/testing";
+import { bridgeStub, createTestEnvelopeCipher, sleep } from "@cosmicdrift/kumiko-framework/testing";
 import { ConfigHandlers } from "../../config/constants";
 import { createConfigAccessor, createConfigFeature } from "../../config/feature";
 import { type ConfigResolver, createConfigResolver } from "../../config/resolver";
