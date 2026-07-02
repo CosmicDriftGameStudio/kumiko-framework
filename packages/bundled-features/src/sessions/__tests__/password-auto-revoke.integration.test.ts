@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
@@ -49,8 +49,8 @@ const encryptionKey = randomBytes(32).toString("base64");
 const TENANT: TenantId = testTenantId(1);
 
 beforeAll(async () => {
-  const encryption = createEncryptionProvider(encryptionKey);
-  const resolver = createConfigResolver({ encryption });
+  const encryption = createTestEnvelopeCipher(encryptionKey);
+  const resolver = createConfigResolver({ cipher: encryption });
   const bound = sessionCallbacksFromLateBound(callbacks);
   const baseRevoker = bound.asMassRevoker();
 

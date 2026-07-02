@@ -10,7 +10,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -100,8 +100,8 @@ const noSignedUrlProviderFeature = defineFeature("test-no-signed-url-provider", 
 });
 
 beforeAll(async () => {
-  const encryption = createEncryptionProvider(testEncryptionKey);
-  const resolver = createConfigResolver({ encryption });
+  const encryption = createTestEnvelopeCipher(testEncryptionKey);
+  const resolver = createConfigResolver({ cipher: encryption });
 
   stack = await setupTestStack({
     features: [

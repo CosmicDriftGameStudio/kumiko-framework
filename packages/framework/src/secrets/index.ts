@@ -10,14 +10,14 @@ export {
   type EnvelopeCipher,
   type EnvelopeCipherOptions,
 } from "./envelope-cipher";
+export { assertNoSecretLeak } from "./leak-guard";
+export { rewrapDek } from "./rotation";
 export {
   decodeStoredEnvelope,
   encodeStoredEnvelope,
   isStoredEnvelope,
   type StoredEnvelope,
 } from "./stored-envelope";
-export { assertNoSecretLeak } from "./leak-guard";
-export { rewrapDek } from "./rotation";
 export {
   type ContainsSecret,
   createSecret,

@@ -6,7 +6,14 @@
 // tests that want to exercise pre- and post-rotation behaviour in a
 // single suite.
 
-import type { MasterKeyProvider } from "../secrets";
+import { randomBytes } from "node:crypto";
+import {
+  createEnvelopeCipher,
+  createEnvMasterKeyProvider,
+  type EnvelopeCipher,
+  type EnvelopeCipherOptions,
+  type MasterKeyProvider,
+} from "../secrets";
 
 export type MutableMasterKeyProvider = MasterKeyProvider & {
   // Replace the backing provider. All future wrapDek/unwrapDek/currentVersion
@@ -20,12 +27,31 @@ export function createMutableMasterKeyProvider(
 ): MutableMasterKeyProvider {
   let current = initial;
   return {
-    wrapDek: (dek) => current.wrapDek(dek),
-    unwrapDek: (e, v) => current.unwrapDek(e, v),
+    wrapDek: (dek, scope) => current.wrapDek(dek, scope),
+    unwrapDek: (e, v, scope) => current.unwrapDek(e, v, scope),
     currentVersion: () => current.currentVersion(),
     isAvailable: () => current.isAvailable(),
     replace: (next) => {
       current = next;
     },
   };
+}
+
+// Single-version env provider for tests — the shape every integration test
+// needs to exercise encrypted config keys / entity fields without caring
+// about keyring mechanics. Pass a fixed key to share it across stacks.
+export function createTestMasterKeyProvider(keyBase64?: string): MasterKeyProvider {
+  return createEnvMasterKeyProvider({
+    env: {
+      KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "1",
+      KUMIKO_SECRETS_MASTER_KEY_V1: keyBase64 ?? randomBytes(32).toString("base64"),
+    },
+  });
+}
+
+export function createTestEnvelopeCipher(
+  keyBase64?: string,
+  opts?: EnvelopeCipherOptions,
+): EnvelopeCipher {
+  return createEnvelopeCipher(createTestMasterKeyProvider(keyBase64), opts ?? {});
 }

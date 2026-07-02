@@ -11,7 +11,7 @@ import {
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
 import { buildConfigFeatureSchema, createRegistry } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
@@ -30,8 +30,8 @@ const globexAdmin = { ...TestUsers.admin, tenantId: TENANT_B, id: "globex-admin"
 let stack: TestStack;
 
 beforeAll(async () => {
-  const encryption = createEncryptionProvider(randomBytes(32).toString("base64"));
-  const resolver = createConfigResolver({ encryption });
+  const encryption = createTestEnvelopeCipher(randomBytes(32).toString("base64"));
+  const resolver = createConfigResolver({ cipher: encryption });
 
   stack = await setupTestStack({
     features: [createConfigFeature(), billingFeature],

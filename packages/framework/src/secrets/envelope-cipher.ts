@@ -8,8 +8,8 @@
 
 import type { EncryptionProvider } from "../db/encryption";
 import { InternalError } from "../errors/classes";
-import { createDekCache, withDekCache } from "./dek-cache";
 import type { DekCache } from "./dek-cache";
+import { createDekCache, withDekCache } from "./dek-cache";
 import { decryptValue, encryptValue } from "./envelope";
 import { decodeStoredEnvelope, encodeStoredEnvelope, isStoredEnvelope } from "./stored-envelope";
 import type { KeyScope, MasterKeyProvider } from "./types";

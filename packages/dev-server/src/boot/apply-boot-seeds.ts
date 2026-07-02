@@ -1,6 +1,7 @@
 import { seedAllConfigValues } from "@cosmicdrift/kumiko-bundled-features/config";
-import type { DbConnection, EncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
+import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
 
 // Single boot-seed entry-point. runDevApp + runProdApp both call this
 // from their post-stack hook, so the wiring lives in exactly one place
@@ -12,7 +13,7 @@ import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
 export async function applyBootSeeds(deps: {
   registry: Registry;
   db: DbConnection;
-  encryption?: EncryptionProvider;
+  cipher?: EnvelopeCipher;
 }): Promise<void> {
-  await seedAllConfigValues(deps.registry, deps.db, deps.encryption);
+  await seedAllConfigValues(deps.registry, deps.db, deps.cipher);
 }

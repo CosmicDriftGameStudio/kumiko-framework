@@ -1,10 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import {
-  createEncryptionProvider,
-  createTenantDb,
-  type DbConnection,
-} from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
 import {
   access,
   createRegistry,
@@ -107,8 +104,8 @@ beforeAll(async () => {
   await createEventsTable(db);
   await createArchivedStreamsTable(db);
 
-  const encryption = createEncryptionProvider(testEncryptionKey);
-  resolver = createConfigResolver({ encryption });
+  const encryption = createTestEnvelopeCipher(testEncryptionKey);
+  resolver = createConfigResolver({ cipher: encryption });
 
   registry = createRegistry([configFeature, billingFeature]);
 

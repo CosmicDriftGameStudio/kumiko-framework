@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -68,8 +68,8 @@ const segmentsByUserAndTenant = new Map<string, string>();
 const plansByTenant = new Map<TenantId, string>();
 
 beforeAll(async () => {
-  const encryption = createEncryptionProvider(encryptionKey);
-  const resolver = createConfigResolver({ encryption });
+  const encryption = createTestEnvelopeCipher(encryptionKey);
+  const resolver = createConfigResolver({ cipher: encryption });
 
   stack = await setupTestStack({
     features: [
@@ -260,8 +260,8 @@ describe("scenario 2: switch-tenant recomputes claims (no stale tenant-A claims 
 
 describe("scenario 2.5: reserved separator + multi-feature isolation", () => {
   test("one feature returns key with ':' → only that key dropped, other features merge cleanly", async () => {
-    const localEncryption = createEncryptionProvider(encryptionKey);
-    const localResolver = createConfigResolver({ encryption: localEncryption });
+    const localEncryption = createTestEnvelopeCipher(encryptionKey);
+    const localResolver = createConfigResolver({ cipher: localEncryption });
     // A polluted feature that tries to smuggle in a qualified-name-shaped
     // inner key (injecting ":" would otherwise let it spoof another
     // feature's prefix). Plus a clean companion to prove the drop is
@@ -337,8 +337,8 @@ describe("scenario 2.5: reserved separator + multi-feature isolation", () => {
 
 describe("scenario 2.6: multi-feature drift warnings fire independently", () => {
   test("feature A + feature B both return undeclared keys → each logs its own warning", async () => {
-    const localEncryption = createEncryptionProvider(encryptionKey);
-    const localResolver = createConfigResolver({ encryption: localEncryption });
+    const localEncryption = createTestEnvelopeCipher(encryptionKey);
+    const localResolver = createConfigResolver({ cipher: localEncryption });
 
     // Capture warn() calls to verify drift warnings fire per-feature, not
     // globally collapsed.
@@ -425,8 +425,8 @@ describe("scenario 2.6: multi-feature drift warnings fire independently", () => 
 
 describe("scenario 3: a broken claims hook does not break login", () => {
   test("hook throws → login still succeeds, broken feature simply contributes nothing, warn logged with featureName+err", async () => {
-    const localEncryption = createEncryptionProvider(encryptionKey);
-    const localResolver = createConfigResolver({ encryption: localEncryption });
+    const localEncryption = createTestEnvelopeCipher(encryptionKey);
+    const localResolver = createConfigResolver({ cipher: localEncryption });
 
     // Capture warn-calls so the test can verify the resolver actually
     // logged the broken hook with featureName + err.message — previously

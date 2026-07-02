@@ -50,10 +50,11 @@ import {
   validateAppCustomScreenWriteQns,
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
+import type { EnvelopeCipher, MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";
 import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { applyBootSeeds } from "./boot/apply-boot-seeds";
+import { resolveBootCrypto } from "./boot/boot-crypto";
 
 import { watchAndRegenerate } from "./codegen";
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features";
@@ -311,8 +312,14 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // throwaway-Registry hier extrahiert nur die config-Keys, weil der
   // configResolver vor dem Server-Boot konstruiert wird (stack.registry
   // gibt's erst onAfterSetup) — createKumikoServer baut intern seine eigene.
+  const bootCrypto = resolveBootCrypto(envSource, options.masterKey);
   const cfgExtra = effectiveAuth
-    ? mergeConfigResolverDefault(options.extraContext, createRegistry(features), envSource)
+    ? mergeConfigResolverDefault(
+        options.extraContext,
+        createRegistry(features),
+        envSource,
+        bootCrypto.configCipher,
+      )
     : options.extraContext;
   // Auto-wire textContent (immer) + secrets (feature-gated), symmetrisch zu
   // runProdApp. Anders als prod existiert die db hier erst im Factory-deps
@@ -327,7 +334,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
       registry: deps.registry,
       hasAuth: false,
       sseBroker: deps.sseBroker,
-      ...(options.masterKey && { masterKey: options.masterKey }),
+      crypto: bootCrypto,
     });
     const base = typeof cfgExtra === "function" ? cfgExtra(deps) : (cfgExtra ?? {});
     return { ...boot, ...base };
@@ -482,7 +489,11 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
       // Runs before user-supplied seed callbacks so those can read /
       // override the deploy-defaults. The helper indirection is what
       // config-seed-boot.integration.ts pins — keep it as a single call.
-      await applyBootSeeds({ registry: stack.registry, db: stack.db });
+      await applyBootSeeds({
+        registry: stack.registry,
+        db: stack.db,
+        ...(bootCrypto.configCipher && { cipher: bootCrypto.configCipher }),
+      });
       for (const seed of options.seeds ?? []) {
         await seed(stack);
       }
@@ -518,10 +529,12 @@ export function mergeConfigResolverDefault(
   ctx: CreateKumikoServerOptions["extraContext"],
   registry: Registry,
   envSource: Record<string, string | undefined>,
+  cipher?: EnvelopeCipher,
 ): CreateKumikoServerOptions["extraContext"] {
   const defaults = {
     configResolver: createConfigResolver({
       appOverrides: buildEnvConfigOverrides(registry, envSource),
+      ...(cipher && { cipher }),
     }),
   };
   // ctx.config wird per-Request aus _configAccessorFactory geminted (siehe

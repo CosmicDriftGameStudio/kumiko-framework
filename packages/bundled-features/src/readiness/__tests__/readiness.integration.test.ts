@@ -6,7 +6,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEncryptionProvider, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
 import { access, createTenantConfig, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
@@ -133,8 +134,8 @@ let stack: TestStack;
 let db: DbConnection;
 
 beforeAll(async () => {
-  const encryption = createEncryptionProvider(randomBytes(32).toString("base64"));
-  const resolver = createConfigResolver({ encryption });
+  const encryption = createTestEnvelopeCipher(randomBytes(32).toString("base64"));
+  const resolver = createConfigResolver({ cipher: encryption });
   const masterKeyProvider = createEnvMasterKeyProvider({
     env: {
       KUMIKO_SECRETS_MASTER_KEY_V1: randomBytes(32).toString("base64"),
