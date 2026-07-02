@@ -1,5 +1,9 @@
 export { UserCommandSchemas } from "./command-schemas";
 export { USER_FEATURE, UserErrors, UserHandlers, UserQueries } from "./constants";
+export {
+  backfillUserStreamTenants,
+  type UserStreamBackfillResult,
+} from "./db/queries/stream-tenant-backfill";
 export { createUserFeature } from "./feature";
 export type { UserStatus } from "./schema/user";
 export {
@@ -12,7 +16,3 @@ export {
   userEntity,
   userTable,
 } from "./schema/user";
-export {
-  backfillUserStreamTenants,
-  type UserStreamBackfillResult,
-} from "./db/queries/stream-tenant-backfill";

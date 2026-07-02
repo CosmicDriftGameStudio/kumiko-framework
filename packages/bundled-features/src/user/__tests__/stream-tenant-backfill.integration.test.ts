@@ -20,8 +20,8 @@ import {
   type TestDb,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { userEntity, userTable } from "../schema/user";
 import { backfillUserStreamTenants } from "../db/queries/stream-tenant-backfill";
+import { userEntity, userTable } from "../schema/user";
 
 const T1 = "00000000-0000-4000-8000-000000000011" as TenantId;
 const LEGACY_USER = "aaaaaaaa-0000-4000-8000-000000000001";
