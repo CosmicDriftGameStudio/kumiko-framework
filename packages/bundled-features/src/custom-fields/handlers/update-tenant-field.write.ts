@@ -65,6 +65,16 @@ export const updateTenantFieldHandler: WriteHandlerDef = {
     // values already written to host rows by past sets (set-custom-field only
     // routes the PII-safe path at write time). To change sensitivity, delete +
     // re-define (the honest cut — same rationale as the type guard above).
+    //
+    // 527/2 — even that "honest cut" is incomplete: it clears the projection
+    // row, but kumiko_events is immutable, so historical customField.set
+    // events from the field's non-sensitive era keep their plaintext values
+    // in the log forever. There is no event-payload redaction mechanism for
+    // this today (EventStoreExecutor.forget() hard-deletes a projection row
+    // and is rebuild-safe, but doesn't touch or redact past event payloads).
+    // A tenant that genuinely needs those values erased needs an operator-run
+    // data-retention pass over the raw event log — not something this
+    // handler, or delete-and-redefine, can give them.
     const currentSensitive = parseSerializedField(existing["serializedField"])?.sensitive === true;
     const requestedSensitive = payload.serializedField.sensitive === true;
     if (currentSensitive !== requestedSensitive) {

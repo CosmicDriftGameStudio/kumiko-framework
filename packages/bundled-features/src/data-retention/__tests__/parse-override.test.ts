@@ -9,13 +9,8 @@ afterEach(() => {
   warn.mockRestore?.();
 });
 
-// parseRetentionOverrideOrNull is the read boundary for a tenant's stored
-// data-retention override (DSGVO-relevant policy in a config column). It must
-// never let a corrupt or schema-violating value reach the retention decision:
-// invalid JSON and schema drift both collapse to null (the resolver then falls
-// back to preset/entity defaults) AND surface one operator warning. The schema
-// itself is covered by override-schema.test.ts — this pins the parser's
-// defensive wrapping: empty guard, no-throw on corruption, drop-not-leak on drift.
+// DSGVO invariant: corrupt or schema-drifted overrides collapse to null +
+// warn, never leak through (schema itself is covered by override-schema.test.ts).
 
 const parse = (raw: string | null) => parseRetentionOverrideOrNull(raw, "tenant-1", "test");
 

@@ -238,8 +238,13 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   });
 
   // An explicitly wired file provider (options.files) satisfies the
-  // FILE_STORAGE_PROVIDER boot gate — set it before validateBoot runs.
-  if (options.files !== undefined && process.env["FILE_STORAGE_PROVIDER"] === undefined) {
+  // FILE_STORAGE_PROVIDER boot gate — set it before validateBoot runs. Only
+  // if WE set it (532/2): deleting it after use instead of leaving a
+  // permanent process.env mutation, so a second runDevApp call in the same
+  // process (no files this time) doesn't fall through the gate falsely.
+  const setFileStorageProviderEnv =
+    options.files !== undefined && process.env["FILE_STORAGE_PROVIDER"] === undefined;
+  if (setFileStorageProviderEnv) {
     process.env["FILE_STORAGE_PROVIDER"] = "configured";
   }
 
@@ -248,7 +253,11 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // die früher nur runProdApp fing und sonst erst den Prod-Pod im
   // CrashLoopBackOff sterben ließ (#359). Wirft synchron, bevor ein
   // Socket oder Watcher (codegen-Write) aufgeht.
-  validateBoot(features);
+  try {
+    validateBoot(features);
+  } finally {
+    if (setFileStorageProviderEnv) delete process.env["FILE_STORAGE_PROVIDER"];
+  }
   warnIfNonUtcServerTimeZone();
   validateAppCustomScreenWriteQns(process.cwd(), collectWriteHandlerQns(features));
 

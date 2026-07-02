@@ -45,5 +45,10 @@ export function userDataRightsClient(
     },
   };
   if (options?.publicDeletion === undefined) return base;
-  return { ...base, gates: [makePublicDeletionGate(options.publicDeletion)] };
+  // Extend, not overwrite (570/2) — base.gates is empty today, but a spread
+  // that clobbers it instead of appending would silently drop future gates.
+  return {
+    ...base,
+    gates: [...(base.gates ?? []), makePublicDeletionGate(options.publicDeletion)],
+  };
 }

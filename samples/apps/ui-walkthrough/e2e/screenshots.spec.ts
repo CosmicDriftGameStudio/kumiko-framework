@@ -47,7 +47,10 @@ async function shot(
   path: string,
 ): Promise<void> {
   await page.goto(path);
-  await page.waitForTimeout(400);
+  // networkidle (636/7) — waitForTimeout alone raced real network fetches on
+  // a loaded CI runner; keep a short settle buffer after for CSS transitions.
+  await page.waitForLoadState("networkidle");
+  await page.waitForTimeout(150);
   const file = `${OUT_DIR}/${name}.png`;
   const rawHeight = await contentHeight(page);
   const width = page.viewportSize()?.width ?? 1280;

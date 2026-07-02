@@ -6,7 +6,7 @@
 // `relation "kumiko_events" does not exist`. Dieser Test fährt den echten
 // Pfad gegen eine leere DB + den idempotenten Re-Run.
 
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -76,7 +76,7 @@ describe("runSchemaApply", () => {
     expect(await tableExists(conn.db, "public.read_thing")).toBe(true);
   });
 
-  test("rebuild-Marker für nicht-registrierte Tabelle → kein Crash, 0", async () => {
+  test("rebuild-Marker für nicht-registrierte Tabelle → kein Crash, 0, aber laut warnen (522/3)", async () => {
     writeFileSync(
       join(migDir, "0002_more.sql"),
       `CREATE TABLE "read_more" ("id" text PRIMARY KEY);`,
@@ -86,7 +86,10 @@ describe("runSchemaApply", () => {
       JSON.stringify({ version: 1, tables: ["read_more"] }),
     );
 
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
     expect(await runSchemaApply({ ...APPLY, appCwd })).toBe(0);
     expect(await tableExists(conn.db, "public.read_more")).toBe(true);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Table "read_more"'));
+    warn.mockRestore();
   });
 });

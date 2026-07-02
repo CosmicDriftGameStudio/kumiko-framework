@@ -98,12 +98,11 @@ describe("composeFeatures", () => {
   });
 
   test("app feature duplicating a bundled name is dropped (no createRegistry crash)", () => {
-    // Bug discovered during Phase 3 recording: create-kumiko-app's picker
-    // hands back createAuthEmailPasswordFeature() because the user ticked
-    // it in the recommended set; runDevApp then adds its OWN bundled
-    // copy via includeBundled:true, and createRegistry throws "Duplicate
-    // feature: auth-email-password". The dedupe path keeps the bundled
-    // instance (it carries authOptions wiring) and drops the app stub.
+    // create-kumiko-app's picker hands back createAuthEmailPasswordFeature()
+    // because the user ticked it in the recommended set; runDevApp then adds
+    // its OWN bundled copy via includeBundled:true, and createRegistry throws
+    // "Duplicate feature: auth-email-password". The dedupe path keeps the
+    // bundled instance (it carries authOptions wiring) and drops the app stub.
     const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
     const features = composeFeatures([pickerAuthDupe, noopFeature], {
       includeBundled: true,

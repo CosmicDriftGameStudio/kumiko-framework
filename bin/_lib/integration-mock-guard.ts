@@ -19,8 +19,11 @@ export function hasDisallowedMock(content: string): boolean {
 //
 //   auth-claims: spies the logger to assert a drift-warning side-channel;
 //     the stack itself is real (setupTestStack).
+//   schema-apply: spies console.warn to assert the 522/3 unmatched-rebuild-
+//     table warning fires; the schema apply + DB migration are real.
 export const MOCK_GUARD_ALLOWLIST: ReadonlySet<string> = new Set([
   "samples/recipes/auth-claims/src/__tests__/feature.integration.test.ts",
+  "packages/dev-server/src/__tests__/schema-apply.integration.test.ts",
 ]);
 
 export function isMockGuardAllowlisted(relativePath: string): boolean {

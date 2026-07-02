@@ -15,6 +15,12 @@ export const customFieldSetSchema = z.object({
   // self-projected into the host row by the write handler and must never enter
   // the immutable log. Non-sensitive sets always carry the value.
   value: z.unknown().optional(),
+  // Explicit protocol marker (527/1) — `value === undefined` alone is also a
+  // valid-looking "clear" shape; `_sensitive` names the reason so a future
+  // reader can't mistake one for the other. Optional so historical events
+  // (persisted before this field existed) still parse: apply-side readers
+  // keep `value === undefined` as their actual branch condition.
+  _sensitive: z.literal(true).optional(),
 });
 export type CustomFieldSetPayload = z.infer<typeof customFieldSetSchema>;
 

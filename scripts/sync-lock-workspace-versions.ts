@@ -14,11 +14,7 @@ import { Glob } from "bun";
 
 const LOCK_PATH = "bun.lock";
 
-/**
- * Rewrites each workspace `"version"` field in a bun.lock to match its
- * package.json. Pure — no IO — so the regex/format contract is unit-testable.
- * Returns the patched lock plus a human-readable list of the changes made.
- */
+// Pure — no IO — so the format contract is unit-testable.
 export function syncLockVersions(
   lock: string,
   nameToVersion: ReadonlyMap<string, string>,

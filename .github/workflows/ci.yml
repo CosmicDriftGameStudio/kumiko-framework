@@ -76,12 +76,12 @@ jobs:
         # These render tests corrupt under the shared single-process happy-dom
         # after ~30 prior DOM test files mount/unmount — React event delegation
         # stops firing (#457). They are excluded from `kumiko check` above via
-        # bunfig.ci.toml pathIgnorePatterns and run here, each in its own fresh
-        # `bun test` process via bunfig.ci-dom.toml (which does NOT ignore them).
+        # bunfig.ci.toml pathIgnorePatterns; `bun run test:dom-isolated` (704/2)
+        # runs each in its own fresh `bun test` process via bunfig.ci-dom.toml
+        # (which does NOT ignore them) — same script a local dev would find.
         run: |
           ulimit -n 65536 || true
-          bun test --config=bunfig.ci-dom.toml ./packages/bundled-features/src/user-data-rights/web/__tests__/deletion-screens.test.tsx
-          bun test --config=bunfig.ci-dom.toml ./packages/bundled-features/src/user-data-rights/web/__tests__/privacy-center-screen.test.tsx
+          bun run test:dom-isolated
 
   tz-matrix:
     # Timezones epic (kumiko-framework#268), item 12. Runs the TZ-sensitive
@@ -291,13 +291,18 @@ jobs:
       - name: Run integration tests
         run: bun run test:integration
 
+      # Split (441/1): only rebuildProjection's perf gate flakes under load
+      # on shared runner hardware (~2k events/s on cdgs-runner vs ~14k
+      # isolated) — that one stays advisory. Event-store latency + pipeline
+      # perf don't share that hardware-contention profile and gate for real.
+      - name: Run integration perf gates (event-store, pipeline — hard-blocking)
+        run: bun run test:integration:perf:strict
+
       # Advisory — darf den integration-Job nicht rot färben. Bulk-Suite oben
-      # ist das Signal; perf-Gates sind Regression-Detektoren auf geteiltem
-      # Runner-Hardware und flaken unter Last (rebuildProjection ~2k events/s
-      # auf cdgs-runner vs ~14k isoliert).
-      - name: Run integration perf gates
+      # ist das Signal.
+      - name: Run integration perf gates (rebuildProjection — advisory, flaky under load)
         continue-on-error: true
-        run: bun run test:integration:perf
+        run: bun run test:integration:perf:flaky
 
       - name: Stop services
         if: always()

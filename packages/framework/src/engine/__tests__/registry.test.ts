@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { z } from "zod";
 import { createTenantConfig } from "../config-helpers";
 import { defineFeature } from "../define-feature";
+import { createEntity, createTextField } from "../factories";
 import { createRegistry } from "../registry";
 import type { FeatureDefinition } from "../types/feature";
 
@@ -129,5 +131,31 @@ describe("extensionSelector boot-validation", () => {
         r.extensionSelector("probeTransport", configKeys.provider);
       }),
     ).toThrow(/declared twice/);
+  });
+
+  // 437/2: createRegistry now delegates this check to
+  // validateExtensionPreSaveWiring (shared with validateBoot's standalone
+  // callers) instead of a duplicate inline computation — pins that
+  // createRegistry itself still enforces it, not just validateBoot.
+  test("throws when extension preSave targets entity with no mapped write handlers", () => {
+    const ext = defineFeature("cap-ext", (r) => {
+      r.extendsRegistrar("credit-cap", {
+        hooks: { preSave: async (changes) => changes },
+      });
+    });
+    const consumer = defineFeature("money-horse", (r) => {
+      r.requires("cap-ext");
+      r.entity("credit", createEntity({ table: "Credits", fields: { name: createTextField() } }));
+      r.writeHandler(
+        "doSomething",
+        z.object({}),
+        async () => ({ isSuccess: true as const, data: {} }),
+        { access: { openToAll: true } },
+      );
+      r.useExtension("credit-cap", "credit");
+    });
+    expect(() => createRegistry([ext, consumer])).toThrow(
+      /no write handler is entity-mapped to "credit"/i,
+    );
   });
 });

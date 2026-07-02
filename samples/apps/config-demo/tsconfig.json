@@ -37,5 +37,5 @@
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": ["bun-types"]
   },
-  "include": ["bin", "src"]
+  "include": ["bin", "src", "e2e", "../../e2e"]
 }

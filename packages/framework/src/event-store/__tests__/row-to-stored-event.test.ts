@@ -48,8 +48,8 @@ describe("toStoredEvent", () => {
   });
 
   test("Feld-Vollständigkeit: das Mapping deckt genau die StoredEvent-Keys ab", () => {
-    // Pin gegen versehentliches Weglassen eines Feldes im Mapping. Muss mit
-    // der StoredEvent-Definition (event-store.ts) synchron bleiben.
+    // Guards required fields staying in sync with StoredEvent (event-store.ts);
+    // optional fields consistently omitted on both sides must be added manually.
     const expectedKeys: ReadonlyArray<keyof StoredEvent> = [
       "id",
       "aggregateId",

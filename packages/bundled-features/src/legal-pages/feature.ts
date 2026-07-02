@@ -26,9 +26,7 @@ type ByslugQueryBody = {
   data: { title: string; body: string | null; updatedAt: string } | null;
 };
 
-// Legal-Content ändert sich selten — ein 60s-Shared-Cache-Fenster spart den
-// Origin-Revalidate-Roundtrip (jeder 304 re-runt sonst die Content-Query),
-// ohne dass Edits spürbar stale wirken.
+// 60s-shared-cache saves the origin-revalidate roundtrip; legal-content edits are live within 60s.
 const PUBLIC_PAGE_CACHE = { kind: "revalidate", maxAgeSeconds: 60 } as const;
 
 // legal-pages — Opt-in-Wrapper um text-content für DACH-Compliance.

@@ -192,8 +192,14 @@ export function NavTree({
 // schiebt ihn ans rechte Ende; das truncate-Label gibt nach.
 // ponytail: nur an screen/target-Leaves verdrahtet, nicht an Container-
 // Knoten (die tragen den ml-auto-Chevron) — Tier-Badge ist ein Leaf.
+// Defense-in-depth (555/4): every current call site already guards on
+// node.screen/node.target !== undefined before rendering <NavBadge>, so this
+// early-return changes no current behavior — it's here so a future call
+// site added without that guard can't silently show a leaf's badge on an
+// unrelated container node that happens to share its last-segment.
 function NavBadge({ node }: { readonly node: NavNode }): ReactNode {
   const badges = useContext(NavBadgesContext);
+  if (node.screen === undefined && node.target === undefined) return null;
   const badge = badges.get(lastSegment(node.qualifiedName));
   if (badge === undefined) return null;
   return <span className="ml-auto shrink-0">{badge}</span>;

@@ -2,8 +2,13 @@ import type { EditSectionViewModel, SubmitResult } from "@cosmicdrift/kumiko-hea
 
 // Hides the Save button when no field is editable and no extension section
 // exists (extension carries its own dirty/save; a purely read-only form has nothing to submit).
+// Explicit-positive per kind (653/1), not `s.kind !== "fields"` — a future
+// third EditSectionViewModel member would otherwise default to "editable"
+// without anyone deciding that on purpose.
 export function hasEditableSection(sections: readonly EditSectionViewModel[]): boolean {
-  return sections.some((s) => s.kind !== "fields" || s.fields.some((f) => !f.readOnly));
+  return sections.some(
+    (s) => s.kind === "extension" || (s.kind === "fields" && s.fields.some((f) => !f.readOnly)),
+  );
 }
 
 // Single source of truth for the extension-section entity-id. The section mount

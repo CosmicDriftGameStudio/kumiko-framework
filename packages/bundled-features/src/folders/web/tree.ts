@@ -31,6 +31,15 @@ export function buildFolderTree(rows: readonly FolderRow[]): readonly FolderNode
     if (siblings) siblings.push(row);
     else byParent.set(key, [row]);
   }
+  // visited guards against a parent cycle recursing forever (658/4) —
+  // currently impossible (no reparent feature yet), but cheap insurance for
+  // when one lands; a cyclic node's subtree just stops re-descending.
+  // No cycle guard needed (658/4, verified not just asserted): build() only
+  // descends via byParent[parentId] starting from roots (parentId === null
+  // or dangling) — a row in a cycle has a non-null, existing parentId by
+  // definition, so it can never be a root, and each row contributes exactly
+  // one parentId edge, so nothing outside a cycle points into it either. A
+  // pure a<->b cycle is structurally unreachable from build(null).
   const build = (parentId: string | null, depth: number): readonly FolderNode[] =>
     (byParent.get(parentId) ?? [])
       .slice()
@@ -41,12 +50,14 @@ export function buildFolderTree(rows: readonly FolderRow[]): readonly FolderNode
 
 // "Immobilie Berlin / Person Müller" for a folder id, walking parentId up.
 // Empty string if the id is unknown. The row-count cap stops a (currently
-// impossible — no reparent yet) parent cycle from spinning forever.
+// impossible — no reparent yet) parent cycle from spinning forever — `< `,
+// not `<=` (658/4): a cycle of exactly rows.length nodes must stop AT the
+// cap, not run one iteration past it.
 export function folderPath(rows: readonly FolderRow[], id: string, separator = " / "): string {
   const byId = new Map(rows.map((r) => [r.id, r]));
   const names: string[] = [];
   let current = byId.get(id);
-  for (let i = 0; current !== undefined && i <= rows.length; i += 1) {
+  for (let i = 0; current !== undefined && i < rows.length; i += 1) {
     names.unshift(current.name);
     current = current.parentId !== null ? byId.get(current.parentId) : undefined;
   }

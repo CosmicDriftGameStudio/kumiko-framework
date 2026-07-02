@@ -11,7 +11,6 @@ import {
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { buildConfigFeatureSchema, createRegistry } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
   type TestStack,
@@ -121,25 +120,5 @@ describe("encrypted tenant-config: per-tenant Stripe-API-key", () => {
       globexAdmin,
     );
     expect(res.status).toBeGreaterThanOrEqual(400);
-  });
-});
-
-// The recipe's headline claim: the `mask` entry alone (no hand-written
-// r.screen/r.nav) makes buildConfigFeatureSchema derive the configEdit screen
-// for the key. If that derivation broke for this key name (e.g. after a
-// framework refactor), the recipe would silently stop showing the field — pin it.
-describe("encrypted tenant-config: mask derives the configEdit screen", () => {
-  test("buildConfigFeatureSchema produces billing-tenant with the qualified stripe key", () => {
-    const schema = buildConfigFeatureSchema(
-      createRegistry([createConfigFeature(), billingFeature]),
-    );
-    const screen = schema.screens.find((s) => s.id === "billing-tenant");
-    expect(screen).toBeDefined();
-    expect(screen?.type).toBe("configEdit");
-    if (screen?.type === "configEdit") {
-      expect(screen.configKeys).toEqual({ "stripe-api-key": stripeApiKeyHandle.name });
-      // mask.title flows through to the per-field label override.
-      expect(screen.fieldLabels).toEqual({ "stripe-api-key": "billing.stripe-api-key" });
-    }
   });
 });

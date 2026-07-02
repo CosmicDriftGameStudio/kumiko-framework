@@ -246,6 +246,17 @@ function DangerZoneSection({
 }): ReactNode {
   const t = useTranslation();
   const { Button, Banner, Dialog, Card } = usePrimitives();
+  // Card.slots.title always renders <h3> — with the page's <h1> (variant="page")
+  // as this screen's only other heading, that skips <h2> (607/4). An explicit
+  // header slot with a real <h2> keeps the levels contiguous; layout mirrors
+  // DefaultCard's own default-header markup.
+  const dangerZoneHeader = (
+    <div className="flex flex-wrap items-start justify-between gap-3 px-6 pt-6 pb-4">
+      <h2 className="text-base font-semibold leading-none tracking-tight">
+        {t("profile.danger.title")}
+      </h2>
+    </div>
+  );
   const dispatcher = useDispatcher();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [status, setStatus] = useState<SectionStatus>({ kind: "idle" });
@@ -290,7 +301,7 @@ function DangerZoneSection({
     <Card
       testId="profile-danger"
       className="border-destructive/40"
-      slots={{ title: t("profile.danger.title"), footer }}
+      slots={{ header: dangerZoneHeader, footer }}
     >
       <div className="flex flex-col gap-4">
         {deletionRequested ? (

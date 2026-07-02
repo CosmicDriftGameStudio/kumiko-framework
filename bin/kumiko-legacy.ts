@@ -258,7 +258,7 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
     const legalTemplateGuard = join(REPO_ROOT, "infra/guards/guard-legal-template-drift.ts");
     steps.push({
       name: "Legal-Template-Drift Guard",
-      cmd: existsSync(legalTemplateGuard) ? `bun ${legalTemplateGuard}` : "bunx kumiko-guard-legal-template-drift",
+      cmd: existsSync(legalTemplateGuard) ? `bun "${legalTemplateGuard}"` : "bunx kumiko-guard-legal-template-drift",
     });
   } else {
     console.log("Doc-Status-Steps übersprungen: kumiko-platform nicht im Workspace (CI-standalone).");

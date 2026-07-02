@@ -110,7 +110,10 @@ function walkTsFiles(dir: string, out: string[]): void {
     const p = join(dir, entry.name);
     if (entry.isDirectory()) {
       walkTsFiles(p, out);
-    } else if (entry.name.endsWith(".ts") && !entry.name.includes(".test.")) {
+    } else if (
+      (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx")) &&
+      !entry.name.includes(".test.")
+    ) {
       out.push(p);
     }
   }

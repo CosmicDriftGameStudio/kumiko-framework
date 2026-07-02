@@ -358,6 +358,11 @@ describe("tags integration — multi-tenant isolation", () => {
 // "Admin", not "TenantAdmin"). Default-mounted tags deny that same user.
 describe("tags integration — openToAll access model", () => {
   let openStack: TestStack;
+  // Dedicated stack (477/1), not the outer file's `stack` — a describe-level
+  // `--test-name-pattern` run of just this block would otherwise crash on an
+  // undefined outer `stack` instead of failing cleanly, and this block
+  // shouldn't depend on describe-execution order for its setup to exist.
+  let defaultStack: TestStack;
   // role deliberately not in DEFAULT_TAG_ROLES nor "Admin" — proves openToAll,
   // not an accidental role match.
   const unprivileged = createTestUser({ roles: ["Viewer"] });
@@ -369,10 +374,16 @@ describe("tags integration — openToAll access model", () => {
     await unsafeCreateEntityTable(openStack.db, tagEntity);
     await unsafeCreateEntityTable(openStack.db, tagAssignmentEntity);
     await createEventsTable(openStack.db);
+
+    defaultStack = await setupTestStack({ features: [tagsFeature] });
+    await unsafeCreateEntityTable(defaultStack.db, tagEntity);
+    await unsafeCreateEntityTable(defaultStack.db, tagAssignmentEntity);
+    await createEventsTable(defaultStack.db);
   });
 
   afterAll(async () => {
     await openStack.cleanup();
+    await defaultStack.cleanup();
   });
 
   test("a non-tag-role user can create, assign, list and remove", async () => {
@@ -409,7 +420,7 @@ describe("tags integration — openToAll access model", () => {
   });
 
   test("the SAME user is denied on a default-role-mounted feature", async () => {
-    const denied = await stack.http.writeErr(
+    const denied = await defaultStack.http.writeErr(
       TagsHandlers.createTag,
       { name: "nope" },
       unprivileged,

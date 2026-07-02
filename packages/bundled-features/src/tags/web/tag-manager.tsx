@@ -308,7 +308,7 @@ export function TagManager({
                 <div className="flex gap-2">
                   <Button
                     variant="primary"
-                    disabled={busy}
+                    disabled={busy || editName.trim() === ""}
                     onClick={() => saveEdit(tag)}
                     testId={`tag-manager-save-${tag.id}`}
                   >

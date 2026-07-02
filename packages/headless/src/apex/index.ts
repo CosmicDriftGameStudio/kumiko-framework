@@ -384,7 +384,7 @@ function renderNavMenu(m: ApexNavMenu): string {
     m.footer !== undefined
       ? `<div class="nav-menu__sep"></div><a class="nav-menu__more" href="${escapeHtml(m.footer.href)}">${escapeHtml(m.footer.label)}</a>`
       : "";
-  return `<div class="nav-menu"><button type="button" class="nav-menu__trigger" aria-haspopup="true">${escapeHtml(m.label)}<span class="nav-menu__chev" aria-hidden="true">${svgIcon('<path d="m6 9 6 6 6-6"/>')}</span></button><div class="nav-menu__panel">${items}${footer}</div></div>`;
+  return `<div class="nav-menu"><button type="button" class="nav-menu__trigger" aria-haspopup="true">${escapeHtml(m.label)}<span class="nav-menu__chev">${svgIcon('<path d="m6 9 6 6 6-6"/>')}</span></button><div class="nav-menu__panel">${items}${footer}</div></div>`;
 }
 
 function renderNavEntry(entry: ApexNavEntry): string {
@@ -431,7 +431,7 @@ function renderFooter(f: ApexFooter): string {
       : "";
   return `<footer>
     <div class="container">
-      <div class="footer-grid" style="--footer-cols:${cols.length}">
+      <div class="footer-grid" style="--footer-cols:${Math.max(1, cols.length)}">
         <div>
           <div class="footer-brand">${logo}${escapeHtml(f.brand.label)}</div>
           ${f.tagline !== undefined ? `<p class="footer-tagline">${escapeHtml(f.tagline)}</p>` : ""}
