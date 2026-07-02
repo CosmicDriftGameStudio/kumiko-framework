@@ -42,3 +42,14 @@ export async function verifyPassword(hashString: string, password: string): Prom
     return false;
   }
 }
+
+// Anti-enumeration timing equaliser (#774). The login handler runs this on
+// the no-user / no-hash path so a missing account costs the same argon2
+// latency as a real verify — otherwise response timing leaks whether an
+// email is registered. Derived from hashPassword once and cached, so it
+// always tracks HASH_OPTIONS; the password never matches, result discarded.
+let dummyHash: Promise<string> | undefined;
+export async function verifyDummyPassword(password: string): Promise<void> {
+  dummyHash ??= hashPassword("anti-enumeration-dummy");
+  await verifyPassword(await dummyHash, password);
+}

@@ -17,7 +17,7 @@
 
 import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
 import { BareFormProvider, cn } from "@cosmicdrift/kumiko-renderer-web";
-import { createContext, type ReactNode, useContext } from "react";
+import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
 
 // Wrappt die zentrierte Auth-Card in ihre Umgebung. Default = Fullscreen-
 // zentriert (Standalone-Auth-Page). Eine Apex-/Marketing-Chrome reicht über
@@ -105,4 +105,21 @@ export const authMutedLinkClass =
 export function parseUrlToken(paramName = "token"): string {
   if (typeof window === "undefined") return "";
   return new URLSearchParams(window.location.search).get(paramName) ?? "";
+}
+
+// Reads the magic-link token from `?<paramName>=` once on mount, then strips
+// that param from the URL via history.replaceState so the single-use token
+// doesn't linger in browser history / Referer (#774). An explicit `override`
+// (server-injected token) short-circuits both the URL read and the scrub.
+export function useUrlToken(override?: string, paramName = "token"): string {
+  const [token] = useState(() => override ?? parseUrlToken(paramName));
+  useEffect(() => {
+    if (override !== undefined) return;
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has(paramName)) return;
+    url.searchParams.delete(paramName);
+    window.history.replaceState(window.history.state, "", url.toString());
+  }, [override, paramName]);
+  return token;
 }

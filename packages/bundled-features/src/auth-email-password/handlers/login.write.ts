@@ -21,7 +21,7 @@ import {
   noMembership,
 } from "../errors";
 import { clearLockoutState, getLockoutState, recordFailedAttempt } from "../lockout-store";
-import { verifyPassword } from "../password-hashing";
+import { verifyDummyPassword, verifyPassword } from "../password-hashing";
 
 export type LoginHandlerOptions = {
   // When true, a valid (email + password) login fails with email_not_verified
@@ -74,6 +74,9 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
       // Uniform response on any credential mismatch (no user, wrong password,
       // soft-deleted user) — prevents email enumeration.
       if (!found?.passwordHash || found.isDeleted) {
+        // Burn the same argon2 verify cost as the hit path so response
+        // latency doesn't reveal whether the email is registered (#774).
+        await verifyDummyPassword(event.payload.password);
         return invalidCredentials();
       }
 

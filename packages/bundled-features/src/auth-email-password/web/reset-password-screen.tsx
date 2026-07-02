@@ -5,20 +5,15 @@
 // Code (anti-enumeration); UI zeigt unified "Link ungültig oder
 // abgelaufen"-message.
 //
-// Token-Quelle ist read-once: wir lesen via parseUrlToken() einmalig
-// im useState-Initializer. Apps die das anders brauchen (server-
-// injected Token-Prop, andere Parameter-Namen) reichen einen
-// expliziten `token` als Prop durch.
+// Token-Quelle ist read-once via useUrlToken(): liest `?token=...` beim
+// Mount und scrubbt den Param danach aus der URL (#774). Apps die das
+// anders brauchen (server-injected Token-Prop) reichen `token` als Prop
+// durch — dann bleibt die URL unangetastet.
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { resetPassword } from "./auth-client";
-import {
-  AuthCard,
-  authButtonClass,
-  authMutedLinkClass,
-  parseUrlToken,
-} from "./auth-form-primitives";
+import { AuthCard, authButtonClass, authMutedLinkClass, useUrlToken } from "./auth-form-primitives";
 
 export type ResetPasswordScreenProps = {
   readonly title?: string;
@@ -37,7 +32,7 @@ export function ResetPasswordScreen({
 }: ResetPasswordScreenProps): ReactNode {
   const t = useTranslation();
   const { Form, Field, Input, Button, Banner } = usePrimitives();
-  const [token] = useState(() => tokenProp ?? parseUrlToken());
+  const token = useUrlToken(tokenProp);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);

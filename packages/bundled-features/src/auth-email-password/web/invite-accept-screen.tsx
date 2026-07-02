@@ -19,7 +19,7 @@
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useContext, useState } from "react";
 import { csrfHeader } from "./auth-client";
-import { AuthCard, authMutedLinkClass, parseUrlToken } from "./auth-form-primitives";
+import { AuthCard, authMutedLinkClass, useUrlToken } from "./auth-form-primitives";
 import { SessionContext, UNAUTHENTICATED } from "./session";
 
 export type InviteAcceptScreenProps = {
@@ -47,7 +47,7 @@ export function InviteAcceptScreen({
   // <SessionProvider> ancestor. Read the context directly and fall back to
   // the anonymous state when no provider wraps this screen (632/1).
   const session = useContext(SessionContext) ?? UNAUTHENTICATED;
-  const [token] = useState(() => tokenProp ?? parseUrlToken());
+  const token = useUrlToken(tokenProp);
   const [mode, setMode] = useState<Mode>(() =>
     session.status === "authenticated" ? "loggedin" : "anon-existing",
   );
