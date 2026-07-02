@@ -15,4 +15,4 @@ export {
 export {
   backfillUserStreamTenants,
   type UserStreamBackfillResult,
-} from "./stream-tenant-backfill";
+} from "./db/queries/stream-tenant-backfill";
