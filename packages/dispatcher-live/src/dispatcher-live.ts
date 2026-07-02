@@ -154,7 +154,11 @@ export function createLiveDispatcher(options: LiveDispatcherOptions = {}): Dispa
       opts?: WriteOpts,
     ): Promise<WriteResult<TData>> {
       const body: Record<string, unknown> = { type, payload };
-      if (opts?.requestId) body["requestId"] = opts.requestId;
+      // Idempotency by default (#761): without a requestId the server-side
+      // dedup never engages and a transport-level double-send duplicates
+      // events. Callers with a logical-submit id (savable queue, form
+      // controllers) pass their own and keep it across their retries.
+      body["requestId"] = opts?.requestId ?? generateRequestId();
       const call = await callJson(PATH_WRITE, body, opts?.signal);
       return normalizeWriteResult<TData>(call);
     },
@@ -171,7 +175,10 @@ export function createLiveDispatcher(options: LiveDispatcherOptions = {}): Dispa
 
     async batch(commands: readonly Command[], opts?: WriteOpts): Promise<BatchResult> {
       const body: Record<string, unknown> = { commands };
-      if (opts?.requestId) body["requestId"] = opts.requestId;
+      // One id for the whole batch — the server caches the BatchResult
+      // under it, so a retried batch returns the cached outcome instead of
+      // re-executing the commands (#761).
+      body["requestId"] = opts?.requestId ?? generateRequestId();
       const call = await callJson(PATH_BATCH, body, opts?.signal);
       return normalizeBatchResponse(call);
     },
@@ -188,6 +195,16 @@ export function createLiveDispatcher(options: LiveDispatcherOptions = {}): Dispa
 
 const EMPTY_PENDING_WRITES: readonly PendingWrite[] = Object.freeze([]);
 const EMPTY_PENDING_FILES: readonly PendingFile[] = Object.freeze([]);
+
+// crypto.randomUUID where available (browser, Bun, Node); Math.random
+// fallback for React-Native runtimes without the WebCrypto polyfill.
+// Uniqueness only needs to hold per user within the server's dedup window —
+// this is an idempotency key, not a security token.
+function generateRequestId(): string {
+  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (typeof c?.randomUUID === "function") return c.randomUUID();
+  return `req-${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
+}
 
 type CallOutcome =
   | { readonly ok: true; readonly body: unknown; readonly status: number }
