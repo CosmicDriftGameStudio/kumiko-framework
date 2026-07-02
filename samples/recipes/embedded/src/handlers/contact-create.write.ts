@@ -1,6 +1,11 @@
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
-import { contactTable } from "../entities/contact";
+import { contactEntity, contactTable } from "../entities/contact";
+
+const contactCrud = createEventStoreExecutor(contactTable, contactEntity, {
+  entityName: "contact",
+});
 
 const addressSchema = z.object({
   street: z.string().min(1),
@@ -26,23 +31,7 @@ export const contactCreate = defineWriteHandler({
     billingAddress: billingAddressSchema.optional(),
   }),
   access: { roles: ["Admin"] },
-  handler: async (event, ctx) => {
-    const row = await ctx.db.insertOne(contactTable, {
-      ...event.payload,
-      insertedById: event.user.id,
-      insertedAt: Temporal.Now.instant(),
-    });
-    const data = row as Record<string, unknown>;
-    return {
-      isSuccess: true,
-      data: {
-        id: data["id"] as number,
-        data,
-        changes: event.payload,
-        previous: {},
-        isNew: true,
-        entityName: "contact",
-      },
-    };
-  },
+  // Embedded fields (address/billingAddress) arrive as objects — already the
+  // combined API form the executor expects; it flattens them into the read row.
+  handler: async (event, ctx) => contactCrud.create(event.payload, event.user, ctx.db),
 });

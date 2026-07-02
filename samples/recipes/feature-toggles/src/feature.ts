@@ -13,13 +13,12 @@ import { buildEntityTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-
 import {
   createBooleanField,
   createEntity,
+  createSystemUser,
   createTextField,
   defineFeature,
   type FeatureDefinition,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 
 // product — toggleable, default on. Owns the `product` entity and a
@@ -64,6 +63,9 @@ export const productAuditEntity = createEntity({
   },
 });
 export const productAuditTable = buildEntityTable("product-audit", productAuditEntity);
+const productAuditCrud = createEventStoreExecutor(productAuditTable, productAuditEntity, {
+  entityName: "product-audit",
+});
 
 export function createProductAuditFeature(): FeatureDefinition {
   return defineFeature("product-audit", (r) => {
@@ -76,14 +78,14 @@ export function createProductAuditFeature(): FeatureDefinition {
       if (!ctx.db) return;
       const name = (result.changes as Record<string, unknown>)["name"] as string | undefined;
       if (!name) return;
-      await ctx.db.insertOne(productAuditTable, {
-        id: generateId(),
-        productName: name,
-        version: 1,
-        tenantId: SYSTEM_TENANT_ID,
-        createdAt: Temporal.Now.instant(),
-        modifiedAt: Temporal.Now.instant(),
-      });
+      // Cross-feature audit sink is itself an r.entity projection — write it via
+      // the executor (system actor, no human caller) so the row is event-backed
+      // and survives a rebuild, not a direct method-form insert.
+      await productAuditCrud.create(
+        { productName: name },
+        createSystemUser(SYSTEM_TENANT_ID),
+        ctx.db,
+      );
     });
   });
 }

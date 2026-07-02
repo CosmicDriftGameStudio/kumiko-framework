@@ -10,7 +10,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "../../stack";
-import { table as pgTable, serial, text, timestamp } from "../dialect";
+import { table as pgTable, serial, type TableColumns, text, timestamp } from "../dialect";
 import { buildEntityTable } from "../table-builder";
 import { createTenantDb } from "../tenant-db";
 
@@ -26,7 +26,11 @@ const entity = createEntity({
   softDelete: true,
 });
 
-const table = buildEntityTable("tenantDbItem", entity);
+// The ES-write brand (#742) is a compile-time phantom — no runtime property. This
+// suite exercises TenantDb method-form scoping on a real entity table, so the handle
+// is held at the unbranded TableColumns view: identical runtime shape, and both reads
+// and method-form writes accept it (a branded EntityTable is now rejected).
+const table: TableColumns = buildEntityTable("tenantDbItem", entity);
 
 // --- System table (no tenantId — like job_runs) ---
 

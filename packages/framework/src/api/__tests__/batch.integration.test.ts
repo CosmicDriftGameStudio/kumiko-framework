@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { z } from "zod";
+import type { TableColumns } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { asRawClient, selectMany } from "../../db/query";
 import { buildEntityTable } from "../../db/table-builder";
@@ -36,7 +37,9 @@ const auditEntity = createEntity({
     itemId: createTextField({ required: true }),
   },
 });
-const auditTable = buildEntityTable("audit", auditEntity);
+// Brand (#742) is compile-time-only; the postSave hook writes this sink via method-form,
+// so hold it at the unbranded TableColumns view (identical runtime shape).
+const auditTable: TableColumns = buildEntityTable("audit", auditEntity);
 
 // Hook invocation logs — reset per test. Captures which phase each hook saw.
 const inTxHookLog: Array<{ id: EntityId; name: string }> = [];

@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import { z } from "zod";
+import type { TableColumns } from "../../db/dialect";
 import { buildEntityTable } from "../../db/table-builder";
 import { createRegistry, defineFeature } from "../../engine";
 import type { AppContext, SaveContext } from "../../engine/types";
@@ -65,7 +66,9 @@ const todoEntity = {
 
 let postSaveInvocations = 0;
 const todoFeature = defineFeature("todo", (r) => {
-  const todoTable = buildEntityTable("todo", todoEntity);
+  // Brand (#742) is compile-time-only; the unbranded TableColumns view keeps the
+  // method-form insert (and its observability span) working — runtime shape is identical.
+  const todoTable: TableColumns = buildEntityTable("todo", todoEntity);
   r.entity("todo", todoEntity);
 
   r.writeHandler(
