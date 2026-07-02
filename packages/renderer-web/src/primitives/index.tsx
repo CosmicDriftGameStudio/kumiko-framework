@@ -35,6 +35,7 @@ import {
   useTranslation,
   WriteFailedError,
 } from "@cosmicdrift/kumiko-renderer";
+import { cva } from "class-variance-authority";
 import {
   ArrowDown,
   ArrowUp,
@@ -59,7 +60,6 @@ import {
 import { cn } from "../lib/cn";
 import { Badge } from "../ui/badge";
 import { Button as UiButton } from "../ui/button";
-import { Card, CardContent } from "../ui/card";
 import { Checkbox } from "../ui/checkbox";
 import { Input as UiInput } from "../ui/input";
 import { Label as UiLabel } from "../ui/label";
@@ -80,6 +80,17 @@ import { LocatedTimestampInput } from "./located-timestamp-input";
 import { MoneyInput } from "./money-input";
 import { TimestampInput } from "./timestamp-input";
 import { useToast } from "./toast";
+
+// ---- Card-Chrome (eine Definition für Form/Section/Card) ----
+
+// Die eine Card-Surface. Radius ist die einzige real gebrauchte Variante:
+// xl = Card/Screen-Fläche (Default), lg = "innen"-Fläche wie Tabellen.
+const cardSurface = cva("flex flex-col border bg-card text-card-foreground shadow-sm", {
+  variants: { radius: { xl: "rounded-xl", lg: "rounded-lg" } },
+  defaultVariants: { radius: "xl" },
+});
+const cardFooter = "flex items-center justify-end gap-2 px-6 py-4";
+const cardFooterBorder = "border-t bg-muted/30";
 
 // ---- Button (vendored shadcn ui/button) ----
 
@@ -1365,7 +1376,7 @@ function DefaultForm({
       className="flex flex-col w-full"
     >
       <div className="px-6 pt-6 pb-12 max-w-3xl w-full">
-        <div className="bg-card overflow-hidden rounded-xl border shadow-sm">
+        <div className={cn(cardSurface(), "overflow-hidden")}>
           {(title !== undefined || subtitle !== undefined) && (
             <div className="px-6 pb-2 pt-5">
               {title !== undefined && (
@@ -1402,7 +1413,7 @@ function DefaultForm({
           {actions !== undefined && (
             <div
               data-testid={testId !== undefined ? `${testId}-actions` : undefined}
-              className="flex items-center justify-end gap-2 border-t bg-muted/30 px-6 py-4"
+              className={cn(cardFooter, cardFooterBorder)}
             >
               {actions}
             </div>
@@ -1469,20 +1480,20 @@ function DefaultSection({ title, subtitle, children, actions, testId }: SectionP
   // `children`) WOULD get silently clipped — verify this against any new
   // standalone-section content that renders its own non-portaled overlay.
   return (
-    <Card data-testid={testId} className="gap-0 overflow-hidden rounded-lg py-0">
-      <CardContent className="flex flex-col gap-4 px-6 py-6">
+    <div data-testid={testId} className={cn(cardSurface(), "overflow-hidden")}>
+      <div className="flex flex-col gap-4 px-6 py-6">
         {header}
         {children}
-      </CardContent>
+      </div>
       {actions !== undefined && (
         <div
           data-testid={testId !== undefined ? `${testId}-actions` : undefined}
-          className="flex items-center justify-end gap-2 border-t bg-muted/30 px-6 py-4"
+          className={cn(cardFooter, cardFooterBorder)}
         >
           {actions}
         </div>
       )}
-    </Card>
+    </div>
   );
 }
 
@@ -1564,7 +1575,7 @@ import { ConfigSourceBadge as DefaultConfigSourceBadge } from "../components/con
 
 // Generische Card-Chrome (rounded-xl wie die Entity-Card) — slot- + options-
 // basiert, damit der Contract additiv wächst und Consumer nie migriert werden.
-function DefaultCard({ slots, options, className, testId, children }: CardProps): ReactNode {
+export function DefaultCard({ slots, options, className, testId, children }: CardProps): ReactNode {
   const padded = options?.padded ?? true;
   const radius = options?.radius ?? "xl";
   const footerBordered = options?.footerBordered ?? true;
@@ -1586,14 +1597,7 @@ function DefaultCard({ slots, options, className, testId, children }: CardProps)
   const header = s.header ?? defaultHeader;
   const hasHeader = header !== null && header !== undefined;
   return (
-    <div
-      data-testid={testId}
-      className={cn(
-        "flex flex-col overflow-hidden border bg-card text-card-foreground shadow-sm",
-        radius === "xl" ? "rounded-xl" : "rounded-lg",
-        className,
-      )}
-    >
+    <div data-testid={testId} className={cn(cardSurface({ radius }), "overflow-hidden", className)}>
       {header}
       {/* != null covers undefined AND explicit null; a `false` child (from
           `cond && <El/>`) still renders no visible content either way. */}
@@ -1601,14 +1605,7 @@ function DefaultCard({ slots, options, className, testId, children }: CardProps)
         <div className={cn("grow", padded && (hasHeader ? "px-6 pb-6" : "p-6"))}>{children}</div>
       )}
       {s.footer !== undefined && (
-        <div
-          className={cn(
-            "flex items-center justify-end gap-2 px-6 py-4",
-            footerBordered && "border-t bg-muted/30",
-          )}
-        >
-          {s.footer}
-        </div>
+        <div className={cn(cardFooter, footerBordered && cardFooterBorder)}>{s.footer}</div>
       )}
     </div>
   );
