@@ -6,9 +6,9 @@
 // Server JWT + Cookies (Auto-Login!) und liefert tenantKey für den
 // Post-Signup-Redirect.
 //
-// Token-Quelle ist read-once: parseUrlToken im useState-Initializer.
-// Apps die einen anderen URL-Param nutzen, reichen `token` als Prop
-// durch.
+// Token-Quelle ist read-once via useUrlToken: liest `?token=...` beim
+// Mount und scrubbt den Param danach aus der URL (#774). Apps die einen
+// server-injected Token nutzen, reichen `token` als Prop durch.
 //
 // Nach success: redirect via window.location.assign zu loggedInHref.
 // Default-Pattern ist "/<tenantKey>/" — die App reicht ein Template
@@ -18,7 +18,7 @@
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { confirmSignup } from "./auth-client";
-import { AuthCard, authMutedLinkClass, parseUrlToken } from "./auth-form-primitives";
+import { AuthCard, authMutedLinkClass, useUrlToken } from "./auth-form-primitives";
 
 export type SignupCompleteScreenProps = {
   readonly title?: string;
@@ -44,7 +44,7 @@ export function SignupCompleteScreen({
 }: SignupCompleteScreenProps): ReactNode {
   const t = useTranslation();
   const { Form, Field, Input, Button, Banner } = usePrimitives();
-  const [token] = useState(() => tokenProp ?? parseUrlToken());
+  const token = useUrlToken(tokenProp);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);

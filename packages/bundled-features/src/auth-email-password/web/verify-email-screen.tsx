@@ -13,12 +13,7 @@
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { verifyEmail } from "./auth-client";
-import {
-  AuthCard,
-  authButtonClass,
-  authMutedLinkClass,
-  parseUrlToken,
-} from "./auth-form-primitives";
+import { AuthCard, authButtonClass, authMutedLinkClass, useUrlToken } from "./auth-form-primitives";
 
 export type VerifyEmailScreenProps = {
   readonly title?: string;
@@ -36,7 +31,7 @@ export function VerifyEmailScreen({
   loginHref = "/login",
 }: VerifyEmailScreenProps): ReactNode {
   const t = useTranslation();
-  const [token] = useState(() => tokenProp ?? parseUrlToken());
+  const token = useUrlToken(tokenProp);
   const [status, setStatus] = useState<Status>(token === "" ? "missing-token" : "verifying");
   const startedRef = useRef(false);
 
