@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled/scripts/gen-sample-index.ts + sample-index.overrides.json",
-  "featureCount": 28,
+  "featureCount": 29,
   "features": {
     "auth-email-password": {
       "samples": [
@@ -212,6 +212,17 @@
       "whenToUse": "Tenants need their own public marketing or help pages with branding, Markdown bodies, and optional tier-gated custom CSS.",
       "sampleBlurb": "Tenant-branded public pages with Markdown body and optional tier-gated CSS — from route mount to rendered HTML.",
       "screenshot": "/screenshots/features/managed-pages.png"
+    },
+    "personal-access-tokens": {
+      "samples": [
+        "apps-use-all-bundled"
+      ],
+      "hasVisualOutput": true,
+      "readmeSummary": "Canonical smoke-sample. Mounts every bundled-feature so framework-CI catches feature-coverage gaps that real apps (which mount only what they use) silently miss.",
+      "primarySample": "apps-use-all-bundled",
+      "whenToUse": "A headless client (CI, a script, a customer ERP, Zapier) must call your HTTP API without a browser login — a long-lived, revocable `kpat_` bearer token carries the user's live roles and a scoped subset of handlers.",
+      "sampleBlurb": "use-all-bundled mounts the feature with per-domain read/write scopes (pages, tags, ledger); the integration test mints a token, calls the API with the Bearer header, and asserts fail-closed scope enforcement and revocation.",
+      "screenshot": null
     },
     "secrets": {
       "samples": [
