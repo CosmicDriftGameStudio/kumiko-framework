@@ -235,8 +235,9 @@ type SharedContextFields = {
   // Encryption round-trip partner for the config feature. Separate from
   // configResolver so the read-only resolver contract stays clean — the
   // set handler needs to encrypt on write, the resolver needs to decrypt
-  // on read, and both reach for the same provider. Wired via extraContext.
-  readonly configEncryption?: import("../../db").EncryptionProvider;
+  // on read, and both reach for the same cipher. Wired via extraContext;
+  // run{Prod,Dev}App build it from the secrets master key automatically.
+  readonly configEncryption?: import("../../secrets").EnvelopeCipher;
   // Rate-limit resolver. Wired by the framework when the `rate-limiting`
   // feature is loaded — pipeline reads handler.rateLimit and calls
   // .enforce() on this resolver before access-check. Absent when the

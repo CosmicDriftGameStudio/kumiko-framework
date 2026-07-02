@@ -9,7 +9,7 @@
 //   - maxEntries (default 1000): LRU eviction kicks in on insert when full.
 
 import { createHash } from "node:crypto";
-import type { MasterKeyProvider } from "./types";
+import type { KeyScope, MasterKeyProvider } from "./types";
 
 const DEFAULT_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const DEFAULT_MAX_ENTRIES = 1000;
@@ -25,8 +25,16 @@ export type DekCacheOptions = {
 
 export type DekCache = {
   // Unwrap via the provider, caching the result. Second call within TTL
-  // returns the cached DEK without hitting the provider.
-  unwrapDek(encryptedDek: Buffer, kekVersion: number, provider: MasterKeyProvider): Promise<Buffer>;
+  // returns the cached DEK without hitting the provider. The cache key is
+  // (encryptedDek, kekVersion) — scope is only forwarded to the provider;
+  // encryptedDek bytes are unique per value, so scoped providers can't
+  // collide on the key either.
+  unwrapDek(
+    encryptedDek: Buffer,
+    kekVersion: number,
+    provider: MasterKeyProvider,
+    scope?: KeyScope,
+  ): Promise<Buffer>;
 
   // Drop every entry. Call after KEK rotation so old cached DEKs (still
   // valid, but referencing the old kekVersion) don't serve reads that
@@ -36,6 +44,19 @@ export type DekCache = {
   // Observability: how many entries are live right now (pre-TTL-prune).
   size(): number;
 };
+
+// Wrap a provider so its unwrapDek goes through the cache. Callers keep the
+// full MasterKeyProvider contract without knowing about caching —
+// decryptValue handles crypto, the cache handles cost.
+export function withDekCache(provider: MasterKeyProvider, cache: DekCache): MasterKeyProvider {
+  return {
+    wrapDek: (dek, scope) => provider.wrapDek(dek, scope),
+    unwrapDek: (encryptedDek, version, scope) =>
+      cache.unwrapDek(encryptedDek, version, provider, scope),
+    currentVersion: () => provider.currentVersion(),
+    isAvailable: () => provider.isAvailable(),
+  };
+}
 
 export function createDekCache(opts: DekCacheOptions = {}): DekCache {
   const ttlMs = opts.ttlMs ?? DEFAULT_TTL_MS;
@@ -74,7 +95,7 @@ export function createDekCache(opts: DekCacheOptions = {}): DekCache {
   }
 
   return {
-    async unwrapDek(encryptedDek, kekVersion, provider) {
+    async unwrapDek(encryptedDek, kekVersion, provider, scope) {
       const key = cacheKey(encryptedDek, kekVersion);
       const hit = entries.get(key);
       if (hit && hit.expiresAt > now()) {
@@ -92,7 +113,7 @@ export function createDekCache(opts: DekCacheOptions = {}): DekCache {
         entries.delete(key);
       }
 
-      const dek = await provider.unwrapDek(encryptedDek, kekVersion);
+      const dek = await provider.unwrapDek(encryptedDek, kekVersion, scope);
       evictOldestIfFull();
       // Store a copy — caller can zero its own buffer after use.
       entries.set(key, { dek: Buffer.from(dek), expiresAt: now() + ttlMs });

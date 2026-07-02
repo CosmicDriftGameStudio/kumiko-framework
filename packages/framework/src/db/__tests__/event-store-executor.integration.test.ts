@@ -10,7 +10,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "../../stack";
-import { createEncryptionProvider } from "../encryption";
+import { createTestEnvelopeCipher } from "../../testing";
 import { resetEntityFieldEncryptionCacheForTests } from "../entity-field-encryption";
 import { createEventStoreExecutor } from "../event-store-executor";
 import { buildEntityTable } from "../table-builder";
@@ -324,7 +324,7 @@ const encryptedSoftDeleteEntity = createEntity({
 const encryptedSoftDeleteTable = buildEntityTable("esExecEncSoft", encryptedSoftDeleteEntity);
 
 describe("event-store-executor — encrypted fields", () => {
-  const encryption = createEncryptionProvider(ENCRYPTION_TEST_KEY);
+  const encryption = createTestEnvelopeCipher(ENCRYPTION_TEST_KEY);
   const crud = createEventStoreExecutor(encryptedTable, encryptedEntity, {
     entityName: "esExecEncrypted",
     encryption,
@@ -337,7 +337,6 @@ describe("event-store-executor — encrypted fields", () => {
   );
 
   beforeAll(async () => {
-    process.env["ENCRYPTION_KEY"] = ENCRYPTION_TEST_KEY;
     resetEntityFieldEncryptionCacheForTests();
     await unsafeCreateEntityTable(testDb.db, encryptedEntity, "esExecEncrypted");
     await unsafeCreateEntityTable(testDb.db, encryptedSoftDeleteEntity, "esExecEncSoft");
@@ -524,7 +523,7 @@ describe("event-store-executor — entity cache + encrypted fields", () => {
       store.delete(`${tenantId}:${name}:${id}`);
     },
   };
-  const encryption = createEncryptionProvider(ENCRYPTION_TEST_KEY);
+  const encryption = createTestEnvelopeCipher(ENCRYPTION_TEST_KEY);
   const cachedEncryptedCrud = createEventStoreExecutor(encryptedTable, encryptedEntity, {
     entityName: "esExecEncrypted",
     entityCache,

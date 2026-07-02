@@ -13,6 +13,7 @@ import {
   createNumberField,
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { StoredEnvelope } from "@cosmicdrift/kumiko-framework/secrets";
 
 // Envelope stored as a single jsonb blob. All ops are upsert-by-(tenantId, key)
 // so there's no value in decomposing the envelope into separate columns —
@@ -22,13 +23,11 @@ import {
 // `WHERE kek_version != currentVersion()` with an index on just that column
 // without deserializing the jsonb. Duplicated inside envelope too — the two
 // always stay in sync via the write path.
-export type StoredEnvelope = {
-  readonly ciphertext: string; // base64
-  readonly iv: string; // base64
-  readonly authTag: string; // base64
-  readonly encryptedDek: string; // base64
-  readonly kekVersion: number;
-};
+//
+// StoredEnvelope itself is canonical in @cosmicdrift/kumiko-framework/secrets
+// (shared with EnvelopeCipher for TEXT-column stores) — re-exported here so
+// existing consumers keep their import path.
+export type { StoredEnvelope } from "@cosmicdrift/kumiko-framework/secrets";
 
 export type StoredMetadata = {
   readonly redactedPreview?: string;

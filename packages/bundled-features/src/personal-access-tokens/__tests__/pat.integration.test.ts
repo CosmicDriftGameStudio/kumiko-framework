@@ -5,7 +5,6 @@ import {
   type PatResolver,
 } from "@cosmicdrift/kumiko-framework/api";
 import { updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
@@ -14,7 +13,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { deleteRows } from "@cosmicdrift/kumiko-framework/testing";
+import { createTestEnvelopeCipher, deleteRows } from "@cosmicdrift/kumiko-framework/testing";
 import { Temporal } from "temporal-polyfill";
 import { AuthHandlers } from "../../auth-email-password/constants";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
@@ -73,8 +72,8 @@ async function mintToken(
 }
 
 beforeAll(async () => {
-  const encryption = createEncryptionProvider(encryptionKey);
-  const resolver = createConfigResolver({ encryption });
+  const encryption = createTestEnvelopeCipher(encryptionKey);
+  const resolver = createConfigResolver({ cipher: encryption });
 
   stack = await setupTestStack({
     features: [

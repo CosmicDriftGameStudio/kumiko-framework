@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createEntity, createTextField } from "../../engine";
-import { createEncryptionProvider } from "../encryption";
+import { createTestEnvelopeCipher } from "../../testing";
 import {
   collectEncryptedFieldNames,
   decryptEntityFieldValues,
@@ -18,25 +18,25 @@ describe("entity-field-encryption", () => {
     },
   });
   const encryptedFields = collectEncryptedFieldNames(entity);
-  const encryption = createEncryptionProvider(TEST_KEY);
+  const encryption = createTestEnvelopeCipher(TEST_KEY);
 
   test("collectEncryptedFieldNames finds encrypted text fields only", () => {
     expect([...encryptedFields]).toEqual(["secretNote"]);
   });
 
-  test("encrypt on write / decrypt on read round-trip", () => {
+  test("encrypt on write / decrypt on read round-trip", async () => {
     const plain = { email: "a@b.de", secretNote: "top secret" };
-    const stored = encryptEntityFieldValues(plain, encryptedFields, encryption);
+    const stored = await encryptEntityFieldValues(plain, encryptedFields, encryption);
     expect(stored["email"]).toBe(plain.email);
     expect(stored["secretNote"]).not.toBe("top secret");
 
-    const read = decryptEntityFieldValues(stored, encryptedFields, encryption);
+    const read = await decryptEntityFieldValues(stored, encryptedFields, encryption);
     expect(read).toEqual(plain);
   });
 
-  test("onlyKeys limits encryption to changed fields", () => {
+  test("onlyKeys limits encryption to changed fields", async () => {
     const row = { email: "a@b.de", secretNote: "note" };
-    const stored = encryptEntityFieldValues(row, encryptedFields, encryption, {
+    const stored = await encryptEntityFieldValues(row, encryptedFields, encryption, {
       onlyKeys: ["secretNote"],
     });
     expect(stored["email"]).toBe("a@b.de");

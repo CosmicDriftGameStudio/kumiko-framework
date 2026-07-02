@@ -10,10 +10,11 @@ import {
   SYSTEM_TENANT_ID,
 } from "../../engine";
 import type { ConfigSeedDef, Registry } from "../../engine/types";
+import { createEnvMasterKeyProvider } from "../../secrets/env-master-key-provider";
+import { createEnvelopeCipher } from "../../secrets/envelope-cipher";
 import { unsafeCreateEntityTable } from "../../stack";
 import { ensureTemporalPolyfill } from "../../time/polyfill";
 import { seedConfigValues } from "../config-seed";
-import { createEncryptionProvider } from "../encryption";
 import { buildEntityTable } from "../table-builder";
 
 // --- Test Entity ---
@@ -51,8 +52,15 @@ const mockRegistry = {
 } as unknown as Registry;
 
 // --- Helpers ---
-const encryption = createEncryptionProvider(
-  Buffer.from("0123456789abcdef0123456789abcdef").toString("base64"),
+const encryption = createEnvelopeCipher(
+  createEnvMasterKeyProvider({
+    env: {
+      KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "1",
+      KUMIKO_SECRETS_MASTER_KEY_V1: Buffer.from("0123456789abcdef0123456789abcdef").toString(
+        "base64",
+      ),
+    },
+  }),
 );
 
 let testDb: BunTestDb;
@@ -214,7 +222,7 @@ describe("seedConfigValues", () => {
 
     await expect(
       seedConfigValues(seeds, configTable, configEntity, mockRegistry, testDb.db),
-    ).rejects.toThrow(/encrypted but no EncryptionProvider/);
+    ).rejects.toThrow(/encrypted but no EnvelopeCipher/);
   });
 
   test("encrypted seed with provider stores ciphertext, not plaintext", async () => {
@@ -240,7 +248,7 @@ describe("seedConfigValues", () => {
     // resolver later runs `decrypt → JSON.parse` to get the primitive
     // back; we replay the same round-trip here.
     expect(row!.value).not.toContain("sk_live_secret_token");
-    expect(JSON.parse(encryption.decrypt(row!.value))).toBe("sk_live_secret_token");
+    expect(JSON.parse(await encryption.decrypt(row!.value))).toBe("sk_live_secret_token");
   });
 
   test("race-safe parallel boot — two concurrent calls result in 1 created + 1 skipped", async () => {

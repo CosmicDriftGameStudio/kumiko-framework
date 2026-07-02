@@ -88,8 +88,8 @@ export const setWrite = defineWriteHandler({
 
     let serialized = JSON.stringify(event.payload.value);
     if (keyDef.encrypted) {
-      const encryption = requireConfigEncryption(ctx, "config:write:set");
-      serialized = encryption.encrypt(serialized);
+      const cipher = requireConfigEncryption(ctx, "config:write:set");
+      serialized = await cipher.encrypt(serialized, { tenantId });
     }
 
     const existing = await findConfigRow(db, event.payload.key, tenantId, userId);

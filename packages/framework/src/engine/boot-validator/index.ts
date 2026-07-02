@@ -1,3 +1,4 @@
+import { validateEntityFieldEncryptionAvailable } from "../../db/entity-field-encryption";
 import { QnTypes, qualifyEntityName } from "../qualified-name";
 import type { ClaimKeyDefinition, FeatureDefinition } from "../types";
 import { validateApiExposureMatching, validateExtensionUsages } from "./api-ext";
@@ -179,8 +180,12 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
   validateGdprStoragePersistence(features);
   validateGdprHookCompleteness(features);
 
-  if (hasEncryptedFields && !process.env["ENCRYPTION_KEY"]) {
-    throw new Error("ENCRYPTION_KEY environment variable is required (encrypted fields in use)");
+  if (hasEncryptedFields) {
+    // Availability check, not env-presence: eagerly building the keyring
+    // catches malformed keys (wrong length, bad base64) at boot instead of
+    // on the first encrypted read in prod. An injected cipher (test seam,
+    // custom KMS provider) satisfies the requirement without env keys.
+    validateEntityFieldEncryptionAvailable();
   }
 
   if (hasFileFields && !process.env["FILE_STORAGE_PROVIDER"]) {

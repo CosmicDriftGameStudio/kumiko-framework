@@ -2,8 +2,8 @@ import { v5 as uuidv5 } from "uuid";
 import type { EntityDefinition } from "../engine";
 import { createSystemUser, SYSTEM_TENANT_ID } from "../engine";
 import type { ConfigSeedDef, Registry } from "../engine/types";
+import type { EnvelopeCipher } from "../secrets/envelope-cipher";
 import type { DbConnection } from "./connection";
-import type { EncryptionProvider } from "./encryption";
 import { createEventStoreExecutor } from "./event-store-executor";
 import type { EntityTable } from "./table-builder";
 import { createTenantDb } from "./tenant-db";
@@ -30,7 +30,7 @@ export async function seedConfigValues<E extends EntityDefinition>(
   entity: E,
   registry: Registry,
   db: DbConnection,
-  encryption?: EncryptionProvider,
+  cipher?: EnvelopeCipher,
 ): Promise<{ created: number; skipped: number }> {
   let created = 0;
   let skipped = 0;
@@ -48,12 +48,12 @@ export async function seedConfigValues<E extends EntityDefinition>(
       continue;
     }
 
-    // Encrypted keys without an encryption provider would silently write
-    // plaintext to a column the resolver later tries to decrypt — fail
-    // loud at boot, not on first read in prod.
-    if (keyDef.encrypted && !encryption) {
+    // Encrypted keys without a cipher would silently write plaintext to a
+    // column the resolver later tries to decrypt — fail loud at boot, not
+    // on first read in prod.
+    if (keyDef.encrypted && !cipher) {
       throw new Error(
-        `seedConfigValues: key "${seed.key}" is encrypted but no EncryptionProvider was supplied.`,
+        `seedConfigValues: key "${seed.key}" is encrypted but no EnvelopeCipher was supplied.`,
       );
     }
 
@@ -77,8 +77,8 @@ export async function seedConfigValues<E extends EntityDefinition>(
     const aggregateId = uuidv5(idSource, CONFIG_SEED_NS);
 
     let value = JSON.stringify(seed.value);
-    if (keyDef.encrypted && encryption) {
-      value = encryption.encrypt(value);
+    if (keyDef.encrypted && cipher) {
+      value = await cipher.encrypt(value, { tenantId });
     }
 
     const payload: Record<string, unknown> = {

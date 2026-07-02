@@ -25,10 +25,13 @@ import {
   createDekCache,
   createSecret,
   type DekCache,
+  decodeStoredEnvelope,
   decryptValue,
+  encodeStoredEnvelope,
   encryptValue,
   type MasterKeyProvider,
   type SecretsContext,
+  withDekCache,
 } from "@cosmicdrift/kumiko-framework/secrets";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
@@ -79,37 +82,9 @@ function resolveKey(keyOrHandle: string | { readonly name: string }): string {
   return typeof keyOrHandle === "string" ? keyOrHandle : keyOrHandle.name;
 }
 
-// Wrap a provider so its unwrapDek goes through the cache. Lets decryptValue
-// use the full provider contract without knowing about caching — separation
-// of concerns: decryptValue handles crypto, cache handles cost.
-function cachedProvider(provider: MasterKeyProvider, cache: DekCache): MasterKeyProvider {
-  return {
-    wrapDek: provider.wrapDek.bind(provider),
-    unwrapDek: (encryptedDek, version) => cache.unwrapDek(encryptedDek, version, provider),
-    currentVersion: provider.currentVersion.bind(provider),
-    isAvailable: provider.isAvailable.bind(provider),
-  };
-}
-
-function decodeEnvelope(stored: StoredEnvelope): {
-  ciphertext: Buffer;
-  iv: Buffer;
-  authTag: Buffer;
-  encryptedDek: Buffer;
-  kekVersion: number;
-} {
-  return {
-    ciphertext: Buffer.from(stored.ciphertext, "base64"),
-    iv: Buffer.from(stored.iv, "base64"),
-    authTag: Buffer.from(stored.authTag, "base64"),
-    encryptedDek: Buffer.from(stored.encryptedDek, "base64"),
-    kekVersion: stored.kekVersion,
-  };
-}
-
 export function createSecretsContext(opts: SecretsContextOptions): SecretsContext {
   const { db, masterKeyProvider } = opts;
-  const provider = cachedProvider(masterKeyProvider, opts.dekCache ?? createDekCache());
+  const provider = withDekCache(masterKeyProvider, opts.dekCache ?? createDekCache());
 
   type SecretLookupRow = {
     readonly id: string;
@@ -133,7 +108,7 @@ export function createSecretsContext(opts: SecretsContextOptions): SecretsContex
       if (!auditCtx) {
         const existing = await lookup(tenantId, key);
         if (!existing) return undefined;
-        const plaintext = await decryptValue(decodeEnvelope(existing.envelope), provider);
+        const plaintext = await decryptValue(decodeStoredEnvelope(existing.envelope), provider);
         return createSecret(plaintext);
       }
 
@@ -142,7 +117,7 @@ export function createSecretsContext(opts: SecretsContextOptions): SecretsContex
         // type doesn't widen to the transaction object cleanly.
         const envelope = await selectTenantSecretEnvelope(tx, tenantId, key);
         if (!envelope) return undefined;
-        const pt = await decryptValue(decodeEnvelope(envelope), provider);
+        const pt = await decryptValue(decodeStoredEnvelope(envelope), provider);
 
         // One event per read on its own aggregate-stream (fresh UUID as
         // aggregateId). Avoids version-conflicts between parallel reads —
@@ -190,13 +165,7 @@ export function createSecretsContext(opts: SecretsContextOptions): SecretsContex
     async set(tenantId, keyOrHandle, value, setOpts = {}) {
       const key = resolveKey(keyOrHandle);
       const envelope = await encryptValue(value, masterKeyProvider);
-      const stored: StoredEnvelope = {
-        ciphertext: envelope.ciphertext.toString("base64"),
-        iv: envelope.iv.toString("base64"),
-        authTag: envelope.authTag.toString("base64"),
-        encryptedDek: envelope.encryptedDek.toString("base64"),
-        kekVersion: envelope.kekVersion,
-      };
+      const stored: StoredEnvelope = encodeStoredEnvelope(envelope);
       const metadata: StoredMetadata = {
         ...(setOpts.redact ? { redactedPreview: setOpts.redact(value) } : {}),
         ...(setOpts.hint ? { hint: setOpts.hint } : {}),

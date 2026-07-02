@@ -1,11 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import {
-  createEncryptionProvider,
-  type DbConnection,
-  seedConfigValues,
-} from "@cosmicdrift/kumiko-framework/db";
+import { type DbConnection, seedConfigValues } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createSeed,
@@ -24,7 +20,10 @@ import {
   TestUsers,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
+import {
+  createTestEnvelopeCipher,
+  expectErrorIncludes,
+} from "@cosmicdrift/kumiko-framework/testing";
 import { z } from "zod";
 import { ConfigHandlers, ConfigQueries } from "../constants";
 import { createConfigAccessor, createConfigAccessorFactory, createConfigFeature } from "../feature";
@@ -257,8 +256,8 @@ const transportFeature = defineFeature("transport", (r) => {
 const testEncryptionKey = randomBytes(32).toString("base64");
 
 beforeAll(async () => {
-  const encryption = createEncryptionProvider(testEncryptionKey);
-  resolver = createConfigResolver({ encryption });
+  const encryption = createTestEnvelopeCipher(testEncryptionKey);
+  resolver = createConfigResolver({ cipher: encryption });
 
   stack = await setupTestStack({
     features: [

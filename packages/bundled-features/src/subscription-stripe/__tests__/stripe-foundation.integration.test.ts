@@ -20,7 +20,7 @@ import {
   type SubscriptionProviderPlugin,
   subscriptionAggregateId,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
-import { createEncryptionProvider, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
@@ -31,6 +31,7 @@ import {
   testTenantId,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
 import { Hono } from "hono";
 import Stripe from "stripe";
 import { configValuesTable, createConfigFeature } from "../../config";
@@ -79,8 +80,8 @@ beforeAll(async () => {
     priceToTier: PRICE_TO_TIER,
   });
 
-  const encryption = createEncryptionProvider(randomBytes(32).toString("base64"));
-  const resolver = createConfigResolver({ encryption });
+  const encryption = createTestEnvelopeCipher(randomBytes(32).toString("base64"));
+  const resolver = createConfigResolver({ cipher: encryption });
   const masterKeyProvider = createEnvMasterKeyProvider({
     env: {
       KUMIKO_SECRETS_MASTER_KEY_V1: randomBytes(32).toString("base64"),
@@ -470,8 +471,8 @@ describe("scenario 6: billing-live gate end-to-end (#104)", () => {
 
   beforeAll(async () => {
     const stripeFeature = createSubscriptionStripeFeature({ priceToTier: PRICE_TO_TIER });
-    const encryption = createEncryptionProvider(randomBytes(32).toString("base64"));
-    const resolver = createConfigResolver({ encryption });
+    const encryption = createTestEnvelopeCipher(randomBytes(32).toString("base64"));
+    const resolver = createConfigResolver({ cipher: encryption });
     const masterKeyProvider = createEnvMasterKeyProvider({
       env: {
         KUMIKO_SECRETS_MASTER_KEY_V1: randomBytes(32).toString("base64"),

@@ -30,7 +30,7 @@ import {
   tenantSecretsTable,
 } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { createTenantFeature, tenantEntity } from "@cosmicdrift/kumiko-bundled-features/tenant";
-import { createEncryptionProvider, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createEntityExecutor } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
@@ -44,6 +44,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import {
   createMutableMasterKeyProvider,
+  createTestEnvelopeCipher,
   type MutableMasterKeyProvider,
   resetTestTables,
 } from "@cosmicdrift/kumiko-framework/testing";
@@ -63,8 +64,8 @@ const testEncryptionKey = randomBytes(32).toString("base64");
 const { table: capCounterTable } = createEntityExecutor("cap-counter", capCounterEntity);
 
 beforeAll(async () => {
-  const encryption = createEncryptionProvider(testEncryptionKey);
-  resolver = createConfigResolver({ encryption });
+  const encryption = createTestEnvelopeCipher(testEncryptionKey);
+  resolver = createConfigResolver({ cipher: encryption });
 
   const initialKp = createEnvMasterKeyProvider({
     env: {

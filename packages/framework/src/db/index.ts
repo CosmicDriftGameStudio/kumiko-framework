@@ -38,8 +38,11 @@ export type { EncryptionProvider } from "./encryption";
 export { createEncryptionProvider } from "./encryption";
 export {
   collectEncryptedFieldNames,
+  configuredEntityFieldEncryption,
+  configureEntityFieldEncryption,
   decryptEntityFieldValues,
   encryptEntityFieldValues,
+  resetEntityFieldEncryptionCacheForTests,
 } from "./entity-field-encryption";
 export type {
   BuildEntityTableMetaOptions,

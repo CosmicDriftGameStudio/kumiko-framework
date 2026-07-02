@@ -14,7 +14,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import {
   createRegistry,
   type Registry,
@@ -40,6 +39,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import {
   createLateBoundHolder,
+  createTestEnvelopeCipher,
   resetTestTables,
   updateRows,
 } from "@cosmicdrift/kumiko-framework/testing";
@@ -97,8 +97,8 @@ function buildFeatures() {
 }
 
 beforeAll(async () => {
-  const encryption = createEncryptionProvider(encryptionKey);
-  const resolver = createConfigResolver({ encryption });
+  const encryption = createTestEnvelopeCipher(encryptionKey);
+  const resolver = createConfigResolver({ cipher: encryption });
   const bound = sessionCallbacksFromLateBound(callbacks);
 
   stack = await setupTestStack({

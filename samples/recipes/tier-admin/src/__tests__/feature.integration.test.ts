@@ -22,7 +22,7 @@ import {
   TierEngineQueries,
   tierAssignmentEntity,
 } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
-import { asRawClient, createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import { findTierResolverUsage, isTierResolverPlugin } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -33,6 +33,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
 import { appTierMap, NOTES_EXPORT_FEATURE, notesExportFeature, tierEngineForApp } from "../feature";
 
 const encryptionKey = randomBytes(32).toString("base64");
@@ -43,8 +44,8 @@ const recipeFeatures = [configFeature, tenantFeature, tierEngineForApp, notesExp
 let stack: TestStack;
 
 beforeAll(async () => {
-  const encryption = createEncryptionProvider(encryptionKey);
-  const configResolver = createConfigResolver({ encryption });
+  const encryption = createTestEnvelopeCipher(encryptionKey);
+  const configResolver = createConfigResolver({ cipher: encryption });
 
   stack = await setupTestStack({
     features: recipeFeatures,

@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
@@ -10,7 +9,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
+import { createTestEnvelopeCipher, seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { Temporal } from "temporal-polyfill";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email";
 import { createConfigFeature } from "../../config";
@@ -51,8 +50,8 @@ const resetSecret = randomBytes(32).toString("base64");
 const appResetUrl = "https://app.example.com/reset";
 
 beforeAll(async () => {
-  const encryption = createEncryptionProvider(encryptionKey);
-  const resolver = createConfigResolver({ encryption });
+  const encryption = createTestEnvelopeCipher(encryptionKey);
+  const resolver = createConfigResolver({ cipher: encryption });
 
   stack = await setupTestStack({
     features: [

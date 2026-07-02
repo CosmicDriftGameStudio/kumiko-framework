@@ -106,8 +106,10 @@ describe("boot-validator", () => {
     expect(() => validateBoot(features)).toThrow(/token.*cannot be both encrypted and sortable/i);
   });
 
-  test("allows encrypted field when ENCRYPTION_KEY is set", () => {
-    process.env["ENCRYPTION_KEY"] = "test-key";
+  test("allows encrypted field when a master key keyring is available", () => {
+    process.env["KUMIKO_SECRETS_MASTER_KEY_V1"] = Buffer.from(
+      "0123456789abcdef0123456789abcdef",
+    ).toString("base64");
     try {
       const features = [
         defineFeature("a", (r) => {
@@ -124,12 +126,34 @@ describe("boot-validator", () => {
       ];
       expect(() => validateBoot(features)).not.toThrow();
     } finally {
-      delete process.env["ENCRYPTION_KEY"];
+      delete process.env["KUMIKO_SECRETS_MASTER_KEY_V1"];
     }
   });
 
-  test("throws when encrypted fields exist but ENCRYPTION_KEY not set", () => {
-    delete process.env["ENCRYPTION_KEY"];
+  test("throws at boot when the master key is malformed (not 32 bytes)", () => {
+    process.env["KUMIKO_SECRETS_MASTER_KEY_V1"] = Buffer.from("too-short").toString("base64");
+    try {
+      const features = [
+        defineFeature("a", (r) => {
+          r.entity(
+            "secret",
+            createEntity({
+              table: "Secrets",
+              fields: {
+                apiKey: { type: "text", encrypted: true },
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/master key/i);
+    } finally {
+      delete process.env["KUMIKO_SECRETS_MASTER_KEY_V1"];
+    }
+  });
+
+  test("throws when encrypted fields exist but no master key is available", () => {
+    delete process.env["KUMIKO_SECRETS_MASTER_KEY_V1"];
     const features = [
       defineFeature("a", (r) => {
         r.entity(
@@ -143,16 +167,16 @@ describe("boot-validator", () => {
         );
       }),
     ];
-    expect(() => validateBoot(features)).toThrow(/ENCRYPTION_KEY.*required/i);
+    expect(() => validateBoot(features)).toThrow(/master key/i);
   });
 
-  test("throws when longText encrypted field exists but ENCRYPTION_KEY not set", () => {
+  test("throws when longText encrypted field exists but no master key is available", () => {
     // Drift-pin Sprint-5b-vorab-Audit Issue 1: validateEncryptedFields
     // hatte `if (field.type !== "text") continue;` und ignorierte
     // longText-encrypted-fields silently — ENCRYPTION_KEY-check wurde
     // nie getriggert, encryption silent broken. Jetzt: beide string-
     // typed fields werden gechecked.
-    delete process.env["ENCRYPTION_KEY"];
+    delete process.env["KUMIKO_SECRETS_MASTER_KEY_V1"];
     const features = [
       defineFeature("a", (r) => {
         r.entity(
@@ -166,7 +190,7 @@ describe("boot-validator", () => {
         );
       }),
     ];
-    expect(() => validateBoot(features)).toThrow(/ENCRYPTION_KEY.*required/i);
+    expect(() => validateBoot(features)).toThrow(/master key/i);
   });
 
   test("rejects encrypted text field that is also filterable", () => {

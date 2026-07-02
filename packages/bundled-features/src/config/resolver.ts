@@ -1,5 +1,5 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import type { DbConnection, EncryptionProvider, TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import type { DbConnection, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type {
   ConfigCascade,
   ConfigCascadeLevel,
@@ -12,6 +12,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
 import { assertUnreachable, parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import { selectConfigRowsForKeys, selectConfigRowsForScope } from "./db/queries/resolver";
 import { configValuesTable } from "./table";
@@ -63,9 +64,32 @@ export function deserializeValue(
 export type AppConfigOverrides = ReadonlyMap<string, string | number | boolean>;
 
 export type ConfigResolverOptions = {
-  encryption?: EncryptionProvider;
+  // Envelope cipher for `encrypted: true` keys. run{Prod,Dev}App wire it
+  // automatically from the secrets master key — apps only pass their own
+  // to override (tests, custom providers).
+  cipher?: EnvelopeCipher;
   appOverrides?: AppConfigOverrides;
 };
+
+// Decrypt gate for encrypted keys: an encrypted row without a cipher MUST
+// throw — passing the ciphertext through as the "value" (the pre-envelope
+// behavior) silently feeds base64 garbage to whatever consumes the key
+// (e.g. an SMTP password) and is a debugging nightmare.
+async function decryptEncrypted(
+  cipher: EnvelopeCipher | undefined,
+  raw: string,
+  qualifiedKey: string,
+): Promise<string> {
+  if (!cipher) {
+    throw new InternalError({
+      message:
+        `[config] key "${qualifiedKey}" is encrypted but no cipher is wired — the boot must ` +
+        `provide a master key (KUMIKO_SECRETS_MASTER_KEY_V<n>) or pass ConfigResolverOptions.cipher.`,
+      i18nKey: "config.errors.cipher_missing",
+    });
+  }
+  return cipher.decrypt(raw);
+}
 
 // backing="secrets" keys store their value in the secrets store (flat per
 // (tenant,key) at SYSTEM_TENANT_ID), not in config_values. Both read paths
@@ -101,7 +125,7 @@ async function buildCascade(
     userId: string | null,
   ) => Promise<ConfigRow | null> | ConfigRow | null,
   appOverrides: AppConfigOverrides | undefined,
-  encryption: EncryptionProvider | undefined,
+  cipher: EnvelopeCipher | undefined,
   secretsReader: ConfigSecretsReader | undefined,
 ): Promise<ConfigCascade> {
   type Lookup = {
@@ -179,8 +203,8 @@ async function buildCascade(
     const row = await fetchRow(lookup.tenantId, lookup.userId);
     if (row?.value !== null && row?.value !== undefined) {
       let raw = row.value;
-      if (keyDef.encrypted && encryption) {
-        raw = encryption.decrypt(raw);
+      if (keyDef.encrypted) {
+        raw = await decryptEncrypted(cipher, raw, qualifiedKey);
       }
       if (activeIndex === -1) activeIndex = levels.length;
       levels.push({
@@ -265,7 +289,7 @@ async function buildCascade(
 }
 
 export function createConfigResolver(options: ConfigResolverOptions = {}): ConfigResolver {
-  const { encryption, appOverrides } = options;
+  const { cipher, appOverrides } = options;
   async function findRow(
     key: string,
     tenantId: string,
@@ -356,8 +380,8 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
         const row = await findRow(qualifiedKey, lookup.tenantId, lookup.userId, db);
         if (row?.value !== null && row?.value !== undefined) {
           let raw = row.value;
-          if (keyDef.encrypted && encryption) {
-            raw = encryption.decrypt(raw);
+          if (keyDef.encrypted) {
+            raw = await decryptEncrypted(cipher, raw, qualifiedKey);
           }
           return { value: deserializeValue(raw, keyDef.type), source: lookup.source };
         }
@@ -470,7 +494,7 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
         db,
         (tid, uid) => findRow(qualifiedKey, tid, uid, db),
         appOverrides,
-        encryption,
+        cipher,
         secretsReader,
       );
     },
@@ -512,7 +536,7 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
           (tid, uid) =>
             keyRows.find((r) => r.tenantId === tid && (r.userId ?? null) === uid) ?? null,
           appOverrides,
-          encryption,
+          cipher,
           secretsReader,
         );
         result.set(key, cascade);

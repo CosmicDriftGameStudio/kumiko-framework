@@ -1,6 +1,7 @@
-import type { DbConnection, EncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { seedConfigValues } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
+import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
 import { configValueEntity, configValuesTable } from "./table";
 
 export {
@@ -30,8 +31,8 @@ export { configValuesTable } from "./table";
 export function seedAllConfigValues(
   registry: Registry,
   db: DbConnection,
-  encryption?: EncryptionProvider,
+  cipher?: EnvelopeCipher,
 ): Promise<{ created: number; skipped: number }> {
   const seeds = registry.getAllConfigSeeds();
-  return seedConfigValues(seeds, configValuesTable, configValueEntity, registry, db, encryption);
+  return seedConfigValues(seeds, configValuesTable, configValueEntity, registry, db, cipher);
 }

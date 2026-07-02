@@ -9,6 +9,13 @@ export type EncryptionProvider = {
   decrypt(ciphertext: string): string;
 };
 
+/**
+ * @deprecated Legacy single-key format: base64(iv+tag+ct) with NO key id —
+ * a key change makes existing ciphertexts permanently undecryptable. Use
+ * `createEnvelopeCipher` (@cosmicdrift/kumiko-framework/secrets) for new code; this
+ * provider remains only as the decrypt-fallback for pre-envelope values
+ * (EnvelopeCipherOptions.legacy) until a re-encrypt job migrated them.
+ */
 export function createEncryptionProvider(key: string): EncryptionProvider {
   // Key must be 32 bytes for AES-256
   const keyBuffer = Buffer.from(key, "base64");

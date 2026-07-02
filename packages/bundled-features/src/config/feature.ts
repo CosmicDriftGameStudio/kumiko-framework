@@ -1,4 +1,4 @@
-import type { DbConnection, EncryptionProvider, TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import type { DbConnection, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   type ConfigAccessor,
   type ConfigAccessorFactory,
@@ -13,8 +13,10 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
 import { cascadeQuery } from "./handlers/cascade.query";
 import { readinessQuery } from "./handlers/readiness.query";
+import { reencryptJob } from "./handlers/reencrypt.job";
 import { resetWrite } from "./handlers/reset.write";
 import { schemaQuery } from "./handlers/schema.query";
 import { setWrite } from "./handlers/set.write";
@@ -27,7 +29,7 @@ export type ConfigContext = { readonly config: ConfigAccessor };
 export function createConfigFeature(): FeatureDefinition {
   return defineFeature("config", (r) => {
     r.describe(
-      "Stores per-tenant (and optionally per-user) configuration values with a multi-layer cascade: user-row \u2192 tenant-row \u2192 system-row \u2192 app-override (deploy-time `AppConfigOverrides`) \u2192 computed \u2192 feature default. Access a value in handlers via `ctx.config(handle)`, declare keys with `r.config({ keys: { ... } })` inside a feature's registry callback, and optionally mark them `encrypted: true` to route storage through an `EncryptionProvider`. Use this feature whenever a tenant admin needs to customise behaviour at runtime without a code deploy.",
+      "Stores per-tenant (and optionally per-user) configuration values with a multi-layer cascade: user-row \u2192 tenant-row \u2192 system-row \u2192 app-override (deploy-time `AppConfigOverrides`) \u2192 computed \u2192 feature default. Access a value in handlers via `ctx.config(handle)`, declare keys with `r.config({ keys: { ... } })` inside a feature's registry callback, and optionally mark them `encrypted: true` to route storage through the envelope cipher (versioned master key). Use this feature whenever a tenant admin needs to customise behaviour at runtime without a code deploy.",
     );
     r.uiHints({
       displayLabel: "Tenant Config Store",
@@ -54,6 +56,12 @@ export function createConfigFeature(): FeatureDefinition {
       schema: r.queryHandler(schemaQuery),
       readiness: r.queryHandler(readinessQuery),
     };
+
+    // Migration + KEK-rotation for encrypted values (legacy-format →
+    // envelope, old kekVersion → current). Manual trigger — ops runs it
+    // once after adding a new master key version or before retiring the
+    // legacy CONFIG_ENCRYPTION_KEY.
+    r.job("reencrypt", { trigger: { manual: true } }, reencryptJob);
 
     return { handlers, queries };
   });
@@ -116,16 +124,14 @@ export function requireConfigResolver(ctx: HandlerContext, handlerName: string):
 // lazily so apps that never wire encryption still boot (and only crash
 // if a handler tries to write an encrypted key without the provider in
 // place, pointing at the exact wiring gap).
-export function requireConfigEncryption(
-  ctx: HandlerContext,
-  handlerName: string,
-): EncryptionProvider {
+export function requireConfigEncryption(ctx: HandlerContext, handlerName: string): EnvelopeCipher {
   if (!ctx.configEncryption) {
     throw new InternalError({
       message:
         `[${handlerName}] ctx.configEncryption missing — at least one config key declares ` +
-        `encrypted: true, so the boot wiring must pass an EncryptionProvider via ` +
-        `extraContext.configEncryption (same instance the resolver was built with).`,
+        `encrypted: true, so the boot wiring must pass an EnvelopeCipher via ` +
+        `extraContext.configEncryption (run{Prod,Dev}App wire it automatically from ` +
+        `KUMIKO_SECRETS_MASTER_KEY_V<n>; same instance the resolver was built with).`,
     });
   }
   return ctx.configEncryption;

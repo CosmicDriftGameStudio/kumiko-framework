@@ -25,6 +25,8 @@ export { createLateBoundHolder, type LateBoundHolder } from "./late-bound";
 export { buildMultipartBody, patchFileInstanceofForBunTest } from "./multipart-helper";
 export {
   createMutableMasterKeyProvider,
+  createTestEnvelopeCipher,
+  createTestMasterKeyProvider,
   type MutableMasterKeyProvider,
 } from "./mutable-master-key-provider";
 export {

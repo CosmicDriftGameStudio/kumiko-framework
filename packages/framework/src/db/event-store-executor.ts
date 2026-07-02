@@ -39,13 +39,13 @@ import {
 } from "../event-store";
 import type { EntityCache } from "../pipeline/entity-cache";
 import type { SearchAdapter } from "../search/types";
+import type { EnvelopeCipher } from "../secrets/envelope-cipher";
 import { assertUnreachable, generateId } from "../utils";
 import { applyEntityEvent } from "./apply-entity-event";
 import { flattenCompoundTypes, rehydrateCompoundTypes } from "./compound-types";
 import type { DbRow } from "./connection";
 import { decodeCursor, encodeCursor } from "./cursor";
 import type { TableColumns } from "./dialect";
-import type { EncryptionProvider } from "./encryption";
 import {
   collectEncryptedFieldNames,
   decryptEntityFieldValues,
@@ -119,8 +119,8 @@ export type EventStoreExecutorOptions = {
   searchAdapter?: SearchAdapter;
   entityName: string; // required — the aggregateType marker on every event
   entityCache?: EntityCache;
-  /** Override ENCRYPTION_KEY for entity fields marked `encrypted: true`. */
-  encryption?: EncryptionProvider;
+  /** Override the boot-injected cipher for fields marked `encrypted: true`. */
+  encryption?: EnvelopeCipher;
 };
 
 // F8 helper: PG-23505 (unique-violation) catched aus applyEntityEvent
@@ -307,24 +307,28 @@ export function createEventStoreExecutor(
   const encryptedFields = collectEncryptedFieldNames(entity);
   const hasEncryptedFields = encryptedFields.size > 0;
 
-  function encryptionProvider(): EncryptionProvider {
+  function fieldCipher(): EnvelopeCipher {
     if (options.encryption) return options.encryption;
     return resolveEntityFieldEncryption();
   }
 
-  function encryptForStorage(
+  // Async on purpose: the envelope cipher wraps/unwraps DEKs via the
+  // MasterKeyProvider. Callers MUST await — a missed await here writes
+  // "[object Promise]" into the projection, which the Promise return
+  // types turn into a compile error at every call site.
+  async function encryptForStorage(
     row: Record<string, unknown>,
     onlyKeys?: Iterable<string>,
-  ): Record<string, unknown> {
+  ): Promise<Record<string, unknown>> {
     if (!hasEncryptedFields) return row;
-    return encryptEntityFieldValues(row, encryptedFields, encryptionProvider(), {
+    return encryptEntityFieldValues(row, encryptedFields, fieldCipher(), {
       ...(onlyKeys !== undefined && { onlyKeys }),
     });
   }
 
-  function decryptForRead(row: Record<string, unknown>): Record<string, unknown> {
+  async function decryptForRead(row: Record<string, unknown>): Promise<Record<string, unknown>> {
     if (!hasEncryptedFields) return row;
-    return decryptEntityFieldValues(row, encryptedFields, encryptionProvider());
+    return decryptEntityFieldValues(row, encryptedFields, fieldCipher());
   }
 
   function applyDefaults(payload: Record<string, unknown>): Record<string, unknown> {
@@ -356,7 +360,7 @@ export function createEventStoreExecutor(
   async function loadById(id: EntityId, db: TenantDb): Promise<Record<string, unknown> | null> {
     const row = await db.fetchOne(table, idFilter(id));
     if (!row) return null;
-    return decryptForRead(rehydrateCompoundTypes(row as DbRow, entity));
+    return await decryptForRead(rehydrateCompoundTypes(row as DbRow, entity));
   }
 
   // Archive guard for the CRUD write paths. Archived streams are read-only —
@@ -465,7 +469,7 @@ export function createEventStoreExecutor(
       // Alle Compound-Types (locatedTimestamp, money, ...) gehen durch
       // dieselbe Pipeline. Caller schickt combined API-Form, Framework
       // speichert flat DB-Form. Siehe db/compound-types.ts.
-      const flatData = encryptForStorage(flattenCompoundTypes(data, entity));
+      const flatData = await encryptForStorage(flattenCompoundTypes(data, entity));
 
       // 1. Append event (same TX as the projection write — both must succeed
       //    or both roll back; the dispatcher wraps both in one transaction).
@@ -541,7 +545,9 @@ export function createEventStoreExecutor(
       const row = result.row;
       // Read-Side Auto-Convert: DB-Form → API-combined-Form für alle
       // Compound-Types in einem Pass.
-      const projection = decryptForRead(rehydrateCompoundTypes(row as DbRow, entity) as DbRow);
+      const projection = await decryptForRead(
+        rehydrateCompoundTypes(row as DbRow, entity) as DbRow,
+      );
 
       if (entityCache && entityName) {
         await entityCache.del(user.tenantId, entityName, aggregateId);
@@ -644,7 +650,7 @@ export function createEventStoreExecutor(
 
       try {
         // Compound-Types Auto-Convert (alle in einem Pass).
-        const flatChanges = encryptForStorage(
+        const flatChanges = await encryptForStorage(
           flattenCompoundTypes(payload.changes, entity),
           Object.keys(payload.changes),
         );
@@ -667,7 +673,7 @@ export function createEventStoreExecutor(
           type: entityEventName(entityName, "updated"),
           payload: {
             changes: stripSensitive(flatChanges),
-            previous: stripSensitive(encryptForStorage(previous)),
+            previous: stripSensitive(await encryptForStorage(previous)),
           },
           metadata: buildEventMetadata(user),
         });
@@ -695,7 +701,7 @@ export function createEventStoreExecutor(
           return writeFailure(new InternalError({ message: "projection update returned no row" }));
         }
         const row = result.row;
-        const data = decryptForRead(rehydrateCompoundTypes(row as DbRow, entity) as DbRow);
+        const data = await decryptForRead(rehydrateCompoundTypes(row as DbRow, entity) as DbRow);
 
         if (entityCache && entityName) {
           await entityCache.del(user.tenantId, entityName, payload.id);
@@ -777,7 +783,7 @@ export function createEventStoreExecutor(
         tenantId: streamTenantFor(user),
         expectedVersion: currentVersion,
         type: entityEventName(entityName, "deleted"),
-        payload: { previous: stripSensitive(encryptForStorage(existing)) },
+        payload: { previous: stripSensitive(await encryptForStorage(existing)) },
         metadata: buildEventMetadata(user),
       });
 
@@ -810,7 +816,7 @@ export function createEventStoreExecutor(
     async forget(payload, user, db) {
       const raw = await db.fetchOne<Record<string, unknown>>(table, { id: payload.id });
       if (!raw) return writeFailure(new NotFoundError(entityName, payload.id));
-      const existing = decryptForRead(rehydrateCompoundTypes(raw as DbRow, entity) as DbRow);
+      const existing = await decryptForRead(rehydrateCompoundTypes(raw as DbRow, entity) as DbRow);
 
       if (!userCanWriteFieldRow(user, entity.access?.write, existing, existing)) {
         return writeFailure(
@@ -937,7 +943,7 @@ export function createEventStoreExecutor(
       // row and `previous` snapshot must be plaintext for `encrypted` fields,
       // same as every other executor method — `data`/`restored` are raw rows
       // (selectMany / applyEntityEvent), never decrypted before this point.
-      const restoredHydrated = decryptForRead(
+      const restoredHydrated = await decryptForRead(
         rehydrateCompoundTypes(restored as DbRow, entity) as DbRow,
       );
 
@@ -948,7 +954,7 @@ export function createEventStoreExecutor(
           id: payload.id,
           data: restoredHydrated,
           changes: { isDeleted: false },
-          previous: decryptForRead(data),
+          previous: await decryptForRead(data),
           isNew: false,
           entityName,
           event,
@@ -1082,8 +1088,10 @@ export function createEventStoreExecutor(
       const rawRows = await executeRawQuery<Record<string, unknown>>(db.raw, listSql, params);
       // Read-Side rehydrate pro Row + snake→camel coercion für driver-agnostic Feldnamen
       const tableInfo = extractTableInfo(table);
-      const rows = rawRows.map((r) =>
-        coerceRow(decryptForRead(rehydrateCompoundTypes(r, entity)), tableInfo),
+      const rows = await Promise.all(
+        rawRows.map(async (r) =>
+          coerceRow(await decryptForRead(rehydrateCompoundTypes(r, entity)), tableInfo),
+        ),
       );
 
       // list rows carry the READ-ROW version (display-only), never an optimistic-lock
@@ -1156,19 +1164,24 @@ export function createEventStoreExecutor(
           // Cached rows are stored re-encrypted (see the `set` below) so an
           // `encrypted` field's plaintext never sits in a second at-rest
           // store (Redis) the field-encryption feature doesn't cover.
-          return withStreamVersion(decryptForRead(cached));
+          return withStreamVersion(await decryptForRead(cached));
         }
       }
 
       const rows = await loadWithOwnership(db, idWhere, ownership);
       const raw = rows[0];
       if (!raw) return null;
-      const row = decryptForRead(rehydrateCompoundTypes(raw, entity));
+      const row = await decryptForRead(rehydrateCompoundTypes(raw, entity));
       const rowInfo = extractTableInfo(table);
       const coerced = coerceRow(row, rowInfo);
 
       if (entityCache && entityName) {
-        await entityCache.set(user.tenantId, entityName, payload.id, encryptForStorage(coerced));
+        await entityCache.set(
+          user.tenantId,
+          entityName,
+          payload.id,
+          await encryptForStorage(coerced),
+        );
       }
 
       return withStreamVersion(coerced);

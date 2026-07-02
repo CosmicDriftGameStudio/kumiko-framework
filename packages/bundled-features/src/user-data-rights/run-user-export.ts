@@ -23,6 +23,11 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import {
+  collectEncryptedFieldNames,
+  configuredEntityFieldEncryption,
+  decryptEntityFieldValues,
+} from "@cosmicdrift/kumiko-framework/db";
+import {
   EXT_USER_DATA,
   type Registry,
   type TenantId,
@@ -137,8 +142,9 @@ export async function runUserExport(args: RunUserExportArgs): Promise<UserExport
   for (const tenantId of tenantList) {
     const entities: UserDataExportSnippet[] = [];
     for (const entry of hookEntries) {
-      const snippet = await entry.exportHook({ db, tenantId, userId });
-      if (snippet === null) continue;
+      const rawSnippet = await entry.exportHook({ db, tenantId, userId });
+      if (rawSnippet === null) continue;
+      const snippet = await decryptSnippetFields(registry, entry.entityName, rawSnippet);
       entities.push(snippet);
       if (snippet.fileRefs) {
         for (const ref of snippet.fileRefs) {
@@ -169,12 +175,13 @@ export async function runUserExport(args: RunUserExportArgs): Promise<UserExport
   if (tenantList.length === 0 && hookEntries.length > 0) {
     const orphanEntities: UserDataExportSnippet[] = [];
     for (const entry of hookEntries) {
-      const snippet = await entry.exportHook({
+      const rawSnippet = await entry.exportHook({
         db,
         tenantId: SYSTEM_TENANT_ID_FOR_ORPHANS,
         userId,
       });
-      if (snippet === null) continue;
+      if (rawSnippet === null) continue;
+      const snippet = await decryptSnippetFields(registry, entry.entityName, rawSnippet);
       orphanEntities.push(snippet);
       if (snippet.fileRefs) {
         for (const ref of snippet.fileRefs) {
@@ -201,6 +208,37 @@ export async function runUserExport(args: RunUserExportArgs): Promise<UserExport
     tenants,
     fileRefs,
   };
+}
+
+// Art. 20 verlangt die DATEN, nicht deren Ciphertext: Export-Hooks lesen
+// raw rows an der Executor-Decrypt-Schicht vorbei, darum entschluesselt
+// dieser zentrale Pass encrypted entity fields nach jedem Hook. Ohne
+// konfigurierten Cipher wird ein expliziter Marker exportiert statt den
+// base64-Blob als "Wert" auszuliefern (leak-by-confusion).
+const ENCRYPTED_UNAVAILABLE = "[encrypted:unavailable]";
+
+async function decryptSnippetFields(
+  registry: Registry,
+  hookEntityName: string,
+  snippet: UserDataExportSnippet,
+): Promise<UserDataExportSnippet> {
+  const entity = registry.getEntity(snippet.entity) ?? registry.getEntity(hookEntityName);
+  if (!entity) return snippet;
+  const encryptedFields = collectEncryptedFieldNames(entity);
+  if (encryptedFields.size === 0) return snippet;
+
+  const cipher = configuredEntityFieldEncryption();
+  const rows = await Promise.all(
+    snippet.rows.map(async (row) => {
+      if (cipher) return decryptEntityFieldValues(row, encryptedFields, cipher);
+      const out = { ...row };
+      for (const name of encryptedFields) {
+        if (typeof out[name] === "string") out[name] = ENCRYPTED_UNAVAILABLE;
+      }
+      return out;
+    }),
+  );
+  return { ...snippet, rows };
 }
 
 // Pseudo-Tenant fuer User ohne aktive Memberships. Identisch zum

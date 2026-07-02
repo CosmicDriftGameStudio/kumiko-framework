@@ -144,6 +144,14 @@ export type Envelope = {
   readonly kekVersion: number;
 };
 
+// BYOK hook: callers pass the tenant a value belongs to; a per-tenant-KMS
+// provider keys its wrap/unwrap on it. EnvMasterKeyProvider (app-wide
+// keyring) ignores it — the param exists so the contract doesn't have to
+// break when a tenant-scoped provider ships.
+export type KeyScope = {
+  readonly tenantId?: TenantId;
+};
+
 // The contract a KEK backend must fulfil. The framework sees only this
 // interface; concrete implementations live in separate packages
 // (@cosmicdrift/kumiko-secrets-vault, @cosmicdrift/kumiko-secrets-aws-kms, ...). The default is
@@ -152,12 +160,12 @@ export interface MasterKeyProvider {
   // Wrap a fresh DEK with the current KEK. Returns the wrapped bytes + the
   // KEK version used — the version ends up in the Envelope so decryption
   // later knows which KEK to ask for.
-  wrapDek(dek: Buffer): Promise<{ encryptedDek: Buffer; kekVersion: number }>;
+  wrapDek(dek: Buffer, scope?: KeyScope): Promise<{ encryptedDek: Buffer; kekVersion: number }>;
 
   // Unwrap a previously-wrapped DEK. During rotation the provider must
   // accept older kekVersion values (2-version window minimum), otherwise
   // old rows become unreadable.
-  unwrapDek(encryptedDek: Buffer, kekVersion: number): Promise<Buffer>;
+  unwrapDek(encryptedDek: Buffer, kekVersion: number, scope?: KeyScope): Promise<Buffer>;
 
   // Which KEK version new wraps use. Rotation flips this to a new value
   // and older-version reads continue to work until rows are re-wrapped.

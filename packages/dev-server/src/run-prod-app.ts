@@ -78,6 +78,7 @@ import {
   type SseBroker,
 } from "@cosmicdrift/kumiko-framework/api";
 import {
+  configureEntityFieldEncryption,
   createDbConnection,
   type DbConnection,
   type DbRunner,
@@ -123,13 +124,11 @@ import {
   createEventDedup,
   createIdempotencyGuard,
 } from "@cosmicdrift/kumiko-framework/pipeline";
-import {
-  createEnvMasterKeyProvider,
-  type MasterKeyProvider,
-} from "@cosmicdrift/kumiko-framework/secrets";
+import type { MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import Redis from "ioredis";
 import { applyBootSeeds } from "./boot/apply-boot-seeds";
+import { type BootCrypto, resolveBootCrypto } from "./boot/boot-crypto";
 import { ASSETS_DIR } from "./build-prod-bundle";
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features";
 import { type ExtraRoutesSystemDeps, makeDispatchSystemWrite } from "./extra-routes-deps";
@@ -597,18 +596,13 @@ export function addConfigAccessorFactory<T extends { readonly configResolver?: C
 // nur einen db-gebundenen Accessor). secrets wird nur auto-verdrahtet wenn
 // das secrets-Feature gemountet ist UND ein KEK tatsächlich verfügbar ist
 // (masterKey-Override ODER env-KEK present) — sonst skip, damit der eager
-// createEnvMasterKeyProvider nicht wirft. Das deckt zwei Fälle: (a) App ohne
-// secrets → kein KEK-Zwang; (b) dev mit App-eigenem DEV-KEK in extraContext
-// (kein env-KEK) → kein Boot-Crash, die App-explizite secrets-Wiring gewinnt.
+// KEK-Detection + Provider/Cipher-Aufbau leben in boot/boot-crypto.ts
+// (envHasMasterKek, resolveBootCrypto) — gemeinsam mit runDevApp.
 // Prod-Misconfig (secrets gemountet, kein KEK) fängt schon secretsEnvSchema
 // beim Boot; fehlt der env-Schema-Pfad, wirft requireSecretsContext beim
 // ersten ctx.secrets-Zugriff mit Wiring-Hinweis. configResolver nur im
 // Auth-Mode. Exportiert + pure für Unit-Tests; der merge mit App-Werten
 // passiert beim Caller (App gewinnt).
-const MASTER_KEK_VAR = /^KUMIKO_SECRETS_MASTER_KEY_V\d+$/;
-function envHasMasterKek(env: Record<string, string | undefined>): boolean {
-  return Object.entries(env).some(([k, v]) => MASTER_KEK_VAR.test(k) && !!v);
-}
 
 // Prod/dev parity for ctx.notify: without this `_notifyFactory` is only wired
 // in tests (createDeliveryTestContext), so ctx.notify is undefined at runtime
@@ -635,12 +629,16 @@ export function buildBootExtraContext(opts: {
   readonly envSource: Record<string, string | undefined>;
   readonly registry: Registry;
   readonly hasAuth: boolean;
+  // Resolved once per boot via resolveBootCrypto — shared by secrets,
+  // config-resolver, config-set-handler and boot-seeds. Absent (tests
+  // that don't care about encryption) ⇒ resolved from envSource here.
+  readonly crypto?: BootCrypto;
   readonly masterKey?: MasterKeyProvider;
   readonly sseBroker?: SseBroker;
 }): Record<string, unknown> {
+  const crypto = opts.crypto ?? resolveBootCrypto(opts.envSource, opts.masterKey);
   const hasSecretsFeature = opts.features.some((f) => f.name === SECRETS_FEATURE_NAME);
-  const wireSecrets =
-    hasSecretsFeature && (opts.masterKey !== undefined || envHasMasterKek(opts.envSource));
+  const wireSecrets = hasSecretsFeature && crypto.masterKeyProvider !== undefined;
   const hasDeliveryFeature = opts.features.some((f) => f.name === DELIVERY_FEATURE);
   return {
     textContent: createTextContentApi(opts.db),
@@ -651,25 +649,25 @@ export function buildBootExtraContext(opts: {
         ...(opts.sseBroker && { sseBroker: opts.sseBroker }),
       }),
     }),
-    ...(wireSecrets && {
-      secrets: createSecretsContext({
-        db: opts.db,
-        masterKeyProvider:
-          opts.masterKey ??
-          createEnvMasterKeyProvider({
-            // CURRENT_VERSION default "1" spiegelt secretsEnvSchema — ohne
-            // ihn wirft der raw-env-Provider, obwohl V1 gesetzt ist.
-            env: {
-              ...opts.envSource,
-              KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION:
-                opts.envSource["KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION"] ?? "1",
-            },
-          }),
+    // Top-level provider so feature jobs (secrets rotate, config reencrypt)
+    // reach it via ctx — previously only test-stack wired it.
+    ...(crypto.masterKeyProvider && { masterKeyProvider: crypto.masterKeyProvider }),
+    // Encrypt/decrypt partner for `encrypted: true` config keys. Wired
+    // whenever a master key exists — NOT gated on the secrets feature,
+    // config encryption must work without mounting ctx.secrets.
+    ...(crypto.configCipher && { configEncryption: crypto.configCipher }),
+    ...(wireSecrets &&
+      crypto.masterKeyProvider && {
+        secrets: createSecretsContext({
+          db: opts.db,
+          masterKeyProvider: crypto.masterKeyProvider,
+          dekCache: crypto.dekCache,
+        }),
       }),
-    }),
     ...(opts.hasAuth && {
       configResolver: createConfigResolver({
         appOverrides: buildEnvConfigOverrides(opts.registry, opts.envSource),
+        ...(crypto.configCipher && { cipher: crypto.configCipher }),
       }),
     }),
   };
@@ -920,6 +918,10 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
 
   // Framework-Default-Provider zuerst, App-Werte (resolvedExtraContext)
   // gewinnen immer (z.B. money-horse's eigener configResolver).
+  const bootCrypto = resolveBootCrypto(envSource, options.masterKey);
+  // App-wide cipher for `encrypted: true` entity fields — executors resolve
+  // it lazily, entities without encrypted fields never touch it.
+  configureEntityFieldEncryption(bootCrypto.entityFieldCipher);
   const autoExtraContext = buildBootExtraContext({
     db,
     features,
@@ -927,7 +929,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     registry,
     hasAuth: !!effectiveAuth,
     sseBroker,
-    ...(options.masterKey && { masterKey: options.masterKey }),
+    crypto: bootCrypto,
   });
   const extraContext = addConfigAccessorFactory(
     { ...autoExtraContext, ...resolvedExtraContext },
@@ -1106,7 +1108,11 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   if (effectiveAuth) {
     await seedAdmin(db, effectiveAuth.admin);
   }
-  await applyBootSeeds({ registry, db });
+  await applyBootSeeds({
+    registry,
+    db,
+    ...(bootCrypto.configCipher && { cipher: bootCrypto.configCipher }),
+  });
   for (const seed of options.seeds ?? []) {
     await seed({ db });
   }
