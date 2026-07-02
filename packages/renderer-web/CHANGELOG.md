@@ -1,5 +1,17 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.114.0
+
+### Minor Changes
+
+- 5b29c10: Consolidate card chrome into a single `cardSurface()` cva (Form/Section/Card no longer diverge), export `Card` + `CardProps`, and add thin `Stack` / `PageSection` layout primitives. Apps can now import a card instead of hand-rolling `<div>` chrome. Note: standalone sections render `rounded-xl` (was `rounded-lg`) for consistency.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dispatcher-live@0.114.0
+- @cosmicdrift/kumiko-headless@0.114.0
+- @cosmicdrift/kumiko-renderer@0.114.0
+
 ## 0.113.1
 
 ### Patch Changes
