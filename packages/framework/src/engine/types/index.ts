@@ -224,6 +224,7 @@ export type {
   EditSectionSpec,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
+  ProjectionListScreenDefinition,
   FieldCondition,
   FieldFormatRegistry,
   FieldRenderer,

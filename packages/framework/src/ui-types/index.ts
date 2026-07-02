@@ -53,6 +53,7 @@ export type {
   EditSectionSpec,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
+  ProjectionListScreenDefinition,
   FieldCondition,
   FieldRenderer,
   ListColumnSpec,

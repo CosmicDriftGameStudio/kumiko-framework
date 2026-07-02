@@ -141,6 +141,27 @@ export function validateScreens(
       continue;
     }
 
+    if (screen.type === "projectionList") {
+      // Query-getrieben, keine Entity → nur query + columns prüfen (die
+      // Column-Felder können nicht gegen eine Entity gecheckt werden; sie
+      // werden zur Render-Zeit gegen die Projection-Rows aufgelöst).
+      if (!screen.query || typeof screen.query !== "string") {
+        throw new Error(
+          `[Feature ${feature.name}] Screen "${screenId}" (projectionList) has empty or non-string query.`,
+        );
+      }
+      if (screen.columns.length === 0) {
+        throw new Error(
+          `[Feature ${feature.name}] Screen "${screenId}" (projectionList) has an empty columns list — ` +
+            `declare at least one column.`,
+        );
+      }
+      for (const col of screen.columns) {
+        validateColumnRendererForm(feature.name, screenId, normalizeListColumn(col));
+      }
+      continue;
+    }
+
     if (screen.type === "configEdit") {
       // configEdit: layout/fields wie actionForm validieren, plus
       // Cross-Check dass jeder qualifizierte Config-Key registriert

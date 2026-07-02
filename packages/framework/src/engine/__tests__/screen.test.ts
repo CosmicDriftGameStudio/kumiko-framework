@@ -45,6 +45,46 @@ describe("r.screen() — registration", () => {
     expect(feature.screens["product-list"]?.type).toBe("entityList");
   });
 
+  test("stores a projectionList screen bound to an explicit (cross-feature) query", () => {
+    const feature = defineFeature("app", (r) => {
+      r.screen({
+        id: "rent-list",
+        type: "projectionList",
+        query: "ledger:query:schedule:list",
+        columns: [
+          { field: "description", label: "app:col.desc" },
+          {
+            field: "amount",
+            label: "app:col.amount",
+            renderer: { react: { __component: "EuroCell" } },
+          },
+        ],
+      });
+    });
+    const screen = feature.screens["rent-list"];
+    expect(screen?.type).toBe("projectionList");
+    if (screen?.type !== "projectionList") throw new Error("type-narrow failed");
+    expect(screen.query).toBe("ledger:query:schedule:list");
+  });
+
+  test("validateBoot rejects a projectionList with empty columns", () => {
+    const features = [
+      defineFeature("app", (r) => {
+        r.screen({ id: "x", type: "projectionList", query: "app:query:foo:list", columns: [] });
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(/empty columns list/i);
+  });
+
+  test("validateBoot rejects a projectionList with an empty query", () => {
+    const features = [
+      defineFeature("app", (r) => {
+        r.screen({ id: "x", type: "projectionList", query: "", columns: ["name"] });
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(/empty or non-string query/i);
+  });
+
   test("stores an entityEdit screen with sections + conditional fields", () => {
     const feature = defineFeature("shop", (r) => {
       r.entity("product", productEntity());

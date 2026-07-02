@@ -5,6 +5,7 @@ import type {
   EntityListScreenDefinition,
   FeatureDefinition,
   NavDefinition,
+  ProjectionListScreenDefinition,
   RowAction,
   ScreenDefinition,
   ToolbarAction,
@@ -71,6 +72,17 @@ export function requiredKeysFromScreen(
         } else {
           out.add(fieldLabelKey(featureName, list.entity, normalized.field));
         }
+      }
+      for (const action of list.rowActions ?? []) pushRowActionKeys(out, action);
+      for (const action of list.toolbarActions ?? []) pushToolbarActionKeys(out, action);
+      break;
+    }
+    case "projectionList": {
+      const list = screen as ProjectionListScreenDefinition;
+      // Keine Entity → keine field-label-Fallbacks; nur explizite Column-Labels.
+      for (const col of list.columns) {
+        const normalized = normalizeListColumn(col);
+        if (normalized.label !== undefined) pushKey(out, normalized.label);
       }
       for (const action of list.rowActions ?? []) pushRowActionKeys(out, action);
       for (const action of list.toolbarActions ?? []) pushToolbarActionKeys(out, action);
