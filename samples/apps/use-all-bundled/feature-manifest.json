@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled)",
-  "featureCount": 45,
+  "featureCount": 46,
   "features": [
     {
       "name": "audit",
@@ -1093,6 +1093,31 @@
       "uiHints": {
         "displayLabel": "Managed Pages · Public CMS",
         "category": "content",
+        "recommended": false
+      }
+    },
+    {
+      "name": "personal-access-tokens",
+      "description": "Long-lived, revocable Personal Access Tokens for headless HTTP-API access. Stores SHA-256 token hashes in the `read_api_tokens` direct-write table; the plaintext is returned once at creation. `create`/`revoke`/`mine` manage a user's own tokens and `available-scopes` lists the app-declared scope catalog. Bearer tokens carrying the PAT prefix are resolved before jwt.verify (roles resolved live, granted scopes enforced fail-closed at the API boundary) — the resolver is wired via run-prod-app, not the dispatcher.",
+      "toggleableDefault": null,
+      "requires": [
+        "user",
+        "tenant"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "personal-access-tokens:write:create",
+        "personal-access-tokens:write:revoke"
+      ],
+      "uiHints": {
+        "displayLabel": "Personal Access Tokens",
+        "category": "identity",
         "recommended": false
       }
     },

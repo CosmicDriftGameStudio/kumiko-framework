@@ -1,3 +1,7 @@
+// @runtime client
+// Pure scope helpers + types — client-marked so the web screen (web/) may import
+// parseGrant without pulling the feature's server runtime barrel.
+//
 // App-declared scopes — two axes, like GitHub fine-grained PATs: WHICH API
 // (the domain, keyed here) × the permission LEVEL (read vs read+write). Each
 // domain declares its read-QN globs and (optionally) its write-QN globs. A
