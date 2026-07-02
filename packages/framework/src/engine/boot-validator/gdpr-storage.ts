@@ -1,5 +1,6 @@
 import { EXT_USER_DATA } from "../extension-names";
 import type { FeatureDefinition } from "../types";
+import type { PiiAnnotations } from "../types/fields";
 
 // Providers whose bytes do not survive a process restart. Only "inmemory"
 // today; extend if another ephemeral bundled provider lands.
@@ -75,6 +76,44 @@ export function validateGdprHookCompleteness(features: readonly FeatureDefinitio
           `[kumiko:boot] Feature "${feature.name}" exports entity "${usage.entityName}" via EXT_USER_DATA but registers no delete hook — data is included in Art.20 exports but never erased on forget (Art.17 risk). Add a delete hook, or a no-op with a comment explaining why erasure is intentionally skipped.`,
         );
       }
+    }
+  }
+}
+
+// V3: PII-entity-without-hook guard. V2 checks registered hooks for
+// completeness; V3 catches the entity nobody registered at all — fields
+// annotated as user-subject data (pii / userOwned) yet invisible to the
+// Art.15/20 export and Art.17 forget pipeline. Matching is by entity name
+// across all features (usage.entityName is unqualified); a same-named entity
+// in another feature can mask a gap — accepted for a WARN-level heuristic.
+export function validateGdprPiiHookCoverage(features: readonly FeatureDefinition[]): void {
+  const featureNames = new Set(features.map((f) => f.name));
+  if (!featureNames.has("user-data-rights")) {
+    // skip: this guard only applies to apps that mount user-data-rights
+    return;
+  }
+
+  const hookedEntities = new Set<string>();
+  for (const f of features) {
+    for (const usage of f.extensionUsages) {
+      if (usage.extensionName === EXT_USER_DATA) hookedEntities.add(usage.entityName);
+    }
+  }
+
+  for (const feature of features) {
+    for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
+      if (hookedEntities.has(entityName)) continue;
+      const subjectFields = Object.entries(entity.fields)
+        .filter(([, field]) => {
+          const annot = field as PiiAnnotations; // @cast-boundary schema-walk
+          return Boolean(annot.pii) || Boolean(annot.userOwned);
+        })
+        .map(([name]) => name);
+      if (subjectFields.length === 0) continue;
+      // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
+      console.warn(
+        `[kumiko:boot] Entity "${entityName}" (feature "${feature.name}") has user-subject fields (${subjectFields.join(", ")}) but no feature registers an EXT_USER_DATA hook for it — the data never appears in Art.15/20 exports and is never erased on forget (Art.17 gap). Register r.useExtension(EXT_USER_DATA, "${entityName}", { export, delete }) in the owning feature or a defaults feature.`,
+      );
     }
   }
 }
