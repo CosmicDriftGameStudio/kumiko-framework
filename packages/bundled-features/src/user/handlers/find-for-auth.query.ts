@@ -7,10 +7,12 @@ import { userTable } from "../schema/user";
 // by email OR id (exactly one, enforced by the schema). Used by the auth
 // features via ctx.queryAs(systemUser, ...).
 //
-// Field-level read rules allow passwordHash for the "privileged" role set,
-// so system callers see everything; any other caller is filtered even if
-// they somehow reach this handler. Access is also restricted to privileged
-// — regular users or tenant admins cannot call this at all.
+// Access is system-only, NOT access.privileged: every query handler is
+// reachable via POST /api/query, and "SystemAdmin" is an assignable app
+// role — privileged would hand any SystemAdmin the raw passwordHash over
+// HTTP. The "system" role can't be minted into a session (only
+// createSystemUser() carries it), so system-only keeps this handler
+// internal to ctx.queryAs(systemUser, ...) callers.
 export const findForAuthQuery = defineQueryHandler({
   name: "user:find-for-auth",
   schema: z
@@ -24,7 +26,7 @@ export const findForAuthQuery = defineQueryHandler({
       (v) => (v.email !== undefined) !== (v.id !== undefined),
       { message: "exactly one of email or id must be set" },
     ),
-  access: { roles: access.privileged },
+  access: { roles: access.system },
   handler: async (query, ctx) => {
     const where =
       query.payload.email !== undefined

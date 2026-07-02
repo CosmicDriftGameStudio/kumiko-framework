@@ -10,18 +10,45 @@ import { userSessionEntity } from "./schema/user-session";
 import type { SessionMassRevoker } from "./session-callbacks";
 
 export type SessionsFeatureOptions = {
-  // When wired, a successful update on the `user` entity that changes the
-  // `passwordHash` column triggers a mass-revoke of every live session for
-  // that user. Industry-standard "password-change signs you out everywhere"
-  // flow, including the session that did the change itself — the client has
+  // A successful update on the `user` entity that changes the `passwordHash`
+  // column triggers a mass-revoke of every live session for that user.
+  // Industry-standard "password-change signs you out everywhere" flow,
+  // including the session that did the change itself — the client has
   // to re-login after a password change.
   //
   // Runs as an afterCommit postSave hook: the password-change commits first,
   // then the sessions are revoked. Best-effort — if the mass-revoker throws,
   // the password change is NOT rolled back (a password change with a stale
   // session still wins over a user-visible error on the change itself).
+  //
+  // Default: run{Prod,Dev}App bind their own sessionMassRevoker via
+  // `bindAutoRevokeOnPasswordChange` (secure-by-default). Set this option
+  // only to supply a custom revoker — an explicit value wins over the
+  // runtime binding.
   readonly autoRevokeOnPasswordChange?: SessionMassRevoker;
 };
+
+export type BindAutoRevokeOnPasswordChange = (revoker: SessionMassRevoker) => void;
+
+// Reads the late-bind setter off a mounted sessions feature's exports.
+// run{Prod,Dev}App call it once the DB connection is concrete — the feature
+// itself is constructed in app run-config long before a db exists, so the
+// revoker can't be a constructor argument.
+export function bindAutoRevokeFromFeature(
+  feature: FeatureDefinition,
+): BindAutoRevokeOnPasswordChange | undefined {
+  const exports = feature.exports;
+  if (exports && typeof exports === "object" && "bindAutoRevokeOnPasswordChange" in exports) {
+    const { bindAutoRevokeOnPasswordChange } = exports as {
+      bindAutoRevokeOnPasswordChange: unknown;
+    };
+    if (typeof bindAutoRevokeOnPasswordChange === "function") {
+      // @cast-boundary exports-walk — feature.exports is untyped by design
+      return bindAutoRevokeOnPasswordChange as BindAutoRevokeOnPasswordChange;
+    }
+  }
+  return undefined;
+}
 
 // The sessions feature registers the read_user_sessions table (as an
 // unmanaged direct-write store, NOT an r.entity — see below) and the three
@@ -93,20 +120,26 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
     // "the handler didn't touch this column", which is exactly the signal
     // we want to skip on. Works for both direct user:update calls and any
     // other handler that happens to write the column.
-    const autoRevoke = options?.autoRevokeOnPasswordChange;
-    if (autoRevoke) {
-      r.entityHook("postSave", "user", async (ctx) => {
-        // skip: brand-new user, no sessions can possibly exist yet. The
-        // initial passwordHash on a user:create would trip the second guard
-        // otherwise — every registration would do a mass-revoke roundtrip
-        // for a user who literally has no rows in user_sessions.
-        if (ctx.isNew) return;
-        // skip: handler didn't touch passwordHash, nothing to revoke
-        if (ctx.changes["passwordHash"] === undefined) return;
-        await autoRevoke(String(ctx.id));
-      });
-    }
+    let autoRevoke = options?.autoRevokeOnPasswordChange;
+    r.entityHook("postSave", "user", async (ctx) => {
+      // skip: nothing bound — stateless-JWT deployments without a runtime
+      // that calls bindAutoRevokeOnPasswordChange keep the old behavior.
+      if (!autoRevoke) return;
+      // skip: brand-new user, no sessions can possibly exist yet. The
+      // initial passwordHash on a user:create would trip the second guard
+      // otherwise — every registration would do a mass-revoke roundtrip
+      // for a user who literally has no rows in user_sessions.
+      if (ctx.isNew) return;
+      // skip: handler didn't touch passwordHash, nothing to revoke
+      if (ctx.changes["passwordHash"] === undefined) return;
+      await autoRevoke(String(ctx.id));
+    });
 
-    return { handlers, queries };
+    const bindAutoRevokeOnPasswordChange: BindAutoRevokeOnPasswordChange = (revoker) => {
+      // explicit constructor option wins over the runtime binding
+      autoRevoke ??= revoker;
+    };
+
+    return { handlers, queries, bindAutoRevokeOnPasswordChange };
   });
 }

@@ -29,7 +29,9 @@ import {
   patScopesFromFeature,
 } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import {
+  bindAutoRevokeFromFeature,
   createSessionCallbacks,
+  SESSIONS_FEATURE,
   type SessionCallbacks,
 } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
@@ -463,6 +465,12 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
           db: stack.db,
           ...(expiresInMs !== undefined && { expiresInMs }),
         });
+        // Secure-by-default (symmetrisch zu runProdApp): Password-Change/
+        // -Reset mass-revoked die Sessions des Users ohne App-Opt-in.
+        const sessionsFeature = features.find((f) => f.name === SESSIONS_FEATURE);
+        if (sessionsFeature) {
+          bindAutoRevokeFromFeature(sessionsFeature)?.(sessionCallbacks.sessionMassRevoker);
+        }
       }
       if (patFeature) {
         patResolver = createPatResolver({ db: stack.db, scopes: patScopesFromFeature(patFeature) });

@@ -109,6 +109,32 @@ describe("scenario 2: field-level read access", () => {
   });
 });
 
+// --- find-for-auth is system-only: it returns the raw row incl. passwordHash,
+// and every query handler is reachable via POST /api/query — so even a
+// SystemAdmin (assignable app role) must be denied over HTTP. ---
+
+describe("scenario 2b: find-for-auth is system-only", () => {
+  test("SystemAdmin over HTTP is denied — passwordHash must not leak", async () => {
+    await seedUser({
+      email: "auth-lookup@example.com",
+      displayName: "AuthLookup",
+      passwordHash: "must-never-leave-the-server",
+    });
+
+    const res = await stack.http.queryWithHeaders(
+      UserQueries.findForAuth,
+      { email: "auth-lookup@example.com" },
+      systemAdmin,
+      {},
+    );
+
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    const body = await res.text();
+    expect(body).toContain("access_denied");
+    expect(body).not.toContain("must-never-leave-the-server");
+  });
+});
+
 // --- Scenario 3: user edits own profile, email/passwordHash are system-locked ---
 
 describe("scenario 3: self-update + field-level write access", () => {

@@ -6,8 +6,8 @@ export {
   SessionHandlers,
   SessionQueries,
 } from "./constants";
-export type { SessionsFeatureOptions } from "./feature";
-export { createSessionsFeature } from "./feature";
+export type { BindAutoRevokeOnPasswordChange, SessionsFeatureOptions } from "./feature";
+export { bindAutoRevokeFromFeature, createSessionsFeature } from "./feature";
 export { userSessionEntity, userSessionTable } from "./schema/user-session";
 export type {
   SessionCallbacks,

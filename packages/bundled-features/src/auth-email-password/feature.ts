@@ -1,5 +1,6 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
+import { MIN_HMAC_SECRET_LENGTH } from "./constants";
 import type { AuthMailLocale } from "./email-templates";
 import { changePasswordWrite } from "./handlers/change-password.write";
 import { createInviteAcceptHandler } from "./handlers/invite-accept.write";
@@ -122,14 +123,17 @@ export type AuthEmailPasswordOptions = {
 export function createAuthEmailPasswordFeature(
   opts: AuthEmailPasswordOptions = {},
 ): FeatureDefinition {
-  if (opts.passwordReset && !opts.passwordReset.hmacSecret) {
+  // ≥32 chars, symmetric to the JWT_SECRET env check: a short HMAC secret
+  // makes reset/verify tokens forgeable — that's account takeover, so the
+  // factory fails fast instead of trusting the caller.
+  if (opts.passwordReset && opts.passwordReset.hmacSecret.length < MIN_HMAC_SECRET_LENGTH) {
     throw new Error(
-      "[auth-email-password] passwordReset.hmacSecret must be non-empty when passwordReset is configured",
+      `[auth-email-password] passwordReset.hmacSecret must be ≥${MIN_HMAC_SECRET_LENGTH} chars (HMAC-SHA256 token signing)`,
     );
   }
-  if (opts.emailVerification && !opts.emailVerification.hmacSecret) {
+  if (opts.emailVerification && opts.emailVerification.hmacSecret.length < MIN_HMAC_SECRET_LENGTH) {
     throw new Error(
-      "[auth-email-password] emailVerification.hmacSecret must be non-empty when emailVerification is configured",
+      `[auth-email-password] emailVerification.hmacSecret must be ≥${MIN_HMAC_SECRET_LENGTH} chars (HMAC-SHA256 token signing)`,
     );
   }
 
