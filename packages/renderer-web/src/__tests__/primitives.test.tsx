@@ -10,6 +10,7 @@
 import { describe, expect, mock, test } from "bun:test";
 import userEvent from "@testing-library/user-event";
 import { defaultPrimitives } from "../primitives";
+import { PageSection, Stack } from "../primitives/layout";
 import { fireEvent, render, screen } from "./test-utils";
 
 const { Button, Banner, Field, Input, DataTable, Form, Text, Heading, Dialog, Card } =
@@ -1051,5 +1052,35 @@ describe("Card", () => {
       </Card>,
     );
     expect(screen.getByTestId("c").innerHTML).not.toContain("grow");
+  });
+});
+
+describe("Stack", () => {
+  test("gap-Variante bildet auf die Tailwind-gap-Klasse ab", () => {
+    render(
+      <Stack testId="s" gap="lg">
+        <span>a</span>
+      </Stack>,
+    );
+    const el = screen.getByTestId("s");
+    expect(el.className).toContain("flex flex-col");
+    expect(el.className).toContain("gap-6");
+  });
+
+  test("default gap = md", () => {
+    render(<Stack testId="s">x</Stack>);
+    expect(screen.getByTestId("s").className).toContain("gap-4");
+  });
+});
+
+describe("PageSection", () => {
+  test("wrappt children mit einheitlichem Padding", () => {
+    render(
+      <PageSection testId="p">
+        <span data-testid="child">x</span>
+      </PageSection>,
+    );
+    expect(screen.getByTestId("p").className).toContain("p-6");
+    expect(screen.getByTestId("child")).toBeDefined();
   });
 });

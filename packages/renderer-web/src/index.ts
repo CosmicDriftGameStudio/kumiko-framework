@@ -11,6 +11,7 @@ export type {
   AppTokens,
   BannerProps,
   ButtonProps,
+  CardProps,
   ColorTokens,
   CorePrimitives,
   CoreTokens,
@@ -123,7 +124,7 @@ export type { WorkspaceSwitcherProps } from "./layout/workspace-switcher";
 export { WorkspaceSwitcher } from "./layout/workspace-switcher";
 export { cn } from "./lib/cn";
 export { postWithDownload } from "./lib/download";
-export { BareFormProvider, defaultPrimitives } from "./primitives";
+export { BareFormProvider, DefaultCard as Card, defaultPrimitives } from "./primitives";
 export type { ActionMenuProps, MenuItemDef } from "./primitives/action-menu";
 export { ActionMenu } from "./primitives/action-menu";
 export {
@@ -136,6 +137,7 @@ export {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./primitives/dropdown-menu";
+export { PageSection, Stack } from "./primitives/layout";
 export type { ToastOptions, ToastProviderProps, ToastVariant } from "./primitives/toast";
 export { ToastProvider, useToast } from "./primitives/toast";
 export type { CreateEventSourceLiveEventsOptions } from "./sse/live-events";
