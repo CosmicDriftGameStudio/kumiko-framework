@@ -12,3 +12,7 @@ export {
   userEntity,
   userTable,
 } from "./schema/user";
+export {
+  backfillUserStreamTenants,
+  type UserStreamBackfillResult,
+} from "./stream-tenant-backfill";
