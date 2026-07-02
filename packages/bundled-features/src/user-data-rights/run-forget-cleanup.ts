@@ -316,6 +316,7 @@ async function processUser(args: {
           await entry.deleteHook(
             {
               db: tx,
+              registry,
               tenantId,
               userId,
               buildStorageProvider,

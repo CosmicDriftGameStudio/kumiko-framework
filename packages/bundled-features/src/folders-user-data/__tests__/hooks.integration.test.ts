@@ -57,6 +57,7 @@ describe("folderAssignmentExportHook", () => {
 
     const snippet = await folderAssignmentExportHook({
       db: stack.db,
+      registry: stack.registry,
       tenantId: admin.tenantId,
       userId: admin.id,
     });

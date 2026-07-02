@@ -162,6 +162,7 @@ describe("S2.H1 :: userExportHook", () => {
 
     const result = await userExportHook({
       db: stack.db,
+      registry: stack.registry,
       tenantId: TENANT_A,
       userId: uuid(1001),
     });
@@ -182,6 +183,7 @@ describe("S2.H1 :: userExportHook", () => {
   test("returns null wenn User nicht existiert", async () => {
     const result = await userExportHook({
       db: stack.db,
+      registry: stack.registry,
       tenantId: TENANT_A,
       userId: uuid(1002),
     });
@@ -193,7 +195,10 @@ describe("S2.H1 :: userDeleteHook", () => {
   test('strategy="delete" → softDelete + email/displayName anonymisiert + status=deleted', async () => {
     await seedUser(uuid(1003));
 
-    await userDeleteHook({ db: stack.db, tenantId: TENANT_A, userId: uuid(1003) }, "delete");
+    await userDeleteHook(
+      { db: stack.db, registry: stack.registry, tenantId: TENANT_A, userId: uuid(1003) },
+      "delete",
+    );
 
     const row = await fetchUser(uuid(1003));
     expect(row).not.toBeNull();
@@ -209,7 +214,10 @@ describe("S2.H1 :: userDeleteHook", () => {
   test('strategy="anonymize" → email/displayName anonymisiert aber status bleibt active', async () => {
     await seedUser(uuid(1004));
 
-    await userDeleteHook({ db: stack.db, tenantId: TENANT_A, userId: uuid(1004) }, "anonymize");
+    await userDeleteHook(
+      { db: stack.db, registry: stack.registry, tenantId: TENANT_A, userId: uuid(1004) },
+      "anonymize",
+    );
 
     const row = await fetchUser(uuid(1004));
     if (!row) throw new Error("row should exist");
@@ -222,13 +230,19 @@ describe("S2.H1 :: userDeleteHook", () => {
   test("idempotent: zweiter delete-Call crasht nicht UND State bleibt korrekt deleted", async () => {
     await seedUser(uuid(1005));
 
-    await userDeleteHook({ db: stack.db, tenantId: TENANT_A, userId: uuid(1005) }, "delete");
+    await userDeleteHook(
+      { db: stack.db, registry: stack.registry, tenantId: TENANT_A, userId: uuid(1005) },
+      "delete",
+    );
     const afterFirst = await fetchUser(uuid(1005));
     if (!afterFirst) throw new Error("user should exist after first delete");
 
     // Zweiter Call: kein Crash + State unverändert
     await expect(
-      userDeleteHook({ db: stack.db, tenantId: TENANT_A, userId: uuid(1005) }, "delete"),
+      userDeleteHook(
+        { db: stack.db, registry: stack.registry, tenantId: TENANT_A, userId: uuid(1005) },
+        "delete",
+      ),
     ).resolves.toBeUndefined();
 
     // State-Verifikation (S2.H1+H2-Audit N3): Row weiterhin deleted,
@@ -249,6 +263,7 @@ describe("S2.H2 :: fileRefExportHook", () => {
 
     const result = await fileRefExportHook({
       db: stack.db,
+      registry: stack.registry,
       tenantId: TENANT_A,
       userId: "user-files-1",
     });
@@ -263,6 +278,7 @@ describe("S2.H2 :: fileRefExportHook", () => {
   test("returns null wenn User keine Files hat", async () => {
     const result = await fileRefExportHook({
       db: stack.db,
+      registry: stack.registry,
       tenantId: TENANT_A,
       userId: "ghost-user-no-files",
     });
@@ -276,7 +292,7 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
     await seedFileRef(uuid(202), TENANT_A, "user-delete-files", "f2.pdf");
 
     await fileRefDeleteHook(
-      { db: stack.db, tenantId: TENANT_A, userId: "user-delete-files" },
+      { db: stack.db, registry: stack.registry, tenantId: TENANT_A, userId: "user-delete-files" },
       "delete",
     );
 
@@ -288,7 +304,7 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
     await seedFileRef(uuid(203), TENANT_A, "user-anon-files", "shared.pdf");
 
     await fileRefDeleteHook(
-      { db: stack.db, tenantId: TENANT_A, userId: "user-anon-files" },
+      { db: stack.db, registry: stack.registry, tenantId: TENANT_A, userId: "user-anon-files" },
       "anonymize",
     );
 
@@ -305,7 +321,10 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
     await seedFileRef(uuid(302), TENANT_B, "shared-user", "tenantB.pdf");
 
     // Tenant A loescht alle Files von "shared-user"
-    await fileRefDeleteHook({ db: stack.db, tenantId: TENANT_A, userId: "shared-user" }, "delete");
+    await fileRefDeleteHook(
+      { db: stack.db, registry: stack.registry, tenantId: TENANT_A, userId: "shared-user" },
+      "delete",
+    );
 
     const aRemaining = await fetchFileRefs(TENANT_A, "shared-user");
     const bRemaining = await fetchFileRefs(TENANT_B, "shared-user");
@@ -319,7 +338,7 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
     await seedFileRef(uuid(401), TENANT_A, "user-idem-files", "f.pdf");
 
     await fileRefDeleteHook(
-      { db: stack.db, tenantId: TENANT_A, userId: "user-idem-files" },
+      { db: stack.db, registry: stack.registry, tenantId: TENANT_A, userId: "user-idem-files" },
       "delete",
     );
     const afterFirst = await fetchFileRefs(TENANT_A, "user-idem-files");
@@ -327,7 +346,10 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
 
     // Zweiter Call: kein Crash + State weiter 0 Files
     await expect(
-      fileRefDeleteHook({ db: stack.db, tenantId: TENANT_A, userId: "user-idem-files" }, "delete"),
+      fileRefDeleteHook(
+        { db: stack.db, registry: stack.registry, tenantId: TENANT_A, userId: "user-idem-files" },
+        "delete",
+      ),
     ).resolves.toBeUndefined();
     const afterSecond = await fetchFileRefs(TENANT_A, "user-idem-files");
     expect(afterSecond).toHaveLength(0);
