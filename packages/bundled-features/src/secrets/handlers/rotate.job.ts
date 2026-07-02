@@ -34,7 +34,7 @@ import {
 import {
   type ChunkedMigrationStopReason,
   runChunkedMigration,
-} from "../../shared/chunked-entity-migration";
+} from "../../shared";
 import { type StoredEnvelope, tenantSecretEntity, tenantSecretsTable } from "../table";
 
 const DEFAULT_BATCH_SIZE = 100;

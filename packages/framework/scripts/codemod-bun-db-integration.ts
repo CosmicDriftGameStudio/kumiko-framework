@@ -90,7 +90,6 @@ for (const filePath of walk(FRAMEWORK_SRC)) {
 
   // Skip .client.listen files
   if (/\.client\.listen|\.listen\(/.test(code)) {
-    // biome-ignore lint/suspicious/noConsole: codemod script
     console.log(`  SKIP (LISTEN): ${rel}`);
     skipped++;
     continue;
@@ -224,10 +223,8 @@ for (const filePath of walk(FRAMEWORK_SRC)) {
 
   // --- Write back ---
   writeFileSync(filePath, code);
-  // biome-ignore lint/suspicious/noConsole: codemod script
   console.log(`  EDITED ${rel}: ${notes.join(", ")}`);
   changed++;
 }
 
-// biome-ignore lint/suspicious/noConsole: codemod script
 console.log(`\nDone: ${changed} files edited, ${skipped} skipped`);

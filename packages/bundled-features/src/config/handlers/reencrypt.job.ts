@@ -28,7 +28,7 @@ import { type EnvelopeCipher, isStoredEnvelope } from "@cosmicdrift/kumiko-frame
 import {
   type ChunkedMigrationStopReason,
   runChunkedMigration,
-} from "../../shared/chunked-entity-migration";
+} from "../../shared";
 import { configValueEntity, configValuesTable } from "../table";
 
 const DEFAULT_MAX_FAILURES = 10;

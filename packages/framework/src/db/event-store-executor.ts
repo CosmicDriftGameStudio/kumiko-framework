@@ -46,7 +46,6 @@ import { flattenCompoundTypes, rehydrateCompoundTypes } from "./compound-types";
 import type { DbRow } from "./connection";
 import { decodeCursor, encodeCursor } from "./cursor";
 import type { TableColumns } from "./dialect";
-import type { EncryptionProvider } from "./encryption";
 import {
   collectEncryptedFieldNames,
   decryptEntityFieldValues,

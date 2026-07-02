@@ -117,6 +117,7 @@ export function resetEntityFieldEncryptionCacheForTests(): void {
 // instead of on the first encrypted read in prod. validateBoot runs before
 // configureEntityFieldEncryption, so the env probe is the common path.
 export function validateEntityFieldEncryptionAvailable(): void {
+  // skip: an injected cipher (test seam / custom KMS) satisfies availability
   if (injectedCipher) return;
   try {
     createEnvMasterKeyProvider({

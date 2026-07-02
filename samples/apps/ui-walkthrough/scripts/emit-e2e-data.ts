@@ -16,5 +16,4 @@ const specs = generateE2ESpec(createRegistry([taskFeature]));
 await mkdir(dirname(outPath), { recursive: true });
 await writeFile(outPath, JSON.stringify(specs, null, 2), "utf8");
 
-// biome-ignore lint/suspicious/noConsole: script output
 console.log(`[emit-e2e-data] wrote ${specs.length} spec(s) → ${outPath}`);
