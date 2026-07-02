@@ -24,10 +24,15 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import type { JobHandlerFn, SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { isStoredEnvelope } from "@cosmicdrift/kumiko-framework/secrets";
+import { type EnvelopeCipher, isStoredEnvelope } from "@cosmicdrift/kumiko-framework/secrets";
+import {
+  type ChunkedMigrationStopReason,
+  runChunkedMigration,
+} from "../../shared/chunked-entity-migration";
 import { configValueEntity, configValuesTable } from "../table";
 
 const DEFAULT_MAX_FAILURES = 10;
+const SCAN_SLICE_SIZE = 100;
 const SYSTEM_ROLES = ["system"] as const;
 
 const executor = createEventStoreExecutor(configValuesTable, configValueEntity, {
@@ -43,7 +48,7 @@ export type ReencryptJobResult = {
   readonly migrated: number;
   readonly failed: number;
   readonly alreadyCurrent: number;
-  readonly stoppedReason: "done" | "timeout" | "signal" | "too_many_failures";
+  readonly stoppedReason: ChunkedMigrationStopReason;
 };
 
 function needsReencrypt(value: string, targetVersion: number): boolean {
@@ -61,14 +66,17 @@ function needsReencrypt(value: string, targetVersion: number): boolean {
 
 export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> => {
   const payload = rawPayload as ReencryptJobPayload; // @cast-boundary engine-payload
-  const cipher = ctx.configEncryption;
-  if (!cipher) {
+  const maybeCipher = ctx.configEncryption;
+  if (!maybeCipher) {
     throw new InternalError({
       message:
         "[config:reencrypt] ctx.configEncryption missing — provide a master key " +
         "(KUMIKO_SECRETS_MASTER_KEY_V<n>) so the boot wires the envelope cipher.",
     });
   }
+  // hoisted function declarations below capture these — pin the narrowed
+  // type explicitly so TS keeps it inside the closures
+  const cipher: EnvelopeCipher = maybeCipher;
   const provider = ctx.masterKeyProvider;
   if (!provider) {
     throw new InternalError({
@@ -97,11 +105,6 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
     ? Date.now() + payload.maxDurationMs
     : Number.POSITIVE_INFINITY;
 
-  let migrated = 0;
-  let failed = 0;
-  let alreadyCurrent = 0;
-  let stoppedReason: ReencryptJobResult["stoppedReason"] = "done";
-
   const tdbCache = new Map<TenantId, TenantDb>();
   function tdbFor(tenantId: TenantId): TenantDb {
     let existing = tdbCache.get(tenantId);
@@ -112,70 +115,86 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
     return existing;
   }
 
-  if (encryptedKeys.length > 0) {
-    const targetVersion = provider.currentVersion();
-    // ponytail: one full candidate scan — config rows are operator-scale
-    // (tenants × encrypted keys), cursor pagination when that ever changes.
-    const rows = await selectMany<{
-      id: string;
-      key: string;
-      value: string | null;
-      tenantId: string;
-      version: number;
-    }>(db, configValuesTable, { key: { in: encryptedKeys } });
+  type ConfigRow = {
+    id: string;
+    key: string;
+    value: string | null;
+    tenantId: string;
+    version: number;
+  };
 
-    for (const row of rows) {
-      if (ctx.signal?.aborted) {
-        stoppedReason = "signal";
-        break;
-      }
-      if (Date.now() >= deadline) {
-        stoppedReason = "timeout";
-        break;
-      }
-      if (failed >= maxFailures) {
-        stoppedReason = "too_many_failures";
-        break;
-      }
-      if (row.value === null || row.value === undefined) continue;
-      if (!needsReencrypt(row.value, targetVersion)) {
-        alreadyCurrent++;
-        continue;
-      }
+  let alreadyCurrent = 0;
+  const targetVersion = provider.currentVersion();
 
-      try {
-        const tenantId = row.tenantId as TenantId; // @cast-boundary db-row
-        const plaintext = await cipher.decrypt(row.value, { tenantId });
-        const reencrypted = await cipher.encrypt(plaintext, { tenantId });
-
-        const actor: SessionUser = { id: "system", tenantId, roles: SYSTEM_ROLES };
-        const result = await executor.update(
-          { id: row.id, version: row.version, changes: { value: reencrypted } },
-          actor,
-          tdbFor(tenantId),
-        );
-
-        // version_conflict == a concurrent config:set beat us; the row now
-        // holds a fresh envelope written by the set handler — already fine.
-        if (!result.isSuccess) {
-          if (result.error.code === "version_conflict") continue;
-          failed++;
-          ctx.log?.warn?.(`[config:reencrypt] executor rejected row ${row.id}`, {
-            code: result.error.code,
-          });
-          continue;
-        }
-      } catch (err) {
-        // decrypt failure (missing legacy key, unknown kekVersion, tamper)
-        // leaves the row untouched — never write anything we couldn't read.
-        failed++;
-        ctx.log?.warn?.(`[config:reencrypt] failed to re-encrypt row ${row.id}`, { err });
-        continue;
-      }
-      migrated++;
+  // ponytail: one full candidate scan — config rows are operator-scale
+  // (tenants × encrypted keys), cursor pagination when that ever changes.
+  // Served to the shared loop in slices so its deadline/signal/failure
+  // checks run between chunks, not only once.
+  let pending: ConfigRow[] | undefined;
+  async function nextBatch(): Promise<readonly ConfigRow[]> {
+    if (pending === undefined) {
+      pending =
+        encryptedKeys.length === 0
+          ? []
+          : [
+              ...(await selectMany<ConfigRow>(db, configValuesTable, {
+                key: { in: encryptedKeys },
+              })),
+            ];
     }
+    const slice = pending;
+    return slice.splice(0, SCAN_SLICE_SIZE);
   }
 
-  const result: ReencryptJobResult = { migrated, failed, alreadyCurrent, stoppedReason };
+  async function migrateRow(row: ConfigRow): Promise<"migrated" | "skipped" | "failed"> {
+    if (row.value === null || row.value === undefined) return "skipped";
+    if (!needsReencrypt(row.value, targetVersion)) {
+      alreadyCurrent++;
+      return "skipped";
+    }
+
+    // decrypt failure (missing legacy key, unknown kekVersion, tamper)
+    // throws → counted as failed via onRowError; the row stays untouched —
+    // never write anything we couldn't read.
+    const tenantId = row.tenantId as TenantId; // @cast-boundary db-row
+    const plaintext = await cipher.decrypt(row.value, { tenantId });
+    const reencrypted = await cipher.encrypt(plaintext, { tenantId });
+
+    const actor: SessionUser = { id: "system", tenantId, roles: SYSTEM_ROLES };
+    const result = await executor.update(
+      { id: row.id, version: row.version, changes: { value: reencrypted } },
+      actor,
+      tdbFor(tenantId),
+    );
+
+    // version_conflict == a concurrent config:set beat us; the row now
+    // holds a fresh envelope written by the set handler — already fine.
+    if (!result.isSuccess) {
+      if (result.error.code === "version_conflict") return "skipped";
+      ctx.log?.warn?.(`[config:reencrypt] executor rejected row ${row.id}`, {
+        code: result.error.code,
+      });
+      return "failed";
+    }
+    return "migrated";
+  }
+
+  const outcome = await runChunkedMigration<ConfigRow>({
+    nextBatch,
+    migrateRow,
+    maxFailures,
+    deadlineAt: deadline,
+    signal: ctx.signal,
+    onRowError: (row, err) => {
+      ctx.log?.warn?.(`[config:reencrypt] failed to re-encrypt row ${row.id}`, { err });
+    },
+  });
+
+  const result: ReencryptJobResult = {
+    migrated: outcome.migrated,
+    failed: outcome.failed,
+    alreadyCurrent,
+    stoppedReason: outcome.stoppedReason,
+  };
   ctx.log?.info?.(`[config:reencrypt] complete: ${JSON.stringify(result)}`);
 };

@@ -26,7 +26,15 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import type { JobHandlerFn, SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { rewrapDek } from "@cosmicdrift/kumiko-framework/secrets";
+import {
+  decodeStoredEnvelope,
+  encodeStoredEnvelope,
+  rewrapDek,
+} from "@cosmicdrift/kumiko-framework/secrets";
+import {
+  type ChunkedMigrationStopReason,
+  runChunkedMigration,
+} from "../../shared/chunked-entity-migration";
 import { type StoredEnvelope, tenantSecretEntity, tenantSecretsTable } from "../table";
 
 const DEFAULT_BATCH_SIZE = 100;
@@ -47,7 +55,7 @@ export type RotateJobResult = {
   readonly migrated: number;
   readonly failed: number;
   readonly batchesProcessed: number;
-  readonly stoppedReason: "empty" | "timeout" | "signal" | "too_many_failures";
+  readonly stoppedReason: ChunkedMigrationStopReason;
 };
 
 export const rotateJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> => {
@@ -71,11 +79,6 @@ export const rotateJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> =>
     ? Date.now() + payload.maxDurationMs
     : Number.POSITIVE_INFINITY;
 
-  let migrated = 0;
-  let failed = 0;
-  let batchesProcessed = 0;
-  let stoppedReason: RotateJobResult["stoppedReason"] = "empty";
-
   // Reuse a TenantDb-per-tenant map so we don't rebuild the wrapper for
   // each row in the same tenant. Rotation typically hits one tenant in a
   // batch; the map trims an allocation without adding complexity.
@@ -89,101 +92,80 @@ export const rotateJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> =>
     return existing;
   }
 
-  while (true) {
-    if (ctx.signal?.aborted) {
-      stoppedReason = "signal";
-      break;
-    }
-    if (Date.now() >= deadline) {
-      stoppedReason = "timeout";
-      break;
-    }
+  type SecretRow = {
+    id: string;
+    tenantId: string;
+    version: number;
+    envelope: StoredEnvelope;
+    kekVersion: number;
+  };
 
-    const targetVersion = provider.currentVersion();
-    const batch = await selectMany<{
-      id: string;
-      tenantId: string;
-      version: number;
-      envelope: StoredEnvelope;
-      kekVersion: number;
-    }>(db, tenantSecretsTable, { kekVersion: { ne: targetVersion } }, { limit: batchSize });
-
-    if (batch.length === 0) break;
-
-    batchesProcessed++;
-
-    if (failed >= maxFailures) {
-      stoppedReason = "too_many_failures";
-      break;
-    }
-
-    for (const row of batch) {
-      if (failed >= maxFailures) {
-        stoppedReason = "too_many_failures";
-        break;
-      }
-      try {
-        const oldEnvelope = {
-          ciphertext: Buffer.from(row.envelope.ciphertext, "base64"),
-          iv: Buffer.from(row.envelope.iv, "base64"),
-          authTag: Buffer.from(row.envelope.authTag, "base64"),
-          encryptedDek: Buffer.from(row.envelope.encryptedDek, "base64"),
-          kekVersion: row.envelope.kekVersion,
-        };
-        const rotated = await rewrapDek(oldEnvelope, provider);
-
-        if (rotated.kekVersion === row.kekVersion) continue;
-
-        const newEnvelope: StoredEnvelope = {
-          ciphertext: rotated.ciphertext.toString("base64"),
-          iv: rotated.iv.toString("base64"),
-          authTag: rotated.authTag.toString("base64"),
-          encryptedDek: rotated.encryptedDek.toString("base64"),
-          kekVersion: rotated.kekVersion,
-        };
-
-        const actor: SessionUser = {
-          id: "system",
-          tenantId: row.tenantId as TenantId,
-          roles: SYSTEM_ROLES,
-        };
-
-        const result = await executor.update(
-          {
-            id: row.id,
-            version: row.version,
-            changes: {
-              envelope: newEnvelope,
-              kekVersion: rotated.kekVersion,
-            },
-          },
-          actor,
-          tdbFor(row.tenantId as TenantId),
-        );
-
-        // version_conflict == another writer (secrets.set or a parallel
-        // rotation worker) beat us. Count as "skipped" and move on — the
-        // row is already in a valid state, potentially even past target.
-        if (!result.isSuccess) {
-          if (result.error.code === "version_conflict") continue;
-          failed++;
-          ctx.log?.warn?.(`[secrets:rotate] executor rejected row ${row.id}`, {
-            code: result.error.code,
-          });
-          continue;
-        }
-      } catch (err) {
-        failed++;
-        ctx.log?.warn?.(`[secrets:rotate] failed to rotate row ${row.id}`, { err });
-        continue;
-      }
-      migrated++;
-    }
-
-    if (stoppedReason === "too_many_failures") break;
-    if (batch.length < batchSize) break;
+  // A partial batch means the ne-filter is exhausted — the next re-query
+  // would only re-serve rows that failed above; end the run instead.
+  let sawPartialBatch = false;
+  async function nextBatch(): Promise<readonly SecretRow[]> {
+    if (sawPartialBatch) return [];
+    const batch = await selectMany<SecretRow>(
+      db,
+      tenantSecretsTable,
+      { kekVersion: { ne: provider.currentVersion() } },
+      { limit: batchSize },
+    );
+    if (batch.length < batchSize) sawPartialBatch = true;
+    return batch;
   }
 
-  const result: RotateJobResult = { migrated, failed, batchesProcessed, stoppedReason };
+  async function migrateRow(row: SecretRow): Promise<"migrated" | "skipped" | "failed"> {
+    const rotated = await rewrapDek(decodeStoredEnvelope(row.envelope), provider);
+    if (rotated.kekVersion === row.kekVersion) return "skipped";
+
+    const actor: SessionUser = {
+      id: "system",
+      tenantId: row.tenantId as TenantId,
+      roles: SYSTEM_ROLES,
+    };
+    const result = await executor.update(
+      {
+        id: row.id,
+        version: row.version,
+        changes: {
+          envelope: encodeStoredEnvelope(rotated),
+          kekVersion: rotated.kekVersion,
+        },
+      },
+      actor,
+      tdbFor(row.tenantId as TenantId),
+    );
+
+    // version_conflict == another writer (secrets.set or a parallel
+    // rotation worker) beat us — the row is already in a valid state,
+    // potentially even past target.
+    if (!result.isSuccess) {
+      if (result.error.code === "version_conflict") return "skipped";
+      ctx.log?.warn?.(`[secrets:rotate] executor rejected row ${row.id}`, {
+        code: result.error.code,
+      });
+      return "failed";
+    }
+    return "migrated";
+  }
+
+  const outcome = await runChunkedMigration<SecretRow>({
+    nextBatch,
+    migrateRow,
+    maxFailures,
+    deadlineAt: deadline,
+    signal: ctx.signal,
+    onRowError: (row, err) => {
+      ctx.log?.warn?.(`[secrets:rotate] failed to rotate row ${row.id}`, { err });
+    },
+  });
+
+  const result: RotateJobResult = {
+    migrated: outcome.migrated,
+    failed: outcome.failed,
+    batchesProcessed: outcome.batchesProcessed,
+    stoppedReason: outcome.stoppedReason,
+  };
   ctx.log?.info?.(`[secrets:rotate] complete: ${JSON.stringify(result)}`);
 };
