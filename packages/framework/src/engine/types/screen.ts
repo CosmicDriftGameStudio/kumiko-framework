@@ -296,6 +296,34 @@ export type EntityListScreenDefinition = {
   readonly access?: AccessRule;
 };
 
+// --- projectionList ---
+
+// Like entityList, but bound to an EXPLICIT query instead of an entity. The
+// list-query is taken verbatim from `query` (a fully qualified QN like
+// "ledger:query:schedule:list") — NOT derived from the screen's own feature —
+// so a screen can render any read-projection, including one owned by a
+// different feature (the entityList feature-local resolution can't). Columns
+// carry their own labels (no entity to derive field-labels from); there is no
+// auto create-navigation (a projection isn't an editable entity list). Row
+// interaction is explicit via `rowActions`. The query must return the same
+// paged envelope as an entity list-query: `{ rows, nextCursor, total? }`.
+export type ProjectionListScreenDefinition = {
+  readonly id: string;
+  readonly type: "projectionList";
+  readonly query: string;
+  readonly columns: readonly ListColumnSpec[];
+  readonly rowRenderer?: PlatformComponent;
+  readonly cardRenderer?: PlatformComponent;
+  readonly rowActions?: readonly RowAction[];
+  readonly toolbarActions?: readonly ToolbarAction[];
+  readonly pagination?: ListPaginationMode;
+  readonly pageSize?: number;
+  readonly defaultSort?: ListSortSpec;
+  readonly searchable?: boolean;
+  readonly slots?: ScreenSlots;
+  readonly access?: AccessRule;
+};
+
 // --- entityEdit ---
 
 // camelCase `readOnly` instead of the spec's lowercase `readonly`: TS's
@@ -526,6 +554,7 @@ export type ScreenSlots = {
 
 export type ScreenDefinition =
   | EntityListScreenDefinition
+  | ProjectionListScreenDefinition
   | EntityEditScreenDefinition
   | ActionFormScreenDefinition
   | ConfigEditScreenDefinition

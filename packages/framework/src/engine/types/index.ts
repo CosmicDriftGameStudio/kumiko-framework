@@ -230,6 +230,7 @@ export type {
   FormatSpec,
   ListColumnSpec,
   PlatformComponent,
+  ProjectionListScreenDefinition,
   RowAction,
   RowActionNavigate,
   RowActionWriteHandler,

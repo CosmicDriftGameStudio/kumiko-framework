@@ -112,6 +112,9 @@ export function generateE2ESpec(
     // pro Field geschrieben, ohne CRUD-Zustand zu generieren wäre der
     // Spec wertlos. Branding/SMTP/etc. sind Author-spezifisch.
     if (screen.type === "configEdit") continue;
+    // projectionList: query-getrieben, Author-spezifische Projection —
+    // kein generischer CRUD-Spec ableitbar (wie actionForm/configEdit).
+    if (screen.type === "projectionList") continue;
     const { scope: feature, name: short } = parseQn(screenQn);
     const urlPath = `/t/${tenant}/${feature}/${short}`;
     const title = `${feature}/${short}`;

@@ -5,6 +5,7 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
+  ProjectionListScreenDefinition,
   RowAction,
   RowActionNavigate,
   RowActionWriteHandler,
@@ -35,6 +36,7 @@ import { synthesizeConfigEditEntity, synthesizeConfigEditScreen } from "./config
 import { useCustomScreenComponent } from "./custom-screens";
 import type { FeatureSchema } from "./feature-schema";
 import { useNav } from "./nav";
+import { synthesizeProjectionEntity, synthesizeProjectionScreen } from "./projection-list-shim";
 import { lastSegment } from "./qn";
 import { dispatcherErrorText, WriteFailedError } from "./write-failed-error";
 
@@ -129,6 +131,15 @@ export function KumikoScreen({
     case "entityList":
       return (
         <EntityListScreen
+          schema={schema}
+          screen={screen}
+          translate={translate}
+          {...(onRowClick !== undefined && { onRowClick })}
+        />
+      );
+    case "projectionList":
+      return (
+        <ProjectionListBody
           schema={schema}
           screen={screen}
           translate={translate}
@@ -991,6 +1002,113 @@ function EntityListBody({
         onFilterChange: urlState.setFilter,
         onFilterReset: urlState.clearFilters,
       })}
+    />
+  );
+}
+
+// ---- projection-list ----
+
+// Wie entityList, aber die List-Query kommt DIREKT aus `screen.query` (statt aus
+// der Entity abgeleitet) — dadurch cross-feature-fähig. v1 bewusst schlank:
+// rendert die Query-Rows mit den (explizit gelabelten) Columns + navigate-
+// RowActions/Row-Klick. Kein Server-Sort/-Pagination/-Facetten (eine Projection-
+// Query hat dafür keinen garantierten Contract) — die kommen bei Bedarf später.
+function ProjectionListBody({
+  schema,
+  screen,
+  translate,
+  onRowClick,
+}: {
+  readonly schema: FeatureSchema;
+  readonly screen: ProjectionListScreenDefinition;
+  readonly translate?: Translate;
+  readonly onRowClick?: (row: ListRowViewModel, entityName: string) => void;
+}): ReactNode {
+  const { Banner } = usePrimitives();
+  const t = useTranslation();
+  const nav = useNav();
+  const effectiveTranslate = translate ?? t;
+  const entity = useMemo(() => synthesizeProjectionEntity(screen.columns), [screen.columns]);
+  const listScreen = useMemo(() => synthesizeProjectionScreen(screen), [screen]);
+  const rowsQuery = useQuery<PagedRows>(screen.query, {}, { live: true });
+
+  const runNavigate = useCallback(
+    (action: RowActionNavigate, row: ListRowViewModel) => {
+      const entityId =
+        action.entityId !== undefined ? String(row.values[action.entityId] ?? "") : undefined;
+      nav.navigate({
+        screenId: action.screen,
+        ...(entityId !== undefined && entityId !== "" && { entityId }),
+      });
+      const params =
+        action.params !== undefined ? evalRowExtractor(action.params, row.values) : undefined;
+      if (params !== undefined) {
+        const stringified: Record<string, string | null> = {};
+        for (const [k, v] of Object.entries(params)) {
+          stringified[k] = v === null || v === undefined ? null : String(v);
+        }
+        nav.setSearchParams(stringified);
+      }
+    },
+    [nav],
+  );
+
+  const rowActions = useMemo((): readonly DataTableRowAction[] | undefined => {
+    if (screen.rowActions === undefined) return undefined;
+    const out: DataTableRowAction[] = [];
+    for (const action of screen.rowActions) {
+      // v1: nur navigate (writeHandler-RowActions bräuchten den Dispatcher-Pfad).
+      if (action.kind !== "navigate") continue;
+      const navigateAction = action;
+      const visible = action.visible;
+      out.push({
+        id: action.id,
+        label: effectiveTranslate(action.label),
+        ...(action.style !== undefined && { style: action.style }),
+        onTrigger: (row: ListRowViewModel) => runNavigate(navigateAction, row),
+        ...(visible !== undefined && {
+          isVisible: (row: ListRowViewModel) => evalFieldCondition(visible, row.values),
+        }),
+      });
+    }
+    return out.length > 0 ? out : undefined;
+  }, [screen.rowActions, effectiveTranslate, runNavigate]);
+
+  if (rowsQuery.loading && rowsQuery.data === null) {
+    return (
+      <Banner padded variant="loading" testId="kumiko-screen-loading">
+        Loading…
+      </Banner>
+    );
+  }
+  if (rowsQuery.error) {
+    return (
+      <Banner padded variant="error" testId="kumiko-screen-error">
+        {rowsQuery.error.i18nKey}
+      </Banner>
+    );
+  }
+
+  const rowClickAction = screen.rowActions?.find(
+    (a): a is RowActionNavigate => a.kind === "navigate" && a.rowClick === true,
+  );
+  const wrappedOnRowClick = rowClickAction
+    ? (row: ListRowViewModel) => runNavigate(rowClickAction, row)
+    : onRowClick !== undefined
+      ? (row: ListRowViewModel) => onRowClick(row, listScreen.entity)
+      : undefined;
+
+  return (
+    <RenderList
+      screen={listScreen}
+      entity={entity}
+      rows={rowsQuery.data?.rows ?? []}
+      featureName={schema.featureName}
+      searchable={screen.searchable ?? false}
+      sort={screen.defaultSort ?? null}
+      {...(rowActions !== undefined && { rowActions })}
+      {...(translate !== undefined && { translate })}
+      {...(wrappedOnRowClick !== undefined && { onRowClick: wrappedOnRowClick })}
     />
   );
 }
