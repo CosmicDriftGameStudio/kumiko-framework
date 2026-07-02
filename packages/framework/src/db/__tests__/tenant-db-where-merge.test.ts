@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createEntity, createTextField } from "../../engine";
 import { testTenantId } from "../../stack";
+import type { TableColumns } from "../dialect";
 import { buildEntityTable } from "../table-builder";
 import { createTenantDb } from "../tenant-db";
 
@@ -13,7 +14,9 @@ const entity = createEntity({
   table: "merge_items",
   fields: { name: createTextField({ required: true }) },
 });
-const table = buildEntityTable("mergeItem", entity);
+// Brand (#742) is compile-time-only; hold the handle at the unbranded TableColumns
+// view so the method-form scoping test still compiles (runtime shape is identical).
+const table: TableColumns = buildEntityTable("mergeItem", entity);
 
 const own = testTenantId(1);
 const foreign = testTenantId(2);

@@ -1,12 +1,16 @@
 // Assigns an existing currency to a tenant (creates tenantCurrency entry)
 // The currency must exist in the global currency table
 
-import { assertExistsIn } from "@cosmicdrift/kumiko-framework/db";
+import { assertExistsIn, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { currencyTable } from "../entities/currency";
-import { tenantCurrencyTable } from "../entities/tenant-currency";
+import { tenantCurrencyEntity, tenantCurrencyTable } from "../entities/tenant-currency";
+
+const tenantCurrencyCrud = createEventStoreExecutor(tenantCurrencyTable, tenantCurrencyEntity, {
+  entityName: "tenant-currency",
+});
 
 export const tenantCurrencyAssign = defineWriteHandler({
   name: "tenant-currency:assign",
@@ -24,22 +28,13 @@ export const tenantCurrencyAssign = defineWriteHandler({
     });
     if (notFound) return writeFailure(notFound);
 
-    const row = await ctx.db.insertOne(tenantCurrencyTable, {
-      currencyCode: event.payload.currencyCode,
-      isActive: event.payload.isActive ?? true,
-      insertedById: event.user.id,
-      insertedAt: Temporal.Now.instant(),
-    });
-    const data = row as Record<string, unknown>;
-    return {
-      isSuccess: true,
-      data: {
-        id: data["id"] as number,
-        data,
-        changes: event.payload,
-        previous: {},
-        isNew: true,
+    return tenantCurrencyCrud.create(
+      {
+        currencyCode: event.payload.currencyCode,
+        isActive: event.payload.isActive ?? true,
       },
-    };
+      event.user,
+      ctx.db,
+    );
   },
 });

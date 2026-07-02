@@ -12,9 +12,20 @@ import { SYSTEM_TENANT_ID, type TenantId } from "../engine/types/identifiers";
 import { emitDbQuery, type Meter, registerStandardMetrics, type Tracer } from "../observability";
 import type { DbRunner } from "./connection";
 import type { TableColumns } from "./dialect";
+import type { EntityTableMeta } from "./entity-table-meta";
+import type { NotExecutorOnly } from "./table-builder";
 
 // biome-ignore lint/suspicious/noExplicitAny: Dynamic tables — keys depend on user-defined schema.
 type Table = TableColumns<any>;
+
+// Method-form writes reject the executor-only brand exactly like the free-function
+// helpers (#742): a managed EntityTable is a rebuildable projection, so writing it
+// directly — free-function OR method-form — drifts the row past its event stream and
+// a rebuild wipes it. The permissive base stays (raw pgTables AND unmanaged entity
+// metas are not projections → writable); `& NotExecutorOnly` strips only branded
+// EntityTables (its `[EXECUTOR_ONLY]: true` violates the optional-never). Reads keep
+// the plain `Table` param.
+type WritableTable = (Table | EntityTableMeta) & NotExecutorOnly;
 
 /**
  * TenantDb scope modes:
@@ -45,21 +56,15 @@ export type TenantDb = {
   ): Promise<readonly T[]>;
   fetchOne<T = Record<string, unknown>>(table: Table, where: WhereObject): Promise<T | undefined>;
   insertOne<T = Record<string, unknown>>(
-    table: Table,
+    table: WritableTable,
     values: Record<string, unknown>,
   ): Promise<T | undefined>;
   updateMany<T = Record<string, unknown>>(
-    table: Table,
+    table: WritableTable,
     set: Record<string, unknown>,
     where: WhereObject,
   ): Promise<readonly T[]>;
-  // Method-form writes (ctx.db.insertOne/updateMany/deleteMany) keep the erased
-  // Table param: the executor-only brand is enforced on the free-function
-  // helpers (the reflexive path all production writes take), while method-form
-  // on a branded table is covered by the guard-direct-entity-writes AST guard
-  // (P5) — branding it here would force every push+write test into casts for
-  // zero production benefit (no prod code writes a projection via method-form).
-  deleteMany(table: Table, where: WhereObject): Promise<void>;
+  deleteMany(table: WritableTable, where: WhereObject): Promise<void>;
 };
 
 // @cast-boundary tenant-db-row

@@ -1,9 +1,13 @@
-import { assertExistsIn } from "@cosmicdrift/kumiko-framework/db";
+import { assertExistsIn, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { currencyTable } from "../entities/currency";
-import { invoiceTable } from "../entities/invoice";
+import { invoiceEntity, invoiceTable } from "../entities/invoice";
+
+const invoiceCrud = createEventStoreExecutor(invoiceTable, invoiceEntity, {
+  entityName: "invoice",
+});
 
 export const invoiceCreate = defineWriteHandler({
   name: "invoice:create",
@@ -45,26 +49,18 @@ export const invoiceCreate = defineWriteHandler({
       }
     }
 
-    const row = await ctx.db.insertOne(invoiceTable, {
-      title,
-      amount,
-      amountCurrency,
-      shippingCost: shippingCost ?? null,
-      ...(shippingCostCurrency !== undefined && { shippingCostCurrency }),
-      insertedById: event.user.id,
-      insertedAt: Temporal.Now.instant(),
-    });
-
-    const data = row as Record<string, unknown>;
-    return {
-      isSuccess: true,
-      data: {
-        id: data["id"] as number,
-        data,
-        changes: event.payload,
-        previous: {},
-        isNew: true,
+    // Money fields go in as the combined { amount, currency } API form; the
+    // executor flattens them into the invoice's own amount/amountCurrency columns.
+    return invoiceCrud.create(
+      {
+        title,
+        amount: { amount, currency: amountCurrency },
+        ...(shippingCost !== undefined
+          ? { shippingCost: { amount: shippingCost, currency: shippingCostCurrency } }
+          : {}),
       },
-    };
+      event.user,
+      ctx.db,
+    );
   },
 });

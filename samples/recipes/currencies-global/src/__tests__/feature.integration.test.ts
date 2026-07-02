@@ -30,6 +30,10 @@ import { invoiceEntity } from "../entities/invoice";
 import { tenantCurrencyEntity } from "../entities/tenant-currency";
 import { currenciesGlobalFeature } from "../feature";
 
+// The executor returns the rehydrated read-form: money is the combined
+// { amount, currency }, not the flat amount/amountCurrency columns insertOne leaked.
+const asMoney = (v: unknown) => v as { amount: number; currency: string };
+
 let stack: TestStack;
 
 const tenant1Admin = TestUsers.admin;
@@ -82,8 +86,8 @@ describe("tenant 1: allowed currencies", () => {
       tenant1Admin,
     );
     expect(data.isNew).toBe(true);
-    expect(data.data["amount"]).toBe(150050);
-    expect(data.data["amountCurrency"]).toBe("EUR");
+    expect(asMoney(data.data["amount"]).amount).toBe(150050);
+    expect(asMoney(data.data["amount"]).currency).toBe("EUR");
   });
 
   test("create invoice with BHD (custom, in DEFAULT_CURRENCIES) succeeds", async () => {
@@ -93,7 +97,7 @@ describe("tenant 1: allowed currencies", () => {
       tenant1Admin,
     );
     expect(data.isNew).toBe(true);
-    expect(data.data["amountCurrency"]).toBe("BHD");
+    expect(asMoney(data.data["amount"]).currency).toBe("BHD");
   });
 
   test("create invoice with XYZ (NOT in DEFAULT_CURRENCIES) succeeds", async () => {
@@ -103,7 +107,7 @@ describe("tenant 1: allowed currencies", () => {
       tenant1Admin,
     );
     expect(data.isNew).toBe(true);
-    expect(data.data["amountCurrency"]).toBe("XYZ");
+    expect(asMoney(data.data["amount"]).currency).toBe("XYZ");
   });
 
   test("create invoice with shipping cost in different currency", async () => {
@@ -119,8 +123,8 @@ describe("tenant 1: allowed currencies", () => {
       tenant1Admin,
     );
     expect(data.isNew).toBe(true);
-    expect(data.data["amountCurrency"]).toBe("EUR");
-    expect(data.data["shippingCostCurrency"]).toBe("USD");
+    expect(asMoney(data.data["amount"]).currency).toBe("EUR");
+    expect(asMoney(data.data["shippingCost"]).currency).toBe("USD");
   });
 });
 
@@ -156,7 +160,7 @@ describe("tenant 2: allowed currencies", () => {
       tenant2Admin,
     );
     expect(data.isNew).toBe(true);
-    expect(data.data["amountCurrency"]).toBe("GBP");
+    expect(asMoney(data.data["amount"]).currency).toBe("GBP");
   });
 
   test("create invoice with TRY (custom) succeeds", async () => {
@@ -166,7 +170,7 @@ describe("tenant 2: allowed currencies", () => {
       tenant2Admin,
     );
     expect(data.isNew).toBe(true);
-    expect(data.data["amountCurrency"]).toBe("TRY");
+    expect(asMoney(data.data["amount"]).currency).toBe("TRY");
   });
 });
 

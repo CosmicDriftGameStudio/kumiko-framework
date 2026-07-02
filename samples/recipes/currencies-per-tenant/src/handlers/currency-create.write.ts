@@ -1,8 +1,13 @@
 // Tenant creates their own currency — no global table needed
 
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
-import { currencyTable } from "../entities/currency";
+import { currencyEntity, currencyTable } from "../entities/currency";
+
+const currencyCrud = createEventStoreExecutor(currencyTable, currencyEntity, {
+  entityName: "currency",
+});
 
 export const currencyCreate = defineWriteHandler({
   name: "currency:create",
@@ -12,22 +17,8 @@ export const currencyCreate = defineWriteHandler({
     isActive: z.boolean().optional(),
   }),
   access: { roles: ["Admin"] },
-  handler: async (event, ctx) => {
-    const row = await ctx.db.insertOne(currencyTable, {
-      ...event.payload,
-      insertedById: event.user.id,
-      insertedAt: Temporal.Now.instant(),
-    });
-    const data = row as Record<string, unknown>;
-    return {
-      isSuccess: true,
-      data: {
-        id: data["id"] as number,
-        data,
-        changes: event.payload,
-        previous: {},
-        isNew: true,
-      },
-    };
-  },
+  // Event-sourced create — the executor appends `currency.created` + applies the
+  // projection in one TX (id + audit columns are set for us). A direct insertOne
+  // would drift the row past its event stream and a rebuild would wipe it.
+  handler: async (event, ctx) => currencyCrud.create(event.payload, event.user, ctx.db),
 });
