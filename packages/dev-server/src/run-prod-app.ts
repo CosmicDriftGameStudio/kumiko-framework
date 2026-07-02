@@ -61,6 +61,7 @@ import {
   SECRETS_FEATURE_NAME,
 } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import {
+  bindAutoRevokeFromFeature,
   createSessionCallbacks,
   SESSIONS_FEATURE,
 } from "@cosmicdrift/kumiko-bundled-features/sessions";
@@ -942,19 +943,20 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // sessionStrictMode=true: Prod-Sessions sollen nicht stillschweigend
   // von einem JWT-ohne-sid umgangen werden können. sessionMassRevoker
   // (4. callback aus createSessionCallbacks) ist nicht Teil der
-  // AuthRoutesConfig-Surface — der wird vom sessions-Feature selbst über
-  // die `autoRevokeOnPasswordChange`-Option konsumiert, nicht über die
-  // auth-routes.
+  // AuthRoutesConfig-Surface — der geht via bindAutoRevokeFromFeature ans
+  // sessions-Feature (Password-Change/-Reset revoked alle Sessions), nicht
+  // über die auth-routes.
   // Secure-by-default: if the sessions feature is mounted, server-side revocation +
-  // sessionStrictMode are wired automatically; `auth.sessions` only overrides the config,
-  // and `auth.sessions: false` is the explicit opt-out (back to stateless JWTs).
-  const sessionsFeatureMounted = features.some((f) => f.name === SESSIONS_FEATURE);
+  // sessionStrictMode + auto-revoke-on-password-change are wired automatically;
+  // `auth.sessions` only overrides the config, and `auth.sessions: false` is the
+  // explicit opt-out (back to stateless JWTs).
+  const sessionsFeature = features.find((f) => f.name === SESSIONS_FEATURE);
   const sessionAuthFragment = shouldWireProdSessions(
     Boolean(effectiveAuth),
-    sessionsFeatureMounted,
+    sessionsFeature !== undefined,
     effectiveAuth?.sessions,
   )
-    ? buildProdSessionAuth(db, resolveProdSessionsConfig(effectiveAuth?.sessions))
+    ? buildProdSessionAuth(db, resolveProdSessionsConfig(effectiveAuth?.sessions), sessionsFeature)
     : undefined;
 
   // PAT opt-in: if the personal-access-tokens feature is mounted, wire its
@@ -1492,6 +1494,7 @@ export function staticCachePolicy(pathname: string): CachePolicy {
 function buildProdSessionAuth(
   db: import("@cosmicdrift/kumiko-framework/db").DbConnection,
   opts: ProdSessionsConfig,
+  sessionsFeature: import("@cosmicdrift/kumiko-framework/engine").FeatureDefinition | undefined,
 ): {
   readonly sessionCreator: ReturnType<typeof createSessionCallbacks>["sessionCreator"];
   readonly sessionRevoker: ReturnType<typeof createSessionCallbacks>["sessionRevoker"];
@@ -1502,6 +1505,11 @@ function buildProdSessionAuth(
     db,
     ...(opts.expiresInMs !== undefined && { expiresInMs: opts.expiresInMs }),
   });
+  // Secure-by-default: password-change/-reset mass-revokes the user's live
+  // sessions without the app opting in via autoRevokeOnPasswordChange.
+  if (sessionsFeature) {
+    bindAutoRevokeFromFeature(sessionsFeature)?.(cbs.sessionMassRevoker);
+  }
   return {
     sessionCreator: cbs.sessionCreator,
     sessionRevoker: cbs.sessionRevoker,

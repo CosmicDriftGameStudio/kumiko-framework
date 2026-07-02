@@ -6,6 +6,10 @@
 // der server-side Zugriff (handlers, dispatcher) erhalten.
 export const AUTH_EMAIL_PASSWORD_FEATURE = "auth-email-password" as const;
 
+// Minimum length for reset/verify hmacSecret — mirrors the ≥32-char
+// JWT_SECRET env check (HMAC-SHA256 key material).
+export const MIN_HMAC_SECRET_LENGTH = 32;
+
 // Qualified handler names. Non-CRUD handlers, no entity prefix.
 export const AuthHandlers = {
   login: "auth-email-password:write:login",
