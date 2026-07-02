@@ -142,7 +142,7 @@ export async function runUserExport(args: RunUserExportArgs): Promise<UserExport
   for (const tenantId of tenantList) {
     const entities: UserDataExportSnippet[] = [];
     for (const entry of hookEntries) {
-      const rawSnippet = await entry.exportHook({ db, tenantId, userId });
+      const rawSnippet = await entry.exportHook({ db, registry, tenantId, userId });
       if (rawSnippet === null) continue;
       const snippet = await decryptSnippetFields(registry, entry.entityName, rawSnippet);
       entities.push(snippet);
@@ -177,6 +177,7 @@ export async function runUserExport(args: RunUserExportArgs): Promise<UserExport
     for (const entry of hookEntries) {
       const rawSnippet = await entry.exportHook({
         db,
+        registry,
         tenantId: SYSTEM_TENANT_ID_FOR_ORPHANS,
         userId,
       });
