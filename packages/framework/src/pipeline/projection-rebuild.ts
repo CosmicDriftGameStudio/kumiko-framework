@@ -13,7 +13,7 @@ import {
   rebuildMetaOrThrow,
   swapShadowIntoLive,
 } from "../db/queries/shadow-swap";
-import { coerceRow, extractTableInfo, selectMany } from "../db/query";
+import { coerceRow, extractTableInfo, runInSavepoint, selectMany } from "../db/query";
 import type { Registry, TenantId } from "../engine/types";
 import {
   eventsTable,
@@ -22,6 +22,11 @@ import {
   upcastStoredEvent,
 } from "../event-store";
 import type { EventMetadata } from "../event-store/event-store";
+import {
+  createRebuildDeadLetterTable,
+  recordRebuildDeadLetters,
+  type SkippedApply,
+} from "../event-store/rebuild-dead-letter";
 import { emitProjectionRebuild } from "../observability/standard-metrics";
 import type { Meter } from "../observability/types/metric";
 import { projectionStateTable } from "./projection-state";
@@ -119,7 +124,12 @@ function rowToStoredEvent(row: StoredEventRow): StoredEvent {
 
 export type RebuildResult = {
   readonly projection: string;
+  // Events consumed from the log — includes quarantined ones (the cursor
+  // advanced past them).
   readonly eventsProcessed: number;
+  // Poison events quarantined into kumiko_rebuild_dead_letters this run.
+  // Always 0 unless quarantine mode was active (#760).
+  readonly eventsSkipped: number;
   readonly lastProcessedEventId: bigint;
   readonly durationMs: number;
 };
@@ -145,6 +155,15 @@ type RebuildDeps = {
   // on the live table; if a long-running writer holds it past this, the rebuild
   // fails loud instead of hanging. Defaults to DEFAULT_FENCE_LOCK_TIMEOUT_MS.
   readonly fenceLockTimeoutMs?: number;
+  // Apply-error policy for THIS run. Default strict: the first throwing
+  // apply aborts the rebuild (tx rollback, status "failed") — a poison
+  // event makes the projection permanently un-rebuildable (#760).
+  // skipApplyErrors: true confines every apply to a savepoint; a throwing
+  // apply is rolled back, recorded into kumiko_rebuild_dead_letters and
+  // skipped, and the rebuild completes without its effect. Opt-in for
+  // operators unblocking a pinned rebuild — the projection then knowingly
+  // misses the quarantined events until they are repaired and replayed.
+  readonly errorPolicy?: { readonly skipApplyErrors?: boolean };
   // Test-only seam: fires once after the unlocked bulk drain and before the
   // cutover fence. Lets a concurrency test inject a committed write into the
   // replay window deterministically. The `__test_` prefix marks it test-only:
@@ -185,6 +204,11 @@ export async function rebuildProjection(
   const startedAt = Date.now();
   let eventsProcessed = 0;
   let lastProcessedEventId = 0n;
+  const skipApplyErrors = deps.errorPolicy?.skipApplyErrors === true;
+  // Quarantined events, collected in memory and written once after the
+  // replay settles — the #443 full-re-replay path would otherwise duplicate
+  // the dead-letter rows.
+  let skipped: SkippedApply[] = [];
 
   // One chronological batch of events after lastProcessedEventId, applied into
   // the shadow. Returns the batch size so the caller can detect the tail
@@ -208,7 +232,21 @@ export async function rebuildProjection(
       // skip: apply-key validation ensures every subscribed type has a handler;
       //       defensive check against runtime-mutated registry
       if (!applyFn) continue;
-      await applyFn(storedEvent, tx, projection.table);
+      if (skipApplyErrors) {
+        // Driver-native savepoint: a throwing SQL statement would otherwise
+        // poison the rebuild tx (25P02) AND make the driver reject the whole
+        // begin() even after a caught error. The apply runs on the
+        // savepoint-scoped handle so its statements are confined.
+        try {
+          await runInSavepoint(tx, async (sp) => {
+            await applyFn(storedEvent, sp as DbTx, projection.table);
+          });
+        } catch (e) {
+          skipped.push({ event: storedEvent, error: e });
+        }
+      } else {
+        await applyFn(storedEvent, tx, projection.table);
+      }
       eventsProcessed++;
       lastProcessedEventId = row.id;
     }
@@ -217,6 +255,9 @@ export async function rebuildProjection(
 
   try {
     await ensureRebuildSchema(db);
+    // Outside the rebuild tx, like the schema: idempotent DDL colliding
+    // inside the tx would roll the whole replay back.
+    if (skipApplyErrors) await createRebuildDeadLetterTable(db);
     await db.begin(async (tx: DbTx) => {
       await markProjectionRebuilding(tx, projectionName);
       await buildShadowTable(tx, meta);
@@ -261,12 +302,16 @@ export async function rebuildProjection(
           deps.__test_onBuildShadowTable?.();
           lastProcessedEventId = 0n;
           eventsProcessed = 0;
+          skipped = [];
           while ((await drainBatch(tx)) === REBUILD_BATCH_SIZE) {
             // re-replay the full log into the fresh shadow
           }
         }
       }
 
+      if (skipped.length > 0) {
+        await recordRebuildDeadLetters(tx, projectionName, skipped);
+      }
       await finalizeProjectionRebuild(tx, projectionName, lastProcessedEventId);
       await swapShadowIntoLive(tx, meta.tableName);
     });
@@ -292,6 +337,7 @@ export async function rebuildProjection(
   const result: RebuildResult = {
     projection: projectionName,
     eventsProcessed,
+    eventsSkipped: skipped.length,
     lastProcessedEventId,
     durationMs: Date.now() - startedAt,
   };
