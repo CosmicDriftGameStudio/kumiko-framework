@@ -5,9 +5,8 @@
 //   1. Redis check + burn (single-use enforcement)
 //   2. Load user + deleted/missing/no-version guard
 //   3. Optional idempotent short-circuit (verify-email when already done)
-//   4. Resolve memberships → tenant-order for stream-matching
-//   5. Try each tenant's stream with the handler-specific `changes`
-//   6. Release the burn on ANY non-success path so a legit retry isn't
+//   4. Apply the handler-specific `changes` on the user's SYSTEM stream
+//   5. Release the burn on ANY non-success path so a legit retry isn't
 //      locked out by a stale marker
 //
 // The top-level `runConfirmTokenFlow` orchestrates and owns the
@@ -15,26 +14,26 @@
 // burn (success, already-done) flips `committed = true`; everything
 // else — including future branches a maintainer adds — releases
 // automatically.
+//
+// The user aggregate is systemStream (#497): its event stream lives on
+// SYSTEM_TENANT_ID deterministically, so the write targets exactly one
+// stream. The former membership-probing (`tryWriteAcrossTenants`) existed
+// for pre-#497 scattered streams; those need the one-time
+// backfillUserStreamTenants migration (#762) — probing them stopped working
+// the moment the executor's stream choke-point landed anyway.
 
 import {
   createSystemUser,
   type HandlerContext,
   type SessionUser,
   SYSTEM_TENANT_ID,
-  type TenantId,
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  InternalError,
-  type WriteFailure,
-  writeFailure,
-} from "@cosmicdrift/kumiko-framework/errors";
-import { getAggregateStreamTenant } from "@cosmicdrift/kumiko-framework/event-store";
+import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import type Redis from "ioredis";
-import { USER_FEATURE, UserHandlers, UserQueries } from "../../user";
+import { UserHandlers, UserQueries } from "../../user";
 import type { AuthUserRow } from "../auth-user-row";
 import { parseAuthUserRow } from "../auth-user-row";
-import { orderTenantsByPreference } from "../stream-tenant";
 import { burnToken, unburnToken } from "../token-burn-store";
 
 export type ConfirmTokenFlowSpec<TSuccessData> = {
@@ -46,13 +45,11 @@ export type ConfirmTokenFlowSpec<TSuccessData> = {
   // is misconfigured, not the caller's fault.
   readonly redisRequiredMessage: string;
   // Standard failure returned for every "token can't be consumed" path
-  // (bad state, missing memberships, every tenant rejected). The route
-  // layer returns 422 with a uniform code so the caller can't tell which
-  // branch fired.
+  // (bad state, version conflict on the stream). The route layer returns
+  // 422 with a uniform code so the caller can't tell which branch fired.
   readonly invalidToken: () => ReturnType<typeof writeFailure>;
-  // Handler-specific payload for user:update. Runs once per token — the
-  // result is shared across every tenant-stream attempt. Can be async
-  // (password-reset hashes here).
+  // Handler-specific payload for user:update. Runs once per token. Can be
+  // async (password-reset hashes here).
   readonly buildChanges: (me: AuthUserRow) => Promise<Record<string, unknown>>;
   // Returned verbatim on a successful write.
   readonly successData: TSuccessData;
@@ -96,20 +93,21 @@ export async function runConfirmTokenFlow<TSuccessData>(
       return { isSuccess: true, data: spec.alreadyDone.data };
     }
 
-    const tenantOrder = await resolveStreamTenants(ctx, systemUser, me);
-    if (tenantOrder.length === 0) return spec.invalidToken();
-
     const changes = await spec.buildChanges(me);
-    const writeResult = await tryWriteAcrossTenants(ctx, me, tenantOrder, changes);
-    if (writeResult.isSuccess) {
+    const writeRes = await ctx.writeAs(systemUser, UserHandlers.update, {
+      id: me.id,
+      version: me.version,
+      changes,
+    });
+    if (writeRes.isSuccess) {
       committed = true;
       return { isSuccess: true, data: spec.successData };
     }
-    // `all_conflicts` = every tenant returned version_conflict → token-level
-    // failure. `hard_failure` = a real write error (DB down, access
-    // denied) that bubbles unchanged.
-    if (writeResult.reason === "all_conflicts") return spec.invalidToken();
-    return writeResult.failure;
+    // version_conflict = concurrent modification (or an un-migrated pre-#497
+    // stream, see header) → token-level failure. Anything else (DB down,
+    // access denied) bubbles unchanged so ops sees the real failure class.
+    if (writeRes.error.code === "version_conflict") return spec.invalidToken();
+    return writeRes;
   } finally {
     // committed===false covers EVERY failure path — including branches a
     // future maintainer adds without reading this file. The original
@@ -121,14 +119,13 @@ export async function runConfirmTokenFlow<TSuccessData>(
   }
 }
 
-// --- Private helpers ------------------------------------------------------
-
 // Fetches the user row via the privileged findForAuth query and validates
-// it's usable for a write: not deleted, has a row.version (the version
-// column is a findForAuth contract field — absence is a schema bug, but
-// we still handle it gracefully rather than throwing past the burn).
-// Return type narrows `version` to `number` so the write-callsite doesn't
-// need a `?? 0` fallback — the guard lives here, not at every callsite.
+// it's usable for a write: not deleted, has a row.version >= 1 (a row
+// without any event stream — e.g. inserted straight into read_users — must
+// not be confirmable: the write would otherwise seed a fresh stream with a
+// bare user.updated). Return type narrows `version` to `number` so the
+// write-callsite doesn't need a `?? 0` fallback — the guard lives here,
+// not at every callsite.
 async function loadValidatedUser(
   ctx: HandlerContext,
   systemUser: SessionUser,
@@ -137,74 +134,6 @@ async function loadValidatedUser(
   const me = parseAuthUserRow(
     await ctx.queryAs(systemUser, UserQueries.findForAuth, { id: userId }),
   );
-  if (!me || me.isDeleted || me.version === undefined) return null;
+  if (!me || me.isDeleted || me.version === undefined || me.version < 1) return null;
   return { ...me, version: me.version };
-}
-
-// Loads the user's memberships and returns a prioritised tenant list, with the
-// aggregate's real stream tenant recovered from the event log prepended.
-//
-// Empty only when the user has NO memberships AND no recoverable stream tenant
-// — the caller treats that as invalid_token. A zero-membership systemScope user
-// whose stream lives outside any membership (a platform operator seeded under a
-// fixture/SYSTEM tenant) still resolves, because the stream-tenant lookup runs
-// before the empty check rather than being short-circuited by it.
-async function resolveStreamTenants(
-  ctx: HandlerContext,
-  systemUser: SessionUser,
-  me: AuthUserRow,
-): Promise<readonly TenantId[]> {
-  const memberships = (await ctx.queryAs(systemUser, "tenant:query:memberships", {
-    userId: me.id,
-  })) as Array<{ tenantId: TenantId }>; // @cast-boundary db-runner
-  const ordered = orderTenantsByPreference(memberships, me.lastActiveTenantId);
-
-  // The user aggregate is r.systemScope(): its event stream lives in whichever
-  // tenant the creating executor used, which need NOT be a membership tenant.
-  // A platform operator seeded under a fixture/platform tenant is the live case
-  // — its stream tenant is absent from `ordered`, so a membership-only search
-  // rejects every write and collapses to invalid_token. Recover the real stream
-  // tenant from the event log and try it first; memberships stay as fallback.
-  // Pulled BEFORE the empty-membership check so a zero-membership operator whose
-  // stream lives in SYSTEM_TENANT is recoverable instead of collapsing to
-  // invalid_token — mirrors change-password.write.ts's unconditional recovery.
-  const streamTenant = await getAggregateStreamTenant(ctx.db.raw, me.id, USER_FEATURE);
-  if (streamTenant && !ordered.includes(streamTenant)) {
-    return [streamTenant, ...ordered];
-  }
-  return ordered;
-}
-
-// Discriminated result for the write-across-tenants loop.
-//   all_conflicts → every candidate rejected with version_conflict →
-//                   token-level failure; caller returns invalidToken.
-//   hard_failure  → a non-conflict error that should bubble unchanged
-//                   (DB down, access denied, …); caller returns it as-is.
-type TenantWriteResult =
-  | { isSuccess: true }
-  | { isSuccess: false; reason: "all_conflicts" }
-  | { isSuccess: false; reason: "hard_failure"; failure: WriteFailure };
-
-// Attempts the update against each candidate stream. memberships-query
-// has no deterministic ORDER BY, so the matching stream is discovered by
-// attempt: version_conflict → try the next candidate, anything else →
-// bubble immediately so ops sees the real failure class.
-async function tryWriteAcrossTenants(
-  ctx: HandlerContext,
-  me: AuthUserRow & { version: number },
-  tenantOrder: readonly TenantId[],
-  changes: Record<string, unknown>,
-): Promise<TenantWriteResult> {
-  for (const tenantId of tenantOrder) {
-    const writeRes = await ctx.writeAs(createSystemUser(tenantId), UserHandlers.update, {
-      id: me.id,
-      version: me.version,
-      changes,
-    });
-    if (writeRes.isSuccess) return { isSuccess: true };
-    if (writeRes.error.code !== "version_conflict") {
-      return { isSuccess: false, reason: "hard_failure", failure: writeRes };
-    }
-  }
-  return { isSuccess: false, reason: "all_conflicts" };
 }

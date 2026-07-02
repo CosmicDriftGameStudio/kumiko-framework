@@ -1,9 +1,13 @@
-import { access, createSystemUser, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  access,
+  createSystemUser,
+  defineWriteHandler,
+  SYSTEM_TENANT_ID,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { getAggregateStreamTenant } from "@cosmicdrift/kumiko-framework/event-store";
 import { z } from "zod";
 import { AuthErrors, verifyPassword } from "../../auth-email-password";
-import { USER_FEATURE, UserErrors, UserHandlers, UserQueries } from "../../user";
+import { UserErrors, UserHandlers, UserQueries } from "../../user";
 import { UserProfileErrors } from "../constants";
 
 // Gleiche Failure-Shape wie auth-email-password (anti-enumeration):
@@ -66,11 +70,10 @@ export const changeEmailWrite = defineWriteHandler({
       );
     }
 
-    // Stream-Tenant-Auflösung wie in change-password: das user-Aggregate
-    // ist systemScope, sein Event-Stream kann in einem anderen Tenant
-    // liegen als die Session — optimistic locking braucht den echten.
-    const streamTenant = await getAggregateStreamTenant(ctx.db.raw, event.user.id, USER_FEATURE);
-    const writer = createSystemUser(streamTenant ?? event.user.tenantId);
+    // user ist systemStream (#497): der Event-Stream liegt deterministisch
+    // auf SYSTEM_TENANT_ID. Pre-#497-Streams brauchen einmalig
+    // backfillUserStreamTenants (#762).
+    const writer = createSystemUser(SYSTEM_TENANT_ID);
 
     const writeRes = await ctx.writeAs(writer, UserHandlers.update, {
       id: me.id,

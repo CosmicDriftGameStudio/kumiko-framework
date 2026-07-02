@@ -1,7 +1,7 @@
-import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
-import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { createSystemUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { USER_STATUS, userEntity, userTable } from "../../user";
 
@@ -21,16 +21,6 @@ import { USER_STATUS, userEntity, userTable } from "../../user";
 // kann abweichen).
 const userExecutor = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
 
-// Stream-Tenant = die framework-injizierte tenant_id der read_users-Row. Der
-// Reducer setzt sie aus `user.created`.tenantId, ein Rebuild rekonstruiert sie
-// daraus — sie IST also der Stream-Key des Aggregats. Die Row direkt zu lesen
-// (statt das created-Event zu joinen) deckt auch direkt-geseedete Rows ab.
-async function streamTenantOf(conn: DbRunner, userId: string): Promise<TenantId | null> {
-  const row = await fetchOne<{ tenantId?: string }>(conn, userTable, { id: userId });
-  // @cast-boundary db-row — tenant_id ist eine TenantId-shaped uuid-Spalte.
-  return row?.tenantId ? (row.tenantId as TenantId) : null;
-}
-
 // `conn` ist ctx.db.raw (regulaere Handler) ODER die offene tx (forget-cleanup
 // Sub-Tx) — so bleibt der Event-Append atomar mit dem umgebenden Write.
 export async function updateUserLifecycle(
@@ -38,20 +28,14 @@ export async function updateUserLifecycle(
   userId: string,
   changes: Record<string, unknown>,
 ): Promise<void> {
-  const streamTenantId = await streamTenantOf(conn, userId);
-  if (!streamTenantId) {
-    throw new InternalError({
-      message: `read_users row ${userId} has no tenant_id — cannot rescope lifecycle write to its stream tenant`,
-    });
-  }
-
-  // Rescope BEIDE Achsen auf den Stream-Tenant: der db-Arg treibt loadById +
-  // den Stream-Read, der user-Arg die Event-tenantId + Ownership. Nur beide
-  // zusammen halten created + updated auf einem Stream.
-  const tenantDb = createTenantDb(conn, streamTenantId, "tenant");
+  // user ist systemStream (#497): der Executor-Choke-Point addressiert den
+  // Stream immer auf SYSTEM_TENANT_ID — ein Rescope auf die row-tenant_id
+  // waere wirkungslos. "system"-Mode, damit loadById auch Legacy-Rows findet,
+  // deren tenant_id noch vor dem #762-Backfill-Rebuild steht.
+  const tenantDb = createTenantDb(conn, SYSTEM_TENANT_ID, "system");
   const result = await userExecutor.update(
     { id: userId, changes },
-    createSystemUser(streamTenantId),
+    createSystemUser(SYSTEM_TENANT_ID),
     tenantDb,
     { skipOptimisticLock: true },
   );

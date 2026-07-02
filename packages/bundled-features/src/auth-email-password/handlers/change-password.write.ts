@@ -1,7 +1,11 @@
-import { access, createSystemUser, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { getAggregateStreamTenant } from "@cosmicdrift/kumiko-framework/event-store";
+import {
+  access,
+  createSystemUser,
+  defineWriteHandler,
+  SYSTEM_TENANT_ID,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
-import { USER_FEATURE, UserHandlers, UserQueries } from "../../user";
+import { UserHandlers, UserQueries } from "../../user";
 import { invalidCredentials } from "../errors";
 import { hashPassword, verifyPassword } from "../password-hashing";
 
@@ -35,14 +39,10 @@ export const changePasswordWrite = defineWriteHandler({
 
     const newHash = await hashPassword(event.payload.newPassword);
 
-    // The user aggregate is r.systemScope(): its event stream can live in a
-    // tenant that isn't the session tenant (a platform operator's stream sits
-    // in the seed executor's tenant, not their membership). Write against the
-    // real stream tenant so optimistic locking targets the right stream instead
-    // of version_conflict-ing against an empty one. Falls back to the session
-    // tenant when the lookup finds nothing (fresh/unknown stream).
-    const streamTenant = await getAggregateStreamTenant(ctx.db.raw, event.user.id, USER_FEATURE);
-    const writer = createSystemUser(streamTenant ?? event.user.tenantId);
+    // The user aggregate is systemStream (#497): its event stream lives on
+    // SYSTEM_TENANT_ID deterministically. Pre-#497 scattered streams need the
+    // one-time backfillUserStreamTenants migration (#762).
+    const writer = createSystemUser(SYSTEM_TENANT_ID);
 
     // Apply via user feature's update handler — writeAs(system) satisfies
     // the privileged-only write rule on passwordHash. Pass the current version
