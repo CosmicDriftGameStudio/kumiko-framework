@@ -100,7 +100,16 @@ async function rebuildAffectedProjections(
   const projections = new Set<string>();
   for (const table of changedTables) {
     const name = tableToProjection.get(table);
-    if (name) projections.add(name);
+    if (name) {
+      projections.add(name);
+    } else {
+      // 522/3: a table in a .rebuild.json marker that no longer matches any
+      // registered projection would otherwise rebuild nothing and exit 0 —
+      // indistinguishable from "nothing needed a rebuild".
+      console.warn(
+        `  ⚠ Table "${table}" is in a rebuild marker but matches no registered projection — skipped.`,
+      );
+    }
   }
   if (projections.size === 0) return;
 

@@ -28,9 +28,7 @@ import { pageEntity } from "./table";
 // Alias (publicstatus = "Admin") müssen TenantAdmin granten/mappen.
 const ADMIN_ACCESS = { roles: ["TenantAdmin", "SystemAdmin"] } as const;
 
-// Published CMS-Content ändert sich selten — ein 60s-Shared-Cache-Fenster
-// spart den Origin-Revalidate-Roundtrip (jeder 304 re-runt sonst Page- +
-// Branding-Query), Edits sind nach spätestens 60s live.
+// 60s-shared-cache saves the origin-revalidate roundtrip; CMS edits are live within 60s.
 const PUBLIC_PAGE_CACHE = { kind: "revalidate", maxAgeSeconds: 60 } as const;
 
 // QN-Konstante als dokumentierter Public-Contract — der Render-Pfad ruft

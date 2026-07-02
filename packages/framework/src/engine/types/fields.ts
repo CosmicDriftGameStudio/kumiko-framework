@@ -524,7 +524,9 @@ export function isFileField(field: FieldDefinition | undefined): field is AnyFil
 // --- Derived (computed) fields ---
 //
 // A derived field is read-time only: its value is computed from the stored row
-// (and the clock) when a list/detail query runs, never persisted. It lives in
+// (and the clock) when an entityList query runs (676/2 — NOT detail; only the
+// "list" case in entity-handlers.ts calls augmentDerivedFields), never
+// persisted. It lives in
 // `EntityDefinition.derivedFields` — deliberately NOT in `fields`, so it
 // produces no DB column, never enters a write schema, and can't be the target
 // of an entityEdit. A declarative `entityList` can name it like any column and

@@ -90,7 +90,10 @@ export function createApiRoutes(dispatcher: Dispatcher) {
       }
       return c.json(result);
     } catch (e) {
-      return writeErrorResponse(c, toKumiko(e));
+      // 615/1: pass the batch's command types, not undefined — a single
+      // "type" doesn't apply to a batch, but logging none loses the fault
+      // context entirely.
+      return writeErrorResponse(c, toKumiko(e), body.commands?.map((cmd) => cmd.type).join(","));
     }
   });
 

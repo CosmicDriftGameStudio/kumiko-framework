@@ -41,10 +41,17 @@ export const deleteTagPayloadSchema = z.object({
 export type DeleteTagPayload = z.infer<typeof deleteTagPayloadSchema>;
 
 // assign + remove share the (tag, entity) reference shape.
+// entityType/entityId are app-supplied, unlike tagId (always a real tag's
+// UUID) — tagAssignmentAggregateId joins all four with "|" to derive the
+// stream id, so a literal "|" in either could shift tuple boundaries and
+// collide with an unrelated (tenant, tag, entity) combination (456/3).
+// Rejecting it here is cheaper and non-breaking compared to changing the
+// derivation's separator, which would re-key every existing stream.
+const NO_PIPE = /^[^|]*$/;
 const entityTagRef = {
   tagId: z.string().min(1).max(64),
-  entityType: z.string().min(1).max(64),
-  entityId: z.string().min(1).max(128),
+  entityType: z.string().min(1).max(64).regex(NO_PIPE, 'entityType must not contain "|"'),
+  entityId: z.string().min(1).max(128).regex(NO_PIPE, 'entityId must not contain "|"'),
 } as const;
 
 export const assignTagPayloadSchema = z.object(entityTagRef);

@@ -135,7 +135,7 @@ export const setCustomFieldHandler: WriteHandlerDef = {
       aggregateType: payload.entityName,
       type: customFieldsFeature.exports.setEvent.name,
       payload: sensitive
-        ? { fieldKey: payload.fieldKey }
+        ? { fieldKey: payload.fieldKey, _sensitive: true as const }
         : { fieldKey: payload.fieldKey, value: payload.value },
     });
 

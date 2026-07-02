@@ -76,6 +76,10 @@ describe("ProfileScreen", () => {
     expect(view.getByTestId("profile-email")).toBeTruthy();
     expect(view.getByTestId("profile-password")).toBeTruthy();
     expect(view.getByTestId("profile-danger")).toBeTruthy();
+    // 607/4: page heading is <h1> (Heading variant="page") — the danger-zone
+    // title must be <h2>, not Card's default <h3>, so the levels don't skip.
+    expect(view.getByTestId("profile-danger").querySelector("h2")).not.toBeNull();
+    expect(view.getByTestId("profile-danger").querySelector("h3")).toBeNull();
     expect(view.getByTestId("profile-email-current").textContent).toContain("marc@example.com");
     expect(view.getByTestId("profile-danger-delete")).toBeTruthy();
     // Echte i18n: kein einziger roher Key im sichtbaren Text.

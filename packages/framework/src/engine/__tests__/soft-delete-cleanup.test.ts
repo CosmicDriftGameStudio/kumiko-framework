@@ -31,6 +31,9 @@ describe("registry soft-delete auto-wiring", () => {
     const key = registry.getConfigKey(SOFT_DELETE_GRACE_DAYS_KEY);
     expect(key?.type).toBe("number");
     expect(key?.default).toBe(DEFAULT_GRACE_DAYS);
+    // 565/2: min must be 1, not 0 — graceDays: 0 means "hard-delete every
+    // currently soft-deleted row on the next cron run", not "no cleanup".
+    expect(key?.bounds?.min).toBe(1);
   });
 
   test("also injects the system-scope cleanup job (not perTenant)", () => {

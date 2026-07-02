@@ -48,9 +48,12 @@
   "scripts": {
     "kumiko": "bun run bin/kumiko.ts",
     "test": "bun test --dots",
+    "test:dom-isolated": "bun test --config=bunfig.ci-dom.toml ./packages/bundled-features/src/user-data-rights/web/__tests__/deletion-screens.test.tsx && bun test --config=bunfig.ci-dom.toml ./packages/bundled-features/src/user-data-rights/web/__tests__/privacy-center-screen.test.tsx",
     "test:run": "bun test --dots",
     "test:verbose": "bun test",
     "test:integration": "bun scripts/run-integration-tests.ts",
+    "test:integration:perf:flaky": "KUMIKO_PERF_GATE=1 bun test --dots --config=bunfig.integration.toml packages/framework/src/pipeline/__tests__/perf-rebuild.integration.test.ts",
+    "test:integration:perf:strict": "KUMIKO_PERF_GATE=1 bun test --dots --config=bunfig.integration.toml packages/framework/src/event-store/__tests__/perf.integration.test.ts packages/framework/src/event-store/__tests__/get-stream-version-perf.integration.test.ts packages/framework/src/engine/__tests__/pipeline-performance.integration.test.ts",
     "test:integration:perf": "KUMIKO_PERF_GATE=1 bun scripts/run-integration-tests.ts --perf",
     "typecheck": "tsc --build",
     "build:apps": "bun run scripts/build-apps.ts",

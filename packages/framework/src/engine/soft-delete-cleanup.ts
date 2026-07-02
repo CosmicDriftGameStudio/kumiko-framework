@@ -29,7 +29,11 @@ export const softDeleteGraceDaysConfig: ConfigKeyDefinition = {
   default: DEFAULT_GRACE_DAYS,
   scope: "tenant",
   access: { read: ["TenantAdmin", "SystemAdmin"], write: ["SystemAdmin"] },
-  bounds: { min: 0 },
+  // min: 1, not 0 (565/2) — graceDays: 0 doesn't mean "no cleanup", it means
+  // "hard-delete every currently soft-deleted row on the next cron run".
+  // Clamping (not rejecting) keeps the resolve-config-or-param clamp path's
+  // existing silent-below-bound / audited-crossing behavior.
+  bounds: { min: 1 },
 };
 
 export const softDeleteCleanupJob: JobHandlerFn = async (_payload, ctx) => {
@@ -56,7 +60,7 @@ export const softDeleteCleanupJob: JobHandlerFn = async (_payload, ctx) => {
         db,
       )
     : undefined;
-  const graceDays = typeof resolved === "number" && resolved >= 0 ? resolved : DEFAULT_GRACE_DAYS;
+  const graceDays = typeof resolved === "number" && resolved >= 1 ? resolved : DEFAULT_GRACE_DAYS;
   const cutoff = Temporal.Now.instant().subtract({ hours: graceDays * 24 });
 
   for (const proj of registry.getAllProjections().values()) {

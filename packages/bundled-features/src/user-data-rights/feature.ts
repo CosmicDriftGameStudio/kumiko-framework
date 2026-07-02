@@ -249,9 +249,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     r.queryHandler(myAuditLogQuery);
     r.queryHandler(listDownloadAttemptsQuery);
 
-    // Read-only operator inspector over the GDPR read-models (SystemAdmin).
-    // Convention list/detail handlers so entityList/entityEdit resolve by QN;
-    // the screens stay inert until an app navs them (opt-in at wire time).
+    // Read-only GDPR operator inspector (SystemAdmin) — screens stay inert until an app navs them.
     r.queryHandler(exportJobListQuery);
     r.queryHandler(exportJobDetailQuery);
     r.queryHandler(downloadAttemptListQuery);

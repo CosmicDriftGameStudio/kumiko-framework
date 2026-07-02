@@ -247,7 +247,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     [screen, entity, snapshot.values, translate, featureName],
   );
 
-  const hasEditableField = hasEditableSection(vm.sections);
+  // isFormEditable, not "hasEditableField" (653/2) — true for an extension
+  // section with no fields of its own too (it carries its own dirty/save).
+  const isFormEditable = hasEditableSection(vm.sections);
 
   // Persistiert alle composed Extension-Sections mit der aufgelösten entityId.
   // false = eine Section schlug fehl (ihr i18n-Key landet im Banner). Ohne
@@ -355,7 +357,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           {translate("kumiko.actions.cancel")}
         </Button>
       )}
-      {hasEditableField && (
+      {isFormEditable && (
         <Button
           type="submit"
           disabled={(snapshot.isUnchanged && !extensionDirty) || isSubmitting}

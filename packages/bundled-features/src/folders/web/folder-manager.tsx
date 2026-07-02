@@ -47,9 +47,7 @@ export type FolderLeaf = {
   readonly label: string;
   readonly trailing?: ReactNode;
   readonly onOpen?: () => void;
-  // Overrides filing.entityType for this leaf — lets one filing tree hold leaves
-  // of mixed entity types (e.g. credits + Bausparverträge), each filed/cleared
-  // under its own type. Omit for single-type trees.
+  // Overrides filing.entityType (mixed-entity-type trees); omit for single-type trees.
   readonly entityType?: string;
 };
 

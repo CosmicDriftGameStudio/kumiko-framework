@@ -94,7 +94,7 @@ export function createConfirmSchedulePeriodHandler(
       }
 
       const amount = payload.amount ?? Number(schedule["amount"]);
-      return transactionExecutor.create(
+      const created = await transactionExecutor.create(
         {
           id: generateId(),
           date: payload.date ?? `${payload.period}-01`,
@@ -109,6 +109,14 @@ export function createConfirmSchedulePeriodHandler(
         event.user,
         ctx.db,
       );
+      // Same shape as the idempotent-path return above (684/6) — a caller
+      // shouldn't have to check "does alreadyBooked exist" to know which
+      // branch fired.
+      if (!created.isSuccess) return created;
+      return {
+        isSuccess: true,
+        data: { ...created.data, alreadyBooked: false as const },
+      };
     },
   };
 }

@@ -138,21 +138,34 @@ export type FileProviderResolverDeps = {
 // SYSTEM identity: provider construction is an infra read, distinct from the
 // request user's authorization which stays at the route accessGuard.
 export function makeFileProviderResolver(deps: FileProviderResolverDeps): FileProviderResolver {
-  return async (tenantId) => {
-    if (!deps.registry || !deps._configAccessorFactory || !deps.db) {
-      throw new Error(
-        "makeFileProviderResolver: registry/_configAccessorFactory/db missing — " +
-          "mount the config + file-foundation features and wire context.db",
+  // Per-tenant cache (698/2) — without it, every resolveProvider(tenantId)
+  // call re-reads config + secrets from the DB, even though the provider is
+  // effectively static per tenant for the process lifetime. A rejected
+  // promise is evicted so a transient failure (or a secret genuinely not
+  // configured yet) doesn't permanently poison this tenant's entry.
+  const cache = new Map<string, Promise<FileStorageProvider>>();
+  return (tenantId) => {
+    const cached = cache.get(tenantId);
+    if (cached) return cached;
+    const built = (async () => {
+      if (!deps.registry || !deps._configAccessorFactory || !deps.db) {
+        throw new Error(
+          "makeFileProviderResolver: registry/_configAccessorFactory/db missing — " +
+            "mount the config + file-foundation features and wire context.db",
+        );
+      }
+      const config = deps._configAccessorFactory({
+        user: { id: SYSTEM_USER_ID, tenantId },
+        db: deps.db,
+        secrets: deps.secrets,
+      });
+      return createFileProviderForTenant(
+        { config, registry: deps.registry, secrets: deps.secrets, _userId: SYSTEM_USER_ID },
+        tenantId,
       );
-    }
-    const config = deps._configAccessorFactory({
-      user: { id: SYSTEM_USER_ID, tenantId },
-      db: deps.db,
-      secrets: deps.secrets,
-    });
-    return createFileProviderForTenant(
-      { config, registry: deps.registry, secrets: deps.secrets, _userId: SYSTEM_USER_ID },
-      tenantId,
-    );
+    })();
+    built.catch(() => cache.delete(tenantId));
+    cache.set(tenantId, built);
+    return built;
   };
 }

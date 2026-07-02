@@ -306,6 +306,18 @@ export async function rebuildProjection(
           while ((await drainBatch(tx)) === REBUILD_BATCH_SIZE) {
             // re-replay the full log into the fresh shadow
           }
+          // 656/2: drainBatch increments eventsProcessed for every drained row
+          // regardless of quarantine (skipApplyErrors), so this must hold
+          // exactly under the fence — a mismatch means drainBatch silently
+          // dropped a row instead of counting it, which the rest of this
+          // function has no other way to detect.
+          if (eventsProcessed < Number(expectedEvents)) {
+            throw new Error(
+              `projection-rebuild "${projectionName}": fenced re-replay processed ` +
+                `${eventsProcessed} events but ${expectedEvents} were expected — drainBatch ` +
+                "silently dropped rows instead of counting them.",
+            );
+          }
         }
       }
 

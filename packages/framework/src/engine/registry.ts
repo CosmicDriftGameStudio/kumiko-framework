@@ -7,6 +7,7 @@ import {
 import { asEntityTableMeta } from "../db/query";
 import { buildEntityTable } from "../db/table-builder";
 import { buildMetricName, validateMetricName } from "../observability";
+import { validateExtensionPreSaveWiring } from "./boot-validator/entity-handler";
 import { type QnType, qualifyEntityName } from "./qualified-name";
 import {
   buildSoftDeleteCleanupJob,
@@ -1051,26 +1052,11 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     }
   }
 
-  // Extension preSave: useExtension on an entity must have at least one mapped write handler.
-  const extensionsWithPreSave = new Set<string>();
-  for (const f of features) {
-    for (const [extName, def] of Object.entries(f.registrarExtensions ?? {})) {
-      if (def.hooks?.preSave) extensionsWithPreSave.add(extName);
-    }
-  }
-  for (const usage of extensionUsages) {
-    if (!extensionsWithPreSave.has(usage.extensionName)) continue;
-    const hasMapped = [...writeHandlerMap.keys()].some(
-      (qn) => handlerEntityMap.get(qn) === usage.entityName,
-    );
-    if (!hasMapped) {
-      throw new Error(
-        `Feature "${usage.featureName}" uses extension "${usage.extensionName}" with preSave on entity "${usage.entityName}" ` +
-          `but no write handler is entity-mapped to "${usage.entityName}". ` +
-          `Use create/update/delete on a matching entity or name the handler "entity:verb".`,
-      );
-    }
-  }
+  // Extension preSave: useExtension on an entity must have at least one mapped
+  // write handler. Shared with validateBoot's standalone callers (437/2) —
+  // schema-cli's `validate` runs validateBoot on raw FEATURES without ever
+  // building a Registry, so this can't live only here.
+  validateExtensionPreSaveWiring(features);
 
   // Validate: all relation targets must reference existing entities
   for (const [entityName, rels] of relationMap) {

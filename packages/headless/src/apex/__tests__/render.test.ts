@@ -153,7 +153,11 @@ describe("renderApexPage", () => {
       }),
     );
     expect(twoCols).toContain("--footer-cols:2");
-    expect(renderApexPage(page())).toContain("--footer-cols:0");
+    // 502/2: --footer-cols:0 makes grid-template-columns's repeat(0, 1fr)
+    // invalid CSS — the browser drops the whole declaration. Clamped to a
+    // minimum of 1 so a footer with no columns still gets a valid grid.
+    expect(renderApexPage(page())).toContain("--footer-cols:1");
+    expect(renderApexPage(page())).not.toContain("--footer-cols:0");
   });
 
   test("renders every section kind without throwing or leaking undefined", () => {

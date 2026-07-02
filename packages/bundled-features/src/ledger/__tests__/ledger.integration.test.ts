@@ -371,8 +371,8 @@ describe("ledger integration — confirm-schedule-period (recurring)", () => {
     scheduleId: string,
     period: string,
     amount?: number,
-  ): Promise<{ id: string }> {
-    return stack.http.writeOk<{ id: string }>(
+  ): Promise<{ id: string; alreadyBooked: boolean }> {
+    return stack.http.writeOk<{ id: string; alreadyBooked: boolean }>(
       LedgerHandlers.confirmSchedulePeriod,
       amount === undefined ? { scheduleId, period } : { scheduleId, period, amount },
       admin,
@@ -384,7 +384,10 @@ describe("ledger integration — confirm-schedule-period (recurring)", () => {
     const rent = await createAccount("Mieterträge", "income");
     const scheduleId = await createSchedule(bank, rent);
 
-    await confirm(scheduleId, "2026-01");
+    const fresh = await confirm(scheduleId, "2026-01");
+    // 684/6: fresh bookings carry alreadyBooked: false, same shape as the
+    // idempotent-path response — no "does the field even exist" check needed.
+    expect(fresh.alreadyBooked).toBe(false);
 
     const rows = await listTransactions();
     expect(rows).toHaveLength(1);
@@ -405,6 +408,8 @@ describe("ledger integration — confirm-schedule-period (recurring)", () => {
     const second = await confirm(scheduleId, "2026-01");
 
     expect(second.id).toBe(first.id);
+    expect(first.alreadyBooked).toBe(false);
+    expect(second.alreadyBooked).toBe(true);
     expect(await listTransactions()).toHaveLength(1);
   });
 

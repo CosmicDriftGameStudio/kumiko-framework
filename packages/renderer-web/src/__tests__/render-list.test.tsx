@@ -1,4 +1,4 @@
-import { describe, expect, mock, spyOn, test } from "bun:test";
+import { afterEach, describe, expect, mock, spyOn, test } from "bun:test";
 import type {
   EntityDefinition,
   EntityListScreenDefinition,
@@ -188,13 +188,21 @@ describe("RenderList — slots.header", () => {
   });
 
   test("slots.header gesetzt, aber Component nicht registriert → kein Crash, kein Header", () => {
-    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    spyOn(console, "warn").mockImplementation(() => {});
     render(
       <ExtensionSectionsProvider value={{}}>
         <RenderList screen={screenWithHeader} entity={taskEntity} rows={[]} featureName="tasks" />
       </ExtensionSectionsProvider>,
     );
     expect(screen.queryByTestId("list-header-slot")).toBeNull();
-    warn.mockRestore();
   });
+});
+
+// 573/1: a mid-test assertion throw would skip the trailing warn.mockRestore()
+// above, leaking the spy into every later test — this backstop restores
+// unconditionally regardless of how the test exited.
+afterEach(() => {
+  // biome-ignore lint/suspicious/noConsole: reading the spy handle to restore it, not logging
+  const warn = console.warn as unknown as { mockRestore?: () => void };
+  warn.mockRestore?.();
 });

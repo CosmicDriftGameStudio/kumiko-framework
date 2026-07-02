@@ -6,7 +6,6 @@ export {
   validateAppCustomScreenWriteQns,
   validateBoot,
 } from "./boot-validator";
-export { validateExtensionPreSaveWiring } from "./boot-validator/entity-handler";
 export { type BuildAppSchemaOptions, buildAppSchema } from "./build-app-schema";
 export type { ConfigFeatureSchema } from "./build-config-feature-schema";
 export {

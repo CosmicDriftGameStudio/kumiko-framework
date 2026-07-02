@@ -107,10 +107,22 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
 
     // skip: sensitive fields self-project in the write handler (see
     // set-custom-field) and persist a value-less event so PII never enters
-    // the log. Such events arrive here with value === undefined — skipping
-    // is correct both live (the handler already wrote the row) and on replay
-    // (the value is intentionally gone, the accepted rebuild-loss).
-    if (payload.value === undefined) return;
+    // the log. Skipping is correct both live (the handler already wrote the
+    // row) and on replay (the value is intentionally gone, the accepted
+    // rebuild-loss). `value === undefined` stays the actual branch condition
+    // (historical events predate `_sensitive`) — the warning below is a
+    // canary (527/1): a NEW event missing both means something emitted a
+    // value-less customField.set outside the sensitive-field path.
+    if (payload.value === undefined) {
+      if (payload._sensitive !== true) {
+        // biome-ignore lint/suspicious/noConsole: boot-adjacent correctness canary, no logger available in an apply function
+        console.warn(
+          `[custom-fields] customField.set for "${payload.fieldKey}" on ${event.aggregateType}/${event.aggregateId} has no value and no _sensitive marker — skipping, but this event didn't come from the known sensitive-field path.`,
+        );
+      }
+      // skip: value-less set, handled above (warned if unexpectedly so)
+      return;
+    }
 
     // jsonb_set: setze key auf value. Wenn key noch nicht existiert →
     // wird angelegt (create_missing=true ist default). value muss als

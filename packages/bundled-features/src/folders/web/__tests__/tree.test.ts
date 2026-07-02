@@ -55,4 +55,12 @@ describe("folderPath", () => {
   test("unknown id → empty string", () => {
     expect(folderPath(rows, "nope")).toBe("");
   });
+
+  // 658/4: a parentId cycle must terminate at the row-count cap, not loop
+  // forever or run one iteration past it.
+  test("a parentId cycle terminates instead of looping forever", () => {
+    const cyclic = [f("x", "X", "y"), f("y", "Y", "x")];
+    expect(() => folderPath(cyclic, "x")).not.toThrow();
+    expect(folderPath(cyclic, "x").split(" / ")).toHaveLength(cyclic.length);
+  });
 });

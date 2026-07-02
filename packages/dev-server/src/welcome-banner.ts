@@ -37,10 +37,7 @@ export function renderWelcomeBanner(input: WelcomeBannerInput): string {
   return [top, ...padded, bottom].join("\n");
 }
 
-// Plain monospace-cell width — counts each codepoint as one cell. Good
-// enough for ASCII + the small set of arrows/checkmarks used above; if a
-// real wide-char ever lands in the banner the row alignment will drift,
-// caught visually by the snapshot test.
+// ponytail: codepoint width; ok for ASCII + arrows, add a width-lib if CJK ever lands here.
 function stringWidth(s: string): number {
   return [...s].length;
 }
