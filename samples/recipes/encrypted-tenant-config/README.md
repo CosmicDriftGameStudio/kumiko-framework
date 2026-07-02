@@ -19,7 +19,7 @@ createTenantConfig("text", {
 
 The config resolver decrypts on the `ctx.config(handle)` call using
 the `EncryptionProvider` from `extraContext.configEncryption`. Anyone
-without the master key (= the `CONFIG_ENCRYPTION_KEY` env) only sees
+without the master key (= the `KUMIKO_SECRETS_MASTER_KEY_V<n>` env) only sees
 base64 AES ciphertext in the DB.
 
 The `mask` entry is all the UI needs: `buildConfigFeatureSchema` derives
@@ -42,7 +42,7 @@ i18n key of the field label, `mask.order` its position.
 | Pattern | Scope | Use case |
 |---|---|---|
 | **`r.secret`** (envelope encryption, KEK rotation) | App-global | Platform-owned secrets (e.g. the master Stripe key that bills ALL customers). |
-| **`encrypted: true` config key** (this recipe) | Per-tenant | Customer-owned secrets. Customer sets, rotates, and never sees another customer's. |
+| **`encrypted: true` config key** (this recipe) | Per-tenant | Customer-owned secrets. Customer sets, rotates, and never sees another customer's. Same envelope encryption + KEK keyring under the hood. |
 
 Combinable: the platform uses `r.secret` for its internal secrets,
 and in parallel customers have their tenant-owned `encrypted: true`
@@ -50,27 +50,30 @@ config keys.
 
 ## Boot wiring
 
+None. `runProdApp` / `runDevApp` wire the envelope cipher automatically as
+soon as a master key is present in the environment:
+
+```bash illustration
+KUMIKO_SECRETS_MASTER_KEY_V1=$(openssl rand -base64 32)
+```
+
+That single key drives `encrypted: true` config keys, `r.secret`, and
+encrypted entity fields — one keyring, one rotation story. Only tests or
+custom boots pass their own cipher:
+
 ```ts illustration
 import { createConfigResolver } from "@cosmicdrift/kumiko-bundled-features/config";
-import { createEncryptionProvider } from "@cosmicdrift/kumiko-framework/db";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
 
-const encryption = createEncryptionProvider(process.env.CONFIG_ENCRYPTION_KEY);
-const configResolver = createConfigResolver({ encryption });
-
-await runProdApp({
-  extraContext: ({ registry }) => ({
-    configResolver,
-    configEncryption: encryption,  // ← required for encrypted keys
-    _configAccessorFactory: createConfigAccessorFactory(registry, configResolver),
-  }),
-  // ...
-});
+const cipher = createTestEnvelopeCipher();
+const configResolver = createConfigResolver({ cipher });
+// extraContext: { configResolver, configEncryption: cipher, ... }
 ```
 
 ## Flow
 
 1. Tenant admin sets `stripe-api-key` via `config:write:set` (scope tenant).
-2. DB row holds AES ciphertext only — backups and `SELECT` leak nothing.
+2. DB row holds a JSON envelope (AES-GCM ciphertext + wrapped DEK + `kekVersion`) — backups and `SELECT` leak nothing.
 3. `config:query:values` returns `••••••` for the encrypted key in the UI.
 4. Domain handler calls `ctx.config(handle)` → decrypted value in-process.
 5. Tenant B cannot charge with Tenant A's key — per-tenant config row isolation.
@@ -95,11 +98,28 @@ Proves:
 - Tenant A's key does not leak to Tenant B
 - `mask` derives the `configEdit` screen without hand-written `r.screen`
 
+## Key rotation
+
+Config values carry their `kekVersion`, so rotation is operational, not
+cryptographic surgery:
+
+1. Add `KUMIKO_SECRETS_MASTER_KEY_V2` to the environment (old key stays).
+2. Set `KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION=2` — new writes use V2,
+   old rows still decrypt via the keyring.
+3. Trigger the manual `config:reencrypt` job — it re-encrypts every
+   encrypted config row onto the current version (and migrates any
+   pre-envelope legacy rows). Idempotent, chunked, circuit-breaker on
+   repeated failures.
+4. Only after the job reports `failed: 0` remove V1 from the environment.
+
+The same job doubles as the migration path away from the deprecated
+single-key `CONFIG_ENCRYPTION_KEY` format: keep the old env var as the
+decrypt fallback until the job has run once, then delete it.
+
 ## What's not in this recipe
 
-- **Key rotation:** the `CONFIG_ENCRYPTION_KEY` is app-global, rotation requires decrypt-old + encrypt-new per entry. Non-trivial. If you need it: `samples/recipes/secrets-demo` shows envelope encryption with KEK rotation for app-global secrets.
 - **Audit trail:** secrets-demo tracks every secret read as an event. Not here — config keys are meant as "settings" (read frequent, audit overkill).
-- **Backup encryption:** `CONFIG_ENCRYPTION_KEY` must be backed up alongside every backup, otherwise the DB is worthless after restore. Operator's job.
+- **Backup encryption:** the `KUMIKO_SECRETS_MASTER_KEY_V<n>` keyring must be backed up alongside every backup, otherwise the DB is worthless after restore. Operator's job.
 
 ## Related samples
 
