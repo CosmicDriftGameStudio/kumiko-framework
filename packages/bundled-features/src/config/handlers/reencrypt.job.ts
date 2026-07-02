@@ -25,10 +25,7 @@ import {
 import type { JobHandlerFn, SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { type EnvelopeCipher, isStoredEnvelope } from "@cosmicdrift/kumiko-framework/secrets";
-import {
-  type ChunkedMigrationStopReason,
-  runChunkedMigration,
-} from "../../shared";
+import { type ChunkedMigrationStopReason, runChunkedMigration } from "../../shared";
 import { configValueEntity, configValuesTable } from "../table";
 
 const DEFAULT_MAX_FAILURES = 10;

@@ -11,7 +11,6 @@ import {
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
 import { buildConfigFeatureSchema, createRegistry } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
@@ -20,6 +19,7 @@ import {
   testTenantId,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
 import { billingFeature, stripeApiKeyHandle } from "../feature";
 
 const TENANT_A = testTenantId(1);

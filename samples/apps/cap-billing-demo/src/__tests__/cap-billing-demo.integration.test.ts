@@ -30,8 +30,7 @@ import {
   tenantSecretsTable,
 } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { createTenantFeature, tenantEntity } from "@cosmicdrift/kumiko-bundled-features/tenant";
-import { type DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createEntityExecutor } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
@@ -45,6 +44,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import {
   createMutableMasterKeyProvider,
+  createTestEnvelopeCipher,
   type MutableMasterKeyProvider,
   resetTestTables,
 } from "@cosmicdrift/kumiko-framework/testing";

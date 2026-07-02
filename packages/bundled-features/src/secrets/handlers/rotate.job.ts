@@ -31,10 +31,7 @@ import {
   encodeStoredEnvelope,
   rewrapDek,
 } from "@cosmicdrift/kumiko-framework/secrets";
-import {
-  type ChunkedMigrationStopReason,
-  runChunkedMigration,
-} from "../../shared";
+import { type ChunkedMigrationStopReason, runChunkedMigration } from "../../shared";
 import { type StoredEnvelope, tenantSecretEntity, tenantSecretsTable } from "../table";
 
 const DEFAULT_BATCH_SIZE = 100;
