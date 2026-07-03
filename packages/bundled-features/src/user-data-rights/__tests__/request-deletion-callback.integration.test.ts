@@ -24,7 +24,7 @@ import {
   tenantComplianceProfileTable,
 } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
-import { createSessionsFeature } from "../../sessions";
+import { createSessionsFeature, userSessionEntity } from "../../sessions";
 import { USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserFeature } from "../../user/feature";
 import { createUserDataRightsFeature } from "../feature";
@@ -70,6 +70,7 @@ beforeAll(async () => {
     ],
   });
   await unsafeCreateEntityTable(stack.db, userEntity);
+  await unsafeCreateEntityTable(stack.db, userSessionEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await createEventsTable(stack.db);
 });

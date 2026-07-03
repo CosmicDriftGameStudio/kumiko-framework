@@ -26,7 +26,7 @@ import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../..
 import { createFilesFeature } from "../../files";
 import { mailFoundationFeature } from "../../mail-foundation";
 import { clearInbox, getInbox, mailTransportInMemoryFeature } from "../../mail-transport-inmemory";
-import { createSessionsFeature } from "../../sessions";
+import { createSessionsFeature, userSessionEntity } from "../../sessions";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults";
 import { createUserDataRightsFeature } from "../feature";
@@ -67,6 +67,7 @@ beforeAll(async () => {
 
   await unsafePushTables(stack.db, { configValuesTable });
   await unsafeCreateEntityTable(stack.db, userEntity);
+  await unsafeCreateEntityTable(stack.db, userSessionEntity);
   await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
   await asRawClient(stack.db).unsafe(`
     CREATE TABLE IF NOT EXISTS read_tenant_memberships (

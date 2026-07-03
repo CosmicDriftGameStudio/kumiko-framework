@@ -23,7 +23,7 @@ export {
 } from "./handlers/readiness.query";
 export type { AppConfigOverrides, ConfigResolver } from "./resolver";
 export { buildEnvConfigOverrides, createConfigResolver, validateAppOverrides } from "./resolver";
-export { configValuesTable } from "./table";
+export { configValueEntity, configValuesTable } from "./table";
 
 // Boot helper for runDevApp / runProdApp: pulls every ConfigSeedDef from
 // the registry and writes the matching system/tenant/user rows via the

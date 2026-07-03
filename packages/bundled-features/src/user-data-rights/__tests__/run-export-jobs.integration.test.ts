@@ -38,7 +38,7 @@ import {
   tenantComplianceProfileTable,
 } from "../../compliance-profiles";
 import { createDataRetentionFeature } from "../../data-retention";
-import { createSessionsFeature } from "../../sessions";
+import { createSessionsFeature, userSessionEntity } from "../../sessions";
 import { tenantMembershipsTable } from "../../tenant";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserDataRightsFeature } from "../feature";
@@ -68,6 +68,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, exportDownloadTokenEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(stack.db, userEntity);
+  await unsafeCreateEntityTable(stack.db, userSessionEntity);
   await createEventsTable(stack.db);
   // tenant-membership-table fuer runUserExport's Cross-Tenant-Iteration.
   // Pattern matched user-data-rights-defaults integration-test.

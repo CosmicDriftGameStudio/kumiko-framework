@@ -15,7 +15,11 @@ export {
   type RateLimitConfig,
 } from "./delivery-service";
 export { createDeliveryFeature } from "./feature";
-export { deliveryAttemptsTable, notificationPreferencesTable } from "./tables";
+export {
+  deliveryAttemptsTable,
+  notificationPreferenceEntity,
+  notificationPreferencesTable,
+} from "./tables";
 export { type CreateDeliveryTestContextOptions, createDeliveryTestContext } from "./testing";
 export type {
   ChannelContext,
