@@ -1,5 +1,20 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.117.0
+
+### Minor Changes
+
+- 03809b9: personal-access-tokens: add `toggleable` option so the whole feature can be tier-gated via the tier-engine (mirrors ledger/tags). Pass `{ toggleable: { default: false } }` for fail-closed gating — PAT is then off until a tier lists `"personal-access-tokens"` in its features. Omitting the option keeps PAT always-on (no behaviour change for existing consumers).
+
+### Patch Changes
+
+- Updated dependencies [e5bae38]
+  - @cosmicdrift/kumiko-framework@0.117.0
+  - @cosmicdrift/kumiko-headless@0.117.0
+  - @cosmicdrift/kumiko-renderer@0.117.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.117.0
+  - @cosmicdrift/kumiko-renderer-web@0.117.0
+
 ## 0.116.1
 
 ### Patch Changes
