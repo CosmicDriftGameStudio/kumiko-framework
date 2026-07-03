@@ -78,8 +78,6 @@ import {
   type SseBroker,
 } from "@cosmicdrift/kumiko-framework/api";
 import {
-  collectLookupableFields,
-  collectPiiSubjectFields,
   configureBlindIndexKey,
   configurePiiSubjectKms,
   type KmsAdapter,
@@ -140,6 +138,7 @@ import { ASSETS_DIR } from "./build-prod-bundle";
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features";
 import { type ExtraRoutesSystemDeps, makeDispatchSystemWrite } from "./extra-routes-deps";
 import { injectSchema } from "./inject-schema";
+import { assertPiiBootInvariants } from "./pii-boot-gate";
 import {
   type ProdSessionsConfig,
   type ProdSessionsOption,
@@ -497,6 +496,13 @@ export type RunProdAppOptions = {
    *  deklariert — sonst bricht jeder Equality-Lookup auf Ciphertext
    *  (Login by email!) und der Boot failt hart. */
   readonly blindIndexKey?: string;
+  /** Explizites Opt-out aus dem harten PII-Boot-Gate: Features deklarieren
+   *  pii/userOwned/tenantOwned-Felder, aber es ist (noch) kein `kms`
+   *  provisioniert — die Felder liegen dann als KLARTEXT in Rows und
+   *  Events und DSGVO-Erasure via Crypto-Shredding ist unmöglich. Der Wert
+   *  ist eine Begründung für den Audit-Trail (z.B. "kms rollout pending,
+   *  infra#188"). Ohne Flag und ohne `kms` bricht der Boot ab. */
+  readonly allowPlaintextPii?: string;
   /** Deploy-Topologie. Default `true` (Single-Container): dieser Prozess
    *  fährt HTTP + BEIDE Job-Lanes (api + worker) + den Event-Dispatcher
    *  (MSP-Anwendung) inline — via `createAllInOneEntrypoint`. Damit laufen
@@ -850,6 +856,12 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   validateBoot(features);
   warnIfNonUtcServerTimeZone();
   validateAppCustomScreenWriteQns(process.cwd(), collectWriteHandlerQns(features));
+  assertPiiBootInvariants(features, {
+    kms: options.kms,
+    blindIndexKey: options.blindIndexKey,
+    allowPlaintextPii: options.allowPlaintextPii,
+    mode: "prod",
+  });
   const registry = createRegistry(features);
 
   // C1 boot-mode exit: validators ran + registry built; no DB/Redis client
@@ -966,29 +978,6 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // jeder Equality-Lookup (Login by email!) liefe ins Leere. Fail-fast statt
   // silent-broken-auth.
   configureBlindIndexKey(options.blindIndexKey);
-  const lookupableEntities = features.flatMap((feature) =>
-    Object.entries(feature.entities ?? {})
-      .filter(([, entity]) => collectLookupableFields(entity).length > 0)
-      .map(([name]) => name),
-  );
-  if (options.kms && !options.blindIndexKey && lookupableEntities.length > 0) {
-    throw new Error(
-      `[runProdApp] BOOT ABORTED — entities [${lookupableEntities.join(", ")}] declare lookupable fields and a KMS is configured, but no blindIndexKey was passed. Equality lookups on encrypted fields would silently stop matching. Pass runProdApp({ blindIndexKey }) (env: KUMIKO_BLIND_INDEX_KEY, generate: openssl rand -base64 32).`,
-    );
-  }
-  if (!options.kms) {
-    const piiEntities = features.flatMap((feature) =>
-      Object.entries(feature.entities ?? {})
-        .filter(([, entity]) => collectPiiSubjectFields(entity).length > 0)
-        .map(([name]) => name),
-    );
-    if (piiEntities.length > 0) {
-      // biome-ignore lint/suspicious/noConsole: boot-time security warning
-      console.warn(
-        `[runProdApp] ${piiEntities.length} entities carry pii/userOwned/tenantOwned annotations but no \`kms\` adapter is configured — these fields are stored in PLAINTEXT. Pass runProdApp({ kms }) to enable crypto-shredding.`,
-      );
-    }
-  }
   const autoExtraContext = buildBootExtraContext({
     db,
     features,

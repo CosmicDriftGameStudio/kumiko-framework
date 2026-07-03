@@ -37,6 +37,11 @@ import {
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import type { PatResolver, SessionMetadata } from "@cosmicdrift/kumiko-framework/api";
 import { createInMemoryLoginRateLimiter } from "@cosmicdrift/kumiko-framework/api";
+import {
+  configureBlindIndexKey,
+  configurePiiSubjectKms,
+  type KmsAdapter,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import {
   collectWriteHandlerQns,
@@ -56,7 +61,6 @@ import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";
 import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { applyBootSeeds } from "./boot/apply-boot-seeds";
 import { resolveBootCrypto } from "./boot/boot-crypto";
-
 import { watchAndRegenerate } from "./codegen";
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features";
 import {
@@ -64,6 +68,7 @@ import {
   createKumikoServer,
   type KumikoServerHandle,
 } from "./create-kumiko-server";
+import { assertPiiBootInvariants } from "./pii-boot-gate";
 import { renderWelcomeBanner } from "./welcome-banner";
 
 // Re-export der shared Auth-Setup-Types damit Apps nur einen Import-Pfad
@@ -187,6 +192,16 @@ export type RunDevAppOptions = {
    *  `createEnvMasterKeyProvider`. Override für KMS-Backends. Nur relevant
    *  wenn das secrets-Feature gemountet ist. Symmetrisch zu runProdApp. */
   readonly masterKey?: MasterKeyProvider;
+  /** Subject-Key-KMS für pii-annotierte Felder (Crypto-Shredding) — dev-
+   *  Pendant zu runProdApp({ kms }). Ephemere DB: InMemoryKmsAdapter reicht.
+   *  Persistente Dev-DB: createPgKmsAdapter gegen dieselbe DB, sonst sind
+   *  alte Rows nach dem Restart unlesbar (DEKs weg). Ohne Adapter: Klartext
+   *  + Boot-Warnung. */
+  readonly kms?: KmsAdapter;
+  /** 32-Byte-Key (base64) für Blind-Index-HMACs — Pflicht sobald `kms`
+   *  gesetzt ist und lookupable-Felder gemountet sind (sonst Boot-Abbruch,
+   *  symmetrisch zu runProdApp). */
+  readonly blindIndexKey?: string;
   /** Env-Quelle für die ENV→config-app-override-Brücke (Keys mit `env:`
    *  bekommen ihren env-Wert als app-override-Default — symmetrisch zu
    *  runProdApp). Default `process.env`. Injizierbar als Test-Seam, damit
@@ -326,6 +341,16 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // App-wide cipher for `encrypted: true` entity fields (symmetrisch zu
   // runProdApp) — executors resolve it lazily.
   configureEntityFieldEncryption(bootCrypto.entityFieldCipher);
+  // Subject-KMS + Blind-Index (symmetrisch zu runProdApp). Dev warnt bei
+  // Klartext-PII statt zu failen; kms+lookupable ohne blindIndexKey bricht
+  // auch hier (Lookups wären in jedem Modus kaputt).
+  configurePiiSubjectKms(options.kms);
+  configureBlindIndexKey(options.blindIndexKey);
+  assertPiiBootInvariants(features, {
+    kms: options.kms,
+    blindIndexKey: options.blindIndexKey,
+    mode: "dev",
+  });
   const cfgExtra = effectiveAuth
     ? mergeConfigResolverDefault(
         options.extraContext,
