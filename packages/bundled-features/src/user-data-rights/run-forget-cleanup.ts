@@ -33,6 +33,7 @@
 // retried automatisch).
 
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { configuredPiiSubjectKms, type KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import {
   EXT_USER_DATA,
@@ -102,6 +103,15 @@ export interface RunForgetCleanupArgs {
   ) => Promise<UserDataStorageProvider | undefined>;
 
   /**
+   * KMS for crypto-shredding: erases the per-user subject key after the
+   * delete-hooks, inside the per-user sub-tx, right before the status flip.
+   * Defaults to the boot-configured adapter (configurePiiSubjectKms);
+   * explicit arg is the test seam. Omitted + none configured → plaintext
+   * deployment, nothing to shred.
+   */
+  readonly kms?: KmsAdapter;
+
+  /**
    * App-level tenant-occupancy model (resolved from the `tenantModel` config by
    * the cron/handler). The pipeline refines it PER TENANT with a sole-member
    * check before handing `tenantModel` to each delete-hook, so tenant-scoped
@@ -144,6 +154,7 @@ export async function runForgetCleanup(
   args: RunForgetCleanupArgs,
 ): Promise<RunForgetCleanupResult> {
   const { db, registry, now, sendDeletionExecutedEmail, buildStorageProvider } = args;
+  const kms = args.kms ?? configuredPiiSubjectKms();
   const appTenantModel: TenantUserModel = args.tenantModel ?? "multi-user";
 
   // Step 1: Find users with expired grace period.
@@ -188,6 +199,7 @@ export async function runForgetCleanup(
       hookEntries,
       buildStorageProvider,
       appTenantModel,
+      kms,
     });
     hookCallsAttempted += userResult.hookCallsAttempted;
     errors.push(...userResult.errors);
@@ -248,8 +260,9 @@ async function processUser(args: {
   hookEntries: readonly HookEntry[];
   buildStorageProvider?: (tenantId: TenantId) => Promise<UserDataStorageProvider | undefined>;
   appTenantModel: TenantUserModel;
+  kms?: KmsAdapter;
 }): Promise<ProcessUserResult> {
-  const { db, registry, userId, hookEntries, buildStorageProvider, appTenantModel } = args;
+  const { db, registry, userId, hookEntries, buildStorageProvider, appTenantModel, kms } = args;
   const errors: ForgetCleanupError[] = [];
   let hookCallsAttempted = 0;
 
@@ -326,6 +339,25 @@ async function processUser(args: {
             strategy,
           );
         }
+      }
+
+      // Crypto-shredding: erase the user's subject key AFTER the hooks and
+      // BEFORE the status flip. The KMS is not a tx participant, so ordering
+      // is what makes this crash-safe: eraseKey-throw → tx rollback → user
+      // stays DeletionRequested → next run retries; flip-throw after a
+      // successful erase → retry re-runs the idempotent hooks and eraseKey
+      // (contractually a no-op on an erased/unknown subject). Erasing after
+      // the flip instead would risk a permanent silent miss: user already
+      // Deleted, no run ever picks him up again, key stays live.
+      if (kms) {
+        await kms.eraseKey(
+          { kind: "user", userId },
+          {
+            requestId: "user-data-rights:run-forget-cleanup",
+            userId,
+            eraseReason: "user-data-rights:forget",
+          },
+        );
       }
 
       // Status-Flip in derselben Sub-Tx. Falls einer der Hooks oben

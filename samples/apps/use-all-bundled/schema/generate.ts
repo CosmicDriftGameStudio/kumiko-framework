@@ -212,6 +212,11 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "@cosmicdrift/kumiko-bundled-features/audit",
     factory: "createAuditFeature",
   },
+  "crypto-shredding": {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-bundled-features/crypto-shredding",
+    factory: "createCryptoShreddingFeature",
+  },
   "custom-fields": {
     kind: "named",
     path: "@cosmicdrift/kumiko-bundled-features/custom-fields",

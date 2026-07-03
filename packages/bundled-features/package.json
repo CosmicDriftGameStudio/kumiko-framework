@@ -21,6 +21,7 @@
     "./audit": "./src/audit/index.ts",
     "./compliance-profiles": "./src/compliance-profiles/index.ts",
     "./config": "./src/config/index.ts",
+    "./crypto-shredding": "./src/crypto-shredding/index.ts",
     "./config/web": "./src/config/web/index.ts",
     "./data-retention": "./src/data-retention/index.ts",
     "./readiness": "./src/readiness/index.ts",

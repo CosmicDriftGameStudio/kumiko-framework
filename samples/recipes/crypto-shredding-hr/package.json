@@ -1,0 +1,8 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-crypto-shredding-hr",
+  "description": "Crypto-shredding: PII fields encrypted per subject key; forgetting the subject erases the key and every field it protected.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  }
+}

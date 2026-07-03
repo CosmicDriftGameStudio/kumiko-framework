@@ -555,6 +555,31 @@ describe("event-store-executor — entity cache + encrypted fields", () => {
     const second = await cachedEncryptedCrud.detail({ id }, adminUser, tdb);
     expect(second?.["secretNote"]).toBe("cache-plaintext-note");
   });
+
+  // Regression twin pack for the list() path:
+  //   1. list decrypted BEFORE the snake→camel coercion, so any multi-word
+  //      encrypted/pii field (secret_note vs secretNote) came back as raw
+  //      ciphertext to the caller.
+  //   2. list's mset cached the decrypted rows — plaintext in Redis, the
+  //      exact leak the detail() path re-encrypts to avoid.
+  test("list() returns plaintext for camelCase encrypted fields and caches ciphertext", async () => {
+    const created = await cachedEncryptedCrud.create(
+      { email: "cache-list@test.de", secretNote: "list-plaintext-note" },
+      adminUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+    const storeKey = `${adminUser.tenantId}:esExecEncrypted:${created.data.id}`;
+    store.clear();
+
+    const list = await cachedEncryptedCrud.list({}, adminUser, tdb);
+    const listed = list.rows.find((r) => r["id"] === created.data.id);
+    expect(listed?.["secretNote"]).toBe("list-plaintext-note");
+
+    const cachedRaw = store.get(storeKey);
+    expect(cachedRaw?.["secretNote"]).toBeDefined();
+    expect(cachedRaw?.["secretNote"]).not.toBe("list-plaintext-note");
+  });
 });
 
 // PII subject encryption (crypto-shredding, #724 phase C): pii/userOwned/

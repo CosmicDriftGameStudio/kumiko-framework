@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled)",
-  "featureCount": 46,
+  "featureCount": 47,
   "features": [
     {
       "name": "audit",
@@ -243,6 +243,26 @@
         "displayLabel": "Tenant Config Store",
         "category": "infrastructure",
         "recommended": true
+      }
+    },
+    {
+      "name": "crypto-shredding",
+      "description": "Operator-level crypto-shredding trigger. `forget-subject` erases a user or tenant subject key in the configured KMS adapter, making every PII field encrypted under it permanently unreadable (reads render the `[[erased]]` sentinel), and appends a `subject-forgotten` audit event. Requires a KMS adapter (`runProdApp({ kms })`). The automated Art.-17 deletion pipeline in `user-data-rights` erases keys itself; this command covers manual forgets (authority requests, operator recovery, tenant destroy).",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "crypto-shredding:write:forget-subject"
+      ],
+      "uiHints": {
+        "displayLabel": "Crypto-Shredding",
+        "category": "compliance"
       }
     },
     {
