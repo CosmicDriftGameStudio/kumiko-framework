@@ -22,6 +22,12 @@ import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { IndentationText, Project, VariableDeclarationKind } from "ts-morph";
 import { composeFeatures } from "./compose-features";
 import { isKebabSegment } from "./kebab";
+import {
+  createDemoTasksFeature,
+  renderDemoSeedFile,
+  renderDemoTasksFeatureFile,
+  renderDemoTasksIndex,
+} from "./scaffold-demo-tasks";
 import { scaffoldDeploy } from "./scaffold-deploy";
 
 // Single bundled-feature entry the scaffolder mounts into run-config.ts.
@@ -94,6 +100,14 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
 
   write(join(destination, "src", "run-config.ts"), renderRunConfig(options.features));
   files.push("src/run-config.ts");
+
+  mkdirSync(join(destination, "src", "features", "tasks"), { recursive: true });
+  write(join(destination, "src", "features", "tasks", "feature.ts"), renderDemoTasksFeatureFile());
+  files.push("src/features/tasks/feature.ts");
+  write(join(destination, "src", "features", "tasks", "index.ts"), renderDemoTasksIndex());
+  files.push("src/features/tasks/index.ts");
+  write(join(destination, "src", "seed.ts"), renderDemoSeedFile());
+  files.push("src/seed.ts");
 
   write(join(destination, "kumiko", "schema.ts"), renderKumikoSchema());
   files.push("kumiko/schema.ts");
@@ -345,15 +359,19 @@ function renderRunConfig(features?: ReadonlyArray<ScaffoldFeatureEntry>): string
   for (const [importPath, namedImports] of grouped) {
     sf.addImportDeclaration({ moduleSpecifier: importPath, namedImports });
   }
+  sf.addImportDeclaration({
+    moduleSpecifier: "./features/tasks",
+    namedImports: ["tasksFeature"],
+  });
 
-  const callList = effective.map((f) => f.callExpression).join(", ");
+  const callExprs = [...effective.map((f) => f.callExpression), "tasksFeature"];
   sf.addVariableStatement({
     declarationKind: VariableDeclarationKind.Const,
     isExported: true,
     declarations: [
       {
         name: "APP_FEATURES",
-        initializer: `[${callList}] as const`,
+        initializer: `[${callExprs.join(", ")}] as const`,
       },
     ],
   });
@@ -504,6 +522,10 @@ function renderDev(appName: string): string {
     moduleSpecifier: "../src/run-config",
     namedImports: ["APP_FEATURES"],
   });
+  sf.addImportDeclaration({
+    moduleSpecifier: "../src/seed",
+    namedImports: ["seedDemoTasks"],
+  });
 
   sf.addVariableStatement({
     declarationKind: VariableDeclarationKind.Const,
@@ -522,6 +544,7 @@ function renderDev(appName: string): string {
         writer.writeLine("features: APP_FEATURES,");
         writer.writeLine("welcomeBanner: true,");
         writer.writeLine(`clientEntry: "./src/client.tsx",`);
+        writer.writeLine("seeds: [seedDemoTasks],");
         writer.write("auth: ").inlineBlock(() => {
           writer.write("admin: ").inlineBlock(() => {
             writer.writeLine(`email: "admin@${appName}.local",`);
@@ -647,33 +670,36 @@ function renderReadme(
 ): string {
   const featureList =
     features && features.length > 0
-      ? features.map((f) => `- \`${f.name}\``).join("\n")
-      : "- `secrets` (foundation)\n- `sessions` (foundation)";
+      ? [...features.map((f) => `- \`${f.name}\``), "- `tasks` (demo — list + edit screens)"].join(
+          "\n",
+        )
+      : "- `secrets` (foundation)\n- `sessions` (foundation)\n- `tasks` (demo — list + edit screens)";
   return `# ${appName}
 
-Scaffolded by \`bun create kumiko-app\`. Boots out-of-the-box with the picked
-feature stack mounted. Add features by editing \`src/run-config.ts\` or via
-\`bunx @cosmicdrift/kumiko-cli add feature <name>\`.
+Scaffolded by \`kumiko new app\`. Includes a demo **tasks** feature with list +
+edit screens, sidebar nav, and seeded rows — \`bun dev\` shows a working admin UI
+after login. Add more features via \`bunx @cosmicdrift/kumiko-cli add feature <name>\`.
 
 ## Mounted features
 
 ${featureList}
 
-Edit \`src/run-config.ts\` to add or remove.
+Edit \`src/run-config.ts\` to add bundled features. The demo lives in
+\`src/features/tasks/\`.
 
-## First run
+## First run (browser)
 
 \`\`\`sh
 bun install
 cp .env.example .env
-# edit .env — set JWT_SECRET + KUMIKO_SECRETS_MASTER_KEY_V1, point DATABASE_URL/REDIS_URL at a real PG+Redis
-docker compose up -d   # if you don't have PG+Redis running already
+# set JWT_SECRET + KUMIKO_SECRETS_MASTER_KEY_V1 in .env
+docker compose up -d   # local Postgres + Redis (skip if you already have them)
 bun dev
 \`\`\`
 
-The dev-server prints a welcome banner with the URL + admin login when ready.
-Edits to \`src/features/**\` trigger a process restart (\`bun --watch\`); new
-\`r.entity(...)\` calls auto-create tables on reboot — no manual migration.
+The welcome banner prints the URL (default \`http://localhost:4173\`) and admin
+login. Sign in as \`admin@${appName}.local\` / \`changeme\`, then open **Tasks**
+in the sidebar — demo rows are pre-seeded.
 
 ## Boot-only smoke (no DB needed)
 
@@ -706,6 +732,8 @@ deploys. Build context = app repo root; migrations ship in \`kumiko/migrations/\
 ## Architecture
 
 - \`src/run-config.ts\` — single source of truth: which features your app mounts (\`APP_FEATURES\`, \`HAS_AUTH\`).
+- \`src/features/tasks/\` — demo feature (entity + handlers + screens + nav).
+- \`src/seed.ts\` — dev seed for demo tasks (\`bun dev\` only).
 - \`kumiko/schema.ts\` — same feature set → \`ENTITY_METAS\` for \`kumiko schema\`.
 - \`bin/dev.ts\` — dev-server entry (\`bun dev\`).
 - \`bin/main.ts\` — production-bootstrap (\`bun run start\`).
@@ -796,6 +824,7 @@ async function instantiateScaffoldFeatures(
       instances.push(exp as FeatureDefinition);
     }
   }
+  instances.push(createDemoTasksFeature());
   return instances;
 }
 
