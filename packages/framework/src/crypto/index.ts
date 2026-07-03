@@ -39,6 +39,7 @@ export {
   type EncryptPiiOptions,
   encryptPiiFieldValues,
   isPiiCiphertext,
+  PII_CIPHERTEXT_PREFIX,
   PII_ERASED_SENTINEL,
   resetPiiSubjectKmsForTests,
 } from "./pii-field-encryption";

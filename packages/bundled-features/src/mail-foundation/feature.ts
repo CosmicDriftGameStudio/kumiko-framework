@@ -31,7 +31,10 @@
 // `channel-email` (App-wide-Mail-Sender via delivery) bleibt unangetastet
 // — additive Feature.
 
-import type { EmailTransport } from "@cosmicdrift/kumiko-bundled-features/channel-email";
+import {
+  type EmailTransport,
+  withPiiCiphertextGuard,
+} from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import { requireDefined } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
 import {
   access,
@@ -216,5 +219,5 @@ export async function createTransportForTenant(
         `extension options must be a MailTransportPlugin.`,
     );
   }
-  return usage.options.build(ctx, tenantId);
+  return withPiiCiphertextGuard(await usage.options.build(ctx, tenantId));
 }

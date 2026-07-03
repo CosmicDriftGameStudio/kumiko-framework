@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { InMemoryKmsAdapter, PII_ERASED_SENTINEL } from "../../crypto";
 import { asRawClient } from "../../db/query";
 import { createBooleanField, createEntity, createTextField } from "../../engine";
-import { append, createEventsTable } from "../../event-store";
+import { append, createEventsTable, loadEventsAfterVersion } from "../../event-store";
 import type { EntityCache } from "../../pipeline/entity-cache";
 import {
   createTestDb,
@@ -684,10 +684,18 @@ describe("event-store-executor — pii subject encryption", () => {
     await kms.eraseKey({ kind: "user", userId: String(created.data.id) });
 
     // Same code path rebuildProjection replays: applyEntityEvent on the
-    // STORED event — no KMS involved, the payload is already ciphertext.
+    // PERSISTED event (ciphertext payload). The response echo carries the
+    // plaintext payload since #820 and must not be used as a replay source.
+    const responseEvent = created.data.event as { payload: Record<string, unknown> } | undefined;
+    expect(responseEvent?.payload["email"]).toBe("rebuild@test.de");
     await asRawClient(testDb.db).unsafe(`TRUNCATE read_es_exec_pii RESTART IDENTITY CASCADE`);
-    const storedEvent = created.data.event;
-    if (!storedEvent) throw new Error("create returned no event");
+    const [storedEvent] = await loadEventsAfterVersion(
+      testDb.db,
+      String(created.data.id),
+      adminUser.tenantId,
+      0,
+    );
+    if (!storedEvent) throw new Error("no persisted event for the aggregate");
     const applied = await applyEntityEvent(storedEvent, piiTable, piiEntity, tdb.raw);
     expect(applied.kind).toBe("applied");
 

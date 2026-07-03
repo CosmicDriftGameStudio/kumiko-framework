@@ -26,7 +26,7 @@ import { resolveSubjectForField } from "./subject-resolver";
 // Spec value (crypto-shredding.md) — renderers show it verbatim.
 export const PII_ERASED_SENTINEL = "[[erased]]";
 
-const PII_CIPHERTEXT_PREFIX = "kumiko-pii:v1:";
+export const PII_CIPHERTEXT_PREFIX = "kumiko-pii:v1:";
 const IV_LENGTH = 12;
 const AUTH_TAG_LENGTH = 16;
 
