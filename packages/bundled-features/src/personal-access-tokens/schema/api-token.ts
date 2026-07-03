@@ -29,7 +29,12 @@ export const apiTokenEntity = createEntity({
       maxLength: 36,
       access: { write: access.privileged },
     }),
-    name: createTextField({ required: true, maxLength: 120, access: { write: access.privileged } }),
+    name: createTextField({
+      required: true,
+      maxLength: 120,
+      access: { write: access.privileged },
+      pii: true,
+    }),
     tokenHash: createTextField({
       required: true,
       maxLength: 64,

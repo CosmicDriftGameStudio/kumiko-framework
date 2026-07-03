@@ -56,10 +56,12 @@ export const userSessionEntity = createEntity({
     ip: createTextField({
       maxLength: 64,
       access: { write: access.privileged },
+      pii: true,
     }),
     userAgent: createTextField({
       maxLength: 512,
       access: { write: access.privileged },
+      pii: true,
     }),
   },
 });
