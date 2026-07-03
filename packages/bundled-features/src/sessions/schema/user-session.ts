@@ -53,15 +53,17 @@ export const userSessionEntity = createEntity({
     revokedAt: createTimestampField({
       access: { write: access.privileged },
     }),
+    // Subject is the session's user, not the session row — a user-forget
+    // must shred these, so the key hangs off userId (sid-self would orphan).
     ip: createTextField({
       maxLength: 64,
       access: { write: access.privileged },
-      pii: true,
+      userOwned: { ownerField: "userId" },
     }),
     userAgent: createTextField({
       maxLength: 512,
       access: { write: access.privileged },
-      pii: true,
+      userOwned: { ownerField: "userId" },
     }),
   },
 });

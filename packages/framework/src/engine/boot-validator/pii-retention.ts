@@ -78,21 +78,28 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
             `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" references userOwned.ownerField "${ownerName}" but no such field exists. Known fields: ${known}`,
           );
         }
-        if (ownerField.type !== "reference") {
+        // Text is accepted alongside reference: the ES-framework carries
+        // user ids as plain text columns throughout the bundled features
+        // (user-session.userId, invitation.invitedBy) — there is no
+        // relational FK to point a reference at. Self-referencing
+        // ownerField (the field's own value IS the owner id) rides on this.
+        if (ownerField.type !== "reference" && ownerField.type !== "text") {
           throw new Error(
-            `[Feature ${feature.name}] userOwned.ownerField "${ownerName}" on entity "${entityName}" must be a reference field, got type "${ownerField.type}"`,
+            `[Feature ${feature.name}] userOwned.ownerField "${ownerName}" on entity "${entityName}" must be a reference or text (userId) field, got type "${ownerField.type}"`,
           );
         }
         // Soft-Warning wenn das reference-target nicht offensichtlich user
         // ist — custom subject-entities (HR-Mitarbeiter, Patient) sind
         // erlaubt, müssen aber bewusste Wahl sein.
-        const refTarget = ownerField.entity;
-        const targetEntity = refTarget.includes(":") ? refTarget.split(":")[1] : refTarget;
-        if (targetEntity !== "user") {
-          // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
-          console.warn(
-            `[kumiko:boot] [Feature ${feature.name}] userOwned.ownerField "${ownerName}" on entity "${entityName}" targets reference "${refTarget}" — typically should be a user reference. If intentional (custom subject-entity like employee/patient), ignore.`,
-          );
+        if (ownerField.type === "reference") {
+          const refTarget = ownerField.entity;
+          const targetEntity = refTarget.includes(":") ? refTarget.split(":")[1] : refTarget;
+          if (targetEntity !== "user") {
+            // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
+            console.warn(
+              `[kumiko:boot] [Feature ${feature.name}] userOwned.ownerField "${ownerName}" on entity "${entityName}" targets reference "${refTarget}" — typically should be a user reference. If intentional (custom subject-entity like employee/patient), ignore.`,
+            );
+          }
         }
       }
 

@@ -1,4 +1,12 @@
 import { requestContext } from "../api/request-context";
+import {
+  collectPiiSubjectFields,
+  configuredPiiSubjectKms,
+  decryptPiiFieldValues,
+  encryptPiiFieldValues,
+  type KmsContext,
+  type LocalKeyKmsAdapter,
+} from "../crypto";
 import { executeRawQuery } from "../db/queries/raw-sql";
 import type { WhereObject } from "../db/query";
 import { coerceRow, extractTableInfo, selectMany } from "../db/query";
@@ -121,6 +129,8 @@ export type EventStoreExecutorOptions = {
   entityCache?: EntityCache;
   /** Override the boot-injected cipher for fields marked `encrypted: true`. */
   encryption?: EnvelopeCipher;
+  /** Override the boot-injected subject KMS for pii-annotated fields. */
+  kms?: LocalKeyKmsAdapter;
 };
 
 // F8 helper: PG-23505 (unique-violation) catched aus applyEntityEvent
@@ -307,9 +317,26 @@ export function createEventStoreExecutor(
   const encryptedFields = collectEncryptedFieldNames(entity);
   const hasEncryptedFields = encryptedFields.size > 0;
 
+  const piiSubjectFields = collectPiiSubjectFields(entity);
+  const hasPiiFields = piiSubjectFields.length > 0;
+
   function fieldCipher(): EnvelopeCipher {
     if (options.encryption) return options.encryption;
     return resolveEntityFieldEncryption();
+  }
+
+  // No adapter configured = crypto-shredding off; pii fields stay plaintext
+  // (pre-#724 behavior). The hard boot gate ships with the prod-grade
+  // PgKmsAdapter (phase E).
+  function piiKms(): LocalKeyKmsAdapter | undefined {
+    return options.kms ?? configuredPiiSubjectKms();
+  }
+
+  function kmsContextFor(user?: SessionUser): KmsContext {
+    return {
+      requestId: requestContext.get()?.requestId ?? "event-store-executor",
+      ...(user && { tenantId: user.tenantId, userId: String(user.id) }),
+    };
   }
 
   // Async on purpose: the envelope cipher wraps/unwraps DEKs via the
@@ -318,17 +345,36 @@ export function createEventStoreExecutor(
   // types turn into a compile error at every call site.
   async function encryptForStorage(
     row: Record<string, unknown>,
-    onlyKeys?: Iterable<string>,
+    user: SessionUser,
+    opts?: { onlyKeys?: Iterable<string>; subjectSource?: Record<string, unknown> },
   ): Promise<Record<string, unknown>> {
-    if (!hasEncryptedFields) return row;
-    return encryptEntityFieldValues(row, encryptedFields, fieldCipher(), {
-      ...(onlyKeys !== undefined && { onlyKeys }),
-    });
+    let out = row;
+    if (hasEncryptedFields) {
+      out = await encryptEntityFieldValues(out, encryptedFields, fieldCipher(), {
+        ...(opts?.onlyKeys !== undefined && { onlyKeys: opts.onlyKeys }),
+      });
+    }
+    const kms = piiKms();
+    if (hasPiiFields && kms) {
+      out = await encryptPiiFieldValues(out, entity, piiSubjectFields, kms, kmsContextFor(user), {
+        tenantId: user.tenantId,
+        ...(opts?.onlyKeys !== undefined && { onlyKeys: opts.onlyKeys }),
+        ...(opts?.subjectSource !== undefined && { subjectSource: opts.subjectSource }),
+      });
+    }
+    return out;
   }
 
   async function decryptForRead(row: Record<string, unknown>): Promise<Record<string, unknown>> {
-    if (!hasEncryptedFields) return row;
-    return decryptEntityFieldValues(row, encryptedFields, fieldCipher());
+    let out = row;
+    if (hasEncryptedFields) {
+      out = await decryptEntityFieldValues(out, encryptedFields, fieldCipher());
+    }
+    const kms = piiKms();
+    if (hasPiiFields && kms) {
+      out = await decryptPiiFieldValues(out, piiSubjectFields, kms, kmsContextFor());
+    }
+    return out;
   }
 
   function applyDefaults(payload: Record<string, unknown>): Record<string, unknown> {
@@ -469,7 +515,12 @@ export function createEventStoreExecutor(
       // Alle Compound-Types (locatedTimestamp, money, ...) gehen durch
       // dieselbe Pipeline. Caller schickt combined API-Form, Framework
       // speichert flat DB-Form. Siehe db/compound-types.ts.
-      const flatData = await encryptForStorage(flattenCompoundTypes(data, entity));
+      // subjectSource carries the freshly minted aggregateId: the create
+      // payload has no id column, but a pii:true self-subject resolves from it.
+      const flatCreateData = flattenCompoundTypes(data, entity);
+      const flatData = await encryptForStorage(flatCreateData, user, {
+        subjectSource: { ...flatCreateData, id: aggregateId },
+      });
 
       // 1. Append event (same TX as the projection write — both must succeed
       //    or both roll back; the dispatcher wraps both in one transaction).
@@ -650,9 +701,12 @@ export function createEventStoreExecutor(
 
       try {
         // Compound-Types Auto-Convert (alle in einem Pass).
+        // subjectSource: partial changes may carry a pii field without its
+        // ownerField — the merged row still names the subject.
         const flatChanges = await encryptForStorage(
           flattenCompoundTypes(payload.changes, entity),
-          Object.keys(payload.changes),
+          user,
+          { onlyKeys: Object.keys(payload.changes), subjectSource: mergedNew },
         );
 
         // The event payload carries BOTH `changes` (what the user asked for) AND
@@ -673,7 +727,7 @@ export function createEventStoreExecutor(
           type: entityEventName(entityName, "updated"),
           payload: {
             changes: stripSensitive(flatChanges),
-            previous: stripSensitive(await encryptForStorage(previous)),
+            previous: stripSensitive(await encryptForStorage(previous, user)),
           },
           metadata: buildEventMetadata(user),
         });
@@ -783,7 +837,7 @@ export function createEventStoreExecutor(
         tenantId: streamTenantFor(user),
         expectedVersion: currentVersion,
         type: entityEventName(entityName, "deleted"),
-        payload: { previous: stripSensitive(await encryptForStorage(existing)) },
+        payload: { previous: stripSensitive(await encryptForStorage(existing, user)) },
         metadata: buildEventMetadata(user),
       });
 
@@ -846,7 +900,9 @@ export function createEventStoreExecutor(
         tenantId: streamTenantFor(user),
         expectedVersion: currentVersion,
         type: entityEventName(entityName, "forgotten"),
-        payload: { previous: stripSensitive(existing) },
+        // Re-encrypt like delete(): `existing` came decrypted from loadById —
+        // plaintext must not land in the immutable log, least of all on forget.
+        payload: { previous: stripSensitive(await encryptForStorage(existing, user)) },
         metadata: buildEventMetadata(user),
       });
 
@@ -1180,7 +1236,7 @@ export function createEventStoreExecutor(
           user.tenantId,
           entityName,
           payload.id,
-          await encryptForStorage(coerced),
+          await encryptForStorage(coerced, user),
         );
       }
 

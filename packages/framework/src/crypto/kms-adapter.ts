@@ -24,6 +24,14 @@ export function subjectIdToKey(subject: SubjectId): SubjectKey {
     : subjectKeyForTenant(subject.tenantId);
 }
 
+export function subjectIdFromKey(key: SubjectKey): SubjectId {
+  if (key.startsWith("user:")) return { kind: "user", userId: key.slice("user:".length) };
+  if (key.startsWith("tenant:")) {
+    return { kind: "tenant", tenantId: key.slice("tenant:".length) as TenantId }; // @cast-boundary parse of a key this module minted
+  }
+  throw new Error(`Invalid subject key: ${key}`);
+}
+
 export interface KmsContext {
   readonly tenantId?: TenantId;
   readonly requestId: string;

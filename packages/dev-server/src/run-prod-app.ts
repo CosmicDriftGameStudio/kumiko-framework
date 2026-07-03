@@ -77,7 +77,11 @@ import {
   createSseBroker,
   type SseBroker,
 } from "@cosmicdrift/kumiko-framework/api";
-import type { KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
+import {
+  collectPiiSubjectFields,
+  configurePiiSubjectKms,
+  type KmsAdapter,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import {
   configureEntityFieldEncryption,
   createDbConnection,
@@ -943,6 +947,24 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // App-wide cipher for `encrypted: true` entity fields — executors resolve
   // it lazily, entities without encrypted fields never touch it.
   configureEntityFieldEncryption(bootCrypto.entityFieldCipher);
+  // Subject-key KMS for pii-annotated fields (crypto-shredding, #724).
+  // No adapter = engine off, plaintext as before — the warning keeps the gap
+  // visible until the prod-grade PgKmsAdapter (phase E) makes a hard boot
+  // gate viable (InMemory in prod would lose every DEK on restart).
+  configurePiiSubjectKms(options.kms);
+  if (!options.kms) {
+    const piiEntities = features.flatMap((feature) =>
+      Object.entries(feature.entities ?? {})
+        .filter(([, entity]) => collectPiiSubjectFields(entity).length > 0)
+        .map(([name]) => name),
+    );
+    if (piiEntities.length > 0) {
+      // biome-ignore lint/suspicious/noConsole: boot-time security warning
+      console.warn(
+        `[runProdApp] ${piiEntities.length} entities carry pii/userOwned/tenantOwned annotations but no \`kms\` adapter is configured — these fields are stored in PLAINTEXT. Pass runProdApp({ kms }) to enable crypto-shredding.`,
+      );
+    }
+  }
   const autoExtraContext = buildBootExtraContext({
     db,
     features,

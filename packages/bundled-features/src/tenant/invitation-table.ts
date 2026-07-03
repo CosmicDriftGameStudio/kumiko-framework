@@ -70,7 +70,8 @@ export const tenantInvitationEntity = createEntity({
       default: "pending",
     }),
     // userId des einladenden Admins (für Audit-Trail "wer hat eingeladen").
-    invitedBy: createTextField({ required: true, pii: true }),
+    // Self-referencing ownerField: the field's own value IS the owner userId.
+    invitedBy: createTextField({ required: true, userOwned: { ownerField: "invitedBy" } }),
     // UI-Anzeige — Wahrheit liegt in Redis-TTL.
     expiresAt: createTimestampField({ required: true }),
   },
