@@ -38,6 +38,9 @@ export {
   createPgKmsAdapter,
   PgKmsAdapter,
   type PgKmsAdapterOptions,
+  type RewrapOptions,
+  type RewrapResult,
+  rewrapSubjectKeys,
 } from "./pg-kms-adapter";
 export {
   configuredPiiSubjectKms,
