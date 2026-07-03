@@ -54,8 +54,23 @@ const SCENARIOS: readonly Scenario[] = [
   { name: "tags-section", flow: admin(`/note-edit/${DEMO_NOTE_ID}`), settleMs: 1000 },
   // legal-pages — öffentliche, server-gerenderte Route (kein Login).
   { name: "legal-pages", url: "/legal/privacy", waitFor: "[data-tenant-content]" },
+  // text-content — same public route; CMS blocks rendered by legal-pages wrapper.
+  { name: "text-content", url: "/legal/privacy", waitFor: "[data-tenant-content]" },
   // personal-access-tokens — logged-in self-service: mint (scope toggles) + list.
   { name: "personal-access-tokens", flow: admin("/api-tokens"), settleMs: 1000 },
+  // custom-fields + folders — drop-in extension sections on the note edit screen.
+  {
+    name: "custom-fields",
+    flow: admin(`/note-edit/${DEMO_NOTE_ID}`),
+    settleMs: 1000,
+    fullPage: true,
+  },
+  {
+    name: "folders",
+    flow: admin(`/note-edit/${DEMO_NOTE_ID}`),
+    settleMs: 1000,
+    fullPage: true,
+  },
 ];
 
 runMatrix(SCENARIOS, { baseDir: BASE_DIR, themes: THEMES, applyTheme, locales: ["en"] });

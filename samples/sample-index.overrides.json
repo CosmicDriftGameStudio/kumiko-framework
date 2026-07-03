@@ -41,12 +41,6 @@
     "sampleBlurb": "Full define → set → read roundtrip on a property entity via wireCustomFieldsFor — tenants add fields without a migration.",
     "screenshot": null
   },
-  "data-retention": {
-    "primarySample": "apps-user-data-rights-demo",
-    "whenToUse": "Compliance profiles require automatic expiry of old rows — data-retention runs scheduled cleanup jobs per tenant profile without hand-rolled cron in your app.",
-    "sampleBlurb": "Retention policy resolution across compliance profiles and scheduled cleanup jobs in the GDPR demo app.",
-    "screenshot": null
-  },
   "delivery": {
     "primarySample": "recipes-delivery-notifications",
     "whenToUse": "You need to notify users across email, in-app, and push from domain handlers without wiring each channel yourself — mount delivery plus the channel features and declare templates.",
@@ -65,17 +59,17 @@
     "sampleBlurb": "In-memory file provider for integration tests — upload, signed URL, and download without external storage.",
     "screenshot": null
   },
-  "file-provider-s3-env": {
-    "primarySample": "apps-user-data-rights-demo",
-    "whenToUse": "Single-bucket S3-compatible deploys (e.g. Hetzner Object Storage) need one shared credential set — file-provider-s3-env reads S3_BUCKET/S3_REGION/S3_ACCESS_KEY/S3_SECRET_KEY from process.env instead of per-tenant config.",
-    "sampleBlurb": "Env-configured S3 file provider — one shared bucket for every tenant, no per-tenant config or secret seeding.",
-    "screenshot": null
-  },
   "files": {
     "primarySample": "apps-user-data-rights-demo",
     "whenToUse": "Domain entities reference uploaded blobs via FileRef — the files feature handles metadata, signed URLs, and provider routing per tenant.",
     "sampleBlurb": "FileRef entities on domain records in the user-data-rights demo — metadata, signed URLs, and GDPR export inclusion.",
     "screenshot": null
+  },
+  "folders": {
+    "primarySample": "recipes-tags-basic",
+    "whenToUse": "Records need a hierarchical folder tree without a custom pivot table per entity — mount folders once and file entities via folder-assignment join rows.",
+    "sampleBlurb": "Drop-in FolderSection on any entity edit screen — assign, move, and clear folder membership without host schema changes.",
+    "screenshot": "/screenshots/features/folders.png"
   },
   "ledger": {
     "primarySample": "recipes-ledger-banking",
@@ -141,7 +135,7 @@
     "primarySample": "recipes-legal-pages",
     "whenToUse": "Marketing copy, help articles, and legal text should be editable per tenant without redeploying — keyed by slug and language.",
     "sampleBlurb": "Keyed marketing and help strings per tenant and language — same recipe as legal-pages shows CMS-light editing.",
-    "screenshot": null
+    "screenshot": "/screenshots/features/text-content.png"
   },
   "tier-engine": {
     "primarySample": "recipes-tier-admin",
@@ -174,3 +168,7 @@
     "screenshot": "/screenshots/features/user-profile.png"
   }
 }
+
+
+
+

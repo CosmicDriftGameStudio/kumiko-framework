@@ -1,9 +1,9 @@
 // @runtime dev
 //
-// Dev-/screenshot-only host entity for the tags feature. A plain `note` knows
-// NOTHING about tags (no column, no awareness) — yet its edit screen hosts the
-// drop-in <TagSection> and its list hosts the drop-in <TagFilter>, proving the
-// "tag any object" promise on a real, bootable screen.
+// Dev-/screenshot-only host entity for the tags, custom-fields, and folders
+// features. A plain `note` knows NOTHING about those bundles (no extra columns
+// for tags/folders) — yet its edit screen hosts the drop-in extension sections,
+// proving the "extend any object" promise on real, bootable screens.
 //
 // Deliberately NOT in src/run-config.ts APP_FEATURES: that set is bundled-only
 // (schema/generate.ts FEATURE_IMPORT_REGISTRY + check-coverage gate it). Like
@@ -12,10 +12,17 @@
 // DB. Nothing here ships to prod / the schema pipeline.
 
 import {
+  customFieldsField,
+  wireCustomFieldsFor,
+} from "@cosmicdrift/kumiko-bundled-features/custom-fields";
+import { CUSTOM_FIELDS_FORM_EXTENSION_NAME } from "@cosmicdrift/kumiko-bundled-features/custom-fields/web";
+import { FOLDER_SECTION_EXTENSION_NAME } from "@cosmicdrift/kumiko-bundled-features/folders";
+import {
   TAGS_COLUMN_RENDERER_NAME,
   TAGS_FILTER_EXTENSION_NAME,
   TAGS_SECTION_EXTENSION_NAME,
 } from "@cosmicdrift/kumiko-bundled-features/tags";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -32,20 +39,20 @@ import {
 
 const ADMIN_ACCESS = { roles: ["TenantAdmin", "SystemAdmin"] } as const;
 
-// A plain entity — no tag column, no tag awareness.
 export const noteEntity = createEntity({
   table: "read_demo_notes",
   fields: {
     title: createTextField({ required: true, maxLength: 200 }),
+    customFields: customFieldsField(),
   },
 });
+
+export const noteTable = buildEntityTable("note", noteEntity);
 
 const noteListScreen: EntityListScreenDefinition = {
   id: "note-list",
   type: "entityList",
   entity: "note",
-  // "tags" is a virtual column (not a note field): the drop-in TagsCell renderer
-  // draws the row's tag chips inline. Reusable on any entityList, zero host schema.
   columns: [
     "title",
     {
@@ -55,8 +62,6 @@ const noteListScreen: EntityListScreenDefinition = {
     },
   ],
   searchable: true,
-  // The drop-in tag filter — narrows THIS list to the notes carrying the picked
-  // tags, via the renderer's id-set url-filter. Zero host-schema change.
   slots: { header: { react: { __component: TAGS_FILTER_EXTENSION_NAME } } },
   rowActions: [
     {
@@ -86,7 +91,16 @@ const noteEditScreen: EntityEditScreenDefinition = {
   layout: {
     sections: [
       { title: "notes-demo:section.note", fields: [{ field: "title", span: 1 }] },
-      // The drop-in tag manager/picker, mounted as an extension section.
+      {
+        kind: "extension",
+        title: "notes-demo:section.customFields",
+        component: { react: { __component: CUSTOM_FIELDS_FORM_EXTENSION_NAME } },
+      },
+      {
+        kind: "extension",
+        title: "notes-demo:section.folder",
+        component: { react: { __component: FOLDER_SECTION_EXTENSION_NAME } },
+      },
       {
         kind: "extension",
         title: "notes-demo:section.tags",
@@ -98,9 +112,22 @@ const noteEditScreen: EntityEditScreenDefinition = {
 };
 
 export const notesFeature: FeatureDefinition = defineFeature("notes-demo", (r) => {
-  r.describe("Dev-only host entity demonstrating tags on a real entityList + entityEdit screen.");
+  r.describe(
+    "Dev-only host entity demonstrating tags, custom-fields, and folders on a real entityEdit screen.",
+  );
   r.requires("tags");
-  r.entity("note", noteEntity);
+  r.requires("custom-fields");
+  r.requires("folders");
+
+  wireCustomFieldsFor(r, "note", noteTable);
+
+  r.entity("note", {
+    table: "read_demo_notes",
+    fields: {
+      title: { type: "text", required: true, maxLength: 200 },
+      customFields: { type: "jsonb" },
+    },
+  });
 
   r.writeHandler(defineEntityCreateHandler("note", noteEntity, { access: ADMIN_ACCESS }));
   r.writeHandler(defineEntityUpdateHandler("note", noteEntity, { access: ADMIN_ACCESS }));

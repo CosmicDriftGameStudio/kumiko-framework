@@ -11,6 +11,8 @@
 // der App (siehe user/screens.ts). use-all-bundled IST diese App.
 
 import { emailPasswordClient } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
+import { customFieldsClient } from "@cosmicdrift/kumiko-bundled-features/custom-fields/web";
+import { foldersClient } from "@cosmicdrift/kumiko-bundled-features/folders/web";
 import { personalAccessTokensClient } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens/web";
 import { tagsClient } from "@cosmicdrift/kumiko-bundled-features/tags/web";
 import { tierEngineClient } from "@cosmicdrift/kumiko-bundled-features/tier-engine/web";
@@ -86,6 +88,8 @@ createKumikoApp({
     userProfileClient(),
     userDataRightsClient(),
     personalAccessTokensClient(),
+    customFieldsClient(),
+    foldersClient(),
     // tag-list management screen (TagManager) + TagSection/TagFilter extension
     // slots + tag i18n. Required for the dev-only notesFeature host to render.
     tagsClient(),
