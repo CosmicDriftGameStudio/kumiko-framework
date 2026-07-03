@@ -1370,7 +1370,9 @@ function DefaultForm({
   // OHNE Trennlinie darunter (Titel fließt in die erste Section). Sections
   // sind divide-y-getrennt (Linien nur ZWISCHEN ihnen). Action-Footer mit
   // bg-muted/30 als Farb-Trenner statt harter Linie. main hat kein Padding;
-  // der max-w-3xl-Body rahmt die Card.
+  // der max-w-3xl-Body rahmt die Card, mx-auto zentriert ihn im Main statt
+  // linksbündig (sonst „eingesperrt" mit leerer rechter Hälfte auf breiten
+  // Screens).
   return (
     <form
       onSubmit={(e) => {
@@ -1380,7 +1382,7 @@ function DefaultForm({
       data-testid={testId}
       className="flex flex-col w-full"
     >
-      <div className="px-6 pt-6 pb-12 max-w-3xl w-full">
+      <div className="px-6 pt-6 pb-12 max-w-3xl w-full mx-auto">
         <div className={cn(cardSurface(), "overflow-hidden")}>
           {(title !== undefined || subtitle !== undefined) && (
             <div className="px-6 pb-2 pt-5">
