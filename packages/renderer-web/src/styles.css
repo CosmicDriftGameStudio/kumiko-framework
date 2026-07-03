@@ -82,6 +82,17 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* Card-Chrome-Maße — Framework-Defaults. Eine App überschreibt selektiv in
+   ihrer eigenen styles.css (@theme oder :root, kommt in der Cascade nach dem
+   @import und gewinnt); nicht-überschriebene bleiben auf diesen Werten.
+   Plain :root (nicht @theme) → immer emittiert, kein Tree-Shaking. Defaults
+   reproduzieren exakt p-6 / rounded-xl / shadow-sm. */
+:root {
+  --card-padding: 1.5rem;
+  --card-radius: var(--radius-xl);
+  --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+}
+
 /* Light-Mode-Overrides — aktiv wenn `<html>` KEINE `.dark` Klasse
    hat. Dark ist der Default (siehe @theme oben); toggled der User
    auf light, greifen diese Werte. */

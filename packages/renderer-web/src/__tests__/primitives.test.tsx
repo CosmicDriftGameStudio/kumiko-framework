@@ -980,7 +980,7 @@ describe("Card", () => {
         <span>body</span>
       </Card>,
     );
-    expect(screen.getByTestId("c").innerHTML).toContain("p-6");
+    expect(screen.getByTestId("c").innerHTML).toContain("p-[var(--card-padding)]");
   });
 
   test("padded=false renders body without padding classes", () => {
