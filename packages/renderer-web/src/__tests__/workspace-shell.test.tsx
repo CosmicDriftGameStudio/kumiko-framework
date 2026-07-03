@@ -329,10 +329,11 @@ describe("WorkspaceShell", () => {
         <div>content</div>
       </WorkspaceShell>,
     );
-    // admin → system + orders, NOT tours
-    expect(screen.getByText("System")).toBeTruthy();
-    expect(screen.getByText("Orders")).toBeTruthy();
-    expect(screen.queryByText("Tours")).toBeNull();
+    // admin → system + orders, NOT tours. getAllByText: die shadcn-Sidebar
+    // rendert Desktop + Mobile-Sheet, jeder Nav-Eintrag kommt also 2× vor.
+    expect(screen.getAllByText("System").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Orders").length).toBeGreaterThan(0);
+    expect(screen.queryAllByText("Tours").length).toBe(0);
   });
 
   test("clicking the dispatch tab swaps the visible nav set", () => {
@@ -346,10 +347,10 @@ describe("WorkspaceShell", () => {
       </WorkspaceShell>,
     );
     fireEvent.click(screen.getByTestId("workspace-tab-dispatch"));
-    // dispatch → orders + tours, NOT system
-    expect(screen.getByText("Orders")).toBeTruthy();
-    expect(screen.getByText("Tours")).toBeTruthy();
-    expect(screen.queryByText("System")).toBeNull();
+    // dispatch → orders + tours, NOT system (getAllByText: Desktop + Mobile-Sheet)
+    expect(screen.getAllByText("Orders").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Tours").length).toBeGreaterThan(0);
+    expect(screen.queryAllByText("System").length).toBe(0);
   });
 
   test("a driver lands on the driver workspace (their only one)", () => {
@@ -365,9 +366,9 @@ describe("WorkspaceShell", () => {
     // Only one workspace → switcher renders nothing, but the nav still
     // shows that workspace's members.
     expect(screen.queryByTestId("workspace-tab-driver")).toBeNull();
-    expect(screen.getByText("Tours")).toBeTruthy();
-    expect(screen.queryByText("System")).toBeNull();
-    expect(screen.queryByText("Orders")).toBeNull();
+    expect(screen.getAllByText("Tours").length).toBeGreaterThan(0);
+    expect(screen.queryAllByText("System").length).toBe(0);
+    expect(screen.queryAllByText("Orders").length).toBe(0);
   });
 
   test("schema without workspaces falls back to plain rendering (all navs visible)", () => {
@@ -710,8 +711,9 @@ describe("WorkspaceShell — AppSchema (multi-feature)", () => {
         <div>content</div>
       </WorkspaceShell>,
     );
-    expect(screen.getByTestId("sidebar-footer")).toBeTruthy();
-    expect(screen.getByTestId("sidebar-footer").textContent).toBe("v1.2.3");
+    const footers = screen.getAllByTestId("sidebar-footer");
+    expect(footers.length).toBeGreaterThan(0);
+    expect(footers[0]?.textContent).toBe("v1.2.3");
   });
 
   test("ohne sidebarFooter-Prop rendert die Sidebar ohne Footer-Slot (default)", () => {
