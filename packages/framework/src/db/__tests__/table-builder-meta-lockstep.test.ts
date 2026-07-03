@@ -109,3 +109,42 @@ describe("lock-step — softDelete + explizite Indexes", () => {
     expect((fromBuilder?.indexes ?? []).length).toBeGreaterThanOrEqual(3);
   });
 });
+
+// Dritte Probe: lookupable-Feld (#818) — bidx-Spalte, bidx-Index und das
+// partielle Unique-Pendant müssen auf beiden Pfaden identisch entstehen.
+const entityWithLookupable = createEntity({
+  table: "read_lockstep_probe_bidx",
+  fields: {
+    email: { type: "text", required: true, pii: true, lookupable: true },
+    tenantSlug: { type: "text", required: true },
+  },
+  indexes: [{ columns: ["tenantSlug", "email"], unique: true }],
+});
+
+describe("lock-step — lookupable / blind-index (#818)", () => {
+  const fromBuilder = asEntityTableMeta(
+    buildEntityTable("lockstepProbeBidx", entityWithLookupable),
+  );
+  const fromMeta = buildEntityTableMeta("lockstepProbeBidx", entityWithLookupable);
+
+  test("identical columns inkl. nullable bidx-Spalte", () => {
+    expect(byName<ColumnMeta>(fromBuilder?.columns ?? [])).toEqual(
+      byName<ColumnMeta>(fromMeta.columns),
+    );
+    const bidx = (fromMeta.columns ?? []).find((c) => c.name === "email_bidx");
+    expect(bidx).toEqual({ name: "email_bidx", pgType: "text", notNull: false });
+  });
+
+  test("identical indexes inkl. bidx-Index + partiellem Unique-Pendant", () => {
+    expect(byName<IndexMeta>(fromBuilder?.indexes ?? [])).toEqual(
+      byName<IndexMeta>(fromMeta.indexes),
+    );
+    const names = fromMeta.indexes.map((i) => i.name);
+    expect(names).toContain("read_lockstep_probe_bidx_email_bidx_idx");
+    const partial = fromMeta.indexes.find((i) => i.name.endsWith("_tenant_slug_email_unique_bidx"));
+    expect(partial).toBeDefined();
+    expect(partial?.unique).toBe(true);
+    expect(partial?.columns).toEqual(["tenant_slug", "email_bidx"]);
+    expect(partial?.whereSql).toBe('"email_bidx" IS NOT NULL');
+  });
+});

@@ -69,7 +69,13 @@ function fieldToColumns(
       const base = text(snakeName);
       const withDefault =
         "default" in field && field.default !== undefined ? base.default(field.default) : base;
-      return { [name]: field.required ? withDefault.notNull() : withDefault };
+      const mainCol = { [name]: field.required ? withDefault.notNull() : withDefault };
+      // lookupable → nullable HMAC-Blind-Index-Spalte (lock-step mit
+      // fieldToColumnMeta in entity-table-meta.ts).
+      if (field.type === "text" && field.lookupable === true) {
+        return { ...mainCol, [`${name}Bidx`]: text(`${snakeName}_bidx`) };
+      }
+      return mainCol;
     }
     case "boolean":
       return {
@@ -272,63 +278,72 @@ type NullCol<_T> = ColumnHandle & { readonly __notNull: false };
 // columns (resolved via FileRef table). `notNull` propagiert von
 // `field.required` (literal preserved by createXField generics).
 type ColumnsForField<K extends string, F extends FieldDefinition> = F extends {
-  type: "text" | "select" | "tz";
+  type: "text";
+  lookupable: true;
 }
-  ? F extends { required: true }
-    ? { readonly [P in K]: Col<string> }
-    : { readonly [P in K]: NullCol<string> }
-  : F extends { type: "boolean" }
-    ? // boolean default OR required → notNull (DB has DEFAULT, structurally never-null)
-      F extends { default: boolean } | { required: true }
-      ? { readonly [P in K]: Col<boolean> }
-      : { readonly [P in K]: NullCol<boolean> }
-    : F extends { type: "multiSelect" }
-      ? // jsonb default `[]`, immer notNull
-        { readonly [P in K]: Col<readonly string[]> }
-      : F extends { type: "number" }
-        ? F extends { required: true }
-          ? { readonly [P in K]: Col<number> }
-          : { readonly [P in K]: NullCol<number> }
-        : F extends { type: "decimal" }
+  ? (F extends { required: true }
+      ? { readonly [P in K]: Col<string> }
+      : { readonly [P in K]: NullCol<string> }) & {
+      readonly [P in `${K}Bidx`]: NullCol<string>;
+    }
+  : F extends {
+        type: "text" | "select" | "tz";
+      }
+    ? F extends { required: true }
+      ? { readonly [P in K]: Col<string> }
+      : { readonly [P in K]: NullCol<string> }
+    : F extends { type: "boolean" }
+      ? // boolean default OR required → notNull (DB has DEFAULT, structurally never-null)
+        F extends { default: boolean } | { required: true }
+        ? { readonly [P in K]: Col<boolean> }
+        : { readonly [P in K]: NullCol<boolean> }
+      : F extends { type: "multiSelect" }
+        ? // jsonb default `[]`, immer notNull
+          { readonly [P in K]: Col<readonly string[]> }
+        : F extends { type: "number" }
           ? F extends { required: true }
             ? { readonly [P in K]: Col<number> }
             : { readonly [P in K]: NullCol<number> }
-          : F extends { type: "money" }
+          : F extends { type: "decimal" }
             ? F extends { required: true }
-              ? { readonly [P in K]: Col<number> } & {
-                  readonly [P in `${K}Currency`]: Col<string>;
-                }
-              : { readonly [P in K]: NullCol<number> } & {
-                  readonly [P in `${K}Currency`]: Col<string>;
-                }
-            : F extends { type: "reference"; multiple: true }
-              ? { readonly [P in K]: Col<readonly string[]> }
-              : F extends { type: "reference" }
-                ? F extends { required: true }
-                  ? { readonly [P in K]: Col<string> }
-                  : { readonly [P in K]: NullCol<string> }
-                : F extends { type: "embedded" }
-                  ? // jsonb default `{}`, immer notNull
-                    { readonly [P in K]: Col<Readonly<Record<string, unknown>>> }
-                  : F extends { type: "date" | "timestamp" }
-                    ? F extends { required: true }
-                      ? { readonly [P in K]: Col<Temporal.Instant> }
-                      : { readonly [P in K]: NullCol<Temporal.Instant> }
-                    : F extends { type: "locatedTimestamp" }
+              ? { readonly [P in K]: Col<number> }
+              : { readonly [P in K]: NullCol<number> }
+            : F extends { type: "money" }
+              ? F extends { required: true }
+                ? { readonly [P in K]: Col<number> } & {
+                    readonly [P in `${K}Currency`]: Col<string>;
+                  }
+                : { readonly [P in K]: NullCol<number> } & {
+                    readonly [P in `${K}Currency`]: Col<string>;
+                  }
+              : F extends { type: "reference"; multiple: true }
+                ? { readonly [P in K]: Col<readonly string[]> }
+                : F extends { type: "reference" }
+                  ? F extends { required: true }
+                    ? { readonly [P in K]: Col<string> }
+                    : { readonly [P in K]: NullCol<string> }
+                  : F extends { type: "embedded" }
+                    ? // jsonb default `{}`, immer notNull
+                      { readonly [P in K]: Col<Readonly<Record<string, unknown>>> }
+                    : F extends { type: "date" | "timestamp" }
                       ? F extends { required: true }
-                        ? { readonly [P in `${K}Utc`]: Col<Temporal.Instant> } & {
-                            readonly [P in `${K}Tz`]: Col<string>;
-                          }
-                        : { readonly [P in `${K}Utc`]: NullCol<Temporal.Instant> } & {
-                            readonly [P in `${K}Tz`]: NullCol<string>;
-                          }
-                      : F extends { type: "file" | "image" }
+                        ? { readonly [P in K]: Col<Temporal.Instant> }
+                        : { readonly [P in K]: NullCol<Temporal.Instant> }
+                      : F extends { type: "locatedTimestamp" }
                         ? F extends { required: true }
-                          ? { readonly [P in K]: Col<string> }
-                          : { readonly [P in K]: NullCol<string> }
-                        : F extends { type: "files" | "images" }
-                          ? Record<never, never>
-                          : never;
+                          ? { readonly [P in `${K}Utc`]: Col<Temporal.Instant> } & {
+                              readonly [P in `${K}Tz`]: Col<string>;
+                            }
+                          : { readonly [P in `${K}Utc`]: NullCol<Temporal.Instant> } & {
+                              readonly [P in `${K}Tz`]: NullCol<string>;
+                            }
+                        : F extends { type: "file" | "image" }
+                          ? F extends { required: true }
+                            ? { readonly [P in K]: Col<string> }
+                            : { readonly [P in K]: NullCol<string> }
+                          : F extends { type: "files" | "images" }
+                            ? Record<never, never>
+                            : never;
 
 type UnionToIntersection<U> = (U extends unknown ? (k: U) => void : never) extends (
   k: infer I,
@@ -526,6 +541,18 @@ export function buildEntityTable<E extends EntityDefinition>(
           ).on(column);
         }
       }
+      // lookupable-Felder: Index auf der bidx-Spalte (lock-step mit
+      // buildEntityTableMeta).
+      const bidxFieldByField = new Map<string, string>();
+      for (const [name, field] of Object.entries(entity.fields)) {
+        if (field.type !== "text" || field.lookupable !== true) continue;
+        bidxFieldByField.set(name, `${name}Bidx`);
+        const column = tHandle[`${name}Bidx`];
+        if (column) {
+          const idxName = `${tableName}_${toSnakeCase(name)}_bidx_idx`;
+          indexes[idxName] = index(idxName).on(column);
+        }
+      }
       // entity.indexes = composite/unique-Indices die der Author explizit
       // deklariert hat. Spalten werden via field-name (camelCase) angesprochen,
       // der Index-Name folgt der Convention <table>_<col1>_<col2>_<unique|idx>
@@ -546,6 +573,26 @@ export function buildEntityTable<E extends EntityDefinition>(
           chain = chain.where(def.where as SqlExpression);
         }
         indexes[indexName] = chain;
+        // Partielles bidx-Pendant für unique-Indices über lookupable-Spalten
+        // (lock-step mit buildEntityTableMeta).
+        if (def.unique === true && def.where === undefined) {
+          const bidxFieldNames = def.columns.map((c) => bidxFieldByField.get(c) ?? c);
+          if (bidxFieldNames.some((c, i) => c !== def.columns[i])) {
+            const bidxCols = bidxFieldNames
+              .map((c) => tHandle[c])
+              .filter((col): col is ColumnHandle => col !== undefined);
+            if (bidxCols.length === bidxFieldNames.length) {
+              const whereText = bidxFieldNames
+                .filter((c, i) => c !== def.columns[i])
+                .map((c) => `"${toSnakeCase(c)}" IS NOT NULL`)
+                .join(" AND ");
+              const partialWhere: SqlExpression = { kind: "sql-expr", text: whereText, params: [] };
+              indexes[`${indexName}_bidx`] = uniqueIndex(`${indexName}_bidx`)
+                .on(...bidxCols)
+                .where(partialWhere);
+            }
+          }
+        }
       }
       return indexes;
     },

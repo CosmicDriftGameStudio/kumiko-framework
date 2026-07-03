@@ -585,3 +585,77 @@ describe("validateBoot — retention", () => {
     expect(matchingWarn).toBeUndefined();
   });
 });
+
+describe("validateBoot — lookupable / blind-index (#818)", () => {
+  test("lookupable on subject-annotated text field passes", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "user",
+        createEntity({
+          fields: {
+            email: createTextField({ pii: true, lookupable: true }),
+          },
+        }),
+      );
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("lookupable without subject annotation throws", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "doc",
+        createEntity({
+          fields: {
+            slug: createTextField({ lookupable: true }),
+          },
+        }),
+      );
+    });
+    expect(() => validateBoot([feature])).toThrow(/lookupable.*without a subject annotation/);
+  });
+
+  test("lookupable on non-text field throws", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "person",
+        createEntity({
+          fields: {
+            // longText carries PiiAnnotations too — lookupable must still be rejected.
+            bio: createLongTextField({ userOwned: { ownerField: "ownerId" }, lookupable: true }),
+            ownerId: createTextField({ required: true }),
+          },
+        }),
+      );
+    });
+    expect(() => validateBoot([feature])).toThrow(/only apply to text fields/);
+  });
+
+  test("searchable combined with a subject annotation throws", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "user",
+        createEntity({
+          fields: {
+            displayName: createTextField({ pii: true, searchable: true }),
+          },
+        }),
+      );
+    });
+    expect(() => validateBoot([feature])).toThrow(/searchable.*cannot work/);
+  });
+
+  test("sortable combined with a subject annotation throws", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "user",
+        createEntity({
+          fields: {
+            email: createTextField({ pii: true, sortable: true }),
+          },
+        }),
+      );
+    });
+    expect(() => validateBoot([feature])).toThrow(/sortable.*cannot work/);
+  });
+});

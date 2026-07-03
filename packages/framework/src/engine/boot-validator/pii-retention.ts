@@ -64,6 +64,35 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
         );
       }
 
+      // lookupable (#818): nur text + nur MIT Subject-Annotation. Ohne
+      // Subject bleibt der Wert eh Klartext — der Blind-Index wäre eine
+      // zweite (deterministische!) Kopie ohne Nutzen.
+      if (annot.lookupable === true) {
+        if (field.type !== "text") {
+          throw new Error(
+            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" declares { lookupable: true } but has type "${field.type}" — blind-index equality lookups only apply to text fields.`,
+          );
+        }
+        if (annotCount === 0) {
+          throw new Error(
+            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" declares { lookupable: true } without a subject annotation (pii / userOwned / tenantOwned). Plaintext fields don't need a blind index — add the subject annotation or drop lookupable.`,
+          );
+        }
+      }
+
+      // Substring-Suche/Sortierung auf Ciphertext ist prinzipbedingt
+      // unmöglich — searchable würde Plaintext-Kopien in den Suchindex
+      // schieben, sortable sortiert Base64-Blobs. Equality → lookupable.
+      if (annotCount > 0) {
+        const flags = field as { readonly searchable?: boolean; readonly sortable?: boolean }; // @cast-boundary schema-walk
+        if (flags.searchable === true || flags.sortable === true) {
+          const offending = flags.searchable === true ? "searchable" : "sortable";
+          throw new Error(
+            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" combines a subject-key annotation with { ${offending}: true } — ${offending} on encrypted fields cannot work (ciphertext at rest). For equality lookups use { lookupable: true }; for search/sort the field must stay plaintext (allowPlaintext).`,
+          );
+        }
+      }
+
       if (annot.userOwned) {
         const ownerName = annot.userOwned.ownerField;
         if (!ownerName || typeof ownerName !== "string") {

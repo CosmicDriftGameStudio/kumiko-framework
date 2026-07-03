@@ -62,6 +62,12 @@ export type PiiAnnotations = {
   readonly tenantOwned?: boolean;
   readonly anonymize?: () => unknown | Promise<unknown>;
   readonly allowPlaintext?: string;
+  /** Equality-Lookups (fetchOne/filter eq) bleiben trotz Verschluesselung
+   *  moeglich: generierte `<snake>_bidx`-Spalte traegt einen HMAC-Blind-
+   *  Index, Query-Compiler matchen `(col = $1 OR col_bidx = $2)`. Nur auf
+   *  text-Feldern MIT Subject-Annotation erlaubt (Boot-Validator).
+   *  Siehe docs/plans/datenschutz/blind-index.md (kumiko-framework#818). */
+  readonly lookupable?: true;
 };
 
 // --- Retention (DSGVO Art. 5(1)(e) + HGB/AO Aufbewahrungspflichten) ---

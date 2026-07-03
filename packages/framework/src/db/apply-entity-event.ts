@@ -49,6 +49,7 @@
 //   - "skipped" → Event ist kein Auto-Verb (Domain-Event auf demselben
 //     Aggregate). Caller no-op.
 
+import { collectLookupableFields, computeBlindIndexValues } from "../crypto/blind-index";
 import { deleteMany, insertOne, updateMany } from "../db/query";
 import type { EntityDefinition } from "../engine/types";
 import { InternalError } from "../errors";
@@ -116,6 +117,11 @@ export async function applyEntityEvent(
       }
       const row = await insertOne<DbRow>(tx, table, {
         ...event.payload,
+        // Blind-Index-Spalten aus dem Payload-Wert (ciphertext → decrypt →
+        // HMAC, plaintext → HMAC, erased → NULL). Hier statt im Executor,
+        // damit Live-Write und Rebuild denselben Wert produzieren und der
+        // deterministische HMAC nie im Event-Log landet.
+        ...(await computeBlindIndexValues(event.payload, collectLookupableFields(entity))),
         tenantId,
         id: event.aggregateId,
         version: event.version,
@@ -142,6 +148,8 @@ export async function applyEntityEvent(
         table,
         {
           ...changes,
+          // bidx nur für die geänderten lookupable-Felder (siehe created).
+          ...(await computeBlindIndexValues(changes, collectLookupableFields(entity))),
           version: event.version,
           modifiedAt: event.createdAt,
           modifiedById: event.createdBy,

@@ -33,8 +33,12 @@
 // retried automatisch).
 
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { configuredPiiSubjectKms, type KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
-import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import {
+  configuredPiiSubjectKms,
+  type KmsAdapter,
+  subjectIdToKey,
+} from "@cosmicdrift/kumiko-framework/crypto";
+import { type DbRunner, nullBlindIndexesForSubject } from "@cosmicdrift/kumiko-framework/db";
 import {
   EXT_USER_DATA,
   EXT_USER_DATA_ORDER,
@@ -357,6 +361,15 @@ async function processUser(args: {
             userId,
             eraseReason: "user-data-rights:forget",
           },
+        );
+        // Blind-Index-Sweep (#818): bidx-Spalten des erased Subjects sofort
+        // nullen — sonst bliebe der deterministische HMAC bis zum nächsten
+        // Rebuild equality-matchbar (Linkage-Fenster). In der Sub-Tx, damit
+        // ein Rollback auch den Sweep zurücknimmt.
+        await nullBlindIndexesForSubject(
+          tx,
+          registry.features,
+          subjectIdToKey({ kind: "user", userId }),
         );
       }
 

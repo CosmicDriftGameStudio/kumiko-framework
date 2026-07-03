@@ -5,6 +5,7 @@ import {
   type SubjectId,
   subjectIdToKey,
 } from "@cosmicdrift/kumiko-framework/crypto";
+import { nullBlindIndexesForSubject } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
@@ -67,6 +68,12 @@ export const forgetSubjectWrite = defineWriteHandler({
       userId: event.user.id,
       eraseReason: event.payload.reason,
     });
+
+    // Blind-Index-Sweep (#818): bidx-Spalten des erased Subjects sofort
+    // nullen — sonst bliebe der deterministische HMAC bis zum nächsten
+    // Rebuild equality-matchbar. Bewusst ctx.db.raw: der Ciphertext-Prefix
+    // adressiert das Subject tenant-übergreifend.
+    await nullBlindIndexesForSubject(ctx.db.raw, ctx.registry.features, subjectKey);
 
     await ctx.unsafeAppendEvent({
       aggregateId: raw.kind === "user" ? raw.userId : raw.tenantId,
