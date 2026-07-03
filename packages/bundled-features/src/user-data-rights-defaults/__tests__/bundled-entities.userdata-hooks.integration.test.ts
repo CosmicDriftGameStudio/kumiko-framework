@@ -25,6 +25,7 @@ import { configValueEntity, createConfigFeature } from "../../config";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createDeliveryFeature, notificationPreferenceEntity } from "../../delivery";
 import { createFilesFeature } from "../../files";
+import { createJobsFeature, jobRunLogsTable, jobRunsTable } from "../../jobs";
 import {
   apiTokenEntity,
   createPersonalAccessTokensFeature,
@@ -41,8 +42,10 @@ import {
   apiTokenExportHook,
   configValueDeleteHook,
   configValueExportHook,
+  deliveryAttemptExportHook,
   inAppMessageDeleteHook,
   inAppMessageExportHook,
+  jobRunExportHook,
   notificationPreferenceDeleteHook,
   notificationPreferenceExportHook,
   tenantInvitationDeleteHook,
@@ -71,6 +74,7 @@ beforeAll(async () => {
       createPersonalAccessTokensFeature({ scopes: PAT_SCOPES }),
       createDeliveryFeature(),
       createChannelInAppFeature(),
+      createJobsFeature(),
       createUserDataRightsFeature(),
       createUserDataRightsDefaultsFeature(),
     ],
@@ -81,7 +85,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(full.db, tenantInvitationEntity);
   await unsafeCreateEntityTable(full.db, notificationPreferenceEntity);
   await unsafeCreateEntityTable(full.db, configValueEntity);
-  await unsafePushTables(full.db, { inAppMessagesTable });
+  await unsafePushTables(full.db, { inAppMessagesTable, jobRunsTable, jobRunLogsTable });
 
   minimal = await setupTestStack({
     features: [
@@ -364,6 +368,60 @@ describe("config-value userData-hooks", () => {
   });
 });
 
+describe("delivery-attempt userData-hooks (#799)", () => {
+  async function seedAttempt(id: string, recipientId: string, tenantId: string): Promise<void> {
+    await asRawClient(full.db).unsafe(
+      `INSERT INTO read_delivery_attempts
+         (id, tenant_id, notification_type, channel, recipient_id, recipient_address, status, priority)
+       VALUES ($1, $2, 'app:notify:ping', 'email', $3, $4, 'sent', 'normal')`,
+      [id, tenantId, recipientId, `user-${recipientId}@example.com`],
+    );
+  }
+
+  test("export returns only the user's attempts in the export tenant", async () => {
+    await seedAttempt(uuid(60), "da-user-1", TENANT_A);
+    await seedAttempt(uuid(61), "da-user-1", TENANT_B);
+    await seedAttempt(uuid(62), "da-user-2", TENANT_A);
+
+    const result = await deliveryAttemptExportHook(ctx("da-user-1"));
+    expect(result?.entity).toBe("delivery-attempt");
+    expect(result?.rows).toHaveLength(1);
+    expect(result?.rows[0]?.["recipientAddress"]).toBe("user-da-user-1@example.com");
+    expect(result?.rows[0]?.["channel"]).toBe("email");
+  });
+
+  test("export returns null for a user without attempts", async () => {
+    expect(await deliveryAttemptExportHook(ctx("da-nobody"))).toBeNull();
+  });
+});
+
+describe("job-run userData-hooks (#799)", () => {
+  async function seedRun(id: string, triggeredById: string | null): Promise<void> {
+    await asRawClient(full.db).unsafe(
+      `INSERT INTO read_job_runs
+         (id, tenant_id, job_name, bull_job_id, status, payload, attempt, started_at, triggered_by_id)
+       VALUES ($1::uuid, $2, 'app:job:export', $3, 'completed', '{"scope":"mine"}', 1, now(), $4)`,
+      [id, TENANT_A, `bull-${id}`, triggeredById],
+    );
+  }
+
+  test("export filters by triggeredById only (system-tenant rows)", async () => {
+    await seedRun(uuid(70), "jr-user-1");
+    await seedRun(uuid(71), "jr-user-2");
+    await seedRun(uuid(72), null);
+
+    const result = await jobRunExportHook(ctx("jr-user-1"));
+    expect(result?.entity).toBe("job-run");
+    expect(result?.rows).toHaveLength(1);
+    expect(result?.rows[0]?.["jobName"]).toBe("app:job:export");
+    expect(result?.rows[0]?.["payload"]).toBe('{"scope":"mine"}');
+  });
+
+  test("export returns null for a user without runs", async () => {
+    expect(await jobRunExportHook(ctx("jr-nobody"))).toBeNull();
+  });
+});
+
 describe("Presence-Gating: Source-Feature nicht gemountet → null/no-op statt Crash", () => {
   test("alle gegateten Hooks no-open auf dem Minimal-Stack", async () => {
     const minCtx = {
@@ -382,6 +440,8 @@ describe("Presence-Gating: Source-Feature nicht gemountet → null/no-op statt C
     expect(await tenantInvitationExportHook(minCtx)).toBeNull();
     expect(await notificationPreferenceExportHook(minCtx)).toBeNull();
     expect(await configValueExportHook(minCtx)).toBeNull();
+    expect(await deliveryAttemptExportHook(minCtx)).toBeNull();
+    expect(await jobRunExportHook(minCtx)).toBeNull();
 
     await expect(apiTokenDeleteHook(minCtx, "delete")).resolves.toBeUndefined();
     await expect(inAppMessageDeleteHook(minCtx, "delete")).resolves.toBeUndefined();

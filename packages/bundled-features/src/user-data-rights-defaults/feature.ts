@@ -5,11 +5,16 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { apiTokenDeleteHook, apiTokenExportHook } from "./hooks/api-token.userdata-hook";
 import { configValueDeleteHook, configValueExportHook } from "./hooks/config-value.userdata-hook";
+import {
+  deliveryAttemptDeleteHook,
+  deliveryAttemptExportHook,
+} from "./hooks/delivery-attempt.userdata-hook";
 import { fileRefDeleteHook, fileRefExportHook } from "./hooks/file-ref.userdata-hook";
 import {
   inAppMessageDeleteHook,
   inAppMessageExportHook,
 } from "./hooks/in-app-message.userdata-hook";
+import { jobRunDeleteHook, jobRunExportHook } from "./hooks/job-run.userdata-hook";
 import {
   notificationPreferenceDeleteHook,
   notificationPreferenceExportHook,
@@ -46,7 +51,7 @@ import { userSessionDeleteHook, userSessionExportHook } from "./hooks/user-sessi
 export function createUserDataRightsDefaultsFeature(): FeatureDefinition {
   return defineFeature("user-data-rights-defaults", (r) => {
     r.describe(
-      "Registers ready-made `EXT_USER_DATA` export and delete hooks for the bundled entities that hold per-user data: `user` (delete strategy sets email to `deleted-<id>@anonymized.invalid`, nulls `passwordHash`, sets status to `Deleted`; anonymize strategy sets email to `anonymized-<id>@anonymized.invalid` without touching `passwordHash`), `fileRef` (delete removes both the DB row and the storage binary), plus — gated on the source feature being mounted — `user-session` (ip/userAgent, hard-delete), `api-token` (hard-delete = revoke), `in-app-message` (hard-delete), `tenant-invitation` (invitee email forgotten/pseudonymized, inviter link severed), `notification-preference` and user-scoped `config-value` (purged via the forget verb). Mount this alongside `user-data-rights` for standard GDPR compliance; omit it only if your app needs custom anonymization logic for these entities.",
+      "Registers ready-made `EXT_USER_DATA` export and delete hooks for the bundled entities that hold per-user data: `user` (delete strategy sets email to `deleted-<id>@anonymized.invalid`, nulls `passwordHash`, sets status to `Deleted`; anonymize strategy sets email to `anonymized-<id>@anonymized.invalid` without touching `passwordHash`), `fileRef` (delete removes both the DB row and the storage binary), plus — gated on the source feature being mounted — `user-session` (ip/userAgent, hard-delete), `api-token` (hard-delete = revoke), `in-app-message` (hard-delete), `tenant-invitation` (invitee email forgotten/pseudonymized, inviter link severed), `notification-preference` and user-scoped `config-value` (purged via the forget verb), plus export-only hooks for the events-only aggregates `delivery-attempt` (recipientAddress) and `job-run` (payload) whose erasure runs via crypto-shredding. Mount this alongside `user-data-rights` for standard GDPR compliance; omit it only if your app needs custom anonymization logic for these entities.",
     );
     r.uiHints({
       displayLabel: "User Data Rights · Default Hooks",
@@ -65,6 +70,7 @@ export function createUserDataRightsDefaultsFeature(): FeatureDefinition {
       "tenant",
       "delivery",
       "config",
+      "jobs",
     );
 
     r.useExtension(EXT_USER_DATA, "user", {
@@ -105,6 +111,20 @@ export function createUserDataRightsDefaultsFeature(): FeatureDefinition {
     r.useExtension(EXT_USER_DATA, "config-value", {
       export: configValueExportHook,
       delete: configValueDeleteHook,
+    });
+
+    // Events-only aggregates (#799): export reads the projected rows, the
+    // delete hooks are deliberate no-ops — erasure happens via crypto-
+    // shredding (forget erases the user's DEK; recipientAddress / job
+    // payload become unreadable in events AND rows).
+    r.useExtension(EXT_USER_DATA, "delivery-attempt", {
+      export: deliveryAttemptExportHook,
+      delete: deliveryAttemptDeleteHook,
+    });
+
+    r.useExtension(EXT_USER_DATA, "job-run", {
+      export: jobRunExportHook,
+      delete: jobRunDeleteHook,
     });
   });
 }

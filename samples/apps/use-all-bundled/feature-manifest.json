@@ -1795,7 +1795,7 @@
     },
     {
       "name": "user-data-rights-defaults",
-      "description": "Registers ready-made `EXT_USER_DATA` export and delete hooks for the bundled entities that hold per-user data: `user` (delete strategy sets email to `deleted-<id>@anonymized.invalid`, nulls `passwordHash`, sets status to `Deleted`; anonymize strategy sets email to `anonymized-<id>@anonymized.invalid` without touching `passwordHash`), `fileRef` (delete removes both the DB row and the storage binary), plus — gated on the source feature being mounted — `user-session` (ip/userAgent, hard-delete), `api-token` (hard-delete = revoke), `in-app-message` (hard-delete), `tenant-invitation` (invitee email forgotten/pseudonymized, inviter link severed), `notification-preference` and user-scoped `config-value` (purged via the forget verb). Mount this alongside `user-data-rights` for standard GDPR compliance; omit it only if your app needs custom anonymization logic for these entities.",
+      "description": "Registers ready-made `EXT_USER_DATA` export and delete hooks for the bundled entities that hold per-user data: `user` (delete strategy sets email to `deleted-<id>@anonymized.invalid`, nulls `passwordHash`, sets status to `Deleted`; anonymize strategy sets email to `anonymized-<id>@anonymized.invalid` without touching `passwordHash`), `fileRef` (delete removes both the DB row and the storage binary), plus — gated on the source feature being mounted — `user-session` (ip/userAgent, hard-delete), `api-token` (hard-delete = revoke), `in-app-message` (hard-delete), `tenant-invitation` (invitee email forgotten/pseudonymized, inviter link severed), `notification-preference` and user-scoped `config-value` (purged via the forget verb), plus export-only hooks for the events-only aggregates `delivery-attempt` (recipientAddress) and `job-run` (payload) whose erasure runs via crypto-shredding. Mount this alongside `user-data-rights` for standard GDPR compliance; omit it only if your app needs custom anonymization logic for these entities.",
       "toggleableDefault": null,
       "requires": [
         "user",
@@ -1808,7 +1808,8 @@
         "channel-in-app",
         "tenant",
         "delivery",
-        "config"
+        "config",
+        "jobs"
       ],
       "configReads": [],
       "exposesApis": [],
@@ -1845,6 +1846,14 @@
         {
           "extensionName": "userData",
           "entityName": "config-value"
+        },
+        {
+          "extensionName": "userData",
+          "entityName": "delivery-attempt"
+        },
+        {
+          "extensionName": "userData",
+          "entityName": "job-run"
         }
       ],
       "configKeys": [],

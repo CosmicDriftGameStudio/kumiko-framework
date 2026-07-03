@@ -13,10 +13,8 @@ import { featureMounted } from "./feature-mounted";
 // A preference without its user is meaningless, so both strategies purge via
 // the forget verb.
 //
-// The delivery ATTEMPTS log (read_delivery_attempts, recipientAddress) is NOT
-// covered here: it is an events-only aggregate whose payload lives in the
-// append-only event store — per-user redaction there needs the event-store
-// redaction epic; a read-side UPDATE would be wiped on rebuild.
+// The delivery ATTEMPTS log is covered separately: export via
+// delivery-attempt.userdata-hook.ts, erasure via crypto-shredding (#799).
 
 const crud = createEventStoreExecutor(notificationPreferencesTable, notificationPreferenceEntity, {
   entityName: "notification-preference",
