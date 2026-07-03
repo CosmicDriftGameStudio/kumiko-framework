@@ -34,7 +34,7 @@ import { configValuesTable } from "../../config/table";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
 import { fileFoundationFeature } from "../../file-foundation";
 import { createFilesFeature } from "../../files";
-import { createSessionsFeature } from "../../sessions";
+import { createSessionsFeature, userSessionEntity } from "../../sessions";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults";
 import { createUserDataRightsFeature } from "../feature";
@@ -109,6 +109,7 @@ beforeAll(async () => {
   });
 
   await unsafeCreateEntityTable(db, userEntity);
+  await unsafeCreateEntityTable(db, userSessionEntity);
   await unsafeCreateEntityTable(db, tenantRetentionOverrideEntity);
   await unsafePushTables(db, { fileRefsTable, configValuesTable });
   await asRawClient(db).unsafe(READ_TENANT_MEMBERSHIPS_DDL);

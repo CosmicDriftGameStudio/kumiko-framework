@@ -36,7 +36,7 @@ import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
 import { tenantRetentionOverrideTable } from "../../data-retention/schema/tenant-retention-override";
 import { createFilesFeature } from "../../files";
-import { createSessionsFeature } from "../../sessions";
+import { createSessionsFeature, userSessionEntity } from "../../sessions";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults";
 import { createUserDataRightsFeature } from "../feature";
@@ -76,6 +76,7 @@ beforeAll(async () => {
   db = stack.db;
 
   await unsafeCreateEntityTable(db, userEntity);
+  await unsafeCreateEntityTable(db, userSessionEntity);
   await unsafeCreateEntityTable(db, tenantRetentionOverrideEntity);
   await unsafePushTables(db, { fileRefsTable });
   await asRawClient(db).unsafe(`

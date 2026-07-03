@@ -1775,14 +1775,21 @@
     },
     {
       "name": "user-data-rights-defaults",
-      "description": "Registers ready-made `EXT_USER_DATA` export and delete hooks for the two core entities: `user` (delete strategy sets email to `deleted-<id>@anonymized.invalid`, nulls `passwordHash`, sets status to `Deleted`; anonymize strategy sets email to `anonymized-<id>@anonymized.invalid` without touching `passwordHash`) and `fileRef` (delete removes both the DB row and the storage binary). Mount this alongside `user-data-rights` for standard GDPR compliance; omit it only if your app needs custom anonymization logic for these entities.",
+      "description": "Registers ready-made `EXT_USER_DATA` export and delete hooks for the bundled entities that hold per-user data: `user` (delete strategy sets email to `deleted-<id>@anonymized.invalid`, nulls `passwordHash`, sets status to `Deleted`; anonymize strategy sets email to `anonymized-<id>@anonymized.invalid` without touching `passwordHash`), `fileRef` (delete removes both the DB row and the storage binary), plus — gated on the source feature being mounted — `user-session` (ip/userAgent, hard-delete), `api-token` (hard-delete = revoke), `in-app-message` (hard-delete), `tenant-invitation` (invitee email forgotten/pseudonymized, inviter link severed), `notification-preference` and user-scoped `config-value` (purged via the forget verb). Mount this alongside `user-data-rights` for standard GDPR compliance; omit it only if your app needs custom anonymization logic for these entities.",
       "toggleableDefault": null,
       "requires": [
         "user",
         "files",
         "user-data-rights"
       ],
-      "optionalRequires": [],
+      "optionalRequires": [
+        "sessions",
+        "personal-access-tokens",
+        "channel-in-app",
+        "tenant",
+        "delivery",
+        "config"
+      ],
       "configReads": [],
       "exposesApis": [],
       "usesApis": [],
@@ -1794,6 +1801,30 @@
         {
           "extensionName": "userData",
           "entityName": "fileRef"
+        },
+        {
+          "extensionName": "userData",
+          "entityName": "user-session"
+        },
+        {
+          "extensionName": "userData",
+          "entityName": "api-token"
+        },
+        {
+          "extensionName": "userData",
+          "entityName": "in-app-message"
+        },
+        {
+          "extensionName": "userData",
+          "entityName": "tenant-invitation"
+        },
+        {
+          "extensionName": "userData",
+          "entityName": "notification-preference"
+        },
+        {
+          "extensionName": "userData",
+          "entityName": "config-value"
         }
       ],
       "configKeys": [],
