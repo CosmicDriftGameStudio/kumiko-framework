@@ -7,6 +7,7 @@ import {
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { AuthErrors, verifyPassword } from "../../auth-email-password";
+import { decryptStoredPii } from "../../shared";
 import { UserErrors, UserHandlers, UserQueries } from "../../user";
 import { UserProfileErrors } from "../constants";
 
@@ -53,7 +54,8 @@ export const changeEmailWrite = defineWriteHandler({
     }
 
     const newEmail = event.payload.newEmail.toLowerCase();
-    if (newEmail === me.email.toLowerCase()) {
+    const currentEmail = await decryptStoredPii(me.email, "user-profile:change-email");
+    if (newEmail === currentEmail.toLowerCase()) {
       return writeFailure(
         new UnprocessableError(UserProfileErrors.emailUnchanged, {
           i18nKey: "profile.errors.emailUnchanged",

@@ -1,6 +1,7 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
+import { decryptStoredPii } from "../../shared";
 import { apiTokenTable } from "../schema/api-token";
 
 // The caller's own tokens — metadata only, never the hash or plaintext.
@@ -25,15 +26,17 @@ export const listPatQuery = defineQueryHandler({
       { userId: query.user.id },
       { orderBy: { col: "createdAt", direction: "desc" } },
     );
-    return rows.map((r) => ({
-      id: r.id,
-      name: r.name,
-      prefix: r.prefix,
-      scopes: parseScopeNames(r.scopes),
-      createdAt: r.createdAt,
-      expiresAt: r.expiresAt,
-      revokedAt: r.revokedAt,
-    }));
+    return Promise.all(
+      rows.map(async (r) => ({
+        id: r.id,
+        name: await decryptStoredPii(r.name, "pat:list"),
+        prefix: r.prefix,
+        scopes: parseScopeNames(r.scopes),
+        createdAt: r.createdAt,
+        expiresAt: r.expiresAt,
+        revokedAt: r.revokedAt,
+      })),
+    );
   },
 });
 

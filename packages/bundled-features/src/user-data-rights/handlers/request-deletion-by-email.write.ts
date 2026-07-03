@@ -95,7 +95,9 @@ export function createRequestDeletionByEmailHandler(opts: RequestDeletionByEmail
       if (opts.sendDeletionVerificationEmail) {
         try {
           await opts.sendDeletionVerificationEmail({
-            email: userRow["email"],
+            // Row value is ciphertext with an active KMS; the lookup above
+            // only matches byte-exact, so the payload IS the stored plaintext.
+            email: event.payload.email,
             verifyUrl,
             expiresAt: expiresAt.toString(),
           });

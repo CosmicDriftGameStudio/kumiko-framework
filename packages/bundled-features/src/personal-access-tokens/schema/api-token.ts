@@ -33,7 +33,7 @@ export const apiTokenEntity = createEntity({
       required: true,
       maxLength: 120,
       access: { write: access.privileged },
-      pii: true,
+      userOwned: { ownerField: "userId" },
     }),
     tokenHash: createTextField({
       required: true,

@@ -46,6 +46,7 @@
 
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { addDurationSpec } from "@cosmicdrift/kumiko-framework/compliance";
+import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection, DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
@@ -57,6 +58,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/files";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resolveProfileForTenant } from "../compliance-profiles";
+import { decryptStoredPii } from "../shared";
 import { userTable } from "../user";
 import { selectExportJobsForStorageCleanup } from "./db/queries/export-jobs";
 import { runUserExport, type UserExportBundle } from "./run-user-export";
@@ -767,7 +769,9 @@ async function lookupUserContact(
     locale: string | null;
   } | null;
   if (!row?.email) return null;
-  return { email: row.email, locale: row.locale ?? null };
+  const email = await decryptStoredPii(row.email, "user-data-rights:export-ready");
+  if (email === PII_ERASED_SENTINEL) return null;
+  return { email, locale: row.locale ?? null };
 }
 
 // Atom 5 — Email-Notification beim done-flip. Best-effort:
