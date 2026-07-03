@@ -51,6 +51,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resolveRetentionPolicyForTenant } from "../data-retention";
+import { decryptStoredPii } from "../shared";
 import { tenantMembershipsTable } from "../tenant";
 import { USER_STATUS, userTable } from "../user";
 import { selectUsersDueForForgetCleanup } from "./db/queries/forget-cleanup";
@@ -279,7 +280,9 @@ async function processUser(args: {
     id: userId,
   });
   const userEmailBeforeDelete =
-    userPreTx?.email && userPreTx.email.length > 0 ? userPreTx.email : null;
+    userPreTx?.email && userPreTx.email.length > 0
+      ? await decryptStoredPii(userPreTx.email, "user-data-rights:forget-cleanup")
+      : null;
   const userLocaleBeforeDelete = userPreTx?.locale ?? null;
 
   // Memberships fuer diesen User holen — alle Tenants in denen er Mitglied ist.

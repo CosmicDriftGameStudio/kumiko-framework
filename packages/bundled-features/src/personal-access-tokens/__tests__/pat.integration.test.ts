@@ -5,6 +5,15 @@ import {
   type PatResolver,
 } from "@cosmicdrift/kumiko-framework/api";
 import { updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  configureBlindIndexKey,
+  configurePiiSubjectKms,
+  encryptPiiFieldValues,
+  InMemoryKmsAdapter,
+  isPiiCiphertext,
+  resetBlindIndexKeyForTests,
+  resetPiiSubjectKmsForTests,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
@@ -200,5 +209,48 @@ describe("PAT auth", () => {
     await deleteRows(stack.db, tenantMembershipsTable, { userId: actor.id });
     const res = await h.authedPost("/api/query", token, { type: PatQueries.mine, payload: {} });
     expect(res.status).toBe(401);
+  });
+});
+
+describe("PAT with active KMS (#818): token name is userOwned PII", () => {
+  // create.write schreibt heute noch via direct insertOne (ES-Bypass) →
+  // Klartext at rest. Der list-Reader muss BEIDE Zustände liefern können:
+  // Klartext-Bestand pass-through, Ciphertext (kuenftiger Executor-Write
+  // bzw. Backfill) decrypted.
+  test("list decrypts an encrypted name and passes plaintext rows through", async () => {
+    const kms = new InMemoryKmsAdapter();
+    configurePiiSubjectKms(kms);
+    configureBlindIndexKey(Buffer.alloc(32, 7).toString("base64"));
+    try {
+      const actor = await actorFor("kms-pat@example.com");
+      await mintToken(actor);
+
+      const rows = await stack.http.queryOk<Array<{ id: string; name: string }>>(
+        PatQueries.mine,
+        {},
+        actor,
+      );
+      expect(rows[0]?.name).toBe("test");
+
+      const encrypted = await encryptPiiFieldValues(
+        { userId: actor.id, name: "test" },
+        apiTokenEntity,
+        ["name"],
+        kms,
+        { requestId: "test" },
+      );
+      expect(isPiiCiphertext(encrypted["name"])).toBe(true);
+      await updateMany(stack.db, apiTokenTable, { name: encrypted["name"] }, { id: rows[0]?.id });
+
+      const rows2 = await stack.http.queryOk<Array<{ id: string; name: string }>>(
+        PatQueries.mine,
+        {},
+        actor,
+      );
+      expect(rows2[0]?.name).toBe("test");
+    } finally {
+      resetPiiSubjectKmsForTests();
+      resetBlindIndexKeyForTests();
+    }
   });
 });

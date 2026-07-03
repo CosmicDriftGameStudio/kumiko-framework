@@ -125,7 +125,9 @@ export function createTokenRequestHandler<TName extends string, TSuccessKind ext
           renderContent: spec.renderContent,
         },
         {
-          email: user.email,
+          // Row value is ciphertext with an active KMS; the byte-exact
+          // lookup above guarantees the payload IS the stored plaintext.
+          email: event.payload.email,
           appUrl: opts.appUrl,
           token,
           expiresAt: expiresAt.toString(),
@@ -136,7 +138,7 @@ export function createTokenRequestHandler<TName extends string, TSuccessKind ext
 
       const data: TokenRequestData<TSuccessKind> = {
         kind: spec.successKind,
-        email: user.email,
+        email: event.payload.email,
         token,
         expiresAt: expiresAt.toString(),
       };

@@ -3,6 +3,7 @@ import { addDurationSpec, type DurationSpec } from "@cosmicdrift/kumiko-framewor
 import { createSystemUser, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { decryptStoredPii } from "../../shared";
 import { USER_STATUS, userTable } from "../../user";
 import { updateUserLifecycle } from "../lib/update-user-lifecycle";
 
@@ -73,7 +74,9 @@ export async function startDeletionGracePeriod(
   return {
     ok: true,
     gracePeriodEnd,
-    userEmail: userRow["email"] ?? "",
+    userEmail: userRow["email"]
+      ? await decryptStoredPii(userRow["email"], "user-data-rights:grace-period")
+      : "",
     userLocale: userRow["locale"] ?? null,
   };
 }

@@ -67,6 +67,7 @@ export const userEntity = createEntity({
       format: "email",
       maxLength: 320,
       pii: true,
+      lookupable: true,
       access: { write: access.privileged },
     }),
 

@@ -58,7 +58,7 @@ export const tenantInvitationEntity = createEntity({
   fields: {
     // Eingeladene Email — case-insensitive normalisiert beim Insert.
     // PII bis zur Annahme (danach hat der User selbst seine email in users).
-    email: createTextField({ required: true, maxLength: 320, pii: true }),
+    email: createTextField({ required: true, maxLength: 320, pii: true, lookupable: true }),
     // Membership-Rolle die dem User nach Accept gegeben wird. Default
     // im handler ist "Admin" (Co-Admin-Pattern für kleine Teams).
     role: createTextField({ required: true, maxLength: 50 }),

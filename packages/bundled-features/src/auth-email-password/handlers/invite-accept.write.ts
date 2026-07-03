@@ -24,6 +24,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
+import { decryptStoredPii } from "../../shared";
 // kumiko-lint-ignore cross-feature-import invite-flow lebt in auth-email-password (Magic-Link), DB-row-owner ist tenant-feature
 import {
   INVITATION_STATUS,
@@ -100,7 +101,7 @@ export function createInviteAcceptHandler() {
           return invalidInviteToken();
 
         const invitationTenantId = invitation.tenantId;
-        const invitationEmail = invitation.email;
+        const invitationEmail = await decryptStoredPii(invitation.email, "auth:invite-accept");
         const invitationRole = invitation.role;
         const invitationVersion = invitation.version;
 
@@ -110,7 +111,9 @@ export function createInviteAcceptHandler() {
         const userRow = await fetchOne<UserEmailRow>(ctx.db.raw, userTable, {
           id: event.user.id,
         });
-        const userEmail = userRow?.email;
+        const userEmail = userRow?.email
+          ? await decryptStoredPii(userRow.email, "auth:invite-accept")
+          : undefined;
         if (!userRow || !userEmail || userEmail.toLowerCase() !== invitationEmail) {
           return inviteEmailMismatch();
         }

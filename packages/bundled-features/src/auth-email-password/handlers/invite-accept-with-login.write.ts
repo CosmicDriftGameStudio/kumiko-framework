@@ -28,6 +28,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
+import { decryptStoredPii } from "../../shared";
 // kumiko-lint-ignore cross-feature-import invite-flow
 import {
   INVITATION_STATUS,
@@ -106,7 +107,10 @@ export function createInviteAcceptWithLoginHandler() {
           return invalidInviteToken();
 
         const invitationTenantId = invitation.tenantId;
-        const invitationEmail = invitation.email;
+        const invitationEmail = await decryptStoredPii(
+          invitation.email,
+          "auth:invite-accept-with-login",
+        );
         const invitationRole = invitation.role;
         const invitationVersion = invitation.version;
 

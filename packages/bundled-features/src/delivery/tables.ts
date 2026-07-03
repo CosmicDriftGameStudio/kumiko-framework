@@ -76,7 +76,7 @@ export const deliveryAttemptsTableMeta: EntityTableMeta = defineUnmanagedTable({
 export const notificationPreferenceEntity = createEntity({
   table: "read_notification_preferences",
   fields: {
-    userId: createTextField({ required: true, pii: true }),
+    userId: createTextField({ required: true, allowPlaintext: "pseudonymous-fk" }),
     notificationType: createTextField({ required: true }), // qualified name or "*"
     channel: createTextField({ required: true }), // "inApp", "email", "push", or "*"
     enabled: createBooleanField({ default: true }),
