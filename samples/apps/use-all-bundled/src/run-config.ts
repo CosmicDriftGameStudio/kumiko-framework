@@ -25,6 +25,7 @@ import {
   type PushTransport,
 } from "@cosmicdrift/kumiko-bundled-features/channel-push";
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
+import { createCryptoShreddingFeature } from "@cosmicdrift/kumiko-bundled-features/crypto-shredding";
 import { customFieldsFeature } from "@cosmicdrift/kumiko-bundled-features/custom-fields";
 import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
 import type { NotificationRenderer } from "@cosmicdrift/kumiko-bundled-features/delivery";
@@ -160,6 +161,7 @@ export const APP_FEATURES = [
 
   // compliance / DSGVO
   createComplianceProfilesFeature(),
+  createCryptoShreddingFeature(),
   createDataRetentionFeature(),
   createUserDataRightsFeature(),
   createUserDataRightsDefaultsFeature(),
