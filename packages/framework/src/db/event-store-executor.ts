@@ -616,7 +616,9 @@ export function createEventStoreExecutor(
           previous: {},
           isNew: true,
           entityName,
-          event,
+          // Persisted event carries ciphertext by design — the caller-facing
+          // echo must be plaintext like every other response field (#820).
+          event: { ...event, payload: stripSensitive(flatCreateData) },
         },
       };
     },
@@ -705,11 +707,11 @@ export function createEventStoreExecutor(
         // Compound-Types Auto-Convert (alle in einem Pass).
         // subjectSource: partial changes may carry a pii field without its
         // ownerField — the merged row still names the subject.
-        const flatChanges = await encryptForStorage(
-          flattenCompoundTypes(payload.changes, entity),
-          user,
-          { onlyKeys: Object.keys(payload.changes), subjectSource: mergedNew },
-        );
+        const flatChangesPlain = flattenCompoundTypes(payload.changes, entity);
+        const flatChanges = await encryptForStorage(flatChangesPlain, user, {
+          onlyKeys: Object.keys(payload.changes),
+          subjectSource: mergedNew,
+        });
 
         // The event payload carries BOTH `changes` (what the user asked for) AND
         // `previous` (the pre-update row). Cross-aggregate projections need the
@@ -773,7 +775,13 @@ export function createEventStoreExecutor(
             previous,
             isNew: false,
             entityName,
-            event,
+            event: {
+              ...event,
+              payload: {
+                changes: stripSensitive(flatChangesPlain),
+                previous: stripSensitive(previous),
+              },
+            },
           },
         };
       } catch (e) {
@@ -861,7 +869,13 @@ export function createEventStoreExecutor(
 
       return {
         isSuccess: true,
-        data: { kind: "delete", id: payload.id, data: existing, entityName, event },
+        data: {
+          kind: "delete",
+          id: payload.id,
+          data: existing,
+          entityName,
+          event: { ...event, payload: { previous: stripSensitive(existing) } },
+        },
       };
     },
 
@@ -921,7 +935,13 @@ export function createEventStoreExecutor(
 
       return {
         isSuccess: true,
-        data: { kind: "delete", id: payload.id, data: existing, entityName, event },
+        data: {
+          kind: "delete",
+          id: payload.id,
+          data: existing,
+          entityName,
+          event: { ...event, payload: { previous: stripSensitive(existing) } },
+        },
       };
     },
 
@@ -1005,6 +1025,7 @@ export function createEventStoreExecutor(
         rehydrateCompoundTypes(restored as DbRow, entity) as DbRow,
       );
 
+      const previousPlain = await decryptForRead(data);
       return {
         isSuccess: true,
         data: {
@@ -1012,10 +1033,10 @@ export function createEventStoreExecutor(
           id: payload.id,
           data: restoredHydrated,
           changes: { isDeleted: false },
-          previous: await decryptForRead(data),
+          previous: previousPlain,
           isNew: false,
           entityName,
-          event,
+          event: { ...event, payload: { previous: stripSensitive(previousPlain) } },
         },
       };
     },

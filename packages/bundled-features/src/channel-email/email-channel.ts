@@ -6,6 +6,7 @@ import type {
   NotificationRenderer,
   RenderedMessage,
 } from "../delivery";
+import { guardEmailMessage } from "./pii-guard";
 import type { EmailTransport } from "./types";
 
 export type EmailChannelOptions = {
@@ -53,7 +54,7 @@ export function createEmailChannel(options: EmailChannelOptions): DeliveryChanne
 
     async send(address, message, _ctx, rendered) {
       const { html, subject } = rendered ?? (await renderMessage(message));
-      await transport.send({ to: address, subject, html });
+      await transport.send(guardEmailMessage({ to: address, subject, html }));
       return { status: "sent", address };
     },
   };

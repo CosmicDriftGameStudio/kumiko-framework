@@ -52,6 +52,7 @@ import { csrfMiddleware } from "./csrf-middleware";
 import { createJwtHelper, type JwtHelper } from "./jwt";
 import { observabilityMiddleware } from "./observability-middleware";
 import { assertOriginGuardConfig, originMiddleware } from "./origin-middleware";
+import { piiCiphertextResponseGuard } from "./pii-leak-guard";
 import { requestIdMiddleware } from "./request-id-middleware";
 import {
   DEFAULT_MAX_REQUEST_BYTES,
@@ -552,6 +553,10 @@ export function buildServer(options: ServerOptions): KumikoServer {
       sensitiveConfig,
     }),
   );
+
+  // Tripwire: a kumiko-pii: ciphertext in a JSON response is always a bug
+  // (raw read leaked past a decrypt) — dev fails loud, prod redacts (#820).
+  app.use("/api/*", piiCiphertextResponseGuard());
 
   // Auth middleware skips public paths (login, health) — those routes need
   // to be callable without a valid JWT. Every other /api/* request requires
