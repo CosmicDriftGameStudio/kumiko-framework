@@ -1142,21 +1142,26 @@ export function createEventStoreExecutor(
       const listSql = `SELECT * FROM "${tableName}"${whereClauseSqlText}${orderByClause} LIMIT ${limit}${offsetClause}`;
 
       const rawRows = await executeRawQuery<Record<string, unknown>>(db.raw, listSql, params);
-      // Read-Side rehydrate pro Row + snake→camel coercion für driver-agnostic Feldnamen
+      // Read-Side rehydrate pro Row + snake→camel coercion für driver-agnostic Feldnamen.
+      // Coerce BEFORE decrypt: the raw SELECT * rows carry snake_case column
+      // names, while the encrypted/pii field lists are camelCase — decrypting
+      // first silently skipped every multi-word field (ciphertext leaked to
+      // the caller).
       const tableInfo = extractTableInfo(table);
-      const rows = await Promise.all(
-        rawRows.map(async (r) =>
-          coerceRow(await decryptForRead(rehydrateCompoundTypes(r, entity)), tableInfo),
-        ),
+      const encryptedRows = rawRows.map((r) =>
+        coerceRow(rehydrateCompoundTypes(r, entity), tableInfo),
       );
+      const rows = await Promise.all(encryptedRows.map((r) => decryptForRead(r)));
 
       // list rows carry the READ-ROW version (display-only), never an optimistic-lock
       // base — edit flows reload via detail(), which reconciles the stream version.
+      // Cache the still-encrypted form: same at-rest guarantee as detail()'s
+      // encryptForStorage round-trip, without paying a re-encrypt.
       if (entityCache && entityName && rows.length > 0) {
         await entityCache.mset(
           user.tenantId,
           entityName,
-          rows.map((r) => ({ id: r["id"] as EntityId, data: r })), // @cast-boundary engine-payload
+          encryptedRows.map((r) => ({ id: r["id"] as EntityId, data: r })), // @cast-boundary engine-payload
         );
       }
 
