@@ -87,7 +87,7 @@
       "primarySample": "recipes-custom-fields-basic",
       "whenToUse": "Entities need tenant-defined extra columns without schema migrations — customFieldsField() stores typed extensions in jsonb with validation and CRUD wiring.",
       "sampleBlurb": "Full define → set → read roundtrip on a property entity via wireCustomFieldsFor — tenants add fields without a migration.",
-      "screenshot": null
+      "screenshot": "/screenshots/features/custom-fields.png"
     },
     "data-retention": {
       "samples": [
