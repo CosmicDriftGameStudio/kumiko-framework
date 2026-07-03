@@ -76,7 +76,7 @@ export async function runCreate(args: CliArgs): Promise<number> {
   log("  bun install");
   log("  cp .env.example .env  # JWT_SECRET + KUMIKO_SECRETS_MASTER_KEY_V1 setzen");
   log("  docker compose up -d   # wenn noch kein PG + Redis läuft");
-  log("  bun dev                # startet den Dev-Server + zeigt URL/Login");
+  log("  bun dev                # Demo-Tasks sind vorseeded — URL + Login im Banner");
   return 0;
 }
 

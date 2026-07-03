@@ -13,6 +13,9 @@ const SCAFFOLD_FILES = [
   "bunfig.toml",
   "bunfig.ci.toml",
   "src/run-config.ts",
+  "src/features/tasks/feature.ts",
+  "src/features/tasks/index.ts",
+  "src/seed.ts",
   "kumiko/schema.ts",
   "bin/main.ts",
   "bin/dev.ts",
@@ -202,13 +205,15 @@ describe("scaffoldApp", () => {
     );
   });
 
-  test("src/run-config.ts mounts secrets + sessions + HAS_AUTH", async () => {
+  test("src/run-config.ts mounts secrets + sessions + tasks + HAS_AUTH", async () => {
     const dest = join(tmp, "my-shop");
     await scaffoldApp({ name: "my-shop", destination: dest });
 
     const runConfig = readFileSync(join(dest, "src/run-config.ts"), "utf-8");
     expect(runConfig).toContain("createSecretsFeature()");
     expect(runConfig).toContain("createSessionsFeature()");
+    expect(runConfig).toContain("tasksFeature");
+    expect(runConfig).toContain('from "./features/tasks"');
     expect(runConfig).toContain("export const APP_FEATURES");
     expect(runConfig).toContain("export const HAS_AUTH");
   });
@@ -362,6 +367,7 @@ describe("scaffoldApp", () => {
     const cfg = readFileSync(join(dest, "src/run-config.ts"), "utf-8");
     expect(cfg).not.toContain("createSecretsFeature");
     expect(cfg).not.toContain("createSessionsFeature");
+    expect(cfg).toContain("tasksFeature");
   });
 
   test("deterministic tenantId for same name (reproducible boots)", async () => {
