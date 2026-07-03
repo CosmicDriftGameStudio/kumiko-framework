@@ -267,6 +267,10 @@ type SharedContextFields = {
   // job which deliberately operates outside the per-call audit trail (it
   // processes rows system-wide, not a per-user read).
   readonly masterKeyProvider?: import("../../secrets").MasterKeyProvider;
+  // Subject-key adapter for crypto-shredding (GDPR Art. 17). Present when
+  // the app wired a KmsAdapter at boot; the PII envelope engine and the
+  // forget pipeline reach for it. Absent = crypto-shredding not enabled.
+  readonly kms?: import("../../crypto").KmsAdapter;
   // Observability: optional at the outer boundary, always populated by the
   // time a handler receives its ctx (Noop fallback when no provider is
   // configured, so handler code can call ctx.tracer/ctx.metrics without

@@ -77,6 +77,7 @@ import {
   createSseBroker,
   type SseBroker,
 } from "@cosmicdrift/kumiko-framework/api";
+import type { KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   configureEntityFieldEncryption,
   createDbConnection,
@@ -477,6 +478,12 @@ export type RunProdAppOptions = {
    *  Override für KMS-Backends (AWS/GCP/Azure) statt env-KEK. Nur relevant
    *  wenn das `secrets`-Feature gemountet ist. */
   readonly masterKey?: MasterKeyProvider;
+  /** Subject-Key-Adapter für Crypto-Shredding (DSGVO Art. 17). Wenn gesetzt,
+   *  steht er Feature-Code als `ctx.kms` zur Verfügung und der Boot prüft
+   *  seine health() — die App startet nicht gegen ein unerreichbares KMS
+   *  (Silent-Start würde jeden PII-Read mit 503 beantworten). Kein Default:
+   *  ohne Adapter bleibt Crypto-Shredding aus. */
+  readonly kms?: KmsAdapter;
   /** Deploy-Topologie. Default `true` (Single-Container): dieser Prozess
    *  fährt HTTP + BEIDE Job-Lanes (api + worker) + den Event-Dispatcher
    *  (MSP-Anwendung) inline — via `createAllInOneEntrypoint`. Damit laufen
@@ -635,6 +642,7 @@ export function buildBootExtraContext(opts: {
   readonly crypto?: BootCrypto;
   readonly masterKey?: MasterKeyProvider;
   readonly sseBroker?: SseBroker;
+  readonly kms?: KmsAdapter;
 }): Record<string, unknown> {
   const crypto = opts.crypto ?? resolveBootCrypto(opts.envSource, opts.masterKey);
   const hasSecretsFeature = opts.features.some((f) => f.name === SECRETS_FEATURE_NAME);
@@ -642,6 +650,7 @@ export function buildBootExtraContext(opts: {
   const hasDeliveryFeature = opts.features.some((f) => f.name === DELIVERY_FEATURE);
   return {
     textContent: createTextContentApi(opts.db),
+    ...(opts.kms && { kms: opts.kms }),
     ...(hasDeliveryFeature && {
       _notifyFactory: buildDeliveryNotifyFactory({
         db: opts.db,
@@ -848,6 +857,18 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   //    idempotency, event-dedup, entity-cache, rate-limit; failing to
   //    construct here surfaces the misconfig immediately. `new Redis(...)`
   //    connects eagerly, so it must stay AFTER the boot-mode exit above.
+  // KMS health gate: an app configured for crypto-shredding must not boot
+  // against an unreachable key store — a silent start would answer every
+  // PII read with 503. Runs BEFORE connections so an abort leaks nothing.
+  if (options.kms) {
+    const kmsHealth = await options.kms.health();
+    if (!kmsHealth.ok) {
+      throw new Error(
+        `[runProdApp] BOOT ABORTED — KMS health check failed (latency ${kmsHealth.latencyMs}ms)`,
+      );
+    }
+  }
+
   const { db, close: closeDb } = createDbConnection(databaseUrl);
   const redis = new Redis(redisUrl, { maxRetriesPerRequest: null });
 
@@ -930,6 +951,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     hasAuth: !!effectiveAuth,
     sseBroker,
     crypto: bootCrypto,
+    ...(options.kms && { kms: options.kms }),
   });
   const extraContext = addConfigAccessorFactory(
     { ...autoExtraContext, ...resolvedExtraContext },

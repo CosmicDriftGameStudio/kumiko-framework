@@ -1,5 +1,6 @@
 export { InMemoryKmsAdapter } from "./in-memory-kms-adapter";
 export {
+  isLocalKeyKmsAdapter,
   KeyAlreadyExistsError,
   KeyErasedError,
   KeyNotFoundError,
@@ -11,7 +12,6 @@ export {
   type SubjectDek,
   type SubjectId,
   type SubjectKey,
-  isLocalKeyKmsAdapter,
   subjectIdToKey,
   subjectKeyForTenant,
   subjectKeyForUser,

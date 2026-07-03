@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import {
+  isLocalKeyKmsAdapter,
   KeyAlreadyExistsError,
   KeyErasedError,
   KeyNotFoundError,
   type KmsAdapter,
   type KmsContext,
   type SubjectId,
-  isLocalKeyKmsAdapter,
 } from "../kms-adapter";
 
 const ctx: KmsContext = { requestId: "contract-test" };

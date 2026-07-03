@@ -13,7 +13,7 @@ import {
 
 interface KeyEntry {
   key: Buffer | null;
-  erasedAt: Date | null;
+  erased: boolean;
 }
 
 // Non-persistent adapter for tests and dev mode. Erased entries stay as
@@ -26,21 +26,21 @@ export class InMemoryKmsAdapter implements LocalKeyKmsAdapter {
   async createKey(subject: SubjectId): Promise<void> {
     const subjectKey = subjectIdToKey(subject);
     if (this.keys.has(subjectKey)) throw new KeyAlreadyExistsError(subject);
-    this.keys.set(subjectKey, { key: randomBytes(32), erasedAt: null });
+    this.keys.set(subjectKey, { key: randomBytes(32), erased: false });
   }
 
   async getKey(subject: SubjectId): Promise<SubjectDek> {
     const entry = this.keys.get(subjectIdToKey(subject));
     if (!entry) throw new KeyNotFoundError(subject);
-    if (entry.erasedAt !== null || entry.key === null) throw new KeyErasedError(subject);
+    if (entry.erased || entry.key === null) throw new KeyErasedError(subject);
     return entry.key;
   }
 
   async eraseKey(subject: SubjectId): Promise<void> {
     const entry = this.keys.get(subjectIdToKey(subject));
-    if (!entry || entry.erasedAt !== null) return;
+    if (!entry) return;
     entry.key = null;
-    entry.erasedAt = new Date();
+    entry.erased = true;
   }
 
   async health(): Promise<KmsHealth> {
