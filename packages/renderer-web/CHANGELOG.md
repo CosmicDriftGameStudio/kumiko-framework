@@ -1,5 +1,17 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.116.0
+
+### Minor Changes
+
+- b82bf74: `WorkspaceShell` now renders on the same modern shell as `DefaultAppShell`: a collapsible icon-rail sidebar (brand + workspace switcher + nav + footer) and a `SidebarInset` with a shared `ShellHeader` (panel toggle + active-screen breadcrumb + right-aligned actions). The separate topbar is gone — `topbarActions` now render in the header's right slot, the brand moves into the sidebar. Props are unchanged, so existing `WorkspaceShell` apps pick up the header, breadcrumb and rail automatically. `ShellHeader` is extracted so both shells share one header definition.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dispatcher-live@0.116.0
+- @cosmicdrift/kumiko-headless@0.116.0
+- @cosmicdrift/kumiko-renderer@0.116.0
+
 ## 0.115.1
 
 ### Patch Changes
