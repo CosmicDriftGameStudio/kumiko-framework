@@ -1,5 +1,17 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.115.0
+
+### Minor Changes
+
+- a1a13ab: Card chrome (padding, radius, shadow) is now driven by `--card-padding` / `--card-radius` / `--card-shadow` CSS tokens. Framework ships defaults that reproduce the current look exactly (`p-6` / `rounded-xl` / `shadow-sm`); an app overrides any subset in its own `styles.css` to re-theme every card at once — no component changes. Unset tokens fall back to the framework default.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dispatcher-live@0.115.0
+- @cosmicdrift/kumiko-headless@0.115.0
+- @cosmicdrift/kumiko-renderer@0.115.0
+
 ## 0.114.0
 
 ### Minor Changes
