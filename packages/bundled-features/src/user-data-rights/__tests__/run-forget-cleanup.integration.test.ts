@@ -17,6 +17,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
@@ -745,5 +746,83 @@ describe("runForgetCleanup :: per-User-Sub-Tx-Isolation (advisor-pinned Architek
         }
       ).delete = originalUserDelete;
     }
+  });
+});
+
+// eraseKey never fails in the in-memory adapter, so the rollback test
+// overrides it to simulate a KMS outage.
+class FailingEraseKms extends InMemoryKmsAdapter {
+  override async eraseKey(): Promise<void> {
+    throw new Error("kms unavailable");
+  }
+}
+
+describe("runForgetCleanup :: crypto-shredding (subject key erase)", () => {
+  test("successful forget erases the user's subject key", async () => {
+    await seedUser(ALICE_ID, {
+      status: USER_STATUS.DeletionRequested,
+      gracePeriodEnd: instantFromOffsetMs(-60 * 1000),
+    });
+    await seedMembership(ALICE_ID, TENANT_A);
+
+    const kms = new InMemoryKmsAdapter();
+    await kms.createKey({ kind: "user", userId: ALICE_ID });
+
+    const result = await runForgetCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      now: NOW(),
+      kms,
+    });
+
+    expect(result.processedUserIds).toEqual([ALICE_ID]);
+    expect(result.errors).toHaveLength(0);
+    await expect(kms.getKey({ kind: "user", userId: ALICE_ID })).rejects.toThrow(
+      "Subject key erased",
+    );
+  });
+
+  test("user without a subject key: erase is a no-op, forget still completes", async () => {
+    await seedUser(ALICE_ID, {
+      status: USER_STATUS.DeletionRequested,
+      gracePeriodEnd: instantFromOffsetMs(-60 * 1000),
+    });
+    await seedMembership(ALICE_ID, TENANT_A);
+
+    const result = await runForgetCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      now: NOW(),
+      kms: new InMemoryKmsAdapter(),
+    });
+
+    expect(result.processedUserIds).toEqual([ALICE_ID]);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  test("eraseKey failure rolls back the user's sub-tx (stays DeletionRequested, PII intact)", async () => {
+    await seedUser(ALICE_ID, {
+      status: USER_STATUS.DeletionRequested,
+      gracePeriodEnd: instantFromOffsetMs(-60 * 1000),
+      email: "alice.erase-fail@example.com",
+    });
+    await seedMembership(ALICE_ID, TENANT_A);
+
+    const result = await runForgetCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      now: NOW(),
+      kms: new FailingEraseKms(),
+    });
+
+    expect(result.processedUserIds).toHaveLength(0);
+    expect(result.errors.length).toBeGreaterThanOrEqual(1);
+    expect(result.errors[0]?.message).toContain("kms unavailable");
+
+    // Sub-tx rollback: the anonymize hooks ran but must be undone — a user
+    // whose key survives must keep retrying, not sit half-forgotten.
+    const alice = await fetchUser(ALICE_ID);
+    expect(alice?.status).toBe(USER_STATUS.DeletionRequested);
+    expect(alice?.email).toBe("alice.erase-fail@example.com");
   });
 });

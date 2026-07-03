@@ -11,8 +11,8 @@ import { z } from "zod";
 import { CRYPTO_SHREDDING_AGGREGATE_TYPE, SUBJECT_FORGOTTEN_EVENT_NAME } from "../constants";
 
 export const subjectIdSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("user"), userId: z.string().uuid() }),
-  z.object({ kind: z.literal("tenant"), tenantId: z.string().uuid() }),
+  z.object({ kind: z.literal("user"), userId: z.uuid() }),
+  z.object({ kind: z.literal("tenant"), tenantId: z.uuid() }),
 ]);
 
 export const forgetSubjectSchema = z.object({
