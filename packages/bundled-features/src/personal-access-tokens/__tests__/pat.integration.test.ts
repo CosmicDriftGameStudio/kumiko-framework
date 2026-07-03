@@ -4,11 +4,10 @@ import {
   createInMemoryLoginRateLimiter,
   type PatResolver,
 } from "@cosmicdrift/kumiko-framework/api";
-import { updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configureBlindIndexKey,
   configurePiiSubjectKms,
-  encryptPiiFieldValues,
   InMemoryKmsAdapter,
   isPiiCiphertext,
   resetBlindIndexKeyForTests,
@@ -212,18 +211,13 @@ describe("PAT auth", () => {
   });
 });
 
-describe("PAT with active KMS (#818): token name is userOwned PII", () => {
-  // create.write schreibt heute noch via direct insertOne (ES-Bypass) →
-  // Klartext at rest. Der list-Reader muss BEIDE Zustände liefern können:
-  // Klartext-Bestand pass-through, Ciphertext (kuenftiger Executor-Write
-  // bzw. Backfill) decrypted.
-  test("list decrypts an encrypted name and passes plaintext rows through", async () => {
-    const kms = new InMemoryKmsAdapter();
-    configurePiiSubjectKms(kms);
+describe("PAT with active KMS (#820): token name is userOwned PII", () => {
+  test("create stores ciphertext at rest, list returns the plaintext name", async () => {
+    configurePiiSubjectKms(new InMemoryKmsAdapter());
     configureBlindIndexKey(Buffer.alloc(32, 7).toString("base64"));
     try {
       const actor = await actorFor("kms-pat@example.com");
-      await mintToken(actor);
+      const token = await mintToken(actor);
 
       const rows = await stack.http.queryOk<Array<{ id: string; name: string }>>(
         PatQueries.mine,
@@ -232,22 +226,14 @@ describe("PAT with active KMS (#818): token name is userOwned PII", () => {
       );
       expect(rows[0]?.name).toBe("test");
 
-      const encrypted = await encryptPiiFieldValues(
-        { userId: actor.id, name: "test" },
-        apiTokenEntity,
-        ["name"],
-        kms,
-        { requestId: "test" },
-      );
-      expect(isPiiCiphertext(encrypted["name"])).toBe(true);
-      await updateMany(stack.db, apiTokenTable, { name: encrypted["name"] }, { id: rows[0]?.id });
+      const stored = await selectMany<{ name: string }>(stack.db, apiTokenTable, {
+        id: rows[0]?.id,
+      });
+      expect(isPiiCiphertext(stored[0]?.name)).toBe(true);
 
-      const rows2 = await stack.http.queryOk<Array<{ id: string; name: string }>>(
-        PatQueries.mine,
-        {},
-        actor,
-      );
-      expect(rows2[0]?.name).toBe("test");
+      // Der Token selbst funktioniert weiter (resolver liest tokenHash, nie name).
+      const res = await h.authedPost("/api/query", token, { type: PatQueries.mine, payload: {} });
+      expect(res.status).toBe(200);
     } finally {
       resetPiiSubjectKmsForTests();
       resetBlindIndexKeyForTests();

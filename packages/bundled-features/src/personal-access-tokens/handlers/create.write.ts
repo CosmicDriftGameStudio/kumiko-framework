@@ -3,8 +3,9 @@ import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
+import { encryptForDirectWrite } from "../../shared";
 import { mintPatToken } from "../hash";
-import { apiTokenTable } from "../schema/api-token";
+import { apiTokenEntity, apiTokenTable } from "../schema/api-token";
 
 // Mint a PAT for the calling user in their active tenant. The plaintext token
 // is returned ONCE (data.token) and never again — only the hash is stored.
@@ -22,20 +23,25 @@ export const createPatWrite = defineWriteHandler({
     const { raw, hash, prefix } = mintPatToken();
     const now = Temporal.Now.instant();
     const id = generateId();
-    await insertOne(ctx.db, apiTokenTable, {
-      id,
-      userId: event.user.id,
-      tenantId: event.user.tenantId,
-      name: event.payload.name,
-      tokenHash: hash,
-      prefix,
-      scopes: JSON.stringify(event.payload.scopes),
-      createdAt: now,
-      expiresAt: event.payload.expiresInDays
-        ? now.add({ hours: 24 * event.payload.expiresInDays })
-        : null,
-      revokedAt: null,
-    });
+    const row = await encryptForDirectWrite(
+      apiTokenEntity,
+      {
+        id,
+        userId: event.user.id,
+        tenantId: event.user.tenantId,
+        name: event.payload.name,
+        tokenHash: hash,
+        prefix,
+        scopes: JSON.stringify(event.payload.scopes),
+        createdAt: now,
+        expiresAt: event.payload.expiresInDays
+          ? now.add({ hours: 24 * event.payload.expiresInDays })
+          : null,
+        revokedAt: null,
+      },
+      "pat:create",
+    );
+    await insertOne(ctx.db, apiTokenTable, row);
     return { isSuccess: true, data: { id, token: raw, prefix } };
   },
 });

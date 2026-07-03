@@ -21,6 +21,11 @@
 // expliziert KEIN passwordHash + KEINE roles (privileged columns).
 
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  configuredPiiSubjectKms,
+  decryptPiiFieldValues,
+  isPiiCiphertext,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import {
   collectEncryptedFieldNames,
@@ -223,20 +228,42 @@ async function decryptSnippetFields(
   hookEntityName: string,
   snippet: UserDataExportSnippet,
 ): Promise<UserDataExportSnippet> {
-  const entity = registry.getEntity(snippet.entity) ?? registry.getEntity(hookEntityName);
-  if (!entity) return snippet;
-  const encryptedFields = collectEncryptedFieldNames(entity);
-  if (encryptedFields.size === 0) return snippet;
+  let rows = snippet.rows;
 
-  const cipher = configuredEntityFieldEncryption();
-  const rows = await Promise.all(
-    snippet.rows.map(async (row) => {
-      if (cipher) return decryptEntityFieldValues(row, encryptedFields, cipher);
-      const out = { ...row };
-      for (const name of encryptedFields) {
-        if (typeof out[name] === "string") out[name] = ENCRYPTED_UNAVAILABLE;
+  const entity = registry.getEntity(snippet.entity) ?? registry.getEntity(hookEntityName);
+  if (entity) {
+    const encryptedFields = collectEncryptedFieldNames(entity);
+    if (encryptedFields.size > 0) {
+      const cipher = configuredEntityFieldEncryption();
+      rows = await Promise.all(
+        rows.map(async (row) => {
+          if (cipher) return decryptEntityFieldValues(row, encryptedFields, cipher);
+          const out = { ...row };
+          for (const name of encryptedFields) {
+            if (typeof out[name] === "string") out[name] = ENCRYPTED_UNAVAILABLE;
+          }
+          return out;
+        }),
+      );
+    }
+  }
+
+  // PII-Subject-Ciphertexte (kumiko-pii:) sind self-describing — kein
+  // Entity-Kontext noetig, deckt jeden heutigen und kuenftigen Hook ab.
+  // Erased Subject → Sentinel (ehrlich: der Wert ist geshreddet).
+  const kms = configuredPiiSubjectKms();
+  rows = await Promise.all(
+    rows.map(async (row) => {
+      const piiKeys = Object.keys(row).filter((k) => isPiiCiphertext(row[k]));
+      if (piiKeys.length === 0) return row;
+      if (!kms) {
+        const out = { ...row };
+        for (const k of piiKeys) out[k] = ENCRYPTED_UNAVAILABLE;
+        return out;
       }
-      return out;
+      return decryptPiiFieldValues(row, piiKeys, kms, {
+        requestId: "user-data-rights:export",
+      });
     }),
   );
   return { ...snippet, rows };

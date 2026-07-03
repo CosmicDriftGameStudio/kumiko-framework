@@ -66,6 +66,7 @@ import type {
   TreeChildrenSubscribe,
   UiHints,
   UnmanagedTableEntry,
+  UnmanagedTableOptions,
   ValidationHookFn,
   WriteHandlerDef,
   WriteHandlerFn,
@@ -867,7 +868,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       };
     },
 
-    unmanagedTable(meta: EntityTableMeta, options: RawTableOptions): void {
+    unmanagedTable(meta: EntityTableMeta, options: UnmanagedTableOptions): void {
       // Name comes from the meta itself — apps already give the table a
       // name when calling defineUnmanagedTable, no need to repeat it.
       const tableName = meta.tableName;
@@ -896,6 +897,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
         name: tableName,
         meta,
         reason: options.reason,
+        ...(options.piiEncryptedOnWrite && { piiEncryptedOnWrite: true }),
       };
     },
 

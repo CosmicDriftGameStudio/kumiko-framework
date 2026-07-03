@@ -3,7 +3,11 @@
 // drizzle migrate-runner). See define-feature.ts / DX-4.
 
 import { describe, expect, test } from "bun:test";
-import { defineUnmanagedTable, resolveTableName } from "../../db/entity-table-meta";
+import {
+  buildEntityTableMeta,
+  defineUnmanagedTable,
+  resolveTableName,
+} from "../../db/entity-table-meta";
 import { defineFeature } from "../define-feature";
 import { createEntity, createTextField } from "../index";
 import { createRegistry } from "../registry";
@@ -123,5 +127,46 @@ describe("createRegistry — unmanagedTable aggregation", () => {
     expect(() => createRegistry([tableFeature, entityFeature])).toThrow(
       new RegExp(`Entity "widget".*collides with r.unmanagedTable\\("${physical}"\\)`),
     );
+  });
+});
+
+describe("createRegistry — unmanaged tables with PII-annotated fields (#820)", () => {
+  const piiEntity = createEntity({
+    table: "ut_pii_probe",
+    fields: {
+      userId: createTextField({ required: true }),
+      ip: createTextField({ userOwned: { ownerField: "userId" } }),
+    },
+  });
+  const piiMeta = buildEntityTableMeta("ut-pii-probe", piiEntity);
+
+  test("buildEntityTableMeta records the subject-annotated field names", () => {
+    expect(piiMeta.piiSubjectFields).toEqual(["ip"]);
+  });
+
+  test("rejects a PII-carrying unmanaged table without piiEncryptedOnWrite", () => {
+    const feat = defineFeature("probe", (r) => {
+      r.unmanagedTable(piiMeta, { reason: "direct-write store" });
+    });
+    expect(() => createRegistry([feat])).toThrow(
+      /has PII-annotated fields \(ip\) but direct writes bypass the executor's PII encryption/,
+    );
+  });
+
+  test("accepts it once the feature declares piiEncryptedOnWrite", () => {
+    const feat = defineFeature("probe", (r) => {
+      r.unmanagedTable(piiMeta, {
+        reason: "direct-write store",
+        piiEncryptedOnWrite: true,
+      });
+    });
+    expect(() => createRegistry([feat])).not.toThrow();
+  });
+
+  test("a PII-free unmanaged table needs no declaration", () => {
+    const feat = defineFeature("probe", (r) => {
+      r.unmanagedTable(probeMeta, { reason: "plain store" });
+    });
+    expect(() => createRegistry([feat])).not.toThrow();
   });
 });

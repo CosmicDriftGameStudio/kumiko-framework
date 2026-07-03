@@ -6,6 +6,7 @@ import {
   type UserDataExportHook,
   type UserDataHookCtx,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { decryptStoredPii } from "../../shared";
 import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant";
 import { userTable } from "../../user";
 import { featureMounted } from "./feature-mounted";
@@ -38,7 +39,11 @@ async function resolveUserEmail(ctx: UserDataHookCtx): Promise<string | null> {
   const row = (await fetchOne(ctx.db, userTable, { id: ctx.userId })) as {
     email: string;
   } | null; // @cast-boundary db-runner
-  return row ? row.email.toLowerCase() : null;
+  if (!row) return null;
+  // Stored value is ciphertext with an active KMS; lowercasing a base64
+  // blob would break both lookup arms — decrypt first.
+  const email = await decryptStoredPii(row.email, "user-data-rights:invitation-hook");
+  return email.toLowerCase();
 }
 
 export const tenantInvitationExportHook: UserDataExportHook = async (ctx) => {

@@ -90,6 +90,8 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
     // which are direct-write stores too.
     r.unmanagedTable(buildEntityTableMeta("user-session", userSessionEntity), {
       reason: "read_side.user_sessions_direct_write",
+      // sessionCreator encrypts ip/userAgent via encryptForDirectWrite (#820).
+      piiEncryptedOnWrite: true,
     });
 
     const handlers = {
