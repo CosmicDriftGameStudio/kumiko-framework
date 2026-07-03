@@ -15,7 +15,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthEmailPasswordFeature } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
 import { tenantComplianceProfileEntity } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
-import { configValueEntity, createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
+import {
+  configValueEntity,
+  createConfigFeature,
+} from "@cosmicdrift/kumiko-bundled-features/config";
 import { tenantRetentionOverrideEntity } from "@cosmicdrift/kumiko-bundled-features/data-retention";
 import {
   createSessionsFeature,
