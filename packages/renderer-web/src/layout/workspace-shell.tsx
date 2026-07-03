@@ -34,13 +34,19 @@ import type { AppSchema, FeatureSchema, WorkspaceSchema } from "@cosmicdrift/kum
 import { qualifyNavId, toAppSchema, useNav } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useCallback, useLayoutEffect, useMemo } from "react";
 import { useResolvers } from "../app/resolvers-context";
-import { SidebarProvider } from "../ui/sidebar";
-import { AppLayout } from "./app-layout";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarInset,
+  SidebarProvider,
+  SidebarRail,
+} from "../ui/sidebar";
 import { EditorPanel } from "./editor-panel";
 import { lastSegment, NavTree } from "./nav-tree";
-import { Sidebar } from "./sidebar";
+import { ShellHeader } from "./shell-header";
 import { parseTargetFromSearchParams } from "./target-url";
-import { Topbar } from "./topbar";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
 export type WorkspaceShellUser = {
@@ -204,21 +210,34 @@ export function WorkspaceShell({
     />
   );
 
-  // SidebarProvider: NavTree rendert vendored shadcn-SidebarMenuButtons, die
-  // useSidebar() rufen. WorkspaceShell behält sein eigenes Topbar-Layout
-  // (AppLayout + Sidebar), braucht aber den Context-Wrapper drumherum.
+  // Modern shell (wie DefaultAppShell): collapsible Icon-Rail-Sidebar trägt
+  // Brand + Workspace-Switcher + Nav + Footer; der SidebarInset rendert die
+  // geteilte ShellHeader (Panel-Toggle + Breadcrumb + Actions) über dem
+  // Content. topbarActions landen rechts in der Header-Zeile statt in einer
+  // separaten Topbar — eine Kopfzeile statt zwei.
   return (
     <SidebarProvider>
-      <AppLayout
-        topbar={<Topbar start={brand} center={switcher || undefined} end={topbarActions} />}
-        sidebar={
-          <Sidebar {...(sidebarFooter !== undefined && { footer: sidebarFooter })}>
-            {sidebarContent}
-          </Sidebar>
-        }
-      >
-        {activeTarget !== undefined ? <EditorPanel resolvers={resolvers} /> : children}
-      </AppLayout>
+      <Sidebar collapsible="icon">
+        <SidebarHeader data-kumiko-layout="sidebar-header">
+          {brand}
+          {switcher}
+        </SidebarHeader>
+        <SidebarContent data-kumiko-layout="sidebar-nav">{sidebarContent}</SidebarContent>
+        {sidebarFooter !== undefined && (
+          <SidebarFooter data-kumiko-layout="sidebar-footer">{sidebarFooter}</SidebarFooter>
+        )}
+        <SidebarRail />
+      </Sidebar>
+      <SidebarInset>
+        <ShellHeader
+          schema={app}
+          {...(user !== undefined && { user })}
+          {...(topbarActions !== undefined && { headerActions: topbarActions })}
+        />
+        <main className="flex-1 overflow-auto">
+          {activeTarget !== undefined ? <EditorPanel resolvers={resolvers} /> : children}
+        </main>
+      </SidebarInset>
     </SidebarProvider>
   );
 }
