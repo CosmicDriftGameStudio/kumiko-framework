@@ -18,6 +18,11 @@ export {
   subjectKeyForUser,
 } from "./kms-adapter";
 export {
+  createPgKmsAdapter,
+  PgKmsAdapter,
+  type PgKmsAdapterOptions,
+} from "./pg-kms-adapter";
+export {
   configuredPiiSubjectKms,
   configurePiiSubjectKms,
   decryptPiiFieldValues,
