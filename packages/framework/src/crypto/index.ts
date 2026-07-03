@@ -16,3 +16,13 @@ export {
   subjectKeyForTenant,
   subjectKeyForUser,
 } from "./kms-adapter";
+export {
+  createRequestKmsCache,
+  type RequestKmsCache,
+} from "./request-kms-cache";
+export {
+  collectPiiSubjectFields,
+  type ResolveSubjectOptions,
+  resolveSubjectForField,
+  SubjectResolutionError,
+} from "./subject-resolver";
