@@ -12,10 +12,21 @@ export {
   type SubjectDek,
   type SubjectId,
   type SubjectKey,
+  subjectIdFromKey,
   subjectIdToKey,
   subjectKeyForTenant,
   subjectKeyForUser,
 } from "./kms-adapter";
+export {
+  configuredPiiSubjectKms,
+  configurePiiSubjectKms,
+  decryptPiiFieldValues,
+  type EncryptPiiOptions,
+  encryptPiiFieldValues,
+  isPiiCiphertext,
+  PII_ERASED_SENTINEL,
+  resetPiiSubjectKmsForTests,
+} from "./pii-field-encryption";
 export {
   createRequestKmsCache,
   type RequestKmsCache,
