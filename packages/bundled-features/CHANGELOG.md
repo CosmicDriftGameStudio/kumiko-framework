@@ -1,5 +1,21 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.116.0
+
+### Minor Changes
+
+- ef58e34: data-retention cleanup now implements the `anonymize` strategy (per-field anonymize functions applied via the event-store executor, idempotent — a re-run appends zero events) and completes `blockDelete`: rows stay untouched during the keepFor legal hold, after expiry the anonymize functions run (row stays, person link goes). `RunRetentionCleanupResult.anonymizeDeferred` is replaced by `anonymized: number`; entities with an anonymize/blockDelete policy but no anonymize-annotated fields are reported in `skipped` with reason `missing_anonymize_fields`.
+
+### Patch Changes
+
+- d9bb774: user-data-rights-defaults now registers EXT_USER_DATA export/delete hooks for six more bundled entities: user-session (ip/userAgent), api-token, in-app-message, tenant-invitation, notification-preference and user-scoped config-value. Hooks no-op when the source feature isn't mounted. pii annotations added on the affected schema fields.
+- Updated dependencies [b82bf74]
+  - @cosmicdrift/kumiko-renderer-web@0.116.0
+  - @cosmicdrift/kumiko-framework@0.116.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.116.0
+  - @cosmicdrift/kumiko-headless@0.116.0
+  - @cosmicdrift/kumiko-renderer@0.116.0
+
 ## 0.115.1
 
 ### Patch Changes
