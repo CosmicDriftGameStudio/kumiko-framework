@@ -8,6 +8,13 @@ export {
   decodeBlindIndexKey,
   resetBlindIndexKeyForTests,
 } from "./blind-index";
+export {
+  configuredEventPiiCatalog,
+  configureEventPiiCatalog,
+  type EventPiiCatalog,
+  encryptEventPayloadPii,
+  resetEventPiiCatalogForTests,
+} from "./event-pii";
 export { InMemoryKmsAdapter } from "./in-memory-kms-adapter";
 export {
   isLocalKeyKmsAdapter,
@@ -38,6 +45,7 @@ export {
   decryptPiiFieldValues,
   type EncryptPiiOptions,
   encryptPiiFieldValues,
+  encryptPiiValueForSubject,
   isPiiCiphertext,
   PII_CIPHERTEXT_PREFIX,
   PII_ERASED_SENTINEL,

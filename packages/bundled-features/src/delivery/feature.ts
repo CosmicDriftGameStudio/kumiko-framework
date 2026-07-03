@@ -40,7 +40,11 @@ export function createDeliveryFeature(): FeatureDefinition {
     // attempt is a fresh stream, no CRUD lifecycle. Framework's
     // boot-validator accepts the projection below because at least one
     // apply-key is a registered domain-event (DELIVERY_ATTEMPT_EVENT).
-    r.defineEvent("attempt", deliveryAttemptSchema);
+    // recipientAddress is the real PII (email address); recipientId stays
+    // plaintext — pseudonymous fk, same line as config.userId (#821).
+    r.defineEvent("attempt", deliveryAttemptSchema, {
+      piiFields: { recipientAddress: { subjectField: "recipientId" } },
+    });
 
     // Inline projection that materialises every delivery attempt into
     // deliveryAttemptsTable. Runs in the SAME transaction as the low-level

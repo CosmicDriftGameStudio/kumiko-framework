@@ -136,6 +136,7 @@ export type {
   EntityRef,
   EventDef,
   EventMigrationDef,
+  EventPiiFields,
   EventUpcastCtx,
   EventUpcastFn,
   FetchForWritingArgs,

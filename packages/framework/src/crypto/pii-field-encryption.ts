@@ -85,6 +85,20 @@ async function getOrCreateDek(
   return kms.getKey(subject, ctx);
 }
 
+// Single-value encrypt for callers that resolve the subject themselves
+// (event-pii catalog, backfill). Ciphertext/sentinel inputs pass through —
+// idempotent like the field-map variant.
+export async function encryptPiiValueForSubject(
+  kms: LocalKeyKmsAdapter,
+  subject: SubjectId,
+  value: string,
+  kmsCtx: KmsContext,
+): Promise<string> {
+  if (isPiiCiphertext(value) || value === PII_ERASED_SENTINEL) return value;
+  const dek = await getOrCreateDek(kms, subject, kmsCtx);
+  return encryptValue(subject, dek, value);
+}
+
 export interface EncryptPiiOptions {
   readonly onlyKeys?: Iterable<string>;
   // Write-time tenant for tenantOwned fields on rows without a tenantId column.

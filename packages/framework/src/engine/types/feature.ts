@@ -36,6 +36,7 @@ import type {
   EntityRef,
   EventDef,
   EventMigrationDef,
+  EventPiiFields,
   EventUpcastFn,
   HandlerRef,
   NameOrRef,
@@ -529,10 +530,14 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // on first registration. When you bump the payload shape, raise version
   // AND register r.eventMigration(shortName, N, N+1, transform) — the
   // framework refuses to boot if the chain from 1 → version has gaps.
+  //
+  // `options.piiFields` declares PII payload fields encrypted under the DEK
+  // of the user named by `subjectField` (crypto-shredding, #799). append()
+  // enforces the catalog on every write path.
   defineEvent<const TInner extends string, TPayload>(
     name: TInner,
     schema: ZodType<TPayload>,
-    options?: { readonly version?: number },
+    options?: { readonly version?: number; readonly piiFields?: EventPiiFields },
   ): EventDef<TPayload, QualifiedEventName<TFeature, TInner>>;
 
   // Register a step-wise payload transform for event-schema evolution.

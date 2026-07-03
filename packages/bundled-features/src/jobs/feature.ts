@@ -44,7 +44,12 @@ export function createJobsFeature(): FeatureDefinition {
     // (no executor, no CRUD). The boot-validator accepts the two
     // projections below because every apply-key is a registered
     // domain-event.
-    r.defineEvent("run-started", runStartedSchema);
+    // payload can carry arbitrary user data; triggeredById stays plaintext
+    // (pseudonymous fk). System runs (triggeredById null) stay plaintext —
+    // no user subject to shred.
+    r.defineEvent("run-started", runStartedSchema, {
+      piiFields: { payload: { subjectField: "triggeredById" } },
+    });
     r.defineEvent("run-completed", runCompletedSchema);
     r.defineEvent("run-failed", runFailedSchema);
 

@@ -1,6 +1,7 @@
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
+import { decryptStoredPii } from "../../shared";
 import { jobRunLogsTable, jobRunsTable } from "../job-run-table";
 
 export const detailQuery = defineQueryHandler({
@@ -17,6 +18,11 @@ export const detailQuery = defineQueryHandler({
     const row = await fetchOne(db, jobRunsTable, { id: query.payload.runId });
 
     if (!row) return null;
+
+    // payload is stored encrypted under the triggering user's DEK (#799).
+    if (typeof row["payload"] === "string") {
+      row["payload"] = await decryptStoredPii(row["payload"], "job-run-detail");
+    }
 
     const logs = await selectMany(
       db,

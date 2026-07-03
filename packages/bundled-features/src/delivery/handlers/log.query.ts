@@ -1,6 +1,7 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
+import { decryptStoredPii } from "../../shared";
 import { deliveryAttemptsTable } from "../tables";
 
 export const logQuery = defineQueryHandler({
@@ -14,6 +15,18 @@ export const logQuery = defineQueryHandler({
       orderBy: { col: "createdAt", direction: "desc" },
       limit: query.payload.limit,
     });
-    return { rows };
+    // recipientAddress is stored encrypted under the recipient's DEK (#799)
+    // — decrypt for the admin log view; forgotten subjects show [[erased]].
+    return {
+      rows: await Promise.all(
+        rows.map(async (row) => ({
+          ...row,
+          recipientAddress:
+            typeof row["recipientAddress"] === "string"
+              ? await decryptStoredPii(row["recipientAddress"], "delivery-log")
+              : row["recipientAddress"],
+        })),
+      ),
+    };
   },
 });

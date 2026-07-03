@@ -1,4 +1,4 @@
-import type { ZodType, z } from "zod";
+import { ZodObject, type ZodType, type z } from "zod";
 import type { EntityTableMeta } from "../db/entity-table-meta";
 import { toTableName } from "../db/table-builder";
 import { LifecycleHookTypes } from "./constants";
@@ -19,6 +19,7 @@ import type {
   EntityRef,
   EventDef,
   EventMigrationDef,
+  EventPiiFields,
   EventUpcastFn,
   ExtensionSelectorDef,
   FeatureDefinition,
@@ -511,7 +512,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     defineEvent: <const TInner extends string, TPayload>(
       eventName: TInner,
       schema: ZodType<TPayload>,
-      options?: { readonly version?: number },
+      options?: { readonly version?: number; readonly piiFields?: EventPiiFields },
     ): EventDef<TPayload, QualifiedEventName<TName, TInner>> => {
       // Return the fully-qualified event name so callers can pass it
       // straight to ctx.appendEvent without hand-building the
@@ -530,6 +531,27 @@ export function defineFeature<const TName extends string, TExports = undefined>(
           `[Feature ${name}] defineEvent("${eventName}"): version must be a positive integer, got ${String(version)}`,
         );
       }
+      // piiFields misconfiguration is a boot-time error, not a silent
+      // plaintext leak: both the pii field and its subjectField must exist
+      // on the payload schema (checkable when the schema is a ZodObject).
+      const piiFields = options?.piiFields;
+      if (piiFields) {
+        const shape = schema instanceof ZodObject ? schema.shape : undefined;
+        for (const [field, spec] of Object.entries(piiFields)) {
+          if (field === spec.subjectField) {
+            throw new Error(
+              `[Feature ${name}] defineEvent("${eventName}"): piiFields."${field}" cannot use itself as subjectField — the subject id is a plaintext pseudonymous fk, the pii field is the value it owns.`,
+            );
+          }
+          for (const required of [field, spec.subjectField]) {
+            if (shape && !(required in shape)) {
+              throw new Error(
+                `[Feature ${name}] defineEvent("${eventName}"): piiFields references "${required}" which is not a field of the payload schema.`,
+              );
+            }
+          }
+        }
+      }
       // @cast-boundary engine-bridge — runtime-string mirrors the
       // template-literal-type via QualifiedEventName + toKebab. Both
       // sides are tested (CamelToKebab type-tests + scan-events kebab
@@ -538,6 +560,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
         name: qualified as QualifiedEventName<TName, TInner>,
         schema,
         version,
+        ...(piiFields !== undefined && { piiFields }),
       };
       events[eventName] = def;
       return def;

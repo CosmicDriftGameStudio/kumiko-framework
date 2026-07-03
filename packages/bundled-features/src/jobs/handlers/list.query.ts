@@ -1,7 +1,13 @@
 import { selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
+import { decryptStoredPii } from "../../shared";
 import { jobRunsTable } from "../job-run-table";
+
+async function decryptRunPayload<T extends Record<string, unknown>>(row: T): Promise<T> {
+  if (typeof row["payload"] !== "string") return row;
+  return { ...row, payload: await decryptStoredPii(row["payload"], "job-runs") };
+}
 
 export const listQuery = defineQueryHandler({
   name: "list",
@@ -19,6 +25,7 @@ export const listQuery = defineQueryHandler({
       orderBy: { col: "id", direction: "desc" },
       limit: query.payload.limit ?? 50,
     });
-    return { rows };
+    // payload is stored encrypted under the triggering user's DEK (#799).
+    return { rows: await Promise.all(rows.map(decryptRunPayload)) };
   },
 });
