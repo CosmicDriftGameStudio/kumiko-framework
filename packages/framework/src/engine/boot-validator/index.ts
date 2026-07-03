@@ -27,7 +27,11 @@ import {
   validateReferenceFields,
   validateTransitions,
 } from "./entity-handler";
-import { validateGdprHookCompleteness, validateGdprStoragePersistence } from "./gdpr-storage";
+import {
+  validateGdprHookCompleteness,
+  validateGdprPiiHookCoverage,
+  validateGdprStoragePersistence,
+} from "./gdpr-storage";
 import { validateI18nSurfaceKeys } from "./i18n-keys";
 import { validateOwnershipRules } from "./ownership";
 import { validatePiiAndRetention } from "./pii-retention";
@@ -179,6 +183,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
   validateExtensionPreSaveWiring(features);
   validateGdprStoragePersistence(features);
   validateGdprHookCompleteness(features);
+  validateGdprPiiHookCoverage(features);
 
   if (hasEncryptedFields) {
     // Availability check, not env-presence: eagerly building the keyring

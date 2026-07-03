@@ -3,14 +3,18 @@
 // and s3-env selected as the GDPR store without its env vars set.
 // V2 — export-without-erase guard. Catches features that register an export
 // hook but no delete hook (Art.17 violation).
+// V3 — PII-entity-without-hook guard. Catches entities with pii/userOwned
+// fields that no feature registers an EXT_USER_DATA hook for.
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import {
   validateGdprHookCompleteness,
+  validateGdprPiiHookCoverage,
   validateGdprStoragePersistence,
 } from "../boot-validator/gdpr-storage";
 import { defineFeature } from "../define-feature";
 import { EXT_USER_DATA } from "../extension-names";
+import { createEntity, createLongTextField, createTextField } from "../factories";
 
 const udr = () => defineFeature("user-data-rights", () => {});
 const fileProvider = (name: string) =>
@@ -139,5 +143,87 @@ describe("validateGdprHookCompleteness (V2)", () => {
     validateGdprHookCompleteness([good, bad]);
     expect(warnSpy).toHaveBeenCalledTimes(1);
     expect(String(warnSpy.mock.calls[0]?.[0])).toContain("entityB");
+  });
+});
+
+describe("validateGdprPiiHookCoverage (V3)", () => {
+  let warnSpy: ReturnType<typeof spyOn>;
+
+  beforeEach(() => {
+    warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  const exportFn = async () => null;
+  const deleteFn = async () => {};
+
+  const piiFeature = () =>
+    defineFeature("crm", (r) => {
+      r.entity(
+        "contact",
+        createEntity({
+          fields: {
+            email: createTextField({ pii: true }),
+            note: createLongTextField({ userOwned: { ownerField: "authorId" } }),
+            authorId: { type: "reference", entity: "user" },
+          },
+        }),
+      );
+    });
+
+  test("user-data-rights not mounted → no warn", () => {
+    validateGdprPiiHookCoverage([piiFeature()]);
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  test("pii entity without any EXT_USER_DATA hook → warn naming entity and fields", () => {
+    validateGdprPiiHookCoverage([udr(), piiFeature()]);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    const msg = String(warnSpy.mock.calls[0]?.[0]);
+    expect(msg).toContain('"contact"');
+    expect(msg).toContain("email");
+    expect(msg).toContain("note");
+    expect(msg).toContain("Art.17");
+  });
+
+  test("pii entity with hook registered by another feature → no warn", () => {
+    const hooks = defineFeature("crm-user-data", (r) => {
+      r.useExtension(EXT_USER_DATA, "contact", { export: exportFn, delete: deleteFn });
+    });
+    validateGdprPiiHookCoverage([udr(), piiFeature(), hooks]);
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  test("entity without subject annotations → no warn", () => {
+    const plain = defineFeature("catalog", (r) => {
+      r.entity(
+        "product",
+        createEntity({
+          fields: { sku: createTextField({ allowPlaintext: "is-business-data" }) },
+        }),
+      );
+    });
+    validateGdprPiiHookCoverage([udr(), plain]);
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  test("userOwned field alone counts as user-subject data → warn", () => {
+    const f = defineFeature("notes", (r) => {
+      r.entity(
+        "note",
+        createEntity({
+          fields: {
+            body: createLongTextField({ userOwned: { ownerField: "authorId" } }),
+            authorId: { type: "reference", entity: "user" },
+          },
+        }),
+      );
+    });
+    validateGdprPiiHookCoverage([udr(), f]);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(String(warnSpy.mock.calls[0]?.[0])).toContain('"note"');
   });
 });
