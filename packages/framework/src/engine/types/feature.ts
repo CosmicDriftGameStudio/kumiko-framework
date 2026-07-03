@@ -794,6 +794,7 @@ export type Registry = {
 
   getFeature(name: string): FeatureDefinition | undefined;
   getEntity(name: string): EntityDefinition | undefined;
+  getAllEntities(): ReadonlyMap<string, EntityDefinition>;
   getWriteHandler(name: string): WriteHandlerDef | undefined;
   getQueryHandler(name: string): QueryHandlerDef | undefined;
   getSearchableFields(entityName: string): readonly string[];
