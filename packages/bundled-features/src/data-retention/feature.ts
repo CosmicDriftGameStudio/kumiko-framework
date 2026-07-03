@@ -104,10 +104,10 @@ export function createDataRetentionFeature(): FeatureDefinition {
           tenantPreset,
           now: T.Now.instant(),
         });
-        if (result.anonymizeDeferred.length > 0 || result.skipped.length > 0) {
-          // biome-ignore lint/suspicious/noConsole: operator-visibility for deferred/skipped entities
+        if (result.skipped.length > 0) {
+          // biome-ignore lint/suspicious/noConsole: operator-visibility for skipped entities
           console.warn(
-            `[data-retention:retention-cleanup] tenant=${tenantId} anonymizeDeferred=${result.anonymizeDeferred.join(",") || "-"} skipped=${result.skipped.map((s) => `${s.entityName}:${s.reason}`).join(",") || "-"}`,
+            `[data-retention:retention-cleanup] tenant=${tenantId} skipped=${result.skipped.map((s) => `${s.entityName}:${s.reason}`).join(",")}`,
           );
         }
       },

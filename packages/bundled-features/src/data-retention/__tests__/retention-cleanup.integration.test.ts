@@ -55,10 +55,9 @@ const staleEntity = createEntity({
 });
 
 // blockDelete = Aufbewahrungspflicht (HGB/DSGVO-Presets: invoice/booking/
-// contract). Der Cleanup-Job muss diese Rows IGNORIEREN — nur user-forget
-// darf sie anonymisieren. Ein Regress im switch-Default oder im blockDelete-
-// Case, der sie trotzdem löscht, wäre schwerwiegender als ein verpasstes
-// hardDelete (Aufbewahrungspflicht-Verletzung statt nur "zu spät aufgeräumt").
+// contract). Während keepFor muss der Cleanup diese Rows IGNORIEREN (löschen
+// wäre eine Aufbewahrungspflicht-Verletzung); NACH Ablauf laufen die
+// anonymize-Feld-Funktionen — Row bleibt, Personen-Bezug raus (fields.ts).
 const retainedEntity = createEntity({
   table: "read_c7_retained",
   fields: {
@@ -67,12 +66,33 @@ const retainedEntity = createEntity({
   retention: { keepFor: "30d", strategy: "blockDelete" },
 });
 
+// anonymize-Strategie: label wird nach Ablauf ueberschrieben, note traegt
+// keine anonymize-Funktion und muss unangetastet bleiben (Geschaeftsdaten).
+const anonEntity = createEntity({
+  table: "read_c7_anon",
+  fields: {
+    label: createTextField({ required: true, anonymize: () => "[ANONYMIZED]" }),
+    note: createTextField({ allowPlaintext: "is-business-data" }),
+  },
+  retention: { keepFor: "30d", strategy: "anonymize" },
+});
+
+// anonymize-Strategie OHNE anonymize-Felder — der Runner kann nichts tun und
+// muss das als skip melden statt still nichts zu tun.
+const bareEntity = createEntity({
+  table: "read_c7_bare",
+  fields: { label: createTextField({ required: true, allowPlaintext: "is-business-data" }) },
+  retention: { keepFor: "30d", strategy: "anonymize" },
+});
+
 const c7Feature = defineFeature("c7-retention-fixtures", (r) => {
   r.entity("c7-widget", widgetEntity);
   r.entity("c7-gadget", gadgetEntity);
   r.entity("c7-plain", plainEntity);
   r.entity("c7-stale", staleEntity);
   r.entity("c7-retained", retainedEntity);
+  r.entity("c7-anon", anonEntity);
+  r.entity("c7-bare", bareEntity);
 });
 
 const noopLogger: JobContext["log"] = {
@@ -102,6 +122,8 @@ beforeAll(async () => {
     plainEntity,
     staleEntity,
     retainedEntity,
+    anonEntity,
+    bareEntity,
   ]) {
     await unsafeCreateEntityTable(stack.db, e);
   }
@@ -144,6 +166,8 @@ beforeEach(async () => {
     "read_c7_plain",
     "read_c7_stale",
     "read_c7_retained",
+    "read_c7_anon",
+    "read_c7_bare",
   ]) {
     await asRawClient(stack.db).unsafe(`DELETE FROM ${t}`);
   }
@@ -244,8 +268,9 @@ describe("runRetentionCleanup :: real postgres", () => {
     expect(await labels("read_c7_widget", T1)).toEqual(["fresh-via-handler"]);
   });
 
-  test("blockDelete: past-cutoff rows are never touched by the cleanup job", async () => {
-    await seed("read_c7_retained", T1, "should-survive", pastIso);
+  test("blockDelete: within keepFor untouched, after expiry anonymized — row NEVER deleted", async () => {
+    await seed("read_c7_retained", T1, "in-hold", withinIso);
+    await seed("read_c7_retained", T1, "hold-expired", pastIso);
 
     const result = await runRetentionCleanup({
       db: stack.db,
@@ -255,9 +280,121 @@ describe("runRetentionCleanup :: real postgres", () => {
       now,
     });
 
-    expect(await labels("read_c7_retained", T1)).toEqual(["should-survive"]);
+    // Beide Rows physisch da — blockDelete darf NIE loeschen.
+    expect((await labels("read_c7_retained", T1)).sort()).toEqual(["[ANONYMIZED]", "in-hold"]);
     expect(result.hardDeleted).toBe(0);
     expect(result.softDeleted).toBe(0);
-    expect(result.anonymizeDeferred).not.toContain("c7-retained");
+    expect(result.anonymized).toBe(1);
+  });
+
+  test("anonymize: expired row gets field functions applied, other fields + fresh rows untouched", async () => {
+    await asRawClient(stack.db).unsafe(
+      `INSERT INTO read_c7_anon (tenant_id, label, note, inserted_at) VALUES ($1, 'old-pii', 'business-note', $2::timestamptz)`,
+      [T1, pastIso],
+    );
+    await asRawClient(stack.db).unsafe(
+      `INSERT INTO read_c7_anon (tenant_id, label, note, inserted_at) VALUES ($1, 'fresh-pii', 'fresh-note', $2::timestamptz)`,
+      [T1, withinIso],
+    );
+
+    const result = await runRetentionCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      tenantId: T1,
+      tenantPreset: null,
+      now,
+    });
+
+    expect(result.anonymized).toBe(1);
+    const rows = (await asRawClient(stack.db).unsafe(
+      `SELECT label, note FROM read_c7_anon WHERE tenant_id = $1 ORDER BY note`,
+      [T1],
+    )) as { label: string; note: string }[];
+    expect(rows).toEqual([
+      { label: "[ANONYMIZED]", note: "business-note" }, // PII raus, Geschaeftsdaten bleiben
+      { label: "fresh-pii", note: "fresh-note" }, // innerhalb keepFor: unangetastet
+    ]);
+  });
+
+  test("anonymize is idempotent: second run appends ZERO events (no daily event spam)", async () => {
+    await asRawClient(stack.db).unsafe(
+      `INSERT INTO read_c7_anon (tenant_id, label, note, inserted_at) VALUES ($1, 'old-pii', 'n', $2::timestamptz)`,
+      [T1, pastIso],
+    );
+
+    const first = await runRetentionCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      tenantId: T1,
+      tenantPreset: null,
+      now,
+    });
+    expect(first.anonymized).toBe(1);
+
+    const eventsAfterFirst = (await asRawClient(stack.db).unsafe(
+      `SELECT count(*)::int AS n FROM kumiko_events`,
+    )) as { n: number }[];
+
+    const second = await runRetentionCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      tenantId: T1,
+      tenantPreset: null,
+      now,
+    });
+    expect(second.anonymized).toBe(0);
+
+    const eventsAfterSecond = (await asRawClient(stack.db).unsafe(
+      `SELECT count(*)::int AS n FROM kumiko_events`,
+    )) as { n: number }[];
+    expect(eventsAfterSecond[0]?.n).toBe(eventsAfterFirst[0]?.n);
+  });
+
+  test("anonymize converges under batchLimit=1: cursor pages past already-anonymized rows", async () => {
+    for (const label of ["a-pii", "b-pii", "c-pii"]) {
+      await asRawClient(stack.db).unsafe(
+        `INSERT INTO read_c7_anon (tenant_id, label, note, inserted_at) VALUES ($1, $2, $3, $4::timestamptz)`,
+        [T1, label, `note-${label}`, pastIso],
+      );
+    }
+
+    const run = () =>
+      runRetentionCleanup({
+        db: stack.db,
+        registry: stack.registry,
+        tenantId: T1,
+        tenantPreset: null,
+        now,
+        batchLimit: 1,
+      });
+
+    expect((await run()).anonymized).toBe(1);
+    expect((await run()).anonymized).toBe(1); // Cursor muss ueber die erledigte Row hinweg
+    expect((await run()).anonymized).toBe(1);
+    expect((await run()).anonymized).toBe(0); // konvergiert
+
+    const rows = (await asRawClient(stack.db).unsafe(
+      `SELECT label FROM read_c7_anon WHERE tenant_id = $1`,
+      [T1],
+    )) as { label: string }[];
+    expect(rows.map((r) => r.label)).toEqual(["[ANONYMIZED]", "[ANONYMIZED]", "[ANONYMIZED]"]);
+  });
+
+  test("anonymize strategy without anonymize fields → skipped with reason, rows untouched", async () => {
+    await seed("read_c7_bare", T1, "survives", pastIso);
+
+    const result = await runRetentionCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      tenantId: T1,
+      tenantPreset: null,
+      now,
+    });
+
+    expect(await labels("read_c7_bare", T1)).toEqual(["survives"]);
+    expect(result.skipped).toContainEqual({
+      entityName: "c7-bare",
+      reason: "missing_anonymize_fields",
+    });
   });
 });
