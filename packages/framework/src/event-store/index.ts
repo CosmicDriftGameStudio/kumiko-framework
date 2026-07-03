@@ -1,4 +1,10 @@
 export {
+  backfillEventPiiEncryption,
+  type PiiBackfillFailure,
+  type PiiBackfillOptions,
+  type PiiBackfillResult,
+} from "../db/queries/backfill-pii";
+export {
   type ArchiveStreamArgs,
   archivedStreamsTable,
   archiveStream,
@@ -6,12 +12,6 @@ export {
   isStreamArchived,
   restoreStream,
 } from "./archive";
-export {
-  backfillEventPiiEncryption,
-  type PiiBackfillFailure,
-  type PiiBackfillOptions,
-  type PiiBackfillResult,
-} from "./backfill-pii";
 export { ArchivedStreamError, VersionConflictError } from "./errors";
 export {
   append,

@@ -25,19 +25,19 @@
 // affected projections — applyEntityEvent materializes ciphertext AND the
 // blind-index columns, which keeps equality lookups (login by email) alive.
 
-import { asRawClient } from "../bun-db";
-import { configuredEventPiiCatalog } from "../crypto/event-pii";
-import type { KmsContext, LocalKeyKmsAdapter, SubjectId } from "../crypto/kms-adapter";
-import { KeyErasedError } from "../crypto/kms-adapter";
+import { asRawClient } from "../../bun-db";
+import { configuredEventPiiCatalog } from "../../crypto/event-pii";
+import type { KmsContext, LocalKeyKmsAdapter, SubjectId } from "../../crypto/kms-adapter";
+import { KeyErasedError } from "../../crypto/kms-adapter";
 import {
   configuredPiiSubjectKms,
   encryptPiiValueForSubject,
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
-} from "../crypto/pii-field-encryption";
-import { collectPiiSubjectFields, resolveSubjectForField } from "../crypto/subject-resolver";
-import type { DbRunner } from "../db/connection";
-import type { EntityDefinition, Registry, TenantId } from "../engine/types";
+} from "../../crypto/pii-field-encryption";
+import { collectPiiSubjectFields, resolveSubjectForField } from "../../crypto/subject-resolver";
+import type { EntityDefinition, Registry, TenantId } from "../../engine/types";
+import type { DbRunner } from "../connection";
 
 const LIFECYCLE_VERBS = ["created", "updated", "deleted", "restored", "forgotten"] as const;
 

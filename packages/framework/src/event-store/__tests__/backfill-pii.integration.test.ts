@@ -18,6 +18,7 @@ import {
   resetPiiSubjectKmsForTests,
 } from "../../crypto";
 import { applyEntityEvent } from "../../db/apply-entity-event";
+import { backfillEventPiiEncryption } from "../../db/queries/backfill-pii";
 import { asRawClient, fetchOne } from "../../db/query";
 import { buildEntityTable } from "../../db/table-builder";
 import { defineFeature } from "../../engine/define-feature";
@@ -26,7 +27,6 @@ import { createRegistry } from "../../engine/registry";
 import type { Registry, TenantId } from "../../engine/types";
 import { createTestDb, type TestDb, unsafeCreateEntityTable } from "../../stack";
 import { generateId } from "../../utils";
-import { backfillEventPiiEncryption } from "../backfill-pii";
 import { append, loadAggregate } from "../event-store";
 import { createEventsTable } from "../events-schema";
 
