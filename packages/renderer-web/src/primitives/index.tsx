@@ -83,13 +83,18 @@ import { useToast } from "./toast";
 
 // ---- Card-Chrome (eine Definition für Form/Section/Card) ----
 
-// Die eine Card-Surface. Radius ist die einzige real gebrauchte Variante:
-// xl = Card/Screen-Fläche (Default), lg = "innen"-Fläche wie Tabellen.
-const cardSurface = cva("flex flex-col border bg-card text-card-foreground shadow-sm", {
-  variants: { radius: { xl: "rounded-xl", lg: "rounded-lg" } },
-  defaultVariants: { radius: "xl" },
-});
-const cardFooter = "flex items-center justify-end gap-2 px-6 py-4";
+// Die eine Card-Surface. Maße (Padding/Radius/Shadow) kommen aus --card-*
+// CSS-Tokens (Defaults in styles.css), damit eine App sie einmal zentral in
+// ihrer styles.css überschreiben kann — wie die Farben. Radius-Variante:
+// xl = Card/Screen-Fläche (Default, token-getrieben), lg = "innen"-Fläche.
+const cardSurface = cva(
+  "flex flex-col border bg-card text-card-foreground shadow-[var(--card-shadow)]",
+  {
+    variants: { radius: { xl: "rounded-[var(--card-radius)]", lg: "rounded-lg" } },
+    defaultVariants: { radius: "xl" },
+  },
+);
+const cardFooter = "flex items-center justify-end gap-2 px-[var(--card-padding)] py-4";
 const cardFooterBorder = "border-t bg-muted/30";
 
 // ---- Button (vendored shadcn ui/button) ----
@@ -1582,7 +1587,7 @@ export function DefaultCard({ slots, options, className, testId, children }: Car
   const s = slots ?? {};
   const defaultHeader =
     s.title !== undefined || s.subtitle !== undefined || s.headerActions !== undefined ? (
-      <div className="flex flex-wrap items-start justify-between gap-3 px-6 pt-6 pb-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 px-[var(--card-padding)] pt-6 pb-4">
         <div className="flex flex-col gap-1">
           {s.title !== undefined && (
             <h3 className="text-base font-semibold leading-none tracking-tight">{s.title}</h3>
@@ -1602,7 +1607,17 @@ export function DefaultCard({ slots, options, className, testId, children }: Car
       {/* != null covers undefined AND explicit null; a `false` child (from
           `cond && <El/>`) still renders no visible content either way. */}
       {children != null && (
-        <div className={cn("grow", padded && (hasHeader ? "px-6 pb-6" : "p-6"))}>{children}</div>
+        <div
+          className={cn(
+            "grow",
+            padded &&
+              (hasHeader
+                ? "px-[var(--card-padding)] pb-[var(--card-padding)]"
+                : "p-[var(--card-padding)]"),
+          )}
+        >
+          {children}
+        </div>
       )}
       {s.footer !== undefined && (
         <div className={cn(cardFooter, footerBordered && cardFooterBorder)}>{s.footer}</div>
