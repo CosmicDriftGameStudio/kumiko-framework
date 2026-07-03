@@ -352,6 +352,12 @@
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
     },
+    "samples/recipes/crypto-shredding-hr": {
+      "name": "@cosmicdrift/kumiko-sample-crypto-shredding-hr",
+      "dependencies": {
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+    },
     "samples/recipes/currencies-global": {
       "name": "@cosmicdrift/kumiko-sample-currencies-global",
       "dependencies": {
@@ -746,6 +752,8 @@
     "@cosmicdrift/kumiko-sample-config-demo": ["@cosmicdrift/kumiko-sample-config-demo@workspace:samples/apps/config-demo"],
 
     "@cosmicdrift/kumiko-sample-cross-feature-events": ["@cosmicdrift/kumiko-sample-cross-feature-events@workspace:samples/recipes/cross-feature-events"],
+
+    "@cosmicdrift/kumiko-sample-crypto-shredding-hr": ["@cosmicdrift/kumiko-sample-crypto-shredding-hr@workspace:samples/recipes/crypto-shredding-hr"],
 
     "@cosmicdrift/kumiko-sample-currencies-global": ["@cosmicdrift/kumiko-sample-currencies-global@workspace:samples/recipes/currencies-global"],
 
