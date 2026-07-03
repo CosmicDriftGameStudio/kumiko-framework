@@ -91,10 +91,7 @@ describe("jobs run-started payload under KMS", () => {
     const row = await fetchOne(testDb.db, jobRunsTable, { bullJobId: "bull-2" });
     expect(isPiiCiphertext(row?.["payload"])).toBe(true);
 
-    await kms.eraseKey(
-      { kind: "user", userId: USER_ID },
-      { requestId: "t", eraseReason: "test-forget" },
-    );
+    await kms.eraseKey({ kind: "user", userId: USER_ID });
     const after = await decryptPiiFieldValues({ payload: row?.["payload"] }, ["payload"], kms, {
       requestId: "t",
     });

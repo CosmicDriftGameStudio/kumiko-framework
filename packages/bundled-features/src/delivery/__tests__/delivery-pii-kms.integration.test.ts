@@ -156,10 +156,7 @@ describe("delivery attempt log under KMS", () => {
     );
     expect(entry?.["recipientAddress"]).toBe(testEmail(recipient.id));
 
-    await kms.eraseKey(
-      { kind: "user", userId: recipient.id },
-      { requestId: "t", eraseReason: "test-forget" },
-    );
+    await kms.eraseKey({ kind: "user", userId: recipient.id });
 
     const after = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
       "delivery:query:log",
