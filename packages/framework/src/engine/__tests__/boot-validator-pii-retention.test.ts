@@ -133,19 +133,36 @@ describe("validateBoot — PII annotations", () => {
     );
   });
 
-  test("userOwned.ownerField pointing to non-reference field throws", () => {
+  test("userOwned.ownerField on a text field passes (ES userId-by-convention)", () => {
     const feature = defineFeature("test", (r) => {
       r.entity(
         "comment",
         createEntity({
           fields: {
-            body: createLongTextField({ userOwned: { ownerField: "authorName" } }),
-            authorName: createTextField(),
+            body: createLongTextField({ userOwned: { ownerField: "authorId" } }),
+            authorId: createTextField(),
           },
         }),
       );
     });
-    expect(() => validateBoot([feature])).toThrow(/must be a reference field, got type "text"/);
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("userOwned.ownerField pointing to a non-id-capable field throws", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "comment",
+        createEntity({
+          fields: {
+            body: createLongTextField({ userOwned: { ownerField: "isPublic" } }),
+            isPublic: { type: "boolean" },
+          },
+        }),
+      );
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /must be a reference or text \(userId\) field, got type "boolean"/,
+    );
   });
 
   test("userOwned.ownerField referencing non-user entity warns", () => {
