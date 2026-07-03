@@ -38,6 +38,7 @@ export class InMemoryKmsAdapter implements LocalKeyKmsAdapter {
 
   async eraseKey(subject: SubjectId): Promise<void> {
     const entry = this.keys.get(subjectIdToKey(subject));
+    // skip: eraseKey is contractually idempotent — unknown subject is a no-op
     if (!entry) return;
     entry.key = null;
     entry.erased = true;
