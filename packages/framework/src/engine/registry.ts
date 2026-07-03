@@ -1407,6 +1407,10 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       return entityMap.get(name);
     },
 
+    getAllEntities(): ReadonlyMap<string, EntityDefinition> {
+      return entityMap;
+    },
+
     getWriteHandler(name: string): WriteHandlerDef | undefined {
       return writeHandlerMap.get(name);
     },
