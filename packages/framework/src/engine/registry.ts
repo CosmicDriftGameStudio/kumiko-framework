@@ -1,3 +1,4 @@
+import { configureEventPiiCatalog } from "../crypto/event-pii";
 import { applyEntityEvent } from "../db/apply-entity-event";
 import {
   assertBackingTableSuperset,
@@ -26,6 +27,7 @@ import type {
   EntityProjectionExtension,
   EntityRelations,
   EventDef,
+  EventPiiFields,
   EventUpcastFn,
   FeatureDefinition,
   FeatureMetricDef,
@@ -1362,6 +1364,16 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     for (const h of queryHandlerMap.values()) if (h.rateLimit !== undefined) return true;
     return false;
   })();
+
+  // Publish the event-PII catalog (#799): append() — the single write funnel
+  // into kumiko_events — encrypts catalogued payload fields regardless of
+  // which path produced the event (ctx.appendEvent, MSP-apply, low-level
+  // append in delivery/jobs loggers).
+  const eventPiiCatalog = new Map<string, EventPiiFields>();
+  for (const [qualified, def] of eventMap) {
+    if (def.piiFields) eventPiiCatalog.set(qualified, def.piiFields);
+  }
+  configureEventPiiCatalog(eventPiiCatalog);
 
   // Auto-wire the soft-delete cleanup cron + its grace-days config key when ANY
   // entity opts into softDelete — the framework owns this machinery, no feature

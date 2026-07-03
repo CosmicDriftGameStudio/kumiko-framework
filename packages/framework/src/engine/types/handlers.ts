@@ -584,6 +584,12 @@ export type QualifiedEventName<
   TInner extends string,
 > = `${CamelToKebab<TFeature>}:event:${CamelToKebab<TInner>}`;
 
+// PII payload fields on a custom event (#799): `field` is encrypted under
+// the DEK of the user named by the payload's `subjectField` (crypto-
+// shredding). A null subject field leaves the value plaintext — there is
+// no user key to shred for system-triggered events.
+export type EventPiiFields = Readonly<Record<string, { readonly subjectField: string }>>;
+
 export type EventDef<TPayload = unknown, TName extends string = string> = {
   readonly name: TName;
   readonly schema: ZodType<TPayload>;
@@ -592,6 +598,7 @@ export type EventDef<TPayload = unknown, TName extends string = string> = {
   // upcasts older stored events. Reads consult this to decide if upcasters
   // need to run before the payload hits consumer code.
   readonly version: number;
+  readonly piiFields?: EventPiiFields;
 };
 
 // Args for ctx.appendEvent — explicit aggregate target, Marten-style.

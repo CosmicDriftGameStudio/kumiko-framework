@@ -1,3 +1,4 @@
+import { encryptEventPayloadPii } from "../crypto/event-pii";
 import type { DbRunner } from "../db";
 import { isUniqueViolation } from "../db/pg-error";
 import {
@@ -108,21 +109,25 @@ type SelectedEvent = {
 export const EVENTS_PUBSUB_CHANNEL = "kumiko_events_new";
 
 export async function append(db: DbRunner, event: EventToAppend): Promise<StoredEvent> {
-  const newVersion = event.expectedVersion + 1;
-  const eventVersion = event.eventVersion ?? 1;
+  // Event-PII (#799): stored payload AND returned echo carry ciphertext, so
+  // inline projections and rebuilds materialize identical rows.
+  const payload = await encryptEventPayloadPii(event.type, event.payload);
+  const toStore = payload === event.payload ? event : { ...event, payload };
+  const newVersion = toStore.expectedVersion + 1;
+  const eventVersion = toStore.eventVersion ?? 1;
 
   try {
     const row =
-      event.expectedVersion === 0
-        ? await insertFirstEvent(db, event, newVersion, eventVersion)
-        : await insertSubsequentEvent(db, event, newVersion, eventVersion);
+      toStore.expectedVersion === 0
+        ? await insertFirstEvent(db, toStore, newVersion, eventVersion)
+        : await insertSubsequentEvent(db, toStore, newVersion, eventVersion);
 
     // NOTIFY fires on commit (PG buffers NOTIFY per TX), so subscribers never
     // see a wake-up for an event that later rolled back. Harmless no-op when
     // no LISTENer is attached.
     await notifyPgChannel(db, EVENTS_PUBSUB_CHANNEL);
 
-    return buildStoredEvent(event, newVersion, eventVersion, row);
+    return buildStoredEvent(toStore, newVersion, eventVersion, row);
   } catch (e) {
     if (isUniqueViolation(e)) {
       // Only constraint left on the events table: events_aggregate_version_uq
