@@ -63,7 +63,7 @@ describe("encryptPiiFieldValues / decryptPiiFieldValues", () => {
 
   test("first write auto-creates the subject key", async () => {
     const kms = new InMemoryKmsAdapter();
-    await expect(kms.getKey({ kind: "user", userId: UUID_A }, KMS_CTX)).rejects.toBeInstanceOf(
+    await expect(kms.getKey({ kind: "user", userId: UUID_A })).rejects.toBeInstanceOf(
       KeyNotFoundError,
     );
     await encryptPiiFieldValues(
@@ -73,7 +73,7 @@ describe("encryptPiiFieldValues / decryptPiiFieldValues", () => {
       kms,
       KMS_CTX,
     );
-    const dek = await kms.getKey({ kind: "user", userId: UUID_A }, KMS_CTX);
+    const dek = await kms.getKey({ kind: "user", userId: UUID_A });
     expect(dek.length).toBe(32);
   });
 
@@ -122,7 +122,7 @@ describe("encryptPiiFieldValues / decryptPiiFieldValues", () => {
       kms,
       KMS_CTX,
     );
-    await kms.eraseKey({ kind: "user", userId: UUID_A }, KMS_CTX);
+    await kms.eraseKey({ kind: "user", userId: UUID_A });
 
     const read = await decryptPiiFieldValues(stored, fields, kms, KMS_CTX);
     expect(read["email"]).toBe(PII_ERASED_SENTINEL);
@@ -133,10 +133,16 @@ describe("encryptPiiFieldValues / decryptPiiFieldValues", () => {
 
   test("write to an erased subject fails (forget is permanent)", async () => {
     const kms = new InMemoryKmsAdapter();
-    await kms.createKey({ kind: "user", userId: UUID_A }, KMS_CTX);
-    await kms.eraseKey({ kind: "user", userId: UUID_A }, KMS_CTX);
+    await kms.createKey({ kind: "user", userId: UUID_A });
+    await kms.eraseKey({ kind: "user", userId: UUID_A });
     await expect(
-      encryptPiiFieldValues({ id: UUID_A, email: "new@b.c" }, userLikeEntity, ["email"], kms, KMS_CTX),
+      encryptPiiFieldValues(
+        { id: UUID_A, email: "new@b.c" },
+        userLikeEntity,
+        ["email"],
+        kms,
+        KMS_CTX,
+      ),
     ).rejects.toThrow(/erased/);
   });
 

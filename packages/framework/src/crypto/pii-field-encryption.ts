@@ -48,7 +48,10 @@ function parseCiphertext(value: string): { subject: SubjectId; blob: Buffer } {
   // last ":" is always the key/blob separator.
   const sep = rest.lastIndexOf(":");
   if (sep === -1) throw new Error(`Malformed PII ciphertext (no subject/blob separator)`);
-  return { subject: subjectIdFromKey(rest.slice(0, sep)), blob: Buffer.from(rest.slice(sep + 1), "base64") };
+  return {
+    subject: subjectIdFromKey(rest.slice(0, sep)),
+    blob: Buffer.from(rest.slice(sep + 1), "base64"),
+  };
 }
 
 function decryptValue(dek: SubjectDek, blob: Buffer): string {

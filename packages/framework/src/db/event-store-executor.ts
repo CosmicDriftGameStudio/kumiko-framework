@@ -515,7 +515,12 @@ export function createEventStoreExecutor(
       // Alle Compound-Types (locatedTimestamp, money, ...) gehen durch
       // dieselbe Pipeline. Caller schickt combined API-Form, Framework
       // speichert flat DB-Form. Siehe db/compound-types.ts.
-      const flatData = await encryptForStorage(flattenCompoundTypes(data, entity), user);
+      // subjectSource carries the freshly minted aggregateId: the create
+      // payload has no id column, but a pii:true self-subject resolves from it.
+      const flatCreateData = flattenCompoundTypes(data, entity);
+      const flatData = await encryptForStorage(flatCreateData, user, {
+        subjectSource: { ...flatCreateData, id: aggregateId },
+      });
 
       // 1. Append event (same TX as the projection write — both must succeed
       //    or both roll back; the dispatcher wraps both in one transaction).

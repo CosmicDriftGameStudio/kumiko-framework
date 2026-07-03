@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { InMemoryKmsAdapter, PII_ERASED_SENTINEL } from "../../crypto";
 import { asRawClient } from "../../db/query";
 import { createBooleanField, createEntity, createTextField } from "../../engine";
 import { append, createEventsTable } from "../../event-store";
@@ -11,6 +12,7 @@ import {
   unsafeCreateEntityTable,
 } from "../../stack";
 import { createTestEnvelopeCipher } from "../../testing";
+import { applyEntityEvent } from "../apply-entity-event";
 import { resetEntityFieldEncryptionCacheForTests } from "../entity-field-encryption";
 import { createEventStoreExecutor } from "../event-store-executor";
 import { buildEntityTable } from "../table-builder";
@@ -552,5 +554,138 @@ describe("event-store-executor — entity cache + encrypted fields", () => {
     // Second read (cache hit) must still decrypt back to the real plaintext.
     const second = await cachedEncryptedCrud.detail({ id }, adminUser, tdb);
     expect(second?.["secretNote"]).toBe("cache-plaintext-note");
+  });
+});
+
+// PII subject encryption (crypto-shredding, #724 phase C): pii/userOwned/
+// tenantOwned fields are encrypted with the erase subject's DEK. Event
+// payload AND projection row carry ciphertext (live == rebuild); erasing the
+// subject key renders every value as the [[erased]] sentinel without
+// touching the immutable log.
+const piiEntity = createEntity({
+  table: "read_es_exec_pii",
+  fields: {
+    email: createTextField({ required: true, pii: true }),
+    note: createTextField({ userOwned: { ownerField: "authorId" } }),
+    authorId: createTextField(),
+    plain: createTextField(),
+  },
+});
+const piiTable = buildEntityTable("esExecPii", piiEntity);
+
+describe("event-store-executor — pii subject encryption", () => {
+  const kms = new InMemoryKmsAdapter();
+  const crud = createEventStoreExecutor(piiTable, piiEntity, {
+    entityName: "esExecPii",
+    kms,
+  });
+
+  beforeAll(async () => {
+    await unsafeCreateEntityTable(testDb.db, piiEntity, "esExecPii");
+  });
+
+  beforeEach(async () => {
+    await asRawClient(testDb.db).unsafe(
+      `TRUNCATE kumiko_events, read_es_exec_pii RESTART IDENTITY CASCADE`,
+    );
+  });
+
+  test("create: projection row + event payload are ciphertext, API reads plaintext", async () => {
+    const result = await crud.create({ email: "pii@test.de", plain: "visible" }, adminUser, tdb);
+    if (!result.isSuccess) throw new Error("create failed");
+    expect(result.data.data["email"]).toBe("pii@test.de");
+
+    const rawRows = (await asRawClient(testDb.db).unsafe(
+      `SELECT email, plain FROM read_es_exec_pii LIMIT 1`,
+    )) as Array<{ email: string; plain: string }>;
+    expect(rawRows[0]!.email).toStartWith(`kumiko-pii:v1:user:${result.data.id}:`);
+    expect(rawRows[0]!.plain).toBe("visible");
+
+    const events = (await asRawClient(testDb.db).unsafe(
+      `SELECT payload FROM kumiko_events WHERE type = 'esExecPii.created' LIMIT 1`,
+    )) as Array<{ payload: { email?: string } }>;
+    expect(events[0]?.payload.email).toStartWith("kumiko-pii:v1:");
+
+    const detail = await crud.detail({ id: result.data.id }, adminUser, tdb);
+    expect(detail?.["email"]).toBe("pii@test.de");
+    const list = await crud.list({}, adminUser, tdb);
+    expect(list.rows[0]?.["email"]).toBe("pii@test.de");
+  });
+
+  test("userOwned update without ownerField in changes resolves via the merged row", async () => {
+    const created = await crud.create(
+      { email: "owner@test.de", note: "v1", authorId: TestUsers.admin.id },
+      adminUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+
+    const updated = await crud.update(
+      { id: created.data.id, version: 1, changes: { note: "v2" } },
+      adminUser,
+      tdb,
+    );
+    if (!updated.isSuccess) throw new Error("update failed");
+    expect(updated.data.data["note"]).toBe("v2");
+
+    const rawRows = (await asRawClient(testDb.db).unsafe(
+      `SELECT note FROM read_es_exec_pii LIMIT 1`,
+    )) as Array<{ note: string }>;
+    expect(rawRows[0]!.note).toStartWith(`kumiko-pii:v1:user:${TestUsers.admin.id}:`);
+  });
+
+  test("eraseKey: detail renders the sentinel, stored events stay byte-identical", async () => {
+    const created = await crud.create({ email: "forget@test.de" }, adminUser, tdb);
+    if (!created.isSuccess) throw new Error("create failed");
+
+    const eventsBefore = (await asRawClient(testDb.db).unsafe(
+      `SELECT payload FROM kumiko_events WHERE type = 'esExecPii.created' LIMIT 1`,
+    )) as Array<{ payload: { email?: string } }>;
+
+    await kms.eraseKey({ kind: "user", userId: String(created.data.id) });
+
+    const detail = await crud.detail({ id: created.data.id }, adminUser, tdb);
+    expect(detail?.["email"]).toBe(PII_ERASED_SENTINEL);
+
+    const eventsAfter = (await asRawClient(testDb.db).unsafe(
+      `SELECT payload FROM kumiko_events WHERE type = 'esExecPii.created' LIMIT 1`,
+    )) as Array<{ payload: { email?: string } }>;
+    expect(eventsAfter[0]?.payload.email).toBe(eventsBefore[0]!.payload.email!);
+  });
+
+  test("rebuild after erase resurrects no plaintext (replay writes ciphertext, reads render sentinel)", async () => {
+    const created = await crud.create({ email: "rebuild@test.de" }, adminUser, tdb);
+    if (!created.isSuccess) throw new Error("create failed");
+    await kms.eraseKey({ kind: "user", userId: String(created.data.id) });
+
+    // Same code path rebuildProjection replays: applyEntityEvent on the
+    // STORED event — no KMS involved, the payload is already ciphertext.
+    await asRawClient(testDb.db).unsafe(`TRUNCATE read_es_exec_pii RESTART IDENTITY CASCADE`);
+    const storedEvent = created.data.event;
+    if (!storedEvent) throw new Error("create returned no event");
+    const applied = await applyEntityEvent(storedEvent, piiTable, piiEntity, tdb.raw);
+    expect(applied.kind).toBe("applied");
+
+    const rawRows = (await asRawClient(testDb.db).unsafe(
+      `SELECT email FROM read_es_exec_pii LIMIT 1`,
+    )) as Array<{ email: string }>;
+    expect(rawRows[0]!.email).toStartWith("kumiko-pii:v1:");
+    expect(rawRows[0]!.email).not.toContain("rebuild@test.de");
+
+    const detail = await crud.detail({ id: created.data.id }, adminUser, tdb);
+    expect(detail?.["email"]).toBe(PII_ERASED_SENTINEL);
+  });
+
+  test("without a kms adapter the engine is off: plaintext row (pre-#724 behavior)", async () => {
+    const plainCrud = createEventStoreExecutor(piiTable, piiEntity, {
+      entityName: "esExecPii",
+    });
+    const created = await plainCrud.create({ email: "off@test.de" }, adminUser, tdb);
+    if (!created.isSuccess) throw new Error("create failed");
+
+    const rawRows = (await asRawClient(testDb.db).unsafe(
+      `SELECT email FROM read_es_exec_pii LIMIT 1`,
+    )) as Array<{ email: string }>;
+    expect(rawRows[0]!.email).toBe("off@test.de");
   });
 });
