@@ -5,6 +5,10 @@ export {
   configValueExportHook,
 } from "./hooks/config-value.userdata-hook";
 export {
+  deliveryAttemptDeleteHook,
+  deliveryAttemptExportHook,
+} from "./hooks/delivery-attempt.userdata-hook";
+export {
   fileRefDeleteHook,
   fileRefExportHook,
 } from "./hooks/file-ref.userdata-hook";
@@ -12,6 +16,7 @@ export {
   inAppMessageDeleteHook,
   inAppMessageExportHook,
 } from "./hooks/in-app-message.userdata-hook";
+export { jobRunDeleteHook, jobRunExportHook } from "./hooks/job-run.userdata-hook";
 export {
   notificationPreferenceDeleteHook,
   notificationPreferenceExportHook,
