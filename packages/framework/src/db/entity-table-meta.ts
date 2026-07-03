@@ -153,7 +153,7 @@ function fieldToColumnMeta(
     case "text":
     case "longText": {
       const def = fieldDefaultLiteral(field);
-      return [
+      const cols: ColumnMeta[] = [
         {
           name: snake,
           pgType: "text",
@@ -161,6 +161,13 @@ function fieldToColumnMeta(
           ...(def !== undefined && { defaultSql: def }),
         },
       ];
+      // lookupable → HMAC-Blind-Index-Pendant. Nullable ist Pflicht:
+      // managedChangeRequiresRecreate würde eine NOT-NULL-Spalte ohne
+      // Default auf Bestandstabellen als DROP+Rebuild diffen.
+      if (field.type === "text" && field.lookupable === true) {
+        cols.push({ name: `${snake}_bidx`, pgType: "text", notNull: false });
+      }
+      return cols;
     }
     case "boolean": {
       const def = fieldDefaultLiteral(field);
@@ -305,10 +312,17 @@ export function buildEntityTableMeta(
   for (const c of baseCols) colByName.set(c.name, c);
 
   const fieldNameToSnake = new Map<string, string>();
+  const bidxSnakeByFieldSnake = new Map<string, string>();
   for (const [name, field] of Object.entries(entity.fields)) {
     const fieldCols = fieldToColumnMeta(name, field, entity);
     for (const c of fieldCols) colByName.set(c.name, c);
-    if (fieldCols.length === 1 && fieldCols[0]) fieldNameToSnake.set(name, fieldCols[0].name);
+    // Multi-column fields map to their primary column when its name IS the
+    // field's snake (text+bidx, money+currency) — matches the toSnakeCase
+    // fallback below, so explicit indexes keep resolving.
+    const primary = fieldCols[0];
+    if (primary && primary.name === toSnakeCase(name)) fieldNameToSnake.set(name, primary.name);
+    const bidxCol = fieldCols.find((c) => c.name.endsWith("_bidx"));
+    if (primary && bidxCol) bidxSnakeByFieldSnake.set(primary.name, bidxCol.name);
   }
 
   // Preserve base-col order, then any new user-col-names in fields-order.
@@ -347,6 +361,12 @@ export function buildEntityTableMeta(
     indexes.push({ name: `${tableName}_${snake}_idx`, columns: [snake] });
   }
 
+  // lookupable-Felder: Index auf der bidx-Spalte — der OR-Rewrite der
+  // Query-Compiler trifft sie bei jedem Equality-Lookup.
+  for (const bidxSnake of bidxSnakeByFieldSnake.values()) {
+    indexes.push({ name: `${tableName}_${bidxSnake}_idx`, columns: [bidxSnake] });
+  }
+
   // Explizit deklarierte indexes (EntityIndexDef). `def.where` ist ein
   // SqlExpression (`sql\`…\`` aus @cosmicdrift/kumiko-framework/db) —
   // renderbar via `.text`. Unbekannte where-Shapes bleiben needsManualWhere.
@@ -364,6 +384,24 @@ export function buildEntityTableMeta(
       ...(whereSql !== undefined && { whereSql }),
       ...(def.where !== undefined && whereSql === undefined && { needsManualWhere: true }),
     });
+    // Unique-Index über lookupable-Spalten: partielles bidx-Pendant, damit
+    // Uniqueness auch für verschlüsselte Rows greift. Das Original bleibt
+    // für Klartext-Alt-Rows; partial (IS NOT NULL) weil bidx bei erased/
+    // key-losen Rows NULL ist.
+    if (def.unique === true && def.where === undefined) {
+      const bidxCols = cols.map((c) => bidxSnakeByFieldSnake.get(c) ?? c);
+      if (bidxCols.some((c, i) => c !== cols[i])) {
+        const notNullParts = bidxCols
+          .filter((c, i) => c !== cols[i])
+          .map((c) => `"${c}" IS NOT NULL`);
+        indexes.push({
+          name: `${indexName}_bidx`,
+          columns: bidxCols,
+          unique: true,
+          whereSql: notNullParts.join(" AND "),
+        });
+      }
+    }
   }
 
   return {

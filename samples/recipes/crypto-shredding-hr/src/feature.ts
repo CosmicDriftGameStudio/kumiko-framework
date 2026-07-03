@@ -29,7 +29,13 @@ export const employeeEntity = createEntity({
   fields: {
     // pii: true → encrypted under this row's own subject key (user:<row.id>).
     displayName: createTextField({ required: true, pii: true }),
-    email: createTextField({ required: true, format: "email", pii: true }),
+    // lookupable → the framework maintains an HMAC blind-index column
+    // (email_bidx) so equality lookups (login, dedup checks) keep working
+    // on the encrypted column. Requires runProdApp({ blindIndexKey }) /
+    // configureBlindIndexKey in tests. Erasing the subject key nulls the
+    // blind index on the next write/rebuild; the forget pipeline nulls it
+    // immediately (nullBlindIndexesForSubject).
+    email: createTextField({ required: true, format: "email", pii: true, lookupable: true }),
     // Not personal data — stays plaintext, searchable, sortable.
     department: createTextField({ sortable: true }),
   },

@@ -19,6 +19,7 @@
 //     drizzle's getTableName + getTableColumns (drizzle weiterhin als type-
 //     reference, NICHT als runtime-API-call)
 
+import { computeBlindIndex, configuredBlindIndexKey } from "../crypto/blind-index";
 import type { EntityTableMeta } from "../db/entity-table-meta";
 import { type NotExecutorOnly, toSnakeCase } from "../db/table-builder";
 import { camelCase as envCamelCase } from "../env";
@@ -355,6 +356,12 @@ export function coerceRow<T extends Record<string, unknown>>(row: T, info: Table
   const out: Record<string, unknown> = {};
   let changed = false;
   for (const key of Object.keys(row)) {
+    // Blind-Index-Spalten (#818) sind reine Lookup-Artefakte — der
+    // deterministische HMAC darf nie an Caller/API-Responses leaken.
+    if ((key.endsWith("_bidx") || key.endsWith("Bidx")) && info.hasColumn(key)) {
+      changed = true;
+      continue;
+    }
     const pgType = info.pgTypeOf(key);
     const value = row[key];
     let coerced: unknown = value;
@@ -529,8 +536,26 @@ function buildWhereClause(
       if (p.kind === "literal") {
         conditions.push(`${quoteIdent(col)} = ${p.literal}`);
       } else {
-        conditions.push(`${quoteIdent(col)} = $${idx++}${p.sql}`);
-        values.push(p.bound);
+        // Blind-Index-OR-Rewrite (#818): existiert zur Spalte ein bidx-
+        // Pendant (Suffix-Konvention `<col>_bidx`, framework-reserviert)
+        // und ist ein Key konfiguriert, matcht Equality beide Arme —
+        // Klartext-Alt-Rows über den Plaintext-Arm, verschlüsselte Rows
+        // über den HMAC. Der `kumiko-pii:`-Prefix der Ciphertexte macht
+        // einen Zufalls-Match des Plaintext-Arms praktisch unmöglich.
+        const bidxKey = configuredBlindIndexKey();
+        const bidxCol = `${col}_bidx`;
+        if (
+          bidxKey !== undefined &&
+          typeof value === "string" &&
+          !col.endsWith("_bidx") &&
+          info.hasColumn(bidxCol)
+        ) {
+          conditions.push(`(${quoteIdent(col)} = $${idx++} OR ${quoteIdent(bidxCol)} = $${idx++})`);
+          values.push(p.bound, computeBlindIndex(bidxKey, value));
+        } else {
+          conditions.push(`${quoteIdent(col)} = $${idx++}${p.sql}`);
+          values.push(p.bound);
+        }
       }
     }
   }

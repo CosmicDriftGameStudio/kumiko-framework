@@ -1,3 +1,13 @@
+export {
+  blindIndexFieldName,
+  collectLookupableFields,
+  computeBlindIndex,
+  computeBlindIndexValues,
+  configureBlindIndexKey,
+  configuredBlindIndexKey,
+  decodeBlindIndexKey,
+  resetBlindIndexKeyForTests,
+} from "./blind-index";
 export { InMemoryKmsAdapter } from "./in-memory-kms-adapter";
 export {
   isLocalKeyKmsAdapter,

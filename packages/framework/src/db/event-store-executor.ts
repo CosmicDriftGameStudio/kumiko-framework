@@ -1,6 +1,8 @@
 import { requestContext } from "../api/request-context";
 import {
   collectPiiSubjectFields,
+  computeBlindIndex,
+  configuredBlindIndexKey,
   configuredPiiSubjectKms,
   decryptPiiFieldValues,
   encryptPiiFieldValues,
@@ -1123,8 +1125,19 @@ export function createEventStoreExecutor(
               whereSql.push(`${colSql(field)} ${opSym} $${params.length}`);
             }
           } else {
-            params.push(value);
-            whereSql.push(`${colSql(field)} = $${params.length}`);
+            // Blind-Index-OR-Rewrite (#818), lock-step mit buildWhereClause
+            // in bun-db/query.ts — Equality auf lookupable-Feldern matcht
+            // Klartext-Arm ODER HMAC-Arm.
+            const bidxKey = configuredBlindIndexKey();
+            if (bidxKey !== undefined && typeof value === "string" && table[`${field}Bidx`]) {
+              params.push(value, computeBlindIndex(bidxKey, value));
+              whereSql.push(
+                `(${colSql(field)} = $${params.length - 1} OR ${colSql(`${field}Bidx`)} = $${params.length})`,
+              );
+            } else {
+              params.push(value);
+              whereSql.push(`${colSql(field)} = $${params.length}`);
+            }
           }
         }
       };

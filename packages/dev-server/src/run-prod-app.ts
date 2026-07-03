@@ -78,7 +78,9 @@ import {
   type SseBroker,
 } from "@cosmicdrift/kumiko-framework/api";
 import {
+  collectLookupableFields,
   collectPiiSubjectFields,
+  configureBlindIndexKey,
   configurePiiSubjectKms,
   type KmsAdapter,
 } from "@cosmicdrift/kumiko-framework/crypto";
@@ -488,6 +490,13 @@ export type RunProdAppOptions = {
    *  (Silent-Start würde jeden PII-Read mit 503 beantworten). Kein Default:
    *  ohne Adapter bleibt Crypto-Shredding aus. */
   readonly kms?: KmsAdapter;
+  /** 32-Byte-Key (base64) für Blind-Index-HMACs auf `lookupable`-Feldern
+   *  (env: KUMIKO_BLIND_INDEX_KEY, `openssl rand -base64 32`). Bewusst
+   *  getrennt vom PLATFORM_KEK und nicht Teil des KmsAdapter-Contracts.
+   *  Pflicht sobald `kms` gesetzt ist UND ein Feature lookupable-Felder
+   *  deklariert — sonst bricht jeder Equality-Lookup auf Ciphertext
+   *  (Login by email!) und der Boot failt hart. */
+  readonly blindIndexKey?: string;
   /** Deploy-Topologie. Default `true` (Single-Container): dieser Prozess
    *  fährt HTTP + BEIDE Job-Lanes (api + worker) + den Event-Dispatcher
    *  (MSP-Anwendung) inline — via `createAllInOneEntrypoint`. Damit laufen
@@ -952,6 +961,21 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // visible until the prod-grade PgKmsAdapter (phase E) makes a hard boot
   // gate viable (InMemory in prod would lose every DEK on restart).
   configurePiiSubjectKms(options.kms);
+  // Blind-Index-Key (#818) — Boot-Gate: mit aktivem KMS würden lookupable-
+  // Felder als Ciphertext gespeichert, ohne Key gäbe es keinen bidx-Arm und
+  // jeder Equality-Lookup (Login by email!) liefe ins Leere. Fail-fast statt
+  // silent-broken-auth.
+  configureBlindIndexKey(options.blindIndexKey);
+  const lookupableEntities = features.flatMap((feature) =>
+    Object.entries(feature.entities ?? {})
+      .filter(([, entity]) => collectLookupableFields(entity).length > 0)
+      .map(([name]) => name),
+  );
+  if (options.kms && !options.blindIndexKey && lookupableEntities.length > 0) {
+    throw new Error(
+      `[runProdApp] BOOT ABORTED — entities [${lookupableEntities.join(", ")}] declare lookupable fields and a KMS is configured, but no blindIndexKey was passed. Equality lookups on encrypted fields would silently stop matching. Pass runProdApp({ blindIndexKey }) (env: KUMIKO_BLIND_INDEX_KEY, generate: openssl rand -base64 32).`,
+    );
+  }
   if (!options.kms) {
     const piiEntities = features.flatMap((feature) =>
       Object.entries(feature.entities ?? {})

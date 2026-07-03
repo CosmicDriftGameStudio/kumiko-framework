@@ -79,8 +79,10 @@ export const userEntity = createEntity({
     }),
 
     // Profile — user-editable. Display-name is real-name in most apps,
-    // so treat as PII for DSGVO export/forget pipelines.
-    displayName: createTextField({ required: true, maxLength: 100, searchable: true, pii: true }),
+    // so treat as PII for DSGVO export/forget pipelines. NOT searchable:
+    // substring search on an encrypted field would require plaintext copies
+    // in the search index (boot-validator rejects the combination, #818).
+    displayName: createTextField({ required: true, maxLength: 100, pii: true }),
     locale: createTextField({ maxLength: 10, default: "de" }),
 
     // Which tenant should this user land in on next login. Set by the login

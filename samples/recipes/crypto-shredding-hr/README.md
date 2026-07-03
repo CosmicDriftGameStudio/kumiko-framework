@@ -21,6 +21,13 @@ manager's comment dies with the employee's key, not the manager's.
   them unreadable, with no per-row cleanup hunt.
 - **Plain fields stay queryable** — `department` is not personal data, so it
   remains plaintext, sortable and searchable.
+- **`lookupable: true` on an encrypted field** — the framework maintains an
+  HMAC blind-index column (`email_bidx`), so equality lookups (login, dedup
+  checks) keep working on ciphertext: the query compiler rewrites
+  `email = $1` to `(email = $1 OR email_bidx = hmac($1))`. Needs
+  `runProdApp({ blindIndexKey })` (a dedicated 32-byte key, NOT the KEK).
+  Substring search and sorting stay impossible by design — the boot
+  validator rejects `searchable`/`sortable` on encrypted fields.
 - **Forget = `kms.eraseKey(subject)`** — afterwards detail *and* list render
   `[[erased]]` for every protected field while the stored ciphertext bytes
   stay untouched.
@@ -48,3 +55,7 @@ deletion grace period.
    for the audit trail.
 4. Detail and list responses now show `[[erased]]` for every field the key
    protected; events and rows keep their original (unreadable) bytes.
+5. Lookups by email stop matching after the forget: the pipeline nulls the
+   blind index immediately (`nullBlindIndexesForSubject`), and every
+   projection rebuild recomputes it from the (now undecryptable) ciphertext
+   to `NULL`.

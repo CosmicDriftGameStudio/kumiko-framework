@@ -4,13 +4,17 @@
 // subject's key was used, events untouched).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
+  configureBlindIndexKey,
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
   PII_ERASED_SENTINEL,
+  resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
+  subjectIdToKey,
 } from "@cosmicdrift/kumiko-framework/crypto";
+import { buildEntityTable, nullBlindIndexesForSubject } from "@cosmicdrift/kumiko-framework/db";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -37,6 +41,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await stack.cleanup();
   resetPiiSubjectKmsForTests();
+  resetBlindIndexKeyForTests();
 });
 
 beforeEach(async () => {
@@ -46,6 +51,8 @@ beforeEach(async () => {
   await resetTestTables(stack.db, ["read_hr_employees", "read_hr_comments"]);
   kms = new InMemoryKmsAdapter();
   configurePiiSubjectKms(kms);
+  // Blind-index key: what runProdApp({ blindIndexKey }) wires in production.
+  configureBlindIndexKey(Buffer.alloc(32, 7).toString("base64"));
 });
 
 async function rawEmployeeRow(id: string): Promise<{ display_name: string; email: string }> {
@@ -140,5 +147,33 @@ describe("crypto-shredding-hr", () => {
     // they just can never be decrypted again.
     const raw = await rawEmployeeRow(employeeId);
     expect(raw.email).toStartWith(`kumiko-pii:v1:user:${employeeId}:`);
+  });
+});
+
+describe("crypto-shredding-hr — blind-index lookups (#818)", () => {
+  const employeeTable = buildEntityTable("employee", employeeEntity);
+
+  test("equality lookup by email works on the encrypted column — until the key is erased", async () => {
+    const employeeId = await createEmployee();
+
+    // The email column holds ciphertext, yet an equality lookup — what a
+    // login or dedup check does — still finds the row: the query compiler
+    // rewrites `email = $1` to `(email = $1 OR email_bidx = hmac($1))`.
+    const hit = await fetchOne<Record<string, unknown>>(stack.db, employeeTable, {
+      email: "grace@example.com",
+    });
+    expect(String(hit?.["id"])).toBe(employeeId);
+
+    // Forget: erase the key AND null the blind index (user-data-rights does
+    // both automatically after the grace period).
+    await kms.eraseKey({ kind: "user", userId: employeeId });
+    await nullBlindIndexesForSubject(
+      stack.db,
+      new Map([["hr", hrFeature]]),
+      subjectIdToKey({ kind: "user", userId: employeeId }),
+    );
+
+    // The lookup value is gone with the key — no row matches anymore.
+    expect(await fetchOne(stack.db, employeeTable, { email: "grace@example.com" })).toBeUndefined();
   });
 });
