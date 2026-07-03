@@ -197,10 +197,26 @@ function writePreviewIndex(): void {
   console.log(`\nwrote ${indexPath} (${featurePngs.length} feature + ${appPngs.length} app PNGs)`);
 }
 
+function writeScreenshotManifest(): void {
+  const scenarios: string[] = [];
+  if (existsSync(OUT_DIR)) {
+    for (const entry of readdirSync(OUT_DIR, { withFileTypes: true })) {
+      if (!entry.isDirectory() || entry.name === "apps" || entry.name.startsWith(".")) continue;
+      const enDir = join(OUT_DIR, entry.name, "en");
+      if (existsSync(enDir)) scenarios.push(entry.name);
+    }
+  }
+  scenarios.sort();
+  const manifestPath = `${OUT_DIR}/screenshot-manifest.json`;
+  writeFileSync(manifestPath, `${JSON.stringify({ scenarios }, null, 2)}\n`, "utf-8");
+  console.log(`wrote ${manifestPath} (${scenarios.length} matrix scenarios)`);
+}
+
 async function main(): Promise<void> {
   console.log(`screenshot dir: ${OUT_DIR}`);
   await runAllScreenshots();
   copyConfigScreenshot();
+  writeScreenshotManifest();
   writePreviewIndex();
 }
 

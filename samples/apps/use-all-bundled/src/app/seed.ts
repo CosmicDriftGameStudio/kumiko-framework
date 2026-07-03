@@ -87,7 +87,10 @@ async function seedTagsAndNotes(db: DbConnection, tenantId: TenantId): Promise<v
   ];
   const noteIds: string[] = [];
   for (const n of notes) {
-    const data = n.id !== undefined ? { id: n.id, title: n.title } : { title: n.title };
+    const data =
+      n.id !== undefined
+        ? { id: n.id, title: n.title, customFields: {} }
+        : { title: n.title, customFields: {} };
     noteIds.push(await created(`note ${n.title}`, await noteExecutor.create(data, by, tdb)));
   }
 
@@ -109,6 +112,51 @@ async function seedTagsAndNotes(db: DbConnection, tenantId: TenantId): Promise<v
       ),
     );
   }
+}
+
+async function seedCustomFieldsAndFolders(
+  stack: Parameters<SeedFn>[0],
+  tenantId: TenantId,
+): Promise<void> {
+  // custom-fields + folders sind tenant-scoped → TenantAdmin (nicht die
+  // Plattform-Rolle SystemAdmin; hasAccess ist exact-match, keine Hierarchie).
+  const by: SessionUser = { ...TestUsers.systemAdmin, tenantId, roles: ["TenantAdmin"] };
+
+  await stack.http.writeOk(
+    "custom-fields:write:define-tenant-field",
+    {
+      entityName: "note",
+      fieldKey: "priority",
+      serializedField: { type: "text" },
+      required: false,
+      searchable: false,
+      displayOrder: 0,
+    },
+    by,
+  );
+  await stack.http.writeOk(
+    "custom-fields:write:set-custom-field",
+    {
+      entityName: "note",
+      entityId: DEMO_NOTE_ID,
+      fieldKey: "priority",
+      value: "High",
+    },
+    by,
+  );
+  // Generic entity-create strips the unknown `id` field (not an entity column)
+  // and generates its own aggregate id → take the returned id for set-folder.
+  const folder = await stack.http.writeOk<{ id: string }>(
+    "folders:write:folder:create",
+    { name: "Inbox" },
+    by,
+  );
+  await stack.http.writeOk(
+    "folders:write:set-folder",
+    { entityType: "note", entityId: DEMO_NOTE_ID, folderId: folder.id },
+    by,
+  );
+  await stack.eventDispatcher?.runOnce();
 }
 
 // personal-access-tokens — the read_api_tokens store is a direct-write table
@@ -187,6 +235,9 @@ export const seedScreenshotData: SeedFn = async (stack) => {
 
   // tags + notes + assignments in the dev tenant for the tags screenshots.
   await seedTagsAndNotes(stack.db, devTenant);
+
+  // custom-fields + folders extension sections on note-edit.
+  await seedCustomFieldsAndFolders(stack, devTenant);
 
   // personal-access-tokens list for the admin (active tenant = dev).
   await seedApiTokens(stack.db, devTenant);
