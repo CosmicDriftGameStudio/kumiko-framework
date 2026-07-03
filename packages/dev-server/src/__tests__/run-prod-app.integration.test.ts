@@ -789,7 +789,10 @@ describe("runProdApp — auth allowedOrigins forwarding", () => {
 
   test("cookieDomain without allowedOrigins fails closed — guard is wired through runProdApp", async () => {
     await expect(
-      boot(undefined, { auth: { admin: ADMIN, cookieDomain: "example.eu" } }),
+      boot(undefined, {
+        auth: { admin: ADMIN, cookieDomain: "example.eu" },
+        allowPlaintextPii: "test: origin-guard focus, not crypto",
+      }),
     ).rejects.toThrow(/allowedOrigins is empty/);
   });
 
@@ -882,5 +885,31 @@ describe("runProdApp job-lane wiring (runSingleInstance)", () => {
       health: async () => ({ ok: false, latencyMs: 3 }),
     };
     await expect(boot(undefined, { kms: unhealthyKms })).rejects.toThrow(/KMS health check failed/);
+  });
+});
+
+describe("hard PII boot gate (#818 step 2)", () => {
+  const gatePiiFeature = defineFeature("gate-pii", (r) => {
+    r.entity(
+      "gate-person",
+      createEntity({
+        table: "read_gate_persons",
+        fields: { email: createTextField({ required: true, pii: true }) },
+      }),
+    );
+  });
+
+  test("PII entities without a kms abort the boot", async () => {
+    await expect(boot(undefined, { features: [gatePiiFeature] })).rejects.toThrow(
+      /BOOT ABORTED.*PLAINTEXT.*allowPlaintextPii/s,
+    );
+  });
+
+  test("allowPlaintextPii boots with a warning instead", async () => {
+    const handle = await boot(undefined, {
+      features: [gatePiiFeature],
+      allowPlaintextPii: "test: kms rollout pending",
+    });
+    expect(handle).toBeDefined();
   });
 });

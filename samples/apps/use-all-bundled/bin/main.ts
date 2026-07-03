@@ -4,6 +4,7 @@
 // script + ../README.md.
 
 import { frameworkCoreEnvSchema, runProdApp } from "@cosmicdrift/kumiko-dev-server";
+import { InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import { APP_FEATURES } from "../src/run-config";
@@ -18,6 +19,10 @@ const envSchema = composeEnvSchema({
 await runProdApp({
   features: APP_FEATURES,
   envSchema,
+  // Smoke-only: exercises the hard PII boot gate + blind-index gate with
+  // every bundled feature mounted. Real apps wire createPgKmsAdapter(...).
+  kms: new InMemoryKmsAdapter(),
+  blindIndexKey: Buffer.alloc(32, 7).toString("base64"),
   // migrations default ("./kumiko/migrations") — Boot-mode springt vor dem
   // Schema-Drift-Gate raus, der Pfad ist hier nur der runProdApp-Default.
   // auth.admin triggert composeFeatures(includeBundled:true) — auto-mounts
