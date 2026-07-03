@@ -14,6 +14,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { InMemoryKmsAdapter, type KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import { createDbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   createBooleanField,
@@ -68,6 +69,12 @@ const widgetFeature = defineFeature("prod-probe", (r) => {
     schema: z.object({}),
     access: { roles: ["anonymous"] },
     handler: async () => ({ pong: true }),
+  });
+  r.queryHandler({
+    name: "kms-probe",
+    schema: z.object({}),
+    access: { roles: ["anonymous"] },
+    handler: async (_event, ctx) => ({ hasKms: ctx.kms !== undefined }),
   });
   // SystemAdmin-gated write — Ziel des extraRoutes.dispatchSystemWrite-
   // Tests: Echo von user.tenantId + roles beweist, dass der Dispatch
@@ -836,5 +843,44 @@ describe("runProdApp job-lane wiring (runSingleInstance)", () => {
     expect(schedulers.some((s) => (s.name ?? s.key ?? "").includes("worker-lane-cron"))).toBe(
       false,
     );
+  });
+
+  test("kms option: adapter reaches handler ctx; without the option ctx.kms is absent", async () => {
+    const probe = async (handle: ProdAppHandle): Promise<boolean | undefined> => {
+      const res = await handle.entrypoint.app.fetch(
+        new Request("http://test/api/query", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ type: "prod-probe:query:kms-probe", payload: {} }),
+        }),
+      );
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { data?: { hasKms?: boolean } };
+      return body.data?.hasKms;
+    };
+
+    const withKms = await boot(undefined, {
+      kms: new InMemoryKmsAdapter(),
+      anonymousAccess: { defaultTenantId: TENANT_ID },
+    });
+    expect(await probe(withKms)).toBe(true);
+
+    const withoutKms = await boot(undefined, {
+      anonymousAccess: { defaultTenantId: TENANT_ID },
+    });
+    expect(await probe(withoutKms)).toBe(false);
+  });
+
+  test("unhealthy kms aborts boot before any connection is opened", async () => {
+    const unhealthyKms: KmsAdapter = {
+      capabilities: { mode: "local-key" },
+      createKey: async () => {},
+      getKey: async () => {
+        throw new Error("unreachable");
+      },
+      eraseKey: async () => {},
+      health: async () => ({ ok: false, latencyMs: 3 }),
+    };
+    await expect(boot(undefined, { kms: unhealthyKms })).rejects.toThrow(/KMS health check failed/);
   });
 });

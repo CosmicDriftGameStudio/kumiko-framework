@@ -131,6 +131,10 @@
       "types": "./src/secrets/index.ts",
       "default": "./src/secrets/index.ts"
     },
+    "./crypto": {
+      "types": "./src/crypto/index.ts",
+      "default": "./src/crypto/index.ts"
+    },
     "./schema-cli": {
       "types": "./src/schema-cli.ts",
       "default": "./src/schema-cli.ts"
