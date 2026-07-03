@@ -1,6 +1,7 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
+import { decryptStoredPii } from "../../shared";
 import { userSessionTable } from "../schema/user-session";
 
 // Admin view of every session in the active tenant. ctx.db (TenantDb)
@@ -22,14 +23,16 @@ export const listQuery = defineQueryHandler({
     }>(ctx.db, userSessionTable, undefined, {
       orderBy: { col: "createdAt", direction: "desc" },
     });
-    return rows.map((r) => ({
-      id: r.id,
-      userId: r.userId,
-      createdAt: r.createdAt,
-      expiresAt: r.expiresAt,
-      revokedAt: r.revokedAt,
-      ip: r.ip,
-      userAgent: r.userAgent,
-    }));
+    return Promise.all(
+      rows.map(async (r) => ({
+        id: r.id,
+        userId: r.userId,
+        createdAt: r.createdAt,
+        expiresAt: r.expiresAt,
+        revokedAt: r.revokedAt,
+        ip: r.ip ? await decryptStoredPii(r.ip, "sessions:list") : r.ip,
+        userAgent: r.userAgent ? await decryptStoredPii(r.userAgent, "sessions:list") : r.userAgent,
+      })),
+    );
   },
 });

@@ -54,6 +54,8 @@ export function createPersonalAccessTokensFeature(
     // whose replay (no token events) would wipe every live token (#498/#494).
     r.unmanagedTable(buildEntityTableMeta("api-token", apiTokenEntity), {
       reason: "read_side.api_tokens_direct_write",
+      // create.write encrypts `name` via encryptForDirectWrite (#820).
+      piiEncryptedOnWrite: true,
     });
 
     const handlers = {

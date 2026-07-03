@@ -1,6 +1,14 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  configureBlindIndexKey,
+  configurePiiSubjectKms,
+  InMemoryKmsAdapter,
+  isPiiCiphertext,
+  resetBlindIndexKeyForTests,
+  resetPiiSubjectKmsForTests,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
@@ -536,5 +544,46 @@ describe("sessions feature — locked accounts blocked on a live session", () =>
       payload: {},
     });
     expect(res.status).toBe(200);
+  });
+});
+
+describe("sessions with active KMS (#820): ip/userAgent are userOwned PII", () => {
+  test("sessionCreator stores ciphertext at rest, mine returns plaintext", async () => {
+    configurePiiSubjectKms(new InMemoryKmsAdapter());
+    configureBlindIndexKey(Buffer.alloc(32, 7).toString("base64"));
+    try {
+      const { userId } = await h.seedUser("kms-session@example.com", "pw-long-enough");
+      const cbs = createSessionCallbacks({ db: stack.db });
+      const sid = await cbs.sessionCreator(
+        { id: userId, tenantId: TENANT, roles: ["User"] },
+        { ip: "203.0.113.7", userAgent: "TestBrowser/1.0" },
+      );
+
+      const stored = await selectMany<{ ip: string | null; userAgent: string | null }>(
+        stack.db,
+        userSessionTable,
+        { id: sid },
+      );
+      expect(isPiiCiphertext(stored[0]?.ip)).toBe(true);
+      expect(isPiiCiphertext(stored[0]?.userAgent)).toBe(true);
+
+      // Login (bidx-Lookup auf verschluesselter user.email) + mine ueber HTTP:
+      // die manuell erzeugte Session kommt mit Klartext-ip/userAgent zurueck.
+      const login = await h.login("kms-session@example.com", "pw-long-enough");
+      const res = await h.authedPost("/api/query", login.token, {
+        type: SessionQueries.mine,
+        payload: {},
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        data: Array<{ id: string; ip: string | null; userAgent: string | null }>;
+      };
+      const manual = body.data.find((s) => s.id === sid);
+      expect(manual?.ip).toBe("203.0.113.7");
+      expect(manual?.userAgent).toBe("TestBrowser/1.0");
+    } finally {
+      resetPiiSubjectKmsForTests();
+      resetBlindIndexKeyForTests();
+    }
   });
 });

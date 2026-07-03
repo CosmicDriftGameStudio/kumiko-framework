@@ -16,6 +16,12 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  configurePiiSubjectKms,
+  encryptPiiFieldValues,
+  InMemoryKmsAdapter,
+  resetPiiSubjectKmsForTests,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
   setupTestStack,
@@ -286,5 +292,72 @@ describe("runUserExport :: Empty-State", () => {
       t.entities.filter((e) => e.entity === "user"),
     );
     expect(allUserSnippets).toEqual([]);
+  });
+});
+
+describe("runUserExport :: PII-Subject-Ciphertexte (#820)", () => {
+  test("Art. 20: bundle carries plaintext, never kumiko-pii: blobs", async () => {
+    const kms = new InMemoryKmsAdapter();
+    configurePiiSubjectKms(kms);
+    try {
+      await seedUser(ALICE_ID, { email: "alice.kms@example.com", displayName: "Alice KMS" });
+      await seedMembership(ALICE_ID, TENANT_A);
+      // Read-Pfad-Test: die Spalten tragen echten Subject-Ciphertext, wie
+      // sie ein Executor-Write hinterlassen haette (Write-Pfad: PR 1/2).
+      const encrypted = await encryptPiiFieldValues(
+        { id: ALICE_ID, email: "alice.kms@example.com", displayName: "Alice KMS" },
+        userEntity,
+        ["email", "displayName"],
+        kms,
+        { requestId: "test" },
+      );
+      await asRawClient(stack.db).unsafe(
+        `UPDATE read_users SET email = $1, display_name = $2 WHERE id = $3`,
+        [String(encrypted["email"]), String(encrypted["displayName"]), ALICE_ID],
+      );
+
+      const bundle = await runUserExport({
+        db: stack.db,
+        registry: stack.registry,
+        userId: ALICE_ID,
+        now: NOW(),
+      });
+
+      const json = JSON.stringify(bundle);
+      expect(json).not.toContain("kumiko-pii:");
+      expect(json).toContain("alice.kms@example.com");
+      expect(json).toContain("Alice KMS");
+    } finally {
+      resetPiiSubjectKmsForTests();
+    }
+  });
+
+  test("ciphertext without a configured KMS exports an explicit marker, not the blob", async () => {
+    const kms = new InMemoryKmsAdapter();
+    configurePiiSubjectKms(kms);
+    await seedUser(ALICE_ID, { email: "alice.nokms@example.com" });
+    await seedMembership(ALICE_ID, TENANT_A);
+    const encrypted = await encryptPiiFieldValues(
+      { id: ALICE_ID, email: "alice.nokms@example.com" },
+      userEntity,
+      ["email"],
+      kms,
+      { requestId: "test" },
+    );
+    await asRawClient(stack.db).unsafe(`UPDATE read_users SET email = $1 WHERE id = $2`, [
+      String(encrypted["email"]),
+      ALICE_ID,
+    ]);
+    resetPiiSubjectKmsForTests();
+
+    const bundle = await runUserExport({
+      db: stack.db,
+      registry: stack.registry,
+      userId: ALICE_ID,
+      now: NOW(),
+    });
+    const json = JSON.stringify(bundle);
+    expect(json).not.toContain("kumiko-pii:");
+    expect(json).toContain("[encrypted:unavailable]");
   });
 });

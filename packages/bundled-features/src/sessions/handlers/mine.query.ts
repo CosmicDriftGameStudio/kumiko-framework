@@ -1,6 +1,7 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
+import { decryptStoredPii } from "../../shared";
 import { userSessionTable } from "../schema/user-session";
 
 // "My live sessions" — the backing data for a devices/sessions UI. Returns
@@ -26,13 +27,15 @@ export const mineQuery = defineQueryHandler({
       },
     );
     const currentSid = query.user.sid;
-    return rows.map((r) => ({
-      id: r.id,
-      createdAt: r.createdAt,
-      expiresAt: r.expiresAt,
-      ip: r.ip,
-      userAgent: r.userAgent,
-      current: currentSid === r.id,
-    }));
+    return Promise.all(
+      rows.map(async (r) => ({
+        id: r.id,
+        createdAt: r.createdAt,
+        expiresAt: r.expiresAt,
+        ip: r.ip ? await decryptStoredPii(r.ip, "sessions:mine") : r.ip,
+        userAgent: r.userAgent ? await decryptStoredPii(r.userAgent, "sessions:mine") : r.userAgent,
+        current: currentSid === r.id,
+      })),
+    );
   },
 });

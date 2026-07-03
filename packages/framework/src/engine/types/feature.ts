@@ -168,6 +168,15 @@ export type UnmanagedTableEntry = {
   readonly name: string;
   readonly meta: EntityTableMeta;
   readonly reason: string;
+  readonly piiEncryptedOnWrite?: true;
+};
+
+/** Options for r.unmanagedTable(). Direct-write stores skip the executor,
+ *  so the executor's PII encryption never runs for them — a feature whose
+ *  meta carries piiSubjectFields must encrypt those fields itself before
+ *  every insert/update and declare that here, or boot fails (#820). */
+export type UnmanagedTableOptions = RawTableOptions & {
+  readonly piiEncryptedOnWrite?: true;
 };
 
 /** Registry-aggregated unmanaged-table — adds the owning feature name. */
@@ -718,7 +727,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // `PgTable` (legacy), unmanagedTable carries the new `EntityTableMeta`
   // shape that `migrate-runner` consumes. After the full drizzle-cut they
   // will likely merge; for now they coexist.
-  unmanagedTable(meta: EntityTableMeta, options: RawTableOptions): void;
+  unmanagedTable(meta: EntityTableMeta, options: UnmanagedTableOptions): void;
 
   // Register the tree-actions schema for this feature — a map of
   // action-name → action-definition (with optional typed args). At-most-

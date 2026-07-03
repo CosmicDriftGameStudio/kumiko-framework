@@ -18,6 +18,7 @@
 //      auf Sondercases beschränken (child-projection-tables ohne tenant,
 //      append-only-logs mit serial PK, aggregate-ID ohne DEFAULT, …).
 
+import { collectPiiSubjectFields } from "../crypto";
 import type {
   EntityDefinition,
   EntityIndexDef,
@@ -92,6 +93,10 @@ export type EntityTableMeta = {
   // trägt Verantwortung. Migration-Generator + Tooling können den
   // discriminator nutzen um Warnungen zu rendern ("X tables are unmanaged").
   readonly source: "managed" | "unmanaged";
+  // PII-Subject-annotated field names (pii/userOwned/tenantOwned). Set by
+  // buildEntityTableMeta so the registry can reject r.unmanagedTable stores
+  // whose direct writes would skip the executor's encryption (#820).
+  readonly piiSubjectFields?: readonly string[];
 };
 
 // Standard base-columns für event-sourced Read-Model-Tabellen. Spiegelt
@@ -404,11 +409,13 @@ export function buildEntityTableMeta(
     }
   }
 
+  const piiSubjectFields = collectPiiSubjectFields(entity);
   return {
     tableName,
     columns,
     indexes,
     source: "managed",
+    ...(piiSubjectFields.length > 0 && { piiSubjectFields }),
   };
 }
 

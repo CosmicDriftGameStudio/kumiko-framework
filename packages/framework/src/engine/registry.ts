@@ -678,6 +678,15 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
             `Pick a different tableName — both would emit CREATE TABLE "${umName}".`,
         );
       }
+      const piiFields = umDef.meta.piiSubjectFields ?? [];
+      if (piiFields.length > 0 && !umDef.piiEncryptedOnWrite) {
+        throw new Error(
+          `Unmanaged-table "${umName}" (feature "${feature.name}") has PII-annotated fields ` +
+            `(${piiFields.join(", ")}) but direct writes bypass the executor's PII encryption. ` +
+            `Encrypt those fields before every insert/update (encryptPiiFieldValues) and declare ` +
+            `{ piiEncryptedOnWrite: true }, or drop the subject annotations.`,
+        );
+      }
       physicalTableOwners.set(umName, {
         kind: "unmanaged",
         owner: umName,

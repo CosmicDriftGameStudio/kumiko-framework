@@ -10,9 +10,10 @@ import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
+import { encryptForDirectWrite } from "../shared";
 import { USER_STATUS, type UserStatus, userTable } from "../user";
 import { DEFAULT_SESSION_EXPIRY_MS } from "./constants";
-import { userSessionTable } from "./schema/user-session";
+import { userSessionEntity, userSessionTable } from "./schema/user-session";
 
 // Locked accounts whose live sessions must be refused. deletionRequested is
 // intentionally absent — it's a reversible grace period and the user needs
@@ -55,15 +56,23 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
       const sid = generateId();
       const now = Temporal.Now.instant();
       const expiresAt = now.add({ milliseconds: ttlMs });
-      await insertOne(db, userSessionTable, {
-        id: sid,
-        tenantId: user.tenantId,
-        userId: user.id,
-        createdAt: now,
-        expiresAt,
-        ip: meta.ip,
-        userAgent: meta.userAgent,
-      });
+      await insertOne(
+        db,
+        userSessionTable,
+        await encryptForDirectWrite(
+          userSessionEntity,
+          {
+            id: sid,
+            tenantId: user.tenantId,
+            userId: user.id,
+            createdAt: now,
+            expiresAt,
+            ip: meta.ip,
+            userAgent: meta.userAgent,
+          },
+          "sessions:create",
+        ),
+      );
       return sid;
     },
 
