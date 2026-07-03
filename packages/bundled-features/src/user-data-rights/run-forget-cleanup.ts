@@ -352,7 +352,11 @@ async function processUser(args: {
       if (kms) {
         await kms.eraseKey(
           { kind: "user", userId },
-          { requestId: "user-data-rights:run-forget-cleanup", userId, eraseReason: "user-data-rights:forget" },
+          {
+            requestId: "user-data-rights:run-forget-cleanup",
+            userId,
+            eraseReason: "user-data-rights:forget",
+          },
         );
       }
 
