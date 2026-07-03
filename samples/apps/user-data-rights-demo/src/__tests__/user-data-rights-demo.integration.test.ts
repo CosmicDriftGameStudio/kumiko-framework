@@ -15,10 +15,16 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthEmailPasswordFeature } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
 import { tenantComplianceProfileEntity } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
-import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
+import { configValueEntity, createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import { tenantRetentionOverrideEntity } from "@cosmicdrift/kumiko-bundled-features/data-retention";
-import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
-import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
+import {
+  createSessionsFeature,
+  userSessionEntity,
+} from "@cosmicdrift/kumiko-bundled-features/sessions";
+import {
+  createTenantFeature,
+  tenantInvitationEntity,
+} from "@cosmicdrift/kumiko-bundled-features/tenant";
 import {
   createUserFeature,
   USER_STATUS,
@@ -64,6 +70,9 @@ beforeAll(async () => {
   });
 
   await unsafeCreateEntityTable(stack.db, userEntity);
+  await unsafeCreateEntityTable(stack.db, userSessionEntity);
+  await unsafeCreateEntityTable(stack.db, tenantInvitationEntity);
+  await unsafeCreateEntityTable(stack.db, configValueEntity);
   await unsafeCreateEntityTable(stack.db, todoEntity);
   await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);

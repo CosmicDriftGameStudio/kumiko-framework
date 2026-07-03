@@ -64,6 +64,7 @@ export const tenantInvitationExportHook: UserDataExportHook = async (ctx) => {
 };
 
 export const tenantInvitationDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
+  // skip: tenant not mounted — its table doesn't exist, nothing to erase.
   if (!featureMounted(ctx, "tenant")) return;
   const systemUser = createSystemUser(ctx.tenantId);
   const tdb = createTenantDb(ctx.db, ctx.tenantId, "system");

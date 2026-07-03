@@ -40,6 +40,7 @@ export const notificationPreferenceExportHook: UserDataExportHook = async (ctx) 
 };
 
 export const notificationPreferenceDeleteHook: UserDataDeleteHook = async (ctx) => {
+  // skip: delivery not mounted — its table doesn't exist, nothing to erase.
   if (!featureMounted(ctx, "delivery")) return;
   const systemUser = createSystemUser(ctx.tenantId);
   const tdb = createTenantDb(ctx.db, ctx.tenantId, "system");

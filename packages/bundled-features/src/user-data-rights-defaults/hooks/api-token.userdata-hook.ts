@@ -31,6 +31,7 @@ export const apiTokenExportHook: UserDataExportHook = async (ctx) => {
 };
 
 export const apiTokenDeleteHook: UserDataDeleteHook = async (ctx) => {
+  // skip: personal-access-tokens not mounted — its table doesn't exist, nothing to erase.
   if (!featureMounted(ctx, "personal-access-tokens")) return;
   await deleteMany(ctx.db, apiTokenTable, { userId: ctx.userId, tenantId: ctx.tenantId });
 };

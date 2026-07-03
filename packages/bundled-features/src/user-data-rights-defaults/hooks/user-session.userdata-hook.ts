@@ -36,6 +36,7 @@ export const userSessionExportHook: UserDataExportHook = async (ctx) => {
 };
 
 export const userSessionDeleteHook: UserDataDeleteHook = async (ctx) => {
+  // skip: sessions not mounted — its table doesn't exist, nothing to erase.
   if (!featureMounted(ctx, "sessions")) return;
   await deleteMany(ctx.db, userSessionTable, { userId: ctx.userId, tenantId: ctx.tenantId });
 };

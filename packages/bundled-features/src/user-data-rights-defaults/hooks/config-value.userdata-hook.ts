@@ -35,6 +35,7 @@ export const configValueExportHook: UserDataExportHook = async (ctx) => {
 };
 
 export const configValueDeleteHook: UserDataDeleteHook = async (ctx) => {
+  // skip: config not mounted — its table doesn't exist, nothing to erase.
   if (!featureMounted(ctx, "config")) return;
   const systemUser = createSystemUser(ctx.tenantId);
   const tdb = createTenantDb(ctx.db, ctx.tenantId, "system");

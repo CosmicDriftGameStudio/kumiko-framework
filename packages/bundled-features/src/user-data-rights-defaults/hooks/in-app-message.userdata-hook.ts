@@ -32,6 +32,7 @@ export const inAppMessageExportHook: UserDataExportHook = async (ctx) => {
 };
 
 export const inAppMessageDeleteHook: UserDataDeleteHook = async (ctx) => {
+  // skip: channel-in-app not mounted — its table doesn't exist, nothing to erase.
   if (!featureMounted(ctx, "channel-in-app")) return;
   await deleteMany(ctx.db, inAppMessagesTable, { userId: ctx.userId, tenantId: ctx.tenantId });
 };
