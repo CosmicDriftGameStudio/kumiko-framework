@@ -18,9 +18,11 @@
 // expressed in meta (hand-added in a migration) is not reconstructed, and a
 // partial index whose WHERE the renderer can't express is rejected up-front.
 
+import type { DbConnection, DbTx } from "../connection";
 import type { EntityTableMeta } from "../entity-table-meta";
 import { type AnyDb, asEntityTableMeta, asRawClient } from "../query";
 import { renderTableDdl } from "../render-ddl";
+import { columnNamesOf, tableExists } from "../schema-inspection";
 import { quoteTableIdent } from "./table-ops";
 
 export const PROJECTION_REBUILD_SCHEMA = "kumiko_rebuild";
@@ -66,6 +68,39 @@ export function rebuildMetaOrThrow(table: unknown, projectionName: string): Enti
     );
   }
   return meta;
+}
+
+// Fence against a rebuild running with a registry that does not match the
+// migrated live schema (#835): during a rolling deploy, a pod still running
+// the previous build can pick up an async rebuild job; its shadow — built from
+// the stale EntityTableMeta — would swap away a freshly-migrated column
+// (recurrence class of #494). Compares COLUMN NAMES only; a type-/nullability-
+// only drift passes (schema regression, not data loss — the boot gate of the
+// next deploy catches it). A missing live table is fine: nothing to wipe.
+// Must run BEFORE buildShadowTable; columnNamesOf pins table_schema='public',
+// so the shadow search_path could not redirect it anyway.
+export async function assertLiveColumnsMatchMeta(
+  db: DbConnection | DbTx,
+  meta: EntityTableMeta,
+  projectionName: string,
+): Promise<void> {
+  if (!(await tableExists(db, `public.${meta.tableName}`))) return;
+  const live = await columnNamesOf(db, meta.tableName);
+  const metaNames = new Set(meta.columns.map((c) => c.name));
+  const onlyLive = [...live].filter((c) => !metaNames.has(c));
+  const onlyMeta = [...metaNames].filter((c) => !live.has(c));
+  if (onlyLive.length === 0 && onlyMeta.length === 0) return;
+  const detail = [
+    onlyLive.length > 0 ? `live-only: ${onlyLive.join(", ")}` : "",
+    onlyMeta.length > 0 ? `meta-only: ${onlyMeta.join(", ")}` : "",
+  ]
+    .filter(Boolean)
+    .join("; ");
+  throw new Error(
+    `projection-rebuild "${projectionName}": columns of live table "${meta.tableName}" do not match this process's EntityTableMeta (${detail}). ` +
+      "Rebuilding would swap away the difference. Likely cause: this pod runs a build whose registry is behind (or ahead of) the applied migrations — rolling deploy in progress? — or DDL was applied by hand. " +
+      "Rebuild aborted; retry from a pod whose code matches the migrated schema.",
+  );
 }
 
 // Runs INSIDE the rebuild tx, AFTER the state/consumer row lock is taken.

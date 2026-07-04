@@ -7,6 +7,7 @@ import {
   selectEventsForProjectionRebuildBatch,
 } from "../db/queries/projection-rebuild";
 import {
+  assertLiveColumnsMatchMeta,
   buildShadowTable,
   ensureRebuildSchema,
   fenceLiveTable,
@@ -260,6 +261,7 @@ export async function rebuildProjection(
     if (skipApplyErrors) await createRebuildDeadLetterTable(db);
     await db.begin(async (tx: DbTx) => {
       await markProjectionRebuilding(tx, projectionName);
+      await assertLiveColumnsMatchMeta(tx, meta, projectionName);
       await buildShadowTable(tx, meta);
       deps.__test_onBuildShadowTable?.();
 
