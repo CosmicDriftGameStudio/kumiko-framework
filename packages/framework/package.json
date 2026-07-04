@@ -135,6 +135,10 @@
       "types": "./src/crypto/index.ts",
       "default": "./src/crypto/index.ts"
     },
+    "./logging": {
+      "types": "./src/logging/index.ts",
+      "default": "./src/logging/index.ts"
+    },
     "./schema-cli": {
       "types": "./src/schema-cli.ts",
       "default": "./src/schema-cli.ts"
