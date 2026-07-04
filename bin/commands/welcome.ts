@@ -3,16 +3,10 @@
 //
 // Returns lines without trailing newlines. Caller joins with "\n".
 
-import type { Role } from "./types";
+import { WELCOME_DOC_LINKS, cliCommandDocUrl } from "../docs-urls";
+import type { Command, Role } from "./types";
 
 const TAGLINE = "Config-driven, command-based, realtime multi-tenant app framework.";
-
-const DOCS_LINKS: ReadonlyArray<readonly [string, string]> = [
-  ["Quickstart", "https://docs.kumiko.rocks/quickstart/quickstart/"],
-  ["Walkthrough", "https://docs.kumiko.rocks/walkthrough/"],
-  ["Concepts", "https://docs.kumiko.rocks/concepts/"],
-  ["CLI reference", "https://docs.kumiko.rocks/cli/"],
-];
 
 const ROLE_HINT: Record<Role, string> = {
   "app-dev": "Run `kumiko <command>` or `kumiko help <command>` for details.",
@@ -20,7 +14,7 @@ const ROLE_HINT: Record<Role, string> = {
 };
 
 export function getWelcomeBlock(role: Role): ReadonlyArray<string> {
-  const linkLines = DOCS_LINKS.map(([label, url], i) => {
+  const linkLines = WELCOME_DOC_LINKS.map(([label, url], i) => {
     const prefix = i === 0 ? "  Docs: " : "        ";
     return `${prefix}${label.padEnd(15)} ${url}`;
   });
@@ -31,4 +25,16 @@ export function getWelcomeBlock(role: Role): ReadonlyArray<string> {
     "",
     `  ${ROLE_HINT[role]}`,
   ];
+}
+
+export function printCommandHelp(cmd: Command, sink: Pick<Console, "log"> = console): void {
+  sink.log("");
+  sink.log(`  kumiko ${cmd.id} — ${cmd.description}`);
+  sink.log("");
+  for (const line of cmd.help.split("\n")) {
+    sink.log(`  ${line}`);
+  }
+  sink.log("");
+  sink.log(`  Docs: ${cliCommandDocUrl(cmd.id)}`);
+  sink.log("");
 }

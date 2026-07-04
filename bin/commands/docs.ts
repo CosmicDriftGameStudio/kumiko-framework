@@ -1,8 +1,6 @@
 import { spawn } from "node:child_process";
+import { cliCommandDocUrl, cliIndexUrl } from "../docs-urls";
 import { defineCommand, getCommand } from "./registry";
-
-const DOCS_BASE = "https://docs.kumiko.rocks";
-const CLI_BASE = `${DOCS_BASE}/cli`;
 
 function openUrl(url: string): void {
   const platform = process.platform;
@@ -18,7 +16,13 @@ export const docsCommand = defineCommand({
   id: "docs",
   label: "docs",
   description: "Open the Kumiko docs (overall or per command) in your browser",
-  help: "Usage:\n  kumiko docs                 Open docs.kumiko.rocks/cli/\n  kumiko docs <command>       Open docs.kumiko.rocks/cli/<command>/\n\n  --print                     Print the URL instead of opening it (CI / SSH friendly)",
+  help: [
+    "Usage:",
+    "  kumiko docs                 Open docs.kumiko.rocks/en/cli/",
+    "  kumiko docs <command>       Open docs.kumiko.rocks/en/cli/commands/<command>/",
+    "",
+    "  --print                     Print the URL instead of opening it (CI / SSH friendly)",
+  ].join("\n"),
   category: "help",
   roles: ["maintainer", "app-dev"],
   run: async (ctx) => {
@@ -26,7 +30,7 @@ export const docsCommand = defineCommand({
     const positional = ctx.argv.filter((a) => !a.startsWith("--"));
     const target = positional[0];
 
-    let url = CLI_BASE + "/";
+    let url = cliIndexUrl();
     if (target) {
       const cmd = getCommand(target);
       if (!cmd) {
@@ -35,8 +39,7 @@ export const docsCommand = defineCommand({
         ctx.out.err("");
         return 1;
       }
-      const slug = target.replace(/:/g, "-");
-      url = `${CLI_BASE}/${slug}/`;
+      url = cliCommandDocUrl(target);
     }
 
     if (printOnly) {
