@@ -33,6 +33,7 @@ const TENANT_CLIP = `${TENANT_SCOPE}{overflow:hidden}`;
 export function tenantStyleBlock(customCss: string): string {
   const sanitized = sanitizeTenantCss(customCss, TENANT_SCOPE);
   if (!sanitized) return "";
+  // html-ok: sanitizeTenantCss ist die Escaping-Boundary (Allowlist, strippt `<`).
   return `\n<style data-tenant-css>${TENANT_CONTAINMENT}\n${TENANT_CLIP}\n${sanitized}</style>`;
 }
 
@@ -52,7 +53,7 @@ export function wrapInLayout(opts: {
   description?: string | null;
   branding?: BrandingTokens;
 }): string {
-  const themeStyle = opts.branding ? brandingStyleBlock(opts.branding) : "";
+  const themeStyleHtml = opts.branding ? brandingStyleBlock(opts.branding) : "";
   const header = opts.branding ? brandingHeaderHtml(opts.branding) : "";
   // Untrusted per-tenant CSS — scoped, allowlist-sanitized and host-contained
   // at the render boundary by tenantStyleBlock (same helper a custom wrapLayout
@@ -88,7 +89,7 @@ export function wrapInLayout(opts: {
   .brand-header a { display: flex; align-items: center; gap: 0.6rem; color: inherit; text-decoration: none; }
   .brand-logo { height: 2rem; width: auto; }
   .brand-title { font-weight: 600; font-size: 1.1rem; }
-</style>${themeStyle}${tenantStyle}
+</style>${themeStyleHtml}${tenantStyle}
 </head>
 <body>
 ${header}

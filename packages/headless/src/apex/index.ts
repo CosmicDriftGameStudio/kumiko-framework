@@ -203,12 +203,18 @@ export type ApexPage = {
   readonly footer: ApexFooter;
 };
 
+// JSON in <script>-Kontext: `<` als < serialisieren, damit weder
+// `</script>` noch `<!--` aus dem Block ausbrechen kann (JSON bleibt valide).
+function scriptSafeJsonHtml(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, "\\u003c");
+}
+
 function dim(img: ApexImage): string {
   return `${img.width !== undefined ? ` width="${img.width}"` : ""}${img.height !== undefined ? ` height="${img.height}"` : ""}`;
 }
 
-function svgIcon(inner: string): string {
-  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
+function svgIcon(innerHtml: string): string {
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${innerHtml}</svg>`;
 }
 
 function renderCta(cta: ApexCta): string {
@@ -446,7 +452,8 @@ function renderFooter(f: ApexFooter): string {
 export function renderApexPage(page: ApexPage): string {
   const { head, brand } = page;
   const theme = page.theme ?? "light";
-  const css = (brand.fontFaceCss ?? "") + brand.tokensCss + APEX_STRUCTURAL_CSS;
+  // Brand-CSS ist app-authored (Trust-Boundary siehe Datei-Header), kein Tenant-Input.
+  const cssHtml = (brand.fontFaceCss ?? "") + brand.tokensCss + APEX_STRUCTURAL_CSS;
   const sections = page.sections.map(renderSection).join("\n\n    ");
   const ogUrl =
     head.canonicalUrl !== undefined
@@ -495,7 +502,7 @@ export function renderApexPage(page: ApexPage): string {
     .join("");
   const schema =
     head.schemaJson !== undefined
-      ? `\n    <script type="application/ld+json">${JSON.stringify(head.schemaJson)}</script>`
+      ? `\n    <script type="application/ld+json">${scriptSafeJsonHtml(head.schemaJson)}</script>`
       : "";
   return `<!doctype html>
 <html lang="${escapeHtml(head.lang)}">
@@ -507,7 +514,7 @@ export function renderApexPage(page: ApexPage): string {
     <meta property="og:title" content="${escapeHtml(head.title)}" />
     <meta property="og:description" content="${escapeHtml(head.description)}" />
     <meta property="og:type" content="website" />${ogUrl}${ogImage}${siteName}${locale}${twitterCard}${twitterSite}${favicon}${canonical}${alternates}${robots}${preconnects}${schema}
-    <style>${css}</style>
+    <style>${cssHtml}</style>
   </head>
   <body${theme === "dark" ? ` class="apex-dark"` : ""}>
     ${renderApexHeader(page.header)}

@@ -544,7 +544,8 @@ function buildMissingTemplateError(manifest: BuildManifest, entry: ClientEntry):
     ? `    <link rel="stylesheet" href="/styles.css" />\n`
     : "";
   const jsLine = manifest[entry.manifestKey]
-    ? `    <script type="module" src="/${entry.manifestKey}"></script>\n`
+    ? // html-ok: Error-Hilfetext (Tag-Snippet als Text), wird nie gerendert.
+      `    <script type="module" src="/${entry.manifestKey}"></script>\n`
     : "";
   return (
     `[kumiko build] kein ${entry.htmlPath} gefunden, aber es gibt JS/CSS-Output.\n` +
@@ -587,9 +588,9 @@ export function injectAssetTags(
 ): string {
   let result = html;
 
-  // Build-Stand vor </head> backen. id/builtAt sind Hex bzw. ISO → kein
-  // </script>-Escaping nötig. Ohne </head> (z.B. Fragment) still skip.
+  // Build-Stand vor </head> backen. Ohne </head> (z.B. Fragment) still skip.
   if (buildInfo && result.includes("</head>")) {
+    // html-ok: id/builtAt sind Hex bzw. ISO — kein `<` möglich, kein Breakout.
     const tag = `<script>window.__KUMIKO_BUILD__=${JSON.stringify(buildInfo)};</script>`;
     result = result.replace("</head>", `    ${tag}\n  </head>`);
   }
@@ -608,6 +609,7 @@ export function injectAssetTags(
         }),
       );
     }
+    // html-ok: cssUrl ist ein selbst-generierter Manifest-Asset-Pfad (Hash-Name).
     result = result.replace(placeholder[0], `<link rel="stylesheet" href="${cssUrl}" />`);
   }
 
@@ -630,6 +632,7 @@ export function injectAssetTags(
         }),
       );
     }
+    // html-ok: jsUrl ist ein selbst-generierter Manifest-Asset-Pfad (Hash-Name).
     result = result.replace(placeholder[0], `<script type="module" src="${jsUrl}"></script>`);
   }
 
