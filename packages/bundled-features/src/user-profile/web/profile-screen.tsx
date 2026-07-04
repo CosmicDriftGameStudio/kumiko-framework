@@ -12,6 +12,7 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
+import { FormScreenShell } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useState } from "react";
 import { AuthHandlers } from "../../auth-email-password/constants";
 import { requestEmailVerification } from "../../auth-email-password/web";
@@ -360,7 +361,7 @@ export function ProfileScreen(): ReactNode {
   };
 
   return (
-    <div className="flex max-w-5xl flex-col gap-6 p-6" data-testid="profile-screen">
+    <FormScreenShell className="flex flex-col gap-6" testId="profile-screen">
       <Heading variant="page">{t("profile.title")}</Heading>
       {/* Die zwei kurzen Konto-Forms teilen sich eine Reihe (md+); die
           Danger-Zone bleibt volle Breite darunter. */}
@@ -369,6 +370,6 @@ export function ProfileScreen(): ReactNode {
         <ChangePasswordSection />
       </div>
       <DangerZoneSection me={me} onChanged={refetch} />
-    </div>
+    </FormScreenShell>
   );
 }

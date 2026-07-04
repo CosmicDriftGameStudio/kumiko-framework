@@ -517,9 +517,11 @@ function DefaultDataTable({
         {emptyState ?? <span>No entries.</span>}
       </div>
     ) : (
-      // dashboard-01-Muster: schlichter `rounded-lg border`-Rahmen (kein
-      // bg-card/shadow), die Header-Zeile trägt den bg-muted-Grauton.
-      <div className="overflow-hidden rounded-lg border">
+      // dashboard-01-Muster: `rounded-lg border`-Rahmen, die Header-Zeile
+      // trägt den bg-muted-Grauton. `bg-card` (statt transparent) → die Liste
+      // sitzt auf derselben Card-Fläche wie Forms; auf Themes mit farbigem
+      // Page-Background (z.B. Cream) matchen Listen sonst nicht die Cards.
+      <div className="overflow-hidden rounded-lg border bg-card">
         <Table data-testid={testId}>
           {tableInner(columns, rows, onRowClick, sort, onSortChange, rowActions, rowActionMode)}
         </Table>
