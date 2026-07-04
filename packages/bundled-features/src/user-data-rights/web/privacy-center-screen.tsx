@@ -19,7 +19,7 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
-import { postWithDownload } from "@cosmicdrift/kumiko-renderer-web";
+import { FormScreenShell, postWithDownload } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useEffect, useState } from "react";
 import {
   EXPORT_JOB_STATUS,
@@ -384,12 +384,12 @@ export function PrivacyCenterScreen({
   };
 
   return (
-    <div className="p-6 flex flex-col gap-6 max-w-2xl" data-testid="privacy-center-screen">
+    <FormScreenShell className="flex flex-col gap-6" testId="privacy-center-screen">
       <Heading variant="page">{t("userDataRights.privacyCenter.title")}</Heading>
       <p className="text-sm text-muted-foreground">{t("userDataRights.privacyCenter.intro")}</p>
       <ExportSection />
       <RestrictionSection me={me} onChanged={refetch} />
       {showDeletion && <DeletionSection me={me} onChanged={refetch} />}
-    </div>
+    </FormScreenShell>
   );
 }

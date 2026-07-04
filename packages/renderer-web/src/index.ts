@@ -124,7 +124,12 @@ export type { WorkspaceSwitcherProps } from "./layout/workspace-switcher";
 export { WorkspaceSwitcher } from "./layout/workspace-switcher";
 export { cn } from "./lib/cn";
 export { postWithDownload } from "./lib/download";
-export { BareFormProvider, DefaultCard as Card, defaultPrimitives } from "./primitives";
+export {
+  BareFormProvider,
+  DefaultCard as Card,
+  defaultPrimitives,
+  FormScreenShell,
+} from "./primitives";
 export type { ActionMenuProps, MenuItemDef } from "./primitives/action-menu";
 export { ActionMenu } from "./primitives/action-menu";
 export {

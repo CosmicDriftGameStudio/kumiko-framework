@@ -1,3 +1,8 @@
+// @runtime client
+// Pure-Data (i18n-Keys) — client-marked, damit das web/-Bundle sie in den
+// Browser-Store pivotieren darf; feature.ts (server) importiert sie ebenso
+// (server darf client-safe Pure-Data importieren, wie PAT constants.ts).
+//
 // Übersetzungs-Bundle für die managed-pages Admin-Screens. Ohne diese Keys
 // rendert die UI die Roh-i18n-Keys (screen:*.title, entity:*:field:*, Section-
 // Header). Der Boot-Validator (required-surface-keys) verlangt — sobald ein
