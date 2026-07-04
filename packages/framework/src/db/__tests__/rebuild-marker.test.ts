@@ -28,14 +28,16 @@ function tmpDir(): string {
 }
 
 describe("rebuildTablesFromDiff", () => {
-  test("managed: new + changed tables included, dropped excluded, sorted + unique", () => {
+  test("managed: new table rebuilt, additive-only change NOT rebuilt, dropped excluded", () => {
+    // read_a: nur eine nullable Spalte dazu → in-place ALTER, kein Rebuild.
+    // read_b: neue Tabelle → Rebuild. read_c gedroppt → nie im Marker.
     const prev = snapshotFromMetas([meta("read_a"), meta("read_c")]);
     const next = snapshotFromMetas([
       meta("read_a", { name: "title", pgType: "text", notNull: false }),
       meta("read_b"),
     ]);
     const diff = diffSnapshots(prev, next);
-    expect(rebuildTablesFromDiff(diff)).toEqual(["read_a", "read_b"]);
+    expect(rebuildTablesFromDiff(diff)).toEqual(["read_b"]);
   });
 
   test("no schema change → empty", () => {
@@ -51,10 +53,18 @@ describe("rebuildTablesFromDiff", () => {
     expect(rebuildTablesFromDiff(diffSnapshots(prev, next))).toEqual([]);
   });
 
-  test("managed new nullable column → rebuild (Backfill aus Events nötig)", () => {
+  test("managed new NULLABLE column → NO rebuild (in-place ADD COLUMN reicht; Rebuild würde die Spalte wischen, #835)", () => {
     const prev = snapshotFromMetas([meta("read_a")]);
     const next = snapshotFromMetas([
       meta("read_a", { name: "title", pgType: "text", notNull: false }),
+    ]);
+    expect(rebuildTablesFromDiff(diffSnapshots(prev, next))).toEqual([]);
+  });
+
+  test("managed new NOT-NULL column ohne Default → rebuild (recreate, kann nicht in-place)", () => {
+    const prev = snapshotFromMetas([meta("read_a")]);
+    const next = snapshotFromMetas([
+      meta("read_a", { name: "title", pgType: "text", notNull: true }),
     ]);
     expect(rebuildTablesFromDiff(diffSnapshots(prev, next))).toEqual(["read_a"]);
   });
