@@ -1,5 +1,17 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.122.5
+
+### Patch Changes
+
+- 837e3b3: managed-pages: ship de/en translations for its admin screens (branding settings + page CMS) via `r.translations`, so field labels, section headers and screen titles no longer render as raw i18n keys. Any app mounting `managed-pages` now boots with a complete, translated admin surface. Also adds `tag` and `key` to the nav-icon allowlist (`NAV_ICONS`) so nav entries using those keys render a Lucide icon instead of the grey dot fallback.
+- Updated dependencies [837e3b3]
+  - @cosmicdrift/kumiko-renderer-web@0.122.5
+  - @cosmicdrift/kumiko-framework@0.122.5
+  - @cosmicdrift/kumiko-dispatcher-live@0.122.5
+  - @cosmicdrift/kumiko-headless@0.122.5
+  - @cosmicdrift/kumiko-renderer@0.122.5
+
 ## 0.122.4
 
 ### Patch Changes
