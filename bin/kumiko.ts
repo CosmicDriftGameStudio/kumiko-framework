@@ -11,7 +11,7 @@
 import { existsSync } from "node:fs";
 import { join, resolve as resolvePath } from "node:path";
 import { getCommand, getCommands } from "./commands";
-import { getWelcomeBlock } from "./commands/welcome";
+import { getWelcomeBlock, printCommandHelp } from "./commands/welcome";
 import { detectRole } from "./role";
 import type { CommandContext, Output, Role } from "./commands/types";
 
@@ -58,7 +58,18 @@ async function main(): Promise<number> {
   }
 
   if (commandName === "help" || commandName === "--help") {
-    printHelp(detectRole(process.cwd(), fullArgv));
+    const role = detectRole(process.cwd(), fullArgv);
+    const helpTarget = fullArgv[1];
+    if (helpTarget && helpTarget !== "--help" && !helpTarget.startsWith("--")) {
+      const targetCmd = getCommand(helpTarget);
+      if (!targetCmd) {
+        console.error(`\n  Unknown command: "${helpTarget}". Try: kumiko help\n`);
+        return 1;
+      }
+      printCommandHelp(targetCmd);
+      return 0;
+    }
+    printHelp(role);
     return 0;
   }
 
@@ -81,6 +92,11 @@ async function main(): Promise<number> {
     return 1;
   }
 
+  if (wantsHelp(remainingArgv)) {
+    printCommandHelp(cmd);
+    return 0;
+  }
+
   const repoRoot = findRepoRoot();
   const ctx: CommandContext = {
     argv: remainingArgv,
@@ -98,6 +114,10 @@ async function main(): Promise<number> {
     console.error(`\n  ✗ ${e instanceof Error ? e.message : String(e)}\n`);
     return 1;
   }
+}
+
+function wantsHelp(argv: ReadonlyArray<string>): boolean {
+  return argv.some((a) => a === "--help" || a === "-h");
 }
 
 function stripAsOverride(argv: ReadonlyArray<string>): string[] {
