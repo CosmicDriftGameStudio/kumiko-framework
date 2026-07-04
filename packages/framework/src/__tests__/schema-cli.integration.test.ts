@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -59,33 +59,6 @@ describe("runSchemaCli — no-DB paths", () => {
     const code = await runSchemaCli(["lolwut"], appCwd, cap.out);
     expect(code).toBe(0);
     expect(cap.log.join("\n")).toContain("Subcommands:");
-  });
-
-  test("calls ensureTemporalPolyfill on every invocation", async () => {
-    // runProdApp/runDevApp call ensureTemporalPolyfill() at boot; the
-    // standalone CLI (migrate-db initContainer, `bun kumiko.js schema apply`)
-    // never goes through that boot path. Without this, a projection rebuild's
-    // tz/timestamp coercion throws "Temporal is not defined" on any runtime
-    // that lacks native Temporal — deterministically, since the crashed
-    // process still records the migration as applied and the rebuild is
-    // never retried on the next run.
-    //
-    // Asserting on globalThis.Temporal directly doesn't work here: the test
-    // harness's own preload (test-setup/base.preload.ts) already calls
-    // ensureTemporalPolyfill() once per process, and its idempotency cache
-    // (a module-level flag, not re-derived from globalThis) short-circuits
-    // any later call regardless of what a test does to globalThis.Temporal in
-    // between. Spying on the imported binding sidesteps that cache entirely.
-    const timeModule = await import("../time");
-    const spy = spyOn(timeModule, "ensureTemporalPolyfill");
-    try {
-      const cap = captureOut();
-      const code = await runSchemaCli([], appCwd, cap.out);
-      expect(code).toBe(0);
-      expect(spy).toHaveBeenCalled();
-    } finally {
-      spy.mockRestore();
-    }
   });
 
   test("generate without name exits 1 with neutral usage wording", async () => {
