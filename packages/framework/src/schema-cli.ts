@@ -36,6 +36,7 @@ import {
   createProjectionStateTable,
   rebuildProjection,
 } from "./pipeline";
+import { ensureTemporalPolyfill } from "./time";
 
 export type SchemaCliOut = {
   readonly log: (line: string) => void;
@@ -126,6 +127,13 @@ export async function runSchemaCli(
   out: SchemaCliOut,
   options: RunSchemaCliOptions = {},
 ): Promise<number> {
+  // runProdApp/runDevApp install this at boot; the standalone CLI (the
+  // migrate-db initContainer, `bun kumiko.js schema apply`) never goes through
+  // that boot path, so a projection rebuild's tz/timestamp coercion throws
+  // "Temporal is not defined" — deterministically, on every rebuild-marker
+  // migration, since the crashed process still records the migration as
+  // applied and the rebuild is never retried.
+  await ensureTemporalPolyfill();
   const sub = argv[0];
   const schemaFile = resolvePath(appCwd, "kumiko/schema.ts");
   const migrationsDir = resolvePath(appCwd, "kumiko/migrations");
