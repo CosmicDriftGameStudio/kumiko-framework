@@ -19,6 +19,7 @@ import { BRANDING_KEYS, BRANDING_QUERY_QN, CUSTOM_CSS_KEY, coerceBranding } from
 import { createBrandingQuery } from "./handlers/branding.query";
 import { bySlugQuery } from "./handlers/by-slug.query";
 import { setWrite } from "./handlers/set.write";
+import { MANAGED_PAGES_I18N } from "./i18n";
 import { createBrandingSettingsScreen } from "./screens/branding-screen";
 import { pageEditScreen, pageListScreen } from "./screens/page-screens";
 import { pageEntity } from "./table";
@@ -195,6 +196,8 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
     r.screen(pageListScreen);
     r.screen(pageEditScreen);
     r.screen(createBrandingSettingsScreen({ allowCustomCss }));
+
+    r.translations({ keys: MANAGED_PAGES_I18N });
 
     r.httpRoute({
       method: "GET",

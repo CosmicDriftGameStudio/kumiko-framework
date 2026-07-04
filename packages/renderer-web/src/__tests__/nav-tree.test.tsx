@@ -224,6 +224,23 @@ describe("NavTree", () => {
     expect(container.querySelectorAll("svg").length).toBe(2);
   });
 
+  test("tag + key (custom-fields / api-tokens) lösen auf ein Icon auf", () => {
+    const schema = {
+      featureName: "showcase",
+      entities: {},
+      screens: [
+        { id: "fields", type: "entityList", entity: "x", columns: [] },
+        { id: "tokens", type: "entityList", entity: "x", columns: [] },
+      ],
+      navs: [
+        { id: "fields", label: "Felder", screen: "fields", order: 10, icon: "tag" },
+        { id: "tokens", label: "Tokens", screen: "tokens", order: 20, icon: "key" },
+      ],
+    } as FeatureSchema;
+    const { container } = render(<NavTree schema={schema} />);
+    expect(container.querySelectorAll("svg").length).toBe(2);
+  });
+
   test("unbekannter icon-Key fällt sauber auf den Dot zurück (kein svg)", () => {
     const schema = {
       featureName: "showcase",
