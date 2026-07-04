@@ -26,7 +26,7 @@ import {
   defineFeature,
 } from "../../engine";
 import type { ProjectionDefinition } from "../../engine/types";
-import { createEventsTable } from "../../event-store";
+import { archiveStream, createEventsTable } from "../../event-store";
 import {
   createProjectionStateTable,
   getAllProjectionProgress,
@@ -116,7 +116,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await asRawClient(testDb.db).unsafe(
-    `TRUNCATE kumiko_events, read_rebuild_items, read_rebuild_items_per_group, kumiko_projections RESTART IDENTITY CASCADE`,
+    `TRUNCATE kumiko_events, read_rebuild_items, read_rebuild_items_per_group, kumiko_projections, kumiko_archived_streams RESTART IDENTITY CASCADE`,
   );
 });
 
@@ -209,6 +209,36 @@ describe("rebuildProjection — happy path", () => {
     });
     expect(result.eventsProcessed).toBe(0);
     expect(result.lastProcessedEventId).toBe(0n);
+  });
+
+  test("archived streams don't replay (fw#832) — stranded aggregate heals via archiveStream", async () => {
+    // Heilungs-Muster fuer eventlose Read-Side-Deletes im Bestand: ein
+    // Aggregat, dessen Live-Row (vor dem fw#832-Fix) read-side entfernt
+    // wurde, hinterlaesst ein created-Event ohne deleted — jeder Rebuild
+    // wuerde die Row resurrecten (bzw. an unique-Indexen kollidieren).
+    // archiveStream friert den Stream ein UND nimmt ihn aus dem Replay.
+    const group = "00000000-0000-4000-8000-000000000020";
+    const stranded = await executor.create({ groupId: group, name: "stranded" }, admin, tdb);
+    if (!stranded.isSuccess) throw new Error("create failed");
+    await appendCreatedEvent(group, "survivor");
+
+    await archiveStream(testDb.db, {
+      tenantId: admin.tenantId,
+      aggregateId: String(stranded.data.id),
+      aggregateType: "rebuild-item",
+      archivedBy: "fw832-heal-test",
+    });
+
+    const result = await rebuildProjection(qualifiedProjectionName, {
+      db: testDb.db,
+      registry,
+    });
+
+    // Nur das survivor-Event replayed; das archivierte Aggregat traegt
+    // nicht mehr bei — auch nicht im #443-ground-truth-count (sonst
+    // wuerde der Recompute-Pfad endlos nachziehen).
+    expect(result.eventsProcessed).toBe(1);
+    expect(await getCount(group)).toBe(1);
   });
 });
 
