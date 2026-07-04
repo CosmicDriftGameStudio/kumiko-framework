@@ -37,6 +37,7 @@ import {
   Folder,
   Gauge,
   Home,
+  KeyRound,
   Layers,
   LayoutDashboard,
   LineChart,
@@ -49,6 +50,7 @@ import {
   Shield,
   Sparkles,
   Table,
+  Tag,
   TrendingUp,
   User,
   Users,
@@ -115,6 +117,8 @@ const NAV_ICONS: Readonly<Record<string, typeof Folder>> = {
   users: Users,
   user: User,
   search: Search,
+  tag: Tag,
+  key: KeyRound,
 };
 
 export type NavTreeProps = {
