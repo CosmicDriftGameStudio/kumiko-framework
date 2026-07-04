@@ -14,9 +14,15 @@
 // Reads (prod) oder bereits-vorbereitete templates (custom CI-builds)
 // stacking-Tags produzieren.
 
+// `<` als < serialisieren: verhindert `</script>`-Breakout aus dem
+// RAWTEXT-Block, JSON bleibt valides JS.
+function scriptSafeJsonHtml(json: string): string {
+  return json.replace(/</g, "\\u003c");
+}
+
 export function injectSchema(html: string, schemaJson: string): string {
   if (html.includes("__KUMIKO_SCHEMA__")) return html;
-  const tag = `<script>window.__KUMIKO_SCHEMA__=${schemaJson};</script>`;
+  const tag = `<script>window.__KUMIKO_SCHEMA__=${scriptSafeJsonHtml(schemaJson)};</script>`;
   if (html.includes('<script src="/client.js"')) {
     return html.replace('<script src="/client.js"', `${tag}<script src="/client.js"`);
   }

@@ -35,6 +35,7 @@ function formatDateCell(
 }
 
 export { escapeHtml, escapeHtmlAttr, escapeXml } from "./escape";
+export { type HtmlValue, html, RawHtml, raw } from "./html-template";
 export function applyFormatSpec(
   spec: { format: string } & Record<string, unknown>,
   value: unknown,
