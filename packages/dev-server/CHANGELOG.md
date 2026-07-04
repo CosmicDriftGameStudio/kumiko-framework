@@ -1,5 +1,17 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.123.0
+
+### Patch Changes
+
+- b0e70a7: headless: new `html` tagged template + `raw()`/`RawHtml` — auto-escapes every interpolation, `raw()` marks prerendered markup, nested `html` fragments compose without double-escaping. Structural companion to the new HTML-escape guard (infra#201).
+
+  Hardening from the guard's first run: apex JSON-LD `<script>` block serializes `<` as `<` (no `</script>` breakout), dev-server `injectSchema` does the same for `window.__KUMIKO_SCHEMA__`; apex/page-render prerendered fragments renamed to the `*Html` convention.
+
+- Updated dependencies [b0e70a7]
+  - @cosmicdrift/kumiko-bundled-features@0.123.0
+  - @cosmicdrift/kumiko-framework@0.123.0
+
 ## 0.122.5
 
 ### Patch Changes
