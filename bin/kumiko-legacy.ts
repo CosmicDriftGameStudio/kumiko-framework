@@ -253,6 +253,10 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   if (existsSync(join(REPO_ROOT, "kumiko-platform"))) {
     steps.push({ name: "Doc-Status Guard", cmd: "bunx kumiko-guard-doc-status" });
     steps.push({ name: "Doc-Status-Index Drift", cmd: "bunx kumiko-docs-status-index" });
+    // Konzept-Seiten muessen mit "## In plain words" beginnen (Doku-Standard,
+    // kumiko-platform docs/reference/doku-standard.md). WARN-only bis der
+    // Bestand migriert ist.
+    steps.push({ name: "Docs-Plain-Words Guard", cmd: "bunx kumiko-guard-docs-plain-words" });
     // Needs the legal-templates source (kumiko-platform/tools/legal-templates)
     // to verify committed app JSONs against a fresh compilation.
     const legalTemplateGuard = join(REPO_ROOT, "infra/guards/guard-legal-template-drift.ts");
