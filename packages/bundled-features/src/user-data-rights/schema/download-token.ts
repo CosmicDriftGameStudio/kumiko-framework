@@ -93,9 +93,11 @@ export const exportDownloadTokenEntity = createEntity({
     }),
   },
 
-  // 1 Token pro Job. UNIQUE auf jobId — garantiert dass Worker-
-  // Idempotency (Atom 3b's "2× run done-Job → no-op") auch fuer
-  // Token-Generierung gilt: zweiter Versuch faellt auf Constraint.
+  // 1 Token pro Job. UNIQUE auf jobId — Backstop fuer Worker-Idempotency
+  // (Atom 3b's "2× run done-Job → no-op"). Der Worker created NIE ein
+  // zweites Aggregat fuers gleiche jobId: Re-Runs rotieren das Token
+  // in place via update (fw#832) — sonst kollidiert der Projection-
+  // Rebuild an genau diesem Index.
   indexes: [
     {
       unique: true,

@@ -574,6 +574,67 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     expect(tokenRows).toHaveLength(1);
   });
 
+  test("Re-Run (fw#832): Job zurueck auf pending → Token in place rotiert, kein 2. created-Event", async () => {
+    const jobId = await seedPendingJob();
+    const first = await runExportJobs({
+      db: stack.db,
+      registry: stack.registry,
+      buildStorageProvider: buildProvider,
+      now: NOW(),
+    });
+    const firstPlain = first.tokenByJobId.get(jobId);
+    expect(firstPlain).toBeDefined();
+
+    const [tokenBefore] = (await selectMany(stack.db, exportDownloadTokensTable, {
+      jobId,
+    })) as Array<{ id: string }>;
+
+    // Operator-Recovery (Email-Fail, plain verloren): NUR den Job auf
+    // pending flippen — die Token-Row bleibt liegen. Vor fw#832 created
+    // der Worker dann ein ZWEITES Aggregat fuers gleiche jobId und der
+    // Projection-Rebuild kollidierte dauerhaft am one_per_job-Index.
+    await updateRows(
+      stack.db,
+      exportJobsTable,
+      { status: EXPORT_JOB_STATUS.Pending },
+      { id: jobId },
+    );
+
+    const second = await runExportJobs({
+      db: stack.db,
+      registry: stack.registry,
+      buildStorageProvider: buildProvider,
+      now: NOW(),
+    });
+    expect(second.completedJobIds).toContain(jobId);
+    const secondPlain = second.tokenByJobId.get(jobId);
+    expect(secondPlain).toBeDefined();
+    expect(secondPlain).not.toBe(firstPlain);
+
+    // Genau EINE Row, GLEICHES Aggregat, frischer Hash, Audit-Reset.
+    const tokenRows = (await selectMany(stack.db, exportDownloadTokensTable, {
+      jobId,
+    })) as Array<{
+      id: string;
+      tokenHash: string;
+      useCount: number | null;
+      lastUsedAt: unknown;
+    }>;
+    expect(tokenRows).toHaveLength(1);
+    expect(tokenRows[0]?.id).toBe(tokenBefore?.id as string);
+    expect(tokenRows[0]?.tokenHash).toBe(await hashDownloadToken(secondPlain as string));
+    expect(tokenRows[0]?.useCount).toBe(0);
+    expect(tokenRows[0]?.lastUsedAt).toBeNull();
+
+    // Rebuild-Invariante: genau EIN created-Event — der one_per_job-
+    // Index kann beim Replay nie kollidieren.
+    const events = (await asRawClient(stack.db).unsafe(
+      `SELECT type FROM kumiko_events WHERE aggregate_type = 'export-download-token'`,
+    )) as unknown as Array<{ type: string }>;
+    expect(events.filter((e) => e.type === "export-download-token.created")).toHaveLength(1);
+    expect(events.some((e) => e.type === "export-download-token.updated")).toBe(true);
+  });
+
   test("failed-Job: kein Token wird generiert", async () => {
     // Bewusst keinen Job — leerer Pending-Pass. Aber wir koennen den
     // failure-Pfad pinnen via runUserExport-Fehler. Einfacher: nur

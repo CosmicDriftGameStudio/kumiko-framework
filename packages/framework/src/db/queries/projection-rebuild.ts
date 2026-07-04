@@ -23,12 +23,19 @@ export async function selectEventsForProjectionRebuildBatch(
   afterId: bigint,
   limit: number,
 ): Promise<ReadonlyArray<Record<string, unknown>>> {
+  // Archived streams don't replay (Marten-aligned): their aggregates are
+  // frozen ops-tombstones — replaying them would resurrect rows (or, for
+  // stranded duplicate-aggregates like fw#832, collide on unique indexes).
   return (await asRawClient(db).unsafe(
-    `SELECT * FROM "kumiko_events"
-     WHERE "aggregate_type" = ANY($1::text[])
-       AND "type" = ANY($2::text[])
-       AND "id" > $3
-     ORDER BY "id" ASC
+    `SELECT * FROM "kumiko_events" e
+     WHERE e."aggregate_type" = ANY($1::text[])
+       AND e."type" = ANY($2::text[])
+       AND e."id" > $3
+       AND NOT EXISTS (
+         SELECT 1 FROM "kumiko_archived_streams" a
+          WHERE a."tenant_id" = e."tenant_id" AND a."aggregate_id" = e."aggregate_id"
+       )
+     ORDER BY e."id" ASC
      LIMIT $4`,
     [aggregateTypes, eventTypes, afterId, limit],
   )) as ReadonlyArray<Record<string, unknown>>;
@@ -43,10 +50,17 @@ export async function countSubscribedEvents(
   aggregateTypes: readonly string[],
   eventTypes: readonly string[],
 ): Promise<bigint> {
+  // Same archived-streams exclusion as the batch query — the #443 recompute
+  // compares this count against applied events; a filter mismatch would make
+  // every rebuild with an archived stream loop the full-re-replay forever.
   const rows = (await asRawClient(db).unsafe(
-    `SELECT count(*)::bigint AS n FROM "kumiko_events"
-     WHERE "aggregate_type" = ANY($1::text[])
-       AND "type" = ANY($2::text[])`,
+    `SELECT count(*)::bigint AS n FROM "kumiko_events" e
+     WHERE e."aggregate_type" = ANY($1::text[])
+       AND e."type" = ANY($2::text[])
+       AND NOT EXISTS (
+         SELECT 1 FROM "kumiko_archived_streams" a
+          WHERE a."tenant_id" = e."tenant_id" AND a."aggregate_id" = e."aggregate_id"
+       )`,
     [aggregateTypes, eventTypes],
   )) as ReadonlyArray<{ n: bigint | string | number | null }>;
   const raw = rows[0]?.n;

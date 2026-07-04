@@ -283,8 +283,11 @@ describe("#494 :: read_users-Rebuild bewahrt Lifecycle-State", () => {
     expect(backfilled).toBeGreaterThanOrEqual(1);
 
     // Proof the loop didn't abort at the corrupt row: rebuild the projection —
-    // goodRow got its user.updated event (survives), badRow never did (wiped
-    // back to Active, exactly the data-loss this backfill exists to prevent).
+    // goodRow got its user.updated event (survives). badRow's Stream ist
+    // archiviert und replayt seit fw#832 gar nicht mehr: die Row ist nach dem
+    // Rebuild WEG (nicht bloss auf Active zurueckgewischt). Genau deshalb ist
+    // der failed-Report oben der Operator-Alarm — Heilung: restoreStream +
+    // Backfill-Re-Run, DANN rebuild.
     await rebuildProjection(USER_PROJECTION, { db: stack.db, registry });
     const rows = (await selectMany(stack.db, userTable, {})) as Array<{
       id: string;
@@ -293,6 +296,6 @@ describe("#494 :: read_users-Rebuild bewahrt Lifecycle-State", () => {
     const good = rows.find((r) => r.id === goodRow.id);
     const bad = rows.find((r) => r.id === badRow.id);
     expect(good?.status).toBe(USER_STATUS.Restricted);
-    expect(bad?.status).toBe(USER_STATUS.Active);
+    expect(bad).toBeUndefined();
   });
 });
