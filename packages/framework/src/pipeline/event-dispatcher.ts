@@ -524,9 +524,16 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
           span.setAttribute("consumer.skip_reason", acquired.skip);
           return;
         }
-        await markProcessing(tx, consumer.name, instanceId);
 
         const events = await fetchPendingEvents(tx, acquired.state.lastProcessedEventId, batchSize);
+        // skip: nothing to deliver — no markProcessing/persistConsumerOutcome write,
+        // so an idle consumer doesn't burn a WAL record on every poll tick.
+        if (events.length === 0) {
+          span.setAttribute("consumer.skip_reason", "no_pending_events");
+          return;
+        }
+        await markProcessing(tx, consumer.name, instanceId);
+
         const outcome = await deliverEvents(consumer, events, context, maxAttempts, acquired.state);
         processed = outcome.processed;
         failed = outcome.failed;

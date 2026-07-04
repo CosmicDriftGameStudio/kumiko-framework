@@ -159,10 +159,20 @@ describe("event-dispatcher — happy path", () => {
     await stack.eventDispatcher?.runOnce();
     expect(captureA).toHaveLength(1);
 
+    const stateBefore = await getConsumerState(stack.db, qnA);
+
     const second = await stack.eventDispatcher?.runOnce();
     expect(second?.byConsumer[qnA]).toEqual({ processed: 0, failed: 0 });
     // Still only one — consumer correctly saw "nothing new past my cursor".
     expect(captureA).toHaveLength(1);
+
+    // No pending events means no write at all — an idle pass must not touch
+    // updated_at/status, otherwise every empty poll tick burns a WAL record.
+    const stateAfter = await getConsumerState(stack.db, qnA);
+    expect(stateAfter?.updatedAt.epochMilliseconds).toEqual(
+      stateBefore?.updatedAt.epochMilliseconds,
+    );
+    expect(stateAfter?.status).toBe(stateBefore?.status);
   });
 
   test("cursor advances only past successfully-consumed events", async () => {
