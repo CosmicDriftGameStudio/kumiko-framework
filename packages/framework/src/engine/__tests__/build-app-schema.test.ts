@@ -111,6 +111,35 @@ describe("buildAppSchema", () => {
     expect(idField?.["type"]).toBe("text"); // type kommt durch
   });
 
+  test("Reference-Field: entity + labelField + multiple überleben die Projection", () => {
+    // Regression: ohne diese Properties im Client-Schema baut der ReferenceInput
+    // die Options-Query als `<feature>:query::list` (leeres refEntity) → 404 →
+    // Dropdown zeigt „Keine Treffer" obwohl die referenzierte Entity Rows hat.
+    const entity = {
+      fields: {
+        name: { type: "text" },
+        parentId: { type: "reference", entity: "component", labelField: "name" },
+        tags: { type: "reference", entity: "tag", labelField: "label", multiple: true },
+      },
+    } as unknown as EntityDefinition;
+
+    const f = defineFeature("ent", (r) => {
+      r.entity("thing", entity);
+    });
+    const app = buildAppSchema(createRegistry([f]));
+    const fields = (
+      app.features[0]?.entities["thing"] as unknown as {
+        fields: Record<string, Record<string, unknown>>;
+      }
+    ).fields;
+
+    expect(fields["parentId"]?.["type"]).toBe("reference");
+    expect(fields["parentId"]?.["entity"]).toBe("component");
+    expect(fields["parentId"]?.["labelField"]).toBe("name");
+    expect(fields["tags"]?.["entity"]).toBe("tag");
+    expect(fields["tags"]?.["multiple"]).toBe(true);
+  });
+
   test("JSON-Safety: literal Defaults bleiben erhalten", () => {
     const entity = {
       fields: {
