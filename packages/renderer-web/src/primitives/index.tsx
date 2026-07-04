@@ -1382,7 +1382,7 @@ function DefaultForm({
       data-testid={testId}
       className="flex flex-col w-full"
     >
-      <div className="px-6 pt-6 pb-12 max-w-3xl w-full mx-auto">
+      <FormScreenShell>
         <div className={cn(cardSurface(), "overflow-hidden")}>
           {(title !== undefined || subtitle !== undefined) && (
             <div className="px-6 pb-2 pt-5">
@@ -1426,8 +1426,29 @@ function DefaultForm({
             </div>
           )}
         </div>
-      </div>
+      </FormScreenShell>
     </form>
+  );
+}
+
+// Kanonische Form/Settings-Shell: zentrierte max-w-3xl-Spalte mit Standard-
+// Screen-Padding. DefaultForm (configEdit/entityEdit) UND custom Settings-
+// Screens (url-settings, privacy-center) teilen sie → einheitliche Breite +
+// Zentrierung statt per-Screen-Wildwuchs. Inhalt nutzt Card-Primitives;
+// `className` (z.B. "flex flex-col gap-6") für Multi-Card-Stacks.
+export function FormScreenShell({
+  children,
+  className,
+  testId,
+}: {
+  readonly children: ReactNode;
+  readonly className?: string;
+  readonly testId?: string;
+}): ReactNode {
+  return (
+    <div data-testid={testId} className={cn("px-6 pt-6 pb-12 max-w-3xl w-full mx-auto", className)}>
+      {children}
+    </div>
   );
 }
 

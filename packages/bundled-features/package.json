@@ -92,6 +92,7 @@
     "./legal-pages/web": "./src/legal-pages/web/index.ts",
     "./page-render": "./src/page-render/index.ts",
     "./managed-pages": "./src/managed-pages/index.ts",
+    "./managed-pages/web": "./src/managed-pages/web/index.ts",
     "./managed-pages/seeding": "./src/managed-pages/seeding.ts",
     "./step-dispatcher": "./src/step-dispatcher/index.ts"
   },
