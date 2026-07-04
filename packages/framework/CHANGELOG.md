@@ -1,5 +1,7 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.123.1
+
 ## 0.123.0
 
 ## 0.122.5
