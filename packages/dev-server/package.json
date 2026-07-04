@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-dev-server",
-  "version": "0.122.2",
+  "version": "0.122.3",
   "description": "Development server bootstrap for Kumiko apps. Bundles the client, mints dev-JWTs, injects the resolved AppSchema, and seeds an admin. Not for production.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
