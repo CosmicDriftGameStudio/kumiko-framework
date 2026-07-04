@@ -890,3 +890,51 @@ describe("rebuildProjection — live-tail catch-up (#363 Phase 2)", () => {
     await asRawClient(testDb.db).unsafe(`DROP TABLE IF EXISTS "cutover_probe"`);
   });
 });
+
+describe("rebuildProjection — stale-registry column fence (#835)", () => {
+  // Simulates the rolling-deploy race: a migration added a column to the live
+  // table, but the pod running the rebuild still carries the old registry
+  // (EntityTableMeta without that column). The rebuild must abort instead of
+  // swapping in a shadow that silently drops the migrated column (#494 class).
+  test("aborts when the live table has a column the registry meta lacks — data survives", async () => {
+    const group = "00000000-0000-4000-8000-000000000041";
+    await appendCreatedEvent(group, "item1");
+    await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry });
+    expect(await getCount(group)).toBe(1);
+
+    const raw = asRawClient(testDb.db);
+    await raw.unsafe(`ALTER TABLE "read_rebuild_items_per_group" ADD COLUMN migrated_col text`);
+    try {
+      await raw.unsafe(
+        `UPDATE "read_rebuild_items_per_group" SET migrated_col = 'must-survive' WHERE group_id = $1::uuid`,
+        [group],
+      );
+
+      await expect(
+        rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry }),
+      ).rejects.toThrow(/live-only: migrated_col/);
+
+      // Live table untouched: column AND its data still there.
+      const [row] = await raw.unsafe<{ migrated_col: string | null }>(
+        `SELECT migrated_col FROM "read_rebuild_items_per_group" WHERE group_id = $1::uuid`,
+        [group],
+      );
+      expect(row?.migrated_col).toBe("must-survive");
+      expect(await getCount(group)).toBe(1);
+
+      // Failure is visible to ops.
+      const state = await getProjectionState(testDb.db, qualifiedProjectionName);
+      expect(state?.status).toBe("failed");
+      expect(state?.lastError).toContain("migrated_col");
+    } finally {
+      await raw.unsafe(
+        `ALTER TABLE "read_rebuild_items_per_group" DROP COLUMN IF EXISTS migrated_col`,
+      );
+    }
+
+    // Column sets aligned again → rebuild works.
+    const result = await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry });
+    expect(result.eventsProcessed).toBe(1);
+    expect(await getCount(group)).toBe(1);
+  });
+});

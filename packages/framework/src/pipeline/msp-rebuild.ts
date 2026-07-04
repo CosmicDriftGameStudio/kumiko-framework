@@ -6,6 +6,7 @@ import {
   updateConsumerRebuildCursor,
 } from "../db/queries/event-consumer";
 import {
+  assertLiveColumnsMatchMeta,
   buildShadowTable,
   ensureRebuildSchema,
   rebuildMetaOrThrow,
@@ -147,6 +148,7 @@ export async function rebuildMultiStreamProjection(
       await resetConsumerForMspRebuild(tx, mspName, SHARED_INSTANCE_SENTINEL);
       await selectConsumerForUpdate(tx, mspName, SHARED_INSTANCE_SENTINEL);
 
+      await assertLiveColumnsMatchMeta(tx, meta, mspName);
       await buildShadowTable(tx, meta);
 
       const subscribedTypes = Object.keys(msp.apply);
