@@ -1,5 +1,23 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.122.0
+
+### Patch Changes
+
+- e069b64: user-data-rights: export-download-token re-runs rotate the token in place on the
+  same aggregate (update) instead of creating a second aggregate for the same
+  jobId. A second `created` event without a `deleted` in between made every
+  projection rebuild collide on the `one_per_job` unique index (fw#832). Operator
+  recovery after a lost plain token is now just "flip the job back to pending" —
+  never delete the token row read-side.
+- Updated dependencies [446f933]
+- Updated dependencies [e069b64]
+  - @cosmicdrift/kumiko-framework@0.122.0
+  - @cosmicdrift/kumiko-headless@0.122.0
+  - @cosmicdrift/kumiko-renderer@0.122.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.122.0
+  - @cosmicdrift/kumiko-renderer-web@0.122.0
+
 ## 0.121.1
 
 ### Patch Changes
