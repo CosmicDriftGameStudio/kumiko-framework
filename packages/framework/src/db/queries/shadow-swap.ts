@@ -84,11 +84,13 @@ export async function assertLiveColumnsMatchMeta(
   meta: EntityTableMeta,
   projectionName: string,
 ): Promise<void> {
+  // skip: no live table yet — nothing a stale-meta shadow could wipe
   if (!(await tableExists(db, `public.${meta.tableName}`))) return;
   const live = await columnNamesOf(db, meta.tableName);
   const metaNames = new Set(meta.columns.map((c) => c.name));
   const onlyLive = [...live].filter((c) => !metaNames.has(c));
   const onlyMeta = [...metaNames].filter((c) => !live.has(c));
+  // skip: column sets match — this process's registry is in sync with the migrated table
   if (onlyLive.length === 0 && onlyMeta.length === 0) return;
   const detail = [
     onlyLive.length > 0 ? `live-only: ${onlyLive.join(", ")}` : "",
