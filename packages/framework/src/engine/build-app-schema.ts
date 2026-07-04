@@ -343,6 +343,13 @@ function projectField(fieldDef: FieldDefinition): FieldDefinition {
   if (isLiteral(def["default"])) out["default"] = def["default"];
   // Select: options-Liste ist plain JSON, durchschicken.
   if (Array.isArray(def["options"])) out["options"] = def["options"];
+  // Reference: entity-Target + labelField + multiple müssen zum Renderer.
+  // Der ReferenceInput baut die Options-Query aus refEntity/refFeature und
+  // resolved das Label über labelField — ohne diese Properties fällt das
+  // Dropdown leer aus (QN wird `<feature>:query::list` → 404).
+  if (typeof def["entity"] === "string") out["entity"] = def["entity"];
+  if (typeof def["labelField"] === "string") out["labelField"] = def["labelField"];
+  if (typeof def["multiple"] === "boolean") out["multiple"] = def["multiple"];
   return out as FieldDefinition; // @cast-boundary schema-walk
 }
 
