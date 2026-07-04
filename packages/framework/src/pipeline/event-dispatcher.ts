@@ -526,9 +526,9 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
         }
 
         const events = await fetchPendingEvents(tx, acquired.state.lastProcessedEventId, batchSize);
+        // skip: nothing to deliver — no markProcessing/persistConsumerOutcome write,
+        // so an idle consumer doesn't burn a WAL record on every poll tick.
         if (events.length === 0) {
-          // nothing to deliver — skip markProcessing/persistConsumerOutcome so an
-          // idle consumer doesn't write a cursor heartbeat on every poll tick.
           span.setAttribute("consumer.skip_reason", "no_pending_events");
           return;
         }
