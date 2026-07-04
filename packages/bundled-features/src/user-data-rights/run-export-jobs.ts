@@ -105,9 +105,10 @@ export const tokenCrud = createEventStoreExecutor(
  *
  * **Plain-Token-Recovery bei Email-Fail:** plain ist ephemeral. Wenn
  * der Callback throwt, ist der plain verloren. Operator-Eingriff
- * noetig (Token in DB nullen + Job auf pending → next Worker-Run
- * generiert neuen Token). Atom 5b (Re-issue-handler) wird das
- * automatisieren.
+ * noetig: Job auf pending flippen — NUR das. Die Token-Row NICHT
+ * loeschen (eventloser Read-Side-Delete → Rebuild-Kollision, fw#832);
+ * der naechste Worker-Run rotiert das Token in place auf demselben
+ * Aggregat. Atom 5b (Re-issue-handler) wird das automatisieren.
  */
 export type SendExportReadyEmailFn = (args: {
   readonly userId: string;
@@ -427,22 +428,53 @@ async function processJob(args: {
     // Plain-Token bleibt im Worker-Memory + wird via RunExportJobsResult
     // an Atom 5 (Notification) weitergegeben. NUR der hash landet in DB.
     // ES via tokenCrud.create — kein direct-INSERT.
+    //
+    // **Re-Run (fw#832):** Flippt ein Operator einen done/failed-Job
+    // zurueck auf pending (Plain-Token verloren, Email-Fail), existiert
+    // fuers jobId schon eine Token-Row. Ein zweites create wuerde ein
+    // zweites `created`-Event auf frischem Aggregat emittieren — der
+    // Projection-Rebuild kollidiert dann dauerhaft am one_per_job-Index.
+    // Stattdessen: Token-Rotation in place auf demselben Aggregat
+    // (update mit frischem Hash + Reset der Audit-Felder).
     const expiresAt = addDurationSpec(now, ttl);
     const { plain: tokenPlain, hash: tokenHash } = await generateDownloadToken();
-    const tokenCreateResult = await tokenCrud.create(
-      {
-        jobId: job.id,
-        tokenHash,
-        issuedAt: now,
-        expiresAt,
-        // Atom 4a.fix: useCount explizit 0 statt default null. 4b's
-        // Verify-Pfad incrementiert via `useCount + 1` ohne COALESCE-
-        // Defensiv-Code.
-        useCount: 0,
-      },
-      executor,
-      tdb,
+    const existingToken = await fetchOne<{ id: string; version: number }>(
+      db,
+      exportDownloadTokensTable,
+      { jobId: job.id },
     );
+    const tokenCreateResult = existingToken
+      ? await tokenCrud.update(
+          {
+            id: existingToken.id,
+            version: existingToken.version,
+            changes: {
+              tokenHash,
+              issuedAt: now,
+              expiresAt,
+              useCount: 0,
+              lastUsedAt: null,
+              lastUsedFromIp: null,
+              lastUsedUserAgent: null,
+            },
+          },
+          executor,
+          tdb,
+        )
+      : await tokenCrud.create(
+          {
+            jobId: job.id,
+            tokenHash,
+            issuedAt: now,
+            expiresAt,
+            // Atom 4a.fix: useCount explizit 0 statt default null. 4b's
+            // Verify-Pfad incrementiert via `useCount + 1` ohne COALESCE-
+            // Defensiv-Code.
+            useCount: 0,
+          },
+          executor,
+          tdb,
+        );
     if (!tokenCreateResult.isSuccess) {
       // Token-Creation failed VOR done-flip → Job bleibt running.
       // Catch-Pfad flippt auf failed mit klarer Diagnose. Storage-
