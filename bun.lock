@@ -518,6 +518,12 @@
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
     },
+    "samples/recipes/public-share-token": {
+      "name": "@cosmicdrift/kumiko-sample-public-share-token",
+      "dependencies": {
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+    },
     "samples/recipes/rate-limiting": {
       "name": "@cosmicdrift/kumiko-sample-rate-limiting",
       "dependencies": {
@@ -804,6 +810,8 @@
     "@cosmicdrift/kumiko-sample-ownership": ["@cosmicdrift/kumiko-sample-ownership@workspace:samples/recipes/ownership"],
 
     "@cosmicdrift/kumiko-sample-pipeline-basics": ["@cosmicdrift/kumiko-sample-pipeline-basics@workspace:samples/recipes/pipeline-basics"],
+
+    "@cosmicdrift/kumiko-sample-public-share-token": ["@cosmicdrift/kumiko-sample-public-share-token@workspace:samples/recipes/public-share-token"],
 
     "@cosmicdrift/kumiko-sample-rate-limiting": ["@cosmicdrift/kumiko-sample-rate-limiting@workspace:samples/recipes/rate-limiting"],
 
