@@ -91,6 +91,7 @@
     "./legal-pages": "./src/legal-pages/index.ts",
     "./legal-pages/web": "./src/legal-pages/web/index.ts",
     "./page-render": "./src/page-render/index.ts",
+    "./page-render/web": "./src/page-render/web.ts",
     "./managed-pages": "./src/managed-pages/index.ts",
     "./managed-pages/web": "./src/managed-pages/web/index.ts",
     "./managed-pages/seeding": "./src/managed-pages/seeding.ts",
