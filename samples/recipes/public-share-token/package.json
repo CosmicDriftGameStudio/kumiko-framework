@@ -1,0 +1,8 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-public-share-token",
+  "description": "Generic share-token entity: mint hash-stored token, anonymous read-by-token with IP rate-limit.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  }
+}
