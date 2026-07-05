@@ -1,5 +1,16 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.123.3
+
+### Patch Changes
+
+- 57ebd1d: page-render: neuer `./page-render/web`-Subpath für client-safe Exports (renderSafeMarkdown, sanitizeTenantCss, wrapInLayout, branding-Helpers, securePageHeaders). Der bestehende `./page-render`-Barrel re-exportierte auch `cachedSecurePageResponse`, das transitiv `@cosmicdrift/kumiko-framework/api` (postgres/ioredis) zieht — jeder Import aus dem Barrel in Client-Code ließ den Browser-Bundle mit "Bundle failed" crashen, ohne brauchbare Fehlermeldung.
+  - @cosmicdrift/kumiko-framework@0.123.3
+  - @cosmicdrift/kumiko-dispatcher-live@0.123.3
+  - @cosmicdrift/kumiko-headless@0.123.3
+  - @cosmicdrift/kumiko-renderer@0.123.3
+  - @cosmicdrift/kumiko-renderer-web@0.123.3
+
 ## 0.123.2
 
 ### Patch Changes
