@@ -79,7 +79,8 @@ describe("renderDefineFile", () => {
     const out = renderDefineFile(["tenant:write:create", "tenant:write:update"]);
     expect(out).toContain("export type TypedDispatcher");
     expect(out).toContain("export function createTypedDispatcher");
-    expect(out).toContain('export type { WriteHandlerQn } from "./types.generated"');
+    expect(out).toContain('import type { WriteHandlerQn } from "./types.generated"');
+    expect(out).toContain("export type { WriteHandlerQn };");
   });
 });
 

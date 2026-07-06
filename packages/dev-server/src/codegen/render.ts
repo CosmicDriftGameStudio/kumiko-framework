@@ -175,8 +175,13 @@ export function renderDefineFile(handlerQns: readonly string[] = []): string {
       ? [
           "",
           `import type { Dispatcher, WriteOpts, WriteResult } from "@cosmicdrift/kumiko-headless";`,
+          `import type { WriteHandlerQn } from "./types.generated";`,
           "",
-          `export type { WriteHandlerQn } from "./types.generated";`,
+          // Plain `export type { WriteHandlerQn } from "./types.generated"`
+          // only re-exports — with verbatimModuleSyntax it does NOT bind the
+          // name locally, so the `TypedDispatcher` reference below would fail
+          // to resolve. Import above + bare re-export here does both.
+          `export type { WriteHandlerQn };`,
           "",
           `/** Dispatcher with write() narrowed to registered handler QNs. */`,
           `export type TypedDispatcher = Omit<Dispatcher, "write"> & {`,
