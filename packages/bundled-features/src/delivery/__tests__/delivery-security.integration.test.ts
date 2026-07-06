@@ -1,9 +1,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { insertMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, createRegistry } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createTestUser,
   setupTestStack,
   type TestStack,
+  testTenantId,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
@@ -62,5 +64,43 @@ describe("delivery log HTTP access", () => {
   test("regular User gets 403", async () => {
     const user = createTestUser({ id: 13, roles: ["User"] });
     expect((await stack.http.query(DeliveryQueries.log, {}, user)).status).toBe(403);
+  });
+});
+
+describe("delivery log tenant isolation", () => {
+  // delivery runs in system-scope, so the handler must filter by tenantId —
+  // otherwise a TenantAdmin reads every tenant's attempts (with decrypted PII).
+  test("TenantAdmin only sees their own tenant's delivery attempts", async () => {
+    const tenantA = testTenantId(1); // createTestUser default tenant
+    const tenantB = testTenantId(2);
+    await insertMany(stack.db, deliveryAttemptsTable, [
+      {
+        id: crypto.randomUUID(),
+        tenantId: tenantA,
+        notificationType: "welcome",
+        channel: "email",
+        recipientAddress: null,
+        status: "sent",
+      },
+      {
+        id: crypto.randomUUID(),
+        tenantId: tenantB,
+        notificationType: "welcome",
+        channel: "email",
+        recipientAddress: null,
+        status: "sent",
+      },
+    ]);
+
+    const adminA = createTestUser({ id: 21, roles: ["TenantAdmin"], tenantId: tenantA });
+    const res = await stack.http.queryOk<{ rows: readonly { tenantId: string }[] }>(
+      DeliveryQueries.log,
+      {},
+      adminA,
+    );
+
+    expect(res.rows.length).toBeGreaterThan(0);
+    expect(res.rows.every((r) => r.tenantId === tenantA)).toBe(true);
+    expect(res.rows.some((r) => r.tenantId === tenantB)).toBe(false);
   });
 });
