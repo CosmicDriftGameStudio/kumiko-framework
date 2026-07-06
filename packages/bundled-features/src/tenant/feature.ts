@@ -24,6 +24,7 @@ import { updateWrite } from "./handlers/update.write";
 import { updateMemberRolesWrite } from "./handlers/update-member-roles.write";
 import { tenantInvitationEntity } from "./invitation-table";
 import { tenantMembershipEntity } from "./membership-table";
+import { MEMBERS_SCREEN_ID } from "./constants";
 import { tenantEntity } from "./schema/tenant";
 import { tenantEditScreen, tenantListScreen } from "./screens";
 
@@ -134,6 +135,20 @@ export function createTenantFeature(): FeatureDefinition {
     );
     r.screen(tenantListScreen);
     r.screen(tenantEditScreen);
+    // Tenant-admin team UI: members list + invite/cancel (no role-edit — updateMemberRoles
+    // stays SystemAdmin-only). Screen access matches handler access.admin.
+    r.screen({
+      id: MEMBERS_SCREEN_ID,
+      type: "custom",
+      renderer: { react: { __component: "MembersScreen" } },
+      access: { roles: access.admin },
+    });
+    r.nav({
+      id: "members",
+      label: "tenant:nav.members",
+      screen: "tenant:screen:members",
+      order: 20,
+    });
 
     return { handlers, queries };
   });

@@ -314,15 +314,11 @@ describe("audit: list query", () => {
 
   test("access denied for non-admin roles", async () => {
     await createWidget(admin, "A");
-    // regularUser has role "User" — the handler requires Admin/SystemAdmin.
     const res = await stack.http.query(AuditQueries.list, {}, regularUser);
     expect(res.status).toBe(403);
     const body = (await res.json()) as {
       error?: { code?: string; details?: { reason?: string } };
     };
-    // Pin the specific failure class. The framework raises AccessDeniedError
-    // with code=access_denied; asserting on `code` beats a status-only check
-    // (a 403 could also come from ownership-denied, for example).
     expect(body.error?.code).toBe("access_denied");
   });
 });

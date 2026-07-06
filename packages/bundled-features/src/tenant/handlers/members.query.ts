@@ -1,5 +1,5 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
 import { tenantMembershipsTable } from "../membership-table";
@@ -7,7 +7,7 @@ import { tenantMembershipsTable } from "../membership-table";
 export const membersQuery = defineQueryHandler({
   name: "members",
   schema: z.object({}),
-  access: { roles: ["Admin", "SystemAdmin"] },
+  access: { roles: access.admin },
   handler: async (query, ctx) => {
     const rows = await selectMany(ctx.db, tenantMembershipsTable, {
       tenantId: query.user.tenantId,

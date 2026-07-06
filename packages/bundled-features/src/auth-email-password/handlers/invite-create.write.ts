@@ -19,7 +19,7 @@
 import { generateToken } from "@cosmicdrift/kumiko-framework/api";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
-import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
@@ -77,7 +77,7 @@ export function createInviteCreateHandler(opts: InviteCreateOptions) {
   return defineWriteHandler<"invite-create", typeof InviteCreateSchema, InviteCreateData>({
     name: "invite-create",
     schema: InviteCreateSchema,
-    access: { roles: ["Admin"] },
+    access: { roles: access.admin },
     handler: async (event, ctx) => {
       if (!ctx.redis) {
         return writeFailure(

@@ -4,6 +4,7 @@ import {
   defineFeature,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { JOB_RUN_DETAIL_SCREEN_ID, JOB_RUNS_SCREEN_ID } from "./constants";
 import type { z } from "zod";
 // Event-payload schemas live in a sibling module so the logger can import
 // them without the cycle jobs-feature ↔ job-run-logger. The logger parses
@@ -181,6 +182,27 @@ export function createJobsFeature(): FeatureDefinition {
       list: r.queryHandler(listQuery),
       detail: r.queryHandler(detailQuery),
     };
+
+    const systemAdminAccess = { roles: ["SystemAdmin"] as const };
+
+    r.screen({
+      id: JOB_RUNS_SCREEN_ID,
+      type: "custom",
+      renderer: { react: { __component: "JobRunsScreen" } },
+      access: systemAdminAccess,
+    });
+    r.screen({
+      id: JOB_RUN_DETAIL_SCREEN_ID,
+      type: "custom",
+      renderer: { react: { __component: "JobRunDetailScreen" } },
+      access: systemAdminAccess,
+    });
+    r.nav({
+      id: "job-runs",
+      label: "jobs:nav.jobRuns",
+      screen: "jobs:screen:job-runs",
+      order: 10,
+    });
 
     return { handlers, queries };
   });

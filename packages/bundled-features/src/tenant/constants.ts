@@ -7,6 +7,11 @@
 // Feature name
 export const TENANT_FEATURE = "tenant" as const;
 
+export const MEMBERS_SCREEN_ID = "members" as const;
+
+/** Closed allowlist for invite-role picker — never free text (escalation guard). */
+export const DEFAULT_INVITE_ROLE_OPTIONS = ["User", "Admin", "Editor"] as const;
+
 // Qualified write handler names (QN format: scope:type:name)
 export const TenantHandlers = {
   create: "tenant:write:create",
