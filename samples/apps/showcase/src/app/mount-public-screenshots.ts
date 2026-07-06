@@ -16,6 +16,7 @@ export function mountPublicScreenshots(app: Hono): void {
     if (!name || name.includes("..") || name.includes("/")) return c.notFound();
     const path = resolve(SCREENSHOTS_DIR, name);
     if (!path.startsWith(SCREENSHOTS_DIR) || !existsSync(path)) return c.notFound();
-    return c.body(Bun.file(path));
+    const file = Bun.file(path);
+    return new Response(file);
   });
 }
