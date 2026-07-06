@@ -20,6 +20,8 @@ import { ConfigQueries } from "../../config/constants";
 import { createConfigFeature } from "../../config/feature";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
+import { createFeatureTogglesFeature } from "../../feature-toggles/feature";
+import { globalFeatureStateTable } from "../../feature-toggles/global-feature-state-table";
 import { createJobsFeature } from "../../jobs/feature";
 import { JobQueries } from "../../jobs/constants";
 import { jobRunLogsTable, jobRunsTable } from "../../jobs/job-run-table";
@@ -29,6 +31,7 @@ import { userEntity } from "../../user/schema/user";
 import { seedUser } from "../../user/seeding";
 import { TenantQueries } from "../../tenant/constants";
 import { createTenantFeature } from "../../tenant/feature";
+import { tenantInvitationEntity } from "../../tenant/invitation-table";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { seedTenant, seedTenantMembership } from "../../tenant/seeding";
 import { tenantEntity } from "../../tenant/schema/tenant";
@@ -55,6 +58,7 @@ const features = [
   createTenantFeature(),
   createAuditFeature(),
   createJobsFeature(),
+  createFeatureTogglesFeature(),
   tierEngineFeature,
   adminShell,
 ];
@@ -74,9 +78,11 @@ beforeAll(async () => {
   });
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);
+  await unsafeCreateEntityTable(stack.db, tenantInvitationEntity);
   await unsafePushTables(stack.db, {
     configValuesTable,
     tenantMembershipsTable,
+    globalFeatureStateTable,
     jobRunsTable,
     jobRunLogsTable,
   });

@@ -23,13 +23,12 @@ export const PLATFORM_OVERVIEW_ALLOWED_QUERIES = [
   JobQueries.list,
 ] as const;
 
-/** Regression guard — TenantAdmin overview must never touch these. */
+/** Regression guard — TenantAdmin overview must never touch these (HTTP 403). */
 export const TENANT_OVERVIEW_FORBIDDEN_QUERIES = [
   TenantQueries.list,
   JobQueries.list,
   "feature-toggles:query:list",
   "feature-toggles:query:registered",
-  "audit:query:list",
 ] as const;
 
 export function overviewAllowedQueries(
