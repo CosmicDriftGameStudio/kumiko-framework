@@ -190,7 +190,9 @@ export function MembersScreen({
           </Field>
         </div>
         {lastInvited !== null && !submitting && (
-          <Banner variant="info">{t("tenant.members.invite.success", { email: lastInvited })}</Banner>
+          <Banner variant="info">
+            {t("tenant.members.invite.success", { email: lastInvited })}
+          </Banner>
         )}
         {actionError !== null && <Banner variant="error">{actionError}</Banner>}
       </Form>

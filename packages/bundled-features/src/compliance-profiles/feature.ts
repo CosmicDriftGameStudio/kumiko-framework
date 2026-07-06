@@ -1,4 +1,8 @@
-import { access, defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  access,
+  defineFeature,
+  type FeatureDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { COMPLIANCE_PROFILE_SCREEN_ID } from "./constants";
 import { forTenantQuery } from "./handlers/for-tenant.query";
 import { listProfilesQuery } from "./handlers/list-profiles.query";

@@ -1,5 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createTestUser, setupTestStack, type TestStack, unsafeCreateEntityTable } from "@cosmicdrift/kumiko-framework/stack";
+import {
+  createTestUser,
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-framework/stack";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
 import { CAP_COUNTER_LIST_SCREEN_ID, CapCounterQueries } from "../constants";
 import { capCounterEntity } from "../entity";
@@ -33,7 +38,11 @@ describe("cap-counter access matrix", () => {
 describe("cap-counter list HTTP access", () => {
   test("SystemAdmin can list counters", async () => {
     const admin = createTestUser({ id: 41, roles: ["SystemAdmin"] });
-    const res = await stack.http.queryOk<{ rows: readonly unknown[] }>(CapCounterQueries.list, {}, admin);
+    const res = await stack.http.queryOk<{ rows: readonly unknown[] }>(
+      CapCounterQueries.list,
+      {},
+      admin,
+    );
     expect(Array.isArray(res.rows)).toBe(true);
   });
 

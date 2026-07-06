@@ -28,9 +28,7 @@ export type CreateAdminShellOptions = {
   readonly registerWorkspaces?: boolean;
 };
 
-export function createAdminShellFeature(
-  options: CreateAdminShellOptions = {},
-): FeatureDefinition {
+export function createAdminShellFeature(options: CreateAdminShellOptions = {}): FeatureDefinition {
   const tenantWsId = options.workspaceIds?.tenant ?? DEFAULT_TENANT_WORKSPACE_ID;
   const platformWsId = options.workspaceIds?.platform ?? DEFAULT_PLATFORM_WORKSPACE_ID;
   const includeTierAdmin = options.includeTierAdmin ?? true;

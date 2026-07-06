@@ -28,12 +28,13 @@ describe("admin-shell boot + workspace composition", () => {
 
   test("registers tenant + platform workspaces with qualified ids", () => {
     const registry = createRegistry(features);
-    expect(registry.getWorkspace(`${ADMIN_SHELL_FEATURE}:workspace:${DEFAULT_TENANT_WORKSPACE_ID}`)?.id).toBe(
-      `${ADMIN_SHELL_FEATURE}:workspace:${DEFAULT_TENANT_WORKSPACE_ID}`,
-    );
-    expect(registry.getWorkspace(`${ADMIN_SHELL_FEATURE}:workspace:${DEFAULT_PLATFORM_WORKSPACE_ID}`)?.id).toBe(
-      `${ADMIN_SHELL_FEATURE}:workspace:${DEFAULT_PLATFORM_WORKSPACE_ID}`,
-    );
+    expect(
+      registry.getWorkspace(`${ADMIN_SHELL_FEATURE}:workspace:${DEFAULT_TENANT_WORKSPACE_ID}`)?.id,
+    ).toBe(`${ADMIN_SHELL_FEATURE}:workspace:${DEFAULT_TENANT_WORKSPACE_ID}`);
+    expect(
+      registry.getWorkspace(`${ADMIN_SHELL_FEATURE}:workspace:${DEFAULT_PLATFORM_WORKSPACE_ID}`)
+        ?.id,
+    ).toBe(`${ADMIN_SHELL_FEATURE}:workspace:${DEFAULT_PLATFORM_WORKSPACE_ID}`);
   });
 
   test("tenant workspace nav references owner-feature navs", () => {
@@ -96,7 +97,10 @@ describe("admin-shell boot + workspace composition", () => {
   });
 
   test("registerWorkspaces:false registers overview screens only", () => {
-    const shellOnly = createAdminShellFeature({ registerWorkspaces: false, includeTierAdmin: false });
+    const shellOnly = createAdminShellFeature({
+      registerWorkspaces: false,
+      includeTierAdmin: false,
+    });
     const registry = createRegistry([
       createConfigFeature(),
       createTenantFeature(),
@@ -104,7 +108,9 @@ describe("admin-shell boot + workspace composition", () => {
       createJobsFeature(),
       shellOnly,
     ]);
-    expect(registry.getWorkspace(`${ADMIN_SHELL_FEATURE}:workspace:${DEFAULT_TENANT_WORKSPACE_ID}`)).toBeUndefined();
+    expect(
+      registry.getWorkspace(`${ADMIN_SHELL_FEATURE}:workspace:${DEFAULT_TENANT_WORKSPACE_ID}`),
+    ).toBeUndefined();
     expect(registry.getScreen("admin-shell:screen:tenant-overview")?.id).toBeDefined();
     expect(registry.getScreen("admin-shell:screen:platform-overview")?.id).toBeDefined();
   });
@@ -119,7 +125,7 @@ describe("admin-shell boot + workspace composition", () => {
 
   test("admin-shell registers server translations bundle", () => {
     const shell = createAdminShellFeature();
-    expect(shell.translations?.["admin-shell:nav.tenantOverview"]?.de).toBe("Übersicht");
-    expect(shell.translations?.["screen:tenant-overview.title"]?.en).toBe("Overview");
+    expect(shell.translations?.["admin-shell:nav.tenantOverview"]?.["de"]).toBe("Übersicht");
+    expect(shell.translations?.["screen:tenant-overview.title"]?.["en"]).toBe("Overview");
   });
 });

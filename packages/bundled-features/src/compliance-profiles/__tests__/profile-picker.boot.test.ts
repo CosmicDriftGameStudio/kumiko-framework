@@ -1,10 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { access, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
-import {
-  COMPLIANCE_PROFILE_SCREEN_ID,
-  ComplianceProfileHandlers,
-} from "../constants";
+import { COMPLIANCE_PROFILE_SCREEN_ID, ComplianceProfileHandlers } from "../constants";
 import { createComplianceProfilesFeature } from "../feature";
 
 describe("compliance profile screen + handler access alignment", () => {
@@ -25,9 +22,7 @@ describe("compliance profile screen + handler access alignment", () => {
 
   test("set-profile handler shares access.admin", () => {
     const feature = createComplianceProfilesFeature();
-    expect(rolesOf(feature.writeHandlers["set-profile"]?.access)).toEqual([
-      ...access.admin,
-    ]);
+    expect(rolesOf(feature.writeHandlers["set-profile"]?.access)).toEqual([...access.admin]);
     void ComplianceProfileHandlers;
   });
 });

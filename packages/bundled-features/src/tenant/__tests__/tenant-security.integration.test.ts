@@ -14,6 +14,7 @@ import {
 import { expectErrorIncludes, rolesOf } from "@cosmicdrift/kumiko-framework/testing";
 import { AuthHandlers } from "../../auth-email-password/constants";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
+import { hashPassword } from "../../auth-email-password/password-hashing";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
@@ -26,7 +27,6 @@ import { createTemplateResolverFeature } from "../../template-resolver/feature";
 import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/schema/user";
 import { seedUser } from "../../user/seeding";
-import { hashPassword } from "../../auth-email-password/password-hashing";
 import { MEMBERS_SCREEN_ID, TenantHandlers, TenantQueries } from "../constants";
 import { createTenantFeature } from "../feature";
 import { tenantInvitationEntity, tenantInvitationsTable } from "../invitation-table";
@@ -163,9 +163,9 @@ describe("access matrix: members screen handlers use access.admin", () => {
     expect(rolesOf(stack.registry.getQueryHandler(TenantQueries.invitations)?.access)).toEqual(
       adminRoles,
     );
-    expect(rolesOf(stack.registry.getWriteHandler(TenantHandlers.cancelInvitation)?.access)).toEqual(
-      adminRoles,
-    );
+    expect(
+      rolesOf(stack.registry.getWriteHandler(TenantHandlers.cancelInvitation)?.access),
+    ).toEqual(adminRoles);
   });
 
   test("members screen access matches access.admin", () => {
@@ -221,7 +221,11 @@ describe("regular User is denied members-admin surface", () => {
       [
         "invite-create",
         () =>
-          stack.http.write(AuthHandlers.inviteCreate, { email: "x@y.com", role: "User" }, regularUserB()),
+          stack.http.write(
+            AuthHandlers.inviteCreate,
+            { email: "x@y.com", role: "User" },
+            regularUserB(),
+          ),
       ],
     ] as const) {
       const res = await fn();

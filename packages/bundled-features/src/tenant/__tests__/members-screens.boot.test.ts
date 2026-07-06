@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { access, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
-import { createConfigFeature } from "../../config/feature";
 import { AuthHandlers } from "../../auth-email-password/constants";
-import { createTenantFeature } from "../feature";
+import { createConfigFeature } from "../../config/feature";
 import { MEMBERS_SCREEN_ID, TenantHandlers, TenantQueries } from "../constants";
+import { createTenantFeature } from "../feature";
 
 describe("tenant members screen + handler access alignment", () => {
   const features = [createConfigFeature(), createTenantFeature()];

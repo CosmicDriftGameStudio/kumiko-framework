@@ -4,9 +4,8 @@ import {
   defineFeature,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { JOB_RUN_DETAIL_SCREEN_ID, JOB_RUNS_SCREEN_ID } from "./constants";
-import { JOBS_I18N } from "./i18n";
 import type { z } from "zod";
+import { JOB_RUN_DETAIL_SCREEN_ID, JOB_RUNS_SCREEN_ID } from "./constants";
 // Event-payload schemas live in a sibling module so the logger can import
 // them without the cycle jobs-feature ↔ job-run-logger. The logger parses
 // payloads against these schemas before low-level append() — that's what
@@ -20,6 +19,7 @@ import {
 } from "./handlers/projection-rebuild.job";
 import { retryWrite } from "./handlers/retry.write";
 import { triggerWrite } from "./handlers/trigger.write";
+import { JOBS_I18N } from "./i18n";
 import {
   JOB_RUN_COMPLETED_EVENT,
   JOB_RUN_FAILED_EVENT,

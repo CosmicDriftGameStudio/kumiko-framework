@@ -16,36 +16,36 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createAuditFeature } from "../../audit/feature";
+import { hashPassword } from "../../auth-email-password/password-hashing";
 import { ConfigQueries } from "../../config/constants";
 import { createConfigFeature } from "../../config/feature";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
 import { createFeatureTogglesFeature } from "../../feature-toggles/feature";
 import { globalFeatureStateTable } from "../../feature-toggles/global-feature-state-table";
-import { createJobsFeature } from "../../jobs/feature";
 import { JobQueries } from "../../jobs/constants";
+import { createJobsFeature } from "../../jobs/feature";
 import { jobRunLogsTable, jobRunsTable } from "../../jobs/job-run-table";
-import { hashPassword } from "../../auth-email-password/password-hashing";
-import { createUserFeature } from "../../user/feature";
-import { userEntity } from "../../user/schema/user";
-import { seedUser } from "../../user/seeding";
 import { TenantQueries } from "../../tenant/constants";
 import { createTenantFeature } from "../../tenant/feature";
 import { tenantInvitationEntity } from "../../tenant/invitation-table";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { seedTenant, seedTenantMembership } from "../../tenant/seeding";
 import { tenantEntity } from "../../tenant/schema/tenant";
+import { seedTenant, seedTenantMembership } from "../../tenant/seeding";
 import { tierEngineFeature } from "../../tier-engine/feature";
+import { createUserFeature } from "../../user/feature";
+import { userEntity } from "../../user/schema/user";
+import { seedUser } from "../../user/seeding";
 import {
   ADMIN_SHELL_FEATURE,
   DEFAULT_PLATFORM_WORKSPACE_ID,
   DEFAULT_TENANT_WORKSPACE_ID,
 } from "../constants";
+import { createAdminShellFeature } from "../feature";
 import {
   TENANT_OVERVIEW_ALLOWED_QUERIES,
   TENANT_OVERVIEW_FORBIDDEN_QUERIES,
 } from "../overview-allowlist";
-import { createAdminShellFeature } from "../feature";
 
 let stack: TestStack;
 let TENANT_ID: TenantId;
@@ -95,7 +95,11 @@ afterAll(async () => {
 beforeEach(async () => {
   await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
   TENANT_ID = crypto.randomUUID() as TenantId;
-  await seedTenant(stack.db, { id: TENANT_ID, key: `t-${TENANT_ID.slice(0, 8)}`, name: "Shell Tenant" });
+  await seedTenant(stack.db, {
+    id: TENANT_ID,
+    key: `t-${TENANT_ID.slice(0, 8)}`,
+    name: "Shell Tenant",
+  });
   ({ id: tenantAdminId } = await seedUser(stack.db, {
     email: `ta-${TENANT_ID.slice(0, 8)}@example.com`,
     displayName: "Tenant Admin",

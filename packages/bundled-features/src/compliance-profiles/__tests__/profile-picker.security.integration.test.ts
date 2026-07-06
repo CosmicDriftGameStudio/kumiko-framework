@@ -1,15 +1,23 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createTestUser, setupTestStack, type TestStack, unsafeCreateEntityTable } from "@cosmicdrift/kumiko-framework/stack";
-import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
 import { access } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createTestUser,
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-framework/stack";
+import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
 import {
   COMPLIANCE_PROFILE_SCREEN_ID,
   ComplianceProfileHandlers,
   ComplianceProfileQueries,
 } from "../constants";
 import { createComplianceProfilesFeature } from "../feature";
-import { tenantComplianceProfileEntity, tenantComplianceProfileTable } from "../schema/profile-selection";
+import {
+  tenantComplianceProfileEntity,
+  tenantComplianceProfileTable,
+} from "../schema/profile-selection";
 
 let stack: TestStack;
 
@@ -30,9 +38,9 @@ beforeEach(async () => {
 
 describe("compliance-profiles access matrix", () => {
   test("set-profile handler and screen share access.admin", () => {
-    expect(rolesOf(stack.registry.getWriteHandler(ComplianceProfileHandlers.setProfile)?.access)).toEqual([
-      ...access.admin,
-    ]);
+    expect(
+      rolesOf(stack.registry.getWriteHandler(ComplianceProfileHandlers.setProfile)?.access),
+    ).toEqual([...access.admin]);
     const feature = createComplianceProfilesFeature();
     const screen = feature.screens[COMPLIANCE_PROFILE_SCREEN_ID];
     if (screen && "access" in screen && screen.access && "roles" in screen.access) {
@@ -71,8 +79,13 @@ describe("compliance profile HTTP access", () => {
   test("regular User gets 403 on set-profile", async () => {
     const user = createTestUser({ id: 33, roles: ["User"] });
     expect(
-      (await stack.http.write(ComplianceProfileHandlers.setProfile, { profileKey: "eu-dsgvo" }, user))
-        .status,
+      (
+        await stack.http.write(
+          ComplianceProfileHandlers.setProfile,
+          { profileKey: "eu-dsgvo" },
+          user,
+        )
+      ).status,
     ).toBe(403);
   });
 });

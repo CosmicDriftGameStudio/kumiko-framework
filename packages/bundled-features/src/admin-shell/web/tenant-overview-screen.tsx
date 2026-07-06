@@ -1,8 +1,9 @@
 // @runtime client
-import { ConfigQueries } from "../../config/constants";
-import { TenantQueries } from "../../tenant/constants";
+
 import { useDispatcher, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useEffect, useState } from "react";
+import { ConfigQueries } from "../../config/constants";
+import { TenantQueries } from "../../tenant/constants";
 import { OverviewLayout, type OverviewState } from "./overview-layout";
 import { overviewQuery } from "./overview-query";
 

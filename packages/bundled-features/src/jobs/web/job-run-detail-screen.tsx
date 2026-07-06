@@ -156,8 +156,8 @@ export function JobRunDetailScreen(): ReactNode {
           <Text variant="small">{t("jobs.detail.logs.empty")}</Text>
         ) : (
           <ul className="flex flex-col gap-1 font-mono text-sm" data-testid="job-run-logs">
-            {run.logs.map((log, i) => (
-              <li key={`${log.timestamp}-${i}`}>
+            {run.logs.map((log) => (
+              <li key={`${log.timestamp}-${log.level}-${log.message}`}>
                 <span className="text-muted-foreground">[{log.level}]</span> {log.message}
               </li>
             ))}

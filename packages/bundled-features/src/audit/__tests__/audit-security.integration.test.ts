@@ -23,15 +23,15 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
-import { createConfigFeature } from "../../config/feature";
 import { hashPassword } from "../../auth-email-password/password-hashing";
+import { createConfigFeature } from "../../config/feature";
+import { createTenantFeature } from "../../tenant/feature";
+import { tenantMembershipsTable } from "../../tenant/membership-table";
+import { tenantEntity } from "../../tenant/schema/tenant";
+import { seedTenant, seedTenantMembership } from "../../tenant/seeding";
 import { createUserFeature } from "../../user/feature";
 import { userEntity } from "../../user/schema/user";
 import { seedUser } from "../../user/seeding";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { seedTenant, seedTenantMembership } from "../../tenant/seeding";
-import { tenantEntity } from "../../tenant/schema/tenant";
 import { AUDIT_LOG_SCREEN_ID, AuditQueries } from "../constants";
 import { createAuditFeature } from "../feature";
 
@@ -140,11 +140,7 @@ describe("regular User denied audit log", () => {
 
 describe("systemAdmin retains audit access", () => {
   test("SystemAdmin can list", async () => {
-    await stack.http.writeOk(
-      "audit-sec-widgets:write:widget:create",
-      { name: "sys" },
-      systemAdmin,
-    );
+    await stack.http.writeOk("audit-sec-widgets:write:widget:create", { name: "sys" }, systemAdmin);
     const res = await stack.http.queryOk<{ rows: readonly unknown[] }>(
       AuditQueries.list,
       {},

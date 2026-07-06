@@ -7,8 +7,6 @@ const LOCALES = ["de", "en"] as const;
 export const defaultTranslations: TranslationsByLocale = Object.fromEntries(
   LOCALES.map((locale) => [
     locale,
-    Object.fromEntries(
-      Object.entries(JOBS_I18N).map(([key, value]) => [key, value[locale]]),
-    ),
+    Object.fromEntries(Object.entries(JOBS_I18N).map(([key, value]) => [key, value[locale]])),
   ]),
 );

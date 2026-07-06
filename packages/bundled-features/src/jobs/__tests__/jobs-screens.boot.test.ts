@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
 import { createConfigFeature } from "../../config/feature";
-import { JOB_RUN_DETAIL_SCREEN_ID, JOB_RUNS_SCREEN_ID, JobHandlers, JobQueries } from "../constants";
+import { JOB_RUN_DETAIL_SCREEN_ID, JOB_RUNS_SCREEN_ID } from "../constants";
 import { createJobsFeature } from "../feature";
 
 const SYSTEM_ADMIN_ROLES = ["SystemAdmin"] as const;

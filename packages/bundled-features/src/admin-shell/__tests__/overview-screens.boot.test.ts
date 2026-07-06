@@ -5,10 +5,7 @@ import { createConfigFeature } from "../../config/feature";
 import { createJobsFeature } from "../../jobs/feature";
 import { createTenantFeature } from "../../tenant/feature";
 import { tierEngineFeature } from "../../tier-engine/feature";
-import {
-  PLATFORM_OVERVIEW_SCREEN_ID,
-  TENANT_OVERVIEW_SCREEN_ID,
-} from "../constants";
+import { PLATFORM_OVERVIEW_SCREEN_ID, TENANT_OVERVIEW_SCREEN_ID } from "../constants";
 import { createAdminShellFeature } from "../feature";
 
 const features = [

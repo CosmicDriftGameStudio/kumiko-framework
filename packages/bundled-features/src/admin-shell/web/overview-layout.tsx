@@ -1,6 +1,6 @@
 // @runtime client
 import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
-import { type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 export type OverviewCard = {
   readonly label: string;
@@ -56,9 +56,7 @@ export function OverviewLayout({
                 {card.attention === true && card.hint !== undefined ? (
                   <Banner variant="error">{card.hint}</Banner>
                 ) : (
-                  card.hint !== undefined && (
-                    <Text variant="small">{card.hint}</Text>
-                  )
+                  card.hint !== undefined && <Text variant="small">{card.hint}</Text>
                 )}
               </div>
             </Card>

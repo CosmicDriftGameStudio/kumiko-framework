@@ -21,7 +21,11 @@ type AuditResponse = { readonly rows: readonly AuditRow[]; readonly nextBefore: 
 type State =
   | { readonly kind: "loading" }
   | { readonly kind: "error"; readonly message: string }
-  | { readonly kind: "ready"; readonly rows: readonly AuditRow[]; readonly nextBefore: string | null };
+  | {
+      readonly kind: "ready";
+      readonly rows: readonly AuditRow[];
+      readonly nextBefore: string | null;
+    };
 
 export function AuditLogScreen(): ReactNode {
   const t = useTranslation();

@@ -21,7 +21,10 @@ export const ADMIN_SHELL_I18N: Readonly<Record<string, LocalizedString>> = {
     en: "Pending invitations",
   },
   "admin-shell:overview.members": { de: "Mitglieder", en: "Members" },
-  "admin-shell:overview.missingConfig": { de: "Fehlende Konfiguration", en: "Missing configuration" },
+  "admin-shell:overview.missingConfig": {
+    de: "Fehlende Konfiguration",
+    en: "Missing configuration",
+  },
   "admin-shell:overview.missingConfigHint": {
     de: "Pflichtfelder in den Einstellungen prüfen",
     en: "Check required settings",

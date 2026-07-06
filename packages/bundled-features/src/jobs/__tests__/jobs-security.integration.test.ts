@@ -75,11 +75,7 @@ describe("non-SystemAdmin denied jobs HTTP surface", () => {
           tenantAdmin,
         ),
       () =>
-        stack.http.write(
-          JobHandlers.trigger,
-          { jobName: "jobs-sec-app:job:ping" },
-          tenantAdmin,
-        ),
+        stack.http.write(JobHandlers.trigger, { jobName: "jobs-sec-app:job:ping" }, tenantAdmin),
     ] as const) {
       const res = await fn();
       expect(res.status).toBe(403);
@@ -89,8 +85,13 @@ describe("non-SystemAdmin denied jobs HTTP surface", () => {
   test("regular User 403 on list and trigger", async () => {
     expect((await stack.http.query(JobQueries.list, {}, regularUser)).status).toBe(403);
     expect(
-      (await stack.http.write(JobHandlers.trigger, { jobName: "jobs-sec-app:job:ping" }, regularUser))
-        .status,
+      (
+        await stack.http.write(
+          JobHandlers.trigger,
+          { jobName: "jobs-sec-app:job:ping" },
+          regularUser,
+        )
+      ).status,
     ).toBe(403);
   });
 });

@@ -1,4 +1,8 @@
-import { access, defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  access,
+  defineFeature,
+  type FeatureDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { AUDIT_LOG_SCREEN_ID } from "./constants";
 import { listQuery } from "./handlers/list.query";
 import { AUDIT_I18N } from "./i18n";

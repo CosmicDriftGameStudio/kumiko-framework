@@ -1,7 +1,13 @@
 {
   "source": "samples/apps/use-all-bundled/scripts/gen-sample-index.ts + sample-index.overrides.json",
-  "featureCount": 30,
+  "featureCount": 32,
   "features": {
+    "audit": {
+      "samples": [
+        "apps-admin-console"
+      ],
+      "hasVisualOutput": true
+    },
     "auth-email-password": {
       "samples": [
         "recipes-apex-surface-auth",
@@ -160,6 +166,12 @@
       "sampleBlurb": "Drop-in FolderSection on any entity edit screen — assign, move, and clear folder membership without host schema changes.",
       "screenshot": "/screenshots/features/folders.png"
     },
+    "jobs": {
+      "samples": [
+        "apps-admin-console"
+      ],
+      "hasVisualOutput": true
+    },
     "ledger": {
       "samples": [
         "recipes-ledger-banking",
@@ -229,6 +241,7 @@
     },
     "secrets": {
       "samples": [
+        "apps-admin-console",
         "apps-cap-billing-demo",
         "apps-config-demo",
         "recipes-managed-config",
@@ -290,6 +303,7 @@
     },
     "tier-engine": {
       "samples": [
+        "apps-admin-console",
         "recipes-tier-admin"
       ],
       "hasVisualOutput": true,
