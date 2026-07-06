@@ -119,8 +119,8 @@ export function ToggleAdminScreen(): ReactNode {
               id: "toggle",
               label: t("feature-toggles.admin.toggle"),
               style: "secondary",
-              isVisible: (row) => row.values.toggleable === true,
-              onTrigger: (row) => void onSet(row.id, !(row.values.effectiveBool as boolean)),
+              isVisible: (row) => row.values["toggleable"] === true,
+              onTrigger: (row) => void onSet(row.id, !(row.values["effectiveBool"] as boolean)),
             },
           ]}
           rowActionMode="inline"

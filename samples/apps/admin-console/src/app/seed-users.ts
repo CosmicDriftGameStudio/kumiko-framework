@@ -1,10 +1,10 @@
 // @runtime dev
 // Extra users for role-gated workspace demos — separate from sysadmin seed.
 
-import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
 import { hashPassword } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
-import { seedUser } from "@cosmicdrift/kumiko-bundled-features/user/seeding";
 import { seedTenantMembership } from "@cosmicdrift/kumiko-bundled-features/tenant/seeding";
+import { seedUser } from "@cosmicdrift/kumiko-bundled-features/user/seeding";
+import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   DEV_TENANT_ID,

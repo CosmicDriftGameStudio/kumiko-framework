@@ -2,11 +2,7 @@
 import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { APP_FEATURES } from "../run-config";
-import {
-  DEV_TENANT_ID,
-  SYSADMIN_EMAIL,
-  SYSADMIN_PASSWORD,
-} from "./auth-constants";
+import { DEV_TENANT_ID, SYSADMIN_EMAIL, SYSADMIN_PASSWORD } from "./auth-constants";
 import { seedRoleUsers } from "./seed-users";
 
 await runDevApp({

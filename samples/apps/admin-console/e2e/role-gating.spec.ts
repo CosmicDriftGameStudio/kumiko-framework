@@ -3,7 +3,12 @@
 // switcher + overview + members UI checks.
 
 import { expect, test } from "@playwright/test";
-import { csrfToken, loginAsRegularUser, loginAsSysadmin, loginAsTenantAdmin } from "./_helpers/login";
+import {
+  csrfToken,
+  loginAsRegularUser,
+  loginAsSysadmin,
+  loginAsTenantAdmin,
+} from "./_helpers/login";
 
 test.describe("TenantAdmin workspace gating", () => {
   test("lands on tenant overview; platform workspace hidden", async ({ page }) => {
