@@ -16,6 +16,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createAuditFeature } from "../../audit/feature";
+import { ConfigQueries } from "../../config/constants";
 import { createConfigFeature } from "../../config/feature";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
@@ -32,7 +33,15 @@ import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { seedTenant, seedTenantMembership } from "../../tenant/seeding";
 import { tenantEntity } from "../../tenant/schema/tenant";
 import { tierEngineFeature } from "../../tier-engine/feature";
-import { ADMIN_SHELL_FEATURE, DEFAULT_PLATFORM_WORKSPACE_ID, DEFAULT_TENANT_WORKSPACE_ID } from "../constants";
+import {
+  ADMIN_SHELL_FEATURE,
+  DEFAULT_PLATFORM_WORKSPACE_ID,
+  DEFAULT_TENANT_WORKSPACE_ID,
+} from "../constants";
+import {
+  TENANT_OVERVIEW_ALLOWED_QUERIES,
+  TENANT_OVERVIEW_FORBIDDEN_QUERIES,
+} from "../overview-allowlist";
 import { createAdminShellFeature } from "../feature";
 
 let stack: TestStack;
@@ -151,5 +160,30 @@ describe("SystemAdmin platform queries", () => {
       TestUsers.systemAdmin,
     );
     expect(Array.isArray(jobs.rows)).toBe(true);
+  });
+});
+
+describe("tenant overview query allowlist", () => {
+  test("static allowlist excludes every forbidden platform query", () => {
+    for (const qn of TENANT_OVERVIEW_FORBIDDEN_QUERIES) {
+      expect(TENANT_OVERVIEW_ALLOWED_QUERIES).not.toContain(qn);
+    }
+  });
+
+  test("TenantAdmin can run tenant-overview allowed queries", async () => {
+    await stack.http.queryOk(TenantQueries.invitations, {}, tenantAdmin());
+    await stack.http.queryOk(TenantQueries.members, {}, tenantAdmin());
+    const readiness = await stack.http.queryOk<{ missing: readonly unknown[] }>(
+      ConfigQueries.readiness,
+      {},
+      tenantAdmin(),
+    );
+    expect(Array.isArray(readiness.missing)).toBe(true);
+  });
+
+  test("TenantAdmin gets 403 on every forbidden overview query", async () => {
+    for (const qn of TENANT_OVERVIEW_FORBIDDEN_QUERIES) {
+      expect((await stack.http.query(qn, {}, tenantAdmin())).status).toBe(403);
+    }
   });
 });

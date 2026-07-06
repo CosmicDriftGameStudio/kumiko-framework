@@ -41,15 +41,20 @@ describe("admin-shell boot + workspace composition", () => {
     const navs = registry.getWorkspaceNavs(
       `${ADMIN_SHELL_FEATURE}:workspace:${DEFAULT_TENANT_WORKSPACE_ID}`,
     );
-    expect(navs).toEqual(["tenant:nav:members", "audit:nav:audit-log"]);
+    expect(navs).toEqual([
+      "admin-shell:nav:tenant-overview",
+      "tenant:nav:members",
+      "audit:nav:audit-log",
+    ]);
   });
 
-  test("platform workspace nav includes tenants, jobs, tier-admin", () => {
+  test("platform workspace nav includes overview, tenants, jobs, tier-admin", () => {
     const registry = createRegistry(features);
     const navs = registry.getWorkspaceNavs(
       `${ADMIN_SHELL_FEATURE}:workspace:${DEFAULT_PLATFORM_WORKSPACE_ID}`,
     );
     expect(navs).toEqual([
+      "admin-shell:nav:platform-overview",
       "admin-shell:nav:tenants",
       "jobs:nav:job-runs",
       "admin-shell:nav:tier-admin",
@@ -84,6 +89,7 @@ describe("admin-shell boot + workspace composition", () => {
     expect(registry.getWorkspace("admin-shell:workspace:admin")?.id).toBeDefined();
     expect(registry.getWorkspace("admin-shell:workspace:sysadmin")?.id).toBeDefined();
     expect(registry.getWorkspaceNavs("admin-shell:workspace:sysadmin")).toEqual([
+      "admin-shell:nav:platform-overview",
       "admin-shell:nav:tenants",
       "jobs:nav:job-runs",
     ]);

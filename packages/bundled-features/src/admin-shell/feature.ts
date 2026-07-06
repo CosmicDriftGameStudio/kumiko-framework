@@ -11,6 +11,8 @@ import {
   ADMIN_SHELL_FEATURE,
   DEFAULT_PLATFORM_WORKSPACE_ID,
   DEFAULT_TENANT_WORKSPACE_ID,
+  PLATFORM_OVERVIEW_SCREEN_ID,
+  TENANT_OVERVIEW_SCREEN_ID,
 } from "./constants";
 
 export type CreateAdminShellOptions = {
@@ -44,12 +46,43 @@ export function createAdminShellFeature(
     r.requires("jobs");
     if (includeTierAdmin) r.requires("tier-engine");
 
-    const tenantNav = ["tenant:nav:members", "audit:nav:audit-log"] as const;
+    const tenantNav = [
+      "admin-shell:nav:tenant-overview",
+      "tenant:nav:members",
+      "audit:nav:audit-log",
+    ] as const;
     const platformNav: string[] = [
+      "admin-shell:nav:platform-overview",
       "admin-shell:nav:tenants",
       "jobs:nav:job-runs",
       ...(includeTierAdmin ? (["admin-shell:nav:tier-admin"] as const) : []),
     ];
+
+    r.screen({
+      id: TENANT_OVERVIEW_SCREEN_ID,
+      type: "custom",
+      renderer: { react: { __component: "TenantOverviewScreen" } },
+      access: { roles: access.admin },
+    });
+    r.nav({
+      id: "tenant-overview",
+      label: "admin-shell:nav.tenantOverview",
+      screen: "admin-shell:screen:tenant-overview",
+      order: 1,
+    });
+
+    r.screen({
+      id: PLATFORM_OVERVIEW_SCREEN_ID,
+      type: "custom",
+      renderer: { react: { __component: "PlatformOverviewScreen" } },
+      access: { roles: access.systemAdmin },
+    });
+    r.nav({
+      id: "platform-overview",
+      label: "admin-shell:nav.platformOverview",
+      screen: "admin-shell:screen:platform-overview",
+      order: 1,
+    });
 
     r.nav({
       id: "tenants",
