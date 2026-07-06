@@ -5,6 +5,7 @@ import {
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { JOB_RUN_DETAIL_SCREEN_ID, JOB_RUNS_SCREEN_ID } from "./constants";
+import { JOBS_I18N } from "./i18n";
 import type { z } from "zod";
 // Event-payload schemas live in a sibling module so the logger can import
 // them without the cycle jobs-feature ↔ job-run-logger. The logger parses
@@ -185,6 +186,8 @@ export function createJobsFeature(): FeatureDefinition {
 
     const systemAdminAccess = { roles: ["SystemAdmin"] as const };
 
+    r.translations({ keys: JOBS_I18N });
+
     r.screen({
       id: JOB_RUNS_SCREEN_ID,
       type: "custom",
@@ -200,6 +203,7 @@ export function createJobsFeature(): FeatureDefinition {
     r.nav({
       id: "job-runs",
       label: "jobs:nav.jobRuns",
+      icon: "list",
       screen: "jobs:screen:job-runs",
       order: 10,
     });

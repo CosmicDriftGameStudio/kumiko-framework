@@ -1,5 +1,6 @@
 // @runtime client
-import { useDispatcher, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { useDispatcher, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { FormScreenShell } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { DeliveryQueries } from "../constants";
 
@@ -23,6 +24,7 @@ type State =
 
 export function DeliveryLogScreen(): ReactNode {
   const t = useTranslation();
+  const { Banner, Card, Heading, Text } = usePrimitives();
   const dispatcher = useDispatcher();
   const [state, setState] = useState<State>({ kind: "loading" });
 
@@ -40,41 +42,57 @@ export function DeliveryLogScreen(): ReactNode {
     void load();
   }, [load]);
 
-  if (state.kind === "loading") return <p>{t("delivery.log.loading")}</p>;
-  if (state.kind === "error") return <p style={{ color: "#b91c1c" }}>{state.message}</p>;
+  if (state.kind === "loading") {
+    return (
+      <FormScreenShell testId="delivery-log-screen">
+        <Text variant="small">{t("delivery.log.loading")}</Text>
+      </FormScreenShell>
+    );
+  }
+
+  if (state.kind === "error") {
+    return (
+      <FormScreenShell testId="delivery-log-screen">
+        <Banner variant="error">{state.message}</Banner>
+      </FormScreenShell>
+    );
+  }
 
   return (
-    <div data-testid="delivery-log-screen" className="p-6 flex flex-col gap-4 max-w-5xl">
-      <h1 className="text-2xl font-semibold m-0">{t("delivery.log.title")}</h1>
+    <FormScreenShell testId="delivery-log-screen" className="flex max-w-5xl flex-col gap-6">
+      <Heading variant="page">{t("delivery.log.title")}</Heading>
+
       {state.rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t("delivery.log.empty")}</p>
+        <Text variant="small">{t("delivery.log.empty")}</Text>
       ) : (
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b text-left">
-              <th className="p-2">{t("delivery.log.col.type")}</th>
-              <th className="p-2">{t("delivery.log.col.channel")}</th>
-              <th className="p-2">{t("delivery.log.col.recipient")}</th>
-              <th className="p-2">{t("delivery.log.col.status")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {state.rows.map((row) => (
-              <tr key={row.id} className="border-b border-muted" data-delivery-id={row.id}>
-                <td className="p-2">
-                  <code>{row.notificationType}</code>
-                </td>
-                <td className="p-2">{row.channel}</td>
-                <td className="p-2">{row.recipientAddress ?? "—"}</td>
-                <td className="p-2">
-                  {row.status}
-                  {row.error ? ` (${row.error})` : ""}
-                </td>
+        <Card options={{ padded: false }}>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left">
+                <th className="p-3">{t("delivery.log.col.type")}</th>
+                <th className="p-3">{t("delivery.log.col.channel")}</th>
+                <th className="p-3">{t("delivery.log.col.recipient")}</th>
+                <th className="p-3">{t("delivery.log.col.status")}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {state.rows.map((row) => (
+                <tr key={row.id} className="border-b border-muted" data-delivery-id={row.id}>
+                  <td className="p-3">
+                    <Text variant="code">{row.notificationType}</Text>
+                  </td>
+                  <td className="p-3">{row.channel}</td>
+                  <td className="p-3">{row.recipientAddress ?? "—"}</td>
+                  <td className="p-3">
+                    {row.status}
+                    {row.error ? ` (${row.error})` : ""}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
       )}
-    </div>
+    </FormScreenShell>
   );
 }

@@ -8,6 +8,7 @@ export const defaultTranslations: TranslationsByLocale = {
     "compliance.profile.select": "Profil",
     "compliance.profile.save": "Profil speichern",
     "compliance.profile.saving": "Speichert…",
+    "compliance.profile.catalog": "Verfügbare Profile",
     "compliance-profiles:nav.profilePicker": "Compliance",
   },
   en: {
@@ -17,6 +18,7 @@ export const defaultTranslations: TranslationsByLocale = {
     "compliance.profile.select": "Profile",
     "compliance.profile.save": "Save profile",
     "compliance.profile.saving": "Saving…",
+    "compliance.profile.catalog": "Available profiles",
     "compliance-profiles:nav.profilePicker": "Compliance",
   },
 };

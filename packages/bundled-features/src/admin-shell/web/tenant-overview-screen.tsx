@@ -68,6 +68,7 @@ export function TenantOverviewScreen(): ReactNode {
               readinessRes.data.missing.length > 0
                 ? t("admin-shell:overview.missingConfigHint")
                 : undefined,
+            attention: readinessRes.data.missing.length > 0,
           },
         ],
       });

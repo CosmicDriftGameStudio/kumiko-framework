@@ -1,7 +1,8 @@
 // @runtime client
 // Single job-run detail + logs. Route entityId = run uuid.
 
-import { useDispatcher, useNav, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { useDispatcher, useNav, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { FormScreenShell } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { JOB_RUNS_SCREEN_ID, JobHandlers, JobQueries } from "../constants";
 
@@ -30,6 +31,7 @@ type State =
 
 export function JobRunDetailScreen(): ReactNode {
   const t = useTranslation();
+  const { Banner, Button, Card, Heading, Text } = usePrimitives();
   const dispatcher = useDispatcher();
   const nav = useNav();
   const runId = nav.route?.entityId;
@@ -72,65 +74,88 @@ export function JobRunDetailScreen(): ReactNode {
     nav.navigate({ screenId: JOB_RUNS_SCREEN_ID });
   };
 
-  if (state.kind === "loading") return <p>{t("jobs.detail.loading")}</p>;
-  if (state.kind === "missing") return <p>{t("jobs.detail.missing")}</p>;
-  if (state.kind === "error") return <p style={{ color: "#b91c1c" }}>{state.message}</p>;
+  if (state.kind === "loading") {
+    return (
+      <FormScreenShell testId="job-run-detail-screen">
+        <Text variant="small">{t("jobs.detail.loading")}</Text>
+      </FormScreenShell>
+    );
+  }
+
+  if (state.kind === "missing") {
+    return (
+      <FormScreenShell testId="job-run-detail-screen">
+        <Banner variant="error">{t("jobs.detail.missing")}</Banner>
+      </FormScreenShell>
+    );
+  }
+
+  if (state.kind === "error") {
+    return (
+      <FormScreenShell testId="job-run-detail-screen">
+        <Banner variant="error">{state.message}</Banner>
+      </FormScreenShell>
+    );
+  }
 
   const { run } = state;
 
   return (
-    <div data-testid="job-run-detail-screen" className="p-6 flex flex-col gap-4 max-w-3xl">
-      <button
+    <FormScreenShell testId="job-run-detail-screen" className="flex flex-col gap-6">
+      <Button
         type="button"
-        className="text-sm text-primary w-fit"
+        variant="secondary"
         onClick={() => nav.navigate({ screenId: JOB_RUNS_SCREEN_ID })}
-        data-testid="job-run-back"
+        testId="job-run-back"
       >
         {t("jobs.detail.back")}
-      </button>
-      <h1 className="text-2xl font-semibold m-0">{t("jobs.detail.title")}</h1>
-      <dl className="grid gap-2 text-sm">
-        <div>
-          <dt className="font-medium">{t("jobs.detail.field.job")}</dt>
-          <dd>
-            <code>{run.jobName}</code>
-          </dd>
-        </div>
-        <div>
-          <dt className="font-medium">{t("jobs.detail.field.status")}</dt>
-          <dd data-testid="job-run-status">{run.status}</dd>
-        </div>
-        <div>
-          <dt className="font-medium">{t("jobs.detail.field.id")}</dt>
-          <dd>
-            <code className="text-xs">{run.id}</code>
-          </dd>
-        </div>
-        {run.error !== undefined && run.error !== null && run.error !== "" && (
+      </Button>
+
+      <Heading variant="page">{t("jobs.detail.title")}</Heading>
+
+      <Card slots={{ title: run.jobName }}>
+        <dl className="grid gap-3 text-sm">
           <div>
-            <dt className="font-medium">{t("jobs.detail.field.error")}</dt>
-            <dd className="text-destructive">{run.error}</dd>
+            <dt className="font-medium">{t("jobs.detail.field.status")}</dt>
+            <dd data-testid="job-run-status">{run.status}</dd>
           </div>
-        )}
-      </dl>
+          <div>
+            <dt className="font-medium">{t("jobs.detail.field.id")}</dt>
+            <dd>
+              <Text variant="code">{run.id}</Text>
+            </dd>
+          </div>
+          {run.error !== undefined && run.error !== null && run.error !== "" && (
+            <div>
+              <dt className="font-medium">{t("jobs.detail.field.error")}</dt>
+              <dd>
+                <Banner variant="error">{run.error}</Banner>
+              </dd>
+            </div>
+          )}
+        </dl>
+      </Card>
+
       {run.status === "failed" && (
-        <button
+        <Button
           type="button"
+          variant="primary"
           disabled={retrying}
-          className="bg-primary text-primary-foreground rounded px-4 py-2 text-sm w-fit"
+          loading={retrying}
           onClick={() => void onRetry()}
-          data-testid="job-run-retry"
+          testId="job-run-retry"
         >
           {retrying ? t("jobs.detail.retrying") : t("jobs.detail.retry")}
-        </button>
+        </Button>
       )}
-      {actionError !== null && <p className="text-sm text-destructive">{actionError}</p>}
-      <section>
-        <h2 className="text-lg font-medium">{t("jobs.detail.logs")}</h2>
+
+      {actionError !== null && <Banner variant="error">{actionError}</Banner>}
+
+      <Card slots={{ title: t("jobs.detail.logs") }}>
         {run.logs.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("jobs.detail.logs.empty")}</p>
+          <Text variant="small">{t("jobs.detail.logs.empty")}</Text>
         ) : (
-          <ul className="text-sm font-mono flex flex-col gap-1 mt-2" data-testid="job-run-logs">
+          <ul className="flex flex-col gap-1 font-mono text-sm" data-testid="job-run-logs">
             {run.logs.map((log, i) => (
               <li key={`${log.timestamp}-${i}`}>
                 <span className="text-muted-foreground">[{log.level}]</span> {log.message}
@@ -138,7 +163,7 @@ export function JobRunDetailScreen(): ReactNode {
             ))}
           </ul>
         )}
-      </section>
-    </div>
+      </Card>
+    </FormScreenShell>
   );
 }

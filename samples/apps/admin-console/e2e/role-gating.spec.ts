@@ -21,8 +21,11 @@ test.describe("TenantAdmin workspace gating", () => {
     await page.goto("/tenant-admin/members");
 
     await expect(page.getByTestId("members-screen")).toBeVisible();
-    const options = page.locator('[data-testid="invite-role"] option');
-    await expect(options).toHaveText(["User", "Admin", "Editor"]);
+    await page.getByTestId("combobox-invite-role").click();
+    const options = page.getByRole("option");
+    await expect(options.filter({ hasText: "User" })).toBeVisible();
+    await expect(options.filter({ hasText: "Admin" })).toBeVisible();
+    await expect(options.filter({ hasText: "Editor" })).toBeVisible();
     await expect(options.filter({ hasText: "SystemAdmin" })).toHaveCount(0);
   });
 

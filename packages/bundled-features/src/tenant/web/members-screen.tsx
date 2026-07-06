@@ -3,7 +3,8 @@
 // Read-only member list; invite + cancel only (no updateMemberRoles — SystemAdmin-only).
 
 import { AuthHandlers } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/constants";
-import { useDispatcher, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { useDispatcher, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { FormScreenShell } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { DEFAULT_INVITE_ROLE_OPTIONS, TenantHandlers, TenantQueries } from "../constants";
 
@@ -42,6 +43,7 @@ export function MembersScreen({
   inviteRoleOptions = DEFAULT_INVITE_ROLE_OPTIONS,
 }: MembersScreenProps): ReactNode {
   const t = useTranslation();
+  const { Banner, Button, Card, Field, Form, Heading, Input, Text } = usePrimitives();
   const dispatcher = useDispatcher();
   const [state, setState] = useState<State>({ kind: "loading" });
   const [inviteEmail, setInviteEmail] = useState("");
@@ -71,20 +73,22 @@ export function MembersScreen({
     void refresh();
   }, [refresh]);
 
-  const onInvite = async (e: React.FormEvent): Promise<void> => {
-    e.preventDefault();
-    setActionError(null);
-    setSubmitting(true);
-    const email = inviteEmail.trim();
-    const res = await dispatcher.write(AuthHandlers.inviteCreate, { email, role: inviteRole });
-    setSubmitting(false);
-    if (!res.isSuccess) {
-      setActionError(res.error.message);
-      return;
-    }
-    setLastInvited(email);
-    setInviteEmail("");
-    await refresh();
+  const onInvite = (e?: React.FormEvent): void => {
+    e?.preventDefault();
+    void (async (): Promise<void> => {
+      setActionError(null);
+      setSubmitting(true);
+      const email = inviteEmail.trim();
+      const res = await dispatcher.write(AuthHandlers.inviteCreate, { email, role: inviteRole });
+      setSubmitting(false);
+      if (!res.isSuccess) {
+        setActionError(res.error.message);
+        return;
+      }
+      setLastInvited(email);
+      setInviteEmail("");
+      await refresh();
+    })();
   };
 
   const onCancel = async (invitationId: string): Promise<void> => {
@@ -97,126 +101,141 @@ export function MembersScreen({
     await refresh();
   };
 
-  if (state.kind === "loading") return <p>{t("tenant.members.loading")}</p>;
-  if (state.kind === "error") return <p style={{ color: "#b91c1c" }}>{state.message}</p>;
+  if (state.kind === "loading") {
+    return (
+      <FormScreenShell testId="members-screen">
+        <Text variant="small">{t("tenant.members.loading")}</Text>
+      </FormScreenShell>
+    );
+  }
+
+  if (state.kind === "error") {
+    return (
+      <FormScreenShell testId="members-screen">
+        <Banner variant="error">{state.message}</Banner>
+      </FormScreenShell>
+    );
+  }
+
+  const roleSelectOptions = inviteRoleOptions.map((r) => ({ value: r, label: r }));
 
   return (
-    <div data-testid="members-screen" className="p-6 flex flex-col gap-6 max-w-3xl">
-      <h1 className="text-2xl font-semibold m-0">{t("tenant.members.title")}</h1>
+    <FormScreenShell testId="members-screen" className="flex flex-col gap-6">
+      <Heading variant="page">{t("tenant.members.title")}</Heading>
 
-      <section className="border rounded-lg p-4 bg-card">
-        <h2 className="text-lg font-medium mt-0">
-          {t("tenant.members.active")} ({state.members.length})
-        </h2>
-        <table className="w-full text-sm mt-4">
+      <Card
+        slots={{ title: `${t("tenant.members.active")} (${state.members.length})` }}
+        options={{ padded: false }}
+      >
+        <table className="w-full text-sm">
           <thead>
             <tr className="border-b text-left">
-              <th className="p-2">{t("tenant.members.col.userId")}</th>
-              <th className="p-2">{t("tenant.members.col.roles")}</th>
+              <th className="p-3">{t("tenant.members.col.userId")}</th>
+              <th className="p-3">{t("tenant.members.col.roles")}</th>
             </tr>
           </thead>
           <tbody>
             {state.members.map((m) => (
               <tr key={m.id} className="border-b border-muted">
-                <td className="p-2">
-                  <code>{m.userId}</code>
+                <td className="p-3">
+                  <Text variant="code">{m.userId}</Text>
                 </td>
-                <td className="p-2">{m.roles.join(", ")}</td>
+                <td className="p-3">{m.roles.join(", ")}</td>
               </tr>
             ))}
           </tbody>
         </table>
-      </section>
+      </Card>
 
-      <section className="border rounded-lg p-4 bg-card" data-testid="invite-form">
-        <h2 className="text-lg font-medium mt-0">{t("tenant.members.invite.title")}</h2>
-        <form onSubmit={onInvite} className="grid gap-3 sm:grid-cols-[1fr_150px_auto] items-end mt-4">
-          <label className="flex flex-col gap-1 text-sm">
-            {t("tenant.members.invite.email")}
-            <input
-              type="email"
-              required
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              disabled={submitting}
-              className="border rounded px-2 py-1"
-              data-testid="invite-email"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            {t("tenant.members.invite.role")}
-            <select
-              value={inviteRole}
-              onChange={(e) => setInviteRole(e.target.value as RoleOption)}
-              disabled={submitting}
-              className="border rounded px-2 py-1"
-              data-testid="invite-role"
-            >
-              {inviteRoleOptions.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
+      <Form
+        testId="invite-form"
+        title={t("tenant.members.invite.title")}
+        onSubmit={onInvite}
+        actions={
+          <Button
             type="submit"
+            variant="primary"
+            loading={submitting}
             disabled={submitting}
-            className="bg-primary text-primary-foreground rounded px-4 py-2 font-medium"
-            data-testid="invite-submit"
+            testId="invite-submit"
           >
             {submitting ? t("tenant.members.invite.submitting") : t("tenant.members.invite.submit")}
-          </button>
-        </form>
+          </Button>
+        }
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field id="invite-email" label={t("tenant.members.invite.email")} required>
+            <Input
+              kind="email"
+              id="invite-email"
+              name="invite-email"
+              value={inviteEmail}
+              onChange={setInviteEmail}
+              disabled={submitting}
+              required
+              autoComplete="email"
+            />
+          </Field>
+          <Field id="invite-role" label={t("tenant.members.invite.role")} required>
+            <Input
+              kind="select"
+              id="invite-role"
+              name="invite-role"
+              value={inviteRole}
+              onChange={(v) => setInviteRole(v as RoleOption)}
+              options={roleSelectOptions}
+              disabled={submitting}
+              required
+            />
+          </Field>
+        </div>
         {lastInvited !== null && !submitting && (
-          <p className="text-sm text-green-700 mt-2">
-            {t("tenant.members.invite.success", { email: lastInvited })}
-          </p>
+          <Banner variant="info">{t("tenant.members.invite.success", { email: lastInvited })}</Banner>
         )}
-        {actionError !== null && (
-          <p className="text-sm text-destructive mt-2">{actionError}</p>
-        )}
-      </section>
+        {actionError !== null && <Banner variant="error">{actionError}</Banner>}
+      </Form>
 
-      <section className="border rounded-lg p-4 bg-card">
-        <h2 className="text-lg font-medium mt-0">
-          {t("tenant.members.pending")} ({state.invitations.length})
-        </h2>
+      <Card
+        slots={{ title: `${t("tenant.members.pending")} (${state.invitations.length})` }}
+        options={{ padded: false }}
+      >
         {state.invitations.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("tenant.members.pending.empty")}</p>
+          <div className="p-6">
+            <Text variant="small">{t("tenant.members.pending.empty")}</Text>
+          </div>
         ) : (
-          <table className="w-full text-sm mt-4" data-testid="pending-list">
+          <table className="w-full text-sm" data-testid="pending-list">
             <thead>
               <tr className="border-b text-left">
-                <th className="p-2">{t("tenant.members.col.email")}</th>
-                <th className="p-2">{t("tenant.members.col.roles")}</th>
-                <th className="p-2">{t("tenant.members.col.expires")}</th>
-                <th className="p-2" />
+                <th className="p-3">{t("tenant.members.col.email")}</th>
+                <th className="p-3">{t("tenant.members.col.roles")}</th>
+                <th className="p-3">{t("tenant.members.col.expires")}</th>
+                <th className="p-3" />
               </tr>
             </thead>
             <tbody>
               {state.invitations.map((inv) => (
                 <tr key={inv.id} data-invitation-id={inv.id}>
-                  <td className="p-2">{inv.email}</td>
-                  <td className="p-2">{inv.role}</td>
-                  <td className="p-2">{formatExpiresAt(inv.expiresAt)}</td>
-                  <td className="p-2">
-                    <button
+                  <td className="p-3">{inv.email}</td>
+                  <td className="p-3">{inv.role}</td>
+                  <td className="p-3">{formatExpiresAt(inv.expiresAt)}</td>
+                  <td className="p-3">
+                    <Button
                       type="button"
+                      variant="danger"
                       onClick={() => void onCancel(inv.id)}
-                      className="text-destructive border border-destructive/30 rounded px-2 py-1 text-xs"
-                      data-testid={`cancel-${inv.email}`}
+                      testId={`cancel-${inv.email}`}
                     >
                       {t("tenant.members.cancel")}
-                    </button>
+                    </Button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
-      </section>
-    </div>
+      </Card>
+    </FormScreenShell>
   );
 }
 

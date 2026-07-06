@@ -1,7 +1,8 @@
 // @runtime client
 // SystemAdmin job-run list with link to detail screen.
 
-import { useDispatcher, useNav, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { useDispatcher, useNav, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { FormScreenShell } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { JOB_RUN_DETAIL_SCREEN_ID, JobQueries } from "../constants";
 
@@ -22,12 +23,26 @@ type State =
   | { readonly kind: "error"; readonly message: string }
   | { readonly kind: "ready"; readonly rows: readonly JobRunRow[] };
 
+const STATUS_FILTER_OPTIONS = [
+  { value: "", label: "all" },
+  { value: "completed", label: "completed" },
+  { value: "failed", label: "failed" },
+  { value: "running", label: "running" },
+  { value: "queued", label: "queued" },
+] as const;
+
 export function JobRunsScreen(): ReactNode {
   const t = useTranslation();
+  const { Banner, Button, Card, Field, Heading, Input, Text } = usePrimitives();
   const dispatcher = useDispatcher();
   const nav = useNav();
   const [state, setState] = useState<State>({ kind: "loading" });
-  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState("");
+
+  const filterOptions = STATUS_FILTER_OPTIONS.map((opt) => ({
+    value: opt.value,
+    label: opt.value === "" ? t("jobs.runs.filter.all") : opt.label,
+  }));
 
   const refresh = useCallback(async (): Promise<void> => {
     setState({ kind: "loading" });
@@ -48,66 +63,77 @@ export function JobRunsScreen(): ReactNode {
     void refresh();
   }, [refresh]);
 
-  if (state.kind === "loading") return <p>{t("jobs.runs.loading")}</p>;
-  if (state.kind === "error") return <p style={{ color: "#b91c1c" }}>{state.message}</p>;
+  if (state.kind === "loading") {
+    return (
+      <FormScreenShell testId="job-runs-screen">
+        <Text variant="small">{t("jobs.runs.loading")}</Text>
+      </FormScreenShell>
+    );
+  }
+
+  if (state.kind === "error") {
+    return (
+      <FormScreenShell testId="job-runs-screen">
+        <Banner variant="error">{state.message}</Banner>
+      </FormScreenShell>
+    );
+  }
 
   return (
-    <div data-testid="job-runs-screen" className="p-6 flex flex-col gap-4 max-w-5xl">
-      <h1 className="text-2xl font-semibold m-0">{t("jobs.runs.title")}</h1>
-      <label className="flex items-center gap-2 text-sm w-fit">
-        {t("jobs.runs.filter.status")}
-        <select
+    <FormScreenShell testId="job-runs-screen" className="flex max-w-5xl flex-col gap-6">
+      <Heading variant="page">{t("jobs.runs.title")}</Heading>
+
+      <Field id="job-runs-status-filter" label={t("jobs.runs.filter.status")}>
+        <Input
+          kind="select"
+          id="job-runs-status-filter"
+          name="job-runs-status-filter"
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="border rounded px-2 py-1"
-          data-testid="job-runs-status-filter"
-        >
-          <option value="">{t("jobs.runs.filter.all")}</option>
-          <option value="completed">completed</option>
-          <option value="failed">failed</option>
-          <option value="running">running</option>
-          <option value="queued">queued</option>
-        </select>
-      </label>
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b text-left">
-            <th className="p-2">{t("jobs.runs.col.job")}</th>
-            <th className="p-2">{t("jobs.runs.col.status")}</th>
-            <th className="p-2">{t("jobs.runs.col.started")}</th>
-            <th className="p-2">{t("jobs.runs.col.duration")}</th>
-            <th className="p-2" />
-          </tr>
-        </thead>
-        <tbody>
-          {state.rows.map((row) => (
-            <tr key={row.id} className="border-b border-muted" data-run-id={row.id}>
-              <td className="p-2">
-                <code>{row.jobName}</code>
-              </td>
-              <td className="p-2">{row.status}</td>
-              <td className="p-2">{formatWhen(row.startedAt)}</td>
-              <td className="p-2">{row.duration ?? "—"}</td>
-              <td className="p-2">
-                <button
-                  type="button"
-                  className="text-primary underline text-xs"
-                  data-testid={`job-run-open-${row.id}`}
-                  onClick={() =>
-                    nav.navigate({ screenId: JOB_RUN_DETAIL_SCREEN_ID, entityId: row.id })
-                  }
-                >
-                  {t("jobs.runs.open")}
-                </button>
-              </td>
+          onChange={setStatusFilter}
+          options={filterOptions}
+        />
+      </Field>
+
+      <Card options={{ padded: false }}>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b text-left">
+              <th className="p-3">{t("jobs.runs.col.job")}</th>
+              <th className="p-3">{t("jobs.runs.col.status")}</th>
+              <th className="p-3">{t("jobs.runs.col.started")}</th>
+              <th className="p-3">{t("jobs.runs.col.duration")}</th>
+              <th className="p-3" />
             </tr>
-          ))}
-        </tbody>
-      </table>
-      {state.rows.length === 0 && (
-        <p className="text-sm text-muted-foreground">{t("jobs.runs.empty")}</p>
-      )}
-    </div>
+          </thead>
+          <tbody>
+            {state.rows.map((row) => (
+              <tr key={row.id} className="border-b border-muted" data-run-id={row.id}>
+                <td className="p-3">
+                  <Text variant="code">{row.jobName}</Text>
+                </td>
+                <td className="p-3">{row.status}</td>
+                <td className="p-3">{formatWhen(row.startedAt)}</td>
+                <td className="p-3">{row.duration ?? "—"}</td>
+                <td className="p-3">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    testId={`job-run-open-${row.id}`}
+                    onClick={() =>
+                      nav.navigate({ screenId: JOB_RUN_DETAIL_SCREEN_ID, entityId: row.id })
+                    }
+                  >
+                    {t("jobs.runs.open")}
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+
+      {state.rows.length === 0 && <Text variant="small">{t("jobs.runs.empty")}</Text>}
+    </FormScreenShell>
   );
 }
 

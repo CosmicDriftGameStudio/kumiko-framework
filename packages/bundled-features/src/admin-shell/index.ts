@@ -14,3 +14,4 @@ export {
   type OverviewWorkspaceKind,
 } from "./overview-allowlist";
 export { createAdminShellFeature, type CreateAdminShellOptions } from "./feature";
+export { ADMIN_SHELL_I18N } from "./i18n";

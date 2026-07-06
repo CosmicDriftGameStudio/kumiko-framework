@@ -108,4 +108,18 @@ describe("admin-shell boot + workspace composition", () => {
     expect(registry.getScreen("admin-shell:screen:tenant-overview")?.id).toBeDefined();
     expect(registry.getScreen("admin-shell:screen:platform-overview")?.id).toBeDefined();
   });
+
+  test("admin-shell nav entries declare icons (sidebar standard)", () => {
+    const shell = createAdminShellFeature({ includeTierAdmin: true });
+    const navIds = ["tenant-overview", "platform-overview", "tenants", "tier-admin"] as const;
+    for (const id of navIds) {
+      expect(shell.navs[id]?.icon, `admin-shell:nav:${id}`).toBeDefined();
+    }
+  });
+
+  test("admin-shell registers server translations bundle", () => {
+    const shell = createAdminShellFeature();
+    expect(shell.translations?.["admin-shell:nav.tenantOverview"]?.de).toBe("Übersicht");
+    expect(shell.translations?.["screen:tenant-overview.title"]?.en).toBe("Overview");
+  });
 });

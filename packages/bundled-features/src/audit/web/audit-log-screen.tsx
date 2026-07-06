@@ -1,7 +1,8 @@
 // @runtime client
 // Paginated tenant-scoped audit log (event store).
 
-import { useDispatcher, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { useDispatcher, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { FormScreenShell } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { AuditQueries } from "../constants";
 
@@ -24,6 +25,7 @@ type State =
 
 export function AuditLogScreen(): ReactNode {
   const t = useTranslation();
+  const { Banner, Button, Card, Heading, Text } = usePrimitives();
   const dispatcher = useDispatcher();
   const [state, setState] = useState<State>({ kind: "loading" });
   const [before, setBefore] = useState<string | undefined>(undefined);
@@ -48,66 +50,82 @@ export function AuditLogScreen(): ReactNode {
     void load(before);
   }, [load, before]);
 
-  if (state.kind === "loading") return <p>{t("audit.log.loading")}</p>;
-  if (state.kind === "error") return <p style={{ color: "#b91c1c" }}>{state.message}</p>;
+  if (state.kind === "loading") {
+    return (
+      <FormScreenShell testId="audit-log-screen">
+        <Text variant="small">{t("audit.log.loading")}</Text>
+      </FormScreenShell>
+    );
+  }
+
+  if (state.kind === "error") {
+    return (
+      <FormScreenShell testId="audit-log-screen">
+        <Banner variant="error">{state.message}</Banner>
+      </FormScreenShell>
+    );
+  }
 
   return (
-    <div data-testid="audit-log-screen" className="p-6 flex flex-col gap-4 max-w-5xl">
-      <h1 className="text-2xl font-semibold m-0">{t("audit.log.title")}</h1>
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b text-left">
-            <th className="p-2">{t("audit.log.col.when")}</th>
-            <th className="p-2">{t("audit.log.col.type")}</th>
-            <th className="p-2">{t("audit.log.col.aggregate")}</th>
-            <th className="p-2">{t("audit.log.col.actor")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {state.rows.map((row) => (
-            <tr key={row.id} className="border-b border-muted" data-audit-id={row.id}>
-              <td className="p-2 whitespace-nowrap">{formatWhen(row.createdAt)}</td>
-              <td className="p-2">
-                <code>{row.type}</code>
-              </td>
-              <td className="p-2">
-                <code>{row.aggregateType}</code>
-                <span className="text-muted-foreground"> / </span>
-                <code className="text-xs">{row.aggregateId}</code>
-              </td>
-              <td className="p-2">
-                <code className="text-xs">{row.createdBy}</code>
-              </td>
+    <FormScreenShell testId="audit-log-screen" className="flex max-w-5xl flex-col gap-6">
+      <Heading variant="page">{t("audit.log.title")}</Heading>
+
+      <Card options={{ padded: false }}>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b text-left">
+              <th className="p-3">{t("audit.log.col.when")}</th>
+              <th className="p-3">{t("audit.log.col.type")}</th>
+              <th className="p-3">{t("audit.log.col.aggregate")}</th>
+              <th className="p-3">{t("audit.log.col.actor")}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-      {state.rows.length === 0 && (
-        <p className="text-sm text-muted-foreground">{t("audit.log.empty")}</p>
-      )}
+          </thead>
+          <tbody>
+            {state.rows.map((row) => (
+              <tr key={row.id} className="border-b border-muted" data-audit-id={row.id}>
+                <td className="p-3 whitespace-nowrap">{formatWhen(row.createdAt)}</td>
+                <td className="p-3">
+                  <Text variant="code">{row.type}</Text>
+                </td>
+                <td className="p-3">
+                  <Text variant="code">{row.aggregateType}</Text>
+                  <span className="text-muted-foreground"> / </span>
+                  <Text variant="code">{row.aggregateId}</Text>
+                </td>
+                <td className="p-3">
+                  <Text variant="code">{row.createdBy}</Text>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+
+      {state.rows.length === 0 && <Text variant="small">{t("audit.log.empty")}</Text>}
+
       <div className="flex gap-2">
         {before !== undefined && (
-          <button
+          <Button
             type="button"
-            className="border rounded px-3 py-1 text-sm"
+            variant="secondary"
             onClick={() => setBefore(undefined)}
-            data-testid="audit-log-newest"
+            testId="audit-log-newest"
           >
             {t("audit.log.newest")}
-          </button>
+          </Button>
         )}
         {state.nextBefore !== null && (
-          <button
+          <Button
             type="button"
-            className="border rounded px-3 py-1 text-sm"
+            variant="secondary"
             onClick={() => setBefore(state.nextBefore ?? undefined)}
-            data-testid="audit-log-older"
+            testId="audit-log-older"
           >
             {t("audit.log.older")}
-          </button>
+          </Button>
         )}
       </div>
-    </div>
+    </FormScreenShell>
   );
 }
 

@@ -1,6 +1,7 @@
 import { access, defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { AUDIT_LOG_SCREEN_ID } from "./constants";
 import { listQuery } from "./handlers/list.query";
+import { AUDIT_I18N } from "./i18n";
 
 // Audit feature — exposes a filtered read over the framework's event log.
 //
@@ -24,6 +25,8 @@ export function createAuditFeature(): FeatureDefinition {
       category: "compliance",
       recommended: false,
     });
+    r.translations({ keys: AUDIT_I18N });
+
     const queries = {
       list: r.queryHandler(listQuery),
     };
@@ -37,6 +40,7 @@ export function createAuditFeature(): FeatureDefinition {
     r.nav({
       id: "audit-log",
       label: "audit:nav.auditLog",
+      icon: "file",
       screen: "audit:screen:audit-log",
       order: 30,
     });

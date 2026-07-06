@@ -52,6 +52,7 @@ export function PlatformOverviewScreen(): ReactNode {
               failedJobsRes.data.rows.length > 0
                 ? t("admin-shell:overview.failedJobsHint")
                 : undefined,
+            attention: failedJobsRes.data.rows.length > 0,
           },
         ],
       });

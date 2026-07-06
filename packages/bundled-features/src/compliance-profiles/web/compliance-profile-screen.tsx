@@ -1,5 +1,6 @@
 // @runtime client
-import { useDispatcher, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { useDispatcher, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { FormScreenShell } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { ComplianceProfileHandlers, ComplianceProfileQueries } from "../constants";
 
@@ -32,6 +33,7 @@ type State =
 
 export function ComplianceProfileScreen(): ReactNode {
   const t = useTranslation();
+  const { Banner, Button, Card, Field, Form, Heading, Input, Text } = usePrimitives();
   const dispatcher = useDispatcher();
   const [state, setState] = useState<State>({ kind: "loading" });
   const [selected, setSelected] = useState("");
@@ -60,66 +62,91 @@ export function ComplianceProfileScreen(): ReactNode {
     void load();
   }, [load]);
 
-  const onSave = async (): Promise<void> => {
-    if (selected === "") return;
-    setActionError(null);
-    setSaving(true);
-    const res = await dispatcher.write(ComplianceProfileHandlers.setProfile, {
-      profileKey: selected,
-    });
-    setSaving(false);
-    if (!res.isSuccess) {
-      setActionError(res.error.message);
-      return;
-    }
-    await load();
+  const onSave = (): void => {
+    void (async (): Promise<void> => {
+      if (selected === "") return;
+      setActionError(null);
+      setSaving(true);
+      const res = await dispatcher.write(ComplianceProfileHandlers.setProfile, {
+        profileKey: selected,
+      });
+      setSaving(false);
+      if (!res.isSuccess) {
+        setActionError(res.error.message);
+        return;
+      }
+      await load();
+    })();
   };
 
-  if (state.kind === "loading") return <p>{t("compliance.profile.loading")}</p>;
-  if (state.kind === "error") return <p style={{ color: "#b91c1c" }}>{state.message}</p>;
+  if (state.kind === "loading") {
+    return (
+      <FormScreenShell testId="compliance-profile-screen">
+        <Text variant="small">{t("compliance.profile.loading")}</Text>
+      </FormScreenShell>
+    );
+  }
+
+  if (state.kind === "error") {
+    return (
+      <FormScreenShell testId="compliance-profile-screen">
+        <Banner variant="error">{state.message}</Banner>
+      </FormScreenShell>
+    );
+  }
+
+  const profileOptions = state.profiles.map((profile) => ({
+    value: profile.key,
+    label: `${profile.label} (${profile.key})`,
+  }));
 
   return (
-    <div data-testid="compliance-profile-screen" className="p-6 flex flex-col gap-4 max-w-3xl">
-      <h1 className="text-2xl font-semibold m-0">{t("compliance.profile.title")}</h1>
-      {state.current ? (
-        <p className="text-sm text-muted-foreground" data-testid="compliance-current-profile">
+    <FormScreenShell testId="compliance-profile-screen" className="flex flex-col gap-6">
+      <Heading variant="page">{t("compliance.profile.title")}</Heading>
+
+      {state.current !== null && (
+        <Banner variant="info" testId="compliance-current-profile">
           {t("compliance.profile.current")}: {state.current.label} ({state.current.key})
-        </p>
-      ) : null}
-      <label className="flex flex-col gap-1 text-sm max-w-md">
-        {t("compliance.profile.select")}
-        <select
-          value={selected}
-          onChange={(e) => setSelected(e.target.value)}
-          className="border rounded px-2 py-1"
-          data-testid="compliance-profile-select"
-        >
+        </Banner>
+      )}
+
+      <Form
+        onSubmit={onSave}
+        actions={
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={saving || selected === ""}
+            loading={saving}
+            testId="compliance-profile-save"
+          >
+            {saving ? t("compliance.profile.saving") : t("compliance.profile.save")}
+          </Button>
+        }
+      >
+        <Field id="compliance-profile-select" label={t("compliance.profile.select")} required>
+          <Input
+            kind="select"
+            id="compliance-profile-select"
+            name="compliance-profile-select"
+            value={selected}
+            onChange={setSelected}
+            options={profileOptions}
+            required
+          />
+        </Field>
+        {actionError !== null && <Banner variant="error">{actionError}</Banner>}
+      </Form>
+
+      <Card slots={{ title: t("compliance.profile.catalog") }}>
+        <ul className="flex flex-col gap-2 text-sm">
           {state.profiles.map((profile) => (
-            <option key={profile.key} value={profile.key}>
-              {profile.label} ({profile.key})
-            </option>
+            <li key={profile.key} data-profile-key={profile.key}>
+              <strong>{profile.label}</strong> — {profile.region} — {profile.authorityContact}
+            </li>
           ))}
-        </select>
-      </label>
-      <ul className="text-sm flex flex-col gap-2">
-        {state.profiles.map((profile) => (
-          <li key={profile.key} data-profile-key={profile.key}>
-            <strong>{profile.label}</strong> - {profile.region} - {profile.authorityContact}
-          </li>
-        ))}
-      </ul>
-      <div className="flex flex-col gap-2">
-        <button
-          type="button"
-          disabled={saving || selected === ""}
-          className="bg-primary text-primary-foreground rounded px-4 py-2 font-medium w-fit"
-          onClick={() => void onSave()}
-          data-testid="compliance-profile-save"
-        >
-          {saving ? t("compliance.profile.saving") : t("compliance.profile.save")}
-        </button>
-        {actionError ? <p className="text-sm text-destructive">{actionError}</p> : null}
-      </div>
-    </div>
+        </ul>
+      </Card>
+    </FormScreenShell>
   );
 }

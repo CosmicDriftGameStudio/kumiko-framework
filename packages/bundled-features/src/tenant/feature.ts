@@ -146,6 +146,7 @@ export function createTenantFeature(): FeatureDefinition {
     r.nav({
       id: "members",
       label: "tenant:nav.members",
+      icon: "users",
       screen: "tenant:screen:members",
       order: 20,
     });

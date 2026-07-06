@@ -14,6 +14,7 @@ import {
   PLATFORM_OVERVIEW_SCREEN_ID,
   TENANT_OVERVIEW_SCREEN_ID,
 } from "./constants";
+import { ADMIN_SHELL_I18N } from "./i18n";
 
 export type CreateAdminShellOptions = {
   /** Short workspace id for tenant operators (URL segment). Default `tenant-admin`. */
@@ -37,7 +38,7 @@ export function createAdminShellFeature(
 
   return defineFeature(ADMIN_SHELL_FEATURE, (r) => {
     r.describe(
-      "Registers tenant-admin and platform-admin workspaces with provider nav into owner-feature screens (`tenant:screen:members`, `audit:screen:audit-log`, `tenant:screen:tenant-list`, `jobs:screen:job-runs`, optional `tier-engine:screen:tier-admin`). Mount after tenant, audit, and jobs; pass `workspaceIds` to match app URL conventions (e.g. Studio `d`/`s`, PublicStatus `admin`/`sysadmin`).",
+      "Registers tenant-admin and platform-admin workspaces with provider nav into owner-feature screens (`tenant:screen:members`, `audit:screen:audit-log`, `tenant:screen:tenant-list`, `jobs:screen:job-runs`, optional `tier-engine:screen:tier-admin`). Mount after tenant, audit, and jobs; pass `workspaceIds` to match app URL conventions (e.g. Studio `d`/`s`, PublicStatus `admin`/`sysadmin`). Client: `adminShellClient()`, `tenantClient()`, `auditClient()`, `jobsClient()`, optional `tierEngineClient()`.",
     );
     r.uiHints({
       displayLabel: "Admin Shell",
@@ -48,6 +49,8 @@ export function createAdminShellFeature(
     r.requires("audit");
     r.requires("jobs");
     if (includeTierAdmin) r.requires("tier-engine");
+
+    r.translations({ keys: ADMIN_SHELL_I18N });
 
     const tenantNav = [
       "admin-shell:nav:tenant-overview",
@@ -70,6 +73,7 @@ export function createAdminShellFeature(
     r.nav({
       id: "tenant-overview",
       label: "admin-shell:nav.tenantOverview",
+      icon: "home",
       screen: "admin-shell:screen:tenant-overview",
       order: 1,
     });
@@ -83,6 +87,7 @@ export function createAdminShellFeature(
     r.nav({
       id: "platform-overview",
       label: "admin-shell:nav.platformOverview",
+      icon: "dashboard",
       screen: "admin-shell:screen:platform-overview",
       order: 1,
     });
@@ -90,6 +95,7 @@ export function createAdminShellFeature(
     r.nav({
       id: "tenants",
       label: "admin-shell:nav.tenants",
+      icon: "building",
       screen: "tenant:screen:tenant-list",
       access: { roles: access.systemAdmin },
       order: 10,
@@ -99,6 +105,7 @@ export function createAdminShellFeature(
       r.nav({
         id: "tier-admin",
         label: "admin-shell:nav.tierAdmin",
+        icon: "shield",
         screen: "tier-engine:screen:tier-admin",
         access: { roles: access.systemAdmin },
         order: 30,
