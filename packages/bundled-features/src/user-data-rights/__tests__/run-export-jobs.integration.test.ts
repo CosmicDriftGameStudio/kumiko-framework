@@ -791,6 +791,10 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
             },
           ],
         }),
+        // no-op: this fixture exercises only the export/file path; the erase
+        // side is covered by forget-*.integration.test.ts. Required so the
+        // V2 boot gate (export-without-erase) does not reject the stack.
+        delete: async () => {},
       });
     });
 

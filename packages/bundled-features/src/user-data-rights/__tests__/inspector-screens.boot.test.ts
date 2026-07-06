@@ -1,10 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { access, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/feature";
 import { createConfigFeature } from "../../config/feature";
 import { createDataRetentionFeature } from "../../data-retention/feature";
 import { createSessionsFeature } from "../../sessions/feature";
 import { createUserFeature } from "../../user/feature";
+import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/feature";
 import { createUserDataRightsFeature } from "../feature";
 
 // Read-only GDPR inspector screens live IN user-data-rights (the boot-validator
@@ -16,13 +18,19 @@ import { createUserDataRightsFeature } from "../feature";
 // so an entityList binding is rebuild-safe (unlike jobs/sessions read-models).
 
 describe("user-data-rights read-only inspector screens", () => {
+  // A realistic assembly: mounting user-data-rights without its default hooks
+  // now fails the V3 boot gate (the framework `user` entity holds PII with no
+  // erase path). Real apps mount the defaults (which hard-require `files`)
+  // alongside — so this set mirrors that.
   const features = [
     createConfigFeature(),
     createUserFeature(),
     createSessionsFeature(),
     createDataRetentionFeature(),
     createComplianceProfilesFeature(),
+    createFilesFeature(),
     createUserDataRightsFeature(),
+    createUserDataRightsDefaultsFeature(),
   ];
 
   test("the assembled feature set boot-validates", () => {
