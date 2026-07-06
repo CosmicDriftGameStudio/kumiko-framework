@@ -1,3 +1,6 @@
+// @runtime client
+export const FEATURE_TOGGLES_FEATURE = "feature-toggles" as const;
+
 // Fully-qualified event name for feature-toggle changes. Kept as a constant
 // so write-handler + tests reference one source.
 export const FEATURE_TOGGLE_SET_EVENT_NAME = "feature-toggles:event:toggle-set";
@@ -18,3 +21,14 @@ export const FeatureToggleErrors = {
   // Prevents typos from silently piling up orphan rows.
   unknownFeature: "unknown_feature",
 } as const;
+
+export const FeatureToggleHandlers = {
+  set: "feature-toggles:write:set",
+} as const;
+
+export const FeatureToggleQueries = {
+  list: "feature-toggles:query:list",
+  registered: "feature-toggles:query:registered",
+} as const;
+
+export const TOGGLE_ADMIN_SCREEN_ID = "toggle-admin" as const;

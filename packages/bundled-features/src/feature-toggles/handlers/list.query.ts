@@ -10,7 +10,7 @@ import { globalFeatureStateTable } from "../global-feature-state-table";
 export const listQuery = defineQueryHandler({
   name: "list",
   schema: z.object({}),
-  access: { roles: ["SystemAdmin", "Admin"] },
+  access: { roles: ["SystemAdmin"] },
   handler: async (_event, ctx) => {
     type Row = {
       featureName: string;

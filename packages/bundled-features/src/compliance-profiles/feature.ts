@@ -1,4 +1,5 @@
-import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { access, defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { COMPLIANCE_PROFILE_SCREEN_ID } from "./constants";
 import { forTenantQuery } from "./handlers/for-tenant.query";
 import { listProfilesQuery } from "./handlers/list-profiles.query";
 import { needsProfileQuery } from "./handlers/needs-profile.query";
@@ -53,6 +54,19 @@ export function createComplianceProfilesFeature(): FeatureDefinition {
       subProcessors: r.queryHandler(subProcessorsQuery),
       needsProfile: r.queryHandler(needsProfileQuery),
     };
+
+    r.screen({
+      id: COMPLIANCE_PROFILE_SCREEN_ID,
+      type: "custom",
+      renderer: { react: { __component: "ComplianceProfileScreen" } },
+      access: { roles: access.admin },
+    });
+    r.nav({
+      id: "profile-picker",
+      label: "compliance-profiles:nav.profilePicker",
+      screen: "compliance-profiles:screen:profile-picker",
+      order: 50,
+    });
 
     return { handlers, queries };
   });

@@ -25,8 +25,8 @@ describe("tenant members screen + handler access alignment", () => {
   test("members UI handlers share access.admin (screen ⊆ handler)", () => {
     const tenant = createTenantFeature();
     const adminRoles = [...access.admin];
-    expect(rolesOf(tenant.queryHandlers.members?.access)).toEqual(adminRoles);
-    expect(rolesOf(tenant.queryHandlers.invitations?.access)).toEqual(adminRoles);
+    expect(rolesOf(tenant.queryHandlers["members"]?.access)).toEqual(adminRoles);
+    expect(rolesOf(tenant.queryHandlers["invitations"]?.access)).toEqual(adminRoles);
     expect(rolesOf(tenant.writeHandlers["cancel-invitation"]?.access)).toEqual(adminRoles);
     // invite-create lives on auth feature — checked in tenant-security.integration.test.ts
     void AuthHandlers;
@@ -36,7 +36,7 @@ describe("tenant members screen + handler access alignment", () => {
 
   test("updateMemberRoles stays SystemAdmin/system-only (not on members screen)", () => {
     const tenant = createTenantFeature();
-    expect(rolesOf(tenant.writeHandlers.updateMemberRoles?.access)).toEqual([
+    expect(rolesOf(tenant.writeHandlers["updateMemberRoles"]?.access)).toEqual([
       "system",
       "SystemAdmin",
     ]);

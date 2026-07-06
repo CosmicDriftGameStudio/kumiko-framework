@@ -14,7 +14,7 @@ import { globalFeatureStateTable } from "../global-feature-state-table";
 export const registeredQuery = defineQueryHandler({
   name: "registered",
   schema: z.object({}),
-  access: { roles: ["SystemAdmin", "Admin"] },
+  access: { roles: ["SystemAdmin"] },
   handler: async (_event, ctx) => {
     type OverrideRow = { featureName: string; enabled: boolean };
     const overrideRows = await selectMany<OverrideRow>(ctx.db.raw, globalFeatureStateTable);

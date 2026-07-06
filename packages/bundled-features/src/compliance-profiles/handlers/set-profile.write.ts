@@ -1,4 +1,3 @@
-import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   complianceProfileOverrideSchema,
@@ -6,6 +5,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/compliance";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
+  access,
   crossTenantOverrideDenied,
   defineWriteHandler,
   type TenantId,
@@ -58,7 +58,7 @@ export const setProfileWrite = defineWriteHandler({
   }),
   // SystemAdmin kann Profile fuer Customer-Setup setzen (Plattform-
   // Operator-Pfad). TenantAdmin nur fuer eigenen Tenant.
-  access: { roles: [ROLES.TenantAdmin, ROLES.SystemAdmin] },
+  access: { roles: access.admin },
   handler: async (event, ctx) => {
     const tenantOverride = event.payload.tenantIdOverride;
     const overrideDenied = crossTenantOverrideDenied(

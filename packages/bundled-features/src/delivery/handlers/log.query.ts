@@ -1,5 +1,5 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { decryptStoredPii } from "../../shared";
 import { deliveryAttemptsTable } from "../tables";
@@ -9,7 +9,7 @@ export const logQuery = defineQueryHandler({
   schema: z.object({
     limit: z.number().min(1).max(100).default(50),
   }),
-  access: { roles: ["Admin", "SystemAdmin"] },
+  access: { roles: access.admin },
   handler: async (query, ctx) => {
     const rows = await selectMany(ctx.db, deliveryAttemptsTable, undefined, {
       orderBy: { col: "createdAt", direction: "desc" },

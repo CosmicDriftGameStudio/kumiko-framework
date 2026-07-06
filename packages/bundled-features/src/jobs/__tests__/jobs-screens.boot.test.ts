@@ -28,9 +28,9 @@ describe("jobs screens + handler access alignment", () => {
   test("jobs queries + operator writes share SystemAdmin access", () => {
     const jobs = createJobsFeature();
     const roles = [...SYSTEM_ADMIN_ROLES];
-    expect(rolesOf(jobs.queryHandlers.list?.access)).toEqual(roles);
-    expect(rolesOf(jobs.queryHandlers.details?.access)).toEqual(roles);
-    expect(rolesOf(jobs.writeHandlers.trigger?.access)).toEqual(roles);
-    expect(rolesOf(jobs.writeHandlers.retry?.access)).toEqual(roles);
+    expect(rolesOf(jobs.queryHandlers["list"]?.access)).toEqual(roles);
+    expect(rolesOf(jobs.queryHandlers["details"]?.access)).toEqual(roles);
+    expect(rolesOf(jobs.writeHandlers["trigger"]?.access)).toEqual(roles);
+    expect(rolesOf(jobs.writeHandlers["retry"]?.access)).toEqual(roles);
   });
 });

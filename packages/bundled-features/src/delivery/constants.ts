@@ -1,3 +1,4 @@
+// @runtime client
 import type { NotifyPriority } from "@cosmicdrift/kumiko-framework/engine";
 import { QnTypes, qn } from "@cosmicdrift/kumiko-framework/engine";
 
@@ -23,6 +24,8 @@ export const DeliveryQueries = {
   log: "delivery:query:log",
   preferences: "delivery:query:preferences",
 } as const;
+
+export const DELIVERY_LOG_SCREEN_ID = "delivery-log" as const;
 
 // Error codes
 export const DeliveryErrors = {

@@ -1,5 +1,5 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { FEATURE_TOGGLE_SET_EVENT_NAME } from "./constants";
+import { FEATURE_TOGGLE_SET_EVENT_NAME, TOGGLE_ADMIN_SCREEN_ID } from "./constants";
 import { featureToggleSetSchema } from "./events";
 import { listQuery } from "./handlers/list.query";
 import { registeredQuery } from "./handlers/registered.query";
@@ -61,6 +61,19 @@ export function createFeatureTogglesFeature(
       list: r.queryHandler(listQuery),
       registered: r.queryHandler(registeredQuery),
     };
+
+    r.screen({
+      id: TOGGLE_ADMIN_SCREEN_ID,
+      type: "custom",
+      renderer: { react: { __component: "ToggleAdminScreen" } },
+      access: { roles: ["SystemAdmin"] },
+    });
+    r.nav({
+      id: "toggle-admin",
+      label: "feature-toggles:nav.toggleAdmin",
+      screen: "feature-toggles:screen:toggle-admin",
+      order: 20,
+    });
 
     // toggle-cache-sync — multi-instance snapshot propagation. Every
     // API/worker instance runs its own dispatcher cursor on this MSP

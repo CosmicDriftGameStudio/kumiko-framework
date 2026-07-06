@@ -23,7 +23,7 @@ describe("audit log screen + handler access alignment", () => {
 
   test("audit:query:list uses access.admin (screen ⊆ handler)", () => {
     const audit = createAuditFeature();
-    expect(rolesOf(audit.queryHandlers.list?.access)).toEqual([...access.admin]);
+    expect(rolesOf(audit.queryHandlers["list"]?.access)).toEqual([...access.admin]);
     void AuditQueries;
   });
 });
