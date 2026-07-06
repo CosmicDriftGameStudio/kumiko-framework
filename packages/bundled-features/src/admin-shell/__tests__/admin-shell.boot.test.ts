@@ -94,4 +94,18 @@ describe("admin-shell boot + workspace composition", () => {
       "jobs:nav:job-runs",
     ]);
   });
+
+  test("registerWorkspaces:false registers overview screens only", () => {
+    const shellOnly = createAdminShellFeature({ registerWorkspaces: false, includeTierAdmin: false });
+    const registry = createRegistry([
+      createConfigFeature(),
+      createTenantFeature(),
+      createAuditFeature(),
+      createJobsFeature(),
+      shellOnly,
+    ]);
+    expect(registry.getWorkspace(`${ADMIN_SHELL_FEATURE}:workspace:${DEFAULT_TENANT_WORKSPACE_ID}`)).toBeUndefined();
+    expect(registry.getScreen("admin-shell:screen:tenant-overview")?.id).toBeDefined();
+    expect(registry.getScreen("admin-shell:screen:platform-overview")?.id).toBeDefined();
+  });
 });

@@ -23,6 +23,8 @@ export type CreateAdminShellOptions = {
   };
   /** Platform nav → tier-engine:screen:tier-admin. Requires tier-engine mounted. Default true. */
   readonly includeTierAdmin?: boolean;
+  /** When false, only overview screens + nav are registered — app owns r.workspace(). Default true. */
+  readonly registerWorkspaces?: boolean;
 };
 
 export function createAdminShellFeature(
@@ -31,6 +33,7 @@ export function createAdminShellFeature(
   const tenantWsId = options.workspaceIds?.tenant ?? DEFAULT_TENANT_WORKSPACE_ID;
   const platformWsId = options.workspaceIds?.platform ?? DEFAULT_PLATFORM_WORKSPACE_ID;
   const includeTierAdmin = options.includeTierAdmin ?? true;
+  const registerWorkspaces = options.registerWorkspaces ?? true;
 
   return defineFeature(ADMIN_SHELL_FEATURE, (r) => {
     r.describe(
@@ -102,23 +105,25 @@ export function createAdminShellFeature(
       });
     }
 
-    r.workspace({
-      id: tenantWsId,
-      label: "admin-shell:workspace.tenant",
-      icon: "users",
-      order: 1,
-      access: { roles: access.admin },
-      nav: [...tenantNav],
-      default: true,
-    });
+    if (registerWorkspaces) {
+      r.workspace({
+        id: tenantWsId,
+        label: "admin-shell:workspace.tenant",
+        icon: "users",
+        order: 1,
+        access: { roles: access.admin },
+        nav: [...tenantNav],
+        default: true,
+      });
 
-    r.workspace({
-      id: platformWsId,
-      label: "admin-shell:workspace.platform",
-      icon: "shield",
-      order: 2,
-      access: { roles: access.systemAdmin },
-      nav: platformNav,
-    });
+      r.workspace({
+        id: platformWsId,
+        label: "admin-shell:workspace.platform",
+        icon: "shield",
+        order: 2,
+        access: { roles: access.systemAdmin },
+        nav: platformNav,
+      });
+    }
   });
 }
