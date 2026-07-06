@@ -59,6 +59,14 @@ const FEATURE_RUNNER: Runner = {
   required: true,
 };
 
+// Apex recipe: hero-app + landing + lightbox PNGs (setContent, no Postgres).
+const APEX_LANDING_RUNNER: Runner = {
+  id: "apex-landing",
+  cwd: resolve(SAMPLES_ROOT, "recipes/apex-landing"),
+  command: ["bun", "run", "screenshot"],
+  out: resolve(SAMPLES_ROOT, "recipes/apex-landing/screenshots"),
+};
+
 // Sample-Apps rendern ihre eigene UI nach OUT_DIR/apps/<app>/.
 const APP_RUNNERS: readonly Runner[] = [
   {
@@ -78,6 +86,12 @@ const APP_RUNNERS: readonly Runner[] = [
     cwd: resolve(SAMPLES_ROOT, "apps/workspaces"),
     command: SCREENSHOTS_CMD,
     out: `${APPS_OUT}/workspaces`,
+  },
+  {
+    id: "showcase",
+    cwd: resolve(SAMPLES_ROOT, "apps/showcase"),
+    command: ["bun", "run", "screenshot"],
+    out: `${APPS_OUT}/showcase`,
   },
 ];
 
@@ -143,10 +157,25 @@ async function runAllScreenshots(): Promise<void> {
     return;
   }
   await runRunner(FEATURE_RUNNER);
+  await runRunner(APEX_LANDING_RUNNER);
+  syncLightboxAssets();
   for (const app of APP_RUNNERS) await runRunner(app);
   if (!dirHasPng(`${APPS_OUT}/marketing-demo`)) {
     copyMarketingFallback();
   }
+}
+
+function syncLightboxAssets(): void {
+  const src = resolve(SAMPLES_ROOT, "recipes/apex-landing/screenshots/hero-app.png");
+  if (!existsSync(src)) {
+    throw new Error(
+      "hero-app.png missing — apex-landing screenshot runner failed or was skipped",
+    );
+  }
+  const dest = resolve(SAMPLES_ROOT, "apps/showcase/public/screenshots/hero-app.png");
+  mkdirSync(dirname(dest), { recursive: true });
+  copyFileSync(src, dest);
+  console.log(`synced lightbox asset → ${dest}`);
 }
 
 function listPngs(dir: string, prefix = ""): Array<{ rel: string; label: string }> {
