@@ -180,6 +180,21 @@
         "tailwindcss": "^4.3.0",
       },
     },
+    "samples/apps/admin-console": {
+      "name": "@cosmicdrift/kumiko-sample-admin-console",
+      "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-dev-server": "workspace:*",
+        "@cosmicdrift/kumiko-dispatcher-live": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+        "@cosmicdrift/kumiko-headless": "workspace:*",
+        "@cosmicdrift/kumiko-renderer": "workspace:*",
+        "@cosmicdrift/kumiko-renderer-web": "workspace:*",
+        "lucide-react": "^1.14.0",
+        "react": "^19.2.6",
+        "react-dom": "^19.2.6",
+      },
+    },
     "samples/apps/cap-billing-demo": {
       "name": "@cosmicdrift/kumiko-sample-cap-billing-demo",
       "dependencies": {
@@ -738,6 +753,8 @@
     "@cosmicdrift/kumiko-renderer-web": ["@cosmicdrift/kumiko-renderer-web@workspace:packages/renderer-web"],
 
     "@cosmicdrift/kumiko-sample-access-control": ["@cosmicdrift/kumiko-sample-access-control@workspace:samples/recipes/access-control"],
+
+    "@cosmicdrift/kumiko-sample-admin-console": ["@cosmicdrift/kumiko-sample-admin-console@workspace:samples/apps/admin-console"],
 
     "@cosmicdrift/kumiko-sample-anonymous-access": ["@cosmicdrift/kumiko-sample-anonymous-access@workspace:samples/recipes/anonymous-access"],
 
