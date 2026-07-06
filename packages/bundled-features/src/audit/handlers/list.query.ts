@@ -12,7 +12,7 @@
 // can't surface PII that the entity definition marked as sensitive.
 
 import { selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/bun-db";
-import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { z } from "zod";
 
@@ -35,7 +35,7 @@ export const listQuery = defineQueryHandler({
       message: "`from` must be less than or equal to `to`",
       path: ["from"],
     }),
-  access: { roles: ["Admin", "SystemAdmin"] },
+  access: { roles: access.admin },
   handler: async (query, ctx) => {
     const p = query.payload;
     const where: WhereObject = { tenantId: query.user.tenantId };

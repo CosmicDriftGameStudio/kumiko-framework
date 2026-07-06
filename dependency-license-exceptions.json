@@ -90,6 +90,14 @@
       "expires": "2027-05-12"
     },
     {
+      "package": "khroma",
+      "version": "*",
+      "license": "MIT",
+      "reason": "Transitive dep (chroma-js color utils). npm metadata reports license=null; package LICENSE file is MIT.",
+      "reviewedBy": "Marc, 2026-07-06",
+      "expires": "2027-07-06"
+    },
+    {
       "package": "zod-to-ts",
       "version": "*",
       "license": "MIT",

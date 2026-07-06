@@ -13,6 +13,7 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
+import { FormScreenShell } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useEffect, useState } from "react";
 import { TierEngineHandlers, TierEngineQueries } from "../constants";
 
@@ -36,7 +37,7 @@ type Status =
 
 export function TierAdminScreen(): ReactNode {
   const t = useTranslation();
-  const { Section, Field, Input, Button, Banner, Heading } = usePrimitives();
+  const { Section, Field, Input, Button, Banner, Heading, Text } = usePrimitives();
   const dispatcher = useDispatcher();
 
   // ponytail: nur die erste Seite (default-limit, nextCursor ignoriert) —
@@ -91,9 +92,9 @@ export function TierAdminScreen(): ReactNode {
   const canSubmit = tenantId !== "" && tier !== "" && !submitting;
 
   return (
-    <div className="p-6 flex flex-col gap-6 max-w-xl" data-testid="tier-admin-screen">
+    <FormScreenShell testId="tier-admin-screen" className="flex max-w-xl flex-col gap-6">
       <Heading variant="page">{t("tier-admin.title")}</Heading>
-      <p className="text-sm text-muted-foreground">{t("tier-admin.explainer")}</p>
+      <Text variant="small">{t("tier-admin.explainer")}</Text>
 
       {tenantsQuery.error !== null && (
         <Banner variant="error" testId="tier-admin-load-error">
@@ -119,9 +120,9 @@ export function TierAdminScreen(): ReactNode {
         </Field>
 
         {tenantId !== "" && (
-          <p className="text-sm text-muted-foreground" data-testid="tier-admin-current">
+          <Text variant="small" testId="tier-admin-current">
             {t("tier-admin.current.label")}: {currentTier ?? t("tier-admin.current.none")}
-          </p>
+          </Text>
         )}
 
         <Field id="tier-admin-tier" label={t("tier-admin.tier.label")} required>
@@ -156,6 +157,6 @@ export function TierAdminScreen(): ReactNode {
           {t("tier-admin.submit")}
         </Button>
       </Section>
-    </div>
+    </FormScreenShell>
   );
 }

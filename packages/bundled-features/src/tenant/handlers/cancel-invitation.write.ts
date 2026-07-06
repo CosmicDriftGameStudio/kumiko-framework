@@ -12,7 +12,7 @@
 
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
-import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 // kumiko-lint-ignore cross-feature-import cancel needs invite-token-store für Redis-cleanup
@@ -37,7 +37,7 @@ const executor = createEventStoreExecutor(tenantInvitationsTable, tenantInvitati
 export const cancelInvitationWrite = defineWriteHandler({
   name: "cancel-invitation",
   schema: CancelInvitationSchema,
-  access: { roles: ["Admin"] },
+  access: { roles: access.admin },
   handler: async (event, ctx) => {
     const invitation = await fetchOne(ctx.db.raw, tenantInvitationsTable, {
       id: event.payload.invitationId,

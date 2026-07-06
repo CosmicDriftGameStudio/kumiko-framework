@@ -12,6 +12,7 @@
 // (subscription-stripe, channel-email, …). Those stubs are only for
 // boot-validation — no real transport/provider call happens.
 
+import { createAdminShellFeature } from "@cosmicdrift/kumiko-bundled-features/admin-shell";
 import { createAuditFeature } from "@cosmicdrift/kumiko-bundled-features/audit";
 import { billingFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import { capCounterFeature } from "@cosmicdrift/kumiko-bundled-features/cap-counter";
@@ -184,6 +185,9 @@ export const APP_FEATURES = [
   // operational
   createRateLimitingFeature(),
   createAuditFeature(),
+  // admin-shell: requires tenant (auto-mounted) + audit + jobs + tier-engine,
+  // all mounted above.
+  createAdminShellFeature(),
 
   // app-author-grade
   customFieldsFeature,

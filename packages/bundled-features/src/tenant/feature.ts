@@ -8,6 +8,7 @@ import {
   defineFeature,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { MEMBERS_SCREEN_ID } from "./constants";
 import { activeTenantIdsQuery } from "./handlers/active-tenant-ids.query";
 import { addMemberWrite } from "./handlers/add-member.write";
 import { cancelInvitationWrite } from "./handlers/cancel-invitation.write";
@@ -134,6 +135,21 @@ export function createTenantFeature(): FeatureDefinition {
     );
     r.screen(tenantListScreen);
     r.screen(tenantEditScreen);
+    // Tenant-admin team UI: members list + invite/cancel (no role-edit — updateMemberRoles
+    // stays SystemAdmin-only). Screen access matches handler access.admin.
+    r.screen({
+      id: MEMBERS_SCREEN_ID,
+      type: "custom",
+      renderer: { react: { __component: "MembersScreen" } },
+      access: { roles: access.admin },
+    });
+    r.nav({
+      id: "members",
+      label: "tenant:nav.members",
+      icon: "users",
+      screen: "tenant:screen:members",
+      order: 20,
+    });
 
     return { handlers, queries };
   });

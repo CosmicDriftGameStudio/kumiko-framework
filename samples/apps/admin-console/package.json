@@ -1,0 +1,21 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-admin-console",
+  "description": "Bundled admin-shell sample — tenant vs platform workspaces with owner-feature screens.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "PORT=4177 bun --env-file=../../../.env run kumiko-dev src/app/server.ts"
+  },
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-dev-server": "workspace:*",
+    "@cosmicdrift/kumiko-dispatcher-live": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*",
+    "@cosmicdrift/kumiko-headless": "workspace:*",
+    "@cosmicdrift/kumiko-renderer": "workspace:*",
+    "@cosmicdrift/kumiko-renderer-web": "workspace:*",
+    "lucide-react": "^1.14.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
+  }
+}

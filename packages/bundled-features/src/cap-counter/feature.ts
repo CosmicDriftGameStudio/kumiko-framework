@@ -47,7 +47,11 @@
 // vom Framework-Default (Base-Column tenantId).
 
 import { defineEntityListHandler, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { CAP_COUNTER_FEATURE, ROLLING_INCREMENTED_EVENT_SHORT } from "./constants";
+import {
+  CAP_COUNTER_FEATURE,
+  CAP_COUNTER_LIST_SCREEN_ID,
+  ROLLING_INCREMENTED_EVENT_SHORT,
+} from "./constants";
 import { capCounterEntity } from "./entity";
 import { getCounterQuery } from "./handlers/get-counter.query";
 import { incrementCapHandler } from "./handlers/increment.write";
@@ -91,4 +95,19 @@ export const capCounterFeature = defineFeature(CAP_COUNTER_FEATURE, (r) => {
   // über aggregate-id).
   r.queryHandler(defineEntityListHandler("cap-counter", capCounterEntity, sysadminAccess));
   r.queryHandler(getCounterQuery);
+
+  r.screen({
+    id: CAP_COUNTER_LIST_SCREEN_ID,
+    type: "entityList",
+    entity: "cap-counter",
+    columns: ["capName", "value", "periodStart", "lastSoftWarnedAt"],
+    searchable: false,
+    access: { roles: ["SystemAdmin"] },
+  });
+  r.nav({
+    id: "cap-list",
+    label: "Caps",
+    screen: "cap-counter:screen:cap-list",
+    order: 60,
+  });
 });

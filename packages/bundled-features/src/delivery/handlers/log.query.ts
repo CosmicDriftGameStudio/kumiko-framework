@@ -1,5 +1,5 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { decryptStoredPii } from "../../shared";
 import { deliveryAttemptsTable } from "../tables";
@@ -9,12 +9,20 @@ export const logQuery = defineQueryHandler({
   schema: z.object({
     limit: z.number().min(1).max(100).default(50),
   }),
-  access: { roles: ["Admin", "SystemAdmin"] },
+  access: { roles: access.admin },
   handler: async (query, ctx) => {
-    const rows = await selectMany(ctx.db, deliveryAttemptsTable, undefined, {
-      orderBy: { col: "createdAt", direction: "desc" },
-      limit: query.payload.limit,
-    });
+    // delivery runs in system-scope (feature.ts r.systemScope()), so ctx.db is
+    // NOT auto-tenant-filtered — filter explicitly or a tenant admin reads every
+    // tenant's attempts (with decrypted recipient PII below).
+    const rows = await selectMany(
+      ctx.db,
+      deliveryAttemptsTable,
+      { tenantId: query.user.tenantId },
+      {
+        orderBy: { col: "createdAt", direction: "desc" },
+        limit: query.payload.limit,
+      },
+    );
     // recipientAddress is stored encrypted under the recipient's DEK (#799)
     // — decrypt for the admin log view; forgotten subjects show [[erased]].
     return {

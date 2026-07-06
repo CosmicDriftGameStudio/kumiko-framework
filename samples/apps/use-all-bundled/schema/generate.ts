@@ -212,6 +212,13 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "@cosmicdrift/kumiko-bundled-features/audit",
     factory: "createAuditFeature",
   },
+  // admin-shell: workspaces + nav only, kein r.entity → generate.ts skipt
+  // silent. Listed für schema-check ↔ mounted-set Konsistenz.
+  "admin-shell": {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-bundled-features/admin-shell",
+    factory: "createAdminShellFeature",
+  },
   "crypto-shredding": {
     kind: "factory",
     path: "@cosmicdrift/kumiko-bundled-features/crypto-shredding",

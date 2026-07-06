@@ -1,6 +1,8 @@
 // Feature name
 export const CAP_COUNTER_FEATURE = "cap-counter" as const;
 
+export const CAP_COUNTER_LIST_SCREEN_ID = "cap-list" as const;
+
 // Aggregate types — calendar-period-Counter benutzt CRUD-Events der
 // projection-row. Rolling-Window-Counter benutzt einen eigenen
 // aggregate-type mit custom increment-events (no projection — der

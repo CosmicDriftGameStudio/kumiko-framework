@@ -1,7 +1,11 @@
 import { upsertByPk } from "@cosmicdrift/kumiko-framework/bun-db";
-import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  access,
+  defineFeature,
+  type FeatureDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
 import type { z } from "zod";
-import { DELIVERY_ATTEMPT_EVENT, DeliveryJobNames } from "./constants";
+import { DELIVERY_ATTEMPT_EVENT, DELIVERY_LOG_SCREEN_ID, DeliveryJobNames } from "./constants";
 import { deliveryAttemptSchema } from "./events";
 import { logQuery } from "./handlers/log.query";
 import { preferencesQuery } from "./handlers/preferences.query";
@@ -116,6 +120,19 @@ export function createDeliveryFeature(): FeatureDefinition {
       log: r.queryHandler(logQuery),
       preferences: r.queryHandler(preferencesQuery),
     };
+
+    r.screen({
+      id: DELIVERY_LOG_SCREEN_ID,
+      type: "custom",
+      renderer: { react: { __component: "DeliveryLogScreen" } },
+      access: { roles: access.admin },
+    });
+    r.nav({
+      id: "delivery-log",
+      label: "delivery:nav.deliveryLog",
+      screen: "delivery:screen:delivery-log",
+      order: 40,
+    });
 
     return { handlers, queries };
   });

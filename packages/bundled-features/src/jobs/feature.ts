@@ -5,6 +5,7 @@ import {
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { z } from "zod";
+import { JOB_RUN_DETAIL_SCREEN_ID, JOB_RUNS_SCREEN_ID } from "./constants";
 // Event-payload schemas live in a sibling module so the logger can import
 // them without the cycle jobs-feature ↔ job-run-logger. The logger parses
 // payloads against these schemas before low-level append() — that's what
@@ -18,6 +19,7 @@ import {
 } from "./handlers/projection-rebuild.job";
 import { retryWrite } from "./handlers/retry.write";
 import { triggerWrite } from "./handlers/trigger.write";
+import { JOBS_I18N } from "./i18n";
 import {
   JOB_RUN_COMPLETED_EVENT,
   JOB_RUN_FAILED_EVENT,
@@ -181,6 +183,30 @@ export function createJobsFeature(): FeatureDefinition {
       list: r.queryHandler(listQuery),
       detail: r.queryHandler(detailQuery),
     };
+
+    const systemAdminAccess = { roles: ["SystemAdmin"] as const };
+
+    r.translations({ keys: JOBS_I18N });
+
+    r.screen({
+      id: JOB_RUNS_SCREEN_ID,
+      type: "custom",
+      renderer: { react: { __component: "JobRunsScreen" } },
+      access: systemAdminAccess,
+    });
+    r.screen({
+      id: JOB_RUN_DETAIL_SCREEN_ID,
+      type: "custom",
+      renderer: { react: { __component: "JobRunDetailScreen" } },
+      access: systemAdminAccess,
+    });
+    r.nav({
+      id: "job-runs",
+      label: "jobs:nav.jobRuns",
+      icon: "list",
+      screen: "jobs:screen:job-runs",
+      order: 10,
+    });
 
     return { handlers, queries };
   });
