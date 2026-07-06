@@ -59,10 +59,20 @@ const HERO = `
   .hero-meta { margin-top: 1.5rem; font-size: 0.875rem; color: var(--fg-subtle); }
   .hero-meta strong { color: var(--fg-muted); font-weight: 600; }
   .shot-frame { border-radius: 0.75rem; border: 1px solid var(--border); background: var(--bg-card);
-    box-shadow: var(--shadow); overflow: hidden; }
+    box-shadow: var(--shadow); overflow: hidden; cursor: zoom-in; }
   .shot-bar { display: flex; gap: 0.4rem; padding: 0.6rem 0.85rem; border-bottom: 1px solid var(--border); background: var(--bg-muted); }
   .shot-bar span { width: 0.65rem; height: 0.65rem; border-radius: 50%; background: var(--border); }
   .shot-frame img { display: block; width: 100%; height: auto; }
+  .apex-lightbox { border: none; padding: 0; margin: auto; max-width: 95vw; max-height: 90vh;
+    background: transparent; overflow: visible; }
+  .apex-lightbox::backdrop { background: rgba(15, 23, 42, 0.72); }
+  .apex-lightbox__img { display: block; max-width: 90vw; max-height: 85vh; width: auto; height: auto;
+    border-radius: 0.75rem; border: 1px solid var(--border); box-shadow: var(--shadow); }
+  .apex-lightbox__close { position: fixed; top: 1rem; right: 1rem; z-index: 1; width: 2.5rem; height: 2.5rem;
+    border: 1px solid var(--border); border-radius: 0.5rem; background: var(--bg-card); color: var(--fg);
+    font-size: 1.5rem; line-height: 1; cursor: pointer; }
+  .apex-lightbox__close:hover { background: var(--bg-muted); }
+  .apex-dark .apex-lightbox__close { background: var(--on-dark); color: var(--primary); border-color: var(--on-dark-border); }
 `;
 
 const FEATURES = `

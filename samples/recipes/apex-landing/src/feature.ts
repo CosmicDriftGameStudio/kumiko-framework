@@ -18,6 +18,7 @@ import {
   type ApexPricingTier,
   renderApexPage,
 } from "@cosmicdrift/kumiko-headless/apex";
+import { HERO_SCREENSHOT } from "./constants";
 
 // --- Inputs: shapes the surrounding features hand you -----------------------
 
@@ -44,6 +45,8 @@ export type LandingInput = {
   readonly blocks?: ContentBlocks;
   /** From `tier-engine`. */
   readonly plans: readonly PlanInfo[];
+  /** Override hero `.shot-frame` src — screenshot runner passes a data: URL. */
+  readonly heroScreenshot?: typeof HERO_SCREENSHOT;
 };
 
 // --- The two feature seams --------------------------------------------------
@@ -170,6 +173,7 @@ export function buildLandingPage(input: LandingInput): ApexPage {
           { label: "See pricing", href: "#pricing", variant: "secondary" },
         ],
         metaHtml: "<strong>Free forever plan.</strong> No credit card required.",
+        screenshot: input.heroScreenshot ?? HERO_SCREENSHOT,
       },
       {
         kind: "feature-grid",

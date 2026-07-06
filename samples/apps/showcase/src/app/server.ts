@@ -8,6 +8,7 @@
 import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
 import { demosFeature } from "../features/demos";
 import { itemsFeature } from "../features/items";
+import { mountPublicScreenshots } from "./mount-public-screenshots";
 import { seedShowcaseItems } from "./seed-items";
 
 await runDevApp({
@@ -16,6 +17,7 @@ await runDevApp({
   port: Number.parseInt(process.env["PORT"] ?? "4175", 10),
   clientEntry: "./src/app/client.tsx",
   htmlPath: "./public/index.html",
+  extraRoutes: (app) => mountPublicScreenshots(app),
   // Watch-Paths inklusive Glob: ein Edit in einem beliebigen Workspace-
   // Package triggert Hot-Reload. Glob expanded zur Boot-Zeit zu allen
   // existierenden packages/*/src — bei neuen Packages muss man nichts

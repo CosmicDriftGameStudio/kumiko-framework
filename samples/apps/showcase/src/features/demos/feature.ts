@@ -14,63 +14,63 @@
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 export const demosFeature = defineFeature("showcase-demos", (r) => {
-  r.screen({ id: "demo-layout", type: "custom", renderer: {} });
-  r.screen({ id: "demo-buttons", type: "custom", renderer: {} });
-  r.screen({ id: "demo-inputs", type: "custom", renderer: {} });
-  r.screen({ id: "demo-banner", type: "custom", renderer: {} });
-  r.screen({ id: "demo-dialog", type: "custom", renderer: {} });
-  r.screen({ id: "demo-toast", type: "custom", renderer: {} });
-  r.screen({ id: "demo-text", type: "custom", renderer: {} });
+  r.screen({ id: "demo-layout", type: "custom", renderer: { react: { __component: "demo-layout" } } });
+  r.screen({ id: "demo-buttons", type: "custom", renderer: { react: { __component: "demo-buttons" } } });
+  r.screen({ id: "demo-inputs", type: "custom", renderer: { react: { __component: "demo-inputs" } } });
+  r.screen({ id: "demo-banner", type: "custom", renderer: { react: { __component: "demo-banner" } } });
+  r.screen({ id: "demo-dialog", type: "custom", renderer: { react: { __component: "demo-dialog" } } });
+  r.screen({ id: "demo-toast", type: "custom", renderer: { react: { __component: "demo-toast" } } });
+  r.screen({ id: "demo-text", type: "custom", renderer: { react: { __component: "demo-text" } } });
 
   // Section "Primitives" — clickbar-collapsible weil parent ohne screen.
   r.nav({ id: "primitives", label: "Primitives", order: 10 });
   r.nav({
     id: "demo-layout",
     label: "Layout",
-    parent: "primitives",
-    screen: "demo-layout",
+    parent: "showcase-demos:nav:primitives",
+    screen: "showcase-demos:screen:demo-layout",
     order: 5,
   });
   r.nav({
     id: "demo-buttons",
     label: "Buttons",
-    parent: "primitives",
-    screen: "demo-buttons",
+    parent: "showcase-demos:nav:primitives",
+    screen: "showcase-demos:screen:demo-buttons",
     order: 10,
   });
   r.nav({
     id: "demo-inputs",
     label: "Inputs",
-    parent: "primitives",
-    screen: "demo-inputs",
+    parent: "showcase-demos:nav:primitives",
+    screen: "showcase-demos:screen:demo-inputs",
     order: 20,
   });
   r.nav({
     id: "demo-banner",
     label: "Banner",
-    parent: "primitives",
-    screen: "demo-banner",
+    parent: "showcase-demos:nav:primitives",
+    screen: "showcase-demos:screen:demo-banner",
     order: 30,
   });
   r.nav({
     id: "demo-dialog",
-    label: "Dialog",
-    parent: "primitives",
-    screen: "demo-dialog",
+    label: "Dialog & Lightbox",
+    parent: "showcase-demos:nav:primitives",
+    screen: "showcase-demos:screen:demo-dialog",
     order: 35,
   });
   r.nav({
     id: "demo-toast",
     label: "Toast",
-    parent: "primitives",
-    screen: "demo-toast",
+    parent: "showcase-demos:nav:primitives",
+    screen: "showcase-demos:screen:demo-toast",
     order: 38,
   });
   r.nav({
     id: "demo-text",
     label: "Text",
-    parent: "primitives",
-    screen: "demo-text",
+    parent: "showcase-demos:nav:primitives",
+    screen: "showcase-demos:screen:demo-text",
     order: 40,
   });
 });

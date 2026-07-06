@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "PORT=4175 bun --env-file=../../../.env run kumiko-dev src/app/server.ts",
-    "build": "bun kumiko-build"
+    "build": "bun kumiko-build",
+    "screenshot": "bun x playwright test e2e/screenshots.spec.ts --config=playwright.config.ts"
   },
   "dependencies": {
     "@cosmicdrift/kumiko-bundled-features": "workspace:*",

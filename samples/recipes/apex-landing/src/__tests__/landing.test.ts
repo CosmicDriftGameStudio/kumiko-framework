@@ -53,3 +53,12 @@ describe("apex-landing: tier-engine seam", () => {
     expect(pro?.badge).toBe("Popular");
   });
 });
+
+describe("apex-landing: hero screenshot + lightbox", () => {
+  test("hero includes shot-frame and apex lightbox chrome", () => {
+    const html = renderLanding({ plans: SAMPLE_PLANS });
+    expect(html).toContain('class="shot-frame"');
+    expect(html).toContain("/screenshots/hero-app.png");
+    expect(html).toContain('<dialog id="apex-lightbox"');
+  });
+});
