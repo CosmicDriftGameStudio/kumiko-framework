@@ -1,7 +1,13 @@
 {
   "source": "samples/apps/use-all-bundled/scripts/gen-sample-index.ts + sample-index.overrides.json",
-  "featureCount": 32,
+  "featureCount": 33,
   "features": {
+    "admin-shell": {
+      "samples": [
+        "apps-admin-console"
+      ],
+      "hasVisualOutput": true
+    },
     "audit": {
       "samples": [
         "apps-admin-console"
