@@ -57,7 +57,7 @@ the `use-all-bundled` sample app for the live picker.
 provider you inject via the app context — there is no built-in geocoder, so v1
 ships nothing that phones home:
 
-```ts
+```ts illustration
 runProdApp({ /* … */, extraContext: { geoTzProvider: myProvider } })
 // or buildServer({ context: { geoTzProvider: myProvider } })
 ```
