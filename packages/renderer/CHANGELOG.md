@@ -1,5 +1,16 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.124.0
+
+### Minor Changes
+
+- 50d7423: renderer: `ModalShell` shared overlay primitive, `LightboxProps` + `DefaultLightbox` for full-size image dialogs, and Apex landing click-to-enlarge via vanilla JS/CSS (no React dependency in static pages).
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.124.0
+- @cosmicdrift/kumiko-headless@0.124.0
+
 ## 0.123.3
 
 ### Patch Changes
