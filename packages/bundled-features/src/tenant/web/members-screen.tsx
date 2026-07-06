@@ -43,7 +43,7 @@ export function MembersScreen({
   inviteRoleOptions = DEFAULT_INVITE_ROLE_OPTIONS,
 }: MembersScreenProps): ReactNode {
   const t = useTranslation();
-  const { Banner, Button, Card, Field, Form, Heading, Input, Text } = usePrimitives();
+  const { Banner, Button, Card, DataTable, Field, Form, Heading, Input, Text } = usePrimitives();
   const dispatcher = useDispatcher();
   const [state, setState] = useState<State>({ kind: "loading" });
   const [inviteEmail, setInviteEmail] = useState("");
@@ -127,24 +127,27 @@ export function MembersScreen({
         slots={{ title: `${t("tenant.members.active")} (${state.members.length})` }}
         options={{ padded: false }}
       >
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b text-left">
-              <th className="p-3">{t("tenant.members.col.userId")}</th>
-              <th className="p-3">{t("tenant.members.col.roles")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {state.members.map((m) => (
-              <tr key={m.id} className="border-b border-muted">
-                <td className="p-3">
-                  <Text variant="code">{m.userId}</Text>
-                </td>
-                <td className="p-3">{m.roles.join(", ")}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <DataTable
+          testId="members-active-table"
+          columns={[
+            {
+              field: "userId",
+              label: t("tenant.members.col.userId"),
+              type: "string",
+              sortable: false,
+            },
+            {
+              field: "roles",
+              label: t("tenant.members.col.roles"),
+              type: "string",
+              sortable: false,
+            },
+          ]}
+          rows={state.members.map((m) => ({
+            id: m.id,
+            values: { userId: m.userId, roles: m.roles.join(", ") },
+          }))}
+        />
       </Card>
 
       <Form
@@ -201,41 +204,47 @@ export function MembersScreen({
         slots={{ title: `${t("tenant.members.pending")} (${state.invitations.length})` }}
         options={{ padded: false }}
       >
-        {state.invitations.length === 0 ? (
-          <div className="p-6">
-            <Text variant="small">{t("tenant.members.pending.empty")}</Text>
-          </div>
-        ) : (
-          <table className="w-full text-sm" data-testid="pending-list">
-            <thead>
-              <tr className="border-b text-left">
-                <th className="p-3">{t("tenant.members.col.email")}</th>
-                <th className="p-3">{t("tenant.members.col.roles")}</th>
-                <th className="p-3">{t("tenant.members.col.expires")}</th>
-                <th className="p-3" />
-              </tr>
-            </thead>
-            <tbody>
-              {state.invitations.map((inv) => (
-                <tr key={inv.id} data-invitation-id={inv.id}>
-                  <td className="p-3">{inv.email}</td>
-                  <td className="p-3">{inv.role}</td>
-                  <td className="p-3">{formatExpiresAt(inv.expiresAt)}</td>
-                  <td className="p-3">
-                    <Button
-                      type="button"
-                      variant="danger"
-                      onClick={() => void onCancel(inv.id)}
-                      testId={`cancel-${inv.email}`}
-                    >
-                      {t("tenant.members.cancel")}
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        <DataTable
+          testId="pending-list"
+          columns={[
+            {
+              field: "email",
+              label: t("tenant.members.col.email"),
+              type: "string",
+              sortable: false,
+            },
+            {
+              field: "role",
+              label: t("tenant.members.col.roles"),
+              type: "string",
+              sortable: false,
+            },
+            {
+              field: "expires",
+              label: t("tenant.members.col.expires"),
+              type: "string",
+              sortable: false,
+            },
+          ]}
+          rows={state.invitations.map((inv) => ({
+            id: inv.id,
+            values: {
+              email: inv.email,
+              role: inv.role,
+              expires: formatExpiresAt(inv.expiresAt),
+            },
+          }))}
+          rowActions={[
+            {
+              id: "cancel",
+              label: t("tenant.members.cancel"),
+              style: "danger",
+              onTrigger: (row) => void onCancel(row.id),
+            },
+          ]}
+          rowActionMode="inline"
+          emptyState={<Text variant="small">{t("tenant.members.pending.empty")}</Text>}
+        />
       </Card>
     </FormScreenShell>
   );

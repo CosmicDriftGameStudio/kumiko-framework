@@ -29,7 +29,7 @@ type State =
 
 export function AuditLogScreen(): ReactNode {
   const t = useTranslation();
-  const { Banner, Button, Card, Heading, Text } = usePrimitives();
+  const { Banner, Button, Card, DataTable, Heading, Text } = usePrimitives();
   const dispatcher = useDispatcher();
   const [state, setState] = useState<State>({ kind: "loading" });
   const [before, setBefore] = useState<string | undefined>(undefined);
@@ -75,37 +75,31 @@ export function AuditLogScreen(): ReactNode {
       <Heading variant="page">{t("audit.log.title")}</Heading>
 
       <Card options={{ padded: false }}>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b text-left">
-              <th className="p-3">{t("audit.log.col.when")}</th>
-              <th className="p-3">{t("audit.log.col.type")}</th>
-              <th className="p-3">{t("audit.log.col.aggregate")}</th>
-              <th className="p-3">{t("audit.log.col.actor")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {state.rows.map((row) => (
-              <tr key={row.id} className="border-b border-muted" data-audit-id={row.id}>
-                <td className="p-3 whitespace-nowrap">{formatWhen(row.createdAt)}</td>
-                <td className="p-3">
-                  <Text variant="code">{row.type}</Text>
-                </td>
-                <td className="p-3">
-                  <Text variant="code">{row.aggregateType}</Text>
-                  <span className="text-muted-foreground"> / </span>
-                  <Text variant="code">{row.aggregateId}</Text>
-                </td>
-                <td className="p-3">
-                  <Text variant="code">{row.createdBy}</Text>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <DataTable
+          testId="audit-log-table"
+          columns={[
+            { field: "when", label: t("audit.log.col.when"), type: "string", sortable: false },
+            { field: "type", label: t("audit.log.col.type"), type: "string", sortable: false },
+            {
+              field: "aggregate",
+              label: t("audit.log.col.aggregate"),
+              type: "string",
+              sortable: false,
+            },
+            { field: "actor", label: t("audit.log.col.actor"), type: "string", sortable: false },
+          ]}
+          rows={state.rows.map((row) => ({
+            id: row.id,
+            values: {
+              when: formatWhen(row.createdAt),
+              type: row.type,
+              aggregate: `${row.aggregateType} / ${row.aggregateId}`,
+              actor: row.createdBy,
+            },
+          }))}
+          emptyState={<Text variant="small">{t("audit.log.empty")}</Text>}
+        />
       </Card>
-
-      {state.rows.length === 0 && <Text variant="small">{t("audit.log.empty")}</Text>}
 
       <div className="flex gap-2">
         {before !== undefined && (

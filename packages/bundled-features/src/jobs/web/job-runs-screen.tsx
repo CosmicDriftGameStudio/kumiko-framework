@@ -33,7 +33,7 @@ const STATUS_FILTER_OPTIONS = [
 
 export function JobRunsScreen(): ReactNode {
   const t = useTranslation();
-  const { Banner, Button, Card, Field, Heading, Input, Text } = usePrimitives();
+  const { Banner, Card, DataTable, Field, Heading, Input, Text } = usePrimitives();
   const dispatcher = useDispatcher();
   const nav = useNav();
   const [state, setState] = useState<State>({ kind: "loading" });
@@ -95,44 +95,46 @@ export function JobRunsScreen(): ReactNode {
       </Field>
 
       <Card options={{ padded: false }}>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b text-left">
-              <th className="p-3">{t("jobs.runs.col.job")}</th>
-              <th className="p-3">{t("jobs.runs.col.status")}</th>
-              <th className="p-3">{t("jobs.runs.col.started")}</th>
-              <th className="p-3">{t("jobs.runs.col.duration")}</th>
-              <th className="p-3" />
-            </tr>
-          </thead>
-          <tbody>
-            {state.rows.map((row) => (
-              <tr key={row.id} className="border-b border-muted" data-run-id={row.id}>
-                <td className="p-3">
-                  <Text variant="code">{row.jobName}</Text>
-                </td>
-                <td className="p-3">{row.status}</td>
-                <td className="p-3">{formatWhen(row.startedAt)}</td>
-                <td className="p-3">{row.duration ?? "—"}</td>
-                <td className="p-3">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    testId={`job-run-open-${row.id}`}
-                    onClick={() =>
-                      nav.navigate({ screenId: JOB_RUN_DETAIL_SCREEN_ID, entityId: row.id })
-                    }
-                  >
-                    {t("jobs.runs.open")}
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <DataTable
+          testId="job-runs-table"
+          columns={[
+            { field: "job", label: t("jobs.runs.col.job"), type: "string", sortable: false },
+            { field: "status", label: t("jobs.runs.col.status"), type: "string", sortable: false },
+            {
+              field: "started",
+              label: t("jobs.runs.col.started"),
+              type: "string",
+              sortable: false,
+            },
+            {
+              field: "duration",
+              label: t("jobs.runs.col.duration"),
+              type: "string",
+              sortable: false,
+            },
+          ]}
+          rows={state.rows.map((row) => ({
+            id: row.id,
+            values: {
+              job: row.jobName,
+              status: row.status,
+              started: formatWhen(row.startedAt),
+              duration: row.duration ?? "—",
+            },
+          }))}
+          rowActions={[
+            {
+              id: "open",
+              label: t("jobs.runs.open"),
+              style: "secondary",
+              onTrigger: (row) =>
+                nav.navigate({ screenId: JOB_RUN_DETAIL_SCREEN_ID, entityId: row.id }),
+            },
+          ]}
+          rowActionMode="inline"
+          emptyState={<Text variant="small">{t("jobs.runs.empty")}</Text>}
+        />
       </Card>
-
-      {state.rows.length === 0 && <Text variant="small">{t("jobs.runs.empty")}</Text>}
     </FormScreenShell>
   );
 }

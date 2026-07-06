@@ -23,10 +23,9 @@ type State =
 
 export function ToggleAdminScreen(): ReactNode {
   const t = useTranslation();
-  const { Banner, Button, Card, Heading, Text } = usePrimitives();
+  const { Banner, Card, DataTable, Heading, Text } = usePrimitives();
   const dispatcher = useDispatcher();
   const [state, setState] = useState<State>({ kind: "loading" });
-  const [saving, setSaving] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const load = useCallback(async (): Promise<void> => {
@@ -45,9 +44,7 @@ export function ToggleAdminScreen(): ReactNode {
 
   const onSet = async (featureName: string, enabled: boolean): Promise<void> => {
     setActionError(null);
-    setSaving(featureName);
     const res = await dispatcher.write(FeatureToggleHandlers.set, { featureName, enabled });
-    setSaving(null);
     if (!res.isSuccess) {
       setActionError(res.error.message);
       return;
@@ -78,47 +75,56 @@ export function ToggleAdminScreen(): ReactNode {
       {actionError !== null && <Banner variant="error">{actionError}</Banner>}
 
       <Card options={{ padded: false }}>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b text-left">
-              <th className="p-3">{t("feature-toggles.admin.col.feature")}</th>
-              <th className="p-3">{t("feature-toggles.admin.col.default")}</th>
-              <th className="p-3">{t("feature-toggles.admin.col.override")}</th>
-              <th className="p-3">{t("feature-toggles.admin.col.effective")}</th>
-              <th className="p-3" />
-            </tr>
-          </thead>
-          <tbody>
-            {state.items.map((row) => (
-              <tr key={row.name} className="border-b border-muted" data-feature-name={row.name}>
-                <td className="p-3">
-                  <Text variant="code">{row.name}</Text>
-                </td>
-                <td className="p-3">{formatFlag(row.default)}</td>
-                <td className="p-3">{formatFlag(row.override)}</td>
-                <td className="p-3">{formatFlag(row.effective)}</td>
-                <td className="p-3">
-                  {row.toggleable ? (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      disabled={saving === row.name}
-                      loading={saving === row.name}
-                      onClick={() => void onSet(row.name, !(row.effective ?? row.default ?? false))}
-                      testId={`toggle-${row.name}`}
-                    >
-                      {saving === row.name
-                        ? t("feature-toggles.admin.saving")
-                        : t("feature-toggles.admin.toggle")}
-                    </Button>
-                  ) : (
-                    <Text variant="small">{t("feature-toggles.admin.alwaysOn")}</Text>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <DataTable
+          testId="toggle-admin-table"
+          columns={[
+            {
+              field: "feature",
+              label: t("feature-toggles.admin.col.feature"),
+              type: "string",
+              sortable: false,
+            },
+            {
+              field: "default",
+              label: t("feature-toggles.admin.col.default"),
+              type: "string",
+              sortable: false,
+            },
+            {
+              field: "override",
+              label: t("feature-toggles.admin.col.override"),
+              type: "string",
+              sortable: false,
+            },
+            {
+              field: "effective",
+              label: t("feature-toggles.admin.col.effective"),
+              type: "string",
+              sortable: false,
+            },
+          ]}
+          rows={state.items.map((row) => ({
+            id: row.name,
+            values: {
+              feature: row.name,
+              default: formatFlag(row.default),
+              override: formatFlag(row.override),
+              effective: formatFlag(row.effective),
+              toggleable: row.toggleable,
+              effectiveBool: row.effective ?? row.default ?? false,
+            },
+          }))}
+          rowActions={[
+            {
+              id: "toggle",
+              label: t("feature-toggles.admin.toggle"),
+              style: "secondary",
+              isVisible: (row) => row.values.toggleable === true,
+              onTrigger: (row) => void onSet(row.id, !(row.values.effectiveBool as boolean)),
+            },
+          ]}
+          rowActionMode="inline"
+        />
       </Card>
     </FormScreenShell>
   );

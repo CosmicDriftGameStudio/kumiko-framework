@@ -24,7 +24,7 @@ type State =
 
 export function DeliveryLogScreen(): ReactNode {
   const t = useTranslation();
-  const { Banner, Card, Heading, Text } = usePrimitives();
+  const { Banner, Card, DataTable, Heading, Text } = usePrimitives();
   const dispatcher = useDispatcher();
   const [state, setState] = useState<State>({ kind: "loading" });
 
@@ -62,37 +62,42 @@ export function DeliveryLogScreen(): ReactNode {
     <FormScreenShell testId="delivery-log-screen" className="flex max-w-5xl flex-col gap-6">
       <Heading variant="page">{t("delivery.log.title")}</Heading>
 
-      {state.rows.length === 0 ? (
-        <Text variant="small">{t("delivery.log.empty")}</Text>
-      ) : (
-        <Card options={{ padded: false }}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-left">
-                <th className="p-3">{t("delivery.log.col.type")}</th>
-                <th className="p-3">{t("delivery.log.col.channel")}</th>
-                <th className="p-3">{t("delivery.log.col.recipient")}</th>
-                <th className="p-3">{t("delivery.log.col.status")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {state.rows.map((row) => (
-                <tr key={row.id} className="border-b border-muted" data-delivery-id={row.id}>
-                  <td className="p-3">
-                    <Text variant="code">{row.notificationType}</Text>
-                  </td>
-                  <td className="p-3">{row.channel}</td>
-                  <td className="p-3">{row.recipientAddress ?? "—"}</td>
-                  <td className="p-3">
-                    {row.status}
-                    {row.error ? ` (${row.error})` : ""}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
-      )}
+      <Card options={{ padded: false }}>
+        <DataTable
+          testId="delivery-log-table"
+          columns={[
+            { field: "type", label: t("delivery.log.col.type"), type: "string", sortable: false },
+            {
+              field: "channel",
+              label: t("delivery.log.col.channel"),
+              type: "string",
+              sortable: false,
+            },
+            {
+              field: "recipient",
+              label: t("delivery.log.col.recipient"),
+              type: "string",
+              sortable: false,
+            },
+            {
+              field: "status",
+              label: t("delivery.log.col.status"),
+              type: "string",
+              sortable: false,
+            },
+          ]}
+          rows={state.rows.map((row) => ({
+            id: row.id,
+            values: {
+              type: row.notificationType,
+              channel: row.channel,
+              recipient: row.recipientAddress ?? "—",
+              status: row.error ? `${row.status} (${row.error})` : row.status,
+            },
+          }))}
+          emptyState={<Text variant="small">{t("delivery.log.empty")}</Text>}
+        />
+      </Card>
     </FormScreenShell>
   );
 }
