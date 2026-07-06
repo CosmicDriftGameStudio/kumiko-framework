@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
 import { runGit } from "../../_git-test-helpers";
 import {
@@ -54,8 +54,8 @@ describe("check-work-context", () => {
 
     const ctx = resolveCheckWorkContext(worktree, join(workspace, "kumiko-framework"));
     expect(ctx.localRepoName).toBe("kumiko-framework");
-    expect(ctx.localRepoPath).toBe(worktree);
-    expect(ctx.workspaceRoot).toBe(workspace);
+    expect(ctx.localRepoPath).toBe(resolve(worktree));
+    expect(ctx.workspaceRoot).toBe(resolve(workspace));
   });
 
   test("resolveWorkspaceRoot honors KUMIKO_WORKSPACE_ROOT", () => {
