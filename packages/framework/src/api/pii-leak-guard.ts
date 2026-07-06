@@ -33,7 +33,6 @@ export function piiCiphertextResponseGuard(): MiddlewareHandler {
       // skip: response replaced with the loud 500 above — nothing left to do
       return;
     }
-    // biome-ignore lint/suspicious/noConsole: operator-visibility for a redacted prod leak
     console.error(detail);
     const headers = new Headers(c.res.headers);
     headers.delete("content-length");

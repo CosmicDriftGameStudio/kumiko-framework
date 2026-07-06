@@ -23,7 +23,6 @@ export function syncLightboxAssets(samplesRoot = DEFAULT_SAMPLES): void {
 }
 
 if (import.meta.main) {
-  // biome-ignore lint/suspicious/noConsole: CLI script
   try {
     syncLightboxAssets();
   } catch (err: unknown) {

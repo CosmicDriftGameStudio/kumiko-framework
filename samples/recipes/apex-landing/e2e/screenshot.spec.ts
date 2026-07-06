@@ -7,7 +7,7 @@
 
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import { HERO_SCREENSHOT } from "../src/constants";
 import { renderLanding, SAMPLE_PLANS } from "../src/feature";
 
@@ -82,10 +82,10 @@ async function mountLanding(page: Page): Promise<void> {
   if (!existsSync(HERO_APP_PNG)) {
     throw new Error("hero-app.png missing — run hero-app test first (serial suite)");
   }
-  await page.setContent(
-    renderLanding({ plans: SAMPLE_PLANS, heroScreenshot: heroForMount() }),
-    { waitUntil: "networkidle", url: "http://localhost/" },
-  );
+  await page.setContent(renderLanding({ plans: SAMPLE_PLANS, heroScreenshot: heroForMount() }), {
+    waitUntil: "networkidle",
+    url: "http://localhost/",
+  });
   await assertHeroImageLoaded(page);
 }
 
@@ -110,9 +110,7 @@ test("apex lightbox — open (screenshot)", async ({ page }) => {
   await expect(page.locator("#apex-lightbox")).toBeVisible();
   await expect
     .poll(async () =>
-      page
-        .locator("#apex-lightbox img")
-        .evaluate((el) => (el as HTMLImageElement).naturalWidth),
+      page.locator("#apex-lightbox img").evaluate((el) => (el as HTMLImageElement).naturalWidth),
     )
     .toBeGreaterThan(0);
   await page.screenshot({ path: LIGHTBOX_PNG });

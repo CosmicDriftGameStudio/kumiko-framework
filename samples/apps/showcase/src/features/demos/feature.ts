@@ -14,12 +14,36 @@
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 export const demosFeature = defineFeature("showcase-demos", (r) => {
-  r.screen({ id: "demo-layout", type: "custom", renderer: { react: { __component: "demo-layout" } } });
-  r.screen({ id: "demo-buttons", type: "custom", renderer: { react: { __component: "demo-buttons" } } });
-  r.screen({ id: "demo-inputs", type: "custom", renderer: { react: { __component: "demo-inputs" } } });
-  r.screen({ id: "demo-banner", type: "custom", renderer: { react: { __component: "demo-banner" } } });
-  r.screen({ id: "demo-dialog", type: "custom", renderer: { react: { __component: "demo-dialog" } } });
-  r.screen({ id: "demo-toast", type: "custom", renderer: { react: { __component: "demo-toast" } } });
+  r.screen({
+    id: "demo-layout",
+    type: "custom",
+    renderer: { react: { __component: "demo-layout" } },
+  });
+  r.screen({
+    id: "demo-buttons",
+    type: "custom",
+    renderer: { react: { __component: "demo-buttons" } },
+  });
+  r.screen({
+    id: "demo-inputs",
+    type: "custom",
+    renderer: { react: { __component: "demo-inputs" } },
+  });
+  r.screen({
+    id: "demo-banner",
+    type: "custom",
+    renderer: { react: { __component: "demo-banner" } },
+  });
+  r.screen({
+    id: "demo-dialog",
+    type: "custom",
+    renderer: { react: { __component: "demo-dialog" } },
+  });
+  r.screen({
+    id: "demo-toast",
+    type: "custom",
+    renderer: { react: { __component: "demo-toast" } },
+  });
   r.screen({ id: "demo-text", type: "custom", renderer: { react: { __component: "demo-text" } } });
 
   // Section "Primitives" — clickbar-collapsible weil parent ohne screen.

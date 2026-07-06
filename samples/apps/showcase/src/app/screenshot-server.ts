@@ -1,3 +1,5 @@
+// @runtime dev
+//
 // Minimal dev server for Playwright screenshots — demos only (no item seeds).
 
 import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
