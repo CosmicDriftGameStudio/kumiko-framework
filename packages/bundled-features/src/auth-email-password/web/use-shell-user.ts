@@ -29,6 +29,9 @@ export function useShellUser(): ShellUser | undefined {
     if (session.status !== "authenticated" || session.user === null) return undefined;
     const activeTenant = session.tenants.find((t) => t.tenantId === session.activeTenantId);
     if (activeTenant === undefined) return undefined;
-    return { id: session.user.id, roles: activeTenant.roles };
-  }, [session.status, session.user, session.activeTenantId, session.tenants]);
+    // session.roles merges globalRoles (e.g. SystemAdmin) + membership — same
+    // merge the server uses for handler access; membership-only broke platform
+    // workspace gating for global operators.
+    return { id: session.user.id, roles: session.roles };
+  }, [session.status, session.user, session.activeTenantId, session.tenants, session.roles]);
 }
