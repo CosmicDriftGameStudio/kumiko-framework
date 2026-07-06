@@ -1,5 +1,19 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.125.0
+
+### Minor Changes
+
+- 8d1353b: admin-shell: neues bundled-feature für rollen-gated Tenant- und Platform-Workspaces mit Overview-Home-Screens, Nav-Icons und Server-i18n. Komponiert Screens aus `tenant`, `audit`, `jobs` und optional `tier-engine` — mount nach diesen Features. Overview-Queries laufen über eine fest kodierte Allowlist pro Workspace, um versehentliche Cross-Workspace-Datenzugriffe zu verhindern.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.125.0
+- @cosmicdrift/kumiko-dispatcher-live@0.125.0
+- @cosmicdrift/kumiko-headless@0.125.0
+- @cosmicdrift/kumiko-renderer@0.125.0
+- @cosmicdrift/kumiko-renderer-web@0.125.0
+
 ## 0.124.0
 
 ### Patch Changes
