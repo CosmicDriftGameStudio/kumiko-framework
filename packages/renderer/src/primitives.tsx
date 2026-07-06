@@ -581,6 +581,16 @@ export type DialogProps = {
   readonly testId?: string;
 };
 
+/** Image lightbox — full-size preview on click. Web renders Radix overlay;
+ *  trigger (thumbnail) and open state live in the app. */
+export type LightboxProps = {
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+  readonly src: string;
+  readonly alt: string;
+  readonly testId?: string;
+};
+
 /** Source-badge for one cascade step (User / Tenant / System / …).
  *  Used inline next to a config value to indicate where it came from.
  *  Requires a LocaleProvider above it (labels run through useTranslation)
@@ -661,6 +671,7 @@ export type CorePrimitives = {
   readonly Text: ComponentType<TextProps>;
   readonly Heading: ComponentType<HeadingProps>;
   readonly Dialog: ComponentType<DialogProps>;
+  readonly Lightbox: ComponentType<LightboxProps>;
   readonly ConfigSourceBadge: ComponentType<ConfigSourceBadgeProps>;
   readonly ConfigCascadeView: ComponentType<ConfigCascadeViewProps>;
 };

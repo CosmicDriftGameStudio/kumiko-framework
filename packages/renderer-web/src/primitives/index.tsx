@@ -76,6 +76,7 @@ import {
   DropdownMenuTrigger,
 } from "./dropdown-menu";
 import { FileUploadInput } from "./file-upload";
+import { DefaultLightbox } from "./lightbox";
 import { LocatedTimestampInput } from "./located-timestamp-input";
 import { MoneyInput } from "./money-input";
 import { TimestampInput } from "./timestamp-input";
@@ -1665,6 +1666,7 @@ export const defaultPrimitives: CorePrimitives = {
   Text: DefaultText,
   Heading: DefaultHeading,
   Dialog: DefaultDialog,
+  Lightbox: DefaultLightbox,
   ConfigSourceBadge: DefaultConfigSourceBadge,
   ConfigCascadeView: DefaultConfigCascadeView,
 };

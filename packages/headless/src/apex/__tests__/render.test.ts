@@ -251,6 +251,25 @@ describe("renderApexPage", () => {
     expect(html).toContain('<link rel="preconnect" href="https://api.example.com" />');
   });
 
+  test("hero screenshot includes apex lightbox chrome", () => {
+    const html = renderApexPage(
+      page({
+        sections: [
+          {
+            kind: "hero",
+            title: "h",
+            tagline: "t",
+            screenshot: { src: "/shots/demo.png", alt: "Dashboard" },
+          },
+        ],
+      }),
+    );
+    expect(html).toContain('class="shot-frame"');
+    expect(html).toContain('<dialog id="apex-lightbox"');
+    expect(html).toContain("apex-lightbox");
+    expect(html).toContain(".shot-frame img");
+  });
+
   test("renders schemaJson as json-ld script tag", () => {
     const html = renderApexPage(
       page({

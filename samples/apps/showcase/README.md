@@ -20,6 +20,11 @@ cd samples/apps/showcase && bun dev
 Port 4175 is hardcoded so three sample apps can run in parallel
 (ui-walkthrough=4173, workspaces=4174).
 
+**Dialog/Lightbox demo asset:** `public/screenshots/hero-app.png` (from
+`recipes/apex-landing`). Regenerate via `bun run gen:feature-screenshots` at the
+framework root (runs apex-landing screenshots + sync). The dev-server serves
+`/screenshots/*` via `mount-public-screenshots.ts` — `public/` is not auto-static in dev.
+
 ## Click-through guide
 
 ### Empty state (list primitive)

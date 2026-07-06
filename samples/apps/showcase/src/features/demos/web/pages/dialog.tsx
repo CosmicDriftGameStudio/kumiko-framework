@@ -3,16 +3,17 @@ import { type ReactNode, useState } from "react";
 import { DemoPage, DemoSection } from "../components/page";
 
 export function DialogDemo(): ReactNode {
-  const { Button, Dialog, Text } = usePrimitives();
+  const { Button, Dialog, Lightbox, Text } = usePrimitives();
   const [defaultOpen, setDefaultOpen] = useState(false);
   const [dangerOpen, setDangerOpen] = useState(false);
   const [asyncOpen, setAsyncOpen] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [confirmedAction, setConfirmedAction] = useState<string>("(noch nichts bestätigt)");
 
   return (
     <DemoPage
-      title="Dialog"
-      description="Modal-Dialog für Bestätigungen. Radix-basiert: Focus-Trap, Esc-Schließen, Overlay-Click. variant=danger markiert destruktive Bestätigungen visuell."
+      title="Dialog & Lightbox"
+      description="Dialog für Bestätigungen; Lightbox für Vollbild-Bildvorschau. Beide teilen dieselbe Radix-Overlay-Shell (Focus-Trap, Esc, Backdrop-Click)."
     >
       <DemoSection title="Default-Variant">
         <div className="flex flex-wrap items-center gap-2">
@@ -57,6 +58,29 @@ export function DialogDemo(): ReactNode {
             setConfirmedAction("Async-Confirm (1.5s)");
           }}
           testId="dialog-async"
+        />
+      </DemoSection>
+
+      <DemoSection title="Lightbox">
+        <button
+          type="button"
+          onClick={() => setLightboxOpen(true)}
+          className="cursor-zoom-in overflow-hidden rounded-lg border border-border shadow-sm"
+          data-testid="lightbox-trigger"
+        >
+          <img
+            src="/screenshots/hero-app.png"
+            alt="Tasklane planning board — click to enlarge"
+            className="block h-auto w-full max-w-md"
+          />
+        </button>
+        <Text variant="small">Klick auf das Bild öffnet die Vollbild-Vorschau.</Text>
+        <Lightbox
+          open={lightboxOpen}
+          onOpenChange={setLightboxOpen}
+          src="/screenshots/hero-app.png"
+          alt="Tasklane planning board — click to enlarge"
+          testId="lightbox-demo"
         />
       </DemoSection>
     </DemoPage>

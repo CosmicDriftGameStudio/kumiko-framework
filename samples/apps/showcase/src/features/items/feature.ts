@@ -46,36 +46,36 @@ export const itemsFeature = defineFeature("showcase", (r) => {
   r.nav({
     id: "item-list",
     label: "showcase:nav.list",
-    parent: "data",
-    screen: "item-list",
+    parent: "showcase:nav:data",
+    screen: "showcase:screen:item-list",
     order: 10,
   });
   r.nav({
     id: "item-feed",
     label: "showcase:nav.feed",
-    parent: "data",
-    screen: "item-feed",
+    parent: "showcase:nav:data",
+    screen: "showcase:screen:item-feed",
     order: 15,
   });
   r.nav({
     id: "item-active",
     label: "showcase:nav.active-items",
-    parent: "data",
-    screen: "item-active",
+    parent: "showcase:nav:data",
+    screen: "showcase:screen:item-active",
     order: 17,
   });
   r.nav({
     id: "item-new",
     label: "showcase:nav.new",
-    parent: "data",
-    screen: "item-edit",
+    parent: "showcase:nav:data",
+    screen: "showcase:screen:item-edit",
     order: 20,
   });
   r.nav({
     id: "item-quick-add",
     label: "showcase:nav.quick-add",
-    parent: "data",
-    screen: "item-quick-add",
+    parent: "showcase:nav:data",
+    screen: "showcase:screen:item-quick-add",
     order: 25,
   });
 });

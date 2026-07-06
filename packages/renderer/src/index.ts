@@ -108,6 +108,7 @@ export type {
   GridProps,
   HeadingProps,
   InputProps,
+  LightboxProps,
   PrimitivesProviderProps,
   PrimitivesRegistry,
   RuntimeRenderer,

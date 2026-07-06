@@ -6,8 +6,10 @@
 
 import { escapeHtml } from "../format";
 import { APEX_STRUCTURAL_CSS } from "./css";
+import { APEX_LIGHTBOX_HTML, APEX_LIGHTBOX_SCRIPT } from "./lightbox";
 
 export { APEX_NAV_MENU_CSS, APEX_STRUCTURAL_CSS } from "./css";
+export { APEX_LIGHTBOX_HTML, APEX_LIGHTBOX_SCRIPT } from "./lightbox";
 
 export type ApexTheme = "light" | "dark";
 
@@ -522,6 +524,9 @@ export function renderApexPage(page: ApexPage): string {
     ${sections}
 
     ${renderFooter(page.footer)}
+
+    ${APEX_LIGHTBOX_HTML}
+    ${APEX_LIGHTBOX_SCRIPT}
   </body>
 </html>`;
 }

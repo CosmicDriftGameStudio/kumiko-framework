@@ -5,19 +5,17 @@
 // Generates feature-reference + sample preview PNGs.
 // Usage: bun run gen:feature-screenshots
 //
-// Feature-reference previews are REAL renders: the `use-all-bundled` sample
-// mounts every bundled feature and captures one representative screen per
-// feature via the shared matrix runner (theme × viewport) into
-// <out>/<feature>/<locale>/<theme>/<viewport>.png — the ScreenshotPreview
-// switcher consumes that layout 1:1. Sample-app previews come from the per-app
-// runners under <out>/apps/. config is copied from the config-demo asset.
+// One ordered runner list: use-all-bundled (feature matrix) → recipes → sample
+// apps. Each entry spawns Playwright in its cwd with SCREENSHOT_DIR=<out>.
 //
-// Requires Postgres + Redis + a samples .env (the runners boot the real dev
-// server); set SKIP_APP_SCREENSHOTS=1 to skip the live captures.
+// Requires Postgres + Redis + a samples .env for app runners; apex-landing uses
+// setContent only. Set SKIP_APP_SCREENSHOTS=1 to skip live captures (syncs
+// committed hero-app.png into showcase public/ only).
 
 import { copyFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { syncLightboxAssets } from "./sync-lightbox-assets.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SAMPLES_ROOT = resolve(HERE, "..");
@@ -34,10 +32,10 @@ type Runner = {
   readonly cwd: string;
   readonly command: readonly string[];
   readonly out: string;
-  // FEATURE_RUNNER is the feature-reference source of truth for the docs —
-  // an empty/missing output there must fail the step loudly. APP_RUNNERS are
-  // demo-app screenshots (soft-fail: missing .env/Postgres locally is fine).
+  /** Fail the whole script when this runner exits non-zero. */
   readonly required?: boolean;
+  /** Runs after a successful spawn (e.g. copy recipe assets into an app). */
+  readonly after?: () => void;
 };
 
 const SCREENSHOTS_CMD = [
@@ -49,18 +47,22 @@ const SCREENSHOTS_CMD = [
   "--config=playwright.config.ts",
 ] as const;
 
-// use-all-bundled rendert die Feature-Reference-Screens direkt nach OUT_DIR
-// (<feature>/<locale>/<theme>/<viewport>.png) — eine App, jedes bundled-feature.
-const FEATURE_RUNNER: Runner = {
-  id: "use-all-bundled",
-  cwd: resolve(SAMPLES_ROOT, "apps/use-all-bundled"),
-  command: SCREENSHOTS_CMD,
-  out: OUT_DIR,
-  required: true,
-};
-
-// Sample-Apps rendern ihre eigene UI nach OUT_DIR/apps/<app>/.
-const APP_RUNNERS: readonly Runner[] = [
+const SCREENSHOT_RUNNERS: readonly Runner[] = [
+  {
+    id: "use-all-bundled",
+    cwd: resolve(SAMPLES_ROOT, "apps/use-all-bundled"),
+    command: SCREENSHOTS_CMD,
+    out: OUT_DIR,
+    required: true,
+  },
+  {
+    id: "apex-landing",
+    cwd: resolve(SAMPLES_ROOT, "recipes/apex-landing"),
+    command: ["bun", "run", "screenshot"],
+    out: resolve(SAMPLES_ROOT, "recipes/apex-landing/screenshots"),
+    required: true,
+    after: () => syncLightboxAssets(SAMPLES_ROOT),
+  },
   {
     id: "marketing-demo",
     cwd: resolve(SAMPLES_ROOT, "apps/marketing-demo"),
@@ -79,6 +81,12 @@ const APP_RUNNERS: readonly Runner[] = [
     command: SCREENSHOTS_CMD,
     out: `${APPS_OUT}/workspaces`,
   },
+  {
+    id: "showcase",
+    cwd: resolve(SAMPLES_ROOT, "apps/showcase"),
+    command: ["bun", "run", "screenshot"],
+    out: `${APPS_OUT}/showcase`,
+  },
 ];
 
 async function runRunner(r: Runner): Promise<void> {
@@ -96,7 +104,9 @@ async function runRunner(r: Runner): Promise<void> {
       throw new Error(`${r.id} screenshots failed (exit ${code}) — required runner, aborting`);
     }
     console.warn(`warn: ${r.id} screenshots failed (exit ${code}) — need .env + Postgres?`);
+    return;
   }
+  r.after?.();
 }
 
 function copyConfigScreenshot(): void {
@@ -140,10 +150,10 @@ function copyMarketingFallback(): void {
 async function runAllScreenshots(): Promise<void> {
   if (process.env["SKIP_APP_SCREENSHOTS"] === "1") {
     console.log("SKIP_APP_SCREENSHOTS=1 — skipping live captures");
+    syncLightboxAssets(SAMPLES_ROOT);
     return;
   }
-  await runRunner(FEATURE_RUNNER);
-  for (const app of APP_RUNNERS) await runRunner(app);
+  for (const runner of SCREENSHOT_RUNNERS) await runRunner(runner);
   if (!dirHasPng(`${APPS_OUT}/marketing-demo`)) {
     copyMarketingFallback();
   }
