@@ -2,7 +2,7 @@
 import { useDispatcher, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { FormScreenShell } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
-import { DeliveryQueries } from "../constants";
+import { DeliveryQueries } from "../public-names";
 
 type DeliveryRow = {
   readonly id: string;

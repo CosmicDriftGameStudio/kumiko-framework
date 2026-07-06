@@ -2,28 +2,26 @@
 // Hard-coded query allowlists for overview-home screens — security boundary
 // against privilege escalation via accidental cross-workspace fetches.
 
-import { CapCounterQueries } from "../cap-counter/constants";
-import { ConfigQueries } from "../config/constants";
-import { JobQueries } from "../jobs/constants";
-import { TenantQueries } from "../tenant/constants";
-
 export type OverviewWorkspaceKind = "tenant" | "platform";
 
 /** Tenant workspace overview may only call these queries. */
 export const TENANT_OVERVIEW_ALLOWED_QUERIES = [
-  TenantQueries.invitations,
-  TenantQueries.members,
-  ConfigQueries.readiness,
-  CapCounterQueries.getCounter,
+  "tenant:query:invitations",
+  "tenant:query:members",
+  "config:query:readiness",
+  "cap-counter:query:get-counter",
 ] as const;
 
 /** Platform workspace overview may only call these queries. */
-export const PLATFORM_OVERVIEW_ALLOWED_QUERIES = [TenantQueries.list, JobQueries.list] as const;
+export const PLATFORM_OVERVIEW_ALLOWED_QUERIES = [
+  "tenant:query:list",
+  "jobs:query:list",
+] as const;
 
 /** Regression guard — TenantAdmin overview must never touch these (HTTP 403). */
 export const TENANT_OVERVIEW_FORBIDDEN_QUERIES = [
-  TenantQueries.list,
-  JobQueries.list,
+  "tenant:query:list",
+  "jobs:query:list",
   "feature-toggles:query:list",
   "feature-toggles:query:registered",
 ] as const;
