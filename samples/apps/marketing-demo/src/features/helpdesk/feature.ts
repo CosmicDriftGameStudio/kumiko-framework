@@ -1,26 +1,13 @@
 // Helpdesk-Feature — Server-Side. Zweite Demo-App neben Assets,
 // gleiches Framework-Pattern, andere Domain.
 
-import {
-  defineEntityCreateHandler,
-  defineEntityDeleteHandler,
-  defineEntityDetailHandler,
-  defineEntityListHandler,
-  defineEntityUpdateHandler,
-  defineFeature,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature, registerEntityCrud } from "@cosmicdrift/kumiko-framework/engine";
 import { ticketEditScreen, ticketEntity, ticketListScreen } from "./schema";
 
 const open = { access: { openToAll: true } } as const;
 
 export const helpdeskFeature = defineFeature("helpdesk", (r) => {
-  r.entity("ticket", ticketEntity);
-
-  r.writeHandler(defineEntityCreateHandler("ticket", ticketEntity, open));
-  r.writeHandler(defineEntityUpdateHandler("ticket", ticketEntity, open));
-  r.writeHandler(defineEntityDeleteHandler("ticket", ticketEntity, open));
-  r.queryHandler(defineEntityListHandler("ticket", ticketEntity, open));
-  r.queryHandler(defineEntityDetailHandler("ticket", ticketEntity, open));
+  registerEntityCrud(r, "ticket", ticketEntity, { write: open, read: open });
 
   r.screen(ticketEditScreen);
   r.screen(ticketListScreen);

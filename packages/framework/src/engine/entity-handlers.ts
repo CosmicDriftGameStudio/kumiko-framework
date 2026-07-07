@@ -27,6 +27,9 @@ import type {
 //
 // Two API shapes — pick one per project, don't mix:
 //
+//   PREFERRED — full standard CRUD set in one call:
+//     registerEntityCrud(r, "note", noteEntity, { write: { access }, read: { access } })
+//
 //   PREFERRED — one function per verb, type-safe, no magic strings:
 //     r.writeHandler(defineEntityCreateHandler("note", noteEntity, { access }))
 //     r.writeHandler(defineEntityUpdateHandler("note", noteEntity, { access }))
@@ -498,4 +501,3 @@ export function registerEntityCrud(
     r.queryHandler(defineEntityDetailHandler(entityName, entity, readOpts));
   }
 }
-
