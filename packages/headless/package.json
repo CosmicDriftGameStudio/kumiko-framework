@@ -29,6 +29,10 @@
     "./apex": {
       "types": "./src/apex/index.ts",
       "default": "./src/apex/index.ts"
+    },
+    "./locale-routing": {
+      "types": "./src/locale-routing/index.ts",
+      "default": "./src/locale-routing/index.ts"
     }
   },
   "dependencies": {
