@@ -1,5 +1,11 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.129.0
+
+### Minor Changes
+
+- 3247676: Add `registerEntityCrud()` to bundle entity registration and standard CRUD handlers with explicit access and per-verb opt-out.
+
 ## 0.128.0
 
 ## 0.127.0
