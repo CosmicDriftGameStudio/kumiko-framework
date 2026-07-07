@@ -27,6 +27,25 @@ export {
 } from "./codegen";
 export { type ComposeFeaturesOptions, composeFeatures } from "./compose-features";
 export {
+  composeFileStack,
+  composeGdprStack,
+  composeMailStack,
+  composeOpsStack,
+  composePagesStack,
+  composeRendererStack,
+  composeUserDataRightsStack,
+  type FileProviderKind,
+  type FileStackOptions,
+  type GdprStackOptions,
+  type GdprStackOrder,
+  type MailStackOptions,
+  type MailTransportKind,
+  type OpsStackOptions,
+  type PagesStackOptions,
+  stackFeatureNames,
+  type UserDataRightsStackOptions,
+} from "./compose-stacks";
+export {
   type CreateKumikoServerOptions,
   createKumikoServer,
   type KumikoServerHandle,
@@ -73,4 +92,9 @@ export type {
 export { scaffoldDeploy } from "./scaffold-deploy";
 export type { ScaffoldFeatureOptions, ScaffoldFeatureResult } from "./scaffold-feature";
 export { scaffoldFeature } from "./scaffold-feature";
+export {
+  type SetupTestStackFromFeaturesOptions,
+  setupTestStackFromFeatures,
+  type TestStackPreset,
+} from "./setup-test-stack-from-features";
 export { renderWelcomeBanner, type WelcomeBannerInput } from "./welcome-banner";
