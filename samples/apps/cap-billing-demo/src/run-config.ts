@@ -23,6 +23,7 @@ import { capCounterFeature } from "@cosmicdrift/kumiko-bundled-features/cap-coun
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { mailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
 import { mailTransportInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory";
+import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { createTenantLifecycleFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import { newsletterFeature } from "./feature";
 
