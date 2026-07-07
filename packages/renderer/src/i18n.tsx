@@ -16,7 +16,14 @@
 //      Session die Sprache umschalten ohne Reload.
 
 import type { LocaleResolver } from "@cosmicdrift/kumiko-headless";
-import { createContext, type ReactNode, useContext, useSyncExternalStore } from "react";
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useMemo,
+  useSyncExternalStore,
+} from "react";
 
 /** Map von i18n-Key → Template-String. Templates dürfen `{name}`-
  *  Platzhalter enthalten — identische Semantik zu i18next-t. */
@@ -48,6 +55,12 @@ type LocaleContextValue = {
 
 const LocaleContext = createContext<LocaleContextValue | undefined>(undefined);
 
+// Stabile Referenz statt `fallbackBundles = []` als Default-Parameter:
+// ein Literal-Default wird bei JEDEM Aufruf neu allokiert und würde die
+// useMemo-Referenzprüfung im Provider unten aushebeln, sobald der
+// Aufrufer fallbackBundles weglässt.
+const EMPTY_FALLBACK_BUNDLES: readonly TranslationsByLocale[] = [];
+
 export type LocaleProviderProps = {
   readonly resolver: LocaleResolver;
   /** Von Feature-Plugins gelieferte Default-Bundles. Lookup-Reihenfolge
@@ -64,15 +77,21 @@ export type LocaleProviderProps = {
 
 export function LocaleProvider({
   resolver,
-  fallbackBundles = [],
+  fallbackBundles = EMPTY_FALLBACK_BUNDLES,
   fallbackLocale = "en",
   children,
 }: LocaleProviderProps): ReactNode {
-  return (
-    <LocaleContext.Provider value={{ resolver, fallbackBundles, fallbackLocale }}>
-      {children}
-    </LocaleContext.Provider>
+  // Ohne Memoization baut jeder Re-Render des Providers (z.B. weil ein
+  // Ahnen-Component neu rendert) ein neues Context-Value-Objekt — jeder
+  // Consumer von useTranslation()/useLocale() sieht dann eine neue `ctx`-
+  // Referenz und damit selbst mit useCallback-Memoization einen neuen `t`.
+  // Konsequenz: `t` in einem useEffect-Dependency-Array triggert einen
+  // Endlos-Loop (siehe admin-shell Overview-Screens, Prod-Incident).
+  const value = useMemo(
+    () => ({ resolver, fallbackBundles, fallbackLocale }),
+    [resolver, fallbackBundles, fallbackLocale],
   );
+  return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
 }
 
 /** Liefert den aktuellen LocaleResolver und abonniert automatisch
@@ -112,38 +131,45 @@ export function useTranslation(): (
   // Re-Render bei Sprach-Wechsel. `ctx.resolver.subscribe` ist bereits
   // eine stable-reference aus dem Resolver, daher hier keine eigene
   // Memoization der Subscribe-Callback nötig.
-  useSyncExternalStore(
+  const locale = useSyncExternalStore(
     ctx.resolver.subscribe,
     () => ctx.resolver.locale(),
     () => "en",
   );
 
-  return (key, params) => {
-    // 1. App-provided resolver zuerst. Convention: wenn der App-Resolver
-    //    den Key nicht kennt, gibt er den Key zurück — das ist die
-    //    Fallback-Einladung an Plugin-Bundles. i18next verhält sich
-    //    exakt so per default.
-    const resolved = ctx.resolver.translate(key, params);
-    if (resolved !== key) return resolved;
+  // `t` MUSS referenz-stabil sein solange sich Resolver/Bundles/Locale
+  // nicht ändern — Consumer nutzen `t` regelmäßig in useEffect-Deps
+  // (z.B. um Queries neu zu laden wenn sich die Sprache ändert). Ein neu
+  // erzeugtes `t` pro Render führt sonst zu einem Render/Effect-Endlos-
+  // Loop (siehe admin-shell Overview-Screens, Prod-Incident 2026-07-07).
+  return useCallback(
+    (key: string, params?: Readonly<Record<string, unknown>>): string => {
+      // 1. App-provided resolver zuerst. Convention: wenn der App-Resolver
+      //    den Key nicht kennt, gibt er den Key zurück — das ist die
+      //    Fallback-Einladung an Plugin-Bundles. i18next verhält sich
+      //    exakt so per default.
+      const resolved = ctx.resolver.translate(key, params);
+      if (resolved !== key) return resolved;
 
-    // 2. + 3. Plugin-Bundles durchlaufen für current + fallback-locale.
-    const currentLocale = ctx.resolver.locale();
-    const primaryLookup = currentLocale;
-    // `primaryLookup` könnte z.B. "de-AT" sein — in den Bundles stehen
-    // oft nur die Language-Roots ("de"). Wir versuchen beide.
-    const languageRoot = primaryLookup.split("-")[0] ?? primaryLookup;
-    const localesToTry = [primaryLookup, languageRoot, ctx.fallbackLocale];
+      // 2. + 3. Plugin-Bundles durchlaufen für current + fallback-locale.
+      const primaryLookup = locale;
+      // `primaryLookup` könnte z.B. "de-AT" sein — in den Bundles stehen
+      // oft nur die Language-Roots ("de"). Wir versuchen beide.
+      const languageRoot = primaryLookup.split("-")[0] ?? primaryLookup;
+      const localesToTry = [primaryLookup, languageRoot, ctx.fallbackLocale];
 
-    for (const bundle of ctx.fallbackBundles) {
-      for (const locale of localesToTry) {
-        const value = bundle[locale]?.[key];
-        if (value !== undefined) return interpolate(value, params);
+      for (const bundle of ctx.fallbackBundles) {
+        for (const localeToTry of localesToTry) {
+          const value = bundle[localeToTry]?.[key];
+          if (value !== undefined) return interpolate(value, params);
+        }
       }
-    }
 
-    // 4. Nichts gefunden — key zurück, wie der Default-Resolver auch.
-    return key;
-  };
+      // 4. Nichts gefunden — key zurück, wie der Default-Resolver auch.
+      return key;
+    },
+    [ctx, locale],
+  );
 }
 
 function interpolate(template: string, params?: Readonly<Record<string, unknown>>): string {
