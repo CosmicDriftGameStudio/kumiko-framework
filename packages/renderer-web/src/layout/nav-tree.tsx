@@ -41,12 +41,15 @@ import {
   Layers,
   LayoutDashboard,
   LineChart,
+  Link,
   List,
+  Palette,
   PiggyBank,
   Plus,
   Receipt,
   Search,
   Settings,
+  Share2,
   Shield,
   Sparkles,
   Table,
@@ -119,6 +122,9 @@ const NAV_ICONS: Readonly<Record<string, typeof Folder>> = {
   search: Search,
   tag: Tag,
   key: KeyRound,
+  link: Link,
+  palette: Palette,
+  share: Share2,
 };
 
 export type NavTreeProps = {

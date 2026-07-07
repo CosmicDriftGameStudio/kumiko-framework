@@ -241,6 +241,25 @@ describe("NavTree", () => {
     expect(container.querySelectorAll("svg").length).toBe(2);
   });
 
+  test("palette, link und share rendern Lucide-Icons (Share-/Branding-Nav)", () => {
+    const schema = {
+      featureName: "app",
+      entities: {},
+      screens: [
+        { id: "branding", type: "entityList", entity: "x", columns: [] },
+        { id: "links", type: "entityList", entity: "x", columns: [] },
+        { id: "defaults", type: "entityList", entity: "x", columns: [] },
+      ],
+      navs: [
+        { id: "branding", label: "Branding", screen: "branding", order: 10, icon: "palette" },
+        { id: "links", label: "Links", screen: "links", order: 20, icon: "link" },
+        { id: "defaults", label: "Defaults", screen: "defaults", order: 30, icon: "share" },
+      ],
+    } as FeatureSchema;
+    const { container } = render(<NavTree schema={schema} />);
+    expect(container.querySelectorAll("svg").length).toBe(3);
+  });
+
   test("unbekannter icon-Key fällt sauber auf den Dot zurück (kein svg)", () => {
     const schema = {
       featureName: "showcase",
