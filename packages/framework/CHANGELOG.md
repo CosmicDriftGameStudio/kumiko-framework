@@ -1,5 +1,15 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.126.0
+
+### Minor Changes
+
+- 0c482c3: tenant-lifecycle: staged tenant destroy runner with auth 410 gate.
+
+  fix(renderer-web): register palette, link and share in NAV_ICONS.
+
+  fix(tenant): align members nav label with tenantClient bundle (`tenant.nav.members`).
+
 ## 0.125.2
 
 ## 0.125.1

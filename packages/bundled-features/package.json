@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-bundled-features",
-  "version": "0.125.2",
+  "version": "0.126.0",
   "description": "Built-in features — tenant, user, auth, delivery. The stuff you'd rewrite anyway, already typed.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
