@@ -1,3 +1,4 @@
+import { collectPiiSubjectFields } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   createEntity,
   createTextField,
@@ -39,10 +40,35 @@ export const subscriptionEntity = createEntity({
   table: "read_subscriptions",
   fields: {
     providerName: createTextField({ required: true, maxLength: 50 }),
-    providerCustomerId: createTextField({ required: true, maxLength: 200, tenantOwned: true }),
-    providerSubscriptionId: createTextField({ required: true, maxLength: 200, tenantOwned: true }),
+    // tenantOwned (not `encrypted`): the field must crypto-shred when
+    // eraseSubjectKeys erases the tenant's subject key on tenant-destroy
+    // (#800). `encrypted: true` uses the app-wide master key instead — that
+    // key is never erased per-tenant, so it would only add encryption-at-
+    // rest, not the erasure guarantee #800 actually asks for.
+    // maxLength 1000, not 200: the stored value is PII-ciphertext
+    // (`kumiko-pii:v1:<subject>:<blob>`), not the raw provider id — a
+    // 200-char plaintext id becomes ~300+ chars of ciphertext. Matches
+    // subscriptionEventPayloadSchema in events.ts.
+    providerCustomerId: createTextField({
+      required: true,
+      maxLength: 1000,
+      tenantOwned: true,
+    }),
+    providerSubscriptionId: createTextField({
+      required: true,
+      maxLength: 1000,
+      tenantOwned: true,
+    }),
     status: createTextField({ required: true, maxLength: 30 }),
     tier: createTextField({ required: true, maxLength: 50 }),
     currentPeriodEnd: createTimestampField({ required: true }),
   },
 });
+
+// No executor manages this table (raw r.projection, see feature.ts) — the
+// process-event write-handler and every read site must encrypt/decrypt
+// these fields manually via the PII-subject-KMS path (same mechanism
+// eraseSubjectKeys erases). Single source of truth so a future third
+// `tenantOwned`/`pii`/`userOwned` field doesn't need a matching manual
+// update at each call site.
+export const SUBSCRIPTION_PII_FIELDS = collectPiiSubjectFields(subscriptionEntity);

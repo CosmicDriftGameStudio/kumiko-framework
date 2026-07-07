@@ -1,6 +1,22 @@
 import { EXT_TENANT_DATA, EXT_USER_DATA } from "../extension-names";
 import type { FeatureDefinition } from "../types";
-import type { PiiAnnotations } from "../types/fields";
+import type { EntityDefinition, PiiAnnotations } from "../types/fields";
+
+// r.entity(...) is not the only way a feature exposes an entity shape:
+// r.projection(...) can carry an optional `entity` too (raw read-models with
+// no executor, e.g. billing-foundation's subscription table). Both V3 and V4
+// below need every entity a feature declares, not just the r.entity ones, or
+// a tenantOwned/pii field on a projection-only entity is invisible to the
+// guard it was annotated for.
+function entitiesOf(
+  feature: FeatureDefinition,
+): ReadonlyArray<readonly [string, EntityDefinition]> {
+  const fromEntities = Object.entries(feature.entities ?? {});
+  const fromProjections = Object.values(feature.projections)
+    .filter((p): p is typeof p & { entity: EntityDefinition } => p.entity !== undefined)
+    .map((p) => [p.name, p.entity] as const);
+  return [...fromEntities, ...fromProjections];
+}
 
 // Providers whose bytes do not survive a process restart. Only "inmemory"
 // today; extend if another ephemeral bundled provider lands.
@@ -105,7 +121,7 @@ export function validateGdprPiiHookCoverage(features: readonly FeatureDefinition
   }
 
   for (const feature of features) {
-    for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
+    for (const [entityName, entity] of entitiesOf(feature)) {
       if (hookedEntities.has(entityName)) continue;
       const subjectFields = Object.entries(entity.fields)
         .filter(([, field]) => {
@@ -138,7 +154,7 @@ export function validateTenantDataHookCoverage(features: readonly FeatureDefinit
   }
 
   for (const feature of features) {
-    for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
+    for (const [entityName, entity] of entitiesOf(feature)) {
       if (hookedEntities.has(entityName)) continue;
       const tenantSubjectFields = Object.entries(entity.fields)
         .filter(([, field]) => {

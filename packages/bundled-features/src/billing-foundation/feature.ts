@@ -43,6 +43,7 @@
 
 import { defineFeature, EXT_TENANT_DATA } from "@cosmicdrift/kumiko-framework/engine";
 import { BILLING_FOUNDATION_FEATURE, SUBSCRIPTION_PROVIDER_EXTENSION } from "./constants";
+import { subscriptionEntity } from "./entities";
 import {
   INVOICE_PAID_EVENT_QN,
   INVOICE_PAID_EVENT_SHORT,
@@ -98,6 +99,7 @@ export const billingFoundationFeature = defineFeature(BILLING_FOUNDATION_FEATURE
     name: "subscription",
     source: SUBSCRIPTION_AGGREGATE_TYPE,
     table: subscriptionsProjectionTable,
+    entity: subscriptionEntity,
     apply: {
       [SUBSCRIPTION_CREATED_EVENT_QN]: applySubscriptionCreated,
       [SUBSCRIPTION_UPDATED_EVENT_QN]: applySubscriptionUpdated,

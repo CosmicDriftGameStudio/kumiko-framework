@@ -4,8 +4,6 @@ import {
   createEventStoreExecutor,
   createTenantDb,
   type DbRunner,
-  deleteMany,
-  type EntityTableMeta,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
@@ -18,8 +16,14 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { tenantEntity, tenantMembershipsTable, tenantTable } from "../tenant";
+import {
+  tenantEntity,
+  tenantMembershipEntity,
+  tenantMembershipsTable,
+  tenantTable,
+} from "../tenant";
 import type { TenantDestructionStageName } from "./constants";
+import { invalidateTenantLifecycleGate } from "./lifecycle-gate";
 
 export type DestructionStageCtx = {
   readonly db: DbRunner;
@@ -35,6 +39,13 @@ export type DestructionStage = {
 };
 
 const tenantCrud = createEventStoreExecutor(tenantTable, tenantEntity, { entityName: "tenant" });
+const tenantMembershipCrud = createEventStoreExecutor(
+  tenantMembershipsTable,
+  tenantMembershipEntity,
+  {
+    entityName: "tenant-membership",
+  },
+);
 
 async function runExtensionDestroyHooks(
   registry: Registry,
@@ -96,6 +107,27 @@ async function tombstoneTenantRow(ctx: DestructionStageCtx): Promise<void> {
   const now = getTemporal().Now.instant();
   const user = createSystemUser(ctx.tenantId);
   const db = createTenantDb(ctx.db, ctx.tenantId, "system");
+  // Per-row forget() through the executor, not a bulk deleteMany: memberships
+  // are an ES-managed projection (add/remove/update-roles all go through
+  // tenantMembershipCrud), so a raw table write here is eventless — a future
+  // projection rebuild would replay the historical add-member events and
+  // resurrect rows this stage removed. forget() (Art.17 hard-purge) keeps the
+  // erasure rebuild-safe and gives each membership its own audit event.
+  const memberships = await selectMany<{ id: string }>(ctx.db, tenantMembershipsTable, {
+    tenantId: ctx.tenantId,
+  });
+  for (const membership of memberships) {
+    const result = await tenantMembershipCrud.forget({ id: membership.id }, user, db);
+    // executor writes return {isSuccess:false} on failure, they don't throw —
+    // a silently-discarded result here would report this stage "succeeded"
+    // while membership PII survives. Throw so the pipeline's retry/abandon
+    // handling (runNextDestructionStage) sees it instead.
+    if (!result.isSuccess) {
+      throw new Error(
+        `tenant-lifecycle: failed to forget membership ${membership.id} for tenant ${ctx.tenantId}: ${result.error.message}`,
+      );
+    }
+  }
   await tenantCrud.update(
     {
       id: ctx.tenantId,
@@ -109,9 +141,7 @@ async function tombstoneTenantRow(ctx: DestructionStageCtx): Promise<void> {
     db,
     { skipOptimisticLock: true },
   );
-  await deleteMany(ctx.db, tenantMembershipsTable as EntityTableMeta, {
-    tenantId: ctx.tenantId,
-  });
+  invalidateTenantLifecycleGate(ctx.tenantId);
 }
 
 export const DESTRUCTION_STAGES: readonly DestructionStage[] = [

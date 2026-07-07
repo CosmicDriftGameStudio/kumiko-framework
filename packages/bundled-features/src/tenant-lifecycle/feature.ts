@@ -89,6 +89,7 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
           db: ctx.db as import("@cosmicdrift/kumiko-framework/db").DbConnection,
           registry: ctx.registry,
           now: T.Now.instant(),
+          log: (message) => ctx.log?.warn(message),
         });
       },
     );

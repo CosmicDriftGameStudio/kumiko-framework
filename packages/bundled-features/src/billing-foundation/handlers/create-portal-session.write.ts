@@ -10,10 +10,15 @@
 // kennt.
 
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  configuredPiiSubjectKms,
+  decryptPiiFieldValues,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { subscriptionAggregateId } from "../aggregate-id";
 import { SUBSCRIPTION_PROVIDER_EXTENSION } from "../constants";
+import { SUBSCRIPTION_PII_FIELDS } from "../entities";
 import { subscriptionsProjectionTable as subTable } from "../projection";
 import type { SubscriptionProviderPlugin } from "../types";
 
@@ -41,8 +46,19 @@ export const createPortalSessionHandler: WriteHandlerDef = {
         "subscription-foundation: no active subscription for this tenant. Create one via create-checkout-session first.",
       );
     }
+    const piiKms = configuredPiiSubjectKms();
+    const decrypted = piiKms
+      ? await decryptPiiFieldValues(
+          row as Record<string, unknown>,
+          SUBSCRIPTION_PII_FIELDS,
+          piiKms,
+          {
+            requestId: `billing-foundation:create-portal-session:${tenantId}`,
+          },
+        )
+      : (row as Record<string, unknown>);
     const providerName = row["providerName"] as string; // @cast-boundary db-row
-    const providerCustomerId = row["providerCustomerId"] as string; // @cast-boundary db-row
+    const providerCustomerId = decrypted["providerCustomerId"] as string; // @cast-boundary db-row
 
     // 2. Plugin-Lookup
     const usages = ctx.registry.getExtensionUsages(SUBSCRIPTION_PROVIDER_EXTENSION);

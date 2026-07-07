@@ -3,6 +3,7 @@ import type { TableColumns } from "../../db/dialect";
 import type { StoredEvent } from "../../event-store/event-store";
 import type { MultiStreamApplyContext } from "../../pipeline/multi-stream-apply-context";
 import type { RunIn } from "./config";
+import type { EntityDefinition } from "./fields";
 
 // Drizzle pgTable shape — projections hand their table through to apply() so
 // user code writes upserts/updates directly instead of going through a
@@ -59,6 +60,10 @@ export type ProjectionDefinition = {
   // Drizzle-table the projection materializes into. User owns the schema —
   // framework just guarantees the TX and event delivery.
   readonly table: ProjectionTable;
+  // Optional: the EntityDefinition the table was built from, for projections
+  // without an r.entity registration — lets boot-time GDPR guards see
+  // pii/tenantOwned fields that feature.entities (r.entity-only) would miss.
+  readonly entity?: EntityDefinition;
   // Keyed by fully-qualified event type ("<aggregate>.<verb>", e.g. "unit.created").
   // Missing keys are silently skipped — a projection declares only the events it
   // cares about.

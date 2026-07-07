@@ -6,6 +6,7 @@ import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
 import { type TenantLifecycleStatus, tenantEntity, tenantTable } from "../../tenant";
 import { DESTRUCTION_CANCELLED_EVENT_QN } from "../constants";
+import { invalidateTenantLifecycleGate } from "../lifecycle-gate";
 
 const crud = createEventStoreExecutor(tenantTable, tenantEntity, { entityName: "tenant" });
 
@@ -59,6 +60,7 @@ export const cancelDestructionWrite = defineWriteHandler({
       { skipOptimisticLock: true },
     );
     if (!update.isSuccess) return update;
+    invalidateTenantLifecycleGate(tenantId);
 
     await ctx.unsafeAppendEvent({
       aggregateId: tenantId,

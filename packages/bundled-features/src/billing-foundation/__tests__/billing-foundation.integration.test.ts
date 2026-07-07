@@ -12,16 +12,35 @@
 // einem separaten Test mit Hono-mock geprüft.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  configuredPiiSubjectKms,
+  configurePiiSubjectKms,
+  decryptPiiFieldValues,
+  InMemoryKmsAdapter,
+  isPiiCiphertext,
+  PII_ERASED_SENTINEL,
+  resetPiiSubjectKmsForTests,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
+import {
+  createEventsTable,
+  isStreamArchived,
+  loadAggregate,
+} from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
   type TestStack,
   testTenantId,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createComplianceProfilesFeature } from "../../compliance-profiles";
+import {
+  ComplianceProfileHandlers,
+  createComplianceProfilesFeature,
+  tenantComplianceProfileEntity,
+} from "../../compliance-profiles";
 import { createConfigFeature } from "../../config";
 import { createTenantFeature } from "../../tenant/feature";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
@@ -32,6 +51,8 @@ import {
   SubscriptionStatuses,
 } from "../constants";
 import { billingFoundationFeature } from "../feature";
+import { subscriptionsProjectionTable } from "../projection";
+import { subscriptionTenantDestroyHook } from "../tenant-destroy-hook";
 import type { SubscriptionProviderPlugin } from "../types";
 
 // =============================================================================
@@ -97,10 +118,17 @@ beforeAll(async () => {
   // subscriptionsProjectionTable wird von setupTestStack automatisch
   // gepusht (r.projection mit `table`-Property → auto-push).
   await createEventsTable(db);
+  await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);
+  // providerCustomerId/providerSubscriptionId are `tenantOwned` PII-subject
+  // fields — no executor wires the KMS automatically here (raw r.projection,
+  // see feature.ts), so process-event.write.ts calls configuredPiiSubjectKms()
+  // directly and needs one configured, same as run{Prod,Dev}App do at boot.
+  configurePiiSubjectKms(new InMemoryKmsAdapter());
 });
 
 afterAll(async () => {
   await stack.cleanup();
+  resetPiiSubjectKmsForTests();
 });
 
 function adminFor(tenantNumber: number) {
@@ -576,4 +604,169 @@ describe("scenario 8: cancel-event setzt status auf canceled, behält subscripti
     expect(subs.rows[0]?.["status"]).toBe(SubscriptionStatuses.canceled);
     expect(subs.rows[0]?.["tier"]).toBe("free");
   });
+});
+
+describe("scenario 9: subscriptionTenantDestroyHook (#800 tenant-destroy PII erasure)", () => {
+  test("default profile → row hard-deleted, stream archived", async () => {
+    const admin = adminFor(3009);
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.processEvent,
+      buildEvent({
+        providerEventId: "evt_3009_create",
+        providerCustomerId: "cus_3009",
+        providerSubscriptionId: "sub_3009",
+      }),
+      admin,
+    );
+
+    await subscriptionTenantDestroyHook({ db, tenantId: admin.tenantId });
+
+    const rows = await selectMany(db, subscriptionsProjectionTable, {
+      id: subscriptionAggregateId(admin.tenantId),
+    });
+    expect(rows).toHaveLength(0);
+    expect(
+      await isStreamArchived(db, admin.tenantId, subscriptionAggregateId(admin.tenantId)),
+    ).toBe(true);
+  });
+
+  test("HGB profile → PII redacted, accounting fields + row survive, stream archived", async () => {
+    const admin = adminFor(3010);
+    await stack.http.writeOk(
+      ComplianceProfileHandlers.setProfile,
+      { profileKey: "de-hr-dsgvo-hgb" },
+      admin,
+    );
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.processEvent,
+      buildEvent({
+        providerEventId: "evt_3010_create",
+        providerCustomerId: "cus_3010",
+        providerSubscriptionId: "sub_3010",
+        tier: "pro",
+      }),
+      admin,
+    );
+
+    await subscriptionTenantDestroyHook({ db, tenantId: admin.tenantId });
+
+    const rows = await selectMany<{
+      providerCustomerId: string;
+      providerSubscriptionId: string;
+      tier: string;
+      status: string;
+    }>(db, subscriptionsProjectionTable, { id: subscriptionAggregateId(admin.tenantId) });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.providerCustomerId).toBe("[erased]");
+    expect(rows[0]?.providerSubscriptionId).toBe("[erased]");
+    // accounting facts survive — that's the point of the HGB retention branch
+    expect(rows[0]?.tier).toBe("pro");
+    expect(
+      await isStreamArchived(db, admin.tenantId, subscriptionAggregateId(admin.tenantId)),
+    ).toBe(true);
+  });
+});
+
+describe("scenario 10: PII is encrypted at rest, not just erasable on destroy", () => {
+  test("raw event-log payload and raw projection row both hold ciphertext, not the plaintext provider id", async () => {
+    const admin = adminFor(3011);
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.processEvent,
+      buildEvent({
+        providerEventId: "evt_3011_create",
+        providerCustomerId: "cus_3011",
+        providerSubscriptionId: "sub_3011",
+      }),
+      admin,
+    );
+
+    // Raw event-log row (kumiko_events) — archiveStream only stops REPLAY,
+    // it never deletes rows, so if this were plaintext it would sit here
+    // forever regardless of what a later tenant-destroy hook does.
+    const esEvents = await loadAggregate(
+      db,
+      subscriptionAggregateId(admin.tenantId),
+      admin.tenantId,
+    );
+    const createdPayload = esEvents[0]?.payload as
+      | { providerCustomerId?: string; providerSubscriptionId?: string }
+      | undefined;
+    expect(createdPayload?.providerCustomerId).not.toBe("cus_3011");
+    expect(createdPayload?.providerSubscriptionId).not.toBe("sub_3011");
+    expect(isPiiCiphertext(createdPayload?.providerCustomerId)).toBe(true);
+    expect(isPiiCiphertext(createdPayload?.providerSubscriptionId)).toBe(true);
+
+    // Raw projection row — same story, decrypt-on-read (list-query,
+    // get-subscription-for-tenant) is the only path that sees plaintext.
+    const rawRows = await selectMany(db, subscriptionsProjectionTable, {
+      id: subscriptionAggregateId(admin.tenantId),
+    });
+    expect(isPiiCiphertext(rawRows[0]?.["providerCustomerId"])).toBe(true);
+
+    // But the decrypt-on-read query path still returns plaintext to callers.
+    const subs = (await stack.http.queryOk(
+      "billing-foundation:query:subscription:list",
+      {},
+      admin,
+    )) as { rows: Array<Record<string, unknown>> };
+    expect(subs.rows[0]?.["providerCustomerId"]).toBe("cus_3011");
+  });
+
+  test("crypto-shredding: erasing the tenant's subject key makes the event-log payload permanently unreadable (#800)", async () => {
+    const admin = adminFor(3012);
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.processEvent,
+      buildEvent({
+        providerEventId: "evt_3012_create",
+        providerCustomerId: "cus_3012",
+        providerSubscriptionId: "sub_3012",
+      }),
+      admin,
+    );
+    const esEventsBefore = await loadAggregate(
+      db,
+      subscriptionAggregateId(admin.tenantId),
+      admin.tenantId,
+    );
+    const ciphertextBefore = (esEventsBefore[0]?.payload as { providerCustomerId?: string })
+      .providerCustomerId as string;
+
+    // This is exactly what tenant-lifecycle's "subject-keys" pipeline stage
+    // (eraseSubjectKeys, stages.ts) does on tenant-destroy — same kms
+    // instance, same subject shape, called directly instead of through the
+    // full destroy pipeline so this test doesn't need to drive 8 stages.
+    const kms = configuredPiiSubjectKms();
+    if (!kms) throw new Error("expected a configured PII-subject KMS in this test stack");
+    await kms.eraseKey(
+      { kind: "tenant", tenantId: admin.tenantId },
+      { requestId: "test:crypto-shred", eraseReason: "test" },
+    );
+
+    // The DEK is gone — the SAME ciphertext that decrypted cleanly a moment
+    // ago now resolves to the erased sentinel, not the original value and
+    // not a crash. That's the actual #800 guarantee: not "redacted in the
+    // read model" but "cryptographically impossible to recover", including
+    // from the raw event-log row nothing in this feature ever deletes.
+    const decrypted = await decryptPiiFieldValues(
+      { providerCustomerId: ciphertextBefore },
+      ["providerCustomerId"],
+      kms,
+      { requestId: "test:crypto-shred-verify" },
+    );
+    expect(decrypted["providerCustomerId"]).toBe(PII_ERASED_SENTINEL);
+    expect(decrypted["providerCustomerId"]).not.toBe("cus_3012");
+  });
+
+  // No backfill job here on purpose: billing-foundation has never shipped
+  // with a live subject KMS, so there is no pre-existing plaintext
+  // subscription data anywhere to migrate — every row that will ever exist
+  // is written through the encrypted path above. If that changes (billing-
+  // foundation goes live before a KMS is configured somewhere), note for
+  // whoever builds the backfill: the existing backfillEventPiiEncryption
+  // (#799, db/queries/backfill-pii.ts) does NOT cover this feature yet —
+  // its lifecycle-event matcher expects `<aggregateType>.<verb>` event
+  // names (billing's are `billing-foundation:event:subscription-created`)
+  // and its custom-event catalog only supports user-subject fields
+  // (`{kind: "user"}`), not the tenant-subject fields billing uses. Closing
+  // that gap is new framework capability, not a wiring fix.
 });
