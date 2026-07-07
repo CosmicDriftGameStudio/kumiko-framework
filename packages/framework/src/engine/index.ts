@@ -66,6 +66,9 @@ export {
   defineEntityUpdateHandler,
   defineEntityWriteHandler,
   defineProjectionQueryHandler,
+  type EntityCrudRegistrar,
+  type RegisterEntityCrudOptions,
+  registerEntityCrud,
 } from "./entity-handlers";
 export type { EmitCtx } from "./event-helpers";
 export { emitEvent, typedPayload } from "./event-helpers";

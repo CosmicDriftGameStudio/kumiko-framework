@@ -5,16 +5,9 @@
 // Domain-Logik.
 //
 // Beidseitig benutzte Schema-Definitionen leben in schema.ts. Server
-// hängt hier die Handler dran und ruft r.entity/r.screen/r.nav.
+// hängt hier die Handler dran und ruft r.screen/r.nav.
 
-import {
-  defineEntityCreateHandler,
-  defineEntityDeleteHandler,
-  defineEntityDetailHandler,
-  defineEntityListHandler,
-  defineEntityUpdateHandler,
-  defineFeature,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature, registerEntityCrud } from "@cosmicdrift/kumiko-framework/engine";
 import {
   itemActiveScreen,
   itemEditScreen,
@@ -27,13 +20,7 @@ import {
 const open = { access: { openToAll: true } } as const;
 
 export const itemsFeature = defineFeature("showcase", (r) => {
-  r.entity("item", itemEntity);
-
-  r.writeHandler(defineEntityCreateHandler("item", itemEntity, open));
-  r.writeHandler(defineEntityUpdateHandler("item", itemEntity, open));
-  r.writeHandler(defineEntityDeleteHandler("item", itemEntity, open));
-  r.queryHandler(defineEntityListHandler("item", itemEntity, open));
-  r.queryHandler(defineEntityDetailHandler("item", itemEntity, open));
+  registerEntityCrud(r, "item", itemEntity, { write: open, read: open });
 
   r.screen(itemEditScreen);
   r.screen(itemListScreen);

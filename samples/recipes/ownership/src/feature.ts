@@ -22,14 +22,9 @@
 import {
   createEntity,
   createTextField,
-  defineEntityCreateHandler,
-  defineEntityDeleteHandler,
-  defineEntityDetailHandler,
-  defineEntityListHandler,
-  defineEntityRestoreHandler,
-  defineEntityUpdateHandler,
   defineFeature,
   from,
+  registerEntityCrud,
 } from "@cosmicdrift/kumiko-framework/engine";
 
 // The "teams" feature declares the teamId claim. Any other feature can
@@ -92,36 +87,9 @@ export const contractEntity = createEntity({
 });
 
 export const contractsFeature = defineFeature("contracts", (r) => {
-  r.entity("contract", contractEntity);
-
-  r.writeHandler(
-    defineEntityCreateHandler("contract", contractEntity, {
-      access: { roles: ["Admin", "TeamMember", "Driver"] },
-    }),
-  );
-  r.writeHandler(
-    defineEntityUpdateHandler("contract", contractEntity, {
-      access: { roles: ["Admin", "TeamMember", "Driver"] },
-    }),
-  );
-  r.writeHandler(
-    defineEntityDeleteHandler("contract", contractEntity, {
-      access: { roles: ["Admin", "TeamMember", "Driver"] },
-    }),
-  );
-  r.writeHandler(
-    defineEntityRestoreHandler("contract", contractEntity, {
-      access: { roles: ["Admin", "TeamMember", "Driver"] },
-    }),
-  );
-  r.queryHandler(
-    defineEntityListHandler("contract", contractEntity, {
-      access: { roles: ["Admin", "TeamMember", "Driver"] },
-    }),
-  );
-  r.queryHandler(
-    defineEntityDetailHandler("contract", contractEntity, {
-      access: { roles: ["Admin", "TeamMember", "Driver"] },
-    }),
-  );
+  const contractAccess = { access: { roles: ["Admin", "TeamMember", "Driver"] } } as const;
+  registerEntityCrud(r, "contract", contractEntity, {
+    write: contractAccess,
+    read: contractAccess,
+  });
 });

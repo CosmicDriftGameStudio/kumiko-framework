@@ -1,13 +1,9 @@
-// Relations Sample
-// Shows: hasMany relation, onDelete: cascade vs restrict, parent-child entities.
-
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
-  defineEntityCreateHandler,
-  defineEntityDetailHandler,
   defineFeature,
+  registerEntityCrud,
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const teamEntity = createEntity({
@@ -21,7 +17,6 @@ export const memberEntity = createEntity({
   table: "read_sample_members",
   fields: {
     name: createTextField({ required: true }),
-    // UUID foreign keys are stored as text columns so the string UUID fits.
     teamId: createTextField({ required: true }),
     role: createTextField(),
   },
@@ -35,20 +30,24 @@ export const taskEntity = createEntity({
   },
 });
 
-// Tables exported so the integration test can wire the cascade-delete hook.
 export const teamTable = buildEntityTable("team", teamEntity);
 export const memberTable = buildEntityTable("member", memberEntity);
 export const taskTable = buildEntityTable("task", taskEntity);
 
 const adminWrite = { access: { roles: ["Admin"] } } as const;
 const openRead = { access: { openToAll: true } } as const;
+const createOnly = {
+  update: false,
+  delete: false,
+  restore: false,
+  list: false,
+  detail: false,
+} as const;
 
 export const relationsFeature = defineFeature("org", (r) => {
   const team = r.entity("team", teamEntity);
   const member = r.entity("member", memberEntity);
-  r.entity("task", taskEntity);
 
-  // Team has many members — restrict delete when members exist.
   r.relation(team, "members", {
     type: "hasMany",
     target: "member",
@@ -56,7 +55,6 @@ export const relationsFeature = defineFeature("org", (r) => {
     onDelete: "restrict",
   });
 
-  // Member has many tasks — cascade delete tasks when member is deleted.
   r.relation(member, "tasks", {
     type: "hasMany",
     target: "task",
@@ -64,8 +62,19 @@ export const relationsFeature = defineFeature("org", (r) => {
     onDelete: "cascade",
   });
 
-  r.writeHandler(defineEntityCreateHandler("team", teamEntity, adminWrite));
-  r.writeHandler(defineEntityCreateHandler("member", memberEntity, adminWrite));
-  r.writeHandler(defineEntityCreateHandler("task", taskEntity, adminWrite));
-  r.queryHandler(defineEntityDetailHandler("task", taskEntity, openRead));
+  registerEntityCrud(r, "team", teamEntity, {
+    write: adminWrite,
+    verbs: createOnly,
+    registerEntity: false,
+  });
+  registerEntityCrud(r, "member", memberEntity, {
+    write: adminWrite,
+    verbs: createOnly,
+    registerEntity: false,
+  });
+  registerEntityCrud(r, "task", taskEntity, {
+    write: adminWrite,
+    read: openRead,
+    verbs: { ...createOnly, detail: true },
+  });
 });

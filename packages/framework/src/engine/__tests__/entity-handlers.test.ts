@@ -10,8 +10,11 @@ import {
   defineEntityUpdateHandler,
   defineEntityWriteHandler,
   defineProjectionQueryHandler,
+  type EntityCrudRegistrar,
+  registerEntityCrud,
 } from "../entity-handlers";
 import { createEntity, createTextField } from "../factories";
+import type { QueryHandlerDef, WriteHandlerDef } from "../types";
 
 const VALID_UUID = "00000000-0000-4000-8000-000000000001";
 
@@ -270,5 +273,82 @@ describe("Verb-specific entity-handler factories", () => {
     expect(newApi.name).toBe(legacyApi.name);
     expect(typeof newApi.handler).toBe("function");
     expect(typeof legacyApi.handler).toBe("function");
+  });
+});
+
+function createCrudRegistrarMock(): {
+  readonly r: EntityCrudRegistrar;
+  readonly entities: Record<string, unknown>;
+  readonly writes: WriteHandlerDef[];
+  readonly queries: QueryHandlerDef[];
+} {
+  const entities: Record<string, unknown> = {};
+  const writes: WriteHandlerDef[] = [];
+  const queries: QueryHandlerDef[] = [];
+  const r: EntityCrudRegistrar = {
+    entity(name, definition) {
+      entities[name] = definition;
+    },
+    writeHandler(def) {
+      writes.push(def);
+    },
+    queryHandler(def) {
+      queries.push(def);
+    },
+  };
+  return { r, entities, writes, queries };
+}
+
+describe("registerEntityCrud", () => {
+  test("registers entity + standard handlers (restore only when softDelete)", () => {
+    const { r, entities, writes, queries } = createCrudRegistrarMock();
+    registerEntityCrud(r, "note", noteEntitySoftDelete, {
+      write: { access: { roles: ["Admin"] } },
+      read: { access: { openToAll: true } },
+    });
+    expect(entities["note"]).toBe(noteEntitySoftDelete);
+    expect(writes.map((w) => w.name)).toEqual([
+      "note:create",
+      "note:update",
+      "note:delete",
+      "note:restore",
+    ]);
+    expect(queries.map((q) => q.name)).toEqual(["note:list", "note:detail"]);
+    expect(writes[0]?.access).toEqual({ roles: ["Admin"] });
+    expect(queries[0]?.access).toEqual({ openToAll: true });
+  });
+
+  test("verbs.delete: false skips delete handler", () => {
+    const { r, writes } = createCrudRegistrarMock();
+    registerEntityCrud(r, "note", noteEntity, {
+      verbs: { delete: false },
+    });
+    expect(writes.map((w) => w.name)).toEqual(["note:create", "note:update"]);
+  });
+
+  test("no options → handlers have no access (no implicit openToAll)", () => {
+    const { r, writes, queries } = createCrudRegistrarMock();
+    registerEntityCrud(r, "note", noteEntity);
+    for (const def of [...writes, ...queries]) {
+      expect(def.access).toBeUndefined();
+    }
+  });
+
+  test("restore verb on entity without softDelete throws", () => {
+    const { r } = createCrudRegistrarMock();
+    expect(() => registerEntityCrud(r, "note", noteEntity, { verbs: { restore: true } })).toThrow(
+      /softDelete/,
+    );
+  });
+
+  test("registerEntity: false skips r.entity when already registered", () => {
+    const { r, entities, writes } = createCrudRegistrarMock();
+    r.entity("note", noteEntity);
+    registerEntityCrud(r, "note", noteEntity, {
+      registerEntity: false,
+      verbs: { update: false, delete: false, restore: false, list: false, detail: false },
+    });
+    expect(Object.keys(entities)).toEqual(["note"]);
+    expect(writes.map((w) => w.name)).toEqual(["note:create"]);
   });
 });
