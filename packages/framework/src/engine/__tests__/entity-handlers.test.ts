@@ -306,7 +306,7 @@ describe("registerEntityCrud", () => {
       write: { access: { roles: ["Admin"] } },
       read: { access: { openToAll: true } },
     });
-    expect(entities.note).toBe(noteEntitySoftDelete);
+    expect(entities["note"]).toBe(noteEntitySoftDelete);
     expect(writes.map((w) => w.name)).toEqual([
       "note:create",
       "note:update",
@@ -352,3 +352,4 @@ describe("registerEntityCrud", () => {
     expect(writes.map((w) => w.name)).toEqual(["note:create"]);
   });
 });
+

@@ -66,9 +66,9 @@ export {
   defineEntityUpdateHandler,
   defineEntityWriteHandler,
   defineProjectionQueryHandler,
-  registerEntityCrud,
   type EntityCrudRegistrar,
   type RegisterEntityCrudOptions,
+  registerEntityCrud,
 } from "./entity-handlers";
 export type { EmitCtx } from "./event-helpers";
 export { emitEvent, typedPayload } from "./event-helpers";
@@ -399,5 +399,3 @@ export type {
   StepResolver,
 } from "./types/step";
 export { runValidation } from "./validation";
-
-
