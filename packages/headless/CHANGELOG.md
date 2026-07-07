@@ -1,5 +1,15 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.128.0
+
+### Minor Changes
+
+- d340977: Add `@cosmicdrift/kumiko-headless/locale-routing` with `createLocaleRouter` for configurable apex URL locale routing (`detectLang`, `publicPath`, `altLocalePath`, `sectionAnchor`, legacy `localeHints`).
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.128.0
+
 ## 0.127.0
 
 ### Patch Changes
