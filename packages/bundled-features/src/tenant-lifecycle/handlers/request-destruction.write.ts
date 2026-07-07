@@ -9,6 +9,7 @@ import { resolveProfileForTenant } from "../../compliance-profiles";
 import { type TenantLifecycleStatus, tenantEntity, tenantTable } from "../../tenant";
 import { DESTRUCTION_REQUESTED_EVENT_QN } from "../constants";
 import { revokeTenantSessions } from "../lib/revoke-tenant-sessions";
+import { invalidateTenantLifecycleGate } from "../lifecycle-gate";
 
 const crud = createEventStoreExecutor(tenantTable, tenantEntity, { entityName: "tenant" });
 
@@ -54,6 +55,7 @@ export const requestDestructionWrite = defineWriteHandler({
       { skipOptimisticLock: true },
     );
     if (!update.isSuccess) return update;
+    invalidateTenantLifecycleGate(tenantId);
 
     await ctx.unsafeAppendEvent({
       aggregateId: tenantId,

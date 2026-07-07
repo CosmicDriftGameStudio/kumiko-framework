@@ -12,10 +12,15 @@
 //   3. ctx.unsafeAppendEvent — Inline-projection materialisiert die
 //      `read_subscriptions`-row in derselben TX.
 
+import {
+  configuredPiiSubjectKms,
+  encryptPiiFieldValues,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { subscriptionAggregateId } from "../aggregate-id";
 import { SubscriptionEventTypes, SubscriptionStatuses } from "../constants";
+import { SUBSCRIPTION_PII_FIELDS, subscriptionEntity } from "../entities";
 import {
   INVOICE_PAID_EVENT_QN,
   INVOICE_PAYMENT_FAILED_EVENT_QN,
@@ -125,13 +130,44 @@ export const processEventHandler: WriteHandlerDef = {
     }
 
     // ---------------------------------------------------------------
-    // 3. Append event auf den subscription-stream. Inline-projection
+    // 3. Encrypt the two provider-subject PII fields before they touch
+    //    storage — this is the ONLY write path onto the subscription
+    //    stream, so encrypting here covers both the event-log payload AND
+    //    (via projection.ts copying the event fields as-is) the
+    //    read_subscriptions row with a single call. The subject is the
+    //    TENANT (tenantOwned) — tenant-destroy's subject-keys stage
+    //    (eraseSubjectKeys) erases exactly this key, so both copies become
+    //    genuinely unreadable (#800) once that stage runs, not just
+    //    "encrypted at rest". No adapter configured = engine off (fields
+    //    stay plaintext, pre-#724-phase-C behavior) — mirrors how the
+    //    event-store-executor treats an absent piiKms().
+    // ---------------------------------------------------------------
+    const piiKms = configuredPiiSubjectKms();
+    const encryptedFields = piiKms
+      ? await encryptPiiFieldValues(
+          {
+            tenantId,
+            providerCustomerId: payload.providerCustomerId,
+            providerSubscriptionId: payload.providerSubscriptionId,
+          },
+          subscriptionEntity,
+          SUBSCRIPTION_PII_FIELDS,
+          piiKms,
+          { requestId: `billing-foundation:process-event:${payload.providerEventId}`, tenantId },
+        )
+      : {
+          providerCustomerId: payload.providerCustomerId,
+          providerSubscriptionId: payload.providerSubscriptionId,
+        };
+
+    // ---------------------------------------------------------------
+    // 4. Append event auf den subscription-stream. Inline-projection
     //    materialisiert die read_subscriptions-row in derselben TX.
     // ---------------------------------------------------------------
     const eventPayload: SubscriptionEventPayload = {
       providerName: payload.providerName,
-      providerCustomerId: payload.providerCustomerId,
-      providerSubscriptionId: payload.providerSubscriptionId,
+      providerCustomerId: encryptedFields["providerCustomerId"] as string,
+      providerSubscriptionId: encryptedFields["providerSubscriptionId"] as string,
       status: payload.status,
       tier: payload.tier,
       currentPeriodEndIso: payload.currentPeriodEndIso,

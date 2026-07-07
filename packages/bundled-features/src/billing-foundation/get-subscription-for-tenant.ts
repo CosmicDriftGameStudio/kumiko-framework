@@ -1,8 +1,13 @@
 // Resolver-helper: liest die current subscription-row für einen Tenant
 // aus der read_subscriptions-projection.
 
+import {
+  configuredPiiSubjectKms,
+  decryptPiiFieldValues,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { subscriptionAggregateId } from "./aggregate-id";
+import { SUBSCRIPTION_PII_FIELDS } from "./entities";
 import { subscriptionsProjectionTable } from "./projection";
 
 export type SubscriptionView = {
@@ -24,12 +29,18 @@ export async function getSubscriptionForTenant(
   const rows = await ctx.db.selectMany(subscriptionsProjectionTable, { id: aggId }, { limit: 1 });
   const row = rows[0];
   if (!row) return null;
+  const piiKms = configuredPiiSubjectKms();
+  const decrypted = piiKms
+    ? await decryptPiiFieldValues(row as Record<string, unknown>, SUBSCRIPTION_PII_FIELDS, piiKms, {
+        requestId: `billing-foundation:get-subscription:${tenantId}`,
+      })
+    : (row as Record<string, unknown>);
   // @cast-boundary db-row — drizzle-row carries column-as-unknown
   return {
-    tier: row["tier"] as string,
-    status: row["status"] as string,
-    providerName: row["providerName"] as string,
-    providerCustomerId: row["providerCustomerId"] as string,
-    providerSubscriptionId: row["providerSubscriptionId"] as string,
+    tier: decrypted["tier"] as string,
+    status: decrypted["status"] as string,
+    providerName: decrypted["providerName"] as string,
+    providerCustomerId: decrypted["providerCustomerId"] as string,
+    providerSubscriptionId: decrypted["providerSubscriptionId"] as string,
   };
 }

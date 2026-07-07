@@ -23,6 +23,7 @@ import {
   TENANT_DESTRUCTION_STAGE_SUCCEEDED_EVENT_SHORT,
   TENANT_DESTRUCTION_STARTED_EVENT_SHORT,
 } from "./constants";
+import { invalidateTenantLifecycleGate } from "./lifecycle-gate";
 import { type DestructionStageCtx, isDestructionPipelineComplete, pickNextStage } from "./stages";
 
 const tenantCrud = createEventStoreExecutor(tenantTable, tenantEntity, { entityName: "tenant" });
@@ -148,6 +149,7 @@ async function markTenantDestroyFailed(db: DbRunner, tenantId: TenantId): Promis
     scopedDb,
     { skipOptimisticLock: true },
   );
+  invalidateTenantLifecycleGate(tenantId);
 }
 
 async function haltPipelineOnAbandon(args: {
@@ -156,16 +158,20 @@ async function haltPipelineOnAbandon(args: {
   readonly stage: string;
   readonly attempts: number;
   readonly error: string;
-  readonly expectedVersion: number;
 }): Promise<void> {
   const T = getTemporal();
   const failedAt = T.Now.instant();
+  // Reload fresh instead of trusting a caller-supplied version: the failed
+  // stage's own run() may have appended to this same aggregate (e.g.
+  // tombstoneTenantRow's tenantCrud.update) before throwing, so any version
+  // captured earlier in the pipeline is stale and would VersionConflict here.
+  const eventsBeforeAbandon = await loadAggregate(args.db, args.tenantId, args.tenantId);
   await appendTenantStageEvent(
     args.db,
     args.tenantId,
     qualified(TENANT_DESTRUCTION_STAGE_ABANDONED_EVENT_SHORT),
     { stage: args.stage, attempts: args.attempts, error: args.error },
-    args.expectedVersion,
+    lastEventVersion(eventsBeforeAbandon),
   );
   const eventsAfterAbandon = await loadAggregate(args.db, args.tenantId, args.tenantId);
   const versionAfterAbandon = lastEventVersion(eventsAfterAbandon);
@@ -243,14 +249,19 @@ export async function runNextDestructionStage(args: {
 
   try {
     await next.run(ctx);
+    // next.run() may itself have appended events to this aggregate (e.g.
+    // tombstoneTenantRow updates the tenant row on the same stream) — reload
+    // the version fresh instead of trusting the pre-run `version`, or this
+    // append throws VersionConflictError on every stage whose run() writes.
+    const eventsAfterRun = await loadAggregate(args.db, args.tenantId, args.tenantId);
     version = await appendTenantStageEventIdempotent(
       args.db,
       args.tenantId,
       qualified(TENANT_DESTRUCTION_STAGE_SUCCEEDED_EVENT_SHORT),
       { stage: next.name, attempts: attempt },
-      version,
+      lastEventVersion(eventsAfterRun),
       stageOutcomeRecorded(
-        await loadAggregate(args.db, args.tenantId, args.tenantId),
+        eventsAfterRun,
         next.name,
         TENANT_DESTRUCTION_STAGE_SUCCEEDED_EVENT_SHORT,
       ),
@@ -269,7 +280,6 @@ export async function runNextDestructionStage(args: {
         stage: next.name,
         attempts: attempt,
         error: message,
-        expectedVersion: version,
       });
       return { done: false, error: message, halted: true };
     }
@@ -289,6 +299,7 @@ export async function runTenantDestructionSweep(args: {
   readonly db: DbRunner;
   readonly registry: Registry;
   readonly now?: Temporal.Instant;
+  readonly log?: (message: string) => void;
 }): Promise<{ readonly triggered: number; readonly advanced: number }> {
   const T = getTemporal();
   const now = args.now ?? T.Now.instant();
@@ -302,23 +313,26 @@ export async function runTenantDestructionSweep(args: {
     const tenantId = row.id as TenantId;
     const events = await loadAggregate(args.db, tenantId, tenantId);
     const version = lastEventVersion(events);
+    const user = createSystemUser(tenantId);
+    const scopedDb = createTenantDb(args.db, tenantId, "system");
+    // Version-guarded (no skipOptimisticLock): a concurrent cancel-destruction
+    // between the `due` select above and this write also appends to the same
+    // tenant stream, so an unguarded overwrite here would silently revert the
+    // cancellation. A version conflict means we lost that race — skip, the
+    // tenant is no longer due and the next tick re-evaluates it.
+    const result = await tenantCrud.update(
+      { id: tenantId, version, changes: { status: "destroying", destroyStartedAt: now } },
+      user,
+      scopedDb,
+    );
+    if (!result.isSuccess) continue;
+    invalidateTenantLifecycleGate(tenantId);
     await appendTenantStageEvent(
       args.db,
       tenantId,
       qualified(TENANT_DESTRUCTION_STARTED_EVENT_SHORT),
       { startedAt: now.toString() },
-      version,
-    );
-    const user = createSystemUser(tenantId);
-    const scopedDb = createTenantDb(args.db, tenantId, "system");
-    await tenantCrud.update(
-      {
-        id: tenantId,
-        changes: { status: "destroying", destroyStartedAt: now },
-      },
-      user,
-      scopedDb,
-      { skipOptimisticLock: true },
+      version + 1,
     );
     triggered++;
   }
@@ -328,30 +342,27 @@ export async function runTenantDestructionSweep(args: {
     status: "destroying",
   });
   for (const row of destroying) {
-    const result = await runNextDestructionStage({
-      db: args.db,
-      registry: args.registry,
-      tenantId: row.id as TenantId,
-    });
-    if (!result.error && !result.halted) advanced++;
+    try {
+      const result = await runNextDestructionStage({
+        db: args.db,
+        registry: args.registry,
+        tenantId: row.id as TenantId,
+        log: args.log,
+      });
+      if (!result.error && !result.halted) advanced++;
+    } catch (err) {
+      // Isolate the failure to this tenant — an uncaught throw here must not
+      // abort the whole sweep tick and starve every other "destroying" tenant
+      // of progress. The tenant stays "destroying" and the next tick retries.
+      args.log?.(
+        `[tenant-lifecycle] sweep: unexpected error advancing tenant ${row.id}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
   }
 
   return { triggered, advanced };
 }
 
-export async function resolveTenantLifecycleGate(
-  db: DbRunner,
-  tenantId: TenantId,
-): Promise<{ status: string; gracePeriodEnd: string | null } | null> {
-  const rows = await selectMany<{ status: string; gracePeriodEnd: Temporal.Instant | null }>(
-    db,
-    tenantTable,
-    { id: tenantId },
-  );
-  const row = rows[0];
-  if (!row) return null;
-  return {
-    status: row.status,
-    gracePeriodEnd: row.gracePeriodEnd?.toString() ?? null,
-  };
-}
+export { invalidateTenantLifecycleGate, resolveTenantLifecycleGate } from "./lifecycle-gate";

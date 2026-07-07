@@ -540,9 +540,13 @@ async function requestsCancelDestruction(c: Context): Promise<boolean> {
       return body.type === TENANT_LIFECYCLE_CANCEL_QN;
     }
     if (path === "/api/batch") {
+      // every(), not some(): a batch mixing the cancel command with other
+      // writes must NOT wave the whole batch through the teardown gate —
+      // only a batch consisting solely of cancel-destruction is exempt.
       return (
         Array.isArray(body.commands) &&
-        body.commands.some((command) => command.type === TENANT_LIFECYCLE_CANCEL_QN)
+        body.commands.length > 0 &&
+        body.commands.every((command) => command.type === TENANT_LIFECYCLE_CANCEL_QN)
       );
     }
   } catch {

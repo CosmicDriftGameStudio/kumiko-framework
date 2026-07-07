@@ -8,7 +8,7 @@ export {
   tenantInvitationEntity,
   tenantInvitationsTable,
 } from "./invitation-table";
-export { tenantMembershipsTable } from "./membership-table";
+export { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table";
 export {
   TENANT_LIFECYCLE_STATUSES,
   type TenantLifecycleStatus,

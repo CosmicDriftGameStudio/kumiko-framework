@@ -5,15 +5,18 @@
 // hook but no delete hook (Art.17 violation).
 // V3 — PII-entity-without-hook guard. Catches entities with pii/userOwned
 // fields that no feature registers an EXT_USER_DATA hook for.
+// V4 — tenantOwned-entity-without-hook guard. Mirrors V3 for EXT_TENANT_DATA.
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { integer, type SchemaTable, table, uuid } from "../../db/dialect";
 import {
   validateGdprHookCompleteness,
   validateGdprPiiHookCoverage,
   validateGdprStoragePersistence,
+  validateTenantDataHookCoverage,
 } from "../boot-validator/gdpr-storage";
 import { defineFeature } from "../define-feature";
-import { EXT_USER_DATA } from "../extension-names";
+import { EXT_TENANT_DATA, EXT_USER_DATA } from "../extension-names";
 import { createEntity, createLongTextField, createTextField } from "../factories";
 
 const udr = () => defineFeature("user-data-rights", () => {});
@@ -21,6 +24,13 @@ const fileProvider = (name: string) =>
   defineFeature(`file-provider-${name}`, (r) => {
     r.useExtension("fileProvider", name);
   });
+
+// Throwaway Drizzle table for r.projection() registrations — the projection
+// runtime behaviour isn't under test here, only the guard's field scan.
+const testProjectionTable = table("test_projection", {
+  id: uuid("id").primaryKey(),
+  count: integer("count").notNull().default(0),
+}) as unknown as SchemaTable;
 
 const S3_ENV = ["S3_BUCKET", "S3_REGION", "S3_ACCESS_KEY", "S3_SECRET_KEY"] as const;
 
@@ -216,5 +226,81 @@ describe("validateGdprPiiHookCoverage (V3)", () => {
     });
     const msg = catchMessage(() => validateGdprPiiHookCoverage([udr(), f]));
     expect(msg).toContain('"note"');
+  });
+});
+
+describe("validateTenantDataHookCoverage (V4)", () => {
+  const destroyFn = async () => {};
+  const tenantLifecycle = () => defineFeature("tenant-lifecycle", () => {});
+
+  const tenantEntityFeature = () =>
+    defineFeature("billing", (r) => {
+      r.entity(
+        "subscription",
+        createEntity({
+          fields: { providerCustomerId: createTextField({ tenantOwned: true }) },
+        }),
+      );
+    });
+
+  test("tenant-lifecycle not mounted → no throw", () => {
+    expect(() => validateTenantDataHookCoverage([tenantEntityFeature()])).not.toThrow();
+  });
+
+  test("tenantOwned entity without any EXT_TENANT_DATA hook → throws naming entity and field", () => {
+    const msg = catchMessage(() =>
+      validateTenantDataHookCoverage([tenantLifecycle(), tenantEntityFeature()]),
+    );
+    expect(msg).toContain('"subscription"');
+    expect(msg).toContain("providerCustomerId");
+  });
+
+  test("tenantOwned entity with hook registered → no throw", () => {
+    const hooks = defineFeature("billing-hooks", (r) => {
+      r.useExtension(EXT_TENANT_DATA, "subscription", { destroy: destroyFn });
+    });
+    expect(() =>
+      validateTenantDataHookCoverage([tenantLifecycle(), tenantEntityFeature(), hooks]),
+    ).not.toThrow();
+  });
+
+  // Regression: billing-foundation's real `subscription` shape — r.projection()
+  // (no executor, no r.entity) carrying an `entity` reference for its
+  // tenantOwned fields. Before this fix, feature.entities-only scanning made
+  // this shape invisible to the guard.
+  test("tenantOwned field on a projection-only entity (no r.entity) is still caught", () => {
+    const projectionFeature = defineFeature("billing", (r) => {
+      r.projection({
+        name: "subscription",
+        source: "subscription",
+        table: testProjectionTable,
+        entity: createEntity({
+          fields: { providerCustomerId: createTextField({ tenantOwned: true }) },
+        }),
+        apply: {},
+      });
+    });
+    const msg = catchMessage(() =>
+      validateTenantDataHookCoverage([tenantLifecycle(), projectionFeature]),
+    );
+    expect(msg).toContain("providerCustomerId");
+  });
+
+  test("tenantOwned field on a projection-only entity WITH a hook → no throw", () => {
+    const projectionFeature = defineFeature("billing", (r) => {
+      r.projection({
+        name: "subscription",
+        source: "subscription",
+        table: testProjectionTable,
+        entity: createEntity({
+          fields: { providerCustomerId: createTextField({ tenantOwned: true }) },
+        }),
+        apply: {},
+      });
+      r.useExtension(EXT_TENANT_DATA, "subscription", { destroy: destroyFn });
+    });
+    expect(() =>
+      validateTenantDataHookCoverage([tenantLifecycle(), projectionFeature]),
+    ).not.toThrow();
   });
 });

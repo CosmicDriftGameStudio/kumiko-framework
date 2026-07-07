@@ -4,6 +4,7 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineFeature,
+  EXT_EXTERNAL_RESOURCE,
   EXT_TENANT_DATA,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -18,6 +19,7 @@ import {
   setupTestStack,
   type TestStack,
   TestUsers,
+  testTenantId,
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
@@ -26,6 +28,7 @@ import {
   resetTestTables,
   updateRows,
 } from "@cosmicdrift/kumiko-framework/testing";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
@@ -36,9 +39,11 @@ import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
 import { createSessionsFeature } from "../../sessions";
 import { userSessionEntity, userSessionTable } from "../../sessions/schema/user-session";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant";
 import { TenantHandlers, TenantQueries } from "../../tenant/constants";
 import { createTenantFeature } from "../../tenant/feature";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant";
+import { seedTenantMembership } from "../../tenant/testing";
 import { createUserFeature } from "../../user/feature";
 import {
   TENANT_AGGREGATE_TYPE,
@@ -50,7 +55,8 @@ import {
   resolveTenantLifecycleGate,
   TenantLifecycleHandlers,
 } from "../index";
-import { runNextDestructionStage } from "../run-tenant-destroy";
+import { resetTenantLifecycleGateCacheForTests } from "../lifecycle-gate";
+import { runNextDestructionStage, runTenantDestructionSweep } from "../run-tenant-destroy";
 
 const REQUEST = TenantLifecycleHandlers.requestDestruction;
 const CANCEL = TenantLifecycleHandlers.cancelDestruction;
@@ -86,6 +92,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(db, tenantEntity);
   await unsafeCreateEntityTable(db, userSessionEntity);
   await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);
+  await unsafeCreateEntityTable(db, tenantMembershipEntity);
   await createEventsTable(db);
   await unsafePushTables(db, { configValuesTable });
 });
@@ -96,10 +103,15 @@ afterAll(async () => {
 
 beforeEach(async () => {
   stack.events.reset();
+  // resetTestTables wipes rows via raw SQL, not through the write handlers
+  // that invalidate the lifecycle-gate cache — clear it too, or a later test
+  // reusing tenantAdmin.tenantId reads an earlier test's cached status.
+  resetTenantLifecycleGateCacheForTests();
   await resetTestTables(db, [
     tenantTable,
     tenantComplianceProfileTable,
     userSessionTable,
+    tenantMembershipsTable,
     eventsTable,
   ]);
 });
@@ -305,5 +317,153 @@ describe("tenant-lifecycle :: batch cancel exemption", () => {
 
     const rows = await selectMany(db, tenantTable, { id: tenantAdmin.tenantId });
     expect(rows[0]?.["status"]).toBe("active");
+  });
+
+  test("batch mixing cancel with another command is NOT exempt (410)", async () => {
+    await seedTenant();
+    await stack.http.writeOk(REQUEST, {}, tenantAdmin);
+    const res = await stack.http.batch(
+      [
+        { type: CANCEL, payload: {} },
+        { type: SET_PROFILE, payload: { profileKey: "de-hr-dsgvo-hgb" } },
+      ],
+      tenantAdmin,
+    );
+    expect(res.status).toBe(410);
+
+    // Neither command ran — the tenant is still destroyRequested, not
+    // cancelled back to active.
+    const rows = await selectMany(db, tenantTable, { id: tenantAdmin.tenantId });
+    expect(rows[0]?.["status"]).toBe("destroyRequested");
+  });
+});
+
+describe("tenant-lifecycle :: full sweep pipeline", () => {
+  test("runTenantDestructionSweep drives destroyRequested -> destroyed, memberships forgotten", async () => {
+    await seedTenant();
+    const membership = await seedTenantMembership(db, {
+      userId: TestUsers.user.id,
+      tenantId: tenantAdmin.tenantId,
+      roles: ["User"],
+    });
+    await stack.http.writeOk(REQUEST, {}, tenantAdmin);
+
+    // Comfortably past any compliance profile's grace period, so the sweep's
+    // first loop flips destroyRequested -> destroying on the first tick.
+    const farFuture = getTemporal()
+      .Now.instant()
+      .add({ hours: 24 * 3650 });
+
+    let status = "";
+    for (let i = 0; i < 20; i++) {
+      await runTenantDestructionSweep({ db: stack.db, registry: stack.registry, now: farFuture });
+      const rows = await selectMany(db, tenantTable, { id: tenantAdmin.tenantId });
+      status = String(rows[0]?.["status"]);
+      if (status === "destroyed" || status === "destroyFailed") break;
+    }
+
+    expect(status).toBe("destroyed");
+
+    const memberships = await selectMany(db, tenantMembershipsTable, {
+      tenantId: tenantAdmin.tenantId,
+    });
+    expect(memberships).toHaveLength(0);
+
+    // Discriminates the fix from a raw deleteMany bypass — both empty the
+    // projection table, but only forget() through the executor leaves an
+    // event on the membership's own aggregate stream (rebuild-safe erasure).
+    const membershipEvents = await loadAggregate(db, membership.id, tenantAdmin.tenantId);
+    expect(membershipEvents.some((e) => e.type === "tenant-membership.forgotten")).toBe(true);
+
+    // Gate resolves the fresh status too — proves the cache was invalidated
+    // through every status transition, not just the final one.
+    const gate = await resolveTenantLifecycleGate(stack.db, tenantAdmin.tenantId);
+    expect(gate?.status).toBe("destroyed");
+  });
+});
+
+// One tenantId is set here per-test right before the sweep call — the hook
+// throws only for that tenant, letting a single stack exercise "one tenant's
+// destroy-hook fails, does that stall every OTHER destroying tenant's sweep
+// progress in the same tick?" without a second full stack.
+let selectivePoisonTargetTenantId: TenantId | null = null;
+
+function createSelectivePoisonTenantDataFeature() {
+  return defineFeature("test-selective-poison-tenant-data", (r) => {
+    r.requires("tenant-lifecycle");
+    // EXT_EXTERNAL_RESOURCE — the pipeline's FIRST stage — so the poison
+    // fires on the very first sweep tick instead of several stages in.
+    r.useExtension(EXT_EXTERNAL_RESOURCE, "selective-poison-pill", {
+      destroyTenant: async (tenantId: TenantId) => {
+        if (tenantId === selectivePoisonTargetTenantId) {
+          throw new Error("selective-poison");
+        }
+      },
+    });
+  });
+}
+
+describe("tenant-lifecycle :: sweep isolates one tenant's failure from another's progress", () => {
+  let isolationStack: TestStack;
+  const tenantA = tenantAdmin.tenantId; // poisoned
+  const tenantB = testTenantId(9002); // healthy
+
+  beforeAll(async () => {
+    const encryption = createTestEnvelopeCipher(randomBytes(32).toString("base64"));
+    const resolver = createConfigResolver({ cipher: encryption });
+    isolationStack = await setupTestStack({
+      features: [
+        createConfigFeature(),
+        createTenantFeature(),
+        createComplianceProfilesFeature(),
+        createTenantLifecycleFeature(),
+        createSelectivePoisonTenantDataFeature(),
+      ],
+      extraContext: { configResolver: resolver, configEncryption: encryption },
+    });
+    await unsafeCreateEntityTable(isolationStack.db, tenantEntity);
+    await unsafeCreateEntityTable(isolationStack.db, tenantComplianceProfileEntity);
+    await createEventsTable(isolationStack.db);
+    await unsafePushTables(isolationStack.db, { configValuesTable });
+  });
+
+  afterAll(async () => {
+    await isolationStack.cleanup();
+  });
+
+  async function seedDestroyingTenant(id: TenantId): Promise<void> {
+    await isolationStack.http.writeOk(
+      TenantHandlers.create,
+      { id, key: `acme-${id.slice(-4)}`, name: "ACME Corp" },
+      TestUsers.systemAdmin,
+    );
+    await isolationStack.http.writeOk(
+      SET_PROFILE,
+      { profileKey: "eu-dsgvo" },
+      { ...tenantAdmin, tenantId: id },
+    );
+    await updateRows(isolationStack.db, tenantTable, { status: "destroying" }, { id });
+  }
+
+  test("tenant A's poisoned destroy-hook does not block tenant B's sweep progress", async () => {
+    selectivePoisonTargetTenantId = tenantA;
+    await seedDestroyingTenant(tenantA);
+    await seedDestroyingTenant(tenantB);
+
+    const result = await runTenantDestructionSweep({
+      db: isolationStack.db,
+      registry: isolationStack.registry,
+    });
+
+    // A's first stage ("external-resources") throws every attempt — not
+    // counted as advanced. B has no poison, so it does advance. If A's
+    // failure aborted the sweep loop (the pre-fix behavior), B would never
+    // be reached and this would be 0.
+    expect(result.advanced).toBe(1);
+
+    const rowB = await selectMany(isolationStack.db, tenantTable, { id: tenantB });
+    expect(rowB[0]?.["status"]).toBe("destroying"); // still mid-pipeline, but progressed
+    const eventsB = await loadAggregate(isolationStack.db, tenantB, tenantB);
+    expect(eventsB.some((e) => e.type.endsWith("tenant-destruction-stage-succeeded"))).toBe(true);
   });
 });
