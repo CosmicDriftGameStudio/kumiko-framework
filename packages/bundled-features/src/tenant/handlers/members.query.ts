@@ -2,7 +2,7 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
-import { userTable } from "../../user/schema/user";
+import { userTable } from "../../user";
 import { tenantMembershipsTable } from "../membership-table";
 
 type UserRow = { readonly id: unknown; readonly email?: unknown; readonly displayName?: unknown };
@@ -34,3 +34,4 @@ export const membersQuery = defineQueryHandler({
     });
   },
 });
+
