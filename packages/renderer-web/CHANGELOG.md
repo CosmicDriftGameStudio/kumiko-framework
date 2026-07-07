@@ -1,5 +1,14 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.127.0
+
+### Patch Changes
+
+- f5d37a1: Harden admin operator UI: stricter boot i18n/entityList validation, job run logger wiring, audit/job filters, shell breadcrumbs, and bundled entityList/i18n standards.
+  - @cosmicdrift/kumiko-headless@0.127.0
+  - @cosmicdrift/kumiko-renderer@0.127.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.127.0
+
 ## 0.126.0
 
 ### Patch Changes
