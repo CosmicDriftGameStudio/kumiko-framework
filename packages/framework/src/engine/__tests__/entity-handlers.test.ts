@@ -10,8 +10,8 @@ import {
   defineEntityUpdateHandler,
   defineEntityWriteHandler,
   defineProjectionQueryHandler,
-  registerEntityCrud,
   type EntityCrudRegistrar,
+  registerEntityCrud,
 } from "../entity-handlers";
 import { createEntity, createTextField } from "../factories";
 import type { QueryHandlerDef, WriteHandlerDef } from "../types";
@@ -336,12 +336,19 @@ describe("registerEntityCrud", () => {
 
   test("restore verb on entity without softDelete throws", () => {
     const { r } = createCrudRegistrarMock();
-    expect(() =>
-      registerEntityCrud(r, "note", noteEntity, { verbs: { restore: true } }),
-    ).toThrow(/softDelete/);
+    expect(() => registerEntityCrud(r, "note", noteEntity, { verbs: { restore: true } })).toThrow(
+      /softDelete/,
+    );
+  });
+
+  test("registerEntity: false skips r.entity when already registered", () => {
+    const { r, entities, writes } = createCrudRegistrarMock();
+    r.entity("note", noteEntity);
+    registerEntityCrud(r, "note", noteEntity, {
+      registerEntity: false,
+      verbs: { update: false, delete: false, restore: false, list: false, detail: false },
+    });
+    expect(Object.keys(entities)).toEqual(["note"]);
+    expect(writes.map((w) => w.name)).toEqual(["note:create"]);
   });
 });
-
-
-
-

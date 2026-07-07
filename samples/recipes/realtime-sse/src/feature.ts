@@ -1,13 +1,9 @@
-// Realtime SSE Sample
-// Shows: SSE broadcast on create/update/delete via system hook.
-
 import {
   createEntity,
   createTextField,
-  defineEntityCreateHandler,
   defineEntityDeleteHandler,
-  defineEntityUpdateHandler,
   defineFeature,
+  registerEntityCrud,
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const messageEntity = createEntity({
@@ -24,9 +20,9 @@ const userWrite = { access: { roles: ["Admin", "User"] } } as const;
 const adminWrite = { access: { roles: ["Admin"] } } as const;
 
 export const chatFeature = defineFeature("chat", (r) => {
-  r.entity("message", messageEntity);
-
-  r.writeHandler(defineEntityCreateHandler("message", messageEntity, userWrite));
-  r.writeHandler(defineEntityUpdateHandler("message", messageEntity, userWrite));
+  registerEntityCrud(r, "message", messageEntity, {
+    write: userWrite,
+    verbs: { list: false, detail: false, restore: false, delete: false },
+  });
   r.writeHandler(defineEntityDeleteHandler("message", messageEntity, adminWrite));
 });

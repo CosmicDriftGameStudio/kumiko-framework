@@ -1,22 +1,7 @@
-// Demo-Feature: Order-Entity, drei Screens, drei Workspaces, mehrere
-// Navs mit unterschiedlichen Membership-Quellen (r.workspace.nav vs
-// r.nav.workspaces). Beweist dass die Registry beide Quellen mergen
-// und deduplizieren kann.
-//
-// Drei Resolution-Surfaces meet hier zusammen:
-//   1. r.workspace.nav     — explizite Liste (admin)
-//   2. r.nav.workspaces    — Self-Assignment (dispatch + driver)
-//   3. WorkspaceShell      — picks active id von URL ?w=, filtert Tree
-//                            nach Membership.
-
 import {
-  defineEntityCreateHandler,
-  defineEntityDeleteHandler,
-  defineEntityDetailHandler,
-  defineEntityListHandler,
-  defineEntityUpdateHandler,
   defineFeature,
   type FeatureDefinition,
+  registerEntityCrud,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { orderEditScreen, orderEntity, orderListScreen } from "./schema";
 
@@ -25,18 +10,10 @@ export { orderEntity };
 const open = { access: { openToAll: true } } as const;
 
 export const demoFeature: FeatureDefinition = defineFeature("demo", (r) => {
-  r.entity("order", orderEntity);
-  r.writeHandler(defineEntityCreateHandler("order", orderEntity, open));
-  r.writeHandler(defineEntityUpdateHandler("order", orderEntity, open));
-  r.writeHandler(defineEntityDeleteHandler("order", orderEntity, open));
-  r.queryHandler(defineEntityListHandler("order", orderEntity, open));
-  r.queryHandler(defineEntityDetailHandler("order", orderEntity, open));
+  registerEntityCrud(r, "order", orderEntity, { write: open, read: open });
   r.screen(orderListScreen);
   r.screen(orderEditScreen);
 
-  // dispatch self-assigns die Liste über r.nav.workspaces (Quelle #2);
-  // admin listet sie über r.workspace.nav unten (Quelle #1) — Registry
-  // merged + dedupliziert.
   r.nav({
     id: "order-list",
     label: "demo:nav.orderList",
@@ -49,9 +26,6 @@ export const demoFeature: FeatureDefinition = defineFeature("demo", (r) => {
     screen: "demo:screen:order-edit",
     workspaces: ["demo:workspace:driver"],
   });
-  // audit-log lebt in BEIDEN Quellen für admin: explizite r.workspace.nav
-  // PLUS Self-Assignment. Registry muss dedupen — sonst würden zwei
-  // identische Einträge in der Sidebar erscheinen.
   r.nav({
     id: "audit-log",
     label: "demo:nav.auditLog",

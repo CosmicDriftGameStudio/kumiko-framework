@@ -1,8 +1,3 @@
-// Styleguide-Demo-Feature (server). Eine Kitchen-Sink-Entity mit allen
-// gängigen Feldtypen → die Auto-UI rendert daraus echte Edit-/List-Screens
-// + Sidebar-Nav. Genau diese schema-getriebene Oberfläche wollen wir auf
-// shadcn „new-york" polieren; der Screenshot-Runner schießt sie.
-
 import {
   createBooleanField,
   createDateField,
@@ -11,12 +6,8 @@ import {
   createNumberField,
   createSelectField,
   createTextField,
-  defineEntityCreateHandler,
-  defineEntityDeleteHandler,
-  defineEntityDetailHandler,
-  defineEntityListHandler,
-  defineEntityUpdateHandler,
   defineFeature,
+  registerEntityCrud,
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const demoEntity = createEntity({
@@ -42,13 +33,7 @@ export const demoEntity = createEntity({
 const open = { access: { openToAll: true } } as const;
 
 export const demoFeature = defineFeature("styleguide", (r) => {
-  r.entity("item", demoEntity);
-
-  r.writeHandler(defineEntityCreateHandler("item", demoEntity, open));
-  r.writeHandler(defineEntityUpdateHandler("item", demoEntity, open));
-  r.writeHandler(defineEntityDeleteHandler("item", demoEntity, open));
-  r.queryHandler(defineEntityListHandler("item", demoEntity, open));
-  r.queryHandler(defineEntityDetailHandler("item", demoEntity, open));
+  registerEntityCrud(r, "item", demoEntity, { write: open, read: open });
 
   r.screen({
     id: "item-edit",
@@ -98,8 +83,6 @@ export const demoFeature = defineFeature("styleguide", (r) => {
     ],
   });
 
-  // Nav demonstriert das sidebar-07-Muster: statische Section "Items" >
-  // collapsible Item "Catalog" (Icon, kein Screen) > Sub-Links.
   r.nav({ id: "items", label: "Items", order: 10 });
   r.nav({
     id: "catalog",

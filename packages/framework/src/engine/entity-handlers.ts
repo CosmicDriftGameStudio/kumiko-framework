@@ -444,6 +444,8 @@ export type RegisterEntityCrudOptions = {
   readonly write?: EntityHandlerOptions;
   readonly read?: EntityQueryHandlerOptions;
   readonly verbs?: Partial<Record<EntityCrudVerb, boolean>>;
+  /** Default true. Set false when the entity was already registered (e.g. before r.relation). */
+  readonly registerEntity?: boolean;
 };
 
 /** Minimal registrar surface — keeps entity-handlers free of define-feature imports. */
@@ -478,7 +480,9 @@ export function registerEntityCrud(
     );
   }
 
-  r.entity(entityName, entity);
+  if (options?.registerEntity !== false) {
+    r.entity(entityName, entity);
+  }
   const writeOpts = options?.write;
   const readOpts = options?.read;
 

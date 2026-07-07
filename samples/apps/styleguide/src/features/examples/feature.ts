@@ -13,10 +13,8 @@ import {
   createTextField,
   createTimestampField,
   createTzField,
-  defineEntityCreateHandler,
-  defineEntityDetailHandler,
-  defineEntityUpdateHandler,
   defineFeature,
+  registerEntityCrud,
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const shippingEntity = createEntity({
@@ -67,12 +65,14 @@ export const deliveryEntity = createEntity({
 });
 
 const open = { access: { openToAll: true } } as const;
+const editFormOnly = {
+  write: open,
+  read: open,
+  verbs: { delete: false, list: false, restore: false },
+} as const;
 
 export const examplesFeature = defineFeature("examples", (r) => {
-  r.entity("shipping", shippingEntity);
-  r.writeHandler(defineEntityCreateHandler("shipping", shippingEntity, open));
-  r.writeHandler(defineEntityUpdateHandler("shipping", shippingEntity, open));
-  r.queryHandler(defineEntityDetailHandler("shipping", shippingEntity, open));
+  registerEntityCrud(r, "shipping", shippingEntity, editFormOnly);
 
   // EINE titellose Section: Card-Titel + Subtitle (aus i18n) tragen den
   // Kontext, die Felder fließen direkt darunter. street/apt/saveAsDefault
@@ -101,10 +101,7 @@ export const examplesFeature = defineFeature("examples", (r) => {
     },
   });
 
-  r.entity("profile", profileEntity);
-  r.writeHandler(defineEntityCreateHandler("profile", profileEntity, open));
-  r.writeHandler(defineEntityUpdateHandler("profile", profileEntity, open));
-  r.queryHandler(defineEntityDetailHandler("profile", profileEntity, open));
+  registerEntityCrud(r, "profile", profileEntity, editFormOnly);
 
   r.screen({
     id: "profile-edit",
@@ -121,10 +118,7 @@ export const examplesFeature = defineFeature("examples", (r) => {
     },
   });
 
-  r.entity("delivery", deliveryEntity);
-  r.writeHandler(defineEntityCreateHandler("delivery", deliveryEntity, open));
-  r.writeHandler(defineEntityUpdateHandler("delivery", deliveryEntity, open));
-  r.queryHandler(defineEntityDetailHandler("delivery", deliveryEntity, open));
+  registerEntityCrud(r, "delivery", deliveryEntity, editFormOnly);
 
   r.screen({
     id: "delivery-edit",

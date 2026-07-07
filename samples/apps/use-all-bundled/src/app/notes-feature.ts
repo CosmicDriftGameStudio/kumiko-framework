@@ -26,15 +26,11 @@ import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
-  defineEntityCreateHandler,
-  defineEntityDeleteHandler,
-  defineEntityDetailHandler,
-  defineEntityListHandler,
-  defineEntityUpdateHandler,
   defineFeature,
   type EntityEditScreenDefinition,
   type EntityListScreenDefinition,
   type FeatureDefinition,
+  registerEntityCrud,
 } from "@cosmicdrift/kumiko-framework/engine";
 
 const ADMIN_ACCESS = { roles: ["TenantAdmin", "SystemAdmin"] } as const;
@@ -121,19 +117,10 @@ export const notesFeature: FeatureDefinition = defineFeature("notes-demo", (r) =
 
   wireCustomFieldsFor(r, "note", noteTable);
 
-  r.entity("note", {
-    table: "read_demo_notes",
-    fields: {
-      title: { type: "text", required: true, maxLength: 200 },
-      customFields: { type: "jsonb" },
-    },
+  registerEntityCrud(r, "note", noteEntity, {
+    write: { access: ADMIN_ACCESS },
+    read: { access: ADMIN_ACCESS },
   });
-
-  r.writeHandler(defineEntityCreateHandler("note", noteEntity, { access: ADMIN_ACCESS }));
-  r.writeHandler(defineEntityUpdateHandler("note", noteEntity, { access: ADMIN_ACCESS }));
-  r.writeHandler(defineEntityDeleteHandler("note", noteEntity, { access: ADMIN_ACCESS }));
-  r.queryHandler(defineEntityListHandler("note", noteEntity, { access: ADMIN_ACCESS }));
-  r.queryHandler(defineEntityDetailHandler("note", noteEntity, { access: ADMIN_ACCESS }));
 
   r.screen(noteListScreen);
   r.screen(noteEditScreen);
