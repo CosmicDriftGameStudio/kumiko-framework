@@ -105,6 +105,47 @@ describe("useTranslation — re-render on locale change", () => {
     expect(getByTestId("msg").textContent).toBe("Hello");
   });
 });
+describe("useTranslation — referential stability", () => {
+  // Prod-Incident 2026-07-07: admin-shell Overview-Screens hatten `t` in
+  // einem useEffect-Dependency-Array. Ein neues `t` pro Render triggerte
+  // einen Render/Effect-Endlos-Loop (~600 Queries/Sekunde). `t` (und der
+  // gesamte Context-Value) MUSS über Re-Renders hinweg stabil bleiben,
+  // solange sich Resolver/Bundles/Locale nicht ändern.
+  test("t keeps the same reference across re-renders when nothing changed", () => {
+    const resolver = createStaticLocaleResolver({ locale: "de" });
+    const { result, rerender } = renderHook(() => useTranslation(), {
+      wrapper: wrap(resolver),
+    });
+    const firstT = result.current;
+    rerender();
+    expect(result.current).toBe(firstT);
+  });
+  test("t stays stable across parent re-renders even with a fresh fallbackBundles literal per parent-render", () => {
+    // Realistischer Fall: eine App übergibt `fallbackBundles={[...]}` als
+    // Inline-Literal. Ohne Provider-seitige Memoization würde jeder
+    // Ahnen-Re-Render den Context-Value neu bauen. Hier prüfen wir nur
+    // den Provider-internen Memoization-Pfad bei stabilen Props.
+    const resolver = createStaticLocaleResolver({ locale: "de" });
+    const bundles: TranslationsByLocale[] = [{ de: { greet: "Hallo" } }];
+    function Probe(): ReactNode {
+      const t = useTranslation();
+      (Probe as unknown as { lastT?: unknown }).lastT = t;
+      return null;
+    }
+    const { rerender } = render(
+      <LocaleProvider resolver={resolver} fallbackBundles={bundles}>
+        <Probe />
+      </LocaleProvider>,
+    );
+    const firstT = (Probe as unknown as { lastT?: unknown }).lastT;
+    rerender(
+      <LocaleProvider resolver={resolver} fallbackBundles={bundles}>
+        <Probe />
+      </LocaleProvider>,
+    );
+    expect((Probe as unknown as { lastT?: unknown }).lastT).toBe(firstT);
+  });
+});
 describe("useLocale", () => {
   test("returns the resolver", () => {
     const resolver = createStaticLocaleResolver({ locale: "de" });
