@@ -5,8 +5,8 @@ import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
-import { resolveProfileForTenant } from "../../compliance-profiles/resolve-for-tenant";
-import { type TenantLifecycleStatus, tenantEntity, tenantTable } from "../../tenant/schema/tenant";
+import { resolveProfileForTenant } from "../../compliance-profiles";
+import { type TenantLifecycleStatus, tenantEntity, tenantTable } from "../../tenant";
 import { DESTRUCTION_REQUESTED_EVENT_QN } from "../constants";
 import { revokeTenantSessions } from "../lib/revoke-tenant-sessions";
 

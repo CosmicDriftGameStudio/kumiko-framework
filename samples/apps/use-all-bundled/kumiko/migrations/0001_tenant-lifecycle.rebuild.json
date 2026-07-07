@@ -1,6 +1,4 @@
 {
   "version": 1,
-  "tables": [
-    "read_tenants"
-  ]
+  "tables": ["read_tenants"]
 }

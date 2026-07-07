@@ -39,8 +39,8 @@ import type {
   Subscription as MollieSubscription,
 } from "@mollie/api-client";
 import { Hono } from "hono";
-import { createConfigFeature } from "../../config";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
+import { createConfigFeature } from "../../config";
 import { createTenantFeature } from "../../tenant/feature";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
 import { createSubscriptionMollieFeature } from "../feature";

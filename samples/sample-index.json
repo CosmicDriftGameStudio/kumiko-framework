@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled/scripts/gen-sample-index.ts + sample-index.overrides.json",
-  "featureCount": 33,
+  "featureCount": 34,
   "features": {
     "admin-shell": {
       "samples": [
@@ -61,6 +61,7 @@
     },
     "compliance-profiles": {
       "samples": [
+        "apps-cap-billing-demo",
         "apps-user-data-rights-demo",
         "recipes-apex-surface-auth",
         "recipes-compliance-profiles-demo",
@@ -296,6 +297,13 @@
       "whenToUse": "Your app serves multiple organizations — tenants, memberships, and roles scope every query and write.",
       "sampleBlurb": "Multi-tenant memberships and roles — profile screen switches tenant context and scopes queries to the active membership.",
       "screenshot": "/screenshots/features/tenant.png"
+    },
+    "tenant-lifecycle": {
+      "samples": [
+        "apps-cap-billing-demo"
+      ],
+      "hasVisualOutput": true,
+      "readmeSummary": "Sample app showing how a Kumiko app wires **tier-engine** + **cap-counter** + **mail-foundation plugin API** together to enforce per-tenant caps on newsletter sends — including a soft-hit notification and a hard block."
     },
     "text-content": {
       "samples": [

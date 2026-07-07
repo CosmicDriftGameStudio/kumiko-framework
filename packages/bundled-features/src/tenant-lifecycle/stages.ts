@@ -18,8 +18,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { tenantMembershipsTable } from "../tenant/membership-table";
-import { tenantEntity, tenantTable } from "../tenant/schema/tenant";
+import { tenantEntity, tenantMembershipsTable, tenantTable } from "../tenant";
 import type { TenantDestructionStageName } from "./constants";
 
 export type DestructionStageCtx = {

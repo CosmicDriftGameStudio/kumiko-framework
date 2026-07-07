@@ -1,6 +1,6 @@
 import { deleteMany, type EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { resolveProfileForTenant } from "../compliance-profiles/resolve-for-tenant";
+import { resolveProfileForTenant } from "../compliance-profiles";
 import { subscriptionAggregateId } from "./aggregate-id";
 import { subscriptionsProjectionTable } from "./projection";
 

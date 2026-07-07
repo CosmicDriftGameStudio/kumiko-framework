@@ -12,7 +12,7 @@ import {
   VersionConflictError,
 } from "@cosmicdrift/kumiko-framework/event-store";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { tenantEntity, tenantTable } from "../tenant/schema/tenant";
+import { tenantEntity, tenantTable } from "../tenant";
 import {
   TENANT_AGGREGATE_TYPE,
   TENANT_DESTRUCTION_COMPLETED_EVENT_QN,
@@ -127,6 +127,7 @@ async function appendTenantStageEventIdempotent(
     const events = await loadAggregate(db, tenantId, tenantId);
     const stage = String(payload["stage"] ?? "");
     if (stageOutcomeRecorded(events, stage, TENANT_DESTRUCTION_STAGE_SUCCEEDED_EVENT_SHORT)) {
+      // skip: idempotent retry — stage already recorded before version conflict
       return lastEventVersion(events);
     }
     throw err;

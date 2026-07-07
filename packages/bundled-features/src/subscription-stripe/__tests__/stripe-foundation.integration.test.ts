@@ -35,8 +35,6 @@ import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing"
 import { Hono } from "hono";
 import Stripe from "stripe";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
-import { createTenantFeature } from "../../tenant/feature";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
 import { configValuesTable, createConfigFeature } from "../../config";
 import { createConfigAccessorFactory } from "../../config/feature";
 import { createConfigResolver } from "../../config/resolver";
@@ -46,6 +44,8 @@ import {
   type SecretsContext,
   tenantSecretsTable,
 } from "../../secrets";
+import { createTenantFeature } from "../../tenant/feature";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
 import { createSubscriptionStripeFeature } from "../feature";
 
 // Qualified-names der runtime-keys (drift-pin: müssen 1:1 dem entsprechen,
