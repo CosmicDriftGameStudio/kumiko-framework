@@ -1,5 +1,16 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.130.0
+
+### Minor Changes
+
+- bb715dd: Add composable SaaS stack presets (`composeStacks`) and `setupTestStackFromFeatures` test helper.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.130.0
+- @cosmicdrift/kumiko-bundled-features@0.130.0
+
 ## 0.129.0
 
 ### Patch Changes
