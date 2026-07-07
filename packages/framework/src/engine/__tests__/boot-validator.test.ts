@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 import type { SchemaTable } from "../../db/dialect";
 import { table, text } from "../../db/dialect";
-import { validateBoot as validateBootRaw } from "../boot-validator";
 import { withBootValidatorFixture } from "../../testing/boot-validator-fixture";
+import { validateBoot as validateBootRaw } from "../boot-validator";
 import { createSystemConfig, createTenantConfig } from "../config-helpers";
 import {
   createDerivedField,
