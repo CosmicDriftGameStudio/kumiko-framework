@@ -434,3 +434,68 @@ export function defineProjectionQueryHandler(
     ...(options?.access && { access: options.access }),
   };
 }
+
+type EntityCrudVerb = "create" | "update" | "delete" | "restore" | "list" | "detail";
+
+export type RegisterEntityCrudOptions = {
+  readonly write?: EntityHandlerOptions;
+  readonly read?: EntityQueryHandlerOptions;
+  readonly verbs?: Partial<Record<EntityCrudVerb, boolean>>;
+};
+
+/** Minimal registrar surface — keeps entity-handlers free of define-feature imports. */
+export type EntityCrudRegistrar = {
+  entity(name: string, definition: EntityDefinition): unknown;
+  writeHandler(def: WriteHandlerDef): unknown;
+  queryHandler(def: QueryHandlerDef): unknown;
+};
+
+function defaultCrudVerbs(entity: EntityDefinition): Record<EntityCrudVerb, boolean> {
+  return {
+    create: true,
+    update: true,
+    delete: true,
+    restore: entity.softDelete === true,
+    list: true,
+    detail: true,
+  };
+}
+
+/** Register standard entity CRUD handlers in one call. Access stays explicit — no openToAll default. */
+export function registerEntityCrud(
+  r: EntityCrudRegistrar,
+  entityName: string,
+  entity: EntityDefinition,
+  options?: RegisterEntityCrudOptions,
+): void {
+  const verbs = { ...defaultCrudVerbs(entity), ...options?.verbs };
+  if (verbs.restore && entity.softDelete !== true) {
+    throw new Error(
+      `registerEntityCrud("${entityName}"): restore requested but entity has no softDelete: true`,
+    );
+  }
+
+  r.entity(entityName, entity);
+  const writeOpts = options?.write;
+  const readOpts = options?.read;
+
+  if (verbs.create) {
+    r.writeHandler(defineEntityCreateHandler(entityName, entity, writeOpts));
+  }
+  if (verbs.update) {
+    r.writeHandler(defineEntityUpdateHandler(entityName, entity, writeOpts));
+  }
+  if (verbs.delete) {
+    r.writeHandler(defineEntityDeleteHandler(entityName, entity, writeOpts));
+  }
+  if (verbs.restore) {
+    r.writeHandler(defineEntityRestoreHandler(entityName, entity, writeOpts));
+  }
+  if (verbs.list) {
+    r.queryHandler(defineEntityListHandler(entityName, entity, readOpts));
+  }
+  if (verbs.detail) {
+    r.queryHandler(defineEntityDetailHandler(entityName, entity, readOpts));
+  }
+}
+
