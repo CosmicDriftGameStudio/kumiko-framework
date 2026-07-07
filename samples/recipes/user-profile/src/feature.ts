@@ -15,10 +15,12 @@ import { createAuthEmailPasswordFeature } from "@cosmicdrift/kumiko-bundled-feat
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
+import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
+import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
 import { createUserProfileFeature } from "@cosmicdrift/kumiko-bundled-features/user-profile";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 
@@ -58,7 +60,11 @@ export function composeAccountApp(): FeatureDefinition[] {
     createDataRetentionFeature(),
     createComplianceProfilesFeature(),
     createSessionsFeature(),
+    createFilesFeature(),
     createUserDataRightsFeature(),
+    // registers the default export/erase hooks for core PII entities (user,
+    // fileRef, folder) so the GDPR boot gate (V3) is satisfied for the stack.
+    createUserDataRightsDefaultsFeature(),
     createUserProfileFeature(),
     createAccountFeature(),
   ];
