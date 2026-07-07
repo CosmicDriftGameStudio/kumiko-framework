@@ -352,4 +352,3 @@ describe("registerEntityCrud", () => {
     expect(writes.map((w) => w.name)).toEqual(["note:create"]);
   });
 });
-
