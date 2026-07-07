@@ -152,7 +152,8 @@
     },
     "files": {
       "samples": [
-        "apps-user-data-rights-demo"
+        "apps-user-data-rights-demo",
+        "recipes-user-profile"
       ],
       "hasVisualOutput": true,
       "readmeSummary": "Sample app showing how a Kumiko app wires **user-data-rights** (DSGVO Art. 15+17+18+20) into a custom domain — here a tiny todo-list. The domain feature only registers an `EXT_USER_DATA` hook per entity; export bundling, forget cleanup, restriction and audit-log come from `user-data-rights` itself.",
@@ -348,7 +349,8 @@
     },
     "user-data-rights-defaults": {
       "samples": [
-        "apps-user-data-rights-demo"
+        "apps-user-data-rights-demo",
+        "recipes-user-profile"
       ],
       "hasVisualOutput": true,
       "readmeSummary": "Sample app showing how a Kumiko app wires **user-data-rights** (DSGVO Art. 15+17+18+20) into a custom domain — here a tiny todo-list. The domain feature only registers an `EXT_USER_DATA` hook per entity; export bundling, forget cleanup, restriction and audit-log come from `user-data-rights` itself.",

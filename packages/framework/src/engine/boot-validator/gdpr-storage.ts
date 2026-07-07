@@ -60,10 +60,12 @@ export function validateGdprStoragePersistence(features: readonly FeatureDefinit
   }
 }
 
-// V2: export-without-erase guard. A feature that registers an EXT_USER_DATA
+// V2: export-without-erase gate. A feature that registers an EXT_USER_DATA
 // export hook without a matching delete hook exports data under Art.20 but
-// never erases it on forget — an Art.17 violation. Registry-level signal only;
-// runtime no-ops (a delete hook that silently skips) are not detectable here.
+// never erases it on forget — an Art.17 violation. Hard boot failure: no app
+// should ship a GDPR export path with no erase path. Registry-level signal
+// only; runtime no-ops (a delete hook that silently skips) are not detectable
+// here — those are covered by the export/forget integration tests.
 export function validateGdprHookCompleteness(features: readonly FeatureDefinition[]): void {
   for (const feature of features) {
     for (const usage of feature.extensionUsages) {
@@ -71,21 +73,23 @@ export function validateGdprHookCompleteness(features: readonly FeatureDefinitio
       const hasExport = typeof usage.options?.["export"] === "function";
       const hasDelete = typeof usage.options?.["delete"] === "function";
       if (hasExport && !hasDelete) {
-        // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
-        console.warn(
-          `[kumiko:boot] Feature "${feature.name}" exports entity "${usage.entityName}" via EXT_USER_DATA but registers no delete hook — data is included in Art.20 exports but never erased on forget (Art.17 risk). Add a delete hook, or a no-op with a comment explaining why erasure is intentionally skipped.`,
+        throw new Error(
+          `[kumiko:boot] Feature "${feature.name}" exports entity "${usage.entityName}" via EXT_USER_DATA but registers no delete hook — data is included in Art.20 exports but never erased on forget (Art.17 violation). Add a delete hook. If erasure is intentionally handled elsewhere (e.g. crypto-shredding key-erase, parent cascade), register a no-op delete: async () => {} with a comment explaining why.`,
         );
       }
     }
   }
 }
 
-// V3: PII-entity-without-hook guard. V2 checks registered hooks for
+// V3: PII-entity-without-hook gate. V2 checks registered hooks for
 // completeness; V3 catches the entity nobody registered at all — fields
 // annotated as user-subject data (pii / userOwned) yet invisible to the
-// Art.15/20 export and Art.17 forget pipeline. Matching is by entity name
-// across all features (usage.entityName is unqualified); a same-named entity
-// in another feature can mask a gap — accepted for a WARN-level heuristic.
+// Art.15/20 export and Art.17 forget pipeline. Hard boot failure once
+// user-data-rights is mounted: a subject-data entity that skips the pipeline
+// is exactly the "feature built past GDPR" leak this gate exists to stop.
+// Matching is by entity name across all features (usage.entityName is
+// unqualified); a same-named entity in another feature can mask a gap —
+// accepted, as the common case is a distinct entity name.
 export function validateGdprPiiHookCoverage(features: readonly FeatureDefinition[]): void {
   const featureNames = new Set(features.map((f) => f.name));
   if (!featureNames.has("user-data-rights")) {
@@ -110,9 +114,8 @@ export function validateGdprPiiHookCoverage(features: readonly FeatureDefinition
         })
         .map(([name]) => name);
       if (subjectFields.length === 0) continue;
-      // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
-      console.warn(
-        `[kumiko:boot] Entity "${entityName}" (feature "${feature.name}") has user-subject fields (${subjectFields.join(", ")}) but no feature registers an EXT_USER_DATA hook for it — the data never appears in Art.15/20 exports and is never erased on forget (Art.17 gap). Register r.useExtension(EXT_USER_DATA, "${entityName}", { export, delete }) in the owning feature or a defaults feature.`,
+      throw new Error(
+        `[kumiko:boot] Entity "${entityName}" (feature "${feature.name}") has user-subject fields (${subjectFields.join(", ")}) but no feature registers an EXT_USER_DATA hook for it — the data never appears in Art.15/20 exports and is never erased on forget (Art.17 gap). Register r.useExtension(EXT_USER_DATA, "${entityName}", { export, delete }) in the owning feature or a defaults feature. If this entity is intentionally out of the pipeline (e.g. crypto-shredding key-erase covers it), register a no-op hook { export: async () => null, delete: async () => {} } with a comment explaining why.`,
       );
     }
   }
