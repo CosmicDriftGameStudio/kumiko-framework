@@ -1,37 +1,36 @@
-// @runtime client
-//
-// Default-Translations fuer user-data-rights Error-Wire-Keys (S2.U3 Atom 4b.fix3).
-//
-// Wire-Errors aus den download-handlers tragen i18nKeys statt fixe
-// Strings — UI rendert die Keys ueber den Renderer-LocaleProvider. Apps
-// koennen einzelne Keys via `userDataRightsClient({ translations: { de:
-// {...} } })` ueberschreiben (Pattern matched auth-email-password).
-//
-// **Scope 4b.fix3:** nur die download-error-keys. Andere Keys (UI-
-// Texte fuer Forget-Pfad, Status-Labels, Banner) kommen mit Atom 6+
-// (UI-Integration).
+type LocalizedString = { readonly de: string; readonly en: string };
 
-import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
-
-export const defaultTranslations: TranslationsByLocale = {
-  de: {
-    "userDataRights.errors.download.notFound":
-      "Der Download-Link ist ungültig oder gehört zu einem anderen Konto.",
-    "userDataRights.errors.download.expired":
-      "Dein Download ist abgelaufen. Bitte fordere einen neuen Export an.",
-    "userDataRights.errors.download.unavailable":
-      "Der Export ist noch nicht fertig oder fehlgeschlagen. Bitte schau im Status-Polling nach.",
-    "userDataRights.errors.download.signedUrlNotSupported":
-      "Der Download steht aufgrund einer Server-Konfiguration aktuell nicht zur Verfügung. Der Operator wurde benachrichtigt.",
+export const USER_DATA_RIGHTS_I18N: Readonly<Record<string, LocalizedString>> = {
+  "screen:export-job-list.title": { de: "DSGVO-Exporte", en: "GDPR exports" },
+  "screen:export-job-detail.title": { de: "Export-Job", en: "Export job" },
+  "screen:download-attempt-list.title": { de: "Download-Versuche", en: "Download attempts" },
+  "screen:privacy-center.title": { de: "Datenschutz", en: "Privacy" },
+  "user-data-rights:entity:export-job:field:userId": { de: "Benutzer", en: "User" },
+  "user-data-rights:entity:export-job:field:status": { de: "Status", en: "Status" },
+  "user-data-rights:entity:export-job:field:requestedAt": { de: "Angefordert", en: "Requested" },
+  "user-data-rights:entity:export-job:field:completedAt": { de: "Abgeschlossen", en: "Completed" },
+  "user-data-rights:entity:export-job:field:expiresAt": { de: "Läuft ab", en: "Expires" },
+  "user-data-rights:entity:export-job:field:requestedFromTenantId": {
+    de: "Mandant",
+    en: "Tenant",
   },
-  en: {
-    "userDataRights.errors.download.notFound":
-      "The download link is invalid or belongs to a different account.",
-    "userDataRights.errors.download.expired":
-      "Your download has expired. Please request a new export.",
-    "userDataRights.errors.download.unavailable":
-      "The export is not yet ready or has failed. Please check the status endpoint.",
-    "userDataRights.errors.download.signedUrlNotSupported":
-      "The download is currently unavailable due to a server configuration issue. The operator has been notified.",
+  "user-data-rights:entity:export-job:field:startedAt": { de: "Gestartet", en: "Started" },
+  "user-data-rights:entity:export-job:field:downloadStorageKey": {
+    de: "Speicher-Schlüssel",
+    en: "Storage key",
   },
+  "user-data-rights:entity:export-job:field:bytesWritten": { de: "Bytes", en: "Bytes" },
+  "user-data-rights:entity:export-job:field:errorMessage": { de: "Fehler", en: "Error" },
+  "user-data-rights:entity:download-attempt:field:attemptedAt": {
+    de: "Zeitpunkt",
+    en: "Attempted at",
+  },
+  "user-data-rights:entity:download-attempt:field:result": { de: "Ergebnis", en: "Result" },
+  "user-data-rights:entity:download-attempt:field:via": { de: "Via", en: "Via" },
+  "user-data-rights:entity:download-attempt:field:ip": { de: "IP", en: "IP" },
+  "user-data-rights:entity:download-attempt:field:attemptedByUserId": {
+    de: "Benutzer",
+    en: "User",
+  },
+  "user-data-rights:entity:download-attempt:field:jobId": { de: "Job", en: "Job" },
 };

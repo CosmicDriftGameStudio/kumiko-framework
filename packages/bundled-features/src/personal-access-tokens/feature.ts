@@ -5,6 +5,7 @@ import { buildAvailableScopesQuery } from "./handlers/available-scopes.query";
 import { createPatWrite } from "./handlers/create.write";
 import { listPatQuery } from "./handlers/list.query";
 import { revokePatWrite } from "./handlers/revoke.write";
+import { PAT_FEATURE_I18N } from "./i18n";
 import { apiTokenEntity } from "./schema/api-token";
 import type { PatScopeConfig } from "./scopes";
 
@@ -75,6 +76,7 @@ export function createPersonalAccessTokensFeature(
       renderer: { react: { __component: "PatTokensScreen" } },
       access: { openToAll: true },
     });
+    r.translations({ keys: PAT_FEATURE_I18N });
 
     // scopes + rateLimit flow into feature.exports so run-prod-app builds the
     // resolver + limiter from the same declaration — single source of truth.

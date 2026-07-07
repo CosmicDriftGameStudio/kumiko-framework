@@ -37,7 +37,7 @@ type Status =
 
 export function TierAdminScreen(): ReactNode {
   const t = useTranslation();
-  const { Section, Field, Input, Button, Banner, Heading, Text } = usePrimitives();
+  const { Field, Input, Button, Banner, Form, Text } = usePrimitives();
   const dispatcher = useDispatcher();
 
   // ponytail: nur die erste Seite (default-limit, nextCursor ignoriert) —
@@ -92,8 +92,7 @@ export function TierAdminScreen(): ReactNode {
   const canSubmit = tenantId !== "" && tier !== "" && !submitting;
 
   return (
-    <FormScreenShell testId="tier-admin-screen" className="flex max-w-xl flex-col gap-6">
-      <Heading variant="page">{t("tier-admin.title")}</Heading>
+    <FormScreenShell testId="tier-admin-screen" className="flex flex-col gap-6">
       <Text variant="small">{t("tier-admin.explainer")}</Text>
 
       {tenantsQuery.error !== null && (
@@ -107,7 +106,23 @@ export function TierAdminScreen(): ReactNode {
         </Banner>
       )}
 
-      <Section>
+      <Form
+        testId="tier-admin-form"
+        onSubmit={(e) => {
+          e?.preventDefault();
+          void onSave();
+        }}
+        actions={
+          <Button
+            type="submit"
+            disabled={!canSubmit}
+            loading={submitting}
+            testId="tier-admin-submit"
+          >
+            {t("tier-admin.submit")}
+          </Button>
+        }
+      >
         <Field id="tier-admin-tenant" label={t("tier-admin.tenant.label")} required>
           <Input
             kind="select"
@@ -147,16 +162,7 @@ export function TierAdminScreen(): ReactNode {
             {t(status.messageKey)}
           </Banner>
         )}
-
-        <Button
-          onClick={() => void onSave()}
-          disabled={!canSubmit}
-          loading={submitting}
-          testId="tier-admin-submit"
-        >
-          {t("tier-admin.submit")}
-        </Button>
-      </Section>
+      </Form>
     </FormScreenShell>
   );
 }

@@ -197,12 +197,12 @@ describe("TenantAdmin can use members-admin HTTP surface", () => {
       { email: "pending@example.com", role: "Editor" },
       tenantAdminA(),
     );
-    const members = await stack.http.queryOk<readonly { userId: string }[]>(
-      TenantQueries.members,
-      {},
-      tenantAdminA(),
-    );
+    const members = await stack.http.queryOk<
+      readonly { userId: string; email: string | null; displayName: string | null }[]
+    >(TenantQueries.members, {}, tenantAdminA());
     expect(members.some((m) => m.userId === tenantAdminAId)).toBe(true);
+    const self = members.find((m) => m.userId === tenantAdminAId);
+    expect(self?.email).toBe("admin-a@example.com");
     const invitations = await stack.http.queryOk<readonly { email: string }[]>(
       TenantQueries.invitations,
       {},
@@ -210,6 +210,21 @@ describe("TenantAdmin can use members-admin HTTP surface", () => {
     );
     expect(invitations).toHaveLength(1);
     expect(invitations[0]?.email).toBe("pending@example.com");
+  });
+
+  test("members email is null when user row is missing", async () => {
+    const orphanUserId = "00000000-0000-4000-8000-00000000dead";
+    await seedTenantMembership(stack.db, {
+      userId: orphanUserId,
+      tenantId: TENANT_A_ID,
+      roles: ["User"],
+    });
+    const members = await stack.http.queryOk<readonly { userId: string; email: string | null }[]>(
+      TenantQueries.members,
+      {},
+      tenantAdminA(),
+    );
+    expect(members.find((m) => m.userId === orphanUserId)?.email).toBeNull();
   });
 });
 

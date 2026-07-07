@@ -16,7 +16,7 @@ export const tenantListScreen: EntityListScreenDefinition = {
   id: "tenant-list",
   type: "entityList",
   entity: "tenant",
-  columns: ["key", "name", "isEnabled"],
+  columns: ["key", "name", "status", "isEnabled"],
   rowActions: [
     {
       kind: "navigate",
@@ -26,7 +26,8 @@ export const tenantListScreen: EntityListScreenDefinition = {
       entityId: "id",
     },
   ],
-  searchable: false,
+  defaultSort: { field: "name", dir: "asc" },
+  searchable: true,
   access: { roles: ["SystemAdmin"] },
 };
 

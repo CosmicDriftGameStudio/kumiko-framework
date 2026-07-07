@@ -141,5 +141,14 @@ export const defaultTranslations: TranslationsByLocale = {
     "userDataRights.privacyCenter.deletion.dialogTitle": "Delete your account?",
     "userDataRights.privacyCenter.deletion.dialogDescription":
       "Confirming starts the deletion grace period. You can cancel the deletion until it ends.",
+
+    "userDataRights.errors.download.notFound":
+      "The download link is invalid or belongs to a different account.",
+    "userDataRights.errors.download.expired":
+      "Your download has expired. Please request a new export.",
+    "userDataRights.errors.download.unavailable":
+      "The export is not yet ready or has failed. Please check the status endpoint.",
+    "userDataRights.errors.download.signedUrlNotSupported":
+      "The download is currently unavailable due to a server configuration issue. The operator has been notified.",
   },
 };

@@ -5,6 +5,7 @@ import { findForAuthQuery } from "./handlers/find-for-auth.query";
 import { listQuery } from "./handlers/list.query";
 import { meQuery } from "./handlers/me.query";
 import { updateWrite } from "./handlers/update.write";
+import { USER_I18N } from "./i18n";
 import { userEntity } from "./schema/user";
 import { userEditScreen, userListScreen } from "./screens";
 
@@ -42,6 +43,8 @@ export function createUserFeature(): FeatureDefinition {
     // user:write:user:{create,update}).
     r.screen(userListScreen);
     r.screen(userEditScreen);
+
+    r.translations({ keys: USER_I18N });
 
     return { handlers, queries };
   });

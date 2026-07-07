@@ -4,6 +4,7 @@ import { featureToggleSetSchema } from "./events";
 import { listQuery } from "./handlers/list.query";
 import { registeredQuery } from "./handlers/registered.query";
 import { createSetWriteHandler } from "./handlers/set.write";
+import { FEATURE_TOGGLES_I18N } from "./i18n";
 import type { GlobalFeatureToggleRuntime } from "./toggle-runtime";
 
 // IMPORTANT: feature-toggles itself is NOT r.toggleable. Making it
@@ -74,6 +75,8 @@ export function createFeatureTogglesFeature(
       screen: "feature-toggles:screen:toggle-admin",
       order: 20,
     });
+
+    r.translations({ keys: FEATURE_TOGGLES_I18N });
 
     // toggle-cache-sync — multi-instance snapshot propagation. Every
     // API/worker instance runs its own dispatcher cursor on this MSP

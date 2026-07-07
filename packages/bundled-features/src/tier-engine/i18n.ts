@@ -5,8 +5,15 @@
 
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
+type LocalizedString = { readonly de: string; readonly en: string };
+
+export const TIER_ENGINE_I18N: Readonly<Record<string, LocalizedString>> = {
+  "screen:tier-admin.title": { de: "Tier manuell zuweisen", en: "Assign tier manually" },
+};
+
 export const defaultTranslations: TranslationsByLocale = {
   de: {
+    "screen:tier-admin.title": "Tier manuell zuweisen",
     "tier-admin.title": "Tier manuell zuweisen",
     "tier-admin.explainer":
       "Weise einem Tenant ein Tier ohne Kauf zu. Der Grant wird als „manuell“ markiert und von einem späteren Billing-Sync nicht überschrieben.",
@@ -22,6 +29,7 @@ export const defaultTranslations: TranslationsByLocale = {
       "Diese App hat keine TierMap konfiguriert — es gibt keine zuweisbaren Tiers.",
   },
   en: {
+    "screen:tier-admin.title": "Assign tier manually",
     "tier-admin.title": "Assign tier manually",
     "tier-admin.explainer":
       "Grant a tenant a tier without a purchase. The grant is marked as “manual” and a later billing sync won't overwrite it.",

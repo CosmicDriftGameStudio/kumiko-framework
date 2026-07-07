@@ -73,6 +73,7 @@ import { tierAssignmentEntity } from "./entity";
 import { getActiveTierQuery } from "./handlers/active-tier.query";
 import { getTenantTierQuery } from "./handlers/get-tenant-tier.query";
 import { createSetTenantTierWrite } from "./handlers/set-tenant-tier.write";
+import { TIER_ENGINE_I18N } from "./i18n";
 import { isTrialActive, type TrialPolicy } from "./trial";
 
 // Drizzle-table for the tier-assignment-entity. Built once at module-load
@@ -234,6 +235,7 @@ export function createTierEngineFeature<
     // verdrahtet (Platform-Admin-Hoheit, nicht App-konfigurierbar). App
     // platziert ihn nur via r.nav("tier-engine:screen:tier-admin"); die
     // Komponente liefert tierEngineClient() aus dem ./web-subpath.
+    r.translations({ keys: TIER_ENGINE_I18N });
     r.screen({
       id: TIER_ADMIN_SCREEN_ID,
       type: "custom",

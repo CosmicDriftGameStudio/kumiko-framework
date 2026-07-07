@@ -6,9 +6,16 @@
 // ersten Mal anfasst kann hier reinschauen statt in die Implementation.
 
 import { describe, expect, test } from "bun:test";
-import { createRegistry, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
-import { generateE2ESpec } from "@cosmicdrift/kumiko-framework/testing";
+import {
+  createRegistry,
+  validateBoot as validateBootRaw,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { generateE2ESpec, withBootValidatorFixture } from "@cosmicdrift/kumiko-framework/testing";
 import { createShopFeature } from "../feature";
+
+function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
+  validateBootRaw(withBootValidatorFixture(features));
+}
 
 const shop = createShopFeature();
 const registry = createRegistry([shop]);

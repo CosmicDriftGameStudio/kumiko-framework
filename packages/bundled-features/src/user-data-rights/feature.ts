@@ -28,6 +28,7 @@ import {
 import { requestExportWrite } from "./handlers/request-export.write";
 import { restrictAccountWrite } from "./handlers/restrict-account.write";
 import { createRunForgetCleanupHandler } from "./handlers/run-forget-cleanup.write";
+import { USER_DATA_RIGHTS_I18N } from "./i18n";
 import {
   type GdprMailDefaults,
   isMailTransportAvailable,
@@ -256,6 +257,22 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     r.screen(exportJobListScreen);
     r.screen(exportJobDetailScreen);
     r.screen(downloadAttemptListScreen);
+
+    r.nav({
+      id: "export-job-list",
+      label: "user-data-rights:nav.exportJobs",
+      icon: "download",
+      screen: "user-data-rights:screen:export-job-list",
+      order: 25,
+      access: { roles: ["SystemAdmin"] },
+    });
+
+    r.translations({
+      keys: {
+        ...USER_DATA_RIGHTS_I18N,
+        "user-data-rights:nav.exportJobs": { de: "DSGVO-Exporte", en: "GDPR exports" },
+      },
+    });
 
     // Dormant Self-Service-Screen (Art. 15/17/18/20): Export, Aktivitäts-
     // protokoll, Einschränkung, Löschung in einem Screen. Kein r.nav — die

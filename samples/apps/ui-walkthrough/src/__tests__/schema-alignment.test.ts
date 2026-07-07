@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import { validateBoot as validateBootRaw } from "@cosmicdrift/kumiko-framework/engine";
+import { withBootValidatorFixture } from "@cosmicdrift/kumiko-framework/testing";
 import { ENTITY_METAS, FEATURES } from "../../kumiko/schema";
+
+function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
+  validateBootRaw(withBootValidatorFixture(features));
+}
 
 describe("kumiko/schema.ts aligns with run-config boot", () => {
   test("ENTITY_METAS includes tasks + auth-mode tables", () => {

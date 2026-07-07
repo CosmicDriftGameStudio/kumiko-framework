@@ -138,6 +138,7 @@ import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import Redis from "ioredis";
 import { applyBootSeeds } from "./boot/apply-boot-seeds";
 import { type BootCrypto, resolveBootCrypto } from "./boot/boot-crypto";
+import { jobRunLoggerCallbacks } from "./boot/job-run-logger";
 import { ASSETS_DIR } from "./build-prod-bundle";
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features";
 import { type ExtraRoutesSystemDeps, makeDispatchSystemWrite } from "./extra-routes-deps";
@@ -1133,6 +1134,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   const runSingleInstance = options.runSingleInstance ?? options.eventDispatcher?.disabled !== true;
   const hasJobs = registry.getAllJobs().size > 0;
   const queueNamePrefix = options.jobs?.queueNamePrefix;
+  const jobLogger = jobRunLoggerCallbacks(registry, db);
   const dispatcherTunables =
     options.eventDispatcher?.pollIntervalMs !== undefined
       ? { pollIntervalMs: options.eventDispatcher.pollIntervalMs }
@@ -1141,20 +1143,18 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   const entrypoint: ApiEntrypoint | AllInOneEntrypoint = runSingleInstance
     ? createAllInOneEntrypoint({
         ...baseEntrypointOptions,
-        // Worker-Seite liest die JobsBlock TOP-LEVEL (nicht nested `jobs` wie
-        // die api-Seite); beide Lane-Runner ziehen redisUrl/prefix von hier.
         redisUrl,
+        ...jobLogger,
         ...(queueNamePrefix !== undefined && { queueNamePrefix }),
         ...(!options.eventDispatcher?.disabled && { eventDispatcher: dispatcherTunables }),
       })
     : createApiEntrypoint({
         ...baseEntrypointOptions,
-        // API-only: api-Lane-Jobs laufen lokal, ein dezidierter Worker fährt
-        // worker-Lane + MSPs. createApiEntrypoint liest den nested `jobs`-Block.
         ...(hasJobs && {
           jobs: {
             redisUrl,
             runLocalJobs: true,
+            ...jobLogger,
             ...(queueNamePrefix !== undefined && { queueNamePrefix }),
           },
         }),
