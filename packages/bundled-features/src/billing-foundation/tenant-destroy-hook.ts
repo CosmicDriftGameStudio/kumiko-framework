@@ -42,6 +42,6 @@ export async function subscriptionTenantDestroyHook(ctx: {
     aggregateId,
     aggregateType: SUBSCRIPTION_AGGREGATE_TYPE,
     archivedBy: "tenant-lifecycle:destroy",
-    reason: "tenant-destroy",
+    reason: "tenant_destroy",
   });
 }
