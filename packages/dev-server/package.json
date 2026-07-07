@@ -30,6 +30,14 @@
       "types": "./src/compose-features.ts",
       "default": "./src/compose-features.ts"
     },
+    "./compose-stacks": {
+      "types": "./src/compose-stacks.ts",
+      "default": "./src/compose-stacks.ts"
+    },
+    "./setup-test-stack-from-features": {
+      "types": "./src/setup-test-stack-from-features.ts",
+      "default": "./src/setup-test-stack-from-features.ts"
+    },
     "./schema-apply": {
       "types": "./src/schema-apply.ts",
       "default": "./src/schema-apply.ts"

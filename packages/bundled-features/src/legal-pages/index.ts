@@ -8,6 +8,7 @@ export {
 export {
   createLegalPagesFeature,
   type LegalPagesBootCheckCtx,
+  type LegalPagesOptions,
   runLegalPagesBootCheck,
 } from "./feature";
 export { renderMarkdownToHtml, wrapInLayout } from "./markdown";
