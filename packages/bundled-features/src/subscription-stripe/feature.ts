@@ -172,6 +172,8 @@ export function createSubscriptionStripeFeature(
           de: "Stripe Billing live",
           en: "Stripe Billing Live",
         },
+        "subscription-stripe.settings": { de: "Stripe", en: "Stripe" },
+        "screen:subscription-stripe-system.title": { de: "Stripe", en: "Stripe" },
       },
     });
 
@@ -198,3 +200,4 @@ export function createSubscriptionStripeFeature(
     return { configKeys };
   });
 }
+

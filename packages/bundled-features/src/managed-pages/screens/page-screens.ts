@@ -24,7 +24,11 @@ export const pageListScreen: EntityListScreenDefinition = {
     "title",
     {
       field: "published",
-      renderer: { format: "boolean", trueLabel: "Published", falseLabel: "Draft" },
+      renderer: {
+        format: "boolean",
+        trueLabel: "managed-pages:entity:page:field:published:option:true",
+        falseLabel: "managed-pages:entity:page:field:published:option:false",
+      },
     },
   ],
   defaultSort: { field: "slug", dir: "asc" },

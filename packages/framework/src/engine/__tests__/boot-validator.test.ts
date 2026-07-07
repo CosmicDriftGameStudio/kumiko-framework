@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 import type { SchemaTable } from "../../db/dialect";
 import { table, text } from "../../db/dialect";
-import { validateBoot } from "../boot-validator";
+import { validateBoot as validateBootRaw } from "../boot-validator";
+import { withBootValidatorFixture } from "../../testing/boot-validator-fixture";
 import { createSystemConfig, createTenantConfig } from "../config-helpers";
 import {
   createDerivedField,
@@ -12,6 +13,10 @@ import {
   defineFeature,
   from,
 } from "../index";
+
+function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
+  validateBootRaw(withBootValidatorFixture(features));
+}
 
 describe("boot-validator", () => {
   test("passes for valid features with no issues", () => {
@@ -2582,7 +2587,7 @@ describe("boot-validator", () => {
     });
 
     test("number-Field OHNE sortable → Throw (sortable: true ist Pflicht)", () => {
-      expect(() => validateBoot([buildFeature("rank", { rank: { type: "number" } })])).toThrow(
+      expect(() => validateBootRaw([buildFeature("rank", { rank: { type: "number" } })])).toThrow(
         /is not sortable/,
       );
     });

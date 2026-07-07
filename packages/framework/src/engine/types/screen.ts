@@ -472,6 +472,8 @@ export type CustomScreenDefinition = {
   readonly type: "custom";
   readonly renderer: PlatformComponent;
   readonly routes?: readonly CustomScreenRoute[];
+  /** Parent list screen for breadcrumb when this detail is not in nav. */
+  readonly listScreenId?: string;
   readonly access?: AccessRule;
 };
 

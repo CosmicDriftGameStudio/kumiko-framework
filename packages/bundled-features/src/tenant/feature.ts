@@ -23,6 +23,7 @@ import { resolveUserIdsQuery } from "./handlers/resolve-user-ids.query";
 import { disableWrite, enableWrite } from "./handlers/toggle-enabled.write";
 import { updateWrite } from "./handlers/update.write";
 import { updateMemberRolesWrite } from "./handlers/update-member-roles.write";
+import { TENANT_I18N } from "./i18n";
 import { tenantInvitationEntity } from "./invitation-table";
 import { tenantMembershipEntity } from "./membership-table";
 import { tenantEntity } from "./schema/tenant";
@@ -150,6 +151,8 @@ export function createTenantFeature(): FeatureDefinition {
       screen: "tenant:screen:members",
       order: 20,
     });
+
+    r.translations({ keys: TENANT_I18N });
 
     return { handlers, queries };
   });

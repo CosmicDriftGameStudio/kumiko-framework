@@ -24,8 +24,8 @@ export const tenantEntity = createEntity({
   // UUID sein, sonst findet der tenants-Lookup nie. Default gen_random_uuid().
   fields: {
     key: createTextField({ required: true, maxLength: 50 }),
-    name: createTextField({ required: true, maxLength: 200, searchable: true }),
-    isEnabled: createBooleanField({ default: true }),
+    name: createTextField({ required: true, maxLength: 200, searchable: true, sortable: true }),
+    isEnabled: createBooleanField({ default: true, filterable: true }),
     // Tenant-destroy lifecycle (tenant-lifecycle feature). Defaults keep
     // existing tenants valid when the feature is not mounted.
     status: createSelectField({

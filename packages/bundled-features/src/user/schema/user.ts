@@ -136,6 +136,7 @@ export const userEntity = createEntity({
       required: true,
       default: USER_STATUS.Active,
       options: USER_STATUS_OPTIONS,
+      sortable: true,
       access: { write: access.privileged },
     }),
 

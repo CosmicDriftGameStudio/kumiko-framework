@@ -24,11 +24,11 @@ type State =
   | { readonly kind: "ready"; readonly rows: readonly JobRunRow[] };
 
 const STATUS_FILTER_OPTIONS = [
-  { value: "", label: "all" },
-  { value: "completed", label: "completed" },
-  { value: "failed", label: "failed" },
-  { value: "running", label: "running" },
-  { value: "queued", label: "queued" },
+  { value: "", labelKey: "jobs.runs.filter.all" },
+  { value: "completed", labelKey: "jobs.runs.filter.completed" },
+  { value: "failed", labelKey: "jobs.runs.filter.failed" },
+  { value: "running", labelKey: "jobs.runs.filter.running" },
+  { value: "queued", labelKey: "jobs.runs.filter.queued" },
 ] as const;
 
 export function JobRunsScreen(): ReactNode {
@@ -41,7 +41,7 @@ export function JobRunsScreen(): ReactNode {
 
   const filterOptions = STATUS_FILTER_OPTIONS.map((opt) => ({
     value: opt.value,
-    label: opt.value === "" ? t("jobs.runs.filter.all") : opt.label,
+    label: t(opt.labelKey),
   }));
 
   const refresh = useCallback(async (): Promise<void> => {
@@ -98,13 +98,13 @@ export function JobRunsScreen(): ReactNode {
         <DataTable
           testId="job-runs-table"
           columns={[
-            { field: "job", label: t("jobs.runs.col.job"), type: "string", sortable: false },
-            { field: "status", label: t("jobs.runs.col.status"), type: "string", sortable: false },
+            { field: "job", label: t("jobs.runs.col.job"), type: "string", sortable: true },
+            { field: "status", label: t("jobs.runs.col.status"), type: "string", sortable: true },
             {
               field: "started",
               label: t("jobs.runs.col.started"),
               type: "string",
-              sortable: false,
+              sortable: true,
             },
             {
               field: "duration",

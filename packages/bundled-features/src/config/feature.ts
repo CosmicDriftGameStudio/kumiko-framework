@@ -21,6 +21,7 @@ import { resetWrite } from "./handlers/reset.write";
 import { schemaQuery } from "./handlers/schema.query";
 import { setWrite } from "./handlers/set.write";
 import { valuesQuery } from "./handlers/values.query";
+import { CONFIG_FEATURE_I18N } from "./i18n";
 import type { ConfigResolver } from "./resolver";
 import { configValueEntity } from "./table";
 
@@ -62,6 +63,8 @@ export function createConfigFeature(): FeatureDefinition {
     // once after adding a new master key version or before retiring the
     // legacy CONFIG_ENCRYPTION_KEY.
     r.job("reencrypt", { trigger: { manual: true } }, reencryptJob);
+
+    r.translations({ keys: CONFIG_FEATURE_I18N });
 
     return { handlers, queries };
   });

@@ -23,6 +23,24 @@ export function fieldLabelKey(featureName: string, entityName: string, fieldName
   return `${featureName}:entity:${entityName}:field:${fieldName}`;
 }
 
+export function booleanFacetOptionKeys(
+  featureName: string,
+  entityName: string,
+  fieldName: string,
+): readonly string[] {
+  const base = `${featureName}:entity:${entityName}:field:${fieldName}:option`;
+  return [`${base}:true`, `${base}:false`];
+}
+
+export function selectFacetOptionKey(
+  featureName: string,
+  entityName: string,
+  fieldName: string,
+  value: string,
+): string {
+  return `${featureName}:entity:${entityName}:field:${fieldName}:option:${value}`;
+}
+
 export function screenTitleKey(screenId: string): string {
   return `screen:${screenId}.title`;
 }
@@ -167,6 +185,41 @@ export function requiredKeysFromWorkspace(ws: WorkspaceDefinition): readonly str
   return [...out];
 }
 
+function collectEntityListFilterKeys(feature: FeatureDefinition, out: Set<string>): void {
+  for (const screen of Object.values(feature.screens)) {
+    if (screen.type !== "entityList") continue;
+    const entity = feature.entities?.[screen.entity];
+    if (!entity) continue;
+    for (const [fieldName, rawDef] of Object.entries(entity.fields)) {
+      const def = rawDef as {
+        readonly filterable?: boolean;
+        readonly type?: string;
+        readonly options?: readonly string[];
+      };
+      if (def.filterable !== true) continue;
+      if (def.type === "boolean") {
+        for (const key of booleanFacetOptionKeys(feature.name, screen.entity, fieldName)) {
+          out.add(key);
+        }
+      } else if (def.type === "select" && Array.isArray(def.options)) {
+        for (const value of def.options) {
+          out.add(selectFacetOptionKey(feature.name, screen.entity, fieldName, value));
+        }
+      }
+    }
+  }
+}
+
+export function featureHasI18nSurface(feature: FeatureDefinition): boolean {
+  if (Object.keys(feature.screens).length > 0) return true;
+  if (Object.keys(feature.navs).length > 0) return true;
+  if (Object.keys(feature.workspaces).length > 0) return true;
+  for (const def of Object.values(feature.configKeys)) {
+    if (def.mask !== undefined) return true;
+  }
+  return false;
+}
+
 export function requiredKeysFromFeature(feature: FeatureDefinition): readonly string[] {
   const out = new Set<string>();
 
@@ -182,6 +235,7 @@ export function requiredKeysFromFeature(feature: FeatureDefinition): readonly st
   for (const def of Object.values(feature.configKeys)) {
     pushKey(out, def.mask?.title);
   }
+  collectEntityListFilterKeys(feature, out);
 
   return [...out];
 }

@@ -29,6 +29,7 @@ import {
   type TestStackOptions,
   TestUsers,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { startDevJobRunners } from "./boot/job-run-logger";
 import { type ExtraRoutesSystemDeps, makeDispatchSystemWrite } from "./extra-routes-deps";
 import { injectSchema } from "./inject-schema";
 import { canResolveTailwindStylesheet, resolveTailwindCli } from "./resolve-tailwind-cli";
@@ -707,6 +708,14 @@ export async function createKumikoServer(
     await stack.eventDispatcher.start();
   }
 
+  const redisUrl = `redis://${stack.redis.redis.options.host}:${stack.redis.redis.options.port}/${stack.redis.redis.options.db}`;
+  const devJobRunners = await startDevJobRunners({
+    registry: stack.registry,
+    db: stack.db,
+    context: { db: stack.db, registry: stack.registry },
+    redisUrl,
+  });
+
   // Dev user = TestUsers.admin. Demo features are openToAll but the
   // auth-middleware still needs a valid JWT to let the request past.
   // Nicht genutzt wenn `options.auth` gesetzt ist — dann macht der Client
@@ -977,6 +986,7 @@ export async function createKumikoServer(
     if (stack.eventDispatcher) {
       await stack.eventDispatcher.stop();
     }
+    await devJobRunners.stop();
     await stack.cleanup();
   };
 

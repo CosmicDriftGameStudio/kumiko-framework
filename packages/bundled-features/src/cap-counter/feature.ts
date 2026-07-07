@@ -60,6 +60,7 @@ import {
   rollingIncrementedSchema,
 } from "./handlers/increment-rolling.write";
 import { markSoftWarnedHandler } from "./handlers/mark-soft-warned.write";
+import { CAP_COUNTER_I18N } from "./i18n";
 
 const sysadminAccess = { access: { roles: ["SystemAdmin"] } } as const;
 
@@ -101,13 +102,20 @@ export const capCounterFeature = defineFeature(CAP_COUNTER_FEATURE, (r) => {
     type: "entityList",
     entity: "cap-counter",
     columns: ["capName", "value", "periodStart", "lastSoftWarnedAt"],
-    searchable: false,
+    defaultSort: { field: "capName", dir: "asc" },
+    searchable: true,
     access: { roles: ["SystemAdmin"] },
   });
   r.nav({
     id: "cap-list",
-    label: "Caps",
+    label: "cap-counter:nav.cap-list",
     screen: "cap-counter:screen:cap-list",
     order: 60,
+  });
+  r.translations({
+    keys: {
+      ...CAP_COUNTER_I18N,
+      "cap-counter:nav.cap-list": { de: "Limits", en: "Caps" },
+    },
   });
 });

@@ -752,10 +752,19 @@ function EntityListBody({
         out.push({
           field,
           label,
-          // ponytail: Yes/No literal — boolean-Facet-Labels i18n'en wenn eine App es braucht
           options: [
-            { value: "true", label: "Yes" },
-            { value: "false", label: "No" },
+            {
+              value: "true",
+              label: effectiveTranslate(
+                `${featureName}:entity:${screen.entity}:field:${field}:option:true`,
+              ),
+            },
+            {
+              value: "false",
+              label: effectiveTranslate(
+                `${featureName}:entity:${screen.entity}:field:${field}:option:false`,
+              ),
+            },
           ],
         });
       }

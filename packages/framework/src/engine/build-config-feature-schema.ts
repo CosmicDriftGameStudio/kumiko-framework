@@ -123,6 +123,7 @@ export function buildConfigFeatureSchema(registry: Registry): ConfigFeatureSchem
         label: `${feature}.settings`,
         parent: audienceNavShortId(scope),
         screen: shortId,
+        icon: ordered[0]?.def.mask?.icon ?? "settings",
         order: minMaskOrder(ordered),
         access,
       });

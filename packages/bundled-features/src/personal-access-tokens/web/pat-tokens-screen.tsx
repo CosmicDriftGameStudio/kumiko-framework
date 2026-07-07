@@ -41,7 +41,11 @@ function isoDate(value: string | null): string | null {
   return typeof value === "string" && value.length >= 10 ? value.slice(0, 10) : null;
 }
 
-export function PatTokensScreen(): ReactNode {
+export function PatTokensScreen({
+  embedded = false,
+}: {
+  readonly embedded?: boolean;
+} = {}): ReactNode {
   const t = useTranslation();
   const { Form, Field, Input, Button, Banner, Card, Heading } = usePrimitives();
   const dispatcher = useDispatcher();
@@ -130,7 +134,7 @@ export function PatTokensScreen(): ReactNode {
   };
 
   return (
-    <div className="flex max-w-3xl flex-col gap-6 p-6">
+    <div className={embedded ? "flex flex-col gap-6" : "flex max-w-3xl flex-col gap-6 p-6"}>
       <Heading>{t("pat.title")}</Heading>
 
       {minted && (
@@ -232,7 +236,7 @@ export function PatTokensScreen(): ReactNode {
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 flex-col gap-0.5">
                   <span className="truncate text-sm font-semibold">{row.name}</span>
-                  <span className="truncate text-xs text-muted-foreground">
+                  <span className="whitespace-normal text-xs text-muted-foreground">
                     {revoked ? t("pat.list.revoked") : meta(row)}
                   </span>
                 </div>

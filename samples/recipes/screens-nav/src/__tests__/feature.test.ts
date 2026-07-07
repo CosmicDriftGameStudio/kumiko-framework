@@ -15,9 +15,14 @@ import {
   defineFeature,
   normalizeEditField,
   normalizeListColumn,
-  validateBoot,
+  validateBoot as validateBootRaw,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { withBootValidatorFixture } from "@cosmicdrift/kumiko-framework/testing";
 import { bookEntity, createBookshopAdminFeature, createBookshopFeature } from "../feature";
+
+function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
+  validateBootRaw(withBootValidatorFixture(features));
+}
 
 const bookshop = createBookshopFeature();
 const bookshopAdmin = createBookshopAdminFeature();

@@ -5,8 +5,16 @@
 
 import { describe, expect, test } from "bun:test";
 import { UserProfileHandlers } from "@cosmicdrift/kumiko-bundled-features/user-profile";
-import { createRegistry, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createRegistry,
+  validateBoot as validateBootRaw,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { withBootValidatorFixture } from "@cosmicdrift/kumiko-framework/testing";
 import { composeAccountApp } from "../feature";
+
+function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
+  validateBootRaw(withBootValidatorFixture(features));
+}
 
 const features = composeAccountApp();
 

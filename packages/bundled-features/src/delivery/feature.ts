@@ -10,6 +10,7 @@ import { deliveryAttemptSchema } from "./events";
 import { logQuery } from "./handlers/log.query";
 import { preferencesQuery } from "./handlers/preferences.query";
 import { setPreferenceWrite } from "./handlers/set-preference.write";
+import { DELIVERY_I18N } from "./i18n";
 import { deliveryRenderJob, deliverySendJob } from "./jobs";
 import {
   deliveryAttemptsTable,
@@ -133,6 +134,8 @@ export function createDeliveryFeature(): FeatureDefinition {
       screen: "delivery:screen:delivery-log",
       order: 40,
     });
+
+    r.translations({ keys: DELIVERY_I18N });
 
     return { handlers, queries };
   });

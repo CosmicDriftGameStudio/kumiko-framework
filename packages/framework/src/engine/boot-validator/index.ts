@@ -27,6 +27,7 @@ import {
   validateReferenceFields,
   validateTransitions,
 } from "./entity-handler";
+import { validateEntityListScreens } from "./entity-list-screens";
 import {
   validateGdprHookCompleteness,
   validateGdprPiiHookCoverage,
@@ -181,6 +182,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
   validateNavCycles(allNavQns);
   validateDefaultWorkspaceUniqueness(allWorkspaceQns);
   validateI18nSurfaceKeys(features);
+  validateEntityListScreens(features);
   validateExtensionPreSaveWiring(features);
   validateGdprStoragePersistence(features);
   validateGdprHookCompleteness(features);

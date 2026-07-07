@@ -9,6 +9,7 @@ import { listProfilesQuery } from "./handlers/list-profiles.query";
 import { needsProfileQuery } from "./handlers/needs-profile.query";
 import { setProfileWrite } from "./handlers/set-profile.write";
 import { subProcessorsQuery } from "./handlers/sub-processors.query";
+import { COMPLIANCE_PROFILES_I18N } from "./i18n";
 import { tenantComplianceProfileEntity } from "./schema/profile-selection";
 
 export {
@@ -71,6 +72,8 @@ export function createComplianceProfilesFeature(): FeatureDefinition {
       screen: "compliance-profiles:screen:profile-picker",
       order: 50,
     });
+
+    r.translations({ keys: COMPLIANCE_PROFILES_I18N });
 
     return { handlers, queries };
   });

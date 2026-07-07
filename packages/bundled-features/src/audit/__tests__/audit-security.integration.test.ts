@@ -149,3 +149,53 @@ describe("systemAdmin retains audit access", () => {
     expect(res.rows.length).toBeGreaterThanOrEqual(1);
   });
 });
+
+describe("tenant isolation", () => {
+  test("TenantAdmin does not see events from another tenant", async () => {
+    const otherTenant = testTenantId(2);
+    await seedTenant(stack.db, { id: otherTenant, key: "audit-other", name: "Other" });
+    await seedTenantMembership(stack.db, {
+      userId: tenantAdminId,
+      tenantId: otherTenant,
+      roles: ["TenantAdmin"],
+    });
+    await stack.http.writeOk(
+      "audit-sec-widgets:write:widget:create",
+      { name: "other-tenant" },
+      { id: tenantAdminId, tenantId: otherTenant, roles: ["TenantAdmin"] },
+    );
+
+    const ownTenantRes = await stack.http.queryOk<{ rows: readonly { type: string }[] }>(
+      AuditQueries.list,
+      {},
+      tenantAdmin(),
+    );
+    expect(ownTenantRes.rows.some((r) => r.type === "widget.created")).toBe(false);
+  });
+});
+
+describe("audit list filters", () => {
+  test("rejects from after to", async () => {
+    const res = await stack.http.query(
+      AuditQueries.list,
+      { from: "2026-01-02T00:00:00.000Z", to: "2026-01-01T00:00:00.000Z" },
+      tenantAdmin(),
+    );
+    expect([400, 422]).toContain(res.status);
+  });
+
+  test("filters by eventType within tenant", async () => {
+    await stack.http.writeOk(
+      "audit-sec-widgets:write:widget:create",
+      { name: "filter-me" },
+      tenantAdmin(),
+    );
+    const res = await stack.http.queryOk<{ rows: readonly { type: string }[] }>(
+      AuditQueries.list,
+      { eventType: "widget.created" },
+      tenantAdmin(),
+    );
+    expect(res.rows.length).toBeGreaterThanOrEqual(1);
+    expect(res.rows.every((r) => r.type === "widget.created")).toBe(true);
+  });
+});

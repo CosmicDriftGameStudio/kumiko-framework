@@ -1,9 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { validateBoot } from "../boot-validator";
+import { withBootValidatorFixture } from "../../testing/boot-validator-fixture";
+import { validateBoot as validateBootRaw } from "../boot-validator";
 import { defineFeature } from "../define-feature";
 import { createDerivedField, createEntity, createTextField } from "../factories";
 import { createRegistry } from "../registry";
 import type { ScreenDefinition } from "../types/screen";
+
+function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
+  validateBootRaw(withBootValidatorFixture(features));
+}
 
 function productEntity() {
   return createEntity({

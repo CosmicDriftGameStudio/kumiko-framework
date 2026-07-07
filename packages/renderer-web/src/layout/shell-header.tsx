@@ -9,10 +9,18 @@ import { resolveNavigation } from "@cosmicdrift/kumiko-headless";
 import type { AppSchema, FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import { toAppSchema, useNav, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useMemo } from "react";
-import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from "../ui/breadcrumb";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "../ui/breadcrumb";
 import { Separator } from "../ui/separator";
 import { SidebarTrigger } from "../ui/sidebar";
 import { buildNavRegistrySliceForApp, lastSegment } from "./nav-tree";
+import { type BreadcrumbCrumb, resolveDetailBreadcrumb } from "./shell-breadcrumb";
 
 type ShellHeaderUser = {
   readonly id: string;
@@ -30,25 +38,53 @@ export function ShellHeader({
 }): ReactNode {
   const nav = useNav();
   const t = useTranslation();
+  const appSchema = toAppSchema(schema);
   const tree = useMemo(() => {
-    const source = buildNavRegistrySliceForApp(toAppSchema(schema));
+    const source = buildNavRegistrySliceForApp(appSchema);
     return resolveNavigation({ source, ...(user !== undefined && { user }) });
-  }, [schema, user]);
+  }, [appSchema, user]);
 
+  const allScreens = useMemo(
+    () => appSchema.features.flatMap((f) => f.screens),
+    [appSchema.features],
+  );
   const screenId = nav.route?.screenId;
-  const label = screenId !== undefined ? activeNavLabel(tree, screenId, (k) => t(k)) : undefined;
+  const crumbs = useMemo((): readonly BreadcrumbCrumb[] | undefined => {
+    if (screenId === undefined) return undefined;
+    const navLabel = activeNavLabel(tree, screenId, (k) => t(k));
+    if (navLabel !== undefined) return [{ label: navLabel }];
+    return resolveDetailBreadcrumb(allScreens, screenId, t);
+  }, [allScreens, screenId, t, tree]);
 
   return (
     <header className="flex h-16 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
       <div className="flex items-center gap-2 px-4">
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
-        {label !== undefined && (
+        {crumbs !== undefined && crumbs.length > 0 && (
           <Breadcrumb>
             <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbPage>{label}</BreadcrumbPage>
-              </BreadcrumbItem>
+              {crumbs.map((crumb, index) => {
+                const screenId = crumb.screenId;
+                return (
+                  <BreadcrumbItem key={screenId ?? crumb.label}>
+                    {index > 0 && <BreadcrumbSeparator />}
+                    {screenId !== undefined && index < crumbs.length - 1 ? (
+                      <BreadcrumbLink
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          nav.navigate({ screenId });
+                        }}
+                      >
+                        {crumb.label}
+                      </BreadcrumbLink>
+                    ) : (
+                      <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
+                    )}
+                  </BreadcrumbItem>
+                );
+              })}
             </BreadcrumbList>
           </Breadcrumb>
         )}
@@ -69,7 +105,7 @@ function activeNavLabel(
 ): string | undefined {
   for (const node of nodes) {
     if (node.screen !== undefined && lastSegment(node.screen) === screenId) {
-      return node.label.includes(".") ? t(node.label) : node.label;
+      return node.label.includes(".") || node.label.includes(":") ? t(node.label) : node.label;
     }
     const child = activeNavLabel(node.children, screenId, t);
     if (child !== undefined) return child;

@@ -12,6 +12,8 @@ type MemberRow = {
   readonly id: string;
   readonly userId: string;
   readonly tenantId: string;
+  readonly email: string | null;
+  readonly displayName: string | null;
   readonly roles: readonly string[];
 };
 
@@ -131,8 +133,8 @@ export function MembersScreen({
           testId="members-active-table"
           columns={[
             {
-              field: "userId",
-              label: t("tenant.members.col.userId"),
+              field: "email",
+              label: t("tenant.members.col.email"),
               type: "string",
               sortable: false,
             },
@@ -145,7 +147,10 @@ export function MembersScreen({
           ]}
           rows={state.members.map((m) => ({
             id: m.id,
-            values: { userId: m.userId, roles: m.roles.join(", ") },
+            values: {
+              email: m.email ?? `${m.userId.slice(0, 8)}…`,
+              roles: m.roles.join(", "),
+            },
           }))}
         />
       </Card>

@@ -40,7 +40,7 @@ import {
 export const capCounterEntity = createEntity({
   table: "read_cap_counters",
   fields: {
-    capName: createTextField({ required: true, maxLength: 100 }),
+    capName: createTextField({ required: true, maxLength: 100, sortable: true, searchable: true }),
     value: createNumberField({ required: true, default: 0 }),
     periodStart: createTimestampField({ required: true }),
     lastSoftWarnedAt: createTimestampField(),

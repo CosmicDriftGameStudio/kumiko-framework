@@ -29,6 +29,7 @@ import { createCreateTagHandler } from "./handlers/create-tag.write";
 import { createDeleteTagHandler } from "./handlers/delete-tag.write";
 import { createRemoveTagHandler } from "./handlers/remove-tag.write";
 import { createUpdateTagHandler } from "./handlers/update-tag.write";
+import { TAGS_FEATURE_I18N } from "./i18n";
 
 // Opt-in tier-gating: when set, the feature declares itself r.toggleable so the
 // dispatcher gate + feature-toggles + tier-engine can switch the WHOLE feature
@@ -76,6 +77,7 @@ function registerTags(
     renderer: { react: { __component: "TagsScreen" } },
     access,
   });
+  r.translations({ keys: TAGS_FEATURE_I18N });
 }
 
 export const tagsFeature = defineFeature(TAGS_FEATURE_NAME, (r) =>

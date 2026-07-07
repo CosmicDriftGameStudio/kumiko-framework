@@ -6,12 +6,19 @@ import { createEntity, createTextField } from "../factories";
 describe("validateBoot — i18n surface keys", () => {
   test("passes when screen-derived keys are in r.translations", () => {
     const feature = defineFeature("demo", (r) => {
-      r.entity("item", createEntity({ table: "Items", fields: { name: createTextField() } }));
+      r.entity(
+        "item",
+        createEntity({
+          table: "Items",
+          fields: { name: createTextField({ sortable: true }) },
+        }),
+      );
       r.screen({
         id: "item-list",
         type: "entityList",
         entity: "item",
         columns: ["name"],
+        defaultSort: { field: "name", dir: "asc" },
       });
       r.translations({
         keys: {
@@ -25,12 +32,19 @@ describe("validateBoot — i18n surface keys", () => {
 
   test("throws when screen title key is missing", () => {
     const feature = defineFeature("demo", (r) => {
-      r.entity("item", createEntity({ table: "Items", fields: { name: createTextField() } }));
+      r.entity(
+        "item",
+        createEntity({
+          table: "Items",
+          fields: { name: createTextField({ sortable: true }) },
+        }),
+      );
       r.screen({
         id: "item-list",
         type: "entityList",
         entity: "item",
         columns: ["name"],
+        defaultSort: { field: "name", dir: "asc" },
       });
       r.translations({
         keys: {
@@ -43,17 +57,24 @@ describe("validateBoot — i18n surface keys", () => {
     );
   });
 
-  test("skips features with no r.translations", () => {
+  test("throws when feature has screens but no r.translations", () => {
     const feature = defineFeature("legacy", (r) => {
-      r.entity("item", createEntity({ table: "Items", fields: { name: createTextField() } }));
+      r.entity(
+        "item",
+        createEntity({
+          table: "Items",
+          fields: { name: createTextField({ sortable: true }) },
+        }),
+      );
       r.screen({
         id: "item-list",
         type: "entityList",
         entity: "item",
         columns: ["name"],
+        defaultSort: { field: "name", dir: "asc" },
       });
     });
-    expect(() => validateBoot([feature])).not.toThrow();
+    expect(() => validateBoot([feature])).toThrow(/required translation key missing/);
   });
 
   test("throws when de/en locale is missing", () => {

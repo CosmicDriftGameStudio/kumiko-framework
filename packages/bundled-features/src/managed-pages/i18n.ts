@@ -24,6 +24,11 @@ export const MANAGED_PAGES_I18N: Readonly<Record<string, LocalizedString>> = {
   "managed-pages:entity:page:field:lang": { de: "Sprache", en: "Language" },
   "managed-pages:entity:page:field:title": { de: "Titel", en: "Title" },
   "managed-pages:entity:page:field:published": { de: "Veröffentlicht", en: "Published" },
+  "managed-pages:entity:page:field:published:option:true": {
+    de: "Veröffentlicht",
+    en: "Published",
+  },
+  "managed-pages:entity:page:field:published:option:false": { de: "Entwurf", en: "Draft" },
   "managed-pages:entity:page:field:description": { de: "Beschreibung", en: "Description" },
   "managed-pages:entity:page:field:ogImage": { de: "OG-Bild", en: "OG image" },
   "managed-pages:entity:page:field:body": { de: "Inhalt", en: "Content" },

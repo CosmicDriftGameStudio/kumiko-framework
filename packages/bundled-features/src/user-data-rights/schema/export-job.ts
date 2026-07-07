@@ -73,6 +73,7 @@ export const exportJobEntity = createEntity({
     // nur Storage.
     userId: createTextField({
       required: true,
+      searchable: true,
     }),
 
     // **requestedFromTenantId** — der Tenant aus dem der User den Antrag
@@ -102,6 +103,7 @@ export const exportJobEntity = createEntity({
     // entsteht ohne Klick.
     requestedAt: createTimestampField({
       required: true,
+      sortable: true,
     }),
 
     // Wann hat der Worker mit dem Pickup angefangen. NULL solange

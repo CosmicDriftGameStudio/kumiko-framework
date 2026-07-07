@@ -28,7 +28,8 @@ export const exportJobListScreen: EntityListScreenDefinition = {
       entityId: "id",
     },
   ],
-  searchable: false,
+  defaultSort: { field: "requestedAt", dir: "desc" },
+  searchable: true,
   access: { roles: access.systemAdmin },
 };
 
