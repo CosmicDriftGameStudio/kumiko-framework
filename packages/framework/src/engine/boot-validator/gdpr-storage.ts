@@ -1,4 +1,4 @@
-import { EXT_USER_DATA } from "../extension-names";
+import { EXT_TENANT_DATA, EXT_USER_DATA } from "../extension-names";
 import type { FeatureDefinition } from "../types";
 import type { PiiAnnotations } from "../types/fields";
 
@@ -116,6 +116,39 @@ export function validateGdprPiiHookCoverage(features: readonly FeatureDefinition
       if (subjectFields.length === 0) continue;
       throw new Error(
         `[kumiko:boot] Entity "${entityName}" (feature "${feature.name}") has user-subject fields (${subjectFields.join(", ")}) but no feature registers an EXT_USER_DATA hook for it — the data never appears in Art.15/20 exports and is never erased on forget (Art.17 gap). Register r.useExtension(EXT_USER_DATA, "${entityName}", { export, delete }) in the owning feature or a defaults feature. If this entity is intentionally out of the pipeline (e.g. crypto-shredding key-erase covers it), register a no-op hook { export: async () => null, delete: async () => {} } with a comment explaining why.`,
+      );
+    }
+  }
+}
+
+// V4: tenantOwned-entity-without-hook gate. Mirrors validateGdprPiiHookCoverage
+// but for EXT_TENANT_DATA when tenant-lifecycle is mounted.
+export function validateTenantDataHookCoverage(features: readonly FeatureDefinition[]): void {
+  const featureNames = new Set(features.map((f) => f.name));
+  if (!featureNames.has("tenant-lifecycle")) {
+    // skip: this guard only applies to apps that mount tenant-lifecycle
+    return;
+  }
+
+  const hookedEntities = new Set<string>();
+  for (const f of features) {
+    for (const usage of f.extensionUsages) {
+      if (usage.extensionName === EXT_TENANT_DATA) hookedEntities.add(usage.entityName);
+    }
+  }
+
+  for (const feature of features) {
+    for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
+      if (hookedEntities.has(entityName)) continue;
+      const tenantSubjectFields = Object.entries(entity.fields)
+        .filter(([, field]) => {
+          const annot = field as PiiAnnotations;
+          return Boolean(annot.tenantOwned);
+        })
+        .map(([name]) => name);
+      if (tenantSubjectFields.length === 0) continue;
+      throw new Error(
+        `[kumiko:boot] Entity "${entityName}" (feature "${feature.name}") has tenant-subject fields (${tenantSubjectFields.join(", ")}) but no feature registers an EXT_TENANT_DATA destroy hook for it — tenant destroy never erases this data. Register r.useExtension(EXT_TENANT_DATA, "${entityName}", { destroy }) or a documented no-op if crypto-shredding covers it.`,
       );
     }
   }

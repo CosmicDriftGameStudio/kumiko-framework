@@ -9,4 +9,9 @@ export {
   tenantInvitationsTable,
 } from "./invitation-table";
 export { tenantMembershipsTable } from "./membership-table";
-export { tenantEntity, tenantTable } from "./schema/tenant";
+export {
+  TENANT_LIFECYCLE_STATUSES,
+  type TenantLifecycleStatus,
+  tenantEntity,
+  tenantTable,
+} from "./schema/tenant";

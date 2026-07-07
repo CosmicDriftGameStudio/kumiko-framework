@@ -243,6 +243,8 @@ export type AuthRoutesConfig = {
   // Wired by run-prod-app when the PAT feature is mounted; unwired = no PAT
   // rate limiting.
   patRateLimiter?: LoginRateLimiter;
+  // Tenant-lifecycle 410 gate — wired by tenant-lifecycle / run-prod-app.
+  resolveTenantLifecycleStatus?: import("./auth-middleware").TenantLifecycleStatusResolver;
   // Password-reset flow. When wired, POST /auth/request-password-reset and
   // POST /auth/reset-password are mounted as public routes. The framework
   // dispatches to the feature-level handlers (authoring QNs typically come

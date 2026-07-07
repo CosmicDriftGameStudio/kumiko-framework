@@ -41,7 +41,7 @@
 // (z.B. für analytics: "wie viele Wechsel im Monat?"), kommt ein
 // `subscription-provider-changed`-event-type später.
 
-import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature, EXT_TENANT_DATA } from "@cosmicdrift/kumiko-framework/engine";
 import { BILLING_FOUNDATION_FEATURE, SUBSCRIPTION_PROVIDER_EXTENSION } from "./constants";
 import {
   INVOICE_PAID_EVENT_QN,
@@ -69,6 +69,7 @@ import {
   applySubscriptionUpdated,
   subscriptionsProjectionTable,
 } from "./projection";
+import { subscriptionTenantDestroyHook } from "./tenant-destroy-hook";
 
 export const billingFoundationFeature = defineFeature(BILLING_FOUNDATION_FEATURE, (r) => {
   r.describe(
@@ -79,6 +80,7 @@ export const billingFoundationFeature = defineFeature(BILLING_FOUNDATION_FEATURE
     category: "billing",
     recommended: false,
   });
+  r.requires("tenant-lifecycle", "compliance-profiles");
   // 5 fine-grained domain-events. Alle 5 nutzen denselben payload-
   // shape (= subscription-state-snapshot); der event-type taggt was
   // passiert ist. Future-consumer (billing-history, accounting)
@@ -124,4 +126,8 @@ export const billingFoundationFeature = defineFeature(BILLING_FOUNDATION_FEATURE
   // Custom list-query auf der subscription-projection (raw drizzle-
   // table; kein r.entity weil Schreiben via projection-apply läuft).
   r.queryHandler(listSubscriptionsQuery);
+
+  r.useExtension(EXT_TENANT_DATA, "subscription", {
+    destroy: subscriptionTenantDestroyHook,
+  });
 });

@@ -58,6 +58,7 @@ import { createSubscriptionMollieFeature } from "@cosmicdrift/kumiko-bundled-fea
 import { createSubscriptionStripeFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-stripe";
 import { createTagsFeature } from "@cosmicdrift/kumiko-bundled-features/tags";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+import { createTenantLifecycleFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import { createTextContentFeature } from "@cosmicdrift/kumiko-bundled-features/text-content";
 import { tierEngineFeature } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
@@ -162,6 +163,7 @@ export const APP_FEATURES = [
 
   // compliance / DSGVO
   createComplianceProfilesFeature(),
+  createTenantLifecycleFeature(),
   createCryptoShreddingFeature(),
   createDataRetentionFeature(),
   createUserDataRightsFeature(),

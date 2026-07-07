@@ -62,6 +62,7 @@
     "./tenant/constants": "./src/tenant/constants.ts",
     "./tenant/web": "./src/tenant/web/index.ts",
     "./tenant/seeding": "./src/tenant/seeding.ts",
+    "./tenant-lifecycle": "./src/tenant-lifecycle/index.ts",
     "./tenant/testing": "./src/tenant/testing.ts",
     "./user": "./src/user/index.ts",
     "./user/seeding": "./src/user/seeding.ts",

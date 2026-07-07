@@ -151,6 +151,11 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "@cosmicdrift/kumiko-bundled-features/compliance-profiles",
     factory: "createComplianceProfilesFeature",
   },
+  "tenant-lifecycle": {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle",
+    factory: "createTenantLifecycleFeature",
+  },
   "data-retention": {
     kind: "factory",
     path: "@cosmicdrift/kumiko-bundled-features/data-retention",

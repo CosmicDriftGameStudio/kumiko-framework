@@ -7,6 +7,7 @@ export type {
   AuthSessionStatus,
   PatResolver,
   TenantExists,
+  TenantLifecycleStatusResolver,
   TenantResolver,
 } from "./auth-middleware";
 export { authMiddleware, getUser, PAT_TOKEN_PREFIX } from "./auth-middleware";
