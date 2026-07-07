@@ -31,6 +31,7 @@ import {
   validateGdprHookCompleteness,
   validateGdprPiiHookCoverage,
   validateGdprStoragePersistence,
+  validateTenantDataHookCoverage,
 } from "./gdpr-storage";
 import { validateI18nSurfaceKeys } from "./i18n-keys";
 import { validateOwnershipRules } from "./ownership";
@@ -184,6 +185,7 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
   validateGdprStoragePersistence(features);
   validateGdprHookCompleteness(features);
   validateGdprPiiHookCoverage(features);
+  validateTenantDataHookCoverage(features);
 
   if (hasEncryptedFields) {
     // Availability check, not env-presence: eagerly building the keyring

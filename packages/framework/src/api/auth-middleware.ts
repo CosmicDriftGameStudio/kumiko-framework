@@ -55,6 +55,10 @@ export type AuthSessionChecker = (
 // and short-circuits the JWT path on a hit.
 export type PatResolver = (rawToken: string) => Promise<SessionUser | null>;
 
+export type TenantLifecycleStatusResolver = (
+  tenantId: TenantId,
+) => Promise<{ readonly status: string } | null>;
+
 export type AuthMiddlewareOptions = {
   // Called after JWT-verify when the token carries a sid. If the checker
   // reports anything other than "live", the request is rejected with 401.
@@ -74,6 +78,10 @@ export type AuthMiddlewareOptions = {
   // a SessionUser with id="anonymous" and roles=["anonymous"], scoped to a
   // tenantId resolved through the chain documented on AnonymousAccessConfig.
   readonly anonymousAccess?: AnonymousAccessConfig;
+  // Consulted after tenantId is resolved (JWT/PAT/anonymous). Returns 410
+  // when the tenant is in teardown (destroyRequested/destroying/destroyed).
+  // cancel-destruction is exempt while status=destroyRequested.
+  readonly resolveTenantLifecycleStatus?: TenantLifecycleStatusResolver;
 };
 
 // Resolves the tenant for an unauthenticated request. Returns null when no
@@ -127,14 +135,15 @@ type MiddlewareRejectCode =
   | "tenant_required"
   | "tenant_not_found"
   | "tenant_mismatch"
-  | "invalid_tenant_format";
+  | "invalid_tenant_format"
+  | "tenant_unavailable";
 
 // @wrapper-known error-helper
 function middlewareReject(
   c: Context,
   opts: {
     code: MiddlewareRejectCode;
-    status: 400 | 401 | 403 | 404;
+    status: 400 | 401 | 403 | 404 | 410;
     message: string;
     i18nKey: string;
     details?: Record<string, unknown>;
@@ -187,7 +196,13 @@ function extractToken(
 }
 
 export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = {}) {
-  const { sessionChecker, strictMode = false, anonymousAccess, patResolver } = options;
+  const {
+    sessionChecker,
+    strictMode = false,
+    anonymousAccess,
+    patResolver,
+    resolveTenantLifecycleStatus,
+  } = options;
 
   return async (c: Context, next: Next) => {
     const extracted = extractToken(c);
@@ -219,7 +234,7 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
             i18nKey: "auth.errors.missingToken",
           });
         }
-        return await handleAnonymous(c, anonymousAccess, next);
+        return await handleAnonymous(c, anonymousAccess, next, resolveTenantLifecycleStatus);
       }
       return middlewareReject(c, {
         code: "missing_token",
@@ -234,7 +249,7 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
     // Personal Access Token, not a JWT. Short-circuit the JWT path entirely.
     // Cookie transport is never a PAT (the browser holds the JWT).
     if (patResolver && transport === "bearer" && token.startsWith(PAT_TOKEN_PREFIX)) {
-      return await handlePat(c, patResolver, token, next);
+      return await handlePat(c, patResolver, token, next, resolveTenantLifecycleStatus);
     }
 
     let payload: Awaited<ReturnType<JwtHelper["verify"]>>;
@@ -286,6 +301,12 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
       ...(payload.claims ? { claims: payload.claims } : {}),
       ...(payload.jti ? { sid: payload.jti } : {}),
     };
+    const lifecycleReject = await rejectIfTenantTeardown(
+      c,
+      payload.tenantId,
+      resolveTenantLifecycleStatus,
+    );
+    if (lifecycleReject) return lifecycleReject;
     c.set(USER_KEY, user);
     c.set(AUTH_TRANSPORT_KEY, transport);
     await next();
@@ -311,6 +332,7 @@ async function handlePat(
   patResolver: PatResolver,
   token: string,
   next: Next,
+  resolveTenantLifecycleStatus?: TenantLifecycleStatusResolver,
 ): Promise<Response | undefined> {
   const patUser = await patResolver(token);
   if (!patUser) {
@@ -335,6 +357,12 @@ async function handlePat(
   }
   c.set(USER_KEY, patUser);
   c.set(AUTH_TRANSPORT_KEY, "bearer");
+  const lifecycleReject = await rejectIfTenantTeardown(
+    c,
+    patUser.tenantId,
+    resolveTenantLifecycleStatus,
+  );
+  if (lifecycleReject) return lifecycleReject;
   await next();
   // skip: PAT path completed — next() ran; explicit return keeps the
   // Response|undefined union honest (same as handleAnonymous).
@@ -357,6 +385,7 @@ async function handleAnonymous(
   c: Context,
   config: AnonymousAccessConfig,
   next: Next,
+  resolveTenantLifecycleStatus?: TenantLifecycleStatusResolver,
 ): Promise<Response | undefined> {
   // Step 1+2: parse client-supplied tenant. Reject malformed values before
   // they touch any downstream consumer (DB, cache, audit row).
@@ -394,6 +423,12 @@ async function handleAnonymous(
   }
 
   // Step 5: synthesise + continue.
+  const lifecycleReject = await rejectIfTenantTeardown(
+    c,
+    resolved.tenantId,
+    resolveTenantLifecycleStatus,
+  );
+  if (lifecycleReject) return lifecycleReject;
   c.set(USER_KEY, createAnonymousUser(resolved.tenantId));
   await next();
   // skip: anonymous path completed — Hono middleware contract returns void
@@ -479,8 +514,59 @@ async function resolveTenant(
 
 type RejectArgs = {
   code: MiddlewareRejectCode;
-  status: 400 | 401 | 403 | 404;
+  status: 400 | 401 | 403 | 404 | 410;
   message: string;
   i18nKey: string;
   details?: Record<string, unknown>;
 };
+
+const TENANT_LIFECYCLE_BLOCKED = new Set([
+  "destroyRequested",
+  "destroying",
+  "destroyFailed",
+  "destroyed",
+]);
+const TENANT_LIFECYCLE_CANCEL_QN = "tenant-lifecycle:write:cancel-destruction";
+
+async function requestsCancelDestruction(c: Context): Promise<boolean> {
+  if (c.req.method !== "POST") return false;
+  try {
+    const path = c.req.path;
+    const body = (await c.req.raw.clone().json()) as {
+      type?: string;
+      commands?: Array<{ type?: string }>;
+    };
+    if (path === "/api/write") {
+      return body.type === TENANT_LIFECYCLE_CANCEL_QN;
+    }
+    if (path === "/api/batch") {
+      return (
+        Array.isArray(body.commands) &&
+        body.commands.some((command) => command.type === TENANT_LIFECYCLE_CANCEL_QN)
+      );
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
+async function rejectIfTenantTeardown(
+  c: Context,
+  tenantId: TenantId,
+  resolveTenantLifecycleStatus: TenantLifecycleStatusResolver | undefined,
+): Promise<Response | undefined> {
+  if (!resolveTenantLifecycleStatus) return undefined;
+  const lifecycle = await resolveTenantLifecycleStatus(tenantId);
+  if (!lifecycle || !TENANT_LIFECYCLE_BLOCKED.has(lifecycle.status)) return undefined;
+  if (lifecycle.status === "destroyRequested" && (await requestsCancelDestruction(c))) {
+    return undefined;
+  }
+  return middlewareReject(c, {
+    code: "tenant_unavailable",
+    status: 410,
+    message: `tenant "${tenantId}" is unavailable (${lifecycle.status})`,
+    i18nKey: "auth.errors.tenantUnavailable",
+    details: { tenantId, status: lifecycle.status },
+  });
+}

@@ -34,6 +34,9 @@ import {
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
 import { Hono } from "hono";
 import Stripe from "stripe";
+import { createComplianceProfilesFeature } from "../../compliance-profiles";
+import { createTenantFeature } from "../../tenant/feature";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
 import { configValuesTable, createConfigFeature } from "../../config";
 import { createConfigAccessorFactory } from "../../config/feature";
 import { createConfigResolver } from "../../config/resolver";
@@ -93,6 +96,9 @@ beforeAll(async () => {
     features: [
       createConfigFeature(),
       createSecretsFeature(),
+      createTenantFeature(),
+      createComplianceProfilesFeature(),
+      createTenantLifecycleFeature(),
       billingFoundationFeature,
       stripeFeature,
     ],
@@ -483,6 +489,9 @@ describe("scenario 6: billing-live gate end-to-end (#104)", () => {
       features: [
         createConfigFeature(),
         createSecretsFeature(),
+        createTenantFeature(),
+        createComplianceProfilesFeature(),
+        createTenantLifecycleFeature(),
         billingFoundationFeature,
         stripeFeature,
       ],

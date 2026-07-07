@@ -20,9 +20,10 @@
 
 import { billingFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import { capCounterFeature } from "@cosmicdrift/kumiko-bundled-features/cap-counter";
+import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { mailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
 import { mailTransportInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory";
-import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
+import { createTenantLifecycleFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import { newsletterFeature } from "./feature";
 
 /**
@@ -38,6 +39,8 @@ export const APP_FEATURES = [
   capCounterFeature,
   mailFoundationFeature,
   mailTransportInMemoryFeature,
+  createComplianceProfilesFeature(),
+  createTenantLifecycleFeature(),
   billingFoundationFeature,
   newsletterFeature,
 ] as const;

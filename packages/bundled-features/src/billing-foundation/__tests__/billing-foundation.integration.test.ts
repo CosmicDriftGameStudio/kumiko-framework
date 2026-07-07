@@ -21,6 +21,10 @@ import {
   type TestStack,
   testTenantId,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { createComplianceProfilesFeature } from "../../compliance-profiles";
+import { createConfigFeature } from "../../config";
+import { createTenantFeature } from "../../tenant/feature";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
 import { subscriptionAggregateId } from "../aggregate-id";
 import {
   SubscriptionEventTypes,
@@ -80,7 +84,14 @@ let db: DbConnection;
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [billingFoundationFeature, mockProviderFeature],
+    features: [
+      createConfigFeature(),
+      createTenantFeature(),
+      createComplianceProfilesFeature(),
+      createTenantLifecycleFeature(),
+      billingFoundationFeature,
+      mockProviderFeature,
+    ],
   });
   db = stack.db;
   // subscriptionsProjectionTable wird von setupTestStack automatisch

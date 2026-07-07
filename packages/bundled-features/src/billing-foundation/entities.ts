@@ -3,8 +3,6 @@ import {
   createTextField,
   createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
-
-// =============================================================================
 // `subscription` — current state pro Plattform-Tenant (= Read-Model)
 // =============================================================================
 //
@@ -41,8 +39,8 @@ export const subscriptionEntity = createEntity({
   table: "read_subscriptions",
   fields: {
     providerName: createTextField({ required: true, maxLength: 50 }),
-    providerCustomerId: createTextField({ required: true, maxLength: 200 }),
-    providerSubscriptionId: createTextField({ required: true, maxLength: 200 }),
+    providerCustomerId: createTextField({ required: true, maxLength: 200, tenantOwned: true }),
+    providerSubscriptionId: createTextField({ required: true, maxLength: 200, tenantOwned: true }),
     status: createTextField({ required: true, maxLength: 30 }),
     tier: createTextField({ required: true, maxLength: 50 }),
     currentPeriodEnd: createTimestampField({ required: true }),

@@ -66,6 +66,10 @@ import {
   SESSIONS_FEATURE,
 } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
+import {
+  resolveTenantLifecycleGate,
+  TENANT_LIFECYCLE_FEATURE,
+} from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import { createTextContentApi } from "@cosmicdrift/kumiko-bundled-features/text-content";
 import { UserQueries } from "@cosmicdrift/kumiko-bundled-features/user";
 import {
@@ -1036,6 +1040,16 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     };
   }
 
+  const tenantLifecycleFeature = features.find((f) => f.name === TENANT_LIFECYCLE_FEATURE);
+  const tenantLifecycleAuthFragment = tenantLifecycleFeature
+    ? {
+        resolveTenantLifecycleStatus: async (tenantId: string) => {
+          const gate = await resolveTenantLifecycleGate(db, tenantId);
+          return gate ? { status: gate.status } : null;
+        },
+      }
+    : undefined;
+
   const baseEntrypointOptions = {
     registry,
     context: {
@@ -1074,6 +1088,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
         }),
         ...sessionAuthFragment,
         ...patAuthFragment,
+        ...tenantLifecycleAuthFragment,
         ...(effectiveAuth.passwordReset && {
           passwordReset: {
             requestHandler: AuthHandlers.requestPasswordReset,

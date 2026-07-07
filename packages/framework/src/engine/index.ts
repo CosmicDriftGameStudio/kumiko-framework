@@ -82,6 +82,11 @@ export {
   FILE_PROVIDER_CONFIG_KEY,
 } from "./extension-names";
 export type {
+  TenantDataDestroyHook,
+  TenantDataExtensionHooks,
+  TenantDataHookCtx,
+} from "./extensions/tenant-data";
+export type {
   TenantUserModel,
   UserDataDeleteHook,
   UserDataDeleteStrategy,

@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled)",
-  "featureCount": 48,
+  "featureCount": 49,
   "features": [
     {
       "name": "admin-shell",
@@ -101,12 +101,20 @@
       "name": "billing-foundation",
       "description": "Plugin host for subscription billing — manages the `read_subscriptions` projection table and exposes 5 domain events (subscription created/updated/canceled, invoice paid/failed) appended by the foundation's own `billing-foundation:write:process-event` write-handler after provider plugins verify and normalize each webhook. Also ships `billing-foundation:write:create-checkout-session` and `billing-foundation:write:create-portal-session` write-handlers, a `billing-foundation:query:subscription:list` query handler, and a `createSubscriptionWebhookHandler` factory for the `/api/subscription/webhook/:providerName` route. Low-level building block — use `subscription-stripe` or `subscription-mollie` unless you are writing a new payment provider.",
       "toggleableDefault": null,
-      "requires": [],
+      "requires": [
+        "tenant-lifecycle",
+        "compliance-profiles"
+      ],
       "optionalRequires": [],
       "configReads": [],
       "exposesApis": [],
       "usesApis": [],
-      "extensionsUsed": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "tenantData",
+          "entityName": "subscription"
+        }
+      ],
       "configKeys": [],
       "secrets": [],
       "writeHandlers": [
@@ -1682,6 +1690,37 @@
         "displayLabel": "Multi-Tenant Core",
         "category": "identity",
         "recommended": true
+      }
+    },
+    {
+      "name": "tenant-lifecycle",
+      "description": "Tenant-destroy lifecycle: request/cancel destruction with compliance-profile grace, auth 410 gate for teardown states, cron trigger after grace, and staged destroy runner (extension fan-out, subject-key erase, tenant tombstone).",
+      "toggleableDefault": null,
+      "requires": [
+        "tenant",
+        "compliance-profiles"
+      ],
+      "optionalRequires": [
+        "sessions"
+      ],
+      "configReads": [],
+      "exposesApis": [
+        "tenantLifecycle.runDestroySweep"
+      ],
+      "usesApis": [
+        "compliance.forTenant"
+      ],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "tenant-lifecycle:write:cancel-destruction",
+        "tenant-lifecycle:write:request-destruction"
+      ],
+      "uiHints": {
+        "displayLabel": "Tenant Lifecycle · Destroy",
+        "category": "compliance",
+        "recommended": false
       }
     },
     {

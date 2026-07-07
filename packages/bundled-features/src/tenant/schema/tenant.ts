@@ -2,8 +2,20 @@ import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createBooleanField,
   createEntity,
+  createSelectField,
   createTextField,
+  createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
+
+export const TENANT_LIFECYCLE_STATUSES = [
+  "active",
+  "destroyRequested",
+  "destroying",
+  "destroyFailed",
+  "destroyed",
+] as const;
+
+export type TenantLifecycleStatus = (typeof TENANT_LIFECYCLE_STATUSES)[number];
 
 export const tenantEntity = createEntity({
   table: "read_tenants",
@@ -14,6 +26,19 @@ export const tenantEntity = createEntity({
     key: createTextField({ required: true, maxLength: 50 }),
     name: createTextField({ required: true, maxLength: 200, searchable: true }),
     isEnabled: createBooleanField({ default: true }),
+    // Tenant-destroy lifecycle (tenant-lifecycle feature). Defaults keep
+    // existing tenants valid when the feature is not mounted.
+    status: createSelectField({
+      options: TENANT_LIFECYCLE_STATUSES,
+      default: "active",
+      required: true,
+      filterable: true,
+    }),
+    destroyRequestedAt: createTimestampField({}),
+    destroyRequestedBy: createTextField({ maxLength: 36 }),
+    gracePeriodEnd: createTimestampField({}),
+    destroyStartedAt: createTimestampField({}),
+    destroyedAt: createTimestampField({}),
   },
   // tenant.key wird in Admin-URLs verwendet (`admin.<host>/<key>/...`) und
   // muss eindeutig sein. Ohne unique-constraint hätte ein konkurrenter

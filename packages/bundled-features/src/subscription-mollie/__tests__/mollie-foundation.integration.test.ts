@@ -39,6 +39,10 @@ import type {
   Subscription as MollieSubscription,
 } from "@mollie/api-client";
 import { Hono } from "hono";
+import { createConfigFeature } from "../../config";
+import { createComplianceProfilesFeature } from "../../compliance-profiles";
+import { createTenantFeature } from "../../tenant/feature";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
 import { createSubscriptionMollieFeature } from "../feature";
 import type { MollieClientShape } from "../verify-webhook";
 
@@ -133,7 +137,14 @@ beforeAll(async () => {
   });
 
   stack = await setupTestStack({
-    features: [billingFoundationFeature, mollieFeature],
+    features: [
+      createConfigFeature(),
+      createTenantFeature(),
+      createComplianceProfilesFeature(),
+      createTenantLifecycleFeature(),
+      billingFoundationFeature,
+      mollieFeature,
+    ],
   });
   db = stack.db;
   // subscriptionsProjectionTable wird von setupTestStack automatisch
