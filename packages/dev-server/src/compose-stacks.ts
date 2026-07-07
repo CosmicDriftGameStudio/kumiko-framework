@@ -145,6 +145,3 @@ export function composeOpsStack(options: OpsStackOptions = {}): FeatureDefinitio
   if (rateLimiting) out.push(createRateLimitingFeature());
   return out;
 }
-
-
-

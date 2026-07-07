@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { setupTestStackFromFeatures } from "../setup-test-stack-from-features";
 
