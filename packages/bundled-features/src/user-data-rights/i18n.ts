@@ -1,6 +1,7 @@
 type LocalizedString = { readonly de: string; readonly en: string };
 
 export const USER_DATA_RIGHTS_I18N: Readonly<Record<string, LocalizedString>> = {
+  "user-data-rights:nav.exportJobs": { de: "DSGVO-Exporte", en: "GDPR exports" },
   "screen:export-job-list.title": { de: "DSGVO-Exporte", en: "GDPR exports" },
   "screen:export-job-detail.title": { de: "Export-Job", en: "Export job" },
   "screen:download-attempt-list.title": { de: "Download-Versuche", en: "Download attempts" },
