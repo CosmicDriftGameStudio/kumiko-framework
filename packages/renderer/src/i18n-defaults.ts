@@ -48,6 +48,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     // Nav — Sidebar Tree (Toggle-aria-Labels).
     "kumiko.nav.expand": "Aufklappen",
     "kumiko.nav.collapse": "Zuklappen",
+    "kumiko.nav.search": "Navigation durchsuchen…",
 
     // Dialog — Confirm-Buttons + Close-aria-Label.
     "kumiko.dialog.confirm": "Bestätigen",
@@ -151,6 +152,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
 
     "kumiko.nav.expand": "Expand",
     "kumiko.nav.collapse": "Collapse",
+    "kumiko.nav.search": "Search navigation…",
 
     "kumiko.dialog.confirm": "Confirm",
     "kumiko.dialog.cancel": "Cancel",
