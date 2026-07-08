@@ -1,5 +1,4 @@
 import { describe, expect, mock, test } from "bun:test";
-import { act, fireEvent } from "@testing-library/react";
 // mock.module eretzt imports für alle Konsumenten — statische imports
 // vor mock.module sehen die gemockte Version weil Bun am Loader-Level
 // intercepted. useShellUser ist hier ein Mock-Objekt.
@@ -10,7 +9,7 @@ import {
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { textContentClient } from "../client-plugin";
 
