@@ -1,5 +1,18 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.131.0
+
+### Minor Changes
+
+- ce77f02: `kumiko add feature` scaffoldet die volle App-Feature-Konvention (constants.ts, i18n.ts mit Boot-Pflichtkeys, schema/, web/-Client-Stub, validateBoot-Test) statt nur feature.ts+index.ts. Referenz-Doku: docs/reference/app-feature-structure.md.
+
+### Patch Changes
+
+- Updated dependencies [99008c9]
+- Updated dependencies [d814026]
+  - @cosmicdrift/kumiko-framework@0.131.0
+  - @cosmicdrift/kumiko-bundled-features@0.131.0
+
 ## 0.130.2
 
 ### Patch Changes

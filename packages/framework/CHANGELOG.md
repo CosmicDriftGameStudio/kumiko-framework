@@ -1,5 +1,11 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.131.0
+
+### Minor Changes
+
+- 99008c9: App-Mounting 2.0 Säule B: neuer deklarativer Screen-Typ `dashboard` (stat/chart/list-Panels mit eigenen Queries; Boot-Validator + required-surface-keys; WebDashboardBody via DashboardBodyProvider). projectionList-Row-/Toolbar-Actions unterstützen jetzt `kind: "writeHandler"` (entityList-Dispatch-Pfad inkl. WriteFailedError).
+
 ## 0.130.2
 
 ## 0.130.1
