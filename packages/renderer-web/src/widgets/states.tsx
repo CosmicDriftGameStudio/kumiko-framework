@@ -1,5 +1,5 @@
-import { dispatcherErrorText, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { DispatcherError } from "@cosmicdrift/kumiko-headless";
+import { dispatcherErrorText, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
 import { cn } from "../lib/cn";
 import { Skeleton } from "../ui/skeleton";
@@ -52,7 +52,7 @@ export function LoadingState({
       className={cn("flex w-full flex-col gap-2", className)}
     >
       {Array.from({ length: rows }, (_, i) => (
-        // Statische Skeleton-Liste — Index ist hier der stabile Key.
+        // biome-ignore lint/suspicious/noArrayIndexKey: statische Skeleton-Liste, Index ist stabil
         <Skeleton key={i} className="h-9 w-full" />
       ))}
     </output>

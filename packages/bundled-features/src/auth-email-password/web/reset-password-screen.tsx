@@ -13,7 +13,7 @@
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { resetPassword } from "./auth-client";
-import { AuthCard, authButtonClass, authMutedLinkClass, useUrlToken } from "./auth-form-primitives";
+import { AuthCard, useUrlToken } from "./auth-form-primitives";
 
 export type ResetPasswordScreenProps = {
   readonly title?: string;
@@ -31,7 +31,7 @@ export function ResetPasswordScreen({
   loginHref = "/login",
 }: ResetPasswordScreenProps): ReactNode {
   const t = useTranslation();
-  const { Form, Field, Input, Button, Banner } = usePrimitives();
+  const { Form, Field, Input, Button, Banner, Link } = usePrimitives();
   const token = useUrlToken(tokenProp);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -83,9 +83,9 @@ export function ResetPasswordScreen({
       <AuthCard title={effectiveTitle}>
         <div className="p-6 pt-0 flex flex-col gap-4">
           <p className="text-sm text-muted-foreground">{t("auth.resetPassword.missingToken")}</p>
-          <a href={loginHref} className={authMutedLinkClass}>
+          <Link href={loginHref} variant="muted">
             {t("auth.resetPassword.goToLogin")}
-          </a>
+          </Link>
         </div>
       </AuthCard>
     );
@@ -99,9 +99,9 @@ export function ResetPasswordScreen({
             <p className="font-medium text-foreground">{t("auth.resetPassword.successTitle")}</p>
             <p className="mt-1">{t("auth.resetPassword.successBody")}</p>
           </Banner>
-          <a href={loginHref} className={authButtonClass}>
+          <Link href={loginHref} variant="button">
             {t("auth.resetPassword.goToLogin")}
-          </a>
+          </Link>
         </div>
       ) : (
         <div className="p-6 pt-0 flex flex-col gap-4">

@@ -1,5 +1,5 @@
 import { type ReactNode, useId } from "react";
-import { type StatusTone, STATUS_TONE_TEXT } from "./status-badge";
+import { STATUS_TONE_TEXT, type StatusTone } from "./status-badge";
 
 // Inline-SVG-Charts — kein Chart-Dep. Farben ausschließlich über die
 // --color-status-* / --color-foreground Theme-Tokens; Achsen-Labels
@@ -175,7 +175,8 @@ export function TimeseriesChart({
 
   const maxValue = Math.max(...values, 1);
   const span = Math.max(1, windowEndMs - windowStartMs);
-  const xOf = (atMs: number) => Math.max(0, Math.min(1, (atMs - windowStartMs) / span)) * chartWidth;
+  const xOf = (atMs: number) =>
+    Math.max(0, Math.min(1, (atMs - windowStartMs) / span)) * chartWidth;
   const chartPoints = points.map((p) => ({
     x: xOf(p.atMs),
     y: p.value === null ? chartHeight : chartHeight - (p.value / maxValue) * chartHeight,

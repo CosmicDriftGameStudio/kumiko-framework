@@ -60,7 +60,7 @@ import {
 } from "react";
 import { cn } from "../lib/cn";
 import { Badge } from "../ui/badge";
-import { Button as UiButton, buttonVariants } from "../ui/button";
+import { buttonVariants, Button as UiButton } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { Input as UiInput } from "../ui/input";
 import { Label as UiLabel } from "../ui/label";
@@ -128,6 +128,9 @@ function DefaultButton({
       data-testid={testId}
       data-loading={loading === true ? "true" : undefined}
       variant={BUTTON_VARIANT[variant]}
+      // link-Variant rendert text-artig (Inline-Link im Fließtext/Banner),
+      // nicht als gepolsterte Buttonfläche.
+      className={variant === "link" ? "h-auto px-0 py-0" : undefined}
     >
       {loading === true ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : children}
     </UiButton>
@@ -1605,12 +1608,21 @@ function DefaultText({ variant = "body", children, testId }: TextProps): ReactNo
 
 // ---- Link (anchor mit Button-/Muted-Optik) ----
 
-// `button` nutzt die shadcn-outline-Buttonfläche auf einem semantischen
-// <a> — der Standard für „weiter zu"-Navigationen nach Success-States.
-function DefaultLink({ href, variant = "default", target, children, testId }: LinkProps): ReactNode {
-  const className =
+// `button` nutzt die Primary-Buttonfläche auf einem semantischen <a> —
+// der Standard für „weiter zu"-Navigationen nach Success-States (ehem.
+// authButtonClass), `muted` der dezente Sekundär-Link (ehem.
+// authMutedLinkClass).
+function DefaultLink({
+  href,
+  variant = "default",
+  target,
+  className,
+  children,
+  testId,
+}: LinkProps): ReactNode {
+  const variantClass =
     variant === "button"
-      ? cn(buttonVariants({ variant: "outline" }))
+      ? buttonVariants({ variant: "default" })
       : variant === "muted"
         ? "text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
         : "text-primary underline-offset-4 hover:underline";
@@ -1620,7 +1632,7 @@ function DefaultLink({ href, variant = "default", target, children, testId }: Li
       target={target}
       rel={target === "_blank" ? "noreferrer" : undefined}
       data-testid={testId}
-      className={className}
+      className={cn(variantClass, className)}
     >
       {children}
     </a>

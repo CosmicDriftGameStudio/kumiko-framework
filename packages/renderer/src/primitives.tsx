@@ -82,6 +82,9 @@ export type LinkProps = {
   readonly variant?: "default" | "button" | "muted";
   /** `_blank` setzt in der Web-Impl automatisch rel="noreferrer". */
   readonly target?: "_blank";
+  /** Layout-Zusätze (self-center, text-xs) — Web merged via cn(),
+   *  Native-Impls ignorieren es (Präzedenz: CardProps.className). */
+  readonly className?: string;
   readonly children: ReactNode;
   readonly testId?: string;
 };

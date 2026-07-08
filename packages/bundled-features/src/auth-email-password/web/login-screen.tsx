@@ -12,7 +12,7 @@
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { type LoginFailure, requestEmailVerification } from "./auth-client";
-import { AuthCard, authMutedLinkClass } from "./auth-form-primitives";
+import { AuthCard } from "./auth-form-primitives";
 import { useSession } from "./session";
 
 // Resend-Status für den "Bestätigungs-Mail erneut senden"-Flow, der bei
@@ -92,7 +92,7 @@ export function LoginScreen({
   legalLinks,
 }: LoginScreenProps): ReactNode {
   const t = useTranslation();
-  const { Form, Field, Input, Button, Banner } = usePrimitives();
+  const { Form, Field, Input, Button, Banner, Link } = usePrimitives();
   const session = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -186,17 +186,17 @@ export function LoginScreen({
                 {error.reason === "email_not_verified" &&
                   email.trim().length > 0 &&
                   email === failedLoginEmail && (
-                    // kumiko-lint-ignore primitives-discipline Inline-Link im Banner (UX-Choice); Button-Primitive hat keinen link-Variant
-                    <button
-                      type="button"
-                      onClick={() => void onResend()}
-                      disabled={resendStatus.kind === "sending"}
-                      className={`${authMutedLinkClass} self-start text-left disabled:opacity-50`}
-                    >
-                      {resendStatus.kind === "sending"
-                        ? t("auth.login.submitting")
-                        : t("auth.login.resendVerification")}
-                    </button>
+                    <span className="self-start">
+                      <Button
+                        variant="link"
+                        onClick={() => void onResend()}
+                        disabled={resendStatus.kind === "sending"}
+                      >
+                        {resendStatus.kind === "sending"
+                          ? t("auth.login.submitting")
+                          : t("auth.login.resendVerification")}
+                      </Button>
+                    </span>
                   )}
                 {resendStatus.kind === "rateLimited" && (
                   <span className="text-xs">{t("auth.login.resendRateLimited")}</span>
@@ -212,14 +212,14 @@ export function LoginScreen({
           </Button>
         </Form>
         {forgotPasswordHref !== undefined && (
-          <a href={forgotPasswordHref} className={`${authMutedLinkClass} self-center`}>
+          <Link href={forgotPasswordHref} variant="muted" className="self-center">
             {t("auth.login.forgotPassword")}
-          </a>
+          </Link>
         )}
         {signupHref !== undefined && (
-          <a href={signupHref} className={`${authMutedLinkClass} self-center`}>
+          <Link href={signupHref} variant="muted" className="self-center">
             {t("auth.signup.title")}
-          </a>
+          </Link>
         )}
         {legalLinks !== undefined && legalLinks.length > 0 && (
           <nav
@@ -227,9 +227,9 @@ export function LoginScreen({
             className="flex items-center justify-center gap-3 pt-2 border-t border-border/50"
           >
             {legalLinks.map((link) => (
-              <a key={link.href} href={link.href} className={`${authMutedLinkClass} text-xs`}>
+              <Link key={link.href} href={link.href} variant="muted" className="text-xs">
                 {link.label}
-              </a>
+              </Link>
             ))}
           </nav>
         )}

@@ -1,8 +1,8 @@
 import type { ListRowViewModel } from "@cosmicdrift/kumiko-headless";
 import {
   type DataTableProps,
-  useQuery,
   usePrimitives,
+  useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
@@ -69,7 +69,8 @@ export function QueryTable<TData = unknown>({
   const { data, error, loading, refetch } = useQuery<TData>(query, payload ?? {}, { live });
 
   if (loading && data === null) return <LoadingState rows={4} testId={testId} />;
-  if (error !== null) return <ErrorState error={error} onRetry={() => void refetch()} testId={testId} />;
+  if (error !== null)
+    return <ErrorState error={error} onRetry={() => void refetch()} testId={testId} />;
 
   const rawRows = rows !== undefined ? rows(data as TData) : defaultRows(data);
   const vmRows: readonly ListRowViewModel[] = rawRows.map((row, index) => ({
