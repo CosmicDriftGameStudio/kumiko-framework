@@ -80,6 +80,14 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /* Semantische Status-Farben (Widgets: StatusBadge, Charts, StatCard-Tones).
+     @theme generiert die Utilities (text-status-ok, bg-status-warn/10, …).
+     Dark-Werte; Light-Overrides unten. Apps überschreiben in ihrer styles.css. */
+  --color-status-ok: #22c55e;
+  --color-status-warn: #f59e0b;
+  --color-status-bad: #ef4444;
+  --color-status-critical: #f87171;
 }
 
 /* Card-Chrome-Maße — Framework-Defaults. Eine App überschreibt selektiv in
@@ -132,6 +140,12 @@
     --color-sidebar-accent-foreground: hsl(0 0% 9%);
     --color-sidebar-border: hsl(0 0% 89.8%);
     --color-sidebar-ring: hsl(0 0% 63%);
+
+    /* Status-Farben Light — kräftiger/dunkler als die Dark-Werte. */
+    --color-status-ok: #16a34a;
+    --color-status-warn: #d97706;
+    --color-status-bad: #dc2626;
+    --color-status-critical: #991b1b;
   }
 
   * {

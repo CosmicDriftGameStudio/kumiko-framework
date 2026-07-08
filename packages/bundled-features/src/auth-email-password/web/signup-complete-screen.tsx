@@ -18,7 +18,7 @@
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { confirmSignup } from "./auth-client";
-import { AuthCard, authMutedLinkClass, useUrlToken } from "./auth-form-primitives";
+import { AuthCard, useUrlToken } from "./auth-form-primitives";
 
 export type SignupCompleteScreenProps = {
   readonly title?: string;
@@ -43,7 +43,7 @@ export function SignupCompleteScreen({
   loginHref = "/login",
 }: SignupCompleteScreenProps): ReactNode {
   const t = useTranslation();
-  const { Form, Field, Input, Button, Banner } = usePrimitives();
+  const { Form, Field, Input, Button, Banner, Link } = usePrimitives();
   const token = useUrlToken(tokenProp);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -98,9 +98,9 @@ export function SignupCompleteScreen({
       <AuthCard title={effectiveTitle}>
         <div className="p-6 pt-0 flex flex-col gap-4">
           <p className="text-sm text-muted-foreground">{t("auth.signupComplete.missingToken")}</p>
-          <a href={loginHref} className={authMutedLinkClass}>
+          <Link href={loginHref} variant="muted">
             {t("auth.signup.haveAccount")}
-          </a>
+          </Link>
         </div>
       </AuthCard>
     );

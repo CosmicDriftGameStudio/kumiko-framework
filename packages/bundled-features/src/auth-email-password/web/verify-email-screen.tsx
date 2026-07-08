@@ -10,10 +10,10 @@
 // nicht den ersten valid-call beim Mount und den zweiten als invalid-
 // Banner sehen.
 
-import { useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { verifyEmail } from "./auth-client";
-import { AuthCard, authButtonClass, authMutedLinkClass, useUrlToken } from "./auth-form-primitives";
+import { AuthCard, useUrlToken } from "./auth-form-primitives";
 
 export type VerifyEmailScreenProps = {
   readonly title?: string;
@@ -31,6 +31,7 @@ export function VerifyEmailScreen({
   loginHref = "/login",
 }: VerifyEmailScreenProps): ReactNode {
   const t = useTranslation();
+  const { Link } = usePrimitives();
   const token = useUrlToken(tokenProp);
   const [status, setStatus] = useState<Status>(token === "" ? "missing-token" : "verifying");
   const startedRef = useRef(false);
@@ -50,9 +51,9 @@ export function VerifyEmailScreen({
       <AuthCard title={title ?? t("auth.verifyEmail.errorTitle")}>
         <div className="p-6 pt-0 flex flex-col gap-4">
           <p className="text-sm text-muted-foreground">{t("auth.verifyEmail.missingToken")}</p>
-          <a href={loginHref} className={authMutedLinkClass}>
+          <Link href={loginHref} variant="muted">
             {t("auth.verifyEmail.goToLogin")}
-          </a>
+          </Link>
         </div>
       </AuthCard>
     );
@@ -75,9 +76,9 @@ export function VerifyEmailScreen({
       <AuthCard title={title ?? t("auth.verifyEmail.successTitle")}>
         <div className="p-6 pt-0 flex flex-col gap-4">
           <p className="text-sm text-muted-foreground">{t("auth.verifyEmail.successBody")}</p>
-          <a href={loginHref} className={authButtonClass}>
+          <Link href={loginHref} variant="button">
             {t("auth.verifyEmail.goToLogin")}
-          </a>
+          </Link>
         </div>
       </AuthCard>
     );
@@ -88,9 +89,9 @@ export function VerifyEmailScreen({
     <AuthCard title={title ?? t("auth.verifyEmail.errorTitle")}>
       <div className="p-6 pt-0 flex flex-col gap-4">
         <p className="text-sm text-muted-foreground">{t("auth.verifyEmail.errorBody")}</p>
-        <a href={loginHref} className={authMutedLinkClass}>
+        <Link href={loginHref} variant="muted">
           {t("auth.verifyEmail.goToLogin")}
-        </a>
+        </Link>
       </div>
     </AuthCard>
   );

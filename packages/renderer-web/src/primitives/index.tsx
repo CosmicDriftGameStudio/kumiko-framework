@@ -29,6 +29,7 @@ import {
   type GridProps,
   type HeadingProps,
   type InputProps,
+  type LinkProps,
   type SectionProps,
   type TextProps,
   useColumnRenderer,
@@ -59,7 +60,7 @@ import {
 } from "react";
 import { cn } from "../lib/cn";
 import { Badge } from "../ui/badge";
-import { Button as UiButton } from "../ui/button";
+import { buttonVariants, Button as UiButton } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { Input as UiInput } from "../ui/input";
 import { Label as UiLabel } from "../ui/label";
@@ -102,11 +103,12 @@ const cardFooterBorder = "border-t bg-muted/30";
 
 // Contract-Variant → shadcn-Variant: secondary war schon immer der
 // bordered-bg-background-Look = shadcns `outline`. primary→default,
-// danger→destructive.
+// danger→destructive, link→link (kein BG, underline on hover).
 const BUTTON_VARIANT = {
   primary: "default",
   secondary: "outline",
   danger: "destructive",
+  link: "link",
 } as const;
 
 function DefaultButton({
@@ -126,6 +128,9 @@ function DefaultButton({
       data-testid={testId}
       data-loading={loading === true ? "true" : undefined}
       variant={BUTTON_VARIANT[variant]}
+      // link-Variant rendert text-artig (Inline-Link im Fließtext/Banner),
+      // nicht als gepolsterte Buttonfläche.
+      className={variant === "link" ? "h-auto px-0 py-0" : undefined}
     >
       {loading === true ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : children}
     </UiButton>
@@ -1590,9 +1595,48 @@ function DefaultText({ variant = "body", children, testId }: TextProps): ReactNo
           {children}
         </span>
       );
+    case "muted":
+      return (
+        <span data-testid={testId} className="text-sm text-muted-foreground">
+          {children}
+        </span>
+      );
     default:
       return <span data-testid={testId}>{children}</span>;
   }
+}
+
+// ---- Link (anchor mit Button-/Muted-Optik) ----
+
+// `button` nutzt die Primary-Buttonfläche auf einem semantischen <a> —
+// der Standard für „weiter zu"-Navigationen nach Success-States (ehem.
+// authButtonClass), `muted` der dezente Sekundär-Link (ehem.
+// authMutedLinkClass).
+function DefaultLink({
+  href,
+  variant = "default",
+  target,
+  className,
+  children,
+  testId,
+}: LinkProps): ReactNode {
+  const variantClass =
+    variant === "button"
+      ? buttonVariants({ variant: "default" })
+      : variant === "muted"
+        ? "text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        : "text-primary underline-offset-4 hover:underline";
+  return (
+    <a
+      href={href}
+      target={target}
+      rel={target === "_blank" ? "noreferrer" : undefined}
+      data-testid={testId}
+      className={cn(variantClass, className)}
+    >
+      {children}
+    </a>
+  );
 }
 
 function DefaultHeading({ variant = "page", children, testId }: HeadingProps): ReactNode {
@@ -1685,4 +1729,5 @@ export const defaultPrimitives: CorePrimitives = {
   Lightbox: DefaultLightbox,
   ConfigSourceBadge: DefaultConfigSourceBadge,
   ConfigCascadeView: DefaultConfigCascadeView,
+  Link: DefaultLink,
 };

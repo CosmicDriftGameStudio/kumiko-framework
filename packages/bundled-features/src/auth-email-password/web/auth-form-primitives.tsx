@@ -9,14 +9,13 @@
 //                         (full-screen, zentriert, max-w-sm). Web-only;
 //                         eine Native-Variante landet bei Bedarf
 //                         daneben (z.B. SafeArea + ScrollView).
-//   authButtonClass     — Tailwind-Class für anchor-styled-as-button
-//                         (z.B. "Zum Login"-Link nach Reset-Success).
-//                         Nur dort, wo ein <a>-Tag rendert.
-//   authMutedLinkClass  — Subtle-Link-Style.
 //   parseUrlToken       — URL-Param-Helper (window.location.search).
+//
+// Link-Styles laufen über das Link-Primitive (variant="button"/"muted") —
+// die früheren authButtonClass/authMutedLinkClass sind dorthin gewandert.
 
 import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
-import { BareFormProvider, cn } from "@cosmicdrift/kumiko-renderer-web";
+import { BareFormProvider } from "@cosmicdrift/kumiko-renderer-web";
 import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
 
 // Wrappt die zentrierte Auth-Card in ihre Umgebung. Default = Fullscreen-
@@ -79,20 +78,6 @@ export function AuthCard({ title, subtitle, children }: AuthCardProps): ReactNod
   );
   return shell(card);
 }
-
-// Primary-button-Style für anchor-Tags die wie ein Button aussehen
-// (z.B. "Zum Login"-Link nach Reset-Success — kein <Button> weil <a>).
-export const authButtonClass = cn(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors",
-  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-  "disabled:pointer-events-none disabled:opacity-50",
-  "bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2",
-);
-
-// Subtle-Link-Style (für "Zurück zum Login"-Anchors). Fixed margin/
-// alignment-classes lassen wir den Caller setzen — nur Farbe + hover.
-export const authMutedLinkClass =
-  "text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline";
 
 // Liest `?<paramName>=<value>` aus der aktuellen URL — typisches
 // Pattern für Token-bearing Pages (reset, verify). Returnt "" wenn der

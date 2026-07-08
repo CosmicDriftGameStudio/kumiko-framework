@@ -66,8 +66,25 @@ export type ButtonProps = {
   readonly loading?: boolean;
   /** Semantische Klasse — default="primary". Custom-Impls entscheiden
    *  was daraus visuell wird; die Renderer verwenden "primary" für
-   *  Save, "danger" für Delete, "secondary" für Confirm-State. */
-  readonly variant?: "primary" | "secondary" | "danger";
+   *  Save, "danger" für Delete, "secondary" für Confirm-State,
+   *  "link" für Inline-Aktionen im Fließtext (kein BG, underline). */
+  readonly variant?: "primary" | "secondary" | "danger" | "link";
+  readonly children: ReactNode;
+  readonly testId?: string;
+};
+
+/** Navigations-Link. `variant="button"` rendert die Button-Optik auf einem
+ *  semantischen Anchor (z.B. „Zum Login" nach Reset-Success), `muted` den
+ *  dezenten Sekundär-Link. Interne SPA-Navigation läuft über den Browser-
+ *  Default (History-Integration liegt beim Nav-Layer, nicht am Primitive). */
+export type LinkProps = {
+  readonly href: string;
+  readonly variant?: "default" | "button" | "muted";
+  /** `_blank` setzt in der Web-Impl automatisch rel="noreferrer". */
+  readonly target?: "_blank";
+  /** Layout-Zusätze (self-center, text-xs) — Web merged via cn(),
+   *  Native-Impls ignorieren es (Präzedenz: CardProps.className). */
+  readonly className?: string;
   readonly children: ReactNode;
   readonly testId?: string;
 };
@@ -533,9 +550,10 @@ export type GridCellProps = {
 /** Semantischer Text. Variants bilden Standard-Typografie-Rollen ab —
  *  `body` ist Default, `small` für sekundäre Labels, `code` für inline
  *  monospace (entityId, screen-id), `required-mark` für das Sternchen
- *  hinter Labels. Custom-Impls mappen auf ihren TypeScale. */
+ *  hinter Labels, `muted` für gedimmten Fließtext (text-sm muted-
+ *  foreground). Custom-Impls mappen auf ihren TypeScale. */
 export type TextProps = {
-  readonly variant?: "body" | "small" | "code" | "required-mark";
+  readonly variant?: "body" | "small" | "code" | "required-mark" | "muted";
   readonly children: ReactNode;
   readonly testId?: string;
 };
@@ -674,6 +692,7 @@ export type CorePrimitives = {
   readonly Lightbox: ComponentType<LightboxProps>;
   readonly ConfigSourceBadge: ComponentType<ConfigSourceBadgeProps>;
   readonly ConfigCascadeView: ComponentType<ConfigCascadeViewProps>;
+  readonly Link: ComponentType<LinkProps>;
 };
 
 /** Offene Extension-Zone für App-eigene Primitives. Devs erweitern
