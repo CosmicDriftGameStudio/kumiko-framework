@@ -26,6 +26,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { useDispatcher, usePrimitives, useQuery } from "@cosmicdrift/kumiko-renderer";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
+import { FormPanelShell } from "@cosmicdrift/kumiko-renderer-web";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { TextContentHandlers, TextContentQueries } from "../constants";
 
@@ -217,9 +218,11 @@ type SetResponse = { readonly slug: string; readonly lang: string; readonly isNe
 
 function TextContentEditor({
   target,
-  onClose,
 }: {
   readonly target: TargetRef;
+  // onClose bleibt Teil des Resolver-Contracts (Visual-Panel liefert es),
+  // wird aber nicht mehr gebraucht: die Tree-Auswahl navigiert, kein
+  // Schließen-Button mehr. Nicht destrukturiert → kein unused binding.
   readonly onClose: () => void;
 }): ReactNode {
   // @cast-boundary visual-tree-args — TargetRef.args ist erased zu
@@ -235,7 +238,7 @@ function TextContentEditor({
   const lang = args?.lang ?? "";
   const tenantIdOverride = args?.tenantIdOverride;
 
-  const { Form, Field, Input, Button, Banner } = usePrimitives();
+  const { Field, Input, Button, Banner } = usePrimitives();
   const dispatcher = useDispatcher();
   const user = useShellUser();
   const canWrite =
@@ -309,61 +312,54 @@ function TextContentEditor({
   const disabled = submitting || loading || !canWrite;
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between border-b px-6 py-4">
-        <div>
-          <h2 className="text-lg font-semibold">Text-Block bearbeiten</h2>
-          <p className="text-xs text-muted-foreground">
-            {slug || "—"} ({lang || "—"})
-          </p>
-        </div>
-        <Button variant="secondary" onClick={onClose}>
-          schlie&szlig;en
-        </Button>
-      </header>
-      <div className="flex-1 overflow-y-auto px-6 py-6">
-        <Form onSubmit={onSubmit}>
-          {loading && <Banner variant="loading">Lädt aktuellen Stand…</Banner>}
-          {loadError !== null && (
-            <Banner variant="error">Konnte Block nicht laden: {loadError.code}</Banner>
-          )}
-          {!canWrite && !loading && (
-            <Banner variant="info">
-              Read-only — TenantAdmin- oder SystemAdmin-Rolle f&uuml;r &Auml;nderungen erforderlich.
-            </Banner>
-          )}
-          <Field id="text-content-title" label="Titel" required>
-            <Input
-              kind="text"
-              id="text-content-title"
-              name="text-content-title"
-              value={title}
-              onChange={setTitle}
-              disabled={disabled}
-              required
-            />
-          </Field>
-          <Field id="text-content-body" label="Inhalt">
-            <Input
-              kind="textarea"
-              id="text-content-body"
-              name="text-content-body"
-              value={body}
-              onChange={setBody}
-              disabled={disabled}
-              rows={14}
-            />
-          </Field>
-          {saveError !== null && <Banner variant="error">{saveError}</Banner>}
-          {savedMsg !== null && <Banner variant="info">{savedMsg}</Banner>}
-          {canWrite && (
-            <Button type="submit" loading={submitting} disabled={disabled}>
-              {submitting ? "Speichern…" : "Speichern"}
-            </Button>
-          )}
-        </Form>
-      </div>
-    </div>
+    <FormPanelShell
+      onSubmit={onSubmit}
+      testId="text-content-editor"
+      breadcrumb="Content"
+      title={title || slug || "—"}
+      subtitle={lang !== "" ? `(${lang})` : undefined}
+      actions={
+        canWrite ? (
+          <Button type="submit" loading={submitting} disabled={disabled}>
+            {submitting ? "Speichern…" : "Speichern"}
+          </Button>
+        ) : undefined
+      }
+    >
+      {loading && <Banner variant="loading">Lädt aktuellen Stand…</Banner>}
+      {loadError !== null && (
+        <Banner variant="error">Konnte Block nicht laden: {loadError.code}</Banner>
+      )}
+      {!canWrite && !loading && (
+        <Banner variant="info">
+          Read-only — TenantAdmin- oder SystemAdmin-Rolle f&uuml;r &Auml;nderungen erforderlich.
+        </Banner>
+      )}
+      <Field id="text-content-title" label="Titel" required>
+        <Input
+          kind="text"
+          id="text-content-title"
+          name="text-content-title"
+          value={title}
+          onChange={setTitle}
+          disabled={disabled}
+          required
+        />
+      </Field>
+      <Field id="text-content-body" label="Inhalt">
+        <Input
+          kind="textarea"
+          id="text-content-body"
+          name="text-content-body"
+          value={body}
+          onChange={setBody}
+          disabled={disabled}
+          rows={14}
+        />
+      </Field>
+      {saveError !== null && <Banner variant="error">{saveError}</Banner>}
+      {savedMsg !== null && <Banner variant="info">{savedMsg}</Banner>}
+    </FormPanelShell>
   );
 }
 
