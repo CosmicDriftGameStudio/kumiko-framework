@@ -1,10 +1,16 @@
 // @runtime client
-// Paginated tenant-scoped audit log (event store).
+// Paginated tenant-scoped audit log (event store). Rows link to the
+// audit-log-detail screen; the screen title lives in the shell breadcrumb.
 
-import { useDispatcher, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
-import { FormScreenShell } from "@cosmicdrift/kumiko-renderer-web";
+import {
+  type DataTableSort,
+  useDispatcher,
+  useNav,
+  usePrimitives,
+  useTranslation,
+} from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
-import { AuditQueries } from "../constants";
+import { AUDIT_LOG_DETAIL_SCREEN_ID, AuditQueries } from "../constants";
 
 type AuditRow = {
   readonly id: string;
@@ -38,12 +44,13 @@ const EMPTY_FILTERS: Filters = { eventType: "", aggregateType: "", from: "", to:
 
 export function AuditLogScreen(): ReactNode {
   const t = useTranslation();
-  const { Banner, Button, Card, DataTable, Field, Heading, Input, Text } = usePrimitives();
+  const { Banner, Button, DataTable, Field, Input, Text } = usePrimitives();
   const dispatcher = useDispatcher();
+  const nav = useNav();
   const [state, setState] = useState<State>({ kind: "loading" });
   const [before, setBefore] = useState<string | undefined>(undefined);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
-  const [detailId, setDetailId] = useState<string | null>(null);
+  const [sort, setSort] = useState<DataTableSort | null>(null);
 
   const load = useCallback(
     async (cursor?: string): Promise<void> => {
@@ -71,139 +78,130 @@ export function AuditLogScreen(): ReactNode {
     void load(before);
   }, [load, before]);
 
-  const detailRow = state.kind === "ready" ? state.rows.find((r) => r.id === detailId) : undefined;
-
   if (state.kind === "loading") {
     return (
-      <FormScreenShell testId="audit-log-screen">
+      <div className="p-6" data-testid="audit-log-screen">
         <Text variant="small">{t("audit.log.loading")}</Text>
-      </FormScreenShell>
+      </div>
     );
   }
 
   if (state.kind === "error") {
     return (
-      <FormScreenShell testId="audit-log-screen">
+      <div className="p-6" data-testid="audit-log-screen">
         <Banner variant="error">{state.message}</Banner>
-      </FormScreenShell>
+      </div>
     );
   }
 
+  const openDetail = (id: string): void =>
+    nav.navigate({ screenId: AUDIT_LOG_DETAIL_SCREEN_ID, entityId: id });
+
   return (
-    <FormScreenShell testId="audit-log-screen" className="flex max-w-5xl flex-col gap-6">
-      <Heading variant="page">{t("audit.log.title")}</Heading>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Field id="audit-filter-event" label={t("audit.log.filter.eventType")}>
-          <Input
-            kind="text"
-            id="audit-filter-event"
-            name="audit-filter-event"
-            value={filters.eventType}
-            onChange={(v: string) => setFilters((f) => ({ ...f, eventType: v }))}
-          />
-        </Field>
-        <Field id="audit-filter-aggregate" label={t("audit.log.filter.aggregateType")}>
-          <Input
-            kind="text"
-            id="audit-filter-aggregate"
-            name="audit-filter-aggregate"
-            value={filters.aggregateType}
-            onChange={(v) => setFilters((f) => ({ ...f, aggregateType: v }))}
-          />
-        </Field>
-        <Field id="audit-filter-from" label={t("audit.log.filter.from")}>
-          <Input
-            kind="date"
-            id="audit-filter-from"
-            name="audit-filter-from"
-            value={filters.from}
-            onChange={(v) => setFilters((f) => ({ ...f, from: v ?? "" }))}
-          />
-        </Field>
-        <Field id="audit-filter-to" label={t("audit.log.filter.to")}>
-          <Input
-            kind="date"
-            id="audit-filter-to"
-            name="audit-filter-to"
-            value={filters.to}
-            onChange={(v) => setFilters((f) => ({ ...f, to: v ?? "" }))}
-          />
-        </Field>
-      </div>
-      <div className="flex gap-2">
-        <Button
-          type="button"
-          variant="primary"
-          onClick={() => {
-            setBefore(undefined);
-            void load(undefined);
-          }}
-          testId="audit-log-apply-filters"
-        >
-          {t("audit.log.filter.apply")}
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => {
-            setFilters(EMPTY_FILTERS);
-            setBefore(undefined);
-          }}
-          testId="audit-log-reset-filters"
-        >
-          {t("audit.log.filter.reset")}
-        </Button>
-      </div>
-
-      <Card options={{ padded: false }}>
-        <DataTable
-          testId="audit-log-table"
-          columns={[
-            { field: "when", label: t("audit.log.col.when"), type: "string", sortable: false },
-            { field: "type", label: t("audit.log.col.type"), type: "string", sortable: false },
-            {
-              field: "aggregate",
-              label: t("audit.log.col.aggregate"),
-              type: "string",
-              sortable: false,
-            },
-            { field: "actor", label: t("audit.log.col.actor"), type: "string", sortable: false },
-          ]}
-          rows={state.rows.map((row) => ({
-            id: row.id,
-            values: {
-              when: formatWhen(row.createdAt),
-              type: row.type,
-              aggregate: `${row.aggregateType} / ${row.aggregateId}`,
-              actor: row.createdBy,
-            },
-          }))}
-          rowActions={[
-            {
-              id: "details",
-              label: t("audit.log.details"),
-              style: "secondary",
-              onTrigger: (row) => setDetailId(row.id),
-            },
-          ]}
-          rowActionMode="inline"
-          emptyState={<Text variant="small">{t("audit.log.empty")}</Text>}
-        />
-      </Card>
-
-      {detailRow !== undefined && (
-        <Card slots={{ title: t("audit.log.detail.title") }} options={{ padded: true }}>
-          <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-all text-xs">
-            {JSON.stringify(detailRow.payload, null, 2)}
-          </pre>
-          <Button type="button" variant="secondary" onClick={() => setDetailId(null)}>
-            {t("audit.log.detail.close")}
+    <div className="w-full" data-testid="audit-log-screen">
+      <div className="flex flex-col gap-4 px-6 pt-6">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Field id="audit-filter-event" label={t("audit.log.filter.eventType")}>
+            <Input
+              kind="text"
+              id="audit-filter-event"
+              name="audit-filter-event"
+              value={filters.eventType}
+              onChange={(v: string) => setFilters((f) => ({ ...f, eventType: v }))}
+            />
+          </Field>
+          <Field id="audit-filter-aggregate" label={t("audit.log.filter.aggregateType")}>
+            <Input
+              kind="text"
+              id="audit-filter-aggregate"
+              name="audit-filter-aggregate"
+              value={filters.aggregateType}
+              onChange={(v) => setFilters((f) => ({ ...f, aggregateType: v }))}
+            />
+          </Field>
+          <Field id="audit-filter-from" label={t("audit.log.filter.from")}>
+            <Input
+              kind="date"
+              id="audit-filter-from"
+              name="audit-filter-from"
+              value={filters.from}
+              onChange={(v) => setFilters((f) => ({ ...f, from: v ?? "" }))}
+            />
+          </Field>
+          <Field id="audit-filter-to" label={t("audit.log.filter.to")}>
+            <Input
+              kind="date"
+              id="audit-filter-to"
+              name="audit-filter-to"
+              value={filters.to}
+              onChange={(v) => setFilters((f) => ({ ...f, to: v ?? "" }))}
+            />
+          </Field>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="primary"
+            onClick={() => {
+              setBefore(undefined);
+              void load(undefined);
+            }}
+            testId="audit-log-apply-filters"
+          >
+            {t("audit.log.filter.apply")}
           </Button>
-        </Card>
-      )}
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              setFilters(EMPTY_FILTERS);
+              setBefore(undefined);
+            }}
+            testId="audit-log-reset-filters"
+          >
+            {t("audit.log.filter.reset")}
+          </Button>
+        </div>
+      </div>
 
-      <div className="flex gap-2">
+      <DataTable
+        testId="audit-log-table"
+        columns={[
+          { field: "when", label: t("audit.log.col.when"), type: "string", sortable: true },
+          { field: "type", label: t("audit.log.col.type"), type: "string", sortable: true },
+          {
+            field: "aggregate",
+            label: t("audit.log.col.aggregate"),
+            type: "string",
+            sortable: false,
+          },
+          { field: "actor", label: t("audit.log.col.actor"), type: "string", sortable: false },
+        ]}
+        sort={sort}
+        onSortChange={setSort}
+        rows={sortAudit(state.rows, sort).map((row) => ({
+          id: row.id,
+          values: {
+            when: formatWhen(row.createdAt),
+            type: row.type,
+            aggregate: `${row.aggregateType} / ${row.aggregateId}`,
+            actor: row.createdBy,
+          },
+        }))}
+        onRowClick={(row) => openDetail(row.id)}
+        rowActions={[
+          {
+            id: "details",
+            label: t("audit.log.details"),
+            style: "secondary",
+            onTrigger: (row) => openDetail(row.id),
+          },
+        ]}
+        rowActionMode="inline"
+        emptyState={<Text variant="small">{t("audit.log.empty")}</Text>}
+      />
+
+      <div className="flex gap-2 px-6 pb-6">
         {before !== undefined && (
           <Button
             type="button"
@@ -225,8 +223,27 @@ export function AuditLogScreen(): ReactNode {
           </Button>
         )}
       </div>
-    </FormScreenShell>
+    </div>
   );
+}
+
+// Client-sort over the loaded page (≤50 rows). createdAt is an ISO string, so
+// lexicographic compare is chronological. Cross-page order stays cursor-based.
+const SORT_ACCESSORS: Record<string, (r: AuditRow) => string> = {
+  when: (r) => r.createdAt,
+  type: (r) => r.type,
+};
+
+function sortAudit(rows: readonly AuditRow[], sort: DataTableSort | null): readonly AuditRow[] {
+  if (sort === null) return rows;
+  const accessor = SORT_ACCESSORS[sort.field];
+  if (accessor === undefined) return rows;
+  const factor = sort.dir === "asc" ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    const av = accessor(a);
+    const bv = accessor(b);
+    return av < bv ? -factor : av > bv ? factor : 0;
+  });
 }
 
 function formatWhen(value: string): string {

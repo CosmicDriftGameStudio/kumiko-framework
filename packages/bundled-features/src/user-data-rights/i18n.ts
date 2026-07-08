@@ -1,6 +1,10 @@
+// @runtime client
+// Server + client i18n for user-data-rights (operator screens + nav). Pure
+// data, importable from the web bundle (web/i18n.ts derives the client keys).
 type LocalizedString = { readonly de: string; readonly en: string };
 
 export const USER_DATA_RIGHTS_I18N: Readonly<Record<string, LocalizedString>> = {
+  "user-data-rights:nav.exportJobs": { de: "DSGVO-Exporte", en: "GDPR exports" },
   "screen:export-job-list.title": { de: "DSGVO-Exporte", en: "GDPR exports" },
   "screen:export-job-detail.title": { de: "Export-Job", en: "Export job" },
   "screen:download-attempt-list.title": { de: "Download-Versuche", en: "Download attempts" },

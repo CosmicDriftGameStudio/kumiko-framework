@@ -93,8 +93,6 @@ export function TierAdminScreen(): ReactNode {
 
   return (
     <FormScreenShell testId="tier-admin-screen" className="flex flex-col gap-6">
-      <Text variant="small">{t("tier-admin.explainer")}</Text>
-
       {tenantsQuery.error !== null && (
         <Banner variant="error" testId="tier-admin-load-error">
           {t("tier-admin.error.load")}
@@ -123,6 +121,8 @@ export function TierAdminScreen(): ReactNode {
           </Button>
         }
       >
+        <Text variant="small">{t("tier-admin.explainer")}</Text>
+
         <Field id="tier-admin-tenant" label={t("tier-admin.tenant.label")} required>
           <Input
             kind="select"

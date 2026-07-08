@@ -5,8 +5,24 @@
 // deletion.<step>.<slug>`.
 
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
+import { USER_DATA_RIGHTS_I18N } from "../i18n";
 
-export const defaultTranslations: TranslationsByLocale = {
+const LOCALES = ["de", "en"] as const;
+
+// Operator keys (export-job list/detail titles + entity field labels + nav)
+// live in the server i18n; the SystemAdmin entityList screens render them
+// client-side, so the web bundle must carry them too — otherwise raw keys
+// show. Derive from the single server source instead of duplicating.
+const operatorTranslations: TranslationsByLocale = Object.fromEntries(
+  LOCALES.map((locale) => [
+    locale,
+    Object.fromEntries(
+      Object.entries(USER_DATA_RIGHTS_I18N).map(([key, value]) => [key, value[locale]]),
+    ),
+  ]),
+);
+
+const apexTranslations: TranslationsByLocale = {
   de: {
     "userDataRights.deletion.request.title": "Account-Löschung beantragen",
     "userDataRights.deletion.request.intro":
@@ -151,4 +167,9 @@ export const defaultTranslations: TranslationsByLocale = {
     "userDataRights.errors.download.signedUrlNotSupported":
       "The download is currently unavailable due to a server configuration issue. The operator has been notified.",
   },
+};
+
+export const defaultTranslations: TranslationsByLocale = {
+  de: { ...apexTranslations["de"], ...operatorTranslations["de"] },
+  en: { ...apexTranslations["en"], ...operatorTranslations["en"] },
 };

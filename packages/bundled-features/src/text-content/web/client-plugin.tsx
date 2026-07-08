@@ -74,13 +74,20 @@ function newFolderNode(): FolderNode {
   return { leaves: [], subFolders: new Map() };
 }
 
-function attachBlock(root: FolderNode, block: BlockSummary): void {
+function attachBlock(root: FolderNode, block: BlockSummary, tenantIdOverride?: string): void {
   const leaf: TreeNode = {
     label: block.title || block.slug,
     target: {
       featureId: "text-content",
       action: "edit",
-      args: { slug: block.slug, lang: block.lang },
+      // tenantIdOverride travels with the node → the editor's by-slug read +
+      // set write target the same tenant the tree was loaded from (SystemAdmin
+      // editing SYSTEM-tenant content). Omitted → session tenant.
+      args: {
+        slug: block.slug,
+        lang: block.lang,
+        ...(tenantIdOverride !== undefined && { tenantIdOverride }),
+      },
     },
     state: block.body ? "filled" : "stub",
   };
@@ -116,10 +123,13 @@ function renderFolderNode(node: FolderNode): TreeNode[] {
   return result;
 }
 
-export function groupBlocksByFolder(blocks: readonly BlockSummary[]): readonly TreeNode[] {
+export function groupBlocksByFolder(
+  blocks: readonly BlockSummary[],
+  tenantIdOverride?: string,
+): readonly TreeNode[] {
   const root = newFolderNode();
   for (const block of blocks) {
-    attachBlock(root, block);
+    attachBlock(root, block, tenantIdOverride);
   }
   const rendered = renderFolderNode(root);
   if (rendered.length === 0) return [];
@@ -133,47 +143,52 @@ export function groupBlocksByFolder(blocks: readonly BlockSummary[]): readonly T
   ];
 }
 
-const treeProvider: TreeChildrenSubscribe = () => (emit, emitError) => {
-  // CSRF-Header bei authenticated requests pflicht (auth-middleware
-  // double-submit pattern). Anonymous/Pre-Login wäre csrf-token=undefined
-  // → header weggelassen → server lässt die anonymous-Variante durch.
-  const headers: Record<string, string> = { "content-type": "application/json" };
-  const csrf = readCsrfToken();
-  if (csrf !== undefined) headers[CSRF_HEADER_NAME] = csrf;
-  fetch("/api/query", {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      type: TextContentQueries.byTenant,
-      payload: {},
-    }),
-  })
-    .then(async (r) => {
-      if (!r.ok) {
-        // 403 (CSRF/auth) oder 5xx — explicit error statt silent empty.
-        const text = await r.text().catch(() => r.statusText);
-        throw new Error(`text-content load failed: ${r.status} ${text}`);
-      }
-      return r.json();
+// tenantIdOverride (SystemAdmin-only) lets an app point the Content tree at a
+// tenant other than the session's — publicstatus seeds marketing/legal blocks
+// on SYSTEM_TENANT_ID, so its SystemAdmin must read that tenant, not their own.
+function makeTreeProvider(tenantIdOverride?: string): TreeChildrenSubscribe {
+  return () => (emit, emitError) => {
+    // CSRF-Header bei authenticated requests pflicht (auth-middleware
+    // double-submit pattern). Anonymous/Pre-Login wäre csrf-token=undefined
+    // → header weggelassen → server lässt die anonymous-Variante durch.
+    const headers: Record<string, string> = { "content-type": "application/json" };
+    const csrf = readCsrfToken();
+    if (csrf !== undefined) headers[CSRF_HEADER_NAME] = csrf;
+    fetch("/api/query", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        type: TextContentQueries.byTenant,
+        payload: tenantIdOverride !== undefined ? { tenantIdOverride } : {},
+      }),
     })
-    .then((data: ByTenantResponse) => {
-      // Der App-seitige r.nav-Knoten IST der "Content"-Container → die
-      // Provider-Kinder sind die Folder/Leaves darunter, nicht der Wrapper.
-      const content = groupBlocksByFolder(data.data.blocks)[0];
-      emit(content !== undefined && Array.isArray(content.children) ? content.children : []);
-    })
-    .catch((e) => {
-      // V.1.4: explicit error-Signal via emitError. ProviderBranch zeigt
-      // Banner + Retry-Button. Fallback auf emit([]) wenn der Consumer
-      // kein emitError unterstützt (Tests etc.).
-      if (emitError) {
-        emitError(e instanceof Error ? e : new Error(String(e)));
-      } else {
-        emit([]);
-      }
-    });
-  return () => {};
-};
+      .then(async (r) => {
+        if (!r.ok) {
+          // 403 (CSRF/auth) oder 5xx — explicit error statt silent empty.
+          const text = await r.text().catch(() => r.statusText);
+          throw new Error(`text-content load failed: ${r.status} ${text}`);
+        }
+        return r.json();
+      })
+      .then((data: ByTenantResponse) => {
+        // Der App-seitige r.nav-Knoten IST der "Content"-Container → die
+        // Provider-Kinder sind die Folder/Leaves darunter, nicht der Wrapper.
+        const content = groupBlocksByFolder(data.data.blocks, tenantIdOverride)[0];
+        emit(content !== undefined && Array.isArray(content.children) ? content.children : []);
+      })
+      .catch((e) => {
+        // V.1.4: explicit error-Signal via emitError. ProviderBranch zeigt
+        // Banner + Retry-Button. Fallback auf emit([]) wenn der Consumer
+        // kein emitError unterstützt (Tests etc.).
+        if (emitError) {
+          emitError(e instanceof Error ? e : new Error(String(e)));
+        } else {
+          emit([]);
+        }
+      });
+    return () => {};
+  };
+}
 
 // V.1.3 echte Edit-Form: lädt aktuelle Werte via by-slug-query, lässt
 // TenantAdmin/SystemAdmin title + body editieren, dispatcht set-write
@@ -213,9 +228,12 @@ function TextContentEditor({
   // zu Event-Payloads. Optional-Chain absorbiert fehlende Felder ohne
   // throw, damit der Editor auch bei manuellem URL-Tampering nicht
   // crasht (TargetRef könnte aus old localStorage / URL-State stammen).
-  const args = target.args as { slug?: string; lang?: string } | undefined;
+  const args = target.args as
+    | { slug?: string; lang?: string; tenantIdOverride?: string }
+    | undefined;
   const slug = args?.slug ?? "";
   const lang = args?.lang ?? "";
+  const tenantIdOverride = args?.tenantIdOverride;
 
   const { Form, Field, Input, Button, Banner } = usePrimitives();
   const dispatcher = useDispatcher();
@@ -232,7 +250,7 @@ function TextContentEditor({
     error: loadError,
   } = useQuery<TextBlock | null>(
     TextContentQueries.bySlug,
-    { slug, lang },
+    { slug, lang, ...(tenantIdOverride !== undefined && { tenantIdOverride }) },
     { enabled: slug !== "" && lang !== "" },
   );
 
@@ -266,6 +284,7 @@ function TextContentEditor({
         lang,
         title,
         body: body.length > 0 ? body : null,
+        ...(tenantIdOverride !== undefined && { tenantIdOverride }),
       });
       if (result.isSuccess) {
         setSavedMsg(result.data.isNew ? "Neu angelegt." : "Gespeichert.");
@@ -353,12 +372,18 @@ function TextContentEditor({
 // Label/Icon/Access des Knotens (managed-pages-Konvention) — das Feature
 // liefert nur die Kinder + den Editor. Ohne navId: nur der Resolver, kein
 // Sidebar-Knoten (server-only-Consumer wie money-horse leaken nichts).
-export function textContentClient(opts?: { readonly navId?: string }): ClientFeatureDefinition {
+// `tenantId` (SystemAdmin-only): welchen Tenant der Content-Tree + Editor
+// bedienen — SYSTEM_TENANT_ID für Apps, die Marketing/Legal dort seeden.
+// Weglassen → Session-Tenant (Default; kein Cross-Tenant-Zugriff).
+export function textContentClient(opts?: {
+  readonly navId?: string;
+  readonly tenantId?: string;
+}): ClientFeatureDefinition {
   const navId = opts?.navId;
   return {
     name: "text-content",
     ...(navId !== undefined && {
-      navProviders: { [navId]: treeProvider },
+      navProviders: { [navId]: makeTreeProvider(opts?.tenantId) },
       // SSE-Refresh: jedes text-block-Event re-fired den Provider → Tree live.
       navEntities: { [navId]: ["text-block"] },
     }),

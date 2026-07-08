@@ -267,12 +267,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       access: { roles: ["SystemAdmin"] },
     });
 
-    r.translations({
-      keys: {
-        ...USER_DATA_RIGHTS_I18N,
-        "user-data-rights:nav.exportJobs": { de: "DSGVO-Exporte", en: "GDPR exports" },
-      },
-    });
+    r.translations({ keys: USER_DATA_RIGHTS_I18N });
 
     // Dormant Self-Service-Screen (Art. 15/17/18/20): Export, Aktivitäts-
     // protokoll, Einschränkung, Löschung in einem Screen. Kein r.nav — die

@@ -190,6 +190,31 @@ describe("groupBlocksByFolder", () => {
     expect(folder?.icon).toBe("folder");
     expect(folder?.target).toBeUndefined();
   });
+  test("tenantIdOverride wird in die Edit-Target-Args gereicht (SystemAdmin SYSTEM-Tenant-Content)", () => {
+    const nodes = inside(
+      groupBlocksByFolder(
+        [block({ slug: "imprint", folder: null }), block({ slug: "hero", folder: "page" })],
+        "00000000-0000-4000-8000-000000000000",
+      ),
+    );
+    // Root-Leaf trägt den Override.
+    expect(nodes[0]?.target?.args).toEqual({
+      slug: "imprint",
+      lang: "de",
+      tenantIdOverride: "00000000-0000-4000-8000-000000000000",
+    });
+    // Auch der Leaf im Folder (rekursiv durchgereicht).
+    const folderChild = childrenArray(nodes[1]?.children)[0];
+    expect(folderChild?.target?.args).toEqual({
+      slug: "hero",
+      lang: "de",
+      tenantIdOverride: "00000000-0000-4000-8000-000000000000",
+    });
+  });
+  test("ohne tenantIdOverride bleiben die Args frei davon (Default: Session-Tenant)", () => {
+    const nodes = inside(groupBlocksByFolder([block({ slug: "imprint", folder: null })]));
+    expect(nodes[0]?.target?.args).toEqual({ slug: "imprint", lang: "de" });
+  });
   test("Wrapper-Folder 'Content' umschließt alle blocks", () => {
     // V.1.5d Wrapper-Convention: groupBlocksByFolder gibt EINEN Knoten
     // zurück (den Wrapper), Inhalt liegt eine Ebene tiefer.

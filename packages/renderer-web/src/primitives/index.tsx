@@ -1434,22 +1434,38 @@ function DefaultForm({
   );
 }
 
-// Kanonische Form/Settings-Shell: zentrierte max-w-3xl-Spalte mit Standard-
-// Screen-Padding. DefaultForm (configEdit/entityEdit) UND custom Settings-
-// Screens (url-settings, privacy-center) teilen sie → einheitliche Breite +
-// Zentrierung statt per-Screen-Wildwuchs. Inhalt nutzt Card-Primitives;
+// Kanonische Form/Settings-Shell: zentrierte Spalte mit Standard-Screen-
+// Padding. DefaultForm (configEdit/entityEdit) UND custom Settings-Screens
+// (url-settings, privacy-center) teilen sie → einheitliche Breite +
+// Zentrierung statt per-Screen-Wildwuchs. Breite über `maxWidth`-Intent statt
+// beliebiger max-w-*-Overrides: sm=schmale Auth-Forms, 3xl=Standard-Detail,
+// 4xl=tabellen-nahe Forms, full=volle Breite. Inhalt nutzt Card-Primitives;
 // `className` (z.B. "flex flex-col gap-6") für Multi-Card-Stacks.
+export type FormScreenShellWidth = "sm" | "3xl" | "4xl" | "full";
+
+const formScreenShellWidth: Record<FormScreenShellWidth, string> = {
+  sm: "max-w-sm mx-auto",
+  "3xl": "max-w-3xl mx-auto",
+  "4xl": "max-w-4xl mx-auto",
+  full: "max-w-full",
+};
+
 export function FormScreenShell({
   children,
   className,
   testId,
+  maxWidth = "3xl",
 }: {
   readonly children: ReactNode;
   readonly className?: string;
   readonly testId?: string;
+  readonly maxWidth?: FormScreenShellWidth;
 }): ReactNode {
   return (
-    <div data-testid={testId} className={cn("px-6 pt-6 pb-12 max-w-3xl w-full mx-auto", className)}>
+    <div
+      data-testid={testId}
+      className={cn("px-6 pt-6 pb-12 w-full", formScreenShellWidth[maxWidth], className)}
+    >
       {children}
     </div>
   );

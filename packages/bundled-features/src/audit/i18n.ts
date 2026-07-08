@@ -5,6 +5,7 @@ type LocalizedString = { readonly de: string; readonly en: string };
 
 export const AUDIT_I18N: Readonly<Record<string, LocalizedString>> = {
   "screen:audit-log.title": { de: "Audit-Log", en: "Audit log" },
+  "screen:audit-log-detail.title": { de: "Ereignis", en: "Event" },
   "audit:nav.auditLog": { de: "Audit", en: "Audit" },
   "audit.log.title": { de: "Audit-Log", en: "Audit log" },
   "audit.log.loading": { de: "Lade Ereignisse…", en: "Loading events…" },
@@ -22,6 +23,9 @@ export const AUDIT_I18N: Readonly<Record<string, LocalizedString>> = {
   "audit.log.filter.apply": { de: "Filtern", en: "Filter" },
   "audit.log.filter.reset": { de: "Zurücksetzen", en: "Reset" },
   "audit.log.details": { de: "Details", en: "Details" },
-  "audit.log.detail.title": { de: "Ereignis-Payload", en: "Event payload" },
-  "audit.log.detail.close": { de: "Schließen", en: "Close" },
+  "audit.log.detail.loading": { de: "Lade Ereignis…", en: "Loading event…" },
+  "audit.log.detail.missing": { de: "Ereignis nicht gefunden.", en: "Event not found." },
+  "audit.log.detail.payload": { de: "Ereignis-Payload", en: "Event payload" },
+  "audit.log.detail.metadata": { de: "Metadaten", en: "Metadata" },
+  "audit.log.detail.field.id": { de: "Ereignis-ID", en: "Event ID" },
 };

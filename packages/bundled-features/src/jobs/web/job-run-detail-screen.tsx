@@ -31,7 +31,7 @@ type State =
 
 export function JobRunDetailScreen(): ReactNode {
   const t = useTranslation();
-  const { Banner, Button, Card, Heading, Text } = usePrimitives();
+  const { Banner, Button, Card, Text } = usePrimitives();
   const dispatcher = useDispatcher();
   const nav = useNav();
   const runId = nav.route?.entityId;
@@ -102,23 +102,28 @@ export function JobRunDetailScreen(): ReactNode {
 
   return (
     <FormScreenShell testId="job-run-detail-screen" className="flex flex-col gap-6">
-      <Button
-        type="button"
-        variant="secondary"
-        onClick={() => nav.navigate({ screenId: JOB_RUNS_SCREEN_ID })}
-        testId="job-run-back"
-      >
-        {t("jobs.detail.back")}
-      </Button>
-
-      <Heading variant="page">{t("jobs.detail.title")}</Heading>
-
       <Card slots={{ title: run.jobName }}>
         <dl className="grid gap-3 text-sm">
           <div>
             <dt className="font-medium">{t("jobs.detail.field.status")}</dt>
             <dd data-testid="job-run-status">{run.status}</dd>
           </div>
+          <div>
+            <dt className="font-medium">{t("jobs.detail.field.started")}</dt>
+            <dd data-testid="job-run-started">{formatWhen(run.startedAt)}</dd>
+          </div>
+          {run.finishedAt !== undefined && run.finishedAt !== null && (
+            <div>
+              <dt className="font-medium">{t("jobs.detail.field.finished")}</dt>
+              <dd data-testid="job-run-finished">{formatWhen(run.finishedAt)}</dd>
+            </div>
+          )}
+          {run.duration !== undefined && run.duration !== null && (
+            <div>
+              <dt className="font-medium">{t("jobs.detail.field.duration")}</dt>
+              <dd data-testid="job-run-duration">{run.duration}</dd>
+            </div>
+          )}
           <div>
             <dt className="font-medium">{t("jobs.detail.field.id")}</dt>
             <dd>
@@ -166,4 +171,12 @@ export function JobRunDetailScreen(): ReactNode {
       </Card>
     </FormScreenShell>
   );
+}
+
+function formatWhen(value: string): string {
+  try {
+    return new Date(value).toLocaleString();
+  } catch {
+    return value;
+  }
 }
