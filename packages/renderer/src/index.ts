@@ -18,6 +18,8 @@ export type {
 export { ColumnRenderersProvider, useColumnRenderer } from "./app/column-renderers";
 export type { CustomScreensMap, CustomScreensProviderProps } from "./app/custom-screens";
 export { CustomScreensProvider, useCustomScreenComponent } from "./app/custom-screens";
+export type { DashboardBodyProps, DashboardBodyProviderProps } from "./app/dashboard-body";
+export { DashboardBodyProvider, useDashboardBody } from "./app/dashboard-body";
 export type {
   ExtensionFormRegistry,
   ExtensionFormSubmitHandler,

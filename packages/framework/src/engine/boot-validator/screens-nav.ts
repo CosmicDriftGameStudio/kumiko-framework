@@ -4,6 +4,7 @@ import { qualifyEntityName } from "../qualified-name";
 import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops";
 import type { FeatureDefinition, NavDefinition, WorkspaceDefinition } from "../types";
 import type {
+  DashboardScreenDefinition,
   FieldCondition,
   RowAction,
   RowFieldExtractor,
@@ -159,6 +160,11 @@ export function validateScreens(
       for (const col of screen.columns) {
         validateColumnRendererForm(feature.name, screenId, normalizeListColumn(col));
       }
+      continue;
+    }
+
+    if (screen.type === "dashboard") {
+      validateDashboardScreen(feature.name, screenId, screen);
       continue;
     }
 
@@ -629,6 +635,51 @@ export function validateScreens(
             );
           }
         }
+      }
+    }
+  }
+}
+
+// Panel-getrieben, keine Entity — Struktur-Checks (eindeutige Panel-Ids,
+// non-empty Queries/Columns/valueField); die Query-Contracts (Stat-Record,
+// Points-Envelope, Paged-Rows) werden zur Render-Zeit aufgelöst.
+function validateDashboardScreen(
+  featureName: string,
+  screenId: string,
+  screen: DashboardScreenDefinition,
+): void {
+  if (screen.panels.length === 0) {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (dashboard) has an empty panels list — ` +
+        `declare at least one panel.`,
+    );
+  }
+  const panelIds = new Set<string>();
+  for (const panel of screen.panels) {
+    if (panelIds.has(panel.id)) {
+      throw new Error(
+        `[Feature ${featureName}] Screen "${screenId}" (dashboard) has duplicate panel id "${panel.id}".`,
+      );
+    }
+    panelIds.add(panel.id);
+    if (!panel.query || typeof panel.query !== "string") {
+      throw new Error(
+        `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}" has empty or non-string query.`,
+      );
+    }
+    if (panel.kind === "stat" && panel.valueField.length === 0) {
+      throw new Error(
+        `[Feature ${featureName}] Screen "${screenId}" (dashboard) stat-panel "${panel.id}" has empty valueField.`,
+      );
+    }
+    if (panel.kind === "list") {
+      if (panel.columns.length === 0) {
+        throw new Error(
+          `[Feature ${featureName}] Screen "${screenId}" (dashboard) list-panel "${panel.id}" has an empty columns list.`,
+        );
+      }
+      for (const col of panel.columns) {
+        validateColumnRendererForm(featureName, screenId, normalizeListColumn(col));
       }
     }
   }
