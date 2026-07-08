@@ -236,6 +236,15 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
     cmd: "bunx kumiko-guard-feature-integration-tests",
   });
   steps.push({ name: "Test-Stack-Drift Guard", cmd: "bunx kumiko-guard-test-stack-drift" });
+  // Warn-only (exit 0): run-config preset names vs composeStacks fingerprints.
+  // Parent-workspace only until kumiko-guard-compose-stacks-parity is published.
+  const composeStacksParityGuard = join(REPO_ROOT, "infra/guards/guard-compose-stacks-parity.ts");
+  if (existsSync(composeStacksParityGuard)) {
+    steps.push({
+      name: "Compose-Stacks-Parity Guard",
+      cmd: `bun "${composeStacksParityGuard}"`,
+    });
+  }
   steps.push({ name: "Runtime-Isolation Guard", cmd: "bunx kumiko-check-runtime-isolation" });
   // Registered as a bin but wired to no step, so it never ran. Builds its own
   // ts-morph project and exports no AstGuard → stays out of the shared runner;
@@ -1554,4 +1563,7 @@ if (!command) {
     await handler.run();
   }
 }
+
+
+
 
