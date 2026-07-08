@@ -1,5 +1,17 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.132.0
+
+### Minor Changes
+
+- 2d40746: Toast-`variant` nutzt jetzt `StatusTone` (`ok`/`warn`/`bad`/`critical`/`muted`, dieselbe Farbfamilie wie `StatusBadge`) statt `default`/`destructive`. Breaking: `variant: "destructive"` → `variant: "bad"`, Default ist jetzt `muted`.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dispatcher-live@0.132.0
+- @cosmicdrift/kumiko-headless@0.132.0
+- @cosmicdrift/kumiko-renderer@0.132.0
+
 ## 0.131.0
 
 ### Minor Changes
