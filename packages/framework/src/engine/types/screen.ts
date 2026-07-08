@@ -324,6 +324,64 @@ export type ProjectionListScreenDefinition = {
   readonly access?: AccessRule;
 };
 
+// --- dashboard ---
+
+// Deklaratives Panel-Grid — Kennzahlen, Verläufe und Kurzlisten ohne
+// Custom-JSX. Jedes Panel zieht seine Daten aus einer eigenen Query
+// (fully-qualified QN, cross-feature erlaubt wie projectionList).
+// Formatierung ist Sache des Query-Handlers: Stat-Werte kommen als
+// anzeigefertige Strings/Zahlen aus der Read-Projection (ES-Read-Models
+// shapen ihre Daten selbst; der Renderer formatiert nicht nach).
+
+// Query-Result-Contract: flaches Record; `valueField` zeigt auf den
+// anzeigefertigen Wert, `subField` optional auf eine Sub-Zeile,
+// `toneField` optional auf "default" | "positive" | "warn".
+export type DashboardStatPanel = {
+  readonly kind: "stat";
+  /** Stable id — kebab-case, eindeutig im Panel-Set. */
+  readonly id: string;
+  /** Anzeige-Text (i18n-Key). */
+  readonly label: string;
+  readonly query: string;
+  readonly valueField: string;
+  readonly subField?: string;
+  readonly toneField?: string;
+};
+
+// Query-Result-Contract: `{ points: { atMs, value | null }[],
+// windowStartMs, windowEndMs }` — value=null zeichnet einen Einbruch.
+export type DashboardChartPanel = {
+  readonly kind: "chart";
+  readonly id: string;
+  readonly label: string;
+  /** v1: geglättete Zeitreihe. Weitere Chart-Formen additiv. */
+  readonly chart: "timeseries";
+  readonly query: string;
+};
+
+// Kurzliste im Dashboard — Query-Contract wie projectionList
+// (`{ rows, nextCursor, total? }`), gerendert ohne Pager/Toolbar.
+export type DashboardListPanel = {
+  readonly kind: "list";
+  readonly id: string;
+  readonly label: string;
+  readonly query: string;
+  readonly columns: readonly ListColumnSpec[];
+};
+
+export type DashboardPanelDefinition =
+  | DashboardStatPanel
+  | DashboardChartPanel
+  | DashboardListPanel;
+
+export type DashboardScreenDefinition = {
+  readonly id: string;
+  readonly type: "dashboard";
+  readonly panels: readonly DashboardPanelDefinition[];
+  readonly slots?: ScreenSlots;
+  readonly access?: AccessRule;
+};
+
 // --- entityEdit ---
 
 // camelCase `readOnly` instead of the spec's lowercase `readonly`: TS's
@@ -557,6 +615,7 @@ export type ScreenSlots = {
 export type ScreenDefinition =
   | EntityListScreenDefinition
   | ProjectionListScreenDefinition
+  | DashboardScreenDefinition
   | EntityEditScreenDefinition
   | ActionFormScreenDefinition
   | ConfigEditScreenDefinition
