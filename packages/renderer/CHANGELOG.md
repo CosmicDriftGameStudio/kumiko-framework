@@ -1,5 +1,13 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.130.1
+
+### Patch Changes
+
+- Export `translationsByLocaleFromKeys` and `TranslationsByKey` for key-first i18n bundle pivot.
+  - @cosmicdrift/kumiko-framework@0.130.1
+  - @cosmicdrift/kumiko-headless@0.130.1
+
 ## 0.130.0
 
 ### Patch Changes
