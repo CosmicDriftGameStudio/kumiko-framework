@@ -198,6 +198,7 @@ export function createJobsFeature(): FeatureDefinition {
       id: JOB_RUN_DETAIL_SCREEN_ID,
       type: "custom",
       renderer: { react: { __component: "JobRunDetailScreen" } },
+      listScreenId: JOB_RUNS_SCREEN_ID,
       access: systemAdminAccess,
     });
     r.nav({

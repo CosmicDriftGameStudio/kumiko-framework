@@ -3,7 +3,8 @@ import {
   defineFeature,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { AUDIT_LOG_SCREEN_ID } from "./constants";
+import { AUDIT_LOG_DETAIL_SCREEN_ID, AUDIT_LOG_SCREEN_ID } from "./constants";
+import { detailsQuery } from "./handlers/details.query";
 import { listQuery } from "./handlers/list.query";
 import { AUDIT_I18N } from "./i18n";
 
@@ -33,12 +34,20 @@ export function createAuditFeature(): FeatureDefinition {
 
     const queries = {
       list: r.queryHandler(listQuery),
+      details: r.queryHandler(detailsQuery),
     };
 
     r.screen({
       id: AUDIT_LOG_SCREEN_ID,
       type: "custom",
       renderer: { react: { __component: "AuditLogScreen" } },
+      access: { roles: access.admin },
+    });
+    r.screen({
+      id: AUDIT_LOG_DETAIL_SCREEN_ID,
+      type: "custom",
+      renderer: { react: { __component: "AuditLogDetailScreen" } },
+      listScreenId: AUDIT_LOG_SCREEN_ID,
       access: { roles: access.admin },
     });
     r.nav({

@@ -1,8 +1,13 @@
 // @runtime client
 // SystemAdmin job-run list with link to detail screen.
 
-import { useDispatcher, useNav, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
-import { FormScreenShell } from "@cosmicdrift/kumiko-renderer-web";
+import {
+  type DataTableSort,
+  useDispatcher,
+  useNav,
+  usePrimitives,
+  useTranslation,
+} from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { JOB_RUN_DETAIL_SCREEN_ID, JobQueries } from "../constants";
 
@@ -33,11 +38,12 @@ const STATUS_FILTER_OPTIONS = [
 
 export function JobRunsScreen(): ReactNode {
   const t = useTranslation();
-  const { Banner, Card, DataTable, Field, Heading, Input, Text } = usePrimitives();
+  const { Banner, DataTable, Field, Input, Text } = usePrimitives();
   const dispatcher = useDispatcher();
   const nav = useNav();
   const [state, setState] = useState<State>({ kind: "loading" });
   const [statusFilter, setStatusFilter] = useState("");
+  const [sort, setSort] = useState<DataTableSort | null>(null);
 
   const filterOptions = STATUS_FILTER_OPTIONS.map((opt) => ({
     value: opt.value,
@@ -65,78 +71,88 @@ export function JobRunsScreen(): ReactNode {
 
   if (state.kind === "loading") {
     return (
-      <FormScreenShell testId="job-runs-screen">
+      <div className="p-6" data-testid="job-runs-screen">
         <Text variant="small">{t("jobs.runs.loading")}</Text>
-      </FormScreenShell>
+      </div>
     );
   }
 
   if (state.kind === "error") {
     return (
-      <FormScreenShell testId="job-runs-screen">
+      <div className="p-6" data-testid="job-runs-screen">
         <Banner variant="error">{state.message}</Banner>
-      </FormScreenShell>
+      </div>
     );
   }
 
+  const openDetail = (id: string): void =>
+    nav.navigate({ screenId: JOB_RUN_DETAIL_SCREEN_ID, entityId: id });
+
   return (
-    <FormScreenShell testId="job-runs-screen" className="flex max-w-5xl flex-col gap-6">
-      <Heading variant="page">{t("jobs.runs.title")}</Heading>
-
-      <Field id="job-runs-status-filter" label={t("jobs.runs.filter.status")}>
-        <Input
-          kind="select"
-          id="job-runs-status-filter"
-          name="job-runs-status-filter"
-          value={statusFilter}
-          onChange={setStatusFilter}
-          options={filterOptions}
-        />
-      </Field>
-
-      <Card options={{ padded: false }}>
-        <DataTable
-          testId="job-runs-table"
-          columns={[
-            { field: "job", label: t("jobs.runs.col.job"), type: "string", sortable: true },
-            { field: "status", label: t("jobs.runs.col.status"), type: "string", sortable: true },
-            {
-              field: "started",
-              label: t("jobs.runs.col.started"),
-              type: "string",
-              sortable: true,
-            },
-            {
-              field: "duration",
-              label: t("jobs.runs.col.duration"),
-              type: "string",
-              sortable: false,
-            },
-          ]}
-          rows={state.rows.map((row) => ({
-            id: row.id,
-            values: {
-              job: row.jobName,
-              status: row.status,
-              started: formatWhen(row.startedAt),
-              duration: row.duration ?? "—",
-            },
-          }))}
-          rowActions={[
-            {
-              id: "open",
-              label: t("jobs.runs.open"),
-              style: "secondary",
-              onTrigger: (row) =>
-                nav.navigate({ screenId: JOB_RUN_DETAIL_SCREEN_ID, entityId: row.id }),
-            },
-          ]}
-          rowActionMode="inline"
-          emptyState={<Text variant="small">{t("jobs.runs.empty")}</Text>}
-        />
-      </Card>
-    </FormScreenShell>
+    <DataTable
+      testId="job-runs-table"
+      columns={[
+        { field: "job", label: t("jobs.runs.col.job"), type: "string", sortable: true },
+        { field: "status", label: t("jobs.runs.col.status"), type: "string", sortable: true },
+        { field: "started", label: t("jobs.runs.col.started"), type: "string", sortable: true },
+        { field: "duration", label: t("jobs.runs.col.duration"), type: "string", sortable: false },
+      ]}
+      sort={sort}
+      onSortChange={setSort}
+      rows={sortJobRuns(state.rows, sort).map((row) => ({
+        id: row.id,
+        values: {
+          job: row.jobName,
+          status: row.status,
+          started: formatWhen(row.startedAt),
+          duration: row.duration ?? "—",
+        },
+      }))}
+      onRowClick={(row) => openDetail(row.id)}
+      toolbarStart={
+        <Field id="job-runs-status-filter" label={t("jobs.runs.filter.status")}>
+          <Input
+            kind="select"
+            id="job-runs-status-filter"
+            name="job-runs-status-filter"
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={filterOptions}
+          />
+        </Field>
+      }
+      rowActions={[
+        {
+          id: "open",
+          label: t("jobs.runs.open"),
+          style: "secondary",
+          onTrigger: (row) => openDetail(row.id),
+        },
+      ]}
+      rowActionMode="inline"
+      emptyState={<Text variant="small">{t("jobs.runs.empty")}</Text>}
+    />
   );
+}
+
+// Client-sort over the loaded page (≤50 rows). startedAt is an ISO string, so
+// lexicographic compare is chronological — no Date parsing needed.
+const SORT_ACCESSORS: Record<string, (r: JobRunRow) => string | number> = {
+  job: (r) => r.jobName,
+  status: (r) => r.status,
+  started: (r) => r.startedAt,
+};
+
+function sortJobRuns(rows: readonly JobRunRow[], sort: DataTableSort | null): readonly JobRunRow[] {
+  if (sort === null) return rows;
+  const accessor = SORT_ACCESSORS[sort.field];
+  if (accessor === undefined) return rows;
+  const factor = sort.dir === "asc" ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    const av = accessor(a);
+    const bv = accessor(b);
+    return av < bv ? -factor : av > bv ? factor : 0;
+  });
 }
 
 function formatWhen(value: string): string {
