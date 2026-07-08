@@ -563,7 +563,9 @@ describe("boot-validator", () => {
         registerEntityCrud(r, "widget", widgetEntity);
       }),
     ];
-    expect(() => validateBoot(features)).toThrow(/phase0:write:widget:create.*missing an access rule/i);
+    expect(() => validateBoot(features)).toThrow(
+      /phase0:write:widget:create.*missing an access rule/i,
+    );
   });
 
   test("accepts role-based access rule", () => {
