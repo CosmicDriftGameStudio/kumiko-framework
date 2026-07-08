@@ -241,6 +241,30 @@ describe("NavTree", () => {
     expect(container.querySelectorAll("svg").length).toBe(2);
   });
 
+  test("server, mail, download, rocket lösen auf ein Icon auf (Config-/SMTP-Nav)", () => {
+    // Config-Settings-Hub leitet Child-Nav-Icons aus dem mask.icon der
+    // ConfigKey ab (smtp-host="server", from="mail", subscription="rocket");
+    // fehlten sie in NAV_ICONS, rendert das Nav blank statt Icon.
+    const schema = {
+      featureName: "app",
+      entities: {},
+      screens: [
+        { id: "a", type: "entityList", entity: "x", columns: [] },
+        { id: "b", type: "entityList", entity: "x", columns: [] },
+        { id: "c", type: "entityList", entity: "x", columns: [] },
+        { id: "d", type: "entityList", entity: "x", columns: [] },
+      ],
+      navs: [
+        { id: "a", label: "SMTP", screen: "a", order: 10, icon: "server" },
+        { id: "b", label: "From", screen: "b", order: 20, icon: "mail" },
+        { id: "c", label: "Export", screen: "c", order: 30, icon: "download" },
+        { id: "d", label: "Billing", screen: "d", order: 40, icon: "rocket" },
+      ],
+    } as FeatureSchema;
+    const { container } = render(<NavTree schema={schema} />);
+    expect(container.querySelectorAll("svg").length).toBe(4);
+  });
+
   test("palette, link und share rendern Lucide-Icons (Share-/Branding-Nav)", () => {
     const schema = {
       featureName: "app",
@@ -540,5 +564,67 @@ describe("NavTree dynamic provider nodes", () => {
       r?.unmount();
     });
     expect(active()).toBe(0); // Unmount baut alles ab → kein Leak
+  });
+});
+
+describe("NavTree Suchfeld", () => {
+  // Das Suchfeld ist das einzige <input> im Baum; über die Rolle statt den
+  // i18n-Placeholder gefunden (i18n-Bundle resolvt im Worktree gegen den
+  // Haupt-Checkout, wo der neue Key noch fehlt — in CI greift er).
+
+  test("Filter blendet Nicht-Treffer aus, hält Treffer + deren Ancestors", () => {
+    render(<NavTree schema={makeSchema()} />);
+    const input = screen.getByRole("textbox") as HTMLInputElement;
+
+    fireEvent.change(input, { target: { value: "active" } });
+
+    // Treffer selbst sichtbar (case-insensitiv).
+    expect(screen.getByText("Active")).toBeTruthy();
+    // Nicht-Treffer-Geschwister weg.
+    expect(screen.queryByText("Backlog")).toBeNull();
+    // Ancestors bleiben, damit der Treffer erreichbar bleibt.
+    expect(screen.getByText("Items")).toBeTruthy();
+    expect(screen.getByText("Data")).toBeTruthy();
+  });
+
+  test("Filter ohne Treffer leert den Baum; Leeren stellt alles wieder her", () => {
+    render(<NavTree schema={makeSchema()} />);
+    const input = screen.getByRole("textbox") as HTMLInputElement;
+
+    fireEvent.change(input, { target: { value: "zzz-nichts" } });
+    expect(screen.queryByText("Items")).toBeNull();
+    expect(screen.queryByText("Data")).toBeNull();
+
+    fireEvent.change(input, { target: { value: "" } });
+    expect(screen.getByText("Backlog")).toBeTruthy();
+    expect(screen.getByText("Data")).toBeTruthy();
+  });
+});
+
+describe("NavTree folder-open Icon", () => {
+  test("Folder-Knoten zeigt folder-open wenn expanded, folder wenn collapsed", async () => {
+    const provider: TreeChildrenSubscribe = () => (emit) => {
+      emit([{ label: "page", icon: "folder", children: [pageLeaf("hero")] }]);
+      return () => {};
+    };
+    let container: HTMLElement | undefined;
+    await act(async () => {
+      container = renderDynamic({
+        schema: dynamicSchema(),
+        providers: new Map([["cms:nav:content", provider]]),
+      }).container;
+    });
+    // Default-expanded → offener Ordner, kein geschlossener.
+    expect(container?.querySelector(".lucide-folder-open")).toBeTruthy();
+    expect(container?.querySelector(".lucide-folder")).toBeNull();
+
+    // Der einzige aria-gelabelte Chevron gehört dem "page"-Sub-Ordner
+    // (der Provider-Container toggelt inline, ohne aria-Label).
+    const chevron = screen.getByRole("button", { name: /Expand|Collapse/ });
+    await act(async () => {
+      fireEvent.click(chevron);
+    });
+    expect(container?.querySelector(".lucide-folder")).toBeTruthy();
+    expect(container?.querySelector(".lucide-folder-open")).toBeNull();
   });
 });

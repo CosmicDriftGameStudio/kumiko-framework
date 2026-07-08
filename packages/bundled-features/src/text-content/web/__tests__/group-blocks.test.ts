@@ -53,7 +53,7 @@ describe("groupBlocksByFolder", () => {
       args: { slug: "imprint", lang: "de" },
     });
     expect(root.children).toBeUndefined();
-    expect(root.icon).toBeUndefined();
+    expect(root.icon).toBe("file");
   });
   test('folder="page" → Folder-Container mit child', () => {
     const nodes = inside(
@@ -101,7 +101,7 @@ describe("groupBlocksByFolder", () => {
     );
     expect(nodes).toHaveLength(2);
     expect(nodes[0]?.label).toBe("imprint");
-    expect(nodes[0]?.icon).toBeUndefined();
+    expect(nodes[0]?.icon).toBe("file");
     expect(nodes[1]?.label).toBe("page");
     expect(nodes[1]?.icon).toBe("folder");
   });
@@ -184,7 +184,7 @@ describe("groupBlocksByFolder", () => {
     const leaf = nodes[0];
     const folder = nodes[1];
     expect(leaf?.label).toBe("Page-Root");
-    expect(leaf?.icon).toBeUndefined();
+    expect(leaf?.icon).toBe("file");
     expect(leaf?.target).toBeDefined();
     expect(folder?.label).toBe("page");
     expect(folder?.icon).toBe("folder");

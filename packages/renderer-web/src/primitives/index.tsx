@@ -51,7 +51,6 @@ import {
   type ChangeEvent,
   type CSSProperties,
   createContext,
-  type FormEvent,
   type ReactNode,
   useContext,
   useEffect,
@@ -1469,64 +1468,6 @@ export function FormScreenShell({
     >
       {children}
     </div>
-  );
-}
-
-// Panel-Geschwister von FormScreenShell: für Editoren die in einem Visual-
-// Panel (Split-View neben einem Tree) sitzen statt auf einer ganzen Seite.
-// Füllt die Panel-Höhe (`h-full`), Header + Footer sind sticky (border-b/-t),
-// nur der Body scrollt. FormScreenShell (`max-w-3xl mx-auto`) passt hier
-// NICHT — ein zentrierter Seiten-Block im Panel erzeugt fette Leerränder und
-// bricht `h-full`. Der Shell besitzt das `<form>` (damit der Footer-Save den
-// scrollenden Body submittet) und liefert InsideFormContext wie DefaultForm.
-export function FormPanelShell({
-  onSubmit,
-  title,
-  breadcrumb,
-  subtitle,
-  actions,
-  children,
-  testId,
-}: {
-  readonly onSubmit: (e: FormEvent) => void;
-  readonly title: ReactNode;
-  readonly breadcrumb?: ReactNode;
-  readonly subtitle?: ReactNode;
-  readonly actions?: ReactNode;
-  readonly children: ReactNode;
-  readonly testId?: string;
-}): ReactNode {
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSubmit(e);
-      }}
-      data-testid={testId}
-      className="flex h-full min-h-0 flex-col"
-    >
-      <header className="flex shrink-0 items-center justify-between gap-4 border-b px-6 py-4">
-        <h2 className="flex items-baseline gap-1.5 text-lg font-semibold">
-          {breadcrumb !== undefined && (
-            <span className="font-normal text-muted-foreground">{breadcrumb} ›</span>
-          )}
-          {title}
-          {subtitle !== undefined && (
-            <span className="text-sm font-normal text-muted-foreground">{subtitle}</span>
-          )}
-        </h2>
-      </header>
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-        <div className="mx-auto flex max-w-2xl flex-col gap-4">
-          <InsideFormContext.Provider value={true}>{children}</InsideFormContext.Provider>
-        </div>
-      </div>
-      {actions !== undefined && (
-        <footer className="flex shrink-0 items-center justify-end gap-2 border-t bg-muted/30 px-6 py-4">
-          {actions}
-        </footer>
-      )}
-    </form>
   );
 }
 
