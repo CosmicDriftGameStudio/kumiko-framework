@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
+import { act, fireEvent } from "@testing-library/react";
 // mock.module eretzt imports für alle Konsumenten — statische imports
 // vor mock.module sehen die gemockte Version weil Bun am Loader-Level
 // intercepted. useShellUser ist hier ein Mock-Objekt.
@@ -20,17 +21,22 @@ mock.module("@cosmicdrift/kumiko-bundled-features/auth-email-password/web", () =
 const actual_renderer = await import("@cosmicdrift/kumiko-renderer");
 mock.module("@cosmicdrift/kumiko-renderer", () => ({
   ...actual_renderer,
-  useDispatcher: mock(() => ({
-    write: mock(),
-    query: mock(),
-  })),
+  useDispatcher: mock(),
   useQuery: mock(() => ({
-    data: { slug: "imprint", lang: "de", title: "Impressum", body: "Inhalt" },
+    data: {
+      slug: "imprint",
+      lang: "de",
+      title: "Impressum",
+      body: "Inhalt",
+      folder: "legal",
+    },
     loading: false,
     error: null,
     refetch: mock(),
   })),
 }));
+
+const { useDispatcher } = await import("@cosmicdrift/kumiko-renderer");
 
 const TARGET = {
   featureId: "text-content",
@@ -107,5 +113,27 @@ describe("TextContentEditor — role-based write-access", () => {
 
     expect(screen.getByText(/Read-only/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^speichern/i })).toBeNull();
+  });
+});
+
+describe("TextContentEditor — handleSave", () => {
+  test("reicht das geladene folder unverändert an den Write-Payload durch (#898)", async () => {
+    // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
+    (useShellUser as any).mockReturnValue({ id: "u1", roles: ["TenantAdmin"] });
+    const write = mock(() => Promise.resolve({ isSuccess: true, data: { isNew: false } }));
+    // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
+    (useDispatcher as any).mockReturnValue({ write, query: mock() });
+
+    const Editor = getEditor();
+    render(<Editor target={TARGET} onClose={() => {}} />, { wrapper: Wrapper });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /speichern/i }));
+      await Promise.resolve();
+    });
+
+    expect(write).toHaveBeenCalledTimes(1);
+    const [, payload] = write.mock.calls[0] as unknown as [unknown, { folder: string | null }];
+    expect(payload.folder).toBe("legal");
   });
 });

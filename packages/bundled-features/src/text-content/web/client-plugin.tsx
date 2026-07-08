@@ -211,6 +211,7 @@ type TextBlock = {
   readonly lang: string;
   readonly title: string;
   readonly body: string | null;
+  readonly folder: string | null;
   readonly updatedAt: string;
 };
 
@@ -287,6 +288,7 @@ function TextContentEditor({
         lang,
         title,
         body: body.length > 0 ? body : null,
+        folder: loaded?.folder ?? null,
         ...(tenantIdOverride !== undefined && { tenantIdOverride }),
       });
       if (result.isSuccess) {
