@@ -11,6 +11,7 @@ import {
   type ColumnRendererComponent,
   ColumnRenderersProvider,
   CustomScreensProvider,
+  DashboardBodyProvider,
   DispatcherProvider,
   type ExtensionSectionComponent,
   ExtensionSectionsProvider,
@@ -38,6 +39,7 @@ import { useBrowserTokensApi } from "../tokens";
 import { UpdateChecker } from "../version/update-checker";
 import { createBrowserLocaleResolver } from "./browser-locale";
 import { type ClientFeatureDefinition, stackWrappers } from "./client-plugin";
+import { WebDashboardBody } from "./dashboard-body";
 import { useBrowserNavApi } from "./nav";
 import { NavProvidersProvider } from "./nav-providers-context";
 import { type ResolverComponent, ResolversProvider } from "./resolvers-context";
@@ -285,20 +287,22 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
         <PrimitivesProvider value={primitives}>
           <DispatcherProvider dispatcher={dispatcher}>
             <LiveEventsProvider value={liveEvents}>
-              <CustomScreensProvider value={customScreens}>
-                <ColumnRenderersProvider value={columnRenderers}>
-                  <ExtensionSectionsProvider value={extensionSectionComponents}>
-                    <NavProvidersProvider value={navProviders} entities={navEntities}>
-                      <ResolversProvider resolvers={resolvers}>
-                        <ToastProvider>
-                          <UpdateChecker />
-                          {stackWrappers(providers, stackWrappers(gates, screenNode))}
-                        </ToastProvider>
-                      </ResolversProvider>
-                    </NavProvidersProvider>
-                  </ExtensionSectionsProvider>
-                </ColumnRenderersProvider>
-              </CustomScreensProvider>
+              <DashboardBodyProvider value={WebDashboardBody}>
+                <CustomScreensProvider value={customScreens}>
+                  <ColumnRenderersProvider value={columnRenderers}>
+                    <ExtensionSectionsProvider value={extensionSectionComponents}>
+                      <NavProvidersProvider value={navProviders} entities={navEntities}>
+                        <ResolversProvider resolvers={resolvers}>
+                          <ToastProvider>
+                            <UpdateChecker />
+                            {stackWrappers(providers, stackWrappers(gates, screenNode))}
+                          </ToastProvider>
+                        </ResolversProvider>
+                      </NavProvidersProvider>
+                    </ExtensionSectionsProvider>
+                  </ColumnRenderersProvider>
+                </CustomScreensProvider>
+              </DashboardBodyProvider>
             </LiveEventsProvider>
           </DispatcherProvider>
         </PrimitivesProvider>

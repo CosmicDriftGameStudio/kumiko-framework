@@ -1,6 +1,7 @@
 import type {
   ActionFormScreenDefinition,
   ConfigEditScreenDefinition,
+  DashboardScreenDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
   FeatureDefinition,
@@ -104,6 +105,19 @@ export function requiredKeysFromScreen(
       }
       for (const action of list.rowActions ?? []) pushRowActionKeys(out, action);
       for (const action of list.toolbarActions ?? []) pushToolbarActionKeys(out, action);
+      break;
+    }
+    case "dashboard": {
+      const dashboard = screen as DashboardScreenDefinition;
+      for (const panel of dashboard.panels) {
+        pushKey(out, panel.label);
+        if (panel.kind === "list") {
+          for (const col of panel.columns) {
+            const normalized = normalizeListColumn(col);
+            if (normalized.label !== undefined) pushKey(out, normalized.label);
+          }
+        }
+      }
       break;
     }
     case "entityEdit": {

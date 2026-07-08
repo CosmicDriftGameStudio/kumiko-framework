@@ -115,6 +115,9 @@ export function generateE2ESpec(
     // projectionList: query-getrieben, Author-spezifische Projection —
     // kein generischer CRUD-Spec ableitbar (wie actionForm/configEdit).
     if (screen.type === "projectionList") continue;
+    // dashboard: panel-getrieben (Stat/Chart/List-Queries) — dito, keine
+    // generische CRUD-Annahme möglich.
+    if (screen.type === "dashboard") continue;
     const { scope: feature, name: short } = parseQn(screenQn);
     const urlPath = `/t/${tenant}/${feature}/${short}`;
     const title = `${feature}/${short}`;

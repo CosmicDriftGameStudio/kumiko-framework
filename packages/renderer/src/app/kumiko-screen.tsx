@@ -2,6 +2,7 @@ import type { ConfigCascade } from "@cosmicdrift/kumiko-framework/engine";
 import type {
   ActionFormScreenDefinition,
   ConfigEditScreenDefinition,
+  DashboardScreenDefinition,
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
@@ -34,6 +35,7 @@ import { type DataTableFacet, type DataTableRowAction, usePrimitives } from "../
 import { synthesizeActionFormEntity, synthesizeActionFormScreen } from "./action-form-shim";
 import { synthesizeConfigEditEntity, synthesizeConfigEditScreen } from "./config-edit-shim";
 import { useCustomScreenComponent } from "./custom-screens";
+import { useDashboardBody } from "./dashboard-body";
 import type { FeatureSchema } from "./feature-schema";
 import { useNav } from "./nav";
 import { synthesizeProjectionEntity, synthesizeProjectionScreen } from "./projection-list-shim";
@@ -146,6 +148,8 @@ export function KumikoScreen({
           {...(onRowClick !== undefined && { onRowClick })}
         />
       );
+    case "dashboard":
+      return <DashboardScreenBody screen={screen} translate={translate} />;
     case "actionForm":
       return <ActionFormBody schema={schema} screen={screen} translate={translate} />;
     case "configEdit":
@@ -153,6 +157,29 @@ export function KumikoScreen({
     case "custom":
       return <CustomScreenBody screenId={screen.id} />;
   }
+}
+
+// Injection-Body für dashboard-Screens: die Panel-Implementierung (StatCard,
+// Charts) ist plattform-spezifisch und kommt aus dem DashboardBody-Context
+// (renderer-web registriert die Web-Variante in createKumikoApp).
+function DashboardScreenBody({
+  screen,
+  translate,
+}: {
+  readonly screen: DashboardScreenDefinition;
+  readonly translate?: Translate;
+}): ReactNode {
+  const { Banner, Text } = usePrimitives();
+  const Body = useDashboardBody();
+  if (Body === undefined) {
+    return (
+      <Banner padded variant="info" testId="kumiko-screen-dashboard-placeholder">
+        Dashboard screen <Text variant="code">{screen.id}</Text> — kein Dashboard-Body registriert
+        (createKumikoApp aus <Text variant="code">kumiko-renderer-web</Text> wired ihn automatisch).
+      </Banner>
+    );
+  }
+  return <Body screen={screen} {...(translate !== undefined && { translate })} />;
 }
 
 // Lookup-Body für custom-screens: schaut die Component aus dem
@@ -1036,6 +1063,7 @@ function ProjectionListBody({
   const { Banner } = usePrimitives();
   const t = useTranslation();
   const nav = useNav();
+  const dispatcher = useOptionalDispatcher();
   const effectiveTranslate = translate ?? t;
   const entity = useMemo(() => synthesizeProjectionEntity(screen.columns), [screen.columns]);
   const listScreen = useMemo(() => synthesizeProjectionScreen(screen), [screen]);
@@ -1066,39 +1094,88 @@ function ProjectionListBody({
     if (screen.rowActions === undefined) return undefined;
     const out: DataTableRowAction[] = [];
     for (const action of screen.rowActions) {
-      // v1: nur navigate (writeHandler-RowActions bräuchten den Dispatcher-Pfad).
-      if (action.kind !== "navigate") continue;
-      const navigateAction = action;
-      const visible = action.visible;
+      if (action.kind === "navigate") {
+        const navigateAction = action;
+        const visible = action.visible;
+        out.push({
+          id: action.id,
+          label: effectiveTranslate(action.label),
+          ...(action.style !== undefined && { style: action.style }),
+          onTrigger: (row: ListRowViewModel) => runNavigate(navigateAction, row),
+          ...(visible !== undefined && {
+            isVisible: (row: ListRowViewModel) => evalFieldCondition(visible, row.values),
+          }),
+        });
+        continue;
+      }
+      // writeHandler (default-kind) — gleicher Dispatch-Pfad wie entityList:
+      // Failure-Result MUSS zum Error werden (sonst schließt der Confirm-
+      // Dialog kommentarlos).
+      if (dispatcher === undefined) continue;
+      const writeAction = action as RowActionWriteHandler;
+      const writeVisible = writeAction.visible;
       out.push({
-        id: action.id,
-        label: effectiveTranslate(action.label),
-        ...(action.style !== undefined && { style: action.style }),
-        onTrigger: (row: ListRowViewModel) => runNavigate(navigateAction, row),
-        ...(visible !== undefined && {
-          isVisible: (row: ListRowViewModel) => evalFieldCondition(visible, row.values),
+        id: writeAction.id,
+        label: effectiveTranslate(writeAction.label),
+        ...(writeAction.style !== undefined && { style: writeAction.style }),
+        ...(writeAction.confirm !== undefined && {
+          confirm: effectiveTranslate(writeAction.confirm),
+        }),
+        ...(writeAction.confirmLabel !== undefined && {
+          confirmLabel: effectiveTranslate(writeAction.confirmLabel),
+        }),
+        onTrigger: async (row: ListRowViewModel) => {
+          const payload =
+            writeAction.payload !== undefined
+              ? evalRowExtractor(writeAction.payload, row.values)
+              : { id: row.values["id"] };
+          const result = await dispatcher.write(writeAction.handler, payload);
+          if (!result.isSuccess) {
+            throw new WriteFailedError(
+              result.error,
+              dispatcherErrorText(result.error, effectiveTranslate),
+            );
+          }
+        },
+        ...(writeVisible !== undefined && {
+          isVisible: (row: ListRowViewModel) => evalFieldCondition(writeVisible, row.values),
         }),
       });
     }
     return out.length > 0 ? out : undefined;
-  }, [screen.rowActions, effectiveTranslate, runNavigate]);
+  }, [screen.rowActions, effectiveTranslate, runNavigate, dispatcher]);
 
   const toolbarActions = useMemo((): readonly ToolbarActionButton[] | undefined => {
     if (screen.toolbarActions === undefined) return undefined;
     const out: ToolbarActionButton[] = [];
     for (const action of screen.toolbarActions) {
-      // v1: nur navigate (writeHandler-Toolbar bräuchte den Dispatcher-Pfad).
-      if (action.kind !== "navigate") continue;
-      const target = action.screen;
+      if (action.kind === "navigate") {
+        const target = action.screen;
+        out.push({
+          id: action.id,
+          label: effectiveTranslate(action.label),
+          ...(action.style !== undefined && { style: action.style }),
+          onTrigger: () => nav.navigate({ screenId: target }),
+        });
+        continue;
+      }
+      // writeHandler — analog entityList; ohne Dispatcher skippen statt crashen.
+      if (dispatcher === undefined) continue;
       out.push({
         id: action.id,
         label: effectiveTranslate(action.label),
         ...(action.style !== undefined && { style: action.style }),
-        onTrigger: () => nav.navigate({ screenId: target }),
+        ...(action.confirm !== undefined && { confirm: effectiveTranslate(action.confirm) }),
+        ...(action.confirmLabel !== undefined && {
+          confirmLabel: effectiveTranslate(action.confirmLabel),
+        }),
+        onTrigger: async () => {
+          await dispatcher.write(action.handler, action.payload ?? {});
+        },
       });
     }
     return out.length > 0 ? out : undefined;
-  }, [screen.toolbarActions, effectiveTranslate, nav]);
+  }, [screen.toolbarActions, effectiveTranslate, nav, dispatcher]);
 
   if (rowsQuery.loading && rowsQuery.data === null) {
     return (
