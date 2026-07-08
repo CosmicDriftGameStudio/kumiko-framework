@@ -29,6 +29,7 @@ import {
   type GridProps,
   type HeadingProps,
   type InputProps,
+  type LinkProps,
   type SectionProps,
   type TextProps,
   useColumnRenderer,
@@ -59,7 +60,7 @@ import {
 } from "react";
 import { cn } from "../lib/cn";
 import { Badge } from "../ui/badge";
-import { Button as UiButton } from "../ui/button";
+import { Button as UiButton, buttonVariants } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { Input as UiInput } from "../ui/input";
 import { Label as UiLabel } from "../ui/label";
@@ -102,11 +103,12 @@ const cardFooterBorder = "border-t bg-muted/30";
 
 // Contract-Variant → shadcn-Variant: secondary war schon immer der
 // bordered-bg-background-Look = shadcns `outline`. primary→default,
-// danger→destructive.
+// danger→destructive, link→link (kein BG, underline on hover).
 const BUTTON_VARIANT = {
   primary: "default",
   secondary: "outline",
   danger: "destructive",
+  link: "link",
 } as const;
 
 function DefaultButton({
@@ -1590,9 +1592,39 @@ function DefaultText({ variant = "body", children, testId }: TextProps): ReactNo
           {children}
         </span>
       );
+    case "muted":
+      return (
+        <span data-testid={testId} className="text-sm text-muted-foreground">
+          {children}
+        </span>
+      );
     default:
       return <span data-testid={testId}>{children}</span>;
   }
+}
+
+// ---- Link (anchor mit Button-/Muted-Optik) ----
+
+// `button` nutzt die shadcn-outline-Buttonfläche auf einem semantischen
+// <a> — der Standard für „weiter zu"-Navigationen nach Success-States.
+function DefaultLink({ href, variant = "default", target, children, testId }: LinkProps): ReactNode {
+  const className =
+    variant === "button"
+      ? cn(buttonVariants({ variant: "outline" }))
+      : variant === "muted"
+        ? "text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        : "text-primary underline-offset-4 hover:underline";
+  return (
+    <a
+      href={href}
+      target={target}
+      rel={target === "_blank" ? "noreferrer" : undefined}
+      data-testid={testId}
+      className={className}
+    >
+      {children}
+    </a>
+  );
 }
 
 function DefaultHeading({ variant = "page", children, testId }: HeadingProps): ReactNode {
@@ -1685,4 +1717,5 @@ export const defaultPrimitives: CorePrimitives = {
   Lightbox: DefaultLightbox,
   ConfigSourceBadge: DefaultConfigSourceBadge,
   ConfigCascadeView: DefaultConfigCascadeView,
+  Link: DefaultLink,
 };

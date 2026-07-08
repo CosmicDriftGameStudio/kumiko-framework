@@ -71,6 +71,10 @@ export type {
   ListUrlStateApi,
 } from "./hooks/use-list-url-state";
 export { useListUrlState } from "./hooks/use-list-url-state";
+export type { UseMutationResult } from "./hooks/use-mutation";
+export { useMutation } from "./hooks/use-mutation";
+export type { UseDisclosureResult } from "./hooks/use-disclosure";
+export { useDisclosure } from "./hooks/use-disclosure";
 export type { UseQueryOptions, UseQueryResult } from "./hooks/use-query";
 export { useQuery } from "./hooks/use-query";
 export { useStore, useStoreSelector } from "./hooks/use-store";
@@ -111,6 +115,7 @@ export type {
   HeadingProps,
   InputProps,
   LightboxProps,
+  LinkProps,
   PrimitivesProviderProps,
   PrimitivesRegistry,
   RuntimeRenderer,

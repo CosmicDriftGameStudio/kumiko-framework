@@ -45,6 +45,10 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.combobox.loading": "Lade…",
     "kumiko.combobox.placeholder": "—",
 
+    // Widgets — Query-States (QueryTable, LoadingState, ErrorState).
+    "kumiko.widget.loading": "Lade…",
+    "kumiko.widget.error.title": "Konnte nicht geladen werden.",
+
     // Nav — Sidebar Tree (Toggle-aria-Labels).
     "kumiko.nav.expand": "Aufklappen",
     "kumiko.nav.collapse": "Zuklappen",
@@ -149,6 +153,9 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.combobox.empty": "No matches.",
     "kumiko.combobox.loading": "Loading…",
     "kumiko.combobox.placeholder": "—",
+
+    "kumiko.widget.loading": "Loading…",
+    "kumiko.widget.error.title": "Couldn't load.",
 
     "kumiko.nav.expand": "Expand",
     "kumiko.nav.collapse": "Collapse",

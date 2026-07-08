@@ -154,3 +154,31 @@ export {
   useBrowserTokensApi,
 } from "./tokens";
 export { SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider } from "./ui/sidebar";
+export type {
+  QueryTableColumn,
+  QueryTableProps,
+  StatDelta,
+  StatTone,
+  StatusBarEntry,
+  StatusTone,
+  TimeseriesPoint,
+} from "./widgets";
+export {
+  CollapsibleSection,
+  DetailList,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  MiniStat,
+  ModeSwitch,
+  ProgressBar,
+  QueryTable,
+  SectionCard,
+  smoothPath,
+  Sparkline,
+  StatCard,
+  STATUS_TONE_TEXT,
+  StatusBadge,
+  StatusBarChart,
+  TimeseriesChart,
+} from "./widgets";
