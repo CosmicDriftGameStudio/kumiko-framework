@@ -83,9 +83,29 @@ r.unmanagedTable(buildEntityTableMeta("note", noteEntity), {
 `r.unmanagedTable` tables are not collected as rebuildable — that is the
 intended fix path when the guard fires.
 
+## Runtime guard (#722)
+
+The static CI guard catches **new** code. It does not see drift already in
+production data, nor writes on table identifiers it couldn't resolve. So the
+rebuild adds a runtime backstop: after the shadow is fully replayed and before
+the swap, `assertShadowCoversLive` compares the live table against the shadow
+(the deterministic event replay). Any row live holds that the replay cannot
+reproduce aborts the swap — the tx rolls back, the live table is left untouched,
+and the error names the drifting ids plus the fix (`r.unmanagedTable` or emit
+the missing events). Implicit entity projections only; explicit projections and
+`r.unmanagedTable` are out of scope.
+
+**Blind spot (by design):** `sensitive` columns are stripped from the event log,
+so a replay can never reproduce them — the guard **excludes** them from its diff
+(otherwise every sensitive-field row would false-positive). A direct write that
+touches *only* a sensitive column is therefore not caught. That remains the
+Wave-3 sensitive-rebuild gap, not a regression. Encrypted / PII columns are safe:
+the executor encrypts once and stores the same ciphertext in both the event and
+the live row, so replay reproduces it byte-for-byte.
+
 ## Related
 
 - Live == rebuild equivalence (executor path): `packages/framework/src/db/__tests__/implicit-projection-equivalence.integration.test.ts`
-- Runtime drift detection (not yet shipped): kumiko-framework#722
+- Runtime unreachable-state guard: `packages/framework/src/db/__tests__/assert-shadow-covers-live.integration.test.ts`
 - Projection-aware migrations (managed vs unmanaged DDL): `docs/archive/plans/projection-aware-migrations.md`
 

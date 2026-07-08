@@ -419,6 +419,20 @@ export function buildEntityTableMeta(
   };
 }
 
+// snake_case columns of `sensitive` fields. The executor strips these from the
+// event payload (GDPR), so an event replay CANNOT reproduce them — the rebuild
+// guard (#722) excludes them from its live==shadow diff, where their divergence
+// is by-design, not drift.
+export function collectSensitiveColumns(entity: EntityDefinition): string[] {
+  const cols: string[] = [];
+  for (const [name, field] of Object.entries(entity.fields)) {
+    if ("sensitive" in field && field.sensitive === true) {
+      for (const c of fieldToColumnMeta(name, field, entity)) cols.push(c.name);
+    }
+  }
+  return cols;
+}
+
 // Escape-Hatch für Tabellen die NICHT durch das Entity-System gemanagt
 // werden. Kein Audit-Trail (keine version, inserted_at, modified_by etc.),
 // kein automatischer tenant_id-Index, kein softDelete-Support.

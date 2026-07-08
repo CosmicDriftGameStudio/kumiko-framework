@@ -3,6 +3,7 @@ import { applyEntityEvent } from "../db/apply-entity-event";
 import {
   assertBackingTableSuperset,
   buildEntityTableMeta,
+  collectSensitiveColumns,
   resolveTableName,
 } from "../db/entity-table-meta";
 import { asEntityTableMeta } from "../db/query";
@@ -138,6 +139,7 @@ function buildImplicitProjection(
       if (s !== entityName && !extraSources.includes(s)) extraSources.push(s);
     }
   }
+  const unreproducibleColumns = collectSensitiveColumns(entity);
   return {
     name,
     source: entityName,
@@ -145,6 +147,7 @@ function buildImplicitProjection(
     table: drizzleTable,
     apply,
     isImplicit: true,
+    ...(unreproducibleColumns.length > 0 && { unreproducibleColumns }),
   };
 }
 

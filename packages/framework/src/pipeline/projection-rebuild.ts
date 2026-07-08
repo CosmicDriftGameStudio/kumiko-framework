@@ -8,6 +8,7 @@ import {
 } from "../db/queries/projection-rebuild";
 import {
   assertLiveColumnsMatchMeta,
+  assertShadowCoversLive,
   buildShadowTable,
   ensureRebuildSchema,
   fenceLiveTable,
@@ -325,6 +326,14 @@ export async function rebuildProjection(
 
       if (skipped.length > 0) {
         await recordRebuildDeadLetters(tx, projectionName, skipped);
+      }
+      // Guard the swap: an implicit projection's shadow must fully reproduce the
+      // live table, or the swap silently drops direct-written state (#722). Also
+      // covers the subscribedList.length === 0 case above (empty shadow vs a
+      // non-empty live table is the purest #498 wipe). Explicit projections are
+      // exempt — a multi-table apply legitimately writes live secondary state.
+      if (projection.isImplicit === true) {
+        await assertShadowCoversLive(tx, meta, projectionName, projection.unreproducibleColumns);
       }
       await finalizeProjectionRebuild(tx, projectionName, lastProcessedEventId);
       await swapShadowIntoLive(tx, meta.tableName);
