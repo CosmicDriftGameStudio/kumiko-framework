@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { scaffoldApp } from "../scaffold-app";
 import { scaffoldAppFeature } from "../scaffold-app-feature";
 
@@ -19,23 +20,60 @@ describe("scaffoldAppFeature", () => {
     rmSync(tmp, { recursive: true, force: true });
   });
 
-  test("scaffolds src/features/<name>/feature.ts + index.ts", () => {
+  test("scaffolds die volle App-Feature-Konvention", () => {
     const result = scaffoldAppFeature({ name: "product-catalog", appRoot });
     expect(result.featureName).toBe("product-catalog");
     expect(result.files).toEqual([
       "src/features/product-catalog/feature.ts",
       "src/features/product-catalog/index.ts",
+      "src/features/product-catalog/constants.ts",
+      "src/features/product-catalog/i18n.ts",
+      "src/features/product-catalog/schema/product-catalog-item.ts",
+      "src/features/product-catalog/schema/index.ts",
+      "src/features/product-catalog/web/index.ts",
+      "src/features/product-catalog/__tests__/feature.boot.test.ts",
     ]);
-    expect(existsSync(join(appRoot, "src/features/product-catalog/feature.ts"))).toBe(true);
-    expect(existsSync(join(appRoot, "src/features/product-catalog/index.ts"))).toBe(true);
+    for (const file of result.files) {
+      expect(existsSync(join(appRoot, file))).toBe(true);
+    }
   });
 
-  test("feature.ts uses kebab-name + camelCase variable", () => {
+  test("feature.ts registriert nur — Entity aus schema/, Keys aus i18n.ts", () => {
     scaffoldAppFeature({ name: "product-catalog", appRoot });
     const feature = readFileSync(join(appRoot, "src/features/product-catalog/feature.ts"), "utf-8");
-    expect(feature).toContain(`defineFeature("product-catalog"`);
+    expect(feature).toContain("defineFeature(PRODUCT_CATALOG_FEATURE");
     expect(feature).toContain("export const productCatalogFeature");
-    expect(feature).toContain('r.entity("product-catalog-item"');
+    expect(feature).toContain('r.entity("product-catalog-item", productCatalogItemEntity)');
+    expect(feature).toContain('type: "entityList"');
+    expect(feature).toContain("r.translations({ keys: productCatalogTranslationKeys })");
+    // Konvention: Entity-Felder leben in schema/, nicht inline in feature.ts.
+    expect(feature).not.toContain("fields:");
+  });
+
+  test("Starter erfüllt Boot-Constraints: sortable-Feld, defaultSort, i18n-Pflichtkeys", () => {
+    scaffoldAppFeature({ name: "product-catalog", appRoot });
+    const entity = readFileSync(
+      join(appRoot, "src/features/product-catalog/schema/product-catalog-item.ts"),
+      "utf-8",
+    );
+    expect(entity).toContain("sortable: true");
+    const feature = readFileSync(join(appRoot, "src/features/product-catalog/feature.ts"), "utf-8");
+    expect(feature).toContain('defaultSort: { field: "title", dir: "asc" }');
+    const i18n = readFileSync(join(appRoot, "src/features/product-catalog/i18n.ts"), "utf-8");
+    expect(i18n).toContain('"screen:items.title"');
+    expect(i18n).toContain('"product-catalog:entity:product-catalog-item:field:title"');
+  });
+
+  test("web/index.ts ist Client-Stub, __tests__ enthält validateBoot-Test", () => {
+    scaffoldAppFeature({ name: "product-catalog", appRoot });
+    const web = readFileSync(join(appRoot, "src/features/product-catalog/web/index.ts"), "utf-8");
+    expect(web).toContain("@runtime client");
+    expect(web).toContain("export const productCatalogClient: ClientFeatureDefinition");
+    const bootTest = readFileSync(
+      join(appRoot, "src/features/product-catalog/__tests__/feature.boot.test.ts"),
+      "utf-8",
+    );
+    expect(bootTest).toContain("validateBoot([productCatalogFeature])");
   });
 
   test("auto-mounts in src/run-config.ts (import + APP_FEATURES entry)", () => {
@@ -117,6 +155,21 @@ describe("scaffoldAppFeature", () => {
     const occurrences = healed.match(/productCatalogFeature/g) ?? [];
     expect(occurrences.length).toBe(2); // 1 import + 1 array-entry
     expect(healed).toMatch(/\]\s*as const;/);
+  });
+
+  test("gescaffoldetes Feature bootet wirklich (validateBoot über dynamic import)", async () => {
+    // Ins Repo scaffolden (nicht os.tmpdir): nur hier löst der dynamic
+    // import "@cosmicdrift/kumiko-framework/engine" über node_modules auf.
+    const repoTmp = mkdtempSync(join(import.meta.dir, ".tmp-scaffold-"));
+    try {
+      scaffoldAppFeature({ name: "boot-probe", appRoot: repoTmp });
+      const mod = (await import(join(repoTmp, "src/features/boot-probe/feature.ts"))) as {
+        readonly bootProbeFeature: Parameters<typeof validateBoot>[0][number];
+      };
+      expect(() => validateBoot([mod.bootProbeFeature])).not.toThrow();
+    } finally {
+      rmSync(repoTmp, { recursive: true, force: true });
+    }
   });
 
   test("rejects non-kebab-case", () => {
