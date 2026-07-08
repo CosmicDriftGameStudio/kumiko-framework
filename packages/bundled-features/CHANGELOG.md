@@ -1,5 +1,25 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.130.2
+
+### Patch Changes
+
+- 98ed535: Content-Tree + Config-Nav Sysadmin-Shell polish:
+
+  - text-content: Leaf-Knoten tragen jetzt ein `file`-Icon statt eines Dots; der Editor läuft auf der Page-Shell (`Form`-Primitive mit Card statt des entfernten `FormPanelShell`).
+  - Sidebar-Nav bekommt ein Suchfeld, das den Baum live filtert (Treffer + ihre Ancestors bleiben, zugeklappte Ordner öffnen für die Suche).
+  - Ordner-Knoten zeigen `folder-open` wenn ausgeklappt.
+  - NAV_ICONS um `server`, `mail`, `lock`, `hash`, `download`, `folder-open` ergänzt — SMTP-/Config-Nav-Kinder (z.B. „Email-Versand") rendern damit ein Icon statt blank.
+  - Verschachtelte Provider-Ordner (Content-Tree) rendern ihre Kinder in einem `<ul>` (valides HTML + Einrück-Stufe pro Tiefe) statt `<li>`-in-`<li>`.
+  - Platform-Overview: `user:query:user:list` in der Allowlist (behebt den Overview-Crash).
+
+- Updated dependencies [98ed535]
+  - @cosmicdrift/kumiko-renderer-web@0.130.2
+  - @cosmicdrift/kumiko-renderer@0.130.2
+  - @cosmicdrift/kumiko-framework@0.130.2
+  - @cosmicdrift/kumiko-dispatcher-live@0.130.2
+  - @cosmicdrift/kumiko-headless@0.130.2
+
 ## 0.130.1
 
 ### Patch Changes
