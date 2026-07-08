@@ -128,6 +128,7 @@ export {
   BareFormProvider,
   DefaultCard as Card,
   defaultPrimitives,
+  FormPanelShell,
   FormScreenShell,
 } from "./primitives";
 export type { ActionMenuProps, MenuItemDef } from "./primitives/action-menu";
