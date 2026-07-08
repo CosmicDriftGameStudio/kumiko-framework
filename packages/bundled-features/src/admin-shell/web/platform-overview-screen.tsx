@@ -4,6 +4,7 @@ import { useDispatcher, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useEffect, useState } from "react";
 import { JobQueries } from "../../jobs/constants";
 import { TenantQueries } from "../../tenant/constants";
+import { UserQueries } from "../../user/constants";
 import { OverviewLayout, type OverviewState } from "./overview-layout";
 import { overviewQuery } from "./overview-query";
 
@@ -27,6 +28,18 @@ export function PlatformOverviewScreen(): ReactNode {
         return;
       }
 
+      const usersRes = await overviewQuery<{ readonly rows: readonly unknown[] }>(
+        "platform",
+        dispatcher,
+        UserQueries.list,
+        {},
+      );
+      if (cancelled) return;
+      if (!usersRes.isSuccess) {
+        setState({ kind: "error", message: usersRes.error.message });
+        return;
+      }
+
       const failedJobsRes = await overviewQuery<{ readonly rows: readonly unknown[] }>(
         "platform",
         dispatcher,
@@ -45,6 +58,10 @@ export function PlatformOverviewScreen(): ReactNode {
           {
             label: t("admin-shell:overview.tenants"),
             value: String(tenantsRes.data.rows.length),
+          },
+          {
+            label: t("admin-shell:overview.users"),
+            value: String(usersRes.data.rows.length),
           },
           {
             label: t("admin-shell:overview.failedJobs"),
@@ -69,7 +86,7 @@ export function PlatformOverviewScreen(): ReactNode {
       title={t("admin-shell:overview.platformTitle")}
       state={state}
       loadingLabel={t("admin-shell:overview.loading")}
-      columns={2}
+      columns={3}
     />
   );
 }

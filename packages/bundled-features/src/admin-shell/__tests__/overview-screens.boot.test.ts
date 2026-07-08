@@ -5,11 +5,13 @@ import { createConfigFeature } from "../../config/feature";
 import { createJobsFeature } from "../../jobs/feature";
 import { createTenantFeature } from "../../tenant/feature";
 import { tierEngineFeature } from "../../tier-engine/feature";
+import { createUserFeature } from "../../user/feature";
 import { PLATFORM_OVERVIEW_SCREEN_ID, TENANT_OVERVIEW_SCREEN_ID } from "../constants";
 import { createAdminShellFeature } from "../feature";
 
 const features = [
   createConfigFeature(),
+  createUserFeature(),
   createTenantFeature(),
   createAuditFeature(),
   createJobsFeature(),

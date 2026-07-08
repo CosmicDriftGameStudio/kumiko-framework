@@ -5,6 +5,7 @@ import { createConfigFeature } from "../../config/feature";
 import { createJobsFeature } from "../../jobs/feature";
 import { createTenantFeature } from "../../tenant/feature";
 import { tierEngineFeature } from "../../tier-engine/feature";
+import { createUserFeature } from "../../user/feature";
 import {
   ADMIN_SHELL_FEATURE,
   DEFAULT_PLATFORM_WORKSPACE_ID,
@@ -14,6 +15,7 @@ import { createAdminShellFeature } from "../feature";
 
 const features = [
   createConfigFeature(),
+  createUserFeature(),
   createTenantFeature(),
   createAuditFeature(),
   createJobsFeature(),
@@ -22,8 +24,20 @@ const features = [
 ];
 
 describe("admin-shell boot + workspace composition", () => {
-  test("validateBoot with tenant, audit, jobs, tier-engine", () => {
+  test("validateBoot with user, tenant, audit, jobs, tier-engine", () => {
     expect(() => validateBoot(features)).not.toThrow();
+  });
+
+  test("validateBoot fails without user (platform-overview user-count requires it)", () => {
+    const withoutUser = [
+      createConfigFeature(),
+      createTenantFeature(),
+      createAuditFeature(),
+      createJobsFeature(),
+      tierEngineFeature,
+      createAdminShellFeature(),
+    ];
+    expect(() => validateBoot(withoutUser)).toThrow();
   });
 
   test("registers tenant + platform workspaces with qualified ids", () => {
@@ -82,6 +96,7 @@ describe("admin-shell boot + workspace composition", () => {
     });
     const registry = createRegistry([
       createConfigFeature(),
+      createUserFeature(),
       createTenantFeature(),
       createAuditFeature(),
       createJobsFeature(),
@@ -103,6 +118,7 @@ describe("admin-shell boot + workspace composition", () => {
     });
     const registry = createRegistry([
       createConfigFeature(),
+      createUserFeature(),
       createTenantFeature(),
       createAuditFeature(),
       createJobsFeature(),
