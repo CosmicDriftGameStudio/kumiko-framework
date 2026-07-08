@@ -1,3 +1,6 @@
+// @runtime client
+// Server + client i18n for user-data-rights (operator screens + nav). Pure
+// data, importable from the web bundle (web/i18n.ts derives the client keys).
 type LocalizedString = { readonly de: string; readonly en: string };
 
 export const USER_DATA_RIGHTS_I18N: Readonly<Record<string, LocalizedString>> = {
