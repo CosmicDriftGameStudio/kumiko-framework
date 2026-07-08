@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { JobQueries } from "../../jobs/constants";
 import { TenantQueries } from "../../tenant/constants";
+import { UserQueries } from "../../user/constants";
 import {
   isOverviewQueryAllowed,
   PLATFORM_OVERVIEW_ALLOWED_QUERIES,
@@ -22,8 +23,16 @@ describe("overview query allowlist", () => {
     expect(TENANT_OVERVIEW_ALLOWED_QUERIES).toContain("config:query:readiness");
   });
 
-  test("platform allowlist is tenant:list + jobs:list only", () => {
-    expect(PLATFORM_OVERVIEW_ALLOWED_QUERIES).toEqual([TenantQueries.list, JobQueries.list]);
+  test("platform allowlist is tenant:list + jobs:list + user:list", () => {
+    expect(PLATFORM_OVERVIEW_ALLOWED_QUERIES).toEqual([
+      TenantQueries.list,
+      JobQueries.list,
+      UserQueries.list,
+    ]);
+  });
+
+  test("platform overview allows the user-count query (fw#891 regression)", () => {
+    expect(isOverviewQueryAllowed("platform", UserQueries.list)).toBe(true);
   });
 
   test("platform queries are not tenant-allowlisted", () => {
