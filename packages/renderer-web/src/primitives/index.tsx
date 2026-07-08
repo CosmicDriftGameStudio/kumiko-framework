@@ -778,7 +778,7 @@ function useRowActionTrigger(row: ListRowViewModel) {
       toast({
         title: t("kumiko.rowAction.failed"),
         description: e instanceof Error ? e.message : String(e),
-        variant: "destructive",
+        variant: "bad",
         ...(docsUrl !== undefined && { docsUrl }),
       });
     } finally {
