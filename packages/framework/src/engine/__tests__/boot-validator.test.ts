@@ -12,6 +12,7 @@ import {
   createTextField,
   defineFeature,
   from,
+  registerEntityCrud,
 } from "../index";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
@@ -550,6 +551,19 @@ describe("boot-validator", () => {
       }),
     ];
     expect(() => validateBoot(features)).toThrow(/a:query:list.*missing an access rule/i);
+  });
+
+  test("registerEntityCrud without access options fails boot (no implicit openToAll)", () => {
+    const widgetEntity = createEntity({
+      table: "phase0_widgets",
+      fields: { name: createTextField({ required: true }) },
+    });
+    const features = [
+      defineFeature("phase0", (r) => {
+        registerEntityCrud(r, "widget", widgetEntity);
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(/phase0:write:widget:create.*missing an access rule/i);
   });
 
   test("accepts role-based access rule", () => {
