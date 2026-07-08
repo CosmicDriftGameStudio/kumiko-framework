@@ -174,11 +174,11 @@ export {
   ProgressBar,
   QueryTable,
   SectionCard,
-  smoothPath,
   Sparkline,
-  StatCard,
   STATUS_TONE_TEXT,
+  StatCard,
   StatusBadge,
   StatusBarChart,
+  smoothPath,
   TimeseriesChart,
 } from "./widgets";

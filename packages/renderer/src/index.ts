@@ -62,6 +62,8 @@ export {
   REFERENCE_LIST_LOOKUP_LIMIT,
   REFERENCE_SEARCH_DEBOUNCE_MS,
 } from "./hooks/reference-limits";
+export type { UseDisclosureResult } from "./hooks/use-disclosure";
+export { useDisclosure } from "./hooks/use-disclosure";
 export type { UseFormOptions, UseFormResult } from "./hooks/use-form";
 export { useForm } from "./hooks/use-form";
 export type {
@@ -73,8 +75,6 @@ export type {
 export { useListUrlState } from "./hooks/use-list-url-state";
 export type { UseMutationResult } from "./hooks/use-mutation";
 export { useMutation } from "./hooks/use-mutation";
-export type { UseDisclosureResult } from "./hooks/use-disclosure";
-export { useDisclosure } from "./hooks/use-disclosure";
 export type { UseQueryOptions, UseQueryResult } from "./hooks/use-query";
 export { useQuery } from "./hooks/use-query";
 export { useStore, useStoreSelector } from "./hooks/use-store";
