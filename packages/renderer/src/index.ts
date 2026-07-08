@@ -77,12 +77,14 @@ export { useStore, useStoreSelector } from "./hooks/use-store";
 export type {
   LocaleProviderProps,
   TranslationBundle,
+  TranslationsByKey,
   TranslationsByLocale,
 } from "./i18n";
 export {
   createStaticLocaleResolver,
   LocaleProvider,
   mergeTranslations,
+  translationsByLocaleFromKeys,
   useLocale,
   useTranslation,
 } from "./i18n";

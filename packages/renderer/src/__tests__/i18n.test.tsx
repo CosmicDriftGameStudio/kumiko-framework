@@ -6,6 +6,7 @@ import {
   createStaticLocaleResolver,
   LocaleProvider,
   type TranslationsByLocale,
+  translationsByLocaleFromKeys,
   useLocale,
   useTranslation,
 } from "../i18n";
@@ -144,6 +145,23 @@ describe("useTranslation — referential stability", () => {
       </LocaleProvider>,
     );
     expect((Probe as unknown as { lastT?: unknown }).lastT).toBe(firstT);
+  });
+});
+describe("translationsByLocaleFromKeys", () => {
+  test("pivots key-first source to locale-first bundles losslessly", () => {
+    const source = {
+      "app:nav.home": { de: "Start", en: "Home" },
+      "app:nav.settings": { de: "Einstellungen", en: "Settings" },
+    };
+    const byLocale = translationsByLocaleFromKeys(source);
+    expect(byLocale["de"]).toEqual({
+      "app:nav.home": "Start",
+      "app:nav.settings": "Einstellungen",
+    });
+    expect(byLocale["en"]).toEqual({
+      "app:nav.home": "Home",
+      "app:nav.settings": "Settings",
+    });
   });
 });
 describe("useLocale", () => {
