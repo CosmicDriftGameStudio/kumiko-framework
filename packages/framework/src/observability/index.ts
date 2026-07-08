@@ -52,6 +52,7 @@ export {
   emitEventConsumerPassOutcome,
   emitEventDispatcherListenConnected,
   emitHttpRequest,
+  emitJobQueueDepth,
   registerStandardMetrics,
   STANDARD_METRIC_DEFS,
 } from "./standard-metrics";
