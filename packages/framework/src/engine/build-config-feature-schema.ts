@@ -56,6 +56,11 @@ export type ConfigFeatureSchema = {
 
 // Audience-Reihenfolge im Sidebar: Plattform vor Tenant vor Benutzer.
 const SCOPE_ORDER: Record<ConfigScope, number> = { system: 10, tenant: 20, user: 30 };
+const SCOPE_ICON: Record<ConfigScope, string> = {
+  system: "shield",
+  tenant: "building",
+  user: "user",
+};
 const SCOPES_BROAD_TO_DEEP: readonly ConfigScope[] = ["system", "tenant", "user"];
 
 const audienceNavShortId = (scope: ConfigScope): string => `audience-${scope}`;
@@ -107,6 +112,7 @@ export function buildConfigFeatureSchema(registry: Registry): ConfigFeatureSchem
     navs.push({
       id: audienceNavShortId(scope),
       label: `config.settings.${scope}`,
+      icon: SCOPE_ICON[scope],
       order: SCOPE_ORDER[scope],
       access: rolesToAccess(visible.flatMap((v) => v.roles)),
     });

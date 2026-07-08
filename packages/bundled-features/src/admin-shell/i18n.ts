@@ -30,6 +30,7 @@ export const ADMIN_SHELL_I18N: Readonly<Record<string, LocalizedString>> = {
     en: "Check required settings",
   },
   "admin-shell:overview.tenants": { de: "Mandanten", en: "Tenants" },
+  "admin-shell:overview.users": { de: "Benutzer", en: "Users" },
   "admin-shell:overview.failedJobs": { de: "Fehlgeschlagene Jobs", en: "Failed jobs" },
   "admin-shell:overview.failedJobsHint": { de: "Job-Runs prüfen", en: "Review job runs" },
 };

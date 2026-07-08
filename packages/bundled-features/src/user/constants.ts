@@ -1,3 +1,4 @@
+// @runtime client
 // Feature name
 export const USER_FEATURE = "user" as const;
 

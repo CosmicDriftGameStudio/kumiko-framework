@@ -90,6 +90,9 @@ describe("buildConfigFeatureSchema — structure", () => {
     expect(sys?.screen).toBeUndefined();
     expect(sys?.parent).toBeUndefined();
     expect(ten?.label).toBe("config.settings.tenant");
+    expect(sys?.icon).toBe("shield");
+    expect(ten?.icon).toBe("building");
+    expect(usr?.icon).toBe("user");
     expect((sys?.order ?? 0) < (ten?.order ?? 0) && (ten?.order ?? 0) < (usr?.order ?? 0)).toBe(
       true,
     );
