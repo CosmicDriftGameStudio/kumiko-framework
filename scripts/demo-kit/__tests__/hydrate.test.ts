@@ -23,7 +23,7 @@ describe("demo-kit hydrate", () => {
       "utf8",
     );
     const stylesFixture = readFileSync(
-      join(KIT_ROOT, "demos/create-app/fixtures/styles-party.css"),
+      join(KIT_ROOT, "demos/create-app/fixtures/styles-vice-city.css"),
       "utf8",
     );
     const notesStep = def.steps.find((s) => s.kind === "editor" && s.file.endsWith("notes.ts"));
@@ -62,6 +62,7 @@ describe("demo-kit validate-schema", () => {
     expect(errors).toEqual([]);
   });
 });
+
 
 
 

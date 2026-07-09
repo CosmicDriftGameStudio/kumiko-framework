@@ -1,9 +1,10 @@
 id: brand-theme
 kind: editor
 file: src/styles.css
-content: $fixture:styles-party.css
+content: $fixture:styles-vice-city.css
 caption:
-  de: Party-Look in styles.css setzen
-  en: Give it a party look in styles.css
+  de: Vice-City-Look in styles.css
+  en: Give it a Vice City look in styles.css
 verify: record-only
+
 

@@ -1,0 +1,35 @@
+@import "@cosmicdrift/kumiko-renderer-web/styles.css";
+
+@source "./**/*.{ts,tsx}";
+
+@theme {
+  --color-primary: #ff2a6d;
+  --color-primary-foreground: #ffffff;
+  --color-ring: #05d9e8;
+}
+
+/* Vice City: deep purple chrome + hot pink CTAs + cyan focus — hijack
+   :root:not(.dark) so the GIF pops without a theme-toggle step. */
+@layer base {
+  :root:not(.dark) {
+    --color-background: #1a0533;
+    --color-foreground: #f0e6ff;
+    --color-card: #240b45;
+    --color-card-foreground: #f0e6ff;
+    --color-popover: #240b45;
+    --color-popover-foreground: #f0e6ff;
+    --color-border: #4a2080;
+    --color-input: #4a2080;
+    --color-muted: #2d1055;
+    --color-muted-foreground: #c9b8e8;
+    --color-secondary: #2d1055;
+    --color-secondary-foreground: #f0e6ff;
+    --color-accent: #05d9e8;
+    --color-accent-foreground: #1a0533;
+    --color-destructive: #ff006e;
+    --color-destructive-foreground: #ffffff;
+    --color-primary: #ff2a6d;
+    --color-primary-foreground: #ffffff;
+    --color-ring: #05d9e8;
+  }
+}
