@@ -10,6 +10,9 @@
 //                   deltaField/deltaDirectionField(+deltaToneField) sind
 //                   optional — nur wenn BEIDE Felder gesetzt sind UND geliefert
 //                   werden, zeigt die Kachel einen Delta-Chip ("↓ 23 %").
+//                   icon/accentColor sind statisch am Panel (keine Query-
+//                   Felder) — icon über extensionSectionComponents wie bei
+//                   custom-Panels, accentColor ein roher CSS-Farbwert.
 //   stat-group    → mehrere stat-Panels unter einem Sektions-Titel, jedes
 //                   Kind bleibt eine eigenständige Query.
 //   chart         → { points: { atMs, value | null }[], windowStartMs,
@@ -58,13 +61,41 @@ const STAT_TONES: ReadonlySet<string> = new Set(["default", "positive", "warn"])
 const WIDE_PANEL = "sm:col-span-2 lg:col-span-4";
 const HALF_PANEL = "sm:col-span-2 lg:col-span-2";
 
+function StatPanelIcon({
+  panel,
+  screenId,
+  filterParams,
+}: {
+  readonly panel: DashboardStatPanel;
+  readonly screenId: string;
+  readonly filterParams: Readonly<Record<string, unknown>>;
+}): ReactNode {
+  const name = panel.icon !== undefined ? extensionSectionName(panel.icon) : undefined;
+  const Icon = useExtensionSectionComponent(name);
+  useEffect(() => {
+    if (panel.icon !== undefined && name !== undefined && Icon === undefined) {
+      // biome-ignore lint/suspicious/noConsole: dev-warning für Setup-Fehler
+      console.warn(
+        `[kumiko] Dashboard stat-panel "${panel.id}" on screen "${screenId}" references icon ` +
+          `"${name}", which is not registered in clientFeatures.extensionSectionComponents.`,
+      );
+    }
+  }, [panel.icon, panel.id, name, Icon, screenId]);
+  if (Icon === undefined) return null;
+  return (
+    <Icon entityName={screenId} entityId={null} screenId={screenId} filterParams={filterParams} />
+  );
+}
+
 function StatPanelBody({
   panel,
   label,
+  screenId,
   filterParams,
 }: {
   readonly panel: DashboardStatPanel;
   readonly label: string;
+  readonly screenId: string;
   readonly filterParams: Readonly<Record<string, unknown>>;
 }): ReactNode {
   const { data, error, loading, refetch } = useQuery<Readonly<Record<string, unknown>>>(
@@ -82,9 +113,15 @@ function StatPanelBody({
   const delta = readDelta(panel, record);
   return (
     <StatCard
+      icon={
+        panel.icon !== undefined ? (
+          <StatPanelIcon panel={panel} screenId={screenId} filterParams={filterParams} />
+        ) : undefined
+      }
       label={label}
       value={String(record[panel.valueField] ?? "—")}
       tone={tone}
+      accentColor={panel.accentColor}
       {...(sub !== undefined && sub !== null && { sub: String(sub) })}
       {...(delta !== undefined && { delta })}
       testId={`dashboard-panel-${panel.id}`}
@@ -110,10 +147,12 @@ function readDelta(
 function StatGroupPanelBody({
   panel,
   label,
+  screenId,
   filterParams,
 }: {
   readonly panel: DashboardStatGroupPanel;
   readonly label: string;
+  readonly screenId: string;
   readonly filterParams: Readonly<Record<string, unknown>>;
 }): ReactNode {
   const t = useTranslation();
@@ -125,6 +164,7 @@ function StatGroupPanelBody({
             key={stat.id}
             panel={stat}
             label={t(stat.label)}
+            screenId={screenId}
             filterParams={filterParams}
           />
         ))}
@@ -365,9 +405,18 @@ function PanelBody({
   readonly filterParams: Readonly<Record<string, unknown>>;
 }): ReactNode {
   if (panel.kind === "stat")
-    return <StatPanelBody panel={panel} label={label} filterParams={filterParams} />;
+    return (
+      <StatPanelBody panel={panel} label={label} screenId={screenId} filterParams={filterParams} />
+    );
   if (panel.kind === "stat-group") {
-    return <StatGroupPanelBody panel={panel} label={label} filterParams={filterParams} />;
+    return (
+      <StatGroupPanelBody
+        panel={panel}
+        label={label}
+        screenId={screenId}
+        filterParams={filterParams}
+      />
+    );
   }
   if (panel.kind === "chart")
     return <ChartPanelBody panel={panel} label={label} filterParams={filterParams} />;
