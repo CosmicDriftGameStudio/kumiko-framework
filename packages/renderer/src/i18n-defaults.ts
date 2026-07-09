@@ -43,6 +43,10 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.combobox.search-placeholder": "Suchen…",
     "kumiko.combobox.empty": "Keine Treffer.",
     "kumiko.combobox.loading": "Lade…",
+
+    // Dashboard — Default-Label für den "(alle)"-Eintrag im Screen-Filter,
+    // wenn DashboardFilterDefinition.allLabel nicht gesetzt ist.
+    "kumiko.dashboard.filter.all": "Alle",
     "kumiko.combobox.placeholder": "—",
 
     // Widgets — Query-States (QueryTable, LoadingState, ErrorState).
@@ -153,6 +157,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.combobox.empty": "No matches.",
     "kumiko.combobox.loading": "Loading…",
     "kumiko.combobox.placeholder": "—",
+
+    "kumiko.dashboard.filter.all": "All",
 
     "kumiko.widget.loading": "Loading…",
     "kumiko.widget.error.title": "Couldn't load.",

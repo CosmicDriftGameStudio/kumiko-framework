@@ -1,6 +1,8 @@
 import type {
   ActionFormScreenDefinition,
   ConfigEditScreenDefinition,
+  DashboardFilterDefinition,
+  DashboardPanelDefinition,
   DashboardScreenDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
@@ -66,6 +68,31 @@ function pushRowActionKeys(out: Set<string>, action: RowAction): void {
   }
 }
 
+function pushDashboardScreenKeys(out: Set<string>, dashboard: DashboardScreenDefinition): void {
+  for (const panel of dashboard.panels) pushDashboardPanelKeys(out, panel);
+  if (dashboard.filter !== undefined) pushDashboardFilterKeys(out, dashboard.filter);
+}
+
+function pushDashboardPanelKeys(out: Set<string>, panel: DashboardPanelDefinition): void {
+  if (panel.kind === "custom") return; // Komponente übersetzt sich selbst, kein Key hier
+  pushKey(out, panel.label);
+  if (panel.kind === "stat-group") {
+    for (const stat of panel.stats) pushKey(out, stat.label);
+  }
+  if (panel.kind === "list") {
+    for (const col of panel.columns) {
+      const normalized = normalizeListColumn(col);
+      if (normalized.label !== undefined) pushKey(out, normalized.label);
+    }
+  }
+}
+
+function pushDashboardFilterKeys(out: Set<string>, filter: DashboardFilterDefinition): void {
+  pushKey(out, filter.label);
+  if (filter.allLabel !== undefined) pushKey(out, filter.allLabel);
+  for (const opt of filter.options ?? []) pushKey(out, opt.label);
+}
+
 function pushToolbarActionKeys(out: Set<string>, action: ToolbarAction): void {
   pushKey(out, action.label);
   if (action.kind === "writeHandler") {
@@ -108,16 +135,7 @@ export function requiredKeysFromScreen(
       break;
     }
     case "dashboard": {
-      const dashboard = screen as DashboardScreenDefinition;
-      for (const panel of dashboard.panels) {
-        pushKey(out, panel.label);
-        if (panel.kind === "list") {
-          for (const col of panel.columns) {
-            const normalized = normalizeListColumn(col);
-            if (normalized.label !== undefined) pushKey(out, normalized.label);
-          }
-        }
-      }
+      pushDashboardScreenKeys(out, screen as DashboardScreenDefinition);
       break;
     }
     case "entityEdit": {

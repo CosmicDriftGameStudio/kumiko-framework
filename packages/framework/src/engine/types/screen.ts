@@ -369,15 +369,78 @@ export type DashboardListPanel = {
   readonly columns: readonly ListColumnSpec[];
 };
 
+// Betitelte Sektion aus mehreren Stat-Panels (z.B. "Net Worth": Assets/Debts/
+// Net). Ein Nesting-Level, kein Group-of-Groups — jedes Kind bleibt ein
+// vollwertiges DashboardStatPanel mit eigener Query/id/label, der Renderer
+// zieht sie nur gemeinsam unter einen Sektions-Titel.
+export type DashboardStatGroupPanel = {
+  readonly kind: "stat-group";
+  readonly id: string;
+  readonly label: string;
+  readonly stats: readonly DashboardStatPanel[];
+};
+
+// Nicht-tabellarische Kurzliste (z.B. "nächste Termine"). Query-Result-
+// Contract: `{ rows: { primary: string; trailing?: string }[] }`.
+export type DashboardFeedPanel = {
+  readonly kind: "feed";
+  readonly id: string;
+  readonly label: string;
+  readonly query: string;
+  readonly emptyLabel?: string;
+};
+
+// Liste aus Label/Wert/Fortschrittsbalken (z.B. Tilgungsfortschritt pro
+// Kredit). Query-Result-Contract: `{ rows: { label: string; value: string;
+// fraction: number }[] }` — fraction wird auf 0..1 geclampt.
+export type DashboardProgressListPanel = {
+  readonly kind: "progress-list";
+  readonly id: string;
+  readonly label: string;
+  readonly query: string;
+};
+
+// Eingehängte App-Komponente, die ihre Daten/Titel selbst verwaltet (wie ein
+// custom Screen, nur als Panel — bleibt an ihrer Array-Position statt in
+// einen separaten Slot zu wandern). Kein `query`, keine `label`: der Renderer
+// löst `component` über dieselbe extensionSectionComponents-Registry auf wie
+// entityEdit-Extension-Sections und List-Header-Slots.
+export type DashboardCustomPanel = {
+  readonly kind: "custom";
+  readonly id: string;
+  readonly component: PlatformComponent;
+};
+
 export type DashboardPanelDefinition =
   | DashboardStatPanel
+  | DashboardStatGroupPanel
   | DashboardChartPanel
-  | DashboardListPanel;
+  | DashboardListPanel
+  | DashboardFeedPanel
+  | DashboardProgressListPanel
+  | DashboardCustomPanel;
+
+// Screen-weiter Picker (Combobox), dessen gewählter Wert unter `id` in JEDE
+// Panel-Query dieses Screens gemerged wird (Query-Handler validieren den Wert
+// selbst gegen die Tenant-Sicht — dies ist UX-Scoping, keine Access-Boundary).
+// Genau eins von `options`/`optionsQuery` ist gesetzt (Boot-Validator prüft).
+export type DashboardFilterDefinition = {
+  readonly id: string;
+  readonly label: string;
+  readonly kind: "select";
+  readonly placeholder?: string;
+  /** i18n-Key für den "(alle)"-Eintrag. */
+  readonly allLabel?: string;
+  readonly options?: readonly { readonly value: string; readonly label: string }[];
+  /** Query-Result-Contract: `{ rows: { value: string; label: string }[] }`. */
+  readonly optionsQuery?: string;
+};
 
 export type DashboardScreenDefinition = {
   readonly id: string;
   readonly type: "dashboard";
   readonly panels: readonly DashboardPanelDefinition[];
+  readonly filter?: DashboardFilterDefinition;
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;
 };
