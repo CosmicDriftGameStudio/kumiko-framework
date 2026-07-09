@@ -10,6 +10,10 @@ cd /Users/marc/code/cosmicdriftgamestudio/.wt/kumiko-framework-demo-kit
 
 Der Recorder öffnet links ein **eigenes** Terminal-Fenster (tmux attach), rechts Chromium. Beide werden per osascript nebeneinander gelegt — Cursor/iTerm-Fenster vorher minimieren oder schließen.
 
+**Accessibility:** System Settings → Privacy & Security → **Accessibility** → `Terminal` (oder iTerm) + `osascript` erlauben. Ohne das klappt das Fenster-Layout nicht (Recorder läuft trotzdem weiter).
+
+**Wo läuft was:** Den Fortschritt (`step 1/5 … launching Chromium`) siehst du im Terminal, in dem du `bun scripts/record-demo.ts` startest — nicht im neuen tmux-Fenster. Dort erscheinen erst die getippten Befehle ab step 5.
+
 Optional: `RECORD_DEMO_TERMINAL=iTerm2` wenn du iTerm statt Terminal.app willst.
 
 Setup-Details: [RECORDING.md](./RECORDING.md)
@@ -51,3 +55,4 @@ git add apps/marketing/public/hero/
 git commit -m "feat(marketing): hero demo recording"
 git push
 ```
+

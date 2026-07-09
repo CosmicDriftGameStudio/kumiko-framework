@@ -89,7 +89,7 @@ set x to (round (current application's NSMinX(vf)))
 set y to (round (current application's NSMinY(vf)))
 return "" & w & "," & h & "," & x & "," & y
 `;
-  const raw = execFileSync("osascript", ["-e", script], { encoding: "utf8" }).trim();
+  const raw = execFileSync("osascript", ["-e", script], { encoding: "utf8", timeout: 5000 }).trim();
   const parts = raw.split(",").map((s) => Number.parseInt(s, 10));
   if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) {
     throw new Error(`resolveCaptureGeometry: unexpected osascript output "${raw}"`);
@@ -178,9 +178,9 @@ function tmuxStart(): void {
 
   const termApp = process.env.RECORD_DEMO_TERMINAL ?? "Terminal";
   if (termApp === "iTerm2") {
-    spawnSync("osascript", ["-e", buildITermAttachScript(geom)], { stdio: "inherit" });
+    runOsascript(buildITermAttachScript(geom), "iTerm attach");
   } else {
-    spawnSync("osascript", ["-e", buildTerminalAttachScript(geom)], { stdio: "inherit" });
+    runOsascript(buildTerminalAttachScript(geom), "Terminal attach");
   }
 
   spawnSync("tmux", ["send-keys", "-t", SESSION, "clear", "Enter"], { stdio: "ignore" });
@@ -382,8 +382,11 @@ let page: Page | undefined;
 
 async function launchBrowser(): Promise<void> {
   const rightX = geom.originX + geom.paneW;
+  // biome-ignore lint/suspicious/noConsole: progress UX
+  console.log(`[record-demo] launching Chromium @ ${rightX},${geom.originY} …`);
   browser = await chromium.launch({
     headless: false,
+    timeout: 30_000,
     args: [
       `--window-size=${geom.paneW},${geom.paneH}`,
       `--window-position=${rightX},${geom.originY}`,
@@ -393,6 +396,8 @@ async function launchBrowser(): Promise<void> {
     viewport: { width: geom.paneW, height: geom.paneH },
   });
   page = await ctx.newPage();
+  // biome-ignore lint/suspicious/noConsole: progress UX
+  console.log("[record-demo] Chromium ready");
 }
 
 async function waitForPort(port: number, timeoutMs: number): Promise<void> {
@@ -509,12 +514,34 @@ async function main(): Promise<void> {
     return;
   }
 
+  geom = resolveCaptureGeometry();
+  // biome-ignore lint/suspicious/noConsole: progress UX
+  console.log(
+    `[record-demo] workdir=${RECORD_WORKDIR}\n` +
+      `[record-demo] geometry: ${geom.paneW}×${geom.paneH} per pane, ` +
+      `capture ${geom.captureW}×${geom.captureH} @ (${geom.originX},${geom.originY})`,
+  );
+  // biome-ignore lint/suspicious/noConsole: progress UX
+  console.log(
+    "[record-demo] Watch THIS terminal for progress — the new Terminal window is only the CLI pane.",
+  );
+
+  // biome-ignore lint/suspicious/noConsole: progress UX
+  console.log("[record-demo] step 1/5 — open CLI pane (tmux) …");
   tmuxStart();
+  // biome-ignore lint/suspicious/noConsole: progress UX
+  console.log("[record-demo] step 2/5 — launch Chromium …");
   await launchBrowser();
+  // biome-ignore lint/suspicious/noConsole: progress UX
+  console.log("[record-demo] step 3/5 — layout split-screen …");
   await layoutSplitScreen();
-  await sleep(2500); // WM settle before capture
+  await sleep(2500);
+  // biome-ignore lint/suspicious/noConsole: progress UX
+  console.log("[record-demo] step 4/5 — start ffmpeg capture …");
   startCapture();
-  await sleep(500); // ffmpeg warm-up before the first action lands
+  await sleep(500);
+  // biome-ignore lint/suspicious/noConsole: progress UX
+  console.log("[record-demo] step 5/5 — execute demo steps …");
 
   try {
     const timings = await execute(demo);
@@ -547,6 +574,12 @@ if (import.meta.main) {
 // parseArgs + resolveDemoByPrefix are pure; the rest (tmux/ffmpeg/playwright
 // orchestration) needs a real Mac to exercise and isn't exported.
 export { parseArgs, resolveDemoByPrefix };
+
+
+
+
+
+
 
 
 
