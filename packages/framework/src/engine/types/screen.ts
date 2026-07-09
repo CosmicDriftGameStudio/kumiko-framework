@@ -353,6 +353,16 @@ export type DashboardStatPanel = {
   readonly deltaField?: string;
   readonly deltaDirectionField?: string;
   readonly deltaToneField?: string;
+  /** Statisches Icon neben dem Label — anders als value/sub/delta variiert
+   *  das Icon nicht pro Query-Result, sondern ist eine Author-Entscheidung
+   *  wie das Panel selbst. Aufgelöst über dieselbe extensionSectionComponents-
+   *  Registry wie custom-Panels; die registrierte Komponente ignoriert
+   *  typischerweise entityName/entityId/filterParams (kein Entity-Kontext
+   *  für ein reines Icon). */
+  readonly icon?: PlatformComponent;
+  /** Statischer CSS-Farbwert (z.B. "var(--color-debt)") für den Icon-Chip —
+   *  Passthrough an die Kachel, keine Registry, kein Lookup. */
+  readonly accentColor?: string;
 };
 
 // Query-Result-Contract: `{ points: { atMs, value | null }[],

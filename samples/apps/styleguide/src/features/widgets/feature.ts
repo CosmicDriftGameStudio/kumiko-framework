@@ -40,6 +40,8 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
         deltaField: "delta",
         deltaDirectionField: "deltaDirection",
         deltaToneField: "deltaTone",
+        icon: { react: { __component: "widgets-dashboard-kpi-icon" } },
+        accentColor: "var(--color-primary)",
       },
       {
         kind: "stat-group",
