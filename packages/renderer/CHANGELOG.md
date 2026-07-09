@@ -1,5 +1,12 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.135.0
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.135.0
+- @cosmicdrift/kumiko-headless@0.135.0
+
 ## 0.134.0
 
 ### Minor Changes
