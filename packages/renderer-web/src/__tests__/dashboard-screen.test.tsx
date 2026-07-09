@@ -107,6 +107,9 @@ const richScreen: DashboardScreenDefinition = {
       label: "widgets:dashboard:kpi",
       query: "widgets:query:metrics:kpi",
       valueField: "value",
+      deltaField: "delta",
+      deltaDirectionField: "deltaDirection",
+      deltaToneField: "deltaTone",
     },
     {
       kind: "stat-group",
@@ -249,6 +252,54 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
     );
     await waitFor(() => expect(screen.getByTestId("dashboard-panel-kpi")).toBeTruthy());
     expect(screen.queryByTestId("custom-echo")).toBeNull();
+  });
+
+  test("stat-Panel: Delta-Chip rendert nur wenn value+direction geliefert werden", async () => {
+    const dispatcher = createMockDispatcher({
+      query: (async (type: string) => {
+        if (type === "widgets:query:metrics:kpi") {
+          return {
+            isSuccess: true,
+            data: {
+              value: "92.753 €",
+              delta: "23 %",
+              deltaDirection: "down",
+              deltaTone: "positive",
+            },
+          };
+        }
+        return { isSuccess: true, data: {} };
+      }) as unknown as Dispatcher["query"],
+    });
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <DashboardBodyProvider value={WebDashboardBody}>
+          <KumikoScreen schema={richSchema} qn="widgets:screen:rich" />
+        </DashboardBodyProvider>
+      </DispatcherProvider>,
+    );
+    await waitFor(() => expect(screen.getByText("92.753 €")).toBeTruthy());
+    expect(screen.getByText("↓23 %")).toBeTruthy();
+  });
+
+  test("stat-Panel: fehlende deltaDirection unterdrückt den Chip (kein Crash)", async () => {
+    const dispatcher = createMockDispatcher({
+      query: (async (type: string) => {
+        if (type === "widgets:query:metrics:kpi") {
+          return { isSuccess: true, data: { value: "92.753 €" } };
+        }
+        return { isSuccess: true, data: {} };
+      }) as unknown as Dispatcher["query"],
+    });
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <DashboardBodyProvider value={WebDashboardBody}>
+          <KumikoScreen schema={richSchema} qn="widgets:screen:rich" />
+        </DashboardBodyProvider>
+      </DispatcherProvider>,
+    );
+    await waitFor(() => expect(screen.getByText("92.753 €")).toBeTruthy());
+    expect(screen.queryByText("23 %")).toBeNull();
   });
 
   test("Filter-Wechsel refetcht Stat- UND Feed-Panel mit neuem Payload", async () => {

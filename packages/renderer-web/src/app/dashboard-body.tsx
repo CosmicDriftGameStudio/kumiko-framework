@@ -7,6 +7,9 @@
 // Panel-Daten-Contracts (siehe DashboardPanelDefinition in kumiko-framework):
 //   stat          → flaches Record, valueField/subField/toneField zeigen auf
 //                   anzeigefertige Werte (der Query-Handler formatiert).
+//                   deltaField/deltaDirectionField(+deltaToneField) sind
+//                   optional — nur wenn BEIDE Felder gesetzt sind UND geliefert
+//                   werden, zeigt die Kachel einen Delta-Chip ("↓ 23 %").
 //   stat-group    → mehrere stat-Panels unter einem Sektions-Titel, jedes
 //                   Kind bleibt eine eigenständige Query.
 //   chart         → { points: { atMs, value | null }[], windowStartMs,
@@ -48,7 +51,7 @@ import { FeedList, type FeedRow } from "../widgets/feed-list";
 import { ProgressList, type ProgressListRow } from "../widgets/progress-list";
 import { QueryTable } from "../widgets/query-table";
 import { SectionCard } from "../widgets/section-card";
-import { StatCard, type StatTone } from "../widgets/stat";
+import { StatCard, type StatDelta, type StatTone } from "../widgets/stat";
 import { ErrorState, LoadingState } from "../widgets/states";
 
 const STAT_TONES: ReadonlySet<string> = new Set(["default", "positive", "warn"]);
@@ -76,15 +79,32 @@ function StatPanelBody({
   const tone =
     typeof rawTone === "string" && STAT_TONES.has(rawTone) ? (rawTone as StatTone) : "default";
   const sub = panel.subField !== undefined ? record[panel.subField] : undefined;
+  const delta = readDelta(panel, record);
   return (
     <StatCard
       label={label}
       value={String(record[panel.valueField] ?? "—")}
       tone={tone}
       {...(sub !== undefined && sub !== null && { sub: String(sub) })}
+      {...(delta !== undefined && { delta })}
       testId={`dashboard-panel-${panel.id}`}
     />
   );
+}
+
+function readDelta(
+  panel: DashboardStatPanel,
+  record: Readonly<Record<string, unknown>>,
+): StatDelta | undefined {
+  if (panel.deltaField === undefined || panel.deltaDirectionField === undefined) return undefined;
+  const value = record[panel.deltaField];
+  const direction = record[panel.deltaDirectionField];
+  if (value === undefined || value === null) return undefined;
+  if (direction !== "up" && direction !== "down") return undefined;
+  const rawTone = panel.deltaToneField !== undefined ? record[panel.deltaToneField] : undefined;
+  const tone =
+    typeof rawTone === "string" && STAT_TONES.has(rawTone) ? (rawTone as StatTone) : undefined;
+  return { value: String(value), direction, ...(tone !== undefined && { tone }) };
 }
 
 function StatGroupPanelBody({

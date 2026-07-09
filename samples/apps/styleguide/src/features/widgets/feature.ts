@@ -37,6 +37,9 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
         valueField: "value",
         subField: "sub",
         toneField: "tone",
+        deltaField: "delta",
+        deltaDirectionField: "deltaDirection",
+        deltaToneField: "deltaTone",
       },
       {
         kind: "stat-group",
@@ -103,6 +106,9 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
       value: region === "us" ? "38.120 $" : region === "eu" ? "54.630 €" : "92.753 €",
       sub: "über 4 Konten",
       tone: "positive",
+      delta: "12 %",
+      deltaDirection: "up",
+      deltaTone: "positive",
     }),
     { access: { openToAll: true } },
   );
