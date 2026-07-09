@@ -156,9 +156,11 @@ export {
 export { SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider } from "./ui/sidebar";
 export type {
   FeedRow,
+  NumberFieldProps,
   ProgressListRow,
   QueryTableColumn,
   QueryTableProps,
+  ResultColumn,
   StatDelta,
   StatTone,
   StatusBarEntry,
@@ -174,9 +176,14 @@ export {
   LoadingState,
   MiniStat,
   ModeSwitch,
+  MoneyField,
+  NumberField,
+  PercentField,
   ProgressBar,
   ProgressList,
   QueryTable,
+  ResultPanel,
+  ResultTable,
   SectionCard,
   Sparkline,
   STATUS_TONE_TEXT,
@@ -185,4 +192,5 @@ export {
   StatusBarChart,
   smoothPath,
   TimeseriesChart,
+  useDraft,
 } from "./widgets";
