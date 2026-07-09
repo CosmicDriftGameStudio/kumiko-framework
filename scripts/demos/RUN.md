@@ -2,33 +2,52 @@
 
 Voraussetzungen: macOS, tmux, ffmpeg, Playwright chromium, Screen-Recording-Recht für dein Terminal.
 
-Der Recorder öffnet ein **eigenes** Terminal-Fenster links (tmux attach) — nicht das Fenster, in dem du `bun` startest. Optional: `RECORD_DEMO_TERMINAL=iTerm2`.
+**Wichtig:** Nicht aus dem Cursor-Terminal aufnehmen — Fenster stapeln sich sonst. In **Terminal.app** (oder iTerm2) starten:
+
+```sh
+cd /Users/marc/code/cosmicdriftgamestudio/.wt/kumiko-framework-demo-kit
+```
+
+Der Recorder öffnet links ein **eigenes** Terminal-Fenster (tmux attach), rechts Chromium. Beide werden per osascript nebeneinander gelegt — Cursor/iTerm-Fenster vorher minimieren oder schließen.
+
+Optional: `RECORD_DEMO_TERMINAL=iTerm2` wenn du iTerm statt Terminal.app willst.
 
 Setup-Details: [RECORDING.md](./RECORDING.md)
 
 ## 1. DB
 
-```
-cd /Users/marc/code/cosmicdriftgamestudio/.wt/kumiko-framework-demo-kit && docker compose up -d
+```sh
+docker compose up -d postgres redis
+docker compose exec postgres createdb -U kumiko kumiko_demo_recording 2>/dev/null || true
 ```
 
-## 2. Aufnehmen
+## 2. Workdir leeren
 
-```
-cd /Users/marc/code/cosmicdriftgamestudio/.wt/kumiko-framework-demo-kit
+Scaffold heißt `hero-app` und landet in `/tmp/kumiko-hero-recording/` — **nicht** `./demo/` im Repo (der Sample-App-Ordner bleibt unangetastet).
+
+```sh
+rm -rf /tmp/kumiko-hero-recording
 tmux kill-session -t kumiko-demo 2>/dev/null || true
+```
+
+## 3. Aufnehmen
+
+```sh
 bun scripts/record-demo.ts
 ```
 
+Log prüfen: `geometry: … per pane` und `positioned browser … @ <rightX>,…` — rightX muss > 0 sein und Terminal links, Browser rechts sichtbar sein **bevor** die Aufnahme losgeht.
+
 Output: `dist/hero-recording/demo.gif`, `demo-poster.png`, `captions.json`
 
-## 3. Nach Platform PR #250
+## 4. Nach Platform PR #250
 
-```
-cp /Users/marc/code/cosmicdriftgamestudio/.wt/kumiko-framework-demo-kit/dist/hero-recording/demo.gif /Users/marc/code/cosmicdriftgamestudio/.wt/kumiko-framework-demo-kit/dist/hero-recording/demo-poster.png /Users/marc/code/cosmicdriftgamestudio/.wt/kumiko-framework-demo-kit/dist/hero-recording/captions.json /Users/marc/code/cosmicdriftgamestudio/.wt/kumiko-platform-feat/phase3-hero-demo/apps/marketing/public/hero/
+```sh
+cp dist/hero-recording/{demo.gif,demo-poster.png,captions.json} \
+  ../kumiko-platform/.wt/kumiko-platform-feat/phase3-hero-demo/apps/marketing/public/hero/
 
-cd /Users/marc/code/cosmicdriftgamestudio/.wt/kumiko-platform-feat/phase3-hero-demo
+cd ../kumiko-platform/.wt/kumiko-platform-feat/phase3-hero-demo
 git add apps/marketing/public/hero/
-git status
+git commit -m "feat(marketing): hero demo recording"
+git push
 ```
-

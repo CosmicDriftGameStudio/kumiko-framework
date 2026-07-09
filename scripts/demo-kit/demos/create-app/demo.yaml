@@ -1,6 +1,6 @@
 title: create-app
 vars:
-  appName: demo
+  appName: hero-app
   port: 3000
 output:
   marketing: hero
@@ -17,4 +17,5 @@ steps:
   - steps/10-add-notes.yaml
   - steps/11-wait-nav-notes.yaml
   - steps/12-click-notes.yaml
+
 

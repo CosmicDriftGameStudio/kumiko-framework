@@ -184,6 +184,9 @@ function tmuxStart(): void {
   }
 
   spawnSync("tmux", ["send-keys", "-t", SESSION, "clear", "Enter"], { stdio: "ignore" });
+  const cdCmd = `mkdir -p ${RECORD_WORKDIR} && cd ${RECORD_WORKDIR} && clear`;
+  spawnSync("tmux", ["send-keys", "-t", SESSION, "-l", cdCmd], { stdio: "ignore" });
+  spawnSync("tmux", ["send-keys", "-t", SESSION, "Enter"], { stdio: "ignore" });
 }
 
 function buildTerminalAttachScript(g: CaptureGeometry): string {
@@ -508,8 +511,8 @@ async function main(): Promise<void> {
 
   tmuxStart();
   await launchBrowser();
-  positionWindows();
-  await sleep(2000); // WM + tmux attach settle before capture
+  await layoutSplitScreen();
+  await sleep(2500); // WM settle before capture
   startCapture();
   await sleep(500); // ffmpeg warm-up before the first action lands
 
@@ -544,6 +547,8 @@ if (import.meta.main) {
 // parseArgs + resolveDemoByPrefix are pure; the rest (tmux/ffmpeg/playwright
 // orchestration) needs a real Mac to exercise and isn't exported.
 export { parseArgs, resolveDemoByPrefix };
+
+
 
 
 

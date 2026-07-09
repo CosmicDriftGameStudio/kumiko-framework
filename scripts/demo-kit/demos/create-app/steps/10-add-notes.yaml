@@ -1,7 +1,7 @@
 id: add-notes
-kind: editor
-file: src/features/notes.ts
-content: $fixture:notes-feature.ts
+kind: cli
+command: bun kumiko add feature notes
+waitMs: 4000
 caption:
   de: Neues Feature hinzufügen
   en: Add a new feature

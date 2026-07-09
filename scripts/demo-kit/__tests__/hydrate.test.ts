@@ -18,21 +18,14 @@ describe("demo-kit hydrate", () => {
   test("editor fixtures match step bodies", () => {
     resetCliPresetsCache();
     const def = hydrateDemo({ demoId: "create-app", kitRoot: KIT_ROOT });
-    const notesFixture = readFileSync(
-      join(KIT_ROOT, "demos/create-app/fixtures/notes-feature.ts"),
-      "utf8",
-    );
     const stylesFixture = readFileSync(
       join(KIT_ROOT, "demos/create-app/fixtures/styles-vice-city.css"),
       "utf8",
     );
-    const notesStep = def.steps.find((s) => s.kind === "editor" && s.file.endsWith("notes.ts"));
     const stylesStep = def.steps.find((s) => s.kind === "editor" && s.file.endsWith("styles.css"));
-    expect(notesStep?.kind).toBe("editor");
+    const addNotes = def.steps.find((s) => s.kind === "cli" && s.type.includes("add feature notes"));
     expect(stylesStep?.kind).toBe("editor");
-    if (notesStep?.kind === "editor") {
-      expect(notesStep.write).toBe(notesFixture);
-    }
+    expect(addNotes?.kind).toBe("cli");
     if (stylesStep?.kind === "editor") {
       expect(stylesStep.write).toBe(stylesFixture);
     }
@@ -62,6 +55,8 @@ describe("demo-kit validate-schema", () => {
     expect(errors).toEqual([]);
   });
 });
+
+
 
 
 
