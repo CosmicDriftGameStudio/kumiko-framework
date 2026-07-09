@@ -1,5 +1,17 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.135.0
+
+### Minor Changes
+
+- 3579d24: Form-Kit-Widgets: `useDraft`, `NumberField`/`MoneyField`/`PercentField`, `ResultPanel`/`ResultTable` und ein `emphasize`-Flag für `DetailList`. Bausteine für das Rechner-Muster der Consumer-Apps (Zahlenfelder → pure Funktion → Live-Ergebnispanel), das bislang nur als `type:"custom"`-JSX mit dupliziertem Field/Input-Boilerplate und handgebauten `<dl>`/`<table>` existierte. Siehe kumiko-framework#925.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dispatcher-live@0.135.0
+- @cosmicdrift/kumiko-headless@0.135.0
+- @cosmicdrift/kumiko-renderer@0.135.0
+
 ## 0.134.0
 
 ### Minor Changes
