@@ -6,6 +6,3 @@ export type FieldIssue = {
   readonly i18nKey: string;
   readonly params?: Readonly<Record<string, unknown>>;
 };
-
-/** @deprecated Use `FieldIssue` — kept for existing imports. */
-export type ValidationFieldIssue = FieldIssue;

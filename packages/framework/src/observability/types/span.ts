@@ -55,10 +55,4 @@ export interface Tracer {
   ): Promise<T>;
   // Current active span from AsyncLocalStorage, or undefined.
   getActiveSpan(): Span | undefined;
-  // @deprecated Prefer `startSpan(name, { parent: context })`.
-  startSpanFromContext(
-    name: string,
-    context: SerializedTraceContext,
-    options?: StartSpanOptions,
-  ): Span;
 }

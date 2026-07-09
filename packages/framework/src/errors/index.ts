@@ -7,7 +7,6 @@ export type {
   UniqueViolationDetails,
   UnprocessableOpts,
   ValidationDetails,
-  ValidationFieldIssue,
   VersionConflictDetails,
 } from "./classes";
 export {

@@ -354,7 +354,7 @@ export type JsonbFieldDef = {
 // Legacy "date" — JS-Date-Object, semantisch unklar (Wall-Clock vs Instant).
 // Für neue Felder bevorzuge:
 //   - `timestamp` für UTC-Instant ("wann ist das passiert")
-//   - `locatedTimestamp(name)` Helper für Termine die an einem Ort
+//   - `createLocatedTimestampField()` für Termine die an einem Ort
 //     stattfinden ("Pickup um 10:00 in Lissabon")
 //   - (kommt) `plainDate` für Kalender-Daten ohne Uhrzeit (z.B. Geburtstag)
 // Siehe docs/plans/architecture/timezones.md
@@ -384,8 +384,8 @@ export type DateFieldDef = {
 // speichert Wall-Clock+tz und konvertiert transparent (siehe DB-Wrapper,
 // kommt in einer späteren Iteration).
 //
-// Verwendung über den `locatedTimestamp(name)` Helper, der das Pair atomar
-// erzeugt und die Marker korrekt verdrahtet.
+// Für neue Felder bevorzuge `createLocatedTimestampField()` — EIN atomares
+// Feld statt eines lose verdrahteten Pairs (siehe LocatedTimestampFieldDef).
 export type TimestampFieldDef = {
   readonly type: "timestamp";
   readonly required?: boolean;
@@ -397,8 +397,9 @@ export type TimestampFieldDef = {
    * Marker: dieses Timestamp-Feld ist Wall-Clock-Zeit an einem Ort.
    * Wert ist der Name des begleitenden tz-Felds (IANA-Zone).
    *
-   * Beispiel: `locatedTimestamp("pickup")` erzeugt
+   * Beispiel: manuelles Pair
    *   { pickupAt: { type: "timestamp", locatedBy: "pickupTz" }, pickupTz: { type: "tz" } }
+   * — bevorzuge stattdessen `createLocatedTimestampField()`.
    */
   readonly locatedBy?: string;
   /** Erlaubte Grenzen als ISO-Datetime. Begrenzt den Picker auf

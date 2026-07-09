@@ -7,25 +7,9 @@
 import { describe, expect, test } from "bun:test";
 import { validateBoot } from "../boot-validator";
 import { defineFeature } from "../define-feature";
-import { createEntity, createTimestampField, createTzField, locatedTimestamp } from "../factories";
+import { createEntity, createTimestampField, createTzField } from "../factories";
 
 describe("validateBoot — locatedBy markers", () => {
-  test("locatedTimestamp(name) Helper-Pair passiert validiert (positive case)", () => {
-    const feature = defineFeature("test", (r) => {
-      r.entity(
-        "order",
-        createEntity({
-          fields: {
-            ...locatedTimestamp("pickup"),
-            ...locatedTimestamp("delivery"),
-          },
-        }),
-      );
-    });
-
-    expect(() => validateBoot([feature])).not.toThrow();
-  });
-
   test("manuelle Konstruktion mit korrektem Pair passiert (positive case)", () => {
     const feature = defineFeature("test", (r) => {
       r.entity(
@@ -75,7 +59,7 @@ describe("validateBoot — locatedBy markers", () => {
     expect(() => validateBoot([feature])).toThrow(/expected "tz"/);
   });
 
-  test("Fehlermeldung verweist auf locatedTimestamp-Helper als Fix", () => {
+  test("Fehlermeldung verweist auf createLocatedTimestampField als Fix", () => {
     const feature = defineFeature("test", (r) => {
       r.entity(
         "order",
@@ -87,7 +71,7 @@ describe("validateBoot — locatedBy markers", () => {
       );
     });
 
-    expect(() => validateBoot([feature])).toThrow(/locatedTimestamp\("pickup"\)/);
+    expect(() => validateBoot([feature])).toThrow(/createLocatedTimestampField/);
   });
 
   test("Timestamp ohne locatedBy ist OK (reiner UTC-Instant)", () => {

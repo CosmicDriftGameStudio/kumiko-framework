@@ -15,7 +15,6 @@ import {
   type ClientEntry,
   computeBuildId,
   discoverClientEntries,
-  discoverClientEntry,
   discoverHtmlTemplate,
   injectAssetTags,
 } from "../build-prod-bundle";
@@ -49,38 +48,6 @@ describe("build-prod-bundle/discovery", () => {
 
   afterEach(async () => {
     await rm(workDir, { recursive: true, force: true });
-  });
-
-  test("discoverClientEntry findet src/client.tsx wenn vorhanden", async () => {
-    await mkdir(join(workDir, "src"), { recursive: true });
-    await writeFile(join(workDir, "src/client.tsx"), "// noop");
-
-    const entry = discoverClientEntry(workDir);
-
-    expect(entry).toBe(join(workDir, "src/client.tsx"));
-  });
-
-  test("discoverClientEntry findet src/client.ts als Fallback", async () => {
-    await mkdir(join(workDir, "src"), { recursive: true });
-    await writeFile(join(workDir, "src/client.ts"), "// noop");
-
-    const entry = discoverClientEntry(workDir);
-
-    expect(entry).toBe(join(workDir, "src/client.ts"));
-  });
-
-  test("discoverClientEntry bevorzugt .tsx über .ts wenn beide existieren", async () => {
-    await mkdir(join(workDir, "src"), { recursive: true });
-    await writeFile(join(workDir, "src/client.tsx"), "// jsx");
-    await writeFile(join(workDir, "src/client.ts"), "// ts");
-
-    const entry = discoverClientEntry(workDir);
-
-    expect(entry).toBe(join(workDir, "src/client.tsx"));
-  });
-
-  test("discoverClientEntry gibt undefined zurück wenn nichts da ist", () => {
-    expect(discoverClientEntry(workDir)).toBeUndefined();
   });
 
   test("discoverClientEntries findet single-mode src/client.tsx", async () => {

@@ -17,7 +17,7 @@
 import type { GeoAddress, GeoCoordinates, GeoTzProvider } from "./geo-tz";
 import { ensureTemporalPolyfill, getTemporal } from "./polyfill";
 
-// JSON-Form für Wall-Clock+TZ — siehe locatedTimestamp(name) Helper in
+// JSON-Form für Wall-Clock+TZ — siehe createLocatedTimestampField() in
 // engine/factories.ts. Zwei Felder, idiotensicher.
 export type LocatedTimestampJson = {
   /** Wall-Clock-ISO ohne Offset, z.B. "2026-04-03T10:00:00" */

@@ -123,7 +123,6 @@ export {
   createTextField,
   createTimestampField,
   createTzField,
-  locatedTimestamp,
 } from "./factories";
 // AST inspection + patching pipeline — used by the CLI scaffolder, the
 // Designer (C5/C6), and the AI-Builder (L2). See feature-ast/index.ts

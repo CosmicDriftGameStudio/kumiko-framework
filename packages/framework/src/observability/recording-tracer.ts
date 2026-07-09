@@ -175,18 +175,6 @@ export class RecordingTracer implements Tracer {
   getActiveSpan(): Span | undefined {
     return observabilityContext.getActiveSpan();
   }
-
-  /**
-   * @deprecated Prefer `startSpan(name, { parent: context })`. Retained as a
-   *   thin alias for call-sites that pre-date the unified StartSpanOptions.
-   */
-  startSpanFromContext(
-    name: string,
-    context: SerializedTraceContext,
-    options?: StartSpanOptions,
-  ): Span {
-    return this.startSpan(name, { ...options, parent: context });
-  }
 }
 
 // Helper to serialize an active Span into the cross-process format.
