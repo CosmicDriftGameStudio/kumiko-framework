@@ -1,12 +1,18 @@
 import type { ReactNode } from "react";
+import { cn } from "../lib/cn";
 
 /** Read-only Schlüssel-Wert-Liste für Detail-Masken (Label links gedimmt,
- *  Wert rechts). Wert ist ReactNode → Badges/Chips möglich. */
+ *  Wert rechts). Wert ist ReactNode → Badges/Chips möglich. `emphasize` hebt
+ *  eine Zeile hervor (z.B. das Endergebnis in einem Rechner). */
 export function DetailList({
   rows,
   testId,
 }: {
-  readonly rows: readonly { readonly label: string; readonly value: ReactNode }[];
+  readonly rows: readonly {
+    readonly label: string;
+    readonly value: ReactNode;
+    readonly emphasize?: boolean;
+  }[];
   readonly testId?: string;
 }): ReactNode {
   return (
@@ -16,8 +22,17 @@ export function DetailList({
           key={row.label}
           className="grid grid-cols-1 gap-0.5 py-2.5 sm:grid-cols-[200px_1fr] sm:gap-4"
         >
-          <dt className="text-sm text-muted-foreground">{row.label}</dt>
-          <dd className="text-sm font-medium">{row.value}</dd>
+          <dt
+            className={cn(
+              "text-sm text-muted-foreground",
+              row.emphasize === true && "font-semibold text-foreground",
+            )}
+          >
+            {row.label}
+          </dt>
+          <dd className={cn("text-sm font-medium", row.emphasize === true && "font-semibold")}>
+            {row.value}
+          </dd>
         </div>
       ))}
     </dl>

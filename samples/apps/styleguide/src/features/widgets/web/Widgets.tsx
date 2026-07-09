@@ -7,12 +7,17 @@ import {
   EmptyState,
   MiniStat,
   ModeSwitch,
+  MoneyField,
+  PercentField,
   ProgressBar,
+  ResultPanel,
+  ResultTable,
   SectionCard,
   StatCard,
   StatusBadge,
   StatusBarChart,
   TimeseriesChart,
+  useDraft,
 } from "@cosmicdrift/kumiko-renderer-web";
 import { Wallet } from "lucide-react";
 import { type ReactNode, useState } from "react";
@@ -108,6 +113,54 @@ export function Widgets(): ReactNode {
           description="Lege die erste an, um den Plan zu verkürzen."
         />
       </CollapsibleSection>
+
+      <FinancingCalculatorDemo />
+    </div>
+  );
+}
+
+// Live-Input-Rechner: useDraft → pure Berechnung → ResultPanel/ResultTable.
+// Belegt, dass das Form-Kit das Rechner-Muster der Apps ohne Custom-CSS trägt.
+interface CalcDraft {
+  readonly sum: number | undefined;
+  readonly interest: number | undefined;
+  readonly repayment: number | undefined;
+}
+
+const CALC_DEFAULTS: CalcDraft = { sum: 300000, interest: 3.8, repayment: 2 };
+
+function FinancingCalculatorDemo(): ReactNode {
+  const { draft, field } = useDraft<CalcDraft>(CALC_DEFAULTS);
+  const ready = draft.sum !== undefined && draft.interest !== undefined;
+  const rate = ready
+    ? Math.round((draft.sum * ((draft.interest + (draft.repayment ?? 0)) / 100)) / 12)
+    : 0;
+  const euro = (n: number): string => `${n.toLocaleString("de-DE")} €`;
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <SectionCard title="Finanzierung">
+        <MoneyField label="Darlehen" {...field("sum")} required />
+        <PercentField label="Sollzins" {...field("interest")} required />
+        <PercentField label="Tilgung" {...field("repayment")} />
+      </SectionCard>
+      <ResultPanel
+        title="Ergebnis"
+        empty={!ready}
+        emptyText="Darlehen und Zins eingeben."
+        rows={[
+          { label: "Darlehen", value: euro(draft.sum ?? 0) },
+          { label: "Monatsrate", value: euro(rate), emphasize: true },
+        ]}
+      >
+        <ResultTable
+          columns={[
+            { header: "Tranche", cell: (r: { label: string; rate: number }) => r.label },
+            { header: "Rate", align: "right", cell: (r) => euro(r.rate) },
+          ]}
+          rows={[{ label: "Bankdarlehen", rate }]}
+          rowKey={(r) => r.label}
+        />
+      </ResultPanel>
     </div>
   );
 }
