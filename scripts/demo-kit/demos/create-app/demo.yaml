@@ -7,6 +7,7 @@ output:
 steps:
   - steps/01-install.yaml
   - steps/02-cd.yaml
+  - steps/03-bun-install.yaml
   - steps/03-env.yaml
   - steps/04-bun-dev.yaml
   - steps/05-open-login.yaml
@@ -17,5 +18,6 @@ steps:
   - steps/10-add-notes.yaml
   - steps/11-wait-nav-notes.yaml
   - steps/12-click-notes.yaml
+
 
 

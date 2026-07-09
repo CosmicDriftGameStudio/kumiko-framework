@@ -12,7 +12,7 @@ describe("demo-kit hydrate", () => {
     resetCliPresetsCache();
     const def = hydrateDemo({ demoId: "create-app", kitRoot: KIT_ROOT });
     expect(def.title).toBe("create-app");
-    expect(def.steps.length).toBe(12);
+    expect(def.steps.length).toBe(13);
   });
 
   test("editor fixtures match step bodies", () => {
@@ -55,6 +55,7 @@ describe("demo-kit validate-schema", () => {
     expect(errors).toEqual([]);
   });
 });
+
 
 
 

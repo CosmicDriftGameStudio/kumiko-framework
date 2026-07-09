@@ -302,38 +302,50 @@ function tmuxKill(): void {
 }
 
 // ─── window positioning (macOS osascript) ────────────────────────────────────
-function positionBrowserWindow(g: CaptureGeometry): void {
+function positionTerminalWindow(g: CaptureGeometry): boolean {
+  const termProcess = process.env.RECORD_DEMO_TERMINAL === "iTerm2" ? "iTerm2" : "Terminal";
+  const script = `tell application "System Events" to tell process "${termProcess}"
+    if (count of windows) > 0 then
+      set frontmost to true
+      set position of front window to {${g.originX}, ${g.originY}}
+      set size of front window to {${g.paneW}, ${g.paneH}}
+    end if
+  end tell`;
+  return runOsascript(script, `position ${termProcess}`);
+}
+
+function positionBrowserWindow(g: CaptureGeometry): boolean {
   const rightX = g.originX + g.paneW;
   for (const processName of BROWSER_PROCESS_NAMES) {
     const script = `tell application "System Events" to tell process "${processName}"
     if (count of windows) > 0 then
+      set frontmost to true
       set position of front window to {${rightX}, ${g.originY}}
       set size of front window to {${g.paneW}, ${g.paneH}}
     end if
   end tell`;
-    const r = spawnSync("osascript", ["-e", script], { stdio: "pipe", encoding: "utf8" });
-    if (r.status === 0) {
+    if (runOsascript(script, `position ${processName}`)) {
       // biome-ignore lint/suspicious/noConsole: setup feedback
-      console.log(`[record-demo] positioned browser (${processName}) ${g.paneW}×${g.paneH} @ ${rightX},${g.originY}`);
-      return;
+      console.log(
+        `[record-demo] positioned browser (${processName}) ${g.paneW}×${g.paneH} @ ${rightX},${g.originY}`,
+      );
+      return true;
     }
   }
   // biome-ignore lint/suspicious/noConsole: setup warning
   console.warn(
-    "[record-demo] could not position browser window via osascript — relying on --window-position",
+    "[record-demo] could not position browser via osascript — relying on --window-position",
   );
+  return false;
 }
 
-function positionWindows(): void {
-  const termProcess = process.env.RECORD_DEMO_TERMINAL === "iTerm2" ? "iTerm2" : "Terminal";
-  const left = `tell application "System Events" to tell process "${termProcess}"
-    if (count of windows) > 0 then
-      set position of front window to {${geom.originX}, ${geom.originY}}
-      set size of front window to {${geom.paneW}, ${geom.paneH}}
-    end if
-  end tell`;
-  spawnSync("osascript", ["-e", left], { stdio: "inherit" });
-  positionBrowserWindow(geom);
+async function layoutSplitScreen(): Promise<void> {
+  for (let i = 0; i < 4; i++) {
+    positionTerminalWindow(geom);
+    await sleep(300);
+    positionBrowserWindow(geom);
+    await sleep(300);
+  }
 }
 
 // ─── ffmpeg capture ──────────────────────────────────────────────────────────
@@ -638,6 +650,7 @@ if (import.meta.main) {
 // parseArgs + resolveDemoByPrefix are pure; the rest (tmux/ffmpeg/playwright
 // orchestration) needs a real Mac to exercise and isn't exported.
 export { parseArgs, resolveDemoByPrefix };
+
 
 
 
