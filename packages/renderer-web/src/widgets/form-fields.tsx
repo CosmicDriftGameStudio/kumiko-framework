@@ -9,14 +9,13 @@ export interface NumberFieldProps {
   readonly onChange: (v: number | undefined) => void;
   readonly required?: boolean;
   readonly disabled?: boolean;
-  /** Einheit rechts neben dem Label (z.B. "€", "%"). */
-  readonly unit?: string;
   readonly testId?: string;
 }
 
 /** Zahlenfeld = Field + Input(kind:"number") in einem — nimmt der Screen die
  *  wiederholte id/name/value/onChange-Verdrahtung ab. `value` darf `undefined`
- *  sein (leeres Feld), intern auf den `""`-Empty-State des Inputs gemappt. */
+ *  sein (leeres Feld), intern auf den `""`-Empty-State des Inputs gemappt.
+ *  Einheiten (€/%) gehören ins Label (`t("…Summe (€)")`), nicht als Badge. */
 export function NumberField({
   label,
   id,
@@ -25,22 +24,11 @@ export function NumberField({
   onChange,
   required,
   disabled,
-  unit,
   testId,
 }: NumberFieldProps): ReactNode {
   const { Field, Input } = usePrimitives();
   return (
-    <Field
-      id={id}
-      label={label}
-      required={required}
-      labelAppendix={
-        unit !== undefined ? (
-          <span className="text-xs text-muted-foreground">{unit}</span>
-        ) : undefined
-      }
-      testId={testId}
-    >
+    <Field id={id} label={label} required={required} testId={testId}>
       <Input
         kind="number"
         id={id}
@@ -54,13 +42,13 @@ export function NumberField({
   );
 }
 
-/** Euro-Betrag in ganzen Einheiten (kein Cent-Integer wie Input kind:"money").
- *  Preset über NumberField mit "€"-Einheit. */
-export function MoneyField(props: Omit<NumberFieldProps, "unit">): ReactNode {
-  return <NumberField {...props} unit="€" />;
+// MoneyField/PercentField markieren die Feld-Absicht am Call-Site (lesbarer als
+// NumberField überall) und sind der Ort, an dem später geld-/prozent-spezifische
+// Formatierung andocken kann. Aktuell rendern sie identisch zu NumberField.
+export function MoneyField(props: NumberFieldProps): ReactNode {
+  return <NumberField {...props} />;
 }
 
-/** Prozentwert (Zins, Tilgung, Rendite). Preset über NumberField mit "%". */
-export function PercentField(props: Omit<NumberFieldProps, "unit">): ReactNode {
-  return <NumberField {...props} unit="%" />;
+export function PercentField(props: NumberFieldProps): ReactNode {
+  return <NumberField {...props} />;
 }
