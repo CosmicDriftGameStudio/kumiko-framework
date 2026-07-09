@@ -38,14 +38,16 @@ describe("NumberField", () => {
     expect(onChange).toHaveBeenCalledWith(undefined);
   });
 
-  test("MoneyField/PercentField zeigen ihre Einheit", () => {
+  test("MoneyField/PercentField rendern als beschriftetes Zahlenfeld ohne Einheit-Badge", () => {
     const noop = (): void => {};
     const { rerender } = render(
-      <MoneyField label="Betrag" id="b" name="b" value={1} onChange={noop} />,
+      <MoneyField label="Betrag (€)" id="b" name="b" value={1} onChange={noop} />,
     );
-    expect(screen.getByText("€")).toBeTruthy();
-    rerender(<PercentField label="Zins" id="z" name="z" value={1} onChange={noop} />);
-    expect(screen.getByText("%")).toBeTruthy();
+    expect(screen.getByText("Betrag (€)")).toBeTruthy();
+    expect(screen.getByRole("spinbutton")).toBeTruthy();
+    expect(screen.queryByText("€")).toBeNull(); // Einheit lebt im Label, kein separates Badge
+    rerender(<PercentField label="Zins (%)" id="z" name="z" value={1} onChange={noop} />);
+    expect(screen.queryByText("%")).toBeNull();
   });
 });
 
