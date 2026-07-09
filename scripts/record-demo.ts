@@ -63,6 +63,21 @@ export function geometryFromVisibleFrame(
   };
 }
 
+function osascriptLine(script: string): string | undefined {
+  const r = spawnSync("osascript", ["-e", script], { encoding: "utf8", timeout: 5000 });
+  if (r.status !== 0) return undefined;
+  const line = r.stdout?.trim();
+  return line && line.length > 0 ? line : undefined;
+}
+
+function parseGeometryCsv(raw: string): CaptureGeometry | undefined {
+  const parts = raw.split(",").map((s) => Number.parseInt(s, 10));
+  if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) return undefined;
+  const [visW, visH, originX, originY] = parts as [number, number, number, number];
+  if (visW < 800 || visH < 600) return undefined;
+  return geometryFromVisibleFrame(visW, visH, originX, originY);
+}
+
 function resolveCaptureGeometry(): CaptureGeometry {
   const override = process.env.RECORD_DEMO_GEOMETRY;
   if (override) {
@@ -80,22 +95,38 @@ function resolveCaptureGeometry(): CaptureGeometry {
     };
   }
 
-  const script = `
+  // macOS 26+: AppKit `round()` on visibleFrame values throws (-10000). Use `as integer`.
+  const appKit = `
 use framework "AppKit"
 set vf to current application's NSScreen's mainScreen's visibleFrame()
-set w to (round (current application's NSWidth(vf)))
-set h to (round (current application's NSHeight(vf)))
-set x to (round (current application's NSMinX(vf)))
-set y to (round (current application's NSMinY(vf)))
-return "" & w & "," & h & "," & x & "," & y
-`;
-  const raw = execFileSync("osascript", ["-e", script], { encoding: "utf8", timeout: 5000 }).trim();
-  const parts = raw.split(",").map((s) => Number.parseInt(s, 10));
-  if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) {
-    throw new Error(`resolveCaptureGeometry: unexpected osascript output "${raw}"`);
+set w to (current application's NSWidth(vf)) as integer
+set h to (current application's NSHeight(vf)) as integer
+set x to (current application's NSMinX(vf)) as integer
+set y to (current application's NSMinY(vf)) as integer
+return (w as text) & "," & (h as text) & "," & (x as text) & "," & (y as text)`;
+  const fromAppKit = osascriptLine(appKit);
+  if (fromAppKit) {
+    const g = parseGeometryCsv(fromAppKit);
+    if (g) return g;
   }
-  const [visW, visH, originX, originY] = parts as [number, number, number, number];
-  return geometryFromVisibleFrame(visW, visH, originX, originY);
+
+  // Fallback: full desktop bounds (menu bar included — good enough for crop).
+  const finder = `tell application "Finder"
+  set b to bounds of window of desktop
+  return "" & (item 3 of b as text) & "," & (item 4 of b as text) & ",0,0"
+end tell`;
+  const fromFinder = osascriptLine(finder);
+  if (fromFinder) {
+    const g = parseGeometryCsv(fromFinder);
+    if (g) return g;
+  }
+
+  // biome-ignore lint/suspicious/noConsole: fallback hint
+  console.warn(
+    "[record-demo] could not read screen size via osascript — using 2560×720 fallback. " +
+      "Set RECORD_DEMO_GEOMETRY=1280x800 to override.",
+  );
+  return geometryFromVisibleFrame(2560, 720, 0, 0);
 }
 
 let geom: CaptureGeometry = geometryFromVisibleFrame(2560, 720, 0, 0);
@@ -574,6 +605,7 @@ if (import.meta.main) {
 // parseArgs + resolveDemoByPrefix are pure; the rest (tmux/ffmpeg/playwright
 // orchestration) needs a real Mac to exercise and isn't exported.
 export { parseArgs, resolveDemoByPrefix };
+
 
 
 
