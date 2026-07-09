@@ -1,8 +1,9 @@
 // Extension-Section-Components-Map: client-side Lookup für entityEdit
-// sections vom Type `extension`. RenderEdit schaut hier nach dem
-// `__component`-Namen aus section.component und mountet die passende
-// Component mit { entityName, entityId } — die Bundled-Feature-Component
-// lädt + persistiert dann ihre eigenen Daten (z.B. custom-fields).
+// sections vom Type `extension`, List-Header-Slots UND Dashboard-`custom`-
+// Panels. Jeder Mount-Ort löst den `__component`-Namen aus einer
+// PlatformComponent über dieselbe Registry auf und mountet die passende
+// Component — die Bundled-Feature-/App-Component lädt + persistiert dann
+// ihre eigenen Daten (z.B. custom-fields, oder ein eigenständiger Chart).
 //
 // Mounting analog zu CustomScreensProvider — createKumikoApp im
 // renderer-web sammelt alle clientFeatures.extensionSectionComponents und
@@ -39,6 +40,12 @@ export type ExtensionSectionProps = {
    *  (useListUrlState) ansprechen kann — z.B. ein Tag-Filter der die Liste auf
    *  eine id-Menge narrowed. In entityEdit-Sections undefined. */
   readonly screenId?: string;
+  /** Nur im Dashboard-`custom`-Panel gesetzt: der aktuell gewählte Wert des
+   *  Screen-Filters (siehe DashboardFilterDefinition), gemerged wie bei jeder
+   *  anderen Panel-Query. In allen anderen Mount-Orten undefined. Dashboard-
+   *  Panels haben keine Entity — entityName/entityId tragen dort die
+   *  screen.id bzw. null, siehe CustomPanelBody in dashboard-body.tsx. */
+  readonly filterParams?: Readonly<Record<string, unknown>>;
 };
 
 export type ExtensionSectionComponent = ComponentType<ExtensionSectionProps>;

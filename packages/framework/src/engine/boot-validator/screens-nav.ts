@@ -4,7 +4,11 @@ import { qualifyEntityName } from "../qualified-name";
 import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops";
 import type { FeatureDefinition, NavDefinition, WorkspaceDefinition } from "../types";
 import type {
+  DashboardCustomPanel,
+  DashboardFilterDefinition,
+  DashboardPanelDefinition,
   DashboardScreenDefinition,
+  DashboardStatGroupPanel,
   FieldCondition,
   RowAction,
   RowFieldExtractor,
@@ -655,33 +659,125 @@ function validateDashboardScreen(
     );
   }
   const panelIds = new Set<string>();
+  const addPanelId = (id: string, context: string): void => {
+    if (panelIds.has(id)) {
+      throw new Error(
+        `[Feature ${featureName}] Screen "${screenId}" (dashboard) has duplicate panel id "${id}" (${context}).`,
+      );
+    }
+    panelIds.add(id);
+  };
+
   for (const panel of screen.panels) {
-    if (panelIds.has(panel.id)) {
+    addPanelId(panel.id, panel.kind);
+    if (panel.kind === "stat-group") {
+      validateDashboardStatGroupPanel(featureName, screenId, panel, addPanelId);
+    } else if (panel.kind === "custom") {
+      validateDashboardCustomPanel(featureName, screenId, panel);
+    } else {
+      validateDashboardQueryPanel(featureName, screenId, panel);
+    }
+  }
+
+  if (screen.filter !== undefined) {
+    validateDashboardFilterDefinition(featureName, screenId, screen.filter);
+  }
+}
+
+function validateDashboardStatGroupPanel(
+  featureName: string,
+  screenId: string,
+  panel: DashboardStatGroupPanel,
+  addPanelId: (id: string, context: string) => void,
+): void {
+  if (panel.stats.length === 0) {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (dashboard) stat-group "${panel.id}" has an empty stats list.`,
+    );
+  }
+  for (const stat of panel.stats) {
+    addPanelId(stat.id, "stat-group child");
+    if (!stat.query || typeof stat.query !== "string") {
       throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (dashboard) has duplicate panel id "${panel.id}".`,
+        `[Feature ${featureName}] Screen "${screenId}" (dashboard) stat-group "${panel.id}" child "${stat.id}" has empty or non-string query.`,
       );
     }
-    panelIds.add(panel.id);
-    if (!panel.query || typeof panel.query !== "string") {
+    if (stat.valueField.length === 0) {
       throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}" has empty or non-string query.`,
+        `[Feature ${featureName}] Screen "${screenId}" (dashboard) stat-group "${panel.id}" child "${stat.id}" has empty valueField.`,
       );
     }
-    if (panel.kind === "stat" && panel.valueField.length === 0) {
+  }
+}
+
+function validateDashboardCustomPanel(
+  featureName: string,
+  screenId: string,
+  panel: DashboardCustomPanel,
+): void {
+  if (panel.component.react === undefined && panel.component.native === undefined) {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (dashboard) custom-panel "${panel.id}" has no component — ` +
+        `declare a react/native component marker.`,
+    );
+  }
+}
+
+function validateDashboardQueryPanel(
+  featureName: string,
+  screenId: string,
+  panel: Exclude<DashboardPanelDefinition, DashboardStatGroupPanel | DashboardCustomPanel>,
+): void {
+  if (!panel.query || typeof panel.query !== "string") {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}" has empty or non-string query.`,
+    );
+  }
+  if (panel.kind === "stat" && panel.valueField.length === 0) {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (dashboard) stat-panel "${panel.id}" has empty valueField.`,
+    );
+  }
+  if (panel.kind === "list") {
+    if (panel.columns.length === 0) {
       throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (dashboard) stat-panel "${panel.id}" has empty valueField.`,
+        `[Feature ${featureName}] Screen "${screenId}" (dashboard) list-panel "${panel.id}" has an empty columns list.`,
       );
     }
-    if (panel.kind === "list") {
-      if (panel.columns.length === 0) {
-        throw new Error(
-          `[Feature ${featureName}] Screen "${screenId}" (dashboard) list-panel "${panel.id}" has an empty columns list.`,
-        );
-      }
-      for (const col of panel.columns) {
-        validateColumnRendererForm(featureName, screenId, normalizeListColumn(col));
-      }
+    for (const col of panel.columns) {
+      validateColumnRendererForm(featureName, screenId, normalizeListColumn(col));
     }
+  }
+}
+
+function validateDashboardFilterDefinition(
+  featureName: string,
+  screenId: string,
+  filter: DashboardFilterDefinition,
+): void {
+  if (filter.id.length === 0) {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (dashboard) filter has an empty id.`,
+    );
+  }
+  if (filter.label.length === 0) {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (dashboard) filter has an empty label.`,
+    );
+  }
+  const hasOptions = filter.options !== undefined;
+  const hasOptionsQuery = filter.optionsQuery !== undefined;
+  if (hasOptions === hasOptionsQuery) {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (dashboard) filter must set exactly one of ` +
+        `options/optionsQuery.`,
+    );
+  }
+  if (hasOptions && (filter.options?.length ?? 0) === 0) {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (dashboard) filter.options is empty — ` +
+        `declare at least one option or use optionsQuery instead.`,
+    );
   }
 }
 

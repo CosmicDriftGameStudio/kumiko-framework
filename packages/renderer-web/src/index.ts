@@ -155,6 +155,8 @@ export {
 } from "./tokens";
 export { SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider } from "./ui/sidebar";
 export type {
+  FeedRow,
+  ProgressListRow,
   QueryTableColumn,
   QueryTableProps,
   StatDelta,
@@ -168,10 +170,12 @@ export {
   DetailList,
   EmptyState,
   ErrorState,
+  FeedList,
   LoadingState,
   MiniStat,
   ModeSwitch,
   ProgressBar,
+  ProgressList,
   QueryTable,
   SectionCard,
   Sparkline,
