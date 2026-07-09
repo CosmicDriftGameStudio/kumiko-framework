@@ -75,10 +75,6 @@ export type ProjectionDefinition = {
   // skips entries with this flag; rebuildProjection treats them
   // identically to explicit projections.
   readonly isImplicit?: boolean;
-  // snake_case columns the event replay cannot reproduce (fields the executor
-  // strips from the log, i.e. `sensitive`). The rebuild guard (#722) excludes
-  // them from its live==shadow diff. Only set on implicit entity projections.
-  readonly unreproducibleColumns?: readonly string[];
 };
 
 // Extension merged into an entity's implicit projection at registry build.

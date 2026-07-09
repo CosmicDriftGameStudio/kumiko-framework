@@ -149,85 +149,65 @@ export async function fenceLiveTable(
   await raw.unsafe(`LOCK TABLE public.${quoteTableIdent(tableName)} IN ACCESS EXCLUSIVE MODE`);
 }
 
-// Ids reported per direction when the swap is aborted — enough to locate the
-// drifting rows without dumping an unbounded set into the log.
+// Ids reported when the swap is aborted — enough to locate the ghost rows
+// without dumping an unbounded set into the log.
 const UNREACHABLE_SAMPLE_LIMIT = 20;
 
-// Runs INSIDE the rebuild tx, under the fence, AFTER the shadow is fully
-// replayed and BEFORE swapShadowIntoLive. The shadow is the deterministic
-// replay of every subscribed lifecycle event; any row in the live table that
-// the replay does not reproduce is state that was direct-written WITHOUT a
-// matching event (#494/#523/#525 class) — the swap would silently drop it.
-// This enforces at cutover the same live==rebuild invariant the executor path
-// is tested for (implicit-projection-equivalence), catching drift the static
-// CI guard can't see: pre-existing production data, or writes on table
-// identifiers the guard couldn't resolve.
+// Runs INSIDE the rebuild tx, under the fence, before swapShadowIntoLive. A live
+// row whose aggregate id has NO event in the projection's source streams is
+// UNREACHABLE: no replay can ever reconstruct it, so the swap would silently
+// drop it. That is the #498 ghost — a row direct-inserted without ever emitting
+// a .created event. The static CI guard cannot see it in data that already
+// exists in production, or on table identifiers it couldn't resolve; this
+// catches it at cutover and aborts (tx rolls back, live untouched).
 //
-// Compares an EXPLICIT column list (meta order), NOT `SELECT *`: EXCEPT matches
-// by position, and the live table's physical column order may differ from the
-// shadow's meta-derived order (a column added by a later migration lands last
-// in live but mid-list in meta). Projecting both sides through the same ordered
-// name list makes the diff order-independent. Column NAME sets are already
-// pinned equal by assertLiveColumnsMatchMeta before the shadow is built.
+// Deliberately NARROW — event EXISTENCE only, not a column or row-vs-shadow
+// diff. The framework legitimately makes live diverge from a fresh replay in
+// several SHIPPED ways, none of which is drift:
+//   - a blind-index column recomputed to NULL after the subject's key is
+//     shredded (GDPR erase) — the NULL is the intended end state;
+//   - a `sensitive` column stripped from the event log by design;
+//   - an archived stream that stops replaying (fw#832) — the row's wipe is the
+//     intended tombstone behavior, reported via backfill's `failed` list;
+//   - a legacy column direct-written before its handler emitted events, healed
+//     by the #494 backfill-then-rebuild flow.
+// Checking event existence INCLUDING archived streams leaves every one of them
+// alone: those rows all have a real event, so they are not ghosts. Column-level
+// drift detection (fail-hard vs. graceful repair) is the open question deferred
+// from #722.
 //
-// Both directions abort:
-//   live-only  → rows the swap would WIPE (direct insert/update without event)
-//   shadow-only→ rows the swap would RESURRECT (direct delete without event —
-//                e.g. a GDPR-forgotten row replay brings back, #494)
-//
-// Implicit projections only (caller-gated): explicit projections are derived
-// entirely inside apply(), and a multi-table apply legitimately writes live
-// secondary state during replay — a live/shadow diff there is not drift.
-//
-// ponytail: two full EXCEPT scans under the ACCESS EXCLUSIVE fence — O(table),
-// widens the write-stall window by one table pass. If that bites on very large
-// projections, gate on a cheaper md5(string_agg(row ORDER BY id)) hash first
-// and only run the row-diff on hash mismatch.
-export async function assertShadowCoversLive(
+// Implicit projections only (caller-gated). aggregate_id and the entity id are
+// both uuid, so the anti-join probes the events index without a cast.
+export async function assertNoUnreachableLiveRows(
   tx: AnyDb,
-  meta: EntityTableMeta,
   projectionName: string,
-  unreproducibleColumns: readonly string[] = [],
+  tableName: string,
+  aggregateTypes: readonly string[],
 ): Promise<void> {
+  // skip: no source streams → no events could back any row anyway; a rebuild
+  // of a subscription-less projection swaps an empty shadow (handled upstream).
+  if (aggregateTypes.length === 0) return;
   const raw = asRawClient(tx);
-  const t = quoteTableIdent(meta.tableName);
-  // Columns the executor strips from the event log (sensitive fields) can never
-  // be reproduced by replay — comparing them would flag every such row as drift
-  // (the documented Wave-3 rebuild gap). Row-existence and all reproducible
-  // column drift stay covered.
-  const skip = new Set(unreproducibleColumns);
-  const cols = meta.columns
-    .filter((c) => !skip.has(c.name))
-    .map((c) => quoteTableIdent(c.name))
-    .join(", ");
-  const live = `SELECT ${cols} FROM public.${t}`;
-  const shadow = `SELECT ${cols} FROM ${SCHEMA_IDENT}.${t}`;
-
-  const idsOf = async (a: string, b: string): Promise<string[]> => {
-    const rows = await raw.unsafe<{ id: unknown }>(
-      `SELECT id FROM (${a} EXCEPT ${b}) d LIMIT ${UNREACHABLE_SAMPLE_LIMIT}`,
-    );
-    return rows.map((r) => String(r.id));
-  };
-  const liveOnly = await idsOf(live, shadow);
-  const shadowOnly = await idsOf(shadow, live);
-  if (liveOnly.length === 0 && shadowOnly.length === 0) return;
-
-  const dir = [
-    liveOnly.length > 0
-      ? `${liveOnly.length}+ live rows the swap would WIPE (ids: ${liveOnly.join(", ")})`
-      : "",
-    shadowOnly.length > 0
-      ? `${shadowOnly.length}+ rows the replay would RESURRECT (ids: ${shadowOnly.join(", ")})`
-      : "",
-  ]
-    .filter(Boolean)
-    .join("; ");
+  const t = quoteTableIdent(tableName);
+  const ghosts = await raw.unsafe<{ id: unknown }>(
+    `SELECT l."id" FROM public.${t} l
+     WHERE NOT EXISTS (
+       SELECT 1 FROM "kumiko_events" e
+        WHERE e."aggregate_id" = l."id" AND e."aggregate_type" = ANY($1::text[])
+     )
+     LIMIT ${UNREACHABLE_SAMPLE_LIMIT}`,
+    [aggregateTypes],
+  );
+  // skip: every live row has a backing event — nothing unreachable, swap is safe
+  if (ghosts.length === 0) return;
+  const ids = ghosts.map((r) => String(r.id));
   throw new Error(
-    `projection-rebuild "${projectionName}": live table "${meta.tableName}" holds state not reproducible from its event log — ${dir}. ` +
-      "A handler direct-wrote this table without emitting matching lifecycle events, so the rebuild's event replay can't reconstruct it and the swap would lose it. " +
-      "Fix: register the table with r.unmanagedTable(meta, { reason }) to opt it out of rebuild, or emit the missing .created/.updated/.deleted events. " +
-      "See docs/reference/entity-write-patterns.md. Rebuild aborted; live table untouched.",
+    `projection-rebuild "${projectionName}": ${ids.length}+ live rows in "${tableName}" have no ` +
+      `event in the projection's source streams and cannot be reconstructed by replay — the swap ` +
+      `would silently drop them (ids: ${ids.join(", ")}). A handler direct-inserted these rows ` +
+      `without emitting a .created event. Fix: register the table with r.unmanagedTable(meta, ` +
+      `{ reason }) to opt out of rebuild, or emit the missing events. See ` +
+      `docs/reference/entity-write-patterns.md. Rebuild aborted; live table untouched.`,
   );
 }
 

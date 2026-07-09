@@ -87,25 +87,35 @@ intended fix path when the guard fires.
 
 The static CI guard catches **new** code. It does not see drift already in
 production data, nor writes on table identifiers it couldn't resolve. So the
-rebuild adds a runtime backstop: after the shadow is fully replayed and before
-the swap, `assertShadowCoversLive` compares the live table against the shadow
-(the deterministic event replay). Any row live holds that the replay cannot
-reproduce aborts the swap — the tx rolls back, the live table is left untouched,
-and the error names the drifting ids plus the fix (`r.unmanagedTable` or emit
-the missing events). Implicit entity projections only; explicit projections and
-`r.unmanagedTable` are out of scope.
+rebuild adds a runtime backstop: under the cutover fence, before the swap,
+`assertNoUnreachableLiveRows` checks whether any live row has **no event** in the
+projection's source streams. Such a row can never be reconstructed by replay
+(the #498 ghost — direct-inserted without a `.created` event), so the swap would
+silently drop it. The guard aborts instead — the tx rolls back, the live table
+is left untouched, and the error names the ghost ids plus the fix
+(`r.unmanagedTable` or emit the missing events). Implicit entity projections
+only; explicit projections and `r.unmanagedTable` are out of scope.
 
-**Blind spot (by design):** `sensitive` columns are stripped from the event log,
-so a replay can never reproduce them — the guard **excludes** them from its diff
-(otherwise every sensitive-field row would false-positive). A direct write that
-touches *only* a sensitive column is therefore not caught. That remains the
-Wave-3 sensitive-rebuild gap, not a regression. Encrypted / PII columns are safe:
-the executor encrypts once and stores the same ciphertext in both the event and
-the live row, so replay reproduces it byte-for-byte.
+**Deliberately narrow — event existence, not column values.** The framework
+legitimately makes a live row diverge from a fresh replay in several shipped
+ways, none of which is drift:
+
+- a blind-index column recomputed to `NULL` after the subject's key is shredded
+  (GDPR erase) — the `NULL` is the intended end state;
+- a `sensitive` column stripped from the event log by design;
+- an archived stream that stops replaying (fw#832) — the row's wipe is the
+  intended tombstone, surfaced via backfill's `failed` list;
+- a legacy column direct-written before its handler emitted events, healed by
+  the #494 backfill-then-rebuild flow.
+
+All of those rows **have** an event, so the existence check leaves them alone.
+Detecting *column-level* drift (and whether to fail-hard or enqueue a repair
+job) is the open question deferred from #722 — a fail-hard column diff would make
+rebuild mutually exclusive with GDPR-erase and stream-archival.
 
 ## Related
 
 - Live == rebuild equivalence (executor path): `packages/framework/src/db/__tests__/implicit-projection-equivalence.integration.test.ts`
-- Runtime unreachable-state guard: `packages/framework/src/db/__tests__/assert-shadow-covers-live.integration.test.ts`
+- Runtime ghost-row guard: `packages/framework/src/db/__tests__/assert-no-unreachable-live-rows.integration.test.ts`
 - Projection-aware migrations (managed vs unmanaged DDL): `docs/archive/plans/projection-aware-migrations.md`
 
