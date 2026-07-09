@@ -8,6 +8,7 @@ import {
 } from "../db/queries/projection-rebuild";
 import {
   assertLiveColumnsMatchMeta,
+  assertNoUnreachableLiveRows,
   buildShadowTable,
   ensureRebuildSchema,
   fenceLiveTable,
@@ -325,6 +326,12 @@ export async function rebuildProjection(
 
       if (skipped.length > 0) {
         await recordRebuildDeadLetters(tx, projectionName, skipped);
+      }
+      // Guard the swap: abort if the live table holds a row no event can
+      // reconstruct (#498 ghost — direct-inserted without a .created event),
+      // which the swap would silently drop. Implicit projections only.
+      if (projection.isImplicit === true) {
+        await assertNoUnreachableLiveRows(tx, projectionName, meta.tableName, sourcesList);
       }
       await finalizeProjectionRebuild(tx, projectionName, lastProcessedEventId);
       await swapShadowIntoLive(tx, meta.tableName);

@@ -149,6 +149,68 @@ export async function fenceLiveTable(
   await raw.unsafe(`LOCK TABLE public.${quoteTableIdent(tableName)} IN ACCESS EXCLUSIVE MODE`);
 }
 
+// Ids reported when the swap is aborted — enough to locate the ghost rows
+// without dumping an unbounded set into the log.
+const UNREACHABLE_SAMPLE_LIMIT = 20;
+
+// Runs INSIDE the rebuild tx, under the fence, before swapShadowIntoLive. A live
+// row whose aggregate id has NO event in the projection's source streams is
+// UNREACHABLE: no replay can ever reconstruct it, so the swap would silently
+// drop it. That is the #498 ghost — a row direct-inserted without ever emitting
+// a .created event. The static CI guard cannot see it in data that already
+// exists in production, or on table identifiers it couldn't resolve; this
+// catches it at cutover and aborts (tx rolls back, live untouched).
+//
+// Deliberately NARROW — event EXISTENCE only, not a column or row-vs-shadow
+// diff. The framework legitimately makes live diverge from a fresh replay in
+// several SHIPPED ways, none of which is drift:
+//   - a blind-index column recomputed to NULL after the subject's key is
+//     shredded (GDPR erase) — the NULL is the intended end state;
+//   - a `sensitive` column stripped from the event log by design;
+//   - an archived stream that stops replaying (fw#832) — the row's wipe is the
+//     intended tombstone behavior, reported via backfill's `failed` list;
+//   - a legacy column direct-written before its handler emitted events, healed
+//     by the #494 backfill-then-rebuild flow.
+// Checking event existence INCLUDING archived streams leaves every one of them
+// alone: those rows all have a real event, so they are not ghosts. Column-level
+// drift detection (fail-hard vs. graceful repair) is the open question deferred
+// from #722.
+//
+// Implicit projections only (caller-gated). aggregate_id and the entity id are
+// both uuid, so the anti-join probes the events index without a cast.
+export async function assertNoUnreachableLiveRows(
+  tx: AnyDb,
+  projectionName: string,
+  tableName: string,
+  aggregateTypes: readonly string[],
+): Promise<void> {
+  // skip: no source streams → no events could back any row anyway; a rebuild
+  // of a subscription-less projection swaps an empty shadow (handled upstream).
+  if (aggregateTypes.length === 0) return;
+  const raw = asRawClient(tx);
+  const t = quoteTableIdent(tableName);
+  const ghosts = await raw.unsafe<{ id: unknown }>(
+    `SELECT l."id" FROM public.${t} l
+     WHERE NOT EXISTS (
+       SELECT 1 FROM "kumiko_events" e
+        WHERE e."aggregate_id" = l."id" AND e."aggregate_type" = ANY($1::text[])
+     )
+     LIMIT ${UNREACHABLE_SAMPLE_LIMIT}`,
+    [aggregateTypes],
+  );
+  // skip: every live row has a backing event — nothing unreachable, swap is safe
+  if (ghosts.length === 0) return;
+  const ids = ghosts.map((r) => String(r.id));
+  throw new Error(
+    `projection-rebuild "${projectionName}": ${ids.length}+ live rows in "${tableName}" have no ` +
+      `event in the projection's source streams and cannot be reconstructed by replay — the swap ` +
+      `would silently drop them (ids: ${ids.join(", ")}). A handler direct-inserted these rows ` +
+      `without emitting a .created event. Fix: register the table with r.unmanagedTable(meta, ` +
+      `{ reason }) to opt out of rebuild, or emit the missing events. See ` +
+      `docs/reference/entity-write-patterns.md. Rebuild aborted; live table untouched.`,
+  );
+}
+
 // Atomic swap, INSIDE the rebuild tx, AFTER replay. Schema-qualified so the
 // active shadow search_path can't redirect them. DROP without CASCADE: if any
 // object depends on the live table the swap fails loud and the whole rebuild
