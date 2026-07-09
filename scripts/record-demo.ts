@@ -188,6 +188,39 @@ function preflight(): void {
 // ─── tmux helpers ────────────────────────────────────────────────────────────
 const SESSION = "kumiko-demo";
 
+/** Isolated cwd — never scaffold into this repo's ./demo/ sample app. */
+const RECORD_WORKDIR =
+  process.env.RECORD_DEMO_WORKDIR ?? join("/tmp", "kumiko-hero-recording");
+
+const OSASCRIPT_MS = 8_000;
+
+function runOsascript(script: string, label: string): boolean {
+  const r = spawnSync("osascript", ["-e", script], {
+    encoding: "utf8",
+    timeout: OSASCRIPT_MS,
+  });
+  if (r.status === 0) return true;
+  const err = (r.stderr ?? "").trim();
+  if (err.includes("assistive access") || err.includes("-1719")) {
+    // biome-ignore lint/suspicious/noConsole: permission hint
+    console.warn(
+      `[record-demo] ${label}: Accessibility denied — enable Terminal/osascript in ` +
+        "System Settings → Privacy & Security → Accessibility.",
+    );
+    return false;
+  }
+  if (r.error?.code === "ETIMEDOUT") {
+    // biome-ignore lint/suspicious/noConsole: permission hint
+    console.warn(`[record-demo] ${label}: osascript timed out`);
+    return false;
+  }
+  if (err) {
+    // biome-ignore lint/suspicious/noConsole: permission hint
+    console.warn(`[record-demo] ${label}: ${err}`);
+  }
+  return false;
+}
+
 /** Playwright's headed chromium on macOS — not "Chromium". */
 const BROWSER_PROCESS_NAMES = [
   "Google Chrome for Testing",
@@ -605,6 +638,8 @@ if (import.meta.main) {
 // parseArgs + resolveDemoByPrefix are pure; the rest (tmux/ffmpeg/playwright
 // orchestration) needs a real Mac to exercise and isn't exported.
 export { parseArgs, resolveDemoByPrefix };
+
+
 
 
 
