@@ -64,7 +64,6 @@ import type {
   TranslationsDef,
   TreeActionDef,
   TreeActionsHandle,
-  TreeChildrenSubscribe,
   UiHints,
   UnmanagedTableEntry,
   UnmanagedTableOptions,
@@ -163,14 +162,13 @@ export function defineFeature<const TName extends string, TExports = undefined>(
   let toggleableDefault: boolean | undefined;
   let description: string | undefined;
   let uiHints: UiHints | undefined;
-  // Visual-Tree-Slots — at-most-one per feature, only-once-guard im
-  // registrar (siehe r.treeActions / r.tree). Undefined wenn das Feature
-  // keinen Visual-Tree-Beitrag liefert (Zero-Whitelist-Filter).
+  // Tree-Action-Slot — at-most-one per feature, only-once-guard im
+  // registrar (siehe r.treeActions). Undefined wenn das Feature keine
+  // Tree-Actions liefert (Zero-Whitelist-Filter).
   // Name-Collision-Sicherheit: object-literal-method-Names im registrar
   // sind keine bindings im closure-scope, daher kollidiert die `treeActions`
   // closure-let-var nicht mit der `treeActions(...)` registrar-Methode.
   let treeActions: Readonly<Record<string, TreeActionDef>> | undefined;
-  let treeProvider: TreeChildrenSubscribe | undefined;
   // Optional Zod-schema for env-vars this feature reads at runtime,
   // declared via r.envSchema(). At-most-one per feature.
   let envSchema: z.ZodObject<z.ZodRawShape> | undefined;
@@ -969,17 +967,6 @@ export function defineFeature<const TName extends string, TExports = undefined>(
         treeActions: actions,
       });
     },
-
-    tree(provider: TreeChildrenSubscribe): void {
-      // Only-once-guard analog zu r.treeActions.
-      if (treeProvider !== undefined) {
-        throw new Error(
-          `[Feature ${name}] r.tree() already called. ` +
-            `Each feature may declare a single tree-provider.`,
-        );
-      }
-      treeProvider = provider;
-    },
   };
 
   const exports = setup(registrar) as TExports; // @cast-boundary engine-bridge
@@ -1049,7 +1036,6 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     rawTables,
     unmanagedTables,
     ...(treeActions !== undefined && { treeActions }),
-    ...(treeProvider !== undefined && { treeProvider }),
     ...(envSchema !== undefined && { envSchema }),
   };
 }

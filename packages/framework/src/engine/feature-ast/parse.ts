@@ -56,7 +56,6 @@ import {
   extractSystemScope,
   extractToggleable,
   extractTranslations,
-  extractTree,
   extractTreeActions,
   extractUiHints,
   extractUnmanagedTable,
@@ -364,11 +363,9 @@ function dispatchExtractor(
       return extractExposesApi(call, sourceFile);
     case "unmanagedTable":
       return extractUnmanagedTable(call, sourceFile);
-    // Round 6 — Visual-Tree patterns
+    // Round 6 — Tree-Actions pattern
     case "treeActions":
       return extractTreeActions(call, sourceFile);
-    case "tree":
-      return extractTree(call, sourceFile);
     // Round 7 — env-schema contract (opaque, Zod-expression argument)
     case "envSchema":
       return extractEnvSchema(call, sourceFile);

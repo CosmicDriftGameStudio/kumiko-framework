@@ -1102,24 +1102,6 @@ const treeActionsSchema: PatternFormSchema = {
   ],
 };
 
-const treeSchema: PatternFormSchema = {
-  kind: "tree",
-  label: { en: "Tree provider", de: "Tree-Provider" },
-  summary: { en: "Subscribe-Function emitting top-level Visual-Tree nodes." },
-  category: "ui",
-  editability: "opaque",
-  singleton: true,
-  fields: [
-    {
-      path: "providerBody",
-      label: { en: "Provider body (source)", de: "Provider-Body (Source)" },
-      input: "code-block",
-      language: "typescript",
-      readOnly: true,
-    },
-  ],
-};
-
 const envSchemaSchema: PatternFormSchema = {
   kind: "envSchema",
   label: { en: "Env schema", de: "Env-Schema" },
@@ -1200,7 +1182,6 @@ export const PATTERN_LIBRARY: Readonly<Record<FeaturePatternKind, PatternFormSch
   usesApi: usesApiSchema,
   exposesApi: exposesApiSchema,
   treeActions: treeActionsSchema,
-  tree: treeSchema,
   envSchema: envSchemaSchema,
   unknown: unknownSchema,
 } satisfies Readonly<Record<FeaturePatternKind, PatternFormSchema>>;

@@ -445,18 +445,6 @@ export type AuthClaimsPattern = {
   readonly fnBody: SourceLocation;
 };
 
-// `r.tree(provider)` — the feature's top-level tree provider: a subscribe
-// function (emit-fn in, unsubscribe-fn out) that feeds workspaces with
-// `navigation: "tree"`. Features without `r.tree()` are invisible there —
-// provider presence IS the filter, there is no workspace mapping.
-// Closure-only, no header form: the Designer renders a read-only code
-// block, the AI patcher overwrites the span verbatim.
-export type TreePattern = {
-  readonly kind: "tree";
-  readonly source: SourceLocation;
-  readonly providerBody: SourceLocation;
-};
-
 // `r.httpRoute(definition)` — mounts an HTTP route owned by the feature,
 // outside the dispatcher pipeline (not under `/api/write|query|batch`) —
 // for RSS/Atom feeds, OG images, OpenAPI specs and similar. Duplicate
@@ -625,7 +613,6 @@ export type FeaturePattern =
   | DefineEventPattern
   | EventMigrationPattern
   | ExtendsRegistrarPattern
-  | TreePattern
   | EnvSchemaPattern
   // Catch-all
   | UnknownPattern;
@@ -684,7 +671,6 @@ export function getEditability(pattern: FeaturePattern): Editability {
       return "mixed";
     case "authClaims":
     case "extendsRegistrar":
-    case "tree":
     case "envSchema":
     case "uiHints":
     case "unknown":
