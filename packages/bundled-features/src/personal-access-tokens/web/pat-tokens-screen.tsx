@@ -12,6 +12,7 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
+import { FormScreenShell } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useState } from "react";
 import { PatHandlers, PatQueries } from "../constants";
 import { parseGrant } from "../scopes";
@@ -133,8 +134,8 @@ export function PatTokensScreen({
     return parts.join("  ·  ");
   };
 
-  return (
-    <div className={embedded ? "flex flex-col gap-6" : "flex max-w-3xl flex-col gap-6 p-6"}>
+  const content = (
+    <>
       <Heading>{t("pat.title")}</Heading>
 
       {minted && (
@@ -250,6 +251,15 @@ export function PatTokensScreen({
           );
         })}
       </div>
-    </div>
+    </>
+  );
+
+  if (embedded) {
+    return <div className="flex flex-col gap-6">{content}</div>;
+  }
+  return (
+    <FormScreenShell testId="pat-tokens-screen" maxWidth="3xl">
+      {content}
+    </FormScreenShell>
   );
 }

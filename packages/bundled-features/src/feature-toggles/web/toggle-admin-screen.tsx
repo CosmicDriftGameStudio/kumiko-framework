@@ -69,7 +69,7 @@ export function ToggleAdminScreen(): ReactNode {
   }
 
   return (
-    <FormScreenShell testId="toggle-admin-screen" className="flex max-w-5xl flex-col gap-6">
+    <FormScreenShell testId="toggle-admin-screen" maxWidth="4xl" className="flex flex-col gap-6">
       <Heading variant="page">{t("feature-toggles.admin.title")}</Heading>
 
       {actionError !== null && <Banner variant="error">{actionError}</Banner>}
