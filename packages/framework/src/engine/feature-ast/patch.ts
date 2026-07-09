@@ -84,8 +84,7 @@ export type PatternId =
   | { readonly kind: "config" }
   | { readonly kind: "translations" }
   | { readonly kind: "authClaims" }
-  | { readonly kind: "treeActions" }
-  | { readonly kind: "tree" };
+  | { readonly kind: "treeActions" };
 
 // =============================================================================
 // Change ops — generic apply API
@@ -277,10 +276,9 @@ export const SINGLETON_KINDS: ReadonlySet<PatternId["kind"]> = new Set([
   "config",
   "translations",
   "authClaims",
-  // Visual-Tree slots — at-most-one per feature, mirrors the registrar's
+  // Tree-Actions slot — at-most-one per feature, mirrors the registrar's
   // only-once-guard in define-feature.ts.
   "treeActions",
-  "tree",
 ]);
 
 /**
@@ -336,7 +334,6 @@ function callMatchesId(call: CallExpression, id: PatternId): boolean {
     case "translations":
     case "authClaims":
     case "treeActions":
-    case "tree":
       return true;
 
     case "entity":

@@ -1,15 +1,8 @@
 import type { CallExpression, SourceFile } from "ts-morph";
 import type { TreeActionDef } from "../../types/tree-node";
-import type { TreeActionsPattern, TreePattern } from "../patterns";
+import type { TreeActionsPattern } from "../patterns";
 import { sourceLocationFromNode } from "../source-location";
-import {
-  type ExtractOutput,
-  fail,
-  findFunctionLiteral,
-  isPlainObject,
-  ok,
-  readDataLiteralNode,
-} from "./shared";
+import { type ExtractOutput, fail, isPlainObject, ok, readDataLiteralNode } from "./shared";
 
 export function extractTreeActions(
   call: CallExpression,
@@ -35,32 +28,5 @@ export function extractTreeActions(
     kind: "treeActions",
     source: sourceLocationFromNode(call, sourceFile),
     definitions: definitions as Readonly<Record<string, TreeActionDef>>,
-  });
-}
-
-export function extractTree(
-  call: CallExpression,
-  sourceFile: SourceFile,
-): ExtractOutput<TreePattern> {
-  const arg = call.getArguments()[0];
-  if (!arg) {
-    return fail(
-      "tree",
-      sourceLocationFromNode(call, sourceFile),
-      "expected a tree-provider function as first argument",
-    );
-  }
-  const fn = findFunctionLiteral(arg);
-  if (!fn) {
-    return fail(
-      "tree",
-      sourceLocationFromNode(call, sourceFile),
-      "first argument must be an inline arrow function or function expression",
-    );
-  }
-  return ok({
-    kind: "tree",
-    source: sourceLocationFromNode(call, sourceFile),
-    providerBody: sourceLocationFromNode(fn, sourceFile),
   });
 }
