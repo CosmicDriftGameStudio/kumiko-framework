@@ -310,14 +310,6 @@ function discoverHtmlTemplateFor(cwd: string, basename: string): string | undefi
   return undefined;
 }
 
-/** @deprecated single-entry-Variante. Nutze discoverClientEntries. */
-export function discoverClientEntry(cwd: string): string | undefined {
-  const entries = discoverClientEntries(cwd);
-  if (entries.length !== 1) return undefined;
-  const only = entries[0];
-  return only?.name === "client" ? only.sourceFile : undefined;
-}
-
 type ResolvedStylesheet = {
   readonly path: string;
   /** True nur wenn wir auf das gepackte renderer-web-styles.css zurückfallen

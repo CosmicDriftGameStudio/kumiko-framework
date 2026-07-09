@@ -87,11 +87,13 @@ describe("RecordingTracer", () => {
     expect(recorded).toHaveLength(1);
   });
 
-  it("startSpanFromContext continues an upstream trace", () => {
+  it("startSpan with parent context continues an upstream trace", () => {
     const { tracer, recorded } = makeTracer();
-    const span = tracer.startSpanFromContext("child", {
-      traceId: "aabbccddeeff00112233445566778899",
-      spanId: "1122334455667788",
+    const span = tracer.startSpan("child", {
+      parent: {
+        traceId: "aabbccddeeff00112233445566778899",
+        spanId: "1122334455667788",
+      },
     });
     span.end();
     expect(recorded[0]?.traceId).toBe("aabbccddeeff00112233445566778899");

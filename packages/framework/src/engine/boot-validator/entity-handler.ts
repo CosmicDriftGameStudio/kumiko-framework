@@ -178,8 +178,9 @@ export function validateMultiStreamProjections(feature: FeatureDefinition): void
 //
 // Die häufigste Quelle von Konflikten ist Hand-Konstruktion:
 //   { foo: { type: "timestamp", locatedBy: "fooTz" } }
-// ohne das `fooTz`-Feld zu deklarieren. Der `locatedTimestamp(name)` Helper
-// macht das Pair atomar — wer ihn nutzt, fliegt nicht durch diesen Validator.
+// ohne das `fooTz`-Feld zu deklarieren. `createLocatedTimestampField()`
+// erzeugt stattdessen EIN Feld vom Typ "locatedTimestamp" — wer den nutzt,
+// fliegt nicht durch diesen Validator.
 export function validateLocatedTimestamps(feature: FeatureDefinition): void {
   for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     const fields = entity.fields;
@@ -190,8 +191,8 @@ export function validateLocatedTimestamps(feature: FeatureDefinition): void {
         throw new Error(
           `Feature "${feature.name}", entity "${entityName}": field "${fieldName}" has ` +
             `locatedBy: "${field.locatedBy}" but no field with that name exists in the entity. ` +
-            `Either declare the tz-field, or use the locatedTimestamp("${fieldName.replace(/At$/, "")}") helper ` +
-            `to create the pair atomically.`,
+            `Either declare the tz-field, or use createLocatedTimestampField() ` +
+            `to create a single located-timestamp field instead.`,
         );
       }
       if (referenced.type !== "tz") {

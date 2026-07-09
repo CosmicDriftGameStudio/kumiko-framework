@@ -5,7 +5,6 @@ import type {
   Meter,
   MetricDefinition,
   ObservabilityProvider,
-  SerializedTraceContext,
   Span,
   SpanStatus,
   StartSpanOptions,
@@ -67,14 +66,6 @@ class NoopTracer implements Tracer {
 
   getActiveSpan(): Span | undefined {
     return undefined;
-  }
-
-  startSpanFromContext(
-    name: string,
-    _context: SerializedTraceContext,
-    _options?: StartSpanOptions,
-  ): Span {
-    return new NoopSpan(name, undefined);
   }
 }
 
