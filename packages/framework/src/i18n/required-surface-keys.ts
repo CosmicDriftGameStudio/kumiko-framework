@@ -74,7 +74,8 @@ function pushDashboardScreenKeys(out: Set<string>, dashboard: DashboardScreenDef
 }
 
 function pushDashboardPanelKeys(out: Set<string>, panel: DashboardPanelDefinition): void {
-  if (panel.kind === "custom") return; // Komponente übersetzt sich selbst, kein Key hier
+  // skip: custom-Panel übersetzt sich selbst, kein Key hier
+  if (panel.kind === "custom") return;
   pushKey(out, panel.label);
   if (panel.kind === "stat-group") {
     for (const stat of panel.stats) pushKey(out, stat.label);
