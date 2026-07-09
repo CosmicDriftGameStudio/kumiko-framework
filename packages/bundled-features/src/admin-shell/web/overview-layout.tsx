@@ -1,5 +1,6 @@
 // @runtime client
 import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
+import { FormScreenShell } from "@cosmicdrift/kumiko-renderer-web";
 import type { ReactNode } from "react";
 
 export type OverviewCard = {
@@ -32,7 +33,7 @@ export function OverviewLayout({
   const gridClass = columns === 2 ? "sm:grid-cols-2" : "sm:grid-cols-3";
 
   return (
-    <div data-testid={testId} className="flex max-w-4xl flex-col gap-6 p-6">
+    <FormScreenShell testId={testId} maxWidth="4xl" className="flex flex-col gap-6">
       <Heading variant="page">{title}</Heading>
 
       {state.kind === "loading" && (
@@ -63,6 +64,6 @@ export function OverviewLayout({
           ))}
         </div>
       )}
-    </div>
+    </FormScreenShell>
   );
 }
