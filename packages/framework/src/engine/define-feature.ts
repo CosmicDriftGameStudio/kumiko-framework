@@ -64,7 +64,6 @@ import type {
   TranslationsDef,
   TreeActionDef,
   TreeActionsHandle,
-  TreeChildrenSubscribe,
   UiHints,
   UnmanagedTableEntry,
   UnmanagedTableOptions,
