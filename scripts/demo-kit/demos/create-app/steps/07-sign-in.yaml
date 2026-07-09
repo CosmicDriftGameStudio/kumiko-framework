@@ -1,0 +1,8 @@
+id: sign-in
+kind: browser
+click: "button[type=submit]"
+waitFor: "[data-sidebar=sidebar]"
+caption:
+  de: Anmelden
+  en: Sign in
+verify: e2e

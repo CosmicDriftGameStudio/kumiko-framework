@@ -1,0 +1,18 @@
+@import "@cosmicdrift/kumiko-renderer-web/styles.css";
+
+@source "./**/*.{ts,tsx}";
+
+@theme {
+  --color-primary: #d97706;
+  --color-primary-foreground: #ffffff;
+  --color-ring: #d97706;
+}
+
+/* renderer-web :root:not(.dark) beats bare @theme — match show-pony pattern */
+@layer base {
+  :root:not(.dark) {
+    --color-primary: #d97706;
+    --color-primary-foreground: #ffffff;
+    --color-ring: #d97706;
+  }
+}

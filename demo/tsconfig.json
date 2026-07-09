@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": true,
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "lib": [
+      "ESNext",
+      "DOM"
+    ],
+    "types": [
+      "bun-types"
+    ],
+    "jsx": "react-jsx",
+    "noEmit": true
+  },
+  "include": [
+    "bin",
+    "src",
+    "kumiko"
+  ]
+}

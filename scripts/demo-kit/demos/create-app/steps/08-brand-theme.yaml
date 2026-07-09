@@ -1,0 +1,8 @@
+id: brand-theme
+kind: editor
+file: src/styles.css
+content: $fixture:styles-brand.css
+caption:
+  de: Brand-Farbe in styles.css setzen
+  en: Set your brand colour in styles.css
+verify: record-only

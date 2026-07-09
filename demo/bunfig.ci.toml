@@ -1,0 +1,10 @@
+[install]
+linker = "hoisted"
+
+[test]
+concurrency = 8
+pathIgnorePatterns = [
+  "**/e2e/**",
+  "**/*.spec.ts",
+  "**/dist/**",
+]

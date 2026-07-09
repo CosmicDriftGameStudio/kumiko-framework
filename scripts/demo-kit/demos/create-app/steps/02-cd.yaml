@@ -1,0 +1,7 @@
+id: cd
+kind: cli
+preset: cd-app
+caption:
+  de: Ins Projekt wechseln
+  en: Into the project
+verify: skip

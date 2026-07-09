@@ -1,0 +1,86 @@
+# syntax=docker/dockerfile:1.7
+#
+# Production-Image for demo.
+#
+# Server-Bundle variant — the runtime image doesn't know about the
+# monorepo any more, only:
+#
+#   dist/                  ← Client build (kumiko-build)
+#   dist-server/           ← Server bundle (bun build) + minimal package.json
+#   kumiko/migrations/     ← Checked-in SQL migrations applied by `kumiko schema apply`
+#
+# Build context: repository root (monorepo is used in the build stage).
+
+ARG BUN_VERSION=1.3.14
+# Build identity — passed in by the CI workflow via --build-arg. Defaults
+# for local container builds.
+ARG BUILD_VERSION=dev
+ARG BUILD_TIME=unknown
+
+# ----- build: produces dist/ + dist-server/ ---------------------------------
+FROM oven/bun:${BUN_VERSION}-alpine AS build
+WORKDIR /app
+
+# Standalone-repo layout: @cosmicdrift/* pulled from NPM, no workspace:*
+# refs. Manifests first for Docker layer cache (bun install only
+# invalidates on dep change).
+COPY package.json bun.lock ./
+
+RUN bun install --frozen-lockfile
+
+COPY . .
+RUN bun run build
+
+# ----- runtime: bun-alpine, knows only the bundle artefact ------------------
+FROM oven/bun:${BUN_VERSION}-alpine AS runtime
+WORKDIR /app
+
+RUN addgroup -S app && adduser -S app -G app
+
+# Server bundle + its minimal package.json. `bun install --production`
+# only pulls the actual externals.
+COPY --from=build --chown=app:app /app/dist-server ./
+RUN bun install --production
+
+# Client build (static assets) — served by runProdApp.staticDir.
+COPY --from=build --chown=app:app /app/dist ./dist
+
+# Checked-in SQL migrations for the pre-deploy `kumiko schema apply` step.
+# The shipped `kumiko-schema` bin reads `${INIT_CWD}/kumiko/migrations/*.sql`
+# (see ENV INIT_CWD=/app below). kumiko/schema.ts is NOT needed at runtime
+# (only generate reads it; apply is checksum-tracked SQL only).
+COPY --from=build --chown=app:app /app/kumiko/migrations ./kumiko/migrations
+
+# Container entrypoint — `infra/pulumi/bun-server.ts` overrides the container
+# command to inject DATABASE_URL from the init-container's /shared/database-url
+# then execs `./start.sh`. We generate it inline so app-source-roots stay
+# clean (no per-app start.sh duplication). Apps that don't go through
+# createBunServer's command-override still boot via the CMD at the bottom
+# (`exec bun run server.js`) — start.sh is dead-code in that case.
+RUN printf '#!/bin/sh\nset -e\nexec bun run server.js\n' > ./start.sh && chmod +x ./start.sh
+
+
+USER app
+
+ENV NODE_ENV=production
+ENV PORT=3000
+# The bundled kumiko.js CLI resolves its repo-relative paths via
+# KUMIKO_REPO_ROOT (default: parent-of-import.meta.dir, which inside the
+# bundle points to the wrong directory). /app is the app root + the
+# node_modules parent here.
+ENV KUMIKO_REPO_ROOT=/app
+# INIT_CWD is the app workspace the schema-CLI runs against — that's where
+# `kumiko/migrations/` lives. In the bundle container, /app is the workspace.
+ENV INIT_CWD=/app
+# Build identity in the runtime env so /api/version returns it.
+# Built: SHA of the commit at image build time + ISO timestamp.
+ENV BUILD_VERSION=$BUILD_VERSION
+ENV BUILD_TIME=$BUILD_TIME
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD wget --quiet --spider "http://127.0.0.1:${PORT}/health" || exit 1
+
+# exec → bun is PID 1 → SIGTERM reaches it directly → graceful shutdown.
+CMD ["sh", "-c", "exec bun run server.js"]

@@ -1,0 +1,8 @@
+id: env
+kind: editor
+file: .env
+content: $fixture:env.recording.env
+caption:
+  de: Konfiguration
+  en: Configuration
+verify: e2e

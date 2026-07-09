@@ -1,0 +1,21 @@
+# Local Postgres + Redis for `bun dev`. Matches the *_URL defaults in .env.example.
+# Start: docker compose up -d   ·   Stop: docker compose down   ·   Reset: docker compose down -v
+# Ports bind to 127.0.0.1 only — weak dev credentials must not be exposed on the LAN.
+services:
+  postgres:
+    # Pinned to the project's own compose-file tag (663/1) — Alpine variant
+    # (~90MB vs ~400MB) and a reproducible patch version, bump on PG18 minors.
+    image: postgres:18.3-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - kumiko-pg:/var/lib/postgresql/data
+  redis:
+    image: redis:7
+    ports:
+      - "127.0.0.1:6379:6379"
+volumes:
+  kumiko-pg:

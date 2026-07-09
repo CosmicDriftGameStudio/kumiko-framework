@@ -1,0 +1,1344 @@
+{
+  "version": 1,
+  "generatedAt": "2026-07-08T13:04:43.337Z",
+  "tables": [
+    {
+      "tableName": "read_config_values",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "key",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "value",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "user_id",
+          "pgType": "text",
+          "notNull": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_config_values_tenant_id_idx",
+          "columns": [
+            "tenant_id"
+          ]
+        },
+        {
+          "name": "read_config_values_unique",
+          "columns": [
+            "key",
+            "tenant_id",
+            "user_id"
+          ],
+          "unique": true
+        }
+      ],
+      "source": "managed"
+    },
+    {
+      "tableName": "read_delivery_attempts",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "notification_type",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "channel",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "recipient_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "recipient_address",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "status",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "error",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "priority",
+          "pgType": "text",
+          "notNull": true,
+          "defaultSql": "'normal'"
+        },
+        {
+          "name": "created_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        }
+      ],
+      "indexes": [],
+      "source": "unmanaged"
+    },
+    {
+      "tableName": "read_download_attempts",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "result",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "via",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "token_hash",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "job_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "attempted_by_user_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "ip",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "user_agent",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "attempted_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_download_attempts_tenant_id_idx",
+          "columns": [
+            "tenant_id"
+          ]
+        }
+      ],
+      "source": "managed"
+    },
+    {
+      "tableName": "read_export_download_tokens",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "job_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "token_hash",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "issued_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        },
+        {
+          "name": "expires_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        },
+        {
+          "name": "last_used_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "use_count",
+          "pgType": "bigint",
+          "notNull": false,
+          "bigintJsMode": "number"
+        },
+        {
+          "name": "last_used_from_ip",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "last_used_user_agent",
+          "pgType": "text",
+          "notNull": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_export_download_tokens_tenant_id_idx",
+          "columns": [
+            "tenant_id"
+          ]
+        },
+        {
+          "name": "read_export_download_tokens_one_per_job",
+          "columns": [
+            "job_id"
+          ],
+          "unique": true
+        }
+      ],
+      "source": "managed"
+    },
+    {
+      "tableName": "read_export_jobs",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "user_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "requested_from_tenant_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "status",
+          "pgType": "text",
+          "notNull": true,
+          "defaultSql": "'pending'"
+        },
+        {
+          "name": "requested_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        },
+        {
+          "name": "started_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "completed_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "download_storage_key",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "expires_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "error_message",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "bytes_written",
+          "pgType": "bigint",
+          "notNull": false,
+          "bigintJsMode": "number"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_export_jobs_tenant_id_idx",
+          "columns": [
+            "tenant_id"
+          ]
+        },
+        {
+          "name": "read_export_jobs_one_active_per_user",
+          "columns": [
+            "user_id"
+          ],
+          "unique": true,
+          "whereSql": "status IN ('pending', 'running')"
+        }
+      ],
+      "source": "managed"
+    },
+    {
+      "tableName": "read_notification_preferences",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "primaryKey": true,
+          "defaultSql": "gen_random_uuid()"
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "user_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "notification_type",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "channel",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "enabled",
+          "pgType": "boolean",
+          "notNull": true,
+          "defaultSql": "true"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_notification_preferences_unique",
+          "columns": [
+            "tenant_id",
+            "user_id",
+            "notification_type",
+            "channel"
+          ],
+          "unique": true
+        }
+      ],
+      "source": "unmanaged"
+    },
+    {
+      "tableName": "read_tasks",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "title",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "status",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "priority",
+          "pgType": "integer",
+          "notNull": false
+        },
+        {
+          "name": "is_urgent",
+          "pgType": "boolean",
+          "notNull": true,
+          "defaultSql": "false"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_tasks_tenant_id_idx",
+          "columns": [
+            "tenant_id"
+          ]
+        }
+      ],
+      "source": "managed"
+    },
+    {
+      "tableName": "read_tenant_compliance_profiles",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "profile_key",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "override",
+          "pgType": "text",
+          "notNull": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_tenant_compliance_profiles_tenant_id_idx",
+          "columns": [
+            "tenant_id"
+          ]
+        },
+        {
+          "name": "read_tenant_compliance_profiles_tenant_id_unique",
+          "columns": [
+            "tenant_id"
+          ],
+          "unique": true
+        }
+      ],
+      "source": "managed"
+    },
+    {
+      "tableName": "read_tenant_invitations",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "email",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "email_bidx",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "role",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "status",
+          "pgType": "text",
+          "notNull": true,
+          "defaultSql": "'pending'"
+        },
+        {
+          "name": "invited_by",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "expires_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_tenant_invitations_tenant_id_idx",
+          "columns": [
+            "tenant_id"
+          ]
+        },
+        {
+          "name": "read_tenant_invitations_email_bidx_idx",
+          "columns": [
+            "email_bidx"
+          ]
+        },
+        {
+          "name": "read_tenant_invitations_tenant_email_unique",
+          "columns": [
+            "tenant_id",
+            "email"
+          ],
+          "unique": true
+        },
+        {
+          "name": "read_tenant_invitations_tenant_email_unique_bidx",
+          "columns": [
+            "tenant_id",
+            "email_bidx"
+          ],
+          "unique": true,
+          "whereSql": "\"email_bidx\" IS NOT NULL"
+        }
+      ],
+      "source": "managed",
+      "piiSubjectFields": [
+        "email",
+        "invitedBy"
+      ]
+    },
+    {
+      "tableName": "read_tenant_memberships",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "user_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "roles",
+          "pgType": "text",
+          "notNull": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_tenant_memberships_tenant_id_idx",
+          "columns": [
+            "tenant_id"
+          ]
+        },
+        {
+          "name": "read_tenant_memberships_unique",
+          "columns": [
+            "user_id",
+            "tenant_id"
+          ],
+          "unique": true
+        }
+      ],
+      "source": "managed"
+    },
+    {
+      "tableName": "read_tenant_retention_overrides",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "entity_name",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "config",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "reason",
+          "pgType": "text",
+          "notNull": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_tenant_retention_overrides_tenant_id_idx",
+          "columns": [
+            "tenant_id"
+          ]
+        },
+        {
+          "name": "read_tenant_retention_overrides_tenant_id_entity_name_unique",
+          "columns": [
+            "tenant_id",
+            "entity_name"
+          ],
+          "unique": true
+        }
+      ],
+      "source": "managed"
+    },
+    {
+      "tableName": "read_tenant_secrets",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "primaryKey": true,
+          "defaultSql": "gen_random_uuid()"
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "key",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "envelope",
+          "pgType": "jsonb",
+          "notNull": true
+        },
+        {
+          "name": "kek_version",
+          "pgType": "integer",
+          "notNull": true
+        },
+        {
+          "name": "metadata",
+          "pgType": "jsonb",
+          "notNull": true,
+          "defaultSql": "'{}'::jsonb"
+        },
+        {
+          "name": "last_rotated_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_tenant_secrets_tenant_key_unique",
+          "columns": [
+            "tenant_id",
+            "key"
+          ],
+          "unique": true
+        }
+      ],
+      "source": "unmanaged"
+    },
+    {
+      "tableName": "read_tenants",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "key",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "name",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "is_enabled",
+          "pgType": "boolean",
+          "notNull": true,
+          "defaultSql": "true"
+        },
+        {
+          "name": "status",
+          "pgType": "text",
+          "notNull": true,
+          "defaultSql": "'active'"
+        },
+        {
+          "name": "destroy_requested_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "destroy_requested_by",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "grace_period_end",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "destroy_started_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "destroyed_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_tenants_tenant_id_idx",
+          "columns": [
+            "tenant_id"
+          ]
+        },
+        {
+          "name": "read_tenants_key_unique",
+          "columns": [
+            "key"
+          ],
+          "unique": true
+        }
+      ],
+      "source": "managed"
+    },
+    {
+      "tableName": "read_user_sessions",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "user_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "created_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        },
+        {
+          "name": "expires_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        },
+        {
+          "name": "revoked_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "ip",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "user_agent",
+          "pgType": "text",
+          "notNull": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_user_sessions_tenant_id_idx",
+          "columns": [
+            "tenant_id"
+          ]
+        }
+      ],
+      "source": "managed",
+      "piiSubjectFields": [
+        "ip",
+        "userAgent"
+      ]
+    },
+    {
+      "tableName": "read_users",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "is_deleted",
+          "pgType": "boolean",
+          "notNull": true,
+          "defaultSql": "false"
+        },
+        {
+          "name": "deleted_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "deleted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "email",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "email_bidx",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "password_hash",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "display_name",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "locale",
+          "pgType": "text",
+          "notNull": false,
+          "defaultSql": "'de'"
+        },
+        {
+          "name": "last_active_tenant_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "email_verified",
+          "pgType": "boolean",
+          "notNull": true,
+          "defaultSql": "false"
+        },
+        {
+          "name": "roles",
+          "pgType": "text",
+          "notNull": true,
+          "defaultSql": "'[]'"
+        },
+        {
+          "name": "status",
+          "pgType": "text",
+          "notNull": true,
+          "defaultSql": "'active'"
+        },
+        {
+          "name": "grace_period_end",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "pending_deletion_request_id",
+          "pgType": "text",
+          "notNull": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_users_tenant_id_idx",
+          "columns": [
+            "tenant_id"
+          ]
+        },
+        {
+          "name": "read_users_email_bidx_idx",
+          "columns": [
+            "email_bidx"
+          ]
+        }
+      ],
+      "source": "managed",
+      "piiSubjectFields": [
+        "email",
+        "displayName"
+      ]
+    }
+  ]
+}

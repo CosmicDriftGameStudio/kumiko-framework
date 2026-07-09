@@ -1,0 +1,7 @@
+id: click-notes
+kind: browser
+click: "[data-test=nav-notes]"
+caption:
+  de: CRUD-Screen ist live
+  en: CRUD screen is live
+verify: record-only

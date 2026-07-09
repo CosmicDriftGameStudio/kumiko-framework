@@ -1,0 +1,7 @@
+id: open-login
+kind: browser
+navigate: "http://localhost:{{port}}/login"
+caption:
+  de: Login öffnet sich
+  en: Login screen appears
+verify: e2e

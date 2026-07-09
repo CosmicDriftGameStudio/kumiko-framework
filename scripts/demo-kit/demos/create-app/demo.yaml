@@ -1,0 +1,20 @@
+title: create-app
+vars:
+  appName: demo
+  port: 3000
+output:
+  marketing: hero
+steps:
+  - steps/01-install.yaml
+  - steps/02-cd.yaml
+  - steps/03-env.yaml
+  - steps/04-bun-dev.yaml
+  - steps/05-open-login.yaml
+  - steps/06-fill-credentials.yaml
+  - steps/07-sign-in.yaml
+  - steps/08-brand-theme.yaml
+  - steps/09-reload-themed.yaml
+  - steps/10-add-notes.yaml
+  - steps/11-wait-nav-notes.yaml
+  - steps/12-click-notes.yaml
+

@@ -1,0 +1,8 @@
+id: reload-themed
+kind: browser
+navigate: "http://localhost:{{port}}/"
+waitFor: "[data-sidebar=sidebar]"
+caption:
+  de: Oberfläche übernimmt die neuen Tokens
+  en: UI picks up the new design tokens
+verify: record-only
