@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
  *  Teil-Updates + `field(name)` das die `{ id, name, value, onChange }`-Props
  *  fertig für die Feld-Widgets (NumberField/MoneyField/PercentField) liefert.
  *  Ersetzt das pro Screen wiederholte Draft-Interface + patch-Helper. */
-export function useDraft<T extends Record<string, unknown>>(
+export function useDraft<T extends object>(
   defaults: T,
 ): {
   readonly draft: T;
