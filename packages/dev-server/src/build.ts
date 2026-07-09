@@ -10,7 +10,6 @@ export {
   buildProdBundle,
   type ClientEntry,
   discoverClientEntries,
-  discoverClientEntry,
   discoverHtmlTemplate,
   formatBuildResult,
   injectAssetTags,
