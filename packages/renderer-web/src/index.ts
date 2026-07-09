@@ -155,7 +155,9 @@ export {
 } from "./tokens";
 export { SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider } from "./ui/sidebar";
 export type {
+  FeedRow,
   NumberFieldProps,
+  ProgressListRow,
   QueryTableColumn,
   QueryTableProps,
   ResultColumn,
@@ -170,6 +172,7 @@ export {
   DetailList,
   EmptyState,
   ErrorState,
+  FeedList,
   LoadingState,
   MiniStat,
   ModeSwitch,
@@ -177,6 +180,7 @@ export {
   NumberField,
   PercentField,
   ProgressBar,
+  ProgressList,
   QueryTable,
   ResultPanel,
   ResultTable,
