@@ -69,6 +69,9 @@ export type ButtonProps = {
    *  Save, "danger" für Delete, "secondary" für Confirm-State,
    *  "link" für Inline-Aktionen im Fließtext (kein BG, underline). */
   readonly variant?: "primary" | "secondary" | "danger" | "link";
+  /** Größe — default="md". "sm" für kompakte Inline-Aktionen (Toolbar,
+   *  Listen-Zeilen), "icon" für quadratische Icon-only-Buttons. */
+  readonly size?: "sm" | "md" | "icon";
   readonly children: ReactNode;
   readonly testId?: string;
 };
@@ -177,6 +180,19 @@ export type InputProps =
       readonly name: string;
       readonly value: number | "";
       readonly onChange: (v: number | undefined) => void;
+      readonly disabled?: boolean;
+      readonly required?: boolean;
+      readonly hasError?: boolean;
+    }
+  | {
+      readonly kind: "range";
+      readonly id: string;
+      readonly name: string;
+      readonly value: number;
+      readonly onChange: (v: number) => void;
+      readonly min: number;
+      readonly max: number;
+      readonly step?: number;
       readonly disabled?: boolean;
       readonly required?: boolean;
       readonly hasError?: boolean;

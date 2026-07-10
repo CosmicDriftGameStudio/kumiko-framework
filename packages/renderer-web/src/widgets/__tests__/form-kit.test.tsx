@@ -1,12 +1,16 @@
 import { describe, expect, mock, test } from "bun:test";
+import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
+import type { ReactNode } from "react";
 import { act, fireEvent, render, renderHook, screen } from "../../__tests__/test-utils";
 import { DetailList } from "../detail-list";
 import {
   BooleanField,
   DateField,
+  FileField,
   MoneyField,
   NumberField,
   PercentField,
+  RangeField,
   SelectField,
   TextareaField,
   TextField,
@@ -182,6 +186,51 @@ describe("ResultPanel footer", () => {
       </ResultPanel>,
     );
     expect(screen.getByRole("button", { name: "Los" })).toBeTruthy();
+  });
+});
+
+describe("RangeField", () => {
+  test("meldet den Slider-Wert als Zahl", () => {
+    const onChange = mock();
+    render(
+      <RangeField
+        label="Abruf"
+        id="r"
+        name="r"
+        value={20}
+        min={0}
+        max={100}
+        step={5}
+        onChange={onChange}
+      />,
+    );
+    expect(screen.getByText("Abruf")).toBeTruthy();
+    fireEvent.change(screen.getByRole("slider"), { target: { value: "45" } });
+    expect(onChange).toHaveBeenCalledWith(45);
+  });
+});
+
+describe("FileField", () => {
+  test("rendert Label", () => {
+    render(
+      <FileField label="Bild" id="f" name="f" value={null} onChange={() => {}} variant="image" />,
+    );
+    expect(screen.getByText("Bild")).toBeTruthy();
+  });
+});
+
+describe("Button size", () => {
+  function SizedButton({ size }: { readonly size: "sm" | "md" | "icon" }): ReactNode {
+    const { Button } = usePrimitives();
+    return (
+      <Button size={size} onClick={() => {}}>
+        X
+      </Button>
+    );
+  }
+  test("size=sm rendert die kompakte shadcn-Größe (h-8)", () => {
+    render(<SizedButton size="sm" />);
+    expect(screen.getByRole("button", { name: "X" }).className).toContain("h-8");
   });
 });
 

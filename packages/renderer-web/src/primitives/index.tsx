@@ -111,12 +111,19 @@ const BUTTON_VARIANT = {
   link: "link",
 } as const;
 
+const BUTTON_SIZE = {
+  sm: "sm",
+  md: "default",
+  icon: "icon",
+} as const;
+
 function DefaultButton({
   type = "button",
   onClick,
   disabled,
   loading,
   variant = "primary",
+  size = "md",
   children,
   testId,
 }: ButtonProps): ReactNode {
@@ -128,6 +135,7 @@ function DefaultButton({
       data-testid={testId}
       data-loading={loading === true ? "true" : undefined}
       variant={BUTTON_VARIANT[variant]}
+      size={BUTTON_SIZE[size]}
       // link-Variant rendert text-artig (Inline-Link im Fließtext/Banner),
       // nicht als gepolsterte Buttonfläche.
       className={variant === "link" ? "h-auto px-0 py-0" : undefined}
@@ -290,6 +298,19 @@ function DefaultInput(props: InputProps): ReactNode {
             props.onChange(v === "" ? undefined : Number(v));
           }}
           className="text-right tabular-nums"
+        />
+      );
+    case "range":
+      return (
+        <input
+          type="range"
+          {...common}
+          min={props.min}
+          max={props.max}
+          step={props.step ?? 1}
+          value={props.value}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(Number(e.target.value))}
+          className="w-full accent-primary"
         />
       );
     case "boolean":
