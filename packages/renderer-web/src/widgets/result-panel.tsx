@@ -13,6 +13,7 @@ export function ResultPanel({
   empty,
   emptyText,
   rows,
+  footer,
   children,
   testId,
 }: {
@@ -25,12 +26,14 @@ export function ResultPanel({
     readonly value: ReactNode;
     readonly emphasize?: boolean;
   }[];
+  /** Action-Slot am Karten-Fuß (z.B. „In Finanzierung übernehmen"). */
+  readonly footer?: ReactNode;
   readonly children?: ReactNode;
   readonly testId?: string;
 }): ReactNode {
   const { Banner } = usePrimitives();
   return (
-    <SectionCard title={title} subtitle={subtitle} testId={testId}>
+    <SectionCard title={title} subtitle={subtitle} footer={footer} testId={testId}>
       {empty === true ? (
         <Banner variant="info" padded>
           {emptyText}
@@ -94,6 +97,70 @@ export function ResultTable<Row>({
               ))}
             </tr>
           ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export interface ComparisonMetric<Col> {
+  readonly label: string;
+  readonly value: (col: Col, index: number) => ReactNode;
+  /** Index der besten Spalte für diese Zeile (hervorgehoben); -1 = keine. */
+  readonly bestIndex?: (cols: readonly Col[]) => number;
+}
+
+/** Transponierte Vergleichstabelle: Zeile = Kennzahl, Spalte = Variante, je
+ *  Kennzahl optional die beste Spalte hervorgehoben. Für Szenario-/Angebots-
+ *  Vergleiche, wo ResultTable (Zeile=Datensatz) nicht passt. */
+export function ComparisonTable<Col>({
+  columns,
+  columnHeader,
+  columnKey,
+  metrics,
+  metricLabel,
+  testId,
+}: {
+  readonly columns: readonly Col[];
+  readonly columnHeader: (col: Col, index: number) => string;
+  readonly columnKey: (col: Col, index: number) => string;
+  readonly metrics: readonly ComparisonMetric<Col>[];
+  readonly metricLabel: string;
+  readonly testId?: string;
+}): ReactNode {
+  return (
+    <div className="overflow-x-auto">
+      <table data-testid={testId} className="w-full min-w-[24rem] text-sm">
+        <thead>
+          <tr className="border-b text-left text-muted-foreground">
+            <th className="py-1.5 font-medium">{metricLabel}</th>
+            {columns.map((col, i) => (
+              <th key={columnKey(col, i)} className="py-1.5 text-right font-medium">
+                {columnHeader(col, i)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {metrics.map((metric) => {
+            const best = metric.bestIndex !== undefined ? metric.bestIndex(columns) : -1;
+            return (
+              <tr key={metric.label} className="border-b last:border-0">
+                <td className="py-1.5 text-muted-foreground">{metric.label}</td>
+                {columns.map((col, i) => (
+                  <td key={columnKey(col, i)} className="py-1.5 text-right tabular-nums">
+                    {i === best ? (
+                      <span className="inline-block rounded bg-primary/10 px-2 py-0.5 font-semibold text-primary">
+                        {metric.value(col, i)}
+                      </span>
+                    ) : (
+                      metric.value(col, i)
+                    )}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

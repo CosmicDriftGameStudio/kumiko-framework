@@ -13,12 +13,33 @@ export {
 export { CollapsibleSection } from "./collapsible-section";
 export { DetailList } from "./detail-list";
 export { FeedList, type FeedRow } from "./feed-list";
-export { MoneyField, NumberField, type NumberFieldProps, PercentField } from "./form-fields";
+export {
+  BooleanField,
+  type BooleanFieldProps,
+  DateField,
+  type DateFieldProps,
+  MoneyField,
+  NumberField,
+  type NumberFieldProps,
+  PercentField,
+  SelectField,
+  type SelectFieldProps,
+  TextareaField,
+  type TextareaFieldProps,
+  TextField,
+  type TextFieldProps,
+} from "./form-fields";
 export { ModeSwitch } from "./mode-switch";
 export { ProgressBar } from "./progress-bar";
 export { ProgressList, type ProgressListRow } from "./progress-list";
 export { QueryTable, type QueryTableColumn, type QueryTableProps } from "./query-table";
-export { type ResultColumn, ResultPanel, ResultTable } from "./result-panel";
+export {
+  type ComparisonMetric,
+  ComparisonTable,
+  type ResultColumn,
+  ResultPanel,
+  ResultTable,
+} from "./result-panel";
 export { SectionCard } from "./section-card";
 export { MiniStat, Sparkline, StatCard, type StatDelta, type StatTone } from "./stat";
 export { EmptyState, ErrorState, LoadingState } from "./states";

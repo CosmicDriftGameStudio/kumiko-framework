@@ -2,7 +2,10 @@
 // statischen Daten. Dient zugleich als e2e-Renderfläche (content.spec).
 
 import {
+  BooleanField,
   CollapsibleSection,
+  ComparisonTable,
+  DateField,
   DetailList,
   EmptyState,
   MiniStat,
@@ -13,9 +16,12 @@ import {
   ResultPanel,
   ResultTable,
   SectionCard,
+  SelectField,
   StatCard,
   StatusBadge,
   StatusBarChart,
+  TextareaField,
+  TextField,
   TimeseriesChart,
   useDraft,
 } from "@cosmicdrift/kumiko-renderer-web";
@@ -115,7 +121,91 @@ export function Widgets(): ReactNode {
       </CollapsibleSection>
 
       <FinancingCalculatorDemo />
+      <FormFieldsDemo />
+      <ComparisonDemo />
     </div>
+  );
+}
+
+// Feld-Widgets für Nicht-Zahl-Typen (Select/Date/Text/Boolean/Textarea) —
+// wrappen dieselben usePrimitives-Input-kinds wie NumberField.
+interface FieldsDraft {
+  readonly land: string;
+  readonly datum: string;
+  readonly name: string;
+  readonly aktiv: boolean;
+  readonly notiz: string;
+}
+
+const FIELDS_DEFAULTS: FieldsDraft = {
+  land: "NW",
+  datum: "2026-07-10",
+  name: "",
+  aktiv: true,
+  notiz: "",
+};
+
+function FormFieldsDemo(): ReactNode {
+  const { patch, field } = useDraft<FieldsDraft>(FIELDS_DEFAULTS);
+  return (
+    <SectionCard title="Feld-Widgets">
+      <TextField label="Name" {...field("name")} placeholder="z. B. Variante A" />
+      <SelectField
+        label="Bundesland"
+        {...field("land")}
+        options={[
+          { value: "NW", label: "Nordrhein-Westfalen" },
+          { value: "BY", label: "Bayern" },
+        ]}
+      />
+      <DateField label="Datum" {...field("datum")} onChange={(v) => patch({ datum: v ?? "" })} />
+      <BooleanField label="Makler einbeziehen" {...field("aktiv")} />
+      <TextareaField label="Notiz" {...field("notiz")} rows={3} />
+    </SectionCard>
+  );
+}
+
+// Transponierter Vergleich (Zeile = Kennzahl, Spalte = Variante), beste
+// hervorgehoben — für Szenario-/Angebotsvergleiche.
+function ComparisonDemo(): ReactNode {
+  const euro = (n: number): string => `${n.toLocaleString("de-DE")} €`;
+  const scenarios = [
+    { name: "A", rate: 890, interest: 84000 },
+    { name: "B", rate: 940, interest: 71000 },
+  ];
+  const minIndex = (pick: (s: (typeof scenarios)[number]) => number): number => {
+    let bestI = 0;
+    let bestV = Number.POSITIVE_INFINITY;
+    scenarios.forEach((s, i) => {
+      const v = pick(s);
+      if (v < bestV) {
+        bestV = v;
+        bestI = i;
+      }
+    });
+    return bestI;
+  };
+  return (
+    <SectionCard title="Vergleich">
+      <ComparisonTable
+        columns={scenarios}
+        columnHeader={(s) => s.name}
+        columnKey={(s) => s.name}
+        metricLabel="Kennzahl"
+        metrics={[
+          {
+            label: "Monatsrate",
+            value: (s) => euro(s.rate),
+            bestIndex: () => minIndex((s) => s.rate),
+          },
+          {
+            label: "Gesamtzins",
+            value: (s) => euro(s.interest),
+            bestIndex: () => minIndex((s) => s.interest),
+          },
+        ]}
+      />
+    </SectionCard>
   );
 }
 
