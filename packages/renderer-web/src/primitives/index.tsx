@@ -125,14 +125,14 @@ function DefaultButton({
   variant = "primary",
   size = "md",
   ariaLabel,
-  fullWidth,
+  width = "auto",
   children,
   testId,
 }: ButtonProps): ReactNode {
   // link-Variant rendert text-artig (Inline-Link im Fließtext/Banner), nicht als
-  // gepolsterte Fläche; fullWidth streckt CTA-Buttons in Karten/Panels.
+  // gepolsterte Fläche; width="full" streckt CTA-Buttons in Karten/Panels.
   const className =
-    [variant === "link" ? "h-auto px-0 py-0" : "", fullWidth === true ? "w-full" : ""]
+    [variant === "link" ? "h-auto px-0 py-0" : "", width === "full" ? "w-full" : ""]
       .filter(Boolean)
       .join(" ") || undefined;
   return (
