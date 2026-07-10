@@ -1,5 +1,16 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.140.0
+
+### Minor Changes
+
+- 742f15c: `Button` bekommt `ariaLabel?` (zugänglicher Name für icon-only-Buttons) und `fullWidth?` (streckt CTA-Buttons in Karten/Panels auf volle Breite). Schließt die letzten Button-Lücken aus kumiko-framework#935 — damit werden icon-only-Remove-Buttons und full-width Pricing-/CTA-Buttons ohne rohes `<button>` migrierbar.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.140.0
+- @cosmicdrift/kumiko-headless@0.140.0
+
 ## 0.139.0
 
 ### Minor Changes
