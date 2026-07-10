@@ -1,6 +1,7 @@
 // Visueller Katalog des Widget-Kits — jede Sektion zeigt ein Widget mit
 // statischen Daten. Dient zugleich als e2e-Renderfläche (content.spec).
 
+import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
 import {
   BooleanField,
   CollapsibleSection,
@@ -13,6 +14,7 @@ import {
   MoneyField,
   PercentField,
   ProgressBar,
+  RangeField,
   ResultPanel,
   ResultTable,
   SectionCard,
@@ -135,6 +137,7 @@ interface FieldsDraft {
   readonly name: string;
   readonly aktiv: boolean;
   readonly notiz: string;
+  readonly abruf: number;
 }
 
 const FIELDS_DEFAULTS: FieldsDraft = {
@@ -143,10 +146,12 @@ const FIELDS_DEFAULTS: FieldsDraft = {
   name: "",
   aktiv: true,
   notiz: "",
+  abruf: 40,
 };
 
 function FormFieldsDemo(): ReactNode {
-  const { patch, field } = useDraft<FieldsDraft>(FIELDS_DEFAULTS);
+  const { draft, patch, field } = useDraft<FieldsDraft>(FIELDS_DEFAULTS);
+  const { Button } = usePrimitives();
   return (
     <SectionCard title="Feld-Widgets">
       <TextField label="Name" {...field("name")} placeholder="z. B. Variante A" />
@@ -160,7 +165,20 @@ function FormFieldsDemo(): ReactNode {
       />
       <DateField label="Datum" {...field("datum")} onChange={(v) => patch({ datum: v ?? "" })} />
       <BooleanField label="Makler einbeziehen" {...field("aktiv")} />
+      <RangeField
+        label={`Abruf: ${draft.abruf} %`}
+        {...field("abruf")}
+        min={0}
+        max={100}
+        step={5}
+      />
       <TextareaField label="Notiz" {...field("notiz")} rows={3} />
+      <div className="flex items-center gap-2">
+        <Button size="sm" variant="secondary" onClick={() => {}}>
+          Klein
+        </Button>
+        <Button onClick={() => {}}>Standard</Button>
+      </div>
     </SectionCard>
   );
 }

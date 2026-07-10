@@ -241,3 +241,83 @@ export function TextareaField({
     </Field>
   );
 }
+
+export interface RangeFieldProps extends FieldBase {
+  readonly value: number;
+  readonly onChange: (v: number) => void;
+  readonly min: number;
+  readonly max: number;
+  readonly step?: number;
+}
+
+/** Schieberegler = Field + Input(kind:"range"). */
+export function RangeField({
+  label,
+  id,
+  name,
+  value,
+  onChange,
+  min,
+  max,
+  step,
+  required,
+  disabled,
+  testId,
+}: RangeFieldProps): ReactNode {
+  const { Field, Input } = usePrimitives();
+  return (
+    <Field id={id} label={label} required={required} testId={testId}>
+      <Input
+        kind="range"
+        id={id}
+        name={name}
+        value={value}
+        onChange={onChange}
+        min={min}
+        max={max}
+        required={required}
+        disabled={disabled}
+        {...(step !== undefined && { step })}
+      />
+    </Field>
+  );
+}
+
+export interface FileFieldProps extends FieldBase {
+  /** FileRef-UUID der gespeicherten Datei, oder null. */
+  readonly value: string | null;
+  readonly onChange: (fileId: string | null) => void;
+  readonly accept?: readonly string[];
+  /** "image" zeigt eine Vorschau, "file" nur den Dateinamen. Default "file". */
+  readonly variant?: "file" | "image";
+}
+
+/** Datei-Upload = Field + Input(kind:"file"|"image") — FileRef-basiert. */
+export function FileField({
+  label,
+  id,
+  name,
+  value,
+  onChange,
+  accept,
+  variant = "file",
+  required,
+  disabled,
+  testId,
+}: FileFieldProps): ReactNode {
+  const { Field, Input } = usePrimitives();
+  return (
+    <Field id={id} label={label} required={required} testId={testId}>
+      <Input
+        kind={variant}
+        id={id}
+        name={name}
+        value={value}
+        onChange={onChange}
+        required={required}
+        disabled={disabled}
+        {...(accept !== undefined && { accept })}
+      />
+    </Field>
+  );
+}
