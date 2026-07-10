@@ -246,11 +246,11 @@ describe("Button size", () => {
     expect(screen.getByRole("button", { name: "Entfernen" })).toBeTruthy();
   });
 
-  test("fullWidth streckt den Button (w-full)", () => {
+  test('width="full" streckt den Button (w-full)', () => {
     function WideBtn(): ReactNode {
       const { Button } = usePrimitives();
       return (
-        <Button fullWidth onClick={() => {}}>
+        <Button width="full" onClick={() => {}}>
           Upgrade
         </Button>
       );
