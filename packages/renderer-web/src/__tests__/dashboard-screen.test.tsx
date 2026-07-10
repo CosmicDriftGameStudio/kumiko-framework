@@ -110,6 +110,8 @@ const richScreen: DashboardScreenDefinition = {
       deltaField: "delta",
       deltaDirectionField: "deltaDirection",
       deltaToneField: "deltaTone",
+      icon: { react: { __component: "rich-dashboard-kpi-icon" } },
+      accentColor: "#123456",
     },
     {
       kind: "stat-group",
@@ -280,6 +282,50 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
     );
     await waitFor(() => expect(screen.getByText("92.753 €")).toBeTruthy());
     expect(screen.getByText("↓23 %")).toBeTruthy();
+  });
+
+  test("stat-Panel: registriertes Icon rendert, unregistriertes rendert nichts (kein Crash)", async () => {
+    function KpiIcon(): ReactNode {
+      return <svg data-testid="kpi-icon" />;
+    }
+    const dispatcher = createMockDispatcher({
+      query: (async (type: string) => {
+        if (type === "widgets:query:metrics:kpi") {
+          return { isSuccess: true, data: { value: "92.753 €" } };
+        }
+        return { isSuccess: true, data: {} };
+      }) as unknown as Dispatcher["query"],
+    });
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <ExtensionSectionsProvider value={{ "rich-dashboard-kpi-icon": KpiIcon }}>
+          <DashboardBodyProvider value={WebDashboardBody}>
+            <KumikoScreen schema={richSchema} qn="widgets:screen:rich" />
+          </DashboardBodyProvider>
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("kpi-icon")).toBeTruthy());
+  });
+
+  test("stat-Panel: unregistriertes Icon rendert nichts, wirft nicht", async () => {
+    const dispatcher = createMockDispatcher({
+      query: (async (type: string) => {
+        if (type === "widgets:query:metrics:kpi") {
+          return { isSuccess: true, data: { value: "92.753 €" } };
+        }
+        return { isSuccess: true, data: {} };
+      }) as unknown as Dispatcher["query"],
+    });
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <DashboardBodyProvider value={WebDashboardBody}>
+          <KumikoScreen schema={richSchema} qn="widgets:screen:rich" />
+        </DashboardBodyProvider>
+      </DispatcherProvider>,
+    );
+    await waitFor(() => expect(screen.getByText("92.753 €")).toBeTruthy());
+    expect(screen.queryByTestId("kpi-icon")).toBeNull();
   });
 
   test("stat-Panel: fehlende deltaDirection unterdrückt den Chip (kein Crash)", async () => {
