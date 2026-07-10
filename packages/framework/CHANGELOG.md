@@ -1,5 +1,11 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.137.0
+
+### Minor Changes
+
+- fdd7c40: Dashboard-`stat`-Panel: optionales `icon`/`accentColor` — statische (Author-Zeit) Panel-Eigenschaften, keine Query-Felder. `icon` löst über dieselbe `extensionSectionComponents`-Registry auf wie `custom`-Panels; `accentColor` ist ein roher CSS-Farbwert-Passthrough. Rückwärtskompatibel, ohne die Felder ändert sich nichts.
+
 ## 0.136.1
 
 ## 0.136.0
