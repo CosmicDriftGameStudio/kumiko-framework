@@ -1,5 +1,16 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.139.0
+
+### Minor Changes
+
+- 56ff9cb: Form-Kit / Primitives: `Button` bekommt eine `size`-Achse (`"sm" | "md" | "icon"`, default `"md"`) für kompakte Inline-/Icon-Buttons; neuer `Input`-`kind:"range"` (Slider, min/max/step) plus `RangeField`-Widget; `FileField`-Widget über den bestehenden `kind:"file"|"image"` (FileRef-basiert). Schließt die drei Core-Primitive-Lücken aus kumiko-framework#935.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.139.0
+- @cosmicdrift/kumiko-headless@0.139.0
+
 ## 0.138.0
 
 ### Patch Changes
