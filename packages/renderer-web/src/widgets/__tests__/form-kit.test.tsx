@@ -232,6 +232,32 @@ describe("Button size", () => {
     render(<SizedButton size="sm" />);
     expect(screen.getByRole("button", { name: "X" }).className).toContain("h-8");
   });
+
+  test("ariaLabel gibt icon-only-Buttons einen zugänglichen Namen", () => {
+    function IconBtn(): ReactNode {
+      const { Button } = usePrimitives();
+      return (
+        <Button size="icon" ariaLabel="Entfernen" onClick={() => {}}>
+          ✕
+        </Button>
+      );
+    }
+    render(<IconBtn />);
+    expect(screen.getByRole("button", { name: "Entfernen" })).toBeTruthy();
+  });
+
+  test("fullWidth streckt den Button (w-full)", () => {
+    function WideBtn(): ReactNode {
+      const { Button } = usePrimitives();
+      return (
+        <Button fullWidth onClick={() => {}}>
+          Upgrade
+        </Button>
+      );
+    }
+    render(<WideBtn />);
+    expect(screen.getByRole("button", { name: "Upgrade" }).className).toContain("w-full");
+  });
 });
 
 describe("ComparisonTable", () => {

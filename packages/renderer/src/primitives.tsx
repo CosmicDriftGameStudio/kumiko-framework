@@ -72,6 +72,11 @@ export type ButtonProps = {
   /** Größe — default="md". "sm" für kompakte Inline-Aktionen (Toolbar,
    *  Listen-Zeilen), "icon" für quadratische Icon-only-Buttons. */
   readonly size?: "sm" | "md" | "icon";
+  /** Barrierefreies Label — Pflicht bei icon-only-Buttons (children ist nur
+   *  ein Icon/Zeichen), sonst hat der Button keinen zugänglichen Namen. */
+  readonly ariaLabel?: string;
+  /** Volle Breite des Containers — für CTA-Buttons in Karten/Panels. */
+  readonly fullWidth?: boolean;
   readonly children: ReactNode;
   readonly testId?: string;
 };
