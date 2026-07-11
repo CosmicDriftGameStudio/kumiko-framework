@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-07-08
+verified: 2026-07-11
 evidence: "kumiko-platform#353 (App-Mounting 2.0); Scaffold: kumiko add feature (dev-server)"
 ---
 
@@ -21,9 +21,11 @@ src/features/<name>/
   handlers/        # eine Datei pro Handler: <thema>.query.ts / <thema>.write.ts
                    # (defineQueryHandler / defineWriteHandler)
   schema/          # Entity- + Table-Definitionen, index.ts re-exportiert
-  lib/             # reine Domain-Logik (testbar, ohne r.*-Abhängigkeit)
+  lib/             # reine Domain-Logik: pure Funktionen mit Test
+                   # (ohne r.*-Abhängigkeit)
   web/             # Client-Seite: index.ts ("@runtime client",
                    # ClientFeatureDefinition), i18n.ts, EIN Screen pro Datei
+                   # — nur Komponenten + Hooks, keine Berechnung/Logik
   __tests__/       # mindestens der Boot-Test (validateBoot([feature]))
 ```
 
@@ -45,6 +47,12 @@ src/features/<name>/
   (`guard-no-raw-hooks`).
 - **Text über i18n**: JSX-Text und Label-Props laufen über `t("…")`-Keys
   (`guard-i18n-ui-strings`); der Boot-Validator erzwingt die Key-Abdeckung.
+- **Logik nach `lib/` (mit Test)**: Berechnung/Parsing/Aggregation gehört als
+  pure Funktion nach `lib/` — `web/` enthält nur Komponenten + Hooks
+  (`guard-no-logic-in-views`). Jede exportierte `lib/`-Funktion braucht einen
+  Test, der aus dem Modul importiert und sie namentlich referenziert
+  (`guard-lib-test-coverage`). Begründete Ausnahme:
+  `// kumiko-lint-ignore no-logic-in-views <Grund>` bzw. `lib-test-coverage`.
 
 ## Warum
 
