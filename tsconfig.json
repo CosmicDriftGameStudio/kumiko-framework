@@ -15,43 +15,25 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "baseUrl": ".",
-    "ignoreDeprecations": "6.0",
     "paths": {
-      "@cosmicdrift/kumiko-framework": ["packages/framework/src"],
-      "@cosmicdrift/kumiko-framework/*": ["packages/framework/src/*"],
-      "@cosmicdrift/kumiko-bundled-features": ["packages/bundled-features/src"],
-      "@cosmicdrift/kumiko-bundled-features/*": ["packages/bundled-features/src/*"]
+      "@cosmicdrift/kumiko-framework": ["./packages/framework/src"],
+      "@cosmicdrift/kumiko-framework/*": ["./packages/framework/src/*"],
+      "@cosmicdrift/kumiko-bundled-features": ["./packages/bundled-features/src"],
+      "@cosmicdrift/kumiko-bundled-features/*": ["./packages/bundled-features/src/*"]
     },
     "types": [
       "bun-types"
     ]
   },
   "references": [
-    {
-      "path": "packages/framework"
-    },
-    {
-      "path": "packages/bundled-features"
-    },
-    {
-      "path": "packages/headless"
-    },
-    {
-      "path": "packages/dispatcher-live"
-    },
-    {
-      "path": "packages/renderer"
-    },
-    {
-      "path": "packages/renderer-web"
-    },
-    {
-      "path": "packages/dev-server"
-    },
-    {
-      "path": "packages/create-kumiko-app"
-    }
+    { "path": "./packages/framework" },
+    { "path": "./packages/bundled-features" },
+    { "path": "./packages/headless" },
+    { "path": "./packages/dispatcher-live" },
+    { "path": "./packages/renderer" },
+    { "path": "./packages/renderer-web" },
+    { "path": "./packages/dev-server" },
+    { "path": "./packages/create-kumiko-app" }
   ],
   "files": []
 }

@@ -2,7 +2,6 @@
   "_comment": "Single source of truth \u2014 check-app-tsc reads this template and overlays the @app/define branch for codegen recipes. Paths are relative to samples/recipes/<name>/.",
   "extends": "../../../tsconfig.json",
   "compilerOptions": {
-    "baseUrl": ".",
     "paths": {
       "@cosmicdrift/kumiko-framework/*": [
         "../../../packages/framework/src/*/index.ts"
@@ -20,5 +19,5 @@
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": ["bun-types"]
   },
-  "include": ["src"]
+  "include": ["./src"]
 }

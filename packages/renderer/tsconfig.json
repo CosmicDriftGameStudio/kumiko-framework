@@ -1,12 +1,12 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "outDir": "dist",
-    "rootDir": "src",
+    "outDir": "./dist",
+    "rootDir": "./src",
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
     "composite": true
   },
   "references": [{ "path": "../framework" }, { "path": "../headless" }],
-  "include": ["src/**/*"]
+  "include": ["./src/**/*"]
 }

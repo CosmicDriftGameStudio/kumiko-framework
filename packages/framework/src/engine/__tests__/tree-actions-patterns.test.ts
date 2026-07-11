@@ -139,18 +139,10 @@ describe("Schicht-1↔Schicht-2 Bridge — buildTarget against real defineFeatur
     buildTarget({ target: textContent.exports.handle, action: "delet", args: { slug: "x" } });
 
     // @ts-expect-error — slug muss string sein, nicht number
-    buildTarget({
-      target: textContent.exports.handle,
-      action: "edit",
-      args: { slug: 42 },
-    });
+    buildTarget({ target: textContent.exports.handle, action: "edit", args: { slug: 42 } });
 
-    buildTarget({
-      target: textContent.exports.handle,
-      action: "list",
-      // @ts-expect-error — list hat keine args, args-Feld nicht erlaubt
-      args: { x: 1 },
-    });
+    // @ts-expect-error — list hat keine args, args-Feld nicht erlaubt
+    buildTarget({ target: textContent.exports.handle, action: "list", args: { x: 1 } });
 
     // @ts-expect-error — edit braucht args, fehlt
     buildTarget({ target: textContent.exports.handle, action: "edit" });

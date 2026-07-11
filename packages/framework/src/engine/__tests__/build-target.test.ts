@@ -95,11 +95,7 @@ describe("buildTarget — Compile-Time-Safety (verified via @ts-expect-error)", 
 
   test("falsche args-shape wird vom Compiler abgelehnt", () => {
     // @ts-expect-error — slug muss string sein, nicht number
-    buildTarget({
-      target: textContentStub,
-      action: "edit",
-      args: { slug: 42 },
-    });
+    buildTarget({ target: textContentStub, action: "edit", args: { slug: 42 } });
     // Runtime: korrekt-typed args liefern valid TargetRef
     const ref = buildTarget({
       target: textContentStub,
@@ -110,12 +106,8 @@ describe("buildTarget — Compile-Time-Safety (verified via @ts-expect-error)", 
   });
 
   test("args bei NoArgs-Action wird vom Compiler abgelehnt", () => {
-    buildTarget({
-      target: textContentStub,
-      action: "list",
-      // @ts-expect-error — list hat keine args, args-Feld nicht erlaubt
-      args: { x: 1 },
-    });
+    // @ts-expect-error — list hat keine args, args-Feld nicht erlaubt
+    buildTarget({ target: textContentStub, action: "list", args: { x: 1 } });
     // Runtime: NoArgs-Action ohne args-Feld liefert valid TargetRef
     const ref = buildTarget({ target: textContentStub, action: "list" });
     expect("args" in ref).toBe(false);
