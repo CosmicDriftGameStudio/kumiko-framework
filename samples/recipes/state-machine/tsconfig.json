@@ -1,7 +1,6 @@
 {
   "extends": "../../../tsconfig.json",
   "compilerOptions": {
-    "baseUrl": ".",
     "paths": {
       "@cosmicdrift/kumiko-framework/*": [
         "../../../packages/framework/src/*/index.ts"
@@ -23,5 +22,5 @@
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": ["bun-types"]
   },
-  "include": ["src", ".kumiko"]
+  "include": ["./src", "./.kumiko"]
 }
