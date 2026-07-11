@@ -109,6 +109,7 @@ interface Dividend {
   readonly amount: string;
   readonly bars: readonly Bar[];
 }
+// kumiko-lint-ignore no-logic-in-views demo: inline Chart-Daten-Prep für die Gallery-Fixtures (Lesbarkeit des Demos > Extraktion)
 function bars(heights: readonly [number, number, number, number]): readonly Bar[] {
   return heights.map((h, i) => ({ k: "abcd"[i] as string, h }));
 }
