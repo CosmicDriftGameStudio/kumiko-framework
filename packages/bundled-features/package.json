@@ -48,6 +48,8 @@
     "./subscription-mollie": "./src/subscription-mollie/index.ts",
     "./foundation-shared": "./src/foundation-shared/index.ts",
     "./mail-foundation": "./src/mail-foundation/index.ts",
+    "./inbound-mail-foundation": "./src/inbound-mail-foundation/index.ts",
+    "./inbound-provider-inmemory": "./src/inbound-provider-inmemory/index.ts",
     "./mail-transport-smtp": "./src/mail-transport-smtp/index.ts",
     "./mail-transport-inmemory": "./src/mail-transport-inmemory/index.ts",
     "./file-foundation": "./src/file-foundation/index.ts",
