@@ -242,3 +242,89 @@ describe("snapshot-store — loadAggregateWithSnapshot", () => {
     expect(archived.state.count).toBe(10);
   });
 });
+
+describe("snapshot-store — auto-snapshot policy (snapshotEvery)", () => {
+  test("first load persists a snapshot at the folded version; second load hits it", async () => {
+    const aggId = await seedAggregate(250);
+
+    const first = await loadAggregateWithSnapshot<CounterState>(
+      bun.db,
+      aggId,
+      tenant,
+      reducer,
+      initial,
+      { snapshotEvery: 100 },
+    );
+    expect(first.snapshotHit).toBe(false);
+    expect(first.version).toBe(250);
+    expect(first.state).toEqual(await loadFullState(aggId));
+
+    const stored = await loadLatestSnapshot<CounterState>(bun.db, aggId, tenant);
+    expect(stored?.version).toBe(250);
+    expect(stored?.snapshotVersion).toBe(1);
+    expect(stored?.aggregateType).toBe("counter");
+
+    const second = await loadAggregateWithSnapshot<CounterState>(
+      bun.db,
+      aggId,
+      tenant,
+      reducer,
+      initial,
+      { snapshotEvery: 100 },
+    );
+    expect(second.snapshotHit).toBe(true);
+    expect(second.state).toEqual(first.state);
+    expect(second.version).toBe(250);
+  });
+
+  test("fewer folded events than snapshotEvery → no snapshot written", async () => {
+    const aggId = await seedAggregate(10);
+    await loadAggregateWithSnapshot<CounterState>(bun.db, aggId, tenant, reducer, initial, {
+      snapshotEvery: 100,
+    });
+    expect(await loadLatestSnapshot(bun.db, aggId, tenant)).toBeNull();
+  });
+
+  test("snapshotVersion bump ignores the stored snapshot and restamps on auto-save", async () => {
+    const aggId = await seedAggregate(120);
+    await loadAggregateWithSnapshot<CounterState>(bun.db, aggId, tenant, reducer, initial, {
+      snapshotEvery: 100,
+    });
+
+    // Shape bump: the generation-1 snapshot must be ignored (full replay),
+    // and the auto-save restamps generation 2 at the same event version.
+    const bumped = await loadAggregateWithSnapshot<CounterState>(
+      bun.db,
+      aggId,
+      tenant,
+      reducer,
+      initial,
+      { snapshotEvery: 100, snapshotVersion: 2 },
+    );
+    expect(bumped.snapshotHit).toBe(false);
+    expect(bumped.state).toEqual(await loadFullState(aggId));
+
+    const restamped = await loadLatestSnapshot<CounterState>(bun.db, aggId, tenant);
+    expect(restamped?.snapshotVersion).toBe(2);
+    expect(restamped?.version).toBe(120);
+
+    const third = await loadAggregateWithSnapshot<CounterState>(
+      bun.db,
+      aggId,
+      tenant,
+      reducer,
+      initial,
+      { snapshotEvery: 100, snapshotVersion: 2 },
+    );
+    expect(third.snapshotHit).toBe(true);
+  });
+
+  test("invalid snapshotEvery fails loud", async () => {
+    const aggId = await seedAggregate(1);
+    await expect(
+      loadAggregateWithSnapshot<CounterState>(bun.db, aggId, tenant, reducer, initial, {
+        snapshotEvery: 0,
+      }),
+    ).rejects.toThrow(/snapshotEvery/);
+  });
+});

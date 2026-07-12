@@ -431,7 +431,8 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // hold the state (e.g. just reduced the stream in a queryHandler, or
   // finished a write batch) pass it in alongside the version it reflects.
   // The framework handles storage + upsert semantics; the snapshot policy
-  // (every N events, every M minutes, on-demand) stays with the feature.
+  // (every N events, every M minutes, on-demand) stays with the feature —
+  // or pass { snapshotEvery } to loadAggregateWithSnapshot for the common case.
   // Snapshots are a perf optimisation — the event log remains the source
   // of truth.
   readonly snapshotAggregate: (args: {
@@ -439,6 +440,9 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
     readonly aggregateType: string;
     readonly version: number;
     readonly state: Record<string, unknown>;
+    // Reducer-shape generation stamped onto the snapshot (default 1) — see
+    // loadAggregateWithSnapshot's snapshotVersion option.
+    readonly snapshotVersion?: number;
   }) => Promise<void>;
 
   // Snapshot-aware rehydrate. Loads the latest snapshot (if any), runs the
@@ -454,6 +458,7 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
     aggregateId: string,
     reducer: import("../../event-store").SnapshotReducer<TState>,
     initial: TState,
+    options?: Omit<import("../../event-store").LoadAggregateWithSnapshotOptions, "upcastEvent">,
   ) => Promise<import("../../event-store").LoadAggregateWithSnapshotResult<TState>>;
 
   // Read rows from a registered projection table, tenant-scoped to the
@@ -720,6 +725,17 @@ export type EventUpcastCtx = {
 };
 
 export type EventUpcastFn = (payload: unknown, ctx: EventUpcastCtx) => unknown | Promise<unknown>;
+
+// Declarative single-step migration — common payload transforms without an
+// imperative function. Applied in fixed order: rename → default → map.
+export type DeclarativeEventMigration = {
+  // old key → new key; a missing source key is a no-op
+  readonly rename?: Readonly<Record<string, string>>;
+  // set only when the key is absent — never overwrites an existing value
+  readonly default?: Readonly<Record<string, unknown>>;
+  // per-key value transform; skipped when the key is absent
+  readonly map?: Readonly<Record<string, (value: unknown) => unknown>>;
+};
 
 export type EventMigrationDef = {
   // Qualified event name, matching r.defineEvent(...).name.

@@ -4,7 +4,7 @@
 // standard API in one place:
 //
 //   - r.defineEvent with { version } — declare evolving event shapes
-//   - r.eventMigration — upcast older payloads on read (sync + async)
+//   - r.eventMigration — upcast older payloads on read (declarative + sync/async fn)
 //   - ctx.appendEvent — write domain events onto the aggregate stream
 //   - ctx.appendEvent with headers — Marten free key/value metadata
 //   - r.projection — single-stream read model (inline in the write TX)
@@ -128,19 +128,17 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
   r.entity("showcase-invoice", invoiceEntity);
 
   // Two domain events. "approved" is versioned — v1 stored `amount` as
-  // string, v2 uses `amountCents` integer. The migration chain walks
-  // the upcast on read.
+  // string, v2 uses `amountCents` integer. The DECLARATIVE migration form
+  // covers rename/default/map without an imperative function; the chain
+  // walks the upcast on read.
   const approved = r.defineEvent(
     "invoice-approved",
     z.object({ amountCents: z.number().int(), approvedBy: z.string() }),
     { version: 2 },
   );
-  r.eventMigration("invoice-approved", 1, 2, (payload) => {
-    const p = payload as { amount: string; approvedBy: string };
-    return {
-      amountCents: Math.round(Number.parseFloat(p.amount) * 100),
-      approvedBy: p.approvedBy,
-    };
+  r.eventMigration("invoice-approved", 1, 2, {
+    rename: { amount: "amountCents" },
+    map: { amountCents: (v) => Math.round(Number.parseFloat(String(v)) * 100) },
   });
 
   const paid = r.defineEvent("invoice-paid", z.object({ amountCents: z.number().int() }));

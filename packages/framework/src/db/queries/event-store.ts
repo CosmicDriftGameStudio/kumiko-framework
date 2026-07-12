@@ -135,18 +135,35 @@ export type SaveSnapshotParams = {
   // Plain object — see SubsequentEventInsertParams on why pre-stringified
   // JSON double-encodes under Bun.SQL's ::jsonb binding.
   readonly state: Record<string, unknown>;
+  readonly snapshotVersion: number;
 };
+
+// kumiko_snapshots predates snapshot_version — idempotent heal for existing
+// installs, run from the same ensure path as table creation.
+export async function ensureSnapshotVersionColumn(db: AnyDb): Promise<void> {
+  await asRawClient(db).unsafe(
+    `ALTER TABLE "kumiko_snapshots" ADD COLUMN IF NOT EXISTS "snapshot_version" integer NOT NULL DEFAULT 1`,
+  );
+}
 
 export async function upsertSnapshot(db: AnyDb, params: SaveSnapshotParams): Promise<void> {
   await asRawClient(db).unsafe(
     `INSERT INTO "kumiko_snapshots"
-       ("aggregate_id", "tenant_id", "aggregate_type", "version", "state")
-     VALUES ($1, $2, $3, $4, $5::jsonb)
+       ("aggregate_id", "tenant_id", "aggregate_type", "version", "state", "snapshot_version")
+     VALUES ($1, $2, $3, $4, $5::jsonb, $6)
      ON CONFLICT ("aggregate_id", "version") DO UPDATE SET
        "state" = $5::jsonb,
        "aggregate_type" = $3,
+       "snapshot_version" = $6,
        "created_at" = now()`,
-    [params.aggregateId, params.tenantId, params.aggregateType, params.version, params.state],
+    [
+      params.aggregateId,
+      params.tenantId,
+      params.aggregateType,
+      params.version,
+      params.state,
+      params.snapshotVersion,
+    ],
   );
 }
 

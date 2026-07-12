@@ -61,6 +61,7 @@ import {
   type StoredEvent,
 } from "../event-store/event-store";
 import {
+  type LoadAggregateWithSnapshotOptions,
   type LoadAggregateWithSnapshotResult,
   loadAggregateWithSnapshot,
   type SnapshotReducer,
@@ -451,6 +452,7 @@ export function createDispatcher(
         readonly aggregateType: string;
         readonly version: number;
         readonly state: Record<string, unknown>;
+        readonly snapshotVersion?: number;
       }): Promise<void> => {
         const dbSource = resolveDbSource(tx);
         if (!dbSource) {
@@ -464,12 +466,14 @@ export function createDispatcher(
           aggregateType: snapshotArgs.aggregateType,
           version: snapshotArgs.version,
           state: snapshotArgs.state,
+          snapshotVersion: snapshotArgs.snapshotVersion,
         });
       },
       loadAggregateWithSnapshot: async <TState extends Record<string, unknown>>(
         aggregateId: string,
         reducer: SnapshotReducer<TState>,
         initial: TState,
+        loadOptions?: Omit<LoadAggregateWithSnapshotOptions, "upcastEvent">,
       ): Promise<LoadAggregateWithSnapshotResult<TState>> => {
         const dbSource = resolveDbSource(tx);
         if (!dbSource) {
@@ -490,7 +494,10 @@ export function createDispatcher(
           user.tenantId,
           reducer,
           initial,
-          { upcastEvent: (event) => upcastStoredEvent(event, upcasters, upcastCtx) }, // @wrapper-known semantic-alias
+          {
+            ...loadOptions,
+            upcastEvent: (event) => upcastStoredEvent(event, upcasters, upcastCtx), // @wrapper-known semantic-alias
+          },
         );
       },
       queryProjection: async <T = Record<string, unknown>>(

@@ -12,7 +12,7 @@ import {
   text,
   uuid,
 } from "../db/dialect";
-import { upsertSnapshot } from "../db/queries/event-store";
+import { ensureSnapshotVersionColumn, upsertSnapshot } from "../db/queries/event-store";
 import { selectMany } from "../db/query";
 import { tableExists } from "../db/schema-inspection";
 import type { TenantId } from "../engine/types";
@@ -30,18 +30,17 @@ import { loadEventsAfterVersion, type StoredEvent } from "./event-store";
 //   3. loadEventsAfterVersion(aggregate, N) → only the delta
 //   4. reducer(snapshot, delta) → current state
 //
-// Write path: feature authors opt in via ctx.snapshotAggregate. Policy
-// (every N events, every M minutes, on-demand) is a feature-level decision
-// — the framework only offers the storage primitive.
+// Write path: manual via ctx.snapshotAggregate, or automatic via the
+// { snapshotEvery: N } load option — the read path persists a fresh
+// snapshot whenever it folded at least N delta events.
 //
-// Schema-migration policy: NO built-in snapshot versioning. A snapshot stores
-// the aggregate state in the reducer's current shape. When the reducer's
-// shape changes (added field, renamed property, moved compound), invalidate
-// the cache — DELETE from kumiko_snapshots WHERE aggregate_type = '...'.
-// The read path then falls back to full replay (which runs the upcaster
-// chain on events) until the next snapshotAggregate call. Cheaper than a
-// second migration mechanism; snapshots are a perf optimisation, not a
-// source of truth.
+// Schema-migration policy: explicit generations, no reducer hashing. A
+// snapshot stores the aggregate state in the reducer's current shape plus
+// a caller-declared snapshot_version. Bump { snapshotVersion } when the
+// reducer's shape changes — stored snapshots with another generation are
+// ignored (full replay through the upcaster chain on events) and restamped
+// on the next auto-save. Snapshots stay a perf optimisation, not a source
+// of truth.
 //
 // Upcaster interaction: the raw API (loadAggregateWithSnapshot below) does
 // NOT apply the upcaster chain on delta events — same layering as raw
@@ -63,6 +62,9 @@ export const snapshotsTable = pgTable(
     // returns events with version > this value.
     version: integer("version").notNull(),
     state: jsonb("state").$type<Record<string, unknown>>().notNull(),
+    // Reducer-shape generation — snapshots from another generation are
+    // ignored on load. See LoadAggregateWithSnapshotOptions.snapshotVersion.
+    snapshotVersion: integer("snapshot_version").notNull().default(sql`1`),
     createdAt: instant("created_at", { precision: 3 }).notNull().default(sql`now()`),
   },
   (t) => ({
@@ -76,7 +78,13 @@ export const snapshotsTable = pgTable(
 
 export async function createSnapshotsTable(db: DbConnection): Promise<void> {
   // skip: table already exists — idempotent boot + test-setup call
-  if (await tableExists(db, "public.kumiko_snapshots")) return;
+  if (await tableExists(db, "public.kumiko_snapshots")) {
+    // Installs that predate snapshot_version get healed by the same
+    // idempotent ensure that `kumiko schema apply` / test-setup already runs.
+    await ensureSnapshotVersionColumn(db);
+    // skip: table already ensured — only the column heal above was needed
+    return;
+  }
   await unsafePushTables(db, { kumikoSnapshots: snapshotsTable });
 }
 
@@ -86,6 +94,7 @@ export type Snapshot<TState extends Record<string, unknown> = Record<string, unk
   readonly aggregateType: string;
   readonly version: number;
   readonly state: TState;
+  readonly snapshotVersion: number;
   readonly createdAt: Temporal.Instant;
 };
 
@@ -95,6 +104,8 @@ export type SaveSnapshotArgs = {
   readonly aggregateType: string;
   readonly version: number;
   readonly state: Record<string, unknown>;
+  // Reducer-shape generation (default 1) — see LoadAggregateWithSnapshotOptions.
+  readonly snapshotVersion?: number;
 };
 
 // Upsert-style save so re-snapshotting the same (aggregateId, version) is
@@ -108,6 +119,7 @@ export async function saveSnapshot(db: DbRunner, args: SaveSnapshotArgs): Promis
     aggregateType: args.aggregateType,
     version: args.version,
     state: args.state,
+    snapshotVersion: args.snapshotVersion ?? 1,
   });
 }
 
@@ -123,6 +135,7 @@ export async function loadLatestSnapshot<
     aggregateType: string;
     version: number;
     state: unknown;
+    snapshotVersion: number;
     createdAt: Temporal.Instant;
   };
   const rows = await selectMany<SnapRow>(
@@ -139,6 +152,7 @@ export async function loadLatestSnapshot<
     aggregateType: row.aggregateType,
     version: row.version,
     state: row.state as TState, // @cast-boundary engine-payload
+    snapshotVersion: row.snapshotVersion,
     createdAt: row.createdAt,
   };
 }
@@ -167,6 +181,15 @@ export type LoadAggregateWithSnapshotOptions = {
   // r.eventMigration so feature code always sees current-version payloads.
   // Async to support Marten-style AsyncOnlyEventUpcaster (DB lookups).
   readonly upcastEvent?: (event: StoredEvent) => Promise<StoredEvent>;
+  // Auto-snapshot policy: when the fold applied at least this many delta
+  // events, persist a fresh snapshot at the folded version (best-effort —
+  // a failed save never fails the load). Omit to keep snapshotting manual.
+  readonly snapshotEvery?: number;
+  // Reducer-shape generation stamped onto saved snapshots (default 1). A
+  // stored snapshot with a different generation is ignored — full replay
+  // through the upcaster chain — and restamped on the next auto-save. Bump
+  // whenever the reducer's state shape changes.
+  readonly snapshotVersion?: number;
 };
 
 // Snapshot-aware rehydrate. Loads the latest snapshot (if any), applies
@@ -192,7 +215,17 @@ export async function loadAggregateWithSnapshot<TState extends Record<string, un
       return { state: initial, version: 0, snapshotHit: false };
     }
   }
-  const snapshot = await loadLatestSnapshot<TState>(db, aggregateId, tenantId);
+  const shapeVersion = options?.snapshotVersion ?? 1;
+  if (
+    options?.snapshotEvery !== undefined &&
+    (!Number.isInteger(options.snapshotEvery) || options.snapshotEvery < 1)
+  ) {
+    throw new Error(
+      `loadAggregateWithSnapshot: snapshotEvery must be an integer >= 1, got ${String(options.snapshotEvery)}`,
+    );
+  }
+  const stored = await loadLatestSnapshot<TState>(db, aggregateId, tenantId);
+  const snapshot = stored && stored.snapshotVersion === shapeVersion ? stored : null;
   const baseState = snapshot ? snapshot.state : initial;
   const afterVersion = snapshot ? snapshot.version : 0;
   const delta = await loadEventsAfterVersion(db, aggregateId, tenantId, afterVersion);
@@ -204,6 +237,20 @@ export async function loadAggregateWithSnapshot<TState extends Record<string, un
   }
   const lastDelta = delta[delta.length - 1];
   const latestVersion = lastDelta ? lastDelta.version : afterVersion;
+  if (options?.snapshotEvery !== undefined && lastDelta && delta.length >= options.snapshotEvery) {
+    try {
+      await saveSnapshot(db, {
+        aggregateId,
+        tenantId,
+        aggregateType: lastDelta.aggregateType,
+        version: latestVersion,
+        state,
+        snapshotVersion: shapeVersion,
+      });
+    } catch {
+      // Best-effort cache write — losing it only costs the next load a replay.
+    }
+  }
   return {
     state,
     version: latestVersion,
