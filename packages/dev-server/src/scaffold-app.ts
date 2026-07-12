@@ -121,7 +121,7 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
   write(join(destination, "bin", "kumiko.ts"), renderBinKumiko());
   files.push("bin/kumiko.ts");
 
-  write(join(destination, "src", "client.tsx"), renderClient());
+  write(join(destination, "src", "client.tsx"), renderClient(options.name));
   files.push("src/client.tsx");
 
   write(join(destination, "src", "styles.css"), renderStylesCss());
@@ -184,6 +184,8 @@ function renderPackageJson(name: string, version: string): string {
       devDependencies: {
         "@biomejs/biome": "^2.4.15",
         "@tailwindcss/cli": "^4.3.0",
+        "@types/react": "^19.2.0",
+        "@types/react-dom": "^19.2.0",
         "bun-types": "^1.3.14",
         tailwindcss: "^4.3.0",
         typescript: "^6.0.3",
@@ -584,26 +586,36 @@ function renderDev(appName: string): string {
   return sf.getFullText();
 }
 
-function renderClient(): string {
+function renderClient(appName: string): string {
   return [
-    "// Browser-Entry. runDevApp's clientEntry-Option bundlet diese Datei zu",
-    "// /client.js und das Default-HTML lädt sie. createKumikoApp liest das",
-    "// Schema aus dem window-globalen (das injectSchema im dev-server setzt)",
-    "// und mountet die Routen.",
+    "// Browser entry. runDevApp's clientEntry option bundles this file to",
+    "// /client.js and the default HTML loads it. createKumikoApp reads the",
+    "// schema from the window global (injectSchema in the dev-server sets it)",
+    "// and mounts the routes.",
     "//",
-    "// DefaultAppShell liefert die Sidebar + Topbar — ohne `shell` rendert",
-    "// createKumikoApp das aktive Screen ohne Layout-Wrapper (= nach Login",
-    "// nur ein nackter Banner statt der App). emailPasswordClient() bringt",
-    "// Login-Screen + Session-Provider — ohne ihn bliebe /login leer.",
+    "// AppShell wraps DefaultAppShell to supply `brand` — createKumikoApp's",
+    "// shell option only injects schema + children. Without `shell` the",
+    "// active screen renders with no layout wrapper (a bare banner after",
+    "// login instead of the app). emailPasswordClient() brings the login",
+    "// screen + session provider — without it /login stays empty.",
     "//",
-    "// Neue Client-Plugins (z.B. notificationsClient()) hier in clientFeatures",
-    "// hinzu — symmetrisch zu APP_FEATURES auf der Server-Seite.",
+    "// Add new client plugins (e.g. notificationsClient()) to clientFeatures",
+    "// here — symmetric to APP_FEATURES on the server side.",
     "",
     'import { emailPasswordClient } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";',
-    'import { createKumikoApp, DefaultAppShell } from "@cosmicdrift/kumiko-renderer-web";',
+    'import { type AppSchema, createKumikoApp, DefaultAppShell } from "@cosmicdrift/kumiko-renderer-web";',
+    'import type { ReactNode } from "react";',
+    "",
+    "function AppShell({ children, schema }: { children: ReactNode; schema: AppSchema }): ReactNode {",
+    "  return (",
+    `    <DefaultAppShell brand={<span className="font-semibold tracking-tight">${appName}</span>} schema={schema}>`,
+    "      {children}",
+    "    </DefaultAppShell>",
+    "  );",
+    "}",
     "",
     "createKumikoApp({",
-    "  shell: DefaultAppShell,",
+    "  shell: AppShell,",
     "  clientFeatures: [emailPasswordClient()],",
     "});",
     "",
