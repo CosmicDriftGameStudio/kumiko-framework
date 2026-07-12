@@ -102,11 +102,14 @@ ways, none of which is drift:
 
 - a blind-index column recomputed to `NULL` after the subject's key is shredded
   (GDPR erase) — the `NULL` is the intended end state;
-- a `sensitive` column stripped from the event log by design;
 - an archived stream that stops replaying (fw#832) — the row's wipe is the
   intended tombstone, surfaced via backfill's `failed` list;
 - a legacy column direct-written before its handler emitted events, healed by
   the #494 backfill-then-rebuild flow.
+
+(`sensitive` columns used to be a fourth case — since #967 the event log
+carries the table ciphertext, so replay reproduces them byte-identically and
+they are no longer a legitimate divergence.)
 
 All of those rows **have** an event, so the existence check leaves them alone.
 Detecting *column-level* drift (and whether to fail-hard or enqueue a repair

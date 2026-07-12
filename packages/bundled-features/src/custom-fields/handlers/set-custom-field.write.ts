@@ -89,14 +89,17 @@ export const setCustomFieldHandler: WriteHandlerDef = {
     }
 
     // PII (`sensitive: true` definition): self-project the value here —
-    // synchronously, from the in-memory value — exactly like the entity executor
-    // does for sensitive entity fields. The persisted customField.set event then
-    // omits the value, so PII never enters the immutable event log; the existing
-    // user-data-rights strip of the projection erases it durably. Trade-off: a
-    // projection rebuild replays the value-less event and the MSP skips it (see
-    // wire-for-entity), so the value is gone — identical to a sensitive entity
-    // field. The host table isn't known to this generic handler, so resolve it
-    // per-stack via the registry (no module-global state).
+    // synchronously, from the in-memory value. The persisted customField.set
+    // event omits the value, so PII never enters the immutable event log; the
+    // existing user-data-rights strip of the projection erases it durably.
+    // Trade-off: a projection rebuild replays the value-less event and the MSP
+    // skips it (see wire-for-entity), so the value is gone. Entity fields
+    // solved this via ciphertext-in-event (#967) — custom fields CANNOT follow
+    // that path yet: the JSONB value is plaintext (no per-subject DEK exists),
+    // and a value in the immutable log would break the JSONB-strip erasure.
+    // Needs a subject-DEK design first (#972). The host table isn't known to
+    // this generic handler, so resolve it per-stack via the registry (no
+    // module-global state).
     const sensitive = loaded.field.sensitive === true;
     if (sensitive) {
       const entity = ctx.registry.getEntity(payload.entityName);
