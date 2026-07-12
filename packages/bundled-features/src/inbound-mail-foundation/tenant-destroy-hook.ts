@@ -1,18 +1,21 @@
-// Tenant-destroy hook — räumt beim Tenant-Destroy alle Inbound-Mail-
-// Spuren des Tenants ab:
+// Tenant-destroy hooks — räumen beim Tenant-Destroy alle Inbound-Mail-
+// Spuren des Tenants ab. Ein Hook PRO tenant-subject-Entity (der
+// gdpr-storage-Boot-Validator prüft die EXT_TENANT_DATA-Registrierung
+// entity-genau), jeweils:
 //
-//   1. Streams archivieren (mail-account / inbound-message / mail-thread)
-//      — ein künftiger Projection-Rebuild kann Gelöschtes nicht
-//      resurrecten (Muster billing-foundation #800). Message-Streams
-//      sind viele → Loop über die Projection-Rows (Row-PK = Stream-ID);
-//      tenant-destroy ist ein seltener Batch-Vorgang, O(n) ist ok.
+//   1. Streams archivieren — ein künftiger Projection-Rebuild kann
+//      Gelöschtes nicht resurrecten (Muster billing-foundation #800).
+//      Message-Streams sind viele → Loop über die Projection-Rows
+//      (Row-PK = Stream-ID); tenant-destroy ist ein seltener
+//      Batch-Vorgang, O(n) ist ok.
 //   2. Projection-Rows löschen.
-//   3. Unmanaged Sync-State (Cursors, Seen-Anchors) löschen — gekeyt
-//      per accountId, deshalb VOR dem Account-Row-Delete eingesammelt.
+//   3. Nur mail-account: unmanaged Sync-State (Cursors, Seen-Anchors)
+//      löschen — gekeyt per accountId, deshalb aus den Account-Rows
+//      VOR dem Delete eingesammelt.
 //
 // Die eigentliche PII-Erasure macht crypto-shredding: eraseSubjectKeys
 // löscht den Tenant-Subject-Key, damit werden Event-Log-Payloads UND
-// etwaige Ciphertext-Kopien unlesbar. Dieser Hook entsorgt die Rows.
+// etwaige Ciphertext-Kopien unlesbar. Diese Hooks entsorgen die Rows.
 
 import {
   type DbRunner,
@@ -37,48 +40,54 @@ import {
 const ARCHIVED_BY = "tenant-lifecycle:destroy";
 const REASON = "tenant_destroy";
 
-export async function inboundMailTenantDestroyHook(ctx: {
+type DestroyCtx = {
   readonly db: DbRunner;
   readonly tenantId: TenantId;
-}): Promise<void> {
-  const targets: ReadonlyArray<{ table: EntityTableMeta; aggregateType: string }> = [
-    {
-      table: mailAccountsProjectionTable as EntityTableMeta,
-      aggregateType: MAIL_ACCOUNT_AGGREGATE_TYPE,
-    },
-    {
-      table: inboundMessagesProjectionTable as EntityTableMeta,
-      aggregateType: INBOUND_MESSAGE_AGGREGATE_TYPE,
-    },
-    {
-      table: mailThreadsProjectionTable as EntityTableMeta,
-      aggregateType: MAIL_THREAD_AGGREGATE_TYPE,
-    },
-  ];
+};
 
-  // Account-IDs VOR dem Delete einsammeln — Cursor/Seen keyen auf accountId.
-  const accountRows = await selectMany<{ id: string }>(
-    ctx.db,
+async function archiveAndDeleteRows(
+  ctx: DestroyCtx,
+  table: EntityTableMeta,
+  aggregateType: string,
+): Promise<readonly string[]> {
+  const rows = await selectMany<{ id: string }>(ctx.db, table, { tenantId: ctx.tenantId });
+  for (const row of rows) {
+    await archiveStream(ctx.db, {
+      tenantId: ctx.tenantId,
+      aggregateId: row.id,
+      aggregateType,
+      archivedBy: ARCHIVED_BY,
+      reason: REASON,
+    });
+  }
+  await deleteMany(ctx.db, table, { tenantId: ctx.tenantId });
+  return rows.map((row) => row.id);
+}
+
+export async function mailAccountTenantDestroyHook(ctx: DestroyCtx): Promise<void> {
+  const accountIds = await archiveAndDeleteRows(
+    ctx,
     mailAccountsProjectionTable as EntityTableMeta,
-    { tenantId: ctx.tenantId },
+    MAIL_ACCOUNT_AGGREGATE_TYPE,
   );
-
-  for (const { table, aggregateType } of targets) {
-    const rows = await selectMany<{ id: string }>(ctx.db, table, { tenantId: ctx.tenantId });
-    for (const row of rows) {
-      await archiveStream(ctx.db, {
-        tenantId: ctx.tenantId,
-        aggregateId: row.id,
-        aggregateType,
-        archivedBy: ARCHIVED_BY,
-        reason: REASON,
-      });
-    }
-    await deleteMany(ctx.db, table, { tenantId: ctx.tenantId });
+  for (const accountId of accountIds) {
+    await deleteMany(ctx.db, syncCursorTable as EntityTableMeta, { accountId });
+    await deleteMany(ctx.db, seenMessageTable as EntityTableMeta, { accountId });
   }
+}
 
-  for (const account of accountRows) {
-    await deleteMany(ctx.db, syncCursorTable as EntityTableMeta, { accountId: account.id });
-    await deleteMany(ctx.db, seenMessageTable as EntityTableMeta, { accountId: account.id });
-  }
+export async function inboundMessageTenantDestroyHook(ctx: DestroyCtx): Promise<void> {
+  await archiveAndDeleteRows(
+    ctx,
+    inboundMessagesProjectionTable as EntityTableMeta,
+    INBOUND_MESSAGE_AGGREGATE_TYPE,
+  );
+}
+
+export async function mailThreadTenantDestroyHook(ctx: DestroyCtx): Promise<void> {
+  await archiveAndDeleteRows(
+    ctx,
+    mailThreadsProjectionTable as EntityTableMeta,
+    MAIL_THREAD_AGGREGATE_TYPE,
+  );
 }

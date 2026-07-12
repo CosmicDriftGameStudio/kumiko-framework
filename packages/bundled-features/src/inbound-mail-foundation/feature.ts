@@ -84,7 +84,11 @@ import {
   mailAccountsProjectionTable,
   mailThreadsProjectionTable,
 } from "./projection";
-import { inboundMailTenantDestroyHook } from "./tenant-destroy-hook";
+import {
+  inboundMessageTenantDestroyHook,
+  mailAccountTenantDestroyHook,
+  mailThreadTenantDestroyHook,
+} from "./tenant-destroy-hook";
 
 export const inboundMailFoundationFeature = defineFeature(INBOUND_MAIL_FOUNDATION_FEATURE, (r) => {
   r.describe(
@@ -167,7 +171,15 @@ export const inboundMailFoundationFeature = defineFeature(INBOUND_MAIL_FOUNDATIO
   r.queryHandler(listAccountsQuery);
   r.queryHandler(listMessagesQuery);
 
-  r.useExtension(EXT_TENANT_DATA, "inbound-mail", {
-    destroy: inboundMailTenantDestroyHook,
+  // Entity-genaue GDPR-Destroy-Hooks — der gdpr-storage-Boot-Validator
+  // prueft die EXT_TENANT_DATA-Registrierung pro tenant-subject-Entity.
+  r.useExtension(EXT_TENANT_DATA, "mail-account", {
+    destroy: mailAccountTenantDestroyHook,
+  });
+  r.useExtension(EXT_TENANT_DATA, "inbound-message", {
+    destroy: inboundMessageTenantDestroyHook,
+  });
+  r.useExtension(EXT_TENANT_DATA, "mail-thread", {
+    destroy: mailThreadTenantDestroyHook,
   });
 });

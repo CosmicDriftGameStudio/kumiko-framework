@@ -99,6 +99,26 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory",
     exportName: "mailTransportInMemoryFeature",
   },
+  "inbound-mail-foundation": {
+    kind: "named",
+    path: "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation",
+    exportName: "inboundMailFoundationFeature",
+    projectionTables: [
+      "mailAccountsProjectionTable",
+      "inboundMessagesProjectionTable",
+      "mailThreadsProjectionTable",
+    ],
+  },
+  "inbound-provider-imap": {
+    kind: "named",
+    path: "@cosmicdrift/kumiko-bundled-features/inbound-provider-imap",
+    exportName: "inboundProviderImapFeature",
+  },
+  "inbound-provider-inmemory": {
+    kind: "named",
+    path: "@cosmicdrift/kumiko-bundled-features/inbound-provider-inmemory",
+    exportName: "inboundProviderInMemoryFeature",
+  },
   "file-foundation": {
     kind: "named",
     path: "@cosmicdrift/kumiko-bundled-features/file-foundation",
