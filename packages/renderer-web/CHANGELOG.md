@@ -1,5 +1,17 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.145.0
+
+### Minor Changes
+
+- 1c60495: ResultTable + ComparisonTable: optionales `card`-Prop. Rendert den Tabellen-Look 1:1 wie die CRUD-Liste (DataTable) — gerundeter `border`-Container auf `bg-card` + `bg-muted`-Header-Band, sauber geclippt. Default bleibt bare, damit bestehende Consumer + bespoke Share-Decks unverändert bleiben. (0.143.0/0.144.0 hatten das Prop durch einen Commit-Fehler nicht.)
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dispatcher-live@0.145.0
+- @cosmicdrift/kumiko-headless@0.145.0
+- @cosmicdrift/kumiko-renderer@0.145.0
+
 ## 0.144.0
 
 ### Patch Changes
