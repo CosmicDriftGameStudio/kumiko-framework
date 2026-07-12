@@ -1,3 +1,4 @@
+import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
 import { useToast } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useState } from "react";
 import { DemoPage, DemoSection } from "../components/page";
@@ -8,6 +9,7 @@ import { DemoPage, DemoSection } from "../components/page";
 
 export function ToastDemo(): ReactNode {
   const { toast } = useToast();
+  const { Button } = usePrimitives();
   const [counter, setCounter] = useState(0);
 
   return (
@@ -16,39 +18,36 @@ export function ToastDemo(): ReactNode {
       description="Auto-dismissende Notifications via @radix-ui/react-toast. Zwei Variants (default / destructive), optional description. Swipe-to-dismiss + 5s Auto-close."
     >
       <DemoSection title="Default-Variant">
-        <button
-          type="button"
+        <Button
           onClick={() =>
             toast({
               title: "Gespeichert",
               description: "Änderungen wurden persistiert.",
             })
           }
-          className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
         >
           Default-Toast triggern
-        </button>
+        </Button>
       </DemoSection>
 
       <DemoSection title="Destructive-Variant (Fehler)">
-        <button
-          type="button"
+        <Button
+          variant="danger"
           onClick={() =>
             toast({
               title: "Fehler beim Speichern",
               description: "Network-Timeout. Bitte erneut versuchen.",
-              variant: "destructive",
+              variant: "bad",
             })
           }
-          className="inline-flex h-9 items-center justify-center rounded-md bg-destructive px-4 text-sm font-medium text-destructive-foreground hover:bg-destructive/90"
         >
           Error-Toast triggern
-        </button>
+        </Button>
       </DemoSection>
 
       <DemoSection title="Stacking — mehrere Toasts gleichzeitig">
-        <button
-          type="button"
+        <Button
+          variant="secondary"
           onClick={() => {
             const next = counter + 1;
             setCounter(next);
@@ -57,20 +56,15 @@ export function ToastDemo(): ReactNode {
               description: "Mehrere Toasts stapeln vertikal — pro Toast eigene Auto-dismiss-Timer.",
             });
           }}
-          className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-4 text-sm font-medium hover:bg-accent"
         >
           Toast #{counter + 1} hinzufügen
-        </button>
+        </Button>
       </DemoSection>
 
       <DemoSection title="Nur Title (ohne Description)">
-        <button
-          type="button"
-          onClick={() => toast({ title: "Kopiert" })}
-          className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-4 text-sm font-medium hover:bg-accent"
-        >
+        <Button variant="secondary" onClick={() => toast({ title: "Kopiert" })}>
           Mini-Toast triggern
-        </button>
+        </Button>
       </DemoSection>
     </DemoPage>
   );
