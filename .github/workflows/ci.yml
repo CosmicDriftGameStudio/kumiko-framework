@@ -65,6 +65,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
         run: bun install --frozen-lockfile
 
+      - name: View-logic guard (samples)
+        # samples/apps müssen denselben No-Logic-in-Views-Guard bestehen wie
+        # die App-Repos. Framework nutzt nicht _app-test → expliziter Step,
+        # scoped auf den framework-Root. bin-existence-Check wie in _app-test.
+        run: |
+          if [ -e node_modules/.bin/kumiko-guard-no-logic-in-views ]; then
+            KUMIKO_GUARD_ROOTS=kumiko-framework bun kumiko-guard-no-logic-in-views
+          else
+            echo "::warning::kumiko-guards ohne kumiko-guard-no-logic-in-views installiert — View-logic guard übersprungen, Dependency-Bump nachziehen"
+          fi
+
       - name: Run tests
         run: |
           # watch-tests öffnen viele inotify-FDs; ohne Job-Container das
