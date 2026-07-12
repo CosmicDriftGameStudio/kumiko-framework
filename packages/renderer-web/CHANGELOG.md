@@ -1,5 +1,14 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.143.1
+
+### Patch Changes
+
+- b8d890d: Republish: die 0.143.0-Registry-Version enthielt das `card`-Prop (ResultTable/ComparisonTable) durch eine parallele Versions-Kollision nicht. 0.143.1 publiziert den tatsächlichen main-Stand mit `card`.
+  - @cosmicdrift/kumiko-dispatcher-live@0.143.1
+  - @cosmicdrift/kumiko-headless@0.143.1
+  - @cosmicdrift/kumiko-renderer@0.143.1
+
 ## 0.143.0
 
 ### Minor Changes
