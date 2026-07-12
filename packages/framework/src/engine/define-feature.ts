@@ -3,6 +3,7 @@ import type { EntityTableMeta } from "../db/entity-table-meta";
 import { toTableName } from "../db/table-builder";
 import { LifecycleHookTypes } from "./constants";
 import type { QueryHandlerDefinition, WriteHandlerDefinition } from "./define-handler";
+import { type RegisterEntityCrudOptions, registerEntityCrud } from "./entity-handlers";
 import { isKebabSegment, QnTypes, qn, toKebab } from "./qualified-name";
 import type {
   AccessRule,
@@ -14,6 +15,7 @@ import type {
   ConfigKeyHandle,
   ConfigKeyType,
   ConfigSeedDef,
+  DeclarativeEventMigration,
   EntityDefinition,
   EntityProjectionExtension,
   EntityRef,
@@ -258,6 +260,15 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     ): EntityRef {
       entities[entityName] = definition;
       if (options?.table !== undefined) entityTables[entityName] = options.table;
+      return { name: entityName, table: definition.table ?? toTableName(entityName) };
+    },
+
+    crud(
+      entityName: string,
+      definition: EntityDefinition,
+      options?: RegisterEntityCrudOptions,
+    ): EntityRef {
+      registerEntityCrud(registrar, entityName, definition, options);
       return { name: entityName, table: definition.table ?? toTableName(entityName) };
     },
 
@@ -568,7 +579,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       eventName: string,
       fromVersion: number,
       toVersion: number,
-      transform: EventUpcastFn,
+      transform: EventUpcastFn | DeclarativeEventMigration,
     ): void {
       if (toVersion !== fromVersion + 1) {
         throw new Error(
@@ -590,7 +601,9 @@ export function defineFeature<const TName extends string, TExports = undefined>(
             `a migration from v${fromVersion} is already registered. Each step may only be declared once.`,
         );
       }
-      list.push({ eventName: qualified, fromVersion, toVersion, transform });
+      const transformFn =
+        typeof transform === "function" ? transform : compileEventMigration(transform);
+      list.push({ eventName: qualified, fromVersion, toVersion, transform: transformFn });
       eventMigrations[eventName] = list;
     },
 
@@ -1037,5 +1050,30 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     unmanagedTables,
     ...(treeActions !== undefined && { treeActions }),
     ...(envSchema !== undefined && { envSchema }),
+  };
+}
+
+// Compile the declarative {rename, default, map} migration spec into an
+// EventUpcastFn. Fixed order: rename → default → map.
+function compileEventMigration(spec: DeclarativeEventMigration): EventUpcastFn {
+  return (payload) => {
+    if (payload === null || typeof payload !== "object" || Array.isArray(payload)) {
+      throw new Error("Declarative event migration expects an object payload");
+    }
+    // @cast-boundary parse — payload is guarded as a plain object above
+    const next = { ...(payload as Record<string, unknown>) };
+    for (const [from, to] of Object.entries(spec.rename ?? {})) {
+      if (from in next) {
+        next[to] = next[from];
+        delete next[from];
+      }
+    }
+    for (const [key, value] of Object.entries(spec.default ?? {})) {
+      if (!(key in next)) next[key] = value;
+    }
+    for (const [key, fn] of Object.entries(spec.map ?? {})) {
+      if (key in next) next[key] = fn(next[key]);
+    }
+    return next;
   };
 }

@@ -41,6 +41,7 @@ export {
 export { toStoredEvent } from "./row-to-stored-event";
 export {
   createSnapshotsTable,
+  type LoadAggregateWithSnapshotOptions,
   type LoadAggregateWithSnapshotResult,
   loadAggregateWithSnapshot,
   loadLatestSnapshot,

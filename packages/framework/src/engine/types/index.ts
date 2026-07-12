@@ -133,6 +133,7 @@ export type {
   ClaimKeyHandle,
   ClaimKeyJsType,
   ClaimKeyType,
+  DeclarativeEventMigration,
   EntityRef,
   EventDef,
   EventMigrationDef,
