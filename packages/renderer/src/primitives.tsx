@@ -152,6 +152,12 @@ export type InputProps =
       /** Browser-Autofill / Native-Keyboard-Hint. Web setzt das auf
        *  `<input autocomplete=...>`, Native auf `textContentType`. */
       readonly autoComplete?: string;
+      /** `data-testid` aufs echte `<input>` — App-Tests adressieren das
+       *  Element direkt (getByTestId + readOnly/disabled-Assertions). */
+      readonly testId?: string;
+      /** Read-only Input (z.B. gewürfelter Free-Tier-Slug). Nicht `disabled`
+       *  — bleibt fokussier-/kopierbar. */
+      readonly readOnly?: boolean;
     }
   | {
       readonly kind: "email";
@@ -166,6 +172,7 @@ export type InputProps =
       /** Default "email". Apps die "username" wollen (Login-Form mit
        *  Username-or-Email) reichen das durch. */
       readonly autoComplete?: string;
+      readonly testId?: string;
     }
   | {
       readonly kind: "password";
@@ -180,6 +187,7 @@ export type InputProps =
        *  Browser-Password-Manager nutzen das für die Speicherentscheidung.
        *  Native: textContentType="password" / "newPassword". */
       readonly autoComplete?: "current-password" | "new-password";
+      readonly testId?: string;
     }
   | {
       readonly kind: "number";
@@ -190,6 +198,7 @@ export type InputProps =
       readonly disabled?: boolean;
       readonly required?: boolean;
       readonly hasError?: boolean;
+      readonly testId?: string;
     }
   | {
       readonly kind: "range";

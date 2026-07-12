@@ -267,6 +267,8 @@ function DefaultInput(props: InputProps): ReactNode {
         <UiInput
           type="text"
           {...common}
+          data-testid={props.testId}
+          readOnly={props.readOnly}
           value={props.value}
           onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.value)}
           {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
@@ -278,6 +280,7 @@ function DefaultInput(props: InputProps): ReactNode {
         <UiInput
           type="email"
           {...common}
+          data-testid={props.testId}
           value={props.value}
           onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.value)}
           {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
@@ -289,6 +292,7 @@ function DefaultInput(props: InputProps): ReactNode {
         <UiInput
           type="password"
           {...common}
+          data-testid={props.testId}
           value={props.value}
           onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.value)}
           autoComplete={props.autoComplete ?? "current-password"}
@@ -299,6 +303,7 @@ function DefaultInput(props: InputProps): ReactNode {
         <UiInput
           type="number"
           {...common}
+          data-testid={props.testId}
           value={props.value}
           onChange={(e: ChangeEvent<HTMLInputElement>) => {
             const v = e.target.value;
