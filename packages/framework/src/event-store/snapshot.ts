@@ -12,8 +12,8 @@ import {
   text,
   uuid,
 } from "../db/dialect";
-import { upsertSnapshot } from "../db/queries/event-store";
-import { asRawClient, selectMany } from "../db/query";
+import { ensureSnapshotVersionColumn, upsertSnapshot } from "../db/queries/event-store";
+import { selectMany } from "../db/query";
 import { tableExists } from "../db/schema-inspection";
 import type { TenantId } from "../engine/types";
 import { unsafePushTables } from "../stack";
@@ -81,9 +81,7 @@ export async function createSnapshotsTable(db: DbConnection): Promise<void> {
   if (await tableExists(db, "public.kumiko_snapshots")) {
     // Installs that predate snapshot_version get healed by the same
     // idempotent ensure that `kumiko schema apply` / test-setup already runs.
-    await asRawClient(db).unsafe(
-      `ALTER TABLE "kumiko_snapshots" ADD COLUMN IF NOT EXISTS "snapshot_version" integer NOT NULL DEFAULT 1`,
-    );
+    await ensureSnapshotVersionColumn(db);
     // skip: table already ensured — only the column heal above was needed
     return;
   }

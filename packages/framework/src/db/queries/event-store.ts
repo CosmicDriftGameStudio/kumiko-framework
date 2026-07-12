@@ -138,6 +138,14 @@ export type SaveSnapshotParams = {
   readonly snapshotVersion: number;
 };
 
+// kumiko_snapshots predates snapshot_version — idempotent heal for existing
+// installs, run from the same ensure path as table creation.
+export async function ensureSnapshotVersionColumn(db: AnyDb): Promise<void> {
+  await asRawClient(db).unsafe(
+    `ALTER TABLE "kumiko_snapshots" ADD COLUMN IF NOT EXISTS "snapshot_version" integer NOT NULL DEFAULT 1`,
+  );
+}
+
 export async function upsertSnapshot(db: AnyDb, params: SaveSnapshotParams): Promise<void> {
   await asRawClient(db).unsafe(
     `INSERT INTO "kumiko_snapshots"
