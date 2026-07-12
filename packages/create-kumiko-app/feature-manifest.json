@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled)",
-  "featureCount": 49,
+  "featureCount": 52,
   "features": [
     {
       "name": "admin-shell",
@@ -688,6 +688,98 @@
       "configKeys": [],
       "secrets": [],
       "writeHandlers": []
+    },
+    {
+      "name": "inbound-mail-foundation",
+      "description": "Plugin host for inbound e-mail (inbox federation) — provider plugins (inbound-provider-imap, later M365 Graph / Gmail REST) register at the `inboundMailProvider` extension point with verify/fetch and optional oauth/watch (live push). The foundation owns three event-sourced streams (mail-account lifecycle, inbound-message with exactly-once ingest via deterministic aggregate ids, mail-thread rollup) and their projections `read_mail_accounts`/`read_inbound_messages`/`read_mail_threads`; PII fields are envelope-encrypted per tenant subject key before every append (crypto-shredding on tenant destroy). Wire `createInboundMailConnectRoutes` (OAuth connect + anonymous callback outside /api) and `createInboundMailSupervisor` (IDLE watch with backoff + reconciliation poll) in bin/server.ts. Consume `inbound-mail-foundation:event:inbound-message-received` from app features to attach business processes.",
+      "toggleableDefault": null,
+      "requires": [
+        "tenant-lifecycle"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "tenantData",
+          "entityName": "mail-account"
+        },
+        {
+          "extensionName": "tenantData",
+          "entityName": "inbound-message"
+        },
+        {
+          "extensionName": "tenantData",
+          "entityName": "mail-thread"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "inbound-mail-foundation:write:connect-account",
+        "inbound-mail-foundation:write:disconnect-account",
+        "inbound-mail-foundation:write:ingest-message",
+        "inbound-mail-foundation:write:update-account"
+      ],
+      "uiHints": {
+        "displayLabel": "Inbound Mail · Foundation",
+        "category": "notifications",
+        "recommended": false
+      }
+    },
+    {
+      "name": "inbound-provider-imap",
+      "description": "Registers the `\"imap\"` provider for `inbound-mail-foundation` using imapflow — password/app-password auth covers classic IMAP hosts without any OAuth (plus an XOAUTH2 fallback consuming an access token from the secret slot). Incremental sync via a UIDVALIDITY:lastUid cursor (UIDVALIDITY change triggers a cursor-invalid full resync), initial backfill bounded by the foundation backfill window, and live push via IMAP IDLE for the watch supervisor. Store the per-account connection JSON (host/port/secure/user/password) in the account credential secret slot before the first sync.",
+      "toggleableDefault": null,
+      "requires": [
+        "inbound-mail-foundation",
+        "secrets"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "inboundMailProvider",
+          "entityName": "imap"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Inbound Mail · IMAP",
+        "category": "notifications",
+        "recommended": false
+      }
+    },
+    {
+      "name": "inbound-provider-inmemory",
+      "description": "Registers a scriptable in-process `\"inmemory\"` provider for `inbound-mail-foundation`. Seed messages with `seedInboundMessage(accountId, msg)` — an active watch pushes them immediately (IDLE simulation) and the cursor-based `fetch` re-delivers them on the reconciliation path, exercising the foundation dedup guarantee. Error injection via `failNextFetchWith`/`failNextVerifyWith`/`emitWatchError`; reset state with `resetInboundInMemory()`. For tests, demos and sample apps — not for production.",
+      "toggleableDefault": null,
+      "requires": [
+        "inbound-mail-foundation"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "inboundMailProvider",
+          "entityName": "inmemory"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Inbound Mail · In-Memory Provider",
+        "category": "notifications",
+        "recommended": false
+      }
     },
     {
       "name": "jobs",
