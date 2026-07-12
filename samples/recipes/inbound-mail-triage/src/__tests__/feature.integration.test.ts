@@ -161,7 +161,9 @@ describe("inbound-mail triage sample", () => {
       expect(ingestBody.data.duplicate).toBe(false);
 
       // 3. Der Business-Prozess (worker-lane job) feuert asynchron.
-      await waitFor(() => triageInbox.size === 1);
+      await waitFor(() => {
+        expect(triageInbox.size).toBe(1);
+      });
       const item = triageInbox.get("uid-triage-1");
       expect(item?.from).toContain("mieterin@example.com");
       expect(item?.subject).toBe("Heizung defekt");
