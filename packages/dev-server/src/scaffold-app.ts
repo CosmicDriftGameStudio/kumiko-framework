@@ -608,6 +608,7 @@ function renderClient(appName: string): string {
     "",
     "function AppShell({ children, schema }: { children: ReactNode; schema: AppSchema }): ReactNode {",
     "  return (",
+    // html-ok: appName is kebab-validated (a-z/0-9/-); this is generated .tsx source, not runtime HTML.
     `    <DefaultAppShell brand={<span className="font-semibold tracking-tight">${appName}</span>} schema={schema}>`,
     "      {children}",
     "    </DefaultAppShell>",
