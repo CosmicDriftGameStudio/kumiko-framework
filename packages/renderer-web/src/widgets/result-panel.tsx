@@ -64,22 +64,30 @@ export function ResultTable<Row>({
   rowKey,
   testId,
   className,
+  card,
 }: {
   readonly columns: readonly ResultColumn<Row>[];
   readonly rows: readonly Row[];
   readonly rowKey: (row: Row, index: number) => string;
   readonly testId?: string;
   readonly className?: string;
+  /** Rahmen-Look wie die CRUD-Liste (DataTable): gerundeter Border-Container +
+   *  bg-muted-Header-Band. Default = bare (nur die Tabelle, ohne Container). */
+  readonly card?: boolean;
 }): ReactNode {
-  return (
+  const table = (
     <div className="overflow-x-auto">
       <table data-testid={testId} className={cn("w-full text-sm", className)}>
-        <thead>
+        <thead className={cn(card === true && "bg-muted")}>
           <tr className="border-b text-left text-muted-foreground">
             {columns.map((col) => (
               <th
                 key={col.header}
-                className={cn("py-1.5 font-medium", col.align === "right" && "text-right")}
+                className={cn(
+                  "py-1.5 font-medium",
+                  card === true && "px-3",
+                  col.align === "right" && "text-right",
+                )}
               >
                 {col.header}
               </th>
@@ -92,7 +100,11 @@ export function ResultTable<Row>({
               {columns.map((col) => (
                 <td
                   key={col.header}
-                  className={cn("py-1.5", col.align === "right" && "text-right tabular-nums")}
+                  className={cn(
+                    "py-1.5",
+                    card === true && "px-3",
+                    col.align === "right" && "text-right tabular-nums",
+                  )}
                 >
                   {col.cell(row)}
                 </td>
@@ -102,6 +114,11 @@ export function ResultTable<Row>({
         </tbody>
       </table>
     </div>
+  );
+  return card === true ? (
+    <div className="overflow-hidden rounded-lg border bg-card">{table}</div>
+  ) : (
+    table
   );
 }
 
@@ -123,6 +140,7 @@ export function ComparisonTable<Col>({
   metricLabel,
   testId,
   className,
+  card,
 }: {
   readonly columns: readonly Col[];
   readonly columnHeader: (col: Col, index: number) => string;
@@ -131,15 +149,21 @@ export function ComparisonTable<Col>({
   readonly metricLabel: string;
   readonly testId?: string;
   readonly className?: string;
+  /** Rahmen-Look wie die CRUD-Liste (DataTable): gerundeter Border-Container +
+   *  bg-muted-Header-Band. Default = bare. */
+  readonly card?: boolean;
 }): ReactNode {
-  return (
+  const table = (
     <div className="overflow-x-auto">
       <table data-testid={testId} className={cn("w-full min-w-[24rem] text-sm", className)}>
-        <thead>
+        <thead className={cn(card === true && "bg-muted")}>
           <tr className="border-b text-left text-muted-foreground">
-            <th className="py-1.5 font-medium">{metricLabel}</th>
+            <th className={cn("py-1.5 font-medium", card === true && "px-3")}>{metricLabel}</th>
             {columns.map((col, i) => (
-              <th key={columnKey(col, i)} className="py-1.5 text-right font-medium">
+              <th
+                key={columnKey(col, i)}
+                className={cn("py-1.5 text-right font-medium", card === true && "px-3")}
+              >
                 {columnHeader(col, i)}
               </th>
             ))}
@@ -150,9 +174,14 @@ export function ComparisonTable<Col>({
             const best = metric.bestIndex !== undefined ? metric.bestIndex(columns) : -1;
             return (
               <tr key={metric.label} className="border-b last:border-0">
-                <td className="py-1.5 text-muted-foreground">{metric.label}</td>
+                <td className={cn("py-1.5 text-muted-foreground", card === true && "px-3")}>
+                  {metric.label}
+                </td>
                 {columns.map((col, i) => (
-                  <td key={columnKey(col, i)} className="py-1.5 text-right tabular-nums">
+                  <td
+                    key={columnKey(col, i)}
+                    className={cn("py-1.5 text-right tabular-nums", card === true && "px-3")}
+                  >
                     {i === best ? (
                       <span className="inline-block rounded bg-primary/10 px-2 py-0.5 font-semibold text-primary">
                         {metric.value(col, i)}
@@ -168,5 +197,10 @@ export function ComparisonTable<Col>({
         </tbody>
       </table>
     </div>
+  );
+  return card === true ? (
+    <div className="overflow-hidden rounded-lg border bg-card">{table}</div>
+  ) : (
+    table
   );
 }
