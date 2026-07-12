@@ -35,6 +35,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { instantToLegacyDate } from "@cosmicdrift/kumiko-framework/time";
 import type { ImapFlow, MailboxObject } from "imapflow";
 import { Temporal } from "temporal-polyfill";
 import { type ImapCredentialDocument, parseImapCredentialDocument } from "./credential-document";
@@ -69,7 +70,9 @@ async function readCredentialDocument(
   }
   const parsed = parseImapCredentialDocument(secret.reveal());
   if (!parsed.ok) {
-    throw new InboundAuthError(`${FEATURE_NAME}: account ${account.id}: ${parsed.reason}`);
+    throw new InboundAuthError(
+      `${FEATURE_NAME}: account ${account.id}: ${parsed.reason}${parsed.detail ? `: ${parsed.detail}` : ""}`,
+    );
   }
   return parsed.doc;
 }
@@ -108,10 +111,9 @@ async function fetchMessages(
       // trotzdem die letzte Message — rausfiltern.
       uids = (found || []).filter((uid) => uid > parsedCursor.lastUid);
     } else {
-      const sinceMs =
-        Temporal.Now.instant().epochMilliseconds - opts.backfillWindowDays * 24 * 60 * 60 * 1000;
-      // new Date(ms) an der imapflow-API-Boundary — search() verlangt Date.
-      uids = (await client.search({ since: new Date(sinceMs) }, { uid: true })) || [];
+      const since = Temporal.Now.instant().subtract({ hours: opts.backfillWindowDays * 24 });
+      // imapflow-API-Boundary: search() verlangt ein JS-Date.
+      uids = (await client.search({ since: instantToLegacyDate(since) }, { uid: true })) || [];
     }
     uids.sort((a, b) => a - b);
 
@@ -201,12 +203,14 @@ async function watchMailbox(
     };
 
     client.on("exists", () => {
+      // skip: Watcher gestoppt — exists-Nachzügler ignorieren.
       if (stopped) return;
       void drainNew().catch((err) => {
         if (!stopped) handlers.onError(mapImapError(err, doc.host));
       });
     });
     const die = (err: unknown) => {
+      // skip: bereits gestoppt/gestorben — onError nur einmal feuern.
       if (stopped) return;
       stopped = true;
       handlers.onError(mapImapError(err, doc.host));
@@ -224,6 +228,7 @@ async function watchMailbox(
           await client.idle();
         } catch (err) {
           if (!stopped) die(err);
+          // skip: idle-Loop endet — die() hat den Supervisor informiert (bzw. stop() war die Ursache).
           return;
         }
       }

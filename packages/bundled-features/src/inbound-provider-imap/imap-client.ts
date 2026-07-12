@@ -9,8 +9,10 @@ import {
   type RawInboundMessage,
   type SyncCursorPayload,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
+import { legacyDateToInstant } from "@cosmicdrift/kumiko-framework/time";
 import { ImapFlow } from "imapflow";
 import { type AddressObject, type ParsedMail, simpleParser } from "mailparser";
+import { Temporal } from "temporal-polyfill";
 import type { ImapCredentialDocument } from "./credential-document";
 
 export const IMAP_MAILBOX = "INBOX";
@@ -110,11 +112,12 @@ function addressList(a: AddressObject | AddressObject[] | undefined): string[] {
   return arr.map((x) => x.text).filter((t): t is string => Boolean(t));
 }
 
-/** imapflow liefert internalDate je nach Codepfad als Date ODER string
- *  — an der Lib-Boundary auf Date normalisieren. */
+/** imapflow liefert internalDate je nach Codepfad als Date ODER string.
+ *  String-Form verwerfen wir bewusst (kein Date-Parsing im Feature-Code,
+ *  no-date-api) — toRawInboundMessage fällt dann auf mailparsers
+ *  Date-Header zurück, der immer als echtes Date kommt. */
 export function coerceDate(d: Date | string | undefined): Date | undefined {
-  if (d === undefined) return undefined;
-  return d instanceof Date ? d : new Date(d);
+  return d instanceof Date ? d : undefined;
 }
 
 /** providerMessageId: UID ist nur innerhalb einer UIDVALIDITY eindeutig
@@ -143,7 +146,12 @@ export async function toRawInboundMessage(args: {
     cc: addressList(parsed.cc),
     subject: parsed.subject ?? "",
     snippet: text.slice(0, SNIPPET_MAX),
-    receivedAtIso: (receivedAt ?? new Date(0)).toISOString(),
+    // Lib-Boundary-Bridge (Date von imapflow/mailparser) → Temporal;
+    // fehlt jedes Datum, ist Epoch der ehrliche Marker.
+    receivedAtIso: (receivedAt
+      ? legacyDateToInstant(receivedAt)
+      : Temporal.Instant.fromEpochMilliseconds(0)
+    ).toString(),
     rawMime: args.source,
     scope: "inbox",
   };

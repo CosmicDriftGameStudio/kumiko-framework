@@ -21,7 +21,7 @@ import { loadCurrentMailAccountPayload } from "./account-state";
 
 export const disconnectAccountSchema = z.object({
   accountId: z.uuid(),
-  reason: z.string().min(1).max(100).default("tenant-admin"),
+  reason: z.string().min(1).max(100).default("tenant_admin"),
 });
 type DisconnectAccountPayload = z.infer<typeof disconnectAccountSchema>;
 

@@ -27,8 +27,8 @@ export const updateAccountSchema = z.object({
   /** Ops-Signal ("idle", "watching", "backoff:3", ...). */
   watchState: z.string().max(100).optional(),
   displayName: z.string().max(200).optional(),
-  /** Audit-Grund für metadata.headers ("watch-supervisor",
-   *  "oauth-refresh", "tenant-admin"). */
+  /** Audit-Grund für metadata.headers ("watch_supervisor",
+   *  "oauth_refresh", "tenant_admin"). */
   reason: z.string().min(1).max(100),
 });
 type UpdateAccountPayload = z.infer<typeof updateAccountSchema>;

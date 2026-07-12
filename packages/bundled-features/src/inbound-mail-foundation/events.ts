@@ -141,7 +141,7 @@ export type InboundMessageEventHeaders = {
 
 export type MailAccountEventHeaders = {
   readonly providerName: string;
-  /** Was den Übergang ausgelöst hat ("connect-flow", "watch-supervisor",
-   *  "oauth-refresh", "tenant-admin"). */
+  /** Was den Übergang ausgelöst hat ("connect_flow", "watch_supervisor",
+   *  "oauth_refresh", "tenant_admin"). */
   readonly reason: string;
 };

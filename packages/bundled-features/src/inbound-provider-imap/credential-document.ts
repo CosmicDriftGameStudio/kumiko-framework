@@ -27,23 +27,25 @@ export const imapCredentialDocumentSchema = z.object({
 });
 export type ImapCredentialDocument = z.infer<typeof imapCredentialDocumentSchema>;
 
+export type ImapCredentialRejection = "not_json" | "invalid_schema" | "missing_credentials";
+
 export type ParseCredentialResult =
   | { readonly ok: true; readonly doc: ImapCredentialDocument }
-  | { readonly ok: false; readonly reason: string };
+  | { readonly ok: false; readonly reason: ImapCredentialRejection; readonly detail?: string };
 
 export function parseImapCredentialDocument(raw: string): ParseCredentialResult {
   let json: unknown;
   try {
     json = JSON.parse(raw);
   } catch {
-    return { ok: false, reason: "credential document is not valid JSON" };
+    return { ok: false, reason: "not_json" };
   }
   const parsed = imapCredentialDocumentSchema.safeParse(json);
   if (!parsed.success) {
-    return { ok: false, reason: `credential document invalid: ${parsed.error.message}` };
+    return { ok: false, reason: "invalid_schema", detail: parsed.error.message };
   }
   if (!parsed.data.password && !parsed.data.accessToken) {
-    return { ok: false, reason: "credential document needs password (or accessToken for xoauth2)" };
+    return { ok: false, reason: "missing_credentials", detail: "needs password or accessToken" };
   }
   return { ok: true, doc: parsed.data };
 }

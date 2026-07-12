@@ -97,7 +97,7 @@ export const connectAccountHandler: WriteHandlerDef = {
     };
     const headers: MailAccountEventHeaders = {
       providerName: payload.provider,
-      reason: "connect-flow",
+      reason: "connect_flow",
     };
     await ctx.unsafeAppendEvent({
       aggregateId: accountId,

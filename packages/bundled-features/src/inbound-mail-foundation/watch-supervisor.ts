@@ -184,6 +184,7 @@ export function createInboundMailSupervisor(
         { cursor: serialized, updatedAt: now },
         { accountId, scope: CURSOR_SCOPE },
       );
+      // skip: update-Pfad fertig — nicht in den insert-Zweig durchfallen.
       return;
     }
     await insertOne(deps.db, syncCursorTable as EntityTableMeta, {
@@ -272,7 +273,7 @@ export function createInboundMailSupervisor(
       await markAccount(
         account,
         { status: InboundMailAccountStatuses.authError, watchState: "idle" },
-        "watch-supervisor",
+        "watch_supervisor",
       );
       return false;
     }
@@ -346,9 +347,11 @@ export function createInboundMailSupervisor(
     account: MailAccountRecord,
     plugin: InboundMailProviderPlugin,
   ): Promise<void> {
+    // skip: Provider ohne Live-Push — der Reconciliation-Poll deckt den Account ab.
     if (!plugin.watch) return;
     const existing = watchers.get(account.id);
-    if (existing?.stop || existing?.restartTimer) return; // läuft bzw. Restart geplant
+    // skip: Watcher läuft bereits bzw. Restart ist geplant — nichts zu tun.
+    if (existing?.stop || existing?.restartTimer) return;
 
     const state: WatcherState = existing ?? {
       stop: null,
@@ -360,6 +363,7 @@ export function createInboundMailSupervisor(
     const generation = state.generation;
 
     const scheduleRestart = (err: unknown) => {
+      // skip: Supervisor gestoppt oder Watcher-Generation gewechselt — Restart wäre ein Zombie.
       if (!running || state.generation !== generation) return;
       state.stop = null;
       const delay = state.backoffMs;
@@ -367,7 +371,7 @@ export function createInboundMailSupervisor(
       log(
         `inbound-mail: watch for account ${account.id} died (${err instanceof Error ? err.message : String(err)}) — restart in ${delay}ms`,
       );
-      void markAccount(account, { watchState: `backoff:${delay}ms` }, "watch-supervisor");
+      void markAccount(account, { watchState: `backoff:${delay}ms` }, "watch_supervisor");
       state.restartTimer = setTimeout(() => {
         state.restartTimer = null;
         void ensureWatcher(account, plugin);
@@ -397,13 +401,13 @@ export function createInboundMailSupervisor(
         },
       });
       if (state.generation !== generation || !running) {
-        // stop() kam während des Connects — sofort wieder abbauen.
         await stop();
+        // skip: stop() kam während des Connects — Watcher wurde sofort wieder abgebaut.
         return;
       }
       state.stop = stop;
       state.backoffMs = backoffInitialMs;
-      void markAccount(account, { watchState: "watching" }, "watch-supervisor");
+      void markAccount(account, { watchState: "watching" }, "watch_supervisor");
     } catch (err) {
       const keepRunning = await handleSyncError(account, err);
       if (keepRunning) scheduleRestart(err);
@@ -412,6 +416,7 @@ export function createInboundMailSupervisor(
 
   async function stopWatcher(accountId: string): Promise<void> {
     const state = watchers.get(accountId);
+    // skip: kein Watcher-State für diesen Account — bereits abgebaut.
     if (!state) return;
     state.generation += 1;
     if (state.restartTimer) {
@@ -436,6 +441,7 @@ export function createInboundMailSupervisor(
   // Lifecycle.
   // ---------------------------------------------------------------
   function scheduleNextPoll(): void {
+    // skip: Supervisor gestoppt — keinen weiteren Poll-Tick planen.
     if (!running) return;
     pollTimer = setTimeout(() => {
       pollTimer = null;
@@ -454,6 +460,7 @@ export function createInboundMailSupervisor(
 
   return {
     async start() {
+      // skip: bereits gestartet — start() ist idempotent.
       if (running) return;
       running = true;
       await pollOnce();
