@@ -70,6 +70,7 @@ export const accountTable = buildEntityTable("account", _ledger.entities["accoun
 export const transactionTable = buildEntityTable("transaction", _ledger.entities["transaction"]!);
 export const scheduleTable = buildEntityTable("schedule", _ledger.entities["schedule"]!);
 export { deliveryAttemptsTable } from "@cosmicdrift/kumiko-bundled-features/delivery";
+export { mailAccountsProjectionTable, inboundMessagesProjectionTable, mailThreadsProjectionTable } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 export { subscriptionsProjectionTable } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 export { globalFeatureStateTable } from "@cosmicdrift/kumiko-bundled-features/feature-toggles";
 export { jobRunsTable, jobRunLogsTable } from "@cosmicdrift/kumiko-bundled-features/jobs";
