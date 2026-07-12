@@ -63,15 +63,17 @@ export function ResultTable<Row>({
   rows,
   rowKey,
   testId,
+  className,
 }: {
   readonly columns: readonly ResultColumn<Row>[];
   readonly rows: readonly Row[];
   readonly rowKey: (row: Row, index: number) => string;
   readonly testId?: string;
+  readonly className?: string;
 }): ReactNode {
   return (
     <div className="overflow-x-auto">
-      <table data-testid={testId} className="w-full text-sm">
+      <table data-testid={testId} className={cn("w-full text-sm", className)}>
         <thead>
           <tr className="border-b text-left text-muted-foreground">
             {columns.map((col) => (
@@ -120,6 +122,7 @@ export function ComparisonTable<Col>({
   metrics,
   metricLabel,
   testId,
+  className,
 }: {
   readonly columns: readonly Col[];
   readonly columnHeader: (col: Col, index: number) => string;
@@ -127,10 +130,11 @@ export function ComparisonTable<Col>({
   readonly metrics: readonly ComparisonMetric<Col>[];
   readonly metricLabel: string;
   readonly testId?: string;
+  readonly className?: string;
 }): ReactNode {
   return (
     <div className="overflow-x-auto">
-      <table data-testid={testId} className="w-full min-w-[24rem] text-sm">
+      <table data-testid={testId} className={cn("w-full min-w-[24rem] text-sm", className)}>
         <thead>
           <tr className="border-b text-left text-muted-foreground">
             <th className="py-1.5 font-medium">{metricLabel}</th>
