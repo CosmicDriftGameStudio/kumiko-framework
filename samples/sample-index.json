@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled/scripts/gen-sample-index.ts + sample-index.overrides.json",
-  "featureCount": 34,
+  "featureCount": 35,
   "features": {
     "admin-shell": {
       "samples": [
@@ -173,6 +173,13 @@
       "whenToUse": "Records need a hierarchical folder tree without a custom pivot table per entity — mount folders once and file entities via folder-assignment join rows.",
       "sampleBlurb": "Drop-in FolderSection on any entity edit screen — assign, move, and clear folder membership without host schema changes.",
       "screenshot": "/screenshots/features/folders.png"
+    },
+    "inbound-mail-foundation": {
+      "samples": [
+        "recipes-inbound-mail-triage"
+      ],
+      "hasVisualOutput": true,
+      "readmeSummary": "Consumer pattern: hook your business process onto the foundation's ingest write-handler with r.job({ trigger: { on: InboundMailFoundationHandlers.ingestMessage } }) — the job receives the plaintext normalized mail (PII encryption happens inside the handler, after your trigger payload was captured). - **Idempotency discipline**: the trigger also fires on idempotent replays (duplicate ingest returns success) — key your side-effects by providerMessageId so replays overwrite instead of duplicating. - **Provider swap**: the test drives inbound-provider-inmemory; production mounts inbound-provider-imap (password/app-password, IMAP IDLE) against the same contract — the consumer code does not change."
     },
     "jobs": {
       "samples": [

@@ -1,0 +1,9 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-inbound-mail-triage",
+  "description": "Inbound-mail consumer pattern: inbound-mail-foundation + in-memory provider, a worker-lane triage job attached to the ingest handler, verified end-to-end through createAllInOneEntrypoint.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  }
+}
