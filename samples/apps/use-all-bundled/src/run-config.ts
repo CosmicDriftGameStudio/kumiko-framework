@@ -39,6 +39,9 @@ import { fileProviderS3EnvFeature } from "@cosmicdrift/kumiko-bundled-features/f
 import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
 import { foldersFeature } from "@cosmicdrift/kumiko-bundled-features/folders";
 import { foldersUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/folders-user-data";
+import { inboundMailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
+import { inboundProviderImapFeature } from "@cosmicdrift/kumiko-bundled-features/inbound-provider-imap";
+import { inboundProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/inbound-provider-inmemory";
 import { createJobsFeature } from "@cosmicdrift/kumiko-bundled-features/jobs";
 import { ledgerFeature } from "@cosmicdrift/kumiko-bundled-features/ledger";
 import { createLegalPagesFeature } from "@cosmicdrift/kumiko-bundled-features/legal-pages";
@@ -119,6 +122,11 @@ export const APP_FEATURES = [
   mailFoundationFeature,
   mailTransportInMemoryFeature,
   mailTransportSmtpFeature,
+
+  // inbound mail (foundation before providers)
+  inboundMailFoundationFeature,
+  inboundProviderInMemoryFeature,
+  inboundProviderImapFeature,
 
   // files (foundation before provider)
   fileFoundationFeature,
