@@ -387,14 +387,14 @@ function renderRunConfig(features?: ReadonlyArray<ScaffoldFeatureEntry>): string
   sf.insertText(
     0,
     [
-      "// Single source of truth für die Feature-Komposition deiner App.",
-      "// config/user/tenant/auth-email-password werden via",
-      "// composeFeatures(includeBundled:true) automatisch ergänzt wenn",
-      "// runProdApp mit `auth: {…}` aufgerufen wird (siehe bin/main.ts).",
+      "// Single source of truth for your app's feature composition.",
+      "// config/user/tenant/auth-email-password are added automatically",
+      "// via composeFeatures(includeBundled:true) when runProdApp is called",
+      "// with `auth: {…}` (see bin/main.ts).",
       "//",
-      "// Neue features hinzufügen:",
-      "//   - bunx @cosmicdrift/kumiko-cli add feature <name>  (DX-2, automatisch)",
-      "//   - oder: hand-edit + import unten ergänzen",
+      "// Add new features:",
+      "//   - bunx @cosmicdrift/kumiko-cli add feature <name>  (DX-2, automatic)",
+      "//   - or: hand-edit + add the import below",
       "",
       "",
     ].join("\n"),
@@ -495,9 +495,9 @@ function renderMain(appName: string): string {
     [
       "// Production-bootstrap. KUMIKO_DRY_RUN_ENV=boot exits after",
       "// composeFeatures + validateBoot + createRegistry without DB/Redis-connect",
-      "// (siehe @cosmicdrift/kumiko-dev-server runProdApp). Echter Dev-Boot",
-      "// passiert via `bunx kumiko dev` (in-repo dev-tool) mit Docker-stack — DX-1.0 deckt nur",
-      "// den boot-mode-Pfad ab; `kumiko dev` kommt in einer späteren DX-Phase.",
+      "// (see @cosmicdrift/kumiko-dev-server runProdApp). The real dev boot",
+      "// runs via `bunx kumiko dev` (in-repo dev-tool) with a Docker stack — DX-1.0",
+      "// only covers the boot-mode path; `kumiko dev` lands in a later DX phase.",
       "",
       "",
     ].join("\n"),
@@ -572,12 +572,12 @@ function renderDev(appName: string): string {
   sf.insertText(
     0,
     [
-      "// Dev-bootstrap. `bun --watch bin/dev.ts` (siehe package.json scripts.dev)",
-      "// startet einen full-featured Dev-Server mit Auto-Reload bei Code-Änderungen.",
-      "// setupTestStack legt fehlende Entity-Tabellen automatisch an — neues",
-      "// r.entity(...) in einem Feature führt beim nächsten Reboot zu CREATE TABLE,",
-      "// kein manuelles `kumiko schema apply` nötig (das gilt nur für Prod).",
-      "// Persistent-DB via KUMIKO_DEV_DB_NAME (.env) damit Admin + Daten Reboots überleben.",
+      "// Dev bootstrap. `bun --watch bin/dev.ts` (see package.json scripts.dev)",
+      "// starts a full-featured dev server with auto-reload on code changes.",
+      "// setupTestStack creates missing entity tables automatically — a new",
+      "// r.entity(...) in a feature becomes a CREATE TABLE on the next reboot,",
+      "// no manual `kumiko schema apply` needed (that's prod-only).",
+      "// Persistent DB via KUMIKO_DEV_DB_NAME (.env) so admin + data survive reboots.",
       "",
       "",
     ].join("\n"),
@@ -624,10 +624,10 @@ function renderClient(appName: string): string {
 
 function renderEnvExample(appName: string): string {
   const devDb = `${appName.replace(/-/g, "_")}_dev`;
-  return `# bun dev (runDevApp → setupTestStack) braucht TEST_DATABASE_URL.
-# Production (bun bin/main.ts → runProdApp) braucht DATABASE_URL.
-# Beide zeigen im Default auf denselben lokalen Postgres — runDevApp legt
-# darunter eine eigene "<KUMIKO_DEV_DB_NAME>"-Datenbank an.
+  return `# bun dev (runDevApp → setupTestStack) needs TEST_DATABASE_URL.
+# Production (bun bin/main.ts → runProdApp) needs DATABASE_URL.
+# Both default to the same local Postgres — runDevApp creates its own
+# "<KUMIKO_DEV_DB_NAME>" database underneath.
 TEST_DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres
 DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/app
 REDIS_URL=redis://127.0.0.1:6379
@@ -639,9 +639,9 @@ JWT_SECRET=change-me-min-32-chars-change-me-min-32
 # Generate with: openssl rand -base64 32
 KUMIKO_SECRETS_MASTER_KEY_V1=
 
-# Dev-only: persistente DB für \`bun dev\`. Ohne diesen Var startet jeder Reboot
-# eine frische kumiko_test_<random>-DB → Admin-Login + Daten weg bei jedem Edit.
-# Mit Var bleibt die DB zwischen Reboots erhalten (Schema-Pushes sind idempotent).
+# Dev-only: persistent DB for \`bun dev\`. Without this var every reboot starts
+# a fresh kumiko_test_<random> DB → admin login + data gone on every edit.
+# With it the DB persists across reboots (schema pushes are idempotent).
 KUMIKO_DEV_DB_NAME=${devDb}
 `;
 }
@@ -801,7 +801,7 @@ function renderBinKumiko(): string {
     "const [, , cmd, ...rest] = Bun.argv;",
     'if (cmd !== "schema") {',
     "  // biome-ignore lint/suspicious/noConsole: CLI output is the feature.",
-    '  console.error("\\n  Unbekannt: kumiko " + (cmd ?? "") + " — nur \'kumiko schema <sub>\' im Standalone-Bundle.\\n");',
+    '  console.error("\\n  Unknown: kumiko " + (cmd ?? "") + " — only \'kumiko schema <sub>\' in the standalone bundle.\\n");',
     "  process.exit(1);",
     "}",
     "",
