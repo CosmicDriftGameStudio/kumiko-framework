@@ -33,18 +33,14 @@ export type CustomFieldAccess = z.infer<typeof customFieldAccessSchema>;
 //   money:    { type: "money", required: false, currency: "EUR" }
 //   embedded: { type: "embedded", required: false, schema: { ... } }
 //
-// `fieldAccess` (T1.5b) and `sensitive` (T1.5c) are the structured keys
-// recognised by the handlers / user-data-rights wiring. Everything else
-// stays loose pending B2's per-type discriminated-union.
+// `fieldAccess` (T1.5b) is the structured key recognised by the handlers.
+// Everything else stays loose pending B2's per-type discriminated-union —
+// EXCEPT `sensitive`, which is explicitly rejected below: custom fields
+// carry supplemental business data only, PII support was removed (#972).
 const serializedFieldSchema = z
   .looseObject({
     type: fieldTypeSchema,
     fieldAccess: customFieldAccessSchema,
-    // `sensitive: true` marks the field as PII — the user-data-rights
-    // wiring (wireCustomFieldsUserDataRightsFor) removes its value from
-    // the host row's customFields jsonb on user-forget when the strategy
-    // is "anonymize". Non-sensitive fields are untouched.
-    sensitive: z.boolean().optional(),
     // `retention` (T1.5d): per-field expiry. The retention-cron strips
     // values whose host-row `modified_at` is older than `keepFor`. Strategy
     // `delete` removes the key from the customFields jsonb; `anonymize`
@@ -59,7 +55,11 @@ const serializedFieldSchema = z
       })
       .optional(),
   })
-  .refine((v) => typeof v["type"] === "string", "serializedField must have a string `type`");
+  .refine((v) => typeof v["type"] === "string", "serializedField must have a string `type`")
+  .refine(
+    (v) => !("sensitive" in v),
+    "custom fields don't support PII — `sensitive` was removed (#972). Model personal data as a schema entity field with a pii/userOwned/tenantOwned annotation instead.",
+  );
 
 // i18n-labels — `{ de: "...", en: "...", ... }`. Mindestens ein Eintrag.
 const labelSchema = z.record(z.string().min(2).max(8), z.string().min(1));

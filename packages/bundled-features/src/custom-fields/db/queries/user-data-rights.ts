@@ -25,26 +25,6 @@ export async function selectCustomFieldsHostRows(
   return Array.isArray(rowsResult) ? rowsResult : [];
 }
 
-export async function stripSensitiveCustomFieldKeys(
-  db: DbRunner,
-  tableName: string,
-  userIdColumn: string,
-  sensitiveKeys: readonly string[],
-  userId: string,
-  tenantId: string,
-): Promise<void> {
-  const tbl = quoteTable(tableName);
-  const userCol = quoteColumn(userIdColumn);
-  await asRawClient(db).unsafe(
-    `UPDATE ${tbl} SET custom_fields = CASE
-       WHEN jsonb_typeof(custom_fields) = 'object' THEN custom_fields - $1::text[]
-       ELSE custom_fields
-     END
-     WHERE ${userCol} = $2 AND tenant_id = $3`,
-    [sensitiveKeys, userId, tenantId],
-  );
-}
-
 export async function selectFieldDefinitionsForEntity(
   db: DbRunner,
   entityName: string,
