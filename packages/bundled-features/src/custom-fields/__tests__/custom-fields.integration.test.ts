@@ -435,9 +435,9 @@ describe("custom-fields integration — define resurrection (B1)", () => {
   });
 });
 
-describe("custom-fields integration — sensitive value self-projected, kept out of the event log (#2)", () => {
-  test("sensitive field: value reaches the projection but NOT kumiko_events", async () => {
-    await stack.http.writeOk(
+describe("custom-fields integration — no PII: `sensitive` rejected, every value in the log (#972)", () => {
+  test("define-tenant-field with `sensitive` is rejected at the schema boundary", async () => {
+    const err = await stack.http.writeErr(
       "custom-fields:write:define-tenant-field",
       {
         entityName: "property",
@@ -449,23 +449,14 @@ describe("custom-fields integration — sensitive value self-projected, kept out
       },
       admin,
     );
-    const propId = "aaaaaaaa-aaaa-4000-8000-0000000000a1";
-    await createProperty(propId, "Sensitive Prop");
-    await setCustomField("property", propId, "taxId", "DE-TAX-999");
-
-    // Read model HAS the value — self-projected directly into the host row.
-    const props = await listProperties();
-    const row = props.rows.find((r) => r["id"] === propId);
-    expect(row?.["taxId"]).toBe("DE-TAX-999");
-
-    // The immutable event log does NOT carry the value (erasable by design).
-    const payload = await fetchSetEventPayload(propId, "taxId");
-    expect(payload).toBeDefined();
-    expect(payload?.["fieldKey"]).toBe("taxId");
-    expect(payload && "value" in payload).toBe(false);
+    expect(err.httpStatus).toBe(400);
+    expect(err.code).toBe("validation_error");
+    // The API sanitises zod messages to i18n keys — the reject surfaces as a
+    // custom validation issue on the serializedField path.
+    expect(JSON.stringify(err.details)).toContain('"serializedField"');
   });
 
-  test("non-sensitive field: value IS in the event log (control)", async () => {
+  test("every set carries its value in the event log", async () => {
     const propId = "aaaaaaaa-aaaa-4000-8000-0000000000a2";
     await defineField("property", "publicNote", "text");
     await createProperty(propId, "Public Prop");
@@ -475,24 +466,13 @@ describe("custom-fields integration — sensitive value self-projected, kept out
     expect(payload?.["value"]).toBe("visible");
   });
 
-  test("rebuild replay: re-applying logged events restores non-sensitive, not sensitive", async () => {
+  test("rebuild replay: re-applying logged events restores ALL custom-field values", async () => {
     await defineField("property", "publicTag", "text");
-    await stack.http.writeOk(
-      "custom-fields:write:define-tenant-field",
-      {
-        entityName: "property",
-        fieldKey: "secret",
-        serializedField: { type: "text", sensitive: true },
-        required: false,
-        searchable: false,
-        displayOrder: 0,
-      },
-      admin,
-    );
+    await defineField("property", "vendorRef", "text");
     const propId = "aaaaaaaa-aaaa-4000-8000-0000000000a3";
     await createProperty(propId, "Rebuild Prop");
     await setCustomField("property", propId, "publicTag", "keepme");
-    await setCustomField("property", propId, "secret", "DE-TAX-777");
+    await setCustomField("property", propId, "vendorRef", "VR-777");
     await stack.eventDispatcher?.runOnce();
 
     // Wipe the read model, then replay the logged events through the REAL MSP
@@ -531,30 +511,10 @@ describe("custom-fields integration — sensitive value self-projected, kept out
     }
 
     const row = (await listProperties()).rows.find((r) => r["id"] === propId);
-    // Non-sensitive: restored from its value-bearing event.
+    // Every value restores from its value-bearing event — custom fields are
+    // fully rebuild-safe since #972 (no PII, no value-less events).
     expect(row?.["publicTag"]).toBe("keepme");
-    // Sensitive: the logged event carried no value → gone. The accepted, DURABLE
-    // rebuild-loss — and why a forget can't be undone by a rebuild.
-    expect(row?.["secret"]).toBeUndefined();
-  });
-
-  test("update-tenant-field rejects flipping `sensitive` (would orphan logged PII)", async () => {
-    await defineField("property", "maybePii", "text"); // non-sensitive at definition
-    const err = await stack.http.writeErr(
-      "custom-fields:write:update-tenant-field",
-      {
-        entityName: "property",
-        fieldKey: "maybePii",
-        serializedField: { type: "text", sensitive: true }, // attempt the flip
-        required: false,
-        searchable: false,
-        displayOrder: 0,
-      },
-      admin,
-    );
-    expect(err.httpStatus).toBe(422);
-    expect(err.code).toBe("unprocessable");
-    expect(err.details).toMatchObject({ reason: "field_sensitive_immutable" });
+    expect(row?.["vendorRef"]).toBe("VR-777");
   });
 });
 

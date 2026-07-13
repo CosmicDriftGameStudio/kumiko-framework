@@ -1,6 +1,14 @@
 // custom-fields — Tenant- + System-scoped Custom-Field-Definitions +
 // generische Custom-Field-VALUE write-handler (host-stream-events).
 //
+// **Scope: supplemental business data, NO PII (#972).** Custom fields sind
+// für tenant-spezifische Zusatzinfos (Referenznummern, Flags, Kategorien) —
+// nicht für personenbezogene Daten. Das frühere `sensitive`-Flag wurde
+// entfernt; das Schema rejected es und `parseSerializedField` wirft auf
+// Alt-Definitionen. Werte stehen vollständig im Event-Log (rebuild-safe).
+// PII gehört in Schema-Entity-Felder mit pii/userOwned/tenantOwned-
+// Annotation (Crypto-Shredding, Event-Ciphertext, Forget-Pipeline).
+//
 // **Was diese Feature liefert (B1 + B2, 2026-05-23):**
 //   1. r.entity("field-definition") — Definition-Storage (event-sourced).
 //   2. define-tenant-field / define-system-field — RBAC write-handlers für

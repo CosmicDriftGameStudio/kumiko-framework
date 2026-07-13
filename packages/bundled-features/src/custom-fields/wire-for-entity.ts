@@ -105,22 +105,15 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
     if (event.aggregateType !== entityName) return;
     const payload = event.payload as CustomFieldSetPayload; // @cast-boundary engine-payload
 
-    // skip: sensitive fields self-project in the write handler (see
-    // set-custom-field) and persist a value-less event so PII never enters
-    // the log. Skipping is correct both live (the handler already wrote the
-    // row) and on replay (the value is intentionally gone, the accepted
-    // rebuild-loss). `value === undefined` stays the actual branch condition
-    // (historical events predate `_sensitive`) — the warning below is a
-    // canary (527/1): a NEW event missing both means something emitted a
-    // value-less customField.set outside the sensitive-field path.
+    // skip: a value-less customField.set is an anomaly since #972 (every set
+    // carries its value; the sensitive self-projection path was removed) —
+    // warn and leave the row untouched instead of binding undefined.
     if (payload.value === undefined) {
-      if (payload._sensitive !== true) {
-        // biome-ignore lint/suspicious/noConsole: boot-adjacent correctness canary, no logger available in an apply function
-        console.warn(
-          `[custom-fields] customField.set for "${payload.fieldKey}" on ${event.aggregateType}/${event.aggregateId} has no value and no _sensitive marker — skipping, but this event didn't come from the known sensitive-field path.`,
-        );
-      }
-      // skip: value-less set, handled above (warned if unexpectedly so)
+      // biome-ignore lint/suspicious/noConsole: boot-adjacent correctness canary, no logger available in an apply function
+      console.warn(
+        `[custom-fields] customField.set for "${payload.fieldKey}" on ${event.aggregateType}/${event.aggregateId} has no value — skipping (value-less sets should not exist since #972).`,
+      );
+      // skip: warned above — leave the row untouched instead of binding undefined
       return;
     }
 

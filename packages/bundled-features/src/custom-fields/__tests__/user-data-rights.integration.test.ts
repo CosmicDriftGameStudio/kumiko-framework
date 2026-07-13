@@ -2,24 +2,16 @@
 // REAL export/forget runners (runUserExport / runForgetCleanup), not by
 // calling the registered hooks in isolation.
 //
-// What the real runners prove that direct hook calls cannot:
+// Since #972 the wiring is EXPORT-ONLY: custom fields carry supplemental
+// business data, not PII — runForgetCleanup has nothing to redact in the
+// customFields jsonb. The tests prove:
 //
-//   * runUserExport actually picks up the custom-fields export hook from the
-//     registry and folds its snippet into the user's cross-tenant bundle.
+//   * runUserExport picks up the custom-fields export hook from the registry
+//     and folds its snippet into the user's cross-tenant bundle (Art. 20).
 //
-//   * runForgetCleanup fires BOTH the host EXT_USER_DATA hook (owner-nulling
-//     anonymize) AND the custom-fields strip hook, in the order their declared
-//     `order` demands. The strip declares order -100 so it redacts sensitive
-//     jsonb keyed on `inserted_by_id` BEFORE the host hook nulls that column.
-//     If the ordering regressed, the host hook would null inserted_by_id first,
-//     the strip's `WHERE inserted_by_id = userId` would match 0 rows, and
-//     sensitive PII would silently survive (Art. 17 violation). Calling the
-//     hooks by hand never exercised this interaction.
-//
-//   * The anonymize-vs-delete strategy comes from the data-retention policy:
-//     no override → strategy "delete" (custom-fields strip is a no-op, host
-//     deletes the row); per-tenant anonymize override → strategy "anonymize"
-//     (strip runs, host nulls the owner).
+//   * runForgetCleanup leaves customFields untouched on anonymize (only the
+//     host hook nulls the owner) and lets the host delete-hook remove whole
+//     rows on strategy "delete".
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
@@ -76,9 +68,8 @@ const propertyEntity = createEntity({
 const propertyTable = buildEntityTable("property", propertyEntity);
 
 // Host entity gets its own EXT_USER_DATA-registration too — that's the
-// canonical setup. The host's anonymize hook NULLS inserted_by_id (default
-// order 0); the custom-fields strip (order -100) must run first. Both fire in
-// the same runForgetCleanup sub-transaction.
+// canonical setup. The host's anonymize hook NULLS inserted_by_id; the
+// custom-fields wiring contributes export only (#972).
 const hostExportHook: UserDataExportHook = async (ctx) => {
   const rows = await asRawClient(ctx.db).unsafe(
     `SELECT id, name FROM read_t15c_properties WHERE inserted_by_id = $1 AND tenant_id = $2`,
@@ -99,9 +90,7 @@ const hostDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
       [ctx.userId, ctx.tenantId],
     );
   } else {
-    // anonymize: clear owner, keep row + non-sensitive customFields. Runs AFTER
-    // the custom-fields strip (order -100 < 0) — if it ran first, the strip's
-    // owner-keyed WHERE would match nothing.
+    // anonymize: clear owner, keep row + customFields.
     await asRawClient(ctx.db).unsafe(
       `UPDATE read_t15c_properties SET inserted_by_id = NULL WHERE inserted_by_id = $1 AND tenant_id = $2`,
       [ctx.userId, ctx.tenantId],
@@ -304,10 +293,10 @@ describe("T1.5c: custom-fields user-data-rights through the real runners", () =>
   test("export: customFields jsonb lands in the user's export bundle", async () => {
     await seedActiveUserWithMembership();
     const propertyId = "11111111-1111-4000-8000-000000000001";
-    await defineField("email", { type: "text", sensitive: true });
+    await defineField("contactRef", { type: "text" });
     await defineField("vipFlag", { type: "boolean" });
     await createProperty(propertyId, "Hofgarten 12");
-    await setField(propertyId, "email", "alice@example.com");
+    await setField(propertyId, "contactRef", "crm-4711");
     await setField(propertyId, "vipFlag", true);
     await stack.eventDispatcher?.runOnce();
 
@@ -324,19 +313,19 @@ describe("T1.5c: custom-fields user-data-rights through the real runners", () =>
     expect(cfSnippet).toBeDefined();
     expect(cfSnippet?.rows).toHaveLength(1);
     expect(cfSnippet?.rows[0]?.["customFields"]).toMatchObject({
-      email: "alice@example.com",
+      contactRef: "crm-4711",
       vipFlag: true,
     });
   });
 
-  test("forget anonymize: strip runs BEFORE host owner-nulling → sensitive key gone, non-sensitive kept", async () => {
+  test("forget anonymize: customFields stay fully intact (export-only wiring, #972)", async () => {
     await seedForgetUserWithMembership();
     await seedPropertyAnonymizeOverride();
     const propertyId = "22222222-2222-4000-8000-000000000002";
-    await defineField("email", { type: "text", sensitive: true });
+    await defineField("contactRef", { type: "text" });
     await defineField("vipFlag", { type: "boolean" });
     await createProperty(propertyId, "Anonymize-Me");
-    await setField(propertyId, "email", "alice@example.com");
+    await setField(propertyId, "contactRef", "crm-4711");
     await setField(propertyId, "vipFlag", true);
     await stack.eventDispatcher?.runOnce();
 
@@ -349,39 +338,19 @@ describe("T1.5c: custom-fields user-data-rights through the real runners", () =>
     expect(result.errors).toHaveLength(0);
 
     const row = await readRow(propertyId);
-    // Host hook ran (owner nulled), and the strip ran BEFORE it (sensitive
-    // key removed despite the owner-keyed WHERE — proof of the -100 ordering).
+    // Host hook ran (owner nulled); custom fields hold business data, not
+    // PII — nothing was stripped.
     expect(row?.["inserted_by_id"]).toBeNull();
-    const customFields = row?.["custom_fields"] as Record<string, unknown> | undefined;
-    expect(customFields).toBeDefined();
-    expect(customFields).not.toHaveProperty("email");
-    expect(customFields).toMatchObject({ vipFlag: true });
-
-    // The other half of erasure: the sensitive value was self-projected and the
-    // customField.set event was persisted value-less — so PII never entered the
-    // immutable log. Without this, the strip above would be undone by a rebuild.
-    const eventRows = await asRawClient(stack.db).unsafe(
-      "SELECT payload FROM kumiko_events WHERE aggregate_id = $1",
-      [propertyId],
-    );
-    const setPayloads = (eventRows as ReadonlyArray<{ payload: unknown }>).map((r) =>
-      typeof r.payload === "string" ? JSON.parse(r.payload) : r.payload,
-    ) as Array<Record<string, unknown>>;
-    const emailSet = setPayloads.find((p) => p?.["fieldKey"] === "email");
-    expect(emailSet).toBeDefined();
-    expect(emailSet && "value" in emailSet).toBe(false);
-    // Control: the non-sensitive value DID go through the log (normal path).
-    const vipSet = setPayloads.find((p) => p?.["fieldKey"] === "vipFlag");
-    expect(vipSet?.["value"]).toBe(true);
+    expect(row?.["custom_fields"]).toMatchObject({ contactRef: "crm-4711", vipFlag: true });
   });
 
-  test("forget delete (no override → strategy delete): host removes the row, strip is a no-op", async () => {
+  test("forget delete (no override → strategy delete): host removes the row", async () => {
     await seedForgetUserWithMembership();
     // No retention override → policyToStrategy(null) = "delete".
     const propertyId = "33333333-3333-4000-8000-000000000003";
-    await defineField("email", { type: "text", sensitive: true });
+    await defineField("contactRef", { type: "text" });
     await createProperty(propertyId, "Delete-Me");
-    await setField(propertyId, "email", "alice@example.com");
+    await setField(propertyId, "contactRef", "crm-4711");
     await stack.eventDispatcher?.runOnce();
 
     const result = await runForgetCleanup({
@@ -391,8 +360,7 @@ describe("T1.5c: custom-fields user-data-rights through the real runners", () =>
     });
     expect(result.processedUserIds).toContain(admin.id);
 
-    // Host delete-hook removed the row; custom-fields strip stayed out of the
-    // way (it returns early on strategy=delete).
+    // Host delete-hook removed the row wholesale — customFields go with it.
     expect(await readRow(propertyId)).toBeUndefined();
   });
 
@@ -412,28 +380,5 @@ describe("T1.5c: custom-fields user-data-rights through the real runners", () =>
     const tenantSection = bundle.tenants.find((t) => t.tenantId === TENANT);
     const cfSnippet = tenantSection?.entities.find((e) => e.entity === "property.customFields");
     expect(cfSnippet).toBeUndefined();
-  });
-
-  test("forget anonymize without sensitive fields defined → all customFields kept", async () => {
-    await seedForgetUserWithMembership();
-    await seedPropertyAnonymizeOverride();
-    const propertyId = "55555555-5555-4000-8000-000000000005";
-    await defineField("nonSensitive", { type: "text" });
-    await createProperty(propertyId, "AllStay");
-    await setField(propertyId, "nonSensitive", "still-here");
-    await stack.eventDispatcher?.runOnce();
-
-    const result = await runForgetCleanup({
-      db: stack.db,
-      registry: stack.registry,
-      now: NOW(),
-    });
-    expect(result.processedUserIds).toContain(admin.id);
-
-    const row = await readRow(propertyId);
-    expect(row?.["inserted_by_id"]).toBeNull();
-    expect((row?.["custom_fields"] as Record<string, unknown>)?.["nonSensitive"]).toBe(
-      "still-here",
-    );
   });
 });

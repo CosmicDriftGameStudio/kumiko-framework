@@ -1,32 +1,30 @@
-// DSGVO forget hook-ordering — the custom-fields anonymize strip must run
-// before any host hook that nulls the owner column it filters on, regardless
-// of feature registration order.
+// DSGVO forget hook-ordering — a redaction hook with order
+// EXT_USER_DATA_ORDER.REDACT_BEFORE_OWNER must run before any host hook that
+// nulls the owner column it filters on, regardless of feature registration
+// order. (Originally proven via the custom-fields sensitive strip; that strip
+// was removed in #972, so this test pins the generic runner guarantee with a
+// synthetic redact hook.)
 //
 // Two host entities are wired with the OPPOSITE EXT_USER_DATA registration
-// order: one registers the custom-fields strip first (the order that happened
-// to be safe), the other registers the owner-nulling host hook first (the
-// order that exposed the bug). Both run through the real `runForgetCleanup`
-// with strategy=anonymize. With the order-sentinel fix both strip the
-// sensitive jsonb key; without it the host-first entity would leave it behind
-// (the strip matches 0 rows after the owner column is nulled).
-//
-// This drives the full runner on purpose: the existing custom-fields
-// user-data-rights test invokes the strip hook in isolation
-// (getExtensionUsages + direct call) and is structurally blind to ordering.
+// order: one registers the redact hook first (the order that happened to be
+// safe), the other registers the owner-nulling host hook first (the order
+// that exposed the bug). Both run through the real `runForgetCleanup` with
+// strategy=anonymize. With the order-sentinel both strip the jsonb key;
+// without it the host-first entity would leave it behind (the redact matches
+// 0 rows after the owner column is nulled).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
   defineFeature,
   EXT_USER_DATA,
+  EXT_USER_DATA_ORDER,
   type UserDataDeleteHook,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
-  createTestUser,
   resetEventStore,
   setupTestStack,
   type TestStack,
@@ -34,10 +32,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { seedRow as seedProjectionRow } from "@cosmicdrift/kumiko-framework/testing";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
-import { fieldDefinitionEntity } from "../../custom-fields/entity";
-import { createCustomFieldsFeature } from "../../custom-fields/feature";
 import { customFieldsField } from "../../custom-fields/wire-for-entity";
-import { wireCustomFieldsUserDataRightsFor } from "../../custom-fields/wire-user-data-rights";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
 import { tenantRetentionOverrideTable } from "../../data-retention/schema/tenant-retention-override";
 import { createSessionsFeature } from "../../sessions";
@@ -65,6 +60,20 @@ function makeHostDeleteHook(tableName: string): UserDataDeleteHook {
     }
     await asRawClient(ctx.db).unsafe(
       `UPDATE ${tableName} SET inserted_by_id = NULL WHERE inserted_by_id = $1 AND tenant_id = $2`,
+      [ctx.userId, ctx.tenantId],
+    );
+  };
+}
+
+// Owner-keyed jsonb redaction with the REDACT_BEFORE_OWNER order sentinel —
+// the shape the removed custom-fields strip had, kept synthetic here.
+function makeRedactHook(tableName: string): UserDataDeleteHook {
+  return async (ctx, strategy) => {
+    // skip: delete strategy removes rows wholesale — redaction N/A.
+    if (strategy === "delete") return;
+    await asRawClient(ctx.db).unsafe(
+      `UPDATE ${tableName} SET custom_fields = custom_fields - 'ssn'
+       WHERE inserted_by_id = $1 AND tenant_id = $2`,
       [ctx.userId, ctx.tenantId],
     );
   };
@@ -99,19 +108,16 @@ function makeEntity(tableName: string) {
 
 const cfFirstEntity = makeEntity(CF_FIRST.tableName);
 const hostFirstEntity = makeEntity(HOST_FIRST.tableName);
-const cfFirstTable = buildEntityTable(CF_FIRST.entityName, cfFirstEntity);
-const hostFirstTable = buildEntityTable(HOST_FIRST.entityName, hostFirstEntity);
 
-// Registration order is the whole point: cfFirst registers the strip BEFORE the
-// owner-nulling host hook; hostFirst registers the host hook FIRST (the order
-// that exposed the bug). The order-sentinel must make both correct.
+// Registration order is the whole point: cfFirst registers the redact hook
+// BEFORE the owner-nulling host hook; hostFirst registers the host hook FIRST
+// (the order that exposed the bug). The order-sentinel must make both correct.
 const cfFirstFeature = defineFeature(CF_FIRST.featureName, (r) => {
   r.entity(CF_FIRST.entityName, cfFirstEntity);
-  r.requires("custom-fields");
-  wireCustomFieldsUserDataRightsFor(r, {
-    entityName: CF_FIRST.entityName,
-    entityTable: cfFirstTable,
-    userIdColumn: "inserted_by_id",
+  r.useExtension(EXT_USER_DATA, CF_FIRST.entityName, {
+    export: async () => null,
+    delete: makeRedactHook(CF_FIRST.tableName),
+    order: EXT_USER_DATA_ORDER.REDACT_BEFORE_OWNER,
   });
   r.useExtension(EXT_USER_DATA, CF_FIRST.entityName, {
     export: async () => null,
@@ -121,19 +127,17 @@ const cfFirstFeature = defineFeature(CF_FIRST.featureName, (r) => {
 
 const hostFirstFeature = defineFeature(HOST_FIRST.featureName, (r) => {
   r.entity(HOST_FIRST.entityName, hostFirstEntity);
-  r.requires("custom-fields");
   r.useExtension(EXT_USER_DATA, HOST_FIRST.entityName, {
     export: async () => null,
     delete: makeHostDeleteHook(HOST_FIRST.tableName),
   });
-  wireCustomFieldsUserDataRightsFor(r, {
-    entityName: HOST_FIRST.entityName,
-    entityTable: hostFirstTable,
-    userIdColumn: "inserted_by_id",
+  r.useExtension(EXT_USER_DATA, HOST_FIRST.entityName, {
+    export: async () => null,
+    delete: makeRedactHook(HOST_FIRST.tableName),
+    order: EXT_USER_DATA_ORDER.REDACT_BEFORE_OWNER,
   });
 });
 
-const admin = createTestUser({ id: 1, roles: ["TenantAdmin"], tenantId: TENANT });
 const FORGET_USER = "cccccccc-cccc-4ccc-8ccc-0000000000a1";
 
 let stack: TestStack;
@@ -147,14 +151,12 @@ beforeAll(async () => {
       createSessionsFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
-      createCustomFieldsFeature(),
       createUserDataRightsFeature(),
       cfFirstFeature,
       hostFirstFeature,
     ],
   });
   await unsafeCreateEntityTable(stack.db, userEntity);
-  await unsafeCreateEntityTable(stack.db, fieldDefinitionEntity);
   await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
   await unsafeCreateEntityTable(stack.db, cfFirstEntity);
   await unsafeCreateEntityTable(stack.db, hostFirstEntity);
@@ -165,21 +167,6 @@ beforeAll(async () => {
 afterAll(async () => {
   await stack.cleanup();
 });
-
-async function defineSensitiveField(entityName: string, fieldKey: string, sensitive: boolean) {
-  await stack.http.writeOk(
-    "custom-fields:write:define-tenant-field",
-    {
-      entityName,
-      fieldKey,
-      serializedField: { type: "text", sensitive },
-      required: false,
-      searchable: false,
-      displayOrder: 0,
-    },
-    admin,
-  );
-}
 
 async function seedAnonymizeOverride(entityName: string) {
   await seedProjectionRow(stack.db, tenantRetentionOverrideTable, {
@@ -217,25 +204,15 @@ beforeEach(async () => {
   await resetEventStore(stack);
   await asRawClient(stack.db).unsafe(`DELETE FROM ${CF_FIRST.tableName}`);
   await asRawClient(stack.db).unsafe(`DELETE FROM ${HOST_FIRST.tableName}`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_custom_field_definitions`);
   await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_retention_overrides`);
   await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_memberships`);
 });
 
 describe("forget hook-ordering :: redaction runs before owner-nulling regardless of registration order", () => {
-  test("both registration orders strip the sensitive jsonb key and null the owner column", async () => {
-    // Field defs (sensitive ssn, non-sensitive safe) for both entities.
+  test("both registration orders strip the redacted jsonb key and null the owner column", async () => {
     for (const spec of [CF_FIRST, HOST_FIRST]) {
-      await defineSensitiveField(spec.entityName, "ssn", true);
-      await defineSensitiveField(spec.entityName, "safe", false);
       await seedAnonymizeOverride(spec.entityName);
     }
-    // Project the field definitions. Assert the pass had no failures: a silent
-    // projection failure would leave read_custom_field_definitions empty, make
-    // loadSensitiveFieldKeys return [], and turn the strip into a no-op —
-    // verifying the test exercises the strip for the right reason.
-    const pass = await stack.eventDispatcher?.runOnce();
-    expect(pass?.failed ?? 0).toBe(0);
 
     const cfRowId = "dddddddd-dddd-4ddd-8ddd-000000000001";
     const hostRowId = "dddddddd-dddd-4ddd-8ddd-000000000002";
