@@ -133,15 +133,17 @@ HTTP Request
     → Access check (entity-level roles)
     → Field-level write check
     → Validation hooks
-    → Handler (CrudExecutor → DB)
+    → Handler (event append + projection write, one TX)
     → Lifecycle pipeline:
         Feature postSave hooks
         System hooks (priority order):
           1000: Search index (Meilisearch)
           1001: SSE broadcast
-          1002: Audit trail (DB)
   → Response (with field-level read filtering)
 ```
+
+The event log IS the audit trail — every write appends to `kumiko_events`
+inside the handler transaction, no separate audit step needed.
 
 ## Samples
 

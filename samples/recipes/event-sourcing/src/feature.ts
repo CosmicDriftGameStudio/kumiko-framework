@@ -13,7 +13,8 @@
 //   - ctx.archiveStream / ctx.restoreStream — Marten ArchiveStream
 //   - ctx.queryProjection — tenant-scoped read of a projection table
 //   - ctx.snapshotAggregate + ctx.loadAggregateWithSnapshot — perf path
-//     for aggregates with long event tails (O(1) vs O(N) reduce)
+//     for aggregates with long event tails (O(1) vs O(N) reduce), incl.
+//     the auto-snapshot policy ({ snapshotEvery, snapshotVersion })
 //   - streamAllEventsByType — memory-bounded iteration for ops/export jobs
 //   - getAllProjectionProgress — projection lag for ops dashboards
 
@@ -392,6 +393,11 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
           return next;
         },
         { ...initialInvoiceState } as InvoiceStateRecord,
+        // Auto-snapshot policy: once 100+ delta events pile up past the last
+        // snapshot, the read path persists a fresh one (best-effort). Bump
+        // snapshotVersion whenever the reducer's state SHAPE changes — a
+        // stale-shape snapshot is then ignored and rebuilt from the log.
+        { snapshotEvery: 100, snapshotVersion: 1 },
       );
       return {
         state: result.state,
