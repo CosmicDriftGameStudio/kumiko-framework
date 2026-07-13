@@ -80,6 +80,23 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
         }
       }
 
+      // sensitive-Felder liegen seit #967 als Tabellen-Ciphertext im Event-
+      // Log — ohne ciphertext-at-rest würde der Append Klartext in die
+      // immutable History schreiben.
+      const sensitiveFlags = field as {
+        readonly sensitive?: boolean;
+        readonly encrypted?: boolean;
+      }; // @cast-boundary schema-walk
+      if (
+        sensitiveFlags.sensitive === true &&
+        annotCount === 0 &&
+        sensitiveFlags.encrypted !== true
+      ) {
+        throw new Error(
+          `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" declares { sensitive: true } without ciphertext-at-rest. Since #967 the event log stores sensitive fields as table ciphertext — add a subject annotation (pii / userOwned / tenantOwned) or { encrypted: true }.`,
+        );
+      }
+
       // Substring-Suche/Sortierung auf Ciphertext ist prinzipbedingt
       // unmöglich — searchable würde Plaintext-Kopien in den Suchindex
       // schieben, sortable sortiert Base64-Blobs. Equality → lookupable.

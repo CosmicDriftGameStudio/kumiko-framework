@@ -124,17 +124,18 @@ describe("event-store-executor", () => {
   });
 });
 
-// Sensitive-field stripping: passwords/tokens/IBANs stay in the entity row
-// but MUST NOT land in the immutable event log (GDPR right-to-be-forgotten,
-// secrets-rotation, audit discoverability). Fields marked `sensitive: true`
-// are excluded from every event payload: create data, update changes,
-// update previous, delete previous, restore previous.
+// Sensitive fields (#967): passwords/tokens/IBANs must be ciphertext-at-rest
+// (boot validates sensitive ⇒ pii | encrypted). The event log carries the
+// table ciphertext — replay reproduces the row byte-identically. Plaintext
+// never lands in permanent history; the caller-facing event echo strips the
+// field entirely (#820).
+const SENSITIVE_TEST_KEY = Buffer.from("s3nS!t1vE.kP9xQ2@wN!vL$hR5yT8eU0").toString("base64");
 const sensitiveEntity = createEntity({
   table: "read_es_exec_sensitive",
   fields: {
     email: createTextField({ required: true }),
-    passwordHash: createTextField({ sensitive: true }),
-    apiToken: createTextField({ sensitive: true }),
+    passwordHash: createTextField({ sensitive: true, encrypted: true }),
+    apiToken: createTextField({ sensitive: true, encrypted: true }),
   },
   softDelete: true,
 });
@@ -143,6 +144,7 @@ const sensitiveTable = buildEntityTable("esExecSensitive", sensitiveEntity);
 describe("event-store-executor — sensitive fields", () => {
   const crud = createEventStoreExecutor(sensitiveTable, sensitiveEntity, {
     entityName: "esExecSensitive",
+    encryption: createTestEnvelopeCipher(SENSITIVE_TEST_KEY),
   });
 
   beforeAll(async () => {
@@ -172,26 +174,35 @@ describe("event-store-executor — sensitive fields", () => {
     };
   }
 
-  test("create event payload excludes sensitive fields but entity row keeps them", async () => {
+  test("create event payload carries sensitive fields as table ciphertext; echo strips them", async () => {
     const result = await crud.create(
       { email: "s@test.de", passwordHash: "pw-hash-123", apiToken: "tok-abc" },
       adminUser,
       tdb,
     );
     if (!result.isSuccess) throw new Error("create failed");
-    // Entity row: full data preserved.
+    // Caller-facing row: plaintext preserved.
     expect(result.data.data["passwordHash"]).toBe("pw-hash-123");
     expect(result.data.data["apiToken"]).toBe("tok-abc");
 
-    // Event payload: sensitive stripped, public retained.
+    // Event payload: ciphertext, byte-identical to the table column (#967).
     const event = await lastEvent();
     expect(event.type).toBe("esExecSensitive.created");
     expect(event.payload["email"]).toBe("s@test.de");
-    expect(event.payload["passwordHash"]).toBeUndefined();
-    expect(event.payload["apiToken"]).toBeUndefined();
+    expect(event.payload["passwordHash"]).toBeDefined();
+    expect(event.payload["passwordHash"]).not.toBe("pw-hash-123");
+    const rawRows = (await asRawClient(testDb.db).unsafe(
+      `SELECT password_hash FROM read_es_exec_sensitive WHERE email = 's@test.de' LIMIT 1`,
+    )) as Array<{ password_hash: string }>;
+    expect(event.payload["passwordHash"]).toBe(rawRows[0]!.password_hash);
+
+    // Caller-facing event echo stays stripped (#820).
+    if (!result.data.event) throw new Error("no event echo");
+    expect(result.data.event.payload["passwordHash"]).toBeUndefined();
+    expect(result.data.event.payload["apiToken"]).toBeUndefined();
   });
 
-  test("update event strips sensitive from BOTH changes and previous", async () => {
+  test("update event carries ciphertext in BOTH changes and previous", async () => {
     const created = await crud.create(
       { email: "u@test.de", passwordHash: "old-hash", apiToken: "old-tok" },
       adminUser,
@@ -215,16 +226,29 @@ describe("event-store-executor — sensitive fields", () => {
       previous: { email?: string; passwordHash?: string; apiToken?: string };
     }>();
     expect(event.type).toBe("esExecSensitive.updated");
-    // Changes: email retained (public), passwordHash stripped.
+    // Changes: email plaintext (public), passwordHash ciphertext.
     expect(event.payload.changes.email).toBe("u2@test.de");
-    expect(event.payload.changes.passwordHash).toBeUndefined();
-    // Previous: email retained, passwordHash + apiToken stripped.
+    expect(event.payload.changes.passwordHash).toBeDefined();
+    expect(event.payload.changes.passwordHash).not.toBe("new-hash");
+    // Previous: email plaintext, passwordHash + apiToken ciphertext.
     expect(event.payload.previous.email).toBe("u@test.de");
-    expect(event.payload.previous.passwordHash).toBeUndefined();
-    expect(event.payload.previous.apiToken).toBeUndefined();
+    expect(event.payload.previous.passwordHash).toBeDefined();
+    expect(event.payload.previous.passwordHash).not.toBe("old-hash");
+    expect(event.payload.previous.apiToken).toBeDefined();
+    expect(event.payload.previous.apiToken).not.toBe("old-tok");
+
+    // Caller-facing event echo stays stripped (#820).
+    if (!result.data.event) throw new Error("no event echo");
+    const echoPayload = result.data.event.payload as {
+      changes: Record<string, unknown>;
+      previous: Record<string, unknown>;
+    };
+    expect(echoPayload.changes["passwordHash"]).toBeUndefined();
+    expect(echoPayload.previous["passwordHash"]).toBeUndefined();
+    expect(echoPayload.previous["apiToken"]).toBeUndefined();
   });
 
-  test("delete event strips sensitive from previous", async () => {
+  test("delete event carries ciphertext in previous", async () => {
     const created = await crud.create(
       { email: "d@test.de", passwordHash: "pw", apiToken: "tk" },
       adminUser,
@@ -240,11 +264,13 @@ describe("event-store-executor — sensitive fields", () => {
     const event = await lastEvent<SensitivePrevious>();
     expect(event.type).toBe("esExecSensitive.deleted");
     expect(event.payload.previous.email).toBe("d@test.de");
-    expect(event.payload.previous.passwordHash).toBeUndefined();
-    expect(event.payload.previous.apiToken).toBeUndefined();
+    expect(event.payload.previous.passwordHash).toBeDefined();
+    expect(event.payload.previous.passwordHash).not.toBe("pw");
+    expect(event.payload.previous.apiToken).toBeDefined();
+    expect(event.payload.previous.apiToken).not.toBe("tk");
   });
 
-  test("restore event strips sensitive from previous", async () => {
+  test("restore event carries ciphertext in previous", async () => {
     const created = await crud.create(
       { email: "r@test.de", passwordHash: "pw", apiToken: "tk" },
       adminUser,
@@ -261,8 +287,10 @@ describe("event-store-executor — sensitive fields", () => {
     const event = await lastEvent<SensitivePrevious>();
     expect(event.type).toBe("esExecSensitive.restored");
     expect(event.payload.previous.email).toBe("r@test.de");
-    expect(event.payload.previous.passwordHash).toBeUndefined();
-    expect(event.payload.previous.apiToken).toBeUndefined();
+    expect(event.payload.previous.passwordHash).toBeDefined();
+    expect(event.payload.previous.passwordHash).not.toBe("pw");
+    expect(event.payload.previous.apiToken).toBeDefined();
+    expect(event.payload.previous.apiToken).not.toBe("tk");
   });
 });
 

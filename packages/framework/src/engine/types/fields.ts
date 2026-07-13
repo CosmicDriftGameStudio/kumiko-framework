@@ -12,13 +12,13 @@ export type FieldAccess = {
   readonly write?: OwnershipMap | readonly string[];
 };
 
-// `sensitive: true` — the field's value is excluded from event payloads
-// (create data, update changes/previous, delete/restore previous). The entity
-// row still stores it; only the immutable event-log won't. Use for data that
-// must never land in permanent history: password hashes, API tokens,
-// unhashed PII, bank details, tax IDs. The trade-off: event-replay and
-// custom projections cannot read sensitive field values. See
-// docs/plans/architecture/projections.md.
+// `sensitive: true` — the field's value is excluded from caller-facing event
+// echoes in write responses (#820) and MUST be ciphertext-at-rest: boot
+// validation requires a subject annotation (pii / userOwned / tenantOwned)
+// or `encrypted: true` (#967). Event payloads carry the table ciphertext,
+// so replay reproduces the row byte-identically; plaintext never lands in
+// permanent history. Use for password hashes, API tokens, bank details,
+// tax IDs. See docs/plans/architecture/projections.md.
 
 // --- PII / Subject-Key Annotations (DSGVO Art. 17 — Crypto-Shredding) ---
 //

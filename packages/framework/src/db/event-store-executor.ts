@@ -304,11 +304,10 @@ export function createEventStoreExecutor(
     if (def !== undefined) fieldDefaults[name] = def;
   }
 
-  // Pre-compute the set of sensitive field names once. Every event payload
-  // (create data, update changes + previous, delete previous, restore
-  // previous) strips these before writing to the immutable event log. Keeps
-  // GDPR right-to-be-forgotten tractable — only entity rows hold the
-  // sensitive data, and entity rows can be deleted / re-encrypted.
+  // Pre-compute the set of sensitive field names once. The event log stores
+  // these fields as table ciphertext (boot validates sensitive ⇒ pii |
+  // encrypted, #967) — the set only strips the caller-facing event echo so
+  // responses never carry the value (#820).
   const sensitiveFields = new Set<string>();
   for (const [name, field] of Object.entries(entity.fields)) {
     if ("sensitive" in field && field.sensitive === true) {
@@ -526,8 +525,9 @@ export function createEventStoreExecutor(
 
       // 1. Append event (same TX as the projection write — both must succeed
       //    or both roll back; the dispatcher wraps both in one transaction).
-      //    Sensitive fields are stripped from the event payload; the entity
-      //    row below still receives the full data.
+      //    flatData is already table ciphertext for pii/encrypted fields, so
+      //    the immutable log never sees plaintext and replay reproduces the
+      //    row byte-identically (#967).
       //
       //    `expectedVersion: 0` heißt: stream existiert noch nicht. Bei
       //    deterministic-aggregate-id-Patterns (z.B. uuidv5(tenantId|naturalKey))
@@ -542,7 +542,7 @@ export function createEventStoreExecutor(
           tenantId: streamTenantFor(user),
           expectedVersion: 0,
           type: entityEventName(entityName, "created"),
-          payload: stripSensitive(flatData),
+          payload: flatData,
           metadata: buildEventMetadata(user),
         });
       } catch (e) {
@@ -573,9 +573,8 @@ export function createEventStoreExecutor(
       }
 
       // 2. Update projection via applyEntityEvent — derselbe Code-Pfad den
-      //    rebuildProjection für Replay nutzt → Live==Rebuild by-construction.
-      //    Wir bauen ein "live event" mit unstripped flatData (damit sensitive
-      //    Felder in der Read-Tabelle landen, aber nicht im Event-Log).
+      //    rebuildProjection für Replay nutzt, mit demselben StoredEvent →
+      //    Live==Rebuild by-construction (#967).
       //
       //    F8-Patch: app-level unique-violations (z.B. (tenantId, email)
       //    auf User-Entity, (tenantId, slug) auf Article) werfen pg-23505
@@ -583,10 +582,9 @@ export function createEventStoreExecutor(
       //    unhandled exception → 500 internal_error. Map auf
       //    UniqueViolationError 409 damit Designer/Frontend einen sauberen
       //    "duplicate" zeigen können statt cryptic "internal server error".
-      const liveEvent = { ...event, payload: flatData };
       let result: Awaited<ReturnType<typeof applyEntityEvent>>;
       try {
-        result = await applyEntityEvent(liveEvent, table, entity, db.raw);
+        result = await applyEntityEvent(event, table, entity, db.raw);
       } catch (e) {
         const mapped = tryMapUniqueViolation(e, entityName);
         if (mapped) return mapped;
@@ -718,11 +716,10 @@ export function createEventStoreExecutor(
         // previous value to decrement/undo when a parent-FK moves — without it
         // you'd have to snapshot-and-diff on every apply, and replays would
         // break. Storage cost is acceptable (rows are bounded), correctness is
-        // not negotiable. Sensitive fields are stripped from BOTH halves so
-        // they never reach the immutable event log. `previous` came from
-        // loadById(), which decrypts — re-encrypt it before it's persisted so
-        // an `encrypted` field's plaintext doesn't land in the immutable log
-        // (flatChanges is already ciphertext from encryptForStorage above).
+        // not negotiable. `previous` came from loadById(), which decrypts —
+        // re-encrypt it before it's persisted so plaintext of pii/encrypted
+        // fields doesn't land in the immutable log (flatChanges is already
+        // ciphertext from encryptForStorage above).
         const event = await append(db.raw, {
           aggregateId: String(payload.id),
           aggregateType: entityName,
@@ -730,26 +727,23 @@ export function createEventStoreExecutor(
           expectedVersion: currentVersion,
           type: entityEventName(entityName, "updated"),
           payload: {
-            changes: stripSensitive(flatChanges),
-            previous: stripSensitive(await encryptForStorage(previous, user)),
+            changes: flatChanges,
+            previous: await encryptForStorage(previous, user),
           },
           metadata: buildEventMetadata(user),
         });
 
-        // Live==Rebuild via applyEntityEvent: live-event mit unstripped
-        // flatChanges damit sensitive Felder in der Read-Tabelle landen.
+        // Live==Rebuild via applyEntityEvent mit demselben StoredEvent —
+        // apply liest nur `changes`, und die sind live wie im Replay
+        // identischer Ciphertext (#967).
         //
         // F8-Patch: dasselbe unique-violation-handling wie im create-Pfad
         // — ein update das einen unique-Index verletzt (z.B. email-update
         // auf einen schon-existierenden Wert) wird mit 409 unique_violation
         // statt 500 internal_error rückgemeldet.
-        const liveEvent = {
-          ...event,
-          payload: { changes: flatChanges, previous },
-        };
         let result: Awaited<ReturnType<typeof applyEntityEvent>>;
         try {
-          result = await applyEntityEvent(liveEvent, table, entity, db.raw);
+          result = await applyEntityEvent(event, table, entity, db.raw);
         } catch (e) {
           const mapped = tryMapUniqueViolation(e, entityName);
           if (mapped) return mapped;
@@ -837,17 +831,16 @@ export function createEventStoreExecutor(
       // Deletes carry the full pre-delete row as `previous`. That's what
       // projections and downstream consumers need to reverse any aggregates —
       // a `{}`-payload delete would make cross-aggregate projections impossible
-      // to rebuild from the event log alone. Sensitive fields are stripped.
-      // `existing` came from loadById(), which decrypts — re-encrypt before
-      // persisting so an `encrypted` field's plaintext doesn't land in the
-      // immutable log.
+      // to rebuild from the event log alone. `existing` came from loadById(),
+      // which decrypts — re-encrypt before persisting so plaintext doesn't
+      // land in the immutable log.
       const event = await append(db.raw, {
         aggregateId: String(payload.id),
         aggregateType: entityName,
         tenantId: streamTenantFor(user),
         expectedVersion: currentVersion,
         type: entityEventName(entityName, "deleted"),
-        payload: { previous: stripSensitive(await encryptForStorage(existing, user)) },
+        payload: { previous: await encryptForStorage(existing, user) },
         metadata: buildEventMetadata(user),
       });
 
@@ -918,7 +911,7 @@ export function createEventStoreExecutor(
         type: entityEventName(entityName, "forgotten"),
         // Re-encrypt like delete(): `existing` came decrypted from loadById —
         // plaintext must not land in the immutable log, least of all on forget.
-        payload: { previous: stripSensitive(await encryptForStorage(existing, user)) },
+        payload: { previous: await encryptForStorage(existing, user) },
         metadata: buildEventMetadata(user),
       });
 
@@ -992,14 +985,15 @@ export function createEventStoreExecutor(
       // Restore carries the soft-deleted snapshot as `previous` — mirror of
       // delete for symmetry. Projections that decremented on delete use
       // `previous` to re-increment on restore without re-querying the entity
-      // table. Sensitive fields are stripped.
+      // table. `data` is the raw stored row — pii/encrypted fields are
+      // already ciphertext, no re-encrypt needed.
       const event = await append(db.raw, {
         aggregateId: String(payload.id),
         aggregateType: entityName,
         tenantId: streamTenantFor(user),
         expectedVersion: currentVersion,
         type: entityEventName(entityName, "restored"),
-        payload: { previous: stripSensitive(data) },
+        payload: { previous: data },
         metadata: buildEventMetadata(user),
       });
 
