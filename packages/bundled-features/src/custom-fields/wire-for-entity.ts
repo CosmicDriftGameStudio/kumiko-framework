@@ -113,6 +113,7 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
       console.warn(
         `[custom-fields] customField.set for "${payload.fieldKey}" on ${event.aggregateType}/${event.aggregateId} has no value — skipping (value-less sets should not exist since #972).`,
       );
+      // skip: warned above — leave the row untouched instead of binding undefined
       return;
     }
 
