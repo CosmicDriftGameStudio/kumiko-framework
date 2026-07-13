@@ -41,7 +41,12 @@
 // (crypto-shredding, Muster billing-foundation #800). Der Destroy-Hook
 // archiviert zusätzlich alle Streams + löscht die Rows.
 
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, EXT_TENANT_DATA } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createFileProviderForTenant,
+  type FileStorageProvider,
+} from "@cosmicdrift/kumiko-framework/files";
 import { INBOUND_MAIL_FOUNDATION_FEATURE, INBOUND_MAIL_PROVIDER_EXTENSION } from "./constants";
 import {
   inboundMessageEntity,
@@ -84,6 +89,7 @@ import {
   mailAccountsProjectionTable,
   mailThreadsProjectionTable,
 } from "./projection";
+import { runInboundMailRetention } from "./retention-sweep";
 import {
   inboundMessageTenantDestroyHook,
   mailAccountTenantDestroyHook,
@@ -182,4 +188,56 @@ export const inboundMailFoundationFeature = defineFeature(INBOUND_MAIL_FOUNDATIO
   r.useExtension(EXT_TENANT_DATA, "mail-thread", {
     destroy: mailThreadTenantDestroyHook,
   });
+
+  // Data-Retention (#957) — perTenant-Fan-out (ein Run pro Tenant, wie
+  // data-retention:retention-cleanup): die job-DB ist NICHT tenant-scoped,
+  // der Sweep scoped jeden Delete explizit per tenantId. Ohne diesen Cron
+  // wachsen read_inbound_messages + die Bodies unbegrenzt (DSGVO Art. 5).
+  r.job(
+    "inbound-mail-retention",
+    { trigger: { cron: "0 3 * * *" }, perTenant: true, concurrency: "skip" },
+    async (_payload, ctx) => {
+      if (!ctx.db || !ctx.registry) {
+        throw new Error(
+          "inbound-mail-retention: ctx.db + ctx.registry required (JobContext incomplete)",
+        );
+      }
+      const tenantId = ctx.systemUser?.tenantId ?? ctx._tenantId;
+      if (tenantId === undefined) {
+        // skip: cron fired without a perTenant fan-out tenant — nothing scoped
+        return;
+      }
+      const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
+      const retentionDb = ctx.db as DbConnection; // @cast-boundary db-operator
+
+      // Body-Objekte liegen in file-foundation. Provider lazy + memoized —
+      // heute schreibt der Ingest kein bodyRef (storeBody-Hook ungebunden),
+      // der Provider wird also nie gebaut. Sobald storeBody wired ist, raeumt
+      // die Retention die Bodies mit ab.
+      let providerPromise: Promise<FileStorageProvider> | null = null;
+      const deleteBodyObject = async (bodyRef: string): Promise<void> => {
+        if (!providerPromise) {
+          providerPromise = createFileProviderForTenant(
+            { config: ctx.config, registry: ctx.registry },
+            tenantId,
+          );
+        }
+        const provider = await providerPromise;
+        await provider.delete(bodyRef);
+      };
+
+      const report = await runInboundMailRetention({
+        db: retentionDb,
+        tenantId,
+        now: T.Now.instant(),
+        deleteBodyObject,
+      });
+      if (report.bodyObjectErrors > 0) {
+        // biome-ignore lint/suspicious/noConsole: operator-visibility for failed body deletes
+        console.warn(
+          `[inbound-mail-foundation:inbound-mail-retention] tenant=${tenantId} bodyObjectErrors=${report.bodyObjectErrors}`,
+        );
+      }
+    },
+  );
 });
