@@ -69,11 +69,15 @@ jobs:
         # samples/apps müssen denselben No-Logic-in-Views-Guard bestehen wie
         # die App-Repos. Framework nutzt nicht _app-test → expliziter Step,
         # scoped auf den framework-Root. bin-existence-Check wie in _app-test.
+        # Fehlt das Binary, failt der Step hart (statt nur zu warnen) — ein
+        # stiller Skip hier hieße, dass die Architektur-Invariante in genau
+        # dem Moment ungeprüft bleibt, in dem der Guard fehlt.
         run: |
           if [ -e node_modules/.bin/kumiko-guard-no-logic-in-views ]; then
             KUMIKO_GUARD_ROOTS=kumiko-framework bun kumiko-guard-no-logic-in-views
           else
-            echo "::warning::kumiko-guards ohne kumiko-guard-no-logic-in-views installiert — View-logic guard übersprungen, Dependency-Bump nachziehen"
+            echo "::error::kumiko-guards ohne kumiko-guard-no-logic-in-views installiert — Dependency-Bump nachziehen"
+            exit 1
           fi
 
       - name: Run tests
