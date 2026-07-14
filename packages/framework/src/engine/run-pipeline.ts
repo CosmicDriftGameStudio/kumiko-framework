@@ -64,7 +64,7 @@ export async function runPipeline<TPayload, TData, TMap extends object = KumikoE
   if (outcome.kind === "return") {
     // RETURN_RESULT_KEY is only produced by r.step.return, whose run()
     // returns WriteResult<unknown>. The pipeline's generic TData is
-    // bound at build time (defineWriteHandler ↔ pipeline<P, D>(...));
+    // bound at build time (defineWriteHandler ↔ stepsPipeline<P, D>(...));
     // matching the runtime value to that compile-time type is the
     // contract user-side. Cast crosses that boundary.
     return outcome.result as WriteResult<TData>;

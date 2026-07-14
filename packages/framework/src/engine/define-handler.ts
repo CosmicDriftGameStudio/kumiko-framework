@@ -23,7 +23,7 @@ import type { PipelineDef } from "./types/step";
 // visible) and collapse `keyof TMap` to `never`. See the spike-findings
 // memory for the empirical proof.
 //
-// Two authoring forms — `handler` (free-form) or `perform: pipeline(...)`
+// Two authoring forms — `handler` (free-form) or `perform: stepsPipeline(...)`
 // (step-pipeline). A `perform` is compiled to a handler-function at
 // definition time; the dispatcher only ever sees `handler`.
 
@@ -126,7 +126,7 @@ export function defineWriteHandler<
     throw new Error(
       `defineWriteHandler("${def.name}"): both \`handler\` and \`perform\` are set. ` +
         `Pick one — \`handler\` for the free-form async function, ` +
-        `\`perform: pipeline(...)\` for the step-pipeline form. ` +
+        `\`perform: stepsPipeline(...)\` for the step-pipeline form. ` +
         `(See step-vocabulary.md for which form fits.)`,
     );
   }

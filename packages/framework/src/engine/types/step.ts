@@ -126,7 +126,7 @@ export type StepInstance = {
 };
 
 /**
- * What `pipeline(closure)` returns. Carries the closure (instead of an
+ * What `stepsPipeline(closure)` returns. Carries the closure (instead of an
  * eagerly-built array) so each handler-call sees a fresh event ref and
  * the `r` step-builder is resolved at runtime, not at module-load time.
  *
@@ -140,7 +140,7 @@ export type StepInstance = {
  * `noUnusedVariables` marker, not user-facing). _TData is NOT inferred
  * from the closure body (r.step.return has its own per-call TData), so
  * callers must spell it explicitly:
- *   `pipeline<{ greeting: string }, { echoed: string }>(...)`
+ *   `stepsPipeline<{ greeting: string }, { echoed: string }>(...)`
  * Better DX is a known follow-up — see step-vocabulary.md M.1-Followups.
  */
 export type PipelineDef<TPayload = unknown, _TData = unknown> = {
@@ -149,7 +149,7 @@ export type PipelineDef<TPayload = unknown, _TData = unknown> = {
 };
 
 /**
- * Argument bundle passed to the closure inside `pipeline(closure)`.
+ * Argument bundle passed to the closure inside `stepsPipeline(closure)`.
  * Build-time only — no `steps`, no `scope`, no `db`: at build time no
  * step has run yet.
  *
@@ -314,7 +314,7 @@ export type StepNamespace = {
     },
   ) => StepInstance;
   // --- Tier-3 / Workflow-only steps ---
-  // Only available inside defineWorkflow ({ steps: pipeline(...) }).
+  // Only available inside defineWorkflow ({ steps: stepsPipeline(...) }).
   // Runtime guard: throws when used inside sync defineWriteHandler.
   readonly wait: (args: { readonly for: StepResolver<string> }) => StepInstance;
   readonly waitForEvent: (args: {

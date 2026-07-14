@@ -11,7 +11,7 @@ import { defineFeature } from "../define-feature";
 import { defineWriteHandler } from "../define-handler";
 import { defineStep } from "../define-step";
 import { createEntity, createTextField } from "../factories";
-import { pipeline } from "../pipeline";
+import { stepsPipeline } from "../pipeline";
 import { validateProjectionAllowlist } from "../validate-projection-allowlist";
 
 describe("validateProjectionAllowlist", () => {
@@ -28,7 +28,7 @@ describe("validateProjectionAllowlist", () => {
           name: "log",
           schema: z.object({ msg: z.string() }),
           access: { roles: ["User"] },
-          perform: pipeline<{ msg: string }, { ok: true }>(({ event, r }) => [
+          perform: stepsPipeline<{ msg: string }, { ok: true }>(({ event, r }) => [
             r.step.unsafeProjectionUpsert({
               table: demoLogTable,
               on: ["id"],
@@ -70,7 +70,7 @@ describe("validateProjectionAllowlist", () => {
           name: "sneaky",
           schema: z.object({}),
           access: { roles: ["User"] },
-          perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+          perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
             r.step.unsafeProjectionUpsert({
               table: widgetsTable,
               on: ["id"],
@@ -113,7 +113,7 @@ describe("validateProjectionAllowlist", () => {
           name: "sneaky-delete",
           schema: z.object({}),
           access: { roles: ["User"] },
-          perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+          perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
             r.step.unsafeProjectionDelete({
               table: widgetsTable,
               where: () => ({ id: "anything" }),
@@ -136,7 +136,7 @@ describe("validateProjectionAllowlist", () => {
           name: "purge",
           schema: z.object({}),
           access: { roles: ["User"] },
-          perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+          perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
             r.step.unsafeProjectionDelete({
               table: demoLogTable,
               where: () => ({ id: "anything" }),
@@ -162,7 +162,7 @@ describe("validateProjectionAllowlist", () => {
           name: "branchedWrite",
           schema: z.object({}),
           access: { roles: ["User"] },
-          perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+          perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
             r.step.branch({
               if: () => true,
               onTrue: [
@@ -195,7 +195,7 @@ describe("validateProjectionAllowlist", () => {
           name: "nestedWrite",
           schema: z.object({}),
           access: { roles: ["User"] },
-          perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+          perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
             r.step.forEach({
               over: () => [],
               as: "item",
@@ -230,7 +230,7 @@ describe("validateProjectionAllowlist", () => {
           name: "loopedWrite",
           schema: z.object({}),
           access: { roles: ["User"] },
-          perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+          perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
             r.step.forEach({
               over: () => [],
               as: "x",
@@ -267,7 +267,7 @@ describe("validateProjectionAllowlist", () => {
           name: "futureBuilder",
           schema: z.object({}),
           access: { roles: ["User"] },
-          perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+          perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
             // Hand-crafted StepInstance simulating a future builder
             // whose kind isn't registered via defineStep yet.
             {
@@ -316,7 +316,7 @@ describe("validateProjectionAllowlist", () => {
           name: "futureBuilder",
           schema: z.object({}),
           access: { roles: ["User"] },
-          perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+          perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
             {
               kind: futureKind,
               args: {
@@ -380,7 +380,7 @@ describe("validateProjectionAllowlist", () => {
           name: "sneak",
           schema: z.object({}),
           access: { roles: ["Admin"] },
-          perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+          perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
             r.step.webhook.send({
               url: "https://hooks.example/sneak",
               mode: "deferred",
@@ -404,7 +404,7 @@ describe("validateProjectionAllowlist", () => {
           name: "sneak",
           schema: z.object({}),
           access: { roles: ["Admin"] },
-          perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+          perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
             r.step.mail.send({
               to: "x@y.com",
               subject: "hi",
@@ -428,7 +428,7 @@ describe("validateProjectionAllowlist", () => {
           name: "sneak",
           schema: z.object({}),
           access: { roles: ["Admin"] },
-          perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+          perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
             r.step.callFeature("subResult", {
               handler: "other:write:do",
               payload: () => ({}),
@@ -451,7 +451,7 @@ describe("validateProjectionAllowlist", () => {
           name: "ok",
           schema: z.object({}),
           access: { roles: ["Admin"] },
-          perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+          perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
             r.step.webhook.send({
               url: "https://hooks.example/ok",
               mode: "deferred",
@@ -473,7 +473,7 @@ describe("validateProjectionAllowlist", () => {
           name: "log",
           schema: z.object({ msg: z.string() }),
           access: { roles: ["User"] },
-          perform: pipeline<{ msg: string }, { ok: true }>(({ event, r }) => [
+          perform: stepsPipeline<{ msg: string }, { ok: true }>(({ event, r }) => [
             r.step.unsafeProjectionUpsert({
               table: demoLogTable,
               on: ["id"],

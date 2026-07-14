@@ -796,7 +796,7 @@ export type WriteHandlerDef = {
   readonly access?: AccessRule;
   readonly unsafeSkipTransitionGuard?: boolean;
   readonly rateLimit?: RateLimitOption;
-  // Set when the author wrote a `perform: pipeline(...)` block. Boot-
+  // Set when the author wrote a `perform: stepsPipeline(...)` block. Boot-
   // validators (projection-allowlist) and Designer/AI tooling read this
   // to inspect the step list. Absent on free-form handlers.
   // Inline-import is intentional: step.ts imports HandlerContext from

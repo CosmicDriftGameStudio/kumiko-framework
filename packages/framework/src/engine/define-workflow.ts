@@ -57,7 +57,7 @@ export type WorkflowInput<TPayload = unknown, TData = unknown> = {
  * defineWorkflow({
  *   name: "user-onboarding",
  *   trigger: { kind: "event", eventType: "user.signed-up" },
- *   steps: pipeline(({ event, r }) => [
+ *   steps: stepsPipeline(({ event, r }) => [
  *     r.step.mail.send({ to: () => event.payload.email, subject: "Welcome!", body: "..." }),
  *     r.step.wait({ for: "P1D" }),
  *     r.step.read.findOne("user", { table: userTable, where: ... }),

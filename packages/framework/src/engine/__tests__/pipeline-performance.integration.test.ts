@@ -1,6 +1,6 @@
 // Pipeline-engine performance smoke-test.
 //
-// Compares the M.1 pipeline-form handler ({ perform: pipeline(...) })
+// Compares the M.1 pipeline-form handler ({ perform: stepsPipeline(...) })
 // against the equivalent free-form handler ({ handler: async (...) })
 // over N identical writes against the real Postgres stack. The point
 // is NOT to optimise — the pipeline-form is a thin wrapper, not a
@@ -28,7 +28,7 @@ import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } fr
 import { defineFeature } from "../define-feature";
 import { defineWriteHandler } from "../define-handler";
 import { createEntity, createNumberField, createTextField } from "../factories";
-import { pipeline } from "../pipeline";
+import { stepsPipeline } from "../pipeline";
 
 // Same logical operation in both handler-forms: read input, return a
 // trivial transformed payload. No DB-write — the goal is to compare
@@ -41,7 +41,7 @@ const trivialPipeline = defineWriteHandler({
   name: "trivial:pipeline",
   schema: trivialSchema,
   access: { roles: ["Admin"] },
-  perform: pipeline<{ n: number }, { doubled: number }>(({ event, r }) => [
+  perform: stepsPipeline<{ n: number }, { doubled: number }>(({ event, r }) => [
     r.step.return(() => ({
       isSuccess: true as const,
       data: { doubled: event.payload.n * 2 },

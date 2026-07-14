@@ -370,7 +370,7 @@ export function generatePerformBlock(
   const pipelineType = schemaType ? `<${schemaType}, unknown>` : "";
 
   return [
-    `perform: pipeline${pipelineType}(({ event, r }) => [`,
+    `perform: stepsPipeline${pipelineType}(({ event, r }) => [`,
     stepsStr,
     `  ${stepIndent}]),`,
   ].join("\n");
@@ -513,7 +513,7 @@ function contentHasPipelineImport(content: string): boolean {
   const importLine = content
     .split("\n")
     .find((l) => l.includes("import") && l.includes("@cosmicdrift/kumiko-framework/engine"));
-  return !!importLine && importLine.includes("pipeline");
+  return !!importLine && importLine.includes("stepsPipeline");
 }
 
 function ensurePipelineImport(content: string): string | null {
@@ -525,7 +525,7 @@ function ensurePipelineImport(content: string): string | null {
   const match = content.match(importRegex);
   if (match) {
     const existingImports = (match[1] as string).trim();
-    const newImports = existingImports ? `${existingImports}, pipeline` : "pipeline";
+    const newImports = existingImports ? `${existingImports}, stepsPipeline` : "stepsPipeline";
     return content.replace(
       importRegex,
       `import { ${newImports} } from "@cosmicdrift/kumiko-framework/engine"`,
@@ -611,7 +611,7 @@ export async function convertFile(
       if (importResult) {
         content = importResult;
       } else if (options.verbose) {
-        console.log(`  ~ ${filePath}: pipeline import not needed or already present`);
+        console.log(`  ~ ${filePath}: stepsPipeline import not needed or already present`);
       }
     }
 
@@ -621,7 +621,7 @@ export async function convertFile(
 
     const status = hadChanges ? "converted" : "skipped";
     const reason = hadChanges
-      ? "handler replaced with perform: pipeline(...)"
+      ? "handler replaced with perform: stepsPipeline(...)"
       : "no convertible handler";
     return { filePath, status, reason };
   } catch (err) {

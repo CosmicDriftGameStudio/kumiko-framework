@@ -9,7 +9,7 @@ import { describe, expect, it } from "bun:test";
 import { z } from "zod";
 import { TestUsers } from "../../stack";
 import { defineWriteHandler } from "../define-handler";
-import { pipeline } from "../pipeline";
+import { stepsPipeline } from "../pipeline";
 import { buildBranchStep } from "../steps/branch";
 import { buildForEachStep } from "../steps/for-each";
 import { buildReturnStep } from "../steps/return";
@@ -21,7 +21,7 @@ describe("r.step.branch", () => {
       name: "demo:branch-then",
       schema: z.object({}),
       access: { roles: ["User"] },
-      perform: pipeline<Record<string, never>, { value: number }>(({ r }) => [
+      perform: stepsPipeline<Record<string, never>, { value: number }>(({ r }) => [
         r.step.branch({
           if: () => true,
           onTrue: [r.step.compute("inThen", () => 42)],
@@ -47,7 +47,7 @@ describe("r.step.branch", () => {
       name: "demo:branch-else",
       schema: z.object({}),
       access: { roles: ["User"] },
-      perform: pipeline<Record<string, never>, { value: number }>(({ r }) => [
+      perform: stepsPipeline<Record<string, never>, { value: number }>(({ r }) => [
         r.step.branch({
           if: () => false,
           onTrue: [r.step.compute("inThen", () => 42)],
@@ -72,7 +72,7 @@ describe("r.step.branch", () => {
       name: "demo:branch-noop",
       schema: z.object({}),
       access: { roles: ["User"] },
-      perform: pipeline<Record<string, never>, { ran: boolean }>(({ r }) => [
+      perform: stepsPipeline<Record<string, never>, { ran: boolean }>(({ r }) => [
         r.step.branch({
           if: () => false,
           onTrue: [r.step.compute("ran", () => true)],
@@ -122,7 +122,7 @@ describe("r.step.forEach", () => {
       name: "demo:foreach",
       schema: z.object({}),
       access: { roles: ["User"] },
-      perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+      perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
         r.step.forEach({
           over: () => [10, 20, 30],
           as: "n",
@@ -153,7 +153,7 @@ describe("r.step.forEach", () => {
       name: "demo:foreach-cleanup",
       schema: z.object({}),
       access: { roles: ["User"] },
-      perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+      perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
         r.step.forEach({
           over: () => [1],
           as: "tmp",
@@ -180,7 +180,7 @@ describe("r.step.forEach", () => {
       name: "demo:foreach-empty",
       schema: z.object({}),
       access: { roles: ["User"] },
-      perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+      perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
         r.step.forEach({
           over: () => [],
           as: "n",
@@ -233,7 +233,7 @@ describe("r.step.forEach", () => {
       name: "demo:foreach-throws",
       schema: z.object({}),
       access: { roles: ["User"] },
-      perform: pipeline<Record<string, never>, never>(({ r }) => [
+      perform: stepsPipeline<Record<string, never>, never>(({ r }) => [
         r.step.forEach({
           over: () => [1, 2, 3],
           as: "item",
@@ -266,7 +266,7 @@ describe("r.step.forEach", () => {
       name: "demo:foreach-bad-over",
       schema: z.object({}),
       access: { roles: ["User"] },
-      perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+      perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
         r.step.forEach({
           // Cast: TypeScript would normally catch this; the test exercises
           // the runtime guard for hand-crafted / dynamically built cases.
