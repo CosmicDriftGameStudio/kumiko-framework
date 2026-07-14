@@ -212,6 +212,12 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     factory: "createManagedPagesFeature",
     defaultArgs: "{ resolveApexTenant: () => null, allowCustomCss: true }",
   },
+  seo: {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-bundled-features/seo",
+    factory: "createSeoFeature",
+    defaultArgs: "{ sitemapEntries: () => [], includeLegalPages: true }",
+  },
   "template-resolver": {
     kind: "factory",
     path: "@cosmicdrift/kumiko-bundled-features/template-resolver",

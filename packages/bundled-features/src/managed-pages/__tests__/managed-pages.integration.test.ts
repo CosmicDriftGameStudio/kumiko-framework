@@ -398,6 +398,32 @@ describe("managed-pages :: set with tenantIdOverride (cross-tenant, SystemAdmin)
   });
 });
 
+describe("managed-pages :: by-tenant-published (Discovery-Query)", () => {
+  // tenantAdmin/otherAdmin operate under the default test tenant + a third
+  // tenant (see file header) — neither is TENANT_A/TENANT_B, so this needs
+  // its own explicit-tenantId users (same pattern as adminA/adminB below).
+  const pageAdminA = createTestUser({ id: 14, roles: ["TenantAdmin"], tenantId: TENANT_A });
+  const pageAdminB = createTestUser({ id: 15, roles: ["TenantAdmin"], tenantId: TENANT_B });
+
+  test("listet nur published Pages des Tenants, SQL-gefiltert (Drafts fehlen)", async () => {
+    const res = await stack.http.queryOk<{
+      pages: Array<{ slug: string; lang: string; title: string }>;
+    }>("managed-pages:query:by-tenant-published", {}, pageAdminA);
+    const slugs = res.pages.map((p) => p.slug);
+    expect(slugs).toContain("about");
+    expect(slugs).not.toContain("secret");
+  });
+
+  test("Cross-Tenant-Isolation: TENANT_B sieht nur eigene Slugs, keine von TENANT_A", async () => {
+    const res = await stack.http.queryOk<{ pages: Array<{ slug: string; title: string }> }>(
+      "managed-pages:query:by-tenant-published",
+      {},
+      pageAdminB,
+    );
+    expect(res.pages).toEqual([expect.objectContaining({ slug: "about", title: "About B" })]);
+  });
+});
+
 describe("managed-pages :: Branding (Config + Render)", () => {
   // config:write:set leitet tenantId aus user.tenantId ab → tenant-spezifische
   // Admins, damit das Branding auf TENANT_A bzw. TENANT_B landet (Host a.*/b.*).

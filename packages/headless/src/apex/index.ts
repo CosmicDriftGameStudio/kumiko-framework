@@ -451,12 +451,11 @@ function renderFooter(f: ApexFooter): string {
   </footer>`;
 }
 
-export function renderApexPage(page: ApexPage): string {
-  const { head, brand } = page;
-  const theme = page.theme ?? "light";
-  // Brand-CSS ist app-authored (Trust-Boundary siehe Datei-Header), kein Tenant-Input.
-  const cssHtml = (brand.fontFaceCss ?? "") + brand.tokensCss + APEX_STRUCTURAL_CSS;
-  const sections = page.sections.map(renderSection).join("\n\n    ");
+// All <title>/meta/link/script tags for an ApexHead — the single source both
+// renderApexPage and any other head (e.g. page-render's wrapInLayout) splice
+// into their own <head>. Extracted verbatim from renderApexPage so existing
+// output stays byte-identical (see render.test.ts regression coverage).
+export function renderApexHeadTags(head: ApexHead): string {
   const ogUrl =
     head.canonicalUrl !== undefined
       ? `\n    <meta property="og:url" content="${escapeHtml(head.canonicalUrl)}" />`
@@ -506,16 +505,25 @@ export function renderApexPage(page: ApexPage): string {
     head.schemaJson !== undefined
       ? `\n    <script type="application/ld+json">${scriptSafeJsonHtml(head.schemaJson)}</script>`
       : "";
+  return `<title>${escapeHtml(head.title)}</title>
+    <meta name="description" content="${escapeHtml(head.description)}" />
+    <meta property="og:title" content="${escapeHtml(head.title)}" />
+    <meta property="og:description" content="${escapeHtml(head.description)}" />
+    <meta property="og:type" content="website" />${ogUrl}${ogImage}${siteName}${locale}${twitterCard}${twitterSite}${favicon}${canonical}${alternates}${robots}${preconnects}${schema}`;
+}
+
+export function renderApexPage(page: ApexPage): string {
+  const { head, brand } = page;
+  const theme = page.theme ?? "light";
+  // Brand-CSS ist app-authored (Trust-Boundary siehe Datei-Header), kein Tenant-Input.
+  const cssHtml = (brand.fontFaceCss ?? "") + brand.tokensCss + APEX_STRUCTURAL_CSS;
+  const sections = page.sections.map(renderSection).join("\n\n    ");
   return `<!doctype html>
 <html lang="${escapeHtml(head.lang)}">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>${escapeHtml(head.title)}</title>
-    <meta name="description" content="${escapeHtml(head.description)}" />
-    <meta property="og:title" content="${escapeHtml(head.title)}" />
-    <meta property="og:description" content="${escapeHtml(head.description)}" />
-    <meta property="og:type" content="website" />${ogUrl}${ogImage}${siteName}${locale}${twitterCard}${twitterSite}${favicon}${canonical}${alternates}${robots}${preconnects}${schema}
+    ${renderApexHeadTags(head)}
     <style>${cssHtml}</style>
   </head>
   <body${theme === "dark" ? ` class="apex-dark"` : ""}>

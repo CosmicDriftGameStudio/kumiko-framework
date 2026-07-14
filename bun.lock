@@ -331,6 +331,7 @@
     "samples/recipes/apex-landing": {
       "name": "@cosmicdrift/kumiko-sample-apex-landing",
       "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-headless": "workspace:*",
       },
       "devDependencies": {

@@ -54,6 +54,24 @@ describe("apex-landing: tier-engine seam", () => {
   });
 });
 
+describe("apex-landing: GEO/AEO schema.org JSON-LD", () => {
+  test("renders an @graph with Organization + WebPage nodes", () => {
+    const html = renderLanding({ plans: SAMPLE_PLANS });
+    expect(html).toContain('<script type="application/ld+json">');
+    expect(html).toContain('"@type":"Organization"');
+    expect(html).toContain('"@type":"WebPage"');
+    expect(html).toContain('"name":"Tasklane"');
+  });
+
+  test("WebPage node picks up the seeded meta.title block", () => {
+    const html = renderLanding({
+      blocks: new Map([["index:meta.title", "Custom SEO Title"]]),
+      plans: SAMPLE_PLANS,
+    });
+    expect(html).toContain('"name":"Custom SEO Title"');
+  });
+});
+
 describe("apex-landing: hero screenshot + lightbox", () => {
   test("hero includes shot-frame and apex lightbox chrome", () => {
     const html = renderLanding({ plans: SAMPLE_PLANS });
