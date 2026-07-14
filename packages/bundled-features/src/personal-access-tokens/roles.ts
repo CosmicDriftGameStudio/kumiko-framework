@@ -1,6 +1,6 @@
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { stripForbiddenMembershipRoles } from "@cosmicdrift/kumiko-framework/engine";
+import { buildSessionRoles } from "@cosmicdrift/kumiko-framework/engine";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { tenantMembershipsTable } from "../tenant";
 import { userTable } from "../user";
@@ -24,6 +24,5 @@ export async function resolvePatRoles(
   if (!membership) return null;
   const userRow = await fetchOne<{ roles: string | null }>(db, userTable, { id: userId });
   const globalRoles = parseRoles(userRow?.roles ?? null);
-  const membershipRoles = stripForbiddenMembershipRoles(parseRoles(membership.roles));
-  return [...new Set([...globalRoles, ...membershipRoles])];
+  return buildSessionRoles(globalRoles, parseRoles(membership.roles));
 }

@@ -179,11 +179,13 @@ export {
   filterReadFields,
 } from "./field-access";
 // findForbiddenMembershipRole/isForbiddenMembershipRole/
-// stripForbiddenMembershipRoles are Public API for host apps that build
-// their own membership handlers. FORBIDDEN_MEMBERSHIP_ROLES itself stays
-// internal (637/3) — exporting the raw Set would make its representation a
-// semver promise; the predicate functions are the intended surface.
+// stripForbiddenMembershipRoles/buildSessionRoles are Public API for host
+// apps that build their own membership handlers. FORBIDDEN_MEMBERSHIP_ROLES
+// itself stays internal (637/3) — exporting the raw Set would make its
+// representation a semver promise; the predicate functions are the intended
+// surface.
 export {
+  buildSessionRoles,
   findForbiddenMembershipRole,
   isForbiddenMembershipRole,
   stripForbiddenMembershipRoles,
