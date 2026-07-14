@@ -20,7 +20,7 @@ import { createRecordingProvider, type RecordingProvider } from "../../testing";
 import { defineFeature } from "../define-feature";
 import { defineWriteHandler } from "../define-handler";
 import { createEntity, createTextField } from "../factories";
-import { pipeline } from "../pipeline";
+import { stepsPipeline } from "../pipeline";
 
 // Handler whose step bodies emit a span + a metric. The recording
 // provider afterwards lets us assert both landed.
@@ -30,7 +30,7 @@ const observedHandler = defineWriteHandler({
   name: "observed",
   schema: observedSchema,
   access: { roles: ["Admin"] },
-  perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+  perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
     r.step.compute("traced", (ctx) => {
       // Span emitted from inside a step. End it explicitly because
       // step.run is sync-or-async-but-not-otel-instrumented; the

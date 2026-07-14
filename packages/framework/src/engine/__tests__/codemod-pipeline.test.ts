@@ -103,14 +103,14 @@ export const myHandler = defineWriteHandler({
 `;
 
 const alreadyPipelineContent = `\
-import { access, defineWriteHandler, pipeline } from "@cosmicdrift/kumiko-framework/engine";
+import { access, defineWriteHandler, stepsPipeline } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 export const myHandler = defineWriteHandler({
   name: "test:pipeline",
   schema: z.object({}),
   access: { roles: access.authenticated },
-  perform: pipeline(({ event, r }) => [
+  perform: stepsPipeline(({ event, r }) => [
     r.step.return((ctx) => ({ isSuccess: true, data: { ok: true } })),
   ]),
 });
@@ -173,14 +173,14 @@ describe("analyzeFile", () => {
 
 describe("convertFile", () => {
   describe("static return handler", () => {
-    it("converts handler to perform: pipeline(...)", async () => {
+    it("converts handler to perform: stepsPipeline(...)", async () => {
       const p = writeFixture("static-convert.write.ts", staticReturnContent);
       const result = await convertFile(p);
       expect(result.status).toBe("converted");
       const content = readFileSync(p, "utf8");
-      expect(content).toContain("perform: pipeline");
+      expect(content).toContain("perform: stepsPipeline");
       expect(content).toContain("r.step.return");
-      expect(content).toContain("import { access, defineWriteHandler, pipeline }");
+      expect(content).toContain("import { access, defineWriteHandler, stepsPipeline }");
       expect(content).not.toContain("handler:");
     });
 
@@ -198,7 +198,7 @@ export const h = defineWriteHandler({
       const result = await convertFile(p);
       expect(result.status).toBe("converted");
       const converted = readFileSync(p, "utf8");
-      expect(converted).toContain("pipeline<typeof MySchema, unknown>");
+      expect(converted).toContain("stepsPipeline<typeof MySchema, unknown>");
     });
   });
 
@@ -271,12 +271,12 @@ export const h = defineWriteHandler({
       const result = await convertFile(p);
       expect(result.status).toBe("converted");
       const content = readFileSync(p, "utf8");
-      expect(content).toContain("import { access, defineWriteHandler, pipeline }");
+      expect(content).toContain("import { access, defineWriteHandler, stepsPipeline }");
     });
 
     it("does not duplicate pipeline import when already present", async () => {
       const content = `\
-import { access, defineWriteHandler, pipeline } from "@cosmicdrift/kumiko-framework/engine";
+import { access, defineWriteHandler, stepsPipeline } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 export const h = defineWriteHandler({
@@ -288,7 +288,9 @@ export const h = defineWriteHandler({
       const result = await convertFile(p);
       expect(result.status).toBe("converted");
       const final = readFileSync(p, "utf8").split("\n");
-      const pipelineImports = final.filter((l) => l.includes("import") && l.includes("pipeline"));
+      const pipelineImports = final.filter(
+        (l) => l.includes("import") && l.includes("stepsPipeline"),
+      );
       // Only one import line should contain "pipeline"
       expect(pipelineImports.length).toBe(1);
     });
@@ -513,14 +515,14 @@ describe("generatePerformBlock", () => {
   it("generates pipeline block for static return", () => {
     const analysis = analyzeHandlerArrow("async () => ({ isSuccess: true, data: { ok: true } })");
     const block = generatePerformBlock(analysis, "", "  ");
-    expect(block).toContain("perform: pipeline(");
+    expect(block).toContain("perform: stepsPipeline(");
     expect(block).toContain("r.step.return((ctx) => ({ isSuccess: true, data: { ok: true } })");
   });
 
   it("generates pipeline block with schema type parameter", () => {
     const analysis = analyzeHandlerArrow("async () => ({ isSuccess: true, data: { ok: true } })");
     const block = generatePerformBlock(analysis, "typeof InvoiceSchema", "  ");
-    expect(block).toContain("pipeline<typeof InvoiceSchema, unknown>");
+    expect(block).toContain("stepsPipeline<typeof InvoiceSchema, unknown>");
   });
 
   it("returns null for non-convertible analysis", () => {

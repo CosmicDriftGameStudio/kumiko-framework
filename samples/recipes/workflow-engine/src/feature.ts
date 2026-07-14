@@ -24,7 +24,7 @@
 //     adequate for the demo, not for high-volume production.
 
 import type { PipelineCtx, WorkflowDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { defineFeature, defineWorkflow, pipeline } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature, defineWorkflow, stepsPipeline } from "@cosmicdrift/kumiko-framework/engine";
 import { registerEventTrigger } from "./event-trigger";
 
 /**
@@ -43,7 +43,7 @@ export const userOnboardingWorkflow: WorkflowDefinition<{ email: string; userId:
     trigger: { kind: "event", eventType: "user.signed-up" },
     idempotencyKey: ({ payload }) => `onboarding:${payload.userId}`,
 
-    steps: pipeline<{ email: string; userId: string }, void>(({ r }) => [
+    steps: stepsPipeline<{ email: string; userId: string }, void>(({ r }) => [
       r.step.mail.send({
         to: (ctx) => (ctx.event.payload as { email: string }).email,
         subject: "Welcome!",
@@ -109,7 +109,7 @@ export const resilientWebhookWorkflow: WorkflowDefinition<
   name: "resilient-webhook",
   trigger: { kind: "event", eventType: "data.processed" },
 
-  steps: pipeline<{ data: unknown; webhookUrl: string }, void>(({ r }) => [
+  steps: stepsPipeline<{ data: unknown; webhookUrl: string }, void>(({ r }) => [
     r.step.retry({
       times: 3,
       backoff: "exponential",
@@ -132,7 +132,7 @@ export const dailyReportWorkflow: WorkflowDefinition<void, void> = defineWorkflo
   name: "daily-report",
   trigger: { kind: "cron", schedule: "0 9 * * *" },
 
-  steps: pipeline<void, void>(({ r }) => [
+  steps: stepsPipeline<void, void>(({ r }) => [
     r.step.webhook.send({
       url: "https://hooks.example.com/daily-report",
       body: () => ({ ts: Temporal.Now.instant().toString() }),

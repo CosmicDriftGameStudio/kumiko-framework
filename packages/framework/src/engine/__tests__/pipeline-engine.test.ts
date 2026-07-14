@@ -1,4 +1,4 @@
-// Pipeline-engine unit tests — defineWriteHandler({ perform: pipeline(...) })
+// Pipeline-engine unit tests — defineWriteHandler({ perform: stepsPipeline(...) })
 // boundary, run-pipeline runner contract, defineStep registry guards.
 // Sub-step-builders (branch, forEach) live in pipeline-sub-pipelines.test.ts;
 // boot-validator in validate-projection-allowlist.test.ts.
@@ -9,7 +9,7 @@ import { z } from "zod";
 import { TestUsers } from "../../stack";
 import { defineWriteHandler } from "../define-handler";
 import { defineStep } from "../define-step";
-import { pipeline } from "../pipeline";
+import { stepsPipeline } from "../pipeline";
 import type { WriteEvent } from "../types/handlers";
 import { buildMinimalCtx } from "./_pipeline-test-utils";
 
@@ -19,7 +19,7 @@ describe("pipeline engine (return / compute / registry guards)", () => {
       name: "demo:noop",
       schema: z.object({ greeting: z.string() }),
       access: { roles: ["User"] },
-      perform: pipeline<{ greeting: string }, { echoed: string }>(({ event, r }) => [
+      perform: stepsPipeline<{ greeting: string }, { echoed: string }>(({ event, r }) => [
         r.step.return(() => ({
           isSuccess: true as const,
           data: { echoed: event.payload.greeting },
@@ -49,7 +49,7 @@ describe("pipeline engine (return / compute / registry guards)", () => {
       name: "demo:static",
       schema: z.object({}),
       access: { roles: ["User"] },
-      perform: pipeline<Record<string, never>, { ok: boolean }>(({ r }) => [
+      perform: stepsPipeline<Record<string, never>, { ok: boolean }>(({ r }) => [
         r.step.return({ isSuccess: true as const, data: { ok: true } }),
       ]),
     });
@@ -89,7 +89,7 @@ describe("pipeline engine (return / compute / registry guards)", () => {
       name: "demo:no-return",
       schema: z.object({}),
       access: { roles: ["User"] },
-      perform: pipeline<Record<string, never>, never>(() => []),
+      perform: stepsPipeline<Record<string, never>, never>(() => []),
     });
 
     await expect(
@@ -105,7 +105,7 @@ describe("pipeline engine (return / compute / registry guards)", () => {
       name: "demo:thread",
       schema: z.object({ base: z.number() }),
       access: { roles: ["User"] },
-      perform: pipeline<{ base: number }, { sum: number }>(({ event, r }) => [
+      perform: stepsPipeline<{ base: number }, { sum: number }>(({ event, r }) => [
         r.step.compute("offset", () => 10),
         r.step.compute("doubledBase", () => event.payload.base * 2),
         r.step.return(({ steps }) => ({
@@ -133,7 +133,7 @@ describe("pipeline engine (return / compute / registry guards)", () => {
       name: "demo:fresh",
       schema: z.object({}),
       access: { roles: ["User"] },
-      perform: pipeline<Record<string, never>, { tick: number }>(({ r }) => [
+      perform: stepsPipeline<Record<string, never>, { tick: number }>(({ r }) => [
         r.step.compute("tick", () => ++counter),
         r.step.return(({ steps }) => ({
           isSuccess: true as const,
@@ -161,7 +161,7 @@ describe("pipeline engine (return / compute / registry guards)", () => {
       name: "demo:unknown-kind",
       schema: z.object({}),
       access: { roles: ["User"] },
-      perform: pipeline<Record<string, never>, never>(() => [
+      perform: stepsPipeline<Record<string, never>, never>(() => [
         // Hand-crafted instance with a kind that's never been registered —
         // simulates a typo in a future step-builder factory.
         { kind: "this-step-does-not-exist", args: {} },
@@ -190,7 +190,7 @@ describe("pipeline engine (return / compute / registry guards)", () => {
       schema: z.object({}),
       access: { roles: ["User"] },
       handler: async () => ({ isSuccess: true as const, data: {} }),
-      perform: pipeline<Record<string, never>, { ok: true }>(({ r }) => [
+      perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
         r.step.return({ isSuccess: true as const, data: { ok: true } }),
       ]),
     } as unknown as Parameters<typeof defineWriteHandler>[0];

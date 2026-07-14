@@ -17,7 +17,7 @@ import type { WorkflowDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import {
   computeDefinitionFingerprint,
   defineWorkflow,
-  pipeline,
+  stepsPipeline,
   WORKFLOW_AGGREGATE_TYPE,
   WORKFLOW_RESUMED_TYPE,
   WORKFLOW_RUN_STARTED_TYPE,
@@ -34,7 +34,7 @@ function buildTestWorkflow(name: string): WorkflowDefinition {
   return defineWorkflow({
     name,
     trigger: { kind: "event", eventType: "demo.fired" },
-    steps: pipeline(({ r }) => [
+    steps: stepsPipeline(({ r }) => [
       r.step.wait({ for: "PT1H" }),
       r.step.return({ isSuccess: true, data: undefined }),
     ]),

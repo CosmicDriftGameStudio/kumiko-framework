@@ -2,7 +2,7 @@ import { describe, expect, it, mock } from "bun:test";
 import {
   computeDefinitionFingerprint,
   defineWorkflow,
-  pipeline,
+  stepsPipeline,
   type WorkflowDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { VersionConflictError } from "@cosmicdrift/kumiko-framework/event-store";
@@ -22,7 +22,7 @@ function makeWaitWorkflow(name: string) {
   return defineWorkflow({
     name,
     trigger: { kind: "event", eventType: "demo.fired" },
-    steps: pipeline(({ r }) => [
+    steps: stepsPipeline(({ r }) => [
       r.step.wait({ for: "PT1H" }),
       r.step.return({ isSuccess: true, data: { result: "resumed" } }),
     ]),
@@ -33,7 +33,7 @@ function makeReturnOnlyWorkflow(name: string) {
   return defineWorkflow({
     name,
     trigger: { kind: "event", eventType: "demo.fired" },
-    steps: pipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
+    steps: stepsPipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
   });
 }
 
@@ -82,7 +82,7 @@ describe("workflow-runner", () => {
     const workflow = defineWorkflow({
       name: "demo-sync",
       trigger: { kind: "event", eventType: "demo.fired" },
-      steps: pipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
+      steps: stepsPipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
     });
     const ctx = makeAppendOnlyCtx();
 
@@ -110,7 +110,7 @@ describe("workflow-runner", () => {
     const workflow = defineWorkflow({
       name: "demo-wait",
       trigger: { kind: "event", eventType: "demo.fired" },
-      steps: pipeline(({ r }) => [
+      steps: stepsPipeline(({ r }) => [
         r.step.wait({ for: "PT1H" }),
         r.step.return({ isSuccess: true, data: undefined }),
       ]),
@@ -140,7 +140,7 @@ describe("workflow-runner", () => {
       name: "demo-idem",
       trigger: { kind: "event", eventType: "demo.fired" },
       idempotencyKey: ({ payload }) => `id:${(payload as { x: string }).x}`,
-      steps: pipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
+      steps: stepsPipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
     });
     const ctx = makeAppendOnlyCtx();
 
@@ -278,12 +278,12 @@ describe("computeDefinitionFingerprint", () => {
     const a = defineWorkflow({
       name: "wf",
       trigger: { kind: "event", eventType: "x" },
-      steps: pipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
+      steps: stepsPipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
     });
     const b = defineWorkflow({
       name: "wf",
       trigger: { kind: "event", eventType: "x" },
-      steps: pipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
+      steps: stepsPipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
     });
     expect(computeDefinitionFingerprint(a)).toBe(computeDefinitionFingerprint(b));
   });
@@ -292,12 +292,12 @@ describe("computeDefinitionFingerprint", () => {
     const a = defineWorkflow({
       name: "wf",
       trigger: { kind: "event", eventType: "x" },
-      steps: pipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
+      steps: stepsPipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
     });
     const b = defineWorkflow({
       name: "wf",
       trigger: { kind: "event", eventType: "x" },
-      steps: pipeline(({ r }) => [
+      steps: stepsPipeline(({ r }) => [
         r.step.compute("noop", () => 1),
         r.step.return({ isSuccess: true, data: undefined }),
       ]),
@@ -309,12 +309,12 @@ describe("computeDefinitionFingerprint", () => {
     const a = defineWorkflow({
       name: "wf",
       trigger: { kind: "event", eventType: "x" },
-      steps: pipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
+      steps: stepsPipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
     });
     const b = defineWorkflow({
       name: "wf",
       trigger: { kind: "event", eventType: "y" },
-      steps: pipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
+      steps: stepsPipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
     });
     expect(computeDefinitionFingerprint(a)).not.toBe(computeDefinitionFingerprint(b));
   });
@@ -392,7 +392,7 @@ describe("cron-scheduler", () => {
     const wf = defineWorkflow({
       name: "test-daily",
       trigger: { kind: "cron", schedule: "0 9 * * *" },
-      steps: pipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
+      steps: stepsPipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
     });
 
     const handlerCtx = { unsafeAppendEvent: mock() };
@@ -414,7 +414,7 @@ describe("cron-scheduler", () => {
     const wf = defineWorkflow({
       name: "test-daily",
       trigger: { kind: "cron", schedule: "0 9 * * *" },
-      steps: pipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
+      steps: stepsPipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
     });
 
     const handlerCtx = { unsafeAppendEvent: mock().mockResolvedValue(undefined) };
