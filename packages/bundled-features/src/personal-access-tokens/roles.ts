@@ -7,7 +7,8 @@ import { userTable } from "../user";
 
 // Live role resolution for a (userId, tenantId), mirroring login.write.ts:
 // global roles (users.roles) ∪ tenant-membership roles (forbidden roles
-// stripped). Resolved fresh on every PAT request — a snapshot baked at mint
+// stripped via stripForbiddenMembershipRoles, see engine/membership-roles).
+// Resolved fresh on every PAT request — a snapshot baked at mint
 // time would keep a since-revoked admin role for the token's whole (months-long)
 // life. Returns null when the user has no membership in that tenant: removed
 // from the tenant → the PAT stops authenticating there.

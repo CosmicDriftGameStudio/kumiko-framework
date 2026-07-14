@@ -1,8 +1,8 @@
 import {
+  buildSessionRoles,
   createSystemUser,
   defineWriteHandler,
   type SessionUser,
-  buildSessionRoles,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
@@ -169,7 +169,7 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
       // membership. Dedupe via Set damit eine Rolle die in beiden Quellen
       // steht nicht doppelt im Session-Roles landet.
       const globalRoles = parseRoles(found.roles ?? null);
-      // buildSessionRoles strips reserved roles from the membership portion
+      // buildSessionRoles calls stripForbiddenMembershipRoles to strip reserved
       // only (globalRoles keeps SystemAdmin) — read-time backstop against a
       // rebuild-resurrected role.
       const mergedRoles = buildSessionRoles(globalRoles, chosen.roles);

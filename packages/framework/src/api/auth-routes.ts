@@ -870,7 +870,7 @@ export function createAuthRoutes(
     // tenant A accidentally surviving into tenant B's session). The
     // resolver runs each feature's r.authClaims() hook under the new
     // TenantDb scope.
-    // buildSessionRoles merges globalRoles with the membership portion and
+    // buildSessionRoles calls stripForbiddenMembershipRoles internally and
     // strips reserved roles from the membership side only — globalRoles
     // (where SystemAdmin legitimately lives) is never filtered. Backstop for a
     // membership role that a projection rebuild resurrected past command-time
