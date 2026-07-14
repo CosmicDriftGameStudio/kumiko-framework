@@ -1,5 +1,34 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.146.0
+
+### Minor Changes
+
+- e605b4f: custom-fields: PII-Support entfernt (#972) — custom fields sind für
+  zusätzliche Business-Infos, nicht für personenbezogene Daten. BREAKING:
+  `serializedField.sensitive` wird beim Anlegen/Update rejected, gespeicherte
+  Definitionen mit dem Key werfen beim Parsen (zero-legacy, Feld neu anlegen).
+  Der Self-Projection-Sonderweg und der user-data-rights-Forget-Strip entfallen;
+  jeder `customField.set` trägt seinen Wert im Event — custom fields sind damit
+  vollständig rebuild-safe. PII gehört in Schema-Entity-Felder mit
+  pii/userOwned/tenantOwned-Annotation.
+- 3bb719a: seo: neues bundled-feature für SEO/AEO/GEO-Site-Discovery (#979) — `createSeoFeature`
+  mountet GET /sitemap.xml, /llms.txt und optional /robots.txt (merged aus app-eigenem
+  Callback + legal-pages + managed-pages), plus die additive OG/JSON-LD-Erweiterung für
+  `wrapInLayout` und die pure `organizationSchema`/`webPageSchema`/`faqPageSchema`-Builder
+  für `ApexHead.schemaJson`. `managed-pages` bekommt dafür die neue anonyme
+  `by-tenant-published`-Query. War Teil von #979, hatte aber kein Changeset — daher hier
+  nachgereicht, damit die Version tatsächlich published wird.
+
+### Patch Changes
+
+- Updated dependencies [b00c3ed]
+  - @cosmicdrift/kumiko-framework@0.146.0
+  - @cosmicdrift/kumiko-headless@0.146.0
+  - @cosmicdrift/kumiko-renderer@0.146.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.146.0
+  - @cosmicdrift/kumiko-renderer-web@0.146.0
+
 ## 0.145.1
 
 ### Patch Changes
