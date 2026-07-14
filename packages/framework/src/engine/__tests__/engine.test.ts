@@ -274,6 +274,24 @@ describe("defineFeature", () => {
       }),
     ).toThrow(/r\.uiHints\(\) called twice/);
   });
+
+  test("r.toggleable() throws when called twice", () => {
+    expect(() =>
+      defineFeature("test", (r) => {
+        r.toggleable({ default: true });
+        r.toggleable({ default: false });
+      }),
+    ).toThrow(/r\.toggleable\(\) called twice/);
+  });
+
+  test("r.envSchema() throws when called twice", () => {
+    expect(() =>
+      defineFeature("test", (r) => {
+        r.envSchema(z.object({ FOO: z.string() }));
+        r.envSchema(z.object({ BAR: z.string() }));
+      }),
+    ).toThrow(/r\.envSchema\(\) called twice/);
+  });
 });
 
 // --- Field Factories ---
