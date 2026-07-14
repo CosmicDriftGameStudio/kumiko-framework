@@ -1325,6 +1325,30 @@ describe("registry relations", () => {
     // Last write wins
     expect((rels["roles"] as { through: { table: string } }).through.table).toBe("UR2");
   });
+
+  test("getRelations aggregates relations on the same entity from two different features", () => {
+    const core = defineFeature("core", (r) => {
+      r.entity("user", createEntity({ table: "Users", fields: {} }));
+      r.entity("role", createEntity({ table: "Roles", fields: {} }));
+      r.relation("user", "roles", {
+        type: "manyToMany",
+        target: "role",
+        through: { table: "UserRoles", sourceKey: "userId", targetKey: "roleId" },
+      });
+    });
+    const billing = defineFeature("billing", (r) => {
+      r.entity("invoice", createEntity({ table: "Invoices", fields: {} }));
+      r.relation("user", "invoices", {
+        type: "hasMany",
+        target: "invoice",
+        foreignKey: "userId",
+      });
+    });
+
+    const registry = createRegistry([core, billing]);
+    const rels = registry.getRelations("user");
+    expect(Object.keys(rels).sort()).toEqual(["invoices", "roles"]);
+  });
 });
 
 // --- Global Search (new tenant-based API) ---

@@ -264,6 +264,32 @@ describe("createRegistry — screen indexing", () => {
     ]);
   });
 
+  test("getScreensByEntity aggregates screens on the same entity from two different features", () => {
+    const shop = defineFeature("shop", (r) => {
+      r.entity("product", productEntity());
+      r.screen({
+        id: "product-list",
+        type: "entityList",
+        entity: "product",
+        columns: ["name"],
+      });
+    });
+    const reporting = defineFeature("reporting", (r) => {
+      r.screen({
+        id: "product-stats",
+        type: "entityList",
+        entity: "product",
+        columns: ["name"],
+      });
+    });
+    const registry = createRegistry([shop, reporting]);
+    const byProduct = registry.getScreensByEntity("product");
+    expect(byProduct.map((s) => s.id).sort()).toEqual([
+      "reporting:screen:product-stats",
+      "shop:screen:product-list",
+    ]);
+  });
+
   test("getScreen / getScreensByEntity return stored screens with qualified id", () => {
     const feature = defineFeature("shop", (r) => {
       r.entity("product", productEntity());
