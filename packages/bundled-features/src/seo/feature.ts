@@ -147,12 +147,21 @@ async function gatherEntries(
   return entries;
 }
 
+// TLS-terminating reverse proxies (ingress-nginx et al.) forward the
+// original request over plain HTTP internally, so `c.req.url`'s scheme
+// reflects the proxy hop, not what the client actually used — trusting it
+// downgraded every legal-pages/managed-pages URL in sitemap.xml/llms.txt to
+// http:// in production. `x-forwarded-proto` carries the real scheme;
+// fall back to the raw URL only when the header is absent (plain local dev).
 function requestHost(c: { req: { header: (name: string) => string | undefined; url: string } }): {
   origin: string;
   host: string;
 } {
   const url = new URL(c.req.url);
-  return { origin: url.origin, host: c.req.header("host") ?? url.host };
+  const host = c.req.header("host") ?? url.host;
+  const forwardedProto = c.req.header("x-forwarded-proto")?.split(",")[0]?.trim();
+  const protocol = forwardedProto || url.protocol.replace(":", "");
+  return { origin: `${protocol}://${host}`, host };
 }
 
 // seo — site-discovery routes (sitemap.xml/llms.txt/robots.txt) plus the
