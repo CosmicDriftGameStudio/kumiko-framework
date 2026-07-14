@@ -9,7 +9,7 @@ import { APEX_STRUCTURAL_CSS } from "./css";
 import { APEX_LIGHTBOX_HTML, APEX_LIGHTBOX_SCRIPT } from "./lightbox";
 
 export { APEX_NAV_MENU_CSS, APEX_STRUCTURAL_CSS } from "./css";
-export { APEX_LIGHTBOX_HTML, APEX_LIGHTBOX_SCRIPT } from "./lightbox";
+export { APEX_LIGHTBOX_HTML, APEX_LIGHTBOX_SCRIPT, APEX_LIGHTBOX_SCRIPT_CSP_HASH } from "./lightbox";
 
 export type ApexTheme = "light" | "dark";
 
