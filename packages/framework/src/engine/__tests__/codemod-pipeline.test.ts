@@ -288,7 +288,9 @@ export const h = defineWriteHandler({
       const result = await convertFile(p);
       expect(result.status).toBe("converted");
       const final = readFileSync(p, "utf8").split("\n");
-      const pipelineImports = final.filter((l) => l.includes("import") && l.includes("stepsPipeline"));
+      const pipelineImports = final.filter(
+        (l) => l.includes("import") && l.includes("stepsPipeline"),
+      );
       // Only one import line should contain "pipeline"
       expect(pipelineImports.length).toBe(1);
     });
