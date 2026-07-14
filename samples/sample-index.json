@@ -274,7 +274,11 @@
         "recipes-apex-landing"
       ],
       "hasVisualOutput": true,
-      "readmeSummary": "`bun run screenshot` renders the sample page and shoots a full-page PNG via Playwright (`page.setContent` — no server, because the renderer is pure). The spec also paints a product-board mock (`hero-app.png`), uses it in the hero `.shot-frame`, then writes `lightbox.png` with the overlay open. Docs embed `screenshots/l"
+      "readmeSummary": "`bun run screenshot` renders the sample page and shoots a full-page PNG via Playwright (`page.setContent` — no server, because the renderer is pure). The spec also paints a product-board mock (`hero-app.png`), uses it in the hero `.shot-frame`, then writes `lightbox.png` with the overlay open. Docs embed `screenshots/l",
+      "primarySample": "recipes-apex-landing",
+      "whenToUse": "Your apex/content pages need sitemap.xml, llms.txt, and OG/JSON-LD (schema.org) to be discoverable by search engines and LLM answer engines, without hand-rolling site-discovery routes per app.",
+      "sampleBlurb": "apex-landing wires organizationSchema/webPageSchema into the page head, and a separate integration test mounts createSeoFeature alongside the landing route to exercise /sitemap.xml and /llms.txt as real HTTP requests.",
+      "screenshot": null
     },
     "sessions": {
       "samples": [
