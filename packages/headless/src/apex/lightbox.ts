@@ -6,8 +6,10 @@ export const APEX_LIGHTBOX_HTML = `<dialog id="apex-lightbox" class="apex-lightb
   <img class="apex-lightbox__img" alt="" />
 </dialog>`;
 
-/** ponytail: one delegated listener; no-op when no .shot-frame on the page. */
-export const APEX_LIGHTBOX_SCRIPT = `<script>
+// Split from APEX_LIGHTBOX_SCRIPT so APEX_LIGHTBOX_SCRIPT_CSP_HASH hashes
+// exactly the bytes the browser executes — CSP's script-src hash-source
+// covers the content between <script> and </script>, nothing more/less.
+const APEX_LIGHTBOX_SCRIPT_BODY = `
 (function () {
   var dlg = document.getElementById("apex-lightbox");
   if (!dlg) return;
@@ -38,4 +40,17 @@ export const APEX_LIGHTBOX_SCRIPT = `<script>
     close();
   });
 })();
-</script>`;
+`;
+
+/** ponytail: one delegated listener; no-op when no .shot-frame on the page. */
+export const APEX_LIGHTBOX_SCRIPT = `<script>${APEX_LIGHTBOX_SCRIPT_BODY}</script>`;
+
+// Apps that enforce `script-src 'self'` without `'unsafe-inline'`/nonce (the
+// apex renderer has no per-request nonce hook — its output is often
+// pre-rendered to static HTML at build time, where a nonce can't work
+// anyway) need a hash-source instead. Add this to your CSP's script-src,
+// e.g. `script-src 'self' 'sha256-...'` (value = this constant).
+// lightbox.test.ts asserts this matches APEX_LIGHTBOX_SCRIPT_BODY byte-for-
+// byte, so an edit to the script that doesn't update the hash fails CI
+// instead of silently breaking every strict-CSP consumer's lightbox.
+export const APEX_LIGHTBOX_SCRIPT_CSP_HASH = "sha256-f+hHLpDuQsjmtFZCjdM13D9NaMTCyOKaawAhfLf/X9o=";
