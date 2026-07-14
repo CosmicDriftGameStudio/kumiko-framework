@@ -13,6 +13,7 @@
 // expose and assembles an `ApexPage`; the app serves `renderApexPage(page)` as
 // one static, cacheable response.
 
+import { organizationSchema, webPageSchema } from "@cosmicdrift/kumiko-bundled-features/seo";
 import {
   type ApexPage,
   type ApexPricingTier,
@@ -123,6 +124,30 @@ export function buildLandingPage(input: LandingInput): ApexPage {
         "Plan, track and ship product work in one place. Free to start, no credit card.",
       ),
       canonicalUrl: "https://tasklane.example/",
+      // GEO/AEO seam: schema.org JSON-LD via the seo feature's pure builders
+      // (organizationSchema/webPageSchema), fed straight into ApexHead —
+      // renderApexPage already emits the <script type="application/ld+json">
+      // block, this recipe only supplies the data. Two node types share one
+      // block via @graph (a single schemaJson can't hold two top-level @type
+      // values). Site-discovery (sitemap.xml/llms.txt) for an app that also
+      // mounts managed-pages/legal-pages is demonstrated separately in
+      // samples/apps/use-all-bundled's createSeoFeature wiring — this recipe
+      // has no server/feature of its own to attach routes to.
+      schemaJson: {
+        "@context": "https://schema.org",
+        "@graph": [
+          organizationSchema({ name: "Tasklane", url: "https://tasklane.example/" }),
+          webPageSchema({
+            name: block(input.blocks, "index:meta.title", "Tasklane — ship your roadmap"),
+            url: "https://tasklane.example/",
+            description: block(
+              input.blocks,
+              "index:meta.description",
+              "Plan, track and ship product work in one place. Free to start, no credit card.",
+            ),
+          }),
+        ],
+      },
     },
     header: {
       brand: { href: "/", label: "Tasklane" },

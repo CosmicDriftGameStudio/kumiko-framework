@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled/scripts/gen-sample-index.ts + sample-index.overrides.json",
-  "featureCount": 35,
+  "featureCount": 36,
   "features": {
     "admin-shell": {
       "samples": [
@@ -268,6 +268,13 @@
       "whenToUse": "API keys and tokens must live encrypted per tenant, not in env vars — secrets stores values in the DB with master-key encryption and config-gated reads.",
       "sampleBlurb": "Encrypted per-tenant secret read/write via ctx.secrets.get — config keys reference secrets without plaintext in the DB.",
       "screenshot": null
+    },
+    "seo": {
+      "samples": [
+        "recipes-apex-landing"
+      ],
+      "hasVisualOutput": true,
+      "readmeSummary": "`bun run screenshot` renders the sample page and shoots a full-page PNG via Playwright (`page.setContent` — no server, because the renderer is pure). The spec also paints a product-board mock (`hero-app.png`), uses it in the hero `.shot-frame`, then writes `lightbox.png` with the overlay open. Docs embed `screenshots/l"
     },
     "sessions": {
       "samples": [

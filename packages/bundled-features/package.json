@@ -107,6 +107,7 @@
     "./managed-pages": "./src/managed-pages/index.ts",
     "./managed-pages/web": "./src/managed-pages/web/index.ts",
     "./managed-pages/seeding": "./src/managed-pages/seeding.ts",
+    "./seo": "./src/seo/index.ts",
     "./step-dispatcher": "./src/step-dispatcher/index.ts"
   },
   "dependencies": {

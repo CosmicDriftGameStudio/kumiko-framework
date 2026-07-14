@@ -55,6 +55,7 @@ import { readinessFeature } from "@cosmicdrift/kumiko-bundled-features/readiness
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import { createRendererSimpleFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-simple";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
+import { createSeoFeature } from "@cosmicdrift/kumiko-bundled-features/seo";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createStepDispatcherFeature } from "@cosmicdrift/kumiko-bundled-features/step-dispatcher";
 import { createSubscriptionMollieFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-mollie";
@@ -191,6 +192,16 @@ export const APP_FEATURES = [
   // companion toggle is handler-less, has no subpath export, and is recipe-
   // covered — not standalone-mounted here (smoke = one mount per subpath-export).
   createManagedPagesFeature({ resolveApexTenant: () => null, allowCustomCss: true }),
+
+  // seo: requires config (auto-bundled). Smoke resolver never serves (boot-
+  // only) — includeLegalPages:true gives the boot-check a real source
+  // without needing real page data; managedPages reuses the same never-
+  // resolving smoke resolver as createManagedPagesFeature above.
+  createSeoFeature({
+    sitemapEntries: () => [],
+    includeLegalPages: true,
+    managedPages: { resolveApexTenant: () => null },
+  }),
 
   // operational
   createRateLimitingFeature(),
