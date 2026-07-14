@@ -168,662 +168,719 @@ function resolveBackingTable(
   return backingTable as ProjectionDefinition["table"];
 }
 
-// This is where the magic happens. By "magic" I mean: precomputed maps.
-// I build everything once at boot (hooks, relations, searchable fields, ...)
-// so nothing has to iterate over objects at runtime. O(1) instead of O(n*m).
-export function createRegistry(features: readonly FeatureDefinition[]): Registry {
-  const featureMap = new Map<string, FeatureDefinition>();
-  const entityMap = new Map<string, EntityDefinition>();
-  const relationMap = new Map<string, Record<string, RelationDefinition>>();
-  const writeHandlerMap = new Map<string, WriteHandlerDef>();
-  const queryHandlerMap = new Map<string, QueryHandlerDef>();
-  // Hook storage. Every entry carries its owning feature (on the OwnedFn /
-  // PhasedHook shape), so the lifecycle pipeline can skip hooks whose
-  // feature is globally disabled without a parallel bookkeeping map.
-  // featureName === "*" = always fire (extension-provided invariants).
-  const preSaveHooks = new Map<string, OwnedFn<PreSaveHookFn>[]>();
-  const postSaveHooks = new Map<string, PhasedHook<PostSaveHookFn>[]>();
-  const preDeleteHooks = new Map<string, PhasedHook<PreDeleteHookFn>[]>();
-  const postDeleteHooks = new Map<string, PhasedHook<PostDeleteHookFn>[]>();
-  const preQueryHooks = new Map<string, OwnedFn<PreQueryHookFn>[]>();
-  const postQueryHooks = new Map<string, OwnedFn<PostQueryHookFn>[]>();
-  // Entity hooks — keyed by entity name, NOT prefixed
-  const entityPostSaveHooks = new Map<string, PhasedHook<PostSaveHookFn>[]>();
-  const entityPreDeleteHooks = new Map<string, PhasedHook<PreDeleteHookFn>[]>();
-  const entityPostDeleteHooks = new Map<string, PhasedHook<PostDeleteHookFn>[]>();
-  const entityPostQueryHooks = new Map<string, OwnedFn<PostQueryHookFn>[]>();
-  const searchPayloadExtensions = new Map<string, OwnedFn<SearchPayloadContributorFn>[]>();
-  const configKeyMap = new Map<string, ConfigKeyDefinition>();
-  const jobMap = new Map<string, JobDefinition>();
-  const notificationMap = new Map<string, NotificationDefinition>();
-  const notificationFeatureMap = new Map<string, string>(); // qualifiedName → featureName
-  const eventMap = new Map<string, EventDef>();
-  // Schema-migration chain per qualified event name. Built at boot after all
-  // features are ingested, then exposed via getEventUpcasters(). Readers of
-  // the events-table (projection rebuild, future aggregate loaders) walk the
-  // chain to upcast stored payloads to the current shape at read time.
-  const eventUpcasterMap = new Map<
+// Local alias for readability — `qualifyEntityName` is the shared helper
+// from qualified-name.ts, also used by validateBoot to keep ingest and
+// validation in lockstep on the qualification rule. Module-scope: stateless,
+// no RegistryState threading needed.
+const qualify = qualifyEntityName;
+
+// Bundles every Map/Set/array/scalar createRegistry populates during ingest —
+// hoisted to module scope out of createRegistry's former closure, so the
+// populateX/validateX phase-functions below can read/write them explicitly
+// instead of via implicit capture. Every field is held BY REFERENCE (the
+// actual Map/Set/array instance, never a destructured copy) — populateX
+// functions mutate the same instance across calls for the same registry
+// build. See docs/plans/god-files-refactor.md for the by-reference invariant.
+type RegistryState = {
+  featureMap: Map<string, FeatureDefinition>;
+  entityMap: Map<string, EntityDefinition>;
+  relationMap: Map<string, Record<string, RelationDefinition>>;
+  writeHandlerMap: Map<string, WriteHandlerDef>;
+  queryHandlerMap: Map<string, QueryHandlerDef>;
+  preSaveHooks: Map<string, OwnedFn<PreSaveHookFn>[]>;
+  postSaveHooks: Map<string, PhasedHook<PostSaveHookFn>[]>;
+  preDeleteHooks: Map<string, PhasedHook<PreDeleteHookFn>[]>;
+  postDeleteHooks: Map<string, PhasedHook<PostDeleteHookFn>[]>;
+  preQueryHooks: Map<string, OwnedFn<PreQueryHookFn>[]>;
+  postQueryHooks: Map<string, OwnedFn<PostQueryHookFn>[]>;
+  entityPostSaveHooks: Map<string, PhasedHook<PostSaveHookFn>[]>;
+  entityPreDeleteHooks: Map<string, PhasedHook<PreDeleteHookFn>[]>;
+  entityPostDeleteHooks: Map<string, PhasedHook<PostDeleteHookFn>[]>;
+  entityPostQueryHooks: Map<string, OwnedFn<PostQueryHookFn>[]>;
+  searchPayloadExtensions: Map<string, OwnedFn<SearchPayloadContributorFn>[]>;
+  configKeyMap: Map<string, ConfigKeyDefinition>;
+  jobMap: Map<string, JobDefinition>;
+  notificationMap: Map<string, NotificationDefinition>;
+  notificationFeatureMap: Map<string, string>;
+  eventMap: Map<string, EventDef>;
+  eventUpcasterMap: Map<
     string,
     { readonly currentVersion: number; readonly chain: ReadonlyMap<number, EventUpcastFn> }
-  >();
-  // Handler → entity mapping (populated from entities + handler name convention)
-  const handlerEntityMap = new Map<string, string>();
-  // Handler → feature mapping (for systemScope check)
-  const handlerFeatureMap = new Map<string, string>();
-  const extensionMap = new Map<string, RegistrarExtensionDef>();
-  const extensionUsages: RegistrarExtensionRegistration[] = [];
-  const extensionSelectorMap = new Map<string, string>();
-  const allReferenceData: ReferenceDataDef[] = [];
-  const allConfigSeeds: ConfigSeedDef[] = [];
-  const mergedTranslations: Record<string, Record<string, string>> = {};
-  // Metric registry — keyed by fully qualified name (kumiko_<feature>_<short>).
-  // Boot-time validation rejects bad names; dashboards then safely rely on shape.
-  const metricMap = new Map<string, FeatureMetricDef & { readonly featureName: string }>();
-  // Feature-declared secrets. Keyed by qualified name ("<feature>:<short>").
-  // The map is the source of truth for ops-UIs, the rotation job, and any
-  // boot validation that wants to reject a secrets.get for an unknown key.
-  const secretKeyMap = new Map<string, SecretKeyDefinition>();
-  // Projections — full list keyed by qualified name AND a source-entity index
-  // the executor consults on every write. Index is precomputed so the hot path
-  // does a single Map.get, never a scan.
-  const projectionMap = new Map<string, ProjectionDefinition>();
-  const projectionsBySource = new Map<string, ProjectionDefinition[]>();
-  // Multi-stream projections — cross-aggregate, async via event-dispatcher.
-  // One qualified name per MSP; each becomes its own EventConsumer with a
-  // dedicated cursor in kumiko_event_consumers.
-  const multiStreamProjectionMap = new Map<string, MultiStreamProjectionDefinition>();
-  // qualified-MSP-name → owning-feature name. Used by the event-dispatcher
-  // to pause consumers whose feature is globally disabled.
-  const multiStreamProjectionFeatureMap = new Map<string, string>();
-  // Raw tables — declared via r.rawTable(). Bypass the projection registry,
-  // so they have no qualified-name namespace and no source-entity index.
-  // Keyed by the feature-local short name; cross-feature uniqueness is
-  // enforced at ingest below (collisions would race two CREATE TABLE
-  // statements at the same physical name and break boot).
-  const rawTableMap = new Map<string, RawTableDef>();
-  // Unmanaged tables — declared via r.unmanagedTable() (EntityTableMeta).
-  // Cousin of rawTables: same uniqueness-by-tableName invariant, different
-  // storage shape (post-drizzle migrate-runner consumes EntityTableMeta).
-  const unmanagedTableMap = new Map<string, UnmanagedTableDef>();
-  // Final physical table names (entity-derived + unmanaged) → owner. Catches
-  // a collision between an r.unmanagedTable() tableName and an r.entity()
-  // physical name at boot instead of as a duplicate CREATE TABLE in migrate.
-  const physicalTableOwners = new Map<
+  >;
+  handlerEntityMap: Map<string, string>;
+  handlerFeatureMap: Map<string, string>;
+  extensionMap: Map<string, RegistrarExtensionDef>;
+  extensionUsages: RegistrarExtensionRegistration[];
+  extensionSelectorMap: Map<string, string>;
+  allReferenceData: ReferenceDataDef[];
+  allConfigSeeds: ConfigSeedDef[];
+  mergedTranslations: Record<string, Record<string, string>>;
+  metricMap: Map<string, FeatureMetricDef & { readonly featureName: string }>;
+  secretKeyMap: Map<string, SecretKeyDefinition>;
+  projectionMap: Map<string, ProjectionDefinition>;
+  projectionsBySource: Map<string, ProjectionDefinition[]>;
+  multiStreamProjectionMap: Map<string, MultiStreamProjectionDefinition>;
+  multiStreamProjectionFeatureMap: Map<string, string>;
+  rawTableMap: Map<string, RawTableDef>;
+  unmanagedTableMap: Map<string, UnmanagedTableDef>;
+  physicalTableOwners: Map<
     string,
     { kind: "entity" | "unmanaged"; owner: string; featureName: string }
-  >();
-  // Auth-claims hooks — tagged with featureName so the login resolver can
-  // auto-prefix each hook's returned keys with "<feature>:".
-  const authClaimsHooks: AuthClaimsHookDef[] = [];
-  // Feature-declared claim keys. Keyed by qualified name ("<feature>:<short>").
-  // Used by readClaim callers to introspect; the resolver reads it via the
-  // declaredKeys set on each AuthClaimsHookDef (pre-built per feature below).
-  const claimKeyMap = new Map<string, ClaimKeyDefinition>();
-  // Screens — keyed by qualified name ("<feature>:screen:<id>"). One map for
-  // lookup + a parallel featureMap so the nav-resolver can gate screens by
-  // effective-features without scanning. `screensByEntity` pre-groups the
-  // entity-bound screens (entityList / entityEdit) by their entity name so
-  // ui-core's Schema-driven view-model builders don't need to scan
-  // getAllScreens() for every render.
-  const screenMap = new Map<string, ScreenDefinition>();
-  const screenFeatureMap = new Map<string, string>();
-  const screensByEntity = new Map<string, ScreenDefinition[]>();
-  // Nav entries — same shape as screenMap. Tree assembly happens in ui-core
-  // at render time; the engine just stores the flat list and its owners.
-  // `navsByParent` pre-groups children by their parent's QN so
-  // resolveNavigation does O(n) passes, not O(n²) parent-filters. Top-level
-  // entries (no parent) sit in the separate `topLevelNavs` list.
-  const navMap = new Map<string, NavDefinition>();
-  const navFeatureMap = new Map<string, string>();
-  const navsByParent = new Map<string, NavDefinition[]>();
-  const topLevelNavs: NavDefinition[] = [];
+  >;
+  authClaimsHooks: AuthClaimsHookDef[];
+  claimKeyMap: Map<string, ClaimKeyDefinition>;
+  screenMap: Map<string, ScreenDefinition>;
+  screenFeatureMap: Map<string, string>;
+  screensByEntity: Map<string, ScreenDefinition[]>;
+  navMap: Map<string, NavDefinition>;
+  navFeatureMap: Map<string, string>;
+  navsByParent: Map<string, NavDefinition[]>;
+  topLevelNavs: NavDefinition[];
+  workspaceMap: Map<string, WorkspaceDefinition>;
+  workspaceFeatureMap: Map<string, string>;
+  navsByWorkspace: Map<string, string[]>;
+  defaultWorkspace: WorkspaceDefinition | undefined;
+  treeActionsMap: Map<string, Readonly<Record<string, TreeActionDef>>>;
+  searchableFieldsCache: Map<string, readonly string[]>;
+  sortableFieldsCache: Map<string, readonly string[]>;
+  searchIncludesCache: Map<string, ReadonlyMap<string, readonly string[]>>;
+  incomingRelationsCache: Map<string, IncomingRelation[]>;
+  hasRateLimitedHandlerCached: boolean;
+};
 
-  // Workspaces — stored verbatim, plus a parallel feature-owner map and a
-  // pre-computed nav-membership map. Membership merges two sources at boot:
-  //   1. r.workspace({ nav: [...] }) — explicit list on the workspace
-  //   2. r.nav({ workspaces: [...] }) — self-assignment on the nav entry
-  // Order matters for the switcher: workspace-declared QNs come first (in
-  // declaration order), then nav-self-assigned ones (in registration order).
-  // Duplicates are deduped — a nav entry listed in both shows up once.
-  const workspaceMap = new Map<string, WorkspaceDefinition>();
-  const workspaceFeatureMap = new Map<string, string>();
-  const navsByWorkspace = new Map<string, string[]>();
-  let defaultWorkspace: WorkspaceDefinition | undefined;
+function createInitialState(): RegistryState {
+  return {
+    featureMap: new Map(),
+    entityMap: new Map(),
+    relationMap: new Map(),
+    writeHandlerMap: new Map(),
+    queryHandlerMap: new Map(),
+    preSaveHooks: new Map(),
+    postSaveHooks: new Map(),
+    preDeleteHooks: new Map(),
+    postDeleteHooks: new Map(),
+    preQueryHooks: new Map(),
+    postQueryHooks: new Map(),
+    entityPostSaveHooks: new Map(),
+    entityPreDeleteHooks: new Map(),
+    entityPostDeleteHooks: new Map(),
+    entityPostQueryHooks: new Map(),
+    searchPayloadExtensions: new Map(),
+    configKeyMap: new Map(),
+    jobMap: new Map(),
+    notificationMap: new Map(),
+    notificationFeatureMap: new Map(),
+    eventMap: new Map(),
+    eventUpcasterMap: new Map(),
+    handlerEntityMap: new Map(),
+    handlerFeatureMap: new Map(),
+    extensionMap: new Map(),
+    extensionUsages: [],
+    extensionSelectorMap: new Map(),
+    allReferenceData: [],
+    allConfigSeeds: [],
+    mergedTranslations: {},
+    metricMap: new Map(),
+    secretKeyMap: new Map(),
+    projectionMap: new Map(),
+    projectionsBySource: new Map(),
+    multiStreamProjectionMap: new Map(),
+    multiStreamProjectionFeatureMap: new Map(),
+    rawTableMap: new Map(),
+    unmanagedTableMap: new Map(),
+    physicalTableOwners: new Map(),
+    authClaimsHooks: [],
+    claimKeyMap: new Map(),
+    screenMap: new Map(),
+    screenFeatureMap: new Map(),
+    screensByEntity: new Map(),
+    navMap: new Map(),
+    navFeatureMap: new Map(),
+    navsByParent: new Map(),
+    topLevelNavs: [],
+    workspaceMap: new Map(),
+    workspaceFeatureMap: new Map(),
+    navsByWorkspace: new Map(),
+    defaultWorkspace: undefined,
+    treeActionsMap: new Map(),
+    searchableFieldsCache: new Map(),
+    sortableFieldsCache: new Map(),
+    searchIncludesCache: new Map(),
+    incomingRelationsCache: new Map(),
+    hasRateLimitedHandlerCached: false,
+  };
+}
 
-  // Tree-Actions — keyed by declaring feature name (NOT qualified; ein
-  // Feature liefert genau eine erased Action-Map (compile-time-typed
-  // Variante geht über setup-export-handle, siehe
-  // FeatureRegistrar.treeActions docs).
-  const treeActionsMap = new Map<string, Readonly<Record<string, TreeActionDef>>>();
+// Filter hooks by phase and/or owning feature.
+//
+// - `phase === undefined` → any phase passes.
+// - `effectiveFeatures === undefined` → ownership filter disabled.
+// - hook.featureName === "*" or undefined → always passes ownership filter.
+//   "*" is reserved for extension-provided hooks that are invariant
+//   plumbing, not opt-in feature logic.
+function filterByPhase<TFn>(
+  list: readonly PhasedHook<TFn>[] | undefined,
+  phase: HookPhase | undefined,
+  effectiveFeatures?: ReadonlySet<string>,
+): readonly TFn[] {
+  if (!list || list.length === 0) return [];
+  const result: TFn[] = [];
+  for (const entry of list) {
+    if (phase !== undefined && entry.phase !== phase) continue;
+    if (!ownerEnabled(entry.featureName, effectiveFeatures)) continue;
+    result.push(entry.fn);
+  }
+  return result;
+}
 
-  // Local alias for readability — `qualifyEntityName` is the shared helper
-  // from qualified-name.ts, also used by validateBoot to keep ingest and
-  // validation in lockstep on the qualification rule.
-  const qualify = qualifyEntityName;
+// Same ownership rule as filterByPhase, but for unphased hook lists
+// (preSave, preQuery). Returns the raw fns ready for the lifecycle runner.
+function filterOwned<TFn>(
+  list: readonly OwnedFn<TFn>[] | undefined,
+  effectiveFeatures?: ReadonlySet<string>,
+): readonly TFn[] {
+  if (!list || list.length === 0) return [];
+  const result: TFn[] = [];
+  for (const entry of list) {
+    if (!ownerEnabled(entry.featureName, effectiveFeatures)) continue;
+    result.push(entry.fn);
+  }
+  return result;
+}
 
-  // Filter hooks by phase and/or owning feature.
+function ownerEnabled(
+  owner: string | undefined,
+  effectiveFeatures: ReadonlySet<string> | undefined,
+): boolean {
+  if (!effectiveFeatures) return true;
+  if (owner === undefined || owner === "*") return true;
+  return effectiveFeatures.has(owner);
+}
+
+// Merge hooks without prefix (entity hooks). featureName is already on
+// every hook entry (set by defineFeature), so there's no parallel
+// bookkeeping — just append.
+function mergeHookList<T>(
+  map: Map<string, T[]>,
+  source: Readonly<Record<string, readonly T[]>> | undefined,
+): void {
+  // skip: optionaler entityHook-slot — features ohne postSave/preDelete/
+  // postDelete/postQuery lassen das slot undefined.
+  if (!source) return;
+  for (const [name, fns] of Object.entries(source)) {
+    const existing = map.get(name) ?? [];
+    existing.push(...fns);
+    map.set(name, existing);
+  }
+}
+
+// Merge hooks with feature prefix (handler hooks).
+// Hook keys are handler QNs — hooks don't get their own QN, they're keyed by the handler they target.
+// The hookQnType indicates whether the targeted handler is a write or query handler.
+function mergeHookListQualified<T>(
+  map: Map<string, T[]>,
+  source: Readonly<Record<string, readonly T[]>> | undefined,
+  featureName: string,
+  hookQnType: QnType,
+): void {
+  // skip: optionaler hook-slot — defineFeature materialisiert zwar alle
+  // Slots, aber hand-gebaute Definitionen an System-Grenzen (Fixtures,
+  // Partial-Boots, s. registry.test.ts) lassen sie weg. Leeres Record
+  // statt Object.entries(undefined)-Crash.
+  if (!source) return;
+  for (const [name, fns] of Object.entries(source)) {
+    const qualified = qualify(featureName, hookQnType, name);
+    const existing = map.get(qualified) ?? [];
+    existing.push(...fns);
+    map.set(qualified, existing);
+  }
+}
+
+// Feature registration + entities (globally-unique, physical-table-checked) + relations
+// (additive per entity, duplicate-per-name guarded).
+function populateFeatureCore(state: RegistryState, feature: FeatureDefinition): void {
+  if (state.featureMap.has(feature.name)) {
+    throw new Error(`Duplicate feature: "${feature.name}"`);
+  }
+  state.featureMap.set(feature.name, feature);
+
+  // Entities: NOT prefixed — entity names must be globally unique
+  for (const [name, entity] of Object.entries(feature.entities ?? {})) {
+    if (state.entityMap.has(name)) {
+      throw new Error(`Duplicate entity: "${name}" (registered by multiple features)`);
+    }
+    state.entityMap.set(name, entity);
+    const physical = resolveTableName(name, entity, feature.name);
+    const clash = state.physicalTableOwners.get(physical);
+    if (clash?.kind === "unmanaged") {
+      throw new Error(
+        `Entity "${name}" (feature "${feature.name}") has physical table "${physical}" which ` +
+          `collides with r.unmanagedTable("${physical}") (feature "${clash.featureName}"). ` +
+          `Pick a different tableName — both would emit CREATE TABLE "${physical}".`,
+      );
+    }
+    // Entity-vs-entity ist genauso fatal: zwei Entities mit explizitem,
+    // identischem tableName überschrieben sich hier vorher still —
+    // doppeltes CREATE TABLE bzw. eine Projektion frisst die andere.
+    if (clash?.kind === "entity") {
+      throw new Error(
+        `Entity "${name}" (feature "${feature.name}") has physical table "${physical}" which ` +
+          `collides with entity "${clash.owner}" (feature "${clash.featureName}"). ` +
+          `Pick a different tableName — both would project into "${physical}".`,
+      );
+    }
+    state.physicalTableOwners.set(physical, {
+      kind: "entity",
+      owner: name,
+      featureName: feature.name,
+    });
+  }
+
+  // Relations: entityName (not prefixed)
+  for (const [entityName, rels] of Object.entries(feature.relations ?? {})) {
+    const existing = state.relationMap.get(entityName) ?? {};
+    for (const [relName, relDef] of Object.entries(rels)) {
+      if (existing[relName]) {
+        throw new Error(
+          `Duplicate relation: "${entityName}.${relName}" (registered by multiple features)`,
+        );
+      }
+      existing[relName] = relDef;
+    }
+    state.relationMap.set(entityName, existing);
+  }
+}
+
+// Write + query handlers: qualified scope:type:name, duplicate-guarded.
+function populateHandlers(state: RegistryState, feature: FeatureDefinition): void {
+  // Write handlers: scope:write:name
+  for (const [name, handler] of Object.entries(feature.writeHandlers ?? {})) {
+    const qualified = qualify(feature.name, "write", name);
+    if (state.writeHandlerMap.has(qualified)) {
+      throw new Error(`Duplicate write handler: "${qualified}" (registered by multiple features)`);
+    }
+    state.writeHandlerMap.set(qualified, { ...handler, name: qualified });
+    state.handlerFeatureMap.set(qualified, feature.name);
+  }
+
+  // Query handlers: scope:query:name
+  for (const [name, handler] of Object.entries(feature.queryHandlers ?? {})) {
+    const qualified = qualify(feature.name, "query", name);
+    if (state.queryHandlerMap.has(qualified)) {
+      throw new Error(`Duplicate query handler: "${qualified}" (registered by multiple features)`);
+    }
+    state.queryHandlerMap.set(qualified, { ...handler, name: qualified });
+    state.handlerFeatureMap.set(qualified, feature.name);
+  }
+}
+
+// Config keys: scope:config:name, duplicate-guarded.
+function populateConfigKeys(state: RegistryState, feature: FeatureDefinition): void {
+  // Config keys: scope:config:name
+  for (const [key, keyDef] of Object.entries(feature.configKeys ?? {})) {
+    const qualifiedKey = qualify(feature.name, "config", key);
+    if (state.configKeyMap.has(qualifiedKey)) {
+      throw new Error(`Duplicate config key: "${qualifiedKey}" (registered by multiple features)`);
+    }
+    state.configKeyMap.set(qualifiedKey, keyDef);
+  }
+}
+
+// Jobs (runIn-pinned, duplicate-guarded) + notifications (trigger resolved later).
+function populateJobsAndNotifications(state: RegistryState, feature: FeatureDefinition): void {
+  // Jobs: scope:job:name
+  for (const [name, jobDef] of Object.entries(feature.jobs ?? {})) {
+    const qualifiedName = qualify(feature.name, "job", name);
+    if (state.jobMap.has(qualifiedName)) {
+      throw new Error(`Duplicate job: "${qualifiedName}" (registered by multiple features)`);
+    }
+    // runIn runtime-check. TS's JobRunIn = Exclude<RunIn, "both"> already
+    // rejects "both" at compile time, but dynamically-constructed jobs
+    // (serialized config, plugin authors using `as any`) could slip it
+    // past the type system. Fail loud — "both" for jobs would mean "fan
+    // out to both lane-queues", which over-delivers; the routing assumes
+    // exactly one target queue per dispatch.
+    // @cast-boundary schema-walk — defensive runtime-check against bypassed type-system
+    const runIn = (jobDef as { runIn?: unknown }).runIn;
+    if (runIn !== undefined && runIn !== "api" && runIn !== "worker") {
+      throw new Error(
+        `Invalid runIn "${String(runIn)}" on job "${qualifiedName}" — jobs must be pinned to a single lane ("api" or "worker"). "both" is not allowed because BullMQ queues are lane-scoped.`,
+      );
+    }
+    state.jobMap.set(qualifiedName, { ...jobDef, name: qualifiedName });
+  }
+
+  // Notifications: scope:notify:name
+  for (const [name, notifDef] of Object.entries(feature.notifications ?? {})) {
+    const qualifiedName = qualify(feature.name, "notify", name);
+    state.notificationMap.set(qualifiedName, {
+      ...notifDef,
+      name: qualifiedName,
+      trigger: { on: notifDef.trigger.on },
+    });
+    state.notificationFeatureMap.set(qualifiedName, feature.name);
+  }
+}
+
+// Events: scope:event:name. Upcaster chains stitched after full ingest (see validateEventUpcasters).
+function populateEvents(state: RegistryState, feature: FeatureDefinition): void {
+  // Events: scope:event:name. Migrations stay keyed by feature+short-name
+  // in the FeatureDefinition and get stitched into the state.eventUpcasterMap
+  // below (after ALL features are ingested) so cross-feature validation has
+  // the complete picture.
+  for (const [eventName, eventDef] of Object.entries(feature.events ?? {})) {
+    const qualified = qualify(feature.name, "event", eventName);
+    state.eventMap.set(qualified, { ...eventDef, name: qualified });
+  }
+}
+
+// Translations prefixed with featureName: (i18next namespace convention).
+function populateTranslations(state: RegistryState, feature: FeatureDefinition): void {
+  // Translations prefixed with featureName: (i18next namespace convention)
+  for (const [key, value] of Object.entries(feature.translations ?? {})) {
+    state.mergedTranslations[`${feature.name}:${key}`] = value;
+  }
+}
+
+// Lifecycle hooks (handler-targeted, qualified) + entity hooks (entity-targeted,
+// unprefixed) + search-payload-extensions (additive per entity).
+function populateHooks(state: RegistryState, feature: FeatureDefinition): void {
+  // Lifecycle hooks: keyed by handler QN. featureName rides along on each
+  // hook entry — defineFeature sets it, the registry just appends.
+  // Save/delete hooks target write handlers, query hooks target query handlers.
+  mergeHookListQualified(state.preSaveHooks, feature.hooks?.preSave, feature.name, "write");
+  mergeHookListQualified(state.postSaveHooks, feature.hooks?.postSave, feature.name, "write");
+  mergeHookListQualified(state.preDeleteHooks, feature.hooks?.preDelete, feature.name, "write");
+  mergeHookListQualified(state.postDeleteHooks, feature.hooks?.postDelete, feature.name, "write");
+  mergeHookListQualified(state.preQueryHooks, feature.hooks?.preQuery, feature.name, "query");
+  mergeHookListQualified(state.postQueryHooks, feature.hooks?.postQuery, feature.name, "query");
+
+  // Entity hooks: NOT prefixed, keyed by entity name
+  mergeHookList(state.entityPostSaveHooks, feature.entityHooks?.postSave);
+  mergeHookList(state.entityPreDeleteHooks, feature.entityHooks?.preDelete);
+  mergeHookList(state.entityPostDeleteHooks, feature.entityHooks?.postDelete);
+  mergeHookList(state.entityPostQueryHooks, feature.entityHooks?.postQuery);
+
+  // F3 search-payload-extensions: per-entity contributors merged additively
+  for (const [entityName, contributors] of Object.entries(feature.searchPayloadExtensions ?? {})) {
+    const existing = state.searchPayloadExtensions.get(entityName) ?? [];
+    for (const c of contributors) existing.push(c);
+    state.searchPayloadExtensions.set(entityName, existing);
+  }
+}
+
+// Registrar extension definitions + usages + selectors + reference-data + config-seeds.
+function populateExtensionsAndSeeds(state: RegistryState, feature: FeatureDefinition): void {
+  // Registrar extensions: collect definitions and usages
+  for (const [extName, extDef] of Object.entries(feature.registrarExtensions ?? {})) {
+    if (state.extensionMap.has(extName)) {
+      throw new Error(
+        `Duplicate registrar extension: "${extName}" (registered by multiple features)`,
+      );
+    }
+    state.extensionMap.set(extName, extDef);
+  }
+  // Annotate the owner so consumers (readiness gating) can map a
+  // registration back to the feature's config keys + secrets.
+  state.extensionUsages.push(
+    ...(feature.extensionUsages ?? []).map((u) => ({ ...u, featureName: feature.name })),
+  );
+  for (const sel of feature.extensionSelectors ?? []) {
+    if (state.extensionSelectorMap.has(sel.extensionName)) {
+      throw new Error(
+        `Duplicate extension selector for "${sel.extensionName}" ` +
+          `(feature "${feature.name}") — one owning feature declares the selector.`,
+      );
+    }
+    state.extensionSelectorMap.set(sel.extensionName, sel.qualifiedKey);
+  }
+  state.allReferenceData.push(...(feature.referenceData ?? []));
+  state.allConfigSeeds.push(...(feature.configSeeds ?? []));
+}
+
+// Metrics (name-validated, globally-unique) + secret keys (already qualified).
+function populateMetricsAndSecrets(state: RegistryState, feature: FeatureDefinition): void {
+  // Metrics: validate + qualify per feature. Collisions across features are
+  // rejected here — two features can't both register "created_total" under
+  // different shapes (labels/type) because the resulting fully qualified
+  // names differ, but same short+feature combo would already fail in
+  // defineFeature. This loop catches cross-feature/extension edge cases.
+  for (const [shortName, def] of Object.entries(feature.metrics ?? {})) {
+    const fullName = buildMetricName(feature.name, shortName);
+    validateMetricName(fullName, def.type);
+    if (state.metricMap.has(fullName)) {
+      throw new Error(
+        `[Kumiko Observability] Metric "${fullName}" registered multiple times ` +
+          `(Feature: ${feature.name}). Metric names must be globally unique.`,
+      );
+    }
+    state.metricMap.set(fullName, { ...def, featureName: feature.name });
+  }
+
+  // Secret keys: already qualified during defineFeature (same "<feature>:<short>"
+  // convention used elsewhere). Reject cross-feature duplicates — extensions
+  // could theoretically register on another feature's namespace.
+  for (const def of Object.values(feature.secretKeys ?? {})) {
+    if (state.secretKeyMap.has(def.qualifiedName)) {
+      throw new Error(
+        `[Kumiko Secrets] Secret key "${def.qualifiedName}" registered multiple times. ` +
+          "Secret names must be globally unique across features.",
+      );
+    }
+    state.secretKeyMap.set(def.qualifiedName, def);
+  }
+}
+
+// Explicit + multi-stream projections (source-entity indexed) + raw tables +
+// unmanaged tables (both cross-feature-uniqueness-by-physical-name guarded).
+function populateProjectionsAndTables(state: RegistryState, feature: FeatureDefinition): void {
+  // Projections: qualified by feature name. Build the source-entity index so
+  // the event-store-executor can fetch matching projections in O(1) per write.
+  for (const [projName, projDef] of Object.entries(feature.projections ?? {})) {
+    const qualified = qualify(feature.name, "projection", projName);
+    if (state.projectionMap.has(qualified)) {
+      throw new Error(`Duplicate projection: "${qualified}" (registered by multiple features)`);
+    }
+    const stored = { ...projDef, name: qualified };
+    state.projectionMap.set(qualified, stored);
+    const sources = Array.isArray(projDef.source) ? projDef.source : [projDef.source];
+    for (const src of sources) {
+      const existing = state.projectionsBySource.get(src) ?? [];
+      existing.push(stored);
+      state.projectionsBySource.set(src, existing);
+    }
+  }
+
+  // Multi-stream projections: qualified + stored for later wiring into
+  // event-dispatcher. Namespace is shared with single-stream projections —
+  // defineFeature already catches name collisions inside one feature, but
+  // we also guard the cross-feature case here.
+  for (const [mspName, mspDef] of Object.entries(feature.multiStreamProjections ?? {})) {
+    const qualified = qualify(feature.name, "projection", mspName);
+    if (state.projectionMap.has(qualified) || state.multiStreamProjectionMap.has(qualified)) {
+      throw new Error(`Duplicate projection: "${qualified}" (registered by multiple features)`);
+    }
+    // runIn runtime-check. TS's RunIn union already enforces the three
+    // values at compile time; this guards dynamically-constructed MSPs
+    // (config-driven, plugin authors) that could slip a typo through.
+    // @cast-boundary schema-walk — defensive runtime-check against bypassed type-system
+    const mspRunIn = (mspDef as { runIn?: unknown }).runIn;
+    if (
+      mspRunIn !== undefined &&
+      mspRunIn !== "api" &&
+      mspRunIn !== "worker" &&
+      mspRunIn !== "both"
+    ) {
+      throw new Error(
+        `Invalid runIn "${String(mspRunIn)}" on MSP "${qualified}" — must be "api", "worker", or "both".`,
+      );
+    }
+    state.multiStreamProjectionMap.set(qualified, { ...mspDef, name: qualified });
+    state.multiStreamProjectionFeatureMap.set(qualified, feature.name);
+  }
+
+  // Raw tables: aggregated by feature-local short name (unprefixed —
+  // these bypass the qualified-name namespace because they have no
+  // event-stream binding to disambiguate). Reject cross-feature
+  // duplicates at boot so the dev-server doesn't race two CREATE TABLE
+  // statements that target the same physical table name.
+  for (const [rawName, rawDef] of Object.entries(feature.rawTables ?? {})) {
+    const existing = state.rawTableMap.get(rawName);
+    if (existing) {
+      throw new Error(
+        `Raw-table "${rawName}" registered by both feature "${existing.featureName}" and ` +
+          `"${feature.name}". Pick a feature-prefixed name to disambiguate.`,
+      );
+    }
+    state.rawTableMap.set(rawName, { ...rawDef, featureName: feature.name });
+  }
+
+  // Unmanaged tables — same cross-feature uniqueness invariant as rawTables.
+  // Two features registering the same physical tableName would race two
+  // CREATE TABLE statements via migrate-runner.
+  for (const [umName, umDef] of Object.entries(feature.unmanagedTables ?? {})) {
+    const existing = state.unmanagedTableMap.get(umName);
+    if (existing) {
+      throw new Error(
+        `Unmanaged-table "${umName}" registered by both feature "${existing.featureName}" and ` +
+          `"${feature.name}". Pick a feature-prefixed tableName to disambiguate.`,
+      );
+    }
+    const physicalClash = state.physicalTableOwners.get(umName);
+    if (physicalClash?.kind === "entity") {
+      throw new Error(
+        `Unmanaged-table "${umName}" (feature "${feature.name}") collides with the physical ` +
+          `table of entity "${physicalClash.owner}" (feature "${physicalClash.featureName}"). ` +
+          `Pick a different tableName — both would emit CREATE TABLE "${umName}".`,
+      );
+    }
+    const piiFields = umDef.meta.piiSubjectFields ?? [];
+    if (piiFields.length > 0 && !umDef.piiEncryptedOnWrite) {
+      throw new Error(
+        `Unmanaged-table "${umName}" (feature "${feature.name}") has PII-annotated fields ` +
+          `(${piiFields.join(", ")}) but direct writes bypass the executor's PII encryption. ` +
+          `Encrypt those fields before every insert/update (encryptPiiFieldValues) and declare ` +
+          `{ piiEncryptedOnWrite: true }, or drop the subject annotations.`,
+      );
+    }
+    state.physicalTableOwners.set(umName, {
+      kind: "unmanaged",
+      owner: umName,
+      featureName: feature.name,
+    });
+    state.unmanagedTableMap.set(umName, { ...umDef, featureName: feature.name });
+  }
+}
+
+// Claim keys + auth-claims hooks (declaredShortNames threads the auto-prefix
+// warning-set from claim-key declarations into the hooks registered right after —
+// reordered next to each other; originally separated by the screens/nav/workspace
+// block below, which has no dependency on either).
+function populateClaimsAndAuth(state: RegistryState, feature: FeatureDefinition): void {
+  // Claim keys: aggregated by qualified name. Two features cannot collide
+  // here (qualified by feature name), but we still guard for explicit
+  // correctness — the only way to hit this is a hand-built FeatureDefinition
+  // bypassing defineFeature's per-feature duplicate check.
+  const declaredShortNames = new Set<string>();
+  for (const def of Object.values(feature.claimKeys ?? {})) {
+    if (state.claimKeyMap.has(def.qualifiedName)) {
+      throw new Error(
+        `[Kumiko ClaimKeys] Claim key "${def.qualifiedName}" registered multiple times. ` +
+          "Claim short-names must be globally unique across features.",
+      );
+    }
+    state.claimKeyMap.set(def.qualifiedName, def);
+    declaredShortNames.add(def.shortName);
+  }
+  // Auth-claims hooks: order of registration is preserved. Feature name is
+  // captured alongside so the resolver can apply the auto-prefix at merge
+  // time — the feature author never ships pre-prefixed keys.
   //
-  // - `phase === undefined` → any phase passes.
-  // - `effectiveFeatures === undefined` → ownership filter disabled.
-  // - hook.featureName === "*" or undefined → always passes ownership filter.
-  //   "*" is reserved for extension-provided hooks that are invariant
-  //   plumbing, not opt-in feature logic.
-  function filterByPhase<TFn>(
-    list: readonly PhasedHook<TFn>[] | undefined,
-    phase: HookPhase | undefined,
-    effectiveFeatures?: ReadonlySet<string>,
-  ): readonly TFn[] {
-    if (!list || list.length === 0) return [];
-    const result: TFn[] = [];
-    for (const entry of list) {
-      if (phase !== undefined && entry.phase !== phase) continue;
-      if (!ownerEnabled(entry.featureName, effectiveFeatures)) continue;
-      result.push(entry.fn);
-    }
-    return result;
+  // If the feature declared ANY claim keys, every hook from that feature
+  // gets the declaredShortNames set attached. The resolver uses it to warn
+  // on undeclared inner-keys (typo / rename drift). Features that don't
+  // declare claimKeys skip the check entirely — it's opt-in.
+  const declaredKeys = declaredShortNames.size > 0 ? declaredShortNames : undefined;
+  for (const fn of feature.authClaimsHooks ?? []) {
+    state.authClaimsHooks.push({
+      featureName: feature.name,
+      fn,
+      ...(declaredKeys && { declaredKeys }),
+    });
   }
+}
 
-  // Same ownership rule as filterByPhase, but for unphased hook lists
-  // (preSave, preQuery). Returns the raw fns ready for the lifecycle runner.
-  function filterOwned<TFn>(
-    list: readonly OwnedFn<TFn>[] | undefined,
-    effectiveFeatures?: ReadonlySet<string>,
-  ): readonly TFn[] {
-    if (!list || list.length === 0) return [];
-    const result: TFn[] = [];
-    for (const entry of list) {
-      if (!ownerEnabled(entry.featureName, effectiveFeatures)) continue;
-      result.push(entry.fn);
-    }
-    return result;
-  }
-
-  function ownerEnabled(
-    owner: string | undefined,
-    effectiveFeatures: ReadonlySet<string> | undefined,
-  ): boolean {
-    if (!effectiveFeatures) return true;
-    if (owner === undefined || owner === "*") return true;
-    return effectiveFeatures.has(owner);
-  }
-
-  // Merge hooks without prefix (entity hooks). featureName is already on
-  // every hook entry (set by defineFeature), so there's no parallel
-  // bookkeeping — just append.
-  function mergeHookList<T>(
-    map: Map<string, T[]>,
-    source: Readonly<Record<string, readonly T[]>> | undefined,
-  ): void {
-    // skip: optionaler entityHook-slot — features ohne postSave/preDelete/
-    // postDelete/postQuery lassen das slot undefined.
-    if (!source) return;
-    for (const [name, fns] of Object.entries(source)) {
-      const existing = map.get(name) ?? [];
-      existing.push(...fns);
-      map.set(name, existing);
+// Screens + nav (qualified, entity/parent indexed) + workspaces (nav membership
+// pass 1 — pass 2 folds self-assigned nav entries in after full ingest, see
+// finalizeWorkspaceNavMembership) + tree-actions (at-most-one per feature).
+function populateScreensNavWorkspaces(state: RegistryState, feature: FeatureDefinition): void {
+  // Screens: qualified + stored. Uniqueness per-feature is enforced in
+  // defineFeature; cross-feature collisions are impossible because the
+  // qualified name includes the feature-prefix. The separate state.featureMap
+  // entry lets the nav resolver pause screens owned by disabled features
+  // in O(1) without walking every screen.
+  for (const [screenId, screenDef] of Object.entries(feature.screens ?? {})) {
+    const qualified = qualify(feature.name, "screen", screenId);
+    // Stored version overwrites `id` with the qualified name so callers
+    // never need a reverse index (NavDef → qn) during tree-walking.
+    // Same pattern as state.writeHandlerMap/state.projectionMap/state.multiStreamProjectionMap
+    // (see `{ ...def, name: qualified }` above). Feature-side
+    // `feature.screens[shortId]` keeps the short id — only the registry
+    // surface flips.
+    const stored = { ...screenDef, id: qualified };
+    state.screenMap.set(qualified, stored);
+    state.screenFeatureMap.set(qualified, feature.name);
+    // entity-Index nur für Screens die direkt an einer Entity hängen.
+    // entityList/entityEdit haben `entity`; custom + actionForm haben
+    // keinen entity-Bezug (custom ist opaque, actionForm hat inline
+    // fields ohne Entity-Reference).
+    if (stored.type === "entityList" || stored.type === "entityEdit") {
+      const existing = state.screensByEntity.get(stored.entity) ?? [];
+      existing.push(stored);
+      state.screensByEntity.set(stored.entity, existing);
     }
   }
 
-  // Merge hooks with feature prefix (handler hooks).
-  // Hook keys are handler QNs — hooks don't get their own QN, they're keyed by the handler they target.
-  // The hookQnType indicates whether the targeted handler is a write or query handler.
-  function mergeHookListQualified<T>(
-    map: Map<string, T[]>,
-    source: Readonly<Record<string, readonly T[]>> | undefined,
-    featureName: string,
-    hookQnType: QnType,
-  ): void {
-    // skip: optionaler hook-slot — defineFeature materialisiert zwar alle
-    // Slots, aber hand-gebaute Definitionen an System-Grenzen (Fixtures,
-    // Partial-Boots, s. registry.test.ts) lassen sie weg. Leeres Record
-    // statt Object.entries(undefined)-Crash.
-    if (!source) return;
-    for (const [name, fns] of Object.entries(source)) {
-      const qualified = qualify(featureName, hookQnType, name);
-      const existing = map.get(qualified) ?? [];
-      existing.push(...fns);
-      map.set(qualified, existing);
+  // Nav entries: same qualification pattern as screens. The parent/screen
+  // refs are boot-validated below (after all features are ingested, so
+  // cross-feature parents can resolve). parent-index is built in the same
+  // loop because `parent` refers to a qualified name that doesn't need
+  // resolution — just string equality with whatever's in the target
+  // entry's QN.
+  for (const [navId, navDef] of Object.entries(feature.navs ?? {})) {
+    const qualified = qualify(feature.name, "nav", navId);
+    // See screens above — stored version carries the qualified id so
+    // resolveNavigation can recurse via getNavsByParent(child.id) without
+    // hand-building a reverse index.
+    const stored = { ...navDef, id: qualified };
+    state.navMap.set(qualified, stored);
+    state.navFeatureMap.set(qualified, feature.name);
+    if (stored.parent === undefined) {
+      state.topLevelNavs.push(stored);
+    } else {
+      const existing = state.navsByParent.get(stored.parent) ?? [];
+      existing.push(stored);
+      state.navsByParent.set(stored.parent, existing);
     }
   }
 
-  for (const feature of features) {
-    if (featureMap.has(feature.name)) {
-      throw new Error(`Duplicate feature: "${feature.name}"`);
-    }
-    featureMap.set(feature.name, feature);
-
-    // Entities: NOT prefixed — entity names must be globally unique
-    for (const [name, entity] of Object.entries(feature.entities ?? {})) {
-      if (entityMap.has(name)) {
-        throw new Error(`Duplicate entity: "${name}" (registered by multiple features)`);
+  // Workspaces: same qualification pattern as nav/screen. Step one stores
+  // the workspace itself + its explicit nav list; step two (after every
+  // feature has been ingested) folds nav-self-assigned QNs into the same
+  // member list. Doing it in two passes keeps cross-feature workspace
+  // refs valid — a nav entry can self-assign to a workspace whose feature
+  // hasn't been ingested yet.
+  for (const [wsId, wsDef] of Object.entries(feature.workspaces ?? {})) {
+    const qualified = qualify(feature.name, "workspace", wsId);
+    const stored = { ...wsDef, id: qualified };
+    state.workspaceMap.set(qualified, stored);
+    state.workspaceFeatureMap.set(qualified, feature.name);
+    // Seed the membership list with the workspace's explicit nav refs in
+    // declaration order. Boot-validator checks the QNs resolve.
+    state.navsByWorkspace.set(qualified, [...(stored.nav ?? [])]);
+    if (stored.default === true) {
+      // Boot-validator enforces uniqueness; here we just remember the
+      // first one and let validateBoot complain if there's a second.
+      if (state.defaultWorkspace === undefined) {
+        state.defaultWorkspace = stored;
       }
-      entityMap.set(name, entity);
-      const physical = resolveTableName(name, entity, feature.name);
-      const clash = physicalTableOwners.get(physical);
-      if (clash?.kind === "unmanaged") {
-        throw new Error(
-          `Entity "${name}" (feature "${feature.name}") has physical table "${physical}" which ` +
-            `collides with r.unmanagedTable("${physical}") (feature "${clash.featureName}"). ` +
-            `Pick a different tableName — both would emit CREATE TABLE "${physical}".`,
-        );
-      }
-      // Entity-vs-entity ist genauso fatal: zwei Entities mit explizitem,
-      // identischem tableName überschrieben sich hier vorher still —
-      // doppeltes CREATE TABLE bzw. eine Projektion frisst die andere.
-      if (clash?.kind === "entity") {
-        throw new Error(
-          `Entity "${name}" (feature "${feature.name}") has physical table "${physical}" which ` +
-            `collides with entity "${clash.owner}" (feature "${clash.featureName}"). ` +
-            `Pick a different tableName — both would project into "${physical}".`,
-        );
-      }
-      physicalTableOwners.set(physical, { kind: "entity", owner: name, featureName: feature.name });
-    }
-
-    // Relations: entityName (not prefixed)
-    for (const [entityName, rels] of Object.entries(feature.relations ?? {})) {
-      const existing = relationMap.get(entityName) ?? {};
-      for (const [relName, relDef] of Object.entries(rels)) {
-        if (existing[relName]) {
-          throw new Error(
-            `Duplicate relation: "${entityName}.${relName}" (registered by multiple features)`,
-          );
-        }
-        existing[relName] = relDef;
-      }
-      relationMap.set(entityName, existing);
-    }
-
-    // Write handlers: scope:write:name
-    for (const [name, handler] of Object.entries(feature.writeHandlers ?? {})) {
-      const qualified = qualify(feature.name, "write", name);
-      if (writeHandlerMap.has(qualified)) {
-        throw new Error(
-          `Duplicate write handler: "${qualified}" (registered by multiple features)`,
-        );
-      }
-      writeHandlerMap.set(qualified, { ...handler, name: qualified });
-      handlerFeatureMap.set(qualified, feature.name);
-    }
-
-    // Query handlers: scope:query:name
-    for (const [name, handler] of Object.entries(feature.queryHandlers ?? {})) {
-      const qualified = qualify(feature.name, "query", name);
-      if (queryHandlerMap.has(qualified)) {
-        throw new Error(
-          `Duplicate query handler: "${qualified}" (registered by multiple features)`,
-        );
-      }
-      queryHandlerMap.set(qualified, { ...handler, name: qualified });
-      handlerFeatureMap.set(qualified, feature.name);
-    }
-
-    // Config keys: scope:config:name
-    for (const [key, keyDef] of Object.entries(feature.configKeys ?? {})) {
-      const qualifiedKey = qualify(feature.name, "config", key);
-      if (configKeyMap.has(qualifiedKey)) {
-        throw new Error(
-          `Duplicate config key: "${qualifiedKey}" (registered by multiple features)`,
-        );
-      }
-      configKeyMap.set(qualifiedKey, keyDef);
-    }
-
-    // Jobs: scope:job:name
-    for (const [name, jobDef] of Object.entries(feature.jobs ?? {})) {
-      const qualifiedName = qualify(feature.name, "job", name);
-      if (jobMap.has(qualifiedName)) {
-        throw new Error(`Duplicate job: "${qualifiedName}" (registered by multiple features)`);
-      }
-      // runIn runtime-check. TS's JobRunIn = Exclude<RunIn, "both"> already
-      // rejects "both" at compile time, but dynamically-constructed jobs
-      // (serialized config, plugin authors using `as any`) could slip it
-      // past the type system. Fail loud — "both" for jobs would mean "fan
-      // out to both lane-queues", which over-delivers; the routing assumes
-      // exactly one target queue per dispatch.
-      // @cast-boundary schema-walk — defensive runtime-check against bypassed type-system
-      const runIn = (jobDef as { runIn?: unknown }).runIn;
-      if (runIn !== undefined && runIn !== "api" && runIn !== "worker") {
-        throw new Error(
-          `Invalid runIn "${String(runIn)}" on job "${qualifiedName}" — jobs must be pinned to a single lane ("api" or "worker"). "both" is not allowed because BullMQ queues are lane-scoped.`,
-        );
-      }
-      jobMap.set(qualifiedName, { ...jobDef, name: qualifiedName });
-    }
-
-    // Notifications: scope:notify:name
-    for (const [name, notifDef] of Object.entries(feature.notifications ?? {})) {
-      const qualifiedName = qualify(feature.name, "notify", name);
-      notificationMap.set(qualifiedName, {
-        ...notifDef,
-        name: qualifiedName,
-        trigger: { on: notifDef.trigger.on },
-      });
-      notificationFeatureMap.set(qualifiedName, feature.name);
-    }
-
-    // Events: scope:event:name. Migrations stay keyed by feature+short-name
-    // in the FeatureDefinition and get stitched into the eventUpcasterMap
-    // below (after ALL features are ingested) so cross-feature validation has
-    // the complete picture.
-    for (const [eventName, eventDef] of Object.entries(feature.events ?? {})) {
-      const qualified = qualify(feature.name, "event", eventName);
-      eventMap.set(qualified, { ...eventDef, name: qualified });
-    }
-
-    // Translations prefixed with featureName: (i18next namespace convention)
-    for (const [key, value] of Object.entries(feature.translations ?? {})) {
-      mergedTranslations[`${feature.name}:${key}`] = value;
-    }
-
-    // Lifecycle hooks: keyed by handler QN. featureName rides along on each
-    // hook entry — defineFeature sets it, the registry just appends.
-    // Save/delete hooks target write handlers, query hooks target query handlers.
-    mergeHookListQualified(preSaveHooks, feature.hooks?.preSave, feature.name, "write");
-    mergeHookListQualified(postSaveHooks, feature.hooks?.postSave, feature.name, "write");
-    mergeHookListQualified(preDeleteHooks, feature.hooks?.preDelete, feature.name, "write");
-    mergeHookListQualified(postDeleteHooks, feature.hooks?.postDelete, feature.name, "write");
-    mergeHookListQualified(preQueryHooks, feature.hooks?.preQuery, feature.name, "query");
-    mergeHookListQualified(postQueryHooks, feature.hooks?.postQuery, feature.name, "query");
-
-    // Entity hooks: NOT prefixed, keyed by entity name
-    mergeHookList(entityPostSaveHooks, feature.entityHooks?.postSave);
-    mergeHookList(entityPreDeleteHooks, feature.entityHooks?.preDelete);
-    mergeHookList(entityPostDeleteHooks, feature.entityHooks?.postDelete);
-    mergeHookList(entityPostQueryHooks, feature.entityHooks?.postQuery);
-
-    // F3 search-payload-extensions: per-entity contributors merged additively
-    for (const [entityName, contributors] of Object.entries(
-      feature.searchPayloadExtensions ?? {},
-    )) {
-      const existing = searchPayloadExtensions.get(entityName) ?? [];
-      for (const c of contributors) existing.push(c);
-      searchPayloadExtensions.set(entityName, existing);
-    }
-
-    // Registrar extensions: collect definitions and usages
-    for (const [extName, extDef] of Object.entries(feature.registrarExtensions ?? {})) {
-      if (extensionMap.has(extName)) {
-        throw new Error(
-          `Duplicate registrar extension: "${extName}" (registered by multiple features)`,
-        );
-      }
-      extensionMap.set(extName, extDef);
-    }
-    // Annotate the owner so consumers (readiness gating) can map a
-    // registration back to the feature's config keys + secrets.
-    extensionUsages.push(
-      ...(feature.extensionUsages ?? []).map((u) => ({ ...u, featureName: feature.name })),
-    );
-    for (const sel of feature.extensionSelectors ?? []) {
-      if (extensionSelectorMap.has(sel.extensionName)) {
-        throw new Error(
-          `Duplicate extension selector for "${sel.extensionName}" ` +
-            `(feature "${feature.name}") — one owning feature declares the selector.`,
-        );
-      }
-      extensionSelectorMap.set(sel.extensionName, sel.qualifiedKey);
-    }
-    allReferenceData.push(...(feature.referenceData ?? []));
-    allConfigSeeds.push(...(feature.configSeeds ?? []));
-
-    // Metrics: validate + qualify per feature. Collisions across features are
-    // rejected here — two features can't both register "created_total" under
-    // different shapes (labels/type) because the resulting fully qualified
-    // names differ, but same short+feature combo would already fail in
-    // defineFeature. This loop catches cross-feature/extension edge cases.
-    for (const [shortName, def] of Object.entries(feature.metrics ?? {})) {
-      const fullName = buildMetricName(feature.name, shortName);
-      validateMetricName(fullName, def.type);
-      if (metricMap.has(fullName)) {
-        throw new Error(
-          `[Kumiko Observability] Metric "${fullName}" registered multiple times ` +
-            `(Feature: ${feature.name}). Metric names must be globally unique.`,
-        );
-      }
-      metricMap.set(fullName, { ...def, featureName: feature.name });
-    }
-
-    // Secret keys: already qualified during defineFeature (same "<feature>:<short>"
-    // convention used elsewhere). Reject cross-feature duplicates — extensions
-    // could theoretically register on another feature's namespace.
-    for (const def of Object.values(feature.secretKeys ?? {})) {
-      if (secretKeyMap.has(def.qualifiedName)) {
-        throw new Error(
-          `[Kumiko Secrets] Secret key "${def.qualifiedName}" registered multiple times. ` +
-            "Secret names must be globally unique across features.",
-        );
-      }
-      secretKeyMap.set(def.qualifiedName, def);
-    }
-
-    // Projections: qualified by feature name. Build the source-entity index so
-    // the event-store-executor can fetch matching projections in O(1) per write.
-    for (const [projName, projDef] of Object.entries(feature.projections ?? {})) {
-      const qualified = qualify(feature.name, "projection", projName);
-      if (projectionMap.has(qualified)) {
-        throw new Error(`Duplicate projection: "${qualified}" (registered by multiple features)`);
-      }
-      const stored = { ...projDef, name: qualified };
-      projectionMap.set(qualified, stored);
-      const sources = Array.isArray(projDef.source) ? projDef.source : [projDef.source];
-      for (const src of sources) {
-        const existing = projectionsBySource.get(src) ?? [];
-        existing.push(stored);
-        projectionsBySource.set(src, existing);
-      }
-    }
-
-    // Multi-stream projections: qualified + stored for later wiring into
-    // event-dispatcher. Namespace is shared with single-stream projections —
-    // defineFeature already catches name collisions inside one feature, but
-    // we also guard the cross-feature case here.
-    for (const [mspName, mspDef] of Object.entries(feature.multiStreamProjections ?? {})) {
-      const qualified = qualify(feature.name, "projection", mspName);
-      if (projectionMap.has(qualified) || multiStreamProjectionMap.has(qualified)) {
-        throw new Error(`Duplicate projection: "${qualified}" (registered by multiple features)`);
-      }
-      // runIn runtime-check. TS's RunIn union already enforces the three
-      // values at compile time; this guards dynamically-constructed MSPs
-      // (config-driven, plugin authors) that could slip a typo through.
-      // @cast-boundary schema-walk — defensive runtime-check against bypassed type-system
-      const mspRunIn = (mspDef as { runIn?: unknown }).runIn;
-      if (
-        mspRunIn !== undefined &&
-        mspRunIn !== "api" &&
-        mspRunIn !== "worker" &&
-        mspRunIn !== "both"
-      ) {
-        throw new Error(
-          `Invalid runIn "${String(mspRunIn)}" on MSP "${qualified}" — must be "api", "worker", or "both".`,
-        );
-      }
-      multiStreamProjectionMap.set(qualified, { ...mspDef, name: qualified });
-      multiStreamProjectionFeatureMap.set(qualified, feature.name);
-    }
-
-    // Raw tables: aggregated by feature-local short name (unprefixed —
-    // these bypass the qualified-name namespace because they have no
-    // event-stream binding to disambiguate). Reject cross-feature
-    // duplicates at boot so the dev-server doesn't race two CREATE TABLE
-    // statements that target the same physical table name.
-    for (const [rawName, rawDef] of Object.entries(feature.rawTables ?? {})) {
-      const existing = rawTableMap.get(rawName);
-      if (existing) {
-        throw new Error(
-          `Raw-table "${rawName}" registered by both feature "${existing.featureName}" and ` +
-            `"${feature.name}". Pick a feature-prefixed name to disambiguate.`,
-        );
-      }
-      rawTableMap.set(rawName, { ...rawDef, featureName: feature.name });
-    }
-
-    // Unmanaged tables — same cross-feature uniqueness invariant as rawTables.
-    // Two features registering the same physical tableName would race two
-    // CREATE TABLE statements via migrate-runner.
-    for (const [umName, umDef] of Object.entries(feature.unmanagedTables ?? {})) {
-      const existing = unmanagedTableMap.get(umName);
-      if (existing) {
-        throw new Error(
-          `Unmanaged-table "${umName}" registered by both feature "${existing.featureName}" and ` +
-            `"${feature.name}". Pick a feature-prefixed tableName to disambiguate.`,
-        );
-      }
-      const physicalClash = physicalTableOwners.get(umName);
-      if (physicalClash?.kind === "entity") {
-        throw new Error(
-          `Unmanaged-table "${umName}" (feature "${feature.name}") collides with the physical ` +
-            `table of entity "${physicalClash.owner}" (feature "${physicalClash.featureName}"). ` +
-            `Pick a different tableName — both would emit CREATE TABLE "${umName}".`,
-        );
-      }
-      const piiFields = umDef.meta.piiSubjectFields ?? [];
-      if (piiFields.length > 0 && !umDef.piiEncryptedOnWrite) {
-        throw new Error(
-          `Unmanaged-table "${umName}" (feature "${feature.name}") has PII-annotated fields ` +
-            `(${piiFields.join(", ")}) but direct writes bypass the executor's PII encryption. ` +
-            `Encrypt those fields before every insert/update (encryptPiiFieldValues) and declare ` +
-            `{ piiEncryptedOnWrite: true }, or drop the subject annotations.`,
-        );
-      }
-      physicalTableOwners.set(umName, {
-        kind: "unmanaged",
-        owner: umName,
-        featureName: feature.name,
-      });
-      unmanagedTableMap.set(umName, { ...umDef, featureName: feature.name });
-    }
-
-    // Claim keys: aggregated by qualified name. Two features cannot collide
-    // here (qualified by feature name), but we still guard for explicit
-    // correctness — the only way to hit this is a hand-built FeatureDefinition
-    // bypassing defineFeature's per-feature duplicate check.
-    const declaredShortNames = new Set<string>();
-    for (const def of Object.values(feature.claimKeys ?? {})) {
-      if (claimKeyMap.has(def.qualifiedName)) {
-        throw new Error(
-          `[Kumiko ClaimKeys] Claim key "${def.qualifiedName}" registered multiple times. ` +
-            "Claim short-names must be globally unique across features.",
-        );
-      }
-      claimKeyMap.set(def.qualifiedName, def);
-      declaredShortNames.add(def.shortName);
-    }
-
-    // Screens: qualified + stored. Uniqueness per-feature is enforced in
-    // defineFeature; cross-feature collisions are impossible because the
-    // qualified name includes the feature-prefix. The separate featureMap
-    // entry lets the nav resolver pause screens owned by disabled features
-    // in O(1) without walking every screen.
-    for (const [screenId, screenDef] of Object.entries(feature.screens ?? {})) {
-      const qualified = qualify(feature.name, "screen", screenId);
-      // Stored version overwrites `id` with the qualified name so callers
-      // never need a reverse index (NavDef → qn) during tree-walking.
-      // Same pattern as writeHandlerMap/projectionMap/multiStreamProjectionMap
-      // (see `{ ...def, name: qualified }` above). Feature-side
-      // `feature.screens[shortId]` keeps the short id — only the registry
-      // surface flips.
-      const stored = { ...screenDef, id: qualified };
-      screenMap.set(qualified, stored);
-      screenFeatureMap.set(qualified, feature.name);
-      // entity-Index nur für Screens die direkt an einer Entity hängen.
-      // entityList/entityEdit haben `entity`; custom + actionForm haben
-      // keinen entity-Bezug (custom ist opaque, actionForm hat inline
-      // fields ohne Entity-Reference).
-      if (stored.type === "entityList" || stored.type === "entityEdit") {
-        const existing = screensByEntity.get(stored.entity) ?? [];
-        existing.push(stored);
-        screensByEntity.set(stored.entity, existing);
-      }
-    }
-
-    // Nav entries: same qualification pattern as screens. The parent/screen
-    // refs are boot-validated below (after all features are ingested, so
-    // cross-feature parents can resolve). parent-index is built in the same
-    // loop because `parent` refers to a qualified name that doesn't need
-    // resolution — just string equality with whatever's in the target
-    // entry's QN.
-    for (const [navId, navDef] of Object.entries(feature.navs ?? {})) {
-      const qualified = qualify(feature.name, "nav", navId);
-      // See screens above — stored version carries the qualified id so
-      // resolveNavigation can recurse via getNavsByParent(child.id) without
-      // hand-building a reverse index.
-      const stored = { ...navDef, id: qualified };
-      navMap.set(qualified, stored);
-      navFeatureMap.set(qualified, feature.name);
-      if (stored.parent === undefined) {
-        topLevelNavs.push(stored);
-      } else {
-        const existing = navsByParent.get(stored.parent) ?? [];
-        existing.push(stored);
-        navsByParent.set(stored.parent, existing);
-      }
-    }
-
-    // Workspaces: same qualification pattern as nav/screen. Step one stores
-    // the workspace itself + its explicit nav list; step two (after every
-    // feature has been ingested) folds nav-self-assigned QNs into the same
-    // member list. Doing it in two passes keeps cross-feature workspace
-    // refs valid — a nav entry can self-assign to a workspace whose feature
-    // hasn't been ingested yet.
-    for (const [wsId, wsDef] of Object.entries(feature.workspaces ?? {})) {
-      const qualified = qualify(feature.name, "workspace", wsId);
-      const stored = { ...wsDef, id: qualified };
-      workspaceMap.set(qualified, stored);
-      workspaceFeatureMap.set(qualified, feature.name);
-      // Seed the membership list with the workspace's explicit nav refs in
-      // declaration order. Boot-validator checks the QNs resolve.
-      navsByWorkspace.set(qualified, [...(stored.nav ?? [])]);
-      if (stored.default === true) {
-        // Boot-validator enforces uniqueness; here we just remember the
-        // first one and let validateBoot complain if there's a second.
-        if (defaultWorkspace === undefined) {
-          defaultWorkspace = stored;
-        }
-      }
-    }
-
-    // Tree-Actions slot — at-most-one per feature (only-once-guard im
-    // registrar). Erased Map für Runtime-Lookup; compile-time-typed
-    // Surface läuft über FeatureDefinition.exports (TreeActionsHandle).
-    if (feature.treeActions !== undefined) {
-      treeActionsMap.set(feature.name, feature.treeActions);
-    }
-
-    // Auth-claims hooks: order of registration is preserved. Feature name is
-    // captured alongside so the resolver can apply the auto-prefix at merge
-    // time — the feature author never ships pre-prefixed keys.
-    //
-    // If the feature declared ANY claim keys, every hook from that feature
-    // gets the declaredShortNames set attached. The resolver uses it to warn
-    // on undeclared inner-keys (typo / rename drift). Features that don't
-    // declare claimKeys skip the check entirely — it's opt-in.
-    const declaredKeys = declaredShortNames.size > 0 ? declaredShortNames : undefined;
-    for (const fn of feature.authClaimsHooks ?? []) {
-      authClaimsHooks.push({
-        featureName: feature.name,
-        fn,
-        ...(declaredKeys && { declaredKeys }),
-      });
     }
   }
 
-  // Pass 2 for workspaces: fold any nav-self-assigned QNs into their
+  // Tree-Actions slot — at-most-one per feature (only-once-guard im
+  // registrar). Erased Map für Runtime-Lookup; compile-time-typed
+  // Surface läuft über FeatureDefinition.exports (TreeActionsHandle).
+  if (feature.treeActions !== undefined) {
+    state.treeActionsMap.set(feature.name, feature.treeActions);
+  }
+}
+
+// Pass 2 for workspaces: fold any nav-self-assigned QNs into their
+// workspace's member list. Safe now that every feature (and therefore every
+// workspace) is in state.workspaceMap.
+function finalizeWorkspaceNavMembership(state: RegistryState): void {
   // workspace's member list. We can do this safely now that every feature
-  // (and therefore every workspace) is in workspaceMap. Cross-feature refs
+  // (and therefore every workspace) is in state.workspaceMap. Cross-feature refs
   // — a nav from feature A self-assigning to a workspace from feature B —
   // resolve here because B's workspace was registered in pass 1 above.
   // Dedup: a nav entry that's also in r.workspace({ nav: [...] }) shouldn't
   // appear twice. Boot-validator catches dangling workspace ids.
-  for (const [navQn, navDef] of navMap) {
+  for (const [navQn, navDef] of state.navMap) {
     if (!navDef.workspaces || navDef.workspaces.length === 0) continue;
     for (const wsQn of navDef.workspaces) {
-      const members = navsByWorkspace.get(wsQn);
+      const members = state.navsByWorkspace.get(wsQn);
       if (members === undefined) continue; // dangling — boot-validator reports
       if (!members.includes(navQn)) members.push(navQn);
     }
   }
+}
 
+// Build handler → entity mapping from feature declarations. Must happen before
+// extension processing since extension preSave hooks need entity mappings.
+function populateHandlerEntityMappings(
+  state: RegistryState,
+  features: readonly FeatureDefinition[],
+): void {
   // Build handler → entity mapping from feature declarations (filled by tryMapEntity
   // in defineFeature via the "entityName:verb" colon convention).
   // Must happen before extension processing since extension preSave hooks need entity mappings.
@@ -831,36 +888,41 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     for (const [handlerName, entityName] of Object.entries(feature.handlerEntityMappings ?? {})) {
       const writeQn = qualify(feature.name, "write", handlerName);
       const queryQn = qualify(feature.name, "query", handlerName);
-      if (writeHandlerMap.has(writeQn)) {
-        handlerEntityMap.set(writeQn, entityName);
+      if (state.writeHandlerMap.has(writeQn)) {
+        state.handlerEntityMap.set(writeQn, entityName);
       }
-      if (queryHandlerMap.has(queryQn)) {
-        handlerEntityMap.set(queryQn, entityName);
+      if (state.queryHandlerMap.has(queryQn)) {
+        state.handlerEntityMap.set(queryQn, entityName);
       }
     }
   }
+}
 
+function validateExtensionSelectors(state: RegistryState): void {
   // Selector declarations point into the merged extension + config-key
   // sets — a typo'd extension or dropped key must fail the boot, not
   // silently un-gate readiness.
-  for (const [extensionName, qualifiedKey] of extensionSelectorMap) {
-    if (!extensionMap.has(extensionName)) {
+  for (const [extensionName, qualifiedKey] of state.extensionSelectorMap) {
+    if (!state.extensionMap.has(extensionName)) {
       throw new Error(
         `extensionSelector("${extensionName}") declared but no feature ` +
           `registers that extension via extendsRegistrar.`,
       );
     }
-    if (!configKeyMap.has(qualifiedKey)) {
+    if (!state.configKeyMap.has(qualifiedKey)) {
       throw new Error(
         `extensionSelector("${extensionName}") points at unknown config key ` +
           `"${qualifiedKey}" — no mounted feature declares it.`,
       );
     }
   }
+}
 
+// Process extension usages: call onRegister, apply extendSchema, register hooks.
+function applyExtensionUsages(state: RegistryState): void {
   // Process extension usages: call onRegister, apply extendSchema, register hooks
-  for (const usage of extensionUsages) {
-    const ext = extensionMap.get(usage.extensionName);
+  for (const usage of state.extensionUsages) {
+    const ext = state.extensionMap.get(usage.extensionName);
     if (!ext) continue;
 
     if (ext.onRegister) {
@@ -869,11 +931,11 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     // extendSchema: merge extra fields into entity definition
     if (ext.extendSchema) {
-      const entity = entityMap.get(usage.entityName);
+      const entity = state.entityMap.get(usage.entityName);
       if (entity) {
         const extraFields = ext.extendSchema(usage.entityName);
         const merged = { ...entity, fields: { ...entity.fields, ...extraFields } };
-        entityMap.set(usage.entityName, merged);
+        state.entityMap.set(usage.entityName, merged);
       }
     }
 
@@ -889,53 +951,52 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     const extOwner = "*";
     if (ext.hooks) {
       if (ext.hooks.postSave) {
-        const existing = entityPostSaveHooks.get(usage.entityName) ?? [];
+        const existing = state.entityPostSaveHooks.get(usage.entityName) ?? [];
         existing.push({
           fn: ext.hooks.postSave,
           phase: HookPhases.afterCommit,
           featureName: extOwner,
         });
-        entityPostSaveHooks.set(usage.entityName, existing);
+        state.entityPostSaveHooks.set(usage.entityName, existing);
       }
       if (ext.hooks.preDelete) {
-        const existing = entityPreDeleteHooks.get(usage.entityName) ?? [];
+        const existing = state.entityPreDeleteHooks.get(usage.entityName) ?? [];
         existing.push({
           fn: ext.hooks.preDelete,
           phase: HookPhases.afterCommit,
           featureName: extOwner,
         });
-        entityPreDeleteHooks.set(usage.entityName, existing);
+        state.entityPreDeleteHooks.set(usage.entityName, existing);
       }
       if (ext.hooks.postDelete) {
-        const existing = entityPostDeleteHooks.get(usage.entityName) ?? [];
+        const existing = state.entityPostDeleteHooks.get(usage.entityName) ?? [];
         existing.push({
           fn: ext.hooks.postDelete,
           phase: HookPhases.afterCommit,
           featureName: extOwner,
         });
-        entityPostDeleteHooks.set(usage.entityName, existing);
+        state.entityPostDeleteHooks.set(usage.entityName, existing);
       }
       // preSave on extensions: store as handler hook for all CRUD handlers of this entity
       if (ext.hooks.preSave) {
-        // Find all write handlers that belong to this entity via handlerEntityMap
-        for (const qualifiedHandler of writeHandlerMap.keys()) {
-          if (handlerEntityMap.get(qualifiedHandler) === usage.entityName) {
-            const existing = preSaveHooks.get(qualifiedHandler) ?? [];
+        // Find all write handlers that belong to this entity via state.handlerEntityMap
+        for (const qualifiedHandler of state.writeHandlerMap.keys()) {
+          if (state.handlerEntityMap.get(qualifiedHandler) === usage.entityName) {
+            const existing = state.preSaveHooks.get(qualifiedHandler) ?? [];
             existing.push({ fn: ext.hooks.preSave, featureName: extOwner });
-            preSaveHooks.set(qualifiedHandler, existing);
+            state.preSaveHooks.set(qualifiedHandler, existing);
           }
         }
       }
     }
   }
+}
 
+// Precompute: searchable/sortable fields.
+function buildSearchableSortableCaches(state: RegistryState): void {
   // Precompute: searchable/sortable fields, search includes, incoming relations
-  const searchableFieldsCache = new Map<string, readonly string[]>();
-  const sortableFieldsCache = new Map<string, readonly string[]>();
-  const searchIncludesCache = new Map<string, ReadonlyMap<string, readonly string[]>>();
-  const incomingRelationsCache = new Map<string, IncomingRelation[]>();
 
-  for (const [name, entity] of entityMap) {
+  for (const [name, entity] of state.entityMap) {
     const searchable: string[] = [];
     const sortable: string[] = [];
     for (const [fieldName, field] of Object.entries(entity.fields)) {
@@ -947,10 +1008,16 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
         }
       }
     }
-    searchableFieldsCache.set(name, searchable);
-    sortableFieldsCache.set(name, sortable);
+    state.searchableFieldsCache.set(name, searchable);
+    state.sortableFieldsCache.set(name, sortable);
   }
+}
 
+// Implicit-Projection pro r.entity — see buildImplicitProjection doc above.
+function buildImplicitProjections(
+  state: RegistryState,
+  features: readonly FeatureDefinition[],
+): void {
   // Implicit-Projection pro r.entity. Macht die Entity-Tabelle rebaubar
   // ohne dass Apps eine explizite r.projection schreiben müssen.
   // Naming-Convention: `<feature>:projection:<entityName>-entity` — der
@@ -979,30 +1046,32 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
         feature.entityTables?.[entityName],
         feature.entityProjectionExtensions?.[entityName] ?? [],
       );
-      if (projectionMap.has(def.name)) {
+      if (state.projectionMap.has(def.name)) {
         throw new Error(
           `Implicit projection "${def.name}" kollidiert mit einer explizit registrierten r.projection. ` +
             `Implicit-Projections werden für jede r.entity mit "-entity"-Suffix angelegt — ` +
             `benenne deine explicit projection um (z.B. "<entity>-summary") um die Kollision aufzulösen.`,
         );
       }
-      projectionMap.set(def.name, def);
-      const existing = projectionsBySource.get(entityName) ?? [];
+      state.projectionMap.set(def.name, def);
+      const existing = state.projectionsBySource.get(entityName) ?? [];
       existing.push(def);
-      projectionsBySource.set(entityName, existing);
+      state.projectionsBySource.set(entityName, existing);
     }
   }
+}
 
+function validateNoRawTableProjectionClash(state: RegistryState): void {
   // Cross-cut: a r.rawTable() PgTable must not coincide with any
   // registered projection's table. Silent dedupe via Set would mask a
   // real authoring bug (two owners writing to the same physical table).
   // Run after both passes so implicit projections are visible too.
   const projectionTables = new Set<unknown>();
-  for (const proj of projectionMap.values()) projectionTables.add(proj.table);
-  for (const msp of multiStreamProjectionMap.values()) {
+  for (const proj of state.projectionMap.values()) projectionTables.add(proj.table);
+  for (const msp of state.multiStreamProjectionMap.values()) {
     if (msp.table) projectionTables.add(msp.table);
   }
-  for (const raw of rawTableMap.values()) {
+  for (const raw of state.rawTableMap.values()) {
     if (projectionTables.has(raw.table)) {
       throw new Error(
         `r.rawTable "${raw.name}" (feature "${raw.featureName}") shares a Drizzle ` +
@@ -1011,24 +1080,31 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       );
     }
   }
+}
 
-  for (const [entityName, rels] of relationMap) {
+function buildSearchIncludesAndIncomingRelations(state: RegistryState): void {
+  for (const [entityName, rels] of state.relationMap) {
     const includes = new Map<string, readonly string[]>();
     for (const [relName, rel] of Object.entries(rels)) {
       if ((rel.type === "belongsTo" || rel.type === "manyToMany") && rel.searchInclude?.length) {
         includes.set(relName, rel.searchInclude);
       }
     }
-    searchIncludesCache.set(entityName, includes);
+    state.searchIncludesCache.set(entityName, includes);
 
     // Build reverse index for incoming relations
     for (const [relName, rel] of Object.entries(rels)) {
-      const existing = incomingRelationsCache.get(rel.target) ?? [];
+      const existing = state.incomingRelationsCache.get(rel.target) ?? [];
       existing.push({ sourceEntity: entityName, relationName: relName, relation: rel });
-      incomingRelationsCache.set(rel.target, existing);
+      state.incomingRelationsCache.set(rel.target, existing);
     }
   }
+}
 
+function validateFieldAccessHandlersAreEntityMapped(
+  state: RegistryState,
+  features: readonly FeatureDefinition[],
+): void {
   // Validate: handlers in features with field-access rules must be entity-mapped.
   // Without entity mapping, field-level access checks are silently skipped (security gap).
   for (const feature of features) {
@@ -1036,7 +1112,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
 
     for (const handlerName of Object.keys(feature.writeHandlers ?? {})) {
       const qualified = qualify(feature.name, "write", handlerName);
-      if (!handlerEntityMap.has(qualified)) {
+      if (!state.handlerEntityMap.has(qualified)) {
         throw new Error(
           `Write handler "${qualified}" is not mapped to any entity, but feature "${feature.name}" has field-level access rules. ` +
             `Name must follow "entity:verb" convention (e.g. "user:create") or use create/update/delete on a matching entity.`,
@@ -1048,7 +1124,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     for (const handlerName of Object.keys(feature.queryHandlers ?? {})) {
       if (!handlerName.includes(":")) continue;
       const qualified = qualify(feature.name, "query", handlerName);
-      if (!handlerEntityMap.has(qualified)) {
+      if (!state.handlerEntityMap.has(qualified)) {
         throw new Error(
           `Query handler "${qualified}" looks entity-bound but no matching entity exists. ` +
             `Either fix the entity name, or use a name without colons for standalone queries.`,
@@ -1056,24 +1132,25 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       }
     }
   }
+}
 
-  // Extension preSave: useExtension on an entity must have at least one mapped
-  // write handler. Shared with validateBoot's standalone callers (437/2) —
-  // schema-cli's `validate` runs validateBoot on raw FEATURES without ever
-  // building a Registry, so this can't live only here.
-  validateExtensionPreSaveWiring(features);
-
+function validateRelationTargetsExist(state: RegistryState): void {
   // Validate: all relation targets must reference existing entities
-  for (const [entityName, rels] of relationMap) {
+  for (const [entityName, rels] of state.relationMap) {
     for (const [relName, rel] of Object.entries(rels)) {
-      if (!entityMap.has(rel.target)) {
+      if (!state.entityMap.has(rel.target)) {
         throw new Error(
           `Relation "${entityName}.${relName}" targets entity "${rel.target}" which does not exist`,
         );
       }
     }
   }
+}
 
+function validateEventMigrationVersions(
+  state: RegistryState,
+  features: readonly FeatureDefinition[],
+): void {
   // Build + validate event upcaster chains. Run AFTER all features are
   // ingested so r.eventMigration calls can reference events from any
   // feature (same feature in practice, but the check stays lax for future
@@ -1081,7 +1158,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   for (const feature of features) {
     for (const [shortName, migrations] of Object.entries(feature.eventMigrations ?? {})) {
       const qualified = qualify(feature.name, "event", shortName);
-      const eventDef = eventMap.get(qualified);
+      const eventDef = state.eventMap.get(qualified);
       if (!eventDef) {
         throw new Error(
           `Feature "${feature.name}" registered r.eventMigration for "${shortName}" ` +
@@ -1099,13 +1176,18 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       }
     }
   }
+}
 
+function buildEventUpcasterChains(
+  state: RegistryState,
+  features: readonly FeatureDefinition[],
+): void {
   // Stitch the upcaster chain per qualified event. At this point, gaps in
   // the chain (e.g. defineEvent version=3 but only a 1→2 migration exists)
   // are hard errors — they would silently hand a v2-shape payload to a
   // consumer expecting v3 at runtime, which is the class of bug upcasters
   // are supposed to prevent.
-  for (const [qualified, eventDef] of eventMap) {
+  for (const [qualified, eventDef] of state.eventMap) {
     const chainMap = new Map<number, EventUpcastFn>();
     // Locate the feature that owns this event (to pick up its migrations).
     for (const feature of features) {
@@ -1126,12 +1208,14 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
         }
       }
     }
-    eventUpcasterMap.set(qualified, {
+    state.eventUpcasterMap.set(qualified, {
       currentVersion: eventDef.version,
       chain: chainMap,
     });
   }
+}
 
+function validateProjectionApplyKeys(state: RegistryState): void {
   // Validate: every projection's source must reference a registered entity.
   // A typo ("unti" instead of "unit") would otherwise be a silent no-op —
   // the projection is stored but never fires because no aggregateType ever
@@ -1143,8 +1227,8 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   // r.defineEvent — an apply-handler for a domain event is how a projection
   // reacts to ctx.appendEvent writes on the same aggregate stream.
   const AUTO_EVENT_VERBS = ["created", "updated", "deleted", "restored", "forgotten"] as const;
-  const allDomainEventNames = new Set(eventMap.keys());
-  for (const [projName, projDef] of projectionMap) {
+  const allDomainEventNames = new Set(state.eventMap.keys());
+  for (const [projName, projDef] of state.projectionMap) {
     const sources = Array.isArray(projDef.source) ? projDef.source : [projDef.source];
     // extraSources (r.extendEntityProjection) sit in the rebuild filter, so
     // their auto-verbs are legitimately observable apply-keys too.
@@ -1165,9 +1249,9 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     //      the delivery-service produces one event on a fresh aggregate)
     //      or `jobRun` (BullMQ-callback-driven lifecycle, no executor).
     //      A "Shape-Anchor"-entity is no longer needed for this case.
-    const isEventsOnlySource = !sources.every((src) => entityMap.has(src));
+    const isEventsOnlySource = !sources.every((src) => state.entityMap.has(src));
     for (const src of rebuildSources) {
-      if (entityMap.has(src)) {
+      if (state.entityMap.has(src)) {
         for (const verb of AUTO_EVENT_VERBS) validEventTypes.add(`${src}.${verb}`);
       }
     }
@@ -1182,7 +1266,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     if (isEventsOnlySource) {
       const hasAnyDomainEvent = Object.keys(projDef.apply).some((k) => allDomainEventNames.has(k));
       if (!hasAnyDomainEvent) {
-        const unregistered = sources.filter((src) => !entityMap.has(src));
+        const unregistered = sources.filter((src) => !state.entityMap.has(src));
         throw new Error(
           `Projection "${projName}" declares source(s) [${unregistered.join(", ")}] that are not registered entities, ` +
             `and has no domain-event apply-keys. This is either a typo or a missing r.defineEvent registration. ` +
@@ -1204,24 +1288,34 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       }
     }
   }
+}
 
+function validateRequiredFeatures(
+  state: RegistryState,
+  features: readonly FeatureDefinition[],
+): void {
   // Validate: all required features must be registered
   for (const feature of features) {
     for (const required of feature.requires ?? []) {
-      if (!featureMap.has(required)) {
+      if (!state.featureMap.has(required)) {
         throw new Error(
           `Feature "${feature.name}" requires feature "${required}" which is not registered`,
         );
       }
     }
   }
+}
 
+function resolveNotificationTriggersAndRegisterHooks(state: RegistryState): void {
   // Resolve notification triggers and register postSave hooks
   // Done after all features are registered so cross-feature triggers work
-  const allHandlerNames = new Set([...writeHandlerMap.keys(), ...queryHandlerMap.keys()]);
-  for (const [qualifiedName, notifDef] of notificationMap) {
+  const allHandlerNames = new Set([
+    ...state.writeHandlerMap.keys(),
+    ...state.queryHandlerMap.keys(),
+  ]);
+  for (const [qualifiedName, notifDef] of state.notificationMap) {
     // Both maps are populated in lockstep — same key-set by construction.
-    const featureName = notificationFeatureMap.get(qualifiedName) as string; // @cast-boundary engine-bridge
+    const featureName = state.notificationFeatureMap.get(qualifiedName) as string; // @cast-boundary engine-bridge
     // I'll try the easy path first: if the trigger is already a fully qualified QN
     // (cross-feature), I take it as-is. Otherwise I qualify with the own feature —
     // as a write handler first (the common case), then as a query. If nothing
@@ -1246,10 +1340,10 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       }
     }
     // Update the stored definition with resolved trigger
-    notificationMap.set(qualifiedName, { ...notifDef, trigger: { on: triggerOn } });
+    state.notificationMap.set(qualifiedName, { ...notifDef, trigger: { on: triggerOn } });
 
-    if (!postSaveHooks.has(triggerOn)) postSaveHooks.set(triggerOn, []);
-    postSaveHooks.get(triggerOn)?.push({
+    if (!state.postSaveHooks.has(triggerOn)) state.postSaveHooks.set(triggerOn, []);
+    state.postSaveHooks.get(triggerOn)?.push({
       phase: HookPhases.afterCommit,
       featureName,
       fn: async (result, context) => {
@@ -1271,16 +1365,18 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       },
     });
   }
+}
 
+function validateLifecycleHookTargets(state: RegistryState): void {
   // Validate: lifecycle hook targets must reference existing handlers
-  const allHandlers = allHandlerNames;
+  const allHandlers = new Set([...state.writeHandlerMap.keys(), ...state.queryHandlerMap.keys()]);
   const lifecycleHookMaps = [
-    { map: preSaveHooks, phase: "preSave" },
-    { map: postSaveHooks, phase: "postSave" },
-    { map: preDeleteHooks, phase: "preDelete" },
-    { map: postDeleteHooks, phase: "postDelete" },
-    { map: preQueryHooks, phase: "preQuery" },
-    { map: postQueryHooks, phase: "postQuery" },
+    { map: state.preSaveHooks, phase: "preSave" },
+    { map: state.postSaveHooks, phase: "postSave" },
+    { map: state.preDeleteHooks, phase: "preDelete" },
+    { map: state.postDeleteHooks, phase: "postDelete" },
+    { map: state.preQueryHooks, phase: "preQuery" },
+    { map: state.postQueryHooks, phase: "postQuery" },
   ] as const;
 
   // I'd rather warn you now at boot than have you open a ticket three weeks from now
@@ -1295,7 +1391,12 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       }
     }
   }
+}
 
+function validateEntityHookTargets(
+  state: RegistryState,
+  features: readonly FeatureDefinition[],
+): void {
   // Same logic for entity-keyed hooks — targets must reference existing entities.
   // Memory `feedback_dead_hook_needs_second_consumer`: a typo silently registers
   // and never fires. Validates all four entity-hook types (postSave/preDelete/
@@ -1308,11 +1409,11 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
     }
   }
   const entityHookMaps = [
-    { map: entityPostSaveHooks, phase: "postSave (entityHook)", kind: "hook" },
-    { map: entityPreDeleteHooks, phase: "preDelete (entityHook)", kind: "hook" },
-    { map: entityPostDeleteHooks, phase: "postDelete (entityHook)", kind: "hook" },
-    { map: entityPostQueryHooks, phase: "postQuery (entityHook)", kind: "hook" },
-    { map: searchPayloadExtensions, phase: "searchPayloadExtension", kind: "extension" },
+    { map: state.entityPostSaveHooks, phase: "postSave (entityHook)", kind: "hook" },
+    { map: state.entityPreDeleteHooks, phase: "preDelete (entityHook)", kind: "hook" },
+    { map: state.entityPostDeleteHooks, phase: "postDelete (entityHook)", kind: "hook" },
+    { map: state.entityPostQueryHooks, phase: "postQuery (entityHook)", kind: "hook" },
+    { map: state.searchPayloadExtensions, phase: "searchPayloadExtension", kind: "extension" },
   ] as const;
   for (const { map, phase, kind } of entityHookMaps) {
     for (const entityName of map.keys()) {
@@ -1324,11 +1425,14 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       }
     }
   }
+}
 
+function validateJobTriggers(state: RegistryState): void {
   // Validate: job event triggers must reference existing handlers.
   // Multi-Trigger-Form: jeden Eintrag im Array gegen allHandlers prüfen,
   // auch wenn nur einer fehlt fail-fast.
-  for (const [jobName, jobDef] of jobMap) {
+  const allHandlers = new Set([...state.writeHandlerMap.keys(), ...state.queryHandlerMap.keys()]);
+  for (const [jobName, jobDef] of state.jobMap) {
     if (!("on" in jobDef.trigger)) continue;
     const triggerOn = jobDef.trigger.on;
     const triggers = Array.isArray(triggerOn) ? triggerOn : [triggerOn];
@@ -1340,104 +1444,156 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       );
     }
   }
+}
 
+function validateExtensionUsageTargets(state: RegistryState): void {
   // Validate: extension usages must reference existing extensions
-  for (const usage of extensionUsages) {
-    if (!extensionMap.has(usage.extensionName)) {
+  for (const usage of state.extensionUsages) {
+    if (!state.extensionMap.has(usage.extensionName)) {
       throw new Error(
         `Extension usage "${usage.extensionName}" on entity "${usage.entityName}" references an extension that does not exist`,
       );
     }
   }
+}
 
+// Pre-compute: any handler with a rateLimit option?
+function computeHasRateLimitedHandler(state: RegistryState): void {
   // Pre-compute: any handler with a rateLimit option? Keeps the boot
   // path able to short-circuit the RateLimitResolver wiring (and its
   // Lua-script registration on Redis) when nobody opted in.
-  const hasRateLimitedHandlerCached = (() => {
-    for (const h of writeHandlerMap.values()) if (h.rateLimit !== undefined) return true;
-    for (const h of queryHandlerMap.values()) if (h.rateLimit !== undefined) return true;
+  state.hasRateLimitedHandlerCached = (() => {
+    for (const h of state.writeHandlerMap.values()) if (h.rateLimit !== undefined) return true;
+    for (const h of state.queryHandlerMap.values()) if (h.rateLimit !== undefined) return true;
     return false;
   })();
+}
 
+function publishEventPiiCatalog(state: RegistryState): void {
   // Publish the event-PII catalog (#799): append() — the single write funnel
   // into kumiko_events — encrypts catalogued payload fields regardless of
   // which path produced the event (ctx.appendEvent, MSP-apply, low-level
   // append in delivery/jobs loggers).
   const eventPiiCatalog = new Map<string, EventPiiFields>();
-  for (const [qualified, def] of eventMap) {
+  for (const [qualified, def] of state.eventMap) {
     if (def.piiFields) eventPiiCatalog.set(qualified, def.piiFields);
   }
   configureEventPiiCatalog(eventPiiCatalog);
+}
 
+function autoWireSoftDeleteJobs(state: RegistryState): void {
   // Auto-wire the soft-delete cleanup cron + its grace-days config key when ANY
   // entity opts into softDelete — the framework owns this machinery, no feature
   // declares it (mirrors the auto restore-handler). Job-runner reads getAllJobs
   // ungated; config-resolver reads getConfigKey → default. Reserved owner
   // segment, guarded against a real-feature collision.
-  if ([...entityMap.values()].some((e) => e.softDelete)) {
-    if (!jobMap.has(SOFT_DELETE_CLEANUP_JOB)) {
-      jobMap.set(SOFT_DELETE_CLEANUP_JOB, buildSoftDeleteCleanupJob());
+  if ([...state.entityMap.values()].some((e) => e.softDelete)) {
+    if (!state.jobMap.has(SOFT_DELETE_CLEANUP_JOB)) {
+      state.jobMap.set(SOFT_DELETE_CLEANUP_JOB, buildSoftDeleteCleanupJob());
     }
-    if (!jobMap.has(SOFT_DELETE_CLEANUP_SYSTEM_JOB)) {
-      jobMap.set(SOFT_DELETE_CLEANUP_SYSTEM_JOB, buildSoftDeleteCleanupSystemJob());
+    if (!state.jobMap.has(SOFT_DELETE_CLEANUP_SYSTEM_JOB)) {
+      state.jobMap.set(SOFT_DELETE_CLEANUP_SYSTEM_JOB, buildSoftDeleteCleanupSystemJob());
     }
-    if (!configKeyMap.has(SOFT_DELETE_GRACE_DAYS_KEY)) {
-      configKeyMap.set(SOFT_DELETE_GRACE_DAYS_KEY, softDeleteGraceDaysConfig);
+    if (!state.configKeyMap.has(SOFT_DELETE_GRACE_DAYS_KEY)) {
+      state.configKeyMap.set(SOFT_DELETE_GRACE_DAYS_KEY, softDeleteGraceDaysConfig);
     }
   }
+}
+
+export function createRegistry(features: readonly FeatureDefinition[]): Registry {
+  const state = createInitialState();
+
+  for (const feature of features) {
+    populateFeatureCore(state, feature);
+    populateHandlers(state, feature);
+    populateConfigKeys(state, feature);
+    populateJobsAndNotifications(state, feature);
+    populateEvents(state, feature);
+    populateTranslations(state, feature);
+    populateHooks(state, feature);
+    populateExtensionsAndSeeds(state, feature);
+    populateMetricsAndSecrets(state, feature);
+    populateProjectionsAndTables(state, feature);
+    populateClaimsAndAuth(state, feature);
+    populateScreensNavWorkspaces(state, feature);
+  }
+
+  finalizeWorkspaceNavMembership(state);
+  populateHandlerEntityMappings(state, features);
+  validateExtensionSelectors(state);
+  applyExtensionUsages(state);
+  buildSearchableSortableCaches(state);
+  buildImplicitProjections(state, features);
+  validateNoRawTableProjectionClash(state);
+  buildSearchIncludesAndIncomingRelations(state);
+  validateFieldAccessHandlersAreEntityMapped(state, features);
+  validateExtensionPreSaveWiring(features);
+  validateRelationTargetsExist(state);
+  validateEventMigrationVersions(state, features);
+  buildEventUpcasterChains(state, features);
+  validateProjectionApplyKeys(state);
+  validateRequiredFeatures(state, features);
+  resolveNotificationTriggersAndRegisterHooks(state);
+  validateLifecycleHookTargets(state);
+  validateEntityHookTargets(state, features);
+  validateJobTriggers(state);
+  validateExtensionUsageTargets(state);
+  computeHasRateLimitedHandler(state);
+  publishEventPiiCatalog(state);
+  autoWireSoftDeleteJobs(state);
 
   return {
-    features: featureMap,
+    features: state.featureMap,
 
     getFeature(name: string): FeatureDefinition | undefined {
-      return featureMap.get(name);
+      return state.featureMap.get(name);
     },
 
     hasRateLimitedHandler(): boolean {
-      return hasRateLimitedHandlerCached;
+      return state.hasRateLimitedHandlerCached;
     },
 
     getEntity(name: string): EntityDefinition | undefined {
-      return entityMap.get(name);
+      return state.entityMap.get(name);
     },
 
     getAllEntities(): ReadonlyMap<string, EntityDefinition> {
-      return entityMap;
+      return state.entityMap;
     },
 
     getWriteHandler(name: string): WriteHandlerDef | undefined {
-      return writeHandlerMap.get(name);
+      return state.writeHandlerMap.get(name);
     },
 
     getQueryHandler(name: string): QueryHandlerDef | undefined {
-      return queryHandlerMap.get(name);
+      return state.queryHandlerMap.get(name);
     },
 
     getSearchableFields(entityName: string): readonly string[] {
-      return searchableFieldsCache.get(entityName) ?? [];
+      return state.searchableFieldsCache.get(entityName) ?? [];
     },
 
     getSortableFields(entityName: string): readonly string[] {
-      return sortableFieldsCache.get(entityName) ?? [];
+      return state.sortableFieldsCache.get(entityName) ?? [];
     },
 
     getRelations(entityName: string): EntityRelations {
-      return (relationMap.get(entityName) ?? {}) as EntityRelations; // @cast-boundary schema-walk
+      return (state.relationMap.get(entityName) ?? {}) as EntityRelations; // @cast-boundary schema-walk
     },
 
     getSearchIncludes(entityName: string): ReadonlyMap<string, readonly string[]> {
-      return searchIncludesCache.get(entityName) ?? new Map();
+      return state.searchIncludesCache.get(entityName) ?? new Map();
     },
 
     getIncomingRelations(entityName: string): readonly IncomingRelation[] {
-      return incomingRelationsCache.get(entityName) ?? [];
+      return state.incomingRelationsCache.get(entityName) ?? [];
     },
 
     getPreSaveHooks(
       name: string,
       effectiveFeatures?: ReadonlySet<string>,
     ): readonly PreSaveHookFn[] {
-      return filterOwned(preSaveHooks.get(name), effectiveFeatures);
+      return filterOwned(state.preSaveHooks.get(name), effectiveFeatures);
     },
 
     getPostSaveHooks(
@@ -1445,7 +1601,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       phase?: HookPhase,
       effectiveFeatures?: ReadonlySet<string>,
     ): readonly PostSaveHookFn[] {
-      return filterByPhase(postSaveHooks.get(name), phase, effectiveFeatures);
+      return filterByPhase(state.postSaveHooks.get(name), phase, effectiveFeatures);
     },
 
     getPreDeleteHooks(
@@ -1453,7 +1609,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       phase?: HookPhase,
       effectiveFeatures?: ReadonlySet<string>,
     ): readonly PreDeleteHookFn[] {
-      return filterByPhase(preDeleteHooks.get(name), phase, effectiveFeatures);
+      return filterByPhase(state.preDeleteHooks.get(name), phase, effectiveFeatures);
     },
 
     getPostDeleteHooks(
@@ -1461,21 +1617,21 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       phase?: HookPhase,
       effectiveFeatures?: ReadonlySet<string>,
     ): readonly PostDeleteHookFn[] {
-      return filterByPhase(postDeleteHooks.get(name), phase, effectiveFeatures);
+      return filterByPhase(state.postDeleteHooks.get(name), phase, effectiveFeatures);
     },
 
     getPreQueryHooks(
       name: string,
       effectiveFeatures?: ReadonlySet<string>,
     ): readonly PreQueryHookFn[] {
-      return filterOwned(preQueryHooks.get(name), effectiveFeatures);
+      return filterOwned(state.preQueryHooks.get(name), effectiveFeatures);
     },
 
     getPostQueryHooks(
       name: string,
       effectiveFeatures?: ReadonlySet<string>,
     ): readonly PostQueryHookFn[] {
-      return filterOwned(postQueryHooks.get(name), effectiveFeatures);
+      return filterOwned(state.postQueryHooks.get(name), effectiveFeatures);
     },
 
     // Entity hooks — fire for all writes on an entity
@@ -1484,7 +1640,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       phase?: HookPhase,
       effectiveFeatures?: ReadonlySet<string>,
     ): readonly PostSaveHookFn[] {
-      return filterByPhase(entityPostSaveHooks.get(entityName), phase, effectiveFeatures);
+      return filterByPhase(state.entityPostSaveHooks.get(entityName), phase, effectiveFeatures);
     },
 
     getEntityPreDeleteHooks(
@@ -1492,7 +1648,7 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       phase?: HookPhase,
       effectiveFeatures?: ReadonlySet<string>,
     ): readonly PreDeleteHookFn[] {
-      return filterByPhase(entityPreDeleteHooks.get(entityName), phase, effectiveFeatures);
+      return filterByPhase(state.entityPreDeleteHooks.get(entityName), phase, effectiveFeatures);
     },
 
     getEntityPostDeleteHooks(
@@ -1500,14 +1656,14 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       phase?: HookPhase,
       effectiveFeatures?: ReadonlySet<string>,
     ): readonly PostDeleteHookFn[] {
-      return filterByPhase(entityPostDeleteHooks.get(entityName), phase, effectiveFeatures);
+      return filterByPhase(state.entityPostDeleteHooks.get(entityName), phase, effectiveFeatures);
     },
 
     getEntityPostQueryHooks(
       entityName: string,
       effectiveFeatures?: ReadonlySet<string>,
     ): readonly PostQueryHookFn[] {
-      return filterOwned(entityPostQueryHooks.get(entityName), effectiveFeatures);
+      return filterOwned(state.entityPostQueryHooks.get(entityName), effectiveFeatures);
     },
 
     // F3 — Search-Payload-Extension contributors for an entity. Used by
@@ -1518,177 +1674,177 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
       entityName: string,
       effectiveFeatures?: ReadonlySet<string>,
     ): readonly SearchPayloadContributorFn[] {
-      return filterOwned(searchPayloadExtensions.get(entityName), effectiveFeatures);
+      return filterOwned(state.searchPayloadExtensions.get(entityName), effectiveFeatures);
     },
 
     getAllTranslations(): TranslationKeys {
-      return mergedTranslations;
+      return state.mergedTranslations;
     },
 
     getHandlerEntity(qualifiedHandler: string): string | undefined {
-      return handlerEntityMap.get(qualifiedHandler);
+      return state.handlerEntityMap.get(qualifiedHandler);
     },
 
     isHandlerSystemScoped(qualifiedHandler: string): boolean {
-      const featureName = handlerFeatureMap.get(qualifiedHandler);
+      const featureName = state.handlerFeatureMap.get(qualifiedHandler);
       if (!featureName) return false;
-      return featureMap.get(featureName)?.systemScope ?? false;
+      return state.featureMap.get(featureName)?.systemScope ?? false;
     },
 
     getHandlerFeature(qualifiedHandler: string): string | undefined {
-      return handlerFeatureMap.get(qualifiedHandler);
+      return state.handlerFeatureMap.get(qualifiedHandler);
     },
 
     getAllMetrics() {
-      return metricMap;
+      return state.metricMap;
     },
 
     getAllSecretKeys(): ReadonlyMap<string, SecretKeyDefinition> {
-      return secretKeyMap;
+      return state.secretKeyMap;
     },
 
     getSecretKey(qualifiedName: string): SecretKeyDefinition | undefined {
-      return secretKeyMap.get(qualifiedName);
+      return state.secretKeyMap.get(qualifiedName);
     },
 
     getConfigKey(qualifiedKey: string): ConfigKeyDefinition | undefined {
-      return configKeyMap.get(qualifiedKey);
+      return state.configKeyMap.get(qualifiedKey);
     },
 
     getAllConfigKeys(): ReadonlyMap<string, ConfigKeyDefinition> {
-      return configKeyMap;
+      return state.configKeyMap;
     },
 
     getJob(qualifiedName: string): JobDefinition | undefined {
-      return jobMap.get(qualifiedName);
+      return state.jobMap.get(qualifiedName);
     },
 
     getAllJobs(): ReadonlyMap<string, JobDefinition> {
-      return jobMap;
+      return state.jobMap;
     },
 
     getEvent(qualifiedName: string): EventDef | undefined {
-      return eventMap.get(qualifiedName);
+      return state.eventMap.get(qualifiedName);
     },
 
     getEventUpcasters() {
-      return eventUpcasterMap;
+      return state.eventUpcasterMap;
     },
 
     getExtension(name: string): RegistrarExtensionDef | undefined {
-      return extensionMap.get(name);
+      return state.extensionMap.get(name);
     },
 
     getExtensionUsages(extensionName: string): readonly RegistrarExtensionRegistration[] {
-      return extensionUsages.filter((u) => u.extensionName === extensionName);
+      return state.extensionUsages.filter((u) => u.extensionName === extensionName);
     },
 
     getAllExtensionSelectors(): ReadonlyMap<string, string> {
-      return extensionSelectorMap;
+      return state.extensionSelectorMap;
     },
 
     getAllNotifications(): ReadonlyMap<string, NotificationDefinition> {
-      return notificationMap;
+      return state.notificationMap;
     },
 
     getAllReferenceData(): readonly ReferenceDataDef[] {
-      return allReferenceData;
+      return state.allReferenceData;
     },
 
     getAllConfigSeeds(): readonly ConfigSeedDef[] {
-      return allConfigSeeds;
+      return state.allConfigSeeds;
     },
 
     getProjectionsForSource(entityName: string): readonly ProjectionDefinition[] {
-      return projectionsBySource.get(entityName) ?? [];
+      return state.projectionsBySource.get(entityName) ?? [];
     },
 
     getAllProjections(): ReadonlyMap<string, ProjectionDefinition> {
-      return projectionMap;
+      return state.projectionMap;
     },
 
     getAllRawTables(): ReadonlyMap<string, RawTableDef> {
-      return rawTableMap;
+      return state.rawTableMap;
     },
 
     getAllMultiStreamProjections(): ReadonlyMap<string, MultiStreamProjectionDefinition> {
-      return multiStreamProjectionMap;
+      return state.multiStreamProjectionMap;
     },
 
     getMultiStreamProjectionFeature(qualifiedName: string): string | undefined {
-      return multiStreamProjectionFeatureMap.get(qualifiedName);
+      return state.multiStreamProjectionFeatureMap.get(qualifiedName);
     },
 
     getAuthClaimsHooks(): readonly AuthClaimsHookDef[] {
-      return authClaimsHooks;
+      return state.authClaimsHooks;
     },
 
     getAllClaimKeys(): ReadonlyMap<string, ClaimKeyDefinition> {
-      return claimKeyMap;
+      return state.claimKeyMap;
     },
 
     getClaimKey(qualifiedName: string): ClaimKeyDefinition | undefined {
-      return claimKeyMap.get(qualifiedName);
+      return state.claimKeyMap.get(qualifiedName);
     },
 
     getAllScreens(): ReadonlyMap<string, ScreenDefinition> {
-      return screenMap;
+      return state.screenMap;
     },
 
     getScreen(qualifiedName: string): ScreenDefinition | undefined {
-      return screenMap.get(qualifiedName);
+      return state.screenMap.get(qualifiedName);
     },
 
     getScreenFeature(qualifiedName: string): string | undefined {
-      return screenFeatureMap.get(qualifiedName);
+      return state.screenFeatureMap.get(qualifiedName);
     },
 
     getScreensByEntity(entityName: string): readonly ScreenDefinition[] {
-      return screensByEntity.get(entityName) ?? [];
+      return state.screensByEntity.get(entityName) ?? [];
     },
 
     getAllNavs(): ReadonlyMap<string, NavDefinition> {
-      return navMap;
+      return state.navMap;
     },
 
     getNav(qualifiedName: string): NavDefinition | undefined {
-      return navMap.get(qualifiedName);
+      return state.navMap.get(qualifiedName);
     },
 
     getNavFeature(qualifiedName: string): string | undefined {
-      return navFeatureMap.get(qualifiedName);
+      return state.navFeatureMap.get(qualifiedName);
     },
 
     getNavsByParent(parentQualifiedName: string): readonly NavDefinition[] {
-      return navsByParent.get(parentQualifiedName) ?? [];
+      return state.navsByParent.get(parentQualifiedName) ?? [];
     },
 
     getTopLevelNavs(): readonly NavDefinition[] {
-      return topLevelNavs;
+      return state.topLevelNavs;
     },
 
     getAllWorkspaces(): ReadonlyMap<string, WorkspaceDefinition> {
-      return workspaceMap;
+      return state.workspaceMap;
     },
 
     getWorkspace(qualifiedName: string): WorkspaceDefinition | undefined {
-      return workspaceMap.get(qualifiedName);
+      return state.workspaceMap.get(qualifiedName);
     },
 
     getWorkspaceFeature(qualifiedName: string): string | undefined {
-      return workspaceFeatureMap.get(qualifiedName);
+      return state.workspaceFeatureMap.get(qualifiedName);
     },
 
     getWorkspaceNavs(workspaceQualifiedName: string): readonly string[] {
-      return navsByWorkspace.get(workspaceQualifiedName) ?? [];
+      return state.navsByWorkspace.get(workspaceQualifiedName) ?? [];
     },
 
     getDefaultWorkspace(): WorkspaceDefinition | undefined {
-      return defaultWorkspace;
+      return state.defaultWorkspace;
     },
 
     getTreeActions(featureName: string): Readonly<Record<string, TreeActionDef>> | undefined {
-      return treeActionsMap.get(featureName);
+      return state.treeActionsMap.get(featureName);
     },
   };
 }
