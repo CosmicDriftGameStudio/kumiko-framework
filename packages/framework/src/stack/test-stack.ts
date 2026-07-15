@@ -6,8 +6,9 @@ import { createSseBroker } from "../api/sse-broker";
 import type { PgClient } from "../db/connection";
 import { extractTableInfo } from "../db/query";
 import { createRegistry } from "../engine/registry";
-import type { FeatureDefinition, Registry, TenantId } from "../engine/types";
+import type { FeatureDefinition, JobRunIn, Registry, TenantId } from "../engine/types";
 import { createArchivedStreamsTable, createEventsTable } from "../event-store";
+import { createJobRunner, type JobRunner } from "../jobs";
 import type { Lifecycle } from "../lifecycle";
 import type { ObservabilityProvider } from "../observability";
 import type { Dispatcher, EventDispatcher } from "../pipeline";
@@ -41,6 +42,10 @@ export type TestStack = {
   // Only set when the caller passed `lifecycle` via options. Tests that
   // exercise drain() / /health/ready wire one in; ordinary suites ignore it.
   lifecycle?: Lifecycle;
+  // Only set when `options.jobs` is truthy AND ≥1 `r.job(...)` is
+  // registered in the mounted features. Lets integration tests call
+  // `stack.jobRunner.dispatch(...)` directly, mirroring `ctx.jobRunner`.
+  jobRunner?: JobRunner;
   cleanup: () => Promise<void>;
 };
 
@@ -119,6 +124,19 @@ export type TestStackOptions = {
         sseBroker: import("../api/sse-broker").SseBroker;
         redis: import("ioredis").default;
       }) => import("../api/server").ServerOptions["anonymousAccess"]);
+  /** Opt-in JobRunner wired into ctx.jobRunner (write handlers'
+   *  `ctx.jobRunner.dispatch(...)`) and merged into dispatcherOptions so
+   *  event-triggered jobs enqueue on commit — mirrors the prod entrypoint's
+   *  `buildJobRunnerWithHook`. No-ops when no `r.job(...)` is registered
+   *  anywhere in the mounted features — the bundled `createJobsFeature()`
+   *  (operator UI) is NOT required, matching prod's unconditional build.
+   *  `consumerLane` also starts a local BullMQ worker for that
+   *  lane (default "worker", matching the all-in-one entrypoint
+   *  convention) — pass `undefined` for an enqueue-only runner. */
+  jobs?: {
+    consumerLane?: JobRunIn;
+    queueNamePrefix?: string;
+  };
 };
 
 const DEFAULT_JWT_SECRET = "test-stack-secret-minimum-32-characters!!";
@@ -213,6 +231,26 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   const events = createEventCollector();
   const registry = createRegistry([...options.features]);
 
+  // Built before buildServer() so it can be merged into dispatcherOptions
+  // (write handlers' `ctx.jobRunner.dispatch(...)` and the afterCommit
+  // event-trigger hook both need it present at dispatcher-construction
+  // time, same as the prod entrypoint's buildJobRunnerWithHook). Uses the
+  // test-stack's own ephemeral redis — no separate `redisUrl` seam needed.
+  let jobRunner: JobRunner | undefined;
+  if (options.jobs && registry.getAllJobs().size > 0) {
+    const redisOpts = testRedis.redis.options;
+    jobRunner = createJobRunner({
+      registry,
+      context: { db: testDb.db, registry },
+      redisUrl: `redis://${redisOpts.host}:${redisOpts.port}/${redisOpts.db}`,
+      consumerLane: options.jobs.consumerLane ?? "worker",
+      ...(options.jobs.queueNamePrefix !== undefined && {
+        queueNamePrefix: options.jobs.queueNamePrefix,
+      }),
+    });
+    await jobRunner.start();
+  }
+
   // Auto-configure search for tenant 1 based on registry
   if (enabledHooks.includes("search")) {
     const searchableFields: string[] = [];
@@ -285,6 +323,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     dispatcherOptions: {
       idempotency,
       ...(options.effectiveFeatures && { effectiveFeatures: options.effectiveFeatures }),
+      ...(jobRunner && { jobRunner }),
     },
     eventDedup,
     sseBroker,
@@ -354,7 +393,9 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     dispatcher: server.dispatcher,
     ...(eventDispatcher ? { eventDispatcher } : {}),
     ...(server.lifecycle ? { lifecycle: server.lifecycle } : {}),
+    ...(jobRunner ? { jobRunner } : {}),
     cleanup: async () => {
+      if (jobRunner) await jobRunner.stop();
       if (eventDispatcher) await eventDispatcher.stop();
       await server.observability.shutdown();
       await Promise.all([testDb.cleanup(), testRedis.cleanup()]);

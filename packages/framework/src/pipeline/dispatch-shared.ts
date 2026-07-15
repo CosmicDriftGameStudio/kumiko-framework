@@ -147,7 +147,7 @@ export function buildHandlerContext(
   afterCommitHooks?: AfterCommitHook[],
   includeDeleted?: boolean,
 ): HandlerContext {
-  const { registry, appContext: context, effectiveFeatures } = ctx;
+  const { registry, appContext: context, effectiveFeatures, jobRunner } = ctx;
   const isSystem = registry.isHandlerSystemScoped(type);
   // The outer dispatcher receives a DbConnection from the server/stack;
   // AppContext's `db` union also allows TenantDb (for downstream hook calls),
@@ -483,6 +483,13 @@ export function buildHandlerContext(
     // Propagate the feature-toggle resolver so the lifecycle pipeline,
     // MSP runner, and ctx.hasFeature all pull from the same source.
     ...(effectiveFeatures && { effectiveFeatures }),
+    // Symmetric with job-runner.ts's jobContext: a manual write handler
+    // reaches `ctx.jobRunner.dispatch(...)` the same way a follow-up job
+    // does (bundled jobs feature's trigger.write.ts is the canonical
+    // caller). Was never actually wired here — DispatchContext.jobRunner
+    // only fed the internal afterCommit auto-trigger hook in
+    // executeWriteInner, never the handler-facing ctx (#983).
+    ...(jobRunner && { jobRunner }),
     // ctx.user als Convenience-Alias auf event.user. Der typisch-
     // intuitive Pfad „der Context kennt seinen User" — ohne den
     // schreiben Handler `event.user.tenantId` und brechen sich die

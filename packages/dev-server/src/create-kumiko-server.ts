@@ -670,6 +670,13 @@ export async function createKumikoServer(
     ...(options.effectiveFeatures !== undefined && {
       effectiveFeatures: options.effectiveFeatures,
     }),
+    // Wires ctx.jobRunner so write handlers' `ctx.jobRunner.dispatch(...)`
+    // works under the dev server (#983) — no-ops when no jobs are
+    // registered. Separate from `startDevJobRunners` below, which starts
+    // the actual lane consumers; this only fills the dispatcher's
+    // ctx.jobRunner slot for the "worker" lane, mirroring the prod
+    // entrypoint's all-in-one convention.
+    jobs: {},
   });
   await createEventsTable(stack.db);
   await pushEntityProjectionTables(stack, stack.registry);
