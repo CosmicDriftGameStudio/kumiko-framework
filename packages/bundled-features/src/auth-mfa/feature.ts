@@ -3,6 +3,7 @@ import { mfaRequiredConfigKey } from "./config";
 import { createDisableHandler } from "./handlers/disable.write";
 import { createEnableConfirmHandler } from "./handlers/enable-confirm.write";
 import { createEnableStartHandler } from "./handlers/enable-start.write";
+import { mfaReencryptJob } from "./handlers/reencrypt.job";
 import { createRegenerateRecoveryHandler } from "./handlers/regenerate-recovery.write";
 import { createMfaVerifyHandler } from "./handlers/verify.write";
 import { createMfaStatusChecker, type MfaStatusChecker } from "./mfa-status-checker";
@@ -77,6 +78,11 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
     r.requires("user");
     r.requires("config");
     r.config({ keys: { required: mfaRequiredConfigKey() } });
+
+    // KEK-rotation for totpSecret (entity-field encryption). Manual
+    // trigger — ops runs it once after adding a new master key version,
+    // same operator workflow as config's own reencrypt job.
+    r.job("reencrypt", { trigger: { manual: true } }, mfaReencryptJob);
 
     r.entity("user-mfa", userMfaEntity);
 
