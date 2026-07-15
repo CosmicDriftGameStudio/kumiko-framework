@@ -10,7 +10,7 @@ import {
   type InviteCreateOptions,
 } from "./handlers/invite-create.write";
 import { createInviteSignupCompleteHandler } from "./handlers/invite-signup-complete.write";
-import { createLoginHandler } from "./handlers/login.write";
+import { createLoginHandler, type LoginHandlerOptions } from "./handlers/login.write";
 import { logoutWrite } from "./handlers/logout.write";
 import { createRequestEmailVerificationHandler } from "./handlers/request-email-verification.write";
 import { createRequestPasswordResetHandler } from "./handlers/request-password-reset.write";
@@ -110,6 +110,10 @@ export type SignupOptions = SignupRequestOptions;
 export type InviteOptions = InviteCreateOptions;
 
 export type AuthEmailPasswordOptions = {
+  // Second-factor gate. auth-mfa (if mounted) wires this in via
+  // mfaStatusCheckerFromFeature() at app-composition time — see
+  // LoginHandlerOptions.mfaStatusChecker for the contract it must satisfy.
+  readonly mfaStatusChecker?: LoginHandlerOptions["mfaStatusChecker"];
   readonly passwordReset?: PasswordResetOptions;
   readonly emailVerification?: EmailVerificationOptions;
   readonly accountLockout?: AccountLockoutOptions;
@@ -175,6 +179,7 @@ export function createAuthEmailPasswordFeature(
         createLoginHandler({
           strictEmailVerification: strictVerification,
           accountLockout: opts.accountLockout,
+          mfaStatusChecker: opts.mfaStatusChecker,
         }),
       ),
       changePassword: r.writeHandler(changePasswordWrite),

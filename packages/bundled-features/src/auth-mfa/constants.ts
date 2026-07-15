@@ -2,6 +2,8 @@
 // short `name` below gets auto-prefixed to "auth-mfa:write:<name>" by
 // r.writeHandler. Exported so cross-feature wiring (login.write.ts,
 // run-prod-app.ts) can reference them without hardcoding the string.
+export const AUTH_MFA_FEATURE = "auth-mfa" as const;
+
 export const AuthMfaHandlers = {
   enableStart: "auth-mfa:write:enable-start",
   enableConfirm: "auth-mfa:write:enable-confirm",
