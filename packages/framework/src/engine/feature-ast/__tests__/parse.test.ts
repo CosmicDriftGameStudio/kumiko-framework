@@ -240,11 +240,25 @@ defineFeature("f", (r) => {
     expect(result.errors).toEqual([]);
   });
 
-  test("emits a ParseError when an argument is not a string literal", () => {
+  test("resolves a local const identifier arg via the raw-ref sentinel (#1009)", () => {
     const result = parseInline(`
 const dep = "auth";
 defineFeature("f", (r) => {
   r.requires(dep);
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "requires",
+      featureNames: [{ __raw: "dep" }],
+    });
+    expect(result.errors).toEqual([]);
+  });
+
+  test("emits a ParseError when an argument cannot be resolved at all", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.requires(5);
 });
 `);
 
@@ -267,6 +281,21 @@ defineFeature("f", (r) => {
       featureNames: ["billing"],
     });
   });
+
+  test("keeps a computed feature-name arg as a raw-ref sentinel instead of failing (#1009)", () => {
+    const result = parseInline(`
+const someFeature = { name: "billing" };
+defineFeature("f", (r) => {
+  r.optionalRequires(someFeature.name);
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "optionalRequires",
+      featureNames: [{ __raw: "someFeature.name" }],
+    });
+    expect(result.errors).toEqual([]);
+  });
 });
 
 describe("extractReadsConfig", () => {
@@ -281,6 +310,21 @@ defineFeature("f", (r) => {
       kind: "readsConfig",
       qualifiedKeys: ["auth:config:jwt-ttl", "tenant:config:locale"],
     });
+  });
+
+  test("keeps a computed key arg as a raw-ref sentinel instead of failing (#1009)", () => {
+    const result = parseInline(`
+const cfg = { key: "auth:config:jwt-ttl" };
+defineFeature("f", (r) => {
+  r.readsConfig(cfg.key, "tenant:config:locale");
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "readsConfig",
+      qualifiedKeys: [{ __raw: "cfg.key" }, "tenant:config:locale"],
+    });
+    expect(result.errors).toEqual([]);
   });
 });
 
@@ -1044,8 +1088,12 @@ defineFeature("showpony", (r) => {
 });
 `);
 
-  test("entity referencing an imported const resolves via the raw-ref sentinel (#998 fix)", () => {
+  test("requires()'s computed name and entity's imported const resolve via the raw-ref sentinel (#998/#1009 fix)", () => {
     expect(result.patterns).toMatchObject([
+      {
+        kind: "requires",
+        featureNames: [{ __raw: "someFeature.name" }, "config"],
+      },
       {
         kind: "entity",
         entityName: "event",
@@ -1056,10 +1104,6 @@ defineFeature("showpony", (r) => {
 
   test("known remaining gaps still surface as ParseErrors, not silent drops", () => {
     const errorMethods = result.errors.map((e) => e.methodName);
-    // requires() only accepts string-literal feature names — a computed
-    // `someFeature.name` arg is a separate, pre-existing limitation that
-    // #998 did not touch (readStringLiteralArgs, not readDataLiteralNode).
-    expect(errorMethods).toContain("requires");
     // writeHandler/queryHandler(handlerRef) passes a single identifier/call
     // standing in for the whole handler object — a different extractor
     // shape than #998's definition/options-value fix. Still unsupported;

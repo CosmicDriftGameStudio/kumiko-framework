@@ -135,6 +135,37 @@ export function readDataLiteralNode(node: Node): unknown {
   }
 }
 
+/**
+ * A node's literal string value, or the raw-ref sentinel when it resolves to
+ * an unresolvable identifier/factory-call/member-access (see
+ * readDataLiteralNode). undefined for anything else (number, boolean, ...).
+ */
+export function readStringOrRaw(node: Node): string | RawRefSentinel | undefined {
+  const value = readDataLiteralNode(node);
+  if (typeof value === "string") return value;
+  if (isRawRefSentinel(value)) return value;
+  return undefined;
+}
+
+/**
+ * Like readStringLiteralArgs, but an argument that resolves to a raw-ref
+ * sentinel is kept as that sentinel instead of failing the whole call. Used
+ * where a value stands in for a single name/key and inlining its resolved
+ * string would corrupt the render roundtrip (e.g. `r.requires(someFeature.name)`
+ * — see #1009).
+ */
+export function readStringOrRawArgs(
+  call: CallExpression,
+): readonly (string | RawRefSentinel)[] | undefined {
+  const out: (string | RawRefSentinel)[] = [];
+  for (const arg of call.getArguments()) {
+    const value = readStringOrRaw(arg);
+    if (value === undefined) return undefined;
+    out.push(value);
+  }
+  return out;
+}
+
 export { isPlainObject } from "../../../utils/is-plain-object";
 
 export function readPropertyKey(propAssign: import("ts-morph").PropertyAssignment): string {
@@ -177,7 +208,7 @@ export function readNameOrRefOrList(node: Node): string | readonly string[] | un
 export function readVarargsOrArrayProp(
   call: CallExpression,
   arrayPropName: "features" | "keys",
-): readonly string[] | undefined {
+): readonly (string | RawRefSentinel)[] | undefined {
   const args = call.getArguments();
   if (args.length === 1) {
     const obj = args[0]?.asKind(SyntaxKind.ObjectLiteralExpression);
@@ -189,15 +220,15 @@ export function readVarargsOrArrayProp(
       if (propInit) {
         const arr = propInit.asKind(SyntaxKind.ArrayLiteralExpression);
         if (!arr) return undefined;
-        const out: string[] = [];
+        const out: (string | RawRefSentinel)[] = [];
         for (const el of arr.getElements()) {
-          const lit = el.asKind(SyntaxKind.StringLiteral);
-          if (!lit) return undefined;
-          out.push(lit.getLiteralValue());
+          const value = readStringOrRaw(el);
+          if (value === undefined) return undefined;
+          out.push(value);
         }
         return out;
       }
     }
   }
-  return readStringLiteralArgs(call);
+  return readStringOrRawArgs(call);
 }
