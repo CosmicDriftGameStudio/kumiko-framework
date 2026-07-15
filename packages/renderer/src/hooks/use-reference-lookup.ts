@@ -18,6 +18,7 @@
 // Entity, Live-Updates kommen via SSE (use-query-live).
 
 import { useMemo } from "react";
+import { toKebab } from "../app/qn";
 import { REFERENCE_LIST_LOOKUP_LIMIT } from "./reference-limits";
 import { useQuery } from "./use-query";
 
@@ -35,7 +36,7 @@ export function useReferenceLookup(
   refEntity: string,
   labelField: string,
 ): { readonly map: ReferenceLookupMap; readonly loading: boolean } {
-  const queryQn = `${featureName}:query:${refEntity}:list`;
+  const queryQn = `${toKebab(featureName)}:query:${toKebab(refEntity)}:list`;
   const result = useQuery<{ rows: ReadonlyArray<Record<string, unknown>> }>(queryQn, {
     limit: REFERENCE_LIST_LOOKUP_LIMIT,
   });

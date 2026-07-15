@@ -21,3 +21,16 @@ export function lastSegment(qn: string): string {
   const idx = qn.lastIndexOf(":");
   return idx < 0 ? qn : qn.slice(idx + 1);
 }
+
+/**
+ * Client-safe copy of framework `toKebab` (engine/qualified-name.ts).
+ * Must stay in sync — do NOT import from `@cosmicdrift/kumiko-framework/engine`
+ * here: that barrel pulls server deps into the browser bundle.
+ */
+export function toKebab(input: string): string {
+  return input
+    .replace(/\./g, "-")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1-$2")
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .toLowerCase();
+}
