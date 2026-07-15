@@ -64,6 +64,17 @@ export {
   REFERENCE_LIST_LOOKUP_LIMIT,
   REFERENCE_SEARCH_DEBOUNCE_MS,
 } from "./hooks/reference-limits";
+export type {
+  AiTextActionState,
+  AiTextMode,
+  AiTextRewriteStyle,
+  AiTextRunPayload,
+  AiTextRunResult,
+  AiTextUsage,
+  UseAiTextActionResult,
+  UseCompletionResult,
+} from "./hooks/use-ai-text";
+export { AI_TEXT_RUN_QN, useAiTextAction, useCompletion } from "./hooks/use-ai-text";
 export type { UseDisclosureResult } from "./hooks/use-disclosure";
 export { useDisclosure } from "./hooks/use-disclosure";
 export type { UseFormOptions, UseFormResult } from "./hooks/use-form";
