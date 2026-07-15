@@ -16,3 +16,7 @@ export const MFA_SETUP_TOKEN_TTL_MINUTES = 10;
 export const MFA_CHALLENGE_TOKEN_TTL_MINUTES = 10;
 export const MFA_VERIFY_MAX_ATTEMPTS = 5;
 export const MFA_VERIFY_LOCKOUT_MINUTES = 5;
+
+// Dormant custom-screen id — see personal-access-tokens/feature.ts for the
+// same convention. App places it via r.nav in its logged-in settings area.
+export const MFA_ENABLE_SCREEN_ID = "auth-mfa-enable";

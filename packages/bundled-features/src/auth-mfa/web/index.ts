@@ -9,5 +9,7 @@ export type { AuthMfaClientFeature, AuthMfaClientOptions } from "./client-plugin
 export { authMfaClient } from "./client-plugin";
 export type { MfaVerifyResult } from "./mfa-client";
 export { verifyMfaChallenge } from "./mfa-client";
+export type { MfaEnableScreenProps } from "./mfa-enable-screen";
+export { MfaEnableScreen } from "./mfa-enable-screen";
 export type { MfaVerifyScreenProps } from "./mfa-verify-screen";
 export { MfaVerifyScreen } from "./mfa-verify-screen";

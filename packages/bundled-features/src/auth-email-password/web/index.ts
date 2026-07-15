@@ -26,6 +26,7 @@ export {
 } from "./auth-client";
 export type { AuthShellRenderer } from "./auth-form-primitives";
 export { AuthShellProvider, useAuthShell } from "./auth-form-primitives";
+export type { MfaVerifyComponentProps } from "./auth-gate";
 export { makeAuthGate, makeSessionAuthGate } from "./auth-gate";
 export type {
   EmailPasswordClientFeature,

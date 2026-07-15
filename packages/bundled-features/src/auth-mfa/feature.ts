@@ -1,5 +1,6 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { mfaRequiredConfigKey } from "./config";
+import { MFA_ENABLE_SCREEN_ID } from "./constants";
 import { createDisableHandler } from "./handlers/disable.write";
 import { createEnableConfirmHandler } from "./handlers/enable-confirm.write";
 import { createEnableStartHandler } from "./handlers/enable-start.write";
@@ -78,6 +79,16 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
     r.requires("user");
     r.requires("config");
     r.config({ keys: { required: mfaRequiredConfigKey() } });
+
+    // Dormant custom-screen — the client maps MFA_ENABLE_SCREEN_ID to
+    // MfaEnableScreen (see personal-access-tokens/feature.ts for the same
+    // convention). App places it via r.nav in its logged-in settings area.
+    r.screen({
+      id: MFA_ENABLE_SCREEN_ID,
+      type: "custom",
+      renderer: { react: { __component: "MfaEnableScreen" } },
+      access: { openToAll: true },
+    });
 
     // KEK-rotation for totpSecret (entity-field encryption). Manual
     // trigger — ops runs it once after adding a new master key version,
