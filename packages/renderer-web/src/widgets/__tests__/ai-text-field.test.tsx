@@ -176,6 +176,73 @@ describe("AiTextField", () => {
   });
 });
 
+describe("AiTextField ghost-text overlay — scroll sync", () => {
+  test("Tab/Escape aside: overlay mirrors the input's scrollLeft on an interactive scroll", async () => {
+    renderWithDispatcher(
+      <ControlledAiTextField
+        label="Title"
+        id="title"
+        name="title"
+        initialValue=""
+        actions={[]}
+        completionDebounceMs={5}
+        testId="title"
+      />,
+      (async () => ({
+        isSuccess: true,
+        data: { type: "text", text: "fox", usage: { inputTokens: 1, outputTokens: 1 } },
+      })) as never,
+    );
+
+    const input = screen.getByTestId("title-input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "the quick brown " } });
+    await waitFor(() => expect(screen.queryByText("fox")).toBeTruthy(), { timeout: 1000 });
+
+    const overlay = input.parentElement?.querySelector('[aria-hidden="true"]') as HTMLDivElement;
+    expect(overlay).toBeTruthy();
+
+    // Interactive scroll (e.g. arrow-key caret move) — caught by the
+    // onScroll handler.
+    Object.defineProperty(input, "scrollLeft", { value: 50, writable: true });
+    fireEvent.scroll(input);
+    expect(overlay.scrollLeft).toBe(50);
+  });
+
+  test("overlay resyncs on typing even without a `scroll` event (Chrome doesn't fire one for caret-follow auto-scroll)", async () => {
+    renderWithDispatcher(
+      <ControlledAiTextField
+        label="Title"
+        id="title"
+        name="title"
+        initialValue=""
+        actions={[]}
+        completionDebounceMs={5}
+        testId="title"
+      />,
+      (async () => ({
+        isSuccess: true,
+        data: { type: "text", text: "fox", usage: { inputTokens: 1, outputTokens: 1 } },
+      })) as never,
+    );
+
+    const input = screen.getByTestId("title-input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "the quick brown " } });
+    await waitFor(() => expect(screen.queryByText("fox")).toBeTruthy(), { timeout: 1000 });
+
+    const overlay = input.parentElement?.querySelector('[aria-hidden="true"]') as HTMLDivElement;
+
+    // Simulate the browser having auto-scrolled the input to reveal the
+    // caret WITHOUT firing a `scroll` event — the real Chrome behavior this
+    // bug hinged on. Only the value/suggestion-keyed layout effect (not
+    // onScroll) can catch this.
+    Object.defineProperty(input, "scrollLeft", { value: 120, writable: true });
+    fireEvent.change(input, { target: { value: "the quick brown f" } });
+    await waitFor(() => expect(screen.queryByText("fox")).toBeTruthy(), { timeout: 1000 });
+
+    expect(overlay.scrollLeft).toBe(120);
+  });
+});
+
 describe("AiTextArea", () => {
   test("renders a textarea with the given rows", () => {
     const onChange = mock((_v: string) => {});
