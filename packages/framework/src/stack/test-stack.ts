@@ -130,9 +130,13 @@ export type TestStackOptions = {
    *  `buildJobRunnerWithHook`. No-ops when no `r.job(...)` is registered
    *  anywhere in the mounted features — the bundled `createJobsFeature()`
    *  (operator UI) is NOT required, matching prod's unconditional build.
-   *  `consumerLane` also starts a local BullMQ worker for that
-   *  lane (default "worker", matching the all-in-one entrypoint
-   *  convention) — pass `undefined` for an enqueue-only runner. */
+   *  Default `undefined` — enqueuer-only, holds queue-clients for both
+   *  lanes so `ctx.jobRunner.dispatch(...)` routes correctly but starts no
+   *  local consumer/cron-scheduler (avoids double-running `runOnBoot`/cron
+   *  jobs when the caller, e.g. runDevApp, already runs its own consumer
+   *  for that lane). Pass `consumerLane` only when this IS the sole
+   *  consumer (e.g. a test that wants the dispatched job to actually
+   *  execute without a separate runner). */
   jobs?: {
     consumerLane?: JobRunIn;
     queueNamePrefix?: string;
@@ -243,7 +247,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       registry,
       context: { db: testDb.db, registry },
       redisUrl: `redis://${redisOpts.host}:${redisOpts.port}/${redisOpts.db}`,
-      consumerLane: options.jobs.consumerLane ?? "worker",
+      ...(options.jobs.consumerLane !== undefined && { consumerLane: options.jobs.consumerLane }),
       ...(options.jobs.queueNamePrefix !== undefined && {
         queueNamePrefix: options.jobs.queueNamePrefix,
       }),

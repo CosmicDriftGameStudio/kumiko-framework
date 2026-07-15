@@ -65,7 +65,9 @@ describe("setupTestStack({ jobs }) wires ctx.jobRunner for manual dispatch", () 
     jobRuns.length = 0;
     stack = await setupTestStack({
       features: [manualDispatchFeature],
-      jobs: {},
+      // consumerLane: this test has no separate consumer (unlike runDevApp's
+      // startDevJobRunners), so it must be the one running the job.
+      jobs: { consumerLane: "worker" },
     });
 
     await stack.http.writeOk("manualdispatch:write:create", { note: "hi" }, TestUsers.admin);
