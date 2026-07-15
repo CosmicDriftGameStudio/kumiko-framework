@@ -1367,11 +1367,20 @@ export function extractScreen(
   }
   const obj = arg.asKind(SyntaxKind.ObjectLiteralExpression);
   if (!obj) {
-    return fail(
-      "screen",
-      sourceLocationFromNode(call, sourceFile),
-      "argument must be an inline object literal",
-    );
+    const raw = readDataLiteralNode(arg);
+    if (!isRawRefSentinel(raw)) {
+      return fail(
+        "screen",
+        sourceLocationFromNode(call, sourceFile),
+        "argument must be an inline object literal",
+      );
+    }
+    return ok({
+      kind: "screen",
+      source: sourceLocationFromNode(call, sourceFile),
+      definition: raw as unknown as ScreenDefinition,
+      opaqueProps: {} as OpaquePropMap,
+    });
   }
   const opaqueProps: Record<string, SourceLocation> = {};
   collectScreenOpaqueProps(obj, "", sourceFile, opaqueProps);
