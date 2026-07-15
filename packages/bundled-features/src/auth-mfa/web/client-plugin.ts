@@ -10,7 +10,7 @@
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ComponentType, ReactNode } from "react";
 import { MFA_ENABLE_SCREEN_ID } from "../constants";
-import { defaultTranslations, mergeTranslations } from "../i18n";
+import { defaultTranslations, mergeTranslations } from "./i18n";
 import { MfaEnableScreen } from "./mfa-enable-screen";
 
 export type AuthMfaClientOptions = {

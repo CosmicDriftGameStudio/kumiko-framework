@@ -14,5 +14,8 @@ export const appScreensFeature: FeatureDefinition = defineFeature("app-screens",
     type: "custom",
     renderer: { react: { __component: "UserProfileScreen" } },
   });
+  r.translations({
+    keys: { "screen:profile.title": { de: "Profil", en: "Profile" } },
+  });
   return {};
 });

@@ -14,6 +14,7 @@
 
 import { createAdminShellFeature } from "@cosmicdrift/kumiko-bundled-features/admin-shell";
 import { createAuditFeature } from "@cosmicdrift/kumiko-bundled-features/audit";
+import { createAuthMfaFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { billingFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import { capCounterFeature } from "@cosmicdrift/kumiko-bundled-features/cap-counter";
 import {
@@ -90,6 +91,15 @@ export const APP_FEATURES = [
   // foundations not in the auto-mounted bundled-set
   createSecretsFeature(),
   createSessionsFeature(),
+  // auth-mfa: composeFeatures auto-threads mfaStatusCheckerFromFeature into
+  // the auto-mounted auth-email-password login handler when this feature is
+  // present in appFeatures (see dev-server/src/compose-features.ts) — no
+  // manual login.write.ts wiring needed here.
+  createAuthMfaFeature({
+    setupTokenSecret: "smoke-mfa-setup-secret-at-least-32-bytes-long!!",
+    challengeTokenSecret: "smoke-mfa-challenge-secret-at-least-32-bytes-long!!",
+    issuer: "Kumiko Sample",
+  }),
   // Per-domain scopes (like cashcolt's credit/bauspar/miete): the token picks
   // WHICH API × the permission LEVEL (read vs read+write). Each domain declares
   // its read + write QN globs.

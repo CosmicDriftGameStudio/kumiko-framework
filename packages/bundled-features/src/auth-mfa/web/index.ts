@@ -4,9 +4,9 @@
 // (defineFeature) bleibt frei von React-/DOM-Deps, siehe auth-email-
 // password/web/index.ts für die selbe Trennung.
 
-export { defaultTranslations, mergeTranslations } from "../i18n";
 export type { AuthMfaClientFeature, AuthMfaClientOptions } from "./client-plugin";
 export { authMfaClient } from "./client-plugin";
+export { defaultTranslations, mergeTranslations } from "./i18n";
 export type { MfaVerifyResult } from "./mfa-client";
 export { verifyMfaChallenge } from "./mfa-client";
 export type { MfaEnableScreenProps } from "./mfa-enable-screen";

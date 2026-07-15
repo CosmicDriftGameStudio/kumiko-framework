@@ -1,4 +1,8 @@
-import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineFeature,
+  EXT_USER_DATA,
+  type FeatureDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { mfaRequiredConfigKey } from "./config";
 import { MFA_ENABLE_SCREEN_ID } from "./constants";
 import { createDisableHandler } from "./handlers/disable.write";
@@ -7,8 +11,10 @@ import { createEnableStartHandler } from "./handlers/enable-start.write";
 import { mfaReencryptJob } from "./handlers/reencrypt.job";
 import { createRegenerateRecoveryHandler } from "./handlers/regenerate-recovery.write";
 import { createMfaVerifyHandler } from "./handlers/verify.write";
+import { AUTH_MFA_FEATURE_I18N } from "./i18n";
 import { createMfaStatusChecker, type MfaStatusChecker } from "./mfa-status-checker";
 import { userMfaEntity } from "./schema/user-mfa";
+import { userMfaDeleteHook, userMfaExportHook } from "./user-data-hooks";
 
 export type AuthMfaFeatureOptions = {
   // HMAC secret for the stateless enable-flow token (carries the generated
@@ -78,6 +84,7 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
     });
     r.requires("user");
     r.requires("config");
+    r.requires("user-data-rights");
     r.config({ keys: { required: mfaRequiredConfigKey() } });
 
     // Dormant custom-screen — the client maps MFA_ENABLE_SCREEN_ID to
@@ -89,6 +96,7 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
       renderer: { react: { __component: "MfaEnableScreen" } },
       access: { openToAll: true },
     });
+    r.translations({ keys: AUTH_MFA_FEATURE_I18N });
 
     // KEK-rotation for totpSecret (entity-field encryption). Manual
     // trigger — ops runs it once after adding a new master key version,
@@ -96,6 +104,10 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
     r.job("reencrypt", { trigger: { manual: true } }, mfaReencryptJob);
 
     r.entity("user-mfa", userMfaEntity);
+    r.useExtension(EXT_USER_DATA, "user-mfa", {
+      export: userMfaExportHook,
+      delete: userMfaDeleteHook,
+    });
 
     // Late-bound by run-prod-app once the sessions feature (if mounted) has
     // produced a concrete `sessionRevokeAllOthers` callback — mirrors
