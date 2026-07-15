@@ -16,6 +16,7 @@
 // `// kumiko-feature-version: 1`. Future format bumps run a dedicated
 // migrator over the version comment.
 
+import { isRawRefSentinel } from "./extractors/shared";
 import type {
   AuthClaimsPattern,
   ClaimKeyPattern,
@@ -174,6 +175,7 @@ const SINGLE_LINE_WIDTH = 80;
  * multi-line otherwise — biome-stable in both branches.
  */
 export function renderValue(value: unknown, indent = 0): string {
+  if (isRawRefSentinel(value)) return value.__raw;
   if (value === null) return "null";
   if (typeof value === "string") return JSON.stringify(value);
   if (typeof value === "number" || typeof value === "boolean") return String(value);
@@ -240,6 +242,13 @@ function renderDescribe(p: DescribePattern): string {
 }
 
 function renderEntity(p: EntityPattern): string {
+  // A whole-value raw-ref (`r.entity("x", eventEntity)`) can't be spread
+  // into the merged Object-Form without losing `name` to the sentinel
+  // shortcut in renderValue — fall back to the classic positional form,
+  // which keeps the reference verbatim alongside the name.
+  if (isRawRefSentinel(p.definition)) {
+    return `r.entity(${JSON.stringify(p.entityName)}, ${p.definition.__raw});`;
+  }
   // Inline `name` into the definition object — canonical Object-Form
   // is a single arg with name-as-property.
   const merged = { name: p.entityName, ...p.definition };
@@ -247,6 +256,9 @@ function renderEntity(p: EntityPattern): string {
 }
 
 function renderRelation(p: RelationPattern): string {
+  if (isRawRefSentinel(p.definition)) {
+    return `r.relation(${JSON.stringify(p.entityName)}, ${JSON.stringify(p.relationName)}, ${p.definition.__raw});`;
+  }
   const merged = { entity: p.entityName, name: p.relationName, ...p.definition };
   return `r.relation(${renderValue(merged)});`;
 }
@@ -268,11 +280,17 @@ function renderTranslations(p: TranslationsPattern): string {
 }
 
 function renderMetric(p: MetricPattern): string {
+  if (isRawRefSentinel(p.options)) {
+    return `r.metric(${JSON.stringify(p.shortName)}, ${p.options.__raw});`;
+  }
   const merged = { name: p.shortName, ...p.options };
   return `r.metric(${renderValue(merged)});`;
 }
 
 function renderSecret(p: SecretPattern): string {
+  if (isRawRefSentinel(p.options)) {
+    return `r.secret(${JSON.stringify(p.shortName)}, ${p.options.__raw});`;
+  }
   const merged = { name: p.shortName, ...p.options };
   return `r.secret(${renderValue(merged)});`;
 }
@@ -291,6 +309,9 @@ function renderReferenceData(p: ReferenceDataPattern): string {
 }
 
 function renderUseExtension(p: UseExtensionPattern): string {
+  if (isRawRefSentinel(p.options)) {
+    return `r.useExtension(${JSON.stringify(p.extensionName)}, ${JSON.stringify(p.entityName)}, ${p.options.__raw});`;
+  }
   const merged: Record<string, unknown> = {
     name: p.extensionName,
     entity: p.entityName,
@@ -563,9 +584,7 @@ function weaveOpaque(
 }
 
 function renderValueWithRawSlots(value: WovenValue, indent: number): string {
-  if (value !== null && typeof value === "object" && !Array.isArray(value) && "__raw" in value) {
-    return (value as { __raw: string }).__raw;
-  }
+  if (isRawRefSentinel(value)) return value.__raw;
   if (Array.isArray(value)) {
     if (value.length === 0) return "[]";
     const inner = value

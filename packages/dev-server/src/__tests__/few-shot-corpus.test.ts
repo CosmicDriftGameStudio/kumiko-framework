@@ -44,7 +44,7 @@ describe("buildFewShotCorpus — smoke", () => {
     });
     plantPackage(workdir, "samples/recipes/legacy-demo", {
       pkgName: "@cosmicdrift/kumiko-sample-legacy-demo",
-      pkgDescription: "Identifier-ref-style legacy feature.",
+      pkgDescription: "Handler-object-reference-style legacy feature.",
       featureSource: buildLegacyFeature("legacyDemo"),
     });
 
@@ -293,19 +293,24 @@ defineFeature("${featureName}", (r) => {
 }
 
 function buildLegacyFeature(featureName: string): string {
-  // Identifier-ref style — the parser refuses (entity definition is a
-  // captured const), produces a ParseError, and the corpus marks the
-  // entry as authoringStyle: "legacy".
+  // Handler-object-reference style — writeHandler receives a single
+  // identifier referencing a pre-built handler object rather than an
+  // inline string name + schema + handler. The parser has no extractor
+  // shape for that (it only reads a literal name as the first arg, or
+  // an inline object-literal form), so it produces a ParseError and the
+  // corpus marks the entry as authoringStyle: "legacy".
+  //
+  // Note: a captured-const *entity definition* (`r.entity("x", xEntity)`)
+  // used to be the legacy example here, but #998 taught the parser to
+  // resolve such references via a raw-ref sentinel — that idiom parses
+  // cleanly now and no longer exercises the legacy path.
   return `
-import { defineFeature, createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
-const itemEntity = createEntity({
-  table: "items",
-  fields: { title: createTextField({ required: true }) },
-});
+const itemCreateHandler = { name: "item:create" };
 
 defineFeature("${featureName}", (r) => {
-  r.entity("item", itemEntity);
+  r.writeHandler(itemCreateHandler);
 });
 `;
 }

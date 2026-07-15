@@ -21,7 +21,13 @@
 // Per-pattern extractors fill in iteratively (C1.5) — each round adds
 // one extractor + a focused test.
 
-import type { ArrowFunction, CallExpression, ParameterDeclaration, SourceFile } from "ts-morph";
+import type {
+  ArrowFunction,
+  CallExpression,
+  Node,
+  ParameterDeclaration,
+  SourceFile,
+} from "ts-morph";
 import { Project, SyntaxKind } from "ts-morph";
 
 import {
@@ -63,6 +69,7 @@ import {
   extractUsesApi,
   extractWorkspace,
   extractWriteHandler,
+  findFunctionLiteral,
 } from "./extractors";
 import type { FeaturePattern, UnknownPattern } from "./patterns";
 import { type SourceLocation, sourceLocationFromNode } from "./source-location";
@@ -145,7 +152,7 @@ export function parseSourceFile(sourceFile: SourceFile): ParseResult {
   const patterns: FeaturePattern[] = [];
   const errors: ParseError[] = [];
 
-  walkSetupCallback(setupCallback, registrarParamName, sourceFile, patterns, errors);
+  walkSetupCallback(setupCallback.getBody(), registrarParamName, sourceFile, patterns, errors);
 
   return { featureName, patterns, errors };
 }
@@ -228,23 +235,88 @@ function extractRegistrarParamName(setup: ArrowFunction): string | undefined {
  * structurally impossible.
  */
 function walkSetupCallback(
-  setup: ArrowFunction,
+  body: Node,
   registrarParamName: string,
   sourceFile: SourceFile,
   patterns: FeaturePattern[],
   errors: ParseError[],
+  visitedWrapperDecls: Set<Node> = new Set(),
 ): void {
-  const body = setup.getBody();
   for (const call of body.getDescendantsOfKind(SyntaxKind.CallExpression)) {
     const methodName = extractRegistrarMethodName(call, registrarParamName);
-    if (!methodName) continue; // Not a registrar call — ignore.
-    const result = dispatchExtractor(methodName, call, sourceFile);
-    if (result.kind === "pattern") {
-      patterns.push(result.pattern);
-    } else {
-      errors.push(result.error);
+    if (methodName) {
+      const result = dispatchExtractor(methodName, call, sourceFile);
+      if (result.kind === "pattern") {
+        patterns.push(result.pattern);
+      } else {
+        errors.push(result.error);
+      }
+      continue;
     }
+
+    // Not a direct `<registrarParam>.<method>(...)` call. Check whether it's
+    // a registrar-wrapper call — a locally declared function that receives
+    // the registrar as a bare argument, e.g. `registerShowPonyScreens(r)`.
+    // Such wrappers are invisible to a receiver-shape match, so we resolve
+    // the callee and recurse into its body with its own parameter name for
+    // the registrar slot.
+    const wrapper = resolveRegistrarWrapperCall(call, registrarParamName);
+    if (!wrapper) continue; // Free function call unrelated to the registrar — ignore.
+    if (visitedWrapperDecls.has(wrapper.declNode)) continue; // Cycle guard.
+    visitedWrapperDecls.add(wrapper.declNode);
+    walkSetupCallback(
+      wrapper.body,
+      wrapper.paramName,
+      sourceFile,
+      patterns,
+      errors,
+      visitedWrapperDecls,
+    );
   }
+}
+
+/**
+ * Resolves a bare call like `registerShowPonyScreens(r)` to the callee's
+ * body + its own parameter name for the registrar slot, when the callee is
+ * declared in the same file (function declaration, or a const initialized
+ * with an arrow/function expression). Cross-file registrar wrappers are not
+ * resolved — the call is then simply ignored, same as any other bare call
+ * unrelated to the registrar.
+ */
+function resolveRegistrarWrapperCall(
+  call: CallExpression,
+  registrarParamName: string,
+): { readonly body: Node; readonly paramName: string; readonly declNode: Node } | undefined {
+  const callee = call.getExpression().asKind(SyntaxKind.Identifier);
+  if (!callee) return undefined;
+
+  const args = call.getArguments();
+  const argIndex = args.findIndex((arg) => arg.getText() === registrarParamName);
+  if (argIndex === -1) return undefined; // Registrar not passed to this call.
+
+  const sourceFile = call.getSourceFile();
+  const name = callee.getText();
+
+  const fnDecl = sourceFile.getFunction(name);
+  if (fnDecl) {
+    const param = fnDecl.getParameters()[argIndex];
+    const body = fnDecl.getBody();
+    if (!param || !body) return undefined;
+    return { body, paramName: param.getName(), declNode: fnDecl };
+  }
+
+  const varDecl = sourceFile.getVariableDeclaration(name);
+  const init = varDecl?.getInitializer();
+  const literal = init ? findFunctionLiteral(init) : undefined;
+  const fnLiteral =
+    literal?.asKind(SyntaxKind.ArrowFunction) ?? literal?.asKind(SyntaxKind.FunctionExpression);
+  if (fnLiteral) {
+    const param = fnLiteral.getParameters()[argIndex];
+    if (!param) return undefined;
+    return { body: fnLiteral.getBody(), paramName: param.getName(), declNode: fnLiteral };
+  }
+
+  return undefined;
 }
 
 /**
