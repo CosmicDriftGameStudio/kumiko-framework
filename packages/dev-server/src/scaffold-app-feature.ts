@@ -158,12 +158,13 @@ function renderEntity(name: string): string {
   const camel = kebabToCamel(name);
   return `// Entity-Definition — Felder, Annotationen, Transitions.
 // Starter: eine Text-Spalte. Ersetze sie durch deine Domain.
+import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
 
-export const ${camel}ItemEntity = {
+export const ${camel}ItemEntity = createEntity({
   fields: {
-    title: { type: "text", required: true, sortable: true },
+    title: createTextField({ required: true, sortable: true }),
   },
-};
+});
 `;
 }
 

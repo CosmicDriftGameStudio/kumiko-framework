@@ -41,7 +41,9 @@ describe("defineFeature", () => {
         r.describe("first");
         r.describe("second");
       }),
-    ).toThrow(/r\.describe\(\) called twice/);
+    ).toThrow(
+      "[Feature test] r.describe() called twice — a feature's description is declared once",
+    );
   });
 
   test("r.describe() throws on empty or whitespace-only text", () => {

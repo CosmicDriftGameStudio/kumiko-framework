@@ -89,14 +89,10 @@ async function fetchMessages(
 ): Promise<InboundFetchResult> {
   const doc = await readCredentialDocument(ctx, account);
   const client = createImapClient(doc);
+  let lock: Awaited<ReturnType<typeof client.getMailboxLock>> | undefined;
   try {
     await client.connect();
-  } catch (err) {
-    throw mapImapError(err, doc.host);
-  }
-
-  const lock = await client.getMailboxLock(IMAP_MAILBOX);
-  try {
+    lock = await client.getMailboxLock(IMAP_MAILBOX);
     const mailbox = client.mailbox as MailboxObject;
     const serverUidValidity = String(mailbox.uidValidity);
     const parsedCursor = parseImapCursor(cursor);
@@ -149,7 +145,7 @@ async function fetchMessages(
   } catch (err) {
     throw err instanceof Error && "kind" in err ? err : mapImapError(err, doc.host);
   } finally {
-    lock.release();
+    lock?.release();
     await client.logout().catch(() => {});
   }
 }

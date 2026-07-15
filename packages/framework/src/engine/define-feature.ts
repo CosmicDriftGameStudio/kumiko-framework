@@ -31,7 +31,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     describe(text: string): void {
       if (state.description !== undefined) {
         throw new Error(
-          `[Feature ${name}] r.describe() called twice — a feature's state.description is declared once`,
+          `[Feature ${name}] r.describe() called twice — a feature's description is declared once`,
         );
       }
       if (typeof text !== "string" || text.trim().length === 0) {

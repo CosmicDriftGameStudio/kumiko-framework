@@ -14,7 +14,7 @@ export async function resolveNotificationVariables(
 ): Promise<Readonly<Record<string, unknown>>> {
   const variables = req.payload.variables ?? {};
   const slug = req.payload.template?.trim();
-  if (!slug || req.payload.content || !ctx.db) {
+  if (!slug || req.payload.content || !ctx.db || !ctx.registry.features.has("template-resolver")) {
     return variables;
   }
 
