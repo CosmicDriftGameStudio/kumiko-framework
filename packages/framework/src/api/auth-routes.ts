@@ -441,6 +441,23 @@ export function createAuthRoutes(
   const cookieSameSite = config.cookieSameSite ?? "lax";
   const cookieDomain = config.cookieDomain;
 
+  // Shared tail of every route that ends a request logged-in: create the
+  // session record (if wired), sign the JWT, set the auth+csrf cookies. Was
+  // duplicated 5x (login/signup-confirm/invite-accept-with-login/invite-
+  // signup-complete/switch-tenant) — extracted so a 6th caller (mfa-verify)
+  // doesn't grow it to 6.
+  async function mintSessionAndRespond(c: Context, session: SessionUser): Promise<string> {
+    let sessionForJwt = session;
+    if (config.sessionCreator) {
+      const sid = await config.sessionCreator(session, requestMeta(c));
+      sessionForJwt = { ...session, sid };
+    }
+    const token = await jwt.sign(sessionForJwt);
+    const csrfToken = generateToken();
+    setAuthCookies(c, { token, csrfToken, sameSite: cookieSameSite, domain: cookieDomain });
+    return token;
+  }
+
   // POST /auth/login — public endpoint (bypasses auth middleware via PUBLIC_API_PATHS).
   // The configured login handler authenticates and returns a SessionUser;
   // the route signs the JWT and hands it back to the client.
@@ -497,29 +514,16 @@ export function createAuthRoutes(
       // @cast-boundary engine-payload — generic dispatcher.write result for auth-session handler
       const data = result.data as { kind: "auth-session"; session: SessionUser };
 
-      // Session creation (optional). Creating the session BEFORE signing the
-      // JWT is load-bearing: the sid must exist on the server before the
-      // token that references it can be handed out, otherwise a fast client
-      // could arrive at an auth-middleware check before the insert commits.
-      let sessionForJwt: SessionUser = data.session;
-      if (config.sessionCreator) {
-        const sid = await config.sessionCreator(data.session, requestMeta(c));
-        sessionForJwt = { ...data.session, sid };
-      }
-
-      const token = await jwt.sign(sessionForJwt);
+      // Session creation (optional) + JWT sign + cookies — see
+      // mintSessionAndRespond. Creating the session BEFORE signing the JWT
+      // is load-bearing: the sid must exist on the server before the token
+      // that references it can be handed out, otherwise a fast client could
+      // arrive at an auth-middleware check before the insert commits.
+      const token = await mintSessionAndRespond(c, data.session);
 
       if (rateLimiter) {
         await rateLimiter.reset(rateLimitKey);
       }
-
-      // Cookie transport (web): set HttpOnly auth cookie + JS-readable csrf
-      // cookie. Bearer transport (native) reads the token from the body
-      // below — the token is returned for both, so a Bearer client that
-      // ignores Set-Cookie keeps working without any server-side knowledge
-      // of which transport this client will use next.
-      const csrfToken = generateToken();
-      setAuthCookies(c, { token, csrfToken, sameSite: cookieSameSite, domain: cookieDomain });
 
       return c.json({
         isSuccess: true,
@@ -603,18 +607,8 @@ export function createAuthRoutes(
         tenantKey: string;
       };
 
-      // Session-Creator analog login — wenn wired, sid wird im JWT
-      // platziert und der Server kann später den Session revoken
-      // (Logout, Compromise).
-      let sessionForJwt: SessionUser = data.session;
-      if (config.sessionCreator) {
-        const sid = await config.sessionCreator(data.session, requestMeta(c));
-        sessionForJwt = { ...data.session, sid };
-      }
-
-      const token = await jwt.sign(sessionForJwt);
-      const csrfToken = generateToken();
-      setAuthCookies(c, { token, csrfToken, sameSite: cookieSameSite, domain: cookieDomain });
+      // Session creation + JWT sign + cookies — see mintSessionAndRespond.
+      const token = await mintSessionAndRespond(c, data.session);
 
       return c.json({
         isSuccess: true,
@@ -690,14 +684,7 @@ export function createAuthRoutes(
         tenantId: TenantId;
         role: string;
       }; // @cast-boundary engine-payload
-      let sessionForJwt: SessionUser = data.session;
-      if (config.sessionCreator) {
-        const sid = await config.sessionCreator(data.session, requestMeta(c));
-        sessionForJwt = { ...data.session, sid };
-      }
-      const token = await jwt.sign(sessionForJwt);
-      const csrfToken = generateToken();
-      setAuthCookies(c, { token, csrfToken, sameSite: cookieSameSite, domain: cookieDomain });
+      const token = await mintSessionAndRespond(c, data.session);
       return c.json({
         isSuccess: true,
         token,
@@ -730,14 +717,7 @@ export function createAuthRoutes(
         tenantId: TenantId;
         role: string;
       }; // @cast-boundary engine-payload
-      let sessionForJwt: SessionUser = data.session;
-      if (config.sessionCreator) {
-        const sid = await config.sessionCreator(data.session, requestMeta(c));
-        sessionForJwt = { ...data.session, sid };
-      }
-      const token = await jwt.sign(sessionForJwt);
-      const csrfToken = generateToken();
-      setAuthCookies(c, { token, csrfToken, sameSite: cookieSameSite, domain: cookieDomain });
+      const token = await mintSessionAndRespond(c, data.session);
       return c.json({
         isSuccess: true,
         token,
@@ -882,7 +862,7 @@ export function createAuthRoutes(
       roles: mergedRoles,
     };
     const claims = await dispatcher.resolveAuthClaims(targetSession);
-    let sessionForJwt: SessionUser =
+    const sessionForJwt: SessionUser =
       Object.keys(claims).length > 0 ? { ...targetSession, claims } : targetSession;
 
     // Session rotation: revoke old sid BEFORE creating the new one so a
@@ -894,25 +874,10 @@ export function createAuthRoutes(
     if (config.sessionRevoker && user.sid) {
       await config.sessionRevoker(user.sid);
     }
-    if (config.sessionCreator) {
-      const sid = await config.sessionCreator(sessionForJwt, requestMeta(c));
-      sessionForJwt = { ...sessionForJwt, sid };
-    }
-
-    const newToken = await jwt.sign(sessionForJwt);
-
-    // Rotate both cookies in lock-step with the new JWT. A fresh csrfToken
-    // is minted so a compromised csrf-value (e.g. leaked via a bug in the
-    // app's JS) can't cross a tenant boundary. Bearer-only clients get
-    // the new token in the body below — their Set-Cookie is a no-op
-    // because the browser never sent cookies.
-    const csrfToken = generateToken();
-    setAuthCookies(c, {
-      token: newToken,
-      csrfToken,
-      sameSite: cookieSameSite,
-      domain: cookieDomain,
-    });
+    // Session creation + JWT sign + cookies — see mintSessionAndRespond. A
+    // fresh csrfToken is minted (inside the helper) so a compromised csrf-
+    // value can't cross a tenant boundary.
+    const newToken = await mintSessionAndRespond(c, sessionForJwt);
 
     return c.json({ token: newToken, tenantId: targetTenantId, roles: mergedRoles });
   });

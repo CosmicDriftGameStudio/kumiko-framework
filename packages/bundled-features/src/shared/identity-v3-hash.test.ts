@@ -15,8 +15,8 @@
 
 import { describe, expect, test } from "bun:test";
 import { pbkdf2Sync } from "node:crypto";
-import { isIdentityV3Hash, verifyIdentityV3Hash } from "../identity-v3-hash";
-import { verifyPassword } from "../password-hashing";
+import { isIdentityV3Hash, verifyIdentityV3Hash } from "./identity-v3-hash";
+import { verifyPassword } from "./password-hashing";
 
 // --- Test helpers ---
 
