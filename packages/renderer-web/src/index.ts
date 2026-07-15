@@ -155,6 +155,8 @@ export {
 } from "./tokens";
 export { SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider } from "./ui/sidebar";
 export type {
+  AiTextAreaProps,
+  AiTextFieldProps,
   BooleanFieldProps,
   ComparisonMetric,
   DateFieldProps,
@@ -176,6 +178,8 @@ export type {
   TimeseriesPoint,
 } from "./widgets";
 export {
+  AiTextArea,
+  AiTextField,
   BooleanField,
   CollapsibleSection,
   ComparisonTable,

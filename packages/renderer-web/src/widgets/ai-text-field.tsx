@@ -29,7 +29,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { Check, Languages, Wand2 } from "lucide-react";
-import { type KeyboardEvent, type ReactNode, useRef, useState } from "react";
+import { type KeyboardEvent, type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "../lib/cn";
 import { ModeSwitch } from "./mode-switch";
 
@@ -114,11 +114,23 @@ function AiTextCore({
   const [targetLanguage, setTargetLanguage] = useState(translateLanguages[0] ?? "en");
   const [rewriteStyle, setRewriteStyle] = useState<AiTextRewriteStyle>("concise");
   const overlayRef = useRef<HTMLDivElement>(null);
+  const controlRef = useRef<HTMLTextAreaElement | HTMLInputElement>(null);
 
   const unavailable = completionState === "unavailable" || actionState === "unavailable";
   const capExceeded = completionState === "cap-exceeded" || actionState === "cap-exceeded";
   const showToolbar = !unavailable && actions.length > 0;
   const showGhost = completion && !unavailable && suggestion !== null && suggestion.length > 0;
+
+  // ponytail: a manually `resize-y`-shrunk textarea can end up a few px
+  // shorter than the overlay div (which has no resize handle), so the
+  // synced scrollTop clamps slightly early — sub-line drift, invisible at
+  // normal line-height. Upgrade if it ever becomes visually noticeable.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: value/suggestion are trigger-only, effect reads refs not props
+  useLayoutEffect(() => {
+    if (overlayRef.current === null || controlRef.current === null) return;
+    overlayRef.current.scrollLeft = controlRef.current.scrollLeft;
+    overlayRef.current.scrollTop = controlRef.current.scrollTop;
+  }, [value, suggestion]);
 
   function handleChange(next: string): void {
     onChange(next);
@@ -189,6 +201,9 @@ function AiTextCore({
           )}
           {multiline ? (
             <textarea
+              ref={(el) => {
+                controlRef.current = el;
+              }}
               id={id}
               name={name}
               value={value}
@@ -202,11 +217,18 @@ function AiTextCore({
               onScroll={(e) => {
                 if (overlayRef.current) overlayRef.current.scrollTop = e.currentTarget.scrollTop;
               }}
-              className={cn(sharedTextClass, multilineWrapClass, "relative resize-y bg-transparent")}
+              className={cn(
+                sharedTextClass,
+                multilineWrapClass,
+                "relative resize-y bg-transparent",
+              )}
               data-testid={testId !== undefined ? `${testId}-input` : undefined}
             />
           ) : (
             <input
+              ref={(el) => {
+                controlRef.current = el;
+              }}
               id={id}
               name={name}
               type="text"
@@ -217,6 +239,9 @@ function AiTextCore({
               onChange={(e) => handleChange(e.target.value)}
               onKeyDown={handleKeyDown}
               onBlur={clearCompletion}
+              onScroll={(e) => {
+                if (overlayRef.current) overlayRef.current.scrollLeft = e.currentTarget.scrollLeft;
+              }}
               className={cn(sharedTextClass, singleLineWrapClass, "relative bg-transparent")}
               data-testid={testId !== undefined ? `${testId}-input` : undefined}
             />
