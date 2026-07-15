@@ -35,6 +35,7 @@ beforeAll(async () => {
   const mfaFeature = createAuthMfaFeature({
     setupTokenSecret: SETUP_TOKEN_SECRET,
     issuer: "Kumiko Test",
+    challengeTokenSecret: "test-mfa-challenge-secret-at-least-32-bytes!!",
   });
   stack = await setupTestStack({ features: [createUserFeature(), mfaFeature] });
 

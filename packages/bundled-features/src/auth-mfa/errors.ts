@@ -53,3 +53,21 @@ export function invalidRecoveryCode(): WriteFailure {
     }),
   );
 }
+
+export function invalidChallengeToken(): WriteFailure {
+  return writeFailure(
+    new UnprocessableError(AuthMfaErrors.invalidChallengeToken, {
+      i18nKey: "authMfa.errors.invalidChallengeToken",
+    }),
+  );
+}
+
+// retryAfterSeconds drives the login UI countdown — must stay > 0.
+export function tooManyAttempts(retryAfterSeconds: number): WriteFailure {
+  return writeFailure(
+    new UnprocessableError(AuthMfaErrors.tooManyAttempts, {
+      i18nKey: "authMfa.errors.tooManyAttempts",
+      details: { retryAfterSeconds },
+    }),
+  );
+}

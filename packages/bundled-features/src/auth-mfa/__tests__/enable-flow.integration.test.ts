@@ -29,7 +29,11 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [
       createUserFeature(),
-      createAuthMfaFeature({ setupTokenSecret: SETUP_TOKEN_SECRET, issuer: "Kumiko Test" }),
+      createAuthMfaFeature({
+        setupTokenSecret: SETUP_TOKEN_SECRET,
+        issuer: "Kumiko Test",
+        challengeTokenSecret: "test-mfa-challenge-secret-at-least-32-bytes!!",
+      }),
     ],
   });
   await unsafeCreateEntityTable(stack.db, userEntity);

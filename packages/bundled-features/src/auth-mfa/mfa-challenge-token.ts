@@ -14,11 +14,12 @@
 // mfa-verify-attempts.ts — because burn-on-success alone doesn't cap wrong
 // guesses against a still-valid token.
 import { createHmac, timingSafeEqual } from "node:crypto";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "temporal-polyfill";
 
 export type MfaChallengePayload = {
   readonly userId: string;
-  readonly tenantId: string;
+  readonly tenantId: TenantId;
 };
 
 type EncodedBody = MfaChallengePayload & { readonly expiresAtMs: number };

@@ -3,6 +3,7 @@ import { createDisableHandler } from "./handlers/disable.write";
 import { createEnableConfirmHandler } from "./handlers/enable-confirm.write";
 import { createEnableStartHandler } from "./handlers/enable-start.write";
 import { createRegenerateRecoveryHandler } from "./handlers/regenerate-recovery.write";
+import { createMfaVerifyHandler } from "./handlers/verify.write";
 import { userMfaEntity } from "./schema/user-mfa";
 
 export type AuthMfaFeatureOptions = {
@@ -14,6 +15,11 @@ export type AuthMfaFeatureOptions = {
   // otpauth:// URI issuer — shown in the user's authenticator app next to
   // the account label ("Kumiko: jane@example.com").
   readonly issuer: string;
+  // HMAC secret for the login-flow challenge token (carries {userId,
+  // tenantId} between the password-check and /auth/mfa/verify). Distinct
+  // secret from setupTokenSecret — a compromised setup-token secret must
+  // not also forge login challenges.
+  readonly challengeTokenSecret: string;
 };
 
 export type BindMfaRevokeAllOtherSessions = (
@@ -78,6 +84,9 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
       disable: r.writeHandler(createDisableHandler({ revokeAllOtherSessions: sharedRevoker })),
       regenerateRecovery: r.writeHandler(
         createRegenerateRecoveryHandler({ revokeAllOtherSessions: sharedRevoker }),
+      ),
+      verify: r.writeHandler(
+        createMfaVerifyHandler({ challengeTokenSecret: opts.challengeTokenSecret }),
       ),
     };
 
