@@ -132,6 +132,17 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
         return invalidCredentials();
       }
 
+      // Clear the lockout state as soon as the password is proven — the
+      // password itself is the thing this counter guards, and MFA (if
+      // gated below) has its own separate attempt-cap. Doing this before
+      // the MFA gate matters: without it, an MFA user who occasionally
+      // mistypes their password accumulates failures across otherwise-
+      // successful logins and eventually gets password-locked out even
+      // though every login they completed was legitimate.
+      if (ctx.redis) {
+        await clearLockoutState(ctx.redis, found.id);
+      }
+
       // Strict verification gate — runs AFTER password check so an attacker
       // probing "email_not_verified" needs valid credentials first. The
       // remaining enumeration surface is "valid-cred + unverified" → accepted
@@ -190,14 +201,6 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
             data: { kind: "mfa-challenge", challengeToken: mfaStatus.challengeToken },
           };
         }
-      }
-
-      // Clear the lockout state on success. DEL is idempotent, so no need
-      // to gate on "was there a counter?" — skipping the Redis round-trip
-      // entirely for users who never failed a login would optimise the hot
-      // path, but the call is microseconds and the branch isn't free either.
-      if (ctx.redis) {
-        await clearLockoutState(ctx.redis, found.id);
       }
 
       // Globale Rollen aus user.roles + tenant-membership-roles mergen.

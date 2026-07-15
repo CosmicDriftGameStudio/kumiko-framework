@@ -145,6 +145,26 @@ describe("mfa verify — completes a two-step login", () => {
     expectErrorIncludes(err, "invalid_totp_code");
   });
 
+  test("a challenge token cannot be replayed even with a still-valid TOTP code", async () => {
+    const { user, secret } = await enableMfaFor(4);
+    const challengeToken = challengeFor(user.id, user.tenantId);
+
+    await stack.http.writeOk<{ session: SessionUser }>(
+      AuthMfaHandlers.verify,
+      { challengeToken, code: currentTotpCode(secret) },
+      GUEST,
+    );
+
+    // Same challenge token, same (still time-window-valid) code — must be
+    // rejected because burnToken() marks it used on the first success.
+    const err = await stack.http.writeErr(
+      AuthMfaHandlers.verify,
+      { challengeToken, code: currentTotpCode(secret) },
+      GUEST,
+    );
+    expectErrorIncludes(err, "invalid_challenge_token");
+  });
+
   test("a malformed challenge token is rejected without leaking account state", async () => {
     const err = await stack.http.writeErr(
       AuthMfaHandlers.verify,

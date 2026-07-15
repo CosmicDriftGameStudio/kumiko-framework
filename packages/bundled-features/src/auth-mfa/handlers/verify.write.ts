@@ -105,7 +105,13 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
       if (ctx.redis) {
         // Burn AFTER a successful verify — a still-failing attempt must not
         // consume the token, or a fat-fingered code would strand the user.
-        await burnToken(ctx.redis, "mfa-challenge", userId, verified.expiresAtMs);
+        const burnResult = await burnToken(
+          ctx.redis,
+          "mfa-challenge",
+          userId,
+          verified.expiresAtMs,
+        );
+        if (burnResult === "already-used") return invalidChallengeToken();
         await clearMfaVerifyAttempts(ctx.redis, userId);
       }
 
