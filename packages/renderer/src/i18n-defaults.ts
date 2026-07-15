@@ -63,6 +63,20 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.dialog.cancel": "Abbrechen",
     "kumiko.dialog.close": "Schließen",
 
+    // AiTextField/AiTextArea — Ghost-Text-Hint, Toolbar-Aria-Labels, Diff-Dialog.
+    "kumiko.aiText.acceptHint": "Tab = übernehmen, Esc = verwerfen",
+    "kumiko.aiText.correct": "Korrigieren",
+    "kumiko.aiText.translate": "Übersetzen",
+    "kumiko.aiText.rewrite": "Umschreiben",
+    "kumiko.aiText.diff.before": "Vorher",
+    "kumiko.aiText.diff.after": "Nachher",
+    "kumiko.aiText.diff.generating": "Wird generiert…",
+    "kumiko.aiText.style.formal": "Formell",
+    "kumiko.aiText.style.casual": "Locker",
+    "kumiko.aiText.style.concise": "Kompakt",
+    "kumiko.aiText.style.expand": "Ausführlicher",
+    "kumiko.aiText.capExceeded": "Monatliches AI-Limit erreicht.",
+
     // Row-Actions — Fehler-Toast wenn ein Action-Write fehlschlägt.
     "kumiko.rowAction.failed": "Aktion fehlgeschlagen",
 
@@ -170,6 +184,19 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.dialog.confirm": "Confirm",
     "kumiko.dialog.cancel": "Cancel",
     "kumiko.dialog.close": "Close",
+
+    "kumiko.aiText.acceptHint": "Tab = accept, Esc = discard",
+    "kumiko.aiText.correct": "Correct",
+    "kumiko.aiText.translate": "Translate",
+    "kumiko.aiText.rewrite": "Rewrite",
+    "kumiko.aiText.diff.before": "Before",
+    "kumiko.aiText.diff.after": "After",
+    "kumiko.aiText.diff.generating": "Generating…",
+    "kumiko.aiText.style.formal": "Formal",
+    "kumiko.aiText.style.casual": "Casual",
+    "kumiko.aiText.style.concise": "Concise",
+    "kumiko.aiText.style.expand": "Expand",
+    "kumiko.aiText.capExceeded": "Monthly AI limit reached.",
 
     "kumiko.rowAction.failed": "Action failed",
 

@@ -4,6 +4,12 @@
 // styleguide-Sample.
 
 export {
+  AiTextArea,
+  type AiTextAreaProps,
+  AiTextField,
+  type AiTextFieldProps,
+} from "./ai-text-field";
+export {
   StatusBarChart,
   type StatusBarEntry,
   smoothPath,

@@ -3,6 +3,8 @@
 
 import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
 import {
+  AiTextArea,
+  AiTextField,
   BooleanField,
   CollapsibleSection,
   ComparisonTable,
@@ -125,7 +127,45 @@ export function Widgets(): ReactNode {
       <FinancingCalculatorDemo />
       <FormFieldsDemo />
       <ComparisonDemo />
+      <AiTextDemo />
     </div>
+  );
+}
+
+// Ghost-Text-Completion + Correct/Translate/Rewrite-Toolbar. Server-Handler
+// hier ist eine handgerollte Demo-Feature (ai-text-demo.ts, canned strings),
+// nicht die echte Enterprise-Feature — kumiko-framework darf kumiko-enterprise
+// nicht importieren. Titel-Feld ist bewusst mit einem Wert vorbelegt, der die
+// Box-Breite überschreitet (Ghost-Overlay-Scroll-Sync), die Notiz-Textarea
+// mit mehr Zeilen als sichtbar sind (vertikaler Scroll-Sync).
+const LONG_TITLE =
+  "Ein Titel, der bewusst deutlich breiter ist als das Eingabefeld, damit horizontales Scrollen den Ghost-Text testet";
+const LONG_NOTE = Array.from(
+  { length: 12 },
+  (_, i) => `Zeile ${i + 1} der Notiz — Lorem ipsum dolor sit amet.`,
+).join("\n");
+
+function AiTextDemo(): ReactNode {
+  const [title, setTitle] = useState(LONG_TITLE);
+  const [note, setNote] = useState(LONG_NOTE);
+  return (
+    <SectionCard title="AI-Text" subtitle="Ghost-Text-Completion, Correct, Translate, Rewrite">
+      <AiTextField
+        id="ai-text-title"
+        name="title"
+        label="Titel"
+        value={title}
+        onChange={setTitle}
+      />
+      <AiTextArea
+        id="ai-text-note"
+        name="note"
+        label="Notiz"
+        value={note}
+        onChange={setNote}
+        rows={4}
+      />
+    </SectionCard>
   );
 }
 
