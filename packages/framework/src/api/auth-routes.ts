@@ -97,6 +97,16 @@ const LoginBody = z.object({
   password: z.string(),
 });
 
+// Body schema for POST /auth/mfa/verify. challengeToken is opaque to the
+// framework — it's minted and verified entirely by the mfaVerifyHandler
+// (auth-mfa owns the token format, TOTP/recovery-code check, and the
+// brute-force cap). code covers both 6-digit TOTP and XXXX-XXXX recovery
+// codes (9 chars incl. the dash).
+const MfaVerifyBody = z.object({
+  challengeToken: z.string().min(1),
+  code: z.string().min(6).max(9),
+});
+
 const ResetPasswordBody = z.object({
   token: z.string().min(1),
   newPassword: z.string().min(8).max(200),
@@ -217,6 +227,28 @@ export type AuthRoutesConfig = {
   // Rate-limit for POST /auth/login. Defaults to in-memory 10/5min per
   // (ip + email) bucket. Pass `null` to disable (tests, trusted networks).
   loginRateLimit?: LoginRateLimiter | null;
+  // Optional: qualified write handler completing a two-step (password +
+  // TOTP/recovery-code) login. When set, POST /auth/mfa/verify dispatches
+  // { challengeToken, code } to this handler with a guest identity. On
+  // success the handler must return { kind: "mfa-verify-success", session:
+  // SessionUser } and the route mints a JWT exactly like /auth/login.
+  // Everything MFA-specific (challenge-token format, TOTP/recovery check,
+  // the per-account brute-force cap) is owned by the handler — the
+  // framework stays as agnostic about it as it is about password hashing.
+  mfaVerifyHandler?: string;
+  // Maps mfaVerifyHandler error codes to HTTP status codes, same pattern as
+  // loginErrorStatusMap. Unknown errors default to the error's own httpStatus.
+  mfaVerifyErrorStatusMap?: Readonly<Record<string, number>>;
+  // Rate-limit for POST /auth/mfa/verify, keyed by client IP. Defaults to
+  // in-memory 10/5min. Pass `null` to disable. This is DELIBERATELY separate
+  // from loginRateLimit: unlike /auth/login (a dispatcher write-handler
+  // route that could inherit a handler-level rateLimit), this is a
+  // framework route with no handler.rateLimit to fall back on — and it's
+  // also separate from any per-account brute-force cap the mfaVerifyHandler
+  // enforces itself (see its own doc comment) — IP-scoped abuse protection
+  // and per-account guessing protection are different threats, neither
+  // substitutes for the other.
+  mfaVerifyRateLimit?: LoginRateLimiter | null;
   // Session-lifecycle callbacks. When both are wired the JWT carries a `jti`
   // (sid) and the server can revoke individual sessions (logout, compromise,
   // password-change). When unwired the framework issues plain stateless JWTs.
@@ -523,6 +555,76 @@ export function createAuthRoutes(
 
       if (rateLimiter) {
         await rateLimiter.reset(rateLimitKey);
+      }
+
+      return c.json({
+        isSuccess: true,
+        token,
+        user: { id: data.session.id, tenantId: data.session.tenantId, roles: data.session.roles },
+      });
+    });
+  }
+
+  // POST /auth/mfa/verify — completes a two-step login. Mirrors /auth/login
+  // structurally (public, GUEST_USER dispatch, mintSessionAndRespond on
+  // success) but with its OWN rate limiter (mfaVerifyRateLimit) — this route
+  // never goes through a dispatcher write-handler's own rateLimit config,
+  // so without this it would have NO rate limiting at all. Per-account
+  // brute-force protection (capping wrong-code guesses against one
+  // still-valid challenge token) is a separate mechanism the handler itself
+  // owns — see AuthRoutesConfig.mfaVerifyHandler's doc comment.
+  if (config.mfaVerifyHandler) {
+    const mfaVerifyQn = config.mfaVerifyHandler;
+    const statusMap = config.mfaVerifyErrorStatusMap ?? {};
+    const rateLimiter =
+      config.mfaVerifyRateLimit === null
+        ? null
+        : (config.mfaVerifyRateLimit ?? createInMemoryLoginRateLimiter());
+
+    api.post(Routes.authMfaVerify, async (c) => {
+      const raw = await c.req.json().catch(() => null);
+      const parsed = MfaVerifyBody.safeParse(raw);
+      if (!parsed.success) {
+        return c.json({ isSuccess: false, error: "invalid_body" }, 400);
+      }
+      const body = parsed.data;
+
+      const clientIp =
+        c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
+        c.req.header("x-real-ip") ??
+        "unknown";
+
+      if (rateLimiter) {
+        const allowed = await rateLimiter.check(clientIp);
+        if (!allowed) {
+          return c.json({ isSuccess: false, error: "rate_limited" }, 429);
+        }
+      }
+
+      const result = await dispatcher.write(mfaVerifyQn, body, GUEST_USER);
+
+      if (!result.isSuccess) {
+        // @cast-boundary error-details — KumikoError.details shape is per-error
+        const reason =
+          (result.error.details as { reason?: string } | undefined)?.reason ?? result.error.code;
+        // @cast-boundary engine-payload — statusMap value union narrows to the http-status union
+        const status = (statusMap[reason] ?? result.error.httpStatus) as
+          | 400
+          | 401
+          | 403
+          | 422
+          | 429
+          | 500;
+        return c.json({ isSuccess: false, error: result.error }, status);
+      }
+
+      // @cast-boundary engine-payload — generic dispatcher.write result for mfa-verify handler
+      const data = result.data as { kind: "mfa-verify-success"; session: SessionUser };
+
+      const token = await mintSessionAndRespond(c, data.session);
+
+      if (rateLimiter) {
+        await rateLimiter.reset(clientIp);
       }
 
       return c.json({

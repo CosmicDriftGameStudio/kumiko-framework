@@ -12,6 +12,7 @@ export const Routes = {
   sse: "/sse",
   auth: "/auth",
   authLogin: "/auth/login",
+  authMfaVerify: "/auth/mfa/verify",
   authLogout: "/auth/logout",
   authTenants: "/auth/tenants",
   authSwitchTenant: "/auth/switch-tenant",
@@ -36,6 +37,7 @@ export const Routes = {
 // The auth middleware skips these paths.
 export const PUBLIC_API_PATHS: ReadonlySet<string> = new Set([
   `/api${Routes.authLogin}`,
+  `/api${Routes.authMfaVerify}`,
   `/api${Routes.authRequestPasswordReset}`,
   `/api${Routes.authResetPassword}`,
   `/api${Routes.authRequestEmailVerification}`,
