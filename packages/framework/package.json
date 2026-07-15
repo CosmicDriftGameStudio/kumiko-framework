@@ -99,6 +99,10 @@
       "types": "./src/jobs/index.ts",
       "default": "./src/jobs/index.ts"
     },
+    "./observability": {
+      "types": "./src/observability/index.ts",
+      "default": "./src/observability/index.ts"
+    },
     "./migrations": {
       "types": "./src/migrations/index.ts",
       "default": "./src/migrations/index.ts"

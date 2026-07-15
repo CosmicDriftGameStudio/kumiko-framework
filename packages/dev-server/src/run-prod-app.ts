@@ -98,6 +98,7 @@ import {
   assertKumikoSchemaCurrent,
   SchemaDriftError,
 } from "@cosmicdrift/kumiko-framework/migrations";
+import type { ObservabilityProvider } from "@cosmicdrift/kumiko-framework/observability";
 import {
   createDispatcher,
   createEntityCache,
@@ -569,6 +570,14 @@ export type RunProdAppOptions = {
    *  Tests use this to feed crafted env-maps without polluting the
    *  global. */
   readonly envSource?: Record<string, string | undefined>;
+  /** Observability-Provider (Tracer + Meter). Default: Noop (kein Overhead,
+   *  kein `/metrics`-Endpoint). Setze `createPrometheusMeter()`-basierten
+   *  Provider + `metrics` um `/metrics` real zu exposen (publicstatus#91). */
+  readonly observability?: ObservabilityProvider;
+  /** Aktiviert den `/metrics`-Endpoint (Open-Metrics-Format). Ohne
+   *  `observability` bleibt der Meter ein Noop und die Route liefert leere
+   *  Ausgabe — beides zusammen setzen. */
+  readonly metrics?: import("@cosmicdrift/kumiko-framework/api").ServerOptions["metrics"];
 };
 
 export type ProdAppHandle = {
@@ -889,6 +898,8 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       ...(resolvedEffectiveFeatures && { effectiveFeatures: resolvedEffectiveFeatures }),
     },
     eventDedup,
+    ...(options.observability && { observability: options.observability }),
+    ...(options.metrics && { metrics: options.metrics }),
     ...(effectiveAuth && {
       auth: {
         membershipQuery: TenantQueries.memberships,
