@@ -248,7 +248,10 @@ function buildFields() {
   return { title: { type: "text" } };
 }
 
+const someFeature = { name: "mail-foundation" };
+
 defineFeature("refs", (r) => {
+  r.requires(someFeature.name, "config");
   r.entity("event", eventEntity);
   r.entity("task", { fields: buildFields() });
 });
@@ -257,8 +260,9 @@ defineFeature("refs", (r) => {
 describe("render → parse roundtrip — unresolved references (raw-ref sentinel)", () => {
   const initial = parse(RAW_REF_FEATURE);
 
-  test("parses both entities without error, keeping references unresolved", () => {
+  test("parses requires + both entities without error, keeping references unresolved", () => {
     expect(initial.patterns).toMatchObject([
+      { kind: "requires", featureNames: [{ __raw: "someFeature.name" }, "config"] },
       { kind: "entity", entityName: "event", definition: { __raw: "eventEntity" } },
       { kind: "entity", entityName: "task", definition: { fields: { __raw: "buildFields()" } } },
     ]);
@@ -269,10 +273,12 @@ describe("render → parse roundtrip — unresolved references (raw-ref sentinel
       featureName: initial.featureName ?? "",
       patterns: initial.patterns,
     });
+    expect(rendered).toContain("someFeature.name");
     expect(rendered).toContain("eventEntity");
     expect(rendered).toContain("buildFields()");
     // Would only appear if buildFields()'s return value got inlined.
     expect(rendered).not.toContain("title:");
+    expect(rendered).not.toContain("mail-foundation");
   });
 
   test("pattern shape survives a full render → reparse cycle", () => {

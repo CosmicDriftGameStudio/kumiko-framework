@@ -281,6 +281,21 @@ defineFeature("f", (r) => {
       featureNames: ["billing"],
     });
   });
+
+  test("keeps a computed feature-name arg as a raw-ref sentinel instead of failing (#1009)", () => {
+    const result = parseInline(`
+const someFeature = { name: "billing" };
+defineFeature("f", (r) => {
+  r.optionalRequires(someFeature.name);
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "optionalRequires",
+      featureNames: [{ __raw: "someFeature.name" }],
+    });
+    expect(result.errors).toEqual([]);
+  });
 });
 
 describe("extractReadsConfig", () => {
@@ -295,6 +310,21 @@ defineFeature("f", (r) => {
       kind: "readsConfig",
       qualifiedKeys: ["auth:config:jwt-ttl", "tenant:config:locale"],
     });
+  });
+
+  test("keeps a computed key arg as a raw-ref sentinel instead of failing (#1009)", () => {
+    const result = parseInline(`
+const cfg = { key: "auth:config:jwt-ttl" };
+defineFeature("f", (r) => {
+  r.readsConfig(cfg.key, "tenant:config:locale");
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "readsConfig",
+      qualifiedKeys: [{ __raw: "cfg.key" }, "tenant:config:locale"],
+    });
+    expect(result.errors).toEqual([]);
   });
 });
 
