@@ -40,6 +40,9 @@ Tutorial: [docs.kumiko.rocks/en/show-pony](https://docs.kumiko.rocks/en/show-pon
 |:---:|:---:|:---:|
 | ![Public RSVP page](docs/readme/show-pony-public-rsvp.png) | ![Host events list](docs/readme/show-pony-host-events.png) | ![Platform overview](docs/readme/show-pony-platform.png) |
 
+Screenshots match [docs.kumiko.rocks](https://docs.kumiko.rocks/en/show-pony/) (Playwright matrix from show-pony).
+Refresh after UI changes: `cd show-pony && bun run screenshots`, sync to `kumiko-platform/apps/docs/public/screenshots/show-pony/`, then `bun run sync:readme-screenshots` here.
+
 ---
 
 ## What it does
