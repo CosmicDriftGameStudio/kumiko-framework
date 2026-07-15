@@ -237,6 +237,54 @@ describe("render → parse roundtrip — mixed patterns (header data + opaque bo
 // guarantee than parse → render → parse, because it pins that the renderer
 // never depends on the input file's whitespace — its output is deterministic
 // from the parsed FeaturePattern shape alone.
+const RAW_REF_FEATURE = `
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+
+const eventEntity = {
+  fields: { name: { type: "text", required: true } },
+};
+
+function buildFields() {
+  return { title: { type: "text" } };
+}
+
+defineFeature("refs", (r) => {
+  r.entity("event", eventEntity);
+  r.entity("task", { fields: buildFields() });
+});
+`;
+
+describe("render → parse roundtrip — unresolved references (raw-ref sentinel)", () => {
+  const initial = parse(RAW_REF_FEATURE);
+
+  test("parses both entities without error, keeping references unresolved", () => {
+    expect(initial.patterns).toMatchObject([
+      { kind: "entity", entityName: "event", definition: { __raw: "eventEntity" } },
+      { kind: "entity", entityName: "task", definition: { fields: { __raw: "buildFields()" } } },
+    ]);
+  });
+
+  test("rendered output re-emits references verbatim, never inlines them", () => {
+    const rendered = renderFeatureFile({
+      featureName: initial.featureName ?? "",
+      patterns: initial.patterns,
+    });
+    expect(rendered).toContain("eventEntity");
+    expect(rendered).toContain("buildFields()");
+    // Would only appear if buildFields()'s return value got inlined.
+    expect(rendered).not.toContain("title:");
+  });
+
+  test("pattern shape survives a full render → reparse cycle", () => {
+    const rendered = renderFeatureFile({
+      featureName: initial.featureName ?? "",
+      patterns: initial.patterns,
+    });
+    const reparsed = parse(rendered);
+    expect(reparsed.patterns.map(stripLocations)).toEqual(initial.patterns.map(stripLocations));
+  });
+});
+
 describe("render idempotence", () => {
   test("rendered file → parse → render === rendered file", () => {
     const initial = parse(STATIC_FEATURE);
