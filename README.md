@@ -31,26 +31,36 @@
 
 ---
 
+## See it in action
+
+[Show Pony](https://show-pony.kumiko.rocks) — a multi-tenant RSVP app built entirely on Kumiko.
+Tutorial: [docs.kumiko.rocks/en/show-pony](https://docs.kumiko.rocks/en/show-pony/) · Source: [show-pony](https://github.com/CosmicDriftGameStudio/show-pony)
+
+| Public invite (no account) | Host dashboard (schema-driven) | Platform ops (multi-tenant) |
+|:---:|:---:|:---:|
+| ![Public RSVP page](docs/readme/show-pony-public-rsvp.png) | ![Host events list](docs/readme/show-pony-host-events.png) | ![Platform overview](docs/readme/show-pony-platform.png) |
+
+---
+
 ## What it does
 
 You write:
 
 ```typescript
-defineFeature("incident", (r) => {
-  r.entity("incident", {
-    fields: {
-      title: { type: "text", required: true },
-      severity: { type: "select", options: ["low", "high", "critical"] },
-      status: { type: "select", options: ["open", "investigating", "resolved"] },
-    },
-  });
+const taskEntity = createEntity({
+  table: "read_tasks",
+  fields: {
+    title: createTextField({ required: true }),
+    status: createTextField({ sortable: true }),
+    isArchived: createBooleanField({ default: false }),
+  },
+  softDelete: true,
+});
 
-  r.writeHandler({
-    name: "incident.open",
-    schema: openSchema,
-    handler: async (event, ctx) => {
-      await ctx.appendEvent("incident-opened", { ...event });
-    },
+export const taskFeature = defineFeature("tasks", (r) => {
+  r.crud("task", taskEntity, {
+    write: { access: { roles: ["Admin", "User"] } },
+    read: { access: { openToAll: true } },
   });
 });
 ```
@@ -58,45 +68,54 @@ defineFeature("incident", (r) => {
 You get, for free:
 
 - **Multi-tenant scoping** — every entity is tenant-scoped by default
-- **Audit trail** — every change is an event, time-travel queries work
+- **Audit trail** — every write appends to the event log; time-travel queries work
 - **Auth + sessions** — email/password, JWT, role-based access
-- **Realtime updates** — SSE broadcast across tenants
-- **CRUD UI** — schema-driven forms and lists with override paths
+- **Bundled features** — auth, delivery, files, billing, DSGVO hooks, jobs, and more (`bun create kumiko-app` picks what you need)
+- **Realtime updates** — SSE via async event-dispatcher
+- **CRUD UI** — schema-driven forms and lists (`r.screen`) with override paths
 - **Type-safe everywhere** — no `any`, no magic strings
 
 ## Quickstart
 
-### Prerequisites
+### New app (recommended)
 
-- [Bun](https://bun.sh/) ≥ 1.2 (runtime, package manager, test runner)
-- [Node.js](https://nodejs.org/) ≥ 20 (optional — Astro/docs tooling only)
-- [Docker](https://www.docker.com/) (PostgreSQL + Redis)
+```bash
+bun create kumiko-app my-app
+cd my-app
+cp .env.example .env   # set JWT_SECRET + KUMIKO_SECRETS_MASTER_KEY_V1
+bun install
+bun run boot
+```
 
-### Setup
+The interactive picker wires bundled features (auth, tenant, files, notifications, …) and resolves hard dependencies for you.
+
+Add a domain feature later:
+
+```bash
+kumiko add feature product-catalog
+```
+
+### Framework repo (contributors)
+
+**Prerequisites:** [Bun](https://bun.sh/) ≥ 1.2, [Docker](https://www.docker.com/) (PostgreSQL + Redis)
 
 ```bash
 git clone git@github.com:cosmicdriftgamestudio/kumiko-framework.git
 cd kumiko-framework
 bun install
+bun kumiko dev      # Postgres :15432, Redis :16379
+bun kumiko check    # Biome + TypeScript + tests + guards
 ```
-
-### Run
 
 ```bash
-# Interactive CLI — shows all commands
-bun kumiko
-
-# Or directly:
-bun kumiko dev      # Start Docker services (PG:15432, Redis:16379)
-bun kumiko test     # Run unit tests
-bun kumiko check    # Biome + TypeScript + Tests + Guards
-bun kumiko status   # What's running?
-bun kumiko stop     # Stop services
-bun kumiko reset    # Wipe + restart everything
-
+bun kumiko          # interactive CLI
+bun kumiko test     # unit tests
+bun kumiko test integration
+bun kumiko test e2e
+bun kumiko test all
 ```
 
-To explore feature patterns hands-on, run any sample:
+Explore a recipe hands-on:
 
 ```bash
 cd samples/recipes/basic-entity
@@ -106,7 +125,7 @@ bun test
 ## Why use this
 
 - **Built for B2B SaaS / internal tools** — multi-tenant + audit are first-class, not afterthoughts
-- **Postgres-native** — no Kafka, no EventStoreDB, no NATS. One database, one source of truth
+- **Postgres-native** — Bun.SQL + EntityTableMeta, no ORM. One database, one source of truth
 - **AI-builder ready** — config-driven, every `r.*` call is patchable by AI tools
 - **DACH/EU-ready** — self-host on Hetzner / k8s / bare-metal. BYO LLM (Anthropic, OpenAI, Ollama, vLLM)
 
@@ -116,11 +135,12 @@ bun test
 |-------|------|
 | Runtime | Bun |
 | API | Hono |
-| DB | Postgres (EntityTableMeta + SQL migrations) |
+| DB | Postgres via Bun.SQL (EntityTableMeta + SQL migrations) |
 | Auth | jose (JWT) |
 | Search | Meilisearch |
 | UI | React + Expo (Web + Mobile) |
 | Realtime | SSE via Redis Pub/Sub |
+| Async side-effects | Event-dispatcher (search index, SSE broadcast, projections) |
 | Tests | bun:test |
 
 Pipeline flow:
@@ -134,28 +154,33 @@ HTTP Request
     → Field-level write check
     → Validation hooks
     → Handler (event append + projection write, one TX)
-    → Lifecycle pipeline:
-        Feature postSave hooks
-        System hooks (priority order):
-          1000: Search index (Meilisearch)
-          1001: SSE broadcast
+    → Feature postSave hooks (same TX)
   → Response (with field-level read filtering)
+
+After commit (async, eventually consistent):
+  → Event-dispatcher drains kumiko_events
+    → Meilisearch index update
+    → SSE broadcast (Redis Pub/Sub)
+    → r.multiStreamProjection consumers
 ```
 
 The event log IS the audit trail — every write appends to `kumiko_events`
-inside the handler transaction, no separate audit step needed.
+inside the handler transaction. Search and realtime follow via the dispatcher,
+not synchronous lifecycle hooks.
+
+## Live apps
+
+| App | What it shows | Links |
+|-----|---------------|-------|
+| **Show Pony** | Tutorial app: multi-tenant RSVP, anonymous public writes, schema-driven host UI, billing hooks | [Live](https://show-pony.kumiko.rocks) · [Tutorial](https://docs.kumiko.rocks/en/show-pony/) · [Source](https://github.com/CosmicDriftGameStudio/show-pony) |
+| **publicstatus** | Production statuspage clone on Hetzner | [Live](https://publicstatus.eu) · [Source](https://github.com/cosmicdriftgamestudio/publicstatus) |
 
 ## Samples
 
-Tested, runnable examples per feature. Three buckets:
+Tested, runnable examples per feature. Two buckets — see [samples/README.md](samples/README.md) for the full index:
 
-- [`samples/recipes/`](samples/) — one concept = one feature definition + one test
-- [`samples/apps/`](samples/) — full-stack demos with dev-server + browser client
-- See the full sample index: [samples/README.md](samples/README.md)
-
-## Live showcase
-
-[publicstatus.eu](https://publicstatus.eu) — open-source statuspage clone built with Kumiko. Multi-tenant, SSE-realtime, deployed on Hetzner. Source: [github.com/cosmicdriftgamestudio/publicstatus](https://github.com/cosmicdriftgamestudio/publicstatus).
+- [`samples/recipes/`](samples/recipes/) — one concept = one feature definition + one test
+- [`samples/apps/`](samples/apps/) — full-stack demos with dev-server + browser client
 
 ## Documentation
 
@@ -165,7 +190,23 @@ Full docs: [docs.kumiko.rocks](https://docs.kumiko.rocks).
 
 Pre-1.0 — actively developed. APIs may change between minor versions until 1.0. Breaking-change policy and migration guides documented per release in [CHANGELOG.md](./CHANGELOG.md).
 
-Used in production at [publicstatus.eu](https://publicstatus.eu).
+Used in production at [publicstatus.eu](https://publicstatus.eu) and [show-pony.kumiko.rocks](https://show-pony.kumiko.rocks).
+
+## Join in
+
+Kumiko is pre-1.0 and moving fast — help is welcome even if you're not a framework hacker.
+
+**Good ways to start:**
+
+- Walk through the [Show Pony tutorial](https://docs.kumiko.rocks/en/show-pony/) and open an issue if something confuses you — that's a docs fix.
+- Pick a [recipe](samples/recipes/) close to your use case; a failing or missing recipe is a real bug.
+- Docs, i18n (de/en), and screenshot drift in samples are always fair game.
+
+**Before a bigger PR:** skim [CONTRIBUTING.md](./CONTRIBUTING.md) and open an issue for new features — saves you building something we're already shipping.
+
+**Questions?** [GitHub Issues](https://github.com/CosmicDriftGameStudio/kumiko-framework/issues) or marc@cosmicdriftgamestudio.com.
+
+Every merged PR needs tests where they make sense; every new framework feature needs a recipe. By contributing, you agree your contributions are licensed under the same BUSL-1.1 terms — see [LICENSE](./LICENSE).
 
 ## License
 
@@ -182,12 +223,6 @@ Details: [LICENSE](./LICENSE).
 ## Hosted platform
 
 Don't want to self-host? [kumiko.rocks](https://kumiko.rocks) is the hosted version with AI-builder, designer, and managed hosting.
-
-## Contributing
-
-PRs welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup + guidelines.
-
-By contributing, you agree your contributions are licensed under the same BUSL-1.1 terms.
 
 ---
 
