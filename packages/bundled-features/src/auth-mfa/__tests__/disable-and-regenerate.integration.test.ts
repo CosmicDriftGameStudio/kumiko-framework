@@ -82,6 +82,39 @@ describe("disable", () => {
     expect(secondStart.setupToken).toBeTruthy();
   });
 
+  test("MFA can be fully re-enabled after disable (re-create on a deleted aggregate)", async () => {
+    const { user, secret: firstSecret } = await enableMfaFor("disable-reenable-1");
+
+    await stack.http.writeOk<{ disabled: boolean }>(
+      AuthMfaHandlers.disable,
+      { code: currentTotpCode(firstSecret) },
+      user,
+    );
+
+    const restart = await stack.http.writeOk<{ setupToken: string; otpauthUri: string }>(
+      AuthMfaHandlers.enableStart,
+      { accountLabel: "disable-reenable-1@example.com" },
+      user,
+    );
+    const secretParam = new URLSearchParams(restart.otpauthUri.split("?")[1]).get("secret") ?? "";
+    const secondSecret = base32Decode(secretParam);
+
+    const confirm = await stack.http.writeOk<{ enabled: boolean }>(
+      AuthMfaHandlers.enableConfirm,
+      { setupToken: restart.setupToken, code: currentTotpCode(secondSecret) },
+      user,
+    );
+    expect(confirm.enabled).toBe(true);
+
+    // The re-enabled row is fully usable — a real code disables it again.
+    const res = await stack.http.writeOk<{ disabled: boolean }>(
+      AuthMfaHandlers.disable,
+      { code: currentTotpCode(secondSecret) },
+      user,
+    );
+    expect(res.disabled).toBe(true);
+  });
+
   test("a valid recovery code also disables MFA", async () => {
     const { user, recoveryCodes } = await enableMfaFor("disable-recovery-1");
 
