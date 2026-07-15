@@ -9,17 +9,23 @@ export type TenantLifecycleGate = {
 };
 
 // Every authenticated + anonymous request consults this (via auth-middleware's
-// resolveTenantLifecycleStatus) — a per-request DB round-trip otherwise. No
-// TTL: status must be observable the instant it changes (a stale "active"
-// read after tombstoning would let a request slip through the 410 gate), so
-// this is invalidated explicitly by every status-changing write —
-// request/cancel-destruction, the sweep, and tombstoneTenantRow all call
-// invalidateTenantLifecycleGate(tenantId) right after their update succeeds.
+// resolveTenantLifecycleStatus) — a per-request DB round-trip otherwise.
+// invalidateTenantLifecycleGate(tenantId) clears the SAME-process entry
+// right after every status-changing write (request/cancel-destruction, the
+// sweep, tombstoneTenantRow) — the instant-visibility path for a single
+// replica. In a multi-replica deployment a write on pod A never reaches pod
+// B's Map, so a short TTL bounds the cross-pod staleness window instead of
+// leaving it unbounded (self-heals within GATE_TTL_MS even if invalidation
+// never arrives).
 // Split into its own module (not run-tenant-destroy.ts) so stages.ts can
 // invalidate too without a stages.ts <-> run-tenant-destroy.ts import cycle.
 // ponytail: unbounded Map — fine while tenant counts stay in the thousands (a
 // few bytes/entry); swap for a bounded LRU if that ever changes.
-const gateCache = new Map<TenantId, TenantLifecycleGate | null>();
+const GATE_TTL_MS = 3000;
+const gateCache = new Map<
+  TenantId,
+  { readonly value: TenantLifecycleGate | null; readonly expiresAt: number }
+>();
 
 export function invalidateTenantLifecycleGate(tenantId: TenantId): void {
   gateCache.delete(tenantId);
@@ -38,7 +44,8 @@ export async function resolveTenantLifecycleGate(
   db: DbRunner,
   tenantId: TenantId,
 ): Promise<TenantLifecycleGate | null> {
-  if (gateCache.has(tenantId)) return gateCache.get(tenantId) ?? null;
+  const cached = gateCache.get(tenantId);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
   const rows = await selectMany<{ status: string; gracePeriodEnd: Temporal.Instant | null }>(
     db,
     tenantTable,
@@ -46,13 +53,13 @@ export async function resolveTenantLifecycleGate(
   );
   const row = rows[0];
   if (!row) {
-    gateCache.set(tenantId, null);
+    gateCache.set(tenantId, { value: null, expiresAt: Date.now() + GATE_TTL_MS });
     return null;
   }
   const gate: TenantLifecycleGate = {
     status: row.status,
     gracePeriodEnd: row.gracePeriodEnd?.toString() ?? null,
   };
-  gateCache.set(tenantId, gate);
+  gateCache.set(tenantId, { value: gate, expiresAt: Date.now() + GATE_TTL_MS });
   return gate;
 }

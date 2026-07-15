@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import { composeFeatures } from "../compose-features";
 import {
   composeFileStack,
   composeGdprStack,
@@ -78,6 +80,23 @@ describe("composeStacks", () => {
 });
 
 /** Parity: preset name-sets match blocks used in studio / money-horse / publicstatus run-config. */
+describe("composeStacks boots for real", () => {
+  test("studio-shaped combined stack passes validateBoot (not just name-list comparison)", () => {
+    const features = composeFeatures(
+      [
+        ...composeOpsStack({ rateLimiting: true }),
+        ...composePagesStack(),
+        ...composeMailStack({ transports: ["inmemory"] }),
+        ...composeFileStack({ providers: ["inmemory"] }),
+        ...composeGdprStack({ order: "compliance-first", sessions: true }),
+        ...composeUserDataRightsStack(),
+      ],
+      { includeBundled: true },
+    );
+    expect(() => validateBoot(features)).not.toThrow();
+  });
+});
+
 describe("composeStacks parity (feature names)", () => {
   test("studio SaaS blocks are covered by presets", () => {
     const names = stackFeatureNames([

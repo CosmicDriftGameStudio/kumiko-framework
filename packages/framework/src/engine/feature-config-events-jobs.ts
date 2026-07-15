@@ -263,6 +263,7 @@ export function buildConfigEventsJobsMethods<TName extends string>(
   };
 }
 
+// Compile the declarative {rename, default, map} migration spec into an
 // EventUpcastFn. Fixed order: rename → default → map.
 function compileEventMigration(spec: DeclarativeEventMigration): EventUpcastFn {
   return (payload) => {

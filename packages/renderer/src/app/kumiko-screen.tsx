@@ -946,7 +946,16 @@ function EntityListBody({
           }),
           onTrigger: async () => {
             const payload = action.payload ?? {};
-            await dispatcher.write(action.handler, payload);
+            const result = await dispatcher.write(action.handler, payload);
+            // Gleicher Surfacing-Zwang wie bei rowActions (Prod-Bug
+            // 2026-06-07): ein verschlucktes Failure-Result sah wie
+            // "nichts passiert" aus.
+            if (!result.isSuccess) {
+              throw new WriteFailedError(
+                result.error,
+                dispatcherErrorText(result.error, effectiveTranslate),
+              );
+            }
           },
         };
       })
@@ -1170,7 +1179,16 @@ function ProjectionListBody({
           confirmLabel: effectiveTranslate(action.confirmLabel),
         }),
         onTrigger: async () => {
-          await dispatcher.write(action.handler, action.payload ?? {});
+          const result = await dispatcher.write(action.handler, action.payload ?? {});
+          // Gleicher Surfacing-Zwang wie bei rowActions (Prod-Bug
+          // 2026-06-07): ein verschlucktes Failure-Result sah wie
+          // "nichts passiert" aus.
+          if (!result.isSuccess) {
+            throw new WriteFailedError(
+              result.error,
+              dispatcherErrorText(result.error, effectiveTranslate),
+            );
+          }
         },
       });
     }

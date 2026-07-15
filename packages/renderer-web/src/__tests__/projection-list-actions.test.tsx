@@ -86,4 +86,46 @@ describe("projectionList writeHandler-Actions", () => {
     expect(write.mock.calls[0]?.[0]).toBe("status:write:maintenance:sync");
     expect(write.mock.calls[0]?.[1]).toEqual({ source: "manual" });
   });
+
+  // Prod-Bug 2026-06-07 (siehe useRowActionTrigger): ein verschluckter
+  // Write-Fehler sah für den User wie "nichts passiert" aus. Row- UND
+  // Toolbar-Action auf projectionList müssen denselben Surfacing-Pfad wie
+  // entityList nehmen (Toast statt stiller no-op).
+  test("Row-Action-Fehler wird als Toast surfaced, nicht verschluckt", async () => {
+    const write = mock(async (_type: string, _payload: unknown) => ({
+      isSuccess: false,
+      error: { code: "internal_error", httpStatus: 500, message: "maintenance start failed" },
+    }));
+    const { ToastProvider } = await import("../primitives/toast");
+    render(
+      <ToastProvider>
+        <DispatcherProvider dispatcher={makeDispatcher(write as unknown as Dispatcher["write"])}>
+          <KumikoScreen schema={schema} qn="status:screen:maintenance-list" />
+        </DispatcherProvider>
+      </ToastProvider>,
+    );
+    await waitFor(() => expect(screen.getByText("DB-Upgrade")).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "status:action:start" }));
+    expect(await screen.findByText("maintenance start failed")).toBeTruthy();
+  });
+
+  test("Toolbar-Action-Fehler wird als Toast surfaced, nicht verschluckt", async () => {
+    const write = mock(async (_type: string, _payload: unknown) => ({
+      isSuccess: false,
+      error: { code: "internal_error", httpStatus: 500, message: "maintenance sync failed" },
+    }));
+    const { ToastProvider } = await import("../primitives/toast");
+    render(
+      <ToastProvider>
+        <DispatcherProvider dispatcher={makeDispatcher(write as unknown as Dispatcher["write"])}>
+          <KumikoScreen schema={schema} qn="status:screen:maintenance-list" />
+        </DispatcherProvider>
+      </ToastProvider>,
+    );
+    await waitFor(() => expect(screen.getByText("DB-Upgrade")).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "status:action:sync" }));
+    expect(await screen.findByText("maintenance sync failed")).toBeTruthy();
+  });
 });
