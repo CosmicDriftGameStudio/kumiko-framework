@@ -83,7 +83,6 @@ import {
   createAllInOneEntrypoint,
   createApiEntrypoint,
 } from "@cosmicdrift/kumiko-framework/entrypoint";
-import type { ObservabilityProvider } from "@cosmicdrift/kumiko-framework/observability";
 import {
   type ComposedEnvSchema,
   KumikoBootError,
@@ -99,6 +98,7 @@ import {
   assertKumikoSchemaCurrent,
   SchemaDriftError,
 } from "@cosmicdrift/kumiko-framework/migrations";
+import type { ObservabilityProvider } from "@cosmicdrift/kumiko-framework/observability";
 import {
   createDispatcher,
   createEntityCache,
