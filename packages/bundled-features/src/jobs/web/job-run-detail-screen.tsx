@@ -1,7 +1,13 @@
 // @runtime client
 // Single job-run detail + logs. Route entityId = run uuid.
 
-import { useDispatcher, useNav, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import {
+  formatWhen,
+  useDispatcher,
+  useNav,
+  usePrimitives,
+  useTranslation,
+} from "@cosmicdrift/kumiko-renderer";
 import { FormScreenShell } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { JOB_RUNS_SCREEN_ID, JobHandlers, JobQueries } from "../constants";
@@ -171,12 +177,4 @@ export function JobRunDetailScreen(): ReactNode {
       </Card>
     </FormScreenShell>
   );
-}
-
-function formatWhen(value: string): string {
-  try {
-    return new Date(value).toLocaleString();
-  } catch {
-    return value;
-  }
 }

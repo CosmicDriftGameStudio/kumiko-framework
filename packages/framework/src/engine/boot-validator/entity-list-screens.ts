@@ -2,7 +2,7 @@ import type { EntityListScreenDefinition, FeatureDefinition } from "../types";
 import { normalizeListColumn } from "../types/screen";
 
 /** Operator lists default searchable; low-cardinality audit trails stay opt-out. */
-const SEARCHABLE_FALSE_WHITELIST = new Set(["download-attempt-list"]);
+export const SEARCHABLE_FALSE_WHITELIST = new Set(["download-attempt-list"]);
 
 function hasFilterableFields(feature: FeatureDefinition, entityName: string): boolean {
   const entities = feature.entities;

@@ -52,6 +52,10 @@ function evalRowExtractor(
   return Object.fromEntries(Object.entries(extractor.map).map(([to, from]) => [to, row[from]]));
 }
 
+function isWriteHandlerRowAction(action: RowAction): action is RowActionWriteHandler {
+  return action.kind === "writeHandler" || action.kind === undefined;
+}
+
 // KumikoScreen picks up a ScreenDefinition from the schema by qn and
 // routes it to the right renderer based on `screen.type`. Command
 // qualification (`<feature>:write:<entity>:create` etc.) happens here
@@ -877,8 +881,8 @@ function EntityListBody({
           };
         }
         if (dispatcher === undefined) return null;
-        if (action.kind !== "writeHandler" && action.kind !== undefined) return null;
-        const writeAction = action as RowActionWriteHandler;
+        if (!isWriteHandlerRowAction(action)) return null;
+        const writeAction = action;
         const writeActionVisible = writeAction.visible;
         return {
           id: writeAction.id,
@@ -1121,7 +1125,7 @@ function ProjectionListBody({
       // Failure-Result MUSS zum Error werden (sonst schließt der Confirm-
       // Dialog kommentarlos).
       if (dispatcher === undefined) continue;
-      const writeAction = action as RowActionWriteHandler;
+      const writeAction = action;
       const writeVisible = writeAction.visible;
       out.push({
         id: writeAction.id,

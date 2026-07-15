@@ -138,7 +138,7 @@ function renderIndex(name: string): string {
 }
 
 function renderConstants(name: string): string {
-  return `export const ${constName(name)} = "${name}";\n`;
+  return `export const ${constName(name)} = "${name}" as const;\n`;
 }
 
 function renderI18n(name: string): string {

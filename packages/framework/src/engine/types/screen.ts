@@ -361,7 +361,9 @@ export type DashboardStatPanel = {
    *  für ein reines Icon). */
   readonly icon?: PlatformComponent;
   /** Statischer CSS-Farbwert (z.B. "var(--color-debt)") für den Icon-Chip —
-   *  Passthrough an die Kachel, keine Registry, kein Lookup. */
+   *  Passthrough an die Kachel, keine Registry, kein Lookup. Wirkt NUR wenn
+   *  `icon` gesetzt ist (StatCard rendert den Chip nur zusammen mit einem
+   *  Icon) — ohne icon wird der Wert still verworfen. */
   readonly accentColor?: string;
 };
 

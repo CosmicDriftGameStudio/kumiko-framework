@@ -138,7 +138,7 @@ async function startQueueDepthPolling(
 ): Promise<ReturnType<typeof setInterval>> {
   const pollQueueDepth = async (): Promise<void> => {
     try {
-      const counts = await queue.getJobCounts();
+      const counts = await queue.getJobCounts("waiting", "active", "delayed", "failed", "paused");
       emitJobQueueDepth(meter, lane, counts);
     } catch {
       // skip: transient Redis hiccup — next poll retries

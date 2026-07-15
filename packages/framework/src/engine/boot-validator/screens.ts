@@ -784,6 +784,11 @@ function validateDashboardFilterDefinition(
         `declare at least one option or use optionsQuery instead.`,
     );
   }
+  if (hasOptionsQuery && filter.optionsQuery?.length === 0) {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (dashboard) filter.optionsQuery is empty.`,
+    );
+  }
 }
 
 // Form-check für ListColumn-Renderer in der PlatformComponent-Form

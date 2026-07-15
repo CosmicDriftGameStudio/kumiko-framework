@@ -209,13 +209,6 @@ export async function loadAggregateWithSnapshot<TState extends Record<string, un
   initial: TState,
   options?: LoadAggregateWithSnapshotOptions,
 ): Promise<LoadAggregateWithSnapshotResult<TState>> {
-  if (!options?.includeArchived) {
-    const archived = await isStreamArchived(db, tenantId, aggregateId);
-    if (archived) {
-      return { state: initial, version: 0, snapshotHit: false };
-    }
-  }
-  const shapeVersion = options?.snapshotVersion ?? 1;
   if (
     options?.snapshotEvery !== undefined &&
     (!Number.isInteger(options.snapshotEvery) || options.snapshotEvery < 1)
@@ -224,6 +217,13 @@ export async function loadAggregateWithSnapshot<TState extends Record<string, un
       `loadAggregateWithSnapshot: snapshotEvery must be an integer >= 1, got ${String(options.snapshotEvery)}`,
     );
   }
+  if (!options?.includeArchived) {
+    const archived = await isStreamArchived(db, tenantId, aggregateId);
+    if (archived) {
+      return { state: initial, version: 0, snapshotHit: false };
+    }
+  }
+  const shapeVersion = options?.snapshotVersion ?? 1;
   const stored = await loadLatestSnapshot<TState>(db, aggregateId, tenantId);
   const snapshot = stored && stored.snapshotVersion === shapeVersion ? stored : null;
   const baseState = snapshot ? snapshot.state : initial;

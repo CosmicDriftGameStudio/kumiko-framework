@@ -1,7 +1,13 @@
 // @runtime client
 // Single audit event detail. Route entityId = event-store id (bigint string).
 
-import { useDispatcher, useNav, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import {
+  formatWhen,
+  useDispatcher,
+  useNav,
+  usePrimitives,
+  useTranslation,
+} from "@cosmicdrift/kumiko-renderer";
 import { FormScreenShell } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { AuditQueries } from "../constants";
@@ -122,12 +128,4 @@ export function AuditLogDetailScreen(): ReactNode {
       </Card>
     </FormScreenShell>
   );
-}
-
-function formatWhen(value: string): string {
-  try {
-    return new Date(value).toLocaleString();
-  } catch {
-    return value;
-  }
 }

@@ -169,9 +169,9 @@ export async function runBatch(
 }
 
 // Unwrap a BatchResult into a single WriteResult for write()/command().
-// Picks the last result if present (the failing one for failures, the only
-// one for successful single writes). Falls back to a synthetic error if the
-// batch didn't produce any results (unexpected).
+// Picks the first result on success (the only one for a single write), the
+// failing one on failure. Falls back to a synthetic error if the batch
+// didn't produce any results (unexpected).
 export function unwrapSingle(batchResult: BatchResult): WriteResult {
   if (batchResult.isSuccess) {
     return (

@@ -231,6 +231,38 @@ describe("FileField", () => {
     expect(screen.getByText("Bild")).toBeTruthy();
   });
 
+  test('variant="image" mit gesetzter FileRef zeigt Preview + Remove-Button', () => {
+    render(
+      <FileField
+        label="Bild"
+        id="f3"
+        name="f3"
+        value="file-abc"
+        onChange={() => {}}
+        variant="image"
+      />,
+    );
+    const img = document.querySelector("img") as HTMLImageElement;
+    expect(img.src).toContain("/api/files/file-abc");
+    expect(screen.getByRole("button", { name: "Remove" })).toBeTruthy();
+  });
+
+  test("Remove-Button ruft onChange(null)", () => {
+    const onChange = mock();
+    render(
+      <FileField
+        label="Bild"
+        id="f4"
+        name="f4"
+        value="file-abc"
+        onChange={onChange}
+        variant="image"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+    expect(onChange).toHaveBeenCalledWith(null);
+  });
+
   test("entityType/fieldName reichen bis in den /api/files-Upload-Request durch", async () => {
     const originalFetch = global.fetch;
     const fetchSpy = mock(

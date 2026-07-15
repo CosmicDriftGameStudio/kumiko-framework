@@ -40,9 +40,8 @@ export function translationsByLocaleFromKeys(source: TranslationsByKey): Transla
   const out: Record<string, Record<string, string>> = {};
   for (const [key, byLocale] of Object.entries(source)) {
     for (const [locale, value] of Object.entries(byLocale)) {
-      const bucket = out[locale] ?? {};
-      bucket[key] = value;
-      out[locale] = bucket;
+      out[locale] ??= {};
+      out[locale][key] = value;
     }
   }
   return out;

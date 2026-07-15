@@ -31,6 +31,8 @@ export async function resolveNotificationVariables(
       const base = parsePlainTemplateContent(resolved.content);
       return { ...base, ...variables };
     }
+    // body always wins from the resolved template for rendered formats — a runtime
+    // "variables.body" override would clobber the actual rendered content.
     return { ...variables, body: resolved.content };
   } catch (err) {
     if (err instanceof TemplateNotFoundError) {

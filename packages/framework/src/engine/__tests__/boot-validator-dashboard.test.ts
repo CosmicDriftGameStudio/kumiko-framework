@@ -193,6 +193,16 @@ describe("validateBoot — dashboard screens", () => {
     expect(() => validateBoot([feature])).toThrow(/filter.options is empty/);
   });
 
+  test("rejects a filter with an empty optionsQuery", () => {
+    const feature = dashboardFeature([STAT_PANEL], {
+      id: "region",
+      label: "demo:dashboard:filter:region",
+      kind: "select",
+      optionsQuery: "",
+    });
+    expect(() => validateBoot([feature])).toThrow(/filter.optionsQuery is empty/);
+  });
+
   test("requiredKeysFromScreen sammelt stat-group-Kinder- und Filter-Labels, aber keine custom-Panel-Keys", () => {
     const screen: DashboardScreenDefinition = {
       id: "overview",

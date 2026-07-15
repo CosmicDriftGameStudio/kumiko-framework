@@ -40,6 +40,16 @@ describe("wrapInLayout :: seo (opt-in OG/JSON-LD extension)", () => {
     expect(html).not.toContain('<meta name="description" content="About us">');
   });
 
+  test('with `seo` — no description means no <meta name="description"> at all (not an empty one)', () => {
+    const html = wrapInLayout({
+      title: "About",
+      bodyHtml: "<p>x</p>",
+      lang: "en",
+      seo: {},
+    });
+    expect(html).not.toContain('<meta name="description"');
+  });
+
   test("with `seo` — escapes title/description same as the non-seo path", () => {
     const html = wrapInLayout({
       title: "<script>alert(1)</script>",

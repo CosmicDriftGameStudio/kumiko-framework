@@ -50,6 +50,7 @@ describe("parseRetentionOverrideOrNull", () => {
   test("each dropped value surfaces exactly one operator warning", () => {
     const warn = spyOn(console, "warn").mockImplementation(() => {});
     parse("{not json");
+    expect(warn).toHaveBeenCalledTimes(1);
     parse('{"strategy":"delete"}');
     expect(warn).toHaveBeenCalledTimes(2);
   });

@@ -560,6 +560,10 @@ export type SectionProps = {
    *  übernehmen"). Web rendert standalone eine abgehobene Footer-Row
    *  (border-t), innerhalb eines Forms eine rechtsbündige Button-Reihe. */
   readonly actions?: ReactNode;
+  /** "destructive" marks the Section as a warning/danger area (e.g. account
+   *  deletion, restrict processing) — border color only, no content change.
+   *  Default "default" (normal card border). */
+  readonly variant?: "default" | "destructive";
   readonly testId?: string;
 };
 

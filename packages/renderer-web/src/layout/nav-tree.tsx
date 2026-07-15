@@ -619,11 +619,11 @@ function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
 
   const chevron = s.expandable ? (
     <SidebarMenuAction
-      aria-label={t(s.isCollapsed ? "kumiko.nav.expand" : "kumiko.nav.collapse")}
-      aria-expanded={!s.isCollapsed}
+      aria-label={t(s.isExpanded ? "kumiko.nav.collapse" : "kumiko.nav.expand")}
+      aria-expanded={s.isExpanded}
       onClick={() => onToggle(node.qualifiedName)}
     >
-      {s.isCollapsed ? <ChevronRight /> : <ChevronDown />}
+      {s.isExpanded ? <ChevronDown /> : <ChevronRight />}
     </SidebarMenuAction>
   ) : null;
 
@@ -675,15 +675,15 @@ function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
         onClick={() => {
           if (s.expandable) onToggle(node.qualifiedName);
         }}
-        {...(s.expandable && { "aria-expanded": !s.isCollapsed })}
+        {...(s.expandable && { "aria-expanded": s.isExpanded })}
       >
         <NavLeadingIcon node={node} active={false} expanded={s.isExpanded} />
         <span className="truncate">{s.displayLabel}</span>
         {s.expandable &&
-          (s.isCollapsed ? (
-            <ChevronRight className="ml-auto" />
-          ) : (
+          (s.isExpanded ? (
             <ChevronDown className="ml-auto" />
+          ) : (
+            <ChevronRight className="ml-auto" />
           ))}
       </SidebarMenuButton>
       <NodeActions node={node} />
@@ -724,15 +724,15 @@ function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
   const chevron = s.expandable ? (
     <button
       type="button"
-      aria-label={t(s.isCollapsed ? "kumiko.nav.expand" : "kumiko.nav.collapse")}
-      aria-expanded={!s.isCollapsed}
+      aria-label={t(s.isExpanded ? "kumiko.nav.collapse" : "kumiko.nav.expand")}
+      aria-expanded={s.isExpanded}
       onClick={(e) => {
         e.stopPropagation();
         onToggle(node.qualifiedName);
       }}
       className="absolute top-1 right-1 flex size-5 items-center justify-center rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
     >
-      {s.isCollapsed ? <ChevronRight className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+      {s.isExpanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
     </button>
   ) : null;
 

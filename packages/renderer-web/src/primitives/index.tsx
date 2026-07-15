@@ -144,7 +144,7 @@ function DefaultButton({
       data-loading={loading === true ? "true" : undefined}
       variant={BUTTON_VARIANT[variant]}
       size={BUTTON_SIZE[size]}
-      {...(ariaLabel !== undefined && { "aria-label": ariaLabel })}
+      aria-label={ariaLabel}
       className={className}
     >
       {loading === true ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : children}
@@ -1509,7 +1509,14 @@ export function FormScreenShell({
   );
 }
 
-function DefaultSection({ title, subtitle, children, actions, testId }: SectionProps): ReactNode {
+function DefaultSection({
+  title,
+  subtitle,
+  children,
+  actions,
+  variant = "default",
+  testId,
+}: SectionProps): ReactNode {
   const insideForm = useContext(InsideFormContext);
 
   // h3 statt CardTitle (= div): erhält die Heading-Semantik für
@@ -1542,7 +1549,13 @@ function DefaultSection({ title, subtitle, children, actions, testId }: SectionP
   // actions hier = rechtsbündige Reihe (das Form trägt den eigenen Footer).
   if (insideForm) {
     return (
-      <section data-testid={testId} className="flex flex-col gap-4 px-6 py-6">
+      <section
+        data-testid={testId}
+        className={cn(
+          "flex flex-col gap-4 px-6 py-6",
+          variant === "destructive" && "border-l-2 border-destructive/40",
+        )}
+      >
         {header}
         {children}
         {actions !== undefined && (
@@ -1565,7 +1578,14 @@ function DefaultSection({ title, subtitle, children, actions, testId }: SectionP
   // `children`) WOULD get silently clipped — verify this against any new
   // standalone-section content that renders its own non-portaled overlay.
   return (
-    <div data-testid={testId} className={cn(cardSurface(), "overflow-hidden")}>
+    <div
+      data-testid={testId}
+      className={cn(
+        cardSurface(),
+        "overflow-hidden",
+        variant === "destructive" && "border-destructive/40",
+      )}
+    >
       <div className="flex flex-col gap-4 px-6 py-6">
         {header}
         {children}
