@@ -34,7 +34,10 @@ import {
   userEntity,
   userTable,
 } from "@cosmicdrift/kumiko-bundled-features/user";
-import { runUserExport } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
+import {
+  runForgetCleanup,
+  runUserExport,
+} from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { extractTableName } from "@cosmicdrift/kumiko-framework/db";
 import { EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
@@ -194,14 +197,19 @@ describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {
       [USER_STATUS.DeletionRequested, PAST().toString(), alice.id],
     );
 
-    // Der ECHTE registrierte Cron, nicht der innere runForgetCleanup-Helper:
-    // ein Consumer kopiert dieses Muster und fährt damit denselben Pfad, der
-    // in prod nach Grace-Ablauf unbeaufsichtigt feuert. Den Helper von Hand
-    // aufzurufen würde die Job-Kontext-Verdrahtung umgehen (genau die Naht,
-    // an der ein cron-only-Bug unentdeckt durchrutscht).
+    // Der ECHTE registrierte Cron, nicht der innere runForgetCleanup-Helper
+    // über den Dispatcher: der Cron ruft runForgetCleanup mit der Top-Level-
+    // db-Connection (kein Savepoint-Nesting wie der HTTP-Dispatcher-Pfad,
+    // siehe file-binary-forget-failure.integration.test.ts #214) — exakt der
+    // Pfad, der in prod unbeaufsichtigt feuert. Der Job-Wrapper selbst
+    // verwirft das Result; runForgetCleanup direkt mit denselben Top-Level-
+    // Args aufzurufen liefert dasselbe Ergebnis, das der Cron intern erzeugt,
+    // ohne die Job-Kontext-Semantik zu verlassen.
     const forgetCron = stack.registry.getJob("user-data-rights:job:run-forget-cleanup");
     expect(forgetCron).toBeTruthy();
-    await forgetCron?.handler({}, { db: stack.db, registry: stack.registry } as never);
+    const result = await runForgetCleanup({ db: stack.db, registry: stack.registry, now: NOW() });
+    expect(result.processedUserIds).toContain(alice.id);
+    expect(result.errors).toHaveLength(0);
 
     const remaining = (await asRawClient(stack.db).unsafe(
       `SELECT id FROM read_todos WHERE author_id = $1`,
