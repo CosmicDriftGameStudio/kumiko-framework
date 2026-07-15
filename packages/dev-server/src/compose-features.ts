@@ -46,6 +46,12 @@ export function composeFeatures(
   appFeatures: readonly FeatureDefinition[],
   options: ComposeFeaturesOptions,
 ): FeatureDefinition[] {
+  // ponytail: includeBundled:false skips the auth-mfa auto-wiring below —
+  // an app composing its own foundation and mounting auth-mfa itself is
+  // responsible for threading mfaStatusCheckerFromFeature(...) into its
+  // own createAuthEmailPasswordFeature(...) call, or login silently
+  // bypasses MFA. Upgrade if this trips someone: warn here when appFeatures
+  // contains AUTH_MFA_FEATURE but includeBundled is false.
   if (!options.includeBundled) return [...appFeatures];
 
   // Bundled foundation goes first so its instances carry the runDevApp /
