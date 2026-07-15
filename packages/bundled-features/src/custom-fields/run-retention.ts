@@ -158,7 +158,15 @@ async function loadRetentionPolicies(
   for (const raw of rows) {
     // skip: see asHostRow rationale.
     if (!isFieldDefinitionRow(raw)) continue;
-    const parsed = parseSerializedField(raw.serialized_field);
+    // parseSerializedField throws on a #972 legacy `sensitive` definition —
+    // one unmigrated field must not abort the whole tenant's retention sweep
+    // for every other field; skip it (no retention policy to apply anyway).
+    let parsed: ReturnType<typeof parseSerializedField>;
+    try {
+      parsed = parseSerializedField(raw.serialized_field);
+    } catch {
+      continue;
+    }
     if (parsed?.retention) {
       out.set(raw.field_key, parsed.retention);
     }

@@ -33,6 +33,19 @@ describe("useDraft", () => {
     act(() => result.current.reset());
     expect(result.current.draft.a).toBe(1);
   });
+
+  test("idPrefix verhindert doppelte DOM-ids bei mehreren useDraft-Formularen mit gleichem Feldnamen", () => {
+    const a = renderHook(() =>
+      useDraft<{ sum: number | undefined }>({ sum: 1 }, { idPrefix: "a" }),
+    );
+    const b = renderHook(() =>
+      useDraft<{ sum: number | undefined }>({ sum: 2 }, { idPrefix: "b" }),
+    );
+    expect(a.result.current.field("sum").id).toBe("a-sum");
+    expect(b.result.current.field("sum").id).toBe("b-sum");
+    // name bleibt der reine Key — nur die DOM-id wird prefixt.
+    expect(a.result.current.field("sum").name).toBe("sum");
+  });
 });
 
 describe("NumberField", () => {
@@ -216,6 +229,38 @@ describe("FileField", () => {
       <FileField label="Bild" id="f" name="f" value={null} onChange={() => {}} variant="image" />,
     );
     expect(screen.getByText("Bild")).toBeTruthy();
+  });
+
+  test("entityType/fieldName reichen bis in den /api/files-Upload-Request durch", async () => {
+    const originalFetch = global.fetch;
+    const fetchSpy = mock(
+      async (_url: string, _init?: RequestInit) => new Response(JSON.stringify({ id: "file-1" })),
+    );
+    global.fetch = fetchSpy as unknown as typeof fetch;
+    try {
+      render(
+        <FileField
+          label="Anhang"
+          id="f2"
+          name="f2"
+          value={null}
+          onChange={() => {}}
+          entityType="property"
+          fieldName="brochure"
+        />,
+      );
+      const input = document.getElementById("f2") as HTMLInputElement;
+      const file = new File(["x"], "brochure.pdf", { type: "application/pdf" });
+      await act(async () => {
+        fireEvent.change(input, { target: { files: [file] } });
+      });
+      expect(fetchSpy).toHaveBeenCalled();
+      const body = fetchSpy.mock.calls[0]?.[1]?.body as FormData;
+      expect(body.get("entityType")).toBe("property");
+      expect(body.get("fieldName")).toBe("brochure");
+    } finally {
+      global.fetch = originalFetch;
+    }
   });
 });
 

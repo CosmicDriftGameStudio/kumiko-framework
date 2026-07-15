@@ -131,11 +131,15 @@ async function gatherEntries(
         );
         if (res.ok) {
           const body: {
-            data?: { pages?: readonly { slug: string; updatedAt: string }[] };
+            data?: { pages?: readonly { slug: string; title: string; updatedAt: string }[] };
           } = await res.json();
           const basePath = opts.managedPages.basePath ?? "/p";
           for (const page of body.data?.pages ?? []) {
-            entries.push({ loc: `${origin}${basePath}/${page.slug}`, lastmod: page.updatedAt });
+            entries.push({
+              loc: `${origin}${basePath}/${page.slug}`,
+              title: page.title,
+              lastmod: page.updatedAt,
+            });
           }
         }
       } catch {
@@ -160,7 +164,10 @@ function requestHost(c: { req: { header: (name: string) => string | undefined; u
   const url = new URL(c.req.url);
   const host = c.req.header("host") ?? url.host;
   const forwardedProto = c.req.header("x-forwarded-proto")?.split(",")[0]?.trim();
-  const protocol = forwardedProto || url.protocol.replace(":", "");
+  const protocol =
+    forwardedProto === "https" || forwardedProto === "http"
+      ? forwardedProto
+      : url.protocol.replace(":", "");
   return { origin: `${protocol}://${host}`, host };
 }
 
@@ -225,7 +232,12 @@ export function createSeoFeature(opts: SeoOptions): FeatureDefinition {
         ]);
         const sections =
           entries.length > 0
-            ? [{ heading: "Pages", links: entries.map((e) => ({ title: e.loc, url: e.loc })) }]
+            ? [
+                {
+                  heading: "Pages",
+                  links: entries.map((e) => ({ title: e.title ?? e.loc, url: e.loc })),
+                },
+              ]
             : [];
         const text = buildLlmsTxt({
           title: seoConfig.organizationName || host,

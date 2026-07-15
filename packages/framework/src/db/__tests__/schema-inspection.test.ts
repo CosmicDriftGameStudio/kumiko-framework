@@ -17,4 +17,11 @@ describe("schema-inspection — resolveUnsafeClient guard", () => {
   test("columnNamesOf throws the same named error", async () => {
     await expect(columnNamesOf(noUnsafe, "x")).rejects.toThrow(/resolveUnsafeClient: no `\.unsafe/);
   });
+
+  test("tableExists throws the same named error when .unsafe is a non-function value", async () => {
+    const notAFunction = { unsafe: "notafunction" } as unknown as DbConnection;
+    await expect(tableExists(notAFunction, "public.x")).rejects.toThrow(
+      /resolveUnsafeClient: no `\.unsafe/,
+    );
+  });
 });

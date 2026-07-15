@@ -36,8 +36,13 @@ export function deserializeValue(
   if (raw === null || raw === undefined) return undefined;
   const parsed = parseJsonOrThrow<unknown>(raw, `config value (type=${type})`);
   switch (type) {
-    case "number":
-      return typeof parsed === "number" ? parsed : Number(parsed);
+    case "number": {
+      const n = typeof parsed === "number" ? parsed : Number(parsed);
+      if (!Number.isFinite(n)) {
+        throw new Error(`config value (type=number): "${raw}" does not deserialize to a number.`);
+      }
+      return n;
+    }
     case "boolean":
       return typeof parsed === "boolean" ? parsed : parsed === "true";
     case "text":

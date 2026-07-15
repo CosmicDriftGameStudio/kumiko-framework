@@ -141,6 +141,16 @@ describe("seo :: GET /sitemap.xml", () => {
     expect(xml).not.toContain("http://a.example.com");
   });
 
+  test("x-forwarded-proto: garbage value → falls back to the raw URL scheme, not the header", async () => {
+    const res = await stack.app.request("http://a.example.com/sitemap.xml", {
+      headers: { "x-forwarded-proto": "javascript" },
+    });
+    expect(res.status).toBe(200);
+    const xml = await res.text();
+    expect(xml).toContain("<loc>http://a.example.com/legal/impressum</loc>");
+    expect(xml).not.toContain("javascript://a.example.com");
+  });
+
   test("host without a managed-pages tenant → callback + legal-pages entries only", async () => {
     const res = await stack.app.request("http://unknown.example.com/sitemap.xml");
     expect(res.status).toBe(200);
@@ -161,6 +171,8 @@ describe("seo :: GET /llms.txt", () => {
     expect(text).toContain("> Acme builds things.");
     expect(text).toContain("## Pages");
     expect(text).toContain("http://a.example.com/p/about");
+    // #979: the managed-page's real title, not its URL, is the link text.
+    expect(text).toContain("[About](http://a.example.com/p/about)");
   });
 });
 

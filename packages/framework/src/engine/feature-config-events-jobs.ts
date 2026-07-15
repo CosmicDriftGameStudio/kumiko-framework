@@ -266,6 +266,20 @@ export function buildConfigEventsJobsMethods<TName extends string>(
 // Compile the declarative {rename, default, map} migration spec into an
 // EventUpcastFn. Fixed order: rename → default → map.
 function compileEventMigration(spec: DeclarativeEventMigration): EventUpcastFn {
+  // Registration-time (not replay-time) check: two rename sources mapping to
+  // the same target would silently drop one value on every future replay —
+  // event migrations run against the full production event history, so a
+  // typo here must fail loud at r.eventMigration() call time, not at replay.
+  const renameTargets = new Map<string, string>();
+  for (const [from, to] of Object.entries(spec.rename ?? {})) {
+    const existing = renameTargets.get(to);
+    if (existing !== undefined) {
+      throw new Error(
+        `Declarative event migration: rename collision — both "${existing}" and "${from}" rename to "${to}". Only one source may map to a given target.`,
+      );
+    }
+    renameTargets.set(to, from);
+  }
   return (payload) => {
     if (payload === null || typeof payload !== "object" || Array.isArray(payload)) {
       throw new Error("Declarative event migration expects an object payload");

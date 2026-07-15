@@ -42,6 +42,12 @@ describe("declarative eventMigration", () => {
     expect(() => run([1, 2])).toThrow(/object payload/);
   });
 
+  test("two rename sources mapping to the same target fail loud at registration", () => {
+    expect(() => compile({ rename: { amount: "total", subtotal: "total" } })).toThrow(
+      /rename collision.*"total"/,
+    );
+  });
+
   test("imperative function variant is stored untouched", () => {
     const fn = (payload: unknown) => payload;
     const feature = defineFeature("billing", (r) => {

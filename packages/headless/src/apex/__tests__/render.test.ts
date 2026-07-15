@@ -122,6 +122,8 @@ describe("renderApexPage", () => {
     expect(html.indexOf("price-cap")).toBeLessThan(html.indexOf("b1"));
     // featured tier without explicit cta variant → primary button
     expect(html).toContain('class="btn btn-primary" href="/s"');
+
+    expect(html).not.toContain("btn-link");
   });
 
   test("cta variant link renders a plain anchor, default renders a button", () => {
@@ -138,6 +140,29 @@ describe("renderApexPage", () => {
     );
     expect(html).toContain('<a href="/login">Login</a>'); // link → no class
     expect(html).toContain('<a class="btn btn-primary" href="/signup">Start</a>');
+  });
+
+  test("pricing-tier cta variant link renders a plain anchor via renderCta, not a btn-link class", () => {
+    const html = renderApexPage(
+      page({
+        sections: [
+          {
+            kind: "pricing-grid",
+            heading: "Preise",
+            tiers: [
+              {
+                name: "Free",
+                amount: "0 €",
+                benefits: ["b1"],
+                cta: { label: "Los", href: "/free", variant: "link" },
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(html).toContain('<a href="/free">Los</a>');
+    expect(html).not.toContain("btn-link");
   });
 
   test("footer --footer-cols reflects column count and survives without columns", () => {

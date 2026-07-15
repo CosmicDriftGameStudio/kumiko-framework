@@ -259,6 +259,7 @@ describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {
   // hier strukturell gepinnt: ein Revert zu r.entity ließe read_todos als
   // rebuildbare Projektion auftauchen und failte diesen Test.
   test("#498: read_todos is not a rebuildable projection (r.unmanagedTable guard)", () => {
+    expect(stack.registry.getAllProjections().size).toBeGreaterThan(0);
     const rebuildable = [...stack.registry.getAllProjections().values()].some(
       (p) => extractTableName(p.table) === "read_todos",
     );

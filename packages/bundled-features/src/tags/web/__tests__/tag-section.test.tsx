@@ -22,6 +22,8 @@ let assignmentRows: readonly AssignmentRow[] = [];
 beforeEach(() => {
   catalogRows = [];
   assignmentRows = [];
+  catalogRefetch.mockClear();
+  assignmentsRefetch.mockClear();
 });
 
 const dispatchSpy = mock(async (type: string) =>
@@ -30,11 +32,13 @@ const dispatchSpy = mock(async (type: string) =>
     : { isSuccess: true, data: undefined },
 );
 
+const catalogRefetch = mock(async () => {});
+const assignmentsRefetch = mock(async () => {});
 const useQuerySpy = mock((type: string) => ({
   data: type === TagsQueries.tagList ? { rows: catalogRows } : { rows: assignmentRows },
   loading: false,
   error: null,
-  refetch: mock(async () => {}),
+  refetch: type === TagsQueries.tagList ? catalogRefetch : assignmentsRefetch,
 }));
 
 const actual_renderer = await import("@cosmicdrift/kumiko-renderer");
@@ -62,6 +66,13 @@ const StubPicker = ({
   <div data-testid="stub-picker">
     <button type="button" data-testid="picker-add-t2" onClick={() => onChange([...value, "t2"])}>
       add t2
+    </button>
+    <button
+      type="button"
+      data-testid="picker-add-t2-t3"
+      onClick={() => onChange([...value, "t2", "t3"])}
+    >
+      add t2+t3
     </button>
     <button
       type="button"
@@ -166,6 +177,41 @@ describe("TagSection", () => {
         entityType: "note",
         entityId: "note-1",
       }),
+    );
+  });
+
+  test("partial write failure still refetches — no stale UI for the writes that succeeded", async () => {
+    catalogRows = [
+      { id: "t1", name: "important" },
+      { id: "t2", name: "project-x" },
+      { id: "t3", name: "urgent" },
+    ];
+    assignmentRows = [{ tagId: "t1", entityType: "note", entityId: "note-1" }];
+    dispatchSpy.mockClear();
+    dispatchSpy.mockImplementation(async (_type: string, payload?: Record<string, unknown>) =>
+      payload?.["tagId"] === "t3"
+        ? { isSuccess: false, error: { i18nKey: "tags.error.assignFailed" } }
+        : { isSuccess: true, data: undefined },
+    );
+
+    render(
+      <Wrapper>
+        <TagSection entityName="note" entityId="note-1" />
+      </Wrapper>,
+    );
+
+    // t2 assigns OK, t3 fails — the loop stops, but refetch must still run so
+    // the UI reflects the t2 write that already succeeded server-side.
+    fireEvent.click(screen.getByTestId("picker-add-t2-t3"));
+    await waitFor(() => expect(screen.getByTestId("tags-section-action-error")).toBeTruthy());
+
+    expect(catalogRefetch).toHaveBeenCalled();
+    expect(assignmentsRefetch).toHaveBeenCalled();
+
+    dispatchSpy.mockImplementation(async (type: string) =>
+      type === TagsHandlers.createTag
+        ? { isSuccess: true, data: { id: "tag-new" } }
+        : { isSuccess: true, data: undefined },
     );
   });
 

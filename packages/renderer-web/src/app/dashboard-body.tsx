@@ -61,32 +61,6 @@ const STAT_TONES: ReadonlySet<string> = new Set(["default", "positive", "warn"])
 const WIDE_PANEL = "sm:col-span-2 lg:col-span-4";
 const HALF_PANEL = "sm:col-span-2 lg:col-span-2";
 
-function StatPanelIcon({
-  panel,
-  screenId,
-  filterParams,
-}: {
-  readonly panel: DashboardStatPanel;
-  readonly screenId: string;
-  readonly filterParams: Readonly<Record<string, unknown>>;
-}): ReactNode {
-  const name = panel.icon !== undefined ? extensionSectionName(panel.icon) : undefined;
-  const Icon = useExtensionSectionComponent(name);
-  useEffect(() => {
-    if (panel.icon !== undefined && name !== undefined && Icon === undefined) {
-      // biome-ignore lint/suspicious/noConsole: dev-warning für Setup-Fehler
-      console.warn(
-        `[kumiko] Dashboard stat-panel "${panel.id}" on screen "${screenId}" references icon ` +
-          `"${name}", which is not registered in clientFeatures.extensionSectionComponents.`,
-      );
-    }
-  }, [panel.icon, panel.id, name, Icon, screenId]);
-  if (Icon === undefined) return null;
-  return (
-    <Icon entityName={screenId} entityId={null} screenId={screenId} filterParams={filterParams} />
-  );
-}
-
 function StatPanelBody({
   panel,
   label,
@@ -98,6 +72,23 @@ function StatPanelBody({
   readonly screenId: string;
   readonly filterParams: Readonly<Record<string, unknown>>;
 }): ReactNode {
+  // Resolved HERE (not in a separate always-rendered child) so `icon` on
+  // <StatCard> is `undefined` — not a React element that renders empty —
+  // when the icon name isn't registered. StatCard gates its accent chip on
+  // `icon !== undefined`, so a resolved-but-hidden element used to leave a
+  // stray accent-colored chip next to the label.
+  const iconName = panel.icon !== undefined ? extensionSectionName(panel.icon) : undefined;
+  const Icon = useExtensionSectionComponent(iconName);
+  useEffect(() => {
+    if (panel.icon !== undefined && iconName !== undefined && Icon === undefined) {
+      // biome-ignore lint/suspicious/noConsole: dev-warning für Setup-Fehler
+      console.warn(
+        `[kumiko] Dashboard stat-panel "${panel.id}" on screen "${screenId}" references icon ` +
+          `"${iconName}", which is not registered in clientFeatures.extensionSectionComponents.`,
+      );
+    }
+  }, [panel.icon, panel.id, iconName, Icon, screenId]);
+
   const { data, error, loading, refetch } = useQuery<Readonly<Record<string, unknown>>>(
     panel.query,
     filterParams,
@@ -114,14 +105,19 @@ function StatPanelBody({
   return (
     <StatCard
       icon={
-        panel.icon !== undefined ? (
-          <StatPanelIcon panel={panel} screenId={screenId} filterParams={filterParams} />
+        Icon !== undefined ? (
+          <Icon
+            entityName={screenId}
+            entityId={null}
+            screenId={screenId}
+            filterParams={filterParams}
+          />
         ) : undefined
       }
       label={label}
       value={String(record[panel.valueField] ?? "—")}
       tone={tone}
-      accentColor={panel.accentColor}
+      {...(Icon !== undefined && { accentColor: panel.accentColor })}
       {...(sub !== undefined && sub !== null && { sub: String(sub) })}
       {...(delta !== undefined && { delta })}
       testId={`dashboard-panel-${panel.id}`}

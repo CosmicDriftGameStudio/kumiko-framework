@@ -14,7 +14,7 @@ import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db
 import { asRawClient, insertOne, selectMany } from "../../db/query";
 import { createBooleanField, createEntity, createTextField, defineFeature } from "../../engine";
 import { createRegistry } from "../../engine/registry";
-import { createEventsTable } from "../../event-store";
+import { archiveStream, createArchivedStreamsTable, createEventsTable } from "../../event-store";
 import { rebuildProjection } from "../../pipeline";
 import { createProjectionStateTable } from "../../pipeline/projection-state";
 import { TestUsers, unsafeCreateEntityTable } from "../../stack";
@@ -50,6 +50,7 @@ beforeAll(async () => {
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, userEntity, "user");
   await createEventsTable(testDb.db);
+  await createArchivedStreamsTable(testDb.db);
   await createProjectionStateTable(testDb.db);
   tdb = createTenantDb(testDb.db, adminUser.tenantId);
 });
@@ -60,7 +61,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await asRawClient(testDb.db).unsafe(
-    `TRUNCATE kumiko_events, read_unreachable_users, kumiko_projections RESTART IDENTITY CASCADE`,
+    `TRUNCATE kumiko_events, kumiko_archived_streams, read_unreachable_users, kumiko_projections RESTART IDENTITY CASCADE`,
   );
 });
 
@@ -135,5 +136,29 @@ describe("assert-no-unreachable-live-rows / #722 ghost-row guard", () => {
     expect(rebuilt?.["email"]).toBe("a@test.de");
     // The direct write is overwritten by the replay — deliberately allowed.
     expect(rebuilt?.["firstName"]).toBe("Alice");
+  });
+
+  test("archived stream (fw#832 tombstone) does NOT trip the guard", async () => {
+    // archiveStream never deletes the .created event — projection rebuild
+    // deliberately excludes archived streams from replay (fw#832, see
+    // projection-rebuild.ts), so the row is wiped from live on swap. The
+    // guard only checks event EXISTENCE, not replay-inclusion, so it must
+    // not fire — this is the shipped tombstone behavior, not drift.
+    const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
+    const a = await crud.create({ email: "a@test.de", firstName: "Alice" }, adminUser, tdb);
+    if (!a.isSuccess) throw new Error("setup failed");
+
+    await archiveStream(testDb.db, {
+      tenantId: adminUser.tenantId,
+      aggregateId: a.data.id as string,
+      aggregateType: "user",
+      archivedBy: adminUser.id,
+    });
+
+    // No throw — the row is event-backed despite being archived.
+    const result = await rebuildProjection(projectionName, { db: testDb.db, registry });
+
+    expect(result.eventsProcessed).toBe(0);
+    expect(await snapshotTable()).toHaveLength(0);
   });
 });

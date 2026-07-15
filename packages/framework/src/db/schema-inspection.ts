@@ -13,7 +13,7 @@ function resolveUnsafeClient(db: DbConnection | DbTx): UnsafeFn {
   };
   const client = dbAny.$client ?? dbAny.session?.client ?? dbAny;
   const fn = (client as { unsafe?: UnsafeFn }).unsafe;
-  if (fn === undefined) {
+  if (typeof fn !== "function") {
     throw new Error(
       "resolveUnsafeClient: no `.unsafe(sql, params)` fn on the db connection " +
         "(checked $client, session.client, db itself) — schema-inspection needs the raw postgres escape hatch.",

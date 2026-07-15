@@ -324,4 +324,29 @@ describe("fail-closed on corrupt serialized_field", () => {
       fieldKey: "corruptField",
     });
   });
+
+  test("set: legacy `sensitive`-key definition (#972) → unprocessable field_definition_corrupt, not a 500", async () => {
+    const propertyId = "99999999-9999-4000-8000-000000000009";
+    await defineField("legacyPii", { type: "text" });
+    await asRawClient(stack.db).unsafe(
+      `UPDATE read_custom_field_definitions SET serialized_field = '{"type":"text","sensitive":true}' WHERE field_key = 'legacyPii'`,
+    );
+    await stack.http.writeOk(
+      "property-t15b:write:property:create",
+      { id: propertyId, name: "LegacySensitive" },
+      tenantAdmin,
+    );
+
+    const err = await stack.http.writeErr(
+      "custom-fields:write:set-custom-field",
+      { entityName: "property", entityId: propertyId, fieldKey: "legacyPii", value: "X-42" },
+      tenantAdmin,
+    );
+
+    expect(err.code).toBe("unprocessable");
+    expect(err.details).toMatchObject({
+      reason: "field_definition_corrupt",
+      fieldKey: "legacyPii",
+    });
+  });
 });

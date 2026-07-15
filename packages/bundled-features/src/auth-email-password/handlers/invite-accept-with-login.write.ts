@@ -20,10 +20,10 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
+  buildSessionRoles,
   createSystemUser,
   defineWriteHandler,
   type SessionUser,
-  stripForbiddenMembershipRoles,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
@@ -169,7 +169,7 @@ export function createInviteAcceptWithLoginHandler() {
         const session: SessionUser = {
           id: userId,
           tenantId: invitationTenantId,
-          roles: stripForbiddenMembershipRoles([invitationRole]),
+          roles: buildSessionRoles([], [invitationRole]),
         };
 
         committed = true;
