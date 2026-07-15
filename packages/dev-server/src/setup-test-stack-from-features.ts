@@ -19,7 +19,7 @@ export type SetupTestStackFromFeaturesOptions = Omit<TestStackOptions, "features
   readonly presets?: readonly TestStackPreset[];
 };
 
-function mergeExtraContext(
+export function mergeExtraContext(
   base: TestStackOptions["extraContext"],
   presets: readonly TestStackPreset[],
 ): TestStackOptions["extraContext"] {

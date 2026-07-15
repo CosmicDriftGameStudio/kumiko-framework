@@ -42,16 +42,11 @@ export function NumberField({
   );
 }
 
-// MoneyField/PercentField markieren die Feld-Absicht am Call-Site (lesbarer als
-// NumberField überall) und sind der Ort, an dem später geld-/prozent-spezifische
-// Formatierung andocken kann. Aktuell rendern sie identisch zu NumberField.
-export function MoneyField(props: NumberFieldProps): ReactNode {
-  return <NumberField {...props} />;
-}
-
-export function PercentField(props: NumberFieldProps): ReactNode {
-  return <NumberField {...props} />;
-}
+// Aliase markieren die Feld-Absicht am Call-Site (lesbarer als NumberField
+// überall) ohne eigene Wrapper-Funktion vorzutäuschen — beide sind identisch
+// zu NumberField, kein Ort für künftige geld-/prozent-spezifische Formatierung.
+export const MoneyField = NumberField;
+export const PercentField = NumberField;
 
 interface FieldBase {
   readonly label: string;
@@ -139,7 +134,7 @@ export function SelectField({
 
 export interface DateFieldProps extends FieldBase {
   readonly value: string;
-  readonly onChange: (v: string | undefined) => void;
+  readonly onChange: (v: string) => void;
   readonly min?: string;
   readonly max?: string;
 }
@@ -165,7 +160,7 @@ export function DateField({
         id={id}
         name={name}
         value={value}
-        onChange={onChange}
+        onChange={(v) => onChange(v ?? "")}
         required={required}
         disabled={disabled}
         {...(min !== undefined && { min })}

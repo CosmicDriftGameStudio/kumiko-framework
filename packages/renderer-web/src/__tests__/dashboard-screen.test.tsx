@@ -326,6 +326,10 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
     );
     await waitFor(() => expect(screen.getByText("92.753 €")).toBeTruthy());
     expect(screen.queryByTestId("kpi-icon")).toBeNull();
+    // #931: unregistriertes Icon darf auch keinen leeren, akzentgefärbten
+    // Chip-Wrapper rendern (StatCard gated den Span auf icon !== undefined).
+    const card = screen.getByTestId("dashboard-panel-kpi");
+    expect(card.querySelector('[style*="123456"]')).toBeNull();
   });
 
   test("stat-Panel: fehlende deltaDirection unterdrückt den Chip (kein Crash)", async () => {

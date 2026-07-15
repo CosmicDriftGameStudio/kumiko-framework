@@ -106,7 +106,8 @@ describe("assert-no-unreachable-live-rows / #722 ghost-row guard", () => {
     expect(await snapshotTable()).toHaveLength(2);
 
     await expect(rebuildProjection(projectionName, { db: testDb.db, registry })).rejects.toThrow(
-      /have no\s+event in the projection's source streams/,
+      // #915: exact count below the truncation limit, no misleading "+" suffix.
+      /^projection-rebuild ".*": 1 live rows in ".*" have no\s+event in the projection's source streams/,
     );
 
     // Swap never ran: both rows — including the ghost — survive.

@@ -13,6 +13,10 @@ import type { EventPiiFields, EventUpcastFn, FeatureDefinition } from "./types";
 import { HookPhases } from "./types";
 import { resolveName } from "./types/handlers";
 
+function allHandlerQns(state: RegistryState): ReadonlySet<string> {
+  return new Set([...state.writeHandlerMap.keys(), ...state.queryHandlerMap.keys()]);
+}
+
 // Pass 2 for workspaces: fold any nav-self-assigned QNs into their
 // workspace's member list. Safe now that every feature (and therefore every
 // workspace) is in state.workspaceMap.
@@ -467,10 +471,7 @@ export function validateRequiredFeatures(
 export function resolveNotificationTriggersAndRegisterHooks(state: RegistryState): void {
   // Resolve notification triggers and register postSave hooks
   // Done after all features are registered so cross-feature triggers work
-  const allHandlerNames = new Set([
-    ...state.writeHandlerMap.keys(),
-    ...state.queryHandlerMap.keys(),
-  ]);
+  const allHandlerNames = allHandlerQns(state);
   for (const [qualifiedName, notifDef] of state.notificationMap) {
     // Both maps are populated in lockstep — same key-set by construction.
     const featureName = state.notificationFeatureMap.get(qualifiedName) as string; // @cast-boundary engine-bridge
@@ -527,7 +528,7 @@ export function resolveNotificationTriggersAndRegisterHooks(state: RegistryState
 
 export function validateLifecycleHookTargets(state: RegistryState): void {
   // Validate: lifecycle hook targets must reference existing handlers
-  const allHandlers = new Set([...state.writeHandlerMap.keys(), ...state.queryHandlerMap.keys()]);
+  const allHandlers = allHandlerQns(state);
   const lifecycleHookMaps = [
     { map: state.preSaveHooks, phase: "preSave" },
     { map: state.postSaveHooks, phase: "postSave" },
@@ -589,7 +590,7 @@ export function validateJobTriggers(state: RegistryState): void {
   // Validate: job event triggers must reference existing handlers.
   // Multi-Trigger-Form: jeden Eintrag im Array gegen allHandlers prüfen,
   // auch wenn nur einer fehlt fail-fast.
-  const allHandlers = new Set([...state.writeHandlerMap.keys(), ...state.queryHandlerMap.keys()]);
+  const allHandlers = allHandlerQns(state);
   for (const [jobName, jobDef] of state.jobMap) {
     if (!("on" in jobDef.trigger)) continue;
     const triggerOn = jobDef.trigger.on;

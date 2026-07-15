@@ -190,7 +190,7 @@ const FIELDS_DEFAULTS: FieldsDraft = {
 };
 
 function FormFieldsDemo(): ReactNode {
-  const { draft, patch, field } = useDraft<FieldsDraft>(FIELDS_DEFAULTS);
+  const { draft, field } = useDraft<FieldsDraft>(FIELDS_DEFAULTS);
   const { Button } = usePrimitives();
   return (
     <SectionCard title="Feld-Widgets">
@@ -203,7 +203,7 @@ function FormFieldsDemo(): ReactNode {
           { value: "BY", label: "Bayern" },
         ]}
       />
-      <DateField label="Datum" {...field("datum")} onChange={(v) => patch({ datum: v ?? "" })} />
+      <DateField label="Datum" {...field("datum")} />
       <BooleanField label="Makler einbeziehen" {...field("aktiv")} />
       <RangeField
         label={`Abruf: ${draft.abruf} %`}

@@ -8,7 +8,6 @@ db/postgres-provider.ts      postgres-js Factory (default, stabil)
 db/bun-provider.ts           Bun.SQL Factory (DB_PROVIDER=bun, experimentell)
 stack/db.ts                  createTestDb() — provider-agnostisch via createConnection
 stack/test-stack.ts          setupTestStack() — provider-agnostisch via createTestDb
-bun-db/__tests__/bun-test-stack.ts  Alias: setupBunTestStack → setupTestStack
 bun-db/__tests__/bun-test-db.ts     Alias: createBunTestDb → createTestDb
 ```
 

@@ -45,12 +45,6 @@ const APEX_LIGHTBOX_SCRIPT_BODY = `
 /** ponytail: one delegated listener; no-op when no .shot-frame on the page. */
 export const APEX_LIGHTBOX_SCRIPT = `<script>${APEX_LIGHTBOX_SCRIPT_BODY}</script>`;
 
-// Apps that enforce `script-src 'self'` without `'unsafe-inline'`/nonce (the
-// apex renderer has no per-request nonce hook — its output is often
-// pre-rendered to static HTML at build time, where a nonce can't work
-// anyway) need a hash-source instead. Add this to your CSP's script-src,
-// e.g. `script-src 'self' 'sha256-...'` (value = this constant).
-// lightbox.test.ts asserts this matches APEX_LIGHTBOX_SCRIPT_BODY byte-for-
-// byte, so an edit to the script that doesn't update the hash fails CI
-// instead of silently breaking every strict-CSP consumer's lightbox.
+// CSP hash-source for the inline script above; apex output is often
+// pre-rendered, so a per-request nonce can't work. Guarded by lightbox.test.ts.
 export const APEX_LIGHTBOX_SCRIPT_CSP_HASH = "sha256-f+hHLpDuQsjmtFZCjdM13D9NaMTCyOKaawAhfLf/X9o=";

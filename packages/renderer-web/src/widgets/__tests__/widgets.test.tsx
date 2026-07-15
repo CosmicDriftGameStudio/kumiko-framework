@@ -62,6 +62,20 @@ describe("ModeSwitch", () => {
     fireEvent.click(screen.getByRole("button", { name: "Modus B" }));
     expect(onChange).toHaveBeenCalledWith("b");
   });
+
+  test("#902: Buttons sind als zusammengehörige Gruppe gekennzeichnet", () => {
+    render(
+      <ModeSwitch
+        value="a"
+        options={[
+          { value: "a", label: "Modus A" },
+          { value: "b", label: "Modus B" },
+        ]}
+        onChange={() => {}}
+      />,
+    );
+    expect(screen.getByRole("group")).toBeTruthy();
+  });
 });
 
 describe("CollapsibleSection", () => {

@@ -1563,7 +1563,3 @@ if (!command) {
     await handler.run();
   }
 }
-
-
-
-

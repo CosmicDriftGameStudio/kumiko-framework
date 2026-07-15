@@ -115,7 +115,7 @@ export function buildEntityHandlerMethods<TName extends string>(
         return { name: def.name };
       }
       if (!schema || !handler)
-        throw new Error("writeHandler inline form state.requires schema + handler");
+        throw new Error("writeHandler inline form requires schema + handler");
       state.writeHandlers[nameOrDef] = {
         name: nameOrDef,
         schema,
@@ -146,7 +146,7 @@ export function buildEntityHandlerMethods<TName extends string>(
         return { name: def.name };
       }
       if (!schema || !handler)
-        throw new Error("queryHandler inline form state.requires schema + handler");
+        throw new Error("queryHandler inline form requires schema + handler");
       state.queryHandlers[nameOrDef] = {
         name: nameOrDef,
         schema,
