@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { lastSegment } from "../app/qn";
+import { lastSegment, toKebab } from "../app/qn";
 
 describe("lastSegment", () => {
   test("strips feature-prefix from screen-QN", () => {
@@ -36,5 +36,20 @@ describe("lastSegment", () => {
     // — the helper returns "" rather than throwing, the caller's
     // navigate-then-not-found banner makes the bug visible.
     expect(lastSegment("publicstatus:screen:")).toBe("");
+  });
+});
+
+describe("toKebab", () => {
+  test("camelCase entity ids match server qualifyEntityName", () => {
+    expect(toKebab("driverModel")).toBe("driver-model");
+    expect(toKebab("statementUpload")).toBe("statement-upload");
+  });
+
+  test("already kebab unchanged", () => {
+    expect(toKebab("driver-model")).toBe("driver-model");
+  });
+
+  test("preserves colon segments", () => {
+    expect(toKebab("driverModel:list")).toBe("driver-model:list");
   });
 });

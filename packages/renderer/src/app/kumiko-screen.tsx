@@ -39,7 +39,7 @@ import { useDashboardBody } from "./dashboard-body";
 import type { FeatureSchema } from "./feature-schema";
 import { useNav } from "./nav";
 import { synthesizeProjectionEntity, synthesizeProjectionScreen } from "./projection-list-shim";
-import { lastSegment } from "./qn";
+import { lastSegment, toKebab } from "./qn";
 import { dispatcherErrorText, WriteFailedError } from "./write-failed-error";
 
 function evalRowExtractor(
@@ -208,15 +208,15 @@ function CustomScreenBody({ screenId }: { readonly screenId: string }): ReactNod
 // ---- entity-edit ----
 
 // Derives `<feature>:write:<entity>:<verb>` from the screen's entity
-// and the schema's feature name. Matches the qualification rule in
-// packages/framework/src/engine/qualified-name.ts so the server-side
-// handler resolves without extra wiring.
+// and the schema's feature name. Matches qualifyEntityName / toKebab in
+// packages/framework/src/engine/qualified-name.ts so camelCase entity
+// ids (e.g. driverModel) resolve to server QNs (driver-model:create).
 function entityWriteCommand(
   featureName: string,
   entity: string,
   verb: "create" | "update" | "delete",
 ): string {
-  return `${featureName}:write:${entity}:${verb}`;
+  return `${toKebab(featureName)}:write:${toKebab(entity)}:${verb}`;
 }
 
 // Default "success → zurück zur Liste"-Navigation. Findet den ersten
@@ -395,7 +395,7 @@ function EntityEditUpdateBody({
   readonly translate?: Translate;
 }): ReactNode {
   const { Banner, Text } = usePrimitives();
-  const detailQn = `${schema.featureName}:query:${screen.entity}:detail`;
+  const detailQn = `${toKebab(schema.featureName)}:query:${toKebab(screen.entity)}:detail`;
   const detailQuery = useQuery<Readonly<Record<string, unknown>>>(detailQn, { id: entityId });
 
   if (detailQuery.loading && detailQuery.data === null) {
@@ -539,7 +539,7 @@ function EntityEditUpdateForm({
 // ---- entity-list ----
 
 function entityQueryCommand(featureName: string, entity: string, verb: "list"): string {
-  return `${featureName}:query:${entity}:${verb}`;
+  return `${toKebab(featureName)}:query:${toKebab(entity)}:${verb}`;
 }
 
 // Server-side entity-query-handlers return the paged envelope
