@@ -93,6 +93,7 @@ async function ingest(
   admin: ReturnType<typeof adminFor>,
   providerMessageId: string,
   receivedAtIso: string,
+  bodyRef = "",
 ): Promise<void> {
   await stack.http.writeOk(
     InboundMailFoundationHandlers.ingestMessage,
@@ -110,7 +111,7 @@ async function ingest(
       subject: "Hello",
       snippet: "Hello world …",
       receivedAtIso,
-      bodyRef: "",
+      bodyRef,
       scope: "inbox",
       providerCursor: '{"offset":1}',
     },
@@ -157,6 +158,43 @@ describe("retention: inbound messages", () => {
     const afterRebuild = await selectMany(db, inboundMessagesProjectionTable, { accountId });
     expect(afterRebuild).toHaveLength(1);
     expect(afterRebuild[0]?.["id"]).toBe(youngId);
+  });
+});
+
+describe("retention: body-delete failure keeps the row (no orphaned storage object)", () => {
+  test("deleteBodyObject throws → row + stream survive this sweep, bodyObjectErrors=1", async () => {
+    const admin = adminFor(5002);
+    const accountId = await connectSharedAccount(admin);
+    await ingest(accountId, admin, "uid-body-fail", "2024-01-01T10:00:00Z", "body-ref-1");
+
+    const now = getTemporal().Instant.from("2026-07-13T00:00:00Z");
+    const report = await runInboundMailRetention({
+      db,
+      tenantId: admin.tenantId,
+      now,
+      seenRetentionDays: 100000,
+      deleteBodyObject: async () => {
+        throw new Error("storage unavailable");
+      },
+    });
+    expect(report.messagesPurged).toBe(0);
+    expect(report.bodyObjectErrors).toBe(1);
+
+    const failId = inboundMessageAggregateId(accountId, "uid-body-fail");
+    const rows = await selectMany(db, inboundMessagesProjectionTable, { accountId });
+    expect(rows.map((r) => r["id"])).toContain(failId);
+
+    // Naechster Lauf (deleteBodyObject funktioniert jetzt) holt die Row nach.
+    const retry = await runInboundMailRetention({
+      db,
+      tenantId: admin.tenantId,
+      now,
+      seenRetentionDays: 100000,
+      deleteBodyObject: async () => {},
+    });
+    expect(retry.messagesPurged).toBe(1);
+    expect(retry.bodyObjectsDeleted).toBe(1);
+    expect(await selectMany(db, inboundMessagesProjectionTable, { accountId })).toHaveLength(0);
   });
 });
 

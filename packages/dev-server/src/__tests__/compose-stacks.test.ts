@@ -79,7 +79,7 @@ describe("composeStacks", () => {
   });
 });
 
-/** Parity: preset name-sets match blocks used in studio / money-horse / publicstatus run-config. */
+/** Snapshot, not a live parity check: intended block combinations, mirrored by hand from studio/money-horse/publicstatus run-configs. A drifted run-config stays green here. */
 describe("composeStacks boots for real", () => {
   test("studio-shaped combined stack passes validateBoot (not just name-list comparison)", () => {
     const features = composeFeatures(
@@ -97,7 +97,7 @@ describe("composeStacks boots for real", () => {
   });
 });
 
-describe("composeStacks parity (feature names)", () => {
+describe("composeStacks intended block names (snapshot, not live parity)", () => {
   test("studio SaaS blocks are covered by presets", () => {
     const names = stackFeatureNames([
       ...composeOpsStack({ rateLimiting: true }),

@@ -18,7 +18,7 @@
 // SystemAdmin-only: Aufrufer ist der Watch/Sync-Supervisor bzw. der
 // Poll-Cron mit programmatic SystemUser — nie ein Tenant-Request.
 
-import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { countWhere, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configuredPiiSubjectKms,
   encryptPiiFieldValues,
@@ -43,6 +43,7 @@ import {
   MAIL_THREAD_UPDATED_EVENT_QN,
   type MailThreadEventPayload,
 } from "../events";
+import { inboundMessagesProjectionTable } from "../projection";
 
 // =============================================================================
 // Input-Schema — der normalisierte Provider-Output (RawInboundMessage,
@@ -208,24 +209,44 @@ export const ingestMessageHandler: WriteHandlerDef = {
 
     // ---------------------------------------------------------------
     // 5. Thread-Rollup. Der Handler berechnet den NEUEN Snapshot
-    //    (count+1, max(lastMessageAt)) — die apply ist ein dummer
-    //    UPSERT und bleibt replay-idempotent. lastMessageAtIso ist
+    //    (count via Live-COUNT, max(lastMessageAt)) — die apply ist ein
+    //    dummer UPSERT und bleibt replay-idempotent. lastMessageAtIso ist
     //    kein PII (Zeitpunkt), damit plaintext-vergleichbar; subject
     //    wird frisch encrypted (jede Thread-Version trägt das Subject
     //    der jüngsten Mail).
     //
-    //    **Kein Lost-Update-Fenster:** loadAggregate + append laufen in
-    //    derselben TX; zwei parallele ingests auf denselben Thread
-    //    serialisiert der event-store über die Stream-Version.
+    //    messageCount kommt bewusst NICHT aus einem frueher gelesenen
+    //    threadEvents-Snapshot (previousCount+1): getStreamVersion in
+    //    unsafeAppendEvent liest die Stream-Version FRISCH zum
+    //    Append-Zeitpunkt, unabhaengig vom Read hier — zwei parallele
+    //    ingests auf denselben Thread (Watch-Push + Poll-Reconciliation)
+    //    koennten beide denselben previousCount sehen und der Append der
+    //    zweiten TX wuerde trotzdem gelingen (kein VersionConflictError,
+    //    da der Version-Check nur die Stream-Version prueft), sodass
+    //    previousCount+1 dauerhaft nach unten drieftet.
+    //
+    //    Ein COUNT gegen read_inbound_messages SCHLIESST das Race-Fenster
+    //    NICHT (COUNT und Append sind weiterhin zwei getrennte Statements —
+    //    zwischen COUNT und Append kann die andere TX committen und derselbe
+    //    Drift theoretisch weiterhin auftreten). Was der COUNT aendert: er
+    //    macht den Fehler SELBSTKORRIGIEREND statt kumulativ — jeder
+    //    nachfolgende ingest liest den echten Row-Count neu, statt einen
+    //    frueher falsch geschriebenen previousCount fortzuschreiben. Eine
+    //    echte Race-freie Loesung braucht ein atomares Read+Append (z.B.
+    //    SELECT ... FOR UPDATE oder eine Advisory-Lock auf threadAggId) —
+    //    das ist bewusst nicht Teil dieses Fixes (siehe PR-Beschreibung).
     // ---------------------------------------------------------------
     const threadEvents = await ctx.loadAggregate(threadAggId);
     const lastThreadEvent = threadEvents[threadEvents.length - 1];
     // @cast-boundary engine-payload — eigene events, shape via defineEvent
     const previousThread = lastThreadEvent?.payload as MailThreadEventPayload | undefined;
-    const previousCount = previousThread?.messageCount ?? 0;
     const previousLastAt = previousThread?.lastMessageAtIso ?? "";
     const newLastAt =
       payload.receivedAtIso > previousLastAt ? payload.receivedAtIso : previousLastAt;
+    const messageCount = await countWhere(ctx.db.raw, inboundMessagesProjectionTable, {
+      tenantId,
+      threadKey,
+    });
 
     const threadPlainPii = { tenantId, subject: payload.subject };
     const encryptedThreadFields = piiKms
@@ -245,7 +266,7 @@ export const ingestMessageHandler: WriteHandlerDef = {
       threadKey,
       subject: encryptedThreadFields["subject"] as string,
       lastMessageAtIso: newLastAt,
-      messageCount: previousCount + 1,
+      messageCount,
     };
     await ctx.unsafeAppendEvent({
       aggregateId: threadAggId,

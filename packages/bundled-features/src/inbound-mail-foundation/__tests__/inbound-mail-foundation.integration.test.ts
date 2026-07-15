@@ -12,7 +12,7 @@
 //   - Crypto-Shredding: Subject-Key-Erase macht Payload unlesbar (#800)
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configuredPiiSubjectKms,
   configurePiiSubjectKms,
@@ -23,7 +23,12 @@ import {
   resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { createEventsTable, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
+import {
+  append,
+  createEventsTable,
+  getStreamVersion,
+  loadAggregate,
+} from "@cosmicdrift/kumiko-framework/event-store";
 import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   createTestUser,
@@ -43,6 +48,11 @@ import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
 import { inboundMessageAggregateId, mailThreadAggregateId } from "../aggregate-id";
 import { InboundMailFoundationHandlers, InboundMailFoundationQueries } from "../constants";
 import { seenMessageEntity, syncCursorEntity } from "../entities";
+import {
+  MAIL_THREAD_AGGREGATE_TYPE,
+  MAIL_THREAD_UPDATED_EVENT_QN,
+  type MailThreadEventPayload,
+} from "../events";
 import { inboundMailFoundationFeature } from "../feature";
 import {
   inboundMessagesProjectionTable,
@@ -237,6 +247,75 @@ describe("scenario 2: ingest-message — Dedup + Thread-Rollup", () => {
     const firstRow = list.rows.find((r) => r["messageIdHeader"] === "root@example.com");
     expect(firstRow?.["from"]).toBe("sender@example.com");
     expect(firstRow?.["subject"]).toBe("Hello");
+  });
+});
+
+describe("scenario 2b: ingest-message — Thread-Rollup selbstkorrigierend statt kumulativ", () => {
+  test("nach einem Race-verzerrten (zu niedrigen) messageCount-Event korrigiert der naechste ingest auf den echten Row-Count", async () => {
+    const admin = adminFor(4021);
+    const accountId = await connectSharedAccount(admin);
+
+    await stack.http.writeOk(
+      InboundMailFoundationHandlers.ingestMessage,
+      ingestPayload(accountId, {
+        providerMessageId: "self-heal-root",
+        messageIdHeader: "self-heal-root@example.com",
+      }),
+      admin,
+    );
+    await stack.http.writeOk(
+      InboundMailFoundationHandlers.ingestMessage,
+      ingestPayload(accountId, {
+        providerMessageId: "self-heal-reply-1",
+        messageIdHeader: "self-heal-reply-1@example.com",
+        references: ["self-heal-root@example.com"],
+      }),
+      admin,
+    );
+    const threadAggId = mailThreadAggregateId(admin.tenantId, "mid:self-heal-root@example.com");
+
+    // Simuliert exakt den Drift, den ein Race auf getStreamVersion (siehe
+    // Handler-Kommentar Schritt 5) verursachen kann: 2 Message-Rows liegen
+    // vor, aber der ZULETZT geschriebene Thread-Event traegt einen zu
+    // niedrigen Snapshot (previousCount+1 aus einer stale-Read). Das Event
+    // ist die Quelle, die previousCount+1 (alter Code) liest — der Live-
+    // COUNT (neuer Code) ignoriert es und liest read_inbound_messages neu.
+    const expectedVersion = await getStreamVersion(db, threadAggId, admin.tenantId);
+    const corruptedPayload: MailThreadEventPayload = {
+      threadKey: "mid:self-heal-root@example.com",
+      subject: "corrupted-by-race",
+      lastMessageAtIso: "2026-07-01T10:00:00Z",
+      messageCount: 1,
+    };
+    await append(db, {
+      aggregateId: threadAggId,
+      aggregateType: MAIL_THREAD_AGGREGATE_TYPE,
+      tenantId: admin.tenantId,
+      expectedVersion,
+      type: MAIL_THREAD_UPDATED_EVENT_QN,
+      payload: corruptedPayload,
+      metadata: { userId: admin.id },
+    });
+    // mailThreadsProjectionTable ist executor-only (WritableTable-Typecheck
+    // lehnt raw updateMany ab) — die Test-Korruption geht bewusst am
+    // Type-Guard vorbei, genau wie die Race-Situation die sie simuliert.
+    await asRawClient(db).unsafe(`UPDATE "read_mail_threads" SET message_count = 1 WHERE id = $1`, [
+      threadAggId,
+    ]);
+
+    await stack.http.writeOk(
+      InboundMailFoundationHandlers.ingestMessage,
+      ingestPayload(accountId, {
+        providerMessageId: "self-heal-reply-2",
+        messageIdHeader: "self-heal-reply-2@example.com",
+        references: ["self-heal-root@example.com"],
+      }),
+      admin,
+    );
+
+    const healed = await selectMany(db, mailThreadsProjectionTable, { id: threadAggId });
+    expect(healed).toHaveLength(1);
+    expect(healed[0]?.["messageCount"]).toBe(3);
   });
 });
 
