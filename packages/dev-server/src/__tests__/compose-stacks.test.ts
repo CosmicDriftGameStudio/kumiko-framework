@@ -154,7 +154,7 @@ describe("composeStacks parity (feature names)", () => {
     const names = stackFeatureNames([
       ...composePagesStack(),
       ...composeGdprStack({ tenantLifecycle: true }),
-      ...composeOpsStack({ delivery: true, audit: true, jobs: true, sessions: false }),
+      ...composeOpsStack({ delivery: true, audit: true, jobs: true }),
       ...composeRendererStack(),
       ...composeFileStack({ providers: ["inmemory"] }),
       ...composeUserDataRightsStack(),

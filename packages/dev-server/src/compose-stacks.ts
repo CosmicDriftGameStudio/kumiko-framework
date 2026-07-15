@@ -61,11 +61,14 @@ export type UserDataRightsStackOptions = {
   readonly includeDefaults?: boolean;
 };
 
+// `sessions` lives ONLY on GdprStackOptions — composeOpsStack used to accept
+// it too, and combining both presets with sessions:true double-pushed the
+// "sessions" feature name into the registry, which createRegistry rejects
+// with "duplicate feature" (a boot-time crash, not a warning).
 export type OpsStackOptions = {
   readonly delivery?: boolean;
   readonly audit?: boolean;
   readonly jobs?: boolean;
-  readonly sessions?: boolean;
   readonly rateLimiting?: boolean;
 };
 
@@ -135,13 +138,11 @@ export function composeOpsStack(options: OpsStackOptions = {}): FeatureDefinitio
   const delivery = options.delivery ?? true;
   const audit = options.audit ?? true;
   const jobs = options.jobs ?? true;
-  const sessions = options.sessions ?? false;
   const rateLimiting = options.rateLimiting ?? false;
   const out: FeatureDefinition[] = [];
   if (delivery) out.push(createDeliveryFeature());
   if (audit) out.push(createAuditFeature());
   if (jobs) out.push(createJobsFeature());
-  if (sessions) out.push(createSessionsFeature());
   if (rateLimiting) out.push(createRateLimitingFeature());
   return out;
 }

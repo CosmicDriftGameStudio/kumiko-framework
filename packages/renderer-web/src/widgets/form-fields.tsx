@@ -290,6 +290,10 @@ export interface FileFieldProps extends FieldBase {
   readonly accept?: readonly string[];
   /** "image" zeigt eine Vorschau, "file" nur den Dateinamen. Default "file". */
   readonly variant?: "file" | "image";
+  /** Bindet den Upload an ein konkretes Entity-Feld — der `/api/files`-Endpoint
+   *  prüft `accept`/`maxSize` dann serverseitig gegen dessen Feld-Definition. */
+  readonly entityType?: string;
+  readonly fieldName?: string;
 }
 
 /** Datei-Upload = Field + Input(kind:"file"|"image") — FileRef-basiert. */
@@ -301,6 +305,8 @@ export function FileField({
   onChange,
   accept,
   variant = "file",
+  entityType,
+  fieldName,
   required,
   disabled,
   testId,
@@ -317,6 +323,8 @@ export function FileField({
         required={required}
         disabled={disabled}
         {...(accept !== undefined && { accept })}
+        {...(entityType !== undefined && { entityType })}
+        {...(fieldName !== undefined && { fieldName })}
       />
     </Field>
   );

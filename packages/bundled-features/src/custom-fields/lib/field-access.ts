@@ -29,7 +29,14 @@ export async function loadFieldDefinition(
 ): Promise<LoadedFieldDefinition> {
   const serialized = await selectSerializedFieldDefinition(db, tenantId, entityName, fieldKey);
   if (serialized === null) return { found: false };
-  return { found: true, field: parseSerializedField(serialized) };
+  // parseSerializedField throws on a #972 legacy `sensitive` definition —
+  // that's a corrupt/unprocessable row from this write-gate's perspective,
+  // same fail-closed treatment as a shape that fails isShape().
+  try {
+    return { found: true, field: parseSerializedField(serialized) };
+  } catch {
+    return { found: true, field: null };
+  }
 }
 
 // Pure access-check on an already-loaded definition. Returns the required

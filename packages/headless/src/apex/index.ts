@@ -300,21 +300,23 @@ function renderPricingCard(t: ApexPricingTier): string {
   const benefits = t.benefits.map((b) => `<li>${escapeHtml(b)}</li>`);
   const items = [...cap, ...benefits].join("\n            ");
   const per = t.priceSuffix !== undefined ? `<span>${escapeHtml(t.priceSuffix)}</span>` : "";
-  const cls =
-    t.cta.variant !== undefined
-      ? `btn btn-${t.cta.variant}`
-      : featured
-        ? "btn btn-primary"
-        : "btn btn-secondary";
   const tagline =
     t.tagline !== undefined ? `<p class="price-tagline">${escapeHtml(t.tagline)}</p>` : "";
+  // Delegates to renderCta so a `variant: "link"` tier CTA gets the same
+  // class-free anchor as everywhere else instead of re-deriving the class
+  // string here (a prior inline duplicate had no "link" case, always
+  // emitting `.btn-link`, which the structural CSS never defines).
+  const cta =
+    t.cta.variant === undefined
+      ? renderCta({ ...t.cta, variant: featured ? "primary" : "secondary" })
+      : renderCta(t.cta);
   return `<article class="price-card${featured ? " price-card--featured" : ""}">
           ${badge}<h3>${escapeHtml(t.name)}</h3>
           ${tagline}<div class="price-amount">${escapeHtml(t.amount)}${per}</div>
           <ul class="price-list">
             ${items}
           </ul>
-          <a class="${cls}" href="${escapeHtml(t.cta.href)}">${escapeHtml(t.cta.label)}</a>
+          ${cta}
         </article>`;
 }
 

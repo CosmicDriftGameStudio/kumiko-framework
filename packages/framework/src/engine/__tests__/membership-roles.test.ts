@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  buildSessionRoles,
   FORBIDDEN_MEMBERSHIP_ROLES,
   findForbiddenMembershipRole,
   isForbiddenMembershipRole,
@@ -41,23 +42,16 @@ describe("forbidden membership roles", () => {
 // ONLY the membership portion, never the merged result — so a legitimate
 // SystemAdmin in globalRoles survives, a resurrected one in membership does not.
 describe("merge semantics (globalRoles never filtered)", () => {
-  function merge(
-    globalRoles: readonly string[],
-    membershipRoles: readonly string[],
-  ): readonly string[] {
-    return Array.from(new Set([...globalRoles, ...stripForbiddenMembershipRoles(membershipRoles)]));
-  }
-
   test("global SystemAdmin survives (no regression for real admins)", () => {
-    expect(merge(["SystemAdmin"], [])).toContain("SystemAdmin");
+    expect(buildSessionRoles(["SystemAdmin"], [])).toContain("SystemAdmin");
   });
 
   test("membership SystemAdmin is stripped (resurrected role neutralised)", () => {
-    expect(merge([], ["SystemAdmin"])).not.toContain("SystemAdmin");
+    expect(buildSessionRoles([], ["SystemAdmin"])).not.toContain("SystemAdmin");
   });
 
   test("global admin + tenant membership keeps both, deduped", () => {
-    expect([...merge(["SystemAdmin"], ["Admin", "SystemAdmin"])].sort()).toEqual(
+    expect([...buildSessionRoles(["SystemAdmin"], ["Admin", "SystemAdmin"])].sort()).toEqual(
       ["Admin", "SystemAdmin"].sort(),
     );
   });

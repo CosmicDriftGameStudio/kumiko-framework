@@ -92,3 +92,27 @@ describe("createLocaleRouter inverted default (website-style)", () => {
     expect(router.altLocalePath("/de")).toBe("/");
   });
 });
+
+describe("createLocaleRouter homePage validation", () => {
+  test("throws at construction when homePage has no routes entry", () => {
+    expect(() =>
+      createLocaleRouter({
+        defaultLocale: "de",
+        prefixedLocales: ["en"],
+        routes: { features: { de: "/funktionen", en: "/en/features" } },
+      }),
+    ).toThrow(/homePage/);
+  });
+
+  test("publicPath throws instead of crashing when page is missing from routes", () => {
+    const router = createLocaleRouter<"home" | "features">({
+      defaultLocale: "de",
+      prefixedLocales: ["en"],
+      routes: { home: { de: "/", en: "/en" } } as unknown as Record<
+        "home" | "features",
+        Record<string, string>
+      >,
+    });
+    expect(() => router.publicPath("features", "de")).toThrow(/no path for page/);
+  });
+});

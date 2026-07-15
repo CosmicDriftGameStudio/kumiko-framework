@@ -119,14 +119,17 @@ export function TagSection({
       try {
         for (const tagId of added) {
           if (!(await writeOk(TagsHandlers.assignTag, { tagId, entityType: entityName, entityId })))
-            return;
+            break;
         }
         for (const tagId of removed) {
           if (!(await writeOk(TagsHandlers.removeTag, { tagId, entityType: entityName, entityId })))
-            return;
+            break;
         }
-        await refetch();
       } finally {
+        // Unconditional: even a partial failure may have persisted some
+        // writes server-side — skipping refetch here would leave the UI
+        // stale relative to those, undetected until the next interaction.
+        await refetch();
         setBusy(false);
       }
     })();

@@ -31,8 +31,10 @@ pathIgnorePatterns = [
   "**/dist/**",
   # #457: these DOM screen tests corrupt under the shared single-process happy-dom
   # after ~30 prior DOM test files. Excluded from the shared `kumiko check` run and
-  # run isolated via their own ci.yml step (`bun test <file>` — an explicit path
-  # overrides pathIgnorePatterns, so the isolated step still executes them).
+  # run isolated via their own ci.yml step using `--config=bunfig.ci-dom.toml`
+  # instead — that config has no matching ignore entries, so the tests run there.
+  # (pathIgnorePatterns applies even to explicitly-passed paths within the SAME
+  # config — an explicit path does NOT override it. See bunfig.ci-dom.toml.)
   "**/user-data-rights/web/__tests__/deletion-screens.test.tsx",
   "**/user-data-rights/web/__tests__/privacy-center-screen.test.tsx",
 ]

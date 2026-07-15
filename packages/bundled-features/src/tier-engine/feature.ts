@@ -270,6 +270,11 @@ export function createTierEngineFeature<
     // Sekunde 1 nach Signup. Darum lebt er als async trialGate (unten, am
     // build-Ende angehängt), den der dispatcher nur auf dem disabled-Pfad
     // konsultiert. trialFeatures = fixe Feature-Menge des Trial-Tiers.
+    if (opts.trial && !tierMap[opts.trial.tier]) {
+      throw new Error(
+        `tier-engine: trial.tier "${opts.trial.tier}" is not a key in tierMap — trial would unlock no features`,
+      );
+    }
     const trialFeatures: ReadonlySet<string> = opts.trial
       ? featuresForTier(tierMap, opts.trial.tier)
       : new Set();

@@ -7,6 +7,9 @@ export type SitemapEntry = {
   readonly changefreq?: "always" | "hourly" | "daily" | "weekly" | "monthly" | "yearly" | "never";
   /** hreflang alternates for the same logical page (multilingual sitemaps). */
   readonly alternates?: readonly { readonly hreflang: string; readonly href: string }[];
+  /** Human-/LLM-readable page title, used by llms.txt link lines. Falls back
+   *  to `loc` when absent (callback-only entries rarely set this). */
+  readonly title?: string;
 };
 
 // Pure XML builder — sitemaps.org urlset + xhtml:link alternates. No
