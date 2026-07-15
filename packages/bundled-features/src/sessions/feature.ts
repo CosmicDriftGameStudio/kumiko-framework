@@ -7,7 +7,7 @@ import { revokeWrite } from "./handlers/revoke.write";
 import { revokeAllForUserWrite } from "./handlers/revoke-all-for-user.write";
 import { revokeAllOthersWrite } from "./handlers/revoke-all-others.write";
 import { userSessionEntity } from "./schema/user-session";
-import type { SessionMassRevoker } from "./session-callbacks";
+import type { SessionAllOthersRevoker, SessionMassRevoker } from "./session-callbacks";
 
 export type SessionsFeatureOptions = {
   // A successful update on the `user` entity that changes the `passwordHash`
@@ -29,6 +29,7 @@ export type SessionsFeatureOptions = {
 };
 
 export type BindAutoRevokeOnPasswordChange = (revoker: SessionMassRevoker) => void;
+export type BindRevokeAllOtherSessions = (revoker: SessionAllOthersRevoker) => void;
 
 // Reads the late-bind setter off a mounted sessions feature's exports.
 // run{Prod,Dev}App call it once the DB connection is concrete — the feature

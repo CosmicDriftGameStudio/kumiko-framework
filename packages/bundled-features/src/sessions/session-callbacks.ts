@@ -33,6 +33,16 @@ const BLOCKED_STATUSES: ReadonlySet<UserStatus> = new Set([
 // caller can log "revoked N other sessions".
 export type SessionMassRevoker = (userId: string) => Promise<number>;
 
+// "Sign out everywhere else, keep this one" — used both by the user-facing
+// revoke-all-others handler and by other features (auth-mfa) that need the
+// same effect from a raw callback instead of a dispatcher round-trip.
+// currentSid undefined (stateless-JWT / no sid claim) revokes everything —
+// there is no "current" row to spare.
+export type SessionAllOthersRevoker = (
+  userId: string,
+  currentSid: string | undefined,
+) => Promise<number>;
+
 export type SessionCallbacksOptions = {
   readonly db: DbConnection;
   // Session lifetime. MVP uses a single flat window; per-app policies can
@@ -45,6 +55,7 @@ export type SessionCallbacks = {
   sessionRevoker: SessionRevoker;
   sessionChecker: SessionChecker;
   sessionMassRevoker: SessionMassRevoker;
+  sessionRevokeAllOthers: SessionAllOthersRevoker;
 };
 
 export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCallbacks {
@@ -132,6 +143,18 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
         userSessionTable,
         { revokedAt: Temporal.Now.instant() },
         { userId, revokedAt: null },
+      );
+      return result.length;
+    },
+
+    async sessionRevokeAllOthers(userId: string, currentSid: string | undefined): Promise<number> {
+      const result = await updateMany(
+        db,
+        userSessionTable,
+        { revokedAt: Temporal.Now.instant() },
+        currentSid
+          ? { userId, revokedAt: null, id: { ne: currentSid } }
+          : { userId, revokedAt: null },
       );
       return result.length;
     },

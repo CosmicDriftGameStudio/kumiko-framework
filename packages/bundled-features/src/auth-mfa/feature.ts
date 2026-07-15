@@ -20,6 +20,26 @@ export type BindMfaRevokeAllOtherSessions = (
   revoker: (userId: string, currentSid: string | undefined) => Promise<number>,
 ) => void;
 
+// Reads the late-bind setter off a mounted auth-mfa feature's exports —
+// mirrors sessions' own bindAutoRevokeFromFeature. run{Prod,Dev}App call
+// this once the sessions feature (if mounted) has produced a concrete
+// sessionRevokeAllOthers callback.
+export function bindMfaRevokeAllOtherSessionsFromFeature(
+  feature: FeatureDefinition,
+): BindMfaRevokeAllOtherSessions | undefined {
+  const exports = feature.exports;
+  if (exports && typeof exports === "object" && "bindRevokeAllOtherSessions" in exports) {
+    const { bindRevokeAllOtherSessions } = exports as {
+      bindRevokeAllOtherSessions: unknown;
+    };
+    if (typeof bindRevokeAllOtherSessions === "function") {
+      // @cast-boundary exports-walk — feature.exports is untyped by design
+      return bindRevokeAllOtherSessions as BindMfaRevokeAllOtherSessions;
+    }
+  }
+  return undefined;
+}
+
 export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefinition {
   return defineFeature("auth-mfa", (r) => {
     r.describe(
