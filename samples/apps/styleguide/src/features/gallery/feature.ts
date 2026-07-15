@@ -7,8 +7,7 @@
 // Namen würden in createRegistry werfen.
 
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-
-type LocalizedString = { readonly de: string; readonly en: string };
+import type { LocalizedString } from "../shared-i18n";
 
 // Server-Pendant zu den Nav-Labels — Boot-Validator braucht screen:gallery.title
 // serverseitig registriert, auch wenn die custom-Screen selbst keinen
