@@ -255,19 +255,24 @@ function walkSetupCallback(
     }
 
     // Not a direct `<registrarParam>.<method>(...)` call. Check whether it's
-    // a registrar-wrapper call — a locally declared function that receives
-    // the registrar as a bare argument, e.g. `registerShowPonyScreens(r)`.
-    // Such wrappers are invisible to a receiver-shape match, so we resolve
-    // the callee and recurse into its body with its own parameter name for
-    // the registrar slot.
+    // a registrar-wrapper call — a function that receives the registrar as
+    // a bare argument, e.g. `registerShowPonyScreens(r)`. Such wrappers are
+    // invisible to a receiver-shape match, so we resolve the callee (same
+    // file, or the declaring file of a named import — #1008) and recurse
+    // into its body with its own parameter name for the registrar slot.
     const wrapper = resolveRegistrarWrapperCall(call, registrarParamName);
     if (!wrapper) continue; // Free function call unrelated to the registrar — ignore.
     if (visitedWrapperDecls.has(wrapper.declNode)) continue; // Cycle guard.
     visitedWrapperDecls.add(wrapper.declNode);
+    // wrapper.sourceFile, not the outer `sourceFile` param: a cross-file
+    // wrapper's body lives in a different file, and sourceLocationFromNode
+    // uses whichever SourceFile it's given for both the `file` path and
+    // the line/column table — passing the wrong one silently corrupts
+    // both for every pattern found inside the wrapper.
     walkSetupCallback(
       wrapper.body,
       wrapper.paramName,
-      sourceFile,
+      wrapper.sourceFile,
       patterns,
       errors,
       visitedWrapperDecls,
@@ -277,16 +282,26 @@ function walkSetupCallback(
 
 /**
  * Resolves a bare call like `registerShowPonyScreens(r)` to the callee's
- * body + its own parameter name for the registrar slot, when the callee is
+ * body + its own parameter name for the registrar slot. The callee may be
  * declared in the same file (function declaration, or a const initialized
- * with an arrow/function expression). Cross-file registrar wrappers are not
- * resolved — the call is then simply ignored, same as any other bare call
- * unrelated to the registrar.
+ * with an arrow/function expression), or imported by name from another
+ * file — resolved via the module specifier's SourceFile (#1008; only
+ * works against a real-filesystem Project, e.g. parseFeatureFile's. The
+ * in-memory Designer Project has no files to resolve against and
+ * getModuleSpecifierSourceFile() returns undefined there, same as any
+ * other unresolvable reference).
  */
 function resolveRegistrarWrapperCall(
   call: CallExpression,
   registrarParamName: string,
-): { readonly body: Node; readonly paramName: string; readonly declNode: Node } | undefined {
+):
+  | {
+      readonly body: Node;
+      readonly paramName: string;
+      readonly declNode: Node;
+      readonly sourceFile: SourceFile;
+    }
+  | undefined {
   const callee = call.getExpression().asKind(SyntaxKind.Identifier);
   if (!callee) return undefined;
 
@@ -294,9 +309,35 @@ function resolveRegistrarWrapperCall(
   const argIndex = args.findIndex((arg) => arg.getText() === registrarParamName);
   if (argIndex === -1) return undefined; // Registrar not passed to this call.
 
-  const sourceFile = call.getSourceFile();
+  const callSourceFile = call.getSourceFile();
   const name = callee.getText();
 
+  const local = resolveWrapperDeclarationInFile(callSourceFile, name, argIndex);
+  if (local) return { ...local, sourceFile: callSourceFile };
+
+  const importDecl = callSourceFile
+    .getImportDeclarations()
+    .find((d) =>
+      d.getNamedImports().some((ni) => (ni.getAliasNode()?.getText() ?? ni.getName()) === name),
+    );
+  if (!importDecl) return undefined;
+  const exportedName =
+    importDecl
+      .getNamedImports()
+      .find((ni) => (ni.getAliasNode()?.getText() ?? ni.getName()) === name)
+      ?.getName() ?? name;
+  const targetFile = importDecl.getModuleSpecifierSourceFile();
+  if (!targetFile) return undefined; // Unresolvable: in-memory project, external package, or missing file.
+
+  const imported = resolveWrapperDeclarationInFile(targetFile, exportedName, argIndex);
+  return imported ? { ...imported, sourceFile: targetFile } : undefined;
+}
+
+function resolveWrapperDeclarationInFile(
+  sourceFile: SourceFile,
+  name: string,
+  argIndex: number,
+): { readonly body: Node; readonly paramName: string; readonly declNode: Node } | undefined {
   const fnDecl = sourceFile.getFunction(name);
   if (fnDecl) {
     const param = fnDecl.getParameters()[argIndex];

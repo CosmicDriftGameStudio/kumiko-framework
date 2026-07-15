@@ -11,9 +11,10 @@
 // Designer/AI know the call exists.
 
 import { describe, expect, test } from "bun:test";
+import { resolve } from "node:path";
 import { Project } from "ts-morph";
 import { isRawRefSentinel, readDataLiteralNode } from "../extractors/shared";
-import { parseSourceFile } from "../parse";
+import { parseFeatureFile, parseSourceFile } from "../parse";
 
 function createProject() {
   return new Project({
@@ -1144,7 +1145,33 @@ defineFeature("showpony", (r) => {
     expect(result.errors).toEqual([]);
   });
 
-  test("an imported registrar-wrapper stays invisible (cross-file, deliberately out of #998's scope)", () => {
+  test("an imported registrar-wrapper stays invisible when its file can't be resolved (in-memory project, #1008)", () => {
+    // parseInline uses an in-memory ts-morph Project — "./register/screens"
+    // isn't a real file, so getModuleSpecifierSourceFile() returns
+    // undefined and the wrapper is skipped like any other unresolvable
+    // call. Real cross-file resolution against on-disk files is covered by
+    // the parseFeatureFile fixture tests below.
     expect(result.patterns.some((p) => p.kind === "screen" || p.kind === "nav")).toBe(false);
+  });
+});
+
+describe("cross-file registrar-wrapper resolution against a real filesystem Project (#1008)", () => {
+  const fixture = resolve(__dirname, "fixtures/cross-file-registrar/feature.ts");
+  const result = parseFeatureFile(fixture);
+
+  test("resolves the imported wrapper and recognises the nav pattern it registers", () => {
+    expect(result.errors).toEqual([]);
+    expect(result.patterns).toMatchObject([
+      { kind: "requires", featureNames: ["config"] },
+      { kind: "nav", definition: { id: "foo", label: "Foo" } },
+    ]);
+  });
+
+  test("the resolved pattern's source points at the imported file, not the entry file", () => {
+    const navPattern = result.patterns.find((p) => p.kind === "nav");
+    expect(navPattern?.source.file).toBe(
+      resolve(__dirname, "fixtures/cross-file-registrar/screens.ts"),
+    );
+    expect(navPattern?.source.file).not.toBe(fixture);
   });
 });
