@@ -514,9 +514,11 @@ export function renderApexHeadTags(head: ApexHead): string {
   const metaDescription = head.description
     ? `\n    <meta name="description" content="${escapeHtml(head.description)}" />`
     : "";
+  const ogDescription = head.description
+    ? `\n    <meta property="og:description" content="${escapeHtml(head.description)}" />`
+    : "";
   return `<title>${escapeHtml(head.title)}</title>${metaDescription}
-    <meta property="og:title" content="${escapeHtml(head.title)}" />
-    <meta property="og:description" content="${escapeHtml(head.description)}" />
+    <meta property="og:title" content="${escapeHtml(head.title)}" />${ogDescription}
     <meta property="og:type" content="website" />${ogUrl}${ogImage}${siteName}${locale}${twitterCard}${twitterSite}${favicon}${canonical}${alternates}${robots}${preconnects}${schema}`;
 }
 

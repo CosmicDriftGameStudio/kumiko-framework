@@ -218,6 +218,11 @@ describe("renderApexPage", () => {
     );
     expect(withRobots).toContain('<meta name="robots" content="noindex, nofollow" />');
   });
+  test("omits both description meta tags when description is empty", () => {
+    const html = renderApexPage(page({ head: { lang: "de", title: "T", description: "" } }));
+    expect(html).not.toContain('<meta name="description"');
+    expect(html).not.toContain('<meta property="og:description"');
+  });
 
   test("renders og:site_name and og:locale", () => {
     const html = renderApexPage(
