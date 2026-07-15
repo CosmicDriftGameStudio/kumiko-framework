@@ -559,15 +559,6 @@ export async function runHandlerInstrumented<T>(
   }
 }
 
-// L3 rate limit gate. Called by both query and write paths before
-// access-check. Reasoning:
-//   - handler without rateLimit → no-op
-//   - app booted without rateLimit resolver → InternalError so the
-//     misconfig surfaces immediately, not on first 429
-//   - bucket builder returns "skip" (e.g. ip-based but no client IP):
-//     pass through. ip-modes are commonly used at L1/L2 middleware
-//     where the IP comes from Hono directly; falling back to "skip"
-//     here keeps non-HTTP entry-points (jobs, MSPs) functional.
 // Feature-toggle gate. Returns the error to fold into a WriteFailure in the
 // write path, or throws for the query path (where throws flow through the
 // same outer instrumentation wrapper as other dispatcher errors).
@@ -608,6 +599,15 @@ export async function ensureFeatureEnabled(
   if (err) throw err;
 }
 
+// L3 rate limit gate. Called by both query and write paths before
+// access-check. Reasoning:
+//   - handler without rateLimit → no-op
+//   - app booted without rateLimit resolver → InternalError so the
+//     misconfig surfaces immediately, not on first 429
+//   - bucket builder returns "skip" (e.g. ip-based but no client IP):
+//     pass through. ip-modes are commonly used at L1/L2 middleware
+//     where the IP comes from Hono directly; falling back to "skip"
+//     here keeps non-HTTP entry-points (jobs, MSPs) functional.
 export async function enforceRateLimit(
   ctx: DispatchContext,
   rateLimit: import("../engine/types").RateLimitOption | undefined,

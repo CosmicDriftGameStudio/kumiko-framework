@@ -3,6 +3,8 @@
 
 import {
   type DataTableSort,
+  formatWhen,
+  sortByAccessor,
   useDispatcher,
   useNav,
   usePrimitives,
@@ -99,7 +101,7 @@ export function JobRunsScreen(): ReactNode {
       ]}
       sort={sort}
       onSortChange={setSort}
-      rows={sortJobRuns(state.rows, sort).map((row) => ({
+      rows={sortByAccessor(state.rows, sort, SORT_ACCESSORS).map((row) => ({
         id: row.id,
         values: {
           job: row.jobName,
@@ -142,23 +144,3 @@ const SORT_ACCESSORS: Record<string, (r: JobRunRow) => string | number> = {
   status: (r) => r.status,
   started: (r) => r.startedAt,
 };
-
-function sortJobRuns(rows: readonly JobRunRow[], sort: DataTableSort | null): readonly JobRunRow[] {
-  if (sort === null) return rows;
-  const accessor = SORT_ACCESSORS[sort.field];
-  if (accessor === undefined) return rows;
-  const factor = sort.dir === "asc" ? 1 : -1;
-  return [...rows].sort((a, b) => {
-    const av = accessor(a);
-    const bv = accessor(b);
-    return av < bv ? -factor : av > bv ? factor : 0;
-  });
-}
-
-function formatWhen(value: string): string {
-  try {
-    return new Date(value).toLocaleString();
-  } catch {
-    return value;
-  }
-}

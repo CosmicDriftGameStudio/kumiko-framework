@@ -117,7 +117,7 @@ export function renderExportReadyEmail(args: RenderExportReadyEmailArgs): Render
     <p style="margin: 0 0 24px;">${renderButton({ url: args.downloadUrl, label: t.exportReadyButton })}</p>
     <p style="margin: 0 0 8px; font-size: 13px; color: #555;">${escapeHtml(t.exportReadyExpiry(formatTimestamp(args.expiresAt)))}</p>
     ${renderFallbackUrl({ url: args.downloadUrl, label: t.fallbackUrl })}`;
-  return { subject, html: renderShell({ title: subject, bodyHtml: wrapCell(body) }) };
+  return { subject, html: renderShell({ title: subject, bodyHtml: wrapCell(body), locale }) };
 }
 
 export function renderExportFailedEmail(args: RenderExportFailedEmailArgs): RenderedEmail {
@@ -128,7 +128,7 @@ export function renderExportFailedEmail(args: RenderExportFailedEmailArgs): Rend
   const body = `
     <p style="margin: 0 0 16px; font-size: 16px;">${escapeHtml(t.greeting)}</p>
     <p style="margin: 0; font-size: 14px; line-height: 1.5;">${escapeHtml(t.exportFailedIntro(app))}</p>`;
-  return { subject, html: renderShell({ title: subject, bodyHtml: wrapCell(body) }) };
+  return { subject, html: renderShell({ title: subject, bodyHtml: wrapCell(body), locale }) };
 }
 
 export function renderDeletionRequestedEmail(
@@ -142,7 +142,7 @@ export function renderDeletionRequestedEmail(
     <p style="margin: 0 0 16px; font-size: 16px;">${escapeHtml(t.greeting)}</p>
     <p style="margin: 0 0 16px; font-size: 14px; line-height: 1.5;">${escapeHtml(t.deletionRequestedIntro(app, formatTimestamp(args.gracePeriodEnd)))}</p>
     <p style="margin: 0; font-size: 13px; color: #555;">${escapeHtml(t.deletionRequestedCancel)}</p>`;
-  return { subject, html: renderShell({ title: subject, bodyHtml: wrapCell(body) }) };
+  return { subject, html: renderShell({ title: subject, bodyHtml: wrapCell(body), locale }) };
 }
 
 export function renderDeletionExecutedEmail(args: RenderDeletionExecutedEmailArgs): RenderedEmail {
@@ -153,7 +153,7 @@ export function renderDeletionExecutedEmail(args: RenderDeletionExecutedEmailArg
   const body = `
     <p style="margin: 0 0 16px; font-size: 16px;">${escapeHtml(t.greeting)}</p>
     <p style="margin: 0; font-size: 14px; line-height: 1.5;">${escapeHtml(t.deletionExecutedIntro(app, formatTimestamp(args.executedAt)))}</p>`;
-  return { subject, html: renderShell({ title: subject, bodyHtml: wrapCell(body) }) };
+  return { subject, html: renderShell({ title: subject, bodyHtml: wrapCell(body), locale }) };
 }
 
 function wrapCell(bodyHtml: string): string {
@@ -162,9 +162,9 @@ function wrapCell(bodyHtml: string): string {
 
 // Plain inline-styled HTML — gespiegelt von auth-email-password.
 // guard:dup-ok — Email-HTML (table-layout, inline CSS) ≠ Web-HTML (legal-pages/markdown.ts)
-function renderShell(args: { title: string; bodyHtml: string }): string {
+function renderShell(args: { title: string; bodyHtml: string; locale: GdprMailLocale }): string {
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${args.locale}">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />

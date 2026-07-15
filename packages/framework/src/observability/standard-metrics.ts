@@ -227,9 +227,10 @@ export function emitEventConsumerPassOutcome(
   }
 }
 
-// counts: BullMQ's Queue.getJobCounts() result — a state → count record
-// (waiting/active/delayed/failed/completed/…), passed through unmodified so
-// this stays agnostic of exactly which states BullMQ reports.
+// counts: BullMQ's Queue.getJobCounts() result, filtered by the caller to
+// backlog-relevant states (waiting/active/delayed/failed/paused) — "completed"
+// grows unboundedly without removeOnComplete and would make the gauge series
+// monotonically increasing, useless as a backlog signal.
 export function emitJobQueueDepth(
   meter: Meter,
   lane: string,

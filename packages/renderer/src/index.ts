@@ -59,6 +59,7 @@ export {
   useDispatcherStatus,
   useOptionalDispatcher,
 } from "./context/dispatcher-context";
+export { formatWhen } from "./format-when";
 export {
   REFERENCE_COMBOBOX_LIMIT,
   REFERENCE_LIST_LOOKUP_LIMIT,
@@ -136,6 +137,7 @@ export type {
   TextProps,
 } from "./primitives";
 export { PrimitivesProvider, usePrimitives } from "./primitives";
+export { sortByAccessor } from "./sort-by-accessor";
 export type { LiveEvent, LiveEventSubscriber, LiveEventsProviderProps } from "./sse/live-events";
 export { LiveEventsProvider, useLiveEvents } from "./sse/live-events";
 export type {

@@ -38,5 +38,6 @@ describe("overview query allowlist", () => {
   test("platform queries are not tenant-allowlisted", () => {
     expect(isOverviewQueryAllowed("tenant", TenantQueries.list)).toBe(false);
     expect(isOverviewQueryAllowed("tenant", JobQueries.list)).toBe(false);
+    expect(isOverviewQueryAllowed("tenant", UserQueries.list)).toBe(false);
   });
 });

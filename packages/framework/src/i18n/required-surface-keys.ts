@@ -86,11 +86,13 @@ function pushDashboardPanelKeys(out: Set<string>, panel: DashboardPanelDefinitio
       if (normalized.label !== undefined) pushKey(out, normalized.label);
     }
   }
+  if (panel.kind === "feed" && panel.emptyLabel !== undefined) pushKey(out, panel.emptyLabel);
 }
 
 function pushDashboardFilterKeys(out: Set<string>, filter: DashboardFilterDefinition): void {
   pushKey(out, filter.label);
   if (filter.allLabel !== undefined) pushKey(out, filter.allLabel);
+  if (filter.placeholder !== undefined) pushKey(out, filter.placeholder);
   for (const opt of filter.options ?? []) pushKey(out, opt.label);
 }
 

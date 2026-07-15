@@ -4,6 +4,8 @@
 
 import {
   type DataTableSort,
+  formatWhen,
+  sortByAccessor,
   useDispatcher,
   useNav,
   usePrimitives,
@@ -179,7 +181,7 @@ export function AuditLogScreen(): ReactNode {
         ]}
         sort={sort}
         onSortChange={setSort}
-        rows={sortAudit(state.rows, sort).map((row) => ({
+        rows={sortByAccessor(state.rows, sort, SORT_ACCESSORS).map((row) => ({
           id: row.id,
           values: {
             when: formatWhen(row.createdAt),
@@ -233,26 +235,6 @@ const SORT_ACCESSORS: Record<string, (r: AuditRow) => string> = {
   when: (r) => r.createdAt,
   type: (r) => r.type,
 };
-
-function sortAudit(rows: readonly AuditRow[], sort: DataTableSort | null): readonly AuditRow[] {
-  if (sort === null) return rows;
-  const accessor = SORT_ACCESSORS[sort.field];
-  if (accessor === undefined) return rows;
-  const factor = sort.dir === "asc" ? 1 : -1;
-  return [...rows].sort((a, b) => {
-    const av = accessor(a);
-    const bv = accessor(b);
-    return av < bv ? -factor : av > bv ? factor : 0;
-  });
-}
-
-function formatWhen(value: string): string {
-  try {
-    return new Date(value).toLocaleString();
-  } catch {
-    return value;
-  }
-}
 
 function toIsoStart(date: string): string {
   return new Date(`${date}T00:00:00.000Z`).toISOString();

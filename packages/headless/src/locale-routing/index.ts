@@ -115,6 +115,10 @@ export function createLocaleRouter<TPage extends string>(
     return routePath;
   }
 
+  // Binary toggle (defaultLocale <-> prefixedLocales[0]) — altLocalePath has
+  // no way to target a specific alt locale beyond the first prefixed one.
+  // Fine for the current bilingual (de/en) setup; a third prefixed locale
+  // needs altLocalePath to take an explicit targetLocale param instead.
   function otherLocale(currentLocale: string): string {
     if (currentLocale === defaultLocale) {
       return prefixedLocales[0] ?? defaultLocale;

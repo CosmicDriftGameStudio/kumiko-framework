@@ -25,6 +25,7 @@ export const TENANT_OVERVIEW_FORBIDDEN_QUERIES = [
   "jobs:query:list",
   "feature-toggles:query:list",
   "feature-toggles:query:registered",
+  "user:query:user:list",
 ] as const;
 
 export function overviewAllowedQueries(kind: OverviewWorkspaceKind): readonly string[] {

@@ -318,7 +318,7 @@ function TextContentEditor({
       onSubmit={onSubmit}
       testId="text-content-editor"
       title={title || slug || "—"}
-      subtitle={lang !== "" ? `(${lang})` : undefined}
+      subtitle={lang !== "" ? `${slug} · (${lang})` : slug}
       actions={
         canWrite ? (
           <Button type="submit" loading={submitting} disabled={disabled}>

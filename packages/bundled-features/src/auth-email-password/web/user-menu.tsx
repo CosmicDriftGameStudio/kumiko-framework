@@ -34,7 +34,7 @@ export type UserMenuProps = {
   readonly children?: ReactNode;
   /** "pill" (Default) = kompakter Topbar-Trigger; "sidebar" = volle NavUser-
    *  Row (Avatar + Name + Email) für den `sidebarFooter`-Slot der App-Shell.
-   *  Requires a `SidebarProvider` ancestor (547/3) — the default App-Shell
+   *  Requires a `SidebarProvider` ancestor — the default App-Shell
    *  `sidebarFooter` slot already provides one. */
   readonly variant?: UserMenuVariant;
 };

@@ -38,8 +38,6 @@ export {
 export type { App, AppConfig } from "./create-app";
 export { createApp } from "./create-app";
 export { crossTenantOverrideDenied } from "./cross-tenant";
-export type { DeepLinkTarget } from "./deep-link";
-export { buildDeepLinkUrl } from "./deep-link";
 export { defineFeature } from "./define-feature";
 export type {
   QueryHandlerDefinition,

@@ -1,5 +1,5 @@
 import type { DispatcherError, WriteResult } from "@cosmicdrift/kumiko-headless";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useDispatcher } from "../context/dispatcher-context";
 
 // React wrapper around dispatcher.write — the write-side sibling of
@@ -24,24 +24,34 @@ export function useMutation<TData = unknown>(type: string): UseMutationResult<TD
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<DispatcherError | null>(null);
   const [data, setData] = useState<TData | null>(null);
+  // Sequence guard: `mutate` has no abort (unlike useQuery's GETs, a write
+  // already landed server-side and can't be cancelled). Two overlapping
+  // calls on one instance (e.g. two list-row actions) must not let the
+  // first-to-resolve clobber pending/error/data set by the second — only
+  // the most recently STARTED call's outcome may update shared state.
+  const sequence = useRef(0);
 
   const mutate = useCallback(
     async (payload: unknown): Promise<WriteResult<TData>> => {
+      const callSeq = ++sequence.current;
       setPending(true);
       setError(null);
       const result = await dispatcher.write<TData>(type, payload);
-      if (result.isSuccess) {
-        setData(result.data);
-      } else {
-        setError(result.error);
+      if (callSeq === sequence.current) {
+        if (result.isSuccess) {
+          setData(result.data);
+        } else {
+          setError(result.error);
+        }
+        setPending(false);
       }
-      setPending(false);
       return result;
     },
     [dispatcher, type],
   );
 
   const reset = useCallback(() => {
+    sequence.current++; // invalidate any in-flight mutate's late update
     setPending(false);
     setError(null);
     setData(null);

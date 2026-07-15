@@ -247,8 +247,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     [screen, entity, snapshot.values, translate, featureName],
   );
 
-  // isFormEditable, not "hasEditableField" (653/2) — true for an extension
-  // section with no fields of its own too (it carries its own dirty/save).
+  // true for an extension section with no fields of its own too (it carries its own dirty/save).
   const isFormEditable = hasEditableSection(vm.sections);
 
   // Persistiert alle composed Extension-Sections mit der aufgelösten entityId.

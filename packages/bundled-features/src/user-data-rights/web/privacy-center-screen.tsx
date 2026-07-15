@@ -224,6 +224,7 @@ function RestrictionSection({
     <Section
       title={t("userDataRights.privacyCenter.restriction.title")}
       testId="privacy-restriction"
+      variant="destructive"
       actions={
         restricted ? undefined : (
           <Button
@@ -303,6 +304,7 @@ function DeletionSection({
     <Section
       title={t("userDataRights.privacyCenter.deletion.title")}
       testId="privacy-deletion"
+      variant="destructive"
       actions={
         deletionRequested ? (
           <Button
