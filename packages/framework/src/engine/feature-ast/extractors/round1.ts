@@ -33,7 +33,7 @@ export function extractRequires(
   return ok({
     kind: "requires",
     source: sourceLocationFromNode(call, sourceFile),
-    featureNames: names,
+    featureNames: names as readonly string[],
   });
 }
 
@@ -52,7 +52,7 @@ export function extractOptionalRequires(
   return ok({
     kind: "optionalRequires",
     source: sourceLocationFromNode(call, sourceFile),
-    featureNames: names,
+    featureNames: names as readonly string[],
   });
 }
 
@@ -71,7 +71,7 @@ export function extractReadsConfig(
   return ok({
     kind: "readsConfig",
     source: sourceLocationFromNode(call, sourceFile),
-    qualifiedKeys: keys,
+    qualifiedKeys: keys as readonly string[],
   });
 }
 

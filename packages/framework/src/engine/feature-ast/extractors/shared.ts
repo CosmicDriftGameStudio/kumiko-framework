@@ -135,6 +135,31 @@ export function readDataLiteralNode(node: Node): unknown {
   }
 }
 
+/**
+ * Like readStringLiteralArgs, but an argument that resolves to a raw-ref
+ * sentinel (an unresolvable identifier, factory call, or member access —
+ * see readDataLiteralNode) is kept as that sentinel instead of failing the
+ * whole call. Used where a value stands in for a single name/key and
+ * inlining its resolved string would corrupt the render roundtrip (e.g.
+ * `r.requires(someFeature.name)` — see #1009).
+ */
+export function readStringOrRawArgs(
+  call: CallExpression,
+): readonly (string | RawRefSentinel)[] | undefined {
+  const out: (string | RawRefSentinel)[] = [];
+  for (const arg of call.getArguments()) {
+    const value = readDataLiteralNode(arg);
+    if (typeof value === "string") {
+      out.push(value);
+    } else if (isRawRefSentinel(value)) {
+      out.push(value);
+    } else {
+      return undefined;
+    }
+  }
+  return out;
+}
+
 export { isPlainObject } from "../../../utils/is-plain-object";
 
 export function readPropertyKey(propAssign: import("ts-morph").PropertyAssignment): string {
@@ -177,7 +202,7 @@ export function readNameOrRefOrList(node: Node): string | readonly string[] | un
 export function readVarargsOrArrayProp(
   call: CallExpression,
   arrayPropName: "features" | "keys",
-): readonly string[] | undefined {
+): readonly (string | RawRefSentinel)[] | undefined {
   const args = call.getArguments();
   if (args.length === 1) {
     const obj = args[0]?.asKind(SyntaxKind.ObjectLiteralExpression);
@@ -199,5 +224,5 @@ export function readVarargsOrArrayProp(
       }
     }
   }
-  return readStringLiteralArgs(call);
+  return readStringOrRawArgs(call);
 }
