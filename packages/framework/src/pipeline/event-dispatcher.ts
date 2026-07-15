@@ -1,27 +1,8 @@
-import { requestContext } from "../api/request-context";
-import type { DbConnection, DbTx, PgClient } from "../db/connection";
-import {
-  advanceConsumerPastEventReturning,
-  insertConsumerIfAbsent,
-  markConsumerProcessing,
-  selectConsumerForUpdateSkipLocked,
-  updateConsumerDeliveryOutcome,
-  updateConsumerStatusReturning,
-} from "../db/queries/event-consumer";
-import { selectEventsHeadId, selectNextEventIdAfter } from "../db/queries/event-store";
-import { coerceRow, extractTableInfo, selectMany } from "../db/query";
+import type { DbTx, PgClient } from "../db/connection";
 import type { AppContext } from "../engine/types";
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers";
+import { EVENTS_PUBSUB_CHANNEL, type StoredEvent } from "../event-store";
 import {
-  EVENTS_PUBSUB_CHANNEL,
-  eventsTable,
-  getEventsHighWaterMark,
-  toStoredEvent as rowToStoredEvent,
-  type StoredEvent,
-} from "../event-store";
-import {
-  emitDispatcherError,
-  emitEventConsumerLag,
   emitEventConsumerPassOutcome,
   emitEventDispatcherListenConnected,
   getFallbackMeter,
@@ -29,11 +10,17 @@ import {
   type Meter,
   type Tracer,
 } from "../observability";
+import { SHARED_INSTANCE_SENTINEL } from "./event-consumer-state";
 import {
-  ConsumerStatuses,
-  eventConsumerStateTable,
-  SHARED_INSTANCE_SENTINEL,
-} from "./event-consumer-state";
+  acquireConsumerState,
+  consumerInstanceId,
+  deliverEvents,
+  emitLagFromTx,
+  fetchPendingEvents,
+  markProcessing,
+  persistConsumerOutcome,
+  preRegisterConsumers,
+} from "./event-dispatcher-delivery";
 
 // Async event-dispatcher — the "AsyncDaemon"-pendant for Kumiko.
 //
@@ -64,6 +51,11 @@ import {
 // Delivery semantics: **at-least-once**. If a handler runs but the cursor
 // update fails (crash mid-pass), the same event is delivered again next pass.
 // Handlers MUST be idempotent.
+//
+// Delivery-loop mechanics (acquire/fetch/deliver/persist) live in
+// event-dispatcher-delivery.ts; the ops recovery surface (restart/disable/
+// enable/skipPoisonEvent/progress) lives in event-dispatcher-admin.ts. This
+// file is the facade: public types + the createEventDispatcher() factory.
 
 export type EventConsumerHandler = (event: StoredEvent, ctx: AppContext) => Promise<void>;
 
@@ -131,7 +123,7 @@ export type EventDispatcher = {
 };
 
 export type EventDispatcherOptions = {
-  readonly db: DbConnection;
+  readonly db: import("../db/connection").DbConnection;
   readonly consumers: readonly EventConsumer[];
   readonly context: AppContext;
   readonly batchSize?: number;
@@ -158,242 +150,6 @@ export type EventDispatcherOptions = {
 const DEFAULT_BATCH_SIZE = 200;
 const DEFAULT_POLL_MS = 100;
 const DEFAULT_MAX_ATTEMPTS = 10;
-
-// --- processConsumer helpers ---
-// Free functions (not closures) so they're independently readable and the
-// dispatcher's main pass logic stays under ~50 LOC. Every helper takes an
-// explicit `tx` — none of them use the outer dispatcher's closure state.
-
-type ConsumerStateRowShape = {
-  readonly name: string;
-  readonly instanceId: string;
-  readonly lastProcessedEventId: bigint;
-  readonly status: string;
-  readonly attempts: number;
-  readonly lastError: string | null;
-  readonly updatedAt: Temporal.Instant;
-};
-type ConsumerStateRow = ConsumerStateRowShape;
-
-type StoredEventRow = {
-  readonly id: bigint;
-  readonly aggregateId: string;
-  readonly aggregateType: string;
-  readonly tenantId: string;
-  readonly version: number;
-  readonly type: string;
-  readonly eventVersion: number;
-  readonly payload: Record<string, unknown>;
-  readonly metadata: import("../event-store/event-store").EventMetadata;
-  readonly createdAt: Temporal.Instant;
-  readonly createdBy: string;
-};
-
-type AcquireOutcome =
-  | { readonly state: ConsumerStateRow; readonly skip: null }
-  | {
-      readonly state: null;
-      readonly skip: "locked_by_other_instance" | "disabled" | "dead" | "not_registered";
-    };
-
-// Lock the consumer's state row with SKIP LOCKED. Strict: no in-tx bootstrap.
-// The row must exist — start() pre-registers every consumer up front so
-// prune (event-retention) sees their cursors as soon as the process is up,
-// closing the race where a lazy-bootstrapped consumer's cursor is absent
-// during prune and its events are silently deleted.
-//
-// skip="not_registered" signals a row-missing-despite-start condition.
-// Production shouldn't hit this — it means either start() wasn't called
-// (runOnce() guards against that) or the state row was deleted externally
-// (a test TRUNCATE without subsequent ensureRegistered(), or an operator
-// intervention). Skipping quietly preserves the dispatcher's other
-// consumers and surfaces the issue via the metrics pass-outcome.
-async function acquireConsumerState(
-  tx: DbTx,
-  name: string,
-  instanceId: string,
-): Promise<AcquireOutcome> {
-  const rawState = await selectConsumerForUpdateSkipLocked(tx, name, instanceId);
-
-  if (!rawState) {
-    return { state: null, skip: "not_registered" };
-  }
-
-  const state = coerceRow(rawState, extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow;
-
-  if (!state) {
-    // Either the row never existed (no pre-reg, no ensureRegistered) or
-    // another instance currently holds the lock with SKIP LOCKED filtering
-    // us out. We can't distinguish here in a single query, so return
-    // "not_registered" — ops sees a skip-reason instead of silent delivery
-    // loss. Under normal operation (start() called, no external tampering)
-    // this path is never taken.
-    return { state: null, skip: "not_registered" };
-  }
-
-  if (state.status === ConsumerStatuses.disabled) return { state: null, skip: "disabled" };
-  if (state.status === ConsumerStatuses.dead) return { state: null, skip: "dead" };
-  return { state, skip: null };
-}
-
-// Shared pre-registration: one row per (consumer, shard), cursor = 0,
-// status = idle. Shared-delivery consumers use SHARED_INSTANCE_SENTINEL;
-// per-instance consumers use the dispatcher's instanceId. Idempotent
-// under restart and concurrent start-calls via ON CONFLICT DO NOTHING
-// on the composite PK — never clobbers an existing cursor.
-async function preRegisterConsumers(
-  db: DbConnection,
-  consumers: readonly EventConsumer[],
-  dispatcherInstanceId: string | undefined,
-): Promise<void> {
-  for (const consumer of consumers) {
-    const instanceId = consumerInstanceId(consumer, dispatcherInstanceId);
-    await insertConsumerIfAbsent(db, consumer.name, instanceId);
-  }
-}
-
-// Resolve the instance_id column value for one consumer on this dispatcher.
-// Shared stays at the sentinel; per-instance rides the dispatcher's id.
-// Throws when a per-instance consumer is registered without an instanceId
-// — missing at boot is the sharp-edge to catch, not at first delivery.
-function consumerInstanceId(
-  consumer: EventConsumer,
-  dispatcherInstanceId: string | undefined,
-): string {
-  if (consumer.delivery !== "per-instance") return SHARED_INSTANCE_SENTINEL;
-  if (!dispatcherInstanceId) {
-    throw new Error(
-      `EventConsumer "${consumer.name}" has delivery="per-instance" but the dispatcher was created without an instanceId — ` +
-        `pass EventDispatcherOptions.instanceId (typically from ServerOptions.instanceId / KUMIKO_INSTANCE_ID).`,
-    );
-  }
-  return dispatcherInstanceId;
-}
-
-// Mark the consumer row as "processing" for ops visibility. The SKIP LOCKED
-// lock already guarantees single-writer semantics; this is purely
-// informational (and resets on commit to idle/dead via persistConsumerOutcome).
-async function markProcessing(tx: DbTx, name: string, instanceId: string): Promise<void> {
-  await markConsumerProcessing(tx, name, instanceId);
-}
-
-async function fetchPendingEvents(
-  tx: DbTx,
-  cursor: bigint,
-  batchSize: number,
-): Promise<ReadonlyArray<StoredEventRow>> {
-  return (await selectMany(
-    tx,
-    eventsTable,
-    { id: { gt: cursor } },
-    { orderBy: { col: "id", direction: "asc" }, limit: batchSize },
-  )) as ReadonlyArray<StoredEventRow>; // @cast-boundary db-row
-}
-
-type DeliveryOutcome = {
-  readonly cursor: bigint;
-  readonly attempts: number;
-  readonly lastError: string | null;
-  readonly deadLettered: boolean;
-  readonly processed: number;
-  readonly failed: number;
-};
-
-// Deliver events to the consumer's handler in events.id order. Halt-on-
-// poison: a throw breaks the loop, the cursor stays at the last successful
-// event, and attempts climb. At maxAttempts the caller persists status=
-// "dead" and the consumer is parked until ops intervenes (see
-// restartConsumer / skipPoisonEvent).
-async function deliverEvents(
-  consumer: EventConsumer,
-  events: ReadonlyArray<StoredEventRow>,
-  context: AppContext,
-  maxAttempts: number,
-  state: ConsumerStateRow,
-): Promise<DeliveryOutcome> {
-  let cursor = state.lastProcessedEventId;
-  let attempts = state.attempts;
-  let lastError: string | null = state.lastError ?? null;
-  let deadLettered = false;
-  let processed = 0;
-  let failed = 0;
-
-  for (const row of events) {
-    try {
-      // Propagate causation: if the handler calls ctx.appendEvent, the new
-      // event should record THIS event as its cause. correlationId is
-      // inherited unchanged — it survives the hop across streams by design.
-      // requestId falls back to a fresh id because the dispatcher runs
-      // outside any HTTP request (background poll), and a stable log-
-      // correlation handle is still useful for debugging.
-      const stored = rowToStoredEvent(row);
-      const correlationId = stored.metadata.correlationId ?? requestContext.generateId();
-      const causationId = String(stored.id);
-      const requestId = requestContext.generateId();
-      await requestContext.run({ requestId, correlationId, causationId }, async () => {
-        await consumer.handler(stored, context);
-      });
-      cursor = row.id;
-      attempts = 0;
-      lastError = null;
-      processed += 1;
-    } catch (e) {
-      const errMessage = e instanceof Error ? e.message : String(e);
-      if (consumer.errorPolicy?.skipApplyErrors) {
-        // Best-effort mode: record the error on the skip counter so ops
-        // can alert on a spike of skipped events, advance the cursor past
-        // the bad event, keep going. The consumer stays "idle", not "dead".
-        // Also emit a warn-level log line — the metric tells ops THAT events
-        // are being dropped, the log tells them WHICH events. Without this
-        // a poisoned-then-skipped event is invisible to forensic search.
-        const errorClass = e instanceof Error ? e.constructor.name : "UnknownError";
-        emitDispatcherError(context.meter ?? getFallbackMeter(), {
-          handler: consumer.name,
-          errorClass,
-        });
-        context.log?.warn(
-          `event-dispatcher: ${consumer.name} skipped event ${row.id} (${errorClass}): ${errMessage}`,
-        );
-        cursor = row.id;
-        attempts = 0;
-        lastError = null;
-        failed += 1;
-        continue;
-      }
-      attempts += 1;
-      lastError = errMessage;
-      failed += 1;
-      if (attempts >= maxAttempts) deadLettered = true;
-      break;
-    }
-  }
-
-  return { cursor, attempts, lastError, deadLettered, processed, failed };
-}
-
-async function persistConsumerOutcome(
-  tx: DbTx,
-  name: string,
-  instanceId: string,
-  outcome: DeliveryOutcome,
-): Promise<void> {
-  await updateConsumerDeliveryOutcome(tx, name, instanceId, outcome);
-}
-
-// Emit the lag gauge inside the consumer pass's tx so ops sees a snapshot
-// consistent with the cursor we just advanced to. `MAX(id)` on the events
-// table is an O(1) reverse-index scan — cheap even under load.
-async function emitLagFromTx(
-  tx: DbTx,
-  consumerName: string,
-  instanceId: string,
-  cursor: bigint,
-  meter: Meter,
-): Promise<void> {
-  const head = await selectEventsHeadId(tx);
-  const lag = head > cursor ? Number(head - cursor) : 0;
-  emitEventConsumerLag(meter, { consumer: consumerName, instanceId }, lag);
-}
 
 export function createEventDispatcher(options: EventDispatcherOptions): EventDispatcher {
   const {
@@ -671,281 +427,13 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
   };
 }
 
-// --- Ops recovery surface ---
-//
-// These are intentionally verb-distinct; each maps to a CLI sub-command.
-// They all target a single consumer row by name. Every call returns the
-// state after the write so the CLI can echo what actually changed.
-//
-// Semantics:
-//   restartConsumer   status="dead" → "idle", attempts=0, lastError=null.
-//                     Cursor unchanged → next pass retries the SAME event
-//                     that poisoned the consumer. For transient failures.
-//   disableConsumer   status=* → "disabled". Dispatcher skips this consumer
-//                     until enableConsumer() flips it back.
-//   enableConsumer    status="disabled" → "idle". No-op on any other state.
-//   skipPoisonEvent   cursor advances past the first event after the
-//                     current cursor (the one that's failing). attempts=0,
-//                     lastError=null, status="idle". For events that will
-//                     never succeed (broken payload, removed feature code).
-
-function normalizeConsumerState(row: ConsumerStateRowShape): ConsumerRecoveryState {
-  return {
-    name: row.name,
-    instanceId: row.instanceId,
-    status: row.status,
-    lastProcessedEventId: row.lastProcessedEventId,
-    attempts: row.attempts,
-    lastError: row.lastError,
-    updatedAt: row.updatedAt,
-  };
-}
-
-export type ConsumerRecoveryState = {
-  readonly name: string;
-  readonly instanceId: string;
-  readonly status: string;
-  readonly lastProcessedEventId: bigint;
-  readonly attempts: number;
-  readonly lastError: string | null;
-  readonly updatedAt: Temporal.Instant;
-};
-
-// Ops calls default to the SHARED_INSTANCE_SENTINEL row — that's the only
-// row shared-delivery consumers have, so legacy CLI invocations without
-// --instance-id keep working. Per-instance consumers require an explicit
-// instanceId: picking one of N shards arbitrarily ("first row wins") or
-// mutating all shards simultaneously ("bounce every instance") are both
-// worse than a loud missing-arg error on the CLI.
-async function requireConsumerRow(
-  db: DbConnection,
-  name: string,
-  instanceId: string,
-): Promise<ConsumerStateRowShape> {
-  const [row] = await selectMany<ConsumerStateRow>(db, eventConsumerStateTable, {
-    name,
-    instanceId,
-  });
-  if (!row) {
-    throw new Error(
-      `Consumer "${name}" (instance_id="${instanceId}") has no state row — it hasn't run yet, the name is misspelled, or the instance is misspelled. ` +
-        `For per-instance consumers pass the instance_id explicitly; shared consumers use the default.`,
-    );
-  }
-  return row;
-}
-
-async function applyConsumerStatusTransition(
-  db: DbConnection,
-  name: string,
-  instanceId: string,
-  targetStatus: "idle" | "disabled",
-): Promise<ConsumerRecoveryState> {
-  const raw = await updateConsumerStatusReturning(db, name, instanceId, targetStatus);
-  const updated =
-    raw && (coerceRow(raw, extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow);
-  if (!updated) {
-    throw new Error(
-      `Consumer "${name}" (instance_id="${instanceId}") vanished between read and write — retry.`,
-    );
-  }
-  return normalizeConsumerState(updated);
-}
-
-export async function restartConsumer(
-  db: DbConnection,
-  name: string,
-  instanceId: string = SHARED_INSTANCE_SENTINEL,
-): Promise<ConsumerRecoveryState> {
-  const before = await requireConsumerRow(db, name, instanceId);
-  if (before.status !== "dead") {
-    throw new Error(
-      `Consumer "${name}" (instance_id="${instanceId}") is not dead (status="${before.status}"). Restart only applies to dead consumers; use "enable" for a disabled one.`,
-    );
-  }
-  return applyConsumerStatusTransition(db, name, instanceId, "idle");
-}
-
-export async function disableConsumer(
-  db: DbConnection,
-  name: string,
-  instanceId: string = SHARED_INSTANCE_SENTINEL,
-): Promise<ConsumerRecoveryState> {
-  await requireConsumerRow(db, name, instanceId);
-  return applyConsumerStatusTransition(db, name, instanceId, "disabled");
-}
-
-export async function enableConsumer(
-  db: DbConnection,
-  name: string,
-  instanceId: string = SHARED_INSTANCE_SENTINEL,
-): Promise<ConsumerRecoveryState> {
-  const before = await requireConsumerRow(db, name, instanceId);
-  if (before.status !== "disabled") {
-    throw new Error(
-      `Consumer "${name}" (instance_id="${instanceId}") is not disabled (status="${before.status}"). Enable only flips disabled → idle; use "restart" for a dead consumer.`,
-    );
-  }
-  return applyConsumerStatusTransition(db, name, instanceId, "idle");
-}
-
-// skipPoisonEvent advances the cursor past the first event after the
-// current cursor. Single TX so concurrent dispatcher passes can't double-
-// advance. If no event exists past the cursor, there is nothing to skip —
-// treat as idempotent no-op (cursor already at head).
-export async function skipPoisonEvent(
-  db: DbConnection,
-  name: string,
-  instanceId: string = SHARED_INSTANCE_SENTINEL,
-): Promise<ConsumerRecoveryState & { readonly skippedEventId: bigint | null }> {
-  const before = await requireConsumerRow(db, name, instanceId);
-  return db.begin(async (tx: DbTx) => {
-    const poisonId = await selectNextEventIdAfter(tx, before.lastProcessedEventId);
-    if (poisonId === null) {
-      const [unchanged] = await selectMany<ConsumerStateRow>(tx, eventConsumerStateTable, {
-        name,
-        instanceId,
-      });
-      if (!unchanged)
-        throw new Error(`Consumer "${name}" (instance_id="${instanceId}") vanished — retry.`);
-      return { ...normalizeConsumerState(unchanged), skippedEventId: null };
-    }
-    const raw = await advanceConsumerPastEventReturning(tx, name, instanceId, poisonId);
-    const updated =
-      raw && (coerceRow(raw, extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow);
-    if (!updated)
-      throw new Error(
-        `Consumer "${name}" (instance_id="${instanceId}") vanished mid-skip — retry.`,
-      );
-    return { ...normalizeConsumerState(updated), skippedEventId: poisonId };
-  });
-}
-
-// Read-only status for one consumer shard — CLI surface.
-export async function getConsumerState(
-  db: DbConnection,
-  name: string,
-  instanceId: string = SHARED_INSTANCE_SENTINEL,
-): Promise<{
-  readonly name: string;
-  readonly instanceId: string;
-  readonly status: string;
-  readonly lastProcessedEventId: bigint;
-  readonly attempts: number;
-  readonly lastError: string | null;
-  readonly updatedAt: Temporal.Instant;
-} | null> {
-  const [row] = await selectMany<ConsumerStateRow>(db, eventConsumerStateTable, {
-    name,
-    instanceId,
-  });
-  if (!row) return null;
-  return {
-    name: row.name,
-    instanceId: row.instanceId,
-    status: row.status,
-    lastProcessedEventId: row.lastProcessedEventId,
-    attempts: row.attempts,
-    lastError: row.lastError,
-    updatedAt: row.updatedAt,
-  };
-}
-
-// List every consumer the registry knows about, joined with all shard rows
-// from the state table. One entry per (name, instance_id) shard. Consumers
-// that have never run appear with status="never-run" and instance_id =
-// SHARED_INSTANCE_SENTINEL — a placeholder, because without a running
-// dispatcher we can't know the instance-ids of per-instance consumers yet.
-// Mirrors listProjectionsWithState — the registry (not the DB) is the
-// source-of-truth for which consumer-names exist; the DB is the source-
-// of-truth for which instance-shards have been seen.
-export async function listConsumersWithState(
-  db: DbConnection,
-  registeredNames: readonly string[],
-): Promise<
-  ReadonlyArray<{
-    readonly name: string;
-    readonly instanceId: string;
-    readonly status: string;
-    readonly lastProcessedEventId: bigint;
-    readonly attempts: number;
-    readonly lastError: string | null;
-  }>
-> {
-  const stateRows = await selectMany<ConsumerStateRow>(db, eventConsumerStateTable);
-  const registered = new Set(registeredNames);
-
-  // Materialize one output row per (name, instance_id). Registered names
-  // without any shard (never-run) get a placeholder row so ops can still
-  // see the name exists.
-  const out: Array<{
-    name: string;
-    instanceId: string;
-    status: string;
-    lastProcessedEventId: bigint;
-    attempts: number;
-    lastError: string | null;
-  }> = [];
-
-  const seenNames = new Set<string>();
-  for (const r of stateRows) {
-    if (!registered.has(r.name)) continue; // stale row from an older deploy
-    seenNames.add(r.name);
-    out.push({
-      name: r.name,
-      instanceId: r.instanceId,
-      status: r.status,
-      lastProcessedEventId: r.lastProcessedEventId,
-      attempts: r.attempts,
-      lastError: r.lastError,
-    });
-  }
-  for (const name of registeredNames) {
-    if (seenNames.has(name)) continue;
-    out.push({
-      name,
-      instanceId: SHARED_INSTANCE_SENTINEL,
-      status: "never-run",
-      lastProcessedEventId: 0n,
-      attempts: 0,
-      lastError: null,
-    });
-  }
-  return out;
-}
-
-export type ConsumerProgress = {
-  readonly name: string;
-  readonly instanceId: string;
-  readonly status: string;
-  readonly lastProcessedEventId: bigint;
-  readonly attempts: number;
-  readonly lastError: string | null;
-  // Global MAX(events.id) at query time.
-  readonly highWaterMark: bigint;
-  // HWM - cursor. 0n when caught-up. Disabled consumers often show high
-  // lag intentionally (ops parks them before pruning).
-  readonly lag: bigint;
-};
-
-// Like listConsumersWithState, but also returns HWM + lag per consumer.
-// Async consumers (MSPs) lag behind inline projections because they run
-// post-commit — lag is the primary signal for backpressure, dead consumers,
-// or dispatcher stalls. Programmatic callers can map the result to a
-// `kumiko_consumer_lag{name}` Prometheus gauge.
-// guard:dup-ok — intentionale Parallele zu getAllProjectionProgress; Consumer ≠ Projection (verschiedene Subsysteme)
-export async function getAllConsumerProgress(
-  db: DbConnection,
-  registeredNames: readonly string[],
-): Promise<readonly ConsumerProgress[]> {
-  const [consumers, highWaterMark] = await Promise.all([
-    listConsumersWithState(db, registeredNames),
-    getEventsHighWaterMark(db),
-  ]);
-
-  return consumers.map((c) => ({
-    ...c,
-    highWaterMark,
-    lag: highWaterMark - c.lastProcessedEventId,
-  }));
-}
+export type { ConsumerProgress, ConsumerRecoveryState } from "./event-dispatcher-admin";
+export {
+  disableConsumer,
+  enableConsumer,
+  getAllConsumerProgress,
+  getConsumerState,
+  listConsumersWithState,
+  restartConsumer,
+  skipPoisonEvent,
+} from "./event-dispatcher-admin";
