@@ -1,5 +1,20 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.147.0
+
+### Minor Changes
+
+- bdc5e27: Add `./observability` subpath export to `@cosmicdrift/kumiko-framework` (the public barrel existed but wasn't wired into the exports map) and additive `observability`/`metrics` pass-through options to `runProdApp` (`@cosmicdrift/kumiko-dev-server`). Apps that don't set these keep the existing Noop-provider/no-`/metrics` behavior unchanged.
+
+  Prep work for publicstatus#91 (Job-Queue-Lane-Alert needs a real Prometheus meter — publicstatus currently exposes no `/metrics` endpoint at all).
+
+### Patch Changes
+
+- Updated dependencies [bdc5e27]
+- Updated dependencies [c93de1a]
+  - @cosmicdrift/kumiko-framework@0.147.0
+  - @cosmicdrift/kumiko-bundled-features@0.147.0
+
 ## 0.146.4
 
 ### Patch Changes
