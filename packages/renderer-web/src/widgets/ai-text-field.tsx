@@ -29,7 +29,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { Check, Languages, Wand2 } from "lucide-react";
-import { type KeyboardEvent, type ReactNode, useState } from "react";
+import { type KeyboardEvent, type ReactNode, useRef, useState } from "react";
 import { cn } from "../lib/cn";
 import { ModeSwitch } from "./mode-switch";
 
@@ -69,8 +69,13 @@ const REWRITE_STYLES: readonly AiTextRewriteStyle[] = ["formal", "casual", "conc
 const sharedTextClass =
   "w-full rounded-md border border-input px-3 py-2 text-sm shadow-sm leading-6 " +
   "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 " +
-  "focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 " +
-  "whitespace-pre-wrap break-words";
+  "focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
+
+// Overlay and real control must share identical wrap/overflow behavior or the
+// ghost suggestion drifts from the caret: <input> never wraps and scrolls
+// horizontally, <textarea> soft-wraps and scrolls vertically.
+const singleLineWrapClass = "whitespace-pre overflow-hidden";
+const multilineWrapClass = "whitespace-pre-wrap break-words overflow-hidden";
 
 function AiTextCore({
   multiline,
@@ -108,6 +113,7 @@ function AiTextCore({
   const [dialogMode, setDialogMode] = useState<AiTextAction | null>(null);
   const [targetLanguage, setTargetLanguage] = useState(translateLanguages[0] ?? "en");
   const [rewriteStyle, setRewriteStyle] = useState<AiTextRewriteStyle>("concise");
+  const overlayRef = useRef<HTMLDivElement>(null);
 
   const unavailable = completionState === "unavailable" || actionState === "unavailable";
   const capExceeded = completionState === "cap-exceeded" || actionState === "cap-exceeded";
@@ -123,7 +129,7 @@ function AiTextCore({
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>): void {
     if (suggestion === null) return;
-    if (e.key === "Tab") {
+    if (e.key === "Tab" && e.currentTarget.selectionStart === value.length) {
       e.preventDefault();
       onChange(value + suggestion);
       clearCompletion();
@@ -169,9 +175,11 @@ function AiTextCore({
         <div className="relative w-full">
           {showGhost && (
             <div
+              ref={overlayRef}
               aria-hidden="true"
               className={cn(
                 sharedTextClass,
+                multiline ? multilineWrapClass : singleLineWrapClass,
                 "pointer-events-none absolute inset-0 select-none border-transparent shadow-none",
               )}
             >
@@ -191,7 +199,10 @@ function AiTextCore({
               onChange={(e) => handleChange(e.target.value)}
               onKeyDown={handleKeyDown}
               onBlur={clearCompletion}
-              className={cn(sharedTextClass, "relative resize-y bg-transparent")}
+              onScroll={(e) => {
+                if (overlayRef.current) overlayRef.current.scrollTop = e.currentTarget.scrollTop;
+              }}
+              className={cn(sharedTextClass, multilineWrapClass, "relative resize-y bg-transparent")}
               data-testid={testId !== undefined ? `${testId}-input` : undefined}
             />
           ) : (
@@ -206,7 +217,7 @@ function AiTextCore({
               onChange={(e) => handleChange(e.target.value)}
               onKeyDown={handleKeyDown}
               onBlur={clearCompletion}
-              className={cn(sharedTextClass, "relative bg-transparent")}
+              className={cn(sharedTextClass, singleLineWrapClass, "relative bg-transparent")}
               data-testid={testId !== undefined ? `${testId}-input` : undefined}
             />
           )}
@@ -254,6 +265,13 @@ function AiTextCore({
         )}
       </Field>
 
+      {/* ponytail: Dialog's built-in Confirm button is always live, even
+          while needsConfig is still showing the language/style picker —
+          applyResult() no-ops until actionResult exists, so an early click
+          just closes the dialog with nothing applied. Gating it needs a
+          confirmDisabled prop on the shared Dialog primitive (other
+          callers too); not worth widening that contract for one caller.
+          Upgrade if this trips users up in practice. */}
       <Dialog
         open={dialogMode !== null}
         onOpenChange={(open) => {
