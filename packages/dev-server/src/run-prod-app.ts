@@ -31,7 +31,6 @@ import {
   type AuthPaths,
   type EmailVerificationOptions,
   type InviteOptions,
-  makeAuthPaths,
   type PasswordResetOptions,
   type SignupOptions,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
@@ -39,44 +38,20 @@ import {
   type SeedAdminOptions,
   seedAdmin,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
-import { createSmtpTransportFromEnv } from "@cosmicdrift/kumiko-bundled-features/channel-email";
-import {
-  buildEnvConfigOverrides,
-  createConfigAccessorFactory,
-  createConfigResolver,
-} from "@cosmicdrift/kumiko-bundled-features/config";
-import {
-  collectChannels,
-  createDeliveryService,
-  DELIVERY_FEATURE,
-} from "@cosmicdrift/kumiko-bundled-features/delivery";
 import {
   createPatResolver,
   PAT_FEATURE,
   patRateLimitFromFeature,
   patScopesFromFeature,
 } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
-import {
-  createSecretsContext,
-  SECRETS_FEATURE_NAME,
-} from "@cosmicdrift/kumiko-bundled-features/secrets";
-import {
-  bindAutoRevokeFromFeature,
-  createSessionCallbacks,
-  SESSIONS_FEATURE,
-} from "@cosmicdrift/kumiko-bundled-features/sessions";
+import { SESSIONS_FEATURE } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import {
   resolveTenantLifecycleGate,
   TENANT_LIFECYCLE_FEATURE,
 } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
-import { createTextContentApi } from "@cosmicdrift/kumiko-bundled-features/text-content";
 import { UserQueries } from "@cosmicdrift/kumiko-bundled-features/user";
 import {
-  type CachePolicy,
-  cachedResponse,
-  computeStrongEtag,
-  computeWeakEtag,
   createInMemoryLoginRateLimiter,
   createSseBroker,
   type SseBroker,
@@ -89,19 +64,15 @@ import {
 import {
   configureEntityFieldEncryption,
   createDbConnection,
-  type DbConnection,
   type DbRunner,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   buildAppSchema,
-  type ConfigResolver,
   collectWriteHandlerQns,
   createRegistry,
   type EffectiveFeaturesResolver,
   type FeatureDefinition,
   findTierResolverUsage,
-  type NotifyFactory,
-  type Registry,
   type TierResolverPlugin,
   validateAppCustomScreenWriteQns,
   validateBoot,
@@ -137,20 +108,23 @@ import type { MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import Redis from "ioredis";
 import { applyBootSeeds } from "./boot/apply-boot-seeds";
-import { type BootCrypto, resolveBootCrypto } from "./boot/boot-crypto";
+import { resolveBootCrypto } from "./boot/boot-crypto";
 import { jobRunLoggerCallbacks } from "./boot/job-run-logger";
-import { ASSETS_DIR } from "./build-prod-bundle";
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features";
 import { type ExtraRoutesSystemDeps, makeDispatchSystemWrite } from "./extra-routes-deps";
-import { injectSchema } from "./inject-schema";
 import { assertPiiBootInvariants } from "./pii-boot-gate";
 import {
-  type ProdSessionsConfig,
+  addConfigAccessorFactory,
+  buildBootExtraContext,
+  buildProdSessionAuth,
+  resolveAuthMail,
+} from "./run-prod-app-boot-context";
+import { buildStaticFallback } from "./run-prod-app-static-files";
+import {
   type ProdSessionsOption,
   resolveProdSessionsConfig,
   shouldWireProdSessions,
 } from "./session-wiring";
-import { tryHonoFirst } from "./try-hono-first";
 
 /**
  * Bun.serve-Options für Production.
@@ -164,6 +138,13 @@ import { tryHonoFirst } from "./try-hono-first";
  * Spec-Test in __tests__/run-prod-app-spec.test.ts pinst die 0 gegen
  * "looks like a leak"-Reverts.
  */
+export {
+  addConfigAccessorFactory,
+  buildBootExtraContext,
+  resolveAuthMail,
+} from "./run-prod-app-boot-context";
+export { staticCachePolicy } from "./run-prod-app-static-files";
+
 export function buildBunServeOptions(
   port: number,
   fetchHandler: (req: Request) => Response | Promise<Response>,
@@ -607,167 +588,6 @@ export type ProdAppHandle = {
   readonly listen: (port?: number) => Promise<void>;
   readonly stop: () => Promise<void>;
 };
-
-// Shared with runDevApp (mergeConfigResolverDefault) for dev/prod parity.
-export function addConfigAccessorFactory<T extends { readonly configResolver?: ConfigResolver }>(
-  resolved: T,
-  registry: Registry,
-): T {
-  if (!resolved.configResolver) return resolved;
-  return {
-    ...resolved,
-    _configAccessorFactory: createConfigAccessorFactory(registry, resolved.configResolver),
-  };
-}
-
-// Framework-Default-Provider für den AppContext — gleicher Mechanismus wie
-// der tenantTierResolver-Autowire (findTierResolverUsage): deklarierter
-// Bedarf (Feature gemountet) → Default aus db/env, App überschreibt nur die
-// Ausnahme. textContent ist unbedingt (createTextContentApi wirft nie, baut
-// nur einen db-gebundenen Accessor). secrets wird nur auto-verdrahtet wenn
-// das secrets-Feature gemountet ist UND ein KEK tatsächlich verfügbar ist
-// (masterKey-Override ODER env-KEK present) — sonst skip, damit der eager
-// KEK-Detection + Provider/Cipher-Aufbau leben in boot/boot-crypto.ts
-// (envHasMasterKek, resolveBootCrypto) — gemeinsam mit runDevApp.
-// Prod-Misconfig (secrets gemountet, kein KEK) fängt schon secretsEnvSchema
-// beim Boot; fehlt der env-Schema-Pfad, wirft requireSecretsContext beim
-// ersten ctx.secrets-Zugriff mit Wiring-Hinweis. configResolver nur im
-// Auth-Mode. Exportiert + pure für Unit-Tests; der merge mit App-Werten
-// passiert beim Caller (App gewinnt).
-
-// Prod/dev parity for ctx.notify: without this `_notifyFactory` is only wired
-// in tests (createDeliveryTestContext), so ctx.notify is undefined at runtime
-// and every notification silently skips. sseBroker optional (email/push don't
-// need it, in-app SSE does); no jobRunner → queued channels send inline.
-function buildDeliveryNotifyFactory(opts: {
-  readonly db: DbConnection;
-  readonly registry: Registry;
-  readonly sseBroker?: SseBroker;
-}): NotifyFactory {
-  const deliveryService = createDeliveryService({
-    db: opts.db,
-    registry: opts.registry,
-    channels: collectChannels(opts.registry),
-    ...(opts.sseBroker && { sseBroker: opts.sseBroker }),
-  });
-  return (user, tenantId) => (notificationType, options) =>
-    deliveryService.notify(notificationType, options, user, tenantId);
-}
-
-export function buildBootExtraContext(opts: {
-  readonly db: DbConnection;
-  readonly features: readonly FeatureDefinition[];
-  readonly envSource: Record<string, string | undefined>;
-  readonly registry: Registry;
-  readonly hasAuth: boolean;
-  // Resolved once per boot via resolveBootCrypto — shared by secrets,
-  // config-resolver, config-set-handler and boot-seeds. Absent (tests
-  // that don't care about encryption) ⇒ resolved from envSource here.
-  readonly crypto?: BootCrypto;
-  readonly masterKey?: MasterKeyProvider;
-  readonly sseBroker?: SseBroker;
-  readonly kms?: KmsAdapter;
-}): Record<string, unknown> {
-  const crypto = opts.crypto ?? resolveBootCrypto(opts.envSource, opts.masterKey);
-  const hasSecretsFeature = opts.features.some((f) => f.name === SECRETS_FEATURE_NAME);
-  const wireSecrets = hasSecretsFeature && crypto.masterKeyProvider !== undefined;
-  const hasDeliveryFeature = opts.features.some((f) => f.name === DELIVERY_FEATURE);
-  return {
-    textContent: createTextContentApi(opts.db),
-    ...(opts.kms && { kms: opts.kms }),
-    ...(hasDeliveryFeature && {
-      _notifyFactory: buildDeliveryNotifyFactory({
-        db: opts.db,
-        registry: opts.registry,
-        ...(opts.sseBroker && { sseBroker: opts.sseBroker }),
-      }),
-    }),
-    // Top-level provider so feature jobs (secrets rotate, config reencrypt)
-    // reach it via ctx — previously only test-stack wired it.
-    ...(crypto.masterKeyProvider && { masterKeyProvider: crypto.masterKeyProvider }),
-    // Encrypt/decrypt partner for `encrypted: true` config keys. Wired
-    // whenever a master key exists — NOT gated on the secrets feature,
-    // config encryption must work without mounting ctx.secrets.
-    ...(crypto.configCipher && { configEncryption: crypto.configCipher }),
-    ...(wireSecrets &&
-      crypto.masterKeyProvider && {
-        secrets: createSecretsContext({
-          db: opts.db,
-          masterKeyProvider: crypto.masterKeyProvider,
-          dekCache: crypto.dekCache,
-        }),
-      }),
-    ...(opts.hasAuth && {
-      configResolver: createConfigResolver({
-        appOverrides: buildEnvConfigOverrides(opts.registry, opts.envSource),
-        ...(crypto.configCipher && { cipher: crypto.configCipher }),
-      }),
-    }),
-  };
-}
-
-// auth.mail-Convenience → normalisiert in die expliziten passwordReset/
-// emailVerification/signup/invite-Felder, BEVOR buildComposeAuthOptions
-// (Feature-Side: hmacSecret/mode) und das auth-routes-Fragment sie lesen —
-// so speist EIN mail-Block beide Pfade. App-explizite Flows gewinnen über
-// den Default. Null-Transport-Guard: ohne SMTP_HOST-env bleibt alles
-// unverdrahtet (sonst lieferten die reset/verify-Routes 500).
-/** Die Auth-Felder die resolveAuthMail liest/normalisiert — beide
- *  App-Auth-Typen (prod + dev) erfüllen das strukturell. */
-type AuthMailNormalizable = {
-  readonly mail?: AuthMailOptions;
-  readonly passwordReset?: PasswordResetSetup;
-  readonly emailVerification?: EmailVerificationSetup;
-  readonly signup?: SignupSetup;
-  readonly invite?: InviteSetup;
-};
-
-export function resolveAuthMail<T extends AuthMailNormalizable>(
-  auth: T,
-  hmacSecret: string,
-  envSource: Record<string, string | undefined>,
-): T {
-  if (!auth.mail) return auth;
-  // SMTP-presence gate: ohne SMTP_HOST-env wird KEIN Flow verdrahtet (Routes
-  // blieben sonst 500). Der eigentliche Mail-Versand läuft über delivery
-  // (channel-email), nicht über diesen Transport — er ist nur der Detektor
-  // "ist Mail konfiguriert?".
-  if (
-    !createSmtpTransportFromEnv(envSource, { fallbackFrom: auth.mail.from ?? "noreply@localhost" })
-  ) {
-    return auth;
-  }
-  const paths = makeAuthPaths(auth.mail.paths);
-  // appName/locale fließen in alle vier Flow-Options (alle mailen via delivery).
-  const mailPresentation = {
-    ...(auth.mail.appName !== undefined && { appName: auth.mail.appName }),
-    ...(auth.mail.locale !== undefined && { locale: auth.mail.locale }),
-  };
-  return {
-    ...auth,
-    passwordReset: auth.passwordReset ?? {
-      hmacSecret,
-      appUrl: `${auth.mail.baseUrl}${paths.resetPassword}`,
-      ...mailPresentation,
-    },
-    emailVerification: auth.emailVerification ?? {
-      hmacSecret,
-      appUrl: `${auth.mail.baseUrl}${paths.verifyEmail}`,
-      ...(auth.mail.emailVerificationMode !== undefined && {
-        mode: auth.mail.emailVerificationMode,
-      }),
-      ...mailPresentation,
-    },
-    signup: auth.signup ?? {
-      appUrl: `${auth.mail.baseUrl}${paths.signupComplete}`,
-      ...mailPresentation,
-    },
-    invite: auth.invite ?? {
-      appUrl: `${auth.mail.baseUrl}${paths.inviteAccept}`,
-      ...mailPresentation,
-    },
-  };
-}
 
 export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHandle> {
   // 0. Env-Schema validation + dry-run modes. Runs FIRST so:
@@ -1309,289 +1129,4 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   }
 
   return handle;
-}
-
-// Static-fallback: try the Hono app first, fall back to a file in
-// staticDir if Hono returns 404. Keeps /api/* on the dispatcher and
-// everything else (HTML, JS, CSS, images) on the disk.
-//
-// Cache-Header-Strategie:
-//   /assets/*               → public, max-age=31536000, immutable
-//                             (gehashte Filenames vom Build, sicher cachebar)
-//   /index.html             → no-cache, must-revalidate
-//                             (HTML-Shell, must reload on deploy)
-//   /manifest.json, /sw.js  → no-cache
-//                             (Update-Detection-Mechanismen, müssen frisch sein)
-//   alles andere            → kein expliziter Header
-//                             (Browser-Default, public/-Files wie favicon)
-// File-reader für den static-fallback. Nutzt node:fs/promises statt
-// Bun.file damit der Pfad in vitest+node integration-tests laufen kann
-// (Bun.file ist Bun-only). Performance-cost ist marginal: die Disk-
-// Files in einem prod-staticDir sind 1-200 KB, full-buffer-Read ist
-// ein paar Mikrosekunden. Streaming via Bun.file wäre nur relevant ab
-// ~1 MB.
-async function readStaticFile(
-  filePath: string,
-): Promise<
-  { readonly bytes: Uint8Array; readonly mime: string; readonly mtimeMs: number } | undefined
-> {
-  try {
-    const { readFile, stat } = await import("node:fs/promises");
-    const [bytes, fileStat] = await Promise.all([readFile(filePath), stat(filePath)]);
-    return { bytes, mime: mimeTypeFor(filePath), mtimeMs: fileStat.mtimeMs };
-  } catch (err) {
-    if ((err as { code?: string }).code === "ENOENT") return undefined;
-    throw err;
-  }
-}
-
-function serveDiskFile(
-  req: Request,
-  pathname: string,
-  file: {
-    readonly bytes: Uint8Array;
-    readonly mime: string;
-    readonly mtimeMs: number;
-  },
-): Response {
-  return cachedResponse(req, {
-    // @cast-boundary bun-types — Response BodyInit narrowing
-    body: file.bytes as unknown as BodyInit,
-    etag: computeWeakEtag(file.mtimeMs, file.bytes.byteLength),
-    cache: staticCachePolicy(pathname),
-    headers: { "content-type": file.mime },
-    lastModified: new Date(file.mtimeMs),
-  });
-}
-
-// Minimal-Mime-Map — deckt die Files ab die kumiko-build und typische
-// public/-Inhalte produzieren. Bun.file leitet das aus dem Suffix ab,
-// im node-Pfad müssen wir es selbst tun. Default: octet-stream (Browser
-// fragt bei unbekanntem MIME nach).
-function mimeTypeFor(filePath: string): string {
-  const ext = filePath.toLowerCase().split(".").pop() ?? "";
-  switch (ext) {
-    case "html":
-      return "text/html; charset=utf-8";
-    case "js":
-    case "mjs":
-      return "text/javascript; charset=utf-8";
-    case "css":
-      return "text/css; charset=utf-8";
-    case "json":
-      return "application/json; charset=utf-8";
-    case "svg":
-      return "image/svg+xml";
-    case "png":
-      return "image/png";
-    case "jpg":
-    case "jpeg":
-      return "image/jpeg";
-    case "ico":
-      return "image/x-icon";
-    case "txt":
-      return "text/plain; charset=utf-8";
-    case "xml":
-      return "application/xml; charset=utf-8";
-    case "webmanifest":
-      return "application/manifest+json";
-    default:
-      return "application/octet-stream";
-  }
-}
-
-function buildStaticFallback(
-  apiHandler: (req: Request) => Response | Promise<Response>,
-  staticDir: string,
-  appSchemaJson: string,
-  hostDispatch?: HostDispatchFn,
-): (req: Request) => Promise<Response> {
-  const indexHtml = `${staticDir}/index.html`;
-
-  // Helper: liest eine HTML-Datei von der Disk + (optional) injiziert
-  // das pre-serialized AppSchema vor dem client.js-Tag. Schema-Injection
-  // ist explicit-opt-in damit Public-Domain-Antworten die Admin-UI-
-  // Topologie nicht leaken. injectSchema ist idempotent, doppelte Calls
-  // produzieren keinen doppelten Tag.
-  async function readHtmlFile(
-    path: string,
-    injectSchemaInto: boolean,
-  ): Promise<{ bytes: ArrayBuffer; mime: string; etag: string; mtimeMs: number } | null> {
-    const file = await readStaticFile(path);
-    if (!file) return null;
-    if (!injectSchemaInto) {
-      return {
-        bytes: file.bytes.buffer.slice(
-          file.bytes.byteOffset,
-          file.bytes.byteOffset + file.bytes.byteLength,
-        ) as ArrayBuffer,
-        mime: file.mime,
-        etag: computeWeakEtag(file.mtimeMs, file.bytes.byteLength),
-        mtimeMs: file.mtimeMs,
-      };
-    }
-    const text = new TextDecoder().decode(file.bytes);
-    const injected = injectSchema(text, appSchemaJson);
-    const bytes = new TextEncoder().encode(injected).buffer as ArrayBuffer;
-    return {
-      bytes,
-      mime: file.mime,
-      etag: computeStrongEtag(new Uint8Array(bytes)),
-      mtimeMs: file.mtimeMs,
-    };
-  }
-
-  function serveHtmlFile(
-    req: Request,
-    pathname: string,
-    html: { bytes: ArrayBuffer; mime: string; etag: string; mtimeMs: number },
-    extraHeaders?: Record<string, string>,
-  ): Response {
-    return cachedResponse(req, {
-      body: html.bytes,
-      etag: html.etag,
-      cache: staticCachePolicy(pathname),
-      headers: { "content-type": html.mime, ...extraHeaders },
-      lastModified: new Date(html.mtimeMs),
-    });
-  }
-
-  // hostDispatch konsultieren wenn gesetzt UND der Request auf den
-  // HTML-Fallback fällt (Root oder SPA-Route). Returnt entweder die
-  // resolved Response (redirect/404/html) oder null wenn der Default-
-  // Pfad weiterlaufen soll.
-  async function tryHostDispatch(req: Request): Promise<Response | null> {
-    if (!hostDispatch) return null;
-    const url = new URL(req.url);
-    const host = req.headers.get("host") ?? url.host;
-    const result = hostDispatch({ host, path: url.pathname, search: url.search });
-    if (result.kind === "not-found") {
-      return new Response("Not Found", { status: 404 });
-    }
-    if (result.kind === "redirect") {
-      return new Response(null, {
-        status: result.status ?? 302,
-        headers: { Location: result.to },
-      });
-    }
-    // result.kind === "html"
-    const filePath = `${staticDir}/${result.file}`;
-    const html = await readHtmlFile(filePath, result.injectSchema === true);
-    if (!html) {
-      // Author-Fehler: hostDispatch verweist auf nicht-existente Datei.
-      // Liefer 500 statt silent-404 damit der Bug schnell auffällt.
-      return new Response(`hostDispatch: file not found: ${result.file}`, { status: 500 });
-    }
-    // Per-Host-Body (hostDispatch wählt die Datei nach Host) → Vary: Host,
-    // sonst darf ein Shared-Cache Tenant-As Schema an Tenant B liefern.
-    const extraHeaders: Record<string, string> = { vary: "Host" };
-    if (result.csp) extraHeaders["content-security-policy"] = result.csp;
-    return serveHtmlFile(req, "/index.html", html, extraHeaders);
-  }
-
-  return async (req: Request): Promise<Response> => {
-    const url = new URL(req.url);
-    // /api/* and /health → always Hono (Dispatcher + Health-Probe).
-    if (url.pathname.startsWith("/api/") || url.pathname === "/health") {
-      return apiHandler(req);
-    }
-
-    // Hono-First für andere Pfade: extraRoutes (z.B. /feed.xml,
-    // /sitemap.xml) UND r.httpRoute-Features (z.B. /legal/*) müssen vor
-    // dem Disk-Lookup greifen, sonst schluckt der SPA-Fallback unten
-    // unbekannte Pfade als index.html. Shared mit dev-server's
-    // createKumikoServer.handleFetch damit beide IDENTISCHE Semantik haben.
-    const honoTry = await tryHonoFirst({ fetch: apiHandler }, req);
-    if (honoTry.matched) {
-      return honoTry.response;
-    }
-    const honoRes = honoTry.response;
-
-    // Disk-/SPA-Fallback ist GET/HEAD-only. Ein non-GET ohne Hono-Match
-    // (z.B. POST auf einen falsch konfigurierten Webhook-Pfad) muss den
-    // Hono-404 durchreichen — 200 index.html würde dem Provider
-    // "delivered" signalisieren und Events gingen still verloren (#259).
-    if (req.method !== "GET" && req.method !== "HEAD") {
-      return honoRes;
-    }
-
-    // Disk-Datei (Asset oder konkrete File). Asset-Pfade laufen
-    // host-unabhängig — die Bundles in /assets/* werden vom client
-    // aktiv geladen, kein Server-side Routing nötig.
-    const isIndexRequest = url.pathname === "/" || url.pathname === "/index.html";
-    if (!isIndexRequest) {
-      const relPath = url.pathname.slice(1);
-      const filePath = `${staticDir}/${relPath}`;
-      const file = await readStaticFile(filePath);
-      if (file) {
-        return serveDiskFile(req, url.pathname, file);
-      }
-    }
-
-    // Root oder SPA-Route — hier greift hostDispatch wenn gesetzt.
-    // Ohne hostDispatch: alter Single-App-Pfad (index.html mit Schema).
-    const dispatched = await tryHostDispatch(req);
-    if (dispatched) return dispatched;
-
-    // Default Single-App-Pfad: index.html, schema injected.
-    const index = await readHtmlFile(indexHtml, true);
-    if (index) {
-      return serveHtmlFile(req, "/index.html", index);
-    }
-
-    // Kein Hono-Match, keine Disk-Datei, kein index.html → liefer den
-    // ursprünglichen 404 von Hono durch (statt einen neuen Roundtrip).
-    return honoRes;
-  };
-}
-
-// Map URL-Pfad → Cache-Policy. Hashed-Asset-Pfade (/assets/*) sind
-// unveränderlich, der Rest bleibt revalidate/no-cache damit Updates ohne
-// Hard-Reload greifen. Exported für Unit-Tests; Konsumenten gehen via
-// runProdApp.
-export function staticCachePolicy(pathname: string): CachePolicy {
-  if (pathname.startsWith(`/${ASSETS_DIR}/`)) {
-    return { kind: "immutable" };
-  }
-  if (pathname === "/" || pathname === "/index.html") {
-    return { kind: "revalidate" };
-  }
-  if (
-    pathname === "/manifest.json" ||
-    pathname === "/sw.js" ||
-    // ponytail: build-info.json ist statisch — kein /api/version-Endpoint
-    // nötig, der Disk-Fallback serviert sie. no-cache, sonst pollt der
-    // UpdateChecker eine veraltete id.
-    pathname === "/build-info.json"
-  ) {
-    return { kind: "no-cache" };
-  }
-  return { kind: "none" };
-}
-
-function buildProdSessionAuth(
-  db: import("@cosmicdrift/kumiko-framework/db").DbConnection,
-  opts: ProdSessionsConfig,
-  sessionsFeature: import("@cosmicdrift/kumiko-framework/engine").FeatureDefinition | undefined,
-): {
-  readonly sessionCreator: ReturnType<typeof createSessionCallbacks>["sessionCreator"];
-  readonly sessionRevoker: ReturnType<typeof createSessionCallbacks>["sessionRevoker"];
-  readonly sessionChecker: ReturnType<typeof createSessionCallbacks>["sessionChecker"];
-  readonly sessionStrictMode: true;
-} {
-  const cbs = createSessionCallbacks({
-    db,
-    ...(opts.expiresInMs !== undefined && { expiresInMs: opts.expiresInMs }),
-  });
-  // Secure-by-default: password-change/-reset mass-revokes the user's live
-  // sessions without the app opting in via autoRevokeOnPasswordChange.
-  if (sessionsFeature) {
-    bindAutoRevokeFromFeature(sessionsFeature)?.(cbs.sessionMassRevoker);
-  }
-  return {
-    sessionCreator: cbs.sessionCreator,
-    sessionRevoker: cbs.sessionRevoker,
-    sessionChecker: cbs.sessionChecker,
-    sessionStrictMode: true,
-  };
 }
