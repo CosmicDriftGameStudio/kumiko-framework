@@ -1,5 +1,17 @@
 import { spawn } from "node:child_process";
 
+const GIT_ENV_VARS_TO_STRIP = ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY"];
+
+/** Strips GIT_DIR/GIT_WORK_TREE/etc from the current env — a `git` hook
+ *  (e.g. pre-push) sets these for itself, and without stripping them any
+ *  `git` subprocess spawned from here (incl. inside a temp-repo test)
+ *  silently targets the hook's repo instead of its own `cwd`. */
+export function envWithoutGitOverrides(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  for (const key of GIT_ENV_VARS_TO_STRIP) delete env[key];
+  return env;
+}
+
 /** Async-spawn — sammelt stdout/stderr, returnt Exit-Code + strings.
  *  Zentral damit alle Commands denselben Pattern haben. spawnSync
  *  geht NICHT (blockt MainThread). */
@@ -11,7 +23,7 @@ export function run(
   return new Promise((resolve) => {
     const child = spawn(cmd, args as string[], {
       cwd: opts?.cwd,
-      env: opts?.env ? { ...process.env, ...opts.env } : process.env,
+      env: opts?.env ? { ...envWithoutGitOverrides(), ...opts.env } : envWithoutGitOverrides(),
     });
     let stdout = "";
     let stderr = "";
@@ -51,7 +63,7 @@ export function runStreaming(
   return new Promise((resolve) => {
     const child = spawn(cmd, args as string[], {
       cwd: opts?.cwd,
-      env: opts?.env ? { ...process.env, ...opts.env } : process.env,
+      env: opts?.env ? { ...envWithoutGitOverrides(), ...opts.env } : envWithoutGitOverrides(),
     });
     const onData = (chunk: Buffer): void => {
       const text = chunk.toString("utf-8");
