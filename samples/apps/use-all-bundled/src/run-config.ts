@@ -15,6 +15,7 @@
 import { createAdminShellFeature } from "@cosmicdrift/kumiko-bundled-features/admin-shell";
 import { createAuditFeature } from "@cosmicdrift/kumiko-bundled-features/audit";
 import { createAuthMfaFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
+import { authMfaUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa-user-data";
 import { billingFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import { capCounterFeature } from "@cosmicdrift/kumiko-bundled-features/cap-counter";
 import {
@@ -230,6 +231,10 @@ export const APP_FEATURES = [
   // folders-user-data: GDPR hooks for folder entities. Depends (optionally)
   // on folders + (hard) on user-data-rights — both mounted above.
   foldersUserDataFeature,
+  // auth-mfa-user-data: GDPR hooks for the user-mfa entity. Depends
+  // (optionally) on auth-mfa + (hard) on user-data-rights — both mounted
+  // above.
+  authMfaUserDataFeature,
   // ledger: double-entry bookkeeping primitive (account + immutable transaction).
   ledgerFeature,
 ] as const;
