@@ -18,6 +18,7 @@ import {
   bindMfaRevokeAllOtherSessionsFromFeature,
   createAuthMfaFeature,
   currentTotpCode,
+  mfaRequiredConfigHandle,
   userMfaEntity,
 } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import {
@@ -86,7 +87,7 @@ async function bootStack(): Promise<TestStack> {
 
 async function seedUser(
   stack: TestStack,
-  opts: { email: string; password: string },
+  opts: { email: string; password: string; roles?: readonly string[] },
 ): Promise<{ id: string }> {
   const hash = await hashPassword(opts.password);
   const created = await stack.http.writeOk<{ id: string }>(
@@ -97,7 +98,7 @@ async function seedUser(
   await seedTenantMembership(stack.db, {
     userId: created.id,
     tenantId: TEST_TENANT_ID,
-    roles: ["User"],
+    roles: opts.roles ?? ["User"],
   });
   return { id: created.id };
 }
@@ -188,5 +189,120 @@ describe("composeFeatures wiring — auth-mfa (kumiko-framework#266 Step 6)", ()
     };
     expect(body.mfaRequired).toBeUndefined();
     expect(body.token).toBeTruthy();
+  });
+});
+
+async function setPolicy(stack: TestStack, policy: "optional" | "admins" | "all"): Promise<void> {
+  await stack.http.writeOk(
+    "config:write:set",
+    { key: mfaRequiredConfigHandle.name, value: policy },
+    { id: systemAdmin.id, tenantId: TEST_TENANT_ID, roles: ["SystemAdmin"] },
+  );
+}
+
+// Step 7: enforcement policy only matters for UNENROLLED users — an
+// enrolled user always gets a challenge regardless of policy (they opted
+// in themselves). ponytail (see auth-mfa's config.ts): "admins"/"all"
+// hard-block an unenrolled matching user with mfaSetupRequired — there is
+// no enrollment-during-login UI yet (PR3). By design for this backend step.
+describe("composeFeatures wiring — auth-mfa enforcement policy (kumiko-framework#266 Step 7)", () => {
+  let stack: TestStack;
+
+  beforeAll(async () => {
+    stack = await bootStack();
+  });
+
+  afterAll(async () => {
+    await stack.cleanup();
+  });
+
+  beforeEach(async () => {
+    await deleteRows(stack.db, userTable, {});
+    await deleteRows(stack.db, tenantMembershipsTable, {});
+    await setPolicy(stack, "optional");
+  });
+
+  test("optional (default): unenrolled user still gets a straight session", async () => {
+    await seedUser(stack, { email: "carol@example.com", password: "any-password-1234" });
+    const res = await stack.http.raw("POST", "/api/auth/login", {
+      email: "carol@example.com",
+      password: "any-password-1234",
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { mfaSetupRequired?: boolean; token?: string };
+    expect(body.mfaSetupRequired).toBeUndefined();
+    expect(body.token).toBeTruthy();
+  });
+
+  test("all: unenrolled user is blocked with mfaSetupRequired, no session/challenge", async () => {
+    await setPolicy(stack, "all");
+    await seedUser(stack, { email: "dave@example.com", password: "any-password-1234" });
+    const res = await stack.http.raw("POST", "/api/auth/login", {
+      email: "dave@example.com",
+      password: "any-password-1234",
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      mfaSetupRequired?: boolean;
+      mfaRequired?: boolean;
+      token?: string;
+    };
+    expect(body.mfaSetupRequired).toBe(true);
+    expect(body.mfaRequired).toBeUndefined();
+    expect(body.token).toBeUndefined();
+  });
+
+  test("all: an already-enrolled user still gets a challenge, not a block", async () => {
+    await setPolicy(stack, "all");
+    const user = await seedUser(stack, {
+      email: "erin@example.com",
+      password: "any-password-1234",
+    });
+    const start = await stack.http.writeOk<{ setupToken: string; otpauthUri: string }>(
+      AuthMfaHandlers.enableStart,
+      { accountLabel: "erin@example.com" },
+      { id: user.id, tenantId: TEST_TENANT_ID, roles: ["User"] },
+    );
+    const secretParam = new URLSearchParams(start.otpauthUri.split("?")[1]).get("secret") ?? "";
+    const secret = base32Decode(secretParam);
+    await stack.http.writeOk(
+      AuthMfaHandlers.enableConfirm,
+      { setupToken: start.setupToken, code: currentTotpCode(secret) },
+      { id: user.id, tenantId: TEST_TENANT_ID, roles: ["User"] },
+    );
+
+    const res = await stack.http.raw("POST", "/api/auth/login", {
+      email: "erin@example.com",
+      password: "any-password-1234",
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { mfaSetupRequired?: boolean; mfaRequired?: boolean };
+    expect(body.mfaRequired).toBe(true);
+    expect(body.mfaSetupRequired).toBeUndefined();
+  });
+
+  test("admins: unenrolled admin is blocked, unenrolled non-admin logs in normally", async () => {
+    await setPolicy(stack, "admins");
+    await seedUser(stack, {
+      email: "frank-admin@example.com",
+      password: "any-password-1234",
+      roles: ["Admin"],
+    });
+    await seedUser(stack, { email: "gina-user@example.com", password: "any-password-1234" });
+
+    const adminRes = await stack.http.raw("POST", "/api/auth/login", {
+      email: "frank-admin@example.com",
+      password: "any-password-1234",
+    });
+    const adminBody = (await adminRes.json()) as { mfaSetupRequired?: boolean };
+    expect(adminBody.mfaSetupRequired).toBe(true);
+
+    const userRes = await stack.http.raw("POST", "/api/auth/login", {
+      email: "gina-user@example.com",
+      password: "any-password-1234",
+    });
+    const userBody = (await userRes.json()) as { mfaSetupRequired?: boolean; token?: string };
+    expect(userBody.mfaSetupRequired).toBeUndefined();
+    expect(userBody.token).toBeTruthy();
   });
 });

@@ -1,4 +1,5 @@
 export { base32Decode } from "./base32";
+export { type MfaRequiredPolicy, mfaRequiredConfigHandle } from "./config";
 export { AUTH_MFA_FEATURE, AuthMfaHandlers } from "./constants";
 export type {
   AuthMfaFeatureOptions,

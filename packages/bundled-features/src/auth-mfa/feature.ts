@@ -1,4 +1,5 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { mfaRequiredConfigKey } from "./config";
 import { createDisableHandler } from "./handlers/disable.write";
 import { createEnableConfirmHandler } from "./handlers/enable-confirm.write";
 import { createEnableStartHandler } from "./handlers/enable-start.write";
@@ -74,6 +75,8 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
       recommended: true,
     });
     r.requires("user");
+    r.requires("config");
+    r.config({ keys: { required: mfaRequiredConfigKey() } });
 
     r.entity("user-mfa", userMfaEntity);
 

@@ -6,11 +6,15 @@ import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import {
   createTestEnvelopeCipher,
   expectErrorIncludes,
 } from "@cosmicdrift/kumiko-framework/testing";
+import { createConfigFeature } from "../../config";
+import { createConfigResolver } from "../../config/resolver";
+import { configValuesTable } from "../../config/table";
 import { userSessionEntity, userSessionTable } from "../../sessions/schema/user-session";
 import { createSessionCallbacks } from "../../sessions/session-callbacks";
 import { createUserFeature } from "../../user/feature";
@@ -31,13 +35,18 @@ let sessionCallbacks: ReturnType<typeof createSessionCallbacks>;
 const SETUP_TOKEN_SECRET = "test-mfa-setup-secret-at-least-32-bytes-long!!";
 
 beforeAll(async () => {
-  configureEntityFieldEncryption(createTestEnvelopeCipher());
+  const encryption = createTestEnvelopeCipher();
+  configureEntityFieldEncryption(encryption);
+  const resolver = createConfigResolver({ cipher: encryption });
   const mfaFeature = createAuthMfaFeature({
     setupTokenSecret: SETUP_TOKEN_SECRET,
     issuer: "Kumiko Test",
     challengeTokenSecret: "test-mfa-challenge-secret-at-least-32-bytes!!",
   });
-  stack = await setupTestStack({ features: [createUserFeature(), mfaFeature] });
+  stack = await setupTestStack({
+    features: [createConfigFeature(), createUserFeature(), mfaFeature],
+    extraContext: { configResolver: resolver, configEncryption: encryption },
+  });
 
   sessionCallbacks = createSessionCallbacks({ db: stack.db });
   const bind = bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature);
@@ -47,6 +56,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, userMfaEntity);
   await unsafeCreateEntityTable(stack.db, userSessionEntity);
+  await unsafePushTables(stack.db, { configValuesTable });
 });
 
 afterAll(async () => {

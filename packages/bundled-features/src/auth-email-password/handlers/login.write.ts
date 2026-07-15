@@ -52,8 +52,13 @@ export type LoginHandlerOptions = {
     ctx: HandlerContext,
     userId: string,
     tenantId: TenantId,
+    // Merged global+tenant roles, computed by this handler BEFORE the
+    // gate runs — needed for policy values like "admins" that key off role.
+    roles: readonly string[],
   ) => Promise<
-    { readonly required: false } | { readonly required: true; readonly challengeToken: string }
+    | { readonly required: false }
+    | { readonly required: true; readonly challengeToken: string }
+    | { readonly setupRequired: true }
   >;
 };
 
@@ -64,7 +69,8 @@ const SYSTEM_USER_ID = "00000000-0000-4000-8000-000000000000";
 // `kind` to decide whether to mint a JWT now or wait for /auth/mfa/verify.
 type LoginResult =
   | { readonly kind: "auth-session"; readonly session: SessionUser }
-  | { readonly kind: "mfa-challenge"; readonly challengeToken: string };
+  | { readonly kind: "mfa-challenge"; readonly challengeToken: string }
+  | { readonly kind: "mfa-setup-required" };
 
 // Login — unauthenticated entry point. The route is wired public (no JWT
 // middleware), synthesising a guest SessionUser for the handler's access
@@ -188,31 +194,42 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
         return noMembership();
       }
 
-      // Second-factor gate. Runs AFTER password verification (correct
-      // credentials proven) and AFTER tenant resolution (need chosen.tenantId
-      // to scope the MFA-enabled check). On a hit, mint the challenge instead
-      // of a session — /auth/mfa/verify completes the login once the code is
-      // proven, mirroring this handler's own tenant/role-resolution logic.
-      if (opts.mfaStatusChecker) {
-        const mfaStatus = await opts.mfaStatusChecker(ctx, found.id, chosen.tenantId);
-        if (mfaStatus.required) {
-          return {
-            isSuccess: true,
-            data: { kind: "mfa-challenge", challengeToken: mfaStatus.challengeToken },
-          };
-        }
-      }
-
       // Globale Rollen aus user.roles + tenant-membership-roles mergen.
       // Globale Rollen (SystemAdmin etc.) bleiben so über alle tenants
       // gleich; tenant-spezifische Rollen (Admin, User) kommen aus der
       // membership. Dedupe via Set damit eine Rolle die in beiden Quellen
       // steht nicht doppelt im Session-Roles landet.
+      //
+      // Computed BEFORE the MFA gate (moved up from its original spot below
+      // baseSession) because the gate's "admins" enforcement policy needs
+      // the MERGED set — a SystemAdmin whose admin-ness lives only in
+      // globalRoles would be missed if only chosen.roles were passed.
       const globalRoles = parseRoles(found.roles ?? null);
       // buildSessionRoles calls stripForbiddenMembershipRoles to strip reserved
       // only (globalRoles keeps SystemAdmin) — read-time backstop against a
       // rebuild-resurrected role.
       const mergedRoles = buildSessionRoles(globalRoles, chosen.roles);
+
+      // Second-factor gate. Runs AFTER password verification (correct
+      // credentials proven) and AFTER tenant resolution (need chosen.tenantId
+      // to scope the MFA-enabled check). Three outcomes: enrolled → mint a
+      // challenge instead of a session (/auth/mfa/verify completes the
+      // login); policy demands MFA but the user never enrolled → block with
+      // mfa-setup-required (no session, no challenge — see auth-mfa's
+      // config.ts for why this deliberately hard-blocks); neither → proceed.
+      if (opts.mfaStatusChecker) {
+        const mfaStatus = await opts.mfaStatusChecker(ctx, found.id, chosen.tenantId, mergedRoles);
+        if ("challengeToken" in mfaStatus) {
+          return {
+            isSuccess: true,
+            data: { kind: "mfa-challenge", challengeToken: mfaStatus.challengeToken },
+          };
+        }
+        if ("setupRequired" in mfaStatus) {
+          return { isSuccess: true, data: { kind: "mfa-setup-required" } };
+        }
+      }
+
       const baseSession: SessionUser = {
         id: found.id,
         tenantId: chosen.tenantId,

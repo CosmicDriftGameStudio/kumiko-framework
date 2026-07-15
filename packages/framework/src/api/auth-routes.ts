@@ -544,11 +544,22 @@ export function createAuthRoutes(
       }
 
       // @cast-boundary engine-payload — generic dispatcher.write result for
-      // login. Two possible shapes: a straight session, or an MFA challenge
-      // when the loginHandler is wired with a second-factor gate.
+      // login. Three possible shapes: a straight session, an MFA challenge
+      // when the loginHandler is wired with a second-factor gate, or a hard
+      // block when enforcement policy demands MFA but the user never
+      // enrolled (see auth-mfa's config.ts for why this has no in-band
+      // recovery yet).
       const data = result.data as
         | { kind: "auth-session"; session: SessionUser }
-        | { kind: "mfa-challenge"; challengeToken: string };
+        | { kind: "mfa-challenge"; challengeToken: string }
+        | { kind: "mfa-setup-required" };
+
+      if (data.kind === "mfa-setup-required") {
+        // No session, no challenge — the client must show an
+        // enrollment-required message. No rate-limit reset (same reasoning
+        // as the mfa-challenge branch below).
+        return c.json({ isSuccess: true, mfaSetupRequired: true });
+      }
 
       if (data.kind === "mfa-challenge") {
         // No session minted yet — no cookies, no token. The client must

@@ -5,11 +5,15 @@ import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import {
   createTestEnvelopeCipher,
   expectErrorIncludes,
 } from "@cosmicdrift/kumiko-framework/testing";
+import { createConfigFeature } from "../../config";
+import { createConfigResolver } from "../../config/resolver";
+import { configValuesTable } from "../../config/table";
 import { createUserFeature } from "../../user/feature";
 import { userEntity } from "../../user/schema/user";
 import { base32Decode } from "../base32";
@@ -25,9 +29,12 @@ const SETUP_TOKEN_SECRET = "test-setup-token-secret-do-not-use-in-prod";
 beforeAll(async () => {
   // totpSecret is `encrypted: true` — needs a cipher configured before any
   // enable-confirm write, same as any other encrypted-entity-field test.
-  configureEntityFieldEncryption(createTestEnvelopeCipher());
+  const encryption = createTestEnvelopeCipher();
+  configureEntityFieldEncryption(encryption);
+  const resolver = createConfigResolver({ cipher: encryption });
   stack = await setupTestStack({
     features: [
+      createConfigFeature(),
       createUserFeature(),
       createAuthMfaFeature({
         setupTokenSecret: SETUP_TOKEN_SECRET,
@@ -35,9 +42,11 @@ beforeAll(async () => {
         challengeTokenSecret: "test-mfa-challenge-secret-at-least-32-bytes!!",
       }),
     ],
+    extraContext: { configResolver: resolver, configEncryption: encryption },
   });
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, userMfaEntity);
+  await unsafePushTables(stack.db, { configValuesTable });
 });
 
 afterAll(async () => {
