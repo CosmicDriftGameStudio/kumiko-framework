@@ -17,6 +17,45 @@ import {
   registerEntityCrud,
 } from "@cosmicdrift/kumiko-framework/engine";
 
+type LocalizedString = { readonly de: string; readonly en: string };
+
+// Server-Pendant zu web.ts — Boot-Validator braucht die required-i18n-Keys
+// serverseitig registriert (SSR-Fallback + Boot-Check), unabhängig vom
+// Client-Bundle. Werte identisch zu den client-seitigen Labels.
+const EXAMPLES_I18N: Readonly<Record<string, LocalizedString>> = {
+  "screen:shipping-edit.title": { de: "Lieferadresse", en: "Shipping Address" },
+  "examples:shipping:submit": { de: "Adresse speichern", en: "Save Address" },
+  "examples:entity:shipping:field:street": { de: "Straße", en: "Street address" },
+  "examples:entity:shipping:field:apt": { de: "Wohnung / Suite", en: "Apt / Suite" },
+  "examples:entity:shipping:field:city": { de: "Stadt", en: "City" },
+  "examples:entity:shipping:field:state": { de: "Bundesland", en: "State" },
+  "examples:entity:shipping:field:zip": { de: "PLZ", en: "ZIP Code" },
+  "examples:entity:shipping:field:country": { de: "Land", en: "Country" },
+  "examples:entity:shipping:field:saveAsDefault": {
+    de: "Als Standardadresse speichern",
+    en: "Save as default address",
+  },
+  "screen:profile-edit.title": { de: "Profil", en: "Profile" },
+  "examples:profile:submit": { de: "Änderungen speichern", en: "Save changes" },
+  "examples:entity:profile:field:avatar": { de: "Avatar", en: "Avatar" },
+  "examples:entity:profile:field:fullName": { de: "Vollständiger Name", en: "Full name" },
+  "examples:entity:profile:field:email": { de: "E-Mail", en: "Email" },
+  "examples:entity:profile:field:bio": { de: "Bio", en: "Bio" },
+  "screen:delivery-edit.title": { de: "Ort & Zeit", en: "Located date-time" },
+  "examples:delivery:submit": { de: "Lieferung speichern", en: "Save delivery" },
+  "examples:entity:delivery:field:label": { de: "Bezeichnung", en: "Label" },
+  "examples:entity:delivery:field:pickup": {
+    de: "Abholung (Uhrzeit + Zone)",
+    en: "Pickup (wall-clock + zone)",
+  },
+  "examples:entity:delivery:field:dropoffOn": { de: "Abgabedatum", en: "Drop-off date" },
+  "examples:entity:delivery:field:bookedAt": {
+    de: "Gebucht am (UTC-Zeitpunkt)",
+    en: "Booked at (UTC instant)",
+  },
+  "examples:entity:delivery:field:homeZone": { de: "Heimatzone Kurier", en: "Courier home zone" },
+};
+
 export const shippingEntity = createEntity({
   table: "read_examples_shipping",
   fields: {
@@ -72,6 +111,7 @@ const editFormOnly = {
 } as const;
 
 export const examplesFeature = defineFeature("examples", (r) => {
+  r.translations({ keys: EXAMPLES_I18N });
   registerEntityCrud(r, "shipping", shippingEntity, editFormOnly);
 
   // EINE titellose Section: Card-Titel + Subtitle (aus i18n) tragen den
