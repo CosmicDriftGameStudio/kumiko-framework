@@ -250,6 +250,12 @@ function buildFields() {
 
 const someFeature = { name: "mail-foundation" };
 
+const eventListScreen = {
+  id: "event-list",
+  type: "entityList",
+  entity: "event",
+};
+
 function makeHandler() {
   return { name: "task:create", schema: null, handler: () => {} };
 }
@@ -259,6 +265,7 @@ defineFeature("refs", (r) => {
   r.entity("event", eventEntity);
   r.entity("task", { fields: buildFields() });
   r.writeHandler(makeHandler());
+  r.screen(eventListScreen);
 });
 `;
 
@@ -271,6 +278,7 @@ describe("render → parse roundtrip — unresolved references (raw-ref sentinel
       { kind: "entity", entityName: "event", definition: { __raw: "eventEntity" } },
       { kind: "entity", entityName: "task", definition: { fields: { __raw: "buildFields()" } } },
       { kind: "writeHandler", handlerName: undefined },
+      { kind: "screen", definition: { __raw: "eventListScreen" } },
     ]);
   });
 
@@ -283,10 +291,13 @@ describe("render → parse roundtrip — unresolved references (raw-ref sentinel
     expect(rendered).toContain("eventEntity");
     expect(rendered).toContain("buildFields()");
     expect(rendered).toContain("r.writeHandler(makeHandler())");
+    expect(rendered).toContain("r.screen(eventListScreen);");
     // Would only appear if buildFields()'s return value got inlined.
     expect(rendered).not.toContain("title:");
     expect(rendered).not.toContain("mail-foundation");
     expect(rendered).not.toContain("task:create");
+    // Would only appear if the screen ref got resolved/inlined.
+    expect(rendered).not.toContain("entityList");
   });
 
   test("pattern shape survives a full render → reparse cycle", () => {
