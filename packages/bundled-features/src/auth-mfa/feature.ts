@@ -4,6 +4,7 @@ import { createEnableConfirmHandler } from "./handlers/enable-confirm.write";
 import { createEnableStartHandler } from "./handlers/enable-start.write";
 import { createRegenerateRecoveryHandler } from "./handlers/regenerate-recovery.write";
 import { createMfaVerifyHandler } from "./handlers/verify.write";
+import { createMfaStatusChecker, type MfaStatusChecker } from "./mfa-status-checker";
 import { userMfaEntity } from "./schema/user-mfa";
 
 export type AuthMfaFeatureOptions = {
@@ -41,6 +42,22 @@ export function bindMfaRevokeAllOtherSessionsFromFeature(
     if (typeof bindRevokeAllOtherSessions === "function") {
       // @cast-boundary exports-walk — feature.exports is untyped by design
       return bindRevokeAllOtherSessions as BindMfaRevokeAllOtherSessions;
+    }
+  }
+  return undefined;
+}
+
+// Reads the eagerly-built `checkMfaStatus` off a mounted auth-mfa feature's
+// exports — no bind-setter needed (see the comment where it's built).
+export function mfaStatusCheckerFromFeature(
+  feature: FeatureDefinition,
+): MfaStatusChecker | undefined {
+  const exports = feature.exports;
+  if (exports && typeof exports === "object" && "checkMfaStatus" in exports) {
+    const { checkMfaStatus } = exports as { checkMfaStatus: unknown };
+    if (typeof checkMfaStatus === "function") {
+      // @cast-boundary exports-walk — feature.exports is untyped by design
+      return checkMfaStatus as MfaStatusChecker;
     }
   }
   return undefined;
@@ -90,10 +107,18 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
       ),
     };
 
+    // No late-bind needed (unlike sharedRevoker) — this checker only needs
+    // the HandlerContext the CALLER already has (login.write.ts runs it
+    // from inside its own dispatcher call), not a raw db handle assembled
+    // at app-boot time.
+    const checkMfaStatus = createMfaStatusChecker({
+      challengeTokenSecret: opts.challengeTokenSecret,
+    });
+
     const bindRevokeAllOtherSessions: BindMfaRevokeAllOtherSessions = (revoker) => {
       revokeAllOtherSessions = revoker;
     };
 
-    return { handlers, bindRevokeAllOtherSessions };
+    return { handlers, bindRevokeAllOtherSessions, checkMfaStatus };
   });
 }

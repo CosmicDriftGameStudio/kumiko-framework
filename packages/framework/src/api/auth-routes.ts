@@ -543,8 +543,21 @@ export function createAuthRoutes(
         return c.json({ isSuccess: false, error: result.error }, status);
       }
 
-      // @cast-boundary engine-payload — generic dispatcher.write result for auth-session handler
-      const data = result.data as { kind: "auth-session"; session: SessionUser };
+      // @cast-boundary engine-payload — generic dispatcher.write result for
+      // login. Two possible shapes: a straight session, or an MFA challenge
+      // when the loginHandler is wired with a second-factor gate.
+      const data = result.data as
+        | { kind: "auth-session"; session: SessionUser }
+        | { kind: "mfa-challenge"; challengeToken: string };
+
+      if (data.kind === "mfa-challenge") {
+        // No session minted yet — no cookies, no token. The client must
+        // complete /auth/mfa/verify with this token before it gets either.
+        // Rate-limit counter is NOT reset here: a "correct password, wrong/
+        // no TOTP yet" outcome hasn't proven the caller owns the account any
+        // more than a wrong password did.
+        return c.json({ isSuccess: true, mfaRequired: true, challengeToken: data.challengeToken });
+      }
 
       // Session creation (optional) + JWT sign + cookies — see
       // mintSessionAndRespond. Creating the session BEFORE signing the JWT

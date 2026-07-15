@@ -1,9 +1,11 @@
+import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import {
   buildSessionRoles,
   createSystemUser,
   defineWriteHandler,
   type SessionUser,
   type TenantId,
+  type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
@@ -40,9 +42,29 @@ export type LoginHandlerOptions = {
     readonly maxFailedAttempts?: number;
     readonly lockoutDurationMinutes?: number;
   };
+  // Optional second-factor gate. auth-mfa (if mounted) wires this in at
+  // app-composition time. Deliberately generic here — auth-email-password
+  // must not import auth-mfa's config, only this shape. Called AFTER a
+  // successful password verification (never before — the point is to add
+  // a second factor to a real credential match, not to gate on identity
+  // alone).
+  readonly mfaStatusChecker?: (
+    ctx: HandlerContext,
+    userId: string,
+    tenantId: TenantId,
+  ) => Promise<
+    { readonly required: false } | { readonly required: true; readonly challengeToken: string }
+  >;
 };
 
 const SYSTEM_USER_ID = "00000000-0000-4000-8000-000000000000";
+
+// Two possible success shapes: a straight login mints a session; a login
+// gated by MFA hands back a challenge instead — auth-routes.ts branches on
+// `kind` to decide whether to mint a JWT now or wait for /auth/mfa/verify.
+type LoginResult =
+  | { readonly kind: "auth-session"; readonly session: SessionUser }
+  | { readonly kind: "mfa-challenge"; readonly challengeToken: string };
 
 // Login — unauthenticated entry point. The route is wired public (no JWT
 // middleware), synthesising a guest SessionUser for the handler's access
@@ -62,7 +84,7 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
       password: z.string().min(1),
     }),
     access: { roles: ["all"] },
-    handler: async (event, ctx) => {
+    handler: async (event, ctx): Promise<WriteResult<LoginResult>> => {
       const systemUser = createSystemUser(SYSTEM_USER_ID);
 
       const found = parseAuthUserRow(
@@ -153,6 +175,21 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
       const chosen = preferred ?? memberships[0];
       if (!chosen) {
         return noMembership();
+      }
+
+      // Second-factor gate. Runs AFTER password verification (correct
+      // credentials proven) and AFTER tenant resolution (need chosen.tenantId
+      // to scope the MFA-enabled check). On a hit, mint the challenge instead
+      // of a session — /auth/mfa/verify completes the login once the code is
+      // proven, mirroring this handler's own tenant/role-resolution logic.
+      if (opts.mfaStatusChecker) {
+        const mfaStatus = await opts.mfaStatusChecker(ctx, found.id, chosen.tenantId);
+        if (mfaStatus.required) {
+          return {
+            isSuccess: true,
+            data: { kind: "mfa-challenge", challengeToken: mfaStatus.challengeToken },
+          };
+        }
       }
 
       // Clear the lockout state on success. DEL is idempotent, so no need
