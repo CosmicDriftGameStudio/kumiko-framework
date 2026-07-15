@@ -346,7 +346,7 @@ export type DashboardStatPanel = {
   readonly valueField: string;
   readonly subField?: string;
   readonly toneField?: string;
-  /** Optionaler Delta-Chip (z.B. "↓ 23 %") neben dem Label. Nur wenn BEIDE
+  /** Optionaler Delta-Chip (z.B. "↓23 %") neben dem Label. Nur wenn BEIDE
    *  Felder gesetzt sind UND der Query-Handler sie liefert, rendert der Chip
    *  — sonst bleibt die Kachel wie ohne Delta. `deltaToneField` fällt auf
    *  `toneField`/"default" zurück, wenn ungesetzt. */

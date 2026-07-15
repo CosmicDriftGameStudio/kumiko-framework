@@ -113,7 +113,7 @@ export function buildConfigEventsJobsMethods<TName extends string>(
     ): EventDef<TPayload, QualifiedEventName<TName, TInner>> => {
       // Return the fully-qualified event name so callers can pass it
       // straight to ctx.appendEvent without hand-building the
-      // "<feature>:event:<name>" shape. Registry keeps state.events keyed by
+      // "<feature>:event:<name>" shape. Registry keeps events keyed by
       // short name — qualification is the framework's job, not the feature
       // author's.
       //
@@ -151,7 +151,7 @@ export function buildConfigEventsJobsMethods<TName extends string>(
       }
       // @cast-boundary engine-bridge — runtime-string mirrors the
       // template-literal-type via QualifiedEventName + toKebab. Both
-      // sides are tested (CamelToKebab type-tests + scan-state.events kebab
+      // sides are tested (CamelToKebab type-tests + scan-events kebab
       // tests), so the cast is a contract, not a typing-loss.
       const def: EventDef<TPayload, QualifiedEventName<TName, TInner>> = {
         name: qualified as QualifiedEventName<TName, TInner>,
@@ -221,7 +221,7 @@ export function buildConfigEventsJobsMethods<TName extends string>(
         );
       }
       // Qualified name follows the framework's "<feature>:<type>:<name>"
-      // QN convention — same pattern config / state.jobs / state.events use. toKebab
+      // QN convention — same pattern config / jobs / events use. toKebab
       // handles the common input shapes ("stripe.apiKey" → "stripe-api-key")
       // so features can declare keys in their natural style without
       // thinking about kebab-case on every call.

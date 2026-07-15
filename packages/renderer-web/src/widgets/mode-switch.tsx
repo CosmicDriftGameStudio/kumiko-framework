@@ -15,7 +15,8 @@ export function ModeSwitch<T extends string>({
   readonly testId?: string;
 }): ReactNode {
   return (
-    <div data-testid={testId} className="flex flex-wrap gap-1">
+    // biome-ignore lint/a11y/useSemanticElements: fieldset bringt Browser-Default-Chrome (Border/legend) mit, das für ein Button-Segmented-Control falsch ist
+    <div data-testid={testId} role="group" className="flex flex-wrap gap-1">
       {options.map((o) => {
         const active = o.value === value;
         return (

@@ -15,8 +15,8 @@
 //
 //   read_mail_seen_messages (unmanaged, direct-write, nicht event-sourced):
 //     Dedup-Anker braucht nur das Backfill-/Replay-Fenster → seenAt-cutoff
-//     via plain deleteMany, kein Stream/Archiv. Gescoped auf die accountIds
-//     dieses Tenants (die Tabelle traegt keine tenantId-Spalte).
+//     via plain deleteMany, kein Stream/Archiv. Gescoped direkt über die
+//     tenant_id-Spalte der Tabelle (table-builder-Konvention), kein Account-Join.
 //
 // GRENZE (#957 Teil 2, Plan §3.4): die PII in den Message-Events bleibt
 // unter dem TENANT-Subject-Key entschluesselbar — per-Row-Retention

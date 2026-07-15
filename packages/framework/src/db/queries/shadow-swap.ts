@@ -201,8 +201,10 @@ export async function assertNoUnreachableLiveRows(
   // skip: every live row has a backing event — nothing unreachable, swap is safe
   if (ghosts.length === 0) return;
   const ids = ghosts.map((r) => String(r.id));
+  const countLabel =
+    ids.length === UNREACHABLE_SAMPLE_LIMIT ? `${ids.length}+` : String(ids.length);
   throw new Error(
-    `projection-rebuild "${projectionName}": ${ids.length}+ live rows in "${tableName}" have no ` +
+    `projection-rebuild "${projectionName}": ${countLabel} live rows in "${tableName}" have no ` +
       `event in the projection's source streams and cannot be reconstructed by replay — the swap ` +
       `would silently drop them (ids: ${ids.join(", ")}). A handler direct-inserted these rows ` +
       `without emitting a .created event. Fix: register the table with r.unmanagedTable(meta, ` +

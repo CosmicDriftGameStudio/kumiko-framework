@@ -9,7 +9,7 @@
 //                   anzeigefertige Werte (der Query-Handler formatiert).
 //                   deltaField/deltaDirectionField(+deltaToneField) sind
 //                   optional — nur wenn BEIDE Felder gesetzt sind UND geliefert
-//                   werden, zeigt die Kachel einen Delta-Chip ("↓ 23 %").
+//                   werden, zeigt die Kachel einen Delta-Chip ("↓23 %").
 //                   icon/accentColor sind statisch am Panel (keine Query-
 //                   Felder) — icon über extensionSectionComponents wie bei
 //                   custom-Panels, accentColor ein roher CSS-Farbwert.
