@@ -165,6 +165,8 @@ export function createInviteSignupCompleteHandler() {
         const session: SessionUser = {
           id: userId,
           tenantId: invitationTenantId,
+          // buildSessionRoles calls stripForbiddenMembershipRoles internally —
+          // a reserved role on the invitation itself must never reach the session.
           roles: buildSessionRoles([], [invitationRole]),
         };
 
