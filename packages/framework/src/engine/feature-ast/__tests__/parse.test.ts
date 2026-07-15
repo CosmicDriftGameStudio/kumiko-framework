@@ -856,6 +856,40 @@ defineFeature("f", (r) => {
       access: { openToAll: true },
     });
   });
+
+  test("resolves a same-file identifier arg to its object-literal form (#1007)", () => {
+    const result = parseInline(`
+const h = {
+  name: "task:archive",
+  schema: z.object({ id: z.string() }),
+  handler: async (event, ctx) => ({ isSuccess: true, data: {} }),
+};
+defineFeature("f", (r) => {
+  r.writeHandler(h);
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "writeHandler",
+      handlerName: "task:archive",
+    });
+    expect(result.errors).toEqual([]);
+  });
+
+  test("keeps an unresolvable ref (import, factory call) as an opaque pattern instead of failing (#1007)", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.writeHandler(eventCreateHandler);
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "writeHandler",
+      handlerName: undefined,
+      source: { raw: "r.writeHandler(eventCreateHandler)" },
+    });
+    expect(result.errors).toEqual([]);
+  });
 });
 
 describe("extractQueryHandler", () => {
@@ -1089,27 +1123,25 @@ defineFeature("showpony", (r) => {
 `);
 
   test("requires()'s computed name and entity's imported const resolve via the raw-ref sentinel (#998/#1009 fix)", () => {
-    expect(result.patterns).toMatchObject([
-      {
-        kind: "requires",
-        featureNames: [{ __raw: "someFeature.name" }, "config"],
-      },
-      {
-        kind: "entity",
-        entityName: "event",
-        definition: { __raw: "eventEntity" },
-      },
-    ]);
+    expect(result.patterns[0]).toMatchObject({
+      kind: "requires",
+      featureNames: [{ __raw: "someFeature.name" }, "config"],
+    });
+    expect(result.patterns[1]).toMatchObject({
+      kind: "entity",
+      entityName: "event",
+      definition: { __raw: "eventEntity" },
+    });
   });
 
-  test("known remaining gaps still surface as ParseErrors, not silent drops", () => {
-    const errorMethods = result.errors.map((e) => e.methodName);
-    // writeHandler/queryHandler(handlerRef) passes a single identifier/call
-    // standing in for the whole handler object — a different extractor
-    // shape than #998's definition/options-value fix. Still unsupported;
-    // tracked as a follow-up, not silently swallowed.
-    expect(errorMethods).toContain("writeHandler");
-    expect(errorMethods).toContain("queryHandler");
+  test("writeHandler/queryHandler(handlerRef) resolve as opaque patterns (#998/#1007 fix)", () => {
+    expect(result.patterns).toMatchObject([
+      { kind: "requires" },
+      { kind: "entity" },
+      { kind: "writeHandler", handlerName: undefined },
+      { kind: "queryHandler", handlerName: undefined },
+    ]);
+    expect(result.errors).toEqual([]);
   });
 
   test("an imported registrar-wrapper stays invisible (cross-file, deliberately out of #998's scope)", () => {

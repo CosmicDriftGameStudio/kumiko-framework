@@ -250,21 +250,27 @@ function buildFields() {
 
 const someFeature = { name: "mail-foundation" };
 
+function makeHandler() {
+  return { name: "task:create", schema: null, handler: () => {} };
+}
+
 defineFeature("refs", (r) => {
   r.requires(someFeature.name, "config");
   r.entity("event", eventEntity);
   r.entity("task", { fields: buildFields() });
+  r.writeHandler(makeHandler());
 });
 `;
 
 describe("render → parse roundtrip — unresolved references (raw-ref sentinel)", () => {
   const initial = parse(RAW_REF_FEATURE);
 
-  test("parses requires + both entities without error, keeping references unresolved", () => {
+  test("parses requires + both entities + the opaque handler without error, keeping references unresolved", () => {
     expect(initial.patterns).toMatchObject([
       { kind: "requires", featureNames: [{ __raw: "someFeature.name" }, "config"] },
       { kind: "entity", entityName: "event", definition: { __raw: "eventEntity" } },
       { kind: "entity", entityName: "task", definition: { fields: { __raw: "buildFields()" } } },
+      { kind: "writeHandler", handlerName: undefined },
     ]);
   });
 
@@ -276,9 +282,11 @@ describe("render → parse roundtrip — unresolved references (raw-ref sentinel
     expect(rendered).toContain("someFeature.name");
     expect(rendered).toContain("eventEntity");
     expect(rendered).toContain("buildFields()");
+    expect(rendered).toContain("r.writeHandler(makeHandler())");
     // Would only appear if buildFields()'s return value got inlined.
     expect(rendered).not.toContain("title:");
     expect(rendered).not.toContain("mail-foundation");
+    expect(rendered).not.toContain("task:create");
   });
 
   test("pattern shape survives a full render → reparse cycle", () => {

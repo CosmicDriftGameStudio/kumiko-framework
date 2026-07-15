@@ -31,6 +31,7 @@ import {
   fail,
   findFunctionLiteral,
   isPlainObject,
+  isRawRefSentinel,
   ok,
   readBooleanProperty,
   readDataLiteralNode,
@@ -408,13 +409,28 @@ export function extractAuthClaims(
 
 export type ParsedHandlerCall = {
   readonly source: SourceLocation;
-  readonly handlerName: string;
-  readonly schemaSource: SourceLocation;
-  readonly handlerBody: SourceLocation;
+  readonly handlerName?: string;
+  readonly schemaSource?: SourceLocation;
+  readonly handlerBody?: SourceLocation;
   readonly access?: AccessRule;
   readonly rateLimit?: RateLimitOption;
   readonly unsafeSkipTransitionGuard?: boolean;
 };
+
+/**
+ * Resolves an argument standing in for a handler-call's object-form body:
+ * either it's already an object literal, or a bare identifier declared
+ * locally (same file only) with one as its initializer. Anything else
+ * (imported binding, factory call, ...) is not resolvable here.
+ */
+function resolveObjectLiteralArg(node: Node) {
+  const direct = node.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (direct) return direct;
+  const identifier = node.asKind(SyntaxKind.Identifier);
+  if (!identifier) return undefined;
+  const varDecl = node.getSourceFile().getVariableDeclaration(identifier.getText());
+  return varDecl?.getInitializer()?.asKind(SyntaxKind.ObjectLiteralExpression);
+}
 
 export function parseHandlerCall(
   call: CallExpression,
@@ -431,8 +447,8 @@ export function parseHandlerCall(
     );
   }
 
-  const obj = first.asKind(SyntaxKind.ObjectLiteralExpression);
-  if (obj && args.length === 1) {
+  const obj = args.length === 1 ? resolveObjectLiteralArg(first) : undefined;
+  if (obj) {
     const nameLiteral = obj
       .getProperty("name")
       ?.asKind(SyntaxKind.PropertyAssignment)
@@ -499,6 +515,16 @@ export function parseHandlerCall(
     });
   }
 
+  // A single reference standing in for the whole handler argument set
+  // (`r.writeHandler(eventCreateHandler)`, `r.queryHandler(someQuery())`)
+  // that resolveObjectLiteralArg above couldn't turn into an object literal
+  // (imported binding, factory call, ...). Keep it recognised as this kind
+  // instead of ParseErroring — see #1007. Opaque: renderWriteHandler/
+  // renderQueryHandler re-emit `source.raw` verbatim when handlerName is
+  // undefined.
+  if (args.length === 1 && isRawRefSentinel(readDataLiteralNode(first))) {
+    return ok({ source: sourceLocationFromNode(call, sourceFile) });
+  }
   const nameLiteral = first.asKind(SyntaxKind.StringLiteral);
   if (!nameLiteral) {
     return fail(

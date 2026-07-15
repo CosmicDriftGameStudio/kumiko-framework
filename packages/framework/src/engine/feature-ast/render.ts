@@ -377,10 +377,11 @@ function reindentBody(raw: string, newIndent: string): string {
 }
 
 function renderWriteHandler(p: WriteHandlerPattern): string {
+  if (p.handlerName === undefined) return p.source.raw;
   const lines: string[] = ["r.writeHandler({"];
   lines.push(`  name: ${JSON.stringify(p.handlerName)},`);
-  lines.push(`  schema: ${reindentBody(p.schemaSource.raw, PATTERN_INDENT)},`);
-  lines.push(`  handler: ${reindentBody(p.handlerBody.raw, PATTERN_INDENT)},`);
+  lines.push(`  schema: ${reindentBody(p.schemaSource?.raw ?? "", PATTERN_INDENT)},`);
+  lines.push(`  handler: ${reindentBody(p.handlerBody?.raw ?? "", PATTERN_INDENT)},`);
   if (p.access !== undefined) lines.push(`  access: ${renderValue(p.access)},`);
   if (p.rateLimit !== undefined) lines.push(`  rateLimit: ${renderValue(p.rateLimit)},`);
   if (p.unsafeSkipTransitionGuard === true) lines.push("  unsafeSkipTransitionGuard: true,");
@@ -389,10 +390,11 @@ function renderWriteHandler(p: WriteHandlerPattern): string {
 }
 
 function renderQueryHandler(p: QueryHandlerPattern): string {
+  if (p.handlerName === undefined) return p.source.raw;
   const lines: string[] = ["r.queryHandler({"];
   lines.push(`  name: ${JSON.stringify(p.handlerName)},`);
-  lines.push(`  schema: ${reindentBody(p.schemaSource.raw, PATTERN_INDENT)},`);
-  lines.push(`  handler: ${reindentBody(p.handlerBody.raw, PATTERN_INDENT)},`);
+  lines.push(`  schema: ${reindentBody(p.schemaSource?.raw ?? "", PATTERN_INDENT)},`);
+  lines.push(`  handler: ${reindentBody(p.handlerBody?.raw ?? "", PATTERN_INDENT)},`);
   if (p.access !== undefined) lines.push(`  access: ${renderValue(p.access)},`);
   if (p.rateLimit !== undefined) lines.push(`  rateLimit: ${renderValue(p.rateLimit)},`);
   lines.push("});");
