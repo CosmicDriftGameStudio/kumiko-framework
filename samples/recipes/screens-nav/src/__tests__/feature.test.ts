@@ -33,6 +33,10 @@ describe("screens-nav showcase — registry state", () => {
     expect(() => validateBoot([bookshop, bookshopAdmin])).not.toThrow();
   });
 
+  test("raw validateBoot (no fixture) still enforces entityList sortable/defaultSort/i18n rules", () => {
+    expect(() => validateBootRaw([bookshop, bookshopAdmin])).toThrow(/i18n|sortable|defaultSort/);
+  });
+
   test("all three screen variants registered with qualified ids", () => {
     expect(registry.getScreen("bookshop:screen:book-list")?.id).toBe("bookshop:screen:book-list");
     expect(registry.getScreen("bookshop:screen:book-edit")?.id).toBe("bookshop:screen:book-edit");

@@ -96,13 +96,22 @@ async function purgeExpiredMessages(
   // archivierten ids, nie per cutoff-WHERE — sonst koennte eine zwischen
   // select und delete eingegangene Alt-Mail unarchiviert geloescht werden
   // und beim Rebuild resurrecten.
+  //
+  // Ein Row deren deleteBodyObject fehlschlaegt wird NICHT geloescht — sonst
+  // ginge die einzige Referenz auf das (dann verwaiste) File-Objekt verloren
+  // (kein Retry, kein Dead-Letter). Die Row bleibt fuer den naechsten Sweep
+  // stehen (archiveStream ist idempotent). failedIds verhindert, dass so ein
+  // Row innerhalb DIESES Laufs endlos re-selektiert wird.
+  const failedIds = new Set<string>();
   for (;;) {
-    const rows = await selectMany<ExpiredMessageRow>(
-      args.db,
-      inboundMessagesProjectionTable,
-      { receivedAt: { lt: cutoff }, tenantId: args.tenantId },
-      { limit: BATCH_LIMIT },
-    );
+    const rows = (
+      await selectMany<ExpiredMessageRow>(
+        args.db,
+        inboundMessagesProjectionTable,
+        { receivedAt: { lt: cutoff }, tenantId: args.tenantId },
+        { limit: BATCH_LIMIT },
+      )
+    ).filter((row) => !failedIds.has(row.id));
     if (rows.length === 0) break;
 
     const ids: string[] = [];
@@ -120,14 +129,18 @@ async function purgeExpiredMessages(
           bodyObjectsDeleted++;
         } catch {
           bodyObjectErrors++;
+          failedIds.add(row.id);
+          continue;
         }
       }
       ids.push(row.id);
     }
-    await deleteMany(args.db, inboundMessagesProjectionTable as EntityTableMeta, {
-      id: { in: ids },
-    });
-    messagesPurged += ids.length;
+    if (ids.length > 0) {
+      await deleteMany(args.db, inboundMessagesProjectionTable as EntityTableMeta, {
+        id: { in: ids },
+      });
+      messagesPurged += ids.length;
+    }
 
     if (rows.length < BATCH_LIMIT) break;
   }

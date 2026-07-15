@@ -11,7 +11,7 @@ import {
   usePrimitives,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { AUDIT_LOG_DETAIL_SCREEN_ID, AuditQueries } from "../constants";
 
 type AuditRow = {
@@ -54,18 +54,22 @@ export function AuditLogScreen(): ReactNode {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [sort, setSort] = useState<DataTableSort | null>(null);
 
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+
   const load = useCallback(
-    async (cursor?: string): Promise<void> => {
+    async (cursor?: string, overrideFilters?: Filters): Promise<void> => {
       setState({ kind: "loading" });
+      const f = overrideFilters ?? filtersRef.current;
       const res = await dispatcher.query<AuditResponse>(AuditQueries.list, {
         limit: 50,
         ...(cursor !== undefined && { before: cursor }),
-        ...(filters.eventType.trim() !== "" && { eventType: filters.eventType.trim() }),
-        ...(filters.aggregateType.trim() !== "" && {
-          aggregateType: filters.aggregateType.trim(),
+        ...(f.eventType.trim() !== "" && { eventType: f.eventType.trim() }),
+        ...(f.aggregateType.trim() !== "" && {
+          aggregateType: f.aggregateType.trim(),
         }),
-        ...(filters.from !== "" && { from: toIsoStart(filters.from) }),
-        ...(filters.to !== "" && { to: toIsoEnd(filters.to) }),
+        ...(f.from !== "" && { from: toIsoStart(f.from) }),
+        ...(f.to !== "" && { to: toIsoEnd(f.to) }),
       });
       if (!res.isSuccess) {
         setState({ kind: "error", message: res.error.message });
@@ -73,7 +77,7 @@ export function AuditLogScreen(): ReactNode {
       }
       setState({ kind: "ready", rows: res.data.rows, nextBefore: res.data.nextBefore });
     },
-    [dispatcher, filters],
+    [dispatcher],
   );
 
   useEffect(() => {
@@ -158,6 +162,7 @@ export function AuditLogScreen(): ReactNode {
             onClick={() => {
               setFilters(EMPTY_FILTERS);
               setBefore(undefined);
+              void load(undefined, EMPTY_FILTERS);
             }}
             testId="audit-log-reset-filters"
           >
