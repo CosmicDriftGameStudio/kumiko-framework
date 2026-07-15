@@ -341,14 +341,20 @@ export type ScreenPattern = {
 export type WriteHandlerPattern = {
   readonly kind: "writeHandler";
   readonly source: SourceLocation;
-  readonly handlerName: string;
+  // handlerName/schemaSource/handlerBody are set together, or all left
+  // undefined for a single reference standing in for the whole handler
+  // (`r.writeHandler(handlerRef)`) that couldn't be resolved to an object
+  // literal — see #1007. An opaque pattern re-emits `source.raw` verbatim
+  // and, like UnknownPattern, has no PatternId variant (not individually
+  // patchable).
+  readonly handlerName?: string;
   // schemaSource: the Zod call as source text (e.g. "z.object({...})").
   // We keep it as an opaque block instead of decoding it back to JSON
   // schema — Zod's full surface is too rich for a faithful round-trip.
-  readonly schemaSource: SourceLocation;
+  readonly schemaSource?: SourceLocation;
   // handlerBody: the closure body as source text. Always opaque — AI
   // generates raw TypeScript, no DSL interpretation.
-  readonly handlerBody: SourceLocation;
+  readonly handlerBody?: SourceLocation;
   readonly access?: AccessRule;
   readonly rateLimit?: RateLimitOption;
   readonly unsafeSkipTransitionGuard?: boolean;
@@ -356,13 +362,14 @@ export type WriteHandlerPattern = {
 
 // `r.queryHandler(...)` — registers a read handler: name, Zod input schema,
 // handler closure, plus optional `access` and `rateLimit` rules. Read-side
-// counterpart of `r.writeHandler` with the same header/body split.
+// counterpart of `r.writeHandler` with the same header/body split. Opaque
+// (no handlerName) for the same single-reference case as WriteHandlerPattern.
 export type QueryHandlerPattern = {
   readonly kind: "queryHandler";
   readonly source: SourceLocation;
-  readonly handlerName: string;
-  readonly schemaSource: SourceLocation;
-  readonly handlerBody: SourceLocation;
+  readonly handlerName?: string;
+  readonly schemaSource?: SourceLocation;
+  readonly handlerBody?: SourceLocation;
   readonly access?: AccessRule;
   readonly rateLimit?: RateLimitOption;
 };

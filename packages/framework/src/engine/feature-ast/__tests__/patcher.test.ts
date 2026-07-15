@@ -120,7 +120,7 @@ describe("FeaturePatcher — typed add helpers for mixed (closure-bearing) patte
     expect(pattern?.kind).toBe("writeHandler");
     if (pattern?.kind === "writeHandler") {
       expect(pattern.handlerName).toBe("task:create");
-      expect(pattern.handlerBody.raw).toContain("isSuccess: true");
+      expect(pattern.handlerBody?.raw).toContain("isSuccess: true");
       expect(pattern.access).toMatchObject({ roles: ["user"] });
     }
   });
