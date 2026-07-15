@@ -170,10 +170,11 @@ describe("withCapEnforcement — calendar", () => {
     const beforeBlocked = await readCounter(admin, "newsletter-cap", PERIOD);
     expect(beforeBlocked!["value"]).toBe(6);
 
-    // 7. send: pre-call sieht value=6 ≥ hard=6 → CapExceededError, der
-    // dispatcher wickelt's als internal_error mit causeName=CapExceededError.
+    // 7. send: pre-call sieht value=6 ≥ hard=6 → CapExceededError (extends
+    // KumikoError) → dispatcher mapped auto auf 429 + cap_exceeded.
     const error = await stack.http.writeErr(NEWSLETTER_QN, { to: "blocked@x.de" }, admin);
-    expect(JSON.stringify(error)).toMatch(/CapExceededError/);
+    expect(error.code).toBe("cap_exceeded");
+    expect(error.httpStatus).toBe(429);
 
     // Drift-Pin: handler darf NICHT gelaufen sein (sendCallCount unverändert)
     expect(sendCallCount).toBe(6);
@@ -231,7 +232,8 @@ describe("withRollingCapEnforcement — rolling", () => {
     expect(sendCallCount).toBe(6);
 
     const error = await stack.http.writeErr(NEWSLETTER_ROLLING_QN, { to: "blocked@x.de" }, admin);
-    expect(JSON.stringify(error)).toMatch(/CapExceededError/);
+    expect(error.code).toBe("cap_exceeded");
+    expect(error.httpStatus).toBe(429);
     expect(sendCallCount).toBe(6); // handler wurde NICHT erneut aufgerufen
   });
 
@@ -270,7 +272,8 @@ describe("withRollingCapEnforcement — rolling", () => {
     expect(sendCallCount).toBe(7);
 
     const blocked = await stack.http.writeErr(NEWSLETTER_ROLLING_QN, { to: "blocked@x.de" }, admin);
-    expect(JSON.stringify(blocked)).toMatch(/CapExceededError/);
+    expect(blocked.code).toBe("cap_exceeded");
+    expect(blocked.httpStatus).toBe(429);
     expect(sendCallCount).toBe(7); // wrapper hat den blockierten handler NICHT gerufen
   });
 });

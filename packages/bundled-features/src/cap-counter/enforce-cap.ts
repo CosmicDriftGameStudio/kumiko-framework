@@ -1,4 +1,5 @@
 import { createEntityExecutor, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
+import { KumikoError } from "@cosmicdrift/kumiko-framework/errors";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { rollingCapAggregateId } from "./aggregate-id";
 import {
@@ -81,8 +82,8 @@ export type EnforceCapResult =
  *
  * **Throws** `CapExceededError` when value ≥ hard-threshold. Pre-save
  * hooks call this BEFORE the actual write — the throw rolls back the
- * transaction, the dispatcher maps the error to HTTP 429 with the
- * upgrade-hint shape (see CapExceededError below).
+ * transaction; `CapExceededError` extends `KumikoError` so the dispatcher
+ * auto-maps it to HTTP 429 (see CapExceededError below).
  *
  * **Sync read implication:** the counter reflects the state at this
  * exact transaction. Two parallel writes can each see "value < hard"
@@ -222,30 +223,26 @@ export async function enforceRollingCap(
 // =============================================================================
 
 /**
- * Thrown by enforceCap when value ≥ hard-threshold. Includes enough
- * context for the HTTP layer to render an actionable 429 — `code`
- * matches the framework's error-contract pattern (kebab + scope).
- *
- * Caller-side mapping example (in your dispatcher error-handler):
- *   if (err instanceof CapExceededError) {
- *     return c.json(
- *       { error: { code: err.code, message: err.message, capName: err.capName, ... } },
- *       429,
- *     );
- *   }
+ * Thrown by enforceCap/enforceRollingCap when value ≥ hard-threshold.
+ * Extends `KumikoError` — the dispatcher auto-maps this to HTTP 429
+ * with `code: "cap_exceeded"`, no caller-side catch needed.
  */
-export class CapExceededError extends Error {
+export class CapExceededError extends KumikoError {
   readonly code = "cap_exceeded" as const;
+  readonly httpStatus = 429;
+
   constructor(
     readonly capName: string,
     readonly limit: number,
     readonly currentValue: number,
     readonly tolerance: CapToleranceProfile,
   ) {
-    super(
-      `Cap "${capName}" exceeded: current=${currentValue}, limit=${limit}, hard-threshold=${limit * tolerance.hard}. Upgrade tier or wait for next period reset.`,
-    );
-    this.name = "CapExceededError";
+    super({
+      message: `Cap "${capName}" exceeded: current=${currentValue}, limit=${limit}, hard-threshold=${limit * tolerance.hard}. Upgrade tier or wait for next period reset.`,
+      i18nKey: "errors.cap.exceeded",
+      i18nParams: { capName, limit, currentValue },
+      details: { capName, limit, currentValue, tolerance },
+    });
   }
 }
 

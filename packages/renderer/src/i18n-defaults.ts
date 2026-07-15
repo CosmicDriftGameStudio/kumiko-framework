@@ -142,6 +142,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "errors.unconfigured": "Diese Funktion ist noch nicht konfiguriert.",
     "errors.internal": "Etwas ist schiefgegangen. Bitte versuche es später erneut.",
     "errors.rate_limited": "Zu viele Anfragen. Bitte versuche es in Kürze erneut.",
+    "errors.cap.exceeded":
+      "Limit erreicht. Bitte Tarif upgraden oder auf die nächste Periode warten.",
     "errors.download.urlMissing": "Download nicht verfügbar — bitte versuche es erneut.",
   },
   en: {
@@ -248,6 +250,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "errors.unconfigured": "This feature isn't configured yet.",
     "errors.internal": "Something went wrong. Please try again later.",
     "errors.rate_limited": "Too many requests. Please try again shortly.",
+    "errors.cap.exceeded": "Limit reached. Upgrade your plan or wait for the next period.",
     "errors.download.urlMissing": "Download unavailable — please try again.",
   },
 };
