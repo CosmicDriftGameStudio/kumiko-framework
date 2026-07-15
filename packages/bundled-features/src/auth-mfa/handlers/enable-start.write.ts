@@ -31,7 +31,7 @@ export function createEnableStartHandler(opts: EnableStartOptions) {
     }),
     access: { openToAll: true },
     handler: async (event, ctx) => {
-      const existing = await findUserMfaRow(ctx.db, event.user.id, event.user.tenantId);
+      const existing = await findUserMfaRow(ctx.db, event.user);
       if (existing) return mfaAlreadyEnabled();
 
       const secret = generateTotpSecret();

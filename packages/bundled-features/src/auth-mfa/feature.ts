@@ -1,6 +1,8 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { createDisableHandler } from "./handlers/disable.write";
 import { createEnableConfirmHandler } from "./handlers/enable-confirm.write";
 import { createEnableStartHandler } from "./handlers/enable-start.write";
+import { createRegenerateRecoveryHandler } from "./handlers/regenerate-recovery.write";
 import { userMfaEntity } from "./schema/user-mfa";
 
 export type AuthMfaFeatureOptions = {
@@ -32,9 +34,16 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
 
     r.entity("user-mfa", userMfaEntity);
 
+    // Late-bound by run-prod-app once the sessions feature (if mounted) has
+    // produced a concrete `sessionRevokeAllOthers` callback — mirrors
+    // sessions' own bindAutoRevokeOnPasswordChange. Shared by every handler
+    // that changes MFA state (enable/disable/regenerate), so each one's
+    // "log out every other session" behavior tracks the same wiring.
     let revokeAllOtherSessions:
       | ((userId: string, currentSid: string | undefined) => Promise<number>)
       | undefined;
+    const sharedRevoker = (userId: string, currentSid: string | undefined): Promise<number> =>
+      revokeAllOtherSessions?.(userId, currentSid) ?? Promise.resolve(0);
 
     const handlers = {
       enableStart: r.writeHandler(
@@ -43,15 +52,15 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
       enableConfirm: r.writeHandler(
         createEnableConfirmHandler({
           setupTokenSecret: opts.setupTokenSecret,
-          revokeAllOtherSessions: (userId, currentSid) =>
-            revokeAllOtherSessions?.(userId, currentSid) ?? Promise.resolve(0),
+          revokeAllOtherSessions: sharedRevoker,
         }),
+      ),
+      disable: r.writeHandler(createDisableHandler({ revokeAllOtherSessions: sharedRevoker })),
+      regenerateRecovery: r.writeHandler(
+        createRegenerateRecoveryHandler({ revokeAllOtherSessions: sharedRevoker }),
       ),
     };
 
-    // Late-bind setter — run-prod-app calls this once the sessions feature
-    // (if mounted) has produced a concrete `sessionRevokeAllOthers`
-    // callback, mirroring sessions' own bindAutoRevokeOnPasswordChange.
     const bindRevokeAllOtherSessions: BindMfaRevokeAllOtherSessions = (revoker) => {
       revokeAllOtherSessions = revoker;
     };
