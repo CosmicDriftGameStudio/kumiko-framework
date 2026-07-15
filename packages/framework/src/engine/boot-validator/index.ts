@@ -35,28 +35,32 @@ import {
   validateTenantDataHookCoverage,
 } from "./gdpr-storage";
 import { validateI18nSurfaceKeys } from "./i18n-keys";
-import { validateOwnershipRules } from "./ownership";
-import { validatePiiAndRetention } from "./pii-retention";
 import {
   collectKnownRoles,
   collectNavQns,
-  collectScreenQns,
-  collectScreensByShortId,
-  collectWorkspaceQns,
   collectWriteHandlerQns,
-  validateDefaultWorkspaceUniqueness,
   validateNavCycles,
   validateNavs,
+} from "./nav";
+import { validateOwnershipRules } from "./ownership";
+import { validatePiiAndRetention } from "./pii-retention";
+import {
+  collectScreenQns,
+  collectScreensByShortId,
   validateScreenShortIdCollisions,
   validateScreens,
+} from "./screens";
+import {
+  collectWorkspaceQns,
+  validateDefaultWorkspaceUniqueness,
   validateWorkspaces,
-} from "./screens-nav";
+} from "./workspaces";
 
 export { validateAppCustomScreenWriteQns } from "./custom-screen-write-qns";
 // Re-export: wird von run-dev-app.ts benötigt um Write-Handler-QNs
 // an den Codegen zu übergeben. Nicht Teil von validateBoot, aber
 // dieselbe Extraktionslogik.
-export { collectWriteHandlerQns } from "./screens-nav";
+export { collectWriteHandlerQns } from "./nav";
 
 /**
  * Validates all feature configurations at boot time.

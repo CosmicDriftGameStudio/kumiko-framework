@@ -1,8 +1,13 @@
+// Screen validation, including the dashboard-panel sub-validators.
+// Dashboard stays here (not a separate dashboard.ts) — validateScreens
+// calls validateDashboardScreen and the dashboard validators call back
+// into validateColumnRendererForm, splitting them would create a
+// same-folder require cycle.
+
 import { rowMetaFieldNames } from "../../db/table-builder";
-import { SETTINGS_HUB_AUDIENCE_NAV_QNS } from "../build-config-feature-schema";
 import { qualifyEntityName } from "../qualified-name";
 import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops";
-import type { FeatureDefinition, NavDefinition, WorkspaceDefinition } from "../types";
+import type { FeatureDefinition } from "../types";
 import type {
   DashboardCustomPanel,
   DashboardFilterDefinition,
@@ -846,13 +851,6 @@ export function buildUnknownFieldMessage(
   );
 }
 
-// --- Nav validation ---
-//
-// The boot-validator runs BEFORE createRegistry builds the final maps, so we
-// pre-build the qualified name sets for screens + navs here. `qualifyEntityName`
-// is the shared helper with the registry — changing the qualification rule
-// in one place flows through both ingest paths.
-
 export function collectScreenQns(features: readonly FeatureDefinition[]): Set<string> {
   const set = new Set<string>();
   for (const f of features) {
@@ -898,185 +896,4 @@ export function collectScreensByShortId(
     }
   }
   return map;
-}
-
-// Sammelt alle qualifizierten Write-Handler-QNs (`<feature>:write:<short>`).
-// Wird vom actionForm-Screen-Validator genutzt um zu prüfen ob der
-// im Schema deklarierte handler tatsächlich registriert ist —
-// Tippfehler/umbenannte Handler fallen sonst erst zur Laufzeit auf.
-export function collectWriteHandlerQns(features: readonly FeatureDefinition[]): Set<string> {
-  const set = new Set<string>();
-  for (const f of features) {
-    for (const handlerName of Object.keys(f.writeHandlers)) {
-      set.add(qualifyEntityName(f.name, "write", handlerName));
-    }
-  }
-  return set;
-}
-
-export function collectNavQns(
-  features: readonly FeatureDefinition[],
-): Map<string, NavDefinition & { readonly featureName: string }> {
-  const map = new Map<string, NavDefinition & { readonly featureName: string }>();
-  for (const f of features) {
-    for (const [navId, navDef] of Object.entries(f.navs)) {
-      const qualified = qualifyEntityName(f.name, "nav", navId);
-      map.set(qualified, { ...navDef, featureName: f.name });
-    }
-  }
-  return map;
-}
-
-// Per-feature ref validation: screen + parent refs point at real QNs. Cycle
-// detection runs once globally afterwards (it's cheaper to do a single DFS
-// over the merged graph than restart it per feature).
-export function validateNavs(
-  feature: FeatureDefinition,
-  allScreenQns: ReadonlySet<string>,
-  allNavQns: ReadonlyMap<string, NavDefinition & { readonly featureName: string }>,
-  allWorkspaceQns: ReadonlyMap<string, WorkspaceDefinition & { readonly featureName: string }>,
-): void {
-  for (const [navId, navDef] of Object.entries(feature.navs)) {
-    if (navDef.screen !== undefined && !allScreenQns.has(navDef.screen)) {
-      throw new Error(
-        `[Feature ${feature.name}] Nav entry "${navId}" references screen "${navDef.screen}" ` +
-          `which is not registered. Expected a qualified name of the form ` +
-          `"<feature>:screen:<id>" pointing at an r.screen() declaration.`,
-      );
-    }
-    if (navDef.parent !== undefined && !allNavQns.has(navDef.parent)) {
-      throw new Error(
-        `[Feature ${feature.name}] Nav entry "${navId}" references parent "${navDef.parent}" ` +
-          `which is not a registered nav entry. Expected a qualified name of the form ` +
-          `"<feature>:nav:<id>".`,
-      );
-    }
-    if (navDef.workspaces !== undefined) {
-      for (const wsQn of navDef.workspaces) {
-        if (!allWorkspaceQns.has(wsQn)) {
-          throw new Error(
-            `[Feature ${feature.name}] Nav entry "${navId}" self-assigns to workspace "${wsQn}" ` +
-              `which is not registered. Expected a qualified name of the form ` +
-              `"<feature>:workspace:<id>" pointing at an r.workspace() declaration.`,
-          );
-        }
-      }
-    }
-  }
-}
-
-// Walks parent-refs across ALL nav entries (cross-feature). A cycle here
-// would crash client-side tree assembly — easier to fail loud at boot than
-// to debug a React "Maximum update depth exceeded" stack trace.
-export function validateNavCycles(
-  allNavQns: ReadonlyMap<string, NavDefinition & { readonly featureName: string }>,
-): void {
-  const visited = new Set<string>();
-  const stack = new Set<string>();
-
-  function visit(qualified: string, path: string[]): void {
-    if (stack.has(qualified)) {
-      throw new Error(
-        `[Kumiko Nav] Nav entry parent cycle detected: ${[...path, qualified].join(" → ")}`,
-      );
-    }
-    // skip: already visited — cycle-detection only needs to traverse each
-    // node once, and the `stack` check above catches any actual cycles
-    // reached via a different path.
-    if (visited.has(qualified)) return;
-    visited.add(qualified);
-    stack.add(qualified);
-    const navDef = allNavQns.get(qualified);
-    if (navDef?.parent) {
-      visit(navDef.parent, [...path, qualified]);
-    }
-    stack.delete(qualified);
-  }
-
-  for (const qualified of allNavQns.keys()) {
-    visit(qualified, []);
-  }
-}
-
-// Roles we recognise at boot time. The framework has no explicit
-// role-registry (r.defineRoles is a type helper only), so we synthesise
-// one from every handler-access rule plus the "all"/"system" built-ins.
-export function collectKnownRoles(features: readonly FeatureDefinition[]): Set<string> {
-  const roles = new Set<string>(["all", "system"]);
-  for (const f of features) {
-    for (const def of Object.values(f.writeHandlers)) {
-      if (def.access && "roles" in def.access) {
-        for (const r of def.access.roles) roles.add(r);
-      }
-    }
-    for (const def of Object.values(f.queryHandlers)) {
-      if (def.access && "roles" in def.access) {
-        for (const r of def.access.roles) roles.add(r);
-      }
-    }
-  }
-  return roles;
-}
-
-// --- Workspace validation ---
-//
-// Per-app workspace registry, built once up front. Carries `featureName`
-// alongside the definition so error messages can point at the offending
-// feature without a parallel reverse index.
-
-export function collectWorkspaceQns(
-  features: readonly FeatureDefinition[],
-): Map<string, WorkspaceDefinition & { readonly featureName: string }> {
-  const map = new Map<string, WorkspaceDefinition & { readonly featureName: string }>();
-  for (const f of features) {
-    for (const [wsId, wsDef] of Object.entries(f.workspaces)) {
-      const qualified = qualifyEntityName(f.name, "workspace", wsId);
-      map.set(qualified, { ...wsDef, featureName: f.name });
-    }
-  }
-  return map;
-}
-
-export function validateWorkspaces(
-  feature: FeatureDefinition,
-  allNavQns: ReadonlyMap<string, NavDefinition & { readonly featureName: string }>,
-): void {
-  for (const [wsId, wsDef] of Object.entries(feature.workspaces)) {
-    if (wsDef.nav !== undefined) {
-      for (const navQn of wsDef.nav) {
-        // Settings-Hub audience navs are generated post-boot (buildAppSchema), never via r.nav() — exempt so an inline-placement reference doesn't trip the boot validator.
-        if (SETTINGS_HUB_AUDIENCE_NAV_QN_SET.has(navQn)) continue;
-        if (!allNavQns.has(navQn)) {
-          throw new Error(
-            `[Feature ${feature.name}] Workspace "${wsId}" references nav "${navQn}" ` +
-              `which is not registered. Expected a qualified name of the form ` +
-              `"<feature>:nav:<id>" pointing at an r.nav() declaration.`,
-          );
-        }
-      }
-    }
-  }
-}
-
-const SETTINGS_HUB_AUDIENCE_NAV_QN_SET: ReadonlySet<string> = new Set(
-  SETTINGS_HUB_AUDIENCE_NAV_QNS,
-);
-
-// Single-default rule across the entire app. Mirrors how createApp validates
-// roles up front — a second `default: true` is a configuration error, not a
-// runtime fallback. Apps without any default fall back to "first workspace
-// the user has access to" at render time (handled by shellWorkspaces).
-export function validateDefaultWorkspaceUniqueness(
-  allWorkspaceQns: ReadonlyMap<string, WorkspaceDefinition & { readonly featureName: string }>,
-): void {
-  const defaults: string[] = [];
-  for (const [qn, ws] of allWorkspaceQns) {
-    if (ws.default === true) defaults.push(qn);
-  }
-  if (defaults.length > 1) {
-    throw new Error(
-      `[Kumiko Workspaces] Multiple workspaces declare default: true — ` +
-        `${defaults.join(", ")}. At most one workspace per app may be the default.`,
-    );
-  }
 }
