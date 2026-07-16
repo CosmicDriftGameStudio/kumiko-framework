@@ -12,8 +12,8 @@ import {
   hashPassword,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
 import {
-  createConfigFeature,
   configValuesTable,
+  createConfigFeature,
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
   createTenantFeature,
@@ -27,8 +27,8 @@ import {
   userEntity,
   userTable,
 } from "@cosmicdrift/kumiko-bundled-features/user";
-import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
