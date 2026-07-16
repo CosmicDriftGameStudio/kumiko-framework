@@ -31,6 +31,17 @@ const admin = (path: string) => async (page: Page) => {
   await page.goto(path);
 };
 
+// auth-mfa-enable is workspace-mode routed (use-all-bundled has workspaces)
+// and unlisted in any workspace's nav — reach it via an explicit workspace
+// prefix. Click "Start setup" so the screenshot shows the QR/recovery-code
+// step, not just the entry button.
+const adminMfaEnroll = () => async (page: Page) => {
+  await loginAsAdmin(page);
+  await page.goto("/tenant-admin/auth-mfa-enable");
+  await page.getByRole("button", { name: "Start setup" }).click();
+  await page.locator("svg").first().waitFor();
+};
+
 const SCENARIOS: readonly Scenario[] = [
   // auth-email-password — Login-Surface, ausgeloggt.
   { name: "auth-login", url: "/", waitFor: "form" },
@@ -59,7 +70,7 @@ const SCENARIOS: readonly Scenario[] = [
   // personal-access-tokens — logged-in self-service: mint (scope toggles) + list.
   { name: "personal-access-tokens", flow: admin("/api-tokens"), settleMs: 1000 },
   // auth-mfa — logged-in self-service TOTP enrollment (QR + recovery codes).
-  { name: "auth-mfa", flow: admin("/auth-mfa-enable"), settleMs: 1000 },
+  { name: "auth-mfa", flow: adminMfaEnroll(), settleMs: 1000 },
   // custom-fields + folders — drop-in extension sections on the note edit screen.
   {
     name: "custom-fields",
