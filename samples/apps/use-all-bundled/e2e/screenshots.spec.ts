@@ -5,9 +5,10 @@
 // nur Theme + Viewport. Der Szenario-Name = der Feature-Name in den Docs.
 
 import { resolve } from "node:path";
+import { base32Decode, currentTotpCode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import type { Page } from "@playwright/test";
 import { runMatrix, type Scenario } from "../../../e2e/screenshots";
-import { DEMO_NOTE_ID } from "../src/app/auth-constants";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, DEMO_NOTE_ID } from "../src/app/auth-constants";
 import { loginAsAdmin } from "./_helpers/login";
 
 const BASE_DIR =
@@ -40,6 +41,47 @@ const adminMfaEnroll = () => async (page: Page) => {
   await page.goto("/tenant-admin/auth-mfa-enable");
   await page.getByRole("button", { name: "Start setup" }).click();
   await page.locator("svg").first().waitFor();
+};
+
+// auth-mfa-verify — the login-time challenge step (gate swaps LoginScreen
+// for MfaVerifyScreen when /auth/login answers mfaRequired). Enrolls admin
+// via direct write-dispatch first (no UI dependency on the enable screen),
+// computing a real TOTP code with the same helper the server verifies
+// against — then logs out and re-submits the login FORM so the gate swap
+// fires. Runs LAST in SCENARIOS: admin keeps its MFA enrollment for the
+// rest of this server process (one shared ephemeral DB per run), which
+// would otherwise challenge every other admin-flow scenario.
+const adminMfaLoginChallenge = () => async (page: Page) => {
+  await loginAsAdmin(page);
+  const cookies = await page.context().cookies();
+  const csrfToken = cookies.find((c) => c.name === "kumiko_csrf")?.value ?? "";
+  const start = await page.request.post("/api/write", {
+    headers: { "X-CSRF-Token": csrfToken },
+    data: {
+      type: "auth-mfa:write:enable-start",
+      payload: { accountLabel: ADMIN_EMAIL },
+    },
+  });
+  const startBody = (await start.json()) as {
+    data: { setupToken: string; otpauthUri: string };
+  };
+  const secretParam =
+    new URLSearchParams(startBody.data.otpauthUri.split("?")[1]).get("secret") ?? "";
+  const secret = base32Decode(secretParam);
+  await page.request.post("/api/write", {
+    headers: { "X-CSRF-Token": csrfToken },
+    data: {
+      type: "auth-mfa:write:enable-confirm",
+      payload: { setupToken: startBody.data.setupToken, code: currentTotpCode(secret) },
+    },
+  });
+
+  await page.context().clearCookies();
+  await page.goto("/");
+  await page.getByLabel("Email").fill(ADMIN_EMAIL);
+  await page.getByLabel("Password").fill(ADMIN_PASSWORD);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.getByLabel("Code").waitFor();
 };
 
 const SCENARIOS: readonly Scenario[] = [
@@ -84,6 +126,10 @@ const SCENARIOS: readonly Scenario[] = [
     settleMs: 1000,
     fullPage: true,
   },
+  // auth-mfa — login-time challenge step (MfaVerifyScreen swapped in after
+  // /auth/login answers mfaRequired). MUST run last — see comment above
+  // adminMfaLoginChallenge.
+  { name: "auth-mfa-verify", flow: adminMfaLoginChallenge(), settleMs: 1000 },
 ];
 
 runMatrix(SCENARIOS, { baseDir: BASE_DIR, themes: THEMES, applyTheme, locales: ["en"] });
