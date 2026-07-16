@@ -11,6 +11,7 @@ import { useDispatcher, usePrimitives, useTranslation } from "@cosmicdrift/kumik
 import { FormScreenShell } from "@cosmicdrift/kumiko-renderer-web";
 import QRCode from "qrcode";
 import { type ReactNode, useState } from "react";
+// kumiko-lint-ignore cross-feature-import client-only hook, the feature's server barrel has no web/ re-export
 import { useSession } from "../../auth-email-password/web";
 import { AuthMfaHandlers } from "../constants";
 

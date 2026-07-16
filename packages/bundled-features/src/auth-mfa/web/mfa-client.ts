@@ -7,6 +7,7 @@
 // false, error}) since auth-routes.ts mints via the same
 // mintSessionAndRespond() for both routes.
 
+// kumiko-lint-ignore cross-feature-import client-only types, the feature's server barrel has no web/ re-export
 import type { LoginFailure, LoginResponse } from "../../auth-email-password/web";
 
 export type MfaVerifyResult =
