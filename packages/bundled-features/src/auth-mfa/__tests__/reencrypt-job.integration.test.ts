@@ -32,6 +32,7 @@ import { createMutableMasterKeyProvider } from "@cosmicdrift/kumiko-framework/te
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
+import { createTenantFeature } from "../../tenant";
 import { createUserFeature } from "../../user/feature";
 import { userEntity } from "../../user/schema/user";
 import { base32Decode } from "../base32";
@@ -64,6 +65,7 @@ beforeAll(async () => {
     features: [
       createConfigFeature(),
       createUserFeature(),
+      createTenantFeature(),
       createAuthMfaFeature({
         setupTokenSecret: SETUP_TOKEN_SECRET,
         issuer: "Kumiko Test",

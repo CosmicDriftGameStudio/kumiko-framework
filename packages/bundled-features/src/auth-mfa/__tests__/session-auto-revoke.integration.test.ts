@@ -17,6 +17,7 @@ import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
 import { userSessionEntity, userSessionTable } from "../../sessions/schema/user-session";
 import { createSessionCallbacks } from "../../sessions/session-callbacks";
+import { createTenantFeature } from "../../tenant";
 import { createUserFeature } from "../../user/feature";
 import { userEntity } from "../../user/schema/user";
 import { base32Decode } from "../base32";
@@ -44,7 +45,7 @@ beforeAll(async () => {
     challengeTokenSecret: "test-mfa-challenge-secret-at-least-32-bytes!!",
   });
   stack = await setupTestStack({
-    features: [createConfigFeature(), createUserFeature(), mfaFeature],
+    features: [createConfigFeature(), createUserFeature(), createTenantFeature(), mfaFeature],
     extraContext: { configResolver: resolver, configEncryption: encryption },
   });
 

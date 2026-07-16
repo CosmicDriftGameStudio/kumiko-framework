@@ -14,6 +14,7 @@ import {
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
+import { createTenantFeature } from "../../tenant";
 import { createUserFeature } from "../../user/feature";
 import { userEntity } from "../../user/schema/user";
 import { base32Decode } from "../base32";
@@ -36,6 +37,7 @@ beforeAll(async () => {
     features: [
       createConfigFeature(),
       createUserFeature(),
+      createTenantFeature(),
       createAuthMfaFeature({
         setupTokenSecret: SETUP_TOKEN_SECRET,
         issuer: "Kumiko Test",
@@ -169,5 +171,63 @@ describe("enable-start + enable-confirm round trip", () => {
 
     const after = await stack.http.queryOk<{ enabled: boolean }>(AuthMfaQueries.status, {}, user);
     expect(after.enabled).toBe(true);
+  });
+});
+
+describe("enable-confirm burns the setup token on first success", () => {
+  test("replaying the same setup token after a disable does not silently re-enable MFA", async () => {
+    const user = createTestUser({ id: "setup-token-replay-1", roles: ["User"] });
+
+    const start = await stack.http.writeOk<{ setupToken: string; otpauthUri: string }>(
+      AuthMfaHandlers.enableStart,
+      { accountLabel: "replay@example.com" },
+      user,
+    );
+    const secretParam = new URLSearchParams(start.otpauthUri.split("?")[1]).get("secret") ?? "";
+    const code = currentTotpCode(base32Decode(secretParam));
+
+    await stack.http.writeOk(
+      AuthMfaHandlers.enableConfirm,
+      { setupToken: start.setupToken, code },
+      user,
+    );
+    await stack.http.writeOk(AuthMfaHandlers.disable, { code }, user);
+
+    // Same setupToken + a still-computable code for the disabled secret —
+    // without burning the token on first confirm this would re-create the
+    // row with the secret the user just discarded.
+    const replay = await stack.http.writeErr(
+      AuthMfaHandlers.enableConfirm,
+      { setupToken: start.setupToken, code: currentTotpCode(base32Decode(secretParam)) },
+      user,
+    );
+    expectErrorIncludes(replay, "invalid_setup_token");
+
+    const after = await stack.http.queryOk<{ enabled: boolean }>(AuthMfaQueries.status, {}, user);
+    expect(after.enabled).toBe(false);
+  });
+
+  test("a second confirm of the same setup token (already enabled) is rejected, not a raw db error", async () => {
+    const user = createTestUser({ id: "setup-token-double-confirm-1", roles: ["User"] });
+
+    const start = await stack.http.writeOk<{ setupToken: string; otpauthUri: string }>(
+      AuthMfaHandlers.enableStart,
+      { accountLabel: "double@example.com" },
+      user,
+    );
+    const secretParam = new URLSearchParams(start.otpauthUri.split("?")[1]).get("secret") ?? "";
+    const code = currentTotpCode(base32Decode(secretParam));
+
+    await stack.http.writeOk(
+      AuthMfaHandlers.enableConfirm,
+      { setupToken: start.setupToken, code },
+      user,
+    );
+    const second = await stack.http.writeErr(
+      AuthMfaHandlers.enableConfirm,
+      { setupToken: start.setupToken, code: currentTotpCode(base32Decode(secretParam)) },
+      user,
+    );
+    expectErrorIncludes(second, "invalid_setup_token");
   });
 });

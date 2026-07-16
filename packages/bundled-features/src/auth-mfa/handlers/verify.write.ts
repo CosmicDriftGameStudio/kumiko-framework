@@ -8,7 +8,7 @@ import {
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
 import { burnToken } from "../../shared";
-import { UserQueries } from "../../user";
+import { USER_STATUS, UserQueries } from "../../user";
 import { MFA_VERIFY_LOCKOUT_MINUTES, MFA_VERIFY_MAX_ATTEMPTS } from "../constants";
 import { findUserMfaRow } from "../db/queries";
 import { invalidChallengeToken, invalidTotpCode, tooManyAttempts } from "../errors";
@@ -121,14 +121,34 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
       const systemUser = createSystemUser(tenantId, ["SystemAdmin"]);
       const userRow = (await ctx.queryAs(systemUser, UserQueries.detail, {
         id: userId,
-      })) as { roles?: string | null } | null; // @cast-boundary engine-payload
+      })) as { roles?: string | null; status?: string } | null; // @cast-boundary engine-payload
+
+      // Re-check status + membership the way login.write.ts does after its
+      // password check — the challenge token only proves "password was
+      // correct 10 minutes ago", not that the account is still loginable
+      // now. Deliberately NOT re-checking strictEmailVerification here:
+      // MfaVerifyOptions has no such flag, and email verification can't
+      // regress between login and verify within the 10-minute window.
+      if (
+        userRow?.status === USER_STATUS.Restricted ||
+        userRow?.status === USER_STATUS.DeletionRequested ||
+        userRow?.status === USER_STATUS.Deleted
+      ) {
+        return invalidChallengeToken();
+      }
+
       const globalRoles = parseRoles(userRow?.roles ?? null);
 
       const memberships = (await ctx.queryAs(systemUser, "tenant:query:memberships", {
         userId,
       })) as ReadonlyArray<{ tenantId: string; roles: readonly string[] }>; // @cast-boundary engine-payload
       const membership = memberships.find((m) => m.tenantId === tenantId);
-      const mergedRoles = buildSessionRoles(globalRoles, membership?.roles ?? []);
+      // Membership revoked between login and verify (race, or a stale
+      // challenge token from before removal) — login.write.ts would have
+      // refused with noMembership() at the same juncture; mirror it here
+      // instead of silently falling back to globalRoles only.
+      if (!membership) return invalidChallengeToken();
+      const mergedRoles = buildSessionRoles(globalRoles, membership.roles);
 
       const baseSession: SessionUser = { id: userId, tenantId, roles: mergedRoles };
       const claims = await ctx.resolveAuthClaims(baseSession);

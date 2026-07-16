@@ -14,6 +14,7 @@ import {
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
+import { createTenantFeature } from "../../tenant";
 import { createUserFeature } from "../../user/feature";
 import { userEntity } from "../../user/schema/user";
 import { base32Decode } from "../base32";
@@ -34,6 +35,7 @@ beforeAll(async () => {
     features: [
       createConfigFeature(),
       createUserFeature(),
+      createTenantFeature(),
       createAuthMfaFeature({
         setupTokenSecret: SETUP_TOKEN_SECRET,
         issuer: "Kumiko Test",
@@ -134,6 +136,20 @@ describe("disable", () => {
     const res = await stack.http.writeOk<{ disabled: boolean }>(
       AuthMfaHandlers.disable,
       { code: recoveryCodes[0] },
+      user,
+    );
+    expect(res.disabled).toBe(true);
+  });
+
+  test("a recovery code typed lowercase and without the dash still matches", async () => {
+    const { user, recoveryCodes } = await enableMfaFor("disable-recovery-normalize-1");
+    const code = recoveryCodes[0];
+    if (code === undefined) throw new Error("test setup produced no recovery code");
+
+    const sloppy = code.toLowerCase().replace("-", "");
+    const res = await stack.http.writeOk<{ disabled: boolean }>(
+      AuthMfaHandlers.disable,
+      { code: sloppy },
       user,
     );
     expect(res.disabled).toBe(true);

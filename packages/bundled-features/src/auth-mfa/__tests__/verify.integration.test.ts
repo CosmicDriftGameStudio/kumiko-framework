@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -11,6 +12,7 @@ import {
 import {
   createTestEnvelopeCipher,
   expectErrorIncludes,
+  seedRow,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
@@ -18,8 +20,9 @@ import { configValuesTable } from "../../config/table";
 import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/schema/tenant";
+import { USER_STATUS } from "../../user";
 import { createUserFeature } from "../../user/feature";
-import { userEntity } from "../../user/schema/user";
+import { userEntity, userTable } from "../../user/schema/user";
 import { base32Decode } from "../base32";
 import { AuthMfaHandlers } from "../constants";
 import { createAuthMfaFeature } from "../feature";
@@ -87,6 +90,15 @@ async function enableMfaFor(idSeed: number): Promise<{
     { setupToken: start.setupToken, code: currentTotpCode(secret) },
     user,
   );
+  // verify.write.ts re-checks tenant membership the same way login.write.ts
+  // does — without a seeded row here every verify would now hit the
+  // membership-revoked gate below instead of the scenario each test means
+  // to exercise.
+  await seedRow(stack.db, tenantMembershipsTable, {
+    userId: user.id,
+    tenantId: user.tenantId,
+    roles: JSON.stringify(["User"]),
+  });
   return { user, secret, recoveryCodes: start.recoveryCodes };
 }
 
@@ -179,6 +191,60 @@ describe("mfa verify — completes a two-step login", () => {
     const err = await stack.http.writeErr(
       AuthMfaHandlers.verify,
       { challengeToken, code: "123456" },
+      GUEST,
+    );
+    expectErrorIncludes(err, "invalid_challenge_token");
+  });
+});
+
+describe("mfa verify — re-checks account state the way login.write.ts does", () => {
+  test("membership revoked between login and verify → challenge rejected, no fallback to global roles", async () => {
+    const { user, secret } = await enableMfaFor(5);
+    const challengeToken = challengeFor(user.id, user.tenantId);
+
+    // Simulate the membership being pulled after the challenge token was
+    // issued but before verify runs — the exact gap login.write.ts's
+    // noMembership() guards against.
+    await asRawClient(stack.db).unsafe(
+      `DELETE FROM "${tenantMembershipsTable.tableName}" WHERE user_id = $1 AND tenant_id = $2`,
+      [user.id, user.tenantId],
+    );
+
+    const err = await stack.http.writeErr(
+      AuthMfaHandlers.verify,
+      { challengeToken, code: currentTotpCode(secret) },
+      GUEST,
+    );
+    expectErrorIncludes(err, "invalid_challenge_token");
+  });
+
+  test("account restricted between login and verify → challenge rejected", async () => {
+    const { user, secret } = await enableMfaFor(6);
+    const challengeToken = challengeFor(user.id, user.tenantId);
+
+    // auth-mfa never writes a read_users row itself (enableMfaFor only
+    // drives enable-start/enable-confirm) — seed one so the status gate has
+    // a row to actually flip, then flip it to simulate a restriction landing
+    // between login and verify.
+    await seedRow(stack.db, userTable, {
+      id: user.id,
+      tenantId: user.tenantId,
+      email: `user-${user.id}@example.com`,
+      passwordHash: "h",
+      displayName: "Restricted User",
+      locale: "de",
+      emailVerified: true,
+      roles: "[]",
+      status: USER_STATUS.Active,
+    });
+    await asRawClient(stack.db).unsafe(
+      `UPDATE "${userTable.tableName}" SET status = $1 WHERE id = $2`,
+      [USER_STATUS.Restricted, user.id],
+    );
+
+    const err = await stack.http.writeErr(
+      AuthMfaHandlers.verify,
+      { challengeToken, code: currentTotpCode(secret) },
       GUEST,
     );
     expectErrorIncludes(err, "invalid_challenge_token");
