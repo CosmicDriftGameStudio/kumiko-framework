@@ -78,6 +78,13 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "@cosmicdrift/kumiko-bundled-features/auth-email-password",
     factory: "createAuthEmailPasswordFeature",
   },
+  "auth-mfa": {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-bundled-features/auth-mfa",
+    factory: "createAuthMfaFeature",
+    defaultArgs:
+      '{ setupTokenSecret: "stub-setup-secret-at-least-32-bytes-long!!", challengeTokenSecret: "stub-challenge-secret-at-least-32-bytes!!", issuer: "stub" }',
+  },
   delivery: {
     kind: "factory",
     path: "@cosmicdrift/kumiko-bundled-features/delivery",
@@ -274,6 +281,11 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     kind: "named",
     path: "@cosmicdrift/kumiko-bundled-features/folders-user-data",
     exportName: "foldersUserDataFeature",
+  },
+  "auth-mfa-user-data": {
+    kind: "named",
+    path: "@cosmicdrift/kumiko-bundled-features/auth-mfa-user-data",
+    exportName: "authMfaUserDataFeature",
   },
   ledger: {
     kind: "named",
