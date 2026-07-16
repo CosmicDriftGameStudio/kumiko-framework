@@ -19,11 +19,11 @@ const SEO_CACHE = { kind: "revalidate", maxAgeSeconds: 300 } as const;
 const MANAGED_PAGES_BY_TENANT_PUBLISHED_QN = "managed-pages:query:by-tenant-published";
 const SEO_CONFIG_QUERY_QN = "seo:query:config";
 
-// Minimal shape of the httpRoute handler's `{ app }` dep — just enough to
-// make an internal /api/query call. Not importing HttpRouteHandlerDeps
-// itself: it isn't part of the engine's public surface (only the
-// httpRoute-registration types are).
-type FetchApp = { readonly fetch: (req: Request) => Promise<Response> | Response };
+// Minimal shape of the httpRoute handler's `{ systemQuery }` dep — just
+// enough to force a specific tenant in-process. Not importing
+// HttpRouteHandlerDeps itself: it isn't part of the engine's public surface
+// (only the httpRoute-registration types are).
+type SystemQueryFn = (type: string, payload: unknown, tenantId: string) => Promise<unknown>;
 
 export type ManagedPagesDiscoveryOptions = {
   /** Same per-host tenant resolver the app already passes to
@@ -76,26 +76,15 @@ const EMPTY_SEO_CONFIG: SeoConfigValues = {
   defaultOgImage: "",
 };
 
-function queryRequest(origin: string, tenantId: string, type: string, payload: unknown): Request {
-  return new Request(`${origin}/api/query`, {
-    method: "POST",
-    headers: { "content-type": "application/json", "X-Tenant": tenantId },
-    body: JSON.stringify({ type, payload }),
-  });
-}
-
 // Config is decoration, not a hard dependency — a failed/unreachable read
 // degrades to empty strings (same posture as managed-pages' readBrandingResponse).
-async function readSeoConfig(
-  app: FetchApp,
-  origin: string,
-  tenantId: string,
-): Promise<SeoConfigValues> {
+// systemQuery forces tenantId in-process — no internal X-Tenant self-fetch,
+// which a host-based anonymousAccess resolver in "authoritative" mode would
+// reject as a forged client override.
+async function readSeoConfig(systemQuery: SystemQueryFn, tenantId: string): Promise<SeoConfigValues> {
   try {
-    const res = await app.fetch(queryRequest(origin, tenantId, SEO_CONFIG_QUERY_QN, {}));
-    if (!res.ok) return EMPTY_SEO_CONFIG;
-    const body: { data?: Partial<SeoConfigValues> } = await res.json();
-    return { ...EMPTY_SEO_CONFIG, ...body.data };
+    const data = (await systemQuery(SEO_CONFIG_QUERY_QN, {}, tenantId)) as Partial<SeoConfigValues>;
+    return { ...EMPTY_SEO_CONFIG, ...data };
   } catch {
     return EMPTY_SEO_CONFIG;
   }
@@ -104,13 +93,13 @@ async function readSeoConfig(
 // Merges the app callback with the optional legal-pages/managed-pages
 // sources. legal-pages routes are static (no per-tenant data) — merged
 // directly from the public LEGAL_ROUTES constant. managed-pages entries need
-// a live query (per-tenant published slugs) — merged via app.fetch, same
+// a live query (per-tenant published slugs) — merged via systemQuery, same
 // cross-feature decoupling as legal-pages' own text-content calls; a
 // failed/unreachable read degrades to "no managed-pages entries" rather than
 // failing the whole route.
 async function gatherEntries(
   opts: SeoOptions,
-  app: FetchApp,
+  systemQuery: SystemQueryFn,
   origin: string,
   host: string,
 ): Promise<SitemapEntry[]> {
@@ -126,21 +115,16 @@ async function gatherEntries(
     const tenantId = await opts.managedPages.resolveApexTenant(host);
     if (tenantId) {
       try {
-        const res = await app.fetch(
-          queryRequest(origin, tenantId, MANAGED_PAGES_BY_TENANT_PUBLISHED_QN, {}),
-        );
-        if (res.ok) {
-          const body: {
-            data?: { pages?: readonly { slug: string; title: string; updatedAt: string }[] };
-          } = await res.json();
-          const basePath = opts.managedPages.basePath ?? "/p";
-          for (const page of body.data?.pages ?? []) {
-            entries.push({
-              loc: `${origin}${basePath}/${page.slug}`,
-              title: page.title,
-              lastmod: page.updatedAt,
-            });
-          }
+        const data = (await systemQuery(MANAGED_PAGES_BY_TENANT_PUBLISHED_QN, {}, tenantId)) as {
+          pages?: readonly { slug: string; title: string; updatedAt: string }[];
+        };
+        const basePath = opts.managedPages.basePath ?? "/p";
+        for (const page of data.pages ?? []) {
+          entries.push({
+            loc: `${origin}${basePath}/${page.slug}`,
+            title: page.title,
+            lastmod: page.updatedAt,
+          });
         }
       } catch {
         // managed-pages unreachable/not mounted — degrade to callback-only entries.
@@ -203,9 +187,9 @@ export function createSeoFeature(opts: SeoOptions): FeatureDefinition {
       method: "GET",
       path: paths.sitemap,
       anonymous: true,
-      handler: async (c, { app }) => {
+      handler: async (c, { systemQuery }) => {
         const { origin, host } = requestHost(c);
-        const entries = await gatherEntries(opts, app, origin, host);
+        const entries = await gatherEntries(opts, systemQuery, origin, host);
         const xml = buildSitemapXml(entries);
         const etag = computeRevisionEtag([host, xml]);
         return cachedSecurePageResponse(c.req.raw, {
@@ -221,14 +205,14 @@ export function createSeoFeature(opts: SeoOptions): FeatureDefinition {
       method: "GET",
       path: paths.llmsTxt,
       anonymous: true,
-      handler: async (c, { app }) => {
+      handler: async (c, { systemQuery }) => {
         const { origin, host } = requestHost(c);
         const tenantId = opts.managedPages
           ? ((await opts.managedPages.resolveApexTenant(host)) ?? SYSTEM_TENANT_ID)
           : SYSTEM_TENANT_ID;
         const [entries, seoConfig] = await Promise.all([
-          gatherEntries(opts, app, origin, host),
-          readSeoConfig(app, origin, tenantId),
+          gatherEntries(opts, systemQuery, origin, host),
+          readSeoConfig(systemQuery, tenantId),
         ]);
         const sections =
           entries.length > 0

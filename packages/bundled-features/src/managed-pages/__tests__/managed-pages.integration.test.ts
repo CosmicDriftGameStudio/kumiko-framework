@@ -697,3 +697,114 @@ describe("managed-pages :: Custom CSS (gated, sanitized render)", () => {
     expect(JSON.stringify(screen)).toContain("branding-custom-css");
   });
 });
+
+// resolverTrust: "authoritative" (kumiko-platform#278/1, show-pony#51):
+// diese Suite verdrahtet einen ECHTEN host-basierten anonymousAccess.
+// tenantResolver (nicht nur tenantExists wie die Suite oben) — genau die
+// Konfiguration, unter der publicstatus/show-pony laufen.
+//
+// Mechanismus: ein interner Self-Fetch (der alte app.fetch-Pfad) trägt
+// KEINEN Host-Header — Host steckt nur implizit in der Request-URL, nicht
+// in Headers. Ein Resolver, der (wie publicstatus' echter Resolver) nur
+// c.req.header("host") liest, löst für den inneren Request also null auf;
+// unter resolverTrust: "authoritative" gibt es dafür keinen Client-Tenant-
+// Fallback → tenant_required → "page unavailable" 503, obwohl der äußere
+// Request (Host da) den Tenant längst korrekt aufgelöst hätte. systemQuery
+// (siehe feature.ts) entfernt den internen HTTP-Roundtrip komplett und
+// erzwingt den bereits aufgelösten tenantId in-process — kein Header mehr,
+// der fehlen könnte. Rot/Grün verifiziert: mit dem alten app.fetch-Pfad UND
+// einem fallback-freien Resolver (wie hier) schlagen 4 der Tests in dieser
+// Datei/seo.integration.test.ts fehl (503/leere sitemap-Einträge); mit
+// systemQuery sind alle grün.
+describe("managed-pages :: resolverTrust authoritative (host-based, wie publicstatus/show-pony)", () => {
+  let authStack: TestStack;
+  const authManaged = createManagedPagesFeature({
+    resolveApexTenant: (host) => {
+      if (host.startsWith("a.")) return TENANT_A;
+      if (host.startsWith("b.")) return TENANT_B;
+      return null;
+    },
+  });
+  const authConfigFeature = createConfigFeature();
+  const hostTenant = (host: string): string | null => {
+    if (host.startsWith("a.")) return TENANT_A;
+    if (host.startsWith("b.")) return TENANT_B;
+    return null;
+  };
+
+  beforeAll(async () => {
+    const resolver = createConfigResolver();
+    authStack = await setupTestStack({
+      features: [authConfigFeature, authManaged],
+      anonymousAccess: {
+        // KEIN URL-Fallback — spiegelt publicstatus' echten Resolver
+        // (resolveSubdomain(c.req.header("Host") ?? "")). Ein interner
+        // Self-Fetch trägt keinen Host-Header (Host steckt nur in der URL,
+        // nicht in Headers) — ein Resolver, der nur den Header liest, löst
+        // für den inneren Request also null auf. Mit URL-Fallback würde
+        // dieser Test den Bug maskieren.
+        tenantResolver: (c) => hostTenant(c.req.header("host") ?? ""),
+        resolverTrust: "authoritative",
+        tenantExists: async (id) => id === TENANT_A || id === TENANT_B,
+      },
+      extraContext: ({ registry }) => ({
+        configResolver: resolver,
+        _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+      }),
+    });
+    await unsafeCreateEntityTable(authStack.db, pageEntity);
+    await unsafePushTables(authStack.db, { configValuesTable });
+    await createEventsTable(authStack.db);
+    await seedPage(authStack.db, {
+      tenantId: TENANT_A,
+      slug: "about",
+      lang: "en",
+      title: "About A",
+      body: "# Hello from **A**",
+      published: true,
+    });
+    await seedPage(authStack.db, {
+      tenantId: TENANT_B,
+      slug: "about",
+      lang: "en",
+      title: "About B",
+      body: "# Hello from **B**",
+      published: true,
+    });
+  });
+
+  afterAll(async () => {
+    await authStack.cleanup();
+  });
+
+  test("published Page → 200 (systemQuery-Render-Pfad übersteht authoritative resolver)", async () => {
+    const res = await authStack.app.request("http://a.example.com/p/about");
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("About A");
+    expect(html).toContain("<strong>A</strong>");
+  });
+
+  test("Cross-Tenant-Isolation: Host löst den jeweils eigenen Tenant auf", async () => {
+    const a = await (await authStack.app.request("http://a.example.com/p/about")).text();
+    const b = await (await authStack.app.request("http://b.example.com/p/about")).text();
+    expect(a).toContain("About A");
+    expect(a).not.toContain("About B");
+    expect(b).toContain("About B");
+    expect(b).not.toContain("About A");
+  });
+
+  test("X-Tenant-Header auf der Render-Route ist wirkungslos — Host bleibt allein maßgeblich", async () => {
+    // Die Render-Route liest den Tenant NUR über resolveApexTenant(host),
+    // nie über den Client-Header — anders als bei Query/Write-Dispatch gibt
+    // es hier also gar keinen X-Tenant-Override-Vektor. Ein gesetzter,
+    // abweichender Header wird schlicht ignoriert: 200, weiterhin A's Page.
+    const res = await authStack.app.request("http://a.example.com/p/about", {
+      headers: { "X-Tenant": TENANT_B },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).toContain("About A");
+    expect(body).not.toContain("About B");
+  });
+});
