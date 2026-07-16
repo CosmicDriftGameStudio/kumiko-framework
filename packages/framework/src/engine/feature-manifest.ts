@@ -106,7 +106,7 @@ export function buildManifestFromRegistry(
         type: def.type,
         scope: def.scope,
         default: def.default ?? null,
-        encrypted: def.encrypted ?? false,
+        encrypted: def.encrypted ?? def.backing === "secrets",
         computed: def.computed !== undefined,
         options: def.options ?? null,
         bounds: def.bounds ?? null,
