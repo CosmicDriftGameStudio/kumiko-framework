@@ -50,6 +50,16 @@ export type LoginScreenProps = {
    *  Labels kommen vom Caller (typisch schon übersetzt bzw. Eigennamen
    *  wie "Impressum"). */
   readonly legalLinks?: readonly AuthLegalLink[];
+  /** Called when the server responds with an MFA challenge instead of a
+   *  session. Apps typically swap this screen out for auth-mfa's
+   *  MfaVerifyScreen(challengeToken). Without a handler, MFA-enrolled
+   *  users see a generic "not supported" error — better than a silent
+   *  hang, but apps mounting auth-mfa must wire this. */
+  readonly onMfaChallenge?: (challengeToken: string) => void;
+  /** Called when the tenant's enforcement policy requires MFA but this
+   *  user has no factor enrolled yet. Apps typically route to an
+   *  enrollment flow. Same fallback behavior as onMfaChallenge when unset. */
+  readonly onMfaSetupRequired?: () => void;
 };
 
 // Map vom Reason-Code des Login-Handlers auf einen i18n-Key plus
@@ -90,6 +100,8 @@ export function LoginScreen({
   forgotPasswordHref,
   signupHref,
   legalLinks,
+  onMfaChallenge,
+  onMfaSetupRequired,
 }: LoginScreenProps): ReactNode {
   const t = useTranslation();
   const { Form, Field, Input, Button, Banner, Link } = usePrimitives();
@@ -110,10 +122,27 @@ export function LoginScreen({
     setResendStatus({ kind: "idle" });
     const res = await session.login({ email, password });
     setSubmitting(false);
-    if (!res.ok) {
-      setError(res.error);
+    if (res.kind === "success") return;
+    if (res.kind === "mfa-challenge") {
+      if (onMfaChallenge) {
+        onMfaChallenge(res.challengeToken);
+        return;
+      }
+      setError({ reason: "mfa_not_supported" });
       setFailedLoginEmail(email);
+      return;
     }
+    if (res.kind === "mfa-setup-required") {
+      if (onMfaSetupRequired) {
+        onMfaSetupRequired();
+        return;
+      }
+      setError({ reason: "mfa_not_supported" });
+      setFailedLoginEmail(email);
+      return;
+    }
+    setError(res.error);
+    setFailedLoginEmail(email);
   };
 
   const onSubmit = (e?: FormEvent): void => {

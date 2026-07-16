@@ -1,6 +1,6 @@
 export { base32Decode } from "./base32";
 export { type MfaRequiredPolicy, mfaRequiredConfigHandle } from "./config";
-export { AUTH_MFA_FEATURE, AuthMfaHandlers } from "./constants";
+export { AUTH_MFA_FEATURE, AuthMfaHandlers, MFA_ENABLE_SCREEN_ID } from "./constants";
 export type {
   AuthMfaFeatureOptions,
   BindMfaRevokeAllOtherSessions,

@@ -9,6 +9,7 @@ import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config
 import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
 import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
+import { createAuthMfaFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
 import { tierEngineFeature } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
@@ -28,6 +29,7 @@ const _config = createConfigFeature();
 const _user = createUserFeature();
 const _tenant = createTenantFeature();
 const _secrets = createSecretsFeature();
+const _authMfa = createAuthMfaFeature({ setupTokenSecret: "stub-setup-secret-at-least-32-bytes-long!!", challengeTokenSecret: "stub-challenge-secret-at-least-32-bytes!!", issuer: "stub" });
 const _delivery = createDeliveryFeature();
 const _files = createFilesFeature();
 const _tierEngine = tierEngineFeature;
@@ -49,6 +51,7 @@ export const tenantTable = buildEntityTable("tenant", _tenant.entities["tenant"]
 export const tenantMembershipTable = buildEntityTable("tenant-membership", _tenant.entities["tenant-membership"]!);
 export const tenantInvitationTable = buildEntityTable("tenant-invitation", _tenant.entities["tenant-invitation"]!);
 export const tenantSecretTable = buildEntityTable("tenant-secret", _secrets.entities["tenant-secret"]!);
+export const userMfaTable = buildEntityTable("user-mfa", _authMfa.entities["user-mfa"]!);
 export const notificationPreferenceTable = buildEntityTable("notification-preference", _delivery.entities["notification-preference"]!);
 export const fileRefTable = buildEntityTable("fileRef", _files.entities["fileRef"]!);
 export const tierAssignmentTable = buildEntityTable("tier-assignment", _tierEngine.entities["tier-assignment"]!);

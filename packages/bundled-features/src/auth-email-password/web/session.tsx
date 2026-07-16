@@ -15,8 +15,8 @@ import {
   type CurrentUserProfile,
   fetchCurrentUser,
   fetchTenants,
-  type LoginFailure,
   type LoginRequest,
+  type LoginResult,
   login as loginApi,
   logout as logoutApi,
   switchTenant as switchTenantApi,
@@ -39,9 +39,13 @@ export type SessionState = {
 };
 
 export type SessionApi = SessionState & {
-  readonly login: (req: LoginRequest) => Promise<{ ok: true } | { ok: false; error: LoginFailure }>;
+  readonly login: (req: LoginRequest) => Promise<LoginResult>;
   readonly logout: () => Promise<void>;
   readonly switchTenant: (tenantId: string) => Promise<void>;
+  /** Re-runs the /auth/tenants + user:me refresh round without a full page
+   *  reload. Used by auth-mfa's verify screen after a challenge completes
+   *  and mints cookies via a route session.tsx never calls directly. */
+  readonly refresh: () => Promise<void>;
 };
 
 // Exported so screens that render on BOTH authenticated and anonymous public
@@ -131,9 +135,10 @@ export function SessionProvider({ children }: { readonly children: ReactNode }):
   const login = useCallback<SessionApi["login"]>(
     async (req) => {
       const res = await loginApi(req);
-      if (!res.ok) return { ok: false, error: res.error };
-      await doRefresh();
-      return { ok: true };
+      if (res.kind === "success") {
+        await doRefresh();
+      }
+      return res;
     },
     [doRefresh],
   );
@@ -161,7 +166,7 @@ export function SessionProvider({ children }: { readonly children: ReactNode }):
     }
   }, []);
 
-  const api: SessionApi = { ...state, login, logout, switchTenant };
+  const api: SessionApi = { ...state, login, logout, switchTenant, refresh: doRefresh };
   return <SessionContext.Provider value={api}>{children}</SessionContext.Provider>;
 }
 

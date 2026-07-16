@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled)",
-  "featureCount": 53,
+  "featureCount": 55,
   "features": [
     {
       "name": "admin-shell",
@@ -97,6 +97,82 @@
           }
         ]
       }
+    },
+    {
+      "name": "auth-mfa",
+      "description": "TOTP-based two-factor authentication: enable/disable flow with QR-code setup, 8 single-use recovery codes, and (once wired into a login flow) a second login step after password verification. Secrets are envelope-encrypted at rest via the same MasterKeyProvider as `secrets`/`config`.",
+      "toggleableDefault": null,
+      "requires": [
+        "user",
+        "config"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [
+        {
+          "key": "required",
+          "qualifiedName": "auth-mfa:config:required",
+          "type": "select",
+          "scope": "tenant",
+          "default": "optional",
+          "encrypted": false,
+          "computed": false,
+          "options": [
+            "optional",
+            "admins",
+            "all"
+          ],
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        }
+      ],
+      "secrets": [],
+      "writeHandlers": [
+        "auth-mfa:write:disable",
+        "auth-mfa:write:enable-confirm",
+        "auth-mfa:write:enable-start",
+        "auth-mfa:write:regenerate-recovery",
+        "auth-mfa:write:verify"
+      ],
+      "uiHints": {
+        "displayLabel": "2FA / TOTP",
+        "category": "identity",
+        "recommended": true
+      }
+    },
+    {
+      "name": "auth-mfa-user-data",
+      "description": "GDPR (Art. 20 export / Art. 17 erasure) coverage for the `auth-mfa` feature's `user-mfa` entity. Mounts the EXT_USER_DATA export + delete hooks so 2FA enrollment status is included in the user-data export bundle and a user's TOTP secret + recovery codes are hard-deleted (via executor.forget, rebuild-safe) on a data-subject erasure request. Kept separate from `auth-mfa` so consumers without the user-data-rights pipeline don't pull a hard dependency — requires `user-data-rights`, optionalRequires `auth-mfa`.",
+      "toggleableDefault": null,
+      "requires": [
+        "user-data-rights"
+      ],
+      "optionalRequires": [
+        "auth-mfa"
+      ],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "userData",
+          "entityName": "user-mfa"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "billing-foundation",
