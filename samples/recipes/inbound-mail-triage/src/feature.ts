@@ -17,7 +17,10 @@
 // triage store is therefore keyed by providerMessageId: replays
 // overwrite instead of duplicating. Key your side-effects the same way.
 
-import { InboundMailFoundationHandlers } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
+import {
+  InboundMailFoundationHandlers,
+  type RawInboundMessage,
+} from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 
 export type TriageItem = {
@@ -49,13 +52,15 @@ export function createMailTriageFeature(): FeatureDefinition {
         trigger: { on: InboundMailFoundationHandlers.ingestMessage },
         runIn: "worker",
       },
-      async (payload) => {
-        const providerMessageId = payload["providerMessageId"] as string;
-        triageInbox.set(providerMessageId, {
-          from: payload["from"] as string,
-          subject: payload["subject"] as string,
-          scope: payload["scope"] as string,
-          threadHint: (payload["messageIdHeader"] as string | null) ?? null,
+      async (rawPayload) => {
+        // Dispatcher-validated ingest payload — one cast at the job boundary
+        // to the foundation's own message shape instead of per-field casts.
+        const payload = rawPayload as unknown as RawInboundMessage;
+        triageInbox.set(payload.providerMessageId, {
+          from: payload.from,
+          subject: payload.subject,
+          scope: payload.scope,
+          threadHint: payload.messageIdHeader,
         });
       },
     );

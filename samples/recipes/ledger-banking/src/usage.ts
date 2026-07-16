@@ -11,7 +11,11 @@
 
 // The bundle exports its qualified handler/query names — use them instead of
 // hardcoding the wire strings.
-import { LedgerHandlers, LedgerQueries } from "@cosmicdrift/kumiko-bundled-features/ledger";
+import {
+  type AccountType,
+  LedgerHandlers,
+  LedgerQueries,
+} from "@cosmicdrift/kumiko-bundled-features/ledger";
 
 // The minimal surface the flow needs from a host dispatcher. An app's client
 // satisfies this; the integration test adapts the test stack to it.
@@ -26,7 +30,7 @@ type BalancesReport = {
 };
 
 // Open an account in the tenant's chart of accounts → returns its id.
-async function openAccount(client: LedgerClient, name: string, type: string): Promise<string> {
+async function openAccount(client: LedgerClient, name: string, type: AccountType): Promise<string> {
   const { id } = await client.write<{ id: string }>(LedgerHandlers.createAccount, { name, type });
   return id;
 }

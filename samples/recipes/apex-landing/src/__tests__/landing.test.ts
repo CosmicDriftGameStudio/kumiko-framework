@@ -14,7 +14,8 @@ describe("apex-landing: text-content seam", () => {
   test("falls back to the baked-in default when the block is missing", () => {
     const page = buildLandingPage({ plans: SAMPLE_PLANS });
     const hero = page.sections.find((s) => s.kind === "hero");
-    expect(hero?.kind === "hero" && hero.title).toBe("Ship your roadmap, not your spreadsheet");
+    if (hero?.kind !== "hero") throw new Error("no hero section");
+    expect(hero.title).toBe("Ship your roadmap, not your spreadsheet");
   });
 });
 

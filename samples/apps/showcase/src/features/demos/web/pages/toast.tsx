@@ -15,7 +15,7 @@ export function ToastDemo(): ReactNode {
   return (
     <DemoPage
       title="Toast"
-      description="Auto-dismissende Notifications via @radix-ui/react-toast. Zwei Variants (default / destructive), optional description. Swipe-to-dismiss + 5s Auto-close."
+      description="Auto-dismissende Notifications via @radix-ui/react-toast. Zwei Variants (default / bad), optional description. Swipe-to-dismiss + 5s Auto-close."
     >
       <DemoSection title="Default-Variant">
         <Button

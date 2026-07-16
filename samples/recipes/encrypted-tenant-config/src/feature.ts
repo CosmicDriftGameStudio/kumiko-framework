@@ -31,6 +31,8 @@ const stripeApiKeyDef = createTenantConfig("text", {
   encrypted: true,
   write: access.admin,
   read: access.admin,
+  // mask-derived screens carry no field constraints (maxLength, pattern) —
+  // set those separately in a configEdit schema if you need them enforced.
   mask: { title: "billing.stripe-api-key", order: 1 },
 });
 
