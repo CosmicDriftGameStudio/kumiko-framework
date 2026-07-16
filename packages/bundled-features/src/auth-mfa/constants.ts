@@ -15,6 +15,10 @@ export const AuthMfaHandlers = {
   verify: "auth-mfa:write:verify",
 } as const;
 
+export const AuthMfaQueries = {
+  status: "auth-mfa:query:user-mfa:status",
+} as const;
+
 export const MFA_SETUP_TOKEN_TTL_MINUTES = 10;
 export const MFA_CHALLENGE_TOKEN_TTL_MINUTES = 10;
 export const MFA_VERIFY_MAX_ATTEMPTS = 5;

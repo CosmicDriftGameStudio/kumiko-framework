@@ -17,7 +17,7 @@ import { configValuesTable } from "../../config/table";
 import { createUserFeature } from "../../user/feature";
 import { userEntity } from "../../user/schema/user";
 import { base32Decode } from "../base32";
-import { AuthMfaHandlers } from "../constants";
+import { AuthMfaHandlers, AuthMfaQueries } from "../constants";
 import { createAuthMfaFeature } from "../feature";
 import { userMfaEntity } from "../schema/user-mfa";
 import { currentTotpCode } from "../totp";
@@ -146,5 +146,28 @@ describe("enable-start + enable-confirm round trip", () => {
       userB,
     );
     expectErrorIncludes(err, "invalid_setup_token");
+  });
+
+  test("status query reflects enrollment before and after enable-confirm", async () => {
+    const user = createTestUser({ id: "status-query-1", roles: ["User"] });
+
+    const before = await stack.http.queryOk<{ enabled: boolean }>(AuthMfaQueries.status, {}, user);
+    expect(before.enabled).toBe(false);
+
+    const start = await stack.http.writeOk<{ setupToken: string; otpauthUri: string }>(
+      AuthMfaHandlers.enableStart,
+      { accountLabel: "status@example.com" },
+      user,
+    );
+    const secretParam = new URLSearchParams(start.otpauthUri.split("?")[1]).get("secret") ?? "";
+    const code = currentTotpCode(base32Decode(secretParam));
+    await stack.http.writeOk(
+      AuthMfaHandlers.enableConfirm,
+      { setupToken: start.setupToken, code },
+      user,
+    );
+
+    const after = await stack.http.queryOk<{ enabled: boolean }>(AuthMfaQueries.status, {}, user);
+    expect(after.enabled).toBe(true);
   });
 });
