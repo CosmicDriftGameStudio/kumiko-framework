@@ -97,7 +97,8 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
               { slug: route.slug, lang: route.lang },
               SYSTEM_TENANT_ID,
             )) as TextBlockQueryResult;
-          } catch {
+          } catch (err) {
+            console.error(`legal-pages: text-content query failed for slug="${route.slug}"`, err);
             return c.text("legal page unavailable", 503);
           }
 

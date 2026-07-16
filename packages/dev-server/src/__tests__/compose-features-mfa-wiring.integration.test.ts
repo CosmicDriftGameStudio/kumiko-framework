@@ -17,10 +17,10 @@ import {
   base32Decode,
   bindMfaRevokeAllOtherSessionsFromFeature,
   createAuthMfaFeature,
-  currentTotpCode,
   mfaRequiredConfigHandle,
   userMfaEntity,
 } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
+import { currentTotpCode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/testing";
 import {
   configValuesTable,
   createConfigResolver,

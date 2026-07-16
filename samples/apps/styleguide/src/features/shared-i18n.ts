@@ -1,10 +1,7 @@
 export type LocalizedString = { readonly de: string; readonly en: string };
 
-// Ein Feature registriert seine i18n-Keys serverseitig (r.translations, für
-// den Boot-Validator + SSR-Fallback) UND clientseitig (ClientFeatureDefinition.
-// translations, für den Renderer). toClientTranslations() leitet die
-// Client-Form { en, de } aus derselben LocalizedString-Map ab, damit beide
-// Seiten aus EINER Quelle laufen statt zwei manuell synchron zu haltenden.
+// Derives the client { en, de } shape from the same map a feature registers
+// server-side (r.translations) — one source instead of two kept in sync by hand.
 export function toClientTranslations(map: Readonly<Record<string, LocalizedString>>): {
   en: Record<string, string>;
   de: Record<string, string>;

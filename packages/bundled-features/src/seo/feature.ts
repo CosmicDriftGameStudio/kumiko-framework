@@ -6,6 +6,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { LEGAL_ROUTES } from "../legal-pages";
 import { cachedSecurePageResponse } from "../page-render";
+import type { SystemQueryFn } from "../shared";
 import { SEO_CONFIG_KEYS, SEO_DEFAULT_PATHS } from "./constants";
 import { seoConfigQuery } from "./handlers/seo-config.query";
 import { buildLlmsTxt } from "./llms-txt";
@@ -18,12 +19,6 @@ const SEO_CACHE = { kind: "revalidate", maxAgeSeconds: 300 } as const;
 
 const MANAGED_PAGES_BY_TENANT_PUBLISHED_QN = "managed-pages:query:by-tenant-published";
 const SEO_CONFIG_QUERY_QN = "seo:query:config";
-
-// Minimal shape of the httpRoute handler's `{ systemQuery }` dep — just
-// enough to force a specific tenant in-process. Not importing
-// HttpRouteHandlerDeps itself: it isn't part of the engine's public surface
-// (only the httpRoute-registration types are).
-type SystemQueryFn = (type: string, payload: unknown, tenantId: string) => Promise<unknown>;
 
 export type ManagedPagesDiscoveryOptions = {
   /** Same per-host tenant resolver the app already passes to

@@ -37,6 +37,7 @@ import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery
 import { notificationPreferencesTable } from "../../delivery/tables";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature";
 import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple";
+import { hashPassword } from "../../shared";
 import { createTemplateResolverFeature } from "../../template-resolver/feature";
 import { createTenantFeature } from "../../tenant";
 import {
@@ -52,7 +53,6 @@ import { userEntity, userTable } from "../../user/schema/user";
 import { AuthErrors, AuthHandlers } from "../constants";
 import { createAuthEmailPasswordFeature } from "../feature";
 import { storeInviteToken } from "../invite-token-store";
-import { hashPassword } from "../password-hashing";
 import { seedUser } from "../seeding";
 
 const APP_ACCEPT_URL = "https://app.example.com/invite/accept";

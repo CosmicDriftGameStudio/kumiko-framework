@@ -14,6 +14,17 @@ import type {
   CreateUserSeedOptions,
 } from "./types";
 
+// A key backed by "secrets" is at-rest encrypted by the secrets store itself
+// (MasterKeyProvider), even without an explicit `encrypted: true` — callers
+// that gate on encryption (boot-validator mutual-exclusion checks, config
+// query redaction) must treat the two as equivalent or a secrets-backed key
+// silently skips the encrypted-only guard.
+export function isEncryptedAtRest(
+  def: Pick<ConfigKeyDefinition, "encrypted" | "backing">,
+): boolean {
+  return def.encrypted === true || def.backing === "secrets";
+}
+
 // --- Access Presets ---
 
 export const access = {

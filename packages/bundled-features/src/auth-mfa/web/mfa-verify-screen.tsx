@@ -21,6 +21,11 @@ export type MfaVerifyScreenProps = {
    *  refreshed. Optional — apps that swap this screen back out purely on
    *  session.status changing to "authenticated" don't need it. */
   readonly onSuccess?: () => void;
+  // Some failures (challenge_expired, too_many_attempts) have no retry path —
+  // the challengeToken is dead. Without this, the host has no way back to
+  // login short of a full page reload. Optional: apps that always mount
+  // this screen fresh per challenge can omit it.
+  readonly onCancel?: () => void;
 };
 
 function reasonToKey(reason: string): string {
@@ -47,6 +52,7 @@ export function MfaVerifyScreen({
   subtitle,
   submitLabel,
   onSuccess,
+  onCancel,
 }: MfaVerifyScreenProps): ReactNode {
   const t = useTranslation();
   const { Form, Field, Input, Button, Banner } = usePrimitives();
@@ -99,6 +105,11 @@ export function MfaVerifyScreen({
               ? t("auth.mfa.verify.submitting")
               : (submitLabel ?? t("auth.mfa.verify.submit"))}
           </Button>
+          {onCancel ? (
+            <Button type="button" variant="secondary" onClick={onCancel} disabled={submitting}>
+              {t("auth.mfa.verify.backToLogin")}
+            </Button>
+          ) : null}
         </Form>
       </div>
     </AuthCard>

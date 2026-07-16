@@ -124,19 +124,14 @@ export type TestStackOptions = {
         sseBroker: import("../api/sse-broker").SseBroker;
         redis: import("ioredis").default;
       }) => import("../api/server").ServerOptions["anonymousAccess"]);
-  /** Opt-in JobRunner wired into ctx.jobRunner (write handlers'
-   *  `ctx.jobRunner.dispatch(...)`) and merged into dispatcherOptions so
-   *  event-triggered jobs enqueue on commit — mirrors the prod entrypoint's
-   *  `buildJobRunnerWithHook`. No-ops when no `r.job(...)` is registered
-   *  anywhere in the mounted features — the bundled `createJobsFeature()`
-   *  (operator UI) is NOT required, matching prod's unconditional build.
-   *  Default `undefined` — enqueuer-only, holds queue-clients for both
-   *  lanes so `ctx.jobRunner.dispatch(...)` routes correctly but starts no
-   *  local consumer/cron-scheduler (avoids double-running `runOnBoot`/cron
-   *  jobs when the caller, e.g. runDevApp, already runs its own consumer
-   *  for that lane). Pass `consumerLane` only when this IS the sole
-   *  consumer (e.g. a test that wants the dispatched job to actually
-   *  execute without a separate runner). */
+  /** Opt-in JobRunner wired into ctx.jobRunner and merged into
+   *  dispatcherOptions so event-triggered jobs enqueue on commit — mirrors
+   *  the prod entrypoint's `buildJobRunnerWithHook`. Unlike prod (which
+   *  always builds one), this only builds a runner when `registry.getAllJobs()`
+   *  is non-empty — a deliberate test-stack-only shortcut, not parity.
+   *  Default `undefined`. Pass `consumerLane` only when this test IS the
+   *  sole consumer (otherwise enqueuer-only, avoiding double-running
+   *  `runOnBoot`/cron jobs against a caller-owned consumer). */
   jobs?: {
     consumerLane?: JobRunIn;
     queueNamePrefix?: string;

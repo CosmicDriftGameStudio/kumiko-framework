@@ -33,6 +33,9 @@ export const userMfaEntity = createEntity({
     // (see db/queries.ts's findUserMfaRow) rather than storing jsonb here.
     // A redeemed code's hash is removed from the array (see disable/regen
     // handlers), so array length also IS the remaining-codes count.
+    // No jsonb->text migration: zero-legacy/single-user framework repo, no
+    // production user_mfa rows exist to backfill (delete-and-re-enroll is
+    // the upgrade path for anyone who hit the old jsonb shape locally).
     recoveryCodes: createTextField({
       required: true,
       encrypted: true,

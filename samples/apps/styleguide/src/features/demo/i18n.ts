@@ -1,10 +1,7 @@
 import type { LocalizedString } from "../shared-i18n";
 
-// Kanonische i18n-Map für "demo" — die einzige Quelle für Server-Registrierung
-// (feature.ts, r.translations) UND Client-Bundle (web.ts,
-// toClientTranslations). screen:item-edit.title ist der Breadcrumb-Key
-// (shell-breadcrumb.ts liest `screen:<id>.title`), .create./.edit.-Varianten
-// sind der Formular-Header von entityEdit.
+// screen:item-edit.title is the breadcrumb key (shell-breadcrumb.ts reads
+// `screen:<id>.title`); .create./.edit. variants are entityEdit's form header.
 export const DEMO_I18N: Readonly<Record<string, LocalizedString>> = {
   "screen:item-edit.title": { de: "Element bearbeiten", en: "Edit item" },
   "screen:item-edit.create.title": { de: "Element anlegen", en: "Create item" },

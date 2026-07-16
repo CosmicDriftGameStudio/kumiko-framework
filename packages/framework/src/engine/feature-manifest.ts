@@ -7,6 +7,7 @@
 // lesen.
 
 import { compareByCodepoint } from "../utils";
+import { isEncryptedAtRest } from "./config-helpers";
 import { qualifyEntityName } from "./qualified-name";
 import type { Registry, UiHints } from "./types/feature";
 
@@ -106,7 +107,7 @@ export function buildManifestFromRegistry(
         type: def.type,
         scope: def.scope,
         default: def.default ?? null,
-        encrypted: def.encrypted ?? def.backing === "secrets",
+        encrypted: isEncryptedAtRest(def),
         computed: def.computed !== undefined,
         options: def.options ?? null,
         bounds: def.bounds ?? null,

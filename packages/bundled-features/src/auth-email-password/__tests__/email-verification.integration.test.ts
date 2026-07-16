@@ -23,6 +23,7 @@ import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery
 import { notificationPreferencesTable } from "../../delivery/tables";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature";
 import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple";
+import { hashPassword } from "../../shared";
 import { createTemplateResolverFeature } from "../../template-resolver/feature";
 import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
@@ -33,7 +34,6 @@ import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/schema/user";
 import { AuthErrors, AuthHandlers } from "../constants";
 import { createAuthEmailPasswordFeature } from "../feature";
-import { hashPassword } from "../password-hashing";
 import { signResetToken } from "../reset-token";
 import { signVerificationToken } from "../verification-token";
 

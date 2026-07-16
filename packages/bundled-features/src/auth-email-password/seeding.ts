@@ -17,13 +17,13 @@ import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError } from "@cosmicdrift/kumiko-framework/errors";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import { hashPassword } from "../shared";
 // kumiko-lint-ignore cross-feature-import auth-tests need user+tenant seed-helpers
 import { seedTenant, seedTenantMembership } from "../tenant/seeding";
 // kumiko-lint-ignore cross-feature-import signup create-only guard reads the user projection by email
 import { userTable } from "../user/schema/user";
 // kumiko-lint-ignore cross-feature-import auth-tests need user+tenant seed-helpers
 import { seedUser } from "../user/seeding";
-import { hashPassword } from "./password-hashing";
 
 // Re-export für ergonomische Single-Import-Site in tests/seed-scripts.
 // Das Auth-Feature ist der natürliche Aufrufer für "seed admin user mit

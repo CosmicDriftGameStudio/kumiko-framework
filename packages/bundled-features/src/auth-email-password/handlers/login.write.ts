@@ -9,6 +9,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
+import { verifyDummyPassword, verifyPassword } from "../../shared";
 import { USER_STATUS, UserQueries } from "../../user";
 import { parseAuthUserRow } from "../auth-user-row";
 import {
@@ -23,7 +24,6 @@ import {
   noMembership,
 } from "../errors";
 import { clearLockoutState, getLockoutState, recordFailedAttempt } from "../lockout-store";
-import { verifyDummyPassword, verifyPassword } from "../password-hashing";
 
 export type LoginHandlerOptions = {
   // When true, a valid (email + password) login fails with email_not_verified

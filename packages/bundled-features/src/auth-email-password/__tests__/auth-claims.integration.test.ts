@@ -15,6 +15,7 @@ import { createTestEnvelopeCipher, seedRow } from "@cosmicdrift/kumiko-framework
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
+import { hashPassword } from "../../shared";
 import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/schema/tenant";
@@ -24,7 +25,6 @@ import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/schema/user";
 import { AuthErrors, AuthHandlers } from "../constants";
 import { createAuthEmailPasswordFeature } from "../feature";
-import { hashPassword } from "../password-hashing";
 
 // Sample-style extension feature that shows the real-world shape of a claims
 // hook: look something up in a tenant-scoped table and stuff it into the JWT.

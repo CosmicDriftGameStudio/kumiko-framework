@@ -37,10 +37,18 @@ describe("TOTP — RFC 6238 vectors", () => {
   test("accepts a code one step in the past or future (clock drift)", () => {
     const secret = generateTotpSecret();
     const now = 1_700_000_000_000;
-    // Derive the code for now, then verify it's still accepted 25s later —
-    // same 30s step, no window needed, sanity check for the step math.
+    // now + 25s crosses the 30s step boundary (deliberately) — this exercises
+    // the ±1 window, not same-step reuse. See the ±2-steps negative test below
+    // for the window's upper bound.
     const codeAtNow = deriveCodeForTest(secret, now);
     expect(verifyTotp(secret, codeAtNow, now + 25_000)).toBe(true);
+  });
+
+  test("rejects a code two steps in the future (outside the ±1 window)", () => {
+    const secret = generateTotpSecret();
+    const now = 1_700_000_000_000;
+    const codeAtNow = deriveCodeForTest(secret, now);
+    expect(verifyTotp(secret, codeAtNow, now + 2 * 30_000 + 5_000)).toBe(false);
   });
 
   test("rejects wrong-length or non-numeric input without throwing", () => {
@@ -56,6 +64,7 @@ describe("TOTP — RFC 6238 vectors", () => {
     const b = generateTotpSecret();
     expect(a.length).toBe(20);
     expect(a.equals(b)).toBe(false);
+    expect(a.some((byte) => byte !== 0)).toBe(true);
   });
 });
 

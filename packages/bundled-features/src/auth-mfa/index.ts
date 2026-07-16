@@ -17,4 +17,3 @@ export {
 } from "./feature";
 export type { MfaStatusChecker, MfaStatusCheckResult } from "./mfa-status-checker";
 export { userMfaEntity, userMfaTable } from "./schema/user-mfa";
-export { currentTotpCode } from "./totp";

@@ -5,7 +5,8 @@
 // nur Theme + Viewport. Der Szenario-Name = der Feature-Name in den Docs.
 
 import { resolve } from "node:path";
-import { base32Decode, currentTotpCode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
+import { base32Decode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
+import { currentTotpCode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/testing";
 import type { Page } from "@playwright/test";
 import { runMatrix, type Scenario } from "../../../e2e/screenshots";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, DEMO_NOTE_ID } from "../src/app/auth-constants";

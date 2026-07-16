@@ -1,24 +1,7 @@
-// Regression test for #983 — a write handler calling `ctx["jobRunner"]
-// .dispatch(...)` directly (the documented pattern, e.g. bundled jobs
-// feature's trigger.write.ts) threw `TypeError: undefined is not an
-// object` under both `setupTestStack` and `runDevApp`, because neither
-// built a JobRunner nor merged one into the dispatcher's context.
-//
-// Two things had to be fixed together (see dispatch-shared.ts and
-// test-stack.ts for the respective commits):
-//   1. `setupTestStack({ jobs: {...} })` now builds a real JobRunner and
-//      merges it into dispatcherOptions — this test's `jobs: {}` opt-in.
-//   2. `buildHandlerContext` (packages/framework/src/pipeline/dispatch-
-//      shared.ts) never spread `DispatchContext.jobRunner` into the
-//      handler-facing ctx at all — a gap that predates this issue and
-//      affects the prod entrypoint too, not just dev/test. Fixed there,
-//      not band-aided into `context:` here — otherwise test/dev would
-//      pass while prod's `ctx.jobRunner` stayed undefined.
-//
-// This test drives the manual-dispatch repro from the issue, not the
-// auto-trigger path (already covered by entrypoint-job-wiring.integration
-// .test.ts) — the two paths read from different context slots and a fix
-// for one doesn't guarantee the other.
+// Drives the manual `ctx.jobRunner.dispatch(...)` path a write handler
+// uses directly — distinct from the auto-trigger path covered by
+// entrypoint-job-wiring.integration.test.ts, which reads a different
+// context slot and isn't guaranteed by this test passing.
 
 import { afterEach, describe, expect, test } from "bun:test";
 import { z } from "zod";

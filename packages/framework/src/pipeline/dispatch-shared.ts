@@ -483,12 +483,8 @@ export function buildHandlerContext(
     // Propagate the feature-toggle resolver so the lifecycle pipeline,
     // MSP runner, and ctx.hasFeature all pull from the same source.
     ...(effectiveFeatures && { effectiveFeatures }),
-    // Symmetric with job-runner.ts's jobContext: a manual write handler
-    // reaches `ctx.jobRunner.dispatch(...)` the same way a follow-up job
-    // does (bundled jobs feature's trigger.write.ts is the canonical
-    // caller). Was never actually wired here — DispatchContext.jobRunner
-    // only fed the internal afterCommit auto-trigger hook in
-    // executeWriteInner, never the handler-facing ctx (#983).
+    // Lets write handlers call ctx.jobRunner.dispatch(...) directly, same
+    // as a follow-up job would (test-stack.ts wires the matching runner).
     ...(jobRunner && { jobRunner }),
     // ctx.user als Convenience-Alias auf event.user. Der typisch-
     // intuitive Pfad „der Context kennt seinen User" — ohne den

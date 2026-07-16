@@ -1,3 +1,4 @@
+import { isEncryptedAtRest } from "../config-helpers";
 import type { FeatureDefinition } from "../types";
 
 // --- Toggleable-dependency warnings ---
@@ -79,9 +80,9 @@ export function validateConfigKeyComputed(feature: FeatureDefinition): void {
     // returns a plain value, encrypted expects cipher-text in the row. The
     // cascade doesn't know which one to prefer on write. Rejecting at boot
     // is cheaper than surprising behaviour at runtime.
-    if (keyDef.encrypted) {
+    if (isEncryptedAtRest(keyDef)) {
       throw new Error(
-        `[Feature ${feature.name}] Config key "${keyName}" has both encrypted=true and a computed resolver — these are mutually exclusive paradigms`,
+        `[Feature ${feature.name}] Config key "${keyName}" has both encrypted/backing="secrets" and a computed resolver — these are mutually exclusive paradigms`,
       );
     }
   }
@@ -128,9 +129,9 @@ export function validateConfigKeyAllowPerRequest(feature: FeatureDefinition): vo
     // encrypted + per-request would expose a cipher-text interpretation
     // to query-strings. The secret-value shouldn't be transported this
     // way — reject as a paradigm-mismatch.
-    if (keyDef.encrypted) {
+    if (isEncryptedAtRest(keyDef)) {
       throw new Error(
-        `[Feature ${feature.name}] Config key "${keyName}" has allowPerRequest=true but encrypted=true — secret values may not be set via query-params`,
+        `[Feature ${feature.name}] Config key "${keyName}" has allowPerRequest=true but encrypted/backing="secrets" — secret values may not be set via query-params`,
       );
     }
   }
