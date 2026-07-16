@@ -6,6 +6,7 @@ import { createEnableConfirmHandler } from "./handlers/enable-confirm.write";
 import { createEnableStartHandler } from "./handlers/enable-start.write";
 import { mfaReencryptJob } from "./handlers/reencrypt.job";
 import { createRegenerateRecoveryHandler } from "./handlers/regenerate-recovery.write";
+import { mfaStatusQuery } from "./handlers/status.query";
 import { createMfaVerifyHandler } from "./handlers/verify.write";
 import { AUTH_MFA_FEATURE_I18N } from "./i18n";
 import { createMfaStatusChecker, type MfaStatusChecker } from "./mfa-status-checker";
@@ -129,6 +130,10 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
       ),
     };
 
+    const queries = {
+      status: r.queryHandler(mfaStatusQuery),
+    };
+
     // No late-bind needed (unlike sharedRevoker) — this checker only needs
     // the HandlerContext the CALLER already has (login.write.ts runs it
     // from inside its own dispatcher call), not a raw db handle assembled
@@ -141,6 +146,6 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
       revokeAllOtherSessions = revoker;
     };
 
-    return { handlers, bindRevokeAllOtherSessions, checkMfaStatus };
+    return { handlers, queries, bindRevokeAllOtherSessions, checkMfaStatus };
   });
 }
