@@ -1,12 +1,20 @@
-// KEK-rotation job for userMfa.totpSecret (entity-field encryption, same
-// MasterKeyProvider as secrets/config — see schema/user-mfa.ts). Modeled
-// directly on config/handlers/reencrypt.job.ts: entity-field encryption
-// stores a StoredEnvelope JSON string per value (no separate kekVersion
-// column, unlike secrets' DEK-wrap model), so rotation means decrypt under
-// the OLD key, then let the executor's own write-path re-encrypt under
-// provider.currentVersion() — the same auto-encrypt every enable-confirm
-// write already goes through (see enable-confirm.write.ts: it passes
-// PLAINTEXT to executor.create, never a manually-built envelope).
+// KEK-rotation job for userMfa.totpSecret + recoveryCodes (entity-field
+// encryption, same MasterKeyProvider as secrets/config — see
+// schema/user-mfa.ts). Modeled directly on config/handlers/reencrypt.job.ts:
+// entity-field encryption stores a StoredEnvelope JSON string per value (no
+// separate kekVersion column, unlike secrets' DEK-wrap model), so rotation
+// means decrypt under the OLD key, then let the executor's own write-path
+// re-encrypt under provider.currentVersion() — the same auto-encrypt every
+// enable-confirm write already goes through (see enable-confirm.write.ts: it
+// passes PLAINTEXT to executor.create, never a manually-built envelope).
+//
+// Both fields also carry `userOwned` — the executor's own encryptForStorage
+// wraps them PII(envelope(plaintext)) (see event-store-executor-context.ts).
+// This job reads raw rows via selectMany (bypassing the executor's
+// decryptForRead), so it must peel that PII layer itself before the envelope
+// cipher ever sees the value, mirroring decryptForRead's PII-then-envelope
+// order — an envelope decrypt on a still-PII-wrapped string throws
+// "legacy single-key format" instead of rotating anything.
 //
 // Idempotent: re-running skips rows already on the current kekVersion.
 // Every write is a normal executor.update — after a full run even a
@@ -16,6 +24,11 @@
 // projection instead of appending a real `.updated` event).
 
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  collectPiiSubjectFields,
+  configuredPiiSubjectKms,
+  decryptPiiFieldValues,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import {
   configuredEntityFieldEncryption,
   createEventStoreExecutor,
@@ -36,6 +49,8 @@ const SYSTEM_ROLES = ["system"] as const;
 const executor = createEventStoreExecutor(userMfaTable, userMfaEntity, {
   entityName: "user-mfa",
 });
+
+const piiFieldNames = collectPiiSubjectFields(userMfaEntity);
 
 export type MfaReencryptJobPayload = {
   readonly batchSize?: number;
@@ -91,6 +106,9 @@ export const mfaReencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<vo
     });
   }
   const db = ctx.db as DbConnection; // @cast-boundary db-operator
+  // Undefined = per-subject crypto-shredding isn't configured for this app —
+  // both fields are then plain envelope strings, no PII layer to peel.
+  const piiKms = configuredPiiSubjectKms();
 
   const batchSize = payload.batchSize ?? DEFAULT_BATCH_SIZE;
   const maxFailures = payload.maxFailures ?? DEFAULT_MAX_FAILURES;
@@ -113,6 +131,7 @@ export const mfaReencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<vo
     tenantId: string;
     version: number;
     totpSecret: string;
+    recoveryCodes: string;
   };
 
   let alreadyCurrent = 0;
@@ -131,22 +150,43 @@ export const mfaReencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<vo
   }
 
   async function migrateRow(row: UserMfaRow): Promise<"migrated" | "skipped" | "failed"> {
-    if (!needsReencrypt(row.totpSecret, targetVersion)) {
+    const tenantId = row.tenantId as TenantId; // @cast-boundary db-row
+
+    // Peel the PII layer first (if active) so needsReencrypt/cipher.decrypt
+    // below only ever see envelope strings, same order as decryptForRead.
+    let envelopeValues: { totpSecret: string; recoveryCodes: string } = row;
+    if (piiKms) {
+      const unwrapped = await decryptPiiFieldValues(row, piiFieldNames, piiKms, {
+        requestId: "auth-mfa-reencrypt-job",
+        tenantId,
+      });
+      envelopeValues = unwrapped as { totpSecret: string; recoveryCodes: string }; // @cast-boundary engine-payload
+    }
+
+    const totpNeedsRotation = needsReencrypt(envelopeValues.totpSecret, targetVersion);
+    const recoveryNeedsRotation = needsReencrypt(envelopeValues.recoveryCodes, targetVersion);
+    if (!totpNeedsRotation && !recoveryNeedsRotation) {
       alreadyCurrent++;
       return "skipped";
     }
 
-    const tenantId = row.tenantId as TenantId; // @cast-boundary db-row
     // decrypt failure (missing legacy key, unknown kekVersion, tamper)
     // throws → counted as failed via onRowError; the row stays untouched.
-    const plaintext = await cipher.decrypt(row.totpSecret, { tenantId });
+    const changes: Record<string, string> = {};
+    if (totpNeedsRotation) {
+      changes["totpSecret"] = await cipher.decrypt(envelopeValues.totpSecret, { tenantId });
+    }
+    if (recoveryNeedsRotation) {
+      changes["recoveryCodes"] = await cipher.decrypt(envelopeValues.recoveryCodes, { tenantId });
+    }
 
     const actor: SessionUser = { id: "system", tenantId, roles: SYSTEM_ROLES };
     // PLAINTEXT here, not a manually-built envelope — the executor's own
     // write-path (encryptForStorage) re-encrypts under the CURRENT
-    // injected cipher/KEK, exactly like every other write to this field.
+    // injected cipher/KEK (and re-wraps the PII layer under the same,
+    // unrotated subject DEK), exactly like every other write to this field.
     const result = await executor.update(
-      { id: row.id, version: row.version, changes: { totpSecret: plaintext } },
+      { id: row.id, version: row.version, changes },
       actor,
       tdbFor(tenantId),
     );

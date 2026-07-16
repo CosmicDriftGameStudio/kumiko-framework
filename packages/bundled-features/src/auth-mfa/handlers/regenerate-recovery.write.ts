@@ -44,7 +44,7 @@ export function createRegenerateRecoveryHandler(opts: RegenerateRecoveryOptions)
         {
           id: row.id,
           version: row.version,
-          changes: { recoveryCodes: { hashes: newHashes } },
+          changes: { recoveryCodes: JSON.stringify({ hashes: newHashes }) },
         },
         event.user,
         ctx.db,

@@ -94,7 +94,7 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
           {
             id: row.id,
             version: row.version,
-            changes: { recoveryCodes: { hashes: verify.remainingHashes } },
+            changes: { recoveryCodes: JSON.stringify({ hashes: verify.remainingHashes }) },
           },
           scopedUser,
           scopedDb,

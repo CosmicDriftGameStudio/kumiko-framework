@@ -1,7 +1,6 @@
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
-  createJsonbField,
   createTextField,
   createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -27,10 +26,18 @@ export const userMfaEntity = createEntity({
       encrypted: true,
       userOwned: { ownerField: "userId" },
     }),
-    // { hashes: string[] } — argon2id hashes of unredeemed recovery codes.
+    // JSON-stringified `{ hashes: string[] }` (argon2id hashes of unredeemed
+    // recovery codes) — both encryption layers (entity-field envelope +
+    // per-subject crypto-shred, same as totpSecret above) require a string
+    // value, so callers JSON.stringify on write and JSON.parse on read
+    // (see db/queries.ts's findUserMfaRow) rather than storing jsonb here.
     // A redeemed code's hash is removed from the array (see disable/regen
     // handlers), so array length also IS the remaining-codes count.
-    recoveryCodes: createJsonbField({ userOwned: { ownerField: "userId" } }),
+    recoveryCodes: createTextField({
+      required: true,
+      encrypted: true,
+      userOwned: { ownerField: "userId" },
+    }),
     enabledAt: createTimestampField({ required: true }),
     lastUsedAt: createTimestampField(),
   },
