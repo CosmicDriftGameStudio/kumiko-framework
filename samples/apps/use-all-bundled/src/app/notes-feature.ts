@@ -38,7 +38,7 @@ const ADMIN_ACCESS = { roles: ["TenantAdmin", "SystemAdmin"] } as const;
 export const noteEntity = createEntity({
   table: "read_demo_notes",
   fields: {
-    title: createTextField({ required: true, maxLength: 200 }),
+    title: createTextField({ required: true, maxLength: 200, sortable: true }),
     customFields: customFieldsField(),
   },
 });
@@ -58,6 +58,7 @@ const noteListScreen: EntityListScreenDefinition = {
     },
   ],
   searchable: true,
+  defaultSort: { field: "title", direction: "asc" },
   slots: { header: { react: { __component: TAGS_FILTER_EXTENSION_NAME } } },
   rowActions: [
     {
@@ -122,6 +123,23 @@ export const notesFeature: FeatureDefinition = defineFeature("notes-demo", (r) =
     read: { access: ADMIN_ACCESS },
   });
 
+  r.translations({
+    keys: {
+      "screen:note-list.title": { en: "Notes", de: "Notizen" },
+      "screen:note-edit.title": { en: "Note", de: "Notiz" },
+      "notes-demo:entity:note:field:title": { en: "Title", de: "Titel" },
+      "notes-demo:section.note": { en: "Note", de: "Notiz" },
+      "notes-demo:section.customFields": { en: "Custom fields", de: "Zusatzfelder" },
+      "notes-demo:section.folder": { en: "Folder", de: "Ordner" },
+      "notes-demo:section.tags": { en: "Tags", de: "Tags" },
+      "notes-demo:actions.edit": { en: "Edit", de: "Bearbeiten" },
+      "notes-demo:actions.delete": { en: "Delete", de: "Löschen" },
+      "notes-demo:confirms.note-delete": {
+        en: "Delete this note?",
+        de: "Diese Notiz löschen?",
+      },
+    },
+  });
   r.screen(noteListScreen);
   r.screen(noteEditScreen);
   return {};
