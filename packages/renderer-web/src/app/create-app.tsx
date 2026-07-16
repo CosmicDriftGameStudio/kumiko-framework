@@ -20,13 +20,16 @@ import {
   kumikoDefaultTranslations,
   LiveEventsProvider,
   LocaleProvider,
+  mergeTranslations,
   type NavApi,
   NavProvider,
   PrimitivesProvider,
   type PrimitivesRegistry,
   qualifyScreenId,
   TokensProvider,
+  type TranslationsByLocale,
   toAppSchema,
+  translationsByLocaleFromKeys,
   useNav,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ComponentType, type ReactNode, useMemo } from "react";
@@ -177,12 +180,24 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
   const clientFeatures = options.clientFeatures ?? [];
   const providers = clientFeatures.flatMap((f) => f.providers ?? []);
   const gates = clientFeatures.flatMap((f) => f.gates ?? []);
-  // Framework-Default-Bundle als ALLERLETZTER Fallback — App-Resolver +
-  // clientFeatures.translations haben Vorrang. Apps können einzelne
-  // kumiko.*-Keys via clientFeatures.translations überschreiben (z.B.
-  // "kumiko.actions.save" → "Sichern" für ein bestimmtes Feature).
+  // Precedence in fallbackBundles (Array-Order = Priorität, höchste zuerst):
+  //   1. clientFeatures.translations — App-Overrides gewinnen immer, auch
+  //      gegen framework-eigene Labels.
+  //   2. schemaTranslations — server-authored r.translations, von
+  //      buildAppSchema verbatim projiziert (#1059). Ohne dieses Bundle
+  //      resolven Nav-/Screen-Labels nur, wenn eine App sie ZUSÄTZLICH in
+  //      web/i18n.ts dupliziert — die meisten bundled-features taten das
+  //      nie, Labels rendern dann als rohe i18n-Keys.
+  //   3. kumikoDefaultTranslations — Framework-Defaults, ALLERLETZTER
+  //      Fallback.
+  const schemaTranslations = app.features.reduce<TranslationsByLocale>(
+    (acc, f) =>
+      f.translations ? mergeTranslations(acc, translationsByLocaleFromKeys(f.translations)) : acc,
+    {},
+  );
   const fallbackBundles = [
     ...clientFeatures.flatMap((f) => (f.translations !== undefined ? [f.translations] : [])),
+    schemaTranslations,
     kumikoDefaultTranslations,
   ];
   // Custom-Screen-Components-Map mergen: spätere Features überschreiben
