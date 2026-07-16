@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled/scripts/gen-sample-index.ts + sample-index.overrides.json",
-  "featureCount": 35,
+  "featureCount": 36,
   "features": {
     "admin-shell": {
       "samples": [
@@ -25,6 +25,17 @@
       "whenToUse": "Users sign in with email and password — login, signup, verification, and password reset on your apex surface or behind AuthGate in the admin app.",
       "sampleBlurb": "Walks through login, signup, password reset, and email verification on the public apex surface — copy the AuthGate mount and handler wiring into your app.",
       "screenshot": "/screenshots/features/auth-login.png"
+    },
+    "auth-mfa": {
+      "samples": [
+        "recipes-auth-mfa"
+      ],
+      "hasVisualOutput": true,
+      "readmeSummary": "**I want users to be able to enable TOTP-based 2FA, and login to become a two-step challenge once they have.**",
+      "primarySample": "recipes-auth-mfa",
+      "whenToUse": "You need a second login factor beyond a password — TOTP-based 2FA with QR-code enrollment and single-use recovery codes, wired into auth-email-password's login handler with almost no manual glue.",
+      "sampleBlurb": "Enable TOTP, log in (gets a challenge instead of a JWT), complete via /auth/mfa/verify — copies the buildServer({ auth: ... }) block from the sample comment verbatim.",
+      "screenshot": "/screenshots/features/auth-mfa.png"
     },
     "billing-foundation": {
       "samples": [

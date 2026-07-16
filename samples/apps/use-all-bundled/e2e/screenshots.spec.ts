@@ -58,6 +58,8 @@ const SCENARIOS: readonly Scenario[] = [
   { name: "text-content", url: "/legal/privacy", waitFor: "[data-tenant-content]" },
   // personal-access-tokens — logged-in self-service: mint (scope toggles) + list.
   { name: "personal-access-tokens", flow: admin("/api-tokens"), settleMs: 1000 },
+  // auth-mfa — logged-in self-service TOTP enrollment (QR + recovery codes).
+  { name: "auth-mfa", flow: admin("/auth-mfa-enable"), settleMs: 1000 },
   // custom-fields + folders — drop-in extension sections on the note edit screen.
   {
     name: "custom-fields",
