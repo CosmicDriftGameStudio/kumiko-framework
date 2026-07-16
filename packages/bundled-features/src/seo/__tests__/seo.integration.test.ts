@@ -280,3 +280,71 @@ describe("seo :: runSeoBootCheck (direct unit-tests)", () => {
     }
   });
 });
+
+// resolverTrust: "authoritative" (kumiko-platform#278/1, show-pony#51) —
+// dieselbe Regression wie managed-pages' Suite, für sitemap.xml/llms.txt.
+// gatherEntries' interner Self-Fetch für die by-tenant-published-Query trug
+// keinen Host-Header; ein fallback-freier Resolver (wie hier, wie
+// publicstatus' echter Resolver) löste dafür null auf → tenant_required
+// statt der Managed-Pages-Einträge. systemQuery behebt das (siehe
+// managed-pages' Suite für die volle Mechanismus-Erklärung + Rot/Grün-Beweis).
+describe("seo :: resolverTrust authoritative (host-based, wie publicstatus/show-pony)", () => {
+  let authStack: TestStack;
+  const authManaged = createManagedPagesFeature({
+    resolveApexTenant: (host) => (host.startsWith("a.") ? TENANT_A : null),
+  });
+  const authSeo = createSeoFeature({
+    sitemapEntries: (host) => [{ loc: `https://${host}/`, changefreq: "daily" }],
+    managedPages: {
+      resolveApexTenant: (host) => (host.startsWith("a.") ? TENANT_A : null),
+    },
+  });
+  const authConfigFeature = createConfigFeature();
+
+  beforeAll(async () => {
+    const resolver = createConfigResolver();
+    authStack = await setupTestStack({
+      features: [authConfigFeature, authManaged, authSeo],
+      anonymousAccess: {
+        // KEIN URL-Fallback — spiegelt publicstatus' echten Resolver. Ein
+        // interner Self-Fetch trägt keinen Host-Header; mit Fallback würde
+        // dieser Test den Bug maskieren (siehe managed-pages' Suite).
+        tenantResolver: (c) => ((c.req.header("host") ?? "").startsWith("a.") ? TENANT_A : null),
+        resolverTrust: "authoritative",
+        tenantExists: async (id) => id === TENANT_A,
+      },
+      extraContext: ({ registry }) => ({
+        configResolver: resolver,
+        _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+      }),
+    });
+    await unsafeCreateEntityTable(authStack.db, pageEntity);
+    await unsafePushTables(authStack.db, { configValuesTable });
+    await createEventsTable(authStack.db);
+    await seedPage(authStack.db, {
+      tenantId: TENANT_A,
+      slug: "about",
+      lang: "en",
+      title: "About",
+      body: "# About",
+      published: true,
+    });
+  });
+
+  afterAll(async () => {
+    await authStack.cleanup();
+  });
+
+  test("sitemap.xml → 200, merges managed-pages' published slugs via systemQuery", async () => {
+    const res = await authStack.app.request("http://a.example.com/sitemap.xml");
+    expect(res.status).toBe(200);
+    const xml = await res.text();
+    expect(xml).toContain("<loc>https://a.example.com/</loc>");
+    expect(xml).toContain("<loc>http://a.example.com/p/about</loc>");
+  });
+
+  test("llms.txt → 200", async () => {
+    const res = await authStack.app.request("http://a.example.com/llms.txt");
+    expect(res.status).toBe(200);
+  });
+});

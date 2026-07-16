@@ -34,22 +34,27 @@ const ADMIN_ACCESS = { roles: ["TenantAdmin", "SystemAdmin"] } as const;
 const PUBLIC_PAGE_CACHE = { kind: "revalidate", maxAgeSeconds: 60 } as const;
 
 // QN-Konstante als dokumentierter Public-Contract — der Render-Pfad ruft
-// die by-slug-Query via internem app.fetch (kein Code-Import des Handlers,
-// symmetrisch zum legal-pages-Muster).
+// die by-slug-Query via systemQuery in-process (kein Code-Import des
+// Handlers, symmetrisch zum legal-pages-Muster).
 const BY_SLUG_QN = "managed-pages:query:by-slug";
 
-// Wire-Body-Shape von /api/query — das was bySlugQuery returnt (published-only).
-type ByslugQueryBody = {
-  data: {
-    title: string;
-    body: string;
-    lang: string;
-    description: string | null;
-    ogImage: string | null;
-    version: number;
-    updatedAt: string;
-  } | null;
-};
+// Minimal shape of the httpRoute handler's `{ systemQuery }` dep — mirrors
+// http-route.ts's signature. Not importing HttpRouteHandlerDeps itself: it
+// isn't part of the engine's public surface (only the httpRoute-
+// registration types are; same convention as seo/feature.ts's FetchApp).
+type SystemQueryFn = (type: string, payload: unknown, tenantId: string) => Promise<unknown>;
+
+// Raw Handler-Return von bySlugQuery (published-only) — systemQuery dispatcht
+// direkt gegen den Handler, keine `{data}`-Envelope wie am /api/query-Wire.
+type BySlugQueryResult = {
+  title: string;
+  body: string;
+  lang: string;
+  description: string | null;
+  ogImage: string | null;
+  version: number;
+  updatedAt: string;
+} | null;
 
 function brandingRevisionSeed(branding: BrandingTokens): string {
   return JSON.stringify([
@@ -63,14 +68,15 @@ function brandingRevisionSeed(branding: BrandingTokens): string {
   ]);
 }
 
-// Parse the branding query's `{ data }` envelope into BrandingTokens, never
-// throwing: a non-ok status or malformed body degrades to the unbranded
-// default (branding is decoration, not a hard dependency of the page render).
-async function readBrandingResponse(res: Response): Promise<BrandingTokens> {
-  if (!res.ok) return EMPTY_BRANDING;
+// Never throws: a query failure or malformed result degrades to the
+// unbranded default (branding is decoration, not a hard dependency of the
+// page render).
+async function readBrandingViaSystemQuery(
+  systemQuery: SystemQueryFn,
+  tenantId: string,
+): Promise<BrandingTokens> {
   try {
-    const body: { data?: unknown } = await res.json();
-    return coerceBranding(body.data);
+    return coerceBranding(await systemQuery(BRANDING_QUERY_QN, {}, tenantId));
   } catch {
     return EMPTY_BRANDING;
   }
@@ -205,7 +211,7 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
       method: "GET",
       path: `${basePath}/:slug`,
       anonymous: true,
-      handler: async (c, { app }) => {
+      handler: async (c, { systemQuery }) => {
         // `param("slug")` ist string|undefined, weil `path` ein computed
         // Template ist (Hono inferiert `:slug` nur aus String-Literalen).
         const slug = c.req.param("slug");
@@ -218,31 +224,25 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
         const tenantId = await opts.resolveApexTenant(host);
         if (!tenantId) return c.text("not found", 404);
 
-        const queryHeaders = { "content-type": "application/json", "X-Tenant": tenantId };
-        const queryUrl = `${url.origin}/api/query`;
-        const queryReq = (type: string, payload: unknown) =>
-          app.fetch(
-            new Request(queryUrl, {
-              method: "POST",
-              headers: queryHeaders,
-              body: JSON.stringify({ type, payload }),
-            }),
-          );
-
-        // Page + branding read in parallel (same in-process app, same
-        // X-Tenant). Branding is decoration → a failed/empty branding read
-        // degrades to the unbranded default, it never blocks the page.
-        const [pageRes, brandingRes] = await Promise.all([
-          queryReq(BY_SLUG_QN, { slug, lang }),
-          queryReq(BRANDING_QUERY_QN, {}),
+        // Page + branding read in parallel, beide über systemQuery in-
+        // process gegen den host-resolved tenantId erzwungen (kein X-Tenant-
+        // Header-Trick über app.fetch — der sähe für einen host-basierten
+        // anonymousAccess-Resolver wie ein Client-Override aus und würde
+        // von resolverTrust: "authoritative" zurecht abgelehnt; siehe
+        // systemQuery's Doc in http-route.ts). Branding ist Deko → ein
+        // Fehlschlag degradiert zum unbranded Default, blockt nie die Page.
+        const [pageSettled, brandingResult] = await Promise.all([
+          systemQuery(BY_SLUG_QN, { slug, lang }, tenantId)
+            .then((data) => ({ ok: true as const, data: data as BySlugQueryResult }))
+            .catch(() => ({ ok: false as const, data: null as BySlugQueryResult })),
+          readBrandingViaSystemQuery(systemQuery, tenantId),
         ]);
-        if (!pageRes.ok) return c.text("page unavailable", 503);
+        if (!pageSettled.ok) return c.text("page unavailable", 503);
 
-        const body: ByslugQueryBody = await pageRes.json();
-        const data = body.data;
+        const data = pageSettled.data;
         if (!data) return c.text("not found", 404);
 
-        const branding = await readBrandingResponse(brandingRes);
+        const branding = brandingResult;
 
         const etag = computeRevisionEtag([
           tenantId,
