@@ -43,6 +43,7 @@ import { createJobRunner } from "../jobs/job-runner";
 import type { Lifecycle } from "../lifecycle";
 import { createLifecycle } from "../lifecycle";
 import type { ObservabilityOptions, ObservabilityProvider } from "../observability";
+import { createNoopProvider } from "../observability";
 import type { EventDedup, EventDispatcher } from "../pipeline";
 import type { Dispatcher, DispatcherOptions } from "../pipeline/dispatcher";
 import type { SystemHooks } from "../pipeline/lifecycle-pipeline";
@@ -175,6 +176,40 @@ function mergeDispatcherOptions(
   return { ...(caller ?? {}), jobRunner };
 }
 
+// Resolve the observability provider ONCE per entrypoint boot, before any
+// job-runner is built. `buildServer` (api/server.ts) independently falls
+// back to `options.observability ?? createNoopProvider()` and merges
+// tracer/meter into a NEW context object it builds internally — but the
+// job-runner is constructed from the caller's RAW `options.context`
+// *before* buildServer ever runs, so it never saw that merge. Its
+// queue-depth poller only starts `if (context.meter)` with no fallback
+// (unlike the tracer, which has its own `getFallbackTracer()`), so an
+// unset meter silently skipped the poller forever — `/metrics` showed the
+// `kumiko_job_queue_depth` HELP/TYPE header but never a single data line
+// (#1046). Resolving once here and threading it into the job-runner's
+// context fixes the gap. This resolved instance is ONLY used for the
+// job-runner — `buildApiServer`/`buildWorkerServer` still pass the
+// caller's original `options.observability` through unchanged (not this
+// resolved value), because `buildServer` also derives `shouldWrapRedis`
+// from whether `options.observability` was explicitly set — forcing it to
+// an always-defined value here would silently switch every app's Redis
+// client onto the tracer-wrapping Proxy path even with no provider
+// configured. buildServer's own independent Noop fallback is harmless in
+// that case: nothing scrapes `/metrics` without a real provider, so a
+// second, disconnected Noop meter costs nothing.
+function resolveObservability(
+  observability: ObservabilityProvider | undefined,
+): ObservabilityProvider {
+  return observability ?? createNoopProvider();
+}
+
+function contextWithObservability(
+  context: AppContext,
+  observability: ObservabilityProvider,
+): AppContext {
+  return { ...context, tracer: observability.tracer, meter: observability.meter };
+}
+
 // buildApiServer shapes ServerOptions from API-mode caller-options.
 // AllInOneEntrypointOptions extends ApiEntrypointOptions, so structural
 // subtyping makes the all-in-one path a valid caller without an explicit
@@ -291,6 +326,7 @@ function requireDispatcher(server: KumikoServer, mode: string): EventDispatcher 
 
 export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoint {
   const lifecycle = options.lifecycle ?? createLifecycle({ startReady: true });
+  const observability = resolveObservability(options.observability);
 
   // Boot-validation (Welle 2.6.c) — fail loud before traffic arrives:
   //   (a) Any jobs declared + no jobs-block → command-dispatcher would
@@ -324,7 +360,7 @@ export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoin
   const apiJobRunner = options.jobs
     ? buildJobRunnerWithHook(
         options.registry,
-        options.context,
+        contextWithObservability(options.context, observability),
         options.jobs,
         options.jobs.runLocalJobs ? "api" : undefined,
         lifecycle,
@@ -375,9 +411,10 @@ export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoin
 
 export function createWorkerEntrypoint(options: WorkerEntrypointOptions): WorkerEntrypoint {
   const lifecycle = options.lifecycle ?? createLifecycle({ startReady: true });
+  const observability = resolveObservability(options.observability);
   const jobRunner = buildJobRunnerWithHook(
     options.registry,
-    options.context,
+    contextWithObservability(options.context, observability),
     options,
     "worker",
     lifecycle,
@@ -406,6 +443,8 @@ export function createWorkerEntrypoint(options: WorkerEntrypointOptions): Worker
 
 export function createAllInOneEntrypoint(options: AllInOneEntrypointOptions): AllInOneEntrypoint {
   const lifecycle = options.lifecycle ?? createLifecycle({ startReady: true });
+  const observability = resolveObservability(options.observability);
+  const jobRunnerContext = contextWithObservability(options.context, observability);
 
   // All-in-one consumes BOTH lanes: two runners, each with a BullMQ worker
   // for its own lane's queue. Both runners hold queue-clients for both
@@ -416,7 +455,7 @@ export function createAllInOneEntrypoint(options: AllInOneEntrypointOptions): Al
   // its own lane in its own .start().
   const workerJobRunner = buildJobRunnerWithHook(
     options.registry,
-    options.context,
+    jobRunnerContext,
     options,
     "worker",
     lifecycle,
@@ -424,7 +463,7 @@ export function createAllInOneEntrypoint(options: AllInOneEntrypointOptions): Al
   );
   const apiJobRunner = buildJobRunnerWithHook(
     options.registry,
-    options.context,
+    jobRunnerContext,
     options,
     "api",
     lifecycle,

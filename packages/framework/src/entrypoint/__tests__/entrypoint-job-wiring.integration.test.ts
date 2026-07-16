@@ -17,9 +17,10 @@ import { z } from "zod";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
 import { createRegistry, defineFeature } from "../../engine";
 import { createArchivedStreamsTable, createEventsTable } from "../../event-store";
+import { createNoopProvider, createPrometheusMeter } from "../../observability";
 import { createEventConsumerStateTable } from "../../pipeline";
 import { createTestRedis, type TestRedis, TestUsers } from "../../stack";
-import { waitFor } from "../../testing";
+import { sleep, waitFor } from "../../testing";
 import { createAllInOneEntrypoint } from "../index";
 
 const jobRuns: Array<{ name: string; payload: Record<string, unknown> }> = [];
@@ -167,6 +168,58 @@ describe("createAllInOneEntrypoint auto-wires jobRunner into command-dispatcher"
         expect(workerRun?.payload["msg"]).toBe("hi");
         expect(apiRun?.payload["msg"]).toBe("hi");
       });
+    } finally {
+      await entry.stop();
+    }
+  });
+});
+
+// Regression test for #1046 — createJobRunner is built from the caller's
+// RAW context, BEFORE buildServer ever merges observability.tracer/meter
+// into a context object of its own. Without threading the resolved
+// provider into the job-runner's context too, `context.meter` stayed
+// undefined, the queue-depth poller's `if (context.meter)` guard skipped
+// silently, and `/metrics` showed the kumiko_job_queue_depth HELP/TYPE
+// header but never a single data line — forever, with no error anywhere.
+describe("createAllInOneEntrypoint — kumiko_job_queue_depth sees the SAME meter as buildServer (#1046)", () => {
+  test("passing an explicit observability provider makes the queue-depth poller emit real data for BOTH lanes", async () => {
+    const registry = createRegistry([wiringFeature]);
+    const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
+    const meter = createPrometheusMeter();
+    const observability = { ...createNoopProvider(), meter };
+    const entry = createAllInOneEntrypoint({
+      registry,
+      context: { db: testDb.db, redis: testRedis.redis },
+      jwtSecret: JWT,
+      redisUrl,
+      queueNamePrefix: `wiring-qd-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      observability,
+    });
+    await entry.start();
+    try {
+      // If the job-runner never saw this meter (the #1046 bug), the poller's
+      // `if (context.meter)` guard skips entirely and no slots ever appear —
+      // this assertion is the one that would have caught it.
+      const snapshot = meter.snapshot().get("kumiko_job_queue_depth");
+      expect(snapshot).toBeDefined();
+      const workerWaiting = snapshot?.slots.find(
+        (s) => s.labels?.["lane"] === "worker" && s.labels?.["state"] === "waiting",
+      );
+      const apiWaiting = snapshot?.slots.find(
+        (s) => s.labels?.["lane"] === "api" && s.labels?.["state"] === "waiting",
+      );
+      expect(workerWaiting).toBeDefined();
+      expect(apiWaiting).toBeDefined();
+      // Same instance, not a coincidentally-equal one — proves buildServer's
+      // internal registerStandardMetrics() and the job-runner's poller wrote
+      // into the identical meter, not two disconnected Noop instances.
+      expect(entry.observability.meter).toBe(meter);
+      // BullMQ's fresh Worker connections are still settling right after
+      // start() returns — stopping immediately races their own connection
+      // teardown and throws an unrelated "Connection is closed" from
+      // ioredis (same artifact documented in job-queue-depth.integration.
+      // test.ts). Production runners live far longer than this.
+      await sleep(50);
     } finally {
       await entry.stop();
     }
