@@ -238,6 +238,10 @@ describe("legal-pages :: SYSTEM_TENANT-routing (production-bug-regression)", () 
         // Resolver gibt IMMER einen anderen Tenant zurück — wenn legal-
         // pages den respektieren würde, wäre der DB-Lookup leer.
         tenantResolver: () => otherTenantId,
+        // Mirrors publicstatus's real subdomain resolver: the tenant is
+        // derived from the host, which the client cannot forge — trusted
+        // over any client-supplied tenant.
+        resolverTrust: "authoritative",
         tenantExists: async (id) => id === otherTenantId || id === SYSTEM_TENANT_ID,
       },
       extraContext: ({ db }) => ({

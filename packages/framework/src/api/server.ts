@@ -3,6 +3,7 @@ import type { DbConnection, PgClient } from "../db/connection";
 import { createTenantDb } from "../db/tenant-db";
 import { EXT_FILE_PROVIDER } from "../engine/extension-names";
 import { runsInLane } from "../engine/run-in";
+import { createAnonymousUser } from "../engine/system-user";
 import {
   type AppContext,
   isFileField,
@@ -670,12 +671,32 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // /api/* immer Vorrang hat — feature-Routes liegen ohnehin außerhalb
   // (Boot-Validator blockt /api-Prefix). deps.app ist die Outer-App, sodass
   // der Handler /api/query intern via app.fetch(...) nutzen kann (gleicher
-  // Auth-Pfad wie ein echter HTTP-Call).
+  // Auth-Pfad wie ein echter HTTP-Call). deps.systemQuery umgeht diesen
+  // Pfad bewusst — für Routes die einen FESTEN Tenant erzwingen müssen
+  // (z.B. legal-pages → immer SYSTEM_TENANT_ID), statt ihn per X-Tenant-
+  // Header vorzutäuschen (das sieht für die anonymousAccess-Auflösung
+  // wie ein normaler Client-Header aus und wird von resolverTrust:
+  // "authoritative"-Configs zurecht als Tenant-Override abgelehnt).
   for (const feature of options.registry.features.values()) {
     for (const route of Object.values(feature.httpRoutes)) {
       // @wrapper-known semantic-alias
       const honoHandler = async (c: import("hono").Context): Promise<Response> =>
-        route.handler(c, { app });
+        route.handler(c, {
+          app,
+          systemQuery: (type, payload, tenantId) =>
+            // createAnonymousUser, NOT createSystemUser: httpRoute handlers
+            // using systemQuery are, by construction, `anonymous: true`
+            // public routes — the synthesized user must clear the SAME
+            // access gate a real anonymous visitor would, no more. The
+            // system role would ALSO satisfy that gate here, but it can
+            // read fields gated to "system" that "anonymous" can't
+            // (filterReadFields is a plain role-in-map check) — a future
+            // systemQuery caller reading a system-gated field would leak
+            // it into a public response. The forced tenant already comes
+            // from bypassing the HTTP layer entirely; no elevated role
+            // is needed or wanted on top of that.
+            dispatcher.query(type, payload, createAnonymousUser(tenantId)),
+        });
       switch (route.method) {
         case "GET":
           app.get(route.path, honoHandler);

@@ -30,6 +30,24 @@ export type HttpRouteHandlerDeps = {
    *  ansprechen (z.B. /api/query mit der vollen Auth-/Anonymous-Chain). */
   // biome-ignore lint/suspicious/noExplicitAny: Hono's generic-Param ist im Framework-Boundary unsichtbar
   readonly app: import("hono").Hono<any, any>;
+  /** Run a query handler in-process, forcing a SPECIFIC tenant — WITHOUT
+   *  going through the public /api/query HTTP layer (no header parsing, no
+   *  anonymousAccess tenant resolution). The synthesized caller carries
+   *  anonymous-level access ONLY (same role a real anonymous request would
+   *  have, no more) — the primitive forces the tenant, not the privilege
+   *  level, so it stays safe to call from any `anonymous: true` route
+   *  without risking a field-level disclosure a real anonymous caller
+   *  couldn't already get. Use this whenever the route needs a tenant
+   *  other than the one the request resolves to (e.g. always
+   *  SYSTEM_TENANT_ID regardless of the visited host) — spoofing that via
+   *  an internal X-Tenant header on `app.fetch(...)` is indistinguishable
+   *  from an external client and gets rejected by resolverTrust:
+   *  "authoritative" anonymousAccess configs (see auth-middleware.ts). */
+  readonly systemQuery: (
+    type: string,
+    payload: unknown,
+    tenantId: import("./identifiers").TenantId,
+  ) => Promise<unknown>;
 };
 
 export type HttpRouteHandler = (

@@ -21,10 +21,8 @@ import { renderMarkdownToHtml, wrapInLayout } from "./markdown";
 // wie bei jedem API-Endpunkt.
 const TEXT_CONTENT_BY_SLUG_QN = "text-content:query:by-slug";
 
-// Wire-Body-Shape von /api/query — das, was bySlugQuery returnt.
-type ByslugQueryBody = {
-  data: { title: string; body: string | null; updatedAt: string } | null;
-};
+// Return-Shape von bySlugQuery (text-content/handlers/by-slug.query.ts).
+type TextBlockQueryResult = { title: string; body: string | null; updatedAt: string } | null;
 
 // 60s-shared-cache saves the origin-revalidate roundtrip; legal-content edits are live within 60s.
 const PUBLIC_PAGE_CACHE = { kind: "revalidate", maxAgeSeconds: 60 } as const;
@@ -81,35 +79,28 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
         method: "GET",
         path: route.path,
         anonymous: true,
-        handler: async (c, { app }) => {
-          const url = new URL(c.req.url);
+        handler: async (c, { systemQuery }) => {
           // Architektur: 1 App = X Tenants = 1 Impressum. Egal welche
           // Subdomain der Visitor besucht (apex, admin.*, tenant-x.*) —
-          // legal-pages serven IMMER die SYSTEM_TENANT-Texte. Deshalb
-          // explizit X-Tenant-Header setzen statt host weiterreichen
-          // (sonst würde ein host-basierter anonymousAccess-Resolver
-          // die tenant-Subdomain auf tenant-tenantId resolven und
-          // tenant-x's leere imprint-Tabelle abfragen → 404).
-          const queryRes = await app.fetch(
-            new Request(`${url.origin}/api/query`, {
-              method: "POST",
-              headers: {
-                "content-type": "application/json",
-                "X-Tenant": SYSTEM_TENANT_ID,
-              },
-              body: JSON.stringify({
-                type: TEXT_CONTENT_BY_SLUG_QN,
-                payload: { slug: route.slug, lang: route.lang },
-              }),
-            }),
-          );
-
-          if (!queryRes.ok) {
+          // legal-pages serven IMMER die SYSTEM_TENANT-Texte. systemQuery
+          // erzwingt SYSTEM_TENANT_ID in-process (kein X-Tenant-Header-
+          // Trick über app.fetch — der sähe für einen host-basierten
+          // anonymousAccess-Resolver wie ein Client-Override aus und würde
+          // von resolverTrust: "authoritative" zurecht abgelehnt).
+          let data: TextBlockQueryResult;
+          try {
+            // @cast-boundary engine-payload — dispatcher.query returnt
+            // unknown; Shape ist durch bySlugQuery's Handler-Return-Type
+            // (siehe text-content/handlers/by-slug.query.ts) vertraut.
+            data = (await systemQuery(
+              TEXT_CONTENT_BY_SLUG_QN,
+              { slug: route.slug, lang: route.lang },
+              SYSTEM_TENANT_ID,
+            )) as TextBlockQueryResult;
+          } catch {
             return c.text("legal page unavailable", 503);
           }
 
-          const body: ByslugQueryBody = await queryRes.json();
-          const data = body.data;
           if (!data?.body) {
             return c.text(
               `${route.titleFallback} not configured. Tenant-Admin must set this text-block.`,
