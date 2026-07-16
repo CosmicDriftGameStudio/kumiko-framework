@@ -7,6 +7,7 @@
 // web), Runtime-Helpers (toAppSchema, isAppSchema) bleiben renderer-side
 // weil das die Layer ist die mit den AppSchemas zur Laufzeit arbeitet.
 
+import type { TranslationKeys } from "../engine/types/config";
 import type { EntityDefinition } from "../engine/types/fields";
 import type { NavDefinition } from "../engine/types/nav";
 import type { ScreenDefinition } from "../engine/types/screen";
@@ -19,6 +20,17 @@ export type FeatureSchema = {
   // Flat list; resolveNavigation builds the tree at render-time from
   // the registry's indexes. Omitted when the app has no top-level nav.
   readonly navs?: readonly NavDefinition[];
+  // Server-authored `r.translations({ keys })`, projected verbatim — byte-
+  // identical keys, NOT re-prefixed with featureName (unlike the registry's
+  // internal mergedTranslations, which double-prefixes features that
+  // already qualify their own keys — see registry-ingest.ts populate
+  // Translations). Nav/screen labels resolve these keys directly via
+  // `t(label)`, so shipping anything other than the raw authored string
+  // would break the lookup. Omitted when a feature declares none. #1059:
+  // without this, nav labels only resolved when an app ALSO duplicated the
+  // key in `web/i18n.ts` — most bundled features never did, so labels
+  // rendered as raw i18n keys in the shell.
+  readonly translations?: TranslationKeys;
   // Workspaces — Legacy-Slot für single-feature-Apps. Bevorzugt liegt
   // workspaces auf der AppSchema-Ebene weil ihre navMembers regelmäßig
   // Cross-Feature-Navs referenzieren (siehe AppSchema-Doc). Hier als
