@@ -52,6 +52,10 @@ beforeAll(async () => {
     anonymousAccess: {
       tenantResolver: resolver.tenantResolver,
       tenantExists: resolver.tenantExists,
+      // This recipe teaches "client X-Tenant header wins over the resolver"
+      // as the intended fallback-convenience pattern — see the test below
+      // asserting the header takes precedence and the resolver is skipped.
+      resolverTrust: "fallback-only",
     },
   });
   await unsafeCreateEntityTable(stack.db, productEntity);
