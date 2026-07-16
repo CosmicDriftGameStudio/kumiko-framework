@@ -1,3 +1,4 @@
+// @runtime client
 // Shared error-code → i18n-key mapping for the account-management write
 // handlers (enable-confirm/disable/regenerate-recovery) — distinct from
 // mfa-verify-screen.tsx's own mapper, which covers the login-challenge
