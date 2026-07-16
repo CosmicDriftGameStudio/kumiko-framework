@@ -58,7 +58,7 @@ const noteListScreen: EntityListScreenDefinition = {
     },
   ],
   searchable: true,
-  defaultSort: { field: "title", direction: "asc" },
+  defaultSort: { field: "title", dir: "asc" },
   slots: { header: { react: { __component: TAGS_FILTER_EXTENSION_NAME } } },
   rowActions: [
     {
