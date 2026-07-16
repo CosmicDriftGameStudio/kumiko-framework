@@ -13,7 +13,7 @@ import {
   type UserDataDeleteHook,
   type UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { userMfaEntity, userMfaTable } from "../auth-mfa/schema/user-mfa";
+import { userMfaEntity, userMfaTable } from "../auth-mfa";
 
 const executor = createEventStoreExecutor(userMfaTable, userMfaEntity, {
   entityName: "user-mfa",
@@ -43,6 +43,7 @@ export const userMfaDeleteHook: UserDataDeleteHook = async (ctx) => {
     userId: ctx.userId,
     tenantId: ctx.tenantId,
   });
+  // skip: nothing enrolled for this user — no row to erase
   if (rows.length === 0) return;
   const systemUser = createSystemUser(ctx.tenantId);
   const tdb = createTenantDb(ctx.db, ctx.tenantId, "system");
