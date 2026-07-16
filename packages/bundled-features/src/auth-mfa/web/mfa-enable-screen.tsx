@@ -36,9 +36,20 @@ function extractSecret(otpauthUri: string): string {
   return new URLSearchParams(query).get("secret") ?? "";
 }
 
-export type MfaEnableScreenProps = { readonly embedded?: boolean };
+export type MfaEnableScreenProps = {
+  readonly embedded?: boolean;
+  // Fired once enable-confirm succeeds — MfaEnableScreen has no query of its
+  // own to invalidate, so a host screen composing it alongside other MFA
+  // state (e.g. a status query gating which section renders) needs this to
+  // know when to refetch/swap views instead of leaving the success banner
+  // as a dead end.
+  readonly onEnabled?: () => void;
+};
 
-export function MfaEnableScreen({ embedded = false }: MfaEnableScreenProps = {}): ReactNode {
+export function MfaEnableScreen({
+  embedded = false,
+  onEnabled,
+}: MfaEnableScreenProps = {}): ReactNode {
   const t = useTranslation();
   const { Button, Banner, Field, Input, Section, Heading } = usePrimitives();
   const dispatcher = useDispatcher();
@@ -89,6 +100,7 @@ export function MfaEnableScreen({ embedded = false }: MfaEnableScreenProps = {})
     }
     setEnabled(true);
     setSetup(null);
+    onEnabled?.();
   };
 
   const content = (

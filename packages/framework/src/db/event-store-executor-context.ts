@@ -271,14 +271,21 @@ export function buildExecutorContext(
     return out;
   }
 
+  // Mirror of encryptForStorage IN REVERSE — a field that carries both
+  // `encrypted: true` and a subject marker (userOwned/tenantOwned/pii) is
+  // written as PII(envelope(plaintext)) (envelope wraps first, PII wraps
+  // that as its outer layer). Decrypt must peel the OUTER layer first: PII
+  // unwrap before envelope decrypt, or the envelope cipher chokes on a
+  // still-PII-wrapped string (auth-mfa.totpSecret/recoveryCodes combine both
+  // markers; see pii-subject-encryption.integration.test.ts).
   async function decryptForRead(row: Record<string, unknown>): Promise<Record<string, unknown>> {
     let out = row;
-    if (hasEncryptedFields) {
-      out = await decryptEntityFieldValues(out, encryptedFields, fieldCipher());
-    }
     const kms = piiKms();
     if (hasPiiFields && kms) {
       out = await decryptPiiFieldValues(out, piiSubjectFields, kms, kmsContextFor());
+    }
+    if (hasEncryptedFields) {
+      out = await decryptEntityFieldValues(out, encryptedFields, fieldCipher());
     }
     return out;
   }

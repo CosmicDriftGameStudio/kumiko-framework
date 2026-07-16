@@ -46,7 +46,9 @@ export function createEnableConfirmHandler(opts: EnableConfirmOptions) {
         {
           userId: event.user.id,
           totpSecret: verify.payload.totpSecretBase32,
-          recoveryCodes: { hashes: verify.payload.recoveryCodeHashes },
+          // Stored as a JSON string — see schema/user-mfa.ts (recoveryCodes
+          // is an encrypted+userOwned text field, both layers need a string).
+          recoveryCodes: JSON.stringify({ hashes: verify.payload.recoveryCodeHashes }),
           enabledAt: Temporal.Now.instant(),
           lastUsedAt: null,
         },
