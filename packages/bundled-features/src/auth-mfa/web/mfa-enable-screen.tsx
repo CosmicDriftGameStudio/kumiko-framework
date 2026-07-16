@@ -39,7 +39,7 @@ export type MfaEnableScreenProps = { readonly embedded?: boolean };
 
 export function MfaEnableScreen({ embedded = false }: MfaEnableScreenProps = {}): ReactNode {
   const t = useTranslation();
-  const { Button, Banner, Field, Input, Card, Heading } = usePrimitives();
+  const { Button, Banner, Field, Input, Section, Heading } = usePrimitives();
   const dispatcher = useDispatcher();
   const session = useSession();
 
@@ -98,22 +98,43 @@ export function MfaEnableScreen({ embedded = false }: MfaEnableScreenProps = {})
       {error !== null && <Banner variant="error">{t(`auth.mfa.errors.${error}`)}</Banner>}
 
       {!setup && !enabled && (
-        <Card options={{ padded: true }} className="flex flex-col gap-3">
+        <Section
+          testId="mfa-enable-intro"
+          actions={
+            <Button
+              variant="primary"
+              onClick={() => void startSetup()}
+              loading={busy}
+              disabled={busy}
+            >
+              {t("auth.mfa.enable.start")}
+            </Button>
+          }
+        >
           <span className="text-sm text-muted-foreground">{t("auth.mfa.enable.intro")}</span>
-          <Button
-            variant="primary"
-            onClick={() => void startSetup()}
-            loading={busy}
-            disabled={busy}
-          >
-            {t("auth.mfa.enable.start")}
-          </Button>
-        </Card>
+        </Section>
       )}
 
       {setup && (
-        <Card options={{ padded: true }} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
+        <Section
+          testId="mfa-enable-setup"
+          actions={
+            <>
+              <Button variant="secondary" onClick={() => setSetup(null)} disabled={busy}>
+                {t("auth.mfa.enable.cancel")}
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => void confirmSetup()}
+                loading={busy}
+                disabled={busy || !acknowledged || code.length < 6}
+              >
+                {t("auth.mfa.enable.confirm")}
+              </Button>
+            </>
+          }
+        >
+          <div className="flex flex-col items-center gap-2 text-center">
             <span className="text-sm font-semibold">{t("auth.mfa.enable.scanTitle")}</span>
             {/* qrcode's own SVG string output, not user input — safe to inline */}
             <div
@@ -124,7 +145,7 @@ export function MfaEnableScreen({ embedded = false }: MfaEnableScreenProps = {})
             <span className="text-xs text-muted-foreground">
               {t("auth.mfa.enable.manualEntry")}
             </span>
-            <code className="block break-all rounded bg-muted px-3 py-2 font-mono text-sm">
+            <code className="inline-block break-all rounded bg-muted px-3 py-2 font-mono text-sm">
               {setup.secretParam}
             </code>
           </div>
@@ -159,21 +180,7 @@ export function MfaEnableScreen({ embedded = false }: MfaEnableScreenProps = {})
               autoComplete="one-time-code"
             />
           </Field>
-
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setSetup(null)} disabled={busy}>
-              {t("auth.mfa.enable.cancel")}
-            </Button>
-            <Button
-              variant="primary"
-              onClick={() => void confirmSetup()}
-              loading={busy}
-              disabled={busy || !acknowledged || code.length < 6}
-            >
-              {t("auth.mfa.enable.confirm")}
-            </Button>
-          </div>
-        </Card>
+        </Section>
       )}
     </div>
   );

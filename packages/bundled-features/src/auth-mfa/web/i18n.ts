@@ -7,6 +7,7 @@ import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
 export const defaultTranslations: TranslationsByLocale = {
   de: {
+    "screen:auth-mfa-enable.title": "Zwei-Faktor-Authentifizierung",
     "auth.mfa.verify.title": "Zwei-Faktor-Bestätigung",
     "auth.mfa.verify.subtitle": "Gib den 6-stelligen Code aus deiner Authenticator-App ein.",
     "auth.mfa.verify.code": "Code",
@@ -36,6 +37,7 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.mfa.enable.success": "Zwei-Faktor-Authentifizierung ist jetzt aktiv.",
   },
   en: {
+    "screen:auth-mfa-enable.title": "Two-factor authentication",
     "auth.mfa.verify.title": "Two-factor verification",
     "auth.mfa.verify.subtitle": "Enter the 6-digit code from your authenticator app.",
     "auth.mfa.verify.code": "Code",

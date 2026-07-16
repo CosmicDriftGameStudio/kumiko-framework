@@ -1,0 +1,9 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-auth-mfa",
+  "description": "createAuthMfaFeature — TOTP/2FA enrollment, login challenge, and recovery codes wired into auth-email-password.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  }
+}

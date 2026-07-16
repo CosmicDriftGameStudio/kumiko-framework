@@ -353,6 +353,13 @@
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
     },
+    "samples/recipes/auth-mfa": {
+      "name": "@cosmicdrift/kumiko-sample-auth-mfa",
+      "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+    },
     "samples/recipes/basic-entity": {
       "name": "@cosmicdrift/kumiko-sample-basic-entity",
       "dependencies": {
@@ -778,6 +785,8 @@
     "@cosmicdrift/kumiko-sample-apex-surface-auth": ["@cosmicdrift/kumiko-sample-apex-surface-auth@workspace:samples/recipes/apex-surface-auth"],
 
     "@cosmicdrift/kumiko-sample-auth-claims": ["@cosmicdrift/kumiko-sample-auth-claims@workspace:samples/recipes/auth-claims"],
+
+    "@cosmicdrift/kumiko-sample-auth-mfa": ["@cosmicdrift/kumiko-sample-auth-mfa@workspace:samples/recipes/auth-mfa"],
 
     "@cosmicdrift/kumiko-sample-basic-entity": ["@cosmicdrift/kumiko-sample-basic-entity@workspace:samples/recipes/basic-entity"],
 
