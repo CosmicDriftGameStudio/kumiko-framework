@@ -1,5 +1,17 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.147.2
+
+### Patch Changes
+
+- 3f121df: Fix `buildManifestFromRegistry` reporting `encrypted: false` for config keys with `backing: "secrets"` (e.g. `subscription-stripe`'s `api-key`/`webhook-secret`) when no explicit `encrypted` flag was set. The values were always envelope-encrypted in the secrets store — only the generated feature-manifest/docs mislabeled them as plaintext. `backing: "secrets"` now implies `encrypted: true` unless an explicit `encrypted` flag says otherwise.
+- dfb3c26: Fix `kumiko_job_queue_depth` never emitting any data (only the metric's HELP/TYPE header) under `createApiEntrypoint`/`createWorkerEntrypoint`/`createAllInOneEntrypoint`. The job-runner was built from the caller's raw `context` _before_ `buildServer` merged the resolved observability provider's `tracer`/`meter` into its own internal context — so `context.meter` stayed `undefined` on the job-runner side, and the queue-depth poller's `if (context.meter)` guard silently skipped starting at all (unlike the tracer, which has its own fallback). The observability provider is now resolved once per entrypoint boot and threaded into both the job-runner's context and `buildServer`, so both sides observe the same meter instance.
+- c007b76: `AnonymousAccessConfig.tenantResolver` now requires a `resolverTrust: "authoritative" | "fallback-only"` (compile-time — the type is a discriminated union — plus a runtime boot-throw for callers that bypass the compiler). Previously a client-supplied `X-Tenant` header/`kumiko_tenant` cookie always won over a custom `tenantResolver`, even one deriving the tenant from the subdomain, which the client cannot forge — letting a guest on one tenant's subdomain override the tenant via a forged header. `resolverTrust: "authoritative"` makes the resolver's answer final (a disagreeing client tenant is rejected with `tenant_mismatch`, and a null resolver answer does not fall back to the client tenant either); `resolverTrust: "fallback-only"` preserves the old behavior for resolvers with no more trust than the client's own claim.
+
+  Added `HttpRouteHandlerDeps.systemQuery` — an in-process query-handler dispatch that forces a specific tenant without going through the public `/api/query` HTTP layer, for routes (like `legal-pages`) that need to serve a fixed tenant (e.g. `SYSTEM_TENANT_ID`) regardless of the visited host.
+
+  Consumers with an existing `anonymousAccess.tenantResolver` must add a `resolverTrust` value — pick `"authoritative"` for subdomain/host-derived resolvers, `"fallback-only"` to keep the previous precedence.
+
 ## 0.147.1
 
 ## 0.147.0
