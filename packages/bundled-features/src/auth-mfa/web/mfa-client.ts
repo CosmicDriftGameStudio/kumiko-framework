@@ -7,7 +7,7 @@
 // false, error}) since auth-routes.ts mints via the same
 // mintSessionAndRespond() for both routes.
 
-import type { LoginFailure, LoginResponse } from "../../auth-email-password/web/auth-client";
+import type { LoginFailure, LoginResponse } from "../../auth-email-password/web";
 
 export type MfaVerifyResult =
   | { readonly kind: "success"; readonly data: LoginResponse }

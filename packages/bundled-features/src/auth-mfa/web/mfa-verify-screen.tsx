@@ -8,8 +8,7 @@
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
-import { AuthCard } from "../../auth-email-password/web/auth-form-primitives";
-import { useSession } from "../../auth-email-password/web/session";
+import { AuthCard, useSession } from "../../auth-email-password/web";
 import { verifyMfaChallenge } from "./mfa-client";
 
 export type MfaVerifyScreenProps = {

@@ -1,3 +1,6 @@
+// @runtime client
+// Pure constants — client-marked so auth-mfa/web/ may import handler QNs
+// and the screen id without pulling the feature's server runtime barrel.
 // Qualified write-handler names — feature is registered as "auth-mfa", each
 // short `name` below gets auto-prefixed to "auth-mfa:write:<name>" by
 // r.writeHandler. Exported so cross-feature wiring (login.write.ts,

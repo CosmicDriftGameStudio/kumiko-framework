@@ -11,6 +11,7 @@ export type {
   CurrentUserProfile,
   LoginFailure,
   LoginRequest,
+  LoginResponse,
   ResetPasswordFailure,
   SignupConfirmSuccess,
   TenantSummary,
@@ -24,8 +25,8 @@ export {
   resetPassword,
   verifyEmail,
 } from "./auth-client";
-export type { AuthShellRenderer } from "./auth-form-primitives";
-export { AuthShellProvider, useAuthShell } from "./auth-form-primitives";
+export type { AuthCardProps, AuthShellRenderer } from "./auth-form-primitives";
+export { AuthCard, AuthShellProvider, useAuthShell } from "./auth-form-primitives";
 export type { MfaVerifyComponentProps } from "./auth-gate";
 export { makeAuthGate, makeSessionAuthGate } from "./auth-gate";
 export type {
