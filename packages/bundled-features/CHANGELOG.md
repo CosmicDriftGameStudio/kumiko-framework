@@ -1,5 +1,20 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.149.0
+
+### Minor Changes
+
+- ab7e41e: `auth-mfa/web` gains `MfaDisableDialog`, `MfaRegenerateRecoveryDialog`, and `MfaRecoveryCodesReveal` — the disable/regenerate-recovery UI deferred from the initial MFA-UI PR (kumiko-framework#266). Also fixes `MfaEnableScreen`'s error banner, which templated the raw snake_case server error code straight into the i18n key (`auth.mfa.errors.invalid_totp_code`) instead of the camelCase key actually registered (`auth.mfa.errors.invalidCode`) — extracted into a shared `mfaManageErrorKey` helper, now used by all three write-triggering components.
+- 9a463ec: `auth-mfa` gains a `status` query (`AuthMfaQueries.status`, wire QN `auth-mfa:query:user-mfa:status`) returning `{ enabled: boolean }` for the calling user — the one thing a settings/security screen needs to decide whether to show the enrollment flow or the disable/regenerate actions. No client-side signal carried this before.
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.149.0
+- @cosmicdrift/kumiko-dispatcher-live@0.149.0
+- @cosmicdrift/kumiko-headless@0.149.0
+- @cosmicdrift/kumiko-renderer@0.149.0
+- @cosmicdrift/kumiko-renderer-web@0.149.0
+
 ## 0.148.0
 
 ### Patch Changes
