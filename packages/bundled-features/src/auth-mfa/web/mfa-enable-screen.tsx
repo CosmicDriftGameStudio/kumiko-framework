@@ -134,7 +134,7 @@ export function MfaEnableScreen({ embedded = false }: MfaEnableScreenProps = {})
             </>
           }
         >
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col items-center gap-2 text-center">
             <span className="text-sm font-semibold">{t("auth.mfa.enable.scanTitle")}</span>
             {/* qrcode's own SVG string output, not user input — safe to inline */}
             <div
@@ -145,7 +145,7 @@ export function MfaEnableScreen({ embedded = false }: MfaEnableScreenProps = {})
             <span className="text-xs text-muted-foreground">
               {t("auth.mfa.enable.manualEntry")}
             </span>
-            <code className="block break-all rounded bg-muted px-3 py-2 font-mono text-sm">
+            <code className="inline-block break-all rounded bg-muted px-3 py-2 font-mono text-sm">
               {setup.secretParam}
             </code>
           </div>
