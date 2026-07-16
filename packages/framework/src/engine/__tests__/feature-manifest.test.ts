@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { ConfigScopes } from "../constants";
-import { buildManifestFromRegistry, createRegistry, defineFeature } from "../index";
+import {
+  buildManifestFromRegistry,
+  createRegistry,
+  createSystemConfig,
+  defineFeature,
+} from "../index";
 
 const boolKey = {
   type: "boolean",
@@ -103,5 +108,30 @@ describe("buildManifestFromRegistry — deterministic codepoint sort (#330)", ()
       recommended: true,
     });
     expect(noHints && "uiHints" in noHints).toBe(false);
+  });
+
+  // #1039: backing:"secrets" routes the value through the envelope-encrypted
+  // secrets store — the manifest must report encrypted:true even without an
+  // explicit `encrypted` flag, so generated docs don't mislabel Stripe-style
+  // secret-backed config keys as plaintext. (createConfigKey never emits an
+  // explicit `encrypted: false` — falsy opts.encrypted just omits the field —
+  // so there's no "explicit false wins" case to pin here.)
+  test("encrypted flag — backing:secrets implies encrypted:true without an explicit flag", () => {
+    const feature = defineFeature("demo", (r) => {
+      r.config({
+        keys: {
+          "api-key": createSystemConfig("text", { backing: "secrets" }),
+          "plain-flag": createSystemConfig("boolean", {}),
+        },
+      });
+    });
+    const registry = createRegistry([feature]);
+
+    const manifest = buildManifestFromRegistry(registry, { source: "test" });
+    const demo = manifest.features.find((f) => f.name === "demo");
+    const byKey = (key: string) => demo?.configKeys.find((k) => k.key === key);
+
+    expect(byKey("api-key")?.encrypted).toBe(true);
+    expect(byKey("plain-flag")?.encrypted).toBe(false);
   });
 });
