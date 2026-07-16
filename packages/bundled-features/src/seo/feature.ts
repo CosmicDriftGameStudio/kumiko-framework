@@ -81,7 +81,10 @@ const EMPTY_SEO_CONFIG: SeoConfigValues = {
 // systemQuery forces tenantId in-process — no internal X-Tenant self-fetch,
 // which a host-based anonymousAccess resolver in "authoritative" mode would
 // reject as a forged client override.
-async function readSeoConfig(systemQuery: SystemQueryFn, tenantId: string): Promise<SeoConfigValues> {
+async function readSeoConfig(
+  systemQuery: SystemQueryFn,
+  tenantId: string,
+): Promise<SeoConfigValues> {
   try {
     const data = (await systemQuery(SEO_CONFIG_QUERY_QN, {}, tenantId)) as Partial<SeoConfigValues>;
     return { ...EMPTY_SEO_CONFIG, ...data };
