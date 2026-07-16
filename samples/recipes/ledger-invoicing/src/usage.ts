@@ -13,7 +13,11 @@
 // This recipe's integration test runs `invoicingFlow` below against the real
 // dispatcher + DB.
 
-import { LedgerHandlers, LedgerQueries } from "@cosmicdrift/kumiko-bundled-features/ledger";
+import {
+  type AccountType,
+  LedgerHandlers,
+  LedgerQueries,
+} from "@cosmicdrift/kumiko-bundled-features/ledger";
 
 export type LedgerClient = {
   write: <T>(type: string, payload: unknown) => Promise<T>;
@@ -25,7 +29,7 @@ type BalancesReport = {
   trialBalance: number;
 };
 
-async function openAccount(client: LedgerClient, name: string, type: string): Promise<string> {
+async function openAccount(client: LedgerClient, name: string, type: AccountType): Promise<string> {
   const { id } = await client.write<{ id: string }>(LedgerHandlers.createAccount, { name, type });
   return id;
 }

@@ -132,7 +132,6 @@
     "screenshot": "/screenshots/features/tags.png"
   },
   "tenant": {
-    "primarySample": "recipes-user-profile",
     "whenToUse": "Your app serves multiple organizations — tenants, memberships, and roles scope every query and write.",
     "sampleBlurb": "Multi-tenant memberships and roles — profile screen switches tenant context and scopes queries to the active membership.",
     "screenshot": "/screenshots/features/tenant.png"

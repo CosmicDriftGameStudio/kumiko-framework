@@ -303,8 +303,7 @@
         "recipes-user-profile"
       ],
       "hasVisualOutput": false,
-      "readmeSummary": "user-profile:write:change-email: — re-authenticated email change; resets emailVerified until the user confirms the new address. - **auth-email-password:write:change-password** — used from the same screen; lives on auth-email-password, not duplicated in user-profile. - **Account deletion** — user-data-rights handlers for request / cancel deletion; grace period comes from the tenant's compliance profile. - **App-side screen declaration** — r.screen({ type: \"custom\", renderer: { react: { __component: \"UserProfileScreen\" } } }) plus matching components map on the client. - **Full require chain** — user → tenant → auth-email-password → user-data-rights (which pulls data-retention, compliance-profiles, sessions). composeAccountApp() mounts everything boot needs.",
-      "primarySample": "recipes-user-profile",
+      "readmeSummary": "Four public routes: — /login, /signup, /forgot-password, /delete-account (+ confirm) using bundled auth screens. - **createPublicSurface** — stacks clientFeatures providers and i18n only, **not** their gates (an AuthGate would lock the public surface). - **AuthShellProvider** — auth card inside marketing chrome instead of fullscreen (optional; default fullscreen still works). - **composeApexAccountApp()** — server feature list for all four flows. - **Anonymous deletion** — email-verified magic-link flow when the user cannot log in (GDPR Art. 17 lockout case). - **anonymousAccess** — lets unauthenticated /api/write hit anonymous handlers on the apex host tenant.",
       "whenToUse": "Your app serves multiple organizations — tenants, memberships, and roles scope every query and write.",
       "sampleBlurb": "Multi-tenant memberships and roles — profile screen switches tenant context and scopes queries to the active membership.",
       "screenshot": "/screenshots/features/tenant.png"

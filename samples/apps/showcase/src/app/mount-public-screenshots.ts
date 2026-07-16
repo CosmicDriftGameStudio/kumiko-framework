@@ -1,7 +1,7 @@
 // ponytail: dev-server serves only index.html from public/ — static siblings need an explicit Hono route.
 
 import { existsSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Hono } from "hono";
 
@@ -15,7 +15,7 @@ export function mountPublicScreenshots(app: Hono): void {
     const name = c.req.param("name");
     if (!name || name.includes("..") || name.includes("/")) return c.notFound();
     const path = resolve(SCREENSHOTS_DIR, name);
-    if (!path.startsWith(SCREENSHOTS_DIR) || !existsSync(path)) return c.notFound();
+    if (!path.startsWith(SCREENSHOTS_DIR + sep) || !existsSync(path)) return c.notFound();
     const file = Bun.file(path);
     return new Response(file);
   });

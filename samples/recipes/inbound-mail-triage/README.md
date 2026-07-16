@@ -11,7 +11,7 @@ Attach a business process to inbound e-mail: `inbound-mail-foundation` owns tran
 ## Feature composition
 
 ```
-config + tenant + compliance-profiles + tenant-lifecycle   (foundation requirements)
+tenant-lifecycle (transitively pulls tenant + config + compliance-profiles)
 inbound-mail-foundation                                     (streams, projections, ingest)
 inbound-provider-inmemory                                   (scriptable provider)
 mail-triage  ← this sample                                  (the app-side consumer)
