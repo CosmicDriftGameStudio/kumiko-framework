@@ -35,6 +35,25 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.mfa.enable.cancel": "Abbrechen",
     "auth.mfa.enable.confirm": "Aktivieren",
     "auth.mfa.enable.success": "Zwei-Faktor-Authentifizierung ist jetzt aktiv.",
+    "auth.mfa.disable.title": "Zwei-Faktor-Authentifizierung deaktivieren",
+    "auth.mfa.disable.description":
+      "Bestätige mit einem Code aus deiner Authenticator-App oder einem Recovery-Code. Dein Konto ist danach nur noch durch dein Passwort geschützt.",
+    "auth.mfa.disable.code": "Code aus der Authenticator-App oder Recovery-Code",
+    "auth.mfa.disable.confirm": "Deaktivieren",
+    "auth.mfa.disable.cancel": "Abbrechen",
+    "auth.mfa.disable.trigger": "Zwei-Faktor-Authentifizierung deaktivieren",
+    "auth.mfa.regenerate.title": "Neue Recovery-Codes erzeugen",
+    "auth.mfa.regenerate.description":
+      "Bestätige mit einem Code aus deiner Authenticator-App. Alle bisherigen Recovery-Codes werden sofort ungültig.",
+    "auth.mfa.regenerate.code": "Code aus der Authenticator-App",
+    "auth.mfa.regenerate.confirm": "Neu erzeugen",
+    "auth.mfa.regenerate.cancel": "Abbrechen",
+    "auth.mfa.regenerate.trigger": "Neue Recovery-Codes erzeugen",
+    "auth.mfa.regenerate.newCodesTitle": "Deine neuen Recovery-Codes",
+    "auth.mfa.regenerate.newCodesHint":
+      "Speichere diese Codes an einem sicheren Ort. Die alten Codes funktionieren ab sofort nicht mehr.",
+    "auth.mfa.regenerate.acknowledge": "Ich habe die neuen Recovery-Codes gespeichert.",
+    "auth.mfa.regenerate.done": "Fertig",
   },
   en: {
     "screen:auth-mfa-enable.title": "Two-factor authentication",
@@ -65,6 +84,25 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.mfa.enable.cancel": "Cancel",
     "auth.mfa.enable.confirm": "Enable",
     "auth.mfa.enable.success": "Two-factor authentication is now enabled.",
+    "auth.mfa.disable.title": "Disable two-factor authentication",
+    "auth.mfa.disable.description":
+      "Confirm with a code from your authenticator app or a recovery code. Your account will then be protected by your password alone.",
+    "auth.mfa.disable.code": "Code from your authenticator app or a recovery code",
+    "auth.mfa.disable.confirm": "Disable",
+    "auth.mfa.disable.cancel": "Cancel",
+    "auth.mfa.disable.trigger": "Disable two-factor authentication",
+    "auth.mfa.regenerate.title": "Generate new recovery codes",
+    "auth.mfa.regenerate.description":
+      "Confirm with a code from your authenticator app. All existing recovery codes stop working immediately.",
+    "auth.mfa.regenerate.code": "Code from your authenticator app",
+    "auth.mfa.regenerate.confirm": "Generate new codes",
+    "auth.mfa.regenerate.cancel": "Cancel",
+    "auth.mfa.regenerate.trigger": "Generate new recovery codes",
+    "auth.mfa.regenerate.newCodesTitle": "Your new recovery codes",
+    "auth.mfa.regenerate.newCodesHint":
+      "Save these codes somewhere safe. The old codes stop working immediately.",
+    "auth.mfa.regenerate.acknowledge": "I've saved my new recovery codes.",
+    "auth.mfa.regenerate.done": "Done",
   },
 };
 

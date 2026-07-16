@@ -14,6 +14,7 @@ import { type ReactNode, useState } from "react";
 // kumiko-lint-ignore cross-feature-import client-only hook, the feature's server barrel has no web/ re-export
 import { useSession } from "../../auth-email-password/web";
 import { AuthMfaHandlers } from "../constants";
+import { mfaManageErrorKey } from "./mfa-error-keys";
 
 type EnableStartResponse = {
   readonly setupToken: string;
@@ -95,7 +96,7 @@ export function MfaEnableScreen({ embedded = false }: MfaEnableScreenProps = {})
       <Heading>{t("auth.mfa.enable.title")}</Heading>
 
       {enabled && <Banner variant="info">{t("auth.mfa.enable.success")}</Banner>}
-      {error !== null && <Banner variant="error">{t(`auth.mfa.errors.${error}`)}</Banner>}
+      {error !== null && <Banner variant="error">{t(mfaManageErrorKey(error))}</Banner>}
 
       {!setup && !enabled && (
         <Section
