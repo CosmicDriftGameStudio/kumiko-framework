@@ -1,5 +1,5 @@
 // Single-use enforcement for HMAC-signed auth tokens (password-reset,
-// email-verification).
+// email-verification, MFA setup/challenge).
 //
 // Problem: the token itself carries only userId + expiry + signature.
 // Without server-side burn, the same token can be replayed within its

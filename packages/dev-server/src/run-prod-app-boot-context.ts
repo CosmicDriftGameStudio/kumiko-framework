@@ -1,4 +1,5 @@
 import { makeAuthPaths } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
+import { bindMfaRevokeAllOtherSessionsFromFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { createSmtpTransportFromEnv } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import {
   buildEnvConfigOverrides,
@@ -210,6 +211,7 @@ export function buildProdSessionAuth(
   db: DbConnection,
   opts: ProdSessionsConfig,
   sessionsFeature: FeatureDefinition | undefined,
+  mfaFeature: FeatureDefinition | undefined,
 ): {
   readonly sessionCreator: ReturnType<typeof createSessionCallbacks>["sessionCreator"];
   readonly sessionRevoker: ReturnType<typeof createSessionCallbacks>["sessionRevoker"];
@@ -224,6 +226,11 @@ export function buildProdSessionAuth(
   // sessions without the app opting in via autoRevokeOnPasswordChange.
   if (sessionsFeature) {
     bindAutoRevokeFromFeature(sessionsFeature)?.(cbs.sessionMassRevoker);
+  }
+  // MFA enable/disable/regenerate mass-revokes every OTHER live session
+  // (stolen-session defense) — only wired when auth-mfa is mounted.
+  if (mfaFeature) {
+    bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature)?.(cbs.sessionRevokeAllOthers);
   }
   return {
     sessionCreator: cbs.sessionCreator,

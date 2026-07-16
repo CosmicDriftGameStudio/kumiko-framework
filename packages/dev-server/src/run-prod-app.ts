@@ -38,6 +38,7 @@ import {
   type SeedAdminOptions,
   seedAdmin,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
+import { AUTH_MFA_FEATURE, AuthMfaHandlers } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import {
   createPatResolver,
   PAT_FEATURE,
@@ -844,12 +845,18 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // `auth.sessions` only overrides the config, and `auth.sessions: false` is the
   // explicit opt-out (back to stateless JWTs).
   const sessionsFeature = features.find((f) => f.name === SESSIONS_FEATURE);
+  const mfaFeature = features.find((f) => f.name === AUTH_MFA_FEATURE);
   const sessionAuthFragment = shouldWireProdSessions(
     Boolean(effectiveAuth),
     sessionsFeature !== undefined,
     effectiveAuth?.sessions,
   )
-    ? buildProdSessionAuth(db, resolveProdSessionsConfig(effectiveAuth?.sessions), sessionsFeature)
+    ? buildProdSessionAuth(
+        db,
+        resolveProdSessionsConfig(effectiveAuth?.sessions),
+        sessionsFeature,
+        mfaFeature,
+      )
     : undefined;
 
   // PAT opt-in: if the personal-access-tokens feature is mounted, wire its
@@ -921,6 +928,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
         ...sessionAuthFragment,
         ...patAuthFragment,
         ...tenantLifecycleAuthFragment,
+        ...(mfaFeature && { mfaVerifyHandler: AuthMfaHandlers.verify }),
         ...(effectiveAuth.passwordReset && {
           passwordReset: {
             requestHandler: AuthHandlers.requestPasswordReset,

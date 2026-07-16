@@ -27,6 +27,14 @@ function hotp(secret: Buffer, counter: number): string {
   return String(truncated % 10 ** DIGITS).padStart(DIGITS, "0");
 }
 
+// Exposed for callers that need to derive "the code right now" — the
+// enable-confirm/verify UI flows show a live-updating code client-side
+// (via their own TOTP lib or a countdown), and tests need a code to submit
+// without hand-rolling the HMAC math again.
+export function currentTotpCode(secret: Buffer, nowMs: number = Date.now()): string {
+  return totpAt(secret, Math.floor(nowMs / 1000));
+}
+
 function totpAt(secret: Buffer, epochSeconds: number): string {
   return hotp(secret, Math.floor(epochSeconds / STEP_SECONDS));
 }

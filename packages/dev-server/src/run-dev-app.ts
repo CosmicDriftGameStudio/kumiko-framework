@@ -19,6 +19,11 @@ import {
   seedAdmin,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
 import {
+  AUTH_MFA_FEATURE,
+  AuthMfaHandlers,
+  bindMfaRevokeAllOtherSessionsFromFeature,
+} from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
+import {
   buildEnvConfigOverrides,
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
@@ -403,6 +408,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   let patResolver: PatResolver | undefined;
   let lifecycleDb: DbConnection | undefined;
   const patFeature = features.find((f) => f.name === PAT_FEATURE);
+  const mfaFeature = features.find((f) => f.name === AUTH_MFA_FEATURE);
   const tenantLifecycleFeature = features.find((f) => f.name === TENANT_LIFECYCLE_FEATURE);
   const patAuthFragment = patFeature
     ? {
@@ -486,6 +492,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
         ...sessionAuthFragment,
         ...patAuthFragment,
         ...tenantLifecycleAuthFragment,
+        ...(mfaFeature && { mfaVerifyHandler: AuthMfaHandlers.verify }),
         ...(effectiveAuth.passwordReset && {
           passwordReset: {
             requestHandler: AuthHandlers.requestPasswordReset,
@@ -536,6 +543,14 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
         const sessionsFeature = features.find((f) => f.name === SESSIONS_FEATURE);
         if (sessionsFeature) {
           bindAutoRevokeFromFeature(sessionsFeature)?.(sessionCallbacks.sessionMassRevoker);
+        }
+        // MFA enable/disable/regenerate mass-revokes every OTHER live
+        // session (stolen-session defense) — only wired when auth-mfa is
+        // mounted.
+        if (mfaFeature) {
+          bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature)?.(
+            sessionCallbacks.sessionRevokeAllOthers,
+          );
         }
       }
       if (patFeature) {

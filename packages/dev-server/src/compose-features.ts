@@ -20,6 +20,10 @@ import {
   type PasswordResetOptions,
   type SignupOptions,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
+import {
+  AUTH_MFA_FEATURE,
+  mfaStatusCheckerFromFeature,
+} from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
@@ -42,6 +46,12 @@ export function composeFeatures(
   appFeatures: readonly FeatureDefinition[],
   options: ComposeFeaturesOptions,
 ): FeatureDefinition[] {
+  // ponytail: includeBundled:false skips the auth-mfa auto-wiring below —
+  // an app composing its own foundation and mounting auth-mfa itself is
+  // responsible for threading mfaStatusCheckerFromFeature(...) into its
+  // own createAuthEmailPasswordFeature(...) call, or login silently
+  // bypasses MFA. Upgrade if this trips someone: warn here when appFeatures
+  // contains AUTH_MFA_FEATURE but includeBundled is false.
   if (!options.includeBundled) return [...appFeatures];
 
   // Bundled foundation goes first so its instances carry the runDevApp /
@@ -50,11 +60,20 @@ export function composeFeatures(
   // hands back `createAuthEmailPasswordFeature()` because the user ticked
   // it — would otherwise crash createRegistry with "Duplicate feature".
   // Drop the app-side duplicates and warn so the user can clean run-config.
+  //
+  // auth-mfa is NOT part of the bundled foundation (apps opt in explicitly
+  // via APP_FEATURES) — but if it's there, the login handler needs its
+  // status-checker wired in at construction time, since createAuthEmail-
+  // PasswordFeature is built right here, before the caller ever sees it.
+  const mfaFeature = appFeatures.find((f) => f.name === AUTH_MFA_FEATURE);
+  const authOptions = mfaFeature
+    ? { ...options.authOptions, mfaStatusChecker: mfaStatusCheckerFromFeature(mfaFeature) }
+    : options.authOptions;
   const bundled = [
     createConfigFeature(),
     createUserFeature(),
     createTenantFeature(),
-    createAuthEmailPasswordFeature(options.authOptions ?? {}),
+    createAuthEmailPasswordFeature(authOptions ?? {}),
   ];
   const bundledNames = new Set(bundled.map((f) => f.name));
   const filteredApp: FeatureDefinition[] = [];
