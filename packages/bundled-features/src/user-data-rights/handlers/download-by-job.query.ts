@@ -29,8 +29,8 @@ import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
-import { createFileProviderForTenant } from "../../file-foundation";
 import { recordDownloadUse, recordInvalidAttempt } from "../audit-download";
+import { resolveTenantFileProvider } from "../lib/tenant-file-provider";
 import { exportDownloadTokensTable } from "../schema/download-token";
 import { EXPORT_JOB_STATUS, exportJobsTable } from "../schema/export-job";
 
@@ -127,7 +127,10 @@ export const downloadByJobQuery = defineQueryHandler({
       });
     }
 
-    const provider = await createFileProviderForTenant(
+    // Provider bound explicitly to the job's tenant — NOT the ambient
+    // session tenant (cross-tenant-same-user: job.requestedFromTenantId
+    // can differ from query.user.tenantId).
+    const provider = await resolveTenantFileProvider(
       ctx,
       jobRow.requestedFromTenantId,
       "user-data-rights:query:download-by-job",

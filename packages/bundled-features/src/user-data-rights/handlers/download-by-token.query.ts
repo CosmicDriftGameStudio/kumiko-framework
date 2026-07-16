@@ -31,8 +31,8 @@ import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
-import { createFileProviderForTenant } from "../../file-foundation";
 import { recordDownloadUse, recordInvalidAttempt } from "../audit-download";
+import { resolveTenantFileProvider } from "../lib/tenant-file-provider";
 import { exportDownloadTokensTable } from "../schema/download-token";
 import { EXPORT_JOB_STATUS, exportJobsTable } from "../schema/export-job";
 import { hashDownloadToken } from "../token-helpers";
@@ -181,9 +181,10 @@ export const downloadByTokenQuery = defineQueryHandler({
       });
     }
 
-    // Step 5: signed-URL via provider. createFileProviderForTenant nutzt
-    // requestedFromTenantId (gleicher Tenant wie beim Worker-Storage-Write).
-    const provider = await createFileProviderForTenant(
+    // Step 5: signed-URL via provider, explicitly bound to the job's
+    // tenant — NOT the ambient request tenant (anonymous magic-link path
+    // has none under resolverTrust: "authoritative").
+    const provider = await resolveTenantFileProvider(
       ctx,
       jobRow.requestedFromTenantId,
       "user-data-rights:query:download-by-token",
