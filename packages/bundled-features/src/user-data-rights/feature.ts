@@ -141,14 +141,14 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       category: "compliance",
       recommended: false,
     });
-    r.requires("user", "data-retention", "compliance-profiles", "sessions");
-    r.usesApi("compliance.forTenant");
-    r.usesApi("retention.policyFor");
+    r.requires("user");
+    r.requires("compliance-profiles", { apis: ["compliance.forTenant"] });
+    r.requires("data-retention", { apis: ["retention.policyFor"] });
     // S2.U6 — restrict-account ruft sessions.revokeAllForUser cross-feature.
-    // r.usesApi sorgt fuer Boot-Validation: App ohne sessions-feature wirft
+    // { apis } sorgt fuer Boot-Validation: App ohne sessions-feature wirft
     // beim Boot, statt erst beim ersten Restrict-Call ein opaque "handler
     // not found" zu werfen.
-    r.usesApi("sessions.revokeAllForUser");
+    r.requires("sessions", { apis: ["sessions.revokeAllForUser"] });
     // file-foundation ist soft-dep: nur der Export-Worker (Atom 3b)
     // braucht ihn fuer Storage-Schreiben. Apps die nur Forget nutzen
     // (kein Export) muessen file-foundation nicht mounten.

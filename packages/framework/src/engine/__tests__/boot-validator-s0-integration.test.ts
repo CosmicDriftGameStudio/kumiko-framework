@@ -1,13 +1,13 @@
 // Integration-Test: alle Sprint-0-Surfaces in einem Mini-Feature-Set.
 //
 // Beweist dass die einzelnen S0-Komponenten (PII-Annotations, retention,
-// extension-names, exposesApi/usesApi, ROLES) zusammen funktionieren —
+// extension-names, exposesApi/requires({apis}), ROLES) zusammen funktionieren —
 // keine still-konkurrierenden Validierungen, keine Race-Conditions
 // zwischen Sub-Validatoren.
 //
 // Mini-Feature-Set:
 //   compliance-profiles  exposesApi("compliance.forTenant")
-//   user-data-rights     usesApi + extendsRegistrar(EXT_USER_DATA)
+//   user-data-rights     requires({apis}) + extendsRegistrar(EXT_USER_DATA)
 //   tenant               useExtension(EXT_USER_DATA, "user", ...)
 //                        + entity mit pii / userOwned / tenantOwned-Fields
 //                        + retention.blockDelete + anonymize-Funktion
@@ -49,8 +49,7 @@ describe("S0 Integration — full surface stack", () => {
     });
 
     const userDataRights = defineFeature("user-data-rights", (r) => {
-      r.requires("compliance-profiles");
-      r.usesApi("compliance.forTenant");
+      r.requires("compliance-profiles", { apis: ["compliance.forTenant"] });
       r.extendsRegistrar(EXT_USER_DATA, {
         hooks: {},
       });
@@ -109,18 +108,18 @@ describe("S0 Integration — full surface stack", () => {
     expect(() => validateBoot([complianceProfiles, userDataRights, tenantFeature])).not.toThrow();
   });
 
-  test("missing requires() on usesApi-target throws even when other surfaces are clean", () => {
+  test("unresolved api in requires({apis}) throws even when other surfaces are clean", () => {
     const complianceProfiles = defineFeature("compliance-profiles", (r) => {
       r.exposesApi("compliance.forTenant");
     });
 
     const userDataRights = defineFeature("user-data-rights", (r) => {
-      // VERGESSEN: r.requires("compliance-profiles")
-      r.usesApi("compliance.forTenant");
+      // TYPO: kein Feature exposed "compliance.forTenantx"
+      r.requires("compliance-profiles", { apis: ["compliance.forTenantx"] });
     });
 
     expect(() => validateBoot([complianceProfiles, userDataRights])).toThrow(
-      /not in requires\/optionalRequires\. Add r\.requires\("compliance-profiles"\)/,
+      /but no feature exposes that API/,
     );
   });
 

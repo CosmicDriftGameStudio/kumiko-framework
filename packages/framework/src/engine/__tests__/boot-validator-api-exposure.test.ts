@@ -1,19 +1,18 @@
-// Boot-Validator-Tests fuer r.exposesApi / r.usesApi (S0.4).
+// Boot-Validator-Tests fuer r.exposesApi / r.requires(name, { apis }) (S0.4).
 //
 // Pflicht-Validierungen (Error / throw):
-//   - r.usesApi(name) ohne passenden r.exposesApi(name) → throw
-//   - r.usesApi(name) ohne r.requires(providerFeature) → throw
+//   - r.requires(name, { apis }) ohne passenden r.exposesApi(name) → throw
 //   - r.exposesApi(name) zweimal in einem Feature → throw
 //   - Globale Doppel-Exposure (zwei Features, gleicher Name) → throw
 //
 // Soft-Warning (console.warn):
-//   - Feature ruft eigene exposesApi via usesApi (Refactor-Leftover)
+//   - Feature ruft eigene exposesApi via requires(self, {apis}) (Refactor-Leftover)
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { validateBoot } from "../boot-validator";
 import { defineFeature } from "../define-feature";
 
-describe("validateBoot — r.exposesApi / r.usesApi", () => {
+describe("validateBoot — r.exposesApi / r.requires(name, { apis })", () => {
   let warnSpy: ReturnType<typeof spyOn>;
 
   beforeEach(() => {
@@ -24,60 +23,44 @@ describe("validateBoot — r.exposesApi / r.usesApi", () => {
     warnSpy.mockRestore();
   });
 
-  test("matching exposesApi/usesApi with requires() passes", () => {
+  test("matching exposesApi/requires({apis}) passes", () => {
     const provider = defineFeature("compliance-profiles", (r) => {
       r.exposesApi("compliance.forTenant");
     });
     const consumer = defineFeature("user-data-rights", (r) => {
-      r.requires("compliance-profiles");
-      r.usesApi("compliance.forTenant");
+      r.requires("compliance-profiles", { apis: ["compliance.forTenant"] });
     });
     expect(() => validateBoot([provider, consumer])).not.toThrow();
   });
 
-  test("matching exposesApi/usesApi with optionalRequires() passes", () => {
+  test("matching exposesApi/requires({apis}) via optionalRequires passes", () => {
     const provider = defineFeature("compliance-profiles", (r) => {
       r.exposesApi("compliance.forTenant");
     });
     const consumer = defineFeature("user-data-rights", (r) => {
-      r.optionalRequires("compliance-profiles");
-      r.usesApi("compliance.forTenant");
+      r.optionalRequires("compliance-profiles", { apis: ["compliance.forTenant"] });
     });
     expect(() => validateBoot([provider, consumer])).not.toThrow();
   });
 
-  test("usesApi without any exposer throws with known-list", () => {
+  test("requires({apis}) without any exposer throws with known-list", () => {
     const consumer = defineFeature("user-data-rights", (r) => {
-      r.usesApi("compliance.forTenant");
+      r.requires("compliance-profiles", { apis: ["compliance.forTenant"] });
     });
     expect(() => validateBoot([consumer])).toThrow(
-      /r\.usesApi\("compliance\.forTenant"\) but no feature exposes that API/,
+      /r\.requires\(\.\.\., \{ apis: \["compliance\.forTenant"\] \}\) but no feature exposes that API/,
     );
   });
 
-  test("usesApi with typo throws and lists known APIs", () => {
+  test("requires({apis}) with typo throws and lists known APIs", () => {
     const provider = defineFeature("compliance-profiles", (r) => {
       r.exposesApi("compliance.forTenant");
     });
     const consumer = defineFeature("user-data-rights", (r) => {
-      r.requires("compliance-profiles");
-      r.usesApi("compliance.fortenant"); // typo: lowercase t
+      r.requires("compliance-profiles", { apis: ["compliance.fortenant"] }); // typo: lowercase t
     });
     expect(() => validateBoot([provider, consumer])).toThrow(
       /Known exposed APIs: compliance\.forTenant/,
-    );
-  });
-
-  test("usesApi exists but missing requires() throws", () => {
-    const provider = defineFeature("compliance-profiles", (r) => {
-      r.exposesApi("compliance.forTenant");
-    });
-    const consumer = defineFeature("user-data-rights", (r) => {
-      // missing r.requires("compliance-profiles")
-      r.usesApi("compliance.forTenant");
-    });
-    expect(() => validateBoot([provider, consumer])).toThrow(
-      /not in requires\/optionalRequires\. Add r\.requires\("compliance-profiles"\)/,
     );
   });
 
@@ -105,7 +88,7 @@ describe("validateBoot — r.exposesApi / r.usesApi", () => {
   test("self-exposure (feature uses its own exposed API) warns", () => {
     const f = defineFeature("self-loop", (r) => {
       r.exposesApi("self.api");
-      r.usesApi("self.api");
+      r.requires("self-loop", { apis: ["self.api"] });
     });
     validateBoot([f]);
     const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
@@ -132,8 +115,7 @@ describe("validateBoot — r.exposesApi / r.usesApi", () => {
       r.exposesApi("shared.api");
     });
     const consumer = defineFeature("consumer", (r) => {
-      r.requires("provider-a");
-      r.usesApi("shared.api");
+      r.requires("provider-a", { apis: ["shared.api"] });
     });
     expect(() => validateBoot([a, b, consumer])).toThrow(
       /Cross-feature API "shared\.api" exposed by both/,

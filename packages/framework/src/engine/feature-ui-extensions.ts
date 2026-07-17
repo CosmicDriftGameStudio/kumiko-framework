@@ -156,8 +156,7 @@ export function buildUiExtensionsMethods<TName extends string>(
      *     r.queryHandler({ name: "compliance:query:for-tenant", ... });
      *   });
      *   defineFeature("user-data-rights", (r) => {
-     *     r.requires("compliance-profiles");
-     *     r.usesApi("compliance.forTenant");
+     *     r.requires("compliance-profiles", { apis: ["compliance.forTenant"] });
      *     // ruft im Handler: ctx.callQuery("compliance:query:for-tenant", ...)
      *   });
      */
@@ -168,14 +167,6 @@ export function buildUiExtensionsMethods<TName extends string>(
         );
       }
       state.exposedApis.add(apiName);
-    },
-    /**
-     * Declares that this feature calls a cross-feature API. Boot-Validator
-     * checkt dass irgendein anderes Feature `r.exposesApi(name)` macht und
-     * dass dieses Feature `r.requires` darauf hat.
-     */
-    usesApi(apiName: string): void {
-      state.usedApis.add(apiName);
     },
     projection(definition: ProjectionDefinition): void {
       // Reject names that would blow up at registry-boot when we qualify them.

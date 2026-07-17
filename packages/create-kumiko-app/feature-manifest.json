@@ -2108,8 +2108,8 @@
       "toggleableDefault": null,
       "requires": [
         "user",
-        "data-retention",
         "compliance-profiles",
+        "data-retention",
         "sessions"
       ],
       "optionalRequires": [],

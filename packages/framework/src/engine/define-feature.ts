@@ -40,8 +40,23 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       state.description = text.trim();
     },
     requires: (() => {
-      const fn = (...featureNames: string[]) => {
-        state.requires.push(...featureNames);
+      const fn = (
+        ...args: string[] | [string, { apis: readonly string[] }]
+      ) => {
+        const [first, second] = args;
+        if (typeof second === "object" && second !== null) {
+          // Self-usage (feature calls its own exposed API) never needs a
+          // self-requires — same exemption api-ext.ts grants at boot; a
+          // self-requires would also trip the circular-dep validator.
+          if (first !== name) {
+            state.requires.push(first as string);
+          }
+          for (const apiName of second.apis) {
+            state.usedApis.add(apiName);
+          }
+          return;
+        }
+        state.requires.push(...(args as string[]));
       };
       fn.projection = (tableName: string) => {
         state.requiredProjections.add(tableName);
@@ -51,8 +66,20 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       };
       return fn as RequiresApi;
     })(),
-    optionalRequires(...featureNames: string[]): void {
-      state.optionalRequires.push(...featureNames);
+    optionalRequires(
+      ...args: string[] | [string, { apis: readonly string[] }]
+    ): void {
+      const [first, second] = args;
+      if (typeof second === "object" && second !== null) {
+        if (first !== name) {
+          state.optionalRequires.push(first as string);
+        }
+        for (const apiName of second.apis) {
+          state.usedApis.add(apiName);
+        }
+        return;
+      }
+      state.optionalRequires.push(...(args as string[]));
     },
     toggleable(options: { default: boolean }): void {
       if (state.toggleableDefault !== undefined) {

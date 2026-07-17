@@ -2,12 +2,13 @@ import type { FeatureDefinition } from "../types";
 
 // --- Cross-feature API exposure / usage matching ---
 //
-// `r.exposesApi(name, impl)` registers a callable; `r.usesApi(name)`
+// `r.exposesApi(name)` registers a marker; `r.requires(name, { apis })`
 // declares a caller. Boot-Validator prüft drei Invarianten:
-//   1. Jeder usesApi(name) findet einen exposesApi(name) in irgendeinem
-//      Feature.
+//   1. Jedes über requires(..., { apis }) deklarierte api findet ein
+//      exposesApi(name) in irgendeinem Feature.
 //   2. Das exposing-Feature ist in requires/optionalRequires des callers
-//      gelisted (sonst klappt die Cross-Feature-Aufruf-Reihenfolge nicht).
+//      gelisted (per Konstruktion immer erfüllt, wenn requires(..., {apis})
+//      genutzt wird — defensiv trotzdem geprüft).
 //   3. Self-exposure ist erlaubt (Feature ruft eigene API), wird aber
 //      mit Warning markiert weil es typisch ein Refactor-Restbestand ist.
 //
@@ -23,14 +24,14 @@ export function validateApiExposureMatching(
     if (!providerFeature) {
       const known = [...allExposedApis.keys()].sort().join(", ") || "(none)";
       throw new Error(
-        `[Feature ${feature.name}] r.usesApi("${apiName}") but no feature exposes that API. Known exposed APIs: ${known}`,
+        `[Feature ${feature.name}] r.requires(..., { apis: ["${apiName}"] }) but no feature exposes that API. Known exposed APIs: ${known}`,
       );
     }
 
     if (providerFeature === feature.name) {
       // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
       console.warn(
-        `[kumiko:boot] [Feature ${feature.name}] r.usesApi("${apiName}") on its own r.exposesApi — typically a refactor leftover. Call the impl directly instead.`,
+        `[kumiko:boot] [Feature ${feature.name}] r.requires(..., { apis: ["${apiName}"] }) on its own r.exposesApi — typically a refactor leftover. Call the impl directly instead.`,
       );
       continue;
     }
@@ -38,7 +39,7 @@ export function validateApiExposureMatching(
     const allDeps = [...feature.requires, ...feature.optionalRequires];
     if (!allDeps.includes(providerFeature)) {
       throw new Error(
-        `[Feature ${feature.name}] r.usesApi("${apiName}") is exposed by "${providerFeature}" but feature is not in requires/optionalRequires. Add r.requires("${providerFeature}").`,
+        `[Feature ${feature.name}] internal: "${apiName}" is exposed by "${providerFeature}" but feature is not in requires/optionalRequires. This should be unreachable via r.requires(..., { apis }) — check for a bug in the registrar.`,
       );
     }
 

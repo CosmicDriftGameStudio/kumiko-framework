@@ -398,12 +398,19 @@ type RefOrRefs = NameOrRef | readonly NameOrRef[];
  * declares read-side projection tables that this feature's pipeline
  * steps are allowed to write via `r.step.unsafeProjectionUpsert`.
  * Hard-required for any unsafeProjection-* step usage (see Q10).
+ *
+ * Single-feature form accepts `{ apis }` to declare cross-feature API
+ * usage in the same call — replaces the separate `r.usesApi(name)` call.
+ * Boot-Validator matches each api name against a feature's
+ * `r.exposesApi(name)`; see `exposesApi` below.
  */
-export type RequiresApi = ((...featureNames: string[]) => void) & {
+export interface RequiresApi {
+  (...featureNames: string[]): void;
+  (featureName: string, options: { apis: readonly string[] }): void;
   readonly projection: (tableName: string) => void;
   // Tier-2 step opt-in (Q9). Tier-1 implicit, Tier-2 must be declared.
   readonly step: (stepKind: string) => void;
-};
+}
 
 export type FeatureRegistrar<TFeature extends string = string> = {
   systemScope(): void;
@@ -412,6 +419,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   describe(text: string): void;
   requires: RequiresApi;
   optionalRequires(...featureNames: string[]): void;
+  optionalRequires(featureName: string, options: { apis: readonly string[] }): void;
   // Declare the feature as operator-togglable. `default` is the effective
   // state when no global-toggle row exists. Must be called at most once per
   // feature; calling on an always-on feature (e.g. auth/tenant/user) is a
@@ -589,9 +597,9 @@ export type FeatureRegistrar<TFeature extends string = string> = {
    * wird separat als Query- oder Write-Handler unter dem QN-Pattern
    * registriert; `r.exposesApi` ist reine Boot-Check-Surface.
    *
-   * Boot-Validator prüft, dass jedes `r.usesApi(name)` einen passenden
-   * Exposer findet, dass das Exposer-Feature in requires/optionalRequires
-   * gelisted ist und dass kein API-Name doppelt exposed wird.
+   * Boot-Validator prüft, dass jedes über `r.requires(name, { apis })`
+   * deklarierte Api einen passenden Exposer findet und dass kein
+   * API-Name doppelt exposed wird.
    *
    * ```ts
    * defineFeature("compliance-profiles", (r) => {
@@ -601,23 +609,12 @@ export type FeatureRegistrar<TFeature extends string = string> = {
    *     // ... echte Implementation
    *   });
    * });
-   * ```
-   */
-  exposesApi(apiName: string): void;
-
-  /**
-   * Declares that this feature calls a cross-feature API. Boot-Validator
-   * checkt dass irgendein anderes Feature `r.exposesApi(apiName)` macht
-   * und dass dieses Feature `r.requires/optionalRequires` darauf hat.
-   *
-   * ```ts
    * defineFeature("user-data-rights", (r) => {
-   *   r.requires("compliance-profiles");
-   *   r.usesApi("compliance.forTenant");
+   *   r.requires("compliance-profiles", { apis: ["compliance.forTenant"] });
    * });
    * ```
    */
-  usesApi(apiName: string): void;
+  exposesApi(apiName: string): void;
 
   // Declare a metric. Short name (without kumiko_<feature>_ prefix) — Framework
   // qualifies it on boot. Validation (snake_case + typ-suffix) runs at boot.
