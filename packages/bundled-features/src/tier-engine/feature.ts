@@ -290,7 +290,7 @@ export function createTierEngineFeature<
     };
 
     // Invalidation: tier-assignment events update the cache.
-    r.entityHook("postSave", "tier-assignment", async (result) => {
+    r.hook("postSave", { allOf: "tier-assignment" }, async (result) => {
       // result.data has tenantId + tier (after entity-update merge)
       const data = result.data as { tenantId?: unknown; tier?: unknown }; // @cast-boundary engine-payload
       // skip: defensive type-guard auf payload-shape. Bei korrekt gerenderten
@@ -302,7 +302,7 @@ export function createTierEngineFeature<
       const tenantId = data.tenantId as TenantId;
       cache.set(tenantId, mergeAlwaysOn(alwaysOnHolder.set, featuresForTier(tierMap, data.tier)));
     });
-    r.entityHook("postDelete", "tier-assignment", async (payload) => {
+    r.hook("postDelete", { allOf: "tier-assignment" }, async (payload) => {
       const data = payload.data as { tenantId?: unknown }; // @cast-boundary engine-payload
       // skip: gleiche type-guard semantik wie postSave-hook oben.
       if (typeof data.tenantId !== "string") return;
@@ -323,9 +323,9 @@ export function createTierEngineFeature<
     // neuer Tenant (Memory `feedback_event_store_tenant_consistency`).
     if (opts.defaultTier !== undefined) {
       const defaultTier = opts.defaultTier;
-      r.entityHook(
+      r.hook(
         "postSave",
-        "tenant",
+        { allOf: "tenant" },
         async (result, ctx) => {
           // result-shape: kumiko-framework's SaveContext mit isNew + data
           const saveResult = result as { isNew?: unknown; data?: unknown }; // @cast-boundary engine-payload

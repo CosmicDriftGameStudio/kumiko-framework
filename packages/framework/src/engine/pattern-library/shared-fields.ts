@@ -11,12 +11,7 @@ export const HOOK_TYPE_OPTIONS = [
   { value: "preDelete", label: { en: "Pre-Delete", de: "Vor Löschen" } },
   { value: "postDelete", label: { en: "Post-Delete", de: "Nach Löschen" } },
   { value: "preQuery", label: { en: "Pre-Query", de: "Vor Abfrage" } },
-] as const;
-
-export const ENTITY_HOOK_TYPE_OPTIONS = [
-  { value: "postSave", label: { en: "Post-Save", de: "Nach Speichern" } },
-  { value: "preDelete", label: { en: "Pre-Delete", de: "Vor Löschen" } },
-  { value: "postDelete", label: { en: "Post-Delete", de: "Nach Löschen" } },
+  { value: "postQuery", label: { en: "Post-Query", de: "Nach Abfrage" } },
 ] as const;
 
 export const HTTP_METHOD_OPTIONS = [

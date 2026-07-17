@@ -10,7 +10,6 @@ import type { ScreenDefinition } from "../../types/screen";
 import type {
   AuthClaimsPattern,
   DefineEventPattern,
-  EntityHookPattern,
   EventMigrationPattern,
   HookPattern,
   HttpRoutePattern,
@@ -91,6 +90,25 @@ export function readOptionalRateLimit(value: unknown): RateLimitOption | undefin
   return value as unknown as RateLimitOption;
 }
 
+// r.hook's target: a NameOrRef, a list of them, or an entity-wide
+// `{ allOf: entityRef }` (replaces the old r.entityHook(type, entity, fn)).
+// Checked first so a malformed `{ allOf }` doesn't silently fall through
+// to being read as some other object shape.
+function readHookTarget(
+  node: Node,
+): string | readonly string[] | { readonly allOf: string } | undefined {
+  const obj = node.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (obj) {
+    const allOfProp = obj.getProperty("allOf")?.asKind(SyntaxKind.PropertyAssignment);
+    if (allOfProp) {
+      const initializer = allOfProp.getInitializer();
+      const entityName = initializer && readNameOrRef(initializer);
+      return entityName ? { allOf: entityName } : undefined;
+    }
+  }
+  return readNameOrRefOrList(node);
+}
+
 export function extractHook(
   call: CallExpression,
   sourceFile: SourceFile,
@@ -134,7 +152,7 @@ export function extractHook(
         "object form requires a `target` property",
       );
     }
-    const target = readNameOrRefOrList(targetInit);
+    const target = readHookTarget(targetInit);
     if (!target) {
       return fail(
         "hook",
@@ -196,7 +214,7 @@ export function extractHook(
       "expected a target (NameOrRef or array) as second argument",
     );
   }
-  const target = readNameOrRefOrList(targetArg);
+  const target = readHookTarget(targetArg);
   if (!target) {
     return fail(
       "hook",
@@ -231,153 +249,6 @@ export function extractHook(
   });
 }
 
-export function isEntityHookType(value: string): value is "postSave" | "preDelete" | "postDelete" {
-  return value === "postSave" || value === "preDelete" || value === "postDelete";
-}
-
-export function extractEntityHook(
-  call: CallExpression,
-  sourceFile: SourceFile,
-): ExtractOutput<EntityHookPattern> {
-  const args = call.getArguments();
-  const first = args[0];
-  if (!first) {
-    return fail(
-      "entityHook",
-      sourceLocationFromNode(call, sourceFile),
-      "expected at least one argument",
-    );
-  }
-
-  const obj = first.asKind(SyntaxKind.ObjectLiteralExpression);
-  if (obj && args.length === 1) {
-    const typeInit = obj
-      .getProperty("type")
-      ?.asKind(SyntaxKind.PropertyAssignment)
-      ?.getInitializer()
-      ?.asKind(SyntaxKind.StringLiteral);
-    if (!typeInit) {
-      return fail(
-        "entityHook",
-        sourceLocationFromNode(call, sourceFile),
-        "object form requires a string-literal `type` property",
-      );
-    }
-    const hookType = typeInit.getLiteralValue();
-    if (!isEntityHookType(hookType)) {
-      return fail(
-        "entityHook",
-        sourceLocationFromNode(call, sourceFile),
-        `entity hook type must be postSave, preDelete, or postDelete (got "${hookType}")`,
-      );
-    }
-    const entityInit = obj
-      .getProperty("entity")
-      ?.asKind(SyntaxKind.PropertyAssignment)
-      ?.getInitializer();
-    if (!entityInit) {
-      return fail(
-        "entityHook",
-        sourceLocationFromNode(call, sourceFile),
-        "object form requires an `entity` property",
-      );
-    }
-    const entityName = readNameOrRef(entityInit);
-    if (!entityName) {
-      return fail(
-        "entityHook",
-        sourceLocationFromNode(call, sourceFile),
-        "`entity` must be a string literal or inline { name } object",
-      );
-    }
-    const handlerInit = obj
-      .getProperty("handler")
-      ?.asKind(SyntaxKind.PropertyAssignment)
-      ?.getInitializer();
-    if (!handlerInit) {
-      return fail(
-        "entityHook",
-        sourceLocationFromNode(call, sourceFile),
-        "object form requires a `handler` property",
-      );
-    }
-    const fn = findFunctionLiteral(handlerInit);
-    if (!fn) {
-      return fail(
-        "entityHook",
-        sourceLocationFromNode(call, sourceFile),
-        "handler must be an inline arrow function or function expression",
-      );
-    }
-    const phase = readOptionalPhase(obj);
-    return ok({
-      kind: "entityHook",
-      source: sourceLocationFromNode(call, sourceFile),
-      hookType,
-      entityName,
-      fnBody: sourceLocationFromNode(fn, sourceFile),
-      ...(phase !== undefined && { phase }),
-    });
-  }
-
-  const typeArg = first.asKind(SyntaxKind.StringLiteral);
-  if (!typeArg) {
-    return fail(
-      "entityHook",
-      sourceLocationFromNode(call, sourceFile),
-      "first argument must be a string literal hook type (or use the object form)",
-    );
-  }
-  const hookType = typeArg.getLiteralValue();
-  if (!isEntityHookType(hookType)) {
-    return fail(
-      "entityHook",
-      sourceLocationFromNode(call, sourceFile),
-      `entity hook type must be postSave, preDelete, or postDelete (got "${hookType}")`,
-    );
-  }
-  const entityArg = args[1];
-  if (!entityArg) {
-    return fail(
-      "entityHook",
-      sourceLocationFromNode(call, sourceFile),
-      "expected an entity reference as second argument",
-    );
-  }
-  const entityName = readNameOrRef(entityArg);
-  if (!entityName) {
-    return fail(
-      "entityHook",
-      sourceLocationFromNode(call, sourceFile),
-      "second argument must be a string literal or inline { name } object",
-    );
-  }
-  const fnArg = args[2];
-  if (!fnArg) {
-    return fail(
-      "entityHook",
-      sourceLocationFromNode(call, sourceFile),
-      "expected a hook function as third argument",
-    );
-  }
-  const fn = findFunctionLiteral(fnArg);
-  if (!fn) {
-    return fail(
-      "entityHook",
-      sourceLocationFromNode(call, sourceFile),
-      "third argument must be an inline arrow function or function expression",
-    );
-  }
-  const phase = readOptionalPhase(args[3]);
-  return ok({
-    kind: "entityHook",
-    source: sourceLocationFromNode(call, sourceFile),
-    hookType,
-    entityName,
-    fnBody: sourceLocationFromNode(fn, sourceFile),
-    ...(phase !== undefined && { phase }),
-  });
-}
 
 // guard:dup-ok — intentionale Parallele zu extractTree (round6); verschiedene Feature-AST-Extraktoren by design
 export function extractAuthClaims(

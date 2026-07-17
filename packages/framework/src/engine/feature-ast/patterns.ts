@@ -376,30 +376,20 @@ export type QueryHandlerPattern = {
 
 // `r.hook(type, target, fn, options?)` — attaches a lifecycle hook
 // (`validation`, `preSave`, `postSave`, `preDelete`, `postDelete`,
-// `preQuery`, `postQuery`) to one or more target handlers. Post-hooks
-// accept a `phase` option; `preDelete` always runs in-transaction — it
-// guards the delete. The hook body is an opaque code span.
+// `preQuery`, `postQuery`) to one or more target handlers, or — for
+// postSave/preDelete/postDelete/postQuery — to `{ allOf: entityRef }`
+// ("every write/query handler of this entity", replacing the old
+// `r.entityHook(type, entity, fn)`). Post-hooks accept a `phase` option;
+// `preDelete` always runs in-transaction — it guards the delete. The hook
+// body is an opaque code span.
 export type HookPattern = {
   readonly kind: "hook";
   readonly source: SourceLocation;
   readonly hookType: LifecycleHookType | "validation";
-  // r.hook accepts a single target or a list; we keep both shapes so
-  // the Designer can render the original author intent.
-  readonly target: string | readonly string[];
-  readonly fnBody: SourceLocation;
-  readonly phase?: HookPhase;
-};
-
-// `r.entityHook(type, entity, fn, options?)` — like `r.hook`, but bound to
-// an entity instead of individual handlers: `postSave`, `preDelete`, and
-// `postDelete` fire on every matching write. The runtime API additionally
-// accepts `postQuery` (fires for all query-handlers of the entity), but
-// this pattern type only represents the three write-side hooks.
-export type EntityHookPattern = {
-  readonly kind: "entityHook";
-  readonly source: SourceLocation;
-  readonly hookType: "postSave" | "preDelete" | "postDelete";
-  readonly entityName: string;
+  // r.hook accepts a single target, a list, or an entity-wide { allOf }
+  // target; we keep all three shapes so the Designer can render the
+  // original author intent.
+  readonly target: string | readonly string[] | { readonly allOf: string };
   readonly fnBody: SourceLocation;
   readonly phase?: HookPhase;
 };
@@ -610,7 +600,6 @@ export type FeaturePattern =
   | WriteHandlerPattern
   | QueryHandlerPattern
   | HookPattern
-  | EntityHookPattern
   | JobPattern
   | NotificationPattern
   | AuthClaimsPattern
@@ -667,7 +656,6 @@ export function getEditability(pattern: FeaturePattern): Editability {
     case "writeHandler":
     case "queryHandler":
     case "hook":
-    case "entityHook":
     case "job":
     case "notification":
     case "httpRoute":

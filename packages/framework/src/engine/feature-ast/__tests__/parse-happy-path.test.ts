@@ -71,7 +71,7 @@ defineFeature("todoList", (r) => {
     console.log("task saved");
   });
 
-  r.entityHook("postDelete", "task", async (event, ctx) => {
+  r.hook("postDelete", { allOf: "task" }, async (event, ctx) => {
     console.log("task deleted");
   });
 
@@ -136,7 +136,6 @@ describe("parseSourceFile against a complete inline-form feature", () => {
       "writeHandler",
       "queryHandler",
       "hook",
-      "entityHook",
       "metric",
       "secret",
       "claimKey",

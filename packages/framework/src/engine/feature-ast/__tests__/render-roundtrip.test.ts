@@ -358,3 +358,38 @@ describe("renderPattern — single-pattern shape", () => {
     expect(out).toBe('r.metric({ name: "requests", type: "counter" });');
   });
 });
+
+// Regression guard for the class of bug the r.exposesApi/r.usesApi fold
+// hit: a registrar-shape change must survive the Designer's parse→render→
+// parse cycle, not just a TS compile of the framework itself. r.hook()'s
+// `{ allOf: entity }` target (replacing r.entityHook) reuses HookPattern's
+// already-generic target field, so this is the cheap case — but proving it
+// beats assuming it.
+const HOOK_ALL_OF_FEATURE = `
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+
+defineFeature("shop", (r) => {
+  r.entity("product", { fields: { name: { type: "text" } } });
+  r.hook("postSave", { allOf: "product" }, async (result) => {
+    console.log(result);
+  });
+});
+`;
+
+describe("render → parse roundtrip — r.hook({ allOf }) entity-wide target", () => {
+  test("allOf target survives parse → render → parse unchanged", () => {
+    const initial = parse(HOOK_ALL_OF_FEATURE);
+    const rendered = renderFeatureFile({
+      featureName: initial.featureName ?? "",
+      patterns: initial.patterns,
+    });
+    const reparsed = parse(rendered);
+    expect(reparsed.patterns.map(stripLocations)).toEqual(initial.patterns.map(stripLocations));
+
+    const hookPattern = reparsed.patterns.find((p) => p.kind === "hook");
+    expect(hookPattern?.kind).toBe("hook");
+    if (hookPattern?.kind === "hook") {
+      expect(hookPattern.target).toEqual({ allOf: "product" });
+    }
+  });
+});

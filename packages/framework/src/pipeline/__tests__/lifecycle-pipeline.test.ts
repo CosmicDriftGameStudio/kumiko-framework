@@ -424,7 +424,7 @@ describe("Sprint 8a: per-tenant entity-hook filter", () => {
     });
 
     const featureB = defineFeature("feat-b", (r) => {
-      r.entityHook("postSave", "widget", async (_result, ctx) => {
+      r.hook("postSave", { allOf: "widget" }, async (_result, ctx) => {
         calls.push({ tenant: ctx._tenantId ?? "no-tenant" });
       });
     });

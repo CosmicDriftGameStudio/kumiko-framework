@@ -2,7 +2,6 @@
 
 import {
   accessRuleField,
-  ENTITY_HOOK_TYPE_OPTIONS,
   HOOK_TYPE_OPTIONS,
   HTTP_METHOD_OPTIONS,
 } from "./shared-fields";
@@ -148,45 +147,6 @@ export const hookSchema: PatternFormSchema = {
       path: "target",
       label: { en: "Target entity (or list)", de: "Ziel-Entität (oder Liste)" },
       input: "json-readonly",
-      required: true,
-    },
-    {
-      path: "fnBody",
-      label: { en: "Hook body (source)", de: "Hook-Body (Source)" },
-      input: "code-block",
-      language: "typescript",
-      readOnly: true,
-    },
-    {
-      path: "phase",
-      label: { en: "Phase", de: "Phase" },
-      input: "select",
-      options: [
-        { value: "inTransaction", label: { en: "In transaction" } },
-        { value: "afterCommit", label: { en: "After commit" } },
-      ],
-    },
-  ],
-};
-
-export const entityHookSchema: PatternFormSchema = {
-  kind: "entityHook",
-  label: { en: "Entity hook", de: "Entity-Hook" },
-  summary: { en: "Hook scoped to a single entity (no cross-entity targets)." },
-  category: "behaviour",
-  editability: "mixed",
-  fields: [
-    {
-      path: "hookType",
-      label: { en: "Type", de: "Typ" },
-      input: "select",
-      options: ENTITY_HOOK_TYPE_OPTIONS,
-      required: true,
-    },
-    {
-      path: "entityName",
-      label: { en: "Entity", de: "Entität" },
-      input: "entity-ref",
       required: true,
     },
     {

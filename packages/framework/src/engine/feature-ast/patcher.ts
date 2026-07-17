@@ -106,15 +106,11 @@ export type AddQueryHandlerArgs = {
 
 export type AddHookArgs = {
   readonly type: LifecycleHookType | "validation";
-  readonly target: string | readonly string[];
+  // `{ allOf: entity }` — entity-wide target, fires for every write/query
+  // handler of that entity; replaces the old addEntityHook(). Only valid
+  // for postSave/preDelete/postDelete/postQuery, same as r.hook() itself.
+  readonly target: string | readonly string[] | { readonly allOf: string };
   /** Source text of the closure, e.g. `"async (event, ctx) => { ... }"`. */
-  readonly handlerSource: string;
-  readonly phase?: HookPhase;
-};
-
-export type AddEntityHookArgs = {
-  readonly type: "postSave" | "preDelete" | "postDelete";
-  readonly entity: string;
   readonly handlerSource: string;
   readonly phase?: HookPhase;
 };
@@ -241,7 +237,6 @@ export type FeaturePatcher = {
   readonly addWriteHandler: (args: AddWriteHandlerArgs) => void;
   readonly addQueryHandler: (args: AddQueryHandlerArgs) => void;
   readonly addHook: (args: AddHookArgs) => void;
-  readonly addEntityHook: (args: AddEntityHookArgs) => void;
   readonly addJob: (args: AddJobArgs) => void;
   readonly addNotification: (args: AddNotificationArgs) => void;
   readonly addAuthClaims: (args: AddAuthClaimsArgs) => void;
@@ -407,17 +402,6 @@ export function createFeaturePatcher(sourceFile: SourceFile): FeaturePatcher {
         source: SYNTHETIC_LOC,
         hookType: type,
         target,
-        fnBody: rawLoc(handlerSource),
-        ...(phase !== undefined && { phase }),
-      });
-    },
-
-    addEntityHook({ type, entity, handlerSource, phase }) {
-      add({
-        kind: "entityHook",
-        source: SYNTHETIC_LOC,
-        hookType: type,
-        entityName: entity,
         fnBody: rawLoc(handlerSource),
         ...(phase !== undefined && { phase }),
       });

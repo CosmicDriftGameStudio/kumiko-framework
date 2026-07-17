@@ -59,11 +59,11 @@ describe("HookPhases defaults", () => {
     expect(entry?.[0]?.phase).toBe(HookPhases.inTransaction);
   });
 
-  test("entityHook postSave defaults to afterCommit, preDelete is forced inTransaction", () => {
+  test("hook({allOf}) postSave defaults to afterCommit, preDelete is forced inTransaction", () => {
     const feature = defineFeature("test", (r) => {
       const thing = r.entity("thing", createEntity({ table: "things", fields: {} }));
-      r.entityHook("postSave", thing, noopSave);
-      r.entityHook("preDelete", thing, async () => undefined);
+      r.hook("postSave", { allOf: thing }, noopSave);
+      r.hook("preDelete", { allOf: thing }, async () => undefined);
     });
 
     expect(feature.entityHooks?.postSave?.["thing"]?.[0]?.phase).toBe(HookPhases.afterCommit);
@@ -120,8 +120,8 @@ describe("Registry phase filtering", () => {
 
     const feature = defineFeature("test", (r) => {
       const thing = r.entity("thing", createEntity({ table: "things", fields: {} }));
-      r.entityHook("postSave", thing, inTxFn, { phase: HookPhases.inTransaction });
-      r.entityHook("postSave", thing, afterFn);
+      r.hook("postSave", { allOf: thing }, inTxFn, { phase: HookPhases.inTransaction });
+      r.hook("postSave", { allOf: thing }, afterFn);
     });
 
     const registry = createRegistry([feature]);

@@ -68,7 +68,7 @@ const FEATURES: readonly RealFeature[] = [
   {
     path: "packages/bundled-features/src/sessions/feature.ts",
     expectedFeatureName: "sessions",
-    recognisedKinds: ["entityHook", "writeHandler", "queryHandler"],
+    recognisedKinds: ["hook", "writeHandler", "queryHandler"],
     errorMethodNames: ["unmanagedTable", "job"],
   },
   {
