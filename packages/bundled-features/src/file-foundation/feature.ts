@@ -54,7 +54,7 @@ export const fileFoundationFeature = defineFeature(FEATURE_NAME, (r) => {
     },
   });
 
-  const providerConfigKey = r.configKey(
+  const providerConfigKey = r.config(
     "provider",
     createTenantConfig("text", {
       default: "",

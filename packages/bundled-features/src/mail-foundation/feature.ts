@@ -136,7 +136,7 @@ export const mailFoundationFeature = defineFeature(FEATURE_NAME, (r) => {
   // values lives in the registered plugins, not here — Designer-UI can
   // render `getExtensionUsages("mailTransport").map(u => u.entityName)`
   // as the option-list.
-  const providerConfigKey = r.configKey(
+  const providerConfigKey = r.config(
     "provider",
     createTenantConfig("text", {
       default: "",
