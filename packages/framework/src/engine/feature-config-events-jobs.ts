@@ -32,41 +32,52 @@ export function buildConfigEventsJobsMethods<TName extends string>(
   state: FeatureBuilderState,
   name: TName,
 ) {
+  // Hoisted out of the returned object literal (not just a method) so
+  // `configKey()` below can call it directly — object-literal methods
+  // aren't in scope for their siblings without a `this`-bind.
+  function config<TKeys extends Readonly<Record<string, ConfigKeyDefinition<ConfigKeyType>>>>(definition: {
+    readonly keys: TKeys;
+    readonly seeds?: Readonly<Record<string, ConfigSeedDef>>;
+  }): { readonly [K in keyof TKeys]: ConfigKeyHandle<TKeys[K]["type"]> } {
+    // Qualify eagerly (same as defineEvent) so the handle name matches what
+    // the registry stores — lazy qualification would break compile-time
+    // autocomplete and hand-built test registries.
+    const handles: Record<string, ConfigKeyHandle<ConfigKeyType>> = {};
+    for (const [key, keyDef] of Object.entries(definition.keys)) {
+      state.configKeys[key] = keyDef;
+      handles[key] = {
+        name: qn(toKebab(name), "config", toKebab(key)),
+        type: keyDef.type,
+      };
+    }
+    // Parse seeds: resolve qualified key names and validate scope
+    if (definition.seeds) {
+      for (const [shortKey, seedDef] of Object.entries(definition.seeds)) {
+        const keyDef = definition.keys[shortKey];
+        if (!keyDef) continue; // skip — boot-validator reports unknown keys
+        const qualifiedKey = qn(toKebab(name), "config", toKebab(shortKey));
+        const scope = seedDef.scope ?? keyDef.scope;
+        state.configSeeds.push({
+          key: qualifiedKey,
+          value: seedDef.value,
+          scope,
+          tenantId: seedDef.tenantId,
+          userId: seedDef.userId,
+        });
+      }
+    }
+    return handles as {
+      readonly [K in keyof TKeys]: ConfigKeyHandle<TKeys[K]["type"]>;
+    }; // @cast-boundary engine-bridge — Mapped-Type-Inference at config()-callsite
+  }
+
   return {
-    config<TKeys extends Readonly<Record<string, ConfigKeyDefinition<ConfigKeyType>>>>(definition: {
-      readonly keys: TKeys;
-      readonly seeds?: Readonly<Record<string, ConfigSeedDef>>;
-    }): { readonly [K in keyof TKeys]: ConfigKeyHandle<TKeys[K]["type"]> } {
-      // Qualify eagerly (same as defineEvent) so the handle name matches what
-      // the registry stores — lazy qualification would break compile-time
-      // autocomplete and hand-built test registries.
-      const handles: Record<string, ConfigKeyHandle<ConfigKeyType>> = {};
-      for (const [key, keyDef] of Object.entries(definition.keys)) {
-        state.configKeys[key] = keyDef;
-        handles[key] = {
-          name: qn(toKebab(name), "config", toKebab(key)),
-          type: keyDef.type,
-        };
-      }
-      // Parse seeds: resolve qualified key names and validate scope
-      if (definition.seeds) {
-        for (const [shortKey, seedDef] of Object.entries(definition.seeds)) {
-          const keyDef = definition.keys[shortKey];
-          if (!keyDef) continue; // skip — boot-validator reports unknown keys
-          const qualifiedKey = qn(toKebab(name), "config", toKebab(shortKey));
-          const scope = seedDef.scope ?? keyDef.scope;
-          state.configSeeds.push({
-            key: qualifiedKey,
-            value: seedDef.value,
-            scope,
-            tenantId: seedDef.tenantId,
-            userId: seedDef.userId,
-          });
-        }
-      }
-      return handles as {
-        readonly [K in keyof TKeys]: ConfigKeyHandle<TKeys[K]["type"]>;
-      }; // @cast-boundary engine-bridge — Mapped-Type-Inference at config()-callsite
+    config,
+    // Shorthand for a single key — same handle shape `r.config({keys:{name:def}})`
+    // would produce for that key, just without the wrapping record. No seeds
+    // param: callers needing seeds use `r.config` directly.
+    configKey<T extends ConfigKeyType>(keyName: string, def: ConfigKeyDefinition<T>): ConfigKeyHandle<T> {
+      return config({ keys: { [keyName]: def } })[keyName] as ConfigKeyHandle<T>; // @cast-boundary engine-bridge — mapped-type narrows to the single key
     },
     job(
       jobName: string,

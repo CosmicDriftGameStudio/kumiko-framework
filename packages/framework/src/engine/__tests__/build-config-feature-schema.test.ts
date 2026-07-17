@@ -351,3 +351,88 @@ describe("buildConfigFeatureSchema — access + workspace", () => {
     expect([...roles].sort()).toEqual(["Admin", "SystemAdmin", "TenantAdmin"]);
   });
 });
+
+describe("buildConfigFeatureSchema — cross-feature group", () => {
+  test("two features sharing a group bucket under one screen/nav per scope, not two", () => {
+    const timeTracking = defineFeature("time-tracking", (r) => {
+      r.config({
+        keys: {
+          enabled: createTenantConfig("boolean", {
+            group: "bmc-settings",
+            mask: { title: "bmc.time-tracking-enabled" },
+          }),
+        },
+      });
+    });
+    const autoProtocol = defineFeature("auto-protocol", (r) => {
+      r.config({
+        keys: {
+          enabled: createTenantConfig("boolean", {
+            group: "bmc-settings",
+            mask: { title: "bmc.auto-protocol-enabled" },
+          }),
+        },
+      });
+    });
+
+    const out = buildConfigFeatureSchema(createRegistry([timeTracking, autoProtocol]));
+    expect(out.screens.filter((s) => s.id === "bmc-settings-tenant")).toHaveLength(1);
+    expect(out.navs.filter((n) => n.id === "bmc-settings-tenant")).toHaveLength(1);
+
+    const screen = out.screens.find((s) => s.id === "bmc-settings-tenant");
+    if (screen?.type !== "configEdit") throw new Error("expected configEdit screen");
+    // Neither feature owns the group name, so field ids are prefixed by the
+    // owning feature to stay unique — the whole point of the collision guard.
+    expect(screen.configKeys).toEqual({
+      "time-tracking-enabled": "time-tracking:config:enabled",
+      "auto-protocol-enabled": "auto-protocol:config:enabled",
+    });
+  });
+
+  test("same group + colliding owner-prefixed field id throws instead of silently overwriting", () => {
+    // "a-b" owner + shortKey "x" and "a" owner + shortKey "b-x" both produce
+    // the prefixed field id "a-b-x" — the exact clobbering hazard the
+    // owner-prefix scheme must catch, not just avoid in the common case.
+    const ab = defineFeature("a-b", (r) => {
+      r.config({
+        keys: { x: createTenantConfig("boolean", { group: "shared", mask: { title: "ab.x" } }) },
+      });
+    });
+    const a = defineFeature("a", (r) => {
+      r.config({
+        keys: {
+          bX: createTenantConfig("boolean", { group: "shared", mask: { title: "a.b-x" } }),
+        },
+      });
+    });
+    expect(() => buildConfigFeatureSchema(createRegistry([ab, a]))).toThrow(
+      /both resolve to field id "a-b-x"/,
+    );
+  });
+
+  test("group unset → behavior unchanged (buckets under the owning feature, plain shortKey)", () => {
+    const feature = defineFeature("ungrouped", (r) => {
+      r.config({
+        keys: { flag: createTenantConfig("boolean", { mask: { title: "u.flag" } }) },
+      });
+    });
+    const out = buildConfigFeatureSchema(createRegistry([feature]));
+    const screen = out.screens.find((s) => s.id === "ungrouped-tenant");
+    if (screen?.type !== "configEdit") throw new Error("expected configEdit screen");
+    expect(screen.configKeys).toEqual({ flag: "ungrouped:config:flag" });
+  });
+
+  test("invalid (non-kebab) group value throws at schema-build time", () => {
+    const feature = defineFeature("badgroup", (r) => {
+      r.config({
+        keys: {
+          flag: createTenantConfig("boolean", {
+            group: "Not Kebab!",
+            mask: { title: "bg.flag" },
+          }),
+        },
+      });
+    });
+    expect(() => buildConfigFeatureSchema(createRegistry([feature]))).toThrow(/kebab-case/);
+  });
+});

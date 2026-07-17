@@ -1208,6 +1208,47 @@ describe("r.config()", () => {
   });
 });
 
+// --- r.configKey() ---
+
+describe("r.configKey()", () => {
+  test("returns a bare handle with the same qualified name r.config({keys}) would produce", () => {
+    let viaConfigKey!: { readonly name: string; readonly type: "boolean" };
+    let viaConfig!: { readonly defaultVat: { readonly name: string; readonly type: "number" } };
+    defineFeature("invoicing", (r) => {
+      viaConfigKey = r.configKey("enabled", createTenantConfig("boolean", { default: false }));
+    });
+    defineFeature("invoicing2", (r) => {
+      viaConfig = r.config({ keys: { defaultVat: createTenantConfig("number", { default: 19 }) } });
+    });
+
+    expect(viaConfigKey.name).toBe("invoicing:config:enabled");
+    expect(viaConfigKey.type).toBe("boolean");
+    // Structural check: configKey()'s handle is exactly what config({keys:{one}})
+    // would have produced for that single key — same shape, same qualification scheme.
+    expect(viaConfig.defaultVat.name).toBe("invoicing2:config:default-vat");
+  });
+
+  test("registers the key on the feature exactly like r.config would", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.configKey("maxItems", createTenantConfig("number", { default: 10 }));
+    });
+    expect(feature.configKeys["maxItems"]).toBeDefined();
+    expect(feature.configKeys["maxItems"]?.type).toBe("number");
+    expect(feature.configKeys["maxItems"]?.scope).toBe("tenant");
+
+    const registry = createRegistry([feature]);
+    expect(registry.getConfigKey("shop:config:max-items")).toBeDefined();
+  });
+
+  test("camelCase feature + key are kebab-cased in the handle name", () => {
+    let handle!: { readonly name: string };
+    defineFeature("billingCore", (r) => {
+      handle = r.configKey("monthlyTotalCents", createSystemConfig("number", { default: 0 }));
+    });
+    expect(handle.name).toBe("billing-core:config:monthly-total-cents");
+  });
+});
+
 // --- Relations ---
 
 describe("r.relation()", () => {
