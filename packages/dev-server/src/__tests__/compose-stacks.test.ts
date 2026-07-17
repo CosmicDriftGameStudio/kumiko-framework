@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
-import { composeFeatures } from "../compose-features";
+import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import {
   composeFileStack,
   composeGdprStack,

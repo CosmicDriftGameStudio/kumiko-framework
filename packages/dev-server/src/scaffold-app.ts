@@ -19,8 +19,8 @@ import {
   writeSnapshotJson,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { IndentationText, Project, VariableDeclarationKind } from "ts-morph";
-import { composeFeatures } from "./compose-features";
 import { isKebabSegment } from "./kebab";
 import {
   createDemoTasksFeature,

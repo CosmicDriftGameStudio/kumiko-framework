@@ -13,7 +13,7 @@ export {
   discoverHtmlTemplate,
   formatBuildResult,
   injectAssetTags,
-} from "./build-prod-bundle";
+} from "@cosmicdrift/kumiko-server-runtime/build-prod-bundle";
 
 export {
   type BuildServerBundleEntry,

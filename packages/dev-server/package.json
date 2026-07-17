@@ -1,7 +1,7 @@
 {
   "name": "@cosmicdrift/kumiko-dev-server",
   "version": "0.152.0",
-  "description": "Development server bootstrap for Kumiko apps. Bundles the client, mints dev-JWTs, injects the resolved AppSchema, and seeds an admin. Not for production.",
+  "description": "Dev-tooling for Kumiko apps: local dev-server bootstrap (runDevApp), scaffolding, codegen. Not shipped into production node_modules — see @cosmicdrift/kumiko-server-runtime for the prod boot path.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
   "repository": {
@@ -25,10 +25,6 @@
     "./build": {
       "types": "./src/build.ts",
       "default": "./src/build.ts"
-    },
-    "./compose-features": {
-      "types": "./src/compose-features.ts",
-      "default": "./src/compose-features.ts"
     },
     "./compose-stacks": {
       "types": "./src/compose-stacks.ts",
@@ -60,6 +56,7 @@
   "dependencies": {
     "@cosmicdrift/kumiko-bundled-features": "workspace:*",
     "@cosmicdrift/kumiko-framework": "workspace:*",
+    "@cosmicdrift/kumiko-server-runtime": "workspace:*",
     "ts-morph": "^28.0.0"
   },
   "publishConfig": {
