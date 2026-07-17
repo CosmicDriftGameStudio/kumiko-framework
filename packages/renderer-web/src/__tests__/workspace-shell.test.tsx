@@ -834,4 +834,40 @@ describe("WorkspaceShell — EINE Nav", () => {
     // Die screen-children sind ersetzt, nicht zusätzlich gerendert.
     expect(screen.queryByText("content")).toBeNull();
   });
+
+  test("navBadges pass through to NavTree leaf items", () => {
+    const schema = {
+      featureName: "bmc",
+      entities: {},
+      screens: [],
+      navs: [
+        { id: "system", label: "System", screen: "bmc:screen:system" },
+        { id: "orders", label: "Orders", screen: "bmc:screen:orders" },
+      ],
+      workspaces: [
+        ws("admin", {
+          label: "Admin",
+          roles: ["admin"],
+          order: 1,
+          isDefault: true,
+          navMembers: ["bmc:nav:system", "bmc:nav:orders"],
+        }),
+      ],
+    } as const;
+
+    renderShell(
+      <WorkspaceShell
+        brand={<div>Brand</div>}
+        schema={schema}
+        user={{ id: "u1", roles: ["admin"] }}
+        navBadges={new Map([["orders", <span>3</span>]])}
+      >
+        <div>content</div>
+      </WorkspaceShell>,
+    );
+    const ordersItems = screen.getAllByText("Orders");
+    const systemItems = screen.getAllByText("System");
+    expect(ordersItems.some((el) => el.closest("li")?.textContent?.includes("3"))).toBe(true);
+    expect(systemItems.every((el) => !el.closest("li")?.textContent?.includes("3"))).toBe(true);
+  });
 });
