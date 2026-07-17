@@ -144,13 +144,10 @@ export type AddDefineEventArgs = {
   readonly name: string;
   readonly schemaSource: string;
   readonly version?: number;
-};
-
-export type AddEventMigrationArgs = {
-  readonly event: string;
-  readonly fromVersion: number;
-  readonly toVersion: number;
-  readonly transformSource: string;
+  // Keyed by fromVersion (as a string) → the transform source text for the
+  // fromVersion -> fromVersion+1 step. Folded in from the former
+  // addEventMigration (#1082 step 8).
+  readonly migrations?: Readonly<Record<string, string>>;
 };
 
 export type AddProjectionArgs = {
@@ -249,7 +246,6 @@ export type FeaturePatcher = {
   readonly addProjection: (args: AddProjectionArgs) => void;
   readonly addMultiStreamProjection: (args: AddMultiStreamProjectionArgs) => void;
   readonly addDefineEvent: (args: AddDefineEventArgs) => void;
-  readonly addEventMigration: (args: AddEventMigrationArgs) => void;
   // --- Symmetric ops (id-driven) ---
   readonly replace: (id: PatternId, pattern: FeaturePattern) => void;
   readonly remove: (id: PatternId) => void;
@@ -495,24 +491,22 @@ export function createFeaturePatcher(sourceFile: SourceFile): FeaturePatcher {
       });
     },
 
-    addDefineEvent({ name, schemaSource, version }) {
+    addDefineEvent({ name, schemaSource, version, migrations }) {
+      const migrationLocs = migrations
+        ? Object.fromEntries(
+            Object.entries(migrations).map(([fromVersion, source]) => [
+              fromVersion,
+              rawLoc(source),
+            ]),
+          )
+        : undefined;
       add({
         kind: "defineEvent",
         source: SYNTHETIC_LOC,
         eventName: name,
         schemaSource: rawLoc(schemaSource),
         ...(version !== undefined && { version }),
-      });
-    },
-
-    addEventMigration({ event, fromVersion, toVersion, transformSource }) {
-      add({
-        kind: "eventMigration",
-        source: SYNTHETIC_LOC,
-        eventName: event,
-        fromVersion,
-        toVersion,
-        transformBody: rawLoc(transformSource),
+        ...(migrationLocs !== undefined && { migrations: migrationLocs }),
       });
     },
 

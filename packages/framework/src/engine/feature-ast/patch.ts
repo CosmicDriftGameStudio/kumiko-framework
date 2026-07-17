@@ -66,12 +66,6 @@ export type PatternId =
   | { readonly kind: "projection"; readonly name: string }
   | { readonly kind: "multiStreamProjection"; readonly name: string }
   | { readonly kind: "defineEvent"; readonly eventName: string }
-  | {
-      readonly kind: "eventMigration";
-      readonly eventName: string;
-      readonly fromVersion: number;
-      readonly toVersion: number;
-    }
   | { readonly kind: "extendsRegistrar"; readonly extensionName: string }
   // Singleton patterns — only one per feature, kind alone identifies them.
   | { readonly kind: "requires" }
@@ -419,20 +413,6 @@ function callMatchesId(call: CallExpression, id: PatternId): boolean {
       return (
         matchFirstArgString(call, id.eventName) || matchObjectProperty(call, "name", id.eventName)
       );
-    case "eventMigration": {
-      // Positional: r.eventMigration(name, from, to, fn)
-      if (matchFirstArgString(call, id.eventName)) {
-        const from = numericArg(call, 1);
-        const to = numericArg(call, 2);
-        return from === id.fromVersion && to === id.toVersion;
-      }
-      // Object: { event, fromVersion, toVersion }
-      return (
-        matchObjectProperty(call, "event", id.eventName) &&
-        matchObjectNumericProperty(call, "fromVersion", id.fromVersion) &&
-        matchObjectNumericProperty(call, "toVersion", id.toVersion)
-      );
-    }
     case "extendsRegistrar":
       return matchFirstArgString(call, id.extensionName);
     default: {
@@ -457,27 +437,6 @@ function matchObjectProperty(call: CallExpression, propName: string, expected: s
     ?.getInitializer()
     ?.asKind(SyntaxKind.StringLiteral);
   return init?.getLiteralValue() === expected;
-}
-
-function matchObjectNumericProperty(
-  call: CallExpression,
-  propName: string,
-  expected: number,
-): boolean {
-  const obj = call.getArguments()[0]?.asKind(SyntaxKind.ObjectLiteralExpression);
-  if (!obj) return false;
-  const init = obj
-    .getProperty(propName)
-    ?.asKind(SyntaxKind.PropertyAssignment)
-    ?.getInitializer()
-    ?.asKind(SyntaxKind.NumericLiteral);
-  return init !== undefined && Number(init.getText()) === expected;
-}
-
-function numericArg(call: CallExpression, idx: number): number | undefined {
-  const lit = call.getArguments()[idx]?.asKind(SyntaxKind.NumericLiteral);
-  if (!lit) return undefined;
-  return Number(lit.getText());
 }
 
 // =============================================================================

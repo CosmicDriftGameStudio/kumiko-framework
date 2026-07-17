@@ -114,7 +114,7 @@ function stripLocations(value: unknown): unknown {
         out[k] = { raw: normalizeBodyRaw((v as { raw: string }).raw) };
         continue;
       }
-      if (k === "opaqueProps" && v && typeof v === "object") {
+      if ((k === "opaqueProps" || k === "migrations") && v && typeof v === "object") {
         const op: Record<string, unknown> = {};
         for (const [pk, pv] of Object.entries(v as Record<string, unknown>)) {
           if (pv && typeof pv === "object" && "raw" in pv) {
@@ -397,6 +397,42 @@ describe("render → parse roundtrip — r.screen({ nav }) inline sugar", () => 
       expect(screenPattern.definition).toMatchObject({
         nav: { label: "shop:nav.products", icon: "box", order: 5 },
       });
+    }
+  });
+});
+
+const DEFINE_EVENT_WITH_MIGRATIONS_FEATURE = `
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+
+defineFeature("billing", (r) => {
+  r.defineEvent("invoicePaid", z.object({ totalCents: z.number() }), {
+    version: 2,
+    migrations: [
+      {
+        fromVersion: 1,
+        toVersion: 2,
+        transform: (payload) => ({ totalCents: Math.round(payload.total * 100) }),
+      },
+    ],
+  });
+});
+`;
+
+describe("render → parse roundtrip — r.defineEvent({ migrations }) fold", () => {
+  test("migrations array survives parse → render → parse unchanged", () => {
+    const initial = parse(DEFINE_EVENT_WITH_MIGRATIONS_FEATURE);
+    const rendered = renderFeatureFile({
+      featureName: initial.featureName ?? "",
+      patterns: initial.patterns,
+    });
+    const reparsed = parse(rendered);
+    expect(reparsed.patterns.map(stripLocations)).toEqual(initial.patterns.map(stripLocations));
+
+    const eventPattern = reparsed.patterns.find((p) => p.kind === "defineEvent");
+    expect(eventPattern?.kind).toBe("defineEvent");
+    if (eventPattern?.kind === "defineEvent") {
+      expect(eventPattern.version).toBe(2);
+      expect(Object.keys(eventPattern.migrations ?? {})).toEqual(["1"]);
     }
   });
 });

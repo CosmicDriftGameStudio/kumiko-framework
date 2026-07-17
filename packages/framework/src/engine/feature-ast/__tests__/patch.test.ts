@@ -301,21 +301,16 @@ describe("patch coverage for the remaining pattern-kinds", () => {
     expect(parseSourceFile(sf).patterns.find((p) => p.kind === "authClaims")).toBeUndefined();
   });
 
-  test("add + remove via PatternId for eventMigration (event+versions key)", () => {
+  test("add + remove via PatternId for defineEvent with migrations", () => {
     const sf = makeSourceFile(STARTER);
-    createFeaturePatcher(sf).addEventMigration({
-      event: "itemCreated",
-      fromVersion: 1,
-      toVersion: 2,
-      transformSource: "(old) => old",
+    createFeaturePatcher(sf).addDefineEvent({
+      name: "itemCreated",
+      schemaSource: "z.object({ id: z.string() })",
+      version: 2,
+      migrations: { "1": "(old) => old" },
     });
-    removePattern(sf, {
-      kind: "eventMigration",
-      eventName: "itemCreated",
-      fromVersion: 1,
-      toVersion: 2,
-    });
-    expect(parseSourceFile(sf).patterns.find((p) => p.kind === "eventMigration")).toBeUndefined();
+    removePattern(sf, { kind: "defineEvent", eventName: "itemCreated" });
+    expect(parseSourceFile(sf).patterns.find((p) => p.kind === "defineEvent")).toBeUndefined();
   });
 });
 

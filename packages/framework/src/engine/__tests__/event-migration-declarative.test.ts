@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { z } from "zod";
 import { defineFeature } from "../define-feature";
 import type { DeclarativeEventMigration, EventUpcastCtx } from "../types";
 
@@ -7,7 +8,10 @@ const upcastCtx = {} as EventUpcastCtx;
 
 function compile(spec: DeclarativeEventMigration) {
   const feature = defineFeature("billing", (r) => {
-    r.eventMigration("invoicePaid", 1, 2, spec);
+    r.defineEvent("invoicePaid", z.unknown(), {
+      version: 2,
+      migrations: [{ fromVersion: 1, toVersion: 2, transform: spec }],
+    });
   });
   const def = feature.eventMigrations["invoicePaid"]?.[0];
   if (!def) throw new Error("migration not registered");
@@ -51,7 +55,10 @@ describe("declarative eventMigration", () => {
   test("imperative function variant is stored untouched", () => {
     const fn = (payload: unknown) => payload;
     const feature = defineFeature("billing", (r) => {
-      r.eventMigration("invoicePaid", 1, 2, fn);
+      r.defineEvent("invoicePaid", z.unknown(), {
+        version: 2,
+        migrations: [{ fromVersion: 1, toVersion: 2, transform: fn }],
+      });
     });
     expect(feature.eventMigrations["invoicePaid"]?.[0]?.transform).toBe(fn);
   });

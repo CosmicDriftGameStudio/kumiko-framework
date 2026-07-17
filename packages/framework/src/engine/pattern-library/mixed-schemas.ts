@@ -443,42 +443,15 @@ export const defineEventSchema: PatternFormSchema = {
       input: "number",
       min: 1,
     },
-  ],
-};
-
-export const eventMigrationSchema: PatternFormSchema = {
-  kind: "eventMigration",
-  label: { en: "Event migration", de: "Event-Migration" },
-  summary: { en: "Step-wise transform between event versions." },
-  category: "data",
-  editability: "mixed",
-  fields: [
     {
-      path: "eventName",
-      label: { en: "Event", de: "Event" },
-      input: "text",
-      required: true,
-    },
-    {
-      path: "fromVersion",
-      label: { en: "From version", de: "Von Version" },
-      input: "number",
-      min: 1,
-      required: true,
-    },
-    {
-      path: "toVersion",
-      label: { en: "To version", de: "Auf Version" },
-      input: "number",
-      min: 2,
-      required: true,
-    },
-    {
-      path: "transformBody",
-      label: { en: "Transform (source)", de: "Transform (Source)" },
-      input: "code-block",
-      language: "typescript",
-      readOnly: true,
+      path: "migrations",
+      label: {
+        en: "Migrations (fromVersion → transform)",
+        de: "Migrationen (fromVersion → Transform)",
+      },
+      input: "key-value-map",
+      keyPlaceholder: "1",
+      valueInput: "code-block",
     },
   ],
 };

@@ -736,9 +736,12 @@ export type AggregateStreamHandle = {
 // ctx-arg, run the lookup via ctx.db, return a Promise. The framework
 // awaits unconditionally — sync transforms return a plain value and pay
 // only the await-microtask overhead. Pattern-match Marten:
-//   r.eventMigration("invoiceCreated", 1, 2, async (payload, ctx) => {
-//     const customer = await ctx.db.select().from(customersTable)...;
-//     return { ...payload, customerSegment: customer.segment };
+//   r.defineEvent("invoiceCreated", schema, {
+//     version: 2,
+//     migrations: [{ fromVersion: 1, toVersion: 2, transform: async (payload, ctx) => {
+//       const customer = await ctx.db.select().from(customersTable)...;
+//       return { ...payload, customerSegment: customer.segment };
+//     } }],
 //   });
 export type EventUpcastCtx = {
   readonly db: import("../../db").DbRunner;
