@@ -21,13 +21,13 @@
 import { writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features";
 import {
   buildManifestFromRegistry,
   createRegistry,
   type FeatureManifest,
   serializeManifest,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { APP_FEATURES } from "../src/run-config";
 
 export type {

@@ -13,6 +13,10 @@
 //     Login-Routes + Error-Map, ruft seedAdmin im onAfterSetup. Default
 //     für Sample-Apps und Showcases — 5-10 Zeilen Bootstrap statt 50.
 
+export {
+  type ComposeFeaturesOptions,
+  composeFeatures,
+} from "@cosmicdrift/kumiko-server-runtime/compose-features";
 // Build-Toolchain (buildProdBundle, Bun.build, Tailwind-Pipeline, ts-morph) lebt
 // im Sub-Path-Export `@cosmicdrift/kumiko-dev-server/build`. Damit zieht der Main-Barrel
 // kein Bun-Toolchain-Bundle mehr in Production-Reads (z.B. wenn drizzle-kit
@@ -25,7 +29,6 @@ export {
   type ScanWarning,
   scanEvents,
 } from "./codegen";
-export { type ComposeFeaturesOptions, composeFeatures } from "./compose-features";
 export {
   composeFileStack,
   composeGdprStack,
@@ -62,17 +65,6 @@ export type {
 export { buildFewShotCorpus, pathToId } from "./few-shot-corpus";
 export type { RunDevAppAuthOptions, RunDevAppOptions, SeedFn } from "./run-dev-app";
 export { runDevApp } from "./run-dev-app";
-export type {
-  EmailVerificationSetup,
-  InviteSetup,
-  PasswordResetSetup,
-  ProdAppHandle,
-  ProdSeedFn,
-  RunProdAppAuthOptions,
-  RunProdAppOptions,
-  SignupSetup,
-} from "./run-prod-app";
-export { runProdApp } from "./run-prod-app";
 export type {
   ScaffoldAppOptions,
   ScaffoldAppResult,

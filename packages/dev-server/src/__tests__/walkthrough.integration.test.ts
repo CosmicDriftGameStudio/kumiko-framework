@@ -16,7 +16,7 @@ import { join } from "node:path";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createRegistry, defineFeature, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
-import { composeFeatures } from "../compose-features";
+import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { scaffoldApp } from "../scaffold-app";
 import { scaffoldAppFeature } from "../scaffold-app-feature";
 

@@ -19,8 +19,8 @@ import {
   writeSnapshotJson,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { IndentationText, Project, VariableDeclarationKind } from "ts-morph";
-import { composeFeatures } from "./compose-features";
 import { isKebabSegment } from "./kebab";
 import {
   createDemoTasksFeature,
@@ -177,6 +177,7 @@ function renderPackageJson(name: string, version: string): string {
         "@cosmicdrift/kumiko-dev-server": version,
         "@cosmicdrift/kumiko-framework": version,
         "@cosmicdrift/kumiko-renderer-web": version,
+        "@cosmicdrift/kumiko-server-runtime": version,
         react: "^19.2.6",
         "react-dom": "^19.2.6",
         zod: "^4.4.3",
@@ -410,7 +411,11 @@ function renderMain(appName: string): string {
 
   sf.addImportDeclaration({
     moduleSpecifier: "@cosmicdrift/kumiko-dev-server",
-    namedImports: ["composeFeatures", "frameworkCoreEnvSchema", "runProdApp"],
+    namedImports: ["frameworkCoreEnvSchema"],
+  });
+  sf.addImportDeclaration({
+    moduleSpecifier: "@cosmicdrift/kumiko-server-runtime",
+    namedImports: ["composeFeatures", "runProdApp"],
   });
   sf.addImportDeclaration({
     moduleSpecifier: "@cosmicdrift/kumiko-framework/engine",
@@ -773,7 +778,7 @@ function renderKumikoSchema(): string {
     "// Computes table-metas from the SAME composeFeatures(APP_FEATURES) the",
     "// runtime sees (runProdApp/runDevApp) — migration and runtime cannot drift.",
     "",
-    'import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features";',
+    'import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";',
     'import { collectTableMetas, type EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";',
     'import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";',
     'import { APP_FEATURES, HAS_AUTH } from "../src/run-config";',
@@ -795,7 +800,7 @@ function renderBinKumiko(): string {
     "// migrate-step runs `bun /app/kumiko.js schema apply`; kumiko-build bundles",
     "// this file to dist-server/kumiko.js.",
     "",
-    'import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features";',
+    'import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";',
     'import { runSchemaCli } from "@cosmicdrift/kumiko-framework/schema-cli";',
     'import { APP_FEATURES, HAS_AUTH } from "../src/run-config";',
     "",

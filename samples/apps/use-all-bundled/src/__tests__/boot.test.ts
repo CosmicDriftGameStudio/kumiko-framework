@@ -12,7 +12,6 @@
 // scripts/check-coverage.ts, not in a brittle hardcoded count-assert.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features";
 import { extractTableInfo } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configureEntityFieldEncryption,
@@ -20,6 +19,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
+import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { ENTITY_METAS } from "../../kumiko/schema";
 import { APP_FEATURES } from "../run-config";
 

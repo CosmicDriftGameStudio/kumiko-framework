@@ -7,10 +7,6 @@
     "lib": ["ESNext", "DOM"],
     "composite": true
   },
-  "references": [
-    { "path": "../framework" },
-    { "path": "../bundled-features" },
-    { "path": "../server-runtime" }
-  ],
+  "references": [{ "path": "../framework" }, { "path": "../bundled-features" }],
   "include": ["./src"]
 }
