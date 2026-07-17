@@ -130,32 +130,31 @@ export const mailFoundationFeature = defineFeature(FEATURE_NAME, (r) => {
     },
   });
 
-  const configKeys = r.config({
-    keys: {
-      // Provider-selector. Default empty so the boot-validator throws
-      // if a tenant tries to send mail without first picking + setting
-      // up a provider — better than a silent fallback.
-      // The actual list of valid values lives in the registered plugins,
-      // not here — Designer-UI can render `getExtensionUsages
-      // ("mailTransport").map(u => u.entityName)` as the option-list.
-      provider: createTenantConfig("text", {
-        default: "",
-        // required: ohne gewählten Provider wirft createTransportForTenant —
-        // readiness meldete vorher ready:true und der erste Mail-Send
-        // lieferte den UnconfiguredError (280/1).
-        required: true,
-        write: access.roles("TenantAdmin", "SystemAdmin"),
-        read: access.roles("TenantAdmin", "SystemAdmin", "User"),
-      }),
-    },
-  });
+  // Provider-selector. Default empty so the boot-validator throws if a
+  // tenant tries to send mail without first picking + setting up a
+  // provider — better than a silent fallback. The actual list of valid
+  // values lives in the registered plugins, not here — Designer-UI can
+  // render `getExtensionUsages("mailTransport").map(u => u.entityName)`
+  // as the option-list.
+  const providerConfigKey = r.configKey(
+    "provider",
+    createTenantConfig("text", {
+      default: "",
+      // required: ohne gewählten Provider wirft createTransportForTenant —
+      // readiness meldete vorher ready:true und der erste Mail-Send
+      // lieferte den UnconfiguredError (280/1).
+      required: true,
+      write: access.roles("TenantAdmin", "SystemAdmin"),
+      read: access.roles("TenantAdmin", "SystemAdmin", "User"),
+    }),
+  );
   // Readiness gating: transport-plugins' required keys/secrets count only
   // while their plugin is the one this key selects.
-  r.extensionSelector("mailTransport", configKeys.provider);
+  r.extensionSelector("mailTransport", providerConfigKey);
 
   return {
     /** Config-key-handle for the provider-selector. */
-    configKeys,
+    providerConfigKey,
   };
 });
 
@@ -190,7 +189,7 @@ export async function createTransportForTenant(
   }
 
   const provider = requireDefined(
-    await ctxConfig(mailFoundationFeature.exports.configKeys.provider),
+    await ctxConfig(mailFoundationFeature.exports.providerConfigKey),
     FEATURE_NAME,
     "provider",
   ) as string; // @cast-boundary engine-payload
