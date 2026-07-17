@@ -27,13 +27,19 @@ A typical app has two mounts sharing locale and primitives:
 
 ```tsx illustration
 import {
-  ForgotPasswordScreen, LoginScreen, SignupScreen,
+  ForgotPasswordScreen, SignupScreen, createLoginRoute,
   AuthShellProvider, emailPasswordClient,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
 import {
   RequestAccountDeletionScreen, ConfirmAccountDeletionScreen,
 } from "@cosmicdrift/kumiko-bundled-features/user-data-rights/web";
 import { createPublicSurface } from "@cosmicdrift/kumiko-renderer-web";
+
+// createLoginRoute, not a raw LoginScreen render — it owns the challenge-
+// swap for a second factor, so mounting auth-mfa later doesn't need this
+// route touched again. Pass `mfaVerifyScreen: MfaVerifyScreen` (from
+// `.../auth-mfa/web`) once the app mounts auth-mfa.
+const LoginRoute = createLoginRoute({ loginScreenProps: { signupHref: "/signup" } });
 
 createPublicSurface({
   clientFeatures: [emailPasswordClient()],   // SessionProvider + i18n
@@ -45,13 +51,13 @@ createPublicSurface({
     </MarketingChrome>
   ),
   routes: [
-    { path: "/login",           component: <LoginScreen /> },
+    { path: "/login",           component: <LoginRoute /> },
     { path: "/signup",          component: <SignupScreen loginHref="/login" /> },
     { path: "/forgot-password", component: <ForgotPasswordScreen loginHref="/login" /> },
     { path: "/delete-account",         component: <RequestAccountDeletionScreen /> },
     { path: "/delete-account/confirm", component: <ConfirmAccountDeletionScreen /> },
   ],
-  fallback: <LoginScreen />,
+  fallback: <LoginRoute />,
 });
 ```
 
