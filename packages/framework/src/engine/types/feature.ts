@@ -684,7 +684,9 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // the registry qualifies to "<feature>:screen:<id>". Boot-validation checks
   // that entity-bound screens reference a registered entity and that the
   // columns / form-field refs name real fields — cross-feature component-QN
-  // validation (r.uiComponent) comes in M4/M5.
+  // validation (r.uiComponent) comes in M4/M5. Optional `nav` field is
+  // sugar for a single nav entry pointing at this screen — equivalent to
+  // a standalone r.nav({ id: <same id>, screen: "<feature>:screen:<id>", ... }).
   screen(definition: ScreenDefinition): void;
 
   // Register a nav entry. The id is the feature-local short name (kebab-case);
