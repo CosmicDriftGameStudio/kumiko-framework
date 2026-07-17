@@ -1,5 +1,22 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.154.1
+
+### Patch Changes
+
+- 618be61: Export `LoginScreen`/`LoginScreenProps`/`AuthLegalLink` from
+  `@cosmicdrift/kumiko-bundled-features/auth-email-password/web`. Every other
+  auth screen (ForgotPasswordScreen, SignupScreen, ResetPasswordScreen, …) was
+  already exported from the barrel with its props type; `LoginScreen` was
+  missed. `makeAuthGate`'s second parameter is typed `LoginScreenProps`, so
+  consumers passing a typed `loginScreenProps` override (e.g.
+  `@cosmicdriftgamestudio/kumiko-designer`) couldn't import the type at all.
+  - @cosmicdrift/kumiko-framework@0.154.1
+  - @cosmicdrift/kumiko-dispatcher-live@0.154.1
+  - @cosmicdrift/kumiko-headless@0.154.1
+  - @cosmicdrift/kumiko-renderer@0.154.1
+  - @cosmicdrift/kumiko-renderer-web@0.154.1
+
 ## 0.154.0
 
 ### Patch Changes
