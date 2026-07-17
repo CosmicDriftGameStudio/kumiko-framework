@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "tables": [
+    "file_refs",
+    "read_cap_counters",
+    "read_mail_seen_messages",
+    "read_mail_sync_cursors",
+    "read_user_mfa"
+  ]
+}

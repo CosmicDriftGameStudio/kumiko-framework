@@ -15,6 +15,7 @@ import {
   type ColumnBuilder,
   type ColumnHandle,
   decimalColumn,
+  doublePrecision,
   type IndexBuilderWithCols,
   index,
   instant,
@@ -107,7 +108,7 @@ function fieldToColumns(
       // multi-select.
       return { [name]: jsonb(snakeName).default([]).notNull() };
     case "number": {
-      const base = integer(snakeName);
+      const base = field.integer === true ? integer(snakeName) : doublePrecision(snakeName);
       const col = field.default !== undefined ? base.default(field.default) : base;
       return { [name]: field.required ? col.notNull() : col };
     }

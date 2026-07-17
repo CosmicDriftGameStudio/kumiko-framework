@@ -72,6 +72,8 @@ export function pgTypeToSqlType(pgType: PgType): string {
       return "boolean";
     case "integer":
       return "integer";
+    case "double precision":
+      return "double precision";
     case "bigint":
       return "bigint";
     case "serial":
@@ -232,6 +234,10 @@ export function boolean(name: string): ColumnBuilder<boolean> {
 
 export function integer(name: string): ColumnBuilder<number> {
   return buildColumn(name, "integer") as ColumnBuilder<number>;
+}
+
+export function doublePrecision(name: string): ColumnBuilder<number> {
+  return buildColumn(name, "double precision") as ColumnBuilder<number>;
 }
 
 export function serial(name: string): ColumnBuilder<number> {

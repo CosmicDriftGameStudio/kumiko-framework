@@ -105,7 +105,7 @@ describe("schema migration workflows", () => {
     // Entity fields
     expect(columns.get("title")?.dataType).toBe("text");
     expect(columns.get("body")?.dataType).toBe("text");
-    expect(columns.get("view_count")?.dataType).toBe("integer");
+    expect(columns.get("view_count")?.dataType).toBe("double precision");
     expect(columns.get("published_at")?.dataType).toContain("timestamp");
     expect(columns.get("is_draft")?.dataType).toBe("boolean");
     expect(columns.get("is_draft")?.isNullable).toBe(false); // has default → NOT NULL

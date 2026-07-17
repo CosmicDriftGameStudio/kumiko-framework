@@ -83,7 +83,7 @@ export const mailThreadEntity = createEntity({
     threadKey: createTextField({ required: true, maxLength: 500 }),
     subject: createTextField({ maxLength: 4000, tenantOwned: true }),
     lastMessageAt: createTimestampField({ required: true }),
-    messageCount: createNumberField({ required: true }),
+    messageCount: createNumberField({ required: true, integer: true }),
   },
 });
 
