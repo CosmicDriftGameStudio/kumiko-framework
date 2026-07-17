@@ -29,7 +29,6 @@ export {
   collectScreenOpaqueProps,
   extractAuthClaims,
   extractDefineEvent,
-  extractEventMigration,
   extractHook,
   extractHttpRoute,
   extractJob,

@@ -314,23 +314,23 @@ export function validateEventMigrationVersions(
   features: readonly FeatureDefinition[],
 ): void {
   // Build + validate event upcaster chains. Run AFTER all features are
-  // ingested so r.eventMigration calls can reference events from any
-  // feature (same feature in practice, but the check stays lax for future
-  // cross-feature event packs).
+  // ingested so defineEvent's `migrations` option can reference events from
+  // any feature (same feature in practice, but the check stays lax for
+  // future cross-feature event packs).
   for (const feature of features) {
     for (const [shortName, migrations] of Object.entries(feature.eventMigrations ?? {})) {
       const qualified = qualify(feature.name, "event", shortName);
       const eventDef = state.eventMap.get(qualified);
       if (!eventDef) {
         throw new Error(
-          `Feature "${feature.name}" registered r.eventMigration for "${shortName}" ` +
+          `Feature "${feature.name}" has migrations declared for event "${shortName}" ` +
             `but no r.defineEvent exists for that name. Register the event first.`,
         );
       }
       for (const m of migrations) {
         if (m.toVersion > eventDef.version) {
           throw new Error(
-            `Feature "${feature.name}" has r.eventMigration("${shortName}", ${m.fromVersion}, ${m.toVersion}) ` +
+            `Feature "${feature.name}" declares a migration for event "${shortName}" from v${m.fromVersion} to v${m.toVersion} ` +
               `but r.defineEvent declares only version ${eventDef.version}. ` +
               `Bump the version in defineEvent to at least ${m.toVersion}, or remove the migration.`,
           );
@@ -364,7 +364,7 @@ export function buildEventUpcasterChains(
         if (!chainMap.has(v)) {
           throw new Error(
             `Event "${qualified}" declares version ${eventDef.version} but no migration ` +
-              `covers the step v${v} → v${v + 1}. Register r.eventMigration("${qualified.split(":").pop() ?? qualified}", ${v}, ${v + 1}, transform) ` +
+              `covers the step v${v} → v${v + 1}. Add { fromVersion: ${v}, toVersion: ${v + 1}, transform } to r.defineEvent("${qualified.split(":").pop() ?? qualified}", ...)'s migrations array ` +
               `so stored v${v} payloads can be upcast on read.`,
           );
         }

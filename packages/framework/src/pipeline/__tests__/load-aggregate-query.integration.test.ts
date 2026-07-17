@@ -45,15 +45,23 @@ const asOfFeature = defineFeature("asoftest", (r) => {
   const approved = r.defineEvent(
     "approved",
     z.object({ amount: z.number().int(), approvedBy: z.string() }),
-    { version: 2 },
+    {
+      version: 2,
+      migrations: [
+        {
+          fromVersion: 1,
+          toVersion: 2,
+          transform: (payload) => {
+            const p = payload as { amount: string; approvedBy: string };
+            return {
+              amount: Math.round(Number.parseFloat(p.amount) * 100),
+              approvedBy: p.approvedBy,
+            };
+          },
+        },
+      ],
+    },
   );
-  r.eventMigration("approved", 1, 2, (payload) => {
-    const p = payload as { amount: string; approvedBy: string };
-    return {
-      amount: Math.round(Number.parseFloat(p.amount) * 100),
-      approvedBy: p.approvedBy,
-    };
-  });
 
   const executor = createEventStoreExecutor(invoiceTable, invoiceEntity, {
     entityName: "asof-invoice",

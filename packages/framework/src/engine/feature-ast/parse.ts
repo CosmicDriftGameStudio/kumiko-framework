@@ -39,7 +39,6 @@ import {
   extractDescribe,
   extractEntity,
   extractEnvSchema,
-  extractEventMigration,
   extractExposesApi,
   extractExtendsRegistrar,
   extractHook,
@@ -454,8 +453,6 @@ function dispatchExtractor(
       return extractHttpRoute(call, sourceFile);
     case "defineEvent":
       return extractDefineEvent(call, sourceFile);
-    case "eventMigration":
-      return extractEventMigration(call, sourceFile);
     case "notification":
       return extractNotification(call, sourceFile);
     case "projection":

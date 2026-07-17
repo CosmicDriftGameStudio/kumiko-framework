@@ -298,7 +298,7 @@ export type FeatureDefinition = {
   readonly referenceData: readonly ReferenceDataDef[];
   readonly notifications: Readonly<Record<string, NotificationDefinition>>;
   readonly events: Readonly<Record<string, EventDef>>;
-  // Event schema migrations declared via r.eventMigration(). Keyed by event
+  // Event schema migrations declared via defineEvent's `migrations` option. Keyed by event
   // short-name; each entry carries the step transforms (fromVersion →
   // toVersion). The registry stitches these with the defineEvent-declared
   // current version and exposes a per-qualified-name upcaster chain.
@@ -525,9 +525,14 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // "<feature>:event:<short>" string.
   //
   // `options.version` declares the CURRENT schema generation. Defaults to 1
-  // on first registration. When you bump the payload shape, raise version
-  // AND register r.eventMigration(shortName, N, N+1, transform) — the
-  // framework refuses to boot if the chain from 1 → version has gaps.
+  // on first registration. When you bump the payload shape, add a step to
+  // `options.migrations` covering N -> N+1 — the framework refuses to boot
+  // if the chain from 1 to `version` has gaps. Migrations were formerly a
+  // separate r.eventMigration() call; folded in here because an event and
+  // its schema evolution are one lifecycle, not two registrar concepts
+  // (#1082 step 8) — transforms are pure functions (old payload in, new
+  // payload out) and run once per read, not once per event persisted, so
+  // keep them cheap.
   //
   // `options.piiFields` declares PII payload fields encrypted under the DEK
   // of the user named by `subjectField` (crypto-shredding, #799). append()
@@ -535,20 +540,16 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   defineEvent<const TInner extends string, TPayload>(
     name: TInner,
     schema: ZodType<TPayload>,
-    options?: { readonly version?: number; readonly piiFields?: EventPiiFields },
+    options?: {
+      readonly version?: number;
+      readonly piiFields?: EventPiiFields;
+      readonly migrations?: readonly {
+        readonly fromVersion: number;
+        readonly toVersion: number;
+        readonly transform: EventUpcastFn | DeclarativeEventMigration;
+      }[];
+    },
   ): EventDef<TPayload, QualifiedEventName<TFeature, TInner>>;
-
-  // Register a step-wise payload transform for event-schema evolution.
-  // `eventName` is the SHORT name (same as defineEvent). `toVersion` must
-  // be `fromVersion + 1` — chain larger jumps by registering each step.
-  // Transforms are pure functions: old payload in, new payload out. They
-  // run once per read (not once per event persisted), so keep them cheap.
-  eventMigration(
-    eventName: string,
-    fromVersion: number,
-    toVersion: number,
-    transform: EventUpcastFn | DeclarativeEventMigration,
-  ): void;
 
   readsConfig(...qualifiedKeys: string[]): void;
 

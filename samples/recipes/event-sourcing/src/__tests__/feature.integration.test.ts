@@ -1,7 +1,7 @@
 // Event Sourcing Showcase — Integration Test
 //
 // Exercises every Sprint-E Marten gold-standard API end-to-end:
-//   - r.defineEvent with version + r.eventMigration (sync + async upcaster)
+//   - r.defineEvent with version + migrations (sync + async upcaster)
 //   - ctx.appendEvent onto the aggregate stream (incl. headers metadata)
 //   - r.projection (single-stream, inline)
 //   - r.multiStreamProjection (async)

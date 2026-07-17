@@ -25,7 +25,6 @@ import type {
   DescribePattern,
   EntityPattern,
   EnvSchemaPattern,
-  EventMigrationPattern,
   ExposesApiPattern,
   ExtendsRegistrarPattern,
   FeaturePattern,
@@ -126,8 +125,6 @@ export function renderPattern(pattern: FeaturePattern): string {
       return renderMultiStreamProjection(pattern);
     case "defineEvent":
       return renderDefineEvent(pattern);
-    case "eventMigration":
-      return renderEventMigration(pattern);
     case "extendsRegistrar":
       return renderExtendsRegistrar(pattern);
     case "usesApi":
@@ -498,16 +495,16 @@ function renderDefineEvent(p: DefineEventPattern): string {
   lines.push(`  name: ${JSON.stringify(p.eventName)},`);
   lines.push(`  schema: ${p.schemaSource.raw},`);
   if (p.version !== undefined) lines.push(`  version: ${p.version},`);
-  lines.push("});");
-  return lines.join("\n");
-}
-
-function renderEventMigration(p: EventMigrationPattern): string {
-  const lines: string[] = ["r.eventMigration({"];
-  lines.push(`  event: ${JSON.stringify(p.eventName)},`);
-  lines.push(`  fromVersion: ${p.fromVersion},`);
-  lines.push(`  toVersion: ${p.toVersion},`);
-  lines.push(`  transform: ${p.transformBody.raw},`);
+  if (p.migrations !== undefined) {
+    const entries = Object.entries(p.migrations);
+    if (entries.length > 0) {
+      lines.push("  migrations: {");
+      for (const [fromVersion, transformBody] of entries) {
+        lines.push(`    "${fromVersion}": ${transformBody.raw},`);
+      }
+      lines.push("  },");
+    }
+  }
   lines.push("});");
   return lines.join("\n");
 }

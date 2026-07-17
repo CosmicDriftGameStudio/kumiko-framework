@@ -8,8 +8,7 @@ blocks Kumiko provides.
 
 | API | Purpose |
 |---|---|
-| `r.defineEvent(name, schema, { version })` | Event schema with version number |
-| `r.eventMigration(name, from, to, transform)` | Upcaster for schema evolution |
+| `r.defineEvent(name, schema, { version, migrations })` | Event schema with version number + upcaster chain |
 | `ctx.appendEvent({ aggregateId, aggregateType, type, payload })` | Domain event on aggregate stream |
 | `r.projection(...)` | Single-stream read model, inline in the write TX |
 | `r.multiStreamProjection(...)` | Cross-aggregate read model, async via dispatcher |

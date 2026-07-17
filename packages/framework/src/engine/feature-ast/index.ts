@@ -27,7 +27,6 @@ export type {
   AddConfigArgs,
   AddDefineEventArgs,
   AddEntityArgs,
-  AddEventMigrationArgs,
   AddHookArgs,
   AddHttpRouteArgs,
   AddJobArgs,
@@ -60,7 +59,6 @@ export type {
   Editability,
   // Static patterns
   EntityPattern,
-  EventMigrationPattern,
   ExtendsRegistrarPattern,
   FeaturePattern,
   FeaturePatternKind,

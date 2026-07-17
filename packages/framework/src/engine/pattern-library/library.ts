@@ -17,7 +17,6 @@ import type { FeaturePatternKind } from "../feature-ast/patterns";
 import {
   authClaimsSchema,
   defineEventSchema,
-  eventMigrationSchema,
   hookSchema,
   httpRouteSchema,
   jobSchema,
@@ -88,7 +87,6 @@ export const PATTERN_LIBRARY: Readonly<Record<FeaturePatternKind, PatternFormSch
   projection: projectionSchema,
   multiStreamProjection: multiStreamProjectionSchema,
   defineEvent: defineEventSchema,
-  eventMigration: eventMigrationSchema,
   extendsRegistrar: extendsRegistrarSchema,
   usesApi: usesApiSchema,
   exposesApi: exposesApiSchema,

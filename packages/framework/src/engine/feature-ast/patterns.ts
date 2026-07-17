@@ -491,29 +491,22 @@ export type MultiStreamProjectionPattern = {
 // `r.defineEvent(name, schema, options?)` — registers an event payload
 // shape and returns the qualified `EventDef`, so callers pass `.name` to
 // `ctx.appendEvent` instead of hand-building `<feature>:event:<short>`.
-// `options.version` declares the CURRENT schema generation (default 1);
-// bump it together with an `r.eventMigration` step — the framework refuses
-// to boot if the chain from 1 to the current version has gaps.
+// `options.version` declares the CURRENT schema generation (default 1).
+// `options.migrations` is a step-wise upcast chain — keyed by fromVersion
+// (toVersion is always fromVersion + 1, enforced at registration, so it is
+// not stored separately); the framework refuses to boot if the chain from
+// 1 to `version` has gaps. Formerly a separate `r.eventMigration()` call
+// per step, folded in here (#1082 step 8) — an event and its schema
+// evolution are one lifecycle, not two registrar concepts.
 export type DefineEventPattern = {
   readonly kind: "defineEvent";
   readonly source: SourceLocation;
   readonly eventName: string;
   readonly schemaSource: SourceLocation;
   readonly version?: number;
-};
-
-// `r.eventMigration(eventName, fromVersion, toVersion, transform)` —
-// registers a step-wise payload upcast for event-schema evolution.
-// `toVersion` must be `fromVersion + 1`; chain larger jumps step by step.
-// Transforms are pure old-payload-in/new-payload-out functions and run once
-// per READ, not once per event persisted — keep them cheap.
-export type EventMigrationPattern = {
-  readonly kind: "eventMigration";
-  readonly source: SourceLocation;
-  readonly eventName: string;
-  readonly fromVersion: number;
-  readonly toVersion: number;
-  readonly transformBody: SourceLocation;
+  // Map fromVersion (as string, e.g. "1") → SourceLocation of the transform
+  // closure for the fromVersion → fromVersion+1 step.
+  readonly migrations?: Readonly<Record<string, SourceLocation>>;
 };
 
 // `r.extendsRegistrar(extensionName, def)` — declares a named, globally
@@ -607,7 +600,6 @@ export type FeaturePattern =
   | ProjectionPattern
   | MultiStreamProjectionPattern
   | DefineEventPattern
-  | EventMigrationPattern
   | ExtendsRegistrarPattern
   | EnvSchemaPattern
   // Catch-all
@@ -662,7 +654,6 @@ export function getEditability(pattern: FeaturePattern): Editability {
     case "projection":
     case "multiStreamProjection":
     case "defineEvent":
-    case "eventMigration":
       return "mixed";
     case "authClaims":
     case "extendsRegistrar":

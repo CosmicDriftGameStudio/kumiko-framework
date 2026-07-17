@@ -54,7 +54,6 @@ const ALL_KINDS: FeaturePatternKind[] = [
   "projection",
   "multiStreamProjection",
   "defineEvent",
-  "eventMigration",
   "extendsRegistrar",
   "usesApi",
   "exposesApi",
@@ -322,15 +321,6 @@ function makePlaceholderPattern(kind: FeaturePatternKind): FeaturePattern {
         source: PLACEHOLDER_LOC,
         eventName: "x",
         schemaSource: PLACEHOLDER_BODY_LOC,
-      };
-    case "eventMigration":
-      return {
-        kind,
-        source: PLACEHOLDER_LOC,
-        eventName: "x",
-        fromVersion: 1,
-        toVersion: 2,
-        transformBody: PLACEHOLDER_BODY_LOC,
       };
     case "extendsRegistrar":
       return {

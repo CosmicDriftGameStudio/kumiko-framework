@@ -3,8 +3,8 @@
 // Production-pattern sample that exercises every Sprint-E Marten gold-
 // standard API in one place:
 //
-//   - r.defineEvent with { version } — declare evolving event shapes
-//   - r.eventMigration — upcast older payloads on read (declarative + sync/async fn)
+//   - r.defineEvent with { version, migrations } — evolving event shapes +
+//     upcast older payloads on read (declarative + sync/async transforms)
 //   - ctx.appendEvent — write domain events onto the aggregate stream
 //   - ctx.appendEvent with headers — Marten free key/value metadata
 //   - r.projection — single-stream read model (inline in the write TX)
@@ -135,12 +135,20 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
   const approved = r.defineEvent(
     "invoice-approved",
     z.object({ amountCents: z.number().int(), approvedBy: z.string() }),
-    { version: 2 },
+    {
+      version: 2,
+      migrations: [
+        {
+          fromVersion: 1,
+          toVersion: 2,
+          transform: {
+            rename: { amount: "amountCents" },
+            map: { amountCents: (v) => Math.round(Number.parseFloat(String(v)) * 100) },
+          },
+        },
+      ],
+    },
   );
-  r.eventMigration("invoice-approved", 1, 2, {
-    rename: { amount: "amountCents" },
-    map: { amountCents: (v) => Math.round(Number.parseFloat(String(v)) * 100) },
-  });
 
   const paid = r.defineEvent("invoice-paid", z.object({ amountCents: z.number().int() }));
 
@@ -152,18 +160,26 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
   const acknowledged = r.defineEvent(
     "invoice-acknowledged",
     z.object({ approverId: z.string(), approverDisplayName: z.string() }),
-    { version: 2 },
+    {
+      version: 2,
+      migrations: [
+        {
+          fromVersion: 1,
+          toVersion: 2,
+          transform: async (payload, ctx) => {
+            const p = payload as { approverId: string };
+            const row = await fetchOne<{ displayName: string }>(ctx.db, approverDirectoryTable, {
+              approverId: p.approverId,
+            });
+            return {
+              approverId: p.approverId,
+              approverDisplayName: row?.displayName ?? `unknown:${p.approverId}`,
+            };
+          },
+        },
+      ],
+    },
   );
-  r.eventMigration("invoice-acknowledged", 1, 2, async (payload, ctx) => {
-    const p = payload as { approverId: string };
-    const row = await fetchOne<{ displayName: string }>(ctx.db, approverDirectoryTable, {
-      approverId: p.approverId,
-    });
-    return {
-      approverId: p.approverId,
-      approverDisplayName: row?.displayName ?? `unknown:${p.approverId}`,
-    };
-  });
 
   // Single-stream projection: one row per invoice, reacts to the auto
   // CRUD event + both domain events. Runs INLINE in the write TX.
