@@ -86,6 +86,7 @@ export function WorkspaceShell({
   user,
   initialWorkspaceId,
   sidebarFooter,
+  navBadges,
   children,
 }: WorkspaceShellProps): ReactNode {
   const app = useMemo(() => toAppSchema(schema), [schema]);
@@ -207,6 +208,7 @@ export function WorkspaceShell({
       schema={app}
       {...(user !== undefined && { user })}
       {...(allowedNavQns !== undefined && { allowedNavQns })}
+      {...(navBadges !== undefined && { navBadges })}
     />
   );
 
