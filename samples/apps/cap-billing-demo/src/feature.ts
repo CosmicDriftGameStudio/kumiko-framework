@@ -189,7 +189,7 @@ export const newsletterFeature = defineFeature(FEATURE_NAME, (r) => {
   r.requires(BILLING_FOUNDATION_FEATURE);
 
   // Tier-config-key. Tenant-Admin setzt's; default "free".
-  r.configKey(
+  r.config(
     "tier",
     createTenantConfig("select", {
       default: "free",

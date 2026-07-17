@@ -131,11 +131,11 @@ const ordersFeature = defineFeature("orders", (r) => {
   });
 });
 
-// r.configKey() shorthand — single-key sibling of r.config({keys}), same
+// r.config() shorthand — single-key sibling of r.config({keys}), same
 // wiring end-to-end (registry → resolver → ctx.config). No seeds needed here.
 const configKeyDemoFeature = defineFeature("configkeydemo", (r) => {
   r.requires("config");
-  const betaEnabled = r.configKey(
+  const betaEnabled = r.config(
     "betaEnabled",
     createTenantConfig("boolean", { default: false, write: access.roles("Admin") }),
   );
@@ -810,14 +810,14 @@ describe("ctx.config() in handler context", () => {
     // broad union instead of the narrowed primitive.
     expect(typeof probe.orders).toBe("number");
     expect(typeof probe.push).toBe("boolean");
-    // r.configKey()'s handle goes through the exact same ctx.config() path.
+    // r.config()'s handle goes through the exact same ctx.config() path.
     // (value-level check — true vs. false — is covered by the next test,
     // which reads via configFn without the narrowing hazard of a plain
     // `undefined`-initialized probe field.)
     expect(typeof probe.betaEnabled).toBe("boolean");
   });
 
-  test("r.configKey() value is settable/readable via ctx.config, same as r.config", async () => {
+  test("r.config() single-key form value is settable/readable via ctx.config", async () => {
     expect(configKeyDemoFeature.exports.betaEnabled.name).toBe("configkeydemo:config:beta-enabled");
 
     const configFn = createConfigAccessor(

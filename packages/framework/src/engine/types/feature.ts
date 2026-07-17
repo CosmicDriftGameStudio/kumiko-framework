@@ -499,22 +499,19 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // tags-array as searchable. See `SearchPayloadContributorFn`.
   searchPayloadExtension(entity: NameOrRef, fn: SearchPayloadContributorFn): void;
 
-  // Returns a handle map keyed exactly like the input. Pass any handle to
-  // `ctx.config(handle)` to get the value type narrowed by the key's `type`.
-  // Optional `seeds` declare boot-time system-rows that are written via the
-  // event-store executor — idempotent, skipped when the stream already exists.
+  // Single-key form: bare handle, no wrapping record, no seeds (callers
+  // needing seeds use the multi-key form below).
+  config<T extends ConfigKeyType>(keyName: string, def: ConfigKeyDefinition<T>): ConfigKeyHandle<T>;
+
+  // Multi-key form: returns a handle map keyed exactly like the input. Pass
+  // any handle to `ctx.config(handle)` to get the value type narrowed by the
+  // key's `type`. Optional `seeds` declare boot-time system-rows that are
+  // written via the event-store executor — idempotent, skipped when the
+  // stream already exists.
   config<TKeys extends Readonly<Record<string, ConfigKeyDefinition<ConfigKeyType>>>>(definition: {
     readonly keys: TKeys;
     readonly seeds?: Readonly<Record<string, ConfigSeedDef>>;
   }): { readonly [K in keyof TKeys]: ConfigKeyHandle<TKeys[K]["type"]> };
-
-  // Shorthand for a single key — same handle shape `config({keys:{name:def}})`
-  // would produce for that key, no wrapping record. No seeds param: callers
-  // needing seeds use `config` directly.
-  configKey<T extends ConfigKeyType>(
-    keyName: string,
-    def: ConfigKeyDefinition<T>,
-  ): ConfigKeyHandle<T>;
 
   job(name: string, options: Omit<JobDefinition, "name" | "handler">, handler: JobHandlerFn): void;
 

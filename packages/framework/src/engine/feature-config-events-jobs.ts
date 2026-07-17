@@ -32,15 +32,36 @@ export function buildConfigEventsJobsMethods<TName extends string>(
   state: FeatureBuilderState,
   name: TName,
 ) {
-  // Hoisted out of the returned object literal (not just a method) so
-  // `configKey()` below can call it directly — object-literal methods
-  // aren't in scope for their siblings without a `this`-bind.
+  // Overloaded: (keyName, def) for the single-key case, ({keys, seeds}) for
+  // the multi-key case — both funnel through the same qualify/register loop
+  // below, so a single-key call is byte-identical to what
+  // `{keys:{name:def}}` would have produced.
+  function config<T extends ConfigKeyType>(
+    keyName: string,
+    def: ConfigKeyDefinition<T>,
+  ): ConfigKeyHandle<T>;
   function config<
     TKeys extends Readonly<Record<string, ConfigKeyDefinition<ConfigKeyType>>>,
   >(definition: {
     readonly keys: TKeys;
     readonly seeds?: Readonly<Record<string, ConfigSeedDef>>;
-  }): { readonly [K in keyof TKeys]: ConfigKeyHandle<TKeys[K]["type"]> } {
+  }): { readonly [K in keyof TKeys]: ConfigKeyHandle<TKeys[K]["type"]> };
+  function config(
+    arg1:
+      | string
+      | {
+          readonly keys: Record<string, ConfigKeyDefinition<ConfigKeyType>>;
+          readonly seeds?: Readonly<Record<string, ConfigSeedDef>>;
+        },
+    arg2?: ConfigKeyDefinition<ConfigKeyType>,
+  ): unknown {
+    // arg2 is always defined here — the two public overloads above guarantee
+    // it whenever arg1 is a string; the impl signature just has to widen it
+    // to optional to satisfy both call shapes.
+    const definition = typeof arg1 === "string" && arg2 ? { keys: { [arg1]: arg2 } } : arg1;
+    if (typeof definition === "string") {
+      throw new Error("config(): single-key form requires a definition as the second argument");
+    }
     // Qualify eagerly (same as defineEvent) so the handle name matches what
     // the registry stores — lazy qualification would break compile-time
     // autocomplete and hand-built test registries.
@@ -68,22 +89,12 @@ export function buildConfigEventsJobsMethods<TName extends string>(
         });
       }
     }
-    return handles as {
-      readonly [K in keyof TKeys]: ConfigKeyHandle<TKeys[K]["type"]>;
-    }; // @cast-boundary engine-bridge — Mapped-Type-Inference at config()-callsite
+    // Single-key call unwraps its own handle; multi-key returns the record.
+    return typeof arg1 === "string" ? handles[arg1] : handles; // @cast-boundary engine-bridge — overload impl signature widens to unknown, narrowed by the two public overloads above
   }
 
   return {
     config,
-    // Shorthand for a single key — same handle shape `r.config({keys:{name:def}})`
-    // would produce for that key, just without the wrapping record. No seeds
-    // param: callers needing seeds use `r.config` directly.
-    configKey<T extends ConfigKeyType>(
-      keyName: string,
-      def: ConfigKeyDefinition<T>,
-    ): ConfigKeyHandle<T> {
-      return config({ keys: { [keyName]: def } })[keyName] as ConfigKeyHandle<T>; // @cast-boundary engine-bridge — mapped-type narrows to the single key
-    },
     job(
       jobName: string,
       options: Omit<JobDefinition, "name" | "handler">,
