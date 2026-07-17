@@ -359,6 +359,7 @@ describe("renderPattern — single-pattern shape", () => {
   });
 });
 
+
 // Regression guard for the class of bug the r.exposesApi/r.usesApi fold
 // hit: a registrar-shape change must survive the Designer's parse→render→
 // parse cycle, not just a TS compile of the framework itself. r.hook()'s
@@ -390,6 +391,48 @@ describe("render → parse roundtrip — r.hook({ allOf }) entity-wide target", 
     expect(hookPattern?.kind).toBe("hook");
     if (hookPattern?.kind === "hook") {
       expect(hookPattern.target).toEqual({ allOf: "product" });
+    }
+  });
+});
+
+// Regression guard for the class of bug the r.exposesApi/r.usesApi fold
+// hit: a registrar-shape change (there, removing a method; here, adding a
+// nested optional field) must survive the Designer's parse→render→parse
+// cycle, not just a TS compile of the framework itself. r.screen()'s `nav`
+// sugar is a generic nested object on an already-generic pattern (no
+// per-field extractor/renderer), so this is the cheap case — but proving
+// it beats assuming it.
+const SCREEN_WITH_NAV_FEATURE = `
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+
+defineFeature("shop", (r) => {
+  r.entity("product", { fields: { name: { type: "text" } } });
+  r.screen({
+    id: "products",
+    type: "entityList",
+    entity: "product",
+    columns: ["name"],
+    nav: { label: "shop:nav.products", icon: "box", order: 5 },
+  });
+});
+`;
+
+describe("render → parse roundtrip — r.screen({ nav }) inline sugar", () => {
+  test("nested nav object survives parse → render → parse unchanged", () => {
+    const initial = parse(SCREEN_WITH_NAV_FEATURE);
+    const rendered = renderFeatureFile({
+      featureName: initial.featureName ?? "",
+      patterns: initial.patterns,
+    });
+    const reparsed = parse(rendered);
+    expect(reparsed.patterns.map(stripLocations)).toEqual(initial.patterns.map(stripLocations));
+
+    const screenPattern = reparsed.patterns.find((p) => p.kind === "screen");
+    expect(screenPattern?.kind).toBe("screen");
+    if (screenPattern?.kind === "screen") {
+      expect(screenPattern.definition).toMatchObject({
+        nav: { label: "shop:nav.products", icon: "box", order: 5 },
+      });
     }
   });
 });

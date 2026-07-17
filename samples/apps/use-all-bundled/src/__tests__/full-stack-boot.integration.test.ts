@@ -6,8 +6,8 @@
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { createKumikoServer, type KumikoServerHandle } from "@cosmicdrift/kumiko-dev-server";
-import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { APP_FEATURES } from "../run-config";
 
 let handle: KumikoServerHandle | undefined;

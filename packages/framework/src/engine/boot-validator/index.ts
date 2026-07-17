@@ -1,6 +1,7 @@
 import { validateEntityFieldEncryptionAvailable } from "../../db/entity-field-encryption";
 import { QnTypes, qualifyEntityName } from "../qualified-name";
 import type { ClaimKeyDefinition, FeatureDefinition } from "../types";
+import { validateActionWiring, validateFieldWiring } from "./action-wiring";
 import { validateApiExposureMatching, validateExtensionUsages } from "./api-ext";
 import {
   validateCircularDeps,
@@ -171,6 +172,12 @@ export function validateBoot(features: readonly FeatureDefinition[]): void {
     validateConfigKeyBacking(feature);
     validateOwnershipRules(feature, allClaimKeys, knownRoles);
     validateMultiStreamProjections(feature);
+    // Vor validateScreens: dessen visible/entityId-Feldref-Checks werfen für
+    // einen Function-Wert bereits (mit verwirrender "unknown field undefined"-
+    // Message, weil `typeof fn !== "boolean"` true ist), bevor der klare
+    // Function-Check hier überhaupt liefe.
+    validateActionWiring(feature);
+    validateFieldWiring(feature);
     validateScreens(
       feature,
       featureMap,

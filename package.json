@@ -31,6 +31,7 @@
     "packages/cli",
     "packages/create-kumiko-app",
     "packages/dev-server",
+    "packages/server-runtime",
     "packages/headless",
     "packages/dispatcher-live",
     "packages/renderer",

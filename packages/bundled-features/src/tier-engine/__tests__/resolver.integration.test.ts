@@ -20,7 +20,6 @@ import { tenantSecretsTable } from "@cosmicdrift/kumiko-bundled-features/secrets
 import { tenantMembershipsTable, tenantTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { seedTenant } from "@cosmicdrift/kumiko-bundled-features/tenant/seeding";
 import { userTable } from "@cosmicdrift/kumiko-bundled-features/user";
-import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -36,6 +35,7 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import type { TierMap } from "../compose-app";
 import { tierAssignmentEntity } from "../entity";
 import { createTierEngineFeature } from "../feature";

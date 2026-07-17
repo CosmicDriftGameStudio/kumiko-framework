@@ -1,0 +1,87 @@
+{
+  "name": "@cosmicdrift/kumiko-server-runtime",
+  "version": "0.154.0",
+  "description": "Production server-boot runtime for Kumiko apps: connections, schema-drift-gate, seeds, lifecycle, graceful shutdown. Symmetric to kumiko-dev-server's runDevApp, without dev/scaffold/codegen tooling.",
+  "license": "BUSL-1.1",
+  "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CosmicDriftGameStudio/kumiko-framework.git",
+    "directory": "packages/server-runtime"
+  },
+  "bugs": {
+    "url": "https://github.com/CosmicDriftGameStudio/kumiko-framework/issues"
+  },
+  "homepage": "https://kumiko.rocks",
+  "type": "module",
+  "kumiko": {
+    "runtime": "prod"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./compose-features": {
+      "types": "./src/compose-features.ts",
+      "default": "./src/compose-features.ts"
+    },
+    "./run-prod-app": {
+      "types": "./src/run-prod-app.ts",
+      "default": "./src/run-prod-app.ts"
+    },
+    "./bun-serve-options": {
+      "types": "./src/bun-serve-options.ts",
+      "default": "./src/bun-serve-options.ts"
+    },
+    "./pii-boot-gate": {
+      "types": "./src/pii-boot-gate.ts",
+      "default": "./src/pii-boot-gate.ts"
+    },
+    "./boot/apply-boot-seeds": {
+      "types": "./src/boot/apply-boot-seeds.ts",
+      "default": "./src/boot/apply-boot-seeds.ts"
+    },
+    "./boot/boot-crypto": {
+      "types": "./src/boot/boot-crypto.ts",
+      "default": "./src/boot/boot-crypto.ts"
+    },
+    "./boot/job-run-logger": {
+      "types": "./src/boot/job-run-logger.ts",
+      "default": "./src/boot/job-run-logger.ts"
+    },
+    "./extra-routes-deps": {
+      "types": "./src/extra-routes-deps.ts",
+      "default": "./src/extra-routes-deps.ts"
+    },
+    "./inject-schema": {
+      "types": "./src/inject-schema.ts",
+      "default": "./src/inject-schema.ts"
+    },
+    "./resolve-tailwind-cli": {
+      "types": "./src/resolve-tailwind-cli.ts",
+      "default": "./src/resolve-tailwind-cli.ts"
+    },
+    "./try-hono-first": {
+      "types": "./src/try-hono-first.ts",
+      "default": "./src/try-hono-first.ts"
+    },
+    "./build-prod-bundle": {
+      "types": "./src/build-prod-bundle.ts",
+      "default": "./src/build-prod-bundle.ts"
+    }
+  },
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ]
+}

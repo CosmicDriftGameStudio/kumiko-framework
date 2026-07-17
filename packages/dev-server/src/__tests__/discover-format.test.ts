@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { formatBuildResult } from "../build-prod-bundle";
+import { formatBuildResult } from "@cosmicdrift/kumiko-server-runtime/build-prod-bundle";
 import { discoverServerEntry } from "../build-server-bundle";
 
 describe("discoverServerEntry", () => {

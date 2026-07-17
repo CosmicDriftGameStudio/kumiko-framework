@@ -16,7 +16,7 @@
 
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { composeFeatures } from "@cosmicdrift/kumiko-dev-server/compose-features";
+import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { APP_FEATURES } from "../src/run-config";
 
 type FeatureImport = (

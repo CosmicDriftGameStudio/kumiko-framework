@@ -299,6 +299,27 @@ export function buildUiExtensionsMethods<TName extends string>(
         );
       }
       state.screens[definition.id] = definition;
+      if (definition.nav) {
+        // Sugar for the common "one nav entry pointing at this screen"
+        // case — synthesizes id/screen from the screen's own id. Beyond
+        // label/icon/parent/order, declare a standalone r.nav() instead.
+        if (state.navs[definition.id]) {
+          throw new Error(
+            `[Feature ${name}] Nav entry "${definition.id}" already registered. ` +
+              `Nav ids must be unique per feature — remove the standalone ` +
+              `r.nav("${definition.id}", ...) call or the screen's inline nav.`,
+          );
+        }
+        const navDefinition: NavDefinition = {
+          id: definition.id,
+          label: definition.nav.label,
+          icon: definition.nav.icon,
+          parent: definition.nav.parent,
+          order: definition.nav.order,
+          screen: `${name}:screen:${definition.id}`,
+        };
+        state.navs[definition.id] = navDefinition;
+      }
     },
     nav(definition: NavDefinition): void {
       // Reject kebab-drift at registration-time so the stack trace points at
