@@ -1,3 +1,4 @@
+// @runtime test
 // Feature-Reference-Previews: rendert pro bundled-feature EINEN repräsentativen
 // Screen über Theme × Viewport in EINEM Lauf nach
 // <dir>/<name>/<locale>/<theme>/<viewport>.png (bedient den ScreenshotPreview-
