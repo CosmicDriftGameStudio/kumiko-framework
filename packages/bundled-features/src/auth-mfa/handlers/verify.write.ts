@@ -148,6 +148,9 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
       // refused with noMembership() at the same juncture; mirror it here
       // instead of silently falling back to globalRoles only.
       if (!membership) return invalidChallengeToken();
+      // buildSessionRoles calls stripForbiddenMembershipRoles to strip reserved
+      // roles from the membership portion (globalRoles keeps SystemAdmin) —
+      // read-time backstop against a rebuild-resurrected role.
       const mergedRoles = buildSessionRoles(globalRoles, membership.roles);
 
       const baseSession: SessionUser = { id: userId, tenantId, roles: mergedRoles };
