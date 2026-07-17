@@ -40,6 +40,8 @@ export type { ForgotPasswordScreenProps } from "./forgot-password-screen";
 export { ForgotPasswordScreen } from "./forgot-password-screen";
 export type { InviteAcceptScreenProps } from "./invite-accept-screen";
 export { InviteAcceptScreen } from "./invite-accept-screen";
+export type { AuthLegalLink, LoginScreenProps } from "./login-screen";
+export { LoginScreen } from "./login-screen";
 export type { ResetPasswordScreenProps } from "./reset-password-screen";
 export { ResetPasswordScreen } from "./reset-password-screen";
 export type { SessionApi, SessionState, SessionStatus } from "./session";
