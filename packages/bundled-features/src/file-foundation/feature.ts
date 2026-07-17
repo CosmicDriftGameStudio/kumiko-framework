@@ -54,18 +54,17 @@ export const fileFoundationFeature = defineFeature(FEATURE_NAME, (r) => {
     },
   });
 
-  const configKeys = r.config({
-    keys: {
-      provider: createTenantConfig("text", {
-        default: "",
-        write: access.roles("TenantAdmin", "SystemAdmin"),
-        read: access.roles("TenantAdmin", "SystemAdmin", "User"),
-      }),
-    },
-  });
+  const providerConfigKey = r.configKey(
+    "provider",
+    createTenantConfig("text", {
+      default: "",
+      write: access.roles("TenantAdmin", "SystemAdmin"),
+      read: access.roles("TenantAdmin", "SystemAdmin", "User"),
+    }),
+  );
   // Readiness gating: provider-plugins' required keys/secrets count only
   // while their plugin is the one this key selects.
-  r.extensionSelector(EXT_FILE_PROVIDER, configKeys.provider);
+  r.extensionSelector(EXT_FILE_PROVIDER, providerConfigKey);
 
-  return { configKeys };
+  return { providerConfigKey };
 });
