@@ -445,7 +445,10 @@ export const defineEventSchema: PatternFormSchema = {
     },
     {
       path: "migrations",
-      label: { en: "Migrations (fromVersion → transform)", de: "Migrationen (fromVersion → Transform)" },
+      label: {
+        en: "Migrations (fromVersion → transform)",
+        de: "Migrationen (fromVersion → Transform)",
+      },
       input: "key-value-map",
       keyPlaceholder: "1",
       valueInput: "code-block",
