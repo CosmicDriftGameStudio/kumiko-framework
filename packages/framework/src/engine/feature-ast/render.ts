@@ -23,7 +23,6 @@ import type {
   ConfigPattern,
   DefineEventPattern,
   DescribePattern,
-  EntityHookPattern,
   EntityPattern,
   EnvSchemaPattern,
   ExposesApiPattern,
@@ -112,8 +111,6 @@ export function renderPattern(pattern: FeaturePattern): string {
       return renderQueryHandler(pattern);
     case "hook":
       return renderHook(pattern);
-    case "entityHook":
-      return renderEntityHook(pattern);
     case "job":
       return renderJob(pattern);
     case "notification":
@@ -398,20 +395,16 @@ function renderQueryHandler(p: QueryHandlerPattern): string {
   return lines.join("\n");
 }
 
+function renderHookTarget(target: HookPattern["target"]): string {
+  if (typeof target === "string") return renderValue(target);
+  if ("allOf" in target) return `{ allOf: ${JSON.stringify(target.allOf)} }`;
+  return renderValue([...target]);
+}
+
 function renderHook(p: HookPattern): string {
   const lines: string[] = ["r.hook({"];
   lines.push(`  type: ${JSON.stringify(p.hookType)},`);
-  lines.push(`  target: ${renderValue(typeof p.target === "string" ? p.target : [...p.target])},`);
-  lines.push(`  handler: ${reindentBody(p.fnBody.raw, PATTERN_INDENT)},`);
-  if (p.phase !== undefined) lines.push(`  phase: ${JSON.stringify(p.phase)},`);
-  lines.push("});");
-  return lines.join("\n");
-}
-
-function renderEntityHook(p: EntityHookPattern): string {
-  const lines: string[] = ["r.entityHook({"];
-  lines.push(`  type: ${JSON.stringify(p.hookType)},`);
-  lines.push(`  entity: ${JSON.stringify(p.entityName)},`);
+  lines.push(`  target: ${renderHookTarget(p.target)},`);
   lines.push(`  handler: ${reindentBody(p.fnBody.raw, PATTERN_INDENT)},`);
   if (p.phase !== undefined) lines.push(`  phase: ${JSON.stringify(p.phase)},`);
   lines.push("});");

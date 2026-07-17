@@ -784,29 +784,43 @@ defineFeature("f", (r) => {
   });
 });
 
-describe("extractEntityHook", () => {
-  test("captures hookType, entity and the function body", () => {
+describe("extractHook — entity-wide { allOf } target", () => {
+  test("captures hookType and the allOf entity from positional form", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
-  r.entityHook("postSave", "task", (event, ctx) => {});
+  r.hook("postSave", { allOf: "task" }, (event, ctx) => {});
 });
 `);
 
     expect(result.patterns[0]).toMatchObject({
-      kind: "entityHook",
+      kind: "hook",
       hookType: "postSave",
-      entityName: "task",
+      target: { allOf: "task" },
     });
   });
 
-  test("rejects validation as entity-hook type (only postSave/preDelete/postDelete allowed)", () => {
+  test("captures hookType and the allOf entity from object form", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
-  r.entityHook("validation", "task", () => {});
+  r.hook({ type: "postDelete", target: { allOf: "task" }, handler: () => {} });
 });
 `);
 
-    expect(result.errors[0]?.methodName).toBe("entityHook");
+    expect(result.patterns[0]).toMatchObject({
+      kind: "hook",
+      hookType: "postDelete",
+      target: { allOf: "task" },
+    });
+  });
+
+  test("rejects a malformed allOf value (not a string/ref)", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.hook("postSave", { allOf: 123 }, () => {});
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("hook");
   });
 });
 

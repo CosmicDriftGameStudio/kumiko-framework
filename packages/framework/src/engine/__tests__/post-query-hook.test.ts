@@ -10,7 +10,7 @@ const stubContext = {} as unknown as AppContext;
 // postQuery-Hook (F1) — feuert nach Query-Handler-Execute, vor Field-Access-
 // Read-Filter. Zwei Registrierungs-Pfade:
 //   - r.hook("postQuery", "ns:query:list", fn) — handler-keyed
-//   - r.entityHook("postQuery", "thing", fn)   — entity-keyed (alle Queries)
+//   - r.hook("postQuery", { allOf: "thing" }, fn)   — entity-keyed (alle Queries)
 //
 // Diese Tests pinnen die Invarianten:
 //   1. Beide Registrierungs-Pfade landen in unabhängigen Maps
@@ -35,10 +35,10 @@ describe("postQuery hook registration", () => {
     expect(entry?.[0]?.featureName).toBe("test");
   });
 
-  test("r.entityHook('postQuery', entity, fn) lands in entity-keyed entityHooks map", () => {
+  test("r.hook('postQuery', { allOf: entity }, fn) lands in entity-keyed entityHooks map", () => {
     const feature = defineFeature("test", (r) => {
       const thing = r.entity("thing", createEntity({ table: "things", fields: {} }));
-      r.entityHook("postQuery", thing, noop);
+      r.hook("postQuery", { allOf: thing }, noop);
     });
 
     const entry = feature.entityHooks?.postQuery?.["thing"];
@@ -52,8 +52,8 @@ describe("postQuery hook registration", () => {
 
     const feature = defineFeature("test", (r) => {
       const thing = r.entity("thing", createEntity({ table: "things", fields: {} }));
-      r.entityHook("postQuery", thing, hookA);
-      r.entityHook("postQuery", thing, hookB);
+      r.hook("postQuery", { allOf: thing }, hookA);
+      r.hook("postQuery", { allOf: thing }, hookB);
     });
 
     expect(feature.entityHooks?.postQuery?.["thing"]).toHaveLength(2);
@@ -81,7 +81,7 @@ describe("Registry getters", () => {
 
     const feature = defineFeature("test", (r) => {
       const thing = r.entity("thing", createEntity({ table: "things", fields: {} }));
-      r.entityHook("postQuery", thing, fn);
+      r.hook("postQuery", { allOf: thing }, fn);
     });
 
     const registry = createRegistry([feature]);
@@ -109,7 +109,7 @@ describe("Hook function semantics", () => {
 
     const feature = defineFeature("test", (r) => {
       const thing = r.entity("thing", createEntity({ table: "things", fields: {} }));
-      r.entityHook("postQuery", thing, enrich);
+      r.hook("postQuery", { allOf: thing }, enrich);
     });
 
     const registry = createRegistry([feature]);

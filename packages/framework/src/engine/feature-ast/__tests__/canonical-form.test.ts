@@ -86,9 +86,9 @@ defineFeature("todoList", (r) => {
     },
   });
 
-  r.entityHook({
+  r.hook({
     type: "postDelete",
-    entity: "task",
+    target: { allOf: "task" },
     handler: async (event, ctx) => {
       console.log("task deleted");
     },
@@ -220,7 +220,6 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
       "writeHandler",
       "queryHandler",
       "hook",
-      "entityHook",
       "job",
       "notification",
       "authClaims",
@@ -260,12 +259,14 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
     });
   });
 
-  test("entityHook Pattern: type + entity aus Object-Form", () => {
-    const entityHook = result.patterns.find((p) => p.kind === "entityHook");
+  test("hook Pattern: entity-wide { allOf } target aus Object-Form", () => {
+    const entityHook = result.patterns.find(
+      (p) => p.kind === "hook" && p.hookType === "postDelete",
+    );
     expect(entityHook).toMatchObject({
-      kind: "entityHook",
+      kind: "hook",
       hookType: "postDelete",
-      entityName: "task",
+      target: { allOf: "task" },
     });
   });
 

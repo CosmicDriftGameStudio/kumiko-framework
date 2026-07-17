@@ -157,18 +157,18 @@ describe("FeaturePatcher — typed add helpers for mixed (closure-bearing) patte
     });
   });
 
-  test("addEntityHook routes type + entity correctly", () => {
+  test("addHook routes entity-wide { allOf } target correctly", () => {
     const sf = makeSourceFile(STARTER);
-    createFeaturePatcher(sf).addEntityHook({
+    createFeaturePatcher(sf).addHook({
       type: "postDelete",
-      entity: "task",
+      target: { allOf: "task" },
       handlerSource: "async (event, ctx) => { /* cleanup */ }",
     });
     const result = parseSourceFile(sf);
     expect(result.patterns[0]).toMatchObject({
-      kind: "entityHook",
+      kind: "hook",
       hookType: "postDelete",
-      entityName: "task",
+      target: { allOf: "task" },
     });
   });
 
@@ -442,9 +442,9 @@ defineFeature("tasks", (r) => {
       handlerSource: "async (q, ctx) => []",
       access: { openToAll: true },
     });
-    p.addEntityHook({
+    p.addHook({
       type: "postDelete",
-      entity: "task",
+      target: { allOf: "task" },
       handlerSource: "async (event, ctx) => { /* cascade-clean */ }",
     });
     const result = parseSourceFile(sf);
@@ -453,7 +453,7 @@ defineFeature("tasks", (r) => {
       "entity",
       "writeHandler",
       "queryHandler",
-      "entityHook",
+      "hook",
     ]);
   });
 });

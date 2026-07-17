@@ -81,9 +81,9 @@ const itemFeature = defineFeature("batch", (r) => {
   );
 
   // Entity hook: inTransaction — records in memory
-  r.entityHook(
+  r.hook(
     "postSave",
-    item,
+    { allOf: item },
     async (result: SaveContext) => {
       inTxHookLog.push({ id: result.id, name: (result.data["name"] as string) ?? "" });
     },
@@ -92,9 +92,9 @@ const itemFeature = defineFeature("batch", (r) => {
 
   // Entity hook: inTransaction — writes to DB via ctx.db (the tx-scoped TenantDb).
   // Proves that hook DB writes roll back with the main transaction on failure.
-  r.entityHook(
+  r.hook(
     "postSave",
-    item,
+    { allOf: item },
     async (result, ctx) => {
       if (!ctx.db) return;
       await ctx.db.insertOne(auditTable, { action: "item_saved", itemId: result.id });
@@ -103,32 +103,32 @@ const itemFeature = defineFeature("batch", (r) => {
   );
 
   // Entity hook: afterCommit — records in memory (default phase)
-  r.entityHook("postSave", item, async (result: SaveContext) => {
+  r.hook("postSave", { allOf: item }, async (result: SaveContext) => {
     afterCommitHookLog.push({ id: result.id, name: (result.data["name"] as string) ?? "" });
   });
 
   // Entity hook: afterCommit — may throw, used to verify error isolation
-  r.entityHook("postSave", item, async () => {
+  r.hook("postSave", { allOf: item }, async () => {
     if (afterCommitShouldThrow) throw new Error("afterCommit_boom");
   });
 
   // Entity hook: afterCommit — runs AFTER the throwing one. Used to prove the
   // next hooks still fire despite the earlier failure.
-  r.entityHook("postSave", item, async (result: SaveContext) => {
+  r.hook("postSave", { allOf: item }, async (result: SaveContext) => {
     afterCommitThirdHookRan.push((result.data["name"] as string) ?? "");
   });
 
   // Two hooks used by the parallelism test. Each records its start+end
   // timestamps so the assertion can compare intervals rather than elapsed
   // wall-clock time (which is timing-flaky on loaded CI boxes).
-  r.entityHook("postSave", item, async (result: SaveContext) => {
+  r.hook("postSave", { allOf: item }, async (result: SaveContext) => {
     const name = result.data["name"] as string;
     if (!name?.startsWith("slowness-")) return;
     parallelismWindows.push({ hook: "A", start: Date.now() });
     await new Promise((r) => setTimeout(r, 80));
     parallelismWindows.push({ hook: "A", end: Date.now() });
   });
-  r.entityHook("postSave", item, async (result: SaveContext) => {
+  r.hook("postSave", { allOf: item }, async (result: SaveContext) => {
     const name = result.data["name"] as string;
     if (!name?.startsWith("slowness-")) return;
     parallelismWindows.push({ hook: "B", start: Date.now() });

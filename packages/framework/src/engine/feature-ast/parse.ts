@@ -38,7 +38,6 @@ import {
   extractDefineEvent,
   extractDescribe,
   extractEntity,
-  extractEntityHook,
   extractEnvSchema,
   extractExposesApi,
   extractExtendsRegistrar,
@@ -442,8 +441,6 @@ function dispatchExtractor(
     // Round 4 — mixed (header + body) patterns
     case "hook":
       return extractHook(call, sourceFile);
-    case "entityHook":
-      return extractEntityHook(call, sourceFile);
     case "authClaims":
       return extractAuthClaims(call, sourceFile);
     case "writeHandler":

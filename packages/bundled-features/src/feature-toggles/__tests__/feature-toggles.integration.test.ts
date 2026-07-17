@@ -88,7 +88,7 @@ function widgetAuditFeature(): FeatureDefinition {
     r.toggleable({ default: true });
     r.entity("widget-audit", widgetAuditEntity);
 
-    r.entityHook("postSave", "widget", async (result, ctx) => {
+    r.hook("postSave", { allOf: "widget" }, async (result, ctx) => {
       if (result.kind !== "save" || !result.isNew) return;
       if (!ctx.db) return;
       const name = result.changes!["name"] as string | undefined;

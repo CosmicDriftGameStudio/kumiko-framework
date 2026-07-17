@@ -66,7 +66,7 @@ export const articlesFeature = defineFeature("blog", (r) => {
   });
 
   // --- postSave entity hook: log all saves ---
-  r.entityHook("postSave", article, async (result: SaveContext) => {
+  r.hook("postSave", { allOf: article }, async (result: SaveContext) => {
     hookLog.push({
       type: result.isNew ? "created" : "updated",
       data: { id: result.id, changes: result.changes },
@@ -78,7 +78,7 @@ export const articlesFeature = defineFeature("blog", (r) => {
   // the delete rolls back before any projection or event is written. The
   // payload.data carries the full row snapshot taken just before delete —
   // no extra load needed.
-  r.entityHook("preDelete", article, async (payload) => {
+  r.hook("preDelete", { allOf: article }, async (payload) => {
     if (payload.data["isPublished"] === true) {
       throw new ConflictError({
         message: `article ${payload.id} is still published`,
@@ -90,7 +90,7 @@ export const articlesFeature = defineFeature("blog", (r) => {
 
   // --- postDelete entity hook: log deletions after the transaction commits.
   // Default phase is afterCommit so failures here can't roll back the delete.
-  r.entityHook("postDelete", article, async (payload) => {
+  r.hook("postDelete", { allOf: article }, async (payload) => {
     hookLog.push({
       type: "deleted",
       data: { id: payload.id },

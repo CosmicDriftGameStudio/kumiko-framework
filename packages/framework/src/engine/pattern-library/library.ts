@@ -17,7 +17,6 @@ import type { FeaturePatternKind } from "../feature-ast/patterns";
 import {
   authClaimsSchema,
   defineEventSchema,
-  entityHookSchema,
   hookSchema,
   httpRouteSchema,
   jobSchema,
@@ -81,7 +80,6 @@ export const PATTERN_LIBRARY: Readonly<Record<FeaturePatternKind, PatternFormSch
   writeHandler: writeHandlerSchema,
   queryHandler: queryHandlerSchema,
   hook: hookSchema,
-  entityHook: entityHookSchema,
   job: jobSchema,
   notification: notificationSchema,
   authClaims: authClaimsSchema,

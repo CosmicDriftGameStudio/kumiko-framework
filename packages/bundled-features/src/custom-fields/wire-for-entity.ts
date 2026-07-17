@@ -198,7 +198,7 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
 
   // postQuery-hook: flatten row.customFields jsonb auf root-level der
   // API-response. Spec-Promise Z.4 "indistinguishable von Stammfeldern".
-  r.entityHook("postQuery", entityName, async ({ rows }) => ({
+  r.hook("postQuery", { allOf: entityName }, async ({ rows }) => ({
     rows: rows.map((row) => {
       const customFields = row["customFields"];
       if (customFields && typeof customFields === "object" && !Array.isArray(customFields)) {

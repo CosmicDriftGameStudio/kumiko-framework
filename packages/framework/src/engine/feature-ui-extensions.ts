@@ -31,6 +31,61 @@ import type { WorkspaceDefinition } from "./types/workspace";
 
 // Builds hooks/extensions/projections/screens/nav/workspace/tables/tree-actions
 // registrar methods.
+
+type EntityWideHookType = "postSave" | "preDelete" | "postDelete" | "postQuery";
+
+function isEntityWideHookType(type: LifecycleHookType | "validation"): type is EntityWideHookType {
+  return (
+    type === LifecycleHookTypes.postSave ||
+    type === LifecycleHookTypes.preDelete ||
+    type === LifecycleHookTypes.postDelete ||
+    type === LifecycleHookTypes.postQuery
+  );
+}
+
+// r.hook(type, { allOf: entity }, fn) — "all write/query handlers of this
+// entity", replacing the old r.entityHook(type, entity, fn). Hook-fn casts
+// below: @cast-boundary engine-bridge — typed Dev-API (LifecycleHookFn) →
+// erased Map<entityName, fn>.
+function registerEntityWideHook(
+  state: FeatureBuilderState,
+  featureName: string,
+  type: EntityWideHookType,
+  entityName: string,
+  fn: LifecycleHookFn,
+  options?: { phase?: HookPhase },
+): void {
+  if (type === LifecycleHookTypes.postSave) {
+    const phase = options?.phase ?? HookPhases.afterCommit;
+    if (!state.entityPostSave[entityName]) state.entityPostSave[entityName] = [];
+    state.entityPostSave[entityName].push({
+      fn: fn as PostSaveHookFn,
+      phase,
+      featureName,
+    }); // @cast-boundary engine-bridge
+  } else if (type === LifecycleHookTypes.preDelete) {
+    if (!state.entityPreDelete[entityName]) state.entityPreDelete[entityName] = [];
+    state.entityPreDelete[entityName].push({
+      fn: fn as PreDeleteHookFn, // @cast-boundary engine-bridge
+      phase: HookPhases.inTransaction,
+      featureName,
+    });
+  } else if (type === LifecycleHookTypes.postDelete) {
+    const phase = options?.phase ?? HookPhases.afterCommit;
+    if (!state.entityPostDelete[entityName]) state.entityPostDelete[entityName] = [];
+    state.entityPostDelete[entityName].push({
+      fn: fn as PostDeleteHookFn,
+      phase,
+      featureName,
+    }); // @cast-boundary engine-bridge
+  } else {
+    // postQuery is unphased (no inTransaction/afterCommit semantics — fires
+    // synchronously after query-handler-execute, before field-access-filter)
+    if (!state.entityPostQuery[entityName]) state.entityPostQuery[entityName] = [];
+    state.entityPostQuery[entityName].push({ fn: fn as PostQueryHookFn, featureName }); // @cast-boundary engine-bridge
+  }
+}
+
 export function buildUiExtensionsMethods<TName extends string>(
   state: FeatureBuilderState,
   name: TName,
@@ -38,10 +93,36 @@ export function buildUiExtensionsMethods<TName extends string>(
   return {
     hook(
       type: LifecycleHookType | "validation",
-      target: NameOrRef | readonly NameOrRef[],
+      target: NameOrRef | readonly NameOrRef[] | { readonly allOf: NameOrRef },
       fn: LifecycleHookFn | ValidationHookFn,
       options?: { phase?: HookPhase },
     ): void {
+      // Entity-wide target ("all write/query handlers of this entity") —
+      // replaces the old r.entityHook(type, entity, fn).
+      if (
+        typeof target === "object" &&
+        target !== null &&
+        !Array.isArray(target) &&
+        "allOf" in target
+      ) {
+        if (!isEntityWideHookType(type)) {
+          throw new Error(
+            `[Feature ${name}] r.hook("${type}", { allOf }, ...) only supports ` +
+              `postSave/preDelete/postDelete/postQuery, not "${type}".`,
+          );
+        }
+        registerEntityWideHook(
+          state,
+          name,
+          type,
+          resolveName(target.allOf),
+          fn as LifecycleHookFn,
+          options,
+        );
+        // skip: entity-wide target fully handled above, nothing more to do
+        return;
+      }
+
       const targets = Array.isArray(target) ? target : [target];
       const names = targets.map(resolveName);
 
@@ -79,43 +160,6 @@ export function buildUiExtensionsMethods<TName extends string>(
       for (const n of names) {
         if (!bucket[n]) bucket[n] = [];
         bucket[n].push({ fn: fn as LifecycleHookFn, phase, featureName: name }); // @cast-boundary engine-bridge
-      }
-    },
-    entityHook(
-      type: "postSave" | "preDelete" | "postDelete" | "postQuery",
-      entityRef: NameOrRef,
-      fn: LifecycleHookFn,
-      options?: { phase?: HookPhase },
-    ): void {
-      const entityName = resolveName(entityRef);
-      if (type === LifecycleHookTypes.postSave) {
-        const phase = options?.phase ?? HookPhases.afterCommit;
-        if (!state.entityPostSave[entityName]) state.entityPostSave[entityName] = [];
-        state.entityPostSave[entityName].push({
-          fn: fn as PostSaveHookFn,
-          phase,
-          featureName: name,
-        }); // @cast-boundary engine-bridge
-      } else if (type === LifecycleHookTypes.preDelete) {
-        if (!state.entityPreDelete[entityName]) state.entityPreDelete[entityName] = [];
-        state.entityPreDelete[entityName].push({
-          fn: fn as PreDeleteHookFn, // @cast-boundary engine-bridge
-          phase: HookPhases.inTransaction,
-          featureName: name,
-        });
-      } else if (type === LifecycleHookTypes.postDelete) {
-        const phase = options?.phase ?? HookPhases.afterCommit;
-        if (!state.entityPostDelete[entityName]) state.entityPostDelete[entityName] = [];
-        state.entityPostDelete[entityName].push({
-          fn: fn as PostDeleteHookFn,
-          phase,
-          featureName: name,
-        }); // @cast-boundary engine-bridge
-      } else if (type === LifecycleHookTypes.postQuery) {
-        // postQuery is unphased (no inTransaction/afterCommit semantics — fires
-        // synchronously after query-handler-execute, before field-access-filter)
-        if (!state.entityPostQuery[entityName]) state.entityPostQuery[entityName] = [];
-        state.entityPostQuery[entityName].push({ fn: fn as PostQueryHookFn, featureName: name }); // @cast-boundary engine-bridge
       }
     },
     searchPayloadExtension(entityRef: NameOrRef, fn: SearchPayloadContributorFn): void {

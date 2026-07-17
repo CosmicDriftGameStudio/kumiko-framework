@@ -53,8 +53,11 @@ export type PatternId =
   | { readonly kind: "screen"; readonly id: string }
   | { readonly kind: "writeHandler"; readonly handlerName: string }
   | { readonly kind: "queryHandler"; readonly handlerName: string }
-  | { readonly kind: "hook"; readonly hookType: string; readonly target: string }
-  | { readonly kind: "entityHook"; readonly hookType: string; readonly entityName: string }
+  | {
+      readonly kind: "hook";
+      readonly hookType: string;
+      readonly target: string | { readonly allOf: string };
+    }
   | { readonly kind: "metric"; readonly shortName: string }
   | { readonly kind: "secret"; readonly shortName: string }
   | { readonly kind: "claimKey"; readonly shortName: string }
@@ -356,6 +359,18 @@ function callMatchesId(call: CallExpression, id: PatternId): boolean {
       );
     case "hook":
       // Positional: r.hook(type, target, fn) | Object: { type, target }
+      if (typeof id.target === "object") {
+        // Entity-wide { allOf } target — only ever appears as the object
+        // literal { allOf: entity } (positional or nested in the object
+        // form), never as a bare string, so check both call shapes.
+        if (matchFirstArgString(call, id.hookType)) {
+          return matchAllOfArg(call.getArguments()[1], id.target.allOf);
+        }
+        return (
+          matchObjectProperty(call, "type", id.hookType) &&
+          matchObjectAllOfProperty(call, "target", id.target.allOf)
+        );
+      }
       if (matchFirstArgString(call, id.hookType)) {
         const target = call.getArguments()[1]?.asKind(SyntaxKind.StringLiteral)?.getLiteralValue();
         return target === id.target;
@@ -363,15 +378,6 @@ function callMatchesId(call: CallExpression, id: PatternId): boolean {
       return (
         matchObjectProperty(call, "type", id.hookType) &&
         matchObjectProperty(call, "target", id.target)
-      );
-    case "entityHook":
-      if (matchFirstArgString(call, id.hookType)) {
-        const ent = call.getArguments()[1]?.asKind(SyntaxKind.StringLiteral)?.getLiteralValue();
-        return ent === id.entityName;
-      }
-      return (
-        matchObjectProperty(call, "type", id.hookType) &&
-        matchObjectProperty(call, "entity", id.entityName)
       );
     case "metric":
     case "secret":
@@ -437,6 +443,31 @@ function matchObjectProperty(call: CallExpression, propName: string, expected: s
     ?.getInitializer()
     ?.asKind(SyntaxKind.StringLiteral);
   return init?.getLiteralValue() === expected;
+}
+
+// Matches an r.hook `{ allOf: entity }` target — as the arg node directly
+// (positional call form) or as a nested object property (object call form).
+function matchAllOfArg(node: Node | undefined, expectedEntity: string): boolean {
+  const obj = node?.asKind(SyntaxKind.ObjectLiteralExpression);
+  const init = obj
+    ?.getProperty("allOf")
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer()
+    ?.asKind(SyntaxKind.StringLiteral);
+  return init?.getLiteralValue() === expectedEntity;
+}
+
+function matchObjectAllOfProperty(
+  call: CallExpression,
+  propName: string,
+  expectedEntity: string,
+): boolean {
+  const obj = call.getArguments()[0]?.asKind(SyntaxKind.ObjectLiteralExpression);
+  const propInit = obj
+    ?.getProperty(propName)
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer();
+  return matchAllOfArg(propInit, expectedEntity);
 }
 
 // =============================================================================

@@ -132,7 +132,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
     // we want to skip on. Works for both direct user:update calls and any
     // other handler that happens to write the column.
     let autoRevoke = options?.autoRevokeOnPasswordChange;
-    r.entityHook("postSave", "user", async (ctx) => {
+    r.hook("postSave", { allOf: "user" }, async (ctx) => {
       // skip: nothing bound — stateless-JWT deployments without a runtime
       // that calls bindAutoRevokeOnPasswordChange keep the old behavior.
       if (!autoRevoke) return;

@@ -182,7 +182,7 @@ const userFeature = defineFeature("users", (r) => {
     { access: { openToAll: true } },
   );
 
-  r.entityHook("postSave", user, async (result) => {
+  r.hook("postSave", { allOf: user }, async (result) => {
     featurePostSaveLog.push(result);
   });
 

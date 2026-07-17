@@ -381,6 +381,12 @@ export type FeatureDefinition = {
 // --- Feature Registrar (the "r" object in defineFeature) ---
 
 type RefOrRefs = NameOrRef | readonly NameOrRef[];
+// Entity-wide hook target — "all query/write handlers of this entity",
+// same reach r.entityHook() used to have. Only valid for postSave/
+// preDelete/postDelete/postQuery (the same 4 types entityHook covered);
+// hook() throws at registration time if used with validation/preSave/
+// preQuery.
+type HookTarget = RefOrRefs | { readonly allOf: NameOrRef };
 
 /**
  * `TFeature` is the literal feature-name from `defineFeature("foo", ...)` —
@@ -455,42 +461,29 @@ export type FeatureRegistrar<TFeature extends string = string> = {
 
   hook(type: "validation", target: RefOrRefs, fn: ValidationHookFn): void;
   hook(type: "preSave", target: RefOrRefs, fn: PreSaveHookFn): void;
+  // postSave/preDelete/postDelete/postQuery accept `{ allOf: entityRef }` —
+  // fires for every write/query handler of that entity, replacing the old
+  // r.entityHook(type, entity, fn). postQuery's entity-wide form fires for
+  // ALL query-handlers of the entity (e.g. customFields-bundle merging
+  // custom-fields-jsonb into every read); no phase semantics there
+  // (synchronous after handler-execute, before field-access-filter).
   hook(
     type: "postSave",
-    target: RefOrRefs,
+    target: HookTarget,
     fn: PostSaveHookFn,
     options?: { phase?: HookPhase },
   ): void;
   // preDelete always runs in-transaction (it guards the delete — there is no
   // meaningful "after" for a pre-hook). No phase option.
-  hook(type: "preDelete", target: RefOrRefs, fn: PreDeleteHookFn): void;
+  hook(type: "preDelete", target: HookTarget, fn: PreDeleteHookFn): void;
   hook(
     type: "postDelete",
-    target: RefOrRefs,
+    target: HookTarget,
     fn: PostDeleteHookFn,
     options?: { phase?: HookPhase },
   ): void;
   hook(type: "preQuery", target: RefOrRefs, fn: PreQueryHookFn): void;
-  hook(type: "postQuery", target: RefOrRefs, fn: PostQueryHookFn): void;
-
-  entityHook(
-    type: "postSave",
-    entity: NameOrRef,
-    fn: PostSaveHookFn,
-    options?: { phase?: HookPhase },
-  ): void;
-  entityHook(type: "preDelete", entity: NameOrRef, fn: PreDeleteHookFn): void;
-  entityHook(
-    type: "postDelete",
-    entity: NameOrRef,
-    fn: PostDeleteHookFn,
-    options?: { phase?: HookPhase },
-  ): void;
-  // postQuery-entityHook: fires for ALL query-handlers of this entity (e.g.,
-  // for customFields-bundle to merge custom-fields-jsonb into every read).
-  // No phase semantics (synchronous after handler-execute, before field-
-  // access-filter).
-  entityHook(type: "postQuery", entity: NameOrRef, fn: PostQueryHookFn): void;
+  hook(type: "postQuery", target: HookTarget, fn: PostQueryHookFn): void;
 
   // F3 — Search-Payload-Extension: contributor function adds flat fields to
   // an entity's search-index document. Fires synchronously during

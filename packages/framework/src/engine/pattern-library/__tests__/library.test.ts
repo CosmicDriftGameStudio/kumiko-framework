@@ -47,7 +47,6 @@ const ALL_KINDS: FeaturePatternKind[] = [
   "writeHandler",
   "queryHandler",
   "hook",
-  "entityHook",
   "job",
   "notification",
   "authClaims",
@@ -277,14 +276,6 @@ function makePlaceholderPattern(kind: FeaturePatternKind): FeaturePattern {
         source: PLACEHOLDER_LOC,
         hookType: "postSave",
         target: "x",
-        fnBody: PLACEHOLDER_BODY_LOC,
-      };
-    case "entityHook":
-      return {
-        kind,
-        source: PLACEHOLDER_LOC,
-        hookType: "postSave",
-        entityName: "x",
         fnBody: PLACEHOLDER_BODY_LOC,
       };
     case "job":

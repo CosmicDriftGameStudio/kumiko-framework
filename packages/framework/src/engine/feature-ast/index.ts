@@ -27,7 +27,6 @@ export type {
   AddConfigArgs,
   AddDefineEventArgs,
   AddEntityArgs,
-  AddEntityHookArgs,
   AddHookArgs,
   AddHttpRouteArgs,
   AddJobArgs,
@@ -58,7 +57,6 @@ export type {
   ConfigPattern,
   DefineEventPattern,
   Editability,
-  EntityHookPattern,
   // Static patterns
   EntityPattern,
   ExtendsRegistrarPattern,
