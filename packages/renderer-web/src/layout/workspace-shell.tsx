@@ -326,4 +326,3 @@ export function resolveDefaultId(
   // 3. First workspace the user can see.
   return visible[0]?.definition.id;
 }
-
