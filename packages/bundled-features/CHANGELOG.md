@@ -1,5 +1,39 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.151.0
+
+### Minor Changes
+
+- 624dcc5: `auth-email-password/web` no longer exports `LoginScreen`/`LoginScreenProps`
+  directly — use the new `createLoginRoute({ loginScreenProps, mfaVerifyScreen,
+onAuthenticated })` instead. `makeAuthGate`/`makeSessionAuthGate` are
+  unaffected (they already build on the same logic internally now).
+
+  Why: a raw `<LoginScreen />` render has no MFA-challenge handling unless the
+  caller remembers to hand-wire `onMfaChallenge` + swap in a verify screen
+  itself — exactly how kumiko-framework#266's login-time MFA step went
+  missing in a real app's standalone apex/marketing login route (it renders
+  outside `emailPasswordClient`'s own gate, which already handled this
+  correctly). `createLoginRoute` is the one place this logic lives now, for
+  both the gated and standalone cases — there's no lower-level piece left to
+  misuse. The `apex-surface-auth` recipe is updated to match.
+
+### Patch Changes
+
+- 97ca76d: Clarify why `MfaEnableScreen` imports `qrcode/lib/browser` (Metro doesn't
+  honor `qrcode`'s package.json#browser remap) and that consuming apps need
+  their own local ambient `.d.ts` shim for the subpath — TypeScript can't
+  auto-discover an ambient declaration sibling from inside a node_modules
+  package when apps typecheck this raw `.tsx` source directly. No runtime
+  change; the previous comment incorrectly suggested a triple-slash
+  reference would work across package boundaries — it doesn't.
+- Updated dependencies [ca4edbf]
+  - @cosmicdrift/kumiko-framework@0.151.0
+  - @cosmicdrift/kumiko-headless@0.151.0
+  - @cosmicdrift/kumiko-renderer@0.151.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.151.0
+  - @cosmicdrift/kumiko-renderer-web@0.151.0
+
 ## 0.150.0
 
 ### Patch Changes
