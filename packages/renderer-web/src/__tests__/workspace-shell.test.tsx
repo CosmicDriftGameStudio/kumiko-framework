@@ -865,7 +865,9 @@ describe("WorkspaceShell — EINE Nav", () => {
         <div>content</div>
       </WorkspaceShell>,
     );
-    expect(screen.getByText("Orders").closest("li")?.textContent).toContain("3");
-    expect(screen.getByText("System").closest("li")?.textContent).not.toContain("3");
+    const ordersItems = screen.getAllByText("Orders");
+    const systemItems = screen.getAllByText("System");
+    expect(ordersItems.some((el) => el.closest("li")?.textContent?.includes("3"))).toBe(true);
+    expect(systemItems.every((el) => !el.closest("li")?.textContent?.includes("3"))).toBe(true);
   });
 });
