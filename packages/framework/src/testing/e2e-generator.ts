@@ -115,6 +115,8 @@ export function generateE2ESpec(
     // projectionList: query-getrieben, Author-spezifische Projection —
     // kein generischer CRUD-Spec ableitbar (wie actionForm/configEdit).
     if (screen.type === "projectionList") continue;
+    // projectionDetail: dito — read-only single-row inspector, kein CRUD-Zustand.
+    if (screen.type === "projectionDetail") continue;
     // dashboard: panel-getrieben (Stat/Chart/List-Queries) — dito, keine
     // generische CRUD-Annahme möglich.
     if (screen.type === "dashboard") continue;

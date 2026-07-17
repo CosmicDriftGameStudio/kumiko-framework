@@ -245,6 +245,7 @@ export type {
   FormatSpec,
   ListColumnSpec,
   PlatformComponent,
+  ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
   RowAction,
   RowActionNavigate,

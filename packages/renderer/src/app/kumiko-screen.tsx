@@ -6,6 +6,7 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
+  ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
   RowAction,
   RowActionNavigate,
@@ -38,6 +39,10 @@ import { useCustomScreenComponent } from "./custom-screens";
 import { useDashboardBody } from "./dashboard-body";
 import type { FeatureSchema } from "./feature-schema";
 import { useNav } from "./nav";
+import {
+  synthesizeProjectionDetailEntity,
+  synthesizeProjectionDetailScreen,
+} from "./projection-detail-shim";
 import { synthesizeProjectionEntity, synthesizeProjectionScreen } from "./projection-list-shim";
 import { lastSegment, toKebab } from "./qn";
 import { dispatcherErrorText, WriteFailedError } from "./write-failed-error";
@@ -69,10 +74,11 @@ export type KumikoScreenProps = {
   readonly schema: FeatureSchema;
   readonly qn: string;
   readonly translate?: Translate;
-  // Optional entity-id. Only meaningful for entityEdit screens — when
-  // set, the edit screen loads the existing record via the detail
-  // query and submits an update command (`write:<entity>:update`)
-  // instead of a create. For entityList/custom screens it's ignored.
+  // Optional entity-id / row-id. Meaningful for entityEdit screens — when
+  // set, the edit screen loads the existing record via the detail query and
+  // submits an update command (`write:<entity>:update`) instead of a create.
+  // Also required for projectionDetail screens (which row to fetch — no
+  // create mode exists there). For entityList/custom screens it's ignored.
   readonly entityId?: string;
   // Fires when the user clicks a row on an entityList screen. The
   // second argument is the screen's entity name, threaded through so
@@ -150,6 +156,15 @@ export function KumikoScreen({
           screen={screen}
           translate={translate}
           {...(onRowClick !== undefined && { onRowClick })}
+        />
+      );
+    case "projectionDetail":
+      return (
+        <ProjectionDetailBody
+          schema={schema}
+          screen={screen}
+          translate={translate}
+          {...(entityId !== undefined && { entityId })}
         />
       );
     case "dashboard":
@@ -1239,6 +1254,85 @@ function ProjectionListBody({
   );
 }
 
+// Projection-Detail-Body — read-only single-row inspector über eine explizite
+// Query statt einer Entity (siehe projection-detail-shim.ts für die Schulden-
+// Doku). Fetcht selbst über `screen.query` + `idParam` (analog zu
+// EntityEditUpdateBody, das die Query-QN aus der Entity-Convention ableitet —
+// hier ist die QN Author-explizit, wie bei ProjectionListBody). Rendert über
+// RenderEdit MIT customSubmit-No-Op statt writeCommand: hasEditableSection()
+// blendet den Save-Button aus (jedes Feld ist readOnly), und selbst ein
+// natives Form-Submit (Enter-Keypress) würde ohne customSubmit gegen
+// controller.submit() ohne submit-config throwen — der No-Op macht diesen
+// Pfad harmlos statt ihn dem Zufall zu überlassen.
+function ProjectionDetailBody({
+  schema,
+  screen,
+  translate,
+  entityId,
+}: {
+  readonly schema: FeatureSchema;
+  readonly screen: ProjectionDetailScreenDefinition;
+  readonly translate?: Translate;
+  readonly entityId?: string;
+}): ReactNode {
+  const { Banner, Text } = usePrimitives();
+  const nav = useNav();
+  const idParam = screen.idParam ?? "id";
+  const entity = useMemo(() => synthesizeProjectionDetailEntity(screen.layout), [screen.layout]);
+  const detailScreen = useMemo(() => synthesizeProjectionDetailScreen(screen), [screen]);
+  const detailQuery = useQuery<Readonly<Record<string, unknown>>>(
+    screen.query,
+    entityId !== undefined ? { [idParam]: entityId } : {},
+  );
+
+  const navigateToList = useCallback(() => {
+    if (screen.listScreenId === undefined) return;
+    nav.navigate({ screenId: screen.listScreenId });
+  }, [nav, screen.listScreenId]);
+
+  if (entityId === undefined) {
+    return (
+      <Banner padded variant="error" testId="kumiko-screen-projection-detail-missing-id">
+        Screen <Text variant="code">{screen.id}</Text> (projectionDetail) needs a row id in the path
+        — open it from a row action.
+      </Banner>
+    );
+  }
+  if (detailQuery.loading && detailQuery.data === null) {
+    return (
+      <Banner padded variant="loading" testId="kumiko-screen-loading">
+        Loading…
+      </Banner>
+    );
+  }
+  if (detailQuery.error) {
+    return (
+      <Banner padded variant="error" testId="kumiko-screen-error">
+        {detailQuery.error.i18nKey}
+      </Banner>
+    );
+  }
+  const record = detailQuery.data;
+  if (!record) {
+    return (
+      <Banner padded variant="error" testId="kumiko-screen-record-missing">
+        Record <Text variant="code">{entityId}</Text> not found.
+      </Banner>
+    );
+  }
+  return (
+    <RenderEdit
+      screen={detailScreen}
+      entity={entity}
+      featureName={schema.featureName}
+      initial={record as FormValues}
+      entityId={entityId}
+      customSubmit={async () => ({ isSuccess: true, validationBlocked: false, data: undefined })}
+      onCancel={screen.listScreenId !== undefined ? navigateToList : undefined}
+      {...(translate !== undefined && { translate })}
+    />
+  );
+}
 // ---- actionForm (Tier 2.7d) ----
 
 // Action-Form-Body — non-CRUD Write-Handler-driven Form. Re-uses

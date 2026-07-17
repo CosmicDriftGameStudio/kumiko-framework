@@ -467,6 +467,50 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     // silent orderBy removal.
     expect(body.data[0]?.id).toBe(aliceAsAdmin.sid);
   });
+
+  // Single-row inspector backing the session-detail screen (kumiko-framework#255).
+  // Same access-gate as session:list (admin-or-higher); verifies field-shape,
+  // decryption of ip/userAgent, and the "unknown id" not-found path.
+  test("session:detail returns one decrypted row for admins, null for an unknown id", async () => {
+    const { userId: aliceId } = await h.seedUser("alice3@example.com", "pw-long-enough");
+
+    await updateRows(
+      stack.db,
+      tenantMembershipsTable,
+      { roles: JSON.stringify(["Admin"]) },
+      { userId: aliceId, tenantId: TENANT },
+    );
+    const aliceAsAdmin = await h.login("alice3@example.com", "pw-long-enough");
+
+    const res = await h.authedPost("/api/query", aliceAsAdmin.token, {
+      type: SessionQueries.detail,
+      payload: { id: aliceAsAdmin.sid },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      data: { id: string; userId: string; revokedAt: string | null } | null;
+    };
+    expect(body.data?.id).toBe(aliceAsAdmin.sid);
+    expect(body.data?.userId).toBe(aliceId);
+    expect(body.data?.revokedAt).toBeNull();
+
+    const missing = await h.authedPost("/api/query", aliceAsAdmin.token, {
+      type: SessionQueries.detail,
+      payload: { id: "00000000-0000-4000-8000-0000deadbeef" },
+    });
+    expect(missing.status).toBe(200);
+    const missingBody = (await missing.json()) as { data: unknown };
+    expect(missingBody.data).toBeNull();
+
+    // Plain User gets the same 403 as session:list — same access-gate.
+    await h.seedUser("bob3@example.com", "pw-long-enough");
+    const bob = await h.login("bob3@example.com", "pw-long-enough");
+    const asUser = await h.authedPost("/api/query", bob.token, {
+      type: SessionQueries.detail,
+      payload: { id: aliceAsAdmin.sid },
+    });
+    expect(asUser.status).toBe(403);
+  });
 });
 
 // Defense-in-depth: the sessionChecker refuses a live sid once the user it
