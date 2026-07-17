@@ -80,6 +80,86 @@ describe("r.nav() — registration", () => {
   });
 });
 
+describe("r.screen({ nav }) — inline nav sugar", () => {
+  test("synthesizes a nav entry from the screen's id", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.entity("product", productEntity());
+      r.screen({
+        id: "products",
+        type: "entityList",
+        entity: "product",
+        columns: ["name"],
+        nav: { label: "shop:nav.products", icon: "box", order: 5 },
+      });
+    });
+    expect(feature.navs["products"]).toMatchObject({
+      id: "products",
+      label: "shop:nav.products",
+      icon: "box",
+      order: 5,
+      screen: "shop:screen:products",
+    });
+  });
+
+  test("supports parent like a standalone r.nav()", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.nav({ id: "catalog", label: "x" });
+      r.entity("product", productEntity());
+      r.screen({
+        id: "products",
+        type: "entityList",
+        entity: "product",
+        columns: ["name"],
+        nav: { label: "y", parent: "shop:nav:catalog" },
+      });
+    });
+    expect(feature.navs["products"]?.parent).toBe("shop:nav:catalog");
+  });
+
+  test("passes the same boot-validation as a standalone r.nav()", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.entity("product", productEntity());
+      r.screen({
+        id: "products",
+        type: "entityList",
+        entity: "product",
+        columns: ["name"],
+        nav: { label: "y" },
+      });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("screen without nav registers no nav entry", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.entity("product", productEntity());
+      r.screen({
+        id: "products",
+        type: "entityList",
+        entity: "product",
+        columns: ["name"],
+      });
+    });
+    expect(feature.navs["products"]).toBeUndefined();
+  });
+
+  test("rejects when a standalone r.nav() already used the screen's id", () => {
+    expect(() =>
+      defineFeature("shop", (r) => {
+        r.nav({ id: "products", label: "standalone" });
+        r.entity("product", productEntity());
+        r.screen({
+          id: "products",
+          type: "entityList",
+          entity: "product",
+          columns: ["name"],
+          nav: { label: "inline" },
+        });
+      }),
+    ).toThrow(/already registered/);
+  });
+});
+
 describe("createRegistry — nav indexing", () => {
   test("indexes nav entries by qualified name", () => {
     const feature = defineFeature("shop", (r) => {

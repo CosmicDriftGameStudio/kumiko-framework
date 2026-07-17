@@ -727,7 +727,19 @@ export type ScreenSlots = {
 
 // --- discriminated union ---
 
-export type ScreenDefinition =
+// Inline nav-entry sugar for `r.screen({ ..., nav: {...} })` — covers the
+// common case of "one nav entry pointing at this screen". The nav entry's
+// `id`/`screen` are synthesized from the screen's own id; for anything
+// beyond label/icon/parent/order (access-gating, workspaces, actions),
+// declare a standalone `r.nav()` entry instead.
+export type ScreenNavSugar = {
+  readonly label: string;
+  readonly icon?: string;
+  readonly parent?: string;
+  readonly order?: number;
+};
+
+export type ScreenDefinition = (
   | EntityListScreenDefinition
   | ProjectionListScreenDefinition
   | ProjectionDetailScreenDefinition
@@ -735,7 +747,8 @@ export type ScreenDefinition =
   | EntityEditScreenDefinition
   | ActionFormScreenDefinition
   | ConfigEditScreenDefinition
-  | CustomScreenDefinition;
+  | CustomScreenDefinition
+) & { readonly nav?: ScreenNavSugar };
 
 // Type guard — narrows FieldRenderer to FormatSpec. Useful for renderer
 // authors who branch on the three FieldRenderer variants without manual
