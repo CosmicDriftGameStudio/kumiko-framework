@@ -115,6 +115,7 @@ import Redis from "ioredis";
 import { applyBootSeeds } from "./boot/apply-boot-seeds";
 import { resolveBootCrypto } from "./boot/boot-crypto";
 import { jobRunLoggerCallbacks } from "./boot/job-run-logger";
+import { buildBunServeOptions } from "./bun-serve-options";
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features";
 import { type ExtraRoutesSystemDeps, makeDispatchSystemWrite } from "./extra-routes-deps";
 import { assertPiiBootInvariants } from "./pii-boot-gate";
@@ -131,35 +132,13 @@ import {
   shouldWireProdSessions,
 } from "./session-wiring";
 
-/**
- * Bun.serve-Options für Production.
- *
- * Spec: idleTimeout: 0 (= disabled). SSE-Streams werden via Heartbeat
- * lebend gehalten (siehe SSE_HEARTBEAT_INTERVAL_MS in framework/api/
- * sse-route.ts), kein Bun-side Idle-Cleanup nötig. Mit dem Default
- * von 10 s killt Bun nach jedem Heartbeat-Gap die Connection mit
- * halbem HTTP/2-RST_STREAM → Browser ERR_HTTP2_PROTOCOL_ERROR.
- *
- * Spec-Test in __tests__/run-prod-app-spec.test.ts pinst die 0 gegen
- * "looks like a leak"-Reverts.
- */
+export { buildBunServeOptions } from "./bun-serve-options";
 export {
   addConfigAccessorFactory,
   buildBootExtraContext,
   resolveAuthMail,
 } from "./run-prod-app-boot-context";
 export { staticCachePolicy } from "./run-prod-app-static-files";
-
-export function buildBunServeOptions(
-  port: number,
-  fetchHandler: (req: Request) => Response | Promise<Response>,
-): {
-  readonly port: number;
-  readonly fetch: (req: Request) => Response | Promise<Response>;
-  readonly idleTimeout: number;
-} {
-  return { port, fetch: fetchHandler, idleTimeout: 0 };
-}
 
 // Strict env-var read. Throws with a clear hint when missing — better
 // than discovering a Postgres-connection-refused 30s into the boot.

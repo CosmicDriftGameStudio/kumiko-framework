@@ -30,10 +30,10 @@ import {
   TestUsers,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { startDevJobRunners } from "./boot/job-run-logger";
+import { buildBunServeOptions } from "./bun-serve-options";
 import { type ExtraRoutesSystemDeps, makeDispatchSystemWrite } from "./extra-routes-deps";
 import { injectSchema } from "./inject-schema";
 import { canResolveTailwindStylesheet, resolveTailwindCli } from "./resolve-tailwind-cli";
-import { buildBunServeOptions } from "./run-prod-app";
 import { tryHonoFirst } from "./try-hono-first";
 
 // Runtime-detection. The dev-server is meant to run under Bun (Kumiko's
