@@ -9,6 +9,13 @@
 
 import { useDispatcher, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { FormScreenShell } from "@cosmicdrift/kumiko-renderer-web";
+// qrcode's package.json#browser remap avoids Node-only deps (yargs/pngjs)
+// for bundlers that honor it — Metro doesn't, hence the explicit subpath.
+// @types/qrcode only covers the main "qrcode" entry, not this subpath, and
+// TypeScript can't auto-discover an ambient .d.ts sibling from inside a
+// node_modules package (consuming apps typecheck this raw .tsx source).
+// Apps mounting MfaEnableScreen need their own local ambient shim — see
+// qrcode-browser.d.ts in this directory for the declaration to copy.
 import QRCode from "qrcode/lib/browser";
 import { type ReactNode, useState } from "react";
 // kumiko-lint-ignore cross-feature-import client-only hook, the feature's server barrel has no web/ re-export
