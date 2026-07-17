@@ -1,5 +1,39 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.152.0
+
+### Minor Changes
+
+- e32807e: Fix `createNumberField()` DDL: the Postgres column type was hardcoded to
+  `integer` regardless of the `integer` flag, contradicting both the write-
+  boundary Zod validation (which accepts fractional values unless
+  `integer: true` is set) and the type's own doc comment ("no
+  migration/storage impact"). A field declared `createNumberField()` (no
+  `integer: true`) passed Zod validation for a fractional value but then
+  failed at the database with `invalid input syntax for type integer` on
+  insert — silently untested in practice for any entity whose values are
+  expected to be non-integer (e.g. Monte-Carlo simulation statistics).
+
+  `integer: true` now controls both the Zod validation AND the Postgres
+  column type: `true` → `integer` (unchanged), omitted/`false` → `double
+precision` (was `integer`, now accepts fractional values).
+
+  **Breaking for existing entities**: any `createNumberField()` field
+  without `integer: true` changes its Postgres column type from `integer`
+  to `double precision` on the next migration. Existing integer data is
+  unaffected by the type widening (int4 → float8 is a safe, lossless
+  conversion), but the app's committed migration snapshot needs
+  regenerating (`kumiko schema apply` / equivalent) and reviewing before
+  deploy. Fields declared with `integer: true` are unaffected.
+
+- 3dd1f99: Merge `r.configKey(name, def)` into `r.config()` as an overload instead of a
+  separate method: `r.config(name, def)` now returns the bare `ConfigKeyHandle<T>`
+  directly for the single-key case, while `r.config({keys:{...}})` keeps
+  returning a handle record for the multi-key case. Same qualification/storage
+  behavior either way — this only removes the second method name. `r.configKey`
+  is gone; call sites written against it (published for one release in 0.151.0)
+  switch to `r.config(name, def)`.
+
 ## 0.151.1
 
 ### Patch Changes
