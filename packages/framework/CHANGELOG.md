@@ -1,5 +1,7 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.149.2
+
 ## 0.149.1
 
 ### Patch Changes
