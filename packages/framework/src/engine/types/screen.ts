@@ -324,6 +324,39 @@ export type ProjectionListScreenDefinition = {
   readonly access?: AccessRule;
 };
 
+// --- projectionDetail ---
+
+// Read-only counterpart to projectionList — a single-row inspector bound to
+// an EXPLICIT query instead of an entity (`entityEdit` requires `r.entity`,
+// which a direct-write/projection read-model like `jobs`/`sessions` doesn't
+// have — see #255). There is no write path: the renderer forces every field
+// readOnly structurally (not just by convention — see
+// renderer/projection-detail-shim.ts), so no `<entity>:write:...:update`
+// command is ever constructed. `idParam` names the query-payload key the
+// route's row-id is passed under; defaults to "id", but a query handler
+// owned by a different feature may already use a domain-specific param name
+// (e.g. jobs' `detailQuery` expects `runId`) — this lets the primitive bind
+// to it without forcing a handler rename. Extension sections aren't
+// supported (no entity for them to persist against); the boot-validator
+// rejects them.
+export type ProjectionDetailScreenDefinition = {
+  readonly id: string;
+  readonly type: "projectionDetail";
+  readonly query: string;
+  /** Query-payload key for the row-id. Default "id". */
+  readonly idParam?: string;
+  readonly layout: EditLayout;
+  /** Optionaler per-Field-Label-i18n-Key (Field-Name → Key), analog zu
+   *  entityEdit.fieldLabels. Die Pseudo-Entity `__projection-detail__` hat
+   *  keinen natürlichen Field-Namespace — fehlt ein Eintrag, gilt die
+   *  Konvention `<feature>:entity:__projection-detail__:field:<name>`. */
+  readonly fieldLabels?: Readonly<Record<string, string>>;
+  /** Parent list screen (kurze id) für eine "Zurück"-Navigation. */
+  readonly listScreenId?: string;
+  readonly slots?: ScreenSlots;
+  readonly access?: AccessRule;
+};
+
 // --- dashboard ---
 
 // Deklaratives Panel-Grid — Kennzahlen, Verläufe und Kurzlisten ohne
@@ -697,6 +730,7 @@ export type ScreenSlots = {
 export type ScreenDefinition =
   | EntityListScreenDefinition
   | ProjectionListScreenDefinition
+  | ProjectionDetailScreenDefinition
   | DashboardScreenDefinition
   | EntityEditScreenDefinition
   | ActionFormScreenDefinition

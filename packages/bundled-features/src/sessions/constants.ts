@@ -17,6 +17,8 @@ export const SessionQueries = {
   // Admin-scoped: all sessions in the caller's tenant (live + revoked).
   // Tenant isolation comes from ctx.db; access-gate is admin-or-higher.
   list: "sessions:query:user-session:list",
+  // Admin-scoped single-session inspector, backs the session-detail screen.
+  detail: "sessions:query:user-session:detail",
 } as const;
 
 export const SessionErrors = {
@@ -45,3 +47,6 @@ export const DEFAULT_SESSION_CACHE_TTL_MS = 60_000;
 // longer so refresh can rotate the token without requiring a new password).
 // MVP ships a single window; per-app overrides can come later.
 export const DEFAULT_SESSION_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000;
+
+export const SESSION_LIST_SCREEN_ID = "session-list" as const;
+export const SESSION_DETAIL_SCREEN_ID = "session-detail" as const;

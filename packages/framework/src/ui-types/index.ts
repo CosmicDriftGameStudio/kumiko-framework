@@ -67,6 +67,7 @@ export type {
   FieldRenderer,
   ListColumnSpec,
   PlatformComponent,
+  ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
   RowAction,
   RowActionNavigate,

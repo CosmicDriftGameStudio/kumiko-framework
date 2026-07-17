@@ -8,6 +8,7 @@ import type {
   EntityListScreenDefinition,
   FeatureDefinition,
   NavDefinition,
+  ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
   RowAction,
   ScreenDefinition,
@@ -21,6 +22,9 @@ export const ACTION_FORM_ENTITY = "__action-form__";
 
 /** Pseudo-entity for configEdit field labels (renderer config-edit-shim). */
 export const CONFIG_EDIT_ENTITY = "__config-edit__";
+
+/** Pseudo-entity for projectionDetail field labels (renderer projection-detail-shim). */
+export const PROJECTION_DETAIL_ENTITY = "__projection-detail__";
 
 export function fieldLabelKey(featureName: string, entityName: string, fieldName: string): string {
   return `${featureName}:entity:${entityName}:field:${fieldName}`;
@@ -197,6 +201,20 @@ export function requiredKeysFromScreen(
           const override = config.fieldLabels?.[fieldName];
           if (override !== undefined) pushKey(out, override);
           else out.add(fieldLabelKey(featureName, CONFIG_EDIT_ENTITY, fieldName));
+        }
+      }
+      break;
+    }
+    case "projectionDetail": {
+      const detail = screen as ProjectionDetailScreenDefinition;
+      for (const section of detail.layout.sections) {
+        if (isExtensionEditSection(section)) continue; // rejected at boot, unreachable here
+        pushKey(out, section.title);
+        for (const f of section.fields) {
+          const fieldName = editFieldName(f);
+          const override = detail.fieldLabels?.[fieldName];
+          if (override !== undefined) pushKey(out, override);
+          else out.add(fieldLabelKey(featureName, PROJECTION_DETAIL_ENTITY, fieldName));
         }
       }
       break;

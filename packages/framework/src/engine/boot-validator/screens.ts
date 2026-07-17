@@ -172,6 +172,39 @@ export function validateScreens(
       continue;
     }
 
+    if (screen.type === "projectionDetail") {
+      // Query-getrieben wie projectionList, aber Single-Row + Layout statt
+      // Columns. Kein Entity-Check möglich — Felder werden render-seitig
+      // gegen die Query-Response aufgelöst, nicht gegen eine Entity.
+      if (!screen.query || typeof screen.query !== "string") {
+        throw new Error(
+          `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) has empty or non-string query.`,
+        );
+      }
+      if (screen.layout.sections.length === 0) {
+        throw new Error(
+          `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) has an empty sections list — ` +
+            `declare at least one section.`,
+        );
+      }
+      for (const section of screen.layout.sections) {
+        if (isExtensionEditSection(section)) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) extension section ` +
+              `"${section.title}" is not supported — projectionDetail has no entity for an extension ` +
+              `section to persist against.`,
+          );
+        }
+        if (section.fields.length === 0) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) has a section "${section.title}" ` +
+              `with zero fields — drop the section or add fields to it.`,
+          );
+        }
+      }
+      continue;
+    }
+
     if (screen.type === "dashboard") {
       validateDashboardScreen(feature.name, screenId, screen);
       continue;
