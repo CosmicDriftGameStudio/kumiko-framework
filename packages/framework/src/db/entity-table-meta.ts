@@ -36,6 +36,7 @@ export type PgType =
   | "text"
   | "boolean"
   | "integer"
+  | "double precision"
   | "bigint"
   | "serial"
   | "bigserial"
@@ -204,7 +205,7 @@ function fieldToColumnMeta(
       return [
         {
           name: snake,
-          pgType: "integer",
+          pgType: field.integer === true ? "integer" : "double precision",
           notNull: field.required === true,
           ...(def !== undefined && { defaultSql: def }),
         },

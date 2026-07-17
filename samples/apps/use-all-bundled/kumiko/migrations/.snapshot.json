@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-07-07T12:43:36.926Z",
+  "generatedAt": "2026-07-17T17:17:25.636Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -77,7 +77,7 @@
         },
         {
           "name": "size",
-          "pgType": "integer",
+          "pgType": "double precision",
           "notNull": true
         },
         {
@@ -251,7 +251,7 @@
         },
         {
           "name": "value",
-          "pgType": "integer",
+          "pgType": "double precision",
           "notNull": true,
           "defaultSql": "0"
         },
@@ -950,6 +950,117 @@
       "source": "managed"
     },
     {
+      "tableName": "read_inbound_messages",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "primaryKey": true,
+          "defaultSql": "gen_random_uuid()"
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "account_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "owner_user_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "message_id_header",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "thread_key",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "from",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "to",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "cc",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "subject",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "snippet",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "received_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        },
+        {
+          "name": "body_ref",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "scope",
+          "pgType": "text",
+          "notNull": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_inbound_messages_tenant_id_idx",
+          "columns": ["tenant_id"]
+        }
+      ],
+      "source": "unmanaged"
+    },
+    {
       "tableName": "read_job_run_logs",
       "columns": [
         {
@@ -1067,7 +1178,7 @@
         },
         {
           "name": "duration",
-          "pgType": "integer",
+          "pgType": "double precision",
           "notNull": false
         },
         {
@@ -1317,6 +1428,305 @@
         }
       ],
       "source": "managed"
+    },
+    {
+      "tableName": "read_mail_accounts",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "primaryKey": true,
+          "defaultSql": "gen_random_uuid()"
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "provider",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "auth_method",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "owner_user_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "display_name",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "address",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "status",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "watch_state",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "connected_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_mail_accounts_tenant_id_idx",
+          "columns": ["tenant_id"]
+        }
+      ],
+      "source": "unmanaged"
+    },
+    {
+      "tableName": "read_mail_seen_messages",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "account_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "provider_message_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "seen_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_mail_seen_messages_tenant_id_idx",
+          "columns": ["tenant_id"]
+        }
+      ],
+      "source": "managed"
+    },
+    {
+      "tableName": "read_mail_sync_cursors",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "account_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "scope",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "cursor",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "updated_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_mail_sync_cursors_tenant_id_idx",
+          "columns": ["tenant_id"]
+        }
+      ],
+      "source": "managed"
+    },
+    {
+      "tableName": "read_mail_threads",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "primaryKey": true,
+          "defaultSql": "gen_random_uuid()"
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "thread_key",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "subject",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "last_message_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        },
+        {
+          "name": "message_count",
+          "pgType": "integer",
+          "notNull": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_mail_threads_tenant_id_idx",
+          "columns": ["tenant_id"]
+        }
+      ],
+      "source": "unmanaged"
     },
     {
       "tableName": "read_notification_preferences",
@@ -2442,6 +2852,88 @@
         }
       ],
       "source": "managed"
+    },
+    {
+      "tableName": "read_user_mfa",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "user_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "totp_secret",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "recovery_codes",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "enabled_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        },
+        {
+          "name": "last_used_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_user_mfa_tenant_id_idx",
+          "columns": ["tenant_id"]
+        },
+        {
+          "name": "read_user_mfa_user_unique",
+          "columns": ["user_id", "tenant_id"],
+          "unique": true
+        }
+      ],
+      "source": "managed",
+      "piiSubjectFields": ["totpSecret", "recoveryCodes"]
     },
     {
       "tableName": "read_user_sessions",

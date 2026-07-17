@@ -133,6 +133,12 @@ export function createMultiSelectField<const TOptions extends readonly string[]>
   };
 }
 
+/**
+ * Numeric field — `double precision` column by default (fractional values
+ * allowed end to end). Pass `integer: true` for a 32-bit `integer` column
+ * with `.int()` write-boundary validation. Need exact decimal storage
+ * instead (money-adjacent math)? Use `createDecimalField` (`numeric`).
+ */
 export function createNumberField<R extends true | false = false>(
   overrides?: Partial<Omit<NumberFieldDef, "type" | "required">> & { required?: R },
 ): NumberFieldDef & { required: R } {

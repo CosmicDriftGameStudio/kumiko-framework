@@ -197,6 +197,14 @@ export type MultiSelectFieldDef<TOptions extends readonly string[] = readonly st
   readonly access?: FieldAccess;
 } & PiiAnnotations;
 
+/**
+ * Storage: `integer` flag decides the Postgres column type, not just Zod
+ * validation. `integer: true` → `integer` column (32-bit, ~±2.1 billion),
+ * write-boundary enforces `.int()`. Omitted/`false` (the default) →
+ * `double precision` column — fractional values are accepted end to end.
+ * Need exact decimal storage instead of a binary float (money-adjacent
+ * math, no representation error)? Use `createDecimalField` (`numeric`).
+ */
 export type NumberFieldDef = {
   readonly type: "number";
   readonly required?: boolean;
@@ -205,10 +213,9 @@ export type NumberFieldDef = {
   readonly sensitive?: boolean;
   readonly default?: number;
   readonly access?: FieldAccess;
-  // Write-boundary constraints (Zod-level, no migration/storage impact — the
-  // Postgres column stays a plain numeric). Opt-in, so existing entities are
-  // unaffected.
   readonly min?: number;
+  /** `true` → `integer` column + `.int()` Zod validation. Omitted/`false` →
+   *  `double precision` column, fractional values allowed. */
   readonly integer?: boolean;
 } & PiiAnnotations;
 

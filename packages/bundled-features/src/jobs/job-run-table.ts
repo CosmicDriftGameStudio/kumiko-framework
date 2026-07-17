@@ -45,7 +45,7 @@ export const jobRunEntity = createEntity({
     status: createTextField({ required: true }),
     payload: createTextField(),
     error: createTextField(),
-    attempt: createNumberField({ required: true, default: 1 }),
+    attempt: createNumberField({ required: true, default: 1, integer: true }),
     startedAt: createTimestampField({ required: true }),
     finishedAt: createTimestampField(),
     duration: createNumberField(),
