@@ -1,5 +1,14 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.149.2
+
+### Patch Changes
+
+- f0a73c0: WorkspaceShell accepts `navBadges` (same NavTree slot as DefaultAppShell) so multi-workspace apps can show runtime badges (e.g. unread inbox counts).
+  - @cosmicdrift/kumiko-dispatcher-live@0.149.2
+  - @cosmicdrift/kumiko-headless@0.149.2
+  - @cosmicdrift/kumiko-renderer@0.149.2
+
 ## 0.149.1
 
 ### Patch Changes
