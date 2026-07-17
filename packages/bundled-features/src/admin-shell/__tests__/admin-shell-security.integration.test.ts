@@ -16,7 +16,6 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createAuditFeature } from "../../audit/feature";
-import { hashPassword } from "../../auth-email-password/password-hashing";
 import { ConfigQueries } from "../../config/constants";
 import { createConfigFeature } from "../../config/feature";
 import { createConfigResolver } from "../../config/resolver";
@@ -26,6 +25,7 @@ import { globalFeatureStateTable } from "../../feature-toggles/global-feature-st
 import { JobQueries } from "../../jobs/constants";
 import { createJobsFeature } from "../../jobs/feature";
 import { jobRunLogsTable, jobRunsTable } from "../../jobs/job-run-table";
+import { hashPassword } from "../../shared";
 import { TenantQueries } from "../../tenant/constants";
 import { createTenantFeature } from "../../tenant/feature";
 import { tenantInvitationEntity } from "../../tenant/invitation-table";

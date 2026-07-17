@@ -3,20 +3,13 @@ import {
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
+import { AuthMfaErrorCodes } from "./constants";
 
-export const AuthMfaErrors = {
-  mfaAlreadyEnabled: "mfa_already_enabled",
-  mfaNotEnabled: "mfa_not_enabled",
-  invalidSetupToken: "invalid_setup_token",
-  invalidTotpCode: "invalid_totp_code",
-  invalidRecoveryCode: "invalid_recovery_code",
-  invalidChallengeToken: "invalid_challenge_token",
-  tooManyAttempts: "too_many_attempts",
-} as const;
+export { AuthMfaErrorCodes as AuthMfaErrors } from "./constants";
 
 export function mfaAlreadyEnabled(): WriteFailure {
   return writeFailure(
-    new UnprocessableError(AuthMfaErrors.mfaAlreadyEnabled, {
+    new UnprocessableError(AuthMfaErrorCodes.mfaAlreadyEnabled, {
       i18nKey: "authMfa.errors.mfaAlreadyEnabled",
     }),
   );
@@ -24,7 +17,7 @@ export function mfaAlreadyEnabled(): WriteFailure {
 
 export function mfaNotEnabled(): WriteFailure {
   return writeFailure(
-    new UnprocessableError(AuthMfaErrors.mfaNotEnabled, {
+    new UnprocessableError(AuthMfaErrorCodes.mfaNotEnabled, {
       i18nKey: "authMfa.errors.mfaNotEnabled",
     }),
   );
@@ -32,7 +25,7 @@ export function mfaNotEnabled(): WriteFailure {
 
 export function invalidSetupToken(): WriteFailure {
   return writeFailure(
-    new UnprocessableError(AuthMfaErrors.invalidSetupToken, {
+    new UnprocessableError(AuthMfaErrorCodes.invalidSetupToken, {
       i18nKey: "authMfa.errors.invalidSetupToken",
     }),
   );
@@ -40,7 +33,7 @@ export function invalidSetupToken(): WriteFailure {
 
 export function invalidTotpCode(): WriteFailure {
   return writeFailure(
-    new UnprocessableError(AuthMfaErrors.invalidTotpCode, {
+    new UnprocessableError(AuthMfaErrorCodes.invalidTotpCode, {
       i18nKey: "authMfa.errors.invalidTotpCode",
     }),
   );
@@ -48,7 +41,7 @@ export function invalidTotpCode(): WriteFailure {
 
 export function invalidRecoveryCode(): WriteFailure {
   return writeFailure(
-    new UnprocessableError(AuthMfaErrors.invalidRecoveryCode, {
+    new UnprocessableError(AuthMfaErrorCodes.invalidRecoveryCode, {
       i18nKey: "authMfa.errors.invalidRecoveryCode",
     }),
   );
@@ -56,7 +49,7 @@ export function invalidRecoveryCode(): WriteFailure {
 
 export function invalidChallengeToken(): WriteFailure {
   return writeFailure(
-    new UnprocessableError(AuthMfaErrors.invalidChallengeToken, {
+    new UnprocessableError(AuthMfaErrorCodes.invalidChallengeToken, {
       i18nKey: "authMfa.errors.invalidChallengeToken",
     }),
   );
@@ -65,7 +58,7 @@ export function invalidChallengeToken(): WriteFailure {
 // retryAfterSeconds drives the login UI countdown — must stay > 0.
 export function tooManyAttempts(retryAfterSeconds: number): WriteFailure {
   return writeFailure(
-    new UnprocessableError(AuthMfaErrors.tooManyAttempts, {
+    new UnprocessableError(AuthMfaErrorCodes.tooManyAttempts, {
       i18nKey: "authMfa.errors.tooManyAttempts",
       details: { retryAfterSeconds },
     }),

@@ -91,6 +91,7 @@
     "./auth-mfa": "./src/auth-mfa/index.ts",
     "./auth-mfa-user-data": "./src/auth-mfa-user-data/index.ts",
     "./auth-mfa/web": "./src/auth-mfa/web/index.ts",
+    "./auth-mfa/testing": "./src/auth-mfa/testing.ts",
     "./sessions/testing": "./src/sessions/testing.ts",
     "./personal-access-tokens": "./src/personal-access-tokens/index.ts",
     "./personal-access-tokens/web": "./src/personal-access-tokens/web/index.ts",

@@ -20,6 +20,7 @@ import { SessionProvider, useSession } from "./session";
 export type MfaVerifyComponentProps = {
   readonly challengeToken: string;
   readonly onSuccess?: () => void;
+  readonly onCancel?: () => void;
 };
 
 export function makeAuthGate(
@@ -45,6 +46,7 @@ export function makeAuthGate(
           <MfaVerifyComponent
             challengeToken={challengeToken}
             onSuccess={() => setChallengeToken(null)}
+            onCancel={() => setChallengeToken(null)}
           />
         );
       }

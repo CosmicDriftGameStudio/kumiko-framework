@@ -27,7 +27,7 @@ export function base32Encode(bytes: Buffer): string {
 // character so a corrupted stored secret fails loud at read time instead of
 // silently producing wrong codes.
 export function base32Decode(encoded: string): Buffer {
-  const clean = encoded.trim().toUpperCase().replace(/\s+/g, "");
+  const clean = encoded.trim().toUpperCase().replace(/\s+/g, "").replace(/=+$/, "");
   let bits = 0;
   let value = 0;
   const bytes: number[] = [];
@@ -40,6 +40,12 @@ export function base32Decode(encoded: string): Buffer {
       bytes.push((value >>> (bits - 8)) & 0xff);
       bits -= 8;
     }
+  }
+  // Leftover bits must be padding zeros (a canonical-length encoding never
+  // leaves a full byte's worth, i.e. >=5 residual bits) — anything else means
+  // truncated/non-canonical input decoded to the wrong byte count.
+  if (bits >= 5 || (value & ((1 << bits) - 1)) !== 0) {
+    throw new Error("base32Decode: invalid length or non-zero padding bits");
   }
   return Buffer.from(bytes);
 }

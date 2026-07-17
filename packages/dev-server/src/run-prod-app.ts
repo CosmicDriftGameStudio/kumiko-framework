@@ -99,7 +99,10 @@ import {
   assertKumikoSchemaCurrent,
   SchemaDriftError,
 } from "@cosmicdrift/kumiko-framework/migrations";
-import type { ObservabilityProvider } from "@cosmicdrift/kumiko-framework/observability";
+import type {
+  ObservabilityOptions,
+  ObservabilityProvider,
+} from "@cosmicdrift/kumiko-framework/observability";
 import {
   createDispatcher,
   createEntityCache,
@@ -575,9 +578,12 @@ export type RunProdAppOptions = {
    *  kein `/metrics`-Endpoint). Setze `createPrometheusMeter()`-basierten
    *  Provider + `metrics` um `/metrics` real zu exposen (publicstatus#91). */
   readonly observability?: ObservabilityProvider;
-  /** Aktiviert den `/metrics`-Endpoint (Open-Metrics-Format). Ohne
-   *  `observability` bleibt der Meter ein Noop und die Route liefert leere
-   *  Ausgabe — beides zusammen setzen. */
+  /** Konfiguriert die Auto-Instrumentation des resolvierten Observability-
+   *  Providers (siehe `BaseEntrypointOptions.observabilityOptions`). */
+  readonly observabilityOptions?: ObservabilityOptions;
+  /** Aktiviert den `/metrics`-Endpoint (Open-Metrics-Format). Ohne einen
+   *  PrometheusMeter-basierten `observability`-Provider antwortet `/metrics`
+   *  mit 503 + Misconfiguration-Hinweis statt echter Metriken. */
   readonly metrics?: import("@cosmicdrift/kumiko-framework/api").ServerOptions["metrics"];
 };
 
@@ -906,6 +912,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     },
     eventDedup,
     ...(options.observability && { observability: options.observability }),
+    ...(options.observabilityOptions && { observabilityOptions: options.observabilityOptions }),
     ...(options.metrics && { metrics: options.metrics }),
     ...(effectiveAuth && {
       auth: {

@@ -3,6 +3,7 @@ import {
   type ConfigScope,
   type ConfigValueSource,
   defineQueryHandler,
+  isEncryptedAtRest,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { requireConfigResolver } from "../feature";
@@ -63,7 +64,7 @@ export const valuesQuery = defineQueryHandler({
       // key so the plaintext (which the resolver revealed for internal reads)
       // never reaches the UI response.
       let value: string | number | boolean | undefined;
-      if (keyDef.encrypted || keyDef.backing === "secrets") {
+      if (isEncryptedAtRest(keyDef)) {
         value = cascade.value !== undefined ? MASKED : undefined;
       } else {
         value = cascade.value;

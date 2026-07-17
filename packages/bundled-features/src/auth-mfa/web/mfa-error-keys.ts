@@ -7,17 +7,19 @@
 // each re-deriving the key ad hoc (enable-screen used to template-string
 // the raw snake_case code straight into the key, which never matched the
 // camelCase keys actually registered below).
+import { AuthMfaErrorCodes } from "../constants";
+
 export function mfaManageErrorKey(code: string): string {
   switch (code) {
-    case "invalid_totp_code":
+    case AuthMfaErrorCodes.invalidTotpCode:
       return "auth.mfa.errors.invalidCode";
-    case "invalid_recovery_code":
+    case AuthMfaErrorCodes.invalidRecoveryCode:
       return "auth.mfa.errors.invalidRecoveryCode";
-    case "mfa_already_enabled":
+    case AuthMfaErrorCodes.mfaAlreadyEnabled:
       return "auth.mfa.errors.mfaAlreadyEnabled";
-    case "mfa_not_enabled":
+    case AuthMfaErrorCodes.mfaNotEnabled:
       return "auth.mfa.errors.mfaNotEnabled";
-    case "invalid_setup_token":
+    case AuthMfaErrorCodes.invalidSetupToken:
       return "auth.mfa.errors.invalidSetupToken";
     default:
       return "auth.mfa.errors.verifyFailed";

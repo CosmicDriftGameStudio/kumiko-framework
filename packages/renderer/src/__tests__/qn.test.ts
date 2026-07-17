@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { toKebab as serverToKebab } from "@cosmicdrift/kumiko-framework/engine";
 import { lastSegment, toKebab } from "../app/qn";
 
 describe("lastSegment", () => {
@@ -51,5 +52,32 @@ describe("toKebab", () => {
 
   test("preserves colon segments", () => {
     expect(toKebab("driverModel:list")).toBe("driver-model:list");
+  });
+
+  test("consecutive uppercase (acronym boundary)", () => {
+    expect(toKebab("SSEBroadcast")).toBe("sse-broadcast");
+  });
+
+  test("dot separators become dashes", () => {
+    expect(toKebab("billing-period.create")).toBe("billing-period-create");
+  });
+
+  // Drift guard: this file is a byte-identical copy of the server's toKebab
+  // (packages/framework/src/engine/qualified-name.ts) kept in sync only by
+  // convention/comment, not by import (avoids pulling server deps into the
+  // browser bundle). Table-driven against the server's own doc examples so a
+  // future edit to either copy that breaks parity fails loudly here.
+  test("matches the server implementation for its documented examples", () => {
+    const cases = [
+      "task.create",
+      "ticketAssigned",
+      "billing-period.create",
+      "monthlyReport",
+      "SSEBroadcast",
+      "driverModel:list",
+    ];
+    for (const input of cases) {
+      expect(toKebab(input)).toBe(serverToKebab(input));
+    }
   });
 });

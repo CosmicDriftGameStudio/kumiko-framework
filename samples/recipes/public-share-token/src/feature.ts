@@ -68,7 +68,7 @@ export const shareLinkCreateWrite = defineWriteHandler({
   name: "share-link:create",
   schema: createSchema,
   access: { openToAll: true },
-  rateLimit: { per: "user+handler", limit: 30, windowSeconds: 60 },
+  rateLimit: { per: "ip+handler", limit: 30, windowSeconds: 60 },
   handler: async (event, ctx) => {
     const { plain, hash } = await mintToken();
     const now = getTemporal().Now.instant();

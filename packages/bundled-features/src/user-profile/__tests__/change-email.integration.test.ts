@@ -18,7 +18,6 @@ import {
 import { expectErrorIncludes, resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import { AuthErrors, AuthHandlers } from "../../auth-email-password/constants";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
-import { hashPassword } from "../../auth-email-password/password-hashing";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
@@ -28,6 +27,7 @@ import { createConfigFeature } from "../../config";
 import { configValuesTable } from "../../config/table";
 import { createDataRetentionFeature } from "../../data-retention";
 import { createSessionsFeature } from "../../sessions";
+import { hashPassword } from "../../shared";
 import { createTenantFeature } from "../../tenant";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/schema/tenant";

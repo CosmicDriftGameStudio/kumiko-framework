@@ -66,7 +66,7 @@ export {
   base32Decode,
   bindMfaRevokeAllOtherSessionsFromFeature,
   createAuthMfaFeature,
-  currentTotpCode,
   mfaStatusCheckerFromFeature,
   userMfaEntity,
 } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
+export { currentTotpCode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/testing";

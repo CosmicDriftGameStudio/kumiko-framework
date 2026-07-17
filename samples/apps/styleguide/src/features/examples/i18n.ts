@@ -1,20 +1,15 @@
 import type { LocalizedString } from "../shared-i18n";
 
-// Kanonische i18n-Map für "examples" — die einzige Quelle für Server-
-// Registrierung (feature.ts, r.translations) UND Client-Bundle (web.ts,
-// toClientTranslations). Die .create./.edit.-title/subtitle-Keys hatten im
-// Client bislang identischen en/de-Text (kein separates De-Wording vorhanden)
-// — hier unverändert übernommen, keine neuen Übersetzungen erfunden.
 export const EXAMPLES_I18N: Readonly<Record<string, LocalizedString>> = {
   "screen:shipping-edit.title": { de: "Lieferadresse", en: "Shipping Address" },
-  "screen:shipping-edit.create.title": { de: "Shipping Address", en: "Shipping Address" },
+  "screen:shipping-edit.create.title": { de: "Lieferadresse", en: "Shipping Address" },
   "screen:shipping-edit.create.subtitle": {
-    de: "Where should we deliver?",
+    de: "Wohin sollen wir liefern?",
     en: "Where should we deliver?",
   },
-  "screen:shipping-edit.edit.title": { de: "Shipping Address", en: "Shipping Address" },
+  "screen:shipping-edit.edit.title": { de: "Lieferadresse", en: "Shipping Address" },
   "screen:shipping-edit.edit.subtitle": {
-    de: "Update your delivery address.",
+    de: "Aktualisiere deine Lieferadresse.",
     en: "Update your delivery address.",
   },
   "examples:shipping:submit": { de: "Adresse speichern", en: "Save Address" },
@@ -29,14 +24,14 @@ export const EXAMPLES_I18N: Readonly<Record<string, LocalizedString>> = {
     en: "Save as default address",
   },
   "screen:profile-edit.title": { de: "Profil", en: "Profile" },
-  "screen:profile-edit.create.title": { de: "Profile", en: "Profile" },
+  "screen:profile-edit.create.title": { de: "Profil", en: "Profile" },
   "screen:profile-edit.create.subtitle": {
-    de: "Update your personal information and how others see you.",
+    de: "Aktualisiere deine persönlichen Daten und wie andere dich sehen.",
     en: "Update your personal information and how others see you.",
   },
-  "screen:profile-edit.edit.title": { de: "Profile", en: "Profile" },
+  "screen:profile-edit.edit.title": { de: "Profil", en: "Profile" },
   "screen:profile-edit.edit.subtitle": {
-    de: "Update your personal information and how others see you.",
+    de: "Aktualisiere deine persönlichen Daten und wie andere dich sehen.",
     en: "Update your personal information and how others see you.",
   },
   "examples:profile:submit": { de: "Änderungen speichern", en: "Save changes" },
@@ -45,14 +40,14 @@ export const EXAMPLES_I18N: Readonly<Record<string, LocalizedString>> = {
   "examples:entity:profile:field:email": { de: "E-Mail", en: "Email" },
   "examples:entity:profile:field:bio": { de: "Bio", en: "Bio" },
   "screen:delivery-edit.title": { de: "Ort & Zeit", en: "Located date-time" },
-  "screen:delivery-edit.create.title": { de: "Located date-time", en: "Located date-time" },
+  "screen:delivery-edit.create.title": { de: "Ort & Zeit", en: "Located date-time" },
   "screen:delivery-edit.create.subtitle": {
-    de: "A wall-clock time plus its IANA zone, alongside a calendar date, a UTC instant, and a bare zone.",
+    de: "Eine Uhrzeit mit IANA-Zeitzone, dazu ein Kalenderdatum, ein UTC-Zeitpunkt und eine reine Zeitzone.",
     en: "A wall-clock time plus its IANA zone, alongside a calendar date, a UTC instant, and a bare zone.",
   },
-  "screen:delivery-edit.edit.title": { de: "Located date-time", en: "Located date-time" },
+  "screen:delivery-edit.edit.title": { de: "Ort & Zeit", en: "Located date-time" },
   "screen:delivery-edit.edit.subtitle": {
-    de: "A wall-clock time plus its IANA zone, alongside a calendar date, a UTC instant, and a bare zone.",
+    de: "Eine Uhrzeit mit IANA-Zeitzone, dazu ein Kalenderdatum, ein UTC-Zeitpunkt und eine reine Zeitzone.",
     en: "A wall-clock time plus its IANA zone, alongside a calendar date, a UTC instant, and a bare zone.",
   },
   "examples:delivery:submit": { de: "Lieferung speichern", en: "Save delivery" },

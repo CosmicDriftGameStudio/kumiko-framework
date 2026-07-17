@@ -23,6 +23,7 @@ export {
   createTenantSeed,
   createUserConfig,
   createUserSeed,
+  isEncryptedAtRest,
 } from "./config-helpers";
 export type { SystemHookName } from "./constants";
 export {

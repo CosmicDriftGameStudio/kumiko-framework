@@ -88,6 +88,8 @@ function reasonToKey(failure: LoginFailure): {
       return { key: "auth.errors.rateLimited" };
     case "invalid_body":
       return { key: "auth.errors.invalidBody" };
+    case "mfa_not_supported":
+      return { key: "auth.errors.mfaNotSupported" };
     default:
       return { key: "auth.errors.loginFailed" };
   }

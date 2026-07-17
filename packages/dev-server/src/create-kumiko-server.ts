@@ -670,11 +670,8 @@ export async function createKumikoServer(
     ...(options.effectiveFeatures !== undefined && {
       effectiveFeatures: options.effectiveFeatures,
     }),
-    // Wires ctx.jobRunner so write handlers' `ctx.jobRunner.dispatch(...)`
-    // works under the dev server (#983) — no-ops when no jobs are
-    // registered. `jobs: {}` (no `consumerLane`) builds an enqueuer-only
-    // runner — `startDevJobRunners` below stays the sole consumer/cron-
-    // scheduler for every lane, so `runOnBoot`/cron jobs don't double-fire.
+    // jobs: {} = enqueuer-only; startDevJobRunners below is the sole
+    // consumer/cron-scheduler per lane, so runOnBoot/cron jobs don't double-fire.
     jobs: {},
   });
   await createEventsTable(stack.db);

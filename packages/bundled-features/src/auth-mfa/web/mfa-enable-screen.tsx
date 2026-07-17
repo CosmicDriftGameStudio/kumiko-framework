@@ -9,7 +9,7 @@
 
 import { useDispatcher, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { FormScreenShell } from "@cosmicdrift/kumiko-renderer-web";
-import QRCode from "qrcode";
+import QRCode from "qrcode/lib/browser";
 import { type ReactNode, useState } from "react";
 // kumiko-lint-ignore cross-feature-import client-only hook, the feature's server barrel has no web/ re-export
 import { useSession } from "../../auth-email-password/web";
@@ -65,42 +65,51 @@ export function MfaEnableScreen({
   const startSetup = async (): Promise<void> => {
     setBusy(true);
     setError(null);
-    const res = await dispatcher.write<EnableStartResponse>(AuthMfaHandlers.enableStart, {
-      accountLabel: session.user?.email ?? "",
-    });
-    if (!res.isSuccess) {
+    try {
+      const res = await dispatcher.write<EnableStartResponse>(AuthMfaHandlers.enableStart, {
+        accountLabel: session.user?.email ?? "",
+      });
+      if (!res.isSuccess) {
+        setError(res.error.code);
+        return;
+      }
+      const qrSvg = await QRCode.toString(res.data.otpauthUri, { type: "svg" });
+      setSetup({
+        setupToken: res.data.setupToken,
+        secretParam: extractSecret(res.data.otpauthUri),
+        recoveryCodes: res.data.recoveryCodes,
+        qrSvg,
+      });
+      setAcknowledged(false);
+      setCode("");
+    } catch {
+      setError("setup_failed");
+    } finally {
       setBusy(false);
-      setError(res.error.code);
-      return;
     }
-    const qrSvg = await QRCode.toString(res.data.otpauthUri, { type: "svg" });
-    setBusy(false);
-    setSetup({
-      setupToken: res.data.setupToken,
-      secretParam: extractSecret(res.data.otpauthUri),
-      recoveryCodes: res.data.recoveryCodes,
-      qrSvg,
-    });
-    setAcknowledged(false);
-    setCode("");
   };
 
   const confirmSetup = async (): Promise<void> => {
     if (!setup) return;
     setBusy(true);
     setError(null);
-    const res = await dispatcher.write(AuthMfaHandlers.enableConfirm, {
-      setupToken: setup.setupToken,
-      code,
-    });
-    setBusy(false);
-    if (!res.isSuccess) {
-      setError(res.error.code);
-      return;
+    try {
+      const res = await dispatcher.write(AuthMfaHandlers.enableConfirm, {
+        setupToken: setup.setupToken,
+        code,
+      });
+      if (!res.isSuccess) {
+        setError(res.error.code);
+        return;
+      }
+      setEnabled(true);
+      setSetup(null);
+      onEnabled?.();
+    } catch {
+      setError("setup_failed");
+    } finally {
+      setBusy(false);
     }
-    setEnabled(true);
-    setSetup(null);
-    onEnabled?.();
   };
 
   const content = (

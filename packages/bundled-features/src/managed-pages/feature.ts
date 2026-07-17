@@ -15,6 +15,7 @@ import {
   renderSafeMarkdown,
   wrapInLayout,
 } from "../page-render";
+import type { SystemQueryFn } from "../shared";
 import { BRANDING_KEYS, BRANDING_QUERY_QN, CUSTOM_CSS_KEY, coerceBranding } from "./branding";
 import { createBrandingQuery } from "./handlers/branding.query";
 import { bySlugQuery } from "./handlers/by-slug.query";
@@ -37,12 +38,6 @@ const PUBLIC_PAGE_CACHE = { kind: "revalidate", maxAgeSeconds: 60 } as const;
 // die by-slug-Query via systemQuery in-process (kein Code-Import des
 // Handlers, symmetrisch zum legal-pages-Muster).
 const BY_SLUG_QN = "managed-pages:query:by-slug";
-
-// Minimal shape of the httpRoute handler's `{ systemQuery }` dep — mirrors
-// http-route.ts's signature. Not importing HttpRouteHandlerDeps itself: it
-// isn't part of the engine's public surface (only the httpRoute-
-// registration types are; same convention as seo/feature.ts's FetchApp).
-type SystemQueryFn = (type: string, payload: unknown, tenantId: string) => Promise<unknown>;
 
 // Raw Handler-Return von bySlugQuery (published-only) — systemQuery dispatcht
 // direkt gegen den Handler, keine `{data}`-Envelope wie am /api/query-Wire.

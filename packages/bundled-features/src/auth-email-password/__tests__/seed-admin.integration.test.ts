@@ -23,12 +23,12 @@ import {
 import { createConfigFeature } from "../../config/feature";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
+import { verifyPassword } from "../../shared";
 import { createTenantFeature } from "../../tenant/feature";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant";
 import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/schema/user";
-import { verifyPassword } from "../password-hashing";
 import { seedAdmin } from "../testing";
 
 let stack: TestStack;

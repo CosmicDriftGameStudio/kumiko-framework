@@ -176,27 +176,9 @@ function mergeDispatcherOptions(
   return { ...(caller ?? {}), jobRunner };
 }
 
-// Resolve the observability provider ONCE per entrypoint boot, before any
-// job-runner is built. `buildServer` (api/server.ts) independently falls
-// back to `options.observability ?? createNoopProvider()` and merges
-// tracer/meter into a NEW context object it builds internally — but the
-// job-runner is constructed from the caller's RAW `options.context`
-// *before* buildServer ever runs, so it never saw that merge. Its
-// queue-depth poller only starts `if (context.meter)` with no fallback
-// (unlike the tracer, which has its own `getFallbackTracer()`), so an
-// unset meter silently skipped the poller forever — `/metrics` showed the
-// `kumiko_job_queue_depth` HELP/TYPE header but never a single data line
-// (#1046). Resolving once here and threading it into the job-runner's
-// context fixes the gap. This resolved instance is ONLY used for the
-// job-runner — `buildApiServer`/`buildWorkerServer` still pass the
-// caller's original `options.observability` through unchanged (not this
-// resolved value), because `buildServer` also derives `shouldWrapRedis`
-// from whether `options.observability` was explicitly set — forcing it to
-// an always-defined value here would silently switch every app's Redis
-// client onto the tracer-wrapping Proxy path even with no provider
-// configured. buildServer's own independent Noop fallback is harmless in
-// that case: nothing scrapes `/metrics` without a real provider, so a
-// second, disconnected Noop meter costs nothing.
+// Resolved once for the job-runner's context only — buildServer still gets
+// the caller's original `options.observability` (unresolved) since it
+// derives `shouldWrapRedis` from whether that was explicitly set.
 function resolveObservability(
   observability: ObservabilityProvider | undefined,
 ): ObservabilityProvider {
