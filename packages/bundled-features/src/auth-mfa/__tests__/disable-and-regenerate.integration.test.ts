@@ -4,6 +4,7 @@ import {
   createTestUser,
   setupTestStack,
   type TestStack,
+  testTenantId,
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
@@ -18,7 +19,7 @@ import { createTenantFeature } from "../../tenant";
 import { createUserFeature } from "../../user/feature";
 import { userEntity } from "../../user/schema/user";
 import { base32Decode } from "../base32";
-import { AuthMfaHandlers } from "../constants";
+import { AuthMfaHandlers, AuthMfaQueries } from "../constants";
 import { createAuthMfaFeature } from "../feature";
 import { userMfaEntity } from "../schema/user-mfa";
 import { currentTotpCode } from "../totp";
@@ -214,5 +215,51 @@ describe("regenerate-recovery", () => {
       user,
     );
     expectErrorIncludes(err, "mfa_not_enabled");
+  });
+});
+
+// pr-review kumiko-framework #1062/4 — the only prior coverage of
+// user-mfa:status was the false → true transition (implicit in
+// enableMfaFor's own setup); the more interesting true → false after
+// disable, and tenant isolation, had no assertion anywhere.
+describe("status query", () => {
+  test("true → false after disable", async () => {
+    const { user, secret } = await enableMfaFor("status-disable-1");
+
+    const before = await stack.http.queryOk<{ enabled: boolean }>(AuthMfaQueries.status, {}, user);
+    expect(before.enabled).toBe(true);
+
+    await stack.http.writeOk(AuthMfaHandlers.disable, { code: currentTotpCode(secret) }, user);
+
+    const after = await stack.http.queryOk<{ enabled: boolean }>(AuthMfaQueries.status, {}, user);
+    expect(after.enabled).toBe(false);
+  });
+
+  test("tenant isolation: same userId enrolled in tenant A stays invisible to the same id in tenant B", async () => {
+    // The entity's uniqueness is [userId, tenantId] — a second tenant CAN
+    // have a distinct (non-enrolled) row for the identical userId. The
+    // query filters only by userId (see status.query.ts's own comment) and
+    // relies on ctx.db's tenant scoping to keep them apart; assert that
+    // scoping actually holds instead of just trusting it.
+    const { user: tenantAUser } = await enableMfaFor("status-tenant-iso-1");
+    const tenantBUser = createTestUser({
+      id: tenantAUser.id,
+      tenantId: testTenantId(2),
+      roles: ["User"],
+    });
+
+    const tenantAStatus = await stack.http.queryOk<{ enabled: boolean }>(
+      AuthMfaQueries.status,
+      {},
+      tenantAUser,
+    );
+    expect(tenantAStatus.enabled).toBe(true);
+
+    const tenantBStatus = await stack.http.queryOk<{ enabled: boolean }>(
+      AuthMfaQueries.status,
+      {},
+      tenantBUser,
+    );
+    expect(tenantBStatus.enabled).toBe(false);
   });
 });

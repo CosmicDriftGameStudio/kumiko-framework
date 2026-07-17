@@ -361,6 +361,31 @@ describe("anonymous access — resolverTrust: authoritative", () => {
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe("tenant_mismatch");
   });
+
+  // pr-review kumiko-framework #1052/3 — resolveTenant treats header and
+  // cookie identically, but every case above only exercised the header.
+  // These two lock in that the cookie path behaves the same way.
+  test("kumiko_tenant cookie agreeing with the resolver → accepted", async () => {
+    const res = await stack.http.raw(
+      "POST",
+      "/api/query",
+      { type: "anonshop:query:product:list", payload: {} },
+      { Cookie: `kumiko_tenant=${TENANT_ID}` },
+    );
+    expect(res.status).toBe(200);
+  });
+
+  test("kumiko_tenant cookie disagreeing with the resolver → 400 tenant_mismatch, same as a disagreeing header", async () => {
+    const res = await stack.http.raw(
+      "POST",
+      "/api/query",
+      { type: "anonshop:query:product:list", payload: {} },
+      { Cookie: `kumiko_tenant=${OTHER_TENANT_ID}` },
+    );
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("tenant_mismatch");
+  });
 });
 
 describe("anonymous access — resolverTrust: authoritative, resolver returns null", () => {

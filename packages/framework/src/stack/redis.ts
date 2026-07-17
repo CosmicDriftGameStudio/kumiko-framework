@@ -3,6 +3,13 @@ import { requireEnv } from "./db";
 
 export type TestRedis = {
   redis: import("ioredis").default;
+  // The exact REDIS_URL used to build `redis` above — for a second, unrelated
+  // connection (e.g. the test-stack's JobRunner) that needs its own client
+  // rather than sharing this one's keyPrefix. Reconstructing a URL from
+  // `redis.options` loses password/username/tls/path (pr-review
+  // kumiko-framework #1036/2) — callers needing a fresh connection should use
+  // this raw string, not rebuild one from parsed options.
+  redisUrl: string;
   /** Delete every key this test created (prefix-scoped). Replaces the old
    *  `redis.flushdb()` — that wiped other parallel tests' BullMQ state. */
   flushNamespace: () => Promise<void>;
@@ -35,6 +42,7 @@ export async function createTestRedis(): Promise<TestRedis> {
 
   return {
     redis,
+    redisUrl,
     flushNamespace,
     cleanup: async () => {
       await flushNamespace();
