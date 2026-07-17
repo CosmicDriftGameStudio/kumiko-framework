@@ -12,11 +12,11 @@
 
 import { z } from "zod";
 
-// showcase:event:invoice-acknowledged — from src/feature.ts:152
+// showcase:event:invoice-acknowledged — from src/feature.ts:160
 export const _kg_showcase__invoiceAcknowledged = z.object({ approverId: z.string(), approverDisplayName: z.string() });
 
 // showcase:event:invoice-approved — from src/feature.ts:135
 export const _kg_showcase__invoiceApproved = z.object({ amountCents: z.number().int(), approvedBy: z.string() });
 
-// showcase:event:invoice-paid — from src/feature.ts:145
+// showcase:event:invoice-paid — from src/feature.ts:153
 export const _kg_showcase__invoicePaid = z.object({ amountCents: z.number().int() });
