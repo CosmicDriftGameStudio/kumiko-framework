@@ -511,7 +511,10 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // Shorthand for a single key — same handle shape `config({keys:{name:def}})`
   // would produce for that key, no wrapping record. No seeds param: callers
   // needing seeds use `config` directly.
-  configKey<T extends ConfigKeyType>(keyName: string, def: ConfigKeyDefinition<T>): ConfigKeyHandle<T>;
+  configKey<T extends ConfigKeyType>(
+    keyName: string,
+    def: ConfigKeyDefinition<T>,
+  ): ConfigKeyHandle<T>;
 
   job(name: string, options: Omit<JobDefinition, "name" | "handler">, handler: JobHandlerFn): void;
 

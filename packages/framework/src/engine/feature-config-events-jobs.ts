@@ -35,7 +35,9 @@ export function buildConfigEventsJobsMethods<TName extends string>(
   // Hoisted out of the returned object literal (not just a method) so
   // `configKey()` below can call it directly — object-literal methods
   // aren't in scope for their siblings without a `this`-bind.
-  function config<TKeys extends Readonly<Record<string, ConfigKeyDefinition<ConfigKeyType>>>>(definition: {
+  function config<
+    TKeys extends Readonly<Record<string, ConfigKeyDefinition<ConfigKeyType>>>,
+  >(definition: {
     readonly keys: TKeys;
     readonly seeds?: Readonly<Record<string, ConfigSeedDef>>;
   }): { readonly [K in keyof TKeys]: ConfigKeyHandle<TKeys[K]["type"]> } {
@@ -76,7 +78,10 @@ export function buildConfigEventsJobsMethods<TName extends string>(
     // Shorthand for a single key — same handle shape `r.config({keys:{name:def}})`
     // would produce for that key, just without the wrapping record. No seeds
     // param: callers needing seeds use `r.config` directly.
-    configKey<T extends ConfigKeyType>(keyName: string, def: ConfigKeyDefinition<T>): ConfigKeyHandle<T> {
+    configKey<T extends ConfigKeyType>(
+      keyName: string,
+      def: ConfigKeyDefinition<T>,
+    ): ConfigKeyHandle<T> {
       return config({ keys: { [keyName]: def } })[keyName] as ConfigKeyHandle<T>; // @cast-boundary engine-bridge — mapped-type narrows to the single key
     },
     job(
