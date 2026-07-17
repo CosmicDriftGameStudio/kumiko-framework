@@ -27,8 +27,8 @@ export {
 } from "./auth-client";
 export type { AuthCardProps, AuthShellRenderer } from "./auth-form-primitives";
 export { AuthCard, AuthShellProvider, useAuthShell } from "./auth-form-primitives";
-export type { MfaVerifyComponentProps } from "./auth-gate";
-export { makeAuthGate, makeSessionAuthGate } from "./auth-gate";
+export type { LoginRouteOptions, MfaVerifyComponentProps } from "./auth-gate";
+export { createLoginRoute, makeAuthGate, makeSessionAuthGate } from "./auth-gate";
 export type {
   EmailPasswordClientFeature,
   EmailPasswordClientOptions,
@@ -40,8 +40,6 @@ export type { ForgotPasswordScreenProps } from "./forgot-password-screen";
 export { ForgotPasswordScreen } from "./forgot-password-screen";
 export type { InviteAcceptScreenProps } from "./invite-accept-screen";
 export { InviteAcceptScreen } from "./invite-accept-screen";
-export type { LoginScreenProps } from "./login-screen";
-export { LoginScreen } from "./login-screen";
 export type { ResetPasswordScreenProps } from "./reset-password-screen";
 export { ResetPasswordScreen } from "./reset-password-screen";
 export type { SessionApi, SessionState, SessionStatus } from "./session";
