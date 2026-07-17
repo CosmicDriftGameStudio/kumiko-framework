@@ -104,7 +104,8 @@
       "toggleableDefault": null,
       "requires": [
         "user",
-        "config"
+        "config",
+        "tenant"
       ],
       "optionalRequires": [],
       "configReads": [],

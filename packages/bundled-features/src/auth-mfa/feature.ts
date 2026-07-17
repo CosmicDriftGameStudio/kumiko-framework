@@ -80,6 +80,10 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
     });
     r.requires("user");
     r.requires("config");
+    // verify.write.ts dispatches "tenant:query:memberships" — without this
+    // the app boots clean and the first MFA login dies at runtime on an
+    // unknown handler instead of failing at mount time.
+    r.requires("tenant");
     r.config({ keys: { required: mfaRequiredConfigKey() } });
 
     // Dormant custom-screen — the client maps MFA_ENABLE_SCREEN_ID to

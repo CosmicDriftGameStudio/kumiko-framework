@@ -20,6 +20,7 @@ import { currentTotpCode } from "../../auth-mfa/totp";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
+import { createTenantFeature } from "../../tenant";
 import { createUserFeature } from "../../user/feature";
 import { userEntity } from "../../user/schema/user";
 import { userMfaDeleteHook, userMfaExportHook } from "../hooks";
@@ -36,6 +37,7 @@ beforeAll(async () => {
     features: [
       createConfigFeature(),
       createUserFeature(),
+      createTenantFeature(),
       createAuthMfaFeature({
         setupTokenSecret: SETUP_TOKEN_SECRET,
         issuer: "Kumiko Test",

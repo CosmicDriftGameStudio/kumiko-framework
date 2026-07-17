@@ -2,8 +2,10 @@ import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
+import { burnToken } from "../../shared";
 import { base32Decode } from "../base32";
-import { invalidSetupToken, invalidTotpCode } from "../errors";
+import { findUserMfaRow } from "../db/queries";
+import { invalidSetupToken, invalidTotpCode, mfaAlreadyEnabled } from "../errors";
 import { verifyMfaSetupToken } from "../mfa-setup-token";
 import { userMfaEntity, userMfaTable } from "../schema/user-mfa";
 import { verifyTotp } from "../totp";
@@ -41,6 +43,23 @@ export function createEnableConfirmHandler(opts: EnableConfirmOptions) {
 
       const secret = base32Decode(verify.payload.totpSecretBase32);
       if (!verifyTotp(secret, event.payload.code)) return invalidTotpCode();
+
+      // Burn the setup token on the first successful confirm — without this
+      // a `disable` doesn't retire it (re-enabling with the secret the user
+      // thinks they discarded), and two parallel confirms both proceed to
+      // executor.create instead of the second seeing mfa_already_enabled().
+      if (ctx.redis) {
+        const burnResult = await burnToken(
+          ctx.redis,
+          "mfa-setup",
+          event.user.id,
+          verify.expiresAtMs,
+        );
+        if (burnResult === "already-used") return invalidSetupToken();
+      }
+
+      const existing = await findUserMfaRow(ctx.db, event.user);
+      if (existing) return mfaAlreadyEnabled();
 
       const result = await executor.create(
         {

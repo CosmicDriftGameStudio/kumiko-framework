@@ -7,6 +7,15 @@ const RECOVERY_CODE_COUNT = 8;
 // ticket, not just a retry.
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
+// Recovery codes get read aloud or copy-typed from a screen — a user retyping
+// "abcd1234" lowercase or without the dash must still match. Applied on both
+// sides (hash-time here is a no-op on freshly generated codes, but keeps
+// hash and verify deckungsgleich if generation ever changes) so a formatting
+// slip never surfaces as "wrong code" for an otherwise-correct code.
+function normalizeRecoveryCode(code: string): string {
+  return code.toUpperCase().replace(/[^A-Z2-9]/g, "");
+}
+
 function randomCodeGroup(): string {
   let out = "";
   for (let i = 0; i < 4; i++) {
@@ -26,7 +35,7 @@ export function generateRecoveryCodes(count: number = RECOVERY_CODE_COUNT): stri
 // Reuses the same argon2id hashing as passwords — recovery codes are
 // bearer-secrets of comparable sensitivity (whoever has one can log in).
 export async function hashRecoveryCodes(codes: readonly string[]): Promise<string[]> {
-  return Promise.all(codes.map((code) => hashPassword(code)));
+  return Promise.all(codes.map((code) => hashPassword(normalizeRecoveryCode(code))));
 }
 
 // Sequential (not Promise.all) — recovery-code lists are ≤8 entries, and a
@@ -36,9 +45,10 @@ export async function findMatchingRecoveryCodeIndex(
   code: string,
   hashes: readonly string[],
 ): Promise<number> {
+  const normalized = normalizeRecoveryCode(code);
   for (let i = 0; i < hashes.length; i++) {
     const hash = hashes[i];
-    if (hash !== undefined && (await verifyPassword(hash, code))) return i;
+    if (hash !== undefined && (await verifyPassword(hash, normalized))) return i;
   }
   return -1;
 }
