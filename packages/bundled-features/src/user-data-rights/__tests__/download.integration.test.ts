@@ -559,4 +559,43 @@ describe("download-by-job :: cross-user + cross-tenant", () => {
     );
     expect(result.url).toMatch(/^memory:\/\//);
   });
+
+  test("cross-tenant same-user: provider is resolved for the job's tenant, not the ambient session tenant", async () => {
+    // #1057 regression: createFileProviderForTenant used to read the
+    // provider *selection* from the ambient session's ctx.config — here
+    // Tenant B (Alice's session tenant) — instead of the job's own
+    // Tenant A. Give Tenant A a provider WITHOUT getSignedUrl while
+    // Tenant B keeps "inmemory" (default from beforeEach): if the bug
+    // resurfaces, the wrong (Tenant B) provider is picked and the
+    // request succeeds with 200 instead of 422.
+    const { jobId } = await seedDoneJobWithToken();
+    await stack.http.writeOk(
+      ConfigHandlers.set,
+      { key: "file-foundation:config:provider", value: "no-signed-url" },
+      tenantAdmin, // Tenant A admin
+    );
+    const aliceFromTenantB = createTestUser({
+      id: 42,
+      tenantId: tenantB,
+      roles: ["Member"],
+    });
+    await asRawClient(stack.db).unsafe(
+      `
+      INSERT INTO read_tenant_memberships (tenant_id, user_id)
+      VALUES ($1, $2)
+      ON CONFLICT (user_id, tenant_id) DO NOTHING
+    `,
+      [tenantB, String(aliceUser.id)],
+    );
+
+    const res = await stack.http.query(
+      "user-data-rights:query:download-by-job",
+      { jobId },
+      aliceFromTenantB,
+    );
+    expect(res.status).toBe(422);
+    const body = (await res.json()) as { error: { code: string; i18nKey: string } };
+    expect(body.error.code).toBe("unprocessable");
+    expect(body.error.i18nKey).toBe("userDataRights.errors.download.signedUrlNotSupported");
+  });
 });
