@@ -43,6 +43,29 @@ function extractSecret(otpauthUri: string): string {
   return new URLSearchParams(query).get("secret") ?? "";
 }
 
+// 24x24 viewBox icon paths (Material-style), solid fill. Real SVG paths
+// instead of emoji glyphs — emoji-as-<text> renders inconsistently across
+// font stacks and never centers cleanly (font-specific glyph padding).
+const QR_ICONS = [
+  `<path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="#ef4444"/>`,
+  `<path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" fill="#facc15"/>`,
+  `<circle cx="12" cy="12" r="11" fill="#facc15"/><circle cx="8.5" cy="10" r="1.4" fill="#1f2937"/><circle cx="15.5" cy="10" r="1.4" fill="#1f2937"/><path d="M7 14c1 2.2 3 3.4 5 3.4s4-1.2 5-3.4" stroke="#1f2937" stroke-width="1.6" fill="none" stroke-linecap="round"/>`,
+];
+
+// Overlay a random icon in a circle badge over the QR center. cx/cy/r
+// percentages resolve against the SVG viewport regardless of viewBox size,
+// so this string-injection works without parsing qrcode's output dimensions.
+function withIconBadge(svg: string): string {
+  const icon = QR_ICONS[Math.floor(Math.random() * QR_ICONS.length)];
+  const size = Number(svg.match(/viewBox="0 0 (\d+(?:\.\d+)?) /)?.[1] ?? 100);
+  const r = size * 0.16;
+  const iconSize = r * 1.3;
+  const scale = iconSize / 24;
+  const offset = size / 2 - iconSize / 2;
+  const badge = `<circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="#fff" stroke="#e5e7eb" stroke-width="${size * 0.01}"/><g transform="translate(${offset} ${offset}) scale(${scale})">${icon}</g>`;
+  return svg.replace("</svg>", `${badge}</svg>`);
+}
+
 export type MfaEnableScreenProps = {
   readonly embedded?: boolean;
   // Fired once enable-confirm succeeds — MfaEnableScreen has no query of its
@@ -80,7 +103,11 @@ export function MfaEnableScreen({
         setError(res.error.code);
         return;
       }
-      const qrSvg = await QRCode.toString(res.data.otpauthUri, { type: "svg" });
+      // errorCorrectionLevel "H" (~30% redundancy) so the icon badge overlay
+      // doesn't break scanning.
+      const qrSvg = withIconBadge(
+        await QRCode.toString(res.data.otpauthUri, { type: "svg", errorCorrectionLevel: "H" }),
+      );
       setSetup({
         setupToken: res.data.setupToken,
         secretParam: extractSecret(res.data.otpauthUri),
