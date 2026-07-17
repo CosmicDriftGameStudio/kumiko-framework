@@ -23,6 +23,7 @@ import {
   createSelectField,
   createTextField,
 } from "./factories";
+import { isKebabSegment } from "./qualified-name";
 import type { ConfigKeyDefinition } from "./types/config";
 import type { Registry } from "./types/feature";
 import type { FieldDefinition } from "./types/fields";
@@ -90,7 +91,14 @@ const MACHINE_WRITE_ROLE = "system" as const;
 
 type MaskedKey = {
   readonly qn: string;
+  // Effective group this key is bucketed under for the Settings-Hub —
+  // `def.group` if set, else `ownerFeature`. This is what screen/nav
+  // generation groups by.
   readonly feature: string;
+  // The feature that actually declared this key (always derived from `qn`).
+  // Needed to disambiguate field ids when `feature !== ownerFeature` (a
+  // cross-feature `group`) and for collision error messages.
+  readonly ownerFeature: string;
   readonly shortKey: string;
   readonly def: ConfigKeyDefinition;
 };
@@ -197,15 +205,30 @@ function buildScreen(
   const configKeys: Record<string, string> = {};
   const fields: Record<string, FieldDefinition> = {};
   const fieldLabels: Record<string, string> = {};
+  // Field id collapses to the plain shortKey when the key stays in its own
+  // feature's group (100% of today's apps — byte-identical output). Only a
+  // cross-feature `group` (feature !== ownerFeature) needs the owner prefix,
+  // to keep two features sharing a group from clobbering the same shortKey.
+  const fieldId = (k: MaskedKey): string =>
+    k.feature === k.ownerFeature ? k.shortKey : `${k.ownerFeature}-${k.shortKey}`;
+  const seenFieldIds = new Map<string, string>();
   for (const k of keys) {
-    configKeys[k.shortKey] = k.qn;
-    fields[k.shortKey] = deriveField(k.def);
+    const id = fieldId(k);
+    const prevQn = seenFieldIds.get(id);
+    if (prevQn !== undefined) {
+      throw new Error(
+        `[Settings-Hub] group "${feature}" scope "${scope}": config keys "${prevQn}" and "${k.qn}" both resolve to field id "${id}" — rename one key or its group.`,
+      );
+    }
+    seenFieldIds.set(id, k.qn);
+    configKeys[id] = k.qn;
+    fields[id] = deriveField(k.def);
     // mask is the visibility gate, so collectMaskedKeys guarantees it here.
-    if (k.def.mask) fieldLabels[k.shortKey] = k.def.mask.title;
+    if (k.def.mask) fieldLabels[id] = k.def.mask.title;
   }
   const section: EditFieldsSection = {
     title: `${feature}.settings`,
-    fields: keys.map((k) => k.shortKey),
+    fields: keys.map(fieldId),
   };
   return {
     id: shortId,
@@ -242,9 +265,16 @@ function collectMaskedKeys(registry: Registry): MaskedKey[] {
     if (def.mask === undefined || def.computed !== undefined) continue;
     const sep = qn.indexOf(":config:");
     if (sep === -1) continue;
+    const ownerFeature = qn.slice(0, sep);
+    if (def.group !== undefined && !isKebabSegment(def.group)) {
+      throw new Error(
+        `[Feature ${ownerFeature}] config key "${qn.slice(sep + ":config:".length)}" has invalid group "${def.group}" — must be kebab-case.`,
+      );
+    }
     out.push({
       qn,
-      feature: qn.slice(0, sep),
+      feature: def.group ?? ownerFeature,
+      ownerFeature,
       shortKey: qn.slice(sep + ":config:".length),
       def,
     });

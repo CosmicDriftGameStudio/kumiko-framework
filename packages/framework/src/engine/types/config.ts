@@ -136,6 +136,14 @@ export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
   // manuelles r.screen/r.nav). Fehlt `mask`, gilt der Key als internes
   // Plumbing (ENV-provisioniert/computed) und erscheint NICHT im Hub.
   readonly mask?: ConfigMask;
+  // Überschreibt, unter welchem Settings-Hub-Namespace/Screen dieser Key
+  // gruppiert wird (Default: das deklarierende Feature). Erlaubt einem
+  // Feature, seine Keys unter einem fremden oder geteilten Namespace zu
+  // bündeln (z.B. viele flache Migrations-Flags unter "tenant-settings"),
+  // ohne dass das Ziel-Feature sie kennt. Rührt NICHT an qualifiziertem
+  // Namen, Storage, Seeds oder App-Overrides — nur reine UI-Gruppierung.
+  // Muss kebab-case sein (Boot-Validierung).
+  readonly group?: string;
 };
 
 // Label-Träger für den Settings-Hub. `title` ist ein i18n-Key (kein Literal —

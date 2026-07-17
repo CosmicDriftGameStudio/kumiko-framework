@@ -95,6 +95,7 @@ type ConfigKeyOptions<T extends ConfigKeyType> = {
   inheritedToTenant?: boolean;
   backing?: ConfigBacking;
   mask?: ConfigMask;
+  group?: string;
 };
 
 // --- Scope Defaults ---
@@ -132,6 +133,7 @@ function createConfigKey<T extends ConfigKeyType>(
     ...(opts.inheritedToTenant === false ? { inheritedToTenant: false } : {}),
     ...(opts.backing === "secrets" ? { backing: "secrets" } : {}),
     ...(opts.mask ? { mask: opts.mask } : {}),
+    ...(opts.group ? { group: opts.group } : {}),
   };
 }
 

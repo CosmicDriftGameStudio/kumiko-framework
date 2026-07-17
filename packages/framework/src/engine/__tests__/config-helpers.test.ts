@@ -257,6 +257,22 @@ describe("config helpers — allowPerRequest opt-in", () => {
   });
 });
 
+describe("config helpers — group (Settings-Hub namespace override)", () => {
+  test("group is carried when set", () => {
+    const key = createTenantConfig("boolean", { group: "tenant-settings" });
+    expect(key.group).toBe("tenant-settings");
+  });
+
+  test("no group → field absent (defaults to the owning feature)", () => {
+    expect(createTenantConfig("boolean").group).toBeUndefined();
+  });
+
+  test("group is available on every scope factory", () => {
+    expect(createSystemConfig("text", { group: "shared" }).group).toBe("shared");
+    expect(createUserConfig("text", { group: "shared" }).group).toBe("shared");
+  });
+});
+
 describe("config helpers — computed (plan-based / derived values)", () => {
   test("computed function attaches to the definition and returns the typed value", async () => {
     const key = createTenantConfig("number", {
