@@ -93,6 +93,64 @@ export function buildConfigEventsJobsMethods<TName extends string>(
     return typeof arg1 === "string" ? handles[arg1] : handles; // @cast-boundary engine-bridge — overload impl signature widens to unknown, narrowed by the two public overloads above
   }
 
+  // piiFields misconfiguration is a boot-time error, not a silent
+  // plaintext leak: both the pii field and its subjectField must exist
+  // on the payload schema (checkable when the schema is a ZodObject).
+  function validateEventPiiFields(
+    eventName: string,
+    schema: ZodType,
+    piiFields: EventPiiFields,
+  ): void {
+    const shape = schema instanceof ZodObject ? schema.shape : undefined;
+    for (const [field, spec] of Object.entries(piiFields)) {
+      if (field === spec.subjectField) {
+        throw new Error(
+          `[Feature ${name}] defineEvent("${eventName}"): piiFields."${field}" cannot use itself as subjectField — the subject id is a plaintext pseudonymous fk, the pii field is the value it owns.`,
+        );
+      }
+      for (const required of [field, spec.subjectField]) {
+        if (shape && !(required in shape)) {
+          throw new Error(
+            `[Feature ${name}] defineEvent("${eventName}"): piiFields references "${required}" which is not a field of the payload schema.`,
+          );
+        }
+      }
+    }
+  }
+
+  // Shared by defineEvent's `migrations` option — each entry registers a
+  // single upcast step, same validation/dedup as the old standalone
+  // r.eventMigration() call (folded into defineEvent, #1082 step 8).
+  function registerEventMigration(
+    eventName: string,
+    fromVersion: number,
+    toVersion: number,
+    transform: EventUpcastFn | DeclarativeEventMigration,
+  ): void {
+    if (toVersion !== fromVersion + 1) {
+      throw new Error(
+        `[Feature ${name}] defineEvent("${eventName}") migrations: only single-step migrations are allowed — toVersion must be fromVersion + 1 (got ${fromVersion} -> ${toVersion}). ` +
+          `Chain larger jumps by declaring each step separately.`,
+      );
+    }
+    if (!Number.isInteger(fromVersion) || fromVersion < 1) {
+      throw new Error(
+        `[Feature ${name}] defineEvent("${eventName}") migrations: fromVersion must be >= 1, got ${String(fromVersion)}`,
+      );
+    }
+    const qualified = qn(toKebab(name), "event", toKebab(eventName));
+    const list = state.eventMigrations[eventName] ?? [];
+    if (list.some((m) => m.fromVersion === fromVersion)) {
+      throw new Error(
+        `[Feature ${name}] defineEvent("${eventName}") migrations: a migration from v${fromVersion} is already declared. Each step may only be declared once.`,
+      );
+    }
+    const transformFn =
+      typeof transform === "function" ? transform : compileEventMigration(transform);
+    list.push({ eventName: qualified, fromVersion, toVersion, transform: transformFn });
+    state.eventMigrations[eventName] = list;
+  }
+
   return {
     config,
     job(
@@ -136,7 +194,20 @@ export function buildConfigEventsJobsMethods<TName extends string>(
     defineEvent: <const TInner extends string, TPayload>(
       eventName: TInner,
       schema: ZodType<TPayload>,
-      options?: { readonly version?: number; readonly piiFields?: EventPiiFields },
+      options?: {
+        readonly version?: number;
+        readonly piiFields?: EventPiiFields;
+        // Step-wise upcast chain for this event, folded in from the former
+        // standalone r.eventMigration() call (#1082 step 8) — an event and
+        // its schema evolution are one lifecycle, not two registrar
+        // concepts. Each entry's fromVersion must be unique and the chain
+        // from 1 to `version` must be gap-free (same validation as before).
+        readonly migrations?: readonly {
+          readonly fromVersion: number;
+          readonly toVersion: number;
+          readonly transform: EventUpcastFn | DeclarativeEventMigration;
+        }[];
+      },
     ): EventDef<TPayload, QualifiedEventName<TName, TInner>> => {
       // Return the fully-qualified event name so callers can pass it
       // straight to ctx.appendEvent without hand-building the
@@ -155,26 +226,9 @@ export function buildConfigEventsJobsMethods<TName extends string>(
           `[Feature ${name}] defineEvent("${eventName}"): version must be a positive integer, got ${String(version)}`,
         );
       }
-      // piiFields misconfiguration is a boot-time error, not a silent
-      // plaintext leak: both the pii field and its subjectField must exist
-      // on the payload schema (checkable when the schema is a ZodObject).
       const piiFields = options?.piiFields;
       if (piiFields) {
-        const shape = schema instanceof ZodObject ? schema.shape : undefined;
-        for (const [field, spec] of Object.entries(piiFields)) {
-          if (field === spec.subjectField) {
-            throw new Error(
-              `[Feature ${name}] defineEvent("${eventName}"): piiFields."${field}" cannot use itself as subjectField — the subject id is a plaintext pseudonymous fk, the pii field is the value it owns.`,
-            );
-          }
-          for (const required of [field, spec.subjectField]) {
-            if (shape && !(required in shape)) {
-              throw new Error(
-                `[Feature ${name}] defineEvent("${eventName}"): piiFields references "${required}" which is not a field of the payload schema.`,
-              );
-            }
-          }
-        }
+        validateEventPiiFields(eventName, schema, piiFields);
       }
       // @cast-boundary engine-bridge — runtime-string mirrors the
       // template-literal-type via QualifiedEventName + toKebab. Both
@@ -187,38 +241,10 @@ export function buildConfigEventsJobsMethods<TName extends string>(
         ...(piiFields !== undefined && { piiFields }),
       };
       state.events[eventName] = def;
+      for (const m of options?.migrations ?? []) {
+        registerEventMigration(eventName, m.fromVersion, m.toVersion, m.transform);
+      }
       return def;
-    },
-    eventMigration(
-      eventName: string,
-      fromVersion: number,
-      toVersion: number,
-      transform: EventUpcastFn | DeclarativeEventMigration,
-    ): void {
-      if (toVersion !== fromVersion + 1) {
-        throw new Error(
-          `[Feature ${name}] eventMigration("${eventName}", ${fromVersion}, ${toVersion}): ` +
-            `only single-step migrations are allowed — toVersion must be fromVersion + 1. ` +
-            `Chain larger jumps by registering each step separately.`,
-        );
-      }
-      if (!Number.isInteger(fromVersion) || fromVersion < 1) {
-        throw new Error(
-          `[Feature ${name}] eventMigration("${eventName}", ...): fromVersion must be >= 1, got ${String(fromVersion)}`,
-        );
-      }
-      const qualified = qn(toKebab(name), "event", toKebab(eventName));
-      const list = state.eventMigrations[eventName] ?? [];
-      if (list.some((m) => m.fromVersion === fromVersion)) {
-        throw new Error(
-          `[Feature ${name}] eventMigration("${eventName}", ${fromVersion}, ${toVersion}): ` +
-            `a migration from v${fromVersion} is already registered. Each step may only be declared once.`,
-        );
-      }
-      const transformFn =
-        typeof transform === "function" ? transform : compileEventMigration(transform);
-      list.push({ eventName: qualified, fromVersion, toVersion, transform: transformFn });
-      state.eventMigrations[eventName] = list;
     },
     readsConfig(...qualifiedKeys: string[]): void {
       state.configReads.push(...qualifiedKeys);
@@ -296,7 +322,7 @@ function compileEventMigration(spec: DeclarativeEventMigration): EventUpcastFn {
   // Registration-time (not replay-time) check: two rename sources mapping to
   // the same target would silently drop one value on every future replay —
   // event migrations run against the full production event history, so a
-  // typo here must fail loud at r.eventMigration() call time, not at replay.
+  // typo here must fail loud at defineEvent() registration time, not at replay.
   const renameTargets = new Map<string, string>();
   for (const [from, to] of Object.entries(spec.rename ?? {})) {
     const existing = renameTargets.get(to);

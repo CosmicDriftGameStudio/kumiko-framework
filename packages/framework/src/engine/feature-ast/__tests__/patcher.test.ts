@@ -172,33 +172,23 @@ describe("FeaturePatcher — typed add helpers for mixed (closure-bearing) patte
     });
   });
 
-  test("addDefineEvent + addEventMigration form a complete event-versioning chain", () => {
+  test("addDefineEvent with migrations forms a complete event-versioning chain", () => {
     const sf = makeSourceFile(STARTER);
     const p = createFeaturePatcher(sf);
     p.addDefineEvent({
       name: "stepCompleted",
       schemaSource: "z.object({ id: z.string() })",
       version: 2,
-    });
-    p.addEventMigration({
-      event: "stepCompleted",
-      fromVersion: 1,
-      toVersion: 2,
-      transformSource: '(old) => ({ id: old.id ?? "" })',
+      migrations: { "1": '(old) => ({ id: old.id ?? "" })' },
     });
     const result = parseSourceFile(sf);
     expect(result.errors).toEqual([]);
-    expect(result.patterns).toHaveLength(2);
+    expect(result.patterns).toHaveLength(1);
     expect(result.patterns[0]).toMatchObject({
       kind: "defineEvent",
       eventName: "stepCompleted",
       version: 2,
-    });
-    expect(result.patterns[1]).toMatchObject({
-      kind: "eventMigration",
-      eventName: "stepCompleted",
-      fromVersion: 1,
-      toVersion: 2,
+      migrations: { "1": expect.anything() },
     });
   });
 });

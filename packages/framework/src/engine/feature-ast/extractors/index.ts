@@ -30,7 +30,6 @@ export {
   extractAuthClaims,
   extractDefineEvent,
   extractEntityHook,
-  extractEventMigration,
   extractHook,
   extractHttpRoute,
   extractJob,

@@ -924,66 +924,35 @@ r.multiStreamProjection({
     tsType: "DefineEventPattern",
     editability: "mixed",
     de: {
-      description: "Custom-Domain-Event mit Zod-Schema und Versions-Nummer.",
-      body: `Definiert ein typisiertes Domain-Event. Das Schema landet im Boot-Validator (Compatibility-Check), die Version macht Upcaster-Migrationen explicit.
+      description: "Custom-Domain-Event mit Zod-Schema, Versions-Nummer und Upcaster-Kette.",
+      body: `Definiert ein typisiertes Domain-Event. Das Schema landet im Boot-Validator (Compatibility-Check). \`migrations\` migriert alte Event-Versionen on-read in die aktuelle Schema-Version — Append-only-Log bleibt unverändert, der Upcaster läuft beim Lesen vor dem Apply.
 
 \`\`\`typescript
-const incidentResolved = r.defineEvent({
-  name: "incident.resolved",
-  schema: z.object({ resolution: z.string(), resolvedAt: z.date() }),
+const incidentResolved = r.defineEvent("incident.resolved", z.object({ resolution: z.string(), resolvedAt: z.date() }), {
+  version: 2,
+  migrations: [
+    { fromVersion: 1, toVersion: 2, transform: (oldPayload) => ({ ...oldPayload, resolvedBy: "system" }) },
+  ],
 });
 
 await ctx.appendEvent(incidentResolved, id, { resolution, resolvedAt: new Date() });
-\`\`\`
-
-**Siehe auch:** Recipe [\`event-sourcing\`](/de/samples/recipes/event-sourcing/) · [\`eventMigration\`](/de/patterns/eventmigration/) für Schema-Versionen`,
-    },
-    en: {
-      description: "Custom domain event with Zod schema and version number.",
-      body: `Defines a typed domain event. The schema is checked by the boot validator (compatibility check), the version makes upcaster migrations explicit.
-
-\`\`\`typescript
-const incidentResolved = r.defineEvent({
-  name: "incident.resolved",
-  schema: z.object({ resolution: z.string(), resolvedAt: z.date() }),
-});
-
-await ctx.appendEvent(incidentResolved, id, { resolution, resolvedAt: new Date() });
-\`\`\`
-
-**See also:** Recipe [\`event-sourcing\`](/en/samples/recipes/event-sourcing/) · [\`eventMigration\`](/en/patterns/eventmigration/) for schema versions`,
-    },
-  },
-  {
-    kind: "eventMigration",
-    tsType: "EventMigrationPattern",
-    editability: "mixed",
-    de: {
-      description: "Upcaster — verwandelt v(N) eines Events in v(N+1) on-read.",
-      body: `Migriert alte Event-Versionen on-read in die aktuelle Schema-Version. Append-only-Log bleibt unverändert; Upcaster läuft beim Lesen vor dem Apply.
-
-\`\`\`typescript
-r.eventMigration({
-  event: "incident.resolved",
-  fromVersion: 1,
-  toVersion: 2,
-  transform: (oldPayload) => ({ ...oldPayload, resolvedBy: "system" }),
-});
 \`\`\`
 
 **Siehe auch:** Recipe [\`event-sourcing\`](/de/samples/recipes/event-sourcing/)`,
     },
     en: {
-      description: "Upcaster — turns v(N) of an event into v(N+1) on read.",
-      body: `Migrates old event versions on read into the current schema version. The append-only log stays unchanged; the upcaster runs at read time before apply.
+      description: "Custom domain event with Zod schema, version number, and upcaster chain.",
+      body: `Defines a typed domain event. The schema is checked by the boot validator (compatibility check). \`migrations\` upcasts old event versions on read into the current schema version — the append-only log stays unchanged, the upcaster runs at read time before apply.
 
 \`\`\`typescript
-r.eventMigration({
-  event: "incident.resolved",
-  fromVersion: 1,
-  toVersion: 2,
-  transform: (oldPayload) => ({ ...oldPayload, resolvedBy: "system" }),
+const incidentResolved = r.defineEvent("incident.resolved", z.object({ resolution: z.string(), resolvedAt: z.date() }), {
+  version: 2,
+  migrations: [
+    { fromVersion: 1, toVersion: 2, transform: (oldPayload) => ({ ...oldPayload, resolvedBy: "system" }) },
+  ],
 });
+
+await ctx.appendEvent(incidentResolved, id, { resolution, resolvedAt: new Date() });
 \`\`\`
 
 **See also:** Recipe [\`event-sourcing\`](/en/samples/recipes/event-sourcing/)`,

@@ -961,19 +961,46 @@ defineFeature("f", (r) => {
   });
 });
 
-describe("extractEventMigration", () => {
-  test("captures fromVersion / toVersion / transform body", () => {
+describe("extractDefineEvent — migrations (formerly extractEventMigration)", () => {
+  test("positional-form migrations array captures the fromVersion→transform step", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
-  r.eventMigration("incidentOpened", 1, 2, (payload) => ({ ...payload, severity: "low" }));
+  r.defineEvent("incidentOpened", z.object({ id: z.string() }), {
+    version: 2,
+    migrations: [
+      { fromVersion: 1, toVersion: 2, transform: (payload) => ({ ...payload, severity: "low" }) },
+    ],
+  });
 });
 `);
 
     expect(result.patterns[0]).toMatchObject({
-      kind: "eventMigration",
+      kind: "defineEvent",
       eventName: "incidentOpened",
-      fromVersion: 1,
-      toVersion: 2,
+      version: 2,
+      migrations: { "1": expect.anything() },
+    });
+  });
+
+  test("object-form migrations map captures the fromVersion→transform step", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.defineEvent({
+    name: "incidentOpened",
+    schema: z.object({ id: z.string() }),
+    version: 2,
+    migrations: {
+      "1": (payload) => ({ ...payload, severity: "low" }),
+    },
+  });
+});
+`);
+
+    expect(result.patterns[0]).toMatchObject({
+      kind: "defineEvent",
+      eventName: "incidentOpened",
+      version: 2,
+      migrations: { "1": expect.anything() },
     });
   });
 });
