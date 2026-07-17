@@ -62,6 +62,7 @@ function withIconBadge(svg: string): string {
   const iconSize = r * 1.3;
   const scale = iconSize / 24;
   const offset = size / 2 - iconSize / 2;
+  // html-ok: icon is one of the fixed QR_ICONS literals above, not user input
   const badge = `<circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="#fff" stroke="#e5e7eb" stroke-width="${size * 0.01}"/><g transform="translate(${offset} ${offset}) scale(${scale})">${icon}</g>`;
   return svg.replace("</svg>", `${badge}</svg>`);
 }
