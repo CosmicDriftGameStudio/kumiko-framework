@@ -157,6 +157,8 @@ export type {
   RateLimitOption,
   RateLimitPer,
   SessionUser,
+  TryAppendEventFn,
+  TryAppendEventResult,
   UnsafeAppendEventFn,
   WriteEvent,
   WriteHandlerDef,

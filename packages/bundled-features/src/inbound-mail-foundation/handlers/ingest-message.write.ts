@@ -9,7 +9,9 @@
 //   3. PII-Encrypt (from/to/cc/subject/snippet) VOR dem append —
 //      Event-Log UND Projection tragen Ciphertext (#800-Muster).
 //   4. inbound-message-received-append (Inline-Projection schreibt
-//      read_inbound_messages in derselben TX).
+//      read_inbound_messages in derselben TX). Savepoint-scoped
+//      (ctx.tryAppendEvent) — a losing concurrent ingest for the same
+//      messageAggId returns { duplicate: true } instead of failing the TX.
 //   5. Thread-Rollup: mail-thread-updated-append mit neu berechnetem
 //      Snapshot (count+1, max(lastMessageAt)) — die apply ist ein
 //      dummer UPSERT.
@@ -199,13 +201,24 @@ export const ingestMessageHandler: WriteHandlerDef = {
       providerName: payload.providerName,
       providerCursor: payload.providerCursor,
     };
-    await ctx.unsafeAppendEvent({
+    const messageAppend = await ctx.tryAppendEvent({
       aggregateId: messageAggId,
       aggregateType: INBOUND_MESSAGE_AGGREGATE_TYPE,
       type: INBOUND_MESSAGE_RECEIVED_EVENT_QN,
       payload: messageEventPayload,
       headers: messageHeaders,
     });
+    if (!messageAppend.ok) {
+      // Lost the race against a concurrent ingest for the same messageAggId
+      // (Watch-Push vs. Poll-Reconciliation overlap). The winner already
+      // writes thread-rollup + seen-anchor for this message — steps 5+6
+      // skip here. tryAppendEvent's savepoint keeps this TX usable despite
+      // the caught VersionConflictError (see ctx.tryAppendEvent doc).
+      return {
+        isSuccess: true as const,
+        data: { duplicate: true as const, inboundMessageAggregateId: messageAggId },
+      };
+    }
 
     // ---------------------------------------------------------------
     // 5. Thread-Rollup. Der Handler berechnet den NEUEN Snapshot

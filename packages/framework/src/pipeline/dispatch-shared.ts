@@ -1,6 +1,6 @@
 import { requestContext } from "../api/request-context";
-import type { DbConnection, DbTx } from "../db/connection";
-import { selectMany } from "../db/query";
+import type { DbConnection, DbRunner, DbTx } from "../db/connection";
+import { runInSavepoint, selectMany } from "../db/query";
 import type { buildEntityTable } from "../db/table-builder";
 import { createTenantDb } from "../db/tenant-db";
 import type { defineTransitions } from "../engine/state-machine";
@@ -30,6 +30,7 @@ import {
   isStreamArchived,
   restoreStream as restoreStreamHelper,
 } from "../event-store/archive";
+import { VersionConflictError as EventStoreVersionConflictError } from "../event-store/errors";
 import {
   getStreamVersion,
   loadAggregate,
@@ -228,6 +229,42 @@ export function buildHandlerContext(
     }) as AppendEventFn, // @cast-boundary engine-bridge
     unsafeAppendEvent: async (args: AppendEventArgs) => {
       await appendDomainEvent(ctx, args, user, tx, registry.getHandlerFeature(type));
+    },
+    // Savepoint-scoped append: catches a losing writer's VersionConflictError
+    // without poisoning the rest of the handler's transaction. Bun.SQL/
+    // postgres.js abort the WHOLE begin() on an uncaught statement error
+    // (SQLSTATE 25P02) even if the JS error is caught — runInSavepoint
+    // wraps the append in a real SAVEPOINT so only that nested scope rolls
+    // back on conflict, and subsequent statements in the outer tx (e.g. a
+    // dedup-anchor insert) still succeed. Use when a handler must react to
+    // losing a concurrent-append race instead of failing the whole write.
+    tryAppendEvent: async (args: AppendEventArgs) => {
+      if (!tx) {
+        throw new InternalError({
+          message: `ctx.tryAppendEvent("${args.type}") requires an active transaction — no tx is threaded through this call.`,
+        });
+      }
+      try {
+        const event = await runInSavepoint(tx, (sp) =>
+          appendDomainEventCore(
+            {
+              registry,
+              db: sp as DbRunner,
+              tenantId: user.tenantId,
+              userId: String(user.id),
+              callSiteLabel: "ctx.tryAppendEvent",
+              callerFeature: registry.getHandlerFeature(type),
+            },
+            args,
+          ),
+        );
+        return { ok: true as const, event };
+      } catch (e) {
+        if (e instanceof EventStoreVersionConflictError) {
+          return { ok: false as const, conflict: e };
+        }
+        throw e;
+      }
     },
     fetchForWriting: async (args: FetchForWritingArgs): Promise<AggregateStreamHandle> => {
       const dbSource = resolveDbSource(ctx, tx);

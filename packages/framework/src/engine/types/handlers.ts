@@ -393,6 +393,13 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // (appendEvent) is the contract Designer/AI rely on.
   readonly unsafeAppendEvent: UnsafeAppendEventFn;
 
+  // Savepoint-scoped append. Use when the handler must gracefully continue
+  // after losing a race against a concurrent writer on the same aggregate
+  // stream (e.g. two idempotent ingest calls racing the same dedup key) —
+  // see TryAppendEventFn for why this doesn't poison the transaction the
+  // way a caught unsafeAppendEvent throw would.
+  readonly tryAppendEvent: TryAppendEventFn;
+
   // Marten FetchForWriting equivalent: load the current stream, optionally
   // enforce expectedVersion, and get a handle that appends further events
   // onto that stream without re-specifying aggregateId/aggregateType.
@@ -672,6 +679,20 @@ export type AppendEventFn<TMap extends object = KumikoEventTypeMap> = <K extends
 ) => Promise<void>;
 
 export type UnsafeAppendEventFn = (args: AppendEventArgs) => Promise<void>;
+
+// Savepoint-scoped append — returns a discriminated result instead of
+// throwing on VersionConflictError, so a handler can react gracefully to
+// losing a race against a concurrent writer on the same aggregate stream
+// (e.g. two idempotent ingest calls for the same dedup key). The append
+// runs inside a driver-native SAVEPOINT: a conflict rolls back only that
+// nested scope, leaving the rest of the handler's transaction usable —
+// unlike unsafeAppendEvent, whose thrown VersionConflictError poisons the
+// entire enclosing transaction.
+export type TryAppendEventResult =
+  | { readonly ok: true; readonly event: import("../../event-store").StoredEvent }
+  | { readonly ok: false; readonly conflict: import("../../event-store").VersionConflictError };
+
+export type TryAppendEventFn = (args: AppendEventArgs) => Promise<TryAppendEventResult>;
 
 // Args for ctx.fetchForWriting — Marten FetchForWriting equivalent. Returns
 // the current stream state + a handle that appends without re-specifying
