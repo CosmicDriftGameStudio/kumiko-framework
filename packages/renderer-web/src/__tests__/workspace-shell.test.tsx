@@ -869,4 +869,3 @@ describe("WorkspaceShell — EINE Nav", () => {
     expect(screen.getByText("System").closest("li")?.textContent).not.toContain("3");
   });
 });
-

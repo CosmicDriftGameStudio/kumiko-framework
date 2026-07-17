@@ -75,6 +75,8 @@ export type WorkspaceShellProps = {
    *  Info. Klebt am unteren Rand via `mt-auto` (siehe Sidebar.footer).
    *  Symmetrisch zu DefaultAppShell.sidebarFooter. */
   readonly sidebarFooter?: ReactNode;
+  /** Runtime badge slot per nav leaf (bare nav id), same as DefaultAppShell. */
+  readonly navBadges?: ReadonlyMap<string, ReactNode>;
   /** Screen content. */
   readonly children: ReactNode;
 };
@@ -324,3 +326,4 @@ export function resolveDefaultId(
   // 3. First workspace the user can see.
   return visible[0]?.definition.id;
 }
+
