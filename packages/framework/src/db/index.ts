@@ -107,6 +107,7 @@ export {
   fetchOne,
   insertMany,
   insertOne,
+  runInSavepoint,
   selectMany,
   transaction,
   updateMany,
