@@ -483,7 +483,10 @@ function matchObjectAllOfProperty(
   expectedEntity: string,
 ): boolean {
   const obj = call.getArguments()[0]?.asKind(SyntaxKind.ObjectLiteralExpression);
-  const propInit = obj?.getProperty(propName)?.asKind(SyntaxKind.PropertyAssignment)?.getInitializer();
+  const propInit = obj
+    ?.getProperty(propName)
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer();
   return matchAllOfArg(propInit, expectedEntity);
 }
 

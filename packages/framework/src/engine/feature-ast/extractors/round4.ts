@@ -249,7 +249,6 @@ export function extractHook(
   });
 }
 
-
 // guard:dup-ok — intentionale Parallele zu extractTree (round6); verschiedene Feature-AST-Extraktoren by design
 export function extractAuthClaims(
   call: CallExpression,

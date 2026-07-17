@@ -99,7 +99,12 @@ export function buildUiExtensionsMethods<TName extends string>(
     ): void {
       // Entity-wide target ("all write/query handlers of this entity") —
       // replaces the old r.entityHook(type, entity, fn).
-      if (typeof target === "object" && target !== null && !Array.isArray(target) && "allOf" in target) {
+      if (
+        typeof target === "object" &&
+        target !== null &&
+        !Array.isArray(target) &&
+        "allOf" in target
+      ) {
         if (!isEntityWideHookType(type)) {
           throw new Error(
             `[Feature ${name}] r.hook("${type}", { allOf }, ...) only supports ` +

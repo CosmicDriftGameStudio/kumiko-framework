@@ -2,7 +2,7 @@
 // operator-visible gate points in one test:
 //
 //   1. Dispatcher-gate on the owner feature's handler (403 feature_disabled)
-//   2. Hook-filter on a cross-feature r.entityHook (skipped when hook-owner off)
+//   2. Hook-filter on a cross-feature r.hook({ allOf }) (skipped when hook-owner off)
 //
 // The feature-toggles bundled-feature itself is loaded in the integration
 // test so the canonical wiring (runtime accessor + effectiveFeatures
@@ -52,7 +52,7 @@ export function createProductFeature(): FeatureDefinition {
 }
 
 // product-audit — toggleable, default on. Registers a cross-feature
-// r.entityHook on product's postSave. When this feature is globally off,
+// r.hook({ allOf: "product" }) on product's postSave. When this feature is globally off,
 // the hook is silently skipped; product's own write-handler keeps working.
 // When product itself is off, the handler is gated before any write
 // happens — the hook never has anything to react to.
@@ -73,7 +73,7 @@ export function createProductAuditFeature(): FeatureDefinition {
     r.toggleable({ default: true });
     r.entity("product-audit", productAuditEntity);
 
-    r.entityHook("postSave", "product", async (result, ctx) => {
+    r.hook("postSave", { allOf: "product" }, async (result, ctx) => {
       if (result.kind !== "save" || !result.isNew) return;
       if (!ctx.db) return;
       const name = (result.changes as Record<string, unknown>)["name"] as string | undefined;

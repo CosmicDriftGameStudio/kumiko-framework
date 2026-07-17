@@ -359,7 +359,6 @@ describe("renderPattern — single-pattern shape", () => {
   });
 });
 
-
 // Regression guard for the class of bug the r.exposesApi/r.usesApi fold
 // hit: a registrar-shape change must survive the Designer's parse→render→
 // parse cycle, not just a TS compile of the framework itself. r.hook()'s

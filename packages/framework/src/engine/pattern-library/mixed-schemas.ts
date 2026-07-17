@@ -1,10 +1,6 @@
 // Mixed pattern schemas (header form + opaque body source).
 
-import {
-  accessRuleField,
-  HOOK_TYPE_OPTIONS,
-  HTTP_METHOD_OPTIONS,
-} from "./shared-fields";
+import { accessRuleField, HOOK_TYPE_OPTIONS, HTTP_METHOD_OPTIONS } from "./shared-fields";
 import type { PatternFormSchema } from "./types";
 
 // --- Mixed patterns (header form + opaque body source) --------------------
