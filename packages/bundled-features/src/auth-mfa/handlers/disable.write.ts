@@ -30,7 +30,8 @@ export function createDisableHandler(opts: DisableOptions) {
       const row = await findUserMfaRow(ctx.db, event.user);
       if (!row) return mfaNotEnabled();
 
-      const verify = await verifyMfaFactor(row, event.payload.code);
+      const replay = ctx.redis ? { redis: ctx.redis, userId: event.user.id } : undefined;
+      const verify = await verifyMfaFactor(row, event.payload.code, replay);
       if (!verify.ok) return invalidTotpCode();
 
       const result = await executor.delete({ id: row.id }, event.user, ctx.db);

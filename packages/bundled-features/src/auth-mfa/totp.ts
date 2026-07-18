@@ -3,7 +3,7 @@
 // package for it would be the opposite of lazy.
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
-const STEP_SECONDS = 30;
+export const STEP_SECONDS = 30;
 const DIGITS = 6;
 const WINDOW = 1; // accept ±1 step (±30s) of clock drift, per the spec's guidance
 
@@ -42,14 +42,26 @@ function totpAt(secret: Buffer, epochSeconds: number): string {
 // Timing-safe across the whole ±WINDOW check, not just the final compare —
 // a TOTP code is the same sensitivity class as a password, brute-forceable
 // over a public /auth/mfa/verify endpoint without it.
-export function verifyTotp(secret: Buffer, code: string, nowMs: number = Date.now()): boolean {
+//
+// Returns the matched HOTP counter (not just true) so callers can burn it —
+// a code accepted once must not verify again within its ±WINDOW validity,
+// per RFC 6238 §5.2. Returns `false` on no match, matching the old boolean
+// contract for callers (like enable-confirm) that don't need replay-burn.
+export function verifyTotp(
+  secret: Buffer,
+  code: string,
+  nowMs: number = Date.now(),
+): number | false {
   if (!/^\d{6}$/.test(code)) return false;
   const codeBuf = Buffer.from(code);
   const nowSeconds = Math.floor(nowMs / 1000);
-  let matched = false;
+  let matchedCounter: number | false = false;
   for (let w = -WINDOW; w <= WINDOW; w++) {
-    const candidate = Buffer.from(totpAt(secret, nowSeconds + w * STEP_SECONDS));
-    if (timingSafeEqual(candidate, codeBuf)) matched = true;
+    const stepSeconds = nowSeconds + w * STEP_SECONDS;
+    const candidate = Buffer.from(totpAt(secret, stepSeconds));
+    if (timingSafeEqual(candidate, codeBuf)) {
+      matchedCounter = Math.floor(stepSeconds / STEP_SECONDS);
+    }
   }
-  return matched;
+  return matchedCounter;
 }

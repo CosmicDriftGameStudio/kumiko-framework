@@ -157,7 +157,7 @@ describe("mfa verify — completes a two-step login", () => {
     expectErrorIncludes(err, "invalid_totp_code");
   });
 
-  test("a challenge token cannot be replayed even with a still-valid TOTP code", async () => {
+  test("an exact-duplicate verify (same challenge token, same code) is rejected", async () => {
     const { user, secret } = await enableMfaFor(4);
     const challengeToken = challengeFor(user.id, user.tenantId);
 
@@ -167,14 +167,39 @@ describe("mfa verify — completes a two-step login", () => {
       GUEST,
     );
 
-    // Same challenge token, same (still time-window-valid) code — must be
-    // rejected because burnToken() marks it used on the first success.
+    // Same challenge token, same (still time-window-valid) code — rejected
+    // by the TOTP-counter burn inside verifyMfaFactor before the challenge-
+    // token burn is even reached (that burn now happens after success).
     const err = await stack.http.writeErr(
       AuthMfaHandlers.verify,
       { challengeToken, code: currentTotpCode(secret) },
       GUEST,
     );
-    expectErrorIncludes(err, "invalid_challenge_token");
+    expectErrorIncludes(err, "invalid_totp_code");
+  });
+
+  test("a TOTP code cannot be replayed across a FRESH challenge token (RFC 6238 §5.2)", async () => {
+    const { user, secret } = await enableMfaFor(105);
+    const code = currentTotpCode(secret);
+
+    const challengeA = challengeFor(user.id, user.tenantId);
+    await stack.http.writeOk<{ session: SessionUser }>(
+      AuthMfaHandlers.verify,
+      { challengeToken: challengeA, code },
+      GUEST,
+    );
+
+    // A DIFFERENT challenge token (as a real re-login would mint) but the
+    // SAME still-time-window-valid code — this is the actual attack this
+    // finding is about: a phished/shoulder-surfed code used for a parallel
+    // login, not a naive replay of the whole prior request.
+    const challengeB = challengeFor(user.id, user.tenantId);
+    const err = await stack.http.writeErr(
+      AuthMfaHandlers.verify,
+      { challengeToken: challengeB, code },
+      GUEST,
+    );
+    expectErrorIncludes(err, "invalid_totp_code");
   });
 
   test("a malformed challenge token is rejected without leaking account state", async () => {

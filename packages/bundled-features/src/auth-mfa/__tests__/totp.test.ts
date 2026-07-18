@@ -24,7 +24,7 @@ describe("TOTP — RFC 6238 vectors", () => {
   test("6-digit code at T=59 matches the last 6 digits of the RFC 8-digit vector", () => {
     const expected8 = rfcVectorCode8Digit(59);
     const expected6 = expected8.slice(-6);
-    expect(verifyTotp(RFC_SECRET, expected6, 59_000)).toBe(true);
+    expect(verifyTotp(RFC_SECRET, expected6, 59_000)).not.toBe(false);
   });
 
   test("rejects a code from a different time window (>±1 step)", () => {
@@ -41,7 +41,7 @@ describe("TOTP — RFC 6238 vectors", () => {
     // the ±1 window, not same-step reuse. See the ±2-steps negative test below
     // for the window's upper bound.
     const codeAtNow = deriveCodeForTest(secret, now);
-    expect(verifyTotp(secret, codeAtNow, now + 25_000)).toBe(true);
+    expect(verifyTotp(secret, codeAtNow, now + 25_000)).not.toBe(false);
   });
 
   test("rejects a code two steps in the future (outside the ±1 window)", () => {

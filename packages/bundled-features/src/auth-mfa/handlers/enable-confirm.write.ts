@@ -42,12 +42,18 @@ export function createEnableConfirmHandler(opts: EnableConfirmOptions) {
       if (verify.payload.userId !== event.user.id) return invalidSetupToken();
 
       const secret = base32Decode(verify.payload.totpSecretBase32);
-      if (!verifyTotp(secret, event.payload.code)) return invalidTotpCode();
+      if (verifyTotp(secret, event.payload.code) === false) return invalidTotpCode();
 
       // Burn the setup token on the first successful confirm — without this
       // a `disable` doesn't retire it (re-enabling with the secret the user
       // thinks they discarded), and two parallel confirms both proceed to
       // executor.create instead of the second seeing mfa_already_enabled().
+      // ponytail: burned here, not unburned on a later executor.create
+      // failure (unlike login.write.ts's unburnToken pattern) — self-service
+      // enable-start always mints a fresh setup token on demand (no mailed
+      // link to go stale), so the realistic failure path (double-confirm
+      // race sans Redis) is meant to leave the burn standing. Add
+      // unburnToken here if create-failure retries turn out to matter.
       if (ctx.redis) {
         const burnResult = await burnToken(
           ctx.redis,

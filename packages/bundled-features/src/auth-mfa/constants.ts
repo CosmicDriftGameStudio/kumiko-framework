@@ -31,6 +31,10 @@ export const AuthMfaErrorCodes = {
   invalidRecoveryCode: "invalid_recovery_code",
   invalidChallengeToken: "invalid_challenge_token",
   tooManyAttempts: "too_many_attempts",
+  // Client-only: minted by mfa-enable-screen.tsx on a network/QR-render
+  // failure during enrollment, never by errors.ts server-side — kept here
+  // anyway so mfa-error-keys.ts's key-parity test covers it automatically.
+  setupFailed: "setup_failed",
 } as const;
 
 export const MFA_SETUP_TOKEN_TTL_MINUTES = 10;

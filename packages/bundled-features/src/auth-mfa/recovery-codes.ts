@@ -9,8 +9,8 @@ const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
 // Recovery codes get read aloud or copy-typed from a screen — a user retyping
 // "abcd1234" lowercase or without the dash must still match. Applied on both
-// sides (hash-time here is a no-op on freshly generated codes, but keeps
-// hash and verify deckungsgleich if generation ever changes) so a formatting
+// sides (hash-time here strips the group separator before hashing, keeping
+// hash and verify identical if generation ever changes) so a formatting
 // slip never surfaces as "wrong code" for an otherwise-correct code.
 function normalizeRecoveryCode(code: string): string {
   return code.toUpperCase().replace(/[^A-Z2-9]/g, "");
