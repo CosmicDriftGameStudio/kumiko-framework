@@ -18,6 +18,7 @@
     "runtime": "runtime"
   },
   "exports": {
+    "./agent-tools": "./src/agent-tools/index.ts",
     "./audit": "./src/audit/index.ts",
     "./audit/web": "./src/audit/web/index.ts",
     "./admin-shell": "./src/admin-shell/index.ts",
