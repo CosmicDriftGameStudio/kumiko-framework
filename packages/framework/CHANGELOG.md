@@ -1,5 +1,16 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.154.2
+
+### Patch Changes
+
+- 05c3e11: Fix `populateTranslations()` double-prefixing translation keys that already
+  carry the feature's own namespace prefix (e.g. a nav label referencing
+  `"cap-counter:nav.cap-list"` verbatim). Previously every key was
+  unconditionally prefixed with `${feature.name}:`, so an already-qualified
+  key ended up double-prefixed in `registry.getAllTranslations()` and could
+  never be resolved by server-side `t()`.
+
 ## 0.154.1
 
 ## 0.154.0
