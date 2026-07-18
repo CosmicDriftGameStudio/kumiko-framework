@@ -405,11 +405,16 @@ type HookTarget = RefOrRefs | { readonly allOf: NameOrRef };
  * steps are allowed to write via `r.step.unsafeProjectionUpsert`.
  * Hard-required for any unsafeProjection-* step usage (see Q10).
  */
-export type RequiresApi = ((...featureNames: string[]) => void) & {
-  readonly projection: (tableName: string) => void;
-  // Tier-2 step opt-in (Q9). Tier-1 implicit, Tier-2 must be declared.
-  readonly step: (stepKind: string) => void;
-};
+export type RequiresApi = ((...featureNames: string[]) => void) &
+  // Object-Form — the shape the feature-ast renderer (`render.ts`) emits
+  // for Designer/AI-generated code. A single object argument with named
+  // fields is easier to generate correctly than positional args whose
+  // count/order vary per registrar method.
+  ((options: { readonly features: readonly string[] }) => void) & {
+    readonly projection: (tableName: string) => void;
+    // Tier-2 step opt-in (Q9). Tier-1 implicit, Tier-2 must be declared.
+    readonly step: (stepKind: string) => void;
+  };
 
 export type FeatureRegistrar<TFeature extends string = string> = {
   systemScope(): void;
@@ -418,6 +423,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   describe(text: string): void;
   requires: RequiresApi;
   optionalRequires(...featureNames: string[]): void;
+  optionalRequires(options: { readonly features: readonly string[] }): void;
   // Declare the feature as operator-togglable. `default` is the effective
   // state when no global-toggle row exists. Must be called at most once per
   // feature; calling on an always-on feature (e.g. auth/tenant/user) is a
@@ -431,6 +437,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     definition: EntityDefinition,
     options?: { readonly table?: unknown },
   ): EntityRef;
+  entity(definition: { readonly name: string } & EntityDefinition): EntityRef;
 
   // One-call CRUD for an event-sourced entity — delegates to registerEntityCrud():
   // r.entity + create/update/delete/restore/list/detail handlers per verb flag.
@@ -458,6 +465,13 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   ): HandlerRef;
 
   relation(entity: NameOrRef, relationName: string, definition: RelationDefinition): void;
+  // TDef inferred from the literal — keeps the excess-property check
+  // resolved against the matching RelationDefinition union member instead
+  // of distributing across all three (which spuriously rejects valid
+  // combinations when checked directly against the raw union).
+  relation<TDef extends RelationDefinition>(
+    definition: { readonly entity: NameOrRef; readonly name: string } & TDef,
+  ): void;
 
   hook(type: "validation", target: RefOrRefs, fn: ValidationHookFn): void;
   hook(type: "preSave", target: RefOrRefs, fn: PreSaveHookFn): void;
@@ -507,6 +521,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   }): { readonly [K in keyof TKeys]: ConfigKeyHandle<TKeys[K]["type"]> };
 
   job(name: string, options: Omit<JobDefinition, "name" | "handler">, handler: JobHandlerFn): void;
+  job(definition: JobDefinition): void;
 
   notification(
     name: string,
@@ -517,6 +532,13 @@ export type FeatureRegistrar<TFeature extends string = string> = {
       readonly templates?: Readonly<Record<string, NotificationTemplateFn>>;
     },
   ): void;
+  notification(definition: {
+    readonly name: string;
+    readonly trigger: { readonly on: NameOrRef };
+    readonly recipient: NotificationRecipientFn;
+    readonly data: NotificationDataFn;
+    readonly templates?: Readonly<Record<string, NotificationTemplateFn>>;
+  }): void;
 
   translations(def: TranslationsDef): void;
 
@@ -552,16 +574,25 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   ): EventDef<TPayload, QualifiedEventName<TFeature, TInner>>;
 
   readsConfig(...qualifiedKeys: string[]): void;
+  readsConfig(options: { readonly keys: readonly string[] }): void;
 
   referenceData(
     entity: NameOrRef,
     data: readonly Record<string, unknown>[],
     options?: { upsertKey?: string },
   ): void;
+  referenceData(definition: {
+    readonly entity: NameOrRef;
+    readonly data: readonly Record<string, unknown>[];
+    readonly upsertKey?: string;
+  }): void;
 
   extendsRegistrar(name: string, def: RegistrarExtensionDef): void;
 
   useExtension(extensionName: string, entity: NameOrRef, options?: Record<string, unknown>): void;
+  useExtension(
+    definition: { readonly name: string; readonly entity: NameOrRef } & Record<string, unknown>,
+  ): void;
 
   /**
    * Declares which config key selects the active provider under an
@@ -614,12 +645,14 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // qualifies it on boot. Validation (snake_case + typ-suffix) runs at boot.
   // Usage at runtime: ctx.metrics.inc("created_total", { status: "new" }).
   metric(shortName: string, options: MetricOptions): void;
+  metric(definition: { readonly name: string } & MetricOptions): void;
 
   // Declare a secret key. Qualified name follows "<feature>:secret:<kebab>"
   // via the QN helper. Returns a typed handle so feature code can pass it
   // to ctx.secrets.get without retyping the qualified string — same
   // ergonomics as r.config's handle.
   secret(shortName: string, options: SecretOptions): SecretKeyHandle;
+  secret(definition: { readonly name: string } & SecretOptions): SecretKeyHandle;
 
   // Register a projection driven by events of one or more source entities.
   // The runtime fires projection.apply[event.type] inside the event-store's
@@ -673,6 +706,10 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     shortName: string,
     options: { readonly type: T },
   ): ClaimKeyHandle<T>;
+  claimKey<T extends ClaimKeyType>(definition: {
+    readonly name: string;
+    readonly type: T;
+  }): ClaimKeyHandle<T>;
 
   // Register a screen. The id is the feature-local short name (kebab-case);
   // the registry qualifies to "<feature>:screen:<id>". Boot-validation checks

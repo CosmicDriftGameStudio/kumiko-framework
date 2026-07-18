@@ -172,11 +172,24 @@ export function buildUiExtensionsMethods<TName extends string>(
       state.registrarExtensions[extensionName] = def;
     },
     useExtension(
-      extensionName: string,
-      entityRef: NameOrRef,
+      extensionNameOrDefinition:
+        | string
+        | ({ readonly name: string; readonly entity: NameOrRef } & Record<string, unknown>),
+      entityRef?: NameOrRef,
       options?: Record<string, unknown>,
     ): void {
-      state.extensionUsages.push({ extensionName, entityName: resolveName(entityRef), options });
+      const [extensionName, resolvedEntityRef, resolvedOptions] =
+        typeof extensionNameOrDefinition === "string"
+          ? [extensionNameOrDefinition, entityRef as NameOrRef, options]
+          : (() => {
+              const { name, entity, ...rest } = extensionNameOrDefinition;
+              return [name, entity, rest] as const;
+            })();
+      state.extensionUsages.push({
+        extensionName,
+        entityName: resolveName(resolvedEntityRef),
+        options: resolvedOptions,
+      });
     },
     extensionSelector(extensionName: string, key: { readonly name: string } | string): void {
       if (state.extensionSelectors.some((s) => s.extensionName === extensionName)) {
@@ -276,14 +289,24 @@ export function buildUiExtensionsMethods<TName extends string>(
       state.entityProjectionExtensions[entityName] = list;
     },
     referenceData(
-      entityRef: NameOrRef,
-      data: readonly Record<string, unknown>[],
+      entityRefOrDefinition:
+        | NameOrRef
+        | {
+            readonly entity: NameOrRef;
+            readonly data: readonly Record<string, unknown>[];
+            readonly upsertKey?: string;
+          },
+      data?: readonly Record<string, unknown>[],
       options?: { upsertKey?: string },
     ): void {
+      const [entityRef, resolvedData, upsertKey] =
+        typeof entityRefOrDefinition === "object" && "entity" in entityRefOrDefinition
+          ? [entityRefOrDefinition.entity, entityRefOrDefinition.data, entityRefOrDefinition.upsertKey]
+          : [entityRefOrDefinition, data as readonly Record<string, unknown>[], options?.upsertKey];
       state.referenceData.push({
         entityName: resolveName(entityRef),
-        data,
-        upsertKey: options?.upsertKey,
+        data: resolvedData,
+        upsertKey,
       });
     },
     screen(definition: ScreenDefinition): void {
