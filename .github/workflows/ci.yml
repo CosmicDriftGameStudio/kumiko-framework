@@ -315,6 +315,11 @@ jobs:
           docker run --rm --network kumiko-ci --entrypoint sh minio/mc:RELEASE.2025-01-17T23-25-50Z -c "mc alias set local http://kumiko-ci-minio:9000 kumiko kumiko-dev-secret && mc ls local/kumiko-dev"
 
       - name: Run integration tests
+        env:
+          # Meili is started + health-checked above — a down Meili here is a
+          # job misconfiguration, not a real absence; fail loud instead of
+          # the live adapter suite silently skipping (kumiko-framework#1124).
+          REQUIRE_MEILI: "1"
         run: bun run test:integration
 
       # Split (441/1): only rebuildProjection's perf gate flakes under load

@@ -97,7 +97,7 @@ export function watchAndRegenerate(opts: WatchOptions): WatchHandle {
     watcher = watch(srcDir, { recursive: true }, (_eventType, filename) => {
       // skip: watcher closed or no filename reported, nothing to act on
       if (closed || !filename) return;
-      // skip: node liefert filename relativ zu srcDir, kann aber posix oder
+      // node liefert filename relativ zu srcDir, kann aber posix oder
       // windows-style separators haben. Wir prüfen substring-tolerant.
       const normalised = `/${filename.toString().replace(/\\/g, "/")}`;
       // skip: path matches an excluded segment (node_modules/dist/etc.)

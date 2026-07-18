@@ -10,3 +10,18 @@ export function splitNamedDefinition<T extends { readonly name: string }>(
   const { name, ...rest } = definition;
   return [name, rest];
 }
+
+// Shared helper for registrar methods that accept either variadic strings
+// (hand-written call sites) or a single Object-Form object wrapping the
+// same string array under `key` (the feature-ast renderer's canonical
+// shape for Designer/AI-generated code).
+export function unwrapArrayForm<K extends string>(
+  args: readonly [Record<K, readonly string[]>] | readonly string[],
+  key: K,
+): readonly string[] {
+  const [first] = args;
+  if (typeof first === "object" && first !== null && key in first) {
+    return (first as Record<K, readonly string[]>)[key];
+  }
+  return args as readonly string[];
+}

@@ -3,6 +3,8 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { SignupCompleteScreen } from "../signup-complete-screen";
 import { renderWithProviders } from "./test-utils";
 
+const realFetch = globalThis.fetch;
+
 beforeEach(() => {
   globalThis.fetch = mock(
     async () =>
@@ -15,7 +17,9 @@ beforeEach(() => {
       ),
   ) as unknown as typeof fetch;
 });
-afterEach(() => {});
+afterEach(() => {
+  globalThis.fetch = realFetch;
+});
 
 function fillPasswords(password: string, confirm: string): void {
   fireEvent.change(document.getElementById("signup-password") as HTMLInputElement, {

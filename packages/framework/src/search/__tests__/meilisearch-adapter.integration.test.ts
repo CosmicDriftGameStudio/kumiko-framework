@@ -9,7 +9,7 @@ const MEILI_KEY = process.env["MEILI_MASTER_KEY"] ?? "kumiko-dev-key";
 
 async function meiliAvailable(): Promise<boolean> {
   try {
-    const health = await fetch(`${MEILI_URL}/health`);
+    const health = await fetch(`${MEILI_URL}/health`, { signal: AbortSignal.timeout(2000) });
     return health.ok;
   } catch {
     return false;
@@ -17,8 +17,15 @@ async function meiliAvailable(): Promise<boolean> {
 }
 
 // skipIf when compose Meili is down — unit tests still cover index/doc id shaping.
+// In a dedicated integration job (REQUIRE_MEILI=1) a down Meili is a hard
+// failure, not a silent skip — the compose service is expected to be up there.
 const MEILI_UP = await meiliAvailable();
 if (!MEILI_UP) {
+  if (process.env["REQUIRE_MEILI"] === "1") {
+    throw new Error(
+      `REQUIRE_MEILI=1 but Meilisearch not reachable at ${MEILI_URL} — integration job misconfigured`,
+    );
+  }
   console.warn(
     `Meilisearch not reachable at ${MEILI_URL} — skipping live adapter tests ` +
       `(docker compose up -d meilisearch, default port 17700)`,

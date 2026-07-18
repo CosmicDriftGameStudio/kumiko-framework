@@ -82,11 +82,11 @@ function probe(host: string, port: number): Promise<boolean> {
   });
 }
 
-const available = await probe(HOST, IMAP_PORT);
+const available = (await probe(HOST, IMAP_PORT)) && (await probe(HOST, SMTP_PORT));
 const liveTest = available ? test : test.skip;
 if (!available) {
   console.warn(
-    `imap-foundation: kein IMAP-Server auf ${HOST}:${IMAP_PORT} — Suite wird geskippt (greenmail starten)`,
+    `imap-foundation: kein IMAP/SMTP-Server auf ${HOST}:${IMAP_PORT}/${SMTP_PORT} — Suite wird geskippt (greenmail starten)`,
   );
 }
 
@@ -96,6 +96,7 @@ let secrets: ReturnType<typeof createSecretsContext>;
 let providerRef: MutableMasterKeyProvider;
 
 beforeAll(async () => {
+  if (!available) return;
   const initialKp = createEnvMasterKeyProvider({
     env: {
       KUMIKO_SECRETS_MASTER_KEY_V1: randomBytes(32).toString("base64"),
@@ -131,6 +132,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (!available) return;
   await stack.cleanup();
   resetPiiSubjectKmsForTests();
 });
@@ -143,13 +145,13 @@ function adminFor(tenantNumber: number) {
   });
 }
 
-function credentialJson(): string {
+function credentialJson(passwordOverride?: string): string {
   return JSON.stringify({
     host: HOST,
     port: IMAP_PORT,
     secure: false,
     user: USER,
-    password: PASSWORD,
+    password: passwordOverride ?? PASSWORD,
   });
 }
 
@@ -256,13 +258,7 @@ describe("imap-foundation — greenmail + supervisor", () => {
       await secrets.set(
         admin.tenantId,
         inboundCredentialSecretKey(connected.accountId),
-        JSON.stringify({
-          host: HOST,
-          port: IMAP_PORT,
-          secure: false,
-          user: USER,
-          password: "definitely-wrong",
-        }),
+        credentialJson("definitely-wrong"),
       );
 
       const supervisor = createSupervisor();

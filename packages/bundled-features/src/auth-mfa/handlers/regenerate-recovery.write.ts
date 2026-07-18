@@ -4,7 +4,7 @@ import { z } from "zod";
 import { findUserMfaRow } from "../db/queries";
 import { invalidTotpCode, mfaNotEnabled } from "../errors";
 import { generateRecoveryCodes, hashRecoveryCodes } from "../recovery-codes";
-import { userMfaEntity, userMfaTable } from "../schema/user-mfa";
+import { encodeRecoveryCodes, userMfaEntity, userMfaTable } from "../schema/user-mfa";
 import { verifyMfaFactor } from "../verify-factor";
 
 export type RegenerateRecoveryOptions = {
@@ -45,7 +45,7 @@ export function createRegenerateRecoveryHandler(opts: RegenerateRecoveryOptions)
         {
           id: row.id,
           version: row.version,
-          changes: { recoveryCodes: JSON.stringify({ hashes: newHashes }) },
+          changes: { recoveryCodes: encodeRecoveryCodes(newHashes) },
         },
         event.user,
         ctx.db,

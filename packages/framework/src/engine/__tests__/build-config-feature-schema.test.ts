@@ -435,4 +435,20 @@ describe("buildConfigFeatureSchema — cross-feature group", () => {
     });
     expect(() => buildConfigFeatureSchema(createRegistry([feature]))).toThrow(/kebab-case/);
   });
+
+  test("invalid (non-kebab) group value throws even on a maskless key", () => {
+    // Maskless keys never appear in the hub — group is a no-op for them at
+    // runtime — but the type contract still promises kebab-case is
+    // boot-validated regardless of `mask`. collectMaskedKeys used to check
+    // the mask-gate before the group check, so a maskless key with a bad
+    // group silently passed boot; the check now runs before the mask-gate.
+    const feature = defineFeature("badgroupmaskless", (r) => {
+      r.config({
+        keys: {
+          flag: createTenantConfig("boolean", { group: "Not Kebab!" }),
+        },
+      });
+    });
+    expect(() => buildConfigFeatureSchema(createRegistry([feature]))).toThrow(/kebab-case/);
+  });
 });
