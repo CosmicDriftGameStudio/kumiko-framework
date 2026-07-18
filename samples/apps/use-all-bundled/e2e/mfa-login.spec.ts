@@ -1,3 +1,4 @@
+// @runtime test
 // Assert-E2E for use-all-bundled MFA login (Plan: optional-uab-mfa-assert).
 // Mirrors e2e/screenshots.spec.ts adminMfaLoginChallenge + kumiko-studio
 // mfa-login.spec.ts: enroll via write-dispatch, drive Login→MfaVerify gate
