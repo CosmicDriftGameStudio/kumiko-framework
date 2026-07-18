@@ -46,7 +46,7 @@ When the tests are green:
 
 ```typescript illustration
 // bin/main.ts
-import { runProdApp } from "@cosmicdrift/kumiko-dev-server";
+import { runProdApp } from "@cosmicdrift/kumiko-server-runtime";
 import {
   createManagedPagesFeature,
   createManagedPagesCssFeature,

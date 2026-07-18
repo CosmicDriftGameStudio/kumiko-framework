@@ -27,12 +27,16 @@
 // startet. Dieser query-handler liefert nur das JSON.
 
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineQueryHandler,
+  SYSTEM_USER_ID,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
 import { recordDownloadUse, recordInvalidAttempt } from "../audit-download";
-import { resolveTenantFileProvider } from "../lib/tenant-file-provider";
+import { makeTenantStorageProviderResolver } from "../lib/storage-provider-resolver";
 import { exportDownloadTokensTable } from "../schema/download-token";
 import { EXPORT_JOB_STATUS, exportJobsTable } from "../schema/export-job";
 import { hashDownloadToken } from "../token-helpers";
@@ -184,11 +188,14 @@ export const downloadByTokenQuery = defineQueryHandler({
     // Step 5: signed-URL via provider, explicitly bound to the job's
     // tenant — NOT the ambient request tenant (anonymous magic-link path
     // has none under resolverTrust: "authoritative").
-    const provider = await resolveTenantFileProvider(
-      ctx,
-      jobRow.requestedFromTenantId,
-      "user-data-rights:query:download-by-token",
-    );
+    const provider = await makeTenantStorageProviderResolver({
+      registry: ctx.registry,
+      configResolver: ctx.configResolver,
+      secrets: ctx.secrets,
+      db: ctx.db.raw,
+      userId: SYSTEM_USER_ID,
+      handlerName: "user-data-rights:query:download-by-token",
+    })(jobRow.requestedFromTenantId as TenantId); // @cast-boundary engine-payload: TenantId brand
     if (!provider.getSignedUrl) {
       await recordInvalidAttempt({
         db: ctx.db.raw,

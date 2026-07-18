@@ -50,7 +50,7 @@ describe("createNumberField({ integer: true }) — still rejects fractional valu
     await expect(
       seedRow(stack.db, statsTable, {
         expectedValue: 1,
-        wholeCount: 3.5 as unknown as number,
+        wholeCount: 3.5,
         tenantId: "00000000-0000-4000-8000-000000000001",
       }),
     ).rejects.toThrow(/invalid input syntax for type integer/);

@@ -7,7 +7,7 @@ ES-Operations für Kumiko-Apps. Phase 1+1.5 liefert `seed-migrations` als file-b
 ## Quick API
 
 ```ts
-import { runProdApp } from "@cosmicdrift/kumiko-dev-server";
+import { runProdApp } from "@cosmicdrift/kumiko-server-runtime";
 
 await runProdApp({
   features: [...],

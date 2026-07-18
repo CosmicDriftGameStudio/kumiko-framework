@@ -28,9 +28,10 @@ Bun is the intended runtime and test runner.
 ## At-a-glance
 
 ```typescript
-import { defineFeature, createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
+import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 export const taskEntity = createEntity({
+  table: "read_tasks",
   fields: {
     title: createTextField({ required: true, searchable: true }),
     done: createTextField(),
@@ -38,44 +39,14 @@ export const taskEntity = createEntity({
   softDelete: true,
 });
 
-const taskTable = buildDrizzleTable("task", taskEntity);
-const taskExecutor = createEventStoreExecutor(taskTable, taskEntity, { entityName: "task" });
-
 export const taskFeature = defineFeature("tasks", (r) => {
-  r.entity("task", taskEntity);
-
-  // Write handlers go through createEventStoreExecutor — events + projection in one TX,
-  // optimistic locking, access control, all explicit.
-  r.writeHandler(
-    "task:create",
-    z.object({ title: z.string() }),
-    async (event, ctx) => taskExecutor.create(event.payload, event.user, ctx.db),
-    { access: { roles: ["User"] } },
-  );
-  r.writeHandler(
-    "task:update",
-    z.object({ id: z.uuid(), version: z.number(), changes: z.object({ title: z.string().optional() }) }),
-    async (event, ctx) => taskExecutor.update(event.payload, event.user, ctx.db),
-    { access: { roles: ["User"] } },
-  );
-  r.writeHandler(
-    "task:delete",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) => taskExecutor.delete(event.payload, event.user, ctx.db),
-    { access: { roles: ["Admin"] } },
-  );
-  r.queryHandler(
-    "task:list",
-    z.object({}),
-    async (query, ctx) => taskExecutor.list(query.payload, query.user, ctx.db),
-    { access: { openToAll: true } },
-  );
-  r.queryHandler(
-    "task:detail",
-    z.object({ id: z.uuid() }),
-    async (query, ctx) => taskExecutor.detail(query.payload, query.user, ctx.db),
-    { access: { openToAll: true } },
-  );
+  // r.crud wires create/update/delete/restore + list/detail queries in one
+  // call — events + projection in the same TX, optimistic locking, access
+  // control, all explicit via the options below.
+  r.crud("task", taskEntity, {
+    write: { access: { roles: ["User"] } },
+    read: { access: { openToAll: true } },
+  });
 
   // Read-model fed from task events, rebuildable via the CLI
   r.projection({

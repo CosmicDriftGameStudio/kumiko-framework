@@ -252,7 +252,16 @@ async function resolveRuntimeDepsVersions(
 function derivePkgName(cwd: string): string {
   const pkgJson = join(cwd, "package.json");
   if (!existsSync(pkgJson)) return "kumiko-app-runtime";
-  const parsed = parseJsonSafe<{ name?: string }>(readFileSync(pkgJson, "utf-8"), {});
+  // existsSync/readFileSync race (deleted between the two calls) or a
+  // permission error must fall back like a missing file, not crash the
+  // build — read here too, not just the JSON.parse below.
+  let raw: string;
+  try {
+    raw = readFileSync(pkgJson, "utf-8");
+  } catch {
+    return "kumiko-app-runtime";
+  }
+  const parsed = parseJsonSafe<{ name?: string }>(raw, {});
   return parsed.name ? `${parsed.name}-runtime` : "kumiko-app-runtime";
 }
 

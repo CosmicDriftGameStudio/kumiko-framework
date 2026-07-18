@@ -4,8 +4,9 @@
 // construction). Extracted from the export cron so both crons + the manual
 // forget handler share one construction site instead of inlining it three times.
 
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import type { DbConnection, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { ConfigResolver, Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { createConfigAccessor } from "../../config";
@@ -18,7 +19,7 @@ export interface TenantStorageResolverCtx {
   // Undefined → the returned resolver throws (callers decide fail-loud vs skip).
   readonly configResolver: ConfigResolver | undefined;
   readonly secrets: SecretsContext | undefined;
-  readonly db: DbConnection;
+  readonly db: DbConnection | TenantDb;
   readonly userId: string;
   readonly handlerName: string;
 }
@@ -28,9 +29,9 @@ export function makeTenantStorageProviderResolver(
 ): (tenantId: TenantId) => Promise<FileStorageProvider> {
   return async (tenantId) => {
     if (!ctx.configResolver) {
-      throw new Error(
-        `${ctx.handlerName}: ctx.configResolver missing — cannot resolve the file provider for tenant ${tenantId}`,
-      );
+      throw new InternalError({
+        message: `[${ctx.handlerName}] ctx.configResolver missing — cannot resolve the file provider for tenant ${tenantId}`,
+      });
     }
     const config = createConfigAccessor(
       ctx.registry,

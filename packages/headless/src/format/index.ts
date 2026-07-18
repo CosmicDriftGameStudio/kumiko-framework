@@ -27,6 +27,9 @@ function formatDateCell(
     const locale = opts?.locale;
     if (opts?.dateStyle || opts?.timeStyle) {
       if (type === "date") {
+        // ponytail: timeStyle is ignored here on purpose — a PlainDate has no
+        // time component to format, so a timeStyle-only "date" field falls
+        // back to PlainDate's default dateStyle instead of rendering a time.
         return toPlainDate(raw).toLocaleString(locale, {
           dateStyle: opts.dateStyle,
         });
