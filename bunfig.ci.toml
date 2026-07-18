@@ -16,6 +16,12 @@ preload = [
 ]
 concurrency = 1
 
+# lcov für Codecov-Upload (README-Badge). Kein coverageThreshold gesetzt —
+# der defaultet pro Metrik auf 100% und würde den Run failen.
+coverage = true
+coverageReporter = ["lcov"]
+coverageDir = "coverage/unit"
+
 # *.spec.ts gehören zu Playwright (e2e/-Folder). bun test versucht sonst
 # sie zu loaden und crash't weil Playwright eigene test()-Globals erwartet
 # (siehe "Playwright Test did not expect test() to be called here").

@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Questions & discussion
+    url: https://github.com/CosmicDriftGameStudio/kumiko-framework/discussions
+    about: Ask before opening an issue if you're not sure it's a bug.
