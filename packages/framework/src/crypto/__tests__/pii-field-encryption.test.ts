@@ -214,3 +214,25 @@ describe("encryptPiiFieldValues / decryptPiiFieldValues", () => {
     );
   });
 });
+
+describe("piiEncrypted alias (kumiko-platform#457)", () => {
+  test("piiEncrypted + tenantOwned round-trips through the same subject-KMS pipeline", async () => {
+    const kms = new InMemoryKmsAdapter();
+    const brandingWithAccess = createEntity({
+      fields: {
+        iban: createTextField({ piiEncrypted: true, tenantOwned: true }),
+      },
+      table: "pii_branding_iban",
+    });
+    const fields = collectPiiSubjectFields(brandingWithAccess);
+    expect(fields).toEqual(["iban"]);
+
+    const row = { id: UUID_A, tenantId: UUID_B, iban: "DE89370400440532013000" };
+    const stored = await encryptPiiFieldValues(row, brandingWithAccess, fields, kms, KMS_CTX);
+    expect(isPiiCiphertext(stored["iban"])).toBe(true);
+    expect(String(stored["iban"])).toStartWith(`kumiko-pii:v1:tenant:${UUID_B}:`);
+
+    const read = await decryptPiiFieldValues(stored, fields, kms, KMS_CTX);
+    expect(read["iban"]).toBe("DE89370400440532013000");
+  });
+});

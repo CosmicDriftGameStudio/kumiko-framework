@@ -80,6 +80,26 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
         }
       }
 
+      // piiEncrypted (kumiko-platform#231/#456): a declarative alias over
+      // the subject-KMS — text only (storage stays the plaintext column
+      // with subject ciphertext, no separate envelope path).
+      const piiEncryptedFlag = field as { readonly piiEncrypted?: boolean }; // @cast-boundary schema-walk
+      if (piiEncryptedFlag.piiEncrypted === true && field.type !== "text") {
+        throw new Error(
+          `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" declares { piiEncrypted: true } but has type "${field.type}" — piiEncrypted only applies to text fields.`,
+        );
+      }
+      // piiEncrypted wiring (kumiko-platform#457): resolveSubjectForField/
+      // collectPiiSubjectFields only ever look at pii/userOwned/tenantOwned
+      // — piiEncrypted alone doesn't pick a subject. Without one of the
+      // three, the field would silently stay plaintext (no encrypt-on-
+      // write happens). Fail at boot like lookupable does, not at first read.
+      if (piiEncryptedFlag.piiEncrypted === true && annotCount === 0) {
+        throw new Error(
+          `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" declares { piiEncrypted: true } without a subject annotation (pii / userOwned / tenantOwned) — piiEncrypted alone doesn't encrypt anything, it only adds the access/masking layer on top of the subject-key encryption.`,
+        );
+      }
+
       // sensitive-Felder liegen seit #967 als Tabellen-Ciphertext im Event-
       // Log — ohne ciphertext-at-rest würde der Append Klartext in die
       // immutable History schreiben.
@@ -100,12 +120,12 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
       // Substring-Suche/Sortierung auf Ciphertext ist prinzipbedingt
       // unmöglich — searchable würde Plaintext-Kopien in den Suchindex
       // schieben, sortable sortiert Base64-Blobs. Equality → lookupable.
-      if (annotCount > 0) {
+      if (annotCount > 0 || piiEncryptedFlag.piiEncrypted === true) {
         const flags = field as { readonly searchable?: boolean; readonly sortable?: boolean }; // @cast-boundary schema-walk
         if (flags.searchable === true || flags.sortable === true) {
           const offending = flags.searchable === true ? "searchable" : "sortable";
           throw new Error(
-            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" combines a subject-key annotation with { ${offending}: true } — ${offending} on encrypted fields cannot work (ciphertext at rest). For equality lookups use { lookupable: true }; for search/sort the field must stay plaintext (allowPlaintext).`,
+            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" combines a subject-key annotation or { piiEncrypted: true } with { ${offending}: true } — ${offending} on encrypted fields cannot work (ciphertext at rest). For equality lookups use { lookupable: true }; for search/sort the field must stay plaintext (allowPlaintext).`,
           );
         }
       }
