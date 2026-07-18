@@ -20,6 +20,21 @@ let indexPrefix: string;
 const tenantIndex = (prefix: string, tenantId: TenantId): string => `${prefix}t${tenantId}`;
 
 beforeAll(async () => {
+  // Fail loud with an actionable message when the compose service is down
+  // (otherwise MeilisearchRequestError looks like a product bug).
+  try {
+    const health = await fetch(`${MEILI_URL}/health`);
+    if (!health.ok) {
+      throw new Error(`HTTP ${health.status}`);
+    }
+  } catch (err) {
+    throw new Error(
+      `Meilisearch not reachable at ${MEILI_URL} — run: docker compose up -d meilisearch ` +
+        `(kumiko-framework compose, default port 17700). ` +
+        `Cause: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
   client = new Meilisearch({ host: MEILI_URL, apiKey: MEILI_KEY });
   indexPrefix = `test_${uuid().slice(-6)}_`;
   adapter = createMeilisearchAdapter({
