@@ -213,6 +213,22 @@ describe("blind-index rebuild + forget", () => {
     expect(await fetchOne(tdb, personTable, { email: "marc@example.com" })).toBeUndefined();
   });
 
+  test("erased subject → column drift excludes bidx (#916, not counted)", async () => {
+    // Pre-swap, live still holds the OLD bidx hash while the shadow already
+    // computed NULL for the erased subject — a real live-vs-shadow divergence,
+    // but the exact legitimate class countColumnDrift is designed to ignore.
+    const created = await crud.create({ email: "marc@example.com" }, adminUser, tdb);
+    if (!created.isSuccess) throw new Error("create failed");
+
+    await kms.eraseKey({ kind: "user", userId: String(created.data.id) });
+
+    const registry = createRegistry([personFeature]);
+    const result = await rebuildProjection(implicitName, { db: testDb.db, registry });
+
+    expect(result.columnDriftCount).toBe(0);
+    expect((await rawRow(String(created.data.id)))["email_bidx"]).toBeNull();
+  });
+
   test("nullBlindIndexesForSubject nulls bidx immediately (no rebuild needed)", async () => {
     const created = await crud.create({ email: "marc@example.com" }, adminUser, tdb);
     if (!created.isSuccess) throw new Error("create failed");

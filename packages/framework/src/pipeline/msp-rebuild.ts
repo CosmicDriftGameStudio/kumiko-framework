@@ -247,6 +247,10 @@ export async function rebuildMultiStreamProjection(
     eventsSkipped: skipped.length,
     lastProcessedEventId,
     durationMs: Date.now() - startedAt,
+    // countColumnDrift is single-table (public.<t> vs kumiko_rebuild.<t>) and
+    // not wired into the multi-stream rebuild path — MSPs don't run the
+    // implicit-projection ghost-row guard either. #916 scope is single-table.
+    columnDriftCount: 0,
   };
   if (deps.meter) {
     emitProjectionRebuild(

@@ -173,8 +173,8 @@ const UNREACHABLE_SAMPLE_LIMIT = 20;
 //     by the #494 backfill-then-rebuild flow.
 // Checking event existence INCLUDING archived streams leaves every one of them
 // alone: those rows all have a real event, so they are not ghosts. Column-level
-// drift detection (fail-hard vs. graceful repair) is the open question deferred
-// from #722.
+// drift is a SEPARATE, non-blocking check — see countColumnDrift below (#916,
+// resolves the #722 open question: observe, don't block).
 //
 // Implicit projections only (caller-gated). aggregate_id and the entity id are
 // both uuid, so the anti-join probes the events index without a cast.
@@ -211,6 +211,88 @@ export async function assertNoUnreachableLiveRows(
       `{ reason }) to opt out of rebuild, or emit the missing events. See ` +
       `docs/reference/entity-write-patterns.md. Rebuild aborted; live table untouched.`,
   );
+}
+
+// Columns ignored by countColumnDrift — the one PROVABLY legitimate class of
+// live-vs-shadow divergence. A blind-index column (`<field>_bidx`) is
+// recomputed to NULL on GDPR key-shredding; the NULL is the intended end
+// state, not drift. Everything else that legitimately diverges (archived
+// streams, #494 backfill) either never reaches this comparison (archived rows
+// are absent from the shadow entirely, see swapShadowIntoLive) or IS real
+// column drift that the #494 backfill-then-rebuild flow relies on replay to
+// heal — reporting it (without blocking) is correct, not a false positive.
+const COLUMN_DRIFT_SAMPLE_LIMIT = 20;
+
+export type ColumnDriftResult = {
+  readonly rowCount: number;
+  // Capped sample of "<id>.<column>" pairs for log/ops triage.
+  readonly sample: readonly string[];
+};
+
+// Runs INSIDE the rebuild tx, in the same slot as assertNoUnreachableLiveRows
+// (after replay settles, before swapShadowIntoLive). Non-blocking counterpart
+// to the ghost-row guard: reports live rows whose column values differ from
+// the freshly-replayed shadow, WITHOUT aborting the swap (#916, resolves the
+// #722 open question in favor of observe-not-block).
+//
+// Why non-blocking: a legacy column direct-written before its handler emitted
+// events (#494) diverges from replay by design — that divergence is exactly
+// what the backfill-then-rebuild flow relies on replay to heal. Failing hard
+// here would make rebuild mutually exclusive with that shipped healing path.
+// There is no reliable metadata to distinguish "#494 healing in progress" from
+// "someone else corrupted this row" short of an open-ended per-column policy
+// blocklist — wrong-by-default whenever a class is missed. So: surface it,
+// don't police it. The caller logs the result; ops decides.
+//
+// Caveat: sensitive CUSTOM fields still diverge until #972 (Subject-DEK
+// design) — regular sensitive fields carry event-payload ciphertext parity
+// post-#973 and don't drift. Both are reported the same as any other column
+// drift; this is deliberate (see module comment above), not an oversight.
+//
+// Relies on assertLiveColumnsMatchMeta having already run: live/shadow/meta
+// column sets are known to match, so the diff can walk meta.columns directly.
+export async function countColumnDrift(
+  tx: AnyDb,
+  tableName: string,
+  meta: EntityTableMeta,
+): Promise<ColumnDriftResult> {
+  const comparable = meta.columns.filter((c) => c.primaryKey !== true && !c.name.endsWith("_bidx"));
+  // skip: nothing to compare (id-only or all-bidx table) — no drift is possible
+  if (comparable.length === 0) return { rowCount: 0, sample: [] };
+  const t = quoteTableIdent(tableName);
+  const raw = asRawClient(tx);
+  const driftCte = `WITH drifted AS (
+     SELECT l."id" AS id, string_agg(diff.col, ',') AS drifted_columns
+     FROM public.${t} l
+     JOIN ${SCHEMA_IDENT}.${t} s ON s."id" = l."id"
+     CROSS JOIN LATERAL (
+       VALUES ${comparable
+         .map(
+           (c) =>
+             `('${c.name}', l.${quoteTableIdent(c.name)} IS DISTINCT FROM s.${quoteTableIdent(c.name)})`,
+         )
+         .join(", ")}
+     ) AS diff(col, differs)
+     WHERE diff.differs
+     GROUP BY l."id"
+   )`;
+  // Two passes over `drifted`: an unbounded COUNT for the true total (replay
+  // already scanned every row this run, so a second scan here is cheap by
+  // comparison) plus a capped sample for the log. rowCount must NEVER be
+  // min(actual, LIMIT) — that would silently understate severity to ops.
+  const totalRows = await raw.unsafe<{ total: string }>(
+    `${driftCte} SELECT count(*)::text AS total FROM drifted`,
+  );
+  const rowCount = Number(totalRows[0]?.total ?? "0");
+  // skip: no drift — nothing to sample
+  if (rowCount === 0) return { rowCount: 0, sample: [] };
+  const rows = await raw.unsafe<{ id: unknown; drifted_columns: string }>(
+    `${driftCte} SELECT id, drifted_columns FROM drifted LIMIT ${COLUMN_DRIFT_SAMPLE_LIMIT}`,
+  );
+  const sample = rows.flatMap((r) =>
+    r.drifted_columns.split(",").map((col) => `${String(r.id)}.${col}`),
+  );
+  return { rowCount, sample };
 }
 
 // Atomic swap, INSIDE the rebuild tx, AFTER replay. Schema-qualified so the
