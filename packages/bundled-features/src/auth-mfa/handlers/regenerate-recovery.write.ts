@@ -34,7 +34,8 @@ export function createRegenerateRecoveryHandler(opts: RegenerateRecoveryOptions)
       // (deliberately) one of the very codes about to be replaced both
       // count, since either way the presented code is consumed/irrelevant
       // afterward.
-      const verify = await verifyMfaFactor(row, event.payload.code);
+      const replay = ctx.redis ? { redis: ctx.redis, userId: event.user.id } : undefined;
+      const verify = await verifyMfaFactor(row, event.payload.code, replay);
       if (!verify.ok) return invalidTotpCode();
 
       const newCodes = generateRecoveryCodes();

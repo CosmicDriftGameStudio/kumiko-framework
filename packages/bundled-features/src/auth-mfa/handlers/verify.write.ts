@@ -78,12 +78,31 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
       // bad code, no detail leak about account state.
       if (!row) return invalidChallengeToken();
 
-      const verify = await verifyMfaFactor(row, event.payload.code);
+      const replay = ctx.redis ? { redis: ctx.redis, userId } : undefined;
+      const verify = await verifyMfaFactor(row, event.payload.code, replay);
       if (!verify.ok) {
         if (ctx.redis) {
           await recordFailedMfaVerifyAttempt(ctx.redis, userId, maxAttempts, lockoutMinutes);
         }
         return invalidTotpCode();
+      }
+
+      // Burn the challenge token only after a successful code check — a
+      // still-failing attempt (wrong code) must not consume it, so a
+      // fat-fingered retry on the same token still works. The TOTP-counter
+      // burn inside verifyMfaFactor already rejects an exact-duplicate
+      // replay (same token + same code) with invalid_totp_code before this
+      // is reached, so this burn only needs to guard a DIFFERENT code
+      // (recovery, or a still-valid-but-not-yet-burned TOTP step) reused
+      // against the same challenge token.
+      if (ctx.redis) {
+        const burnResult = await burnToken(
+          ctx.redis,
+          "mfa-challenge",
+          userId,
+          verified.expiresAtMs,
+        );
+        if (burnResult === "already-used") return invalidChallengeToken();
       }
 
       // Recovery-code use consumes the code — persist the reduced hash-list
@@ -103,15 +122,6 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
       }
 
       if (ctx.redis) {
-        // Burn AFTER a successful verify — a still-failing attempt must not
-        // consume the token, or a fat-fingered code would strand the user.
-        const burnResult = await burnToken(
-          ctx.redis,
-          "mfa-challenge",
-          userId,
-          verified.expiresAtMs,
-        );
-        if (burnResult === "already-used") return invalidChallengeToken();
         await clearMfaVerifyAttempts(ctx.redis, userId);
       }
 

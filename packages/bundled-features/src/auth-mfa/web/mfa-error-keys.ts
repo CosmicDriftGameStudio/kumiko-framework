@@ -21,6 +21,8 @@ export function mfaManageErrorKey(code: string): string {
       return "auth.mfa.errors.mfaNotEnabled";
     case AuthMfaErrorCodes.invalidSetupToken:
       return "auth.mfa.errors.invalidSetupToken";
+    case AuthMfaErrorCodes.setupFailed:
+      return "auth.mfa.errors.setupFailed";
     default:
       return "auth.mfa.errors.verifyFailed";
   }

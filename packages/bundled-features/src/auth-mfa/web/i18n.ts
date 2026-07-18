@@ -21,6 +21,7 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.mfa.errors.mfaAlreadyEnabled": "Zwei-Faktor-Authentifizierung ist bereits aktiv.",
     "auth.mfa.errors.mfaNotEnabled": "Zwei-Faktor-Authentifizierung ist nicht aktiv.",
     "auth.mfa.errors.invalidSetupToken": "Die Einrichtung ist abgelaufen. Bitte erneut starten.",
+    "auth.mfa.errors.setupFailed": "Einrichtung fehlgeschlagen. Bitte erneut versuchen.",
     "auth.mfa.errors.invalidRecoveryCode": "Ungültiger Recovery-Code.",
     "auth.mfa.enable.title": "Zwei-Faktor-Authentifizierung",
     "auth.mfa.enable.intro":
@@ -71,6 +72,7 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.mfa.errors.mfaAlreadyEnabled": "Two-factor authentication is already enabled.",
     "auth.mfa.errors.mfaNotEnabled": "Two-factor authentication is not enabled.",
     "auth.mfa.errors.invalidSetupToken": "Setup expired. Please start again.",
+    "auth.mfa.errors.setupFailed": "Setup failed. Please try again.",
     "auth.mfa.errors.invalidRecoveryCode": "Invalid recovery code.",
     "auth.mfa.enable.title": "Two-factor authentication",
     "auth.mfa.enable.intro":
