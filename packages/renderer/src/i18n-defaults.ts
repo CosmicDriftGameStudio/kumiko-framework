@@ -20,6 +20,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.actions.reload": "Neu laden",
     "kumiko.actions.create": "Neu",
     "kumiko.actions.edit": "Bearbeiten",
+    "kumiko.actions.copyLink": "Link kopieren",
+    "kumiko.actions.copyLinkCopied": "Kopiert!",
 
     // Version — Update-Awareness-Banner (UpdateChecker).
     "kumiko.version.update-available": "Eine neue Version ist verfügbar.",
@@ -155,6 +157,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.actions.reload": "Reload",
     "kumiko.actions.create": "New",
     "kumiko.actions.edit": "Edit",
+    "kumiko.actions.copyLink": "Copy link",
+    "kumiko.actions.copyLinkCopied": "Copied!",
 
     "kumiko.version.update-available": "A new version is available.",
 

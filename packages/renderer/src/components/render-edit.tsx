@@ -76,6 +76,13 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   readonly onDelete?: () => Promise<void> | void;
   readonly onCancel?: () => void;
   readonly onReload?: () => void;
+  /** Copy-Link-Action (Issue #912) — nur in update-mode gesetzt (create-mode
+   *  hat noch keine entity-id, also keinen Permalink). Der Callback ist
+   *  bereits vollständig gebunden (URL-Bau + Clipboard passiert außerhalb,
+   *  in `@cosmicdrift/kumiko-renderer-web`'s RoutedScreen — dieses
+   *  platform-neutrale Package darf kein `navigator`/`window` anfassen,
+   *  siehe guard-renderer-boundaries). undefined = kein Button. */
+  readonly onCopyLink?: () => Promise<void> | void;
   /** i18n-key für den Submit-Button. Default: "kumiko.actions.save".
    *  Action-Forms (Tier 2.7d) übergeben hier ihren screen.submitLabel,
    *  damit "Speichern" durch domain-spezifischere Strings ersetzt
@@ -185,6 +192,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     onDelete,
     onCancel,
     onReload,
+    onCopyLink,
     submitLabel,
     labelAppendix,
     fieldAppendix,
@@ -201,6 +209,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const translate = translateProp ?? t;
 
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<DispatcherError | null>(null);
   // Composed-Save: Extension-Sections melden hier ihren dirty-State (damit der
@@ -336,6 +345,19 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // gegen Fehlklicks. Save bleibt rechts (primary affordance).
   const formActions = (
     <>
+      {onCopyLink !== undefined && (
+        <Button
+          type="button"
+          variant="secondary"
+          testId="render-edit-copy-link"
+          onClick={async () => {
+            await onCopyLink();
+            setLinkCopied(true);
+          }}
+        >
+          {translate(linkCopied ? "kumiko.actions.copyLinkCopied" : "kumiko.actions.copyLink")}
+        </Button>
+      )}
       {onDelete !== undefined && (
         <Button
           type="button"

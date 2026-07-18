@@ -314,6 +314,68 @@ describe("KumikoScreen", () => {
     expect(screen.queryByTestId("render-edit-delete")).toBeNull();
   });
 
+  // Issue #912 — Copy-Link-Action. KumikoScreen threads an already-bound
+  // onCopyLink callback down to RenderEdit (the actual URL-build/clipboard
+  // impl lives in renderer-web's RoutedScreen, outside this test — here we
+  // only verify the wiring: button renders in update-mode, fires the
+  // callback, and shows the "copied" label afterwards).
+  test("entityEdit update-mode: Copy-Link-Button feuert onCopyLink + zeigt 'copied'-Label", async () => {
+    const user = userEvent.setup();
+    const onCopyLink = mock(() => Promise.resolve());
+    const dispatcher = makeDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { id: "task-1", version: 1, title: "loaded", count: 3, done: false },
+      })) as unknown as Dispatcher["query"],
+    });
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={schema}
+          qn="tasks:screen:task-edit"
+          entityId="task-1"
+          onCopyLink={onCopyLink}
+        />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+
+    const button = screen.getByTestId("render-edit-copy-link");
+    expect(button.textContent).toBe("Copy link");
+    await user.click(button);
+    expect(onCopyLink).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(button.textContent).toBe("Copied!"));
+  });
+
+  test("entityEdit create-mode: kein Copy-Link-Button (keine entity-id → kein Permalink)", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <KumikoScreen
+          schema={schema}
+          qn="tasks:screen:task-edit"
+          onCopyLink={() => Promise.resolve()}
+        />
+      </DispatcherProvider>,
+    );
+    expect(screen.queryByTestId("render-edit-copy-link")).toBeNull();
+  });
+
+  test("entityEdit update-mode ohne onCopyLink-Prop: kein Copy-Link-Button", async () => {
+    const dispatcher = makeDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { id: "task-1", version: 1, title: "loaded", count: 3, done: false },
+      })) as unknown as Dispatcher["query"],
+    });
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={schema} qn="tasks:screen:task-edit" entityId="task-1" />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+    expect(screen.queryByTestId("render-edit-copy-link")).toBeNull();
+  });
+
   test("entityEdit update-mode: version_conflict → Banner + 'Neu laden' triggert detail-refetch", async () => {
     let detailCalls = 0;
     const dispatcher = makeDispatcher({
