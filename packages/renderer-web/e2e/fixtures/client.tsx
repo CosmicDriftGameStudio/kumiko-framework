@@ -13,28 +13,21 @@ import { DateTestPage } from "./date-page";
 import { createMockDispatcher } from "./mock-dispatcher";
 import { e2eSchema } from "./schema";
 
+function mountReact(node: ReactNode): void {
+  const root = document.getElementById("root");
+  if (root === null) throw new Error("renderer-web/e2e: #root not found");
+  createRoot(root).render(<StrictMode>{node}</StrictMode>);
+}
 async function boot(): Promise<void> {
   const path = window.location.pathname;
 
   if (path.startsWith("/combobox")) {
-    const root = document.getElementById("root");
-    if (root === null) throw new Error("renderer-web/e2e: #root not found");
-    createRoot(root).render(
-      <StrictMode>
-        <ComboboxTestPage />
-      </StrictMode>,
-    );
+    mountReact(<ComboboxTestPage />);
     return;
   }
 
   if (path.startsWith("/date")) {
-    const root = document.getElementById("root");
-    if (root === null) throw new Error("renderer-web/e2e: #root not found");
-    createRoot(root).render(
-      <StrictMode>
-        <DateTestPage />
-      </StrictMode>,
-    );
+    mountReact(<DateTestPage />);
     return;
   }
 

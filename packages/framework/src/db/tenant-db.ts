@@ -1,4 +1,5 @@
 import {
+  asEntityTableMeta,
   asRawClient,
   deleteMany as bunDeleteMany,
   fetchOne as bunFetchOne,
@@ -79,7 +80,14 @@ function tableNameOf(table: Table): string {
   return typeof sym === "string" ? sym : "<unknown>";
 }
 
+// Checks the canonical EntityTableMeta (branded EntityTable's KUMIKO_META_SYMBOL
+// or a plain buildEntityTableMeta/defineUnmanagedTable result), not a direct
+// `table.tenantId` property read — the latter only exists on branded EntityTables
+// and silently returned false (no tenant filter!) for plain EntityTableMeta
+// tables like unmanaged direct-write stores, e.g. userSessionTable.
 function hasTenantColumn(table: Table): boolean {
+  const meta = asEntityTableMeta(table);
+  if (meta) return meta.columns.some((c) => c.name === "tenant_id");
   return (table as Record<string, unknown>)["tenantId"] !== undefined;
 }
 

@@ -128,6 +128,25 @@ describe("buildNavRegistrySliceForApp", () => {
     expect(slice.topLevel[0]?.access).toEqual({ roles: ["Admin", "Editor"] });
   });
 
+  test("nav ohne eigene access bleibt ohne access, wenn der Ziel-Screen offen ist (kein Verstecken eines openToAll-Screens)", () => {
+    const app: AppSchema = {
+      features: [
+        featureWithScreens(
+          [{ id: "pub", label: "Pub", screen: "pub" }],
+          [
+            {
+              id: "pub",
+              type: "custom",
+              renderer: { react: { __component: "Pub" } },
+            },
+          ],
+        ),
+      ],
+    };
+    const slice = buildNavRegistrySliceForApp(app);
+    expect(slice.topLevel[0]?.access).toBeUndefined();
+  });
+
   test("nav ohne screen bleibt ohne access (nichts zum Erben da)", () => {
     const app: AppSchema = {
       features: [feature([{ id: "group", label: "Group" }])],

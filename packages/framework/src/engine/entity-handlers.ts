@@ -28,7 +28,7 @@ import type {
 // Two API shapes — pick one per project, don't mix:
 //
 //   PREFERRED — full standard CRUD set in one call:
-//     registerEntityCrud(r, "note", noteEntity, { write: { access }, read: { access } })
+//     r.crud("note", noteEntity, { write: { access }, read: { access } })
 //
 //   PREFERRED — one function per verb, type-safe, no magic strings:
 //     r.writeHandler(defineEntityCreateHandler("note", noteEntity, { access }))
@@ -475,9 +475,7 @@ export function registerEntityCrud(
 ): void {
   const verbs = { ...defaultCrudVerbs(entity), ...options?.verbs };
   if (verbs.restore && entity.softDelete !== true) {
-    throw new Error(
-      `registerEntityCrud("${entityName}"): restore requested but entity has no softDelete: true`,
-    );
+    throw new Error(`restore requested but entity "${entityName}" has no softDelete: true`);
   }
 
   if (options?.registerEntity !== false) {

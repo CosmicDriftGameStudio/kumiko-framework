@@ -145,7 +145,6 @@ export function populateEvents(state: RegistryState, feature: FeatureDefinition)
   }
 }
 
-// Translations prefixed with featureName: (i18next namespace convention).
 export function populateTranslations(state: RegistryState, feature: FeatureDefinition): void {
   // Translations prefixed with featureName: (i18next namespace convention).
   // Keys that already carry the feature's own namespace prefix (e.g. a nav

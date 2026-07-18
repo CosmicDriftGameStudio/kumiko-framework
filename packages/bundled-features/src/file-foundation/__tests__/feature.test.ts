@@ -20,7 +20,7 @@ describe("fileFoundationFeature — shape", () => {
 });
 
 describe("fileFoundationFeature.exports — typed handles", () => {
-  test("exposes only the provider-selector config-key", () => {
+  test("exposes the provider-selector handle", () => {
     expect(fileFoundationFeature.exports.providerConfigKey).toBeDefined();
     expect(fileFoundationFeature.exports.providerConfigKey.name).toBe(
       "file-foundation:config:provider",
