@@ -1,5 +1,15 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.155.1
+
+### Patch Changes
+
+- 36e30da: infra#285/#286 triage: rename `ScanWarning.reason` to `.message` (a `console.warn` display string, not a wire error code) — `guard-error-reasons` now actually scans this package instead of silently skipping it.
+- Updated dependencies [69ac999]
+  - @cosmicdrift/kumiko-server-runtime@0.155.1
+  - @cosmicdrift/kumiko-bundled-features@0.155.1
+  - @cosmicdrift/kumiko-framework@0.155.1
+
 ## 0.155.0
 
 ### Patch Changes
