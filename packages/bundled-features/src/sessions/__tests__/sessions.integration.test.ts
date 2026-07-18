@@ -511,6 +511,48 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     });
     expect(asUser.status).toBe(403);
   });
+
+  // IDOR guard: session:detail/session:list are scoped by ctx.db (TenantDb)
+  // alone, no explicit tenant predicate in the handler — an admin from a
+  // different tenant must not be able to read another tenant's session rows.
+  test("session:detail and session:list never leak sessions across tenants", async () => {
+    const TENANT_2 = testTenantId(2);
+    const h2 = makeSessionHelpers(stack, TENANT_2);
+
+    const { userId: carolId } = await h.seedUser("carol4@example.com", "pw-long-enough");
+    await updateRows(
+      stack.db,
+      tenantMembershipsTable,
+      { roles: JSON.stringify(["Admin"]) },
+      { userId: carolId, tenantId: TENANT },
+    );
+    const carolAsAdmin = await h.login("carol4@example.com", "pw-long-enough");
+
+    const { userId: daveId } = await h2.seedUser("dave4@example.com", "pw-long-enough");
+    await updateRows(
+      stack.db,
+      tenantMembershipsTable,
+      { roles: JSON.stringify(["Admin"]) },
+      { userId: daveId, tenantId: TENANT_2 },
+    );
+    const daveAsAdmin = await h2.login("dave4@example.com", "pw-long-enough");
+
+    const detailRes = await h2.authedPost("/api/query", daveAsAdmin.token, {
+      type: SessionQueries.detail,
+      payload: { id: carolAsAdmin.sid },
+    });
+    expect(detailRes.status).toBe(200);
+    const detailBody = (await detailRes.json()) as { data: unknown };
+    expect(detailBody.data).toBeNull();
+
+    const listRes = await h2.authedPost("/api/query", daveAsAdmin.token, {
+      type: SessionQueries.list,
+      payload: {},
+    });
+    expect(listRes.status).toBe(200);
+    const listBody = (await listRes.json()) as { data: Array<{ id: string }> };
+    expect(listBody.data.map((r) => r.id)).not.toContain(carolAsAdmin.sid);
+  });
 });
 
 // Defense-in-depth: the sessionChecker refuses a live sid once the user it

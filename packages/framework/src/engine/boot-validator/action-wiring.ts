@@ -15,8 +15,8 @@ function throwIfFunction(value: unknown, message: string): void {
 // static visibility conditions and navigate entityId — all declarative-DSL-
 // only fields (RowFieldExtractor's `{ pick }`/`{ map }`, FieldCondition's
 // `{ field, eq }`/`{ field, ne }`, plain strings). A function literal here
-// compiles fine (the DSL types are structural, not branded) but is silently
-// dropped once the feature config is serialized for the client.
+// does not type-check against these structural DSL types — it only reaches
+// here via a leaked `any`/`as any`, which this runtime check backstops.
 const ACTION_FUNCTION_FIELDS = ["payload", "params", "entityId", "visible"] as const;
 
 function validateActionNoFunctions(

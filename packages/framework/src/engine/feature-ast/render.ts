@@ -491,19 +491,24 @@ function renderMultiStreamProjection(p: MultiStreamProjectionPattern): string {
 }
 
 function renderDefineEvent(p: DefineEventPattern): string {
-  const lines: string[] = ["r.defineEvent({"];
-  lines.push(`  name: ${JSON.stringify(p.eventName)},`);
-  lines.push(`  schema: ${p.schemaSource.raw},`);
+  const migrationEntries = p.migrations !== undefined ? Object.entries(p.migrations) : [];
+  const hasOptions = p.version !== undefined || migrationEntries.length > 0;
+  if (!hasOptions) {
+    return `r.defineEvent(${JSON.stringify(p.eventName)}, ${p.schemaSource.raw});`;
+  }
+  const lines: string[] = [
+    `r.defineEvent(${JSON.stringify(p.eventName)}, ${p.schemaSource.raw}, {`,
+  ];
   if (p.version !== undefined) lines.push(`  version: ${p.version},`);
-  if (p.migrations !== undefined) {
-    const entries = Object.entries(p.migrations);
-    if (entries.length > 0) {
-      lines.push("  migrations: {");
-      for (const [fromVersion, transformBody] of entries) {
-        lines.push(`    "${fromVersion}": ${transformBody.raw},`);
-      }
-      lines.push("  },");
+  if (migrationEntries.length > 0) {
+    lines.push("  migrations: [");
+    for (const [fromVersion, transformBody] of migrationEntries) {
+      const from = Number(fromVersion);
+      lines.push(
+        `    { fromVersion: ${from}, toVersion: ${from + 1}, transform: ${transformBody.raw} },`,
+      );
     }
+    lines.push("  ],");
   }
   lines.push("});");
   return lines.join("\n");

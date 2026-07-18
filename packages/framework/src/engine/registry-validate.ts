@@ -320,13 +320,11 @@ export function validateEventMigrationVersions(
   for (const feature of features) {
     for (const [shortName, migrations] of Object.entries(feature.eventMigrations ?? {})) {
       const qualified = qualify(feature.name, "event", shortName);
-      const eventDef = state.eventMap.get(qualified);
-      if (!eventDef) {
-        throw new Error(
-          `Feature "${feature.name}" has migrations declared for event "${shortName}" ` +
-            `but no r.defineEvent exists for that name. Register the event first.`,
-        );
-      }
+      // registerEventMigration only ever runs alongside state.events[name]=def
+      // in the same defineEvent call (feature-config-events-jobs.ts:260-269),
+      // so a migrations entry here guarantees a matching eventMap entry.
+      // biome-ignore lint/style/noNonNullAssertion: invariant proven above
+      const eventDef = state.eventMap.get(qualified)!;
       for (const m of migrations) {
         if (m.toVersion > eventDef.version) {
           throw new Error(

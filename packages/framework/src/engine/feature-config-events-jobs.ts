@@ -91,7 +91,7 @@ export function buildConfigEventsJobsMethods<TName extends string>(
       }
     }
     // Single-key call unwraps its own handle; multi-key returns the record.
-    return typeof arg1 === "string" ? handles[arg1] : handles; // @cast-boundary engine-bridge — overload impl signature widens to unknown, narrowed by the two public overloads above
+    return typeof arg1 === "string" ? handles[arg1] : handles;
   }
 
   // piiFields misconfiguration is a boot-time error, not a silent

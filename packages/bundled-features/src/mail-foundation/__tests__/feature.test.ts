@@ -28,7 +28,7 @@ describe("mailFoundationFeature — shape", () => {
 });
 
 describe("mailFoundationFeature.exports — typed handles", () => {
-  test("exposes only the provider-selector config-key", () => {
+  test("exposes the provider-selector handle", () => {
     expect(mailFoundationFeature.exports.providerConfigKey).toBeDefined();
     expect(mailFoundationFeature.exports.providerConfigKey.name).toBe(
       "mail-foundation:config:provider",

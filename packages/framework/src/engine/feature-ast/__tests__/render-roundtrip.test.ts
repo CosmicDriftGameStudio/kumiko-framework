@@ -448,6 +448,7 @@ describe("render → parse roundtrip — r.screen({ nav }) inline sugar", () => 
 
 const DEFINE_EVENT_WITH_MIGRATIONS_FEATURE = `
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
 
 defineFeature("billing", (r) => {
   r.defineEvent("invoicePaid", z.object({ totalCents: z.number() }), {
@@ -456,7 +457,7 @@ defineFeature("billing", (r) => {
       {
         fromVersion: 1,
         toVersion: 2,
-        transform: (payload) => ({ totalCents: Math.round(payload.total * 100) }),
+        transform: (payload: unknown) => ({ totalCents: Math.round((payload as { total: number }).total * 100) }),
       },
     ],
   });
@@ -555,6 +556,10 @@ defineFeature("teeth-check-positive", (r) => {
 
   test("STATIC_FEATURE's rendered header-data patterns compile clean", () => {
     expect(renderAndCompile(STATIC_FEATURE)).toEqual([]);
+  }, 20_000);
+
+  test("r.defineEvent's rendered migrations array compiles against the real registrar", () => {
+    expect(renderAndCompile(DEFINE_EVENT_WITH_MIGRATIONS_FEATURE)).toEqual([]);
   }, 20_000);
 });
 
