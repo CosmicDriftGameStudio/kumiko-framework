@@ -88,10 +88,14 @@ jobs:
           sh scripts/ci-memlog-run.sh bun kumiko check
 
       - name: Upload coverage
-        # Tokenless Upload — public Repo, kein CODECOV_TOKEN-Secret nötig.
+        # Codecov lehnt tokenless Uploads auf push-Events ab ("Token required —
+        # not valid tokenless upload"), nur PR-Uploads von Forks laufen ohne
+        # Token. CODECOV_TOKEN-Secret muss in den Repo-Settings gesetzt sein
+        # (app.codecov.io → Repo aktivieren → Upload-Token kopieren).
         if: always()
         uses: codecov/codecov-action@v5
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage/unit/lcov.info
           fail_ci_if_error: false
 
