@@ -85,6 +85,7 @@ describe("assert-no-unreachable-live-rows / #722 ghost-row guard", () => {
     const result = await rebuildProjection(projectionName, { db: testDb.db, registry });
 
     expect(result.eventsProcessed).toBe(2);
+    expect(result.columnDriftCount).toBe(0);
     expect(await snapshotTable()).toEqual(before);
   });
 
@@ -131,12 +132,37 @@ describe("assert-no-unreachable-live-rows / #722 ghost-row guard", () => {
     );
 
     // No throw — the row is event-backed. Rebuild replays the create event.
-    await rebuildProjection(projectionName, { db: testDb.db, registry });
+    // #916: the direct write IS reported as column drift (non-blocking) —
+    // this is the exact #494 healing case the guard leaves to replay.
+    const result = await rebuildProjection(projectionName, { db: testDb.db, registry });
+    expect(result.columnDriftCount).toBe(1);
 
     const [rebuilt] = await selectMany(testDb.db, userTable, { id: a.data.id as string });
     expect(rebuilt?.["email"]).toBe("a@test.de");
     // The direct write is overwritten by the replay — deliberately allowed.
     expect(rebuilt?.["firstName"]).toBe("Alice");
+  });
+
+  test("columnDriftCount reports the TRUE total, not capped at the 20-row sample limit", async () => {
+    const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
+    const created = await Promise.all(
+      Array.from({ length: 21 }, (_, i) =>
+        crud.create({ email: `u${i}@test.de`, firstName: `Name${i}` }, adminUser, tdb),
+      ),
+    );
+    for (const c of created) {
+      if (!c.isSuccess) throw new Error("setup failed");
+      await asRawClient(testDb.db).unsafe(
+        `UPDATE read_unreachable_users SET first_name = 'DirectWrite' WHERE id = $1`,
+        [c.data.id],
+      );
+    }
+
+    const result = await rebuildProjection(projectionName, { db: testDb.db, registry });
+
+    // #916: the sample query is LIMITed to 20 rows, but the count must reflect
+    // all 21 — a min(actual, 20) would silently understate severity to ops.
+    expect(result.columnDriftCount).toBe(21);
   });
 
   test("archived stream (fw#832 tombstone) does NOT trip the guard", async () => {
