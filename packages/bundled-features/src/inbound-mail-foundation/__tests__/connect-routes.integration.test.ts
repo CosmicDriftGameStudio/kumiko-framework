@@ -163,11 +163,11 @@ function adminFor(tenantNumber: number) {
 }
 
 function buildApp(opts: { user?: { id: string; tenantId: string } | null } = {}) {
-  const app = new Hono();
+  const app = new Hono<{ Variables: { user?: { id: string; tenantId: string } } }>();
   if (opts.user !== null) {
     const user = opts.user ?? adminFor(4201);
     app.use("*", async (c, next) => {
-      c.set("user", user);
+      c.set("user", { id: user.id, tenantId: user.tenantId });
       await next();
     });
   }
