@@ -1,3 +1,4 @@
+// @runtime client
 // Pure form helpers shared by auth screens. Extracted so unit tests can
 // pin password / rate-limit / redirect rules without mounting React.
 
@@ -27,3 +28,4 @@ export function resolveLoggedInHref(
 ): string {
   return typeof href === "function" ? href({ tenantKey }) : href;
 }
+
