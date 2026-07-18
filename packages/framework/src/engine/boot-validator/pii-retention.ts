@@ -80,9 +80,9 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
         }
       }
 
-      // piiEncrypted (kumiko-platform#231/#456): deklaratives Alias über
-      // dem Subject-KMS — nur auf type:"text" (Storage bleibt Klartext-
-      // Spalte mit Subject-Ciphertext, kein separater Envelope-Pfad).
+      // piiEncrypted (kumiko-platform#231/#456): a declarative alias over
+      // the subject-KMS — text only (storage stays the plaintext column
+      // with subject ciphertext, no separate envelope path).
       const piiEncryptedFlag = field as { readonly piiEncrypted?: boolean }; // @cast-boundary schema-walk
       if (piiEncryptedFlag.piiEncrypted === true && field.type !== "text") {
         throw new Error(
