@@ -271,7 +271,7 @@ jobs:
           docker run -d --name kumiko-ci-pg --network kumiko-ci -p 15432:5432 \
             -e POSTGRES_USER=kumiko -e POSTGRES_PASSWORD=kumiko -e POSTGRES_DB=kumiko_dev \
             postgres:18.3-alpine
-          docker run -d --name kumiko-ci-redis --network kumiko-ci -p 16379:6379 redis:7-alpine
+          docker run -d --name kumiko-ci-redis --network kumiko-ci -p 16379:6379 redis:8-alpine
           docker run -d --name kumiko-ci-meili --network kumiko-ci -p 17700:7700 \
             -e MEILI_MASTER_KEY=kumiko-dev-key -e MEILI_ENV=development \
             getmeili/meilisearch:v1.12

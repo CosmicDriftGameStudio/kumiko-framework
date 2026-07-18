@@ -28,7 +28,7 @@ services:
       retries: 10
 
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     ports:
       - "${KUMIKO_REDIS_PORT:-16379}:6379"
     volumes:
