@@ -202,13 +202,40 @@ export function diffSnapshots(prev: Snapshot | null, next: Snapshot): SchemaDiff
 }
 
 // Managed projections are event-stream derivatives: in-place-unsafe changes (NOT NULL w/o default, UNIQUE, SET NOT NULL, type change, dropped col) → DROP+CREATE + replay; additive-safe changes stay cheap ALTERs.
+function describeRecreateReasons(td: TableDiff): readonly string[] {
+  const reasons: string[] = [];
+  if (td.droppedColumns.length > 0) {
+    reasons.push(`dropped column(s): ${td.droppedColumns.join(", ")}`);
+  }
+  const notNullNoDefault = td.newColumns
+    .filter((c) => c.notNull && c.defaultSql === undefined)
+    .map((c) => c.name);
+  if (notNullNoDefault.length > 0) {
+    reasons.push(`new NOT NULL column(s) without default: ${notNullNoDefault.join(", ")}`);
+  }
+  const newUniqueIndexes = td.newIndexes
+    .filter((idx) => idx.unique === true)
+    .map((idx) => idx.name);
+  if (newUniqueIndexes.length > 0) {
+    reasons.push(`new UNIQUE index(es): ${newUniqueIndexes.join(", ")}`);
+  }
+  const madeNotNull = td.changedColumns
+    .filter((c) => c.nullabilityChanged?.to === true)
+    .map((c) => c.name);
+  if (madeNotNull.length > 0) {
+    reasons.push(`column(s) set NOT NULL: ${madeNotNull.join(", ")}`);
+  }
+  const typeChanged = td.changedColumns
+    .filter((c) => c.typeChanged !== undefined)
+    .map((c) => c.name);
+  if (typeChanged.length > 0) {
+    reasons.push(`column type change: ${typeChanged.join(", ")}`);
+  }
+  return reasons;
+}
+
 export function managedChangeRequiresRecreate(td: TableDiff): boolean {
-  if (td.droppedColumns.length > 0) return true;
-  if (td.newColumns.some((c) => c.notNull && c.defaultSql === undefined)) return true;
-  if (td.newIndexes.some((idx) => idx.unique === true)) return true;
-  return td.changedColumns.some(
-    (c) => c.nullabilityChanged?.to === true || c.typeChanged !== undefined,
-  );
+  return describeRecreateReasons(td).length > 0;
 }
 
 // --- SQL-Render ---------------------------------------------------------
@@ -296,6 +323,12 @@ export function renderMigrationSql(
       lines.push(`-- ${td.tableName}`);
       if (td.nextMeta.source === "managed" && managedChangeRequiresRecreate(td)) {
         lines.push("-- managed projection — recreated + rebuilt from events (see .rebuild.json)");
+        lines.push(
+          `-- WARN: destructive change (${describeRecreateReasons(td).join("; ")}) forces DROP+CREATE + full event replay.`,
+        );
+        lines.push(
+          "-- Consider an Expand/Contract split across two releases to avoid the rebuild — see docs/guides/expand-contract-managed-projections.md.",
+        );
         lines.push(`DROP TABLE IF EXISTS ${quoteIdent(td.tableName)};`);
         lines.push(...renderTableDdl(td.nextMeta));
         lines.push("");
