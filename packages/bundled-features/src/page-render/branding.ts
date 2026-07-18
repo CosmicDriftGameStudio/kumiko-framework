@@ -73,9 +73,7 @@ export function brandingStyleBlock(tokens: BrandingTokens): string {
     decls.push(`--accent:${tokens.accentColor}`);
   }
   decls.push(`--page-max-width:${layoutMaxWidth(tokens.layoutPreset)}`);
-  // html-ok: decls are CSS custom-property declarations, not markup — each
-  // value is either regex-validated (isSafeHexColor) or a fixed table lookup
-  // (layoutMaxWidth), never raw user text.
+  // html-ok: decls are CSS custom-property declarations (regex-validated hex color or fixed table lookup), never raw user text.
   return `<style id="tenant-theme">:root{${decls.join(";")}}</style>`;
 }
 
