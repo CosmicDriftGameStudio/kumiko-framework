@@ -253,7 +253,7 @@ function renderHero(s: ApexHeroSection): string {
     s.logo !== undefined
       ? `<img class="hero-pony" src="${escapeHtml(s.logo.src)}" alt="${escapeHtml(s.logo.alt)}"${dim(s.logo)} />`
       : "";
-  const ctas = (s.ctas ?? []).map(renderCta).join("\n            ");
+  const ctasHtml = (s.ctas ?? []).map(renderCta).join("\n            ");
   const meta = s.metaHtml !== undefined ? `<p class="hero-meta">${s.metaHtml}</p>` : "";
   const visual =
     s.screenshot !== undefined
@@ -264,7 +264,7 @@ function renderHero(s: ApexHeroSection): string {
         <div class="hero-copy">
           ${logo}<h1>${escapeHtml(s.title)}</h1>
           <p class="tagline">${escapeHtml(s.tagline)}</p>
-          ${ctas !== "" ? `<div class="hero-cta">${ctas}</div>` : ""}
+          ${ctasHtml !== "" ? `<div class="hero-cta">${ctasHtml}</div>` : ""}
           ${meta}
         </div>
         ${visual}
@@ -298,7 +298,7 @@ function renderPricingCard(t: ApexPricingTier): string {
   const cap =
     t.capLine !== undefined ? [`<li class="price-cap">${escapeHtml(t.capLine)}</li>`] : [];
   const benefits = t.benefits.map((b) => `<li>${escapeHtml(b)}</li>`);
-  const items = [...cap, ...benefits].join("\n            ");
+  const itemsHtml = [...cap, ...benefits].join("\n            ");
   const per = t.priceSuffix !== undefined ? `<span>${escapeHtml(t.priceSuffix)}</span>` : "";
   const tagline =
     t.tagline !== undefined ? `<p class="price-tagline">${escapeHtml(t.tagline)}</p>` : "";
@@ -314,7 +314,7 @@ function renderPricingCard(t: ApexPricingTier): string {
           ${badge}<h3>${escapeHtml(t.name)}</h3>
           ${tagline}<div class="price-amount">${escapeHtml(t.amount)}${per}</div>
           <ul class="price-list">
-            ${items}
+            ${itemsHtml}
           </ul>
           ${cta}
         </article>`;

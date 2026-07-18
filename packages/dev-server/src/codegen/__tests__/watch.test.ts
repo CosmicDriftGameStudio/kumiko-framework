@@ -138,8 +138,7 @@ export default defineFeature("orders", (r) => {
     writeFile(appRoot, "src/feature.ts", FEATURE_TEMPLATE("nope", "evt"));
     const handle = watchAndRegenerate({ appRoot, onResult: () => {} });
     handle.close();
-    handle.close(); // must not throw
-    expect(true).toBe(true);
+    expect(() => handle.close()).not.toThrow();
   });
 
   test("non-ts file changes do not trigger codegen", async () => {
