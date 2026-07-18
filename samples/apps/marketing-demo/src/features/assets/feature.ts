@@ -2,13 +2,13 @@
 // Marketing-Demo. defineFeature registriert Entity + CRUD-Handler +
 // Screens. Audit + Multi-Tenant kommen aus dem Framework-Default.
 
-import { defineFeature, registerEntityCrud } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { assetEditScreen, assetEntity, assetListScreen } from "./schema";
 
 const open = { access: { openToAll: true } } as const;
 
 export const assetsFeature = defineFeature("assets", (r) => {
-  registerEntityCrud(r, "asset", assetEntity, { write: open, read: open });
+  r.crud("asset", assetEntity, { write: open, read: open });
 
   r.screen(assetEditScreen);
   r.screen(assetListScreen);

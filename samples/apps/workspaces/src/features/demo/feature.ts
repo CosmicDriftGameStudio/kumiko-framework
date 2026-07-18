@@ -1,8 +1,4 @@
-import {
-  defineFeature,
-  type FeatureDefinition,
-  registerEntityCrud,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { orderEditScreen, orderEntity, orderListScreen } from "./schema";
 
 export { orderEntity };
@@ -10,7 +6,7 @@ export { orderEntity };
 const open = { access: { openToAll: true } } as const;
 
 export const demoFeature: FeatureDefinition = defineFeature("demo", (r) => {
-  registerEntityCrud(r, "order", orderEntity, { write: open, read: open });
+  r.crud("order", orderEntity, { write: open, read: open });
   r.screen(orderListScreen);
   r.screen(orderEditScreen);
 

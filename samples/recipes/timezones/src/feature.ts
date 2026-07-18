@@ -7,7 +7,6 @@ import {
   createTzField,
   defineEntityDeleteHandler,
   defineFeature,
-  registerEntityCrud,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
@@ -29,7 +28,7 @@ const adminWrite = { access: { roles: ["Admin"] } } as const;
 const openRead = { access: { openToAll: true } } as const;
 
 export const timezonesFeature = defineFeature("timezones", (r) => {
-  registerEntityCrud(r, "delivery", deliveryEntity, {
+  r.crud("delivery", deliveryEntity, {
     write,
     read: openRead,
     verbs: { delete: false, restore: false },

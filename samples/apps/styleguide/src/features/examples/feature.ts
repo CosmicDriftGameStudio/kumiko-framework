@@ -14,7 +14,6 @@ import {
   createTimestampField,
   createTzField,
   defineFeature,
-  registerEntityCrud,
 } from "@cosmicdrift/kumiko-framework/engine";
 
 import { EXAMPLES_I18N } from "./i18n";
@@ -75,7 +74,7 @@ const editFormOnly = {
 
 export const examplesFeature = defineFeature("examples", (r) => {
   r.translations({ keys: EXAMPLES_I18N });
-  registerEntityCrud(r, "shipping", shippingEntity, editFormOnly);
+  r.crud("shipping", shippingEntity, editFormOnly);
 
   // EINE titellose Section: Card-Titel + Subtitle (aus i18n) tragen den
   // Kontext, die Felder fließen direkt darunter. street/apt/saveAsDefault
@@ -104,7 +103,7 @@ export const examplesFeature = defineFeature("examples", (r) => {
     },
   });
 
-  registerEntityCrud(r, "profile", profileEntity, editFormOnly);
+  r.crud("profile", profileEntity, editFormOnly);
 
   r.screen({
     id: "profile-edit",
@@ -121,7 +120,7 @@ export const examplesFeature = defineFeature("examples", (r) => {
     },
   });
 
-  registerEntityCrud(r, "delivery", deliveryEntity, editFormOnly);
+  r.crud("delivery", deliveryEntity, editFormOnly);
 
   r.screen({
     id: "delivery-edit",

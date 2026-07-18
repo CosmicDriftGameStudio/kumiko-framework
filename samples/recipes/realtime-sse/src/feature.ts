@@ -3,7 +3,6 @@ import {
   createTextField,
   defineEntityDeleteHandler,
   defineFeature,
-  registerEntityCrud,
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const messageEntity = createEntity({
@@ -20,7 +19,7 @@ const userWrite = { access: { roles: ["Admin", "User"] } } as const;
 const adminWrite = { access: { roles: ["Admin"] } } as const;
 
 export const chatFeature = defineFeature("chat", (r) => {
-  registerEntityCrud(r, "message", messageEntity, {
+  r.crud("message", messageEntity, {
     write: userWrite,
     verbs: { list: false, detail: false, restore: false, delete: false },
   });

@@ -1,4 +1,4 @@
-import { defineFeature, registerEntityCrud } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { editScreen, listScreen, taskEntity } from "./schema";
 
 export { taskEntity };
@@ -6,7 +6,7 @@ export { taskEntity };
 const open = { access: { openToAll: true } } as const;
 
 export const taskFeature = defineFeature("tasks", (r) => {
-  registerEntityCrud(r, "task", taskEntity, { write: open, read: open });
+  r.crud("task", taskEntity, { write: open, read: open });
   r.screen(editScreen);
   r.screen(listScreen);
   r.nav({ id: "task-list", label: "tasks.nav.list", screen: "tasks:screen:task-list", order: 10 });

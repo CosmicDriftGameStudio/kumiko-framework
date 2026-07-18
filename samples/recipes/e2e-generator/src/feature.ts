@@ -7,7 +7,6 @@ import {
   createTextField,
   defineFeature,
   type FeatureDefinition,
-  registerEntityCrud,
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const productEntity = createEntity({
@@ -27,7 +26,7 @@ const editorWrite = { access: { roles: ["Admin", "Editor"] } } as const;
 export function createShopFeature(): FeatureDefinition {
   return defineFeature("shop", (r) => {
     r.systemScope();
-    registerEntityCrud(r, "product", productEntity, {
+    r.crud("product", productEntity, {
       write: editorWrite,
       verbs: { list: false, detail: false, restore: false },
     });

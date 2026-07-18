@@ -1,10 +1,5 @@
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
-import {
-  createEntity,
-  createTextField,
-  defineFeature,
-  registerEntityCrud,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 export const teamEntity = createEntity({
   table: "read_sample_teams",
@@ -62,17 +57,17 @@ export const relationsFeature = defineFeature("org", (r) => {
     onDelete: "cascade",
   });
 
-  registerEntityCrud(r, "team", teamEntity, {
+  r.crud("team", teamEntity, {
     write: adminWrite,
     verbs: createOnly,
     registerEntity: false,
   });
-  registerEntityCrud(r, "member", memberEntity, {
+  r.crud("member", memberEntity, {
     write: adminWrite,
     verbs: createOnly,
     registerEntity: false,
   });
-  registerEntityCrud(r, "task", taskEntity, {
+  r.crud("task", taskEntity, {
     write: adminWrite,
     read: openRead,
     verbs: { ...createOnly, detail: true },
