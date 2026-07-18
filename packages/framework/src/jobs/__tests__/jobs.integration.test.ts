@@ -4,7 +4,12 @@ import { createRegistry, defineFeature } from "../../engine";
 import type { AppContext, Registry } from "../../engine/types";
 import { createTestRedis, type TestRedis } from "../../stack";
 import { sleep, waitFor } from "../../testing";
-import { createJobRunner, type JobRunner } from "../job-runner";
+import {
+  createJobRunner,
+  type JobMeta,
+  type JobRunner,
+  type JobRunnerOptions,
+} from "../job-runner";
 
 // --- Shared state ---
 
@@ -104,6 +109,12 @@ const testFeature = defineFeature("test", (r) => {
     throw new Error("intentional failure");
   });
 
+  // perTenant fan-out — used to assert missing getActiveTenantIds fails
+  // the wrapper job without killing the worker.
+  r.job("perTenantFanout", { trigger: { manual: true }, perTenant: true }, async (payload) => {
+    jobLog.push({ name: "test:job:per-tenant-fanout", payload, timestamp: Date.now() });
+  });
+
   // Correlation propagation probe — records the requestContext it sees at
   // handler-time so tests can assert the scheduling request's correlationId
   // made it through BullMQ into the worker process.
@@ -133,6 +144,7 @@ afterAll(async () => {
 // Helper to create a runner, run tests, then stop
 async function withRunner(
   fn: (runner: JobRunner, registry: Registry) => Promise<void>,
+  opts?: Partial<JobRunnerOptions>,
 ): Promise<void> {
   const registry = createRegistry([testFeature]);
   const context: AppContext = {};
@@ -145,6 +157,7 @@ async function withRunner(
     redisUrl,
     consumerLane: "worker",
     queueNamePrefix,
+    ...opts,
   });
 
   try {
@@ -531,6 +544,58 @@ describe("error handling", () => {
       await waitFor(() => {
         const entries = jobLog.filter((e) => e.name === "test:job:manual-report");
         expect(entries.length).toBeGreaterThanOrEqual(1);
+      });
+    });
+  });
+
+  test("onJobFailed receives the handler error on each attempt", async () => {
+    clearLog();
+    const failures: Array<{ jobName: string; error: string }> = [];
+    const starts: JobMeta[] = [];
+    await withRunner(
+      async (runner) => {
+        await runner.dispatch("test:job:failing-job");
+        // retries: 1 → attempts = 2 (initial + one retry)
+        await waitFor(() => {
+          expect(failures.length).toBeGreaterThanOrEqual(2);
+        });
+        expect(failures.every((f) => f.jobName === "test:job:failing-job")).toBe(true);
+        expect(failures.every((f) => f.error === "intentional failure")).toBe(true);
+        expect(starts.map((s) => s.attempt)).toEqual([1, 2]);
+
+        // Worker still alive after exhausted retries
+        await runner.dispatch("test:job:manual-report", { after: "retries" });
+        await waitFor(() => {
+          expect(
+            jobLog.some(
+              (e) => e.name === "test:job:manual-report" && e.payload["after"] === "retries",
+            ),
+          ).toBe(true);
+        });
+      },
+      {
+        onJobStart: (name, _id, meta) => {
+          if (name === "test:job:failing-job") starts.push(meta);
+        },
+        onJobFailed: (jobName, _id, error) => {
+          if (jobName === "test:job:failing-job") failures.push({ jobName, error });
+        },
+      },
+    );
+  });
+
+  test("perTenant without getActiveTenantIds fails wrapper; worker stays alive", async () => {
+    clearLog();
+    await withRunner(async (runner) => {
+      await runner.dispatch("test:job:per-tenant-fanout", { n: 1 });
+      // Wrapper throws before fan-out (and before onJobFailed) — settle, then
+      // prove the worker still consumes.
+      await sleep(300);
+      expect(jobLog.filter((e) => e.name === "test:job:per-tenant-fanout")).toHaveLength(0);
+
+      await runner.dispatch("test:job:manual-report", { after: "perTenant-miss" });
+      await waitFor(() => {
+        expect(jobLog.some((e) => e.name === "test:job:manual-report")).toBe(true);
       });
     });
   });
