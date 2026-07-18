@@ -3,6 +3,7 @@ import { toTableName } from "../db/table-builder";
 import type { QueryHandlerDefinition, WriteHandlerDefinition } from "./define-handler";
 import { type RegisterEntityCrudOptions, registerEntityCrud } from "./entity-handlers";
 import type { FeatureBuilderState } from "./feature-builder-state";
+import { splitNamedDefinition } from "./object-form";
 import type {
   AccessRule,
   EntityDefinition,
@@ -57,13 +58,17 @@ export function buildEntityHandlerMethods<TName extends string>(
 ) {
   return {
     entity(
-      entityName: string,
-      definition: EntityDefinition,
+      nameOrDefinition: string | ({ readonly name: string } & EntityDefinition),
+      definition?: EntityDefinition,
       options?: { readonly table?: unknown },
     ): EntityRef {
-      state.entities[entityName] = definition;
+      const [entityName, entityDefinition] =
+        typeof nameOrDefinition === "string"
+          ? [nameOrDefinition, definition as EntityDefinition]
+          : splitNamedDefinition(nameOrDefinition);
+      state.entities[entityName] = entityDefinition;
       if (options?.table !== undefined) state.entityTables[entityName] = options.table;
-      return { name: entityName, table: definition.table ?? toTableName(entityName) };
+      return { name: entityName, table: entityDefinition.table ?? toTableName(entityName) };
     },
     crud(
       entityName: string,
@@ -73,10 +78,23 @@ export function buildEntityHandlerMethods<TName extends string>(
       registerEntityCrud(getRegistrar(), entityName, definition, options);
       return { name: entityName, table: definition.table ?? toTableName(entityName) };
     },
-    relation(entityRef: NameOrRef, relationName: string, definition: RelationDefinition): void {
+    relation(
+      entityRefOrDefinition:
+        | NameOrRef
+        | ({ readonly entity: NameOrRef; readonly name: string } & RelationDefinition),
+      relationName?: string,
+      definition?: RelationDefinition,
+    ): void {
+      const [entityRef, resolvedRelationName, resolvedDefinition] =
+        typeof entityRefOrDefinition === "object" && "entity" in entityRefOrDefinition
+          ? (() => {
+              const { entity, name: innerName, ...rest } = entityRefOrDefinition;
+              return [entity, innerName, rest as RelationDefinition] as const;
+            })()
+          : [entityRefOrDefinition, relationName as string, definition as RelationDefinition];
       const entityName = resolveName(entityRef);
       if (!state.relations[entityName]) state.relations[entityName] = {};
-      state.relations[entityName][relationName] = definition;
+      state.relations[entityName][resolvedRelationName] = resolvedDefinition;
     },
     writeHandler<TName extends string, TSchema extends ZodType>(
       nameOrDef: string | WriteHandlerDefinition<TName, TSchema>,

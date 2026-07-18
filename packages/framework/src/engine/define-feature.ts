@@ -18,6 +18,20 @@ import type { RequiresApi } from "./types/feature";
 // that don't care can keep the default-string and use the wrapper-based
 // strict-mode (string-literal types per call-site) like before.
 
+// requires/optionalRequires accept either variadic strings (hand-written
+// call sites) or a single `{ features }` object (the feature-ast renderer's
+// canonical Object-Form for Designer/AI-generated code) — see the matching
+// overloads on RequiresApi / FeatureRegistrar['optionalRequires'].
+function resolveFeatureNamesArgs(
+  args: readonly [{ readonly features: readonly string[] }] | readonly string[],
+): readonly string[] {
+  const [first] = args;
+  if (typeof first === "object" && first !== null && "features" in first) {
+    return first.features;
+  }
+  return args as readonly string[];
+}
+
 export function defineFeature<const TName extends string, TExports = undefined>(
   name: TName,
   setup: (r: FeatureRegistrar<TName>) => TExports,
@@ -40,8 +54,10 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       state.description = text.trim();
     },
     requires: (() => {
-      const fn = (...featureNames: string[]) => {
-        state.requires.push(...featureNames);
+      const fn = (
+        ...args: readonly [{ readonly features: readonly string[] }] | readonly string[]
+      ) => {
+        state.requires.push(...resolveFeatureNamesArgs(args));
       };
       fn.projection = (tableName: string) => {
         state.requiredProjections.add(tableName);
@@ -51,8 +67,10 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       };
       return fn as RequiresApi;
     })(),
-    optionalRequires(...featureNames: string[]): void {
-      state.optionalRequires.push(...featureNames);
+    optionalRequires(
+      ...args: readonly [{ readonly features: readonly string[] }] | readonly string[]
+    ): void {
+      state.optionalRequires.push(...resolveFeatureNamesArgs(args));
     },
     toggleable(options: { default: boolean }): void {
       if (state.toggleableDefault !== undefined) {

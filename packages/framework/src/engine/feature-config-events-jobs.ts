@@ -1,5 +1,6 @@
 import { ZodObject, type ZodType, type z } from "zod";
 import type { FeatureBuilderState } from "./feature-builder-state";
+import { splitNamedDefinition } from "./object-form";
 import { QnTypes, qn, toKebab } from "./qualified-name";
 import type {
   AuthClaimsFn,
@@ -154,38 +155,60 @@ export function buildConfigEventsJobsMethods<TName extends string>(
   return {
     config,
     job(
-      jobName: string,
-      options: Omit<JobDefinition, "name" | "handler">,
-      handler: JobHandlerFn,
+      jobNameOrDefinition: string | JobDefinition,
+      options?: Omit<JobDefinition, "name" | "handler">,
+      handler?: JobHandlerFn,
     ): void {
+      const [jobName, jobOptions, jobHandler] =
+        typeof jobNameOrDefinition === "string"
+          ? [
+              jobNameOrDefinition,
+              options as Omit<JobDefinition, "name" | "handler">,
+              handler as JobHandlerFn,
+            ]
+          : (() => {
+              const { name, handler: h, ...rest } = jobNameOrDefinition;
+              return [name, rest, h] as const;
+            })();
       // Resolve NameOrRef(s) in trigger.on. Multi-Trigger-Form: Array
       // wird zu Array von resolved strings, Single bleibt single string —
       // job-runner unterscheidet anhand Array.isArray.
       const trigger =
-        "on" in options.trigger
+        "on" in jobOptions.trigger
           ? {
-              on: Array.isArray(options.trigger.on)
-                ? options.trigger.on.map(resolveName)
-                : resolveName(options.trigger.on as NameOrRef), // @cast-boundary engine-bridge
+              on: Array.isArray(jobOptions.trigger.on)
+                ? jobOptions.trigger.on.map(resolveName)
+                : resolveName(jobOptions.trigger.on as NameOrRef), // @cast-boundary engine-bridge
             }
-          : options.trigger;
-      state.jobs[jobName] = { ...options, trigger, name: jobName, handler };
+          : jobOptions.trigger;
+      state.jobs[jobName] = { ...jobOptions, trigger, name: jobName, handler: jobHandler };
     },
     notification(
-      notificationName: string,
-      definition: {
+      notificationNameOrDefinition:
+        | string
+        | ({ readonly name: string } & {
+            readonly trigger: { readonly on: NameOrRef };
+            readonly recipient: NotificationRecipientFn;
+            readonly data: NotificationDataFn;
+            readonly templates?: Readonly<Record<string, NotificationTemplateFn>>;
+          }),
+      definition?: {
         readonly trigger: { readonly on: NameOrRef };
         readonly recipient: NotificationRecipientFn;
         readonly data: NotificationDataFn;
         readonly templates?: Readonly<Record<string, NotificationTemplateFn>>;
       },
     ): void {
+      const [notificationName, resolvedDefinition] =
+        typeof notificationNameOrDefinition === "string"
+          ? [notificationNameOrDefinition, definition as NonNullable<typeof definition>]
+          : splitNamedDefinition(notificationNameOrDefinition);
       state.notifications[notificationName] = {
         name: notificationName,
-        trigger: { on: resolveName(definition.trigger.on) },
-        recipient: definition.recipient,
-        data: definition.data,
-        templates: definition.templates,
+        trigger: { on: resolveName(resolvedDefinition.trigger.on) },
+        recipient: resolvedDefinition.recipient,
+        data: resolvedDefinition.data,
+        templates: resolvedDefinition.templates,
       };
     },
     translations(def: TranslationsDef): void {
@@ -246,17 +269,29 @@ export function buildConfigEventsJobsMethods<TName extends string>(
       }
       return def;
     },
-    readsConfig(...qualifiedKeys: string[]): void {
+    readsConfig(
+      ...args: readonly [{ readonly keys: readonly string[] }] | readonly string[]
+    ): void {
+      const [first] = args;
+      const qualifiedKeys =
+        typeof first === "object" && first !== null ? first.keys : (args as readonly string[]);
       state.configReads.push(...qualifiedKeys);
     },
-    metric(shortName: string, options: MetricOptions): void {
+    metric(
+      shortNameOrDefinition: string | ({ readonly name: string } & MetricOptions),
+      options?: MetricOptions,
+    ): void {
+      const [shortName, metricOptions] =
+        typeof shortNameOrDefinition === "string"
+          ? [shortNameOrDefinition, options as MetricOptions]
+          : splitNamedDefinition(shortNameOrDefinition);
       if (state.metrics[shortName]) {
         throw new Error(
           `[Feature ${name}] Metric "${shortName}" already registered. ` +
             `Metric names must be unique per feature.`,
         );
       }
-      state.metrics[shortName] = { shortName, ...options };
+      state.metrics[shortName] = { shortName, ...metricOptions };
     },
     envSchema(schema: z.ZodObject<z.ZodRawShape>): void {
       if (state.envSchema !== undefined) {
@@ -266,7 +301,14 @@ export function buildConfigEventsJobsMethods<TName extends string>(
       }
       state.envSchema = schema;
     },
-    secret(shortName: string, options: SecretOptions): SecretKeyHandle {
+    secret(
+      shortNameOrDefinition: string | ({ readonly name: string } & SecretOptions),
+      options?: SecretOptions,
+    ): SecretKeyHandle {
+      const [shortName, secretOptions] =
+        typeof shortNameOrDefinition === "string"
+          ? [shortNameOrDefinition, options as SecretOptions]
+          : splitNamedDefinition(shortNameOrDefinition);
       if (state.secretKeys[shortName]) {
         throw new Error(
           `[Feature ${name}] Secret "${shortName}" already registered. ` +
@@ -282,14 +324,22 @@ export function buildConfigEventsJobsMethods<TName extends string>(
       state.secretKeys[shortName] = {
         shortName,
         qualifiedName,
-        ...options,
+        ...secretOptions,
       };
       return { name: qualifiedName };
     },
     claimKey<T extends ClaimKeyType>(
-      shortName: string,
-      options: { readonly type: T },
+      shortNameOrDefinition: string | { readonly name: string; readonly type: T },
+      options?: { readonly type: T },
     ): ClaimKeyHandle<T> {
+      const shortName =
+        typeof shortNameOrDefinition === "string"
+          ? shortNameOrDefinition
+          : shortNameOrDefinition.name;
+      const claimType: T =
+        typeof shortNameOrDefinition === "string"
+          ? (options as { readonly type: T }).type
+          : shortNameOrDefinition.type;
       if (state.claimKeys[shortName]) {
         throw new Error(
           `[Feature ${name}] Claim key "${shortName}" already declared. ` +
@@ -306,9 +356,9 @@ export function buildConfigEventsJobsMethods<TName extends string>(
       state.claimKeys[shortName] = {
         shortName,
         qualifiedName,
-        type: options.type,
+        type: claimType,
       };
-      return { name: qualifiedName, type: options.type };
+      return { name: qualifiedName, type: claimType };
     },
     authClaims(fn: AuthClaimsFn): void {
       state.authClaimsHooks.push(fn);
