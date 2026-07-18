@@ -272,6 +272,57 @@ describe("legal-pages :: SYSTEM_TENANT-routing (production-bug-regression)", () 
   });
 });
 
+describe("legal-pages :: wrapLayout erhält route.slug (alt-lang-switch-regression)", () => {
+  test("custom wrapLayout bekommt den passenden slug pro Route, nicht immer imprint", async () => {
+    const seenSlugs: (string | undefined)[] = [];
+    const customStack = await setupTestStack({
+      features: [
+        createTextContentFeature(),
+        createLegalPagesFeature({
+          wrapLayout: (opts) => {
+            seenSlugs.push(opts.slug);
+            return `<html data-slug="${opts.slug ?? ""}">${opts.bodyHtml}</html>`;
+          },
+        }),
+      ],
+      anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
+      extraContext: ({ db }) => ({
+        textContent: createTextContentApi(db),
+      }),
+    });
+    try {
+      await unsafeCreateEntityTable(customStack.db, textBlockEntity);
+      await createEventsTable(customStack.db);
+      await seedTextBlock(customStack.db, {
+        tenantId: SYSTEM_TENANT_ID,
+        slug: "imprint",
+        lang: "de",
+        title: "Impressum",
+        body: "Body",
+      });
+      await seedTextBlock(customStack.db, {
+        tenantId: SYSTEM_TENANT_ID,
+        slug: "privacy",
+        lang: "de",
+        title: "Datenschutzerklärung",
+        body: "Body",
+      });
+
+      const imprintRes = await customStack.app.request("/legal/impressum");
+      expect(imprintRes.status).toBe(200);
+      expect(await imprintRes.text()).toContain('data-slug="imprint"');
+
+      const privacyRes = await customStack.app.request("/legal/datenschutz");
+      expect(privacyRes.status).toBe(200);
+      expect(await privacyRes.text()).toContain('data-slug="privacy"');
+
+      expect(seenSlugs).toEqual(["imprint", "privacy"]);
+    } finally {
+      await customStack.cleanup();
+    }
+  });
+});
+
 describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
   // Direkter Test der Boot-Check-Logik mit constructed ctx-Objects —
   // keine JobRunner-Coupling, keine Test-Stacks. Das ist die echte

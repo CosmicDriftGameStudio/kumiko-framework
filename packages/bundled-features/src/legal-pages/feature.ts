@@ -50,6 +50,7 @@ export type LegalPagesWrapLayout = (opts: {
   readonly title: string;
   readonly bodyHtml: string;
   readonly lang: string;
+  readonly slug?: "imprint" | "privacy" | "terms";
 }) => string;
 
 export type LegalPagesOptions = {
@@ -134,6 +135,7 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
             title: data.title || route.titleFallback,
             bodyHtml: renderMarkdownToHtml(data.body),
             lang: route.lang,
+            slug: route.slug,
           });
 
           return cachedSecurePageResponse(c.req.raw, {
