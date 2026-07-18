@@ -333,14 +333,19 @@ jobs:
       - name: Integration coverage pass
         # Separater Ein-Schuss-Testlauf (nicht dir-by-dir wie oben) nur für
         # lcov — bun's coverage-Reporter überschreibt den Output pro
-        # Invocation, dir-by-dir würde sich also selbst überschreiben.
-        # Läuft gegen dieselben Docker-Services, nur main-push (kostet ~einen
-        # weiteren Testdurchlauf, PRs sparen sich das).
+        # Invocation, dir-by-dir würde sich also selbst überschreiben. Läuft
+        # ALLE Tests in einem geteilten Prozess statt isoliert pro Verzeichnis
+        # (der Grund, warum run-integration-tests.ts genau das vermeidet) —
+        # kann durch Cross-Test-Kontamination flaken. continue-on-error, weil
+        # das nur Badge-Diagnostik ist; der echte Integrationslauf oben ist
+        # bereits die gate-relevante Quelle der Wahrheit.
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true
         run: bun scripts/run-coverage-integration.ts
 
       - name: Upload integration coverage
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: coverage-integration
@@ -377,6 +382,10 @@ jobs:
           path: coverage/unit
 
       - uses: actions/download-artifact@v4
+        # continue-on-error: die Integration-Coverage-Pass ist selbst schon
+        # continue-on-error — Artifact kann fehlen, coverage-badge.ts fällt
+        # dann auf Unit-only zurück statt zu crashen.
+        continue-on-error: true
         with:
           name: coverage-integration
           path: coverage/integration
