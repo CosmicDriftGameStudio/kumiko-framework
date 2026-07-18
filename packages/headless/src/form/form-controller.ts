@@ -197,7 +197,7 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
     getSnapshot: snapshotStore.getSnapshot,
     subscribe: snapshotStore.subscribe,
     setField(key, value) {
-      // Skip work when the new value is identical to the current one —
+      // skip: value unchanged, avoid notify/re-render on identical set
       // avoids a notify + re-render for "setField with same value" which
       // happens a lot in controlled inputs on every keystroke of an
       // untouched field.
@@ -206,7 +206,7 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
       invalidate();
     },
     setValues(partial) {
-      // Detect any effective change before rebuilding — setValues with a
+      // skip: partial matches current values, avoid no-op notify
       // partial that matches current values shouldn't fire listeners.
       let changed = false;
       const v = values as Record<string, unknown>; // @cast-boundary form-values
@@ -217,15 +217,18 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
           break;
         }
       }
+      // skip: no key in partial actually changed, avoid no-op notify
       if (!changed) return;
       values = { ...values, ...partial };
       invalidate();
     },
     clearErrors(path) {
       if (path === undefined) {
+        // skip: no errors present, avoid no-op notify
         if (Object.keys(errors).length === 0) return;
         errors = Object.freeze({});
       } else {
+        // skip: path has no error entry, avoid no-op notify
         if (!(path in errors)) return;
         const next: Record<string, readonly FieldIssue[]> = { ...errors };
         delete next[path];
@@ -239,8 +242,8 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
     },
     validate: runValidate,
     reset() {
-      // Cheap no-op when already at baseline and no errors to clear.
       const alreadyClean = !snapshotStore.getSnapshot().isDirty && Object.keys(errors).length === 0;
+      // skip: already at baseline with no errors, no-op reset
       if (alreadyClean) return;
       values = { ...initial };
       errors = Object.freeze({});

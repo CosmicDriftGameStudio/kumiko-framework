@@ -114,6 +114,7 @@ async function rebuildAffectedProjections(
       );
     }
   }
+  // skip: no projections matched the changed tables, nothing to rebuild
   if (projections.size === 0) return;
 
   console.log(`  Rebuild ${projections.size} Projection(s)…`);

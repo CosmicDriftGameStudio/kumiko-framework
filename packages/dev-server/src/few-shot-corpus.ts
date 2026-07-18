@@ -295,6 +295,7 @@ function walkDir(dir: string, acc: string[]): void {
   try {
     entries = readdirSync(dir, { withFileTypes: true });
   } catch {
+    // skip: directory missing/unreadable, nothing to walk
     return;
   }
   for (const entry of entries) {

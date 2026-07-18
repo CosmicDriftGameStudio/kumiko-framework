@@ -365,7 +365,9 @@ function resolveStylesheetEntry(
 // Laut failen statt ein 15KB-Image zu liefern, das in prod nackt rendert.
 // @internal — exportiert nur für Unit-Tests.
 export function assertRendererWebShellPresent(css: string, stylesheet: ResolvedStylesheet): void {
+  // skip: not the renderer-web fallback stylesheet, invariant doesn't apply
   if (!stylesheet.isRendererWebFallback) return;
+  // skip: shell sentinel class present, styles were scanned correctly
   if (css.includes(RENDERER_WEB_SHELL_SENTINEL)) return;
   throw new Error(
     `[kumiko build] renderer-web-Fallback-CSS ohne Shell-Klasse "${RENDERER_WEB_SHELL_SENTINEL}" — ` +

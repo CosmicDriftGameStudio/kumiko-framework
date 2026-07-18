@@ -55,6 +55,7 @@ function persistMode(mode: ThemeMode): void {
  *  in der Host-HTML (siehe Header-Kommentar) macht dasselbe synchron
  *  vor dem ersten Paint. */
 export function applyStoredThemeMode(): void {
+  // skip: no document (SSR/non-DOM context), nothing to apply
   if (typeof document === "undefined") return;
   let stored: string | null = null;
   try {
@@ -63,6 +64,7 @@ export function applyStoredThemeMode(): void {
     // skip: localStorage kann werfen (Private-Mode) — ohne gespeicherte
     // Wahl bleibt der Server-/HTML-Default stehen.
   }
+  // skip: no valid persisted mode stored, keep server/HTML default
   if (stored !== "dark" && stored !== "light") return;
   document.documentElement.classList.toggle("dark", stored === "dark");
   notifyThemeChange();
@@ -99,12 +101,14 @@ export function useBrowserTokensApi(): TokensApi {
     tokens: cssVarTokens,
     mode,
     setMode: (next) => {
+      // skip: no document (SSR/non-DOM context), nothing to toggle
       if (typeof document === "undefined") return;
       document.documentElement.classList.toggle("dark", next === "dark");
       persistMode(next);
       notifyThemeChange();
     },
     toggleMode: () => {
+      // skip: no document (SSR/non-DOM context), nothing to toggle
       if (typeof document === "undefined") return;
       const nowDark = document.documentElement.classList.toggle("dark");
       persistMode(nowDark ? "dark" : "light");

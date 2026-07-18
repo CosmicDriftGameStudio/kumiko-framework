@@ -36,6 +36,7 @@ export function createStore<T>(initial: T): WritableStore<T> {
     },
     setState: (next) => {
       const nextValue = typeof next === "function" ? (next as (prev: T) => T)(snapshot) : next;
+      // skip: next value identical to snapshot, avoid notifying listeners
       if (Object.is(nextValue, snapshot)) return;
       snapshot = nextValue;
       for (const listener of listeners) listener();

@@ -149,6 +149,7 @@ export function useCompletion(debounceMs: number = DEFAULT_DEBOUNCE_MS): UseComp
       clearTimer();
       if (text.length === 0) {
         reset();
+        // skip: empty text, state already reset above
         return;
       }
       timerRef.current = setTimeout(() => {

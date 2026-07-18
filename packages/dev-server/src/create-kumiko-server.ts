@@ -342,6 +342,7 @@ async function watchDir(
   } catch (err) {
     // signal.abort() wirft AbortError aus dem async-iterator; das ist
     // gewollt und kein Fehler. Andere Errors weiterreichen.
+    // skip: AbortSignal fired the abort, this is expected teardown not a real error
     if ((err as { name?: string }).name === "AbortError") return;
     throw err;
   }
@@ -954,6 +955,7 @@ export async function createKumikoServer(
         dir,
         async (filename) => {
           const action = classifyChange(filename);
+          // skip: file change classified as ignore (test/css/json), nothing to rebuild
           if (action === "ignore") return;
           if (action === "restart") {
             logInfo(

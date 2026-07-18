@@ -47,6 +47,7 @@ export function assertPiiBootInvariants(
     console.warn(
       `[${tag}] ${piiEntities.length} entities carry pii/userOwned/tenantOwned annotations but no \`kms\` adapter is configured — fields are stored in PLAINTEXT locally. Pass { kms: new InMemoryKmsAdapter() } (ephemeral DB) or createPgKmsAdapter(...) to exercise crypto-shredding in dev.`,
     );
+    // skip: dev mode, plaintext-PII warning already logged above
     return;
   }
   if (opts.allowPlaintextPii) {
@@ -54,6 +55,7 @@ export function assertPiiBootInvariants(
     console.warn(
       `[${tag}] ${piiEntities.length} entities carry PII annotations but no \`kms\` adapter is configured — fields are stored in PLAINTEXT (allowPlaintextPii: "${opts.allowPlaintextPii}"). GDPR erasure via crypto-shredding is NOT possible until a KMS is provisioned.`,
     );
+    // skip: operator explicitly acknowledged plaintext PII via allowPlaintextPii, warning already logged above
     return;
   }
   throw new Error(
