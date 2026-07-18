@@ -540,10 +540,8 @@ defineFeature("teeth-check", (r) => {
     expect(diagnostics.join("\n")).toContain("methodThatDoesNotExist");
   }, 20_000);
 
-  test(
-    "positive control: a minimal always-matched-the-real-shape fixture compiles clean",
-    () => {
-      const diagnostics = compileAgainstRegistrar(`
+  test("positive control: a minimal always-matched-the-real-shape fixture compiles clean", () => {
+    const diagnostics = compileAgainstRegistrar(`
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 defineFeature("teeth-check-positive", (r) => {
@@ -552,10 +550,8 @@ defineFeature("teeth-check-positive", (r) => {
   r.toggleable({ default: true });
 });
 `);
-      expect(diagnostics).toEqual([]);
-    },
-    20_000,
-  );
+    expect(diagnostics).toEqual([]);
+  }, 20_000);
 
   test("STATIC_FEATURE's rendered header-data patterns compile clean", () => {
     expect(renderAndCompile(STATIC_FEATURE)).toEqual([]);

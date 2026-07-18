@@ -301,7 +301,11 @@ export function buildUiExtensionsMethods<TName extends string>(
     ): void {
       const [entityRef, resolvedData, upsertKey] =
         typeof entityRefOrDefinition === "object" && "entity" in entityRefOrDefinition
-          ? [entityRefOrDefinition.entity, entityRefOrDefinition.data, entityRefOrDefinition.upsertKey]
+          ? [
+              entityRefOrDefinition.entity,
+              entityRefOrDefinition.data,
+              entityRefOrDefinition.upsertKey,
+            ]
           : [entityRefOrDefinition, data as readonly Record<string, unknown>[], options?.upsertKey];
       state.referenceData.push({
         entityName: resolveName(entityRef),

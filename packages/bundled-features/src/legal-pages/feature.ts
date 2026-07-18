@@ -99,6 +99,7 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
               SYSTEM_TENANT_ID,
             )) as TextBlockQueryResult;
           } catch (err) {
+            // biome-ignore lint/suspicious/noConsole: ops-visible fallback, no logger wired into HttpRouteHandlerDeps
             console.error(`legal-pages: text-content query failed for slug="${route.slug}"`, err);
             return c.text("legal page unavailable", 503);
           }
