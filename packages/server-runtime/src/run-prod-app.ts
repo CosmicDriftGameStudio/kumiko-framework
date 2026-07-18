@@ -564,6 +564,11 @@ export type RunProdAppOptions = {
    *  PrometheusMeter-basierten `observability`-Provider antwortet `/metrics`
    *  mit 503 + Misconfiguration-Hinweis statt echter Metriken. */
   readonly metrics?: import("@cosmicdrift/kumiko-framework/api").ServerOptions["metrics"];
+  /** L1 (Login-Lockout) + L2 (globaler IP-Limit) Rate-Limit-Middleware —
+   *  1:1 durchgereicht an `buildServer`s `ServerOptions.rateLimit`. Ohne
+   *  dieses Feld wird kein L1/L2 verdrahtet (L3 Handler-`rateLimit:`
+   *  funktioniert unabhängig davon bereits). */
+  readonly rateLimit?: import("@cosmicdrift/kumiko-framework/api").ServerOptions["rateLimit"];
 };
 
 export type ProdAppHandle = {
@@ -893,6 +898,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     ...(options.observability && { observability: options.observability }),
     ...(options.observabilityOptions && { observabilityOptions: options.observabilityOptions }),
     ...(options.metrics && { metrics: options.metrics }),
+    ...(options.rateLimit && { rateLimit: options.rateLimit }),
     ...(effectiveAuth && {
       auth: {
         membershipQuery: TenantQueries.memberships,
