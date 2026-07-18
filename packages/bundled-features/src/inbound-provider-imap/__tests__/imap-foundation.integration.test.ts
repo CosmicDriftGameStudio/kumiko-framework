@@ -304,8 +304,3 @@ describe("imap-foundation — greenmail + supervisor", () => {
     30_000,
   );
 });
-
-
-
-
-
