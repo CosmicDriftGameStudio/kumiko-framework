@@ -74,7 +74,7 @@ export function watchAndRegenerate(opts: WatchOptions): WatchHandle {
         if (result.warnings.length > 0) {
           for (const w of result.warnings) {
             // biome-ignore lint/suspicious/noConsole: codegen-watcher logs to terminal
-            console.warn(`[codegen] ${w.file}:${w.line} — ${w.reason}`);
+            console.warn(`[codegen] ${w.file}:${w.line} — ${w.message}`);
           }
         }
       }
