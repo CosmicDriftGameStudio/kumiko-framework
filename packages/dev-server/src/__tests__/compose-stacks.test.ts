@@ -101,6 +101,21 @@ describe("composeStacks", () => {
       "auth-mfa",
     ]);
   });
+
+  test("composeIdentityStack + composeGdprStack(sessions) → duplicate feature rejected at boot", () => {
+    const names = stackFeatureNames([
+      ...composeIdentityStack(),
+      ...composeGdprStack({ sessions: true }),
+    ]);
+    expect(names.filter((n) => n === "sessions")).toHaveLength(2);
+    expect(() =>
+      validateBoot(
+        composeFeatures([...composeIdentityStack(), ...composeGdprStack({ sessions: true })], {
+          includeBundled: true,
+        }),
+      ),
+    ).toThrow(/duplicate feature/i);
+  });
 });
 
 /** Snapshot, not a live parity check: intended block combinations, mirrored by hand from studio/money-horse/publicstatus run-configs. A drifted run-config stays green here. */
@@ -222,5 +237,7 @@ describe("composeStacks intended block names (snapshot, not live parity)", () =>
     expect(names).toContain("auth-mfa");
   });
 });
+
+
 
 

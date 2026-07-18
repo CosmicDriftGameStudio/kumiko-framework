@@ -1,6 +1,9 @@
 // Cross-feature SaaS identity wire suite — one mount that mirrors a real app
 // stack (composeIdentityStack + delivery + renderer + channel-email) and drives
-// the happy paths apps always need. Edge cases stay in per-feature suites.
+// the happy paths apps always need. Proves auth ↔ delivery mail ↔ sessions
+// (login jti + mine) ↔ MFA challenge/verify. Renderer stack is mounted for
+// delivery deps; channel-email uses an injected in-memory transport (not a
+// template-resolver round-trip). Edge cases stay in per-feature suites.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
@@ -202,6 +205,7 @@ beforeEach(async () => {
   await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantInvitationsTable.tableName}"`);
   await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantTable.tableName}"`);
   await deleteRows(stack.db, userSessionTable, {});
+  await deleteRows(stack.db, userMfaTable, {});
   emailTransport.sent.length = 0;
   for (const pattern of ["signup:*", "invite:*"] as const) {
     const keys = await stack.redis.redis.keys(pattern);
@@ -419,6 +423,8 @@ describe("saas-identity-wire", () => {
     expect(rows.length).toBeGreaterThanOrEqual(1);
   });
 });
+
+
 
 
 
