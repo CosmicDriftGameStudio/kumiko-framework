@@ -4,7 +4,7 @@
 
 services:
   postgres:
-    image: postgres:18.3-alpine
+    image: postgres:18.4-alpine
     environment:
       POSTGRES_USER: kumiko
       POSTGRES_PASSWORD: kumiko
