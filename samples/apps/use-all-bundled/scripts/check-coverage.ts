@@ -34,6 +34,7 @@ const FRAMEWORK_ROOT = resolve(ROOT, "..", "..", "..");
 //   (auth-email-password) — wäre doppelt-mount wenn explizit gelistet.
 const EXPECTED_HELD_BACK = new Set([
   "auth-email-password", // auto-mounted via composeFeatures(authOptions)
+  "agent-tools", // utility (buildToolCatalog: Registry -> ToolDefinition[]), kein defineFeature
   "files-provider-s3", // utility (createS3Provider helpers), kein defineFeature
   "foundation-shared", // utilities (requireDefined/requireNonEmpty), kein feature
   "page-render", // shared HTML render/cache helpers (legal/managed-pages), kein defineFeature
