@@ -1,5 +1,13 @@
 # create-kumiko-app
 
+## 0.4.126
+
+### Patch Changes
+
+- Updated dependencies [137f31a]
+  - @cosmicdrift/kumiko-framework@0.155.0
+  - @cosmicdrift/kumiko-dev-server@0.155.0
+
 ## 0.4.125
 
 ### Patch Changes

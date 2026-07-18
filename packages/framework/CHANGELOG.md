@@ -1,5 +1,13 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.155.0
+
+### Minor Changes
+
+- 137f31a: Remove `r.crud()` registrar sugar. It only ever wrapped `registerEntityCrud()`
+  with no production call sites — call `registerEntityCrud(r, name, definition, options)`
+  directly instead.
+
 ## 0.154.2
 
 ### Patch Changes
