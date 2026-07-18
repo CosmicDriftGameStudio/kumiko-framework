@@ -1,35 +1,43 @@
 #!/usr/bin/env bun
-/** Merges unit + integration lcov (same dedupe as analyze-coverage.ts) → shields.io endpoint JSON. */
+/** Merges unit + integration lcov (line-level union, not per-file max — a
+ *  file exercised by different lines in each suite needs the union of hit
+ *  lines, not the larger of two file-level LH counts) → shields.io endpoint JSON. */
 
-async function totals(path: string) {
-  let lf = 0;
-  let lh = 0;
-  const perFile = new Map<string, { lf: number; lh: number }>();
+type LineMap = Map<string, Map<number, number>>;
+
+async function parseLines(path: string): Promise<LineMap> {
+  const perFile: LineMap = new Map();
   const file = Bun.file(path);
   if (!(await file.exists())) return perFile;
   const lcov = await file.text();
   for (const rec of lcov.split("end_of_record")) {
     const sf = /SF:(.+)/.exec(rec)?.[1]?.trim();
     if (!sf) continue;
-    lf = Number(/LF:(\d+)/.exec(rec)?.[1] ?? 0);
-    lh = Number(/LH:(\d+)/.exec(rec)?.[1] ?? 0);
-    perFile.set(sf.replace(/\\/g, "/"), { lf, lh });
+    const key = sf.replace(/\\/g, "/");
+    const lines = perFile.get(key) ?? new Map<number, number>();
+    for (const m of rec.matchAll(/^DA:(\d+),(\d+)/gm)) {
+      const line = Number(m[1]);
+      const count = Number(m[2]);
+      lines.set(line, Math.max(lines.get(line) ?? 0, count));
+    }
+    perFile.set(key, lines);
   }
   return perFile;
 }
 
-const unit = await totals("coverage/unit/lcov.info");
-const integ = await totals("coverage/integration/lcov.info");
+const unit = await parseLines("coverage/unit/lcov.info");
+const integ = await parseLines("coverage/integration/lcov.info");
 
 let totalLf = 0;
 let totalLh = 0;
 for (const file of new Set([...unit.keys(), ...integ.keys()])) {
-  const u = unit.get(file);
-  const i = integ.get(file);
-  const lf = Math.max(u?.lf ?? 0, i?.lf ?? 0);
-  const lh = Math.min(lf, Math.max(u?.lh ?? 0, i?.lh ?? 0));
-  totalLf += lf;
-  totalLh += lh;
+  const lines = new Map<number, number>();
+  for (const src of [unit.get(file), integ.get(file)]) {
+    if (!src) continue;
+    for (const [line, count] of src) lines.set(line, Math.max(lines.get(line) ?? 0, count));
+  }
+  totalLf += lines.size;
+  totalLh += [...lines.values()].filter((c) => c > 0).length;
 }
 
 const pct = totalLf ? (100 * totalLh) / totalLf : 0;
