@@ -239,4 +239,24 @@ describe("piiEncrypted alias (kumiko-platform#457)", () => {
     const read = await decryptPiiFieldValues(stored, fields, kms, KMS_CTX);
     expect(read["iban"]).toBe("DE89370400440532013000");
   });
+
+  test("piiEncrypted field is covered by subject erasure (Art. 17, kumiko-platform#461)", async () => {
+    const kms = new InMemoryKmsAdapter();
+    const brandingWithAccess = createEntity({
+      fields: {
+        iban: createTextField({ piiEncrypted: true, tenantOwned: true }),
+      },
+      table: "pii_branding_iban_erasure",
+    });
+    const fields = collectPiiSubjectFields(brandingWithAccess);
+    const row = { id: UUID_A, tenantId: UUID_B, iban: "DE89370400440532013000" };
+    const stored = await encryptPiiFieldValues(row, brandingWithAccess, fields, kms, KMS_CTX);
+
+    // Erasure is subject-keyed, not field-flag-keyed — kms.eraseKey doesn't
+    // know or care that this field is piiEncrypted vs. plain tenantOwned.
+    await kms.eraseKey({ kind: "tenant", tenantId: UUID_B });
+
+    const read = await decryptPiiFieldValues(stored, fields, kms, KMS_CTX);
+    expect(read["iban"]).toBe(PII_ERASED_SENTINEL);
+  });
 });
