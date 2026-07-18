@@ -5,9 +5,9 @@
 // sample-app's manifest, kept in sync via a CI drift-test.
 
 import { readFileSync } from "node:fs";
-import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 
 export type ManifestUiHintOption =
   | {

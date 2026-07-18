@@ -414,12 +414,12 @@ export function renderApexHeader(h: ApexHeader): string {
   const logo =
     h.brand.logoSrc !== undefined ? `<img src="${escapeHtml(h.brand.logoSrc)}" alt="" /> ` : "";
   const navLinksHtml = (h.navLinks ?? []).map(renderNavEntry).join("\n      ");
-  const actionsHtml = (h.actions ?? []).map(renderCta);
+  const actionsHtml = (h.actions ?? []).map(renderCta).join("\n      ");
   return `<header>
     <div class="container nav">
       <div class="brand"><a href="${escapeHtml(h.brand.href)}">${logo}${escapeHtml(h.brand.label)}</a></div>
       ${navLinksHtml !== "" ? `<nav class="nav-links">${navLinksHtml}</nav>` : ""}
-      ${actionsHtml.length > 0 ? `<div class="nav-actions">${actionsHtml.join("\n      ")}</div>` : ""}
+      ${actionsHtml !== "" ? `<div class="nav-actions">${actionsHtml}</div>` : ""}
     </div>
   </header>`;
 }
