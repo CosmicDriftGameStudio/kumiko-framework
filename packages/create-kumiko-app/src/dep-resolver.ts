@@ -23,6 +23,7 @@ export function resolveDeps(selected: readonly string[], manifest: Manifest): De
   const selectedSet = new Set(selected);
 
   function visit(name: string): void {
+    // skip: feature already visited, avoid infinite recursion on cyclic requires
     if (visited.has(name)) return;
     visited.add(name);
     const entry = byName.get(name);

@@ -1103,6 +1103,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       // signals it shouldn't respond to.
       let shuttingDown = false;
       const shutdown = async (signal: string) => {
+        // skip: shutdown already in progress, avoid double-drain
         if (shuttingDown) return;
         shuttingDown = true;
         // biome-ignore lint/suspicious/noConsole: boot-time progress hint, no logger configured this early

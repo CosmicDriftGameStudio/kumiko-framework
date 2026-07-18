@@ -152,7 +152,7 @@ function collectTsFiles(dir: string, out: string[]): void {
   try {
     entries = readdirSync(dir);
   } catch {
-    // Directory missing — fine, just no files to scan there.
+    // skip: directory unreadable, nothing to scan there
     return;
   }
   for (const entry of entries) {
@@ -226,6 +226,7 @@ function collectFromDefineEvent(
       line: call.getStartLineNumber(),
       reason: "r.defineEvent: cannot read event-name + schema statically",
     });
+    // skip: defineEvent call shape not statically parseable, already recorded as warning
     return;
   }
 
@@ -243,6 +244,7 @@ function collectFromDefineEvent(
       line: call.getStartLineNumber(),
       reason: `r.defineEvent("${parsed.eventName}"): schema "${parsed.schemaNode.getText()}" — not a named import nor an inline z.* call, skipped`,
     });
+    // skip: schema source not resolvable, already recorded as warning
     return;
   }
 
