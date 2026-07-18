@@ -7,7 +7,7 @@
 // Beidseitig benutzte Schema-Definitionen leben in schema.ts. Server
 // hängt hier die Handler dran und ruft r.screen/r.nav.
 
-import { defineFeature, registerEntityCrud } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import {
   itemActiveScreen,
   itemEditScreen,
@@ -20,7 +20,7 @@ import {
 const open = { access: { openToAll: true } } as const;
 
 export const itemsFeature = defineFeature("showcase", (r) => {
-  registerEntityCrud(r, "item", itemEntity, { write: open, read: open });
+  r.crud("item", itemEntity, { write: open, read: open });
 
   r.screen(itemEditScreen);
   r.screen(itemListScreen);

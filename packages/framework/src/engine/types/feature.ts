@@ -7,6 +7,7 @@ import type { EntityTableMeta } from "../../db/entity-table-meta";
 type PgTable = unknown;
 
 import type { QueryHandlerDefinition, WriteHandlerDefinition } from "../define-handler";
+import type { RegisterEntityCrudOptions } from "../entity-handlers";
 import type {
   ConfigKeyDefinition,
   ConfigKeyHandle,
@@ -437,6 +438,9 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     options?: { readonly table?: unknown },
   ): EntityRef;
   entity(definition: { readonly name: string } & EntityDefinition): EntityRef;
+
+  // Shorthand for registerEntityCrud(r, ...), scoped to this registrar.
+  crud(entityName: string, entity: EntityDefinition, options?: RegisterEntityCrudOptions): void;
 
   writeHandler<TName extends string, TSchema extends ZodType>(
     def: WriteHandlerDefinition<TName, TSchema>,

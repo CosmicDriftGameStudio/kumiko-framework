@@ -2,7 +2,7 @@
 
 Wire one event-sourced aggregate end-to-end with the framework's built-in CRUD
 helpers. The recipe ships a `task` entity with the standard verbs — create,
-update, delete, restore, list, detail — via `registerEntityCrud`, plus
+update, delete, restore, list, detail — via `r.crud`, plus
 soft-delete enabled.
 
 This is the smallest useful sample: it demonstrates the path from
@@ -13,7 +13,7 @@ schemas or handler bodies by hand.
 
 - **`createEntity` with field factories** — typed text, boolean, number
   fields with options like `required`, `sortable`, `softDelete`.
-- **`registerEntityCrud`** — entity + standard handlers in one call; skip
+- **`r.crud`** — entity + standard handlers in one call; skip
   verbs in `verbs` and register explicitly when access differs per verb.
 - **Per-verb access rules** — different roles can create vs. update vs.
   delete. Editor and User roles can write; only Admin can delete or restore.
@@ -33,7 +33,7 @@ No bundled features required — this is the baseline before you add
 ## Flow
 
 1. Define fields with `createEntity({ fields: { … } })`.
-2. Call `registerEntityCrud(r, "task", taskEntity, { write, read, verbs })`.
+2. Call `r.crud("task", taskEntity, { write, read, verbs })`.
 3. Client calls `task-management:write:task:create` → row + event appended.
 4. `delete` soft-flips `isDeleted`; `restore` flips back; `list` excludes
    deleted rows by default.

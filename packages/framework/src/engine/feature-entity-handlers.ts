@@ -1,6 +1,8 @@
 import type { ZodType, z } from "zod";
 import { toTableName } from "../db/table-builder";
 import type { QueryHandlerDefinition, WriteHandlerDefinition } from "./define-handler";
+import type { RegisterEntityCrudOptions } from "./entity-handlers";
+import { registerEntityCrud } from "./entity-handlers";
 import type { FeatureBuilderState } from "./feature-builder-state";
 import { splitNamedDefinition } from "./object-form";
 import type {
@@ -51,7 +53,7 @@ export function buildEntityHandlerMethods<TName extends string>(
   state: FeatureBuilderState,
   name: TName,
 ) {
-  return {
+  const methods = {
     entity(
       nameOrDefinition: string | ({ readonly name: string } & EntityDefinition),
       definition?: EntityDefinition,
@@ -161,6 +163,12 @@ export function buildEntityHandlerMethods<TName extends string>(
       };
       tryMapEntity(state, name, nameOrDef);
       return { name: nameOrDef };
+    },
+  };
+  return {
+    ...methods,
+    crud(entityName: string, entity: EntityDefinition, options?: RegisterEntityCrudOptions): void {
+      registerEntityCrud(methods, entityName, entity, options);
     },
   };
 }

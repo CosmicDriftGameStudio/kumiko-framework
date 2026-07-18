@@ -24,7 +24,6 @@ import {
   createTextField,
   defineFeature,
   from,
-  registerEntityCrud,
 } from "@cosmicdrift/kumiko-framework/engine";
 
 // The "teams" feature declares the teamId claim. Any other feature can
@@ -88,7 +87,7 @@ export const contractEntity = createEntity({
 
 export const contractsFeature = defineFeature("contracts", (r) => {
   const contractAccess = { access: { roles: ["Admin", "TeamMember", "Driver"] } } as const;
-  registerEntityCrud(r, "contract", contractEntity, {
+  r.crud("contract", contractEntity, {
     write: contractAccess,
     read: contractAccess,
   });

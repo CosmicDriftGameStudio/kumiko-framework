@@ -30,7 +30,6 @@ import {
   type EntityEditScreenDefinition,
   type EntityListScreenDefinition,
   type FeatureDefinition,
-  registerEntityCrud,
 } from "@cosmicdrift/kumiko-framework/engine";
 
 const ADMIN_ACCESS = { roles: ["TenantAdmin", "SystemAdmin"] } as const;
@@ -118,7 +117,7 @@ export const notesFeature: FeatureDefinition = defineFeature("notes-demo", (r) =
 
   wireCustomFieldsFor(r, "note", noteTable);
 
-  registerEntityCrud(r, "note", noteEntity, {
+  r.crud("note", noteEntity, {
     write: { access: ADMIN_ACCESS },
     read: { access: ADMIN_ACCESS },
   });

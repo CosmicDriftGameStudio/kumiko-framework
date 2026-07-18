@@ -7,7 +7,6 @@ import {
   createSelectField,
   createTextField,
   defineFeature,
-  registerEntityCrud,
 } from "@cosmicdrift/kumiko-framework/engine";
 
 import { DEMO_I18N } from "./i18n";
@@ -36,7 +35,7 @@ const open = { access: { openToAll: true } } as const;
 
 export const demoFeature = defineFeature("styleguide", (r) => {
   r.translations({ keys: DEMO_I18N });
-  registerEntityCrud(r, "item", demoEntity, { write: open, read: open });
+  r.crud("item", demoEntity, { write: open, read: open });
 
   r.screen({
     id: "item-edit",

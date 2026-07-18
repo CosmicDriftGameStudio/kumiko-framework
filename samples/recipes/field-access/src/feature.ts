@@ -3,7 +3,6 @@ import {
   createNumberField,
   createTextField,
   defineFeature,
-  registerEntityCrud,
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const employeeEntity = createEntity({
@@ -23,7 +22,7 @@ export const employeeEntity = createEntity({
 const allRoles = { access: { roles: ["Admin", "Accounting", "Employee"] } } as const;
 
 export const employeeFeature = defineFeature("hr", (r) => {
-  registerEntityCrud(r, "employee", employeeEntity, {
+  r.crud("employee", employeeEntity, {
     write: allRoles,
     read: allRoles,
     verbs: { delete: false, list: false, restore: false },
