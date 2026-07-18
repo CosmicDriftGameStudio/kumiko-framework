@@ -409,14 +409,29 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       },
     };
   } catch (error) {
-    // Best-effort — a broken jobRunner.stop() must never mask the real
-    // setup failure below.
+    // Best-effort — a broken jobRunner.stop()/cleanup() must never mask the
+    // real setup failure below. testDb/testRedis are created before this
+    // try even starts, so a throw anywhere in setup (buildServer,
+    // search-config, ...) would otherwise leak their open pg/ioredis
+    // sockets — the caller never gets the stack object back to call
+    // cleanup() itself, which is the same "hangs on exit" failure class
+    // this function exists to prevent.
     if (jobRunner) {
       try {
         await jobRunner.stop();
       } catch {
         // ignore — `error` is the one that matters
       }
+    }
+    try {
+      await testDb.cleanup();
+    } catch {
+      // ignore — `error` is the one that matters
+    }
+    try {
+      await testRedis.cleanup();
+    } catch {
+      // ignore — `error` is the one that matters
     }
     throw error;
   }

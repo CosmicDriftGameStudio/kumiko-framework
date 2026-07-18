@@ -41,8 +41,11 @@ export type LoginRouteOptions = {
 // apex pages stack providers, not gates — see auth-mount.tsx recipes).
 // Handing an app raw LoginScreen + telling it to hand-roll the challenge-
 // token swap itself is exactly how kumiko-framework#266's login-time MFA
-// step went missing in a real apex surface; this makes that mistake
-// structurally unavailable — there is no lower-level piece left to misuse.
+// step went missing in a real apex surface; this prevents the *most common*
+// version of that mistake. MFA still only actually works once a consumer
+// wires `mfaVerifyScreen` — omitting it is a silent no-MFA fallback, not
+// something this route can catch on its own (auth-mfa is a separate,
+// optional package).
 export function createLoginRoute(
   opts: LoginRouteOptions = {},
 ): ComponentType<Record<string, never>> {
@@ -51,13 +54,14 @@ export function createLoginRoute(
 
   function LoginRoute(): ReactNode {
     const { status } = useSession();
+    const { onAuthenticated } = opts;
     // Pending challenge-token from LoginScreen's onMfaChallenge. Lives here
     // (not in SessionState) because it's a UI-only transition — the server
     // never considers this session authenticated until verify succeeds.
     const [challengeToken, setChallengeToken] = useState<string | null>(null);
 
     useEffect(() => {
-      if (status === "authenticated") opts.onAuthenticated?.();
+      if (status === "authenticated") onAuthenticated?.();
     }, [status]);
 
     if (status === "loading") {
@@ -65,7 +69,13 @@ export function createLoginRoute(
         <div className="min-h-screen flex items-center justify-center text-muted-foreground text-sm" />
       );
     }
-    if (status === "authenticated") return null;
+    // A standalone mount (no parent gate, no onAuthenticated wired — e.g. an
+    // apex/marketing surface that just places <LoginRoute /> directly) has no
+    // way to navigate away once authenticated. Blanking the page there is a
+    // regression against the old raw LoginScreen (which had no session check
+    // at all); fall through to the form instead. A route WITH onAuthenticated
+    // still returns null and trusts the effect above to redirect.
+    if (status === "authenticated" && onAuthenticated) return null;
     if (challengeToken !== null && MfaVerifyComponent) {
       return (
         <MfaVerifyComponent

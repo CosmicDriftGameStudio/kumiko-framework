@@ -68,4 +68,14 @@ async function boot(): Promise<void> {
   });
 }
 
-void boot();
+boot().catch((error: unknown) => {
+  // A rejected boot() (e.g. a failed dynamic import) would otherwise become
+  // a silent unhandled rejection — surface it in the DOM so a screenshot/
+  // page-content assertion in a failing e2e run shows the real cause
+  // instead of a blank #root.
+  const root = document.getElementById("root");
+  if (root !== null) {
+    root.textContent = `renderer-web/e2e: boot failed — ${String(error)}`;
+  }
+  throw error;
+});
