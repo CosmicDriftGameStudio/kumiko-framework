@@ -68,6 +68,10 @@ export function buildRegistryFacade(state: RegistryState): Registry {
       return state.queryHandlerMap.get(name);
     },
 
+    getAllQueryHandlers(): ReadonlyMap<string, QueryHandlerDef> {
+      return state.queryHandlerMap;
+    },
+
     getSearchableFields(entityName: string): readonly string[] {
       return state.searchableFieldsCache.get(entityName) ?? [];
     },

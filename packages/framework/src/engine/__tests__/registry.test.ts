@@ -61,6 +61,46 @@ describe("createRegistry slot robustness", () => {
   });
 });
 
+describe("getAllQueryHandlers", () => {
+  test("returns every registered query handler, qualified, across multiple features", () => {
+    const taskEntity = createEntity({
+      table: "registry_test_tasks",
+      fields: { title: createTextField({ required: true }) },
+    });
+    const noteEntity = createEntity({
+      table: "registry_test_notes",
+      fields: { body: createTextField({ required: true }) },
+    });
+    const taskFeature = defineFeature("registry-test-task", (r) => {
+      r.crud("task", taskEntity, {
+        write: { access: { roles: ["Admin"] } },
+        read: { access: { openToAll: true } },
+      });
+    });
+    const noteFeature = defineFeature("registry-test-note", (r) => {
+      r.crud("note", noteEntity, {
+        write: { access: { roles: ["Admin"] } },
+        read: { access: { openToAll: true } },
+      });
+    });
+
+    const registry = createRegistry([taskFeature, noteFeature]);
+    const handlers = registry.getAllQueryHandlers();
+
+    expect(handlers.get("registry-test-task:query:task:list")).toBeDefined();
+    expect(handlers.get("registry-test-note:query:note:list")).toBeDefined();
+    // Same Map instance getQueryHandler reads from, not a copy that can drift.
+    expect(handlers.get("registry-test-task:query:task:list")).toBe(
+      registry.getQueryHandler("registry-test-task:query:task:list"),
+    );
+  });
+
+  test("empty registry returns an empty map, not undefined", () => {
+    const registry = createRegistry([]);
+    expect(registry.getAllQueryHandlers().size).toBe(0);
+  });
+});
+
 describe("extensionSelector boot-validation", () => {
   function foundationFeature() {
     return defineFeature("probe-foundation", (r) => {
