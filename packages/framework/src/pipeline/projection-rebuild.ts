@@ -191,6 +191,7 @@ function warnOnColumnDrift(
   tableName: string,
   drift: ColumnDriftResult,
 ): void {
+  // skip: no drift found — nothing to warn about
   if (drift.rowCount === 0) return;
   const sampledIds = new Set(drift.sample.map((s) => s.slice(0, s.lastIndexOf("."))));
   const countLabel =

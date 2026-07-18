@@ -284,6 +284,7 @@ export async function countColumnDrift(
     `${driftCte} SELECT count(*)::text AS total FROM drifted`,
   );
   const rowCount = Number(totalRows[0]?.total ?? "0");
+  // skip: no drift — nothing to sample
   if (rowCount === 0) return { rowCount: 0, sample: [] };
   const rows = await raw.unsafe<{ id: unknown; drifted_columns: string }>(
     `${driftCte} SELECT id, drifted_columns FROM drifted LIMIT ${COLUMN_DRIFT_SAMPLE_LIMIT}`,
