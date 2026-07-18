@@ -253,7 +253,7 @@ function renderHero(s: ApexHeroSection): string {
     s.logo !== undefined
       ? `<img class="hero-pony" src="${escapeHtml(s.logo.src)}" alt="${escapeHtml(s.logo.alt)}"${dim(s.logo)} />`
       : "";
-  const ctas = (s.ctas ?? []).map(renderCta).join("\n            ");
+  const ctasHtml = (s.ctas ?? []).map(renderCta).join("\n            ");
   const meta = s.metaHtml !== undefined ? `<p class="hero-meta">${s.metaHtml}</p>` : "";
   const visual =
     s.screenshot !== undefined
@@ -264,7 +264,7 @@ function renderHero(s: ApexHeroSection): string {
         <div class="hero-copy">
           ${logo}<h1>${escapeHtml(s.title)}</h1>
           <p class="tagline">${escapeHtml(s.tagline)}</p>
-          ${ctas !== "" ? `<div class="hero-cta">${ctas}</div>` : ""}
+          ${ctasHtml !== "" ? `<div class="hero-cta">${ctasHtml}</div>` : ""}
           ${meta}
         </div>
         ${visual}
@@ -273,7 +273,7 @@ function renderHero(s: ApexHeroSection): string {
 }
 
 function renderFeatureGrid(s: ApexFeatureGridSection): string {
-  const cards = s.items
+  const cardsHtml = s.items
     .map(
       (f) => `<article class="feature">
             ${f.icon !== undefined ? `<div class="feature-icon">${svgIcon(f.icon)}</div>` : ""}<h3>${escapeHtml(f.title)}</h3>
@@ -285,7 +285,7 @@ function renderFeatureGrid(s: ApexFeatureGridSection): string {
       <div class="container">
         ${renderSectionHead(s)}
         <div class="feature-grid">
-          ${cards}
+          ${cardsHtml}
         </div>
       </div>
     </section>`;
@@ -298,7 +298,7 @@ function renderPricingCard(t: ApexPricingTier): string {
   const cap =
     t.capLine !== undefined ? [`<li class="price-cap">${escapeHtml(t.capLine)}</li>`] : [];
   const benefits = t.benefits.map((b) => `<li>${escapeHtml(b)}</li>`);
-  const items = [...cap, ...benefits].join("\n            ");
+  const itemsHtml = [...cap, ...benefits].join("\n            ");
   const per = t.priceSuffix !== undefined ? `<span>${escapeHtml(t.priceSuffix)}</span>` : "";
   const tagline =
     t.tagline !== undefined ? `<p class="price-tagline">${escapeHtml(t.tagline)}</p>` : "";
@@ -314,27 +314,27 @@ function renderPricingCard(t: ApexPricingTier): string {
           ${badge}<h3>${escapeHtml(t.name)}</h3>
           ${tagline}<div class="price-amount">${escapeHtml(t.amount)}${per}</div>
           <ul class="price-list">
-            ${items}
+            ${itemsHtml}
           </ul>
           ${cta}
         </article>`;
 }
 
 function renderPricingGrid(s: ApexPricingGridSection): string {
-  const cards = s.tiers.map(renderPricingCard).join("\n          ");
+  const cardsHtml = s.tiers.map(renderPricingCard).join("\n          ");
   const idAttr = s.id !== undefined ? ` id="${escapeHtml(s.id)}"` : "";
   return `<section${idAttr}>
       <div class="container">
         ${renderSectionHead(s)}
         <div class="price-grid">
-          ${cards}
+          ${cardsHtml}
         </div>
       </div>
     </section>`;
 }
 
 function renderInfoGrid(s: ApexInfoGridSection): string {
-  const items = s.items
+  const itemsHtml = s.items
     .map(
       (i) => `<div class="trust-item">
             <h3>${escapeHtml(i.title)}</h3>
@@ -346,7 +346,7 @@ function renderInfoGrid(s: ApexInfoGridSection): string {
       <div class="container">
         ${renderSectionHead(s)}
         <div class="trust-grid">
-          ${items}
+          ${itemsHtml}
         </div>
       </div>
     </section>`;
@@ -384,7 +384,7 @@ function renderSection(s: ApexSection): string {
 }
 
 function renderNavMenu(m: ApexNavMenu): string {
-  const items = m.items
+  const itemsHtml = m.items
     .map(
       (it) =>
         `<a class="nav-menu__item" href="${escapeHtml(it.href)}">${
@@ -398,7 +398,7 @@ function renderNavMenu(m: ApexNavMenu): string {
     m.footer !== undefined
       ? `<div class="nav-menu__sep"></div><a class="nav-menu__more" href="${escapeHtml(m.footer.href)}">${escapeHtml(m.footer.label)}</a>`
       : "";
-  return `<div class="nav-menu"><button type="button" class="nav-menu__trigger" aria-haspopup="true">${escapeHtml(m.label)}<span class="nav-menu__chev">${svgIcon('<path d="m6 9 6 6 6-6"/>')}</span></button><div class="nav-menu__panel">${items}${footer}</div></div>`;
+  return `<div class="nav-menu"><button type="button" class="nav-menu__trigger" aria-haspopup="true">${escapeHtml(m.label)}<span class="nav-menu__chev">${svgIcon('<path d="m6 9 6 6 6-6"/>')}</span></button><div class="nav-menu__panel">${itemsHtml}${footer}</div></div>`;
 }
 
 function renderNavEntry(entry: ApexNavEntry): string {
@@ -413,13 +413,13 @@ function renderNavEntry(entry: ApexNavEntry): string {
 export function renderApexHeader(h: ApexHeader): string {
   const logo =
     h.brand.logoSrc !== undefined ? `<img src="${escapeHtml(h.brand.logoSrc)}" alt="" /> ` : "";
-  const navLinks = (h.navLinks ?? []).map(renderNavEntry).join("\n      ");
-  const actions = (h.actions ?? []).map(renderCta);
+  const navLinksHtml = (h.navLinks ?? []).map(renderNavEntry).join("\n      ");
+  const actionsHtml = (h.actions ?? []).map(renderCta).join("\n      ");
   return `<header>
     <div class="container nav">
       <div class="brand"><a href="${escapeHtml(h.brand.href)}">${logo}${escapeHtml(h.brand.label)}</a></div>
-      ${navLinks !== "" ? `<nav class="nav-links">${navLinks}</nav>` : ""}
-      ${actions.length > 0 ? `<div class="nav-actions">${actions.join("\n      ")}</div>` : ""}
+      ${navLinksHtml !== "" ? `<nav class="nav-links">${navLinksHtml}</nav>` : ""}
+      ${actionsHtml !== "" ? `<div class="nav-actions">${actionsHtml}</div>` : ""}
     </div>
   </header>`;
 }
@@ -527,7 +527,7 @@ export function renderApexPage(page: ApexPage): string {
   const theme = page.theme ?? "light";
   // Brand-CSS ist app-authored (Trust-Boundary siehe Datei-Header), kein Tenant-Input.
   const cssHtml = (brand.fontFaceCss ?? "") + brand.tokensCss + APEX_STRUCTURAL_CSS;
-  const sections = page.sections.map(renderSection).join("\n\n    ");
+  const sectionsHtml = page.sections.map(renderSection).join("\n\n    ");
   return `<!doctype html>
 <html lang="${escapeHtml(head.lang)}">
   <head>
@@ -539,7 +539,7 @@ export function renderApexPage(page: ApexPage): string {
   <body${theme === "dark" ? ` class="apex-dark"` : ""}>
     ${renderApexHeader(page.header)}
 
-    ${sections}
+    ${sectionsHtml}
 
     ${renderFooter(page.footer)}
 

@@ -73,6 +73,7 @@ export function brandingStyleBlock(tokens: BrandingTokens): string {
     decls.push(`--accent:${tokens.accentColor}`);
   }
   decls.push(`--page-max-width:${layoutMaxWidth(tokens.layoutPreset)}`);
+  // html-ok: decls are CSS custom-property declarations (regex-validated hex color or fixed table lookup), never raw user text.
   return `<style id="tenant-theme">:root{${decls.join(";")}}</style>`;
 }
 
@@ -91,9 +92,9 @@ export function brandingHeaderHtml(tokens: BrandingTokens): string {
   }
   if (parts.length === 0) return "";
 
-  const inner = parts.join("\n");
+  const innerHtml = parts.join("\n");
   if (isSafeHttpsUrl(tokens.siteUrl)) {
-    return `<header class="brand-header"><a href="${escapeHtmlAttr(tokens.siteUrl)}">${inner}</a></header>`;
+    return `<header class="brand-header"><a href="${escapeHtmlAttr(tokens.siteUrl)}">${innerHtml}</a></header>`;
   }
-  return `<header class="brand-header">${inner}</header>`;
+  return `<header class="brand-header">${innerHtml}</header>`;
 }

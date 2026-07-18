@@ -38,6 +38,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import { parseJsonOrThrow, parseJsonSafe } from "@cosmicdrift/kumiko-framework/utils";
 
 const hasBun = typeof (globalThis as { Bun?: unknown }).Bun !== "undefined";
 
@@ -239,7 +240,7 @@ async function resolveRuntimeDepsVersions(
   for (const path of pinSources) {
     if (!existsSync(path)) continue;
     const raw = await readFile(path, "utf-8");
-    const parsed = JSON.parse(raw) as { dependencies?: Record<string, string> };
+    const parsed = parseJsonOrThrow<{ dependencies?: Record<string, string> }>(raw, path);
     Object.assign(allDeps, parsed.dependencies ?? {});
   }
   for (const pkg of packages) {
@@ -251,12 +252,8 @@ async function resolveRuntimeDepsVersions(
 function derivePkgName(cwd: string): string {
   const pkgJson = join(cwd, "package.json");
   if (!existsSync(pkgJson)) return "kumiko-app-runtime";
-  try {
-    const parsed = JSON.parse(readFileSync(pkgJson, "utf-8")) as { name?: string };
-    return parsed.name ? `${parsed.name}-runtime` : "kumiko-app-runtime";
-  } catch {
-    return "kumiko-app-runtime";
-  }
+  const parsed = parseJsonSafe<{ name?: string }>(readFileSync(pkgJson, "utf-8"), {});
+  return parsed.name ? `${parsed.name}-runtime` : "kumiko-app-runtime";
 }
 
 export function formatServerBuildResult(
