@@ -281,6 +281,9 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   // regenerated with `--write-baseline` from framework repo after validation.
   // steps.push({ name: "as-Cast Audit", cmd: "bunx kumiko-check-as-casts" });
   steps.push({ name: "Table-DDL Guard", cmd: "bunx kumiko-guard-table-ddl" });
+  // Baseline-Regression-Guard (infra#295): failt nur bei NEUEN DE-Kommentaren,
+  // Altbestand ist via .kumiko-comment-lang-baseline.json eingefroren.
+  steps.push({ name: "Comment-Language Guard", cmd: "bunx kumiko-guard-comment-lang" });
   const frameworkRepoRoot = resolvePath(import.meta.dir, "..");
   const rawSqlGuard = join(REPO_ROOT, "infra/guards/guard-raw-sql.ts");
   const sqlInventoryScript = join(frameworkRepoRoot, "scripts/sql-inventory.ts");
