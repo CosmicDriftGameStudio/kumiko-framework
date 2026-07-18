@@ -220,7 +220,11 @@ describe("piiEncrypted alias (kumiko-platform#457)", () => {
     const kms = new InMemoryKmsAdapter();
     const brandingWithAccess = createEntity({
       fields: {
-        iban: createTextField({ piiEncrypted: true, tenantOwned: true }),
+        iban: createTextField({
+          piiEncrypted: true,
+          tenantOwned: true,
+          access: { read: ["TenantAdmin"] },
+        }),
       },
       table: "pii_branding_iban",
     });

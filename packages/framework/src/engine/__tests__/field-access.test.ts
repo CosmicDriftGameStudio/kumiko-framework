@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { checkWriteFieldRoles, filterReadFields } from "../field-access";
+import { checkWriteFieldRoles, filterReadFields, PII_MASKED_VALUE } from "../field-access";
 import type { EntityDefinition } from "../types";
 
 const entity: EntityDefinition = {
@@ -24,6 +24,28 @@ describe("filterReadFields", () => {
     const row = { id: 1, title: "Hello", secret: "visible" };
     const filtered = filterReadFields(entity, row, admin);
     expect(filtered["secret"]).toBe("visible");
+  });
+
+  test("masks piiEncrypted fields instead of stripping them (kumiko-platform#463)", () => {
+    const entityWithPii: EntityDefinition = {
+      fields: {
+        ...entity.fields,
+        iban: {
+          type: "text",
+          piiEncrypted: true,
+          tenantOwned: true,
+          access: { read: { admin: "all" } },
+        },
+      },
+    };
+    const row = { id: 1, title: "Hello", secret: "hidden", iban: "DE89370400440532013000" };
+
+    const filteredForEditor = filterReadFields(entityWithPii, row, editor);
+    expect(filteredForEditor["secret"]).toBeUndefined();
+    expect(filteredForEditor["iban"]).toBe(PII_MASKED_VALUE);
+
+    const filteredForAdmin = filterReadFields(entityWithPii, row, admin);
+    expect(filteredForAdmin["iban"]).toBe("DE89370400440532013000");
   });
 });
 

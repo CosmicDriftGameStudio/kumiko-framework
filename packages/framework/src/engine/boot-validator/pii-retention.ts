@@ -1,5 +1,5 @@
 import type { FeatureDefinition } from "../types";
-import type { PiiAnnotations } from "../types/fields";
+import type { FieldAccess, PiiAnnotations } from "../types/fields";
 import { PII_DIRECT_NAME_HINTS, PII_USER_OWNED_NAME_HINTS } from "./entity-handler";
 
 // Framework-managed Timestamp-Spalten — dürfen als retention.reference
@@ -97,6 +97,18 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
       if (piiEncryptedFlag.piiEncrypted === true && annotCount === 0) {
         throw new Error(
           `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" declares { piiEncrypted: true } without a subject annotation (pii / userOwned / tenantOwned) — piiEncrypted alone doesn't encrypt anything, it only adds the access/masking layer on top of the subject-key encryption.`,
+        );
+      }
+      // piiEncrypted access model (kumiko-platform#460): field-level
+      // access.read already exists + is enforced (filterReadFields), but
+      // its default without an access config is "visible to everyone" —
+      // the wrong default for a field whose entire point is "only the
+      // legitimate owner may see the plaintext". Force an explicit choice
+      // instead of silently decrypting for every row-reader.
+      const accessFlag = field as { readonly access?: FieldAccess }; // @cast-boundary schema-walk
+      if (piiEncryptedFlag.piiEncrypted === true && !accessFlag.access?.read) {
+        throw new Error(
+          `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" declares { piiEncrypted: true } without { access: { read: [...] } } — without it the decrypted value is visible to anyone who can read the row. Set the roles allowed to see the plaintext.`,
         );
       }
 

@@ -716,7 +716,11 @@ describe("validateBoot — piiEncrypted (kumiko-platform#231/#456)", () => {
         "tenant",
         createEntity({
           fields: {
-            iban: createTextField({ piiEncrypted: true, tenantOwned: true }),
+            iban: createTextField({
+              piiEncrypted: true,
+              tenantOwned: true,
+              access: { read: ["TenantAdmin"] },
+            }),
           },
         }),
       );
@@ -760,7 +764,12 @@ describe("validateBoot — piiEncrypted (kumiko-platform#231/#456)", () => {
         "tenant",
         createEntity({
           fields: {
-            iban: createTextField({ piiEncrypted: true, tenantOwned: true, searchable: true }),
+            iban: createTextField({
+              piiEncrypted: true,
+              tenantOwned: true,
+              access: { read: ["TenantAdmin"] },
+              searchable: true,
+            }),
           },
         }),
       );
@@ -774,11 +783,30 @@ describe("validateBoot — piiEncrypted (kumiko-platform#231/#456)", () => {
         "tenant",
         createEntity({
           fields: {
-            iban: createTextField({ piiEncrypted: true, tenantOwned: true, sortable: true }),
+            iban: createTextField({
+              piiEncrypted: true,
+              tenantOwned: true,
+              access: { read: ["TenantAdmin"] },
+              sortable: true,
+            }),
           },
         }),
       );
     });
     expect(() => validateBoot([feature])).toThrow(/piiEncrypted.*sortable.*cannot work/);
+  });
+
+  test("piiEncrypted without access.read throws (kumiko-platform#460)", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "tenant",
+        createEntity({
+          fields: {
+            iban: createTextField({ piiEncrypted: true, tenantOwned: true }),
+          },
+        }),
+      );
+    });
+    expect(() => validateBoot([feature])).toThrow(/piiEncrypted.*without.*access.*read/);
   });
 });
