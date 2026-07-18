@@ -365,7 +365,11 @@ jobs:
     # ist branch-protected ("changes via PR only"), ein direkter Commit-Push
     # dorthin schlägt immer fehl (#1132 gezeigt) — der badges-Branch umgeht
     # das, ohne für einen generierten Badge-Wert einen PR aufzumachen.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # needs: integration nur für die Artifact-Reihenfolge — der `if` verlangt
+    # NICHT dessen Erfolg: der echte dir-by-dir-Integrationslauf flakt
+    # gelegentlich (Redis/DB-Races), unabhängig von diesem Badge-Job. Ein
+    # Integration-Flake soll die Badge nicht verhindern.
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.test.result == 'success'
     needs: [test, integration]
     runs-on: ubuntu-latest
     timeout-minutes: 5
