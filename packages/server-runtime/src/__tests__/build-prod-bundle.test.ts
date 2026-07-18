@@ -16,6 +16,7 @@ import {
   computeBuildId,
   discoverClientEntries,
   discoverHtmlTemplate,
+  formatBuildResult,
   injectAssetTags,
 } from "../build-prod-bundle";
 
@@ -274,5 +275,62 @@ describe("build-prod-bundle/injectAssetTags build-info", () => {
     const result = injectAssetTags(html, { "client.js": "/assets/client-abc.js" }, clientEntry());
 
     expect(result).not.toContain("__KUMIKO_BUILD__");
+  });
+});
+
+describe("build-prod-bundle/formatBuildResult", () => {
+  test("lists outDir, duration, and every manifest entry", () => {
+    const out = formatBuildResult(
+      {
+        outDir: "dist",
+        manifest: {
+          "client.js": "/assets/client-abc.js",
+          "styles.css": "/assets/styles-xyz.css",
+        },
+      },
+      42,
+    );
+    expect(out).toContain("dist");
+    expect(out).toContain("42ms");
+    expect(out).toContain("client.js");
+    expect(out).toContain("/assets/client-abc.js");
+    expect(out).toContain("styles.css");
+    expect(out).toContain("/assets/styles-xyz.css");
+  });
+
+  test("empty manifest still prints the success line", () => {
+    const out = formatBuildResult({ outDir: "dist-server", manifest: {} }, 1);
+    expect(out).toContain("dist-server");
+    expect(out).toContain("1ms");
+  });
+});
+
+describe("build-prod-bundle/discovery edges", () => {
+  let workDir = "";
+
+  beforeEach(async () => {
+    workDir = await mkdtemp(join(tmpdir(), "kumiko-build-edge-"));
+  });
+
+  afterEach(async () => {
+    await rm(workDir, { recursive: true, force: true });
+  });
+
+  test("discoverClientEntries accepts src/client.ts (no x)", async () => {
+    await mkdir(join(workDir, "src"), { recursive: true });
+    await writeFile(join(workDir, "src/client.ts"), "// single ts");
+    const entries = discoverClientEntries(workDir);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.name).toBe("client");
+    expect(entries[0]?.sourceFile.endsWith("src/client.ts")).toBe(true);
+  });
+
+  test("discoverClientEntries ignores non-matching client-* names", async () => {
+    await mkdir(join(workDir, "src"), { recursive: true });
+    // Uppercase / leading digit / underscore violate ^client-([a-z][a-z0-9-]*)\.tsx?$
+    await writeFile(join(workDir, "src/client-Admin.tsx"), "// bad");
+    await writeFile(join(workDir, "src/client-1bad.tsx"), "// bad");
+    await writeFile(join(workDir, "src/client_admin.tsx"), "// bad");
+    expect(discoverClientEntries(workDir)).toEqual([]);
   });
 });
