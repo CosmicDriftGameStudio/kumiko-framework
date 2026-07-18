@@ -15,6 +15,7 @@
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { requestSignup } from "./auth-client";
+import { retryAfterMinutes } from "./auth-form-logic";
 import { AuthCard } from "./auth-form-primitives";
 
 export type SignupScreenProps = {
@@ -45,10 +46,7 @@ export function SignupScreen({
       if (res.ok) {
         setDone(true);
       } else if (res.error.reason === "rate_limited") {
-        const minutes =
-          res.error.retryAfterSeconds !== undefined
-            ? Math.ceil(res.error.retryAfterSeconds / 60)
-            : undefined;
+        const minutes = retryAfterMinutes(res.error.retryAfterSeconds);
         setError(
           minutes !== undefined
             ? t("auth.errors.accountLockedRetry", { minutes })

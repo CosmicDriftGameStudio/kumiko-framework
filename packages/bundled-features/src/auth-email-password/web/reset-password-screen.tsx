@@ -13,6 +13,7 @@
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { resetPassword } from "./auth-client";
+import { passwordPairIssue } from "./auth-form-logic";
 import { AuthCard, useUrlToken } from "./auth-form-primitives";
 
 export type ResetPasswordScreenProps = {
@@ -41,11 +42,12 @@ export function ResetPasswordScreen({
 
   const doSubmit = async (): Promise<void> => {
     setError(null);
-    if (newPassword.length < 8) {
+    const issue = passwordPairIssue(newPassword, confirmPassword);
+    if (issue === "too_short") {
       setError(t("auth.resetPassword.tooShort"));
       return;
     }
-    if (newPassword !== confirmPassword) {
+    if (issue === "mismatch") {
       setError(t("auth.resetPassword.mismatch"));
       return;
     }
