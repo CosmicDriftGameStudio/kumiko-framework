@@ -53,21 +53,12 @@ describe("SignupCompleteScreen", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  test("mismatch zwischen Passwort und Confirm → client-side error", async () => {
-    renderWithProviders(<SignupCompleteScreen token="abc" />);
-    fillPasswords("validpass1", "differentpass");
-    fireEvent.click(screen.getByRole("button", { name: "Account aktivieren" }));
-
-    await waitFor(() => {
-      expect(screen.getByRole("alert").textContent).toContain("nicht überein");
-    });
-  });
-
-  test("happy path: gültiges Passwort → signup-confirm fetch", async () => {
-    // Don't call through to real location.assign — jsdom Invalid URL pollution.
-    // Redirect target is covered by resolveLoggedInHref unit tests.
+  test("happy path: gültiges Passwort → signup-confirm fetch + location.assign", async () => {
+    const assigned: string[] = [];
     const assignOrig = window.location.assign.bind(window.location);
-    window.location.assign = (() => undefined) as typeof window.location.assign;
+    window.location.assign = ((url: string | URL) => {
+      assigned.push(String(url));
+    }) as typeof window.location.assign;
 
     const fetchMock = mock(
       async () =>
@@ -82,7 +73,12 @@ describe("SignupCompleteScreen", () => {
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     try {
-      renderWithProviders(<SignupCompleteScreen token="abc-token" loggedInHref="/" />);
+      renderWithProviders(
+        <SignupCompleteScreen
+          token="abc-token"
+          loggedInHref={({ tenantKey }) => `/${tenantKey}/`}
+        />,
+      );
       fillPasswords("validpass1", "validpass1");
       fireEvent.click(screen.getByRole("button", { name: "Account aktivieren" }));
 
@@ -94,10 +90,25 @@ describe("SignupCompleteScreen", () => {
             body: JSON.stringify({ token: "abc-token", password: "validpass1" }),
           }),
         );
+        expect(assigned).toEqual(["/acme/"]);
       });
     } finally {
       window.location.assign = assignOrig;
     }
+  });
+
+  test("mismatch → client-side error, kein fetch-Call", async () => {
+    const fetchMock = mock(async () => new Response(null, { status: 200 }));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    renderWithProviders(<SignupCompleteScreen token="abc" />);
+    fillPasswords("validpass1", "differentpass");
+    fireEvent.click(screen.getByRole("button", { name: "Account aktivieren" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert").textContent).toContain("nicht überein");
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   test("server invalid_signup_token → mapped i18n-error im UI", async () => {
