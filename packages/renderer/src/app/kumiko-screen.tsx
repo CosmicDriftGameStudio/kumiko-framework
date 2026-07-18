@@ -87,6 +87,12 @@ export type KumikoScreenProps = {
   // createKumikoApp does exactly that; override to open a drawer,
   // inline-expand, etc.
   readonly onRowClick?: (row: ListRowViewModel, entityName: string) => void;
+  // Copy-Link-Action auf entityEdit-Update-Screens (Issue #912). Bereits
+  // vollständig gebunden (URL-Bau + Clipboard) — createKumikoApp/RoutedScreen
+  // liefert die Default-Impl, dieses platform-neutrale Package baut selbst
+  // keine URLs/Clipboard-Calls (guard-renderer-boundaries). Nur in
+  // update-mode sichtbar (entityId muss gesetzt sein).
+  readonly onCopyLink?: () => Promise<void> | void;
 };
 
 // Build the qualified name the registry would stamp on screen ingest:
@@ -112,6 +118,7 @@ export function KumikoScreen({
   translate,
   entityId,
   onRowClick,
+  onCopyLink,
 }: KumikoScreenProps): ReactNode {
   const { Banner, Text } = usePrimitives();
   const screen = useMemo(
@@ -138,6 +145,7 @@ export function KumikoScreen({
           screen={screen}
           translate={translate}
           {...(entityId !== undefined && { entityId })}
+          {...(onCopyLink !== undefined && { onCopyLink })}
         />
       );
     case "entityList":
@@ -306,11 +314,13 @@ function EntityEditScreen({
   screen,
   translate,
   entityId,
+  onCopyLink,
 }: {
   readonly schema: FeatureSchema;
   readonly screen: EntityEditScreenDefinition;
   readonly translate?: Translate;
   readonly entityId?: string;
+  readonly onCopyLink?: () => Promise<void> | void;
 }): ReactNode {
   const { Banner, Text } = usePrimitives();
   const entity = schema.entities[screen.entity];
@@ -333,6 +343,7 @@ function EntityEditScreen({
         entity={entity}
         entityId={entityId}
         {...(translate !== undefined && { translate })}
+        {...(onCopyLink !== undefined && { onCopyLink })}
       />
     );
   }
@@ -402,12 +413,14 @@ function EntityEditUpdateBody({
   entity,
   entityId,
   translate,
+  onCopyLink,
 }: {
   readonly schema: FeatureSchema;
   readonly screen: EntityEditScreenDefinition;
   readonly entity: EntityDefinition;
   readonly entityId: string;
   readonly translate?: Translate;
+  readonly onCopyLink?: () => Promise<void> | void;
 }): ReactNode {
   const { Banner, Text } = usePrimitives();
   const detailQn = `${toKebab(schema.featureName)}:query:${toKebab(screen.entity)}:detail`;
@@ -452,6 +465,7 @@ function EntityEditUpdateBody({
       record={record}
       onReload={detailQuery.refetch}
       {...(translate !== undefined && { translate })}
+      {...(onCopyLink !== undefined && { onCopyLink })}
     />
   );
 }
@@ -464,6 +478,7 @@ function EntityEditUpdateForm({
   record,
   onReload,
   translate,
+  onCopyLink,
 }: {
   readonly schema: FeatureSchema;
   readonly screen: EntityEditScreenDefinition;
@@ -472,6 +487,7 @@ function EntityEditUpdateForm({
   readonly record: Readonly<Record<string, unknown>>;
   readonly onReload: () => Promise<void> | void;
   readonly translate?: Translate;
+  readonly onCopyLink?: () => Promise<void> | void;
 }): ReactNode {
   // Seed the form with the server values for the entity's declared
   // fields; anything else (id, tenant_id, created_at…) stays out of
@@ -547,6 +563,7 @@ function EntityEditUpdateForm({
       onReload={() => void onReload()}
       {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
       {...(translate !== undefined && { translate })}
+      {...(onCopyLink !== undefined && { onCopyLink })}
     />
   );
 }

@@ -455,6 +455,25 @@ function RoutedScreen({
     };
   }, [onRowClick, app.features, nav]);
 
+  // Copy-Link-Action (Issue #912) für entityEdit-Update-Screens. Baut die
+  // absolute Permalink-URL aus der aktuellen Route + kopiert sie —
+  // `navigator`/`window` sind hier erlaubt (renderer-web, kein
+  // platform-neutrales Package). Kein Button ohne entityId (create-mode).
+  // Silent-catch bei Clipboard-Fehler (non-secure context) mirrort das
+  // bestehende Muster in pat-tokens-screen.tsx.
+  const effectiveOnCopyLink = useMemo<(() => Promise<void> | void) | undefined>(() => {
+    const route = nav.route;
+    if (route?.entityId === undefined) return undefined;
+    return async () => {
+      const url = `${window.location.origin}${nav.hrefFor(route)}`;
+      try {
+        await navigator.clipboard.writeText(url);
+      } catch {
+        // clipboard blocked (non-secure context) — no fallback UI needed here
+      }
+    };
+  }, [nav]);
+
   // KumikoScreen will nach wie vor ein single-feature schema. Wir
   // füttern es mit dem owning Feature — es enthält Entity-Defs +
   // Screen-Defs für den aktiven Render-Pfad. Kein Owner gefunden → wir
@@ -474,6 +493,7 @@ function RoutedScreen({
       {...(translate !== undefined && { translate })}
       {...(entityId !== undefined && { entityId })}
       onRowClick={effectiveOnRowClick}
+      {...(effectiveOnCopyLink !== undefined && { onCopyLink: effectiveOnCopyLink })}
     />
   );
 }
