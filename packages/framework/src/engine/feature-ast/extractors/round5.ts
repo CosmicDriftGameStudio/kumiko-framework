@@ -95,7 +95,7 @@ export function extractExposesApi(
   });
 }
 
-export function extractUnmanagedTable(
+export function extractRawTable(
   call: CallExpression,
   sourceFile: SourceFile,
 ): ExtractOutput<never> {
@@ -104,8 +104,8 @@ export function extractUnmanagedTable(
   // so there is nothing to extract statically. A clean ParseError (not
   // UnknownPattern) marks it design-time-unreadable, like entity-by-identifier.
   return fail(
-    "unmanagedTable",
+    "rawTable",
     sourceLocationFromNode(call, sourceFile),
-    "unmanagedTable meta is a factory/identifier argument, not a static literal",
+    "rawTable meta is a factory/identifier argument, not a static literal",
   );
 }

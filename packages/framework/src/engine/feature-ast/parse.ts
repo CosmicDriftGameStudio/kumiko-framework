@@ -51,6 +51,7 @@ import {
   extractOptionalRequires,
   extractProjection,
   extractQueryHandler,
+  extractRawTable,
   extractReadsConfig,
   extractReferenceData,
   extractRelation,
@@ -62,7 +63,6 @@ import {
   extractTranslations,
   extractTreeActions,
   extractUiHints,
-  extractUnmanagedTable,
   extractUseExtension,
   extractUsesApi,
   extractWorkspace,
@@ -468,8 +468,8 @@ function dispatchExtractor(
       return extractUsesApi(call, sourceFile);
     case "exposesApi":
       return extractExposesApi(call, sourceFile);
-    case "unmanagedTable":
-      return extractUnmanagedTable(call, sourceFile);
+    case "rawTable":
+      return extractRawTable(call, sourceFile);
     // Round 6 — Tree-Actions pattern
     case "treeActions":
       return extractTreeActions(call, sourceFile);

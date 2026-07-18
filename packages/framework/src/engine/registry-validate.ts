@@ -223,27 +223,6 @@ export function buildImplicitProjections(
   }
 }
 
-export function validateNoRawTableProjectionClash(state: RegistryState): void {
-  // Cross-cut: a r.rawTable() PgTable must not coincide with any
-  // registered projection's table. Silent dedupe via Set would mask a
-  // real authoring bug (two owners writing to the same physical table).
-  // Run after both passes so implicit projections are visible too.
-  const projectionTables = new Set<unknown>();
-  for (const proj of state.projectionMap.values()) projectionTables.add(proj.table);
-  for (const msp of state.multiStreamProjectionMap.values()) {
-    if (msp.table) projectionTables.add(msp.table);
-  }
-  for (const raw of state.rawTableMap.values()) {
-    if (projectionTables.has(raw.table)) {
-      throw new Error(
-        `r.rawTable "${raw.name}" (feature "${raw.featureName}") shares a Drizzle ` +
-          `PgTable with a registered projection. Pick one owner: r.entity() / ` +
-          `r.projection() for event-sourced reads, r.rawTable() for the bypass.`,
-      );
-    }
-  }
-}
-
 export function buildSearchIncludesAndIncomingRelations(state: RegistryState): void {
   for (const [entityName, rels] of state.relationMap) {
     const includes = new Map<string, readonly string[]>();

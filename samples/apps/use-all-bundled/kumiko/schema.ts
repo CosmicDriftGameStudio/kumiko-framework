@@ -17,7 +17,7 @@ export const FEATURES: readonly FeatureDefinition[] = composeFeatures(APP_FEATUR
   includeBundled: true,
 });
 
-// collectTableMetas erfasst neben entities + unmanagedTables auch
+// collectTableMetas erfasst neben entities auch
 // r.projection/r.multiStreamProjection/r.rawTable-Tabellen — dieselben
 // Quellen wie der setupTestStack-auto-push (#255).
 export const ENTITY_METAS: readonly EntityTableMeta[] = collectTableMetas(FEATURES);

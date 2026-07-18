@@ -32,7 +32,6 @@ import type {
   TranslationKeys,
   TreeActionDef,
   UiHints,
-  UnmanagedTableEntry,
   ValidationHookFn,
   WriteHandlerDef,
 } from "./types";
@@ -88,7 +87,6 @@ export type FeatureBuilderState = {
   multiStreamProjections: Record<string, MultiStreamProjectionDefinition>;
   entityProjectionExtensions: Record<string, EntityProjectionExtension[]>;
   rawTables: Record<string, RawTableEntry>;
-  unmanagedTables: Record<string, UnmanagedTableEntry>;
   authClaimsHooks: AuthClaimsFn[];
   claimKeys: Record<string, ClaimKeyDefinition>;
   screens: Record<string, ScreenDefinition>;
@@ -147,7 +145,6 @@ export function createInitialFeatureBuilderState(): FeatureBuilderState {
     multiStreamProjections: {},
     entityProjectionExtensions: {},
     rawTables: {},
-    unmanagedTables: {},
     authClaimsHooks: [],
     claimKeys: {},
     screens: {},

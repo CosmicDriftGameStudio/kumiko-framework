@@ -1,11 +1,5 @@
 import type { ZodType, z } from "zod";
 import type { EntityTableMeta } from "../../db/entity-table-meta";
-
-// PgTable historically came from drizzle-orm/pg-core; the native dialect
-// no longer carries drizzle internal class types. Every caller really
-// needs "an opaque table-object with Symbol-based introspection".
-type PgTable = unknown;
-
 import type { QueryHandlerDefinition, WriteHandlerDefinition } from "../define-handler";
 import type { RegisterEntityCrudOptions } from "../entity-handlers";
 import type {
@@ -132,6 +126,11 @@ export type SecretKeyHandle = {
 };
 
 // --- Raw tables (declared by features via r.rawTable()) ---
+// Post-drizzle-cut: unified with the former r.unmanagedTable() — both
+// carried the same reason/audit contract, differing only in whether the
+// table value was a legacy Drizzle PgTable (rawTable) or the framework-
+// native EntityTableMeta (unmanagedTable, consumed by migrate-runner).
+// EntityTableMeta was the forward-compatible shape, so rawTable adopted it.
 
 /** Options accepted by `r.rawTable()`. The `reason` is required so the
  *  bypass leaves an audit trail at the registration site — reviewers can
@@ -143,47 +142,29 @@ export type RawTableOptions = {
    *  payload cache, write-only by webhook handler", "denormalised
    *  projection of a non-Kumiko data source". */
   readonly reason: string;
+  /** Direct-write stores skip the executor, so the executor's PII
+   *  encryption never runs for them — a feature whose meta carries
+   *  piiSubjectFields must encrypt those fields itself before every
+   *  insert/update and declare that here, or boot fails (#820). */
+  readonly piiEncryptedOnWrite?: true;
 };
 
-/** Per-feature raw-table registration. Carries the bypass-justification
- *  reason but knows nothing about the owning feature — that's added when
- *  the registry aggregates entries cross-feature into `RawTableDef`. */
+/** Per-feature raw-table registration. `meta` is the `EntityTableMeta`
+ *  (framework-native shape used by `migrate-runner`). Carries the
+ *  bypass-justification reason but knows nothing about the owning
+ *  feature — that's added when the registry aggregates entries
+ *  cross-feature into `RawTableDef`. */
 export type RawTableEntry = {
-  readonly name: string;
-  readonly table: PgTable;
-  readonly reason: string;
-};
-
-/** Registry-aggregated raw-table — the per-feature `RawTableEntry` plus
- *  the owning feature name. This is what `Registry.getAllRawTables()`
- *  exposes to readers (dev-server, ops UIs). */
-export type RawTableDef = RawTableEntry & {
-  readonly featureName: string;
-};
-
-// --- Unmanaged tables (declared by features via r.unmanagedTable()) ---
-
-/** Per-feature unmanaged-table registration. `meta` is the
- *  `EntityTableMeta` (framework-native shape used by `migrate-runner`).
- *  The `reason` justifies the bypass at the registration site — same
- *  contract as `r.rawTable`. */
-export type UnmanagedTableEntry = {
   readonly name: string;
   readonly meta: EntityTableMeta;
   readonly reason: string;
   readonly piiEncryptedOnWrite?: true;
 };
 
-/** Options for r.unmanagedTable(). Direct-write stores skip the executor,
- *  so the executor's PII encryption never runs for them — a feature whose
- *  meta carries piiSubjectFields must encrypt those fields itself before
- *  every insert/update and declare that here, or boot fails (#820). */
-export type UnmanagedTableOptions = RawTableOptions & {
-  readonly piiEncryptedOnWrite?: true;
-};
-
-/** Registry-aggregated unmanaged-table — adds the owning feature name. */
-export type UnmanagedTableDef = UnmanagedTableEntry & {
+/** Registry-aggregated raw-table — the per-feature `RawTableEntry` plus
+ *  the owning feature name. This is what `Registry.getAllRawTables()`
+ *  exposes to readers (dev-server, ops UIs). */
+export type RawTableDef = RawTableEntry & {
   readonly featureName: string;
 };
 
@@ -361,15 +342,12 @@ export type FeatureDefinition = {
   // writeHandlers — Routes leben mit dem Feature, nicht im Bootstrap.
   readonly httpRoutes: Readonly<Record<string, HttpRouteDefinition>>;
   // Raw tables declared via r.rawTable() — bypass the event-sourcing
-  // system. Keyed by feature-local short name. The registry attaches
-  // featureName on aggregation, lifting RawTableEntry → RawTableDef.
+  // system. Keyed by feature-local short name (derived from
+  // meta.tableName). The registry attaches featureName on aggregation,
+  // lifting RawTableEntry → RawTableDef. `kumiko schema generate`
+  // aggregates these alongside r.entity()-derived metas to build the
+  // full schema.
   readonly rawTables: Readonly<Record<string, RawTableEntry>>;
-  // Unmanaged tables declared via r.unmanagedTable() — `EntityTableMeta`
-  // shape (post-drizzle), keyed by feature-local table-name. Cousin of
-  // rawTables: same bypass-justification contract, different storage
-  // shape. `kumiko schema generate` aggregates these alongside
-  // r.entity()-derived metas to build the full schema.
-  readonly unmanagedTables: Readonly<Record<string, UnmanagedTableEntry>>;
   // Optional Zod-schema for env-vars this feature reads at runtime.
   // Declared via `r.envSchema(z.object({...}))`. `composeEnvSchema` reads
   // this to build one app-wide schema for boot-validation + dry-run
@@ -741,34 +719,23 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // bleibt runProdApp.extraRoutes.
   httpRoute(definition: HttpRouteDefinition): void;
 
-  // Declare a raw Drizzle table that bypasses the event-sourcing system.
-  // Reserved for legacy-import, read-only caches, write-only webhook
-  // payload buffers, or any other case where the event-sourced flow
-  // doesn't fit. The dev-server iterates these alongside r.entity()
-  // projections at boot so the table exists before the first query.
-  // Apps still declare the table in `drizzle/schema.ts` so drizzle-kit
-  // tracks migrations and schema-drift detection works automatically.
+  // Declare an "unmanaged" framework-native table that bypasses the
+  // event-sourcing system. Reserved for legacy-import, read-only caches,
+  // write-only webhook payload buffers, or read-side projections of
+  // event-streams (delivery-attempts, job-run-logs) where r.entity()'s
+  // aggregate-lifecycle assumptions don't fit. The dev-server iterates
+  // these alongside r.entity() projections at boot so the table exists
+  // before the first query.
+  //
+  // EntityTableMeta carries the same column-shape that r.entity() builds,
+  // minus the audit-trail + base-columns scaffolding. The `meta` argument
+  // is the result of `defineUnmanagedTable(...)` / `buildEntityTableMeta(...)`
+  // from `@cosmicdrift/kumiko-framework/db`.
   //
   // The required `reason` string is the marker that justifies the bypass —
   // a non-empty string is the contract. If you can't write a reason,
   // declare data via `r.entity()` instead.
-  rawTable(name: string, table: PgTable, options: RawTableOptions): void;
-
-  // Declare an "unmanaged" framework-native table (post-drizzle).
-  // EntityTableMeta carries the same column-shape that r.entity() builds,
-  // minus the audit-trail + base-columns scaffolding — used for read-side
-  // projections of event-streams (delivery-attempts, job-run-logs) where
-  // r.entity()'s aggregate-lifecycle assumptions don't fit.
-  //
-  // The `meta` argument is the result of `defineUnmanagedTable(...)` from
-  // `@cosmicdrift/kumiko-framework/db`. Reason-justification + audit-trail
-  // contract identical to `r.rawTable`.
-  //
-  // Why this exists separate from `r.rawTable`: rawTable carries a Drizzle
-  // `PgTable` (legacy), unmanagedTable carries the new `EntityTableMeta`
-  // shape that `migrate-runner` consumes. After the full drizzle-cut they
-  // will likely merge; for now they coexist.
-  unmanagedTable(meta: EntityTableMeta, options: UnmanagedTableOptions): void;
+  rawTable(meta: EntityTableMeta, options: RawTableOptions): void;
 
   // Register the tree-actions schema for this feature — a map of
   // action-name → action-definition (with optional typed args). At-most-

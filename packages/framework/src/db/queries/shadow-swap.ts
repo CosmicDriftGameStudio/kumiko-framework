@@ -207,7 +207,7 @@ export async function assertNoUnreachableLiveRows(
     `projection-rebuild "${projectionName}": ${countLabel} live rows in "${tableName}" have no ` +
       `event in the projection's source streams and cannot be reconstructed by replay — the swap ` +
       `would silently drop them (ids: ${ids.join(", ")}). A handler direct-inserted these rows ` +
-      `without emitting a .created event. Fix: register the table with r.unmanagedTable(meta, ` +
+      `without emitting a .created event. Fix: register the table with r.rawTable(meta, ` +
       `{ reason }) to opt out of rebuild, or emit the missing events. See ` +
       `docs/reference/entity-write-patterns.md. Rebuild aborted; live table untouched.`,
   );

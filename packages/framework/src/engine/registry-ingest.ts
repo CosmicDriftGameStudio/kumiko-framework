@@ -20,10 +20,10 @@ export function populateFeatureCore(state: RegistryState, feature: FeatureDefini
     state.entityMap.set(name, entity);
     const physical = resolveTableName(name, entity, feature.name);
     const clash = state.physicalTableOwners.get(physical);
-    if (clash?.kind === "unmanaged") {
+    if (clash?.kind === "raw") {
       throw new Error(
         `Entity "${name}" (feature "${feature.name}") has physical table "${physical}" which ` +
-          `collides with r.unmanagedTable("${physical}") (feature "${clash.featureName}"). ` +
+          `collides with r.rawTable("${physical}") (feature "${clash.featureName}"). ` +
           `Pick a different tableName — both would emit CREATE TABLE "${physical}".`,
       );
     }
@@ -301,7 +301,9 @@ export function populateProjectionsAndTables(
   // these bypass the qualified-name namespace because they have no
   // event-stream binding to disambiguate). Reject cross-feature
   // duplicates at boot so the dev-server doesn't race two CREATE TABLE
-  // statements that target the same physical table name.
+  // statements that target the same physical table name. Two features
+  // registering the same physical tableName would also race two CREATE
+  // TABLE statements via migrate-runner.
   for (const [rawName, rawDef] of Object.entries(feature.rawTables ?? {})) {
     const existing = state.rawTableMap.get(rawName);
     if (existing) {
@@ -310,43 +312,29 @@ export function populateProjectionsAndTables(
           `"${feature.name}". Pick a feature-prefixed name to disambiguate.`,
       );
     }
-    state.rawTableMap.set(rawName, { ...rawDef, featureName: feature.name });
-  }
-
-  // Unmanaged tables — same cross-feature uniqueness invariant as rawTables.
-  // Two features registering the same physical tableName would race two
-  // CREATE TABLE statements via migrate-runner.
-  for (const [umName, umDef] of Object.entries(feature.unmanagedTables ?? {})) {
-    const existing = state.unmanagedTableMap.get(umName);
-    if (existing) {
-      throw new Error(
-        `Unmanaged-table "${umName}" registered by both feature "${existing.featureName}" and ` +
-          `"${feature.name}". Pick a feature-prefixed tableName to disambiguate.`,
-      );
-    }
-    const physicalClash = state.physicalTableOwners.get(umName);
+    const physicalClash = state.physicalTableOwners.get(rawName);
     if (physicalClash?.kind === "entity") {
       throw new Error(
-        `Unmanaged-table "${umName}" (feature "${feature.name}") collides with the physical ` +
+        `Raw-table "${rawName}" (feature "${feature.name}") collides with the physical ` +
           `table of entity "${physicalClash.owner}" (feature "${physicalClash.featureName}"). ` +
-          `Pick a different tableName — both would emit CREATE TABLE "${umName}".`,
+          `Pick a different tableName — both would emit CREATE TABLE "${rawName}".`,
       );
     }
-    const piiFields = umDef.meta.piiSubjectFields ?? [];
-    if (piiFields.length > 0 && !umDef.piiEncryptedOnWrite) {
+    const piiFields = rawDef.meta.piiSubjectFields ?? [];
+    if (piiFields.length > 0 && !rawDef.piiEncryptedOnWrite) {
       throw new Error(
-        `Unmanaged-table "${umName}" (feature "${feature.name}") has PII-annotated fields ` +
+        `Raw-table "${rawName}" (feature "${feature.name}") has PII-annotated fields ` +
           `(${piiFields.join(", ")}) but direct writes bypass the executor's PII encryption. ` +
           `Encrypt those fields before every insert/update (encryptPiiFieldValues) and declare ` +
           `{ piiEncryptedOnWrite: true }, or drop the subject annotations.`,
       );
     }
-    state.physicalTableOwners.set(umName, {
-      kind: "unmanaged",
-      owner: umName,
+    state.physicalTableOwners.set(rawName, {
+      kind: "raw",
+      owner: rawName,
       featureName: feature.name,
     });
-    state.unmanagedTableMap.set(umName, { ...umDef, featureName: feature.name });
+    state.rawTableMap.set(rawName, { ...rawDef, featureName: feature.name });
   }
 }
 

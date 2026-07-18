@@ -1,10 +1,10 @@
 ---
 status: reference
-verified: 2026-06-30
-evidence: "kumiko-framework#498 closed; infra#136; framework#523 #525"
+verified: 2026-07-18
+evidence: "kumiko-framework#498 closed; infra#136; framework#523 #525; framework#1127 (rawTable/unmanagedTable merge)"
 ---
 
-# Entity write patterns: `r.entity` vs executor vs `r.unmanagedTable`
+# Entity write patterns: `r.entity` vs executor vs `r.rawTable`
 
 How to register a table and write to it so projection rebuilds do not silently
 wipe live data.
@@ -28,12 +28,11 @@ Real instances: `read_users` GDPR state (#494), `read_user_sessions` mass-logout
 | Pattern | Register with | Writes via | Rebuild |
 |---|---|---|---|
 | **Event-sourced entity** | `r.entity` | `createEventStoreExecutor(table, entity)` (or write handlers that call it) | Safe — replay reconstructs rows |
-| **Direct-write store** | `r.unmanagedTable(meta, { reason })` | `insertOne` / `updateMany` / … on the table | Opted out — table is not a rebuild target |
+| **Direct-write store** | `r.rawTable(meta, { reason })` | `insertOne` / `updateMany` / … on the table | Opted out — table is not a rebuild target |
 | **Event-only projection** | `r.projection({ apply: (event, tx) => … })` | Writes inside `apply` / projection TX | Safe — derived from event stream |
-| **Raw table (legacy)** | `r.rawTable` / bare `pgTable` | Direct SQL / bun-db | Not an implicit projection |
 
 **Default:** if the row is authoritative state that mutates without lifecycle
-events, use **`r.unmanagedTable`** with a stable `reason` string (e.g.
+events, use **`r.rawTable`** with a stable `reason` string (e.g.
 `read_side.user_sessions_direct_write`).
 
 **Use `r.entity` + executor** when the table *is* the projection of an event log
@@ -53,7 +52,7 @@ const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user
 
 ```ts
 // Hot path: sessionCreator + revoke handlers write without lifecycle events.
-r.unmanagedTable(buildEntityTableMeta("user-session", userSessionEntity), {
+r.rawTable(buildEntityTableMeta("user-session", userSessionEntity), {
   reason: "read_side.user_sessions_direct_write",
 });
 ```
@@ -64,7 +63,7 @@ See `packages/bundled-features/src/sessions/feature.ts` and
 ### GDPR forget hook on a direct-write table (`user-data-rights` recipe)
 
 ```ts
-r.unmanagedTable(buildEntityTableMeta("note", noteEntity), {
+r.rawTable(buildEntityTableMeta("note", noteEntity), {
   reason: "read_side.notes_direct_write",
 });
 // forget hook may updateMany/deleteMany without events — rebuild must not replay
@@ -80,7 +79,7 @@ r.unmanagedTable(buildEntityTableMeta("note", noteEntity), {
   `defineApply` or `r.projection({ apply: … })`)
 - Test / testing-helper files (excluded by path)
 
-`r.unmanagedTable` tables are not collected as rebuildable — that is the
+`r.rawTable` tables are not collected as rebuildable — that is the
 intended fix path when the guard fires.
 
 ## Runtime guard (#722)
@@ -93,8 +92,8 @@ projection's source streams. Such a row can never be reconstructed by replay
 (the #498 ghost — direct-inserted without a `.created` event), so the swap would
 silently drop it. The guard aborts instead — the tx rolls back, the live table
 is left untouched, and the error names the ghost ids plus the fix
-(`r.unmanagedTable` or emit the missing events). Implicit entity projections
-only; explicit projections and `r.unmanagedTable` are out of scope.
+(`r.rawTable` or emit the missing events). Implicit entity projections
+only; explicit projections and `r.rawTable` are out of scope.
 
 **Deliberately narrow — event existence, not column values.** The framework
 legitimately makes a live row diverge from a fresh replay in several shipped

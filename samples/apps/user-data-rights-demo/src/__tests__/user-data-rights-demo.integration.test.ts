@@ -287,10 +287,10 @@ describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {
   // rebuildbare implizite Projektion, deren Replay null todo-Events findet und
   // eine leere Shadow-Tabelle drüber swappt → jeder Todo (und un-forget der
   // anonymisierten Rows) wäre beim nächsten Projection-Rebuild weg. Die
-  // r.unmanagedTable-Registrierung hält read_todos AUS dem Rebuild-Set raus —
+  // r.rawTable-Registrierung hält read_todos AUS dem Rebuild-Set raus —
   // hier strukturell gepinnt: ein Revert zu r.entity ließe read_todos als
   // rebuildbare Projektion auftauchen und failte diesen Test.
-  test("#498: read_todos is not a rebuildable projection (r.unmanagedTable guard)", () => {
+  test("#498: read_todos is not a rebuildable projection (r.rawTable guard)", () => {
     expect(stack.registry.getAllProjections().size).toBeGreaterThan(0);
     const rebuildable = [...stack.registry.getAllProjections().values()].some(
       (p) => extractTableName(p.table) === "read_todos",

@@ -1,8 +1,8 @@
 // Single enumeration of every table-bearing registration on a feature
-// (r.projection, r.multiStreamProjection with table, r.rawTable,
-// r.unmanagedTable). Consumed by BOTH the setupTestStack auto-push and
-// collectTableMetas — one list, so test-DB-push and `kumiko schema generate`
-// cannot drift apart again (#255).
+// (r.projection, r.multiStreamProjection with table, r.rawTable).
+// Consumed by BOTH the setupTestStack auto-push and collectTableMetas —
+// one list, so test-DB-push and `kumiko schema generate` cannot drift
+// apart again (#255).
 // A new table-bearing registrar must be added HERE, not in the consumers.
 
 import type { FeatureDefinition } from "../engine/types";
@@ -30,13 +30,7 @@ export function enumerateFeatureTableSources(
     });
   }
   for (const [name, raw] of Object.entries(feature.rawTables)) {
-    sources.push({ table: raw.table, origin: `rawTable "${name}" (${feature.name})` });
-  }
-  for (const entry of Object.values(feature.unmanagedTables)) {
-    sources.push({
-      table: entry.meta,
-      origin: `unmanagedTable "${entry.name}" (${feature.name})`,
-    });
+    sources.push({ table: raw.meta, origin: `rawTable "${name}" (${feature.name})` });
   }
   return sources;
 }
