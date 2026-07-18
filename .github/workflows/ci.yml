@@ -340,13 +340,17 @@ jobs:
         # verification: entrypoint/index.ts went from 3% (unit-only) to
         # 79% merged. continue-on-error: this is a second full test pass,
         # purely for badge data — a transient infra flake here shouldn't
-        # gate anything.
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        # gate anything. !cancelled() (not just the push/main check): a
+        # step with no continue-on-error above (the hard-blocking perf gate)
+        # failing would otherwise skip everything after it by default,
+        # silently starving the badge of integration data (seen after
+        # #1144 — perf-gate flake skipped this step entirely).
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') && !cancelled()
         continue-on-error: true
         run: bun scripts/run-coverage-integration.ts
 
       - name: Upload integration coverage
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') && !cancelled()
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
