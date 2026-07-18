@@ -1,6 +1,18 @@
 // Pure format utilities — no web or platform dependencies.
 // Shared between renderer-web, renderer-native, and server-side tests.
 
+import { Temporal } from "temporal-polyfill";
+
+function toPlainDate(raw: string): Temporal.PlainDate {
+  try {
+    return Temporal.PlainDate.from(raw);
+  } catch {
+    // "date"-typed field stored as a full instant (day-boundary timestamp) —
+    // take the calendar date in the local zone rather than fail.
+    return Temporal.Instant.from(raw).toZonedDateTimeISO(Temporal.Now.timeZoneId()).toPlainDate();
+  }
+}
+
 function formatDateCell(
   value: unknown,
   type: string,
@@ -12,17 +24,22 @@ function formatDateCell(
 ): string {
   try {
     const raw = typeof value === "string" ? value : String(value);
-    const date = new Date(raw);
-    if (Number.isNaN(date.getTime())) return raw;
     const locale = opts?.locale;
     if (opts?.dateStyle || opts?.timeStyle) {
-      return date.toLocaleString(locale, {
+      if (type === "date") {
+        return toPlainDate(raw).toLocaleString(locale, {
+          dateStyle: opts.dateStyle,
+        });
+      }
+      return Temporal.Instant.from(raw).toLocaleString(locale, {
         dateStyle: opts.dateStyle,
         timeStyle: opts.timeStyle,
       });
     }
-    if (type === "date") return date.toLocaleDateString(locale);
-    return date.toLocaleString(locale, {
+    if (type === "date") {
+      return toPlainDate(raw).toLocaleString(locale);
+    }
+    return Temporal.Instant.from(raw).toLocaleString(locale, {
       year: "numeric",
       month: "short",
       day: "numeric",

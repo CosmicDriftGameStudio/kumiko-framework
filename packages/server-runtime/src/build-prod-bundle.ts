@@ -44,6 +44,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { Temporal } from "temporal-polyfill";
 import { canResolveTailwindStylesheet, resolveTailwindCli } from "./resolve-tailwind-cli";
 
 // Bun-Runtime-Check als module-level Konstante: alle Build-Schritte
@@ -188,7 +189,7 @@ export async function buildProdBundle(options: BuildProdBundleOptions = {}): Pro
   //     nicht stale). Bei Bedarf an Server-Versionierung koppeln.
   const buildInfo: BuildInfo | undefined =
     Object.keys(manifest).length > 0
-      ? { id: computeBuildId(manifest), builtAt: new Date().toISOString() }
+      ? { id: computeBuildId(manifest), builtAt: Temporal.Now.instant().toString() }
       : undefined;
 
   // 6. HTML pro Entry rendern. Convention: ein HTML-File pro Client-Entry,
