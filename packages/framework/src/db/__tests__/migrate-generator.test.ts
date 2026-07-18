@@ -95,6 +95,10 @@ describe("renderMigrationSql — managed recreate vs unmanaged in-place", () => 
     expect(sql).toContain('DROP TABLE IF EXISTS "read_secrets";');
     expect(sql).toContain('CREATE TABLE IF NOT EXISTS "read_secrets"');
     expect(sql).not.toContain("ADD COLUMN");
+    expect(sql).toContain(
+      "-- WARN: destructive change (new NOT NULL column(s) without default: envelope) forces DROP+CREATE + full event replay.",
+    );
+    expect(sql).toContain("Consider an Expand/Contract split across two releases");
   });
 
   test("managed: column rename (drop + add NOT NULL) → DROP+CREATE with new shape", () => {
@@ -121,6 +125,7 @@ describe("renderMigrationSql — managed recreate vs unmanaged in-place", () => 
     const sql = renderMigrationSql(diffSnapshots(prev, next), { name: "note", sequenceNumber: 4 });
     expect(sql).toContain('ALTER TABLE "read_a" ADD COLUMN "note"');
     expect(sql).not.toContain("DROP TABLE");
+    expect(sql).not.toContain("WARN: destructive change");
   });
 
   test("unmanaged: NOT NULL column without default → in-place ADD (real data, never recreated)", () => {
@@ -134,5 +139,21 @@ describe("renderMigrationSql — managed recreate vs unmanaged in-place", () => 
     });
     expect(sql).toContain('ALTER TABLE "app_data" ADD COLUMN "envelope"');
     expect(sql).not.toContain("DROP TABLE");
+    expect(sql).not.toContain("WARN: destructive change");
+  });
+
+  test("managed: multiple recreate reasons at once → all named in the warning", () => {
+    const prev = snapshotFromMetas([
+      meta("read_b", { name: "old_col", pgType: "text", notNull: false }, "managed"),
+    ]);
+    const next = snapshotFromMetas([
+      meta("read_b", { name: "envelope", pgType: "jsonb", notNull: true }, "managed"),
+    ]);
+    const sql = renderMigrationSql(diffSnapshots(prev, next), {
+      name: "multi",
+      sequenceNumber: 6,
+    });
+    expect(sql).toContain("dropped column(s): old_col");
+    expect(sql).toContain("new NOT NULL column(s) without default: envelope");
   });
 });
