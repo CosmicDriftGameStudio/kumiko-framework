@@ -28,4 +28,3 @@ export function resolveLoggedInHref(
 ): string {
   return typeof href === "function" ? href({ tenantKey }) : href;
 }
-
