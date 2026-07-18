@@ -19,7 +19,6 @@ import type {
   SearchPayloadContributorFn,
   TreeActionDef,
   TreeActionsHandle,
-  UnmanagedTableOptions,
   ValidationHookFn,
 } from "./types";
 import { HookPhases } from "./types";
@@ -417,19 +416,21 @@ export function buildUiExtensionsMethods<TName extends string>(
       }
       state.httpRoutes[key] = definition;
     },
-    rawTable(rawTableName: string, table: unknown, options: RawTableOptions): void {
-      // Same kebab guard as r.projection / r.screen / r.nav so authoring-time
-      // mistakes surface at the feature file, not deep in registry boot.
-      if (!isKebabSegment(rawTableName)) {
+    rawTable(meta: EntityTableMeta, options: RawTableOptions): void {
+      // Name comes from the meta itself — apps already give the table a
+      // name when calling defineUnmanagedTable, no need to repeat it.
+      const tableName = meta.tableName;
+      if (!isKebabSegment(tableName.replace(/_/g, "-"))) {
+        // EntityTableMeta uses snake_case for tableName (matches Postgres
+        // convention); we just guard against truly broken input.
         throw new Error(
-          `[Feature ${name}] Raw-table name "${rawTableName}" must be kebab-case ` +
-            `(lowercase letters, digits, dashes; start with a letter). ` +
-            `Got "${rawTableName}" — try "${toKebab(rawTableName).replace(/_/g, "-")}".`,
+          `[Feature ${name}] Raw-table name "${tableName}" must be a ` +
+            `valid identifier (lowercase letters, digits, underscores; start with a letter).`,
         );
       }
-      if (state.rawTables[rawTableName]) {
+      if (state.rawTables[tableName]) {
         throw new Error(
-          `[Feature ${name}] r.rawTable("${rawTableName}") already registered. ` +
+          `[Feature ${name}] r.rawTable("${tableName}") already registered. ` +
             `Raw-table names must be unique per feature.`,
         );
       }
@@ -438,43 +439,12 @@ export function buildUiExtensionsMethods<TName extends string>(
       // failure points at the feature file.
       if (typeof options.reason !== "string" || options.reason.trim().length === 0) {
         throw new Error(
-          `[Feature ${name}] r.rawTable("${rawTableName}"): options.reason must be a ` +
-            `non-empty string. The reason is the marker that justifies the bypass — ` +
-            `if you can't write one, declare data via r.entity() instead.`,
-        );
-      }
-      state.rawTables[rawTableName] = {
-        name: rawTableName,
-        table,
-        reason: options.reason,
-      };
-    },
-    unmanagedTable(meta: EntityTableMeta, options: UnmanagedTableOptions): void {
-      // Name comes from the meta itself — apps already give the table a
-      // name when calling defineUnmanagedTable, no need to repeat it.
-      const tableName = meta.tableName;
-      if (!isKebabSegment(tableName.replace(/_/g, "-"))) {
-        // EntityTableMeta uses snake_case for tableName (matches Postgres
-        // convention); we just guard against truly broken input.
-        throw new Error(
-          `[Feature ${name}] Unmanaged-table name "${tableName}" must be a ` +
-            `valid identifier (lowercase letters, digits, underscores; start with a letter).`,
-        );
-      }
-      if (state.unmanagedTables[tableName]) {
-        throw new Error(
-          `[Feature ${name}] r.unmanagedTable("${tableName}") already registered. ` +
-            `Unmanaged-table names must be unique per feature.`,
-        );
-      }
-      if (typeof options.reason !== "string" || options.reason.trim().length === 0) {
-        throw new Error(
-          `[Feature ${name}] r.unmanagedTable("${tableName}"): options.reason must be a ` +
+          `[Feature ${name}] r.rawTable("${tableName}"): options.reason must be a ` +
             `non-empty string. The reason justifies the audit-trail bypass — ` +
             `if you can't write one, declare data via r.entity() instead.`,
         );
       }
-      state.unmanagedTables[tableName] = {
+      state.rawTables[tableName] = {
         name: tableName,
         meta,
         reason: options.reason,

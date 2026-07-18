@@ -92,7 +92,7 @@ any of this applies.
 
 ## Unmanaged tables
 
-`r.unmanagedTable` tables are real, non-derived data — the generator never
+`r.rawTable` tables are real, non-derived data — the generator never
 recreates them, and the standard relational Expand/Contract (`ADD COLUMN`
 nullable → SQL `UPDATE` backfill → `SET NOT NULL`) applies as-is. No event
 concerns.

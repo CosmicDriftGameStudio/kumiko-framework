@@ -34,7 +34,6 @@ import {
   validateFieldAccessHandlersAreEntityMapped,
   validateJobTriggers,
   validateLifecycleHookTargets,
-  validateNoRawTableProjectionClash,
   validateProjectionApplyKeys,
   validateRelationTargetsExist,
   validateRequiredFeatures,
@@ -68,7 +67,6 @@ export function createRegistry(features: readonly FeatureDefinition[]): Registry
   applyExtensionUsages(state);
   buildSearchableSortableCaches(state);
   buildImplicitProjections(state, features);
-  validateNoRawTableProjectionClash(state);
   buildSearchIncludesAndIncomingRelations(state);
   validateFieldAccessHandlersAreEntityMapped(state, features);
   validateExtensionPreSaveWiring(features);

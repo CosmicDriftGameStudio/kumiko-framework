@@ -38,7 +38,6 @@ import type {
   SearchPayloadContributorFn,
   SecretKeyDefinition,
   TreeActionDef,
-  UnmanagedTableDef,
   WorkspaceDefinition,
   WriteHandlerDef,
 } from "./types";
@@ -201,11 +200,7 @@ export type RegistryState = {
   multiStreamProjectionMap: Map<string, MultiStreamProjectionDefinition>;
   multiStreamProjectionFeatureMap: Map<string, string>;
   rawTableMap: Map<string, RawTableDef>;
-  unmanagedTableMap: Map<string, UnmanagedTableDef>;
-  physicalTableOwners: Map<
-    string,
-    { kind: "entity" | "unmanaged"; owner: string; featureName: string }
-  >;
+  physicalTableOwners: Map<string, { kind: "entity" | "raw"; owner: string; featureName: string }>;
   authClaimsHooks: AuthClaimsHookDef[];
   claimKeyMap: Map<string, ClaimKeyDefinition>;
   screenMap: Map<string, ScreenDefinition>;
@@ -266,7 +261,6 @@ export function createInitialState(): RegistryState {
     multiStreamProjectionMap: new Map(),
     multiStreamProjectionFeatureMap: new Map(),
     rawTableMap: new Map(),
-    unmanagedTableMap: new Map(),
     physicalTableOwners: new Map(),
     authClaimsHooks: [],
     claimKeyMap: new Map(),

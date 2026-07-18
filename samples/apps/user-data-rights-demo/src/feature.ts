@@ -59,7 +59,7 @@ export const todoEntity = createEntity({
 });
 
 // Plain EntityTableMeta, NOT a branded EntityTable: read_todos is a deliberate
-// unmanaged direct-write store (r.unmanagedTable below), so the create handler +
+// unmanaged direct-write store (r.rawTable below), so the create handler +
 // forget hook write it directly — the meta carries no executor-only brand.
 export const todosTable = buildEntityTableMeta("todo", todoEntity);
 
@@ -105,9 +105,9 @@ export const todosFeature = defineFeature(FEATURE_NAME, (r) => {
   // events. Registering it as r.entity would make it a rebuildable implicit
   // projection whose replay finds zero todo events and swaps an empty shadow
   // over the live table — wiping every todo (and silently un-forgetting
-  // anonymized rows) on the next projection rebuild (#498). r.unmanagedTable
+  // anonymized rows) on the next projection rebuild (#498). r.rawTable
   // keeps the migration DDL but opts the table out of implicit rebuild.
-  r.unmanagedTable(buildEntityTableMeta("todo", todoEntity), {
+  r.rawTable(buildEntityTableMeta("todo", todoEntity), {
     reason: "read_side.todos_direct_write",
   });
   r.writeHandler(createTodoHandler);

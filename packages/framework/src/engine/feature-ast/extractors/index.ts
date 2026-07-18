@@ -60,7 +60,7 @@ export {
   extractEnvSchema,
   extractExposesApi,
   extractExtendsRegistrar,
-  extractUnmanagedTable,
+  extractRawTable,
   extractUsesApi,
 } from "./round5";
 export { extractTreeActions } from "./round6";

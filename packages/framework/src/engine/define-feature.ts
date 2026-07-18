@@ -156,7 +156,6 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     workspaces: state.workspaces,
     httpRoutes: state.httpRoutes,
     rawTables: state.rawTables,
-    unmanagedTables: state.unmanagedTables,
     ...(state.treeActions !== undefined && { treeActions: state.treeActions }),
     ...(state.envSchema !== undefined && { envSchema: state.envSchema }),
   };

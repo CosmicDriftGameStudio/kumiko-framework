@@ -93,10 +93,10 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
     // r.entity would make it a rebuildable implicit projection whose replay
     // finds zero session events and swaps an empty shadow over the live
     // table — wiping every active session on the next projection rebuild
-    // (#498/#494). r.unmanagedTable keeps the migration DDL but opts the
+    // (#498/#494). r.rawTable keeps the migration DDL but opts the
     // table out of implicit rebuild, like jobs/channel-in-app/feature-toggles
     // which are direct-write stores too.
-    r.unmanagedTable(buildEntityTableMeta("user-session", userSessionEntity), {
+    r.rawTable(buildEntityTableMeta("user-session", userSessionEntity), {
       reason: "read_side.user_sessions_direct_write",
       // sessionCreator encrypts ip/userAgent via encryptForDirectWrite (#820).
       piiEncryptedOnWrite: true,

@@ -76,9 +76,6 @@ export type {
   SecretOptions,
   UiHintOption,
   UiHints,
-  UnmanagedTableDef,
-  UnmanagedTableEntry,
-  UnmanagedTableOptions,
 } from "./feature";
 export type {
   AnyFileFieldDef,
