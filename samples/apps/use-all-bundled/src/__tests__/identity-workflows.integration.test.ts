@@ -3,7 +3,10 @@
 // stays in full-stack-boot.integration.test.ts.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { AuthHandlers, hashPassword } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
+import {
+  AuthHandlers,
+  hashPassword,
+} from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
 import {
   AuthMfaHandlers,
   base32Decode,

@@ -237,7 +237,3 @@ describe("composeStacks intended block names (snapshot, not live parity)", () =>
     expect(names).toContain("auth-mfa");
   });
 });
-
-
-
-

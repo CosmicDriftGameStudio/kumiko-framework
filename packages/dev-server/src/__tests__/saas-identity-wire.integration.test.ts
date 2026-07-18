@@ -46,7 +46,10 @@ import {
   tenantMembershipsTable,
   tenantTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
-import { seedTenant, seedTenantMembership } from "@cosmicdrift/kumiko-bundled-features/tenant/seeding";
+import {
+  seedTenant,
+  seedTenantMembership,
+} from "@cosmicdrift/kumiko-bundled-features/tenant/seeding";
 import { userEntity, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
@@ -65,11 +68,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/testing";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import * as jose from "jose";
-import {
-  composeIdentityStack,
-  composeOpsStack,
-  composeRendererStack,
-} from "../compose-stacks";
+import { composeIdentityStack, composeOpsStack, composeRendererStack } from "../compose-stacks";
 
 const SETUP_TOKEN_SECRET = "wire-mfa-setup-secret-at-least-32-bytes-long!!";
 const CHALLENGE_TOKEN_SECRET = "wire-mfa-challenge-secret-at-least-32-bytes!!";
@@ -415,18 +414,10 @@ describe("saas-identity-wire", () => {
     const mineBody = (await mineRes.json()) as {
       data?: Array<{ id: string }> | { items?: Array<{ id: string }> };
     };
-    const items = Array.isArray(mineBody.data)
-      ? mineBody.data
-      : (mineBody.data?.items ?? []);
+    const items = Array.isArray(mineBody.data) ? mineBody.data : (mineBody.data?.items ?? []);
     expect(items.some((s) => s.id === sid)).toBe(true);
 
     const rows = await selectMany(stack.db, userSessionTable, { userId });
     expect(rows.length).toBeGreaterThanOrEqual(1);
   });
 });
-
-
-
-
-
-
