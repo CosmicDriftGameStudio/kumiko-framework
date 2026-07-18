@@ -87,13 +87,16 @@ jobs:
           ulimit -n 65536 || true
           sh scripts/ci-memlog-run.sh bun kumiko check
 
-      - name: Upload coverage
-        # Tokenless Upload — public Repo, kein CODECOV_TOKEN-Secret nötig.
-        if: always()
-        uses: codecov/codecov-action@v5
+      - name: Upload unit coverage
+        # lcov aus demselben "Run tests"-Lauf oben (kein zweiter Testrun).
+        # Merge mit dem integration-lcov + Badge-Commit passiert im
+        # coverage-badge-Job unten, nachdem beide Jobs fertig sind.
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
         with:
-          files: coverage/unit/lcov.info
-          fail_ci_if_error: false
+          name: coverage-unit
+          path: coverage/unit/lcov.info
+          retention-days: 1
 
       - name: Run isolated DOM screen tests (#457)
         # These render tests corrupt under the shared single-process happy-dom
@@ -327,11 +330,65 @@ jobs:
         continue-on-error: true
         run: bun run test:integration:perf:flaky
 
+      - name: Integration coverage pass
+        # Separater Ein-Schuss-Testlauf (nicht dir-by-dir wie oben) nur für
+        # lcov — bun's coverage-Reporter überschreibt den Output pro
+        # Invocation, dir-by-dir würde sich also selbst überschreiben.
+        # Läuft gegen dieselben Docker-Services, nur main-push (kostet ~einen
+        # weiteren Testdurchlauf, PRs sparen sich das).
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: bun scripts/run-coverage-integration.ts
+
+      - name: Upload integration coverage
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-integration
+          path: coverage/integration/lcov.info
+          retention-days: 1
+
       - name: Stop services
         if: always()
         run: |
           docker rm -f kumiko-ci-pg kumiko-ci-redis kumiko-ci-meili kumiko-ci-minio || true
           docker network rm kumiko-ci || true
+
+  coverage-badge:
+    # Merged unit+integration lcov → .github/badges/coverage.json, gelesen
+    # von der README-Badge via shields.io endpoint (raw.githubusercontent.com).
+    # Kein Codecov-Account/Token nötig. Nur main-push, sonst gäbe es pro PR
+    # einen Badge-Commit auf einem Branch der eh nicht gemerged wird.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [test, integration]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-unit
+          path: coverage/unit
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-integration
+          path: coverage/integration
+
+      - name: Compute + commit badge
+        run: |
+          bun scripts/coverage-badge.ts
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .github/badges/coverage.json
+          git diff --cached --quiet || git commit -m "chore: update coverage badge [skip ci]"
+          git push || (git pull --rebase && git push)
 
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
