@@ -89,6 +89,16 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
           `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" declares { piiEncrypted: true } but has type "${field.type}" — piiEncrypted only applies to text fields.`,
         );
       }
+      // piiEncrypted wiring (kumiko-platform#457): resolveSubjectForField/
+      // collectPiiSubjectFields only ever look at pii/userOwned/tenantOwned
+      // — piiEncrypted alone doesn't pick a subject. Without one of the
+      // three, the field would silently stay plaintext (no encrypt-on-
+      // write happens). Fail at boot like lookupable does, not at first read.
+      if (piiEncryptedFlag.piiEncrypted === true && annotCount === 0) {
+        throw new Error(
+          `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" declares { piiEncrypted: true } without a subject annotation (pii / userOwned / tenantOwned) — piiEncrypted alone doesn't encrypt anything, it only adds the access/masking layer on top of the subject-key encryption.`,
+        );
+      }
 
       // sensitive-Felder liegen seit #967 als Tabellen-Ciphertext im Event-
       // Log — ohne ciphertext-at-rest würde der Append Klartext in die
