@@ -709,6 +709,93 @@ defineFeature("f", (r) => {
       upsertKey: "id",
     });
   });
+
+  test("object form captures entity, data and upsertKey", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.referenceData({
+    entity: "status",
+    data: [{ id: "open" }, { id: "closed" }],
+    upsertKey: "id",
+  });
+});
+`);
+
+    expect(result.errors).toEqual([]);
+    expect(result.patterns[0]).toMatchObject({
+      kind: "referenceData",
+      entityName: "status",
+      data: [{ id: "open" }, { id: "closed" }],
+      upsertKey: "id",
+    });
+  });
+
+  test("accepts an inline { name: '...' } entity ref, both forms", () => {
+    const positional = parseInline(`
+defineFeature("f", (r) => {
+  r.referenceData({ name: "status" }, [{ id: "open" }]);
+});
+`);
+    expect(positional.patterns[0]).toMatchObject({ kind: "referenceData", entityName: "status" });
+
+    const objectForm = parseInline(`
+defineFeature("f", (r) => {
+  r.referenceData({ entity: { name: "status" }, data: [{ id: "open" }] });
+});
+`);
+    expect(objectForm.patterns[0]).toMatchObject({ kind: "referenceData", entityName: "status" });
+  });
+
+  test("emits ParseError when called with no arguments", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.referenceData();
+});
+`);
+
+    expect(result.patterns).toEqual([]);
+    expect(result.errors[0]?.methodName).toBe("referenceData");
+  });
+
+  test("emits ParseError when object form is missing the data property", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.referenceData({ entity: "status" });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("referenceData");
+  });
+
+  test("emits ParseError when object form's data is not an array of plain objects", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.referenceData({ entity: "status", data: "not-an-array" });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("referenceData");
+  });
+
+  test("emits ParseError when the positional data argument is missing", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.referenceData("status");
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("referenceData");
+  });
+
+  test("emits ParseError when positional upsertKey option is not a string", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.referenceData("status", [{ id: "open" }], { upsertKey: 123 });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("referenceData");
+  });
 });
 
 describe("extractUseExtension", () => {
@@ -739,6 +826,89 @@ defineFeature("f", (r) => {
       entityName: "task",
       options: { mode: "verbose" },
     });
+  });
+
+  test("object form captures name, entity ref and options", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.useExtension({ name: "audit", entity: "task", options: { mode: "verbose" } });
+});
+`);
+
+    expect(result.errors).toEqual([]);
+    expect(result.patterns[0]).toMatchObject({
+      kind: "useExtension",
+      extensionName: "audit",
+      entityName: "task",
+      options: { mode: "verbose" },
+    });
+  });
+
+  test("accepts an inline { name: '...' } entity ref, both forms", () => {
+    const positional = parseInline(`
+defineFeature("f", (r) => {
+  r.useExtension("audit", { name: "task" });
+});
+`);
+    expect(positional.patterns[0]).toMatchObject({ kind: "useExtension", entityName: "task" });
+
+    const objectForm = parseInline(`
+defineFeature("f", (r) => {
+  r.useExtension({ name: "audit", entity: { name: "task" } });
+});
+`);
+    expect(objectForm.patterns[0]).toMatchObject({ kind: "useExtension", entityName: "task" });
+  });
+
+  test("emits ParseError when called with no arguments", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.useExtension();
+});
+`);
+
+    expect(result.patterns).toEqual([]);
+    expect(result.errors[0]?.methodName).toBe("useExtension");
+  });
+
+  test("emits ParseError when object form is missing the entity property", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.useExtension({ name: "audit" });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("useExtension");
+  });
+
+  test("emits ParseError when object form's options is not a plain object", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.useExtension({ name: "audit", entity: "task", options: "not-an-object" });
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("useExtension");
+  });
+
+  test("emits ParseError when the positional entity argument is missing", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.useExtension("audit");
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("useExtension");
+  });
+
+  test("emits ParseError when positional options argument is not a plain object", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.useExtension("audit", "task", "not-an-object");
+});
+`);
+
+    expect(result.errors[0]?.methodName).toBe("useExtension");
   });
 });
 
