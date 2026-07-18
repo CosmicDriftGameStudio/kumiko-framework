@@ -87,6 +87,14 @@ jobs:
           ulimit -n 65536 || true
           sh scripts/ci-memlog-run.sh bun kumiko check
 
+      - name: Upload coverage
+        # Tokenless Upload — public Repo, kein CODECOV_TOKEN-Secret nötig.
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage/unit/lcov.info
+          fail_ci_if_error: false
+
       - name: Run isolated DOM screen tests (#457)
         # These render tests corrupt under the shared single-process happy-dom
         # after ~30 prior DOM test files mount/unmount — React event delegation
