@@ -1,5 +1,5 @@
 // Basic Entity Sample
-// Shows: how to wire one event-sourced aggregate end-to-end via r.crud.
+// Shows: how to wire one event-sourced aggregate end-to-end via registerEntityCrud.
 // Custom logic or per-verb access? Skip a verb in `verbs` and register explicitly.
 
 import {
@@ -9,6 +9,7 @@ import {
   defineEntityDeleteHandler,
   defineEntityRestoreHandler,
   defineFeature,
+  registerEntityCrud,
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const taskEntity = createEntity({
@@ -28,7 +29,7 @@ const adminWrite = { access: { roles: ["Admin"] } } as const;
 const openRead = { access: { openToAll: true } } as const;
 
 export const taskFeature = defineFeature("tasks", (r) => {
-  r.crud("task", taskEntity, {
+  registerEntityCrud(r, "task", taskEntity, {
     write: editorWrite,
     read: openRead,
     verbs: { delete: false, restore: false },
