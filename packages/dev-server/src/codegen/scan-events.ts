@@ -93,7 +93,7 @@ export type SchemaSource =
 export type ScanWarning = {
   readonly file: string;
   readonly line: number;
-  readonly reason: string;
+  readonly message: string;
 };
 
 export type ScanResult = {
@@ -224,7 +224,7 @@ function collectFromDefineEvent(
     warnings.push({
       file: filePath,
       line: call.getStartLineNumber(),
-      reason: "r.defineEvent: cannot read event-name + schema statically",
+      message: "r.defineEvent: cannot read event-name + schema statically",
     });
     return;
   }
@@ -241,7 +241,7 @@ function collectFromDefineEvent(
     warnings.push({
       file: filePath,
       line: call.getStartLineNumber(),
-      reason: `r.defineEvent("${parsed.eventName}"): schema "${parsed.schemaNode.getText()}" — not a named import nor an inline z.* call, skipped`,
+      message: `r.defineEvent("${parsed.eventName}"): schema "${parsed.schemaNode.getText()}" — not a named import nor an inline z.* call, skipped`,
     });
     return;
   }
@@ -544,7 +544,7 @@ function dedupe(events: ScannedEvent[], warnings: ScanWarning[]): ScannedEvent[]
       warnings.push({
         file: ev.source.file,
         line: ev.source.line,
-        reason: `duplicate r.defineEvent("${ev.qualifiedName}") — first declared at ${existing.source.file}:${existing.source.line}, ignored here`,
+        message: `duplicate r.defineEvent("${ev.qualifiedName}") — first declared at ${existing.source.file}:${existing.source.line}, ignored here`,
       });
       continue;
     }
