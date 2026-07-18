@@ -359,10 +359,12 @@ jobs:
           docker network rm kumiko-ci || true
 
   coverage-badge:
-    # Merged unit+integration lcov → .github/badges/coverage.json, gelesen
-    # von der README-Badge via shields.io endpoint (raw.githubusercontent.com).
-    # Kein Codecov-Account/Token nötig. Nur main-push, sonst gäbe es pro PR
-    # einen Badge-Commit auf einem Branch der eh nicht gemerged wird.
+    # Merged unit+integration lcov → .github/badges/coverage.json auf einem
+    # eigenen orphan `badges`-Branch (force-push, stateless) — gelesen von der
+    # README-Badge via shields.io endpoint (raw.githubusercontent.com). `main`
+    # ist branch-protected ("changes via PR only"), ein direkter Commit-Push
+    # dorthin schlägt immer fehl (#1132 gezeigt) — der badges-Branch umgeht
+    # das, ohne für einen generierten Badge-Wert einen PR aufzumachen.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [test, integration]
     runs-on: ubuntu-latest
@@ -390,15 +392,21 @@ jobs:
           name: coverage-integration
           path: coverage/integration
 
-      - name: Compute + commit badge
+      - name: Compute badge
+        run: bun scripts/coverage-badge.ts
+
+      - name: Publish to badges branch
         run: |
-          bun scripts/coverage-badge.ts
+          cp .github/badges/coverage.json /tmp/coverage.json
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan badges-tmp
+          git rm -rf . >/dev/null
+          mkdir -p .github/badges
+          cp /tmp/coverage.json .github/badges/coverage.json
           git add .github/badges/coverage.json
-          git diff --cached --quiet || git commit -m "chore: update coverage badge [skip ci]"
-          git push || (git pull --rebase && git push)
-
+          git commit -m "chore: update coverage badge [skip ci]"
+          git push -f origin badges-tmp:badges
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [test, use-all-bundled-smoke]
