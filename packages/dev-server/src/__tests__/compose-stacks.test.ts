@@ -4,6 +4,7 @@ import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-feat
 import {
   composeFileStack,
   composeGdprStack,
+  composeIdentityStack,
   composeMailStack,
   composeOpsStack,
   composePagesStack,
@@ -11,6 +12,12 @@ import {
   composeUserDataRightsStack,
   stackFeatureNames,
 } from "../compose-stacks";
+
+const TEST_MFA = {
+  setupTokenSecret: "compose-stacks-mfa-setup-secret-at-least-32b!!",
+  challengeTokenSecret: "compose-stacks-mfa-challenge-secret-32b!!",
+  issuer: "Kumiko ComposeStacks",
+} as const;
 
 describe("composeStacks", () => {
   test("composeRendererStack → template-resolver, renderer-foundation, renderer-simple", () => {
@@ -77,6 +84,38 @@ describe("composeStacks", () => {
       "rate-limiting",
     ]);
   });
+
+  test("composeIdentityStack defaults sessions only", () => {
+    expect(stackFeatureNames(composeIdentityStack())).toEqual(["sessions"]);
+  });
+
+  test("composeIdentityStack mounts auth-mfa when mfa options given", () => {
+    expect(stackFeatureNames(composeIdentityStack({ mfa: TEST_MFA }))).toEqual([
+      "sessions",
+      "auth-mfa",
+    ]);
+  });
+
+  test("composeIdentityStack sessions:false + mfa → auth-mfa only", () => {
+    expect(stackFeatureNames(composeIdentityStack({ sessions: false, mfa: TEST_MFA }))).toEqual([
+      "auth-mfa",
+    ]);
+  });
+
+  test("composeIdentityStack + composeGdprStack(sessions) → duplicate feature rejected at boot", () => {
+    const names = stackFeatureNames([
+      ...composeIdentityStack(),
+      ...composeGdprStack({ sessions: true }),
+    ]);
+    expect(names.filter((n) => n === "sessions")).toHaveLength(2);
+    expect(() =>
+      validateBoot(
+        composeFeatures([...composeIdentityStack(), ...composeGdprStack({ sessions: true })], {
+          includeBundled: true,
+        }),
+      ),
+    ).toThrow(/duplicate feature/i);
+  });
 });
 
 /** Snapshot, not a live parity check: intended block combinations, mirrored by hand from studio/money-horse/publicstatus run-configs. A drifted run-config stays green here. */
@@ -94,6 +133,25 @@ describe("composeStacks boots for real", () => {
       { includeBundled: true },
     );
     expect(() => validateBoot(features)).not.toThrow();
+  });
+
+  // auth-mfa's encrypted fields need a runtime KEK (env or configureEntityFieldEncryption
+  // + secrets). Name-list + saas-identity-wire.integration.test.ts cover identity boot.
+  test("identity stack names compose with ops + renderer under includeBundled", () => {
+    const features = composeFeatures(
+      [
+        ...composeIdentityStack({ mfa: TEST_MFA }),
+        ...composeOpsStack(),
+        ...composeRendererStack(),
+        ...composeMailStack({ transports: ["inmemory"] }),
+      ],
+      { includeBundled: true },
+    );
+    const names = stackFeatureNames(features);
+    expect(names).toContain("auth-email-password");
+    expect(names).toContain("sessions");
+    expect(names).toContain("auth-mfa");
+    expect(names).toContain("delivery");
   });
 });
 
@@ -171,5 +229,11 @@ describe("composeStacks intended block names (snapshot, not live parity)", () =>
     ]) {
       expect(names).toContain(expected);
     }
+  });
+
+  test("identity stack covers sessions + auth-mfa", () => {
+    const names = stackFeatureNames(composeIdentityStack({ mfa: TEST_MFA }));
+    expect(names).toContain("sessions");
+    expect(names).toContain("auth-mfa");
   });
 });

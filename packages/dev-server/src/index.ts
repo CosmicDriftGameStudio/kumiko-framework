@@ -32,6 +32,7 @@ export {
 export {
   composeFileStack,
   composeGdprStack,
+  composeIdentityStack,
   composeMailStack,
   composeOpsStack,
   composePagesStack,
@@ -41,6 +42,7 @@ export {
   type FileStackOptions,
   type GdprStackOptions,
   type GdprStackOrder,
+  type IdentityStackOptions,
   type MailStackOptions,
   type MailTransportKind,
   type OpsStackOptions,
