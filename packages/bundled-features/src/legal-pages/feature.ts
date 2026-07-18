@@ -50,7 +50,7 @@ export type LegalPagesWrapLayout = (opts: {
   readonly title: string;
   readonly bodyHtml: string;
   readonly lang: string;
-  readonly slug?: "imprint" | "privacy" | "terms";
+  readonly slug?: (typeof LEGAL_ROUTES)[number]["slug"];
 }) => string;
 
 export type LegalPagesOptions = {

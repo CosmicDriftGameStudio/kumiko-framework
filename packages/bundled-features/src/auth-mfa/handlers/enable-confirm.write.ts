@@ -7,7 +7,7 @@ import { base32Decode } from "../base32";
 import { findUserMfaRow } from "../db/queries";
 import { invalidSetupToken, invalidTotpCode, mfaAlreadyEnabled } from "../errors";
 import { verifyMfaSetupToken } from "../mfa-setup-token";
-import { userMfaEntity, userMfaTable } from "../schema/user-mfa";
+import { encodeRecoveryCodes, userMfaEntity, userMfaTable } from "../schema/user-mfa";
 import { verifyTotp } from "../totp";
 
 export type EnableConfirmOptions = {
@@ -73,7 +73,7 @@ export function createEnableConfirmHandler(opts: EnableConfirmOptions) {
           totpSecret: verify.payload.totpSecretBase32,
           // Stored as a JSON string — see schema/user-mfa.ts (recoveryCodes
           // is an encrypted+userOwned text field, both layers need a string).
-          recoveryCodes: JSON.stringify({ hashes: verify.payload.recoveryCodeHashes }),
+          recoveryCodes: encodeRecoveryCodes(verify.payload.recoveryCodeHashes),
           enabledAt: Temporal.Now.instant(),
           lastUsedAt: null,
         },

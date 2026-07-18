@@ -33,7 +33,9 @@ beforeAll(async () => {
   // Fail loud with an actionable message when Minio is down (otherwise
   // S3 networking errors look like provider bugs).
   try {
-    const health = await fetch(`${endpoint.replace(/\/$/, "")}/minio/health/live`);
+    const health = await fetch(`${endpoint.replace(/\/$/, "")}/minio/health/live`, {
+      signal: AbortSignal.timeout(2000),
+    });
     if (!health.ok) {
       throw new Error(`HTTP ${health.status}`);
     }

@@ -2,6 +2,7 @@ import { createInitialFeatureBuilderState } from "./feature-builder-state";
 import { buildConfigEventsJobsMethods } from "./feature-config-events-jobs";
 import { buildEntityHandlerMethods } from "./feature-entity-handlers";
 import { buildUiExtensionsMethods } from "./feature-ui-extensions";
+import { unwrapArrayForm } from "./object-form";
 import type { FeatureDefinition, FeatureRegistrar, HookMap, UiHints } from "./types";
 import type { RequiresApi } from "./types/feature";
 
@@ -25,11 +26,7 @@ import type { RequiresApi } from "./types/feature";
 function resolveFeatureNamesArgs(
   args: readonly [{ readonly features: readonly string[] }] | readonly string[],
 ): readonly string[] {
-  const [first] = args;
-  if (typeof first === "object" && first !== null && "features" in first) {
-    return first.features;
-  }
-  return args as readonly string[];
+  return unwrapArrayForm(args, "features");
 }
 
 export function defineFeature<const TName extends string, TExports = undefined>(

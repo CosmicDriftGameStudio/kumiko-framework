@@ -149,7 +149,10 @@ export function populateTranslations(state: RegistryState, feature: FeatureDefin
   // Translations prefixed with featureName: (i18next namespace convention).
   // Keys that already carry the feature's own namespace prefix (e.g. a nav
   // label referencing "cap-counter:nav.cap-list" verbatim) must NOT be
-  // re-prefixed, else server-side t() can never resolve them (#1105).
+  // re-prefixed, else server-side t() can never resolve them (#1105). Both
+  // bare and qualified spellings for the same key are accepted; if a
+  // feature defines both, whichever is declared last wins (Object.entries
+  // = insertion order, not "qualified always wins").
   const prefix = `${feature.name}:`;
   for (const [key, value] of Object.entries(feature.translations ?? {})) {
     const qualifiedKey = key.startsWith(prefix) ? key : `${prefix}${key}`;

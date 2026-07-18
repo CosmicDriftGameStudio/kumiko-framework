@@ -169,7 +169,7 @@ describe("buildFewShotCorpus — warnings", () => {
 
     expect(corpus.entries).toHaveLength(1);
     expect(corpus.warnings).toHaveLength(1);
-    expect(corpus.warnings[0]?.reason).toMatch(/^duplicate-id:/);
+    expect(corpus.warnings[0]?.message).toMatch(/^duplicate-id:/);
   });
 
   test("parser-throw surfaces as a warning instead of silent skip", () => {

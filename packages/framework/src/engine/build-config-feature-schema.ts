@@ -260,9 +260,6 @@ function deriveField(def: ConfigKeyDefinition): FieldDefinition {
 function collectMaskedKeys(registry: Registry): MaskedKey[] {
   const out: MaskedKey[] = [];
   for (const [qn, def] of registry.getAllConfigKeys()) {
-    // computed keys derive their value — there is no row to set, so a
-    // configEdit screen could not write them. Skip even when masked.
-    if (def.mask === undefined || def.computed !== undefined) continue;
     const sep = qn.indexOf(":config:");
     if (sep === -1) continue;
     const ownerFeature = qn.slice(0, sep);
@@ -271,6 +268,9 @@ function collectMaskedKeys(registry: Registry): MaskedKey[] {
         `[Feature ${ownerFeature}] config key "${qn.slice(sep + ":config:".length)}" has invalid group "${def.group}" — must be kebab-case.`,
       );
     }
+    // computed keys derive their value — there is no row to set, so a
+    // configEdit screen could not write them. Skip even when masked.
+    if (def.mask === undefined || def.computed !== undefined) continue;
     out.push({
       qn,
       feature: def.group ?? ownerFeature,

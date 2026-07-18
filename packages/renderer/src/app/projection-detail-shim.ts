@@ -26,9 +26,11 @@ import type {
   EntityEditScreenDefinition,
   ProjectionDetailScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { isExtensionEditSection, normalizeEditField } from "@cosmicdrift/kumiko-framework/ui-types";
-
-const PROJECTION_DETAIL_PSEUDO_ENTITY = "__projection-detail__";
+import {
+  isExtensionEditSection,
+  normalizeEditField,
+  PROJECTION_DETAIL_ENTITY as PROJECTION_DETAIL_PSEUDO_ENTITY,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 
 /** Minimale EntityDefinition aus den Layout-Feldern: jedes Feld ein Text-
  *  Feld — computeEditViewModel liest nur `fields[<f>].type`, Text reicht für

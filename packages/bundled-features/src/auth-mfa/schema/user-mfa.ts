@@ -48,3 +48,13 @@ export const userMfaEntity = createEntity({
 });
 
 export const userMfaTable = buildEntityTable("user-mfa", userMfaEntity);
+
+// Both encryption layers on `recoveryCodes` (entity-field envelope +
+// per-subject crypto-shred) require a string value — every writer
+// stringifies the same `{ hashes }` shape, so it lives here once instead
+// of at each of the three write handlers. Matching read-side helper is
+// `parseJsonOrThrow` in db/queries.ts (parses the full row, not just this
+// field, so it isn't a symmetric pair of this one function).
+export function encodeRecoveryCodes(hashes: readonly string[]): string {
+  return JSON.stringify({ hashes });
+}

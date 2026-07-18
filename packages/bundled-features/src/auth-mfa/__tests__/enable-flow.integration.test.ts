@@ -230,4 +230,93 @@ describe("enable-confirm burns the setup token on first success", () => {
     );
     expectErrorIncludes(second, "invalid_setup_token");
   });
+
+  test("a fresh setup token confirmed while already enabled is rejected as mfa_already_enabled", async () => {
+    const user = createTestUser({ id: "already-enabled-fresh-token-1", roles: ["User"] });
+
+    const firstStart = await stack.http.writeOk<{ setupToken: string; otpauthUri: string }>(
+      AuthMfaHandlers.enableStart,
+      { accountLabel: "already-enabled@example.com" },
+      user,
+    );
+    // Requested before the first confirm — enable-start itself rejects with
+    // mfa_already_enabled once a row exists, so a fresh token can only be
+    // minted while the user is still unenrolled. Its expiresAtMs differs
+    // from firstStart's, so burnToken() (keyed on purpose+userId+expiresAtMs)
+    // treats it as fresh rather than a replay when confirmed below — the
+    // only way this confirm reaches findUserMfaRow's existing-row check
+    // (the sole path to mfaAlreadyEnabled()) instead of invalid_setup_token.
+    const secondStart = await stack.http.writeOk<{ setupToken: string; otpauthUri: string }>(
+      AuthMfaHandlers.enableStart,
+      { accountLabel: "already-enabled@example.com" },
+      user,
+    );
+    const firstSecret =
+      new URLSearchParams(firstStart.otpauthUri.split("?")[1]).get("secret") ?? "";
+    await stack.http.writeOk(
+      AuthMfaHandlers.enableConfirm,
+      { setupToken: firstStart.setupToken, code: currentTotpCode(base32Decode(firstSecret)) },
+      user,
+    );
+
+    const secondSecret =
+      new URLSearchParams(secondStart.otpauthUri.split("?")[1]).get("secret") ?? "";
+    const second = await stack.http.writeErr(
+      AuthMfaHandlers.enableConfirm,
+      { setupToken: secondStart.setupToken, code: currentTotpCode(base32Decode(secondSecret)) },
+      user,
+    );
+    expectErrorIncludes(second, "mfa_already_enabled");
+  });
+
+  // Not part of the mfa_already_enabled coverage above — this documents a
+  // separate, already-tracked gap: when both enable-confirms are truly
+  // concurrent, findUserMfaRow's existing-row check can't see the other
+  // request's uncommitted row, so the DB's userId+tenantId unique index
+  // rejects the loser with a raw `unique_violation` instead of the
+  // friendly mfaAlreadyEnabled() error. No duplicate row is ever created
+  // (the invariant this test asserts), but the error surfaced to the
+  // client leaks a DB-internal code. Same class of gap as pr-review
+  // kumiko-framework#952 idx2 (needs-framework-savepoint-primitive) —
+  // tracked there, not fixed here.
+  test("two concurrent enable-confirms for the same user never create two rows, 20x", async () => {
+    for (let i = 0; i < 20; i++) {
+      const user = createTestUser({ id: `concurrent-enable-${i}`, roles: ["User"] });
+
+      const [startA, startB] = await Promise.all([
+        stack.http.writeOk<{ setupToken: string; otpauthUri: string }>(
+          AuthMfaHandlers.enableStart,
+          { accountLabel: `concurrent-${i}@example.com` },
+          user,
+        ),
+        stack.http.writeOk<{ setupToken: string; otpauthUri: string }>(
+          AuthMfaHandlers.enableStart,
+          { accountLabel: `concurrent-${i}@example.com` },
+          user,
+        ),
+      ]);
+      const secretA = new URLSearchParams(startA.otpauthUri.split("?")[1]).get("secret") ?? "";
+      const secretB = new URLSearchParams(startB.otpauthUri.split("?")[1]).get("secret") ?? "";
+
+      const [resA, resB] = await Promise.all([
+        stack.http.write(
+          AuthMfaHandlers.enableConfirm,
+          { setupToken: startA.setupToken, code: currentTotpCode(base32Decode(secretA)) },
+          user,
+        ),
+        stack.http.write(
+          AuthMfaHandlers.enableConfirm,
+          { setupToken: startB.setupToken, code: currentTotpCode(base32Decode(secretB)) },
+          user,
+        ),
+      ]);
+      const bodies = (await Promise.all([resA.json(), resB.json()])) as Array<{
+        isSuccess?: boolean;
+        error?: { code?: string };
+      }>;
+
+      expect(bodies.filter((b) => b.isSuccess === true).length).toBe(1);
+      expect(bodies.filter((b) => b.isSuccess !== true).length).toBe(1);
+    }
+  });
 });

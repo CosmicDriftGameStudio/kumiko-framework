@@ -3,12 +3,16 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { SignupScreen } from "../signup-screen";
 import { renderWithProviders } from "./test-utils";
 
+const realFetch = globalThis.fetch;
+
 beforeEach(() => {
   globalThis.fetch = mock(
     async () => new Response(null, { status: 200 }),
   ) as unknown as typeof fetch;
 });
-afterEach(() => {});
+afterEach(() => {
+  globalThis.fetch = realFetch;
+});
 
 function fillEmail(value: string): void {
   fireEvent.change(document.getElementById("signup-email") as HTMLInputElement, {

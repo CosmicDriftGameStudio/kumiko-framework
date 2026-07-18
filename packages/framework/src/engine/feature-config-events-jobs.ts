@@ -1,6 +1,6 @@
 import { ZodObject, type ZodType, type z } from "zod";
 import type { FeatureBuilderState } from "./feature-builder-state";
-import { splitNamedDefinition } from "./object-form";
+import { splitNamedDefinition, unwrapArrayForm } from "./object-form";
 import { QnTypes, qn, toKebab } from "./qualified-name";
 import type {
   AuthClaimsFn,
@@ -272,10 +272,7 @@ export function buildConfigEventsJobsMethods<TName extends string>(
     readsConfig(
       ...args: readonly [{ readonly keys: readonly string[] }] | readonly string[]
     ): void {
-      const [first] = args;
-      const qualifiedKeys =
-        typeof first === "object" && first !== null ? first.keys : (args as readonly string[]);
-      state.configReads.push(...qualifiedKeys);
+      state.configReads.push(...unwrapArrayForm(args, "keys"));
     },
     metric(
       shortNameOrDefinition: string | ({ readonly name: string } & MetricOptions),

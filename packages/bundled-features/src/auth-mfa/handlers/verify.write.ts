@@ -18,7 +18,7 @@ import {
   getMfaVerifyLockoutState,
   recordFailedMfaVerifyAttempt,
 } from "../mfa-verify-attempts";
-import { userMfaEntity, userMfaTable } from "../schema/user-mfa";
+import { encodeRecoveryCodes, userMfaEntity, userMfaTable } from "../schema/user-mfa";
 import { verifyMfaFactor } from "../verify-factor";
 
 export type MfaVerifyOptions = {
@@ -113,7 +113,7 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
           {
             id: row.id,
             version: row.version,
-            changes: { recoveryCodes: JSON.stringify({ hashes: verify.remainingHashes }) },
+            changes: { recoveryCodes: encodeRecoveryCodes(verify.remainingHashes) },
           },
           scopedUser,
           scopedDb,
