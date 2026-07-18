@@ -886,6 +886,25 @@ describe("runProdApp job-lane wiring (runSingleInstance)", () => {
     };
     await expect(boot(undefined, { kms: unhealthyKms })).rejects.toThrow(/KMS health check failed/);
   });
+
+  test("rateLimit flows from runProdApp through entrypoint into the L1/L2 middleware (#1101)", async () => {
+    const handle = await boot(undefined, {
+      rateLimit: { global: { limit: 1, windowSeconds: 60 } },
+      anonymousAccess: { defaultTenantId: TENANT_ID },
+    });
+
+    const fetchOnce = () =>
+      handle.entrypoint.app.fetch(
+        new Request("http://test/api/query", {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-forwarded-for": "203.0.113.9" },
+          body: JSON.stringify({ type: "prod-probe:query:ping", payload: {} }),
+        }),
+      );
+
+    expect((await fetchOnce()).status).toBe(200);
+    expect((await fetchOnce()).status).toBe(429);
+  });
 });
 
 describe("hard PII boot gate (#818 step 2)", () => {
