@@ -54,6 +54,10 @@ export type NavDefinition = {
   // Role / openToAll gate. The nav resolver hides entries the user can't
   // reach; leave unset to always show (engine stays un-opinionated about
   // who sees what — apps that need default-deny can set { roles: [] }).
+  // If `screen` is set and `access` is left unset, the client-side nav
+  // builder (buildNavRegistrySliceForApp) fills this in from the target
+  // screen's own `access` — a nav entry never invites a role into a 403.
+  // An explicit `access` here always wins over the screen's.
   readonly access?: AccessRule;
   // Workspace QNs this entry self-assigns to. Merged at boot with any
   // r.workspace({ nav: [...] }) explicit lists. Omit to leave workspace
