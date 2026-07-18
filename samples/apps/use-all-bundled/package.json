@@ -9,6 +9,7 @@
     "boot:bundled": "KUMIKO_DRY_RUN_ENV=boot bun dist-server/server.js",
     "dev": "PORT=4186 bun --env-file=../../../.env run src/app/server.ts",
     "screenshots": "bun x playwright test e2e/screenshots.spec.ts --config=playwright.config.ts",
+    "e2e": "bun x playwright test e2e/mfa-login.spec.ts --config=playwright.config.ts",
     "gen:manifest": "bun run scripts/gen-feature-manifest.ts",
     "gen:sample-index": "bun run scripts/gen-sample-index.ts"
   },

@@ -77,7 +77,8 @@ const APP_TRANSLATIONS: TranslationsByLocale = {
 
 const appScreens: ClientFeatureDefinition = {
   name: "app-screens",
-  components: { profile: ProfileScreen },
+  // Must match screens-feature `__component: "UserProfileScreen"` (not screen id).
+  components: { UserProfileScreen: ProfileScreen },
   translations: APP_TRANSLATIONS,
 };
 
