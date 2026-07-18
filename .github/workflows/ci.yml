@@ -370,8 +370,13 @@ jobs:
     # needs: integration nur für die Artifact-Reihenfolge — der `if` verlangt
     # NICHT dessen Erfolg: der echte dir-by-dir-Integrationslauf flakt
     # gelegentlich (Redis/DB-Races), unabhängig von diesem Badge-Job. Ein
-    # Integration-Flake soll die Badge nicht verhindern.
-    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.test.result == 'success'
+    # Integration-Flake soll die Badge nicht verhindern. ABER: bei schnell
+    # aufeinanderfolgenden main-Pushes killt cancel-in-progress den noch
+    # laufenden integration-Job eines älteren Runs (~5min) — der Badge-Job
+    # lief dann trotzdem (needs nur "completed", nicht "success") und
+    # überschrieb den echten Wert mit Unit-only-Daten. needs.integration.result
+    # != 'cancelled' verhindert genau das (gesehen nach #1141/#1143).
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.test.result == 'success' && needs.integration.result != 'cancelled'
     needs: [test, integration]
     runs-on: ubuntu-latest
     timeout-minutes: 5
