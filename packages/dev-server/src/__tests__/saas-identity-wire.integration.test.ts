@@ -17,6 +17,7 @@ import {
   base32Decode,
   bindMfaRevokeAllOtherSessionsFromFeature,
   userMfaEntity,
+  userMfaTable,
 } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { currentTotpCode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/testing";
 import {
@@ -423,6 +424,7 @@ describe("saas-identity-wire", () => {
     expect(rows.length).toBeGreaterThanOrEqual(1);
   });
 });
+
 
 
 
