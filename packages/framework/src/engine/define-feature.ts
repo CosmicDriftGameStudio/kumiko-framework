@@ -86,7 +86,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       }
       state.uiHints = hints;
     },
-    ...buildEntityHandlerMethods(state, name, () => registrar),
+    ...buildEntityHandlerMethods(state, name),
     ...buildConfigEventsJobsMethods(state, name),
     ...buildUiExtensionsMethods(state, name),
   };

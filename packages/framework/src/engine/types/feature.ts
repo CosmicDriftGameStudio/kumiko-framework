@@ -7,7 +7,6 @@ import type { EntityTableMeta } from "../../db/entity-table-meta";
 type PgTable = unknown;
 
 import type { QueryHandlerDefinition, WriteHandlerDefinition } from "../define-handler";
-import type { RegisterEntityCrudOptions } from "../entity-handlers";
 import type {
   ConfigKeyDefinition,
   ConfigKeyHandle,
@@ -438,11 +437,6 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     options?: { readonly table?: unknown },
   ): EntityRef;
   entity(definition: { readonly name: string } & EntityDefinition): EntityRef;
-
-  // One-call CRUD for an event-sourced entity — delegates to registerEntityCrud():
-  // r.entity + create/update/delete/restore/list/detail handlers per verb flag.
-  // Access stays explicit — no openToAll default.
-  crud(name: string, definition: EntityDefinition, options?: RegisterEntityCrudOptions): EntityRef;
 
   writeHandler<TName extends string, TSchema extends ZodType>(
     def: WriteHandlerDefinition<TName, TSchema>,

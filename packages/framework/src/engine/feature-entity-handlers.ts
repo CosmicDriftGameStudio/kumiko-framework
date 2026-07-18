@@ -1,14 +1,12 @@
 import type { ZodType, z } from "zod";
 import { toTableName } from "../db/table-builder";
 import type { QueryHandlerDefinition, WriteHandlerDefinition } from "./define-handler";
-import { type RegisterEntityCrudOptions, registerEntityCrud } from "./entity-handlers";
 import type { FeatureBuilderState } from "./feature-builder-state";
 import { splitNamedDefinition } from "./object-form";
 import type {
   AccessRule,
   EntityDefinition,
   EntityRef,
-  FeatureRegistrar,
   HandlerRef,
   NameOrRef,
   QueryHandlerFn,
@@ -47,14 +45,11 @@ function tryMapEntity(state: FeatureBuilderState, name: string, handlerName: str
   }
 }
 
-// Builds entity/crud/relation/writeHandler/queryHandler — the registrar
-// methods that create or reference entities. `crud` needs the fully-built
-// registrar (self-reference into registerEntityCrud); getRegistrar is a lazy
-// thunk since the registrar object doesn't exist yet while this is composed.
+// Builds entity/relation/writeHandler/queryHandler — the registrar
+// methods that create or reference entities.
 export function buildEntityHandlerMethods<TName extends string>(
   state: FeatureBuilderState,
   name: TName,
-  getRegistrar: () => FeatureRegistrar<TName>,
 ) {
   return {
     entity(
@@ -69,14 +64,6 @@ export function buildEntityHandlerMethods<TName extends string>(
       state.entities[entityName] = entityDefinition;
       if (options?.table !== undefined) state.entityTables[entityName] = options.table;
       return { name: entityName, table: entityDefinition.table ?? toTableName(entityName) };
-    },
-    crud(
-      entityName: string,
-      definition: EntityDefinition,
-      options?: RegisterEntityCrudOptions,
-    ): EntityRef {
-      registerEntityCrud(getRegistrar(), entityName, definition, options);
-      return { name: entityName, table: definition.table ?? toTableName(entityName) };
     },
     relation(
       entityRefOrDefinition:
