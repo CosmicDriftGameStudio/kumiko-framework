@@ -11,7 +11,12 @@
 // auf/zu. State lebt lokal im NavTree (useState); Default expanded
 // für alles, Caller kann später localStorage-Persistenz drüberlegen.
 
-import type { TargetRef, TreeAction, TreeNode } from "@cosmicdrift/kumiko-framework/engine";
+import type {
+  AccessRule,
+  TargetRef,
+  TreeAction,
+  TreeNode,
+} from "@cosmicdrift/kumiko-framework/engine";
 import type { NavDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { NavNode, NavRegistrySlice } from "@cosmicdrift/kumiko-headless";
 import { resolveNavigation } from "@cosmicdrift/kumiko-headless";
@@ -816,14 +821,24 @@ export function buildNavRegistrySliceForApp(
   app: AppSchema,
   allowedNavQns?: ReadonlySet<string>,
 ): NavRegistrySlice {
+  const screenAccessByQn = buildScreenAccessMap(app);
   const qualified: NavDefinition[] = [];
   for (const feature of app.features) {
     for (const n of feature.navs ?? []) {
+      const screen =
+        n.screen !== undefined ? qualifyScreenId(feature.featureName, n.screen) : undefined;
+      // Nav entries without their own `access` inherit the referenced
+      // screen's access rule — otherwise a broader workspace/parent access
+      // lets a role see a nav entry whose target screen 403s them (#1099).
+      // An explicit `n.access` always wins; inheritance only fills the gap.
+      const inheritedAccess =
+        n.access ?? (screen !== undefined ? screenAccessByQn.get(screen) : undefined);
       qualified.push({
         ...n,
         id: qualifyNavId(feature.featureName, n.id),
         ...(n.parent !== undefined && { parent: qualifyNavId(feature.featureName, n.parent) }),
-        ...(n.screen !== undefined && { screen: qualifyScreenId(feature.featureName, n.screen) }),
+        ...(screen !== undefined && { screen }),
+        ...(inheritedAccess !== undefined && { access: inheritedAccess }),
       });
     }
   }
@@ -861,6 +876,16 @@ function qualifyNavId(feature: string, id: string): string {
 
 function qualifyScreenId(feature: string, id: string): string {
   return id.includes(":screen:") ? id : `${feature}:screen:${id}`;
+}
+
+function buildScreenAccessMap(app: AppSchema): Map<string, AccessRule | undefined> {
+  const map = new Map<string, AccessRule | undefined>();
+  for (const feature of app.features) {
+    for (const s of feature.screens) {
+      map.set(qualifyScreenId(feature.featureName, s.id), s.access);
+    }
+  }
+  return map;
 }
 
 // `lastSegment` lebt jetzt in @cosmicdrift/kumiko-renderer (./app/qn) — eine
