@@ -147,9 +147,14 @@ export function populateEvents(state: RegistryState, feature: FeatureDefinition)
 
 // Translations prefixed with featureName: (i18next namespace convention).
 export function populateTranslations(state: RegistryState, feature: FeatureDefinition): void {
-  // Translations prefixed with featureName: (i18next namespace convention)
+  // Translations prefixed with featureName: (i18next namespace convention).
+  // Keys that already carry the feature's own namespace prefix (e.g. a nav
+  // label referencing "cap-counter:nav.cap-list" verbatim) must NOT be
+  // re-prefixed, else server-side t() can never resolve them (#1105).
+  const prefix = `${feature.name}:`;
   for (const [key, value] of Object.entries(feature.translations ?? {})) {
-    state.mergedTranslations[`${feature.name}:${key}`] = value;
+    const qualifiedKey = key.startsWith(prefix) ? key : `${prefix}${key}`;
+    state.mergedTranslations[qualifiedKey] = value;
   }
 }
 

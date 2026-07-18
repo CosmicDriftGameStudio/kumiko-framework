@@ -439,6 +439,22 @@ describe("createRegistry", () => {
     expect(all["profile:nav.title"]).toEqual({ de: "Profil", en: "Profile" });
   });
 
+  // #1105: a feature that already qualifies its own translation keys (nav
+  // labels referencing "featureName:..." verbatim, see cap-counter) must not
+  // be double-prefixed — else server-side t() can never resolve them.
+  test("does not double-prefix translation keys that already carry the feature's own namespace", () => {
+    const f = defineFeature("cap-counter", (r) => {
+      r.translations({
+        keys: { "cap-counter:nav.cap-list": { de: "Limits", en: "Caps" } },
+      });
+    });
+
+    const registry = createRegistry([f]);
+    const all = registry.getAllTranslations();
+    expect(all["cap-counter:nav.cap-list"]).toEqual({ de: "Limits", en: "Caps" });
+    expect(all["cap-counter:cap-counter:nav.cap-list"]).toBeUndefined();
+  });
+
   test("throws when write handler is not entity-mapped in feature with field-access", () => {
     const feature = defineFeature("hr", (r) => {
       r.entity(
