@@ -10,7 +10,6 @@
 import { useDispatcher, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
 import { AuthMfaHandlers } from "../constants";
-import { mfaManageErrorKey } from "./mfa-error-keys";
 
 export type MfaRegenerateRecoveryDialogProps = {
   readonly open: boolean;
@@ -37,7 +36,7 @@ export function MfaRegenerateRecoveryDialog({
     );
     setCode("");
     if (!res.isSuccess) {
-      onError(mfaManageErrorKey(res.error.code));
+      onError(res.error.i18nKey);
       return;
     }
     onRegenerated(res.data.recoveryCodes);

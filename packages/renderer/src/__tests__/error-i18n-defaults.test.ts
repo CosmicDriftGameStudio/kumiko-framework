@@ -56,4 +56,17 @@ describe("kumikoDefaultTranslations covers every error i18nKey", () => {
     expect(de?.["errors.download.urlMissing"]).toBeTruthy();
     expect(en?.["errors.download.urlMissing"]).toBeTruthy();
   });
+
+  // Client-emitted (dispatcher-live error-mapping) — network/abort never
+  // reach the server, so no error class mints these; still rendered through
+  // this last-resort bundle whenever a feature reads res.error.i18nKey raw.
+  test("dispatcher.errors.network has de+en default", () => {
+    expect(de?.["dispatcher.errors.network"]).toBeTruthy();
+    expect(en?.["dispatcher.errors.network"]).toBeTruthy();
+  });
+
+  test("dispatcher.errors.aborted has de+en default", () => {
+    expect(de?.["dispatcher.errors.aborted"]).toBeTruthy();
+    expect(en?.["dispatcher.errors.aborted"]).toBeTruthy();
+  });
 });

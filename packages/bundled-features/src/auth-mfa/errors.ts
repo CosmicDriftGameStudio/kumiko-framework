@@ -10,7 +10,7 @@ export { AuthMfaErrorCodes as AuthMfaErrors } from "./constants";
 export function mfaAlreadyEnabled(): WriteFailure {
   return writeFailure(
     new UnprocessableError(AuthMfaErrorCodes.mfaAlreadyEnabled, {
-      i18nKey: "authMfa.errors.mfaAlreadyEnabled",
+      i18nKey: "auth.mfa.errors.mfaAlreadyEnabled",
     }),
   );
 }
@@ -18,7 +18,7 @@ export function mfaAlreadyEnabled(): WriteFailure {
 export function mfaNotEnabled(): WriteFailure {
   return writeFailure(
     new UnprocessableError(AuthMfaErrorCodes.mfaNotEnabled, {
-      i18nKey: "authMfa.errors.mfaNotEnabled",
+      i18nKey: "auth.mfa.errors.mfaNotEnabled",
     }),
   );
 }
@@ -26,7 +26,7 @@ export function mfaNotEnabled(): WriteFailure {
 export function invalidSetupToken(): WriteFailure {
   return writeFailure(
     new UnprocessableError(AuthMfaErrorCodes.invalidSetupToken, {
-      i18nKey: "authMfa.errors.invalidSetupToken",
+      i18nKey: "auth.mfa.errors.invalidSetupToken",
     }),
   );
 }
@@ -34,7 +34,7 @@ export function invalidSetupToken(): WriteFailure {
 export function invalidTotpCode(): WriteFailure {
   return writeFailure(
     new UnprocessableError(AuthMfaErrorCodes.invalidTotpCode, {
-      i18nKey: "authMfa.errors.invalidTotpCode",
+      i18nKey: "auth.mfa.errors.invalidTotpCode",
     }),
   );
 }
@@ -42,7 +42,7 @@ export function invalidTotpCode(): WriteFailure {
 export function invalidRecoveryCode(): WriteFailure {
   return writeFailure(
     new UnprocessableError(AuthMfaErrorCodes.invalidRecoveryCode, {
-      i18nKey: "authMfa.errors.invalidRecoveryCode",
+      i18nKey: "auth.mfa.errors.invalidRecoveryCode",
     }),
   );
 }
@@ -50,7 +50,7 @@ export function invalidRecoveryCode(): WriteFailure {
 export function invalidChallengeToken(): WriteFailure {
   return writeFailure(
     new UnprocessableError(AuthMfaErrorCodes.invalidChallengeToken, {
-      i18nKey: "authMfa.errors.invalidChallengeToken",
+      i18nKey: "auth.mfa.errors.invalidChallengeToken",
     }),
   );
 }
@@ -59,7 +59,7 @@ export function invalidChallengeToken(): WriteFailure {
 export function tooManyAttempts(retryAfterSeconds: number): WriteFailure {
   return writeFailure(
     new UnprocessableError(AuthMfaErrorCodes.tooManyAttempts, {
-      i18nKey: "authMfa.errors.tooManyAttempts",
+      i18nKey: "auth.mfa.errors.tooManyAttempts",
       details: { retryAfterSeconds },
     }),
   );

@@ -148,6 +148,9 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
       "Limit erreicht. Bitte Tarif upgraden oder auf die nächste Periode warten.",
     "errors.download.urlMissing": "Download nicht verfügbar — bitte versuche es erneut.",
     "auth.errors.originNotAllowed": "Zugriff von dieser Herkunft ist nicht erlaubt.",
+    "dispatcher.errors.network":
+      "Netzwerkfehler. Bitte überprüfe deine Verbindung und versuche es erneut.",
+    "dispatcher.errors.aborted": "Anfrage abgebrochen.",
   },
   en: {
     "kumiko.actions.save": "Save",
@@ -258,5 +261,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "errors.cap.exceeded": "Limit reached. Upgrade your plan or wait for the next period.",
     "errors.download.urlMissing": "Download unavailable — please try again.",
     "auth.errors.originNotAllowed": "Requests from this origin are not allowed.",
+    "dispatcher.errors.network": "Network error. Please check your connection and try again.",
+    "dispatcher.errors.aborted": "Request was cancelled.",
   },
 };
