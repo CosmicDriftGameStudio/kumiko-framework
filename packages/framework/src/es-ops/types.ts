@@ -95,11 +95,18 @@ export type SeedMigrationContext = {
    *      tenantIdOverride weglassen (Default SYSTEM_TENANT_ID).
    *    - Tenant-scope-Aggregate (memberships, tenant-config, app-data) →
    *      `tenantIdOverride: m.tenantId` (oder den Stream-Tenant aus
-   *      einem find*-Helper). */
+   *      einem find*-Helper).
+   *
+   *  **extraRoles:** hasAccess kennt keinen System-Bypass — Handler mit
+   *  einem expliziten Rollen-Gate (z.B. `access: { roles: ["SystemAdmin"] }`
+   *  oder `["anonymous"]`) lehnen den reinen `system`-Actor sonst mit
+   *  `access_denied` ab. Rolle(n) hier zusätzlich mitgeben, siehe
+   *  `createSystemUser`'s `extraRoles`-Doku. */
   readonly systemWriteAs: (
     handlerQualifiedName: string,
     payload: unknown,
     tenantIdOverride?: TenantId,
+    extraRoles?: readonly string[],
   ) => Promise<WriteResult>;
 
   // Read-helpers für die häufigsten Lookups. Wachsen on-demand —

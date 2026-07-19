@@ -42,13 +42,15 @@ export function createSeedMigrationContext(
   const defaultSystemUser = createSystemUser(SYSTEM_TENANT_ID);
 
   return {
-    systemWriteAs: async (handlerQualifiedName, payload, tenantIdOverride) => {
+    systemWriteAs: async (handlerQualifiedName, payload, tenantIdOverride, extraRoles) => {
       // tenantIdOverride: baut einen System-User mit der Stream-tenantId
       // damit der Event-Store-Executor das Aggregate im richtigen Stream
       // findet. Verhindert die version_conflict-Falle (siehe Memory
       // feedback_event_store_tenant_consistency.md).
       const executor =
-        tenantIdOverride !== undefined ? createSystemUser(tenantIdOverride) : defaultSystemUser;
+        tenantIdOverride !== undefined || (extraRoles && extraRoles.length > 0)
+          ? createSystemUser(tenantIdOverride ?? SYSTEM_TENANT_ID, extraRoles)
+          : defaultSystemUser;
       const result = await args.dispatcher.write(handlerQualifiedName, payload, executor);
       // Critical: WriteResult{isSuccess: false} würde sonst silent durchlaufen
       // → Marker landet trotz failed-Write → Migration falsch als "applied"

@@ -72,6 +72,15 @@ const seedTestFeature = defineFeature("esopstest", (r) => {
     },
     { access: { openToAll: true } },
   );
+  // Role-gated handler (kein openToAll): der reine system-Actor hat weder
+  // hier noch bei sonstigen expliziten Rollen-Gates einen Bypass — nur
+  // systemWriteAs' extraRoles erreicht ihn.
+  r.writeHandler(
+    "probe:admin-only",
+    z.object({ label: z.string().min(1) }),
+    async (event, ctx) => probeExecutor.create(event.payload, event.user, ctx.db),
+    { access: { roles: ["SystemAdmin"] } },
+  );
 });
 
 let testDb: TestDb;
@@ -230,6 +239,72 @@ describe("runPendingSeedMigrations (integration)", () => {
       expect(events[0]?.tenant_id).toBe(SYSTEM_TENANT_ID);
     } finally {
       rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("systemWriteAs ohne extraRoles → access_denied gegen rollen-gated Handler, mit extraRoles → durch", async () => {
+    const denyDir = makeTempSeedsDir([
+      {
+        name: "2026-05-20-denied.ts",
+        content: `
+          export default {
+            description: "no extraRoles against a role-gated handler",
+            run: async (ctx) => {
+              await ctx.systemWriteAs("esopstest:write:probe:admin-only", { label: "denied" });
+            },
+          };
+        `,
+      },
+    ]);
+    try {
+      await expect(
+        runPendingSeedMigrations({
+          db: testDb.db,
+          seedsDir: denyDir,
+          appliedBy: "boot",
+          registry,
+          createContext: (dbRunner) => createSeedMigrationContext({ dispatcher, dbRunner }),
+          logger: () => {},
+        }),
+      ).rejects.toThrow(/access_denied/);
+      expect(await selectEvents()).toHaveLength(0);
+    } finally {
+      rmSync(denyDir, { recursive: true, force: true });
+    }
+
+    const allowDir = makeTempSeedsDir([
+      {
+        name: "2026-05-20-allowed.ts",
+        content: `
+          export default {
+            description: "extraRoles reaches a role-gated handler",
+            run: async (ctx) => {
+              await ctx.systemWriteAs(
+                "esopstest:write:probe:admin-only",
+                { label: "allowed" },
+                undefined,
+                ["SystemAdmin"],
+              );
+            },
+          };
+        `,
+      },
+    ]);
+    try {
+      await runPendingSeedMigrations({
+        db: testDb.db,
+        seedsDir: allowDir,
+        appliedBy: "boot",
+        registry,
+        createContext: (dbRunner) => createSeedMigrationContext({ dispatcher, dbRunner }),
+        logger: () => {},
+      });
+      const events = await selectEvents();
+      expect(events).toHaveLength(1);
+      expect(events[0]?.type).toBe("esops-probe.created");
+      expect(events[0]?.tenant_id).toBe(SYSTEM_TENANT_ID);
+    } finally {
+      rmSync(allowDir, { recursive: true, force: true });
     }
   });
 
