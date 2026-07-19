@@ -177,7 +177,10 @@ async function runEditSavePersists(
         await wrapper.locator("input").fill(op.value);
         break;
       case "check":
-        await wrapper.locator("input").setChecked(op.value);
+        // Radix Checkbox rendert ein sichtbares role=checkbox-Element plus
+        // ein aria-hidden natives <input> fürs Form-Bubbling — nur das
+        // sichtbare Element ist klickbar.
+        await wrapper.getByRole("checkbox").setChecked(op.value);
         break;
       case "select":
         // DefaultInput rendert select-Primitives derzeit nicht (kein

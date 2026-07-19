@@ -47,9 +47,16 @@ async function shot(
   path: string,
 ): Promise<void> {
   await page.goto(path);
-  // networkidle (636/7) — waitForTimeout alone raced real network fetches on
-  // a loaded CI runner; keep a short settle buffer after for CSS transitions.
-  await page.waitForLoadState("networkidle");
+  // `networkidle` never fires against the dev-server: its hot-reload
+  // long-poll (`GET /_reload`) keeps a connection permanently pending
+  // (#1176). Wait for the screen's own render-marker instead — same
+  // testids generated.spec.ts already waits on.
+  await page
+    .locator(
+      '[data-testid="render-edit-form"], [data-testid="render-list-table"], [data-testid="render-list-empty"]',
+    )
+    .first()
+    .waitFor({ state: "visible" });
   await page.waitForTimeout(150);
   const file = `${OUT_DIR}/${name}.png`;
   const rawHeight = await contentHeight(page);
