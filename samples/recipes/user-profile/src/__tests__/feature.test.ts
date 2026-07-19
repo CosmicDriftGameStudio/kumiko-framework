@@ -31,7 +31,12 @@ describe("user-profile recipe — boot validation", () => {
   test("user-profile deklariert seine Require-Kette (Manifest-Quelle)", () => {
     const userProfile = features.find((f) => f.name === "user-profile");
     if (!userProfile) throw new Error("user-profile feature missing in composition");
-    expect(userProfile.requires).toEqual(["user", "auth-email-password", "user-data-rights"]);
+    expect(userProfile.requires).toEqual([
+      "user",
+      "auth-email-password",
+      "user-data-rights",
+      "user-data-rights-defaults",
+    ]);
   });
 
   test("change-email QN entspricht der dokumentierten Konstante", () => {

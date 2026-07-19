@@ -11,7 +11,9 @@ export function createUserProfileFeature(): FeatureDefinition {
         "change-email and account deletion (user-data-rights request/cancel with " +
         "grace period) into one screen. Apps register the screen as " +
         '`type: "custom"` with `__component: "UserProfileScreen"`. Requires `user`, ' +
-        "`auth-email-password`, and `user-data-rights`.",
+        "`auth-email-password`, `user-data-rights`, and `user-data-rights-defaults` " +
+        "(so the GDPR boot-validator finds export/delete hooks for `user`'s PII " +
+        "fields once user-data-rights is mounted).",
     );
     r.uiHints({
       displayLabel: "User Profile · Self-Service",
@@ -21,6 +23,7 @@ export function createUserProfileFeature(): FeatureDefinition {
     r.requires("user");
     r.requires("auth-email-password");
     r.requires("user-data-rights");
+    r.requires("user-data-rights-defaults");
 
     const handlers = {
       changeEmail: r.writeHandler(changeEmailWrite),
