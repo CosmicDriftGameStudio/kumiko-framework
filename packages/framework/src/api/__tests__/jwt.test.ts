@@ -83,3 +83,60 @@ describe("createJwtHelper.verify — payload validation (KF-2)", () => {
     await expect(jwt.verify(token)).rejects.toThrow(/sub/);
   });
 });
+
+describe("createJwtHelper — keyring form", () => {
+  it("sets kid in the protected header when signing from a keyring", async () => {
+    const jwt = createJwtHelper({ keys: { v1: SECRET }, signKid: "v1" });
+    const token = await jwt.sign(user);
+    expect(jose.decodeProtectedHeader(token).kid).toBe("v1");
+  });
+
+  it("verifies a keyring-signed token against a string-form helper on the same secret", async () => {
+    const keyringSigner = createJwtHelper({ keys: { v1: SECRET }, signKid: "v1" });
+    const token = await keyringSigner.sign(user);
+
+    const stringVerifier = createJwtHelper(SECRET);
+    const payload = await stringVerifier.verify(token);
+    expect(payload.sub).toBe(user.id);
+  });
+
+  it("omits kid when signing from a plain secret (string form)", async () => {
+    const jwt = createJwtHelper(SECRET);
+    const token = await jwt.sign(user);
+    expect(jose.decodeProtectedHeader(token).kid).toBeUndefined();
+  });
+
+  it("verifies a token signed under an old kid after rotating signKid", async () => {
+    const OLD_SECRET = "old-secret-at-least-32-characters-long-aa";
+    const before = createJwtHelper({ keys: { v1: OLD_SECRET }, signKid: "v1" });
+    const token = await before.sign(user);
+
+    const after = createJwtHelper({ keys: { v1: OLD_SECRET, v2: SECRET }, signKid: "v2" });
+    const payload = await after.verify(token);
+    expect(payload.sub).toBe(user.id);
+  });
+
+  it("verifies a legacy no-kid token against a multi-key keyring", async () => {
+    const legacy = createJwtHelper(SECRET);
+    const token = await legacy.sign(user);
+
+    const rotated = createJwtHelper({
+      keys: { v1: "unrelated-secret-32-characters-longg", v2: SECRET },
+      signKid: "v2",
+    });
+    const payload = await rotated.verify(token);
+    expect(payload.sub).toBe(user.id);
+  });
+
+  it("rejects a token whose kid is not in the keyring", async () => {
+    const signer = createJwtHelper({ keys: { v1: SECRET }, signKid: "v1" });
+    const token = await signer.sign(user);
+
+    const verifier = createJwtHelper({ keys: { v2: SECRET }, signKid: "v2" });
+    await expect(verifier.verify(token)).rejects.toThrow(/kid/);
+  });
+
+  it("throws at creation when signKid is not present in the keyring", () => {
+    expect(() => createJwtHelper({ keys: { v1: SECRET }, signKid: "v2" })).toThrow(/signKid/);
+  });
+});
