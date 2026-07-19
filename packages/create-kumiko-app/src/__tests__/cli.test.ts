@@ -31,10 +31,9 @@ describe("create-kumiko-app CLI", () => {
     // Onboarding regression gate: the scaffold step is the first thing a new
     // user waits on. Generous ceiling so slow CI runners pass — what we catch
     // is an order-of-magnitude blowup, not seconds.
-    expect(
-      scaffoldMs,
-      `scaffold took ${Math.round(scaffoldMs)}ms (ceiling 30s)`,
-    ).toBeLessThan(30_000);
+    expect(scaffoldMs, `scaffold took ${Math.round(scaffoldMs)}ms (ceiling 30s)`).toBeLessThan(
+      30_000,
+    );
 
     const dest = join(tmp, "demo-app");
     expect(existsSync(dest)).toBe(true);
