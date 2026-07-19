@@ -135,10 +135,30 @@ function readInjectedSchema(): AppSchema | FeatureSchema | undefined {
 // ein role-restricted Screen (z.B. bundled user/tenant, SystemAdmin-only)
 // darf hier nie gewinnen, sonst landet jeder Nicht-Admin auf einem
 // Access-Denied-Screen (#1176).
-function firstOpenScreenQn(features: readonly FeatureSchema[]): string | undefined {
+// Also requires the screen be reachable via r.nav, otherwise a dormant
+// `type: "custom"` screen a feature only registers for manual app-side
+// placement (e.g. auth-mfa's enable screen) can win by declaration order
+// alone, landing every app without an explicit `screenQn` on a screen
+// nobody wired a component for (#1258).
+export function firstOpenScreenQn(features: readonly FeatureSchema[]): string | undefined {
+  // NavDefinition.screen carries two shapes in practice: most bundled
+  // features author it pre-qualified ("tenant:screen:members"), but the
+  // config settings-hub generator emits the bare short id. Index both
+  // forms so nav-reachability doesn't depend on which convention a given
+  // feature happens to use.
+  const navScreenQns = new Set<string>();
+  for (const f of features) {
+    for (const n of f.navs ?? []) {
+      if (n.screen === undefined) continue;
+      navScreenQns.add(n.screen);
+      navScreenQns.add(qualifyScreenId(f.featureName, n.screen));
+    }
+  }
   for (const feature of features) {
     const openScreen = feature.screens.find(
-      (s) => s.access === undefined || "openToAll" in s.access,
+      (s) =>
+        (s.access === undefined || "openToAll" in s.access) &&
+        navScreenQns.has(qualifyScreenId(feature.featureName, s.id)),
     );
     if (openScreen !== undefined) return qualifyScreenId(feature.featureName, openScreen.id);
   }
