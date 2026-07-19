@@ -21,6 +21,15 @@ concurrency = 1
 coverage = true
 coverageReporter = ["lcov"]
 coverageDir = "coverage/unit"
+# Tooling/preload/ephemeral — not product code. Without these the badge
+# counts CLI scripts + /tmp test scaffolds and stalls ~1pp under 80%.
+coveragePathIgnorePatterns = [
+  "**/scripts/**",
+  "**/bin/**",
+  "**/test-setup/**",
+  "**/tmp/**",
+  "integration.guard.js",
+]
 
 # *.spec.ts gehören zu Playwright (e2e/-Folder). bun test versucht sonst
 # sie zu loaden und crash't weil Playwright eigene test()-Globals erwartet
