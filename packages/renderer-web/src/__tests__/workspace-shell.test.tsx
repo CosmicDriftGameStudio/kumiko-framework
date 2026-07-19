@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+import type { EntityListScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { WorkspaceSchema } from "@cosmicdrift/kumiko-renderer";
 import {
   createStaticLocaleResolver,
+  DispatcherProvider,
+  KumikoScreen,
   LocaleProvider,
   NavProvider,
   PrimitivesProvider,
@@ -17,7 +20,7 @@ import {
 } from "../layout/workspace-shell";
 import { WorkspaceSwitcher } from "../layout/workspace-switcher";
 import { defaultPrimitives } from "../primitives";
-import { fireEvent, render, screen } from "./test-utils";
+import { createMockDispatcher, fireEvent, render, screen } from "./test-utils";
 
 // jsdom shares window.history across tests in the same file. Reset to /
 // before each render so URL-driven workspace state from one test doesn't
@@ -869,5 +872,51 @@ describe("WorkspaceShell — EINE Nav", () => {
     const systemItems = screen.getAllByText("System");
     expect(ordersItems.some((el) => el.closest("li")?.textContent?.includes("3"))).toBe(true);
     expect(systemItems.every((el) => !el.closest("li")?.textContent?.includes("3"))).toBe(true);
+  });
+});
+
+// WorkspaceShell threads `user.roles` into a UserRolesProvider around
+// children (#1203) — KumikoScreen reads that to gate role-restricted
+// screens at render time, not just via nav/workspace-switcher filtering.
+describe("WorkspaceShell wires user.roles into children for screen-level access (#1203)", () => {
+  const restrictedScreen: EntityListScreenDefinition = {
+    id: "restricted",
+    type: "entityList",
+    entity: "x",
+    columns: [],
+    access: { roles: ["admin"] },
+  };
+  const schema = {
+    featureName: "bmc",
+    entities: {},
+    screens: [restrictedScreen],
+    navs: [],
+    workspaces: [],
+  } as const;
+
+  test("no user prop → role-gated screen child shows access-denied", () => {
+    renderShell(
+      <DispatcherProvider dispatcher={createMockDispatcher()}>
+        <WorkspaceShell brand={<div>Brand</div>} schema={schema}>
+          <KumikoScreen schema={schema} qn="bmc:screen:restricted" />
+        </WorkspaceShell>
+      </DispatcherProvider>,
+    );
+    expect(screen.getByTestId("kumiko-screen-access-denied")).toBeTruthy();
+  });
+
+  test("user prop with matching role → role-gated screen child renders", () => {
+    renderShell(
+      <DispatcherProvider dispatcher={createMockDispatcher()}>
+        <WorkspaceShell
+          brand={<div>Brand</div>}
+          schema={schema}
+          user={{ id: "u1", roles: ["admin"] }}
+        >
+          <KumikoScreen schema={schema} qn="bmc:screen:restricted" />
+        </WorkspaceShell>
+      </DispatcherProvider>,
+    );
+    expect(screen.queryByTestId("kumiko-screen-access-denied")).toBeNull();
   });
 });

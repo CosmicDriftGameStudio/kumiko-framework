@@ -59,6 +59,8 @@ export {
   useDispatcherStatus,
   useOptionalDispatcher,
 } from "./context/dispatcher-context";
+export type { UserRolesProviderProps } from "./context/user-roles-context";
+export { UserRolesProvider, useUserRoles } from "./context/user-roles-context";
 export { formatWhen } from "./format-when";
 export {
   REFERENCE_COMBOBOX_LIMIT,

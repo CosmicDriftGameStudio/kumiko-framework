@@ -1,5 +1,6 @@
 import type { ConfigCascade } from "@cosmicdrift/kumiko-framework/engine";
 import type {
+  AccessRule,
   ActionFormScreenDefinition,
   ConfigEditScreenDefinition,
   DashboardScreenDefinition,
@@ -29,6 +30,7 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } fro
 import { RenderEdit } from "../components/render-edit";
 import { RenderList, type ToolbarActionButton } from "../components/render-list";
 import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-context";
+import { useUserRoles } from "../context/user-roles-context";
 import { useListUrlState } from "../hooks/use-list-url-state";
 import { useQuery } from "../hooks/use-query";
 import { useTranslation } from "../i18n";
@@ -112,6 +114,22 @@ export function qualifyNavId(featureName: string, navId: string): string {
   return `${featureName}:nav:${navId}`;
 }
 
+// Minimal role-gate for the screen-render path (#1203 — nav filtering via
+// filterByAccess in workspace-shell.tsx hid role-gated screens from the
+// menu, but a direct URL/screenQn hit reached KumikoScreen unchecked).
+// Duplicated instead of imported from framework/engine's hasAccess (pulls
+// server-side deps) — same bundle-purity reasoning as headless/nav's
+// resolve.ts:userCanSee, which this mirrors.
+function screenAccessAllows(
+  access: AccessRule | undefined,
+  userRoles: readonly string[] | undefined,
+): boolean {
+  if (!access) return true;
+  if ("openToAll" in access) return access.openToAll;
+  if (userRoles === undefined) return false;
+  return access.roles.some((role) => userRoles.includes(role));
+}
+
 export function KumikoScreen({
   schema,
   qn,
@@ -121,6 +139,7 @@ export function KumikoScreen({
   onCopyLink,
 }: KumikoScreenProps): ReactNode {
   const { Banner, Text } = usePrimitives();
+  const userRoles = useUserRoles();
   const screen = useMemo(
     () =>
       schema.screens.find(
@@ -133,6 +152,14 @@ export function KumikoScreen({
     return (
       <Banner padded variant="error" testId="kumiko-screen-not-found">
         Screen not found: <Text variant="code">{qn}</Text>
+      </Banner>
+    );
+  }
+
+  if (!screenAccessAllows(screen.access, userRoles)) {
+    return (
+      <Banner padded variant="error" testId="kumiko-screen-access-denied">
+        Access denied: <Text variant="code">{qn}</Text>
       </Banner>
     );
   }

@@ -14,7 +14,11 @@
 // Apps die feingranulare Kontrolle wollen, gehen direkt auf die ui/-Teile.
 // Wer ein Topbar mit Workspace-Switcher braucht, nutzt <WorkspaceShell>.
 
-import type { AppSchema, FeatureSchema } from "@cosmicdrift/kumiko-renderer";
+import {
+  type AppSchema,
+  type FeatureSchema,
+  UserRolesProvider,
+} from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
 import {
   Sidebar,
@@ -112,7 +116,7 @@ export function DefaultAppShell({
           {...(headerActions !== undefined && { headerActions })}
         />
         <main className={fill === true ? "min-h-0 flex-1 overflow-auto" : "flex-1 overflow-auto"}>
-          {children}
+          <UserRolesProvider roles={user?.roles}>{children}</UserRolesProvider>
         </main>
       </SidebarInset>
     </SidebarProvider>

@@ -13,6 +13,7 @@ import {
   KumikoScreen,
   kumikoDefaultTranslations,
   NavProvider,
+  UserRolesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
 import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils";
@@ -41,10 +42,18 @@ const listScreen: EntityListScreenDefinition = {
   columns: ["title", "count", "done"],
 };
 
+const restrictedListScreen: EntityListScreenDefinition = {
+  id: "task-list-restricted",
+  type: "entityList",
+  entity: "task",
+  columns: ["title"],
+  access: { roles: ["Admin"] },
+};
+
 const schema: FeatureSchema = {
   featureName: "tasks",
   entities: { task: taskEntity },
-  screens: [editScreen, listScreen],
+  screens: [editScreen, listScreen, restrictedListScreen],
 };
 
 function makeDispatcher(overrides: Partial<Dispatcher> = {}): Dispatcher {
@@ -65,6 +74,39 @@ describe("KumikoScreen", () => {
       </DispatcherProvider>,
     );
     expect(screen.getByTestId("kumiko-screen-not-found")).toBeTruthy();
+  });
+
+  test("role-gated screen, no UserRolesProvider mounted → access-denied placeholder", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <KumikoScreen schema={schema} qn="tasks:screen:task-list-restricted" />
+      </DispatcherProvider>,
+    );
+    expect(screen.getByTestId("kumiko-screen-access-denied")).toBeTruthy();
+  });
+
+  test("role-gated screen, user without matching role → access-denied placeholder", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <UserRolesProvider roles={["Viewer"]}>
+          <KumikoScreen schema={schema} qn="tasks:screen:task-list-restricted" />
+        </UserRolesProvider>
+      </DispatcherProvider>,
+    );
+    expect(screen.getByTestId("kumiko-screen-access-denied")).toBeTruthy();
+  });
+
+  test("role-gated screen, user with matching role → renders normally", async () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <UserRolesProvider roles={["Admin"]}>
+          <KumikoScreen schema={schema} qn="tasks:screen:task-list-restricted" />
+        </UserRolesProvider>
+      </DispatcherProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+    expect(screen.queryByTestId("kumiko-screen-access-denied")).toBeNull();
+    expect(screen.getByTestId("render-list-table-toolbar")).toBeTruthy();
   });
 
   test("entityEdit → renders RenderEdit form for the screen's entity", () => {
