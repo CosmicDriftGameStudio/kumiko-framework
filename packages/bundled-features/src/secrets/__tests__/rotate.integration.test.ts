@@ -5,11 +5,12 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { deleteMany, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { AppContext } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createEnvMasterKeyProvider,
-  encryptValue,
+  decodeStoredEnvelope,
+  decryptValue,
   type MasterKeyProvider,
 } from "@cosmicdrift/kumiko-framework/secrets";
 import {
@@ -21,13 +22,22 @@ import {
 import { createSecretsFeature } from "../feature";
 import { rotateJob } from "../handlers/rotate.job";
 import { createSecretsContext } from "../secrets-context";
-import { tenantSecretsTable } from "../table";
+import { type StoredEnvelope, tenantSecretsTable } from "../table";
 
 const admin = createTestUser({
   id: "00000000-0000-4000-8000-000000000010",
   tenantId: "00000000-0000-4000-8000-000000000001",
   roles: ["TenantAdmin"],
 });
+
+// Captured so the happy-path rotation test can build a provider whose V1
+// key matches the seeded rows exactly — a fresh random V1 would fail the
+// GCM auth tag on every unwrap.
+const SEED_V1_KEY = randomBytes(32).toString("base64");
+// Shared with the happy-path test's rotator AND its verifier — the verifier
+// must decrypt with ONLY this key so a rewrap that bumps kek_version but
+// leaves the envelope V1-wrapped fails loud instead of silently passing.
+const ROTATED_V2_KEY = randomBytes(32).toString("base64");
 
 // A provider that encrypts happily on wrapDek but always rejects
 // unwrapDek. Simulates "KEK is unreachable / corrupt" — the failure mode
@@ -64,7 +74,7 @@ beforeAll(async () => {
   // Seeding the table uses a sane V1-only provider so writes land on V1.
   const seedProvider = createEnvMasterKeyProvider({
     env: {
-      KUMIKO_SECRETS_MASTER_KEY_V1: randomBytes(32).toString("base64"),
+      KUMIKO_SECRETS_MASTER_KEY_V1: SEED_V1_KEY,
       KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "1",
     },
   });
@@ -80,21 +90,12 @@ beforeAll(async () => {
     tenant_secrets: tenantSecretsTable,
   });
 
-  // Seed 20 V1 rows directly — too many for any maxFailures default.
+  // Seed 20 V1 rows through the real write path (executor.create) instead
+  // of a raw insertOne — the rotate job's executor.update needs an actual
+  // event stream to update against, which a headless projection row lacks.
+  const seedSecrets = createSecretsContext({ db: stack.db, masterKeyProvider: seedProvider });
   for (let i = 0; i < 20; i++) {
-    const envelope = await encryptValue(`secret-${i}`, seedProvider);
-    await insertOne(stack.db, tenantSecretsTable, {
-      tenantId: admin.tenantId,
-      key: `test:secret:k-${i}`,
-      envelope: {
-        ciphertext: envelope.ciphertext.toString("base64"),
-        iv: envelope.iv.toString("base64"),
-        authTag: envelope.authTag.toString("base64"),
-        encryptedDek: envelope.encryptedDek.toString("base64"),
-        kekVersion: envelope.kekVersion,
-      },
-      kekVersion: envelope.kekVersion,
-    });
+    await seedSecrets.set(admin.tenantId, `test:secret:k-${i}`, `secret-${i}`);
   }
 });
 
@@ -169,5 +170,48 @@ describe("rotate-job circuit-breaker", () => {
 
     expect(await countV1Rows()).toBe(20);
     expect(broken.calls()).toBe(25);
+  });
+
+  // Happy-path counterpart to the failure tests above: a working provider
+  // that actually rewraps. Run last — it's the only test that mutates the
+  // shared 20-row fixture, so the earlier "stays at 20" assertions must
+  // see it before this runs.
+  test("successful rotation rewraps the DEK, bumps kekVersion, and preserves plaintext", async () => {
+    const rotator = createEnvMasterKeyProvider({
+      env: {
+        KUMIKO_SECRETS_MASTER_KEY_V1: SEED_V1_KEY,
+        KUMIKO_SECRETS_MASTER_KEY_V2: ROTATED_V2_KEY,
+        KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "2",
+      },
+    });
+
+    await rotateJob({ batchSize: 10, maxFailures: 5 }, jobCtx(rotator));
+
+    expect(await countV1Rows()).toBe(0);
+
+    // Decrypt with a V2-ONLY provider — no V1 key available. A rewrap
+    // that only bumped the kek_version column but left the envelope
+    // wrapped under V1 would throw "no KEK for version 1" here instead
+    // of silently passing, which a decrypt via `rotator` (V1+V2) can't
+    // catch since it still holds V1.
+    const verifier = createEnvMasterKeyProvider({
+      env: {
+        KUMIKO_SECRETS_MASTER_KEY_V2: ROTATED_V2_KEY,
+        KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "2",
+      },
+    });
+
+    const rows = await selectMany<{ key: string; envelope: StoredEnvelope; kekVersion: number }>(
+      stack.db,
+      tenantSecretsTable,
+      { tenantId: admin.tenantId },
+    );
+    expect(rows).toHaveLength(20);
+    for (const row of rows) {
+      expect(row.kekVersion).toBe(2);
+      const expectedIndex = row.key.split("-").at(-1);
+      const plaintext = await decryptValue(decodeStoredEnvelope(row.envelope), verifier);
+      expect(plaintext).toBe(`secret-${expectedIndex}`);
+    }
   });
 });
