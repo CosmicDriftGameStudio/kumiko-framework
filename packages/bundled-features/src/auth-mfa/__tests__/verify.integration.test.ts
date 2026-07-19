@@ -1,7 +1,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
-import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type SessionUser,
+  SYSTEM_TENANT_ID,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   createTestUser,
   setupTestStack,
@@ -98,6 +102,24 @@ async function enableMfaFor(idSeed: number): Promise<{
     userId: user.id,
     tenantId: user.tenantId,
     roles: JSON.stringify(["User"]),
+  });
+  // auth-mfa never writes a read_users row itself (enableMfaFor only drives
+  // enable-start/enable-confirm) — verify.write.ts re-derives the session via
+  // UserQueries.findForAuth, so every scenario needs a real row to find (#1223's
+  // null-guard rejects with invalid_challenge_token otherwise, which is why this
+  // suite was 100% red before this seed existed). userEntity is systemStream:true,
+  // so create()'s real projection write lands with tenant_id = SYSTEM_TENANT_ID —
+  // matching that here keeps the seed shape realistic.
+  await seedRow(stack.db, userTable, {
+    id: user.id,
+    tenantId: SYSTEM_TENANT_ID,
+    email: `user-${user.id}@example.com`,
+    passwordHash: "h",
+    displayName: "Test User",
+    locale: "de",
+    emailVerified: true,
+    roles: "[]",
+    status: USER_STATUS.Active,
   });
   return { user, secret, recoveryCodes: start.recoveryCodes };
 }
@@ -247,21 +269,8 @@ describe("mfa verify — re-checks account state the way login.write.ts does", (
     const { user, secret } = await enableMfaFor(6);
     const challengeToken = challengeFor(user.id, user.tenantId);
 
-    // auth-mfa never writes a read_users row itself (enableMfaFor only
-    // drives enable-start/enable-confirm) — seed one so the status gate has
-    // a row to actually flip, then flip it to simulate a restriction landing
-    // between login and verify.
-    await seedRow(stack.db, userTable, {
-      id: user.id,
-      tenantId: user.tenantId,
-      email: `user-${user.id}@example.com`,
-      passwordHash: "h",
-      displayName: "Restricted User",
-      locale: "de",
-      emailVerified: true,
-      roles: "[]",
-      status: USER_STATUS.Active,
-    });
+    // enableMfaFor already seeded the read_users row (Active) — flip it to
+    // simulate a restriction landing between login and verify.
     await asRawClient(stack.db).unsafe(
       `UPDATE "${userTable.tableName}" SET status = $1 WHERE id = $2`,
       [USER_STATUS.Restricted, user.id],
