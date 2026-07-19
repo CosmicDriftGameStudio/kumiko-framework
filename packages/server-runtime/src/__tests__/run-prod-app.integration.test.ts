@@ -790,7 +790,7 @@ describe("runProdApp — auth allowedOrigins forwarding", () => {
   test("cookieDomain without allowedOrigins fails closed — guard is wired through runProdApp", async () => {
     await expect(
       boot(undefined, {
-        auth: { admin: ADMIN, cookieDomain: "example.eu" },
+        auth: { admin: ADMIN, cookieDomain: "example.eu", sessions: false },
         allowPlaintextPii: "test: origin-guard focus, not crypto",
       }),
     ).rejects.toThrow(/allowedOrigins is empty/);
@@ -807,6 +807,7 @@ describe("runProdApp — auth allowedOrigins forwarding", () => {
           admin: ADMIN,
           cookieDomain: "example.eu",
           allowedOrigins: ["https://app.example.eu"],
+          sessions: false,
         },
       });
       expect(handle).toBeDefined();
@@ -816,6 +817,28 @@ describe("runProdApp — auth allowedOrigins forwarding", () => {
     if (bootError !== undefined) {
       expect(String(bootError)).not.toMatch(/allowedOrigins is empty/);
     }
+  });
+});
+
+describe("runProdApp — session boot gate (#1262/#1275)", () => {
+  const ADMIN = {
+    email: "session-gate@example.eu",
+    password: "test-pw-strong-1234",
+    displayName: "Admin",
+    memberships: [],
+  };
+
+  test("auth mounted, sessions feature missing, no opt-out → aborts boot", async () => {
+    await expect(
+      boot(undefined, {
+        auth: {
+          admin: ADMIN,
+          cookieDomain: "example.eu",
+          allowedOrigins: ["https://app.example.eu"],
+        },
+        allowPlaintextPii: "test: session-gate focus, not crypto",
+      }),
+    ).rejects.toThrow(/BOOT ABORTED.*sessions.*stateless/s);
   });
 });
 

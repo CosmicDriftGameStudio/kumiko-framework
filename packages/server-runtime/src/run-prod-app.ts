@@ -128,6 +128,7 @@ import {
 } from "./run-prod-app-boot-context";
 import { buildStaticFallback } from "./run-prod-app-static-files";
 import { type SecurityHeadersOption, withSecurityHeaders } from "./security-headers";
+import { assertSessionBootInvariants } from "./session-boot-gate";
 import {
   type ProdSessionsOption,
   resolveProdSessionsConfig,
@@ -695,6 +696,12 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     allowPlaintextPii: options.allowPlaintextPii,
     mode: "prod",
   });
+  const sessionsFeature = features.find((f) => f.name === SESSIONS_FEATURE);
+  assertSessionBootInvariants({
+    hasAuth: Boolean(effectiveAuth),
+    sessionsFeatureMounted: sessionsFeature !== undefined,
+    sessionsOption: effectiveAuth?.sessions,
+  });
   const registry = createRegistry(features);
 
   // C1 boot-mode exit: validators ran + registry built; no DB/Redis client
@@ -842,7 +849,6 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // sessionStrictMode + auto-revoke-on-password-change are wired automatically;
   // `auth.sessions` only overrides the config, and `auth.sessions: false` is the
   // explicit opt-out (back to stateless JWTs).
-  const sessionsFeature = features.find((f) => f.name === SESSIONS_FEATURE);
   const mfaFeature = features.find((f) => f.name === AUTH_MFA_FEATURE);
   const sessionAuthFragment = shouldWireProdSessions(
     Boolean(effectiveAuth),
