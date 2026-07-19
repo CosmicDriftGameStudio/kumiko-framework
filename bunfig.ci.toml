@@ -28,7 +28,7 @@ coveragePathIgnorePatterns = [
   "**/bin/**",
   "**/test-setup/**",
   "**/tmp/**",
-  "integration.guard.js",
+  "integration.guard.ts",
 ]
 
 # *.spec.ts gehören zu Playwright (e2e/-Folder). bun test versucht sonst

@@ -1,7 +1,7 @@
 /** Shared integration-test wiring for CLI + package.json scripts. */
 
 export const INTEGRATION_BUNFIG = "bunfig.integration.toml";
-export const INTEGRATION_GUARD = "integration.guard.js";
+export const INTEGRATION_GUARD = "integration.guard.ts";
 export const INTEGRATION_RUNNER = "scripts/run-integration-tests.ts";
 export const INTEGRATION_PERF_ENV = "KUMIKO_PERF_GATE";
 

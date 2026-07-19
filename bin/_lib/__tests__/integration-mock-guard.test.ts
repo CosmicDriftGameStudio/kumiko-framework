@@ -68,7 +68,7 @@ describe("scanForMocks — File-Walk-Integration", () => {
     const { mkdtempSync, mkdirSync, rmSync, writeFileSync } = require("node:fs");
     const { join } = require("node:path");
     const { tmpdir } = require("node:os");
-    const { scanForMocks } = require("../../../integration.guard.js");
+    const { scanForMocks } = require("../../../integration.guard.ts");
 
     const base = mkdtempSync(join(tmpdir(), "mock-guard-walk-"));
     try {
