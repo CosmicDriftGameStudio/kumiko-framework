@@ -1,5 +1,6 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { randomBytes } from "node:crypto";
+import * as bunDb from "@cosmicdrift/kumiko-framework/bun-db";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configureBlindIndexKey,
@@ -391,6 +392,41 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     expect(body.error?.details?.reason).toBe("missing");
   });
 
+  // Cross-user check: a valid JWT for Alice paired with Bob's live sid must
+  // look identical to a forged/missing sid — otherwise the checker would be
+  // an existence oracle on other users' sessions.
+  test("sid belonging to another user → 401 reason=missing (no existence oracle)", async () => {
+    const alice = await h.seedUser("alice-xuser@example.com", "pw-long-enough");
+    const bob = await h.seedUser("bob-xuser@example.com", "pw-long-enough");
+    const bobLogin = await h.login("bob-xuser@example.com", "pw-long-enough");
+
+    // Direct invariant: Bob's sid + Alice's userId → missing (not live/revoked).
+    expect(await callbacks.get().sessionChecker(bobLogin.sid, alice.userId)).toBe("missing");
+    expect(await callbacks.get().sessionChecker(bobLogin.sid, bob.userId)).toBe("live");
+
+    // HTTP path: mint Alice's identity onto Bob's sid (stolen-sid scenario).
+    const forged = await stack.jwt.sign({
+      id: alice.userId,
+      tenantId: TENANT,
+      roles: ["User"],
+      sid: bobLogin.sid,
+    });
+    const res = await h.authedPost("/api/query", forged, {
+      type: "user:query:user:me",
+      payload: {},
+    });
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error?: { details?: { reason?: string } } };
+    expect(body.error?.details?.reason).toBe("missing");
+
+    // Control: Bob's own JWT still authenticates — the sid itself is fine.
+    const bobOk = await h.authedPost("/api/query", bobLogin.token, {
+      type: "user:query:user:me",
+      payload: {},
+    });
+    expect(bobOk.status).toBe(200);
+  });
+
   test("expired session row → 401 with reason=expired", async () => {
     await h.seedUser("stale@example.com", "pw-long-enough");
     const { token, sid } = await h.login("stale@example.com", "pw-long-enough");
@@ -613,6 +649,31 @@ describe("sessions feature — locked accounts blocked on a live session", () =>
       payload: {},
     });
     expect(res.status).toBe(200);
+  });
+
+  test("fail-open invariant: read_users THROW → session stays live", async () => {
+    // Same fail-open contract as the null-miss case above, but for infrastructure
+    // failures on the hot path (timeout / pool exhaustion). Without `.catch(() => null)`,
+    // a flaky read_users lookup would 500 every authenticated request.
+    //
+    // User is Restricted so a successful lookup would return "blocked" — that makes
+    // a no-op spy (live binding miss) fail this assertion instead of false-passing.
+    const { userId } = await h.seedUser("throwgone@example.com", "pw-long-enough");
+    const { sid } = await h.login("throwgone@example.com", "pw-long-enough");
+    await updateRows(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: userId });
+
+    const originalFetchOne = bunDb.fetchOne;
+    const spy = spyOn(bunDb, "fetchOne").mockImplementation(async (db, table, where) => {
+      if (table === userTable) {
+        throw new Error("simulated pool exhaustion");
+      }
+      return originalFetchOne(db, table, where);
+    });
+    try {
+      expect(await callbacks.get().sessionChecker(sid, userId)).toBe("live");
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   test("deletionRequested keeps its session live — reversible grace period", async () => {
