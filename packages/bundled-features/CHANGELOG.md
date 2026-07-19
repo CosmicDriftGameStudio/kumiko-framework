@@ -1,5 +1,16 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.157.0
+
+### Patch Changes
+
+- Updated dependencies [1371d8b]
+  - @cosmicdrift/kumiko-framework@0.157.0
+  - @cosmicdrift/kumiko-headless@0.157.0
+  - @cosmicdrift/kumiko-renderer@0.157.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.157.0
+  - @cosmicdrift/kumiko-renderer-web@0.157.0
+
 ## 0.156.3
 
 ### Patch Changes
