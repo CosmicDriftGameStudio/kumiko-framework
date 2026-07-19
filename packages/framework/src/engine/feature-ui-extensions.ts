@@ -442,6 +442,19 @@ export function buildUiExtensionsMethods<TName extends string>(
             `distinct prefix (e.g. "store_${tableName.slice("read_".length)}").`,
         );
       }
+      // meta.source must agree with the r.storeTable() escape hatch, or the
+      // migrate-generator treats schema drift on this table as safe to
+      // DROP+rebuild-from-events — wiping direct-write data with no events
+      // to replay it from (#1209).
+      if (meta.source !== "unmanaged") {
+        throw new Error(
+          `[Feature ${name}] r.storeTable("${tableName}") was given an EntityTableMeta with ` +
+            `source: "${meta.source}". r.storeTable() requires source: "unmanaged" (via ` +
+            `defineUnmanagedTable(), or buildEntityTableMeta(..., { source: "unmanaged" })) — ` +
+            `otherwise the migration generator will treat schema drift on this table as safe ` +
+            `to DROP+rebuild, wiping any direct-write data.`,
+        );
+      }
       // The `reason` is the marker that justifies the bypass — empty
       // strings would defeat the audit trail. Reject early so the
       // failure points at the feature file.

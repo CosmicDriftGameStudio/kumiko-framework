@@ -61,7 +61,7 @@ export const todoEntity = createEntity({
 // Plain EntityTableMeta, NOT a branded EntityTable: store_todos is a deliberate
 // unmanaged direct-write store (r.storeTable below), so the create handler +
 // forget hook write it directly — the meta carries no executor-only brand.
-export const todosTable = buildEntityTableMeta("todo", todoEntity);
+export const todosTable = buildEntityTableMeta("todo", todoEntity, { source: "unmanaged" });
 
 const createSchema = z.object({
   title: z.string().min(1).max(200),
@@ -107,7 +107,7 @@ export const todosFeature = defineFeature(FEATURE_NAME, (r) => {
   // over the live table — wiping every todo (and silently un-forgetting
   // anonymized rows) on the next projection rebuild (#498). r.storeTable
   // keeps the migration DDL but opts the table out of implicit rebuild.
-  r.storeTable(buildEntityTableMeta("todo", todoEntity), {
+  r.storeTable(todosTable, {
     reason: "read_side.todos_direct_write",
   });
   r.writeHandler(createTodoHandler);
