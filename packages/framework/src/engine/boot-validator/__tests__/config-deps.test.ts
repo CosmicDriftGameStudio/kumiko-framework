@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { createSystemConfig } from "../../config-helpers";
+import { createSystemConfig, createTenantConfig, createUserConfig } from "../../config-helpers";
 import type { FeatureDefinition } from "../../types";
-import { validateConfigKeyAllowPerRequest, validateConfigKeyComputed } from "../config-deps";
+import {
+  validateConfigKeyAllowPerRequest,
+  validateConfigKeyComputed,
+  validateConfigKeyPiiEncrypted,
+} from "../config-deps";
 
 function fakeFeature(configKeys: FeatureDefinition["configKeys"]): FeatureDefinition {
   return { name: "test-feature", configKeys } as unknown as FeatureDefinition;
@@ -38,5 +42,51 @@ describe("validateConfigKeyAllowPerRequest", () => {
     expect(() => validateConfigKeyAllowPerRequest(feature)).toThrow(
       /may not be set via query-params/,
     );
+  });
+});
+
+describe("validateConfigKeyPiiEncrypted (kumiko-platform#231/#459)", () => {
+  test("allows piiEncrypted on a tenant-scoped text key", () => {
+    const feature = fakeFeature({
+      billingAddress: createTenantConfig("text", { piiEncrypted: true }),
+    });
+    expect(() => validateConfigKeyPiiEncrypted(feature)).not.toThrow();
+  });
+
+  test("allows piiEncrypted on a user-scoped text key", () => {
+    const feature = fakeFeature({
+      phoneNumber: createUserConfig("text", { piiEncrypted: true }),
+    });
+    expect(() => validateConfigKeyPiiEncrypted(feature)).not.toThrow();
+  });
+
+  test("rejects piiEncrypted on a non-text key", () => {
+    const feature = fakeFeature({
+      rateLimit: { ...createTenantConfig("number"), piiEncrypted: true },
+    });
+    expect(() => validateConfigKeyPiiEncrypted(feature)).toThrow(
+      /piiEncrypted.*only applies to text keys/,
+    );
+  });
+
+  test("rejects piiEncrypted + scope:system", () => {
+    const feature = fakeFeature({
+      apiKey: createSystemConfig("text", { piiEncrypted: true }),
+    });
+    expect(() => validateConfigKeyPiiEncrypted(feature)).toThrow(/piiEncrypted.*scope="system"/);
+  });
+
+  test("rejects piiEncrypted + encrypted", () => {
+    const feature = fakeFeature({
+      iban: createTenantConfig("text", { piiEncrypted: true, encrypted: true }),
+    });
+    expect(() => validateConfigKeyPiiEncrypted(feature)).toThrow(/piiEncrypted=true and encrypted/);
+  });
+
+  test("rejects piiEncrypted + backing:secrets", () => {
+    const feature = fakeFeature({
+      iban: { ...createTenantConfig("text", { piiEncrypted: true }), backing: "secrets" as const },
+    });
+    expect(() => validateConfigKeyPiiEncrypted(feature)).toThrow(/piiEncrypted=true and encrypted/);
   });
 });

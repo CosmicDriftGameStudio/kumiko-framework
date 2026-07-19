@@ -81,6 +81,7 @@ type ConfigKeyOptions<T extends ConfigKeyType> = {
   read?: readonly string[];
   default?: ConfigValue<T>;
   encrypted?: boolean;
+  piiEncrypted?: T extends "text" ? boolean : never;
   options?: readonly string[]; // for select type
   bounds?: T extends "number" ? ConfigBounds : never;
   // Regex enforced at write (set.write) — only meaningful for text keys
@@ -123,6 +124,7 @@ function createConfigKey<T extends ConfigKeyType>(
     },
     default: opts.default,
     ...(opts.encrypted ? { encrypted: true } : {}),
+    ...(opts.piiEncrypted ? { piiEncrypted: true } : {}),
     ...(opts.options ? { options: opts.options } : {}),
     bounds: opts.bounds as ConfigBounds | undefined, // @cast-boundary schema-walk
     ...(opts.pattern ? { pattern: opts.pattern } : {}),

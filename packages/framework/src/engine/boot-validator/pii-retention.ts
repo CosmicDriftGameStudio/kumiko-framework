@@ -1,5 +1,5 @@
 import type { FeatureDefinition } from "../types";
-import type { PiiAnnotations } from "../types/fields";
+import type { FieldAccess, PiiAnnotations } from "../types/fields";
 import { PII_DIRECT_NAME_HINTS, PII_USER_OWNED_NAME_HINTS } from "./entity-handler";
 
 // Framework-managed Timestamp-Spalten — dürfen als retention.reference
@@ -80,6 +80,38 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
         }
       }
 
+      // piiEncrypted (kumiko-platform#231/#456): a declarative alias over
+      // the subject-KMS — text only (storage stays the plaintext column
+      // with subject ciphertext, no separate envelope path).
+      const piiEncryptedFlag = field as { readonly piiEncrypted?: boolean }; // @cast-boundary schema-walk
+      if (piiEncryptedFlag.piiEncrypted === true && field.type !== "text") {
+        throw new Error(
+          `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" declares { piiEncrypted: true } but has type "${field.type}" — piiEncrypted only applies to text fields.`,
+        );
+      }
+      // piiEncrypted wiring (kumiko-platform#457): resolveSubjectForField/
+      // collectPiiSubjectFields only ever look at pii/userOwned/tenantOwned
+      // — piiEncrypted alone doesn't pick a subject. Without one of the
+      // three, the field would silently stay plaintext (no encrypt-on-
+      // write happens). Fail at boot like lookupable does, not at first read.
+      if (piiEncryptedFlag.piiEncrypted === true && annotCount === 0) {
+        throw new Error(
+          `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" declares { piiEncrypted: true } without a subject annotation (pii / userOwned / tenantOwned) — piiEncrypted alone doesn't encrypt anything, it only adds the access/masking layer on top of the subject-key encryption.`,
+        );
+      }
+      // piiEncrypted access model (kumiko-platform#460): field-level
+      // access.read already exists + is enforced (filterReadFields), but
+      // its default without an access config is "visible to everyone" —
+      // the wrong default for a field whose entire point is "only the
+      // legitimate owner may see the plaintext". Force an explicit choice
+      // instead of silently decrypting for every row-reader.
+      const accessFlag = field as { readonly access?: FieldAccess }; // @cast-boundary schema-walk
+      if (piiEncryptedFlag.piiEncrypted === true && !accessFlag.access?.read) {
+        throw new Error(
+          `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" declares { piiEncrypted: true } without { access: { read: [...] } } — without it the decrypted value is visible to anyone who can read the row. Set the roles allowed to see the plaintext.`,
+        );
+      }
+
       // sensitive-Felder liegen seit #967 als Tabellen-Ciphertext im Event-
       // Log — ohne ciphertext-at-rest würde der Append Klartext in die
       // immutable History schreiben.
@@ -100,12 +132,12 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
       // Substring-Suche/Sortierung auf Ciphertext ist prinzipbedingt
       // unmöglich — searchable würde Plaintext-Kopien in den Suchindex
       // schieben, sortable sortiert Base64-Blobs. Equality → lookupable.
-      if (annotCount > 0) {
+      if (annotCount > 0 || piiEncryptedFlag.piiEncrypted === true) {
         const flags = field as { readonly searchable?: boolean; readonly sortable?: boolean }; // @cast-boundary schema-walk
         if (flags.searchable === true || flags.sortable === true) {
           const offending = flags.searchable === true ? "searchable" : "sortable";
           throw new Error(
-            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" combines a subject-key annotation with { ${offending}: true } — ${offending} on encrypted fields cannot work (ciphertext at rest). For equality lookups use { lookupable: true }; for search/sort the field must stay plaintext (allowPlaintext).`,
+            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" combines a subject-key annotation or { piiEncrypted: true } with { ${offending}: true } — ${offending} on encrypted fields cannot work (ciphertext at rest). For equality lookups use { lookupable: true }; for search/sort the field must stay plaintext (allowPlaintext).`,
           );
         }
       }

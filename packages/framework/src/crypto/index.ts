@@ -46,6 +46,7 @@ export {
   configuredPiiSubjectKms,
   configurePiiSubjectKms,
   decryptPiiFieldValues,
+  decryptPiiValueForSubject,
   type EncryptPiiOptions,
   encryptPiiFieldValues,
   encryptPiiValueForSubject,

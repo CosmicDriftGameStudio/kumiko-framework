@@ -2,6 +2,13 @@ import type { DbRow } from "../db/connection";
 import { normalizeAccessEntry, userCanReadFieldRow, userCanWriteFieldRow } from "./ownership";
 import type { EntityDefinition, SessionUser } from "./types";
 
+// piiEncrypted fields deliberately break that silence (kumiko-platform#463):
+// the field's whole point is "a legitimate reader may see the plaintext",
+// so an unauthorized reader seeing the field exist-but-masked is the
+// intended signal, not a leak — unlike a secret whose existence itself
+// should stay hidden.
+export const PII_MASKED_VALUE = "••••••";
+
 // Field-level read filtering. Returns a copy of `data` with fields stripped
 // if the user's roles don't grant read access OR the ownership-rule for the
 // matching role doesn't accept this concrete row. Fields without access
@@ -11,7 +18,8 @@ import type { EntityDefinition, SessionUser } from "./types";
 // one place in the ownership system where silence is the right default:
 // reporting "you tried to read X but can't" leaks the field's existence.
 // Writes do the opposite (loud error) because a silent drop there masks
-// save-bugs.
+// save-bugs. piiEncrypted fields are the one exception — see
+// PII_MASKED_VALUE above.
 export function filterReadFields(
   entity: EntityDefinition,
   data: Readonly<Record<string, unknown>>,
@@ -29,7 +37,10 @@ export function filterReadFields(
 
     const accessMap = normalizeAccessEntry(field.access?.read);
     if (!userCanReadFieldRow(user, accessMap, data)) {
-      continue; // entire field stripped
+      if ("piiEncrypted" in field && field.piiEncrypted === true) {
+        result[key] = PII_MASKED_VALUE;
+      }
+      continue; // entire field stripped (masked instead, for piiEncrypted)
     }
 
     // For embedded fields: filter sub-fields with access restrictions

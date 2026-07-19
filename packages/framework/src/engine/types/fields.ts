@@ -107,6 +107,12 @@ export type TextFieldDef = {
    *  Default: false — analog zu `sortable`, opt-in. */
   readonly filterable?: boolean;
   readonly encrypted?: boolean;
+  /** User/admin may legitimately see the value (their own IBAN, passport
+   *  number) — unlike `r.secret()`, which only server code reads. A
+   *  declarative alias over the subject-KMS (pii/userOwned/tenantOwned):
+   *  only allowed on `type: "text"`, can't combine with `searchable`/
+   *  `sortable` (boot validator, kumiko-platform#231/#456). */
+  readonly piiEncrypted?: boolean;
   readonly sensitive?: boolean;
   readonly format?: "email" | "url" | "phone";
   readonly default?: string;

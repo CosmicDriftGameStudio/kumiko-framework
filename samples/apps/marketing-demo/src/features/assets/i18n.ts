@@ -13,6 +13,7 @@ export const assetsTranslations: TranslationsByLocale = {
   de: {
     "assets:nav.list": "Assets",
     "assets:nav.new": "Neues Asset",
+    "assets:actions.edit": "Bearbeiten",
 
     "screen:asset-list.title": "Assets",
     "screen:asset-edit.title": "Asset bearbeiten",
@@ -57,6 +58,7 @@ export const assetsTranslations: TranslationsByLocale = {
   en: {
     "assets:nav.list": "Assets",
     "assets:nav.new": "New asset",
+    "assets:actions.edit": "Edit",
 
     "screen:asset-list.title": "Assets",
     "screen:asset-edit.title": "Edit asset",

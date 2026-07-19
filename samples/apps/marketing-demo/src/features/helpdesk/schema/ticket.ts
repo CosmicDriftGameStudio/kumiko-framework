@@ -124,4 +124,7 @@ export const ticketListScreen: EntityListScreenDefinition = {
   ],
   pageSize: 25,
   defaultSort: { field: "severity", dir: "desc" },
+  rowActions: [
+    { kind: "navigate", id: "edit", label: "helpdesk:actions.edit", screen: "ticket-edit" },
+  ],
 };

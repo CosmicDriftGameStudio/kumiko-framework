@@ -35,6 +35,7 @@ const listScreen: EntityListScreenDefinition = {
   entity: "task",
   columns: ["title", "status", "isUrgent", "priority"],
   defaultSort: { field: "title", dir: "asc" },
+  rowActions: [{ kind: "navigate", id: "edit", label: "Edit", screen: "task-edit" }],
 };
 
 const editScreen: EntityEditScreenDefinition = {
@@ -48,9 +49,19 @@ const editScreen: EntityEditScreenDefinition = {
 
 const open = { access: { openToAll: true } } as const;
 
+const TASKS_I18N = {
+  "screen:task-list.title": { de: "Aufgaben", en: "Tasks" },
+  "screen:task-edit.title": { de: "Aufgabe", en: "Task" },
+  "tasks:entity:task:field:title": { de: "Titel", en: "Title" },
+  "tasks:entity:task:field:status": { de: "Status", en: "Status" },
+  "tasks:entity:task:field:priority": { de: "Priorität", en: "Priority" },
+  "tasks:entity:task:field:isUrgent": { de: "Dringend", en: "Urgent" },
+} as const;
+
 /** Canonical demo feature — keep in sync with `renderDemoTasksFeatureFile()`. */
 export function createDemoTasksFeature(): FeatureDefinition {
   return defineFeature("tasks", (r) => {
+    r.translations({ keys: TASKS_I18N });
     r.entity("task", taskEntity);
     r.writeHandler(defineEntityCreateHandler("task", taskEntity, open));
     r.writeHandler(defineEntityUpdateHandler("task", taskEntity, open));
@@ -106,6 +117,7 @@ const listScreen: EntityListScreenDefinition = {
   entity: "task",
   columns: ["title", "status", "isUrgent", "priority"],
   defaultSort: { field: "title", dir: "asc" },
+  rowActions: [{ kind: "navigate", id: "edit", label: "Edit", screen: "task-edit" }],
 };
 
 const editScreen: EntityEditScreenDefinition = {
@@ -119,7 +131,17 @@ const editScreen: EntityEditScreenDefinition = {
 
 const open = { access: { openToAll: true } } as const;
 
+const TASKS_I18N = {
+  "screen:task-list.title": { de: "Aufgaben", en: "Tasks" },
+  "screen:task-edit.title": { de: "Aufgabe", en: "Task" },
+  "tasks:entity:task:field:title": { de: "Titel", en: "Title" },
+  "tasks:entity:task:field:status": { de: "Status", en: "Status" },
+  "tasks:entity:task:field:priority": { de: "Priorität", en: "Priority" },
+  "tasks:entity:task:field:isUrgent": { de: "Dringend", en: "Urgent" },
+} as const;
+
 export const tasksFeature = defineFeature("tasks", (r) => {
+  r.translations({ keys: TASKS_I18N });
   r.entity("task", taskEntity);
   r.writeHandler(defineEntityCreateHandler("task", taskEntity, open));
   r.writeHandler(defineEntityUpdateHandler("task", taskEntity, open));

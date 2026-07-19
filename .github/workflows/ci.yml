@@ -369,6 +369,113 @@ jobs:
           docker rm -f kumiko-ci-pg kumiko-ci-redis kumiko-ci-meili kumiko-ci-minio || true
           docker network rm kumiko-ci || true
 
+  # Non-blocking (wie integration): nicht in release.needs, nicht in
+  # Branch-Protection. Fährt die 11 vorhandenen Playwright-e2e-Suiten
+  # (e2e/hero-demos, packages/renderer-web/e2e, samples/apps/*,
+  # samples/recipes/apex-landing) sequenziell gegen denselben Stack wie
+  # integration (pg/redis/meili/minio) — liefen vorher nie in CI.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+
+      - name: Cache Bun
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+
+      - name: Install
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: bunx playwright install --with-deps chromium
+
+      - name: Start services
+        run: |
+          docker network create kumiko-ci
+          docker run -d --name kumiko-ci-pg --network kumiko-ci -p 15432:5432 \
+            -e POSTGRES_USER=kumiko -e POSTGRES_PASSWORD=kumiko -e POSTGRES_DB=kumiko_dev \
+            postgres:18.4-alpine
+          docker run -d --name kumiko-ci-redis --network kumiko-ci -p 16379:6379 redis:8-alpine
+          docker run -d --name kumiko-ci-meili --network kumiko-ci -p 17700:7700 \
+            -e MEILI_MASTER_KEY=kumiko-dev-key -e MEILI_ENV=development \
+            getmeili/meilisearch:v1.12
+          for i in $(seq 1 30); do
+            if docker exec kumiko-ci-pg pg_isready -U kumiko -d postgres >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          docker exec kumiko-ci-pg pg_isready -U kumiko -d postgres
+          for i in $(seq 1 30); do
+            if docker exec kumiko-ci-redis redis-cli ping >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          docker exec kumiko-ci-redis redis-cli ping
+
+      - name: Run e2e suites
+        # Sequenziell (eigene webServer-Ports pro Suite, kein Parallel-Bedarf).
+        # Erste Aktivierung — Fehler sind erwartbar (Drift, nie in CI
+        # gelaufen); Job ist non-blocking, Summary zählt nur mit.
+        env:
+          CI: "true"
+          NODE_ENV: test
+          DATABASE_URL: postgresql://kumiko:kumiko@localhost:15432/kumiko_dev
+          TEST_DATABASE_URL: postgresql://kumiko:kumiko@localhost:15432/kumiko_test
+          REDIS_URL: redis://localhost:16379
+          JWT_SECRET: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          MEILI_URL: http://localhost:17700
+          MEILI_MASTER_KEY: kumiko-dev-key
+          KUMIKO_SECRETS_MASTER_KEY_V1: "j1NOc6cu/65hhvGQU8uVXIy2lWg/SautKnWJ7anWbc4="
+        run: |
+          set +e
+          configs=(
+            e2e/hero-demos/playwright.config.ts
+            packages/renderer-web/playwright.config.ts
+            samples/apps/admin-console/playwright.config.ts
+            samples/apps/config-demo/playwright.config.ts
+            samples/apps/marketing-demo/playwright.config.ts
+            samples/apps/showcase/playwright.config.ts
+            samples/apps/styleguide/playwright.config.ts
+            samples/apps/ui-walkthrough/playwright.config.ts
+            samples/apps/use-all-bundled/playwright.config.ts
+            samples/apps/workspaces/playwright.config.ts
+            samples/recipes/apex-landing/playwright.config.ts
+          )
+          failed=()
+          for cfg in "${configs[@]}"; do
+            echo "=== e2e: $cfg ==="
+            bunx playwright test --config="$cfg"
+            code=$?
+            if [ $code -ne 0 ]; then failed+=("$cfg"); fi
+          done
+          echo ""
+          echo "=== e2e summary ==="
+          if [ ${#failed[@]} -eq 0 ]; then
+            echo "all ${#configs[@]} suites passed"
+          else
+            echo "${#failed[@]}/${#configs[@]} suites failed:"
+            printf '  %s\n' "${failed[@]}"
+            exit 1
+          fi
+
+      - name: Stop services
+        if: always()
+        run: |
+          docker rm -f kumiko-ci-pg kumiko-ci-redis kumiko-ci-meili || true
+          docker network rm kumiko-ci || true
+
   coverage-badge:
     # Merged unit+integration lcov → .github/badges/coverage.json auf einem
     # eigenen orphan `badges`-Branch (force-push, stateless) — gelesen von der
