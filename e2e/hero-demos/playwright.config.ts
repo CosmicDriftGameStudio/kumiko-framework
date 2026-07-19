@@ -10,7 +10,12 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const PORT = process.env["HERO_PORT"] ?? "4290";
-const DEMO = process.env["HERO_DEMO"] ?? "demo";
+// Test workers are child processes of this config process and inherit
+// process.env - run-demo.ts reads HERO_PORT for rewritePort(), otherwise it never arrives.
+process.env["HERO_PORT"] = PORT;
+// Must match demo.yaml vars.appName ("hero-app") - that's what
+// steps/06-fill-credentials.yaml templates the expected admin@{{appName}}.local from.
+const DEMO = process.env["HERO_DEMO"] ?? "hero-app";
 const BASE_URL = `http://localhost:${PORT}`;
 
 export default defineConfig({

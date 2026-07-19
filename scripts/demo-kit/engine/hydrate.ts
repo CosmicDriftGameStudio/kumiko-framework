@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
 import { demo, type DemoDef } from "../../demos/demo";
 import { step, type Step } from "../../demos/step";
@@ -103,7 +104,7 @@ export function loadStepRaw(stepPath: string): StepRaw {
 }
 
 export function hydrateDemo(opts: HydrateOptions): DemoDef {
-  const kitRoot = opts.kitRoot ?? join(import.meta.dir, "..");
+  const kitRoot = opts.kitRoot ?? join(dirname(fileURLToPath(import.meta.url)), "..");
   const demoDir = join(kitRoot, "demos", opts.demoId);
   const manifest = loadDemoManifest(demoDir);
 
