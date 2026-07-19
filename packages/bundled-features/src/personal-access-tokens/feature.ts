@@ -53,7 +53,7 @@ export function createPersonalAccessTokensFeature(
     // Direct-write store like read_user_sessions: create/revoke write it, the
     // resolver point-reads it. r.entity would make it a rebuildable projection
     // whose replay (no token events) would wipe every live token (#498/#494).
-    r.rawTable(buildEntityTableMeta("api-token", apiTokenEntity), {
+    r.rawTable(buildEntityTableMeta("api-token", apiTokenEntity, { source: "unmanaged" }), {
       reason: "read_side.api_tokens_direct_write",
       // create.write encrypts `name` via encryptForDirectWrite (#820).
       piiEncryptedOnWrite: true,

@@ -96,7 +96,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
     // (#498/#494). r.rawTable keeps the migration DDL but opts the
     // table out of implicit rebuild, like jobs/channel-in-app/feature-toggles
     // which are direct-write stores too.
-    r.rawTable(buildEntityTableMeta("user-session", userSessionEntity), {
+    r.rawTable(buildEntityTableMeta("user-session", userSessionEntity, { source: "unmanaged" }), {
       reason: "read_side.user_sessions_direct_write",
       // sessionCreator encrypts ip/userAgent via encryptForDirectWrite (#820).
       piiEncryptedOnWrite: true,

@@ -74,4 +74,6 @@ export const userSessionEntity = createEntity({
 // handlers write it directly via ctx.db; the meta carries no executor-only
 // brand so those writes stay legal. See feature.ts for the rebuild-exclusion
 // rationale (#494/#498).
-export const userSessionTable = buildEntityTableMeta("user-session", userSessionEntity);
+export const userSessionTable = buildEntityTableMeta("user-session", userSessionEntity, {
+  source: "unmanaged",
+});

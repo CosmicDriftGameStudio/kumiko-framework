@@ -164,5 +164,9 @@ export const seenMessageEntity = createEntity({
 // Plain EntityTableMeta (kein branded EntityTable) — unmanaged Direct-
 // Write-Stores, Handler schreiben via ctx.db (siehe user-session.ts-
 // Rationale).
-export const syncCursorTable = buildEntityTableMeta("mail-sync-cursor", syncCursorEntity);
-export const seenMessageTable = buildEntityTableMeta("mail-seen-message", seenMessageEntity);
+export const syncCursorTable = buildEntityTableMeta("mail-sync-cursor", syncCursorEntity, {
+  source: "unmanaged",
+});
+export const seenMessageTable = buildEntityTableMeta("mail-seen-message", seenMessageEntity, {
+  source: "unmanaged",
+});
