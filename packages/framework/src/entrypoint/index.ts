@@ -37,6 +37,7 @@ import type { KumikoServer, ServerOptions } from "../api/server";
 import { buildServer } from "../api/server";
 import type { SseBroker } from "../api/sse-broker";
 import type { PgClient } from "../db/connection";
+import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension";
 import type { AppContext, JobRunIn, Registry, RunIn } from "../engine/types";
 import type { JobRunner, JobRunnerOptions } from "../jobs/job-runner";
 import { createJobRunner } from "../jobs/job-runner";
@@ -188,8 +189,17 @@ function resolveObservability(
 function contextWithObservability(
   context: AppContext,
   observability: ObservabilityProvider,
+  effectiveFeatures: EffectiveFeaturesResolver | undefined,
 ): AppContext {
-  return { ...context, tracer: observability.tracer, meter: observability.meter };
+  return {
+    ...context,
+    // Same source of truth as buildServer's contextWithObservability
+    // (api/server.ts) — job handlers reading ctx.effectiveFeatures should
+    // see the same resolver as command handlers, not just dispatcherOptions.
+    ...(effectiveFeatures && { effectiveFeatures }),
+    tracer: observability.tracer,
+    meter: observability.meter,
+  };
 }
 
 // buildApiServer shapes ServerOptions from API-mode caller-options.
@@ -342,7 +352,11 @@ export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoin
   const apiJobRunner = options.jobs
     ? buildJobRunnerWithHook(
         options.registry,
-        contextWithObservability(options.context, observability),
+        contextWithObservability(
+          options.context,
+          observability,
+          options.dispatcherOptions?.effectiveFeatures,
+        ),
         options.jobs,
         options.jobs.runLocalJobs ? "api" : undefined,
         lifecycle,
@@ -396,7 +410,11 @@ export function createWorkerEntrypoint(options: WorkerEntrypointOptions): Worker
   const observability = resolveObservability(options.observability);
   const jobRunner = buildJobRunnerWithHook(
     options.registry,
-    contextWithObservability(options.context, observability),
+    contextWithObservability(
+      options.context,
+      observability,
+      options.dispatcherOptions?.effectiveFeatures,
+    ),
     options,
     "worker",
     lifecycle,
@@ -426,7 +444,11 @@ export function createWorkerEntrypoint(options: WorkerEntrypointOptions): Worker
 export function createAllInOneEntrypoint(options: AllInOneEntrypointOptions): AllInOneEntrypoint {
   const lifecycle = options.lifecycle ?? createLifecycle({ startReady: true });
   const observability = resolveObservability(options.observability);
-  const jobRunnerContext = contextWithObservability(options.context, observability);
+  const jobRunnerContext = contextWithObservability(
+    options.context,
+    observability,
+    options.dispatcherOptions?.effectiveFeatures,
+  );
 
   // All-in-one consumes BOTH lanes: two runners, each with a BullMQ worker
   // for its own lane's queue. Both runners hold queue-clients for both
