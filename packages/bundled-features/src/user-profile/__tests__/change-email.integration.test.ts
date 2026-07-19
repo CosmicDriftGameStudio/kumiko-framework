@@ -224,7 +224,3 @@ describe("danger-zone QN-Pin (ProfileScreen-Konstanten)", () => {
     expect(cancelled.status).toBe("active");
   });
 });
-
-
-
-
