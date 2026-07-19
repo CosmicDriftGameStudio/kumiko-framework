@@ -72,9 +72,8 @@ const seedTestFeature = defineFeature("esopstest", (r) => {
     },
     { access: { openToAll: true } },
   );
-  // Role-gated handler (kein openToAll): der reine system-Actor hat weder
-  // hier noch bei sonstigen expliziten Rollen-Gates einen Bypass — nur
-  // systemWriteAs' extraRoles erreicht ihn.
+  // Role-gated handler (no openToAll): the bare system actor has no bypass
+  // for explicit role gates — only systemWriteAs' extraRoles reaches it.
   r.writeHandler(
     "probe:admin-only",
     z.object({ label: z.string().min(1) }),
