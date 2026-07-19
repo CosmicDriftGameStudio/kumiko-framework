@@ -4,6 +4,12 @@
 // Client-Code nicht mit rein.
 export { createInMemorySearchAdapter } from "./in-memory-adapter";
 export type {
+  ReindexEntityFailure,
+  ReindexEntityOptions,
+  ReindexEntityResult,
+} from "./reindex-entity";
+export { reindexEntity } from "./reindex-entity";
+export type {
   SearchAdapter,
   SearchAdapterConfig,
   SearchDocument,
