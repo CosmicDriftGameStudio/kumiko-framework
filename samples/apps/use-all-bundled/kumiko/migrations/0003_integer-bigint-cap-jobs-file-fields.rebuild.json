@@ -1,0 +1,4 @@
+{
+  "version": 1,
+  "tables": ["file_refs", "read_cap_counters"]
+}
