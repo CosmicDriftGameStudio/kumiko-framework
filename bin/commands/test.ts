@@ -49,13 +49,17 @@ export const testCommand = defineCommand({
       const labels = targets.map((t) => `${t.root}/${t.name}`).join(", ");
       ctx.out.log(`E2E via Playwright — ${targets.length} target(s): ${labels}`);
       ctx.out.log("");
-      const playwrightBin = join(ctx.cwd, "node_modules/.bin/playwright");
       let lastCode = 0;
       for (const target of targets) {
         ctx.out.log("");
         ctx.out.log(`=== ${target.root}/${target.name} ===`);
+        const targetCwd = join(ctx.cwd, target.root, target.name);
+        // Resolved per-target (not hardcoded to ctx.cwd/node_modules/.bin) —
+        // in the CDGS parent workspace, bun hoists .bin/playwright only to
+        // the workspace root, not into each sub-repo's own node_modules.
+        const playwrightBin = Bun.resolveSync("@playwright/test/cli.js", targetCwd);
         const code = await runStreaming(playwrightBin, ["test"], ctx.out, {
-          cwd: join(ctx.cwd, target.root, target.name),
+          cwd: targetCwd,
         });
         if (code !== 0) lastCode = code;
       }

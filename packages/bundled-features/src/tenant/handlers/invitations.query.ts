@@ -25,9 +25,14 @@ export const invitationsQuery = defineQueryHandler({
     return Promise.all(
       (rows ?? []).map(async (row) => {
         const email = row["email"];
-        return typeof email === "string"
-          ? { ...row, email: await decryptStoredPii(email, "tenant:invitations") }
-          : row;
+        const invitedBy = row["invitedBy"];
+        const decryptedEmail =
+          typeof email === "string" ? await decryptStoredPii(email, "tenant:invitations") : email;
+        const decryptedInvitedBy =
+          typeof invitedBy === "string"
+            ? await decryptStoredPii(invitedBy, "tenant:invitations")
+            : invitedBy;
+        return { ...row, email: decryptedEmail, invitedBy: decryptedInvitedBy };
       }),
     );
   },
