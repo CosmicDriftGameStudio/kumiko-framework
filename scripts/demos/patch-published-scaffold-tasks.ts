@@ -2,7 +2,7 @@
 // Patch tasks i18n into hero-apps scaffolded from @cosmicdrift/*@0.133.0 (pre-fix).
 // Usage: bun scripts/demos/patch-published-scaffold-tasks.ts [app-dir]
 
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const appDir = resolve(process.argv[2] ?? process.cwd());
